@@ -4,6 +4,7 @@ import MainLayout from '@/layouts/MainLayout'
 import Login from '@/pages/Login'
 import Register from '@/pages/Register'
 import Dashboard from '@/pages/Dashboard'
+import Kline from '@/pages/Kline'
 
 // Protected Route wrapper
 function ProtectedRoute() {
@@ -34,7 +35,7 @@ export const router = createBrowserRouter([
           { path: '/dashboard', element: <Dashboard /> },
           { path: '/market', element: <div className="text-gray-900 dark:text-white">市场行情 (开发中)</div> },
           { path: '/watchlist', element: <div className="text-gray-900 dark:text-white">自选股 (开发中)</div> },
-          { path: '/kline', element: <div className="text-gray-900 dark:text-white">K线分析 (开发中)</div> },
+          { path: '/kline', element: <Kline /> },
           { path: '/portfolio', element: <div className="text-gray-900 dark:text-white">投资组合 (开发中)</div> },
           { path: '/settings', element: <div className="text-gray-900 dark:text-white">设置 (开发中)</div> },
         ],
