@@ -17,7 +17,7 @@ router = APIRouter(prefix="/a-share", tags=["Kline"])
 @router.get("/kline", response_model=ApiResponse[List[KlineData]])
 async def get_kline(
     symbol: str = Query(..., description="股票代码 (如: 002326)"),
-    timeframe: str = Query("1D", description="时间周期: 1D=日线, 1W=周线, 1M=月线"),
+    timeframe: str = Query("1D", description="时间周期: 1m,5m,15m,30m,60m,1D,1W,1M"),
     limit: int = Query(300, ge=1, le=1000, description="返回数据条数"),
     before_time: Optional[int] = Query(None, description="获取此时间之前的数据(Unix时间戳)")
 ):
@@ -25,7 +25,7 @@ async def get_kline(
     
     Args:
         symbol: Stock symbol (e.g., '002326')
-        timeframe: Time period - '1D' (daily), '1W' (weekly), '1M' (monthly)
+        timeframe: Time period - '1m', '5m', '15m', '30m', '60m' (minutes), '1D' (daily), '1W' (weekly), '1M' (monthly)
         limit: Maximum number of data points (1-1000)
         before_time: Get data before this Unix timestamp (optional)
         
@@ -34,15 +34,33 @@ async def get_kline(
         
     Example:
         GET /api/v1/a-share/kline?symbol=002326&timeframe=1D&limit=100
+        GET /api/v1/a-share/kline?symbol=002326&timeframe=5m&limit=100
     """
     try:
         # Validate timeframe
-        valid_timeframes = ["1D", "1W", "1M"]
+        valid_timeframes = ["1m", "5m", "15m", "30m", "60m", "1D", "1W", "1M"]
         if timeframe not in valid_timeframes:
             raise HTTPException(
                 status_code=400,
                 detail=f"Invalid timeframe. Must be one of: {', '.join(valid_timeframes)}"
             )
+        
+        # Handle minute-level timeframes
+        if timeframe in ["1m", "5m", "15m", "30m", "60m"]:
+            minute_period = timeframe.replace("m", "")
+            logger.debug(f"Fetching minute kline for {symbol}, period={minute_period}m, limit={limit}")
+            
+            klines = akshare_client.get_kline_minutes(
+                symbol=symbol,
+                period=minute_period,
+                limit=limit
+            )
+            
+            # Filter by before_time if specified
+            if before_time and klines:
+                klines = [k for k in klines if k["timestamp"] < before_time]
+            
+            return ApiResponse(data=klines)
         
         # Calculate date range based on limit and before_time
         end_date = None
