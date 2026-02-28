@@ -1,0 +1,34 @@
+name: Delete Merged Feature Branch
+
+on:
+  pull_request:
+    types: [closed]
+
+permissions:
+  contents: write
+
+jobs:
+  delete-branch:
+    if: >-
+      github.event.pull_request.merged == true &&
+      github.event.pull_request.base.ref == 'dev' &&
+      (startsWith(github.event.pull_request.head.ref, 'feature/') || startsWith(github.event.pull_request.head.ref, 'bugfix/'))
+    runs-on: ubuntu-latest
+    steps:
+      - name: Delete merged feature/bugfix branch
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const branch = context.payload.pull_request.head.ref;
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+
+            core.info(`Deleting branch: ${branch}`);
+
+            await github.rest.git.deleteRef({
+              owner,
+              repo,
+              ref: `heads/${branch}`
+            });
+
+            core.info(`Deleted branch: ${branch}`);

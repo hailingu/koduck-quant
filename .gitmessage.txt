@@ -1,0 +1,11 @@
+# <type>(<scope>): <subject>
+#
+# type: feat | fix | docs | style | refactor | perf | test | chore | ci | build | revert
+# scope: optional, e.g. core, api, ui
+# subject: imperative, lowercase start, no period at the end
+#
+# Body (optional): explain what and why (not how)
+#
+# Footer (optional):
+# BREAKING CHANGE: <description>
+# Closes: #<issue-number>

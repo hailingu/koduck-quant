@@ -1,0 +1,43 @@
+name: Release on Tag
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  create-release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Validate tag points to main HEAD
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main --depth=1
+
+          tag_sha="$(git rev-list -n 1 "${GITHUB_REF_NAME}")"
+          main_sha="$(git rev-parse origin/main)"
+
+          echo "tag_sha=${tag_sha}"
+          echo "main_sha=${main_sha}"
+
+          if [[ "${tag_sha}" != "${main_sha}" ]]; then
+            echo "❌ 当前 tag 不在 main 最新提交（HEAD），已阻止创建 Release。"
+            exit 1
+          fi
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          generate_release_notes: true
+          prerelease: ${{ contains(github.ref_name, '-') }}
+          draft: false

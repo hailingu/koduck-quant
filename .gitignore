@@ -20,3 +20,33 @@ rad.json
 *.flf
 #Test results file
 TestResults.xml
+
+# Local development
+.DS_Store
+.idea/
+
+# Logs
+*.log
+
+# Environment files
+.env
+.env.*
+
+# Python cache
+__pycache__/
+*.pyc
+
+# Local agent/config folders
+.agents/
+.clinerules/
+
+memory/
+tools/
+
+# Track workflow configs and shared tool wrapper
+!.github/
+!.github/workflows/
+!.github/workflows/*.yml
+
+tools/
+tools/memory-manager

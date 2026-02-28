@@ -1,0 +1,103 @@
+name: Create and Push Tag
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Tag name (e.g. v0.1.0)"
+        required: true
+        type: string
+      target:
+        description: "Target branch to tag"
+        required: true
+        default: "main"
+        type: string
+      message:
+        description: "Annotated tag message"
+        required: false
+        default: ""
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  create-tag:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Enforce target branch is main
+        env:
+          TARGET: ${{ inputs.target }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "${TARGET}" != "main" ]]; then
+            echo "❌ 仅允许在 main HEAD 打 tag。当前 target: ${TARGET}"
+            exit 1
+          fi
+
+      - name: Checkout target branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.target }}
+          fetch-depth: 0
+
+      - name: Validate target is main HEAD
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main --depth=1
+
+          current_sha="$(git rev-parse HEAD)"
+          main_sha="$(git rev-parse origin/main)"
+
+          echo "current_sha=${current_sha}"
+          echo "main_sha=${main_sha}"
+
+          if [[ "${current_sha}" != "${main_sha}" ]]; then
+            echo "❌ 仅允许在 main 最新提交（HEAD）打 tag。"
+            exit 1
+          fi
+
+      - name: Validate tag format
+        env:
+          TAG: ${{ inputs.tag }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ ! "${TAG}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]; then
+            echo "❌ Tag 格式不合法: ${TAG}"
+            echo "示例: v0.1.0 或 v1.2.3-rc.1"
+            exit 1
+          fi
+
+      - name: Fail if tag already exists
+        env:
+          TAG: ${{ inputs.tag }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if git rev-parse "${TAG}" >/dev/null 2>&1; then
+            echo "❌ Tag 已存在: ${TAG}"
+            exit 1
+          fi
+
+      - name: Create and push annotated tag
+        env:
+          TAG: ${{ inputs.tag }}
+          MESSAGE: ${{ inputs.message }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          TAG_MESSAGE="${MESSAGE}"
+          if [[ -z "${TAG_MESSAGE}" ]]; then
+            TAG_MESSAGE="Release ${TAG}"
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git tag -a "${TAG}" -m "${TAG_MESSAGE}"
+          git push origin "${TAG}"
+
+          echo "✅ Created and pushed tag ${TAG}"
