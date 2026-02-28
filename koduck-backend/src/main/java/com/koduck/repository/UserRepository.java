@@ -1,6 +1,8 @@
 package com.koduck.repository;
 
 import com.koduck.entity.User;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
@@ -33,4 +35,10 @@ public interface UserRepository extends JpaRepository<User, Long> {
     @Modifying
     @Query("UPDATE User u SET u.passwordHash = :passwordHash WHERE u.id = :userId")
     void updatePassword(@Param("userId") Long userId, @Param("passwordHash") String passwordHash);
+
+    /**
+     * 根据用户名或邮箱搜索（分页）
+     */
+    Page<User> findByUsernameContainingOrEmailContaining(
+            String username, String email, Pageable pageable);
 }
