@@ -1,7 +1,7 @@
 """AKShare client for A-share market data."""
 
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import List, Optional
 
 import akshare as ak
@@ -23,7 +23,7 @@ class AKShareClient:
     
     def _get_spot_data(self) -> pd.DataFrame:
         """Get real-time spot data with caching."""
-        now = datetime.now()
+        now = datetime.now(timezone.utc)
         
         # Check if cache is valid
         if (
@@ -126,7 +126,7 @@ class AKShareClient:
                 bid_volume=self._safe_int(row.get('买一量')),
                 ask_price=self._safe_float(row.get('卖一')),
                 ask_volume=self._safe_int(row.get('卖一量')),
-                timestamp=datetime.now()
+                timestamp=datetime.now(timezone.utc)
             )
             
         except Exception as e:
@@ -161,7 +161,7 @@ class AKShareClient:
                         amount=self._safe_float(row.get('成交额'), 0.0),
                         change=self._safe_float(row.get('涨跌额'), 0.0),
                         change_percent=self._safe_float(row.get('涨跌幅'), 0.0),
-                        timestamp=datetime.now()
+                        timestamp=datetime.now(timezone.utc)
                     )
                     quotes.append(quote)
                 except Exception as e:

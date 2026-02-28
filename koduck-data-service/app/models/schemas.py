@@ -1,9 +1,9 @@
 """Pydantic models for API requests and responses."""
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Generic, List, Optional, TypeVar
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 
 
 T = TypeVar("T")
@@ -12,18 +12,17 @@ T = TypeVar("T")
 class ApiResponse(BaseModel, Generic[T]):
     """Standard API response wrapper."""
     
+    model_config = ConfigDict(
+        json_encoders={datetime: lambda v: v.isoformat()}
+    )
+    
     code: int = Field(default=200, description="Response code")
     message: str = Field(default="success", description="Response message")
     data: Optional[T] = Field(default=None, description="Response data")
     timestamp: datetime = Field(
-        default_factory=datetime.utcnow,
+        default_factory=lambda: datetime.now(timezone.utc),
         description="Response timestamp"
     )
-    
-    class Config:
-        json_encoders = {
-            datetime: lambda v: v.isoformat()
-        }
 
 
 class SymbolInfo(BaseModel):
@@ -40,8 +39,8 @@ class SymbolInfo(BaseModel):
     volume: Optional[int] = Field(default=None, description="Trading volume")
     amount: Optional[float] = Field(default=None, description="Trading amount")
     
-    class Config:
-        json_schema_extra = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "symbol": "002326",
                 "name": "永太科技",
@@ -52,6 +51,7 @@ class SymbolInfo(BaseModel):
                 "amount": 1201500.0
             }
         }
+    )
 
 
 class PriceQuote(BaseModel):
@@ -72,10 +72,10 @@ class PriceQuote(BaseModel):
     bid_volume: Optional[int] = Field(default=None, description="Best bid volume")
     ask_price: Optional[float] = Field(default=None, description="Best ask price")
     ask_volume: Optional[int] = Field(default=None, description="Best ask volume")
-    timestamp: datetime = Field(..., description="Quote timestamp")
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc), description="Quote timestamp")
     
-    class Config:
-        json_schema_extra = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "symbol": "002326",
                 "name": "永太科技",
@@ -91,6 +91,7 @@ class PriceQuote(BaseModel):
                 "timestamp": "2026-02-28T14:30:00Z"
             }
         }
+    )
 
 
 class SearchRequest(BaseModel):
@@ -122,13 +123,14 @@ class HealthStatus(BaseModel):
     
     status: str = Field(..., description="Service status")
     version: str = Field(..., description="Service version")
-    timestamp: datetime = Field(default_factory=datetime.utcnow)
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     
-    class Config:
-        json_schema_extra = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "status": "ok",
                 "version": "1.0.0",
                 "timestamp": "2026-02-28T14:30:00Z"
             }
         }
+    )
