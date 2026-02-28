@@ -12,7 +12,7 @@ from fastapi.responses import JSONResponse
 
 from app.config import settings
 from app.models.schemas import ApiResponse, HealthStatus
-from app.routers import a_share
+from app.routers import a_share, kline
 
 
 def setup_logging():
@@ -85,6 +85,7 @@ def create_app() -> FastAPI:
     
     # Include routers
     app.include_router(a_share.router, prefix="/api/v1")
+    app.include_router(kline.router, prefix="/api/v1")
     
     return app
 
