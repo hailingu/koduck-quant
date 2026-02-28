@@ -214,6 +214,66 @@ class AKShareClient:
             logger.error(f"Hot symbols query failed: {e}")
             return []
     
+    def get_kline_minutes(self, symbol: str, period: str = "1",
+                          limit: int = 300) -> List[dict]:
+        """Get minute-level K-line data for a stock.
+        
+        Args:
+            symbol: Stock symbol (e.g., '002326')
+            period: Minute period - '1', '5', '15', '30', '60'
+            limit: Maximum number of records
+            
+        Returns:
+            List of minute K-line data points
+        """
+        try:
+            # Validate period
+            valid_periods = ["1", "5", "15", "30", "60"]
+            if period not in valid_periods:
+                logger.error(f"Invalid minute period: {period}")
+                return []
+            
+            # Use AKShare to fetch minute-level data
+            # Note: This fetches recent data only (today or recent days)
+            df = ak.stock_zh_a_hist_min_em(symbol=symbol, period=period, adjust="")
+            
+            if df.empty:
+                return []
+            
+            # Sort by time ascending
+            df = df.sort_values('时间')
+            
+            # Limit results
+            df = df.tail(limit)
+            
+            klines = []
+            for _, row in df.iterrows():
+                try:
+                    # Parse timestamp
+                    time_str = str(row['时间'])
+                    timestamp = int(pd.Timestamp(time_str).timestamp())
+                    
+                    kline = {
+                        "timestamp": timestamp,
+                        "open": self._safe_float(row.get('开盘'), 0.0),
+                        "high": self._safe_float(row.get('最高'), 0.0),
+                        "low": self._safe_float(row.get('最低'), 0.0),
+                        "close": self._safe_float(row.get('收盘'), 0.0),
+                        "volume": self._safe_int(row.get('成交量')),
+                        "amount": self._safe_float(row.get('成交额'))
+                    }
+                    klines.append(kline)
+                except Exception as e:
+                    logger.warning(f"Failed to parse minute kline row: {e}")
+                    continue
+            
+            logger.info(f"Minute kline query for {symbol} ({period}m) returned {len(klines)} results")
+            return klines
+            
+        except Exception as e:
+            logger.error(f"Minute kline query failed for {symbol}: {e}")
+            return []
+    
     def get_kline_data(self, symbol: str, period: str = "daily", 
                        start_date: Optional[str] = None,
                        end_date: Optional[str] = None,
