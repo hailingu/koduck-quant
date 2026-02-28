@@ -1,10 +1,13 @@
 package com.koduck.service;
 
+import com.koduck.config.CacheConfig;
 import com.koduck.dto.market.KlineDataDto;
 import com.koduck.entity.KlineData;
 import com.koduck.repository.KlineDataRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -29,7 +32,9 @@ public class KlineService {
     
     /**
      * Get K-line data for a symbol.
+     * Cached for 1 minute.
      */
+    @Cacheable(value = CacheConfig.CACHE_KLINE, key = "#market + ':' + #symbol + ':' + #timeframe + ':' + #limit + ':' + #beforeTime")
     public List<KlineDataDto> getKlineData(String market, String symbol, String timeframe, 
                                            Integer limit, Long beforeTime) {
         log.debug("Getting kline data: market={}, symbol={}, timeframe={}, limit={}, beforeTime={}", 
@@ -54,7 +59,9 @@ public class KlineService {
     
     /**
      * Get the latest price for a symbol.
+     * Cached for 30 seconds.
      */
+    @Cacheable(value = CacheConfig.CACHE_PRICE, key = "#market + ':' + #symbol + ':' + #timeframe")
     public Optional<BigDecimal> getLatestPrice(String market, String symbol, String timeframe) {
         return klineDataRepository
             .findFirstByMarketAndSymbolAndTimeframeOrderByKlineTimeDesc(market, symbol, timeframe)
@@ -63,7 +70,10 @@ public class KlineService {
     
     /**
      * Save K-line data.
+     * Clears cache for the symbol after saving.
      */
+    @CacheEvict(value = {CacheConfig.CACHE_KLINE, CacheConfig.CACHE_PRICE}, 
+                key = "#market + ':' + #symbol + ':' + #timeframe")
     public void saveKlineData(List<KlineDataDto> dtos, String market, String symbol, String timeframe) {
         List<KlineData> entities = dtos.stream()
             .map(dto -> convertToEntity(dto, market, symbol, timeframe))
