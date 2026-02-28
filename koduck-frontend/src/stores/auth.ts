@@ -1,12 +1,13 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
+import { User } from '@/types'
 
 interface AuthState {
   token: string | null
-  user: { id: number; username: string } | null
+  user: User | null
   isAuthenticated: boolean
   setToken: (token: string) => void
-  setUser: (user: { id: number; username: string }) => void
+  setUser: (user: User) => void
   logout: () => void
 }
 
