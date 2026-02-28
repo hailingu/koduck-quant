@@ -214,6 +214,69 @@ class AKShareClient:
             logger.error(f"Hot symbols query failed: {e}")
             return []
     
+    def get_kline_data(self, symbol: str, period: str = "daily", 
+                       start_date: Optional[str] = None,
+                       end_date: Optional[str] = None,
+                       limit: int = 300) -> List[dict]:
+        """Get K-line historical data for a stock.
+        
+        Args:
+            symbol: Stock symbol (e.g., '002326')
+            period: Data period - 'daily', 'weekly', 'monthly'
+            start_date: Start date (YYYYMMDD), optional
+            end_date: End date (YYYYMMDD), optional
+            limit: Maximum number of records
+            
+        Returns:
+            List of K-line data points
+        """
+        try:
+            # Map timeframe to AKShare period
+            period_map = {
+                "1D": "daily",
+                "1W": "weekly", 
+                "1M": "monthly"
+            }
+            ak_period = period_map.get(period, period)
+            
+            # Use AKShare to fetch historical data
+            df = ak.stock_zh_a_hist(symbol=symbol, period=ak_period, 
+                                    start_date=start_date, end_date=end_date)
+            
+            if df.empty:
+                return []
+            
+            # Limit results
+            df = df.tail(limit)
+            
+            klines = []
+            for _, row in df.iterrows():
+                try:
+                    # Convert date string to timestamp
+                    date_str = str(row['日期'])
+                    timestamp = int(pd.Timestamp(date_str).timestamp())
+                    
+                    kline = {
+                        "timestamp": timestamp,
+                        "open": self._safe_float(row.get('开盘'), 0.0),
+                        "high": self._safe_float(row.get('最高'), 0.0),
+                        "low": self._safe_float(row.get('最低'), 0.0),
+                        "close": self._safe_float(row.get('收盘'), 0.0),
+                        "volume": self._safe_int(row.get('成交量')),
+                        "amount": self._safe_float(row.get('成交额'))
+                    }
+                    klines.append(kline)
+                except Exception as e:
+                    logger.warning(f"Failed to parse kline row: {e}")
+                    continue
+            
+            logger.info(f"Kline query for {symbol} returned {len(klines)} results")
+            return klines
+            
+        except Exception as e:
+            logger.error(f"Kline query failed for {symbol}: {e}")
+            return []
+    
     @staticmethod
     def _safe_float(value, default: Optional[float] = None) -> Optional[float]:
         """Safely convert value to float."""

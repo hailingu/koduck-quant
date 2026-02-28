@@ -134,3 +134,38 @@ class HealthStatus(BaseModel):
             }
         }
     )
+
+
+class KlineData(BaseModel):
+    """K-line (candlestick) data."""
+    
+    timestamp: int = Field(..., description="Unix timestamp")
+    open: float = Field(..., description="Opening price")
+    high: float = Field(..., description="Highest price")
+    low: float = Field(..., description="Lowest price")
+    close: float = Field(..., description="Closing price")
+    volume: Optional[int] = Field(default=None, description="Trading volume")
+    amount: Optional[float] = Field(default=None, description="Trading amount")
+    
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "timestamp": 1704067200,
+                "open": 9.50,
+                "high": 9.80,
+                "low": 9.40,
+                "close": 9.65,
+                "volume": 125800,
+                "amount": 1201500.0
+            }
+        }
+    )
+
+
+class KlineRequest(BaseModel):
+    """K-line data request parameters."""
+    
+    symbol: str = Field(..., description="Stock symbol")
+    timeframe: str = Field(default="1D", description="Time period: 1m, 5m, 15m, 30m, 1H, 4H, 1D, 1W, 1M")
+    limit: int = Field(default=300, ge=1, le=1000, description="Number of data points")
+    before_time: Optional[int] = Field(default=None, description="Get data before this Unix timestamp")
