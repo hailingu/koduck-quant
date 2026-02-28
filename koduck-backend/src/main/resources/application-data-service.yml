@@ -1,0 +1,8 @@
+# Data Service Configuration
+koduck:
+  data-service:
+    base-url: ${DATA_SERVICE_URL:http://localhost:8000/api/v1}
+    connect-timeout-ms: 5000
+    read-timeout-ms: 10000
+    max-retries: 3
+    enabled: true
