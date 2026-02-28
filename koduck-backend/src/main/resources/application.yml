@@ -11,6 +11,10 @@ spring:
       hibernate:
         format_sql: true
         dialect: org.hibernate.dialect.PostgreSQLDialect
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    baseline-on-migrate: true
 
 server:
   port: 8080
@@ -32,6 +36,14 @@ logging:
     com.koduck: DEBUG
   pattern:
     console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
+
+# JWT 配置
+jwt:
+  secret: ${JWT_SECRET:your-256-bit-secret-key-for-jwt-signing-must-be-at-least-32-characters-long}
+  access-token-expiration: 86400000  # 24小时 (毫秒)
+  refresh-token-expiration: 604800000  # 7天 (毫秒)
+  token-prefix: "Bearer "
+  header-name: "Authorization"
 
 ---
 # 默认分页配置
