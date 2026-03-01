@@ -6,6 +6,7 @@ import Register from '@/pages/Register'
 import Dashboard from '@/pages/Dashboard'
 import Watchlist from '@/pages/Watchlist'
 import Portfolio from '@/pages/Portfolio'
+import Settings from '@/pages/Settings'
 import Kline from '@/pages/Kline'
 
 // Protected Route wrapper
@@ -39,7 +40,7 @@ export const router = createBrowserRouter([
           { path: '/watchlist', element: <Watchlist /> },
           { path: '/kline', element: <Kline /> },
           { path: '/portfolio', element: <Portfolio /> },
-          { path: '/settings', element: <div className="text-gray-900 dark:text-white">设置 (开发中)</div> },
+          { path: '/settings', element: <Settings /> },
         ],
       },
     ],
