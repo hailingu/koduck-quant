@@ -5,6 +5,7 @@ import Login from '@/pages/Login'
 import Register from '@/pages/Register'
 import Dashboard from '@/pages/Dashboard'
 import Watchlist from '@/pages/Watchlist'
+import Portfolio from '@/pages/Portfolio'
 import Kline from '@/pages/Kline'
 
 // Protected Route wrapper
@@ -37,7 +38,7 @@ export const router = createBrowserRouter([
           { path: '/market', element: <div className="text-gray-900 dark:text-white">市场行情 (开发中)</div> },
           { path: '/watchlist', element: <Watchlist /> },
           { path: '/kline', element: <Kline /> },
-          { path: '/portfolio', element: <div className="text-gray-900 dark:text-white">投资组合 (开发中)</div> },
+          { path: '/portfolio', element: <Portfolio /> },
           { path: '/settings', element: <div className="text-gray-900 dark:text-white">设置 (开发中)</div> },
         ],
       },
