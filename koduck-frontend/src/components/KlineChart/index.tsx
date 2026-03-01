@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react'
-import { createChart, IChartApi, CandlestickData } from 'lightweight-charts'
-import { KlineData } from '@/api/kline'
+import { createChart, type IChartApi, type CandlestickData, type Time, CandlestickSeries } from 'lightweight-charts'
+import type { KlineData } from '@/api/kline'
 
 interface KlineChartProps {
   data: KlineData[]
@@ -35,11 +35,10 @@ export default function KlineChart({ data }: KlineChartProps) {
       },
     })
 
-    const candlestickSeries = chart.addCandlestickSeries({
+    const candlestickSeries = chart.addSeries(CandlestickSeries, {
       upColor: '#ef4444',
       downColor: '#22c55e',
-      borderUpColor: '#ef4444',
-      borderDownColor: '#22c55e',
+      borderVisible: false,
       wickUpColor: '#ef4444',
       wickDownColor: '#22c55e',
     })
@@ -47,8 +46,8 @@ export default function KlineChart({ data }: KlineChartProps) {
     chartRef.current = chart
 
     if (data.length > 0) {
-      const chartData: CandlestickData[] = data.map((item) => ({
-        time: item.timestamp as number,
+      const chartData: CandlestickData<Time>[] = data.map((item) => ({
+        time: item.timestamp as unknown as Time,
         open: item.open,
         high: item.high,
         low: item.low,

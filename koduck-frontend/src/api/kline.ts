@@ -1,5 +1,4 @@
 import request from './request'
-import { ApiResponse } from '@/types'
 
 export interface KlineData {
   timestamp: number
@@ -25,6 +24,18 @@ export interface StockInfo {
   amount: number
 }
 
+export interface LatestPriceResponse {
+  symbol: string
+  price: number
+  timestamp: number
+}
+
+export interface SearchResult {
+  symbol: string
+  name: string
+  market: string
+}
+
 export const klineApi = {
   getKline: (params: {
     market: string
@@ -32,17 +43,11 @@ export const klineApi = {
     timeframe: string
     limit?: number
     beforeTime?: number
-  }) => request.get<ApiResponse<KlineData[]>>('/api/v1/kline', { params }),
+  }) => request.get<KlineData[]>('/api/v1/kline', { params }),
 
   getLatestPrice: (params: { market: string; symbol: string; timeframe?: string }) =>
-    request.get<ApiResponse<{ symbol: string; price: number; timestamp: number }>>(
-      '/api/v1/kline/price',
-      { params }
-    ),
+    request.get<LatestPriceResponse>('/api/v1/kline/price', { params }),
 
   searchStocks: (keyword: string, limit: number = 20) =>
-    request.get<ApiResponse<Array<{ symbol: string; name: string; market: string }>>>(
-      '/api/v1/a-share/search',
-      { params: { keyword, limit } }
-    ),
+    request.get<SearchResult[]>('/api/v1/a-share/search', { params: { keyword, limit } }),
 }

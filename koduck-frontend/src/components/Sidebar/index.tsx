@@ -104,7 +104,7 @@ export default function Sidebar() {
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-sm font-medium text-gray-900 dark:text-white truncate">{user.username}</p>
-              <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{user.email || 'user@example.com'}</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400 truncate">user@example.com</p>
             </div>
           </div>
         </div>

@@ -38,9 +38,9 @@ export default function StockSearch({ onSelect }: StockSearchProps) {
 
     setLoading(true)
     try {
-      const res = await klineApi.searchStocks(value, 10)
-      if (res.code === 0 && res.data) {
-        setResults(res.data)
+      const data = await klineApi.searchStocks(value, 10)
+      if (data) {
+        setResults(data)
         setShowDropdown(true)
       }
     } catch (error) {

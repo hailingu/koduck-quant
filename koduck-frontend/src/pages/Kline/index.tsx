@@ -2,7 +2,8 @@ import { useState, useEffect } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import KlineChart from '@/components/KlineChart'
 import StockSearch from '@/components/StockSearch'
-import { klineApi, KlineData } from '@/api/kline'
+import { klineApi } from '@/api/kline'
+import type { KlineData } from '@/api/kline'
 import { useWatchlistStore } from '@/stores/watchlist'
 
 const TIMEFRAMES = [
@@ -44,25 +45,25 @@ export default function Kline() {
   const fetchKlineData = async () => {
     setLoading(true)
     try {
-      const res = await klineApi.getKline({
+      const data = await klineApi.getKline({
         market: 'AShare',
         symbol,
         timeframe,
         limit: 300,
       })
-      if (res.code === 0 && res.data) {
-        setKlineData(res.data)
+      if (data) {
+        setKlineData(data)
         // Update stock info from latest candle
-        if (res.data.length > 0) {
-          const latest = res.data[res.data.length - 1]
+        if (data.length > 0) {
+          const latest = data[data.length - 1]
           setStockInfo({
             price: latest.close,
-            change: latest.close - (res.data[res.data.length - 2]?.close || latest.open),
-            changePercent: ((latest.close - (res.data[res.data.length - 2]?.close || latest.open)) / (res.data[res.data.length - 2]?.close || latest.open)) * 100,
+            change: latest.close - (data[data.length - 2]?.close || latest.open),
+            changePercent: ((latest.close - (data[data.length - 2]?.close || latest.open)) / (data[data.length - 2]?.close || latest.open)) * 100,
             open: latest.open,
             high: latest.high,
             low: latest.low,
-            prevClose: res.data[res.data.length - 2]?.close || latest.open,
+            prevClose: data[data.length - 2]?.close || latest.open,
             volume: latest.volume || 0,
           })
         }
