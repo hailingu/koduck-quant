@@ -36,4 +36,12 @@ export const watchlistApi = {
   // 更新排序
   updateSortOrder: (id: number, sortOrder: number) =>
     request.patch<WatchlistItem>(`/api/v1/watchlist/${id}/sort`, { sortOrder }),
+
+  // 批量排序
+  sortWatchlist: (items: { id: number; sortOrder: number }[]) =>
+    request.put<void>('/api/v1/watchlist/sort', { items }),
+
+  // 更新备注
+  updateNotes: (id: number, notes: string) =>
+    request.put<WatchlistItem>(`/api/v1/watchlist/${id}/notes`, notes),
 }

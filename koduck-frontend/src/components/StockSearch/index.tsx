@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from 'react'
 import { klineApi } from '@/api/kline'
 
 interface StockSearchProps {
-  onSelect: (symbol: string, name: string) => void
+  onSelect: (symbol: string, name: string, market?: string) => void
 }
 
 interface SearchResult {
@@ -51,7 +51,7 @@ export default function StockSearch({ onSelect }: StockSearchProps) {
   }
 
   const handleSelect = (result: SearchResult) => {
-    onSelect(result.symbol, result.name)
+    onSelect(result.symbol, result.name, result.market)
     setKeyword(`${result.name} (${result.symbol})`)
     setShowDropdown(false)
   }
