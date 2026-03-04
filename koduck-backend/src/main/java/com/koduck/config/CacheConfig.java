@@ -27,11 +27,29 @@ import java.util.Objects;
 @EnableCaching
 public final class CacheConfig {
 
+    /**
+     * Cache name for K-line data snapshots.
+     */
     public static final String CACHE_KLINE = "kline";
+    /**
+     * Cache name for latest price lookups.
+     */
     public static final String CACHE_PRICE = "price";
+    /**
+     * Cache name for market search results.
+     */
     public static final String CACHE_MARKET_SEARCH = "marketSearch";
+    /**
+     * Cache name for stock detail payloads.
+     */
     public static final String CACHE_STOCK_DETAIL = "stockDetail";
+    /**
+     * Cache name for major market index quotes.
+     */
     public static final String CACHE_MARKET_INDICES = "marketIndices";
+    /**
+     * Cache name for hot stocks list responses.
+     */
     public static final String CACHE_HOT_STOCKS = "hotStocks";
 
     /**
