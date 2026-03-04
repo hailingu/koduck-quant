@@ -1,0 +1,238 @@
+"""K-line API router.
+
+This module implements the endpoints that expose historical candlestick (K‑line)
+data for A-share stocks.  It handles both minute-level and multi‑day periods and
+provides a convenience endpoint for the latest closing price.
+
+All handlers raise :class:`fastapi.HTTPException` for client errors (e.g. invalid
+parameters) or infrastructure failures.  Returned payloads use the
+:class:`~app.models.schemas.ApiResponse` wrapper with appropriate data types.
+"""
+
+import asyncio
+import logging
+from datetime import datetime, timedelta
+from typing import Annotated, Any
+
+from fastapi import APIRouter, HTTPException, Query
+
+from app.models.schemas import ApiResponse, KlineData
+from app.services.akshare_client import akshare_client
+
+logger = logging.getLogger(__name__)
+
+router = APIRouter(prefix="/a-share", tags=["Kline"])
+
+VALID_TIMEFRAMES = ["1m", "5m", "15m", "30m", "60m", "1D", "1W", "1M"]
+MINUTE_TIMEFRAMES = {"1m", "5m", "15m", "30m", "60m"}
+PERIOD_MAP = {
+    "1D": "daily",
+    "1W": "weekly",
+    "1M": "monthly",
+}
+ERROR_INTERNAL_RETRY = "Internal server error. Please try again later."
+
+
+def _to_kline_data(klines: list[dict[str, Any]]) -> list[KlineData]:
+    """Convert raw kline dictionaries to validated KlineData models."""
+    return [KlineData.model_validate(item) for item in klines]
+
+
+@router.get(
+    "/kline",
+    responses={
+        400: {"description": "Invalid timeframe"},
+        500: {"description": "Internal server error"},
+    },
+)
+async def get_kline(
+    symbol: Annotated[str, Query(..., description="股票代码 (如: 002326)")],
+    timeframe: Annotated[
+        str,
+        Query(description="时间周期: 1m,5m,15m,30m,60m,1D,1W,1M"),
+    ] = "1D",
+    limit: Annotated[int, Query(ge=1, le=1000, description="返回数据条数")] = 300,
+    before_time: Annotated[
+        int | None,
+        Query(description="获取此时间之前的数据(Unix时间戳)"),
+    ] = None,
+) -> ApiResponse[list[KlineData]]:
+    """Get historical K-line (candlestick) data for an A‑share stock.
+
+    The response is a wrapped list of :class:`~app.models.schemas.KlineData`
+    instances, ordered with the most recent timestamp first.  Both minute
+    intervals (1m/5m/15m/30m/60m) and multi‑day periods (daily/weekly/monthly)
+    are supported.  When ``before_time`` is provided the result is filtered to
+    entries strictly older than the given Unix timestamp.
+
+    Args:
+        symbol (str): Stock symbol, e.g. ``"002326"``.
+        timeframe (str): Time interval.  Valid values are
+            ``"1m"``, ``"5m"``, ``"15m"``, ``"30m"``, ``"60m"`` for minute
+            data, or ``"1D"``, ``"1W"``, ``"1M"`` for daily/weekly/monthly
+            data.
+        limit (int): Maximum number of data points to return (1–1000).
+        before_time (int | None): Unix timestamp; when set results are restricted
+            to rows with ``timestamp < before_time``.
+
+    Returns:
+        :class:`~app.models.schemas.ApiResponse` containing a list of
+        :class:`~app.models.schemas.KlineData` objects.
+
+    Raises:
+        HTTPException: 400 if ``timeframe`` is invalid.
+        HTTPException: 500 on backend failure (network/timeout).
+
+    Example:
+        >>> GET /api/v1/a-share/kline?symbol=002326&timeframe=1D&limit=100
+        >>> GET /api/v1/a-share/kline?symbol=002326&timeframe=5m&limit=100
+    """
+    try:
+        # Validate timeframe
+        if timeframe not in VALID_TIMEFRAMES:
+            valid_timeframes_text = ", ".join(VALID_TIMEFRAMES)
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    "Invalid timeframe. Must be one of: " f"{valid_timeframes_text}"
+                ),
+            )
+
+        # Handle minute-level timeframes
+        if timeframe in MINUTE_TIMEFRAMES:
+            minute_period = timeframe.replace("m", "")
+            logger_message = (
+                "Fetching minute kline for "
+                f"{symbol}, period={minute_period}m, limit={limit}"
+            )
+            logger.debug(logger_message)
+
+            klines = await asyncio.to_thread(
+                akshare_client.get_kline_minutes,
+                symbol=symbol,
+                period=minute_period,
+                limit=limit,
+            )
+
+            # Filter by before_time if specified
+            if before_time is not None and klines:
+                klines = [k for k in klines if k["timestamp"] < before_time]
+
+            return ApiResponse(data=_to_kline_data(klines))
+
+        # Calculate date range based on limit and before_time
+        end_date = None
+        start_date = None
+
+        if before_time is not None:
+            end_date = datetime.fromtimestamp(before_time).strftime("%Y%m%d")
+
+        # Estimate start date based on limit (generous estimate)
+        if timeframe == "1D":
+            days_needed = limit * 1.5  # Include weekends
+            start = datetime.now() - timedelta(days=int(days_needed))
+            start_date = start.strftime("%Y%m%d")
+        elif timeframe == "1W":
+            weeks_needed = limit * 1.5
+            start = datetime.now() - timedelta(weeks=int(weeks_needed))
+            start_date = start.strftime("%Y%m%d")
+        else:  # 1M
+            months_needed = limit * 1.5
+            start = datetime.now() - timedelta(days=int(months_needed * 30))
+            start_date = start.strftime("%Y%m%d")
+
+        # Map timeframe to AKShare period
+        period = PERIOD_MAP[timeframe]
+
+        logger.debug(f"Fetching kline for {symbol}, period={period}, limit={limit}")
+
+        # Fetch data from AKShare
+        klines = await asyncio.to_thread(
+            akshare_client.get_kline_data,
+            symbol=symbol,
+            period=period,
+            start_date=start_date,
+            end_date=end_date,
+            limit=limit,
+        )
+
+        # Filter by before_time if specified
+        if before_time is not None and klines:
+            klines = [k for k in klines if k["timestamp"] < before_time]
+
+        # Limit results
+        klines = klines[:limit]
+
+        return ApiResponse(data=_to_kline_data(klines))
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("Kline query error", exc_info=True, extra={"symbol": symbol})
+        raise HTTPException(status_code=500, detail=ERROR_INTERNAL_RETRY) from e
+
+
+@router.get(
+    "/kline/price",
+    responses={
+        404: {"description": "No kline data found"},
+        500: {"description": "Internal server error"},
+    },
+)
+async def get_latest_price(
+    symbol: Annotated[str, Query(..., description="股票代码")],
+) -> ApiResponse[dict]:
+    """Return the most recent closing price for a stock.
+
+    The endpoint fetches a single daily K-line point and extracts the closing
+    price and timestamp.  It is primarily a convenience for UIs that only need
+    the latest quote.
+
+    Args:
+        symbol (str): Stock symbol to query.
+
+    Returns:
+        :class:`~app.models.schemas.ApiResponse` whose ``data`` field is a
+        dictionary containing ``symbol``, ``price``, ``timestamp``, and
+        optional ``change``/``change_percent`` fields.
+
+    Raises:
+        HTTPException: 404 if no K-line data exists for the symbol.
+        HTTPException: 500 on internal failures.
+
+    Example:
+        >>> GET /api/v1/a-share/kline/price?symbol=002326
+    """
+    try:
+        # Get last 1 day of data
+        klines = await asyncio.to_thread(
+            akshare_client.get_kline_data,
+            symbol=symbol,
+            period="daily",
+            limit=1,
+        )
+
+        if not klines:
+            raise HTTPException(
+                status_code=404, detail=f"No price data found for {symbol}"
+            )
+
+        latest = klines[0]
+
+        return ApiResponse(
+            data={
+                "symbol": symbol,
+                "price": latest["close"],
+                "timestamp": latest["timestamp"],
+                "change": latest.get("change"),
+                "change_percent": latest.get("change_percent"),
+            }
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(
+            "Latest price query error", exc_info=True, extra={"symbol": symbol}
+        )
+        raise HTTPException(status_code=500, detail=ERROR_INTERNAL_RETRY) from e

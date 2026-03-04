@@ -1,0 +1,44 @@
+name: Branch Flow Guard
+
+on:
+  pull_request:
+    types: [opened, reopened, synchronize, edited]
+
+permissions:
+  contents: read
+
+jobs:
+  validate-branch-flow:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate PR head/base flow
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          base="${{ github.event.pull_request.base.ref }}"
+          head="${{ github.event.pull_request.head.ref }}"
+
+          echo "PR: ${head} -> ${base}"
+
+          is_feature_like=false
+          if [[ "$head" =~ ^feature/ ]] || [[ "$head" =~ ^bugfix/ ]]; then
+            is_feature_like=true
+          fi
+
+          if [[ "$base" == "main" && "$head" != "dev" ]]; then
+            echo "❌ 仅允许 dev 合并到 main。当前: ${head} -> ${base}"
+            exit 1
+          fi
+
+          if [[ "$is_feature_like" == true && "$base" != "dev" ]]; then
+            echo "❌ feature/* 与 bugfix/* 只能合并到 dev。当前: ${head} -> ${base}"
+            exit 1
+          fi
+
+          if [[ "$base" == "dev" && "$head" != "main" && "$is_feature_like" != true ]]; then
+            echo "❌ 合并到 dev 的来源仅允许 main、feature/*、bugfix/*。当前: ${head} -> ${base}"
+            exit 1
+          fi
+
+          echo "✅ Branch flow validation passed"

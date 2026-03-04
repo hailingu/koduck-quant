@@ -1,0 +1,62 @@
+name: Commit Flow Guard
+
+on:
+  pull_request:
+    types: [opened, reopened, synchronize, edited]
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  conventional-pr-title:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate PR title (Conventional Commits)
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "PR Title: ${PR_TITLE}"
+
+          if [[ ! "${PR_TITLE}" =~ ^(feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert)(\([a-zA-Z0-9._-]+\))?!?:\ .+ ]]; then
+            echo "❌ PR 标题不符合 Conventional Commits 规范。"
+            echo "示例: feat(core): add risk control skeleton"
+            exit 1
+          fi
+
+          echo "✅ PR title format passed"
+
+  conventional-commit-message:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate commit messages in PR
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const pull_number = context.payload.pull_request.number;
+
+            const { data: commits } = await github.rest.pulls.listCommits({
+              owner,
+              repo,
+              pull_number,
+              per_page: 250
+            });
+
+            const pattern = /^(feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert)(\([a-zA-Z0-9._-]+\))?!?:\s.+/;
+
+            const invalid = commits
+              .map(c => c.commit.message.split('\n')[0])
+              .filter(title => !pattern.test(title));
+
+            if (invalid.length > 0) {
+              core.setFailed(
+                `以下 commit message 不符合 Conventional Commits:\n- ${invalid.join("\n- ")}`
+              );
+              return;
+            }
+
+            core.info('✅ All commit messages passed');

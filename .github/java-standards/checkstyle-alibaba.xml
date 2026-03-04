@@ -1,0 +1,205 @@
+<?xml version="1.0"?>
+<!DOCTYPE module PUBLIC
+        "-//Checkstyle//DTD Checkstyle Configuration 1.3//EN"
+        "https://checkstyle.org/dtds/configuration_1_3.dtd">
+
+<!--
+    Checkstyle configuration for Alibaba Java Coding Guidelines
+    Reference: https://github.com/alibaba/p3c
+-->
+
+<module name="Checker">
+    <property name="charset" value="UTF-8"/>
+    <property name="severity" value="warning"/>
+    <property name="fileExtensions" value="java, properties, xml"/>
+
+    <!-- File length must not exceed 2000 lines -->
+    <module name="FileLength">
+        <property name="max" value="2000"/>
+    </module>
+
+    <!-- Each line must not exceed 120 characters -->
+    <module name="LineLength">
+        <property name="max" value="120"/>
+        <property name="ignorePattern" value="^package.*|^import.*|a href|href|http://|https://|ftp://"/>
+    </module>
+
+    <module name="TreeWalker">
+        <!-- Naming conventions -->
+        <module name="PackageName">
+            <property name="format" value="^[a-z]+(\.[a-z][a-z0-9]*)*$"/>
+        </module>
+        
+        <module name="TypeName">
+            <property name="format" value="^[A-Z][a-zA-Z0-9]*$"/>
+        </module>
+        
+        <module name="MethodName">
+            <property name="format" value="^[a-z][a-zA-Z0-9]*$"/>
+        </module>
+        
+        <module name="ConstantName">
+            <property name="format" value="^[A-Z][A-Z0-9]*(_[A-Z0-9]+)*$"/>
+        </module>
+        
+        <module name="LocalVariableName">
+            <property name="format" value="^[a-z][a-zA-Z0-9]*$"/>
+        </module>
+        
+        <module name="MemberName">
+            <property name="format" value="^[a-z][a-zA-Z0-9]*$"/>
+        </module>
+        
+        <module name="ParameterName">
+            <property name="format" value="^[a-z][a-zA-Z0-9]*$"/>
+        </module>
+
+        <!-- Code formatting -->
+        <module name="Indentation">
+            <property name="basicOffset" value="4"/>
+            <property name="braceAdjustment" value="0"/>
+            <property name="caseIndent" value="4"/>
+        </module>
+
+        <!-- Left curly brace position -->
+        <module name="LeftCurly">
+            <property name="option" value="eol"/>
+        </module>
+
+        <!-- Right curly brace position -->
+        <module name="RightCurly">
+            <property name="option" value="alone"/>
+        </module>
+
+        <!-- Method length must not exceed 80 lines -->
+        <module name="MethodLength">
+            <property name="tokens" value="METHOD_DEF"/>
+            <property name="max" value="80"/>
+        </module>
+
+        <!-- Parameter count must not exceed 7 -->
+        <module name="ParameterNumber">
+            <property name="max" value="7"/>
+            <property name="tokens" value="METHOD_DEF"/>
+        </module>
+
+        <!-- Whitespace checks -->
+        <module name="WhitespaceAround">
+            <property name="allowEmptyConstructors" value="true"/>
+            <property name="allowEmptyMethods" value="true"/>
+            <property name="allowEmptyTypes" value="true"/>
+            <property name="allowEmptyLoops" value="true"/>
+        </module>
+
+        <module name="WhitespaceAfter">
+            <property name="tokens" value="COMMA, SEMI"/>
+        </module>
+
+        <!-- Avoid using wildcard imports -->
+        <module name="AvoidStarImport"/>
+
+        <!-- Check for unused imports -->
+        <module name="UnusedImports"/>
+
+        <!-- Import order -->
+        <module name="ImportOrder">
+            <property name="groups" value="java,javax,org,com"/>
+            <property name="ordered" value="true"/>
+            <property name="separated" value="true"/>
+            <property name="option" value="top"/>
+        </module>
+
+        <!-- Modifier order -->
+        <module name="ModifierOrder"/>
+
+        <!-- Empty catch block check -->
+        <module name="EmptyCatchBlock">
+            <property name="exceptionVariableName" value="expected|ignore"/>
+        </module>
+
+        <!-- Missing default switch case -->
+        <module name="MissingSwitchDefault"/>
+
+        <!-- Overridden methods must include @Override -->
+        <module name="MissingOverride"/>
+
+        <!-- equals() and hashCode() must be overridden together -->
+        <module name="EqualsHashCode"/>
+
+        <!-- Disallow magic numbers -->
+        <module name="MagicNumber">
+            <property name="ignoreNumbers" value="-1, 0, 1, 2"/>
+            <property name="ignoreHashCodeMethod" value="true"/>
+            <property name="ignoreAnnotation" value="true"/>
+        </module>
+
+        <!-- Simplify boolean expressions -->
+        <module name="SimplifyBooleanExpression"/>
+
+        <!-- Simplify boolean returns -->
+        <module name="SimplifyBooleanReturn"/>
+
+        <!-- String literal equality -->
+        <module name="StringLiteralEquality"/>
+
+        <!-- Nested depth must not exceed 3 levels -->
+        <module name="NestedIfDepth">
+            <property name="max" value="3"/>
+        </module>
+
+        <module name="NestedForDepth">
+            <property name="max" value="3"/>
+        </module>
+
+        <module name="NestedTryDepth">
+            <property name="max" value="2"/>
+        </module>
+
+        <!-- One statement per line -->
+        <module name="OneStatementPerLine"/>
+
+        <!-- Each variable declaration must be on a separate line -->
+        <module name="MultipleVariableDeclarations"/>
+
+        <!-- Array type style: prefer String[] args over String args[] -->
+        <module name="ArrayTypeStyle"/>
+
+        <!-- Do not write 'public' in interfaces -->
+        <module name="RedundantModifier"/>
+
+        <!-- Javadoc checks for methods -->
+        <module name="JavadocMethod">
+            <property name="scope" value="public"/>
+            <property name="allowMissingParamTags" value="false"/>
+            <property name="allowMissingReturnTag" value="false"/>
+        </module>
+
+        <module name="JavadocType">
+            <property name="scope" value="public"/>
+            <property name="authorFormat" value="\S"/>
+        </module>
+
+        <module name="JavadocVariable">
+            <property name="scope" value="public"/>
+        </module>
+
+        <module name="JavadocStyle">
+            <property name="checkFirstSentence" value="false"/>
+        </module>
+
+        <!-- Loop control variables must not be modified within the loop body -->
+        <module name="ModifiedControlVariable"/>
+
+        <!-- Avoid assignments within expressions -->
+        <module name="InnerAssignment"/>
+
+        <!-- Final classes must not have protected members -->
+        <module name="FinalClass"/>
+
+        <!-- Utility classes should have a private constructor -->
+        <module name="HideUtilityClassConstructor"/>
+
+        <!-- Empty statements are not allowed -->
+        <module name="EmptyStatement"/>
+    </module>
+</module>

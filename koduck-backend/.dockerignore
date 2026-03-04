@@ -1,0 +1,38 @@
+# Git
+.git
+.gitignore
+
+# IDE
+.idea
+*.iml
+*.ipr
+*.iws
+.vscode
+*.swp
+*.swo
+*~
+
+# Build artifacts
+target/
+!target/*.jar
+*.class
+
+# Maven
+.mvn
+mvnw
+mvnw.cmd
+
+# Documentation
+docs/
+*.md
+
+# Test files
+src/test/
+
+# Logs
+*.log
+logs/
+
+# OS
+.DS_Store
+Thumbs.db

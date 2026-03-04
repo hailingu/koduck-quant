@@ -1,0 +1,157 @@
+version: '3.8'
+
+# ==========================================
+# Docker Compose 配置 (本地 JAR 模式)
+# ==========================================
+# 用于网络问题无法构建镜像时的临时方案
+# 需要先本地构建: cd koduck-backend && mvn clean package -DskipTests
+
+services:
+  # PostgreSQL Database
+  postgresql:
+    image: postgres:15-alpine
+    container_name: koduck-postgresql
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-koduck_dev}
+      POSTGRES_USER: ${POSTGRES_USER:-koduck}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-koduck}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init-db:/docker-entrypoint-initdb.d:ro
+    restart: unless-stopped
+    networks:
+      - koduck-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-koduck} -d ${POSTGRES_DB:-koduck_dev}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    container_name: koduck-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+    networks:
+      - koduck-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+    command: redis-server --appendonly yes
+
+  # Python Data Service
+  data-service:
+    build:
+      context: ./koduck-data-service
+      dockerfile: Dockerfile
+    container_name: koduck-data-service
+    ports:
+      - "8000:8000"
+    environment:
+      - HOST=0.0.0.0
+      - PORT=8000
+      - POSTGRES_HOST=postgresql
+      - POSTGRES_PORT=5432
+      - POSTGRES_DB=koduck_dev
+      - POSTGRES_USER=koduck
+      - POSTGRES_PASSWORD=koduck
+      - REDIS_URL=redis://redis:6379/0
+      - LOG_LEVEL=INFO
+      - DEBUG=false
+    volumes:
+      # Mount local code for development (code changes take effect immediately)
+      - ./koduck-data-service/app:/app/app:ro
+      # Mount K-line data for auto-import on startup
+      - ./koduck-data-service/data:/app/data:ro
+    depends_on:
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - koduck-network
+    healthcheck:
+      test: ["CMD", "python", "-c", "import requests; requests.get('http://localhost:8000/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 5s
+
+  # Java Backend (Build in Container)
+  backend:
+    build:
+      context: ./koduck-backend
+      dockerfile: Dockerfile.build
+    container_name: koduck-backend
+    ports:
+      - "8080:8080"
+    environment:
+      - SPRING_PROFILES_ACTIVE=dev
+      - DB_HOST=postgresql
+      - DB_PORT=5432
+      - DB_NAME=${POSTGRES_DB:-koduck_dev}
+      - DB_USERNAME=${POSTGRES_USER:-koduck}
+      - DB_PASSWORD=${POSTGRES_PASSWORD:-koduck}
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - DATA_SERVICE_URL=http://data-service:8000/api/v1
+      - JWT_SECRET=${JWT_SECRET:-your-256-bit-secret-key-for-jwt-signing-must-be-at-least-32-characters-long}
+      # Demo user configuration - disabled by default for security
+      # Enable for local testing: APP_DEMO_ENABLED=true
+      - APP_DEMO_ENABLED=${APP_DEMO_ENABLED:-true}
+      - APP_DEMO_USERNAME=${APP_DEMO_USERNAME:-demo}
+      - APP_DEMO_PASSWORD=${APP_DEMO_PASSWORD:-demo123}
+    depends_on:
+      postgresql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      data-service:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - koduck-network
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8080/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+  # Frontend
+  frontend:
+    build:
+      context: ./koduck-frontend
+      dockerfile: Dockerfile
+      args:
+        - VITE_API_BASE_URL=/api
+    container_name: koduck-frontend
+    ports:
+      - "3000:80"
+    environment:
+      - NGINX_BACKEND_URL=http://backend:8080
+    depends_on:
+      backend:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - koduck-network
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+
+networks:
+  koduck-network:
+    driver: bridge
+    name: koduck-network
