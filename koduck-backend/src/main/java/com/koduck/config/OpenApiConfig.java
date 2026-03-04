@@ -16,17 +16,33 @@ import org.springframework.context.annotation.Profile;
 import java.util.List;
 
 /**
- * OpenAPI (Swagger) configuration.
+ * OpenAPI (Swagger) configuration for non-production environments.
+ *
+ * <p>Defines API metadata, server endpoints, and JWT Bearer authentication
+ * settings used by the interactive API documentation.</p>
  */
 @Configuration
 @Profile("!prod")  // disabled in production environment
 public class OpenApiConfig {
 
+        private static final String SECURITY_SCHEME_NAME = "bearerAuth";
+        private static final String LOCAL_SERVER_URL_PREFIX = "http://localhost:";
+        private static final String CURRENT_SERVER_URL = "/";
+
+        private static final String OPENAPI_TITLE = "Koduck Quant API";
+        private static final String OPENAPI_VERSION = "v1.0.0";
+        private static final String TEAM_NAME = "Koduck Team";
+        private static final String TEAM_URL = "https://github.com/hailingu/koduck-quant";
+        private static final String TEAM_EMAIL = "support@koduck.com";
+
+        private static final String LICENSE_NAME = "MIT License";
+        private static final String LICENSE_URL = "https://opensource.org/licenses/MIT";
+
     /**
      * Port on which server is running; used to populate development server URL.
      */
     @Value("${server.port:8080}")
-    private String serverPort;
+        private int serverPort;
 
     /**
      * Creates a customized OpenAPI bean including server info,
@@ -34,57 +50,58 @@ public class OpenApiConfig {
      */
     @Bean
     public OpenAPI customOpenAPI() {
-        final String securitySchemeName = "bearerAuth";
-
         return new OpenAPI()
-                // server information
                 .servers(List.of(
-                        new Server().url("http://localhost:" + serverPort).description("本地开发环境"),
-                        new Server().url("/").description("当前服务器")
+                        new Server().url(LOCAL_SERVER_URL_PREFIX + serverPort).description("Local development server"),
+                        new Server().url(CURRENT_SERVER_URL).description("Current service endpoint")
                 ))
-                // API metadata
-                .info(new Info()
-                        .title("Koduck Quant API")
-                        .version("v1.0.0")
-                        .description("""
-                                Koduck Quant 量化交易系统 RESTful API 文档
-
-                                ## 认证方式
-                                本 API 使用 JWT Bearer Token 进行认证。
-                                1. 调用 `/api/v1/auth/login` 获取 accessToken
-                                2. 在请求头中添加 `Authorization: Bearer {token}`
-
-                                ## 响应格式
-                                所有 API 返回统一的响应格式:
-                                ```json
-                                {
-                                  "code": 0,
-                                  "message": "success",
-                                  "data": {},
-                                  "timestamp": 1234567890
-                                }
-                                ```
-                                """ )
-                        .contact(new Contact()
-                                .name("Koduck Team")
-                                .url("https://github.com/hailingu/koduck-quant")
-                                .email("support@koduck.com"))
-                        .license(new License()
-                                .name("MIT License")
-                                .url("https://opensource.org/licenses/MIT"))
-                )
-                // security configuration
+                .info(buildInfo())
                 .addSecurityItem(new SecurityRequirement()
-                        .addList(securitySchemeName)
+                        .addList(SECURITY_SCHEME_NAME)
                 )
                 .components(new Components()
-                        .addSecuritySchemes(securitySchemeName, new SecurityScheme()
-                                .name(securitySchemeName)
-                                .type(SecurityScheme.Type.HTTP)
-                                .scheme("bearer")
-                                .bearerFormat("JWT")
-                                .description("请输入 JWT Token，格式: Bearer {token}")
-                        )
+                        .addSecuritySchemes(SECURITY_SCHEME_NAME, buildSecurityScheme())
                 );
+    }
+
+    private Info buildInfo() {
+        return new Info()
+                .title(OPENAPI_TITLE)
+                .version(OPENAPI_VERSION)
+                .description("""
+                        Koduck Quant trading system RESTful API documentation.
+
+                        ## Authentication
+                        This API uses JWT Bearer Token authentication.
+                        1. Call `/api/v1/auth/login` to get an access token.
+                        2. Add `Authorization: Bearer {token}` to request headers.
+
+                        ## Response Format
+                        All APIs return a unified response payload:
+                        ```json
+                        {
+                          "code": 0,
+                          "message": "success",
+                          "data": {},
+                          "timestamp": 1234567890
+                        }
+                        ```
+                        """)
+                .contact(new Contact()
+                        .name(TEAM_NAME)
+                        .url(TEAM_URL)
+                        .email(TEAM_EMAIL))
+                .license(new License()
+                        .name(LICENSE_NAME)
+                        .url(LICENSE_URL));
+    }
+
+    private SecurityScheme buildSecurityScheme() {
+        return new SecurityScheme()
+                .name(SECURITY_SCHEME_NAME)
+                .type(SecurityScheme.Type.HTTP)
+                .scheme("bearer")
+                .bearerFormat("JWT")
+                .description("Enter JWT token in the format: Bearer {token}");
     }
 }

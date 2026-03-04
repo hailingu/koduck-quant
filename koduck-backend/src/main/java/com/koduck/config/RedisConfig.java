@@ -2,6 +2,7 @@ package com.koduck.config;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import java.util.Objects;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.data.redis.connection.RedisConnectionFactory;
@@ -12,46 +13,56 @@ import org.springframework.data.redis.serializer.StringRedisSerializer;
 
 /**
  * Redis configuration for low-level Redis operations.
- * Provides RedisTemplate and StringRedisTemplate beans for direct Redis access.
+ * Provides {@link RedisTemplate} and {@link StringRedisTemplate} beans.
  */
 @Configuration
 public class RedisConfig {
 
     /**
-     * Create RedisTemplate with JSON serialization for complex objects.
+     * Creates a Redis template with String key serializers and JSON value serializers.
+     *
+     * @param connectionFactory Redis connection factory
+     * @return configured RedisTemplate instance
      */
     @Bean
     public RedisTemplate<String, Object> redisTemplate(RedisConnectionFactory connectionFactory) {
         RedisTemplate<String, Object> template = new RedisTemplate<>();
         template.setConnectionFactory(connectionFactory);
 
-        // Configure ObjectMapper with Java 8 date/time support
-        ObjectMapper objectMapper = new ObjectMapper();
-        objectMapper.registerModule(new JavaTimeModule());
-
-        // Key serializer
-        template.setKeySerializer(new StringRedisSerializer());
-        template.setHashKeySerializer(new StringRedisSerializer());
-
-        // Value serializer
+        ObjectMapper objectMapper = Objects.requireNonNull(createObjectMapper(), "objectMapper must not be null");
+        StringRedisSerializer stringRedisSerializer = new StringRedisSerializer();
         GenericJackson2JsonRedisSerializer jsonSerializer = new GenericJackson2JsonRedisSerializer(objectMapper);
+
+        template.setKeySerializer(stringRedisSerializer);
+        template.setHashKeySerializer(stringRedisSerializer);
         template.setValueSerializer(jsonSerializer);
         template.setHashValueSerializer(jsonSerializer);
 
-        // Enable afterPropertiesSet
         template.afterPropertiesSet();
-
         return template;
     }
 
     /**
-     * Create StringRedisTemplate for simple string operations.
-     * More efficient for simple key-value operations.
+     * Creates a String-based Redis template for simple key-value operations.
+     *
+     * @param connectionFactory Redis connection factory
+     * @return configured StringRedisTemplate instance
      */
     @Bean
     public StringRedisTemplate stringRedisTemplate(RedisConnectionFactory connectionFactory) {
         StringRedisTemplate template = new StringRedisTemplate();
         template.setConnectionFactory(connectionFactory);
         return template;
+    }
+
+    /**
+     * Creates an ObjectMapper configured for Java time types.
+     *
+     * @return ObjectMapper for Redis JSON serialization
+     */
+    private static ObjectMapper createObjectMapper() {
+        ObjectMapper mapper = new ObjectMapper();
+        mapper.registerModule(new JavaTimeModule());
+        return mapper;
     }
 }
