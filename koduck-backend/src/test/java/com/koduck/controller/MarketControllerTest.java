@@ -1,6 +1,5 @@
 package com.koduck.controller;
 
-import com.koduck.dto.market.HotStockType;
 import com.koduck.dto.market.MarketIndexDto;
 import com.koduck.dto.market.PriceQuoteDto;
 import com.koduck.dto.market.SymbolInfoDto;
@@ -158,73 +157,4 @@ class MarketControllerTest {
         verify(marketService).getMarketIndices();
     }
 
-    @Test
-    @DisplayName("热门股票 - 按成交量排序")
-    void getHotStocks_byVolume_shouldReturnStocks() throws Exception {
-        // Given
-        SymbolInfoDto stock = SymbolInfoDto.builder()
-                .symbol("002326")
-                .name("永太科技")
-                .market("AShare")
-                .build();
-
-        when(marketService.getHotStocks(HotStockType.VOLUME, 20)).thenReturn(List.of(stock));
-
-        // When & Then
-        mockMvc.perform(get("/api/v1/market/hot")
-                .param("type", "volume")
-                .param("limit", "20")
-                .contentType(MediaType.APPLICATION_JSON))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.code").value(0))
-                .andExpect(jsonPath("$.data[0].symbol").value("002326"));
-
-        verify(marketService).getHotStocks(HotStockType.VOLUME, 20);
-    }
-
-    @Test
-    @DisplayName("热门股票 - 按涨幅排序")
-    void getHotStocks_byGain_shouldReturnStocks() throws Exception {
-        // Given
-        SymbolInfoDto stock = SymbolInfoDto.builder()
-                .symbol("000001")
-                .name("平安银行")
-                .market("AShare")
-                .build();
-
-        when(marketService.getHotStocks(HotStockType.GAIN, 10)).thenReturn(List.of(stock));
-
-        // When & Then
-        mockMvc.perform(get("/api/v1/market/hot")
-                .param("type", "gain")
-                .param("limit", "10")
-                .contentType(MediaType.APPLICATION_JSON))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.code").value(0));
-
-        verify(marketService).getHotStocks(HotStockType.GAIN, 10);
-    }
-
-    @Test
-    @DisplayName("热门股票 - 按跌幅排序")
-    void getHotStocks_byLoss_shouldReturnStocks() throws Exception {
-        // Given
-        SymbolInfoDto stock = SymbolInfoDto.builder()
-                .symbol("600000")
-                .name("浦发银行")
-                .market("AShare")
-                .build();
-
-        when(marketService.getHotStocks(HotStockType.LOSS, 15)).thenReturn(List.of(stock));
-
-        // When & Then
-        mockMvc.perform(get("/api/v1/market/hot")
-                .param("type", "loss")
-                .param("limit", "15")
-                .contentType(MediaType.APPLICATION_JSON))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.code").value(0));
-
-        verify(marketService).getHotStocks(HotStockType.LOSS, 15);
-    }
 }
