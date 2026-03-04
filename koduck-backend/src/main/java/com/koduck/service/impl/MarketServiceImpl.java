@@ -1,5 +1,6 @@
 package com.koduck.service.impl;
 
+import com.koduck.config.CacheConfig;
 import com.koduck.dto.market.MarketIndexDto;
 import com.koduck.dto.market.PriceQuoteDto;
 import com.koduck.dto.market.SymbolInfoDto;
@@ -51,12 +52,25 @@ public class MarketServiceImpl implements MarketService {
         this.stockCacheService = stockCacheService;
     }
     
+    /**
+     * Search stock symbols by keyword and return enriched realtime fields.
+     *
+     * @param keyword symbol/name keyword
+     * @param page 1-based page number
+     * @param size page size
+     * @return matching symbols or empty list
+     */
     @Override
-    @Cacheable(value = "marketSearch", key = "#keyword + '_' + #page + '_' + #size", 
+    @Cacheable(value = CacheConfig.CACHE_MARKET_SEARCH, key = "#keyword + '_' + #page + '_' + #size", 
                unless = "#result == null || #result.isEmpty()")
     public List<SymbolInfoDto> searchSymbols(String keyword, int page, int size) {
         log.debug("Searching symbols from database: keyword={}, page={}, size={}", keyword, page, size);
-        
+
+        if (keyword == null || keyword.isBlank() || page <= 0 || size <= 0) {
+            log.warn("Invalid search params: keyword={}, page={}, size={}", keyword, page, size);
+            return Collections.emptyList();
+        }
+
         // Search in stock_basic table
         var pageResult = stockBasicRepository.searchByKeyword(keyword, PageRequest.of(page - 1, size));
         List<StockBasic> basics = pageResult.getContent();
@@ -79,6 +93,12 @@ public class MarketServiceImpl implements MarketService {
                 .toList();
     }
     
+    /**
+     * Get realtime quote details for a symbol.
+     *
+     * @param symbol stock symbol
+     * @return quote when found, otherwise {@code null}
+     */
     @Override
     // @Cacheable disabled due to Redis serialization issues with Java Records
     public PriceQuoteDto getStockDetail(String symbol) {
@@ -106,6 +126,12 @@ public class MarketServiceImpl implements MarketService {
         }
     }
     
+    /**
+     * Fetch realtime quotes for multiple symbols with cache-first strategy.
+     *
+     * @param symbols input symbols preserving output order
+     * @return merged quote list from cache and database
+     */
     @Override
     public List<PriceQuoteDto> getBatchPrices(List<String> symbols) {
         if (symbols == null || symbols.isEmpty()) {
@@ -166,8 +192,13 @@ public class MarketServiceImpl implements MarketService {
                 .toList();
     }
     
+    /**
+     * Get major market index quotes.
+     *
+     * @return index list from realtime data with stock-basic fallback
+     */
     @Override
-    @Cacheable(value = "marketIndices", key = "'main'", unless = "#result == null || #result.isEmpty()")
+    @Cacheable(value = CacheConfig.CACHE_MARKET_INDICES, key = "'main'", unless = "#result == null || #result.isEmpty()")
     public List<MarketIndexDto> getMarketIndices() {
         log.debug("Getting market indices from database");
         

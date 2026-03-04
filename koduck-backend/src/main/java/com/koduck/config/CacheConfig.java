@@ -25,27 +25,73 @@ import java.util.Objects;
  */
 @Configuration
 @EnableCaching
-public class CacheConfig {
-    
+public final class CacheConfig {
+
     public static final String CACHE_KLINE = "kline";
     public static final String CACHE_PRICE = "price";
     public static final String CACHE_MARKET_SEARCH = "marketSearch";
     public static final String CACHE_STOCK_DETAIL = "stockDetail";
     public static final String CACHE_MARKET_INDICES = "marketIndices";
     public static final String CACHE_HOT_STOCKS = "hotStocks";
-    
-/**
-     * Build a {@link GenericJackson2JsonRedisSerializer} with support for Java
-     * time types.
-     *
-     * @return configured serializer instance (never {@code null})
+
+    /**
+     * Default time-to-live for short-lived caches (30 seconds).
      */
-    private GenericJackson2JsonRedisSerializer createJsonSerializer() {
+    private static final Duration TTL_30_SECONDS = Duration.ofSeconds(30);
+
+    /**
+     * Time-to-live representing one minute; used for hot-stock and kline caches.
+     */
+    private static final Duration TTL_1_MINUTE = Duration.ofMinutes(1);
+
+    /**
+     * Time-to-live representing five minutes; used for market search caches.
+     */
+    private static final Duration TTL_5_MINUTES = Duration.ofMinutes(5);
+
+
+    /**
+     * Construct a JSON serializer that understands Java time types.
+     *
+     * <p>The serializer is backed by a custom {@link ObjectMapper} which
+     * registers the {@link JavaTimeModule} so that {@code java.time} objects
+     * are handled correctly when caching.</p>
+     *
+     * @return a non-null JSON serializer instance
+     */
+    private static GenericJackson2JsonRedisSerializer createJsonSerializer() {
         ObjectMapper objectMapper = new ObjectMapper();
         objectMapper.registerModule(new JavaTimeModule());
         return new GenericJackson2JsonRedisSerializer(objectMapper);
     }
-    
+ 
+    /**
+     * Utility factory for {@link RedisCacheConfiguration}.
+     *
+     * @param ttl                 desired entry time-to-live (must be non-null)
+     * @param jsonSerializer      serializer for cache values (must be non-null)
+     * @param disableCachingNullValues when {@code true} calls
+     *                                  {@code disableCachingNullValues()} on the
+     *                                  configuration
+     * @return configured cache configuration instance
+     */
+    private static RedisCacheConfiguration buildCacheConfiguration(
+                        Duration ttl,
+                        GenericJackson2JsonRedisSerializer jsonSerializer,
+                        boolean disableCachingNullValues) {
+                RedisCacheConfiguration configuration = RedisCacheConfiguration.defaultCacheConfig()
+                                .entryTtl(Objects.requireNonNull(ttl))
+                                .serializeKeysWith(RedisSerializationContext.SerializationPair
+                                                .fromSerializer(new StringRedisSerializer()))
+                                .serializeValuesWith(RedisSerializationContext.SerializationPair
+                                                .fromSerializer(Objects.requireNonNull(jsonSerializer)));
+
+                if (disableCachingNullValues) {
+                        return configuration.disableCachingNullValues();
+                }
+                return configuration;
+        }
+
     /**
      * Spring bean that constructs the {@link RedisCacheManager} used by the
      * application for caching.  Several named cache configurations are
@@ -59,64 +105,22 @@ public class CacheConfig {
     public RedisCacheManager cacheManager(RedisConnectionFactory connectionFactory) {
         GenericJackson2JsonRedisSerializer jsonSerializer = createJsonSerializer();
 
-        RedisCacheConfiguration defaultConfig = RedisCacheConfiguration.defaultCacheConfig()
-                .entryTtl(Objects.requireNonNull(Duration.ofMinutes(5)))
-                .serializeKeysWith(RedisSerializationContext.SerializationPair
-                        .fromSerializer(new StringRedisSerializer()))
-                .serializeValuesWith(RedisSerializationContext.SerializationPair
-                        .fromSerializer(Objects.requireNonNull(jsonSerializer)))
-                .disableCachingNullValues();
-        
-        RedisCacheConfiguration klineConfig = RedisCacheConfiguration.defaultCacheConfig()
-                .entryTtl(Objects.requireNonNull(Duration.ofMinutes(1)))
-                .serializeKeysWith(RedisSerializationContext.SerializationPair
-                        .fromSerializer(new StringRedisSerializer()))
-                .serializeValuesWith(RedisSerializationContext.SerializationPair
-                        .fromSerializer(Objects.requireNonNull(jsonSerializer)));
-        
-        RedisCacheConfiguration priceConfig = RedisCacheConfiguration.defaultCacheConfig()
-                .entryTtl(Objects.requireNonNull(Duration.ofSeconds(30)))
-                .serializeKeysWith(RedisSerializationContext.SerializationPair
-                        .fromSerializer(new StringRedisSerializer()))
-                .serializeValuesWith(RedisSerializationContext.SerializationPair
-                        .fromSerializer(Objects.requireNonNull(jsonSerializer)));
-        
-        RedisCacheConfiguration marketSearchConfig = RedisCacheConfiguration.defaultCacheConfig()
-                .entryTtl(Objects.requireNonNull(Duration.ofMinutes(5)))
-                .serializeKeysWith(RedisSerializationContext.SerializationPair
-                        .fromSerializer(new StringRedisSerializer()))
-                .serializeValuesWith(RedisSerializationContext.SerializationPair
-                        .fromSerializer(Objects.requireNonNull(jsonSerializer)));
-        
-        RedisCacheConfiguration stockDetailConfig = RedisCacheConfiguration.defaultCacheConfig()
-                .entryTtl(Objects.requireNonNull(Duration.ofSeconds(30)))
-                .serializeKeysWith(RedisSerializationContext.SerializationPair
-                        .fromSerializer(new StringRedisSerializer()))
-                .serializeValuesWith(RedisSerializationContext.SerializationPair
-                        .fromSerializer(Objects.requireNonNull(jsonSerializer)));
-        
-        RedisCacheConfiguration marketIndicesConfig = RedisCacheConfiguration.defaultCacheConfig()
-                .entryTtl(Objects.requireNonNull(Duration.ofSeconds(30)))
-                .serializeKeysWith(RedisSerializationContext.SerializationPair
-                        .fromSerializer(new StringRedisSerializer()))
-                .serializeValuesWith(RedisSerializationContext.SerializationPair
-                        .fromSerializer(Objects.requireNonNull(jsonSerializer)));
-        
-        RedisCacheConfiguration hotStocksConfig = RedisCacheConfiguration.defaultCacheConfig()
-                .entryTtl(Objects.requireNonNull(Duration.ofMinutes(1)))
-                .serializeKeysWith(RedisSerializationContext.SerializationPair
-                        .fromSerializer(new StringRedisSerializer()))
-                .serializeValuesWith(RedisSerializationContext.SerializationPair
-                        .fromSerializer(Objects.requireNonNull(jsonSerializer)));
-        
+        RedisCacheConfiguration defaultConfig = buildCacheConfiguration(TTL_5_MINUTES, jsonSerializer, true);
+        RedisCacheConfiguration klineConfig = buildCacheConfiguration(TTL_1_MINUTE, jsonSerializer, false);
+        RedisCacheConfiguration priceConfig = buildCacheConfiguration(TTL_30_SECONDS, jsonSerializer, false);
+        RedisCacheConfiguration marketSearchConfig = buildCacheConfiguration(TTL_5_MINUTES, jsonSerializer, false);
+        RedisCacheConfiguration stockDetailConfig = buildCacheConfiguration(TTL_30_SECONDS, jsonSerializer, false);
+        RedisCacheConfiguration marketIndicesConfig = buildCacheConfiguration(TTL_30_SECONDS, jsonSerializer, false);
+        RedisCacheConfiguration hotStocksConfig = buildCacheConfiguration(TTL_1_MINUTE, jsonSerializer, false);
+
         return RedisCacheManager.builder(Objects.requireNonNull(connectionFactory))
-                .cacheDefaults(defaultConfig)
-                .withCacheConfiguration(CACHE_KLINE, klineConfig)
-                .withCacheConfiguration(CACHE_PRICE, priceConfig)
-                .withCacheConfiguration(CACHE_MARKET_SEARCH, marketSearchConfig)
-                .withCacheConfiguration(CACHE_STOCK_DETAIL, stockDetailConfig)
-                .withCacheConfiguration(CACHE_MARKET_INDICES, marketIndicesConfig)
-                .withCacheConfiguration(CACHE_HOT_STOCKS, hotStocksConfig)
+            .cacheDefaults(Objects.requireNonNull(defaultConfig))
+            .withCacheConfiguration(CACHE_KLINE, Objects.requireNonNull(klineConfig))
+            .withCacheConfiguration(CACHE_PRICE, Objects.requireNonNull(priceConfig))
+            .withCacheConfiguration(CACHE_MARKET_SEARCH, Objects.requireNonNull(marketSearchConfig))
+            .withCacheConfiguration(CACHE_STOCK_DETAIL, Objects.requireNonNull(stockDetailConfig))
+            .withCacheConfiguration(CACHE_MARKET_INDICES, Objects.requireNonNull(marketIndicesConfig))
+            .withCacheConfiguration(CACHE_HOT_STOCKS, Objects.requireNonNull(hotStocksConfig))
                 .build();
     }
 }
