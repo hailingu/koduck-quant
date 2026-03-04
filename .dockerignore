@@ -1,0 +1,36 @@
+# Git
+.git
+.gitignore
+.gitmessage.txt
+
+# IDE
+.idea
+.vscode
+*.swp
+*.swo
+
+# Documentation (keep README.md)
+CONTRIBUTING.md
+AGENTS.md
+CHANGELOG.md
+docs/
+
+# Logs
+*.log
+logs/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Environment files (except example)
+.env
+.env.local
+.env.*.local
+
+# Memory and temp files
+memory/
+.agents/sessions/
+
+# Screenshots
+*.png

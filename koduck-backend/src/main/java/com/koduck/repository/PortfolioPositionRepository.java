@@ -1,0 +1,40 @@
+package com.koduck.repository;
+
+import com.koduck.entity.PortfolioPosition;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
+import org.springframework.stereotype.Repository;
+
+import java.util.List;
+import java.util.Optional;
+
+/**
+ * Repository for portfolio position operations.
+ */
+@Repository
+public interface PortfolioPositionRepository extends JpaRepository<PortfolioPosition, Long> {
+    
+    /**
+     * Find all positions for a user.
+     */
+    List<PortfolioPosition> findByUserId(Long userId);
+    
+    /**
+     * Find a specific position by user and symbol.
+     */
+    Optional<PortfolioPosition> findByUserIdAndMarketAndSymbol(Long userId, String market, String symbol);
+    
+    /**
+     * Check if a position exists for user and symbol.
+     */
+    boolean existsByUserIdAndMarketAndSymbol(Long userId, String market, String symbol);
+    
+    /**
+     * Delete a position by user and id.
+     */
+    @Modifying
+    @Query("DELETE FROM PortfolioPosition p WHERE p.userId = :userId AND p.id = :id")
+    void deleteByUserIdAndId(@Param("userId") Long userId, @Param("id") Long id);
+}

@@ -1,0 +1,55 @@
+# ==========================================
+# Koduck Backend Dockerfile (Build in Container)
+# 在容器内构建，确保包含最新代码
+# ==========================================
+
+# Stage 1: Build
+FROM maven:3.9-eclipse-temurin-23-alpine AS builder
+
+WORKDIR /build
+
+# Copy pom.xml first (for layer caching)
+COPY pom.xml .
+
+# Download dependencies (cached layer)
+RUN mvn dependency:go-offline -B
+
+# Copy source code
+COPY src ./src
+
+# Build JAR (skip tests for faster build)
+RUN mvn clean package -DskipTests -B
+
+# Stage 2: Runtime
+FROM eclipse-temurin:23-jre-alpine
+
+# Install wget for healthcheck
+RUN apk add --no-cache wget
+
+# Create non-root user
+RUN addgroup -S koduck && adduser -S koduck -G koduck
+
+# Set working directory
+WORKDIR /app
+
+# Copy JAR from builder stage
+COPY --from=builder /build/target/*.jar app.jar
+
+# Change ownership to non-root user
+RUN chown -R koduck:koduck /app
+
+# Switch to non-root user
+USER koduck
+
+# Expose port
+EXPOSE 8080
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
+    CMD wget -qO- http://localhost:8080/actuator/health || exit 1
+
+# JVM options for containerized environment
+ENV JAVA_OPTS="-XX:+UseContainerSupport -XX:MaxRAMPercentage=75.0 -XX:InitialRAMPercentage=50.0 -Djava.security.egd=file:/dev/./urandom"
+
+# Run the application
+ENTRYPOINT ["sh", "-c", "java $JAVA_OPTS -jar app.jar"]

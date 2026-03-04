@@ -1,0 +1,299 @@
+"""FastAPI main application entry point."""
+
+import asyncio
+import logging
+import sys
+from contextlib import asynccontextmanager
+
+import structlog
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.gzip import GZipMiddleware
+from fastapi.responses import JSONResponse
+
+from app.config import settings
+from app.db import Database
+from app.models.schemas import ApiResponse, HealthStatus
+from app.routers import a_share, kline, market
+from app.services.data_updater import data_updater, test_icbc_update
+from app.services.kline_initializer import kline_initializer
+from app.services.stock_initializer import stock_initializer
+
+API_V1_PREFIX = "/api/v1"
+
+
+def setup_logging():
+    """Configure and initialize structured logging for the application.
+
+    The configuration is driven by ``settings.LOG_FORMAT`` and ``settings.LOG_LEVEL``.
+    The function sets up ``structlog`` processors and binds the standard library
+    logging level.
+    """
+    structlog.configure(
+        processors=[
+            structlog.stdlib.filter_by_level,
+            structlog.stdlib.add_logger_name,
+            structlog.stdlib.add_log_level,
+            structlog.stdlib.PositionalArgumentsFormatter(),
+            structlog.processors.TimeStamper(fmt="iso"),
+            structlog.processors.StackInfoRenderer(),
+            structlog.processors.format_exc_info,
+            structlog.processors.UnicodeDecoder(),
+            structlog.processors.JSONRenderer()
+            if settings.LOG_FORMAT == "json"
+            else structlog.dev.ConsoleRenderer(),
+        ],
+        context_class=dict,
+        logger_factory=structlog.stdlib.LoggerFactory(),
+        wrapper_class=structlog.stdlib.BoundLogger,
+        cache_logger_on_first_use=True,
+    )
+    
+    # Set log level
+    logging.basicConfig(
+        format="%(message)s",
+        stream=sys.stdout,
+        level=getattr(logging, settings.LOG_LEVEL.upper()),
+    )
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Async context manager for FastAPI application lifespan events.
+
+    This manages startup and shutdown tasks such as initializing the
+    database connection, performing data initialization routines, and
+    launching background scheduler tasks. During shutdown it ensures the
+    realtime update task is cancelled and the database pool is closed.
+
+    Args:
+        app: The FastAPI application instance.
+
+    Yields:
+        None: control is yielded back to FastAPI while the application runs.
+    """
+    # Startup
+    setup_logging()
+    logger = structlog.get_logger()
+    logger.info(
+        "Starting Koduck Data Service",
+        version=settings.APP_VERSION,
+        debug=settings.DEBUG,
+    )
+    
+    # Initialize database
+    logger.info("Initializing database connection...")
+    await Database.get_pool()
+
+    # Initialize A-share stock basic data
+    logger.info("Initializing A-share stock basic data...")
+    init_success = await stock_initializer.run()
+    if init_success:
+        logger.info("A-share stock basic data initialization: SUCCESS")
+    else:
+        logger.warning("A-share stock basic data initialization: SKIPPED or FAILED (will retry on next startup)")
+
+    # Initialize K-line data from local CSV files
+    logger.info("Initializing K-line data from local files...")
+    kline_init_success = await kline_initializer.run()
+    if kline_init_success:
+        logger.info("K-line data initialization: SUCCESS")
+    else:
+        logger.warning("K-line data initialization: SKIPPED or FAILED (will retry on next startup)")
+
+    # Start realtime data update task (update stocks with kline data)
+    logger.info("Starting realtime stock data update task...")
+    realtime_task = asyncio.create_task(run_realtime_update_scheduler())
+    
+    yield
+    
+    # Shutdown
+    logger.info("Shutting down Koduck Data Service")
+    realtime_task.cancel()
+    try:
+        await realtime_task
+    except asyncio.CancelledError:
+        await Database.close()
+        raise
+    else:
+        await Database.close()
+
+
+async def run_realtime_update_scheduler():
+    """Periodically update stock records that have k-line history.
+
+    The coroutine waits briefly for the service to start, queries the
+    database for symbols with daily k-line data, performs an initial
+    update for each symbol, and then delegates to
+    :func:`app.services.data_updater.run_realtime_loop` for ongoing
+    polling every 30 seconds.
+    """
+    logger = structlog.get_logger()
+    
+    # Wait a bit for service to fully start
+    await asyncio.sleep(5)
+    
+    # Get list of symbols that have kline data
+    from app.db import Database
+    
+    symbols_result = await Database.fetch("""
+        SELECT DISTINCT symbol FROM kline_data WHERE timeframe = '1D'
+    """)
+    
+    symbols = [row['symbol'] for row in symbols_result]
+    
+    if not symbols:
+        logger.warning("No symbols found with kline data, skipping realtime update")
+        return
+    
+    logger.info(f"Found {len(symbols)} symbols with kline data to update: {symbols[:5]}...")
+    
+    # Run initial update for all symbols
+    for symbol in symbols:
+        await data_updater.update_single_stock(symbol)
+    
+    logger.info(f"Initial realtime update completed for {len(symbols)} symbols")
+    
+    # Start continuous update loop (every 30 seconds)
+    await data_updater.run_realtime_loop(symbols, interval_seconds=30)
+
+
+async def run_icbc_scheduler():
+    """Legacy scheduler that drives ICBC-specific update logic.
+
+    This function exists for backward compatibility. It waits for startup,
+    performs a single test update via ``test_icbc_update`` and, if
+    successful, enters a loop that invokes
+    ``data_updater.run_icbc_test`` every ten seconds for one hour.
+    """
+    logger = structlog.get_logger()
+    
+    # Wait a bit for service to fully start
+    await asyncio.sleep(5)
+    
+    # Run initial test
+    logger.info("Running ICBC initial test...")
+    success = await test_icbc_update()
+    
+    if success:
+        logger.info("ICBC initial test: PASSED")
+        # Start continuous update loop (every 10 seconds)
+        await data_updater.run_icbc_test(duration_seconds=3600, interval_seconds=10)
+    else:
+        logger.error("ICBC initial test: FAILED")
+
+
+def create_app() -> FastAPI:
+    """Construct and configure the FastAPI application instance.
+
+    This function sets metadata such as title and version, applies the
+    lifespan context manager, mounts middleware (GZip and CORS), and
+    registers API routers with a common prefix.
+
+    Returns:
+        A fully configured :class:`FastAPI` instance ready to be served.
+    """
+    app = FastAPI(
+        title=settings.APP_NAME,
+        description="Quantitative trading data service for multiple markets",
+        version=settings.APP_VERSION,
+        debug=settings.DEBUG,
+        docs_url="/docs" if settings.DEBUG else None,
+        redoc_url="/redoc" if settings.DEBUG else None,
+        lifespan=lifespan,
+    )
+    
+    # Add middleware
+    app.add_middleware(GZipMiddleware, minimum_size=1000)
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=["*"],
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
+    
+    # Include routers
+    app.include_router(a_share.router, prefix=API_V1_PREFIX)
+    app.include_router(kline.router, prefix=API_V1_PREFIX)
+    app.include_router(market.router, prefix=API_V1_PREFIX)
+    
+    return app
+
+
+# Create the application instance
+app = create_app()
+
+
+@app.exception_handler(Exception)
+async def global_exception_handler(request, exc):
+    """Catch-all exception handler that returns JSON error responses.
+
+    Logs the unhandled exception and returns a generic 500 response wrapped
+    in :class:`~app.models.schemas.ApiResponse`.
+
+    Args:
+        request: Incoming request object (FastAPI starlette request).
+        exc: The exception instance that was raised.
+
+    Returns:
+        :class:`fastapi.responses.JSONResponse` with HTTP 500 status.
+    """
+    logger = structlog.get_logger()
+    logger.error(
+        "Unhandled exception",
+        error=str(exc),
+        path=request.url.path,
+    )
+    return JSONResponse(
+        status_code=500,
+        content=ApiResponse(
+            code=500,
+            message="Internal server error",
+            data=None,
+        ).model_dump(),
+    )
+
+
+@app.get("/", response_model=ApiResponse[dict])
+async def root():
+    """Health/info endpoint at the application root.
+
+    Returns application name, version, and documentation URL (conditionally
+    enabled in debug mode).
+    """
+    return ApiResponse(
+        data={
+            "name": settings.APP_NAME,
+            "version": settings.APP_VERSION,
+            "docs": "/docs" if settings.DEBUG else None,
+        }
+    )
+
+
+@app.get("/health", response_model=ApiResponse[HealthStatus])
+async def health_check():
+    """Simple liveness check endpoint.
+
+    Returns a :class:`HealthStatus` object containing ``status`` and
+    ``version`` fields.  Intended to be used by load balancers or
+    container orchestrators.
+    """
+    return ApiResponse(
+        data=HealthStatus(
+            status="ok",
+            version=settings.APP_VERSION,
+        )
+    )
+
+
+if __name__ == "__main__":
+    import uvicorn
+    
+    uvicorn.run(
+        "app.main:app",
+        host=settings.HOST,
+        port=settings.PORT,
+        reload=settings.DEBUG,
+        log_level=settings.LOG_LEVEL.lower(),
+    )
