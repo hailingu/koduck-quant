@@ -1,9 +1,11 @@
 package com.koduck.config;
 
 import com.koduck.security.JwtAuthenticationFilter;
+import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.AuthenticationProvider;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
@@ -18,10 +20,12 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
-import org.springframework.http.HttpMethod;
 
 /**
- * Spring Security 配置
+ * Spring Security configuration.
+ *
+ * <p>Defines stateless JWT-based authentication, public endpoint rules, and
+ * authentication-related beans used across the application.</p>
  */
 @Configuration
 @EnableWebSecurity
@@ -29,24 +33,37 @@ import org.springframework.http.HttpMethod;
 @RequiredArgsConstructor
 public class SecurityConfig {
 
+    private static final String AUTH_ENDPOINT_PATTERN = "/api/v1/auth/**";
+    private static final String ACTUATOR_HEALTH_ENDPOINT = "/actuator/health";
+    private static final String APP_HEALTH_ENDPOINT_PATTERN = "/api/v1/health/**";
+    private static final String MARKET_ENDPOINT_PATTERN = "/api/v1/market/**";
+
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
     private final UserDetailsService userDetailsService;
 
+    /**
+     * Builds the security filter chain and configures endpoint authorization.
+     *
+     * @param http Spring Security HTTP configuration builder
+     * @return configured security filter chain
+     * @throws Exception when the security configuration cannot be built
+     */
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
             .csrf(AbstractHttpConfigurer::disable)
-            .sessionManagement(session -> 
+            .sessionManagement(session ->
                 session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+            .exceptionHandling(exceptions ->
+                exceptions.authenticationEntryPoint((request, response, authException) ->
+                    response.sendError(HttpServletResponse.SC_UNAUTHORIZED, authException.getMessage())))
             .authorizeHttpRequests(auth -> auth
-                // 公开端点
                 .requestMatchers(
-                    "/api/v1/auth/**",
-                    "/actuator/health",
-                    "/api/v1/health/**"
+                    AUTH_ENDPOINT_PATTERN,
+                    ACTUATOR_HEALTH_ENDPOINT,
+                    APP_HEALTH_ENDPOINT_PATTERN
                 ).permitAll()
-                .requestMatchers(HttpMethod.GET, "/api/v1/market/**").permitAll()
-                // 其他需要认证
+                .requestMatchers(HttpMethod.GET, MARKET_ENDPOINT_PATTERN).permitAll()
                 .anyRequest().authenticated()
             )
             .authenticationProvider(authenticationProvider())
@@ -55,6 +72,11 @@ public class SecurityConfig {
         return http.build();
     }
 
+    /**
+     * Creates the authentication provider backed by {@link UserDetailsService}.
+     *
+     * @return configured authentication provider
+     */
     @Bean
     public AuthenticationProvider authenticationProvider() {
         DaoAuthenticationProvider authProvider = new DaoAuthenticationProvider();
@@ -63,11 +85,23 @@ public class SecurityConfig {
         return authProvider;
     }
 
+    /**
+     * Exposes the application {@link AuthenticationManager}.
+     *
+     * @param config authentication configuration provided by Spring
+     * @return authentication manager instance
+     * @throws Exception when the authentication manager cannot be obtained
+     */
     @Bean
     public AuthenticationManager authenticationManager(AuthenticationConfiguration config) throws Exception {
         return config.getAuthenticationManager();
     }
 
+    /**
+     * Creates the password encoder used for credential hashing.
+     *
+     * @return BCrypt password encoder
+     */
     @Bean
     public PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();

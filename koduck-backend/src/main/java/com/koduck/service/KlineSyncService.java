@@ -6,7 +6,7 @@ import com.koduck.dto.market.KlineDataDto;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.ParameterizedTypeReference;
-import org.springframework.http.HttpMethod;
+import org.springframework.http.RequestEntity;
 import org.springframework.http.ResponseEntity;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -15,11 +15,9 @@ import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.util.UriComponentsBuilder;
 
-import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
-import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
 /**
  * Service for syncing K-line data from Python Data Service.
@@ -34,7 +32,10 @@ public class KlineSyncService {
     private final KlineService klineService;
     
     private static final String A_SHARE_BASE_PATH = "/a-share";
-    private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd");
+    private static final String DEFAULT_MARKET = "AShare";
+    private static final String DEFAULT_TIMEFRAME = "1D";
+    private static final long DEFAULT_BATCH_INTERVAL_MILLIS = 500L;
+    private static final int DEFAULT_KLINE_QUERY_LIMIT = 1000;
     
     /**
      * Sync daily K-line data for popular stocks.
@@ -58,12 +59,12 @@ public class KlineSyncService {
         
         for (String symbol : popularSymbols) {
             try {
-                syncSymbolKline("AShare", symbol, "1D");
+                syncSymbolKlineInternal(DEFAULT_MARKET, symbol, DEFAULT_TIMEFRAME);
                 // Avoid rate limiting
                 Thread.sleep(1000);
-            } catch (InterruptedException e) {
+            } catch (InterruptedException exception) {
                 Thread.currentThread().interrupt();
-                log.error("Sync interrupted");
+                log.error("Sync interrupted", exception);
                 break;
             } catch (Exception e) {
                 log.error("Failed to sync {}: {}", symbol, e.getMessage());
@@ -78,6 +79,39 @@ public class KlineSyncService {
      */
     @Async
     public void syncSymbolKline(String market, String symbol, String timeframe) {
+        syncSymbolKlineInternal(market, symbol, timeframe);
+    }
+
+    /**
+     * Asynchronously syncs a batch of symbols with a fixed interval to avoid upstream rate limiting.
+     *
+     * @param market market identifier
+     * @param symbols symbol list to sync
+     * @param timeframe K-line timeframe
+     */
+    @Async
+    public void syncBatchSymbols(String market, List<String> symbols, String timeframe) {
+        Objects.requireNonNull(symbols, "symbols must not be null");
+        if (symbols.isEmpty()) {
+            log.warn("Batch sync skipped because symbols is empty");
+            return;
+        }
+
+        log.info("Starting batch sync for {} symbols, market={}, timeframe={}", symbols.size(), market, timeframe);
+        for (String symbol : symbols) {
+            syncSymbolKlineInternal(market, symbol, timeframe);
+            try {
+                Thread.sleep(DEFAULT_BATCH_INTERVAL_MILLIS);
+            } catch (InterruptedException exception) {
+                Thread.currentThread().interrupt();
+                log.warn("Batch sync interrupted while processing symbol={}", symbol, exception);
+                break;
+            }
+        }
+        log.info("Batch sync finished for {} symbols", symbols.size());
+    }
+
+    private void syncSymbolKlineInternal(String market, String symbol, String timeframe) {
         if (!properties.isEnabled()) {
             log.warn("Data service is disabled, skipping sync");
             return;
@@ -85,19 +119,19 @@ public class KlineSyncService {
         
         try {
             log.debug("Syncing K-line data for {}/{}/{}", market, symbol, timeframe);
-            
-            String url = UriComponentsBuilder
-                    .fromHttpUrl(properties.getBaseUrl() + A_SHARE_BASE_PATH + "/kline")
+
+            java.net.URI requestUri = UriComponentsBuilder
+                    .fromUriString(properties.getBaseUrl() + A_SHARE_BASE_PATH + "/kline")
                     .queryParam("symbol", symbol)
                     .queryParam("timeframe", timeframe)
-                    .queryParam("limit", 1000)
-                    .toUriString();
-            
+                    .queryParam("limit", DEFAULT_KLINE_QUERY_LIMIT)
+                .build(true)
+                .toUri();
+
+            RequestEntity<Void> requestEntity = RequestEntity.get(requestUri).build();
             ResponseEntity<DataServiceResponse<List<Map<String, Object>>>> response =
                     dataServiceRestTemplate.exchange(
-                            url,
-                            HttpMethod.GET,
-                            null,
+                    requestEntity,
                             new ParameterizedTypeReference<>() {}
                     );
             
@@ -124,7 +158,7 @@ public class KlineSyncService {
      */
     public void backfillHistoricalData(String market, String symbol, String timeframe, int days) {
         log.info("Backfilling {} days of historical data for {}/{}/{}", days, market, symbol, timeframe);
-        syncSymbolKline(market, symbol, timeframe);
+        syncSymbolKlineInternal(market, symbol, timeframe);
     }
     
     private KlineDataDto mapToKlineDataDto(Map<String, Object> data) {
@@ -142,12 +176,13 @@ public class KlineSyncService {
     private java.math.BigDecimal getBigDecimal(Map<String, Object> data, String key) {
         Object value = data.get(key);
         if (value == null) return null;
-        if (value instanceof Number) {
-            return java.math.BigDecimal.valueOf(((Number) value).doubleValue());
+        if (value instanceof Number number) {
+            return java.math.BigDecimal.valueOf(number.doubleValue());
         }
         try {
             return new java.math.BigDecimal(value.toString());
-        } catch (NumberFormatException e) {
+        } catch (NumberFormatException exception) {
+            log.debug("Failed to parse BigDecimal for key={}", key, exception);
             return null;
         }
     }
@@ -155,12 +190,13 @@ public class KlineSyncService {
     private Long getLong(Map<String, Object> data, String key) {
         Object value = data.get(key);
         if (value == null) return null;
-        if (value instanceof Number) {
-            return ((Number) value).longValue();
+        if (value instanceof Number number) {
+            return number.longValue();
         }
         try {
             return Long.parseLong(value.toString());
-        } catch (NumberFormatException e) {
+        } catch (NumberFormatException exception) {
+            log.debug("Failed to parse Long for key={}", key, exception);
             return null;
         }
     }

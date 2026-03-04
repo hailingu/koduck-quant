@@ -25,7 +25,7 @@ import java.util.Objects;
  */
 @Configuration
 @EnableCaching
-public final class CacheConfig {
+public class CacheConfig {
 
     /**
      * Cache name for K-line data snapshots.
