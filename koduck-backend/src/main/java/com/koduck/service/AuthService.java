@@ -1,7 +1,9 @@
 package com.koduck.service;
 
+import com.koduck.config.properties.MailProperties;
 import com.koduck.dto.UserInfo;
 import com.koduck.dto.auth.*;
+import com.koduck.entity.PasswordResetToken;
 import com.koduck.entity.RefreshToken;
 import com.koduck.entity.User;
 import com.koduck.exception.BusinessException;
@@ -13,13 +15,20 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.security.SecureRandom;
 import java.time.LocalDateTime;
+import java.util.Base64;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.UUID;
 
 /**
  * 认证服务
+ *
+ * <p>提供用户登录、注册、Token 刷新、密码重置等认证相关功能。</p>
+ *
+ * @author Koduck Team
  */
 @Slf4j
 @Service
@@ -30,8 +39,12 @@ public class AuthService {
     private final RoleRepository roleRepository;
     private final RefreshTokenRepository refreshTokenRepository;
     private final UserRoleRepository userRoleRepository;
+    private final PasswordResetTokenRepository passwordResetTokenRepository;
     private final JwtUtil jwtUtil;
     private final PasswordEncoder passwordEncoder;
+    private final EmailService emailService;
+    private final RateLimiterService rateLimiterService;
+    private final MailProperties mailProperties;
 
     private static final int DEFAULT_ROLE_ID = 2; // USER 角色
 
@@ -43,7 +56,17 @@ public class AuthService {
     );
 
     /**
+     * 令牌长度（URL-safe Base64）
+     */
+    private static final int RESET_TOKEN_LENGTH = 32;
+
+    /**
      * 用户登录
+     *
+     * @param request    登录请求
+     * @param ipAddress  IP地址
+     * @param userAgent  用户代理
+     * @return Token 响应
      */
     @Transactional
     public TokenResponse login(LoginRequest request, String ipAddress, String userAgent) {
@@ -71,6 +94,9 @@ public class AuthService {
 
     /**
      * 用户注册
+     *
+     * @param request 注册请求
+     * @return Token 响应
      */
     @Transactional
     public TokenResponse register(RegisterRequest request) {
@@ -115,6 +141,9 @@ public class AuthService {
 
     /**
      * 刷新 Token
+     *
+     * @param request 刷新 Token 请求
+     * @return Token 响应
      */
     @Transactional
     public TokenResponse refreshToken(RefreshTokenRequest request) {
@@ -152,6 +181,8 @@ public class AuthService {
 
     /**
      * 用户登出
+     *
+     * @param refreshTokenValue 刷新 Token
      */
     @Transactional
     public void logout(String refreshTokenValue) {
@@ -163,6 +194,8 @@ public class AuthService {
 
     /**
      * 获取安全配置
+     *
+     * @return 安全配置响应
      */
     public SecurityConfigResponse getSecurityConfig() {
         return SecurityConfigResponse.builder()
@@ -175,32 +208,124 @@ public class AuthService {
     }
 
     /**
-     * Handles forgot-password requests.
+     * 处理忘记密码请求
      *
-     * <p>This method is intentionally implemented as a non-enumerating response:
-     * regardless of account existence, it returns success to the caller while
-     * recording an internal audit log.</p>
+     * <p>实现为非枚举响应（无论账号是否存在都返回成功），防止邮箱枚举攻击。</p>
+     * <p>包含限流保护，防止暴力请求。</p>
      *
-     * @param request forgot-password request payload
+     * @param request 忘记密码请求
+     * @param ipAddress 请求IP地址
      */
-    public void forgotPassword(ForgotPasswordRequest request) {
-        log.info("Received forgot-password request for email={}", request.getEmail());
+    @Transactional
+    public void forgotPassword(ForgotPasswordRequest request, String ipAddress) {
+        String email = request.getEmail();
+        log.info("[AuthService] Received forgot-password request for email={}, ip={}", email, ipAddress);
+
+        // 1. 查找用户（如果不存在，仍返回成功但记录日志）
+        Optional<User> userOpt = userRepository.findByEmail(email);
+
+        // 2. 限流检查（无论用户是否存在都要检查，防止通过响应时间差异进行用户枚举）
+        String userIdStr = userOpt.map(u -> u.getId().toString()).orElse(null);
+        if (!rateLimiterService.allowPasswordResetRequest(userIdStr, email, ipAddress)) {
+            log.warn("[AuthService] Password reset rate limit triggered for email={}, ip={}", email, ipAddress);
+            // 返回通用成功响应，不暴露限流触发
+            return;
+        }
+
+        // 3. 如果用户不存在，静默返回（防止邮箱枚举）
+        if (userOpt.isEmpty()) {
+            log.info("[AuthService] Password reset requested for non-existent email: {}", email);
+            return;
+        }
+
+        User user = userOpt.get();
+
+        // 4. 检查用户状态
+        if (user.getStatus() == User.UserStatus.DISABLED) {
+            log.warn("[AuthService] Password reset requested for disabled user: {}", user.getId());
+            return;
+        }
+
+        // 5. 清理该用户的旧令牌
+        passwordResetTokenRepository.deleteByUserId(user.getId());
+
+        // 6. 生成新的重置令牌
+        String rawToken = generateSecureToken();
+        String tokenHash = hashToken(rawToken);
+        LocalDateTime expiresAt = LocalDateTime.now()
+                .plusMinutes(mailProperties.getPasswordResetTokenExpiryMinutes());
+
+        PasswordResetToken resetToken = PasswordResetToken.builder()
+                .userId(user.getId())
+                .tokenHash(tokenHash)
+                .expiresAt(expiresAt)
+                .used(false)
+                .build();
+
+        passwordResetTokenRepository.save(resetToken);
+
+        // 7. 发送密码重置邮件（异步）
+        String resetUrl = mailProperties.buildPasswordResetUrl(rawToken);
+        emailService.sendPasswordResetEmail(user.getEmail(), user.getUsername(), rawToken, resetUrl);
+
+        log.info("[AuthService] Password reset token generated for userId={}, expiresAt={}",
+                user.getId(), expiresAt);
     }
 
     /**
-     * Handles password reset requests.
+     * 处理密码重置请求
      *
-     * @param request reset-password request payload
+     * @param request 重置密码请求
      */
+    @Transactional
     public void resetPassword(ResetPasswordRequest request) {
+        // 1. 验证密码一致性
         if (!request.getNewPassword().equals(request.getConfirmPassword())) {
             throw new BusinessException("两次输入的密码不一致");
         }
-        log.info("Received reset-password request with token length={}", request.getToken().length());
+
+        String rawToken = request.getToken();
+        log.info("[AuthService] Processing password reset with token length={}", rawToken.length());
+
+        // 2. 计算令牌哈希
+        String tokenHash = hashToken(rawToken);
+
+        // 3. 查找令牌
+        PasswordResetToken resetToken = passwordResetTokenRepository.findByTokenHash(tokenHash)
+                .orElseThrow(() -> new BusinessException("无效或已过期的重置令牌"));
+
+        // 4. 验证令牌状态
+        if (resetToken.isExpired()) {
+            throw new BusinessException("重置令牌已过期，请重新申请");
+        }
+
+        if (resetToken.getUsed()) {
+            throw new BusinessException("重置令牌已被使用");
+        }
+
+        // 5. 查找用户
+        User user = userRepository.findById(resetToken.getUserId())
+                .orElseThrow(() -> new BusinessException("用户不存在"));
+
+        // 6. 更新密码
+        String newPasswordHash = passwordEncoder.encode(request.getNewPassword());
+        userRepository.updatePassword(user.getId(), newPasswordHash);
+
+        // 7. 标记令牌为已使用
+        resetToken.markAsUsed();
+        passwordResetTokenRepository.save(resetToken);
+
+        // 8. 撤销该用户的所有刷新令牌（强制重新登录）
+        refreshTokenRepository.deleteByUserId(user.getId());
+
+        log.info("[AuthService] Password reset successful for userId={}", user.getId());
     }
 
     /**
      * 生成 Token 响应
+     *
+     * @param user 用户
+     * @return Token 响应
      */
     private TokenResponse generateTokenResponse(User user) {
         // 查询用户角色
@@ -242,10 +367,25 @@ public class AuthService {
 
     /**
      * 计算 Token 的 Hash（用于存储）
+     *
+     * @param token 原始令牌
+     * @return 令牌哈希
      */
     private String hashToken(String token) {
-        // 使用 SHA-256 或截取部分 token + salt
-        // 简化处理：使用 UUID 的 hashCode 或直接存储 token 的 hash
         return UUID.nameUUIDFromBytes(token.getBytes()).toString();
+    }
+
+    /**
+     * 生成安全的随机令牌
+     *
+     * <p>使用 SecureRandom 生成 URL-safe Base64 编码的随机字符串。</p>
+     *
+     * @return 安全随机令牌
+     */
+    private String generateSecureToken() {
+        SecureRandom random = new SecureRandom();
+        byte[] bytes = new byte[RESET_TOKEN_LENGTH];
+        random.nextBytes(bytes);
+        return Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
     }
 }

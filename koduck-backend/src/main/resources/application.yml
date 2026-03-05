@@ -46,11 +46,32 @@ jwt:
   header-name: "Authorization"
 
 ---
-# 默认分页配置
+# 邮件配置
+# 注意: 生产环境需要配置 SMTP 服务器
+spring:
+  mail:
+    host: ${SMTP_HOST:localhost}
+    port: ${SMTP_PORT:587}
+    username: ${SMTP_USERNAME:}
+    password: ${SMTP_PASSWORD:}
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+
+# Koduck 自定义邮件配置
 koduck:
   pagination:
     default-page-size: 20
     max-page-size: 100
+  mail:
+    enabled: ${MAIL_ENABLED:false}
+    from: ${MAIL_FROM:noreply@koduck.local}
+    from-name: ${MAIL_FROM_NAME:Koduck Quant}
+    password-reset-token-expiry-minutes: 30
+    password-reset-url-template: ${PASSWORD_RESET_URL_TEMPLATE:http://localhost:3000/reset-password?token={token}}
 
 # Demo 用户配置
 # 注意: 生产环境应设置 app.demo.enabled=false 或不设置 APP_DEMO_PASSWORD

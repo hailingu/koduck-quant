@@ -18,6 +18,9 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -128,10 +131,14 @@ class AuthControllerTest {
         ForgotPasswordRequest request = new ForgotPasswordRequest();
         request.setEmail("user@koduck.dev");
 
-        ApiResponse<Void> response = authController.forgotPassword(request);
+        when(httpServletRequest.getHeader("X-Forwarded-For")).thenReturn(null);
+        when(httpServletRequest.getHeader("X-Real-IP")).thenReturn(null);
+        when(httpServletRequest.getRemoteAddr()).thenReturn("192.168.1.100");
+
+        ApiResponse<Void> response = authController.forgotPassword(request, httpServletRequest);
 
         assertEquals(0, response.getCode());
-        verify(authService).forgotPassword(request);
+        verify(authService).forgotPassword(any(ForgotPasswordRequest.class), eq("192.168.1.100"));
     }
 
     /**
