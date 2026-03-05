@@ -1,8 +1,7 @@
 import { useEffect, useState, useCallback } from 'react'
-import { useNavigate } from 'react-router-dom'
+
 import { useToast } from '@/hooks/useToast'
 import {
-  getDashboardSummary,
   getDataFreshness,
   getAllRules,
   getAlertHistory,
@@ -303,7 +302,6 @@ function AlertHistoryCard({
 }
 
 export default function Monitoring() {
-  const navigate = useNavigate()
   const { showToast } = useToast()
   const [loading, setLoading] = useState(true)
   const [metrics, setMetrics] = useState<DataFreshnessMetrics | null>(null)
@@ -348,7 +346,7 @@ export default function Monitoring() {
     }
   }
 
-  const handleToggleRule = async (id: number, enabled: boolean) => {
+  const handleToggleRule = async (_id: number, _enabled: boolean) => {
     // TODO: 实现规则启用/禁用功能
     showToast('规则状态更新功能开发中', 'info')
   }
