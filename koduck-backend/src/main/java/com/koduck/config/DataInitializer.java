@@ -13,6 +13,7 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
 
 import com.koduck.util.ReservedUsernameValidator;
 import java.util.Optional;
@@ -28,6 +29,21 @@ import java.util.Optional;
 @Slf4j
 @Component
 public class DataInitializer implements CommandLineRunner {
+
+    /**
+     * Role name assigned to regular users.  Used when creating demo account.
+     */
+    private static final String ROLE_USER = "USER";
+
+    /**
+     * Default email address for the demo account.
+     */
+    private static final String DEMO_EMAIL = "demo@koduck.local";
+
+    /**
+     * Default nickname stored on the demo user record.
+     */
+    private static final String DEMO_NICKNAME = "Demo User";
 
     private final UserRepository userRepository;
     private final RoleRepository roleRepository;
@@ -59,19 +75,20 @@ public class DataInitializer implements CommandLineRunner {
      */
     @PostConstruct
     public void validate() {
-        if (demoEnabled) {
-            log.info("Demo mode is enabled, username: {}", demoUsername);
-            if (demoPassword == null || demoPassword.isBlank()) {
-                throw new IllegalStateException(
-                    "Demo mode is enabled but APP_DEMO_PASSWORD is not set. " +
-                    "Please set a secure password via environment variable 'app.demo.password' or 'APP_DEMO_PASSWORD'."
-                );
-            }
-            if (ReservedUsernameValidator.isReserved(demoUsername)) {
-                log.warn("Using reserved username '{}' for demo account is not recommended", demoUsername);
-            }
-        } else {
+        if (!demoEnabled) {
             log.debug("Demo mode is disabled, skipping demo user creation");
+            return;
+        }
+
+        log.info("Demo mode is enabled, username: {}", demoUsername);
+        if (!StringUtils.hasText(demoPassword)) {
+            throw new IllegalStateException(
+                "Demo mode is enabled but APP_DEMO_PASSWORD is not set. " +
+                "Please set a secure password via environment variable 'app.demo.password' or 'APP_DEMO_PASSWORD'."
+            );
+        }
+        if (ReservedUsernameValidator.isReserved(demoUsername)) {
+            log.warn("Using reserved username '{}' for demo account is not recommended", demoUsername);
         }
     }
 
@@ -91,7 +108,7 @@ public class DataInitializer implements CommandLineRunner {
         try {
             createDemoUserIfNotExists();
         } catch (Exception e) {
-            log.error("Failed to initialize demo user: {}", e.getMessage(), e);
+            log.error("Failed to initialize demo user", e);
             // do not abort startup on failure
         }
     }
@@ -110,9 +127,9 @@ public class DataInitializer implements CommandLineRunner {
         }
 
         // fetch USER role
-        Optional<Role> userRoleOpt = roleRepository.findByName("USER");
+        Optional<Role> userRoleOpt = roleRepository.findByName(ROLE_USER);
         if (userRoleOpt.isEmpty()) {
-            log.warn("USER role not found, cannot create demo user");
+            log.warn("{} role not found, cannot create demo user", ROLE_USER);
             return;
         }
 
@@ -120,9 +137,9 @@ public class DataInitializer implements CommandLineRunner {
             // create demo user
             User demoUser = new User();
             demoUser.setUsername(demoUsername);
-            demoUser.setEmail("demo@koduck.local");
+            demoUser.setEmail(DEMO_EMAIL);
             demoUser.setPasswordHash(passwordEncoder.encode(demoPassword));
-            demoUser.setNickname("Demo User");
+            demoUser.setNickname(DEMO_NICKNAME);
             demoUser.setStatus(User.UserStatus.ACTIVE);
 
             demoUser = userRepository.save(demoUser);

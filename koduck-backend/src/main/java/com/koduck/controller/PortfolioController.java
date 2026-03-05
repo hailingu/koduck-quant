@@ -7,27 +7,34 @@ import com.koduck.dto.portfolio.*;
 import com.koduck.security.UserPrincipal;
 import com.koduck.service.PortfolioService;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Positive;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
 /**
- * Portfolio (投资组合) REST API controller.
+ * REST API controller for user portfolios.
+ * <p>Provides endpoints to manage positions, trades and summary statistics.</p>
  */
 @RestController
 @RequestMapping("/api/v1/portfolio")
 @RequiredArgsConstructor
 @Tag(name = "投资组合", description = "持仓管理、交易记录、盈亏统计等投资组合接口")
+@Validated
 @Slf4j
 public class PortfolioController {
     
     private final PortfolioService portfolioService;
     
     /**
-     * Get user's portfolio positions.
+     * Retrieve all portfolio positions belonging to the authenticated user.
+     *
+     * @param userPrincipal authenticated user principal injected by Spring Security
+     * @return list of {@link PortfolioPositionDto} objects representing current holdings
      */
     @GetMapping
     public ApiResponse<List<PortfolioPositionDto>> getPositions(
@@ -40,7 +47,10 @@ public class PortfolioController {
     }
     
     /**
-     * Get portfolio summary.
+     * Retrieve a summary of the authenticated user's portfolio.
+     *
+     * @param userPrincipal authenticated user principal
+     * @return {@link PortfolioSummaryDto} containing aggregated costs, market values and PnL
      */
     @GetMapping("/summary")
     public ApiResponse<PortfolioSummaryDto> getPortfolioSummary(
@@ -53,7 +63,11 @@ public class PortfolioController {
     }
     
     /**
-     * Add a position to portfolio.
+     * Create a new position or update an existing one in the user's portfolio.
+     *
+     * @param userPrincipal authenticated user principal
+     * @param request payload describing the position to add ({@link AddPositionRequest})
+     * @return the created or updated {@link PortfolioPositionDto}
      */
     @PostMapping
     public ApiResponse<PortfolioPositionDto> addPosition(
@@ -68,12 +82,17 @@ public class PortfolioController {
     }
     
     /**
-     * Update a position.
+     * Modify an existing portfolio position.
+     *
+     * @param userPrincipal authenticated user principal
+     * @param id identifier of the position to update
+     * @param request fields to change ({@link UpdatePositionRequest})
+     * @return updated {@link PortfolioPositionDto}
      */
     @PutMapping("/{id}")
     public ApiResponse<PortfolioPositionDto> updatePosition(
             @AuthenticationPrincipal UserPrincipal userPrincipal,
-            @PathVariable Long id,
+            @PathVariable @Positive(message = "Position ID must be positive") Long id,
             @Valid @RequestBody UpdatePositionRequest request) {
         
         log.debug("PUT /api/v1/portfolio/{}: user={}", id, userPrincipal.getUser().getId());
@@ -83,12 +102,16 @@ public class PortfolioController {
     }
     
     /**
-     * Delete a position.
+     * Remove a position from the user's portfolio.
+     *
+     * @param userPrincipal authenticated user principal
+     * @param id identifier of the position to delete
+     * @return empty success response
      */
     @DeleteMapping("/{id}")
     public ApiResponse<Void> deletePosition(
             @AuthenticationPrincipal UserPrincipal userPrincipal,
-            @PathVariable Long id) {
+            @PathVariable @Positive(message = "Position ID must be positive") Long id) {
         
         log.debug("DELETE /api/v1/portfolio/{}: user={}", id, userPrincipal.getUser().getId());
         
@@ -97,7 +120,10 @@ public class PortfolioController {
     }
     
     /**
-     * Get trade records.
+     * List trade records associated with the authenticated user.
+     *
+     * @param userPrincipal authenticated user principal
+     * @return list of {@link TradeDto} entries sorted by trade time descending
      */
     @GetMapping("/trades")
     public ApiResponse<List<TradeDto>> getTrades(
@@ -110,7 +136,11 @@ public class PortfolioController {
     }
     
     /**
-     * Add a trade record.
+     * Create a new trade record and update the corresponding position.
+     *
+     * @param userPrincipal authenticated user principal
+     * @param request trade details ({@link AddTradeRequest})
+     * @return the created {@link TradeDto}
      */
     @PostMapping("/trades")
     public ApiResponse<TradeDto> addTrade(

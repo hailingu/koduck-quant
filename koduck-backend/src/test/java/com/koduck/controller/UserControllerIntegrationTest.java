@@ -6,17 +6,24 @@ import com.koduck.dto.ApiResponse;
 import com.koduck.dto.auth.LoginRequest;
 import com.koduck.dto.auth.RegisterRequest;
 import com.koduck.dto.auth.TokenResponse;
-import com.koduck.dto.user.*;
+import com.koduck.dto.user.ChangePasswordRequest;
+import com.koduck.dto.user.CreateUserRequest;
+import com.koduck.dto.user.UpdateProfileRequest;
+import com.koduck.dto.user.UpdateUserRequest;
+import com.koduck.dto.user.UserDetailResponse;
+import com.koduck.entity.User;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.http.MediaType;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 
-import static org.assertj.core.api.Assertions.assertThat;
+import java.nio.charset.StandardCharsets;
+
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -27,26 +34,49 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @AutoConfigureMockMvc
 class UserControllerIntegrationTest extends AbstractIntegrationTest {
 
+        private static final int ADMIN_ROLE_ID = 1;
+
     @Autowired
     private MockMvc mockMvc;
 
     @Autowired
     private ObjectMapper objectMapper;
 
+    @Autowired
+    private JdbcTemplate jdbcTemplate;
+
     private String accessToken;
     private String adminAccessToken;
-    private Long userId;
-    private Long adminUserId;
+    private Long normalUserId;
+    private String normalUsername;
 
     @BeforeEach
     void setUp() throws Exception {
-        // 创建普通用户
+        String suffix = String.valueOf(System.nanoTime());
+
+        RegisteredUser normalUser = registerUser("testuser_" + suffix, "password123", "Test User");
+        accessToken = normalUser.accessToken();
+        normalUserId = normalUser.userId();
+        normalUsername = normalUser.username();
+
+        RegisteredUser adminUser = registerUser("adminuser_" + suffix, "password123", "Admin User");
+
+        jdbcTemplate.update(
+                "INSERT INTO user_roles (user_id, role_id) VALUES (?, ?) ON CONFLICT DO NOTHING",
+                adminUser.userId(),
+                ADMIN_ROLE_ID
+        );
+
+        adminAccessToken = loginAndGetAccessToken(adminUser.username(), "password123");
+    }
+
+    private RegisteredUser registerUser(String username, String password, String nickname) throws Exception {
         RegisterRequest registerRequest = new RegisterRequest();
-        registerRequest.setUsername("testuser");
-        registerRequest.setEmail("test@example.com");
-        registerRequest.setPassword("password123");
-        registerRequest.setConfirmPassword("password123");
-        registerRequest.setNickname("Test User");
+        registerRequest.setUsername(username);
+        registerRequest.setEmail(username + "@example.com");
+        registerRequest.setPassword(password);
+        registerRequest.setConfirmPassword(password);
+        registerRequest.setNickname(nickname);
 
         MvcResult result = mockMvc.perform(post("/api/v1/auth/register")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -58,8 +88,28 @@ class UserControllerIntegrationTest extends AbstractIntegrationTest {
                 result.getResponse().getContentAsString(),
                 objectMapper.getTypeFactory().constructParametricType(ApiResponse.class, TokenResponse.class));
 
-        accessToken = response.getData().getAccessToken();
-        userId = response.getData().getUser().getId();
+        TokenResponse tokenResponse = response.getData();
+        return new RegisteredUser(tokenResponse.getAccessToken(), tokenResponse.getUser().getId(), username);
+    }
+
+    private String loginAndGetAccessToken(String username, String password) throws Exception {
+        LoginRequest loginRequest = new LoginRequest();
+        loginRequest.setUsername(username);
+        loginRequest.setPassword(password);
+
+        MvcResult result = mockMvc.perform(post("/api/v1/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(loginRequest)))
+                .andExpect(status().isOk())
+                .andReturn();
+
+        ApiResponse<TokenResponse> response = objectMapper.readValue(
+                result.getResponse().getContentAsString(),
+                objectMapper.getTypeFactory().constructParametricType(ApiResponse.class, TokenResponse.class));
+        return response.getData().getAccessToken();
+    }
+
+    private record RegisteredUser(String accessToken, Long userId, String username) {
     }
 
     @Test
@@ -69,8 +119,8 @@ class UserControllerIntegrationTest extends AbstractIntegrationTest {
                         .header("Authorization", "Bearer " + accessToken))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(0))
-                .andExpect(jsonPath("$.data.username").value("testuser"))
-                .andExpect(jsonPath("$.data.email").value("test@example.com"));
+                .andExpect(jsonPath("$.data.username").value(normalUsername))
+                .andExpect(jsonPath("$.data.id").value(normalUserId));
     }
 
     @Test
@@ -107,7 +157,7 @@ class UserControllerIntegrationTest extends AbstractIntegrationTest {
 
         // 使用新密码登录
         LoginRequest loginRequest = new LoginRequest();
-        loginRequest.setUsername("testuser");
+        loginRequest.setUsername(normalUsername);
         loginRequest.setPassword("newpassword456");
 
         mockMvc.perform(post("/api/v1/auth/login")
@@ -147,5 +197,84 @@ class UserControllerIntegrationTest extends AbstractIntegrationTest {
     void unauthenticatedUserCannotAccessUserEndpoint() throws Exception {
         mockMvc.perform(get("/api/v1/users/me"))
                 .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    @DisplayName("管理员可获取用户列表")
+    void adminCanListUsers() throws Exception {
+        mockMvc.perform(get("/api/v1/users")
+                        .param("page", "1")
+                        .param("size", "10")
+                        .header("Authorization", "Bearer " + adminAccessToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(0))
+                .andExpect(jsonPath("$.data.content").isArray())
+                .andExpect(jsonPath("$.data.totalElements").isNumber());
+    }
+
+    @Test
+    @DisplayName("管理员可获取指定用户详情")
+    void adminCanGetUserById() throws Exception {
+        mockMvc.perform(get("/api/v1/users/{id}", normalUserId)
+                        .header("Authorization", "Bearer " + adminAccessToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(0))
+                .andExpect(jsonPath("$.data.id").value(normalUserId))
+                .andExpect(jsonPath("$.data.username").value(normalUsername));
+    }
+
+    @Test
+    @DisplayName("管理员可创建并更新用户")
+    void adminCanCreateAndUpdateUser() throws Exception {
+        CreateUserRequest createRequest = new CreateUserRequest();
+        createRequest.setUsername("managed_" + System.nanoTime());
+        createRequest.setEmail(createRequest.getUsername() + "@example.com");
+        createRequest.setPassword("password123");
+        createRequest.setNickname("Managed User");
+        createRequest.setStatus(User.UserStatus.ACTIVE);
+
+        MvcResult createResult = mockMvc.perform(post("/api/v1/users")
+                        .header("Authorization", "Bearer " + adminAccessToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(createRequest)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(0))
+                .andExpect(jsonPath("$.data.username").value(createRequest.getUsername()))
+                .andReturn();
+
+        ApiResponse<UserDetailResponse> createResponse = objectMapper.readValue(
+                createResult.getResponse().getContentAsString(StandardCharsets.UTF_8),
+                objectMapper.getTypeFactory().constructParametricType(ApiResponse.class, UserDetailResponse.class));
+        Long createdUserId = createResponse.getData().getId();
+
+        UpdateUserRequest updateRequest = new UpdateUserRequest();
+        updateRequest.setNickname("Managed User Updated");
+        updateRequest.setAvatarUrl("https://example.com/managed.png");
+        updateRequest.setStatus(User.UserStatus.ACTIVE);
+
+        mockMvc.perform(put("/api/v1/users/{id}", createdUserId)
+                        .header("Authorization", "Bearer " + adminAccessToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(updateRequest)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(0))
+                .andExpect(jsonPath("$.data.id").value(createdUserId))
+                .andExpect(jsonPath("$.data.nickname").value("Managed User Updated"));
+    }
+
+    @Test
+    @DisplayName("管理员可删除其他用户")
+    void adminCanDeleteOtherUser() throws Exception {
+        RegisteredUser deletableUser = registerUser("deletable_" + System.nanoTime(), "password123", "Delete Me");
+
+        mockMvc.perform(delete("/api/v1/users/{id}", deletableUser.userId())
+                        .header("Authorization", "Bearer " + adminAccessToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(0));
+
+        mockMvc.perform(get("/api/v1/users/{id}", deletableUser.userId())
+                        .header("Authorization", "Bearer " + adminAccessToken))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value(-1));
     }
 }

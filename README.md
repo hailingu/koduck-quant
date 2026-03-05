@@ -44,17 +44,8 @@ docker-compose up -d
 ./scripts/docker-start.sh
 ```
 
-### 访问服务
 
 - **前端界面**: http://localhost:3000
-- **后端 API**: http://localhost:8080/api/v1
-- **API 文档**: http://localhost:8080/swagger-ui.html
-
-### 常用命令
-
-```bash
-# 查看服务状态
-docker-compose ps
 
 # 查看日志
 docker-compose logs -f
@@ -93,6 +84,23 @@ cd koduck-frontend
 npm install
 npm run dev
 ```
+
+## 测试命令约定
+
+为避免在未启动 Docker 环境时误跑依赖 Testcontainers 的集成测试，后端采用以下约定：
+
+```bash
+# 默认：仅运行单元测试与轻量测试（已排除 *IntegrationTest）
+mvn -f koduck-backend/pom.xml test
+
+# 显式开启：包含 Docker 依赖的集成测试
+mvn -f koduck-backend/pom.xml -Pwith-integration-tests test
+```
+
+建议：
+
+- 本地日常开发使用默认命令；
+- 只有在 Docker 可用（Docker Desktop/Engine 已启动）时再使用 `with-integration-tests` profile。
 
 ## 已实现功能
 

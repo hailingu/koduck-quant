@@ -1,7 +1,5 @@
 package com.koduck.config;
 
-import com.fasterxml.jackson.annotation.JsonAutoDetect;
-import com.fasterxml.jackson.annotation.PropertyAccessor;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import org.springframework.cache.annotation.EnableCaching;
@@ -71,23 +69,20 @@ public class CacheConfig {
 
 
     /**
-     * Construct a JSON serializer that understands Java time types and Java Records.
+     * Construct a JSON serializer that understands Java time types.
      *
      * <p>The serializer is backed by a custom {@link ObjectMapper} which
      * registers the {@link JavaTimeModule} so that {@code java.time} objects
-     * are handled correctly when caching. Also configures visibility to support
-     * Java Records serialization/deserialization.</p>
+     * are handled correctly when caching.</p>
      *
      * @return a non-null JSON serializer instance
      */
     private static GenericJackson2JsonRedisSerializer createJsonSerializer() {
         ObjectMapper objectMapper = new ObjectMapper();
         objectMapper.registerModule(new JavaTimeModule());
-        // Enable visibility for fields to support Java Records serialization
-        objectMapper.setVisibility(PropertyAccessor.FIELD, JsonAutoDetect.Visibility.ANY);
         return new GenericJackson2JsonRedisSerializer(objectMapper);
     }
-
+ 
     /**
      * Utility factory for {@link RedisCacheConfiguration}.
      *
