@@ -113,16 +113,32 @@ koduck-analytics/
 ### 标准提交流程
 
 ```bash
-# 1. 从 dev 创建功能分支
+# 1. 从 dev 创建功能分支（使用 git worktree）
 git checkout dev && git pull origin dev
-git checkout -b feature/<name>
 
-# 2. 开发与提交
+# 2. 使用 worktree 创建独立开发目录
+# 语法: git worktree add <路径> -b <分支名>
+git worktree add ../worktree-feature -b feature/<name>
+
+# 3. 进入 worktree 目录进行开发
+cd ../worktree-feature
+
+# 4. 开发与提交
 git add .
 git commit -m "feat(scope): your change summary"
 git push -u origin feature/<name>
 
-# 3. 发起 PR 合并到 dev
+# 5. 回到主仓库并合并
+cd ../koduck-quant
+git checkout dev
+git merge feature/<name>
+git push origin dev
+
+# 6. 清理：删除 worktree 和功能分支
+git worktree remove ../worktree-feature
+git branch -d feature/<name>
+
+# 7. 发起 PR 合并到 main（如果需要）
 ```
 
 ### Commit Message 规范
@@ -495,14 +511,25 @@ class TestMomentumFactor:
 ### 常用命令
 
 ```bash
-# 创建功能分支
+# 创建功能分支（使用 git worktree）
 git checkout dev && git pull origin dev
-git checkout -b feature/my-feature
+git worktree add ../worktree-feature -b feature/my-feature
 
-# 提交变更
+# 在 worktree 中开发并提交
+cd ../worktree-feature
 git add .
 git commit -m "feat(module): add new feature"
 git push -u origin feature/my-feature
+
+# 回到主仓库并合并
+cd ../koduck-quant
+git checkout dev
+git merge feature/my-feature
+git push origin dev
+
+# 清理 worktree 和分支
+git worktree remove ../worktree-feature
+git branch -d feature/my-feature
 
 # 使用 memory-manager
 ./tools/memory-manager quick-note --content "学习笔记" --theme coding

@@ -1,6 +1,7 @@
 package com.koduck.config;
 
 import com.koduck.config.properties.DataServiceProperties;
+import java.util.Objects;
 import org.springframework.boot.web.client.RestTemplateBuilder;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -9,34 +10,36 @@ import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.web.client.RestTemplate;
 
 /**
- * Configuration for RestTemplate instances used by external API clients.
- *
- * <p>Defines a bean with custom connection and read timeouts pulled from
- * {@link DataServiceProperties} and wraps the underlying request factory with
- * buffering capabilities to support logging of response bodies.</p>
+ * RestTemplate configuration for external API calls.
  */
 @Configuration
 public class RestTemplateConfig {
-    
+
     /**
-     * Creates a RestTemplate preconfigured for the data service.
+     * Builds a dedicated {@link RestTemplate} for data-service HTTP calls.
      *
-     * @param builder    spring-provided RestTemplateBuilder
-     * @param properties configuration object holding timeout values
-     * @return a RestTemplate instance with buffering request factory and
-     * configured timeouts
+     * @param builder RestTemplate builder provided by Spring
+     * @param properties data-service timeout properties
+     * @return configured RestTemplate instance with buffering enabled
      */
     @Bean
-    public RestTemplate dataServiceRestTemplate(RestTemplateBuilder builder, DataServiceProperties properties) {
-        SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
-        factory.setConnectTimeout(properties.getConnectTimeoutMs());
-        factory.setReadTimeout(properties.getReadTimeoutMs());
-        
-        // Use buffering factory to allow response body to be read multiple times (for logging)
-        BufferingClientHttpRequestFactory bufferingFactory = new BufferingClientHttpRequestFactory(factory);
-        
-        return builder
-                .requestFactory(() -> bufferingFactory)
-                .build();
+    public RestTemplate dataServiceRestTemplate(
+            RestTemplateBuilder builder,
+            DataServiceProperties properties) {
+        RestTemplateBuilder nonNullBuilder = Objects.requireNonNull(builder, "builder must not be null");
+        DataServiceProperties nonNullProperties =
+                Objects.requireNonNull(properties, "properties must not be null");
+
+        int connectTimeoutMs = nonNullProperties.getConnectTimeoutMs();
+        int readTimeoutMs = nonNullProperties.getReadTimeoutMs();
+
+        SimpleClientHttpRequestFactory requestFactory = new SimpleClientHttpRequestFactory();
+        requestFactory.setConnectTimeout(connectTimeoutMs);
+        requestFactory.setReadTimeout(readTimeoutMs);
+
+        BufferingClientHttpRequestFactory bufferingFactory =
+                new BufferingClientHttpRequestFactory(requestFactory);
+
+        return nonNullBuilder.requestFactory(() -> bufferingFactory).build();
     }
 }
