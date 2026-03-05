@@ -117,12 +117,16 @@ public class AuthController {
      * Trigger forgot-password flow for an email address.
      *
      * @param request forgot-password request payload
+     * @param httpRequest servlet request carrying client metadata
      * @return empty success response
      */
     @PostMapping("/forgot-password")
     @Operation(summary = "忘记密码", description = "发送密码重置邮件到用户邮箱")
-    public ApiResponse<Void> forgotPassword(@Valid @RequestBody ForgotPasswordRequest request) {
-        authService.forgotPassword(request);
+    public ApiResponse<Void> forgotPassword(
+            @Valid @RequestBody ForgotPasswordRequest request,
+            HttpServletRequest httpRequest) {
+        String ipAddress = getClientIpAddress(httpRequest);
+        authService.forgotPassword(request, ipAddress);
         return ApiResponse.success();
     }
 
