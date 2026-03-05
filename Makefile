@@ -143,6 +143,16 @@ build-backend: ## 重新构建后端镜像
 build-frontend: ## 重新构建前端镜像
 	docker-compose up -d --build frontend
 
+build-data-service: ## 仅重新构建 data-service 镜像（不使用缓存）
+	@echo "$(BLUE)仅重新构建 data-service 镜像（不使用缓存）...$(NC)"
+	docker-compose build --no-cache data-service
+	@echo "$(GREEN)✅ data-service 镜像构建完成$(NC)"
+
+build-data-service-up: ## 重新构建 data-service 并启动依赖服务
+	@echo "$(BLUE)启动依赖服务并重新构建 data-service...$(NC)"
+	docker-compose up -d --build data-service
+	@echo "$(GREEN)✅ data-service 已启动$(NC)"
+
 # ==========================================
 # Database Operations
 # ==========================================
