@@ -59,9 +59,16 @@ public class SecurityConfig {
                     response.sendError(HttpServletResponse.SC_UNAUTHORIZED, authException.getMessage())))
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers(
+<<<<<<< HEAD
                     AUTH_ENDPOINT_PATTERN,
                     ACTUATOR_HEALTH_ENDPOINT,
                     APP_HEALTH_ENDPOINT_PATTERN
+=======
+                    "/api/v1/auth/**",
+                    "/actuator/health",
+                    "/api/v1/health/**",
+                    "/api/v1/monitoring/**"
+>>>>>>> feature/monitor-alert-101
                 ).permitAll()
                 .requestMatchers(HttpMethod.GET, MARKET_ENDPOINT_PATTERN).permitAll()
                 .anyRequest().authenticated()
