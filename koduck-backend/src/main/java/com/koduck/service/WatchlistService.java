@@ -51,12 +51,15 @@ public class WatchlistService {
      */
     @Transactional
     public WatchlistItemDto addToWatchlist(Long userId, AddWatchlistRequest request) {
-        log.debug("Adding to watchlist: user={}, market={}, symbol={}", 
-                 userId, request.market(), request.symbol());
+        // Normalize symbol to standard 6-digit format for consistent storage
+        // This ensures watchlist symbols match stock_realtime table format
+        String normalizedSymbol = SymbolUtils.normalize(request.symbol());
+        log.debug("Adding to watchlist: user={}, market={}, symbol={} (normalized: {})", 
+                 userId, request.market(), request.symbol(), normalizedSymbol);
         
-        // Check if already exists
+        // Check if already exists (using normalized symbol)
         if (watchlistRepository.existsByUserIdAndMarketAndSymbol(
-                userId, request.market(), request.symbol())) {
+                userId, request.market(), normalizedSymbol)) {
             throw new IllegalArgumentException("Stock already in watchlist");
         }
         
@@ -72,7 +75,7 @@ public class WatchlistService {
         WatchlistItem item = WatchlistItem.builder()
             .userId(userId)
             .market(request.market())
-            .symbol(request.symbol())
+            .symbol(normalizedSymbol)
             .name(request.name())
             .notes(request.notes())
             .sortOrder(maxOrder + 1)
