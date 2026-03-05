@@ -13,7 +13,10 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 /**
- * AI 分析 REST API controller.
+ * REST controller providing AI analysis endpoints.
+ *
+ * <p>Endpoints include stock analysis, strategy recommendations, backtest
+ * interpretation, and risk assessments. All require an authenticated user.</p>
  */
 @RestController
 @RequestMapping("/api/v1/ai")
@@ -25,7 +28,11 @@ public class AiAnalysisController {
     private final AiAnalysisService aiAnalysisService;
 
     /**
-     * 股票智能分析
+     * Analyze a stock using AI models.
+     *
+     * @param userPrincipal authenticated user principal
+     * @param request       details of the stock to analyze
+     * @return analysis result wrapped in {@link ApiResponse}
      */
     @PostMapping("/analyze")
     public ApiResponse<StockAnalysisResponse> analyzeStock(
@@ -44,7 +51,11 @@ public class AiAnalysisController {
     }
 
     /**
-     * 策略智能推荐
+     * Provide strategy recommendations for the user.
+     *
+     * @param userPrincipal authenticated user principal
+     * @param request       recommendation parameters
+     * @return recommendations wrapped in {@link ApiResponse}
      */
     @PostMapping("/strategy-recommend")
     public ApiResponse<StrategyRecommendResponse> recommendStrategies(
@@ -60,7 +71,11 @@ public class AiAnalysisController {
     }
 
     /**
-     * 回测结果解读
+     * Interpret a backtest result for the user.
+     *
+     * @param userPrincipal authenticated user principal
+     * @param request       backtest interpretation request
+     * @return interpretation wrapped in {@link ApiResponse}
      */
     @PostMapping("/interpret-backtest")
     public ApiResponse<BacktestInterpretResponse> interpretBacktest(
@@ -79,7 +94,11 @@ public class AiAnalysisController {
     }
 
     /**
-     * 风险评估
+     * Assess portfolio risk for the user.
+     *
+     * @param userPrincipal authenticated user principal
+     * @param request       risk assessment request
+     * @return risk report wrapped in {@link ApiResponse}
      */
     @PostMapping("/risk-assessment")
     public ApiResponse<RiskAssessmentResponse> assessRisk(
