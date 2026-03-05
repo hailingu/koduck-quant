@@ -101,11 +101,11 @@ async def get_tick_history(
     start: Annotated[
         Optional[datetime],
         Query(description="Start time (ISO 8601 format)")
-    ],
+    ] = None,
     end: Annotated[
         Optional[datetime],
         Query(description="End time (ISO 8601 format)")
-    ],
+    ] = None,
     limit: Annotated[
         int,
         Query(ge=1, le=10000, description="Maximum records per page")
@@ -204,12 +204,12 @@ async def get_tick_statistics(
     symbol: str,
     start: Annotated[
         Optional[datetime],
-        Query(None, description="Start time (ISO 8601 format)")
-    ],
+        Query(description="Start time (ISO 8601 format)")
+    ] = None,
     end: Annotated[
         Optional[datetime],
-        Query(None, description="End time (ISO 8601 format)")
-    ],
+        Query(description="End time (ISO 8601 format)")
+    ] = None,
 ):
     """Get statistics for tick data in a time range.
     
