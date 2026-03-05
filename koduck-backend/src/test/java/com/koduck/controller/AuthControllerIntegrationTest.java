@@ -3,8 +3,11 @@ package com.koduck.controller;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.koduck.AbstractIntegrationTest;
 import com.koduck.dto.ApiResponse;
+import com.koduck.dto.auth.ForgotPasswordRequest;
 import com.koduck.dto.auth.LoginRequest;
+import com.koduck.dto.auth.RefreshTokenRequest;
 import com.koduck.dto.auth.RegisterRequest;
+import com.koduck.dto.auth.ResetPasswordRequest;
 import com.koduck.dto.auth.TokenResponse;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -14,15 +17,19 @@ import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 
-import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
- * AuthController 集成测试
+ * Integration tests for {@link AuthController}.
+ *
+ * @author GitHub Copilot
+ * @date 2026-03-05
  */
 @AutoConfigureMockMvc
+@SuppressWarnings("null")
 class AuthControllerIntegrationTest extends AbstractIntegrationTest {
 
     @Autowired
@@ -32,8 +39,9 @@ class AuthControllerIntegrationTest extends AbstractIntegrationTest {
     private ObjectMapper objectMapper;
 
     @Test
-    @DisplayName("用户注册成功")
+    @DisplayName("shouldRegisterUserSuccessfully")
     void registerSuccess() throws Exception {
+        // prepare registration payload
         RegisterRequest request = new RegisterRequest();
         request.setUsername("testuser");
         request.setEmail("test@example.com");
@@ -53,9 +61,9 @@ class AuthControllerIntegrationTest extends AbstractIntegrationTest {
     }
 
     @Test
-    @DisplayName("注册时用户名已存在")
+    @DisplayName("shouldReturnErrorWhenUsernameAlreadyExists")
     void registerUsernameExists() throws Exception {
-        // 先注册一个用户
+        // register first user
         RegisterRequest request = new RegisterRequest();
         request.setUsername("existinguser");
         request.setEmail("existing@example.com");
@@ -83,9 +91,9 @@ class AuthControllerIntegrationTest extends AbstractIntegrationTest {
     }
 
     @Test
-    @DisplayName("用户登录成功")
+    @DisplayName("shouldLoginSuccessfullyWithValidCredentials")
     void loginSuccess() throws Exception {
-        // 先注册
+        // register a user first
         RegisterRequest registerRequest = new RegisterRequest();
         registerRequest.setUsername("logintest");
         registerRequest.setEmail("login@example.com");
@@ -97,7 +105,7 @@ class AuthControllerIntegrationTest extends AbstractIntegrationTest {
                         .content(objectMapper.writeValueAsString(registerRequest)))
                 .andExpect(status().isOk());
 
-        // 再登录
+        // then perform login
         LoginRequest loginRequest = new LoginRequest();
         loginRequest.setUsername("logintest");
         loginRequest.setPassword("password123");
@@ -112,9 +120,9 @@ class AuthControllerIntegrationTest extends AbstractIntegrationTest {
     }
 
     @Test
-    @DisplayName("登录时密码错误")
+    @DisplayName("shouldReturnErrorForIncorrectPassword")
     void loginWrongPassword() throws Exception {
-        // 先注册
+        // register a user first
         RegisterRequest registerRequest = new RegisterRequest();
         registerRequest.setUsername("wrongpwdtest");
         registerRequest.setEmail("wrongpwd@example.com");
@@ -126,7 +134,7 @@ class AuthControllerIntegrationTest extends AbstractIntegrationTest {
                         .content(objectMapper.writeValueAsString(registerRequest)))
                 .andExpect(status().isOk());
 
-        // 用错误密码登录
+        // attempt login with wrong password
         LoginRequest loginRequest = new LoginRequest();
         loginRequest.setUsername("wrongpwdtest");
         loginRequest.setPassword("wrongpassword");
@@ -136,13 +144,13 @@ class AuthControllerIntegrationTest extends AbstractIntegrationTest {
                         .content(objectMapper.writeValueAsString(loginRequest)))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value(-1))
-                .andExpect(jsonPath("$.message").value("用户名或密码错误"));
+                .andExpect(jsonPath("$.message").value("用户名或密码错误")); // original message kept until localization
     }
 
     @Test
-    @DisplayName("刷新 Token 成功")
+    @DisplayName("shouldRefreshTokenSuccessfully")
     void refreshTokenSuccess() throws Exception {
-        // 注册获取 refresh token
+        // register user to obtain refresh token
         RegisterRequest registerRequest = new RegisterRequest();
         registerRequest.setUsername("refreshtest");
         registerRequest.setEmail("refresh@example.com");
@@ -161,8 +169,8 @@ class AuthControllerIntegrationTest extends AbstractIntegrationTest {
 
         String refreshToken = response.getData().getRefreshToken();
 
-        // 刷新 token
-        var refreshRequest = new com.koduck.dto.auth.RefreshTokenRequest();
+        // refresh token
+        RefreshTokenRequest refreshRequest = new RefreshTokenRequest();
         refreshRequest.setRefreshToken(refreshToken);
 
         mockMvc.perform(post("/api/v1/auth/refresh")
@@ -175,11 +183,39 @@ class AuthControllerIntegrationTest extends AbstractIntegrationTest {
     }
 
     @Test
-    @DisplayName("获取安全配置")
+    @DisplayName("shouldReturnSecurityConfiguration")
     void getSecurityConfig() throws Exception {
-        mockMvc.perform(post("/api/v1/auth/security-config"))
+                mockMvc.perform(get("/api/v1/auth/security-config"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(0))
                 .andExpect(jsonPath("$.data.registrationEnabled").value(true));
     }
+
+        @Test
+        @DisplayName("forgotPasswordEndpointShouldSucceed")
+        void forgotPasswordShouldReturnSuccess() throws Exception {
+                ForgotPasswordRequest request = new ForgotPasswordRequest();
+                request.setEmail("forgot@example.com");
+
+                mockMvc.perform(post("/api/v1/auth/forgot-password")
+                                                .contentType(MediaType.APPLICATION_JSON)
+                                                .content(objectMapper.writeValueAsString(request)))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$.code").value(0));
+        }
+
+        @Test
+        @DisplayName("resetPasswordEndpointShouldSucceed")
+        void resetPasswordShouldReturnSuccess() throws Exception {
+                ResetPasswordRequest request = new ResetPasswordRequest();
+                request.setToken("mock-reset-token");
+                request.setNewPassword("password123");
+                request.setConfirmPassword("password123");
+
+                mockMvc.perform(post("/api/v1/auth/reset-password")
+                                                .contentType(MediaType.APPLICATION_JSON)
+                                                .content(objectMapper.writeValueAsString(request)))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$.code").value(0));
+        }
 }

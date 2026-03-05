@@ -70,7 +70,7 @@ public class KlineAdminController {
             klineSyncService.syncSymbolKline(market, symbol, timeframe);
             try {
                 Thread.sleep(500); // Rate limiting
-            } catch (InterruptedException e) {
+            } catch (InterruptedException _) {
                 Thread.currentThread().interrupt();
                 break;
             }
