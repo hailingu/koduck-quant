@@ -8,6 +8,7 @@ import com.koduck.entity.StockRealtime;
 import com.koduck.entity.WatchlistItem;
 import com.koduck.repository.StockRealtimeRepository;
 import com.koduck.repository.WatchlistRepository;
+import com.koduck.util.SymbolUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -133,8 +134,18 @@ public class WatchlistService {
     }
     
     private WatchlistItemDto convertToDtoWithPrice(WatchlistItem item) {
-        // Get real-time price from stock_realtime table
-        Optional<StockRealtime> realtimeOpt = stockRealtimeRepository.findBySymbol(item.getSymbol());
+        // Normalize symbol to match stock_realtime table format
+        // stock_realtime stores symbols as 6-digit (e.g., "601012")
+        // watchlist_item may have market prefix (e.g., "SH601012" or just "601012")
+        String normalizedSymbol = SymbolUtils.normalize(item.getSymbol());
+        log.debug("Looking up realtime price for symbol: {} (original: {})", normalizedSymbol, item.getSymbol());
+        
+        // Try exact match first, then case-insensitive match
+        Optional<StockRealtime> realtimeOpt = stockRealtimeRepository.findBySymbol(normalizedSymbol);
+        if (realtimeOpt.isEmpty()) {
+            // Fallback to case-insensitive search
+            realtimeOpt = stockRealtimeRepository.findBySymbolIgnoreCase(normalizedSymbol);
+        }
         
         BigDecimal price = realtimeOpt.map(StockRealtime::getPrice).orElse(null);
         BigDecimal change = realtimeOpt.map(StockRealtime::getChangeAmount).orElse(null);
