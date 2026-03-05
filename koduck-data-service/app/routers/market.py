@@ -7,7 +7,8 @@ major index quotations. All responses are wrapped in
 """
 
 import logging
-from typing import Annotated
+from datetime import datetime, timedelta
+from typing import Annotated, Optional
 
 from fastapi import APIRouter, HTTPException, Query
 
@@ -17,6 +18,7 @@ from app.models.schemas import (
     SymbolInfo,
 )
 from app.services.akshare_client import akshare_client
+from app.services.tick_history_service import tick_history_service
 
 logger = logging.getLogger(__name__)
 
@@ -86,4 +88,166 @@ async def get_market_indices():
         return ApiResponse(data=indices)
     except Exception as e:
         logger.error("Market indices query error", exc_info=True)
+        raise HTTPException(status_code=500, detail=ERROR_INTERNAL_RETRY) from e
+
+
+@router.get(
+    "/ticks/{symbol}",
+    response_model=ApiResponse[dict],
+    responses={500: {"description": "Internal server error"}},
+)
+async def get_tick_history(
+    symbol: str,
+    start: Annotated[
+        Optional[datetime],
+        Query(None, description="Start time (ISO 8601 format)")
+    ],
+    end: Annotated[
+        Optional[datetime],
+        Query(None, description="End time (ISO 8601 format)")
+    ],
+    limit: Annotated[
+        int,
+        Query(1000, ge=1, le=10000, description="Maximum records per page")
+    ],
+    offset: Annotated[
+        int,
+        Query(0, ge=0, description="Offset for pagination")
+    ],
+):
+    """Get tick history for a specific symbol within a time range.
+    
+    Args:
+        symbol: Stock symbol (e.g., "601398")
+        start: Start time (defaults to 1 day ago)
+        end: End time (defaults to now)
+        limit: Maximum number of records to return (1-10000)
+        offset: Offset for pagination
+        
+    Returns:
+        ApiResponse containing tick history data with pagination info.
+        
+    Example:
+        GET /api/v1/market/ticks/601398?start=2026-03-01T09:30:00&end=2026-03-01T15:00:00&limit=100
+    """
+    try:
+        result = await tick_history_service.get_ticks(
+            symbol=symbol,
+            start_time=start,
+            end_time=end,
+            limit=limit,
+            offset=offset,
+        )
+        
+        return ApiResponse(
+            data={
+                "symbol": symbol,
+                "ticks": result.data,
+                "pagination": {
+                    "total": result.total,
+                    "page": result.page,
+                    "page_size": result.page_size,
+                    "has_more": result.has_more,
+                },
+            }
+        )
+    except Exception as e:
+        logger.error(f"Tick history query error for {symbol}", exc_info=True)
+        raise HTTPException(status_code=500, detail=ERROR_INTERNAL_RETRY) from e
+
+
+@router.get(
+    "/ticks/{symbol}/latest",
+    response_model=ApiResponse[dict],
+    responses={500: {"description": "Internal server error"}},
+)
+async def get_latest_ticks(
+    symbol: str,
+    limit: Annotated[
+        int,
+        Query(100, ge=1, le=1000, description="Maximum records to return")
+    ],
+):
+    """Get the most recent tick history records for a symbol.
+    
+    Args:
+        symbol: Stock symbol (e.g., "601398")
+        limit: Maximum number of records to return (1-1000)
+        
+    Returns:
+        ApiResponse containing the most recent tick records.
+        
+    Example:
+        GET /api/v1/market/ticks/601398/latest?limit=50
+    """
+    try:
+        ticks = await tick_history_service.get_latest_ticks(symbol, limit)
+        
+        return ApiResponse(
+            data={
+                "symbol": symbol,
+                "ticks": ticks,
+                "count": len(ticks),
+            }
+        )
+    except Exception as e:
+        logger.error(f"Latest ticks query error for {symbol}", exc_info=True)
+        raise HTTPException(status_code=500, detail=ERROR_INTERNAL_RETRY) from e
+
+
+@router.get(
+    "/ticks/{symbol}/statistics",
+    response_model=ApiResponse[dict],
+    responses={500: {"description": "Internal server error"}},
+)
+async def get_tick_statistics(
+    symbol: str,
+    start: Annotated[
+        Optional[datetime],
+        Query(None, description="Start time (ISO 8601 format)")
+    ],
+    end: Annotated[
+        Optional[datetime],
+        Query(None, description="End time (ISO 8601 format)")
+    ],
+):
+    """Get statistics for tick data in a time range.
+    
+    Args:
+        symbol: Stock symbol (e.g., "601398")
+        start: Start time (defaults to 1 day ago)
+        end: End time (defaults to now)
+        
+    Returns:
+        ApiResponse containing tick statistics.
+        
+    Example:
+        GET /api/v1/market/ticks/601398/statistics?start=2026-03-01T09:30:00&end=2026-03-01T15:00:00
+    """
+    try:
+        stats = await tick_history_service.get_statistics(symbol, start, end)
+        
+        return ApiResponse(
+            data={
+                "symbol": stats.symbol,
+                "time_range": {
+                    "start": stats.start_time.isoformat() if stats.start_time else None,
+                    "end": stats.end_time.isoformat() if stats.end_time else None,
+                },
+                "count": stats.count,
+                "price": {
+                    "avg": stats.avg_price,
+                    "max": stats.max_price,
+                    "min": stats.min_price,
+                    "change": stats.price_change,
+                    "change_percent": stats.price_change_percent,
+                },
+                "volume": {
+                    "total": stats.total_volume,
+                    "total_amount": stats.total_amount,
+                },
+            }
+        )
+    except Exception as e:
+        logger.error(f"Tick statistics query error for {symbol}", exc_info=True)
         raise HTTPException(status_code=500, detail=ERROR_INTERNAL_RETRY) from e
