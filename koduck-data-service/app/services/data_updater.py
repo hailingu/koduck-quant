@@ -7,7 +7,7 @@ backend.  Designed for use within the ``koduck-data-service`` microservice.
 import asyncio
 import logging
 from datetime import datetime
-from typing import Any, Optional
+from typing import Any, Optional, Tuple
 
 from app.db import stock_db, tick_history_db
 from app.config import settings
