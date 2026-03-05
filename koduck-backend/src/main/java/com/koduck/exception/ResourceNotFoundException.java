@@ -13,9 +13,14 @@ import lombok.Getter;
 public class ResourceNotFoundException extends BusinessException {
 
     /**
-     * 默认错误码：404
+     * 资源类型
      */
-    private static final int NOT_FOUND_CODE = 404;
+    private final String resourceType;
+
+    /**
+     * 资源 ID
+     */
+    private final Object resourceId;
 
     /**
      * 创建资源不存在异常。
@@ -23,7 +28,20 @@ public class ResourceNotFoundException extends BusinessException {
      * @param message 错误消息
      */
     public ResourceNotFoundException(String message) {
-        super(NOT_FOUND_CODE, message);
+        super(ErrorCode.RESOURCE_NOT_FOUND.getCode(), message);
+        this.resourceType = null;
+        this.resourceId = null;
+    }
+
+    /**
+     * 创建资源不存在异常。
+     *
+     * @param errorCode 错误码枚举
+     */
+    public ResourceNotFoundException(ErrorCode errorCode) {
+        super(errorCode.getCode(), errorCode.getDefaultMessage());
+        this.resourceType = null;
+        this.resourceId = null;
     }
 
     /**
@@ -33,6 +51,32 @@ public class ResourceNotFoundException extends BusinessException {
      * @param resourceId   资源 ID
      */
     public ResourceNotFoundException(String resourceType, Object resourceId) {
-        super(NOT_FOUND_CODE, resourceType + "不存在: " + resourceId);
+        super(ErrorCode.RESOURCE_NOT_FOUND.getCode(), resourceType + "不存在: " + resourceId);
+        this.resourceType = resourceType;
+        this.resourceId = resourceId;
+    }
+
+    /**
+     * 创建资源不存在异常。
+     *
+     * @param errorCode    错误码枚举
+     * @param resourceType 资源类型
+     * @param resourceId   资源 ID
+     */
+    public ResourceNotFoundException(ErrorCode errorCode, String resourceType, Object resourceId) {
+        super(errorCode.getCode(), errorCode.getDefaultMessage());
+        this.resourceType = resourceType;
+        this.resourceId = resourceId;
+    }
+
+    /**
+     * 快速创建资源不存在异常。
+     *
+     * @param resourceType 资源类型
+     * @param resourceId   资源 ID
+     * @return ResourceNotFoundException
+     */
+    public static ResourceNotFoundException of(String resourceType, Object resourceId) {
+        return new ResourceNotFoundException(resourceType, resourceId);
     }
 }

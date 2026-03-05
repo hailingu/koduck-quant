@@ -4,7 +4,10 @@ import com.koduck.dto.UserInfo;
 import com.koduck.dto.auth.*;
 import com.koduck.entity.RefreshToken;
 import com.koduck.entity.User;
+import com.koduck.exception.AuthenticationException;
 import com.koduck.exception.BusinessException;
+import com.koduck.exception.DuplicateException;
+import com.koduck.exception.ErrorCode;
 import com.koduck.repository.*;
 import com.koduck.util.JwtUtil;
 import lombok.RequiredArgsConstructor;
@@ -50,16 +53,16 @@ public class AuthService {
         // 查找用户（支持用户名或邮箱登录）
         User user = userRepository.findByUsername(request.getUsername())
                 .orElseGet(() -> userRepository.findByEmail(request.getUsername())
-                        .orElseThrow(() -> new BusinessException("用户名或密码错误")));
+                        .orElseThrow(AuthenticationException::invalidCredentials));
 
         // 检查用户状态
         if (user.getStatus() == User.UserStatus.DISABLED) {
-            throw new BusinessException("账号已被禁用");
+            throw AuthenticationException.accountDisabled();
         }
 
         // 验证密码
         if (!passwordEncoder.matches(request.getPassword(), user.getPasswordHash())) {
-            throw new BusinessException("用户名或密码错误");
+            throw AuthenticationException.invalidCredentials();
         }
 
         // 更新最后登录信息
@@ -76,22 +79,22 @@ public class AuthService {
     public TokenResponse register(RegisterRequest request) {
         // 检查用户名是否为保留用户名（系统账号）
         if (RESERVED_USERNAMES.contains(request.getUsername().toLowerCase())) {
-            throw new BusinessException("该用户名为系统保留账号，请使用其他用户名");
+            throw new BusinessException(ErrorCode.USER_RESERVED_USERNAME);
         }
 
         // 检查用户名是否已存在
         if (userRepository.existsByUsername(request.getUsername())) {
-            throw new BusinessException("用户名已被使用");
+            throw new DuplicateException(ErrorCode.USER_USERNAME_EXISTS);
         }
 
         // 检查邮箱是否已存在
         if (userRepository.existsByEmail(request.getEmail())) {
-            throw new BusinessException("邮箱已被注册");
+            throw new DuplicateException(ErrorCode.USER_EMAIL_EXISTS);
         }
 
         // 检查密码是否一致
         if (!request.getPassword().equals(request.getConfirmPassword())) {
-            throw new BusinessException("两次输入的密码不一致");
+            throw new BusinessException(ErrorCode.AUTH_PASSWORD_MISMATCH);
         }
 
         // 创建用户
@@ -122,7 +125,7 @@ public class AuthService {
 
         // 验证 Refresh Token 格式
         if (!jwtUtil.validateToken(refreshTokenValue) || !jwtUtil.isRefreshToken(refreshTokenValue)) {
-            throw new BusinessException("无效的刷新令牌");
+            throw AuthenticationException.tokenInvalid();
         }
 
         // 计算 Token Hash
@@ -130,18 +133,18 @@ public class AuthService {
 
         // 查询数据库中的 Refresh Token
         RefreshToken refreshToken = refreshTokenRepository.findByTokenHash(tokenHash)
-                .orElseThrow(() -> new BusinessException("刷新令牌不存在或已失效"));
+                .orElseThrow(AuthenticationException::tokenInvalid);
 
         // 检查是否过期
         if (refreshToken.isExpired()) {
             refreshTokenRepository.deleteByTokenHash(tokenHash);
-            throw new BusinessException("刷新令牌已过期");
+            throw AuthenticationException.tokenExpired();
         }
 
         // 获取用户信息
         Long userId = Objects.requireNonNull(refreshToken.getUserId());
         User user = userRepository.findById(userId)
-                .orElseThrow(() -> new BusinessException("用户不存在"));
+                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
 
         // 删除旧的 Refresh Token
         refreshTokenRepository.deleteByTokenHash(tokenHash);
@@ -194,7 +197,7 @@ public class AuthService {
      */
     public void resetPassword(ResetPasswordRequest request) {
         if (!request.getNewPassword().equals(request.getConfirmPassword())) {
-            throw new BusinessException("两次输入的密码不一致");
+            throw new BusinessException(ErrorCode.AUTH_PASSWORD_MISMATCH);
         }
         log.info("Received reset-password request with token length={}", request.getToken().length());
     }

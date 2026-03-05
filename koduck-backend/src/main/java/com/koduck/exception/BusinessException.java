@@ -29,12 +29,33 @@ public class BusinessException extends RuntimeException {
     }
 
     /**
-     * 创建业务异常（默认错误码 -1）。
+     * 创建业务异常（默认错误码）。
      *
      * @param message 错误消息
      */
     public BusinessException(String message) {
-        this(-1, message);
+        this(ErrorCode.BUSINESS_ERROR.getCode(), message);
+    }
+
+    /**
+     * 创建业务异常。
+     *
+     * @param errorCode 错误码枚举
+     */
+    public BusinessException(ErrorCode errorCode) {
+        super(errorCode.getDefaultMessage());
+        this.code = errorCode.getCode();
+    }
+
+    /**
+     * 创建业务异常。
+     *
+     * @param errorCode 错误码枚举
+     * @param message   自定义错误消息
+     */
+    public BusinessException(ErrorCode errorCode, String message) {
+        super(message);
+        this.code = errorCode.getCode();
     }
 
     /**
@@ -47,5 +68,26 @@ public class BusinessException extends RuntimeException {
     public BusinessException(int code, String message, Throwable cause) {
         super(message, cause);
         this.code = code;
+    }
+
+    /**
+     * 创建业务异常。
+     *
+     * @param errorCode 错误码枚举
+     * @param cause     原始异常
+     */
+    public BusinessException(ErrorCode errorCode, Throwable cause) {
+        super(errorCode.getDefaultMessage(), cause);
+        this.code = errorCode.getCode();
+    }
+
+    /**
+     * 获取对应的 HTTP 状态码。
+     *
+     * @return HTTP 状态码
+     */
+    public int getHttpStatus() {
+        ErrorCode errorCode = ErrorCode.fromCode(code);
+        return errorCode.getHttpStatus().value();
     }
 }

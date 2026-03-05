@@ -4,6 +4,9 @@ import com.koduck.dto.common.PageResponse;
 import com.koduck.dto.user.*;
 import com.koduck.entity.User;
 import com.koduck.exception.BusinessException;
+import com.koduck.exception.DuplicateException;
+import com.koduck.exception.ErrorCode;
+import com.koduck.exception.ResourceNotFoundException;
 import com.koduck.repository.PermissionRepository;
 import com.koduck.repository.RoleRepository;
 import com.koduck.repository.UserRepository;
@@ -44,7 +47,7 @@ public class UserService {
      */
     public UserDetailResponse getCurrentUser(Long userId) {
         User user = userRepository.findById(userId)
-                .orElseThrow(() -> new BusinessException("用户不存在"));
+                .orElseThrow(() -> new ResourceNotFoundException("用户", userId));
         return convertToDetailResponse(user);
     }
 
@@ -54,7 +57,7 @@ public class UserService {
     @Transactional
     public UserDetailResponse updateProfile(Long userId, UpdateProfileRequest request) {
         User user = userRepository.findById(userId)
-                .orElseThrow(() -> new BusinessException("用户不存在"));
+                .orElseThrow(() -> new ResourceNotFoundException("用户", userId));
 
         if (StringUtils.hasText(request.getNickname())) {
             user.setNickname(request.getNickname());
@@ -73,16 +76,16 @@ public class UserService {
     @Transactional
     public void changePassword(Long userId, ChangePasswordRequest request) {
         User user = userRepository.findById(userId)
-                .orElseThrow(() -> new BusinessException("用户不存在"));
+                .orElseThrow(() -> new ResourceNotFoundException("用户", userId));
 
         // 验证旧密码
         if (!passwordEncoder.matches(request.getOldPassword(), user.getPasswordHash())) {
-            throw new BusinessException("旧密码错误");
+            throw new BusinessException(ErrorCode.USER_OLD_PASSWORD_INCORRECT);
         }
 
         // 验证新密码和确认密码
         if (!request.getNewPassword().equals(request.getConfirmPassword())) {
-            throw new BusinessException("两次输入的新密码不一致");
+            throw new BusinessException(ErrorCode.AUTH_PASSWORD_MISMATCH);
         }
 
         // 更新密码
@@ -128,7 +131,7 @@ public class UserService {
      */
     public UserDetailResponse getUserById(Long userId) {
         User user = userRepository.findById(userId)
-                .orElseThrow(() -> new BusinessException("用户不存在"));
+                .orElseThrow(() -> new ResourceNotFoundException("用户", userId));
         return convertToDetailResponse(user);
     }
 
@@ -139,12 +142,12 @@ public class UserService {
     public UserDetailResponse createUser(CreateUserRequest request) {
         // 检查用户名是否已存在
         if (userRepository.existsByUsername(request.getUsername())) {
-            throw new BusinessException("用户名已被使用");
+            throw new DuplicateException(ErrorCode.USER_USERNAME_EXISTS);
         }
 
         // 检查邮箱是否已存在
         if (userRepository.existsByEmail(request.getEmail())) {
-            throw new BusinessException("邮箱已被注册");
+            throw new DuplicateException(ErrorCode.USER_EMAIL_EXISTS);
         }
 
         // 创建用户
@@ -177,12 +180,12 @@ public class UserService {
     @Transactional
     public UserDetailResponse updateUser(Long userId, UpdateUserRequest request) {
         User user = userRepository.findById(userId)
-                .orElseThrow(() -> new BusinessException("用户不存在"));
+                .orElseThrow(() -> new ResourceNotFoundException("用户", userId));
 
         // 更新邮箱
         if (StringUtils.hasText(request.getEmail()) && !request.getEmail().equals(user.getEmail())) {
             if (userRepository.existsByEmail(request.getEmail())) {
-                throw new BusinessException("邮箱已被注册");
+                throw new DuplicateException(ErrorCode.USER_EMAIL_EXISTS);
             }
             user.setEmail(request.getEmail());
         }
@@ -218,11 +221,11 @@ public class UserService {
     public void deleteUser(Long userId, Long currentUserId) {
         // 防止删除自己
         if (userId.equals(currentUserId)) {
-            throw new BusinessException("不能删除自己");
+            throw new BusinessException(ErrorCode.USER_CANNOT_DELETE_SELF);
         }
 
         User user = userRepository.findById(userId)
-                .orElseThrow(() -> new BusinessException("用户不存在"));
+                .orElseThrow(() -> new ResourceNotFoundException("用户", userId));
 
         // 删除用户角色关联
         userRoleRepository.deleteAllByUserId(userId);
