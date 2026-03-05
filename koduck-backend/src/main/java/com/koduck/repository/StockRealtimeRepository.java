@@ -3,6 +3,7 @@ package com.koduck.repository;
 import com.koduck.entity.StockRealtime;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
@@ -18,6 +19,19 @@ public interface StockRealtimeRepository extends JpaRepository<StockRealtime, St
      * Find stock by symbol.
      */
     Optional<StockRealtime> findBySymbol(String symbol);
+    
+    /**
+     * Find stock by normalized symbol (ignoring market prefix and case).
+     * Uses case-insensitive matching with ILIKE for PostgreSQL.
+     */
+    @Query("SELECT s FROM StockRealtime s WHERE UPPER(s.symbol) = UPPER(:symbol)")
+    Optional<StockRealtime> findBySymbolIgnoreCase(@Param("symbol") String symbol);
+    
+    /**
+     * Find stocks by normalized symbols (ignoring market prefix and case).
+     */
+    @Query("SELECT s FROM StockRealtime s WHERE UPPER(s.symbol) IN (SELECT UPPER(:symbol) FROM StockRealtime s)")
+    List<StockRealtime> findBySymbolInIgnoreCase(@Param("symbols") List<String> symbols);
     
     /**
      * Find multiple stocks by symbols.
