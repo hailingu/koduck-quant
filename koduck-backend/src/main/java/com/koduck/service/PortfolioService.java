@@ -46,7 +46,7 @@ public class PortfolioService {
     }
     
     /**
-     * Get portfolio summary.
+     * Get portfolio summary with daily PnL calculation.
      */
     public PortfolioSummaryDto getPortfolioSummary(Long userId) {
         log.debug("Getting portfolio summary for user: {}", userId);
@@ -55,6 +55,7 @@ public class PortfolioService {
         
         BigDecimal totalCost = BigDecimal.ZERO;
         BigDecimal totalMarketValue = BigDecimal.ZERO;
+        BigDecimal totalDailyPnl = BigDecimal.ZERO;
         
         for (PortfolioPosition position : positions) {
             Optional<BigDecimal> currentPriceOpt = klineService.getLatestPrice(
@@ -66,6 +67,10 @@ public class PortfolioService {
             
             totalCost = totalCost.add(cost);
             totalMarketValue = totalMarketValue.add(marketValue);
+            
+            // Calculate daily PnL for this position
+            Optional<BigDecimal> dailyPnlOpt = calculatePositionDailyPnl(position, currentPrice);
+            totalDailyPnl = totalDailyPnl.add(dailyPnlOpt.orElse(BigDecimal.ZERO));
         }
         
         BigDecimal totalPnl = totalMarketValue.subtract(totalCost);
@@ -73,18 +78,69 @@ public class PortfolioService {
             ? totalPnl.multiply(BigDecimal.valueOf(100)).divide(totalCost, SCALE, RoundingMode.HALF_UP)
             : BigDecimal.ZERO;
         
-        // TODO: Calculate daily PnL (need previous close price)
-        BigDecimal dailyPnl = BigDecimal.ZERO;
-        BigDecimal dailyPnlPercent = BigDecimal.ZERO;
+        // Calculate daily PnL percentage based on yesterday's total market value
+        BigDecimal dailyPnlPercent = calculateDailyPnlPercent(totalDailyPnl, totalMarketValue, totalDailyPnl);
         
         return PortfolioSummaryDto.builder()
             .totalCost(totalCost)
             .totalMarketValue(totalMarketValue)
             .totalPnl(totalPnl)
             .totalPnlPercent(totalPnlPercent)
-            .dailyPnl(dailyPnl)
+            .dailyPnl(totalDailyPnl)
             .dailyPnlPercent(dailyPnlPercent)
             .build();
+    }
+    
+    /**
+     * Calculate daily PnL for a single position.
+     * Formula: (currentPrice - previousClosePrice) * quantity
+     * 
+     * @param position the portfolio position
+     * @param currentPrice the current market price
+     * @return Optional of daily PnL, empty if previous close price not available
+     */
+    private Optional<BigDecimal> calculatePositionDailyPnl(PortfolioPosition position, BigDecimal currentPrice) {
+        Optional<BigDecimal> prevCloseOpt = klineService.getPreviousClosePrice(
+            position.getMarket(), position.getSymbol(), DEFAULT_TIMEFRAME);
+        
+        if (prevCloseOpt.isEmpty()) {
+            log.warn("Previous close price not available for {}/{}, skipping daily PnL calculation",
+                position.getMarket(), position.getSymbol());
+            return Optional.empty();
+        }
+        
+        BigDecimal prevClosePrice = prevCloseOpt.get();
+        BigDecimal priceChange = currentPrice.subtract(prevClosePrice);
+        BigDecimal dailyPnl = priceChange.multiply(position.getQuantity());
+        
+        log.debug("Daily PnL for {}: currentPrice={}, prevClose={}, change={}, quantity={}, dailyPnl={}",
+            position.getSymbol(), currentPrice, prevClosePrice, priceChange, 
+            position.getQuantity(), dailyPnl);
+        
+        return Optional.of(dailyPnl);
+    }
+    
+    /**
+     * Calculate daily PnL percentage.
+     * Formula: (dailyPnl / (totalMarketValue - dailyPnl)) * 100
+     * The denominator is yesterday's total market value.
+     * 
+     * @param dailyPnl the total daily profit/loss
+     * @param totalMarketValue today's total market value
+     * @param totalDailyPnl the total daily PnL (same as dailyPnl parameter)
+     * @return daily PnL percentage
+     */
+    private BigDecimal calculateDailyPnlPercent(BigDecimal dailyPnl, BigDecimal totalMarketValue, BigDecimal totalDailyPnl) {
+        // Yesterday's market value = today's market value - today's daily PnL
+        BigDecimal yesterdayMarketValue = totalMarketValue.subtract(totalDailyPnl);
+        
+        if (yesterdayMarketValue.compareTo(BigDecimal.ZERO) <= 0) {
+            log.debug("Yesterday's market value is zero or negative, returning zero for daily PnL percent");
+            return BigDecimal.ZERO;
+        }
+        
+        return dailyPnl.multiply(BigDecimal.valueOf(100))
+            .divide(yesterdayMarketValue, SCALE, RoundingMode.HALF_UP);
     }
     
     /**
