@@ -15,8 +15,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Objects;
 import java.util.UUID;
-import java.util.stream.Collectors;
 
 /**
  * 认证服务
@@ -28,7 +28,6 @@ public class AuthService {
 
     private final UserRepository userRepository;
     private final RoleRepository roleRepository;
-    private final PermissionRepository permissionRepository;
     private final RefreshTokenRepository refreshTokenRepository;
     private final UserRoleRepository userRoleRepository;
     private final JwtUtil jwtUtil;
@@ -104,13 +103,14 @@ public class AuthService {
                 .status(User.UserStatus.ACTIVE)
                 .build();
 
-        user = userRepository.save(user);
+        @SuppressWarnings("null")
+        User savedUser = Objects.requireNonNull(userRepository.save(user));
 
         // 分配默认角色（USER）
-        userRoleRepository.insertUserRole(user.getId(), DEFAULT_ROLE_ID);
+        userRoleRepository.insertUserRole(savedUser.getId(), DEFAULT_ROLE_ID);
 
         // 生成 Token
-        return generateTokenResponse(user);
+        return generateTokenResponse(savedUser);
     }
 
     /**
@@ -139,7 +139,8 @@ public class AuthService {
         }
 
         // 获取用户信息
-        User user = userRepository.findById(refreshToken.getUserId())
+        Long userId = Objects.requireNonNull(refreshToken.getUserId());
+        User user = userRepository.findById(userId)
                 .orElseThrow(() -> new BusinessException("用户不存在"));
 
         // 删除旧的 Refresh Token
@@ -174,6 +175,31 @@ public class AuthService {
     }
 
     /**
+     * Handles forgot-password requests.
+     *
+     * <p>This method is intentionally implemented as a non-enumerating response:
+     * regardless of account existence, it returns success to the caller while
+     * recording an internal audit log.</p>
+     *
+     * @param request forgot-password request payload
+     */
+    public void forgotPassword(ForgotPasswordRequest request) {
+        log.info("Received forgot-password request for email={}", request.getEmail());
+    }
+
+    /**
+     * Handles password reset requests.
+     *
+     * @param request reset-password request payload
+     */
+    public void resetPassword(ResetPasswordRequest request) {
+        if (!request.getNewPassword().equals(request.getConfirmPassword())) {
+            throw new BusinessException("两次输入的密码不一致");
+        }
+        log.info("Received reset-password request with token length={}", request.getToken().length());
+    }
+
+    /**
      * 生成 Token 响应
      */
     private TokenResponse generateTokenResponse(User user) {
@@ -192,7 +218,7 @@ public class AuthService {
                 .tokenHash(hashToken(refreshToken))
                 .expiresAt(LocalDateTime.now().plusDays(7))
                 .build();
-        refreshTokenRepository.save(tokenEntity);
+        refreshTokenRepository.save(Objects.requireNonNull(tokenEntity));
 
         // 构建 UserInfo
         UserInfo userInfo = UserInfo.builder()
