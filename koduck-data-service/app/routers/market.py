@@ -14,10 +14,12 @@ from fastapi import APIRouter, HTTPException, Query
 
 from app.models.schemas import (
     ApiResponse,
+    BatchPriceRequest,
     MarketIndex,
     SymbolInfo,
 )
 from app.services.akshare_client import akshare_client
+from app.services.data_updater import data_updater
 from app.services.tick_history_service import tick_history_service
 
 logger = logging.getLogger(__name__)
@@ -251,3 +253,78 @@ async def get_tick_statistics(
     except Exception as e:
         logger.error(f"Tick statistics query error for {symbol}", exc_info=True)
         raise HTTPException(status_code=500, detail=ERROR_INTERNAL_RETRY) from e
+
+
+@router.post(
+    "/realtime/update",
+    response_model=ApiResponse[dict],
+    responses={500: {"description": "Internal server error"}},
+)
+async def request_realtime_update(request: BatchPriceRequest):
+    """Request realtime update for specified stock symbols.
+
+    This endpoint allows external systems (e.g., Java backend) to request
+    immediate realtime data updates for specific stock symbols. The updates
+    are performed asynchronously in the background.
+
+    Args:
+        request: BatchPriceRequest containing list of symbols to update.
+
+    Returns:
+        ApiResponse with update status and results for each symbol.
+
+    Example:
+        POST /api/v1/market/realtime/update
+        Body: {"symbols": ["601398", "600000", "000001"]}
+    """
+    symbols = request.symbols
+    
+    if not symbols:
+        raise HTTPException(
+            status_code=400,
+            detail="At least one symbol is required"
+        )
+    
+    if len(symbols) > 50:
+        raise HTTPException(
+            status_code=400,
+            detail="Maximum 50 symbols allowed per request"
+        )
+    
+    logger.info(f"Realtime update requested for {len(symbols)} symbols: {symbols}")
+    
+    results = []
+    for symbol in symbols:
+        try:
+            data = await data_updater.update_single_stock(symbol)
+            if data:
+                results.append({
+                    "symbol": symbol,
+                    "success": True,
+                    "price": data.get("price"),
+                })
+            else:
+                results.append({
+                    "symbol": symbol,
+                    "success": False,
+                    "error": "No data returned from data source",
+                })
+        except Exception as e:
+            logger.error(f"Failed to update {symbol}", exc_info=True)
+            results.append({
+                "symbol": symbol,
+                "success": False,
+                "error": str(e),
+            })
+    
+    success_count = sum(1 for r in results if r["success"])
+    
+    return ApiResponse(
+        data={
+            "requested": len(symbols),
+            "successful": success_count,
+            "failed": len(symbols) - success_count,
+            "results": results,
+        },
+        message=f"Updated {success_count}/{len(symbols)} symbols"
+    )
