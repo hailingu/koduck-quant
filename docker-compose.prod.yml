@@ -144,7 +144,7 @@ services:
       context: ./koduck-frontend
       dockerfile: Dockerfile
       args:
-        - VITE_API_BASE_URL=/api
+        - VITE_API_BASE_URL=
     container_name: koduck-frontend-prod
     ports:
       - "3000:80"
