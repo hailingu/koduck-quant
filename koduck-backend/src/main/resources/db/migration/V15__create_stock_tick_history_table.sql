@@ -1,11 +1,8 @@
--- V13: Create stock_tick_history table for tick-level historical data
+-- V15: Create stock_tick_history table for tick-level historical data
 -- This migration creates:
 -- 1. stock_tick_history - Historical tick data table with monthly partitioning
 -- 2. Related indexes for efficient querying
 -- 3. Partition management function
-
--- Enable required extension for partition management
-CREATE EXTENSION IF NOT EXISTS "pg_partman";
 
 -- ==========================================
 -- Main Table: stock_tick_history
