@@ -3,106 +3,162 @@ package com.koduck.controller;
 import io.swagger.v3.oas.annotations.tags.Tag;
 
 import com.koduck.dto.ApiResponse;
-import com.koduck.dto.credential.*;
+import com.koduck.dto.credential.CreateCredentialRequest;
+import com.koduck.dto.credential.CredentialAuditLogResponse;
+import com.koduck.dto.credential.CredentialDetailResponse;
+import com.koduck.dto.credential.CredentialListResponse;
+import com.koduck.dto.credential.CredentialResponse;
+import com.koduck.dto.credential.UpdateCredentialRequest;
+import com.koduck.dto.credential.VerifyCredentialResponse;
 import com.koduck.security.UserPrincipal;
 import com.koduck.service.CredentialService;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.validation.annotation.Validated;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
+import java.util.Objects;
 
 /**
- * 凭证管理控制器
+ * REST controller for credential management.
+ *
+ * <p>Provides endpoints for secure API credential storage, encryption lifecycle
+ * operations, verification, and audit querying.
  */
 @RestController
 @RequestMapping("/api/v1/credentials")
 @RequiredArgsConstructor
-@Tag(name = "凭证管理", description = "API Key的安全存储、加密管理和访问控制接口")
+@Validated
+@Tag(name = "Credential Management", description = "Secure storage, encrypted lifecycle, and access control APIs")
 @Slf4j
 public class CredentialController {
 
+    private static final int DEFAULT_PAGE = 0;
+    private static final int MAX_PAGE_SIZE = 100;
+
     private final CredentialService credentialService;
 
+    private Long requireUserId(UserPrincipal userPrincipal) {
+        Objects.requireNonNull(userPrincipal, "userPrincipal must not be null");
+        Objects.requireNonNull(userPrincipal.getUser(), "authenticated user must not be null");
+        return Objects.requireNonNull(userPrincipal.getUser().getId(), "authenticated user id must not be null");
+    }
+
     /**
-     * 获取凭证列表
+     * Retrieve paged credential summaries for the authenticated user.
+     *
+     * @param userPrincipal authenticated principal
+     * @param page zero-based page index, must be greater than or equal to 0
+     * @param size page size, must be between 1 and 100
+     * @return paged credential response payload
      */
     @GetMapping
     public ApiResponse<CredentialListResponse> getCredentials(
             @AuthenticationPrincipal UserPrincipal userPrincipal,
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size) {
+            @RequestParam(defaultValue = "0") @Min(DEFAULT_PAGE) int page,
+            @RequestParam(defaultValue = "20") @Min(1) @Max(MAX_PAGE_SIZE) int size) {
 
-        Long userId = userPrincipal.getUser().getId();
-        log.info("获取凭证列表: userId={}, page={}, size={}", userId, page, size);
+        Long userId = requireUserId(userPrincipal);
+        log.info("List credentials: userId={}, page={}, size={}", userId, page, size);
 
         CredentialListResponse response = credentialService.getCredentials(userId, page, size);
         return ApiResponse.success(response);
     }
 
     /**
-     * 获取所有凭证（不分页）
+     * Retrieve all credentials without pagination.
+     *
+     * @param userPrincipal authenticated principal
+     * @return full credential list
      */
     @GetMapping("/all")
     public ApiResponse<List<CredentialResponse>> getAllCredentials(
             @AuthenticationPrincipal UserPrincipal userPrincipal) {
 
-        Long userId = userPrincipal.getUser().getId();
-        log.info("获取所有凭证: userId={}", userId);
+        Long userId = requireUserId(userPrincipal);
+        log.info("List all credentials: userId={}", userId);
 
         List<CredentialResponse> credentials = credentialService.getAllCredentials(userId);
         return ApiResponse.success(credentials);
     }
 
     /**
-     * 获取凭证详情（脱敏）
+     * Retrieve a masked credential by id.
+     *
+     * @param userPrincipal authenticated principal
+     * @param id credential identifier
+     * @return masked credential information
      */
     @GetMapping("/{id}")
     public ApiResponse<CredentialResponse> getCredential(
             @AuthenticationPrincipal UserPrincipal userPrincipal,
             @PathVariable Long id) {
 
-        Long userId = userPrincipal.getUser().getId();
-        log.info("获取凭证详情: userId={}, credentialId={}", userId, id);
+        Long userId = requireUserId(userPrincipal);
+        log.info("Get credential summary: userId={}, credentialId={}", userId, id);
 
         CredentialResponse credential = credentialService.getCredential(userId, id);
         return ApiResponse.success(credential);
     }
 
     /**
-     * 获取凭证完整信息（包含解密后的 API Key/Secret）
+     * Retrieve complete credential details, including decrypted API key and secret.
+     *
+     * @param userPrincipal authenticated principal
+     * @param id credential identifier
+     * @return full credential detail response
      */
     @GetMapping("/{id}/detail")
     public ApiResponse<CredentialDetailResponse> getCredentialDetail(
             @AuthenticationPrincipal UserPrincipal userPrincipal,
             @PathVariable Long id) {
 
-        Long userId = userPrincipal.getUser().getId();
-        log.info("获取凭证完整信息: userId={}, credentialId={}", userId, id);
+        Long userId = requireUserId(userPrincipal);
+        log.info("Get credential detail: userId={}, credentialId={}", userId, id);
 
         CredentialDetailResponse credential = credentialService.getCredentialDetail(userId, id);
         return ApiResponse.success(credential);
     }
 
     /**
-     * 创建凭证
+     * Create a new credential for the authenticated user.
+     *
+     * @param userPrincipal authenticated principal
+     * @param request credential creation request
+     * @return created credential summary
      */
     @PostMapping
     public ApiResponse<CredentialResponse> createCredential(
             @AuthenticationPrincipal UserPrincipal userPrincipal,
             @Valid @RequestBody CreateCredentialRequest request) {
 
-        Long userId = userPrincipal.getUser().getId();
-        log.info("创建凭证: userId={}, name={}", userId, request.getName());
+        Long userId = requireUserId(userPrincipal);
+        log.info("Create credential: userId={}, name={}", userId, request.getName());
 
         CredentialResponse credential = credentialService.createCredential(userId, request);
-        return new ApiResponse<>(0, "凭证创建成功", credential);
+        return ApiResponse.success(credential);
     }
 
     /**
-     * 更新凭证
+     * Update an existing credential.
+     *
+     * @param userPrincipal authenticated principal
+     * @param id credential identifier
+     * @param request credential update request
+     * @return updated credential summary
      */
     @PutMapping("/{id}")
     public ApiResponse<CredentialResponse> updateCredential(
@@ -110,54 +166,67 @@ public class CredentialController {
             @PathVariable Long id,
             @Valid @RequestBody UpdateCredentialRequest request) {
 
-        Long userId = userPrincipal.getUser().getId();
-        log.info("更新凭证: userId={}, credentialId={}", userId, id);
+        Long userId = requireUserId(userPrincipal);
+        log.info("Update credential: userId={}, credentialId={}", userId, id);
 
         CredentialResponse credential = credentialService.updateCredential(userId, id, request);
-        return new ApiResponse<>(0, "凭证更新成功", credential);
+        return ApiResponse.success(credential);
     }
 
     /**
-     * 删除凭证
+     * Delete a credential by id.
+     *
+     * @param userPrincipal authenticated principal
+     * @param id credential identifier
+     * @return empty success response
      */
     @DeleteMapping("/{id}")
     public ApiResponse<Void> deleteCredential(
             @AuthenticationPrincipal UserPrincipal userPrincipal,
             @PathVariable Long id) {
 
-        Long userId = userPrincipal.getUser().getId();
-        log.info("删除凭证: userId={}, credentialId={}", userId, id);
+        Long userId = requireUserId(userPrincipal);
+        log.info("Delete credential: userId={}, credentialId={}", userId, id);
 
         credentialService.deleteCredential(userId, id);
-        return new ApiResponse<>(0, "凭证删除成功", null);
+        return ApiResponse.success();
     }
 
     /**
-     * 验证凭证
+     * Verify credential connectivity and validity.
+     *
+     * @param userPrincipal authenticated principal
+     * @param id credential identifier
+     * @return credential verification result
      */
     @PostMapping("/{id}/verify")
     public ApiResponse<VerifyCredentialResponse> verifyCredential(
             @AuthenticationPrincipal UserPrincipal userPrincipal,
             @PathVariable Long id) {
 
-        Long userId = userPrincipal.getUser().getId();
-        log.info("验证凭证: userId={}, credentialId={}", userId, id);
+        Long userId = requireUserId(userPrincipal);
+        log.info("Verify credential: userId={}, credentialId={}", userId, id);
 
         VerifyCredentialResponse result = credentialService.verifyCredential(userId, id);
         return ApiResponse.success(result);
     }
 
     /**
-     * 获取审计日志
+     * Retrieve credential audit logs with pagination.
+     *
+     * @param userPrincipal authenticated principal
+     * @param page zero-based page index, must be greater than or equal to 0
+     * @param size page size, must be between 1 and 100
+     * @return list of audit log records
      */
     @GetMapping("/audit-logs")
     public ApiResponse<List<CredentialAuditLogResponse>> getAuditLogs(
             @AuthenticationPrincipal UserPrincipal userPrincipal,
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size) {
+            @RequestParam(defaultValue = "0") @Min(DEFAULT_PAGE) int page,
+            @RequestParam(defaultValue = "20") @Min(1) @Max(MAX_PAGE_SIZE) int size) {
 
-        Long userId = userPrincipal.getUser().getId();
-        log.info("获取审计日志: userId={}, page={}, size={}", userId, page, size);
+        Long userId = requireUserId(userPrincipal);
+        log.info("Get audit logs: userId={}, page={}, size={}", userId, page, size);
 
         List<CredentialAuditLogResponse> logs = credentialService.getAuditLogs(userId, page, size);
         return ApiResponse.success(logs);
