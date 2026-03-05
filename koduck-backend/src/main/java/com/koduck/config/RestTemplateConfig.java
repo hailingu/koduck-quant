@@ -8,14 +8,24 @@ import org.springframework.http.client.BufferingClientHttpRequestFactory;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.web.client.RestTemplate;
 
-import java.time.Duration;
-
 /**
- * RestTemplate configuration for external API calls.
+ * Configuration for RestTemplate instances used by external API clients.
+ *
+ * <p>Defines a bean with custom connection and read timeouts pulled from
+ * {@link DataServiceProperties} and wraps the underlying request factory with
+ * buffering capabilities to support logging of response bodies.</p>
  */
 @Configuration
 public class RestTemplateConfig {
     
+    /**
+     * Creates a RestTemplate preconfigured for the data service.
+     *
+     * @param builder    spring-provided RestTemplateBuilder
+     * @param properties configuration object holding timeout values
+     * @return a RestTemplate instance with buffering request factory and
+     * configured timeouts
+     */
     @Bean
     public RestTemplate dataServiceRestTemplate(RestTemplateBuilder builder, DataServiceProperties properties) {
         SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
@@ -27,8 +37,6 @@ public class RestTemplateConfig {
         
         return builder
                 .requestFactory(() -> bufferingFactory)
-                .setConnectTimeout(Duration.ofMillis(properties.getConnectTimeoutMs()))
-                .setReadTimeout(Duration.ofMillis(properties.getReadTimeoutMs()))
                 .build();
     }
 }
