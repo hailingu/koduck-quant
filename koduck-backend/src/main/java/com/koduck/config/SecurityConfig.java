@@ -43,7 +43,8 @@ public class SecurityConfig {
                 .requestMatchers(
                     "/api/v1/auth/**",
                     "/actuator/health",
-                    "/api/v1/health/**"
+                    "/api/v1/health/**",
+                    "/api/v1/monitoring/**"
                 ).permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/v1/market/**").permitAll()
                 // 其他需要认证
