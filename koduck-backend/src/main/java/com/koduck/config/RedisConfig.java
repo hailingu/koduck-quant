@@ -1,5 +1,7 @@
 package com.koduck.config;
 
+import com.fasterxml.jackson.annotation.JsonAutoDetect;
+import com.fasterxml.jackson.annotation.PropertyAccessor;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import org.springframework.context.annotation.Bean;
@@ -19,15 +21,18 @@ public class RedisConfig {
 
     /**
      * Create RedisTemplate with JSON serialization for complex objects.
+     * Configured to support Java Records and Java 8 date/time types.
      */
     @Bean
     public RedisTemplate<String, Object> redisTemplate(RedisConnectionFactory connectionFactory) {
         RedisTemplate<String, Object> template = new RedisTemplate<>();
         template.setConnectionFactory(connectionFactory);
 
-        // Configure ObjectMapper with Java 8 date/time support
+        // Configure ObjectMapper with Java 8 date/time support and Java Records support
         ObjectMapper objectMapper = new ObjectMapper();
         objectMapper.registerModule(new JavaTimeModule());
+        // Enable visibility for fields to support Java Records serialization
+        objectMapper.setVisibility(PropertyAccessor.FIELD, JsonAutoDetect.Visibility.ANY);
 
         // Key serializer
         template.setKeySerializer(new StringRedisSerializer());
