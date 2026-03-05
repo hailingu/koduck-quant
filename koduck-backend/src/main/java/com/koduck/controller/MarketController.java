@@ -20,8 +20,8 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 /**
- * 市场数据 REST API 控制器。
- * 提供股票搜索、详情、指数等接口。
+ * REST API controller for market data.
+ * <p>Provides endpoints for symbol search, stock details, market indices, and batch quotes.</p>
  */
 @RestController
 @RequestMapping("/api/v1/market")
@@ -34,13 +34,13 @@ public class MarketController {
     private final MarketService marketService;
     
     /**
-     * 股票搜索接口。
-     * 根据关键词搜索股票代码或名称。
+     * Search for symbols.
+     * <p>Finds stock symbols or names matching the given keyword.</p>
      *
-     * @param keyword 搜索关键词
-     * @param page    页码（从 1 开始，默认 1）
-     * @param size    每页数量（默认 20，最大 100）
-     * @return 匹配的股票列表
+     * @param keyword search keyword, must not be blank and max length 50
+     * @param page    page number (starts at 1, default 1)
+     * @param size    page size (default 20, max 100)
+     * @return list of matching symbols
      */
     @GetMapping("/search")
     public ApiResponse<List<SymbolInfoDto>> searchSymbols(
@@ -62,11 +62,11 @@ public class MarketController {
     }
     
     /**
-     * 股票详情接口。
-     * 获取单只股票的实时行情数据。
+     * Get stock details.
+     * <p>Retrieves real-time quote information for a single stock.</p>
      *
-     * @param symbol 股票代码（如 002326）
-     * @return 股票实时行情
+     * @param symbol stock symbol (e.g. "002326"), must not be blank
+     * @return real-time price quote for the symbol
      */
     @GetMapping("/stocks/{symbol}")
     public ApiResponse<PriceQuoteDto> getStockDetail(
@@ -83,10 +83,10 @@ public class MarketController {
     }
     
     /**
-     * 市场指数接口。
-     * 获取主要市场指数（上证指数、深证成指、创业板指等）。
+     * Retrieve market indices.
+     * <p>Returns a list of major market indices such as SSE Composite, SZSE Component, and ChiNext.</p>
      *
-     * @return 指数列表
+     * @return list of market index quotes
      */
     @GetMapping("/indices")
     public ApiResponse<List<MarketIndexDto>> getMarketIndices() {
@@ -97,15 +97,16 @@ public class MarketController {
     }
     
     /**
-     * 批量股票行情接口。
-     * 批量获取多只股票的实时行情数据。
+     * Batch quote endpoint.
+     * <p>Fetches real-time quotes for multiple stocks in a single request.</p>
      *
-     * @param symbols 股票代码列表（逗号分隔，最多 50 个）
-     * @return 股票实时行情列表
+     * @param symbols list of stock symbols (comma-separated, up to 50 entries)
+     * @return list of real-time price quotes
      */
     @GetMapping("/batch")
     public ApiResponse<List<PriceQuoteDto>> getBatchPrices(
             @RequestParam @NotEmpty(message = "股票代码列表不能为空")
+            @Size(max = 50, message = "股票代码最多 50 个")
             List<String> symbols) {
         
         log.info("GET /api/v1/market/batch: count={}", symbols.size());

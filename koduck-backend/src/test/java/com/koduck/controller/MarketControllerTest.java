@@ -4,6 +4,7 @@ import com.koduck.dto.market.MarketIndexDto;
 import com.koduck.dto.market.PriceQuoteDto;
 import com.koduck.dto.market.SymbolInfoDto;
 import com.koduck.service.MarketService;
+import jakarta.validation.constraints.Size;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.DisplayName;
@@ -16,10 +17,12 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
 import java.math.BigDecimal;
+import java.lang.reflect.Method;
 import java.time.Instant;
 import java.util.List;
 
-import static org.mockito.ArgumentMatchers.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.mockito.Mockito.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
@@ -155,6 +158,41 @@ class MarketControllerTest {
                 .andExpect(jsonPath("$.data[0].name").value("上证指数"));
 
         verify(marketService).getMarketIndices();
+    }
+
+    @Test
+    @DisplayName("批量行情 - 正常返回")
+    void getBatchPrices_shouldReturnQuotes() throws Exception {
+        PriceQuoteDto quote = PriceQuoteDto.builder()
+                .symbol("000001")
+                .name("平安银行")
+                .price(new BigDecimal("10.55"))
+                .change(new BigDecimal("0.21"))
+                .changePercent(new BigDecimal("2.03"))
+                .timestamp(Instant.now())
+                .build();
+
+        when(marketService.getBatchPrices(List.of("000001", "600000")))
+                .thenReturn(List.of(quote));
+
+        mockMvc.perform(get("/api/v1/market/batch")
+                .param("symbols", "000001", "600000")
+                .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(0))
+                .andExpect(jsonPath("$.data[0].symbol").value("000001"));
+
+        verify(marketService).getBatchPrices(List.of("000001", "600000"));
+    }
+
+    @Test
+    @DisplayName("批量行情 - 参数应声明最多50个股票代码")
+    void getBatchPrices_shouldDeclareMaxSizeConstraint() throws NoSuchMethodException {
+        Method method = MarketController.class.getMethod("getBatchPrices", List.class);
+        Size size = method.getParameters()[0].getAnnotation(Size.class);
+
+        assertNotNull(size);
+        assertEquals(50, size.max());
     }
 
 }
