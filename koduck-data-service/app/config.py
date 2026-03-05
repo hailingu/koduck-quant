@@ -40,6 +40,15 @@ class Settings(BaseSettings):
     # AKShare settings
     AKSHARE_TIMEOUT: int = 30
     
+    # Tick History Storage Configuration
+    # 历史 tick 数据存储配置
+    TICK_HISTORY_ENABLED: bool = True              # 是否启用历史 tick 存储
+    TICK_RETENTION_DAYS: int = 30                  # 默认保留天数
+    TICK_SAMPLING_INTERVAL: int = 0                # 抽样间隔（秒），0表示全量存储
+    TICK_BATCH_SIZE: int = 100                     # 批量写入大小
+    TICK_WRITE_ASYNC: bool = True                  # 是否异步写入
+    TICK_PARTITION_RETENTION_MONTHS: int = 3       # 分区保留月数（用于自动清理）
+    
     # Logging
     LOG_LEVEL: str = "INFO"
     LOG_FORMAT: str = "json"

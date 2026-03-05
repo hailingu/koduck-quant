@@ -9,7 +9,8 @@ import logging
 from datetime import datetime
 from typing import Any, Optional
 
-from app.db import stock_db
+from app.db import stock_db, tick_history_db
+from app.config import settings
 from app.services.eastmoney_client import eastmoney_client
 
 logger = logging.getLogger(__name__)
@@ -44,8 +45,11 @@ class DataUpdater:
     def __init__(self) -> None:
         self._running = False
         self._update_count = 0
+        self._tick_history_count = 0
         self._last_price: Optional[float] = None
         self._tick_history: list[dict[str, Any]] = []  # Store recent ticks for verification
+        self._tick_buffer: list[dict[str, Any]] = []   # Buffer for batch insert
+        self._last_tick_time: Optional[datetime] = None  # For sampling control
 
     def _normalize_market_data(self, data: StockPayload) -> StockPayload:
         """Convert raw Eastmoney values to human-readable units.
@@ -67,6 +71,112 @@ class DataUpdater:
             data["change_percent"] = data["change_percent"] / 100
 
         return data
+    
+    def _should_store_tick(self) -> bool:
+        """Check if current tick should be stored based on sampling interval.
+        
+        Returns:
+            True if tick should be stored, False otherwise
+        """
+        if not settings.TICK_HISTORY_ENABLED:
+            return False
+        
+        if settings.TICK_SAMPLING_INTERVAL <= 0:
+            return True
+        
+        now = datetime.now()
+        if self._last_tick_time is None:
+            self._last_tick_time = now
+            return True
+        
+        elapsed = (now - self._last_tick_time).total_seconds()
+        if elapsed >= settings.TICK_SAMPLING_INTERVAL:
+            self._last_tick_time = now
+            return True
+        
+        return False
+    
+    async def _save_tick_history(self, data: StockPayload) -> bool:
+        """Save tick data to history table.
+        
+        Args:
+            data: Normalized stock data dictionary
+            
+        Returns:
+            True if successful, False otherwise
+        """
+        if not settings.TICK_HISTORY_ENABLED:
+            return True
+        
+        if not self._should_store_tick():
+            return True
+        
+        try:
+            # Use async insert
+            if settings.TICK_WRITE_ASYNC:
+                # Add to buffer for batch insert
+                self._tick_buffer.append(dict(data))
+                
+                # Flush buffer if it reaches batch size
+                if len(self._tick_buffer) >= settings.TICK_BATCH_SIZE:
+                    await self._flush_tick_buffer()
+                
+                self._tick_history_count += 1
+                return True
+            else:
+                # Direct insert
+                success = await tick_history_db.insert_tick_from_dict(data)
+                if success:
+                    self._tick_history_count += 1
+                return success
+        except Exception as e:
+            logger.warning(f"Failed to save tick history for {data.get('symbol')}: {e}")
+            return False
+    
+    async def _flush_tick_buffer(self) -> Tuple[int, int]:
+        """Flush the tick buffer to database.
+        
+        Returns:
+            Tuple of (success_count, fail_count)
+        """
+        if not self._tick_buffer:
+            return 0, 0
+        
+        from app.db import TickHistoryRecord
+        
+        records = []
+        now = datetime.now()
+        
+        for data in self._tick_buffer:
+            record = TickHistoryRecord(
+                symbol=data.get('symbol', ''),
+                tick_time=now,
+                price=data.get('price'),
+                open_price=data.get('open'),
+                high=data.get('high'),
+                low=data.get('low'),
+                prev_close=data.get('prev_close'),
+                volume=data.get('volume'),
+                amount=data.get('amount'),
+                change_amount=data.get('change'),
+                change_percent=data.get('change_percent'),
+                bid_price=data.get('bid_price'),
+                bid_volume=data.get('bid_volume'),
+                ask_price=data.get('ask_price'),
+                ask_volume=data.get('ask_volume'),
+                raw_data=data,
+            )
+            records.append(record)
+        
+        success_count, fail_count = await tick_history_db.insert_ticks_batch(records)
+        
+        # Clear buffer
+        self._tick_buffer.clear()
+        
+        if success_count > 0:
+            logger.debug(f"Flushed {success_count} tick records to history")
+        
+        return success_count, fail_count
 
     async def _update_symbols_batch(self, symbols: list[str]) -> int:
         """Fetch and persist multiple symbols in parallel.
@@ -127,10 +237,13 @@ class DataUpdater:
             # Normalize price data (Eastmoney returns price * 100)
             data = self._normalize_market_data(data)
             
-            # Save to database
+            # Save to realtime database (UPSERT)
             success = await stock_db.upsert_stock(data)
             
             if success:
+                # Save to history table (INSERT)
+                await self._save_tick_history(data)
+                
                 # Also update basic info
                 await stock_db.upsert_stock_basic(
                     symbol, 
@@ -245,6 +358,8 @@ class DataUpdater:
             logger.error("Test error", exc_info=True)
         finally:
             self._running = False
+            # Flush any remaining tick data
+            await self.flush_remaining_ticks()
             await self.print_test_summary()
     
     async def print_test_summary(self) -> None:
@@ -256,11 +371,12 @@ class DataUpdater:
         logger.info("=" * 60)
         logger.info("ICBC (601398) Test Summary")
         logger.info("=" * 60)
-        logger.info(f"Total updates: {self._update_count}")
-        logger.info(f"Tick changes: {len(self._tick_history)}")
+        logger.info(f"Total realtime updates: {self._update_count}")
+        logger.info(f"Total history ticks: {self._tick_history_count}")
+        logger.info(f"Price changes: {len(self._tick_history)}")
         
         if self._tick_history:
-            logger.info("Recent ticks:")
+            logger.info("Recent price changes:")
             for tick in self._tick_history[-10:]:
                 logger.info(
                     f"  {tick['timestamp']}: "
@@ -268,16 +384,33 @@ class DataUpdater:
                     f"({tick['change_percent']:+}%)"
                 )
         
-        # Verify data in database
+        # Verify realtime data in database
         db_data = await stock_db.get_stock(TEST_SYMBOL)
         if db_data:
-            logger.info("Database verification: OK")
+            logger.info("Realtime database verification: OK")
             logger.info(f"  Symbol: {db_data['symbol']}")
             logger.info(f"  Name: {db_data['name']}")
             logger.info(f"  Price: {db_data['price']}")
             logger.info(f"  Updated at: {db_data['updated_at']}")
         else:
-            logger.warning("Database verification: FAILED - No data found")
+            logger.warning("Realtime database verification: FAILED - No data found")
+        
+        # Verify history data in database
+        if settings.TICK_HISTORY_ENABLED:
+            from datetime import timedelta
+            end_time = datetime.now()
+            start_time = end_time - timedelta(hours=1)
+            history_data = await tick_history_db.get_ticks_by_time_range(
+                TEST_SYMBOL, start_time, end_time, limit=5
+            )
+            if history_data:
+                logger.info("History database verification: OK")
+                logger.info(f"  History records in last hour: {len(history_data)}")
+                if history_data:
+                    latest = history_data[-1]
+                    logger.info(f"  Latest tick: {latest['price']} @ {latest['tick_time']}")
+            else:
+                logger.warning("History database verification: No recent data found")
         
         logger.info("=" * 60)
     
@@ -328,6 +461,18 @@ class DataUpdater:
             logger.error("Realtime update loop error", exc_info=True)
         finally:
             self._running = False
+            # Flush any remaining tick data
+            await self.flush_remaining_ticks()
+    
+    async def flush_remaining_ticks(self) -> Tuple[int, int]:
+        """Flush any remaining tick data in buffer.
+        
+        Returns:
+            Tuple of (success_count, fail_count)
+        """
+        if self._tick_buffer:
+            return await self._flush_tick_buffer()
+        return 0, 0
     
     def stop(self) -> None:
         """Halt any in-progress loop operations.
