@@ -41,9 +41,9 @@ troubleshooting.
 async def get_hot_stocks(
     sort_type: Annotated[
         str,
-        Query("volume", description="sort type: volume | gain | loss"),
-    ],
-    limit: Annotated[int, Query(20, ge=1, le=100, description="maximum results")],
+        Query(description="sort type: volume | gain | loss"),
+    ] = "volume",
+    limit: Annotated[int, Query(ge=1, le=100, description="maximum results")] = 20,
 ):
     """Get hot stocks sorted by volume or change percent.
 
@@ -100,20 +100,20 @@ async def get_tick_history(
     symbol: str,
     start: Annotated[
         Optional[datetime],
-        Query(None, description="Start time (ISO 8601 format)")
+        Query(description="Start time (ISO 8601 format)")
     ],
     end: Annotated[
         Optional[datetime],
-        Query(None, description="End time (ISO 8601 format)")
+        Query(description="End time (ISO 8601 format)")
     ],
     limit: Annotated[
         int,
-        Query(1000, ge=1, le=10000, description="Maximum records per page")
-    ],
+        Query(ge=1, le=10000, description="Maximum records per page")
+    ] = 1000,
     offset: Annotated[
         int,
-        Query(0, ge=0, description="Offset for pagination")
-    ],
+        Query(ge=0, description="Offset for pagination")
+    ] = 0,
 ):
     """Get tick history for a specific symbol within a time range.
     
@@ -165,8 +165,8 @@ async def get_latest_ticks(
     symbol: str,
     limit: Annotated[
         int,
-        Query(100, ge=1, le=1000, description="Maximum records to return")
-    ],
+        Query(ge=1, le=1000, description="Maximum records to return")
+    ] = 100,
 ):
     """Get the most recent tick history records for a symbol.
     

@@ -83,8 +83,8 @@ async def search_symbols(
     ],
     limit: Annotated[
         int,
-        Query(20, ge=1, le=100, description="maximum number of results"),
-    ],
+        Query(ge=1, le=100, description="maximum number of results"),
+    ] = 20,
 ):
     """Search A-share stocks by keyword.
     
