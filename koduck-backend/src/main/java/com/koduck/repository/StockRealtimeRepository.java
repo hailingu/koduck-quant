@@ -50,13 +50,14 @@ public interface StockRealtimeRepository extends JpaRepository<StockRealtime, St
     
     /**
      * Find stocks with delayed updates (delay > threshold in seconds).
+     * Uses native query for PostgreSQL interval arithmetic.
      */
-    @Query("SELECT s FROM StockRealtime s WHERE s.updatedAt < CURRENT_TIMESTAMP - :threshold * INTERVAL '1 second' ORDER BY s.updatedAt ASC")
+    @Query(value = "SELECT * FROM stock_realtime WHERE updated_at < NOW() - MAKE_INTERVAL(secs => :threshold) ORDER BY updated_at ASC", nativeQuery = true)
     List<StockRealtime> findDelayedStocks(int threshold);
     
     /**
      * Count stocks with delayed updates.
      */
-    @Query("SELECT COUNT(s) FROM StockRealtime s WHERE s.updatedAt < CURRENT_TIMESTAMP - :threshold * INTERVAL '1 second'")
+    @Query(value = "SELECT COUNT(*) FROM stock_realtime WHERE updated_at < MAKE_INTERVAL(secs => :threshold)", nativeQuery = true)
     long countDelayedStocks(int threshold);
 }
