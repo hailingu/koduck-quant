@@ -3,6 +3,8 @@ package com.koduck.service;
 import com.koduck.dto.credential.*;
 import com.koduck.entity.CredentialAuditLog;
 import com.koduck.entity.UserCredential;
+import com.koduck.exception.DuplicateException;
+import com.koduck.exception.ErrorCode;
 import com.koduck.exception.ResourceNotFoundException;
 import com.koduck.repository.CredentialAuditLogRepository;
 import com.koduck.repository.CredentialRepository;
@@ -113,7 +115,7 @@ public class CredentialService {
 
         // 检查名称是否已存在
         if (credentialRepository.existsByUserIdAndName(userId, request.getName())) {
-            throw new IllegalArgumentException("凭证名称已存在: " + request.getName());
+            throw new DuplicateException("name", request.getName(), "凭证名称已存在: " + request.getName());
         }
 
         // 加密 API Key 和 Secret
@@ -158,7 +160,7 @@ public class CredentialService {
         // 检查名称是否与其他凭证冲突
         if (!credential.getName().equals(request.getName())
                 && credentialRepository.existsByUserIdAndName(userId, request.getName())) {
-            throw new IllegalArgumentException("凭证名称已存在: " + request.getName());
+            throw new DuplicateException("name", request.getName(), "凭证名称已存在: " + request.getName());
         }
 
         credential.setName(request.getName());
