@@ -3,7 +3,9 @@ package com.koduck.service;
 import com.koduck.dto.watchlist.AddWatchlistRequest;
 import com.koduck.dto.watchlist.SortWatchlistRequest;
 import com.koduck.dto.watchlist.WatchlistItemDto;
+import com.koduck.entity.StockRealtime;
 import com.koduck.entity.WatchlistItem;
+import com.koduck.repository.StockRealtimeRepository;
 import com.koduck.repository.WatchlistRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -24,9 +26,8 @@ import java.util.stream.Collectors;
 public class WatchlistService {
     
     private final WatchlistRepository watchlistRepository;
-    private final KlineService klineService;
+    private final StockRealtimeRepository stockRealtimeRepository;
     
-    private static final String DEFAULT_TIMEFRAME = "1D";
     private static final int MAX_WATCHLIST_SIZE = 100;
     
     /**
@@ -126,25 +127,12 @@ public class WatchlistService {
     }
     
     private WatchlistItemDto convertToDtoWithPrice(WatchlistItem item) {
-        // Get real-time price and previous close for calculating change
-        Optional<BigDecimal> currentPriceOpt = klineService.getLatestPrice(
-            item.getMarket(), item.getSymbol(), DEFAULT_TIMEFRAME);
-        Optional<BigDecimal> prevCloseOpt = klineService.getPreviousClosePrice(
-            item.getMarket(), item.getSymbol(), DEFAULT_TIMEFRAME);
+        // Get real-time price from stock_realtime table
+        Optional<StockRealtime> realtimeOpt = stockRealtimeRepository.findBySymbol(item.getSymbol());
         
-        BigDecimal price = currentPriceOpt.orElse(null);
-        BigDecimal change = null;
-        BigDecimal changePercent = null;
-        
-        // Calculate change and changePercent if we have both current and previous price
-        if (price != null && prevCloseOpt.isPresent()) {
-            BigDecimal prevClose = prevCloseOpt.get();
-            if (prevClose.compareTo(BigDecimal.ZERO) > 0) {
-                change = price.subtract(prevClose);
-                changePercent = change.divide(prevClose, 4, java.math.RoundingMode.HALF_UP)
-                    .multiply(new BigDecimal("100"));
-            }
-        }
+        BigDecimal price = realtimeOpt.map(StockRealtime::getPrice).orElse(null);
+        BigDecimal change = realtimeOpt.map(StockRealtime::getChangeAmount).orElse(null);
+        BigDecimal changePercent = realtimeOpt.map(StockRealtime::getChangePercent).orElse(null);
         
         return WatchlistItemDto.builder()
             .id(item.getId())
