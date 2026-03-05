@@ -41,4 +41,22 @@ public interface StockRealtimeRepository extends JpaRepository<StockRealtime, St
      */
     @Query("SELECT s FROM StockRealtime s WHERE s.changePercent IS NOT NULL ORDER BY s.changePercent ASC")
     List<StockRealtime> findTopByLoss(int limit);
+    
+    /**
+     * Count total stocks in the database.
+     */
+    @Query("SELECT COUNT(s) FROM StockRealtime s")
+    long countAll();
+    
+    /**
+     * Find stocks with delayed updates (delay > threshold in seconds).
+     */
+    @Query("SELECT s FROM StockRealtime s WHERE s.updatedAt < CURRENT_TIMESTAMP - :threshold * INTERVAL '1 second' ORDER BY s.updatedAt ASC")
+    List<StockRealtime> findDelayedStocks(int threshold);
+    
+    /**
+     * Count stocks with delayed updates.
+     */
+    @Query("SELECT COUNT(s) FROM StockRealtime s WHERE s.updatedAt < CURRENT_TIMESTAMP - :threshold * INTERVAL '1 second'")
+    long countDelayedStocks(int threshold);
 }
