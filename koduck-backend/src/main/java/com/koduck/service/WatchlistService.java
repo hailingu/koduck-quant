@@ -1,5 +1,6 @@
 package com.koduck.service;
 
+import com.koduck.client.DataServiceClient;
 import com.koduck.dto.watchlist.AddWatchlistRequest;
 import com.koduck.dto.watchlist.SortWatchlistRequest;
 import com.koduck.dto.watchlist.WatchlistItemDto;
@@ -27,6 +28,7 @@ public class WatchlistService {
     
     private final WatchlistRepository watchlistRepository;
     private final StockRealtimeRepository stockRealtimeRepository;
+    private final DataServiceClient dataServiceClient;
     
     private static final int MAX_WATCHLIST_SIZE = 100;
     
@@ -77,6 +79,10 @@ public class WatchlistService {
         
         WatchlistItem saved = watchlistRepository.save(item);
         log.info("Added to watchlist: id={}, user={}, symbol={}", saved.getId(), userId, request.symbol());
+        
+        // Trigger realtime data update for the newly added symbol
+        // This is asynchronous and non-blocking - failures are logged but don't affect the main flow
+        dataServiceClient.triggerRealtimeUpdate(request.symbol());
         
         return convertToDtoWithPrice(saved);
     }
