@@ -73,14 +73,17 @@ class EastmoneyClient:
         occurs during construction; the first real request will trigger a
         cookie refresh.
         """
+        # Import settings here to avoid circular import
+        from app.config import settings
+
         self._state_lock = Lock()
         self._cookie: str | None = None
         self._cookie_timestamp: datetime | None = None
-        self._cookie_ttl_seconds = 300  # Refresh cookie every 5 minutes
+        self._cookie_ttl_seconds = settings.EASTMONEY_COOKIE_TTL
 
         self._request_count = 0
         self._last_request_time = 0.0
-        self._min_request_interval = 0.1  # 100ms between requests
+        self._min_request_interval = settings.EASTMONEY_MIN_REQUEST_INTERVAL
 
     def _get_headers(self, referer: str | None = None) -> dict[str, str]:
         """Construct HTTP headers that resemble a normal browser.

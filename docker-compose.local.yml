@@ -67,6 +67,9 @@ services:
       - REDIS_URL=redis://redis:6379/0
       - LOG_LEVEL=INFO
       - DEBUG=false
+      # Eastmoney Client Settings
+      - EASTMONEY_COOKIE_TTL=3600
+      - EASTMONEY_MIN_REQUEST_INTERVAL=3.0
     volumes:
       # Mount local code for development (code changes take effect immediately)
       - ./koduck-data-service/app:/app/app:ro
