@@ -1,8 +1,10 @@
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import type { WatchlistItem } from '@/api/watchlist'
 import { watchlistApi } from '@/api/watchlist'
 import { useToast } from '@/hooks/useToast'
+import { useWebSocketSubscription } from '@/hooks/useWebSocket'
+import { useWebSocketStore } from '@/stores/websocket'
 import StockSearch from '@/components/StockSearch'
 
 // 排序按钮组件
@@ -153,6 +155,32 @@ export default function Watchlist() {
   const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' } | null>(null)
   const [showAddModal, setShowAddModal] = useState(false)
 
+  // WebSocket store for real-time price updates
+  const stockPrices = useWebSocketStore((state) => state.stockPrices)
+  const connectionState = useWebSocketStore((state) => state.connectionState)
+
+  // Get symbols from watchlist for WebSocket subscription
+  const symbols = useMemo(() => watchlist.map((item) => item.symbol), [watchlist])
+
+  // Use WebSocket subscription hook (auto-subscribes when watchlist has items)
+  useWebSocketSubscription(symbols, symbols.length > 0)
+
+  // Merge watchlist with real-time prices from WebSocket
+  const watchlistWithRealtime = useMemo(() => {
+    return watchlist.map((item) => {
+      const realtimePrice = stockPrices.get(item.symbol)
+      if (realtimePrice) {
+        return {
+          ...item,
+          price: realtimePrice.price,
+          change: realtimePrice.change,
+          changePercent: realtimePrice.changePercent,
+        }
+      }
+      return item
+    })
+  }, [watchlist, stockPrices])
+
   // 加载自选股列表（后端已返回 price/change/changePercent，无需额外调用）
   const loadWatchlist = useCallback(async () => {
     try {
@@ -269,9 +297,30 @@ export default function Watchlist() {
     <div className="space-y-6">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h2 className="text-2xl font-bold text-gray-900 dark:text-white">自选股</h2>
-          <p className="mt-1 text-gray-600 dark:text-gray-400">管理您的关注股票列表</p>
+        <div className="flex items-center gap-3">
+          <div>
+            <h2 className="text-2xl font-bold text-gray-900 dark:text-white">自选股</h2>
+            <p className="mt-1 text-gray-600 dark:text-gray-400">管理您的关注股票列表</p>
+          </div>
+          {/* Connection Status Indicator */}
+          {connectionState === 'connected' && (
+            <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400">
+              <span className="w-2 h-2 mr-1 rounded-full bg-green-500 animate-pulse"></span>
+              实时
+            </span>
+          )}
+          {connectionState === 'reconnecting' && (
+            <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400">
+              <span className="w-2 h-2 mr-1 rounded-full bg-yellow-500 animate-pulse"></span>
+              重连中
+            </span>
+          )}
+          {connectionState === 'disconnected' && (
+            <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-400">
+              <span className="w-2 h-2 mr-1 rounded-full bg-gray-400"></span>
+              离线
+            </span>
+          )}
         </div>
         <button
           onClick={() => setShowAddModal(true)}
@@ -415,7 +464,7 @@ export default function Watchlist() {
                 </tr>
               </thead>
               <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-                {watchlist.map((item) => (
+                {watchlistWithRealtime.map((item) => (
                   <WatchlistRow
                     key={item.id}
                     item={item}
