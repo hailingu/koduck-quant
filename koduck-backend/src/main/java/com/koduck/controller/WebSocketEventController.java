@@ -1,13 +1,14 @@
 package com.koduck.controller;
 
 import com.koduck.config.WebSocketChannelInterceptor;
+import com.koduck.dto.websocket.SubscriptionMessage;
 import com.koduck.dto.websocket.WebSocketMessage;
+import com.koduck.service.StockSubscriptionService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.event.EventListener;
 import org.springframework.messaging.handler.annotation.DestinationVariable;
 import org.springframework.messaging.handler.annotation.MessageMapping;
-import org.springframework.messaging.handler.annotation.SendTo;
 import org.springframework.messaging.simp.SimpMessageHeaderAccessor;
 import org.springframework.messaging.simp.annotation.SendToUser;
 import org.springframework.stereotype.Controller;
@@ -15,7 +16,10 @@ import org.springframework.web.socket.messaging.SessionConnectEvent;
 import org.springframework.web.socket.messaging.SessionDisconnectEvent;
 import org.springframework.web.socket.messaging.SessionSubscribeEvent;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
@@ -33,6 +37,8 @@ import java.util.concurrent.ConcurrentHashMap;
 @RequiredArgsConstructor
 public class WebSocketEventController {
 
+    private final StockSubscriptionService stockSubscriptionService;
+
     /**
      * 存储活跃连接的用户
      * userId -> sessionId
@@ -40,49 +46,108 @@ public class WebSocketEventController {
     private final Map<Long, String> activeConnections = new ConcurrentHashMap<>();
 
     /**
-     * 处理订阅请求
+     * 处理订阅请求（批量订阅股票）
      *
-     * @param destination 订阅目标（如股票代码）
      * @param headerAccessor 消息头部访问器
      * @return 订阅结果
      */
     @MessageMapping("/subscribe")
     @SendToUser("/queue/subscribe-result")
-    public WebSocketMessage handleSubscribe(@DestinationVariable String destination,
-                                            SimpMessageHeaderAccessor headerAccessor) {
-        log.info("用户订阅: destination={}, sessionId={}", destination, headerAccessor.getSessionId());
+    public SubscriptionMessage handleSubscribe(SimpMessageHeaderAccessor headerAccessor) {
+        // 从消息体中获取股票代码列表
+        // 这里通过 STOMP 消息的 payload 获取
+        log.info("用户订阅请求, sessionId={}", headerAccessor.getSessionId());
 
         // 获取用户信息
         WebSocketChannelInterceptor.WebSocketUserPrincipal principal = getUserPrincipal(headerAccessor);
-        if (principal != null) {
-            activeConnections.put(principal.getUserId(), headerAccessor.getSessionId());
+        if (principal == null) {
+            return SubscriptionMessage.builder()
+                    .type("SUBSCRIBE_RESULT")
+                    .failed(Map.of("error", "User not authenticated"))
+                    .timestamp(System.currentTimeMillis())
+                    .build();
         }
 
-        return WebSocketMessage.success("subscribe", destination,
-                Map.of("status", "subscribed", "destination", destination));
+        Long userId = principal.getUserId();
+        activeConnections.put(userId, headerAccessor.getSessionId());
+
+        // 从头部获取订阅的股票代码（通过自定义头部）
+        List<String> symbols = new ArrayList<>();
+        String symbolHeader = headerAccessor.getFirstNativeHeader("symbols");
+        if (symbolHeader != null && !symbolHeader.isBlank()) {
+            symbols = List.of(symbolHeader.split(","));
+        }
+
+        if (symbols.isEmpty()) {
+            // 返回当前订阅列表
+            Set<String> subscriptions = stockSubscriptionService.getUserSubscriptions(userId);
+            return SubscriptionMessage.builder()
+                    .type("SUBSCRIBE_RESULT")
+                    .subscriptions(new ArrayList<>(subscriptions))
+                    .timestamp(System.currentTimeMillis())
+                    .build();
+        }
+
+        // 执行订阅
+        StockSubscriptionService.SubscribeResult result = stockSubscriptionService.subscribe(userId, symbols);
+
+        // 返回当前所有订阅
+        Set<String> allSubscriptions = stockSubscriptionService.getUserSubscriptions(userId);
+
+        return SubscriptionMessage.builder()
+                .type("SUBSCRIBE_RESULT")
+                .symbols(symbols)
+                .success(result.getSuccess())
+                .failed(result.getFailed())
+                .subscriptions(new ArrayList<>(allSubscriptions))
+                .timestamp(System.currentTimeMillis())
+                .build();
     }
 
     /**
      * 处理取消订阅请求
      *
-     * @param destination 取消订阅目标
      * @param headerAccessor 消息头部访问器
      * @return 取消订阅结果
      */
     @MessageMapping("/unsubscribe")
     @SendToUser("/queue/unsubscribe-result")
-    public WebSocketMessage handleUnsubscribe(@DestinationVariable String destination,
-                                               SimpMessageHeaderAccessor headerAccessor) {
-        log.info("用户取消订阅: destination={}, sessionId={}", destination, headerAccessor.getSessionId());
+    public SubscriptionMessage handleUnsubscribe(SimpMessageHeaderAccessor headerAccessor) {
+        log.info("用户取消订阅请求, sessionId={}", headerAccessor.getSessionId());
 
         // 获取用户信息
         WebSocketChannelInterceptor.WebSocketUserPrincipal principal = getUserPrincipal(headerAccessor);
-        if (principal != null) {
-            activeConnections.remove(principal.getUserId());
+        if (principal == null) {
+            return SubscriptionMessage.builder()
+                    .type("UNSUBSCRIBE_RESULT")
+                    .failed(Map.of("error", "User not authenticated"))
+                    .timestamp(System.currentTimeMillis())
+                    .build();
         }
 
-        return WebSocketMessage.success("unsubscribe", destination,
-                Map.of("status", "unsubscribed", "destination", destination));
+        Long userId = principal.getUserId();
+
+        // 从头部获取要取消订阅的股票代码
+        List<String> symbols = new ArrayList<>();
+        String symbolHeader = headerAccessor.getFirstNativeHeader("symbols");
+        if (symbolHeader != null && !symbolHeader.isBlank()) {
+            symbols = List.of(symbolHeader.split(","));
+        }
+
+        // 执行取消订阅
+        StockSubscriptionService.SubscribeResult result = stockSubscriptionService.unsubscribe(userId, symbols);
+
+        // 返回当前所有订阅
+        Set<String> allSubscriptions = stockSubscriptionService.getUserSubscriptions(userId);
+
+        return SubscriptionMessage.builder()
+                .type("UNSUBSCRIBE_RESULT")
+                .symbols(symbols)
+                .success(result.getSuccess())
+                .failed(result.getFailed())
+                .subscriptions(new ArrayList<>(allSubscriptions))
+                .timestamp(System.currentTimeMillis())
+                .build();
     }
 
     /**
@@ -107,15 +172,28 @@ public class WebSocketEventController {
     }
 
     /**
-     * 处理断开连接事件
+     * 处理断开连接事件 - 清理用户订阅
      */
     @EventListener
     public void handleSessionDisconnect(SessionDisconnectEvent event) {
         String sessionId = event.getSessionId();
         log.info("WebSocket 断开连接: sessionId={}", sessionId);
 
-        // 移除断开连接的用户的活跃连接记录
-        activeConnections.entrySet().removeIf(entry -> entry.getValue().equals(sessionId));
+        // 找到断开连接的用户并清理订阅
+        Long disconnectedUserId = null;
+        for (Map.Entry<Long, String> entry : activeConnections.entrySet()) {
+            if (entry.getValue().equals(sessionId)) {
+                disconnectedUserId = entry.getKey();
+                break;
+            }
+        }
+
+        if (disconnectedUserId != null) {
+            activeConnections.remove(disconnectedUserId);
+            // 清理用户的订阅
+            stockSubscriptionService.onUserDisconnect(disconnectedUserId);
+            log.info("已清理用户 {} 的订阅", disconnectedUserId);
+        }
     }
 
     /**
