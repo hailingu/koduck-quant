@@ -12,6 +12,7 @@ from typing import Any, Optional, Tuple
 from app.db import stock_db, tick_history_db
 from app.config import settings
 from app.services.eastmoney_client import eastmoney_client
+from app.utils.trading_hours import is_a_share_trading_time
 
 logger = logging.getLogger(__name__)
 
@@ -57,18 +58,35 @@ class DataUpdater:
         Eastmoney returns prices and percentages scaled by 100.  This helper
         divides the relevant fields and mutates the input dictionary in-place.
 
+        Additionally, when the API returns price=0 (outside trading hours),
+        use prev_close as the reference price.
+
         Args:
             data: Raw payload returned by :class:`eastmoney_client`.
 
         Returns:
             The same dictionary with numeric fields adjusted.
         """
+        # Convert price fields from Eastmoney units (x100) to standard units
         for field in PRICE_FIELDS:
             if data.get(field) is not None:
                 data[field] = data[field] / 100
 
         if data.get("change_percent") is not None:
             data["change_percent"] = data["change_percent"] / 100
+
+        # Handle after-hours price: when Eastmoney returns price=0,
+        # use prev_close as the reference price
+        if data.get("price") == 0 and data.get("prev_close") is not None:
+            if not is_a_share_trading_time():
+                logger.debug(
+                    f"After-hours data for {data.get('symbol')}: "
+                    f"price=0, using prev_close={data['prev_close']}"
+                )
+                data["price"] = data["prev_close"]
+                data["change"] = 0
+                data["change_percent"] = 0
+                data["_data_source"] = "after_hours"  # Mark data source
 
         return data
     
@@ -235,6 +253,7 @@ class DataUpdater:
                 data['name'] = TEST_SYMBOL_NAME if symbol == TEST_SYMBOL else symbol
             
             # Normalize price data (Eastmoney returns price * 100)
+            # Also handles after-hours price=0 case
             data = self._normalize_market_data(data)
             
             # Save to realtime database (UPSERT)
