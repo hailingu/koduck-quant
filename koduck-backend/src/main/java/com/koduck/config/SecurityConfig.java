@@ -38,6 +38,7 @@ public class SecurityConfig {
     private static final String APP_HEALTH_ENDPOINT_PATTERN = "/api/v1/health/**";
     private static final String MARKET_ENDPOINT_PATTERN = "/api/v1/market/**";
     private static final String MONITORING_ENDPOINT_PATTERN = "/api/v1/monitoring/**";
+    private static final String WEBSOCKET_ENDPOINT = "/ws/**";
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
     private final UserDetailsService userDetailsService;
@@ -63,7 +64,8 @@ public class SecurityConfig {
                     AUTH_ENDPOINT_PATTERN,
                     ACTUATOR_HEALTH_ENDPOINT,
                     APP_HEALTH_ENDPOINT_PATTERN,
-                    MONITORING_ENDPOINT_PATTERN
+                    MONITORING_ENDPOINT_PATTERN,
+                    WEBSOCKET_ENDPOINT
                 ).permitAll()
                 .requestMatchers(HttpMethod.GET, MARKET_ENDPOINT_PATTERN).permitAll()
                 .anyRequest().authenticated()

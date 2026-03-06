@@ -66,7 +66,7 @@ spring:
           starttls:
             enable: true
 
-# Koduck 自定义邮件配置
+# Koduck 自定义配置
 koduck:
   pagination:
     default-page-size: 20
@@ -77,6 +77,15 @@ koduck:
     from-name: ${MAIL_FROM_NAME:Koduck Quant}
     password-reset-token-expiry-minutes: 30
     password-reset-url-template: ${PASSWORD_RESET_URL_TEMPLATE:http://localhost:3000/reset-password?token={token}}
+  websocket:
+    endpoint: /ws
+    application-destination-prefix: /app
+    allowed-origins:
+      - "*"
+    heartbeat-interval: 25
+    broker:
+      topic-prefix: /topic
+      queue-prefix: /queue
 
 # Demo 用户配置
 # 注意: 生产环境应设置 app.demo.enabled=false 或不设置 APP_DEMO_PASSWORD
