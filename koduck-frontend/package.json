@@ -10,12 +10,14 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@stomp/stompjs": "^7.3.0",
     "axios": "^1.13.6",
     "echarts": "^6.0.0",
     "lightweight-charts": "^5.1.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
     "react-router-dom": "^7.13.1",
+    "sockjs-client": "^1.6.1",
     "zustand": "^5.0.11"
   },
   "devDependencies": {
@@ -24,6 +26,7 @@
     "@types/node": "^24.11.0",
     "@types/react": "^19.2.7",
     "@types/react-dom": "^19.2.3",
+    "@types/sockjs-client": "^1.5.4",
     "@typescript-eslint/eslint-plugin": "^8.56.1",
     "@typescript-eslint/parser": "^8.56.1",
     "@vitejs/plugin-react": "^5.1.1",
