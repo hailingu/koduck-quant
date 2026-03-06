@@ -74,6 +74,9 @@ services:
       - REDIS_URL=redis://redis:6379/0
       - LOG_LEVEL=WARNING
       - DEBUG=false
+      # Eastmoney Client Settings
+      - EASTMONEY_COOKIE_TTL=3600
+      - EASTMONEY_MIN_REQUEST_INTERVAL=3.0
     depends_on:
       redis:
         condition: service_healthy

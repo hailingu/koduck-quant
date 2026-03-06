@@ -40,6 +40,12 @@ class Settings(BaseSettings):
     # AKShare settings
     AKSHARE_TIMEOUT: int = 30
     
+    # Eastmoney Client Settings
+    # Cookie 有效期（秒），默认 1 小时，正常用户浏览网站不会每 5 分钟刷新 cookie
+    EASTMONEY_COOKIE_TTL: int = 3600
+    # 请求间隔（秒），默认 3 秒，更像人类操作，降低被封禁风险
+    EASTMONEY_MIN_REQUEST_INTERVAL: float = 3.0
+    
     # Tick History Storage Configuration
     # 历史 tick 数据存储配置
     TICK_HISTORY_ENABLED: bool = True              # 是否启用历史 tick 存储
