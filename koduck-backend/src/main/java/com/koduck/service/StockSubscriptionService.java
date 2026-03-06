@@ -188,6 +188,15 @@ public class StockSubscriptionService {
     }
 
     /**
+     * 获取所有被订阅的股票代码
+     *
+     * @return 所有被订阅的股票代码集合
+     */
+    public Set<String> getAllSubscribedSymbols() {
+        return new HashSet<>(symbolSubscribers.keySet());
+    }
+
+    /**
      * 处理价格更新消息，推送给所有关注该股票的用户
      *
      * @param priceUpdate 价格更新数据
@@ -356,6 +365,11 @@ public class StockSubscriptionService {
             private String type = "PRICE_UPDATE";
             private String timestamp;
             private PriceData data;
+
+            public PriceUpdateMessageBuilder type(String type) {
+                this.type = type;
+                return this;
+            }
 
             public PriceUpdateMessageBuilder timestamp(String timestamp) {
                 this.timestamp = timestamp;
