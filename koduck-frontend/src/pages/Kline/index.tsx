@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import KlineChart from '@/components/KlineChart'
 import StockSearch from '@/components/StockSearch'
@@ -19,8 +19,14 @@ const TIMEFRAMES = [
 ]
 
 const STORAGE_KEY = 'kline_current_stock'
-const DEFAULT_SYMBOL = '002326'
-const DEFAULT_NAME = '永太科技'
+const RECENT_STOCKS_KEY = 'kline_recent_stocks'
+const MAX_RECENT_STOCKS = 10
+
+interface RecentStock {
+  symbol: string
+  name: string
+  timestamp: number
+}
 
 // Helper function to get stored stock from localStorage
 const getStoredStock = (): { symbol: string; name: string } | null => {
@@ -51,29 +57,48 @@ const saveStockToStorage = (symbol: string, name: string) => {
   }
 }
 
+// Get recent stocks from localStorage
+const getRecentStocks = (): RecentStock[] => {
+  try {
+    const stored = localStorage.getItem(RECENT_STOCKS_KEY)
+    if (stored) {
+      const parsed = JSON.parse(stored)
+      if (Array.isArray(parsed)) {
+        return parsed.slice(0, MAX_RECENT_STOCKS)
+      }
+    }
+  } catch (e) {
+    console.error('Failed to parse recent stocks:', e)
+  }
+  return []
+}
+
+// Save stock to recent stocks list
+const saveRecentStock = (symbol: string, name: string) => {
+  try {
+    const recent = getRecentStocks()
+    // Remove existing entry with same symbol
+    const filtered = recent.filter(s => s.symbol !== symbol)
+    // Add new entry at the beginning
+    const updated = [{ symbol, name, timestamp: Date.now() }, ...filtered].slice(0, MAX_RECENT_STOCKS)
+    localStorage.setItem(RECENT_STOCKS_KEY, JSON.stringify(updated))
+  } catch (e) {
+    console.error('Failed to save recent stock:', e)
+  }
+}
+
 export default function Kline() {
   const [searchParams, setSearchParams] = useSearchParams()
   
-  // Initialize state with priority: URL > localStorage > default
-  const [symbol, setSymbol] = useState(() => {
-    const urlSymbol = searchParams.get('symbol')
-    if (urlSymbol) return urlSymbol
-    const stored = getStoredStock()
-    if (stored) return stored.symbol
-    return DEFAULT_SYMBOL
-  })
-  
-  const [stockName, setStockName] = useState(() => {
-    const urlName = searchParams.get('name')
-    if (urlName) return urlName
-    const stored = getStoredStock()
-    if (stored?.name) return stored.name
-    return DEFAULT_NAME
-  })
-  
+  // Initialize state - default to empty (no stock selected)
+  const [symbol, setSymbol] = useState<string>('')
+  const [stockName, setStockName] = useState<string>('')
   const [timeframe, setTimeframe] = useState('1D')
   const [klineData, setKlineData] = useState<KlineData[]>([])
   const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [recentStocks, setRecentStocks] = useState<RecentStock[]>([])
+  
   const [stockInfo, setStockInfo] = useState({
     price: 0,
     change: 0,
@@ -86,7 +111,15 @@ export default function Kline() {
   })
 
   const { addItem, isInWatchlist } = useWatchlistStore()
-  const inWatchlist = isInWatchlist(symbol)
+  const inWatchlist = symbol ? isInWatchlist(symbol) : false
+  
+  // Check if a stock is currently selected
+  const hasSelectedStock = symbol !== ''
+
+  // Load recent stocks on mount
+  useEffect(() => {
+    setRecentStocks(getRecentStocks())
+  }, [])
 
   // Sync URL changes (e.g., browser back/forward)
   useEffect(() => {
@@ -99,16 +132,23 @@ export default function Kline() {
     }
   }, [searchParams])
 
+  // Fetch data when symbol changes
   useEffect(() => {
-    fetchKlineData()
-    fetchStockDetail()
+    if (symbol) {
+      fetchKlineData()
+      fetchStockDetail()
+    }
   }, [symbol])
 
+  // Fetch kline data when timeframe changes
   useEffect(() => {
-    fetchKlineData()
+    if (symbol) {
+      fetchKlineData()
+    }
   }, [timeframe])
 
   const fetchStockDetail = async () => {
+    if (!symbol) return
     try {
       const data = await marketApi.getStockDetail(symbol)
       if (data) {
@@ -126,11 +166,14 @@ export default function Kline() {
       }
     } catch (error) {
       console.error('Failed to fetch stock detail:', error)
+      setError('获取股票信息失败')
     }
   }
 
   const fetchKlineData = async () => {
+    if (!symbol) return
     setLoading(true)
+    setError(null)
     try {
       const data = await klineApi.getKline({
         market: 'AShare',
@@ -141,8 +184,9 @@ export default function Kline() {
       if (data) {
         setKlineData(data)
       }
-    } catch (error) {
-      console.error('Failed to fetch kline data:', error)
+    } catch (err) {
+      console.error('Failed to fetch kline data:', err)
+      setError('获取K线数据失败，请稍后重试')
     } finally {
       setLoading(false)
     }
@@ -153,9 +197,12 @@ export default function Kline() {
     setStockName(selectedName)
     setSearchParams({ symbol: selectedSymbol, name: selectedName })
     saveStockToStorage(selectedSymbol, selectedName)
+    saveRecentStock(selectedSymbol, selectedName)
+    setRecentStocks(getRecentStocks())
   }
 
   const handleAddToWatchlist = async () => {
+    if (!symbol || !stockName) return
     try {
       await addItem(symbol, stockName, 'AShare')
     } catch (error) {
@@ -163,7 +210,83 @@ export default function Kline() {
     }
   }
 
+  const handleRetry = () => {
+    if (symbol) {
+      fetchKlineData()
+      fetchStockDetail()
+    }
+  }
+
   const isUp = stockInfo.change >= 0
+
+  // Render empty state when no stock is selected
+  if (!hasSelectedStock) {
+    return (
+      <div className="space-y-4">
+        {/* Header with Search */}
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+          <StockSearch onSelect={handleStockSelect} />
+        </div>
+
+        {/* Empty State */}
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
+          <div className="flex flex-col items-center justify-center py-20 px-4">
+            {/* Icon */}
+            <div className="w-20 h-20 mb-6 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center">
+              <svg
+                className="w-10 h-10 text-gray-400"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={1.5}
+                  d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z"
+                />
+              </svg>
+            </div>
+            
+            {/* Title */}
+            <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
+              请输入股票代码开始分析
+            </h2>
+            
+            {/* Description */}
+            <p className="text-gray-500 dark:text-gray-400 mb-8 text-center max-w-md">
+              在上方搜索框输入股票代码（如 000001.SZ）、名称（如 平安银行）或拼音首字母（如 payh）搜索股票
+            </p>
+
+            {/* Recent Stocks */}
+            {recentStocks.length > 0 && (
+              <div className="w-full max-w-md">
+                <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-3">
+                  最近浏览
+                </h3>
+                <div className="flex flex-wrap gap-2">
+                  {recentStocks.map((stock) => (
+                    <button
+                      key={stock.symbol}
+                      onClick={() => handleStockSelect(stock.symbol, stock.name)}
+                      className="px-3 py-2 bg-gray-100 dark:bg-gray-700 hover:bg-primary-100 dark:hover:bg-primary-900 rounded-lg text-sm transition-colors"
+                    >
+                      <span className="font-medium text-gray-700 dark:text-gray-300">
+                        {stock.name}
+                      </span>
+                      <span className="ml-1 text-gray-500 dark:text-gray-400">
+                        {stock.symbol}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-4">
@@ -183,6 +306,26 @@ export default function Kline() {
           {inWatchlist ? '已在自选' : '加入自选'}
         </button>
       </div>
+
+      {/* Error Message */}
+      {error && (
+        <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <svg className="w-5 h-5 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <span className="text-red-700 dark:text-red-400">{error}</span>
+            </div>
+            <button
+              onClick={handleRetry}
+              className="px-3 py-1 text-sm bg-red-100 dark:bg-red-800 text-red-700 dark:text-red-300 rounded-lg hover:bg-red-200 dark:hover:bg-red-700 transition-colors"
+            >
+              重试
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Stock Info */}
       <div className="bg-white dark:bg-gray-800 p-4 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
