@@ -29,23 +29,14 @@ function SortButton({ direction, onClick, active }: { direction: 'up' | 'down'; 
 function WatchlistRow({
   item,
   onDelete,
-  onUpdateNotes,
   onClick,
 }: {
   item: WatchlistItem
   onDelete: (id: number) => void
-  onUpdateNotes: (id: number, notes: string) => void
   onClick: (symbol: string, market: string) => void
 }) {
-  const [isEditing, setIsEditing] = useState(false)
-  const [editNotes, setEditNotes] = useState(item.notes || '')
   const isUp = (item.changePercent || 0) >= 0
   const colorClass = isUp ? 'text-stock-up' : 'text-stock-down'
-
-  const handleSaveNotes = () => {
-    onUpdateNotes(item.id, editNotes)
-    setIsEditing(false)
-  }
 
   return (
     <tr className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
@@ -77,57 +68,6 @@ function WatchlistRow({
         <div className={`text-xs ${colorClass}`}>
           {item.change ? `${isUp ? '+' : ''}${item.change.toFixed(2)}` : '--'}
         </div>
-      </td>
-      <td className="px-6 py-4 whitespace-nowrap">
-        {isEditing ? (
-          <div className="flex items-center gap-2">
-            <input
-              type="text"
-              value={editNotes}
-              onChange={(e) => setEditNotes(e.target.value)}
-              className="flex-1 px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-              placeholder="添加备注..."
-              autoFocus
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') handleSaveNotes()
-                if (e.key === 'Escape') setIsEditing(false)
-              }}
-            />
-            <button
-              onClick={handleSaveNotes}
-              className="p-1 text-green-600 hover:bg-green-50 dark:hover:bg-green-900/20 rounded"
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-              </svg>
-            </button>
-            <button
-              onClick={() => {
-                setIsEditing(false)
-                setEditNotes(item.notes || '')
-              }}
-              className="p-1 text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded"
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
-          </div>
-        ) : (
-          <div
-            className="text-sm text-gray-500 dark:text-gray-400 cursor-pointer hover:text-primary-600 flex items-center gap-1"
-            onClick={() => setIsEditing(true)}
-          >
-            {item.notes || (
-              <span className="text-gray-400 dark:text-gray-600 italic">点击添加备注</span>
-            )}
-            {!item.notes && (
-              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-              </svg>
-            )}
-          </div>
-        )}
       </td>
       <td className="px-6 py-4 whitespace-nowrap text-right text-sm text-gray-500 dark:text-gray-400">
         {new Date(item.createdAt).toLocaleDateString('zh-CN')}
@@ -230,17 +170,6 @@ export default function Watchlist() {
       setWatchlist((prev) => prev.filter((item) => item.id !== id))
     } catch {
       showToast('删除失败', 'error')
-    }
-  }
-
-  // 更新备注
-  const handleUpdateNotes = async (id: number, notes: string) => {
-    try {
-      await watchlistApi.updateNotes(id, notes)
-      setWatchlist((prev) => prev.map((item) => (item.id === id ? { ...item, note: notes } : item)))
-      showToast('备注更新成功', 'success')
-    } catch {
-      showToast('更新备注失败', 'error')
     }
   }
 
@@ -442,9 +371,6 @@ export default function Watchlist() {
                       />
                     </button>
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                    备注
-                  </th>
                   <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                     <button
                       className="flex items-center justify-end gap-1 hover:text-gray-700 dark:hover:text-gray-200 ml-auto"
@@ -469,7 +395,6 @@ export default function Watchlist() {
                     key={item.id}
                     item={item}
                     onDelete={handleDelete}
-                    onUpdateNotes={handleUpdateNotes}
                     onClick={handleClickStock}
                   />
                 ))}
