@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import KlineChart from '@/components/KlineChart'
 import StockSearch from '@/components/StockSearch'
@@ -26,22 +26,6 @@ interface RecentStock {
   symbol: string
   name: string
   timestamp: number
-}
-
-// Helper function to get stored stock from localStorage
-const getStoredStock = (): { symbol: string; name: string } | null => {
-  try {
-    const stored = localStorage.getItem(STORAGE_KEY)
-    if (stored) {
-      const parsed = JSON.parse(stored)
-      if (parsed.symbol) {
-        return { symbol: parsed.symbol, name: parsed.name || '' }
-      }
-    }
-  } catch (e) {
-    console.error('Failed to parse stored stock:', e)
-  }
-  return null
 }
 
 // Helper function to save stock to localStorage
