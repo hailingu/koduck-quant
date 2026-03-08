@@ -643,5 +643,74 @@ class EastmoneyClient:
         return None
 
 
+    def fetch_kline_data(
+        self,
+        symbol: str,
+        secid_prefix: str = "1",
+        period: str = "101",  # 101=daily, 102=weekly, 103=monthly
+        start_date: str = None,
+        end_date: str = None,
+        limit: int = 300,
+    ) -> list[dict] | None:
+        """Fetch K-line historical data from Eastmoney.
+
+        Args:
+            symbol: Stock symbol (e.g., '601012')
+            secid_prefix: 1 for SH, 0 for SZ
+            period: 101=daily, 102=weekly, 103=monthly
+            start_date: Start date (YYYYMMDD)
+            end_date: End date (YYYYMMDD)
+            limit: Maximum number of records
+
+        Returns:
+            List of K-line data dictionaries or None
+        """
+        # Build URL - use push2.eastmoney.com (same as fetch_single_stock)
+        url = (
+            f"https://push2.eastmoney.com/api/qt/stock/kline/get?"
+            f"fields1=f1,f2,f3,f4,f5,f6&"
+            f"fields2=f51,f52,f53,f54,f55,f56,f57,f58,f59,f60,f61&"
+            f"klt={period}&fqt=0&secid={secid_prefix}.{symbol}"
+        )
+
+        if start_date:
+            url += f"&beg={start_date}"
+        if end_date:
+            url += f"&end={end_date}"
+
+        logger.debug(f"Fetching kline from Eastmoney: {symbol}, period={period}")
+
+        data = self._make_request(url)
+
+        if not data or not data.get("data"):
+            logger.warning(f"No kline data received for {symbol}")
+            return None
+
+        raw_klines = data["data"].get("klines", [])
+        if not raw_klines:
+            return []
+
+        # Parse kline data
+        # Format: "date,open,close,high,low,volume,amount,amplitude,pct_change,change_amount,turnover"
+        klines = []
+        for raw in raw_klines[-limit:]:  # Take last N records
+            parts = raw.split(",")
+            if len(parts) >= 6:
+                klines.append({
+                    "timestamp": int(datetime.strptime(parts[0], "%Y-%m-%d").timestamp()),
+                    "date": parts[0],
+                    "open": float(parts[1]),
+                    "close": float(parts[2]),
+                    "high": float(parts[3]),
+                    "low": float(parts[4]),
+                    "volume": int(float(parts[5])),
+                    "amount": float(parts[6]) if len(parts) > 6 else 0,
+                    "change_percent": float(parts[8]) if len(parts) > 8 else 0,
+                })
+
+        logger.info(f"Fetched {len(klines)} kline records for {symbol}")
+        return klines
+
+
 # Global client instance
 eastmoney_client = EastmoneyClient()
