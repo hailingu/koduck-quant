@@ -15,35 +15,14 @@ const menuItems = [
     path: '/profile',
   },
   {
-    key: 'profile',
-    label: '个人资料',
+    key: 'data',
+    label: '我的数据',
     icon: (
       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
       </svg>
     ),
-    path: '/profile/edit',
-  },
-  {
-    key: 'preferences',
-    label: '偏好设置',
-    icon: (
-      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-      </svg>
-    ),
-    path: '/profile/preferences',
-  },
-  {
-    key: 'security',
-    label: '账户安全',
-    icon: (
-      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-      </svg>
-    ),
-    path: '/profile/security',
+    path: '/profile/data',
   },
   {
     key: 'api',
@@ -165,18 +144,18 @@ function OverviewTab() {
       <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
         <h4 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">快捷操作</h4>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <button className="flex flex-col items-center gap-2 p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
+          <a href="/settings" className="flex flex-col items-center gap-2 p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
             <svg className="w-8 h-8 text-primary-600 dark:text-primary-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
             </svg>
             <span className="text-sm text-gray-700 dark:text-gray-300">编辑资料</span>
-          </button>
-          <button className="flex flex-col items-center gap-2 p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
+          </a>
+          <a href="/settings" className="flex flex-col items-center gap-2 p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
             <svg className="w-8 h-8 text-primary-600 dark:text-primary-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
             </svg>
             <span className="text-sm text-gray-700 dark:text-gray-300">修改密码</span>
-          </button>
+          </a>
           <button className="flex flex-col items-center gap-2 p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
             <svg className="w-8 h-8 text-primary-600 dark:text-primary-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
@@ -195,187 +174,42 @@ function OverviewTab() {
   )
 }
 
-// 个人资料编辑页面组件
-function ProfileEditTab() {
-  const authUser = useAuthStore((state) => state.user)
-  const [nickname, setNickname] = useState(authUser?.nickname || defaultUserInfo.nickname)
-  const [email, setEmail] = useState(authUser?.email || defaultUserInfo.email)
-  
-  // 使用登录用户的用户名
-  const username = authUser?.username || '用户'
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-    alert('资料更新成功！')
-  }
-
+// 我的数据页面组件
+function MyDataTab() {
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
-      <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-6">个人资料</h3>
-      <form onSubmit={handleSubmit} className="space-y-6">
-        <div className="flex items-center gap-6">
-          <div className="w-20 h-20 rounded-full bg-primary-100 dark:bg-primary-900/30 flex items-center justify-center cursor-pointer hover:opacity-80 transition-opacity">
-            <span className="text-3xl font-bold text-primary-600 dark:text-primary-400">
-              {username.charAt(0).toUpperCase()}
-            </span>
+    <div className="space-y-6">
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+        <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">我的数据</h3>
+        <div className="space-y-4">
+          <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+            <div>
+              <h4 className="text-gray-900 dark:text-white font-medium">自选股</h4>
+              <p className="text-sm text-gray-500 dark:text-gray-400">管理您的自选股列表</p>
+            </div>
+            <button className="px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg transition-colors text-sm">
+              查看
+            </button>
           </div>
-          <button type="button" className="px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg transition-colors text-sm">
-            更换头像
-          </button>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">用户名</label>
-            <input
-              type="text"
-              value={username}
-              disabled
-              className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 cursor-not-allowed"
-            />
+          <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+            <div>
+              <h4 className="text-gray-900 dark:text-white font-medium">投资组合</h4>
+              <p className="text-sm text-gray-500 dark:text-gray-400">查看您的投资组合</p>
+            </div>
+            <button className="px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg transition-colors text-sm">
+              查看
+            </button>
           </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">昵称</label>
-            <input
-              type="text"
-              value={nickname}
-              onChange={(e) => setNickname(e.target.value)}
-              className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-            />
+          <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+            <div>
+              <h4 className="text-gray-900 dark:text-white font-medium">监控策略</h4>
+              <p className="text-sm text-gray-500 dark:text-gray-400">管理您的监控策略</p>
+            </div>
+            <button className="px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg transition-colors text-sm">
+              查看
+            </button>
           </div>
-          <div className="md:col-span-2">
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">邮箱</label>
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-            />
-          </div>
-        </div>
-
-        <div className="flex justify-end pt-4">
-          <button type="submit" className="px-6 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg transition-colors">
-            保存修改
-          </button>
-        </div>
-      </form>
-    </div>
-  )
-}
-
-// 偏好设置页面组件
-function PreferencesTab() {
-  const [theme, setTheme] = useState('light')
-  const [notifications, setNotifications] = useState(true)
-
-  return (
-    <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
-      <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-6">偏好设置</h3>
-      <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h4 className="text-gray-900 dark:text-white font-medium">主题模式</h4>
-            <p className="text-sm text-gray-500 dark:text-gray-400">选择您喜欢的主题风格</p>
-          </div>
-          <select
-            value={theme}
-            onChange={(e) => setTheme(e.target.value)}
-            className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-          >
-            <option value="light">浅色模式</option>
-            <option value="dark">深色模式</option>
-            <option value="auto">跟随系统</option>
-          </select>
-        </div>
-
-        <div className="flex items-center justify-between">
-          <div>
-            <h4 className="text-gray-900 dark:text-white font-medium">消息通知</h4>
-            <p className="text-sm text-gray-500 dark:text-gray-400">接收系统通知和提醒</p>
-          </div>
-          <button
-            onClick={() => setNotifications(!notifications)}
-            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-              notifications ? 'bg-primary-600' : 'bg-gray-300 dark:bg-gray-600'
-            }`}
-          >
-            <span
-              className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                notifications ? 'translate-x-6' : 'translate-x-1'
-              }`}
-            />
-          </button>
-        </div>
-
-        <div className="flex items-center justify-between">
-          <div>
-            <h4 className="text-gray-900 dark:text-white font-medium">语言设置</h4>
-            <p className="text-sm text-gray-500 dark:text-gray-400">选择界面显示语言</p>
-          </div>
-          <select className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
-            <option value="zh-CN">简体中文</option>
-            <option value="en">English</option>
-          </select>
         </div>
       </div>
-    </div>
-  )
-}
-
-// 账户安全页面组件
-function SecurityTab() {
-  const [oldPassword, setOldPassword] = useState('')
-  const [newPassword, setNewPassword] = useState('')
-  const [confirmPassword, setConfirmPassword] = useState('')
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-    if (newPassword !== confirmPassword) {
-      alert('两次输入的密码不一致')
-      return
-    }
-    alert('密码修改成功！')
-  }
-
-  return (
-    <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
-      <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-6">账户安全</h3>
-      <form onSubmit={handleSubmit} className="space-y-6 max-w-md">
-        <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">当前密码</label>
-          <input
-            type="password"
-            value={oldPassword}
-            onChange={(e) => setOldPassword(e.target.value)}
-            className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-            placeholder="请输入当前密码"
-          />
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">新密码</label>
-          <input
-            type="password"
-            value={newPassword}
-            onChange={(e) => setNewPassword(e.target.value)}
-            className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-            placeholder="请输入新密码"
-          />
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">确认新密码</label>
-          <input
-            type="password"
-            value={confirmPassword}
-            onChange={(e) => setConfirmPassword(e.target.value)}
-            className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-            placeholder="请再次输入新密码"
-          />
-        </div>
-        <button type="submit" className="px-6 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg transition-colors">
-          修改密码
-        </button>
-      </form>
     </div>
   )
 }
@@ -422,49 +256,6 @@ function ApiManagementTab() {
               </div>
             </div>
           ))}
-        </div>
-      </div>
-    </div>
-  )
-}
-
-// 数据管理页面组件
-function DataManagementTab() {
-  return (
-    <div className="space-y-6">
-      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
-        <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-6">数据管理</h3>
-
-        <div className="space-y-6">
-          <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
-            <div>
-              <h4 className="text-gray-900 dark:text-white font-medium">导出个人数据</h4>
-              <p className="text-sm text-gray-500 dark:text-gray-400">下载您的所有个人数据</p>
-            </div>
-            <button className="px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors text-sm">
-              导出
-            </button>
-          </div>
-
-          <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
-            <div>
-              <h4 className="text-gray-900 dark:text-white font-medium">同步数据</h4>
-              <p className="text-sm text-gray-500 dark:text-gray-400">与云端同步您的数据</p>
-            </div>
-            <button className="px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors text-sm">
-              同步
-            </button>
-          </div>
-
-          <div className="flex items-center justify-between p-4 bg-red-50 dark:bg-red-900/20 rounded-lg">
-            <div>
-              <h4 className="text-red-700 dark:text-red-300 font-medium">删除账户</h4>
-              <p className="text-sm text-red-600 dark:text-red-400">永久删除您的账户和所有数据</p>
-            </div>
-            <button className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors text-sm">
-              删除
-            </button>
-          </div>
         </div>
       </div>
     </div>
@@ -518,9 +309,6 @@ export default function Profile() {
   const getActiveKey = () => {
     const path = location.pathname
     if (path === '/profile') return 'overview'
-    if (path === '/profile/edit') return 'profile'
-    if (path === '/profile/preferences') return 'preferences'
-    if (path === '/profile/security') return 'security'
     if (path === '/profile/api') return 'api'
     if (path === '/profile/data') return 'data'
     return 'overview'
@@ -533,16 +321,10 @@ export default function Profile() {
     switch (activeKey) {
       case 'overview':
         return <OverviewTab />
-      case 'profile':
-        return <ProfileEditTab />
-      case 'preferences':
-        return <PreferencesTab />
-      case 'security':
-        return <SecurityTab />
       case 'api':
         return <ApiManagementTab />
       case 'data':
-        return <DataManagementTab />
+        return <MyDataTab />
       default:
         return <OverviewTab />
     }
