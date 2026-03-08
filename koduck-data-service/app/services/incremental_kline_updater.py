@@ -2,17 +2,28 @@
 
 This module provides functionality for incrementally updating K-line data,
 automatically detecting existing data ranges and fetching only missing data.
+
+Data flow:
+1. Fetch new data from AKShare
+2. Append to CSV file (cache)
+3. Import to PostgreSQL database
 """
 
 import logging
 from dataclasses import dataclass
 from datetime import datetime, timedelta
+from pathlib import Path
 from typing import Optional
+
+import pandas as pd
 
 from app.db import Database
 from app.services.akshare_client import akshare_client
 
 logger = logging.getLogger(__name__)
+
+# CSV data directory
+DATA_DIR = Path(__file__).parent.parent.parent / "data" / "kline"
 
 
 @dataclass
@@ -23,6 +34,7 @@ class IncrementalUpdateResult:
     timeframe: str
     records_added: int
     records_updated: int
+    csv_records_added: int
     date_range: dict
     data: list[dict]
 
@@ -33,6 +45,7 @@ class IncrementalUpdateResult:
             "timeframe": self.timeframe,
             "records_added": self.records_added,
             "records_updated": self.records_updated,
+            "csv_records_added": self.csv_records_added,
             "date_range": self.date_range,
             "data": self.data,
         }
@@ -160,6 +173,7 @@ class IncrementalKlineUpdater:
                 timeframe=timeframe,
                 records_added=0,
                 records_updated=0,
+                csv_records_added=0,
                 date_range={"start": None, "end": None},
                 data=[],
             )
@@ -171,13 +185,21 @@ class IncrementalKlineUpdater:
                 timeframe=timeframe,
                 records_added=0,
                 records_updated=0,
+                csv_records_added=0,
                 date_range={"start": None, "end": None},
                 data=[],
             )
 
         # Process and merge data
+        csv_records_added = 0
         if not dry_run:
-            records_added = await self._save_kline_data(klines, symbol, timeframe, market)
+            # Step 1: Save to CSV (cache)
+            csv_records_added = self._save_to_csv(klines, symbol, timeframe)
+            
+            # Step 2: Save to database
+            db_records_added = await self._save_kline_data(klines, symbol, timeframe, market)
+            
+            records_added = db_records_added
         else:
             records_added = len(klines)
 
@@ -191,6 +213,7 @@ class IncrementalKlineUpdater:
             timeframe=timeframe,
             records_added=records_added,
             records_updated=0,  # Currently only inserts, no updates
+            csv_records_added=csv_records_added,
             date_range={
                 "start": fetched_min.strftime("%Y-%m-%d") if fetched_min else None,
                 "end": fetched_max.strftime("%Y-%m-%d") if fetched_max else None,
@@ -203,6 +226,110 @@ class IncrementalKlineUpdater:
         )
         return result
 
+    def _get_csv_path(self, symbol: str, timeframe: str) -> Path:
+        """Get the CSV file path for a symbol and timeframe.
+        
+        Args:
+            symbol: Stock symbol
+            timeframe: Timeframe (e.g., '1D')
+            
+        Returns:
+            Path to the CSV file
+        """
+        return DATA_DIR / timeframe / f"{symbol}.csv"
+    
+    def _load_csv_data(self, csv_path: Path) -> pd.DataFrame:
+        """Load CSV data into DataFrame.
+        
+        Args:
+            csv_path: Path to CSV file
+            
+        Returns:
+            DataFrame with CSV data, empty if file doesn't exist
+        """
+        if not csv_path.exists():
+            return pd.DataFrame()
+        
+        try:
+            df = pd.read_csv(csv_path, encoding='utf-8-sig')
+            return df
+        except Exception as e:
+            logger.error(f"Failed to load CSV {csv_path}: {e}")
+            return pd.DataFrame()
+    
+    def _save_to_csv(
+        self,
+        klines: list[dict],
+        symbol: str,
+        timeframe: str,
+    ) -> int:
+        """Append K-line data to CSV file.
+        
+        This method:
+        1. Loads existing CSV data
+        2. Merges new data (deduplication by timestamp)
+        3. Sorts by timestamp
+        4. Saves back to CSV
+        
+        Args:
+            klines: List of K-line data dictionaries
+            symbol: Stock symbol
+            timeframe: Timeframe
+            
+        Returns:
+            Number of records added to CSV
+        """
+        if not klines:
+            return 0
+        
+        csv_path = self._get_csv_path(symbol, timeframe)
+        
+        # Ensure directory exists
+        csv_path.parent.mkdir(parents=True, exist_ok=True)
+        
+        # Load existing data
+        existing_df = self._load_csv_data(csv_path)
+        
+        # Convert new data to DataFrame
+        new_data = []
+        for kline in klines:
+            new_data.append({
+                "symbol": symbol,
+                "name": kline.get("name", ""),
+                "datetime": datetime.fromtimestamp(kline["timestamp"]).strftime("%Y-%m-%d"),
+                "timestamp": kline["timestamp"],
+                "open": kline.get("open", 0),
+                "high": kline.get("high", 0),
+                "low": kline.get("low", 0),
+                "close": kline.get("close", 0),
+                "volume": kline.get("volume", 0),
+                "amount": kline.get("amount", 0),
+            })
+        
+        new_df = pd.DataFrame(new_data)
+        
+        # Merge and deduplicate
+        if existing_df.empty:
+            merged_df = new_df
+        else:
+            # Combine existing and new data
+            combined_df = pd.concat([existing_df, new_df], ignore_index=True)
+            # Deduplicate by timestamp, keep last (newest)
+            merged_df = combined_df.drop_duplicates(subset=["timestamp"], keep="last")
+        
+        # Sort by timestamp
+        merged_df = merged_df.sort_values(by="timestamp", ascending=True)
+        
+        # Save to CSV
+        try:
+            merged_df.to_csv(csv_path, index=False, encoding='utf-8-sig')
+            records_added = len(merged_df) - len(existing_df)
+            logger.info(f"Saved {records_added} new records to CSV for {symbol}")
+            return max(0, records_added)
+        except Exception as e:
+            logger.error(f"Failed to save CSV {csv_path}: {e}")
+            raise
+    
     async def _save_kline_data(
         self,
         klines: list[dict],

@@ -160,6 +160,7 @@ class TestIncrementalUpdateResult:
             timeframe="1D",
             records_added=10,
             records_updated=0,
+            csv_records_added=10,
             date_range={"start": "2024-01-01", "end": "2024-12-31"},
             data=[],
         )
@@ -170,6 +171,7 @@ class TestIncrementalUpdateResult:
         assert result_dict["timeframe"] == "1D"
         assert result_dict["records_added"] == 10
         assert result_dict["records_updated"] == 0
+        assert result_dict["csv_records_added"] == 10
         assert result_dict["date_range"]["start"] == "2024-01-01"
         assert result_dict["date_range"]["end"] == "2024-12-31"
         assert result_dict["data"] == []
