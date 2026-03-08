@@ -24,11 +24,47 @@ logger = logging.getLogger(__name__)
 _clients: dict[str, Any] = {}
 
 
+def get_api_key_for_provider(provider: str) -> str:
+    """根据 provider 获取对应的 API 密钥.
+    
+    支持的环境变量:
+    - KIMI_API_KEY / MOONSHOT_API_KEY
+    - ZLM_API_KEY / ZHIPU_API_KEY
+    - MINIMAX_API_KEY
+    
+    如果找不到特定密钥，回退到通用 LLM_API_KEY
+    """
+    import os
+    
+    provider_lower = provider.lower()
+    
+    if provider_lower == "kimi":
+        api_key = os.getenv("KIMI_API_KEY") or os.getenv("MOONSHOT_API_KEY") or ""
+    elif provider_lower == "zlm":
+        api_key = os.getenv("ZLM_API_KEY") or os.getenv("ZHIPU_API_KEY") or ""
+    elif provider_lower == "minimax":
+        api_key = os.getenv("MINIMAX_API_KEY") or ""
+    else:
+        api_key = ""
+    
+    # 回退到通用密钥
+    if not api_key:
+        api_key = os.getenv("LLM_API_KEY", "")
+    
+    return api_key
+
+
 def get_client(provider: str) -> Any:
     """获取或创建客户端实例."""
     if provider not in _clients:
+        api_key = get_api_key_for_provider(provider)
+        if not api_key:
+            raise HTTPException(
+                status_code=400, 
+                detail=f"未找到 {provider} 的 API 密钥，请设置 {provider.upper()}_API_KEY 或 LLM_API_KEY 环境变量"
+            )
         try:
-            _clients[provider] = create_client(provider=provider)
+            _clients[provider] = create_client(api_key=api_key, provider=provider)
         except ValueError as e:
             raise HTTPException(status_code=400, detail=str(e))
     return _clients[provider]
