@@ -5,7 +5,7 @@ market status for the A-share market.
 """
 
 import logging
-from datetime import datetime, time
+from datetime import datetime, time, timezone
 from typing import Annotated, List
 from zoneinfo import ZoneInfo
 

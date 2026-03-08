@@ -380,6 +380,10 @@ class KlineInitializer:
             if success:
                 self._initialized = True
                 logger.info("K-line data initialization completed successfully")
+                
+                # Notify scheduler that initialization is complete
+                from app.services.kline_scheduler import kline_scheduler
+                await kline_scheduler.mark_initialization_complete()
             
             return success
             

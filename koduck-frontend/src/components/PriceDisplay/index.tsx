@@ -1,11 +1,13 @@
-import { useEffect, useState, useRef, memo } from 'react'
-import { isTradingHours, getMarketStatus } from '@/utils/trading'
+import { memo } from 'react'
+import { isTradingHours } from '@/utils/trading'
 
 export interface PriceDisplayProps {
   /** 当前价格 */
   price: number | null
   /** 昨收价 */
   prevClose?: number | null
+  /** 涨跌额 */
+  change?: number | null
   /** 涨跌幅 */
   changePercent?: number | null
   /** 是否实时更新（启用呼吸动画） */
@@ -16,71 +18,44 @@ export interface PriceDisplayProps {
   showLabel?: boolean
   /** 价格精度 */
   decimals?: number
+  /** 显示模式：compact=紧凑，full=完整 */
+  mode?: 'compact' | 'full'
 }
 
 /**
- * 价格显示组件
- * - 交易时间内：根据涨跌显示绿色/红色呼吸动画
- * - 非交易时间：显示灰色静态昨收价格
+ * 价格显示组件（东方财富风格）
+ * - 交易时间内：根据涨跌显示绿色/红色
+ * - 非交易时间：显示灰色静态价格
+ * - 支持显示涨跌额和涨跌幅
  */
 export const PriceDisplay = memo(function PriceDisplay({
   price,
   prevClose,
+  change,
   changePercent,
   isRealTime = false,
   className = '',
   showLabel = false,
   decimals = 2,
+  mode = 'compact',
 }: PriceDisplayProps) {
-  const [isBreathing, setIsBreathing] = useState(false)
-  const [priceFlash, setPriceFlash] = useState<'up' | 'down' | null>(null)
-  const prevPriceRef = useRef<number | null>(null)
-
   // 检测交易时间
   const trading = isTradingHours()
-  const marketStatus = getMarketStatus()
-  const isTradingTime = trading || marketStatus === 'pre-market'
+
+  // 计算涨跌额（如果未提供）
+  const calculatedChange = change ?? (price && prevClose ? price - prevClose : null)
 
   // 判断涨跌方向
-  const isUp = (changePercent ?? 0) >= 0
+  const isUp = (calculatedChange ?? 0) > 0
+  const isDown = (calculatedChange ?? 0) < 0
+  const isFlat = !isUp && !isDown
 
-  // 价格变动检测：触发呼吸动画和闪烁效果
-  useEffect(() => {
-    if (!isRealTime || !isTradingTime || price === null || prevPriceRef.current === null) {
-      prevPriceRef.current = price
-      return
-    }
-
-    const prevPrice = prevPriceRef.current
-    if (price !== prevPrice && price !== null) {
-      // 价格发生变动
-      const direction = price > prevPrice ? 'up' : 'down'
-
-      // 使用 requestAnimationFrame 延迟状态更新，避免同步调用 setState
-      let flashTimer: number
-      let clearFlashTimer: number
-      let breathingTimer: number
-
-      const scheduleUpdate = () => {
-        flashTimer = window.setTimeout(() => setPriceFlash(direction), 0)
-        clearFlashTimer = window.setTimeout(() => setPriceFlash(null), 500)
-        setIsBreathing(true)
-        breathingTimer = window.setTimeout(() => setIsBreathing(false), 3000)
-      }
-
-      const rafId = requestAnimationFrame(scheduleUpdate)
-
-      prevPriceRef.current = price
-
-      return () => {
-        cancelAnimationFrame(rafId)
-        clearTimeout(flashTimer)
-        clearTimeout(clearFlashTimer)
-        clearTimeout(breathingTimer)
-      }
-    }
-    prevPriceRef.current = price
-  }, [price, isRealTime, isTradingTime])
+  // 颜色类名（A股传统：红涨绿跌）
+  const getColorClass = () => {
+    if (isUp) return 'text-stock-up'
+    if (isDown) return 'text-stock-down'
+    return 'text-gray-600 dark:text-gray-400'
+  }
 
   // 格式化价格
   const formatPrice = (value: number | null | undefined): string => {
@@ -90,37 +65,66 @@ export const PriceDisplay = memo(function PriceDisplay({
     return value.toFixed(decimals)
   }
 
-  // 渲染交易时间价格
-  if (isTradingTime) {
-    const priceClasses = [
-      'price-display',
-      isBreathing && 'price-breathing',
-      isUp ? 'price-up' : 'price-down',
-      priceFlash === 'up' && 'price-flash-up',
-      priceFlash === 'down' && 'price-flash-down',
-      className,
-    ]
-      .filter(Boolean)
-      .join(' ')
+  // 格式化涨跌额
+  const formatChange = (value: number | null | undefined): string => {
+    if (value === null || value === undefined || isNaN(value)) {
+      return '--'
+    }
+    const sign = value > 0 ? '+' : ''
+    return `${sign}${value.toFixed(decimals)}`
+  }
 
+  // 格式化涨跌幅
+  const formatChangePercent = (value: number | null | undefined): string => {
+    if (value === null || value === undefined || isNaN(value)) {
+      return '--%'
+    }
+    const sign = value > 0 ? '+' : ''
+    return `${sign}${value.toFixed(2)}%`
+  }
+
+  // 完整模式（东方财富风格）
+  if (mode === 'full') {
     return (
-      <span className={priceClasses}>
-        <span className="price-value">{formatPrice(price)}</span>
-        {changePercent !== undefined && changePercent !== null && (
-          <span className={`price-change ml-1 text-sm ${isUp ? 'text-stock-up' : 'text-stock-down'}`}>
-            {isUp ? '↑' : '↓'} {Math.abs(changePercent).toFixed(2)}%
+      <div className={`flex items-baseline gap-3 ${className}`}>
+        {/* 大号价格 */}
+        <span className={`text-5xl font-bold tracking-tight ${getColorClass()}`}>
+          {formatPrice(price)}
+        </span>
+        {/* 涨跌额和涨跌幅 */}
+        <div className="flex items-center gap-2 text-lg">
+          <span className={getColorClass()}>
+            {formatChange(calculatedChange)}
+          </span>
+          <span className={getColorClass()}>
+            {formatChangePercent(changePercent)}
+          </span>
+        </div>
+        {showLabel && (
+          <span className="ml-2 text-sm text-gray-500">
+            {trading ? '交易中' : '已收盘'}
           </span>
         )}
-      </span>
+      </div>
     )
   }
 
-  // 非交易时间：显示昨收价格（灰色静态）
+  // 紧凑模式（原逻辑，用于列表等场景）
+  const priceClasses = [
+    'price-display',
+    isUp ? 'text-stock-up' : isDown ? 'text-stock-down' : 'text-gray-900 dark:text-white',
+    className,
+  ]
+    .filter(Boolean)
+    .join(' ')
+
   return (
-    <span className={`price-display price-closed ${className}`}>
-      <span className="price-value">{formatPrice(prevClose ?? price)}</span>
-      {showLabel && (
-        <span className="price-label ml-1 text-xs opacity-75">昨收</span>
+    <span className={priceClasses}>
+      <span className="price-value">{formatPrice(price)}</span>
+      {changePercent !== undefined && changePercent !== null && (
+        <span className={`ml-1 text-sm ${isUp ? 'text-stock-up' : isDown ? 'text-stock-down' : 'text-gray-500'}`}>
+          {isUp ? '+' : ''}{changePercent.toFixed(2)}%
+        </span>
       )}
     </span>
   )

@@ -3,11 +3,13 @@
 import gzip
 import json
 import logging
+import os
 import random
 import time
 import urllib.error
 import urllib.request
 from datetime import UTC, datetime
+from pathlib import Path
 from threading import Lock
 from typing import Any
 
@@ -52,6 +54,10 @@ EASTMONEY_HOSTS = [
 
 QUOTE_PAGE_URL = "https://quote.eastmoney.com/center/gridlist.html#hs_a_board"
 
+# Default stock for cookie refresh (when watchlist is empty)
+DEFAULT_COOKIE_STOCKS = ["sh603777", "sh600519", "sz000001", "sh601012", "sz002594"]
+DATA_DIR = Path(__file__).parent.parent.parent / "data"
+
 
 class EastmoneyClient:
     """Eastmoney API client that mimics a browser.
@@ -84,6 +90,14 @@ class EastmoneyClient:
         self._request_count = 0
         self._last_request_time = 0.0
         self._min_request_interval = settings.EASTMONEY_MIN_REQUEST_INTERVAL
+        
+        # Check for preset cookie from environment variable
+        self._preset_cookie = os.environ.get("EASTMONEY_COOKIE")
+        if self._preset_cookie:
+            logger.info("Using preset cookie from EASTMONEY_COOKIE environment variable")
+            with self._state_lock:
+                self._cookie = self._preset_cookie
+                self._cookie_timestamp = datetime.now(UTC)
 
     def _get_headers(self, referer: str | None = None) -> dict[str, str]:
         """Construct HTTP headers that resemble a normal browser.
@@ -121,20 +135,120 @@ class EastmoneyClient:
 
         return headers
 
-    def _refresh_cookie(self) -> bool:
-        """Obtain a fresh session cookie from Eastmoney.
+    def _get_cookie_stock(self) -> str:
+        """Get a stock symbol to use for cookie refresh.
+        
+        Tries to use stocks from:
+        1. CSV files in data/kline/1D/ directory
+        2. DEFAULT_COOKIE_STOCKS if no CSV files exist
+        
+        Returns:
+            Stock symbol with exchange prefix (e.g., "sh603777")
+        """
+        try:
+            # Try to get stocks from CSV files
+            kline_dir = DATA_DIR / "kline" / "1D"
+            if kline_dir.exists():
+                csv_files = list(kline_dir.glob("*.csv"))
+                if csv_files:
+                    # Pick a random stock from CSV files
+                    stock_code = random.choice(csv_files).stem  # noqa: S311
+                    # Add exchange prefix
+                    if stock_code.startswith("6"):
+                        return f"sh{stock_code}"
+                    else:
+                        return f"sz{stock_code}"
+        except Exception as e:
+            logger.debug(f"Failed to get stock from CSV: {e}")
+        
+        # Fallback to default stocks
+        return random.choice(DEFAULT_COOKIE_STOCKS)  # noqa: S311
 
-        A GET request is issued against the public quote page.  Any ``Set-Cookie``
-        headers returned by the server are concatenated and stored along with a
-        timestamp so that subsequent calls can decide whether the cookie has
-        expired.
+    def _refresh_cookie(self, force: bool = False) -> bool:
+        """Obtain a fresh session cookie from Eastmoney using Playwright.
+
+        Playwright is used to simulate a real browser visiting a concept page
+        for a stock from the watchlist/CSV, which allows JavaScript to set 
+        cookies properly. The cookies are then stored for subsequent API requests.
+
+        Args:
+            force: If True, refresh cookie even if current one is still valid.
 
         Returns:
             ``True`` if one or more cookies were successfully captured; ``False``
             otherwise (including network errors).
         """
+        # Check if we already have a valid cookie (unless force=True)
+        if not force:
+            with self._state_lock:
+                cookie = self._cookie
+                cookie_timestamp = self._cookie_timestamp
+                
+            now = datetime.now(UTC)
+            if cookie and cookie_timestamp:
+                age = (now - cookie_timestamp).total_seconds()
+                if age < self._cookie_ttl_seconds:
+                    logger.debug(f"Cookie still valid (age: {age:.0f}s), skipping refresh")
+                    return True
+        
         try:
-            # Visit the main quote page to get fresh cookies
+            from playwright.sync_api import sync_playwright
+            
+            # Get a stock to use for cookie refresh
+            stock = self._get_cookie_stock()
+            logger.info(f"Refreshing cookie using Playwright browser (stock: {stock})...")
+            
+            with sync_playwright() as p:
+                # Launch browser in headless mode
+                browser = p.chromium.launch(headless=True)
+                context = browser.new_context(
+                    user_agent=random.choice(USER_AGENTS)  # noqa: S311
+                )
+                page = context.new_page()
+                
+                # Visit concept page for the selected stock
+                url = f"https://quote.eastmoney.com/concept/{stock}.html?from=classic"
+                page.goto(url, wait_until="domcontentloaded", timeout=30000)
+                page.wait_for_timeout(2000)  # Wait for JavaScript to execute
+                
+                # Get all cookies
+                cookies = context.cookies()
+                browser.close()
+                
+                if cookies:
+                    # Format cookie string
+                    cookie_parts = [f"{c['name']}={c['value']}" for c in cookies]
+                    cookie_str = "; ".join(cookie_parts)
+                    
+                    with self._state_lock:
+                        self._cookie = cookie_str
+                        self._cookie_timestamp = datetime.now(UTC)
+                    
+                    logger.info(
+                        "Cookie refreshed with %s cookies from Playwright (stock: %s)",
+                        len(cookies),
+                        stock,
+                    )
+                    return True
+                
+                logger.warning("No cookies received from Playwright")
+                return False
+
+        except ImportError:
+            logger.warning("Playwright not installed, falling back to HTTP request")
+            return self._refresh_cookie_fallback()
+        except Exception as error:
+            logger.warning("Failed to refresh cookie with Playwright: %s", error)
+            return self._refresh_cookie_fallback()
+    
+    def _refresh_cookie_fallback(self) -> bool:
+        """Fallback method to obtain cookies using HTTP request.
+
+        Returns:
+            ``True`` if one or more cookies were successfully captured; ``False``
+            otherwise.
+        """
+        try:
             url = QUOTE_PAGE_URL
 
             req = urllib.request.Request(url, method="GET")  # noqa: S310
@@ -145,37 +259,45 @@ class EastmoneyClient:
             )
             req.add_header("Accept-Language", "zh-CN,zh;q=0.9")
 
-            response = urllib.request.urlopen(  # noqa: S310
-                req,
-                timeout=30,
-            )
+            response = urllib.request.urlopen(req, timeout=30)  # noqa: S310
 
             # Extract cookies from response
-            cookies = response.headers.get_all("Set-Cookie")
-            if cookies:
-                # Parse and store cookies
-                cookie_parts = []
-                for cookie in cookies:
-                    # Extract cookie name=value part (before ;)
-                    part = cookie.split(";")[0].strip()
-                    if part:
-                        cookie_parts.append(part)
+            cookie_parts = []
+            
+            # Try different methods to get cookies
+            if hasattr(response.headers, 'get_all'):
+                try:
+                    cookies = response.headers.get_all("Set-Cookie") or []
+                    for cookie in cookies:
+                        part = cookie.split(";")[0].strip()
+                        if part:
+                            cookie_parts.append(part)
+                except:
+                    pass
+            
+            # Also try accessing _headers directly
+            if not cookie_parts and hasattr(response.headers, '_headers'):
+                for name, value in response.headers._headers:
+                    if name.lower() == 'set-cookie':
+                        part = value.split(";")[0].strip()
+                        if part:
+                            cookie_parts.append(part)
 
-                if cookie_parts:
-                    with self._state_lock:
-                        self._cookie = "; ".join(cookie_parts)
-                        self._cookie_timestamp = datetime.now(UTC)
-                    logger.info(
-                        "Cookie refreshed with %s cookies",
-                        len(cookie_parts),
-                    )
-                    return True
+            if cookie_parts:
+                with self._state_lock:
+                    self._cookie = "; ".join(cookie_parts)
+                    self._cookie_timestamp = datetime.now(UTC)
+                logger.info(
+                    "Cookie refreshed with %s cookies (fallback)",
+                    len(cookie_parts),
+                )
+                return True
 
-            logger.warning("No cookies received from main page")
+            logger.warning("No cookies received from main page (fallback)")
             return False
 
         except (urllib.error.URLError, TimeoutError) as error:
-            logger.warning("Failed to refresh cookie: %s", error, exc_info=True)
+            logger.warning("Failed to refresh cookie (fallback): %s", error)
             return False
 
     def _ensure_cookie(self) -> bool:
@@ -196,12 +318,14 @@ class EastmoneyClient:
             cookie_timestamp = self._cookie_timestamp
 
         # Check if cookie needs refresh
-        if (
+        needs_refresh = (
             cookie is None
             or cookie_timestamp is None
             or (now - cookie_timestamp).total_seconds() >= self._cookie_ttl_seconds
-        ):
-            return self._refresh_cookie()
+        )
+        
+        if needs_refresh:
+            return self._refresh_cookie(force=True)
 
         return True
 
@@ -665,12 +789,13 @@ class EastmoneyClient:
         Returns:
             List of K-line data dictionaries or None
         """
-        # Build URL - use push2.eastmoney.com (same as fetch_single_stock)
+        # Build URL - use push2his.eastmoney.com for historical kline data
         url = (
-            f"https://push2.eastmoney.com/api/qt/stock/kline/get?"
+            f"https://push2his.eastmoney.com/api/qt/stock/kline/get?"
             f"fields1=f1,f2,f3,f4,f5,f6&"
-            f"fields2=f51,f52,f53,f54,f55,f56,f57,f58,f59,f60,f61&"
-            f"klt={period}&fqt=0&secid={secid_prefix}.{symbol}"
+            f"fields2=f51,f52,f53,f54,f55,f56,f57,f58,f59,f60,f61,f116&"
+            f"klt={period}&fqt=0&secid={secid_prefix}.{symbol}&"
+            f"ut=7eea3edcaed734bea9cbfc24409ed989"
         )
 
         if start_date:
@@ -710,6 +835,103 @@ class EastmoneyClient:
 
         logger.info(f"Fetched {len(klines)} kline records for {symbol}")
         return klines
+
+    def fetch_kline_data_with_preset_cookie(
+        self,
+        symbol: str,
+        secid_prefix: str = "1",
+        period: str = "101",
+        start_date: str = None,
+        end_date: str = None,
+        limit: int = 300,
+        cookie: str = None,
+    ) -> list[dict] | None:
+        """Fetch K-line data using a preset cookie (for bypassing network restrictions).
+
+        This method bypasses the normal cookie management and uses the provided
+        cookie directly for the request.
+
+        Args:
+            symbol: Stock symbol
+            secid_prefix: 1 for SH, 0 for SZ
+            period: 101=daily, 102=weekly, 103=monthly
+            start_date: Start date (YYYYMMDD)
+            end_date: End date (YYYYMMDD)
+            limit: Maximum number of records
+            cookie: Cookie string to use for the request
+
+        Returns:
+            List of K-line data dictionaries or None
+        """
+        if not cookie:
+            logger.error("No cookie provided for fetch_kline_data_with_preset_cookie")
+            return None
+
+        url = (
+            f"https://push2his.eastmoney.com/api/qt/stock/kline/get?"
+            f"fields1=f1,f2,f3,f4,f5,f6&"
+            f"fields2=f51,f52,f53,f54,f55,f56,f57,f58,f59,f60,f61,f116&"
+            f"klt={period}&fqt=0&secid={secid_prefix}.{symbol}&"
+            f"ut=7eea3edcaed734bea9cbfc24409ed989"
+        )
+
+        if start_date:
+            url += f"&beg={start_date}"
+        if end_date:
+            url += f"&end={end_date}"
+
+        # Build headers with preset cookie
+        headers = {
+            "User-Agent": random.choice(USER_AGENTS),  # noqa: S311
+            "Accept": "application/json, text/javascript, */*; q=0.01",
+            "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8",
+            "Accept-Encoding": "gzip, deflate, br",
+            "Referer": "https://quote.eastmoney.com/",
+            "Cookie": cookie,
+            "Connection": "keep-alive",
+        }
+
+        try:
+            req = urllib.request.Request(url, headers=headers, method="GET")  # noqa: S310
+            response = urllib.request.urlopen(req, timeout=30)  # noqa: S310
+            
+            content = response.read()
+            encoding = response.headers.get("Content-Encoding", "")
+            if "gzip" in encoding:
+                content = gzip.decompress(content)
+            
+            data = json.loads(content.decode("utf-8"))
+            
+            if not data or not data.get("data"):
+                logger.warning(f"No kline data received for {symbol}")
+                return None
+
+            raw_klines = data["data"].get("klines", [])
+            if not raw_klines:
+                return []
+
+            klines = []
+            for raw in raw_klines[-limit:]:
+                parts = raw.split(",")
+                if len(parts) >= 6:
+                    klines.append({
+                        "timestamp": int(datetime.strptime(parts[0], "%Y-%m-%d").timestamp()),
+                        "date": parts[0],
+                        "open": float(parts[1]),
+                        "close": float(parts[2]),
+                        "high": float(parts[3]),
+                        "low": float(parts[4]),
+                        "volume": int(float(parts[5])),
+                        "amount": float(parts[6]) if len(parts) > 6 else 0,
+                        "change_percent": float(parts[8]) if len(parts) > 8 else 0,
+                    })
+
+            logger.info(f"Fetched {len(klines)} kline records for {symbol} using preset cookie")
+            return klines
+            
+        except Exception as e:
+            logger.error(f"Failed to fetch kline data with preset cookie: {e}")
+            return None
 
 
 # Global client instance

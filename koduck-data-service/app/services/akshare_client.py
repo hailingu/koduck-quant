@@ -602,11 +602,11 @@ class AKShareClient:
             logger.error(f"Minute kline query failed for {symbol}: {e}")
             return []
     
-    def get_kline_data(self, symbol: str, period: str = "daily", 
-                       start_date: Optional[str] = None,
-                       end_date: Optional[str] = None,
-                       limit: int = 300) -> List[dict]:
-        """Get K-line historical data for a stock.
+    def _get_kline_from_tencent(self, symbol: str, period: str = "daily",
+                                  start_date: Optional[str] = None,
+                                  end_date: Optional[str] = None,
+                                  limit: int = 300) -> List[dict]:
+        """Fetch K-line data from Tencent Securities API (fallback source).
         
         Args:
             symbol: Stock symbol (e.g., '002326')
@@ -619,15 +619,101 @@ class AKShareClient:
             List of K-line data points
         """
         try:
-            # Map timeframe to AKShare period
-            period_map = {
-                "1D": "daily",
-                "1W": "weekly", 
-                "1M": "monthly"
-            }
-            ak_period = period_map.get(period, period)
+            # Add exchange prefix for Tencent API
+            if symbol.startswith('6'):
+                full_symbol = f"sh{symbol}"
+            else:
+                full_symbol = f"sz{symbol}"
             
-            # Use AKShare to fetch historical data
+            # Format dates for Tencent API (YYYYMMDD)
+            start = start_date if start_date else "19000101"
+            end = end_date if end_date else "20500101"
+            
+            df = ak.stock_zh_a_hist_tx(
+                symbol=full_symbol,
+                start_date=start,
+                end_date=end,
+                adjust=""  # No adjustment
+            )
+            
+            if df.empty:
+                logger.warning(f"Tencent API returned empty data for {symbol}")
+                return []
+            
+            # Sort by date ascending
+            df = df.sort_values('date')
+            
+            # Limit results
+            df = df.tail(limit)
+            
+            klines = []
+            for _, row in df.iterrows():
+                try:
+                    # Convert date string to timestamp
+                    date_str = str(row['date'])
+                    timestamp = int(pd.Timestamp(date_str).timestamp())
+                    
+                    # Note: Tencent 'amount' column is actually volume in '手' (100 shares)
+                    volume_hands = self._safe_float(row.get('amount'), 0.0)
+                    volume_shares = int(volume_hands * 100)
+                    
+                    # Calculate approximate amount (成交额) 
+                    # Using average of OHLC * volume for better accuracy
+                    avg_price = (self._safe_float(row.get('open'), 0.0) + 
+                                self._safe_float(row.get('high'), 0.0) + 
+                                self._safe_float(row.get('low'), 0.0) + 
+                                self._safe_float(row.get('close'), 0.0)) / 4
+                    amount = avg_price * volume_shares
+                    
+                    kline = {
+                        "timestamp": timestamp,
+                        "open": self._safe_float(row.get('open'), 0.0),
+                        "high": self._safe_float(row.get('high'), 0.0),
+                        "low": self._safe_float(row.get('low'), 0.0),
+                        "close": self._safe_float(row.get('close'), 0.0),
+                        "volume": volume_shares,
+                        "amount": amount if amount > 0 else None
+                    }
+                    klines.append(kline)
+                except Exception as e:
+                    logger.warning(f"Failed to parse Tencent kline row: {e}")
+                    continue
+            
+            logger.info(f"Kline query for {symbol} returned {len(klines)} results from Tencent")
+            return klines
+            
+        except Exception as e:
+            logger.warning(f"Tencent kline API failed for {symbol}: {e}")
+            return []
+    
+    def get_kline_data(self, symbol: str, period: str = "daily", 
+                       start_date: Optional[str] = None,
+                       end_date: Optional[str] = None,
+                       limit: int = 300) -> List[dict]:
+        """Get K-line historical data for a stock.
+        
+        Tries Eastmoney API first, falls back to Tencent if unavailable.
+        
+        Args:
+            symbol: Stock symbol (e.g., '002326')
+            period: Data period - 'daily', 'weekly', 'monthly'
+            start_date: Start date (YYYYMMDD), optional
+            end_date: End date (YYYYMMDD), optional
+            limit: Maximum number of records
+            
+        Returns:
+            List of K-line data points
+        """
+        # Map timeframe to AKShare period
+        period_map = {
+            "1D": "daily",
+            "1W": "weekly", 
+            "1M": "monthly"
+        }
+        ak_period = period_map.get(period, period)
+        
+        # Try Eastmoney API first (original method)
+        try:
             if start_date is not None and end_date is not None:
                 df = ak.stock_zh_a_hist(
                     symbol=symbol,
@@ -651,7 +737,7 @@ class AKShareClient:
                 df = ak.stock_zh_a_hist(symbol=symbol, period=ak_period)
             
             if df.empty:
-                return []
+                raise ValueError("Empty response from Eastmoney")
             
             # Map Chinese column names to English
             column_mapping = {
@@ -671,7 +757,6 @@ class AKShareClient:
             klines = []
             for _, row in df.iterrows():
                 try:
-                    # Convert date string to timestamp
                     date_str = str(row['date'])
                     timestamp = int(pd.Timestamp(date_str).timestamp())
                     
@@ -689,12 +774,14 @@ class AKShareClient:
                     logger.warning(f"Failed to parse kline row: {e}")
                     continue
             
-            logger.info(f"Kline query for {symbol} returned {len(klines)} results")
+            logger.info(f"Kline query for {symbol} returned {len(klines)} results from Eastmoney")
             return klines
             
         except Exception as e:
-            logger.error(f"Kline query failed for {symbol}: {e}")
-            return []
+            logger.warning(f"Eastmoney kline API failed for {symbol}: {e}, trying Tencent fallback")
+            
+        # Fallback to Tencent API
+        return self._get_kline_from_tencent(symbol, period, start_date, end_date, limit)
     
     @staticmethod
     def _safe_float(value, default: Optional[float] = None) -> Optional[float]:
