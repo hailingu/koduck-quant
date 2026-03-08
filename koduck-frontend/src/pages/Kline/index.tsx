@@ -2,10 +2,12 @@ import { useState, useEffect } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import KlineChart from '@/components/KlineChart'
 import StockSearch from '@/components/StockSearch'
+import PriceDisplay from '@/components/PriceDisplay'
 import { klineApi } from '@/api/kline'
 import type { KlineData } from '@/api/kline'
 import { marketApi } from '@/api/market'
 import { useWatchlistStore } from '@/stores/watchlist'
+import { isTradingHours } from '@/utils/trading'
 
 const TIMEFRAMES = [
   { value: '1m', label: '1分' },
@@ -318,15 +320,14 @@ export default function Kline() {
             <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{stockName}</h1>
             <p className="text-sm text-gray-500">{symbol}</p>
           </div>
-          <div className="flex items-baseline gap-2">
-            <span className={`text-3xl font-bold ${isUp ? 'text-stock-up' : 'text-stock-down'}`}>
-              {stockInfo.price.toFixed(2)}
-            </span>
-            <span className={`text-sm font-medium ${isUp ? 'text-stock-up' : 'text-stock-down'}`}>
-              {isUp ? '+' : ''}{stockInfo.change.toFixed(2)} ({isUp ? '+' : ''}
-              {stockInfo.changePercent.toFixed(2)}%)
-            </span>
-          </div>
+          <PriceDisplay
+            price={stockInfo.price}
+            prevClose={stockInfo.prevClose}
+            change={stockInfo.change}
+            changePercent={stockInfo.changePercent}
+            isRealTime={isTradingHours()}
+            className="text-3xl font-bold"
+          />
         </div>
 
         <div className="mt-4 grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
