@@ -18,6 +18,7 @@ from fastapi import APIRouter, HTTPException, Query
 
 from app.models.schemas import ApiResponse, KlineData
 from app.services.akshare_client import akshare_client
+from app.services.incremental_kline_updater import incremental_kline_updater
 
 logger = logging.getLogger(__name__)
 
@@ -234,5 +235,103 @@ async def get_latest_price(
     except Exception as e:
         logger.error(
             "Latest price query error", exc_info=True, extra={"symbol": symbol}
+        )
+        raise HTTPException(status_code=500, detail=ERROR_INTERNAL_RETRY) from e
+
+
+@router.post(
+    "/kline/incremental",
+    responses={
+        400: {"description": "Invalid parameters"},
+        500: {"description": "Internal server error"},
+    },
+)
+async def update_kline_incremental(
+    symbol: Annotated[str, Query(..., description="股票代码 (如: 002326)")],
+    timeframe: Annotated[
+        str,
+        Query(description="时间周期: 1D, 1W, 1M"),
+    ] = "1D",
+    start_date: Annotated[
+        str | None,
+        Query(description="开始日期 (YYYYMMDD)，可选"),
+    ] = None,
+    end_date: Annotated[
+        str | None,
+        Query(description="结束日期 (YYYYMMDD)，可选"),
+    ] = None,
+    limit: Annotated[int, Query(ge=1, le=1000, description="返回数据条数")] = 300,
+    dry_run: Annotated[
+        bool,
+        Query(description="预览模式，不写入数据库"),
+    ] = False,
+) -> ApiResponse[dict]:
+    """Incrementally update K-line data for a stock.
+
+    This endpoint:
+    1. Checks existing local data range in the database
+    2. Fetches only missing data from AKShare
+    3. Merges with existing data (INSERT ... ON CONFLICT DO NOTHING)
+    4. Returns update statistics
+
+    When start_date is not provided, it automatically detects the latest local
+    data and fetches only newer data.
+
+    Args:
+        symbol (str): Stock symbol, e.g. ``"002326"``.
+        timeframe (str): Time interval. Valid values are ``"1D"``, ``"1W"``, ``"1M"``.
+        start_date (str | None): Start date in YYYYMMDD format. If None, uses local max date.
+        end_date (str | None): End date in YYYYMMDD format. If None, uses today.
+        limit (int): Maximum number of data points to fetch (1–1000).
+        dry_run (bool): If True, only return what would be updated without persisting.
+
+    Returns:
+        :class:`~app.models.schemas.ApiResponse` containing update statistics:
+        - symbol: Stock symbol
+        - timeframe: Timeframe used
+        - records_added: Number of new records added
+        - records_updated: Number of records updated
+        - date_range: Date range of fetched data
+        - data: Array of K-line data
+
+    Raises:
+        HTTPException: 400 if ``timeframe`` is invalid.
+        HTTPException: 500 on backend failure.
+
+    Example:
+        >>> POST /api/v1/a-share/kline/incremental?symbol=002326&timeframe=1D
+        >>> POST /api/v1/a-share/kline/incremental?symbol=002326&start_date=20240101&end_date=20240301&dry_run=true
+    """
+    try:
+        # Validate timeframe
+        valid_daily_timeframes = {"1D", "1W", "1M"}
+        if timeframe not in valid_daily_timeframes:
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    "Invalid timeframe for incremental update. "
+                    f"Must be one of: {', '.join(valid_daily_timeframes)}"
+                ),
+            )
+
+        # Perform incremental update
+        result = await incremental_kline_updater.incremental_update(
+            symbol=symbol,
+            start_date=start_date,
+            end_date=end_date,
+            timeframe=timeframe,
+            limit=limit,
+            dry_run=dry_run,
+        )
+
+        return ApiResponse(data=result.to_dict())
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(
+            "Incremental kline update error",
+            exc_info=True,
+            extra={"symbol": symbol, "timeframe": timeframe},
         )
         raise HTTPException(status_code=500, detail=ERROR_INTERNAL_RETRY) from e
