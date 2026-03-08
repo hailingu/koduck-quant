@@ -8,17 +8,14 @@ RUN apt-get update && apt-get install -y \
     gcc \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy requirements first for better caching
-COPY pyproject.toml README.md ./
+# Copy all files
+COPY . .
 
 # Install Python dependencies
-RUN pip install --no-cache-dir -e "."
-
-# Copy application code
-COPY koduck/ ./koduck/
+RUN pip install --no-cache-dir "."
 
 # Expose port
 EXPOSE 8000
 
 # Run the server
-CMD ["python", "-m", "koduck.server"]
+CMD ["python", "-c", "from koduck.server import run_server; run_server()"]
