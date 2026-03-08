@@ -151,6 +151,37 @@ services:
           cpus: '0.5'
           memory: 512M
 
+  # Koduck Agent - LLM API Gateway
+  agent:
+    build:
+      context: ./koduck-agent
+      dockerfile: Dockerfile
+    container_name: koduck-agent-prod
+    ports:
+      - "8001:8000"
+    environment:
+      - KIMI_API_KEY=${KIMI_API_KEY}
+      - ZLM_API_KEY=${ZLM_API_KEY}
+      - MINIMAX_API_KEY=${MINIMAX_API_KEY}
+      - LOG_LEVEL=WARNING
+    restart: always
+    networks:
+      - koduck-prod-network
+    healthcheck:
+      test: ["CMD", "python", "-c", "import httpx; httpx.get('http://localhost:8000/health', timeout=5.0)"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+        reservations:
+          cpus: '0.1'
+          memory: 128M
+
   # Frontend with Nginx
   frontend:
     build:
