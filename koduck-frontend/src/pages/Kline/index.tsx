@@ -203,8 +203,6 @@ export default function Kline() {
     }
   }
 
-  const isUp = stockInfo.change >= 0
-
   // Render empty state when no stock is selected
   if (!hasSelectedStock) {
     return (
@@ -323,7 +321,6 @@ export default function Kline() {
           <PriceDisplay
             price={stockInfo.price}
             prevClose={stockInfo.prevClose}
-            change={stockInfo.change}
             changePercent={stockInfo.changePercent}
             isRealTime={isTradingHours()}
             className="text-3xl font-bold"

@@ -61,8 +61,8 @@ function WatchlistRow({
       </td>
       <td className="px-6 py-4 whitespace-nowrap text-right">
         <PriceDisplay
-          price={item.price}
-          changePercent={item.changePercent}
+          price={item.price ?? null}
+          changePercent={item.changePercent ?? null}
           isRealTime={isTrading}
           className="text-sm font-medium"
         />

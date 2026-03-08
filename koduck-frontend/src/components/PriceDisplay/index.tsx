@@ -6,8 +6,6 @@ export interface PriceDisplayProps {
   price: number | null
   /** 昨收价 */
   prevClose?: number | null
-  /** 涨跌额 */
-  change?: number | null
   /** 涨跌幅 */
   changePercent?: number | null
   /** 是否实时更新（启用呼吸动画） */
@@ -28,7 +26,6 @@ export interface PriceDisplayProps {
 export const PriceDisplay = memo(function PriceDisplay({
   price,
   prevClose,
-  change,
   changePercent,
   isRealTime = false,
   className = '',
@@ -45,8 +42,6 @@ export const PriceDisplay = memo(function PriceDisplay({
   const isTradingTime = trading || marketStatus === 'pre-market'
 
   // 判断涨跌方向
-  const priceValue = price ?? 0
-  const prevCloseValue = prevClose ?? 0
   const isUp = (changePercent ?? 0) >= 0
 
   // 价格变动检测：触发呼吸动画和闪烁效果
@@ -61,18 +56,26 @@ export const PriceDisplay = memo(function PriceDisplay({
       // 价格发生变动
       const direction = price > prevPrice ? 'up' : 'down'
 
-      // 触发短暂闪烁效果
-      setPriceFlash(direction)
-      const flashTimer = setTimeout(() => setPriceFlash(null), 500)
+      // 使用 requestAnimationFrame 延迟状态更新，避免同步调用 setState
+      let flashTimer: number
+      let clearFlashTimer: number
+      let breathingTimer: number
 
-      // 触发呼吸动画（价格变动时开始，稳定3秒后停止）
-      setIsBreathing(true)
-      const breathingTimer = setTimeout(() => setIsBreathing(false), 3000)
+      const scheduleUpdate = () => {
+        flashTimer = window.setTimeout(() => setPriceFlash(direction), 0)
+        clearFlashTimer = window.setTimeout(() => setPriceFlash(null), 500)
+        setIsBreathing(true)
+        breathingTimer = window.setTimeout(() => setIsBreathing(false), 3000)
+      }
+
+      const rafId = requestAnimationFrame(scheduleUpdate)
 
       prevPriceRef.current = price
 
       return () => {
+        cancelAnimationFrame(rafId)
         clearTimeout(flashTimer)
+        clearTimeout(clearFlashTimer)
         clearTimeout(breathingTimer)
       }
     }
