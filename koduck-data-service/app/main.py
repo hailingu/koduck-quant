@@ -17,6 +17,7 @@ from app.models.schemas import ApiResponse, HealthStatus
 from app.routers import a_share, kline, market
 from app.services.data_updater import data_updater, test_icbc_update
 from app.services.kline_initializer import kline_initializer
+from app.services.kline_scheduler import kline_scheduler
 from app.services.stock_initializer import stock_initializer
 
 API_V1_PREFIX = "/api/v1"
@@ -101,6 +102,10 @@ async def lifespan(app: FastAPI):
     else:
         logger.warning("K-line data initialization: SKIPPED or FAILED (will retry on next startup)")
 
+    # Start K-line scheduler for automatic updates
+    logger.info("Starting K-line scheduler...")
+    await kline_scheduler.start()
+    
     # Start realtime data update task (update stocks with kline data)
     logger.info("Starting realtime stock data update task (watchlist only)...")
     realtime_task = asyncio.create_task(run_realtime_update_scheduler())
@@ -109,6 +114,10 @@ async def lifespan(app: FastAPI):
     
     # Shutdown
     logger.info("Shutting down Koduck Data Service")
+    
+    # Stop K-line scheduler
+    await kline_scheduler.stop()
+    
     realtime_task.cancel()
     try:
         await realtime_task

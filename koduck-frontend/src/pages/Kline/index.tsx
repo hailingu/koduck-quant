@@ -3,6 +3,7 @@ import { useSearchParams } from 'react-router-dom'
 import KlineChart from '@/components/KlineChart'
 import StockSearch from '@/components/StockSearch'
 import PriceDisplay from '@/components/PriceDisplay'
+import AIChat from '@/components/AIChat'
 import { klineApi } from '@/api/kline'
 import type { KlineData } from '@/api/kline'
 import { marketApi } from '@/api/market'
@@ -73,6 +74,26 @@ const saveRecentStock = (symbol: string, name: string) => {
   }
 }
 
+// 格式化成交量（万手/亿手）
+const formatVolume = (volume: number): string => {
+  if (!volume || volume === 0) return '--'
+  const wan = volume / 10000
+  if (wan >= 10000) {
+    return (wan / 10000).toFixed(2) + '亿手'
+  }
+  return wan.toFixed(2) + '万手'
+}
+
+// 格式化成交额（万/亿）
+const formatAmount = (amount: number): string => {
+  if (!amount || amount === 0) return '--'
+  const wan = amount / 10000
+  if (wan >= 10000) {
+    return (wan / 10000).toFixed(2) + '亿'
+  }
+  return wan.toFixed(2) + '万'
+}
+
 export default function Kline() {
   const [searchParams, setSearchParams] = useSearchParams()
   
@@ -84,6 +105,7 @@ export default function Kline() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [recentStocks, setRecentStocks] = useState<RecentStock[]>([])
+  const [addingToWatchlist, setAddingToWatchlist] = useState(false)
   
   const [stockInfo, setStockInfo] = useState({
     price: 0,
@@ -94,10 +116,16 @@ export default function Kline() {
     low: 0,
     prevClose: 0,
     volume: 0,
+    amount: 0,
   })
 
-  const { addItem, isInWatchlist } = useWatchlistStore()
+  const { addItem, isInWatchlist, fetchWatchlist } = useWatchlistStore()
   const inWatchlist = symbol ? isInWatchlist(symbol) : false
+
+  // Load watchlist on mount to sync with server
+  useEffect(() => {
+    fetchWatchlist()
+  }, [])
   
   // Check if a stock is currently selected
   const hasSelectedStock = symbol !== ''
@@ -148,6 +176,7 @@ export default function Kline() {
           low: data.low,
           prevClose: data.prevClose,
           volume: data.volume,
+          amount: data.amount,
         })
       }
     } catch (error) {
@@ -188,11 +217,17 @@ export default function Kline() {
   }
 
   const handleAddToWatchlist = async () => {
-    if (!symbol || !stockName) return
+    if (!symbol || !stockName || inWatchlist) return
+    setAddingToWatchlist(true)
     try {
       await addItem(symbol, stockName, 'AShare')
+      // 显示成功提示
+      alert(`已将 ${stockName} (${symbol}) 添加到自选股`)
     } catch (error) {
       console.error('Failed to add to watchlist:', error)
+      alert('添加自选股失败，请重试')
+    } finally {
+      setAddingToWatchlist(false)
     }
   }
 
@@ -273,22 +308,10 @@ export default function Kline() {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 h-full">
       {/* Header with Search */}
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
         <StockSearch onSelect={handleStockSelect} />
-        
-        <button
-          onClick={handleAddToWatchlist}
-          disabled={inWatchlist}
-          className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-            inWatchlist
-              ? 'bg-gray-100 dark:bg-gray-700 text-gray-500 cursor-not-allowed'
-              : 'bg-primary-600 hover:bg-primary-700 text-white'
-          }`}
-        >
-          {inWatchlist ? '已在自选' : '加入自选'}
-        </button>
       </div>
 
       {/* Error Message */}
@@ -311,70 +334,128 @@ export default function Kline() {
         </div>
       )}
 
-      {/* Stock Info */}
-      <div className="bg-white dark:bg-gray-800 p-4 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
-        <div className="flex items-center gap-4">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{stockName}</h1>
-            <p className="text-sm text-gray-500">{symbol}</p>
+      {/* Main Content: Two Column Layout */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 h-[calc(100vh-200px)] min-h-[600px]">
+        {/* Left Column: Stock Info + Chart (2/3 width) */}
+        <div className="lg:col-span-2 space-y-3 flex flex-col">
+          {/* Stock Info - Compact Style */}
+          <div className="bg-white dark:bg-gray-800 p-4 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 shrink-0">
+            {/* 股票标题区 */}
+            <div className="flex items-center gap-2 mb-2">
+              <h1 className="text-xl font-bold text-gray-900 dark:text-white">{stockName}</h1>
+              <span className="px-1.5 py-0.5 text-xs font-medium bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 rounded">
+                SH
+              </span>
+              <span className="text-xs text-gray-500">{symbol}</span>
+              <button
+                onClick={handleAddToWatchlist}
+                disabled={addingToWatchlist || inWatchlist}
+                className={`ml-auto px-2 py-1 text-xs font-medium rounded transition-colors ${
+                  inWatchlist
+                    ? 'bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-400 cursor-not-allowed'
+                    : 'bg-primary-50 text-primary-600 hover:bg-primary-100 dark:bg-primary-900/20 dark:text-primary-400 dark:hover:bg-primary-900/30'
+                }`}
+              >
+                {inWatchlist ? '已在自选' : addingToWatchlist ? '添加中...' : '+ 添加自选'}
+              </button>
+            </div>
+
+            {/* 价格显示区 */}
+            <div className="mb-3">
+              <PriceDisplay
+                price={stockInfo.price}
+                prevClose={stockInfo.prevClose}
+                change={stockInfo.change}
+                changePercent={stockInfo.changePercent}
+                isRealTime={isTradingHours()}
+                mode="full"
+              />
+              <p className="mt-1 text-xs text-gray-500">
+                {isTradingHours() ? '交易中' : '已收盘'} {new Date().toLocaleDateString('zh-CN')} 北京时间
+              </p>
+            </div>
+
+            {/* 详细数据网格 - Compact 2行4列 */}
+            <div className="grid grid-cols-4 gap-y-2 gap-x-4 text-xs">
+              <div className="flex justify-between">
+                <span className="text-gray-500">今开</span>
+                <span className="font-medium tabular-nums">{stockInfo.open.toFixed(2)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-500">最高</span>
+                <span className={`font-medium tabular-nums ${stockInfo.high > stockInfo.prevClose ? 'text-stock-up' : ''}`}>
+                  {stockInfo.high.toFixed(2)}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-500">成交量</span>
+                <span className="font-medium tabular-nums">{formatVolume(stockInfo.volume)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-500">总市值</span>
+                <span className="font-medium tabular-nums">--</span>
+              </div>
+
+              <div className="flex justify-between">
+                <span className="text-gray-500">昨收</span>
+                <span className="font-medium tabular-nums">{stockInfo.prevClose.toFixed(2)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-500">最低</span>
+                <span className={`font-medium tabular-nums ${stockInfo.low < stockInfo.prevClose ? 'text-stock-down' : ''}`}>
+                  {stockInfo.low.toFixed(2)}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-500">成交额</span>
+                <span className="font-medium tabular-nums">{formatAmount(stockInfo.amount)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-500">换手率</span>
+                <span className="font-medium tabular-nums">--</span>
+              </div>
+            </div>
           </div>
-          <PriceDisplay
-            price={stockInfo.price}
-            prevClose={stockInfo.prevClose}
-            changePercent={stockInfo.changePercent}
-            isRealTime={isTradingHours()}
-            className="text-3xl font-bold"
+
+          {/* Timeframe Selector */}
+          <div className="flex flex-wrap gap-2 shrink-0">
+            {TIMEFRAMES.map((tf) => (
+              <button
+                key={tf.value}
+                onClick={() => setTimeframe(tf.value)}
+                className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-colors ${
+                  timeframe === tf.value
+                    ? 'bg-primary-600 text-white'
+                    : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700'
+                }`}
+              >
+                {tf.label}
+              </button>
+            ))}
+          </div>
+
+          {/* Chart */}
+          <div className="bg-white dark:bg-gray-800 p-3 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 flex-1 min-h-0">
+            {loading ? (
+              <div className="h-full flex items-center justify-center">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600"></div>
+              </div>
+            ) : (
+              <div className="h-full">
+                <KlineChart data={klineData} />
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Right Column: AI Chat (1/3 width) */}
+        <div className="lg:col-span-1 h-full min-h-[500px]">
+          <AIChat
+            symbol={symbol}
+            stockName={stockName}
+            stockInfo={stockInfo}
           />
         </div>
-
-        <div className="mt-4 grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-          <div>
-            <span className="text-gray-500">今开:</span>
-            <span className="ml-2 text-gray-900 dark:text-white">{stockInfo.open.toFixed(2)}</span>
-          </div>
-          <div>
-            <span className="text-gray-500">最高:</span>
-            <span className="ml-2 text-gray-900 dark:text-white">{stockInfo.high.toFixed(2)}</span>
-          </div>
-          <div>
-            <span className="text-gray-500">最低:</span>
-            <span className="ml-2 text-gray-900 dark:text-white">{stockInfo.low.toFixed(2)}</span>
-          </div>
-          <div>
-            <span className="text-gray-500">昨收:</span>
-            <span className="ml-2 text-gray-900 dark:text-white">{stockInfo.prevClose.toFixed(2)}</span>
-          </div>
-        </div>
-      </div>
-
-      {/* Timeframe Selector */}
-      <div className="flex flex-wrap gap-2">
-        {TIMEFRAMES.map((tf) => (
-          <button
-            key={tf.value}
-            onClick={() => setTimeframe(tf.value)}
-            className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-colors ${
-              timeframe === tf.value
-                ? 'bg-primary-600 text-white'
-                : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700'
-            }`}
-          >
-            {tf.label}
-          </button>
-        ))}
-      </div>
-
-      {/* Chart */}
-      <div className="bg-white dark:bg-gray-800 p-4 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
-        {loading ? (
-          <div className="h-[400px] flex items-center justify-center">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600"></div>
-          </div>
-        ) : (
-          <div className="h-[400px]">
-            <KlineChart data={klineData} />
-          </div>
-        )}
       </div>
     </div>
   )

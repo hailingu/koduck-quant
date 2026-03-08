@@ -335,3 +335,15 @@ async def update_kline_incremental(
             extra={"symbol": symbol, "timeframe": timeframe},
         )
         raise HTTPException(status_code=500, detail=ERROR_INTERNAL_RETRY) from e
+
+
+@router.get("/kline/scheduler/status")
+async def get_scheduler_status() -> ApiResponse:
+    """Get K-line scheduler status and statistics.
+    
+    Returns the current state of the background K-line update scheduler,
+    including initialization status, last update time, and error counts.
+    """
+    from app.services.kline_scheduler import kline_scheduler
+    
+    return ApiResponse(data=kline_scheduler.get_status())

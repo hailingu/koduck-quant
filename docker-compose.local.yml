@@ -70,11 +70,18 @@ services:
       # Eastmoney Client Settings
       - EASTMONEY_COOKIE_TTL=3600
       - EASTMONEY_MIN_REQUEST_INTERVAL=3.0
+      # Timezone for scheduled tasks
+      - TZ=Asia/Shanghai
+      # K-line scheduler configuration
+      - KLINE_CHECK_INTERVAL=3600
+      - KLINE_UPDATE_TIME=15:35
     volumes:
       # Mount local code for development (code changes take effect immediately)
       - ./koduck-data-service/app:/app/app:ro
-      # Mount K-line data for auto-import on startup
-      - ./koduck-data-service/data:/app/data:ro
+      # Mount K-line data for persistence (rw: container can update CSV)
+      - ./koduck-data-service/data:/app/data
+      # Mount logs directory
+      - ./koduck-data-service/logs:/app/logs
     depends_on:
       redis:
         condition: service_healthy
