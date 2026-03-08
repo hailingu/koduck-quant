@@ -67,7 +67,7 @@ const menuItems = [
   },
 ]
 
-// Mock数据
+// Mock数据 - 仅用于非用户相关的统计数据
 const mockStats = {
   watchlistCount: 15,
   apiKeyCount: 2,
@@ -75,10 +75,10 @@ const mockStats = {
   expireDate: '2026-12-31',
 }
 
-const mockUser = {
-  username: 'hailing',
-  nickname: '海凌',
-  email: 'hailing@example.com',
+// 默认用户信息（当auth store中没有时作为fallback）
+const defaultUserInfo = {
+  nickname: '',
+  email: 'user@example.com',
   avatarUrl: null,
   createdAt: '2024-01-15',
   memberSince: '2024年1月',
@@ -86,8 +86,18 @@ const mockUser = {
 
 // 概览页面组件
 function OverviewTab() {
-  const { user } = useAuthStore()
-  const currentUser = user || mockUser
+  // 从auth store获取登录用户信息
+  const authUser = useAuthStore((state) => state.user)
+  
+  // 合并auth user和默认信息
+  const currentUser = {
+    username: authUser?.username || '用户',
+    nickname: defaultUserInfo.nickname,
+    email: defaultUserInfo.email,
+    avatarUrl: defaultUserInfo.avatarUrl,
+    createdAt: defaultUserInfo.createdAt,
+    memberSince: defaultUserInfo.memberSince,
+  }
 
   return (
     <div className="space-y-6">
@@ -106,7 +116,7 @@ function OverviewTab() {
           <div>
             <h3 className="text-2xl font-bold text-gray-900 dark:text-white">{currentUser.nickname || currentUser.username}</h3>
             <p className="text-gray-600 dark:text-gray-400">{currentUser.email}</p>
-            <p className="text-sm text-gray-500 dark:text-gray-500 mt-1">注册时间：{mockUser.createdAt}</p>
+            <p className="text-sm text-gray-500 dark:text-gray-500 mt-1">注册时间：{currentUser.createdAt}</p>
           </div>
         </div>
       </div>
@@ -187,8 +197,12 @@ function OverviewTab() {
 
 // 个人资料编辑页面组件
 function ProfileEditTab() {
-  const [nickname, setNickname] = useState(mockUser.nickname)
-  const [email, setEmail] = useState(mockUser.email)
+  const authUser = useAuthStore((state) => state.user)
+  const [nickname, setNickname] = useState(defaultUserInfo.nickname)
+  const [email, setEmail] = useState(defaultUserInfo.email)
+  
+  // 使用登录用户的用户名
+  const username = authUser?.username || '用户'
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
@@ -202,7 +216,7 @@ function ProfileEditTab() {
         <div className="flex items-center gap-6">
           <div className="w-20 h-20 rounded-full bg-primary-100 dark:bg-primary-900/30 flex items-center justify-center cursor-pointer hover:opacity-80 transition-opacity">
             <span className="text-3xl font-bold text-primary-600 dark:text-primary-400">
-              {mockUser.username.charAt(0).toUpperCase()}
+              {username.charAt(0).toUpperCase()}
             </span>
           </div>
           <button type="button" className="px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg transition-colors text-sm">
@@ -215,7 +229,7 @@ function ProfileEditTab() {
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">用户名</label>
             <input
               type="text"
-              value={mockUser.username}
+              value={username}
               disabled
               className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 cursor-not-allowed"
             />
