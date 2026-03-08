@@ -107,6 +107,19 @@ function ProfileForm({ user, onUpdate }: { user: UserDetail; onUpdate: (u: UserD
 
         <div>
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+            邮箱
+          </label>
+          <input
+            type="email"
+            value={user.email || ''}
+            disabled
+            className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 cursor-not-allowed"
+          />
+          <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">邮箱不可修改</p>
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
             昵称
           </label>
           <input
@@ -117,8 +130,6 @@ function ProfileForm({ user, onUpdate }: { user: UserDetail; onUpdate: (u: UserD
             placeholder="请输入昵称"
           />
         </div>
-
-
       </div>
 
       {/* 注册时间 */}
@@ -236,6 +247,76 @@ function SecurityForm() {
   )
 }
 
+// 偏好设置表单
+function PreferencesForm() {
+  const [theme, setTheme] = useState('light')
+  const [notifications, setNotifications] = useState(true)
+  const { showToast } = useToast()
+
+  const handleSave = () => {
+    showToast('偏好设置已保存', 'success')
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h4 className="text-gray-900 dark:text-white font-medium">主题模式</h4>
+          <p className="text-sm text-gray-500 dark:text-gray-400">选择您喜欢的主题风格</p>
+        </div>
+        <select
+          value={theme}
+          onChange={(e) => setTheme(e.target.value)}
+          className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+        >
+          <option value="light">浅色模式</option>
+          <option value="dark">深色模式</option>
+          <option value="auto">跟随系统</option>
+        </select>
+      </div>
+
+      <div className="flex items-center justify-between">
+        <div>
+          <h4 className="text-gray-900 dark:text-white font-medium">消息通知</h4>
+          <p className="text-sm text-gray-500 dark:text-gray-400">接收系统通知和提醒</p>
+        </div>
+        <button
+          onClick={() => setNotifications(!notifications)}
+          className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+            notifications ? 'bg-primary-600' : 'bg-gray-300 dark:bg-gray-600'
+          }`}
+        >
+          <span
+            className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+              notifications ? 'translate-x-6' : 'translate-x-1'
+            }`}
+          />
+        </button>
+      </div>
+
+      <div className="flex items-center justify-between">
+        <div>
+          <h4 className="text-gray-900 dark:text-white font-medium">语言设置</h4>
+          <p className="text-sm text-gray-500 dark:text-gray-400">选择界面显示语言</p>
+        </div>
+        <select className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
+          <option value="zh-CN">简体中文</option>
+          <option value="en">English</option>
+        </select>
+      </div>
+
+      <div className="pt-4 border-t border-gray-200 dark:border-gray-700">
+        <button
+          onClick={handleSave}
+          className="px-6 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg transition-colors"
+        >
+          保存设置
+        </button>
+      </div>
+    </div>
+  )
+}
+
 // 关于页面
 function AboutSection() {
   return (
@@ -271,7 +352,7 @@ function AboutSection() {
 }
 
 export default function Settings() {
-  const [activeTab, setActiveTab] = useState<'profile' | 'security' | 'about'>('profile')
+  const [activeTab, setActiveTab] = useState<'profile' | 'security' | 'preferences' | 'about'>('profile')
   const [user, setUser] = useState<UserDetail | null>(null)
   const [loading, setLoading] = useState(true)
   const { showToast } = useToast()
@@ -352,6 +433,20 @@ export default function Settings() {
                 安全设置
               </button>
               <button
+                onClick={() => setActiveTab('preferences')}
+                className={`flex items-center gap-3 px-4 py-3 text-left transition-colors ${
+                  activeTab === 'preferences'
+                    ? 'bg-primary-50 dark:bg-primary-900/20 text-primary-600 dark:text-primary-400 border-l-4 border-primary-600'
+                    : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'
+                }`}
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                </svg>
+                偏好设置
+              </button>
+              <button
                 onClick={() => setActiveTab('about')}
                 className={`flex items-center gap-3 px-4 py-3 text-left transition-colors ${
                   activeTab === 'about'
@@ -392,6 +487,13 @@ export default function Settings() {
               <>
                 <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-6">安全设置</h3>
                 <SecurityForm />
+              </>
+            )}
+
+            {activeTab === 'preferences' && (
+              <>
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-6">偏好设置</h3>
+                <PreferencesForm />
               </>
             )}
 
