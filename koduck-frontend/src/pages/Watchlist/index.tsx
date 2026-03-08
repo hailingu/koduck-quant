@@ -6,6 +6,8 @@ import { useToast } from '@/hooks/useToast'
 import { useWebSocketSubscription } from '@/hooks/useWebSocket'
 import { useWebSocketStore } from '@/stores/websocket'
 import StockSearch from '@/components/StockSearch'
+import PriceDisplay from '@/components/PriceDisplay'
+import { isTradingHours } from '@/utils/trading'
 
 // 排序按钮组件
 function SortButton({ direction, onClick, active }: { direction: 'up' | 'down'; onClick: () => void; active: boolean }) {
@@ -35,6 +37,7 @@ function WatchlistRow({
   onDelete: (id: number) => void
   onClick: (symbol: string, market: string) => void
 }) {
+  const isTrading = isTradingHours()
   const isUp = (item.changePercent || 0) >= 0
   const colorClass = isUp ? 'text-stock-up' : 'text-stock-down'
 
@@ -57,9 +60,12 @@ function WatchlistRow({
         </div>
       </td>
       <td className="px-6 py-4 whitespace-nowrap text-right">
-        <div className="text-sm font-medium text-gray-900 dark:text-white">
-          {item.price ? item.price.toFixed(2) : '--'}
-        </div>
+        <PriceDisplay
+          price={item.price}
+          changePercent={item.changePercent}
+          isRealTime={isTrading}
+          className="text-sm font-medium"
+        />
       </td>
       <td className="px-6 py-4 whitespace-nowrap text-right">
         <div className={`text-sm font-medium ${colorClass}`}>
