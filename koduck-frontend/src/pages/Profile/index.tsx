@@ -78,7 +78,7 @@ const mockStats = {
 // 默认用户信息（当auth store中没有时作为fallback）
 const defaultUserInfo = {
   nickname: '',
-  email: 'user@example.com',
+  email: '',
   avatarUrl: null,
   createdAt: '2024-01-15',
   memberSince: '2024年1月',
@@ -89,12 +89,12 @@ function OverviewTab() {
   // 从auth store获取登录用户信息
   const authUser = useAuthStore((state) => state.user)
   
-  // 合并auth user和默认信息
+  // 合并auth user和默认信息（优先使用auth user中的数据）
   const currentUser = {
     username: authUser?.username || '用户',
-    nickname: defaultUserInfo.nickname,
-    email: defaultUserInfo.email,
-    avatarUrl: defaultUserInfo.avatarUrl,
+    nickname: authUser?.nickname || defaultUserInfo.nickname,
+    email: authUser?.email || defaultUserInfo.email,
+    avatarUrl: authUser?.avatarUrl || defaultUserInfo.avatarUrl,
     createdAt: defaultUserInfo.createdAt,
     memberSince: defaultUserInfo.memberSince,
   }
@@ -198,8 +198,8 @@ function OverviewTab() {
 // 个人资料编辑页面组件
 function ProfileEditTab() {
   const authUser = useAuthStore((state) => state.user)
-  const [nickname, setNickname] = useState(defaultUserInfo.nickname)
-  const [email, setEmail] = useState(defaultUserInfo.email)
+  const [nickname, setNickname] = useState(authUser?.nickname || defaultUserInfo.nickname)
+  const [email, setEmail] = useState(authUser?.email || defaultUserInfo.email)
   
   // 使用登录用户的用户名
   const username = authUser?.username || '用户'
