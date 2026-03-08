@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
-import { Send, Bot, User, Sparkles, TrendingUp, BarChart3, Lightbulb } from 'lucide-react'
+import { Send, Bot, User, Sparkles, TrendingUp, BarChart3, Lightbulb, ChevronDown } from 'lucide-react'
 import request from '@/api/request'
 
 interface Message {
@@ -28,6 +28,19 @@ interface AIChatProps {
   stockInfo: StockInfo
 }
 
+interface Provider {
+  id: string
+  name: string
+  models: string[]
+}
+
+// 可用的 LLM 提供商
+const PROVIDERS: Provider[] = [
+  { id: 'kimi', name: 'Kimi', models: ['moonshot-v1-8k', 'moonshot-v1-32k', 'moonshot-v1-128k'] },
+  { id: 'zlm', name: '智谱', models: ['glm-4-flash', 'glm-4', 'glm-4-plus'] },
+  { id: 'minimax', name: 'MiniMax', models: ['MiniMax-M2.5', 'MiniMax-Text-01'] },
+]
+
 // 快捷分析问题
 const QUICK_QUESTIONS = [
   { icon: TrendingUp, label: '趋势分析', question: '请分析这只股票的近期趋势如何？' },
@@ -54,12 +67,26 @@ export function AIChat({ symbol, stockName, stockInfo }: AIChatProps) {
   ])
   const [input, setInput] = useState('')
   const [isLoading, setIsLoading] = useState(false)
+  const [selectedProvider, setSelectedProvider] = useState<string>('kimi')
+  const [showProviderDropdown, setShowProviderDropdown] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
+  const dropdownRef = useRef<HTMLDivElement>(null)
 
   // 自动滚动到底部
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
+
+  // 点击外部关闭下拉框
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setShowProviderDropdown(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
 
   const callAIAnalysis = async (question: string): Promise<string> => {
     try {
@@ -75,7 +102,7 @@ export function AIChat({ symbol, stockName, stockInfo }: AIChatProps) {
         volume: stockInfo.volume,
         amount: stockInfo.amount || 0,
         question,
-        provider: 'kimi',
+        provider: selectedProvider,
       })
       return response.analysis
     } catch (error) {
@@ -131,16 +158,54 @@ export function AIChat({ symbol, stockName, stockInfo }: AIChatProps) {
     handleSend(question)
   }
 
+  const currentProvider = PROVIDERS.find(p => p.id === selectedProvider)
+
   return (
     <div className="flex flex-col h-full bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
       {/* Header */}
-      <div className="flex items-center gap-2 px-4 py-3 border-b border-gray-200 dark:border-gray-700 bg-gradient-to-r from-primary-50 to-blue-50 dark:from-primary-900/20 dark:to-blue-900/20">
-        <div className="p-1.5 bg-primary-500 rounded-lg">
-          <Sparkles className="w-4 h-4 text-white" />
+      <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 dark:border-gray-700 bg-gradient-to-r from-primary-50 to-blue-50 dark:from-primary-900/20 dark:to-blue-900/20">
+        <div className="flex items-center gap-2">
+          <div className="p-1.5 bg-primary-500 rounded-lg">
+            <Sparkles className="w-4 h-4 text-white" />
+          </div>
+          <div>
+            <h3 className="font-semibold text-gray-900 dark:text-white text-sm">AI 智能分析</h3>
+            <p className="text-xs text-gray-500 dark:text-gray-400">基于 {stockName} 实时数据</p>
+          </div>
         </div>
-        <div>
-          <h3 className="font-semibold text-gray-900 dark:text-white text-sm">AI 智能分析</h3>
-          <p className="text-xs text-gray-500 dark:text-gray-400">基于 {stockName} 实时数据</p>
+        
+        {/* Provider Selector */}
+        <div className="relative" ref={dropdownRef}>
+          <button
+            onClick={() => setShowProviderDropdown(!showProviderDropdown)}
+            disabled={isLoading}
+            className="flex items-center gap-1 px-2 py-1 text-xs font-medium bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors disabled:opacity-50"
+          >
+            <span className="text-gray-700 dark:text-gray-300">{currentProvider?.name}</span>
+            <ChevronDown className={`w-3 h-3 text-gray-500 transition-transform ${showProviderDropdown ? 'rotate-180' : ''}`} />
+          </button>
+          
+          {showProviderDropdown && (
+            <div className="absolute right-0 top-full mt-1 w-32 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg z-10">
+              {PROVIDERS.map((provider) => (
+                <button
+                  key={provider.id}
+                  onClick={() => {
+                    setSelectedProvider(provider.id)
+                    setShowProviderDropdown(false)
+                  }}
+                  className={`w-full px-3 py-2 text-left text-xs transition-colors first:rounded-t-lg last:rounded-b-lg ${
+                    selectedProvider === provider.id
+                      ? 'bg-primary-50 dark:bg-primary-900/30 text-primary-600 dark:text-primary-400'
+                      : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'
+                  }`}
+                >
+                  <div className="font-medium">{provider.name}</div>
+                  <div className="text-gray-400 text-[10px] truncate">{provider.models[0]}</div>
+                </button>
+              ))}
+            </div>
+          )}
         </div>
       </div>
 
@@ -218,7 +283,7 @@ export function AIChat({ symbol, stockName, stockInfo }: AIChatProps) {
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && handleSend(input)}
-            placeholder="询问AI关于这只股票的分析..."
+            placeholder={`询问${currentProvider?.name}关于这只股票的分析...`}
             disabled={isLoading}
             className="flex-1 px-3 py-2 text-sm bg-gray-100 dark:bg-gray-700 border-0 rounded-lg focus:ring-2 focus:ring-primary-500 focus:bg-white dark:focus:bg-gray-800 transition-all placeholder:text-gray-400 disabled:opacity-50"
           />
