@@ -102,7 +102,7 @@ async def lifespan(app: FastAPI):
         logger.warning("K-line data initialization: SKIPPED or FAILED (will retry on next startup)")
 
     # Start realtime data update task (update stocks with kline data)
-    logger.info("Starting realtime stock data update task...")
+    logger.info("Starting realtime stock data update task (watchlist only)...")
     realtime_task = asyncio.create_task(run_realtime_update_scheduler())
     
     yield
@@ -120,7 +120,7 @@ async def lifespan(app: FastAPI):
 
 
 async def run_realtime_update_scheduler():
-    """Periodically update stock records that have k-line history.
+    """Periodically update stock records from user watchlist.
 
     The coroutine waits briefly for the service to start, queries the
     database for symbols with daily k-line data, performs an initial
@@ -137,16 +137,16 @@ async def run_realtime_update_scheduler():
     from app.db import Database
     
     symbols_result = await Database.fetch("""
-        SELECT DISTINCT symbol FROM kline_data WHERE timeframe = '1D'
+        SELECT symbol FROM watchlist_items WHERE market = 'AShare'
     """)
     
     symbols = [row['symbol'] for row in symbols_result]
     
     if not symbols:
-        logger.warning("No symbols found with kline data, skipping realtime update")
+        logger.warning("No symbols found in watchlist, skipping realtime update")
         return
     
-    logger.info(f"Found {len(symbols)} symbols with kline data to update: {symbols[:5]}...")
+    logger.info(f"Found {len(symbols)} symbols in watchlist to update: {symbols[:5]}...")
     
     # Run initial update for all symbols
     for symbol in symbols:
