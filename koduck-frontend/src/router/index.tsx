@@ -10,6 +10,7 @@ import Settings from '@/pages/Settings'
 import Kline from '@/pages/Kline'
 import Market from '@/pages/Market'
 import Monitoring from '@/pages/Monitoring'
+import Profile from '@/pages/Profile'
 
 // Protected Route wrapper
 function ProtectedRoute() {
@@ -44,6 +45,12 @@ export const router = createBrowserRouter([
           { path: '/portfolio', element: <Portfolio /> },
           { path: '/settings', element: <Settings /> },
           { path: '/monitoring', element: <Monitoring /> },
+          { path: '/profile', element: <Profile /> },
+          { path: '/profile/edit', element: <Profile /> },
+          { path: '/profile/preferences', element: <Profile /> },
+          { path: '/profile/security', element: <Profile /> },
+          { path: '/profile/api', element: <Profile /> },
+          { path: '/profile/data', element: <Profile /> },
         ],
       },
     ],
