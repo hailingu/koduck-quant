@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 import { Send, Bot, User, Sparkles, TrendingUp, BarChart3, Lightbulb } from 'lucide-react'
+import request from '@/api/request'
 
 interface Message {
   id: string
@@ -9,27 +10,37 @@ interface Message {
   type?: 'analysis' | 'suggestion' | 'general'
 }
 
+interface StockInfo {
+  price: number
+  change: number
+  changePercent: number
+  open: number
+  high: number
+  low: number
+  prevClose: number
+  volume: number
+  amount?: number
+}
+
 interface AIChatProps {
   symbol: string
   stockName: string
-  stockInfo: {
-    price: number
-    change: number
-    changePercent: number
-    open: number
-    high: number
-    low: number
-    prevClose: number
-    volume: number
-  }
+  stockInfo: StockInfo
 }
 
 // 快捷分析问题
 const QUICK_QUESTIONS = [
-  { icon: TrendingUp, label: '趋势分析', question: '分析一下这只股票的近期趋势如何？' },
+  { icon: TrendingUp, label: '趋势分析', question: '请分析这只股票的近期趋势如何？' },
   { icon: BarChart3, label: '技术指标', question: '这只股票的技术指标显示什么信号？' },
   { icon: Lightbulb, label: '投资建议', question: '基于当前行情，有什么投资建议？' },
 ]
+
+// AI 分析 API 响应类型
+interface AIAnalysisResponse {
+  analysis: string
+  provider: string
+  model?: string
+}
 
 export function AIChat({ symbol, stockName, stockInfo }: AIChatProps) {
   const [messages, setMessages] = useState<Message[]>([
@@ -50,6 +61,29 @@ export function AIChat({ symbol, stockName, stockInfo }: AIChatProps) {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
 
+  const callAIAnalysis = async (question: string): Promise<string> => {
+    try {
+      const response = await request.post<AIAnalysisResponse>('/api/v1/ai/analyze', {
+        symbol,
+        name: stockName,
+        price: stockInfo.price,
+        change_percent: stockInfo.changePercent,
+        open_price: stockInfo.open,
+        high: stockInfo.high,
+        low: stockInfo.low,
+        prev_close: stockInfo.prevClose,
+        volume: stockInfo.volume,
+        amount: stockInfo.amount || 0,
+        question,
+        provider: 'kimi',
+      })
+      return response.analysis
+    } catch (error) {
+      console.error('AI analysis failed:', error)
+      throw new Error('AI 分析服务暂时不可用，请稍后重试')
+    }
+  }
+
   const handleSend = async (content: string) => {
     if (!content.trim()) return
 
@@ -64,12 +98,33 @@ export function AIChat({ symbol, stockName, stockInfo }: AIChatProps) {
     setInput('')
     setIsLoading(true)
 
-    // 模拟AI响应
-    setTimeout(() => {
-      const aiResponse = generateAIResponse(content, stockName, symbol, stockInfo)
-      setMessages((prev) => [...prev, aiResponse])
+    try {
+      const analysis = await callAIAnalysis(content)
+      
+      const aiMessage: Message = {
+        id: (Date.now() + 1).toString(),
+        role: 'assistant',
+        content: analysis,
+        timestamp: new Date(),
+        type: 'analysis',
+      }
+      
+      setMessages((prev) => [...prev, aiMessage])
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : '分析失败，请稍后重试'
+      
+      const aiMessage: Message = {
+        id: (Date.now() + 1).toString(),
+        role: 'assistant',
+        content: `❌ ${errorMessage}`,
+        timestamp: new Date(),
+        type: 'general',
+      }
+      
+      setMessages((prev) => [...prev, aiMessage])
+    } finally {
       setIsLoading(false)
-    }, 1500)
+    }
   }
 
   const handleQuickQuestion = (question: string) => {
@@ -97,7 +152,8 @@ export function AIChat({ symbol, stockName, stockInfo }: AIChatProps) {
             <button
               key={item.label}
               onClick={() => handleQuickQuestion(item.question)}
-              className="flex items-center gap-1 px-2 py-1 text-xs font-medium bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-full hover:bg-primary-100 dark:hover:bg-primary-900/30 hover:text-primary-600 dark:hover:text-primary-400 transition-colors"
+              disabled={isLoading}
+              className="flex items-center gap-1 px-2 py-1 text-xs font-medium bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-full hover:bg-primary-100 dark:hover:bg-primary-900/30 hover:text-primary-600 dark:hover:text-primary-400 transition-colors disabled:opacity-50"
             >
               <item.icon className="w-3 h-3" />
               {item.label}
@@ -163,7 +219,8 @@ export function AIChat({ symbol, stockName, stockInfo }: AIChatProps) {
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && handleSend(input)}
             placeholder="询问AI关于这只股票的分析..."
-            className="flex-1 px-3 py-2 text-sm bg-gray-100 dark:bg-gray-700 border-0 rounded-lg focus:ring-2 focus:ring-primary-500 focus:bg-white dark:focus:bg-gray-800 transition-all placeholder:text-gray-400"
+            disabled={isLoading}
+            className="flex-1 px-3 py-2 text-sm bg-gray-100 dark:bg-gray-700 border-0 rounded-lg focus:ring-2 focus:ring-primary-500 focus:bg-white dark:focus:bg-gray-800 transition-all placeholder:text-gray-400 disabled:opacity-50"
           />
           <button
             onClick={() => handleSend(input)}
@@ -176,91 +233,6 @@ export function AIChat({ symbol, stockName, stockInfo }: AIChatProps) {
       </div>
     </div>
   )
-}
-
-// 模拟AI响应生成
-function generateAIResponse(
-  question: string,
-  stockName: string,
-  symbol: string,
-  stockInfo: AIChatProps['stockInfo']
-): Message {
-  const { price, changePercent, high, low, volume } = stockInfo
-  
-  if (question.includes('趋势')) {
-    const trend = changePercent > 0 ? '上涨' : changePercent < 0 ? '下跌' : '横盘'
-    return {
-      id: Date.now().toString(),
-      role: 'assistant',
-      content: `📊 **${stockName} (${symbol}) 趋势分析**
-
-当前股价 **${price.toFixed(2)}** 元，今日${trend} **${Math.abs(changePercent).toFixed(2)}%**。
-
-• 今日最高：${high.toFixed(2)} 元
-• 今日最低：${low.toFixed(2)} 元
-• 成交量：${(volume / 10000).toFixed(2)} 万手
-
-从技术面看，该股${changePercent > 0 ? '表现出较强的上涨动能，短期可关注能否突破前期高点' : '近期有所回调，建议关注支撑位能否守住'}。建议结合大盘走势和板块热点综合判断。`,
-      timestamp: new Date(),
-      type: 'analysis',
-    }
-  }
-
-  if (question.includes('技术') || question.includes('指标')) {
-    return {
-      id: Date.now().toString(),
-      role: 'assistant',
-      content: `📈 **技术指标分析**
-
-基于当前行情数据：
-
-• **均线系统**：股价${price > stockInfo.prevClose ? '站上' : '位于'}均线之上
-• **波动区间**：今日振幅 ${((high - low) / stockInfo.prevClose * 100).toFixed(2)}%
-• **量能分析**：成交量${volume > 1000000 ? '放大' : '正常'}，${volume > 1000000 ? '资金关注度较高' : '交投相对清淡'}
-
-**操作建议**：${changePercent > 1 ? '短期强势，可考虑逢低布局' : changePercent < -1 ? '短期偏弱，建议观望或减仓' : '震荡整理，宜观望等待方向选择'}`,
-      timestamp: new Date(),
-      type: 'analysis',
-    }
-  }
-
-  if (question.includes('建议') || question.includes('投资')) {
-    return {
-      id: Date.now().toString(),
-      role: 'assistant',
-      content: `💡 **投资建议**
-
-针对 ${stockName} (${symbol})：
-
-**短期策略**：
-${changePercent > 0 ? '• 当前处于上涨趋势中，可适当参与\n• 建议设置止盈止损，控制风险' : '• 当前走势偏弱，建议谨慎操作\n• 等待企稳信号后再考虑介入'}
-
-**风险提示**：
-• 以上分析仅供参考，不构成投资建议
-• 股市有风险，投资需谨慎
-• 建议结合自身风险承受能力决策
-
-需要更详细的基本面或技术面分析吗？`,
-      timestamp: new Date(),
-      type: 'suggestion',
-    }
-  }
-
-  return {
-    id: Date.now().toString(),
-    role: 'assistant',
-    content: `关于 ${stockName} (${symbol})，当前股价 ${price.toFixed(2)} 元，今日涨跌幅 ${changePercent > 0 ? '+' : ''}${changePercent.toFixed(2)}%。
-
-您想了解哪方面的分析？我可以帮您分析：
-• 技术面走势
-• 关键价位（支撑/阻力）
-• 量价关系
-• 投资建议
-
-请告诉我您的具体问题。`,
-    timestamp: new Date(),
-    type: 'general',
-  }
 }
 
 export default AIChat

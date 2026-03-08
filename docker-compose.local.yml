@@ -136,6 +136,29 @@ services:
       retries: 3
       start_period: 60s
 
+  # Koduck Agent - LLM API Gateway
+  agent:
+    build:
+      context: ./koduck-agent
+      dockerfile: Dockerfile
+    container_name: koduck-agent
+    ports:
+      - "8001:8000"
+    environment:
+      - KIMI_API_KEY=${KIMI_API_KEY:-}
+      - ZLM_API_KEY=${ZLM_API_KEY:-}
+      - MINIMAX_API_KEY=${MINIMAX_API_KEY:-}
+      - LOG_LEVEL=INFO
+    restart: unless-stopped
+    networks:
+      - koduck-network
+    healthcheck:
+      test: ["CMD", "python", "-c", "import httpx; httpx.get('http://localhost:8000/health', timeout=5.0)"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
   # Frontend
   frontend:
     build:
