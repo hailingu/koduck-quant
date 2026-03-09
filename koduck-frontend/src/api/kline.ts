@@ -42,11 +42,20 @@ export const klineApi = {
     timeframe: string
     limit?: number
     beforeTime?: number
-  }) => request.get<KlineData[]>('/api/v1/a-share/kline', { params }),
+  }) => request.get<KlineData[]>('/api/v1/a-share/kline', { 
+    params,
+    timeout: 30000, // K 线数据可能需要更长时间
+  }),
 
   getLatestPrice: (params: { symbol: string; timeframe?: string }) =>
-    request.get<LatestPriceResponse>('/api/v1/a-share/kline/price', { params }),
+    request.get<LatestPriceResponse>('/api/v1/a-share/kline/price', { 
+      params,
+      timeout: 10000,
+    }),
 
   searchStocks: (keyword: string, limit: number = 20) =>
-    request.get<SearchResult[]>('/api/v1/a-share/search', { params: { keyword, limit } }),
+    request.get<SearchResult[]>('/api/v1/a-share/search', { 
+      params: { keyword, limit },
+      timeout: 10000,
+    }),
 }
