@@ -44,15 +44,18 @@ export const PriceDisplay = memo(function PriceDisplay({
   
   // 呼吸动画状态
   const [isBreathing, setIsBreathing] = useState(false)
-  const prevPriceRef = useRef(price)
+  const [lastUpdateTime, setLastUpdateTime] = useState(0)
   const breathTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   
-  // 价格变化时触发呼吸动画
+  // 数据更新时触发呼吸动画（无论价格是否变化）
   useEffect(() => {
-    if (!breathing || !trading || price === null || price === prevPriceRef.current) {
-      prevPriceRef.current = price
-      return
-    }
+    if (!breathing || !trading || price === null) return
+    
+    const now = Date.now()
+    // 限制最小触发间隔 500ms，避免过于频繁
+    if (now - lastUpdateTime < 500) return
+    
+    setLastUpdateTime(now)
     
     // 触发呼吸动画
     setIsBreathing(true)
@@ -62,19 +65,17 @@ export const PriceDisplay = memo(function PriceDisplay({
       clearTimeout(breathTimeoutRef.current)
     }
     
-    // 500ms 后停止呼吸动画
+    // 600ms 后停止呼吸动画
     breathTimeoutRef.current = setTimeout(() => {
       setIsBreathing(false)
-    }, 500)
-    
-    prevPriceRef.current = price
+    }, 600)
     
     return () => {
       if (breathTimeoutRef.current) {
         clearTimeout(breathTimeoutRef.current)
       }
     }
-  }, [price, breathing, trading])
+  }, [price, breathing, trading, lastUpdateTime])
 
   // 计算涨跌额（如果未提供）
   const calculatedChange = change ?? (price && prevClose ? price - prevClose : null)
