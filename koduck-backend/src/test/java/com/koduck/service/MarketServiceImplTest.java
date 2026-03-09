@@ -3,11 +3,13 @@ package com.koduck.service;
 import com.koduck.dto.market.MarketIndexDto;
 import com.koduck.dto.market.PriceQuoteDto;
 import com.koduck.dto.market.SymbolInfoDto;
+import com.koduck.entity.KlineData;
 import com.koduck.entity.StockBasic;
 import com.koduck.entity.StockRealtime;
 import com.koduck.repository.StockBasicRepository;
 import com.koduck.repository.StockRealtimeRepository;
 import com.koduck.service.impl.MarketServiceImpl;
+import com.koduck.service.market.AKShareDataProvider;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -45,11 +47,22 @@ class MarketServiceImplTest {
     @Mock
     private StockCacheService stockCacheService;
 
+        @Mock
+        private KlineService klineService;
+
+        @Mock
+        private AKShareDataProvider akShareDataProvider;
+
     private MarketServiceImpl marketService;
 
     @BeforeEach
     void setUp() {
-        marketService = new MarketServiceImpl(stockRealtimeRepository, stockBasicRepository, stockCacheService);
+                marketService = new MarketServiceImpl(
+                                stockRealtimeRepository,
+                                stockBasicRepository,
+                                stockCacheService,
+                                klineService,
+                                akShareDataProvider);
     }
 
     @Test
@@ -116,6 +129,65 @@ class MarketServiceImplTest {
         assertThat(quote.name()).isEqualTo("永太科技");
         assertThat(quote.price()).isEqualByComparingTo(new BigDecimal("9.55"));
     }
+
+        @Test
+        @DisplayName("shouldBuildStockDetailFromLatestKlineWhenRealtimeIsMissing")
+        void shouldBuildStockDetailFromLatestKlineWhenRealtimeIsMissing() {
+                StockBasic basic = StockBasic.builder()
+                                .symbol("002885")
+                                .name("京泉华")
+                                .market("AShare")
+                                .build();
+                KlineData latestKline = KlineData.builder()
+                                .market("AShare")
+                                .symbol("002885")
+                                .timeframe("1D")
+                                .klineTime(LocalDateTime.of(2026, 3, 7, 15, 0))
+                                .openPrice(new BigDecimal("12.10"))
+                                .highPrice(new BigDecimal("12.35"))
+                                .lowPrice(new BigDecimal("11.98"))
+                                .closePrice(new BigDecimal("12.28"))
+                                .volume(258000L)
+                                .amount(new BigDecimal("3158200.00"))
+                                .build();
+
+                when(stockRealtimeRepository.findBySymbol("002885")).thenReturn(Optional.empty());
+                when(stockBasicRepository.findBySymbol("002885")).thenReturn(Optional.of(basic));
+                when(klineService.getLatestKline("AShare", "002885", "1D")).thenReturn(Optional.of(latestKline));
+                when(klineService.getPreviousClosePrice("AShare", "002885", "1D"))
+                                .thenReturn(Optional.of(new BigDecimal("12.00")));
+
+                PriceQuoteDto quote = marketService.getStockDetail("002885");
+
+                assertThat(quote).isNotNull();
+                assertThat(quote.symbol()).isEqualTo("002885");
+                assertThat(quote.name()).isEqualTo("京泉华");
+                assertThat(quote.price()).isEqualByComparingTo(new BigDecimal("12.28"));
+                assertThat(quote.change()).isEqualByComparingTo(new BigDecimal("0.28"));
+                assertThat(quote.changePercent()).isEqualByComparingTo(new BigDecimal("2.3333"));
+        }
+
+        @Test
+        @DisplayName("shouldReturnDataServiceQuoteWhenRealtimeIsMissing")
+        void shouldReturnDataServiceQuoteWhenRealtimeIsMissing() {
+                PriceQuoteDto providerQuote = PriceQuoteDto.builder()
+                                .symbol("002885")
+                                .name("京泉华")
+                                .price(new BigDecimal("32.50"))
+                                .changePercent(new BigDecimal("-0.76"))
+                                .build();
+
+                when(stockRealtimeRepository.findBySymbol("002885")).thenReturn(Optional.empty());
+                when(akShareDataProvider.getPrice("002885")).thenReturn(providerQuote);
+
+                PriceQuoteDto quote = marketService.getStockDetail("002885");
+
+                assertThat(quote).isNotNull();
+                assertThat(quote.symbol()).isEqualTo("002885");
+                assertThat(quote.name()).isEqualTo("京泉华");
+                assertThat(quote.price()).isEqualByComparingTo(new BigDecimal("32.50"));
+                verify(akShareDataProvider).getPrice("002885");
+        }
 
     @Test
     @DisplayName("shouldReturnNullWhenStockDetailSymbolIsBlank")
