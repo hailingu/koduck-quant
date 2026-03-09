@@ -1,4 +1,4 @@
-import { memo } from 'react'
+import { memo, useEffect, useRef, useState } from 'react'
 import { isTradingHours } from '@/utils/trading'
 
 export interface PriceDisplayProps {
@@ -18,6 +18,8 @@ export interface PriceDisplayProps {
   decimals?: number
   /** 显示模式：compact=紧凑，full=完整 */
   mode?: 'compact' | 'full'
+  /** 是否启用呼吸动画（交易时段实时更新时） */
+  breathing?: boolean
 }
 
 /**
@@ -35,9 +37,44 @@ export const PriceDisplay = memo(function PriceDisplay({
   showLabel = false,
   decimals = 2,
   mode = 'compact',
+  breathing = true,
 }: PriceDisplayProps) {
   // 检测交易时间
   const trading = isTradingHours()
+  
+  // 呼吸动画状态
+  const [isBreathing, setIsBreathing] = useState(false)
+  const prevPriceRef = useRef(price)
+  const breathTimeoutRef = useRef<NodeJS.Timeout>()
+  
+  // 价格变化时触发呼吸动画
+  useEffect(() => {
+    if (!breathing || !trading || price === null || price === prevPriceRef.current) {
+      prevPriceRef.current = price
+      return
+    }
+    
+    // 触发呼吸动画
+    setIsBreathing(true)
+    
+    // 清除之前的定时器
+    if (breathTimeoutRef.current) {
+      clearTimeout(breathTimeoutRef.current)
+    }
+    
+    // 500ms 后停止呼吸动画
+    breathTimeoutRef.current = setTimeout(() => {
+      setIsBreathing(false)
+    }, 500)
+    
+    prevPriceRef.current = price
+    
+    return () => {
+      if (breathTimeoutRef.current) {
+        clearTimeout(breathTimeoutRef.current)
+      }
+    }
+  }, [price, breathing, trading])
 
   // 计算涨跌额（如果未提供）
   const calculatedChange = change ?? (price && prevClose ? price - prevClose : null)
@@ -79,20 +116,23 @@ export const PriceDisplay = memo(function PriceDisplay({
     return `${sign}${value.toFixed(2)}%`
   }
 
+  // 呼吸动画类名
+  const breathClass = isBreathing ? 'animate-price-breath' : ''
+
   // 完整模式（东方财富风格）
   if (mode === 'full') {
     return (
       <div className={`flex items-baseline gap-3 ${className}`}>
         {/* 大号价格 */}
-        <span className={`text-5xl font-bold tracking-tight ${getColorClass()}`}>
+        <span className={`text-5xl font-bold tracking-tight ${getColorClass()} ${breathClass} transition-all duration-150`}>
           {formatPrice(price)}
         </span>
         {/* 涨跌额和涨跌幅 */}
         <div className="flex items-center gap-2 text-lg">
-          <span className={getColorClass()}>
+          <span className={`${getColorClass()} ${breathClass} transition-all duration-150`}>
             {formatChange(calculatedChange)}
           </span>
-          <span className={getColorClass()}>
+          <span className={`${getColorClass()} ${breathClass} transition-all duration-150`}>
             {formatChangePercent(changePercent)}
           </span>
         </div>
@@ -100,6 +140,10 @@ export const PriceDisplay = memo(function PriceDisplay({
           <span className="ml-2 text-sm text-gray-500">
             {trading ? '交易中' : '已收盘'}
           </span>
+        )}
+        {/* WebSocket 连接状态指示器 */}
+        {trading && (
+          <span className={`ml-2 w-2 h-2 rounded-full ${isBreathing ? 'bg-green-500 animate-pulse' : 'bg-gray-400'}`} title="实时更新中" />
         )}
       </div>
     )

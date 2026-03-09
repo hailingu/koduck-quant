@@ -128,3 +128,21 @@ body {
 .price-flash-down {
   animation: price-flash-down 0.5s ease-out;
 }
+
+/* Tailwind 兼容的价格呼吸动画 */
+@keyframes price-breath {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+    text-shadow: 0 0 0px currentColor;
+  }
+  50% {
+    opacity: 0.85;
+    transform: scale(1.015);
+    text-shadow: 0 0 8px currentColor;
+  }
+}
+
+.animate-price-breath {
+  animation: price-breath 0.5s ease-in-out;
+}
