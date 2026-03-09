@@ -7,6 +7,7 @@ by the HTTP routers and background scripts in the data service.
 
 import logging
 from datetime import datetime, timezone
+from zoneinfo import ZoneInfo
 from typing import Callable, List, Optional
 
 import akshare as ak
@@ -16,6 +17,7 @@ from app.models.schemas import MarketIndex, PriceQuote, SymbolInfo
 from app.services.eastmoney_client import eastmoney_client
 
 logger = logging.getLogger(__name__)
+ASIA_SHANGHAI_TZ = ZoneInfo("Asia/Shanghai")
 
 
 class AKShareClientError(Exception):
@@ -579,14 +581,33 @@ class AKShareClient:
                 try:
                     # Parse timestamp
                     time_str = str(row['datetime'])
-                    timestamp = int(pd.Timestamp(time_str).timestamp())
+                    # AKShare minute datetime is China local time but without tz.
+                    # Attach Asia/Shanghai explicitly to avoid container timezone drift.
+                    local_dt = pd.Timestamp(time_str).tz_localize(ASIA_SHANGHAI_TZ)
+                    timestamp = int(local_dt.timestamp())
+
+                    open_price = self._safe_float(row.get('open'), 0.0)
+                    close_price = self._safe_float(row.get('close'), 0.0)
+                    high_price = self._safe_float(row.get('high'), 0.0)
+                    low_price = self._safe_float(row.get('low'), 0.0)
+
+                    # Some minute rows may have invalid open=0 from upstream source.
+                    # Normalize OHLC to keep bars renderable and consistent.
+                    if open_price <= 0 and close_price > 0:
+                        open_price = close_price
+                    if high_price <= 0:
+                        high_price = max(open_price, close_price)
+                    if low_price <= 0:
+                        low_price = min(open_price, close_price)
+                    high_price = max(high_price, open_price, close_price)
+                    low_price = min(low_price, open_price, close_price)
                     
                     kline = {
                         "timestamp": timestamp,
-                        "open": self._safe_float(row.get('open'), 0.0),
-                        "high": self._safe_float(row.get('high'), 0.0),
-                        "low": self._safe_float(row.get('low'), 0.0),
-                        "close": self._safe_float(row.get('close'), 0.0),
+                        "open": open_price,
+                        "high": high_price,
+                        "low": low_price,
+                        "close": close_price,
                         "volume": self._safe_int(row.get('volume')),
                         "amount": self._safe_float(row.get('amount'))
                     }

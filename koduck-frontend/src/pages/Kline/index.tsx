@@ -13,9 +13,7 @@ import { isTradingHours } from '@/utils/trading'
 
 const TIMEFRAMES = [
   { value: '1m', label: '1分' },
-  { value: '5m', label: '5分' },
   { value: '15m', label: '15分' },
-  { value: '30m', label: '30分' },
   { value: '60m', label: '60分' },
   { value: '1D', label: '日线' },
   { value: '1W', label: '周线' },
@@ -132,6 +130,24 @@ const deriveStockInfoFromKline = (data: KlineData[]): DerivedStockInfo | null =>
     volume: latest.volume,
     amount: latest.amount ?? 0,
   }
+}
+
+const MINUTE_TIMEFRAMES = new Set(['1m', '5m', '15m', '30m', '60m'])
+
+const keepLatestTradingDayForMinute = (data: KlineData[], timeframe: string): KlineData[] => {
+  if (!MINUTE_TIMEFRAMES.has(timeframe) || data.length === 0) {
+    return data
+  }
+
+  const latestTimestamp = data.at(-1)?.timestamp
+  if (!latestTimestamp) {
+    return data
+  }
+
+  const latestDate = new Date(latestTimestamp * 1000).toDateString()
+  const sameDayData = data.filter((item) => new Date(item.timestamp * 1000).toDateString() === latestDate)
+
+  return sameDayData.length > 0 ? sameDayData : data
 }
 
 export default function Kline() {
@@ -252,8 +268,10 @@ export default function Kline() {
         return false
       }
 
-      setKlineData(data)
-      const derivedStockInfo = deriveStockInfoFromKline(data)
+      const normalizedData = [...data].sort((a, b) => a.timestamp - b.timestamp)
+      const chartData = keepLatestTradingDayForMinute(normalizedData, timeframe)
+      setKlineData(chartData)
+      const derivedStockInfo = deriveStockInfoFromKline(chartData)
       if (derivedStockInfo) {
         // Keep headline quote from stock detail / websocket.
         // Use kline-derived values only as an initial fallback before quote is available.
@@ -574,7 +592,7 @@ export default function Kline() {
               </div>
             ) : (
               <div className="h-full">
-                <KlineChart data={klineData} />
+                <KlineChart data={klineData} timeframe={timeframe} />
               </div>
             )}
           </div>
