@@ -70,6 +70,47 @@ export function AIChat({ symbol, stockName, stockInfo }: AIChatProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const dropdownRef = useRef<HTMLDivElement>(null)
 
+  // 逐字显示相关
+  const charQueueRef = useRef<string[]>([])
+  const currentMessageIdRef = useRef<string | null>(null)
+  const isTypingRef = useRef(false)
+
+  // 逐字显示动画循环
+  const typeNextChar = () => {
+    if (!currentMessageIdRef.current || charQueueRef.current.length === 0) {
+      isTypingRef.current = false
+      return
+    }
+
+    const charsToType = Math.min(charQueueRef.current.length, 2) // 每次显示1-2个字符，控制速度
+    const chars = charQueueRef.current.splice(0, charsToType).join('')
+
+    setMessages((prev) =>
+      prev.map((msg) =>
+        msg.id === currentMessageIdRef.current
+          ? { ...msg, content: msg.content + chars }
+          : msg
+      )
+    )
+
+    if (charQueueRef.current.length > 0) {
+      requestAnimationFrame(typeNextChar)
+    } else {
+      isTypingRef.current = false
+    }
+  }
+
+  // 添加字符到队列
+  const addCharsToQueue = (messageId: string, chars: string) => {
+    currentMessageIdRef.current = messageId
+    charQueueRef.current.push(...chars.split(''))
+    
+    if (!isTypingRef.current) {
+      isTypingRef.current = true
+      requestAnimationFrame(typeNextChar)
+    }
+  }
+
   // 自动滚动到底部
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -289,15 +330,9 @@ export function AIChat({ symbol, stockName, stockInfo }: AIChatProps) {
     // 流式接收
     await callChatStream(
       content,
-      // onDelta - 收到内容块
+      // onDelta - 收到内容块，逐字添加到队列
       (delta) => {
-        setMessages((prev) =>
-          prev.map((msg) =>
-            msg.id === aiMessageId
-              ? { ...msg, content: msg.content + delta }
-              : msg
-          )
-        )
+        addCharsToQueue(aiMessageId, delta)
       },
       // onDone - 完成
       () => {
@@ -305,6 +340,10 @@ export function AIChat({ symbol, stockName, stockInfo }: AIChatProps) {
       },
       // onError - 错误
       (error) => {
+        // 清空队列，直接显示错误
+        charQueueRef.current = []
+        currentMessageIdRef.current = null
+        isTypingRef.current = false
         setMessages((prev) =>
           prev.map((msg) =>
             msg.id === aiMessageId
