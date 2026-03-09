@@ -8,8 +8,6 @@ export interface PriceDisplayProps {
   prevClose?: number | null
   /** 开盘价（用于判断闪烁颜色） */
   open?: number | null
-  /** 涨跌额 */
-  change?: number | null
   /** 涨跌幅 */
   changePercent?: number | null
   /** 自定义样式类名 */
@@ -34,7 +32,6 @@ export const PriceDisplay = memo(function PriceDisplay({
   price,
   prevClose,
   open,
-  change,
   changePercent,
   className = '',
   showLabel = false,
