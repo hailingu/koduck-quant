@@ -61,13 +61,14 @@ export const PriceDisplay = memo(function PriceDisplay({
     
     setLastUpdateTime(now)
     
-    // 根据与开盘价的比较决定闪烁颜色（A股：红涨绿跌）
-    if (open && price > open) {
-      setBreathColor('up') // 高于开盘价 - 红色
-    } else if (open && price < open) {
-      setBreathColor('down') // 低于开盘价 - 绿色
+    // 根据与开盘价（或昨收）的比较决定闪烁颜色（A股：红涨绿跌）
+    const referencePrice = open || prevClose
+    if (referencePrice && price > referencePrice) {
+      setBreathColor('up') // 高于参考价 - 红色
+    } else if (referencePrice && price < referencePrice) {
+      setBreathColor('down') // 低于参考价 - 绿色
     } else {
-      setBreathColor(null) // 等于开盘价 - 无闪烁
+      setBreathColor(null) // 等于参考价 - 无闪烁
     }
     
     // 触发呼吸动画
@@ -92,10 +93,10 @@ export const PriceDisplay = memo(function PriceDisplay({
 
   // 计算涨跌额（如果未提供）
   const calculatedChange = change ?? (price && prevClose ? price - prevClose : null)
-
-  // 判断涨跌方向
-  const isUp = (calculatedChange ?? 0) > 0
-  const isDown = (calculatedChange ?? 0) < 0
+  
+  // 使用涨跌幅判断颜色（更可靠）
+  const isUp = (changePercent ?? 0) > 0
+  const isDown = (changePercent ?? 0) < 0
 
   // 颜色类名（A股传统：红涨绿跌）
   const getColorClass = () => {
@@ -144,15 +145,10 @@ export const PriceDisplay = memo(function PriceDisplay({
         <span className={`text-5xl font-bold tracking-tight ${getColorClass()} ${getBreathClass()}`}>
           {formatPrice(price)}
         </span>
-        {/* 涨跌额和涨跌幅 - 无呼吸动画 */}
-        <div className="flex items-center gap-2 text-lg">
-          <span className={getColorClass()}>
-            {formatChange(calculatedChange)}
-          </span>
-          <span className={getColorClass()}>
-            {formatChangePercent(changePercent)}
-          </span>
-        </div>
+        {/* 涨跌幅 - 无呼吸动画 */}
+        <span className={`text-lg ${getColorClass()}`}>
+          {formatChangePercent(changePercent)}
+        </span>
         {showLabel && (
           <span className="ml-2 text-sm text-gray-500">
             {trading ? '交易中' : '已收盘'}
