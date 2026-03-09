@@ -27,7 +27,9 @@ interface WebSocketState {
 
 // WebSocket configuration
 const WS_CONFIG = {
-  webSocketFactory: () => new SockJS('/ws'),
+  webSocketFactory: () => new SockJS('/ws', null, { 
+    transports: ['websocket', 'xhr-streaming', 'xhr-polling'] // 禁用 iframe
+  }),
   reconnectDelay: 5000,
   heartbeatIncoming: 4000,
   heartbeatOutgoing: 4000,
