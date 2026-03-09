@@ -129,20 +129,40 @@ body {
   animation: price-flash-down 0.5s ease-out;
 }
 
-/* Tailwind 兼容的价格呼吸动画 */
-@keyframes price-breath {
+/* 价格呼吸动画 - 涨（红色闪烁）A股习惯 */
+@keyframes price-breath-up {
   0%, 100% {
     opacity: 1;
     transform: scale(1);
-    text-shadow: 0 0 0px currentColor;
+    text-shadow: 0 0 0px transparent;
+    color: inherit;
   }
   50% {
-    opacity: 0.85;
-    transform: scale(1.015);
-    text-shadow: 0 0 8px currentColor;
+    opacity: 0.9;
+    transform: scale(1.02);
+    text-shadow: 0 0 12px rgba(239, 68, 68, 0.6);
   }
 }
 
-.animate-price-breath {
-  animation: price-breath 0.5s ease-in-out;
+/* 价格呼吸动画 - 跌（绿色闪烁）A股习惯 */
+@keyframes price-breath-down {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+    text-shadow: 0 0 0px transparent;
+    color: inherit;
+  }
+  50% {
+    opacity: 0.9;
+    transform: scale(1.02);
+    text-shadow: 0 0 12px rgba(34, 197, 94, 0.6);
+  }
+}
+
+.animate-price-breath-up {
+  animation: price-breath-up 0.5s ease-in-out;
+}
+
+.animate-price-breath-down {
+  animation: price-breath-down 0.5s ease-in-out;
 }
