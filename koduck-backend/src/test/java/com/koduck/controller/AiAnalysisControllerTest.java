@@ -77,13 +77,13 @@ class AiAnalysisControllerTest {
                 .overallScore(80)
                 .build();
 
-        when(aiAnalysisService.analyzeStock("AAPL", "US", "technical")).thenReturn(serviceResponse);
+        when(aiAnalysisService.analyzeStock(request)).thenReturn(serviceResponse);
 
         ApiResponse<StockAnalysisResponse> response = aiAnalysisController.analyzeStock(userPrincipal, request);
 
         assertEquals(0, response.getCode());
         assertEquals("AAPL", response.getData().getSymbol());
-        verify(aiAnalysisService).analyzeStock("AAPL", "US", "technical");
+        verify(aiAnalysisService).analyzeStock(request);
     }
 
     /**
