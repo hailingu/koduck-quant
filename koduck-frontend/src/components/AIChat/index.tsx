@@ -171,6 +171,7 @@ export function AIChat({ symbol, stockName, stockInfo }: AIChatProps) {
       const reader = response.body?.getReader()
       const decoder = new TextDecoder()
       let fullContent = ''
+      let buffer = '' // 用于处理跨块的不完整 SSE 消息
 
       if (!reader) {
         throw new Error('无法读取响应流')
@@ -181,31 +182,71 @@ export function AIChat({ symbol, stockName, stockInfo }: AIChatProps) {
         const { done, value } = await reader.read()
         if (done) break
 
-        const chunk = decoder.decode(value, { stream: true })
-        const lines = chunk.split('\n')
+        // 解码并追加到缓冲区
+        buffer += decoder.decode(value, { stream: true })
+        
+        // SSE 消息以 \n\n 分隔
+        const messages = buffer.split('\n\n')
+        // 保留最后一个可能不完整的消息
+        buffer = messages.pop() || ''
 
-        for (const line of lines) {
-          if (line.startsWith('event: ')) {
-            // 跳过事件类型行，后续处理 data 行
-            continue
-          }
-          if (line.startsWith('data: ')) {
-            const dataStr = line.slice(6)
-            try {
-              const data = JSON.parse(dataStr)
-              
-              if (data.content !== undefined) {
-                // delta 事件
-                fullContent += data.content
-                onDelta(data.content)
-              } else if (data.code) {
-                // error 事件
-                onError(data.message || '请求失败')
-                return
-              }
-            } catch (e) {
-              // 忽略解析错误
+        // 处理完整的消息
+        for (const message of messages) {
+          if (!message.trim()) continue
+
+          const lines = message.split('\n')
+          let eventType = 'message'
+          let dataStr = ''
+
+          for (const line of lines) {
+            if (line.startsWith('event: ')) {
+              eventType = line.slice(7).trim()
+            } else if (line.startsWith('data: ')) {
+              dataStr = line.slice(6).trim()
             }
+          }
+
+          if (!dataStr) continue
+
+          try {
+            const data = JSON.parse(dataStr)
+            
+            if (eventType === 'delta' && data.content !== undefined) {
+              // delta 事件 - 流式内容块
+              fullContent += data.content
+              onDelta(data.content)
+            } else if (eventType === 'error') {
+              // error 事件
+              onError(data.message || '请求失败')
+              return
+            } else if (eventType === 'done') {
+              // done 事件 - 完成
+              console.log('[SSE] Stream completed')
+            }
+          } catch (e) {
+            console.error('[SSE] Parse error:', e, 'data:', dataStr)
+          }
+        }
+      }
+
+      // 处理缓冲区中剩余的数据
+      if (buffer.trim()) {
+        const lines = buffer.split('\n')
+        let dataStr = ''
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            dataStr = line.slice(6).trim()
+          }
+        }
+        if (dataStr) {
+          try {
+            const data = JSON.parse(dataStr)
+            if (data.content !== undefined) {
+              fullContent += data.content
+              onDelta(data.content)
+            }
+          } catch (e) {
+            // 忽略解析错误
           }
         }
       }
