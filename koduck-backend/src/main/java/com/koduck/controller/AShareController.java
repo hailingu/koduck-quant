@@ -91,6 +91,11 @@ public class AShareController {
             data = klineMinutesService.getMinuteKline("AShare", symbol, timeframe, limit, beforeTime);
         } else {
             data = klineService.getKlineData("AShare", symbol, timeframe, limit, beforeTime);
+            if (data.isEmpty()) {
+                log.info("No DB kline data found, fallback to data-service: symbol={}, timeframe={}",
+                        symbol, timeframe);
+                data = klineMinutesService.getMinuteKline("AShare", symbol, timeframe, limit, beforeTime);
+            }
         }
         
         return ApiResponse.success(data);

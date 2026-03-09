@@ -372,6 +372,11 @@ class KlineInitializer:
             if not await self.check_needs_initialization():
                 logger.info("K-line data already exists and is up to date")
                 self._initialized = True
+
+                # Notify scheduler even when initialization is skipped.
+                # Otherwise scheduler remains in INITIALIZING forever.
+                from app.services.kline_scheduler import kline_scheduler
+                await kline_scheduler.mark_initialization_complete()
                 return True
             
             # 执行初始化

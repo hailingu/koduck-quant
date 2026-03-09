@@ -88,13 +88,27 @@ class KlineSync:
                 return parts[idx + 1]
         return "1D"
 
+    def _normalize_symbol(self, symbol: object) -> str:
+        """Normalize stock symbol to 6-digit code when possible."""
+        text = str(symbol).strip()
+        if not text:
+            return text
+
+        # Handle pandas numeric parsing cases like 2885 or 2885.0
+        if text.endswith(".0"):
+            text = text[:-2]
+
+        if text.isdigit():
+            return text.zfill(6)
+        return text
+
     def _extract_symbol(self, df: pd.DataFrame, csv_path: Path) -> str:
         """Extract symbol from CSV or filename."""
         if "symbol" in df.columns:
             symbols = df["symbol"].unique()
             if len(symbols) > 0:
-                return str(symbols[0])
-        return csv_path.stem
+                return self._normalize_symbol(symbols[0])
+        return self._normalize_symbol(csv_path.stem)
 
     def _extract_kline_time(self, row: pd.Series) -> datetime | pd.Timestamp | None:
         """Extract kline timestamp from row."""

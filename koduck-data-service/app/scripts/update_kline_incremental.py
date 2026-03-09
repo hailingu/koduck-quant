@@ -101,6 +101,9 @@ def merge_and_save_kline(
         logger.info(f"No new data for {symbol}")
         return 0
     
+    if symbol.isdigit():
+        symbol = symbol.zfill(6)
+
     # 保存到 CSV
     tf_dir = DATA_DIR / timeframe
     tf_dir.mkdir(parents=True, exist_ok=True)
@@ -108,7 +111,9 @@ def merge_and_save_kline(
     df = pd.DataFrame(unique_data)
     df['symbol'] = symbol
     df['name'] = name
-    df['datetime'] = pd.to_datetime(df['timestamp'], unit='s')
+    # Keep date aligned with Beijing trading calendar for readability.
+    bj = pd.to_datetime(df['timestamp'], unit='s', utc=True).dt.tz_convert('Asia/Shanghai')
+    df['datetime'] = bj.dt.normalize().dt.tz_localize(None)
     
     columns = ['symbol', 'name', 'datetime', 'timestamp', 'open', 'high', 'low', 'close', 'volume', 'amount']
     df = df[[col for col in columns if col in df.columns]]

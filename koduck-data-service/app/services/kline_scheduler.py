@@ -8,6 +8,7 @@ conflicting with initialization or manual updates.
 import asyncio
 from datetime import datetime, time
 from enum import Enum
+from pathlib import Path
 from typing import Optional
 
 import structlog
@@ -191,7 +192,6 @@ class KlineScheduler:
             logger.info("Starting scheduled K-line update")
             
             # Find all CSV files to update
-            from pathlib import Path
             DATA_DIR = Path(__file__).parent.parent.parent / "data" / "kline"
             
             updated_symbols = []
@@ -252,6 +252,9 @@ class KlineScheduler:
         import pandas as pd
         
         try:
+            if symbol.isdigit():
+                symbol = symbol.zfill(6)
+
             DATA_DIR = Path(__file__).parent.parent.parent / "data" / "kline"
             csv_path = DATA_DIR / timeframe / f"{symbol}.csv"
             
@@ -326,7 +329,9 @@ class KlineScheduler:
             df = pd.DataFrame(unique)
             df['symbol'] = symbol
             df['name'] = ""
-            df['datetime'] = pd.to_datetime(df['timestamp'], unit='s')
+            # Keep date in Asia/Shanghai to match A-share trading calendar.
+            bj = pd.to_datetime(df['timestamp'], unit='s', utc=True).dt.tz_convert('Asia/Shanghai')
+            df['datetime'] = bj.dt.normalize().dt.tz_localize(None)
             
             df = df[['symbol', 'name', 'datetime', 'timestamp', 'open', 'high', 'low', 'close', 'volume', 'amount']]
             df.to_csv(csv_path, index=False, encoding='utf-8-sig')

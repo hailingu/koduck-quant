@@ -3,9 +3,12 @@ package com.koduck.controller;
 import io.swagger.v3.oas.annotations.tags.Tag;
 
 import com.koduck.dto.ApiResponse;
+import com.koduck.dto.market.KlineDataDto;
 import com.koduck.dto.market.MarketIndexDto;
 import com.koduck.dto.market.PriceQuoteDto;
 import com.koduck.dto.market.SymbolInfoDto;
+import com.koduck.service.KlineMinutesService;
+import com.koduck.service.KlineService;
 import com.koduck.service.MarketService;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
@@ -32,6 +35,8 @@ import java.util.List;
 public class MarketController {
     
     private final MarketService marketService;
+    private final KlineService klineService;
+    private final KlineMinutesService klineMinutesService;
     
     /**
      * Search for symbols.
@@ -81,6 +86,47 @@ public class MarketController {
         }
         return ApiResponse.success(quote);
     }
+
+    /**
+     * Get stock K-line data.
+     * <p>Compatibility endpoint for frontend requests under /market/stocks/{symbol}/kline.</p>
+     * <p>Daily/weekly/monthly data reads from DB first and falls back to data-service when empty.</p>
+     *
+     * @param symbol stock symbol
+     * @param market market code, defaults to AShare
+     * @param period period alias (daily/weekly/monthly) used by legacy callers
+     * @param timeframe explicit timeframe (1m, 5m, 15m, 30m, 60m, 1D, 1W, 1M)
+     * @param limit max records to return
+     * @param beforeTime optional timestamp cursor
+     * @return k-line list
+     */
+    @GetMapping("/stocks/{symbol}/kline")
+    public ApiResponse<List<KlineDataDto>> getStockKline(
+            @PathVariable @NotBlank(message = "股票代码不能为空") String symbol,
+            @RequestParam(defaultValue = "AShare") String market,
+            @RequestParam(required = false) String period,
+            @RequestParam(required = false) String timeframe,
+            @RequestParam(defaultValue = "300") @Min(1) @Max(1000) Integer limit,
+            @RequestParam(required = false) Long beforeTime) {
+
+        String normalizedTimeframe = normalizeTimeframe(period, timeframe);
+        log.info("GET /api/v1/market/stocks/{}/kline: market={}, period={}, timeframe={}, normalizedTimeframe={}, limit={}, beforeTime={}",
+                symbol, market, period, timeframe, normalizedTimeframe, limit, beforeTime);
+
+        List<KlineDataDto> data;
+        if (klineMinutesService.isMinuteTimeframe(normalizedTimeframe)) {
+            data = klineMinutesService.getMinuteKline(market, symbol, normalizedTimeframe, limit, beforeTime);
+            return ApiResponse.success(data);
+        }
+
+        data = klineService.getKlineData(market, symbol, normalizedTimeframe, limit, beforeTime);
+        if (data.isEmpty()) {
+            log.info("No DB kline data found, fallback to data-service: market={}, symbol={}, timeframe={}",
+                    market, symbol, normalizedTimeframe);
+            data = klineMinutesService.getMinuteKline(market, symbol, normalizedTimeframe, limit, beforeTime);
+        }
+        return ApiResponse.success(data);
+    }
     
     /**
      * Retrieve market indices.
@@ -113,5 +159,20 @@ public class MarketController {
         
         List<PriceQuoteDto> quotes = marketService.getBatchPrices(symbols);
         return ApiResponse.success(quotes);
+    }
+
+    private String normalizeTimeframe(String period, String timeframe) {
+        if (timeframe != null && !timeframe.isBlank()) {
+            return timeframe;
+        }
+        if (period == null || period.isBlank()) {
+            return "1D";
+        }
+        return switch (period.toLowerCase()) {
+            case "daily", "day", "1d" -> "1D";
+            case "weekly", "week", "1w" -> "1W";
+            case "monthly", "month", "1mth", "1mo", "1m" -> "1M";
+            default -> period;
+        };
     }
 }
