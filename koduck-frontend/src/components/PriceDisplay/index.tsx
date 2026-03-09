@@ -45,7 +45,7 @@ export const PriceDisplay = memo(function PriceDisplay({
   // 呼吸动画状态
   const [isBreathing, setIsBreathing] = useState(false)
   const prevPriceRef = useRef(price)
-  const breathTimeoutRef = useRef<NodeJS.Timeout>()
+  const breathTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   
   // 价格变化时触发呼吸动画
   useEffect(() => {
