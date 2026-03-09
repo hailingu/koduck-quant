@@ -53,13 +53,6 @@ interface AIAnalysisResponse {
   model?: string
 }
 
-// 普通对话 API 响应类型
-interface ChatResponse {
-  content: string
-  provider: string
-  model?: string
-}
-
 export function AIChat({ symbol, stockName, stockInfo }: AIChatProps) {
   const [messages, setMessages] = useState<Message[]>([
     {
@@ -193,7 +186,7 @@ export function AIChat({ symbol, stockName, stockInfo }: AIChatProps) {
 
         for (const line of lines) {
           if (line.startsWith('event: ')) {
-            const eventType = line.slice(7)
+            // 跳过事件类型行，后续处理 data 行
             continue
           }
           if (line.startsWith('data: ')) {
