@@ -18,14 +18,6 @@ load_dotenv()
 
 # 类级别默认配置常量
 _PROVIDER_DEFAULTS: dict[LLMProvider, dict[str, str]] = {
-    LLMProvider.KIMI: {
-        "api_base": "https://api.moonshot.cn/v1",
-        "model": "moonshot-v1-8k",
-    },
-    LLMProvider.ZLM: {
-        "api_base": "https://open.bigmodel.cn/api/paas/v4",
-        "model": "glm-5",
-    },
     LLMProvider.MINIMAX: {
         "api_base": "https://api.minimax.chat/v1",
         "model": "MiniMax-M2.5",
@@ -37,7 +29,7 @@ _PROVIDER_DEFAULTS: dict[LLMProvider, dict[str, str]] = {
 class LLMConfig:
     """LLM 配置."""
     
-    provider: LLMProvider = LLMProvider.KIMI
+    provider: LLMProvider = LLMProvider.MINIMAX
     api_key: str = ""
     api_base: str = ""
     model: str = ""
@@ -104,11 +96,13 @@ def load_config(config_path: str | Path | None = None) -> LLMConfig:
             logger.warning("加载配置文件失败: %s - %s", config_path, e)
     
     # Step 2: 合并配置（环境变量优先于配置文件）
-    provider_str = os.getenv("LLM_PROVIDER") or file_config.get("provider", "kimi")
+    provider_str = os.getenv("LLM_PROVIDER") or file_config.get("provider", "minimax")
     provider = LLMProvider(provider_str.lower())
     
     api_key = os.getenv("LLM_API_KEY") or file_config.get("api_key", "")
+    # 支持不同提供商的 API Base URL
     api_base = os.getenv("LLM_API_BASE") or file_config.get("api_base", "")
+    # MiniMax 专用 API Base URL
     model = os.getenv("LLM_MODEL") or file_config.get("model", "")
     
     # Step 3: 构建配置对象
@@ -145,23 +139,19 @@ def save_config_example(path: str | Path | None = None) -> None:
     
     example = """# LLM Caller 配置文件示例
 
-# 提供商: kimi / zlm / minimax
-provider: kimi
+# 提供商: minimax
+provider: minimax
 
 # API 密钥 (必需)
 # 可以从环境变量设置: export LLM_API_KEY=your_key
 api_key: "your-api-key-here"
 
 # API Base URL (可选，会使用默认值)
-# kimi: https://api.moonshot.cn/v1
-# zlm: https://open.bigmodel.cn/api/paas/v4
 # minimax: https://api.minimax.chat/v1
 api_base: ""
 
 # 模型名称 (可选，会使用默认值)
-# kimi: moonshot-v1-8k, moonshot-v1-32k, moonshot-v1-128k
-# zlm: glm-4-flash, glm-4, glm-4-plus
-# minimax: MiniMax-Text-01, abab6.5s-chat
+# minimax: MiniMax-M2.5, MiniMax-Text-01, abab6.5s-chat
 model: ""
 
 # 重试配置

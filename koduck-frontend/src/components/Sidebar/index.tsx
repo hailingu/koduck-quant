@@ -1,6 +1,5 @@
 import { NavLink, useLocation } from 'react-router-dom'
 import { useThemeStore } from '@/stores/theme'
-import { useAuthStore } from '@/stores/auth'
 
 interface MenuItem {
   key: string
@@ -75,7 +74,6 @@ const menuItems: MenuItem[] = [
 
 export default function Sidebar() {
   const { sidebarCollapsed, toggleSidebar } = useThemeStore()
-  const { user } = useAuthStore()
   const location = useLocation()
 
   return (

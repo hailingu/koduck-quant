@@ -10,8 +10,6 @@ export interface PriceDisplayProps {
   change?: number | null
   /** 涨跌幅 */
   changePercent?: number | null
-  /** 是否实时更新（启用呼吸动画） */
-  isRealTime?: boolean
   /** 自定义样式类名 */
   className?: string
   /** 是否显示标签（如"昨收"） */
@@ -33,7 +31,6 @@ export const PriceDisplay = memo(function PriceDisplay({
   prevClose,
   change,
   changePercent,
-  isRealTime = false,
   className = '',
   showLabel = false,
   decimals = 2,
@@ -48,7 +45,6 @@ export const PriceDisplay = memo(function PriceDisplay({
   // 判断涨跌方向
   const isUp = (calculatedChange ?? 0) > 0
   const isDown = (calculatedChange ?? 0) < 0
-  const isFlat = !isUp && !isDown
 
   // 颜色类名（A股传统：红涨绿跌）
   const getColorClass = () => {

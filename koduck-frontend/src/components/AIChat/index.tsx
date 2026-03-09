@@ -36,9 +36,7 @@ interface Provider {
 
 // 可用的 LLM 提供商
 const PROVIDERS: Provider[] = [
-  { id: 'kimi', name: 'Kimi', models: ['moonshot-v1-8k', 'moonshot-v1-32k', 'moonshot-v1-128k'] },
-  { id: 'zlm', name: '智谱', models: ['glm-4-flash', 'glm-4', 'glm-4-plus'] },
-  { id: 'minimax', name: 'MiniMax', models: ['MiniMax-M2.5', 'MiniMax-Text-01'] },
+  { id: 'minimax', name: 'MiniMax', models: ['MiniMax-M2.5'] },
 ]
 
 // 快捷分析问题
@@ -55,6 +53,13 @@ interface AIAnalysisResponse {
   model?: string
 }
 
+// 普通对话 API 响应类型
+interface ChatResponse {
+  content: string
+  provider: string
+  model?: string
+}
+
 export function AIChat({ symbol, stockName, stockInfo }: AIChatProps) {
   const [messages, setMessages] = useState<Message[]>([
     {
@@ -67,7 +72,7 @@ export function AIChat({ symbol, stockName, stockInfo }: AIChatProps) {
   ])
   const [input, setInput] = useState('')
   const [isLoading, setIsLoading] = useState(false)
-  const [selectedProvider, setSelectedProvider] = useState<string>('kimi')
+  const [selectedProvider, setSelectedProvider] = useState<string>('minimax')
   const [showProviderDropdown, setShowProviderDropdown] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const dropdownRef = useRef<HTMLDivElement>(null)
@@ -88,6 +93,7 @@ export function AIChat({ symbol, stockName, stockInfo }: AIChatProps) {
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
 
+  // 股票分析 API 调用
   const callAIAnalysis = async (question: string): Promise<string> => {
     try {
       const response = await request.post<AIAnalysisResponse>('/api/v1/ai/analyze', {
@@ -103,14 +109,69 @@ export function AIChat({ symbol, stockName, stockInfo }: AIChatProps) {
         amount: stockInfo.amount || 0,
         question,
         provider: selectedProvider,
+      }, {
+        timeout: 60000, // AI 请求需要更长的超时时间（60秒）
       })
       return response.analysis
-    } catch (error) {
+    } catch (error: any) {
       console.error('AI analysis failed:', error)
+      // 提取后端返回的详细错误信息
+      const backendError = error?.response?.data?.detail || error?.response?.data?.message
+      if (backendError) {
+        throw new Error(backendError)
+      }
+      if (error.code === 'ECONNABORTED') {
+        throw new Error('AI 响应超时，请稍后重试')
+      }
       throw new Error('AI 分析服务暂时不可用，请稍后重试')
     }
   }
 
+  // 普通对话 API 调用
+  const callChat = async (userContent: string): Promise<string> => {
+    try {
+      // 构建对话历史
+      const chatMessages = messages
+        .filter(m => m.id !== 'welcome') // 排除欢迎消息
+        .map(m => ({
+          role: m.role,
+          content: m.content
+        }))
+      
+      // 添加系统提示
+      const systemPrompt = `你是一位AI助手，正在与用户讨论股票 ${stockName} (${symbol}) 的相关话题。用户可以自由询问任何问题，包括但不限于：
+- 一般性问题（如时间、日期、常识等）
+- 股票相关的问题
+- 投资知识
+- 其他话题
+
+请自然、友好地回答用户的问题。如果用户询问与当前股票无关的话题，也请正常回答。`
+
+      const response = await request.post<ChatResponse>('/api/v1/ai/chat', {
+        messages: [
+          { role: 'system', content: systemPrompt },
+          ...chatMessages,
+          { role: 'user', content: userContent }
+        ],
+        provider: selectedProvider,
+      }, {
+        timeout: 60000, // AI 请求需要更长的超时时间（60秒）
+      })
+      return response.content
+    } catch (error: any) {
+      console.error('Chat failed:', error)
+      const backendError = error?.response?.data?.detail || error?.response?.data?.message
+      if (backendError) {
+        throw new Error(backendError)
+      }
+      if (error.code === 'ECONNABORTED') {
+        throw new Error('AI 响应超时，请稍后重试')
+      }
+      throw new Error('AI 服务暂时不可用，请稍后重试')
+    }
+  }
+
+  // 处理用户输入（普通对话）
   const handleSend = async (content: string) => {
     if (!content.trim()) return
 
@@ -126,7 +187,52 @@ export function AIChat({ symbol, stockName, stockInfo }: AIChatProps) {
     setIsLoading(true)
 
     try {
-      const analysis = await callAIAnalysis(content)
+      // 普通对话使用 /chat 接口
+      const reply = await callChat(content)
+      
+      const aiMessage: Message = {
+        id: (Date.now() + 1).toString(),
+        role: 'assistant',
+        content: reply,
+        timestamp: new Date(),
+        type: 'general',
+      }
+      
+      setMessages((prev) => [...prev, aiMessage])
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : '服务暂时不可用，请稍后重试'
+      
+      const aiMessage: Message = {
+        id: (Date.now() + 1).toString(),
+        role: 'assistant',
+        content: `❌ ${errorMessage}`,
+        timestamp: new Date(),
+        type: 'general',
+      }
+      
+      setMessages((prev) => [...prev, aiMessage])
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  // 处理快捷问题（股票分析）
+  const handleQuickQuestion = async (question: string) => {
+    if (!question.trim()) return
+
+    const userMessage: Message = {
+      id: Date.now().toString(),
+      role: 'user',
+      content: question,
+      timestamp: new Date(),
+    }
+
+    setMessages((prev) => [...prev, userMessage])
+    setIsLoading(true)
+
+    try {
+      // 股票分析使用 /analyze 接口
+      const analysis = await callAIAnalysis(question)
       
       const aiMessage: Message = {
         id: (Date.now() + 1).toString(),
@@ -152,10 +258,6 @@ export function AIChat({ symbol, stockName, stockInfo }: AIChatProps) {
     } finally {
       setIsLoading(false)
     }
-  }
-
-  const handleQuickQuestion = (question: string) => {
-    handleSend(question)
   }
 
   const currentProvider = PROVIDERS.find(p => p.id === selectedProvider)

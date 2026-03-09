@@ -256,7 +256,6 @@ export default function Dashboard() {
           watchlistRes.slice(0, 5).map(async (item) => {
             try {
               const priceRes = await klineApi.getLatestPrice({
-                market: item.market,
                 symbol: item.symbol,
               })
               return {
@@ -276,11 +275,9 @@ export default function Dashboard() {
         indicesRes.map(async (index) => {
           try {
             const priceRes = await klineApi.getLatestPrice({
-              market: 'sh',
               symbol: index.symbol,
             })
             const klineRes = await klineApi.getKline({
-              market: 'sh',
               symbol: index.symbol,
               timeframe: '1D',
               limit: 2,

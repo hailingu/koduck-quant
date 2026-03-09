@@ -191,7 +191,6 @@ export default function Kline() {
     setError(null)
     try {
       const data = await klineApi.getKline({
-        market: 'AShare',
         symbol,
         timeframe,
         limit: 300,
@@ -367,7 +366,7 @@ export default function Kline() {
                 prevClose={stockInfo.prevClose}
                 change={stockInfo.change}
                 changePercent={stockInfo.changePercent}
-                isRealTime={isTradingHours()}
+               
                 mode="full"
               />
               <p className="mt-1 text-xs text-gray-500">

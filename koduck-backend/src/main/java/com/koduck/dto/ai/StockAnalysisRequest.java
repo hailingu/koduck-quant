@@ -19,11 +19,22 @@ public class StockAnalysisRequest {
     @NotBlank(message = "股票代码不能为空")
     private String symbol;
 
-    @NotBlank(message = "市场不能为空")
-    @Pattern(regexp = "US|SH|SZ|HK", message = "市场必须是 US、SH、SZ 或 HK")
     private String market;
 
     @Pattern(regexp = "technical|fundamental|sentiment|comprehensive", 
              message = "分析类型必须是 technical、fundamental、sentiment 或 comprehensive")
     private String analysisType;
+    
+    // 前端额外发送的参数
+    private String name;
+    private Double price;
+    private Double changePercent;
+    private Double openPrice;
+    private Double high;
+    private Double low;
+    private Double prevClose;
+    private Long volume;
+    private Double amount;
+    private String question;
+    private String provider;
 }

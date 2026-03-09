@@ -38,15 +38,14 @@ export interface SearchResult {
 
 export const klineApi = {
   getKline: (params: {
-    market: string
     symbol: string
     timeframe: string
     limit?: number
     beforeTime?: number
-  }) => request.get<KlineData[]>('/api/v1/kline', { params }),
+  }) => request.get<KlineData[]>('/api/v1/a-share/kline', { params }),
 
-  getLatestPrice: (params: { market: string; symbol: string; timeframe?: string }) =>
-    request.get<LatestPriceResponse>('/api/v1/kline/price', { params }),
+  getLatestPrice: (params: { symbol: string; timeframe?: string }) =>
+    request.get<LatestPriceResponse>('/api/v1/a-share/kline/price', { params }),
 
   searchStocks: (keyword: string, limit: number = 20) =>
     request.get<SearchResult[]>('/api/v1/a-share/search', { params: { keyword, limit } }),

@@ -8,8 +8,6 @@ from typing import Any
 class LLMProvider(str, Enum):
     """支持的 LLM 提供商."""
     
-    KIMI = "kimi"           # Moonshot AI (Kimi)
-    ZLM = "zlm"             # Zhipu AI (ZLM)
     MINIMAX = "minimax"     # MiniMax
 
 

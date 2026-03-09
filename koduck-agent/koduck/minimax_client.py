@@ -30,6 +30,15 @@ class MiniMaxClient(LLMClientBase):
     - MiniMax-Text-01: 文本生成模型
     """
 
+    # 支持的模型列表
+    SUPPORTED_MODELS = [
+        "MiniMax-M2.5",
+        "MiniMax-Text-01",
+        "MiniMax-M1",
+        "abab6.5s-chat",
+        "abab6-chat",
+    ]
+
     def __init__(
         self,
         api_key: str,
@@ -45,7 +54,7 @@ class MiniMaxClient(LLMClientBase):
         Args:
             api_key: MiniMax API 密钥
             api_base: API 基础 URL (默认: https://api.minimax.chat/v1)
-            model: 模型名称 (默认: MiniMax-M2.5)
+            model: 模型名称 (默认: MiniMax-Text-01)
             retry_config: 可选的重试配置
             temperature: 采样温度 (0-2, 默认 0.7)
             max_tokens: 最大生成 token 数 (默认 None)
@@ -153,13 +162,14 @@ class MiniMaxClient(LLMClientBase):
         tools: list[Any] | None = None,
     ) -> dict[str, Any]:
         """准备请求参数."""
+        api_messages = self._convert_messages(messages)
         params: dict[str, Any] = {
             "model": self.model,
-            "messages": self._convert_messages(messages),
+            "messages": api_messages,
             "temperature": self.temperature,
             "top_p": self.top_p,
-            # MiniMax M2.5 支持 reasoning_split 来分离思考内容
-            "extra_body": {"reasoning_split": True},
+            # MiniMax 某些模型支持 reasoning_split 来分离思考内容
+            "extra_body": {"reasoning_split": True} if "M2.5" in self.model or "M1" in self.model else {},
         }
         
         if self.max_tokens:
@@ -167,6 +177,11 @@ class MiniMaxClient(LLMClientBase):
         
         if tools:
             params["tools"] = self._convert_tools(tools)
+        
+        logger.info(f"[MiniMax] 请求参数: model={self.model}, messages_count={len(api_messages)}")
+        for i, msg in enumerate(api_messages):
+            content_preview = msg.get('content', '')[:50] + "..." if msg.get('content') and len(msg.get('content', '')) > 50 else msg.get('content', '')
+            logger.info(f"[MiniMax]  Message[{i}]: role={msg.get('role')}, content={content_preview}")
         
         return params
 
@@ -219,25 +234,47 @@ class MiniMaxClient(LLMClientBase):
         message = response.choices[0].message
         raw_content = message.content or ""
         
+        logger.info(f"[MiniMax] 解析响应: finish_reason={response.choices[0].finish_reason}")
+        logger.info(f"[MiniMax] 原始内容长度: {len(raw_content)}")
+        logger.info(f"[MiniMax] 原始内容预览: {raw_content[:200]}..." if len(raw_content) > 200 else f"[MiniMax] 原始内容: {raw_content}")
+        
         # 提取思考内容
         thinking, content = self._extract_thinking(raw_content)
         
-        return LLMResponse(
+        logger.info(f"[MiniMax] 解析完成: content_length={len(content)}, has_thinking={bool(thinking)}")
+        if thinking:
+            logger.info(f"[MiniMax] 思考内容: {thinking[:100]}..." if len(thinking) > 100 else f"[MiniMax] 思考内容: {thinking}")
+        
+        result = LLMResponse(
             content=content,
             thinking=thinking or None,
             tool_calls=self._extract_tool_calls(message),
             finish_reason=response.choices[0].finish_reason,
             usage=self._extract_usage(response),
         )
+        
+        logger.info(f"[MiniMax] LLMResponse: content_length={len(result.content) if result.content else 0}, finish_reason={result.finish_reason}")
+        return result
 
     async def _make_api_request(
         self,
         params: dict[str, Any],
     ) -> Any:
         """执行 API 请求."""
-        logger.debug(f"MiniMax API request: model={params.get('model')}")
-        # extra_body 已经包含在 params 中，直接传递
-        return await self.client.chat.completions.create(**params)
+        logger.info(f"[MiniMax] 开始 API 请求: model={params.get('model')}, api_base={self.api_base}")
+        try:
+            # extra_body 已经包含在 params 中，直接传递
+            response = await self.client.chat.completions.create(**params)
+            logger.info(f"[MiniMax] API 请求成功")
+            logger.info(f"[MiniMax] 响应概览: id={response.id}, model={response.model}, choices_count={len(response.choices)}")
+            if response.usage:
+                logger.info(f"[MiniMax] Token 使用: prompt={response.usage.prompt_tokens}, completion={response.usage.completion_tokens}, total={response.usage.total_tokens}")
+            return response
+        except Exception as e:
+            logger.error(f"[MiniMax] API 请求失败: {type(e).__name__}: {e}")
+            logger.error(f"[MiniMax] 错误详情: {repr(e)}")
+            # 重新抛出以便上层处理
+            raise
 
     async def generate(
         self,
@@ -245,16 +282,26 @@ class MiniMaxClient(LLMClientBase):
         tools: list[Any] | None = None,
     ) -> LLMResponse:
         """生成响应."""
+        logger.info(f"[MiniMax] generate() 开始: messages_count={len(messages)}, retry_enabled={self.retry_config.enabled}")
+        
         params = self._prepare_request(messages, tools)
         
-        if self.retry_config.enabled:
-            retry_decorator = async_retry(
-                config=self.retry_config,
-                on_retry=self.retry_callback
-            )
-            api_call = retry_decorator(self._make_api_request)
-            response = await api_call(params)
-        else:
-            response = await self._make_api_request(params)
-        
-        return self._parse_response(response)
+        try:
+            if self.retry_config.enabled:
+                logger.info(f"[MiniMax] 使用重试机制")
+                retry_decorator = async_retry(
+                    config=self.retry_config,
+                    on_retry=self.retry_callback
+                )
+                api_call = retry_decorator(self._make_api_request)
+                response = await api_call(params)
+            else:
+                logger.info(f"[MiniMax] 直接调用 API")
+                response = await self._make_api_request(params)
+            
+            result = self._parse_response(response)
+            logger.info(f"[MiniMax] generate() 成功完成")
+            return result
+        except Exception as e:
+            logger.error(f"[MiniMax] generate() 失败: {type(e).__name__}: {e}")
+            raise
