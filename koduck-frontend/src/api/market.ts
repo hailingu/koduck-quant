@@ -73,7 +73,7 @@ export const marketApi = {
    * @param symbol 股票代码
    */
   getStockDetail: (symbol: string) =>
-    request.get<PriceQuote>(`/api/v1/market/stocks/${symbol}`),
+    request.get<PriceQuote>(`/api/v1/market/stocks/${symbol}`, { timeout: 15000 }),
 
   /**
    * 获取市场指数（上证、深证、创业板）
