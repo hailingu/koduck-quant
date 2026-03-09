@@ -144,6 +144,9 @@ services:
       - LLM_API_BASE=${LLM_API_BASE:-https://api.gptsapi.net}
       - MINIMAX_API_BASE=${MINIMAX_API_BASE:-https://api.minimax.chat/v1}
       - LOG_LEVEL=INFO
+    volumes:
+      # Mount local code for development (changes take effect on restart)
+      - ./koduck-agent/koduck:/app/koduck:ro
     restart: unless-stopped
     networks:
       - koduck-network
