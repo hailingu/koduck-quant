@@ -4,21 +4,23 @@
  */
 
 /**
- * 判断当前是否为A股交易时间
+ * 判断当前是否为A股交易时间（北京时间）
  * A股交易时间：09:30-11:30, 13:00-15:00
  * @returns boolean - true 表示当前处于交易时间
  */
 export function isTradingHours(): boolean {
+  // 获取北京时间（UTC+8）
   const now = new Date()
-  const day = now.getDay()
+  const beijingTime = new Date(now.getTime() + (now.getTimezoneOffset() + 480) * 60000)
+  const day = beijingTime.getDay()
 
-  // 周末不交易
+  // 周末不交易（0=周日，6=周六）
   if (day === 0 || day === 6) {
     return false
   }
 
-  const hour = now.getHours()
-  const minute = now.getMinutes()
+  const hour = beijingTime.getHours()
+  const minute = beijingTime.getMinutes()
   const time = hour * 60 + minute
 
   // 上午：09:30 - 11:30

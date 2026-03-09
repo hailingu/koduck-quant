@@ -416,8 +416,8 @@ export default function Kline() {
                 prevClose={stockInfo.prevClose}
                 change={stockInfo.change}
                 changePercent={stockInfo.changePercent}
-               
                 mode="full"
+                breathing={true}
               />
               <p className="mt-1 text-xs text-gray-500">
                 {isTradingHours() ? '交易中' : '已收盘'} {new Date().toLocaleDateString('zh-CN')} 北京时间
