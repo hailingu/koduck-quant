@@ -127,8 +127,13 @@ export function AIChat({ symbol, stockName, stockInfo }: AIChatProps) {
     }
   }
 
-  // 普通对话 API 调用
-  const callChat = async (userContent: string): Promise<string> => {
+  // 普通对话 API 调用（流式）
+  const callChatStream = async (
+    userContent: string,
+    onDelta: (delta: string) => void,
+    onDone: (fullContent: string) => void,
+    onError: (error: string) => void
+  ) => {
     try {
       // 构建对话历史
       const chatMessages = messages
@@ -147,31 +152,79 @@ export function AIChat({ symbol, stockName, stockInfo }: AIChatProps) {
 
 请自然、友好地回答用户的问题。如果用户询问与当前股票无关的话题，也请正常回答。`
 
-      const response = await request.post<ChatResponse>('/api/v1/ai/chat', {
+      const requestBody = {
         messages: [
           { role: 'system', content: systemPrompt },
           ...chatMessages,
           { role: 'user', content: userContent }
         ],
         provider: selectedProvider,
-      }, {
-        timeout: 60000, // AI 请求需要更长的超时时间（60秒）
+      }
+
+      // 使用 SSE 流式请求
+      const response = await fetch('/api/v1/ai/chat/stream', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(requestBody),
       })
-      return response.content
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ message: '请求失败' }))
+        throw new Error(errorData.message || `HTTP ${response.status}`)
+      }
+
+      const reader = response.body?.getReader()
+      const decoder = new TextDecoder()
+      let fullContent = ''
+
+      if (!reader) {
+        throw new Error('无法读取响应流')
+      }
+
+      // 读取流
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+
+        const chunk = decoder.decode(value, { stream: true })
+        const lines = chunk.split('\n')
+
+        for (const line of lines) {
+          if (line.startsWith('event: ')) {
+            const eventType = line.slice(7)
+            continue
+          }
+          if (line.startsWith('data: ')) {
+            const dataStr = line.slice(6)
+            try {
+              const data = JSON.parse(dataStr)
+              
+              if (data.content !== undefined) {
+                // delta 事件
+                fullContent += data.content
+                onDelta(data.content)
+              } else if (data.code) {
+                // error 事件
+                onError(data.message || '请求失败')
+                return
+              }
+            } catch (e) {
+              // 忽略解析错误
+            }
+          }
+        }
+      }
+
+      onDone(fullContent)
     } catch (error: any) {
-      console.error('Chat failed:', error)
-      const backendError = error?.response?.data?.detail || error?.response?.data?.message
-      if (backendError) {
-        throw new Error(backendError)
-      }
-      if (error.code === 'ECONNABORTED') {
-        throw new Error('AI 响应超时，请稍后重试')
-      }
-      throw new Error('AI 服务暂时不可用，请稍后重试')
+      console.error('Chat stream failed:', error)
+      onError(error.message || 'AI 服务暂时不可用，请稍后重试')
     }
   }
 
-  // 处理用户输入（普通对话）
+  // 处理用户输入（普通对话 - 流式）
   const handleSend = async (content: string) => {
     if (!content.trim()) return
 
@@ -186,34 +239,48 @@ export function AIChat({ symbol, stockName, stockInfo }: AIChatProps) {
     setInput('')
     setIsLoading(true)
 
-    try {
-      // 普通对话使用 /chat 接口
-      const reply = await callChat(content)
-      
-      const aiMessage: Message = {
-        id: (Date.now() + 1).toString(),
+    // 先创建一个空的 AI 消息
+    const aiMessageId = (Date.now() + 1).toString()
+    setMessages((prev) => [
+      ...prev,
+      {
+        id: aiMessageId,
         role: 'assistant',
-        content: reply,
+        content: '',
         timestamp: new Date(),
         type: 'general',
       }
-      
-      setMessages((prev) => [...prev, aiMessage])
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : '服务暂时不可用，请稍后重试'
-      
-      const aiMessage: Message = {
-        id: (Date.now() + 1).toString(),
-        role: 'assistant',
-        content: `❌ ${errorMessage}`,
-        timestamp: new Date(),
-        type: 'general',
+    ])
+
+    // 流式接收
+    await callChatStream(
+      content,
+      // onDelta - 收到内容块
+      (delta) => {
+        setMessages((prev) =>
+          prev.map((msg) =>
+            msg.id === aiMessageId
+              ? { ...msg, content: msg.content + delta }
+              : msg
+          )
+        )
+      },
+      // onDone - 完成
+      () => {
+        setIsLoading(false)
+      },
+      // onError - 错误
+      (error) => {
+        setMessages((prev) =>
+          prev.map((msg) =>
+            msg.id === aiMessageId
+              ? { ...msg, content: `❌ ${error}` }
+              : msg
+          )
+        )
+        setIsLoading(false)
       }
-      
-      setMessages((prev) => [...prev, aiMessage])
-    } finally {
-      setIsLoading(false)
-    }
+    )
   }
 
   // 处理快捷问题（股票分析）
