@@ -20,6 +20,7 @@ import org.springframework.stereotype.Service;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.ZoneOffset;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -125,16 +126,16 @@ public class MarketServiceImpl implements MarketService {
         try {
             StockRealtime entity = stockRealtimeRepository.findBySymbol(symbol).orElse(null);
             if (entity == null) {
-                PriceQuoteDto providerQuote = akShareDataProvider.getPrice(symbol);
-                if (providerQuote != null) {
-                    log.info("Fetched stock detail from data service: symbol={}", symbol);
-                    return providerQuote;
-                }
-
                 PriceQuoteDto fallbackQuote = buildQuoteFromLatestKline(symbol);
                 if (fallbackQuote != null) {
                     log.info("Built stock detail from latest kline data: symbol={}", symbol);
                     return fallbackQuote;
+                }
+
+                PriceQuoteDto providerQuote = akShareDataProvider.getPrice(symbol);
+                if (providerQuote != null) {
+                    log.info("Fetched stock detail from data service: symbol={}", symbol);
+                    return providerQuote;
                 }
 
                 log.warn("Stock not found in realtime or kline data: {}", symbol);
@@ -313,33 +314,45 @@ public class MarketServiceImpl implements MarketService {
                 ? basic.getMarket()
                 : DEFAULT_MARKET;
 
-        return klineService.getLatestKline(market, symbol, DAILY_TIMEFRAME)
-                .map(latest -> {
-                    BigDecimal prevClose = klineService
-                            .getPreviousClosePrice(market, symbol, DAILY_TIMEFRAME)
-                            .orElse(null);
-                    BigDecimal price = latest.getClosePrice();
-                    BigDecimal change = calculateChange(price, prevClose);
-                    BigDecimal changePercent = calculateChangePercent(change, prevClose);
+        PriceQuoteDto quote = buildQuoteFromKline(symbol, basic, market);
+        if (quote != null) {
+            return quote;
+        }
 
-                    return PriceQuoteDto.builder()
-                            .symbol(symbol)
-                            .name(basic.getName())
-                            .price(price)
-                            .open(latest.getOpenPrice())
-                            .high(latest.getHighPrice())
-                            .low(latest.getLowPrice())
-                            .prevClose(prevClose)
-                            .volume(latest.getVolume())
-                            .amount(latest.getAmount())
-                            .change(change)
-                            .changePercent(changePercent)
-                            .timestamp(latest.getKlineTime() != null
-                                    ? latest.getKlineTime().toInstant(ZoneOffset.UTC)
-                                    : null)
-                            .build();
-                })
-                .orElse(null);
+        if (!DEFAULT_MARKET.equals(market)) {
+            return buildQuoteFromKline(symbol, basic, DEFAULT_MARKET);
+        }
+
+        return null;
+    }
+
+    private PriceQuoteDto buildQuoteFromKline(String symbol, StockBasic basic, String market) {
+        List<com.koduck.dto.market.KlineDataDto> recent =
+            klineService.getKlineData(market, symbol, DAILY_TIMEFRAME, 2, null);
+        if (recent.isEmpty()) {
+            return null;
+        }
+
+        com.koduck.dto.market.KlineDataDto latest = recent.get(recent.size() - 1);
+        BigDecimal prevClose = recent.size() >= 2 ? recent.get(recent.size() - 2).close() : null;
+        BigDecimal price = latest.close();
+        BigDecimal change = calculateChange(price, prevClose);
+        BigDecimal changePercent = calculateChangePercent(change, prevClose);
+
+        return PriceQuoteDto.builder()
+            .symbol(symbol)
+            .name(basic.getName())
+            .price(price)
+            .open(latest.open())
+            .high(latest.high())
+            .low(latest.low())
+            .prevClose(prevClose)
+            .volume(latest.volume())
+            .amount(latest.amount())
+            .change(change)
+            .changePercent(changePercent)
+            .timestamp(latest.timestamp() != null ? Instant.ofEpochSecond(latest.timestamp()) : null)
+            .build();
     }
 
     private BigDecimal calculateChange(BigDecimal price, BigDecimal prevClose) {
