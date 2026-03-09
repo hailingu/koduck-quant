@@ -76,6 +76,23 @@ class LLMClient:
         """
         return await self._client.generate(messages, tools)
 
+    async def generate_stream(
+        self,
+        messages: list[Message],
+        tools: list | None = None,
+    ):
+        """流式生成 LLM 响应.
+        
+        Args:
+            messages: 对话消息列表
+            tools: 可选的工具列表
+        
+        Yields:
+            流式响应块 (delta 内容)
+        """
+        async for delta in self._client.generate_stream(messages, tools):
+            yield delta
+
 
 def create_client(
     api_key: str | None = None,
