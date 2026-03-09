@@ -91,9 +91,6 @@ export const PriceDisplay = memo(function PriceDisplay({
     }
   }, [price, breathing, trading, lastUpdateTime, open])
 
-  // 计算涨跌额（如果未提供）
-  const calculatedChange = change ?? (price && prevClose ? price - prevClose : null)
-  
   // 使用涨跌幅判断颜色（更可靠）
   const isUp = (changePercent ?? 0) > 0
   const isDown = (changePercent ?? 0) < 0
@@ -111,15 +108,6 @@ export const PriceDisplay = memo(function PriceDisplay({
       return '--'
     }
     return value.toFixed(decimals)
-  }
-
-  // 格式化涨跌额
-  const formatChange = (value: number | null | undefined): string => {
-    if (value === null || value === undefined || isNaN(value)) {
-      return '--'
-    }
-    const sign = value > 0 ? '+' : ''
-    return `${sign}${value.toFixed(decimals)}`
   }
 
   // 格式化涨跌幅
