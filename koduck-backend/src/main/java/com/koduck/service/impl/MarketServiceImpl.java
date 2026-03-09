@@ -8,13 +8,17 @@ import com.koduck.entity.StockBasic;
 import com.koduck.entity.StockRealtime;
 import com.koduck.repository.StockBasicRepository;
 import com.koduck.repository.StockRealtimeRepository;
+import com.koduck.service.KlineService;
 import com.koduck.service.MarketService;
 import com.koduck.service.StockCacheService;
+import com.koduck.service.market.AKShareDataProvider;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -31,6 +35,9 @@ import java.util.stream.Collectors;
 @Service
 @Slf4j
 public class MarketServiceImpl implements MarketService {
+
+    private static final String DEFAULT_MARKET = "AShare";
+    private static final String DAILY_TIMEFRAME = "1D";
     
     // Main index symbols
     private static final List<String> MAIN_INDICES = List.of(
@@ -42,14 +49,20 @@ public class MarketServiceImpl implements MarketService {
     private final StockRealtimeRepository stockRealtimeRepository;
     private final StockBasicRepository stockBasicRepository;
     private final StockCacheService stockCacheService;
+    private final KlineService klineService;
+    private final AKShareDataProvider akShareDataProvider;
     
     public MarketServiceImpl(
             StockRealtimeRepository stockRealtimeRepository,
             StockBasicRepository stockBasicRepository,
-            StockCacheService stockCacheService) {
+            StockCacheService stockCacheService,
+            KlineService klineService,
+            AKShareDataProvider akShareDataProvider) {
         this.stockRealtimeRepository = stockRealtimeRepository;
         this.stockBasicRepository = stockBasicRepository;
         this.stockCacheService = stockCacheService;
+        this.klineService = klineService;
+        this.akShareDataProvider = akShareDataProvider;
     }
     
     /**
@@ -112,7 +125,19 @@ public class MarketServiceImpl implements MarketService {
         try {
             StockRealtime entity = stockRealtimeRepository.findBySymbol(symbol).orElse(null);
             if (entity == null) {
-                log.warn("Stock not found in database: {}", symbol);
+                PriceQuoteDto providerQuote = akShareDataProvider.getPrice(symbol);
+                if (providerQuote != null) {
+                    log.info("Fetched stock detail from data service: symbol={}", symbol);
+                    return providerQuote;
+                }
+
+                PriceQuoteDto fallbackQuote = buildQuoteFromLatestKline(symbol);
+                if (fallbackQuote != null) {
+                    log.info("Built stock detail from latest kline data: symbol={}", symbol);
+                    return fallbackQuote;
+                }
+
+                log.warn("Stock not found in realtime or kline data: {}", symbol);
                 return null;
             }
             
@@ -276,6 +301,60 @@ public class MarketServiceImpl implements MarketService {
                     entity != null ? entity.getSymbol() : "null", e.getMessage(), e);
             throw e;
         }
+    }
+
+    private PriceQuoteDto buildQuoteFromLatestKline(String symbol) {
+        StockBasic basic = stockBasicRepository.findBySymbol(symbol).orElse(null);
+        if (basic == null) {
+            return null;
+        }
+
+        String market = basic.getMarket() != null && !basic.getMarket().isBlank()
+                ? basic.getMarket()
+                : DEFAULT_MARKET;
+
+        return klineService.getLatestKline(market, symbol, DAILY_TIMEFRAME)
+                .map(latest -> {
+                    BigDecimal prevClose = klineService
+                            .getPreviousClosePrice(market, symbol, DAILY_TIMEFRAME)
+                            .orElse(null);
+                    BigDecimal price = latest.getClosePrice();
+                    BigDecimal change = calculateChange(price, prevClose);
+                    BigDecimal changePercent = calculateChangePercent(change, prevClose);
+
+                    return PriceQuoteDto.builder()
+                            .symbol(symbol)
+                            .name(basic.getName())
+                            .price(price)
+                            .open(latest.getOpenPrice())
+                            .high(latest.getHighPrice())
+                            .low(latest.getLowPrice())
+                            .prevClose(prevClose)
+                            .volume(latest.getVolume())
+                            .amount(latest.getAmount())
+                            .change(change)
+                            .changePercent(changePercent)
+                            .timestamp(latest.getKlineTime() != null
+                                    ? latest.getKlineTime().toInstant(ZoneOffset.UTC)
+                                    : null)
+                            .build();
+                })
+                .orElse(null);
+    }
+
+    private BigDecimal calculateChange(BigDecimal price, BigDecimal prevClose) {
+        if (price == null || prevClose == null) {
+            return null;
+        }
+        return price.subtract(prevClose);
+    }
+
+    private BigDecimal calculateChangePercent(BigDecimal change, BigDecimal prevClose) {
+        if (change == null || prevClose == null || BigDecimal.ZERO.compareTo(prevClose) == 0) {
+            return null;
+        }
+        return change.multiply(BigDecimal.valueOf(100))
+                .divide(prevClose, 4, RoundingMode.HALF_UP);
     }
     
     private MarketIndexDto mapToMarketIndexDto(StockRealtime entity) {

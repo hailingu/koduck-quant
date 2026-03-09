@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import KlineChart from '@/components/KlineChart'
 import StockSearch from '@/components/StockSearch'
@@ -30,6 +30,18 @@ interface RecentStock {
   symbol: string
   name: string
   timestamp: number
+}
+
+interface DerivedStockInfo {
+  price: number
+  change: number
+  changePercent: number
+  open: number
+  high: number
+  low: number
+  prevClose: number
+  volume: number
+  amount: number
 }
 
 // Helper function to save stock to localStorage
@@ -95,6 +107,33 @@ const formatAmount = (amount: number): string => {
   return wan.toFixed(2) + '万'
 }
 
+const deriveStockInfoFromKline = (data: KlineData[]): DerivedStockInfo | null => {
+  if (!data || data.length === 0) {
+    return null
+  }
+
+  const latest = data.at(-1)
+  const previous = data.at(-2)
+  if (!latest) {
+    return null
+  }
+  const prevClose = previous?.close ?? latest.open
+  const change = latest.close - prevClose
+  const changePercent = prevClose > 0 ? (change / prevClose) * 100 : 0
+
+  return {
+    price: latest.close,
+    change,
+    changePercent,
+    open: latest.open,
+    high: latest.high,
+    low: latest.low,
+    prevClose,
+    volume: latest.volume,
+    amount: latest.amount ?? 0,
+  }
+}
+
 export default function Kline() {
   const [searchParams, setSearchParams] = useSearchParams()
   
@@ -122,6 +161,12 @@ export default function Kline() {
 
   const { addItem, isInWatchlist, fetchWatchlist } = useWatchlistStore()
   const inWatchlist = symbol ? isInWatchlist(symbol) : false
+  let watchlistButtonLabel = '+ 添加自选'
+  if (inWatchlist) {
+    watchlistButtonLabel = '已在自选'
+  } else if (addingToWatchlist) {
+    watchlistButtonLabel = '添加中...'
+  }
   
   // WebSocket for real-time price updates
   const { connect: connectWebSocket, disconnect: disconnectWebSocket, subscribe: subscribePrice, unsubscribe: unsubscribePrice, stockPrices } = useWebSocketStore()
@@ -129,7 +174,7 @@ export default function Kline() {
   // Load watchlist on mount to sync with server
   useEffect(() => {
     fetchWatchlist()
-  }, [])
+  }, [fetchWatchlist])
   
   // Connect WebSocket on mount
   useEffect(() => {
@@ -137,7 +182,7 @@ export default function Kline() {
     return () => {
       disconnectWebSocket()
     }
-  }, [])
+  }, [connectWebSocket, disconnectWebSocket])
   
   // Subscribe to price updates when symbol changes
   useEffect(() => {
@@ -149,7 +194,7 @@ export default function Kline() {
         unsubscribePrice([symbol])
       }
     }
-  }, [symbol])
+  }, [symbol, subscribePrice, unsubscribePrice])
   
   // Update stock info when WebSocket pushes new price
   useEffect(() => {
@@ -167,64 +212,7 @@ export default function Kline() {
   }, [stockPrices, symbol])
   
   // Polling as fallback for real-time updates (every 3 seconds during trading hours)
-  useEffect(() => {
-    if (!symbol) return
-    
-    const trading = isTradingHours()
-    console.log('[Kline] Trading hours check:', trading, 'Symbol:', symbol)
-    
-    if (!trading) {
-      console.log('[Kline] Not in trading hours, polling disabled')
-      return
-    }
-    
-    console.log('[Kline] Starting price polling (3s interval)')
-    const interval = setInterval(() => {
-      console.log('[Kline] Polling stock detail...')
-      fetchStockDetail()
-    }, 3000)
-    
-    return () => {
-      console.log('[Kline] Stopping price polling')
-      clearInterval(interval)
-    }
-  }, [symbol])
-  
-  // Check if a stock is currently selected
-  const hasSelectedStock = symbol !== ''
-
-  // Load recent stocks on mount
-  useEffect(() => {
-    setRecentStocks(getRecentStocks())
-  }, [])
-
-  // Sync URL changes (e.g., browser back/forward)
-  useEffect(() => {
-    const urlSymbol = searchParams.get('symbol')
-    const urlName = searchParams.get('name')
-    if (urlSymbol && urlSymbol !== symbol) {
-      setSymbol(urlSymbol)
-      setStockName(urlName || '')
-      saveStockToStorage(urlSymbol, urlName || '')
-    }
-  }, [searchParams])
-
-  // Fetch data when symbol changes
-  useEffect(() => {
-    if (symbol) {
-      fetchKlineData()
-      fetchStockDetail()
-    }
-  }, [symbol])
-
-  // Fetch kline data when timeframe changes
-  useEffect(() => {
-    if (symbol) {
-      fetchKlineData()
-    }
-  }, [timeframe])
-
-  const fetchStockDetail = async () => {
+  const fetchStockDetail = useCallback(async () => {
     if (!symbol) return
     try {
       const data = await marketApi.getStockDetail(symbol)
@@ -244,12 +232,12 @@ export default function Kline() {
       }
     } catch (error) {
       console.error('Failed to fetch stock detail:', error)
-      setError('获取股票信息失败')
+      setError((currentError) => currentError || null)
     }
-  }
+  }, [symbol])
 
-  const fetchKlineData = async () => {
-    if (!symbol) return
+  const fetchKlineData = useCallback(async () => {
+    if (!symbol) return false
     setLoading(true)
     setError(null)
     try {
@@ -258,16 +246,92 @@ export default function Kline() {
         timeframe,
         limit: 300,
       })
-      if (data) {
-        setKlineData(data)
+      if (!data || data.length === 0) {
+        setKlineData([])
+        setError('该股票暂无K线数据')
+        return false
       }
+
+      setKlineData(data)
+      const derivedStockInfo = deriveStockInfoFromKline(data)
+      if (derivedStockInfo) {
+        setStockInfo(derivedStockInfo)
+      }
+      return true
     } catch (err) {
       console.error('Failed to fetch kline data:', err)
       setError('获取K线数据失败，请稍后重试')
+      setKlineData([])
+      return false
     } finally {
       setLoading(false)
     }
-  }
+  }, [symbol, timeframe])
+
+  const loadSymbolData = useCallback(async () => {
+    const hasKline = await fetchKlineData()
+    if (!hasKline) {
+      return
+    }
+    await fetchStockDetail()
+  }, [fetchKlineData, fetchStockDetail])
+
+  useEffect(() => {
+    if (!symbol) return
+    if (klineData.length === 0) return
+
+    const trading = isTradingHours()
+    console.log('[Kline] Trading hours check:', trading, 'Symbol:', symbol)
+
+    if (!trading) {
+      console.log('[Kline] Not in trading hours, polling disabled')
+      return
+    }
+
+    console.log('[Kline] Starting price polling (3s interval)')
+    const interval = setInterval(() => {
+      console.log('[Kline] Polling stock detail...')
+      void fetchStockDetail()
+    }, 3000)
+
+    return () => {
+      console.log('[Kline] Stopping price polling')
+      clearInterval(interval)
+    }
+  }, [fetchStockDetail, klineData.length, symbol])
+  
+  // Check if a stock is currently selected
+  const hasSelectedStock = symbol !== ''
+
+  // Load recent stocks on mount
+  useEffect(() => {
+    setRecentStocks(getRecentStocks())
+  }, [])
+
+  // Sync URL changes (e.g., browser back/forward)
+  useEffect(() => {
+    const urlSymbol = searchParams.get('symbol')
+    const urlName = searchParams.get('name')
+    if (urlSymbol && urlSymbol !== symbol) {
+      setSymbol(urlSymbol)
+      setStockName(urlName || '')
+      saveStockToStorage(urlSymbol, urlName || '')
+    }
+  }, [searchParams, symbol])
+
+  // Fetch data when symbol changes
+  useEffect(() => {
+    if (symbol) {
+      void loadSymbolData()
+    }
+  }, [loadSymbolData, symbol])
+
+  // Fetch kline data when timeframe changes
+  useEffect(() => {
+    if (symbol) {
+      void fetchKlineData()
+    }
+  }, [fetchKlineData, symbol])
 
   const handleStockSelect = (selectedSymbol: string, selectedName: string) => {
     setSymbol(selectedSymbol)
@@ -295,8 +359,7 @@ export default function Kline() {
 
   const handleRetry = () => {
     if (symbol) {
-      fetchKlineData()
-      fetchStockDetail()
+      void loadSymbolData()
     }
   }
 
@@ -418,7 +481,7 @@ export default function Kline() {
                     : 'bg-primary-50 text-primary-600 hover:bg-primary-100 dark:bg-primary-900/20 dark:text-primary-400 dark:hover:bg-primary-900/30'
                 }`}
               >
-                {inWatchlist ? '已在自选' : addingToWatchlist ? '添加中...' : '+ 添加自选'}
+                {watchlistButtonLabel}
               </button>
             </div>
 
