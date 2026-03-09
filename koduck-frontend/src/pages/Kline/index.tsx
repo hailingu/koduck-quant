@@ -427,6 +427,7 @@ export default function Kline() {
               <PriceDisplay
                 price={stockInfo.price}
                 prevClose={stockInfo.prevClose}
+                open={stockInfo.open}
                 change={stockInfo.change}
                 changePercent={stockInfo.changePercent}
                 mode="full"
