@@ -168,13 +168,26 @@ export default function Kline() {
   
   // Polling as fallback for real-time updates (every 3 seconds during trading hours)
   useEffect(() => {
-    if (!symbol || !isTradingHours()) return
+    if (!symbol) return
     
+    const trading = isTradingHours()
+    console.log('[Kline] Trading hours check:', trading, 'Symbol:', symbol)
+    
+    if (!trading) {
+      console.log('[Kline] Not in trading hours, polling disabled')
+      return
+    }
+    
+    console.log('[Kline] Starting price polling (3s interval)')
     const interval = setInterval(() => {
+      console.log('[Kline] Polling stock detail...')
       fetchStockDetail()
     }, 3000)
     
-    return () => clearInterval(interval)
+    return () => {
+      console.log('[Kline] Stopping price polling')
+      clearInterval(interval)
+    }
   }, [symbol])
   
   // Check if a stock is currently selected
