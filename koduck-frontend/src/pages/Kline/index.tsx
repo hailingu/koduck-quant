@@ -255,7 +255,14 @@ export default function Kline() {
       setKlineData(data)
       const derivedStockInfo = deriveStockInfoFromKline(data)
       if (derivedStockInfo) {
-        setStockInfo(derivedStockInfo)
+        // Keep headline quote from stock detail / websocket.
+        // Use kline-derived values only as an initial fallback before quote is available.
+        setStockInfo((prev) => {
+          if (prev.price > 0 && prev.prevClose > 0) {
+            return prev
+          }
+          return derivedStockInfo
+        })
       }
       return true
     } catch (err) {
