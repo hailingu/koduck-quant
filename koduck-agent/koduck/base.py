@@ -53,6 +53,25 @@ class LLMClientBase(ABC):
         """
         pass
 
+    async def generate_stream(
+        self,
+        messages: list[Message],
+        tools: list[Any] | None = None,
+    ):
+        """流式生成 LLM 响应.
+        
+        Args:
+            messages: 对话消息列表
+            tools: 可选的工具列表
+        
+        Yields:
+            流式响应块 (delta 内容)
+        """
+        # 默认实现：使用普通 generate 并一次性返回
+        # 子类应该覆盖此方法以提供真正的流式支持
+        response = await self.generate(messages, tools)
+        yield response.content or ""
+
     @abstractmethod
     def _prepare_request(
         self,

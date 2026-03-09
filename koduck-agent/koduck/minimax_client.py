@@ -305,3 +305,37 @@ class MiniMaxClient(LLMClientBase):
         except Exception as e:
             logger.error(f"[MiniMax] generate() 失败: {type(e).__name__}: {e}")
             raise
+
+    async def generate_stream(
+        self,
+        messages: list[Message],
+        tools: list[Any] | None = None,
+    ):
+        """流式生成响应.
+        
+        Yields:
+            流式响应块 (delta 内容)
+        """
+        logger.info(f"[MiniMax] generate_stream() 开始: messages_count={len(messages)}")
+        
+        params = self._prepare_request(messages, tools)
+        params["stream"] = True
+        
+        try:
+            logger.info(f"[MiniMax] 开始流式 API 请求: model={params.get('model')}")
+            stream = await self.client.chat.completions.create(**params)
+            
+            async for chunk in stream:
+                delta = chunk.choices[0].delta if chunk.choices else None
+                if delta and delta.content:
+                    logger.debug(f"[MiniMax] 流式块: {delta.content[:50]}..." if len(delta.content) > 50 else f"[MiniMax] 流式块: {delta.content}")
+                    yield delta.content
+                
+                # 检查是否完成
+                if chunk.choices and chunk.choices[0].finish_reason:
+                    logger.info(f"[MiniMax] 流式响应完成: finish_reason={chunk.choices[0].finish_reason}")
+                    break
+                    
+        except Exception as e:
+            logger.error(f"[MiniMax] generate_stream() 失败: {type(e).__name__}: {e}")
+            raise

@@ -7,13 +7,14 @@ Usage:
     python -m koduck.server
 """
 
+import json
 import logging
 import os
 from contextlib import asynccontextmanager
 from typing import Any
 
 from fastapi import FastAPI, HTTPException
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel, Field
 
 from koduck import __version__, create_client
@@ -460,6 +461,79 @@ async def simple_chat(request: SimpleChatRequest):
                 status_code=500, 
                 detail=f"{request.provider} AI 服务错误: {str(e)}"
             )
+
+
+@app.post("/api/v1/ai/chat/stream", tags=["Chat"])
+async def simple_chat_stream(request: SimpleChatRequest):
+    """流式聊天接口（SSE）.
+    
+    返回 Server-Sent Events 格式，支持流式输出 AI 响应。
+    
+    示例请求:
+    ```json
+    {
+        "provider": "minimax",
+        "messages": [
+            {"role": "system", "content": "你是一位AI助手..."},
+            {"role": "user", "content": "你好"}
+        ]
+    }
+    ```
+    
+    SSE 事件格式:
+    - `event: delta` - 流式内容块
+    - `event: done` - 完成
+    - `event: error` - 错误
+    """
+    logger.info(f"[SimpleChatStream] 收到流式请求: provider={request.provider}")
+    
+    async def event_generator():
+        try:
+            client = get_client(request.provider)
+            
+            # 转换消息格式
+            messages = [
+                Message(
+                    role=msg.role,
+                    content=msg.content,
+                    thinking=msg.thinking,
+                    tool_call_id=msg.tool_call_id,
+                )
+                for msg in request.messages
+            ]
+            
+            # 发送开始事件
+            yield f"event: start\ndata: {json.dumps({'model': client.model, 'provider': request.provider})}\n\n"
+            
+            # 流式生成
+            content_parts = []
+            async for delta in client.generate_stream(messages):
+                content_parts.append(delta)
+                # 发送内容块
+                yield f"event: delta\ndata: {json.dumps({'content': delta})}\n\n"
+            
+            # 发送完成事件
+            full_content = "".join(content_parts)
+            yield f"event: done\ndata: {json.dumps({'content': full_content, 'model': client.model, 'provider': request.provider})}\n\n"
+            
+            logger.info(f"[SimpleChatStream] 流式响应完成: content_length={len(full_content)}")
+            
+        except HTTPException as he:
+            logger.error(f"[SimpleChatStream] HTTPException: {he.detail}")
+            yield f"event: error\ndata: {json.dumps({'code': he.status_code, 'message': he.detail})}\n\n"
+        except Exception as e:
+            logger.error(f"[SimpleChatStream] 错误: {type(e).__name__}: {e}")
+            yield f"event: error\ndata: {json.dumps({'code': 500, 'message': str(e)})}\n\n"
+    
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",  # 禁用 Nginx 缓冲
+        }
+    )
 
 
 @app.exception_handler(HTTPException)
