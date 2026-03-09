@@ -8,6 +8,7 @@ import { klineApi } from '@/api/kline'
 import type { KlineData } from '@/api/kline'
 import { marketApi } from '@/api/market'
 import { useWatchlistStore } from '@/stores/watchlist'
+import { useWebSocketStore } from '@/stores/websocket'
 import { isTradingHours } from '@/utils/trading'
 
 const TIMEFRAMES = [
@@ -121,11 +122,60 @@ export default function Kline() {
 
   const { addItem, isInWatchlist, fetchWatchlist } = useWatchlistStore()
   const inWatchlist = symbol ? isInWatchlist(symbol) : false
+  
+  // WebSocket for real-time price updates
+  const { connect: connectWebSocket, disconnect: disconnectWebSocket, subscribe: subscribePrice, unsubscribe: unsubscribePrice, stockPrices } = useWebSocketStore()
 
   // Load watchlist on mount to sync with server
   useEffect(() => {
     fetchWatchlist()
   }, [])
+  
+  // Connect WebSocket on mount
+  useEffect(() => {
+    connectWebSocket()
+    return () => {
+      disconnectWebSocket()
+    }
+  }, [])
+  
+  // Subscribe to price updates when symbol changes
+  useEffect(() => {
+    if (symbol) {
+      subscribePrice([symbol])
+    }
+    return () => {
+      if (symbol) {
+        unsubscribePrice([symbol])
+      }
+    }
+  }, [symbol])
+  
+  // Update stock info when WebSocket pushes new price
+  useEffect(() => {
+    if (symbol && stockPrices.has(symbol)) {
+      const priceUpdate = stockPrices.get(symbol)!
+      setStockInfo((prev) => ({
+        ...prev,
+        price: priceUpdate.price,
+        change: priceUpdate.change,
+        changePercent: priceUpdate.changePercent,
+        volume: priceUpdate.volume,
+        amount: priceUpdate.amount,
+      }))
+    }
+  }, [stockPrices, symbol])
+  
+  // Polling as fallback for real-time updates (every 3 seconds during trading hours)
+  useEffect(() => {
+    if (!symbol || !isTradingHours()) return
+    
+    const interval = setInterval(() => {
+      fetchStockDetail()
+    }, 3000)
+    
+    return () => clearInterval(interval)
+  }, [symbol])
   
   // Check if a stock is currently selected
   const hasSelectedStock = symbol !== ''
