@@ -1,9 +1,6 @@
-"""ZLM (Zhipu AI / 智谱 AI / BigModel) 客户端实现.
+"""GPT (OpenAI compatible) 客户端实现.
 
-参考文档: https://docs.bigmodel.cn/cn/api/introduction
-
-Zhipu AI 提供 OpenAI 兼容的 API 接口.
-API 端点: https://open.bigmodel.cn/api/paas/v4
+支持使用 OpenAI 兼容 API 的 GPT 服务，如 https://api.gptsapi.net
 """
 
 import json
@@ -19,37 +16,31 @@ from koduck.base import LLMClientBase
 logger = logging.getLogger(__name__)
 
 
-class ZLMClient(LLMClientBase):
-    """ZLM (Zhipu AI) 客户端.
+class GPTClient(LLMClientBase):
+    """GPT (OpenAI compatible) 客户端.
     
     使用 OpenAI 兼容的 API 协议。
-    参考: https://docs.bigmodel.cn/cn/api/introduction
     
     支持模型:
-    - glm-5: 最新旗舰模型
-    - glm-4-flash: 免费/极速
-    - glm-4: 标准版
-    - glm-4-plus: 增强版
-    - glm-4-air: 轻量版
-    - glm-4-long: 长文本
+    - gpt-5.4
     """
 
     def __init__(
         self,
         api_key: str,
-        api_base: str = "https://open.bigmodel.cn/api/paas/v4",
-        model: str = "glm-5",
+        api_base: str = "https://api.gptsapi.net",
+        model: str = "gpt-5.4",
         retry_config: RetryConfig | None = None,
         temperature: float = 0.7,
         max_tokens: int | None = None,
         top_p: float = 0.9,
     ):
-        """初始化 ZLM 客户端.
+        """初始化 GPT 客户端.
         
         Args:
-            api_key: Zhipu AI API 密钥
-            api_base: API 基础 URL (默认: https://open.bigmodel.cn/api/paas/v4)
-            model: 模型名称 (默认: glm-4-flash)
+            api_key: API 密钥
+            api_base: API 基础 URL (默认: https://api.gptsapi.net)
+            model: 模型名称 (默认: gpt-5.4)
             retry_config: 可选的重试配置
             temperature: 采样温度 (0-2, 默认 0.7)
             max_tokens: 最大生成 token 数 (默认 None)
@@ -67,12 +58,7 @@ class ZLMClient(LLMClientBase):
         )
 
     def _convert_messages(self, messages: list[Message]) -> list[dict[str, Any]]:
-        """转换为 OpenAI 格式消息.
-        
-        Zhipu AI 使用标准 OpenAI 消息格式:
-        - role: system/user/assistant/tool
-        - content: 消息内容
-        """
+        """转换为 OpenAI 格式消息."""
         api_messages = []
         
         for msg in messages:
@@ -142,16 +128,7 @@ class ZLMClient(LLMClientBase):
         messages: list[Message],
         tools: list[Any] | None = None,
     ) -> dict[str, Any]:
-        """准备请求参数.
-        
-        参考 Zhipu AI 文档:
-        - model: 模型名称
-        - messages: 消息列表
-        - temperature: 采样温度
-        - top_p: 核采样
-        - max_tokens: 最大 token 数
-        - tools: 工具列表 (可选)
-        """
+        """准备请求参数."""
         params: dict[str, Any] = {
             "model": self.model,
             "messages": self._convert_messages(messages),
@@ -211,7 +188,7 @@ class ZLMClient(LLMClientBase):
         params: dict[str, Any],
     ) -> Any:
         """执行 API 请求."""
-        logger.debug(f"Zhipu AI API request: model={params.get('model')}")
+        logger.debug(f"GPT API request: model={params.get('model')}")
         return await self.client.chat.completions.create(**params)
 
     async def generate(

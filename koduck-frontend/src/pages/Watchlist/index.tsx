@@ -7,7 +7,7 @@ import { useWebSocketSubscription } from '@/hooks/useWebSocket'
 import { useWebSocketStore } from '@/stores/websocket'
 import StockSearch from '@/components/StockSearch'
 import PriceDisplay from '@/components/PriceDisplay'
-import { isTradingHours } from '@/utils/trading'
+
 
 // 排序按钮组件
 function SortButton({ direction, onClick, active }: { direction: 'up' | 'down'; onClick: () => void; active: boolean }) {
@@ -37,7 +37,7 @@ function WatchlistRow({
   onDelete: (id: number) => void
   onClick: (symbol: string, market: string) => void
 }) {
-  const isTrading = isTradingHours()
+  
   const isUp = (item.changePercent || 0) >= 0
   const colorClass = isUp ? 'text-stock-up' : 'text-stock-down'
 
@@ -63,7 +63,7 @@ function WatchlistRow({
         <PriceDisplay
           price={item.price ?? null}
           changePercent={item.changePercent ?? null}
-          isRealTime={isTrading}
+         
           className="text-sm font-medium"
         />
       </td>

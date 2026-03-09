@@ -160,9 +160,10 @@ services:
     ports:
       - "8001:8000"
     environment:
-      - KIMI_API_KEY=${KIMI_API_KEY}
-      - ZLM_API_KEY=${ZLM_API_KEY}
+      - GPT_API_KEY=${GPT_API_KEY}
       - MINIMAX_API_KEY=${MINIMAX_API_KEY}
+      - LLM_API_BASE=${LLM_API_BASE:-https://api.gptsapi.net}
+      - MINIMAX_API_BASE=${MINIMAX_API_BASE:-https://api.minimax.chat/v1}
       - LOG_LEVEL=WARNING
     restart: always
     networks:

@@ -145,10 +145,14 @@ services:
     ports:
       - "8001:8000"
     environment:
-      - KIMI_API_KEY=${KIMI_API_KEY:-}
-      - ZLM_API_KEY=${ZLM_API_KEY:-}
-      - MINIMAX_API_KEY=${MINIMAX_API_KEY:-}
+      - GPT_API_KEY=${GPT_API_KEY:-sk-nMf377d662a0487d39595169052ff392f1024eb9eb6DrB2R}
+      - MINIMAX_API_KEY=${MINIMAX_API_KEY:-sk-cp-Q8Vqg-HD-PcTNZjr89vtizXmVuJpGYGwKKdcGLUcS27OQAbe5Air88GCtBZyh8E04QPweg3XU_W5Tx7D5i4OWlk_G_fOajMdBxMiE9hikmLGYP3DYjiR_5k}
+      - LLM_API_BASE=${LLM_API_BASE:-https://api.gptsapi.net}
+      - MINIMAX_API_BASE=${MINIMAX_API_BASE:-https://api.minimax.chat/v1}
       - LOG_LEVEL=INFO
+    volumes:
+      # Mount local code for development (changes take effect on restart)
+      - ./koduck-agent/koduck:/app/koduck:ro
     restart: unless-stopped
     networks:
       - koduck-network

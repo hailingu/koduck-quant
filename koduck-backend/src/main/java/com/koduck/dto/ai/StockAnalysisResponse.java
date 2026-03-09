@@ -18,6 +18,11 @@ import java.util.List;
 @AllArgsConstructor
 public class StockAnalysisResponse {
 
+    // 前端期望的analysis字段
+    private String analysis;
+    private String provider;
+    private String model;
+    
     private String symbol;
     private String market;
     private String analysisType;

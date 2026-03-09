@@ -60,13 +60,9 @@ public class AiAnalysisController {
             @Valid @RequestBody StockAnalysisRequest request) {
 
         Long userId = requireUserId(userPrincipal);
-        log.debug("POST /api/v1/ai/analyze: user={}, symbol={}", userId, request.getSymbol());
+        log.debug("POST /api/v1/ai/analyze: user={}, symbol={}, question={}", userId, request.getSymbol(), request.getQuestion());
 
-        StockAnalysisResponse response = aiAnalysisService.analyzeStock(
-            request.getSymbol(),
-            request.getMarket(),
-            request.getAnalysisType()
-        );
+        StockAnalysisResponse response = aiAnalysisService.analyzeStock(request);
         return ApiResponse.success(response);
     }
 

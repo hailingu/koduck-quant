@@ -5,9 +5,7 @@ import logging
 from koduck.retry import RetryConfig
 from koduck.schema import LLMProvider, LLMResponse, Message
 from koduck.base import LLMClientBase
-from koduck.kimi_client import KimiClient
 from koduck.minimax_client import MiniMaxClient
-from koduck.zlm_client import ZLMClient
 
 logger = logging.getLogger(__name__)
 
@@ -21,7 +19,7 @@ class LLMClient:
     def __init__(
         self,
         api_key: str,
-        provider: LLMProvider = LLMProvider.KIMI,
+        provider: LLMProvider = LLMProvider.MINIMAX,
         api_base: str = "",
         model: str = "",
         retry_config: RetryConfig | None = None,
@@ -38,50 +36,17 @@ class LLMClient:
         self.provider = provider
         
         # 应用默认值
-        defaults = {
-            LLMProvider.KIMI: {
-                "api_base": api_base or "https://api.moonshot.cn/v1",
-                "model": model or "moonshot-v1-8k",
-            },
-            LLMProvider.ZLM: {
-                "api_base": api_base or "https://open.bigmodel.cn/api/paas/v4",
-                "model": model or "glm-4-flash",
-            },
-            LLMProvider.MINIMAX: {
-                "api_base": api_base or "https://api.minimax.chat/v1",
-                "model": model or "MiniMax-M2.5",
-            },
-        }
+        self.api_base = api_base or "https://api.minimax.chat/v1"
+        self.model = model or "MiniMax-M2.5"
         
-        provider_defaults = defaults.get(provider, {})
-        self.api_base = provider_defaults["api_base"]
-        self.model = provider_defaults["model"]
-        
-        # 实例化具体客户端
+        # 实例化 MiniMax 客户端
         self._client: LLMClientBase
-        if provider == LLMProvider.KIMI:
-            self._client = KimiClient(
-                api_key=api_key,
-                api_base=self.api_base,
-                model=self.model,
-                retry_config=retry_config,
-            )
-        elif provider == LLMProvider.ZLM:
-            self._client = ZLMClient(
-                api_key=api_key,
-                api_base=self.api_base,
-                model=self.model,
-                retry_config=retry_config,
-            )
-        elif provider == LLMProvider.MINIMAX:
-            self._client = MiniMaxClient(
-                api_key=api_key,
-                api_base=self.api_base,
-                model=self.model,
-                retry_config=retry_config,
-            )
-        else:
-            raise ValueError(f"不支持的提供商: {provider}")
+        self._client = MiniMaxClient(
+            api_key=api_key,
+            api_base=self.api_base,
+            model=self.model,
+            retry_config=retry_config,
+        )
         
         logger.info(f"初始化 LLM 客户端: provider={provider}, model={self.model}")
 
@@ -114,7 +79,7 @@ class LLMClient:
 
 def create_client(
     api_key: str | None = None,
-    provider: str | LLMProvider = "kimi",
+    provider: str | LLMProvider = "minimax",
     api_base: str = "",
     model: str = "",
     retry_config: RetryConfig | None = None,
@@ -133,7 +98,7 @@ def create_client(
     
     Example:
         >>> client = create_client()
-        >>> client = create_client(provider="minimax", model="MiniMax-M2.5")
+        >>> client = create_client(model="MiniMax-M2.5")
     """
     import os
     

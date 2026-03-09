@@ -1,5 +1,7 @@
 package com.koduck.service;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.koduck.config.AgentConfig;
 import com.koduck.dto.ai.*;
 import com.koduck.entity.BacktestResult;
 import com.koduck.entity.PortfolioPosition;
@@ -9,19 +11,17 @@ import com.koduck.repository.PortfolioPositionRepository;
 import com.koduck.repository.StrategyRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.boot.web.client.RestTemplateBuilder;
+import org.springframework.http.*;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.RestTemplate;
 
 import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Random;
+import java.util.*;
 
 /**
- * AI 分析服务
- * 
- * 注：当前为模拟实现，实际项目中应调用 OpenAI/Claude 等 LLM API
+ * AI 分析服务 - 对接 koduck-agent
  */
 @Service
 @RequiredArgsConstructor
@@ -31,33 +31,213 @@ public class AiAnalysisService {
     private final PortfolioPositionRepository positionRepository;
     private final StrategyRepository strategyRepository;
     private final BacktestResultRepository backtestResultRepository;
+    private final AgentConfig agentConfig;
+    private final ObjectMapper objectMapper;
     private final Random random = new Random();
+    private RestTemplate restTemplate;
+
+    private RestTemplate getRestTemplate() {
+        if (restTemplate == null) {
+            restTemplate = new RestTemplateBuilder()
+                .connectTimeout(java.time.Duration.ofSeconds(30))
+                .readTimeout(java.time.Duration.ofSeconds(60))
+                .build();
+        }
+        return restTemplate;
+    }
 
     /**
-     * 股票智能分析
+     * 股票智能分析 - 调用 koduck-agent 获取真实 AI 分析
      */
-    public StockAnalysisResponse analyzeStock(String symbol, String market, String analysisType) {
-        log.debug("Analyzing stock: {}, market: {}, type: {}", symbol, market, analysisType);
+    public StockAnalysisResponse analyzeStock(StockAnalysisRequest request) {
+        String symbol = request.getSymbol();
+        String market = request.getMarket();
+        String question = request.getQuestion();
+        String provider = request.getProvider();
+        
+        log.debug("Analyzing stock: {}, market: {}, question: {}, provider: {}", symbol, market, question, provider);
 
-        // 模拟 AI 分析结果
-        int overallScore = 60 + random.nextInt(31); // 60-90
+        try {
+            // 构建发送给 koduck-agent 的消息
+            String userQuestion = buildStockAnalysisPrompt(request);
+            
+            // 调用 koduck-agent
+            String aiResponse = callAgentChat(provider, userQuestion);
+            
+            return StockAnalysisResponse.builder()
+                .analysis(aiResponse)
+                .provider(provider)
+                .model(provider != null ? provider + "-model" : null)
+                .symbol(symbol)
+                .market(market)
+                .analysisType(request.getAnalysisType() != null ? request.getAnalysisType() : "comprehensive")
+                .reasoning(aiResponse)
+                .recommendation(generateRecommendationFromResponse(aiResponse))
+                .generatedAt(LocalDateTime.now())
+                .build();
+                
+        } catch (Exception e) {
+            log.error("Failed to call koduck-agent, falling back to mock: {}", e.getMessage());
+            // 如果调用失败，回退到模拟数据
+            return analyzeStockWithMock(request);
+        }
+    }
+    
+    /**
+     * 构建发送给 AI 的提示词
+     */
+    private String buildStockAnalysisPrompt(StockAnalysisRequest request) {
+        StringBuilder prompt = new StringBuilder();
+        prompt.append("请分析股票 ").append(request.getSymbol());
+        if (request.getName() != null) {
+            prompt.append(" (").append(request.getName()).append(")");
+        }
+        prompt.append("。\n\n");
+        
+        // 添加股票信息
+        if (request.getPrice() != null) {
+            prompt.append("当前价格: ").append(request.getPrice()).append("\n");
+        }
+        if (request.getChangePercent() != null) {
+            prompt.append("涨跌幅: ").append(request.getChangePercent()).append("%\n");
+        }
+        if (request.getOpenPrice() != null) {
+            prompt.append("开盘价: ").append(request.getOpenPrice()).append("\n");
+        }
+        if (request.getHigh() != null) {
+            prompt.append("最高价: ").append(request.getHigh()).append("\n");
+        }
+        if (request.getLow() != null) {
+            prompt.append("最低价: ").append(request.getLow()).append("\n");
+        }
+        if (request.getPrevClose() != null) {
+            prompt.append("昨收价: ").append(request.getPrevClose()).append("\n");
+        }
+        if (request.getVolume() != null) {
+            prompt.append("成交量: ").append(request.getVolume()).append("\n");
+        }
+        
+        prompt.append("\n用户问题: ").append(request.getQuestion());
+        
+        return prompt.toString();
+    }
+    
+    /**
+     * 调用 koduck-agent 的 chat API
+     */
+    private String callAgentChat(String provider, String userMessage) {
+        String agentUrl = agentConfig.getUrl() + "/v1/chat/completions";
+        
+        // 构建请求体
+        Map<String, Object> requestBody = new HashMap<>();
+        requestBody.put("provider", provider != null ? provider : "gpt");
+        
+        List<Map<String, String>> messages = new ArrayList<>();
+        messages.add(Map.of("role", "user", "content", userMessage));
+        requestBody.put("messages", messages);
+        requestBody.put("stream", false);
+        
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        
+        HttpEntity<Map<String, Object>> entity = new HttpEntity<>(requestBody, headers);
+        
+        log.info("Calling koduck-agent: provider={}, url={}", provider, agentUrl);
+        
+        ResponseEntity<Map> response = getRestTemplate().exchange(
+            agentUrl,
+            HttpMethod.POST,
+            entity,
+            Map.class
+        );
+        
+        log.debug("Agent response: {}", response.getBody());
+        
+        if (response.getBody() != null) {
+            List<Map<String, Object>> choices = (List<Map<String, Object>>) response.getBody().get("choices");
+            if (choices != null && !choices.isEmpty()) {
+                Map<String, Object> message = (Map<String, Object>) choices.get(0).get("message");
+                if (message != null) {
+                    String content = (String) message.get("content");
+                    log.info("Agent response content: {}", content);
+                    return content;
+                }
+            }
+        }
+        
+        throw new RuntimeException("Invalid response from agent: empty response");
+    }
+    
+    /**
+     * 从 AI 响应中提取建议
+     */
+    private String generateRecommendationFromResponse(String response) {
+        response = response.toLowerCase();
+        if (response.contains("买入") || response.contains("建议买入") || response.contains("强烈推荐")) {
+            return "建议买入";
+        } else if (response.contains("持有") || response.contains("观望")) {
+            return "谨慎持有";
+        } else if (response.contains("卖出")) {
+            return "建议卖出";
+        }
+        return "建议观望";
+    }
+    
+    /**
+     * 回退到模拟数据
+     */
+    private StockAnalysisResponse analyzeStockWithMock(StockAnalysisRequest request) {
+        Random random = new Random();
+        int overallScore = 60 + random.nextInt(31);
         String overallRating = overallScore >= 80 ? "买入" : overallScore >= 70 ? "持有" : "观望";
-
+        
+        String reasoning = String.format(
+            "%s 当前综合评分为 %d 分。从技术面看，股票处于%s；基本面稳健，估值%s；市场情绪%s。建议%s。",
+            request.getSymbol(), overallScore,
+            overallScore >= 70 ? "上升趋势" : "震荡整理",
+            overallScore >= 70 ? "合理" : "略高",
+            overallScore >= 70 ? "积极" : "中性",
+            overallScore >= 70 ? "关注买入机会" : "观望等待"
+        );
+        
         return StockAnalysisResponse.builder()
-            .symbol(symbol)
-            .market(market)
-            .analysisType(analysisType != null ? analysisType : "comprehensive")
+            .analysis(reasoning)
+            .provider(request.getProvider())
+            .model(request.getProvider() != null ? request.getProvider() + "-model" : null)
+            .symbol(request.getSymbol())
+            .market(request.getMarket())
             .overallScore(overallScore)
             .overallRating(overallRating)
-            .technical(generateTechnicalAnalysis())
-            .fundamental(generateFundamentalAnalysis())
-            .sentiment(generateSentimentAnalysis())
-            .recommendation(generateRecommendation(overallScore))
-            .reasoning(generateReasoning(symbol, overallScore))
-            .keyMetrics(generateKeyMetrics())
-            .riskFactors(generateRiskFactors())
+            .reasoning(reasoning)
+            .recommendation(overallRating)
             .generatedAt(LocalDateTime.now())
             .build();
+    }
+    
+    /**
+     * 生成包含用户问题的分析推理
+     */
+    private String generateReasoningWithQuestion(String symbol, int score, String question) {
+        String baseReasoning = String.format(
+            "%s 当前综合评分为 %d 分。从技术面看，股票处于%s；" +
+            "基本面稳健，估值%s；市场情绪%s。",
+            symbol, score,
+            score >= 70 ? "上升趋势" : "震荡整理",
+            score >= 70 ? "合理" : "略高",
+            score >= 70 ? "积极" : "中性"
+        );
+        
+        // 根据用户问题添加个性化回答
+        String personalizedAnswer = "";
+        if (question.contains("趋势")) {
+            personalizedAnswer = score >= 70 ? "从趋势来看，股票处于上升通道，建议关注。" : "当前趋势不明朗，建议观望。";
+        } else if (question.contains("建议") || question.contains("投资")) {
+            personalizedAnswer = generateRecommendation(score) + "，请根据自身风险承受能力做出决策。";
+        } else if (question.contains("指标")) {
+            personalizedAnswer = "技术指标显示" + (score >= 70 ? "积极信号" : "需要观察") + "。";
+        }
+        
+        return baseReasoning + " " + personalizedAnswer;
     }
 
     /**

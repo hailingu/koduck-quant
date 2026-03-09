@@ -1,6 +1,6 @@
-"""LLM Caller - 程序化调用多平台 LLM API 的统一接口.
+"""LLM Caller - 程序化调用 MiniMax LLM API 的统一接口.
 
-支持: Kimi (Moonshot AI) / ZLM / MiniMax
+支持: MiniMax
 """
 
 from koduck.config import LLMConfig, load_config

@@ -11,6 +11,7 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
 from app.config import settings
+from app.models.schemas import ApiResponse
 
 logger = logging.getLogger(__name__)
 
@@ -18,6 +19,51 @@ router = APIRouter(prefix="/ai", tags=["AI Analysis"])
 
 # Koduck Agent 服务地址
 AGENT_BASE_URL = "http://agent:8000"
+
+
+def extract_user_friendly_error(error_detail: str, provider: str) -> str:
+    """从详细错误信息中提取用户友好的错误消息.
+    
+    Args:
+        error_detail: 原始错误详情
+        provider: LLM 提供商名称
+        
+    Returns:
+        用户友好的错误消息
+    """
+    error_lower = error_detail.lower()
+    
+    # 余额不足
+    if "insufficient_balance" in error_lower or "余额不足" in error_detail:
+        return f"{provider} API 余额不足，请联系管理员充值"
+    
+    # API 密钥问题
+    if any(kw in error_lower for kw in ["api key", "authentication", "unauthorized", "401"]):
+        return f"{provider} API 密钥无效或未配置"
+    
+    # 速率限制
+    if any(kw in error_lower for kw in ["rate limit", "too many requests", "429"]):
+        return f"{provider} API 请求过于频繁，请稍后重试"
+    
+    # 超时
+    if "timeout" in error_lower:
+        return f"{provider} API 响应超时，请稍后重试"
+    
+    # 连接错误
+    if any(kw in error_lower for kw in ["connection", "network", "503"]):
+        return f"无法连接到 {provider} 服务"
+    
+    # 如果错误信息太长，简化显示
+    if len(error_detail) > 200:
+        # 尝试提取核心的错误信息
+        if "message" in error_detail:
+            import re
+            match = re.search(r"['\"]message['\"]\s*:\s*['\"]([^'\"]+)", error_detail)
+            if match:
+                return f"{provider} 服务错误: {match.group(1)}"
+        return f"{provider} 服务错误: {error_detail[:150]}..."
+    
+    return f"{provider} 服务错误: {error_detail}"
 
 
 class StockAnalysisRequest(BaseModel):
@@ -33,7 +79,7 @@ class StockAnalysisRequest(BaseModel):
     volume: int = Field(..., description="成交量")
     amount: Optional[float] = Field(None, description="成交额")
     question: str = Field(default="趋势分析", description="分析问题类型")
-    provider: str = Field(default="kimi", description="LLM 提供商: kimi/zlm/minimax")
+    provider: str = Field(default="minimax", description="LLM 提供商: kimi/zlm/minimax")
 
 
 class StockAnalysisResponse(BaseModel):
@@ -77,12 +123,14 @@ def build_analysis_prompt(request: StockAnalysisRequest) -> str:
     return prompt
 
 
-@router.post("/analyze", response_model=StockAnalysisResponse)
+@router.post("/analyze", response_model=ApiResponse[StockAnalysisResponse])
 async def analyze_stock(request: StockAnalysisRequest):
     """股票智能分析
     
     基于 LLM 对股票数据进行专业分析。
     """
+    provider = request.provider.lower()
+    
     try:
         # 构建提示词
         prompt = build_analysis_prompt(request)
@@ -92,7 +140,7 @@ async def analyze_stock(request: StockAnalysisRequest):
             response = await client.post(
                 f"{AGENT_BASE_URL}/v1/chat/completions",
                 json={
-                    "provider": request.provider,
+                    "provider": provider,
                     "messages": [
                         {"role": "user", "content": prompt}
                     ],
@@ -102,10 +150,23 @@ async def analyze_stock(request: StockAnalysisRequest):
             )
             
             if response.status_code != 200:
-                logger.error(f"Agent API error: {response.status_code} - {response.text}")
+                error_detail = f"状态码: {response.status_code}"
+                try:
+                    error_data = response.json()
+                    if "detail" in error_data:
+                        error_detail = str(error_data["detail"])
+                    elif "error" in error_data:
+                        error_detail = str(error_data["error"])
+                except:
+                    error_detail = response.text or f"HTTP {response.status_code}"
+                
+                # 提取更友好的错误信息
+                user_friendly_error = extract_user_friendly_error(error_detail, provider)
+                
+                logger.error(f"Agent API error: {response.status_code} - {error_detail}")
                 raise HTTPException(
                     status_code=502,
-                    detail=f"AI 服务调用失败: {response.status_code}"
+                    detail=user_friendly_error
                 )
             
             result = response.json()
@@ -113,20 +174,36 @@ async def analyze_stock(request: StockAnalysisRequest):
             # 提取分析结果
             analysis = result.get("choices", [{}])[0].get("message", {}).get("content", "")
             model = result.get("model", "unknown")
-            provider = result.get("provider", request.provider)
+            response_provider = result.get("provider", provider)
             
-            return StockAnalysisResponse(
-                analysis=analysis,
-                provider=provider,
-                model=model
+            return ApiResponse(
+                data=StockAnalysisResponse(
+                    analysis=analysis,
+                    provider=response_provider,
+                    model=model
+                )
             )
             
-    except httpx.RequestError as e:
-        logger.error(f"Failed to connect to agent service: {e}")
+    except httpx.ConnectError as e:
+        logger.error(f"Cannot connect to agent service: {e}")
         raise HTTPException(
             status_code=503,
-            detail="AI 服务暂时不可用，请稍后重试"
+            detail="AI 分析服务未启动，请检查 koduck-agent 服务状态"
         )
+    except httpx.TimeoutException as e:
+        logger.error(f"Agent service timeout: {e}")
+        raise HTTPException(
+            status_code=504,
+            detail="AI 分析服务响应超时，请稍后重试"
+        )
+    except httpx.RequestError as e:
+        logger.error(f"Agent service request error: {e}")
+        raise HTTPException(
+            status_code=503,
+            detail=f"AI 服务连接失败: {str(e)}"
+        )
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Analysis failed: {e}")
         raise HTTPException(
@@ -188,3 +265,103 @@ async def health_check():
             "status": "unavailable",
             "error": str(e)
         }
+
+
+
+class ChatRequest(BaseModel):
+    """普通聊天请求"""
+    messages: list[dict[str, str]] = Field(..., description="对话消息列表")
+    provider: str = Field(default="minimax", description="LLM 提供商")
+    model: Optional[str] = Field(None, description="模型名称")
+
+
+class ChatResponse(BaseModel):
+    """普通聊天响应"""
+    content: str = Field(..., description="AI 回复内容")
+    provider: str = Field(..., description="使用的 LLM 提供商")
+    model: Optional[str] = Field(None, description="使用的模型")
+
+
+@router.post("/chat", response_model=ApiResponse[ChatResponse])
+async def chat(request: ChatRequest):
+    """普通对话接口
+    
+    用于非股票分析的普通对话，直接转发用户消息给 AI。
+    """
+    provider = request.provider.lower()
+    
+    try:
+        # 调用 koduck-agent 服务
+        async with httpx.AsyncClient(timeout=60.0) as client:
+            response = await client.post(
+                f"{AGENT_BASE_URL}/v1/chat/completions",
+                json={
+                    "provider": provider,
+                    "messages": request.messages,
+                    "model": request.model,
+                    "temperature": 0.7,
+                    "max_tokens": 2000
+                }
+            )
+            
+            if response.status_code != 200:
+                error_detail = f"状态码: {response.status_code}"
+                try:
+                    error_data = response.json()
+                    if "detail" in error_data:
+                        error_detail = str(error_data["detail"])
+                    elif "error" in error_data:
+                        error_detail = str(error_data["error"])
+                except:
+                    error_detail = response.text or f"HTTP {response.status_code}"
+                
+                # 提取更友好的错误信息
+                user_friendly_error = extract_user_friendly_error(error_detail, provider)
+                
+                logger.error(f"Agent API error: {response.status_code} - {error_detail}")
+                raise HTTPException(
+                    status_code=502,
+                    detail=user_friendly_error
+                )
+            
+            result = response.json()
+            
+            # 提取回复内容
+            content = result.get("choices", [{}])[0].get("message", {}).get("content", "")
+            model = result.get("model", "unknown")
+            response_provider = result.get("provider", provider)
+            
+            return ApiResponse(
+                data=ChatResponse(
+                    content=content,
+                    provider=response_provider,
+                    model=model
+                )
+            )
+            
+    except httpx.ConnectError as e:
+        logger.error(f"Cannot connect to agent service: {e}")
+        raise HTTPException(
+            status_code=503,
+            detail="AI 服务未启动，请检查 koduck-agent 服务状态"
+        )
+    except httpx.TimeoutException as e:
+        logger.error(f"Agent service timeout: {e}")
+        raise HTTPException(
+            status_code=504,
+            detail="AI 服务响应超时，请稍后重试"
+        )
+    except httpx.RequestError as e:
+        logger.error(f"Agent service request error: {e}")
+        raise HTTPException(
+            status_code=503,
+            detail=f"AI 服务连接失败: {str(e)}"
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Chat failed: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"对话失败: {str(e)}"
+        )
