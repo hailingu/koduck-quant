@@ -209,6 +209,7 @@ class KlineData(BaseModel):
         close (float): Closing price of the interval.
         volume (Optional[int]): Trading volume during interval.
         amount (Optional[float]): Trading amount during interval.
+        ma5 (Optional[float]): 5-day moving average price.
     """
     
     timestamp: int = Field(..., description="Unix timestamp")
@@ -218,6 +219,7 @@ class KlineData(BaseModel):
     close: float = Field(..., description="Closing price")
     volume: Optional[int] = Field(default=None, description=DESCRIPTION_TRADING_VOLUME)
     amount: Optional[float] = Field(default=None, description=DESCRIPTION_TRADING_AMOUNT)
+    ma5: Optional[float] = Field(default=None, description="5-day moving average")
     
     model_config = ConfigDict(
         json_schema_extra={
@@ -228,7 +230,8 @@ class KlineData(BaseModel):
                 "low": 9.40,
                 "close": 9.65,
                 "volume": 125800,
-                "amount": 1201500.0
+                "amount": 1201500.0,
+                "ma5": 9.58
             }
         }
     )
@@ -293,6 +296,39 @@ class StockValuation(BaseModel):
                 "float_shares": 2.8,
                 "float_ratio": 53.85,
                 "turnover_rate": 3.56
+            }
+        }
+    )
+
+
+class StockIndustry(BaseModel):
+    """Stock industry information including industry, sector, sub-industry and board.
+    
+    Attributes:
+        symbol (str): Stock symbol.
+        name (str): Stock name.
+        industry (Optional[str]): Primary industry classification (e.g., "银行").
+        sector (Optional[str]): Sector classification (e.g., "金融").
+        sub_industry (Optional[str]): Sub-industry classification.
+        board (Optional[str]): Board classification (e.g., "主板", "创业板", "科创板").
+    """
+    
+    symbol: str = Field(..., description="Stock symbol")
+    name: str = Field(..., description="Stock name")
+    industry: Optional[str] = Field(default=None, description="Industry classification")
+    sector: Optional[str] = Field(default=None, description="Sector classification")
+    sub_industry: Optional[str] = Field(default=None, description="Sub-industry classification")
+    board: Optional[str] = Field(default=None, description="Board (主板/创业板/科创板)")
+    
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "symbol": "601398",
+                "name": "工商银行",
+                "industry": "银行",
+                "sector": "金融",
+                "sub_industry": "大型商业银行",
+                "board": "主板"
             }
         }
     )

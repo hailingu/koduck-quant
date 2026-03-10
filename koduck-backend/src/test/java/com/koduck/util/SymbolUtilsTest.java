@@ -84,11 +84,10 @@ class SymbolUtilsTest {
         }
 
         @Test
-        @DisplayName("should return original for invalid format (less than 6 digits)")
-        void shouldReturnOriginalForInvalidFormat() {
-            // Less than 6 digits
-            assertThat(SymbolUtils.normalize("6012")).isEqualTo("6012");
-            assertThat(SymbolUtils.normalize("SH601")).isEqualTo("SH601");
+        @DisplayName("should left-pad symbols shorter than 6 digits")
+        void shouldLeftPadShortSymbols() {
+            assertThat(SymbolUtils.normalize("6012")).isEqualTo("006012");
+            assertThat(SymbolUtils.normalize("SH601")).isEqualTo("000601");
         }
 
         @Test

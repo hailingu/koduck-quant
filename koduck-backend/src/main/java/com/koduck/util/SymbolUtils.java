@@ -38,13 +38,14 @@ public class SymbolUtils {
                 .replaceAll("[^0-9]", "")
                 .trim();
 
-        // Validate it's a 6-digit number
-        if (!normalized.matches("\\d{6}")) {
-            log.warn("Invalid symbol format: {} (original: {})", normalized, symbol);
-            return symbol;
+        // Accept 1-6 digits and left-pad to keep A-share symbol width.
+        if (normalized.matches("\\d{1,6}")) {
+            return String.format("%06d", Integer.parseInt(normalized));
         }
 
-        return normalized;
+        // Keep original input for unsupported formats.
+        log.warn("Invalid symbol format: {} (original: {})", normalized, symbol);
+        return symbol;
     }
 
     /**

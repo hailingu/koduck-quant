@@ -134,13 +134,17 @@ body {
   0%, 100% {
     opacity: 1;
     transform: scale(1);
-    text-shadow: 0 0 0px transparent;
+    text-shadow: 0 0 0 transparent;
+    filter: brightness(1);
+    background-color: transparent;
     color: inherit;
   }
   50% {
-    opacity: 0.9;
-    transform: scale(1.02);
-    text-shadow: 0 0 12px rgba(239, 68, 68, 0.6);
+    opacity: 0.78;
+    transform: scale(1.08);
+    text-shadow: 0 0 16px rgba(239, 68, 68, 0.85);
+    filter: brightness(1.2);
+    background-color: rgba(239, 68, 68, 0.15);
   }
 }
 
@@ -149,20 +153,24 @@ body {
   0%, 100% {
     opacity: 1;
     transform: scale(1);
-    text-shadow: 0 0 0px transparent;
+    text-shadow: 0 0 0 transparent;
+    filter: brightness(1);
+    background-color: transparent;
     color: inherit;
   }
   50% {
-    opacity: 0.9;
-    transform: scale(1.02);
-    text-shadow: 0 0 12px rgba(34, 197, 94, 0.6);
+    opacity: 0.78;
+    transform: scale(1.08);
+    text-shadow: 0 0 16px rgba(34, 197, 94, 0.85);
+    filter: brightness(1.2);
+    background-color: rgba(34, 197, 94, 0.15);
   }
 }
 
 .animate-price-breath-up {
-  animation: price-breath-up 0.5s ease-in-out;
+  animation: price-breath-up 0.85s ease-in-out;
 }
 
 .animate-price-breath-down {
-  animation: price-breath-down 0.5s ease-in-out;
+  animation: price-breath-down 0.85s ease-in-out;
 }

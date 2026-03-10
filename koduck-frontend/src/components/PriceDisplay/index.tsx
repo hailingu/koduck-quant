@@ -20,6 +20,8 @@ export interface PriceDisplayProps {
   mode?: 'compact' | 'full'
   /** 是否启用呼吸动画（交易时段实时更新时） */
   breathing?: boolean
+  /** 外部脉冲键（如 websocket 消息时间戳），变化时强制触发动画 */
+  pulseKey?: number
 }
 
 /**
@@ -38,6 +40,7 @@ export const PriceDisplay = memo(function PriceDisplay({
   decimals = 2,
   mode = 'compact',
   breathing = true,
+  pulseKey,
 }: PriceDisplayProps) {
   // 检测交易时间
   const trading = isTradingHours()
@@ -50,7 +53,8 @@ export const PriceDisplay = memo(function PriceDisplay({
   
   // 数据更新时触发呼吸动画（根据与开盘价的比较决定颜色）
   useEffect(() => {
-    if (!breathing || !trading || price === null) return
+    const animateAllowed = mode === 'compact' ? true : trading
+    if (!breathing || !animateAllowed || price === null) return
     
     const now = Date.now()
     // 限制最小触发间隔 500ms，避免过于频繁
@@ -59,11 +63,16 @@ export const PriceDisplay = memo(function PriceDisplay({
     setLastUpdateTime(now)
     
     // 根据与开盘价（或昨收）的比较决定闪烁颜色（A股：红涨绿跌）
+    // 在列表等场景没有参考价时，回退使用涨跌幅方向。
     const referencePrice = open || prevClose
     if (referencePrice && price > referencePrice) {
       setBreathColor('up') // 高于参考价 - 红色
     } else if (referencePrice && price < referencePrice) {
       setBreathColor('down') // 低于参考价 - 绿色
+    } else if ((changePercent ?? 0) > 0) {
+      setBreathColor('up')
+    } else if ((changePercent ?? 0) < 0) {
+      setBreathColor('down')
     } else {
       setBreathColor(null) // 等于参考价 - 无闪烁
     }
@@ -86,7 +95,7 @@ export const PriceDisplay = memo(function PriceDisplay({
         clearTimeout(breathTimeoutRef.current)
       }
     }
-  }, [price, breathing, trading, lastUpdateTime, open])
+  }, [price, breathing, trading, mode, lastUpdateTime, open, prevClose, changePercent, pulseKey])
 
   // 使用涨跌幅判断颜色（更可靠）
   const isUp = (changePercent ?? 0) > 0
@@ -154,7 +163,7 @@ export const PriceDisplay = memo(function PriceDisplay({
 
   return (
     <span className={priceClasses}>
-      <span className="price-value">{formatPrice(price)}</span>
+      <span className={`price-value inline-block px-1 rounded ${getBreathClass()}`}>{formatPrice(price)}</span>
       {changePercent !== undefined && changePercent !== null && (
         <span className={`ml-1 text-sm ${isUp ? 'text-stock-up' : isDown ? 'text-stock-down' : 'text-gray-500'}`}>
           {isUp ? '+' : ''}{changePercent.toFixed(2)}%

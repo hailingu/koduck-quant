@@ -3,6 +3,7 @@ package com.koduck.service.impl;
 import com.koduck.config.CacheConfig;
 import com.koduck.dto.market.MarketIndexDto;
 import com.koduck.dto.market.PriceQuoteDto;
+import com.koduck.dto.market.StockIndustryDto;
 import com.koduck.dto.market.StockValuationDto;
 import com.koduck.dto.market.SymbolInfoDto;
 import com.koduck.entity.StockBasic;
@@ -13,6 +14,7 @@ import com.koduck.service.KlineService;
 import com.koduck.service.MarketService;
 import com.koduck.service.StockCacheService;
 import com.koduck.service.market.AKShareDataProvider;
+import com.koduck.util.SymbolUtils;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.PageRequest;
@@ -24,6 +26,7 @@ import java.time.ZoneOffset;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -102,10 +105,19 @@ public class MarketServiceImpl implements MarketService {
                 .stream()
                 .collect(Collectors.toMap(StockRealtime::getSymbol, Function.identity()));
         
-        // Combine basic info with realtime data
-        return basics.stream()
-                .map(basic -> mapToSymbolInfoDto(basic, realtimeMap.get(basic.getSymbol())))
-                .toList();
+        // Combine info and de-duplicate by canonical market+symbol to avoid
+        // duplicate rows such as "002885" and "2885".
+        Map<String, SymbolInfoDto> deduplicated = new LinkedHashMap<>();
+        for (StockBasic basic : basics) {
+            SymbolInfoDto dto = mapToSymbolInfoDto(basic, realtimeMap.get(basic.getSymbol()));
+            String key = dto.market() + ":" + dto.symbol();
+            SymbolInfoDto existing = deduplicated.get(key);
+            if (existing == null || shouldReplaceSymbol(existing, dto)) {
+                deduplicated.put(key, dto);
+            }
+        }
+
+        return new ArrayList<>(deduplicated.values());
     }
     
     /**
@@ -172,6 +184,29 @@ public class MarketServiceImpl implements MarketService {
             return akShareDataProvider.getStockValuation(symbol);
         } catch (Exception e) {
             log.error("Error getting stock valuation: symbol={}, error={}", symbol, e.getMessage(), e);
+            throw e;
+        }
+    }
+
+    /**
+     * Get industry metadata for a symbol from data-service.
+     *
+     * @param symbol stock symbol
+     * @return industry metadata when found, otherwise {@code null}
+     */
+    @Override
+    public StockIndustryDto getStockIndustry(String symbol) {
+        log.debug("Getting stock industry from data service: symbol={}", symbol);
+
+        if (symbol == null || symbol.isBlank()) {
+            log.warn("Invalid symbol for industry: null or blank");
+            return null;
+        }
+
+        try {
+            return akShareDataProvider.getStockIndustry(symbol);
+        } catch (Exception e) {
+            log.error("Error getting stock industry: symbol={}, error={}", symbol, e.getMessage(), e);
             throw e;
         }
     }
@@ -281,9 +316,11 @@ public class MarketServiceImpl implements MarketService {
     // ============ Mapping Methods ============
     
     private SymbolInfoDto mapToSymbolInfoDto(StockBasic basic, StockRealtime realtime) {
+        String normalizedSymbol = SymbolUtils.normalize(basic.getSymbol());
+
         if (realtime != null) {
             return SymbolInfoDto.builder()
-                    .symbol(basic.getSymbol())
+                    .symbol(normalizedSymbol)
                     .name(basic.getName())
                     .market(basic.getMarket())
                     .price(realtime.getPrice())
@@ -295,10 +332,23 @@ public class MarketServiceImpl implements MarketService {
         
         // Return basic info only if no realtime data
         return SymbolInfoDto.builder()
-                .symbol(basic.getSymbol())
+            .symbol(normalizedSymbol)
                 .name(basic.getName())
                 .market(basic.getMarket())
                 .build();
+    }
+
+    private boolean shouldReplaceSymbol(SymbolInfoDto existing, SymbolInfoDto candidate) {
+        if (existing.price() == null && candidate.price() != null) {
+            return true;
+        }
+        if (existing.changePercent() == null && candidate.changePercent() != null) {
+            return true;
+        }
+        if (existing.volume() == null && candidate.volume() != null) {
+            return true;
+        }
+        return existing.amount() == null && candidate.amount() != null;
     }
     
     private PriceQuoteDto mapToPriceQuoteDto(StockRealtime entity) {

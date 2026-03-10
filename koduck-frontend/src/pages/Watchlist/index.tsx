@@ -8,6 +8,18 @@ import { useWebSocketStore } from '@/stores/websocket'
 import StockSearch from '@/components/StockSearch'
 import PriceDisplay from '@/components/PriceDisplay'
 
+interface WatchlistDisplayItem extends WatchlistItem {
+  realtimeTimestamp?: number
+}
+
+const normalizeSymbol = (symbol: string): string => {
+  const digits = symbol.replaceAll(/\D/g, '')
+  if (digits.length >= 1 && digits.length <= 6) {
+    return digits.padStart(6, '0')
+  }
+  return symbol.trim()
+}
+
 
 // 排序按钮组件
 function SortButton({ direction, onClick, active }: { direction: 'up' | 'down'; onClick: () => void; active: boolean }) {
@@ -33,7 +45,7 @@ function WatchlistRow({
   onDelete,
   onClick,
 }: {
-  item: WatchlistItem
+  item: WatchlistDisplayItem
   onDelete: (id: number) => void
   onClick: (symbol: string, market: string) => void
 }) {
@@ -63,7 +75,7 @@ function WatchlistRow({
         <PriceDisplay
           price={item.price ?? null}
           changePercent={item.changePercent ?? null}
-         
+          pulseKey={item.realtimeTimestamp}
           className="text-sm font-medium"
         />
       </td>
@@ -106,21 +118,22 @@ export default function Watchlist() {
   const connectionState = useWebSocketStore((state) => state.connectionState)
 
   // Get symbols from watchlist for WebSocket subscription
-  const symbols = useMemo(() => watchlist.map((item) => item.symbol), [watchlist])
+  const symbols = useMemo(() => watchlist.map((item) => normalizeSymbol(item.symbol)), [watchlist])
 
   // Use WebSocket subscription hook (auto-subscribes when watchlist has items)
   useWebSocketSubscription(symbols, symbols.length > 0)
 
   // Merge watchlist with real-time prices from WebSocket
-  const watchlistWithRealtime = useMemo(() => {
+  const watchlistWithRealtime = useMemo<WatchlistDisplayItem[]>(() => {
     return watchlist.map((item) => {
-      const realtimePrice = stockPrices.get(item.symbol)
+      const realtimePrice = stockPrices.get(normalizeSymbol(item.symbol))
       if (realtimePrice) {
         return {
           ...item,
           price: realtimePrice.price,
           change: realtimePrice.change,
           changePercent: realtimePrice.changePercent,
+          realtimeTimestamp: realtimePrice.timestamp,
         }
       }
       return item
@@ -146,23 +159,25 @@ export default function Watchlist() {
 
   // 添加自选股
   const handleAddStock = async (symbol: string, name: string, market: string) => {
+    const normalizedSymbol = normalizeSymbol(symbol)
+
     try {
       // 检查是否已存在
-      if (watchlist.some((item) => item.symbol === symbol && item.market === market)) {
+      if (watchlist.some((item) => normalizeSymbol(item.symbol) === normalizedSymbol && item.market === market)) {
         showToast('该股票已在自选股中', 'warning')
         return
       }
 
       await watchlistApi.addToWatchlist({
         market,
-        symbol,
+        symbol: normalizedSymbol,
         name,
       })
       showToast('添加成功', 'success')
       setShowAddModal(false)
-      loadWatchlist()
+      await loadWatchlist()
     } catch {
-      showToast('加载自选股失败', 'error')
+      showToast('添加自选股失败', 'error')
     }
   }
 

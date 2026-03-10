@@ -80,6 +80,17 @@ async def import_csv_to_db(csv_path: Path, dry_run: bool = False):
                         else:
                             skipped += 1
                             continue
+
+                        check_time = kline_time.to_pydatetime() if isinstance(kline_time, pd.Timestamp) else kline_time
+                        if timeframe in {'1D', '1W', '1M'}:
+                            if (
+                                check_time.hour != 0
+                                or check_time.minute != 0
+                                or check_time.second != 0
+                                or check_time.microsecond != 0
+                            ):
+                                skipped += 1
+                                continue
                         
                         await conn.execute(
                             insert_sql,

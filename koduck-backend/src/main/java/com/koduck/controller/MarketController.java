@@ -6,6 +6,7 @@ import com.koduck.dto.ApiResponse;
 import com.koduck.dto.market.KlineDataDto;
 import com.koduck.dto.market.MarketIndexDto;
 import com.koduck.dto.market.PriceQuoteDto;
+import com.koduck.dto.market.StockIndustryDto;
 import com.koduck.dto.market.StockValuationDto;
 import com.koduck.dto.market.SymbolInfoDto;
 import com.koduck.service.KlineMinutesService;
@@ -107,6 +108,27 @@ public class MarketController {
             return ApiResponse.error(404, "股票估值不存在: " + symbol);
         }
         return ApiResponse.success(valuation);
+    }
+
+    /**
+     * Get stock industry metadata.
+     * <p>Retrieves industry, sector, sub-industry and board fields for a stock.</p>
+     *
+     * @param symbol stock symbol (e.g. "601012"), must not be blank
+     * @return industry metadata for the symbol
+     */
+    @GetMapping("/stocks/{symbol}/industry")
+    public ApiResponse<StockIndustryDto> getStockIndustry(
+            @PathVariable @NotBlank(message = "股票代码不能为空")
+            String symbol) {
+
+        log.info("GET /api/v1/market/stocks/{}/industry", symbol);
+
+        StockIndustryDto industry = marketService.getStockIndustry(symbol);
+        if (industry == null) {
+            return ApiResponse.error(404, "股票行业信息不存在: " + symbol);
+        }
+        return ApiResponse.success(industry);
     }
 
     /**

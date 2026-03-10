@@ -89,6 +89,34 @@ class KlineInitializer:
             if count == 0:
                 logger.info("kline_data table is empty, needs initialization")
                 return True
+
+            # Validate CSV coverage to avoid treating partial imports as complete.
+            csv_files = self.find_csv_files()
+            if csv_files:
+                expected_pairs = {
+                    (self._normalize_symbol(path.stem), self.detect_timeframe(path))
+                    for path in csv_files
+                }
+                expected_count = len(expected_pairs)
+                pair_result = await Database.fetchrow(
+                    """
+                    SELECT COUNT(*) AS count
+                    FROM (
+                        SELECT DISTINCT symbol, timeframe
+                        FROM kline_data
+                        WHERE market = 'AShare'
+                    ) pairs
+                    """
+                )
+                actual_count = pair_result["count"] if pair_result else 0
+
+                if actual_count < expected_count:
+                    logger.warning(
+                        "kline_data coverage incomplete: %s/%s symbol-timeframe pairs, needs initialization",
+                        actual_count,
+                        expected_count,
+                    )
+                    return True
             
             # 检查是否有最近的数据（7天内）
             recent = await Database.fetchrow("""
@@ -176,23 +204,61 @@ class KlineInitializer:
                 return parts[idx + 1]
         return "1D"
 
+    def _normalize_symbol(self, symbol: object) -> str:
+        """Normalize stock symbol to 6-digit code when possible."""
+        text = str(symbol).strip()
+        if not text:
+            return text
+
+        # Handle pandas numeric parsing cases like 2050 or 2050.0
+        if text.endswith(".0"):
+            text = text[:-2]
+
+        if text.isdigit():
+            return text.zfill(6)
+        return text
+
     def _extract_symbol(self, df: pd.DataFrame, csv_path: Path) -> str:
         """Extract symbol from CSV content or fallback to file stem."""
         if "symbol" in df.columns:
             symbols = df["symbol"].unique()
             if len(symbols) > 0:
-                return str(symbols[0])
-        return csv_path.stem
+                return self._normalize_symbol(symbols[0])
+        return self._normalize_symbol(csv_path.stem)
 
-    def _extract_kline_time(self, row: pd.Series) -> datetime | pd.Timestamp | None:
-        """Extract kline timestamp from one row."""
+    def _extract_kline_time(
+        self,
+        row: pd.Series,
+        timeframe: str,
+    ) -> datetime | pd.Timestamp | None:
+        """Extract kline timestamp from one row with timeframe validation."""
+        parsed_time: datetime | pd.Timestamp | None = None
+
         if "datetime" in row:
-            return pd.to_datetime(row["datetime"])
-        if "kline_time" in row:
-            return pd.to_datetime(row["kline_time"])
-        if "timestamp" in row:
-            return datetime.fromtimestamp(row["timestamp"])
-        return None
+            parsed_time = pd.to_datetime(row["datetime"])
+        elif "kline_time" in row:
+            parsed_time = pd.to_datetime(row["kline_time"])
+        elif "timestamp" in row:
+            parsed_time = datetime.fromtimestamp(row["timestamp"])
+
+        if parsed_time is None or pd.isna(parsed_time):
+            return None
+
+        if isinstance(parsed_time, pd.Timestamp):
+            check_time = parsed_time.to_pydatetime()
+        else:
+            check_time = parsed_time
+
+        if timeframe in {"1D", "1W", "1M"}:
+            if (
+                check_time.hour != 0
+                or check_time.minute != 0
+                or check_time.second != 0
+                or check_time.microsecond != 0
+            ):
+                return None
+
+        return parsed_time
 
     def _extract_price_fields(
         self, row: pd.Series
@@ -259,7 +325,7 @@ class KlineInitializer:
                 async with conn.transaction():
                     for _, row in df.iterrows():
                         try:
-                            kline_time = self._extract_kline_time(row)
+                            kline_time = self._extract_kline_time(row, timeframe)
                             
                             if kline_time is None:
                                 skipped += 1

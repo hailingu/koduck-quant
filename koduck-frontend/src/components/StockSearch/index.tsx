@@ -11,6 +11,34 @@ interface SearchResult {
   market: string
 }
 
+const normalizeSymbol = (symbol: string): string => {
+  const digits = symbol.replace(/\D/g, '')
+  if (digits.length >= 1 && digits.length <= 6) {
+    return digits.padStart(6, '0')
+  }
+  return symbol.trim()
+}
+
+const deduplicateResults = (items: SearchResult[]): SearchResult[] => {
+  const seen = new Set<string>()
+  const deduped: SearchResult[] = []
+
+  for (const item of items) {
+    const normalized = normalizeSymbol(item.symbol)
+    const key = `${item.market}:${normalized}`
+    if (seen.has(key)) {
+      continue
+    }
+    seen.add(key)
+    deduped.push({
+      ...item,
+      symbol: normalized,
+    })
+  }
+
+  return deduped
+}
+
 export default function StockSearch({ onSelect }: StockSearchProps) {
   const [keyword, setKeyword] = useState('')
   const [results, setResults] = useState<SearchResult[]>([])
@@ -40,7 +68,7 @@ export default function StockSearch({ onSelect }: StockSearchProps) {
     try {
       const data = await klineApi.searchStocks(value, 10)
       if (data) {
-        setResults(data)
+        setResults(deduplicateResults(data))
         setShowDropdown(true)
       }
     } catch (error) {
@@ -51,8 +79,9 @@ export default function StockSearch({ onSelect }: StockSearchProps) {
   }
 
   const handleSelect = (result: SearchResult) => {
-    onSelect(result.symbol, result.name, result.market)
-    setKeyword(`${result.name} (${result.symbol})`)
+    const normalizedSymbol = normalizeSymbol(result.symbol)
+    onSelect(normalizedSymbol, result.name, result.market)
+    setKeyword(`${result.name} (${normalizedSymbol})`)
     setShowDropdown(false)
   }
 

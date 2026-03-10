@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import KlineChart from '@/components/KlineChart'
 import StockSearch from '@/components/StockSearch'
@@ -6,9 +6,10 @@ import PriceDisplay from '@/components/PriceDisplay'
 import AIChat from '@/components/AIChat'
 import { klineApi } from '@/api/kline'
 import type { KlineData } from '@/api/kline'
-import { marketApi, type StockValuation } from '@/api/market'
+import { marketApi, type StockValuation, type StockIndustry } from '@/api/market'
 import { useWatchlistStore } from '@/stores/watchlist'
 import { useWebSocketStore } from '@/stores/websocket'
+import { useWebSocketSubscription } from '@/hooks/useWebSocket'
 import { isTradingHours } from '@/utils/trading'
 
 const TIMEFRAMES = [
@@ -40,6 +41,14 @@ interface DerivedStockInfo {
   prevClose: number
   volume: number
   amount: number
+}
+
+const normalizeSymbol = (value: string): string => {
+  const digits = value.replaceAll(/\D/g, '')
+  if (digits.length >= 1 && digits.length <= 6) {
+    return digits.padStart(6, '0')
+  }
+  return value.trim().toUpperCase()
 }
 
 // Helper function to save stock to localStorage
@@ -206,6 +215,9 @@ export default function Kline() {
   // 股票估值信息（PE、PB、总市值、换手率等）
   const [valuation, setValuation] = useState<StockValuation | null>(null)
 
+  // 股票所属行业信息（行业、板块、细分行业等）
+  const [industry, setIndustry] = useState<StockIndustry | null>(null)
+
   const { addItem, isInWatchlist, fetchWatchlist } = useWatchlistStore()
   const inWatchlist = symbol ? isInWatchlist(symbol) : false
   let watchlistButtonLabel = '+ 添加自选'
@@ -216,37 +228,24 @@ export default function Kline() {
   }
   
   // WebSocket for real-time price updates
-  const { connect: connectWebSocket, disconnect: disconnectWebSocket, subscribe: subscribePrice, unsubscribe: unsubscribePrice, stockPrices } = useWebSocketStore()
+  const { stockPrices } = useWebSocketStore()
+  const normalizedSymbol = symbol ? normalizeSymbol(symbol) : ''
+  const subscriptionSymbols = useMemo(
+    () => (normalizedSymbol ? [normalizedSymbol] : []),
+    [normalizedSymbol]
+  )
+
+  useWebSocketSubscription(subscriptionSymbols, subscriptionSymbols.length > 0)
 
   // Load watchlist on mount to sync with server
   useEffect(() => {
     fetchWatchlist()
   }, [fetchWatchlist])
   
-  // Connect WebSocket on mount
-  useEffect(() => {
-    connectWebSocket()
-    return () => {
-      disconnectWebSocket()
-    }
-  }, [connectWebSocket, disconnectWebSocket])
-  
-  // Subscribe to price updates when symbol changes
-  useEffect(() => {
-    if (symbol) {
-      subscribePrice([symbol])
-    }
-    return () => {
-      if (symbol) {
-        unsubscribePrice([symbol])
-      }
-    }
-  }, [symbol, subscribePrice, unsubscribePrice])
-  
   // Update stock info when WebSocket pushes new price
   useEffect(() => {
-    if (symbol && stockPrices.has(symbol)) {
-      const priceUpdate = stockPrices.get(symbol)!
+    if (normalizedSymbol && stockPrices.has(normalizedSymbol)) {
+      const priceUpdate = stockPrices.get(normalizedSymbol)!
       setStockInfo((prev) => ({
         ...prev,
         price: priceUpdate.price,
@@ -256,7 +255,7 @@ export default function Kline() {
         amount: priceUpdate.amount,
       }))
     }
-  }, [stockPrices, symbol])
+  }, [stockPrices, normalizedSymbol])
   
   // Polling as fallback for real-time updates (every 3 seconds during trading hours)
   const fetchStockDetail = useCallback(async () => {
@@ -343,6 +342,25 @@ export default function Kline() {
     }
   }, [symbol])
 
+  // 获取股票所属行业信息
+  const fetchStockIndustry = useCallback(async () => {
+    if (!symbol) {
+      setIndustry(null)
+      return
+    }
+    try {
+      const data = await marketApi.getStockIndustry(symbol)
+      if (data) {
+        setIndustry(data)
+      } else {
+        setIndustry(null)
+      }
+    } catch (error) {
+      setIndustry(null)
+      console.error('Failed to fetch stock industry:', error)
+    }
+  }, [symbol])
+
   const loadSymbolData = useCallback(async () => {
     const hasKline = await fetchKlineData()
     if (!hasKline) {
@@ -350,7 +368,8 @@ export default function Kline() {
     }
     await fetchStockDetail()
     await fetchStockValuation()
-  }, [fetchKlineData, fetchStockDetail, fetchStockValuation])
+    await fetchStockIndustry()
+  }, [fetchKlineData, fetchStockDetail, fetchStockValuation, fetchStockIndustry])
 
   useEffect(() => {
     if (!symbol) return
@@ -411,6 +430,7 @@ export default function Kline() {
 
   const handleStockSelect = (selectedSymbol: string, selectedName: string) => {
     setValuation(null)
+    setIndustry(null)
     setSymbol(selectedSymbol)
     setStockName(selectedName)
     setSearchParams({ symbol: selectedSymbol, name: selectedName })
@@ -549,6 +569,12 @@ export default function Kline() {
                 SH
               </span>
               <span className="text-xs text-gray-500">{symbol}</span>
+              {/* 所属行业标签 */}
+              {industry?.industry && (
+                <span className="px-1.5 py-0.5 text-xs font-medium bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300 rounded">
+                  {industry.industry}
+                </span>
+              )}
               <button
                 onClick={handleAddToWatchlist}
                 disabled={addingToWatchlist || inWatchlist}
@@ -561,6 +587,27 @@ export default function Kline() {
                 {watchlistButtonLabel}
               </button>
             </div>
+            
+            {/* 行业详细信息 */}
+            {(industry?.sector || industry?.subIndustry || industry?.board) && (
+              <div className="flex flex-wrap gap-2 mb-3 text-xs">
+                {industry.sector && (
+                  <span className="text-gray-500">
+                    所属行业: <span className="text-gray-700 dark:text-gray-300">{industry.sector}</span>
+                  </span>
+                )}
+                {industry.subIndustry && (
+                  <span className="text-gray-500">
+                    细分行业: <span className="text-gray-700 dark:text-gray-300">{industry.subIndustry}</span>
+                  </span>
+                )}
+                {industry.board && (
+                  <span className="text-gray-500">
+                    板块: <span className="text-gray-700 dark:text-gray-300">{industry.board}</span>
+                  </span>
+                )}
+              </div>
+            )}
 
             {/* 价格显示区 */}
             <div className="mb-3">

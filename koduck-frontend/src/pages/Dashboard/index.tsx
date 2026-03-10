@@ -1,14 +1,23 @@
-import { useEffect, useState, useCallback, useRef } from 'react'
+import { useEffect, useState, useCallback, useRef, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import * as echarts from 'echarts'
-import { klineApi } from '@/api/kline'
 import type { WatchlistItem } from '@/api/watchlist'
 import { watchlistApi } from '@/api/watchlist'
 import type { MarketIndex } from '@/api/dashboard'
 import { dashboardApi } from '@/api/dashboard'
 import type { PortfolioSummary, TradeRecord } from '@/api/portfolio'
 import { portfolioApi } from '@/api/portfolio'
+import { useWebSocketStore } from '@/stores/websocket'
+import { useWebSocketSubscription } from '@/hooks/useWebSocket'
 import { useToast } from '@/hooks/useToast'
+
+const normalizeSymbol = (value: string): string => {
+  const digits = value.replaceAll(/\D/g, '')
+  if (digits.length >= 1 && digits.length <= 6) {
+    return digits.padStart(6, '0')
+  }
+  return value.trim().toUpperCase()
+}
 
 // 数字格式化
 const formatNumber = (num: number, decimals: number = 2) => {
@@ -227,6 +236,52 @@ export default function Dashboard() {
   const [watchlist, setWatchlist] = useState<WatchlistItem[]>([])
   const [portfolioSummary, setPortfolioSummary] = useState<PortfolioSummary | null>(null)
   const [trades, setTrades] = useState<TradeRecord[]>([])
+  const stockPrices = useWebSocketStore((state) => state.stockPrices)
+  const connectionState = useWebSocketStore((state) => state.connectionState)
+
+  const subscriptionSymbols = useMemo(() => {
+    const combined = [
+      ...watchlist.map((item) => normalizeSymbol(item.symbol)),
+      ...indices.map((item) => normalizeSymbol(item.symbol)),
+    ]
+    return Array.from(new Set(combined))
+  }, [watchlist, indices])
+
+  useWebSocketSubscription(subscriptionSymbols, subscriptionSymbols.length > 0)
+
+  const watchlistWithRealtime = useMemo(
+    () =>
+      watchlist.map((item) => {
+        const realtime = stockPrices.get(normalizeSymbol(item.symbol))
+        if (!realtime) {
+          return item
+        }
+        return {
+          ...item,
+          price: realtime.price,
+          change: realtime.change,
+          changePercent: realtime.changePercent,
+        }
+      }),
+    [watchlist, stockPrices]
+  )
+
+  const indicesWithRealtime = useMemo(
+    () =>
+      indices.map((item) => {
+        const realtime = stockPrices.get(normalizeSymbol(item.symbol))
+        if (!realtime) {
+          return item
+        }
+        return {
+          ...item,
+          price: realtime.price,
+          change: realtime.change,
+          changePercent: realtime.changePercent,
+        }
+      }),
+    [indices, stockPrices]
+  )
 
   // 图表引用
   const miniChartRef = useRef<HTMLDivElement>(null)
@@ -249,59 +304,6 @@ export default function Dashboard() {
       setWatchlist(watchlistRes || [])
       setPortfolioSummary(summaryRes)
       setTrades(tradesRes.slice(0, 5))
-
-      // 为自选股加载实时价格
-      if (watchlistRes && watchlistRes.length > 0) {
-        const watchlistWithPrice = await Promise.all(
-          watchlistRes.slice(0, 5).map(async (item) => {
-            try {
-              const priceRes = await klineApi.getLatestPrice({
-                symbol: item.symbol,
-              })
-              return {
-                ...item,
-                price: priceRes?.price || 0,
-              }
-            } catch {
-              return item
-            }
-          })
-        )
-        setWatchlist(watchlistWithPrice)
-      }
-
-      // 加载市场指数价格
-      const indicesWithPrice = await Promise.all(
-        indicesRes.map(async (index) => {
-          try {
-            const priceRes = await klineApi.getLatestPrice({
-              symbol: index.symbol,
-            })
-            const klineRes = await klineApi.getKline({
-              symbol: index.symbol,
-              timeframe: '1D',
-              limit: 2,
-            })
-            const klineData = klineRes || []
-            if (klineData && klineData.length >= 2) {
-              const latest = klineData[klineData.length - 1]
-              const prev = klineData[klineData.length - 2]
-              const change = latest.close - prev.close
-              const changePercent = (change / prev.close) * 100
-              return {
-                ...index,
-                price: latest.close,
-                change,
-                changePercent,
-              }
-            }
-            return { ...index, price: priceRes?.price || 0 }
-          } catch {
-            return index
-          }
-        })
-      )
-      setIndices(indicesWithPrice)
     } catch (error) {
       showToast('加载数据失败', 'error')
     } finally {
@@ -408,9 +410,29 @@ export default function Dashboard() {
 
       {/* Market Indices */}
       <section>
-        <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">市场指数</h3>
+        <div className="flex items-center gap-3 mb-4">
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-white">市场指数</h3>
+          {connectionState === 'connected' && (
+            <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400">
+              <span className="w-2 h-2 mr-1 rounded-full bg-green-500 animate-pulse"></span>
+              实时
+            </span>
+          )}
+          {connectionState === 'reconnecting' && (
+            <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400">
+              <span className="w-2 h-2 mr-1 rounded-full bg-yellow-500 animate-pulse"></span>
+              重连中
+            </span>
+          )}
+          {connectionState === 'disconnected' && (
+            <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-400">
+              <span className="w-2 h-2 mr-1 rounded-full bg-gray-400"></span>
+              离线
+            </span>
+          )}
+        </div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {indices.map((index) => (
+          {indicesWithRealtime.map((index) => (
             <IndexCard key={index.symbol} index={index} loading={loading} />
           ))}
         </div>
@@ -487,9 +509,9 @@ export default function Dashboard() {
                   </div>
                 ))}
               </div>
-            ) : watchlist.length > 0 ? (
+            ) : watchlistWithRealtime.length > 0 ? (
               <div className="divide-y divide-gray-100 dark:divide-gray-700">
-                {watchlist.slice(0, 5).map((item) => (
+                {watchlistWithRealtime.slice(0, 5).map((item) => (
                   <WatchlistPreviewItem key={item.id} item={item} />
                 ))}
               </div>

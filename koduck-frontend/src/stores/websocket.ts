@@ -8,14 +8,17 @@ interface WebSocketState {
   // Connection state
   connectionState: WebSocketConnectionState
   client: Client | null
-  
-  // Subscription management
-  subscriptions: Map<string, StompSubscription>
+
+  // Single queue subscription for all symbols
+  priceSubscription: StompSubscription | null
+
+  // Subscription management (ref-counted by symbol)
+  symbolRefCounts: Map<string, number>
   subscribedSymbols: Set<string>
-  
+
   // Stock price data
   stockPrices: Map<string, StockPriceUpdate>
-  
+
   // Actions
   connect: () => void
   disconnect: () => void
@@ -23,6 +26,35 @@ interface WebSocketState {
   unsubscribe: (symbols: string[]) => void
   updatePrice: (update: StockPriceUpdate) => void
   clearPrices: () => void
+}
+
+const normalizeSymbol = (symbol: string): string => {
+  const digits = symbol.replaceAll(/\D/g, '')
+  if (digits.length >= 1 && digits.length <= 6) {
+    return digits.padStart(6, '0')
+  }
+  return symbol.trim().toUpperCase()
+}
+
+const parsePriceMessage = (body: string): StockPriceUpdate | null => {
+  const parsed = JSON.parse(body)
+  const payload = parsed?.data ?? parsed
+  const symbol = typeof payload?.symbol === 'string' ? normalizeSymbol(payload.symbol) : ''
+
+  if (!symbol) {
+    return null
+  }
+
+  return {
+    symbol,
+    name: payload?.name ?? symbol,
+    price: Number(payload?.price ?? 0),
+    change: Number(payload?.change ?? 0),
+    changePercent: Number(payload?.changePercent ?? 0),
+    volume: Number(payload?.volume ?? 0),
+    amount: Number(payload?.amount ?? 0),
+    timestamp: Date.now(),
+  }
 }
 
 // WebSocket configuration
@@ -39,7 +71,8 @@ const WS_CONFIG = {
 export const useWebSocketStore = create<WebSocketState>((set, get) => ({
   connectionState: 'disconnected',
   client: null,
-  subscriptions: new Map(),
+  priceSubscription: null,
+  symbolRefCounts: new Map(),
   subscribedSymbols: new Set(),
   stockPrices: new Map(),
 
@@ -56,17 +89,35 @@ export const useWebSocketStore = create<WebSocketState>((set, get) => ({
     const stompClient = new Client({
       ...WS_CONFIG,
       onConnect: () => {
-        set({ connectionState: 'connected' })
+        const queueSubscription = stompClient.subscribe('/user/queue/price', (message) => {
+          try {
+            const update = parsePriceMessage(message.body)
+            if (update) {
+              get().updatePrice(update)
+            }
+          } catch (error) {
+            console.error('Failed to parse price update:', error)
+          }
+        })
+
+        set({ connectionState: 'connected', priceSubscription: queueSubscription })
         console.log('WebSocket connected')
-        
-        // Re-subscribe to previous symbols if any
-        const { subscribedSymbols } = get()
-        if (subscribedSymbols.size > 0) {
-          get().subscribe(Array.from(subscribedSymbols))
+
+        // Re-subscribe all active symbols after reconnect.
+        const activeSymbols = Array.from(get().symbolRefCounts.entries())
+          .filter(([, count]) => count > 0)
+          .map(([symbol]) => symbol)
+
+        if (activeSymbols.length > 0) {
+          stompClient.publish({
+            destination: '/app/subscribe',
+            body: JSON.stringify({ type: 'SUBSCRIBE', symbols: activeSymbols }),
+          })
+          set({ subscribedSymbols: new Set(activeSymbols) })
         }
       },
       onDisconnect: () => {
-        set({ connectionState: 'disconnected' })
+        set({ connectionState: 'disconnected', priceSubscription: null, subscribedSymbols: new Set() })
         console.log('WebSocket disconnected')
       },
       onStompError: (frame) => {
@@ -89,11 +140,11 @@ export const useWebSocketStore = create<WebSocketState>((set, get) => ({
   },
 
   disconnect: () => {
-    const { client, subscriptions } = get()
-    
-    // Unsubscribe from all
-    subscriptions.forEach((sub) => sub.unsubscribe())
-    subscriptions.clear()
+    const { client, priceSubscription } = get()
+
+    if (priceSubscription) {
+      priceSubscription.unsubscribe()
+    }
     
     // Deactivate client
     if (client) {
@@ -103,77 +154,91 @@ export const useWebSocketStore = create<WebSocketState>((set, get) => ({
     set({
       connectionState: 'disconnected',
       client: null,
-      subscriptions: new Map(),
+      priceSubscription: null,
+      symbolRefCounts: new Map(),
       subscribedSymbols: new Set(),
     })
   },
 
   subscribe: (symbols: string[]) => {
-    const { client, subscriptions, subscribedSymbols } = get()
-    
-    if (!client || !client.connected) {
-      console.warn('Cannot subscribe: WebSocket not connected')
+    const { client, symbolRefCounts, subscribedSymbols } = get()
+
+    const normalizedSymbols = Array.from(new Set(symbols.map((symbol) => normalizeSymbol(symbol))))
+    if (normalizedSymbols.length === 0) {
       return
     }
 
-    const newSymbols = symbols.filter((symbol) => !subscribedSymbols.has(symbol))
-    
-    if (newSymbols.length === 0) {
-      return
-    }
-
-    newSymbols.forEach((symbol) => {
-      // Subscribe to price updates for this symbol
-      const subscription = client.subscribe(`/topic/price.${symbol}`, (message) => {
-        try {
-          const update = JSON.parse(message.body) as StockPriceUpdate
-          get().updatePrice(update)
-        } catch (error) {
-          console.error('Failed to parse price update:', error)
-        }
-      })
-      
-      subscriptions.set(symbol, subscription)
-      subscribedSymbols.add(symbol)
-    })
-
-    // Send subscription request to server
-    client.publish({
-      destination: '/app/subscribe',
-      body: JSON.stringify({ type: 'SUBSCRIBE', symbols: newSymbols }),
-    })
-
-    set({ subscriptions: new Map(subscriptions), subscribedSymbols: new Set(subscribedSymbols) })
-  },
-
-  unsubscribe: (symbols: string[]) => {
-    const { client, subscriptions, subscribedSymbols } = get()
-    
-    if (!client || !client.connected) {
-      return
-    }
-
-    symbols.forEach((symbol) => {
-      const subscription = subscriptions.get(symbol)
-      if (subscription) {
-        subscription.unsubscribe()
-        subscriptions.delete(symbol)
-        subscribedSymbols.delete(symbol)
+    const toSubscribe: string[] = []
+    normalizedSymbols.forEach((symbol) => {
+      const count = symbolRefCounts.get(symbol) ?? 0
+      symbolRefCounts.set(symbol, count + 1)
+      if (count === 0) {
+        toSubscribe.push(symbol)
       }
     })
 
-    // Send unsubscription request to server
-    client.publish({
-      destination: '/app/subscribe',
-      body: JSON.stringify({ type: 'UNSUBSCRIBE', symbols }),
+    if (toSubscribe.length === 0) {
+      set({ symbolRefCounts: new Map(symbolRefCounts) })
+      return
+    }
+
+    if (client?.connected) {
+      client.publish({
+        destination: '/app/subscribe',
+        body: JSON.stringify({ type: 'SUBSCRIBE', symbols: toSubscribe }),
+      })
+      toSubscribe.forEach((symbol) => {
+        subscribedSymbols.add(symbol)
+      })
+    } else {
+      console.warn('WebSocket not connected yet, symbols queued for subscribe on connect')
+    }
+
+    set({
+      symbolRefCounts: new Map(symbolRefCounts),
+      subscribedSymbols: new Set(subscribedSymbols),
+    })
+  },
+
+  unsubscribe: (symbols: string[]) => {
+    const { client, symbolRefCounts, subscribedSymbols } = get()
+
+    const normalizedSymbols = Array.from(new Set(symbols.map((symbol) => normalizeSymbol(symbol))))
+    if (normalizedSymbols.length === 0) {
+      return
+    }
+
+    const toUnsubscribe: string[] = []
+    normalizedSymbols.forEach((symbol) => {
+      const count = symbolRefCounts.get(symbol) ?? 0
+      if (count <= 1) {
+        symbolRefCounts.delete(symbol)
+        toUnsubscribe.push(symbol)
+      } else {
+        symbolRefCounts.set(symbol, count - 1)
+      }
     })
 
-    set({ subscriptions: new Map(subscriptions), subscribedSymbols: new Set(subscribedSymbols) })
+    if (toUnsubscribe.length > 0 && client?.connected) {
+      client.publish({
+        destination: '/app/unsubscribe',
+        body: JSON.stringify({ type: 'UNSUBSCRIBE', symbols: toUnsubscribe }),
+      })
+      toUnsubscribe.forEach((symbol) => {
+        subscribedSymbols.delete(symbol)
+      })
+    }
+
+    set({
+      symbolRefCounts: new Map(symbolRefCounts),
+      subscribedSymbols: new Set(subscribedSymbols),
+    })
   },
 
   updatePrice: (update: StockPriceUpdate) => {
     const { stockPrices } = get()
-    stockPrices.set(update.symbol, update)
+    const normalized = normalizeSymbol(update.symbol)
+    stockPrices.set(normalized, { ...update, symbol: normalized })
     set({ stockPrices: new Map(stockPrices) })
   },
 
