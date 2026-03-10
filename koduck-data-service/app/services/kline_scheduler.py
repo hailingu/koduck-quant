@@ -17,6 +17,7 @@ from app.db import Database
 from app.services.eastmoney_client import eastmoney_client
 from app.services.kline_file_lock import csv_lock
 from app.services.kline_sync import kline_sync
+from app.utils.trading_hours import is_a_share_trading_time
 
 logger = structlog.get_logger(__name__)
 
@@ -151,6 +152,7 @@ class KlineScheduler:
         - Current time is past update_time
         - Not already updating
         - It's a trading day (weekday)
+        - Not within trading hours (only update outside trading hours)
         """
         async with self._state_lock:
             if not self._init_completed:
@@ -167,6 +169,11 @@ class KlineScheduler:
         # Only update on weekdays
         if now.weekday() >= 5:  # Saturday=5, Sunday=6
             logger.debug("Weekend, skipping update")
+            return False
+        
+        # Check if within trading hours - only update outside trading hours
+        if is_a_share_trading_time(now):
+            logger.debug("Within trading hours, skipping update")
             return False
         
         # Check if past update time
