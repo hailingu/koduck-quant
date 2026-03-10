@@ -19,6 +19,7 @@ from fastapi import APIRouter, HTTPException, Query
 from app.models.schemas import ApiResponse, KlineData
 from app.services.akshare_client import akshare_client
 from app.services.incremental_kline_updater import incremental_kline_updater
+from app.services.kline_1m import minute1_kline_tool
 
 logger = logging.getLogger(__name__)
 
@@ -393,3 +394,193 @@ async def get_scheduler_status() -> ApiResponse:
     from app.services.kline_scheduler import kline_scheduler
     
     return ApiResponse(data=kline_scheduler.get_status())
+
+
+@router.post(
+    "/kline/1m/incremental",
+    responses={
+        400: {"description": "Invalid parameters"},
+        500: {"description": "Internal server error"},
+    },
+)
+async def update_kline_1m_incremental(
+    symbol: Annotated[str, Query(..., description="股票代码 (如: 002326)")],
+    days_back: Annotated[
+        int,
+        Query(ge=1, le=30, description="回溯天数 (1-30)"),
+    ] = 7,
+    dry_run: Annotated[
+        bool,
+        Query(description="预览模式，不写入数据库"),
+    ] = False,
+) -> ApiResponse[dict]:
+    """Incrementally update 1-minute K-line data for a stock.
+
+    This endpoint:
+    1. Checks existing local 1-minute data range in CSV cache and database
+    2. Fetches only missing data from AKShare
+    3. Merges with existing data (INSERT ... ON CONFLICT DO NOTHING)
+    4. Returns update statistics
+
+    Note: AKShare's minute-level API returns recent data only (typically
+    last few trading days). For historical 1-minute data spanning multiple
+    months, use the backfill scripts.
+
+    Args:
+        symbol (str): Stock symbol, e.g. ``"002326"``.
+        days_back (int): Number of days to look back for updates (1-30).
+        dry_run (bool): If True, only return what would be updated without persisting.
+
+    Returns:
+        :class:`~app.models.schemas.ApiResponse` containing update statistics:
+        - symbol: Stock symbol
+        - records_added: Number of new records added to database
+        - csv_records_added: Number of new records added to CSV cache
+        - date_range: Date/time range of fetched data
+        - trading_days: Approximate number of trading days covered
+
+    Raises:
+        HTTPException: 400 if parameters are invalid.
+        HTTPException: 500 on backend failure.
+
+    Example:
+        >>> POST /api/v1/a-share/kline/1m/incremental?symbol=002326&days_back=7
+        >>> POST /api/v1/a-share/kline/1m/incremental?symbol=002326&days_back=3&dry_run=true
+    """
+    try:
+        # Perform incremental update using the 1-minute kline tool
+        result = await minute1_kline_tool.incremental_update(
+            symbol=symbol,
+            days_back=days_back,
+            dry_run=dry_run,
+        )
+
+        return ApiResponse(data=result.to_dict())
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(
+            "1-minute incremental kline update error",
+            exc_info=True,
+            extra={"symbol": symbol, "days_back": days_back},
+        )
+        raise HTTPException(status_code=500, detail=ERROR_INTERNAL_RETRY) from e
+
+
+@router.get("/kline/1m/status")
+async def get_kline_1m_status(
+    symbol: Annotated[str, Query(..., description="股票代码 (如: 002326)")],
+) -> ApiResponse[dict]:
+    """Get 1-minute K-line data status for a stock.
+
+    Returns the current data range, continuity status, and gap information
+    for the specified stock's 1-minute K-line data.
+
+    Args:
+        symbol (str): Stock symbol to query.
+
+    Returns:
+        :class:`~app.models.schemas.ApiResponse` containing:
+        - symbol: Stock symbol
+        - is_continuous: Whether data is continuous (no gaps)
+        - gap_count: Number of detected gaps
+        - gaps: List of gap periods (if any)
+        - total_records: Total number of records in cache
+        - local_data_range: Min/max datetime of local data
+
+    Raises:
+        HTTPException: 500 on internal failures.
+
+    Example:
+        >>> GET /api/v1/a-share/kline/1m/status?symbol=002326
+    """
+    try:
+        # Get validation results
+        validation = minute1_kline_tool.validate_data_continuity(symbol)
+
+        # Get local data range
+        local_min, local_max = minute1_kline_tool._get_local_data_range(symbol)
+
+        return ApiResponse(data={
+            "symbol": symbol,
+            "is_continuous": validation["is_continuous"],
+            "gap_count": validation["gap_count"],
+            "gaps": validation["gaps"],
+            "total_records": validation["total_records"],
+            "local_data_range": {
+                "min": local_min.isoformat() if local_min else None,
+                "max": local_max.isoformat() if local_max else None,
+            },
+            "validation_time": validation["validation_time"],
+        })
+
+    except Exception as e:
+        logger.error(
+            "1-minute kline status query error",
+            exc_info=True,
+            extra={"symbol": symbol},
+        )
+        raise HTTPException(status_code=500, detail=ERROR_INTERNAL_RETRY) from e
+
+
+@router.get("/kline/1m/cached")
+async def get_kline_1m_cached(
+    symbol: Annotated[str, Query(..., description="股票代码 (如: 002326)")],
+    start_date: Annotated[
+        str | None,
+        Query(description="开始日期 (YYYY-MM-DD)，可选"),
+    ] = None,
+    end_date: Annotated[
+        str | None,
+        Query(description="结束日期 (YYYY-MM-DD)，可选"),
+    ] = None,
+    limit: Annotated[int, Query(ge=1, le=5000, description="返回数据条数")] = 1000,
+) -> ApiResponse[list[dict]]:
+    """Get cached 1-minute K-line data for a stock.
+
+    Returns locally cached 1-minute K-line data from CSV files.
+    This is useful for retrieving historical data without hitting external APIs.
+
+    Args:
+        symbol (str): Stock symbol to query.
+        start_date (str | None): Start date filter (YYYY-MM-DD).
+        end_date (str | None): End date filter (YYYY-MM-DD).
+        limit (int): Maximum number of records to return (1-5000).
+
+    Returns:
+        :class:`~app.models.schemas.ApiResponse` containing list of K-line records:
+        - symbol: Stock symbol
+        - datetime: Timestamp string (YYYY-MM-DD HH:MM:SS)
+        - timestamp: Unix timestamp
+        - open: Opening price
+        - high: Highest price
+        - low: Lowest price
+        - close: Closing price
+        - volume: Trading volume
+        - amount: Trading amount
+
+    Raises:
+        HTTPException: 500 on internal failures.
+
+    Example:
+        >>> GET /api/v1/a-share/kline/1m/cached?symbol=002326&limit=100
+        >>> GET /api/v1/a-share/kline/1m/cached?symbol=002326&start_date=2024-01-01&end_date=2024-01-05
+    """
+    try:
+        # Get cached data
+        data = minute1_kline_tool.get_cached_data(symbol, start_date, end_date)
+
+        # Apply limit
+        if len(data) > limit:
+            data = data[-limit:]  # Return most recent data
+
+        return ApiResponse(data=data)
+
+    except Exception as e:
+        logger.error(
+            "1-minute cached kline query error",
+            exc_info=True,
+            extra={"symbol": symbol},
+        )
+        raise HTTPException(status_code=500, detail=ERROR_INTERNAL_RETRY) from e
