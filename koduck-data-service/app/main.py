@@ -151,7 +151,12 @@ async def run_realtime_update_scheduler():
     update for each symbol, and then delegates to
     :func:`app.services.data_updater.run_realtime_loop` for ongoing
     polling every 30 seconds.
+    
+    Note: Updates are skipped during A-share trading hours (09:30-11:30, 13:00-15:00)
+    to avoid conflicts with market data.
     """
+    from app.utils.trading_hours import is_a_share_trading_time
+    
     logger = structlog.get_logger()
     
     # Wait a bit for service to fully start
@@ -173,6 +178,12 @@ async def run_realtime_update_scheduler():
 
     while True:
         try:
+            # Skip updates during trading hours
+            if is_a_share_trading_time():
+                logger.debug("Within trading hours, skipping realtime update")
+                await asyncio.sleep(interval_seconds)
+                continue
+            
             symbols_result = await Database.fetch(
                 """
                 SELECT DISTINCT symbol
