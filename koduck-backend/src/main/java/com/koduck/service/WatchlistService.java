@@ -16,8 +16,14 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 /**
@@ -49,13 +55,13 @@ public class WatchlistService {
                 .distinct()
                 .collect(Collectors.toCollection(ArrayList::new));
 
-        if (!symbolsToRefresh.isEmpty()) {
-            dataServiceClient.triggerRealtimeUpdate(symbolsToRefresh);
-        }
+        triggerRealtimeUpdateAsync(symbolsToRefresh);
+
+        Map<String, StockRealtime> realtimeBySymbol = loadRealtimeMap(symbolsToRefresh);
         
         return items.stream()
-            .map(this::convertToDtoWithPrice)
-            .collect(Collectors.toList());
+            .map(item -> convertToDtoWithPrice(item, realtimeBySymbol))
+            .toList();
     }
     
     /**
@@ -93,14 +99,15 @@ public class WatchlistService {
             .sortOrder(maxOrder + 1)
             .build();
         
-        WatchlistItem saved = watchlistRepository.save(item);
+        WatchlistItem saved = watchlistRepository.save(Objects.requireNonNull(item));
         log.info("Added to watchlist: id={}, user={}, symbol={}", saved.getId(), userId, request.symbol());
         
         // Trigger realtime data update for the newly added symbol
         // This is asynchronous and non-blocking - failures are logged but don't affect the main flow
-        dataServiceClient.triggerRealtimeUpdate(normalizedSymbol);
+        triggerRealtimeUpdateAsync(Collections.singletonList(normalizedSymbol));
         
-        return convertToDtoWithPrice(saved);
+        Map<String, StockRealtime> realtimeBySymbol = loadRealtimeMap(Collections.singletonList(normalizedSymbol));
+        return convertToDtoWithPrice(saved, realtimeBySymbol);
     }
     
     /**
@@ -135,7 +142,7 @@ public class WatchlistService {
     public WatchlistItemDto updateNotes(Long userId, Long itemId, String notes) {
         log.debug("Updating notes: user={}, itemId={}", userId, itemId);
         
-        WatchlistItem item = watchlistRepository.findById(itemId)
+        WatchlistItem item = watchlistRepository.findById(Objects.requireNonNull(itemId))
             .orElseThrow(() -> new IllegalArgumentException("Watchlist item not found"));
         
         if (!item.getUserId().equals(userId)) {
@@ -145,22 +152,50 @@ public class WatchlistService {
         item.setNotes(notes);
         WatchlistItem saved = watchlistRepository.save(item);
         
-        return convertToDtoWithPrice(saved);
+        String normalizedSymbol = SymbolUtils.normalize(saved.getSymbol());
+        Map<String, StockRealtime> realtimeBySymbol =
+                loadRealtimeMap(normalizedSymbol == null ? Collections.emptyList() : Collections.singletonList(normalizedSymbol));
+        return convertToDtoWithPrice(saved, realtimeBySymbol);
     }
     
-    private WatchlistItemDto convertToDtoWithPrice(WatchlistItem item) {
+    private Map<String, StockRealtime> loadRealtimeMap(List<String> normalizedSymbols) {
+        if (normalizedSymbols == null || normalizedSymbols.isEmpty()) {
+            return Collections.emptyMap();
+        }
+
+        List<StockRealtime> realtimeList = stockRealtimeRepository.findBySymbolIn(normalizedSymbols);
+        Map<String, StockRealtime> realtimeBySymbol = new HashMap<>();
+        for (StockRealtime realtime : realtimeList) {
+            if (realtime.getSymbol() == null) {
+                continue;
+            }
+            realtimeBySymbol.put(SymbolUtils.normalize(realtime.getSymbol()), realtime);
+        }
+        return realtimeBySymbol;
+    }
+
+    private void triggerRealtimeUpdateAsync(List<String> symbolsToRefresh) {
+        if (symbolsToRefresh == null || symbolsToRefresh.isEmpty()) {
+            return;
+        }
+
+        CompletableFuture.runAsync(() -> dataServiceClient.triggerRealtimeUpdate(symbolsToRefresh))
+                .orTimeout(3, TimeUnit.SECONDS)
+                .exceptionally(ex -> {
+                    log.warn("Realtime update trigger timed out/failed for symbols {}: {}",
+                            symbolsToRefresh, ex.getMessage());
+                    return null;
+                });
+    }
+
+    private WatchlistItemDto convertToDtoWithPrice(WatchlistItem item, Map<String, StockRealtime> realtimeBySymbol) {
         // Normalize symbol to match stock_realtime table format
         // stock_realtime stores symbols as 6-digit (e.g., "601012")
         // watchlist_item may have market prefix (e.g., "SH601012" or just "601012")
         String normalizedSymbol = SymbolUtils.normalize(item.getSymbol());
         log.debug("Looking up realtime price for symbol: {} (original: {})", normalizedSymbol, item.getSymbol());
         
-        // Try exact match first, then case-insensitive match
-        Optional<StockRealtime> realtimeOpt = stockRealtimeRepository.findBySymbol(normalizedSymbol);
-        if (realtimeOpt.isEmpty()) {
-            // Fallback to case-insensitive search
-            realtimeOpt = stockRealtimeRepository.findBySymbolIgnoreCase(normalizedSymbol);
-        }
+        Optional<StockRealtime> realtimeOpt = Optional.ofNullable(realtimeBySymbol.get(normalizedSymbol));
         
         BigDecimal price = realtimeOpt.map(StockRealtime::getPrice).orElse(null);
         BigDecimal change = realtimeOpt.map(StockRealtime::getChangeAmount).orElse(null);

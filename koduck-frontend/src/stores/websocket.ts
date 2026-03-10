@@ -68,6 +68,20 @@ const WS_CONFIG = {
   connectionTimeout: 10000,
 }
 
+const getAuthToken = (): string | null => {
+  const authStorage = localStorage.getItem('auth-storage')
+  if (!authStorage) {
+    return null
+  }
+
+  try {
+    const authState = JSON.parse(authStorage)
+    return typeof authState?.state?.token === 'string' ? authState.state.token : null
+  } catch {
+    return null
+  }
+}
+
 export const useWebSocketStore = create<WebSocketState>((set, get) => ({
   connectionState: 'disconnected',
   client: null,
@@ -86,8 +100,14 @@ export const useWebSocketStore = create<WebSocketState>((set, get) => ({
 
     set({ connectionState: 'connecting' })
 
+    const token = getAuthToken()
+    const connectHeaders: Record<string, string> = token
+      ? { Authorization: `Bearer ${token}` }
+      : {}
+
     const stompClient = new Client({
       ...WS_CONFIG,
+      connectHeaders,
       onConnect: () => {
         const queueSubscription = stompClient.subscribe('/user/queue/price', (message) => {
           try {
@@ -111,6 +131,7 @@ export const useWebSocketStore = create<WebSocketState>((set, get) => ({
         if (activeSymbols.length > 0) {
           stompClient.publish({
             destination: '/app/subscribe',
+            headers: { 'content-type': 'application/json' },
             body: JSON.stringify({ type: 'SUBSCRIBE', symbols: activeSymbols }),
           })
           set({ subscribedSymbols: new Set(activeSymbols) })
@@ -185,6 +206,7 @@ export const useWebSocketStore = create<WebSocketState>((set, get) => ({
     if (client?.connected) {
       client.publish({
         destination: '/app/subscribe',
+        headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ type: 'SUBSCRIBE', symbols: toSubscribe }),
       })
       toSubscribe.forEach((symbol) => {
@@ -222,6 +244,7 @@ export const useWebSocketStore = create<WebSocketState>((set, get) => ({
     if (toUnsubscribe.length > 0 && client?.connected) {
       client.publish({
         destination: '/app/unsubscribe',
+        headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ type: 'UNSUBSCRIBE', symbols: toUnsubscribe }),
       })
       toUnsubscribe.forEach((symbol) => {

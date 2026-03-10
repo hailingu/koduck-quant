@@ -58,6 +58,10 @@ class Settings(BaseSettings):
     TICK_BATCH_SIZE: int = 100                     # 批量写入大小
     TICK_WRITE_ASYNC: bool = True                  # 是否异步写入
     TICK_PARTITION_RETENTION_MONTHS: int = 3       # 分区保留月数（用于自动清理）
+
+    # Realtime scheduler behavior
+    # 默认盘中也执行自动更新，避免 stock_realtime 在交易时段停更
+    REALTIME_SKIP_DURING_TRADING_HOURS: bool = False
     
     # Logging
     LOG_LEVEL: str = "INFO"

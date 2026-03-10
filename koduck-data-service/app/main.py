@@ -152,8 +152,9 @@ async def run_realtime_update_scheduler():
     :func:`app.services.data_updater.run_realtime_loop` for ongoing
     polling every 30 seconds.
     
-    Note: Updates are skipped during A-share trading hours (09:30-11:30, 13:00-15:00)
-    to avoid conflicts with market data.
+    By default updates run continuously every 30 seconds. If
+    ``REALTIME_SKIP_DURING_TRADING_HOURS`` is enabled, updates are skipped
+    during A-share trading hours (09:30-11:30, 13:00-15:00).
     """
     from app.utils.trading_hours import is_a_share_trading_time
     
@@ -178,8 +179,11 @@ async def run_realtime_update_scheduler():
 
     while True:
         try:
-            # Skip updates during trading hours
-            if is_a_share_trading_time():
+            # Optional guard for deployments that do not want intraday polling.
+            if (
+                settings.REALTIME_SKIP_DURING_TRADING_HOURS
+                and is_a_share_trading_time()
+            ):
                 logger.debug("Within trading hours, skipping realtime update")
                 await asyncio.sleep(interval_seconds)
                 continue

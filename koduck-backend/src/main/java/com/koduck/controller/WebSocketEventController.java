@@ -1,5 +1,6 @@
 package com.koduck.controller;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.koduck.config.WebSocketChannelInterceptor;
 import com.koduck.dto.websocket.SubscriptionMessage;
 import com.koduck.dto.websocket.WebSocketMessage;
@@ -37,7 +38,11 @@ import java.util.concurrent.ConcurrentHashMap;
 @RequiredArgsConstructor
 public class WebSocketEventController {
 
+    private static final String SUBSCRIBE_RESULT = "SUBSCRIBE_RESULT";
+    private static final String UNSUBSCRIBE_RESULT = "UNSUBSCRIBE_RESULT";
+
     private final StockSubscriptionService stockSubscriptionService;
+    private final ObjectMapper objectMapper;
 
     /**
      * 存储活跃连接的用户
@@ -54,15 +59,17 @@ public class WebSocketEventController {
     @MessageMapping("/subscribe")
     @SendToUser("/queue/subscribe-result")
     public SubscriptionMessage handleSubscribe(
-            @Payload(required = false) SubscriptionMessage request,
+            @Payload(required = false) Object payload,
             SimpMessageHeaderAccessor headerAccessor) {
         log.info("用户订阅请求, sessionId={}", headerAccessor.getSessionId());
+
+        SubscriptionMessage request = parseSubscriptionMessage(payload);
 
         // 获取用户信息
         WebSocketChannelInterceptor.WebSocketUserPrincipal principal = getUserPrincipal(headerAccessor);
         if (principal == null) {
             return SubscriptionMessage.builder()
-                    .type("SUBSCRIBE_RESULT")
+                    .type(SUBSCRIBE_RESULT)
                     .failed(Map.of("error", "User not authenticated"))
                     .timestamp(System.currentTimeMillis())
                     .build();
@@ -80,7 +87,7 @@ public class WebSocketEventController {
             StockSubscriptionService.SubscribeResult result = stockSubscriptionService.unsubscribe(userId, symbols);
             Set<String> allSubscriptions = stockSubscriptionService.getUserSubscriptions(userId);
             return SubscriptionMessage.builder()
-                .type("UNSUBSCRIBE_RESULT")
+                .type(UNSUBSCRIBE_RESULT)
                 .symbols(symbols)
                 .success(result.getSuccess())
                 .failed(result.getFailed())
@@ -93,7 +100,7 @@ public class WebSocketEventController {
             // 返回当前订阅列表
             Set<String> subscriptions = stockSubscriptionService.getUserSubscriptions(userId);
             return SubscriptionMessage.builder()
-                    .type("SUBSCRIBE_RESULT")
+                    .type(SUBSCRIBE_RESULT)
                     .subscriptions(new ArrayList<>(subscriptions))
                     .timestamp(System.currentTimeMillis())
                     .build();
@@ -106,7 +113,7 @@ public class WebSocketEventController {
         Set<String> allSubscriptions = stockSubscriptionService.getUserSubscriptions(userId);
 
         return SubscriptionMessage.builder()
-                .type("SUBSCRIBE_RESULT")
+            .type(SUBSCRIBE_RESULT)
                 .symbols(symbols)
                 .success(result.getSuccess())
                 .failed(result.getFailed())
@@ -124,15 +131,17 @@ public class WebSocketEventController {
     @MessageMapping("/unsubscribe")
     @SendToUser("/queue/unsubscribe-result")
     public SubscriptionMessage handleUnsubscribe(
-            @Payload(required = false) SubscriptionMessage request,
+            @Payload(required = false) Object payload,
             SimpMessageHeaderAccessor headerAccessor) {
         log.info("用户取消订阅请求, sessionId={}", headerAccessor.getSessionId());
+
+        SubscriptionMessage request = parseSubscriptionMessage(payload);
 
         // 获取用户信息
         WebSocketChannelInterceptor.WebSocketUserPrincipal principal = getUserPrincipal(headerAccessor);
         if (principal == null) {
             return SubscriptionMessage.builder()
-                    .type("UNSUBSCRIBE_RESULT")
+                    .type(UNSUBSCRIBE_RESULT)
                     .failed(Map.of("error", "User not authenticated"))
                     .timestamp(System.currentTimeMillis())
                     .build();
@@ -151,7 +160,7 @@ public class WebSocketEventController {
         Set<String> allSubscriptions = stockSubscriptionService.getUserSubscriptions(userId);
 
         return SubscriptionMessage.builder()
-                .type("UNSUBSCRIBE_RESULT")
+            .type(UNSUBSCRIBE_RESULT)
                 .symbols(symbols)
                 .success(result.getSuccess())
                 .failed(result.getFailed())
@@ -218,10 +227,34 @@ public class WebSocketEventController {
      * 从头部获取用户 Principal
      */
     private WebSocketChannelInterceptor.WebSocketUserPrincipal getUserPrincipal(SimpMessageHeaderAccessor headerAccessor) {
-        if (headerAccessor.getUser() instanceof WebSocketChannelInterceptor.WebSocketUserPrincipal) {
-            return (WebSocketChannelInterceptor.WebSocketUserPrincipal) headerAccessor.getUser();
+        if (headerAccessor.getUser() instanceof WebSocketChannelInterceptor.WebSocketUserPrincipal principal) {
+            return principal;
         }
         return null;
+    }
+
+    private SubscriptionMessage parseSubscriptionMessage(Object payload) {
+        if (payload == null) {
+            return null;
+        }
+
+        try {
+            if (payload instanceof SubscriptionMessage message) {
+                return message;
+            }
+
+            if (payload instanceof String text) {
+                if (text.isBlank()) {
+                    return null;
+                }
+                return objectMapper.readValue(text, SubscriptionMessage.class);
+            }
+
+            return objectMapper.convertValue(payload, SubscriptionMessage.class);
+        } catch (Exception _) {
+            log.warn("订阅消息解析失败: payload={}", payload);
+            return null;
+        }
     }
 
     /**

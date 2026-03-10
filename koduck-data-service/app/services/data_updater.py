@@ -9,7 +9,7 @@ import logging
 from datetime import datetime
 from typing import Any, Optional, Tuple
 
-from app.db import stock_db, tick_history_db
+from app.db import Database, stock_db, tick_history_db
 from app.config import settings
 from app.services.eastmoney_client import eastmoney_client
 from app.utils.trading_hours import is_a_share_trading_time
@@ -89,6 +89,18 @@ class DataUpdater:
                 data["_data_source"] = "after_hours"  # Mark data source
 
         return data
+
+    @staticmethod
+    def _resolve_secid_prefix(symbol: str) -> str:
+        """Resolve Eastmoney secid prefix from stock symbol.
+
+        Returns "1" for Shanghai-style symbols (6/5/9 prefix), otherwise "0"
+        for Shenzhen-style symbols (0/2/3 prefix).
+        """
+        normalized = (symbol or "").strip()
+        if normalized.startswith(("6", "5", "9")):
+            return "1"
+        return "0"
     
     def _should_store_tick(self) -> bool:
         """Check if current tick should be stored based on sampling interval.
@@ -241,10 +253,35 @@ class DataUpdater:
         """
         try:
             # Fetch from Eastmoney
-            data = eastmoney_client.fetch_single_stock(symbol)
+            data = eastmoney_client.fetch_single_stock(
+                symbol,
+                secid_prefix=self._resolve_secid_prefix(symbol),
+            )
             
             if not data:
                 logger.warning(f"No data returned from Eastmoney for {symbol}")
+
+                # Keep stock_realtime aligned with watchlist symbols even when
+                # the upstream quote provider temporarily has no data.
+                basic = await Database.fetchrow(
+                    "SELECT name FROM stock_basic WHERE symbol = $1",
+                    symbol,
+                )
+                fallback_name = basic["name"] if basic and basic.get("name") else symbol
+                fallback_data: StockPayload = {
+                    "symbol": symbol,
+                    "name": fallback_name,
+                }
+
+                fallback_saved = await stock_db.upsert_stock(fallback_data)
+                if fallback_saved:
+                    await stock_db.upsert_stock_basic(symbol, fallback_name, "AShare")
+                    logger.info(
+                        "Inserted placeholder realtime row for %s due to missing provider quote",
+                        symbol,
+                    )
+                    return fallback_data
+
                 return None
             
             # Ensure symbol and name are set
