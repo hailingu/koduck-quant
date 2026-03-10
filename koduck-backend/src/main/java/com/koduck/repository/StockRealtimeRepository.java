@@ -19,6 +19,12 @@ public interface StockRealtimeRepository extends JpaRepository<StockRealtime, St
      * Find stock by symbol.
      */
     Optional<StockRealtime> findBySymbol(String symbol);
+
+    /**
+     * Find latest stock quote by symbol.
+     * Useful when legacy data may contain duplicate symbol rows.
+     */
+    Optional<StockRealtime> findFirstBySymbolOrderByUpdatedAtDesc(String symbol);
     
     /**
      * Find stock by normalized symbol (ignoring market prefix and case).

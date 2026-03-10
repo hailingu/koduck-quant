@@ -34,6 +34,20 @@ interface Provider {
   models: string[]
 }
 
+const getAuthToken = (): string => {
+  const authStorage = localStorage.getItem('auth-storage')
+  if (!authStorage) {
+    return ''
+  }
+
+  try {
+    const authState = JSON.parse(authStorage)
+    return authState?.state?.token || ''
+  } catch {
+    return ''
+  }
+}
+
 // 可用的 LLM 提供商
 const PROVIDERS: Provider[] = [
   { id: 'minimax', name: 'MiniMax', models: ['MiniMax-M2.5'] },
@@ -194,12 +208,14 @@ export function AIChat({ symbol, stockName, stockInfo }: AIChatProps) {
         ],
         provider: selectedProvider,
       }
+      const token = getAuthToken()
 
       // 使用 SSE 流式请求
       const response = await fetch('/api/v1/ai/chat/stream', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
         body: JSON.stringify(requestBody),
       })
@@ -216,6 +232,14 @@ export function AIChat({ symbol, stockName, stockInfo }: AIChatProps) {
 
       if (!reader) {
         throw new Error('无法读取响应流')
+      }
+
+      const parseSseField = (line: string, field: 'event' | 'data'): string | null => {
+        const prefix = `${field}:`
+        if (!line.startsWith(prefix)) {
+          return null
+        }
+        return line.slice(prefix.length).trimStart()
       }
 
       // 读取流
@@ -237,16 +261,22 @@ export function AIChat({ symbol, stockName, stockInfo }: AIChatProps) {
 
           const lines = message.split('\n')
           let eventType = 'message'
-          let dataStr = ''
+          const dataParts: string[] = []
 
           for (const line of lines) {
-            if (line.startsWith('event: ')) {
-              eventType = line.slice(7).trim()
-            } else if (line.startsWith('data: ')) {
-              dataStr = line.slice(6).trim()
+            const eventValue = parseSseField(line, 'event')
+            if (eventValue !== null) {
+              eventType = eventValue || 'message'
+              continue
+            }
+
+            const dataValue = parseSseField(line, 'data')
+            if (dataValue !== null) {
+              dataParts.push(dataValue)
             }
           }
 
+          const dataStr = dataParts.join('\n').trim()
           if (!dataStr) continue
 
           try {
@@ -273,12 +303,14 @@ export function AIChat({ symbol, stockName, stockInfo }: AIChatProps) {
       // 处理缓冲区中剩余的数据
       if (buffer.trim()) {
         const lines = buffer.split('\n')
-        let dataStr = ''
+        const dataParts: string[] = []
         for (const line of lines) {
-          if (line.startsWith('data: ')) {
-            dataStr = line.slice(6).trim()
+          const dataValue = parseSseField(line, 'data')
+          if (dataValue !== null) {
+            dataParts.push(dataValue)
           }
         }
+        const dataStr = dataParts.join('\n').trim()
         if (dataStr) {
           try {
             const data = JSON.parse(dataStr)

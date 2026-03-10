@@ -1,4 +1,5 @@
 import request from './request'
+import { marketApi } from './market'
 
 // 持仓项
 export interface PortfolioItem {
@@ -111,17 +112,45 @@ export const portfolioApi = {
     })
   },
 
-  // 获取行业分布（前端 Mock，需要后端支持行业数据）
+  // 获取行业分布（按行业聚合）
   getSectorDistribution: (): Promise<SectorDistribution[]> => {
-    return portfolioApi.getPortfolio().then((items) => {
+    return portfolioApi.getPortfolio().then(async (items) => {
       const totalValue = items.reduce((sum, item) => sum + item.marketValue, 0)
       if (totalValue === 0) return []
-      // 简化处理，每个股票作为一个"行业"
-      return items.map((item) => ({
-        sector: item.name,
-        value: item.marketValue,
-        percent: totalValue > 0 ? (item.marketValue / totalValue) * 100 : 0,
-      }))
+
+      const industryResults = await Promise.all(
+        items.map(async (item) => {
+          try {
+            const industryInfo = await marketApi.getStockIndustry(item.symbol)
+            return {
+              item,
+              industry:
+                industryInfo.industry ||
+                industryInfo.sector ||
+                industryInfo.subIndustry ||
+                '未知行业',
+            }
+          } catch {
+            return {
+              item,
+              industry: '未知行业',
+            }
+          }
+        })
+      )
+
+      const industryValueMap = new Map<string, number>()
+      industryResults.forEach(({ item, industry }) => {
+        industryValueMap.set(industry, (industryValueMap.get(industry) ?? 0) + item.marketValue)
+      })
+
+      return Array.from(industryValueMap.entries())
+        .map(([sector, value]) => ({
+          sector,
+          value,
+          percent: totalValue > 0 ? (value / totalValue) * 100 : 0,
+        }))
+        .sort((a, b) => b.value - a.value)
     })
   },
 

@@ -17,6 +17,9 @@ const REALTIME_STALE_MS = 20000
 const WATCHLIST_REFRESH_MS = 15000
 const MARKET_STATUS_CHECK_MS = 30000
 
+const APPLE_CARD_CLASS =
+  'bg-white dark:bg-[#1c1c1e] rounded-[24px] shadow-[0_4px_24px_rgba(0,0,0,0.04)] border border-gray-100 dark:border-white/5'
+
 const normalizeSymbol = (symbol: string): string => {
   const digits = symbol.replaceAll(/\D/g, '')
   if (digits.length >= 1 && digits.length <= 6) {
@@ -31,7 +34,7 @@ function SortButton({ direction, onClick, active }: { direction: 'up' | 'down'; 
   return (
     <button
       onClick={onClick}
-      className={`p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700 ${active ? 'text-primary-600' : 'text-gray-400'}`}
+      className={`p-1 rounded-md transition-colors hover:bg-[#eceef2] dark:hover:bg-[#2c2c2e] ${active ? 'text-[#0a84ff]' : 'text-[#8e8e93]'}`}
     >
       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         {direction === 'up' ? (
@@ -59,20 +62,17 @@ function WatchlistRow({
   const colorClass = isUp ? 'text-stock-up' : 'text-stock-down'
 
   return (
-    <tr className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+    <tr className="group hover:bg-gray-50/60 dark:hover:bg-white/5 transition-colors">
       <td className="px-6 py-4 whitespace-nowrap">
         <div className="flex items-center">
-          <div className="w-10 h-10 rounded-lg bg-primary-100 dark:bg-primary-900/30 flex items-center justify-center mr-3">
-            <span className="text-xs font-bold text-primary-600 dark:text-primary-400">{item.market}</span>
-          </div>
           <div>
             <div
-              className="text-sm font-medium text-gray-900 dark:text-white cursor-pointer hover:text-primary-600"
+              className="text-[15px] font-medium text-[#1d1d1f] dark:text-white cursor-pointer hover:text-[#0a84ff] transition-colors"
               onClick={() => onClick(item.symbol, item.market)}
             >
               {item.name}
             </div>
-            <div className="text-sm text-gray-500 dark:text-gray-400">{item.symbol}</div>
+            <div className="text-[13px] text-[#8e8e93] dark:text-gray-400 mt-0.5">{item.symbol}</div>
           </div>
         </div>
       </td>
@@ -96,15 +96,27 @@ function WatchlistRow({
         {new Date(item.createdAt).toLocaleDateString('zh-CN')}
       </td>
       <td className="px-6 py-4 whitespace-nowrap text-right">
-        <button
-          onClick={() => onDelete(item.id)}
-          className="text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300 p-2 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
-          title="删除"
+        <div
+          className="
+            inline-flex w-[52px] justify-end
+            transition-all duration-200
+            opacity-100 translate-x-0
+            md:opacity-30 md:translate-x-1
+            md:group-hover:opacity-100 md:group-hover:translate-x-0
+            md:group-focus-within:opacity-100 md:group-focus-within:translate-x-0
+          "
         >
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-          </svg>
-        </button>
+          <button
+            onClick={() => onDelete(item.id)}
+            className="text-red-500 hover:text-red-600 p-2 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-[10px] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-400/60"
+            title="删除"
+            aria-label={`删除 ${item.name}`}
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+            </svg>
+          </button>
+        </div>
       </td>
     </tr>
   )
@@ -284,204 +296,177 @@ export default function Watchlist() {
   }
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <div>
-            <h2 className="text-2xl font-bold text-gray-900 dark:text-white">自选股</h2>
-            <p className="mt-1 text-gray-600 dark:text-gray-400">管理您的关注股票列表</p>
-          </div>
-          {/* Connection Status Indicator */}
-          {connectionState === 'connected' && marketTrading && (
-            <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400">
-              <span className="w-2 h-2 mr-1 rounded-full bg-green-500 animate-pulse"></span>
-              实时
-            </span>
-          )}
-          {connectionState === 'connected' && !marketTrading && (
-            <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-400">
-              <span className="w-2 h-2 mr-1 rounded-full bg-gray-400"></span>
-              已收盘
-            </span>
-          )}
-          {connectionState === 'reconnecting' && (
-            <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400">
-              <span className="w-2 h-2 mr-1 rounded-full bg-yellow-500 animate-pulse"></span>
-              重连中
-            </span>
-          )}
-          {connectionState === 'disconnected' && (
-            <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-400">
-              <span className="w-2 h-2 mr-1 rounded-full bg-gray-400"></span>
-              离线
-            </span>
-          )}
-        </div>
-        <button
-          onClick={() => setShowAddModal(true)}
-          className="inline-flex items-center px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg transition-colors"
-        >
-          <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-          </svg>
-          添加股票
-        </button>
-      </div>
-
-      {/* Stats Card */}
-      <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <div className="text-center">
-            <div className="text-3xl font-bold text-primary-600 dark:text-primary-400">{watchlist.length}</div>
-            <div className="text-sm text-gray-500 dark:text-gray-400 mt-1">自选股总数</div>
-          </div>
-          <div className="text-center">
-            <div className="text-3xl font-bold text-stock-up">
-              {watchlist.filter((i) => (i.changePercent || 0) > 0).length}
-            </div>
-            <div className="text-sm text-gray-500 dark:text-gray-400 mt-1">上涨</div>
-          </div>
-          <div className="text-center">
-            <div className="text-3xl font-bold text-stock-down">
-              {watchlist.filter((i) => (i.changePercent || 0) < 0).length}
-            </div>
-            <div className="text-sm text-gray-500 dark:text-gray-400 mt-1">下跌</div>
-          </div>
-          <div className="text-center">
-            <div className="text-3xl font-bold text-gray-600 dark:text-gray-400">
-              {watchlist.filter((i) => (i.changePercent || 0) === 0).length}
-            </div>
-            <div className="text-sm text-gray-500 dark:text-gray-400 mt-1">平盘</div>
-          </div>
-        </div>
-      </div>
-
+    <div className="space-y-6 [font-family:-apple-system,BlinkMacSystemFont,'SF_Pro_Text','Helvetica_Neue','Segoe_UI',sans-serif]">
       {/* Watchlist Table */}
-      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
-        {loading ? (
-          <div className="p-8">
-            <div className="animate-pulse space-y-4">
-              {[...Array(5)].map((_, i) => (
-                <div key={i} className="flex items-center space-x-4">
-                  <div className="w-10 h-10 bg-gray-200 dark:bg-gray-700 rounded-lg"></div>
-                  <div className="flex-1 h-12 bg-gray-200 dark:bg-gray-700 rounded"></div>
-                </div>
-              ))}
+      <div className={`${APPLE_CARD_CLASS} p-6 flex flex-col`}>
+        <div className="mb-6 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <div className="inline-flex bg-gray-100 dark:bg-gray-800 p-0.5 rounded-[10px]">
+              <span className="px-4 py-1.5 rounded-[8px] text-[14px] font-medium bg-white text-[#1d1d1f] shadow-sm dark:bg-[#2c2c2e] dark:text-white">
+                自选列表
+              </span>
             </div>
+            {connectionState === 'connected' && marketTrading && (
+              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400">
+                <span className="w-1.5 h-1.5 mr-1 rounded-full bg-green-500 animate-pulse"></span>
+                实时
+              </span>
+            )}
+            {connectionState === 'connected' && !marketTrading && (
+              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-400">
+                <span className="w-1.5 h-1.5 mr-1 rounded-full bg-gray-400"></span>
+                已收盘
+              </span>
+            )}
+            {connectionState === 'reconnecting' && (
+              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400">
+                <span className="w-1.5 h-1.5 mr-1 rounded-full bg-yellow-500 animate-pulse"></span>
+                重连中
+              </span>
+            )}
+            {connectionState === 'disconnected' && (
+              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-400">
+                <span className="w-1.5 h-1.5 mr-1 rounded-full bg-gray-400"></span>
+                离线
+              </span>
+            )}
           </div>
-        ) : watchlist.length === 0 ? (
-          <div className="text-center py-16">
-            <svg
-              className="w-16 h-16 mx-auto text-gray-300 dark:text-gray-600 mb-4"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"
-              />
+          <button
+            onClick={() => setShowAddModal(true)}
+            className="inline-flex h-8 items-center justify-center gap-1.5 px-3.5 rounded-full bg-white dark:bg-[#1c1c1e] text-[#1d1d1f] dark:text-white font-medium text-[13px] shadow-sm border border-gray-200 dark:border-white/10 hover:bg-gray-50 dark:hover:bg-[#2c2c2e] transition-colors"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
             </svg>
-            <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">暂无自选股</h3>
-            <p className="text-gray-500 dark:text-gray-400 mb-4">点击上方按钮添加您关注的股票</p>
-            <button
-              onClick={() => setShowAddModal(true)}
-              className="px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg transition-colors"
-            >
-              添加第一只股票
-            </button>
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-              <thead className="bg-gray-50 dark:bg-gray-700/50">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                    <button
-                      className="flex items-center gap-1 hover:text-gray-700 dark:hover:text-gray-200"
-                      onClick={() => handleSort('name')}
-                    >
-                      股票名称
-                      <SortButton
-                        direction={sortConfig?.key === 'name' && sortConfig.direction === 'asc' ? 'up' : 'down'}
-                        onClick={() => handleSort('name')}
-                        active={sortConfig?.key === 'name'}
-                      />
-                    </button>
-                  </th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                    <button
-                      className="flex items-center justify-end gap-1 hover:text-gray-700 dark:hover:text-gray-200 ml-auto"
-                      onClick={() => handleSort('price')}
-                    >
-                      最新价
-                      <SortButton
-                        direction={sortConfig?.key === 'price' && sortConfig.direction === 'asc' ? 'up' : 'down'}
-                        onClick={() => handleSort('price')}
-                        active={sortConfig?.key === 'price'}
-                      />
-                    </button>
-                  </th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                    <button
-                      className="flex items-center justify-end gap-1 hover:text-gray-700 dark:hover:text-gray-200 ml-auto"
-                      onClick={() => handleSort('change')}
-                    >
-                      涨跌幅
-                      <SortButton
-                        direction={sortConfig?.key === 'change' && sortConfig.direction === 'asc' ? 'up' : 'down'}
-                        onClick={() => handleSort('change')}
-                        active={sortConfig?.key === 'change'}
-                      />
-                    </button>
-                  </th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                    <button
-                      className="flex items-center justify-end gap-1 hover:text-gray-700 dark:hover:text-gray-200 ml-auto"
-                      onClick={() => handleSort('time')}
-                    >
-                      添加时间
-                      <SortButton
-                        direction={sortConfig?.key === 'time' && sortConfig.direction === 'asc' ? 'up' : 'down'}
-                        onClick={() => handleSort('time')}
-                        active={sortConfig?.key === 'time'}
-                      />
-                    </button>
-                  </th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                    操作
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-                {watchlistWithRealtime.map((item) => (
-                  <WatchlistRow
-                    key={item.id}
-                    item={item}
-                    onDelete={handleDelete}
-                    onClick={handleClickStock}
-                  />
+            添加股票
+          </button>
+        </div>
+
+        <div className="overflow-x-auto -mx-6 px-6">
+          {loading ? (
+            <div className="p-8">
+              <div className="animate-pulse space-y-4">
+                {[...Array(5)].map((_, i) => (
+                  <div key={i} className="flex items-center space-x-4">
+                    <div className="w-10 h-10 bg-[#eceef2] dark:bg-[#2c2c2e] rounded-[10px]"></div>
+                    <div className="flex-1 h-12 bg-[#eceef2] dark:bg-[#2c2c2e] rounded-[10px]"></div>
+                  </div>
                 ))}
-              </tbody>
-            </table>
-          </div>
-        )}
+              </div>
+            </div>
+          ) : watchlist.length === 0 ? (
+            <div className="text-center py-16">
+              <svg
+                className="w-16 h-16 mx-auto text-[#c7c7cc] dark:text-gray-600 mb-4"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"
+                />
+              </svg>
+              <h3 className="text-lg font-medium text-[#1d1d1f] dark:text-white mb-2">暂无自选股</h3>
+              <p className="text-[#8e8e93] dark:text-gray-400 mb-4">点击上方按钮添加您关注的股票</p>
+              <button
+                onClick={() => setShowAddModal(true)}
+                className="px-4 py-2 rounded-[10px] bg-[#0a84ff] hover:bg-[#0077ed] text-white transition-colors"
+              >
+                添加第一只股票
+              </button>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-100 dark:divide-white/10">
+                <thead className="bg-[#fbfbfd] dark:bg-[#232326]">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-[13px] font-medium text-[#8e8e93] dark:text-gray-400">
+                      <button
+                        className="flex items-center gap-1 hover:text-[#3a3a3c] dark:hover:text-gray-200"
+                        onClick={() => handleSort('name')}
+                      >
+                        股票名称
+                        <SortButton
+                          direction={sortConfig?.key === 'name' && sortConfig.direction === 'asc' ? 'up' : 'down'}
+                          onClick={() => handleSort('name')}
+                          active={sortConfig?.key === 'name'}
+                        />
+                      </button>
+                    </th>
+                    <th className="px-6 py-3 text-right text-[13px] font-medium text-[#8e8e93] dark:text-gray-400">
+                      <button
+                        className="flex items-center justify-end gap-1 hover:text-[#3a3a3c] dark:hover:text-gray-200 ml-auto"
+                        onClick={() => handleSort('price')}
+                      >
+                        最新价
+                        <SortButton
+                          direction={sortConfig?.key === 'price' && sortConfig.direction === 'asc' ? 'up' : 'down'}
+                          onClick={() => handleSort('price')}
+                          active={sortConfig?.key === 'price'}
+                        />
+                      </button>
+                    </th>
+                    <th className="px-6 py-3 text-right text-[13px] font-medium text-[#8e8e93] dark:text-gray-400">
+                      <button
+                        className="flex items-center justify-end gap-1 hover:text-[#3a3a3c] dark:hover:text-gray-200 ml-auto"
+                        onClick={() => handleSort('change')}
+                      >
+                        涨跌幅
+                        <SortButton
+                          direction={sortConfig?.key === 'change' && sortConfig.direction === 'asc' ? 'up' : 'down'}
+                          onClick={() => handleSort('change')}
+                          active={sortConfig?.key === 'change'}
+                        />
+                      </button>
+                    </th>
+                    <th className="px-6 py-3 text-right text-[13px] font-medium text-[#8e8e93] dark:text-gray-400">
+                      <button
+                        className="flex items-center justify-end gap-1 hover:text-[#3a3a3c] dark:hover:text-gray-200 ml-auto"
+                        onClick={() => handleSort('time')}
+                      >
+                        添加时间
+                        <SortButton
+                          direction={sortConfig?.key === 'time' && sortConfig.direction === 'asc' ? 'up' : 'down'}
+                          onClick={() => handleSort('time')}
+                          active={sortConfig?.key === 'time'}
+                        />
+                      </button>
+                    </th>
+                    <th className="px-6 py-3 text-right text-[13px] font-medium text-[#8e8e93] dark:text-gray-400">
+                      操作
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white dark:bg-[#1c1c1e] divide-y divide-gray-100 dark:divide-white/10">
+                  {watchlistWithRealtime.map((item) => (
+                    <WatchlistRow
+                      key={item.id}
+                      item={item}
+                      onDelete={handleDelete}
+                      onClick={handleClickStock}
+                    />
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Add Stock Modal */}
       {showAddModal && (
         <div className="fixed inset-0 z-50 overflow-y-auto">
           <div className="flex items-center justify-center min-h-screen px-4">
-            <div className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" onClick={() => setShowAddModal(false)}></div>
-            <div className="relative bg-white dark:bg-gray-800 rounded-xl shadow-xl max-w-md w-full p-6">
+            <div className="fixed inset-0 bg-black/20 backdrop-blur-sm transition-opacity" onClick={() => setShowAddModal(false)}></div>
+            <div className="relative max-w-md w-full p-6 bg-white dark:bg-[#1c1c1e] rounded-[24px] shadow-[0_25px_60px_rgba(0,0,0,0.15)] ring-1 ring-black/5 dark:ring-white/10">
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">添加自选股</h3>
+                <h3 className="text-lg font-semibold text-[#1d1d1f] dark:text-white">添加自选股</h3>
                 <button
                   onClick={() => setShowAddModal(false)}
-                  className="text-gray-400 hover:text-gray-500 dark:hover:text-gray-300"
+                  className="text-[#8e8e93] hover:text-[#6e6e73] dark:hover:text-gray-300"
                 >
                   <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -493,7 +478,7 @@ export default function Watchlist() {
                   handleAddStock(symbol, name, market || 'AShare')
                 }}
               />
-              <p className="mt-4 text-sm text-gray-500 dark:text-gray-400">
+              <p className="mt-4 text-sm text-[#8e8e93] dark:text-gray-400">
                 搜索股票代码或名称，点击即可添加到自选股
               </p>
             </div>

@@ -3,14 +3,12 @@ import { useAuthStore } from '@/stores/auth'
 import MainLayout from '@/layouts/MainLayout'
 import Login from '@/pages/Login'
 import Register from '@/pages/Register'
-import Dashboard from '@/pages/Dashboard'
 import Watchlist from '@/pages/Watchlist'
 import Portfolio from '@/pages/Portfolio'
 import Settings from '@/pages/Settings'
 import Kline from '@/pages/Kline'
 import Market from '@/pages/Market'
 import Monitoring from '@/pages/Monitoring'
-import Profile from '@/pages/Profile'
 
 // Protected Route wrapper
 function ProtectedRoute() {
@@ -18,10 +16,10 @@ function ProtectedRoute() {
   return isAuthenticated ? <Outlet /> : <Navigate to="/login" replace />
 }
 
-// Public Route wrapper (redirect to dashboard if authenticated)
+// Public Route wrapper (redirect to market if authenticated)
 function PublicRoute() {
   const { isAuthenticated } = useAuthStore()
-  return !isAuthenticated ? <Outlet /> : <Navigate to="/dashboard" replace />
+  return !isAuthenticated ? <Outlet /> : <Navigate to="/market" replace />
 }
 
 export const router = createBrowserRouter([
@@ -38,25 +36,25 @@ export const router = createBrowserRouter([
       {
         element: <MainLayout />,
         children: [
-          { path: '/dashboard', element: <Dashboard /> },
+          { path: '/dashboard', element: <Navigate to="/market" replace /> },
           { path: '/market', element: <Market /> },
           { path: '/watchlist', element: <Watchlist /> },
           { path: '/kline', element: <Kline /> },
           { path: '/portfolio', element: <Portfolio /> },
           { path: '/settings', element: <Settings /> },
           { path: '/monitoring', element: <Monitoring /> },
-          { path: '/profile', element: <Profile /> },
-          { path: '/profile/edit', element: <Profile /> },
-          { path: '/profile/preferences', element: <Profile /> },
-          { path: '/profile/security', element: <Profile /> },
-          { path: '/profile/api', element: <Profile /> },
-          { path: '/profile/data', element: <Profile /> },
+          { path: '/profile', element: <Navigate to="/settings" replace /> },
+          { path: '/profile/edit', element: <Navigate to="/settings" replace /> },
+          { path: '/profile/preferences', element: <Navigate to="/settings" replace /> },
+          { path: '/profile/security', element: <Navigate to="/settings" replace /> },
+          { path: '/profile/api', element: <Navigate to="/settings" replace /> },
+          { path: '/profile/data', element: <Navigate to="/settings" replace /> },
         ],
       },
     ],
   },
   {
     path: '/',
-    element: <Navigate to="/dashboard" replace />,
+    element: <Navigate to="/market" replace />,
   },
 ])
