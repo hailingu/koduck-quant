@@ -7,6 +7,7 @@ import { useWebSocketSubscription } from '@/hooks/useWebSocket'
 import { useWebSocketStore } from '@/stores/websocket'
 import StockSearch from '@/components/StockSearch'
 import PriceDisplay from '@/components/PriceDisplay'
+import { isTradingHours } from '@/utils/trading'
 
 interface WatchlistDisplayItem extends WatchlistItem {
   realtimeTimestamp?: number
@@ -253,10 +254,16 @@ export default function Watchlist() {
             <p className="mt-1 text-gray-600 dark:text-gray-400">管理您的关注股票列表</p>
           </div>
           {/* Connection Status Indicator */}
-          {connectionState === 'connected' && (
+          {connectionState === 'connected' && isTradingHours() && (
             <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400">
               <span className="w-2 h-2 mr-1 rounded-full bg-green-500 animate-pulse"></span>
               实时
+            </span>
+          )}
+          {connectionState === 'connected' && !isTradingHours() && (
+            <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-400">
+              <span className="w-2 h-2 mr-1 rounded-full bg-gray-400"></span>
+              已收盘
             </span>
           )}
           {connectionState === 'reconnecting' && (
