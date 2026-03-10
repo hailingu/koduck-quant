@@ -94,3 +94,26 @@ def test_fetch_a_share_stocks_returns_empty_when_all_methods_fail(
     result = asyncio.run(initializer.fetch_a_share_stocks())
 
     assert result == []
+
+
+def test_check_needs_initialization_true_when_count_below_threshold(
+    monkeypatch: Any,
+) -> None:
+    """Partial stock_basic imports should keep initialization enabled."""
+    initializer = StockInitializer()
+
+    async def fake_check_table_exists() -> bool:
+        return True
+
+    async def fake_fetchrow(_query: str) -> dict[str, int]:
+        return {"count": 1200}
+
+    monkeypatch.setattr(initializer, "check_table_exists", fake_check_table_exists)
+    monkeypatch.setattr(
+        "app.services.stock_initializer.Database.fetchrow",
+        fake_fetchrow,
+    )
+
+    result = asyncio.run(initializer.check_needs_initialization())
+
+    assert result is True

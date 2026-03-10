@@ -89,7 +89,15 @@ async def lifespan(app: FastAPI):
 
     # Initialize A-share stock basic data (enhanced with CSV caching)
     logger.info("Initializing A-share stock basic data with CSV caching...")
-    stock_basic_success = await stock_basic_manager.initialize()
+    stock_basic_table_exists = await stock_initializer.check_table_exists()
+    if stock_basic_table_exists:
+        stock_basic_success = await stock_basic_manager.initialize()
+    else:
+        logger.warning(
+            "stock_basic table not ready yet, skipping CSV manager initialization "
+            "and waiting for retry initializer"
+        )
+        stock_basic_success = False
     if stock_basic_success:
         logger.info("Stock basic data initialization from CSV: SUCCESS")
     else:
@@ -148,30 +156,71 @@ async def run_realtime_update_scheduler():
     
     # Wait a bit for service to fully start
     await asyncio.sleep(5)
-    
-    # Get list of symbols that have kline data
+
     from app.db import Database
-    
-    symbols_result = await Database.fetch("""
-        SELECT symbol FROM watchlist_items WHERE market = 'AShare'
-    """)
-    
-    symbols = [row['symbol'] for row in symbols_result]
-    
-    if not symbols:
-        logger.warning("No symbols found in watchlist, skipping realtime update")
-        return
-    
-    logger.info(f"Found {len(symbols)} symbols in watchlist to update: {symbols[:5]}...")
-    
-    # Run initial update for all symbols
-    for symbol in symbols:
-        await data_updater.update_single_stock(symbol)
-    
-    logger.info(f"Initial realtime update completed for {len(symbols)} symbols")
-    
-    # Start continuous update loop (every 30 seconds)
-    await data_updater.run_realtime_loop(symbols, interval_seconds=30)
+
+    def normalize_symbol(value: object) -> str:
+        text = str(value).strip()
+        if text.endswith(".0"):
+            text = text[:-2]
+        return text.zfill(6) if text.isdigit() else text
+
+    last_symbols: set[str] = set()
+    iteration = 0
+    interval_seconds = 30
+
+    logger.info("Starting realtime watchlist scheduler loop")
+
+    while True:
+        try:
+            symbols_result = await Database.fetch(
+                """
+                SELECT DISTINCT symbol
+                FROM watchlist_items
+                WHERE market IN ('AShare', 'SSE', 'SZSE')
+                  AND symbol IS NOT NULL
+                  AND btrim(symbol) <> ''
+                ORDER BY symbol
+                """
+            )
+
+            symbols = []
+            for row in symbols_result:
+                normalized = normalize_symbol(row["symbol"])
+                # Keep only A-share numeric symbols for realtime updater.
+                if normalized.isdigit() and len(normalized) == 6:
+                    symbols.append(normalized)
+            current_symbols = set(symbols)
+
+            if current_symbols != last_symbols:
+                logger.info(
+                    "Watchlist symbols changed: previous=%s, current=%s",
+                    len(last_symbols),
+                    len(current_symbols),
+                )
+                last_symbols = current_symbols
+
+            if not symbols:
+                logger.info("No watchlist symbols found for realtime update, waiting")
+                await asyncio.sleep(interval_seconds)
+                continue
+
+            iteration += 1
+            success_count = await data_updater._update_symbols_batch(symbols)
+            logger.info(
+                "[%s] Watchlist realtime update completed: %s/%s symbols",
+                iteration,
+                success_count,
+                len(symbols),
+            )
+
+        except asyncio.CancelledError:
+            logger.info("Realtime watchlist scheduler cancelled")
+            raise
+        except Exception:
+            logger.error("Realtime watchlist scheduler error", exc_info=True)
+
+        await asyncio.sleep(interval_seconds)
 
 
 async def run_icbc_scheduler():

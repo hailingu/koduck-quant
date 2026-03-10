@@ -39,6 +39,10 @@ class Settings(BaseSettings):
     
     # AKShare settings
     AKSHARE_TIMEOUT: int = 30
+
+    # Bootstrap completeness thresholds
+    # Re-run stock_basic initialization until at least this many rows exist.
+    STOCK_BASIC_MIN_COUNT: int = 3000
     
     # Eastmoney Client Settings
     # Cookie 有效期（秒），默认 1 小时，正常用户浏览网站不会每 5 分钟刷新 cookie

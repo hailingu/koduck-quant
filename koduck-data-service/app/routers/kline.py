@@ -34,9 +34,55 @@ PERIOD_MAP = {
 ERROR_INTERNAL_RETRY = "Internal server error. Please try again later."
 
 
+def _calculate_ma5(klines: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Calculate 5-day moving average for each kline point.
+    
+    MA5 is calculated as the average of closing prices for the current
+    and previous 4 data points (5 points total). For points with less
+    than 5 preceding data points, ma5 will be None.
+    
+    Args:
+        klines: List of kline dictionaries with 'close' price, 
+                ordered by timestamp (newest first).
+    
+    Returns:
+        List of kline dictionaries with added 'ma5' field.
+    """
+    if not klines:
+        return klines
+    
+    # Make a copy to avoid modifying original
+    result = [dict(item) for item in klines]
+    n = len(result)
+    
+    # Calculate MA5 for each point
+    # Since data is ordered newest first, we need to look ahead
+    for i in range(n):
+        # Check if we have 5 points starting from current position
+        if i + 4 < n:
+            # Get 5 close prices (current + next 4)
+            closes = []
+            for j in range(5):
+                close_val = result[i + j].get('close')
+                if close_val is not None:
+                    closes.append(float(close_val))
+            
+            if len(closes) == 5:
+                result[i]['ma5'] = round(sum(closes) / 5, 4)
+            else:
+                result[i]['ma5'] = None
+        else:
+            # Not enough data points
+            result[i]['ma5'] = None
+    
+    return result
+
+
 def _to_kline_data(klines: list[dict[str, Any]]) -> list[KlineData]:
     """Convert raw kline dictionaries to validated KlineData models."""
-    return [KlineData.model_validate(item) for item in klines]
+    # Calculate MA5 before validation
+    klines_with_ma5 = _calculate_ma5(klines)
+    return [KlineData.model_validate(item) for item in klines_with_ma5]
 
 
 @router.get(

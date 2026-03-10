@@ -18,6 +18,7 @@ from app.models.schemas import (
     BatchPriceRequest,
     MarketIndex,
     PriceQuote,
+    StockIndustry,
     StockValuation,
     SymbolInfo
 )
@@ -300,3 +301,52 @@ async def get_stock_valuation(symbol: str):
     except Exception as e:
         logger.error("Stock valuation query error", extra={"symbol": symbol, "error": str(e)})
         raise HTTPException(status_code=500, detail=f"Stock valuation query failed: {str(e)}")
+
+
+@router.get(
+    "/industry/{symbol}",
+    response_model=ApiResponse[StockIndustry],
+    responses={
+        404: {"description": "Stock symbol not found"},
+        500: {"description": "Internal server error"},
+    },
+)
+async def get_stock_industry(symbol: str):
+    """Get stock industry information including industry, sector, sub-industry and board.
+    
+    Args:
+        symbol (str): Stock symbol (e.g., ``'601398'``).
+        
+    Returns:
+        ApiResponse[StockIndustry]: Industry information for the specified stock.
+        
+    Raises:
+        HTTPException: 404 if symbol not found, 500 for other errors.
+        
+    Example:
+        GET /api/v1/a-share/industry/601398
+    """
+    try:
+        data = await StockRealtimeDB.get_stock_industry(symbol)
+        if not data:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Stock industry data for '{symbol}' not found"
+            )
+        
+        # Build StockIndustry response
+        industry = StockIndustry(
+            symbol=data.get('symbol', symbol),
+            name=data.get('name', ''),
+            industry=data.get('industry'),
+            sector=data.get('sector'),
+            sub_industry=data.get('sub_industry'),
+            board=data.get('board'),
+        )
+        
+        return ApiResponse(data=industry)
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("Stock industry query error", extra={"symbol": symbol, "error": str(e)})
+        raise HTTPException(status_code=500, detail=f"Stock industry query failed: {str(e)}")

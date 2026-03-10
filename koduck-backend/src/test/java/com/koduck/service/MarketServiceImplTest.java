@@ -3,6 +3,7 @@ package com.koduck.service;
 import com.koduck.dto.market.MarketIndexDto;
 import com.koduck.dto.market.KlineDataDto;
 import com.koduck.dto.market.PriceQuoteDto;
+import com.koduck.dto.market.StockIndustryDto;
 import com.koduck.dto.market.StockValuationDto;
 import com.koduck.dto.market.SymbolInfoDto;
 import com.koduck.entity.StockBasic;
@@ -93,6 +94,38 @@ class MarketServiceImplTest {
         assertThat(results).hasSize(1);
         assertThat(results.get(0).symbol()).isEqualTo("002326");
         assertThat(results.get(0).name()).isEqualTo("永太科技");
+    }
+
+    @Test
+    @DisplayName("shouldNormalizeAndDeduplicateSearchSymbols")
+    void shouldNormalizeAndDeduplicateSearchSymbols() {
+        StockBasic shortCode = StockBasic.builder()
+                .symbol("2885")
+                .name("京泉华")
+                .market("SZSE")
+                .build();
+        StockBasic canonicalCode = StockBasic.builder()
+                .symbol("002885")
+                .name("京泉华")
+                .market("SZSE")
+                .build();
+        StockRealtime realtime = StockRealtime.builder()
+                .symbol("002885")
+                .name("京泉华")
+                .price(new BigDecimal("32.50"))
+                .changePercent(new BigDecimal("1.20"))
+                .build();
+
+        when(stockBasicRepository.searchByKeyword("京泉华", PageRequest.of(0, 20)))
+                .thenReturn(new PageImpl<>(List.of(shortCode, canonicalCode)));
+        when(stockRealtimeRepository.findBySymbolIn(List.of("2885", "002885")))
+                .thenReturn(List.of(realtime));
+
+        List<SymbolInfoDto> results = marketService.searchSymbols("京泉华", 1, 20);
+
+        assertThat(results).hasSize(1);
+        assertThat(results.get(0).symbol()).isEqualTo("002885");
+        assertThat(results.get(0).name()).isEqualTo("京泉华");
     }
 
     @Test
@@ -222,6 +255,29 @@ class MarketServiceImplTest {
                 assertThat(result.pb()).isEqualByComparingTo(new BigDecimal("2.17"));
                 assertThat(result.marketCap()).isEqualByComparingTo(new BigDecimal("1393.52"));
                 verify(akShareDataProvider).getStockValuation("601012");
+        }
+
+        @Test
+        @DisplayName("shouldReturnStockIndustryFromDataService")
+        void shouldReturnStockIndustryFromDataService() {
+                StockIndustryDto industry = StockIndustryDto.builder()
+                                .symbol("601012")
+                                .name("隆基绿能")
+                                .industry("电力设备")
+                                .sector("新能源")
+                                .subIndustry("光伏设备")
+                                .board("主板")
+                                .build();
+
+                when(akShareDataProvider.getStockIndustry("601012")).thenReturn(industry);
+
+                StockIndustryDto result = marketService.getStockIndustry("601012");
+
+                assertThat(result).isNotNull();
+                assertThat(result.symbol()).isEqualTo("601012");
+                assertThat(result.industry()).isEqualTo("电力设备");
+                assertThat(result.subIndustry()).isEqualTo("光伏设备");
+                verify(akShareDataProvider).getStockIndustry("601012");
         }
 
     @Test

@@ -13,6 +13,7 @@ import akshare as ak
 import pandas as pd
 import structlog
 
+from app.config import settings
 from app.db import Database, StockRealtimeDB
 
 logger = structlog.get_logger(__name__)
@@ -122,6 +123,14 @@ class StockInitializer:
 
             if count == 0:
                 logger.info("stock_basic table is empty, needs initialization")
+                return True
+
+            if count < settings.STOCK_BASIC_MIN_COUNT:
+                logger.warning(
+                    "stock_basic table has only %s records (< %s), continuing initialization",
+                    count,
+                    settings.STOCK_BASIC_MIN_COUNT,
+                )
                 return True
 
             logger.info(

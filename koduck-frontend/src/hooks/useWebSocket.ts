@@ -23,11 +23,7 @@ export function useWebSocket() {
   // Auto-connect on mount, auto-disconnect on unmount
   useEffect(() => {
     connect()
-    
-    return () => {
-      disconnect()
-    }
-  }, [connect, disconnect])
+  }, [connect])
 
   // Subscribe to symbols
   const subscribeSymbols = useCallback((symbols: string[]) => {
@@ -80,7 +76,15 @@ export function useWebSocketSubscription(
   symbols: string[],
   enabled: boolean = true
 ) {
-  const { subscribe, unsubscribe, connectionState, stockPrices } = useWebSocketStore()
+  const { connect, subscribe, unsubscribe, connectionState, stockPrices } = useWebSocketStore()
+
+  useEffect(() => {
+    if (!enabled || symbols.length === 0) {
+      return
+    }
+
+    connect()
+  }, [enabled, symbols, connect])
 
   useEffect(() => {
     if (!enabled || symbols.length === 0 || connectionState !== 'connected') {

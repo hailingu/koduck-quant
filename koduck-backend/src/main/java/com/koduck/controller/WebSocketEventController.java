@@ -7,8 +7,8 @@ import com.koduck.service.StockSubscriptionService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.event.EventListener;
-import org.springframework.messaging.handler.annotation.DestinationVariable;
 import org.springframework.messaging.handler.annotation.MessageMapping;
+import org.springframework.messaging.handler.annotation.Payload;
 import org.springframework.messaging.simp.SimpMessageHeaderAccessor;
 import org.springframework.messaging.simp.annotation.SendToUser;
 import org.springframework.stereotype.Controller;
@@ -53,9 +53,9 @@ public class WebSocketEventController {
      */
     @MessageMapping("/subscribe")
     @SendToUser("/queue/subscribe-result")
-    public SubscriptionMessage handleSubscribe(SimpMessageHeaderAccessor headerAccessor) {
-        // 从消息体中获取股票代码列表
-        // 这里通过 STOMP 消息的 payload 获取
+    public SubscriptionMessage handleSubscribe(
+            @Payload(required = false) SubscriptionMessage request,
+            SimpMessageHeaderAccessor headerAccessor) {
         log.info("用户订阅请求, sessionId={}", headerAccessor.getSessionId());
 
         // 获取用户信息
@@ -71,11 +71,22 @@ public class WebSocketEventController {
         Long userId = principal.getUserId();
         activeConnections.put(userId, headerAccessor.getSessionId());
 
-        // 从头部获取订阅的股票代码（通过自定义头部）
-        List<String> symbols = new ArrayList<>();
-        String symbolHeader = headerAccessor.getFirstNativeHeader("symbols");
-        if (symbolHeader != null && !symbolHeader.isBlank()) {
-            symbols = List.of(symbolHeader.split(","));
+        List<String> symbols = request != null && request.getSymbols() != null
+            ? request.getSymbols()
+            : new ArrayList<>();
+
+        // Frontend may publish UNSUBSCRIBE intent to /app/subscribe.
+        if (request != null && "UNSUBSCRIBE".equalsIgnoreCase(request.getType())) {
+            StockSubscriptionService.SubscribeResult result = stockSubscriptionService.unsubscribe(userId, symbols);
+            Set<String> allSubscriptions = stockSubscriptionService.getUserSubscriptions(userId);
+            return SubscriptionMessage.builder()
+                .type("UNSUBSCRIBE_RESULT")
+                .symbols(symbols)
+                .success(result.getSuccess())
+                .failed(result.getFailed())
+                .subscriptions(new ArrayList<>(allSubscriptions))
+                .timestamp(System.currentTimeMillis())
+                .build();
         }
 
         if (symbols.isEmpty()) {
@@ -112,7 +123,9 @@ public class WebSocketEventController {
      */
     @MessageMapping("/unsubscribe")
     @SendToUser("/queue/unsubscribe-result")
-    public SubscriptionMessage handleUnsubscribe(SimpMessageHeaderAccessor headerAccessor) {
+    public SubscriptionMessage handleUnsubscribe(
+            @Payload(required = false) SubscriptionMessage request,
+            SimpMessageHeaderAccessor headerAccessor) {
         log.info("用户取消订阅请求, sessionId={}", headerAccessor.getSessionId());
 
         // 获取用户信息
@@ -127,12 +140,9 @@ public class WebSocketEventController {
 
         Long userId = principal.getUserId();
 
-        // 从头部获取要取消订阅的股票代码
-        List<String> symbols = new ArrayList<>();
-        String symbolHeader = headerAccessor.getFirstNativeHeader("symbols");
-        if (symbolHeader != null && !symbolHeader.isBlank()) {
-            symbols = List.of(symbolHeader.split(","));
-        }
+        List<String> symbols = request != null && request.getSymbols() != null
+            ? request.getSymbols()
+            : new ArrayList<>();
 
         // 执行取消订阅
         StockSubscriptionService.SubscribeResult result = stockSubscriptionService.unsubscribe(userId, symbols);

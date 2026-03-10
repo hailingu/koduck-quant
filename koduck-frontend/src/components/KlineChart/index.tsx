@@ -28,6 +28,23 @@ function convertTimestampToChartTime(timestamp: number, timeframe: string): Time
 export default function KlineChart({ data, timeframe }: Readonly<KlineChartProps>) {
   const chartContainerRef = useRef<HTMLDivElement>(null)
   const chartRef = useRef<IChartApi | null>(null)
+  const isMinuteTimeframe = MINUTE_TIMEFRAMES.has(timeframe)
+  const isMonthlyTimeframe = timeframe === '1M'
+  const monthlyTickFormatter = isMonthlyTimeframe
+    ? (time: Time): string => {
+        if (typeof time === 'number') {
+          const date = new Date((time + CHINA_TZ_OFFSET_SECONDS) * 1000)
+          const year = date.getUTCFullYear()
+          const month = String(date.getUTCMonth() + 1).padStart(2, '0')
+          return `${year}-${month}`
+        }
+        if (typeof time === 'object' && time !== null) {
+          const month = String(time.month).padStart(2, '0')
+          return `${time.year}-${month}`
+        }
+        return ''
+      }
+    : undefined
 
   useEffect(() => {
     if (!chartContainerRef.current) return
@@ -49,8 +66,9 @@ export default function KlineChart({ data, timeframe }: Readonly<KlineChartProps
       },
       timeScale: {
         borderColor: isDark ? '#4b5563' : '#d1d5db',
-        timeVisible: true,
+        timeVisible: isMinuteTimeframe,
         secondsVisible: false,
+        tickMarkFormatter: monthlyTickFormatter,
       },
     })
 
@@ -93,7 +111,7 @@ export default function KlineChart({ data, timeframe }: Readonly<KlineChartProps
       window.removeEventListener('resize', handleResize)
       chart.remove()
     }
-  }, [data, timeframe])
+  }, [data, isMinuteTimeframe, monthlyTickFormatter, timeframe])
 
   return <div ref={chartContainerRef} className="w-full h-full min-h-[400px]" />
 }

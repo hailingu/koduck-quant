@@ -53,6 +53,18 @@ export interface StockValuation {
 }
 
 /**
+ * 股票所属行业信息
+ */
+export interface StockIndustry {
+  symbol: string
+  name: string
+  industry: string | null
+  sector: string | null
+  subIndustry: string | null
+  board: string | null
+}
+
+/**
  * 市场指数
  */
 export interface MarketIndex {
@@ -104,4 +116,11 @@ export const marketApi = {
    */
   getStockValuation: (symbol: string) =>
     request.get<StockValuation>(`/api/v1/market/stocks/${symbol}/valuation`, { timeout: 10000 }),
+
+  /**
+   * 获取股票所属行业信息（所属行业、板块、细分行业等）
+   * @param symbol 股票代码
+   */
+  getStockIndustry: (symbol: string) =>
+    request.get<StockIndustry>(`/api/v1/market/stocks/${symbol}/industry`, { timeout: 10000 }),
 }

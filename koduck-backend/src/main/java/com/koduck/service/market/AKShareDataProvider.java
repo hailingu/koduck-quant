@@ -3,6 +3,7 @@ package com.koduck.service.market;
 import com.koduck.config.properties.DataServiceProperties;
 import com.koduck.dto.market.DataServiceResponse;
 import com.koduck.dto.market.PriceQuoteDto;
+import com.koduck.dto.market.StockIndustryDto;
 import com.koduck.dto.market.StockValuationDto;
 import com.koduck.dto.market.SymbolInfoDto;
 import org.slf4j.Logger;
@@ -180,6 +181,36 @@ public class AKShareDataProvider implements MarketDataProvider {
             return null;
         }
     }
+
+    public StockIndustryDto getStockIndustry(String symbol) {
+        if (!properties.isEnabled()) {
+            log.warn(DATA_SERVICE_DISABLED_MESSAGE);
+            return null;
+        }
+
+        try {
+            String url = UriComponentsBuilder
+                    .fromUriString(properties.getBaseUrl() + "/market/stocks/{symbol}/industry")
+                    .buildAndExpand(symbol)
+                    .toUriString();
+
+            log.debug("Getting industry for symbol: {}", symbol);
+
+            ResponseEntity<DataServiceResponse<Map<String, Object>>> response =
+                    restTemplate.exchange(
+                            url,
+                            HttpMethod.GET,
+                            null,
+                            new ParameterizedTypeReference<>() {}
+                    );
+
+            return parseStockIndustryResponse(response.getBody());
+
+        } catch (RestClientException e) {
+            log.error("Failed to get industry for {}: {}", symbol, e.getMessage());
+            return null;
+        }
+    }
     
     @Override
     public List<SymbolInfoDto> getHotSymbols(int limit) {
@@ -249,6 +280,14 @@ public class AKShareDataProvider implements MarketDataProvider {
 
         return mapToStockValuationDto(response.data());
     }
+
+    private StockIndustryDto parseStockIndustryResponse(DataServiceResponse<Map<String, Object>> response) {
+        if (response == null || response.data() == null) {
+            return null;
+        }
+
+        return mapToStockIndustryDto(response.data());
+    }
     
     private PriceQuoteDto mapToPriceQuoteDto(Map<String, Object> data) {
         return PriceQuoteDto.builder()
@@ -284,6 +323,17 @@ public class AKShareDataProvider implements MarketDataProvider {
                 .floatShares(getBigDecimal(data, "float_shares"))
                 .floatRatio(getBigDecimal(data, "float_ratio"))
                 .turnoverRate(getBigDecimal(data, "turnover_rate"))
+                .build();
+    }
+
+    private StockIndustryDto mapToStockIndustryDto(Map<String, Object> data) {
+        return StockIndustryDto.builder()
+                .symbol(getString(data, KEY_SYMBOL))
+                .name(getString(data, KEY_NAME))
+                .industry(getString(data, "industry"))
+                .sector(getString(data, "sector"))
+                .subIndustry(getString(data, "sub_industry"))
+                .board(getString(data, "board"))
                 .build();
     }
     

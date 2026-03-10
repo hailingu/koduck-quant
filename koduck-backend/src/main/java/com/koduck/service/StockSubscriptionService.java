@@ -1,5 +1,6 @@
 package com.koduck.service;
 
+import com.koduck.util.SymbolUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
@@ -8,7 +9,6 @@ import org.springframework.stereotype.Service;
 import java.time.Instant;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.stream.Collectors;
 
 /**
  * 股票订阅管理服务
@@ -276,8 +276,13 @@ public class StockSubscriptionService {
         if (symbol == null || symbol.isBlank()) {
             return null;
         }
-        // 转换为大写并去除空格
-        return symbol.trim().toUpperCase();
+
+        String normalized = SymbolUtils.normalize(symbol);
+        if (normalized == null || normalized.isBlank()) {
+            return null;
+        }
+
+        return normalized;
     }
 
     /**

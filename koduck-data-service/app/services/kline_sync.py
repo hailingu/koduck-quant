@@ -110,15 +110,39 @@ class KlineSync:
                 return self._normalize_symbol(symbols[0])
         return self._normalize_symbol(csv_path.stem)
 
-    def _extract_kline_time(self, row: pd.Series) -> datetime | pd.Timestamp | None:
-        """Extract kline timestamp from row."""
+    def _extract_kline_time(
+        self,
+        row: pd.Series,
+        timeframe: str,
+    ) -> datetime | pd.Timestamp | None:
+        """Extract kline timestamp from row with timeframe validation."""
+        parsed_time: datetime | pd.Timestamp | None = None
+
         if "datetime" in row:
-            return pd.to_datetime(row["datetime"])
-        if "kline_time" in row:
-            return pd.to_datetime(row["kline_time"])
-        if "timestamp" in row:
-            return datetime.fromtimestamp(row["timestamp"])
-        return None
+            parsed_time = pd.to_datetime(row["datetime"])
+        elif "kline_time" in row:
+            parsed_time = pd.to_datetime(row["kline_time"])
+        elif "timestamp" in row:
+            parsed_time = datetime.fromtimestamp(row["timestamp"])
+
+        if parsed_time is None or pd.isna(parsed_time):
+            return None
+
+        if isinstance(parsed_time, pd.Timestamp):
+            check_time = parsed_time.to_pydatetime()
+        else:
+            check_time = parsed_time
+
+        if timeframe in {"1D", "1W", "1M"}:
+            if (
+                check_time.hour != 0
+                or check_time.minute != 0
+                or check_time.second != 0
+                or check_time.microsecond != 0
+            ):
+                return None
+
+        return parsed_time
 
     async def get_db_last_update(self, symbol: str, timeframe: str) -> datetime | None:
         """Get the last update time for a symbol from database."""
@@ -236,7 +260,7 @@ class KlineSync:
                 async with conn.transaction():
                     for _, row in df.iterrows():
                         try:
-                            kline_time = self._extract_kline_time(row)
+                            kline_time = self._extract_kline_time(row, timeframe)
                             if kline_time is None:
                                 skipped += 1
                                 continue

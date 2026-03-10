@@ -103,6 +103,12 @@ SELECT symbol, name, pe_ttm, pb, ps_ttm, market_cap, float_market_cap,
 FROM stock_basic WHERE symbol = $1
 """
 
+# Stock basic query for industry info
+SELECT_STOCK_INDUSTRY = """
+SELECT symbol, name, industry, sector, sub_industry, board
+FROM stock_basic WHERE symbol = $1
+"""
+
 # Tick History SQL queries
 INSERT_TICK_HISTORY = """
 INSERT INTO stock_tick_history (
@@ -309,6 +315,18 @@ class StockRealtimeDB:
             return None
         except Exception as e:
             logger.error(f"Failed to get stock valuation for {symbol}: {e}")
+            return None
+    
+    @staticmethod
+    async def get_stock_industry(symbol: str) -> Optional[Dict]:
+        """Get stock industry info (industry, sector, sub_industry, board) from stock_basic table."""
+        try:
+            row = await Database.fetchrow(SELECT_STOCK_INDUSTRY, symbol)
+            if row:
+                return dict(row)
+            return None
+        except Exception as e:
+            logger.error(f"Failed to get stock industry for {symbol}: {e}")
             return None
 
 

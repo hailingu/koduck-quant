@@ -19,8 +19,11 @@ from app.models.schemas import (
     BatchPriceRequest,
     MarketIndex,
     PriceQuote,
+    StockIndustry,
+    StockValuation,
     SymbolInfo,
 )
+from app.db import StockRealtimeDB
 from app.services.akshare_client import akshare_client
 from app.services.data_updater import data_updater
 from app.services.tick_history_service import tick_history_service
@@ -331,3 +334,106 @@ async def request_realtime_update(request: BatchPriceRequest):
         },
         message=f"Updated {success_count}/{len(symbols)} symbols"
     )
+
+
+@router.get(
+    "/stocks/{symbol}/valuation",
+    response_model=ApiResponse[StockValuation],
+    responses={
+        404: {"description": "Stock symbol not found"},
+        500: {"description": "Internal server error"},
+    },
+)
+async def get_stock_valuation(symbol: str):
+    """Get stock valuation metrics including PE, PB, market cap and turnover rate.
+    
+    Args:
+        symbol (str): Stock symbol (e.g., ``'601398'``).
+        
+    Returns:
+        ApiResponse[StockValuation]: Valuation metrics for the specified stock.
+        
+    Raises:
+        HTTPException: 404 if symbol not found, 500 for other errors.
+        
+    Example:
+        GET /api/v1/market/stocks/601398/valuation
+    """
+    try:
+        data = await StockRealtimeDB.get_stock_valuation(symbol)
+        if not data:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Stock valuation data for '{symbol}' not found"
+            )
+        
+        # Build StockValuation response
+        valuation = StockValuation(
+            symbol=data.get('symbol', symbol),
+            name=data.get('name', ''),
+            pe_ttm=data.get('pe_ttm'),
+            pb=data.get('pb'),
+            ps_ttm=data.get('ps_ttm'),
+            market_cap=data.get('market_cap'),
+            float_market_cap=data.get('float_market_cap'),
+            total_shares=data.get('total_shares'),
+            float_shares=data.get('float_shares'),
+            float_ratio=data.get('float_ratio'),
+            turnover_rate=data.get('turnover_rate'),
+        )
+        
+        return ApiResponse(data=valuation)
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("Stock valuation query error", extra={"symbol": symbol, "error": str(e)})
+        raise HTTPException(status_code=500, detail=f"Stock valuation query failed: {str(e)}")
+
+
+@router.get(
+    "/stocks/{symbol}/industry",
+    response_model=ApiResponse[StockIndustry],
+    responses={
+        404: {"description": "Stock symbol not found"},
+        500: {"description": "Internal server error"},
+    },
+)
+async def get_stock_industry(symbol: str):
+    """Get stock industry information including industry, sector, sub-industry and board.
+    
+    Args:
+        symbol (str): Stock symbol (e.g., ``'601398'``).
+        
+    Returns:
+        ApiResponse[StockIndustry]: Industry information for the specified stock.
+        
+    Raises:
+        HTTPException: 404 if symbol not found, 500 for other errors.
+        
+    Example:
+        GET /api/v1/market/stocks/601398/industry
+    """
+    try:
+        data = await StockRealtimeDB.get_stock_industry(symbol)
+        if not data:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Stock industry data for '{symbol}' not found"
+            )
+        
+        # Build StockIndustry response
+        industry = StockIndustry(
+            symbol=data.get('symbol', symbol),
+            name=data.get('name', ''),
+            industry=data.get('industry'),
+            sector=data.get('sector'),
+            sub_industry=data.get('sub_industry'),
+            board=data.get('board'),
+        )
+        
+        return ApiResponse(data=industry)
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("Stock industry query error", extra={"symbol": symbol, "error": str(e)})
+        raise HTTPException(status_code=500, detail=f"Stock industry query failed: {str(e)}")

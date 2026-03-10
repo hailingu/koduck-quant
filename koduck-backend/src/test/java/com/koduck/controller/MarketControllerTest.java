@@ -2,6 +2,7 @@ package com.koduck.controller;
 
 import com.koduck.dto.market.MarketIndexDto;
 import com.koduck.dto.market.PriceQuoteDto;
+import com.koduck.dto.market.StockIndustryDto;
 import com.koduck.dto.market.StockValuationDto;
 import com.koduck.dto.market.SymbolInfoDto;
 import com.koduck.service.MarketService;
@@ -157,6 +158,31 @@ class MarketControllerTest {
                                 .andExpect(jsonPath("$.data.pb").value(2.17));
 
                 verify(marketService).getStockValuation("601012");
+        }
+
+        @Test
+        @DisplayName("股票行业 - 正常返回")
+        void getStockIndustry_shouldReturnIndustry() throws Exception {
+                StockIndustryDto industry = StockIndustryDto.builder()
+                                .symbol("601012")
+                                .name("隆基绿能")
+                                .industry("电力设备")
+                                .sector("新能源")
+                                .subIndustry("光伏设备")
+                                .board("主板")
+                                .build();
+
+                when(marketService.getStockIndustry("601012")).thenReturn(industry);
+
+                mockMvc.perform(get("/api/v1/market/stocks/601012/industry")
+                                                .contentType(MediaType.APPLICATION_JSON))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$.code").value(0))
+                                .andExpect(jsonPath("$.data.symbol").value("601012"))
+                                .andExpect(jsonPath("$.data.industry").value("电力设备"))
+                                .andExpect(jsonPath("$.data.sub_industry").value("光伏设备"));
+
+                verify(marketService).getStockIndustry("601012");
         }
 
     @Test

@@ -20,6 +20,7 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 import org.springframework.web.servlet.NoHandlerFoundException;
 
 import java.util.stream.Collectors;
@@ -222,6 +223,17 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(NoHandlerFoundException.class)
     public ResponseEntity<ApiResponse<Void>> handleNoHandlerFoundException(NoHandlerFoundException e) {
         String message = "请求路径不存在: " + e.getRequestURL();
+        log.warn(message);
+        ApiResponse<Void> response = ApiResponse.error(ErrorCode.NOT_FOUND.getCode(), message);
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(response);
+    }
+
+    /**
+     * 处理静态资源未找到异常。
+     */
+    @ExceptionHandler(NoResourceFoundException.class)
+    public ResponseEntity<ApiResponse<Void>> handleNoResourceFoundException(NoResourceFoundException e) {
+        String message = "请求路径不存在: " + e.getResourcePath();
         log.warn(message);
         ApiResponse<Void> response = ApiResponse.error(ErrorCode.NOT_FOUND.getCode(), message);
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(response);

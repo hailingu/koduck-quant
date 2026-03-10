@@ -2,6 +2,7 @@ package com.koduck.service;
 
 import com.koduck.dto.market.MarketIndexDto;
 import com.koduck.dto.market.PriceQuoteDto;
+import com.koduck.dto.market.StockIndustryDto;
 import com.koduck.dto.market.StockValuationDto;
 import com.koduck.dto.market.SymbolInfoDto;
 
@@ -38,6 +39,14 @@ public interface MarketService {
      * @return 估值数据
      */
     StockValuationDto getStockValuation(String symbol);
+
+    /**
+     * 获取股票所属行业信息。
+     *
+     * @param symbol 股票代码
+     * @return 行业信息
+     */
+    StockIndustryDto getStockIndustry(String symbol);
     
     /**
      * 获取市场指数列表。

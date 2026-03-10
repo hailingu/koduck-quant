@@ -9,6 +9,7 @@ import asyncio
 import sys
 from pathlib import Path
 from datetime import datetime
+from zoneinfo import ZoneInfo
 
 import pandas as pd
 
@@ -17,6 +18,8 @@ project_root = Path(__file__).parent
 sys.path.insert(0, str(project_root))
 
 from app.services.akshare_client import akshare_client
+
+ASIA_SHANGHAI_TZ = ZoneInfo("Asia/Shanghai")
 
 # 数据目录
 DATA_DIR = project_root / "data" / "kline"
@@ -58,9 +61,10 @@ def save_to_csv(klines: list[dict], symbol: str, timeframe: str):
     # 转换为DataFrame
     data = []
     for kline in klines:
+        local_dt = datetime.fromtimestamp(int(kline["timestamp"]), ASIA_SHANGHAI_TZ)
         data.append({
             "symbol": symbol,
-            "datetime": datetime.fromtimestamp(kline["timestamp"]).strftime("%Y-%m-%d %H:%M"),
+            "datetime": local_dt.strftime("%Y-%m-%d %H:%M"),
             "timestamp": kline["timestamp"],
             "open": kline.get("open", 0),
             "high": kline.get("high", 0),

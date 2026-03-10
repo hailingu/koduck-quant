@@ -72,8 +72,24 @@ public class PricePushService {
                 Double currentPrice = realtime.getPrice() != null ? realtime.getPrice().doubleValue() : null;
                 Double lastPrice = lastPrices.get(symbol);
 
-                // 首次价格，初始化缓存
+                boolean shouldPush = shouldPush(symbol, now);
+
+                // Push initial snapshot immediately for new subscriptions.
                 if (lastPrice == null) {
+                    if (currentPrice != null && shouldPush) {
+                        StockSubscriptionService.PriceUpdate initialUpdate = StockSubscriptionService.PriceUpdate.builder()
+                                .symbol(realtime.getSymbol())
+                                .name(realtime.getName())
+                                .price(currentPrice)
+                                .change(realtime.getChangeAmount() != null ? realtime.getChangeAmount().doubleValue() : null)
+                                .changePercent(realtime.getChangePercent() != null ? realtime.getChangePercent().doubleValue() : null)
+                                .volume(realtime.getVolume())
+                                .build();
+
+                        stockSubscriptionService.onPriceUpdate(initialUpdate);
+                        lastPushTime.put(symbol, now);
+                    }
+
                     if (currentPrice != null) {
                         lastPrices.put(symbol, currentPrice);
                     }
@@ -82,7 +98,6 @@ public class PricePushService {
 
                 // 检查价格是否变动
                 boolean priceChanged = !Objects.equals(currentPrice, lastPrice);
-                boolean shouldPush = shouldPush(symbol, now);
 
                 if (priceChanged && shouldPush) {
                     // 构建价格更新并推送

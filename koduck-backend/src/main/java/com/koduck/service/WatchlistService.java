@@ -15,6 +15,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -40,6 +41,17 @@ public class WatchlistService {
         log.debug("Getting watchlist for user: {}", userId);
         
         List<WatchlistItem> items = watchlistRepository.findByUserIdOrderBySortOrderAsc(userId);
+
+        List<String> symbolsToRefresh = items.stream()
+                .map(WatchlistItem::getSymbol)
+                .map(SymbolUtils::normalize)
+                .filter(symbol -> symbol != null && !symbol.isBlank())
+                .distinct()
+                .collect(Collectors.toCollection(ArrayList::new));
+
+        if (!symbolsToRefresh.isEmpty()) {
+            dataServiceClient.triggerRealtimeUpdate(symbolsToRefresh);
+        }
         
         return items.stream()
             .map(this::convertToDtoWithPrice)
@@ -86,7 +98,7 @@ public class WatchlistService {
         
         // Trigger realtime data update for the newly added symbol
         // This is asynchronous and non-blocking - failures are logged but don't affect the main flow
-        dataServiceClient.triggerRealtimeUpdate(request.symbol());
+        dataServiceClient.triggerRealtimeUpdate(normalizedSymbol);
         
         return convertToDtoWithPrice(saved);
     }
