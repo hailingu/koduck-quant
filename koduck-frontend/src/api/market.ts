@@ -36,6 +36,23 @@ export interface PriceQuote {
 }
 
 /**
+ * 股票估值信息
+ */
+export interface StockValuation {
+  symbol: string
+  name: string
+  peTtm: number | null
+  pb: number | null
+  psTtm: number | null
+  marketCap: number | null
+  floatMarketCap: number | null
+  totalShares: number | null
+  floatShares: number | null
+  floatRatio: number | null
+  turnoverRate: number | null
+}
+
+/**
  * 市场指数
  */
 export interface MarketIndex {
@@ -80,4 +97,11 @@ export const marketApi = {
    */
   getMarketIndices: () =>
     request.get<MarketIndex[]>('/api/v1/market/indices'),
+
+  /**
+   * 获取股票估值信息（PE、PB、总市值等）
+   * @param symbol 股票代码
+   */
+  getStockValuation: (symbol: string) =>
+    request.get<StockValuation>(`/api/v1/market/stocks/${symbol}/valuation`, { timeout: 10000 }),
 }

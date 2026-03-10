@@ -3,6 +3,7 @@ package com.koduck.service.impl;
 import com.koduck.config.CacheConfig;
 import com.koduck.dto.market.MarketIndexDto;
 import com.koduck.dto.market.PriceQuoteDto;
+import com.koduck.dto.market.StockValuationDto;
 import com.koduck.dto.market.SymbolInfoDto;
 import com.koduck.entity.StockBasic;
 import com.koduck.entity.StockRealtime;
@@ -148,6 +149,29 @@ public class MarketServiceImpl implements MarketService {
             return mapToPriceQuoteDto(entity);
         } catch (Exception e) {
             log.error("Error getting stock detail: symbol={}, error={}", symbol, e.getMessage(), e);
+            throw e;
+        }
+    }
+
+    /**
+     * Get valuation metrics for a symbol from data-service.
+     *
+     * @param symbol stock symbol
+     * @return valuation when found, otherwise {@code null}
+     */
+    @Override
+    public StockValuationDto getStockValuation(String symbol) {
+        log.debug("Getting stock valuation from data service: symbol={}", symbol);
+
+        if (symbol == null || symbol.isBlank()) {
+            log.warn("Invalid symbol for valuation: null or blank");
+            return null;
+        }
+
+        try {
+            return akShareDataProvider.getStockValuation(symbol);
+        } catch (Exception e) {
+            log.error("Error getting stock valuation: symbol={}, error={}", symbol, e.getMessage(), e);
             throw e;
         }
     }

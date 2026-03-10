@@ -6,7 +6,7 @@ import PriceDisplay from '@/components/PriceDisplay'
 import AIChat from '@/components/AIChat'
 import { klineApi } from '@/api/kline'
 import type { KlineData } from '@/api/kline'
-import { marketApi } from '@/api/market'
+import { marketApi, type StockValuation } from '@/api/market'
 import { useWatchlistStore } from '@/stores/watchlist'
 import { useWebSocketStore } from '@/stores/websocket'
 import { isTradingHours } from '@/utils/trading'
@@ -105,6 +105,34 @@ const formatAmount = (amount: number): string => {
   return wan.toFixed(2) + '万'
 }
 
+// 格式化总市值（亿/万亿）
+const formatMarketCap = (marketCap: number | null | undefined): string => {
+  if (!marketCap || marketCap === 0) return '--'
+  const marketCapYi = marketCap >= 100000000 ? marketCap / 100000000 : marketCap
+  if (marketCapYi >= 10000) {
+    return (marketCapYi / 10000).toFixed(2) + '万亿'
+  }
+  return marketCapYi.toFixed(2) + '亿'
+}
+
+// 格式化市盈率/市净率
+const formatRatio = (value: number | null | undefined): string => {
+  if (value === null || value === undefined || value === 0) return '--'
+  return value.toFixed(2)
+}
+
+// 格式化换手率
+const formatTurnoverRate = (value: number | null | undefined): string => {
+  if (value === null || value === undefined || value === 0) return '--'
+  return value.toFixed(2) + '%'
+}
+
+const formatSharesInYi = (shares: number | null | undefined): string => {
+  if (!shares || shares === 0) return '--'
+  const sharesYi = shares >= 100000000 ? shares / 100000000 : shares
+  return sharesYi.toFixed(2) + '亿'
+}
+
 const deriveStockInfoFromKline = (data: KlineData[]): DerivedStockInfo | null => {
   if (!data || data.length === 0) {
     return null
@@ -174,6 +202,9 @@ export default function Kline() {
     volume: 0,
     amount: 0,
   })
+
+  // 股票估值信息（PE、PB、总市值、换手率等）
+  const [valuation, setValuation] = useState<StockValuation | null>(null)
 
   const { addItem, isInWatchlist, fetchWatchlist } = useWatchlistStore()
   const inWatchlist = symbol ? isInWatchlist(symbol) : false
@@ -293,13 +324,33 @@ export default function Kline() {
     }
   }, [symbol, timeframe])
 
+  // 获取股票估值信息
+  const fetchStockValuation = useCallback(async () => {
+    if (!symbol) {
+      setValuation(null)
+      return
+    }
+    try {
+      const data = await marketApi.getStockValuation(symbol)
+      if (data) {
+        setValuation(data)
+      } else {
+        setValuation(null)
+      }
+    } catch (error) {
+      setValuation(null)
+      console.error('Failed to fetch stock valuation:', error)
+    }
+  }, [symbol])
+
   const loadSymbolData = useCallback(async () => {
     const hasKline = await fetchKlineData()
     if (!hasKline) {
       return
     }
     await fetchStockDetail()
-  }, [fetchKlineData, fetchStockDetail])
+    await fetchStockValuation()
+  }, [fetchKlineData, fetchStockDetail, fetchStockValuation])
 
   useEffect(() => {
     if (!symbol) return
@@ -359,6 +410,7 @@ export default function Kline() {
   }, [fetchKlineData, symbol])
 
   const handleStockSelect = (selectedSymbol: string, selectedName: string) => {
+    setValuation(null)
     setSymbol(selectedSymbol)
     setStockName(selectedName)
     setSearchParams({ symbol: selectedSymbol, name: selectedName })
@@ -543,7 +595,7 @@ export default function Kline() {
               </div>
               <div className="flex justify-between">
                 <span className="text-gray-500">总市值</span>
-                <span className="font-medium tabular-nums">--</span>
+                <span className="font-medium tabular-nums">{formatMarketCap(valuation?.marketCap)}</span>
               </div>
 
               <div className="flex justify-between">
@@ -562,7 +614,28 @@ export default function Kline() {
               </div>
               <div className="flex justify-between">
                 <span className="text-gray-500">换手率</span>
-                <span className="font-medium tabular-nums">--</span>
+                <span className="font-medium tabular-nums">{formatTurnoverRate(valuation?.turnoverRate)}</span>
+              </div>
+
+              {/* PE 市盈率 */}
+              <div className="flex justify-between">
+                <span className="text-gray-500">市盈率</span>
+                <span className="font-medium tabular-nums">{formatRatio(valuation?.peTtm)}</span>
+              </div>
+              {/* PB 市净率 */}
+              <div className="flex justify-between">
+                <span className="text-gray-500">市净率</span>
+                <span className="font-medium tabular-nums">{formatRatio(valuation?.pb)}</span>
+              </div>
+              {/* 流通市值 */}
+              <div className="flex justify-between">
+                <span className="text-gray-500">流通市值</span>
+                <span className="font-medium tabular-nums">{formatMarketCap(valuation?.floatMarketCap)}</span>
+              </div>
+              {/* 股本 */}
+              <div className="flex justify-between">
+                <span className="text-gray-500">总股本</span>
+                <span className="font-medium tabular-nums">{formatSharesInYi(valuation?.totalShares)}</span>
               </div>
             </div>
           </div>

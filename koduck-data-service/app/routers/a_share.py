@@ -18,8 +18,10 @@ from app.models.schemas import (
     BatchPriceRequest,
     MarketIndex,
     PriceQuote,
+    StockValuation,
     SymbolInfo
 )
+from app.db import StockRealtimeDB
 from app.services.akshare_client import akshare_client
 
 logger = logging.getLogger(__name__)
@@ -244,3 +246,57 @@ async def get_market_status():
     except Exception as e:
         logger.error("Market status query error", extra={"error": str(e)})
         raise HTTPException(status_code=500, detail=f"Market status query failed: {str(e)}")
+
+
+@router.get(
+    "/valuation/{symbol}",
+    response_model=ApiResponse[StockValuation],
+    responses={
+        404: {"description": "Stock symbol not found"},
+        500: {"description": "Internal server error"},
+    },
+)
+async def get_stock_valuation(symbol: str):
+    """Get stock valuation metrics including PE, PB, market cap and turnover rate.
+    
+    Args:
+        symbol (str): Stock symbol (e.g., ``'002326'``).
+        
+    Returns:
+        ApiResponse[StockValuation]: Valuation metrics for the specified stock.
+        
+    Raises:
+        HTTPException: 404 if symbol not found, 500 for other errors.
+        
+    Example:
+        GET /api/v1/a-share/valuation/002326
+    """
+    try:
+        data = await StockRealtimeDB.get_stock_valuation(symbol)
+        if not data:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Stock valuation data for '{symbol}' not found"
+            )
+        
+        # Build StockValuation response
+        valuation = StockValuation(
+            symbol=data.get('symbol', symbol),
+            name=data.get('name', ''),
+            pe_ttm=data.get('pe_ttm'),
+            pb=data.get('pb'),
+            ps_ttm=data.get('ps_ttm'),
+            market_cap=data.get('market_cap'),
+            float_market_cap=data.get('float_market_cap'),
+            total_shares=data.get('total_shares'),
+            float_shares=data.get('float_shares'),
+            float_ratio=data.get('float_ratio'),
+            turnover_rate=data.get('turnover_rate'),
+        )
+        
+        return ApiResponse(data=valuation)
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("Stock valuation query error", extra={"symbol": symbol, "error": str(e)})
+        raise HTTPException(status_code=500, detail=f"Stock valuation query failed: {str(e)}")

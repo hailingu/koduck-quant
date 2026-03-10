@@ -2,6 +2,7 @@ package com.koduck.controller;
 
 import com.koduck.dto.market.MarketIndexDto;
 import com.koduck.dto.market.PriceQuoteDto;
+import com.koduck.dto.market.StockValuationDto;
 import com.koduck.dto.market.SymbolInfoDto;
 import com.koduck.service.MarketService;
 import jakarta.validation.constraints.Size;
@@ -133,6 +134,30 @@ class MarketControllerTest {
 
         verify(marketService).getStockDetail("999999");
     }
+
+        @Test
+        @DisplayName("股票估值 - 正常返回")
+        void getStockValuation_shouldReturnValuation() throws Exception {
+                StockValuationDto valuation = StockValuationDto.builder()
+                                .symbol("601012")
+                                .name("隆基绿能")
+                                .peTtm(new BigDecimal("18.39"))
+                                .pb(new BigDecimal("2.17"))
+                                .marketCap(new BigDecimal("1393.52"))
+                                .build();
+
+                when(marketService.getStockValuation("601012")).thenReturn(valuation);
+
+                mockMvc.perform(get("/api/v1/market/stocks/601012/valuation")
+                                .contentType(MediaType.APPLICATION_JSON))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$.code").value(0))
+                                .andExpect(jsonPath("$.data.symbol").value("601012"))
+                        .andExpect(jsonPath("$.data.pe_ttm").value(18.39))
+                                .andExpect(jsonPath("$.data.pb").value(2.17));
+
+                verify(marketService).getStockValuation("601012");
+        }
 
     @Test
     @DisplayName("市场指数 - 正常返回")

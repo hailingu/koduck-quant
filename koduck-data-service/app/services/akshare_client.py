@@ -780,13 +780,28 @@ class AKShareClient:
                 try:
                     date_str = str(row['date'])
                     timestamp = int(pd.Timestamp(date_str).timestamp())
-                    
+
+                    open_price = self._safe_float(row.get('open'), 0.0)
+                    close_price = self._safe_float(row.get('close'), 0.0)
+                    high_price = self._safe_float(row.get('high'), 0.0)
+                    low_price = self._safe_float(row.get('low'), 0.0)
+
+                    # normalize any invalid zero values
+                    if open_price <= 0 and close_price > 0:
+                        open_price = close_price
+                    if high_price <= 0:
+                        high_price = max(open_price, close_price)
+                    if low_price <= 0:
+                        low_price = min(open_price, close_price)
+                    high_price = max(high_price, open_price, close_price)
+                    low_price = min(low_price, open_price, close_price)
+
                     kline = {
                         "timestamp": timestamp,
-                        "open": self._safe_float(row.get('open'), 0.0),
-                        "high": self._safe_float(row.get('high'), 0.0),
-                        "low": self._safe_float(row.get('low'), 0.0),
-                        "close": self._safe_float(row.get('close'), 0.0),
+                        "open": open_price,
+                        "high": high_price,
+                        "low": low_price,
+                        "close": close_price,
                         "volume": self._safe_int(row.get('volume')),
                         "amount": self._safe_float(row.get('amount'))
                     }

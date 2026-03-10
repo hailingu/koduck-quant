@@ -3,6 +3,7 @@ package com.koduck.service.market;
 import com.koduck.config.properties.DataServiceProperties;
 import com.koduck.dto.market.DataServiceResponse;
 import com.koduck.dto.market.PriceQuoteDto;
+import com.koduck.dto.market.StockValuationDto;
 import com.koduck.dto.market.SymbolInfoDto;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -28,7 +29,10 @@ import java.util.Map;
 public class AKShareDataProvider implements MarketDataProvider {
     
     private static final Logger log = LoggerFactory.getLogger(AKShareDataProvider.class);
+    private static final String DATA_SERVICE_DISABLED_MESSAGE = "Data service is disabled";
     private static final String A_SHARE_BASE_PATH = "/a-share";
+    private static final String KEY_SYMBOL = "symbol";
+    private static final String KEY_NAME = "name";
     
     private final RestTemplate restTemplate;
     private final DataServiceProperties properties;
@@ -46,13 +50,13 @@ public class AKShareDataProvider implements MarketDataProvider {
     @Override
     public List<SymbolInfoDto> searchSymbols(String keyword, int limit) {
         if (!properties.isEnabled()) {
-            log.warn("Data service is disabled");
+            log.warn(DATA_SERVICE_DISABLED_MESSAGE);
             return Collections.emptyList();
         }
         
         try {
             String url = UriComponentsBuilder
-                    .fromHttpUrl(properties.getBaseUrl() + A_SHARE_BASE_PATH + "/search")
+                    .fromUriString(properties.getBaseUrl() + A_SHARE_BASE_PATH + "/search")
                     .queryParam("keyword", keyword)
                     .queryParam("limit", limit)
                     .toUriString();
@@ -78,13 +82,13 @@ public class AKShareDataProvider implements MarketDataProvider {
     @Override
     public PriceQuoteDto getPrice(String symbol) {
         if (!properties.isEnabled()) {
-            log.warn("Data service is disabled");
+            log.warn(DATA_SERVICE_DISABLED_MESSAGE);
             return null;
         }
         
         try {
             String url = UriComponentsBuilder
-                    .fromHttpUrl(properties.getBaseUrl() + A_SHARE_BASE_PATH + "/price/{symbol}")
+                    .fromUriString(properties.getBaseUrl() + A_SHARE_BASE_PATH + "/price/{symbol}")
                     .buildAndExpand(symbol)
                     .toUriString();
             
@@ -109,7 +113,7 @@ public class AKShareDataProvider implements MarketDataProvider {
     @Override
     public List<PriceQuoteDto> getBatchPrices(List<String> symbols) {
         if (!properties.isEnabled()) {
-            log.warn("Data service is disabled");
+            log.warn(DATA_SERVICE_DISABLED_MESSAGE);
             return Collections.emptyList();
         }
         
@@ -146,17 +150,47 @@ public class AKShareDataProvider implements MarketDataProvider {
             return Collections.emptyList();
         }
     }
+
+    public StockValuationDto getStockValuation(String symbol) {
+        if (!properties.isEnabled()) {
+            log.warn(DATA_SERVICE_DISABLED_MESSAGE);
+            return null;
+        }
+
+        try {
+            String url = UriComponentsBuilder
+                    .fromUriString(properties.getBaseUrl() + A_SHARE_BASE_PATH + "/valuation/{symbol}")
+                    .buildAndExpand(symbol)
+                    .toUriString();
+
+            log.debug("Getting valuation for symbol: {}", symbol);
+
+            ResponseEntity<DataServiceResponse<Map<String, Object>>> response =
+                    restTemplate.exchange(
+                            url,
+                            HttpMethod.GET,
+                            null,
+                            new ParameterizedTypeReference<>() {}
+                    );
+
+            return parseStockValuationResponse(response.getBody());
+
+        } catch (RestClientException e) {
+            log.error("Failed to get valuation for {}: {}", symbol, e.getMessage());
+            return null;
+        }
+    }
     
     @Override
     public List<SymbolInfoDto> getHotSymbols(int limit) {
         if (!properties.isEnabled()) {
-            log.warn("Data service is disabled");
+            log.warn(DATA_SERVICE_DISABLED_MESSAGE);
             return Collections.emptyList();
         }
         
         try {
             String url = UriComponentsBuilder
-                    .fromHttpUrl(properties.getBaseUrl() + A_SHARE_BASE_PATH + "/hot")
+                    .fromUriString(properties.getBaseUrl() + A_SHARE_BASE_PATH + "/hot")
                     .queryParam("limit", limit)
                     .toUriString();
             
@@ -190,8 +224,8 @@ public class AKShareDataProvider implements MarketDataProvider {
     
     private SymbolInfoDto mapToSymbolInfoDto(Map<String, Object> data) {
         return SymbolInfoDto.builder()
-                .symbol(getString(data, "symbol"))
-                .name(getString(data, "name"))
+                .symbol(getString(data, KEY_SYMBOL))
+                .name(getString(data, KEY_NAME))
                 .market(getString(data, "market"))
                 .price(getBigDecimal(data, "price"))
                 .changePercent(getBigDecimal(data, "change_percent"))
@@ -207,11 +241,19 @@ public class AKShareDataProvider implements MarketDataProvider {
         
         return mapToPriceQuoteDto(response.data());
     }
+
+    private StockValuationDto parseStockValuationResponse(DataServiceResponse<Map<String, Object>> response) {
+        if (response == null || response.data() == null) {
+            return null;
+        }
+
+        return mapToStockValuationDto(response.data());
+    }
     
     private PriceQuoteDto mapToPriceQuoteDto(Map<String, Object> data) {
         return PriceQuoteDto.builder()
-                .symbol(getString(data, "symbol"))
-                .name(getString(data, "name"))
+                .symbol(getString(data, KEY_SYMBOL))
+                .name(getString(data, KEY_NAME))
                 .price(getBigDecimal(data, "price"))
                 .open(getBigDecimal(data, "open"))
                 .high(getBigDecimal(data, "high"))
@@ -226,6 +268,22 @@ public class AKShareDataProvider implements MarketDataProvider {
                 .askPrice(getBigDecimal(data, "ask_price"))
                 .askVolume(getLong(data, "ask_volume"))
                 .timestamp(getInstant(data, "timestamp"))
+                .build();
+    }
+
+    private StockValuationDto mapToStockValuationDto(Map<String, Object> data) {
+        return StockValuationDto.builder()
+                .symbol(getString(data, KEY_SYMBOL))
+                .name(getString(data, KEY_NAME))
+                .peTtm(getBigDecimal(data, "pe_ttm"))
+                .pb(getBigDecimal(data, "pb"))
+                .psTtm(getBigDecimal(data, "ps_ttm"))
+                .marketCap(getBigDecimal(data, "market_cap"))
+                .floatMarketCap(getBigDecimal(data, "float_market_cap"))
+                .totalShares(getBigDecimal(data, "total_shares"))
+                .floatShares(getBigDecimal(data, "float_shares"))
+                .floatRatio(getBigDecimal(data, "float_ratio"))
+                .turnoverRate(getBigDecimal(data, "turnover_rate"))
                 .build();
     }
     
