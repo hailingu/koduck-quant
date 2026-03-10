@@ -45,6 +45,7 @@ ON CONFLICT (symbol) DO UPDATE SET
     updated_at = NOW()
 """
 
+# Basic stock info insert (for realtime updates)
 INSERT_STOCK_BASIC = """
 INSERT INTO stock_basic (symbol, name, market, updated_at)
 VALUES ($1, $2, $3, NOW())
@@ -53,11 +54,53 @@ ON CONFLICT (symbol) DO UPDATE SET
     updated_at = NOW()
 """
 
+# Full stock info insert (for initialization with enhanced fields)
+INSERT_STOCK_BASIC_FULL = """
+INSERT INTO stock_basic (
+    symbol, name, market, board, 
+    industry, sector, sub_industry, province, city,
+    total_shares, float_shares, float_ratio, status,
+    is_shanghai_hongkong, is_shenzhen_hongkong, stock_type,
+    list_date, pe_ttm, pb, ps_ttm, market_cap, float_market_cap,
+    updated_at
+) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, NOW())
+ON CONFLICT (symbol) DO UPDATE SET
+    name = EXCLUDED.name,
+    market = EXCLUDED.market,
+    board = EXCLUDED.board,
+    industry = EXCLUDED.industry,
+    sector = EXCLUDED.sector,
+    sub_industry = EXCLUDED.sub_industry,
+    province = EXCLUDED.province,
+    city = EXCLUDED.city,
+    total_shares = EXCLUDED.total_shares,
+    float_shares = EXCLUDED.float_shares,
+    float_ratio = EXCLUDED.float_ratio,
+    status = EXCLUDED.status,
+    is_shanghai_hongkong = EXCLUDED.is_shanghai_hongkong,
+    is_shenzhen_hongkong = EXCLUDED.is_shenzhen_hongkong,
+    stock_type = EXCLUDED.stock_type,
+    list_date = EXCLUDED.list_date,
+    pe_ttm = EXCLUDED.pe_ttm,
+    pb = EXCLUDED.pb,
+    ps_ttm = EXCLUDED.ps_ttm,
+    market_cap = EXCLUDED.market_cap,
+    float_market_cap = EXCLUDED.float_market_cap,
+    updated_at = NOW()
+"""
+
 SELECT_STOCK_REALTIME = """
 SELECT symbol, name, price, open_price, high, low, prev_close,
        volume, amount, change_amount, change_percent,
        bid_price, bid_volume, ask_price, ask_volume, updated_at
 FROM stock_realtime WHERE symbol = $1
+"""
+
+# Stock basic query for valuation metrics
+SELECT_STOCK_BASIC_VALUATION = """
+SELECT symbol, name, pe_ttm, pb, ps_ttm, market_cap, float_market_cap, 
+       total_shares, float_shares, float_ratio, turnover_rate
+FROM stock_basic WHERE symbol = $1
 """
 
 # Tick History SQL queries
@@ -203,6 +246,48 @@ class StockRealtimeDB:
             return False
     
     @staticmethod
+    async def upsert_stock_basic_full(data: Dict) -> bool:
+        """Insert or update stock basic info with full details.
+        
+        Args:
+            data: Dictionary containing all stock basic fields
+            
+        Returns:
+            True if successful, False otherwise
+        """
+        try:
+            await Database.execute(
+                INSERT_STOCK_BASIC_FULL,
+                data.get('symbol'),
+                data.get('name'),
+                data.get('market'),
+                data.get('board'),
+                data.get('industry'),
+                data.get('sector'),
+                data.get('sub_industry'),
+                data.get('province'),
+                data.get('city'),
+                data.get('total_shares'),
+                data.get('float_shares'),
+                data.get('float_ratio'),
+                data.get('status', 'Active'),
+                data.get('is_shanghai_hongkong', False),
+                data.get('is_shenzhen_hongkong', False),
+                data.get('stock_type', 'A'),
+                data.get('list_date'),
+                data.get('pe_ttm'),
+                data.get('pb'),
+                data.get('ps_ttm'),
+                data.get('market_cap'),
+                data.get('float_market_cap'),
+            )
+            logger.debug(f"Upserted full stock basic: {data.get('symbol')}")
+            return True
+        except Exception as e:
+            logger.error(f"Failed to upsert full stock basic {data.get('symbol')}: {e}")
+            return False
+    
+    @staticmethod
     async def get_stock(symbol: str) -> Optional[Dict]:
         """Get stock realtime data by symbol."""
         try:
@@ -212,6 +297,18 @@ class StockRealtimeDB:
             return None
         except Exception as e:
             logger.error(f"Failed to get stock {symbol}: {e}")
+            return None
+    
+    @staticmethod
+    async def get_stock_valuation(symbol: str) -> Optional[Dict]:
+        """Get stock valuation metrics (PE, PB, market cap, etc.) from stock_basic table."""
+        try:
+            row = await Database.fetchrow(SELECT_STOCK_BASIC_VALUATION, symbol)
+            if row:
+                return dict(row)
+            return None
+        except Exception as e:
+            logger.error(f"Failed to get stock valuation for {symbol}: {e}")
             return None
 
 

@@ -18,6 +18,7 @@ from app.routers import a_share, ai_analysis, kline, market
 from app.services.data_updater import data_updater, test_icbc_update
 from app.services.kline_initializer import kline_initializer
 from app.services.kline_scheduler import kline_scheduler
+from app.services.stock_basic_manager import stock_basic_manager
 from app.services.stock_initializer import stock_initializer
 
 API_V1_PREFIX = "/api/v1"
@@ -86,13 +87,19 @@ async def lifespan(app: FastAPI):
     logger.info("Initializing database connection...")
     await Database.get_pool()
 
-    # Initialize A-share stock basic data
-    logger.info("Initializing A-share stock basic data...")
-    init_success = await stock_initializer.run()
-    if init_success:
-        logger.info("A-share stock basic data initialization: SUCCESS")
+    # Initialize A-share stock basic data (enhanced with CSV caching)
+    logger.info("Initializing A-share stock basic data with CSV caching...")
+    stock_basic_success = await stock_basic_manager.initialize()
+    if stock_basic_success:
+        logger.info("Stock basic data initialization from CSV: SUCCESS")
     else:
-        logger.warning("A-share stock basic data initialization: SKIPPED or FAILED (will retry on next startup)")
+        logger.warning("Stock basic data initialization from CSV: FAILED, falling back to basic initializer...")
+        # Fallback to basic initializer
+        init_success = await stock_initializer.run()
+        if init_success:
+            logger.info("Basic stock initializer: SUCCESS")
+        else:
+            logger.warning("Basic stock initializer: SKIPPED or FAILED (will retry on next startup)")
 
     # Initialize K-line data from local CSV files
     logger.info("Initializing K-line data from local files...")

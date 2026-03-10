@@ -13,7 +13,7 @@ import akshare as ak
 import pandas as pd
 import structlog
 
-from app.db import Database
+from app.db import Database, StockRealtimeDB
 
 logger = structlog.get_logger(__name__)
 FETCH_ATTEMPT_MESSAGE = "Attempting to fetch A-share stock list via %s..."
@@ -351,11 +351,54 @@ class StockInitializer:
         inserted_count = 0
 
         try:
-            # Check if board column exists (for backwards compatibility)
+            # Check if enhanced columns exist (for backwards compatibility)
+            has_full_name_column = await self._check_column_exists("full_name")
             has_board_column = await self._check_column_exists("board")
 
-            if has_board_column:
-                # Use full insert with board column
+            if has_full_name_column:
+                # Use enhanced insert with all columns via StockRealtimeDB
+                logger.info("Using enhanced stock basic insert with full details")
+                for stock in stocks:
+                    # Convert StockBasicRecord to full detail format
+                    data = {
+                        'symbol': stock["symbol"],
+                        'name': stock["name"],
+                        'full_name': None,  # Not available in basic fetch
+                        'short_name': stock["name"],
+                        'market': stock["market"],
+                        'board': stock["board"],
+                        'industry': None,
+                        'sector': None,
+                        'sub_industry': None,
+                        'province': None,
+                        'city': None,
+                        'total_shares': None,
+                        'float_shares': None,
+                        'float_ratio': None,
+                        'status': 'Active',
+                        'is_shanghai_hongkong': False,
+                        'is_shenzhen_hongkong': False,
+                        'stock_type': 'A',
+                        'list_date': None,
+                        'pe_ttm': None,
+                        'pb': None,
+                        'ps_ttm': None,
+                        'market_cap': None,
+                        'float_market_cap': None,
+                    }
+                    success = await StockRealtimeDB.upsert_stock_basic_full(data)
+                    if success:
+                        inserted_count += 1
+                    
+                    if inserted_count % 500 == 0:
+                        logger.info(
+                            "Initialized %s/%s stocks...",
+                            inserted_count,
+                            len(stocks),
+                        )
+            elif has_board_column:
+                # Use basic insert with board column
+                logger.info("Using basic insert with board column")
                 insert_sql = """
                     INSERT INTO stock_basic (
                         symbol, name, market, board, created_at, updated_at
@@ -367,6 +410,28 @@ class StockInitializer:
                         board = EXCLUDED.board,
                         updated_at = EXCLUDED.updated_at
                 """
+                
+                pool = await Database.get_pool()
+                async with pool.acquire() as conn:
+                    async with conn.transaction():
+                        for stock in stocks:
+                            await conn.execute(
+                                insert_sql,
+                                stock["symbol"],
+                                stock["name"],
+                                stock["market"],
+                                stock["board"],
+                                stock["created_at"],
+                                stock["updated_at"],
+                            )
+                            inserted_count += 1
+
+                            if inserted_count % 500 == 0:
+                                logger.info(
+                                    "Initialized %s/%s stocks...",
+                                    inserted_count,
+                                    len(stocks),
+                                )
             else:
                 # Fallback: insert without board column
                 logger.warning("board column not found, inserting without board data")
@@ -380,22 +445,11 @@ class StockInitializer:
                         market = EXCLUDED.market,
                         updated_at = EXCLUDED.updated_at
                 """
-
-            pool = await Database.get_pool()
-            async with pool.acquire() as conn:
-                async with conn.transaction():
-                    for stock in stocks:
-                        if has_board_column:
-                            await conn.execute(
-                                insert_sql,
-                                stock["symbol"],
-                                stock["name"],
-                                stock["market"],
-                                stock["board"],
-                                stock["created_at"],
-                                stock["updated_at"],
-                            )
-                        else:
+                
+                pool = await Database.get_pool()
+                async with pool.acquire() as conn:
+                    async with conn.transaction():
+                        for stock in stocks:
                             await conn.execute(
                                 insert_sql,
                                 stock["symbol"],
@@ -404,14 +458,14 @@ class StockInitializer:
                                 stock["created_at"],
                                 stock["updated_at"],
                             )
-                        inserted_count += 1
+                            inserted_count += 1
 
-                        if inserted_count % 500 == 0:
-                            logger.info(
-                                "Initialized %s/%s stocks...",
-                                inserted_count,
-                                len(stocks),
-                            )
+                            if inserted_count % 500 == 0:
+                                logger.info(
+                                    "Initialized %s/%s stocks...",
+                                    inserted_count,
+                                    len(stocks),
+                                )
 
             logger.info(f"Successfully initialized {inserted_count} stocks")
             return inserted_count

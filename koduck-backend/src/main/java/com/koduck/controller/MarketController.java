@@ -6,6 +6,7 @@ import com.koduck.dto.ApiResponse;
 import com.koduck.dto.market.KlineDataDto;
 import com.koduck.dto.market.MarketIndexDto;
 import com.koduck.dto.market.PriceQuoteDto;
+import com.koduck.dto.market.StockValuationDto;
 import com.koduck.dto.market.SymbolInfoDto;
 import com.koduck.service.KlineMinutesService;
 import com.koduck.service.KlineService;
@@ -85,6 +86,27 @@ public class MarketController {
             return ApiResponse.error(404, "股票代码不存在: " + symbol);
         }
         return ApiResponse.success(quote);
+    }
+
+    /**
+     * Get stock valuation metrics.
+     * <p>Retrieves PE, PB, market cap and related valuation fields for a single stock.</p>
+     *
+     * @param symbol stock symbol (e.g. "002326"), must not be blank
+     * @return valuation metrics for the symbol
+     */
+    @GetMapping("/stocks/{symbol}/valuation")
+    public ApiResponse<StockValuationDto> getStockValuation(
+            @PathVariable @NotBlank(message = "股票代码不能为空")
+            String symbol) {
+
+        log.info("GET /api/v1/market/stocks/{}/valuation", symbol);
+
+        StockValuationDto valuation = marketService.getStockValuation(symbol);
+        if (valuation == null) {
+            return ApiResponse.error(404, "股票估值不存在: " + symbol);
+        }
+        return ApiResponse.success(valuation);
     }
 
     /**

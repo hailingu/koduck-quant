@@ -1,9 +1,10 @@
 package com.koduck.service;
 
 import com.koduck.dto.market.MarketIndexDto;
+import com.koduck.dto.market.KlineDataDto;
 import com.koduck.dto.market.PriceQuoteDto;
+import com.koduck.dto.market.StockValuationDto;
 import com.koduck.dto.market.SymbolInfoDto;
-import com.koduck.entity.KlineData;
 import com.koduck.entity.StockBasic;
 import com.koduck.entity.StockRealtime;
 import com.koduck.repository.StockBasicRepository;
@@ -138,24 +139,27 @@ class MarketServiceImplTest {
                                 .name("京泉华")
                                 .market("AShare")
                                 .build();
-                KlineData latestKline = KlineData.builder()
-                                .market("AShare")
-                                .symbol("002885")
-                                .timeframe("1D")
-                                .klineTime(LocalDateTime.of(2026, 3, 7, 15, 0))
-                                .openPrice(new BigDecimal("12.10"))
-                                .highPrice(new BigDecimal("12.35"))
-                                .lowPrice(new BigDecimal("11.98"))
-                                .closePrice(new BigDecimal("12.28"))
-                                .volume(258000L)
-                                .amount(new BigDecimal("3158200.00"))
-                                .build();
+                KlineDataDto previousKline = new KlineDataDto(
+                                1741262400L,
+                                new BigDecimal("12.00"),
+                                new BigDecimal("12.18"),
+                                new BigDecimal("11.95"),
+                                new BigDecimal("12.00"),
+                                245000L,
+                                new BigDecimal("2980000.00"));
+                KlineDataDto latestKline = new KlineDataDto(
+                                1741348800L,
+                                new BigDecimal("12.10"),
+                                new BigDecimal("12.35"),
+                                new BigDecimal("11.98"),
+                                new BigDecimal("12.28"),
+                                258000L,
+                                new BigDecimal("3158200.00"));
 
                 when(stockRealtimeRepository.findBySymbol("002885")).thenReturn(Optional.empty());
                 when(stockBasicRepository.findBySymbol("002885")).thenReturn(Optional.of(basic));
-                when(klineService.getLatestKline("AShare", "002885", "1D")).thenReturn(Optional.of(latestKline));
-                when(klineService.getPreviousClosePrice("AShare", "002885", "1D"))
-                                .thenReturn(Optional.of(new BigDecimal("12.00")));
+                when(klineService.getKlineData("AShare", "002885", "1D", 2, null))
+                                .thenReturn(List.of(previousKline, latestKline));
 
                 PriceQuoteDto quote = marketService.getStockDetail("002885");
 
@@ -196,6 +200,29 @@ class MarketServiceImplTest {
 
         assertThat(quote).isNull();
     }
+
+        @Test
+        @DisplayName("shouldReturnStockValuationFromDataService")
+        void shouldReturnStockValuationFromDataService() {
+                StockValuationDto valuation = StockValuationDto.builder()
+                                .symbol("601012")
+                                .name("隆基绿能")
+                                .peTtm(new BigDecimal("18.39"))
+                                .pb(new BigDecimal("2.17"))
+                                .marketCap(new BigDecimal("1393.52"))
+                                .build();
+
+                when(akShareDataProvider.getStockValuation("601012")).thenReturn(valuation);
+
+                StockValuationDto result = marketService.getStockValuation("601012");
+
+                assertThat(result).isNotNull();
+                assertThat(result.symbol()).isEqualTo("601012");
+                assertThat(result.peTtm()).isEqualByComparingTo(new BigDecimal("18.39"));
+                assertThat(result.pb()).isEqualByComparingTo(new BigDecimal("2.17"));
+                assertThat(result.marketCap()).isEqualByComparingTo(new BigDecimal("1393.52"));
+                verify(akShareDataProvider).getStockValuation("601012");
+        }
 
     @Test
     @DisplayName("shouldReturnIndicesWhenMainIndexDataExists")

@@ -250,6 +250,54 @@ class KlineRequest(BaseModel):
     before_time: Optional[int] = Field(default=None, description="Get data before this Unix timestamp")
 
 
+class StockValuation(BaseModel):
+    """Stock valuation metrics including PE, PB, market cap and turnover rate.
+    
+    Attributes:
+        symbol (str): Stock symbol.
+        name (str): Stock name.
+        pe_ttm (Optional[float]): PE ratio based on TTM earnings.
+        pb (Optional[float]): Price-to-Book ratio.
+        ps_ttm (Optional[float]): Price-to-Sales ratio based on TTM.
+        market_cap (Optional[float]): Total market cap in 100 million CNY.
+        float_market_cap (Optional[float]): Float market cap in 100 million CNY.
+        total_shares (Optional[float]): Total shares in 100 million.
+        float_shares (Optional[float]): Float shares in 100 million.
+        float_ratio (Optional[float]): Float share ratio percentage.
+        turnover_rate (Optional[float]): Turnover rate percentage.
+    """
+    
+    symbol: str = Field(..., description="Stock symbol")
+    name: str = Field(..., description="Stock name")
+    pe_ttm: Optional[float] = Field(default=None, description="PE ratio (TTM)")
+    pb: Optional[float] = Field(default=None, description="Price-to-Book ratio")
+    ps_ttm: Optional[float] = Field(default=None, description="Price-to-Sales ratio (TTM)")
+    market_cap: Optional[float] = Field(default=None, description="Total market cap (100M CNY)")
+    float_market_cap: Optional[float] = Field(default=None, description="Float market cap (100M CNY)")
+    total_shares: Optional[float] = Field(default=None, description="Total shares (100M)")
+    float_shares: Optional[float] = Field(default=None, description="Float shares (100M)")
+    float_ratio: Optional[float] = Field(default=None, description="Float ratio (%)")
+    turnover_rate: Optional[float] = Field(default=None, description="Turnover rate (%)")
+    
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "symbol": "002326",
+                "name": "Yongtai Technology",
+                "pe_ttm": 25.68,
+                "pb": 2.35,
+                "ps_ttm": 3.12,
+                "market_cap": 85.6,
+                "float_market_cap": 42.3,
+                "total_shares": 5.2,
+                "float_shares": 2.8,
+                "float_ratio": 53.85,
+                "turnover_rate": 3.56
+            }
+        }
+    )
+
+
 class MarketIndex(BaseModel):
     """Data structure for a market index quote.
 
