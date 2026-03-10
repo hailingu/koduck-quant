@@ -47,6 +47,8 @@ services:
     build:
       context: ./koduck-data-service
       dockerfile: Dockerfile
+      args:
+        - PIP_INDEX_URL=${PIP_INDEX_URL:-https://pypi.org/simple}
     container_name: koduck-data-service
     ports:
       - "8000:8000"

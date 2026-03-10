@@ -137,9 +137,11 @@ public class MarketServiceImpl implements MarketService {
         }
         
         try {
-            StockRealtime entity = stockRealtimeRepository.findBySymbol(symbol).orElse(null);
+            StockRealtime entity = stockRealtimeRepository
+                    .findFirstBySymbolOrderByUpdatedAtDesc(symbol)
+                    .orElse(null);
             if (entity == null) {
-                PriceQuoteDto fallbackQuote = buildQuoteFromLatestKline(symbol);
+                PriceQuoteDto fallbackQuote = tryBuildQuoteFromLatestKline(symbol);
                 if (fallbackQuote != null) {
                     log.info("Built stock detail from latest kline data: symbol={}", symbol);
                     return fallbackQuote;
@@ -161,7 +163,19 @@ public class MarketServiceImpl implements MarketService {
             return mapToPriceQuoteDto(entity);
         } catch (Exception e) {
             log.error("Error getting stock detail: symbol={}, error={}", symbol, e.getMessage(), e);
-            throw e;
+            PriceQuoteDto fallbackQuote = tryBuildQuoteFromLatestKline(symbol);
+            if (fallbackQuote != null) {
+                log.info("Recovered stock detail from latest kline after exception: symbol={}", symbol);
+                return fallbackQuote;
+            }
+
+            PriceQuoteDto providerQuote = akShareDataProvider.getPrice(symbol);
+            if (providerQuote != null) {
+                log.info("Recovered stock detail from data service after exception: symbol={}", symbol);
+                return providerQuote;
+            }
+
+            return null;
         }
     }
 
@@ -400,9 +414,19 @@ public class MarketServiceImpl implements MarketService {
         return null;
     }
 
+    private PriceQuoteDto tryBuildQuoteFromLatestKline(String symbol) {
+        try {
+            return buildQuoteFromLatestKline(symbol);
+        } catch (Exception ex) {
+            log.warn("Failed to build quote from kline: symbol={}, error={}", symbol, ex.getMessage());
+            return null;
+        }
+    }
+
     private PriceQuoteDto buildQuoteFromKline(String symbol, StockBasic basic, String market) {
         List<com.koduck.dto.market.KlineDataDto> recent =
             klineService.getKlineData(market, symbol, DAILY_TIMEFRAME, 2, null);
+        recent = normalizeKlineData(recent);
         if (recent.isEmpty()) {
             return null;
         }
@@ -427,6 +451,66 @@ public class MarketServiceImpl implements MarketService {
             .changePercent(changePercent)
             .timestamp(latest.timestamp() != null ? Instant.ofEpochSecond(latest.timestamp()) : null)
             .build();
+    }
+
+    private List<com.koduck.dto.market.KlineDataDto> normalizeKlineData(
+            List<com.koduck.dto.market.KlineDataDto> rawData) {
+        if (rawData == null || rawData.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        List<com.koduck.dto.market.KlineDataDto> normalized = new ArrayList<>();
+        for (Object item : rawData) {
+            if (item instanceof com.koduck.dto.market.KlineDataDto dto) {
+                normalized.add(dto);
+                continue;
+            }
+            if (item instanceof Map<?, ?> map) {
+                normalized.add(
+                    com.koduck.dto.market.KlineDataDto.builder()
+                        .timestamp(toLong(map.get("timestamp")))
+                        .open(toBigDecimal(map.get("open")))
+                        .high(toBigDecimal(map.get("high")))
+                        .low(toBigDecimal(map.get("low")))
+                        .close(toBigDecimal(map.get("close")))
+                        .volume(toLong(map.get("volume")))
+                        .amount(toBigDecimal(map.get("amount")))
+                        .build()
+                );
+            }
+        }
+        return normalized;
+    }
+
+    private BigDecimal toBigDecimal(Object value) {
+        if (value == null) {
+            return null;
+        }
+        if (value instanceof BigDecimal bigDecimal) {
+            return bigDecimal;
+        }
+        if (value instanceof Number number) {
+            return BigDecimal.valueOf(number.doubleValue());
+        }
+        try {
+            return new BigDecimal(value.toString());
+        } catch (NumberFormatException ex) {
+            return null;
+        }
+    }
+
+    private Long toLong(Object value) {
+        if (value == null) {
+            return null;
+        }
+        if (value instanceof Number number) {
+            return number.longValue();
+        }
+        try {
+            return Long.parseLong(value.toString());
+        } catch (NumberFormatException ex) {
+            return null;
+        }
     }
 
     private BigDecimal calculateChange(BigDecimal price, BigDecimal prevClose) {

@@ -1,6 +1,7 @@
 package com.koduck.config;
 
 import com.koduck.security.JwtAuthenticationFilter;
+import jakarta.servlet.DispatcherType;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
@@ -61,6 +62,8 @@ public class SecurityConfig {
                 exceptions.authenticationEntryPoint((request, response, authException) ->
                     response.sendError(HttpServletResponse.SC_UNAUTHORIZED, authException.getMessage())))
             .authorizeHttpRequests(auth -> auth
+                // Allow async/error dispatches (e.g. SSE) to continue after initial auth passes.
+                .dispatcherTypeMatchers(DispatcherType.ASYNC, DispatcherType.ERROR).permitAll()
                 .requestMatchers(
                     AUTH_ENDPOINT_PATTERN,
                     ACTUATOR_HEALTH_ENDPOINT,

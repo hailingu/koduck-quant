@@ -5,6 +5,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import com.koduck.dto.ApiResponse;
 import com.koduck.dto.ai.BacktestInterpretRequest;
 import com.koduck.dto.ai.BacktestInterpretResponse;
+import com.koduck.dto.ai.ChatStreamRequest;
 import com.koduck.dto.ai.RiskAssessmentRequest;
 import com.koduck.dto.ai.RiskAssessmentResponse;
 import com.koduck.dto.ai.StockAnalysisRequest;
@@ -17,10 +18,12 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.util.Objects;
 
@@ -64,6 +67,19 @@ public class AiAnalysisController {
 
         StockAnalysisResponse response = aiAnalysisService.analyzeStock(request);
         return ApiResponse.success(response);
+    }
+
+    /**
+     * Proxy chat stream request through backend for unified AI access.
+     */
+    @PostMapping(value = "/chat/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    public SseEmitter chatStream(
+            @AuthenticationPrincipal UserPrincipal userPrincipal,
+            @Valid @RequestBody ChatStreamRequest request) {
+
+        Long userId = requireUserId(userPrincipal);
+        log.debug("POST /api/v1/ai/chat/stream: user={}, provider={}", userId, request.getProvider());
+        return aiAnalysisService.streamChat(request);
     }
 
     /**

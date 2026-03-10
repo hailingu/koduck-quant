@@ -115,7 +115,7 @@ export const marketApi = {
    * @param symbol 股票代码
    */
   getStockValuation: (symbol: string) =>
-    request.get<StockValuation>(`/api/v1/market/stocks/${symbol}/valuation`, { timeout: 10000 }),
+    request.get<StockValuation>(`/api/v1/market/stocks/${symbol}/valuation`, { timeout: 15000 }),
 
   /**
    * 获取股票所属行业信息（所属行业、板块、细分行业等）

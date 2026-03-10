@@ -23,7 +23,9 @@ import org.springframework.data.domain.PageRequest;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -154,7 +156,7 @@ class MarketServiceImplTest {
                 .updatedAt(LocalDateTime.now())
                 .build();
 
-        when(stockRealtimeRepository.findBySymbol("002326")).thenReturn(Optional.of(realtime));
+        when(stockRealtimeRepository.findFirstBySymbolOrderByUpdatedAtDesc("002326")).thenReturn(Optional.of(realtime));
 
         PriceQuoteDto quote = marketService.getStockDetail("002326");
 
@@ -189,7 +191,7 @@ class MarketServiceImplTest {
                                 258000L,
                                 new BigDecimal("3158200.00"));
 
-                when(stockRealtimeRepository.findBySymbol("002885")).thenReturn(Optional.empty());
+                when(stockRealtimeRepository.findFirstBySymbolOrderByUpdatedAtDesc("002885")).thenReturn(Optional.empty());
                 when(stockBasicRepository.findBySymbol("002885")).thenReturn(Optional.of(basic));
                 when(klineService.getKlineData("AShare", "002885", "1D", 2, null))
                                 .thenReturn(List.of(previousKline, latestKline));
@@ -205,6 +207,48 @@ class MarketServiceImplTest {
         }
 
         @Test
+        @DisplayName("shouldBuildStockDetailFromCachedMapKlineWhenCacheReturnsLinkedHashMap")
+        @SuppressWarnings({"unchecked", "rawtypes"})
+        void shouldBuildStockDetailFromCachedMapKlineWhenCacheReturnsLinkedHashMap() {
+                StockBasic basic = StockBasic.builder()
+                                .symbol("601919")
+                                .name("中远海控")
+                                .market("AShare")
+                                .build();
+
+                Map<String, Object> previous = new LinkedHashMap<>();
+                previous.put("timestamp", 1741262400L);
+                previous.put("open", "15.20");
+                previous.put("high", "15.50");
+                previous.put("low", "15.10");
+                previous.put("close", "15.30");
+                previous.put("volume", 1200000L);
+                previous.put("amount", "18360000.00");
+
+                Map<String, Object> latest = new LinkedHashMap<>();
+                latest.put("timestamp", 1741348800L);
+                latest.put("open", "15.31");
+                latest.put("high", "15.60");
+                latest.put("low", "15.20");
+                latest.put("close", "15.45");
+                latest.put("volume", 1500000L);
+                latest.put("amount", "23175000.00");
+
+                when(stockRealtimeRepository.findFirstBySymbolOrderByUpdatedAtDesc("601919"))
+                                .thenReturn(Optional.empty());
+                when(stockBasicRepository.findBySymbol("601919")).thenReturn(Optional.of(basic));
+                when(klineService.getKlineData("AShare", "601919", "1D", 2, null))
+                                .thenReturn((List) List.of(previous, latest));
+
+                PriceQuoteDto quote = marketService.getStockDetail("601919");
+
+                assertThat(quote).isNotNull();
+                assertThat(quote.symbol()).isEqualTo("601919");
+                assertThat(quote.price()).isEqualByComparingTo(new BigDecimal("15.45"));
+                assertThat(quote.change()).isEqualByComparingTo(new BigDecimal("0.15"));
+        }
+
+        @Test
         @DisplayName("shouldReturnDataServiceQuoteWhenRealtimeIsMissing")
         void shouldReturnDataServiceQuoteWhenRealtimeIsMissing() {
                 PriceQuoteDto providerQuote = PriceQuoteDto.builder()
@@ -214,7 +258,7 @@ class MarketServiceImplTest {
                                 .changePercent(new BigDecimal("-0.76"))
                                 .build();
 
-                when(stockRealtimeRepository.findBySymbol("002885")).thenReturn(Optional.empty());
+                when(stockRealtimeRepository.findFirstBySymbolOrderByUpdatedAtDesc("002885")).thenReturn(Optional.empty());
                 when(akShareDataProvider.getPrice("002885")).thenReturn(providerQuote);
 
                 PriceQuoteDto quote = marketService.getStockDetail("002885");
@@ -224,6 +268,30 @@ class MarketServiceImplTest {
                 assertThat(quote.name()).isEqualTo("京泉华");
                 assertThat(quote.price()).isEqualByComparingTo(new BigDecimal("32.50"));
                 verify(akShareDataProvider).getPrice("002885");
+        }
+
+        @Test
+        @DisplayName("shouldRecoverFromRealtimeLookupExceptionUsingDataServiceQuote")
+        void shouldRecoverFromRealtimeLookupExceptionUsingDataServiceQuote() {
+                PriceQuoteDto providerQuote = PriceQuoteDto.builder()
+                                .symbol("601919")
+                                .name("中远海控")
+                                .price(new BigDecimal("15.45"))
+                                .changePercent(BigDecimal.ZERO)
+                                .build();
+
+                when(stockRealtimeRepository.findFirstBySymbolOrderByUpdatedAtDesc("601919"))
+                                .thenThrow(new RuntimeException("db lookup failed"));
+                when(stockBasicRepository.findBySymbol("601919")).thenReturn(Optional.empty());
+                when(akShareDataProvider.getPrice("601919")).thenReturn(providerQuote);
+
+                PriceQuoteDto quote = marketService.getStockDetail("601919");
+
+                assertThat(quote).isNotNull();
+                assertThat(quote.symbol()).isEqualTo("601919");
+                assertThat(quote.name()).isEqualTo("中远海控");
+                assertThat(quote.price()).isEqualByComparingTo(new BigDecimal("15.45"));
+                verify(akShareDataProvider).getPrice("601919");
         }
 
     @Test

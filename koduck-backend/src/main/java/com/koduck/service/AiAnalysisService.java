@@ -14,11 +14,21 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.web.client.RestTemplateBuilder;
 import org.springframework.http.*;
 import org.springframework.stereotype.Service;
+import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 import org.springframework.web.client.RestTemplate;
 
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.io.OutputStream;
+import java.net.HttpURLConnection;
+import java.net.URI;
+import java.nio.charset.StandardCharsets;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.*;
+import java.util.concurrent.CompletableFuture;
 
 /**
  * AI 分析服务 - 对接 koduck-agent
@@ -166,6 +176,131 @@ public class AiAnalysisService {
         }
         
         throw new RuntimeException("Invalid response from agent: empty response");
+    }
+
+    /**
+     * 代理流式聊天接口，统一由后端中转到 koduck-agent。
+     */
+    public SseEmitter streamChat(ChatStreamRequest request) {
+        SseEmitter emitter = new SseEmitter(0L);
+        CompletableFuture.runAsync(() -> relayAgentStream(request, emitter));
+        return emitter;
+    }
+
+    private void relayAgentStream(ChatStreamRequest request, SseEmitter emitter) {
+        HttpURLConnection connection = null;
+        try {
+            String agentUrl = agentConfig.getUrl() + "/api/v1/ai/chat/stream";
+            String requestBody = objectMapper.writeValueAsString(request);
+            String provider = request.getProvider() != null ? request.getProvider() : "minimax";
+
+            connection = (HttpURLConnection) URI.create(agentUrl).toURL().openConnection();
+            connection.setRequestMethod("POST");
+            connection.setDoOutput(true);
+            connection.setConnectTimeout(30000);
+            connection.setReadTimeout(0);
+            connection.setRequestProperty("Content-Type", MediaType.APPLICATION_JSON_VALUE);
+            connection.setRequestProperty("Accept", MediaType.TEXT_EVENT_STREAM_VALUE);
+            connection.setRequestProperty("Cache-Control", "no-cache");
+
+            try (OutputStream output = connection.getOutputStream()) {
+                output.write(requestBody.getBytes(StandardCharsets.UTF_8));
+                output.flush();
+            }
+
+            int statusCode = connection.getResponseCode();
+            if (statusCode < 200 || statusCode >= 300) {
+                String detail = readInputStream(connection.getErrorStream());
+                sendSseEvent(emitter, "error", objectMapper.writeValueAsString(Map.of(
+                    "code", statusCode,
+                    "message", "AI 服务调用失败: " + (detail.isBlank() ? "unknown error" : detail)
+                )));
+                emitter.complete();
+                return;
+            }
+
+            try (BufferedReader reader = new BufferedReader(
+                new InputStreamReader(connection.getInputStream(), StandardCharsets.UTF_8)
+            )) {
+                String line;
+                String eventName = "message";
+                StringBuilder dataBuilder = new StringBuilder();
+
+                while ((line = reader.readLine()) != null) {
+                    if (line.isEmpty()) {
+                        flushSseEvent(emitter, eventName, dataBuilder);
+                        eventName = "message";
+                        dataBuilder.setLength(0);
+                        continue;
+                    }
+
+                    if (line.startsWith("event:")) {
+                        eventName = line.substring("event:".length()).trim();
+                        continue;
+                    }
+
+                    if (line.startsWith("data:")) {
+                        if (dataBuilder.length() > 0) {
+                            dataBuilder.append('\n');
+                        }
+                        dataBuilder.append(line.substring("data:".length()).trim());
+                    }
+                }
+
+                flushSseEvent(emitter, eventName, dataBuilder);
+            }
+
+            log.info("AI chat stream relay completed: provider={}", provider);
+            emitter.complete();
+        } catch (Exception e) {
+            log.error("AI chat stream relay failed: {}", e.getMessage(), e);
+            try {
+                sendSseEvent(emitter, "error", objectMapper.writeValueAsString(Map.of(
+                    "code", 500,
+                    "message", "后端转发 AI 流式响应失败: " + e.getMessage()
+                )));
+                emitter.complete();
+            } catch (Exception sendError) {
+                log.warn("Failed to send SSE error event: {}", sendError.getMessage());
+                emitter.complete();
+            }
+        } finally {
+            if (connection != null) {
+                connection.disconnect();
+            }
+        }
+    }
+
+    private void flushSseEvent(SseEmitter emitter, String eventName, StringBuilder dataBuilder)
+        throws IOException {
+        if (dataBuilder.isEmpty()) {
+            return;
+        }
+        // Forward raw upstream payload to avoid converter mismatches that may break chunked stream.
+        sendSseEvent(emitter, eventName, dataBuilder.toString());
+    }
+
+    private void sendSseEvent(SseEmitter emitter, String eventName, Object data) throws IOException {
+        emitter.send(SseEmitter.event().name(eventName).data(data));
+    }
+
+    private String readInputStream(InputStream stream) {
+        if (stream == null) {
+            return "";
+        }
+        try (BufferedReader reader = new BufferedReader(new InputStreamReader(stream, StandardCharsets.UTF_8))) {
+            StringBuilder builder = new StringBuilder();
+            String line;
+            while ((line = reader.readLine()) != null) {
+                if (builder.length() > 0) {
+                    builder.append('\n');
+                }
+                builder.append(line);
+            }
+            return builder.toString();
+        } catch (IOException e) {
+            return "";
+        }
     }
     
     /**

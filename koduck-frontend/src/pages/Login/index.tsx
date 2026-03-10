@@ -31,7 +31,7 @@ export default function Login() {
         setToken(data.data.accessToken)
         setUser(data.data.user)
         showToast('登录成功', 'success')
-        navigate('/dashboard')
+        navigate('/market')
       } else {
         showToast(data.message || '登录失败', 'error')
       }
