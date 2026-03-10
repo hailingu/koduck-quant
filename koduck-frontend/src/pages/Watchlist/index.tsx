@@ -13,6 +13,10 @@ interface WatchlistDisplayItem extends WatchlistItem {
   realtimeTimestamp?: number
 }
 
+const REALTIME_STALE_MS = 20000
+const WATCHLIST_REFRESH_MS = 15000
+const MARKET_STATUS_CHECK_MS = 30000
+
 const normalizeSymbol = (symbol: string): string => {
   const digits = symbol.replaceAll(/\D/g, '')
   if (digits.length >= 1 && digits.length <= 6) {
@@ -113,6 +117,7 @@ export default function Watchlist() {
   const [loading, setLoading] = useState(true)
   const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' } | null>(null)
   const [showAddModal, setShowAddModal] = useState(false)
+  const [marketTrading, setMarketTrading] = useState<boolean>(isTradingHours())
 
   // WebSocket store for real-time price updates
   const stockPrices = useWebSocketStore((state) => state.stockPrices)
@@ -126,9 +131,13 @@ export default function Watchlist() {
 
   // Merge watchlist with real-time prices from WebSocket
   const watchlistWithRealtime = useMemo<WatchlistDisplayItem[]>(() => {
+    const now = Date.now()
     return watchlist.map((item) => {
       const realtimePrice = stockPrices.get(normalizeSymbol(item.symbol))
-      if (realtimePrice) {
+      const isRealtimeFresh =
+        realtimePrice !== undefined && now - realtimePrice.timestamp <= REALTIME_STALE_MS
+
+      if (isRealtimeFresh && realtimePrice) {
         return {
           ...item,
           price: realtimePrice.price,
@@ -142,21 +151,51 @@ export default function Watchlist() {
   }, [watchlist, stockPrices])
 
   // 加载自选股列表（后端已返回 price/change/changePercent，无需额外调用）
-  const loadWatchlist = useCallback(async () => {
+  const loadWatchlist = useCallback(async (options?: { silent?: boolean }) => {
+    const silent = options?.silent ?? false
     try {
-      setLoading(true)
+      if (!silent) {
+        setLoading(true)
+      }
       const data = await watchlistApi.getWatchlist()
       setWatchlist(data || [])
     } catch {
-      showToast('加载自选股失败', 'error')
+      if (!silent) {
+        showToast('加载自选股失败', 'error')
+      }
     } finally {
-      setLoading(false)
+      if (!silent) {
+        setLoading(false)
+      }
     }
   }, [showToast])
 
   useEffect(() => {
     loadWatchlist()
   }, [loadWatchlist])
+
+  useEffect(() => {
+    const intervalId = globalThis.setInterval(() => {
+      setMarketTrading(isTradingHours())
+    }, MARKET_STATUS_CHECK_MS)
+
+    return () => {
+      globalThis.clearInterval(intervalId)
+    }
+  }, [])
+
+  useEffect(() => {
+    const intervalId = globalThis.setInterval(() => {
+      // Trading hours keeps values changing quickly; outside hours this is lightweight fallback.
+      if (connectionState !== 'connected' || marketTrading) {
+        loadWatchlist({ silent: true })
+      }
+    }, WATCHLIST_REFRESH_MS)
+
+    return () => {
+      globalThis.clearInterval(intervalId)
+    }
+  }, [connectionState, loadWatchlist, marketTrading])
 
   // 添加自选股
   const handleAddStock = async (symbol: string, name: string, market: string) => {
@@ -254,13 +293,13 @@ export default function Watchlist() {
             <p className="mt-1 text-gray-600 dark:text-gray-400">管理您的关注股票列表</p>
           </div>
           {/* Connection Status Indicator */}
-          {connectionState === 'connected' && isTradingHours() && (
+          {connectionState === 'connected' && marketTrading && (
             <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400">
               <span className="w-2 h-2 mr-1 rounded-full bg-green-500 animate-pulse"></span>
               实时
             </span>
           )}
-          {connectionState === 'connected' && !isTradingHours() && (
+          {connectionState === 'connected' && !marketTrading && (
             <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-400">
               <span className="w-2 h-2 mr-1 rounded-full bg-gray-400"></span>
               已收盘
