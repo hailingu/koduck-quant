@@ -61,3 +61,5 @@ issues/
 # K-line data (local CSV files)
 koduck-data-service/data/
 *.png
+
+docker-compose.local.yml
