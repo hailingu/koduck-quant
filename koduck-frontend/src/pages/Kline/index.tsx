@@ -509,7 +509,7 @@ export default function Kline() {
     return (
       <div className="space-y-5 [font-family:-apple-system,BlinkMacSystemFont,'SF_Pro_Text','Helvetica_Neue','Segoe_UI',sans-serif]">
         {/* Header with Search */}
-        <div className={`${APPLE_CARD_CLASS} p-4`}>
+        <div>
           <StockSearch onSelect={handleStockSelect} />
         </div>
 
@@ -576,7 +576,7 @@ export default function Kline() {
   return (
     <div className="space-y-5 h-full [font-family:-apple-system,BlinkMacSystemFont,'SF_Pro_Text','Helvetica_Neue','Segoe_UI',sans-serif]">
       {/* Header with Search */}
-      <div className={`${APPLE_CARD_CLASS} p-4`}>
+      <div>
         <StockSearch onSelect={handleStockSelect} />
       </div>
 
