@@ -126,7 +126,37 @@ class DataUpdater:
             return True
         
         return False
-    
+
+    async def _is_symbol_in_watchlist(self, symbol: str) -> bool:
+        """Return whether symbol exists in A-share watchlist."""
+        if not symbol:
+            return False
+
+        row = await Database.fetchrow(
+            """
+            SELECT 1
+            FROM watchlist_items
+            WHERE symbol = $1
+              AND market IN ('AShare', 'SSE', 'SZSE')
+            LIMIT 1
+            """,
+            symbol,
+        )
+        return row is not None
+
+    async def _should_persist_tick(self, symbol: str) -> bool:
+        """Tick persistence guard: watchlist + trading time + sampling."""
+        if not settings.TICK_HISTORY_ENABLED:
+            return False
+
+        if not is_a_share_trading_time():
+            return False
+
+        if not await self._is_symbol_in_watchlist(symbol):
+            return False
+
+        return self._should_store_tick()
+
     async def _save_tick_history(self, data: StockPayload) -> bool:
         """Save tick data to history table.
         
@@ -136,12 +166,10 @@ class DataUpdater:
         Returns:
             True if successful, False otherwise
         """
-        if not settings.TICK_HISTORY_ENABLED:
+        symbol = str(data.get("symbol", "")).strip()
+        if not await self._should_persist_tick(symbol):
             return True
-        
-        if not self._should_store_tick():
-            return True
-        
+
         try:
             # Use async insert
             if settings.TICK_WRITE_ASYNC:
@@ -253,6 +281,13 @@ class DataUpdater:
             caught and logged; the method itself never propagates an exception.
         """
         try:
+            # Outside trading hours, avoid repeated provider calls.
+            # If realtime row already exists, reuse it directly.
+            if not is_a_share_trading_time():
+                existing = await stock_db.get_stock(symbol)
+                if existing:
+                    return dict(existing)
+
             # Fetch from Eastmoney
             data = eastmoney_client.fetch_single_stock(
                 symbol,

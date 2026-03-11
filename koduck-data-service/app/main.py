@@ -24,6 +24,27 @@ from app.services.stock_initializer import stock_initializer
 API_V1_PREFIX = "/api/v1"
 
 
+def should_run_realtime_update(
+    is_trading_time: bool,
+    only_during_trading_hours: bool,
+    skip_during_trading_hours: bool,
+) -> bool:
+    """Determine whether realtime scheduler should execute this iteration.
+
+    Priority:
+    1. If only-during-trading is enabled, run only when market is trading.
+    2. Otherwise, honor the legacy skip-during-trading switch.
+    3. Otherwise, run at all times.
+    """
+    if only_during_trading_hours:
+        return is_trading_time
+
+    if skip_during_trading_hours:
+        return not is_trading_time
+
+    return True
+
+
 def setup_logging():
     """Configure and initialize structured logging for the application.
 
@@ -152,9 +173,10 @@ async def run_realtime_update_scheduler():
     :func:`app.services.data_updater.run_realtime_loop` for ongoing
     polling every 30 seconds.
     
-    By default updates run continuously every 30 seconds. If
-    ``REALTIME_SKIP_DURING_TRADING_HOURS`` is enabled, updates are skipped
-    during A-share trading hours (09:30-11:30, 13:00-15:00).
+    By default updates run only during A-share trading hours
+    (09:30-11:30, 13:00-15:00). Legacy mode can still skip updates during
+    trading hours via ``REALTIME_SKIP_DURING_TRADING_HOURS`` when
+    ``REALTIME_ONLY_DURING_TRADING_HOURS`` is disabled.
     """
     from app.utils.trading_hours import is_a_share_trading_time
     
@@ -179,15 +201,23 @@ async def run_realtime_update_scheduler():
 
     while True:
         try:
-            # Optional guard for deployments that do not want intraday polling.
-            if (
-                settings.REALTIME_SKIP_DURING_TRADING_HOURS
-                and is_a_share_trading_time()
-            ):
-                logger.debug("Within trading hours, skipping realtime update")
+            is_trading_time = is_a_share_trading_time()
+            should_run = should_run_realtime_update(
+                is_trading_time=is_trading_time,
+                only_during_trading_hours=settings.REALTIME_ONLY_DURING_TRADING_HOURS,
+                skip_during_trading_hours=settings.REALTIME_SKIP_DURING_TRADING_HOURS,
+            )
+
+            if not should_run:
+                logger.debug(
+                    "Skipping realtime update by strategy",
+                    is_trading_time=is_trading_time,
+                    only_during_trading_hours=settings.REALTIME_ONLY_DURING_TRADING_HOURS,
+                    skip_during_trading_hours=settings.REALTIME_SKIP_DURING_TRADING_HOURS,
+                )
                 await asyncio.sleep(interval_seconds)
                 continue
-            
+
             symbols_result = await Database.fetch(
                 """
                 SELECT DISTINCT symbol
