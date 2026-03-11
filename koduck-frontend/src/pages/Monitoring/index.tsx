@@ -6,6 +6,7 @@ import {
   getAllRules,
   getAlertHistory,
   getAllDataSources,
+  createRule,
   resolveAlert,
   runMonitoringCheck,
   setRuleEnabled,
@@ -17,6 +18,71 @@ import {
 
 const APPLE_CARD_CLASS =
   'bg-white dark:bg-[#1c1c1e] rounded-[24px] shadow-[0_4px_24px_rgba(0,0,0,0.04)] border border-gray-100 dark:border-white/5'
+
+const METRIC_OPTIONS = [
+  {
+    label: '单只股票延迟秒数',
+    metricName: 'stock_delay_seconds',
+    ruleType: 'latency',
+    defaultThreshold: 30,
+    defaultOperator: '>',
+    defaultSeverity: 'WARNING',
+  },
+  {
+    label: '股票延迟比例 (%)',
+    metricName: 'stock_delay_percentage',
+    ruleType: 'latency',
+    defaultThreshold: 10,
+    defaultOperator: '>',
+    defaultSeverity: 'CRITICAL',
+  },
+  {
+    label: '数据源连续失败次数',
+    metricName: 'consecutive_failures',
+    ruleType: 'availability',
+    defaultThreshold: 3,
+    defaultOperator: '>=',
+    defaultSeverity: 'CRITICAL',
+  },
+  {
+    label: '缓存命中率 (%)',
+    metricName: 'cache_hit_rate',
+    ruleType: 'performance',
+    defaultThreshold: 80,
+    defaultOperator: '<',
+    defaultSeverity: 'WARNING',
+  },
+] as const
+
+const OPERATOR_OPTIONS = ['>', '>=', '<', '<=', '=', '!='] as const
+const SEVERITY_OPTIONS = ['WARNING', 'CRITICAL'] as const
+
+type CreateRuleForm = {
+  ruleName: string
+  metricName: (typeof METRIC_OPTIONS)[number]['metricName']
+  ruleType: (typeof METRIC_OPTIONS)[number]['ruleType']
+  threshold: string
+  operator: (typeof OPERATOR_OPTIONS)[number]
+  severity: (typeof SEVERITY_OPTIONS)[number]
+  cooldownMinutes: string
+  description: string
+  enabled: boolean
+}
+
+const getMetricOption = (metricName: string) =>
+  METRIC_OPTIONS.find((item) => item.metricName === metricName) || METRIC_OPTIONS[0]
+
+const getDefaultCreateRuleForm = (): CreateRuleForm => ({
+  ruleName: '',
+  metricName: METRIC_OPTIONS[0].metricName,
+  ruleType: METRIC_OPTIONS[0].ruleType,
+  threshold: String(METRIC_OPTIONS[0].defaultThreshold),
+  operator: METRIC_OPTIONS[0].defaultOperator,
+  severity: METRIC_OPTIONS[0].defaultSeverity,
+  cooldownMinutes: '5',
+  description: '',
+  enabled: true,
+})
 
 const formatTime = (time: string | null) => {
   if (!time) return '--'
@@ -182,10 +248,200 @@ function DataFreshnessCard({
   )
 }
 
-function AlertRulesCard({ rules, loading, onToggle }: {
+function CreateRuleModal({
+  open,
+  submitting,
+  onClose,
+  onSubmit,
+}: {
+  open: boolean
+  submitting: boolean
+  onClose: () => void
+  onSubmit: (payload: Partial<AlertRule>) => void
+}) {
+  const { showToast } = useToast()
+  const [form, setForm] = useState<CreateRuleForm>(getDefaultCreateRuleForm())
+
+  useEffect(() => {
+    if (open) {
+      setForm(getDefaultCreateRuleForm())
+    }
+  }, [open])
+
+  if (!open) return null
+
+  const handleSubmit = () => {
+    const trimmedName = form.ruleName.trim()
+    if (!trimmedName) {
+      showToast('请输入规则名称', 'error')
+      return
+    }
+
+    const threshold = Number(form.threshold)
+    if (Number.isNaN(threshold)) {
+      showToast('阈值必须是数字', 'error')
+      return
+    }
+
+    const cooldownMinutes = Number(form.cooldownMinutes)
+    if (!Number.isInteger(cooldownMinutes) || cooldownMinutes <= 0) {
+      showToast('冷却时间必须是正整数（分钟）', 'error')
+      return
+    }
+
+    onSubmit({
+      ruleName: trimmedName,
+      ruleType: form.ruleType,
+      metricName: form.metricName,
+      threshold,
+      operator: form.operator,
+      severity: form.severity,
+      cooldownMinutes,
+      description: form.description.trim(),
+      enabled: form.enabled,
+    })
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
+      <div className="w-full max-w-2xl rounded-[20px] bg-white dark:bg-[#1c1c1e] border border-gray-200 dark:border-white/10 shadow-2xl">
+        <div className="p-6 border-b border-gray-200 dark:border-white/10">
+          <h3 className="text-xl font-semibold text-[#1d1d1f] dark:text-white">新增告警规则</h3>
+          <p className="text-sm text-[#8e8e93] dark:text-gray-400 mt-1">创建后将立即参与监控检查。</p>
+        </div>
+
+        <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="md:col-span-2">
+            <label className="block text-sm text-[#3a3a3c] dark:text-gray-300 mb-1">规则名称</label>
+            <input
+              value={form.ruleName}
+              onChange={(e) => setForm((prev) => ({ ...prev, ruleName: e.target.value }))}
+              placeholder="例如：核心行情延迟告警"
+              className="w-full rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-[#2c2c2e] px-3 py-2 text-[#1d1d1f] dark:text-white focus:outline-none focus:ring-2 focus:ring-[#0a84ff]"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm text-[#3a3a3c] dark:text-gray-300 mb-1">监控指标</label>
+            <select
+              value={form.metricName}
+              onChange={(e) => {
+                const option = getMetricOption(e.target.value)
+                setForm((prev) => ({
+                  ...prev,
+                  metricName: option.metricName,
+                  ruleType: option.ruleType,
+                  threshold: String(option.defaultThreshold),
+                  operator: option.defaultOperator,
+                  severity: option.defaultSeverity,
+                }))
+              }}
+              className="w-full rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-[#2c2c2e] px-3 py-2 text-[#1d1d1f] dark:text-white focus:outline-none focus:ring-2 focus:ring-[#0a84ff]"
+            >
+              {METRIC_OPTIONS.map((item) => (
+                <option key={item.metricName} value={item.metricName}>
+                  {item.label}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-sm text-[#3a3a3c] dark:text-gray-300 mb-1">比较符</label>
+            <select
+              value={form.operator}
+              onChange={(e) => setForm((prev) => ({ ...prev, operator: e.target.value as CreateRuleForm['operator'] }))}
+              className="w-full rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-[#2c2c2e] px-3 py-2 text-[#1d1d1f] dark:text-white focus:outline-none focus:ring-2 focus:ring-[#0a84ff]"
+            >
+              {OPERATOR_OPTIONS.map((op) => (
+                <option key={op} value={op}>
+                  {op}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-sm text-[#3a3a3c] dark:text-gray-300 mb-1">阈值</label>
+            <input
+              value={form.threshold}
+              onChange={(e) => setForm((prev) => ({ ...prev, threshold: e.target.value }))}
+              className="w-full rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-[#2c2c2e] px-3 py-2 text-[#1d1d1f] dark:text-white focus:outline-none focus:ring-2 focus:ring-[#0a84ff]"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm text-[#3a3a3c] dark:text-gray-300 mb-1">告警等级</label>
+            <select
+              value={form.severity}
+              onChange={(e) => setForm((prev) => ({ ...prev, severity: e.target.value as CreateRuleForm['severity'] }))}
+              className="w-full rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-[#2c2c2e] px-3 py-2 text-[#1d1d1f] dark:text-white focus:outline-none focus:ring-2 focus:ring-[#0a84ff]"
+            >
+              {SEVERITY_OPTIONS.map((severity) => (
+                <option key={severity} value={severity}>
+                  {severity}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-sm text-[#3a3a3c] dark:text-gray-300 mb-1">冷却时间（分钟）</label>
+            <input
+              value={form.cooldownMinutes}
+              onChange={(e) => setForm((prev) => ({ ...prev, cooldownMinutes: e.target.value }))}
+              className="w-full rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-[#2c2c2e] px-3 py-2 text-[#1d1d1f] dark:text-white focus:outline-none focus:ring-2 focus:ring-[#0a84ff]"
+            />
+          </div>
+
+          <div className="md:col-span-2">
+            <label className="block text-sm text-[#3a3a3c] dark:text-gray-300 mb-1">描述</label>
+            <textarea
+              rows={3}
+              value={form.description}
+              onChange={(e) => setForm((prev) => ({ ...prev, description: e.target.value }))}
+              placeholder="例如：当超过 10% 股票延迟时触发严重告警"
+              className="w-full rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-[#2c2c2e] px-3 py-2 text-[#1d1d1f] dark:text-white focus:outline-none focus:ring-2 focus:ring-[#0a84ff]"
+            />
+          </div>
+
+          <label className="md:col-span-2 inline-flex items-center gap-2 text-sm text-[#3a3a3c] dark:text-gray-300">
+            <input
+              type="checkbox"
+              checked={form.enabled}
+              onChange={(e) => setForm((prev) => ({ ...prev, enabled: e.target.checked }))}
+              className="rounded border-gray-300 text-[#0a84ff] focus:ring-[#0a84ff]"
+            />
+            创建后立即启用
+          </label>
+        </div>
+
+        <div className="p-6 border-t border-gray-200 dark:border-white/10 flex items-center justify-end gap-3">
+          <button
+            onClick={onClose}
+            disabled={submitting}
+            className="inline-flex h-9 items-center justify-center px-4 rounded-full border border-gray-200 dark:border-white/10 bg-white dark:bg-[#2c2c2e] text-[#1d1d1f] dark:text-white text-sm font-medium hover:bg-gray-50 dark:hover:bg-[#3a3a3c] transition-colors disabled:opacity-50"
+          >
+            取消
+          </button>
+          <button
+            onClick={handleSubmit}
+            disabled={submitting}
+            className="inline-flex h-9 items-center justify-center px-4 rounded-full bg-[#0a84ff] text-white text-sm font-medium hover:bg-[#0071e3] transition-colors disabled:opacity-60"
+          >
+            {submitting ? '创建中...' : '创建规则'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function AlertRulesCard({ rules, loading, onToggle, onCreate }: {
   rules: AlertRule[]
   loading: boolean
   onToggle: (id: number, enabled: boolean) => void
+  onCreate: () => void
 }) {
   if (loading) {
     return (
@@ -202,7 +458,17 @@ function AlertRulesCard({ rules, loading, onToggle }: {
 
   return (
     <div className={`${APPLE_CARD_CLASS} p-6`}>
-      <SectionTitle title="告警规则" />
+      <SectionTitle
+        title="告警规则"
+        extra={
+          <button
+            onClick={onCreate}
+            className="inline-flex h-8 items-center px-3 rounded-full border border-[#0a84ff]/20 bg-white dark:bg-[#1c1c1e] text-[#0a84ff] font-medium text-[13px] shadow-sm hover:bg-[#f5faff] dark:hover:bg-[#2c2c2e] transition-colors"
+          >
+            新增规则
+          </button>
+        }
+      />
       <div className="space-y-3">
         {rules.length === 0 ? (
           <p className="text-[#8e8e93] dark:text-gray-400">暂无告警规则</p>
@@ -337,6 +603,8 @@ export default function Monitoring() {
   const [rules, setRules] = useState<AlertRule[]>([])
   const [alerts, setAlerts] = useState<AlertHistory[]>([])
   const [sources, setSources] = useState<DataSourceStatus[]>([])
+  const [createDialogOpen, setCreateDialogOpen] = useState(false)
+  const [creatingRule, setCreatingRule] = useState(false)
 
   const pendingAlerts = useMemo(() => alerts.filter((item) => item.status === 'PENDING').length, [alerts])
   const unhealthySources = useMemo(
@@ -407,6 +675,20 @@ export default function Monitoring() {
     }
   }
 
+  const handleCreateRule = async (payload: Partial<AlertRule>) => {
+    try {
+      setCreatingRule(true)
+      await createRule(payload)
+      showToast('告警规则创建成功', 'success')
+      setCreateDialogOpen(false)
+      await loadData()
+    } catch (error: any) {
+      showToast(error?.message || '创建规则失败', 'error')
+    } finally {
+      setCreatingRule(false)
+    }
+  }
+
   return (
     <div className="space-y-6 [font-family:-apple-system,BlinkMacSystemFont,'SF_Pro_Text','Helvetica_Neue','Segoe_UI',sans-serif]">
       <div className={`${APPLE_CARD_CLASS} p-6`}>
@@ -446,11 +728,23 @@ export default function Monitoring() {
       />
 
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-        <AlertRulesCard rules={rules} loading={loading} onToggle={handleToggleRule} />
+        <AlertRulesCard
+          rules={rules}
+          loading={loading}
+          onToggle={handleToggleRule}
+          onCreate={() => setCreateDialogOpen(true)}
+        />
         <DataSourcesCard sources={sources} loading={loading} />
       </div>
 
       <AlertHistoryCard alerts={alerts} loading={loading} onResolve={handleResolveAlert} />
+
+      <CreateRuleModal
+        open={createDialogOpen}
+        submitting={creatingRule}
+        onClose={() => setCreateDialogOpen(false)}
+        onSubmit={handleCreateRule}
+      />
     </div>
   )
 }
