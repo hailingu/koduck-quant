@@ -9,7 +9,7 @@ import com.koduck.dto.market.PriceQuoteDto;
 import com.koduck.dto.market.StockIndustryDto;
 import com.koduck.dto.market.StockValuationDto;
 import com.koduck.dto.market.SymbolInfoDto;
-import com.koduck.service.KlineMinutesService;
+import com.koduck.service.KlineSyncService;
 import com.koduck.service.KlineService;
 import com.koduck.service.MarketService;
 import jakarta.validation.constraints.Max;
@@ -39,7 +39,7 @@ public class MarketController {
     
     private final MarketService marketService;
     private final KlineService klineService;
-    private final KlineMinutesService klineMinutesService;
+    private final KlineSyncService klineSyncService;
     
     /**
      * Search for symbols.
@@ -153,7 +153,7 @@ public class MarketController {
     /**
      * Get stock K-line data.
      * <p>Compatibility endpoint for frontend requests under /market/stocks/{symbol}/kline.</p>
-     * <p>Daily/weekly/monthly data reads from DB first and falls back to data-service when empty.</p>
+     * <p>Reads K-line data from kline_data table only.</p>
      *
      * @param symbol stock symbol
      * @param market market code, defaults to AShare
@@ -176,19 +176,18 @@ public class MarketController {
         log.info("GET /api/v1/market/stocks/{}/kline: market={}, period={}, timeframe={}, normalizedTimeframe={}, limit={}, beforeTime={}",
                 symbol, market, period, timeframe, normalizedTimeframe, limit, beforeTime);
 
-        List<KlineDataDto> data;
-        if (klineMinutesService.isMinuteTimeframe(normalizedTimeframe)) {
-            data = klineMinutesService.getMinuteKline(market, symbol, normalizedTimeframe, limit, beforeTime);
+        List<KlineDataDto> data = klineService.getKlineData(market, symbol, normalizedTimeframe, limit, beforeTime);
+        if (!data.isEmpty()) {
             return ApiResponse.success(data);
         }
 
-        data = klineService.getKlineData(market, symbol, normalizedTimeframe, limit, beforeTime);
-        if (data.isEmpty()) {
-            log.info("No DB kline data found, fallback to data-service: market={}, symbol={}, timeframe={}",
-                    market, symbol, normalizedTimeframe);
-            data = klineMinutesService.getMinuteKline(market, symbol, normalizedTimeframe, limit, beforeTime);
+        boolean syncTriggered = klineSyncService.requestSyncSymbolKline(market, symbol, normalizedTimeframe);
+        if (!syncTriggered) {
+            return ApiResponse.success(data);
         }
-        return ApiResponse.success(data);
+
+        List<KlineDataDto> refreshed = waitForKlineData(market, symbol, normalizedTimeframe, limit, beforeTime);
+        return ApiResponse.success(refreshed);
     }
     
     /**
@@ -222,6 +221,39 @@ public class MarketController {
         
         List<PriceQuoteDto> quotes = marketService.getBatchPrices(symbols);
         return ApiResponse.success(quotes);
+    }
+
+
+    private List<KlineDataDto> waitForKlineData(
+            String market,
+            String symbol,
+            String timeframe,
+            Integer limit,
+            Long beforeTime) {
+        final int maxAttempts = 8;
+        final long sleepMillis = 500L;
+
+        for (int attempt = 1; attempt <= maxAttempts; attempt++) {
+            try {
+                Thread.sleep(sleepMillis);
+            } catch (InterruptedException exception) {
+                Thread.currentThread().interrupt();
+                log.warn("Interrupted while waiting for kline sync: market={}, symbol={}, timeframe={}",
+                        market, symbol, timeframe, exception);
+                break;
+            }
+
+            List<KlineDataDto> data = klineService.getKlineData(market, symbol, timeframe, limit, beforeTime);
+            if (!data.isEmpty()) {
+                log.info("K-line data available after async sync: market={}, symbol={}, timeframe={}, attempt={}",
+                        market, symbol, timeframe, attempt);
+                return data;
+            }
+        }
+
+        log.info("K-line data still empty after async sync wait: market={}, symbol={}, timeframe={}",
+                market, symbol, timeframe);
+        return List.of();
     }
 
     private String normalizeTimeframe(String period, String timeframe) {

@@ -170,6 +170,8 @@ const deriveStockInfoFromKline = (data: KlineData[]): DerivedStockInfo | null =>
 }
 
 const MINUTE_TIMEFRAMES = new Set(['1m', '5m', '15m', '30m', '60m'])
+const LIVE_PUSH_TIMEFRAMES = new Set(['tick', '1m', '15m', '60m'])
+const REALTIME_REFRESH_INTERVAL_MS = 3000
 
 const APPLE_CARD_CLASS =
   'bg-white dark:bg-[#1c1c1e] rounded-[24px] shadow-[0_4px_24px_rgba(0,0,0,0.04)] border border-gray-100 dark:border-white/5'
@@ -237,9 +239,11 @@ export default function Kline() {
   // WebSocket for real-time price updates
   const { stockPrices } = useWebSocketStore()
   const normalizedSymbol = symbol ? normalizeSymbol(symbol) : ''
+  const normalizedTimeframe = timeframe.toLowerCase()
+  const isLivePushTimeframe = LIVE_PUSH_TIMEFRAMES.has(normalizedTimeframe)
   const subscriptionSymbols = useMemo(
-    () => (normalizedSymbol ? [normalizedSymbol] : []),
-    [normalizedSymbol]
+    () => (normalizedSymbol && isLivePushTimeframe ? [normalizedSymbol] : []),
+    [isLivePushTimeframe, normalizedSymbol]
   )
 
   useWebSocketSubscription(subscriptionSymbols, subscriptionSymbols.length > 0)
@@ -251,7 +255,7 @@ export default function Kline() {
   
   // Update stock info when WebSocket pushes new price
   useEffect(() => {
-    if (normalizedSymbol && stockPrices.has(normalizedSymbol)) {
+    if (isLivePushTimeframe && normalizedSymbol && stockPrices.has(normalizedSymbol)) {
       const priceUpdate = stockPrices.get(normalizedSymbol)!
       setStockInfo((prev) => ({
         ...prev,
@@ -262,7 +266,7 @@ export default function Kline() {
         amount: priceUpdate.amount,
       }))
     }
-  }, [stockPrices, normalizedSymbol])
+  }, [isLivePushTimeframe, stockPrices, normalizedSymbol])
   
   // Polling as fallback for real-time updates (every 3 seconds during trading hours)
   const fetchStockDetail = useCallback(async () => {
@@ -396,7 +400,7 @@ export default function Kline() {
     const trading = isTradingHours()
     console.log('[Kline] Trading hours check:', trading, 'Symbol:', symbol)
 
-    if (!trading) {
+    if (!isLivePushTimeframe || !trading) {
       console.log('[Kline] Not in trading hours, polling disabled')
       return
     }
@@ -405,13 +409,28 @@ export default function Kline() {
     const interval = setInterval(() => {
       console.log('[Kline] Polling stock detail...')
       void fetchStockDetail()
-    }, 3000)
+    }, REALTIME_REFRESH_INTERVAL_MS)
 
     return () => {
       console.log('[Kline] Stopping price polling')
       clearInterval(interval)
     }
-  }, [fetchStockDetail, klineData.length, symbol])
+  }, [fetchStockDetail, isLivePushTimeframe, klineData.length, symbol])
+
+  useEffect(() => {
+    if (!symbol || klineData.length === 0) {
+      return
+    }
+    if (!isLivePushTimeframe || !isTradingHours()) {
+      return
+    }
+
+    const interval = setInterval(() => {
+      void fetchKlineData()
+    }, REALTIME_REFRESH_INTERVAL_MS)
+
+    return () => clearInterval(interval)
+  }, [fetchKlineData, isLivePushTimeframe, klineData.length, symbol])
   
   // Check if a stock is currently selected
   const hasSelectedStock = symbol !== ''

@@ -18,6 +18,9 @@ import org.springframework.web.util.UriComponentsBuilder;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Service for syncing K-line data from Python Data Service.
@@ -36,6 +39,7 @@ public class KlineSyncService {
     private static final String DEFAULT_TIMEFRAME = "1D";
     private static final long DEFAULT_BATCH_INTERVAL_MILLIS = 500L;
     private static final int DEFAULT_KLINE_QUERY_LIMIT = 1000;
+    private final Set<String> inFlightSyncKeys = ConcurrentHashMap.newKeySet();
     
     /**
      * Sync daily K-line data for popular stocks.
@@ -109,6 +113,37 @@ public class KlineSyncService {
             }
         }
         log.info("Batch sync finished for {} symbols", symbols.size());
+    }
+
+
+    /**
+     * Request an async K-line sync with in-flight de-duplication.
+     *
+     * @param market market identifier
+     * @param symbol stock symbol
+     * @param timeframe K-line timeframe
+     * @return true if a new sync task is started; false if skipped or already running
+     */
+    public boolean requestSyncSymbolKline(String market, String symbol, String timeframe) {
+        if (!properties.isEnabled()) {
+            log.warn("Data service is disabled, skipping async sync request");
+            return false;
+        }
+
+        String key = String.format("%s:%s:%s", market, symbol, timeframe);
+        if (!inFlightSyncKeys.add(key)) {
+            log.debug("K-line sync already in progress for key={}", key);
+            return false;
+        }
+
+        CompletableFuture.runAsync(() -> {
+            try {
+                syncSymbolKlineInternal(market, symbol, timeframe);
+            } finally {
+                inFlightSyncKeys.remove(key);
+            }
+        });
+        return true;
     }
 
     private void syncSymbolKlineInternal(String market, String symbol, String timeframe) {

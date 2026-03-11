@@ -4,7 +4,6 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 
 import com.koduck.dto.ApiResponse;
 import com.koduck.dto.market.KlineDataDto;
-import com.koduck.service.KlineMinutesService;
 import com.koduck.service.KlineService;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
@@ -29,7 +28,6 @@ import java.util.List;
 public class KlineController {
     
     private final KlineService klineService;
-    private final KlineMinutesService klineMinutesService;
     
     /**
      * Get K-line (candlestick) historical data.
@@ -45,15 +43,9 @@ public class KlineController {
         
         log.debug("GET /api/v1/kline: market={}, symbol={}, timeframe={}, limit={}, beforeTime={}",
                  market, symbol, timeframe, limit, beforeTime);
-        
-        // Route to appropriate service based on timeframe
-        if (klineMinutesService.isMinuteTimeframe(timeframe)) {
-            List<KlineDataDto> data = klineMinutesService.getMinuteKline(market, symbol, timeframe, limit, beforeTime);
-            return ApiResponse.success(data);
-        } else {
-            List<KlineDataDto> data = klineService.getKlineData(market, symbol, timeframe, limit, beforeTime);
-            return ApiResponse.success(data);
-        }
+
+        List<KlineDataDto> data = klineService.getKlineData(market, symbol, timeframe, limit, beforeTime);
+        return ApiResponse.success(data);
     }
     
     /**

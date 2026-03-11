@@ -13,7 +13,6 @@ import org.springframework.web.bind.annotation.*;
 import com.koduck.dto.ApiResponse;
 import com.koduck.dto.market.KlineDataDto;
 import com.koduck.dto.market.SymbolInfoDto;
-import com.koduck.service.KlineMinutesService;
 import com.koduck.service.KlineService;
 import com.koduck.service.MarketService;
 
@@ -34,7 +33,6 @@ public class AShareController {
 
     private final MarketService marketService;
     private final KlineService klineService;
-    private final KlineMinutesService klineMinutesService;
 
     /**
      * Search A-share stocks by keyword.
@@ -85,19 +83,9 @@ public class AShareController {
         log.debug("GET /api/v1/a-share/kline: symbol={}, timeframe={}, limit={}, beforeTime={}",
                 symbol, timeframe, limit, beforeTime);
 
-        // Route to appropriate service based on timeframe
-        List<KlineDataDto> data;
-        if (klineMinutesService.isMinuteTimeframe(timeframe)) {
-            data = klineMinutesService.getMinuteKline("AShare", symbol, timeframe, limit, beforeTime);
-        } else {
-            data = klineService.getKlineData("AShare", symbol, timeframe, limit, beforeTime);
-            if (data.isEmpty()) {
-                log.info("No DB kline data found, fallback to data-service: symbol={}, timeframe={}",
-                        symbol, timeframe);
-                data = klineMinutesService.getMinuteKline("AShare", symbol, timeframe, limit, beforeTime);
-            }
-        }
-        
+        List<KlineDataDto> data =
+                klineService.getKlineData("AShare", symbol, timeframe, limit, beforeTime);
+
         return ApiResponse.success(data);
     }
 
