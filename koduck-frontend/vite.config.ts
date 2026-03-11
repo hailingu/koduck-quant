@@ -1,12 +1,21 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import path from 'node:path'
+import { readFileSync } from 'node:fs'
+
+const packageJson = JSON.parse(
+  readFileSync(path.resolve(__dirname, 'package.json'), 'utf-8')
+) as { version?: string }
+
+const appVersion = typeof packageJson.version === 'string' ? packageJson.version : '0.0.0'
 
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react()],
   define: {
     global: 'globalThis',
+    __APP_VERSION__: JSON.stringify(appVersion),
+    __APP_BUILD_TIME__: JSON.stringify(new Date().toISOString()),
   },
   resolve: {
     alias: {
