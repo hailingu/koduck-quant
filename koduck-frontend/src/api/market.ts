@@ -1,8 +1,5 @@
 import request from './request'
 
-/**
- * 股票基本信息
- */
 export interface SymbolInfo {
   symbol: string
   name: string
@@ -13,9 +10,6 @@ export interface SymbolInfo {
   amount: number
 }
 
-/**
- * 股票实时行情
- */
 export interface PriceQuote {
   symbol: string
   name: string
@@ -35,9 +29,6 @@ export interface PriceQuote {
   timestamp: string
 }
 
-/**
- * 股票估值信息
- */
 export interface StockValuation {
   symbol: string
   name: string
@@ -52,9 +43,6 @@ export interface StockValuation {
   turnoverRate: number | null
 }
 
-/**
- * 股票所属行业信息
- */
 export interface StockIndustry {
   symbol: string
   name: string
@@ -64,9 +52,6 @@ export interface StockIndustry {
   board: string | null
 }
 
-/**
- * 市场指数
- */
 export interface MarketIndex {
   symbol: string
   name: string
@@ -82,52 +67,29 @@ export interface MarketIndex {
   timestamp: string
 }
 
-/**
- * 市场行情 API
- */
 export const marketApi = {
-  /**
-   * 股票搜索
-   * @param keyword 搜索关键词
-   * @param page 页码（从 1 开始）
-   * @param size 每页数量
-   */
   searchSymbols: (keyword: string, page: number = 1, size: number = 20) =>
     request.get<SymbolInfo[]>('/api/v1/market/search', {
       params: { keyword, page, size },
     }),
 
-  /**
-   * 获取股票详情
-   * @param symbol 股票代码
-   */
   getStockDetail: (symbol: string) =>
     request.get<PriceQuote>(`/api/v1/market/stocks/${symbol}`, { timeout: 15000 }),
 
-  /**
-   * 获取市场指数（上证、深证、创业板）
-   */
   getMarketIndices: () =>
     request.get<MarketIndex[]>('/api/v1/market/indices'),
 
-  /**
-   * 获取股票估值信息（PE、PB、总市值等）
-   * @param symbol 股票代码
-   */
   getStockValuation: (symbol: string) =>
     request.get<StockValuation>(`/api/v1/market/stocks/${symbol}/valuation`, { timeout: 15000 }),
 
-  /**
-   * 获取股票所属行业信息（所属行业、板块、细分行业等）
-   * @param symbol 股票代码
-   */
-  getStockIndustry: (symbol: string) =>
-    request.get<StockIndustry>(`/api/v1/market/stocks/${symbol}/industry`, { timeout: 10000 }),
+  getStockIndustry: async (symbol: string): Promise<StockIndustry | null> => {
+    try {
+      return await request.get<StockIndustry>(`/api/v1/market/stocks/${symbol}/industry`, { timeout: 10000 })
+    } catch {
+      return null
+    }
+  },
 
-  /**
-   * 批量获取股票所属行业信息
-   * @param symbols 股票代码列表
-   */
   getStockIndustries: (symbols: string[]) =>
     request.post<Record<string, StockIndustry>>('/api/v1/market/stocks/industry/batch', symbols, {
       timeout: 10000,

@@ -21,7 +21,6 @@ interface WatchlistState {
   isInWatchlist: (symbol: string) => boolean
 }
 
-// API 响应类型
 interface WatchlistApiItem {
   id: number
   symbol: string
@@ -31,6 +30,14 @@ interface WatchlistApiItem {
   changePercent?: number
 }
 
+const normalizeSymbol = (value: string): string => {
+  const digits = value.replaceAll(/\D/g, '')
+  if (digits.length >= 1 && digits.length <= 6) {
+    return digits.padStart(6, '0')
+  }
+  return value.trim().toUpperCase()
+}
+
 export const useWatchlistStore = create<WatchlistState>()(
   persist(
     (set, get) => ({
@@ -38,7 +45,6 @@ export const useWatchlistStore = create<WatchlistState>()(
       isLoading: false,
       error: null,
 
-      // 获取自选股列表
       fetchWatchlist: async () => {
         set({ isLoading: true, error: null })
         try {
@@ -50,7 +56,6 @@ export const useWatchlistStore = create<WatchlistState>()(
         }
       },
 
-      // 添加自选股
       addItem: async (symbol: string, name: string, market: string) => {
         set({ isLoading: true, error: null })
         try {
@@ -59,9 +64,9 @@ export const useWatchlistStore = create<WatchlistState>()(
             name,
             market,
           })
-          set((state) => ({ 
+          set((state) => ({
             items: [...state.items, newItem],
-            isLoading: false 
+            isLoading: false,
           }))
         } catch (error) {
           console.error('Failed to add to watchlist:', error)
@@ -70,14 +75,13 @@ export const useWatchlistStore = create<WatchlistState>()(
         }
       },
 
-      // 删除自选股
       removeItem: async (id: number) => {
         set({ isLoading: true, error: null })
         try {
           await request.delete(`/api/v1/watchlist/${id}`)
-          set((state) => ({ 
+          set((state) => ({
             items: state.items.filter((item) => item.id !== id),
-            isLoading: false 
+            isLoading: false,
           }))
         } catch (error) {
           console.error('Failed to remove from watchlist:', error)
@@ -87,7 +91,8 @@ export const useWatchlistStore = create<WatchlistState>()(
       },
 
       isInWatchlist: (symbol: string) => {
-        return get().items.some((item) => item.symbol === symbol)
+        const target = normalizeSymbol(symbol)
+        return get().items.some((item) => normalizeSymbol(item.symbol) === target)
       },
     }),
     {

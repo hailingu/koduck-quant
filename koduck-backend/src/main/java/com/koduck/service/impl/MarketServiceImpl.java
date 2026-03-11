@@ -225,7 +225,7 @@ public class MarketServiceImpl implements MarketService {
             return akShareDataProvider.getStockIndustry(symbol);
         } catch (Exception e) {
             log.error("Error getting stock industry: symbol={}, error={}", symbol, e.getMessage(), e);
-            throw e;
+            return null;
         }
     }
 
