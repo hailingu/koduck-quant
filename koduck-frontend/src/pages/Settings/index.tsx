@@ -4,25 +4,75 @@ import { userApi } from '@/api/user'
 import { useToast } from '@/hooks/useToast'
 import { useAuthStore } from '@/stores/auth'
 
+const APPLE_CARD_CLASS =
+  'bg-white dark:bg-[#1c1c1e] rounded-[24px] shadow-[0_4px_24px_rgba(0,0,0,0.04)] border border-gray-100 dark:border-white/5'
+
+const formatBuildTime = (value: string): string => {
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return '-'
+
+  return date.toLocaleString('zh-CN', {
+    hour12: false,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+  })
+}
+
 // 个人资料表单
 function ProfileForm({ user, onUpdate }: { user: UserDetail; onUpdate: (u: UserDetail) => void }) {
   const { showToast } = useToast()
   const [loading, setLoading] = useState(false)
-  const [formData, setFormData] = useState<UpdateProfileRequest>({
-    nickname: user.nickname,
+  const [profileData, setProfileData] = useState<UpdateProfileRequest>({})
+  const [passwordData, setPasswordData] = useState<ChangePasswordRequest>({
+    oldPassword: '',
+    newPassword: '',
+    confirmPassword: '',
   })
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [avatarPreview, setAvatarPreview] = useState<string | null>(user.avatarUrl)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    
+    const isChangingPassword = !!(passwordData.oldPassword || passwordData.newPassword || passwordData.confirmPassword)
+    
+    if (isChangingPassword) {
+      if (passwordData.newPassword !== passwordData.confirmPassword) {
+        showToast('两次输入的新密码不一致', 'error')
+        return
+      }
+      if (passwordData.newPassword.length < 6) {
+        showToast('新密码长度不能少于6位', 'error')
+        return
+      }
+    }
+
     try {
       setLoading(true)
-      const updated = await userApi.updateProfile(formData)
-      onUpdate(updated)
-      showToast('资料更新成功', 'success')
-    } catch (error) {
-      showToast('更新失败', 'error')
+      let isUpdated = false
+
+      if (Object.keys(profileData).length > 0) {
+        const updated = await userApi.updateProfile(profileData)
+        onUpdate(updated)
+        isUpdated = true
+      }
+
+      if (isChangingPassword) {
+        await userApi.changePassword(passwordData)
+        setPasswordData({ oldPassword: '', newPassword: '', confirmPassword: '' })
+        isUpdated = true
+      }
+
+      if (isUpdated) {
+        showToast('保存成功', 'success')
+        setProfileData({})
+      }
+    } catch (error: any) {
+      showToast(error.message || '保存失败', 'error')
     } finally {
       setLoading(false)
     }
@@ -42,7 +92,7 @@ function ProfileForm({ user, onUpdate }: { user: UserDetail; onUpdate: (u: UserD
 
     try {
       const url = await userApi.uploadAvatar(file)
-      setFormData((prev) => ({ ...prev, avatarUrl: url }))
+      setProfileData((prev) => ({ ...prev, avatarUrl: url }))
       showToast('头像上传成功', 'success')
     } catch (error) {
       showToast('上传失败', 'error')
@@ -82,7 +132,7 @@ function ProfileForm({ user, onUpdate }: { user: UserDetail; onUpdate: (u: UserD
           <button
             type="button"
             onClick={handleAvatarClick}
-            className="px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg transition-colors text-sm"
+            className="inline-flex h-8 items-center justify-center px-3.5 rounded-full bg-white dark:bg-[#1c1c1e] text-[#1d1d1f] dark:text-white font-medium text-[13px] shadow-sm border border-gray-200 dark:border-white/10 hover:bg-gray-50 dark:hover:bg-[#2c2c2e] transition-colors"
           >
             更换头像
           </button>
@@ -90,157 +140,77 @@ function ProfileForm({ user, onUpdate }: { user: UserDetail; onUpdate: (u: UserD
         </div>
       </div>
 
-      {/* 表单字段 */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      {/* 资料展示字段 */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6 mt-8">
         <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-            用户名
-          </label>
-          <input
-            type="text"
-            value={user.username}
-            disabled
-            className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 cursor-not-allowed"
-          />
-          <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">用户名不可修改</p>
+          <div className="text-sm text-gray-500 dark:text-gray-400 mb-1">用户名</div>
+          <div className="flex items-center gap-2">
+            <span className="text-base font-medium text-gray-900 dark:text-white">{user.username}</span>
+          </div>
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-            邮箱
-          </label>
-          <input
-            type="email"
-            value={user.email || ''}
-            disabled
-            className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 cursor-not-allowed"
-          />
-          <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">邮箱不可修改</p>
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-            昵称
-          </label>
-          <input
-            type="text"
-            value={formData.nickname}
-            onChange={(e) => setFormData({ ...formData, nickname: e.target.value })}
-            className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-            placeholder="请输入昵称"
-          />
+          <div className="text-sm text-gray-500 dark:text-gray-400 mb-1">邮箱</div>
+          <div className="flex items-center gap-2">
+            <span className="text-base font-medium text-gray-900 dark:text-white">{user.email || '-'}</span>
+          </div>
         </div>
       </div>
 
-      {/* 注册时间 */}
-      <div className="pt-4 border-t border-gray-200 dark:border-gray-700">
-        <div className="text-sm text-gray-500 dark:text-gray-400">
-          注册时间: {new Date(user.createdAt).toLocaleString('zh-CN')}
+      {/* 密码修改字段 */}
+      <div className="pt-8 border-t border-gray-200 dark:border-gray-700 mt-8 space-y-6">
+        <h4 className="text-base font-medium text-gray-900 dark:text-white">修改密码</h4>
+        
+        <div>
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+            当前密码
+          </label>
+          <input
+            type="password"
+            value={passwordData.oldPassword}
+            onChange={(e) => setPasswordData({ ...passwordData, oldPassword: e.target.value })}
+            className="w-full md:w-1/2 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+            placeholder="请输入当前密码（若不修改请留空）"
+          />
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+            新密码
+          </label>
+          <input
+            type="password"
+            value={passwordData.newPassword}
+            onChange={(e) => setPasswordData({ ...passwordData, newPassword: e.target.value })}
+            className="w-full md:w-1/2 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+            placeholder="请输入新密码"
+            minLength={6}
+          />
+          <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">密码长度至少6位</p>
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+            确认新密码
+          </label>
+          <input
+            type="password"
+            value={passwordData.confirmPassword}
+            onChange={(e) => setPasswordData({ ...passwordData, confirmPassword: e.target.value })}
+            className="w-full md:w-1/2 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+            placeholder="请再次输入新密码"
+          />
         </div>
       </div>
 
       {/* 提交按钮 */}
-      <div className="flex justify-end">
+      <div className="flex justify-end pt-4">
         <button
           type="submit"
-          disabled={loading}
-          className="px-6 py-2 bg-primary-600 hover:bg-primary-700 disabled:opacity-50 text-white rounded-lg transition-colors"
+          disabled={loading || (Object.keys(profileData).length === 0 && !passwordData.oldPassword && !passwordData.newPassword)}
+          className="inline-flex h-8 items-center justify-center px-3.5 rounded-full bg-white dark:bg-[#1c1c1e] text-[#1d1d1f] dark:text-white font-medium text-[13px] shadow-sm border border-gray-200 dark:border-white/10 hover:bg-gray-50 dark:hover:bg-[#2c2c2e] disabled:opacity-50 transition-colors"
         >
           {loading ? '保存中...' : '保存修改'}
-        </button>
-      </div>
-    </form>
-  )
-}
-
-// 安全设置表单
-function SecurityForm() {
-  const { showToast } = useToast()
-  const [loading, setLoading] = useState(false)
-  const [formData, setFormData] = useState<ChangePasswordRequest>({
-    oldPassword: '',
-    newPassword: '',
-    confirmPassword: '',
-  })
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-
-    if (formData.newPassword !== formData.confirmPassword) {
-      showToast('两次输入的新密码不一致', 'error')
-      return
-    }
-
-    if (formData.newPassword.length < 6) {
-      showToast('新密码长度不能少于6位', 'error')
-      return
-    }
-
-    try {
-      setLoading(true)
-      await userApi.changePassword(formData)
-      showToast('密码修改成功', 'success')
-      setFormData({ oldPassword: '', newPassword: '', confirmPassword: '' })
-    } catch (error: any) {
-      showToast(error.message || '修改失败', 'error')
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  return (
-    <form onSubmit={handleSubmit} className="space-y-6">
-      <div>
-        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-          当前密码
-        </label>
-        <input
-          type="password"
-          value={formData.oldPassword}
-          onChange={(e) => setFormData({ ...formData, oldPassword: e.target.value })}
-          className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-          placeholder="请输入当前密码"
-          required
-        />
-      </div>
-
-      <div>
-        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-          新密码
-        </label>
-        <input
-          type="password"
-          value={formData.newPassword}
-          onChange={(e) => setFormData({ ...formData, newPassword: e.target.value })}
-          className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-          placeholder="请输入新密码"
-          required
-          minLength={6}
-        />
-        <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">密码长度至少6位</p>
-      </div>
-
-      <div>
-        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-          确认新密码
-        </label>
-        <input
-          type="password"
-          value={formData.confirmPassword}
-          onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
-          className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-          placeholder="请再次输入新密码"
-          required
-        />
-      </div>
-
-      <div className="flex justify-end">
-        <button
-          type="submit"
-          disabled={loading}
-          className="px-6 py-2 bg-primary-600 hover:bg-primary-700 disabled:opacity-50 text-white rounded-lg transition-colors"
-        >
-          {loading ? '修改中...' : '修改密码'}
         </button>
       </div>
     </form>
@@ -251,11 +221,7 @@ function SecurityForm() {
 function PreferencesForm() {
   const [theme, setTheme] = useState('light')
   const [notifications, setNotifications] = useState(true)
-  const { showToast } = useToast()
-
-  const handleSave = () => {
-    showToast('偏好设置已保存', 'success')
-  }
+  const [language, setLanguage] = useState('zh-CN')
 
   return (
     <div className="space-y-6">
@@ -264,15 +230,27 @@ function PreferencesForm() {
           <h4 className="text-gray-900 dark:text-white font-medium">主题模式</h4>
           <p className="text-sm text-gray-500 dark:text-gray-400">选择您喜欢的主题风格</p>
         </div>
-        <select
-          value={theme}
-          onChange={(e) => setTheme(e.target.value)}
-          className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-        >
-          <option value="light">浅色模式</option>
-          <option value="dark">深色模式</option>
-          <option value="auto">跟随系统</option>
-        </select>
+        <div className="relative inline-flex items-center rounded-full bg-[#f5f5f7] dark:bg-[#2c2c2e] border border-gray-200 dark:border-white/10 p-[2px]">
+          <span
+            className="absolute top-[2px] left-[2px] h-8 w-[80px] rounded-full bg-white dark:bg-[#1c1c1e] border border-gray-200 dark:border-white/10 shadow-sm transition-transform duration-300 ease-out"
+            style={{ transform: `translateX(${['light', 'dark', 'auto'].indexOf(theme) * 80}px)` }}
+          />
+          {[
+            { value: 'light', label: '浅色' },
+            { value: 'dark', label: '深色' },
+            { value: 'auto', label: '跟随系统' }
+          ].map((opt) => (
+            <button
+              key={opt.value}
+              onClick={() => setTheme(opt.value)}
+              className={`relative z-10 inline-flex h-8 w-[80px] items-center justify-center rounded-full text-[13px] font-medium transition-colors ${
+                theme === opt.value ? 'text-[#1d1d1f] dark:text-white' : 'text-[#6e6e73] dark:text-gray-300'
+              }`}
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
       </div>
 
       <div className="flex items-center justify-between">
@@ -283,11 +261,11 @@ function PreferencesForm() {
         <button
           onClick={() => setNotifications(!notifications)}
           className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-            notifications ? 'bg-primary-600' : 'bg-gray-300 dark:bg-gray-600'
+            notifications ? 'bg-[#1d1d1f] dark:bg-white' : 'bg-gray-300 dark:bg-gray-600'
           }`}
         >
           <span
-            className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+            className={`inline-block h-4 w-4 transform rounded-full bg-white dark:bg-[#1c1c1e] transition-transform shadow-sm ${
               notifications ? 'translate-x-6' : 'translate-x-1'
             }`}
           />
@@ -299,19 +277,26 @@ function PreferencesForm() {
           <h4 className="text-gray-900 dark:text-white font-medium">语言设置</h4>
           <p className="text-sm text-gray-500 dark:text-gray-400">选择界面显示语言</p>
         </div>
-        <select className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
-          <option value="zh-CN">简体中文</option>
-          <option value="en">English</option>
-        </select>
-      </div>
-
-      <div className="pt-4 border-t border-gray-200 dark:border-gray-700">
-        <button
-          onClick={handleSave}
-          className="px-6 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg transition-colors"
-        >
-          保存设置
-        </button>
+        <div className="relative inline-flex items-center rounded-full bg-[#f5f5f7] dark:bg-[#2c2c2e] border border-gray-200 dark:border-white/10 p-[2px]">
+          <span
+            className="absolute top-[2px] left-[2px] h-8 w-[80px] rounded-full bg-white dark:bg-[#1c1c1e] border border-gray-200 dark:border-white/10 shadow-sm transition-transform duration-300 ease-out"
+            style={{ transform: `translateX(${['zh-CN', 'en'].indexOf(language) * 80}px)` }}
+          />
+          {[
+            { value: 'zh-CN', label: '简体中文' },
+            { value: 'en', label: 'English' }
+          ].map((opt) => (
+            <button
+              key={opt.value}
+              onClick={() => setLanguage(opt.value)}
+              className={`relative z-10 inline-flex h-8 w-[80px] items-center justify-center rounded-full text-[13px] font-medium transition-colors ${
+                language === opt.value ? 'text-[#1d1d1f] dark:text-white' : 'text-[#6e6e73] dark:text-gray-300'
+              }`}
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
       </div>
     </div>
   )
@@ -319,28 +304,29 @@ function PreferencesForm() {
 
 // 关于页面
 function AboutSection() {
+  const appVersion = __APP_VERSION__.startsWith('v') ? __APP_VERSION__ : `v${__APP_VERSION__}`
+  const buildTime = formatBuildTime(__APP_BUILD_TIME__)
+
   return (
     <div className="space-y-6">
       <div className="text-center py-8">
-        <div className="w-16 h-16 mx-auto mb-4 rounded-xl bg-primary-600 flex items-center justify-center">
-          <span className="text-2xl font-bold text-white">K</span>
-        </div>
+        <img
+          src="/koduck.png"
+          alt="KODUCK Logo"
+          className="w-16 h-16 mx-auto mb-4 rounded-xl object-cover"
+        />
         <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">KODUCK Quant</h3>
         <p className="text-gray-500 dark:text-gray-400">量化交易平台</p>
       </div>
 
       <div className="space-y-4">
-        <div className="flex items-center justify-between py-3 border-b border-gray-200 dark:border-gray-700">
+        <div className="flex items-center justify-between py-3">
           <span className="text-gray-600 dark:text-gray-400">版本号</span>
-          <span className="text-gray-900 dark:text-white font-medium">v1.0.0</span>
+          <span className="text-gray-900 dark:text-white font-medium">{appVersion}</span>
         </div>
-        <div className="flex items-center justify-between py-3 border-b border-gray-200 dark:border-gray-700">
+        <div className="flex items-center justify-between py-3">
           <span className="text-gray-600 dark:text-gray-400">构建时间</span>
-          <span className="text-gray-900 dark:text-white font-medium">2025-03-01</span>
-        </div>
-        <div className="flex items-center justify-between py-3 border-b border-gray-200 dark:border-gray-700">
-          <span className="text-gray-600 dark:text-gray-400">技术栈</span>
-          <span className="text-gray-900 dark:text-white font-medium">React + Spring Boot</span>
+          <span className="text-gray-900 dark:text-white font-medium">{buildTime}</span>
         </div>
       </div>
 
@@ -352,7 +338,7 @@ function AboutSection() {
 }
 
 export default function Settings() {
-  const [activeTab, setActiveTab] = useState<'profile' | 'security' | 'preferences' | 'about'>('profile')
+  const [activeTab, setActiveTab] = useState<'profile' | 'preferences' | 'about'>('profile')
   const [user, setUser] = useState<UserDetail | null>(null)
   const [loading, setLoading] = useState(true)
   const { showToast } = useToast()
@@ -393,117 +379,75 @@ export default function Settings() {
     )
   }
 
-  return (
-    <div className="max-w-4xl mx-auto">
-      {/* Header */}
-      <div className="mb-8">
-        <h2 className="text-2xl font-bold text-gray-900 dark:text-white">用户中心</h2>
-        <p className="mt-1 text-gray-600 dark:text-gray-400">管理您的个人信息和账户安全</p>
-      </div>
+  const tabOrder: Array<'profile' | 'preferences' | 'about'> = [
+    'profile',
+    'preferences',
+    'about',
+  ]
+  const activeTabIndex = tabOrder.indexOf(activeTab)
 
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        {/* Sidebar */}
-        <div className="md:col-span-1">
-          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
-            <nav className="flex flex-col">
-              <button
-                onClick={() => setActiveTab('profile')}
-                className={`flex items-center gap-3 px-4 py-3 text-left transition-colors ${
-                  activeTab === 'profile'
-                    ? 'bg-primary-50 dark:bg-primary-900/20 text-primary-600 dark:text-primary-400 border-l-4 border-primary-600'
-                    : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'
-                }`}
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                </svg>
-                个人资料
-              </button>
-              <button
-                onClick={() => setActiveTab('security')}
-                className={`flex items-center gap-3 px-4 py-3 text-left transition-colors ${
-                  activeTab === 'security'
-                    ? 'bg-primary-50 dark:bg-primary-900/20 text-primary-600 dark:text-primary-400 border-l-4 border-primary-600'
-                    : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'
-                }`}
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                </svg>
-                安全设置
-              </button>
-              <button
-                onClick={() => setActiveTab('preferences')}
-                className={`flex items-center gap-3 px-4 py-3 text-left transition-colors ${
-                  activeTab === 'preferences'
-                    ? 'bg-primary-50 dark:bg-primary-900/20 text-primary-600 dark:text-primary-400 border-l-4 border-primary-600'
-                    : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'
-                }`}
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                </svg>
-                偏好设置
-              </button>
-              <button
-                onClick={() => setActiveTab('about')}
-                className={`flex items-center gap-3 px-4 py-3 text-left transition-colors ${
-                  activeTab === 'about'
-                    ? 'bg-primary-50 dark:bg-primary-900/20 text-primary-600 dark:text-primary-400 border-l-4 border-primary-600'
-                    : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'
-                }`}
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-                关于
-              </button>
-              <div className="border-t border-gray-200 dark:border-gray-700"></div>
-              <button
-                onClick={handleLogout}
-                className="flex items-center gap-3 px-4 py-3 text-left text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-                </svg>
-                退出登录
-              </button>
-            </nav>
+  return (
+    <div className="max-w-6xl mx-auto">
+      <div className={`${APPLE_CARD_CLASS} p-8 space-y-6`}>
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="relative inline-flex items-center rounded-full bg-[#f5f5f7] dark:bg-[#2c2c2e] border border-gray-200 dark:border-white/10 p-[2px]">
+            <span
+              className="absolute top-[2px] left-[2px] h-8 w-[96px] rounded-full bg-white dark:bg-[#1c1c1e] border border-gray-200 dark:border-white/10 shadow-sm transition-transform duration-300 ease-out"
+              style={{ transform: `translateX(${Math.max(activeTabIndex, 0) * 96}px)` }}
+            />
+            <button
+              onClick={() => setActiveTab('profile')}
+              className={`relative z-10 inline-flex h-8 w-[96px] items-center justify-center rounded-full text-[13px] font-medium transition-colors ${
+                activeTab === 'profile' ? 'text-[#1d1d1f] dark:text-white' : 'text-[#6e6e73] dark:text-gray-300'
+              }`}
+            >
+              个人资料
+            </button>
+            <button
+              onClick={() => setActiveTab('preferences')}
+              className={`relative z-10 inline-flex h-8 w-[96px] items-center justify-center rounded-full text-[13px] font-medium transition-colors ${
+                activeTab === 'preferences' ? 'text-[#1d1d1f] dark:text-white' : 'text-[#6e6e73] dark:text-gray-300'
+              }`}
+            >
+              偏好设置
+            </button>
+            <button
+              onClick={() => setActiveTab('about')}
+              className={`relative z-10 inline-flex h-8 w-[96px] items-center justify-center rounded-full text-[13px] font-medium transition-colors ${
+                activeTab === 'about' ? 'text-[#1d1d1f] dark:text-white' : 'text-[#6e6e73] dark:text-gray-300'
+              }`}
+            >
+              关于
+            </button>
+          </div>
+          <div className="ml-auto">
+            <button
+              onClick={handleLogout}
+              className="inline-flex h-8 items-center justify-center px-3.5 rounded-full bg-white dark:bg-[#1c1c1e] text-[#1d1d1f] dark:text-white font-medium text-[13px] shadow-sm border border-gray-200 dark:border-white/10 hover:bg-gray-50 dark:hover:bg-[#2c2c2e] transition-colors"
+            >
+              退出登录
+            </button>
           </div>
         </div>
 
-        {/* Content */}
-        <div className="md:col-span-3">
-          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
-            {activeTab === 'profile' && (
-              <>
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-6">个人资料</h3>
-                <ProfileForm user={user} onUpdate={setUser} />
-              </>
-            )}
+        <div className="rounded-[20px] border border-[#e5e5ea] dark:border-white/10 bg-[#fbfbfd] dark:bg-[#252527] p-8">
+          {activeTab === 'profile' && (
+            <>
+              <ProfileForm user={user} onUpdate={setUser} />
+            </>
+          )}
 
-            {activeTab === 'security' && (
-              <>
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-6">安全设置</h3>
-                <SecurityForm />
-              </>
-            )}
+          {activeTab === 'preferences' && (
+            <>
+              <PreferencesForm />
+            </>
+          )}
 
-            {activeTab === 'preferences' && (
-              <>
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-6">偏好设置</h3>
-                <PreferencesForm />
-              </>
-            )}
-
-            {activeTab === 'about' && (
-              <>
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-6">关于</h3>
-                <AboutSection />
-              </>
-            )}
-          </div>
+          {activeTab === 'about' && (
+            <>
+              <AboutSection />
+            </>
+          )}
         </div>
       </div>
     </div>

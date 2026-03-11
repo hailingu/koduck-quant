@@ -19,7 +19,9 @@ interface PortfolioDisplayItem extends PortfolioItem {
 }
 
 const REALTIME_STALE_MS = 20000
+const SNAPSHOT_STALE_MS = 120000
 const MARKET_STATUS_CHECK_MS = 30000
+const TRADING_QUOTE_POLL_MS = 5000
 const CLOSED_QUOTE_POLL_MS = 30000
 
 const normalizeSymbol = (symbol: string): string => {
@@ -208,13 +210,14 @@ export default function Portfolio() {
   }, [symbols])
 
   useEffect(() => {
-    if (marketTrading || symbols.length === 0) return
+    if (symbols.length === 0) return
     void pollClosedMarketQuotes()
+    const pollIntervalMs = marketTrading ? TRADING_QUOTE_POLL_MS : CLOSED_QUOTE_POLL_MS
     const intervalId = globalThis.setInterval(() => {
       void pollClosedMarketQuotes()
-    }, CLOSED_QUOTE_POLL_MS)
+    }, pollIntervalMs)
     return () => globalThis.clearInterval(intervalId)
-  }, [marketTrading, symbols, pollClosedMarketQuotes])
+  }, [symbols, pollClosedMarketQuotes, marketTrading])
 
   const portfolioWithRealtime = useMemo<PortfolioDisplayItem[]>(() => {
     const now = Date.now()
@@ -223,6 +226,7 @@ export default function Portfolio() {
       const realtimePrice = stockPrices.get(normalizedSymbol)
       const closedQuote = closedMarketQuotes.get(normalizedSymbol)
       const isRealtimeFresh = realtimePrice !== undefined && now - realtimePrice.timestamp <= REALTIME_STALE_MS
+      const isSnapshotFresh = closedQuote !== undefined && now - closedQuote.timestamp <= SNAPSHOT_STALE_MS
 
       if (isRealtimeFresh && realtimePrice) {
         const currentPrice = realtimePrice.price
@@ -233,7 +237,7 @@ export default function Portfolio() {
         return { ...item, currentPrice, marketValue, pnl, pnlPercent, realtimeTimestamp: realtimePrice.timestamp }
       }
 
-      if (!marketTrading && closedQuote && Number.isFinite(closedQuote.price) && closedQuote.price > 0) {
+      if (isSnapshotFresh && closedQuote && Number.isFinite(closedQuote.price) && closedQuote.price > 0) {
         const currentPrice = closedQuote.price
         const totalCost = item.avgCost * item.quantity
         const marketValue = currentPrice * item.quantity
@@ -261,7 +265,14 @@ export default function Portfolio() {
       const normalizedSymbol = normalizeSymbol(item.symbol)
       const realtimePrice = stockPrices.get(normalizedSymbol)
       const closedQuote = closedMarketQuotes.get(normalizedSymbol)
-      const quoteChange = realtimePrice?.change ?? closedQuote?.change ?? 0
+      const now = Date.now()
+      const isRealtimeFresh = realtimePrice !== undefined && now - realtimePrice.timestamp <= REALTIME_STALE_MS
+      const isSnapshotFresh = closedQuote !== undefined && now - closedQuote.timestamp <= SNAPSHOT_STALE_MS
+      const quoteChange = isRealtimeFresh
+        ? (realtimePrice?.change ?? 0)
+        : isSnapshotFresh
+          ? (closedQuote?.change ?? 0)
+          : 0
       dailyPnl += quoteChange * item.quantity
       previousMarketValue += (item.currentPrice - quoteChange) * item.quantity
     })
