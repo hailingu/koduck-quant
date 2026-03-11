@@ -18,9 +18,17 @@ load_dotenv()
 
 # 类级别默认配置常量
 _PROVIDER_DEFAULTS: dict[LLMProvider, dict[str, str]] = {
+    LLMProvider.OPENAI: {
+        "api_base": "https://api.openai.com/v1",
+        "model": "gpt-4o-mini",
+    },
     LLMProvider.MINIMAX: {
         "api_base": "https://api.minimax.chat/v1",
         "model": "MiniMax-M2.5",
+    },
+    LLMProvider.DEEPSEEK: {
+        "api_base": "https://api.deepseek.com/v1",
+        "model": "deepseek-chat",
     },
 }
 
@@ -147,11 +155,15 @@ provider: minimax
 api_key: "your-api-key-here"
 
 # API Base URL (可选，会使用默认值)
+# openai: https://api.openai.com/v1
 # minimax: https://api.minimax.chat/v1
+# deepseek: https://api.deepseek.com/v1
 api_base: ""
 
 # 模型名称 (可选，会使用默认值)
+# openai: gpt-4o-mini, gpt-4o
 # minimax: MiniMax-M2.5, MiniMax-Text-01, abab6.5s-chat
+# deepseek: deepseek-chat, deepseek-reasoner
 model: ""
 
 # 重试配置

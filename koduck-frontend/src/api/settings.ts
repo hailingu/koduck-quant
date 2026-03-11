@@ -10,6 +10,18 @@ export interface UserSettings {
     provider?: string
     apiKey?: string
     apiBase?: string
+    minimax?: {
+      apiKey?: string
+      apiBase?: string
+    }
+    deepseek?: {
+      apiKey?: string
+      apiBase?: string
+    }
+    openai?: {
+      apiKey?: string
+      apiBase?: string
+    }
   }
 }
 
@@ -21,6 +33,18 @@ export interface UpdateSettingsRequest {
     provider?: string
     apiKey?: string
     apiBase?: string
+    minimax?: {
+      apiKey?: string
+      apiBase?: string
+    }
+    deepseek?: {
+      apiKey?: string
+      apiBase?: string
+    }
+    openai?: {
+      apiKey?: string
+      apiBase?: string
+    }
   }
 }
 

@@ -45,6 +45,33 @@ def test_extract_symbol_normalizes_filename_stem() -> None:
     assert symbol == "002050"
 
 
+def test_extract_kline_time_prefers_timestamp_for_minute_timeframe() -> None:
+    """Minute timeframe should use timestamp when datetime is date-only."""
+    initializer = KlineInitializer()
+    row = pd.Series(
+        {
+            "datetime": "2026-03-11",
+            "timestamp": 1768527900,  # 2026-01-16 09:45:00 local
+        }
+    )
+
+    parsed = initializer._extract_kline_time(row, "15m")
+
+    assert parsed is not None
+    assert parsed.hour == 9
+    assert parsed.minute == 45
+
+
+def test_extract_kline_time_rejects_non_midnight_for_daily_timeframe() -> None:
+    """Daily timeframe must keep midnight-only timestamps."""
+    initializer = KlineInitializer()
+    row = pd.Series({"datetime": "2026-03-11 09:45:00"})
+
+    parsed = initializer._extract_kline_time(row, "1D")
+
+    assert parsed is None
+
+
 def test_initialize_returns_true_when_no_csv_files(monkeypatch: Any) -> None:
     """Initialization should be successful when no CSV files are available."""
     initializer = KlineInitializer()

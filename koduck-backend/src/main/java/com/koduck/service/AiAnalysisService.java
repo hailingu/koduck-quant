@@ -3,6 +3,7 @@ package com.koduck.service;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.koduck.config.AgentConfig;
 import com.koduck.dto.ai.*;
+import com.koduck.dto.settings.UserSettingsDto;
 import com.koduck.dto.indicator.IndicatorResponse;
 import com.koduck.entity.BacktestResult;
 import com.koduck.entity.PortfolioPosition;
@@ -42,6 +43,7 @@ import java.util.regex.Pattern;
 public class AiAnalysisService {
 
     private static final Pattern SYMBOL_PATTERN = Pattern.compile("\\b\\d{6}\\b");
+    private static final Set<String> SUPPORTED_LLM_PROVIDERS = Set.of("minimax", "deepseek", "openai");
     private static final String NO_TOOL_MARKUP_GUARD =
         "输出约束: 不要使用或模拟任何工具调用，不要输出 <minimax:tool_call>、<invoke>、<parameter>、XML/JSON函数调用片段。"
             + "请直接输出面向用户的自然语言分析结论。";
@@ -49,6 +51,7 @@ public class AiAnalysisService {
     private final StrategyRepository strategyRepository;
     private final BacktestResultRepository backtestResultRepository;
     private final TechnicalIndicatorService technicalIndicatorService;
+    private final UserSettingsService userSettingsService;
     private final AgentConfig agentConfig;
     private final ObjectMapper objectMapper;
     private final Random random = new Random();
@@ -71,7 +74,7 @@ public class AiAnalysisService {
         String symbol = request.getSymbol();
         String market = request.getMarket();
         String question = request.getQuestion();
-        String provider = request.getProvider();
+        String provider = resolveProvider(request.getProvider());
         
         log.debug("Analyzing stock: {}, market: {}, question: {}, provider: {}", symbol, market, question, provider);
 
@@ -148,7 +151,7 @@ public class AiAnalysisService {
         
         // 构建请求体
         Map<String, Object> requestBody = new HashMap<>();
-        requestBody.put("provider", provider != null ? provider : "gpt");
+        requestBody.put("provider", resolveProvider(provider));
         
         List<Map<String, String>> messages = new ArrayList<>();
         messages.add(Map.of("role", "user", "content", userMessage));
@@ -189,9 +192,17 @@ public class AiAnalysisService {
     /**
      * 代理流式聊天接口，统一由后端中转到 koduck-agent。
      */
-    public SseEmitter streamChat(ChatStreamRequest request) {
+    public SseEmitter streamChat(Long userId, ChatStreamRequest request) {
         SseEmitter emitter = new SseEmitter(0L);
-        ChatStreamRequest guardedRequest = appendInstructionToSystem(request, NO_TOOL_MARKUP_GUARD);
+        String provider = resolveProvider(request.getProvider());
+        UserSettingsDto.LlmConfigDto effectiveConfig = userSettingsService.getEffectiveLlmConfig(userId, provider);
+        ChatStreamRequest configuredRequest = ChatStreamRequest.builder()
+            .provider(provider)
+            .apiKey(effectiveConfig != null ? effectiveConfig.getApiKey() : null)
+            .apiBase(effectiveConfig != null ? effectiveConfig.getApiBase() : null)
+            .messages(request.getMessages())
+            .build();
+        ChatStreamRequest guardedRequest = appendInstructionToSystem(configuredRequest, NO_TOOL_MARKUP_GUARD);
         ChatStreamRequest enhancedRequest = enrichWithQuantSignalIfNeeded(guardedRequest);
         CompletableFuture.runAsync(() -> relayAgentStream(enhancedRequest, emitter));
         return emitter;
@@ -266,6 +277,8 @@ public class AiAnalysisService {
 
         return ChatStreamRequest.builder()
             .provider(request.getProvider())
+            .apiKey(request.getApiKey())
+            .apiBase(request.getApiBase())
             .messages(updatedMessages)
             .build();
     }
@@ -302,6 +315,8 @@ public class AiAnalysisService {
 
         return ChatStreamRequest.builder()
             .provider(request.getProvider())
+            .apiKey(request.getApiKey())
+            .apiBase(request.getApiBase())
             .messages(updatedMessages)
             .build();
     }
@@ -409,8 +424,14 @@ public class AiAnalysisService {
         HttpURLConnection connection = null;
         try {
             String agentUrl = agentConfig.getUrl() + "/api/v1/ai/chat/stream";
-            String requestBody = objectMapper.writeValueAsString(request);
-            String provider = request.getProvider() != null ? request.getProvider() : "minimax";
+            String provider = resolveProvider(request.getProvider());
+            ChatStreamRequest normalizedRequest = ChatStreamRequest.builder()
+                .provider(provider)
+                .apiKey(request.getApiKey())
+                .apiBase(request.getApiBase())
+                .messages(request.getMessages())
+                .build();
+            String requestBody = objectMapper.writeValueAsString(normalizedRequest);
 
             connection = (HttpURLConnection) URI.create(agentUrl).toURL().openConnection();
             connection.setRequestMethod("POST");
@@ -519,6 +540,14 @@ public class AiAnalysisService {
         } catch (IOException e) {
             return "";
         }
+    }
+
+    private String resolveProvider(String provider) {
+        if (provider == null || provider.isBlank()) {
+            return "minimax";
+        }
+        String normalized = provider.trim().toLowerCase(Locale.ROOT);
+        return SUPPORTED_LLM_PROVIDERS.contains(normalized) ? normalized : "minimax";
     }
     
     /**

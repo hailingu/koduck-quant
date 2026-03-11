@@ -68,6 +68,12 @@ public class UserSettings {
     @Builder.Default
     private List<QuickLink> quickLinks = List.of();
 
+    // 大模型配置
+    @Column(name = "llm_config", columnDefinition = "jsonb")
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Builder.Default
+    private LlmConfig llmConfig = new LlmConfig();
+
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
@@ -145,5 +151,31 @@ public class UserSettings {
         private String icon;
         private String path;
         private Integer sortOrder;
+    }
+
+    /**
+     * 大模型配置
+     */
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    @Builder
+    public static class LlmConfig {
+        private String provider;
+        // legacy 字段，兼容历史结构
+        private String apiKey;
+        private String apiBase;
+        private ProviderConfig minimax;
+        private ProviderConfig deepseek;
+        private ProviderConfig openai;
+    }
+
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    @Builder
+    public static class ProviderConfig {
+        private String apiKey;
+        private String apiBase;
     }
 }

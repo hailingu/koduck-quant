@@ -37,6 +37,9 @@ public class UserSettingsDto {
     // 快捷入口
     private List<QuickLinkDto> quickLinks;
 
+    // 大模型配置
+    private LlmConfigDto llmConfig;
+
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 
@@ -96,5 +99,31 @@ public class UserSettingsDto {
         private String icon;
         private String path;
         private Integer sortOrder;
+    }
+
+    /**
+     * 大模型配置 DTO
+     */
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class LlmConfigDto {
+        private String provider;
+        // 当前激活 provider 的有效值（兼容前端旧读取方式）
+        private String apiKey;
+        private String apiBase;
+        private ProviderConfigDto minimax;
+        private ProviderConfigDto deepseek;
+        private ProviderConfigDto openai;
+    }
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class ProviderConfigDto {
+        private String apiKey;
+        private String apiBase;
     }
 }

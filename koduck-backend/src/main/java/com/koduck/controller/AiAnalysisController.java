@@ -79,7 +79,7 @@ public class AiAnalysisController {
 
         Long userId = requireUserId(userPrincipal);
         log.debug("POST /api/v1/ai/chat/stream: user={}, provider={}", userId, request.getProvider());
-        return aiAnalysisService.streamChat(request);
+        return aiAnalysisService.streamChat(userId, request);
     }
 
     /**

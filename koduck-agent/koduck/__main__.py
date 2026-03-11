@@ -3,7 +3,7 @@
 
 Usage:
     python -m koduck [OPTIONS]
-    python -m koduck --provider kimi
+    python -m koduck --provider deepseek
 
 交互命令:
     /help       显示帮助
@@ -221,8 +221,9 @@ def create_parser() -> argparse.ArgumentParser:
   /history    显示对话历史
 
 示例:
-  python -m koduck                    # 使用默认配置 (GPT)
-  python -m koduck --provider gpt    # 使用 GPT
+  python -m koduck                    # 使用默认配置 (MiniMax)
+  python -m koduck --provider deepseek    # 使用 DeepSeek
+  python -m koduck --provider openai -m gpt-4o-mini    # 使用 OpenAI
   python -m koduck -p minimax -m MiniMax-M2.5    # 使用 MiniMax 和指定模型
         """,
     )
@@ -232,7 +233,7 @@ def create_parser() -> argparse.ArgumentParser:
         type=str,
         default=None,
         choices=get_available_providers(),
-        help="LLM 提供商 (gpt/minimax)",
+        help="LLM 提供商 (minimax/deepseek/openai)",
     )
 
     parser.add_argument(

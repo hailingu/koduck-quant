@@ -54,7 +54,7 @@ function WatchlistRow({
   onClick,
 }: {
   item: WatchlistDisplayItem
-  onDelete: (id: number) => void
+  onDelete: (item: WatchlistDisplayItem) => void
   onClick: (symbol: string, market: string) => void
 }) {
   
@@ -107,7 +107,7 @@ function WatchlistRow({
           "
         >
           <button
-            onClick={() => onDelete(item.id)}
+            onClick={() => onDelete(item)}
             className="text-red-500 hover:text-red-600 p-2 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-[10px] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-400/60"
             title="删除"
             aria-label={`删除 ${item.name}`}
@@ -129,6 +129,8 @@ export default function Watchlist() {
   const [loading, setLoading] = useState(true)
   const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' } | null>(null)
   const [showAddModal, setShowAddModal] = useState(false)
+  const [deletingItem, setDeletingItem] = useState<WatchlistDisplayItem | null>(null)
+  const [deleting, setDeleting] = useState(false)
   const [marketTrading, setMarketTrading] = useState<boolean>(isTradingHours())
 
   // WebSocket store for real-time price updates
@@ -234,15 +236,18 @@ export default function Watchlist() {
   }
 
   // 删除自选股
-  const handleDelete = async (id: number) => {
-    if (!confirm('确定要删除这只股票吗？')) return
-
+  const handleDelete = async () => {
+    if (!deletingItem || deleting) return
     try {
-      await watchlistApi.removeFromWatchlist(id)
+      setDeleting(true)
+      await watchlistApi.removeFromWatchlist(deletingItem.id)
       showToast('删除成功', 'success')
-      setWatchlist((prev) => prev.filter((item) => item.id !== id))
+      setWatchlist((prev) => prev.filter((item) => item.id !== deletingItem.id))
+      setDeletingItem(null)
     } catch {
       showToast('删除失败', 'error')
+    } finally {
+      setDeleting(false)
     }
   }
 
@@ -445,7 +450,7 @@ export default function Watchlist() {
                     <WatchlistRow
                       key={item.id}
                       item={item}
-                      onDelete={handleDelete}
+                      onDelete={setDeletingItem}
                       onClick={handleClickStock}
                     />
                   ))}
@@ -481,6 +486,57 @@ export default function Watchlist() {
               <p className="mt-4 text-sm text-[#8e8e93] dark:text-gray-400">
                 搜索股票代码或名称，点击即可添加到自选股
               </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {deletingItem && (
+        <div className="fixed inset-0 z-[60] overflow-y-auto">
+          <div className="flex items-center justify-center min-h-screen px-4">
+            <div
+              className="fixed inset-0 bg-black/30 backdrop-blur-sm transition-opacity"
+              onClick={() => {
+                if (!deleting) {
+                  setDeletingItem(null)
+                }
+              }}
+            />
+            <div className="relative w-full max-w-md rounded-[24px] border border-gray-200/80 dark:border-white/10 bg-white dark:bg-[#1c1c1e] shadow-[0_25px_60px_rgba(0,0,0,0.2)]">
+              <div className="p-6">
+                <div className="flex items-start gap-4">
+                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400">
+                    <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v3m0 4h.01M5.07 19h13.86c1.54 0 2.5-1.67 1.73-3L13.73 4c-.77-1.33-2.69-1.33-3.46 0L3.34 16c-.77 1.33.19 3 1.73 3z" />
+                    </svg>
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="text-lg font-semibold text-[#1d1d1f] dark:text-white">确认删除自选股</h3>
+                    <p className="mt-2 text-sm text-[#6e6e73] dark:text-gray-300">
+                      将从自选列表移除
+                      <span className="mx-1 font-semibold text-[#1d1d1f] dark:text-white">{deletingItem.name}</span>
+                      ({deletingItem.symbol})。此操作不可撤销。
+                    </p>
+                  </div>
+                </div>
+              </div>
+              <div className="flex items-center justify-end gap-3 border-t border-gray-100 dark:border-white/10 px-6 py-4">
+                <button
+                  onClick={() => setDeletingItem(null)}
+                  disabled={deleting}
+                  className="inline-flex h-10 items-center justify-center rounded-full border border-gray-200 dark:border-white/15 bg-white dark:bg-[#2c2c2e] px-5 text-sm font-medium text-[#3a3a3c] dark:text-gray-100 transition-colors hover:bg-gray-50 disabled:opacity-60"
+                >
+                  取消
+                </button>
+                <button
+                  onClick={handleDelete}
+                  disabled={deleting}
+                  className="inline-flex h-10 items-center justify-center rounded-full bg-red-600 px-5 text-sm font-semibold text-white transition-colors hover:bg-red-700 disabled:opacity-60"
+                >
+                  {deleting ? '删除中...' : '确认删除'}
+                </button>
+              </div>
             </div>
           </div>
         </div>

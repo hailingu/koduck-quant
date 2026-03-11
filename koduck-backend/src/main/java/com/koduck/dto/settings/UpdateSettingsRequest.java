@@ -37,6 +37,10 @@ public class UpdateSettingsRequest {
     // 快捷入口
     private List<QuickLinkDto> quickLinks;
 
+    // 大模型配置
+    @Valid
+    private LlmConfigDto llmConfig;
+
     /**
      * 通知配置 DTO
      */
@@ -93,5 +97,31 @@ public class UpdateSettingsRequest {
         private String icon;
         private String path;
         private Integer sortOrder;
+    }
+
+    /**
+     * 大模型配置 DTO
+     */
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class LlmConfigDto {
+        private String provider;
+        // 当前激活 provider 的输入值（兼容前端旧提交方式）
+        private String apiKey;
+        private String apiBase;
+        private ProviderConfigDto minimax;
+        private ProviderConfigDto deepseek;
+        private ProviderConfigDto openai;
+    }
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class ProviderConfigDto {
+        private String apiKey;
+        private String apiBase;
     }
 }

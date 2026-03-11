@@ -234,12 +234,19 @@ class KlineInitializer:
         """Extract kline timestamp from one row with timeframe validation."""
         parsed_time: datetime | pd.Timestamp | None = None
 
-        if "datetime" in row:
+        is_minute_timeframe = timeframe not in {"1D", "1W", "1M"}
+        timestamp_value = row.get("timestamp")
+
+        # Minute data often carries both `datetime` (date-only) and `timestamp`.
+        # Prefer epoch timestamp to preserve intraday precision.
+        if is_minute_timeframe and timestamp_value is not None and not pd.isna(timestamp_value):
+            parsed_time = datetime.fromtimestamp(float(timestamp_value))
+        elif "datetime" in row:
             parsed_time = pd.to_datetime(row["datetime"])
         elif "kline_time" in row:
             parsed_time = pd.to_datetime(row["kline_time"])
-        elif "timestamp" in row:
-            parsed_time = datetime.fromtimestamp(row["timestamp"])
+        elif timestamp_value is not None and not pd.isna(timestamp_value):
+            parsed_time = datetime.fromtimestamp(float(timestamp_value))
 
         if parsed_time is None or pd.isna(parsed_time):
             return None

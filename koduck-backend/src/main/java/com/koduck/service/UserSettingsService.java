@@ -2,14 +2,16 @@ package com.koduck.service;
 
 import com.koduck.dto.settings.*;
 import com.koduck.entity.UserSettings;
-import com.koduck.exception.BusinessException;
 import com.koduck.repository.UserSettingsRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.core.env.Environment;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Locale;
 import java.util.List;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
@@ -20,12 +22,14 @@ import java.util.stream.Collectors;
 @Slf4j
 public class UserSettingsService {
 
+    private static final Set<String> SUPPORTED_LLM_PROVIDERS = Set.of("minimax", "deepseek", "openai");
     private final UserSettingsRepository settingsRepository;
+    private final Environment environment;
 
     /**
      * 获取或创建设置
      */
-    @Transactional(readOnly = true)
+    @Transactional
     public UserSettingsDto getSettings(Long userId) {
         log.debug("Getting settings for user: {}", userId);
 
@@ -85,6 +89,38 @@ public class UserSettingsService {
             config.setNumberFormat(request.getDisplay().getNumberFormat());
             config.setCompactMode(request.getDisplay().getCompactMode());
             settings.setDisplayConfig(config);
+        }
+
+        // 更新大模型配置
+        if (request.getLlmConfig() != null) {
+            UserSettings.LlmConfig current = settings.getLlmConfig() != null
+                ? settings.getLlmConfig()
+                : new UserSettings.LlmConfig();
+            UpdateSettingsRequest.LlmConfigDto req = request.getLlmConfig();
+
+            String activeProvider = normalizeLlmProvider(firstNonBlank(req.getProvider(), current.getProvider()));
+            current.setProvider(activeProvider);
+
+            current.setMinimax(mergeProviderConfig(current.getMinimax(), req.getMinimax()));
+            current.setDeepseek(mergeProviderConfig(current.getDeepseek(), req.getDeepseek()));
+            current.setOpenai(mergeProviderConfig(current.getOpenai(), req.getOpenai()));
+
+            // 兼容旧请求：仅传 apiKey/apiBase 时写入当前激活 provider
+            if (req.getApiKey() != null || req.getApiBase() != null) {
+                UserSettings.ProviderConfig existing = getProviderConfig(current, activeProvider);
+                UserSettings.ProviderConfig legacyMerged = UserSettings.ProviderConfig.builder()
+                    .apiKey(req.getApiKey() != null ? normalizeBlank(req.getApiKey()) : normalizeBlank(existing != null ? existing.getApiKey() : null))
+                    .apiBase(req.getApiBase() != null ? normalizeBlank(req.getApiBase()) : normalizeBlank(existing != null ? existing.getApiBase() : null))
+                    .build();
+                setProviderConfig(current, activeProvider, legacyMerged);
+            }
+
+            // legacy 顶层字段同步当前 provider，避免旧前端读取不到
+            UserSettings.ProviderConfig activeConfig = getProviderConfig(current, activeProvider);
+            current.setApiKey(activeConfig != null ? normalizeBlank(activeConfig.getApiKey()) : null);
+            current.setApiBase(activeConfig != null ? normalizeBlank(activeConfig.getApiBase()) : null);
+
+            settings.setLlmConfig(current);
         }
 
         // 更新快捷入口
@@ -160,6 +196,12 @@ public class UserSettingsService {
             .notificationConfig(new UserSettings.NotificationConfig())
             .tradingConfig(new UserSettings.TradingConfig())
             .displayConfig(new UserSettings.DisplayConfig())
+            .llmConfig(UserSettings.LlmConfig.builder()
+                .provider("minimax")
+                .minimax(new UserSettings.ProviderConfig())
+                .deepseek(new UserSettings.ProviderConfig())
+                .openai(new UserSettings.ProviderConfig())
+                .build())
             .quickLinks(List.of(
                 UserSettings.QuickLink.builder()
                     .id(1L)
@@ -195,9 +237,24 @@ public class UserSettingsService {
             .trading(convertTradingToDto(settings.getTradingConfig()))
             .display(convertDisplayToDto(settings.getDisplayConfig()))
             .quickLinks(convertQuickLinksToDto(settings.getQuickLinks()))
+            .llmConfig(resolveLlmConfig(settings.getLlmConfig()))
             .createdAt(settings.getCreatedAt())
             .updatedAt(settings.getUpdatedAt())
             .build();
+    }
+
+    @Transactional(readOnly = true)
+    public UserSettingsDto.LlmConfigDto getEffectiveLlmConfig(Long userId, String provider) {
+        UserSettings settings = settingsRepository.findByUserId(userId)
+            .orElseGet(() -> createDefaultSettings(userId));
+        UserSettings.LlmConfig llmConfig = settings.getLlmConfig();
+        if (llmConfig == null) {
+            llmConfig = new UserSettings.LlmConfig();
+        }
+        if (provider != null && !provider.isBlank()) {
+            llmConfig.setProvider(provider);
+        }
+        return resolveLlmConfig(llmConfig);
     }
 
     private UserSettingsDto.NotificationConfigDto convertNotificationToDto(
@@ -246,5 +303,173 @@ public class UserSettingsService {
                 .sortOrder(link.getSortOrder())
                 .build())
             .collect(Collectors.toList());
+    }
+
+    private UserSettingsDto.LlmConfigDto resolveLlmConfig(UserSettings.LlmConfig config) {
+        UserSettings.LlmConfig source = config == null ? new UserSettings.LlmConfig() : config;
+        String provider = normalizeLlmProvider(source.getProvider());
+
+        UserSettingsDto.ProviderConfigDto minimax = resolveProviderConfig("minimax", source);
+        UserSettingsDto.ProviderConfigDto deepseek = resolveProviderConfig("deepseek", source);
+        UserSettingsDto.ProviderConfigDto openai = resolveProviderConfig("openai", source);
+
+        UserSettingsDto.ProviderConfigDto active = switch (provider) {
+            case "deepseek" -> deepseek;
+            case "openai" -> openai;
+            case "minimax" -> minimax;
+            default -> minimax;
+        };
+
+        return UserSettingsDto.LlmConfigDto.builder()
+            .provider(provider)
+            .apiKey(active != null ? active.getApiKey() : null)
+            .apiBase(active != null ? active.getApiBase() : null)
+            .minimax(minimax)
+            .deepseek(deepseek)
+            .openai(openai)
+            .build();
+    }
+
+    private UserSettings.ProviderConfig mergeProviderConfig(
+            UserSettings.ProviderConfig existing,
+            UpdateSettingsRequest.ProviderConfigDto incoming) {
+        UserSettings.ProviderConfig base = existing != null ? existing : new UserSettings.ProviderConfig();
+        if (incoming == null) {
+            return base;
+        }
+        return UserSettings.ProviderConfig.builder()
+            .apiKey(incoming.getApiKey() != null ? normalizeBlank(incoming.getApiKey()) : normalizeBlank(base.getApiKey()))
+            .apiBase(incoming.getApiBase() != null ? normalizeBlank(incoming.getApiBase()) : normalizeBlank(base.getApiBase()))
+            .build();
+    }
+
+    private UserSettings.ProviderConfig getProviderConfig(UserSettings.LlmConfig config, String provider) {
+        if (config == null) {
+            return null;
+        }
+        return switch (provider) {
+            case "deepseek" -> config.getDeepseek();
+            case "openai" -> config.getOpenai();
+            case "minimax" -> config.getMinimax();
+            default -> config.getMinimax();
+        };
+    }
+
+    private void setProviderConfig(UserSettings.LlmConfig config, String provider, UserSettings.ProviderConfig value) {
+        if (config == null) {
+            return;
+        }
+        switch (provider) {
+            case "deepseek" -> config.setDeepseek(value);
+            case "openai" -> config.setOpenai(value);
+            case "minimax" -> config.setMinimax(value);
+            default -> config.setMinimax(value);
+        }
+    }
+
+    private UserSettingsDto.ProviderConfigDto resolveProviderConfig(String provider, UserSettings.LlmConfig config) {
+        UserSettings.ProviderConfig settingsProviderConfig = getProviderConfig(config, provider);
+
+        // 兼容历史单 provider 结构：provider 匹配时，顶层 apiKey/apiBase 视作该 provider 配置
+        String legacyProvider = normalizeLlmProvider(config != null ? config.getProvider() : null);
+        String legacyApiKey = legacyProvider.equals(provider) ? normalizeBlank(config != null ? config.getApiKey() : null) : null;
+        String legacyApiBase = legacyProvider.equals(provider) ? normalizeBlank(config != null ? config.getApiBase() : null) : null;
+
+        String settingsApiKey = normalizeBlank(settingsProviderConfig != null ? settingsProviderConfig.getApiKey() : null);
+        String settingsApiBase = normalizeBlank(settingsProviderConfig != null ? settingsProviderConfig.getApiBase() : null);
+
+        String apiKey;
+        String apiBase;
+        switch (provider) {
+            case "openai":
+                apiKey = firstNonBlank(
+                    settingsApiKey,
+                    legacyApiKey,
+                    environment.getProperty("OPENAI_API_KEY"),
+                    environment.getProperty("GPT_API_KEY"),
+                    environment.getProperty("LLM_API_KEY")
+                );
+                apiBase = firstNonBlank(
+                    settingsApiBase,
+                    legacyApiBase,
+                    environment.getProperty("OPENAI_API_BASE"),
+                    environment.getProperty("LLM_API_BASE"),
+                    "https://api.openai.com/v1"
+                );
+                break;
+            case "deepseek":
+                apiKey = firstNonBlank(
+                    settingsApiKey,
+                    legacyApiKey,
+                    environment.getProperty("DEEPSEEK_API_KEY"),
+                    environment.getProperty("LLM_API_KEY")
+                );
+                apiBase = firstNonBlank(
+                    settingsApiBase,
+                    legacyApiBase,
+                    environment.getProperty("DEEPSEEK_API_BASE"),
+                    environment.getProperty("LLM_API_BASE"),
+                    "https://api.deepseek.com/v1"
+                );
+                break;
+            case "minimax":
+            default:
+                apiKey = firstNonBlank(
+                    settingsApiKey,
+                    legacyApiKey,
+                    environment.getProperty("MINIMAX_API_KEY"),
+                    environment.getProperty("LLM_API_KEY")
+                );
+                apiBase = firstNonBlank(
+                    settingsApiBase,
+                    legacyApiBase,
+                    environment.getProperty("MINIMAX_API_BASE"),
+                    environment.getProperty("LLM_API_BASE"),
+                    "https://api.minimax.chat/v1"
+                );
+                break;
+        }
+
+        return UserSettingsDto.ProviderConfigDto.builder()
+            .apiKey(apiKey)
+            .apiBase(apiBase)
+            .build();
+    }
+
+    private String normalizeLlmProvider(String provider) {
+        String fallback = firstNonBlank(
+            environment.getProperty("DEFAULT_LLM_PROVIDER"),
+            environment.getProperty("LLM_PROVIDER"),
+            "minimax"
+        );
+        if (provider == null || provider.isBlank()) {
+            return normalizeProviderOrDefault(fallback);
+        }
+        return normalizeProviderOrDefault(provider);
+    }
+
+    private String normalizeProviderOrDefault(String value) {
+        String normalized = value == null ? "minimax" : value.trim().toLowerCase(Locale.ROOT);
+        return SUPPORTED_LLM_PROVIDERS.contains(normalized) ? normalized : "minimax";
+    }
+
+    private String normalizeBlank(String value) {
+        if (value == null) {
+            return null;
+        }
+        String trimmed = value.trim();
+        return trimmed.isEmpty() ? null : trimmed;
+    }
+
+    private String firstNonBlank(String... values) {
+        if (values == null) {
+            return null;
+        }
+        for (String value : values) {
+            if (value != null && !value.trim().isEmpty()) {
+                return value.trim();
+            }
+        }
+        return null;
     }
 }

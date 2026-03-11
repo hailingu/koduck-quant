@@ -8,6 +8,7 @@ Usage:
 """
 
 import json
+import hashlib
 import logging
 import os
 import uuid
@@ -33,14 +34,21 @@ def get_api_key_for_provider(provider: str) -> str:
     """根据 provider 获取对应的 API 密钥.
     
     支持的环境变量:
+    - OPENAI_API_KEY
     - MINIMAX_API_KEY
+    - DEEPSEEK_API_KEY
     
     如果找不到特定密钥，回退到通用 LLM_API_KEY
     """
     provider_lower = provider.lower()
     
-    if provider_lower == "minimax":
+    if provider_lower == "openai":
+        # 兼容历史变量 GPT_API_KEY
+        api_key = os.getenv("OPENAI_API_KEY") or os.getenv("GPT_API_KEY") or ""
+    elif provider_lower == "minimax":
         api_key = os.getenv("MINIMAX_API_KEY") or ""
+    elif provider_lower == "deepseek":
+        api_key = os.getenv("DEEPSEEK_API_KEY") or ""
     else:
         api_key = ""
     
@@ -55,23 +63,40 @@ def get_api_base_for_provider(provider: str) -> str:
     """根据 provider 获取对应的 API Base URL.
     
     支持的环境变量:
+    - OPENAI_API_BASE 或 LLM_API_BASE
     - MINIMAX_API_BASE 或 LLM_API_BASE
+    - DEEPSEEK_API_BASE 或 LLM_API_BASE
     """
     provider_lower = provider.lower()
     
-    if provider_lower == "minimax":
+    if provider_lower == "openai":
+        # 优先使用 OpenAI 专用配置，回退到通用配置
+        return os.getenv("OPENAI_API_BASE") or os.getenv("LLM_API_BASE") or ""
+    elif provider_lower == "minimax":
         # 优先使用 MiniMax 专用配置，回退到通用配置
         return os.getenv("MINIMAX_API_BASE") or os.getenv("LLM_API_BASE") or ""
+    elif provider_lower == "deepseek":
+        # 优先使用 DeepSeek 专用配置，回退到通用配置
+        return os.getenv("DEEPSEEK_API_BASE") or os.getenv("LLM_API_BASE") or ""
     else:
         return os.getenv("LLM_API_BASE") or ""
 
 
-def get_client(provider: str) -> Any:
+def _build_client_cache_key(provider: str, api_key: str, api_base: str) -> str:
+    digest = hashlib.sha256(f"{provider}|{api_key}|{api_base}".encode("utf-8")).hexdigest()[:16]
+    return f"{provider}:{digest}"
+
+
+def get_client(provider: str, api_key_override: str | None = None, api_base_override: str | None = None) -> Any:
     """获取或创建客户端实例."""
-    logger.info(f"[get_client] 获取客户端: provider={provider}, cached={provider in _clients}")
-    if provider not in _clients:
+    resolved_api_key = (api_key_override or "").strip() or get_api_key_for_provider(provider)
+    resolved_api_base = (api_base_override or "").strip() or get_api_base_for_provider(provider)
+    cache_key = _build_client_cache_key(provider, resolved_api_key, resolved_api_base)
+
+    logger.info(f"[get_client] 获取客户端: provider={provider}, cached={cache_key in _clients}")
+    if cache_key not in _clients:
         logger.info(f"[get_client] 创建新客户端: provider={provider}")
-        api_key = get_api_key_for_provider(provider)
+        api_key = resolved_api_key
         if not api_key:
             logger.error(f"[get_client] API 密钥缺失: provider={provider}")
             raise HTTPException(
@@ -81,16 +106,16 @@ def get_client(provider: str) -> Any:
         api_key_preview = api_key[:8] + "..." if len(api_key) > 8 else "***"
         logger.info(f"[get_client] API 密钥获取成功: provider={provider}, key_preview={api_key_preview}")
         
-        api_base = get_api_base_for_provider(provider)
+        api_base = resolved_api_base
         logger.info(f"[get_client] API Base: provider={provider}, api_base={api_base}")
         
         try:
-            _clients[provider] = create_client(api_key=api_key, provider=provider, api_base=api_base)
+            _clients[cache_key] = create_client(api_key=api_key, provider=provider, api_base=api_base)
             logger.info(f"[get_client] 客户端创建成功: provider={provider}")
         except ValueError as e:
             logger.error(f"[get_client] 客户端创建失败: provider={provider}, error={e}")
             raise HTTPException(status_code=400, detail=str(e))
-    return _clients[provider]
+    return _clients[cache_key]
 
 
 # API 模型定义
@@ -106,7 +131,9 @@ class ChatCompletionRequest(BaseModel):
     """聊天补全请求模型."""
     model: str | None = Field(None, description="模型名称")
     messages: list[ChatMessage] = Field(..., description="消息列表")
-    provider: str = Field("gpt", description="LLM 提供商: gpt/minimax")
+    provider: str = Field("minimax", description="LLM 提供商: minimax/deepseek/openai")
+    apiKey: str | None = Field(None, description="可选：覆盖环境变量的 API Key")
+    apiBase: str | None = Field(None, description="可选：覆盖环境变量的 API Base URL")
     temperature: float | None = Field(None, description="采样温度")
     max_tokens: int | None = Field(None, description="最大生成 token 数")
     stream: bool = Field(False, description="是否流式输出（暂不支持）")
@@ -148,6 +175,8 @@ class SimpleChatRequest(BaseModel):
     """简化版聊天请求（前端直接使用）."""
     messages: list[ChatMessage] = Field(..., description="消息列表")
     provider: str = Field("minimax", description="LLM 提供商")
+    apiKey: str | None = Field(None, description="可选：覆盖环境变量的 API Key")
+    apiBase: str | None = Field(None, description="可选：覆盖环境变量的 API Base URL")
 
 
 class SimpleChatData(BaseModel):
@@ -294,6 +323,16 @@ async def list_models():
                 {"id": "MiniMax-M1", "provider": "minimax", "name": "MiniMax M1"},
                 {"id": "abab6.5s-chat", "provider": "minimax", "name": "abab6.5s"},
             ])
+        elif provider == LLMProvider.OPENAI:
+            models.extend([
+                {"id": "gpt-4o-mini", "provider": "openai", "name": "GPT-4o mini"},
+                {"id": "gpt-4o", "provider": "openai", "name": "GPT-4o"},
+            ])
+        elif provider == LLMProvider.DEEPSEEK:
+            models.extend([
+                {"id": "deepseek-chat", "provider": "deepseek", "name": "DeepSeek Chat"},
+                {"id": "deepseek-reasoner", "provider": "deepseek", "name": "DeepSeek Reasoner"},
+            ])
     return ModelsResponse(models=models)
 
 
@@ -303,6 +342,8 @@ async def chat_completions(request: ChatCompletionRequest):
     
     支持的提供商:
     - minimax: MiniMax (默认)
+    - deepseek: DeepSeek
+    - openai: OpenAI
     
     示例请求:
     ```json
@@ -330,7 +371,7 @@ async def chat_completions(request: ChatCompletionRequest):
 
     # 获取客户端
     logger.debug(f"[ChatCompletions] 获取客户端: provider={request.provider}")
-    client = get_client(request.provider)
+    client = get_client(request.provider, request.apiKey, request.apiBase)
 
     messages = _to_internal_messages(request.messages)
 
@@ -459,7 +500,7 @@ async def simple_chat(request: SimpleChatRequest):
 
     # 获取客户端
     logger.info(f"[SimpleChat] 获取客户端: provider={request.provider}")
-    client = get_client(request.provider)
+    client = get_client(request.provider, request.apiKey, request.apiBase)
 
     messages = _to_internal_messages(request.messages)
 
@@ -548,7 +589,7 @@ async def simple_chat_stream(request: SimpleChatRequest):
     
     async def event_generator():
         try:
-            client = get_client(request.provider)
+            client = get_client(request.provider, request.apiKey, request.apiBase)
             
             messages = _to_internal_messages(request.messages)
             

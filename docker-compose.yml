@@ -110,6 +110,16 @@ services:
       - REDIS_PORT=6379
       - DATA_SERVICE_URL=http://data-service:8000/api/v1
       - JWT_SECRET=${JWT_SECRET:-your-256-bit-secret-key-for-jwt-signing-must-be-at-least-32-characters-long}
+      - DEFAULT_LLM_PROVIDER=${DEFAULT_LLM_PROVIDER:-minimax}
+      - LLM_PROVIDER=${LLM_PROVIDER:-}
+      - LLM_API_KEY=${LLM_API_KEY:-}
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - MINIMAX_API_KEY=${MINIMAX_API_KEY:-}
+      - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY:-}
+      - LLM_API_BASE=${LLM_API_BASE:-https://api.gptsapi.net}
+      - OPENAI_API_BASE=${OPENAI_API_BASE:-https://api.openai.com/v1}
+      - MINIMAX_API_BASE=${MINIMAX_API_BASE:-https://api.minimax.chat/v1}
+      - DEEPSEEK_API_BASE=${DEEPSEEK_API_BASE:-https://api.deepseek.com/v1}
       # Demo user configuration - disabled by default for security
       # Enable for local testing: APP_DEMO_ENABLED=true
       # APP_DEMO_ENABLED=${APP_DEMO_ENABLED:-false}
@@ -142,9 +152,13 @@ services:
       - "8001:8000"
     environment:
       - GPT_API_KEY=${GPT_API_KEY:-}
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
       - MINIMAX_API_KEY=${MINIMAX_API_KEY:-}
+      - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY:-}
       - LLM_API_BASE=${LLM_API_BASE:-https://api.gptsapi.net}
+      - OPENAI_API_BASE=${OPENAI_API_BASE:-https://api.openai.com/v1}
       - MINIMAX_API_BASE=${MINIMAX_API_BASE:-https://api.minimax.chat/v1}
+      - DEEPSEEK_API_BASE=${DEEPSEEK_API_BASE:-https://api.deepseek.com/v1}
       - LOG_LEVEL=INFO
     volumes:
       # Mount local code for development (changes take effect on restart)

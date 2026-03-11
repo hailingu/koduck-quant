@@ -79,7 +79,7 @@ class StockAnalysisRequest(BaseModel):
     volume: int = Field(..., description="成交量")
     amount: Optional[float] = Field(None, description="成交额")
     question: str = Field(default="趋势分析", description="分析问题类型")
-    provider: str = Field(default="minimax", description="LLM 提供商: kimi/zlm/minimax")
+    provider: str = Field(default="minimax", description="LLM 提供商: minimax/deepseek/openai")
 
 
 class StockAnalysisResponse(BaseModel):
@@ -222,8 +222,9 @@ async def list_models():
             if response.status_code != 200:
                 return {
                     "models": [
-                        {"id": "moonshot-v1-8k", "provider": "kimi", "name": "Kimi 8K"},
-                        {"id": "moonshot-v1-32k", "provider": "kimi", "name": "Kimi 32K"},
+                        {"id": "MiniMax-M2.5", "provider": "minimax", "name": "MiniMax M2.5"},
+                        {"id": "deepseek-chat", "provider": "deepseek", "name": "DeepSeek Chat"},
+                        {"id": "gpt-4o-mini", "provider": "openai", "name": "GPT-4o mini"},
                     ]
                 }
             
@@ -234,9 +235,9 @@ async def list_models():
         # 返回默认模型列表
         return {
             "models": [
-                {"id": "moonshot-v1-8k", "provider": "kimi", "name": "Kimi 8K"},
-                {"id": "moonshot-v1-32k", "provider": "kimi", "name": "Kimi 32K"},
-                {"id": "glm-4-flash", "provider": "zlm", "name": "GLM-4 Flash"},
+                {"id": "MiniMax-M2.5", "provider": "minimax", "name": "MiniMax M2.5"},
+                {"id": "deepseek-chat", "provider": "deepseek", "name": "DeepSeek Chat"},
+                {"id": "gpt-4o-mini", "provider": "openai", "name": "GPT-4o mini"},
             ]
         }
 
@@ -271,7 +272,7 @@ async def health_check():
 class ChatRequest(BaseModel):
     """普通聊天请求"""
     messages: list[dict[str, str]] = Field(..., description="对话消息列表")
-    provider: str = Field(default="minimax", description="LLM 提供商")
+    provider: str = Field(default="minimax", description="LLM 提供商: minimax/deepseek/openai")
     model: Optional[str] = Field(None, description="模型名称")
 
 

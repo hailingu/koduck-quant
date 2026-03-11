@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { Send, Bot, User, Sparkles, TrendingUp, BarChart3, Lightbulb, ChevronDown } from 'lucide-react'
 import request from '@/api/request'
+import { settingsApi } from '@/api/settings'
 
 interface Message {
   id: string
@@ -51,6 +52,8 @@ const getAuthToken = (): string => {
 // 可用的 LLM 提供商
 const PROVIDERS: Provider[] = [
   { id: 'minimax', name: 'MiniMax', models: ['MiniMax-M2.5'] },
+  { id: 'deepseek', name: 'DeepSeek', models: ['deepseek-chat'] },
+  { id: 'openai', name: 'OpenAI', models: ['gpt-4o-mini'] },
 ]
 
 // 快捷分析问题
@@ -139,6 +142,23 @@ export function AIChat({ symbol, stockName, stockInfo }: AIChatProps) {
     }
     document.addEventListener('mousedown', handleClickOutside)
     return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
+
+  // 从用户设置加载默认 provider
+  useEffect(() => {
+    const loadPreferredProvider = async () => {
+      try {
+        const settings = await settingsApi.getSettings()
+        const provider = (settings.llmConfig?.provider || '').toLowerCase()
+        if (PROVIDERS.some((p) => p.id === provider)) {
+          setSelectedProvider(provider)
+        }
+      } catch (error) {
+        console.warn('Failed to load preferred LLM provider:', error)
+      }
+    }
+
+    loadPreferredProvider()
   }, [])
 
   // 股票分析 API 调用

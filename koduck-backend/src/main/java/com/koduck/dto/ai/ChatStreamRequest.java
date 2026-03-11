@@ -21,8 +21,11 @@ public class ChatStreamRequest {
     @Builder.Default
     private String provider = "minimax";
 
+    private String apiKey;
+
+    private String apiBase;
+
     @Valid
     @NotEmpty(message = "消息列表不能为空")
     private List<ChatMessageRequest> messages;
 }
-

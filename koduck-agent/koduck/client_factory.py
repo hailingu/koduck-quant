@@ -6,6 +6,8 @@ from koduck.retry import RetryConfig
 from koduck.schema import LLMProvider, LLMResponse, Message
 from koduck.base import LLMClientBase
 from koduck.minimax_client import MiniMaxClient
+from koduck.deepseek_client import DeepSeekClient
+from koduck.openai_client import OpenAIClient
 
 logger = logging.getLogger(__name__)
 
@@ -34,19 +36,41 @@ class LLMClient:
             retry_config: 重试配置
         """
         self.provider = provider
-        
-        # 应用默认值
-        self.api_base = api_base or "https://api.minimax.chat/v1"
-        self.model = model or "MiniMax-M2.5"
-        
-        # 实例化 MiniMax 客户端
+
+        # 应用默认值（按 provider）
+        if provider == LLMProvider.OPENAI:
+            self.api_base = api_base or "https://api.openai.com/v1"
+            self.model = model or "gpt-4o-mini"
+        elif provider == LLMProvider.DEEPSEEK:
+            self.api_base = api_base or "https://api.deepseek.com/v1"
+            self.model = model or "deepseek-chat"
+        else:
+            self.api_base = api_base or "https://api.minimax.chat/v1"
+            self.model = model or "MiniMax-M2.5"
+
+        # 按 provider 实例化客户端
         self._client: LLMClientBase
-        self._client = MiniMaxClient(
-            api_key=api_key,
-            api_base=self.api_base,
-            model=self.model,
-            retry_config=retry_config,
-        )
+        if provider == LLMProvider.OPENAI:
+            self._client = OpenAIClient(
+                api_key=api_key,
+                api_base=self.api_base,
+                model=self.model,
+                retry_config=retry_config,
+            )
+        elif provider == LLMProvider.DEEPSEEK:
+            self._client = DeepSeekClient(
+                api_key=api_key,
+                api_base=self.api_base,
+                model=self.model,
+                retry_config=retry_config,
+            )
+        else:
+            self._client = MiniMaxClient(
+                api_key=api_key,
+                api_base=self.api_base,
+                model=self.model,
+                retry_config=retry_config,
+            )
         
         logger.info(f"初始化 LLM 客户端: provider={provider}, model={self.model}")
 

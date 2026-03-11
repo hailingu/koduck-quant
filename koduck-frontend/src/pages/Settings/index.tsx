@@ -1,11 +1,25 @@
 import { useEffect, useState, useRef } from 'react'
 import type { UserDetail, UpdateProfileRequest, ChangePasswordRequest } from '@/api/user'
 import { userApi } from '@/api/user'
+import { settingsApi } from '@/api/settings'
+import type { UserSettings } from '@/api/settings'
 import { useToast } from '@/hooks/useToast'
 import { useAuthStore } from '@/stores/auth'
+import { useThemeStore } from '@/stores/theme'
 
 const APPLE_CARD_CLASS =
   'bg-white dark:bg-[#1c1c1e] rounded-[24px] shadow-[0_4px_24px_rgba(0,0,0,0.04)] border border-gray-100 dark:border-white/5'
+
+const LLM_PROVIDERS = ['minimax', 'deepseek', 'openai'] as const
+type LlmProvider = (typeof LLM_PROVIDERS)[number]
+type LlmProviderConfig = { apiKey: string; apiBase: string }
+type LlmProviderConfigMap = Record<LlmProvider, LlmProviderConfig>
+
+const createEmptyLlmProviderConfigMap = (): LlmProviderConfigMap => ({
+  minimax: { apiKey: '', apiBase: '' },
+  deepseek: { apiKey: '', apiBase: '' },
+  openai: { apiKey: '', apiBase: '' },
+})
 
 const formatBuildTime = (value: string): string => {
   const date = new Date(value)
@@ -37,9 +51,9 @@ function ProfileForm({ user, onUpdate }: { user: UserDetail; onUpdate: (u: UserD
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    
+
     const isChangingPassword = !!(passwordData.oldPassword || passwordData.newPassword || passwordData.confirmPassword)
-    
+
     if (isChangingPassword) {
       if (passwordData.newPassword !== passwordData.confirmPassword) {
         showToast('两次输入的新密码不一致', 'error')
@@ -86,7 +100,6 @@ function ProfileForm({ user, onUpdate }: { user: UserDetail; onUpdate: (u: UserD
     const file = e.target.files?.[0]
     if (!file) return
 
-    // 预览
     const preview = URL.createObjectURL(file)
     setAvatarPreview(preview)
 
@@ -94,41 +107,29 @@ function ProfileForm({ user, onUpdate }: { user: UserDetail; onUpdate: (u: UserD
       const url = await userApi.uploadAvatar(file)
       setProfileData((prev) => ({ ...prev, avatarUrl: url }))
       showToast('头像上传成功', 'success')
-    } catch (error) {
+    } catch {
       showToast('上传失败', 'error')
     }
   }
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
-      {/* 头像 */}
-      <div className="flex items-center gap-6">
-        <div
-          onClick={handleAvatarClick}
-          className="relative w-20 h-20 rounded-full bg-primary-100 dark:bg-primary-900/30 flex items-center justify-center cursor-pointer hover:opacity-80 transition-opacity overflow-hidden"
-        >
-          {avatarPreview ? (
-            <img src={avatarPreview} alt="Avatar" className="w-full h-full object-cover" />
-          ) : (
-            <span className="text-2xl font-bold text-primary-600 dark:text-primary-400">
-              {user.username.charAt(0).toUpperCase()}
-            </span>
-          )}
-          <div className="absolute inset-0 bg-black/30 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity">
-            <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
-            </svg>
+      <div className="rounded-2xl border border-gray-200 dark:border-white/10 bg-white/20 dark:bg-white/[0.02] overflow-hidden">
+        <div className="flex items-center justify-between gap-4 px-4 py-4 border-b border-gray-200 dark:border-white/10">
+          <div className="flex items-center">
+            <div
+              onClick={handleAvatarClick}
+              className="relative w-14 h-14 rounded-full bg-primary-100 dark:bg-primary-900/30 flex items-center justify-center cursor-pointer hover:opacity-80 transition-opacity overflow-hidden"
+            >
+              {avatarPreview ? (
+                <img src={avatarPreview} alt="Avatar" className="w-full h-full object-cover" />
+              ) : (
+                <span className="text-xl font-bold text-primary-600 dark:text-primary-400">
+                  {user.username.charAt(0).toUpperCase()}
+                </span>
+              )}
+            </div>
           </div>
-        </div>
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept="image/*"
-          className="hidden"
-          onChange={handleFileChange}
-        />
-        <div>
           <button
             type="button"
             onClick={handleAvatarClick}
@@ -136,74 +137,60 @@ function ProfileForm({ user, onUpdate }: { user: UserDetail; onUpdate: (u: UserD
           >
             更换头像
           </button>
-          <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">支持 JPG、PNG 格式，大小不超过 2MB</p>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={handleFileChange}
+          />
+        </div>
+
+        <div className="flex items-center justify-between gap-4 px-4 py-3 border-b border-gray-200 dark:border-white/10">
+          <span className="text-[13px] font-medium text-gray-700 dark:text-gray-200">用户名</span>
+          <span className="text-[13px] font-medium text-gray-900 dark:text-white">{user.username}</span>
+        </div>
+
+        <div className="flex items-center justify-between gap-4 px-4 py-3">
+          <span className="text-[13px] font-medium text-gray-700 dark:text-gray-200">邮箱</span>
+          <span className="text-[13px] font-medium text-gray-900 dark:text-white">{user.email || '-'}</span>
         </div>
       </div>
 
-      {/* 资料展示字段 */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6 mt-8">
-        <div>
-          <div className="text-sm text-gray-500 dark:text-gray-400 mb-1">用户名</div>
-          <div className="flex items-center gap-2">
-            <span className="text-base font-medium text-gray-900 dark:text-white">{user.username}</span>
+      <div className="pt-4 space-y-4">
+        <h4 className="text-[13px] font-medium text-gray-900 dark:text-white">修改密码</h4>
+        <div className="rounded-2xl border border-gray-200 dark:border-white/10 bg-white/20 dark:bg-white/[0.02] overflow-hidden">
+          <div className="flex items-center justify-between gap-4 px-4 py-3 border-b border-gray-200 dark:border-white/10">
+            <span className="text-[13px] font-medium text-gray-700 dark:text-gray-200 whitespace-nowrap">当前密码</span>
+            <input
+              type="password"
+              value={passwordData.oldPassword}
+              onChange={(e) => setPasswordData({ ...passwordData, oldPassword: e.target.value })}
+              className="w-full max-w-[560px] px-0 py-1 bg-transparent border-0 rounded-none text-right text-gray-900 dark:text-white caret-[#0a84ff] focus:outline-none focus:ring-0"
+            />
+          </div>
+          <div className="flex items-center justify-between gap-4 px-4 py-3 border-b border-gray-200 dark:border-white/10">
+            <span className="text-[13px] font-medium text-gray-700 dark:text-gray-200 whitespace-nowrap">新密码</span>
+            <input
+              type="password"
+              value={passwordData.newPassword}
+              onChange={(e) => setPasswordData({ ...passwordData, newPassword: e.target.value })}
+              className="w-full max-w-[560px] px-0 py-1 bg-transparent border-0 rounded-none text-right text-gray-900 dark:text-white caret-[#0a84ff] focus:outline-none focus:ring-0"
+              minLength={6}
+            />
+          </div>
+          <div className="flex items-center justify-between gap-4 px-4 py-3">
+            <span className="text-[13px] font-medium text-gray-700 dark:text-gray-200 whitespace-nowrap">确认新密码</span>
+            <input
+              type="password"
+              value={passwordData.confirmPassword}
+              onChange={(e) => setPasswordData({ ...passwordData, confirmPassword: e.target.value })}
+              className="w-full max-w-[560px] px-0 py-1 bg-transparent border-0 rounded-none text-right text-gray-900 dark:text-white caret-[#0a84ff] focus:outline-none focus:ring-0"
+            />
           </div>
         </div>
-
-        <div>
-          <div className="text-sm text-gray-500 dark:text-gray-400 mb-1">邮箱</div>
-          <div className="flex items-center gap-2">
-            <span className="text-base font-medium text-gray-900 dark:text-white">{user.email || '-'}</span>
-          </div>
-        </div>
       </div>
 
-      {/* 密码修改字段 */}
-      <div className="pt-8 border-t border-gray-200 dark:border-gray-700 mt-8 space-y-6">
-        <h4 className="text-base font-medium text-gray-900 dark:text-white">修改密码</h4>
-        
-        <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-            当前密码
-          </label>
-          <input
-            type="password"
-            value={passwordData.oldPassword}
-            onChange={(e) => setPasswordData({ ...passwordData, oldPassword: e.target.value })}
-            className="w-full md:w-1/2 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-            placeholder="请输入当前密码（若不修改请留空）"
-          />
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-            新密码
-          </label>
-          <input
-            type="password"
-            value={passwordData.newPassword}
-            onChange={(e) => setPasswordData({ ...passwordData, newPassword: e.target.value })}
-            className="w-full md:w-1/2 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-            placeholder="请输入新密码"
-            minLength={6}
-          />
-          <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">密码长度至少6位</p>
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-            确认新密码
-          </label>
-          <input
-            type="password"
-            value={passwordData.confirmPassword}
-            onChange={(e) => setPasswordData({ ...passwordData, confirmPassword: e.target.value })}
-            className="w-full md:w-1/2 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-            placeholder="请再次输入新密码"
-          />
-        </div>
-      </div>
-
-      {/* 提交按钮 */}
       <div className="flex justify-end pt-4">
         <button
           type="submit"
@@ -217,116 +204,269 @@ function ProfileForm({ user, onUpdate }: { user: UserDetail; onUpdate: (u: UserD
   )
 }
 
-// 偏好设置表单
-function PreferencesForm() {
+function PreferencesForm({
+  settings,
+  onSettingsUpdated,
+}: {
+  settings: UserSettings
+  onSettingsUpdated: (s: UserSettings) => void
+}) {
+  const { showToast } = useToast()
+  const { setThemeMode } = useThemeStore()
   const [theme, setTheme] = useState('light')
   const [notifications, setNotifications] = useState(true)
   const [language, setLanguage] = useState('zh-CN')
+  const [timezone, setTimezone] = useState('Asia/Shanghai')
+  const [llmProvider, setLlmProvider] = useState<LlmProvider>('minimax')
+  const [llmConfigs, setLlmConfigs] = useState<LlmProviderConfigMap>(createEmptyLlmProviderConfigMap())
+  const [isApiKeyEditing, setIsApiKeyEditing] = useState(false)
+  const [saving, setSaving] = useState(false)
+
+  useEffect(() => {
+    setTheme(settings.theme || 'light')
+    if (settings.theme === 'light' || settings.theme === 'dark' || settings.theme === 'auto') {
+      setThemeMode(settings.theme)
+    }
+    setLanguage(settings.language || 'zh-CN')
+    setTimezone(settings.timezone || 'Asia/Shanghai')
+    const savedProvider = (settings.llmConfig?.provider || '').toLowerCase()
+    const activeProvider: LlmProvider = LLM_PROVIDERS.includes(savedProvider as LlmProvider)
+      ? (savedProvider as LlmProvider)
+      : 'minimax'
+    setLlmProvider(activeProvider)
+    const nextConfigs = createEmptyLlmProviderConfigMap()
+    nextConfigs.minimax = {
+      apiKey: settings.llmConfig?.minimax?.apiKey || '',
+      apiBase: settings.llmConfig?.minimax?.apiBase || '',
+    }
+    nextConfigs.deepseek = {
+      apiKey: settings.llmConfig?.deepseek?.apiKey || '',
+      apiBase: settings.llmConfig?.deepseek?.apiBase || '',
+    }
+    nextConfigs.openai = {
+      apiKey: settings.llmConfig?.openai?.apiKey || '',
+      apiBase: settings.llmConfig?.openai?.apiBase || '',
+    }
+    // 兼容旧结构：只有当前 provider 顶层 apiKey/apiBase 时回填
+    if (!nextConfigs[activeProvider].apiKey && settings.llmConfig?.apiKey) {
+      nextConfigs[activeProvider].apiKey = settings.llmConfig.apiKey
+    }
+    if (!nextConfigs[activeProvider].apiBase && settings.llmConfig?.apiBase) {
+      nextConfigs[activeProvider].apiBase = settings.llmConfig.apiBase
+    }
+    setLlmConfigs(nextConfigs)
+  }, [settings, setThemeMode])
+
+  const handleSave = async () => {
+    const currentLlmConfig = llmConfigs[llmProvider]
+    const providerSpecificConfig =
+      llmProvider === 'minimax'
+        ? { minimax: { apiKey: currentLlmConfig.apiKey.trim(), apiBase: currentLlmConfig.apiBase.trim() } }
+        : llmProvider === 'deepseek'
+          ? { deepseek: { apiKey: currentLlmConfig.apiKey.trim(), apiBase: currentLlmConfig.apiBase.trim() } }
+          : { openai: { apiKey: currentLlmConfig.apiKey.trim(), apiBase: currentLlmConfig.apiBase.trim() } }
+    try {
+      setSaving(true)
+      const updated = await settingsApi.updateSettings({
+        theme,
+        language,
+        timezone,
+        llmConfig: {
+          provider: llmProvider.trim(),
+          apiKey: currentLlmConfig.apiKey.trim(),
+          apiBase: currentLlmConfig.apiBase.trim(),
+          ...providerSpecificConfig,
+        },
+      })
+      onSettingsUpdated(updated)
+      showToast('设置已保存', 'success')
+    } catch (error: any) {
+      showToast(error.message || '保存设置失败', 'error')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const handleThemeChange = (mode: 'light' | 'dark' | 'auto') => {
+    setTheme(mode)
+    setThemeMode(mode)
+  }
+
+  const maskApiKey = (value: string): string => {
+    if (!value) return ''
+    if (value.length <= 8) return `${value.slice(0, 2)}****`
+    return `${value.slice(0, 4)}****${value.slice(-4)}`
+  }
+
+  const currentLlmConfig = llmConfigs[llmProvider]
+  const displayedApiKey = !isApiKeyEditing
+    ? maskApiKey(currentLlmConfig.apiKey)
+    : currentLlmConfig.apiKey
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h4 className="text-gray-900 dark:text-white font-medium">主题模式</h4>
-          <p className="text-sm text-gray-500 dark:text-gray-400">选择您喜欢的主题风格</p>
+      <div className="rounded-2xl border border-gray-200 dark:border-white/10 bg-white/20 dark:bg-white/[0.02] overflow-hidden">
+        <div className="flex items-center justify-between gap-4 px-4 py-3 border-b border-gray-200 dark:border-white/10">
+          <h4 className="text-[13px] text-gray-700 dark:text-gray-200 font-medium">主题模式</h4>
+          <div className="relative inline-flex items-center rounded-full bg-[#f5f5f7] dark:bg-[#2c2c2e] border border-gray-200 dark:border-white/10 p-[2px]">
+            <span
+              className="absolute top-[2px] left-[2px] h-8 w-[80px] rounded-full bg-white dark:bg-[#1c1c1e] border border-gray-200 dark:border-white/10 shadow-sm transition-transform duration-300 ease-out"
+              style={{ transform: `translateX(${['light', 'dark', 'auto'].indexOf(theme) * 80}px)` }}
+            />
+            {[
+              { value: 'light', label: '浅色' },
+              { value: 'dark', label: '深色' },
+              { value: 'auto', label: '跟随系统' },
+            ].map((opt) => (
+              <button
+                key={opt.value}
+                onClick={() => handleThemeChange(opt.value as 'light' | 'dark' | 'auto')}
+                className={`relative z-10 inline-flex h-8 w-[80px] items-center justify-center rounded-full text-[13px] font-medium transition-colors ${
+                  theme === opt.value ? 'text-[#1d1d1f] dark:text-white' : 'text-[#6e6e73] dark:text-gray-300'
+                }`}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
         </div>
-        <div className="relative inline-flex items-center rounded-full bg-[#f5f5f7] dark:bg-[#2c2c2e] border border-gray-200 dark:border-white/10 p-[2px]">
-          <span
-            className="absolute top-[2px] left-[2px] h-8 w-[80px] rounded-full bg-white dark:bg-[#1c1c1e] border border-gray-200 dark:border-white/10 shadow-sm transition-transform duration-300 ease-out"
-            style={{ transform: `translateX(${['light', 'dark', 'auto'].indexOf(theme) * 80}px)` }}
-          />
-          {[
-            { value: 'light', label: '浅色' },
-            { value: 'dark', label: '深色' },
-            { value: 'auto', label: '跟随系统' }
-          ].map((opt) => (
-            <button
-              key={opt.value}
-              onClick={() => setTheme(opt.value)}
-              className={`relative z-10 inline-flex h-8 w-[80px] items-center justify-center rounded-full text-[13px] font-medium transition-colors ${
-                theme === opt.value ? 'text-[#1d1d1f] dark:text-white' : 'text-[#6e6e73] dark:text-gray-300'
-              }`}
-            >
-              {opt.label}
-            </button>
-          ))}
-        </div>
-      </div>
 
-      <div className="flex items-center justify-between">
-        <div>
-          <h4 className="text-gray-900 dark:text-white font-medium">消息通知</h4>
-          <p className="text-sm text-gray-500 dark:text-gray-400">接收系统通知和提醒</p>
-        </div>
-        <button
-          onClick={() => setNotifications(!notifications)}
-          className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-            notifications ? 'bg-[#1d1d1f] dark:bg-white' : 'bg-gray-300 dark:bg-gray-600'
-          }`}
-        >
-          <span
-            className={`inline-block h-4 w-4 transform rounded-full bg-white dark:bg-[#1c1c1e] transition-transform shadow-sm ${
-              notifications ? 'translate-x-6' : 'translate-x-1'
+        <div className="flex items-center justify-between gap-4 px-4 py-3 border-b border-gray-200 dark:border-white/10">
+          <h4 className="text-[13px] text-gray-700 dark:text-gray-200 font-medium">消息通知</h4>
+          <button
+            onClick={() => setNotifications(!notifications)}
+            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+              notifications ? 'bg-[#1d1d1f] dark:bg-white' : 'bg-gray-300 dark:bg-gray-600'
             }`}
-          />
-        </button>
+          >
+            <span
+              className={`inline-block h-4 w-4 transform rounded-full bg-white dark:bg-[#1c1c1e] transition-transform shadow-sm ${
+                notifications ? 'translate-x-6' : 'translate-x-1'
+              }`}
+            />
+          </button>
+        </div>
+
+        <div className="flex items-center justify-between gap-4 px-4 py-3">
+          <h4 className="text-[13px] text-gray-700 dark:text-gray-200 font-medium">语言设置</h4>
+          <div className="relative inline-flex items-center rounded-full bg-[#f5f5f7] dark:bg-[#2c2c2e] border border-gray-200 dark:border-white/10 p-[2px]">
+            <span
+              className="absolute top-[2px] left-[2px] h-8 w-[80px] rounded-full bg-white dark:bg-[#1c1c1e] border border-gray-200 dark:border-white/10 shadow-sm transition-transform duration-300 ease-out"
+              style={{ transform: `translateX(${['zh-CN', 'en'].indexOf(language) * 80}px)` }}
+            />
+            {[
+              { value: 'zh-CN', label: '简体中文' },
+              { value: 'en', label: 'English' },
+            ].map((opt) => (
+              <button
+                key={opt.value}
+                onClick={() => setLanguage(opt.value)}
+                className={`relative z-10 inline-flex h-8 w-[80px] items-center justify-center rounded-full text-[13px] font-medium transition-colors ${
+                  language === opt.value ? 'text-[#1d1d1f] dark:text-white' : 'text-[#6e6e73] dark:text-gray-300'
+                }`}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
+        </div>
       </div>
 
-      <div className="flex items-center justify-between">
-        <div>
-          <h4 className="text-gray-900 dark:text-white font-medium">语言设置</h4>
-          <p className="text-sm text-gray-500 dark:text-gray-400">选择界面显示语言</p>
+      <div className="pt-4 space-y-4">
+        <h4 className="text-[13px] text-gray-900 dark:text-white font-medium">AI 大模型配置</h4>
+
+        <div className="rounded-2xl border border-gray-200 dark:border-white/10 bg-white/20 dark:bg-white/[0.02] overflow-hidden">
+          <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 dark:border-white/10">
+            <span className="text-[13px] font-medium text-gray-700 dark:text-gray-200">Provider</span>
+            <div className="relative inline-flex items-center rounded-full bg-[#f5f5f7] dark:bg-[#2c2c2e] border border-gray-200 dark:border-white/10 p-[2px]">
+              <span
+                className="absolute top-[2px] left-[2px] h-8 w-[96px] rounded-full bg-white dark:bg-[#1c1c1e] border border-gray-200 dark:border-white/10 shadow-sm transition-transform duration-300 ease-out"
+                style={{ transform: `translateX(${LLM_PROVIDERS.indexOf(llmProvider as (typeof LLM_PROVIDERS)[number]) * 96}px)` }}
+              />
+              {LLM_PROVIDERS.map((provider) => (
+                <button
+                  key={provider}
+                  onClick={() => {
+                    setLlmProvider(provider)
+                    setIsApiKeyEditing(false)
+                  }}
+                  className={`relative z-10 inline-flex h-8 w-[96px] items-center justify-center rounded-full text-[13px] font-medium transition-colors ${
+                    llmProvider === provider ? 'text-[#1d1d1f] dark:text-white' : 'text-[#6e6e73] dark:text-gray-300'
+                  }`}
+                >
+                  {provider}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="flex items-center justify-between gap-4 px-4 py-3 border-b border-gray-200 dark:border-white/10">
+            <span className="text-[13px] font-medium text-gray-700 dark:text-gray-200 whitespace-nowrap">API Key</span>
+            <input
+              type="text"
+              value={displayedApiKey}
+              onChange={(e) =>
+                setLlmConfigs((prev) => ({
+                  ...prev,
+                  [llmProvider]: { ...prev[llmProvider], apiKey: e.target.value },
+                }))
+              }
+              onFocus={() => setIsApiKeyEditing(true)}
+              onBlur={() => setIsApiKeyEditing(false)}
+              className="w-full max-w-[560px] px-0 py-1 bg-transparent border-0 rounded-none text-right text-gray-900 dark:text-white caret-[#0a84ff] focus:outline-none focus:ring-0"
+            />
+          </div>
+
+          <div className="flex items-center justify-between gap-4 px-4 py-3">
+            <span className="text-[13px] font-medium text-gray-700 dark:text-gray-200 whitespace-nowrap">API URL</span>
+            <input
+              type="text"
+              value={currentLlmConfig.apiBase}
+              onChange={(e) =>
+                setLlmConfigs((prev) => ({
+                  ...prev,
+                  [llmProvider]: { ...prev[llmProvider], apiBase: e.target.value },
+                }))
+              }
+              className="w-full max-w-[560px] px-0 py-1 bg-transparent border-0 rounded-none text-right text-gray-900 dark:text-white caret-[#0a84ff] focus:outline-none focus:ring-0"
+            />
+          </div>
         </div>
-        <div className="relative inline-flex items-center rounded-full bg-[#f5f5f7] dark:bg-[#2c2c2e] border border-gray-200 dark:border-white/10 p-[2px]">
-          <span
-            className="absolute top-[2px] left-[2px] h-8 w-[80px] rounded-full bg-white dark:bg-[#1c1c1e] border border-gray-200 dark:border-white/10 shadow-sm transition-transform duration-300 ease-out"
-            style={{ transform: `translateX(${['zh-CN', 'en'].indexOf(language) * 80}px)` }}
-          />
-          {[
-            { value: 'zh-CN', label: '简体中文' },
-            { value: 'en', label: 'English' }
-          ].map((opt) => (
-            <button
-              key={opt.value}
-              onClick={() => setLanguage(opt.value)}
-              className={`relative z-10 inline-flex h-8 w-[80px] items-center justify-center rounded-full text-[13px] font-medium transition-colors ${
-                language === opt.value ? 'text-[#1d1d1f] dark:text-white' : 'text-[#6e6e73] dark:text-gray-300'
-              }`}
-            >
-              {opt.label}
-            </button>
-          ))}
-        </div>
+      </div>
+
+      <div className="flex justify-end pt-2">
+        <button
+          onClick={handleSave}
+          disabled={saving}
+          className="inline-flex h-8 items-center justify-center px-3.5 rounded-full bg-white dark:bg-[#1c1c1e] text-[#1d1d1f] dark:text-white font-medium text-[13px] shadow-sm border border-gray-200 dark:border-white/10 hover:bg-gray-50 dark:hover:bg-[#2c2c2e] disabled:opacity-50 transition-colors"
+        >
+          {saving ? '保存中...' : '保存偏好'}
+        </button>
       </div>
     </div>
   )
 }
 
-// 关于页面
 function AboutSection() {
   const appVersion = __APP_VERSION__.startsWith('v') ? __APP_VERSION__ : `v${__APP_VERSION__}`
   const buildTime = formatBuildTime(__APP_BUILD_TIME__)
 
   return (
     <div className="space-y-6">
-      <div className="text-center py-8">
-        <img
-          src="/koduck.png"
-          alt="KODUCK Logo"
-          className="w-16 h-16 mx-auto mb-4 rounded-xl object-cover"
-        />
+      <div className="text-center py-10 px-4">
+        <img src="/logo.png" alt="KODUCK Logo" className="w-16 h-16 mx-auto mb-4 rounded-xl object-cover" />
         <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">KODUCK Quant</h3>
         <p className="text-gray-500 dark:text-gray-400">量化交易平台</p>
       </div>
 
-      <div className="space-y-4">
-        <div className="flex items-center justify-between py-3">
-          <span className="text-gray-600 dark:text-gray-400">版本号</span>
-          <span className="text-gray-900 dark:text-white font-medium">{appVersion}</span>
+      <div className="rounded-2xl border border-gray-200 dark:border-white/10 bg-white/20 dark:bg-white/[0.02] overflow-hidden">
+        <div className="flex items-center justify-between gap-4 px-4 py-3 border-b border-gray-200 dark:border-white/10">
+          <span className="text-[13px] font-medium text-gray-700 dark:text-gray-200">版本号</span>
+          <span className="text-[13px] font-medium text-gray-900 dark:text-white">{appVersion}</span>
         </div>
-        <div className="flex items-center justify-between py-3">
-          <span className="text-gray-600 dark:text-gray-400">构建时间</span>
-          <span className="text-gray-900 dark:text-white font-medium">{buildTime}</span>
+        <div className="flex items-center justify-between gap-4 px-4 py-3">
+          <span className="text-[13px] font-medium text-gray-700 dark:text-gray-200">构建时间</span>
+          <span className="text-[13px] font-medium text-gray-900 dark:text-white">{buildTime}</span>
         </div>
       </div>
 
@@ -340,6 +480,7 @@ function AboutSection() {
 export default function Settings() {
   const [activeTab, setActiveTab] = useState<'profile' | 'preferences' | 'about'>('profile')
   const [user, setUser] = useState<UserDetail | null>(null)
+  const [settings, setSettings] = useState<UserSettings | null>(null)
   const [loading, setLoading] = useState(true)
   const { showToast } = useToast()
   const { logout } = useAuthStore()
@@ -347,9 +488,10 @@ export default function Settings() {
   useEffect(() => {
     const loadUser = async () => {
       try {
-        const data = await userApi.getCurrentUser()
-        setUser(data)
-      } catch (error) {
+        const [userData, settingsData] = await Promise.all([userApi.getCurrentUser(), settingsApi.getSettings()])
+        setUser(userData)
+        setSettings(settingsData)
+      } catch {
         showToast('加载用户信息失败', 'error')
       } finally {
         setLoading(false)
@@ -374,16 +516,10 @@ export default function Settings() {
   }
 
   if (!user) {
-    return (
-      <div className="text-center py-16 text-gray-500 dark:text-gray-400">加载失败，请刷新重试</div>
-    )
+    return <div className="text-center py-16 text-gray-500 dark:text-gray-400">加载失败，请刷新重试</div>
   }
 
-  const tabOrder: Array<'profile' | 'preferences' | 'about'> = [
-    'profile',
-    'preferences',
-    'about',
-  ]
+  const tabOrder: Array<'profile' | 'preferences' | 'about'> = ['profile', 'preferences', 'about']
   const activeTabIndex = tabOrder.indexOf(activeTab)
 
   return (
@@ -430,24 +566,26 @@ export default function Settings() {
           </div>
         </div>
 
-        <div className="rounded-[20px] border border-[#e5e5ea] dark:border-white/10 bg-[#fbfbfd] dark:bg-[#252527] p-8">
-          {activeTab === 'profile' && (
-            <>
-              <ProfileForm user={user} onUpdate={setUser} />
-            </>
-          )}
+        <div
+          className={
+            activeTab === 'profile' || activeTab === 'preferences' || activeTab === 'about'
+              ? ''
+              : 'rounded-[20px] border border-[#e5e5ea] dark:border-white/10 bg-[#fbfbfd] dark:bg-[#252527] p-8'
+          }
+        >
+          {activeTab === 'profile' && <ProfileForm user={user} onUpdate={setUser} />}
 
           {activeTab === 'preferences' && (
             <>
-              <PreferencesForm />
+              {settings ? (
+                <PreferencesForm settings={settings} onSettingsUpdated={setSettings} />
+              ) : (
+                <div className="text-center py-10 text-gray-500 dark:text-gray-400">设置加载中...</div>
+              )}
             </>
           )}
 
-          {activeTab === 'about' && (
-            <>
-              <AboutSection />
-            </>
-          )}
+          {activeTab === 'about' && <AboutSection />}
         </div>
       </div>
     </div>

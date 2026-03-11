@@ -181,15 +181,40 @@ const keepLatestTradingDayForMinute = (data: KlineData[], timeframe: string): Kl
     return data
   }
 
-  const latestTimestamp = data.at(-1)?.timestamp
-  if (!latestTimestamp) {
-    return data
+  const minPointsByTimeframe: Record<string, number> = {
+    '1m': 30,
+    '5m': 12,
+    '15m': 8,
+    '30m': 4,
+    '60m': 3,
+  }
+  const minPoints = minPointsByTimeframe[timeframe] ?? 2
+
+  const grouped = new Map<string, KlineData[]>()
+  for (const item of data) {
+    const date = new Date(item.timestamp * 1000).toDateString()
+    const group = grouped.get(date) ?? []
+    group.push(item)
+    grouped.set(date, group)
   }
 
-  const latestDate = new Date(latestTimestamp * 1000).toDateString()
-  const sameDayData = data.filter((item) => new Date(item.timestamp * 1000).toDateString() === latestDate)
+  const dates = Array.from(grouped.keys()).sort((a, b) => {
+    return new Date(a).getTime() - new Date(b).getTime()
+  })
 
-  return sameDayData.length > 0 ? sameDayData : data
+  for (let i = dates.length - 1; i >= 0; i -= 1) {
+    const dayData = grouped.get(dates[i]) ?? []
+    const filteredDayData = dayData.filter((item) => {
+      const d = new Date(item.timestamp * 1000)
+      return !(d.getHours() === 0 && d.getMinutes() === 0 && d.getSeconds() === 0)
+    })
+
+    if (filteredDayData.length >= minPoints) {
+      return filteredDayData
+    }
+  }
+
+  return data
 }
 
 export default function Kline() {

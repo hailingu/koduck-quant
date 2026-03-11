@@ -209,10 +209,6 @@ public class MarketServiceImpl implements MarketService {
      * @return industry metadata when found, otherwise {@code null}
      */
     @Override
-    @Cacheable(
-            value = CacheConfig.CACHE_STOCK_INDUSTRY,
-            key = "#symbol",
-            unless = "#result == null")
     public StockIndustryDto getStockIndustry(String symbol) {
         log.debug("Getting stock industry from data service: symbol={}", symbol);
 

@@ -31,6 +31,7 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 @Slf4j
 public class KlineService {
+    private static final ZoneId MARKET_ZONE = ZoneId.of("Asia/Shanghai");
 
     private final KlineDataRepository klineDataRepository;
 
@@ -181,15 +182,22 @@ public class KlineService {
         }
 
         String normalized = timeframe.trim();
+        String lowerNormalized = normalized.toLowerCase(Locale.ROOT);
+        boolean minuteTimeframe = lowerNormalized.matches("^\\d+m$");
+
         candidates.add(normalized);
-        candidates.add(normalized.toLowerCase(Locale.ROOT));
-        candidates.add(normalized.toUpperCase(Locale.ROOT));
+        candidates.add(lowerNormalized);
+        if (!minuteTimeframe) {
+            candidates.add(normalized.toUpperCase(Locale.ROOT));
+        }
 
         String alias = normalizeTimeframeAlias(normalized);
         if (alias != null && !alias.isBlank()) {
             candidates.add(alias);
             candidates.add(alias.toLowerCase(Locale.ROOT));
-            candidates.add(alias.toUpperCase(Locale.ROOT));
+            if (!minuteTimeframe) {
+                candidates.add(alias.toUpperCase(Locale.ROOT));
+            }
         }
         return new ArrayList<>(candidates);
     }
@@ -252,7 +260,7 @@ public class KlineService {
 
     private KlineDataDto convertToDto(KlineData entity) {
         return KlineDataDto.builder()
-                .timestamp(entity.getKlineTime().atZone(ZoneId.systemDefault()).toEpochSecond())
+                .timestamp(entity.getKlineTime().atZone(MARKET_ZONE).toEpochSecond())
                 .open(entity.getOpenPrice())
                 .high(entity.getHighPrice())
                 .low(entity.getLowPrice())
@@ -264,7 +272,7 @@ public class KlineService {
 
     private KlineData convertToEntity(KlineDataDto dto, String market, String symbol, String timeframe) {
         LocalDateTime klineTime = LocalDateTime.ofInstant(
-                Instant.ofEpochSecond(dto.timestamp()), ZoneId.systemDefault());
+                Instant.ofEpochSecond(dto.timestamp()), MARKET_ZONE);
 
         return KlineData.builder()
                 .market(market)
@@ -280,4 +288,3 @@ public class KlineService {
                 .build();
     }
 }
-

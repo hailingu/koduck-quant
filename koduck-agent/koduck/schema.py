@@ -9,6 +9,8 @@ class LLMProvider(str, Enum):
     """支持的 LLM 提供商."""
     
     MINIMAX = "minimax"     # MiniMax
+    DEEPSEEK = "deepseek"   # DeepSeek
+    OPENAI = "openai"       # OpenAI
 
 
 @dataclass
