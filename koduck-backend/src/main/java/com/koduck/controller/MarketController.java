@@ -23,6 +23,7 @@ import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
 
 /**
  * REST API controller for market data.
@@ -129,6 +130,24 @@ public class MarketController {
             return ApiResponse.error(404, "股票行业信息不存在: " + symbol);
         }
         return ApiResponse.success(industry);
+    }
+
+    /**
+     * Batch get stock industry metadata.
+     * <p>Returns a map keyed by symbol to reduce N+1 client requests.</p>
+     *
+     * @param symbols stock symbols list (up to 200 entries)
+     * @return industry metadata map by symbol
+     */
+    @PostMapping("/stocks/industry/batch")
+    public ApiResponse<Map<String, StockIndustryDto>> getStockIndustries(
+            @RequestBody @NotEmpty(message = "股票代码列表不能为空")
+            @Size(max = 200, message = "股票代码最多 200 个")
+            List<@NotBlank(message = "股票代码不能为空") String> symbols) {
+        log.info("POST /api/v1/market/stocks/industry/batch: count={}", symbols.size());
+
+        Map<String, StockIndustryDto> result = marketService.getStockIndustries(symbols);
+        return ApiResponse.success(result);
     }
 
     /**

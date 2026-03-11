@@ -10,6 +10,7 @@ Usage:
 import json
 import logging
 import os
+import uuid
 from contextlib import asynccontextmanager
 from typing import Any
 
@@ -18,12 +19,14 @@ from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel, Field
 
 from koduck import __version__, create_client
-from koduck.schema import LLMProvider, Message
+from koduck.schema import FunctionCall, LLMProvider, Message, ToolCall
+from koduck.quant_tools import QUANT_TOOL_DEFS, execute_tool
 
 logger = logging.getLogger(__name__)
 
 # 全局客户端缓存
 _clients: dict[str, Any] = {}
+MAX_TOOL_CALL_ROUNDS = 4
 
 
 def get_api_key_for_provider(provider: str) -> str:
@@ -161,6 +164,88 @@ class ApiResponseWrapper(BaseModel):
     data: SimpleChatData = Field(..., description="响应数据")
 
 
+def _to_internal_messages(messages: list[ChatMessage]) -> list[Message]:
+    return [
+        Message(
+            role=msg.role,
+            content=msg.content,
+            thinking=msg.thinking,
+            tool_call_id=msg.tool_call_id,
+        )
+        for msg in messages
+    ]
+
+
+def _to_openai_tool_calls(tool_calls: list[ToolCall]) -> list[dict[str, Any]]:
+    return [
+        {
+            "id": tc.id,
+            "type": tc.type,
+            "function": {
+                "name": tc.function.name,
+                "arguments": tc.function.arguments,
+            },
+        }
+        for tc in tool_calls
+    ]
+
+
+def _ensure_tool_call_id(tool_call: ToolCall) -> ToolCall:
+    if tool_call.id:
+        return tool_call
+    return ToolCall(
+        id=f"call_{uuid.uuid4().hex[:12]}",
+        type=tool_call.type or "function",
+        function=FunctionCall(
+            name=tool_call.function.name,
+            arguments=tool_call.function.arguments,
+        ),
+    )
+
+
+async def _run_chat_with_tool_loop(client: Any, messages: list[Message]) -> Any:
+    """Execute tool-calling loop and return final assistant response."""
+    history = list(messages)
+    tool_round = 0
+    final_response = await client.generate(history, tools=QUANT_TOOL_DEFS)
+
+    while final_response.tool_calls and tool_round < MAX_TOOL_CALL_ROUNDS:
+        tool_round += 1
+        tool_calls = [_ensure_tool_call_id(tc) for tc in final_response.tool_calls]
+        history.append(
+            Message(
+                role="assistant",
+                content=final_response.content or "",
+                thinking=final_response.thinking,
+                tool_calls=tool_calls,
+            )
+        )
+
+        for tc in tool_calls:
+            tool_content = await execute_tool(tc.function.name, tc.function.arguments)
+            history.append(
+                Message(
+                    role="tool",
+                    tool_call_id=tc.id,
+                    content=tool_content,
+                )
+            )
+            logger.info(
+                "[ToolLoop] Executed tool: name=%s id=%s",
+                tc.function.name,
+                tc.id,
+            )
+
+        final_response = await client.generate(history, tools=QUANT_TOOL_DEFS)
+
+    if final_response.tool_calls:
+        logger.warning(
+            "[ToolLoop] Reached max rounds with remaining tool_calls: rounds=%s",
+            tool_round,
+        )
+    return final_response
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """应用生命周期管理."""
@@ -247,21 +332,13 @@ async def chat_completions(request: ChatCompletionRequest):
     logger.debug(f"[ChatCompletions] 获取客户端: provider={request.provider}")
     client = get_client(request.provider)
 
-    # 转换消息格式
-    messages = [
-        Message(
-            role=msg.role,
-            content=msg.content,
-            thinking=msg.thinking,
-            tool_call_id=msg.tool_call_id,
-        )
-        for msg in request.messages
-    ]
+    messages = _to_internal_messages(request.messages)
 
     try:
-        # 调用 LLM
-        logger.info(f"[ChatCompletions] 开始调用 LLM: provider={request.provider}, model={client.model}")
-        response = await client.generate(messages)
+        logger.info(
+            f"[ChatCompletions] 开始调用 LLM+ToolLoop: provider={request.provider}, model={client.model}"
+        )
+        response = await _run_chat_with_tool_loop(client, messages)
         logger.info(f"[ChatCompletions] LLM 响应成功: finish_reason={response.finish_reason}")
         logger.debug(f"[ChatCompletions] LLM 响应内容: {response.content[:200]}..." if response.content and len(response.content) > 200 else f"[ChatCompletions] LLM 响应内容: {response.content}")
 
@@ -281,17 +358,7 @@ async def chat_completions(request: ChatCompletionRequest):
 
         # 添加工具调用（如果有）
         if response.tool_calls:
-            choice["message"]["tool_calls"] = [
-                {
-                    "id": tc.id,
-                    "type": tc.type,
-                    "function": {
-                        "name": tc.function.name,
-                        "arguments": tc.function.arguments,
-                    }
-                }
-                for tc in response.tool_calls
-            ]
+            choice["message"]["tool_calls"] = _to_openai_tool_calls(response.tool_calls)
 
         usage = None
         if response.usage:
@@ -394,21 +461,13 @@ async def simple_chat(request: SimpleChatRequest):
     logger.info(f"[SimpleChat] 获取客户端: provider={request.provider}")
     client = get_client(request.provider)
 
-    # 转换消息格式
-    messages = [
-        Message(
-            role=msg.role,
-            content=msg.content,
-            thinking=msg.thinking,
-            tool_call_id=msg.tool_call_id,
-        )
-        for msg in request.messages
-    ]
+    messages = _to_internal_messages(request.messages)
 
     try:
-        # 调用 LLM
-        logger.info(f"[SimpleChat] 开始调用 LLM: provider={request.provider}, model={client.model}")
-        response = await client.generate(messages)
+        logger.info(
+            f"[SimpleChat] 开始调用 LLM+ToolLoop: provider={request.provider}, model={client.model}"
+        )
+        response = await _run_chat_with_tool_loop(client, messages)
         logger.info(f"[SimpleChat] LLM 响应成功: finish_reason={response.finish_reason}")
         
         content_preview = response.content[:200] + "..." if response.content and len(response.content) > 200 else response.content
@@ -491,29 +550,19 @@ async def simple_chat_stream(request: SimpleChatRequest):
         try:
             client = get_client(request.provider)
             
-            # 转换消息格式
-            messages = [
-                Message(
-                    role=msg.role,
-                    content=msg.content,
-                    thinking=msg.thinking,
-                    tool_call_id=msg.tool_call_id,
-                )
-                for msg in request.messages
-            ]
+            messages = _to_internal_messages(request.messages)
             
             # 发送开始事件
             yield f"event: start\ndata: {json.dumps({'model': client.model, 'provider': request.provider})}\n\n"
             
-            # 流式生成
-            content_parts = []
-            async for delta in client.generate_stream(messages):
-                content_parts.append(delta)
-                # 发送内容块
+            # 先走工具循环拿最终结果，再分片输出为 SSE delta
+            response = await _run_chat_with_tool_loop(client, messages)
+            full_content = response.content or ""
+            chunk_size = 24
+            for i in range(0, len(full_content), chunk_size):
+                delta = full_content[i:i + chunk_size]
                 yield f"event: delta\ndata: {json.dumps({'content': delta})}\n\n"
-            
-            # 发送完成事件
-            full_content = "".join(content_parts)
+
             yield f"event: done\ndata: {json.dumps({'content': full_content, 'model': client.model, 'provider': request.provider})}\n\n"
             
             logger.info(f"[SimpleChatStream] 流式响应完成: content_length={len(full_content)}")

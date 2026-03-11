@@ -209,6 +209,10 @@ public class MarketServiceImpl implements MarketService {
      * @return industry metadata when found, otherwise {@code null}
      */
     @Override
+    @Cacheable(
+            value = CacheConfig.CACHE_STOCK_INDUSTRY,
+            key = "#symbol",
+            unless = "#result == null")
     public StockIndustryDto getStockIndustry(String symbol) {
         log.debug("Getting stock industry from data service: symbol={}", symbol);
 
@@ -223,6 +227,31 @@ public class MarketServiceImpl implements MarketService {
             log.error("Error getting stock industry: symbol={}, error={}", symbol, e.getMessage(), e);
             throw e;
         }
+    }
+
+    @Override
+    public Map<String, StockIndustryDto> getStockIndustries(List<String> symbols) {
+        if (symbols == null || symbols.isEmpty()) {
+            return Collections.emptyMap();
+        }
+
+        Map<String, StockIndustryDto> results = new LinkedHashMap<>();
+        for (String symbol : symbols) {
+            if (symbol == null || symbol.isBlank()) {
+                continue;
+            }
+
+            try {
+                StockIndustryDto industry = getStockIndustry(symbol);
+                if (industry != null) {
+                    results.put(symbol, industry);
+                }
+            } catch (Exception e) {
+                log.warn("Batch stock industry lookup failed for symbol={}: {}", symbol, e.getMessage());
+            }
+        }
+
+        return results;
     }
     
     /**

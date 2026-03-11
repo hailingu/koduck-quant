@@ -48,6 +48,10 @@ public class CacheConfig {
      */
     public static final String CACHE_MARKET_INDICES = "marketIndices";
     /**
+     * Cache name for stock industry metadata lookups.
+     */
+    public static final String CACHE_STOCK_INDUSTRY = "stockIndustry";
+    /**
      * Cache name for hot stocks list responses.
      */
     public static final String CACHE_HOT_STOCKS = "hotStocks";
@@ -129,6 +133,7 @@ public class CacheConfig {
         RedisCacheConfiguration marketSearchConfig = buildCacheConfiguration(TTL_5_MINUTES, jsonSerializer, false);
         RedisCacheConfiguration stockDetailConfig = buildCacheConfiguration(TTL_30_SECONDS, jsonSerializer, false);
         RedisCacheConfiguration marketIndicesConfig = buildCacheConfiguration(TTL_30_SECONDS, jsonSerializer, false);
+        RedisCacheConfiguration stockIndustryConfig = buildCacheConfiguration(TTL_5_MINUTES, jsonSerializer, false);
         RedisCacheConfiguration hotStocksConfig = buildCacheConfiguration(TTL_1_MINUTE, jsonSerializer, false);
 
         return RedisCacheManager.builder(Objects.requireNonNull(connectionFactory))
@@ -138,6 +143,7 @@ public class CacheConfig {
             .withCacheConfiguration(CACHE_MARKET_SEARCH, Objects.requireNonNull(marketSearchConfig))
             .withCacheConfiguration(CACHE_STOCK_DETAIL, Objects.requireNonNull(stockDetailConfig))
             .withCacheConfiguration(CACHE_MARKET_INDICES, Objects.requireNonNull(marketIndicesConfig))
+            .withCacheConfiguration(CACHE_STOCK_INDUSTRY, Objects.requireNonNull(stockIndustryConfig))
             .withCacheConfiguration(CACHE_HOT_STOCKS, Objects.requireNonNull(hotStocksConfig))
                 .build();
     }

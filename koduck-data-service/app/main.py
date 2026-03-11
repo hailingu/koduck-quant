@@ -222,15 +222,19 @@ async def run_realtime_update_scheduler():
 
             iteration += 1
             success_count = await data_updater._update_symbols_batch(symbols)
+            tick_success, tick_failed = await data_updater.flush_remaining_ticks()
             logger.info(
-                "[%s] Watchlist realtime update completed: %s/%s symbols",
+                "[%s] Watchlist realtime update completed: %s/%s symbols, tick_flushed=%s, tick_flush_failed=%s",
                 iteration,
                 success_count,
                 len(symbols),
+                tick_success,
+                tick_failed,
             )
 
         except asyncio.CancelledError:
             logger.info("Realtime watchlist scheduler cancelled")
+            await data_updater.flush_remaining_ticks()
             raise
         except Exception:
             logger.error("Realtime watchlist scheduler error", exc_info=True)
