@@ -10,6 +10,7 @@ import { marketApi, type StockValuation, type StockIndustry } from '@/api/market
 import { useWatchlistStore } from '@/stores/watchlist'
 import { useWebSocketStore } from '@/stores/websocket'
 import { useWebSocketSubscription } from '@/hooks/useWebSocket'
+import { useToast } from '@/hooks/useToast'
 import { isTradingHours } from '@/utils/trading'
 
 const TIMEFRAMES = [
@@ -219,6 +220,7 @@ const keepLatestTradingDayForMinute = (data: KlineData[], timeframe: string): Kl
 
 export default function Kline() {
   const [searchParams, setSearchParams] = useSearchParams()
+  const { showToast } = useToast()
   
   // Initialize state - default to empty (no stock selected)
   const [symbol, setSymbol] = useState<string>('')
@@ -518,11 +520,10 @@ export default function Kline() {
       setRemovingFromWatchlist(true)
       try {
         await removeItem(watchlistItemId)
-        // 显示成功提示
-        alert(`已将 ${stockName} (${symbol}) 从自选股中移除`)
+        showToast(`已将 ${stockName} (${symbol}) 从自选股中移除`, 'success')
       } catch (error) {
         console.error('Failed to remove from watchlist:', error)
-        alert('移除自选股失败，请重试')
+        showToast('移除自选股失败，请重试', 'error')
       } finally {
         setRemovingFromWatchlist(false)
       }
@@ -531,11 +532,10 @@ export default function Kline() {
       setAddingToWatchlist(true)
       try {
         await addItem(symbol, stockName, 'AShare')
-        // 显示成功提示
-        alert(`已将 ${stockName} (${symbol}) 添加到自选股`)
+        showToast(`已将 ${stockName} (${symbol}) 添加到自选股`, 'success')
       } catch (error) {
         console.error('Failed to add to watchlist:', error)
-        alert('添加自选股失败，请重试')
+        showToast('添加自选股失败，请重试', 'error')
       } finally {
         setAddingToWatchlist(false)
       }

@@ -17,7 +17,7 @@ class OpenAIClient(GPTClient):
         self,
         api_key: str,
         api_base: str = "https://api.openai.com/v1",
-        model: str = "gpt-4o-mini",
+        model: str = "gpt-5.4",
         retry_config: RetryConfig | None = None,
         temperature: float = 0.7,
         max_tokens: int | None = None,

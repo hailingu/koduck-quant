@@ -503,7 +503,7 @@ export default function Watchlist() {
                 }
               }}
             />
-            <div className="relative w-full max-w-md rounded-[24px] border border-gray-200/80 dark:border-white/10 bg-white dark:bg-[#1c1c1e] shadow-[0_25px_60px_rgba(0,0,0,0.2)]">
+            <div className="relative w-full max-w-[620px] rounded-[24px] border border-gray-200/80 dark:border-white/10 bg-white dark:bg-[#1c1c1e] shadow-[0_25px_60px_rgba(0,0,0,0.2)]">
               <div className="p-6">
                 <div className="flex items-start gap-4">
                   <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400">
@@ -513,7 +513,7 @@ export default function Watchlist() {
                   </div>
                   <div className="flex-1">
                     <h3 className="text-lg font-semibold text-[#1d1d1f] dark:text-white">确认删除自选股</h3>
-                    <p className="mt-2 text-sm text-[#6e6e73] dark:text-gray-300">
+                    <p className="mt-2 text-sm text-[#6e6e73] dark:text-gray-300 sm:whitespace-nowrap">
                       将从自选列表移除
                       <span className="mx-1 font-semibold text-[#1d1d1f] dark:text-white">{deletingItem.name}</span>
                       ({deletingItem.symbol})。此操作不可撤销。
