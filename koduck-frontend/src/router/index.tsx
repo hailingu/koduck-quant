@@ -8,7 +8,6 @@ import Portfolio from '@/pages/Portfolio'
 import Settings from '@/pages/Settings'
 import Kline from '@/pages/Kline'
 import Market from '@/pages/Market'
-import Monitoring from '@/pages/Monitoring'
 
 // Protected Route wrapper
 function ProtectedRoute() {
@@ -42,7 +41,7 @@ export const router = createBrowserRouter([
           { path: '/kline', element: <Kline /> },
           { path: '/portfolio', element: <Portfolio /> },
           { path: '/settings', element: <Settings /> },
-          { path: '/monitoring', element: <Monitoring /> },
+          { path: '/monitoring', element: <Navigate to="/market" replace /> },
           { path: '/profile', element: <Navigate to="/settings" replace /> },
           { path: '/profile/edit', element: <Navigate to="/settings" replace /> },
           { path: '/profile/preferences', element: <Navigate to="/settings" replace /> },

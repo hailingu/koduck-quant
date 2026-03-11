@@ -23,6 +23,8 @@ const SNAPSHOT_STALE_MS = 120000
 const MARKET_STATUS_CHECK_MS = 30000
 const TRADING_QUOTE_POLL_MS = 5000
 const CLOSED_QUOTE_POLL_MS = 30000
+const WS_BACKUP_QUOTE_POLL_MS = 15000
+const QUOTE_POLL_CONCURRENCY = 4
 
 const normalizeSymbol = (symbol: string): string => {
   const digits = symbol.replaceAll(/\D/g, '')
@@ -143,6 +145,8 @@ export default function Portfolio() {
   const navigate = useNavigate()
   const { showToast } = useToast()
   const [loading, setLoading] = useState(true)
+  const [coreLoaded, setCoreLoaded] = useState(false)
+  const [sectorsLoading, setSectorsLoading] = useState(false)
   const [portfolio, setPortfolio] = useState<PortfolioItem[]>([])
   const [sectors, setSectors] = useState<SectorDistribution[]>([])
   const [pnlHistory, setPnLHistory] = useState<PnLPoint[]>([])
@@ -184,19 +188,30 @@ export default function Portfolio() {
   const pollClosedMarketQuotes = useCallback(async () => {
     if (symbols.length === 0) return
 
-    const quoteEntries = await Promise.all(
-      symbols.map(async (symbol) => {
-        try {
-          const quote = await marketApi.getStockDetail(symbol)
-          if (quote && Number.isFinite(quote.price) && quote.price > 0) {
-            return [normalizeSymbol(symbol), { price: quote.price, change: quote.change, timestamp: Date.now() }] as const
+    const quoteEntries: Array<
+      readonly [string, { price: number; change: number; timestamp: number }] | null
+    > = []
+
+    for (let i = 0; i < symbols.length; i += QUOTE_POLL_CONCURRENCY) {
+      const chunk = symbols.slice(i, i + QUOTE_POLL_CONCURRENCY)
+      const chunkEntries = await Promise.all(
+        chunk.map(async (symbol) => {
+          try {
+            const quote = await marketApi.getStockDetail(symbol)
+            if (quote && Number.isFinite(quote.price) && quote.price > 0) {
+              return [
+                normalizeSymbol(symbol),
+                { price: quote.price, change: quote.change, timestamp: Date.now() },
+              ] as const
+            }
+          } catch {
+            // ignore
           }
-        } catch {
-          // ignore
-        }
-        return null
-      })
-    )
+          return null
+        })
+      )
+      quoteEntries.push(...chunkEntries)
+    }
 
     setClosedMarketQuotes((prev) => {
       const next = new Map(prev)
@@ -210,14 +225,19 @@ export default function Portfolio() {
   }, [symbols])
 
   useEffect(() => {
-    if (symbols.length === 0) return
+    if (!coreLoaded || symbols.length === 0) return
     void pollClosedMarketQuotes()
-    const pollIntervalMs = marketTrading ? TRADING_QUOTE_POLL_MS : CLOSED_QUOTE_POLL_MS
+    const pollIntervalMs =
+      connectionState === 'connected'
+        ? WS_BACKUP_QUOTE_POLL_MS
+        : marketTrading
+          ? TRADING_QUOTE_POLL_MS
+          : CLOSED_QUOTE_POLL_MS
     const intervalId = globalThis.setInterval(() => {
       void pollClosedMarketQuotes()
     }, pollIntervalMs)
     return () => globalThis.clearInterval(intervalId)
-  }, [symbols, pollClosedMarketQuotes, marketTrading])
+  }, [coreLoaded, symbols, pollClosedMarketQuotes, marketTrading, connectionState])
 
   const portfolioWithRealtime = useMemo<PortfolioDisplayItem[]>(() => {
     const now = Date.now()
@@ -297,16 +317,36 @@ export default function Portfolio() {
   const loadData = useCallback(async () => {
     try {
       setLoading(true)
-      const [portfolioData, sectorData, pnlData] = await Promise.all([
+      setCoreLoaded(false)
+
+      const [portfolioData, summaryData] = await Promise.all([
         portfolioApi.getPortfolio(),
-        portfolioApi.getSectorDistribution(),
-        portfolioApi.getPnLHistory(),
+        portfolioApi.getPortfolioSummary(),
       ])
+
+      const pnlData = await portfolioApi.getPnLHistory(summaryData)
       setPortfolio(portfolioData)
-      setSectors(sectorData)
       setPnLHistory(pnlData)
+      setLoading(false)
+      setCoreLoaded(true)
+
+      // 行业分布异步加载，不阻塞主界面
+      setSectorsLoading(true)
+      void portfolioApi
+        .getSectorDistribution(portfolioData)
+        .then((sectorData) => {
+          setSectors(sectorData)
+        })
+        .catch(() => {
+          setSectors([])
+        })
+        .finally(() => {
+          setSectorsLoading(false)
+        })
     } catch (error) {
       showToast('加载数据失败', 'error')
+      setCoreLoaded(false)
+      setSectorsLoading(false)
     } finally {
       setLoading(false)
     }
@@ -547,6 +587,9 @@ export default function Portfolio() {
         <div className={`${APPLE_CARD_CLASS} p-6`}>
           <h3 className="text-[18px] font-medium text-[#1d1d1f] dark:text-white mb-6">行业分布</h3>
           <div ref={barChartRef} className="h-[280px] w-full" />
+          {sectorsLoading && (
+            <p className="mt-2 text-[13px] text-[#86868b] dark:text-gray-400">行业数据加载中...</p>
+          )}
         </div>
       </div>
 

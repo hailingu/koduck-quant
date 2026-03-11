@@ -7,6 +7,7 @@ import com.koduck.dto.market.StockValuationDto;
 import com.koduck.dto.market.SymbolInfoDto;
 
 import java.util.List;
+import java.util.Map;
 
 /**
  * 市场数据服务接口。
@@ -47,6 +48,14 @@ public interface MarketService {
      * @return 行业信息
      */
     StockIndustryDto getStockIndustry(String symbol);
+
+    /**
+     * 批量获取股票所属行业信息。
+     *
+     * @param symbols 股票代码列表
+     * @return 行业信息映射（key 为 symbol）
+     */
+    Map<String, StockIndustryDto> getStockIndustries(List<String> symbols);
     
     /**
      * 获取市场指数列表。

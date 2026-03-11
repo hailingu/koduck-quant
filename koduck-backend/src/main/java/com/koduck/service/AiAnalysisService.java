@@ -3,6 +3,7 @@ package com.koduck.service;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.koduck.config.AgentConfig;
 import com.koduck.dto.ai.*;
+import com.koduck.dto.indicator.IndicatorResponse;
 import com.koduck.entity.BacktestResult;
 import com.koduck.entity.PortfolioPosition;
 import com.koduck.entity.Strategy;
@@ -29,6 +30,8 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * AI 分析服务 - 对接 koduck-agent
@@ -38,9 +41,14 @@ import java.util.concurrent.CompletableFuture;
 @Slf4j
 public class AiAnalysisService {
 
+    private static final Pattern SYMBOL_PATTERN = Pattern.compile("\\b\\d{6}\\b");
+    private static final String NO_TOOL_MARKUP_GUARD =
+        "输出约束: 不要使用或模拟任何工具调用，不要输出 <minimax:tool_call>、<invoke>、<parameter>、XML/JSON函数调用片段。"
+            + "请直接输出面向用户的自然语言分析结论。";
     private final PortfolioPositionRepository positionRepository;
     private final StrategyRepository strategyRepository;
     private final BacktestResultRepository backtestResultRepository;
+    private final TechnicalIndicatorService technicalIndicatorService;
     private final AgentConfig agentConfig;
     private final ObjectMapper objectMapper;
     private final Random random = new Random();
@@ -183,8 +191,218 @@ public class AiAnalysisService {
      */
     public SseEmitter streamChat(ChatStreamRequest request) {
         SseEmitter emitter = new SseEmitter(0L);
-        CompletableFuture.runAsync(() -> relayAgentStream(request, emitter));
+        ChatStreamRequest guardedRequest = appendInstructionToSystem(request, NO_TOOL_MARKUP_GUARD);
+        ChatStreamRequest enhancedRequest = enrichWithQuantSignalIfNeeded(guardedRequest);
+        CompletableFuture.runAsync(() -> relayAgentStream(enhancedRequest, emitter));
         return emitter;
+    }
+
+    private ChatStreamRequest enrichWithQuantSignalIfNeeded(ChatStreamRequest request) {
+        try {
+            ChatMessageRequest latestUserMessage = findLatestUserMessage(request.getMessages());
+            if (latestUserMessage == null) {
+                return request;
+            }
+            String question = latestUserMessage.getContent();
+            if (!shouldAttachQuantSignal(question)) {
+                return request;
+            }
+
+            String symbol = extractSymbol(question);
+            if (symbol == null) {
+                symbol = extractSymbolFromMessages(request.getMessages());
+            }
+            if (symbol == null) {
+                log.debug("Skip quant signal: no symbol found in chat messages");
+                return request;
+            }
+
+            String quantContext = buildQuantSignalContext(symbol, "AShare");
+            if (quantContext == null || quantContext.isBlank()) {
+                return request;
+            }
+
+            log.info("Attached quant signal context for symbol={}", symbol);
+            return appendInstructionToLatestUser(request, quantContext);
+        } catch (Exception e) {
+            log.warn("Failed to enrich chat with quant signal, fallback to original request: {}", e.getMessage());
+            return request;
+        }
+    }
+
+    private ChatStreamRequest appendInstructionToSystem(ChatStreamRequest request, String instruction) {
+        if (instruction == null || instruction.isBlank()) {
+            return request;
+        }
+        List<ChatMessageRequest> originalMessages = request.getMessages();
+        if (originalMessages == null || originalMessages.isEmpty()) {
+            return request;
+        }
+
+        List<ChatMessageRequest> updatedMessages = new ArrayList<>(originalMessages.size() + 1);
+        boolean merged = false;
+
+        for (int i = 0; i < originalMessages.size(); i++) {
+            ChatMessageRequest msg = originalMessages.get(i);
+            if (!merged && "system".equalsIgnoreCase(msg.getRole())) {
+                String existing = msg.getContent() == null ? "" : msg.getContent();
+                String mergedContent = existing.isBlank() ? instruction : existing + "\n\n" + instruction;
+                updatedMessages.add(ChatMessageRequest.builder()
+                    .role(msg.getRole())
+                    .content(mergedContent)
+                    .build());
+                merged = true;
+            } else {
+                updatedMessages.add(msg);
+            }
+        }
+
+        if (!merged) {
+            updatedMessages.add(0, ChatMessageRequest.builder()
+                .role("system")
+                .content(instruction)
+                .build());
+        }
+
+        return ChatStreamRequest.builder()
+            .provider(request.getProvider())
+            .messages(updatedMessages)
+            .build();
+    }
+
+    private ChatStreamRequest appendInstructionToLatestUser(ChatStreamRequest request, String instruction) {
+        if (instruction == null || instruction.isBlank()) {
+            return request;
+        }
+        List<ChatMessageRequest> originalMessages = request.getMessages();
+        if (originalMessages == null || originalMessages.isEmpty()) {
+            return request;
+        }
+
+        List<ChatMessageRequest> updatedMessages = new ArrayList<>(originalMessages.size());
+        boolean merged = false;
+
+        for (int i = originalMessages.size() - 1; i >= 0; i--) {
+            ChatMessageRequest msg = originalMessages.get(i);
+            if (!merged && "user".equalsIgnoreCase(msg.getRole())) {
+                String existing = msg.getContent() == null ? "" : msg.getContent();
+                String mergedContent = existing
+                    + "\n\n【自动量化信号】\n"
+                    + instruction
+                    + "\n\n请优先基于上述量化信号给出结论（方向、入场/观望、风险位），不要再说“没有实时数据”。";
+                updatedMessages.add(0, ChatMessageRequest.builder()
+                    .role(msg.getRole())
+                    .content(mergedContent)
+                    .build());
+                merged = true;
+            } else {
+                updatedMessages.add(0, msg);
+            }
+        }
+
+        return ChatStreamRequest.builder()
+            .provider(request.getProvider())
+            .messages(updatedMessages)
+            .build();
+    }
+
+    private ChatMessageRequest findLatestUserMessage(List<ChatMessageRequest> messages) {
+        for (int i = messages.size() - 1; i >= 0; i--) {
+            ChatMessageRequest msg = messages.get(i);
+            if ("user".equalsIgnoreCase(msg.getRole())) {
+                return msg;
+            }
+        }
+        return null;
+    }
+
+    private boolean shouldAttachQuantSignal(String question) {
+        if (question == null) {
+            return false;
+        }
+        String text = question.toLowerCase(Locale.ROOT);
+        return text.contains("策略")
+            || text.contains("买点")
+            || text.contains("卖点")
+            || text.contains("信号")
+            || text.contains("入场")
+            || text.contains("出场")
+            || text.contains("做多")
+            || text.contains("做空")
+            || text.contains("trend")
+            || text.contains("signal");
+    }
+
+    private String extractSymbolFromMessages(List<ChatMessageRequest> messages) {
+        for (int i = messages.size() - 1; i >= 0; i--) {
+            String symbol = extractSymbol(messages.get(i).getContent());
+            if (symbol != null) {
+                return symbol;
+            }
+        }
+        return null;
+    }
+
+    private String extractSymbol(String text) {
+        if (text == null) {
+            return null;
+        }
+        Matcher matcher = SYMBOL_PATTERN.matcher(text);
+        if (matcher.find()) {
+            return matcher.group();
+        }
+        return null;
+    }
+
+    private String buildQuantSignalContext(String symbol, String market) {
+        IndicatorResponse ema20 = technicalIndicatorService.calculateIndicator(market, symbol, "EMA", 20);
+        IndicatorResponse ema60 = technicalIndicatorService.calculateIndicator(market, symbol, "EMA", 60);
+        IndicatorResponse macd = technicalIndicatorService.calculateIndicator(market, symbol, "MACD", 12);
+
+        BigDecimal ema20Value = getIndicatorValue(ema20, "ema");
+        BigDecimal ema60Value = getIndicatorValue(ema60, "ema");
+        BigDecimal hist = getIndicatorValue(macd, "histogram");
+        BigDecimal macdValue = getIndicatorValue(macd, "macd");
+        BigDecimal signalValue = getIndicatorValue(macd, "signal");
+
+        if (ema20Value == null || ema60Value == null || hist == null || macdValue == null || signalValue == null) {
+            log.warn("Incomplete indicator values for symbol={}, skip quant context", symbol);
+            return null;
+        }
+
+        String direction = ema20Value.compareTo(ema60Value) >= 0 ? "LONG_BIAS" : "SHORT_BIAS";
+        String momentum = hist.compareTo(BigDecimal.ZERO) >= 0 ? "MOMENTUM_UP" : "MOMENTUM_DOWN";
+        String action;
+        if ("LONG_BIAS".equals(direction) && "MOMENTUM_UP".equals(momentum)) {
+            action = "BUY_OR_HOLD";
+        } else if ("SHORT_BIAS".equals(direction) && "MOMENTUM_DOWN".equals(momentum)) {
+            action = "REDUCE_OR_WAIT";
+        } else {
+            action = "NEUTRAL_WAIT_CONFIRM";
+        }
+
+        return String.format(
+            Locale.ROOT,
+            "量化信号上下文(自动注入): symbol=%s, market=%s, EMA20=%s, EMA60=%s, MACD=%s, SIGNAL=%s, HIST=%s, direction=%s, momentum=%s, action=%s。"
+                + "请把这个信号作为参考之一，明确提示风险，不要给出确定性收益承诺。",
+            symbol,
+            market,
+            ema20Value.toPlainString(),
+            ema60Value.toPlainString(),
+            macdValue.toPlainString(),
+            signalValue.toPlainString(),
+            hist.toPlainString(),
+            direction,
+            momentum,
+            action
+        );
+    }
+
+    private BigDecimal getIndicatorValue(IndicatorResponse response, String key) {
+        if (response == null || response.values() == null) {
+            return null;
+        }
+        return response.values().get(key);
     }
 
     private void relayAgentStream(ChatStreamRequest request, SseEmitter emitter) {

@@ -94,11 +94,12 @@ class DataUpdater:
     def _resolve_secid_prefix(symbol: str) -> str:
         """Resolve Eastmoney secid prefix from stock symbol.
 
-        Returns "1" for Shanghai-style symbols (6/5/9 prefix), otherwise "0"
-        for Shenzhen-style symbols (0/2/3 prefix).
+        Eastmoney uses:
+        - "1" for Shanghai market symbols (commonly starting with 5/6)
+        - "0" for Shenzhen and Beijing symbols (e.g. 0/2/3/4/8/9)
         """
         normalized = (symbol or "").strip()
-        if normalized.startswith(("6", "5", "9")):
+        if normalized.startswith(("6", "5")):
             return "1"
         return "0"
     

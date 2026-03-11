@@ -113,69 +113,65 @@ export const portfolioApi = {
   },
 
   // 获取行业分布（按行业聚合）
-  getSectorDistribution: (): Promise<SectorDistribution[]> => {
-    return portfolioApi.getPortfolio().then(async (items) => {
-      const totalValue = items.reduce((sum, item) => sum + item.marketValue, 0)
-      if (totalValue === 0) return []
+  getSectorDistribution: async (items: PortfolioItem[]): Promise<SectorDistribution[]> => {
+    const totalValue = items.reduce((sum, item) => sum + item.marketValue, 0)
+    if (totalValue === 0) return []
 
-      const industryResults = await Promise.all(
-        items.map(async (item) => {
-          try {
-            const industryInfo = await marketApi.getStockIndustry(item.symbol)
-            return {
-              item,
-              industry:
-                industryInfo.industry ||
-                industryInfo.sector ||
-                industryInfo.subIndustry ||
-                '未知行业',
-            }
-          } catch {
-            return {
-              item,
-              industry: '未知行业',
-            }
-          }
-        })
-      )
+    const symbolSet = new Set(items.map((item) => item.symbol).filter((symbol) => symbol.trim().length > 0))
+    let industryMap: Record<string, Awaited<ReturnType<typeof marketApi.getStockIndustry>>> = {}
 
-      const industryValueMap = new Map<string, number>()
-      industryResults.forEach(({ item, industry }) => {
-        industryValueMap.set(industry, (industryValueMap.get(industry) ?? 0) + item.marketValue)
-      })
+    try {
+      industryMap = await marketApi.getStockIndustries(Array.from(symbolSet))
+    } catch {
+      industryMap = {}
+    }
 
-      return Array.from(industryValueMap.entries())
-        .map(([sector, value]) => ({
-          sector,
-          value,
-          percent: totalValue > 0 ? (value / totalValue) * 100 : 0,
-        }))
-        .sort((a, b) => b.value - a.value)
+    const industryResults = items.map((item) => {
+      const industryInfo = industryMap[item.symbol]
+      return {
+        item,
+        industry:
+          industryInfo?.industry ||
+          industryInfo?.sector ||
+          industryInfo?.subIndustry ||
+          '未知行业',
+      }
     })
+
+    const industryValueMap = new Map<string, number>()
+    industryResults.forEach(({ item, industry }) => {
+      industryValueMap.set(industry, (industryValueMap.get(industry) ?? 0) + item.marketValue)
+    })
+
+    return Array.from(industryValueMap.entries())
+      .map(([sector, value]) => ({
+        sector,
+        value,
+        percent: totalValue > 0 ? (value / totalValue) * 100 : 0,
+      }))
+      .sort((a, b) => b.value - a.value)
   },
 
   // 获取收益曲线（前端 Mock，需要后端支持历史数据）
-  getPnLHistory: (): Promise<PnLPoint[]> => {
-    return portfolioApi.getPortfolioSummary().then((summary) => {
-      // 生成简单的模拟历史数据
-      const points: PnLPoint[] = []
-      const days = 30
-      const baseValue = summary.totalCost
-      const currentValue = summary.totalMarketValue
-      const dailyChange = (currentValue - baseValue) / days
+  getPnLHistory: (summary: PortfolioSummary): Promise<PnLPoint[]> => {
+    // 生成简单的模拟历史数据
+    const points: PnLPoint[] = []
+    const days = 30
+    const baseValue = summary.totalCost
+    const currentValue = summary.totalMarketValue
+    const dailyChange = (currentValue - baseValue) / days
 
-      for (let i = days; i >= 0; i--) {
-        const date = new Date()
-        date.setDate(date.getDate() - i)
-        const value = baseValue + dailyChange * (days - i)
-        points.push({
-          date: date.toISOString().split('T')[0],
-          value: Math.round(value * 100) / 100,
-          pnl: Math.round((value - baseValue) * 100) / 100,
-        })
-      }
-      return points
-    })
+    for (let i = days; i >= 0; i--) {
+      const date = new Date()
+      date.setDate(date.getDate() - i)
+      const value = baseValue + dailyChange * (days - i)
+      points.push({
+        date: date.toISOString().split('T')[0],
+        value: Math.round(value * 100) / 100,
+        pnl: Math.round((value - baseValue) * 100) / 100,
+      })
+    }
+    return Promise.resolve(points)
   },
 
   // 获取交易记录

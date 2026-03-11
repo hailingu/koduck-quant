@@ -123,4 +123,13 @@ export const marketApi = {
    */
   getStockIndustry: (symbol: string) =>
     request.get<StockIndustry>(`/api/v1/market/stocks/${symbol}/industry`, { timeout: 10000 }),
+
+  /**
+   * 批量获取股票所属行业信息
+   * @param symbols 股票代码列表
+   */
+  getStockIndustries: (symbols: string[]) =>
+    request.post<Record<string, StockIndustry>>('/api/v1/market/stocks/industry/batch', symbols, {
+      timeout: 10000,
+    }),
 }

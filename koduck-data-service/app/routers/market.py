@@ -324,12 +324,15 @@ async def request_realtime_update(request: BatchPriceRequest):
             })
     
     success_count = sum(1 for r in results if r["success"])
+    tick_success, tick_failed = await data_updater.flush_remaining_ticks()
     
     return ApiResponse(
         data={
             "requested": len(symbols),
             "successful": success_count,
             "failed": len(symbols) - success_count,
+            "tick_flushed": tick_success,
+            "tick_flush_failed": tick_failed,
             "results": results,
         },
         message=f"Updated {success_count}/{len(symbols)} symbols"
