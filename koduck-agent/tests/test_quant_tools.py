@@ -2,82 +2,12 @@
 
 from __future__ import annotations
 
-import json
 from pathlib import Path
 
 import pytest
 
 from koduck import quant_tools
-from koduck.quant_tools import execute_tool, reset_tool_runtime_context, set_tool_runtime_context
-
-
-@pytest.mark.asyncio
-async def test_send_qq_bot_message_requires_config() -> None:
-    token = set_tool_runtime_context({})
-    try:
-        result_raw = await execute_tool("send_qq_bot_message", {"content": "hello"})
-        result = json.loads(result_raw)
-        assert result["ok"] is False
-        assert "config" in result["error"].lower()
-    finally:
-        reset_tool_runtime_context(token)
-
-
-@pytest.mark.asyncio
-async def test_send_qq_bot_message_success(monkeypatch: pytest.MonkeyPatch) -> None:
-    class FakeResponse:
-        def __init__(self, status_code: int, payload: dict):
-            self.status_code = status_code
-            self._payload = payload
-            self.text = json.dumps(payload)
-
-        def json(self):
-            return self._payload
-
-    class FakeAsyncClient:
-        async def __aenter__(self):
-            return self
-
-        async def __aexit__(self, exc_type, exc, tb):
-            return None
-
-        async def post(self, url, json=None, headers=None):
-            if url.endswith("/app/getAppAccessToken"):
-                return FakeResponse(200, {"access_token": "mock-token", "expires_in": 7200})
-            return FakeResponse(200, {"id": "msg-1"})
-
-    monkeypatch.setattr("koduck.quant_tools.httpx.AsyncClient", lambda *args, **kwargs: FakeAsyncClient())
-
-    token = set_tool_runtime_context(
-        {
-            "qqBot": {
-                "enabled": True,
-                "appId": "102001",
-                "clientSecret": "qq-secret",
-                "apiBase": "https://api.sgroup.qq.com",
-                "tokenPath": "/app/getAppAccessToken",
-                "sendUrlTemplate": "/v2/groups/{target_id}/messages",
-                "defaultTargetId": "g-openid-1",
-                "targetPlaceholder": "target_id",
-                "contentField": "content",
-                "msgType": 0,
-                "tokenTtlBufferSeconds": 60,
-            }
-        }
-    )
-
-    try:
-        result_raw = await execute_tool(
-            "send_qq_bot_message",
-            {"content": "hello from agent"},
-        )
-    finally:
-        reset_tool_runtime_context(token)
-
-    result = json.loads(result_raw)
-    assert result["ok"] is True
-    assert result["status"] == 200
-    assert result["response"]["id"] == "msg-1"
+from koduck.quant_tools import execute_tool
 
 
 @pytest.mark.asyncio
@@ -93,7 +23,7 @@ async def test_skill_auto_discovery_and_execution(
     (demo_skill_dir / "SKILL.md").write_text(
         """---
 name: demo-skill
-description: \"Demo skill for discovery test\"
+description: "Demo skill for discovery test"
 ---
 
 # Demo Skill
@@ -127,6 +57,8 @@ print(json.dumps({"command": args.command, "content": args.content}))
             "args": {"content": "hello"},
         },
     )
+    import json
+
     result = json.loads(result_raw)
 
     assert result["ok"] is True

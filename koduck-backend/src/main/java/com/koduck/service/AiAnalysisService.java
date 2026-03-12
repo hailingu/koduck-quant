@@ -154,7 +154,6 @@ public class AiAnalysisService {
         requestBody.put("provider", resolveProvider(provider));
         requestBody.put("apiKey", config != null && config.getApiKey() != null ? config.getApiKey() : "");
         requestBody.put("apiBase", config != null ? config.getApiBase() : null);
-        requestBody.put("qqBot", config != null ? config.getQqBot() : null);
         
         List<Map<String, String>> messages = new ArrayList<>();
         messages.add(Map.of("role", "user", "content", userMessage));
@@ -203,7 +202,6 @@ public class AiAnalysisService {
             .provider(provider)
             .apiKey(effectiveConfig != null && effectiveConfig.getApiKey() != null ? effectiveConfig.getApiKey() : "")
             .apiBase(effectiveConfig != null ? effectiveConfig.getApiBase() : null)
-            .qqBot(toQqBotRequest(effectiveConfig != null ? effectiveConfig.getQqBot() : null))
             .messages(request.getMessages())
             .build();
         ChatStreamRequest guardedRequest = appendInstructionToSystem(configuredRequest, NO_TOOL_MARKUP_GUARD);
@@ -283,7 +281,6 @@ public class AiAnalysisService {
             .provider(request.getProvider())
             .apiKey(request.getApiKey())
             .apiBase(request.getApiBase())
-            .qqBot(request.getQqBot())
             .messages(updatedMessages)
             .build();
     }
@@ -322,7 +319,6 @@ public class AiAnalysisService {
             .provider(request.getProvider())
             .apiKey(request.getApiKey())
             .apiBase(request.getApiBase())
-            .qqBot(request.getQqBot())
             .messages(updatedMessages)
             .build();
     }
@@ -426,26 +422,6 @@ public class AiAnalysisService {
         return response.values().get(key);
     }
 
-    private ChatStreamRequest.QqBotConfigRequest toQqBotRequest(
-            UserSettingsDto.QqBotConfigDto config) {
-        if (config == null) {
-            return null;
-        }
-        return ChatStreamRequest.QqBotConfigRequest.builder()
-            .enabled(config.getEnabled())
-            .appId(config.getAppId())
-            .clientSecret(config.getClientSecret())
-            .apiBase(config.getApiBase())
-            .tokenPath(config.getTokenPath())
-            .sendUrlTemplate(config.getSendUrlTemplate())
-            .defaultTargetId(config.getDefaultTargetId())
-            .targetPlaceholder(config.getTargetPlaceholder())
-            .contentField(config.getContentField())
-            .msgType(config.getMsgType())
-            .tokenTtlBufferSeconds(config.getTokenTtlBufferSeconds())
-            .build();
-    }
-
     private void relayAgentStream(ChatStreamRequest request, SseEmitter emitter) {
         HttpURLConnection connection = null;
         try {
@@ -455,7 +431,6 @@ public class AiAnalysisService {
                 .provider(provider)
                 .apiKey(request.getApiKey())
                 .apiBase(request.getApiBase())
-                .qqBot(request.getQqBot())
                 .messages(request.getMessages())
                 .build();
             String requestBody = objectMapper.writeValueAsString(normalizedRequest);

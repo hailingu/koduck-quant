@@ -8,8 +8,6 @@ import logging
 import os
 import re
 import sys
-import time
-from contextvars import ContextVar, Token
 from pathlib import Path
 from typing import Any, Awaitable, Callable
 
@@ -23,33 +21,10 @@ except Exception:  # pragma: no cover - dependency is expected to exist in runti
 logger = logging.getLogger(__name__)
 
 DEFAULT_DATA_SERVICE_BASE = "http://data-service:8000"
-DEFAULT_QQ_API_BASE = "https://api.sgroup.qq.com"
-DEFAULT_QQ_TOKEN_PATH = "/app/getAppAccessToken"
 DEFAULT_SKILL_TIMEOUT_SECONDS = 20
-
-_TOOL_RUNTIME_CONTEXT: ContextVar[dict[str, Any]] = ContextVar(
-    "tool_runtime_context",
-    default={},
-)
-
-QQ_TOKEN_CACHE: dict[str, Any] = {
-    "access_token": "",
-    "expires_at": 0.0,
-    "app_id": "",
-}
 
 _TOOL_EXECUTORS: dict[str, Callable[[dict[str, Any]], Awaitable[str]]] = {}
 QUANT_TOOL_DEFS: list[dict[str, Any]] = []
-
-
-def set_tool_runtime_context(context: dict[str, Any] | None) -> Token:
-    """Set per-request runtime context for tools."""
-    return _TOOL_RUNTIME_CONTEXT.set(context or {})
-
-
-def reset_tool_runtime_context(token: Token) -> None:
-    """Reset per-request runtime context for tools."""
-    _TOOL_RUNTIME_CONTEXT.reset(token)
 
 
 def _backend_base_url() -> str:
@@ -77,39 +52,6 @@ def _builtin_tool_defs() -> list[dict[str, Any]]:
                         },
                     },
                     "required": ["symbol"],
-                },
-            },
-        },
-        {
-            "type": "function",
-            "function": {
-                "name": "send_qq_bot_message",
-                "description": "Send a message through configured QQ Bot OpenAPI.",
-                "parameters": {
-                    "type": "object",
-                    "properties": {
-                        "content": {
-                            "type": "string",
-                            "description": "Message content to send.",
-                        },
-                        "target_id": {
-                            "type": "string",
-                            "description": "Optional target id override for URL template placeholder.",
-                        },
-                        "message_id": {
-                            "type": "string",
-                            "description": "Optional msg_id field for dedupe/threading.",
-                        },
-                        "event_id": {
-                            "type": "string",
-                            "description": "Optional event_id field.",
-                        },
-                        "extra_body": {
-                            "type": "object",
-                            "description": "Optional additional request body fields.",
-                        },
-                    },
-                    "required": ["content"],
                 },
             },
         },
@@ -369,8 +311,6 @@ def refresh_tool_registry() -> None:
         QUANT_TOOL_DEFS.append(tool_def)
         if name == "get_quant_signal":
             _TOOL_EXECUTORS[name] = _get_quant_signal
-        elif name == "send_qq_bot_message":
-            _TOOL_EXECUTORS[name] = _send_qq_bot_message
 
     discovered_entries = _discover_skill_entries()
     for entry in discovered_entries:
@@ -437,189 +377,6 @@ async def execute_tool(name: str, arguments: dict[str, Any]) -> str:
             ensure_ascii=False,
         )
     return await executor(arguments)
-
-
-async def _send_qq_bot_message(arguments: dict[str, Any]) -> str:
-    ctx = _TOOL_RUNTIME_CONTEXT.get({})
-    config = ctx.get("qqBot") if isinstance(ctx, dict) else None
-    if not isinstance(config, dict):
-        return json.dumps(
-            {
-                "ok": False,
-                "error": "Missing qq bot config in runtime context",
-            },
-            ensure_ascii=False,
-        )
-
-    if not bool(config.get("enabled", True)):
-        return json.dumps(
-            {"ok": False, "error": "QQ bot is disabled"},
-            ensure_ascii=False,
-        )
-
-    content = str(arguments.get("content", "")).strip()
-    if not content:
-        return json.dumps(
-            {"ok": False, "error": "Missing required argument: content"},
-            ensure_ascii=False,
-        )
-
-    api_base = str(config.get("apiBase", DEFAULT_QQ_API_BASE)).strip() or DEFAULT_QQ_API_BASE
-    api_base = api_base.rstrip("/")
-    token_path = str(config.get("tokenPath", DEFAULT_QQ_TOKEN_PATH)).strip() or DEFAULT_QQ_TOKEN_PATH
-    token_url = f"{api_base}{token_path if token_path.startswith('/') else '/' + token_path}"
-
-    app_id = str(config.get("appId", "")).strip()
-    client_secret = str(config.get("clientSecret", "")).strip()
-    send_url_template = str(config.get("sendUrlTemplate", "")).strip()
-
-    if not app_id or not client_secret or not send_url_template:
-        return json.dumps(
-            {
-                "ok": False,
-                "error": "Incomplete qq bot config: appId/clientSecret/sendUrlTemplate required",
-            },
-            ensure_ascii=False,
-        )
-
-    target_placeholder = str(config.get("targetPlaceholder", "target_id")).strip() or "target_id"
-    default_target_id = str(config.get("defaultTargetId", "")).strip()
-    target_id = str(arguments.get("target_id", "")).strip() or default_target_id
-
-    if "{" + target_placeholder + "}" in send_url_template and not target_id:
-        return json.dumps(
-            {
-                "ok": False,
-                "error": f"target_id required for placeholder {{{target_placeholder}}}",
-            },
-            ensure_ascii=False,
-        )
-
-    send_url = send_url_template
-    if "{" + target_placeholder + "}" in send_url:
-        send_url = send_url.replace("{" + target_placeholder + "}", target_id)
-    if send_url.startswith("/"):
-        send_url = f"{api_base}{send_url}"
-
-    token = await _get_qq_access_token(api_base, token_url, app_id, client_secret, config)
-    if not token:
-        return json.dumps(
-            {
-                "ok": False,
-                "error": "Failed to obtain QQ bot access token",
-            },
-            ensure_ascii=False,
-        )
-
-    headers = {
-        "Authorization": f"QQBot {token}",
-        "X-Union-Appid": app_id,
-        "Content-Type": "application/json",
-    }
-
-    content_field = str(config.get("contentField", "content")).strip() or "content"
-    body: dict[str, Any] = {
-        content_field: content,
-    }
-
-    msg_type = config.get("msgType")
-    if msg_type is not None and str(msg_type).strip() != "":
-        try:
-            body["msg_type"] = int(msg_type)
-        except Exception:
-            body["msg_type"] = msg_type
-
-    message_id = str(arguments.get("message_id", "")).strip()
-    event_id = str(arguments.get("event_id", "")).strip()
-    if message_id:
-        body["msg_id"] = message_id
-    if event_id:
-        body["event_id"] = event_id
-
-    extra_body = arguments.get("extra_body")
-    if isinstance(extra_body, dict):
-        body.update(extra_body)
-
-    timeout = httpx.Timeout(15.0, connect=8.0)
-    try:
-        async with httpx.AsyncClient(timeout=timeout) as client:
-            send_resp = await client.post(send_url, json=body, headers=headers)
-    except Exception as e:
-        logger.warning("qq bot send message request failed: %s", e)
-        return json.dumps(
-            {"ok": False, "error": f"QQ bot send message request failed: {e}"},
-            ensure_ascii=False,
-        )
-
-    result: dict[str, Any] = {
-        "ok": 200 <= send_resp.status_code < 300,
-        "status": send_resp.status_code,
-    }
-    try:
-        result["response"] = send_resp.json()
-    except Exception:
-        result["response"] = send_resp.text[:500]
-
-    if not result["ok"]:
-        result["error"] = "QQ bot send message API failed"
-
-    return json.dumps(result, ensure_ascii=False)
-
-
-async def _get_qq_access_token(
-    api_base: str,
-    token_url: str,
-    app_id: str,
-    client_secret: str,
-    config: dict[str, Any],
-) -> str:
-    now = time.time()
-    if (
-        QQ_TOKEN_CACHE.get("access_token")
-        and QQ_TOKEN_CACHE.get("app_id") == app_id
-        and float(QQ_TOKEN_CACHE.get("expires_at", 0.0)) > now
-    ):
-        return str(QQ_TOKEN_CACHE["access_token"])
-
-    timeout = httpx.Timeout(10.0, connect=5.0)
-    payload = {
-        "appId": app_id,
-        "clientSecret": client_secret,
-    }
-
-    try:
-        async with httpx.AsyncClient(timeout=timeout) as client:
-            resp = await client.post(token_url, json=payload)
-    except Exception as e:
-        logger.warning("qq bot token request failed: %s", e)
-        return ""
-
-    if resp.status_code != 200:
-        logger.warning("qq bot token api failed: status=%s body=%s", resp.status_code, resp.text[:300])
-        return ""
-
-    try:
-        token_payload = resp.json()
-    except Exception:
-        logger.warning("qq bot token api returned non-json response")
-        return ""
-
-    access_token = token_payload.get("access_token")
-    expires_in = token_payload.get("expires_in")
-    if not access_token:
-        logger.warning("qq bot token payload missing access_token: %s", token_payload)
-        return ""
-
-    ttl_buffer = int(config.get("tokenTtlBufferSeconds", 60) or 60)
-    try:
-        ttl_seconds = max(int(expires_in) - ttl_buffer, 60)
-    except Exception:
-        ttl_seconds = 3600
-
-    QQ_TOKEN_CACHE["access_token"] = str(access_token)
-    QQ_TOKEN_CACHE["expires_at"] = now + ttl_seconds
-    QQ_TOKEN_CACHE["app_id"] = app_id
-    return str(access_token)
 
 
 async def _get_quant_signal(arguments: dict[str, Any]) -> str:

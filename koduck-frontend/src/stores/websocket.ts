@@ -121,7 +121,6 @@ export const useWebSocketStore = create<WebSocketState>((set, get) => ({
         })
 
         set({ connectionState: 'connected', priceSubscription: queueSubscription })
-        console.log('WebSocket connected')
 
         // Re-subscribe all active symbols after reconnect.
         const activeSymbols = Array.from(get().symbolRefCounts.entries())
@@ -139,7 +138,6 @@ export const useWebSocketStore = create<WebSocketState>((set, get) => ({
       },
       onDisconnect: () => {
         set({ connectionState: 'disconnected', priceSubscription: null, subscribedSymbols: new Set() })
-        console.log('WebSocket disconnected')
       },
       onStompError: (frame) => {
         console.error('STOMP error:', frame)

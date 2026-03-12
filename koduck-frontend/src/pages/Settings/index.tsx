@@ -11,49 +11,11 @@ const LLM_PROVIDERS = ['minimax', 'deepseek', 'openai'] as const
 type LlmProvider = (typeof LLM_PROVIDERS)[number]
 type LlmProviderConfig = { apiKey: string; apiBase: string }
 type LlmProviderConfigMap = Record<LlmProvider, LlmProviderConfig>
-type QqBotConfig = {
-  enabled: boolean
-  appId: string
-  clientSecret: string
-  apiBase: string
-  tokenPath: string
-  sendUrlTemplate: string
-  defaultTargetId: string
-  targetPlaceholder: string
-  contentField: string
-  msgType: string
-  tokenTtlBufferSeconds: string
-}
-
-const QQ_BOT_DEFAULTS = {
-  apiBase: 'https://api.sgroup.qq.com',
-  tokenPath: '/app/getAppAccessToken',
-  sendUrlTemplate: '/v2/groups/{target_id}/messages',
-  defaultTargetId: '',
-  targetPlaceholder: 'target_id',
-  contentField: 'content',
-  msgType: '0',
-  tokenTtlBufferSeconds: '60',
-} as const
 
 const createEmptyLlmProviderConfigMap = (): LlmProviderConfigMap => ({
   minimax: { apiKey: '', apiBase: '' },
   deepseek: { apiKey: '', apiBase: '' },
   openai: { apiKey: '', apiBase: '' },
-})
-
-const createEmptyQqBotConfig = (): QqBotConfig => ({
-  enabled: false,
-  appId: '',
-  clientSecret: '',
-  apiBase: QQ_BOT_DEFAULTS.apiBase,
-  tokenPath: QQ_BOT_DEFAULTS.tokenPath,
-  sendUrlTemplate: QQ_BOT_DEFAULTS.sendUrlTemplate,
-  defaultTargetId: QQ_BOT_DEFAULTS.defaultTargetId,
-  targetPlaceholder: QQ_BOT_DEFAULTS.targetPlaceholder,
-  contentField: QQ_BOT_DEFAULTS.contentField,
-  msgType: QQ_BOT_DEFAULTS.msgType,
-  tokenTtlBufferSeconds: QQ_BOT_DEFAULTS.tokenTtlBufferSeconds,
 })
 
 const formatBuildTime = (value: string): string => {
@@ -254,7 +216,6 @@ function PreferencesForm({
   const [timezone, setTimezone] = useState('Asia/Shanghai')
   const [llmProvider, setLlmProvider] = useState<LlmProvider>('minimax')
   const [llmConfigs, setLlmConfigs] = useState<LlmProviderConfigMap>(createEmptyLlmProviderConfigMap())
-  const [qqBotConfig, setQqBotConfig] = useState<QqBotConfig>(createEmptyQqBotConfig())
   const [isApiKeyEditing, setIsApiKeyEditing] = useState(false)
   const [saving, setSaving] = useState(false)
 
@@ -291,33 +252,7 @@ function PreferencesForm({
       nextConfigs[activeProvider].apiBase = settings.llmConfig.apiBase
     }
     setLlmConfigs(nextConfigs)
-    setQqBotConfig({
-      enabled: !!settings.llmConfig?.qqBot?.enabled,
-      appId: settings.llmConfig?.qqBot?.appId || '',
-      clientSecret: settings.llmConfig?.qqBot?.clientSecret || '',
-      apiBase: settings.llmConfig?.qqBot?.apiBase || QQ_BOT_DEFAULTS.apiBase,
-      tokenPath: settings.llmConfig?.qqBot?.tokenPath || QQ_BOT_DEFAULTS.tokenPath,
-      sendUrlTemplate: settings.llmConfig?.qqBot?.sendUrlTemplate || QQ_BOT_DEFAULTS.sendUrlTemplate,
-      defaultTargetId: settings.llmConfig?.qqBot?.defaultTargetId || QQ_BOT_DEFAULTS.defaultTargetId,
-      targetPlaceholder: settings.llmConfig?.qqBot?.targetPlaceholder || QQ_BOT_DEFAULTS.targetPlaceholder,
-      contentField: settings.llmConfig?.qqBot?.contentField || QQ_BOT_DEFAULTS.contentField,
-      msgType:
-        settings.llmConfig?.qqBot?.msgType != null
-          ? String(settings.llmConfig.qqBot.msgType)
-          : QQ_BOT_DEFAULTS.msgType,
-      tokenTtlBufferSeconds:
-        settings.llmConfig?.qqBot?.tokenTtlBufferSeconds != null
-          ? String(settings.llmConfig.qqBot.tokenTtlBufferSeconds)
-          : QQ_BOT_DEFAULTS.tokenTtlBufferSeconds,
-    })
   }, [settings, setThemeMode])
-
-  const parseOptionalInt = (value: string): number | undefined => {
-    const trimmed = value.trim()
-    if (!trimmed) return undefined
-    const parsed = Number(trimmed)
-    return Number.isFinite(parsed) ? Math.trunc(parsed) : undefined
-  }
 
   const handleSave = async () => {
     const currentLlmConfig = llmConfigs[llmProvider]
@@ -338,20 +273,6 @@ function PreferencesForm({
           apiKey: currentLlmConfig.apiKey.trim(),
           apiBase: currentLlmConfig.apiBase.trim(),
           ...providerSpecificConfig,
-          qqBot: {
-            enabled: qqBotConfig.enabled,
-            appId: qqBotConfig.appId.trim(),
-            clientSecret: qqBotConfig.clientSecret.trim(),
-            apiBase: (qqBotConfig.apiBase || QQ_BOT_DEFAULTS.apiBase).trim(),
-            tokenPath: (qqBotConfig.tokenPath || QQ_BOT_DEFAULTS.tokenPath).trim(),
-            sendUrlTemplate: (qqBotConfig.sendUrlTemplate || QQ_BOT_DEFAULTS.sendUrlTemplate).trim(),
-            defaultTargetId: qqBotConfig.defaultTargetId.trim(),
-            targetPlaceholder: (qqBotConfig.targetPlaceholder || QQ_BOT_DEFAULTS.targetPlaceholder).trim(),
-            contentField: (qqBotConfig.contentField || QQ_BOT_DEFAULTS.contentField).trim(),
-            msgType: parseOptionalInt(qqBotConfig.msgType) ?? Number(QQ_BOT_DEFAULTS.msgType),
-            tokenTtlBufferSeconds:
-              parseOptionalInt(qqBotConfig.tokenTtlBufferSeconds) ?? Number(QQ_BOT_DEFAULTS.tokenTtlBufferSeconds),
-          },
         },
       })
       onSettingsUpdated(updated)
@@ -508,59 +429,6 @@ function PreferencesForm({
             />
           </div>
         </div>
-      </div>
-
-      <div className="pt-2 space-y-4">
-        <h4 className="text-[13px] text-gray-900 dark:text-white font-medium">QQ Bot 配置（Skill）</h4>
-
-        <div className="rounded-2xl border border-gray-200 dark:border-white/10 bg-white/20 dark:bg-white/[0.02] overflow-hidden">
-          <div className="flex items-center justify-between gap-4 px-4 py-3 border-b border-gray-200 dark:border-white/10">
-            <span className="text-[13px] font-medium text-gray-700 dark:text-gray-200">启用</span>
-            <button
-              onClick={() => setQqBotConfig((prev) => ({ ...prev, enabled: !prev.enabled }))}
-              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                qqBotConfig.enabled ? 'bg-[#1d1d1f] dark:bg-white' : 'bg-gray-300 dark:bg-gray-600'
-              }`}
-            >
-              <span
-                className={`inline-block h-4 w-4 transform rounded-full bg-white dark:bg-[#1c1c1e] transition-transform shadow-sm ${
-                  qqBotConfig.enabled ? 'translate-x-6' : 'translate-x-1'
-                }`}
-              />
-            </button>
-          </div>
-
-          <div className="flex items-center justify-between gap-4 px-4 py-3 border-b border-gray-200 dark:border-white/10">
-            <span className="text-[13px] font-medium text-gray-700 dark:text-gray-200 whitespace-nowrap">AppID</span>
-            <input
-              type="text"
-              value={qqBotConfig.appId}
-              onChange={(e) =>
-                setQqBotConfig((prev) => ({
-                  ...prev,
-                  appId: e.target.value,
-                }))
-              }
-              className="w-full max-w-[560px] px-0 py-1 bg-transparent border-0 rounded-none text-right text-gray-900 dark:text-white caret-[#0a84ff] focus:outline-none focus:ring-0"
-            />
-          </div>
-
-          <div className="flex items-center justify-between gap-4 px-4 py-3">
-            <span className="text-[13px] font-medium text-gray-700 dark:text-gray-200 whitespace-nowrap">AppSecret</span>
-            <input
-              type="text"
-              value={qqBotConfig.clientSecret}
-              onChange={(e) =>
-                setQqBotConfig((prev) => ({
-                  ...prev,
-                  clientSecret: e.target.value,
-                }))
-              }
-              className="w-full max-w-[560px] px-0 py-1 bg-transparent border-0 rounded-none text-right text-gray-900 dark:text-white caret-[#0a84ff] focus:outline-none focus:ring-0"
-            />
-          </div>
-        </div>
-
       </div>
 
       <div className="flex justify-end pt-2">

@@ -104,7 +104,6 @@ public class UserSettingsService {
             current.setMinimax(mergeProviderConfig(current.getMinimax(), req.getMinimax()));
             current.setDeepseek(mergeProviderConfig(current.getDeepseek(), req.getDeepseek()));
             current.setOpenai(mergeProviderConfig(current.getOpenai(), req.getOpenai()));
-            current.setQqBot(mergeQqBotConfig(current.getQqBot(), req.getQqBot()));
 
             // 兼容旧请求：仅传 apiKey/apiBase 时写入当前激活 provider
             if (req.getApiKey() != null || req.getApiBase() != null) {
@@ -202,7 +201,6 @@ public class UserSettingsService {
                 .minimax(new UserSettings.ProviderConfig())
                 .deepseek(new UserSettings.ProviderConfig())
                 .openai(new UserSettings.ProviderConfig())
-                .qqBot(UserSettings.QqBotConfig.builder().build())
                 .build())
             .quickLinks(List.of(
                 UserSettings.QuickLink.builder()
@@ -296,7 +294,6 @@ public class UserSettingsService {
             .minimax(resolveProviderConfig("minimax", llmConfig))
             .deepseek(resolveProviderConfig("deepseek", llmConfig))
             .openai(resolveProviderConfig("openai", llmConfig))
-            .qqBot(resolveQqBotConfig(llmConfig.getQqBot()))
             .build();
     }
 
@@ -370,7 +367,6 @@ public class UserSettingsService {
             .minimax(minimax)
             .deepseek(deepseek)
             .openai(openai)
-            .qqBot(resolveQqBotConfig(source.getQqBot()))
             .build();
     }
 
@@ -384,31 +380,6 @@ public class UserSettingsService {
         return UserSettings.ProviderConfig.builder()
             .apiKey(incoming.getApiKey() != null ? normalizeBlank(incoming.getApiKey()) : normalizeBlank(base.getApiKey()))
             .apiBase(incoming.getApiBase() != null ? normalizeBlank(incoming.getApiBase()) : normalizeBlank(base.getApiBase()))
-            .build();
-    }
-
-    private UserSettings.QqBotConfig mergeQqBotConfig(
-            UserSettings.QqBotConfig existing,
-            UpdateSettingsRequest.QqBotConfigDto incoming) {
-        UserSettings.QqBotConfig base = existing != null
-            ? existing
-            : UserSettings.QqBotConfig.builder().build();
-        if (incoming == null) {
-            return base;
-        }
-
-        return UserSettings.QqBotConfig.builder()
-            .enabled(incoming.getEnabled() != null ? incoming.getEnabled() : base.getEnabled())
-            .appId(incoming.getAppId() != null ? normalizeBlank(incoming.getAppId()) : normalizeBlank(base.getAppId()))
-            .clientSecret(incoming.getClientSecret() != null ? normalizeBlank(incoming.getClientSecret()) : normalizeBlank(base.getClientSecret()))
-            .apiBase(incoming.getApiBase() != null ? normalizeBlank(incoming.getApiBase()) : normalizeBlank(base.getApiBase()))
-            .tokenPath(incoming.getTokenPath() != null ? normalizeBlank(incoming.getTokenPath()) : normalizeBlank(base.getTokenPath()))
-            .sendUrlTemplate(incoming.getSendUrlTemplate() != null ? normalizeBlank(incoming.getSendUrlTemplate()) : normalizeBlank(base.getSendUrlTemplate()))
-            .defaultTargetId(incoming.getDefaultTargetId() != null ? normalizeBlank(incoming.getDefaultTargetId()) : normalizeBlank(base.getDefaultTargetId()))
-            .targetPlaceholder(incoming.getTargetPlaceholder() != null ? normalizeBlank(incoming.getTargetPlaceholder()) : normalizeBlank(base.getTargetPlaceholder()))
-            .contentField(incoming.getContentField() != null ? normalizeBlank(incoming.getContentField()) : normalizeBlank(base.getContentField()))
-            .msgType(incoming.getMsgType() != null ? incoming.getMsgType() : base.getMsgType())
-            .tokenTtlBufferSeconds(incoming.getTokenTtlBufferSeconds() != null ? incoming.getTokenTtlBufferSeconds() : base.getTokenTtlBufferSeconds())
             .build();
     }
 
@@ -502,26 +473,6 @@ public class UserSettingsService {
         return UserSettingsDto.ProviderConfigDto.builder()
             .apiKey(apiKey)
             .apiBase(apiBase)
-            .build();
-    }
-
-    private UserSettingsDto.QqBotConfigDto resolveQqBotConfig(UserSettings.QqBotConfig config) {
-        UserSettings.QqBotConfig source = config != null
-            ? config
-            : UserSettings.QqBotConfig.builder().build();
-
-        return UserSettingsDto.QqBotConfigDto.builder()
-            .enabled(source.getEnabled())
-            .appId(normalizeBlank(source.getAppId()))
-            .clientSecret(normalizeBlank(source.getClientSecret()))
-            .apiBase(normalizeBlank(source.getApiBase()))
-            .tokenPath(normalizeBlank(source.getTokenPath()))
-            .sendUrlTemplate(normalizeBlank(source.getSendUrlTemplate()))
-            .defaultTargetId(normalizeBlank(source.getDefaultTargetId()))
-            .targetPlaceholder(normalizeBlank(source.getTargetPlaceholder()))
-            .contentField(normalizeBlank(source.getContentField()))
-            .msgType(source.getMsgType())
-            .tokenTtlBufferSeconds(source.getTokenTtlBufferSeconds())
             .build();
     }
 

@@ -26,8 +26,6 @@ from koduck.schema import FunctionCall, LLMProvider, Message, ToolCall
 from koduck.quant_tools import (
     QUANT_TOOL_DEFS,
     execute_tool,
-    reset_tool_runtime_context,
-    set_tool_runtime_context,
 )
 
 logger = logging.getLogger(__name__)
@@ -188,7 +186,6 @@ class ChatCompletionRequest(BaseModel):
     provider: str = Field("minimax", description="LLM 提供商: minimax/deepseek/openai")
     apiKey: str | None = Field(None, description="可选：覆盖环境变量的 API Key")
     apiBase: str | None = Field(None, description="可选：覆盖环境变量的 API Base URL")
-    qqBot: dict[str, Any] | None = Field(None, description="可选：QQ Bot skill 配置")
     temperature: float | None = Field(None, description="采样温度")
     max_tokens: int | None = Field(None, description="最大生成 token 数")
     stream: bool = Field(False, description="是否流式输出（暂不支持）")
@@ -232,7 +229,6 @@ class SimpleChatRequest(BaseModel):
     provider: str = Field("minimax", description="LLM 提供商")
     apiKey: str | None = Field(None, description="可选：覆盖环境变量的 API Key")
     apiBase: str | None = Field(None, description="可选：覆盖环境变量的 API Base URL")
-    qqBot: dict[str, Any] | None = Field(None, description="可选：QQ Bot skill 配置")
 
 
 class SimpleChatData(BaseModel):
@@ -291,52 +287,47 @@ def _ensure_tool_call_id(tool_call: ToolCall) -> ToolCall:
 async def _run_chat_with_tool_loop(
     client: Any,
     messages: list[Message],
-    tool_runtime_context: dict[str, Any] | None = None,
 ) -> Any:
     """Execute tool-calling loop and return final assistant response."""
     history = list(messages)
     tool_round = 0
-    token = set_tool_runtime_context(tool_runtime_context)
-    try:
-        final_response = await client.generate(history, tools=QUANT_TOOL_DEFS)
+    final_response = await client.generate(history, tools=QUANT_TOOL_DEFS)
 
-        while final_response.tool_calls and tool_round < MAX_TOOL_CALL_ROUNDS:
-            tool_round += 1
-            tool_calls = [_ensure_tool_call_id(tc) for tc in final_response.tool_calls]
+    while final_response.tool_calls and tool_round < MAX_TOOL_CALL_ROUNDS:
+        tool_round += 1
+        tool_calls = [_ensure_tool_call_id(tc) for tc in final_response.tool_calls]
+        history.append(
+            Message(
+                role="assistant",
+                content=final_response.content or "",
+                thinking=final_response.thinking,
+                tool_calls=tool_calls,
+            )
+        )
+
+        for tc in tool_calls:
+            tool_content = await execute_tool(tc.function.name, tc.function.arguments)
             history.append(
                 Message(
-                    role="assistant",
-                    content=final_response.content or "",
-                    thinking=final_response.thinking,
-                    tool_calls=tool_calls,
+                    role="tool",
+                    tool_call_id=tc.id,
+                    content=tool_content,
                 )
             )
-
-            for tc in tool_calls:
-                tool_content = await execute_tool(tc.function.name, tc.function.arguments)
-                history.append(
-                    Message(
-                        role="tool",
-                        tool_call_id=tc.id,
-                        content=tool_content,
-                    )
-                )
-                logger.info(
-                    "[ToolLoop] Executed tool: name=%s id=%s",
-                    tc.function.name,
-                    tc.id,
-                )
-
-            final_response = await client.generate(history, tools=QUANT_TOOL_DEFS)
-
-        if final_response.tool_calls:
-            logger.warning(
-                "[ToolLoop] Reached max rounds with remaining tool_calls: rounds=%s",
-                tool_round,
+            logger.info(
+                "[ToolLoop] Executed tool: name=%s id=%s",
+                tc.function.name,
+                tc.id,
             )
-        return final_response
-    finally:
-        reset_tool_runtime_context(token)
+
+        final_response = await client.generate(history, tools=QUANT_TOOL_DEFS)
+
+    if final_response.tool_calls:
+        logger.warning(
+            "[ToolLoop] Reached max rounds with remaining tool_calls: rounds=%s",
+            tool_round,
+        )
+    return final_response
 
 
 @asynccontextmanager
@@ -442,7 +433,6 @@ async def chat_completions(request: ChatCompletionRequest):
         response = await _run_chat_with_tool_loop(
             client,
             messages,
-            tool_runtime_context={"qqBot": request.qqBot},
         )
         logger.info(f"[ChatCompletions] LLM 响应成功: finish_reason={response.finish_reason}")
         logger.debug(f"[ChatCompletions] LLM 响应内容: {response.content[:200]}..." if response.content and len(response.content) > 200 else f"[ChatCompletions] LLM 响应内容: {response.content}")
@@ -575,7 +565,6 @@ async def simple_chat(request: SimpleChatRequest):
         response = await _run_chat_with_tool_loop(
             client,
             messages,
-            tool_runtime_context={"qqBot": request.qqBot},
         )
         logger.info(f"[SimpleChat] LLM 响应成功: finish_reason={response.finish_reason}")
         
@@ -668,7 +657,6 @@ async def simple_chat_stream(request: SimpleChatRequest):
             response = await _run_chat_with_tool_loop(
                 client,
                 messages,
-                tool_runtime_context={"qqBot": request.qqBot},
             )
             full_content = response.content or ""
             chunk_size = 24

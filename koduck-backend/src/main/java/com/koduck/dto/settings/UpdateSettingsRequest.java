@@ -114,7 +114,6 @@ public class UpdateSettingsRequest {
         private ProviderConfigDto minimax;
         private ProviderConfigDto deepseek;
         private ProviderConfigDto openai;
-        private QqBotConfigDto qqBot;
     }
 
     @Data
@@ -126,21 +125,4 @@ public class UpdateSettingsRequest {
         private String apiBase;
     }
 
-    @Data
-    @Builder
-    @NoArgsConstructor
-    @AllArgsConstructor
-    public static class QqBotConfigDto {
-        private Boolean enabled;
-        private String appId;
-        private String clientSecret;
-        private String apiBase;
-        private String tokenPath;
-        private String sendUrlTemplate;
-        private String defaultTargetId;
-        private String targetPlaceholder;
-        private String contentField;
-        private Integer msgType;
-        private Integer tokenTtlBufferSeconds;
-    }
 }

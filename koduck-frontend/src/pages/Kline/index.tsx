@@ -425,21 +425,16 @@ export default function Kline() {
     if (klineData.length === 0) return
 
     const trading = isTradingHours()
-    console.log('[Kline] Trading hours check:', trading, 'Symbol:', symbol)
 
     if (!isLivePushTimeframe || !trading) {
-      console.log('[Kline] Not in trading hours, polling disabled')
       return
     }
 
-    console.log('[Kline] Starting price polling (3s interval)')
     const interval = setInterval(() => {
-      console.log('[Kline] Polling stock detail...')
       void fetchStockDetail()
     }, REALTIME_REFRESH_INTERVAL_MS)
 
     return () => {
-      console.log('[Kline] Stopping price polling')
       clearInterval(interval)
     }
   }, [fetchStockDetail, isLivePushTimeframe, klineData.length, symbol])
