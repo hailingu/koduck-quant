@@ -1,13 +1,20 @@
 spring:
   datasource:
-    # URL 将由 TestContainers 动态注入
-    driver-class-name: org.postgresql.Driver
+    # 默认使用内存数据库，避免本地测试依赖外部 PostgreSQL。
+    # 需要真实 PG 的集成测试通过 AbstractIntegrationTest + Testcontainers 注入覆盖。
+    url: jdbc:h2:mem:koduck_test;MODE=PostgreSQL;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
+    username: sa
+    password:
+    driver-class-name: org.h2.Driver
   jpa:
     hibernate:
-      ddl-auto: none  # 使用 Flyway 管理 schema
+      ddl-auto: update
     show-sql: true
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.H2Dialect
   flyway:
-    enabled: true
+    enabled: false
     locations: classpath:db/migration
     baseline-on-migrate: true
 

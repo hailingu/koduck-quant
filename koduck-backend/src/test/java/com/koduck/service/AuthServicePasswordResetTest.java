@@ -239,7 +239,7 @@ class AuthServicePasswordResetTest {
         // When & Then
         assertThatThrownBy(() -> authService.resetPassword(request))
                 .isInstanceOf(BusinessException.class)
-                .hasMessage("两次输入的密码不一致");
+                .hasMessage("密码不匹配");
 
         verifyNoInteractions(passwordResetTokenRepository);
     }
