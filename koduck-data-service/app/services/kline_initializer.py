@@ -10,6 +10,7 @@ import asyncio
 from datetime import datetime
 from pathlib import Path
 from typing import TypedDict
+from zoneinfo import ZoneInfo
 
 import pandas as pd
 import structlog
@@ -20,6 +21,7 @@ logger = structlog.get_logger(__name__)
 
 # 数据存储根目录
 DATA_DIR = Path(__file__).parent.parent.parent / "data" / "kline"
+ASIA_SHANGHAI_TZ = ZoneInfo("Asia/Shanghai")
 
 
 class ImportResult(TypedDict):
@@ -244,13 +246,17 @@ class KlineInitializer:
         # Minute data often carries both `datetime` (date-only) and `timestamp`.
         # Prefer epoch timestamp to preserve intraday precision.
         if is_minute_timeframe and timestamp_value is not None and not pd.isna(timestamp_value):
-            parsed_time = datetime.fromtimestamp(float(timestamp_value))
+            parsed_time = datetime.fromtimestamp(
+                float(timestamp_value), tz=ASIA_SHANGHAI_TZ
+            ).replace(tzinfo=None)
         elif "datetime" in row:
             parsed_time = pd.to_datetime(row["datetime"])
         elif "kline_time" in row:
             parsed_time = pd.to_datetime(row["kline_time"])
         elif timestamp_value is not None and not pd.isna(timestamp_value):
-            parsed_time = datetime.fromtimestamp(float(timestamp_value))
+            parsed_time = datetime.fromtimestamp(
+                float(timestamp_value), tz=ASIA_SHANGHAI_TZ
+            ).replace(tzinfo=None)
 
         if parsed_time is None or pd.isna(parsed_time):
             return None
