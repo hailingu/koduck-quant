@@ -193,6 +193,23 @@ async def get_batch_prices(request: BatchPriceRequest):
 
 
 @router.get(
+    "/hot",
+    response_model=ApiResponse[List[SymbolInfo]],
+    responses={500: {"description": "Internal server error"}},
+)
+async def get_hot_symbols(
+    limit: Annotated[int, Query(ge=1, le=100, description="maximum number of hot symbols")] = 20,
+):
+    """Get hot A-share symbols sorted by trading activity."""
+    try:
+        hot_symbols = akshare_client.get_hot_symbols(limit=limit)
+        return ApiResponse(data=hot_symbols)
+    except Exception as e:
+        logger.error("Hot symbols query error", extra={"limit": limit, "error": str(e)})
+        raise HTTPException(status_code=500, detail=f"Hot symbols query failed: {str(e)}")
+
+
+@router.get(
     "/indices",
     response_model=ApiResponse[List[MarketIndex]],
     responses={500: {"description": "Internal server error"}},
@@ -228,26 +245,27 @@ async def get_market_status():
         ApiResponse[dict]: Dictionary with ``market``, ``is_trading`` flag, and
         optional ``shanghai_index`` snapshot.
     """
-    try:
-        import akshare as ak
+    now_cn = datetime.now(ZoneInfo("Asia/Shanghai"))
+    is_trading = _is_a_share_trading_session(now_cn)
 
-        now_cn = datetime.now(ZoneInfo("Asia/Shanghai"))
-        is_trading = _is_a_share_trading_session(now_cn)
-        
-        # Get Shanghai index as market indicator
-        df = ak.stock_zh_index_spot_em()
-        shanghai_index = _build_shanghai_index_snapshot(df)
-        
-        status = {
-            "market": "AShare",
-            "is_trading": is_trading,
-            "shanghai_index": shanghai_index,
-        }
-        
-        return ApiResponse(data=status)
+    shanghai_index: dict[str, float] | None = None
+    try:
+        indices = akshare_client.get_market_indices()
+        sh_index = next((idx for idx in indices if idx.symbol == "000001"), None)
+        if sh_index:
+            shanghai_index = {
+                "price": float(sh_index.price or 0),
+                "change_percent": float(sh_index.change_percent or 0),
+            }
     except Exception as e:
-        logger.error("Market status query error", extra={"error": str(e)})
-        raise HTTPException(status_code=500, detail=f"Market status query failed: {str(e)}")
+        logger.warning("Market indices fallback failed", extra={"error": str(e)})
+
+    status = {
+        "market": "AShare",
+        "is_trading": is_trading,
+        "shanghai_index": shanghai_index,
+    }
+    return ApiResponse(data=status)
 
 
 @router.get(

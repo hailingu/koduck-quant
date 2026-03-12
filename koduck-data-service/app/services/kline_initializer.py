@@ -194,14 +194,18 @@ class KlineInitializer:
         searches the path segments for ``"kline"`` and returns the following
         component.  Defaults to ``"1D"`` if no timeframe can be determined.
         """
-        if csv_path.parent.name and csv_path.parent.name != "kline":
-            return csv_path.parent.name
+        known_timeframes = {"1D", "1W", "1M", "1m", "5m", "15m", "30m", "60m"}
+        parent_name = csv_path.parent.name
+        if parent_name in known_timeframes:
+            return parent_name
 
         parts = csv_path.parts
         if "kline" in parts:
             idx = parts.index("kline")
             if idx + 1 < len(parts):
-                return parts[idx + 1]
+                candidate = parts[idx + 1]
+                if candidate in known_timeframes:
+                    return candidate
         return "1D"
 
     def _normalize_symbol(self, symbol: object) -> str:

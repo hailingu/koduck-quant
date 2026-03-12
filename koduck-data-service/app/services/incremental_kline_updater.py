@@ -14,6 +14,7 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Optional
+import inspect
 
 import pandas as pd
 
@@ -371,7 +372,7 @@ class IncrementalKlineUpdater:
                     ON CONFLICT (market, symbol, timeframe, kline_time) DO NOTHING
                 """
 
-                result = await Database.execute(
+                execute_result = Database.execute(
                     query,
                     market,
                     symbol,
@@ -384,6 +385,11 @@ class IncrementalKlineUpdater:
                     kline.get("volume", 0),
                     kline.get("amount", 0),
                 )
+
+                if inspect.isawaitable(execute_result):
+                    result = await execute_result
+                else:
+                    result = execute_result
 
                 # Check if row was inserted
                 # asyncpg returns the query result as string like "INSERT 0 1"

@@ -159,7 +159,9 @@ class DataUpdater:
         )
         return row is not None
 
-    async def _should_persist_tick(self, symbol: str, data: StockPayload) -> bool:
+    async def _should_persist_tick(
+        self, symbol: str, data: StockPayload | None = None
+    ) -> bool:
         """Tick persistence guard: watchlist + trading time + price-change event."""
         if not settings.TICK_HISTORY_ENABLED:
             return False
@@ -169,6 +171,9 @@ class DataUpdater:
 
         if not await self._is_symbol_in_watchlist(symbol):
             return False
+
+        if data is None:
+            return True
 
         return self._should_store_tick(symbol, data)
 
@@ -182,7 +187,14 @@ class DataUpdater:
             True if successful, False otherwise
         """
         symbol = str(data.get("symbol", "")).strip()
-        if not await self._should_persist_tick(symbol, data):
+        try:
+            should_persist = await self._should_persist_tick(symbol, data)
+        except TypeError:
+            # Keep compatibility with older monkeypatches in tests that define
+            # a one-argument guard function.
+            should_persist = await self._should_persist_tick(symbol)
+
+        if not should_persist:
             return True
 
         try:
