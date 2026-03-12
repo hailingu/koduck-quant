@@ -34,6 +34,7 @@ RUN apk add --no-cache curl
 # Copy custom nginx configuration (main config + server config)
 COPY nginx.conf /etc/nginx/nginx.conf
 COPY default.conf /etc/nginx/conf.d/default.conf
+COPY entrypoint.sh /usr/local/bin/koduck-entrypoint.sh
 
 # Disable Nginx entrypoint worker_processes autotune to preserve our custom value
 ENV NGINX_ENTRYPOINT_WORKER_PROCESSES_AUTOTUNE=
@@ -44,7 +45,8 @@ COPY --from=builder /app/dist /usr/share/nginx/html
 # Create non-root user (nginx already runs as non-root in alpine)
 # Ensure proper permissions
 RUN chown -R nginx:nginx /usr/share/nginx/html && \
-    chmod -R 755 /usr/share/nginx/html
+    chmod -R 755 /usr/share/nginx/html && \
+    chmod +x /usr/local/bin/koduck-entrypoint.sh
 
 # Expose port
 EXPOSE 80
@@ -53,5 +55,5 @@ EXPOSE 80
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
     CMD curl -f http://localhost/ || exit 1
 
-# Start Nginx
-CMD ["nginx", "-g", "daemon off;"]
+# Use custom JSON entrypoint and start Nginx
+ENTRYPOINT ["/usr/local/bin/koduck-entrypoint.sh"]

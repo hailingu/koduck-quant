@@ -40,11 +40,12 @@ def _is_a_share_trading_session(now_cn: datetime) -> bool:
 
     Returns:
         bool: ``True`` if the timestamp falls on a weekday and within either the
-            morning (09:30–11:30) or afternoon (13:00–15:00) session.
+            morning (09:15–11:30, including call auction) or afternoon
+            (13:00–15:00) session.
     """
     is_weekday = now_cn.weekday() < 5
     current_time = now_cn.time()
-    in_morning_session = time(9, 30) <= current_time < time(11, 30)
+    in_morning_session = time(9, 15) <= current_time < time(11, 30)
     in_afternoon_session = time(13, 0) <= current_time < time(15, 0)
     return is_weekday and (in_morning_session or in_afternoon_session)
 

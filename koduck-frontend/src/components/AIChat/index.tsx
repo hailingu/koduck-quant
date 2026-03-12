@@ -35,6 +35,22 @@ interface Provider {
   models: string[]
 }
 
+type ProviderId = 'minimax' | 'deepseek' | 'openai'
+
+interface ProviderConfig {
+  apiKey?: string
+  apiBase?: string
+}
+
+interface LlmConfig {
+  provider?: string
+  apiKey?: string
+  apiBase?: string
+  minimax?: ProviderConfig
+  deepseek?: ProviderConfig
+  openai?: ProviderConfig
+}
+
 const getAuthToken = (): string => {
   const authStorage = localStorage.getItem('auth-storage')
   if (!authStorage) {
@@ -83,6 +99,11 @@ export function AIChat({ symbol, stockName, stockInfo }: AIChatProps) {
   const [input, setInput] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [selectedProvider, setSelectedProvider] = useState<string>('minimax')
+  const [providerConfigs, setProviderConfigs] = useState<Record<ProviderId, ProviderConfig>>({
+    minimax: {},
+    deepseek: {},
+    openai: {},
+  })
   const [showProviderDropdown, setShowProviderDropdown] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const dropdownRef = useRef<HTMLDivElement>(null)
@@ -149,10 +170,36 @@ export function AIChat({ symbol, stockName, stockInfo }: AIChatProps) {
     const loadPreferredProvider = async () => {
       try {
         const settings = await settingsApi.getSettings()
-        const provider = (settings.llmConfig?.provider || '').toLowerCase()
+        const llmConfig = (settings.llmConfig || {}) as LlmConfig
+        const provider = (llmConfig.provider || '').toLowerCase()
         if (PROVIDERS.some((p) => p.id === provider)) {
           setSelectedProvider(provider)
         }
+
+        const activeProvider = (PROVIDERS.some((p) => p.id === provider) ? provider : 'minimax') as ProviderId
+        const nextProviderConfigs: Record<ProviderId, ProviderConfig> = {
+          minimax: {
+            apiKey: llmConfig.minimax?.apiKey || '',
+            apiBase: llmConfig.minimax?.apiBase || '',
+          },
+          deepseek: {
+            apiKey: llmConfig.deepseek?.apiKey || '',
+            apiBase: llmConfig.deepseek?.apiBase || '',
+          },
+          openai: {
+            apiKey: llmConfig.openai?.apiKey || '',
+            apiBase: llmConfig.openai?.apiBase || '',
+          },
+        }
+
+        // 兼容旧结构：仅有顶层 apiKey/apiBase 时，回填到当前激活 provider
+        if (!nextProviderConfigs[activeProvider].apiKey && llmConfig.apiKey) {
+          nextProviderConfigs[activeProvider].apiKey = llmConfig.apiKey
+        }
+        if (!nextProviderConfigs[activeProvider].apiBase && llmConfig.apiBase) {
+          nextProviderConfigs[activeProvider].apiBase = llmConfig.apiBase
+        }
+        setProviderConfigs(nextProviderConfigs)
       } catch (error) {
         console.warn('Failed to load preferred LLM provider:', error)
       }
@@ -160,6 +207,15 @@ export function AIChat({ symbol, stockName, stockInfo }: AIChatProps) {
 
     loadPreferredProvider()
   }, [])
+
+  const selectedProviderConfig = providerConfigs[(selectedProvider as ProviderId) || 'minimax']
+  const requiresExplicitApiKey = selectedProvider === 'openai' || selectedProvider === 'deepseek'
+  const hasSelectedProviderApiKey = !!selectedProviderConfig?.apiKey?.trim()
+  const providerKeyMissing = requiresExplicitApiKey && !hasSelectedProviderApiKey
+  const providerKeyMissingMessage =
+    selectedProvider === 'openai'
+      ? 'OpenAI API Key 为空，请先到设置页填写后再使用 AI 分析。'
+      : 'DeepSeek API Key 为空，请先到设置页填写后再使用 AI 分析。'
 
   // 股票分析 API 调用
   const callAIAnalysis = async (question: string): Promise<string> => {
@@ -354,6 +410,17 @@ export function AIChat({ symbol, stockName, stockInfo }: AIChatProps) {
   // 处理用户输入（普通对话 - 流式）
   const handleSend = async (content: string) => {
     if (!content.trim()) return
+    if (providerKeyMissing) {
+      const warnMessage: Message = {
+        id: Date.now().toString(),
+        role: 'assistant',
+        content: `❌ ${providerKeyMissingMessage}`,
+        timestamp: new Date(),
+        type: 'general',
+      }
+      setMessages((prev) => [...prev, warnMessage])
+      return
+    }
 
     const userMessage: Message = {
       id: Date.now().toString(),
@@ -411,6 +478,17 @@ export function AIChat({ symbol, stockName, stockInfo }: AIChatProps) {
   // 处理快捷问题（股票分析）
   const handleQuickQuestion = async (question: string) => {
     if (!question.trim()) return
+    if (providerKeyMissing) {
+      const warnMessage: Message = {
+        id: Date.now().toString(),
+        role: 'assistant',
+        content: `❌ ${providerKeyMissingMessage}`,
+        timestamp: new Date(),
+        type: 'general',
+      }
+      setMessages((prev) => [...prev, warnMessage])
+      return
+    }
 
     const userMessage: Message = {
       id: Date.now().toString(),
@@ -506,12 +584,15 @@ export function AIChat({ symbol, stockName, stockInfo }: AIChatProps) {
       {/* Quick Questions */}
       <div className="px-3 py-2 border-b border-gray-200 dark:border-gray-700">
         <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">快捷分析：</p>
+        {providerKeyMissing && (
+          <p className="text-xs text-red-500 dark:text-red-400 mb-2">{providerKeyMissingMessage}</p>
+        )}
         <div className="flex flex-wrap gap-2">
           {QUICK_QUESTIONS.map((item) => (
             <button
               key={item.label}
               onClick={() => handleQuickQuestion(item.question)}
-              disabled={isLoading}
+              disabled={isLoading || providerKeyMissing}
               className="flex items-center gap-1 px-2 py-1 text-xs font-medium bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-full hover:bg-primary-100 dark:hover:bg-primary-900/30 hover:text-primary-600 dark:hover:text-primary-400 transition-colors disabled:opacity-50"
             >
               <item.icon className="w-3 h-3" />
@@ -578,12 +659,12 @@ export function AIChat({ symbol, stockName, stockInfo }: AIChatProps) {
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && handleSend(input)}
             placeholder={`询问${currentProvider?.name}关于这只股票的分析...`}
-            disabled={isLoading}
+            disabled={isLoading || providerKeyMissing}
             className="flex-1 px-3 py-2 text-sm bg-gray-100 dark:bg-gray-700 border-0 rounded-lg focus:ring-2 focus:ring-primary-500 focus:bg-white dark:focus:bg-gray-800 transition-all placeholder:text-gray-400 disabled:opacity-50"
           />
           <button
             onClick={() => handleSend(input)}
-            disabled={!input.trim() || isLoading}
+            disabled={!input.trim() || isLoading || providerKeyMissing}
             className="p-2 bg-primary-500 text-white rounded-lg hover:bg-primary-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
             <Send className="w-4 h-4" />

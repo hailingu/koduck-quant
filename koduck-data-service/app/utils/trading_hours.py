@@ -12,8 +12,8 @@ import pytz
 
 logger = logging.getLogger(__name__)
 
-# A-share trading hours (Beijing Time)
-MORNING_START = time(9, 30)
+# A-share trading sessions (Beijing Time), including call auction.
+MORNING_START = time(9, 15)
 MORNING_END = time(11, 30)
 AFTERNOON_START = time(13, 0)
 AFTERNOON_END = time(15, 0)
@@ -22,8 +22,8 @@ AFTERNOON_END = time(15, 0)
 def is_a_share_trading_time(dt: Optional[datetime] = None) -> bool:
     """Check if the given datetime is within A-share trading hours.
 
-    A-share trading hours (Beijing Time):
-    - Morning: 09:30 - 11:30
+    A-share trading sessions (Beijing Time):
+    - Morning (including call auction): 09:15 - 11:30
     - Afternoon: 13:00 - 15:00
     - Monday to Friday only
 

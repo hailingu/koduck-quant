@@ -39,8 +39,6 @@ logging:
   level:
     root: INFO
     com.koduck: DEBUG
-  pattern:
-    console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
 
 # JWT 配置
 jwt:

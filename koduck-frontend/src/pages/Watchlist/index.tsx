@@ -371,8 +371,9 @@ export default function Watchlist() {
                   strokeLinecap="round"
                   strokeLinejoin="round"
                   strokeWidth={2}
-                  d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"
+                  d="M4 19h16M7 15v3M11 11v7M15 13v5M19 9v9M6.5 10.5l3.5-3 3 2 4-4"
                 />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 5h3v3" />
               </svg>
               <h3 className="text-lg font-medium text-[#1d1d1f] dark:text-white mb-2">暂无自选股</h3>
               <p className="text-[#8e8e93] dark:text-gray-400 mb-4">点击上方按钮添加您关注的股票</p>

@@ -153,18 +153,24 @@ export const portfolioApi = {
   },
 
   // 获取收益曲线（前端 Mock，需要后端支持历史数据）
-  getPnLHistory: (summary: PortfolioSummary): Promise<PnLPoint[]> => {
-    // 生成简单的模拟历史数据
+  getPnLHistory: (summary: PortfolioSummary, activeDays: number = 30): Promise<PnLPoint[]> => {
+    if (summary.totalCost <= 0 && summary.totalMarketValue <= 0) {
+      return Promise.resolve([])
+    }
+
+    // 按有效天数生成模拟数据：
+    // - <30: 显示对应日期范围
+    // - >=30: 仅最近30天
+    const clampedDays = Math.max(1, Math.min(activeDays, 30))
     const points: PnLPoint[] = []
-    const days = 30
     const baseValue = summary.totalCost
     const currentValue = summary.totalMarketValue
-    const dailyChange = (currentValue - baseValue) / days
+    const dailyChange = clampedDays > 1 ? (currentValue - baseValue) / (clampedDays - 1) : 0
 
-    for (let i = days; i >= 0; i--) {
+    for (let i = clampedDays - 1; i >= 0; i--) {
       const date = new Date()
       date.setDate(date.getDate() - i)
-      const value = baseValue + dailyChange * (days - i)
+      const value = baseValue + dailyChange * (clampedDays - 1 - i)
       points.push({
         date: date.toISOString().split('T')[0],
         value: Math.round(value * 100) / 100,

@@ -15,6 +15,7 @@ COPY pyproject.toml README.md ./
 RUN pip install --no-cache-dir \
     pydantic>=2.0.0 \
     pyyaml>=6.0.0 \
+    structlog>=24.4.0 \
     httpx>=0.27.0 \
     openai>=1.57.0 \
     anthropic>=0.39.0 \

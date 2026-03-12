@@ -46,12 +46,12 @@ public class DataServiceClient {
      */
     public void triggerRealtimeUpdate(List<String> symbols) {
         if (!dataServiceProperties.isEnabled()) {
-            log.debug("Data service integration is disabled, skipping realtime update");
+            log.debug("realtime_update_skipped reason=data_service_disabled");
             return;
         }
 
         if (symbols == null || symbols.isEmpty()) {
-            log.debug("No symbols provided for realtime update");
+            log.debug("realtime_update_skipped reason=empty_symbols");
             return;
         }
 
@@ -69,12 +69,12 @@ public class DataServiceClient {
 
             restTemplate.postForObject(url, request, Void.class);
 
-            log.info("Successfully triggered realtime update for {} symbols: {}",
+            log.info("realtime_update_triggered symbolsCount={} symbols={}",
                     symbols.size(), symbols);
         } catch (Exception e) {
             // Log warning but don't fail the main operation
             // The data will be updated on the next scheduled sync
-            log.warn("Failed to trigger realtime update for symbols {}: {}",
+            log.warn("realtime_update_trigger_failed symbols={} error={}",
                     symbols, e.getMessage());
         }
     }

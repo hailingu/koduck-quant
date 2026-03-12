@@ -44,7 +44,7 @@ public class WatchlistService {
      * Get user's watchlist with real-time prices.
      */
     public List<WatchlistItemDto> getWatchlist(Long userId) {
-        log.debug("Getting watchlist for user: {}", userId);
+        log.debug("watchlist_get userId={}", userId);
         
         List<WatchlistItem> items = watchlistRepository.findByUserIdOrderBySortOrderAsc(userId);
 
@@ -72,8 +72,8 @@ public class WatchlistService {
         // Normalize symbol to standard 6-digit format for consistent storage
         // This ensures watchlist symbols match stock_realtime table format
         String normalizedSymbol = SymbolUtils.normalize(request.symbol());
-        log.debug("Adding to watchlist: user={}, market={}, symbol={} (normalized: {})", 
-                 userId, request.market(), request.symbol(), normalizedSymbol);
+        log.debug("watchlist_add_start userId={} market={} symbol={} normalizedSymbol={}",
+                userId, request.market(), request.symbol(), normalizedSymbol);
         
         // Check if already exists (using normalized symbol)
         if (watchlistRepository.existsByUserIdAndMarketAndSymbol(
@@ -100,7 +100,8 @@ public class WatchlistService {
             .build();
         
         WatchlistItem saved = watchlistRepository.save(Objects.requireNonNull(item));
-        log.info("Added to watchlist: id={}, user={}, symbol={}", saved.getId(), userId, request.symbol());
+        log.info("watchlist_add_success id={} userId={} symbol={}",
+                saved.getId(), userId, request.symbol());
         
         // Trigger realtime data update for the newly added symbol
         // This is asynchronous and non-blocking - failures are logged but don't affect the main flow
@@ -115,10 +116,10 @@ public class WatchlistService {
      */
     @Transactional
     public void removeFromWatchlist(Long userId, Long itemId) {
-        log.debug("Removing from watchlist: user={}, itemId={}", userId, itemId);
+        log.debug("watchlist_remove_start userId={} itemId={}", userId, itemId);
         
         watchlistRepository.deleteByUserIdAndId(userId, itemId);
-        log.info("Removed from watchlist: user={}, itemId={}", userId, itemId);
+        log.info("watchlist_remove_success userId={} itemId={}", userId, itemId);
     }
     
     /**
@@ -126,13 +127,13 @@ public class WatchlistService {
      */
     @Transactional
     public void sortWatchlist(Long userId, SortWatchlistRequest request) {
-        log.debug("Sorting watchlist: user={}, items={}", userId, request.items().size());
+        log.debug("watchlist_sort_start userId={} itemsCount={}", userId, request.items().size());
         
         for (SortWatchlistRequest.SortItem item : request.items()) {
             watchlistRepository.updateSortOrder(item.id(), userId, item.sortOrder());
         }
         
-        log.info("Watchlist sorted: user={}", userId);
+        log.info("watchlist_sort_success userId={}", userId);
     }
     
     /**
@@ -140,7 +141,7 @@ public class WatchlistService {
      */
     @Transactional
     public WatchlistItemDto updateNotes(Long userId, Long itemId, String notes) {
-        log.debug("Updating notes: user={}, itemId={}", userId, itemId);
+        log.debug("watchlist_update_notes_start userId={} itemId={}", userId, itemId);
         
         WatchlistItem item = watchlistRepository.findById(Objects.requireNonNull(itemId))
             .orElseThrow(() -> new IllegalArgumentException("Watchlist item not found"));
@@ -182,7 +183,7 @@ public class WatchlistService {
         CompletableFuture.runAsync(() -> dataServiceClient.triggerRealtimeUpdate(symbolsToRefresh))
                 .orTimeout(3, TimeUnit.SECONDS)
                 .exceptionally(ex -> {
-                    log.warn("Realtime update trigger timed out/failed for symbols {}: {}",
+                    log.warn("watchlist_realtime_update_failed symbols={} error={}",
                             symbolsToRefresh, ex.getMessage());
                     return null;
                 });
@@ -193,7 +194,8 @@ public class WatchlistService {
         // stock_realtime stores symbols as 6-digit (e.g., "601012")
         // watchlist_item may have market prefix (e.g., "SH601012" or just "601012")
         String normalizedSymbol = SymbolUtils.normalize(item.getSymbol());
-        log.debug("Looking up realtime price for symbol: {} (original: {})", normalizedSymbol, item.getSymbol());
+        log.debug("watchlist_lookup_realtime_price normalizedSymbol={} originalSymbol={}",
+                normalizedSymbol, item.getSymbol());
         
         Optional<StockRealtime> realtimeOpt = Optional.ofNullable(realtimeBySymbol.get(normalizedSymbol));
         

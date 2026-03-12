@@ -4,6 +4,7 @@ import asyncio
 import logging
 import sys
 from contextlib import asynccontextmanager
+from time import perf_counter
 
 import structlog
 from fastapi import FastAPI
@@ -52,32 +53,90 @@ def setup_logging():
     The function sets up ``structlog`` processors and binds the standard library
     logging level.
     """
+    def reorder_log_fields(_, __, event_dict):
+        """Keep key order stable for readability in JSON logs."""
+        preferred_order = (
+            "event",
+            "logger",
+            "level",
+            "timestamp",
+            "method",
+            "path",
+            "status_code",
+            "client_ip",
+            "duration_ms",
+            "version",
+            "debug",
+            "check_interval",
+            "update_time",
+            "iteration",
+            "symbols",
+            "success_count",
+            "error",
+        )
+        reordered = {}
+
+        for key in preferred_order:
+            if key in event_dict:
+                reordered[key] = event_dict[key]
+
+        for key, value in event_dict.items():
+            if key not in reordered:
+                reordered[key] = value
+
+        return reordered
+
+    shared_processors = [
+        structlog.stdlib.add_logger_name,
+        structlog.stdlib.add_log_level,
+        structlog.stdlib.PositionalArgumentsFormatter(),
+        structlog.processors.TimeStamper(fmt="iso"),
+        structlog.processors.StackInfoRenderer(),
+        structlog.processors.format_exc_info,
+        structlog.processors.UnicodeDecoder(),
+        reorder_log_fields,
+    ]
+    renderer = (
+        structlog.processors.JSONRenderer()
+        if settings.LOG_FORMAT == "json"
+        else structlog.dev.ConsoleRenderer()
+    )
+
     structlog.configure(
         processors=[
             structlog.stdlib.filter_by_level,
-            structlog.stdlib.add_logger_name,
-            structlog.stdlib.add_log_level,
-            structlog.stdlib.PositionalArgumentsFormatter(),
-            structlog.processors.TimeStamper(fmt="iso"),
-            structlog.processors.StackInfoRenderer(),
-            structlog.processors.format_exc_info,
-            structlog.processors.UnicodeDecoder(),
-            structlog.processors.JSONRenderer()
-            if settings.LOG_FORMAT == "json"
-            else structlog.dev.ConsoleRenderer(),
+            *shared_processors,
+            structlog.stdlib.ProcessorFormatter.wrap_for_formatter,
         ],
         context_class=dict,
         logger_factory=structlog.stdlib.LoggerFactory(),
         wrapper_class=structlog.stdlib.BoundLogger,
         cache_logger_on_first_use=True,
     )
-    
-    # Set log level
-    logging.basicConfig(
-        format="%(message)s",
-        stream=sys.stdout,
-        level=getattr(logging, settings.LOG_LEVEL.upper()),
+
+    formatter = structlog.stdlib.ProcessorFormatter(
+        processor=renderer,
+        foreign_pre_chain=shared_processors,
     )
+    handler = logging.StreamHandler(sys.stdout)
+    handler.setFormatter(formatter)
+
+    root_logger = logging.getLogger()
+    root_logger.handlers.clear()
+    root_logger.addHandler(handler)
+    root_logger.setLevel(getattr(logging, settings.LOG_LEVEL.upper()))
+
+    # Route uvicorn/error/asgi logs through root formatter.
+    for logger_name in ("uvicorn", "uvicorn.error", "uvicorn.asgi"):
+        uv_logger = logging.getLogger(logger_name)
+        uv_logger.handlers.clear()
+        uv_logger.propagate = True
+
+    # Disable Uvicorn's default plain-text access log to avoid mixed formats.
+    # We emit structured health-check access logs via middleware below.
+    uvicorn_access_logger = logging.getLogger("uvicorn.access")
+    uvicorn_access_logger.handlers.clear()
+    uvicorn_access_logger.propagate = False
 
 
 @asynccontextmanager
@@ -173,8 +232,8 @@ async def run_realtime_update_scheduler():
     :func:`app.services.data_updater.run_realtime_loop` for ongoing
     polling every 30 seconds.
     
-    By default updates run only during A-share trading hours
-    (09:30-11:30, 13:00-15:00). Legacy mode can still skip updates during
+    By default updates run only during A-share trading sessions
+    (09:15-11:30, 13:00-15:00). Legacy mode can still skip updates during
     trading hours via ``REALTIME_SKIP_DURING_TRADING_HOURS`` when
     ``REALTIME_ONLY_DURING_TRADING_HOURS`` is disabled.
     """
@@ -332,6 +391,25 @@ def create_app() -> FastAPI:
     app.include_router(ai_analysis.router, prefix=API_V1_PREFIX)
     app.include_router(kline.router, prefix=API_V1_PREFIX)
     app.include_router(market.router, prefix=API_V1_PREFIX)
+
+    @app.middleware("http")
+    async def log_healthcheck_requests(request, call_next):
+        """Emit structured JSON access logs for health checks."""
+        started_at = perf_counter()
+        response = await call_next(request)
+
+        if request.url.path == "/health":
+            logger = structlog.get_logger("app.access")
+            logger.info(
+                "Health check request",
+                method=request.method,
+                path=request.url.path,
+                status_code=response.status_code,
+                client_ip=request.client.host if request.client else None,
+                duration_ms=round((perf_counter() - started_at) * 1000, 2),
+            )
+
+        return response
     
     return app
 

@@ -324,7 +324,18 @@ export default function Portfolio() {
         portfolioApi.getPortfolioSummary(),
       ])
 
-      const pnlData = await portfolioApi.getPnLHistory(summaryData)
+      const tradeRecords = await portfolioApi.getTradeRecords().catch(() => [])
+      const now = Date.now()
+      const earliestTradeTs = tradeRecords
+        .map((trade) => new Date(trade.tradeTime).getTime())
+        .filter((ts) => Number.isFinite(ts) && ts > 0)
+        .sort((a, b) => a - b)[0]
+      const activeDays = earliestTradeTs
+        ? Math.max(1, Math.floor((now - earliestTradeTs) / (24 * 60 * 60 * 1000)) + 1)
+        : summaryData.totalCost > 0 || summaryData.totalMarketValue > 0
+          ? 1
+          : 0
+      const pnlData = await portfolioApi.getPnLHistory(summaryData, activeDays)
       setPortfolio(portfolioData)
       setPnLHistory(pnlData)
       setLoading(false)
@@ -359,6 +370,11 @@ export default function Portfolio() {
   useEffect(() => {
     if (loading || !pnlChartRef.current || !barChartRef.current) return
 
+    const pnlRateSeries =
+      pnlHistory.length > 0 && pnlHistory[0].value > 0
+        ? pnlHistory.map((point) => Number((((point.value - pnlHistory[0].value) / pnlHistory[0].value) * 100).toFixed(2)))
+        : []
+
     pnlChartInstance.current = echarts.init(pnlChartRef.current)
     pnlChartInstance.current.setOption({
       backgroundColor: 'transparent',
@@ -366,7 +382,7 @@ export default function Portfolio() {
         trigger: 'axis',
         formatter: (params: any) => {
           const data = params[0]
-          return `<div class="font-[system-ui]">${data.name}<br/><span class="font-medium">市值: ${formatMoney(data.value)}</span></div>`
+          return `<div class="font-[system-ui]">${data.name}<br/><span class="font-medium">收益率: ${Number(data.value).toFixed(2)}%</span></div>`
         },
         backgroundColor: 'rgba(255,255,255,0.9)',
         borderColor: '#f0f0f0',
@@ -387,13 +403,16 @@ export default function Portfolio() {
         axisLine: { show: false },
         axisTick: { show: false },
         splitLine: { lineStyle: { color: '#f5f5f7', type: 'dashed' } },
-        axisLabel: { color: '#86868b' },
+        axisLabel: {
+          color: '#86868b',
+          formatter: (value: number) => `${value}%`,
+        },
       },
       series: [
         {
-          name: '市值',
+          name: '收益率',
           type: 'line',
-          data: pnlHistory.map((p) => p.value),
+          data: pnlRateSeries,
           smooth: 0.3,
           showSymbol: false,
           areaStyle: {
@@ -516,7 +535,7 @@ export default function Portfolio() {
   }
 
   return (
-    <div className="min-h-[calc(100vh-theme(spacing.16))] py-6 px-4 md:px-8 space-y-6 [font-family:-apple-system,BlinkMacSystemFont,'SF_Pro_Text','Helvetica_Neue','Segoe_UI',sans-serif] bg-[#f5f5f7] dark:bg-black text-[#1d1d1f] dark:text-white">
+    <div className="min-h-[calc(100vh-theme(spacing.16))] py-6 px-4 md:px-8 space-y-6 [font-family:-apple-system,BlinkMacSystemFont,'SF_Pro_Text','Helvetica_Neue','Segoe_UI',sans-serif] text-[#1d1d1f] dark:text-white">
       {/* 紧凑型数据中枢 */}
       <div className={`${APPLE_CARD_CLASS} px-6 py-6 md:px-8`}>
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 md:gap-0">

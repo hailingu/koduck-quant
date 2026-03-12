@@ -70,11 +70,12 @@ public class AiAnalysisService {
     /**
      * 股票智能分析 - 调用 koduck-agent 获取真实 AI 分析
      */
-    public StockAnalysisResponse analyzeStock(StockAnalysisRequest request) {
+    public StockAnalysisResponse analyzeStock(Long userId, StockAnalysisRequest request) {
         String symbol = request.getSymbol();
         String market = request.getMarket();
         String question = request.getQuestion();
         String provider = resolveProvider(request.getProvider());
+        UserSettingsDto.LlmConfigDto effectiveConfig = userSettingsService.getEffectiveLlmConfig(userId, provider);
         
         log.debug("Analyzing stock: {}, market: {}, question: {}, provider: {}", symbol, market, question, provider);
 
@@ -83,7 +84,7 @@ public class AiAnalysisService {
             String userQuestion = buildStockAnalysisPrompt(request);
             
             // 调用 koduck-agent
-            String aiResponse = callAgentChat(provider, userQuestion);
+            String aiResponse = callAgentChat(provider, userQuestion, effectiveConfig);
             
             return StockAnalysisResponse.builder()
                 .analysis(aiResponse)
@@ -98,9 +99,8 @@ public class AiAnalysisService {
                 .build();
                 
         } catch (Exception e) {
-            log.error("Failed to call koduck-agent, falling back to mock: {}", e.getMessage());
-            // 如果调用失败，回退到模拟数据
-            return analyzeStockWithMock(request);
+            log.error("Failed to call koduck-agent: {}", e.getMessage(), e);
+            throw new RuntimeException("AI 分析服务调用失败: " + e.getMessage(), e);
         }
     }
     
@@ -146,12 +146,15 @@ public class AiAnalysisService {
     /**
      * 调用 koduck-agent 的 chat API
      */
-    private String callAgentChat(String provider, String userMessage) {
+    private String callAgentChat(String provider, String userMessage, UserSettingsDto.LlmConfigDto config) {
         String agentUrl = agentConfig.getUrl() + "/v1/chat/completions";
         
         // 构建请求体
         Map<String, Object> requestBody = new HashMap<>();
         requestBody.put("provider", resolveProvider(provider));
+        requestBody.put("apiKey", config != null && config.getApiKey() != null ? config.getApiKey() : "");
+        requestBody.put("apiBase", config != null ? config.getApiBase() : null);
+        requestBody.put("qqBot", config != null ? config.getQqBot() : null);
         
         List<Map<String, String>> messages = new ArrayList<>();
         messages.add(Map.of("role", "user", "content", userMessage));
@@ -198,8 +201,9 @@ public class AiAnalysisService {
         UserSettingsDto.LlmConfigDto effectiveConfig = userSettingsService.getEffectiveLlmConfig(userId, provider);
         ChatStreamRequest configuredRequest = ChatStreamRequest.builder()
             .provider(provider)
-            .apiKey(effectiveConfig != null ? effectiveConfig.getApiKey() : null)
+            .apiKey(effectiveConfig != null && effectiveConfig.getApiKey() != null ? effectiveConfig.getApiKey() : "")
             .apiBase(effectiveConfig != null ? effectiveConfig.getApiBase() : null)
+            .qqBot(toQqBotRequest(effectiveConfig != null ? effectiveConfig.getQqBot() : null))
             .messages(request.getMessages())
             .build();
         ChatStreamRequest guardedRequest = appendInstructionToSystem(configuredRequest, NO_TOOL_MARKUP_GUARD);
@@ -279,6 +283,7 @@ public class AiAnalysisService {
             .provider(request.getProvider())
             .apiKey(request.getApiKey())
             .apiBase(request.getApiBase())
+            .qqBot(request.getQqBot())
             .messages(updatedMessages)
             .build();
     }
@@ -317,6 +322,7 @@ public class AiAnalysisService {
             .provider(request.getProvider())
             .apiKey(request.getApiKey())
             .apiBase(request.getApiBase())
+            .qqBot(request.getQqBot())
             .messages(updatedMessages)
             .build();
     }
@@ -420,6 +426,26 @@ public class AiAnalysisService {
         return response.values().get(key);
     }
 
+    private ChatStreamRequest.QqBotConfigRequest toQqBotRequest(
+            UserSettingsDto.QqBotConfigDto config) {
+        if (config == null) {
+            return null;
+        }
+        return ChatStreamRequest.QqBotConfigRequest.builder()
+            .enabled(config.getEnabled())
+            .appId(config.getAppId())
+            .clientSecret(config.getClientSecret())
+            .apiBase(config.getApiBase())
+            .tokenPath(config.getTokenPath())
+            .sendUrlTemplate(config.getSendUrlTemplate())
+            .defaultTargetId(config.getDefaultTargetId())
+            .targetPlaceholder(config.getTargetPlaceholder())
+            .contentField(config.getContentField())
+            .msgType(config.getMsgType())
+            .tokenTtlBufferSeconds(config.getTokenTtlBufferSeconds())
+            .build();
+    }
+
     private void relayAgentStream(ChatStreamRequest request, SseEmitter emitter) {
         HttpURLConnection connection = null;
         try {
@@ -429,6 +455,7 @@ public class AiAnalysisService {
                 .provider(provider)
                 .apiKey(request.getApiKey())
                 .apiBase(request.getApiBase())
+                .qqBot(request.getQqBot())
                 .messages(request.getMessages())
                 .build();
             String requestBody = objectMapper.writeValueAsString(normalizedRequest);

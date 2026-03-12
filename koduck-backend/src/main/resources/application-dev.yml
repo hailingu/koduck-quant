@@ -7,7 +7,7 @@ spring:
   jpa:
     hibernate:
       ddl-auto: update
-    show-sql: true
+    show-sql: false
   data:
     redis:
       host: ${REDIS_HOST:localhost}

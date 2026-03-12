@@ -25,7 +25,27 @@ public class ChatStreamRequest {
 
     private String apiBase;
 
+    private QqBotConfigRequest qqBot;
+
     @Valid
     @NotEmpty(message = "消息列表不能为空")
     private List<ChatMessageRequest> messages;
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class QqBotConfigRequest {
+        private Boolean enabled;
+        private String appId;
+        private String clientSecret;
+        private String apiBase;
+        private String tokenPath;
+        private String sendUrlTemplate;
+        private String defaultTargetId;
+        private String targetPlaceholder;
+        private String contentField;
+        private Integer msgType;
+        private Integer tokenTtlBufferSeconds;
+    }
 }

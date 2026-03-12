@@ -104,6 +104,7 @@ public class UserSettingsService {
             current.setMinimax(mergeProviderConfig(current.getMinimax(), req.getMinimax()));
             current.setDeepseek(mergeProviderConfig(current.getDeepseek(), req.getDeepseek()));
             current.setOpenai(mergeProviderConfig(current.getOpenai(), req.getOpenai()));
+            current.setQqBot(mergeQqBotConfig(current.getQqBot(), req.getQqBot()));
 
             // 兼容旧请求：仅传 apiKey/apiBase 时写入当前激活 provider
             if (req.getApiKey() != null || req.getApiBase() != null) {
@@ -201,6 +202,7 @@ public class UserSettingsService {
                 .minimax(new UserSettings.ProviderConfig())
                 .deepseek(new UserSettings.ProviderConfig())
                 .openai(new UserSettings.ProviderConfig())
+                .qqBot(UserSettings.QqBotConfig.builder().build())
                 .build())
             .quickLinks(List.of(
                 UserSettings.QuickLink.builder()
@@ -251,10 +253,51 @@ public class UserSettingsService {
         if (llmConfig == null) {
             llmConfig = new UserSettings.LlmConfig();
         }
-        if (provider != null && !provider.isBlank()) {
-            llmConfig.setProvider(provider);
+        String activeProvider = normalizeLlmProvider(firstNonBlank(provider, llmConfig.getProvider()));
+        llmConfig.setProvider(activeProvider);
+
+        UserSettings.ProviderConfig providerConfig = getProviderConfig(llmConfig, activeProvider);
+        String legacyProvider = normalizeLlmProvider(llmConfig.getProvider());
+        String legacyApiKey = legacyProvider.equals(activeProvider) ? normalizeBlank(llmConfig.getApiKey()) : null;
+        String legacyApiBase = legacyProvider.equals(activeProvider) ? normalizeBlank(llmConfig.getApiBase()) : null;
+
+        String settingsApiKey = firstNonBlank(
+            normalizeBlank(providerConfig != null ? providerConfig.getApiKey() : null),
+            legacyApiKey
+        );
+        String settingsApiBase = firstNonBlank(
+            normalizeBlank(providerConfig != null ? providerConfig.getApiBase() : null),
+            legacyApiBase
+        );
+
+        String apiKey;
+        String apiBase;
+        if ("minimax".equals(activeProvider)) {
+            apiKey = firstNonBlank(
+                settingsApiKey,
+                environment.getProperty("MINIMAX_API_KEY"),
+                environment.getProperty("LLM_API_KEY")
+            );
+            apiBase = firstNonBlank(
+                settingsApiBase,
+                environment.getProperty("MINIMAX_API_BASE"),
+                environment.getProperty("LLM_API_BASE"),
+                defaultApiBaseForProvider(activeProvider)
+            );
+        } else {
+            apiKey = settingsApiKey;
+            apiBase = firstNonBlank(settingsApiBase, defaultApiBaseForProvider(activeProvider));
         }
-        return resolveLlmConfig(llmConfig);
+
+        return UserSettingsDto.LlmConfigDto.builder()
+            .provider(activeProvider)
+            .apiKey(apiKey)
+            .apiBase(apiBase)
+            .minimax(resolveProviderConfig("minimax", llmConfig))
+            .deepseek(resolveProviderConfig("deepseek", llmConfig))
+            .openai(resolveProviderConfig("openai", llmConfig))
+            .qqBot(resolveQqBotConfig(llmConfig.getQqBot()))
+            .build();
     }
 
     private UserSettingsDto.NotificationConfigDto convertNotificationToDto(
@@ -327,6 +370,7 @@ public class UserSettingsService {
             .minimax(minimax)
             .deepseek(deepseek)
             .openai(openai)
+            .qqBot(resolveQqBotConfig(source.getQqBot()))
             .build();
     }
 
@@ -340,6 +384,31 @@ public class UserSettingsService {
         return UserSettings.ProviderConfig.builder()
             .apiKey(incoming.getApiKey() != null ? normalizeBlank(incoming.getApiKey()) : normalizeBlank(base.getApiKey()))
             .apiBase(incoming.getApiBase() != null ? normalizeBlank(incoming.getApiBase()) : normalizeBlank(base.getApiBase()))
+            .build();
+    }
+
+    private UserSettings.QqBotConfig mergeQqBotConfig(
+            UserSettings.QqBotConfig existing,
+            UpdateSettingsRequest.QqBotConfigDto incoming) {
+        UserSettings.QqBotConfig base = existing != null
+            ? existing
+            : UserSettings.QqBotConfig.builder().build();
+        if (incoming == null) {
+            return base;
+        }
+
+        return UserSettings.QqBotConfig.builder()
+            .enabled(incoming.getEnabled() != null ? incoming.getEnabled() : base.getEnabled())
+            .appId(incoming.getAppId() != null ? normalizeBlank(incoming.getAppId()) : normalizeBlank(base.getAppId()))
+            .clientSecret(incoming.getClientSecret() != null ? normalizeBlank(incoming.getClientSecret()) : normalizeBlank(base.getClientSecret()))
+            .apiBase(incoming.getApiBase() != null ? normalizeBlank(incoming.getApiBase()) : normalizeBlank(base.getApiBase()))
+            .tokenPath(incoming.getTokenPath() != null ? normalizeBlank(incoming.getTokenPath()) : normalizeBlank(base.getTokenPath()))
+            .sendUrlTemplate(incoming.getSendUrlTemplate() != null ? normalizeBlank(incoming.getSendUrlTemplate()) : normalizeBlank(base.getSendUrlTemplate()))
+            .defaultTargetId(incoming.getDefaultTargetId() != null ? normalizeBlank(incoming.getDefaultTargetId()) : normalizeBlank(base.getDefaultTargetId()))
+            .targetPlaceholder(incoming.getTargetPlaceholder() != null ? normalizeBlank(incoming.getTargetPlaceholder()) : normalizeBlank(base.getTargetPlaceholder()))
+            .contentField(incoming.getContentField() != null ? normalizeBlank(incoming.getContentField()) : normalizeBlank(base.getContentField()))
+            .msgType(incoming.getMsgType() != null ? incoming.getMsgType() : base.getMsgType())
+            .tokenTtlBufferSeconds(incoming.getTokenTtlBufferSeconds() != null ? incoming.getTokenTtlBufferSeconds() : base.getTokenTtlBufferSeconds())
             .build();
     }
 
@@ -436,6 +505,26 @@ public class UserSettingsService {
             .build();
     }
 
+    private UserSettingsDto.QqBotConfigDto resolveQqBotConfig(UserSettings.QqBotConfig config) {
+        UserSettings.QqBotConfig source = config != null
+            ? config
+            : UserSettings.QqBotConfig.builder().build();
+
+        return UserSettingsDto.QqBotConfigDto.builder()
+            .enabled(source.getEnabled())
+            .appId(normalizeBlank(source.getAppId()))
+            .clientSecret(normalizeBlank(source.getClientSecret()))
+            .apiBase(normalizeBlank(source.getApiBase()))
+            .tokenPath(normalizeBlank(source.getTokenPath()))
+            .sendUrlTemplate(normalizeBlank(source.getSendUrlTemplate()))
+            .defaultTargetId(normalizeBlank(source.getDefaultTargetId()))
+            .targetPlaceholder(normalizeBlank(source.getTargetPlaceholder()))
+            .contentField(normalizeBlank(source.getContentField()))
+            .msgType(source.getMsgType())
+            .tokenTtlBufferSeconds(source.getTokenTtlBufferSeconds())
+            .build();
+    }
+
     private String normalizeLlmProvider(String provider) {
         String fallback = firstNonBlank(
             environment.getProperty("DEFAULT_LLM_PROVIDER"),
@@ -471,5 +560,14 @@ public class UserSettingsService {
             }
         }
         return null;
+    }
+
+    private String defaultApiBaseForProvider(String provider) {
+        return switch (provider) {
+            case "openai" -> "https://api.openai.com/v1";
+            case "deepseek" -> "https://api.deepseek.com/v1";
+            case "minimax" -> "https://api.minimax.chat/v1";
+            default -> "https://api.minimax.chat/v1";
+        };
     }
 }

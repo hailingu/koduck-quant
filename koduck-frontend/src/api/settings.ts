@@ -22,6 +22,19 @@ export interface UserSettings {
       apiKey?: string
       apiBase?: string
     }
+    qqBot?: {
+      enabled?: boolean
+      appId?: string
+      clientSecret?: string
+      apiBase?: string
+      tokenPath?: string
+      sendUrlTemplate?: string
+      defaultTargetId?: string
+      targetPlaceholder?: string
+      contentField?: string
+      msgType?: number
+      tokenTtlBufferSeconds?: number
+    }
   }
 }
 
@@ -44,6 +57,19 @@ export interface UpdateSettingsRequest {
     openai?: {
       apiKey?: string
       apiBase?: string
+    }
+    qqBot?: {
+      enabled?: boolean
+      appId?: string
+      clientSecret?: string
+      apiBase?: string
+      tokenPath?: string
+      sendUrlTemplate?: string
+      defaultTargetId?: string
+      targetPlaceholder?: string
+      contentField?: string
+      msgType?: number
+      tokenTtlBufferSeconds?: number
     }
   }
 }

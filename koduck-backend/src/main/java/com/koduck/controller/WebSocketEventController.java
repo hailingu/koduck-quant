@@ -17,6 +17,7 @@ import org.springframework.web.socket.messaging.SessionConnectEvent;
 import org.springframework.web.socket.messaging.SessionDisconnectEvent;
 import org.springframework.web.socket.messaging.SessionSubscribeEvent;
 
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -61,7 +62,7 @@ public class WebSocketEventController {
     public SubscriptionMessage handleSubscribe(
             @Payload(required = false) Object payload,
             SimpMessageHeaderAccessor headerAccessor) {
-        log.info("用户订阅请求, sessionId={}", headerAccessor.getSessionId());
+        log.info("websocket_subscribe_request sessionId={}", headerAccessor.getSessionId());
 
         SubscriptionMessage request = parseSubscriptionMessage(payload);
 
@@ -133,7 +134,7 @@ public class WebSocketEventController {
     public SubscriptionMessage handleUnsubscribe(
             @Payload(required = false) Object payload,
             SimpMessageHeaderAccessor headerAccessor) {
-        log.info("用户取消订阅请求, sessionId={}", headerAccessor.getSessionId());
+        log.info("websocket_unsubscribe_request sessionId={}", headerAccessor.getSessionId());
 
         SubscriptionMessage request = parseSubscriptionMessage(payload);
 
@@ -187,7 +188,7 @@ public class WebSocketEventController {
      */
     @EventListener
     public void handleSessionConnect(SessionConnectEvent event) {
-        log.info("WebSocket 连接事件: {}", event.getMessage().getHeaders());
+        log.info("websocket_session_connect headers={}", event.getMessage().getHeaders());
     }
 
     /**
@@ -196,7 +197,7 @@ public class WebSocketEventController {
     @EventListener
     public void handleSessionDisconnect(SessionDisconnectEvent event) {
         String sessionId = event.getSessionId();
-        log.info("WebSocket 断开连接: sessionId={}", sessionId);
+        log.info("websocket_session_disconnect sessionId={}", sessionId);
 
         // 找到断开连接的用户并清理订阅
         Long disconnectedUserId = null;
@@ -211,7 +212,7 @@ public class WebSocketEventController {
             activeConnections.remove(disconnectedUserId);
             // 清理用户的订阅
             stockSubscriptionService.onUserDisconnect(disconnectedUserId);
-            log.info("已清理用户 {} 的订阅", disconnectedUserId);
+            log.info("websocket_user_subscriptions_cleared userId={}", disconnectedUserId);
         }
     }
 
@@ -220,7 +221,7 @@ public class WebSocketEventController {
      */
     @EventListener
     public void handleSessionSubscribe(SessionSubscribeEvent event) {
-        log.info("WebSocket 订阅事件: {}", event.getMessage().getHeaders());
+        log.info("websocket_session_subscribe headers={}", event.getMessage().getHeaders());
     }
 
     /**
@@ -250,9 +251,20 @@ public class WebSocketEventController {
                 return objectMapper.readValue(text, SubscriptionMessage.class);
             }
 
+            if (payload instanceof byte[] bytes) {
+                String text = new String(bytes, StandardCharsets.UTF_8);
+                if (text.isBlank()) {
+                    return null;
+                }
+                return objectMapper.readValue(text, SubscriptionMessage.class);
+            }
+
             return objectMapper.convertValue(payload, SubscriptionMessage.class);
-        } catch (Exception _) {
-            log.warn("订阅消息解析失败: payload={}", payload);
+        } catch (Exception ex) {
+            log.warn("websocket_subscription_message_parse_failed payloadType={} payload={} error={}",
+                    payload == null ? null : payload.getClass().getName(),
+                    payload,
+                    ex.getMessage());
             return null;
         }
     }

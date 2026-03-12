@@ -11,23 +11,73 @@ import json
 import hashlib
 import logging
 import os
+import sys
 import uuid
 from contextlib import asynccontextmanager
 from typing import Any
 
+import structlog
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel, Field
 
 from koduck import __version__, create_client
 from koduck.schema import FunctionCall, LLMProvider, Message, ToolCall
-from koduck.quant_tools import QUANT_TOOL_DEFS, execute_tool
+from koduck.quant_tools import (
+    QUANT_TOOL_DEFS,
+    execute_tool,
+    reset_tool_runtime_context,
+    set_tool_runtime_context,
+)
 
 logger = logging.getLogger(__name__)
 
 # 全局客户端缓存
 _clients: dict[str, Any] = {}
 MAX_TOOL_CALL_ROUNDS = 4
+
+
+def setup_logging() -> None:
+    """Configure logging in the same style as koduck-data-service."""
+    log_level_name = os.getenv("LOG_LEVEL", "INFO").upper()
+    log_format = os.getenv("LOG_FORMAT", "json").lower()
+    log_level = getattr(logging, log_level_name, logging.INFO)
+
+    structlog.configure(
+        processors=[
+            structlog.stdlib.filter_by_level,
+            structlog.stdlib.add_logger_name,
+            structlog.stdlib.add_log_level,
+            structlog.stdlib.PositionalArgumentsFormatter(),
+            structlog.processors.TimeStamper(fmt="iso"),
+            structlog.processors.StackInfoRenderer(),
+            structlog.processors.format_exc_info,
+            structlog.processors.UnicodeDecoder(),
+            structlog.processors.JSONRenderer()
+            if log_format == "json"
+            else structlog.dev.ConsoleRenderer(),
+        ],
+        context_class=dict,
+        logger_factory=structlog.stdlib.LoggerFactory(),
+        wrapper_class=structlog.stdlib.BoundLogger,
+        cache_logger_on_first_use=True,
+    )
+
+    logging.basicConfig(
+        format="%(message)s",
+        stream=sys.stdout,
+        level=log_level,
+    )
+
+    # Keep output format consistent by disabling uvicorn's plain access logs.
+    uvicorn_access_logger = logging.getLogger("uvicorn.access")
+    uvicorn_access_logger.handlers.clear()
+    uvicorn_access_logger.propagate = False
+
+    # Third-party noise control, aligned with current service behavior.
+    logging.getLogger("httpx").setLevel(logging.WARNING)
+    logging.getLogger("openai").setLevel(logging.WARNING)
+    logging.getLogger("httpcore").setLevel(logging.WARNING)
 
 
 def get_api_key_for_provider(provider: str) -> str:
@@ -89,7 +139,11 @@ def _build_client_cache_key(provider: str, api_key: str, api_base: str) -> str:
 
 def get_client(provider: str, api_key_override: str | None = None, api_base_override: str | None = None) -> Any:
     """获取或创建客户端实例."""
-    resolved_api_key = (api_key_override or "").strip() or get_api_key_for_provider(provider)
+    if api_key_override is None:
+        resolved_api_key = get_api_key_for_provider(provider)
+    else:
+        # 显式传入时（即使为空字符串）也不回退环境变量
+        resolved_api_key = (api_key_override or "").strip()
     resolved_api_base = (api_base_override or "").strip() or get_api_base_for_provider(provider)
     cache_key = _build_client_cache_key(provider, resolved_api_key, resolved_api_base)
 
@@ -134,6 +188,7 @@ class ChatCompletionRequest(BaseModel):
     provider: str = Field("minimax", description="LLM 提供商: minimax/deepseek/openai")
     apiKey: str | None = Field(None, description="可选：覆盖环境变量的 API Key")
     apiBase: str | None = Field(None, description="可选：覆盖环境变量的 API Base URL")
+    qqBot: dict[str, Any] | None = Field(None, description="可选：QQ Bot skill 配置")
     temperature: float | None = Field(None, description="采样温度")
     max_tokens: int | None = Field(None, description="最大生成 token 数")
     stream: bool = Field(False, description="是否流式输出（暂不支持）")
@@ -177,6 +232,7 @@ class SimpleChatRequest(BaseModel):
     provider: str = Field("minimax", description="LLM 提供商")
     apiKey: str | None = Field(None, description="可选：覆盖环境变量的 API Key")
     apiBase: str | None = Field(None, description="可选：覆盖环境变量的 API Base URL")
+    qqBot: dict[str, Any] | None = Field(None, description="可选：QQ Bot skill 配置")
 
 
 class SimpleChatData(BaseModel):
@@ -232,68 +288,72 @@ def _ensure_tool_call_id(tool_call: ToolCall) -> ToolCall:
     )
 
 
-async def _run_chat_with_tool_loop(client: Any, messages: list[Message]) -> Any:
+async def _run_chat_with_tool_loop(
+    client: Any,
+    messages: list[Message],
+    tool_runtime_context: dict[str, Any] | None = None,
+) -> Any:
     """Execute tool-calling loop and return final assistant response."""
     history = list(messages)
     tool_round = 0
-    final_response = await client.generate(history, tools=QUANT_TOOL_DEFS)
-
-    while final_response.tool_calls and tool_round < MAX_TOOL_CALL_ROUNDS:
-        tool_round += 1
-        tool_calls = [_ensure_tool_call_id(tc) for tc in final_response.tool_calls]
-        history.append(
-            Message(
-                role="assistant",
-                content=final_response.content or "",
-                thinking=final_response.thinking,
-                tool_calls=tool_calls,
-            )
-        )
-
-        for tc in tool_calls:
-            tool_content = await execute_tool(tc.function.name, tc.function.arguments)
-            history.append(
-                Message(
-                    role="tool",
-                    tool_call_id=tc.id,
-                    content=tool_content,
-                )
-            )
-            logger.info(
-                "[ToolLoop] Executed tool: name=%s id=%s",
-                tc.function.name,
-                tc.id,
-            )
-
+    token = set_tool_runtime_context(tool_runtime_context)
+    try:
         final_response = await client.generate(history, tools=QUANT_TOOL_DEFS)
 
-    if final_response.tool_calls:
-        logger.warning(
-            "[ToolLoop] Reached max rounds with remaining tool_calls: rounds=%s",
-            tool_round,
-        )
-    return final_response
+        while final_response.tool_calls and tool_round < MAX_TOOL_CALL_ROUNDS:
+            tool_round += 1
+            tool_calls = [_ensure_tool_call_id(tc) for tc in final_response.tool_calls]
+            history.append(
+                Message(
+                    role="assistant",
+                    content=final_response.content or "",
+                    thinking=final_response.thinking,
+                    tool_calls=tool_calls,
+                )
+            )
+
+            for tc in tool_calls:
+                tool_content = await execute_tool(tc.function.name, tc.function.arguments)
+                history.append(
+                    Message(
+                        role="tool",
+                        tool_call_id=tc.id,
+                        content=tool_content,
+                    )
+                )
+                logger.info(
+                    "[ToolLoop] Executed tool: name=%s id=%s",
+                    tc.function.name,
+                    tc.id,
+                )
+
+            final_response = await client.generate(history, tools=QUANT_TOOL_DEFS)
+
+        if final_response.tool_calls:
+            logger.warning(
+                "[ToolLoop] Reached max rounds with remaining tool_calls: rounds=%s",
+                tool_round,
+            )
+        return final_response
+    finally:
+        reset_tool_runtime_context(token)
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """应用生命周期管理."""
     # 启动时
-    log_level = os.getenv("LOG_LEVEL", "INFO").upper()
-    logging.basicConfig(
-        level=getattr(logging, log_level, logging.INFO),
-        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    setup_logging()
+    service_logger = structlog.get_logger()
+    service_logger.info(
+        "Starting Koduck API Server",
+        version=__version__,
+        log_level=os.getenv("LOG_LEVEL", "INFO").upper(),
+        log_format=os.getenv("LOG_FORMAT", "json").lower(),
     )
-    # 设置第三方库的日志级别
-    logging.getLogger("httpx").setLevel(logging.WARNING)
-    logging.getLogger("openai").setLevel(logging.WARNING)
-    logging.getLogger("httpcore").setLevel(logging.WARNING)
-    
-    logger.info(f"Koduck API Server v{__version__} starting...")
-    logger.info(f"日志级别: {log_level}")
     yield
     # 关闭时
-    logger.info("Koduck API Server shutting down...")
+    service_logger.info("Shutting down Koduck API Server")
 
 
 # 创建 FastAPI 应用
@@ -379,7 +439,11 @@ async def chat_completions(request: ChatCompletionRequest):
         logger.info(
             f"[ChatCompletions] 开始调用 LLM+ToolLoop: provider={request.provider}, model={client.model}"
         )
-        response = await _run_chat_with_tool_loop(client, messages)
+        response = await _run_chat_with_tool_loop(
+            client,
+            messages,
+            tool_runtime_context={"qqBot": request.qqBot},
+        )
         logger.info(f"[ChatCompletions] LLM 响应成功: finish_reason={response.finish_reason}")
         logger.debug(f"[ChatCompletions] LLM 响应内容: {response.content[:200]}..." if response.content and len(response.content) > 200 else f"[ChatCompletions] LLM 响应内容: {response.content}")
 
@@ -508,7 +572,11 @@ async def simple_chat(request: SimpleChatRequest):
         logger.info(
             f"[SimpleChat] 开始调用 LLM+ToolLoop: provider={request.provider}, model={client.model}"
         )
-        response = await _run_chat_with_tool_loop(client, messages)
+        response = await _run_chat_with_tool_loop(
+            client,
+            messages,
+            tool_runtime_context={"qqBot": request.qqBot},
+        )
         logger.info(f"[SimpleChat] LLM 响应成功: finish_reason={response.finish_reason}")
         
         content_preview = response.content[:200] + "..." if response.content and len(response.content) > 200 else response.content
@@ -597,7 +665,11 @@ async def simple_chat_stream(request: SimpleChatRequest):
             yield f"event: start\ndata: {json.dumps({'model': client.model, 'provider': request.provider})}\n\n"
             
             # 先走工具循环拿最终结果，再分片输出为 SSE delta
-            response = await _run_chat_with_tool_loop(client, messages)
+            response = await _run_chat_with_tool_loop(
+                client,
+                messages,
+                tool_runtime_context={"qqBot": request.qqBot},
+            )
             full_content = response.content or ""
             chunk_size = 24
             for i in range(0, len(full_content), chunk_size):

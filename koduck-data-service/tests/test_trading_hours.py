@@ -31,9 +31,9 @@ class TestIsAShareTradingTime:
         assert is_a_share_trading_time(dt) is True
 
     def test_trading_hours_boundary_morning_start(self):
-        """Test boundary at morning start (09:30)."""
-        # Wednesday 09:30 - should be trading
-        dt = datetime(2024, 3, 6, 9, 30, 0)
+        """Test boundary at morning start (09:15)."""
+        # Wednesday 09:15 - should be trading
+        dt = datetime(2024, 3, 6, 9, 15, 0)
         assert is_a_share_trading_time(dt) is True
 
     def test_trading_hours_boundary_morning_end(self):
@@ -55,9 +55,9 @@ class TestIsAShareTradingTime:
         assert is_a_share_trading_time(dt) is True
 
     def test_before_market_open(self):
-        """Test before market opens (09:00)."""
-        # Wednesday 09:00 - should NOT be trading
-        dt = datetime(2024, 3, 6, 9, 0, 0)
+        """Test before market opens (09:14)."""
+        # Wednesday 09:14 - should NOT be trading
+        dt = datetime(2024, 3, 6, 9, 14, 0)
         assert is_a_share_trading_time(dt) is False
 
     def test_midday_break(self):
@@ -109,9 +109,9 @@ class TestTradingHoursConstants:
     """Tests for trading hours constants."""
 
     def test_morning_start(self):
-        """Test morning start time is 09:30."""
+        """Test morning start time is 09:15."""
         assert MORNING_START.hour == 9
-        assert MORNING_START.minute == 30
+        assert MORNING_START.minute == 15
 
     def test_morning_end(self):
         """Test morning end time is 11:30."""

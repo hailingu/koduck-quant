@@ -47,10 +47,14 @@ class DataUpdater:
         self._running = False
         self._update_count = 0
         self._tick_history_count = 0
-        self._last_price: Optional[float] = None
+        # Per-symbol last observed realtime price (for logs/debug only)
+        self._last_observed_price_by_symbol: dict[str, float] = {}
+        # Per-symbol last persisted tick price (for change-event persistence)
+        self._last_persisted_price_by_symbol: dict[str, float] = {}
         self._tick_history: list[dict[str, Any]] = []  # Store recent ticks for verification
         self._tick_buffer: list[dict[str, Any]] = []   # Buffer for batch insert
-        self._last_tick_time: Optional[datetime] = None  # For sampling control
+        # Per-symbol last persisted tick time (for optional throttling)
+        self._last_tick_time_by_symbol: dict[str, datetime] = {}
 
     def _normalize_market_data(self, data: StockPayload) -> StockPayload:
         """Convert raw Eastmoney values to human-readable units.
@@ -103,29 +107,40 @@ class DataUpdater:
             return "1"
         return "0"
     
-    def _should_store_tick(self) -> bool:
-        """Check if current tick should be stored based on sampling interval.
-        
-        Returns:
-            True if tick should be stored, False otherwise
+    def _should_store_tick(self, symbol: str, data: StockPayload) -> bool:
+        """Check whether a tick should be persisted.
+
+        Tick design:
+        - Default behavior stores on every *price change* event per symbol.
+        - Optional `TICK_SAMPLING_INTERVAL > 0` works as a throttle layer.
         """
         if not settings.TICK_HISTORY_ENABLED:
             return False
-        
-        if settings.TICK_SAMPLING_INTERVAL <= 0:
-            return True
-        
-        now = datetime.now()
-        if self._last_tick_time is None:
-            self._last_tick_time = now
-            return True
-        
-        elapsed = (now - self._last_tick_time).total_seconds()
-        if elapsed >= settings.TICK_SAMPLING_INTERVAL:
-            self._last_tick_time = now
-            return True
-        
-        return False
+
+        price = data.get("price")
+        if price is None:
+            return False
+
+        try:
+            current_price = float(price)
+        except (TypeError, ValueError):
+            return False
+
+        last_price = self._last_persisted_price_by_symbol.get(symbol)
+        # Store first tick for symbol; afterwards only on price change.
+        if last_price is not None and current_price == last_price:
+            return False
+
+        # Optional additional throttle by interval.
+        if settings.TICK_SAMPLING_INTERVAL > 0:
+            now = datetime.now()
+            last_tick_time = self._last_tick_time_by_symbol.get(symbol)
+            if last_tick_time is not None:
+                elapsed = (now - last_tick_time).total_seconds()
+                if elapsed < settings.TICK_SAMPLING_INTERVAL:
+                    return False
+
+        return True
 
     async def _is_symbol_in_watchlist(self, symbol: str) -> bool:
         """Return whether symbol exists in A-share watchlist."""
@@ -144,8 +159,8 @@ class DataUpdater:
         )
         return row is not None
 
-    async def _should_persist_tick(self, symbol: str) -> bool:
-        """Tick persistence guard: watchlist + trading time + sampling."""
+    async def _should_persist_tick(self, symbol: str, data: StockPayload) -> bool:
+        """Tick persistence guard: watchlist + trading time + price-change event."""
         if not settings.TICK_HISTORY_ENABLED:
             return False
 
@@ -155,7 +170,7 @@ class DataUpdater:
         if not await self._is_symbol_in_watchlist(symbol):
             return False
 
-        return self._should_store_tick()
+        return self._should_store_tick(symbol, data)
 
     async def _save_tick_history(self, data: StockPayload) -> bool:
         """Save tick data to history table.
@@ -167,26 +182,35 @@ class DataUpdater:
             True if successful, False otherwise
         """
         symbol = str(data.get("symbol", "")).strip()
-        if not await self._should_persist_tick(symbol):
+        if not await self._should_persist_tick(symbol, data):
             return True
 
         try:
+            now = datetime.now()
+            current_price = float(data["price"])
+
             # Use async insert
             if settings.TICK_WRITE_ASYNC:
                 # Add to buffer for batch insert
-                self._tick_buffer.append(dict(data))
+                payload = dict(data)
+                payload["_tick_time"] = now.isoformat()
+                self._tick_buffer.append(payload)
                 
                 # Flush buffer if it reaches batch size
                 if len(self._tick_buffer) >= settings.TICK_BATCH_SIZE:
                     await self._flush_tick_buffer()
                 
                 self._tick_history_count += 1
+                self._last_persisted_price_by_symbol[symbol] = current_price
+                self._last_tick_time_by_symbol[symbol] = now
                 return True
             else:
                 # Direct insert
-                success = await tick_history_db.insert_tick_from_dict(data)
+                success = await tick_history_db.insert_tick_from_dict(data, tick_time=now)
                 if success:
                     self._tick_history_count += 1
+                    self._last_persisted_price_by_symbol[symbol] = current_price
+                    self._last_tick_time_by_symbol[symbol] = now
                 return success
         except Exception as e:
             logger.warning(f"Failed to save tick history for {data.get('symbol')}: {e}")
@@ -204,12 +228,20 @@ class DataUpdater:
         from app.db import TickHistoryRecord
         
         records = []
-        now = datetime.now()
-        
         for data in self._tick_buffer:
+            event_time_raw = data.get("_tick_time")
+            tick_time = datetime.now()
+            if isinstance(event_time_raw, str):
+                try:
+                    tick_time = datetime.fromisoformat(event_time_raw)
+                except ValueError:
+                    tick_time = datetime.now()
+
+            raw_data = dict(data)
+            raw_data.pop("_tick_time", None)
             record = TickHistoryRecord(
                 symbol=data.get('symbol', ''),
-                tick_time=now,
+                tick_time=tick_time,
                 price=data.get('price'),
                 open_price=data.get('open'),
                 high=data.get('high'),
@@ -223,7 +255,7 @@ class DataUpdater:
                 bid_volume=data.get('bid_volume'),
                 ask_price=data.get('ask_price'),
                 ask_volume=data.get('ask_volume'),
-                raw_data=data,
+                raw_data=raw_data,
             )
             records.append(record)
         
@@ -347,11 +379,12 @@ class DataUpdater:
                 
                 # Log tick update if price changed
                 current_price = data.get('price')
-                if current_price and current_price != self._last_price:
+                previous_price = self._last_observed_price_by_symbol.get(symbol)
+                if current_price is not None and current_price != previous_price:
                     tick_info = {
                         "timestamp": datetime.now().isoformat(),
                         "symbol": symbol,
-                        "old_price": self._last_price,
+                        "old_price": previous_price,
                         "new_price": current_price,
                         "change": data.get('change', 0),
                         "change_percent": data.get('change_percent', 0)
@@ -364,11 +397,11 @@ class DataUpdater:
                     logger.info(
                         "Tick update: %s | Price: %s -> %s | Change: %s%%",
                         symbol,
-                        self._last_price,
+                        previous_price,
                         current_price,
                         data.get('change_percent', 0),
                     )
-                    self._last_price = current_price
+                    self._last_observed_price_by_symbol[symbol] = float(current_price)
                 
                 return data
             else:

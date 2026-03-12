@@ -65,7 +65,7 @@ public class AiAnalysisController {
         Long userId = requireUserId(userPrincipal);
         log.debug("POST /api/v1/ai/analyze: user={}, symbol={}, question={}", userId, request.getSymbol(), request.getQuestion());
 
-        StockAnalysisResponse response = aiAnalysisService.analyzeStock(request);
+        StockAnalysisResponse response = aiAnalysisService.analyzeStock(userId, request);
         return ApiResponse.success(response);
     }
 

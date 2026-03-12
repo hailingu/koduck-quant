@@ -168,6 +168,7 @@ public class UserSettings {
         private ProviderConfig minimax;
         private ProviderConfig deepseek;
         private ProviderConfig openai;
+        private QqBotConfig qqBot;
     }
 
     @Data
@@ -177,5 +178,30 @@ public class UserSettings {
     public static class ProviderConfig {
         private String apiKey;
         private String apiBase;
+    }
+
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    @Builder
+    public static class QqBotConfig {
+        @Builder.Default
+        private Boolean enabled = false;
+        private String appId;
+        private String clientSecret;
+        @Builder.Default
+        private String apiBase = "https://api.sgroup.qq.com";
+        @Builder.Default
+        private String tokenPath = "/app/getAppAccessToken";
+        private String sendUrlTemplate;
+        private String defaultTargetId;
+        @Builder.Default
+        private String targetPlaceholder = "target_id";
+        @Builder.Default
+        private String contentField = "content";
+        @Builder.Default
+        private Integer msgType = 0;
+        @Builder.Default
+        private Integer tokenTtlBufferSeconds = 60;
     }
 }
