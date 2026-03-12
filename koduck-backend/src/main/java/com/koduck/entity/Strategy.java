@@ -11,7 +11,7 @@ import org.hibernate.annotations.UpdateTimestamp;
 import java.time.LocalDateTime;
 
 /**
- * 交易策略实体
+ * 
  */
 @Entity
 @Table(name = "strategies",
@@ -58,8 +58,8 @@ public class Strategy {
     private LocalDateTime updatedAt;
     
     public enum StrategyStatus {
-        DRAFT,      // 草稿
-        PUBLISHED,  // 已发布
-        DISABLED    // 已停用
+        DRAFT,      // 
+        PUBLISHED,  // 
+        DISABLED    // 
     }
 }

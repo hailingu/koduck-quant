@@ -8,7 +8,7 @@ import lombok.NoArgsConstructor;
 import java.math.BigDecimal;
 
 /**
- * 用户信号统计响应 DTO
+ *  DTO
  */
 @Data
 @Builder

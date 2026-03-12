@@ -9,7 +9,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 /**
- * 策略推荐响应 DTO
+ *  DTO
  */
 @Data
 @Builder
@@ -20,20 +20,20 @@ public class StrategyRecommendResponse {
     private String riskProfile;
     private String investmentHorizon;
 
-    // 推荐策略列表
+    // 
     private List<StrategyRecommendation> recommendations;
 
-    // 资产配置建议
+    // 
     private AssetAllocationSuggestion assetAllocation;
 
-    // AI 建议总结
+    // AI 
     private String summary;
     private String disclaimer;
 
     private LocalDateTime generatedAt;
 
     /**
-     * 策略推荐
+     * 
      */
     @Data
     @Builder
@@ -51,7 +51,7 @@ public class StrategyRecommendResponse {
     }
 
     /**
-     * 资产配置建议
+     * 
      */
     @Data
     @Builder
@@ -63,7 +63,7 @@ public class StrategyRecommendResponse {
     }
 
     /**
-     * 资产类别
+     * 
      */
     @Data
     @Builder

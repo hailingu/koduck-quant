@@ -30,31 +30,31 @@ public class StrategyService {
     private final StrategyParameterRepository parameterRepository;
     
     private static final String DEFAULT_CODE_TEMPLATE = """
-# 策略代码模板
-# 这是一个 Python 策略模板
+# 
+#  Python 
 
 def initialize(context):
-    # 初始化函数，在策略开始时执行一次
+    # ，
     context.symbol = "000001"
     context.market = "AShare"
     
 def handle_data(context, data):
-    # 每个交易周期执行的逻辑
-    # 获取当前价格
+    # 
+    # 
     current_price = data.get_price(context.symbol)
     
-    # 获取持仓
+    # 
     position = context.portfolio.get_position(context.symbol)
     
-    # 简单的均线策略示例
+    # 
     ma20 = data.get_ma(context.symbol, 20)
     ma60 = data.get_ma(context.symbol, 60)
     
     if ma20 > ma60 and position == 0:
-        # 买入信号
+        # 
         context.order_buy(context.symbol, 100)
     elif ma20 < ma60 and position > 0:
-        # 卖出信号
+        # 
         context.order_sell(context.symbol, position)
 """;
     

@@ -18,7 +18,7 @@ class TestAKShareClient:
         """Test symbol search."""
         results = client.search_symbols("永太", limit=10)
         assert isinstance(results, list)
-        # Should find 永太科技
+        # Should find 
         assert any(s.name == "永太科技" for s in results)
     
     def test_search_symbols_empty_keyword(self, client):

@@ -6,9 +6,9 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.context.annotation.Configuration;
 
 /**
- * 邮件服务配置属性
+ * 
  *
- * <p>配置前缀: {@code koduck.mail}</p>
+ * <p>: {@code koduck.mail}</p>
  */
 @Configuration
 @ConfigurationProperties(prefix = "koduck.mail")
@@ -16,28 +16,28 @@ import org.springframework.context.annotation.Configuration;
 public class MailProperties {
 
     /**
-     * 是否启用邮件服务
+     * 
      */
     private boolean enabled = false;
 
     /**
-     * 发件人地址
+     * 
      */
     private String from = "noreply@koduck.local";
 
     /**
-     * 发件人显示名称
+     * 
      */
     private String fromName = "Koduck Quant";
 
     /**
-     * 密码重置令牌有效期（分钟）
+     * （）
      */
     private int passwordResetTokenExpiryMinutes = 30;
 
     /**
-     * 前端密码重置页面 URL 模板
-     * 使用 {token} 作为令牌占位符
+     *  URL 
+     *  {token} 
      */
     private String passwordResetUrlTemplate = "http://localhost:3000/reset-password?token={token}";
 
@@ -88,10 +88,10 @@ public class MailProperties {
     }
 
     /**
-     * 生成密码重置链接
+     * 
      *
-     * @param token 重置令牌
-     * @return 完整的重置链接
+     * @param token 
+     * @return 
      */
     public String buildPasswordResetUrl(String token) {
         return passwordResetUrlTemplate.replace("{token}", token);

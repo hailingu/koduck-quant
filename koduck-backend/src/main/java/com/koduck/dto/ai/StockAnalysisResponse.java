@@ -10,7 +10,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 /**
- * 股票分析响应 DTO
+ *  DTO
  */
 @Data
 @Builder
@@ -18,7 +18,7 @@ import java.util.List;
 @AllArgsConstructor
 public class StockAnalysisResponse {
 
-    // 前端期望的analysis字段
+    // analysis
     private String analysis;
     private String provider;
     private String model;
@@ -27,33 +27,33 @@ public class StockAnalysisResponse {
     private String market;
     private String analysisType;
 
-    // 综合评分
+    // 
     private Integer overallScore;
     private String overallRating;
 
-    // 技术分析结果
+    // 
     private TechnicalAnalysis technical;
 
-    // 基本面分析结果
+    // 
     private FundamentalAnalysis fundamental;
 
-    // 情绪分析结果
+    // 
     private SentimentAnalysis sentiment;
 
-    // AI 建议
+    // AI 
     private String recommendation;
     private String reasoning;
 
-    // 关键指标
+    // 
     private List<KeyMetric> keyMetrics;
 
-    // 风险提示
+    // 
     private List<RiskFactor> riskFactors;
 
     private LocalDateTime generatedAt;
 
     /**
-     * 技术分析
+     * 
      */
     @Data
     @Builder
@@ -70,7 +70,7 @@ public class StockAnalysisResponse {
     }
 
     /**
-     * 基本面分析
+     * 
      */
     @Data
     @Builder
@@ -85,7 +85,7 @@ public class StockAnalysisResponse {
     }
 
     /**
-     * 情绪分析
+     * 
      */
     @Data
     @Builder
@@ -99,7 +99,7 @@ public class StockAnalysisResponse {
     }
 
     /**
-     * 关键指标
+     * 
      */
     @Data
     @Builder
@@ -112,7 +112,7 @@ public class StockAnalysisResponse {
     }
 
     /**
-     * 风险因素
+     * 
      */
     @Data
     @Builder

@@ -1,44 +1,44 @@
 package com.koduck.exception;
 
 /**
- * 授权异常。
+ * 
  *
- * <p>用于表示用户权限不足、访问被拒绝的情况。</p>
+ * <p></p>
  *
  * @author Koduck Team
  */
 public class AuthorizationException extends BusinessException {
 
     /**
-     * 创建授权异常。
+     * 
      *
-     * @param message 错误消息
+     * @param message 
      */
     public AuthorizationException(String message) {
         super(ErrorCode.FORBIDDEN.getCode(), message);
     }
 
     /**
-     * 创建授权异常。
+     * 
      *
-     * @param errorCode 错误码枚举
+     * @param errorCode 
      */
     public AuthorizationException(ErrorCode errorCode) {
         super(errorCode.getCode(), errorCode.getDefaultMessage());
     }
 
     /**
-     * 创建授权异常。
+     * 
      *
-     * @param errorCode 错误码枚举
-     * @param message   自定义错误消息
+     * @param errorCode 
+     * @param message   
      */
     public AuthorizationException(ErrorCode errorCode, String message) {
         super(errorCode.getCode(), message);
     }
 
     /**
-     * 访问被拒绝。
+     * 
      *
      * @return AuthorizationException
      */
@@ -47,9 +47,9 @@ public class AuthorizationException extends BusinessException {
     }
 
     /**
-     * 操作不允许。
+     * 
      *
-     * @param message 具体原因
+     * @param message 
      * @return AuthorizationException
      */
     public static AuthorizationException operationNotAllowed(String message) {

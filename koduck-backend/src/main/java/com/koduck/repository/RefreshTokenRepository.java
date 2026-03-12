@@ -12,7 +12,7 @@ import java.util.List;
 import java.util.Optional;
 
 /**
- * 刷新令牌仓库（无外键关联）
+ * （）
  */
 @Repository
 public interface RefreshTokenRepository extends JpaRepository<RefreshToken, Long> {

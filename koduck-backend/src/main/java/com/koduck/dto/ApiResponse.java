@@ -10,11 +10,11 @@ import java.time.Instant;
 import java.util.Objects;
 
 /**
- * 统一 API 响应封装。
+ *  API 
  *
- * <p>所有 API 响应都应使用此类进行包装，以保证响应格式的一致性。</p>
+ * <p> API ，</p>
  *
- * @param <T> 响应数据类型
+ * @param <T> 
  * @author Koduck Team
  */
 @Data
@@ -28,36 +28,36 @@ public class ApiResponse<T> {
     private static final String TRACE_ID_KEY = "traceId";
 
     /**
-     * 响应码，0 表示成功
+     * ，0 
      */
     private int code;
 
     /**
-     * 响应消息
+     * 
      */
     private String message;
 
     /**
-     * 响应数据
+     * 
      */
     private T data;
 
     /**
-     * 响应时间戳
+     * 
      */
     private long timestamp;
 
     /**
-     * 请求链路追踪 ID
+     *  ID
      */
     private String traceId;
 
     /**
-     * 构造方法。
+     * 
      *
-     * @param code    响应码
-     * @param message 响应消息
-     * @param data    响应数据
+     * @param code    
+     * @param message 
+     * @param data    
      */
     public ApiResponse(int code, String message, T data) {
         this.code = code;
@@ -68,97 +68,97 @@ public class ApiResponse<T> {
     }
 
     /**
-     * 创建成功响应。
+     * 
      *
-     * @param data 响应数据
-     * @param <T>  数据类型
-     * @return 成功响应对象
+     * @param data 
+     * @param <T>  
+     * @return 
      */
     public static <T> ApiResponse<T> success(T data) {
         return new ApiResponse<>(ErrorCode.SUCCESS.getCode(), ErrorCode.SUCCESS.getDefaultMessage(), data);
     }
 
     /**
-     * 创建成功响应（无数据）。
+     * （）
      *
-     * @param <T> 数据类型
-     * @return 成功响应对象
+     * @param <T> 
+     * @return 
      */
     public static <T> ApiResponse<T> success() {
         return success(null);
     }
 
     /**
-     * 创建成功响应（带自定义消息）。
+     * （）
      *
-     * @param message 成功消息
-     * @param data    响应数据
-     * @param <T>     数据类型
-     * @return 成功响应对象
+     * @param message 
+     * @param data    
+     * @param <T>     
+     * @return 
      */
     public static <T> ApiResponse<T> success(String message, T data) {
         return new ApiResponse<>(ErrorCode.SUCCESS.getCode(), message, data);
     }
 
     /**
-     * 创建错误响应。
+     * 
      *
-     * @param code    错误码
-     * @param message 错误消息
-     * @param <T>     数据类型
-     * @return 错误响应对象
+     * @param code    
+     * @param message 
+     * @param <T>     
+     * @return 
      */
     public static <T> ApiResponse<T> error(int code, String message) {
         return new ApiResponse<>(code, message, null);
     }
 
     /**
-     * 创建错误响应。
+     * 
      *
-     * @param errorCode 错误码枚举
-     * @param <T>       数据类型
-     * @return 错误响应对象
+     * @param errorCode 
+     * @param <T>       
+     * @return 
      */
     public static <T> ApiResponse<T> error(ErrorCode errorCode) {
         return new ApiResponse<>(errorCode.getCode(), errorCode.getDefaultMessage(), null);
     }
 
     /**
-     * 创建错误响应。
+     * 
      *
-     * @param errorCode 错误码枚举
-     * @param message   自定义错误消息
-     * @param <T>       数据类型
-     * @return 错误响应对象
+     * @param errorCode 
+     * @param message   
+     * @param <T>       
+     * @return 
      */
     public static <T> ApiResponse<T> error(ErrorCode errorCode, String message) {
         return new ApiResponse<>(errorCode.getCode(), message, null);
     }
 
     /**
-     * 创建错误响应（默认错误码）。
+     * （）
      *
-     * @param message 错误消息
-     * @param <T>     数据类型
-     * @return 错误响应对象
+     * @param message 
+     * @param <T>     
+     * @return 
      */
     public static <T> ApiResponse<T> error(String message) {
         return new ApiResponse<>(ErrorCode.BUSINESS_ERROR.getCode(), message, null);
     }
 
     /**
-     * 判断是否成功。
+     * 
      *
-     * @return 是否成功
+     * @return 
      */
     public boolean isSuccess() {
         return code == ErrorCode.SUCCESS.getCode();
     }
 
     /**
-     * 获取当前 Trace ID。
+     *  Trace ID
      *
-     * @return Trace ID 或 null
+     * @return Trace ID  null
      */
     private static String getCurrentTraceId() {
         try {

@@ -10,7 +10,7 @@ import lombok.NoArgsConstructor;
 import java.util.List;
 
 /**
- * AI 流式聊天请求 DTO。
+ * AI  DTO
  */
 @Data
 @Builder

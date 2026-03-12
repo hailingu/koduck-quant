@@ -65,21 +65,21 @@ const getAuthToken = (): string => {
   }
 }
 
-// 可用的 LLM 提供商
+//  LLM 
 const PROVIDERS: Provider[] = [
   { id: 'minimax', name: 'MiniMax', models: ['MiniMax-M2.5'] },
   { id: 'deepseek', name: 'DeepSeek', models: ['deepseek-chat'] },
   { id: 'openai', name: 'OpenAI', models: ['gpt-4o-mini'] },
 ]
 
-// 快捷分析问题
+// 
 const QUICK_QUESTIONS = [
   { icon: TrendingUp, label: '趋势分析', question: '请分析这只股票的近期趋势如何？' },
   { icon: BarChart3, label: '技术指标', question: '这只股票的技术指标显示什么信号？' },
   { icon: Lightbulb, label: '投资建议', question: '基于当前行情，有什么投资建议？' },
 ]
 
-// AI 分析 API 响应类型
+// AI  API 
 interface AIAnalysisResponse {
   analysis: string
   provider: string
@@ -108,19 +108,19 @@ export function AIChat({ symbol, stockName, stockInfo }: AIChatProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const dropdownRef = useRef<HTMLDivElement>(null)
 
-  // 逐字显示相关
+  // 
   const charQueueRef = useRef<string[]>([])
   const currentMessageIdRef = useRef<string | null>(null)
   const isTypingRef = useRef(false)
 
-  // 逐字显示动画循环
+  // 
   const typeNextChar = () => {
     if (!currentMessageIdRef.current || charQueueRef.current.length === 0) {
       isTypingRef.current = false
       return
     }
 
-    const charsToType = Math.min(charQueueRef.current.length, 2) // 每次显示1-2个字符，控制速度
+    const charsToType = Math.min(charQueueRef.current.length, 2) // 1-2，
     const chars = charQueueRef.current.splice(0, charsToType).join('')
 
     setMessages((prev) =>
@@ -138,7 +138,7 @@ export function AIChat({ symbol, stockName, stockInfo }: AIChatProps) {
     }
   }
 
-  // 添加字符到队列
+  // 
   const addCharsToQueue = (messageId: string, chars: string) => {
     currentMessageIdRef.current = messageId
     charQueueRef.current.push(...chars.split(''))
@@ -149,12 +149,12 @@ export function AIChat({ symbol, stockName, stockInfo }: AIChatProps) {
     }
   }
 
-  // 自动滚动到底部
+  // 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
 
-  // 点击外部关闭下拉框
+  // 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
@@ -165,7 +165,7 @@ export function AIChat({ symbol, stockName, stockInfo }: AIChatProps) {
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
 
-  // 从用户设置加载默认 provider
+  //  provider
   useEffect(() => {
     const loadPreferredProvider = async () => {
       try {
@@ -192,7 +192,7 @@ export function AIChat({ symbol, stockName, stockInfo }: AIChatProps) {
           },
         }
 
-        // 兼容旧结构：仅有顶层 apiKey/apiBase 时，回填到当前激活 provider
+        // ： apiKey/apiBase ， provider
         if (!nextProviderConfigs[activeProvider].apiKey && llmConfig.apiKey) {
           nextProviderConfigs[activeProvider].apiKey = llmConfig.apiKey
         }
@@ -217,7 +217,7 @@ export function AIChat({ symbol, stockName, stockInfo }: AIChatProps) {
       ? 'OpenAI API Key 为空，请先到设置页填写后再使用 AI 分析。'
       : 'DeepSeek API Key 为空，请先到设置页填写后再使用 AI 分析。'
 
-  // 股票分析 API 调用
+  //  API 
   const callAIAnalysis = async (question: string): Promise<string> => {
     try {
       const response = await request.post<AIAnalysisResponse>('/api/v1/ai/analyze', {
@@ -234,12 +234,12 @@ export function AIChat({ symbol, stockName, stockInfo }: AIChatProps) {
         question,
         provider: selectedProvider,
       }, {
-        timeout: 60000, // AI 请求需要更长的超时时间（60秒）
+        timeout: 60000, // AI （60）
       })
       return response.analysis
     } catch (error: any) {
       console.error('AI analysis failed:', error)
-      // 提取后端返回的详细错误信息
+      // 
       const backendError = error?.response?.data?.detail || error?.response?.data?.message
       if (backendError) {
         throw new Error(backendError)
@@ -251,7 +251,7 @@ export function AIChat({ symbol, stockName, stockInfo }: AIChatProps) {
     }
   }
 
-  // 普通对话 API 调用（流式）
+  //  API （）
   const callChatStream = async (
     userContent: string,
     onDelta: (delta: string) => void,
@@ -259,15 +259,15 @@ export function AIChat({ symbol, stockName, stockInfo }: AIChatProps) {
     onError: (error: string) => void
   ) => {
     try {
-      // 构建对话历史
+      // 
       const chatMessages = messages
-        .filter(m => m.id !== 'welcome') // 排除欢迎消息
+        .filter(m => m.id !== 'welcome') // 
         .map(m => ({
           role: m.role,
           content: m.content
         }))
       
-      // 添加系统提示
+      // 
       const systemPrompt = `你是一位AI助手，正在与用户讨论股票 ${stockName} (${symbol}) 的相关话题。用户可以自由询问任何问题，包括但不限于：
 - 一般性问题（如时间、日期、常识等）
 - 股票相关的问题
@@ -286,7 +286,7 @@ export function AIChat({ symbol, stockName, stockInfo }: AIChatProps) {
       }
       const token = getAuthToken()
 
-      // 使用 SSE 流式请求
+      //  SSE 
       const response = await fetch('/api/v1/ai/chat/stream', {
         method: 'POST',
         headers: {
@@ -304,7 +304,7 @@ export function AIChat({ symbol, stockName, stockInfo }: AIChatProps) {
       const reader = response.body?.getReader()
       const decoder = new TextDecoder()
       let fullContent = ''
-      let buffer = '' // 用于处理跨块的不完整 SSE 消息
+      let buffer = '' //  SSE 
 
       if (!reader) {
         throw new Error('无法读取响应流')
@@ -318,20 +318,20 @@ export function AIChat({ symbol, stockName, stockInfo }: AIChatProps) {
         return line.slice(prefix.length).trimStart()
       }
 
-      // 读取流
+      // 
       while (true) {
         const { done, value } = await reader.read()
         if (done) break
 
-        // 解码并追加到缓冲区
+        // 
         buffer += decoder.decode(value, { stream: true })
         
-        // SSE 消息以 \n\n 分隔
+        // SSE  \n\n 
         const messages = buffer.split('\n\n')
-        // 保留最后一个可能不完整的消息
+        // 
         buffer = messages.pop() || ''
 
-        // 处理完整的消息
+        // 
         for (const message of messages) {
           if (!message.trim()) continue
 
@@ -359,15 +359,15 @@ export function AIChat({ symbol, stockName, stockInfo }: AIChatProps) {
             const data = JSON.parse(dataStr)
             
             if (eventType === 'delta' && data.content !== undefined) {
-              // delta 事件 - 流式内容块
+              // delta  - 
               fullContent += data.content
               onDelta(data.content)
             } else if (eventType === 'error') {
-              // error 事件
+              // error 
               onError(data.message || '请求失败')
               return
             } else if (eventType === 'done') {
-              // done 事件 - 完成
+              // done  - 
               console.log('[SSE] Stream completed')
             }
           } catch (e) {
@@ -376,7 +376,7 @@ export function AIChat({ symbol, stockName, stockInfo }: AIChatProps) {
         }
       }
 
-      // 处理缓冲区中剩余的数据
+      // 
       if (buffer.trim()) {
         const lines = buffer.split('\n')
         const dataParts: string[] = []
@@ -395,7 +395,7 @@ export function AIChat({ symbol, stockName, stockInfo }: AIChatProps) {
               onDelta(data.content)
             }
           } catch (e) {
-            // 忽略解析错误
+            // 
           }
         }
       }
@@ -407,7 +407,7 @@ export function AIChat({ symbol, stockName, stockInfo }: AIChatProps) {
     }
   }
 
-  // 处理用户输入（普通对话 - 流式）
+  // （ - ）
   const handleSend = async (content: string) => {
     if (!content.trim()) return
     if (providerKeyMissing) {
@@ -433,7 +433,7 @@ export function AIChat({ symbol, stockName, stockInfo }: AIChatProps) {
     setInput('')
     setIsLoading(true)
 
-    // 先创建一个空的 AI 消息
+    //  AI 
     const aiMessageId = (Date.now() + 1).toString()
     setMessages((prev) => [
       ...prev,
@@ -446,20 +446,20 @@ export function AIChat({ symbol, stockName, stockInfo }: AIChatProps) {
       }
     ])
 
-    // 流式接收
+    // 
     await callChatStream(
       content,
-      // onDelta - 收到内容块，逐字添加到队列
+      // onDelta - ，
       (delta) => {
         addCharsToQueue(aiMessageId, delta)
       },
-      // onDone - 完成
+      // onDone - 
       () => {
         setIsLoading(false)
       },
-      // onError - 错误
+      // onError - 
       (error) => {
-        // 清空队列，直接显示错误
+        // ，
         charQueueRef.current = []
         currentMessageIdRef.current = null
         isTypingRef.current = false
@@ -475,7 +475,7 @@ export function AIChat({ symbol, stockName, stockInfo }: AIChatProps) {
     )
   }
 
-  // 处理快捷问题（股票分析）
+  // （）
   const handleQuickQuestion = async (question: string) => {
     if (!question.trim()) return
     if (providerKeyMissing) {
@@ -501,7 +501,7 @@ export function AIChat({ symbol, stockName, stockInfo }: AIChatProps) {
     setIsLoading(true)
 
     try {
-      // 股票分析使用 /analyze 接口
+      //  /analyze 
       const analysis = await callAIAnalysis(question)
       
       const aiMessage: Message = {

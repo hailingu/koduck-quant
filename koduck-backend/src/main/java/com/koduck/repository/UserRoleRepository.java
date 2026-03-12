@@ -11,7 +11,7 @@ import org.springframework.stereotype.Repository;
 import java.util.List;
 
 /**
- * 用户角色关联仓库（手动管理关联表，无主键实体）
+ * （，）
  */
 @Repository
 public interface UserRoleRepository extends JpaRepository<Role, Integer> {

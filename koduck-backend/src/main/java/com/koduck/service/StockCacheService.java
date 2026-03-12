@@ -10,7 +10,7 @@ import java.util.List;
  */
 public interface StockCacheService {
 
-    // ==================== Stock Tracking (盯盘层) ====================
+    // ==================== Stock Tracking () ====================
 
     /**
      * Cache stock real-time quote data.

@@ -21,7 +21,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 /**
- * Watchlist (自选股) REST API controller.
+ * Watchlist () REST API controller.
  */
 @RestController
 @RequestMapping("/api/v1/watchlist")

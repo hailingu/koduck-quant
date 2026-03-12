@@ -5,11 +5,11 @@ import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 
 /**
- * 股票搜索请求参数。
+ * 
  *
- * @param keyword 搜索关键词（代码或名称）
- * @param page    页码（从 1 开始）
- * @param size    每页数量
+ * @param keyword （）
+ * @param page    （ 1 ）
+ * @param size    
  */
 public record StockSearchRequest(
     @NotBlank(message = "关键词不能为空")
@@ -23,7 +23,7 @@ public record StockSearchRequest(
     Integer size
 ) {
     public StockSearchRequest {
-        // 设置默认值
+        // 
         if (page == null || page < 1) {
             page = 1;
         }

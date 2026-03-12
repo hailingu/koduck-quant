@@ -1,4 +1,4 @@
-"""LLM Caller - 程序化调用多平台 LLM API 的统一接口.
+"""LLM Caller -  LLM API .
 
 支持: MiniMax, DeepSeek, OpenAI
 """

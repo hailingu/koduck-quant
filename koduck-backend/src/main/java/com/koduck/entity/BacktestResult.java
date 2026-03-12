@@ -12,7 +12,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 /**
- * 回测结果实体
+ * 
  */
 @Entity
 @Table(name = "backtest_results",
@@ -57,7 +57,7 @@ public class BacktestResult {
     @Builder.Default
     private String timeframe = "1D";
     
-    // 回测参数
+    // 
     @Column(name = "initial_capital", nullable = false, precision = 19, scale = 4)
     private BigDecimal initialCapital;
     
@@ -69,7 +69,7 @@ public class BacktestResult {
     @Builder.Default
     private BigDecimal slippage = new BigDecimal("0.001");
     
-    // 回测结果
+    // 
     @Column(name = "final_capital", precision = 19, scale = 4)
     private BigDecimal finalCapital;
     
@@ -106,7 +106,7 @@ public class BacktestResult {
     @Column(name = "profit_factor", precision = 10, scale = 4)
     private BigDecimal profitFactor;
     
-    // 状态
+    // 
     @Column(name = "status", nullable = false, length = 20)
     @Enumerated(EnumType.STRING)
     @Builder.Default
@@ -123,9 +123,9 @@ public class BacktestResult {
     private LocalDateTime completedAt;
     
     public enum BacktestStatus {
-        PENDING,     // 等待执行
-        RUNNING,     // 执行中
-        COMPLETED,   // 已完成
-        FAILED       // 失败
+        PENDING,     // 
+        RUNNING,     // 
+        COMPLETED,   // 
+        FAILED       // 
     }
 }

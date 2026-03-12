@@ -4,21 +4,21 @@ import java.math.BigDecimal;
 import java.time.Instant;
 
 /**
- * 市场指数 DTO。
- * 包含上证指数、深证成指、创业板指等主要指数信息。
+ *  DTO
+ * 
  *
- * @param symbol        指数代码
- * @param name          指数名称
- * @param price         当前点位
- * @param change        涨跌点数
- * @param changePercent 涨跌幅百分比
- * @param open          开盘点位
- * @param high          最高点位
- * @param low           最低点位
- * @param prevClose     昨收点位
- * @param volume        成交量（手）
- * @param amount        成交额（元）
- * @param timestamp     数据时间戳
+ * @param symbol        
+ * @param name          
+ * @param price         
+ * @param change        
+ * @param changePercent 
+ * @param open          
+ * @param high          
+ * @param low           
+ * @param prevClose     
+ * @param volume        （）
+ * @param amount        （）
+ * @param timestamp     
  */
 public record MarketIndexDto(
     String symbol,

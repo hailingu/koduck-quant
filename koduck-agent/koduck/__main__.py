@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Koduck 交互式命令行界面.
+"""Koduck .
 
 Usage:
     python -m koduck [OPTIONS]
@@ -25,12 +25,12 @@ from koduck.schema import LLMProvider
 logger = logging.getLogger(__name__)
 
 
-# 全局退出标志
+# 
 _exit_requested = False
 
 
 def _signal_handler(sig: int, frame: Any) -> None:
-    """处理 Ctrl+C 信号."""
+    """ Ctrl+C ."""
     global _exit_requested
     _exit_requested = True
     print("\n\n👋 Goodbye!")
@@ -38,11 +38,11 @@ def _signal_handler(sig: int, frame: Any) -> None:
 
 
 class InteractiveChat:
-    """交互式聊天会话."""
+    """."""
 
     def __init__(self, provider: str | None = None, model: str | None = None,
                  api_key: str | None = None, api_base: str | None = None):
-        """初始化聊天会话."""
+        """."""
         self.client = create_client(
             provider=provider,
             model=model,
@@ -53,7 +53,7 @@ class InteractiveChat:
         self.running = True
 
     def print_banner(self) -> None:
-        """打印启动横幅."""
+        """."""
         print("\n🦆 Koduck LLM Caller")
         print("=" * 40)
         print(f"Version: {__version__}")
@@ -65,22 +65,22 @@ class InteractiveChat:
         print()
 
     def print_help(self) -> None:
-        """打印帮助信息."""
-        print("\n可用命令:")
-        print("  /help     显示此帮助")
-        print("  /quit     退出程序")
-        print("  /clear    清空对话历史")
-        print("  /history  显示对话历史")
+        """."""
+        print("\n:")
+        print("  /help     ")
+        print("  /quit     ")
+        print("  /clear    ")
+        print("  /history  ")
         print()
 
     def show_history(self) -> None:
-        """显示对话历史."""
+        """."""
         if not self.messages:
-            print("\n[对话历史为空]\n")
+            print("\n[]\n")
             return
 
         print("\n" + "=" * 40)
-        print("对话历史:")
+        print(":")
         print("=" * 40)
         for i, msg in enumerate(self.messages, 1):
             role = msg.role.upper()
@@ -92,51 +92,51 @@ class InteractiveChat:
         print()
 
     def clear_history(self) -> None:
-        """清空对话历史."""
+        """."""
         self.messages.clear()
-        print("\n[对话历史已清空]\n")
+        print("\n[]\n")
 
     async def process_message(self, user_input: str) -> None:
-        """处理用户消息并获取回复."""
-        # 添加用户消息到历史
+        """."""
+        # 
         self.messages.append(Message(role="user", content=user_input))
 
         try:
-            print("\n🤔 思考中...")
+            print("\n🤔 ...")
             response = await self.client.generate(self.messages)
 
-            # 添加助手回复到历史
+            # 
             self.messages.append(Message(role="assistant", content=response.content))
 
-            # 添加助手回复到历史 (包含思考内容)
+            #  ()
             self.messages.append(Message(
                 role="assistant",
                 content=response.content,
                 thinking=response.thinking,
             ))
 
-            # 打印思考内容 (如果存在)
+            #  ()
             if response.thinking:
                 print(f"\n💭 Thinking:")
                 print(response.thinking)
                 print()
 
-            # 打印回复
+            # 
             print(f"🦆 {self.client.provider.value}:")
             print(response.content)
 
-            # 显示 token 使用情况
+            #  token 
             if response.usage:
                 print(f"\n📊 Tokens: {response.usage.total_tokens} "
                       f"(prompt: {response.usage.prompt_tokens}, "
                       f"completion: {response.usage.completion_tokens})")
 
         except Exception as e:
-            logger.error(f"生成回复失败: {e}")
-            print(f"\n❌ 错误: {e}")
+            logger.error(f": {e}")
+            print(f"\n❌ : {e}")
 
     def handle_command(self, cmd: str) -> bool:
-        """处理命令，返回是否继续运行."""
+        """，."""
         cmd = cmd.lower().strip()
 
         if cmd in ["/quit", "/exit", "/q"]:
@@ -154,61 +154,61 @@ class InteractiveChat:
             self.show_history()
 
         elif cmd == "/model":
-            print(f"\n当前模型: {self.client.model}\n")
+            print(f"\n: {self.client.model}\n")
 
         else:
-            print(f"\n未知命令: {cmd}")
-            print("输入 /help 查看可用命令\n")
+            print(f"\n: {cmd}")
+            print(" /help \n")
 
         return True
 
     async def run(self) -> None:
-        """运行交互式会话."""
+        """."""
         self.print_banner()
 
         try:
             while self.running:
                 try:
-                    # 获取用户输入
+                    # 
                     user_input = input("\nYou: ").strip()
 
                     if not user_input:
                         continue
 
-                    # 处理命令
+                    # 
                     if user_input.startswith("/"):
                         if not self.handle_command(user_input):
                             break
                         continue
 
-                    # 处理普通消息
+                    # 
                     await self.process_message(user_input)
 
                 except EOFError:
                     print("\n\n👋 Goodbye!")
                     break
                 except Exception as e:
-                    logger.error(f"运行时错误: {e}")
-                    print(f"\n❌ 错误: {e}")
+                    logger.error(f": {e}")
+                    print(f"\n❌ : {e}")
         except asyncio.CancelledError:
-            # 任务被取消时优雅退出
+            # 
             pass
 
 
 def setup_logging(verbose: bool = False) -> None:
-    """配置日志."""
+    """."""
     level = logging.DEBUG if verbose else logging.WARNING
     format_str = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
     logging.basicConfig(level=level, format=format_str)
 
 
 def get_available_providers() -> list[str]:
-    """获取可用的提供商列表."""
+    """."""
     return [p.value for p in LLMProvider]
 
 
 def create_parser() -> argparse.ArgumentParser:
-    """创建命令行参数解析器."""
+    """."""
     parser = argparse.ArgumentParser(
         prog="koduck",
         description="Koduck - 交互式多平台 LLM 客户端",
@@ -221,10 +221,10 @@ def create_parser() -> argparse.ArgumentParser:
   /history    显示对话历史
 
 示例:
-  python -m koduck                    # 使用默认配置 (MiniMax)
-  python -m koduck --provider deepseek    # 使用 DeepSeek
-  python -m koduck --provider openai -m gpt-4o-mini    # 使用 OpenAI
-  python -m koduck -p minimax -m MiniMax-M2.5    # 使用 MiniMax 和指定模型
+  python -m koduck                    #  (MiniMax)
+  python -m koduck --provider deepseek    #  DeepSeek
+  python -m koduck --provider openai -m gpt-4o-mini    #  OpenAI
+  python -m koduck -p minimax -m MiniMax-M2.5    #  MiniMax 
         """,
     )
 
@@ -273,7 +273,7 @@ def create_parser() -> argparse.ArgumentParser:
 
 
 async def main_async() -> None:
-    """异步主入口."""
+    """."""
     parser = create_parser()
     args = parser.parse_args()
 
@@ -288,31 +288,31 @@ async def main_async() -> None:
         )
         await chat.run()
     except asyncio.CancelledError:
-        # 正常退出，不显示错误
+        # ，
         pass
     except ValueError as e:
-        print(f"❌ 配置错误: {e}")
-        print("\n请确保已设置 API 密钥:")
+        print(f"❌ : {e}")
+        print("\n API :")
         print("  export LLM_API_KEY=your-api-key")
-        print("\n或创建 .env 文件:")
+        print("\n .env :")
         print("  cp .env.template .env")
         sys.exit(1)
     except Exception as e:
-        logger.exception("程序异常")
-        print(f"❌ 程序错误: {e}")
+        logger.exception("")
+        print(f"❌ : {e}")
         sys.exit(1)
 
 
 def main() -> None:
-    """主入口函数."""
-    # 注册信号处理器，确保单次 Ctrl+C 就能退出
+    """."""
+    # ， Ctrl+C 
     signal.signal(signal.SIGINT, _signal_handler)
     
     try:
         asyncio.run(main_async())
     except (KeyboardInterrupt, asyncio.CancelledError):
-        # Ctrl+C 或任务取消时优雅退出
-        # 消息已在信号处理器中打印，这里只捕获异常防止堆栈输出
+        # Ctrl+C 
+        # ，
         pass
 
 

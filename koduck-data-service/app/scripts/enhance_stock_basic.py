@@ -145,7 +145,7 @@ class StockBasicEnhancer:
             pb = self._extract_field(row, ['市净率', 'PB', 'pb'])
             ps_ttm = self._extract_field(row, ['市销率', 'PS', 'ps_ttm'])
             
-            # Market cap (in 亿元)
+            # Market cap (in )
             market_cap = self._extract_field(row, ['总市值', '总市值(亿元)', 'market_cap'])
             float_market_cap = self._extract_field(row, ['流通市值', '流通市值(亿元)', 'float_market_cap'])
             

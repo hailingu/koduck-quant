@@ -26,9 +26,9 @@ import org.springframework.web.servlet.NoHandlerFoundException;
 import java.util.stream.Collectors;
 
 /**
- * 全局异常处理器。
+ * 
  *
- * <p>统一处理系统中抛出的各类异常，将其转换为标准的 API 响应格式。</p>
+ * <p>， API </p>
  *
  * @author Koduck Team
  */
@@ -36,10 +36,10 @@ import java.util.stream.Collectors;
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
-    // ========== 业务异常处理 ==========
+    // ==========  ==========
 
     /**
-     * 处理业务异常。
+     * 
      */
     @ExceptionHandler(BusinessException.class)
     public ResponseEntity<ApiResponse<Void>> handleBusinessException(BusinessException e) {
@@ -50,7 +50,7 @@ public class GlobalExceptionHandler {
     }
 
     /**
-     * 处理资源不存在异常。
+     * 
      */
     @ExceptionHandler(ResourceNotFoundException.class)
     public ResponseEntity<ApiResponse<Void>> handleResourceNotFoundException(ResourceNotFoundException e) {
@@ -60,7 +60,7 @@ public class GlobalExceptionHandler {
     }
 
     /**
-     * 处理参数校验异常。
+     * 
      */
     @ExceptionHandler(ValidationException.class)
     public ResponseEntity<ApiResponse<Void>> handleValidationException(ValidationException e) {
@@ -70,7 +70,7 @@ public class GlobalExceptionHandler {
     }
 
     /**
-     * 处理数据重复异常。
+     * 
      */
     @ExceptionHandler(DuplicateException.class)
     public ResponseEntity<ApiResponse<Void>> handleDuplicateException(DuplicateException e) {
@@ -80,7 +80,7 @@ public class GlobalExceptionHandler {
     }
 
     /**
-     * 处理认证异常（自定义）。
+     * （）
      */
     @ExceptionHandler(com.koduck.exception.AuthenticationException.class)
     public ResponseEntity<ApiResponse<Void>> handleCustomAuthenticationException(
@@ -91,7 +91,7 @@ public class GlobalExceptionHandler {
     }
 
     /**
-     * 处理授权异常。
+     * 
      */
     @ExceptionHandler(AuthorizationException.class)
     public ResponseEntity<ApiResponse<Void>> handleAuthorizationException(AuthorizationException e) {
@@ -101,7 +101,7 @@ public class GlobalExceptionHandler {
     }
 
     /**
-     * 处理状态异常。
+     * 
      */
     @ExceptionHandler(StateException.class)
     public ResponseEntity<ApiResponse<Void>> handleStateException(StateException e) {
@@ -111,7 +111,7 @@ public class GlobalExceptionHandler {
     }
 
     /**
-     * 处理外部服务异常。
+     * 
      */
     @ExceptionHandler(ExternalServiceException.class)
     public ResponseEntity<ApiResponse<Void>> handleExternalServiceException(ExternalServiceException e) {
@@ -120,10 +120,10 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.BAD_GATEWAY).body(response);
     }
 
-    // ========== Spring Validation 异常处理 ==========
+    // ========== Spring Validation  ==========
 
     /**
-     * 处理参数校验异常（@Valid）。
+     * （@Valid）
      */
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<ApiResponse<Void>> handleMethodArgumentNotValidException(
@@ -138,7 +138,7 @@ public class GlobalExceptionHandler {
     }
 
     /**
-     * 处理参数绑定异常。
+     * 
      */
     @ExceptionHandler(BindException.class)
     public ResponseEntity<ApiResponse<Void>> handleBindException(BindException e) {
@@ -152,7 +152,7 @@ public class GlobalExceptionHandler {
     }
 
     /**
-     * 处理约束违反异常（@Validated）。
+     * （@Validated）
      */
     @ExceptionHandler(ConstraintViolationException.class)
     public ResponseEntity<ApiResponse<Void>> handleConstraintViolationException(
@@ -166,10 +166,10 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
     }
 
-    // ========== 请求相关异常处理 ==========
+    // ==========  ==========
 
     /**
-     * 处理请求参数缺失异常。
+     * 
      */
     @ExceptionHandler(MissingServletRequestParameterException.class)
     public ResponseEntity<ApiResponse<Void>> handleMissingServletRequestParameterException(
@@ -181,7 +181,7 @@ public class GlobalExceptionHandler {
     }
 
     /**
-     * 处理请求参数类型不匹配异常。
+     * 
      */
     @ExceptionHandler(MethodArgumentTypeMismatchException.class)
     public ResponseEntity<ApiResponse<Void>> handleMethodArgumentTypeMismatchException(
@@ -194,7 +194,7 @@ public class GlobalExceptionHandler {
     }
 
     /**
-     * 处理请求体解析异常。
+     * 
      */
     @ExceptionHandler(HttpMessageNotReadableException.class)
     public ResponseEntity<ApiResponse<Void>> handleHttpMessageNotReadableException(
@@ -206,7 +206,7 @@ public class GlobalExceptionHandler {
     }
 
     /**
-     * 处理请求方法不支持异常。
+     * 
      */
     @ExceptionHandler(HttpRequestMethodNotSupportedException.class)
     public ResponseEntity<ApiResponse<Void>> handleHttpRequestMethodNotSupportedException(
@@ -218,7 +218,7 @@ public class GlobalExceptionHandler {
     }
 
     /**
-     * 处理处理器未找到异常。
+     * 
      */
     @ExceptionHandler(NoHandlerFoundException.class)
     public ResponseEntity<ApiResponse<Void>> handleNoHandlerFoundException(NoHandlerFoundException e) {
@@ -229,7 +229,7 @@ public class GlobalExceptionHandler {
     }
 
     /**
-     * 处理静态资源未找到异常。
+     * 
      */
     @ExceptionHandler(NoResourceFoundException.class)
     public ResponseEntity<ApiResponse<Void>> handleNoResourceFoundException(NoResourceFoundException e) {
@@ -239,10 +239,10 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(response);
     }
 
-    // ========== Spring Security 异常处理 ==========
+    // ========== Spring Security  ==========
 
     /**
-     * 处理 Spring Security 认证异常。
+     *  Spring Security 
      */
     @ExceptionHandler(BadCredentialsException.class)
     public ResponseEntity<ApiResponse<Void>> handleBadCredentialsException(BadCredentialsException e) {
@@ -253,7 +253,7 @@ public class GlobalExceptionHandler {
     }
 
     /**
-     * 处理账号禁用异常。
+     * 
      */
     @ExceptionHandler(DisabledException.class)
     public ResponseEntity<ApiResponse<Void>> handleDisabledException(DisabledException e) {
@@ -264,7 +264,7 @@ public class GlobalExceptionHandler {
     }
 
     /**
-     * 处理账号锁定异常。
+     * 
      */
     @ExceptionHandler(LockedException.class)
     public ResponseEntity<ApiResponse<Void>> handleLockedException(LockedException e) {
@@ -275,7 +275,7 @@ public class GlobalExceptionHandler {
     }
 
     /**
-     * 处理 Spring Security 访问拒绝异常。
+     *  Spring Security 
      */
     @ExceptionHandler(AccessDeniedException.class)
     public ResponseEntity<ApiResponse<Void>> handleAccessDeniedException(AccessDeniedException e) {
@@ -285,10 +285,10 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.FORBIDDEN).body(response);
     }
 
-    // ========== 通用异常处理 ==========
+    // ==========  ==========
 
     /**
-     * 处理非法参数异常。
+     * 
      */
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<ApiResponse<Void>> handleIllegalArgumentException(IllegalArgumentException e) {
@@ -299,7 +299,7 @@ public class GlobalExceptionHandler {
     }
 
     /**
-     * 处理非法状态异常。
+     * 
      */
     @ExceptionHandler(IllegalStateException.class)
     public ResponseEntity<ApiResponse<Void>> handleIllegalStateException(IllegalStateException e) {
@@ -310,7 +310,7 @@ public class GlobalExceptionHandler {
     }
 
     /**
-     * 处理其他未捕获的异常。
+     * 
      */
     @ExceptionHandler(Exception.class)
     @ResponseStatus(HttpStatus.INTERNAL_SERVER_ERROR)

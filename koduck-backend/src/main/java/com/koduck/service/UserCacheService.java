@@ -8,7 +8,7 @@ import java.util.Set;
  */
 public interface UserCacheService {
 
-    // ==================== User Tracking List (盯盘列表) ====================
+    // ==================== User Tracking List () ====================
 
     /**
      * Add stock to user's tracking list.
@@ -44,7 +44,7 @@ public interface UserCacheService {
      */
     boolean isInUserTrackList(Long userId, String symbol);
 
-    // ==================== User Watchlist (观察列表) ====================
+    // ==================== User Watchlist () ====================
 
     /**
      * Add stock to user's watchlist.

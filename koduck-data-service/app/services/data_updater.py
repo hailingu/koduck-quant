@@ -16,7 +16,7 @@ from app.utils.trading_hours import is_a_share_trading_time
 
 logger = logging.getLogger(__name__)
 
-# Test symbol: 工商银行 (Industrial and Commercial Bank of China)
+# Test symbol:  (Industrial and Commercial Bank of China)
 TEST_SYMBOL = "601398"
 TEST_SYMBOL_NAME = "工商银行"
 PRICE_FIELDS = (

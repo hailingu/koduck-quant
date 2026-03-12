@@ -11,14 +11,14 @@ import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * 股票订阅管理服务
+ * 
  *
- * <p>管理用户的股票订阅关系，并在价格变动时推送更新消息。</p>
- * <p>使用内存存储订阅关系（基于 ConcurrentHashMap），支持：</p>
+ * <p>，</p>
+ * <p>（ ConcurrentHashMap），：</p>
  * <ul>
- *   <li>用户-股票订阅关系管理（userId -> Set<symbol>）</li>
- *   <li>反向索引（symbol -> Set<userId>）用于快速查找订阅者</li>
- *   <li>用户断开连接时自动清理订阅</li>
+ *   <li>-（userId -> Set<symbol>）</li>
+ *   <li>（symbol -> Set<userId>）</li>
+ *   <li></li>
  * </ul>
  */
 @Slf4j
@@ -29,21 +29,21 @@ public class StockSubscriptionService {
     private final SimpMessagingTemplate messagingTemplate;
 
     /**
-     * 存储用户订阅关系: userId -> Set<symbol>
+     * : userId -> Set<symbol>
      */
     private final ConcurrentHashMap<Long, Set<String>> userSubscriptions = new ConcurrentHashMap<>();
 
     /**
-     * 反向索引: symbol -> Set<userId>
+     * : symbol -> Set<userId>
      */
     private final ConcurrentHashMap<String, Set<Long>> symbolSubscribers = new ConcurrentHashMap<>();
 
     /**
-     * 用户订阅股票
+     * 
      *
-     * @param userId  用户ID
-     * @param symbols 股票代码列表
-     * @return 订阅结果，包含成功和失败的股票代码
+     * @param userId  ID
+     * @param symbols 
+     * @return ，
      */
     public SubscribeResult subscribe(Long userId, List<String> symbols) {
         if (userId == null || symbols == null || symbols.isEmpty()) {
@@ -62,10 +62,10 @@ public class StockSubscriptionService {
                     continue;
                 }
 
-                // 添加到用户订阅列表
+                // 
                 userSubList.add(normalizedSymbol);
 
-                // 添加到反向索引
+                // 
                 symbolSubscribers.computeIfAbsent(normalizedSymbol, k -> ConcurrentHashMap.newKeySet())
                         .add(userId);
 
@@ -82,11 +82,11 @@ public class StockSubscriptionService {
     }
 
     /**
-     * 用户取消订阅股票
+     * 
      *
-     * @param userId  用户ID
-     * @param symbols 股票代码列表
-     * @return 取消订阅结果
+     * @param userId  ID
+     * @param symbols 
+     * @return 
      */
     public SubscribeResult unsubscribe(Long userId, List<String> symbols) {
         if (userId == null) {
@@ -94,7 +94,7 @@ public class StockSubscriptionService {
         }
 
         if (symbols == null || symbols.isEmpty()) {
-            // 取消该用户所有订阅
+            // 
             Set<String> userSubList = userSubscriptions.remove(userId);
             if (userSubList != null) {
                 for (String symbol : userSubList) {
@@ -127,10 +127,10 @@ public class StockSubscriptionService {
                     continue;
                 }
 
-                // 从用户订阅列表中移除
+                // 
                 userSubList.remove(normalizedSymbol);
 
-                // 从反向索引中移除
+                // 
                 Set<Long> subscribers = symbolSubscribers.get(normalizedSymbol);
                 if (subscribers != null) {
                     subscribers.remove(userId);
@@ -147,7 +147,7 @@ public class StockSubscriptionService {
             }
         }
 
-        // 如果用户订阅列表为空，移除该用户
+        // ，
         if (userSubList.isEmpty()) {
             userSubscriptions.remove(userId);
         }
@@ -157,10 +157,10 @@ public class StockSubscriptionService {
     }
 
     /**
-     * 获取关注某股票的所有用户ID
+     * ID
      *
-     * @param symbol 股票代码
-     * @return 订阅该股票的用户ID集合
+     * @param symbol 
+     * @return ID
      */
     public Set<Long> getSubscribers(String symbol) {
         if (symbol == null) {
@@ -174,10 +174,10 @@ public class StockSubscriptionService {
     }
 
     /**
-     * 获取用户的所有订阅
+     * 
      *
-     * @param userId 用户ID
-     * @return 订阅的股票代码集合
+     * @param userId ID
+     * @return 
      */
     public Set<String> getUserSubscriptions(Long userId) {
         if (userId == null) {
@@ -188,18 +188,18 @@ public class StockSubscriptionService {
     }
 
     /**
-     * 获取所有被订阅的股票代码
+     * 
      *
-     * @return 所有被订阅的股票代码集合
+     * @return 
      */
     public Set<String> getAllSubscribedSymbols() {
         return new HashSet<>(symbolSubscribers.keySet());
     }
 
     /**
-     * 处理价格更新消息，推送给所有关注该股票的用户
+     * ，
      *
-     * @param priceUpdate 价格更新数据
+     * @param priceUpdate 
      */
     public void onPriceUpdate(PriceUpdate priceUpdate) {
         if (priceUpdate == null || priceUpdate.getSymbol() == null) {
@@ -219,7 +219,7 @@ public class StockSubscriptionService {
             return;
         }
 
-        // 构建消息
+        // 
         PriceUpdateMessage message = PriceUpdateMessage.builder()
                 .type("PRICE_UPDATE")
                 .timestamp(Instant.now().toString())
@@ -233,10 +233,10 @@ public class StockSubscriptionService {
                         .build())
                 .build();
 
-        // 推送给所有订阅者
+        // 
         for (Long userId : subscribers) {
             try {
-                // 使用 /queue/user/<userId>/price 主题进行私有推送
+                //  /queue/user/<userId>/price 
                 messagingTemplate.convertAndSendToUser(
                         userId.toString(),
                         "/queue/price",
@@ -252,25 +252,25 @@ public class StockSubscriptionService {
     }
 
     /**
-     * 用户断开连接时清理订阅
+     * 
      *
-     * @param userId 用户ID
+     * @param userId ID
      */
     public void onUserDisconnect(Long userId) {
         if (userId == null) {
             return;
         }
 
-        // 移除用户的所有订阅
+        // 
         unsubscribe(userId, Collections.emptyList());
         log.info("Cleaned up subscriptions for disconnected user {}", userId);
     }
 
     /**
-     * 规范化股票代码格式
+     * 
      *
-     * @param symbol 原始股票代码
-     * @return 规范化后的股票代码
+     * @param symbol 
+     * @return 
      */
     private String normalizeSymbol(String symbol) {
         if (symbol == null || symbol.isBlank()) {
@@ -286,7 +286,7 @@ public class StockSubscriptionService {
     }
 
     /**
-     * 订阅结果
+     * 
      */
     public static class SubscribeResult {
         private final List<String> success;
@@ -319,7 +319,7 @@ public class StockSubscriptionService {
     }
 
     /**
-     * 价格更新消息
+     * 
      */
     public static class PriceUpdateMessage {
         private String type;
@@ -397,7 +397,7 @@ public class StockSubscriptionService {
     }
 
     /**
-     * 价格更新数据（用于服务内部）
+     * （）
      */
     public static class PriceUpdate {
         private String symbol;

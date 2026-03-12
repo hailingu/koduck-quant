@@ -19,7 +19,7 @@ from app.db import Database
 
 logger = structlog.get_logger(__name__)
 
-# 数据存储根目录
+# 
 DATA_DIR = Path(__file__).parent.parent.parent / "data" / "kline"
 ASIA_SHANGHAI_TZ = ZoneInfo("Asia/Shanghai")
 
@@ -38,9 +38,9 @@ class KlineInitializer:
     """Initialize K-line dataset from CSV."""
     
     def __init__(self) -> None:
-        """初始化"""
+        """"""
         self._initialized = False
-        self._retry_interval = 30  # 重试间隔（秒）
+        self._retry_interval = 30  # （）
         self._retry_task: asyncio.Task[None] | None = None
     
     async def check_table_exists(self) -> bool:
@@ -120,7 +120,7 @@ class KlineInitializer:
                     )
                     return True
             
-            # 检查是否有最近的数据（7天内）
+            # （7）
             recent = await Database.fetchrow("""
                 SELECT COUNT(*) as count FROM kline_data 
                 WHERE kline_time >= NOW() - INTERVAL '7 days'
@@ -164,7 +164,7 @@ class KlineInitializer:
                     csv_files = list(tf_dir.glob("*.csv"))
                     files.extend(csv_files)
         else:
-            # 查找所有目录下的CSV文件
+            # CSV
             for tf_dir in DATA_DIR.iterdir():
                 if tf_dir.is_dir():
                     csv_files = list(tf_dir.glob("*.csv"))
@@ -394,12 +394,12 @@ class KlineInitializer:
             ``True`` if every file imported successfully; ``False`` if any file
             failed.
         """
-        # 查找CSV文件
+        # CSV
         csv_files = self.find_csv_files(timeframes)
         
         if not csv_files:
             logger.warning("No CSV files found to import")
-            # 不算失败，可能是首次运行没有数据
+            # ，
             return True
         
         logger.info(f"Found {len(csv_files)} CSV files to import")
@@ -442,7 +442,7 @@ class KlineInitializer:
             ``False`` if it was deferred due to missing schema.
         """
         try:
-            # 检查表是否存在
+            # 
             if not await self.check_table_exists():
                 logger.warning(
                     "kline_data table does not exist yet. "
@@ -451,7 +451,7 @@ class KlineInitializer:
                 self._ensure_retry_task(timeframes)
                 return False
             
-            # 检查是否需要初始化
+            # 
             if not await self.check_needs_initialization():
                 logger.info("K-line data already exists and is up to date")
                 self._initialized = True
@@ -462,7 +462,7 @@ class KlineInitializer:
                 await kline_scheduler.mark_initialization_complete()
                 return True
             
-            # 执行初始化
+            # 
             success = await self.initialize(timeframes)
             
             if success:
@@ -520,5 +520,5 @@ class KlineInitializer:
                 logger.error("Error in background retry", exc_info=True)
 
 
-# 全局实例
+# 
 kline_initializer = KlineInitializer()

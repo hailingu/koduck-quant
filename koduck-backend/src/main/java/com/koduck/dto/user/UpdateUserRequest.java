@@ -8,7 +8,7 @@ import lombok.Data;
 import java.util.List;
 
 /**
- * 更新用户请求 DTO（管理员用）
+ *  DTO（）
  */
 @Data
 public class UpdateUserRequest {

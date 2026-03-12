@@ -9,7 +9,7 @@ import lombok.NoArgsConstructor;
 import java.util.List;
 
 /**
- * 更新设置请求 DTO
+ *  DTO
  */
 @Data
 @Builder
@@ -17,32 +17,32 @@ import java.util.List;
 @AllArgsConstructor
 public class UpdateSettingsRequest {
 
-    // 主题设置
+    // 
     private String theme;
     private String language;
     private String timezone;
 
-    // 通知设置
+    // 
     @Valid
     private NotificationConfigDto notification;
 
-    // 交易设置
+    // 
     @Valid
     private TradingConfigDto trading;
 
-    // 显示设置
+    // 
     @Valid
     private DisplayConfigDto display;
 
-    // 快捷入口
+    // 
     private List<QuickLinkDto> quickLinks;
 
-    // 大模型配置
+    // 
     @Valid
     private LlmConfigDto llmConfig;
 
     /**
-     * 通知配置 DTO
+     *  DTO
      */
     @Data
     @Builder
@@ -57,7 +57,7 @@ public class UpdateSettingsRequest {
     }
 
     /**
-     * 交易配置 DTO
+     *  DTO
      */
     @Data
     @Builder
@@ -71,7 +71,7 @@ public class UpdateSettingsRequest {
     }
 
     /**
-     * 显示配置 DTO
+     *  DTO
      */
     @Data
     @Builder
@@ -85,7 +85,7 @@ public class UpdateSettingsRequest {
     }
 
     /**
-     * 快捷入口 DTO
+     *  DTO
      */
     @Data
     @Builder
@@ -100,7 +100,7 @@ public class UpdateSettingsRequest {
     }
 
     /**
-     * 大模型配置 DTO
+     *  DTO
      */
     @Data
     @Builder
@@ -108,7 +108,7 @@ public class UpdateSettingsRequest {
     @AllArgsConstructor
     public static class LlmConfigDto {
         private String provider;
-        // 当前激活 provider 的输入值（兼容前端旧提交方式）
+        //  provider （）
         private String apiKey;
         private String apiBase;
         private ProviderConfigDto minimax;

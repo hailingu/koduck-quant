@@ -14,7 +14,7 @@ import java.time.LocalDateTime;
 import java.util.Map;
 
 /**
- * 用户凭证实体 - 用于安全存储 API Key 和 Secret
+ *  -  API Key  Secret
  */
 @Entity
 @Table(name = "user_credentials")
@@ -74,30 +74,30 @@ public class UserCredential {
     private LocalDateTime updatedAt;
 
     /**
-     * 凭证类型枚举
+     * 
      */
     public enum CredentialType {
-        BROKER,      // 券商 API
-        DATA_SOURCE, // 数据源 API
-        EXCHANGE,    // 交易所 API
-        AI_PROVIDER  // AI 服务提供商 API
+        BROKER,      //  API
+        DATA_SOURCE, //  API
+        EXCHANGE,    //  API
+        AI_PROVIDER  // AI  API
     }
 
     /**
-     * 环境类型枚举
+     * 
      */
     public enum Environment {
-        paper,   // 模拟盘/纸交易
-        live,    // 实盘
-        sandbox  // 沙盒环境
+        paper,   // /
+        live,    // 
+        sandbox  // 
     }
 
     /**
-     * 验证状态枚举
+     * 
      */
     public enum VerificationStatus {
-        SUCCESS, // 验证成功
-        FAILED,  // 验证失败
-        PENDING  // 待验证
+        SUCCESS, // 
+        FAILED,  // 
+        PENDING  // 
     }
 }

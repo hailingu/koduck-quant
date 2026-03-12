@@ -9,7 +9,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 /**
- * 用户设置 DTO
+ *  DTO
  */
 @Data
 @Builder
@@ -20,31 +20,31 @@ public class UserSettingsDto {
     private Long id;
     private Long userId;
 
-    // 主题设置
+    // 
     private String theme;
     private String language;
     private String timezone;
 
-    // 通知设置
+    // 
     private NotificationConfigDto notification;
 
-    // 交易设置
+    // 
     private TradingConfigDto trading;
 
-    // 显示设置
+    // 
     private DisplayConfigDto display;
 
-    // 快捷入口
+    // 
     private List<QuickLinkDto> quickLinks;
 
-    // 大模型配置
+    // 
     private LlmConfigDto llmConfig;
 
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 
     /**
-     * 通知配置 DTO
+     *  DTO
      */
     @Data
     @Builder
@@ -59,7 +59,7 @@ public class UserSettingsDto {
     }
 
     /**
-     * 交易配置 DTO
+     *  DTO
      */
     @Data
     @Builder
@@ -73,7 +73,7 @@ public class UserSettingsDto {
     }
 
     /**
-     * 显示配置 DTO
+     *  DTO
      */
     @Data
     @Builder
@@ -87,7 +87,7 @@ public class UserSettingsDto {
     }
 
     /**
-     * 快捷入口 DTO
+     *  DTO
      */
     @Data
     @Builder
@@ -102,7 +102,7 @@ public class UserSettingsDto {
     }
 
     /**
-     * 大模型配置 DTO
+     *  DTO
      */
     @Data
     @Builder
@@ -110,7 +110,7 @@ public class UserSettingsDto {
     @AllArgsConstructor
     public static class LlmConfigDto {
         private String provider;
-        // 当前激活 provider 的有效值（兼容前端旧读取方式）
+        //  provider （）
         private String apiKey;
         private String apiBase;
         private ProviderConfigDto minimax;

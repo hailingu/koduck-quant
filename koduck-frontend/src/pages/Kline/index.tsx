@@ -95,7 +95,7 @@ const saveRecentStock = (symbol: string, name: string) => {
   }
 }
 
-// 格式化成交量（万手/亿手）
+// （/）
 const formatVolume = (volume: number): string => {
   if (!volume || volume === 0) return '--'
   const wan = volume / 10000
@@ -105,7 +105,7 @@ const formatVolume = (volume: number): string => {
   return wan.toFixed(2) + '万手'
 }
 
-// 格式化成交额（万/亿）
+// （/）
 const formatAmount = (amount: number): string => {
   if (!amount || amount === 0) return '--'
   const wan = amount / 10000
@@ -115,7 +115,7 @@ const formatAmount = (amount: number): string => {
   return wan.toFixed(2) + '万'
 }
 
-// 格式化总市值（亿/万亿）
+// （/）
 const formatMarketCap = (marketCap: number | null | undefined): string => {
   if (!marketCap || marketCap === 0) return '--'
   const marketCapYi = marketCap >= 100000000 ? marketCap / 100000000 : marketCap
@@ -125,13 +125,13 @@ const formatMarketCap = (marketCap: number | null | undefined): string => {
   return marketCapYi.toFixed(2) + '亿'
 }
 
-// 格式化市盈率/市净率
+// /
 const formatRatio = (value: number | null | undefined): string => {
   if (value === null || value === undefined || value === 0) return '--'
   return value.toFixed(2)
 }
 
-// 格式化换手率
+// 
 const formatTurnoverRate = (value: number | null | undefined): string => {
   if (value === null || value === undefined || value === 0) return '--'
   return value.toFixed(2) + '%'
@@ -245,10 +245,10 @@ export default function Kline() {
     amount: 0,
   })
 
-  // 股票估值信息（PE、PB、总市值、换手率等）
+  // （PEPB）
   const [valuation, setValuation] = useState<StockValuation | null>(null)
 
-  // 股票所属行业信息（行业、板块、细分行业等）
+  // （）
   const [industry, setIndustry] = useState<StockIndustry | null>(null)
 
   const { addItem, removeItem, items, isInWatchlist, fetchWatchlist } = useWatchlistStore()
@@ -361,7 +361,7 @@ export default function Kline() {
     }
   }, [symbol, timeframe])
 
-  // 获取股票估值信息
+  // 
   const fetchStockValuation = useCallback(async () => {
     if (!symbol) {
       setValuation(null)
@@ -389,7 +389,7 @@ export default function Kline() {
     }
   }, [symbol])
 
-  // 获取股票所属行业信息
+  // 
   const fetchStockIndustry = useCallback(async () => {
     if (!symbol) {
       setIndustry(null)
@@ -510,7 +510,7 @@ export default function Kline() {
     if (!symbol || !stockName) return
     
     if (inWatchlist) {
-      // 移除自选
+      // 
       if (!watchlistItemId) return
       setRemovingFromWatchlist(true)
       try {
@@ -523,7 +523,7 @@ export default function Kline() {
         setRemovingFromWatchlist(false)
       }
     } else {
-      // 添加自选
+      // 
       setAddingToWatchlist(true)
       try {
         await addItem(symbol, stockName, 'AShare')
@@ -645,14 +645,14 @@ export default function Kline() {
         <div className="lg:col-span-2 space-y-3 flex flex-col">
           {/* Stock Info - Compact Style */}
           <div className={`${APPLE_CARD_CLASS} p-5 shrink-0`}>
-            {/* 股票标题区 */}
+            {/*  */}
             <div className="flex items-center gap-2 mb-2">
               <h1 className="text-[28px] leading-none font-semibold tracking-[-0.02em] text-[#1d1d1f] dark:text-white">{stockName}</h1>
               <span className="px-1.5 py-0.5 text-xs font-medium bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 rounded-md">
                 SH
               </span>
               <span className="text-sm text-[#8e8e93]">{symbol}</span>
-              {/* 所属行业标签 */}
+              {/*  */}
               {industry?.industry && (
                 <span className="px-2 py-0.5 text-xs font-medium bg-[#f5f5f7] text-[#6e6e73] dark:bg-[#2c2c2e] dark:text-gray-300 rounded-md">
                   {industry.industry}
@@ -671,7 +671,7 @@ export default function Kline() {
               </button>
             </div>
             
-            {/* 行业详细信息 */}
+            {/*  */}
             {(industry?.sector || industry?.subIndustry || industry?.board) && (
               <div className="flex flex-wrap gap-2 mb-3 text-xs">
                 {industry.sector && (
@@ -692,7 +692,7 @@ export default function Kline() {
               </div>
             )}
 
-            {/* 价格显示区 */}
+            {/*  */}
             <div className="mb-3">
               <PriceDisplay
                 price={stockInfo.price}
@@ -707,64 +707,64 @@ export default function Kline() {
               </p>
             </div>
 
-            {/* 详细数据网格 - Compact 2行4列 */}
+            {/*  - Compact 24 */}
             <div className="grid grid-cols-4 gap-y-2 gap-x-4 text-xs">
               <div className="flex justify-between">
-                <span className="text-[#8e8e93]">今开</span>
+                <span className="text-[#8e8e93]"></span>
                 <span className="font-medium tabular-nums">{stockInfo.open.toFixed(2)}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-[#8e8e93]">最高</span>
+                <span className="text-[#8e8e93]"></span>
                 <span className={`font-medium tabular-nums ${stockInfo.high > stockInfo.prevClose ? 'text-stock-up' : ''}`}>
                   {stockInfo.high.toFixed(2)}
                 </span>
               </div>
               <div className="flex justify-between">
-                <span className="text-[#8e8e93]">成交量</span>
+                <span className="text-[#8e8e93]"></span>
                 <span className="font-medium tabular-nums">{formatVolume(stockInfo.volume)}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-[#8e8e93]">总市值</span>
+                <span className="text-[#8e8e93]"></span>
                 <span className="font-medium tabular-nums">{formatMarketCap(valuation?.marketCap)}</span>
               </div>
 
               <div className="flex justify-between">
-                <span className="text-[#8e8e93]">昨收</span>
+                <span className="text-[#8e8e93]"></span>
                 <span className="font-medium tabular-nums">{stockInfo.prevClose.toFixed(2)}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-[#8e8e93]">最低</span>
+                <span className="text-[#8e8e93]"></span>
                 <span className={`font-medium tabular-nums ${stockInfo.low < stockInfo.prevClose ? 'text-stock-down' : ''}`}>
                   {stockInfo.low.toFixed(2)}
                 </span>
               </div>
               <div className="flex justify-between">
-                <span className="text-[#8e8e93]">成交额</span>
+                <span className="text-[#8e8e93]"></span>
                 <span className="font-medium tabular-nums">{formatAmount(stockInfo.amount)}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-[#8e8e93]">换手率</span>
+                <span className="text-[#8e8e93]"></span>
                 <span className="font-medium tabular-nums">{formatTurnoverRate(valuation?.turnoverRate)}</span>
               </div>
 
-              {/* PE 市盈率 */}
+              {/* PE  */}
               <div className="flex justify-between">
-                <span className="text-[#8e8e93]">市盈率</span>
+                <span className="text-[#8e8e93]"></span>
                 <span className="font-medium tabular-nums">{formatRatio(valuation?.peTtm)}</span>
               </div>
-              {/* PB 市净率 */}
+              {/* PB  */}
               <div className="flex justify-between">
-                <span className="text-[#8e8e93]">市净率</span>
+                <span className="text-[#8e8e93]"></span>
                 <span className="font-medium tabular-nums">{formatRatio(valuation?.pb)}</span>
               </div>
-              {/* 流通市值 */}
+              {/*  */}
               <div className="flex justify-between">
-                <span className="text-[#8e8e93]">流通市值</span>
+                <span className="text-[#8e8e93]"></span>
                 <span className="font-medium tabular-nums">{formatMarketCap(valuation?.floatMarketCap)}</span>
               </div>
-              {/* 股本 */}
+              {/*  */}
               <div className="flex justify-between">
-                <span className="text-[#8e8e93]">总股本</span>
+                <span className="text-[#8e8e93]"></span>
                 <span className="font-medium tabular-nums">{formatSharesInYi(valuation?.totalShares)}</span>
               </div>
             </div>

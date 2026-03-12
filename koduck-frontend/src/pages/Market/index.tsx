@@ -3,9 +3,9 @@ import { useNavigate } from 'react-router-dom'
 import { marketApi, type MarketIndex, type SymbolInfo } from '@/api/market'
 import { useToast } from '@/hooks/useToast'
 
-// 指数卡片组件
+// 
 function IndexCard({ index, loading }: { index: MarketIndex; loading: boolean }) {
-  // 安全获取数值，处理 null/undefined
+  // ， null/undefined
   const price = index.price ?? 0
   const change = index.change ?? 0
   const changePercent = index.changePercent ?? 0
@@ -51,7 +51,7 @@ export default function Market() {
   const [searchResults, setSearchResults] = useState<SymbolInfo[]>([])
   const [searching, setSearching] = useState(false)
 
-  // 加载市场数据
+  // 
   const loadData = useCallback(async () => {
     try {
       setLoading(true)
@@ -66,7 +66,7 @@ export default function Market() {
     }
   }, [showToast])
 
-  // 搜索股票
+  // 
   const handleSearch = useCallback(
     async (keyword: string) => {
       if (!keyword.trim()) {
@@ -91,7 +91,7 @@ export default function Market() {
     loadData()
   }, [loadData])
 
-  // 防抖搜索
+  // 
   useEffect(() => {
     const timer = setTimeout(() => {
       if (searchKeyword) {
@@ -106,7 +106,7 @@ export default function Market() {
 
   return (
     <div className="space-y-6">
-      {/* 搜索栏 */}
+      {/*  */}
       <div className="relative">
         <div className="flex items-center gap-2 p-3 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700">
           <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -129,7 +129,7 @@ export default function Market() {
           )}
         </div>
 
-        {/* 搜索结果下拉框 */}
+        {/*  */}
         {searchResults.length > 0 && (
           <div className="absolute top-full left-0 right-0 mt-2 bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 z-50 max-h-80 overflow-y-auto">
             {searchResults.map((stock) => (
@@ -154,18 +154,18 @@ export default function Market() {
           </div>
         )}
 
-        {/* 点击外部关闭搜索结果 */}
+        {/*  */}
         {searchResults.length > 0 && (
           <div className="fixed inset-0 z-40" onClick={() => setSearchResults([])}></div>
         )}
       </div>
 
-      {/* 市场指数 */}
+      {/*  */}
       <section>
         <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">市场指数</h3>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {loading && indices.length === 0
-            ? // 骨架屏
+            ? // 
               [...Array(3)].map((_, i) => (
                 <div
                   key={i}

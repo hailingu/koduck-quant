@@ -9,7 +9,7 @@ import org.springframework.stereotype.Repository;
 import java.time.LocalDateTime;
 
 /**
- * 登录尝试记录仓库（无外键关联）
+ * （）
  */
 @Repository
 public interface LoginAttemptRepository extends JpaRepository<LoginAttempt, Long> {

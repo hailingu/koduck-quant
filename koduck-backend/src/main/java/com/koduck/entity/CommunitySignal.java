@@ -15,7 +15,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 /**
- * 社区信号实体
+ * 
  */
 @Entity
 @Table(name = "community_signals")
@@ -106,37 +106,37 @@ public class CommunitySignal {
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
 
-    // 关联用户（非强制加载）
+    // （）
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", insertable = false, updatable = false)
     private User user;
 
     /**
-     * 信号类型枚举
+     * 
      */
     public enum SignalType {
-        BUY,   // 买入
-        SELL,  // 卖出
-        HOLD   // 持有
+        BUY,   // 
+        SELL,  // 
+        HOLD   // 
     }
 
     /**
-     * 信号状态枚举
+     * 
      */
     public enum Status {
-        ACTIVE,     // 活跃
-        CLOSED,     // 已关闭
-        EXPIRED,    // 已过期
-        CANCELLED   // 已取消
+        ACTIVE,     // 
+        CLOSED,     // 
+        EXPIRED,    // 
+        CANCELLED   // 
     }
 
     /**
-     * 结果状态枚举
+     * 
      */
     public enum ResultStatus {
-        PENDING,     // 等待中
-        HIT_TARGET,  // 达到目标价
-        HIT_STOP,    // 触及止损价
-        TIMEOUT      // 超时
+        PENDING,     // 
+        HIT_TARGET,  // 
+        HIT_STOP,    // 
+        TIMEOUT      // 
     }
 }

@@ -10,7 +10,7 @@ import java.util.List;
 import java.util.Optional;
 
 /**
- * 角色仓库（无外键关联）
+ * （）
  */
 @Repository
 public interface RoleRepository extends JpaRepository<Role, Integer> {

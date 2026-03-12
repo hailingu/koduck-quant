@@ -8,7 +8,7 @@ import lombok.NoArgsConstructor;
 import java.time.LocalDateTime;
 
 /**
- * 验证凭证响应 DTO
+ *  DTO
  */
 @Data
 @Builder
@@ -22,6 +22,6 @@ public class VerifyCredentialResponse {
     private String details;
     private LocalDateTime verifiedAt;
 
-    // 验证结果状态：SUCCESS, FAILED
+    // ：SUCCESS, FAILED
     private String status;
 }

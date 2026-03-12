@@ -8,7 +8,7 @@ import lombok.NoArgsConstructor;
 import java.util.List;
 
 /**
- * 凭证列表响应 DTO
+ *  DTO
  */
 @Data
 @Builder

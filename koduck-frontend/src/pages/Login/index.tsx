@@ -98,7 +98,7 @@ export default function Login() {
             </p>
           </div>
 
-          {/* 演示账号提示 */}
+          {/*  */}
           <div className="mt-6 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
             <p className="text-sm font-medium text-blue-800 dark:text-blue-300 mb-2">演示账号</p>
             <div className="text-sm text-blue-700 dark:text-blue-400 space-y-1">

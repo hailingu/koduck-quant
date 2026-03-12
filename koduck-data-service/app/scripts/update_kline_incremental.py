@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""增量更新 K 线数据到 CSV 文件
+""" K  CSV 
 
 基于 backfill_kline.py 修改，支持增量更新本地 CSV 文件。
 
@@ -55,7 +55,7 @@ def setup_logging(verbose: bool = False):
 
 
 def get_last_date_from_csv(csv_path: Path) -> Optional[datetime]:
-    """从 CSV 文件获取最后日期"""
+    """ CSV """
     try:
         if not csv_path.exists():
             return None
@@ -76,7 +76,7 @@ def merge_and_save_kline(
     name: str,
     timeframe: str
 ) -> int:
-    """合并新旧数据并保存到 CSV
+    """ CSV
     
     Returns:
         新增的记录数
@@ -84,10 +84,10 @@ def merge_and_save_kline(
     if not new_data:
         return 0
     
-    # 合并数据
+    # 
     all_data = existing_data + new_data
     
-    # 去重（按 timestamp）
+    # （ timestamp）
     seen_timestamps = set()
     unique_data = []
     for record in sorted(all_data, key=lambda x: x['timestamp']):
@@ -104,7 +104,7 @@ def merge_and_save_kline(
     if symbol.isdigit():
         symbol = symbol.zfill(6)
 
-    # 保存到 CSV
+    #  CSV
     tf_dir = DATA_DIR / timeframe
     tf_dir.mkdir(parents=True, exist_ok=True)
     
@@ -130,17 +130,17 @@ async def incremental_update_symbol(
     name: str,
     timeframe: str = "1D",
 ) -> bool:
-    """增量更新单个股票的 K 线数据"""
+    """ K """
     csv_path = DATA_DIR / timeframe / f"{symbol}.csv"
     
-    # 获取 CSV 中的最后日期
+    #  CSV 
     last_date = get_last_date_from_csv(csv_path)
     
     if last_date:
         start_date = (last_date + timedelta(days=1)).strftime("%Y%m%d")
         logger.info(f"{symbol}: Last date in CSV is {last_date.strftime('%Y-%m-%d')}, fetching from {start_date}")
     else:
-        # 如果没有 CSV，获取最近 30 天
+        #  CSV， 30 
         start_date = (datetime.now() - timedelta(days=30)).strftime("%Y%m%d")
         logger.info(f"{symbol}: No existing CSV, fetching last 30 days from {start_date}")
     
@@ -151,16 +151,16 @@ async def incremental_update_symbol(
         return True
     
     try:
-        # 获取现有数据
+        # 
         existing_data = []
         if csv_path.exists():
             df = pd.read_csv(csv_path, encoding='utf-8-sig')
             existing_data = df.to_dict('records')
         
-        # 获取新数据 - 使用 Eastmoney 客户端
+        #  -  Eastmoney 
         period_map = {"1D": "101", "1W": "102", "1M": "103"}  # Eastmoney period codes
         period = period_map.get(timeframe, "101")
-        secid_prefix = "1" if symbol.startswith("6") else "0"  # 上海=1, 深圳=0
+        secid_prefix = "1" if symbol.startswith("6") else "0"  # =1, =0
         
         logger.info(f"{symbol}: Fetching data from {start_date} to {end_date}")
         
@@ -177,7 +177,7 @@ async def incremental_update_symbol(
             logger.warning(f"{symbol}: No new data returned")
             return False
         
-        # 转换数据格式以兼容现有 CSV 格式
+        #  CSV 
         converted_data = []
         for record in new_data:
             converted_data.append({
@@ -190,7 +190,7 @@ async def incremental_update_symbol(
                 'amount': record.get('amount'),
             })
         
-        # 合并并保存
+        # 
         records_added = merge_and_save_kline(existing_data, converted_data, symbol, name, timeframe)
         
         logger.info(f"{symbol}: Added {records_added} new records")
@@ -218,12 +218,12 @@ async def main():
     
     setup_logging(args.verbose)
     
-    # 确定要更新的股票
+    # 
     symbols = []
     if args.symbol:
         symbols = [(args.symbol, "")]
     elif args.all:
-        # 获取所有 CSV 文件中的股票
+        #  CSV 
         tf_dir = DATA_DIR / args.timeframe
         if tf_dir.exists():
             for csv_file in tf_dir.glob("*.csv"):

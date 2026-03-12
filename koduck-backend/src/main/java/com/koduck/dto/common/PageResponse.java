@@ -8,7 +8,7 @@ import lombok.NoArgsConstructor;
 import java.util.List;
 
 /**
- * 统一分页响应 DTO
+ *  DTO
  */
 @Data
 @Builder

@@ -25,13 +25,13 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * WebSocket 消息控制器
+ * WebSocket 
  *
- * <p>处理客户端发送的 WebSocket 消息：</p>
+ * <p> WebSocket ：</p>
  * <ul>
- *   <li>订阅/取消订阅股票</li>
- *   <li>心跳检测</li>
- *   <li>连接事件处理</li>
+ *   <li>/</li>
+ *   <li></li>
+ *   <li></li>
  * </ul>
  */
 @Slf4j
@@ -46,16 +46,16 @@ public class WebSocketEventController {
     private final ObjectMapper objectMapper;
 
     /**
-     * 存储活跃连接的用户
+     * 
      * userId -> sessionId
      */
     private final Map<Long, String> activeConnections = new ConcurrentHashMap<>();
 
     /**
-     * 处理订阅请求（批量订阅股票）
+     * （）
      *
-     * @param headerAccessor 消息头部访问器
-     * @return 订阅结果
+     * @param headerAccessor 
+     * @return 
      */
     @MessageMapping("/subscribe")
     @SendToUser("/queue/subscribe-result")
@@ -66,7 +66,7 @@ public class WebSocketEventController {
 
         SubscriptionMessage request = parseSubscriptionMessage(payload);
 
-        // 获取用户信息
+        // 
         WebSocketChannelInterceptor.WebSocketUserPrincipal principal = getUserPrincipal(headerAccessor);
         if (principal == null) {
             return SubscriptionMessage.builder()
@@ -98,7 +98,7 @@ public class WebSocketEventController {
         }
 
         if (symbols.isEmpty()) {
-            // 返回当前订阅列表
+            // 
             Set<String> subscriptions = stockSubscriptionService.getUserSubscriptions(userId);
             return SubscriptionMessage.builder()
                     .type(SUBSCRIBE_RESULT)
@@ -107,10 +107,10 @@ public class WebSocketEventController {
                     .build();
         }
 
-        // 执行订阅
+        // 
         StockSubscriptionService.SubscribeResult result = stockSubscriptionService.subscribe(userId, symbols);
 
-        // 返回当前所有订阅
+        // 
         Set<String> allSubscriptions = stockSubscriptionService.getUserSubscriptions(userId);
 
         return SubscriptionMessage.builder()
@@ -124,10 +124,10 @@ public class WebSocketEventController {
     }
 
     /**
-     * 处理取消订阅请求
+     * 
      *
-     * @param headerAccessor 消息头部访问器
-     * @return 取消订阅结果
+     * @param headerAccessor 
+     * @return 
      */
     @MessageMapping("/unsubscribe")
     @SendToUser("/queue/unsubscribe-result")
@@ -138,7 +138,7 @@ public class WebSocketEventController {
 
         SubscriptionMessage request = parseSubscriptionMessage(payload);
 
-        // 获取用户信息
+        // 
         WebSocketChannelInterceptor.WebSocketUserPrincipal principal = getUserPrincipal(headerAccessor);
         if (principal == null) {
             return SubscriptionMessage.builder()
@@ -154,10 +154,10 @@ public class WebSocketEventController {
             ? request.getSymbols()
             : new ArrayList<>();
 
-        // 执行取消订阅
+        // 
         StockSubscriptionService.SubscribeResult result = stockSubscriptionService.unsubscribe(userId, symbols);
 
-        // 返回当前所有订阅
+        // 
         Set<String> allSubscriptions = stockSubscriptionService.getUserSubscriptions(userId);
 
         return SubscriptionMessage.builder()
@@ -171,10 +171,10 @@ public class WebSocketEventController {
     }
 
     /**
-     * 处理心跳/ping 请求
+     * /ping 
      *
-     * @param headerAccessor 消息头部访问器
-     * @return 心跳响应
+     * @param headerAccessor 
+     * @return 
      */
     @MessageMapping("/ping")
     @SendToUser("/queue/pong")
@@ -184,7 +184,7 @@ public class WebSocketEventController {
     }
 
     /**
-     * 处理连接事件
+     * 
      */
     @EventListener
     public void handleSessionConnect(SessionConnectEvent event) {
@@ -192,14 +192,14 @@ public class WebSocketEventController {
     }
 
     /**
-     * 处理断开连接事件 - 清理用户订阅
+     *  - 
      */
     @EventListener
     public void handleSessionDisconnect(SessionDisconnectEvent event) {
         String sessionId = event.getSessionId();
         log.info("websocket_session_disconnect sessionId={}", sessionId);
 
-        // 找到断开连接的用户并清理订阅
+        // 
         Long disconnectedUserId = null;
         for (Map.Entry<Long, String> entry : activeConnections.entrySet()) {
             if (entry.getValue().equals(sessionId)) {
@@ -210,14 +210,14 @@ public class WebSocketEventController {
 
         if (disconnectedUserId != null) {
             activeConnections.remove(disconnectedUserId);
-            // 清理用户的订阅
+            // 
             stockSubscriptionService.onUserDisconnect(disconnectedUserId);
             log.info("websocket_user_subscriptions_cleared userId={}", disconnectedUserId);
         }
     }
 
     /**
-     * 处理订阅事件
+     * 
      */
     @EventListener
     public void handleSessionSubscribe(SessionSubscribeEvent event) {
@@ -225,7 +225,7 @@ public class WebSocketEventController {
     }
 
     /**
-     * 从头部获取用户 Principal
+     *  Principal
      */
     private WebSocketChannelInterceptor.WebSocketUserPrincipal getUserPrincipal(SimpMessageHeaderAccessor headerAccessor) {
         if (headerAccessor.getUser() instanceof WebSocketChannelInterceptor.WebSocketUserPrincipal principal) {
@@ -270,7 +270,7 @@ public class WebSocketEventController {
     }
 
     /**
-     * 获取活跃连接数
+     * 
      */
     public int getActiveConnectionCount() {
         return activeConnections.size();

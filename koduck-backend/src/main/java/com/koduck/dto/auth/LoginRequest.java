@@ -5,7 +5,7 @@ import jakarta.validation.constraints.Size;
 import lombok.Data;
 
 /**
- * 登录请求 DTO
+ *  DTO
  */
 @Data
 public class LoginRequest {

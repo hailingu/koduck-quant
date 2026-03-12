@@ -18,19 +18,19 @@ public record BacktestResultDto(
     LocalDate endDate,
     String timeframe,
     
-    // 参数
+    // 
     BigDecimal initialCapital,
     BigDecimal commissionRate,
     BigDecimal slippage,
     
-    // 结果
+    // 
     BigDecimal finalCapital,
     BigDecimal totalReturn,
     BigDecimal annualizedReturn,
     BigDecimal maxDrawdown,
     BigDecimal sharpeRatio,
     
-    // 交易统计
+    // 
     Integer totalTrades,
     Integer winningTrades,
     Integer losingTrades,
@@ -39,7 +39,7 @@ public record BacktestResultDto(
     BigDecimal avgLoss,
     BigDecimal profitFactor,
     
-    // 状态
+    // 
     String status,
     String errorMessage,
     LocalDateTime createdAt,

@@ -10,7 +10,7 @@ import java.util.List;
 import java.util.Optional;
 
 /**
- * 权限仓库（无外键关联）
+ * （）
  */
 @Repository
 public interface PermissionRepository extends JpaRepository<Permission, Integer> {

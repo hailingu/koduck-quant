@@ -10,7 +10,7 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * WebSocket 订阅请求消息
+ * WebSocket 
  */
 @Data
 @Builder
@@ -20,32 +20,32 @@ import java.util.Map;
 public class SubscriptionMessage {
 
     /**
-     * 消息类型 SUBSCRIBE / UNSUBSCRIBE
+     *  SUBSCRIBE / UNSUBSCRIBE
      */
     private String type;
 
     /**
-     * 股票代码列表
+     * 
      */
     private List<String> symbols;
 
     /**
-     * 订阅结果
+     * 
      */
     private List<String> success;
 
     /**
-     * 失败的订阅
+     * 
      */
     private Map<String, String> failed;
 
     /**
-     * 用户当前订阅列表
+     * 
      */
     private List<String> subscriptions;
 
     /**
-     * 时间戳
+     * 
      */
     private Long timestamp;
 }

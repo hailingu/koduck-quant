@@ -8,7 +8,7 @@ import org.springframework.security.core.userdetails.UserDetails;
 import java.util.Collection;
 
 /**
- * 自定义 UserDetails 实现，包装 User 实体
+ *  UserDetails ， User 
  */
 @Getter
 public class UserPrincipal implements UserDetails {

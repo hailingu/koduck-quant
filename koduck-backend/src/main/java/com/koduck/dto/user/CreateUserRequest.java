@@ -10,7 +10,7 @@ import lombok.Data;
 import java.util.List;
 
 /**
- * 创建用户请求 DTO（管理员用）
+ *  DTO（）
  */
 @Data
 public class CreateUserRequest {

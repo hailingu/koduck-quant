@@ -75,7 +75,7 @@ class AuthControllerIntegrationTest extends AbstractIntegrationTest {
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isOk());
 
-        // 再次用相同用户名注册
+        // 
         RegisterRequest request2 = new RegisterRequest();
         request2.setUsername("existinguser");
         request2.setEmail("another@example.com");

@@ -15,7 +15,7 @@ import java.util.Map;
 import java.util.UUID;
 
 /**
- * JWT 工具类
+ * JWT 
  */
 @Slf4j
 @Component
@@ -29,7 +29,7 @@ public class JwtUtil {
     }
 
     /**
-     * 生成 Access Token
+     *  Access Token
      */
     public String generateAccessToken(Long userId, String username, String email) {
         Map<String, Object> claims = new HashMap<>();
@@ -49,7 +49,7 @@ public class JwtUtil {
     }
 
     /**
-     * 生成 Refresh Token
+     *  Refresh Token
      */
     public String generateRefreshToken(Long userId) {
         Map<String, Object> claims = new HashMap<>();
@@ -67,7 +67,7 @@ public class JwtUtil {
     }
 
     /**
-     * 解析 Token
+     *  Token
      */
     public Claims parseToken(String token) {
         return Jwts.parser()
@@ -78,7 +78,7 @@ public class JwtUtil {
     }
 
     /**
-     * 验证 Token 是否有效
+     *  Token 
      */
     public boolean validateToken(String token) {
         try {
@@ -99,7 +99,7 @@ public class JwtUtil {
     }
 
     /**
-     * 从 Token 中获取用户 ID
+     *  Token  ID
      */
     public Long getUserIdFromToken(String token) {
         Claims claims = parseToken(token);
@@ -107,7 +107,7 @@ public class JwtUtil {
     }
 
     /**
-     * 检查 Token 是否过期
+     *  Token 
      */
     public boolean isTokenExpired(String token) {
         try {
@@ -119,14 +119,14 @@ public class JwtUtil {
     }
 
     /**
-     * 获取 Token 过期时间
+     *  Token 
      */
     public Date getExpirationDateFromToken(String token) {
         return parseToken(token).getExpiration();
     }
 
     /**
-     * 判断是否为 Refresh Token
+     *  Refresh Token
      */
     public boolean isRefreshToken(String token) {
         try {

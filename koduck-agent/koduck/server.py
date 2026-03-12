@@ -1,4 +1,4 @@
-"""FastAPI REST API 服务.
+"""FastAPI REST API .
 
 提供 OpenAI 兼容的 REST API 接口，允许外部服务通过 HTTP 调用 LLM。
 
@@ -30,7 +30,7 @@ from koduck.quant_tools import (
 
 logger = logging.getLogger(__name__)
 
-# 全局客户端缓存
+# 
 _clients: dict[str, Any] = {}
 MAX_TOOL_CALL_ROUNDS = 4
 
@@ -79,7 +79,7 @@ def setup_logging() -> None:
 
 
 def get_api_key_for_provider(provider: str) -> str:
-    """根据 provider 获取对应的 API 密钥.
+    """ provider  API .
     
     支持的环境变量:
     - OPENAI_API_KEY
@@ -91,7 +91,7 @@ def get_api_key_for_provider(provider: str) -> str:
     provider_lower = provider.lower()
     
     if provider_lower == "openai":
-        # 兼容历史变量 GPT_API_KEY
+        #  GPT_API_KEY
         api_key = os.getenv("OPENAI_API_KEY") or os.getenv("GPT_API_KEY") or ""
     elif provider_lower == "minimax":
         api_key = os.getenv("MINIMAX_API_KEY") or ""
@@ -100,7 +100,7 @@ def get_api_key_for_provider(provider: str) -> str:
     else:
         api_key = ""
     
-    # 回退到通用密钥
+    # 
     if not api_key:
         api_key = os.getenv("LLM_API_KEY", "")
     
@@ -108,7 +108,7 @@ def get_api_key_for_provider(provider: str) -> str:
 
 
 def get_api_base_for_provider(provider: str) -> str:
-    """根据 provider 获取对应的 API Base URL.
+    """ provider  API Base URL.
     
     支持的环境变量:
     - OPENAI_API_BASE 或 LLM_API_BASE
@@ -118,13 +118,13 @@ def get_api_base_for_provider(provider: str) -> str:
     provider_lower = provider.lower()
     
     if provider_lower == "openai":
-        # 优先使用 OpenAI 专用配置，回退到通用配置
+        #  OpenAI ，
         return os.getenv("OPENAI_API_BASE") or os.getenv("LLM_API_BASE") or ""
     elif provider_lower == "minimax":
-        # 优先使用 MiniMax 专用配置，回退到通用配置
+        #  MiniMax ，
         return os.getenv("MINIMAX_API_BASE") or os.getenv("LLM_API_BASE") or ""
     elif provider_lower == "deepseek":
-        # 优先使用 DeepSeek 专用配置，回退到通用配置
+        #  DeepSeek ，
         return os.getenv("DEEPSEEK_API_BASE") or os.getenv("LLM_API_BASE") or ""
     else:
         return os.getenv("LLM_API_BASE") or ""
@@ -136,43 +136,43 @@ def _build_client_cache_key(provider: str, api_key: str, api_base: str) -> str:
 
 
 def get_client(provider: str, api_key_override: str | None = None, api_base_override: str | None = None) -> Any:
-    """获取或创建客户端实例."""
+    """."""
     if api_key_override is None:
         resolved_api_key = get_api_key_for_provider(provider)
     else:
-        # 显式传入时（即使为空字符串）也不回退环境变量
+        # （）
         resolved_api_key = (api_key_override or "").strip()
     resolved_api_base = (api_base_override or "").strip() or get_api_base_for_provider(provider)
     cache_key = _build_client_cache_key(provider, resolved_api_key, resolved_api_base)
 
-    logger.info(f"[get_client] 获取客户端: provider={provider}, cached={cache_key in _clients}")
+    logger.info(f"[get_client] : provider={provider}, cached={cache_key in _clients}")
     if cache_key not in _clients:
-        logger.info(f"[get_client] 创建新客户端: provider={provider}")
+        logger.info(f"[get_client] : provider={provider}")
         api_key = resolved_api_key
         if not api_key:
-            logger.error(f"[get_client] API 密钥缺失: provider={provider}")
+            logger.error(f"[get_client] API : provider={provider}")
             raise HTTPException(
                 status_code=400, 
                 detail=f"未找到 {provider} 的 API 密钥，请设置 {provider.upper()}_API_KEY 或 LLM_API_KEY 环境变量"
             )
         api_key_preview = api_key[:8] + "..." if len(api_key) > 8 else "***"
-        logger.info(f"[get_client] API 密钥获取成功: provider={provider}, key_preview={api_key_preview}")
+        logger.info(f"[get_client] API : provider={provider}, key_preview={api_key_preview}")
         
         api_base = resolved_api_base
         logger.info(f"[get_client] API Base: provider={provider}, api_base={api_base}")
         
         try:
             _clients[cache_key] = create_client(api_key=api_key, provider=provider, api_base=api_base)
-            logger.info(f"[get_client] 客户端创建成功: provider={provider}")
+            logger.info(f"[get_client] : provider={provider}")
         except ValueError as e:
-            logger.error(f"[get_client] 客户端创建失败: provider={provider}, error={e}")
+            logger.error(f"[get_client] : provider={provider}, error={e}")
             raise HTTPException(status_code=400, detail=str(e))
     return _clients[cache_key]
 
 
-# API 模型定义
+# API 
 class ChatMessage(BaseModel):
-    """聊天消息模型."""
+    """."""
     role: str = Field(..., description="消息角色: system/user/assistant/tool")
     content: str | None = Field(None, description="消息内容")
     thinking: str | None = Field(None, description="思考内容（仅 assistant）")
@@ -180,7 +180,7 @@ class ChatMessage(BaseModel):
 
 
 class ChatCompletionRequest(BaseModel):
-    """聊天补全请求模型."""
+    """."""
     model: str | None = Field(None, description="模型名称")
     messages: list[ChatMessage] = Field(..., description="消息列表")
     provider: str = Field("minimax", description="LLM 提供商: minimax/deepseek/openai")
@@ -202,7 +202,7 @@ class ChatCompletionRequest(BaseModel):
 
 
 class ChatCompletionResponse(BaseModel):
-    """聊天补全响应模型."""
+    """."""
     id: str = Field(default="chatcmpl-koduck", description="响应 ID")
     object: str = Field(default="chat.completion", description="对象类型")
     created: int = Field(default=0, description="创建时间戳")
@@ -213,18 +213,18 @@ class ChatCompletionResponse(BaseModel):
 
 
 class HealthResponse(BaseModel):
-    """健康检查响应."""
+    """."""
     status: str = Field(default="ok", description="服务状态")
     version: str = Field(..., description="服务版本")
 
 
 class ModelsResponse(BaseModel):
-    """模型列表响应."""
+    """."""
     models: list[dict] = Field(..., description="可用模型列表")
 
 
 class SimpleChatRequest(BaseModel):
-    """简化版聊天请求（前端直接使用）."""
+    """（）."""
     messages: list[ChatMessage] = Field(..., description="消息列表")
     provider: str = Field("minimax", description="LLM 提供商")
     apiKey: str | None = Field(None, description="可选：覆盖环境变量的 API Key")
@@ -232,14 +232,14 @@ class SimpleChatRequest(BaseModel):
 
 
 class SimpleChatData(BaseModel):
-    """简化版聊天响应数据."""
+    """."""
     content: str = Field(..., description="回复内容")
     provider: str = Field(..., description="使用的提供商")
     model: str = Field(..., description="使用的模型")
 
 
 class ApiResponseWrapper(BaseModel):
-    """前端统一响应格式."""
+    """."""
     code: int = Field(0, description="响应码，0 表示成功")
     message: str = Field("success", description="响应消息")
     data: SimpleChatData = Field(..., description="响应数据")
@@ -332,8 +332,8 @@ async def _run_chat_with_tool_loop(
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """应用生命周期管理."""
-    # 启动时
+    """."""
+    # 
     setup_logging()
     service_logger = structlog.get_logger()
     service_logger.info(
@@ -343,11 +343,11 @@ async def lifespan(app: FastAPI):
         log_format=os.getenv("LOG_FORMAT", "json").lower(),
     )
     yield
-    # 关闭时
+    # 
     service_logger.info("Shutting down Koduck API Server")
 
 
-# 创建 FastAPI 应用
+#  FastAPI 
 app = FastAPI(
     title="Koduck API",
     description="多平台 LLM 统一调用接口 - OpenAI 兼容 API",
@@ -358,13 +358,13 @@ app = FastAPI(
 
 @app.get("/health", response_model=HealthResponse, tags=["System"])
 async def health_check():
-    """健康检查接口."""
+    """."""
     return HealthResponse(version=__version__)
 
 
 @app.get("/v1/models", response_model=ModelsResponse, tags=["Chat"])
 async def list_models():
-    """列出可用模型."""
+    """."""
     models = []
     for provider in LLMProvider:
         if provider == LLMProvider.MINIMAX:
@@ -389,7 +389,7 @@ async def list_models():
 
 @app.post("/v1/chat/completions", response_model=ChatCompletionResponse, tags=["Chat"])
 async def chat_completions(request: ChatCompletionRequest):
-    """聊天补全接口（OpenAI 兼容）.
+    """（OpenAI ）.
     
     支持的提供商:
     - minimax: MiniMax (默认)
@@ -406,22 +406,22 @@ async def chat_completions(request: ChatCompletionRequest):
     }
     ```
     """
-    # 记录请求详情
-    logger.info(f"[ChatCompletions] 收到请求: provider={request.provider}, model={request.model}, stream={request.stream}")
-    logger.debug(f"[ChatCompletions] 消息数量: {len(request.messages)}")
+    # 
+    logger.info(f"[ChatCompletions] : provider={request.provider}, model={request.model}, stream={request.stream}")
+    logger.debug(f"[ChatCompletions] : {len(request.messages)}")
     for i, msg in enumerate(request.messages):
         content_preview = msg.content[:100] + "..." if msg.content and len(msg.content) > 100 else msg.content
         logger.debug(f"[ChatCompletions] Message[{i}]: role={msg.role}, content={content_preview}")
 
     if request.stream:
-        logger.warning(f"[ChatCompletions] 拒绝请求: 不支持流式输出")
+        logger.warning(f"[ChatCompletions] : ")
         raise HTTPException(
             status_code=501,
             detail="流式输出暂不支持，请设置 stream=false"
         )
 
-    # 获取客户端
-    logger.debug(f"[ChatCompletions] 获取客户端: provider={request.provider}")
+    # 
+    logger.debug(f"[ChatCompletions] : provider={request.provider}")
     client = get_client(request.provider, request.apiKey, request.apiBase)
 
     messages = _to_internal_messages(request.messages)
@@ -434,10 +434,10 @@ async def chat_completions(request: ChatCompletionRequest):
             client,
             messages,
         )
-        logger.info(f"[ChatCompletions] LLM 响应成功: finish_reason={response.finish_reason}")
-        logger.debug(f"[ChatCompletions] LLM 响应内容: {response.content[:200]}..." if response.content and len(response.content) > 200 else f"[ChatCompletions] LLM 响应内容: {response.content}")
+        logger.info(f"[ChatCompletions] LLM : finish_reason={response.finish_reason}")
+        logger.debug(f"[ChatCompletions] LLM : {response.content[:200]}..." if response.content and len(response.content) > 200 else f"[ChatCompletions] LLM : {response.content}")
 
-        # 构建响应
+        # 
         choice = {
             "index": 0,
             "message": {
@@ -447,11 +447,11 @@ async def chat_completions(request: ChatCompletionRequest):
             "finish_reason": response.finish_reason,
         }
 
-        # 添加思考内容（如果有）
+        # （）
         if response.thinking:
             choice["message"]["thinking"] = response.thinking
 
-        # 添加工具调用（如果有）
+        # （）
         if response.tool_calls:
             choice["message"]["tool_calls"] = _to_openai_tool_calls(response.tool_calls)
 
@@ -469,46 +469,46 @@ async def chat_completions(request: ChatCompletionRequest):
             choices=[choice],
             usage=usage,
         )
-        logger.info(f"[ChatCompletions] 返回响应成功: model={result.model}, provider={result.provider}")
+        logger.info(f"[ChatCompletions] : model={result.model}, provider={result.provider}")
         return result
 
     except HTTPException as he:
-        # 直接透传 HTTPException
+        #  HTTPException
         logger.warning(f"[ChatCompletions] HTTPException: status={he.status_code}, detail={he.detail}")
         raise
     except Exception as e:
         error_msg = str(e).lower()
         error_type = type(e).__name__
-        logger.error(f"[ChatCompletions] 错误: type={error_type}, provider={request.provider}, error={e}")
-        logger.error(f"[ChatCompletions] 错误详情: {repr(e)}")
+        logger.error(f"[ChatCompletions] : type={error_type}, provider={request.provider}, error={e}")
+        logger.error(f"[ChatCompletions] : {repr(e)}")
         
-        # 根据错误类型提供更具体的错误信息
+        # 
         if "api key" in error_msg or "authentication" in error_msg or "unauthorized" in error_msg:
-            logger.error(f"[ChatCompletions] API 密钥错误")
+            logger.error(f"[ChatCompletions] API ")
             raise HTTPException(
                 status_code=401, 
                 detail=f"{request.provider} API 密钥无效或缺失，请检查环境变量配置"
             )
         elif "rate limit" in error_msg or "too many requests" in error_msg:
-            logger.error(f"[ChatCompletions] 速率限制错误")
+            logger.error(f"[ChatCompletions] ")
             raise HTTPException(
                 status_code=429, 
                 detail=f"{request.provider} API 请求过于频繁，请稍后重试"
             )
         elif "timeout" in error_msg:
-            logger.error(f"[ChatCompletions] 超时错误")
+            logger.error(f"[ChatCompletions] ")
             raise HTTPException(
                 status_code=504, 
                 detail=f"{request.provider} API 响应超时"
             )
         elif "connection" in error_msg or "network" in error_msg:
-            logger.error(f"[ChatCompletions] 连接错误")
+            logger.error(f"[ChatCompletions] ")
             raise HTTPException(
                 status_code=503, 
                 detail=f"无法连接到 {request.provider} API 服务"
             )
         else:
-            logger.error(f"[ChatCompletions] 未知错误")
+            logger.error(f"[ChatCompletions] ")
             raise HTTPException(
                 status_code=500, 
                 detail=f"{request.provider} AI 服务错误: {str(e)}"
@@ -517,7 +517,7 @@ async def chat_completions(request: ChatCompletionRequest):
 
 @app.post("/api/v1/ai/chat", response_model=ApiResponseWrapper, tags=["Chat"])
 async def simple_chat(request: SimpleChatRequest):
-    """简化版聊天接口（前端直接使用）.
+    """（）.
     
     这是前端 AIChat 组件直接调用的接口，格式更简洁。
     
@@ -545,15 +545,15 @@ async def simple_chat(request: SimpleChatRequest):
     }
     ```
     """
-    # 记录请求详情
-    logger.info(f"[SimpleChat] 收到请求: provider={request.provider}")
-    logger.info(f"[SimpleChat] 消息数量: {len(request.messages)}")
+    # 
+    logger.info(f"[SimpleChat] : provider={request.provider}")
+    logger.info(f"[SimpleChat] : {len(request.messages)}")
     for i, msg in enumerate(request.messages):
         content_preview = msg.content[:100] + "..." if msg.content and len(msg.content) > 100 else msg.content
         logger.info(f"[SimpleChat] Message[{i}]: role={msg.role}, content={content_preview}")
 
-    # 获取客户端
-    logger.info(f"[SimpleChat] 获取客户端: provider={request.provider}")
+    # 
+    logger.info(f"[SimpleChat] : provider={request.provider}")
     client = get_client(request.provider, request.apiKey, request.apiBase)
 
     messages = _to_internal_messages(request.messages)
@@ -566,12 +566,12 @@ async def simple_chat(request: SimpleChatRequest):
             client,
             messages,
         )
-        logger.info(f"[SimpleChat] LLM 响应成功: finish_reason={response.finish_reason}")
+        logger.info(f"[SimpleChat] LLM : finish_reason={response.finish_reason}")
         
         content_preview = response.content[:200] + "..." if response.content and len(response.content) > 200 else response.content
-        logger.info(f"[SimpleChat] LLM 响应内容: {content_preview}")
+        logger.info(f"[SimpleChat] LLM : {content_preview}")
 
-        # 包装成前端统一响应格式
+        # 
         result = ApiResponseWrapper(
             code=0,
             message="success",
@@ -581,7 +581,7 @@ async def simple_chat(request: SimpleChatRequest):
                 model=client.model,
             )
         )
-        logger.info(f"[SimpleChat] 返回响应成功: code={result.code}, model={result.data.model}")
+        logger.info(f"[SimpleChat] : code={result.code}, model={result.data.model}")
         return result
 
     except HTTPException as he:
@@ -590,8 +590,8 @@ async def simple_chat(request: SimpleChatRequest):
     except Exception as e:
         error_msg = str(e).lower()
         error_type = type(e).__name__
-        logger.error(f"[SimpleChat] 错误: type={error_type}, provider={request.provider}, error={e}")
-        logger.error(f"[SimpleChat] 错误详情: {repr(e)}")
+        logger.error(f"[SimpleChat] : type={error_type}, provider={request.provider}, error={e}")
+        logger.error(f"[SimpleChat] : {repr(e)}")
         
         if "api key" in error_msg or "authentication" in error_msg or "unauthorized" in error_msg:
             raise HTTPException(
@@ -622,7 +622,7 @@ async def simple_chat(request: SimpleChatRequest):
 
 @app.post("/api/v1/ai/chat/stream", tags=["Chat"])
 async def simple_chat_stream(request: SimpleChatRequest):
-    """流式聊天接口（SSE）.
+    """（SSE）.
     
     返回 Server-Sent Events 格式，支持流式输出 AI 响应。
     
@@ -642,7 +642,7 @@ async def simple_chat_stream(request: SimpleChatRequest):
     - `event: done` - 完成
     - `event: error` - 错误
     """
-    logger.info(f"[SimpleChatStream] 收到流式请求: provider={request.provider}")
+    logger.info(f"[SimpleChatStream] : provider={request.provider}")
     
     async def event_generator():
         try:
@@ -650,10 +650,10 @@ async def simple_chat_stream(request: SimpleChatRequest):
             
             messages = _to_internal_messages(request.messages)
             
-            # 发送开始事件
+            # 
             yield f"event: start\ndata: {json.dumps({'model': client.model, 'provider': request.provider})}\n\n"
             
-            # 先走工具循环拿最终结果，再分片输出为 SSE delta
+            # ， SSE delta
             response = await _run_chat_with_tool_loop(
                 client,
                 messages,
@@ -666,13 +666,13 @@ async def simple_chat_stream(request: SimpleChatRequest):
 
             yield f"event: done\ndata: {json.dumps({'content': full_content, 'model': client.model, 'provider': request.provider})}\n\n"
             
-            logger.info(f"[SimpleChatStream] 流式响应完成: content_length={len(full_content)}")
+            logger.info(f"[SimpleChatStream] : content_length={len(full_content)}")
             
         except HTTPException as he:
             logger.error(f"[SimpleChatStream] HTTPException: {he.detail}")
             yield f"event: error\ndata: {json.dumps({'code': he.status_code, 'message': he.detail})}\n\n"
         except Exception as e:
-            logger.error(f"[SimpleChatStream] 错误: {type(e).__name__}: {e}")
+            logger.error(f"[SimpleChatStream] : {type(e).__name__}: {e}")
             yield f"event: error\ndata: {json.dumps({'code': 500, 'message': str(e)})}\n\n"
     
     return StreamingResponse(
@@ -681,14 +681,14 @@ async def simple_chat_stream(request: SimpleChatRequest):
         headers={
             "Cache-Control": "no-cache",
             "Connection": "keep-alive",
-            "X-Accel-Buffering": "no",  # 禁用 Nginx 缓冲
+            "X-Accel-Buffering": "no",  #  Nginx 
         }
     )
 
 
 @app.exception_handler(HTTPException)
 async def http_exception_handler(request, exc):
-    """HTTP 异常处理."""
+    """HTTP ."""
     return JSONResponse(
         status_code=exc.status_code,
         content={"error": {"message": exc.detail, "type": "api_error"}},
@@ -696,7 +696,7 @@ async def http_exception_handler(request, exc):
 
 
 def run_server(host: str = "0.0.0.0", port: int = 8000):
-    """启动 API 服务器."""
+    """ API ."""
     import uvicorn
     uvicorn.run(app, host=host, port=port)
 

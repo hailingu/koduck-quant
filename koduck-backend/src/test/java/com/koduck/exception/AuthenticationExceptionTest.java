@@ -6,7 +6,7 @@ import org.junit.jupiter.api.Test;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * AuthenticationException 单元测试。
+ * AuthenticationException 
  */
 @DisplayName("认证异常测试")
 class AuthenticationExceptionTest {

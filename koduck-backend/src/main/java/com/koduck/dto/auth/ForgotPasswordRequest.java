@@ -5,7 +5,7 @@ import jakarta.validation.constraints.NotBlank;
 import lombok.Data;
 
 /**
- * 忘记密码请求 DTO
+ *  DTO
  */
 @Data
 public class ForgotPasswordRequest {

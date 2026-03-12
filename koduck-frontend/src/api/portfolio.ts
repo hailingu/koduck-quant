@@ -1,7 +1,7 @@
 import request from './request'
 import { marketApi } from './market'
 
-// 持仓项
+// 
 export interface PortfolioItem {
   id: number
   market: string
@@ -15,7 +15,7 @@ export interface PortfolioItem {
   pnlPercent: number
 }
 
-// 投资组合汇总
+// 
 export interface PortfolioSummary {
   totalCost: number
   totalMarketValue: number
@@ -25,28 +25,28 @@ export interface PortfolioSummary {
   dailyPnlPercent: number
 }
 
-// 资产配置
+// 
 export interface AssetAllocation {
   type: string
   value: number
   percent: number
 }
 
-// 行业分布
+// 
 export interface SectorDistribution {
   sector: string
   value: number
   percent: number
 }
 
-// 收益曲线数据点
+// 
 export interface PnLPoint {
   date: string
   value: number
   pnl: number
 }
 
-// 交易记录
+// 
 export interface TradeRecord {
   id: number
   symbol: string
@@ -59,7 +59,7 @@ export interface TradeRecord {
   tradeTime: string
 }
 
-// 添加持仓请求
+// 
 export interface AddPortfolioRequest {
   market: string
   symbol: string
@@ -68,13 +68,13 @@ export interface AddPortfolioRequest {
   avgCost: number
 }
 
-// 编辑持仓请求
+// 
 export interface UpdatePortfolioRequest {
   quantity?: number
   avgCost?: number
 }
 
-// 添加交易记录请求
+// 
 export interface AddTradeRequest {
   market: string
   symbol: string
@@ -86,19 +86,19 @@ export interface AddTradeRequest {
 }
 
 export const portfolioApi = {
-  // 获取持仓列表
+  // 
   getPortfolio: (): Promise<PortfolioItem[]> => {
     return request.get<PortfolioItem[]>('/api/v1/portfolio')
   },
 
-  // 获取投资组合汇总
+  // 
   getPortfolioSummary: (): Promise<PortfolioSummary> => {
     return request.get<PortfolioSummary>('/api/v1/portfolio/summary')
   },
 
-  // 获取资产配置（前端计算）
+  // （）
   getAssetAllocation: (): Promise<AssetAllocation[]> => {
-    // 从持仓数据计算资产配置
+    // 
     return portfolioApi.getPortfolio().then((items) => {
       const totalValue = items.reduce((sum, item) => sum + item.marketValue, 0)
       if (totalValue === 0) return []
@@ -112,7 +112,7 @@ export const portfolioApi = {
     })
   },
 
-  // 获取行业分布（按行业聚合）
+  // （）
   getSectorDistribution: async (items: PortfolioItem[]): Promise<SectorDistribution[]> => {
     const totalValue = items.reduce((sum, item) => sum + item.marketValue, 0)
     if (totalValue === 0) return []
@@ -152,15 +152,15 @@ export const portfolioApi = {
       .sort((a, b) => b.value - a.value)
   },
 
-  // 获取收益曲线（前端 Mock，需要后端支持历史数据）
+  // （ Mock，）
   getPnLHistory: (summary: PortfolioSummary, activeDays: number = 30): Promise<PnLPoint[]> => {
     if (summary.totalCost <= 0 && summary.totalMarketValue <= 0) {
       return Promise.resolve([])
     }
 
-    // 按有效天数生成模拟数据：
-    // - <30: 显示对应日期范围
-    // - >=30: 仅最近30天
+    // ：
+    // - <30: 
+    // - >=30: 30
     const clampedDays = Math.max(1, Math.min(activeDays, 30))
     const points: PnLPoint[] = []
     const baseValue = summary.totalCost
@@ -180,27 +180,27 @@ export const portfolioApi = {
     return Promise.resolve(points)
   },
 
-  // 获取交易记录
+  // 
   getTradeRecords: (): Promise<TradeRecord[]> => {
     return request.get<TradeRecord[]>('/api/v1/portfolio/trades')
   },
 
-  // 添加持仓
+  // 
   addPortfolio: (data: AddPortfolioRequest): Promise<PortfolioItem> => {
     return request.post<PortfolioItem>('/api/v1/portfolio', data)
   },
 
-  // 更新持仓
+  // 
   updatePortfolio: (id: number, data: UpdatePortfolioRequest): Promise<PortfolioItem> => {
     return request.put<PortfolioItem>(`/api/v1/portfolio/${id}`, data)
   },
 
-  // 删除持仓
+  // 
   deletePortfolio: (id: number): Promise<void> => {
     return request.delete<void>(`/api/v1/portfolio/${id}`)
   },
 
-  // 添加交易记录
+  // 
   addTrade: (data: AddTradeRequest): Promise<TradeRecord> => {
     return request.post<TradeRecord>('/api/v1/portfolio/trades', data)
   },

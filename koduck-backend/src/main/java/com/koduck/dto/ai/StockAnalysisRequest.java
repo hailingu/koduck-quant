@@ -8,7 +8,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 /**
- * 股票分析请求 DTO
+ *  DTO
  */
 @Data
 @Builder
@@ -25,7 +25,7 @@ public class StockAnalysisRequest {
              message = "分析类型必须是 technical、fundamental、sentiment 或 comprehensive")
     private String analysisType;
     
-    // 前端额外发送的参数
+    // 
     private String name;
     private Double price;
     private Double changePercent;

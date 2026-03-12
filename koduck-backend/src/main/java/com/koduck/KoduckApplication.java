@@ -5,7 +5,7 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.scheduling.annotation.EnableAsync;
 
 /**
- * Koduck Quant 后端服务启动类。
+ * Koduck Quant 
  *
  * @author Koduck Team
  */

@@ -9,7 +9,7 @@ import org.springframework.web.bind.annotation.RestController;
 import java.time.Instant;
 
 /**
- * 健康检查控制器。
+ * 
  *
  * @author Koduck Team
  */
@@ -20,9 +20,9 @@ public class HealthController {
     private final long startTime = Instant.now().toEpochMilli();
 
     /**
-     * 健康检查接口。
+     * 
      *
-     * @return 服务状态信息
+     * @return 
      */
     @GetMapping
     public ApiResponse<HealthInfo> health() {
@@ -36,7 +36,7 @@ public class HealthController {
     }
 
     /**
-     * 简单的 Ping 接口。
+     *  Ping 
      *
      * @return pong
      */
@@ -46,7 +46,7 @@ public class HealthController {
     }
 
     /**
-     * 健康信息 DTO。
+     *  DTO
      */
     @Data
     public static class HealthInfo {

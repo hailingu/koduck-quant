@@ -20,7 +20,7 @@ import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.when;
 
 /**
- * MonitoringController 测试。
+ * MonitoringController 
  */
 @WebMvcTest(MonitoringController.class)
 @AutoConfigureMockMvc(addFilters = false)

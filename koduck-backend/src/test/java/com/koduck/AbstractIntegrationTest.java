@@ -9,7 +9,7 @@ import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
 /**
- * 集成测试基类（使用 TestContainers PostgreSQL）
+ * （ TestContainers PostgreSQL）
  */
 @SpringBootTest
 @Testcontainers

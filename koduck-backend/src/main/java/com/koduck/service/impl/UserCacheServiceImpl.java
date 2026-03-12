@@ -23,7 +23,7 @@ public class UserCacheServiceImpl implements UserCacheService {
         this.redisTemplate = redisTemplate;
     }
 
-    // ==================== User Tracking List (盯盘列表) ====================
+    // ==================== User Tracking List () ====================
 
     @Override
     public void addToUserTrackList(Long userId, String symbol) {
@@ -80,7 +80,7 @@ public class UserCacheServiceImpl implements UserCacheService {
         }
     }
 
-    // ==================== User Watchlist (观察列表) ====================
+    // ==================== User Watchlist () ====================
 
     @Override
     public void addToUserWatchList(Long userId, String symbol) {

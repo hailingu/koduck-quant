@@ -46,9 +46,9 @@ public class MarketServiceImpl implements MarketService {
     
     // Main index symbols
     private static final List<String> MAIN_INDICES = List.of(
-            "000001",  // 上证指数
-            "399001",  // 深证成指
-            "399006"   // 创业板指
+            "000001",  // 
+            "399001",  // 
+            "399006"   // 
     );
     
     private final StockRealtimeRepository stockRealtimeRepository;

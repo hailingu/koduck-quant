@@ -10,7 +10,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 /**
- * 评论响应 DTO
+ *  DTO
  */
 @Data
 @Builder
@@ -29,7 +29,7 @@ public class CommentResponse {
     private Integer likeCount;
     private Boolean isDeleted;
 
-    private List<CommentResponse> replies; // 子评论
+    private List<CommentResponse> replies; // 
 
     @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
     private LocalDateTime createdAt;

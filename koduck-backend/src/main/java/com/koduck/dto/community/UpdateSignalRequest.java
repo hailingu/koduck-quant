@@ -10,7 +10,7 @@ import java.math.BigDecimal;
 import java.util.List;
 
 /**
- * 更新信号请求 DTO
+ *  DTO
  */
 @Data
 @Builder

@@ -13,14 +13,14 @@ public final class RedisKeyConstants {
     // ==================== Stock Data Keys ====================
 
     /**
-     * Stock tracking (盯盘层) real-time data - Hash
+     * Stock tracking () real-time data - Hash
      * Key pattern: stock:track:{symbol}
      * TTL: 10 seconds
      */
     public static final String STOCK_TRACK_PREFIX = "stock:track:";
 
     /**
-     * Stock watch (观察层) 1-minute K-line - Sorted Set
+     * Stock watch () 1-minute K-line - Sorted Set
      * Key pattern: stock:watch:1m:{symbol}
      * TTL: 3600 seconds (1 hour)
      */
@@ -56,26 +56,26 @@ public final class RedisKeyConstants {
     public static final String HOT_STOCKS_VOLUME = "volume";
 
     /**
-     * Hot stocks by gain (涨幅)
+     * Hot stocks by gain ()
      */
     public static final String HOT_STOCKS_GAIN = "gain";
 
     /**
-     * Hot stocks by loss (跌幅)
+     * Hot stocks by loss ()
      */
     public static final String HOT_STOCKS_LOSS = "loss";
 
     // ==================== User Watchlist Keys ====================
 
     /**
-     * User tracking list (盯盘列表) - Set
+     * User tracking list () - Set
      * Key pattern: user:track:{userId}
      * TTL: Permanent (session-level)
      */
     public static final String USER_TRACK_PREFIX = "user:track:";
 
     /**
-     * User watchlist (观察列表) - Set
+     * User watchlist () - Set
      * Key pattern: user:watch:{userId}
      * TTL: Permanent (session-level)
      */
@@ -84,7 +84,7 @@ public final class RedisKeyConstants {
     // ==================== TTL Constants (in seconds) ====================
 
     /**
-     * TTL for tracking (盯盘) real-time data: 10 seconds
+     * TTL for tracking () real-time data: 10 seconds
      */
     public static final long TTL_STOCK_TRACK = 10;
 

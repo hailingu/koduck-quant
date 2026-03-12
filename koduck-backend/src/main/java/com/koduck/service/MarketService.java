@@ -10,66 +10,66 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * 市场数据服务接口。
- * 提供股票搜索、详情、指数等功能。
+ * 
+ * 
  */
 public interface MarketService {
     
     /**
-     * 搜索股票。
+     * 
      *
-     * @param keyword 搜索关键词
-     * @param page    页码
-     * @param size    每页数量
-     * @return 匹配的股票列表
+     * @param keyword 
+     * @param page    
+     * @param size    
+     * @return 
      */
     List<SymbolInfoDto> searchSymbols(String keyword, int page, int size);
     
     /**
-     * 获取股票详情（实时行情）。
+     * （）
      *
-     * @param symbol 股票代码
-     * @return 实时行情数据
+     * @param symbol 
+     * @return 
      */
     PriceQuoteDto getStockDetail(String symbol);
 
     /**
-     * 获取股票估值信息。
+     * 
      *
-     * @param symbol 股票代码
-     * @return 估值数据
+     * @param symbol 
+     * @return 
      */
     StockValuationDto getStockValuation(String symbol);
 
     /**
-     * 获取股票所属行业信息。
+     * 
      *
-     * @param symbol 股票代码
-     * @return 行业信息
+     * @param symbol 
+     * @return 
      */
     StockIndustryDto getStockIndustry(String symbol);
 
     /**
-     * 批量获取股票所属行业信息。
+     * 
      *
-     * @param symbols 股票代码列表
-     * @return 行业信息映射（key 为 symbol）
+     * @param symbols 
+     * @return （key  symbol）
      */
     Map<String, StockIndustryDto> getStockIndustries(List<String> symbols);
     
     /**
-     * 获取市场指数列表。
-     * 包含上证指数、深证成指、创业板指等主要指数。
+     * 
+     * 
      *
-     * @return 指数列表
+     * @return 
      */
     List<MarketIndexDto> getMarketIndices();
     
     /**
-     * 批量获取股票实时行情。
+     * 
      *
-     * @param symbols 股票代码列表
-     * @return 实时行情列表
+     * @param symbols 
+     * @return 
      */
     List<PriceQuoteDto> getBatchPrices(List<String> symbols);
 }

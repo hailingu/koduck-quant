@@ -10,7 +10,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 /**
- * 风险评估响应 DTO
+ *  DTO
  */
 @Data
 @Builder
@@ -20,27 +20,27 @@ public class RiskAssessmentResponse {
 
     private Long portfolioId;
 
-    // 综合风险评分
+    // 
     private Integer overallRiskScore;
     private String overallRiskLevel;
     private String riskLevelDescription;
 
-    // 各类风险评分
+    // 
     private RiskBreakdown riskBreakdown;
 
-    // 风险指标
+    // 
     private List<RiskMetric> metrics;
 
-    // 风险提示
+    // 
     private List<RiskAlert> alerts;
 
-    // 风险管理建议
+    // 
     private List<RiskManagementSuggestion> suggestions;
 
     private LocalDateTime generatedAt;
 
     /**
-     * 风险细分
+     * 
      */
     @Data
     @Builder
@@ -55,7 +55,7 @@ public class RiskAssessmentResponse {
     }
 
     /**
-     * 风险指标
+     * 
      */
     @Data
     @Builder
@@ -69,7 +69,7 @@ public class RiskAssessmentResponse {
     }
 
     /**
-     * 风险预警
+     * 
      */
     @Data
     @Builder
@@ -83,7 +83,7 @@ public class RiskAssessmentResponse {
     }
 
     /**
-     * 风险管理建议
+     * 
      */
     @Data
     @Builder

@@ -7,23 +7,23 @@ import org.springframework.stereotype.Repository;
 import java.util.Optional;
 
 /**
- * 用户设置 Repository
+ *  Repository
  */
 @Repository
 public interface UserSettingsRepository extends JpaRepository<UserSettings, Long> {
 
     /**
-     * 根据用户ID查找设置
+     * ID
      */
     Optional<UserSettings> findByUserId(Long userId);
 
     /**
-     * 检查用户是否已有设置
+     * 
      */
     boolean existsByUserId(Long userId);
 
     /**
-     * 删除用户设置
+     * 
      */
     void deleteByUserId(Long userId);
 }

@@ -25,7 +25,7 @@ public class StockCacheServiceImpl implements StockCacheService {
         this.redisTemplate = redisTemplate;
     }
 
-    // ==================== Stock Tracking (盯盘层) ====================
+    // ==================== Stock Tracking () ====================
 
     @Override
     public void cacheStockTrack(String symbol, PriceQuoteDto quote) {

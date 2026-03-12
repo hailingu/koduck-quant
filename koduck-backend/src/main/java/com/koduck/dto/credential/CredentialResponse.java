@@ -10,7 +10,7 @@ import java.time.LocalDateTime;
 import java.util.Map;
 
 /**
- * 凭证响应 DTO（脱敏）
+ *  DTO（）
  */
 @Data
 @Builder
@@ -25,10 +25,10 @@ public class CredentialResponse {
     private String environment;
     private Boolean isActive;
 
-    // 脱敏后的 API Key（如 PK***XXXX）
+    //  API Key（ PK***XXXX）
     private String apiKeyMasked;
 
-    // 脱敏后的 API Secret（如 ***）
+    //  API Secret（ ***）
     private String apiSecretMasked;
 
     private Map<String, Object> additionalConfig;

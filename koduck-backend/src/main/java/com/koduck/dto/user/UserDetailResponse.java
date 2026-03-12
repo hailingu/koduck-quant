@@ -10,7 +10,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 /**
- * 用户详情响应 DTO
+ *  DTO
  */
 @Data
 @Builder

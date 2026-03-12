@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
-"""同步本地 CSV K-line 数据到数据库
+""" CSV K-line 
 
 在 CSV 文件更新后运行此脚本，将新数据同步到 PostgreSQL。
 
 Usage:
-    python -m app.scripts.sync_kline_to_db          # 同步所有 CSV
-    python -m app.scripts.sync_kline_to_db --symbol 601012  # 同步指定股票
-    python -m app.scripts.sync_kline_to_db --force  # 强制重新导入
+    python -m app.scripts.sync_kline_to_db          #  CSV
+    python -m app.scripts.sync_kline_to_db --symbol 601012  # 
+    python -m app.scripts.sync_kline_to_db --force  # 
 """
 
 import argparse
@@ -26,7 +26,7 @@ logger = structlog.get_logger(__name__)
 
 
 def setup_logging(verbose: bool = False):
-    """配置日志"""
+    """"""
     structlog.configure(
         processors=[
             structlog.stdlib.filter_by_level,
@@ -65,10 +65,10 @@ async def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 示例:
-  python -m app.scripts.sync_kline_to_db                    # 同步所有
-  python -m app.scripts.sync_kline_to_db --symbol 601012    # 同步指定股票
-  python -m app.scripts.sync_kline_to_db --timeframes 1D    # 同步指定周期
-  python -m app.scripts.sync_kline_to_db --force            # 强制重新导入
+  python -m app.scripts.sync_kline_to_db                    # 
+  python -m app.scripts.sync_kline_to_db --symbol 601012    # 
+  python -m app.scripts.sync_kline_to_db --timeframes 1D    # 
+  python -m app.scripts.sync_kline_to_db --force            # 
         """,
     )
     
@@ -101,11 +101,11 @@ async def main():
     args = parser.parse_args()
     setup_logging(args.verbose)
     
-    # 初始化数据库连接
+    # 
     logger.info("Initializing database connection...")
     await Database.get_pool()
     
-    # 确定要同步的股票
+    # 
     symbols = None
     if args.symbol:
         symbols = [args.symbol]
@@ -121,34 +121,34 @@ async def main():
         force=args.force,
     )
     
-    # 执行同步
+    # 
     results = await kline_sync.sync_all(
         timeframes=timeframes,
         symbols=symbols,
         force=args.force,
     )
     
-    # 打印结果
+    # 
     print("\n" + "=" * 60)
-    print("同步完成!")
-    print(f"  总文件数: {results['total']}")
-    print(f"  成功: {results['success']}")
-    print(f"  失败: {results['failed']}")
-    print(f"  导入记录: {results['imported']}")
-    print(f"  跳过记录: {results['skipped']}")
+    print("!")
+    print(f"  : {results['total']}")
+    print(f"  : {results['success']}")
+    print(f"  : {results['failed']}")
+    print(f"  : {results['imported']}")
+    print(f"  : {results['skipped']}")
     
     if args.verbose and results['details']:
-        print("\n详细结果:")
+        print("\n:")
         for detail in results['details']:
             status = "✓" if detail['success'] else "✗"
             print(f"  {status} {detail['symbol']} ({detail['timeframe']}): "
                   f"导入 {detail['imported']}, 跳过 {detail['skipped']}")
             if detail['error']:
-                print(f"      错误: {detail['error']}")
+                print(f"      : {detail['error']}")
     
     await Database.close()
     
-    # 如果有失败，返回非零退出码
+    # ，
     return 0 if results['failed'] == 0 else 1
 
 

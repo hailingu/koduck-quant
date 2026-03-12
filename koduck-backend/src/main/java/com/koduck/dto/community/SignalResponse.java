@@ -11,7 +11,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 /**
- * 信号响应 DTO
+ *  DTO
  */
 @Data
 @Builder
@@ -51,7 +51,7 @@ public class SignalResponse {
     private Boolean isFeatured;
     private List<String> tags;
 
-    // 当前用户互动状态
+    // 
     private Boolean isLiked;
     private Boolean isFavorited;
     private Boolean isSubscribed;

@@ -35,13 +35,13 @@ class StockBasicRecord(TypedDict):
 # Format: (start, end, market, board)
 STOCK_RANGES: list[tuple[int, int, str, str]] = [
     # Shanghai Stock Exchange (SSE)
-    (600000, 603999, "SSE", "Main"),  # 主板
-    (688000, 688999, "SSE", "STAR"),  # 科创板
+    (600000, 603999, "SSE", "Main"),  # 
+    (688000, 688999, "SSE", "STAR"),  # 
     # Shenzhen Stock Exchange (SZSE)
-    (0, 3999, "SZSE", "Main"),  # 主板
-    (300000, 303999, "SZSE", "ChiNext"),  # 创业板
+    (0, 3999, "SZSE", "Main"),  # 
+    (300000, 303999, "SZSE", "ChiNext"),  # 
     # Beijing Stock Exchange (BSE)
-    (430001, 899999, "BSE", "BSE"),  # 北交所
+    (430001, 899999, "BSE", "BSE"),  # 
 ]
 
 

@@ -51,14 +51,14 @@ public class KlineSyncService {
         
         // Popular A-share stocks to sync
         List<String> popularSymbols = List.of(
-            "000001", // 平安银行
-            "000002", // 万科A
-            "000858", // 五粮液
-            "002326", // 永太科技
-            "600000", // 浦发银行
-            "600519", // 贵州茅台
-            "600036", // 招商银行
-            "601318"  // 中国平安
+            "000001", // 
+            "000002", // A
+            "000858", // 
+            "002326", // 
+            "600000", // 
+            "600519", // 
+            "600036", // 
+            "601318"  // 
         );
         
         for (String symbol : popularSymbols) {

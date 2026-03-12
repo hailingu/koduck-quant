@@ -29,7 +29,7 @@ const normalizeSymbol = (symbol: string): string => {
 }
 
 
-// 排序按钮组件
+// 
 function SortButton({ direction, onClick, active }: { direction: 'up' | 'down'; onClick: () => void; active: boolean }) {
   return (
     <button
@@ -47,7 +47,7 @@ function SortButton({ direction, onClick, active }: { direction: 'up' | 'down'; 
   )
 }
 
-// 自选股行组件
+// 
 function WatchlistRow({
   item,
   onDelete,
@@ -164,7 +164,7 @@ export default function Watchlist() {
     })
   }, [watchlist, stockPrices])
 
-  // 加载自选股列表（后端已返回 price/change/changePercent，无需额外调用）
+  // （ price/change/changePercent，）
   const loadWatchlist = useCallback(async (options?: { silent?: boolean }) => {
     const silent = options?.silent ?? false
     try {
@@ -211,12 +211,12 @@ export default function Watchlist() {
     }
   }, [connectionState, loadWatchlist, marketTrading])
 
-  // 添加自选股
+  // 
   const handleAddStock = async (symbol: string, name: string, market: string) => {
     const normalizedSymbol = normalizeSymbol(symbol)
 
     try {
-      // 检查是否已存在
+      // 
       if (watchlist.some((item) => normalizeSymbol(item.symbol) === normalizedSymbol && item.market === market)) {
         showToast('该股票已在自选股中', 'warning')
         return
@@ -235,7 +235,7 @@ export default function Watchlist() {
     }
   }
 
-  // 删除自选股
+  // 
   const handleDelete = async () => {
     if (!deletingItem || deleting) return
     try {
@@ -251,7 +251,7 @@ export default function Watchlist() {
     }
   }
 
-  // 排序
+  // 
   const handleSort = (key: string) => {
     let direction: 'asc' | 'desc' = 'asc'
     if (sortConfig && sortConfig.key === key && sortConfig.direction === 'asc') {
@@ -292,7 +292,7 @@ export default function Watchlist() {
     setWatchlist(sorted)
   }
 
-  // 跳转K线
+  // K
   const handleClickStock = (symbol: string, market: string) => {
     const item = watchlist.find((i) => i.symbol === symbol && i.market === market)
     if (item) {
@@ -375,8 +375,8 @@ export default function Watchlist() {
                 />
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 5h3v3" />
               </svg>
-              <h3 className="text-lg font-medium text-[#1d1d1f] dark:text-white mb-2">暂无自选股</h3>
-              <p className="text-[#8e8e93] dark:text-gray-400 mb-4">点击上方按钮添加您关注的股票</p>
+              <h3 className="text-lg font-medium text-[#1d1d1f] dark:text-white mb-2"></h3>
+              <p className="text-[#8e8e93] dark:text-gray-400 mb-4"></p>
               <button
                 onClick={() => setShowAddModal(true)}
                 className="px-4 py-2 rounded-[10px] bg-[#0a84ff] hover:bg-[#0077ed] text-white transition-colors"
@@ -469,7 +469,7 @@ export default function Watchlist() {
             <div className="fixed inset-0 bg-black/20 backdrop-blur-sm transition-opacity" onClick={() => setShowAddModal(false)}></div>
             <div className="relative max-w-md w-full p-6 bg-white dark:bg-[#1c1c1e] rounded-[24px] shadow-[0_25px_60px_rgba(0,0,0,0.15)] ring-1 ring-black/5 dark:ring-white/10">
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-semibold text-[#1d1d1f] dark:text-white">添加自选股</h3>
+                <h3 className="text-lg font-semibold text-[#1d1d1f] dark:text-white"></h3>
                 <button
                   onClick={() => setShowAddModal(false)}
                   className="text-[#8e8e93] hover:text-[#6e6e73] dark:hover:text-gray-300"
@@ -513,7 +513,7 @@ export default function Watchlist() {
                     </svg>
                   </div>
                   <div className="flex-1">
-                    <h3 className="text-lg font-semibold text-[#1d1d1f] dark:text-white">确认删除自选股</h3>
+                    <h3 className="text-lg font-semibold text-[#1d1d1f] dark:text-white"></h3>
                     <p className="mt-2 text-sm text-[#6e6e73] dark:text-gray-300 sm:whitespace-nowrap">
                       将从自选列表移除
                       <span className="mx-1 font-semibold text-[#1d1d1f] dark:text-white">{deletingItem.name}</span>

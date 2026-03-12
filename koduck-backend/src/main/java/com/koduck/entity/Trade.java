@@ -11,7 +11,7 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 /**
- * 交易记录实体
+ * 
  */
 @Entity
 @Table(name = "trades",

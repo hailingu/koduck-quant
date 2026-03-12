@@ -19,7 +19,7 @@ export default function Register() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     
-    // 前端校验
+    // 
     if (!username || username.length < 3) {
       showToast('用户名长度必须在3-50个字符之间', 'warning')
       return

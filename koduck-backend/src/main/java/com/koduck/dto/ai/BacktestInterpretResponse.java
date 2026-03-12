@@ -10,7 +10,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 /**
- * 回测结果解读响应 DTO
+ *  DTO
  */
 @Data
 @Builder
@@ -21,26 +21,26 @@ public class BacktestInterpretResponse {
     private Long backtestResultId;
     private String strategyName;
 
-    // 绩效解读
+    // 
     private PerformanceInterpretation performance;
 
-    // 风险解读
+    // 
     private RiskInterpretation risk;
 
-    // 交易行为分析
+    // 
     private TradingBehaviorAnalysis tradingBehavior;
 
-    // 改进建议
+    // 
     private List<ImprovementSuggestion> improvements;
 
-    // 总体评价
+    // 
     private String overallAssessment;
     private String recommendation;
 
     private LocalDateTime generatedAt;
 
     /**
-     * 绩效解读
+     * 
      */
     @Data
     @Builder
@@ -54,7 +54,7 @@ public class BacktestInterpretResponse {
     }
 
     /**
-     * 风险解读
+     * 
      */
     @Data
     @Builder
@@ -68,7 +68,7 @@ public class BacktestInterpretResponse {
     }
 
     /**
-     * 交易行为分析
+     * 
      */
     @Data
     @Builder
@@ -82,7 +82,7 @@ public class BacktestInterpretResponse {
     }
 
     /**
-     * 改进建议
+     * 
      */
     @Data
     @Builder

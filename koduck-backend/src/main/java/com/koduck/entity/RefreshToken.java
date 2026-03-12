@@ -7,7 +7,7 @@ import org.hibernate.annotations.CreationTimestamp;
 import java.time.LocalDateTime;
 
 /**
- * 刷新令牌实体（无外键关联，userId 纯字段存储）
+ * （，userId ）
  */
 @Entity
 @Table(name = "refresh_tokens")

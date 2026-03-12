@@ -24,7 +24,7 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 
 /**
- * 社区信号服务
+ * 
  */
 @Service
 @RequiredArgsConstructor
@@ -39,18 +39,18 @@ public class CommunitySignalService {
     private final UserSignalStatsRepository statsRepository;
     private final UserRepository userRepository;
 
-    // ========== 信号列表与查询 ==========
+    // ==========  ==========
 
     /**
-     * 获取信号列表
+     * 
      */
     public SignalListResponse getSignals(Long currentUserId, String sort, String symbol, String type, int page, int size) {
-        log.info("获取信号列表: sort={}, symbol={}, type={}", sort, symbol, type);
+        log.info(": sort={}, symbol={}, type={}", sort, symbol, type);
 
         Pageable pageable = PageRequest.of(page, size);
         Page<CommunitySignal> signalPage;
 
-        // 根据排序方式查询
+        // 
         if ("hot".equalsIgnoreCase(sort)) {
             signalPage = signalRepository.findHotSignals(CommunitySignal.Status.ACTIVE, pageable);
         } else if (symbol != null && !symbol.isEmpty()) {
@@ -63,7 +63,7 @@ public class CommunitySignalService {
                     PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt")));
         }
 
-        // 获取用户互动状态
+        // 
         Set<Long> likedSignalIds = currentUserId != null ?
                 likeRepository.findSignalIdsByUserId(currentUserId).stream().collect(Collectors.toSet()) : Set.of();
         Set<Long> favoritedSignalIds = currentUserId != null ?
@@ -85,7 +85,7 @@ public class CommunitySignalService {
     }
 
     /**
-     * 获取推荐信号
+     * 
      */
     public List<SignalResponse> getFeaturedSignals(Long currentUserId) {
         Pageable pageable = PageRequest.of(0, 5);
@@ -104,16 +104,16 @@ public class CommunitySignalService {
     }
 
     /**
-     * 获取信号详情
+     * 
      */
     @Transactional
     public SignalResponse getSignal(Long currentUserId, Long signalId) {
-        log.info("获取信号详情: signalId={}", signalId);
+        log.info(": signalId={}", signalId);
 
         CommunitySignal signal = signalRepository.findById(signalId)
                 .orElseThrow(() -> new ResourceNotFoundException("信号不存在: " + signalId));
 
-        // 增加浏览数
+        // 
         signalRepository.incrementViewCount(signalId);
 
         Set<Long> likedSignalIds = currentUserId != null && likeRepository.existsBySignalIdAndUserId(signalId, currentUserId)
@@ -127,10 +127,10 @@ public class CommunitySignalService {
     }
 
     /**
-     * 获取用户的信号列表
+     * 
      */
     public List<SignalResponse> getUserSignals(Long currentUserId, Long userId) {
-        log.info("获取用户信号列表: userId={}", userId);
+        log.info(": userId={}", userId);
 
         List<CommunitySignal> signals = signalRepository.findByUserIdOrderByCreatedAtDesc(userId);
 
@@ -146,16 +146,16 @@ public class CommunitySignalService {
                 .collect(Collectors.toList());
     }
 
-    // ========== 信号发布与更新 ==========
+    // ==========  ==========
 
     /**
-     * 发布信号
+     * 
      */
     @Transactional
     public SignalResponse createSignal(Long userId, CreateSignalRequest request) {
-        log.info("发布信号: userId={}, symbol={}", userId, request.getSymbol());
+        log.info(": userId={}, symbol={}", userId, request.getSymbol());
 
-        // 设置默认过期时间（7天）
+        // （7）
         LocalDateTime expiresAt = LocalDateTime.now().plus(7, ChronoUnit.DAYS);
 
         CommunitySignal signal = CommunitySignal.builder()
@@ -176,23 +176,23 @@ public class CommunitySignalService {
 
         CommunitySignal saved = signalRepository.save(signal);
 
-        // 更新用户统计
+        // 
         updateUserStats(userId);
 
         return toSignalResponse(saved, Set.of(), Set.of(), Set.of());
     }
 
     /**
-     * 更新信号
+     * 
      */
     @Transactional
     public SignalResponse updateSignal(Long userId, Long signalId, UpdateSignalRequest request) {
-        log.info("更新信号: userId={}, signalId={}", userId, signalId);
+        log.info(": userId={}, signalId={}", userId, signalId);
 
         CommunitySignal signal = signalRepository.findById(signalId)
                 .orElseThrow(() -> new ResourceNotFoundException("信号不存在: " + signalId));
 
-        // 验证权限
+        // 
         if (!signal.getUserId().equals(userId)) {
             throw new IllegalArgumentException("无权更新此信号");
         }
@@ -221,16 +221,16 @@ public class CommunitySignalService {
     }
 
     /**
-     * 关闭信号
+     * 
      */
     @Transactional
     public SignalResponse closeSignal(Long userId, Long signalId, String resultStatus, BigDecimal resultProfit) {
-        log.info("关闭信号: userId={}, signalId={}, result={}", userId, signalId, resultStatus);
+        log.info(": userId={}, signalId={}, result={}", userId, signalId, resultStatus);
 
         CommunitySignal signal = signalRepository.findById(signalId)
                 .orElseThrow(() -> new ResourceNotFoundException("信号不存在: " + signalId));
 
-        // 验证权限
+        // 
         if (!signal.getUserId().equals(userId)) {
             throw new IllegalArgumentException("无权关闭此信号");
         }
@@ -241,23 +241,23 @@ public class CommunitySignalService {
 
         CommunitySignal saved = signalRepository.save(signal);
 
-        // 更新用户统计
+        // 
         updateUserStats(userId);
 
         return toSignalResponse(saved, Set.of(), Set.of(), Set.of());
     }
 
     /**
-     * 删除信号
+     * 
      */
     @Transactional
     public void deleteSignal(Long userId, Long signalId) {
-        log.info("删除信号: userId={}, signalId={}", userId, signalId);
+        log.info(": userId={}, signalId={}", userId, signalId);
 
         CommunitySignal signal = signalRepository.findById(signalId)
                 .orElseThrow(() -> new ResourceNotFoundException("信号不存在: " + signalId));
 
-        // 验证权限
+        // 
         if (!signal.getUserId().equals(userId)) {
             throw new IllegalArgumentException("无权删除此信号");
         }
@@ -265,19 +265,19 @@ public class CommunitySignalService {
         signalRepository.delete(signal);
     }
 
-    // ========== 订阅功能 ==========
+    // ==========  ==========
 
     /**
-     * 订阅信号
+     * 
      */
     @Transactional
     public SignalSubscriptionResponse subscribeSignal(Long userId, Long signalId) {
-        log.info("订阅信号: userId={}, signalId={}", userId, signalId);
+        log.info(": userId={}, signalId={}", userId, signalId);
 
         CommunitySignal signal = signalRepository.findById(signalId)
                 .orElseThrow(() -> new ResourceNotFoundException("信号不存在: " + signalId));
 
-        // 检查是否已订阅
+        // 
         if (subscriptionRepository.existsBySignalIdAndUserId(signalId, userId)) {
             throw new IllegalArgumentException("已订阅此信号");
         }
@@ -295,11 +295,11 @@ public class CommunitySignalService {
     }
 
     /**
-     * 取消订阅
+     * 
      */
     @Transactional
     public void unsubscribeSignal(Long userId, Long signalId) {
-        log.info("取消订阅: userId={}, signalId={}", userId, signalId);
+        log.info(": userId={}, signalId={}", userId, signalId);
 
         if (!subscriptionRepository.existsBySignalIdAndUserId(signalId, userId)) {
             throw new IllegalArgumentException("未订阅此信号");
@@ -310,10 +310,10 @@ public class CommunitySignalService {
     }
 
     /**
-     * 获取我的订阅列表
+     * 
      */
     public List<SignalSubscriptionResponse> getMySubscriptions(Long userId) {
-        log.info("获取订阅列表: userId={}", userId);
+        log.info(": userId={}", userId);
 
         List<SignalSubscription> subscriptions = subscriptionRepository.findByUserId(userId);
         Map<Long, CommunitySignal> signalMap = signalRepository.findAllById(
@@ -325,14 +325,14 @@ public class CommunitySignalService {
                 .collect(Collectors.toList());
     }
 
-    // ========== 点赞与收藏 ==========
+    // ==========  ==========
 
     /**
-     * 点赞信号
+     * 
      */
     @Transactional
     public void likeSignal(Long userId, Long signalId) {
-        log.info("点赞信号: userId={}, signalId={}", userId, signalId);
+        log.info(": userId={}, signalId={}", userId, signalId);
 
         if (likeRepository.existsBySignalIdAndUserId(signalId, userId)) {
             throw new IllegalArgumentException("已点赞此信号");
@@ -348,11 +348,11 @@ public class CommunitySignalService {
     }
 
     /**
-     * 取消点赞
+     * 
      */
     @Transactional
     public void unlikeSignal(Long userId, Long signalId) {
-        log.info("取消点赞: userId={}, signalId={}", userId, signalId);
+        log.info(": userId={}, signalId={}", userId, signalId);
 
         if (!likeRepository.existsBySignalIdAndUserId(signalId, userId)) {
             throw new IllegalArgumentException("未点赞此信号");
@@ -363,11 +363,11 @@ public class CommunitySignalService {
     }
 
     /**
-     * 收藏信号
+     * 
      */
     @Transactional
     public void favoriteSignal(Long userId, Long signalId, String note) {
-        log.info("收藏信号: userId={}, signalId={}", userId, signalId);
+        log.info(": userId={}, signalId={}", userId, signalId);
 
         if (favoriteRepository.existsBySignalIdAndUserId(signalId, userId)) {
             throw new IllegalArgumentException("已收藏此信号");
@@ -384,11 +384,11 @@ public class CommunitySignalService {
     }
 
     /**
-     * 取消收藏
+     * 
      */
     @Transactional
     public void unfavoriteSignal(Long userId, Long signalId) {
-        log.info("取消收藏: userId={}, signalId={}", userId, signalId);
+        log.info(": userId={}, signalId={}", userId, signalId);
 
         if (!favoriteRepository.existsBySignalIdAndUserId(signalId, userId)) {
             throw new IllegalArgumentException("未收藏此信号");
@@ -398,24 +398,24 @@ public class CommunitySignalService {
         signalRepository.decrementFavoriteCount(signalId);
     }
 
-    // ========== 评论功能 ==========
+    // ==========  ==========
 
     /**
-     * 获取评论列表
+     * 
      */
     public List<CommentResponse> getComments(Long signalId, int page, int size) {
-        log.info("获取评论列表: signalId={}", signalId);
+        log.info(": signalId={}", signalId);
 
         Pageable pageable = PageRequest.of(page, size);
         Page<SignalComment> commentPage = commentRepository
                 .findBySignalIdAndParentIdIsNullAndIsDeletedFalseOrderByCreatedAtDesc(signalId, pageable);
 
-        // 获取所有父评论 ID
+        //  ID
         List<Long> parentIds = commentPage.getContent().stream()
                 .map(SignalComment::getId)
                 .collect(Collectors.toList());
 
-        // 获取回复
+        // 
         Map<Long, List<SignalComment>> repliesMap = commentRepository.findAllById(parentIds).stream()
                 .collect(Collectors.toMap(
                         SignalComment::getId,
@@ -429,11 +429,11 @@ public class CommunitySignalService {
     }
 
     /**
-     * 发布评论
+     * 
      */
     @Transactional
     public CommentResponse createComment(Long userId, Long signalId, CreateCommentRequest request) {
-        log.info("发布评论: userId={}, signalId={}", userId, signalId);
+        log.info(": userId={}, signalId={}", userId, signalId);
 
         CommunitySignal signal = signalRepository.findById(signalId)
                 .orElseThrow(() -> new ResourceNotFoundException("信号不存在: " + signalId));
@@ -452,16 +452,16 @@ public class CommunitySignalService {
     }
 
     /**
-     * 删除评论
+     * 
      */
     @Transactional
     public void deleteComment(Long userId, Long commentId) {
-        log.info("删除评论: userId={}, commentId={}", userId, commentId);
+        log.info(": userId={}, commentId={}", userId, commentId);
 
         SignalComment comment = commentRepository.findById(commentId)
                 .orElseThrow(() -> new ResourceNotFoundException("评论不存在: " + commentId));
 
-        // 验证权限
+        // 
         if (!comment.getUserId().equals(userId)) {
             throw new IllegalArgumentException("无权删除此评论");
         }
@@ -470,10 +470,10 @@ public class CommunitySignalService {
         signalRepository.decrementCommentCount(comment.getSignalId());
     }
 
-    // ========== 用户统计 ==========
+    // ==========  ==========
 
     /**
-     * 获取用户信号统计
+     * 
      */
     public UserSignalStatsResponse getUserStats(Long userId) {
         UserSignalStats stats = statsRepository.findByUserId(userId)
@@ -503,7 +503,7 @@ public class CommunitySignalService {
                 .build();
     }
 
-    // ========== 辅助方法 ==========
+    // ==========  ==========
 
     private SignalResponse toSignalResponse(CommunitySignal signal,
                                            Set<Long> likedSignalIds,
@@ -587,7 +587,7 @@ public class CommunitySignalService {
         if (optionalStats.isPresent()) {
             UserSignalStats stats = optionalStats.get();
 
-            // 重新计算统计
+            // 
             long totalSignals = signalRepository.countByUserId(userId);
             long activeSignals = signalRepository.countByUserIdAndStatus(userId, CommunitySignal.Status.ACTIVE);
 
@@ -596,7 +596,7 @@ public class CommunitySignalService {
 
             statsRepository.save(stats);
         } else {
-            // 创建新的统计记录
+            // 
             UserSignalStats newStats = UserSignalStats.builder()
                     .userId(userId)
                     .totalSignals(1)

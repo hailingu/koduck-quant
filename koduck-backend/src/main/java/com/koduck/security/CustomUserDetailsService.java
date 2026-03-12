@@ -15,7 +15,7 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 /**
- * 自定义 UserDetailsService（无外键，手动查询权限）
+ *  UserDetailsService（，）
  */
 @Service
 @RequiredArgsConstructor
@@ -27,20 +27,20 @@ public class CustomUserDetailsService implements UserDetailsService {
 
     @Override
     public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
-        // 支持 userId 或 username 或 email 登录
+        //  userId  username  email 
         User user;
         try {
             Long userId = Long.parseLong(username);
             user = userRepository.findById(userId)
                     .orElseThrow(() -> new UsernameNotFoundException("User not found: " + username));
         } catch (NumberFormatException e) {
-            // 尝试邮箱登录
+            // 
             user = userRepository.findByEmail(username)
                     .orElseGet(() -> userRepository.findByUsername(username)
                             .orElseThrow(() -> new UsernameNotFoundException("User not found: " + username)));
         }
 
-        // 手动查询用户角色和权限（无外键关联）
+        // （）
         List<String> roleNames = roleRepository.findRoleNamesByUserId(user.getId());
         List<String> permissionCodes = permissionRepository.findPermissionCodesByUserId(user.getId());
 
@@ -52,7 +52,7 @@ public class CustomUserDetailsService implements UserDetailsService {
                 .map(SimpleGrantedAuthority::new)
                 .collect(Collectors.toList()));
 
-        // 使用自定义的 UserPrincipal 包装 User 实体
+        //  UserPrincipal  User 
         return new UserPrincipal(user, authorities);
     }
 }

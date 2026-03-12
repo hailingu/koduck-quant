@@ -26,7 +26,7 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 /**
- * 凭证管理服务
+ * 
  */
 @Service
 @RequiredArgsConstructor
@@ -37,10 +37,10 @@ public class CredentialService {
     private final CredentialAuditLogRepository auditLogRepository;
 
     /**
-     * 获取用户的凭证列表
+     * 
      */
     public CredentialListResponse getCredentials(Long userId, int page, int size) {
-        log.info("获取用户凭证列表: userId={}", userId);
+        log.info(": userId={}", userId);
 
         Pageable pageable = PageRequest.of(page, size);
         Page<UserCredential> credentialPage = credentialRepository.findAll(
@@ -52,7 +52,7 @@ public class CredentialService {
                 .map(this::toResponse)
                 .collect(Collectors.toList());
 
-        // 记录查看日志
+        // 
         auditLog(userId, null, CredentialAuditLog.ActionType.VIEW, true, null);
 
         return CredentialListResponse.builder()
@@ -64,10 +64,10 @@ public class CredentialService {
     }
 
     /**
-     * 获取所有凭证（不分页）
+     * （）
      */
     public List<CredentialResponse> getAllCredentials(Long userId) {
-        log.info("获取用户所有凭证: userId={}", userId);
+        log.info(": userId={}", userId);
 
         List<UserCredential> credentials = credentialRepository.findByUserId(userId);
 
@@ -79,10 +79,10 @@ public class CredentialService {
     }
 
     /**
-     * 获取凭证详情（脱敏）
+     * （）
      */
     public CredentialResponse getCredential(Long userId, Long credentialId) {
-        log.info("获取凭证详情: userId={}, credentialId={}", userId, credentialId);
+        log.info(": userId={}, credentialId={}", userId, credentialId);
 
         UserCredential credential = credentialRepository.findByIdAndUserId(credentialId, userId)
                 .orElseThrow(() -> new ResourceNotFoundException("凭证不存在: " + credentialId));
@@ -93,10 +93,10 @@ public class CredentialService {
     }
 
     /**
-     * 获取凭证详情（完整解密信息）
+     * （）
      */
     public CredentialDetailResponse getCredentialDetail(Long userId, Long credentialId) {
-        log.info("获取凭证完整信息: userId={}, credentialId={}", userId, credentialId);
+        log.info(": userId={}, credentialId={}", userId, credentialId);
 
         UserCredential credential = credentialRepository.findByIdAndUserId(credentialId, userId)
                 .orElseThrow(() -> new ResourceNotFoundException("凭证不存在: " + credentialId));
@@ -107,18 +107,18 @@ public class CredentialService {
     }
 
     /**
-     * 创建凭证
+     * 
      */
     @Transactional
     public CredentialResponse createCredential(Long userId, CreateCredentialRequest request) {
-        log.info("创建凭证: userId={}, name={}, provider={}", userId, request.getName(), request.getProvider());
+        log.info(": userId={}, name={}, provider={}", userId, request.getName(), request.getProvider());
 
-        // 检查名称是否已存在
+        // 
         if (credentialRepository.existsByUserIdAndName(userId, request.getName())) {
             throw new DuplicateException("name", request.getName(), "凭证名称已存在: " + request.getName());
         }
 
-        // 加密 API Key 和 Secret
+        //  API Key  Secret
         String encryptedKey = CredentialEncryptionUtil.encrypt(request.getApiKey());
         String encryptedSecret = request.getApiSecret() != null
                 ? CredentialEncryptionUtil.encrypt(request.getApiSecret())
@@ -143,21 +143,21 @@ public class CredentialService {
 
         auditLog(userId, saved.getId(), CredentialAuditLog.ActionType.CREATE, true, null);
 
-        log.info("凭证创建成功: id={}", saved.getId());
+        log.info(": id={}", saved.getId());
         return toResponse(saved);
     }
 
     /**
-     * 更新凭证
+     * 
      */
     @Transactional
     public CredentialResponse updateCredential(Long userId, Long credentialId, UpdateCredentialRequest request) {
-        log.info("更新凭证: userId={}, credentialId={}", userId, credentialId);
+        log.info(": userId={}, credentialId={}", userId, credentialId);
 
         UserCredential credential = credentialRepository.findByIdAndUserId(credentialId, userId)
                 .orElseThrow(() -> new ResourceNotFoundException("凭证不存在: " + credentialId));
 
-        // 检查名称是否与其他凭证冲突
+        // 
         if (!credential.getName().equals(request.getName())
                 && credentialRepository.existsByUserIdAndName(userId, request.getName())) {
             throw new DuplicateException("name", request.getName(), "凭证名称已存在: " + request.getName());
@@ -165,12 +165,12 @@ public class CredentialService {
 
         credential.setName(request.getName());
 
-        // 如果提供了新的 API Key，则加密更新
+        //  API Key，
         if (request.getApiKey() != null && !request.getApiKey().isEmpty()) {
             credential.setApiKeyEncrypted(CredentialEncryptionUtil.encrypt(request.getApiKey()));
         }
 
-        // 如果提供了新的 API Secret，则加密更新
+        //  API Secret，
         if (request.getApiSecret() != null && !request.getApiSecret().isEmpty()) {
             credential.setApiSecretEncrypted(CredentialEncryptionUtil.encrypt(request.getApiSecret()));
         }
@@ -191,16 +191,16 @@ public class CredentialService {
 
         auditLog(userId, credentialId, CredentialAuditLog.ActionType.UPDATE, true, null);
 
-        log.info("凭证更新成功: id={}", saved.getId());
+        log.info(": id={}", saved.getId());
         return toResponse(saved);
     }
 
     /**
-     * 删除凭证
+     * 
      */
     @Transactional
     public void deleteCredential(Long userId, Long credentialId) {
-        log.info("删除凭证: userId={}, credentialId={}", userId, credentialId);
+        log.info(": userId={}, credentialId={}", userId, credentialId);
 
         UserCredential credential = credentialRepository.findByIdAndUserId(credentialId, userId)
                 .orElseThrow(() -> new ResourceNotFoundException("凭证不存在: " + credentialId));
@@ -209,28 +209,28 @@ public class CredentialService {
 
         auditLog(userId, credentialId, CredentialAuditLog.ActionType.DELETE, true, null);
 
-        log.info("凭证删除成功: id={}", credentialId);
+        log.info(": id={}", credentialId);
     }
 
     /**
-     * 验证凭证
+     * 
      */
     public VerifyCredentialResponse verifyCredential(Long userId, Long credentialId) {
-        log.info("验证凭证: userId={}, credentialId={}", userId, credentialId);
+        log.info(": userId={}, credentialId={}", userId, credentialId);
 
         UserCredential credential = credentialRepository.findByIdAndUserId(credentialId, userId)
                 .orElseThrow(() -> new ResourceNotFoundException("凭证不存在: " + credentialId));
 
-        // 解密 API Key 和 Secret
+        //  API Key  Secret
         String apiKey = CredentialEncryptionUtil.decrypt(credential.getApiKeyEncrypted());
         String apiSecret = credential.getApiSecretEncrypted() != null
                 ? CredentialEncryptionUtil.decrypt(credential.getApiSecretEncrypted())
                 : null;
 
-        // 执行验证（模拟验证，实际项目中应调用对应 API 验证）
+        // （， API ）
         VerificationResult result = performVerification(credential, apiKey, apiSecret);
 
-        // 更新验证状态
+        // 
         credential.setLastVerifiedAt(LocalDateTime.now());
         credential.setLastVerifiedStatus(result.isValid()
                 ? UserCredential.VerificationStatus.SUCCESS
@@ -251,7 +251,7 @@ public class CredentialService {
     }
 
     /**
-     * 获取审计日志
+     * 
      */
     public List<CredentialAuditLogResponse> getAuditLogs(Long userId, int page, int size) {
         Pageable pageable = PageRequest.of(page, size);
@@ -262,23 +262,23 @@ public class CredentialService {
                 .collect(Collectors.toList());
     }
 
-    // ===== 辅助方法 =====
+    // =====  =====
 
     /**
-     * 执行凭证验证（模拟实现）
+     * （）
      */
     private VerificationResult performVerification(UserCredential credential, String apiKey, String apiSecret) {
-        // 实际项目中应调用对应提供商的 API 验证凭证
-        // 这里返回模拟结果
+        //  API 
+        // 
 
         if (apiKey == null || apiKey.isEmpty()) {
             return VerificationResult.failed("API Key 为空");
         }
 
-        // 模拟验证逻辑
+        // 
         switch (credential.getProvider().toLowerCase()) {
             case "alpaca":
-                // 实际应调用 Alpaca API 验证
+                //  Alpaca API 
                 return VerificationResult.success("Alpaca API 凭证有效");
             case "binance":
                 return VerificationResult.success("Binance API 凭证有效");
@@ -292,12 +292,12 @@ public class CredentialService {
     }
 
     /**
-     * 记录审计日志
+     * 
      */
     private void auditLog(Long userId, Long credentialId, CredentialAuditLog.ActionType action,
                           boolean success, String errorMessage) {
         try {
-            // 获取请求信息
+            // 
             ServletRequestAttributes attributes = (ServletRequestAttributes) RequestContextHolder.getRequestAttributes();
             String ipAddress = null;
             String userAgent = null;
@@ -320,12 +320,12 @@ public class CredentialService {
 
             auditLogRepository.save(log);
         } catch (Exception e) {
-            log.error("记录审计日志失败", e);
+            log.error("", e);
         }
     }
 
     /**
-     * 获取客户端 IP 地址
+     *  IP 
      */
     private String getClientIpAddress(HttpServletRequest request) {
         String[] headerNames = {
@@ -346,10 +346,10 @@ public class CredentialService {
     }
 
     /**
-     * 转换为脱敏响应
+     * 
      */
     private CredentialResponse toResponse(UserCredential credential) {
-        // 解密用于脱敏显示
+        // 
         String apiKey = CredentialEncryptionUtil.decrypt(credential.getApiKeyEncrypted());
         String apiSecret = credential.getApiSecretEncrypted() != null
                 ? CredentialEncryptionUtil.decrypt(credential.getApiSecretEncrypted())
@@ -374,7 +374,7 @@ public class CredentialService {
     }
 
     /**
-     * 转换为完整详情响应
+     * 
      */
     private CredentialDetailResponse toDetailResponse(UserCredential credential) {
         String apiKey = CredentialEncryptionUtil.decrypt(credential.getApiKeyEncrypted());
@@ -401,7 +401,7 @@ public class CredentialService {
     }
 
     /**
-     * 转换为审计日志响应
+     * 
      */
     private CredentialAuditLogResponse toAuditLogResponse(CredentialAuditLog log) {
         return CredentialAuditLogResponse.builder()
@@ -416,7 +416,7 @@ public class CredentialService {
     }
 
     /**
-     * 验证结果内部类
+     * 
      */
     private static class VerificationResult {
         private final boolean valid;

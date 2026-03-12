@@ -34,7 +34,7 @@ const normalizeSymbol = (symbol: string): string => {
   return symbol.trim()
 }
 
-// 数字格式化
+// 
 const formatNumber = (num: number, decimals: number = 2) => {
   return num.toLocaleString('zh-CN', {
     minimumFractionDigits: decimals,
@@ -42,7 +42,7 @@ const formatNumber = (num: number, decimals: number = 2) => {
   })
 }
 
-// 金额格式化
+// 
 const formatMoney = (num: number) => {
   if (Math.abs(num) >= 100000000) {
     return `${(num / 100000000).toFixed(2)}亿`
@@ -58,7 +58,7 @@ const APPLE_CARD_CLASS =
 const GLASS_MODAL_CLASS =
   'relative overflow-hidden rounded-[24px] bg-white dark:bg-[#1c1c1e] shadow-[0_25px_60px_rgba(0,0,0,0.15)] ring-1 ring-black/5 dark:ring-white/10'
 
-// 持仓行组件
+// 
 function PortfolioRow({
   item,
   onEdit,
@@ -67,7 +67,7 @@ function PortfolioRow({
 }: {
   item: PortfolioDisplayItem
   onEdit: (item: PortfolioItem) => void
-  onDelete: (id: number) => void
+  onDelete: (item: PortfolioItem) => void
   onClick: (symbol: string, market: string) => void
 }) {
   const isProfit = item.pnl >= 0
@@ -126,7 +126,7 @@ function PortfolioRow({
             </svg>
           </button>
           <button
-            onClick={() => onDelete(item.id)}
+            onClick={() => onDelete(item)}
             className="text-red-500 hover:text-red-600 p-2 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-lg transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-400/60"
             title="删除"
             aria-label={`删除 ${item.name}`}
@@ -152,10 +152,12 @@ export default function Portfolio() {
   const [pnlHistory, setPnLHistory] = useState<PnLPoint[]>([])
   const [marketTrading, setMarketTrading] = useState<boolean>(isTradingHours())
 
-  // 弹窗状态
+  // 
   const [showAddModal, setShowAddModal] = useState(false)
   const [showEditModal, setShowEditModal] = useState(false)
   const [editingItem, setEditingItem] = useState<PortfolioItem | null>(null)
+  const [deletingItem, setDeletingItem] = useState<PortfolioItem | null>(null)
+  const [deleting, setDeleting] = useState(false)
   const [formData, setFormData] = useState({
     market: 'SZ',
     symbol: '',
@@ -308,7 +310,7 @@ export default function Portfolio() {
     }
   }, [portfolioWithRealtime, stockPrices, closedMarketQuotes])
 
-  // 图表
+  // 
   const pnlChartRef = useRef<HTMLDivElement>(null)
   const barChartRef = useRef<HTMLDivElement>(null)
   const pnlChartInstance = useRef<echarts.ECharts | null>(null)
@@ -341,7 +343,7 @@ export default function Portfolio() {
       setLoading(false)
       setCoreLoaded(true)
 
-      // 行业分布异步加载，不阻塞主界面
+      // ，
       setSectorsLoading(true)
       void portfolioApi
         .getSectorDistribution(portfolioData)
@@ -480,7 +482,7 @@ export default function Portfolio() {
     }
   }, [loading, pnlHistory, sectors])
 
-  // 添加、编辑、删除
+  // 
   const handleAdd = async () => {
     const quantity = Number(formData.quantity)
     const avgCost = Number(formData.avgCost)
@@ -490,11 +492,26 @@ export default function Portfolio() {
     if (!Number.isFinite(avgCost) || avgCost <= 0) return showToast('成本价必须大于 0', 'warning')
 
     try {
-      await portfolioApi.addPortfolio({ market: formData.market, symbol: formData.symbol, name: formData.name, quantity, avgCost })
+      const created = await portfolioApi.addPortfolio({
+        market: formData.market,
+        symbol: formData.symbol,
+        name: formData.name,
+        quantity,
+        avgCost,
+      })
+      setPortfolio((prev) => {
+        const idx = prev.findIndex((item) => item.id === created.id)
+        if (idx >= 0) {
+          const next = [...prev]
+          next[idx] = created
+          return next
+        }
+        return [...prev, created]
+      })
       showToast('添加成功', 'success')
       setShowAddModal(false)
       setFormData({ market: 'SZ', symbol: '', name: '', quantity: '', avgCost: '' })
-      loadData()
+      void loadData()
     } catch {
       showToast('添加失败', 'error')
     }
@@ -519,14 +536,18 @@ export default function Portfolio() {
     }
   }
 
-  const handleDelete = async (id: number) => {
-    if (!confirm('确定要删除该持仓吗？')) return
+  const handleDelete = async () => {
+    if (!deletingItem || deleting) return
     try {
-      await portfolioApi.deletePortfolio(id)
+      setDeleting(true)
+      await portfolioApi.deletePortfolio(deletingItem.id)
       showToast('删除成功', 'success')
-      loadData()
+      setDeletingItem(null)
+      await loadData()
     } catch {
       showToast('删除失败', 'error')
+    } finally {
+      setDeleting(false)
     }
   }
 
@@ -536,12 +557,12 @@ export default function Portfolio() {
 
   return (
     <div className="min-h-[calc(100vh-theme(spacing.16))] py-6 px-4 md:px-8 space-y-6 [font-family:-apple-system,BlinkMacSystemFont,'SF_Pro_Text','Helvetica_Neue','Segoe_UI',sans-serif] text-[#1d1d1f] dark:text-white">
-      {/* 紧凑型数据中枢 */}
+      {/*  */}
       <div className={`${APPLE_CARD_CLASS} px-6 py-6 md:px-8`}>
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 md:gap-0">
           <div className="flex flex-col gap-1 md:w-1/4">
             <div className="flex items-center gap-2 mb-1">
-              <span className="text-[13px] font-medium text-[#86868b] dark:text-gray-400">总资产 (¥)</span>
+              <span className="text-[13px] font-medium text-[#86868b] dark:text-gray-400"> (¥)</span>
               {marketTrading && connectionState === 'connected' ? (
                 <span className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-[#34c759]/10 text-[#34c759] text-[10px] font-bold tracking-widest uppercase">
                   <span className="w-1.5 h-1.5 rounded-full bg-[#34c759] animate-pulse" />
@@ -562,7 +583,7 @@ export default function Portfolio() {
           <div className="hidden md:block w-px h-12 bg-gray-100 dark:bg-white/5 mx-6"></div>
 
           <div className="flex flex-col gap-1 md:w-1/4">
-            <span className="text-[13px] font-medium text-[#86868b] dark:text-gray-400 mb-1">今日盈亏</span>
+            <span className="text-[13px] font-medium text-[#86868b] dark:text-gray-400 mb-1"></span>
             <div className={`text-[20px] font-medium tracking-tight leading-none tabular-nums ${summaryMetrics.dailyPnl >= 0 ? 'text-[#34c759]' : 'text-[#ff3b30]'}`}>
               {summaryMetrics.dailyPnl >= 0 ? '+' : ''}{formatMoney(summaryMetrics.dailyPnl)}
             </div>
@@ -574,7 +595,7 @@ export default function Portfolio() {
           <div className="hidden md:block w-px h-12 bg-gray-100 dark:bg-white/5 mx-6"></div>
 
           <div className="flex flex-col gap-1 md:w-1/4">
-            <span className="text-[13px] font-medium text-[#86868b] dark:text-gray-400 mb-1">累计盈亏</span>
+            <span className="text-[13px] font-medium text-[#86868b] dark:text-gray-400 mb-1"></span>
             <div className={`text-[20px] font-medium tracking-tight leading-none tabular-nums ${summaryMetrics.totalPnl >= 0 ? 'text-[#34c759]' : 'text-[#ff3b30]'}`}>
               {summaryMetrics.totalPnl >= 0 ? '+' : ''}{formatMoney(summaryMetrics.totalPnl)}
             </div>
@@ -586,7 +607,7 @@ export default function Portfolio() {
           <div className="hidden md:block w-px h-12 bg-gray-100 dark:bg-white/5 mx-6"></div>
 
           <div className="flex flex-col gap-1 md:w-1/4">
-            <span className="text-[13px] font-medium text-[#86868b] dark:text-gray-400 mb-1">持仓情况</span>
+            <span className="text-[13px] font-medium text-[#86868b] dark:text-gray-400 mb-1"></span>
             <div className="text-[20px] font-medium tracking-tight text-[#1d1d1f] dark:text-white leading-none tabular-nums">
               {portfolio.length} 只股票
             </div>
@@ -597,22 +618,22 @@ export default function Portfolio() {
         </div>
       </div>
 
-      {/* 图表区域 */}
+      {/*  */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
         <div className={`lg:col-span-2 ${APPLE_CARD_CLASS} p-6`}>
-          <h3 className="text-[18px] font-medium text-[#1d1d1f] dark:text-white mb-6">收益曲线</h3>
+          <h3 className="text-[18px] font-medium text-[#1d1d1f] dark:text-white mb-6"></h3>
           <div ref={pnlChartRef} className="h-[280px] w-full" />
         </div>
         <div className={`${APPLE_CARD_CLASS} p-6`}>
-          <h3 className="text-[18px] font-medium text-[#1d1d1f] dark:text-white mb-6">行业分布</h3>
+          <h3 className="text-[18px] font-medium text-[#1d1d1f] dark:text-white mb-6"></h3>
           <div ref={barChartRef} className="h-[280px] w-full" />
           {sectorsLoading && (
-            <p className="mt-2 text-[13px] text-[#86868b] dark:text-gray-400">行业数据加载中...</p>
+            <p className="mt-2 text-[13px] text-[#86868b] dark:text-gray-400">...</p>
           )}
         </div>
       </div>
 
-      {/* 标签页 */}
+      {/*  */}
       <div className={`${APPLE_CARD_CLASS} p-6 flex flex-col`}>
         <div className="mb-6 flex items-center justify-between">
           <div className="inline-flex bg-gray-100 dark:bg-gray-800 p-0.5 rounded-[10px]">
@@ -646,13 +667,13 @@ export default function Portfolio() {
             <table className="min-w-full">
               <thead>
                 <tr className="border-b border-gray-100 dark:border-gray-800">
-                  <th className="px-6 pb-3 text-left text-[13px] font-medium text-[#86868b] dark:text-gray-400">股票</th>
-                  <th className="px-6 pb-3 text-right text-[13px] font-medium text-[#86868b] dark:text-gray-400">持仓数量</th>
-                  <th className="px-6 pb-3 text-right text-[13px] font-medium text-[#86868b] dark:text-gray-400">成本价</th>
-                  <th className="px-6 pb-3 text-right text-[13px] font-medium text-[#86868b] dark:text-gray-400">当前价</th>
-                  <th className="px-6 pb-3 text-right text-[13px] font-medium text-[#86868b] dark:text-gray-400">市值</th>
-                  <th className="px-6 pb-3 text-right text-[13px] font-medium text-[#86868b] dark:text-gray-400">盈亏</th>
-                  <th className="px-6 pb-3 text-right text-[13px] font-medium text-[#86868b] dark:text-gray-400">操作</th>
+                  <th className="px-6 pb-3 text-left text-[13px] font-medium text-[#86868b] dark:text-gray-400"></th>
+                  <th className="px-6 pb-3 text-right text-[13px] font-medium text-[#86868b] dark:text-gray-400"></th>
+                  <th className="px-6 pb-3 text-right text-[13px] font-medium text-[#86868b] dark:text-gray-400"></th>
+                  <th className="px-6 pb-3 text-right text-[13px] font-medium text-[#86868b] dark:text-gray-400"></th>
+                  <th className="px-6 pb-3 text-right text-[13px] font-medium text-[#86868b] dark:text-gray-400"></th>
+                  <th className="px-6 pb-3 text-right text-[13px] font-medium text-[#86868b] dark:text-gray-400"></th>
+                  <th className="px-6 pb-3 text-right text-[13px] font-medium text-[#86868b] dark:text-gray-400"></th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-50 dark:divide-white/5">
@@ -665,7 +686,7 @@ export default function Portfolio() {
                       setEditForm({ quantity: String(item.quantity), avgCost: String(item.avgCost) })
                       setShowEditModal(true)
                     }}
-                    onDelete={handleDelete}
+                    onDelete={setDeletingItem}
                     onClick={handleClickStock}
                   />
                 ))}
@@ -675,12 +696,12 @@ export default function Portfolio() {
         </div>
       </div>
 
-      {/* 添加持仓弹窗 */}
+      {/*  */}
       {showAddModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/20 backdrop-blur-sm" onClick={() => setShowAddModal(false)} />
           <div className={`${GLASS_MODAL_CLASS} w-full max-w-md p-6 relative animate-in fade-in zoom-in-95 duration-200`}>
-            <h3 className="text-[20px] font-semibold text-[#1d1d1f] dark:text-white mb-6">添加持仓</h3>
+            <h3 className="text-[20px] font-semibold text-[#1d1d1f] dark:text-white mb-6"></h3>
             <div className="space-y-5">
               <StockSearch
                 onSelect={(symbol, name, market) => {
@@ -689,7 +710,7 @@ export default function Portfolio() {
               />
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-[13px] font-medium text-[#86868b] mb-1.5">数量</label>
+                  <label className="block text-[13px] font-medium text-[#86868b] mb-1.5"></label>
                   <input
                     type="number"
                     value={formData.quantity}
@@ -698,7 +719,7 @@ export default function Portfolio() {
                   />
                 </div>
                 <div>
-                  <label className="block text-[13px] font-medium text-[#86868b] mb-1.5">成本价</label>
+                  <label className="block text-[13px] font-medium text-[#86868b] mb-1.5"></label>
                   <input
                     type="number"
                     step="0.01"
@@ -727,16 +748,16 @@ export default function Portfolio() {
         </div>
       )}
 
-      {/* 编辑持仓弹窗 */}
+      {/*  */}
       {showEditModal && editingItem && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/20 backdrop-blur-sm" onClick={() => setShowEditModal(false)} />
           <div className={`${GLASS_MODAL_CLASS} w-full max-w-md p-6 relative animate-in fade-in zoom-in-95 duration-200`}>
-            <h3 className="text-[20px] font-semibold text-[#1d1d1f] dark:text-white mb-6">编辑持仓 - {editingItem.name}</h3>
+            <h3 className="text-[20px] font-semibold text-[#1d1d1f] dark:text-white mb-6"> - {editingItem.name}</h3>
             <div className="space-y-5">
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-[13px] font-medium text-[#86868b] mb-1.5">数量</label>
+                  <label className="block text-[13px] font-medium text-[#86868b] mb-1.5"></label>
                   <input
                     type="number"
                     value={editForm.quantity}
@@ -745,7 +766,7 @@ export default function Portfolio() {
                   />
                 </div>
                 <div>
-                  <label className="block text-[13px] font-medium text-[#86868b] mb-1.5">成本价</label>
+                  <label className="block text-[13px] font-medium text-[#86868b] mb-1.5"></label>
                   <input
                     type="number"
                     step="0.01"
@@ -769,6 +790,57 @@ export default function Portfolio() {
               >
                 保存
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/*  */}
+      {deletingItem && (
+        <div className="fixed inset-0 z-[60] overflow-y-auto">
+          <div className="flex items-center justify-center min-h-screen px-4">
+            <div
+              className="fixed inset-0 bg-black/30 backdrop-blur-sm transition-opacity"
+              onClick={() => {
+                if (!deleting) {
+                  setDeletingItem(null)
+                }
+              }}
+            />
+            <div className="relative w-full max-w-[620px] rounded-[24px] border border-gray-200/80 dark:border-white/10 bg-white dark:bg-[#1c1c1e] shadow-[0_25px_60px_rgba(0,0,0,0.2)]">
+              <div className="p-6">
+                <div className="flex items-start gap-4">
+                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400">
+                    <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v3m0 4h.01M5.07 19h13.86c1.54 0 2.5-1.67 1.73-3L13.73 4c-.77-1.33-2.69-1.33-3.46 0L3.34 16c-.77 1.33.19 3 1.73 3z" />
+                    </svg>
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="text-lg font-semibold text-[#1d1d1f] dark:text-white"></h3>
+                    <p className="mt-2 text-sm text-[#6e6e73] dark:text-gray-300 sm:whitespace-nowrap">
+                      将删除
+                      <span className="mx-1 font-semibold text-[#1d1d1f] dark:text-white">{deletingItem.name}</span>
+                      ({deletingItem.symbol}) 的持仓记录。此操作不可撤销。
+                    </p>
+                  </div>
+                </div>
+              </div>
+              <div className="flex items-center justify-end gap-3 border-t border-gray-100 dark:border-white/10 px-6 py-4">
+                <button
+                  onClick={() => setDeletingItem(null)}
+                  disabled={deleting}
+                  className="inline-flex h-10 items-center justify-center rounded-full border border-gray-200 dark:border-white/15 bg-white dark:bg-[#2c2c2e] px-5 text-sm font-medium text-[#3a3a3c] dark:text-gray-100 transition-colors hover:bg-gray-50 disabled:opacity-60"
+                >
+                  取消
+                </button>
+                <button
+                  onClick={handleDelete}
+                  disabled={deleting}
+                  className="inline-flex h-10 items-center justify-center rounded-full bg-red-600 px-5 text-sm font-semibold text-white transition-colors hover:bg-red-700 disabled:opacity-60"
+                >
+                  {deleting ? '删除中...' : '确认删除'}
+                </button>
+              </div>
             </div>
           </div>
         </div>

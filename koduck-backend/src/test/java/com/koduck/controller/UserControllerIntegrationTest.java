@@ -29,7 +29,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
- * UserController 集成测试
+ * UserController 
  */
 @AutoConfigureMockMvc
 class UserControllerIntegrationTest extends AbstractIntegrationTest {
@@ -155,7 +155,7 @@ class UserControllerIntegrationTest extends AbstractIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(0));
 
-        // 使用新密码登录
+        // 
         LoginRequest loginRequest = new LoginRequest();
         loginRequest.setUsername(normalUsername);
         loginRequest.setPassword("newpassword456");

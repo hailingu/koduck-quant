@@ -15,7 +15,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
- * 用户设置服务
+ * 
  */
 @Service
 @RequiredArgsConstructor
@@ -27,7 +27,7 @@ public class UserSettingsService {
     private final Environment environment;
 
     /**
-     * 获取或创建设置
+     * 
      */
     @Transactional
     public UserSettingsDto getSettings(Long userId) {
@@ -40,7 +40,7 @@ public class UserSettingsService {
     }
 
     /**
-     * 更新设置
+     * 
      */
     @Transactional
     public UserSettingsDto updateSettings(Long userId, UpdateSettingsRequest request) {
@@ -49,7 +49,7 @@ public class UserSettingsService {
         UserSettings settings = settingsRepository.findByUserId(userId)
             .orElseGet(() -> createDefaultSettings(userId));
 
-        // 更新主题设置
+        // 
         if (request.getTheme() != null) {
             settings.setTheme(request.getTheme());
         }
@@ -60,7 +60,7 @@ public class UserSettingsService {
             settings.setTimezone(request.getTimezone());
         }
 
-        // 更新通知设置
+        // 
         if (request.getNotification() != null) {
             UserSettings.NotificationConfig config = new UserSettings.NotificationConfig();
             config.setEmail(request.getNotification().getEmail());
@@ -71,7 +71,7 @@ public class UserSettingsService {
             settings.setNotificationConfig(config);
         }
 
-        // 更新交易设置
+        // 
         if (request.getTrading() != null) {
             UserSettings.TradingConfig config = new UserSettings.TradingConfig();
             config.setDefaultMarket(request.getTrading().getDefaultMarket());
@@ -81,7 +81,7 @@ public class UserSettingsService {
             settings.setTradingConfig(config);
         }
 
-        // 更新显示设置
+        // 
         if (request.getDisplay() != null) {
             UserSettings.DisplayConfig config = new UserSettings.DisplayConfig();
             config.setCurrency(request.getDisplay().getCurrency());
@@ -91,7 +91,7 @@ public class UserSettingsService {
             settings.setDisplayConfig(config);
         }
 
-        // 更新大模型配置
+        // 
         if (request.getLlmConfig() != null) {
             UserSettings.LlmConfig current = settings.getLlmConfig() != null
                 ? settings.getLlmConfig()
@@ -105,7 +105,7 @@ public class UserSettingsService {
             current.setDeepseek(mergeProviderConfig(current.getDeepseek(), req.getDeepseek()));
             current.setOpenai(mergeProviderConfig(current.getOpenai(), req.getOpenai()));
 
-            // 兼容旧请求：仅传 apiKey/apiBase 时写入当前激活 provider
+            // ： apiKey/apiBase  provider
             if (req.getApiKey() != null || req.getApiBase() != null) {
                 UserSettings.ProviderConfig existing = getProviderConfig(current, activeProvider);
                 UserSettings.ProviderConfig legacyMerged = UserSettings.ProviderConfig.builder()
@@ -115,7 +115,7 @@ public class UserSettingsService {
                 setProviderConfig(current, activeProvider, legacyMerged);
             }
 
-            // legacy 顶层字段同步当前 provider，避免旧前端读取不到
+            // legacy  provider，
             UserSettings.ProviderConfig activeConfig = getProviderConfig(current, activeProvider);
             current.setApiKey(activeConfig != null ? normalizeBlank(activeConfig.getApiKey()) : null);
             current.setApiBase(activeConfig != null ? normalizeBlank(activeConfig.getApiBase()) : null);
@@ -123,7 +123,7 @@ public class UserSettingsService {
             settings.setLlmConfig(current);
         }
 
-        // 更新快捷入口
+        // 
         if (request.getQuickLinks() != null) {
             List<UserSettings.QuickLink> links = request.getQuickLinks().stream()
                 .map(dto -> UserSettings.QuickLink.builder()
@@ -142,7 +142,7 @@ public class UserSettingsService {
     }
 
     /**
-     * 更新主题
+     * 
      */
     @Transactional
     public UserSettingsDto updateTheme(Long userId, String theme) {
@@ -157,7 +157,7 @@ public class UserSettingsService {
     }
 
     /**
-     * 更新通知设置
+     * 
      */
     @Transactional
     public UserSettingsDto updateNotification(Long userId, UpdateNotificationRequest request) {
@@ -183,7 +183,7 @@ public class UserSettingsService {
     }
 
     /**
-     * 创建默认设置
+     * 
      */
     private UserSettings createDefaultSettings(Long userId) {
         log.debug("Creating default settings for user: {}", userId);
@@ -224,7 +224,7 @@ public class UserSettingsService {
     }
 
     /**
-     * 转换为 DTO
+     *  DTO
      */
     private UserSettingsDto convertToDto(UserSettings settings) {
         return UserSettingsDto.builder()
@@ -410,7 +410,7 @@ public class UserSettingsService {
     private UserSettingsDto.ProviderConfigDto resolveProviderConfig(String provider, UserSettings.LlmConfig config) {
         UserSettings.ProviderConfig settingsProviderConfig = getProviderConfig(config, provider);
 
-        // 兼容历史单 provider 结构：provider 匹配时，顶层 apiKey/apiBase 视作该 provider 配置
+        //  provider ：provider ， apiKey/apiBase  provider 
         String legacyProvider = normalizeLlmProvider(config != null ? config.getProvider() : null);
         String legacyApiKey = legacyProvider.equals(provider) ? normalizeBlank(config != null ? config.getApiKey() : null) : null;
         String legacyApiBase = legacyProvider.equals(provider) ? normalizeBlank(config != null ? config.getApiBase() : null) : null;

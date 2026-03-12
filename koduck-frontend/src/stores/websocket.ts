@@ -60,7 +60,7 @@ const parsePriceMessage = (body: string): StockPriceUpdate | null => {
 // WebSocket configuration
 const WS_CONFIG = {
   webSocketFactory: () => new SockJS('/ws', null, { 
-    transports: ['websocket', 'xhr-streaming', 'xhr-polling'] // 禁用 iframe
+    transports: ['websocket', 'xhr-streaming', 'xhr-polling'] //  iframe
   }),
   reconnectDelay: 5000,
   heartbeatIncoming: 4000,

@@ -11,7 +11,7 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 /**
- * 用户信号统计实体
+ * 
  */
 @Entity
 @Table(name = "user_signal_stats")
@@ -58,13 +58,13 @@ public class UserSignalStats {
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
 
-    // 关联用户
+    // 
     @OneToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", insertable = false, updatable = false)
     private User user;
 
     /**
-     * 计算胜率
+     * 
      */
     public void calculateWinRate() {
         if (totalSignals != null && totalSignals > 0) {

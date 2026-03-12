@@ -1,4 +1,4 @@
-"""配置管理."""
+"""."""
 
 import logging
 import os
@@ -13,10 +13,10 @@ from koduck.schema import LLMProvider
 
 logger = logging.getLogger(__name__)
 
-# 加载 .env 文件（如果存在）
+#  .env （）
 load_dotenv()
 
-# 类级别默认配置常量
+# 
 _PROVIDER_DEFAULTS: dict[LLMProvider, dict[str, str]] = {
     LLMProvider.OPENAI: {
         "api_base": "https://api.openai.com/v1",
@@ -35,7 +35,7 @@ _PROVIDER_DEFAULTS: dict[LLMProvider, dict[str, str]] = {
 
 @dataclass
 class LLMConfig:
-    """LLM 配置."""
+    """LLM ."""
     
     provider: LLMProvider = LLMProvider.MINIMAX
     api_key: str = ""
@@ -44,7 +44,7 @@ class LLMConfig:
     retry: RetryConfig = field(default_factory=RetryConfig)
     
     def __post_init__(self) -> None:
-        """应用默认值（仅对空值进行填充）."""
+        """（）."""
         defaults = _PROVIDER_DEFAULTS.get(self.provider, {})
         if not self.api_base:
             self.api_base = defaults.get("api_base", "")
@@ -53,7 +53,7 @@ class LLMConfig:
 
 
 def _parse_retry_config(retry_cfg: dict | None) -> RetryConfig:
-    """解析重试配置.
+    """.
     
     Args:
         retry_cfg: 配置文件中的 retry 字段
@@ -74,7 +74,7 @@ def _parse_retry_config(retry_cfg: dict | None) -> RetryConfig:
 
 
 def load_config(config_path: str | Path | None = None) -> LLMConfig:
-    """加载配置.
+    """.
     
     配置优先级 (从高到低):
     1. 环境变量
@@ -87,33 +87,33 @@ def load_config(config_path: str | Path | None = None) -> LLMConfig:
     Returns:
         LLMConfig 对象
     """
-    # 确定配置文件路径
+    # 
     if config_path is None:
         config_path = Path.home() / ".llm_caller" / "config.yaml"
     else:
         config_path = Path(config_path)
     
-    # Step 1: 从配置文件读取（最低优先级）
+    # Step 1: （）
     file_config: dict = {}
     if config_path.exists():
         try:
             with open(config_path, "r", encoding="utf-8") as f:
                 file_config = yaml.safe_load(f) or {}
-            logger.debug("已加载配置文件: %s", config_path)
+            logger.debug(": %s", config_path)
         except (yaml.YAMLError, OSError) as e:
-            logger.warning("加载配置文件失败: %s - %s", config_path, e)
+            logger.warning(": %s - %s", config_path, e)
     
-    # Step 2: 合并配置（环境变量优先于配置文件）
+    # Step 2: （）
     provider_str = os.getenv("LLM_PROVIDER") or file_config.get("provider", "minimax")
     provider = LLMProvider(provider_str.lower())
     
     api_key = os.getenv("LLM_API_KEY") or file_config.get("api_key", "")
-    # 支持不同提供商的 API Base URL
+    #  API Base URL
     api_base = os.getenv("LLM_API_BASE") or file_config.get("api_base", "")
-    # MiniMax 专用 API Base URL
+    # MiniMax  API Base URL
     model = os.getenv("LLM_MODEL") or file_config.get("model", "")
     
-    # Step 3: 构建配置对象
+    # Step 3: 
     retry = _parse_retry_config(file_config.get("retry"))
     
     config = LLMConfig(
@@ -135,7 +135,7 @@ def load_config(config_path: str | Path | None = None) -> LLMConfig:
 
 
 def save_config_example(path: str | Path | None = None) -> None:
-    """保存配置示例文件.
+    """.
     
     Args:
         path: 保存路径，默认为 ./config-example.yaml
@@ -145,28 +145,28 @@ def save_config_example(path: str | Path | None = None) -> None:
     else:
         path = Path(path)
     
-    example = """# LLM Caller 配置文件示例
+    example = """# LLM Caller 
 
-# 提供商: minimax
+# : minimax
 provider: minimax
 
-# API 密钥 (必需)
-# 可以从环境变量设置: export LLM_API_KEY=your_key
+# API  ()
+# : export LLM_API_KEY=your_key
 api_key: "your-api-key-here"
 
-# API Base URL (可选，会使用默认值)
+# API Base URL (，)
 # openai: https://api.openai.com/v1
 # minimax: https://api.minimax.chat/v1
 # deepseek: https://api.deepseek.com/v1
 api_base: ""
 
-# 模型名称 (可选，会使用默认值)
+#  (，)
 # openai: gpt-4o-mini, gpt-4o
 # minimax: MiniMax-M2.5, MiniMax-Text-01, abab6.5s-chat
 # deepseek: deepseek-chat, deepseek-reasoner
 model: ""
 
-# 重试配置
+# 
 retry:
   enabled: true
   max_retries: 3
@@ -179,4 +179,4 @@ retry:
     with open(path, "w", encoding="utf-8") as f:
         f.write(example)
     
-    print(f"配置示例已保存到: {path.absolute()}")
+    print(f": {path.absolute()}")

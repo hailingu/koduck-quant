@@ -5,7 +5,7 @@ import type { StockPriceUpdate } from '../types'
 /**
  * WebSocket Hook
  * 
- * 提供 WebSocket 连接的 React Hook 接口，自动处理连接生命周期。
+ *  WebSocket  React Hook ，
  * 
  * @example
  * const { connectionState, subscribe, unsubscribe, stockPrices } = useWebSocket()

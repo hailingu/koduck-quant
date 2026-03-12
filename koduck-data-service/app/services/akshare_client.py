@@ -40,12 +40,12 @@ class AKShareClient:
     """
 
     _INDEX_CODES = [
-        "000001",  # 上证指数
-        "399001",  # 深证成指
-        "399006",  # 创业板指
-        "000016",  # 上证50
-        "000300",  # 沪深300
-        "399005",  # 中小板指
+        "000001",  # 
+        "399001",  # 
+        "399006",  # 
+        "000016",  # 50
+        "000300",  # 300
+        "399005",  # 
     ]
     _INDEX_NAMES = {
         "000001": "上证指数",
@@ -741,11 +741,11 @@ class AKShareClient:
                     date_str = str(row['date'])
                     timestamp = int(pd.Timestamp(date_str).timestamp())
                     
-                    # Note: Tencent 'amount' column is actually volume in '手' (100 shares)
+                    # Note: Tencent 'amount' column is actually volume in '' (100 shares)
                     volume_hands = self._safe_float(row.get('amount'), 0.0)
                     volume_shares = int(volume_hands * 100)
                     
-                    # Calculate approximate amount (成交额) 
+                    # Calculate approximate amount () 
                     # Using average of OHLC * volume for better accuracy
                     avg_price = (self._safe_float(row.get('open'), 0.0) + 
                                 self._safe_float(row.get('high'), 0.0) + 

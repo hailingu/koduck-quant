@@ -12,7 +12,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 /**
- * 信号评论实体
+ * 
  */
 @Entity
 @Table(name = "signal_comments")
@@ -54,22 +54,22 @@ public class SignalComment {
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
 
-    // 关联信号
+    // 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "signal_id", insertable = false, updatable = false)
     private CommunitySignal signal;
 
-    // 关联用户
+    // 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", insertable = false, updatable = false)
     private User user;
 
-    // 父评论（回复）
+    // （）
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "parent_id", insertable = false, updatable = false)
     private SignalComment parent;
 
-    // 子评论（回复列表）
+    // （）
     @OneToMany(mappedBy = "parent", fetch = FetchType.LAZY)
     private List<SignalComment> replies;
 }

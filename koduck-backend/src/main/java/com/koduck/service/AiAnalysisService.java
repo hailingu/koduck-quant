@@ -35,7 +35,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
- * AI 分析服务 - 对接 koduck-agent
+ * AI  -  koduck-agent
  */
 @Service
 @RequiredArgsConstructor
@@ -68,7 +68,7 @@ public class AiAnalysisService {
     }
 
     /**
-     * 股票智能分析 - 调用 koduck-agent 获取真实 AI 分析
+     *  -  koduck-agent  AI 
      */
     public StockAnalysisResponse analyzeStock(Long userId, StockAnalysisRequest request) {
         String symbol = request.getSymbol();
@@ -80,10 +80,10 @@ public class AiAnalysisService {
         log.debug("Analyzing stock: {}, market: {}, question: {}, provider: {}", symbol, market, question, provider);
 
         try {
-            // 构建发送给 koduck-agent 的消息
+            //  koduck-agent 
             String userQuestion = buildStockAnalysisPrompt(request);
             
-            // 调用 koduck-agent
+            //  koduck-agent
             String aiResponse = callAgentChat(provider, userQuestion, effectiveConfig);
             
             return StockAnalysisResponse.builder()
@@ -105,7 +105,7 @@ public class AiAnalysisService {
     }
     
     /**
-     * 构建发送给 AI 的提示词
+     *  AI 
      */
     private String buildStockAnalysisPrompt(StockAnalysisRequest request) {
         StringBuilder prompt = new StringBuilder();
@@ -115,7 +115,7 @@ public class AiAnalysisService {
         }
         prompt.append("。\n\n");
         
-        // 添加股票信息
+        // 
         if (request.getPrice() != null) {
             prompt.append("当前价格: ").append(request.getPrice()).append("\n");
         }
@@ -144,12 +144,12 @@ public class AiAnalysisService {
     }
     
     /**
-     * 调用 koduck-agent 的 chat API
+     *  koduck-agent  chat API
      */
     private String callAgentChat(String provider, String userMessage, UserSettingsDto.LlmConfigDto config) {
         String agentUrl = agentConfig.getUrl() + "/v1/chat/completions";
         
-        // 构建请求体
+        // 
         Map<String, Object> requestBody = new HashMap<>();
         requestBody.put("provider", resolveProvider(provider));
         requestBody.put("apiKey", config != null && config.getApiKey() != null ? config.getApiKey() : "");
@@ -192,7 +192,7 @@ public class AiAnalysisService {
     }
 
     /**
-     * 代理流式聊天接口，统一由后端中转到 koduck-agent。
+     * ， koduck-agent
      */
     public SseEmitter streamChat(Long userId, ChatStreamRequest request) {
         SseEmitter emitter = new SseEmitter(0L);
@@ -553,7 +553,7 @@ public class AiAnalysisService {
     }
     
     /**
-     * 从 AI 响应中提取建议
+     *  AI 
      */
     private String generateRecommendationFromResponse(String response) {
         response = response.toLowerCase();
@@ -568,7 +568,7 @@ public class AiAnalysisService {
     }
     
     /**
-     * 回退到模拟数据
+     * 
      */
     private StockAnalysisResponse analyzeStockWithMock(StockAnalysisRequest request) {
         Random random = new Random();
@@ -599,7 +599,7 @@ public class AiAnalysisService {
     }
     
     /**
-     * 生成包含用户问题的分析推理
+     * 
      */
     private String generateReasoningWithQuestion(String symbol, int score, String question) {
         String baseReasoning = String.format(
@@ -611,7 +611,7 @@ public class AiAnalysisService {
             score >= 70 ? "积极" : "中性"
         );
         
-        // 根据用户问题添加个性化回答
+        // 
         String personalizedAnswer = "";
         if (question.contains("趋势")) {
             personalizedAnswer = score >= 70 ? "从趋势来看，股票处于上升通道，建议关注。" : "当前趋势不明朗，建议观望。";
@@ -625,12 +625,12 @@ public class AiAnalysisService {
     }
 
     /**
-     * 策略智能推荐
+     * 
      */
     public StrategyRecommendResponse recommendStrategies(Long userId, StrategyRecommendRequest request) {
         log.debug("Recommending strategies for user: {}, risk: {}", userId, request.getRiskPreference());
 
-        // 获取用户的策略
+        // 
         List<Strategy> userStrategies = strategyRepository.findByUserId(userId);
         
         List<StrategyRecommendResponse.StrategyRecommendation> recommendations = new ArrayList<>();
@@ -663,7 +663,7 @@ public class AiAnalysisService {
     }
 
     /**
-     * 回测结果解读
+     * 
      */
     public BacktestInterpretResponse interpretBacktest(Long userId, Long backtestResultId) {
         log.debug("Interpreting backtest: {} for user: {}", backtestResultId, userId);
@@ -687,14 +687,14 @@ public class AiAnalysisService {
     }
 
     /**
-     * 风险评估
+     * 
      */
     public RiskAssessmentResponse assessRisk(Long userId, Long portfolioId) {
         log.debug("Assessing risk for portfolio: {} of user: {}", portfolioId, userId);
 
         List<PortfolioPosition> positions = positionRepository.findByUserId(userId);
         
-        int overallScore = 40 + random.nextInt(41); // 40-80，分数越低风险越高
+        int overallScore = 40 + random.nextInt(41); // 40-80，
         String riskLevel = overallScore >= 70 ? "低风险" : overallScore >= 55 ? "中风险" : "高风险";
 
         return RiskAssessmentResponse.builder()
@@ -710,7 +710,7 @@ public class AiAnalysisService {
             .build();
     }
 
-    // ========== 辅助方法 ==========
+    // ==========  ==========
 
     private StockAnalysisResponse.TechnicalAnalysis generateTechnicalAnalysis() {
         return StockAnalysisResponse.TechnicalAnalysis.builder()

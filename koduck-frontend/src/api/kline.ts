@@ -49,7 +49,7 @@ export const klineApi = {
         limit: params.limit,
         beforeTime: params.beforeTime,
       },
-      timeout: 30000, // K 线数据可能需要更长时间
+      timeout: 30000, // K 
     }),
 
   getLatestPrice: (params: { symbol: string; timeframe?: string; market?: string }) =>

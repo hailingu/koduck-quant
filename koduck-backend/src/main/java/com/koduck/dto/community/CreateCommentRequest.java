@@ -8,7 +8,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 /**
- * 创建评论请求 DTO
+ *  DTO
  */
 @Data
 @Builder
@@ -20,5 +20,5 @@ public class CreateCommentRequest {
     @Size(max = 1000, message = "评论内容最多 1000 个字符")
     private String content;
 
-    private Long parentId; // 回复的评论 ID，为空表示一级评论
+    private Long parentId; //  ID，
 }

@@ -14,7 +14,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 /**
- * 用户设置实体
+ * 
  */
 @Entity
 @Table(name = "user_settings")
@@ -31,7 +31,7 @@ public class UserSettings {
     @Column(name = "user_id", nullable = false, unique = true)
     private Long userId;
 
-    // 主题设置
+    // 
     @Column(name = "theme", nullable = false, length = 20)
     @Builder.Default
     private String theme = "light";
@@ -44,31 +44,31 @@ public class UserSettings {
     @Builder.Default
     private String timezone = "Asia/Shanghai";
 
-    // 通知设置
+    // 
     @Column(name = "notification_config", columnDefinition = "jsonb")
     @JdbcTypeCode(SqlTypes.JSON)
     @Builder.Default
     private NotificationConfig notificationConfig = new NotificationConfig();
 
-    // 交易设置
+    // 
     @Column(name = "trading_config", columnDefinition = "jsonb")
     @JdbcTypeCode(SqlTypes.JSON)
     @Builder.Default
     private TradingConfig tradingConfig = new TradingConfig();
 
-    // 显示设置
+    // 
     @Column(name = "display_config", columnDefinition = "jsonb")
     @JdbcTypeCode(SqlTypes.JSON)
     @Builder.Default
     private DisplayConfig displayConfig = new DisplayConfig();
 
-    // 快捷入口
+    // 
     @Column(name = "quick_links", columnDefinition = "jsonb")
     @JdbcTypeCode(SqlTypes.JSON)
     @Builder.Default
     private List<QuickLink> quickLinks = List.of();
 
-    // 大模型配置
+    // 
     @Column(name = "llm_config", columnDefinition = "jsonb")
     @JdbcTypeCode(SqlTypes.JSON)
     @Builder.Default
@@ -83,7 +83,7 @@ public class UserSettings {
     private LocalDateTime updatedAt;
 
     /**
-     * 通知配置
+     * 
      */
     @Data
     @NoArgsConstructor
@@ -103,7 +103,7 @@ public class UserSettings {
     }
 
     /**
-     * 交易配置
+     * 
      */
     @Data
     @NoArgsConstructor
@@ -121,7 +121,7 @@ public class UserSettings {
     }
 
     /**
-     * 显示配置
+     * 
      */
     @Data
     @NoArgsConstructor
@@ -139,7 +139,7 @@ public class UserSettings {
     }
 
     /**
-     * 快捷入口
+     * 
      */
     @Data
     @NoArgsConstructor
@@ -154,7 +154,7 @@ public class UserSettings {
     }
 
     /**
-     * 大模型配置
+     * 
      */
     @Data
     @NoArgsConstructor
@@ -162,7 +162,7 @@ public class UserSettings {
     @Builder
     public static class LlmConfig {
         private String provider;
-        // legacy 字段，兼容历史结构
+        // legacy ，
         private String apiKey;
         private String apiBase;
         private ProviderConfig minimax;

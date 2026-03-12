@@ -5,7 +5,7 @@ import jakarta.validation.constraints.Min;
 import lombok.Data;
 
 /**
- * 用户分页查询请求 DTO
+ *  DTO
  */
 @Data
 public class UserPageRequest {

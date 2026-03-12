@@ -13,9 +13,9 @@ import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
 /**
- * 邮件服务
+ * 
  *
- * <p>提供异步邮件发送功能，支持纯文本和 HTML 格式。</p>
+ * <p>， HTML </p>
  *
  * @author Koduck Team
  */
@@ -28,14 +28,14 @@ public class EmailService {
     private final MailProperties mailProperties;
 
     /**
-     * 异步发送密码重置邮件
+     * 
      *
-     * <p>使用异步执行避免阻塞用户请求，邮件发送失败会被记录但不会抛出异常。</p>
+     * <p>，</p>
      *
-     * @param to           收件人邮箱
-     * @param username     用户名（用于个性化邮件内容）
-     * @param resetToken   重置令牌
-     * @param resetUrl     重置链接
+     * @param to           
+     * @param username     （）
+     * @param resetToken   
+     * @param resetUrl     
      */
     @Async
     public void sendPasswordResetEmail(String to, String username, String resetToken, String resetUrl) {
@@ -57,12 +57,12 @@ public class EmailService {
     }
 
     /**
-     * 发送纯文本邮件
+     * 
      *
-     * @param to      收件人
-     * @param subject 主题
-     * @param text    内容
-     * @throws MailException 邮件发送异常
+     * @param to      
+     * @param subject 
+     * @param text    
+     * @throws MailException 
      */
     public void sendSimpleEmail(String to, String subject, String text) {
         SimpleMailMessage message = new SimpleMailMessage();
@@ -75,13 +75,13 @@ public class EmailService {
     }
 
     /**
-     * 发送 HTML 邮件
+     *  HTML 
      *
-     * @param to           收件人
-     * @param subject      主题
-     * @param htmlContent  HTML 内容
-     * @throws MessagingException 消息构建异常
-     * @throws MailException      邮件发送异常
+     * @param to           
+     * @param subject      
+     * @param htmlContent  HTML 
+     * @throws MessagingException 
+     * @throws MailException      
      */
     public void sendHtmlEmail(String to, String subject, String htmlContent) throws MessagingException {
         MimeMessage message = mailSender.createMimeMessage();
@@ -101,7 +101,7 @@ public class EmailService {
     }
 
     /**
-     * 构建密码重置邮件 HTML 内容
+     *  HTML 
      */
     private String buildPasswordResetEmailHtml(String username, String resetUrl, String resetToken) {
         int expiryMinutes = mailProperties.getPasswordResetTokenExpiryMinutes();
@@ -149,7 +149,7 @@ public class EmailService {
     }
 
     /**
-     * 脱敏显示令牌
+     * 
      */
     private String maskToken(String token) {
         if (token == null || token.length() < 8) {

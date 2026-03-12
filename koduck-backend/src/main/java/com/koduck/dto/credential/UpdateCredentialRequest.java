@@ -11,7 +11,7 @@ import lombok.NoArgsConstructor;
 import java.util.Map;
 
 /**
- * 更新凭证请求 DTO
+ *  DTO
  */
 @Data
 @Builder

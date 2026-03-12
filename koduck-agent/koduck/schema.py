@@ -1,4 +1,4 @@
-"""数据模型定义."""
+"""."""
 
 from dataclasses import dataclass, field
 from enum import Enum
@@ -6,7 +6,7 @@ from typing import Any
 
 
 class LLMProvider(str, Enum):
-    """支持的 LLM 提供商."""
+    """ LLM ."""
     
     MINIMAX = "minimax"     # MiniMax
     DEEPSEEK = "deepseek"   # DeepSeek
@@ -15,7 +15,7 @@ class LLMProvider(str, Enum):
 
 @dataclass
 class TokenUsage:
-    """Token 使用情况."""
+    """Token ."""
     
     prompt_tokens: int = 0
     completion_tokens: int = 0
@@ -24,7 +24,7 @@ class TokenUsage:
 
 @dataclass
 class FunctionCall:
-    """函数调用定义."""
+    """."""
     
     name: str
     arguments: dict[str, Any]
@@ -32,7 +32,7 @@ class FunctionCall:
 
 @dataclass
 class ToolCall:
-    """工具调用."""
+    """."""
     
     id: str
     type: str  # "function"
@@ -41,16 +41,16 @@ class ToolCall:
 
 @dataclass
 class Message:
-    """对话消息."""
+    """."""
     
     role: str  # "system", "user", "assistant", "tool"
     content: str | None = None
     tool_calls: list[ToolCall] | None = None
     tool_call_id: str | None = None
-    thinking: str | None = None  # 思考内容 (适用于支持 reasoning 的模型)
+    thinking: str | None = None  #  ( reasoning )
     
     def to_dict(self) -> dict[str, Any]:
-        """转换为字典格式."""
+        """."""
         result: dict[str, Any] = {"role": self.role}
         
         if self.content is not None:
@@ -76,7 +76,7 @@ class Message:
     
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> "Message":
-        """从字典创建消息."""
+        """."""
         tool_calls = None
         if "tool_calls" in data:
             tool_calls = [
@@ -102,10 +102,10 @@ class Message:
 
 @dataclass
 class LLMResponse:
-    """LLM 响应."""
+    """LLM ."""
     
     content: str
-    thinking: str | None = None  # 思考内容
+    thinking: str | None = None  # 
     tool_calls: list[ToolCall] | None = None
     finish_reason: str | None = None
     usage: TokenUsage | None = None

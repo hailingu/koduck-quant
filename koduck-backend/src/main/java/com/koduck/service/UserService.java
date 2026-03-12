@@ -27,7 +27,7 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 /**
- * 用户服务
+ * 
  */
 @Slf4j
 @Service
@@ -40,10 +40,10 @@ public class UserService {
     private final UserRoleRepository userRoleRepository;
     private final PasswordEncoder passwordEncoder;
 
-    private static final int DEFAULT_ROLE_ID = 2; // USER 角色
+    private static final int DEFAULT_ROLE_ID = 2; // USER 
 
     /**
-     * 获取当前用户信息
+     * 
      */
     public UserDetailResponse getCurrentUser(Long userId) {
         User user = userRepository.findById(userId)
@@ -52,7 +52,7 @@ public class UserService {
     }
 
     /**
-     * 更新当前用户资料
+     * 
      */
     @Transactional
     public UserDetailResponse updateProfile(Long userId, UpdateProfileRequest request) {
@@ -71,29 +71,29 @@ public class UserService {
     }
 
     /**
-     * 修改密码
+     * 
      */
     @Transactional
     public void changePassword(Long userId, ChangePasswordRequest request) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("用户", userId));
 
-        // 验证旧密码
+        // 
         if (!passwordEncoder.matches(request.getOldPassword(), user.getPasswordHash())) {
             throw new BusinessException(ErrorCode.USER_OLD_PASSWORD_INCORRECT);
         }
 
-        // 验证新密码和确认密码
+        // 
         if (!request.getNewPassword().equals(request.getConfirmPassword())) {
             throw new BusinessException(ErrorCode.AUTH_PASSWORD_MISMATCH);
         }
 
-        // 更新密码
+        // 
         userRepository.updatePassword(userId, passwordEncoder.encode(request.getNewPassword()));
     }
 
     /**
-     * 分页查询用户列表（管理员）
+     * （）
      */
     public PageResponse<UserDetailResponse> listUsers(UserPageRequest request) {
         Pageable pageable = PageRequest.of(
@@ -104,7 +104,7 @@ public class UserService {
 
         Page<User> userPage;
         if (StringUtils.hasText(request.getKeyword())) {
-            // 关键词搜索（用户名或邮箱）
+            // （）
             userPage = userRepository.findByUsernameContainingOrEmailContaining(
                     request.getKeyword(), request.getKeyword(), pageable);
         } else {
@@ -127,7 +127,7 @@ public class UserService {
     }
 
     /**
-     * 获取用户详情（管理员）
+     * （）
      */
     public UserDetailResponse getUserById(Long userId) {
         User user = userRepository.findById(userId)
@@ -136,21 +136,21 @@ public class UserService {
     }
 
     /**
-     * 创建用户（管理员）
+     * （）
      */
     @Transactional
     public UserDetailResponse createUser(CreateUserRequest request) {
-        // 检查用户名是否已存在
+        // 
         if (userRepository.existsByUsername(request.getUsername())) {
             throw new DuplicateException(ErrorCode.USER_USERNAME_EXISTS);
         }
 
-        // 检查邮箱是否已存在
+        // 
         if (userRepository.existsByEmail(request.getEmail())) {
             throw new DuplicateException(ErrorCode.USER_EMAIL_EXISTS);
         }
 
-        // 创建用户
+        // 
         User user = User.builder()
                 .username(request.getUsername())
                 .email(request.getEmail())
@@ -161,13 +161,13 @@ public class UserService {
 
         user = userRepository.save(user);
 
-        // 分配角色
+        // 
         if (request.getRoleIds() != null && !request.getRoleIds().isEmpty()) {
             for (Integer roleId : request.getRoleIds()) {
                 userRoleRepository.insertUserRole(user.getId(), roleId);
             }
         } else {
-            // 分配默认角色
+            // 
             userRoleRepository.insertUserRole(user.getId(), DEFAULT_ROLE_ID);
         }
 
@@ -175,14 +175,14 @@ public class UserService {
     }
 
     /**
-     * 更新用户（管理员）
+     * （）
      */
     @Transactional
     public UserDetailResponse updateUser(Long userId, UpdateUserRequest request) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("用户", userId));
 
-        // 更新邮箱
+        // 
         if (StringUtils.hasText(request.getEmail()) && !request.getEmail().equals(user.getEmail())) {
             if (userRepository.existsByEmail(request.getEmail())) {
                 throw new DuplicateException(ErrorCode.USER_EMAIL_EXISTS);
@@ -190,7 +190,7 @@ public class UserService {
             user.setEmail(request.getEmail());
         }
 
-        // 更新其他字段
+        // 
         if (StringUtils.hasText(request.getNickname())) {
             user.setNickname(request.getNickname());
         }
@@ -203,7 +203,7 @@ public class UserService {
 
         user = userRepository.save(user);
 
-        // 更新角色
+        // 
         if (request.getRoleIds() != null) {
             userRoleRepository.deleteAllByUserId(userId);
             for (Integer roleId : request.getRoleIds()) {
@@ -215,11 +215,11 @@ public class UserService {
     }
 
     /**
-     * 删除用户（管理员）
+     * （）
      */
     @Transactional
     public void deleteUser(Long userId, Long currentUserId) {
-        // 防止删除自己
+        // 
         if (userId.equals(currentUserId)) {
             throw new BusinessException(ErrorCode.USER_CANNOT_DELETE_SELF);
         }
@@ -227,15 +227,15 @@ public class UserService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("用户", userId));
 
-        // 删除用户角色关联
+        // 
         userRoleRepository.deleteAllByUserId(userId);
 
-        // 删除用户
+        // 
         userRepository.delete(user);
     }
 
     /**
-     * 转换为详情响应
+     * 
      */
     private UserDetailResponse convertToDetailResponse(User user) {
         List<String> roleNames = roleRepository.findRoleNamesByUserId(user.getId());

@@ -7,13 +7,13 @@ import org.hibernate.annotations.CreationTimestamp;
 import java.time.LocalDateTime;
 
 /**
- * 密码重置令牌实体（无外键关联，userId 纯字段存储）
+ * （，userId ）
  *
- * <p>用于存储密码重置请求的临时令牌，具有以下安全特性：</p>
+ * <p>，：</p>
  * <ul>
- *   <li>存储令牌哈希而非原始令牌</li>
- *   <li>有过期时间限制</li>
- *   <li>一次性使用，使用后标记为已使用</li>
+ *   <li></li>
+ *   <li></li>
+ *   <li>，</li>
  * </ul>
  */
 @Entity
@@ -50,25 +50,25 @@ public class PasswordResetToken {
     private LocalDateTime createdAt;
 
     /**
-     * 检查令牌是否过期
+     * 
      *
-     * @return true 如果令牌已过期
+     * @return true 
      */
     public boolean isExpired() {
         return LocalDateTime.now().isAfter(expiresAt);
     }
 
     /**
-     * 检查令牌是否有效（未过期且未使用）
+     * （）
      *
-     * @return true 如果令牌有效
+     * @return true 
      */
     public boolean isValid() {
         return !used && !isExpired();
     }
 
     /**
-     * 标记令牌为已使用
+     * 
      */
     public void markAsUsed() {
         this.used = true;

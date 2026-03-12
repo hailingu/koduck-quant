@@ -1,4 +1,4 @@
-"""DeepSeek 客户端实现.
+"""DeepSeek .
 
 使用 OpenAI 兼容 API 调用 DeepSeek 服务。
 """
@@ -8,7 +8,7 @@ from koduck.retry import RetryConfig
 
 
 class DeepSeekClient(GPTClient):
-    """DeepSeek 客户端.
+    """DeepSeek .
 
     DeepSeek 提供 OpenAI 兼容接口，可复用 GPTClient 协议实现。
     """

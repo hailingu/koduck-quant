@@ -16,7 +16,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 /**
- * GlobalExceptionHandler 单元测试。
+ * GlobalExceptionHandler 
  */
 @DisplayName("全局异常处理器测试")
 class GlobalExceptionHandlerTest {

@@ -9,7 +9,7 @@ import lombok.NoArgsConstructor;
 import java.time.LocalDateTime;
 
 /**
- * 凭证审计日志响应 DTO
+ *  DTO
  */
 @Data
 @Builder

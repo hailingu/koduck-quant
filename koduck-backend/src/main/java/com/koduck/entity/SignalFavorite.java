@@ -10,7 +10,7 @@ import org.hibernate.annotations.CreationTimestamp;
 import java.time.LocalDateTime;
 
 /**
- * 信号收藏实体
+ * 
  */
 @Entity
 @Table(name = "signal_favorites")
@@ -37,12 +37,12 @@ public class SignalFavorite {
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
 
-    // 关联信号
+    // 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "signal_id", insertable = false, updatable = false)
     private CommunitySignal signal;
 
-    // 关联用户
+    // 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", insertable = false, updatable = false)
     private User user;

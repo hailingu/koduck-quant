@@ -7,7 +7,7 @@ import org.hibernate.annotations.CreationTimestamp;
 import java.time.LocalDateTime;
 
 /**
- * 角色实体（无外键关联）
+ * （）
  */
 @Entity
 @Table(name = "roles")

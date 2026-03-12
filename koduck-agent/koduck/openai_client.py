@@ -1,4 +1,4 @@
-"""OpenAI 客户端实现.
+"""OpenAI .
 
 使用 OpenAI 官方 API 调用。
 """
@@ -8,7 +8,7 @@ from koduck.retry import RetryConfig
 
 
 class OpenAIClient(GPTClient):
-    """OpenAI 客户端.
+    """OpenAI .
 
     复用 OpenAI 兼容协议实现，默认使用 OpenAI 官方端点。
     """

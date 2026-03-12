@@ -1,4 +1,4 @@
-"""MiniMax 客户端实现.
+"""MiniMax .
 
 使用 OpenAI 兼容 API 调用 MiniMax 服务.
 参考文档: https://platform.minimaxi.com/docs/api-reference/text-openai-api
@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 
 
 class MiniMaxClient(LLMClientBase):
-    """MiniMax 客户端.
+    """MiniMax .
     
     使用 OpenAI 兼容的 API 协议调用 MiniMax 服务。
     参考: https://platform.minimaxi.com/docs/api-reference/text-openai-api
@@ -30,7 +30,7 @@ class MiniMaxClient(LLMClientBase):
     - MiniMax-Text-01: 文本生成模型
     """
 
-    # 支持的模型列表
+    # 
     SUPPORTED_MODELS = [
         "MiniMax-M2.5",
         "MiniMax-Text-01",
@@ -49,7 +49,7 @@ class MiniMaxClient(LLMClientBase):
         max_tokens: int | None = None,
         top_p: float = 0.9,
     ):
-        """初始化 MiniMax 客户端.
+        """ MiniMax .
         
         Args:
             api_key: MiniMax API 密钥
@@ -72,11 +72,11 @@ class MiniMaxClient(LLMClientBase):
         )
 
     def _convert_simple_message(self, role: str, content: str | None) -> dict[str, Any]:
-        """转换简单消息（system/user）."""
+        """（system/user）."""
         return {"role": role, "content": content or ""}
 
     def _convert_tool_calls(self, tool_calls: list[ToolCall]) -> list[dict[str, Any]]:
-        """转换工具调用列表."""
+        """."""
         return [
             {
                 "id": tc.id,
@@ -90,13 +90,13 @@ class MiniMaxClient(LLMClientBase):
         ]
 
     def _convert_assistant_message(self, msg: Message) -> dict[str, Any]:
-        """转换 assistant 消息."""
+        """ assistant ."""
         assistant_msg: dict[str, Any] = {"role": "assistant"}
         
         if msg.content:
             assistant_msg["content"] = msg.content
         
-        # MiniMax M2.5 支持 reasoning_details
+        # MiniMax M2.5  reasoning_details
         if msg.thinking:
             assistant_msg["reasoning_details"] = [{"text": msg.thinking}]
         
@@ -106,7 +106,7 @@ class MiniMaxClient(LLMClientBase):
         return assistant_msg
 
     def _convert_tool_message(self, msg: Message) -> dict[str, Any]:
-        """转换 tool 消息."""
+        """ tool ."""
         return {
             "role": "tool",
             "tool_call_id": msg.tool_call_id,
@@ -114,8 +114,8 @@ class MiniMaxClient(LLMClientBase):
         }
 
     def _convert_messages(self, messages: list[Message]) -> list[dict[str, Any]]:
-        """转换为 OpenAI 格式消息."""
-        # 消息转换器映射
+        """ OpenAI ."""
+        # 
         converters = {
             "system": lambda m: self._convert_simple_message("system", m.content),
             "user": lambda m: self._convert_simple_message("user", m.content),
@@ -132,7 +132,7 @@ class MiniMaxClient(LLMClientBase):
         return api_messages
 
     def _convert_dict_tool(self, tool: dict[str, Any]) -> dict[str, Any]:
-        """转换字典格式工具."""
+        """."""
         if tool.get("type") == "function":
             return tool
         return {
@@ -145,7 +145,7 @@ class MiniMaxClient(LLMClientBase):
         }
 
     def _convert_tool(self, tool: Any) -> dict[str, Any]:
-        """转换单个工具为 OpenAI 格式."""
+        """ OpenAI ."""
         if isinstance(tool, dict):
             return self._convert_dict_tool(tool)
         if hasattr(tool, "to_openai_schema"):
@@ -153,7 +153,7 @@ class MiniMaxClient(LLMClientBase):
         raise TypeError(f"Unsupported tool type: {type(tool)}")
 
     def _convert_tools(self, tools: list[Any]) -> list[dict[str, Any]]:
-        """转换工具为 OpenAI 格式."""
+        """ OpenAI ."""
         return [self._convert_tool(tool) for tool in tools]
 
     def _prepare_request(
@@ -161,14 +161,14 @@ class MiniMaxClient(LLMClientBase):
         messages: list[Message],
         tools: list[Any] | None = None,
     ) -> dict[str, Any]:
-        """准备请求参数."""
+        """."""
         api_messages = self._convert_messages(messages)
         params: dict[str, Any] = {
             "model": self.model,
             "messages": api_messages,
             "temperature": self.temperature,
             "top_p": self.top_p,
-            # MiniMax 某些模型支持 reasoning_split 来分离思考内容
+            # MiniMax  reasoning_split 
             "extra_body": {"reasoning_split": True} if "M2.5" in self.model or "M1" in self.model else {},
         }
         
@@ -178,7 +178,7 @@ class MiniMaxClient(LLMClientBase):
         if tools:
             params["tools"] = self._convert_tools(tools)
         
-        logger.info(f"[MiniMax] 请求参数: model={self.model}, messages_count={len(api_messages)}")
+        logger.info(f"[MiniMax] : model={self.model}, messages_count={len(api_messages)}")
         for i, msg in enumerate(api_messages):
             content_preview = msg.get('content', '')[:50] + "..." if msg.get('content') and len(msg.get('content', '')) > 50 else msg.get('content', '')
             logger.info(f"[MiniMax]  Message[{i}]: role={msg.get('role')}, content={content_preview}")
@@ -186,7 +186,7 @@ class MiniMaxClient(LLMClientBase):
         return params
 
     def _extract_thinking(self, raw_content: str) -> tuple[str, str]:
-        """从内容中提取思考部分."""
+        """."""
         thinking_tags = ("halle", "mu")
         if thinking_tags[0] not in raw_content or thinking_tags[1] not in raw_content:
             return "", raw_content
@@ -202,7 +202,7 @@ class MiniMaxClient(LLMClientBase):
         return thinking, content
 
     def _extract_tool_calls(self, message: Any) -> list[ToolCall] | None:
-        """从消息中提取工具调用."""
+        """."""
         if not message.tool_calls:
             return None
         
@@ -219,7 +219,7 @@ class MiniMaxClient(LLMClientBase):
         ]
 
     def _extract_usage(self, response: Any) -> TokenUsage | None:
-        """从响应中提取 Token 使用情况."""
+        """ Token ."""
         if not hasattr(response, "usage") or not response.usage:
             return None
         
@@ -230,20 +230,20 @@ class MiniMaxClient(LLMClientBase):
         )
 
     def _parse_response(self, response: Any) -> LLMResponse:
-        """解析响应."""
+        """."""
         message = response.choices[0].message
         raw_content = message.content or ""
         
-        logger.info(f"[MiniMax] 解析响应: finish_reason={response.choices[0].finish_reason}")
-        logger.info(f"[MiniMax] 原始内容长度: {len(raw_content)}")
-        logger.info(f"[MiniMax] 原始内容预览: {raw_content[:200]}..." if len(raw_content) > 200 else f"[MiniMax] 原始内容: {raw_content}")
+        logger.info(f"[MiniMax] : finish_reason={response.choices[0].finish_reason}")
+        logger.info(f"[MiniMax] : {len(raw_content)}")
+        logger.info(f"[MiniMax] : {raw_content[:200]}..." if len(raw_content) > 200 else f"[MiniMax] : {raw_content}")
         
-        # 提取思考内容
+        # 
         thinking, content = self._extract_thinking(raw_content)
         
-        logger.info(f"[MiniMax] 解析完成: content_length={len(content)}, has_thinking={bool(thinking)}")
+        logger.info(f"[MiniMax] : content_length={len(content)}, has_thinking={bool(thinking)}")
         if thinking:
-            logger.info(f"[MiniMax] 思考内容: {thinking[:100]}..." if len(thinking) > 100 else f"[MiniMax] 思考内容: {thinking}")
+            logger.info(f"[MiniMax] : {thinking[:100]}..." if len(thinking) > 100 else f"[MiniMax] : {thinking}")
         
         result = LLMResponse(
             content=content,
@@ -260,20 +260,20 @@ class MiniMaxClient(LLMClientBase):
         self,
         params: dict[str, Any],
     ) -> Any:
-        """执行 API 请求."""
-        logger.info(f"[MiniMax] 开始 API 请求: model={params.get('model')}, api_base={self.api_base}")
+        """ API ."""
+        logger.info(f"[MiniMax]  API : model={params.get('model')}, api_base={self.api_base}")
         try:
-            # extra_body 已经包含在 params 中，直接传递
+            # extra_body  params ，
             response = await self.client.chat.completions.create(**params)
-            logger.info(f"[MiniMax] API 请求成功")
-            logger.info(f"[MiniMax] 响应概览: id={response.id}, model={response.model}, choices_count={len(response.choices)}")
+            logger.info(f"[MiniMax] API ")
+            logger.info(f"[MiniMax] : id={response.id}, model={response.model}, choices_count={len(response.choices)}")
             if response.usage:
-                logger.info(f"[MiniMax] Token 使用: prompt={response.usage.prompt_tokens}, completion={response.usage.completion_tokens}, total={response.usage.total_tokens}")
+                logger.info(f"[MiniMax] Token : prompt={response.usage.prompt_tokens}, completion={response.usage.completion_tokens}, total={response.usage.total_tokens}")
             return response
         except Exception as e:
-            logger.error(f"[MiniMax] API 请求失败: {type(e).__name__}: {e}")
-            logger.error(f"[MiniMax] 错误详情: {repr(e)}")
-            # 重新抛出以便上层处理
+            logger.error(f"[MiniMax] API : {type(e).__name__}: {e}")
+            logger.error(f"[MiniMax] : {repr(e)}")
+            # 
             raise
 
     async def generate(
@@ -281,14 +281,14 @@ class MiniMaxClient(LLMClientBase):
         messages: list[Message],
         tools: list[Any] | None = None,
     ) -> LLMResponse:
-        """生成响应."""
-        logger.info(f"[MiniMax] generate() 开始: messages_count={len(messages)}, retry_enabled={self.retry_config.enabled}")
+        """."""
+        logger.info(f"[MiniMax] generate() : messages_count={len(messages)}, retry_enabled={self.retry_config.enabled}")
         
         params = self._prepare_request(messages, tools)
         
         try:
             if self.retry_config.enabled:
-                logger.info(f"[MiniMax] 使用重试机制")
+                logger.info(f"[MiniMax] ")
                 retry_decorator = async_retry(
                     config=self.retry_config,
                     on_retry=self.retry_callback
@@ -296,14 +296,14 @@ class MiniMaxClient(LLMClientBase):
                 api_call = retry_decorator(self._make_api_request)
                 response = await api_call(params)
             else:
-                logger.info(f"[MiniMax] 直接调用 API")
+                logger.info(f"[MiniMax]  API")
                 response = await self._make_api_request(params)
             
             result = self._parse_response(response)
-            logger.info(f"[MiniMax] generate() 成功完成")
+            logger.info(f"[MiniMax] generate() ")
             return result
         except Exception as e:
-            logger.error(f"[MiniMax] generate() 失败: {type(e).__name__}: {e}")
+            logger.error(f"[MiniMax] generate() : {type(e).__name__}: {e}")
             raise
 
     async def generate_stream(
@@ -311,31 +311,31 @@ class MiniMaxClient(LLMClientBase):
         messages: list[Message],
         tools: list[Any] | None = None,
     ):
-        """流式生成响应.
+        """.
         
         Yields:
             流式响应块 (delta 内容)
         """
-        logger.info(f"[MiniMax] generate_stream() 开始: messages_count={len(messages)}")
+        logger.info(f"[MiniMax] generate_stream() : messages_count={len(messages)}")
         
         params = self._prepare_request(messages, tools)
         params["stream"] = True
         
         try:
-            logger.info(f"[MiniMax] 开始流式 API 请求: model={params.get('model')}")
+            logger.info(f"[MiniMax]  API : model={params.get('model')}")
             stream = await self.client.chat.completions.create(**params)
             
             async for chunk in stream:
                 delta = chunk.choices[0].delta if chunk.choices else None
                 if delta and delta.content:
-                    logger.debug(f"[MiniMax] 流式块: {delta.content[:50]}..." if len(delta.content) > 50 else f"[MiniMax] 流式块: {delta.content}")
+                    logger.debug(f"[MiniMax] : {delta.content[:50]}..." if len(delta.content) > 50 else f"[MiniMax] : {delta.content}")
                     yield delta.content
                 
-                # 检查是否完成
+                # 
                 if chunk.choices and chunk.choices[0].finish_reason:
-                    logger.info(f"[MiniMax] 流式响应完成: finish_reason={chunk.choices[0].finish_reason}")
+                    logger.info(f"[MiniMax] : finish_reason={chunk.choices[0].finish_reason}")
                     break
                     
         except Exception as e:
-            logger.error(f"[MiniMax] generate_stream() 失败: {type(e).__name__}: {e}")
+            logger.error(f"[MiniMax] generate_stream() : {type(e).__name__}: {e}")
             raise

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""K线数据导入脚本
+"""K
 
 用于将本地CSV文件中的K线数据导入到PostgreSQL数据库的kline_data表。
 
@@ -28,10 +28,10 @@ from app.db import Database
 
 logger = structlog.get_logger(__name__)
 
-# 数据存储根目录
+# 
 DATA_DIR = Path(__file__).parent.parent.parent / "data" / "kline"
 
-# 默认股票列表
+# 
 DEFAULT_STOCKS = [
     ("601012", "隆基绿能"),
     ("002050", "三花智控"),
@@ -44,7 +44,7 @@ DEFAULT_STOCKS = [
 
 
 def setup_logging(verbose: bool = False):
-    """配置日志"""
+    """"""
     structlog.configure(
         processors=[
             structlog.stdlib.filter_by_level,
@@ -71,12 +71,12 @@ def setup_logging(verbose: bool = False):
 
 
 def get_timeframe_dir(timeframe: str) -> Path:
-    """获取时间周期对应的存储目录"""
+    """"""
     return DATA_DIR / timeframe
 
 
 def find_csv_files(timeframes: Optional[List[str]] = None) -> List[Path]:
-    """查找所有CSV文件"""
+    """CSV"""
     files = []
     
     if not DATA_DIR.exists():
@@ -90,7 +90,7 @@ def find_csv_files(timeframes: Optional[List[str]] = None) -> List[Path]:
                 csv_files = list(tf_dir.glob("*.csv"))
                 files.extend(csv_files)
     else:
-        # 查找所有目录下的CSV文件
+        # CSV
         for tf_dir in DATA_DIR.iterdir():
             if tf_dir.is_dir():
                 csv_files = list(tf_dir.glob("*.csv"))
@@ -100,7 +100,7 @@ def find_csv_files(timeframes: Optional[List[str]] = None) -> List[Path]:
 
 
 def load_csv_data(csv_path: Path) -> Optional[pd.DataFrame]:
-    """加载CSV数据"""
+    """CSV"""
     try:
         df = pd.read_csv(csv_path, encoding='utf-8-sig')
         return df
@@ -110,19 +110,19 @@ def load_csv_data(csv_path: Path) -> Optional[pd.DataFrame]:
 
 
 def detect_timeframe(csv_path: Path) -> str:
-    """从文件路径检测时间周期"""
-    # 路径格式: data/kline/{timeframe}/{symbol}.csv
+    """"""
+    # : data/kline/{timeframe}/{symbol}.csv
     parts = csv_path.parts
     if 'kline' in parts:
         idx = parts.index('kline')
         if idx + 1 < len(parts):
             return parts[idx + 1]
-    return "1D"  # 默认
+    return "1D"  # 
 
 
 def convert_timeframe_to_db(tf: str) -> str:
-    """转换时间周期为数据库格式"""
-    # 统一转换为数据库存储的格式
+    """"""
+    # 
     # 1D -> 1D, 5m -> 5m
     return tf
 
@@ -202,7 +202,7 @@ async def import_kline_to_db(
     csv_path: Path,
     dry_run: bool = False,
 ) -> dict:
-    """将CSV文件导入数据库
+    """CSV
     
     Args:
         csv_path: CSV文件路径
@@ -219,7 +219,7 @@ async def import_kline_to_db(
         "error": None
     }
     
-    # 加载数据
+    # 
     df = load_csv_data(csv_path)
     if df is None or df.empty:
         result["error"] = "Failed to load CSV or empty file"
@@ -243,8 +243,8 @@ async def import_kline_to_db(
         logger.info("Dry run: skip writing records", symbol=symbol, records=len(df))
         return result
     
-    # 构建插入SQL
-    # kline_data表结构:
+    # SQL
+    # kline_data:
     # market, symbol, timeframe, kline_time, open_price, high_price, low_price, close_price, volume, amount
     insert_sql = """
         INSERT INTO kline_data (
@@ -292,7 +292,7 @@ async def import_all_kline(
     dry_run: bool = False,
     symbols: Optional[List[str]] = None,
 ) -> dict:
-    """导入所有K线数据
+    """K
     
     Args:
         timeframes: 要导入的时间周期列表
@@ -302,10 +302,10 @@ async def import_all_kline(
     Returns:
         导入结果统计
     """
-    # 查找所有CSV文件
+    # CSV
     csv_files = find_csv_files(timeframes)
     
-    # 如果指定了股票代码，过滤文件
+    # ，
     if symbols:
         csv_files = [f for f in csv_files if f.stem in symbols]
     
@@ -346,7 +346,7 @@ async def import_all_kline(
 
 
 async def check_table_exists() -> bool:
-    """检查kline_data表是否存在"""
+    """kline_data"""
     try:
         result = await Database.fetchrow(
             """
@@ -364,13 +364,13 @@ async def check_table_exists() -> bool:
 
 
 async def get_table_stats() -> dict:
-    """获取kline_data表统计信息"""
+    """kline_data"""
     try:
-        # 总记录数
+        # 
         total = await Database.fetchrow("SELECT COUNT(*) as count FROM kline_data")
         total_count = total['count'] if total else 0
         
-        # 按股票统计
+        # 
         by_symbol = await Database.fetch("""
             SELECT symbol, timeframe, COUNT(*) as count 
             FROM kline_data 
@@ -447,22 +447,22 @@ def _print_stats(stats: dict) -> None:
 
 def _print_import_results(results: dict, verbose: bool) -> None:
     """Print final import summary."""
-    print("\n导入完成!")
-    print(f"  总文件数: {results['total']}")
-    print(f"  成功: {results['success']}")
-    print(f"  失败: {results['failed']}")
-    print(f"  导入记录: {results['imported_records']}")
-    print(f"  跳过记录: {results['skipped_records']}")
+    print("\n!")
+    print(f"  : {results['total']}")
+    print(f"  : {results['success']}")
+    print(f"  : {results['failed']}")
+    print(f"  : {results['imported_records']}")
+    print(f"  : {results['skipped_records']}")
 
     if not verbose:
         return
 
-    print("\n详细结果:")
+    print("\n:")
     for detail in results['details']:
         status = "✓" if detail['success'] else "✗"
         print(f"  {status} {detail['file']}")
         if detail['error']:
-            print(f"      错误: {detail['error']}")
+            print(f"      : {detail['error']}")
 
 
 def _log_import_options(
@@ -480,13 +480,13 @@ def _log_import_options(
 
 
 async def main():
-    """主函数"""
+    """"""
     parser = _build_parser()
     args = parser.parse_args()
     
     setup_logging(args.verbose)
     
-    # 初始化数据库连接
+    # 
     logger.info("Initializing database connection...")
     await Database.get_pool()
     

@@ -33,7 +33,7 @@ const formatBuildTime = (value: string): string => {
   })
 }
 
-// 个人资料表单
+// 
 function ProfileForm({ user, onUpdate }: { user: UserDetail; onUpdate: (u: UserDetail) => void }) {
   const { showToast } = useToast()
   const [loading, setLoading] = useState(false)
@@ -244,7 +244,7 @@ function PreferencesForm({
       apiKey: settings.llmConfig?.openai?.apiKey || '',
       apiBase: settings.llmConfig?.openai?.apiBase || '',
     }
-    // 兼容旧结构：只有当前 provider 顶层 apiKey/apiBase 时回填
+    // ： provider  apiKey/apiBase 
     if (!nextConfigs[activeProvider].apiKey && settings.llmConfig?.apiKey) {
       nextConfigs[activeProvider].apiKey = settings.llmConfig.apiKey
     }
