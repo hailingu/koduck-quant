@@ -168,6 +168,8 @@ public class UserSettings {
         private ProviderConfig minimax;
         private ProviderConfig deepseek;
         private ProviderConfig openai;
+        @Builder.Default
+        private MemoryConfig memory = new MemoryConfig();
     }
 
     @Data
@@ -177,6 +179,23 @@ public class UserSettings {
     public static class ProviderConfig {
         private String apiKey;
         private String apiBase;
+    }
+
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    @Builder
+    public static class MemoryConfig {
+        @Builder.Default
+        private Boolean enabled = true;
+        @Builder.Default
+        private String mode = "L0";
+        @Builder.Default
+        private Boolean enableL1 = true;
+        @Builder.Default
+        private Boolean enableL2 = true;
+        @Builder.Default
+        private Boolean enableL3 = true;
     }
 
 }

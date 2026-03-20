@@ -23,6 +23,7 @@ import java.util.stream.Collectors;
 public class UserSettingsService {
 
     private static final Set<String> SUPPORTED_LLM_PROVIDERS = Set.of("minimax", "deepseek", "openai");
+    private static final Set<String> SUPPORTED_MEMORY_MODES = Set.of("L0", "L1", "L2", "L3");
     private final UserSettingsRepository settingsRepository;
     private final Environment environment;
 
@@ -104,6 +105,7 @@ public class UserSettingsService {
             current.setMinimax(mergeProviderConfig(current.getMinimax(), req.getMinimax()));
             current.setDeepseek(mergeProviderConfig(current.getDeepseek(), req.getDeepseek()));
             current.setOpenai(mergeProviderConfig(current.getOpenai(), req.getOpenai()));
+            current.setMemory(mergeMemoryConfig(current.getMemory(), req.getMemory()));
 
             // ： apiKey/apiBase  provider
             if (req.getApiKey() != null || req.getApiBase() != null) {
@@ -201,6 +203,13 @@ public class UserSettingsService {
                 .minimax(new UserSettings.ProviderConfig())
                 .deepseek(new UserSettings.ProviderConfig())
                 .openai(new UserSettings.ProviderConfig())
+                .memory(UserSettings.MemoryConfig.builder()
+                    .enabled(true)
+                    .mode("L0")
+                    .enableL1(true)
+                    .enableL2(true)
+                    .enableL3(true)
+                    .build())
                 .build())
             .quickLinks(List.of(
                 UserSettings.QuickLink.builder()
@@ -294,6 +303,7 @@ public class UserSettingsService {
             .minimax(resolveProviderConfig("minimax", llmConfig))
             .deepseek(resolveProviderConfig("deepseek", llmConfig))
             .openai(resolveProviderConfig("openai", llmConfig))
+            .memory(resolveMemoryConfig(llmConfig.getMemory()))
             .build();
     }
 
@@ -367,6 +377,7 @@ public class UserSettingsService {
             .minimax(minimax)
             .deepseek(deepseek)
             .openai(openai)
+            .memory(resolveMemoryConfig(source.getMemory()))
             .build();
     }
 
@@ -380,6 +391,43 @@ public class UserSettingsService {
         return UserSettings.ProviderConfig.builder()
             .apiKey(incoming.getApiKey() != null ? normalizeBlank(incoming.getApiKey()) : normalizeBlank(base.getApiKey()))
             .apiBase(incoming.getApiBase() != null ? normalizeBlank(incoming.getApiBase()) : normalizeBlank(base.getApiBase()))
+            .build();
+    }
+
+    private UserSettings.MemoryConfig mergeMemoryConfig(
+            UserSettings.MemoryConfig existing,
+            UpdateSettingsRequest.MemoryConfigDto incoming) {
+        UserSettings.MemoryConfig base = existing != null
+            ? existing
+            : UserSettings.MemoryConfig.builder()
+                .enabled(true)
+                .mode("L0")
+                .enableL1(true)
+                .enableL2(true)
+                .enableL3(true)
+                .build();
+
+        if (incoming == null) {
+            return base;
+        }
+
+        String mode = incoming.getMode() != null ? normalizeMemoryMode(incoming.getMode()) : normalizeMemoryMode(base.getMode());
+
+        Boolean modeEnableL1 = base.getEnableL1();
+        Boolean modeEnableL2 = base.getEnableL2();
+        Boolean modeEnableL3 = base.getEnableL3();
+        if (incoming.getMode() != null) {
+            modeEnableL1 = true;
+            modeEnableL2 = !"L1".equals(mode);
+            modeEnableL3 = "L0".equals(mode) || "L3".equals(mode);
+        }
+
+        return UserSettings.MemoryConfig.builder()
+            .enabled(incoming.getEnabled() != null ? incoming.getEnabled() : defaultBoolean(base.getEnabled(), true))
+            .mode(mode)
+            .enableL1(incoming.getEnableL1() != null ? incoming.getEnableL1() : defaultBoolean(modeEnableL1, true))
+            .enableL2(incoming.getEnableL2() != null ? incoming.getEnableL2() : defaultBoolean(modeEnableL2, true))
+            .enableL3(incoming.getEnableL3() != null ? incoming.getEnableL3() : defaultBoolean(modeEnableL3, true))
             .build();
     }
 
@@ -476,6 +524,26 @@ public class UserSettingsService {
             .build();
     }
 
+    private UserSettingsDto.MemoryConfigDto resolveMemoryConfig(UserSettings.MemoryConfig config) {
+        UserSettings.MemoryConfig source = config != null
+            ? config
+            : UserSettings.MemoryConfig.builder()
+                .enabled(true)
+                .mode("L0")
+                .enableL1(true)
+                .enableL2(true)
+                .enableL3(true)
+                .build();
+
+        return UserSettingsDto.MemoryConfigDto.builder()
+            .enabled(defaultBoolean(source.getEnabled(), true))
+            .mode(normalizeMemoryMode(source.getMode()))
+            .enableL1(defaultBoolean(source.getEnableL1(), true))
+            .enableL2(defaultBoolean(source.getEnableL2(), true))
+            .enableL3(defaultBoolean(source.getEnableL3(), true))
+            .build();
+    }
+
     private String normalizeLlmProvider(String provider) {
         String fallback = firstNonBlank(
             environment.getProperty("DEFAULT_LLM_PROVIDER"),
@@ -491,6 +559,18 @@ public class UserSettingsService {
     private String normalizeProviderOrDefault(String value) {
         String normalized = value == null ? "minimax" : value.trim().toLowerCase(Locale.ROOT);
         return SUPPORTED_LLM_PROVIDERS.contains(normalized) ? normalized : "minimax";
+    }
+
+    private String normalizeMemoryMode(String value) {
+        if (value == null || value.isBlank()) {
+            return "L0";
+        }
+        String normalized = value.trim().toUpperCase(Locale.ROOT);
+        return SUPPORTED_MEMORY_MODES.contains(normalized) ? normalized : "L0";
+    }
+
+    private boolean defaultBoolean(Boolean value, boolean defaultValue) {
+        return value != null ? value : defaultValue;
     }
 
     private String normalizeBlank(String value) {

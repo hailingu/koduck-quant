@@ -10,6 +10,17 @@ from koduck import quant_tools
 from koduck.quant_tools import execute_tool
 
 
+def test_builtin_memory_tools_registered() -> None:
+    quant_tools.refresh_tool_registry()
+    tool_names = [tool["function"]["name"] for tool in quant_tools.QUANT_TOOL_DEFS]
+    assert "memory_set_config" in tool_names
+    assert "memory_write_l1" in tool_names
+    assert "memory_rebuild_l2" in tool_names
+    assert "memory_rebuild_l3" in tool_names
+    assert "memory_query" in tool_names
+    assert "memory_cleanup" in tool_names
+
+
 @pytest.mark.asyncio
 async def test_skill_auto_discovery_and_execution(
     monkeypatch: pytest.MonkeyPatch,

@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import Any, Awaitable, Callable
 
 import httpx
+from . import memory_pg
 
 try:
     import yaml
@@ -52,6 +53,113 @@ def _builtin_tool_defs() -> list[dict[str, Any]]:
                         },
                     },
                     "required": ["symbol"],
+                },
+            },
+        },
+        {
+            "type": "function",
+            "function": {
+                "name": "memory_set_config",
+                "description": "Configure PageIndex-style memory mode/tier settings for a user (L0-L3).",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "user_id": {"type": "integer"},
+                        "mode": {"type": "string", "description": "L0/L1/L2/L3"},
+                        "enabled": {"type": "boolean"},
+                        "enable_l1": {"type": "boolean"},
+                        "enable_l2": {"type": "boolean"},
+                        "enable_l3": {"type": "boolean"},
+                        "write_per_turn": {"type": "boolean"},
+                        "async_index": {"type": "boolean"},
+                        "retrieve_max_pages": {"type": "integer"},
+                        "retrieve_token_budget": {"type": "integer"},
+                        "ttl_days_l1": {"type": "integer"},
+                        "ttl_days_l2": {"type": "integer"},
+                        "ttl_days_l3": {"type": "integer"},
+                    },
+                    "required": ["user_id"],
+                },
+            },
+        },
+        {
+            "type": "function",
+            "function": {
+                "name": "memory_write_l1",
+                "description": "Write one raw memory page (L1) with compression and md5.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "user_id": {"type": "integer"},
+                        "session_id": {"type": "string"},
+                        "role_pack": {"type": "string"},
+                        "content": {"type": "string"},
+                        "meta": {"type": "object"},
+                    },
+                    "required": ["user_id", "content"],
+                },
+            },
+        },
+        {
+            "type": "function",
+            "function": {
+                "name": "memory_rebuild_l2",
+                "description": "Rebuild L2 themes from recent L1 pages with LLM-based extraction.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "user_id": {"type": "integer"},
+                        "limit": {"type": "integer"},
+                        "provider": {"type": "string", "description": "Extractor provider: minimax/deepseek/openai"},
+                        "model": {"type": "string", "description": "Extractor model id"},
+                        "api_key": {"type": "string", "description": "Override extractor API key"},
+                        "api_base": {"type": "string", "description": "Override extractor API base"},
+                    },
+                    "required": ["user_id"],
+                },
+            },
+        },
+        {
+            "type": "function",
+            "function": {
+                "name": "memory_rebuild_l3",
+                "description": "Rebuild L3 keyword index from L2 themes.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "user_id": {"type": "integer"},
+                    },
+                    "required": ["user_id"],
+                },
+            },
+        },
+        {
+            "type": "function",
+            "function": {
+                "name": "memory_query",
+                "description": "Retrieve memory with fixed order: keyword -> theme -> raw page.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "user_id": {"type": "integer"},
+                        "query": {"type": "string"},
+                        "max_pages": {"type": "integer"},
+                    },
+                    "required": ["user_id", "query"],
+                },
+            },
+        },
+        {
+            "type": "function",
+            "function": {
+                "name": "memory_cleanup",
+                "description": "Cleanup expired memory pages/themes/keywords by TTL config.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "user_id": {"type": "integer"},
+                    },
+                    "required": ["user_id"],
                 },
             },
         },
@@ -311,6 +419,18 @@ def refresh_tool_registry() -> None:
         QUANT_TOOL_DEFS.append(tool_def)
         if name == "get_quant_signal":
             _TOOL_EXECUTORS[name] = _get_quant_signal
+        elif name == "memory_set_config":
+            _TOOL_EXECUTORS[name] = _memory_set_config
+        elif name == "memory_write_l1":
+            _TOOL_EXECUTORS[name] = _memory_write_l1
+        elif name == "memory_rebuild_l2":
+            _TOOL_EXECUTORS[name] = _memory_rebuild_l2
+        elif name == "memory_rebuild_l3":
+            _TOOL_EXECUTORS[name] = _memory_rebuild_l3
+        elif name == "memory_query":
+            _TOOL_EXECUTORS[name] = _memory_query
+        elif name == "memory_cleanup":
+            _TOOL_EXECUTORS[name] = _memory_cleanup
 
     discovered_entries = _discover_skill_entries()
     for entry in discovered_entries:
@@ -377,6 +497,54 @@ async def execute_tool(name: str, arguments: dict[str, Any]) -> str:
             ensure_ascii=False,
         )
     return await executor(arguments)
+
+
+async def _memory_set_config(arguments: dict[str, Any]) -> str:
+    try:
+        result = await asyncio.to_thread(memory_pg.set_config, arguments)
+        return json.dumps(result, ensure_ascii=False)
+    except Exception as e:
+        return json.dumps({"ok": False, "error": f"memory_set_config failed: {e}"}, ensure_ascii=False)
+
+
+async def _memory_write_l1(arguments: dict[str, Any]) -> str:
+    try:
+        result = await asyncio.to_thread(memory_pg.write_l1, arguments)
+        return json.dumps(result, ensure_ascii=False)
+    except Exception as e:
+        return json.dumps({"ok": False, "error": f"memory_write_l1 failed: {e}"}, ensure_ascii=False)
+
+
+async def _memory_rebuild_l2(arguments: dict[str, Any]) -> str:
+    try:
+        result = await asyncio.to_thread(memory_pg.rebuild_l2, arguments)
+        return json.dumps(result, ensure_ascii=False)
+    except Exception as e:
+        return json.dumps({"ok": False, "error": f"memory_rebuild_l2 failed: {e}"}, ensure_ascii=False)
+
+
+async def _memory_rebuild_l3(arguments: dict[str, Any]) -> str:
+    try:
+        result = await asyncio.to_thread(memory_pg.rebuild_l3, arguments)
+        return json.dumps(result, ensure_ascii=False)
+    except Exception as e:
+        return json.dumps({"ok": False, "error": f"memory_rebuild_l3 failed: {e}"}, ensure_ascii=False)
+
+
+async def _memory_query(arguments: dict[str, Any]) -> str:
+    try:
+        result = await asyncio.to_thread(memory_pg.query, arguments)
+        return json.dumps(result, ensure_ascii=False)
+    except Exception as e:
+        return json.dumps({"ok": False, "error": f"memory_query failed: {e}"}, ensure_ascii=False)
+
+
+async def _memory_cleanup(arguments: dict[str, Any]) -> str:
+    try:
+        result = await asyncio.to_thread(memory_pg.cleanup, arguments)
+        return json.dumps(result, ensure_ascii=False)
+    except Exception as e:
+        return json.dumps({"ok": False, "error": f"memory_cleanup failed: {e}"}, ensure_ascii=False)
 
 
 async def _get_quant_signal(arguments: dict[str, Any]) -> str:
