@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
-import { Hub, Close, ZoomIn, ZoomOut, Refresh, FilterList } from '@mui/icons-material'
+import { Network, X, ZoomIn, ZoomOut, RefreshCw, Filter } from 'lucide-react'
 
 // 节点数据
 interface SectorNode {
@@ -319,7 +319,7 @@ export default function SectorNetworkGraph() {
             className="p-2 rounded bg-[#272A31] text-[#849495] hover:bg-[#32353C] transition-colors"
             title="重置"
           >
-            <Refresh fontSize="small" />
+            <RefreshCw size={16} />
           </button>
         </div>
       </div>
@@ -332,7 +332,7 @@ export default function SectorNetworkGraph() {
             showPositiveOnly ? 'bg-[#00F2FF]/20 text-[#00F2FF]' : 'bg-[#272A31] text-[#849495]'
           }`}
         >
-          <FilterList fontSize="small" />
+          <Filter size={16} />
           {showPositiveOnly ? '仅正相关' : '全部关联'}
         </button>
         <div className="flex items-center gap-3">
@@ -472,7 +472,7 @@ export default function SectorNetworkGraph() {
                   onClick={() => setSelectedNode(null)}
                   className="p-1 rounded hover:bg-[#272A31] text-[#849495]"
                 >
-                  <Close fontSize="small" />
+                  <X size={16} />
                 </button>
               </div>
 
@@ -549,7 +549,7 @@ export default function SectorNetworkGraph() {
             </div>
           ) : (
             <div className="bg-[#10131A] p-6 rounded-xl border border-[#272A31] text-center">
-              <Hub className="text-4xl text-[#849495] mx-auto mb-2" />
+              <Network className="w-10 h-10 text-[#849495] mx-auto mb-2" />
               <p className="text-[#849495]">点击节点查看详情</p>
               <p className="text-xs text-[#849495] mt-1">拖拽节点调整位置</p>
             </div>

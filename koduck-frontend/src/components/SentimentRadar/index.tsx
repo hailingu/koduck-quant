@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from 'react'
-import { Radar, TrendingUp, Speed, BarChart3, AlertTriangle, AccountBalanceWallet } from '@mui/icons-material'
+import { Activity, TrendingUp, Gauge, BarChart3, AlertTriangle, Wallet } from 'lucide-react'
 
 // 六维指标数据
 interface DimensionData {
@@ -19,12 +19,12 @@ interface HistoricalPoint {
 
 // 维度配置
 const DIMENSIONS = [
-  { key: 'activity', label: '活跃度', icon: Speed, color: '#00F2FF', description: '市场成交活跃程度' },
+  { key: 'activity', label: '活跃度', icon: Activity, color: '#00F2FF', description: '市场成交活跃程度' },
   { key: 'volatility', label: '波动率', icon: BarChart3, color: '#FFD81D', description: '市场价格波动幅度' },
   { key: 'trendStrength', label: '趋势强度', icon: TrendingUp, color: '#00DBE7', description: '当前趋势的力度' },
   { key: 'fearGreed', label: '恐慌度', icon: AlertTriangle, color: '#FFB3B5', description: '市场恐慌情绪' },
-  { key: 'valuation', label: '估值水平', icon: AccountBalanceWallet, color: '#74F5FF', description: '当前市场估值分位' },
-  { key: 'fundFlow', label: '资金流向', icon: Radar, color: '#FFE16D', description: '资金净流入强度' },
+  { key: 'valuation', label: '估值水平', icon: Wallet, color: '#74F5FF', description: '当前市场估值分位' },
+  { key: 'fundFlow', label: '资金流向', icon: Gauge, color: '#FFE16D', description: '资金净流入强度' },
 ] as const
 
 type DimensionKey = typeof DIMENSIONS[number]['key']
