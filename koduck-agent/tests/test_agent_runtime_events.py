@@ -22,7 +22,7 @@ class _FakeClient:
                     ToolCall(
                         id="call_1",
                         type="function",
-                        function=FunctionCall(name="demo_tool", arguments={"foo": "bar"}),
+                        function=FunctionCall(name="get_quant_signal", arguments={"symbol": "601012"}),
                     )
                 ],
                 finish_reason="tool_calls",

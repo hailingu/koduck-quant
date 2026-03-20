@@ -29,6 +29,7 @@ from koduck.quant_tools import (
     QUANT_TOOL_DEFS,
     execute_tool,
 )
+from koduck.tool_policy import append_tool_audit, can_execute_tool, read_tool_audits
 
 logger = logging.getLogger(__name__)
 
@@ -347,6 +348,39 @@ async def _run_chat_with_tool_loop(
         )
 
         for tc in tool_calls:
+            allowed, reason = can_execute_tool(tc.function.name, runtime_options)
+            if not allowed:
+                events.append(
+                    _new_event(
+                        run_id,
+                        "tool.blocked",
+                        {
+                            "tool_name": tc.function.name,
+                            "tool_call_id": tc.id,
+                            "round": tool_round,
+                            "reason": reason,
+                        },
+                    )
+                )
+                append_tool_audit(
+                    run_id=run_id,
+                    tool_name=tc.function.name,
+                    tool_call_id=tc.id,
+                    allowed=False,
+                    reason=reason,
+                    elapsed_ms=None,
+                )
+                history.append(
+                    Message(
+                        role="tool",
+                        tool_call_id=tc.id,
+                        content=json.dumps(
+                            {"ok": False, "error": f"Tool call blocked by policy: {reason}"},
+                            ensure_ascii=False,
+                        ),
+                    )
+                )
+                continue
             events.append(
                 _new_event(
                     run_id,
@@ -375,6 +409,14 @@ async def _run_chat_with_tool_loop(
                         "elapsed_ms": elapsed_ms,
                     },
                 )
+            )
+            append_tool_audit(
+                run_id=run_id,
+                tool_name=tc.function.name,
+                tool_call_id=tc.id,
+                allowed=True,
+                reason="allowed",
+                elapsed_ms=elapsed_ms,
             )
             logger.info(
                 "[ToolLoop] Executed tool: name=%s id=%s",
@@ -461,6 +503,12 @@ async def list_models():
                 {"id": "deepseek-reasoner", "provider": "deepseek", "name": "DeepSeek Reasoner"},
             ])
     return ModelsResponse(models=models)
+
+
+@app.get("/api/v1/tools/audits", tags=["Tools"])
+async def list_tool_audits(limit: int = 100):
+    """Return recent tool audit records."""
+    return {"data": read_tool_audits(limit=limit)}
 
 
 @app.post("/v1/chat/completions", response_model=ChatCompletionResponse, tags=["Chat"])
