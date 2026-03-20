@@ -7,6 +7,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.util.Map;
 import java.util.List;
 
 /**
@@ -30,6 +31,17 @@ public class ChatStreamRequest {
      */
     @Builder.Default
     private String role = "general";
+
+    /**
+     * Optional runtime options passed through to koduck-agent.
+     */
+    private Map<String, Object> runtime;
+
+    /**
+     * Keep backward compatibility: when true, backend injects no-tool guard prompt.
+     */
+    @Builder.Default
+    private Boolean disableToolCalls = false;
 
     @Valid
     @NotEmpty(message = "消息列表不能为空")
