@@ -202,6 +202,7 @@ public class AiAnalysisService {
             .provider(provider)
             .apiKey(effectiveConfig != null && effectiveConfig.getApiKey() != null ? effectiveConfig.getApiKey() : "")
             .apiBase(effectiveConfig != null ? effectiveConfig.getApiBase() : null)
+            .role(request.getRole())
             .messages(request.getMessages())
             .build();
         ChatStreamRequest guardedRequest = appendInstructionToSystem(configuredRequest, NO_TOOL_MARKUP_GUARD);
@@ -281,6 +282,7 @@ public class AiAnalysisService {
             .provider(request.getProvider())
             .apiKey(request.getApiKey())
             .apiBase(request.getApiBase())
+            .role(request.getRole())
             .messages(updatedMessages)
             .build();
     }
@@ -319,6 +321,7 @@ public class AiAnalysisService {
             .provider(request.getProvider())
             .apiKey(request.getApiKey())
             .apiBase(request.getApiBase())
+            .role(request.getRole())
             .messages(updatedMessages)
             .build();
     }
@@ -431,6 +434,7 @@ public class AiAnalysisService {
                 .provider(provider)
                 .apiKey(request.getApiKey())
                 .apiBase(request.getApiBase())
+                .role(request.getRole())
                 .messages(request.getMessages())
                 .build();
             String requestBody = objectMapper.writeValueAsString(normalizedRequest);
