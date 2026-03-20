@@ -203,9 +203,13 @@ public class AiAnalysisService {
             .apiKey(effectiveConfig != null && effectiveConfig.getApiKey() != null ? effectiveConfig.getApiKey() : "")
             .apiBase(effectiveConfig != null ? effectiveConfig.getApiBase() : null)
             .role(request.getRole())
+            .runtime(request.getRuntime())
+            .disableToolCalls(Boolean.TRUE.equals(request.getDisableToolCalls()))
             .messages(request.getMessages())
             .build();
-        ChatStreamRequest guardedRequest = appendInstructionToSystem(configuredRequest, NO_TOOL_MARKUP_GUARD);
+        ChatStreamRequest guardedRequest = Boolean.TRUE.equals(request.getDisableToolCalls())
+            ? appendInstructionToSystem(configuredRequest, NO_TOOL_MARKUP_GUARD)
+            : configuredRequest;
         ChatStreamRequest enhancedRequest = enrichWithQuantSignalIfNeeded(guardedRequest);
         CompletableFuture.runAsync(() -> relayAgentStream(enhancedRequest, emitter));
         return emitter;
@@ -283,6 +287,8 @@ public class AiAnalysisService {
             .apiKey(request.getApiKey())
             .apiBase(request.getApiBase())
             .role(request.getRole())
+            .runtime(request.getRuntime())
+            .disableToolCalls(request.getDisableToolCalls())
             .messages(updatedMessages)
             .build();
     }
@@ -322,6 +328,8 @@ public class AiAnalysisService {
             .apiKey(request.getApiKey())
             .apiBase(request.getApiBase())
             .role(request.getRole())
+            .runtime(request.getRuntime())
+            .disableToolCalls(request.getDisableToolCalls())
             .messages(updatedMessages)
             .build();
     }
@@ -435,6 +443,8 @@ public class AiAnalysisService {
                 .apiKey(request.getApiKey())
                 .apiBase(request.getApiBase())
                 .role(request.getRole())
+                .runtime(request.getRuntime())
+                .disableToolCalls(request.getDisableToolCalls())
                 .messages(request.getMessages())
                 .build();
             String requestBody = objectMapper.writeValueAsString(normalizedRequest);
