@@ -18,8 +18,8 @@ export default function Login() {
     try {
       await login({ username, password })
       navigate('/market')
-    } catch (err) {
-      setError('Invalid credentials')
+    } catch (err: any) {
+      setError(err.message || 'Login failed. Please check your credentials.')
     } finally {
       setLoading(false)
     }
