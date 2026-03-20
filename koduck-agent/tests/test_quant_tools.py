@@ -7,7 +7,13 @@ from pathlib import Path
 import pytest
 
 from koduck import quant_tools
-from koduck.quant_tools import execute_tool
+from koduck.quant_tools import (
+    execute_tool,
+    get_tool_definition,
+    list_discovered_skills,
+    run_skill_command,
+)
+from koduck.tool_runtime import ToolRiskLevel
 
 
 @pytest.mark.asyncio
@@ -65,3 +71,19 @@ print(json.dumps({"command": args.command, "content": args.content}))
     assert result["status"] == 0
     assert '"command": "ping"' in result["stdout"]
     assert '"content": "hello"' in result["stdout"]
+
+    tool_def = get_tool_definition("run_skill_demo_skill")
+    assert tool_def is not None
+    assert tool_def.policy.risk_level == ToolRiskLevel.RESTRICTED
+    assert tool_def.policy.timeout_seconds == 20
+
+    skills = list_discovered_skills()
+    assert any(item["skill_name"] == "demo_skill" for item in skills)
+
+    second_result_raw = await run_skill_command(
+        "demo-skill",
+        "pong",
+        {"content": "again"},
+    )
+    second_result = json.loads(second_result_raw)
+    assert second_result["ok"] is True

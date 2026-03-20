@@ -189,6 +189,7 @@ export default function SectorNetworkGraph() {
   const svgRef = useRef<SVGSVGElement>(null)
   const [data, setData] = useState(generateMockData())
   const [simulation, setSimulation] = useState<ForceSimulation | null>(null)
+  const [, setRenderTick] = useState(0)
   const [zoom, setZoom] = useState(1)
   const [selectedNode, setSelectedNode] = useState<SectorNode | null>(null)
   const [draggingNode, setDraggingNode] = useState<string | null>(null)
@@ -212,7 +213,7 @@ export default function SectorNetworkGraph() {
       for (let i = 0; i < 3; i++) {
         simulation.tick()
       }
-      setSimulation({ ...simulation })
+      setRenderTick((v) => v + 1)
       rafId = requestAnimationFrame(animate)
     }
     rafId = requestAnimationFrame(animate)
@@ -250,7 +251,7 @@ export default function SectorNetworkGraph() {
         node.fy = y
         node.x = x
         node.y = y
-        setSimulation({ ...simulation })
+        setRenderTick((v) => v + 1)
       }
     },
     [draggingNode, zoom, simulation]
