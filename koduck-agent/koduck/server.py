@@ -12,8 +12,10 @@ import hashlib
 import logging
 import os
 import sys
+import time
 import uuid
 from contextlib import asynccontextmanager
+from datetime import datetime, timezone
 from typing import Any
 
 import structlog
@@ -189,6 +191,10 @@ class ChatCompletionRequest(BaseModel):
     temperature: float | None = Field(None, description="采样温度")
     max_tokens: int | None = Field(None, description="最大生成 token 数")
     stream: bool = Field(False, description="是否流式输出（暂不支持）")
+    runtime: dict[str, Any] | None = Field(
+        None,
+        description="运行时选项，例如 {'enableTools': true, 'emitEvents': true, 'runId': '...'}",
+    )
 
     class Config:
         json_schema_extra = {
@@ -210,6 +216,7 @@ class ChatCompletionResponse(BaseModel):
     provider: str = Field(..., description="使用的提供商")
     choices: list[dict] = Field(..., description="响应选项")
     usage: dict | None = Field(None, description="Token 使用情况")
+    run: dict[str, Any] | None = Field(None, description="运行元数据与事件轨迹")
 
 
 class HealthResponse(BaseModel):
@@ -229,6 +236,10 @@ class SimpleChatRequest(BaseModel):
     provider: str = Field("minimax", description="LLM 提供商")
     apiKey: str | None = Field(None, description="可选：覆盖环境变量的 API Key")
     apiBase: str | None = Field(None, description="可选：覆盖环境变量的 API Base URL")
+    runtime: dict[str, Any] | None = Field(
+        None,
+        description="运行时选项，例如 {'enableTools': true, 'emitEvents': true, 'runId': '...'}",
+    )
 
 
 class SimpleChatData(BaseModel):
@@ -284,16 +295,46 @@ def _ensure_tool_call_id(tool_call: ToolCall) -> ToolCall:
     )
 
 
+def _resolve_runtime(runtime: dict[str, Any] | None) -> dict[str, Any]:
+    runtime = runtime or {}
+    return {
+        "run_id": str(runtime.get("runId") or f"run_{uuid.uuid4().hex[:12]}"),
+        "enable_tools": bool(runtime.get("enableTools", True)),
+        "emit_events": bool(runtime.get("emitEvents", True)),
+    }
+
+
+def _new_event(run_id: str, event_type: str, payload: dict[str, Any] | None = None) -> dict[str, Any]:
+    return {
+        "run_id": run_id,
+        "type": event_type,
+        "ts": datetime.now(timezone.utc).isoformat(),
+        "payload": payload or {},
+    }
+
+
 async def _run_chat_with_tool_loop(
     client: Any,
     messages: list[Message],
-) -> Any:
+    runtime_options: dict[str, Any] | None = None,
+) -> tuple[Any, list[dict[str, Any]], str]:
     """Execute tool-calling loop and return final assistant response."""
     history = list(messages)
+    runtime = _resolve_runtime(runtime_options)
+    run_id = runtime["run_id"]
+    events: list[dict[str, Any]] = []
+    events.append(
+        _new_event(
+            run_id,
+            "run.started",
+            {"state": "THINKING", "message_count": len(history)},
+        )
+    )
     tool_round = 0
-    final_response = await client.generate(history, tools=QUANT_TOOL_DEFS)
+    tools = QUANT_TOOL_DEFS if runtime["enable_tools"] else None
+    final_response = await client.generate(history, tools=tools)
 
-    while final_response.tool_calls and tool_round < MAX_TOOL_CALL_ROUNDS:
+    while runtime["enable_tools"] and final_response.tool_calls and tool_round < MAX_TOOL_CALL_ROUNDS:
         tool_round += 1
         tool_calls = [_ensure_tool_call_id(tc) for tc in final_response.tool_calls]
         history.append(
@@ -306,12 +347,33 @@ async def _run_chat_with_tool_loop(
         )
 
         for tc in tool_calls:
+            events.append(
+                _new_event(
+                    run_id,
+                    "tool.requested",
+                    {"tool_name": tc.function.name, "tool_call_id": tc.id, "round": tool_round},
+                )
+            )
+            started_at = time.perf_counter()
             tool_content = await execute_tool(tc.function.name, tc.function.arguments)
+            elapsed_ms = int((time.perf_counter() - started_at) * 1000)
             history.append(
                 Message(
                     role="tool",
                     tool_call_id=tc.id,
                     content=tool_content,
+                )
+            )
+            events.append(
+                _new_event(
+                    run_id,
+                    "tool.completed",
+                    {
+                        "tool_name": tc.function.name,
+                        "tool_call_id": tc.id,
+                        "round": tool_round,
+                        "elapsed_ms": elapsed_ms,
+                    },
                 )
             )
             logger.info(
@@ -320,14 +382,28 @@ async def _run_chat_with_tool_loop(
                 tc.id,
             )
 
-        final_response = await client.generate(history, tools=QUANT_TOOL_DEFS)
+        final_response = await client.generate(history, tools=tools)
 
     if final_response.tool_calls:
         logger.warning(
             "[ToolLoop] Reached max rounds with remaining tool_calls: rounds=%s",
             tool_round,
         )
-    return final_response
+        events.append(
+            _new_event(
+                run_id,
+                "run.max_tool_rounds_reached",
+                {"max_rounds": MAX_TOOL_CALL_ROUNDS},
+            )
+        )
+    events.append(
+        _new_event(
+            run_id,
+            "run.completed",
+            {"state": "FINAL", "finish_reason": final_response.finish_reason},
+        )
+    )
+    return final_response, events, run_id
 
 
 @asynccontextmanager
@@ -430,9 +506,10 @@ async def chat_completions(request: ChatCompletionRequest):
         logger.info(
             f"[ChatCompletions] 开始调用 LLM+ToolLoop: provider={request.provider}, model={client.model}"
         )
-        response = await _run_chat_with_tool_loop(
+        response, events, run_id = await _run_chat_with_tool_loop(
             client,
             messages,
+            request.runtime,
         )
         logger.info(f"[ChatCompletions] LLM : finish_reason={response.finish_reason}")
         logger.debug(f"[ChatCompletions] LLM : {response.content[:200]}..." if response.content and len(response.content) > 200 else f"[ChatCompletions] LLM : {response.content}")
@@ -468,6 +545,11 @@ async def chat_completions(request: ChatCompletionRequest):
             provider=request.provider,
             choices=[choice],
             usage=usage,
+            run={
+                "id": run_id,
+                "events": events if _resolve_runtime(request.runtime)["emit_events"] else [],
+                "enable_tools": _resolve_runtime(request.runtime)["enable_tools"],
+            },
         )
         logger.info(f"[ChatCompletions] : model={result.model}, provider={result.provider}")
         return result
@@ -562,9 +644,10 @@ async def simple_chat(request: SimpleChatRequest):
         logger.info(
             f"[SimpleChat] 开始调用 LLM+ToolLoop: provider={request.provider}, model={client.model}"
         )
-        response = await _run_chat_with_tool_loop(
+        response, _, _ = await _run_chat_with_tool_loop(
             client,
             messages,
+            request.runtime,
         )
         logger.info(f"[SimpleChat] LLM : finish_reason={response.finish_reason}")
         
@@ -654,17 +737,22 @@ async def simple_chat_stream(request: SimpleChatRequest):
             yield f"event: start\ndata: {json.dumps({'model': client.model, 'provider': request.provider})}\n\n"
             
             # ， SSE delta
-            response = await _run_chat_with_tool_loop(
+            response, events, run_id = await _run_chat_with_tool_loop(
                 client,
                 messages,
+                request.runtime,
             )
+            runtime = _resolve_runtime(request.runtime)
+            if runtime["emit_events"]:
+                for evt in events:
+                    yield f"event: {evt['type']}\ndata: {json.dumps(evt, ensure_ascii=False)}\n\n"
             full_content = response.content or ""
             chunk_size = 24
             for i in range(0, len(full_content), chunk_size):
                 delta = full_content[i:i + chunk_size]
                 yield f"event: delta\ndata: {json.dumps({'content': delta})}\n\n"
 
-            yield f"event: done\ndata: {json.dumps({'content': full_content, 'model': client.model, 'provider': request.provider})}\n\n"
+            yield f"event: done\ndata: {json.dumps({'content': full_content, 'model': client.model, 'provider': request.provider, 'runId': run_id})}\n\n"
             
             logger.info(f"[SimpleChatStream] : content_length={len(full_content)}")
             
