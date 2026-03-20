@@ -65,14 +65,10 @@ export default function Login() {
 
       {/* Login Card */}
       <div className="w-full max-w-[420px] glass-panel p-8 relative">
-        {/* Tabs */}
-        <div className="flex gap-1 p-1 bg-fluid-surface-container-lowest rounded-lg mb-8">
-          <button className="flex-1 py-2 px-4 text-xs font-mono-data font-medium rounded-md transition-all bg-fluid-primary text-fluid-surface-container-lowest">
-            AUTHENTICATION
-          </button>
-          <button className="flex-1 py-2 px-4 text-xs font-mono-data font-medium rounded-md transition-all text-fluid-text-dim hover:text-fluid-text hover:bg-fluid-surface-high">
-            WALLETS
-          </button>
+        {/* Header */}
+        <div className="mb-8 text-center">
+          <h2 className="font-headline text-lg font-semibold text-fluid-text">Authentication</h2>
+          <p className="text-xs text-fluid-text-muted mt-1">Initialize your session</p>
         </div>
 
         {/* Form */}
