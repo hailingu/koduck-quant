@@ -2,11 +2,6 @@ import { useEffect, useState, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { marketApi, type MarketIndex, type SymbolInfo } from '@/api/market'
 import { useToast } from '@/hooks/useToast'
-import MoneyFlowRiver from '@/components/MoneyFlowRiver'
-import FundGameMatrix from '@/components/FundGameMatrix'
-import FundDivergenceAlert from '@/components/FundDivergenceAlert'
-import SentimentRadar from '@/components/SentimentRadar'
-import SectorNetworkGraph from '@/components/SectorNetworkGraph'
 
 // 
 function IndexCard({ index, loading }: { index: MarketIndex; loading: boolean }) {
@@ -185,27 +180,20 @@ export default function Market() {
         </div>
       </section>
 
-      {/* 资金河流图 - 原型演示 */}
-      <section className="bg-[#10131A] p-6 rounded-xl border border-[#272A31]">
-        <MoneyFlowRiver width={900} height={380} />
-      </section>
-
-      {/* 板块资金博弈矩阵 - 原型演示 */}
-      <FundGameMatrix />
-
-      {/* 资金背离预警系统 - 原型演示 */}
-      <section className="bg-[#10131A] p-6 rounded-xl border border-[#272A31]">
-        <FundDivergenceAlert />
-      </section>
-
-      {/* 六维市场情绪雷达 - 原型演示 */}
-      <section className="bg-[#10131A] p-6 rounded-xl border border-[#272A31]">
-        <SentimentRadar />
-      </section>
-
-      {/* 板块关联网络图谱 - 原型演示 */}
-      <section className="bg-[#10131A] p-6 rounded-xl border border-[#272A31]">
-        <SectorNetworkGraph />
+      {/* 快速链接到资金流向分析 */}
+      <section className="bg-gradient-to-r from-[#00F2FF]/10 to-[#00DBE7]/10 p-6 rounded-xl border border-[#00F2FF]/30">
+        <div className="flex items-center justify-between">
+          <div>
+            <h3 className="text-lg font-bold text-[#E1E2EB] mb-1">资金流向分析</h3>
+            <p className="text-sm text-[#849495]">查看资金河流图、博弈矩阵、背离预警、情绪雷达等高级分析工具</p>
+          </div>
+          <button
+            onClick={() => navigate('/fundflow')}
+            className="px-4 py-2 bg-[#00F2FF] text-[#00363A] font-bold rounded-lg hover:bg-[#00DBE7] transition-colors"
+          >
+            立即前往 →
+          </button>
+        </div>
       </section>
     </div>
   )
