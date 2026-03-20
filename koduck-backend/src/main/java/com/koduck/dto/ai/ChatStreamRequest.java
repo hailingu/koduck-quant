@@ -25,6 +25,12 @@ public class ChatStreamRequest {
 
     private String apiBase;
 
+    /**
+     * Agent role id used by runtime (e.g. general/architect/coder/reviewer/analyst).
+     */
+    @Builder.Default
+    private String role = "general";
+
     @Valid
     @NotEmpty(message = "消息列表不能为空")
     private List<ChatMessageRequest> messages;

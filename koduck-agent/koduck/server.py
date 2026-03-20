@@ -24,6 +24,7 @@ from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel, Field
 
 from koduck import __version__, create_client
+from koduck.agent_roles import apply_role_messages, list_roles, resolve_role
 from koduck.schema import FunctionCall, LLMProvider, Message, ToolCall
 from koduck.quant_tools import (
     QUANT_TOOL_DEFS,
@@ -189,6 +190,7 @@ class ChatCompletionRequest(BaseModel):
     provider: str = Field("minimax", description="LLM 提供商: minimax/deepseek/openai")
     apiKey: str | None = Field(None, description="可选：覆盖环境变量的 API Key")
     apiBase: str | None = Field(None, description="可选：覆盖环境变量的 API Base URL")
+    role: str | None = Field(None, description="可选：会话角色，如 general/architect/coder/reviewer/analyst")
     temperature: float | None = Field(None, description="采样温度")
     max_tokens: int | None = Field(None, description="最大生成 token 数")
     stream: bool = Field(False, description="是否流式输出（暂不支持）")
@@ -237,6 +239,7 @@ class SimpleChatRequest(BaseModel):
     provider: str = Field("minimax", description="LLM 提供商")
     apiKey: str | None = Field(None, description="可选：覆盖环境变量的 API Key")
     apiBase: str | None = Field(None, description="可选：覆盖环境变量的 API Base URL")
+    role: str | None = Field(None, description="可选：会话角色，如 general/architect/coder/reviewer/analyst")
     runtime: dict[str, Any] | None = Field(
         None,
         description="运行时选项，例如 {'enableTools': true, 'emitEvents': true, 'runId': '...'}",
@@ -302,6 +305,7 @@ def _resolve_runtime(runtime: dict[str, Any] | None) -> dict[str, Any]:
         "run_id": str(runtime.get("runId") or f"run_{uuid.uuid4().hex[:12]}"),
         "enable_tools": bool(runtime.get("enableTools", True)),
         "emit_events": bool(runtime.get("emitEvents", True)),
+        "role": resolve_role(runtime),
     }
 
 
@@ -322,6 +326,7 @@ async def _run_chat_with_tool_loop(
     """Execute tool-calling loop and return final assistant response."""
     history = list(messages)
     runtime = _resolve_runtime(runtime_options)
+    history = apply_role_messages(history, runtime["role"])
     run_id = runtime["run_id"]
     events: list[dict[str, Any]] = []
     events.append(
@@ -511,6 +516,12 @@ async def list_tool_audits(limit: int = 100):
     return {"data": read_tool_audits(limit=limit)}
 
 
+@app.get("/api/v1/agent/roles", tags=["Agent"])
+async def get_agent_roles():
+    """Return built-in role profiles for runtime role switching."""
+    return {"data": list_roles()}
+
+
 @app.post("/v1/chat/completions", response_model=ChatCompletionResponse, tags=["Chat"])
 async def chat_completions(request: ChatCompletionRequest):
     """（OpenAI ）.
@@ -554,10 +565,13 @@ async def chat_completions(request: ChatCompletionRequest):
         logger.info(
             f"[ChatCompletions] 开始调用 LLM+ToolLoop: provider={request.provider}, model={client.model}"
         )
+        runtime_options = dict(request.runtime or {})
+        if request.role:
+            runtime_options["role"] = request.role
         response, events, run_id = await _run_chat_with_tool_loop(
             client,
             messages,
-            request.runtime,
+            runtime_options,
         )
         logger.info(f"[ChatCompletions] LLM : finish_reason={response.finish_reason}")
         logger.debug(f"[ChatCompletions] LLM : {response.content[:200]}..." if response.content and len(response.content) > 200 else f"[ChatCompletions] LLM : {response.content}")
@@ -595,8 +609,9 @@ async def chat_completions(request: ChatCompletionRequest):
             usage=usage,
             run={
                 "id": run_id,
-                "events": events if _resolve_runtime(request.runtime)["emit_events"] else [],
-                "enable_tools": _resolve_runtime(request.runtime)["enable_tools"],
+                "events": events if _resolve_runtime(runtime_options)["emit_events"] else [],
+                "enable_tools": _resolve_runtime(runtime_options)["enable_tools"],
+                "role": _resolve_runtime(runtime_options)["role"],
             },
         )
         logger.info(f"[ChatCompletions] : model={result.model}, provider={result.provider}")
@@ -692,10 +707,13 @@ async def simple_chat(request: SimpleChatRequest):
         logger.info(
             f"[SimpleChat] 开始调用 LLM+ToolLoop: provider={request.provider}, model={client.model}"
         )
+        runtime_options = dict(request.runtime or {})
+        if request.role:
+            runtime_options["role"] = request.role
         response, _, _ = await _run_chat_with_tool_loop(
             client,
             messages,
-            request.runtime,
+            runtime_options,
         )
         logger.info(f"[SimpleChat] LLM : finish_reason={response.finish_reason}")
         
@@ -785,12 +803,15 @@ async def simple_chat_stream(request: SimpleChatRequest):
             yield f"event: start\ndata: {json.dumps({'model': client.model, 'provider': request.provider})}\n\n"
             
             # ， SSE delta
+            runtime_options = dict(request.runtime or {})
+            if request.role:
+                runtime_options["role"] = request.role
             response, events, run_id = await _run_chat_with_tool_loop(
                 client,
                 messages,
-                request.runtime,
+                runtime_options,
             )
-            runtime = _resolve_runtime(request.runtime)
+            runtime = _resolve_runtime(runtime_options)
             if runtime["emit_events"]:
                 for evt in events:
                     yield f"event: {evt['type']}\ndata: {json.dumps(evt, ensure_ascii=False)}\n\n"
