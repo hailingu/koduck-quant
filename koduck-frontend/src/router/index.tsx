@@ -11,6 +11,7 @@ import Market from '@/pages/Market'
 import FundFlowAnalysis from '@/pages/FundFlowAnalysis'
 import SectorNetwork from '@/pages/SectorNetwork'
 import HistoryPlayback from '@/pages/HistoryPlayback'
+import AICommandCenter from '@/pages/AICommandCenter'
 
 // Protected Route wrapper
 function ProtectedRoute() {
@@ -46,6 +47,7 @@ export const router = createBrowserRouter([
           { path: '/watchlist', element: <Watchlist /> },
           { path: '/kline', element: <Kline /> },
           { path: '/portfolio', element: <Portfolio /> },
+          { path: '/ai', element: <AICommandCenter /> },
           { path: '/settings', element: <Settings /> },
         ],
       },
