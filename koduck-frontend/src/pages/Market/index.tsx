@@ -6,6 +6,7 @@ import MoneyFlowRiver from '@/components/MoneyFlowRiver'
 import FundGameMatrix from '@/components/FundGameMatrix'
 import FundDivergenceAlert from '@/components/FundDivergenceAlert'
 import SentimentRadar from '@/components/SentimentRadar'
+import SectorNetworkGraph from '@/components/SectorNetworkGraph'
 
 // 
 function IndexCard({ index, loading }: { index: MarketIndex; loading: boolean }) {
@@ -200,6 +201,11 @@ export default function Market() {
       {/* 六维市场情绪雷达 - 原型演示 */}
       <section className="bg-[#10131A] p-6 rounded-xl border border-[#272A31]">
         <SentimentRadar />
+      </section>
+
+      {/* 板块关联网络图谱 - 原型演示 */}
+      <section className="bg-[#10131A] p-6 rounded-xl border border-[#272A31]">
+        <SectorNetworkGraph />
       </section>
     </div>
   )
