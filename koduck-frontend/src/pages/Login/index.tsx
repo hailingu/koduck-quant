@@ -126,32 +126,14 @@ export default function Login() {
             </div>
           )}
 
-          {/* Action Buttons */}
-          <div className="pt-4 space-y-4">
+          {/* Action Button */}
+          <div className="pt-4">
             <button
               type="submit"
               disabled={loading}
               className="w-full py-4 bg-fluid-primary text-fluid-surface-container-lowest font-headline font-bold uppercase tracking-widest text-sm rounded-lg hover:shadow-glow-primary hover:brightness-110 active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {loading ? 'Initializing...' : 'Initialize Session'}
-            </button>
-
-            <div className="relative flex items-center py-2">
-              <div className="flex-grow border-t border-fluid-outline-variant/20"></div>
-              <span className="flex-shrink mx-4 font-mono-data text-[10px] text-fluid-text-dim/40 uppercase">
-                Or Secure Connect
-              </span>
-              <div className="flex-grow border-t border-fluid-outline-variant/20"></div>
-            </div>
-
-            <button
-              type="button"
-              className="w-full py-3 flex items-center justify-center gap-3 bg-fluid-surface-high border border-fluid-outline-variant/20 text-fluid-text font-mono-data text-xs uppercase tracking-wider rounded-lg hover:bg-fluid-surface-container transition-colors group"
-            >
-              <span className="material-symbols-outlined text-lg text-fluid-primary group-hover:scale-110 transition-transform">
-                account_balance_wallet
-              </span>
-              Connect Wallet
             </button>
           </div>
         </form>
