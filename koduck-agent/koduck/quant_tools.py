@@ -12,6 +12,11 @@ from pathlib import Path
 from typing import Any, Awaitable, Callable
 
 import httpx
+from koduck.tool_runtime import (
+    ToolDefinition,
+    ToolExecutionPolicy,
+    ToolRiskLevel,
+)
 
 try:
     import yaml
@@ -25,6 +30,7 @@ DEFAULT_SKILL_TIMEOUT_SECONDS = 20
 
 _TOOL_EXECUTORS: dict[str, Callable[[dict[str, Any]], Awaitable[str]]] = {}
 QUANT_TOOL_DEFS: list[dict[str, Any]] = []
+TOOL_REGISTRY: dict[str, ToolDefinition] = {}
 
 
 def _backend_base_url() -> str:
@@ -305,12 +311,24 @@ def refresh_tool_registry() -> None:
     """Rebuild tool defs/executors from builtin tools plus discovered skills."""
     QUANT_TOOL_DEFS.clear()
     _TOOL_EXECUTORS.clear()
+    TOOL_REGISTRY.clear()
 
     for tool_def in _builtin_tool_defs():
         name = str(tool_def["function"]["name"])
         QUANT_TOOL_DEFS.append(tool_def)
         if name == "get_quant_signal":
             _TOOL_EXECUTORS[name] = _get_quant_signal
+            TOOL_REGISTRY[name] = ToolDefinition(
+                name=name,
+                schema=tool_def,
+                description=str(tool_def["function"]["description"]),
+                policy=ToolExecutionPolicy(
+                    timeout_seconds=10,
+                    max_retries=1,
+                    risk_level=ToolRiskLevel.SAFE,
+                ),
+                executor=_get_quant_signal,
+            )
 
     discovered_entries = _discover_skill_entries()
     for entry in discovered_entries:
@@ -355,6 +373,17 @@ def refresh_tool_registry() -> None:
             )
 
         _TOOL_EXECUTORS[tool_name] = _executor
+        TOOL_REGISTRY[tool_name] = ToolDefinition(
+            name=tool_name,
+            schema=QUANT_TOOL_DEFS[-1],
+            description=str(QUANT_TOOL_DEFS[-1]["function"]["description"]),
+            policy=ToolExecutionPolicy(
+                timeout_seconds=DEFAULT_SKILL_TIMEOUT_SECONDS,
+                max_retries=0,
+                risk_level=ToolRiskLevel.RESTRICTED,
+            ),
+            executor=_executor,
+        )
 
     logger.info(
         "Tool registry refreshed: builtin=%s discovered_skills=%s total=%s",
@@ -377,6 +406,16 @@ async def execute_tool(name: str, arguments: dict[str, Any]) -> str:
             ensure_ascii=False,
         )
     return await executor(arguments)
+
+
+def get_tool_definitions() -> list[ToolDefinition]:
+    """List all registered tool definitions."""
+    return list(TOOL_REGISTRY.values())
+
+
+def get_tool_definition(name: str) -> ToolDefinition | None:
+    """Get one registered tool definition."""
+    return TOOL_REGISTRY.get(name)
 
 
 async def _get_quant_signal(arguments: dict[str, Any]) -> str:
