@@ -301,11 +301,22 @@ def _ensure_tool_call_id(tool_call: ToolCall) -> ToolCall:
 
 def _resolve_runtime(runtime: dict[str, Any] | None) -> dict[str, Any]:
     runtime = runtime or {}
+    sub_agents_raw = runtime.get("subAgents")
+    sub_agents: list[dict[str, str]] = []
+    if isinstance(sub_agents_raw, list):
+        for item in sub_agents_raw:
+            if not isinstance(item, dict):
+                continue
+            role = resolve_role({"role": item.get("role")})
+            name = str(item.get("name") or role)
+            sub_agents.append({"name": name, "role": role})
     return {
         "run_id": str(runtime.get("runId") or f"run_{uuid.uuid4().hex[:12]}"),
         "enable_tools": bool(runtime.get("enableTools", True)),
         "emit_events": bool(runtime.get("emitEvents", True)),
         "role": resolve_role(runtime),
+        "sub_agents": sub_agents[:8],
+        "merge_strategy": str(runtime.get("mergeStrategy") or "lead-agent-summary"),
     }
 
 
@@ -316,6 +327,65 @@ def _new_event(run_id: str, event_type: str, payload: dict[str, Any] | None = No
         "ts": datetime.now(timezone.utc).isoformat(),
         "payload": payload or {},
     }
+
+
+async def _run_sub_agents(
+    *,
+    client: Any,
+    parent_run_id: str,
+    base_messages: list[Message],
+    sub_agents: list[dict[str, str]],
+) -> tuple[list[dict[str, str]], list[dict[str, Any]]]:
+    """Run sub-agents sequentially and return their outputs plus events."""
+    outputs: list[dict[str, str]] = []
+    events: list[dict[str, Any]] = []
+    for idx, sub in enumerate(sub_agents, start=1):
+        sub_run_id = f"{parent_run_id}_sub{idx}"
+        events.append(
+            _new_event(
+                parent_run_id,
+                "agent.spawned",
+                {"sub_run_id": sub_run_id, "name": sub["name"], "role": sub["role"]},
+            )
+        )
+
+        sub_runtime = {
+            "runId": sub_run_id,
+            "role": sub["role"],
+            "enableTools": True,
+            "emitEvents": False,
+            "subAgents": [],
+        }
+        sub_response, _, _ = await _run_chat_with_tool_loop(
+            client=client,
+            messages=base_messages,
+            runtime_options=sub_runtime,
+        )
+        outputs.append(
+            {
+                "sub_run_id": sub_run_id,
+                "name": sub["name"],
+                "role": sub["role"],
+                "content": sub_response.content or "",
+            }
+        )
+        events.append(
+            _new_event(
+                parent_run_id,
+                "agent.completed",
+                {"sub_run_id": sub_run_id, "name": sub["name"], "role": sub["role"]},
+            )
+        )
+    return outputs, events
+
+
+def _merge_sub_agent_outputs(outputs: list[dict[str, str]]) -> str:
+    if not outputs:
+        return ""
+    lines = ["以下是子 Agent 观点，请综合后再回答用户："]
+    for item in outputs:
+        lines.append(f"- [{item['name']}/{item['role']}] {item['content']}")
+    return "\n".join(lines)
 
 
 async def _run_chat_with_tool_loop(
@@ -336,6 +406,27 @@ async def _run_chat_with_tool_loop(
             {"state": "THINKING", "message_count": len(history)},
         )
     )
+    if runtime["sub_agents"]:
+        sub_outputs, sub_events = await _run_sub_agents(
+            client=client,
+            parent_run_id=run_id,
+            base_messages=history,
+            sub_agents=runtime["sub_agents"],
+        )
+        events.extend(sub_events)
+        merged_sub_context = _merge_sub_agent_outputs(sub_outputs)
+        if merged_sub_context:
+            history.insert(0, Message(role="system", content=merged_sub_context))
+            events.append(
+                _new_event(
+                    run_id,
+                    "agent.merge.completed",
+                    {
+                        "strategy": runtime["merge_strategy"],
+                        "sub_agent_count": len(sub_outputs),
+                    },
+                )
+            )
     tool_round = 0
     tools = QUANT_TOOL_DEFS if runtime["enable_tools"] else None
     final_response = await client.generate(history, tools=tools)
@@ -612,6 +703,8 @@ async def chat_completions(request: ChatCompletionRequest):
                 "events": events if _resolve_runtime(runtime_options)["emit_events"] else [],
                 "enable_tools": _resolve_runtime(runtime_options)["enable_tools"],
                 "role": _resolve_runtime(runtime_options)["role"],
+                "sub_agent_count": len(_resolve_runtime(runtime_options)["sub_agents"]),
+                "merge_strategy": _resolve_runtime(runtime_options)["merge_strategy"],
             },
         )
         logger.info(f"[ChatCompletions] : model={result.model}, provider={result.provider}")
