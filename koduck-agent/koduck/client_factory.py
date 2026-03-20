@@ -46,7 +46,7 @@ class LLMClient:
             self.model = model or "deepseek-chat"
         else:
             self.api_base = api_base or "https://api.minimax.chat/v1"
-            self.model = model or "MiniMax-M2.5"
+            self.model = model or "MiniMax-M2.7"
 
         #  provider 
         self._client: LLMClientBase
@@ -139,7 +139,7 @@ def create_client(
     
     Example:
         >>> client = create_client()
-        >>> client = create_client(model="MiniMax-M2.5")
+        >>> client = create_client(model="MiniMax-M2.7")
     """
     import os
     

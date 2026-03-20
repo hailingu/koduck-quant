@@ -1,5 +1,9 @@
 // Aura AI Command Center Page
 import { useState, useRef, useEffect } from 'react'
+import { flushSync } from 'react-dom'
+import ReactMarkdown from 'react-markdown'
+import { chatStream, AI_MODELS, type ChatMessage } from '@/api/ai'
+import { useToast } from '@/hooks/useToast'
 
 // Types
 interface Message {
@@ -7,6 +11,7 @@ interface Message {
   role: 'user' | 'assistant'
   content: string
   timestamp: string
+  isStreaming?: boolean
 }
 
 interface FlowItem {
@@ -16,7 +21,7 @@ interface FlowItem {
   time: string
 }
 
-// Mock data
+// Mock data for market display
 const MOCK_FLOWS: FlowItem[] = [
   { source: 'Pool_X92', asset: '$WETH', amount: '1,240.00', time: 'Just Now' },
   { source: 'Vault_Gamma', asset: '$USDC', amount: '500,000.00', time: '2m ago' },
@@ -29,20 +34,8 @@ const INITIAL_MESSAGES: Message[] = [
   {
     id: '1',
     role: 'assistant',
-    content: 'Welcome back. I have detected an unusual liquidity concentration in the Arbitrum-Lido pool. Market volatility is projected to increase by 4.2% in the next hour.',
+    content: 'Welcome back. I am Aura, your AI trading assistant. I can help you analyze stocks, assess risks, recommend strategies, and interpret market data. How can I assist you today?',
     timestamp: '10:24 AM'
-  },
-  {
-    id: '2',
-    role: 'user',
-    content: 'Analyze the risk factor for a 50k injection into that pool.',
-    timestamp: '10:25 AM'
-  },
-  {
-    id: '3',
-    role: 'assistant',
-    content: 'Calculating risk metrics... Based on current volatility (14.2%) and pool depth ($2.4M), a 50k injection carries moderate risk. Recommended entry: stagger over 4 tranches to minimize slippage.',
-    timestamp: '10:25 AM'
   }
 ]
 
@@ -132,7 +125,22 @@ function ChatMessage({ message }: { message: Message }) {
               : 'bg-fluid-surface-container rounded-tl-none border border-fluid-outline-variant/5 text-fluid-text'
           }`}
         >
-          {message.content}
+          {isUser ? (
+            message.content
+          ) : (
+            <div className="prose prose-invert prose-sm max-w-none">
+              <ReactMarkdown>
+                {message.content}
+              </ReactMarkdown>
+            </div>
+          )}
+          {message.isStreaming && (
+            <span className="inline-flex ml-1">
+              <span className="w-1.5 h-1.5 bg-fluid-primary rounded-full animate-bounce" />
+              <span className="w-1.5 h-1.5 bg-fluid-primary rounded-full animate-bounce ml-0.5" style={{ animationDelay: '0.2s' }} />
+              <span className="w-1.5 h-1.5 bg-fluid-primary rounded-full animate-bounce ml-0.5" style={{ animationDelay: '0.4s' }} />
+            </span>
+          )}
         </div>
         <span className={`text-[10px] font-mono-data text-fluid-text-dim mt-2 block uppercase ${isUser ? 'text-right' : ''}`}>
           {isUser ? 'You' : 'Aura'} • {message.timestamp}
@@ -164,6 +172,7 @@ export default function AICommandCenter() {
   const [input, setInput] = useState('')
   const [isTyping, setIsTyping] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
+  const { showToast } = useToast()
   
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -173,32 +182,91 @@ export default function AICommandCenter() {
     scrollToBottom()
   }, [messages, isTyping])
   
-  const handleSend = () => {
+  const handleSend = async () => {
     if (!input.trim()) return
+    
+    const timestamp = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     
     // Add user message
     const userMessage: Message = {
       id: Date.now().toString(),
       role: 'user',
       content: input,
-      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      timestamp
     }
     
     setMessages(prev => [...prev, userMessage])
     setInput('')
     setIsTyping(true)
     
-    // Simulate AI response
-    setTimeout(() => {
-      const aiMessage: Message = {
-        id: (Date.now() + 1).toString(),
+    // Prepare chat history for API
+    const chatHistory: ChatMessage[] = messages.map(m => ({
+      role: m.role,
+      content: m.content
+    }))
+    chatHistory.push({ role: 'user', content: input })
+    
+    try {
+      // Create assistant message placeholder
+      const assistantMessageId = (Date.now() + 1).toString()
+      setMessages(prev => [...prev, {
+        id: assistantMessageId,
         role: 'assistant',
-        content: 'I\'ve analyzed your query. Based on current market conditions and liquidity data, I recommend monitoring the Tech sector closely. There are early signals of potential divergence forming.',
-        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+        content: '',
+        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        isStreaming: true
+      }])
+      
+      // Call SSE streaming API - use local ref for immediate updates
+      const contentRef = { current: '' }
+      const messageIdRef = { current: assistantMessageId }
+      
+      // Update every 16ms (60fps) for smooth typing effect
+      let lastUpdate = 0
+      const updateMessage = (content: string, isDone: boolean = false) => {
+        const now = Date.now()
+        if (isDone || now - lastUpdate > 16) {
+          lastUpdate = now
+          // Use flushSync for immediate DOM update
+          flushSync(() => {
+            setMessages(prev => prev.map(m => 
+              m.id === messageIdRef.current 
+                ? { ...m, content, isStreaming: !isDone }
+                : m
+            ))
+          })
+        }
       }
-      setMessages(prev => [...prev, aiMessage])
+      
+      for await (const chunk of chatStream({ 
+        provider: 'minimax',
+        model: AI_MODELS.MINIMAX_M2_7,
+        messages: chatHistory 
+      })) {
+        if (chunk.type === 'delta') {
+          contentRef.current += (chunk.data as { content: string }).content
+          updateMessage(contentRef.current)
+        } else if (chunk.type === 'done') {
+          // Final update with complete content
+          flushSync(() => {
+            setMessages(prev => prev.map(m => 
+              m.id === messageIdRef.current 
+                ? { ...m, content: contentRef.current, isStreaming: false }
+                : m
+            ))
+          })
+        } else if (chunk.type === 'error') {
+          showToast(`AI Error: ${(chunk.data as { message: string }).message}`, 'error')
+          setMessages(prev => prev.filter(m => m.id !== messageIdRef.current))
+        }
+      }
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : 'Failed to get AI response', 'error')
+      // Remove the placeholder message on error
+      setMessages(prev => prev.filter(m => m.id !== (Date.now() + 1).toString()))
+    } finally {
       setIsTyping(false)
-    }, 2000)
+    }
   }
   
   const handleQuickAction = (action: string) => {
@@ -305,10 +373,12 @@ export default function AICommandCenter() {
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && handleSend()}
+              disabled={isTyping}
             />
             <button 
               onClick={handleSend}
-              className="absolute right-3 top-1/2 -translate-y-1/2 w-10 h-10 bg-fluid-primary text-fluid-surface-container-lowest rounded-lg flex items-center justify-center shadow-lg shadow-fluid-primary/20 hover:shadow-glow-primary active:scale-95 transition-all"
+              disabled={isTyping || !input.trim()}
+              className="absolute right-3 top-1/2 -translate-y-1/2 w-10 h-10 bg-fluid-primary text-fluid-surface-container-lowest rounded-lg flex items-center justify-center shadow-lg shadow-fluid-primary/20 hover:shadow-glow-primary active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <span className="material-symbols-outlined">send</span>
             </button>

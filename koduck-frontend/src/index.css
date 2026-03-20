@@ -63,10 +63,10 @@ body {
    ============================================ */
 @layer components {
   .glass-panel {
-    background: rgba(25, 28, 34, 0.6);
+    background: rgba(29, 32, 38, 0.6);
     backdrop-filter: blur(20px);
     -webkit-backdrop-filter: blur(20px);
-    border: 1px solid rgba(58, 73, 75, 0.3);
+    border: 1px solid rgba(58, 73, 75, 0.1);
     border-radius: 0.5rem;
   }
   

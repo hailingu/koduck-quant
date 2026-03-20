@@ -12,6 +12,7 @@ import FundFlowAnalysis from '@/pages/FundFlowAnalysis'
 import SectorNetwork from '@/pages/SectorNetwork'
 import HistoryPlayback from '@/pages/HistoryPlayback'
 import AICommandCenter from '@/pages/AICommandCenter'
+import Profile from '@/pages/Profile'
 
 // Protected Route wrapper
 function ProtectedRoute() {
@@ -49,6 +50,7 @@ export const router = createBrowserRouter([
           { path: '/portfolio', element: <Portfolio /> },
           { path: '/ai', element: <AICommandCenter /> },
           { path: '/settings', element: <Settings /> },
+          { path: '/profile', element: <Profile /> },
         ],
       },
     ],

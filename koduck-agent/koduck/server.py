@@ -130,12 +130,12 @@ def get_api_base_for_provider(provider: str) -> str:
         return os.getenv("LLM_API_BASE") or ""
 
 
-def _build_client_cache_key(provider: str, api_key: str, api_base: str) -> str:
-    digest = hashlib.sha256(f"{provider}|{api_key}|{api_base}".encode("utf-8")).hexdigest()[:16]
+def _build_client_cache_key(provider: str, api_key: str, api_base: str, model: str = "") -> str:
+    digest = hashlib.sha256(f"{provider}|{api_key}|{api_base}|{model}".encode("utf-8")).hexdigest()[:16]
     return f"{provider}:{digest}"
 
 
-def get_client(provider: str, api_key_override: str | None = None, api_base_override: str | None = None) -> Any:
+def get_client(provider: str, api_key_override: str | None = None, api_base_override: str | None = None, model_override: str | None = None) -> Any:
     """."""
     if api_key_override is None:
         resolved_api_key = get_api_key_for_provider(provider)
@@ -143,7 +143,7 @@ def get_client(provider: str, api_key_override: str | None = None, api_base_over
         # （）
         resolved_api_key = (api_key_override or "").strip()
     resolved_api_base = (api_base_override or "").strip() or get_api_base_for_provider(provider)
-    cache_key = _build_client_cache_key(provider, resolved_api_key, resolved_api_base)
+    cache_key = _build_client_cache_key(provider, resolved_api_key, resolved_api_base, model_override or "")
 
     logger.info(f"[get_client] : provider={provider}, cached={cache_key in _clients}")
     if cache_key not in _clients:
@@ -162,7 +162,7 @@ def get_client(provider: str, api_key_override: str | None = None, api_base_over
         logger.info(f"[get_client] API Base: provider={provider}, api_base={api_base}")
         
         try:
-            _clients[cache_key] = create_client(api_key=api_key, provider=provider, api_base=api_base)
+            _clients[cache_key] = create_client(api_key=api_key, provider=provider, api_base=api_base, model=model_override or "")
             logger.info(f"[get_client] : provider={provider}")
         except ValueError as e:
             logger.error(f"[get_client] : provider={provider}, error={e}")
@@ -227,6 +227,7 @@ class SimpleChatRequest(BaseModel):
     """（）."""
     messages: list[ChatMessage] = Field(..., description="消息列表")
     provider: str = Field("minimax", description="LLM 提供商")
+    model: str | None = Field(None, description="可选：模型名称，默认使用提供商默认模型")
     apiKey: str | None = Field(None, description="可选：覆盖环境变量的 API Key")
     apiBase: str | None = Field(None, description="可选：覆盖环境变量的 API Base URL")
 
@@ -369,6 +370,7 @@ async def list_models():
     for provider in LLMProvider:
         if provider == LLMProvider.MINIMAX:
             models.extend([
+                {"id": "MiniMax-M2.7", "provider": "minimax", "name": "MiniMax M2.7"},
                 {"id": "MiniMax-M2.5", "provider": "minimax", "name": "MiniMax M2.5"},
                 {"id": "MiniMax-Text-01", "provider": "minimax", "name": "MiniMax Text-01"},
                 {"id": "MiniMax-M1", "provider": "minimax", "name": "MiniMax M1"},
@@ -540,7 +542,7 @@ async def simple_chat(request: SimpleChatRequest):
         "data": {
             "content": "回复内容",
             "provider": "minimax",
-            "model": "MiniMax-M2.5"
+            "model": "MiniMax-M2.7"
         }
     }
     ```
@@ -646,22 +648,17 @@ async def simple_chat_stream(request: SimpleChatRequest):
     
     async def event_generator():
         try:
-            client = get_client(request.provider, request.apiKey, request.apiBase)
+            client = get_client(request.provider, request.apiKey, request.apiBase, request.model)
             
             messages = _to_internal_messages(request.messages)
             
-            # 
+            # Send start event
             yield f"event: start\ndata: {json.dumps({'model': client.model, 'provider': request.provider})}\n\n"
             
-            # ， SSE delta
-            response = await _run_chat_with_tool_loop(
-                client,
-                messages,
-            )
-            full_content = response.content or ""
-            chunk_size = 24
-            for i in range(0, len(full_content), chunk_size):
-                delta = full_content[i:i + chunk_size]
+            # Use true streaming - call LLM with generate_stream
+            full_content = ""
+            async for delta in client.generate_stream(messages):
+                full_content += delta
                 yield f"event: delta\ndata: {json.dumps({'content': delta})}\n\n"
 
             yield f"event: done\ndata: {json.dumps({'content': full_content, 'model': client.model, 'provider': request.provider})}\n\n"

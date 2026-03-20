@@ -8,6 +8,37 @@ export default {
   theme: {
     extend: {
       colors: {
+        // Material Design 3 Color Tokens (from design spec)
+        'primary-container': '#00F2FF',
+        'on-primary-container': '#006A71',
+        'on-primary': '#00363A',
+        'surface-tint': '#00DBE7',
+        'primary-fixed': '#74F5FF',
+        'primary-fixed-dim': '#00DBE7',
+        'surface': '#10131A',
+        'on-surface': '#E1E2EB',
+        'on-surface-variant': '#B9CACB',
+        'surface-variant': '#32353C',
+        'surface-container': '#1D2026',
+        'surface-container-low': '#191C22',
+        'surface-container-lowest': '#0B0E14',
+        'surface-container-high': '#272A31',
+        'surface-dim': '#10131A',
+        'surface-bright': '#363940',
+        'outline': '#849495',
+        'outline-variant': '#3A494B',
+        'secondary': '#FFB3B5',
+        'secondary-container': '#DE0541',
+        'on-secondary': '#680019',
+        'on-secondary-container': '#FFF1F1',
+        'error': '#FFB4AB',
+        'on-error': '#690005',
+        'error-container': '#93000A',
+        'tertiary': '#FFF6E4',
+        'tertiary-container': '#FFD81D',
+        'on-tertiary-container': '#715E00',
+        'background': '#10131A',
+        'on-background': '#E1E2EB',
         // The Fluid Ledger Design System
         'fluid': {
           // Primary - Cyan (Water)
@@ -77,5 +108,7 @@ export default {
       },
     },
   },
-  plugins: [],
+  plugins: [
+    require('@tailwindcss/typography'),
+  ],
 }

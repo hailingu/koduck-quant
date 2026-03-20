@@ -32,6 +32,7 @@ class MiniMaxClient(LLMClientBase):
 
     # 
     SUPPORTED_MODELS = [
+        "MiniMax-M2.7",
         "MiniMax-M2.5",
         "MiniMax-Text-01",
         "MiniMax-M1",
@@ -43,7 +44,7 @@ class MiniMaxClient(LLMClientBase):
         self,
         api_key: str,
         api_base: str = "https://api.minimax.chat/v1",
-        model: str = "MiniMax-M2.5",
+        model: str = "MiniMax-M2.7",
         retry_config: RetryConfig | None = None,
         temperature: float = 0.7,
         max_tokens: int | None = None,
@@ -54,7 +55,7 @@ class MiniMaxClient(LLMClientBase):
         Args:
             api_key: MiniMax API 密钥
             api_base: API 基础 URL (默认: https://api.minimax.chat/v1)
-            model: 模型名称 (默认: MiniMax-Text-01)
+            model: 模型名称 (默认: MiniMax-M2.7)
             retry_config: 可选的重试配置
             temperature: 采样温度 (0-2, 默认 0.7)
             max_tokens: 最大生成 token 数 (默认 None)
@@ -168,8 +169,8 @@ class MiniMaxClient(LLMClientBase):
             "messages": api_messages,
             "temperature": self.temperature,
             "top_p": self.top_p,
-            # MiniMax  reasoning_split 
-            "extra_body": {"reasoning_split": True} if "M2.5" in self.model or "M1" in self.model else {},
+            # MiniMax M2.7/M2.5/M1  reasoning_split 
+            "extra_body": {"reasoning_split": True} if any(m in self.model for m in ["M2.7", "M2.5", "M1"]) else {}
         }
         
         if self.max_tokens:
@@ -328,10 +329,13 @@ class MiniMaxClient(LLMClientBase):
             async for chunk in stream:
                 delta = chunk.choices[0].delta if chunk.choices else None
                 if delta and delta.content:
-                    logger.debug(f"[MiniMax] : {delta.content[:50]}..." if len(delta.content) > 50 else f"[MiniMax] : {delta.content}")
-                    yield delta.content
+                    content = delta.content
+                    logger.debug(f"[MiniMax] : {content[:50]}..." if len(content) > 50 else f"[MiniMax] : {content}")
+                    # Yield character by character for smooth typing effect
+                    for char in content:
+                        yield char
                 
-                # 
+                # Stop on finish
                 if chunk.choices and chunk.choices[0].finish_reason:
                     logger.info(f"[MiniMax] : finish_reason={chunk.choices[0].finish_reason}")
                     break

@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Profile Settings | Fluid Ledger</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&amp;family=Inter:wght@300;400;500;600&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "surface-container-lowest": "#0b0e14",
+                        "surface-container": "#1d2026",
+                        "secondary": "#ffb3b5",
+                        "surface-container-high": "#272a31",
+                        "on-primary-fixed-variant": "#004f54",
+                        "on-tertiary-container": "#715e00",
+                        "on-primary-container": "#006a71",
+                        "on-secondary": "#680019",
+                        "secondary-container": "#de0541",
+                        "primary-fixed-dim": "#00dbe7",
+                        "on-error": "#690005",
+                        "primary": "#e1fdff",
+                        "surface-dim": "#10131a",
+                        "on-primary-fixed": "#002022",
+                        "surface-variant": "#32353c",
+                        "on-tertiary": "#3a3000",
+                        "outline-variant": "#3a494b",
+                        "error": "#ffb4ab",
+                        "surface-tint": "#00dbe7",
+                        "background": "#10131a",
+                        "secondary-fixed": "#ffdada",
+                        "primary-container": "#00f2ff",
+                        "on-error-container": "#ffdad6",
+                        "tertiary-container": "#ffd81d",
+                        "tertiary": "#fff6e4",
+                        "inverse-primary": "#00696f",
+                        "primary-fixed": "#74f5ff",
+                        "on-tertiary-fixed": "#221b00",
+                        "on-background": "#e1e2eb",
+                        "inverse-on-surface": "#2e3037",
+                        "tertiary-fixed-dim": "#e9c400",
+                        "secondary-fixed-dim": "#ffb3b5",
+                        "outline": "#849495",
+                        "on-surface": "#e1e2eb",
+                        "inverse-surface": "#e1e2eb",
+                        "on-tertiary-fixed-variant": "#544600",
+                        "on-secondary-fixed": "#40000c",
+                        "on-secondary-fixed-variant": "#920027",
+                        "on-surface-variant": "#b9cacb",
+                        "on-secondary-container": "#fff1f1",
+                        "surface": "#10131a",
+                        "surface-bright": "#363940",
+                        "tertiary-fixed": "#ffe16d",
+                        "error-container": "#93000a",
+                        "surface-container-highest": "#32353c",
+                        "on-primary": "#00363a",
+                        "surface-container-low": "#191c22"
+                    },
+                    fontFamily: {
+                        "headline": ["Space Grotesk"],
+                        "body": ["Inter"],
+                        "label": ["Inter"],
+                        "mono": ["JetBrains Mono"]
+                    },
+                    borderRadius: {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                },
+            },
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .glass-panel {
+            background: rgba(29, 32, 38, 0.6);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+        }
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+    </style>
+</head>
+<body class="bg-background text-on-surface font-body selection:bg-primary-container selection:text-on-primary-container min-h-screen">
+<!-- TopNavBar -->
+<nav class="bg-[#10131A] dark:bg-[#10131A] docked full-width top-0 sticky z-50 shadow-[0_20px_40px_rgba(225,253,255,0.08)]">
+<div class="flex justify-between items-center w-full px-6 py-3">
+<div class="flex items-center gap-8">
+<span class="text-xl font-bold tracking-tighter text-[#00F2FF] font-['Space_Grotesk']">Fluid Ledger</span>
+<div class="hidden md:flex items-center gap-6 font-['Space_Grotesk'] tracking-tight">
+<a class="text-[#849495] hover:text-[#E1E2EB] transition-colors" href="#">Terminal</a>
+<a class="text-[#849495] hover:text-[#E1E2EB] transition-colors" href="#">Markets</a>
+<a class="text-[#849495] hover:text-[#E1E2EB] transition-colors" href="#">Liquidity</a>
+<a class="text-[#849495] hover:text-[#E1E2EB] transition-colors" href="#">Vaults</a>
+</div>
+</div>
+<div class="flex items-center gap-4">
+<button class="p-2 text-[#849495] hover:bg-[#1D2026] transition-all duration-200 rounded-lg active:scale-95">
+<span class="material-symbols-outlined">notifications</span>
+</button>
+<button class="p-2 text-[#849495] hover:bg-[#1D2026] transition-all duration-200 rounded-lg active:scale-95">
+<span class="material-symbols-outlined">settings</span>
+</button>
+<div class="w-8 h-8 rounded-full overflow-hidden border-2 border-[#00F2FF] cursor-pointer hover:opacity-80 transition-opacity">
+<img alt="User profile avatar" data-alt="Close up portrait of a digital professional user" src="https://lh3.googleusercontent.com/aida-public/AB6AXuB2siTJi3ag1zu7PlEE9uP4HlqLid5R7BGWEQvHTO7EEbKJa8xEq0mMS6n-J9EDS99VxLq5x4OAhGHSH94PzbtpIPnCh3avbT_bmMdpBtEU4VeVMOWEeAUIZmdfXi1SkaI5ymJnyEilgI7rC6DXRz8NAWg8PYAODeT0IDHHfcD2hQzYVnZtEOcBD9_x13g56FA-XcJnR-e-j6tCjkY6J1WQGg9d0dPm4L5Ex40hQLPt4c1guZmXyl6N3D_2o4ovtZ-oBKUwbe5K4eU"/>
+</div>
+</div>
+</div>
+</nav>
+<!-- Main Content Canvas -->
+<main class="flex-1 min-h-[calc(100vh-64px)] p-8 lg:p-12 max-w-7xl mx-auto w-full">
+<!-- Header Section -->
+<header class="mb-12">
+<h1 class="text-4xl md:text-5xl font-headline font-bold tracking-tighter text-on-surface mb-2">Profile Settings</h1>
+<p class="text-outline font-body max-w-2xl">Configure your kinetic identity and communication preferences across the Fluid ecosystem.</p>
+</header>
+<div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
+<!-- Left Column: Avatar and Quick Stats -->
+<div class="lg:col-span-4 space-y-8">
+<section class="glass-panel p-8 border border-outline-variant/10 rounded-lg">
+<div class="flex flex-col items-center">
+<div class="relative group cursor-pointer">
+<div class="w-32 h-32 rounded-full overflow-hidden border-2 border-primary-container p-1 bg-surface-container">
+<img alt="Avatar Preview" class="w-full h-full rounded-full object-cover grayscale group-hover:grayscale-0 transition-all duration-500" data-alt="Professional male avatar with focused expression" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAdYLcacS_TThNufzM31ZEH7GnGUrq23VWK6qCorLOak5XOsdU-bc1YzbfP3ZX5iSgZGLVGe0ELalr16AB-O43hy9UHZm1SesT3UNiO1BgLLogaR8MjHijyqI0QzN2ht9ZGxY2wtITNj2SmOCHFzTHHyO9gB3XMXd0al9P_cEW7gHO2Ehd85qV0NfEeLaDP10teQ_-dcCwVdCx4bn2yt0GTwugBQ5V-gsixXPBg0fvvhBWPkeYLiVxg0gJjsfygZx3Q3WW0y1vPyFo"/>
+</div>
+<div class="absolute inset-0 flex items-center justify-center bg-black/40 rounded-full opacity-0 group-hover:opacity-100 transition-opacity">
+<span class="material-symbols-outlined text-primary-container text-3xl">add_a_photo</span>
+</div>
+</div>
+<div class="mt-6 w-full text-center">
+<button class="w-full py-2 border border-outline/20 hover:border-primary/40 hover:bg-primary/5 transition-all text-on-surface font-headline font-medium text-sm mb-3">
+                                Upload New Avatar
+                            </button>
+<p class="text-[10px] font-mono text-outline uppercase tracking-wider mb-4">DRAG &amp; DROP SUPPORT • MAX 2MB</p>
+<button class="text-secondary text-xs font-headline font-medium hover:underline">Remove Image</button>
+</div>
+</div>
+</section>
+<section class="bg-surface-container-low p-6 rounded-lg space-y-4">
+<div class="flex justify-between items-center">
+<span class="text-[10px] font-mono text-outline uppercase">Liquidity Tier</span>
+<span class="text-[10px] font-mono text-primary-container uppercase px-2 py-0.5 bg-primary-container/10 rounded-full">Whale Class</span>
+</div>
+<div class="h-1 bg-surface-variant w-full rounded-full overflow-hidden">
+<div class="h-full bg-primary-container w-3/4"></div>
+</div>
+<p class="text-xs text-on-surface-variant leading-relaxed">Identity verification status: <span class="text-primary-fixed">Verified</span></p>
+</section>
+</div>
+<!-- Right Column: Forms -->
+<div class="lg:col-span-8 space-y-8">
+<!-- Personal Info -->
+<section class="glass-panel p-8 border border-outline-variant/10 rounded-lg">
+<h2 class="text-xl font-headline font-bold text-on-surface mb-8 border-b border-outline-variant/20 pb-4">Personal Information</h2>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+<!-- Username Field -->
+<div class="space-y-2">
+<label class="text-[10px] font-mono text-outline uppercase tracking-widest flex justify-between">
+                                Username <span class="text-secondary-container">*</span>
+</label>
+<div class="relative">
+<input class="w-full bg-surface-container-lowest border-none focus:ring-1 focus:ring-primary-container text-on-surface font-mono py-3 px-4 transition-all" type="text" value="fluid_trader_88"/>
+<span class="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 text-primary-container text-sm">check_circle</span>
+</div>
+<p class="text-[10px] text-outline-variant italic">Unique identifier within the ledger.</p>
+</div>
+<!-- Email Field -->
+<div class="space-y-2">
+<label class="text-[10px] font-mono text-outline uppercase tracking-widest">Email Address</label>
+<div class="flex items-center gap-3">
+<div class="relative flex-1">
+<input class="w-full bg-surface-container-lowest border-none focus:ring-1 focus:ring-primary-container text-on-surface font-mono py-3 px-4 transition-all opacity-80" type="email" value="alex.rivera@quantum.io"/>
+</div>
+<span class="px-2 py-1 bg-primary-container/10 text-primary-container text-[10px] font-mono uppercase rounded-sm border border-primary-container/20">Bound</span>
+</div>
+</div>
+<!-- Phone Number Field -->
+<div class="space-y-2 md:col-span-2">
+<label class="text-[10px] font-mono text-outline uppercase tracking-widest">Phone Number</label>
+<div class="flex items-center gap-3">
+<div class="flex items-center gap-2 bg-surface-container-lowest px-4 py-3 min-w-[100px] cursor-pointer hover:bg-surface-container transition-colors">
+<span class="material-symbols-outlined text-sm">flag</span>
+<span class="font-mono text-sm">+1</span>
+<span class="material-symbols-outlined text-xs">expand_more</span>
+</div>
+<div class="relative flex-1">
+<input class="w-full bg-surface-container-lowest border-none focus:ring-1 focus:ring-primary-container text-on-surface font-mono py-3 px-4 transition-all" type="tel" value="555-012-3456"/>
+</div>
+<span class="px-2 py-1 bg-surface-container text-outline text-[10px] font-mono uppercase rounded-sm border border-outline-variant/10">Unbound</span>
+</div>
+</div>
+</div>
+</section>
+<!-- Bio Section -->
+<section class="glass-panel p-8 border border-outline-variant/10 rounded-lg">
+<h2 class="text-xl font-headline font-bold text-on-surface mb-8 border-b border-outline-variant/20 pb-4">Biographic Profile</h2>
+<div class="space-y-2">
+<label class="text-[10px] font-mono text-outline uppercase tracking-widest flex justify-between">
+                            Bio <span class="text-outline-variant font-normal">84 / 200</span>
+</label>
+<textarea class="w-full bg-surface-container-lowest border-none focus:ring-1 focus:ring-primary-container text-on-surface font-body p-4 transition-all resize-none" placeholder="Enter your financial bio..." rows="4">Quantitative analyst specialized in high-frequency liquidity pools and neutral delta vault management. Tracking the flow since 2018.</textarea>
+<p class="text-[10px] text-outline-variant leading-relaxed">This text will be visible to other operators in terminal views.</p>
+</div>
+</section>
+<!-- Sticky Bottom Actions -->
+<div class="flex flex-col sm:flex-row items-center justify-end gap-4 pt-8">
+<button class="w-full sm:w-auto px-8 py-3 text-on-surface-variant font-headline font-semibold hover:text-on-surface transition-colors">
+                        Cancel Changes
+                    </button>
+<button class="w-full sm:w-64 py-3 bg-gradient-to-r from-primary-container to-surface-tint text-on-primary font-bold font-headline uppercase tracking-widest relative overflow-hidden group active:scale-[0.98] transition-transform">
+<span class="relative z-10 flex items-center justify-center gap-2">
+<span class="material-symbols-outlined text-sm animate-spin" style="display: none;">progress_activity</span>
+                            Save Configuration
+                        </span>
+<div class="absolute inset-0 bg-white/20 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700 ease-in-out"></div>
+</button>
+</div>
+</div>
+</div>
+<!-- Footer Meta -->
+<footer class="mt-20 py-8 border-t border-outline-variant/10 text-center">
+<div class="flex justify-center items-center gap-4 text-outline-variant font-mono text-[10px] uppercase tracking-[0.2em]">
+<span>Node Status: Nominal</span>
+<span class="w-1 h-1 bg-primary-container rounded-full"></span>
+<span>Last Synced: 0.4s ago</span>
+<span class="w-1 h-1 bg-primary-container rounded-full"></span>
+<span>System Version 4.2.0-FLUID</span>
+</div>
+</footer>
+</main>
+</body></html>
