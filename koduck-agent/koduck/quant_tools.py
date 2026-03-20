@@ -418,6 +418,37 @@ def get_tool_definition(name: str) -> ToolDefinition | None:
     return TOOL_REGISTRY.get(name)
 
 
+def list_discovered_skills() -> list[dict[str, Any]]:
+    """Return discovered skills for API/console usage."""
+    skills: list[dict[str, Any]] = []
+    for tool in get_tool_definitions():
+        if not tool.name.startswith("run_skill_"):
+            continue
+        skill_name = tool.name.removeprefix("run_skill_")
+        skills.append(
+            {
+                "tool_name": tool.name,
+                "skill_name": skill_name,
+                "description": tool.description,
+                "risk_level": tool.policy.risk_level.value,
+            }
+        )
+    return skills
+
+
+async def run_skill_command(skill_name: str, command: str, args: dict[str, Any] | None = None) -> str:
+    """Execute one discovered skill by logical skill name."""
+    normalized = _normalize_skill_name(skill_name)
+    tool_name = f"run_skill_{normalized}"
+    return await execute_tool(
+        tool_name,
+        {
+            "command": command,
+            "args": args or {},
+        },
+    )
+
+
 async def _get_quant_signal(arguments: dict[str, Any]) -> str:
     symbol = str(arguments.get("symbol", "")).strip()
     market = str(arguments.get("market", "AShare")).strip() or "AShare"

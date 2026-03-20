@@ -29,6 +29,8 @@ from koduck.schema import FunctionCall, LLMProvider, Message, ToolCall
 from koduck.quant_tools import (
     QUANT_TOOL_DEFS,
     execute_tool,
+    list_discovered_skills,
+    run_skill_command,
 )
 from koduck.tool_policy import append_tool_audit, can_execute_tool, read_tool_audits
 
@@ -258,6 +260,14 @@ class ApiResponseWrapper(BaseModel):
     code: int = Field(0, description="响应码，0 表示成功")
     message: str = Field("success", description="响应消息")
     data: SimpleChatData = Field(..., description="响应数据")
+
+
+class SkillRunRequest(BaseModel):
+    """Manual skill run request."""
+
+    skill: str = Field(..., description="Skill name, e.g. demo_skill")
+    command: str = Field(..., description="Skill command")
+    args: dict[str, Any] | None = Field(None, description="Optional command args")
 
 
 def _to_internal_messages(messages: list[ChatMessage]) -> list[Message]:
@@ -611,6 +621,23 @@ async def list_tool_audits(limit: int = 100):
 async def get_agent_roles():
     """Return built-in role profiles for runtime role switching."""
     return {"data": list_roles()}
+
+
+@app.get("/api/v1/skills", tags=["Skills"])
+async def get_skills():
+    """List discovered skills."""
+    return {"data": list_discovered_skills()}
+
+
+@app.post("/api/v1/skills/run", tags=["Skills"])
+async def run_skill(request: SkillRunRequest):
+    """Run one discovered skill command manually."""
+    result = await run_skill_command(
+        skill_name=request.skill,
+        command=request.command,
+        args=request.args or {},
+    )
+    return {"data": json.loads(result)}
 
 
 @app.post("/v1/chat/completions", response_model=ChatCompletionResponse, tags=["Chat"])
