@@ -66,7 +66,7 @@ interface MoneyFlowRiverProps {
 export default function MoneyFlowRiver({ width = 800, height = 400 }: MoneyFlowRiverProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const particlesRef = useRef<FlowParticle[]>([])
-  const animationRef = useRef<number>()
+  const animationRef = useRef<number | undefined>(undefined)
   const [data] = useState<FundFlowData[]>(generateMockData())
   const [selectedLayer, setSelectedLayer] = useState<'all' | 'main' | 'retail' | 'northbound'>('all')
   const [isPlaying, setIsPlaying] = useState(true)

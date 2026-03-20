@@ -15,6 +15,7 @@ interface AuthState {
   isAuthenticated: boolean
   setToken: (token: string) => void
   setUser: (user: User) => void
+  login: (credentials: { username: string; password: string }) => Promise<void>
   logout: () => void
 }
 
@@ -26,6 +27,15 @@ export const useAuthStore = create<AuthState>()(
       isAuthenticated: false,
       setToken: (token) => set({ token, isAuthenticated: true }),
       setUser: (user) => set({ user }),
+      login: async (credentials) => {
+        // Mock login - simulate API call
+        await new Promise(resolve => setTimeout(resolve, 500))
+        set({
+          token: 'mock-token-' + Date.now(),
+          user: { id: 1, username: credentials.username },
+          isAuthenticated: true
+        })
+      },
       logout: () => set({ token: null, user: null, isAuthenticated: false }),
     }),
     {

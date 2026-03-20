@@ -1,200 +1,245 @@
-import { useEffect, useState, useCallback } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { marketApi, type MarketIndex, type SymbolInfo } from '@/api/market'
-import { useToast } from '@/hooks/useToast'
+// Market Dashboard Page
+import SentimentRadar from '@/components/SentimentRadar'
 
-// 
-function IndexCard({ index, loading }: { index: MarketIndex; loading: boolean }) {
-  // ， null/undefined
-  const price = index.price ?? 0
-  const change = index.change ?? 0
-  const changePercent = index.changePercent ?? 0
-  
-  const isUp = change >= 0
-  const colorClass = isUp ? 'text-stock-up' : 'text-stock-down'
-  const bgClass = isUp ? 'bg-stock-up/10' : 'bg-stock-down/10'
+// Big Order Alert Component
+function BigOrderAlert() {
+  const orders = [
+    { symbol: 'NVDA.US', type: 'buy', amount: '$2.4M', time: '14:23:45', typeLabel: 'BLOCK ORDER' },
+    { symbol: 'TSLA.US', type: 'sell', amount: '$1.8M', time: '14:23:12', typeLabel: 'DARK POOL' },
+    { symbol: 'AAPL.US', type: 'buy', amount: '$5.1M', time: '14:22:58', typeLabel: 'ICEBERG' },
+  ]
 
   return (
-    <div className="bg-white dark:bg-gray-800 p-4 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
-      <div className="flex items-center justify-between mb-2">
-        <span className="text-sm font-medium text-gray-600 dark:text-gray-400">{index.name}</span>
-        <span className={`text-xs px-2 py-1 rounded ${bgClass} ${colorClass}`}>
-          {index.symbol}
-        </span>
+    <div className="glass-panel p-5 rounded-xl">
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="font-headline font-bold text-sm text-fluid-text">Big Order Alert</h3>
+        <span className="px-2 py-0.5 rounded bg-fluid-primary/10 text-fluid-primary text-[10px] font-mono-data">LIVE</span>
       </div>
-      {loading ? (
-        <div className="animate-pulse">
-          <div className="h-7 bg-gray-200 dark:bg-gray-700 rounded w-24 mb-2"></div>
-          <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-16"></div>
+      <div className="space-y-2">
+        {orders.map((order, idx) => (
+          <div key={idx} className="flex items-center gap-3 p-2 rounded-lg hover:bg-fluid-surface-high/50 transition-colors">
+            <span className={`material-symbols-outlined text-sm ${order.type === 'buy' ? 'text-fluid-primary' : 'text-fluid-secondary'}`}>
+              {order.type === 'buy' ? 'rocket_launch' : 'trending_down'}
+            </span>
+            <div className="flex-1">
+              <div className="flex justify-between text-[11px] font-mono-data">
+                <span className="text-fluid-text font-semibold">{order.symbol}</span>
+                <span className={order.type === 'buy' ? 'text-fluid-primary' : 'text-fluid-secondary'}>{order.amount} {order.type.toUpperCase()}</span>
+              </div>
+              <div className="text-[9px] text-fluid-text-dim">{order.time} • {order.typeLabel}</div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+// Warning System Component
+function WarningSystem() {
+  return (
+    <div className="glass-panel p-5 rounded-xl">
+      <h3 className="font-headline font-bold text-sm text-fluid-text mb-4">Warning System</h3>
+      
+      {/* Golden Pit Alert */}
+      <div className="relative group mb-3">
+        <div className="absolute -inset-0.5 bg-fluid-tertiary rounded-lg blur opacity-20 group-hover:opacity-40 transition duration-500" />
+        <div className="relative flex items-center gap-3 p-4 bg-fluid-surface-container-low rounded-lg border border-fluid-tertiary/30">
+          <span className="material-symbols-outlined text-fluid-tertiary animate-pulse">warning</span>
+          <div>
+            <h4 className="text-[11px] font-bold text-fluid-tertiary uppercase tracking-wider">Golden Pit Detected</h4>
+            <p className="text-[10px] text-fluid-text-muted leading-tight mt-0.5">Price drop on rising net inflow. Accumulation phase.</p>
+          </div>
         </div>
-      ) : (
-        <>
-          <div className="text-2xl font-bold text-gray-900 dark:text-white">
-            {price > 0 ? price.toFixed(2) : '--'}
+      </div>
+      
+      {/* False Breakout Alert */}
+      <div className="flex items-center gap-3 p-4 bg-fluid-surface-container-low rounded-lg border border-fluid-secondary/20">
+        <span className="material-symbols-outlined text-fluid-secondary">trending_down</span>
+        <div>
+          <h4 className="text-[11px] font-bold text-fluid-secondary uppercase tracking-wider">False Breakout</h4>
+          <p className="text-[10px] text-fluid-text-muted leading-tight mt-0.5">Price peak on cooling momentum. High reversal risk.</p>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// Northbound Flow Component
+function NorthboundFlow() {
+  const bars = [0.25, 0.33, 0.5, 1, 0.66, 0.5, 0.25]
+  
+  return (
+    <div className="glass-panel p-5 rounded-xl">
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="font-headline font-bold text-sm text-fluid-text">Northbound Flow</h3>
+        <span className="text-[10px] font-mono-data text-fluid-primary">+¥2.4B</span>
+      </div>
+      <div className="h-16 flex items-end gap-1">
+        {bars.map((h, i) => (
+          <div 
+            key={i} 
+            className={`flex-1 rounded-t-sm transition-all ${i === 3 ? 'bg-fluid-primary shadow-glow-primary' : 'bg-fluid-primary/30'}`}
+            style={{ height: `${h * 100}%` }}
+          />
+        ))}
+      </div>
+      <div className="flex justify-between mt-2 text-[8px] font-mono-data text-fluid-text-dim uppercase">
+        <span>Open</span>
+        <span>Mid-Day</span>
+        <span>Close</span>
+      </div>
+    </div>
+  )
+}
+
+// History Playback Mini Component
+function HistoryPlaybackMini() {
+  return (
+    <div className="glass-panel p-5 rounded-xl">
+      <h3 className="font-headline font-bold text-sm text-fluid-text mb-4 flex items-center gap-2">
+        <span className="material-symbols-outlined text-sm">history</span>
+        History Playback
+      </h3>
+      <div className="flex items-center justify-between bg-fluid-surface-container-low rounded-lg p-3">
+        <button className="material-symbols-outlined text-fluid-text-dim hover:text-fluid-primary transition-colors">fast_rewind</button>
+        <button className="material-symbols-outlined text-fluid-primary text-3xl hover:scale-110 transition-transform">play_circle</button>
+        <button className="material-symbols-outlined text-fluid-text-dim hover:text-fluid-primary transition-colors">fast_forward</button>
+      </div>
+      <div className="mt-4 flex flex-col gap-1">
+        <div className="flex justify-between text-[10px] font-mono-data text-fluid-text-dim">
+          <span>T-12h</span>
+          <span>Live</span>
+        </div>
+        <input 
+          type="range" 
+          className="w-full h-1 bg-fluid-surface-container rounded-lg appearance-none cursor-pointer accent-fluid-primary"
+          defaultValue={100}
+        />
+      </div>
+    </div>
+  )
+}
+
+// Market Breadth Heatmap
+function MarketBreadth() {
+  const bars = [
+    ...Array(10).fill('up'),
+    ...Array(4).fill('neutral'),
+    ...Array(6).fill('down')
+  ]
+  
+  return (
+    <div className="mt-4">
+      <div className="h-12 grid grid-cols-20 gap-0.5">
+        {bars.map((type, i) => {
+          const opacity = type === 'up' 
+            ? 1 - (i * 0.08)
+            : type === 'down'
+            ? 1 - ((19 - i) * 0.08)
+            : 0.3
+          return (
+            <div 
+              key={i} 
+              className={`h-full rounded-sm ${type === 'up' ? 'bg-fluid-primary' : type === 'down' ? 'bg-fluid-secondary' : 'bg-fluid-surface-container'}`}
+              style={{ opacity }}
+            />
+          )
+        })}
+      </div>
+      <div className="flex justify-between mt-1 text-[8px] font-mono-data text-fluid-text-dim uppercase tracking-wider">
+        <span>Max Gainers (+10%)</span>
+        <span>Sector Breadth Distribution</span>
+        <span>Max Losers (-10%)</span>
+      </div>
+    </div>
+  )
+}
+
+// Capital River Main Component
+function CapitalRiverMain() {
+  return (
+    <div className="flex-1 glass-panel rounded-xl p-6 flex flex-col relative overflow-hidden">
+      {/* Header */}
+      <div className="flex justify-between items-start mb-6 z-10">
+        <div>
+          <h2 className="font-headline font-bold text-2xl tracking-tight text-fluid-text">Capital River</h2>
+          <p className="text-xs text-fluid-text-muted font-mono-data mt-1">Real-time Fund Flow Dynamics</p>
+        </div>
+        <div className="flex gap-2">
+          <div className="bg-fluid-surface-container px-3 py-1.5 rounded-lg text-[10px] font-mono-data text-fluid-primary flex items-center gap-1.5">
+            <span className="w-1.5 h-1.5 rounded-full bg-fluid-primary shadow-glow-primary animate-pulse" />
+            INFLOW: $4.2B
           </div>
-          <div className={`flex items-center gap-1 text-sm ${colorClass}`}>
-            <span>{isUp ? '+' : ''}{change.toFixed(2)}</span>
-            <span>({isUp ? '+' : ''}{changePercent.toFixed(2)}%)</span>
+          <div className="bg-fluid-surface-container px-3 py-1.5 rounded-lg text-[10px] font-mono-data text-fluid-secondary flex items-center gap-1.5">
+            <span className="w-1.5 h-1.5 rounded-full bg-fluid-secondary shadow-glow-secondary" />
+            OUTFLOW: $2.1B
           </div>
-        </>
-      )}
+        </div>
+      </div>
+
+      {/* River Visual */}
+      <div className="flex-1 relative flex items-center justify-center min-h-[200px]">
+        {/* Background Gradient */}
+        <div className="absolute inset-0 bg-gradient-to-r from-transparent via-fluid-primary/5 to-transparent" />
+        
+        {/* Flow Particles */}
+        <div className="absolute inset-0 pointer-events-none">
+          <div className="absolute top-1/3 left-[15%] w-2 h-2 rounded-full bg-fluid-primary shadow-glow-primary opacity-80 animate-pulse" />
+          <div className="absolute top-1/2 left-[35%] w-3 h-3 rounded-full bg-fluid-primary shadow-glow-primary opacity-60 animate-pulse delay-75" />
+          <div className="absolute top-2/3 left-[60%] w-2 h-2 rounded-full bg-fluid-primary shadow-glow-primary opacity-90 animate-pulse delay-150" />
+          <div className="absolute top-1/3 left-[80%] w-4 h-4 rounded-full bg-fluid-primary shadow-glow-primary opacity-40 animate-pulse delay-200" />
+        </div>
+
+        {/* Data Nodes */}
+        <div className="absolute w-full h-full flex items-center justify-around px-8">
+          <div className="flex flex-col items-center group cursor-pointer">
+            <div className="w-16 h-16 rounded-2xl glass-panel flex flex-col items-center justify-center transition-all group-hover:scale-110 group-hover:border-fluid-primary/40">
+              <span className="text-[10px] font-mono-data text-fluid-primary">TECH</span>
+              <span className="text-sm font-bold text-fluid-text">+12%</span>
+            </div>
+          </div>
+          <div className="flex flex-col items-center group cursor-pointer">
+            <div className="w-24 h-24 rounded-2xl glass-panel border-fluid-primary/30 flex flex-col items-center justify-center transition-all group-hover:scale-110 group-hover:border-fluid-primary">
+              <span className="text-[10px] font-mono-data text-fluid-primary">FINANCE</span>
+              <span className="text-lg font-bold text-fluid-text">+28%</span>
+            </div>
+          </div>
+          <div className="flex flex-col items-center group cursor-pointer">
+            <div className="w-14 h-14 rounded-2xl glass-panel flex flex-col items-center justify-center transition-all group-hover:scale-110 group-hover:border-fluid-secondary/40">
+              <span className="text-[10px] font-mono-data text-fluid-secondary">ENERGY</span>
+              <span className="text-sm font-bold text-fluid-text">-4%</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Heatmap */}
+      <MarketBreadth />
     </div>
   )
 }
 
 export default function Market() {
-  const navigate = useNavigate()
-  const { showToast } = useToast()
-  const [loading, setLoading] = useState(true)
-  const [indices, setIndices] = useState<MarketIndex[]>([])
-  const [searchKeyword, setSearchKeyword] = useState('')
-  const [searchResults, setSearchResults] = useState<SymbolInfo[]>([])
-  const [searching, setSearching] = useState(false)
-
-  // 
-  const loadData = useCallback(async () => {
-    try {
-      setLoading(true)
-
-      const indicesRes = await marketApi.getMarketIndices()
-
-      setIndices(indicesRes || [])
-    } catch {
-      showToast('加载市场数据失败', 'error')
-    } finally {
-      setLoading(false)
-    }
-  }, [showToast])
-
-  // 
-  const handleSearch = useCallback(
-    async (keyword: string) => {
-      if (!keyword.trim()) {
-        setSearchResults([])
-        return
-      }
-
-      try {
-        setSearching(true)
-        const results = await marketApi.searchSymbols(keyword, 1, 10)
-        setSearchResults(results || [])
-      } catch {
-        showToast('搜索失败', 'error')
-      } finally {
-        setSearching(false)
-      }
-    },
-    [showToast]
-  )
-
-  useEffect(() => {
-    loadData()
-  }, [loadData])
-
-  // 
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      if (searchKeyword) {
-        handleSearch(searchKeyword)
-      } else {
-        setSearchResults([])
-      }
-    }, 300)
-
-    return () => clearTimeout(timer)
-  }, [searchKeyword, handleSearch])
-
   return (
-    <div className="space-y-6">
-      {/*  */}
-      <div className="relative">
-        <div className="flex items-center gap-2 p-3 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700">
-          <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-            />
-          </svg>
-          <input
-            type="text"
-            placeholder="搜索股票代码或名称..."
-            value={searchKeyword}
-            onChange={(e) => setSearchKeyword(e.target.value)}
-            className="flex-1 bg-transparent outline-none text-gray-900 dark:text-white placeholder-gray-400"
-          />
-          {searching && (
-            <div className="w-5 h-5 border-2 border-primary-500 border-t-transparent rounded-full animate-spin"></div>
-          )}
-        </div>
-
-        {/*  */}
-        {searchResults.length > 0 && (
-          <div className="absolute top-full left-0 right-0 mt-2 bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 z-50 max-h-80 overflow-y-auto">
-            {searchResults.map((stock) => (
-              <div
-                key={stock.symbol}
-                onClick={() => navigate(`/kline?symbol=${stock.symbol}&market=${stock.market}&name=${encodeURIComponent(stock.name)}`)}
-                className="flex items-center justify-between p-3 hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer border-b border-gray-100 dark:border-gray-700 last:border-0"
-              >
-                <div>
-                  <div className="font-medium text-gray-900 dark:text-white">{stock.name}</div>
-                  <div className="text-sm text-gray-500 dark:text-gray-400">
-                    {stock.symbol} · {stock.market}
-                  </div>
-                </div>
-                <div className="text-right">
-                  <div className="font-medium text-gray-900 dark:text-white">
-                    {stock.price != null ? stock.price.toFixed(2) : '--'}
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-
-        {/*  */}
-        {searchResults.length > 0 && (
-          <div className="fixed inset-0 z-40" onClick={() => setSearchResults([])}></div>
-        )}
+    <div className="grid grid-cols-12 gap-5 h-[calc(100vh-140px)]">
+      {/* Left Column - 3 cols */}
+      <div className="col-span-3 flex flex-col gap-5">
+        <SentimentRadar />
+        <HistoryPlaybackMini />
       </div>
 
-      {/*  */}
-      <section>
-        <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">市场指数</h3>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {loading && indices.length === 0
-            ? // 
-              [...Array(3)].map((_, i) => (
-                <div
-                  key={i}
-                  className="bg-white dark:bg-gray-800 p-4 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 animate-pulse"
-                >
-                  <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-20 mb-4"></div>
-                  <div className="h-8 bg-gray-200 dark:bg-gray-700 rounded w-32 mb-2"></div>
-                  <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-24"></div>
-                </div>
-              ))
-            : indices.map((index) => <IndexCard key={index.symbol} index={index} loading={loading} />)}
-        </div>
-      </section>
+      {/* Middle Column - 6 cols */}
+      <div className="col-span-6 flex flex-col">
+        <CapitalRiverMain />
+      </div>
 
-      {/* 快速链接到资金流向分析 */}
-      <section className="bg-gradient-to-r from-[#00F2FF]/10 to-[#00DBE7]/10 p-6 rounded-xl border border-[#00F2FF]/30">
-        <div className="flex items-center justify-between">
-          <div>
-            <h3 className="text-lg font-bold text-[#E1E2EB] mb-1">资金流向分析</h3>
-            <p className="text-sm text-[#849495]">查看资金河流图、博弈矩阵、背离预警、情绪雷达等高级分析工具</p>
-          </div>
-          <button
-            onClick={() => navigate('/fundflow')}
-            className="px-4 py-2 bg-[#00F2FF] text-[#00363A] font-bold rounded-lg hover:bg-[#00DBE7] transition-colors"
-          >
-            立即前往 →
-          </button>
-        </div>
-      </section>
+      {/* Right Column - 3 cols */}
+      <div className="col-span-3 flex flex-col gap-5 overflow-y-auto scrollbar-hide pb-2">
+        <BigOrderAlert />
+        <WarningSystem />
+        <NorthboundFlow />
+      </div>
     </div>
   )
 }

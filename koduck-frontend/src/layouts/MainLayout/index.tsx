@@ -1,29 +1,36 @@
 import { Outlet } from 'react-router-dom'
 import Sidebar from '@/components/Sidebar'
 import Header from '@/components/Header'
-import { useThemeStore } from '@/stores/theme'
 
 export default function MainLayout() {
-  const { sidebarCollapsed } = useThemeStore()
-
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-      {/* Sidebar */}
+    <div className="min-h-screen bg-fluid-surface-container-lowest">
+      {/* Sidebar - Fixed 64 */}
       <Sidebar />
 
-      {/* Header */}
+      {/* Header - Fixed with left offset */}
       <Header />
 
       {/* Main Content */}
-      <main
-        className={`pt-16 min-h-screen transition-all duration-300 ${
-          sidebarCollapsed ? 'pl-16' : 'pl-64'
-        }`}
-      >
-        <div className="p-4 sm:p-6 lg:p-8">
+      <main className="pt-16 min-h-screen pl-64">
+        <div className="p-6">
           <Outlet />
         </div>
       </main>
+      
+      {/* Footer Info Bar */}
+      <footer className="fixed bottom-0 right-0 left-64 h-8 bg-fluid-surface-container-low border-t border-fluid-outline-variant/30 flex items-center justify-between px-6 z-20">
+        <div className="flex items-center gap-4 text-[10px] text-fluid-text-dim font-mono-data">
+          <span>© 2024 THE FLUID LEDGER</span>
+          <span className="text-fluid-outline-variant">|</span>
+          <span>SYSTEM_HEALTH: <span className="text-fluid-primary">OPTIMAL</span></span>
+        </div>
+        <div className="flex items-center gap-4 text-[10px] text-fluid-text-dim font-mono-data">
+          <span>DATA SOURCES: <span className="text-fluid-primary">LIVE</span></span>
+          <span className="text-fluid-outline-variant">|</span>
+          <span>EN/USD</span>
+        </div>
+      </footer>
     </div>
   )
 }
