@@ -1,18 +1,18 @@
-name: CI Quality Gate
+name: Dev CI
 
 on:
   push:
     branches:
-      - main
+      - dev
   pull_request:
     branches:
-      - main
+      - dev
 
 permissions:
   contents: read
 
 concurrency:
-  group: ci-quality-gate-${{ github.workflow }}-${{ github.ref }}
+  group: dev-ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -40,7 +40,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: backend-surefire-reports-${{ github.run_id }}
+          name: dev-backend-surefire-reports-${{ github.run_id }}
           path: koduck-backend/target/surefire-reports/
           if-no-files-found: ignore
 
@@ -74,3 +74,36 @@ jobs:
         run: |
           set -euo pipefail
           pytest -q tests
+
+  frontend-quality:
+    name: Frontend Lint & Build (Node 22)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: koduck-frontend
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: koduck-frontend/package-lock.json
+
+      - name: Install dependencies
+        run: |
+          set -euo pipefail
+          npm ci
+
+      - name: Run lint
+        run: |
+          set -euo pipefail
+          npm run lint
+
+      - name: Run build
+        run: |
+          set -euo pipefail
+          npm run build

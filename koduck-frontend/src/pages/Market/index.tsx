@@ -2,6 +2,8 @@ import { useEffect, useState, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { marketApi, type MarketIndex, type SymbolInfo } from '@/api/market'
 import { useToast } from '@/hooks/useToast'
+import MoneyFlowRiver from '@/components/MoneyFlowRiver'
+import FundGameMatrix from '@/components/FundGameMatrix'
 
 // 
 function IndexCard({ index, loading }: { index: MarketIndex; loading: boolean }) {
@@ -179,6 +181,14 @@ export default function Market() {
             : indices.map((index) => <IndexCard key={index.symbol} index={index} loading={loading} />)}
         </div>
       </section>
+
+      {/* 资金河流图 - 原型演示 */}
+      <section className="bg-[#10131A] p-6 rounded-xl border border-[#272A31]">
+        <MoneyFlowRiver width={900} height={380} />
+      </section>
+
+      {/* 板块资金博弈矩阵 - 原型演示 */}
+      <FundGameMatrix />
     </div>
   )
 }
