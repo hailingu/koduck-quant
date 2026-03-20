@@ -63,14 +63,6 @@ export default function Sidebar() {
         })}
       </nav>
 
-      {/* CTA Button */}
-      <div className="px-4 py-3">
-        <button className="w-full py-3 px-4 bg-fluid-primary hover:bg-fluid-primary/90 text-fluid-surface-container-lowest font-semibold rounded-lg transition-all duration-200 hover:shadow-glow-primary flex items-center justify-center gap-2">
-          <span className="material-symbols-outlined text-lg">account_balance_wallet</span>
-          <span>Connect Wallet</span>
-        </button>
-      </div>
-
       {/* Bottom Links */}
       <div className="px-6 py-4 border-t border-fluid-outline-variant/30">
         <div className="flex items-center gap-4">
