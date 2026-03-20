@@ -5,6 +5,7 @@ import { useToast } from '@/hooks/useToast'
 import MoneyFlowRiver from '@/components/MoneyFlowRiver'
 import FundGameMatrix from '@/components/FundGameMatrix'
 import FundDivergenceAlert from '@/components/FundDivergenceAlert'
+import SentimentRadar from '@/components/SentimentRadar'
 
 // 
 function IndexCard({ index, loading }: { index: MarketIndex; loading: boolean }) {
@@ -194,6 +195,11 @@ export default function Market() {
       {/* 资金背离预警系统 - 原型演示 */}
       <section className="bg-[#10131A] p-6 rounded-xl border border-[#272A31]">
         <FundDivergenceAlert />
+      </section>
+
+      {/* 六维市场情绪雷达 - 原型演示 */}
+      <section className="bg-[#10131A] p-6 rounded-xl border border-[#272A31]">
+        <SentimentRadar />
       </section>
     </div>
   )
