@@ -21,8 +21,8 @@ axiosInstance.interceptors.request.use(
     if (authStorage) {
       try {
         const authState = JSON.parse(authStorage)
-        if (authState.state?.token) {
-          config.headers.Authorization = `Bearer ${authState.state.token}`
+        if (authState.state?.accessToken) {
+          config.headers.Authorization = `Bearer ${authState.state.accessToken}`
         }
       } catch (e) {
         // ，
