@@ -114,6 +114,7 @@ public class UpdateSettingsRequest {
         private ProviderConfigDto minimax;
         private ProviderConfigDto deepseek;
         private ProviderConfigDto openai;
+        private MemoryConfigDto memory;
     }
 
     @Data
@@ -123,6 +124,18 @@ public class UpdateSettingsRequest {
     public static class ProviderConfigDto {
         private String apiKey;
         private String apiBase;
+    }
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class MemoryConfigDto {
+        private Boolean enabled;
+        private String mode;
+        private Boolean enableL1;
+        private Boolean enableL2;
+        private Boolean enableL3;
     }
 
 }
