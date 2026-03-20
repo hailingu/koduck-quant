@@ -49,10 +49,10 @@ export default function Sidebar() {
             <NavLink
               key={item.key}
               to={item.path}
-              className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-200 group ${
+              className={`flex items-center gap-3 px-4 py-3 transition-all duration-200 group ${
                 isActive
-                  ? 'bg-fluid-primary/10 text-fluid-primary border-l-2 border-fluid-primary'
-                  : 'text-fluid-text-muted hover:text-fluid-text hover:bg-white/5 border-l-2 border-transparent'
+                  ? 'bg-gradient-to-r from-fluid-primary/10 to-transparent text-fluid-primary border-l-4 border-fluid-primary rounded-r-lg translate-x-1'
+                  : 'text-fluid-text-muted hover:text-fluid-text hover:bg-white/5 border-l-4 border-transparent rounded-lg'
               }`}
             >
               <span className={`material-symbols-outlined text-lg ${isActive ? 'text-fluid-primary' : 'group-hover:text-fluid-text'}`}>
