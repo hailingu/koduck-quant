@@ -1,9 +1,46 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Space+Grotesk:wght@400;500;600;700&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 :root {
-  font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
+  /* The Fluid Ledger Design System - CSS Variables */
+  /* Primary Colors */
+  --fluid-primary: #00F2FF;
+  --fluid-primary-dim: rgba(0, 242, 255, 0.5);
+  --fluid-primary-dimmer: rgba(0, 242, 255, 0.2);
+  --fluid-primary-faint: rgba(0, 242, 255, 0.1);
+  
+  /* Secondary Colors */
+  --fluid-secondary: #DE0541;
+  --fluid-secondary-dim: rgba(222, 5, 65, 0.5);
+  --fluid-secondary-faint: rgba(222, 5, 65, 0.1);
+  
+  /* Tertiary Colors */
+  --fluid-tertiary: #FFD81D;
+  --fluid-tertiary-dim: rgba(255, 216, 29, 0.5);
+  --fluid-tertiary-faint: rgba(255, 216, 29, 0.1);
+  
+  /* Surface Colors */
+  --fluid-surface: #10131A;
+  --fluid-surface-high: #161A22;
+  --fluid-surface-higher: #1C212B;
+  --fluid-surface-container: #191C22;
+  --fluid-surface-container-low: #14171E;
+  --fluid-surface-container-lowest: #0B0E14;
+  
+  /* Outline Colors */
+  --fluid-outline: #3A494B;
+  --fluid-outline-variant: #2A3335;
+  
+  /* Text Colors */
+  --fluid-text: #E1E2EB;
+  --fluid-text-muted: #8B8D98;
+  --fluid-text-dim: #5C5E6A;
+  
+  /* Typography */
+  font-family: 'Inter', system-ui, sans-serif;
   line-height: 1.5;
   font-weight: 400;
   font-synthesis: none;
@@ -12,165 +49,196 @@
   -moz-osx-font-smoothing: grayscale;
 }
 
+/* Base Styles */
 body {
   margin: 0;
   min-width: 320px;
   min-height: 100vh;
-}
-
-/* Custom scrollbar */
-::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
-}
-
-::-webkit-scrollbar-track {
-  background: #f1f1f1;
-}
-
-::-webkit-scrollbar-thumb {
-  background: #c1c1c1;
-  border-radius: 4px;
-}
-
-::-webkit-scrollbar-thumb:hover {
-  background: #a8a8a8;
-}
-
-/* Dark mode scrollbar */
-.dark ::-webkit-scrollbar-track {
-  background: #2d2d2d;
-}
-
-.dark ::-webkit-scrollbar-thumb {
-  background: #555;
-}
-
-.dark ::-webkit-scrollbar-thumb:hover {
-  background: #666;
+  background-color: var(--fluid-surface-container-lowest);
+  color: var(--fluid-text);
 }
 
 /* ============================================
-   Price Breathing Animation
-   股票价格呼吸动画效果
+   Glass Panel Component
    ============================================ */
+@layer components {
+  .glass-panel {
+    background: rgba(25, 28, 34, 0.6);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid rgba(58, 73, 75, 0.3);
+    border-radius: 0.5rem;
+  }
+  
+  .glass-panel-hover:hover {
+    background: rgba(25, 28, 34, 0.8);
+    border-color: rgba(0, 242, 255, 0.2);
+  }
+  
+  .glass-button {
+    background: rgba(0, 242, 255, 0.1);
+    border: 1px solid rgba(0, 242, 255, 0.3);
+    color: var(--fluid-primary);
+    transition: all 0.2s ease;
+  }
+  
+  .glass-button:hover {
+    background: rgba(0, 242, 255, 0.2);
+    border-color: var(--fluid-primary);
+    box-shadow: 0 0 15px rgba(0, 242, 255, 0.2);
+  }
+  
+  .glass-input {
+    background: rgba(11, 14, 20, 0.8);
+    border: 1px solid var(--fluid-outline-variant);
+    color: var(--fluid-text);
+    transition: all 0.2s ease;
+  }
+  
+  .glass-input:focus {
+    outline: none;
+    border-color: var(--fluid-primary-dim);
+    box-shadow: 0 0 0 2px rgba(0, 242, 255, 0.1);
+  }
+  
+  .glass-input::placeholder {
+    color: var(--fluid-text-dim);
+  }
+  
+  /* Primary Button */
+  .btn-primary {
+    background: var(--fluid-primary);
+    color: var(--fluid-surface-container-lowest);
+    font-weight: 600;
+    transition: all 0.2s ease;
+  }
+  
+  .btn-primary:hover {
+    box-shadow: 0 0 20px rgba(0, 242, 255, 0.4);
+    transform: translateY(-1px);
+  }
+  
+  /* Secondary Button */
+  .btn-secondary {
+    background: transparent;
+    border: 1px solid var(--fluid-outline);
+    color: var(--fluid-text);
+    transition: all 0.2s ease;
+  }
+  
+  .btn-secondary:hover {
+    border-color: var(--fluid-text-muted);
+    background: rgba(255, 255, 255, 0.05);
+  }
+  
+  /* Glow Effects */
+  .glow-primary {
+    box-shadow: 0 0 20px rgba(0, 242, 255, 0.3);
+  }
+  
+  .glow-tertiary {
+    box-shadow: 0 0 15px rgba(255, 216, 29, 0.3);
+  }
+  
+  .text-glow-primary {
+    text-shadow: 0 0 10px rgba(0, 242, 255, 0.5);
+  }
+  
+  /* Gradient Backgrounds */
+  .bg-gradient-surface {
+    background: linear-gradient(180deg, var(--fluid-surface) 0%, var(--fluid-surface-container-lowest) 100%);
+  }
+  
+  .bg-gradient-radial-glow {
+    background: radial-gradient(ellipse at top, rgba(0, 242, 255, 0.05) 0%, transparent 50%);
+  }
+  
+  /* Label/Tag Styles */
+  .label-mono {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.65rem;
+    font-weight: 500;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+  }
+  
+  /* Live Indicator */
+  .live-indicator {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.65rem;
+    color: var(--fluid-primary);
+  }
+  
+  .live-indicator::before {
+    content: '';
+    width: 6px;
+    height: 6px;
+    background: var(--fluid-primary);
+    border-radius: 50%;
+    animation: pulse-dot 2s ease-in-out infinite;
+  }
+  
+  @keyframes pulse-dot {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.5; transform: scale(0.8); }
+  }
+}
 
-/* 价格呼吸动画 - 上涨（绿色） */
+/* ============================================
+   Custom Scrollbar - Dark Theme
+   ============================================ */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--fluid-surface-container-lowest);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--fluid-outline-variant);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--fluid-outline);
+}
+
+/* ============================================
+   Price Animations
+   ============================================ */
 @keyframes price-breathing-up {
-  0%, 100% {
-    opacity: 1;
-    transform: scale(1);
-  }
-  50% {
-    opacity: 0.75;
-    transform: scale(1.02);
-  }
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.75; transform: scale(1.02); }
 }
 
-/* 价格呼吸动画 - 下跌（红色） */
 @keyframes price-breathing-down {
-  0%, 100% {
-    opacity: 1;
-    transform: scale(1);
-  }
-  50% {
-    opacity: 0.75;
-    transform: scale(0.98);
-  }
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.75; transform: scale(0.98); }
 }
 
-/* 价格呼吸动画基础类 */
 .price-breathing {
   display: inline-block;
   will-change: transform, opacity;
   animation: price-breathing-up 1.5s ease-in-out infinite;
 }
 
-.price-breathing.price-up {
-  animation-name: price-breathing-up;
-  color: #22c55e;
-}
+.price-breathing.price-up { animation-name: price-breathing-up; color: #ef4444; }
+.price-breathing.price-down { animation-name: price-breathing-down; color: #22c55e; }
 
-.price-breathing.price-down {
-  animation-name: price-breathing-down;
-  color: #ef4444;
-}
+/* ============================================
+   Utility Classes
+   ============================================ */
+.font-headline { font-family: 'Space Grotesk', sans-serif; }
+.font-mono-data { font-family: 'JetBrains Mono', monospace; }
 
-/* 非交易时间静态价格样式 */
-.price-closed {
-  opacity: 0.6;
-  color: #9ca3af;
+/* Hide scrollbar but allow scrolling */
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
 }
-
-/* 价格变动高亮 - 短暂闪烁效果 */
-@keyframes price-flash-up {
-  0% {
-    background-color: rgba(34, 197, 94, 0.3);
-  }
-  100% {
-    background-color: transparent;
-  }
-}
-
-@keyframes price-flash-down {
-  0% {
-    background-color: rgba(239, 68, 68, 0.3);
-  }
-  100% {
-    background-color: transparent;
-  }
-}
-
-.price-flash-up {
-  animation: price-flash-up 0.5s ease-out;
-}
-
-.price-flash-down {
-  animation: price-flash-down 0.5s ease-out;
-}
-
-/* 价格呼吸动画 - 涨（红色闪烁）A股习惯 */
-@keyframes price-breath-up {
-  0%, 100% {
-    opacity: 1;
-    transform: scale(1);
-    text-shadow: 0 0 0 transparent;
-    filter: brightness(1);
-    background-color: transparent;
-    color: inherit;
-  }
-  50% {
-    opacity: 0.78;
-    transform: scale(1.08);
-    text-shadow: 0 0 16px rgba(239, 68, 68, 0.85);
-    filter: brightness(1.2);
-    background-color: rgba(239, 68, 68, 0.15);
-  }
-}
-
-/* 价格呼吸动画 - 跌（绿色闪烁）A股习惯 */
-@keyframes price-breath-down {
-  0%, 100% {
-    opacity: 1;
-    transform: scale(1);
-    text-shadow: 0 0 0 transparent;
-    filter: brightness(1);
-    background-color: transparent;
-    color: inherit;
-  }
-  50% {
-    opacity: 0.78;
-    transform: scale(1.08);
-    text-shadow: 0 0 16px rgba(34, 197, 94, 0.85);
-    filter: brightness(1.2);
-    background-color: rgba(34, 197, 94, 0.15);
-  }
-}
-
-.animate-price-breath-up {
-  animation: price-breath-up 0.85s ease-in-out;
-}
-
-.animate-price-breath-down {
-  animation: price-breath-down 0.85s ease-in-out;
-}
+.scrollbar-hide::-webkit-scrollbar { display: none; }

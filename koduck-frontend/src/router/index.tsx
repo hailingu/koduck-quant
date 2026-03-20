@@ -9,6 +9,8 @@ import Settings from '@/pages/Settings'
 import Kline from '@/pages/Kline'
 import Market from '@/pages/Market'
 import FundFlowAnalysis from '@/pages/FundFlowAnalysis'
+import SectorNetwork from '@/pages/SectorNetwork'
+import HistoryPlayback from '@/pages/HistoryPlayback'
 
 // Protected Route wrapper
 function ProtectedRoute() {
@@ -39,17 +41,12 @@ export const router = createBrowserRouter([
           { path: '/dashboard', element: <Navigate to="/market" replace /> },
           { path: '/market', element: <Market /> },
           { path: '/fundflow', element: <FundFlowAnalysis /> },
+          { path: '/sector', element: <SectorNetwork /> },
+          { path: '/history', element: <HistoryPlayback /> },
           { path: '/watchlist', element: <Watchlist /> },
           { path: '/kline', element: <Kline /> },
           { path: '/portfolio', element: <Portfolio /> },
           { path: '/settings', element: <Settings /> },
-          { path: '/monitoring', element: <Navigate to="/market" replace /> },
-          { path: '/profile', element: <Navigate to="/settings" replace /> },
-          { path: '/profile/edit', element: <Navigate to="/settings" replace /> },
-          { path: '/profile/preferences', element: <Navigate to="/settings" replace /> },
-          { path: '/profile/security', element: <Navigate to="/settings" replace /> },
-          { path: '/profile/api', element: <Navigate to="/settings" replace /> },
-          { path: '/profile/data', element: <Navigate to="/settings" replace /> },
         ],
       },
     ],
