@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, useMemo } from 'react'
+import { useEffect, useState, useCallback, useMemo, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import type { WatchlistItem } from '@/api/watchlist'
 import { watchlistApi } from '@/api/watchlist'
@@ -149,6 +149,11 @@ export default function Watchlist() {
   const [deleting, setDeleting] = useState(false)
   const [marketTrading, setMarketTrading] = useState<boolean>(isTradingHours())
   const [quickSymbol, setQuickSymbol] = useState('')
+  const [searchResults, setSearchResults] = useState<Array<{ symbol: string; name: string; market: string }>>([])
+  const [showSearchDropdown, setShowSearchDropdown] = useState(false)
+  const [isSearching, setIsSearching] = useState(false)
+  const searchContainerRef = useRef<HTMLDivElement>(null)
+  const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const stockPrices = useWebSocketStore((state) => state.stockPrices)
   const connectionState = useWebSocketStore((state) => state.connectionState)
@@ -208,6 +213,68 @@ export default function Watchlist() {
     return () => {
       globalThis.clearInterval(intervalId)
     }
+  }, [])
+
+  // Click outside to close search dropdown
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (searchContainerRef.current && !searchContainerRef.current.contains(event.target as Node)) {
+        setShowSearchDropdown(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
+
+  // Search stocks with debounce
+  const handleSearchInput = useCallback((value: string) => {
+    setQuickSymbol(value)
+
+    if (searchTimeoutRef.current) {
+      clearTimeout(searchTimeoutRef.current)
+    }
+
+    const trimmed = value.trim()
+    if (!trimmed) {
+      setSearchResults([])
+      setShowSearchDropdown(false)
+      return
+    }
+
+    searchTimeoutRef.current = setTimeout(async () => {
+      setIsSearching(true)
+      try {
+        // Check if input is 6-digit code, try getStockDetail first
+        if (/^\d{6}$/.test(trimmed)) {
+          try {
+            const detail = await marketApi.getStockDetail(trimmed)
+            if (detail) {
+              setSearchResults([{ symbol: detail.symbol, name: detail.name, market: 'AShare' }])
+              setShowSearchDropdown(true)
+              setIsSearching(false)
+              return
+            }
+          } catch {
+            // Fall through to search
+          }
+        }
+
+        // Search by name
+        const results = await klineApi.searchStocks(trimmed, 5)
+        if (results && results.length > 0) {
+          setSearchResults(results.map((r) => ({ symbol: r.symbol, name: r.name, market: r.market })))
+          setShowSearchDropdown(true)
+        } else {
+          setSearchResults([])
+          setShowSearchDropdown(false)
+        }
+      } catch {
+        setSearchResults([])
+        setShowSearchDropdown(false)
+      } finally {
+        setIsSearching(false)
+      }
+    }, 300)
   }, [])
 
   useEffect(() => {
@@ -308,6 +375,12 @@ export default function Watchlist() {
     }
   }
 
+  const handleSelectSearchResult = async (result: { symbol: string; name: string; market: string }) => {
+    setShowSearchDropdown(false)
+    setQuickSymbol('')
+    await handleAddStock(result.symbol, result.name, result.market)
+  }
+
   const handleQuickAdd = async () => {
     const trimmedInput = quickSymbol.trim()
     if (!trimmedInput) {
@@ -315,51 +388,13 @@ export default function Watchlist() {
       return
     }
 
-    // 判断输入类型：6位数字为代码，其他为名称
-    const isCode = /^\d{6}$/.test(trimmedInput)
-
-    try {
-      if (isCode) {
-        // 输入的是股票代码，直接查询详情
-        const stockDetail = await marketApi.getStockDetail(trimmedInput)
-        if (stockDetail) {
-          await handleAddStock(stockDetail.symbol, stockDetail.name, 'AShare')
-        } else {
-          showToast('未找到该股票，请检查代码是否正确', 'warning')
-        }
-      } else {
-        // 输入的是股票名称，先搜索
-        const results = await klineApi.searchStocks(trimmedInput, 10)
-        if (!results || results.length === 0) {
-          showToast('未找到该股票，请检查名称是否正确', 'warning')
-          return
-        }
-
-        // 精确匹配：名称完全一致
-        const exactMatch = results.find((r) => r.name === trimmedInput)
-
-        if (exactMatch) {
-          // 找到精确匹配，直接添加
-          await handleAddStock(exactMatch.symbol, exactMatch.name, exactMatch.market)
-        } else if (results.length === 1) {
-          // 只有一个结果但不是精确匹配（如输入"茅台"匹配到"贵州茅台"）
-          // 显示确认提示
-          const single = results[0]
-          const confirmed = window.confirm(
-            `未找到精确匹配"${trimmedInput}"，是否添加搜索结果：\n${single.name} (${single.symbol})？`
-          )
-          if (confirmed) {
-            await handleAddStock(single.symbol, single.name, single.market)
-          }
-        } else {
-          // 多个结果且没有精确匹配，提示用户输入更精确
-          showToast(`找到多个匹配"${trimmedInput}"的结果，请输入完整股票名称`, 'warning')
-        }
-      }
-    } catch {
-      showToast('添加失败，请稍后重试', 'error')
+    // 如果有搜索结果，直接添加第一个
+    if (searchResults.length > 0) {
+      await handleSelectSearchResult(searchResults[0])
+      return
     }
-    setQuickSymbol('')
+
+    showToast('请输入股票代码或名称进行搜索', 'warning')
   }
 
   const handleExport = () => {
@@ -433,17 +468,41 @@ export default function Watchlist() {
         </div>
         <div className="lg:col-span-8">
           <div className="flex flex-col gap-3 sm:flex-row">
-            <input
-              value={quickSymbol}
-              onChange={(e) => setQuickSymbol(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') {
-                  void handleQuickAdd()
-                }
-              }}
-              placeholder="Add New Symbol (e.g. BTC, AAPL, SOL)..."
-              className="glass-input h-11 flex-1 rounded-lg px-4 font-mono-data text-sm"
-            />
+            <div ref={searchContainerRef} className="relative flex-1">
+              <input
+                value={quickSymbol}
+                onChange={(e) => handleSearchInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    void handleQuickAdd()
+                  }
+                }}
+                placeholder="搜索股票代码或名称..."
+                className="glass-input h-11 w-full rounded-lg px-4 font-mono-data text-sm"
+              />
+              {isSearching && (
+                <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                  <div className="h-4 w-4 animate-spin rounded-full border-2 border-fluid-primary border-t-transparent" />
+                </div>
+              )}
+              {showSearchDropdown && searchResults.length > 0 && (
+                <div className="absolute z-50 mt-1 w-full rounded-lg border border-fluid-outline-variant/30 bg-fluid-surface shadow-lg">
+                  {searchResults.map((result, index) => (
+                    <button
+                      key={`${result.symbol}-${index}`}
+                      onClick={() => void handleSelectSearchResult(result)}
+                      className="flex w-full items-center justify-between px-4 py-3 text-left transition-colors hover:bg-fluid-surface-higher first:rounded-t-lg last:rounded-b-lg"
+                    >
+                      <div className="flex items-center gap-3">
+                        <span className="font-medium text-fluid-text">{result.name}</span>
+                        <span className="font-mono-data text-sm text-fluid-text-dim">{result.symbol}</span>
+                      </div>
+                      <span className="text-xs text-fluid-text-muted">{result.market}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
             <button
               onClick={() => void handleQuickAdd()}
               className="inline-flex h-11 items-center justify-center gap-2 rounded-lg border border-fluid-primary/50 bg-fluid-primary/10 px-4 font-mono-data text-xs uppercase tracking-widest text-fluid-primary transition-all hover:bg-fluid-primary/20 hover:shadow-glow-primary"
