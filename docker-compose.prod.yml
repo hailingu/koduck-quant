@@ -176,6 +176,12 @@ services:
       - OPENAI_API_KEY=${OPENAI_API_KEY}
       - MINIMAX_API_KEY=${MINIMAX_API_KEY}
       - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY}
+      - POSTGRES_HOST=postgresql
+      - POSTGRES_PORT=5432
+      - POSTGRES_DB=${POSTGRES_DB}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - MEMORY_DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgresql:5432/${POSTGRES_DB}
       - LLM_API_BASE=${LLM_API_BASE:-https://api.gptsapi.net}
       - OPENAI_API_BASE=${OPENAI_API_BASE:-https://api.openai.com/v1}
       - MINIMAX_API_BASE=${MINIMAX_API_BASE:-https://api.minimax.chat/v1}
@@ -184,6 +190,11 @@ services:
     restart: always
     networks:
       - koduck-prod-network
+    depends_on:
+      postgresql:
+        condition: service_healthy
+      backend:
+        condition: service_healthy
     healthcheck:
       test: ["CMD", "python", "-c", "import httpx; httpx.get('http://localhost:8000/health', timeout=5.0)"]
       interval: 30s

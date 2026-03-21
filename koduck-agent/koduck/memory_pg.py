@@ -17,6 +17,7 @@ import uuid
 import zlib
 from dataclasses import dataclass
 from typing import Any
+from urllib.parse import quote
 
 import httpx
 
@@ -51,9 +52,42 @@ def _psycopg_module():
 
 def _db_url() -> str:
     value = os.getenv("MEMORY_DATABASE_URL") or os.getenv("DATABASE_URL")
-    if not value:
-        raise RuntimeError("Missing MEMORY_DATABASE_URL or DATABASE_URL")
-    return value
+    if value:
+        return value
+
+    host = (
+        os.getenv("POSTGRES_HOST")
+        or os.getenv("DB_HOST")
+        or "localhost"
+    ).strip()
+    port = (
+        os.getenv("POSTGRES_PORT")
+        or os.getenv("DB_PORT")
+        or "5432"
+    ).strip()
+    db_name = (
+        os.getenv("POSTGRES_DB")
+        or os.getenv("DB_NAME")
+        or "koduck_dev"
+    ).strip()
+    user = (
+        os.getenv("POSTGRES_USER")
+        or os.getenv("DB_USERNAME")
+        or "koduck"
+    ).strip()
+    password = (
+        os.getenv("POSTGRES_PASSWORD")
+        or os.getenv("DB_PASSWORD")
+        or "koduck"
+    ).strip()
+
+    if not host or not port or not db_name or not user:
+        raise RuntimeError(
+            "Missing PostgreSQL connection info. "
+            "Set MEMORY_DATABASE_URL/DATABASE_URL or POSTGRES_*/DB_* env vars."
+        )
+
+    return f"postgresql://{quote(user)}:{quote(password)}@{host}:{port}/{db_name}"
 
 
 def _connect():
