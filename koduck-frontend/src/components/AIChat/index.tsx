@@ -75,6 +75,17 @@ const getAuthToken = (): string => {
 }
 
 export function AIChat({ symbol, stockName, stockInfo }: AIChatProps) {
+  const storageKey = `ai_chat_session_${symbol}`
+  const createSessionId = () => `sess_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`
+  const [sessionId, setSessionId] = useState<string>(() => {
+    const existing = localStorage.getItem(storageKey)
+    if (existing) {
+      return existing
+    }
+    const created = createSessionId()
+    localStorage.setItem(storageKey, created)
+    return created
+  })
   const [messages, setMessages] = useState<Message[]>([
     {
       id: 'welcome',
@@ -138,6 +149,7 @@ export function AIChat({ symbol, stockName, stockInfo }: AIChatProps) {
 
     const body = {
       provider: selectedProvider,
+      sessionId,
       role: selectedRole,
       runtime: {
         enableTools,
@@ -247,6 +259,31 @@ export function AIChat({ symbol, stockName, stockInfo }: AIChatProps) {
     }
   }
 
+  const resetSessionMemory = async () => {
+    const token = getAuthToken()
+    const response = await fetch(`/api/v1/ai/memory/session/${encodeURIComponent(sessionId)}`, {
+      method: 'DELETE',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+    })
+    if (!response.ok) {
+      throw new Error(`清空记忆失败（HTTP ${response.status}）`)
+    }
+    const nextSessionId = createSessionId()
+    setSessionId(nextSessionId)
+    localStorage.setItem(storageKey, nextSessionId)
+    setMessages([
+      {
+        id: 'welcome',
+        role: 'assistant',
+        content: `您好！我是 AI 助手，可以帮您分析 ${stockName} (${symbol})。`,
+      },
+    ])
+    appendEvent({ type: 'memory.cleared', payload: { previousSessionId: sessionId, nextSessionId } })
+  }
+
   const handleSend = async () => {
     const content = input.trim()
     if (!content || isLoading) {
@@ -268,7 +305,10 @@ export function AIChat({ symbol, stockName, stockInfo }: AIChatProps) {
     }
 
     setMessages((prev) => [...prev, userMessage, assistantMessage])
-    appendEvent({ type: 'run.started', payload: { role: selectedRole, provider: selectedProvider } })
+    appendEvent({
+      type: 'run.started',
+      payload: { role: selectedRole, provider: selectedProvider, sessionId },
+    })
 
     try {
       await callChatStream(content, assistantMessage.id)
@@ -301,10 +341,25 @@ export function AIChat({ symbol, stockName, stockInfo }: AIChatProps) {
             <div>
               <h3 className="text-sm font-semibold text-gray-900 dark:text-white">AI 智能分析</h3>
               <p className="text-xs text-gray-500 dark:text-gray-400">{stockName} ({symbol})</p>
+              <p className="text-[10px] text-gray-400 dark:text-gray-500">session: {sessionId}</p>
             </div>
           </div>
 
           <div className="flex items-center gap-2">
+            <button
+              className="rounded-lg border border-gray-200 bg-white px-2 py-1 text-xs text-gray-700 hover:bg-gray-50 disabled:opacity-50 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600"
+              disabled={isLoading}
+              onClick={async () => {
+                try {
+                  await resetSessionMemory()
+                } catch (e) {
+                  const message = e instanceof Error ? e.message : '清空记忆失败'
+                  appendEvent({ type: 'memory.clear_error', payload: { message } })
+                }
+              }}
+            >
+              清空记忆
+            </button>
             <div className="relative">
               <button
                 className="flex items-center gap-1 rounded-lg border border-gray-200 bg-white px-2 py-1 text-xs dark:border-gray-600 dark:bg-gray-700"
