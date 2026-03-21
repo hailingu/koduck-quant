@@ -27,6 +27,11 @@ public class ChatStreamRequest {
     private String apiBase;
 
     /**
+     * Chat session id for memory retrieval/writeback.
+     */
+    private String sessionId;
+
+    /**
      * Agent role id used by runtime (e.g. general/architect/coder/reviewer/analyst).
      */
     @Builder.Default

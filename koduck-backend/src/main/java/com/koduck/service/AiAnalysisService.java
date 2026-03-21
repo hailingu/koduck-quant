@@ -6,8 +6,10 @@ import com.koduck.dto.ai.*;
 import com.koduck.dto.settings.UserSettingsDto;
 import com.koduck.dto.indicator.IndicatorResponse;
 import com.koduck.entity.BacktestResult;
+import com.koduck.entity.MemoryChatMessage;
 import com.koduck.entity.PortfolioPosition;
 import com.koduck.entity.Strategy;
+import com.koduck.entity.UserMemoryProfile;
 import com.koduck.repository.BacktestResultRepository;
 import com.koduck.repository.PortfolioPositionRepository;
 import com.koduck.repository.StrategyRepository;
@@ -52,6 +54,7 @@ public class AiAnalysisService {
     private final BacktestResultRepository backtestResultRepository;
     private final TechnicalIndicatorService technicalIndicatorService;
     private final UserSettingsService userSettingsService;
+    private final MemoryService memoryService;
     private final AgentConfig agentConfig;
     private final ObjectMapper objectMapper;
     private final Random random = new Random();
@@ -197,22 +200,104 @@ public class AiAnalysisService {
     public SseEmitter streamChat(Long userId, ChatStreamRequest request) {
         SseEmitter emitter = new SseEmitter(0L);
         String provider = resolveProvider(request.getProvider());
+        String sessionId = memoryService.resolveSessionId(request.getSessionId());
         UserSettingsDto.LlmConfigDto effectiveConfig = userSettingsService.getEffectiveLlmConfig(userId, provider);
         ChatStreamRequest configuredRequest = ChatStreamRequest.builder()
             .provider(provider)
             .apiKey(effectiveConfig != null && effectiveConfig.getApiKey() != null ? effectiveConfig.getApiKey() : "")
             .apiBase(effectiveConfig != null ? effectiveConfig.getApiBase() : null)
+            .sessionId(sessionId)
             .role(request.getRole())
             .runtime(request.getRuntime())
             .disableToolCalls(Boolean.TRUE.equals(request.getDisableToolCalls()))
             .messages(request.getMessages())
             .build();
+        ChatStreamRequest memoryEnhancedRequest = enrichWithMemoryContext(userId, configuredRequest);
         ChatStreamRequest guardedRequest = Boolean.TRUE.equals(request.getDisableToolCalls())
-            ? appendInstructionToSystem(configuredRequest, NO_TOOL_MARKUP_GUARD)
-            : configuredRequest;
+            ? appendInstructionToSystem(memoryEnhancedRequest, NO_TOOL_MARKUP_GUARD)
+            : memoryEnhancedRequest;
         ChatStreamRequest enhancedRequest = enrichWithQuantSignalIfNeeded(guardedRequest);
         CompletableFuture.runAsync(() -> relayAgentStream(enhancedRequest, emitter));
         return emitter;
+    }
+
+    private ChatStreamRequest enrichWithMemoryContext(Long userId, ChatStreamRequest request) {
+        if (!memoryService.isEnabled()) {
+            return request;
+        }
+        try {
+            String sessionId = memoryService.resolveSessionId(request.getSessionId());
+            List<MemoryChatMessage> recentMessages = memoryService.getRecentMessages(
+                userId,
+                sessionId,
+                memoryService.getL1MaxTurns()
+            );
+            UserMemoryProfile profile = memoryService.getOrCreateProfile(userId);
+            String memoryContext = buildMemoryContext(sessionId, recentMessages, profile);
+            if (memoryContext.isBlank()) {
+                return request;
+            }
+            log.debug(
+                "Injected memory context: user={}, session={}, recentMessages={}",
+                userId,
+                sessionId,
+                recentMessages.size()
+            );
+            return appendInstructionToSystem(request, memoryContext);
+        } catch (Exception e) {
+            log.warn("Failed to inject memory context, fallback to original request: {}", e.getMessage());
+            return request;
+        }
+    }
+
+    private String buildMemoryContext(
+        String sessionId,
+        List<MemoryChatMessage> recentMessages,
+        UserMemoryProfile profile
+    ) {
+        StringBuilder builder = new StringBuilder();
+        builder.append("【Memory Context】\n");
+        builder.append("session_id: ").append(sessionId).append("\n");
+
+        boolean hasProfile = profile != null
+            && ((profile.getRiskPreference() != null && !profile.getRiskPreference().isBlank())
+            || (profile.getWatchSymbols() != null && !profile.getWatchSymbols().isEmpty())
+            || (profile.getPreferredSources() != null && !profile.getPreferredSources().isEmpty()));
+
+        if (hasProfile) {
+            builder.append("用户偏好:\n");
+            if (profile.getRiskPreference() != null && !profile.getRiskPreference().isBlank()) {
+                builder.append("- risk_preference: ").append(profile.getRiskPreference()).append("\n");
+            }
+            if (profile.getWatchSymbols() != null && !profile.getWatchSymbols().isEmpty()) {
+                builder.append("- watch_symbols: ").append(String.join(", ", profile.getWatchSymbols())).append("\n");
+            }
+            if (profile.getPreferredSources() != null && !profile.getPreferredSources().isEmpty()) {
+                builder.append("- preferred_sources: ").append(String.join(", ", profile.getPreferredSources())).append("\n");
+            }
+        }
+
+        if (recentMessages != null && !recentMessages.isEmpty()) {
+            builder.append("最近会话片段:\n");
+            int maxLines = Math.min(recentMessages.size(), 8);
+            for (int i = Math.max(0, recentMessages.size() - maxLines); i < recentMessages.size(); i++) {
+                MemoryChatMessage item = recentMessages.get(i);
+                String role = item.getRole() == null ? "unknown" : item.getRole();
+                String content = item.getContent() == null ? "" : item.getContent().trim();
+                if (content.length() > 180) {
+                    content = content.substring(0, 180) + "...";
+                }
+                builder.append("- ").append(role).append(": ").append(content).append("\n");
+            }
+        }
+
+        boolean hasRecent = recentMessages != null && !recentMessages.isEmpty();
+        if (!hasProfile && !hasRecent) {
+            return "";
+        }
+        String result = builder.toString().trim();
+        return result
+            + "\n请把以上内容视为会话记忆，仅用于提升连续性，不要编造不存在的事实。";
     }
 
     private ChatStreamRequest enrichWithQuantSignalIfNeeded(ChatStreamRequest request) {
@@ -286,6 +371,7 @@ public class AiAnalysisService {
             .provider(request.getProvider())
             .apiKey(request.getApiKey())
             .apiBase(request.getApiBase())
+            .sessionId(request.getSessionId())
             .role(request.getRole())
             .runtime(request.getRuntime())
             .disableToolCalls(request.getDisableToolCalls())
@@ -327,6 +413,7 @@ public class AiAnalysisService {
             .provider(request.getProvider())
             .apiKey(request.getApiKey())
             .apiBase(request.getApiBase())
+            .sessionId(request.getSessionId())
             .role(request.getRole())
             .runtime(request.getRuntime())
             .disableToolCalls(request.getDisableToolCalls())
@@ -442,6 +529,7 @@ public class AiAnalysisService {
                 .provider(provider)
                 .apiKey(request.getApiKey())
                 .apiBase(request.getApiBase())
+                .sessionId(request.getSessionId())
                 .role(request.getRole())
                 .runtime(request.getRuntime())
                 .disableToolCalls(request.getDisableToolCalls())
