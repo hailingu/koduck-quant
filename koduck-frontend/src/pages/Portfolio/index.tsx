@@ -1,3 +1,7 @@
+import { useEffect, useState, useCallback } from 'react'
+import { portfolioApi, type PortfolioItem } from '@/api/portfolio'
+import { useToast } from '@/hooks/useToast'
+
 // Portfolio Management Page
 
 // PnL Chart Component
@@ -95,19 +99,91 @@ function SectorAllocation() {
   )
 }
 
+// Utility function to format currency
+function formatCurrency(value: number): string {
+  return new Intl.NumberFormat('zh-CN', {
+    style: 'currency',
+    currency: 'CNY',
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(value)
+}
+
+// Utility function to format number
+function formatNumber(value: number, decimals: number = 2): string {
+  return new Intl.NumberFormat('zh-CN', {
+    minimumFractionDigits: decimals,
+    maximumFractionDigits: decimals,
+  }).format(value)
+}
+
 // Positions Table Component
-function PositionsTable() {
-  const positions = [
-    { asset: 'Ethereum', symbol: 'ETH', units: '24.52', avgPrice: '$2,450.00', currentPrice: '$2,682.14', pnl: '+9.47%', pnlPositive: true, value: '$65,765.42' },
-    { asset: 'Solana', symbol: 'SOL', units: '842.10', avgPrice: '$112.50', currentPrice: '$145.28', pnl: '+29.13%', pnlPositive: true, value: '$122,340.28' },
-    { asset: 'Chainlink', symbol: 'LINK', units: '1,200.00', avgPrice: '$19.80', currentPrice: '$18.45', pnl: '-6.81%', pnlPositive: false, value: '$22,140.00' },
-  ]
+function PositionsTable({ 
+  positions, 
+  loading, 
+  error 
+}: { 
+  positions: PortfolioItem[]
+  loading: boolean
+  error: string | null 
+}) {
+  if (loading) {
+    return (
+      <div className="glass-panel p-5 rounded-xl">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="font-headline font-bold text-sm text-fluid-text uppercase tracking-wide">
+            Open Positions (持仓列表)
+          </h3>
+        </div>
+        <div className="py-12 text-center">
+          <div className="inline-flex items-center gap-2 text-fluid-text-dim">
+            <div className="w-5 h-5 border-2 border-fluid-primary border-t-transparent rounded-full animate-spin" />
+            <span className="text-sm">Loading positions...</span>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="glass-panel p-5 rounded-xl">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="font-headline font-bold text-sm text-fluid-text uppercase tracking-wide">
+            Open Positions (持仓列表)
+          </h3>
+        </div>
+        <div className="py-12 text-center text-fluid-secondary">
+          <span className="material-symbols-outlined text-4xl mb-2">error_outline</span>
+          <p className="text-sm">Failed to load positions</p>
+          <p className="text-xs text-fluid-text-dim mt-1">{error}</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (positions.length === 0) {
+    return (
+      <div className="glass-panel p-5 rounded-xl">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="font-headline font-bold text-sm text-fluid-text uppercase tracking-wide">
+            Open Positions (持仓列表)
+          </h3>
+        </div>
+        <div className="py-12 text-center text-fluid-text-dim">
+          <span className="material-symbols-outlined text-4xl mb-2">inventory_2</span>
+          <p className="text-sm">No open positions</p>
+          <p className="text-xs mt-1">Add your first trade to see holdings</p>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="glass-panel p-5 rounded-xl">
       <div className="flex items-center justify-between mb-4">
         <h3 className="font-headline font-bold text-sm text-fluid-text uppercase tracking-wide">
-          Open Positions (持仓列表)
+          Open Positions ({positions.length})
         </h3>
         <span className="material-symbols-outlined text-fluid-text-dim">filter_list</span>
       </div>
@@ -123,25 +199,25 @@ function PositionsTable() {
           </tr>
         </thead>
         <tbody>
-          {positions.map((pos, i) => (
-            <tr key={i} className="border-b border-fluid-outline-variant/10 last:border-0">
+          {positions.map((pos) => (
+            <tr key={pos.id} className="border-b border-fluid-outline-variant/10 last:border-0 hover:bg-fluid-surface-higher/30 transition-colors">
               <td className="py-4">
                 <div className="flex items-center gap-3">
                   <div className="w-8 h-8 rounded-lg bg-fluid-surface-container flex items-center justify-center text-[10px] font-mono-data text-fluid-text">
-                    {pos.symbol}
+                    {pos.symbol.slice(0, 2)}
                   </div>
                   <div>
-                    <div className="text-sm font-medium text-fluid-text">{pos.asset}</div>
-                    <div className="text-xs text-fluid-text-dim">{pos.units} Units</div>
+                    <div className="text-sm font-medium text-fluid-text">{pos.name}</div>
+                    <div className="text-xs text-fluid-text-dim">{formatNumber(pos.quantity)} {pos.symbol}</div>
                   </div>
                 </div>
               </td>
-              <td className="text-right py-4 text-sm text-fluid-text-muted">{pos.avgPrice}</td>
-              <td className="text-right py-4 text-sm text-fluid-text">{pos.currentPrice}</td>
-              <td className={`text-right py-4 text-sm font-mono-data ${pos.pnlPositive ? 'text-fluid-primary' : 'text-fluid-secondary'}`}>
-                {pos.pnl}
+              <td className="text-right py-4 text-sm text-fluid-text-muted">{formatCurrency(pos.avgCost)}</td>
+              <td className="text-right py-4 text-sm text-fluid-text">{formatCurrency(pos.currentPrice)}</td>
+              <td className={`text-right py-4 text-sm font-mono-data ${pos.pnlPercent >= 0 ? 'text-fluid-primary' : 'text-fluid-secondary'}`}>
+                {pos.pnlPercent >= 0 ? '+' : ''}{formatNumber(pos.pnlPercent)}%
               </td>
-              <td className="text-right py-4 text-sm font-medium text-fluid-text">{pos.value}</td>
+              <td className="text-right py-4 text-sm font-medium text-fluid-text">{formatCurrency(pos.marketValue)}</td>
             </tr>
           ))}
         </tbody>
@@ -188,6 +264,32 @@ function RecentEvents() {
 }
 
 export default function Portfolio() {
+  const { showToast } = useToast()
+  const [positions, setPositions] = useState<PortfolioItem[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  // Fetch portfolio data
+  const fetchPortfolio = useCallback(async () => {
+    try {
+      setLoading(true)
+      setError(null)
+      const data = await portfolioApi.getPortfolio()
+      setPositions(data)
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to load portfolio'
+      setError(errorMessage)
+      showToast('Failed to load portfolio data', 'error')
+    } finally {
+      setLoading(false)
+    }
+  }, [showToast])
+
+  // Initial load
+  useEffect(() => {
+    void fetchPortfolio()
+  }, [fetchPortfolio])
+
   return (
     <div className="space-y-6 pb-8">
       {/* Header */}
@@ -219,7 +321,11 @@ export default function Portfolio() {
       </div>
 
       {/* Positions Table */}
-      <PositionsTable />
+      <PositionsTable 
+        positions={positions} 
+        loading={loading} 
+        error={error} 
+      />
 
       {/* Recent Events */}
       <RecentEvents />
