@@ -1,6 +1,7 @@
 // Aura AI Command Center Page
-import { useState, useRef, useEffect } from 'react'
+import { memo, useEffect, useRef, useState } from 'react'
 import ReactMarkdown from 'react-markdown'
+import type { Components } from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 
 // Types
@@ -74,17 +75,159 @@ const getAuthToken = (): string => {
   }
 }
 
+const createTimestamp = (): string =>
+  new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+
+const CHART_BARS: ReadonlyArray<{ readonly id: string; readonly height: number }> = [
+  { id: 'bar-01', height: 40 },
+  { id: 'bar-02', height: 55 },
+  { id: 'bar-03', height: 45 },
+  { id: 'bar-04', height: 70 },
+  { id: 'bar-05', height: 60 },
+  { id: 'bar-06', height: 85 },
+  { id: 'bar-07', height: 95 },
+  { id: 'bar-08', height: 75 },
+  { id: 'bar-09', height: 60 },
+  { id: 'bar-10', height: 80 },
+  { id: 'bar-11', height: 50 },
+  { id: 'bar-12', height: 65 },
+  { id: 'bar-13', height: 40 },
+  { id: 'bar-14', height: 55 },
+  { id: 'bar-15', height: 70 },
+  { id: 'bar-16', height: 85 },
+  { id: 'bar-17', height: 60 },
+  { id: 'bar-18', height: 75 },
+  { id: 'bar-19', height: 50 },
+  { id: 'bar-20', height: 40 },
+]
+
+const MARKDOWN_COMPONENTS: Components = {
+  h1: ({ children }) => (
+    <h1 className="mb-2 text-base font-semibold">{children}</h1>
+  ),
+  h2: ({ children }) => (
+    <h2 className="mb-2 text-[15px] font-semibold">{children}</h2>
+  ),
+  h3: ({ children }) => (
+    <h3 className="mb-1 text-sm font-semibold">{children}</h3>
+  ),
+  p: ({ children }) => (
+    <p className="mb-2 last:mb-0 whitespace-pre-wrap">{children}</p>
+  ),
+  ul: ({ children }) => (
+    <ul className="mb-2 list-disc pl-5 space-y-1">{children}</ul>
+  ),
+  ol: ({ children }) => (
+    <ol className="mb-2 list-decimal pl-5 space-y-1">{children}</ol>
+  ),
+  li: ({ children }) => <li>{children}</li>,
+  strong: ({ children }) => (
+    <strong className="font-semibold">{children}</strong>
+  ),
+  a: ({ href, children }) => (
+    <a href={href} target="_blank" rel="noreferrer" className="underline underline-offset-2">
+      {children}
+    </a>
+  ),
+  code: ({ children }) => (
+    <code className="rounded bg-fluid-surface-container-lowest px-1 py-0.5 text-[12px]">
+      {children}
+    </code>
+  ),
+}
+
+type SseEvent = {
+  readonly eventType: string
+  readonly dataRaw: string
+}
+
+const parseSseField = (line: string, field: 'event' | 'data'): string | null => {
+  const prefix = `${field}:`
+  if (!line.startsWith(prefix)) {
+    return null
+  }
+  return line.slice(prefix.length).trimStart()
+}
+
+const parseSseEvent = (raw: string): SseEvent | null => {
+  if (!raw.trim()) {
+    return null
+  }
+
+  const lines = raw.split('\n')
+  let eventType = 'message'
+  const dataParts: string[] = []
+
+  for (const line of lines) {
+    const parsedEvent = parseSseField(line, 'event')
+    if (parsedEvent !== null) {
+      eventType = parsedEvent || 'message'
+      continue
+    }
+
+    const parsedData = parseSseField(line, 'data')
+    if (parsedData !== null) {
+      dataParts.push(parsedData)
+    }
+  }
+
+  const dataRaw = dataParts.join('\n').trim()
+  if (!dataRaw) {
+    return null
+  }
+
+  return { eventType, dataRaw }
+}
+
+const decodeSseChunk = (buffer: string, decodedChunk: string): {
+  readonly nextBuffer: string
+  readonly events: SseEvent[]
+} => {
+  const combined = buffer + decodedChunk
+  const rawChunks = combined.split('\n\n')
+  const nextBuffer = rawChunks.pop() || ''
+  const events = rawChunks
+    .map(parseSseEvent)
+    .filter((event): event is SseEvent => event !== null)
+
+  return { nextBuffer, events }
+}
+
+const processSseEvent = (
+  event: SseEvent,
+  assistantMessageId: string,
+  updateAssistantMessage: (messageId: string, appendText: string) => void,
+): void => {
+  try {
+    const payload = JSON.parse(event.dataRaw) as { content?: string; message?: string }
+    if (event.eventType === 'delta' && payload.content) {
+      updateAssistantMessage(assistantMessageId, payload.content)
+      return
+    }
+
+    if (event.eventType === 'error') {
+      throw new Error(payload.message || 'AI 服务异常')
+    }
+  } catch (err) {
+    if (err instanceof Error && event.eventType === 'error') {
+      throw err
+    }
+  }
+}
+
+type FlowTableProps = {
+  readonly flows: FlowItem[]
+}
+
 // Components
 function ChartBars() {
-  const heights = [40, 55, 45, 70, 60, 85, 95, 75, 60, 80, 50, 65, 40, 55, 70, 85, 60, 75, 50, 40]
-  
   return (
     <div className="h-64 flex items-end gap-1 relative">
-      {heights.map((h, i) => (
+      {CHART_BARS.map((bar) => (
         <div 
-          key={i} 
+          key={bar.id}
           className="flex-1 bg-fluid-primary/30 hover:bg-fluid-primary/50 rounded-t-sm transition-all duration-300"
-          style={{ height: `${h}%` }}
+          style={{ height: `${bar.height}%` }}
         />
       ))}
       <div className="absolute inset-0 bg-gradient-to-t from-fluid-surface via-transparent to-transparent pointer-events-none" />
@@ -92,7 +235,7 @@ function ChartBars() {
   )
 }
 
-function FlowTable({ flows }: { flows: FlowItem[] }) {
+function FlowTable({ flows }: Readonly<FlowTableProps>) {
   return (
     <div className="glass-panel rounded-xl overflow-hidden">
       <div className="p-4 border-b border-fluid-outline-variant/10 flex justify-between items-center">
@@ -107,9 +250,9 @@ function FlowTable({ flows }: { flows: FlowItem[] }) {
           <span className="text-right">Time</span>
         </div>
         <div className="space-y-1 mt-2">
-          {flows.map((flow, idx) => (
+          {flows.map((flow) => (
             <div 
-              key={idx} 
+              key={`${flow.source}-${flow.asset}-${flow.time}`}
               className="grid grid-cols-4 p-4 text-xs font-mono-data items-center hover:bg-fluid-surface-container transition-colors rounded-lg cursor-pointer"
             >
               <span className="text-fluid-primary">{flow.source}</span>
@@ -139,7 +282,11 @@ function MarketSentiment() {
   )
 }
 
-function ChatMessage({ message }: { message: Message }) {
+type ChatMessageProps = {
+  readonly message: Message
+}
+
+const ChatMessage = memo(function ChatMessage({ message }: Readonly<ChatMessageProps>) {
   const isUser = message.role === 'user'
   
   return (
@@ -157,26 +304,7 @@ function ChatMessage({ message }: { message: Message }) {
           ) : (
             <ReactMarkdown
               remarkPlugins={[remarkGfm]}
-              components={{
-                h1: ({ children }) => <h1 className="mb-2 text-base font-semibold">{children}</h1>,
-                h2: ({ children }) => <h2 className="mb-2 text-[15px] font-semibold">{children}</h2>,
-                h3: ({ children }) => <h3 className="mb-1 text-sm font-semibold">{children}</h3>,
-                p: ({ children }) => <p className="mb-2 last:mb-0 whitespace-pre-wrap">{children}</p>,
-                ul: ({ children }) => <ul className="mb-2 list-disc pl-5 space-y-1">{children}</ul>,
-                ol: ({ children }) => <ol className="mb-2 list-decimal pl-5 space-y-1">{children}</ol>,
-                li: ({ children }) => <li>{children}</li>,
-                strong: ({ children }) => <strong className="font-semibold">{children}</strong>,
-                a: ({ href, children }) => (
-                  <a href={href} target="_blank" rel="noreferrer" className="underline underline-offset-2">
-                    {children}
-                  </a>
-                ),
-                code: ({ children }) => (
-                  <code className="rounded bg-fluid-surface-container-lowest px-1 py-0.5 text-[12px]">
-                    {children}
-                  </code>
-                ),
-              }}
+              components={MARKDOWN_COMPONENTS}
             >
               {message.content}
             </ReactMarkdown>
@@ -188,7 +316,7 @@ function ChatMessage({ message }: { message: Message }) {
       </div>
     </div>
   )
-}
+})
 
 function TypingIndicator() {
   const dotStyle = {
@@ -265,7 +393,7 @@ export default function AICommandCenter() {
             id: messageId,
             role: 'assistant',
             content: appendText,
-            timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+            timestamp: createTimestamp(),
           },
         ]
       }
@@ -321,61 +449,16 @@ export default function AICommandCenter() {
     const decoder = new TextDecoder()
     let buffer = ''
 
-    const parseField = (line: string, field: 'event' | 'data') => {
-      const prefix = `${field}:`
-      if (!line.startsWith(prefix)) {
-        return null
-      }
-      return line.slice(prefix.length).trimStart()
-    }
-
     while (true) {
       const { done, value } = await reader.read()
       if (done) {
         break
       }
-      buffer += decoder.decode(value, { stream: true })
-      const chunks = buffer.split('\n\n')
-      buffer = chunks.pop() || ''
 
-      for (const raw of chunks) {
-        if (!raw.trim()) {
-          continue
-        }
-        const lines = raw.split('\n')
-        let eventType = 'message'
-        const dataParts: string[] = []
-
-        for (const line of lines) {
-          const e = parseField(line, 'event')
-          if (e !== null) {
-            eventType = e || 'message'
-            continue
-          }
-          const d = parseField(line, 'data')
-          if (d !== null) {
-            dataParts.push(d)
-          }
-        }
-
-        const dataRaw = dataParts.join('\n').trim()
-        if (!dataRaw) {
-          continue
-        }
-        try {
-          const payload = JSON.parse(dataRaw)
-          if (eventType === 'delta' && payload.content) {
-            updateAssistantMessage(assistantMessageId, payload.content)
-            continue
-          }
-          if (eventType === 'error') {
-            throw new Error(payload.message || 'AI 服务异常')
-          }
-        } catch (err) {
-          if (err instanceof Error && eventType === 'error') {
-            throw err
-          }
-        }
+      const { nextBuffer, events } = decodeSseChunk(buffer, decoder.decode(value, { stream: true }))
+      buffer = nextBuffer
+      for (const event of events) {
+        processSseEvent(event, assistantMessageId, updateAssistantMessage)
       }
     }
   }
@@ -392,7 +475,7 @@ export default function AICommandCenter() {
       id: Date.now().toString(),
       role: 'user',
       content,
-      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      timestamp: createTimestamp(),
     }
 
     const assistantId = `a_${Date.now()}`
@@ -412,7 +495,7 @@ export default function AICommandCenter() {
             id: assistantId,
             role: 'assistant',
             content: `❌ ${msg}`,
-            timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+            timestamp: createTimestamp(),
           },
         ]
       })
