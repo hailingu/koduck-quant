@@ -329,19 +329,32 @@ export default function Watchlist() {
         }
       } else {
         // 输入的是股票名称，先搜索
-        const results = await klineApi.searchStocks(trimmedInput, 5)
+        const results = await klineApi.searchStocks(trimmedInput, 10)
         if (!results || results.length === 0) {
           showToast('未找到该股票，请检查名称是否正确', 'warning')
           return
         }
 
-        // 优先选择精确匹配的结果
-        const exactMatch = results.find(
-          (r) => r.name === trimmedInput || r.symbol === trimmedInput
-        )
-        const target = exactMatch || results[0]
+        // 精确匹配：名称完全一致
+        const exactMatch = results.find((r) => r.name === trimmedInput)
 
-        await handleAddStock(target.symbol, target.name, target.market)
+        if (exactMatch) {
+          // 找到精确匹配，直接添加
+          await handleAddStock(exactMatch.symbol, exactMatch.name, exactMatch.market)
+        } else if (results.length === 1) {
+          // 只有一个结果但不是精确匹配（如输入"茅台"匹配到"贵州茅台"）
+          // 显示确认提示
+          const single = results[0]
+          const confirmed = window.confirm(
+            `未找到精确匹配"${trimmedInput}"，是否添加搜索结果：\n${single.name} (${single.symbol})？`
+          )
+          if (confirmed) {
+            await handleAddStock(single.symbol, single.name, single.market)
+          }
+        } else {
+          // 多个结果且没有精确匹配，提示用户输入更精确
+          showToast(`找到多个匹配"${trimmedInput}"的结果，请输入完整股票名称`, 'warning')
+        }
       }
     } catch {
       showToast('添加失败，请稍后重试', 'error')
