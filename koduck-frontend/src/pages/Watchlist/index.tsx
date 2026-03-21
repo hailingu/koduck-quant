@@ -1,4 +1,5 @@
-import { useEffect, useState, useCallback, useMemo, useRef } from 'react'
+import { memo, useEffect, useState, useCallback, useMemo, useRef } from 'react'
+import type { ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
 import type { WatchlistItem } from '@/api/watchlist'
 import { watchlistApi } from '@/api/watchlist'
@@ -7,6 +8,7 @@ import { useWebSocketSubscription } from '@/hooks/useWebSocket'
 import { useWebSocketStore } from '@/stores/websocket'
 import StockSearch from '@/components/StockSearch'
 import PriceDisplay from '@/components/PriceDisplay'
+import VisualModalTemplate from '@/components/VisualModalTemplate'
 import { isTradingHours } from '@/utils/trading'
 import { marketApi } from '@/api/market'
 import { klineApi } from '@/api/kline'
@@ -29,25 +31,7 @@ const normalizeSymbol = (symbol: string): string => {
   return symbol.trim()
 }
 
-
-function SortButton({ direction, onClick, active }: { direction: 'up' | 'down'; onClick: () => void; active: boolean }) {
-  return (
-    <button
-      onClick={onClick}
-      className={`rounded-md p-1 transition-colors hover:bg-fluid-surface-higher/70 ${active ? 'text-fluid-primary' : 'text-fluid-text-dim'}`}
-    >
-      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        {direction === 'up' ? (
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
-        ) : (
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-        )}
-      </svg>
-    </button>
-  )
-}
-
-function WatchlistRow({
+const WatchlistRow = memo(function WatchlistRow({
   item,
   onDelete,
   onClick,
@@ -69,12 +53,13 @@ function WatchlistRow({
             <span className="text-[10px] font-mono-data text-fluid-text-muted">{item.name.slice(0, 1).toUpperCase()}</span>
           </div>
           <div>
-            <div
-              className="cursor-pointer text-[15px] font-semibold text-fluid-text transition-colors hover:text-fluid-primary"
+            <button
+              type="button"
+              className="text-[15px] font-semibold text-fluid-text transition-colors hover:text-fluid-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fluid-primary/60"
               onClick={() => onClick(item.symbol, item.market)}
             >
               {item.name}
-            </div>
+            </button>
             <div className="mt-0.5 text-[11px] font-mono-data uppercase tracking-wider text-fluid-text-dim">
               {item.symbol}/{item.market}
             </div>
@@ -136,17 +121,18 @@ function WatchlistRow({
       </td>
     </tr>
   )
-}
+})
 
 export default function Watchlist() {
   const navigate = useNavigate()
   const { showToast } = useToast()
   const [watchlist, setWatchlist] = useState<WatchlistItem[]>([])
   const [loading, setLoading] = useState(true)
-  const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' } | null>(null)
   const [showAddModal, setShowAddModal] = useState(false)
   const [deletingItem, setDeletingItem] = useState<WatchlistDisplayItem | null>(null)
   const [deleting, setDeleting] = useState(false)
+  const [showBatchDeleteModal, setShowBatchDeleteModal] = useState(false)
+  const [batchDeleting, setBatchDeleting] = useState(false)
   const [marketTrading, setMarketTrading] = useState<boolean>(isTradingHours())
   const [quickSymbol, setQuickSymbol] = useState('')
   const [searchResults, setSearchResults] = useState<Array<{ symbol: string; name: string; market: string }>>([])
@@ -154,6 +140,8 @@ export default function Watchlist() {
   const [isSearching, setIsSearching] = useState(false)
   const searchContainerRef = useRef<HTMLDivElement>(null)
   const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const delayedRefreshTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const latestSearchRequestIdRef = useRef(0)
 
   const stockPrices = useWebSocketStore((state) => state.stockPrices)
   const connectionState = useWebSocketStore((state) => state.connectionState)
@@ -181,6 +169,55 @@ export default function Watchlist() {
       return item
     })
   }, [watchlist, stockPrices])
+
+  const sortedWatchlist = watchlistWithRealtime
+
+  const existingSymbolsByMarket = useMemo(() => {
+    const set = new Set<string>()
+    for (const item of watchlist) {
+      set.add(`${item.market}:${normalizeSymbol(item.symbol)}`)
+    }
+    return set
+  }, [watchlist])
+
+  const watchlistNameByKey = useMemo(() => {
+    const map = new Map<string, string>()
+    for (const item of watchlist) {
+      map.set(`${item.market}:${item.symbol}`, item.name)
+    }
+    return map
+  }, [watchlist])
+
+  const watchlistSummary = useMemo(() => {
+    return sortedWatchlist.reduce(
+      (acc, item) => {
+        const changePercent = item.changePercent
+        const absChangePercent = Math.abs(changePercent || 0)
+
+        if (changePercent != null && (acc.topPerformer == null || changePercent > (acc.topPerformer.changePercent ?? -Infinity))) {
+          acc.topPerformer = item
+        }
+
+        if (acc.mostVolatile == null || absChangePercent > Math.abs(acc.mostVolatile.changePercent || 0)) {
+          acc.mostVolatile = item
+        }
+
+        if ((changePercent || 0) >= 0) {
+          acc.bullCount += 1
+        }
+
+        return acc
+      },
+      {
+        topPerformer: null as WatchlistDisplayItem | null,
+        mostVolatile: null as WatchlistDisplayItem | null,
+        bullCount: 0,
+      },
+    )
+  }, [sortedWatchlist])
+
+  const bullRatio = watchlistSummary.bullCount / Math.max(1, sortedWatchlist.length)
+  const bullPercent = Math.round(bullRatio * 100)
 
   const loadWatchlist = useCallback(async (options?: { silent?: boolean }) => {
     const silent = options?.silent ?? false
@@ -215,6 +252,17 @@ export default function Watchlist() {
     }
   }, [])
 
+  useEffect(() => {
+    return () => {
+      if (searchTimeoutRef.current) {
+        clearTimeout(searchTimeoutRef.current)
+      }
+      if (delayedRefreshTimeoutRef.current) {
+        clearTimeout(delayedRefreshTimeoutRef.current)
+      }
+    }
+  }, [])
+
   // Click outside to close search dropdown
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -242,16 +290,16 @@ export default function Watchlist() {
     }
 
     searchTimeoutRef.current = setTimeout(async () => {
+      const requestId = ++latestSearchRequestIdRef.current
       setIsSearching(true)
       try {
         // Check if input is 6-digit code, try getStockDetail first
         if (/^\d{6}$/.test(trimmed)) {
           try {
             const detail = await marketApi.getStockDetail(trimmed)
-            if (detail) {
+            if (detail && requestId === latestSearchRequestIdRef.current) {
               setSearchResults([{ symbol: detail.symbol, name: detail.name, market: 'AShare' }])
               setShowSearchDropdown(true)
-              setIsSearching(false)
               return
             }
           } catch {
@@ -261,6 +309,10 @@ export default function Watchlist() {
 
         // Search by name
         const results = await klineApi.searchStocks(trimmed, 5)
+        if (requestId !== latestSearchRequestIdRef.current) {
+          return
+        }
+
         if (results && results.length > 0) {
           setSearchResults(results.map((r) => ({ symbol: r.symbol, name: r.name, market: r.market })))
           setShowSearchDropdown(true)
@@ -269,10 +321,15 @@ export default function Watchlist() {
           setShowSearchDropdown(false)
         }
       } catch {
+        if (requestId !== latestSearchRequestIdRef.current) {
+          return
+        }
         setSearchResults([])
         setShowSearchDropdown(false)
       } finally {
-        setIsSearching(false)
+        if (requestId === latestSearchRequestIdRef.current) {
+          setIsSearching(false)
+        }
       }
     }, 300)
   }, [])
@@ -295,7 +352,7 @@ export default function Watchlist() {
     const normalizedSymbol = normalizeSymbol(symbol)
 
     try {
-      if (watchlist.some((item) => normalizeSymbol(item.symbol) === normalizedSymbol && item.market === market)) {
+      if (existingSymbolsByMarket.has(`${market}:${normalizedSymbol}`)) {
         showToast('该股票已在自选股中', 'warning')
         return
       }
@@ -309,9 +366,12 @@ export default function Watchlist() {
       setShowAddModal(false)
       // 立即添加新项到列表
       setWatchlist((prev) => [...prev, newItem])
-      
+
       // 延迟刷新以获取最新价格（给后端时间从数据源同步价格）
-      setTimeout(() => {
+      if (delayedRefreshTimeoutRef.current) {
+        clearTimeout(delayedRefreshTimeoutRef.current)
+      }
+      delayedRefreshTimeoutRef.current = setTimeout(() => {
         void loadWatchlist({ silent: true })
       }, 500)
     } catch {
@@ -334,52 +394,13 @@ export default function Watchlist() {
     }
   }
 
-  const handleSort = (key: string) => {
-    let direction: 'asc' | 'desc' = 'asc'
-    if (sortConfig && sortConfig.key === key && sortConfig.direction === 'asc') {
-      direction = 'desc'
+  const handleClickStock = useCallback((symbol: string, market: string) => {
+    const name = watchlistNameByKey.get(`${market}:${symbol}`)
+    if (!name) {
+      return
     }
-    setSortConfig({ key, direction })
-
-    const sorted = [...watchlist].sort((a, b) => {
-      let aValue: number | string = ''
-      let bValue: number | string = ''
-
-      switch (key) {
-        case 'name':
-          aValue = a.name
-          bValue = b.name
-          break
-        case 'price':
-          aValue = a.price || 0
-          bValue = b.price || 0
-          break
-        case 'change':
-          aValue = a.changePercent || 0
-          bValue = b.changePercent || 0
-          break
-        case 'time':
-          aValue = a.createdAt
-          bValue = b.createdAt
-          break
-        default:
-          return 0
-      }
-
-      if (aValue < bValue) return direction === 'asc' ? -1 : 1
-      if (aValue > bValue) return direction === 'asc' ? 1 : -1
-      return 0
-    })
-
-    setWatchlist(sorted)
-  }
-
-  const handleClickStock = (symbol: string, market: string) => {
-    const item = watchlist.find((i) => i.symbol === symbol && i.market === market)
-    if (item) {
-      navigate(`/kline?symbol=${symbol}&market=${market}&name=${encodeURIComponent(item.name)}`)
-    }
-  }
+    navigate(`/kline?symbol=${symbol}&market=${market}&name=${encodeURIComponent(name)}`)
+  }, [navigate, watchlistNameByKey])
 
   const handleSelectSearchResult = async (result: { symbol: string; name: string; market: string }) => {
     setShowSearchDropdown(false)
@@ -430,31 +451,119 @@ export default function Watchlist() {
       showToast('当前没有可删除的自选股', 'warning')
       return
     }
-    if (!window.confirm(`确认批量删除 ${watchlist.length} 条自选股吗？`)) {
+    setShowBatchDeleteModal(true)
+  }
+
+  const handleConfirmBatchDelete = async () => {
+    if (batchDeleting) {
       return
     }
+
     try {
+      setBatchDeleting(true)
       await Promise.all(watchlist.map((item) => watchlistApi.removeFromWatchlist(item.id)))
       showToast('批量删除成功', 'success')
       setWatchlist([])
+      setShowBatchDeleteModal(false)
     } catch {
       showToast('批量删除失败', 'error')
+    } finally {
+      setBatchDeleting(false)
     }
   }
 
-  const topPerformer = [...watchlistWithRealtime]
-    .sort((a, b) => (b.changePercent || -Infinity) - (a.changePercent || -Infinity))[0]
-  const mostVolatile = [...watchlistWithRealtime]
-    .sort((a, b) => Math.abs(b.changePercent || 0) - Math.abs(a.changePercent || 0))[0]
+  const topPerformer = watchlistSummary.topPerformer
+  const mostVolatile = watchlistSummary.mostVolatile
   const topPerformerChange = topPerformer?.changePercent
-  const topPerformerChangeClass =
-    topPerformerChange == null
-      ? 'text-fluid-text-dim'
-      : topPerformerChange >= 0
-        ? 'text-fluid-primary'
-        : 'text-fluid-secondary'
+  let topPerformerChangeClass = 'text-fluid-text-dim'
+  if (topPerformerChange != null) {
+    if (topPerformerChange >= 0) {
+      topPerformerChangeClass = 'text-fluid-primary'
+    } else {
+      topPerformerChangeClass = 'text-fluid-secondary'
+    }
+  }
   const topPerformerChangeLabel =
     topPerformerChange == null ? '--' : `${topPerformerChange >= 0 ? '+' : ''}${topPerformerChange.toFixed(2)}%`
+
+  let systemStatusLabel: string = connectionState
+  if (connectionState === 'connected') {
+    if (marketTrading) {
+      systemStatusLabel = 'Connected'
+    } else {
+      systemStatusLabel = 'Closed Market'
+    }
+  }
+
+  let watchlistContent: ReactNode
+  if (loading) {
+    watchlistContent = (
+      <div className="p-8">
+        <div className="animate-pulse space-y-4">
+          {[...Array(5)].map((_, i) => (
+            <div key={i} className="flex items-center space-x-4">
+              <div className="h-10 w-10 rounded-[10px] bg-fluid-surface-higher"></div>
+              <div className="h-12 flex-1 rounded-[10px] bg-fluid-surface-higher"></div>
+            </div>
+          ))}
+        </div>
+      </div>
+    )
+  } else if (watchlist.length === 0) {
+    watchlistContent = (
+      <div className="text-center py-16">
+        <svg
+          className="mb-4 mx-auto h-16 w-16 text-fluid-text-dim"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M4 19h16M7 15v3M11 11v7M15 13v5M19 9v9M6.5 10.5l3.5-3 3 2 4-4"
+          />
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 5h3v3" />
+        </svg>
+        <h3 className="mb-2 text-lg font-semibold text-fluid-text">暂无自选股</h3>
+        <p className="mb-4 text-fluid-text-muted">从右上角 Quick Add 添加首只股票开始追踪</p>
+        <button
+          onClick={() => void handleQuickAdd()}
+          className="rounded-[10px] border border-fluid-primary/50 bg-fluid-primary/10 px-4 py-2 text-fluid-primary transition-colors hover:bg-fluid-primary/20"
+        >
+          添加第一只股票
+        </button>
+      </div>
+    )
+  } else {
+    watchlistContent = (
+      <div className="overflow-x-auto">
+        <table className="min-w-full">
+          <thead>
+            <tr className="border-b border-fluid-outline-variant/20 font-mono-data text-[10px] uppercase tracking-[0.2em] text-fluid-text-muted">
+              <th className="px-6 py-4 text-left">Asset / Symbol</th>
+              <th className="px-6 py-4 text-right">Current Price</th>
+              <th className="px-6 py-4 text-right">24h Change</th>
+              <th className="px-6 py-4 text-right">Added Date</th>
+              <th className="px-6 py-4 text-right">Indicators</th>
+              <th className="px-6 py-4 text-right">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {sortedWatchlist.map((item) => (
+              <WatchlistRow
+                key={item.id}
+                item={item}
+                onDelete={setDeletingItem}
+                onClick={handleClickStock}
+              />
+            ))}
+          </tbody>
+        </table>
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-6">
@@ -466,7 +575,7 @@ export default function Watchlist() {
           <div className="mt-2 flex items-center gap-2 font-mono-data text-[10px] uppercase tracking-[0.22em] text-fluid-text-muted">
             <span className="inline-block h-2 w-2 rounded-full bg-fluid-primary shadow-glow-primary animate-pulse" />
             <span>
-              System: {connectionState === 'connected' ? (marketTrading ? 'Connected' : 'Closed Market') : connectionState}
+              System: {systemStatusLabel}
             </span>
             <span>•</span>
             <span>Latency: 0ms</span>
@@ -526,68 +635,7 @@ export default function Watchlist() {
 
       <div className={`${WATCHLIST_PANEL_CLASS} p-0`}>
         <div className="overflow-x-auto">
-          {loading ? (
-            <div className="p-8">
-              <div className="animate-pulse space-y-4">
-                {[...Array(5)].map((_, i) => (
-                  <div key={i} className="flex items-center space-x-4">
-                    <div className="h-10 w-10 rounded-[10px] bg-fluid-surface-higher"></div>
-                    <div className="h-12 flex-1 rounded-[10px] bg-fluid-surface-higher"></div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          ) : watchlist.length === 0 ? (
-            <div className="text-center py-16">
-              <svg
-                className="mb-4 mx-auto h-16 w-16 text-fluid-text-dim"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M4 19h16M7 15v3M11 11v7M15 13v5M19 9v9M6.5 10.5l3.5-3 3 2 4-4"
-                />
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 5h3v3" />
-              </svg>
-              <h3 className="mb-2 text-lg font-semibold text-fluid-text">暂无自选股</h3>
-              <p className="mb-4 text-fluid-text-muted">从右上角 Quick Add 添加首只股票开始追踪</p>
-              <button
-                onClick={() => void handleQuickAdd()}
-                className="rounded-[10px] border border-fluid-primary/50 bg-fluid-primary/10 px-4 py-2 text-fluid-primary transition-colors hover:bg-fluid-primary/20"
-              >
-                添加第一只股票
-              </button>
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="min-w-full">
-                <thead>
-                  <tr className="border-b border-fluid-outline-variant/20 font-mono-data text-[10px] uppercase tracking-[0.2em] text-fluid-text-muted">
-                    <th className="px-6 py-4 text-left">Asset / Symbol</th>
-                    <th className="px-6 py-4 text-right">Current Price</th>
-                    <th className="px-6 py-4 text-right">24h Change</th>
-                    <th className="px-6 py-4 text-right">Added Date</th>
-                    <th className="px-6 py-4 text-right">Indicators</th>
-                    <th className="px-6 py-4 text-right">Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {watchlistWithRealtime.map((item) => (
-                    <WatchlistRow
-                      key={item.id}
-                      item={item}
-                      onDelete={setDeletingItem}
-                      onClick={handleClickStock}
-                    />
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
+          {watchlistContent}
         </div>
       </div>
 
@@ -607,14 +655,14 @@ export default function Watchlist() {
               <div
                 className="h-full bg-fluid-primary"
                 style={{
-                  width: `${Math.min(100, Math.max(0, Math.round((watchlistWithRealtime.filter((i) => (i.changePercent || 0) >= 0).length / Math.max(1, watchlistWithRealtime.length)) * 100)))}%`,
+                  width: `${Math.min(100, Math.max(0, bullPercent))}%`,
                 }}
               />
             </div>
             <div className="mt-2 flex justify-between font-mono-data text-[10px] uppercase tracking-widest text-fluid-text-muted">
               <span>Bull</span>
               <span>
-                {Math.round((watchlistWithRealtime.filter((i) => (i.changePercent || 0) >= 0).length / Math.max(1, watchlistWithRealtime.length)) * 100)}%
+                {bullPercent}%
               </span>
             </div>
           </div>
@@ -629,45 +677,56 @@ export default function Watchlist() {
           </div>
       </div>
 
-      {showAddModal && (
-        <div className="fixed inset-0 z-50 overflow-y-auto">
-          <div className="flex items-center justify-center min-h-screen px-4">
-            <div className="fixed inset-0 bg-black/20 backdrop-blur-sm transition-opacity" onClick={() => setShowAddModal(false)}></div>
-            <div className="relative w-full max-w-md rounded-[24px] border border-fluid-outline-variant/50 bg-fluid-surface-container p-6 shadow-[0_25px_60px_rgba(0,0,0,0.35)]">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-semibold text-fluid-text">添加自选股</h3>
-                <button
-                  onClick={() => setShowAddModal(false)}
-                  className="text-fluid-text-muted hover:text-fluid-text"
-                >
-                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
-              </div>
-              <StockSearch
-                onSelect={(symbol, name, market) => {
-                  handleAddStock(symbol, name, market || 'AShare')
-                }}
-              />
-              <p className="mt-4 text-sm text-[#8e8e93] dark:text-gray-400">
-                搜索股票代码或名称，点击即可添加到自选股
-              </p>
-            </div>
-          </div>
-        </div>
-      )}
+      <VisualModalTemplate
+        open={showAddModal}
+        onClose={() => setShowAddModal(false)}
+        closeAriaLabel="关闭添加自选股弹窗"
+        title="添加第一只股票"
+        description="搜索股票代码或名称，点击候选项即可加入自选列表。"
+        accent="primary"
+        icon={
+          <svg className="h-8 w-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+          </svg>
+        }
+        actions={
+          <>
+            <button
+              type="button"
+              onClick={() => setShowAddModal(false)}
+              className="px-6 py-3 font-mono-data text-[10px] uppercase tracking-[0.2em] text-fluid-text-dim transition-all duration-300 hover:bg-fluid-surface-higher"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={() => void handleQuickAdd()}
+              className="border border-fluid-primary/40 bg-fluid-primary/10 px-6 py-3 font-mono-data text-[10px] font-bold uppercase tracking-[0.2em] text-fluid-primary shadow-[0_0_15px_rgba(0,242,255,0.1)] transition-all duration-300 hover:bg-fluid-primary/20"
+            >
+              Quick Add
+            </button>
+          </>
+        }
+      >
+        <StockSearch
+          onSelect={(symbol, name, market) => {
+            handleAddStock(symbol, name, market || 'AShare')
+          }}
+        />
+      </VisualModalTemplate>
 
       {deletingItem && (
         <div className="fixed inset-0 z-[60] overflow-y-auto">
           <div className="flex items-center justify-center min-h-screen px-4">
-            <div
+            <button
+              type="button"
               className="fixed inset-0 bg-black/30 backdrop-blur-sm transition-opacity"
               onClick={() => {
                 if (!deleting) {
                   setDeletingItem(null)
                 }
               }}
+              aria-label="关闭删除确认弹窗"
             />
             <div className="relative w-full max-w-[620px] rounded-[24px] border border-fluid-outline-variant/40 bg-fluid-surface-container shadow-[0_25px_60px_rgba(0,0,0,0.45)]">
               <div className="p-6">
@@ -707,6 +766,50 @@ export default function Watchlist() {
           </div>
         </div>
       )}
+
+      <VisualModalTemplate
+        open={showBatchDeleteModal}
+        onClose={() => {
+          if (!batchDeleting) {
+            setShowBatchDeleteModal(false)
+          }
+        }}
+        closeAriaLabel="关闭批量删除确认弹窗"
+        title="确认批量删除？"
+        description={
+          <>
+            你将从自选列表中移除
+            <span className="mx-1 font-mono-data font-bold text-fluid-secondary">{watchlist.length}</span>
+            条记录。该操作在当前会话中不可撤销。
+          </>
+        }
+        accent="secondary"
+        icon={
+          <svg className="h-8 w-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 13h6m-8 4h10a2 2 0 002-2V7a2 2 0 00-2-2h-3.586a1 1 0 01-.707-.293l-1.414-1.414A1 1 0 0010.586 3H7a2 2 0 00-2 2v10a2 2 0 002 2z" />
+          </svg>
+        }
+        actions={
+          <>
+            <button
+              type="button"
+              onClick={() => setShowBatchDeleteModal(false)}
+              disabled={batchDeleting}
+              className="px-6 py-3 font-mono-data text-[10px] uppercase tracking-[0.2em] text-fluid-text-dim transition-all duration-300 hover:bg-fluid-surface-higher disabled:opacity-60"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={() => void handleConfirmBatchDelete()}
+              disabled={batchDeleting}
+              className="border border-fluid-secondary/40 bg-fluid-secondary/10 px-6 py-3 font-mono-data text-[10px] font-bold uppercase tracking-[0.2em] text-fluid-secondary shadow-[0_0_15px_rgba(255,179,181,0.1)] transition-all duration-300 hover:bg-fluid-secondary/20 disabled:opacity-60"
+            >
+              {batchDeleting ? 'Deleting...' : 'Confirm Delete'}
+            </button>
+          </>
+        }
+      />
     </div>
   )
 }
