@@ -17,8 +17,7 @@ const REALTIME_STALE_MS = 20000
 const WATCHLIST_REFRESH_MS = 15000
 const MARKET_STATUS_CHECK_MS = 30000
 
-const APPLE_CARD_CLASS =
-  'bg-white dark:bg-[#1c1c1e] rounded-[24px] shadow-[0_4px_24px_rgba(0,0,0,0.04)] border border-gray-100 dark:border-white/5'
+const WATCHLIST_PANEL_CLASS = 'glass-panel rounded-xl border border-fluid-outline-variant/30'
 
 const normalizeSymbol = (symbol: string): string => {
   const digits = symbol.replaceAll(/\D/g, '')
@@ -29,12 +28,11 @@ const normalizeSymbol = (symbol: string): string => {
 }
 
 
-// 
 function SortButton({ direction, onClick, active }: { direction: 'up' | 'down'; onClick: () => void; active: boolean }) {
   return (
     <button
       onClick={onClick}
-      className={`p-1 rounded-md transition-colors hover:bg-[#eceef2] dark:hover:bg-[#2c2c2e] ${active ? 'text-[#0a84ff]' : 'text-[#8e8e93]'}`}
+      className={`rounded-md p-1 transition-colors hover:bg-fluid-surface-higher/70 ${active ? 'text-fluid-primary' : 'text-fluid-text-dim'}`}
     >
       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         {direction === 'up' ? (
@@ -47,7 +45,6 @@ function SortButton({ direction, onClick, active }: { direction: 'up' | 'down'; 
   )
 }
 
-// 
 function WatchlistRow({
   item,
   onDelete,
@@ -57,22 +54,28 @@ function WatchlistRow({
   onDelete: (item: WatchlistDisplayItem) => void
   onClick: (symbol: string, market: string) => void
 }) {
-  
   const isUp = (item.changePercent || 0) >= 0
   const colorClass = isUp ? 'text-stock-up' : 'text-stock-down'
+  const indicatorStrength = Math.min(3, Math.max(1, Math.ceil(Math.abs(item.changePercent || 0) / 3)))
 
   return (
-    <tr className="group hover:bg-gray-50/60 dark:hover:bg-white/5 transition-colors">
+    <tr className="group border-b border-fluid-outline-variant/15 transition-colors hover:bg-fluid-surface-higher/50">
       <td className="px-6 py-4 whitespace-nowrap">
-        <div className="flex items-center">
+        <div className="flex items-center gap-3">
+          <span className="text-fluid-text-dim/70">⋮</span>
+          <div className="flex h-8 w-8 items-center justify-center rounded-full border border-fluid-outline-variant/40 bg-fluid-surface-higher">
+            <span className="text-[10px] font-mono-data text-fluid-text-muted">{item.name.slice(0, 1).toUpperCase()}</span>
+          </div>
           <div>
             <div
-              className="text-[15px] font-medium text-[#1d1d1f] dark:text-white cursor-pointer hover:text-[#0a84ff] transition-colors"
+              className="cursor-pointer text-[15px] font-semibold text-fluid-text transition-colors hover:text-fluid-primary"
               onClick={() => onClick(item.symbol, item.market)}
             >
               {item.name}
             </div>
-            <div className="text-[13px] text-[#8e8e93] dark:text-gray-400 mt-0.5">{item.symbol}</div>
+            <div className="mt-0.5 text-[11px] font-mono-data uppercase tracking-wider text-fluid-text-dim">
+              {item.symbol}/{item.market}
+            </div>
           </div>
         </div>
       </td>
@@ -92,23 +95,34 @@ function WatchlistRow({
           {item.change ? `${isUp ? '+' : ''}${item.change.toFixed(2)}` : '--'}
         </div>
       </td>
-      <td className="px-6 py-4 whitespace-nowrap text-right text-sm text-gray-500 dark:text-gray-400">
+      <td className="px-6 py-4 whitespace-nowrap text-right text-sm text-fluid-text-dim">
         {new Date(item.createdAt).toLocaleDateString('zh-CN')}
       </td>
       <td className="px-6 py-4 whitespace-nowrap text-right">
-        <div
-          className="
-            inline-flex w-[52px] justify-end
-            transition-all duration-200
-            opacity-100 translate-x-0
-            md:opacity-30 md:translate-x-1
-            md:group-hover:opacity-100 md:group-hover:translate-x-0
-            md:group-focus-within:opacity-100 md:group-focus-within:translate-x-0
-          "
-        >
+        <div className="inline-flex items-center gap-2">
+          {[0, 1, 2].map((idx) => (
+            <span
+              key={idx}
+              className={`h-1.5 w-1.5 rounded-full ${idx < indicatorStrength ? 'bg-fluid-primary shadow-glow-primary' : 'bg-fluid-outline-variant/80'}`}
+            />
+          ))}
+        </div>
+      </td>
+      <td className="px-6 py-4 whitespace-nowrap text-right">
+        <div className="inline-flex w-[90px] justify-end gap-1 transition-all duration-200 opacity-100 md:opacity-20 md:group-hover:opacity-100">
+          <button
+            onClick={() => onClick(item.symbol, item.market)}
+            className="rounded-[10px] p-2 text-fluid-text-dim transition-colors hover:bg-fluid-primary/10 hover:text-fluid-primary"
+            title="分析"
+            aria-label={`分析 ${item.name}`}
+          >
+            <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-4l-4 4v-4z" />
+            </svg>
+          </button>
           <button
             onClick={() => onDelete(item)}
-            className="text-red-500 hover:text-red-600 p-2 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-[10px] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-400/60"
+            className="rounded-[10px] p-2 text-fluid-text-dim transition-colors hover:bg-fluid-secondary/10 hover:text-fluid-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fluid-secondary/60"
             title="删除"
             aria-label={`删除 ${item.name}`}
           >
@@ -132,18 +146,15 @@ export default function Watchlist() {
   const [deletingItem, setDeletingItem] = useState<WatchlistDisplayItem | null>(null)
   const [deleting, setDeleting] = useState(false)
   const [marketTrading, setMarketTrading] = useState<boolean>(isTradingHours())
+  const [quickSymbol, setQuickSymbol] = useState('')
 
-  // WebSocket store for real-time price updates
   const stockPrices = useWebSocketStore((state) => state.stockPrices)
   const connectionState = useWebSocketStore((state) => state.connectionState)
 
-  // Get symbols from watchlist for WebSocket subscription
   const symbols = useMemo(() => watchlist.map((item) => normalizeSymbol(item.symbol)), [watchlist])
 
-  // Use WebSocket subscription hook (auto-subscribes when watchlist has items)
   useWebSocketSubscription(symbols, symbols.length > 0)
 
-  // Merge watchlist with real-time prices from WebSocket
   const watchlistWithRealtime = useMemo<WatchlistDisplayItem[]>(() => {
     const now = Date.now()
     return watchlist.map((item) => {
@@ -164,7 +175,6 @@ export default function Watchlist() {
     })
   }, [watchlist, stockPrices])
 
-  // （ price/change/changePercent，）
   const loadWatchlist = useCallback(async (options?: { silent?: boolean }) => {
     const silent = options?.silent ?? false
     try {
@@ -211,12 +221,10 @@ export default function Watchlist() {
     }
   }, [connectionState, loadWatchlist, marketTrading])
 
-  // 
   const handleAddStock = async (symbol: string, name: string, market: string) => {
     const normalizedSymbol = normalizeSymbol(symbol)
 
     try {
-      // 
       if (watchlist.some((item) => normalizeSymbol(item.symbol) === normalizedSymbol && item.market === market)) {
         showToast('该股票已在自选股中', 'warning')
         return
@@ -235,7 +243,6 @@ export default function Watchlist() {
     }
   }
 
-  // 
   const handleDelete = async () => {
     if (!deletingItem || deleting) return
     try {
@@ -251,7 +258,6 @@ export default function Watchlist() {
     }
   }
 
-  // 
   const handleSort = (key: string) => {
     let direction: 'asc' | 'desc' = 'asc'
     if (sortConfig && sortConfig.key === key && sortConfig.direction === 'asc') {
@@ -292,7 +298,6 @@ export default function Watchlist() {
     setWatchlist(sorted)
   }
 
-  // K
   const handleClickStock = (symbol: string, market: string) => {
     const item = watchlist.find((i) => i.symbol === symbol && i.market === market)
     if (item) {
@@ -300,61 +305,124 @@ export default function Watchlist() {
     }
   }
 
+  const handleQuickAdd = async () => {
+    const normalized = normalizeSymbol(quickSymbol)
+    if (!normalized) {
+      setShowAddModal(true)
+      return
+    }
+    await handleAddStock(normalized, normalized, 'AShare')
+    setQuickSymbol('')
+  }
+
+  const handleExport = () => {
+    const rows = watchlistWithRealtime.map((item) => ({
+      symbol: item.symbol,
+      name: item.name,
+      market: item.market,
+      price: item.price ?? '',
+      changePercent: item.changePercent ?? '',
+      createdAt: item.createdAt,
+    }))
+    const header = 'symbol,name,market,price,changePercent,createdAt'
+    const csv = [header, ...rows.map((r) => `${r.symbol},${r.name},${r.market},${r.price},${r.changePercent},${r.createdAt}`)].join('\n')
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `watchlist-${new Date().toISOString().slice(0, 10)}.csv`
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(url)
+  }
+
+  const handleBatchDelete = async () => {
+    if (!watchlist.length) {
+      showToast('当前没有可删除的自选股', 'warning')
+      return
+    }
+    if (!window.confirm(`确认批量删除 ${watchlist.length} 条自选股吗？`)) {
+      return
+    }
+    try {
+      await Promise.all(watchlist.map((item) => watchlistApi.removeFromWatchlist(item.id)))
+      showToast('批量删除成功', 'success')
+      setWatchlist([])
+    } catch {
+      showToast('批量删除失败', 'error')
+    }
+  }
+
+  const topPerformer = [...watchlistWithRealtime]
+    .sort((a, b) => (b.changePercent || -Infinity) - (a.changePercent || -Infinity))[0]
+  const mostVolatile = [...watchlistWithRealtime]
+    .sort((a, b) => Math.abs(b.changePercent || 0) - Math.abs(a.changePercent || 0))[0]
+
   return (
-    <div className="space-y-6 [font-family:-apple-system,BlinkMacSystemFont,'SF_Pro_Text','Helvetica_Neue','Segoe_UI',sans-serif]">
-      {/* Watchlist Table */}
-      <div className={`${APPLE_CARD_CLASS} p-6 flex flex-col`}>
-        <div className="mb-6 flex items-center justify-between gap-3">
-          <div className="flex items-center gap-2">
-            <div className="inline-flex bg-gray-100 dark:bg-gray-800 p-0.5 rounded-[10px]">
-              <span className="px-4 py-1.5 rounded-[8px] text-[14px] font-medium bg-white text-[#1d1d1f] shadow-sm dark:bg-[#2c2c2e] dark:text-white">
-                自选列表
-              </span>
-            </div>
-            {connectionState === 'connected' && marketTrading && (
-              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400">
-                <span className="w-1.5 h-1.5 mr-1 rounded-full bg-green-500 animate-pulse"></span>
-                实时
-              </span>
-            )}
-            {connectionState === 'connected' && !marketTrading && (
-              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-400">
-                <span className="w-1.5 h-1.5 mr-1 rounded-full bg-gray-400"></span>
-                已收盘
-              </span>
-            )}
-            {connectionState === 'reconnecting' && (
-              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400">
-                <span className="w-1.5 h-1.5 mr-1 rounded-full bg-yellow-500 animate-pulse"></span>
-                重连中
-              </span>
-            )}
-            {connectionState === 'disconnected' && (
-              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-400">
-                <span className="w-1.5 h-1.5 mr-1 rounded-full bg-gray-400"></span>
-                离线
-              </span>
-            )}
+    <div className="space-y-6">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-12 lg:items-start">
+        <div className="lg:col-span-4">
+          <h1 className="font-headline text-5xl font-bold tracking-tight text-fluid-text">
+            Watchlist <span className="text-fluid-primary">Management</span>
+          </h1>
+          <div className="mt-2 flex items-center gap-2 font-mono-data text-[10px] uppercase tracking-[0.22em] text-fluid-text-muted">
+            <span className="inline-block h-2 w-2 rounded-full bg-fluid-primary shadow-glow-primary animate-pulse" />
+            <span>
+              System: {connectionState === 'connected' ? (marketTrading ? 'Connected' : 'Closed Market') : connectionState}
+            </span>
+            <span>•</span>
+            <span>Latency: 0ms</span>
           </div>
-          <button
-            onClick={() => setShowAddModal(true)}
-            className="inline-flex h-8 items-center justify-center gap-1.5 px-3.5 rounded-full bg-white dark:bg-[#1c1c1e] text-[#1d1d1f] dark:text-white font-medium text-[13px] shadow-sm border border-gray-200 dark:border-white/10 hover:bg-gray-50 dark:hover:bg-[#2c2c2e] transition-colors"
-          >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-            </svg>
-            添加股票
-          </button>
+        </div>
+        <div className="lg:col-span-8">
+          <div className="flex flex-col gap-3 sm:flex-row">
+            <input
+              value={quickSymbol}
+              onChange={(e) => setQuickSymbol(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  void handleQuickAdd()
+                }
+              }}
+              placeholder="Add New Symbol (e.g. BTC, AAPL, SOL)..."
+              className="glass-input h-11 flex-1 rounded-lg px-4 font-mono-data text-sm"
+            />
+            <button
+              onClick={() => void handleQuickAdd()}
+              className="inline-flex h-11 items-center justify-center gap-2 rounded-lg border border-fluid-primary/50 bg-fluid-primary/10 px-4 font-mono-data text-xs uppercase tracking-widest text-fluid-primary transition-all hover:bg-fluid-primary/20 hover:shadow-glow-primary"
+            >
+              Quick Add
+            </button>
+          </div>
+          <div className="mt-2 flex items-center justify-end gap-5 font-mono-data text-[10px] uppercase tracking-widest text-fluid-text-muted">
+            <button onClick={handleExport} className="hover:text-fluid-text">Export</button>
+            <button onClick={() => setShowAddModal(true)} className="hover:text-fluid-text">Import</button>
+            <button onClick={() => void handleBatchDelete()} className="text-fluid-secondary hover:text-fluid-secondary/80">Batch Delete</button>
+          </div>
+        </div>
+      </div>
+
+      <div className={`${WATCHLIST_PANEL_CLASS} p-0`}>
+        <div className="border-b border-fluid-outline-variant/20 px-6 py-4">
+          <div className="grid grid-cols-12 gap-3 font-mono-data text-[10px] uppercase tracking-[0.2em] text-fluid-text-muted">
+            <span className="col-span-4">Asset / Symbol</span>
+            <span className="col-span-2 text-right">Current Price</span>
+            <span className="col-span-2 text-right">24h Change</span>
+            <span className="col-span-2 text-right">Added Date</span>
+            <span className="col-span-1 text-right">Indicators</span>
+            <span className="col-span-1 text-right">Actions</span>
+          </div>
         </div>
 
-        <div className="overflow-x-auto -mx-6 px-6">
+        <div className="overflow-x-auto">
           {loading ? (
             <div className="p-8">
               <div className="animate-pulse space-y-4">
                 {[...Array(5)].map((_, i) => (
                   <div key={i} className="flex items-center space-x-4">
-                    <div className="w-10 h-10 bg-[#eceef2] dark:bg-[#2c2c2e] rounded-[10px]"></div>
-                    <div className="flex-1 h-12 bg-[#eceef2] dark:bg-[#2c2c2e] rounded-[10px]"></div>
+                    <div className="h-10 w-10 rounded-[10px] bg-fluid-surface-higher"></div>
+                    <div className="h-12 flex-1 rounded-[10px] bg-fluid-surface-higher"></div>
                   </div>
                 ))}
               </div>
@@ -362,7 +430,7 @@ export default function Watchlist() {
           ) : watchlist.length === 0 ? (
             <div className="text-center py-16">
               <svg
-                className="w-16 h-16 mx-auto text-[#c7c7cc] dark:text-gray-600 mb-4"
+                className="mb-4 mx-auto h-16 w-16 text-fluid-text-dim"
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24"
@@ -375,23 +443,23 @@ export default function Watchlist() {
                 />
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 5h3v3" />
               </svg>
-              <h3 className="text-lg font-medium text-[#1d1d1f] dark:text-white mb-2"></h3>
-              <p className="text-[#8e8e93] dark:text-gray-400 mb-4"></p>
+              <h3 className="mb-2 text-lg font-semibold text-fluid-text">暂无自选股</h3>
+              <p className="mb-4 text-fluid-text-muted">从右上角 Quick Add 添加首只股票开始追踪</p>
               <button
-                onClick={() => setShowAddModal(true)}
-                className="px-4 py-2 rounded-[10px] bg-[#0a84ff] hover:bg-[#0077ed] text-white transition-colors"
+                onClick={() => void handleQuickAdd()}
+                className="rounded-[10px] border border-fluid-primary/50 bg-fluid-primary/10 px-4 py-2 text-fluid-primary transition-colors hover:bg-fluid-primary/20"
               >
                 添加第一只股票
               </button>
             </div>
           ) : (
             <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-100 dark:divide-white/10">
-                <thead className="bg-[#fbfbfd] dark:bg-[#232326]">
+              <table className="min-w-full">
+                <thead className="hidden">
                   <tr>
-                    <th className="px-6 py-3 text-left text-[13px] font-medium text-[#8e8e93] dark:text-gray-400">
+                    <th className="px-6 py-3 text-left text-[13px] font-medium text-fluid-text-muted">
                       <button
-                        className="flex items-center gap-1 hover:text-[#3a3a3c] dark:hover:text-gray-200"
+                        className="flex items-center gap-1 hover:text-fluid-text"
                         onClick={() => handleSort('name')}
                       >
                         股票名称
@@ -402,9 +470,9 @@ export default function Watchlist() {
                         />
                       </button>
                     </th>
-                    <th className="px-6 py-3 text-right text-[13px] font-medium text-[#8e8e93] dark:text-gray-400">
+                    <th className="px-6 py-3 text-right text-[13px] font-medium text-fluid-text-muted">
                       <button
-                        className="flex items-center justify-end gap-1 hover:text-[#3a3a3c] dark:hover:text-gray-200 ml-auto"
+                        className="ml-auto flex items-center justify-end gap-1 hover:text-fluid-text"
                         onClick={() => handleSort('price')}
                       >
                         最新价
@@ -415,9 +483,9 @@ export default function Watchlist() {
                         />
                       </button>
                     </th>
-                    <th className="px-6 py-3 text-right text-[13px] font-medium text-[#8e8e93] dark:text-gray-400">
+                    <th className="px-6 py-3 text-right text-[13px] font-medium text-fluid-text-muted">
                       <button
-                        className="flex items-center justify-end gap-1 hover:text-[#3a3a3c] dark:hover:text-gray-200 ml-auto"
+                        className="ml-auto flex items-center justify-end gap-1 hover:text-fluid-text"
                         onClick={() => handleSort('change')}
                       >
                         涨跌幅
@@ -428,9 +496,9 @@ export default function Watchlist() {
                         />
                       </button>
                     </th>
-                    <th className="px-6 py-3 text-right text-[13px] font-medium text-[#8e8e93] dark:text-gray-400">
+                    <th className="px-6 py-3 text-right text-[13px] font-medium text-fluid-text-muted">
                       <button
-                        className="flex items-center justify-end gap-1 hover:text-[#3a3a3c] dark:hover:text-gray-200 ml-auto"
+                        className="ml-auto flex items-center justify-end gap-1 hover:text-fluid-text"
                         onClick={() => handleSort('time')}
                       >
                         添加时间
@@ -446,7 +514,7 @@ export default function Watchlist() {
                     </th>
                   </tr>
                 </thead>
-                <tbody className="bg-white dark:bg-[#1c1c1e] divide-y divide-gray-100 dark:divide-white/10">
+                <tbody>
                   {watchlistWithRealtime.map((item) => (
                     <WatchlistRow
                       key={item.id}
@@ -462,17 +530,54 @@ export default function Watchlist() {
         </div>
       </div>
 
-      {/* Add Stock Modal */}
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+          <div className={`${WATCHLIST_PANEL_CLASS} border-l-2 border-l-fluid-primary p-5`}>
+            <div className="font-mono-data text-[10px] uppercase tracking-[0.18em] text-fluid-text-muted">Top Performer (24h)</div>
+            <div className="mt-2 flex items-end justify-between">
+              <span className="font-headline text-3xl font-bold text-fluid-text">{topPerformer?.symbol ?? '--'}</span>
+              <span className="font-mono-data text-sm font-semibold text-stock-up">
+                {topPerformer?.changePercent ? `+${topPerformer.changePercent.toFixed(2)}%` : '--'}
+              </span>
+            </div>
+          </div>
+          <div className={`${WATCHLIST_PANEL_CLASS} p-5`}>
+            <div className="font-mono-data text-[10px] uppercase tracking-[0.18em] text-fluid-text-muted">Watchlist Health</div>
+            <div className="mt-4 h-1.5 w-full overflow-hidden rounded bg-fluid-outline-variant/40">
+              <div
+                className="h-full rounded bg-fluid-primary"
+                style={{
+                  width: `${Math.min(100, Math.max(0, Math.round((watchlistWithRealtime.filter((i) => (i.changePercent || 0) >= 0).length / Math.max(1, watchlistWithRealtime.length)) * 100)))}%`,
+                }}
+              />
+            </div>
+            <div className="mt-2 flex justify-between font-mono-data text-[10px] uppercase tracking-widest text-fluid-text-muted">
+              <span>Bull</span>
+              <span>
+                {Math.round((watchlistWithRealtime.filter((i) => (i.changePercent || 0) >= 0).length / Math.max(1, watchlistWithRealtime.length)) * 100)}%
+              </span>
+            </div>
+          </div>
+          <div className={`${WATCHLIST_PANEL_CLASS} border-l-2 border-l-fluid-secondary p-5`}>
+            <div className="font-mono-data text-[10px] uppercase tracking-[0.18em] text-fluid-text-muted">Most Volatile</div>
+            <div className="mt-2 flex items-end justify-between">
+              <span className="font-headline text-3xl font-bold text-fluid-text">{mostVolatile?.symbol ?? '--'}</span>
+              <span className="font-mono-data text-sm font-semibold text-fluid-text-muted">
+                {mostVolatile?.changePercent ? `${Math.abs(mostVolatile.changePercent).toFixed(2)}%` : '--'}
+              </span>
+            </div>
+          </div>
+      </div>
+
       {showAddModal && (
         <div className="fixed inset-0 z-50 overflow-y-auto">
           <div className="flex items-center justify-center min-h-screen px-4">
             <div className="fixed inset-0 bg-black/20 backdrop-blur-sm transition-opacity" onClick={() => setShowAddModal(false)}></div>
-            <div className="relative max-w-md w-full p-6 bg-white dark:bg-[#1c1c1e] rounded-[24px] shadow-[0_25px_60px_rgba(0,0,0,0.15)] ring-1 ring-black/5 dark:ring-white/10">
+            <div className="relative w-full max-w-md rounded-[24px] border border-fluid-outline-variant/50 bg-fluid-surface-container p-6 shadow-[0_25px_60px_rgba(0,0,0,0.35)]">
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-semibold text-[#1d1d1f] dark:text-white"></h3>
+                <h3 className="text-lg font-semibold text-fluid-text">添加自选股</h3>
                 <button
                   onClick={() => setShowAddModal(false)}
-                  className="text-[#8e8e93] hover:text-[#6e6e73] dark:hover:text-gray-300"
+                  className="text-fluid-text-muted hover:text-fluid-text"
                 >
                   <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -492,7 +597,6 @@ export default function Watchlist() {
         </div>
       )}
 
-      {/* Delete Confirmation Modal */}
       {deletingItem && (
         <div className="fixed inset-0 z-[60] overflow-y-auto">
           <div className="flex items-center justify-center min-h-screen px-4">
@@ -504,36 +608,36 @@ export default function Watchlist() {
                 }
               }}
             />
-            <div className="relative w-full max-w-[620px] rounded-[24px] border border-gray-200/80 dark:border-white/10 bg-white dark:bg-[#1c1c1e] shadow-[0_25px_60px_rgba(0,0,0,0.2)]">
+            <div className="relative w-full max-w-[620px] rounded-[24px] border border-fluid-outline-variant/40 bg-fluid-surface-container shadow-[0_25px_60px_rgba(0,0,0,0.45)]">
               <div className="p-6">
                 <div className="flex items-start gap-4">
-                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400">
+                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-fluid-secondary/10 text-fluid-secondary">
                     <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v3m0 4h.01M5.07 19h13.86c1.54 0 2.5-1.67 1.73-3L13.73 4c-.77-1.33-2.69-1.33-3.46 0L3.34 16c-.77 1.33.19 3 1.73 3z" />
                     </svg>
                   </div>
                   <div className="flex-1">
-                    <h3 className="text-lg font-semibold text-[#1d1d1f] dark:text-white"></h3>
-                    <p className="mt-2 text-sm text-[#6e6e73] dark:text-gray-300 sm:whitespace-nowrap">
+                    <h3 className="text-lg font-semibold text-fluid-text">确认删除</h3>
+                    <p className="mt-2 text-sm text-fluid-text-muted sm:whitespace-nowrap">
                       将从自选列表移除
-                      <span className="mx-1 font-semibold text-[#1d1d1f] dark:text-white">{deletingItem.name}</span>
+                      <span className="mx-1 font-semibold text-fluid-text">{deletingItem.name}</span>
                       ({deletingItem.symbol})。此操作不可撤销。
                     </p>
                   </div>
                 </div>
               </div>
-              <div className="flex items-center justify-end gap-3 border-t border-gray-100 dark:border-white/10 px-6 py-4">
+              <div className="flex items-center justify-end gap-3 border-t border-fluid-outline-variant/20 px-6 py-4">
                 <button
                   onClick={() => setDeletingItem(null)}
                   disabled={deleting}
-                  className="inline-flex h-10 items-center justify-center rounded-full border border-gray-200 dark:border-white/15 bg-white dark:bg-[#2c2c2e] px-5 text-sm font-medium text-[#3a3a3c] dark:text-gray-100 transition-colors hover:bg-gray-50 disabled:opacity-60"
+                  className="inline-flex h-10 items-center justify-center rounded-full border border-fluid-outline-variant/40 bg-fluid-surface-higher px-5 text-sm font-medium text-fluid-text transition-colors hover:bg-fluid-surface-high disabled:opacity-60"
                 >
                   取消
                 </button>
                 <button
                   onClick={handleDelete}
                   disabled={deleting}
-                  className="inline-flex h-10 items-center justify-center rounded-full bg-red-600 px-5 text-sm font-semibold text-white transition-colors hover:bg-red-700 disabled:opacity-60"
+                  className="inline-flex h-10 items-center justify-center rounded-full bg-fluid-secondary px-5 text-sm font-semibold text-white transition-colors hover:bg-fluid-secondary/90 disabled:opacity-60"
                 >
                   {deleting ? '删除中...' : '确认删除'}
                 </button>
