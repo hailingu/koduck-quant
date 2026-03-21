@@ -2,7 +2,7 @@
 # Koduck Quant Docker Makefile
 # ==========================================
 
-.PHONY: help up down restart build logs ps clean dev prod
+.PHONY: help up down restart build logs ps clean dev prod dev-up
 
 # Default target
 .DEFAULT_GOAL := help
@@ -29,6 +29,15 @@ up: ## 启动所有服务（开发环境）
 	@echo "$(GREEN)✅ 服务已启动$(NC)"
 	@echo "$(YELLOW)前端: http://localhost:3000$(NC)"
 	@echo "$(YELLOW)后端: http://localhost:8080$(NC)"
+
+dev-up: ## 启动本地开发环境（使用 docker-compose.local.yml）
+	@echo "$(BLUE)启动 Koduck Quant 本地开发环境...$(NC)"
+	@echo "$(YELLOW)使用 docker-compose.local.yml（包含 Demo 用户配置）$(NC)"
+	docker-compose -f docker-compose.local.yml up -d
+	@echo "$(GREEN)✅ 本地开发服务已启动$(NC)"
+	@echo "$(YELLOW)前端: http://localhost:3000$(NC)"
+	@echo "$(YELLOW)后端: http://localhost:8080$(NC)"
+	@echo "$(YELLOW)Agent: http://localhost:8001$(NC)"
 
 down: ## 停止所有服务
 	@echo "$(BLUE)停止所有服务...$(NC)"
