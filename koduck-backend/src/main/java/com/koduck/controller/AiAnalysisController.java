@@ -12,6 +12,7 @@ import com.koduck.dto.ai.StockAnalysisRequest;
 import com.koduck.dto.ai.StockAnalysisResponse;
 import com.koduck.dto.ai.StrategyRecommendRequest;
 import com.koduck.dto.ai.StrategyRecommendResponse;
+import com.koduck.exception.AuthenticationException;
 import com.koduck.security.UserPrincipal;
 import com.koduck.service.AiAnalysisService;
 import jakarta.validation.Valid;
@@ -24,8 +25,6 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
-
-import java.util.Objects;
 
 /**
  * REST API controller exposing AI analysis endpoints.
@@ -155,7 +154,9 @@ public class AiAnalysisController {
     }
 
     private Long requireUserId(UserPrincipal userPrincipal) {
-        UserPrincipal principal = Objects.requireNonNull(userPrincipal, "authenticated user is required");
-        return principal.getUser().getId();
+        if (userPrincipal == null || userPrincipal.getUser() == null || userPrincipal.getUser().getId() == null) {
+            throw AuthenticationException.tokenInvalid();
+        }
+        return userPrincipal.getUser().getId();
     }
 }

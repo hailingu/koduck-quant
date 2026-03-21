@@ -47,7 +47,10 @@ function getAuthToken(): string | null {
   if (authStorage) {
     try {
       const authState = JSON.parse(authStorage)
-      return authState.state?.accessToken || null
+      // Keep compatibility with both persisted shapes:
+      // - state.token (current)
+      // - state.accessToken (legacy)
+      return authState?.state?.token || authState?.state?.accessToken || null
     } catch {
       return null
     }

@@ -152,7 +152,7 @@ public class AiAnalysisService {
         // 
         Map<String, Object> requestBody = new HashMap<>();
         requestBody.put("provider", resolveProvider(provider));
-        requestBody.put("apiKey", config != null && config.getApiKey() != null ? config.getApiKey() : "");
+        requestBody.put("apiKey", normalizeBlank(config != null ? config.getApiKey() : null));
         requestBody.put("apiBase", config != null ? config.getApiBase() : null);
         
         List<Map<String, String>> messages = new ArrayList<>();
@@ -200,7 +200,7 @@ public class AiAnalysisService {
         UserSettingsDto.LlmConfigDto effectiveConfig = userSettingsService.getEffectiveLlmConfig(userId, provider);
         ChatStreamRequest configuredRequest = ChatStreamRequest.builder()
             .provider(provider)
-            .apiKey(effectiveConfig != null && effectiveConfig.getApiKey() != null ? effectiveConfig.getApiKey() : "")
+            .apiKey(normalizeBlank(effectiveConfig != null ? effectiveConfig.getApiKey() : null))
             .apiBase(effectiveConfig != null ? effectiveConfig.getApiBase() : null)
             .messages(request.getMessages())
             .build();
@@ -550,6 +550,14 @@ public class AiAnalysisService {
         }
         String normalized = provider.trim().toLowerCase(Locale.ROOT);
         return SUPPORTED_LLM_PROVIDERS.contains(normalized) ? normalized : "minimax";
+    }
+
+    private String normalizeBlank(String value) {
+        if (value == null) {
+            return null;
+        }
+        String trimmed = value.trim();
+        return trimmed.isEmpty() ? null : trimmed;
     }
     
     /**
