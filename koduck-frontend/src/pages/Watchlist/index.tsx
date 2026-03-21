@@ -358,6 +358,15 @@ export default function Watchlist() {
     .sort((a, b) => (b.changePercent || -Infinity) - (a.changePercent || -Infinity))[0]
   const mostVolatile = [...watchlistWithRealtime]
     .sort((a, b) => Math.abs(b.changePercent || 0) - Math.abs(a.changePercent || 0))[0]
+  const topPerformerChange = topPerformer?.changePercent
+  const topPerformerChangeClass =
+    topPerformerChange == null
+      ? 'text-fluid-text-dim'
+      : topPerformerChange >= 0
+        ? 'text-fluid-primary'
+        : 'text-fluid-secondary'
+  const topPerformerChangeLabel =
+    topPerformerChange == null ? '--' : `${topPerformerChange >= 0 ? '+' : ''}${topPerformerChange.toFixed(2)}%`
 
   return (
     <div className="space-y-6">
@@ -531,20 +540,20 @@ export default function Watchlist() {
       </div>
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-          <div className={`${WATCHLIST_PANEL_CLASS} border-l-2 border-l-fluid-primary p-5`}>
+          <div className={`${WATCHLIST_PANEL_CLASS} !rounded-none border-l-2 border-l-fluid-primary p-5`}>
             <div className="font-mono-data text-[10px] uppercase tracking-[0.18em] text-fluid-text-muted">Top Performer (24h)</div>
             <div className="mt-2 flex items-end justify-between">
               <span className="font-headline text-3xl font-bold text-fluid-text">{topPerformer?.symbol ?? '--'}</span>
-              <span className="font-mono-data text-sm font-semibold text-stock-up">
-                {topPerformer?.changePercent ? `+${topPerformer.changePercent.toFixed(2)}%` : '--'}
+              <span className={`font-mono-data text-sm font-semibold ${topPerformerChangeClass}`}>
+                {topPerformerChangeLabel}
               </span>
             </div>
           </div>
-          <div className={`${WATCHLIST_PANEL_CLASS} p-5`}>
+          <div className={`${WATCHLIST_PANEL_CLASS} !rounded-none p-5`}>
             <div className="font-mono-data text-[10px] uppercase tracking-[0.18em] text-fluid-text-muted">Watchlist Health</div>
-            <div className="mt-4 h-1.5 w-full overflow-hidden rounded bg-fluid-outline-variant/40">
+            <div className="mt-4 h-1.5 w-full overflow-hidden bg-fluid-outline-variant/40">
               <div
-                className="h-full rounded bg-fluid-primary"
+                className="h-full bg-fluid-primary"
                 style={{
                   width: `${Math.min(100, Math.max(0, Math.round((watchlistWithRealtime.filter((i) => (i.changePercent || 0) >= 0).length / Math.max(1, watchlistWithRealtime.length)) * 100)))}%`,
                 }}
@@ -557,7 +566,7 @@ export default function Watchlist() {
               </span>
             </div>
           </div>
-          <div className={`${WATCHLIST_PANEL_CLASS} border-l-2 border-l-fluid-secondary p-5`}>
+          <div className={`${WATCHLIST_PANEL_CLASS} !rounded-none border-l-2 border-l-fluid-secondary p-5`}>
             <div className="font-mono-data text-[10px] uppercase tracking-[0.18em] text-fluid-text-muted">Most Volatile</div>
             <div className="mt-2 flex items-end justify-between">
               <span className="font-headline text-3xl font-bold text-fluid-text">{mostVolatile?.symbol ?? '--'}</span>
