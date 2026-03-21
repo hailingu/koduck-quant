@@ -762,57 +762,49 @@ export default function Watchlist() {
         />
       </VisualModalTemplate>
 
-      {deletingItem && (
-        <div className="fixed inset-0 z-[60] overflow-y-auto">
-          <div className="flex items-center justify-center min-h-screen px-4">
+      <VisualModalTemplate
+        open={!!deletingItem}
+        onClose={() => {
+          if (!deleting) {
+            setDeletingItem(null)
+          }
+        }}
+        closeAriaLabel="关闭删除确认弹窗"
+        title="确认删除？"
+        description={
+          <>
+            将从自选列表移除{' '}
+            <span className="mx-1 font-semibold text-fluid-text">{deletingItem?.name}</span>
+            ({deletingItem?.symbol})。此操作不可撤销。
+          </>
+        }
+        accent="secondary"
+        icon={
+          <svg className="h-8 w-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v3m0 4h.01M5.07 19h13.86c1.54 0 2.5-1.67 1.73-3L13.73 4c-.77-1.33-2.69-1.33-3.46 0L3.34 16c-.77 1.33.19 3 1.73 3z" />
+          </svg>
+        }
+        actions={
+          <>
             <button
               type="button"
-              className="fixed inset-0 bg-black/30 backdrop-blur-sm transition-opacity"
-              onClick={() => {
-                if (!deleting) {
-                  setDeletingItem(null)
-                }
-              }}
-              aria-label="关闭删除确认弹窗"
-            />
-            <div className="relative w-full max-w-[620px] rounded-[24px] border border-fluid-outline-variant/40 bg-fluid-surface-container shadow-[0_25px_60px_rgba(0,0,0,0.45)]">
-              <div className="p-6">
-                <div className="flex items-start gap-4">
-                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-fluid-secondary/10 text-fluid-secondary">
-                    <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v3m0 4h.01M5.07 19h13.86c1.54 0 2.5-1.67 1.73-3L13.73 4c-.77-1.33-2.69-1.33-3.46 0L3.34 16c-.77 1.33.19 3 1.73 3z" />
-                    </svg>
-                  </div>
-                  <div className="flex-1">
-                    <h3 className="text-lg font-semibold text-fluid-text">确认删除</h3>
-                    <p className="mt-2 text-sm text-fluid-text-muted sm:whitespace-nowrap">
-                      将从自选列表移除{' '}
-                      <span className="mx-1 font-semibold text-fluid-text">{deletingItem.name}</span>
-                      ({deletingItem.symbol})。此操作不可撤销。
-                    </p>
-                  </div>
-                </div>
-              </div>
-              <div className="flex items-center justify-end gap-3 border-t border-fluid-outline-variant/20 px-6 py-4">
-                <button
-                  onClick={() => setDeletingItem(null)}
-                  disabled={deleting}
-                  className="inline-flex h-10 items-center justify-center rounded-full border border-fluid-outline-variant/40 bg-fluid-surface-higher px-5 text-sm font-medium text-fluid-text transition-colors hover:bg-fluid-surface-high disabled:opacity-60"
-                >
-                  取消
-                </button>
-                <button
-                  onClick={handleDelete}
-                  disabled={deleting}
-                  className="inline-flex h-10 items-center justify-center rounded-full bg-fluid-secondary px-5 text-sm font-semibold text-white transition-colors hover:bg-fluid-secondary/90 disabled:opacity-60"
-                >
-                  {deleting ? '删除中...' : '确认删除'}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+              onClick={() => setDeletingItem(null)}
+              disabled={deleting}
+              className="px-6 py-3 font-mono-data text-[10px] uppercase tracking-[0.2em] text-fluid-text-dim transition-all duration-300 hover:bg-fluid-surface-higher disabled:opacity-60"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={handleDelete}
+              disabled={deleting}
+              className="inline-flex h-10 items-center justify-center rounded-full bg-fluid-secondary px-5 text-sm font-semibold text-white transition-colors hover:bg-fluid-secondary/90 disabled:opacity-60"
+            >
+              {deleting ? 'Deleting...' : 'Confirm Delete'}
+            </button>
+          </>
+        }
+      />
 
       <VisualModalTemplate
         open={showBatchDeleteModal}
