@@ -8,6 +8,7 @@ import { useWebSocketStore } from '@/stores/websocket'
 import StockSearch from '@/components/StockSearch'
 import PriceDisplay from '@/components/PriceDisplay'
 import { isTradingHours } from '@/utils/trading'
+import { marketApi } from '@/api/market'
 
 interface WatchlistDisplayItem extends WatchlistItem {
   realtimeTimestamp?: number
@@ -311,7 +312,19 @@ export default function Watchlist() {
       setShowAddModal(true)
       return
     }
-    await handleAddStock(normalized, normalized, 'AShare')
+
+    // 查询股票详情获取名称
+    try {
+      const stockDetail = await marketApi.getStockDetail(normalized)
+      if (stockDetail) {
+        await handleAddStock(stockDetail.symbol, stockDetail.name, 'AShare')
+      } else {
+        showToast('未找到该股票，请检查代码是否正确', 'warning')
+      }
+    } catch {
+      // 如果查询失败，使用 symbol 作为 name 添加（降级处理）
+      await handleAddStock(normalized, normalized, 'AShare')
+    }
     setQuickSymbol('')
   }
 
