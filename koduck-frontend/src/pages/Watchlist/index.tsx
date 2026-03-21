@@ -314,6 +314,12 @@ export default function Watchlist() {
       return
     }
 
+    // 验证是否为有效的 A 股代码格式（6位数字）
+    if (!/^\d{6}$/.test(normalized)) {
+      showToast('请输入有效的股票代码（如：601012）', 'warning')
+      return
+    }
+
     // 查询股票详情获取名称
     try {
       const stockDetail = await marketApi.getStockDetail(normalized)
@@ -323,8 +329,8 @@ export default function Watchlist() {
         showToast('未找到该股票，请检查代码是否正确', 'warning')
       }
     } catch {
-      // 如果查询失败，使用 symbol 作为 name 添加（降级处理）
-      await handleAddStock(normalized, normalized, 'AShare')
+      // 查询失败，不执行降级添加，避免用错误的数据创建记录
+      showToast('未找到该股票，请检查代码是否正确', 'warning')
     }
     setQuickSymbol('')
   }
