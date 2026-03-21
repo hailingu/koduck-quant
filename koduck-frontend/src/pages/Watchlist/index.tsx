@@ -519,17 +519,6 @@ export default function Watchlist() {
       </div>
 
       <div className={`${WATCHLIST_PANEL_CLASS} p-0`}>
-        <div className="border-b border-fluid-outline-variant/20 px-6 py-4">
-          <div className="grid grid-cols-12 gap-3 font-mono-data text-[10px] uppercase tracking-[0.2em] text-fluid-text-muted">
-            <span className="col-span-4">Asset / Symbol</span>
-            <span className="col-span-2 text-right">Current Price</span>
-            <span className="col-span-2 text-right">24h Change</span>
-            <span className="col-span-2 text-right">Added Date</span>
-            <span className="col-span-1 text-right">Indicators</span>
-            <span className="col-span-1 text-right">Actions</span>
-          </div>
-        </div>
-
         <div className="overflow-x-auto">
           {loading ? (
             <div className="p-8">
@@ -570,63 +559,14 @@ export default function Watchlist() {
           ) : (
             <div className="overflow-x-auto">
               <table className="min-w-full">
-                <thead className="hidden">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-[13px] font-medium text-fluid-text-muted">
-                      <div
-                        className="flex cursor-pointer items-center gap-1 hover:text-fluid-text"
-                        onClick={() => handleSort('name')}
-                      >
-                        股票名称
-                        <SortButton
-                          direction={sortConfig?.key === 'name' && sortConfig.direction === 'asc' ? 'up' : 'down'}
-                          onClick={() => handleSort('name')}
-                          active={sortConfig?.key === 'name'}
-                        />
-                      </div>
-                    </th>
-                    <th className="px-6 py-3 text-right text-[13px] font-medium text-fluid-text-muted">
-                      <div
-                        className="ml-auto flex cursor-pointer items-center justify-end gap-1 hover:text-fluid-text"
-                        onClick={() => handleSort('price')}
-                      >
-                        最新价
-                        <SortButton
-                          direction={sortConfig?.key === 'price' && sortConfig.direction === 'asc' ? 'up' : 'down'}
-                          onClick={() => handleSort('price')}
-                          active={sortConfig?.key === 'price'}
-                        />
-                      </div>
-                    </th>
-                    <th className="px-6 py-3 text-right text-[13px] font-medium text-fluid-text-muted">
-                      <div
-                        className="ml-auto flex cursor-pointer items-center justify-end gap-1 hover:text-fluid-text"
-                        onClick={() => handleSort('change')}
-                      >
-                        涨跌幅
-                        <SortButton
-                          direction={sortConfig?.key === 'change' && sortConfig.direction === 'asc' ? 'up' : 'down'}
-                          onClick={() => handleSort('change')}
-                          active={sortConfig?.key === 'change'}
-                        />
-                      </div>
-                    </th>
-                    <th className="px-6 py-3 text-right text-[13px] font-medium text-fluid-text-muted">
-                      <div
-                        className="ml-auto flex cursor-pointer items-center justify-end gap-1 hover:text-fluid-text"
-                        onClick={() => handleSort('time')}
-                      >
-                        添加时间
-                        <SortButton
-                          direction={sortConfig?.key === 'time' && sortConfig.direction === 'asc' ? 'up' : 'down'}
-                          onClick={() => handleSort('time')}
-                          active={sortConfig?.key === 'time'}
-                        />
-                      </div>
-                    </th>
-                    <th className="px-6 py-3 text-right text-[13px] font-medium text-[#8e8e93] dark:text-gray-400">
-                      操作
-                    </th>
+                <thead>
+                  <tr className="border-b border-fluid-outline-variant/20 font-mono-data text-[10px] uppercase tracking-[0.2em] text-fluid-text-muted">
+                    <th className="px-6 py-4 text-left">Asset / Symbol</th>
+                    <th className="px-6 py-4 text-right">Current Price</th>
+                    <th className="px-6 py-4 text-right">24h Change</th>
+                    <th className="px-6 py-4 text-right">Added Date</th>
+                    <th className="px-6 py-4 text-right">Indicators</th>
+                    <th className="px-6 py-4 text-right">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
