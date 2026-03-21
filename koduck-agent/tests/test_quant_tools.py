@@ -71,6 +71,7 @@ def test_builtin_tools_include_news_search() -> None:
     quant_tools.refresh_tool_registry()
     tool_names = [tool["function"]["name"] for tool in quant_tools.QUANT_TOOL_DEFS]
     assert "search_web_news" in tool_names
+    assert "search_finance_news" in tool_names
 
 
 @pytest.mark.asyncio
@@ -114,3 +115,47 @@ async def test_search_web_news_success(monkeypatch: pytest.MonkeyPatch) -> None:
     assert result["provider"] == "google_news"
     assert result["count"] == 1
     assert result["items"][0]["title"] == "示例新闻A"
+
+
+@pytest.mark.asyncio
+async def test_search_finance_news_prefers_selected_sources(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class DummyAsyncClient:
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, exc_type, exc, tb):
+            return False
+
+    async def fake_fetch_news_rss(client, query: str, language: str):  # noqa: ANN001
+        assert "site:www.cls.cn" in query
+        assert "site:www.yicai.com" in query
+        return "google_news", [
+            {
+                "title": "其他来源新闻",
+                "url": "https://example.com/1",
+                "published_at": "Sat, 21 Mar 2026 10:00:00 GMT",
+                "source": "其他",
+            },
+            {
+                "title": "财联社快讯",
+                "url": "https://www.cls.cn/detail/123",
+                "published_at": "Sat, 21 Mar 2026 09:00:00 GMT",
+                "source": "财联社",
+            },
+        ]
+
+    monkeypatch.setattr(quant_tools.httpx, "AsyncClient", lambda *args, **kwargs: DummyAsyncClient())
+    monkeypatch.setattr(quant_tools, "_fetch_news_rss", fake_fetch_news_rss)
+
+    raw = await quant_tools.execute_tool(
+        "search_finance_news",
+        {"query": "今日财经新闻", "sources": ["cls", "yicai"], "limit": 1},
+    )
+    import json
+
+    result = json.loads(raw)
+    assert result["ok"] is True
+    assert result["count"] == 1
+    assert result["items"][0]["title"] == "财联社快讯"

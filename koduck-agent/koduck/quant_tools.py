@@ -87,6 +87,42 @@ def _builtin_tool_defs() -> list[dict[str, Any]]:
                 },
             },
         },
+        {
+            "type": "function",
+            "function": {
+                "name": "search_finance_news",
+                "description": (
+                    "Search latest finance news with source preference. "
+                    "Use for requests like 财联社/第一财经/财经快讯/市场新闻."
+                ),
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "query": {
+                            "type": "string",
+                            "description": "Finance topic keywords, e.g. 今日A股新闻, 美联储, 科技股.",
+                        },
+                        "sources": {
+                            "type": "array",
+                            "items": {"type": "string", "enum": ["cls", "yicai"]},
+                            "description": "Preferred finance sources. cls=财联社, yicai=第一财经.",
+                            "default": ["cls", "yicai"],
+                        },
+                        "limit": {
+                            "type": "integer",
+                            "description": "Max number of returned items (1-10).",
+                            "default": 5,
+                        },
+                        "language": {
+                            "type": "string",
+                            "description": "Language code (zh-CN / en-US). Default zh-CN.",
+                            "default": "zh-CN",
+                        },
+                    },
+                    "required": ["query"],
+                },
+            },
+        },
     ]
 
 
@@ -345,6 +381,8 @@ def refresh_tool_registry() -> None:
             _TOOL_EXECUTORS[name] = _get_quant_signal
         elif name == "search_web_news":
             _TOOL_EXECUTORS[name] = _search_web_news
+        elif name == "search_finance_news":
+            _TOOL_EXECUTORS[name] = _search_finance_news
 
     discovered_entries = _discover_skill_entries()
     for entry in discovered_entries:
@@ -646,6 +684,128 @@ async def _search_web_news(arguments: dict[str, Any]) -> str:
             "count": len(items),
             "items": items,
             "note": "Results are from public news RSS feeds and may include redirects.",
+        },
+        ensure_ascii=False,
+    )
+
+
+def _normalize_finance_sources(raw_sources: Any) -> list[str]:
+    if not raw_sources:
+        return ["cls", "yicai"]
+    if isinstance(raw_sources, str):
+        candidates = [raw_sources]
+    elif isinstance(raw_sources, list):
+        candidates = [str(x) for x in raw_sources]
+    else:
+        return ["cls", "yicai"]
+
+    supported = {"cls", "yicai"}
+    cleaned: list[str] = []
+    for candidate in candidates:
+        key = candidate.strip().lower()
+        if key in supported and key not in cleaned:
+            cleaned.append(key)
+    return cleaned or ["cls", "yicai"]
+
+
+def _domain_for_source(source: str) -> str:
+    if source == "cls":
+        return "www.cls.cn"
+    if source == "yicai":
+        return "www.yicai.com"
+    return ""
+
+
+def _infer_source_by_url(url: str) -> str:
+    try:
+        host = (urllib.parse.urlparse(url).hostname or "").lower()
+    except Exception:
+        host = ""
+    if "cls.cn" in host:
+        return "cls"
+    if "yicai.com" in host:
+        return "yicai"
+    return ""
+
+
+async def _search_finance_news(arguments: dict[str, Any]) -> str:
+    query = str(arguments.get("query", "")).strip()
+    if not query:
+        return json.dumps(
+            {"ok": False, "error": "Missing required argument: query"},
+            ensure_ascii=False,
+        )
+
+    limit = _clip_int(arguments.get("limit", 5), default=5, minimum=1, maximum=10)
+    language = str(arguments.get("language", "zh-CN")).strip() or "zh-CN"
+    sources = _normalize_finance_sources(arguments.get("sources"))
+    timeout = httpx.Timeout(10.0, connect=5.0)
+    headers = {"User-Agent": "koduck-agent/0.1 (+https://koduck.local)"}
+
+    # Use site-scoped news search for finance sources.
+    # Example query: "今日新闻 site:www.cls.cn OR site:www.yicai.com"
+    site_query_parts = [f"site:{_domain_for_source(s)}" for s in sources if _domain_for_source(s)]
+    scoped_query = query
+    if site_query_parts:
+        scoped_query = f"{query} " + " OR ".join(site_query_parts)
+
+    provider = ""
+    items: list[dict[str, str]] = []
+    try:
+        async with httpx.AsyncClient(timeout=timeout, headers=headers, follow_redirects=True) as client:
+            provider, parsed_items = await _fetch_news_rss(
+                client,
+                query=scoped_query,
+                language=language,
+            )
+            for item in parsed_items:
+                detected_source = _infer_source_by_url(item.get("url", ""))
+                if detected_source:
+                    item["source_code"] = detected_source
+                if not detected_source and item.get("source"):
+                    lowered = item["source"].lower()
+                    if "财联社" in item["source"] or "cls" in lowered:
+                        item["source_code"] = "cls"
+                    elif "第一财经" in item["source"] or "yicai" in lowered:
+                        item["source_code"] = "yicai"
+            # If source filtering is requested, keep matching items first.
+            preferred = [i for i in parsed_items if i.get("source_code") in sources]
+            fallback = [i for i in parsed_items if i.get("source_code") not in sources]
+            items = (preferred + fallback)[:limit]
+    except Exception as e:
+        logger.warning("search_finance_news failed: %s", e)
+        return json.dumps(
+            {
+                "ok": False,
+                "query": query,
+                "sources": sources,
+                "error": f"Finance news search request failed: {e}",
+            },
+            ensure_ascii=False,
+        )
+
+    if not items:
+        return json.dumps(
+            {
+                "ok": False,
+                "query": query,
+                "sources": sources,
+                "error": "No finance news results found from preferred sources",
+            },
+            ensure_ascii=False,
+        )
+
+    return json.dumps(
+        {
+            "ok": True,
+            "query": query,
+            "scoped_query": scoped_query,
+            "sources": sources,
+            "language": language,
+            "provider": provider,
+            "count": len(items),
+            "items": items,
+            "note": "Results are ranked with preferred finance sources first.",
         },
         ensure_ascii=False,
     )

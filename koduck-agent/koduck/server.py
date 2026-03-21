@@ -11,6 +11,7 @@ import json
 import hashlib
 import logging
 import os
+import re
 import sys
 import uuid
 from contextlib import asynccontextmanager
@@ -36,7 +37,8 @@ MAX_TOOL_CALL_ROUNDS = 4
 TOOL_AWARE_SYSTEM_GUARD = (
     "工具调用约束:\n"
     "1) 你可以调用工具来获取外部信息，尤其是实时信息。\n"
-    "2) 当用户询问今日新闻、最新消息、实时事件、当前行情等时，优先调用 search_web_news 工具，"
+    "2) 当用户询问财经新闻、市场快讯、财联社、第一财经等问题时，优先调用 search_finance_news 工具；"
+    "当用户询问一般今日新闻、最新消息、实时事件时，优先调用 search_web_news 工具；"
     "不要直接回答“无法联网/无法获取实时信息”。\n"
     "3) 拿到工具结果后，先给出简要结论，再列出关键来源与发布时间；若工具失败，明确说明失败原因并给出可执行替代建议。"
 )
@@ -215,6 +217,7 @@ class ChatCompletionResponse(BaseModel):
     created: int = Field(default=0, description="创建时间戳")
     model: str = Field(..., description="使用的模型")
     provider: str = Field(..., description="使用的提供商")
+    session_id: str | None = Field(None, description="会话 ID")
     choices: list[dict] = Field(..., description="响应选项")
     usage: dict | None = Field(None, description="Token 使用情况")
 
@@ -235,6 +238,7 @@ class SimpleChatRequest(BaseModel):
     messages: list[ChatMessage] = Field(..., description="消息列表")
     provider: str = Field("minimax", description="LLM 提供商")
     model: str | None = Field(None, description="可选：模型名称，默认使用提供商默认模型")
+    sessionId: str | None = Field(None, description="可选：会话 ID（不传则自动生成）")
     apiKey: str | None = Field(None, description="可选：覆盖环境变量的 API Key")
     apiBase: str | None = Field(None, description="可选：覆盖环境变量的 API Base URL")
 
@@ -244,6 +248,7 @@ class SimpleChatData(BaseModel):
     content: str = Field(..., description="回复内容")
     provider: str = Field(..., description="使用的提供商")
     model: str = Field(..., description="使用的模型")
+    sessionId: str = Field(..., description="会话 ID")
 
 
 class ApiResponseWrapper(BaseModel):
@@ -263,6 +268,13 @@ def _to_internal_messages(messages: list[ChatMessage]) -> list[Message]:
         )
         for msg in messages
     ]
+
+
+def _resolve_session_id(raw_session_id: str | None) -> str:
+    value = (raw_session_id or "").strip()
+    if value and re.fullmatch(r"[A-Za-z0-9_\-]{6,64}", value):
+        return value
+    return f"sess_{uuid.uuid4().hex[:16]}"
 
 
 def _append_instruction_to_system(
@@ -317,10 +329,11 @@ def _ensure_tool_call_id(tool_call: ToolCall) -> ToolCall:
 async def _run_chat_with_tool_loop(
     client: Any,
     messages: list[Message],
-) -> Any:
+) -> tuple[Any, list[dict[str, Any]]]:
     """Execute tool-calling loop and return final assistant response."""
     history = list(messages)
     tool_round = 0
+    executed_tools: list[dict[str, Any]] = []
     final_response = await client.generate(history, tools=QUANT_TOOL_DEFS)
 
     while final_response.tool_calls and tool_round < MAX_TOOL_CALL_ROUNDS:
@@ -337,6 +350,26 @@ async def _run_chat_with_tool_loop(
 
         for tc in tool_calls:
             tool_content = await execute_tool(tc.function.name, tc.function.arguments)
+            result_ok = False
+            result_error = ""
+            try:
+                parsed_result = json.loads(tool_content)
+                if isinstance(parsed_result, dict):
+                    result_ok = bool(parsed_result.get("ok", False))
+                    result_error = str(parsed_result.get("error", "") or "")
+            except Exception:
+                parsed_result = None
+
+            tool_event = {
+                "round": tool_round,
+                "tool_name": tc.function.name,
+                "tool_call_id": tc.id,
+                "arguments": tc.function.arguments,
+                "ok": result_ok,
+                "error": result_error,
+                "result_preview": tool_content[:500],
+            }
+            executed_tools.append(tool_event)
             history.append(
                 Message(
                     role="tool",
@@ -345,9 +378,11 @@ async def _run_chat_with_tool_loop(
                 )
             )
             logger.info(
-                "[ToolLoop] Executed tool: name=%s id=%s",
+                "[ToolLoop] Executed tool: name=%s id=%s ok=%s error=%s",
                 tc.function.name,
                 tc.id,
+                result_ok,
+                result_error[:160],
             )
 
         final_response = await client.generate(history, tools=QUANT_TOOL_DEFS)
@@ -357,7 +392,7 @@ async def _run_chat_with_tool_loop(
             "[ToolLoop] Reached max rounds with remaining tool_calls: rounds=%s",
             tool_round,
         )
-    return final_response
+    return final_response, executed_tools
 
 
 @asynccontextmanager
@@ -438,7 +473,10 @@ async def chat_completions(request: ChatCompletionRequest):
     ```
     """
     # 
-    logger.info(f"[ChatCompletions] : provider={request.provider}, model={request.model}, stream={request.stream}")
+    session_id = _resolve_session_id(None)
+    logger.info(
+        f"[ChatCompletions] : provider={request.provider}, model={request.model}, stream={request.stream}, session_id={session_id}"
+    )
     logger.debug(f"[ChatCompletions] : {len(request.messages)}")
     for i, msg in enumerate(request.messages):
         content_preview = msg.content[:100] + "..." if msg.content and len(msg.content) > 100 else msg.content
@@ -460,9 +498,9 @@ async def chat_completions(request: ChatCompletionRequest):
 
     try:
         logger.info(
-            f"[ChatCompletions] 开始调用 LLM+ToolLoop: provider={request.provider}, model={client.model}"
+            f"[ChatCompletions] 开始调用 LLM+ToolLoop: provider={request.provider}, model={client.model}, session_id={session_id}"
         )
-        response = await _run_chat_with_tool_loop(
+        response, executed_tools = await _run_chat_with_tool_loop(
             client,
             messages,
         )
@@ -498,9 +536,17 @@ async def chat_completions(request: ChatCompletionRequest):
         result = ChatCompletionResponse(
             model=client.model,
             provider=request.provider,
+            session_id=session_id,
             choices=[choice],
             usage=usage,
         )
+        if executed_tools:
+            logger.info(
+                "[ChatCompletions] tool_calls: session_id=%s count=%s details=%s",
+                session_id,
+                len(executed_tools),
+                json.dumps(executed_tools, ensure_ascii=False)[:1200],
+            )
         logger.info(f"[ChatCompletions] : model={result.model}, provider={result.provider}")
         return result
 
@@ -578,14 +624,15 @@ async def simple_chat(request: SimpleChatRequest):
     ```
     """
     # 
-    logger.info(f"[SimpleChat] : provider={request.provider}")
+    session_id = _resolve_session_id(request.sessionId)
+    logger.info(f"[SimpleChat] : provider={request.provider}, session_id={session_id}")
     logger.info(f"[SimpleChat] : {len(request.messages)}")
     for i, msg in enumerate(request.messages):
         content_preview = msg.content[:100] + "..." if msg.content and len(msg.content) > 100 else msg.content
         logger.info(f"[SimpleChat] Message[{i}]: role={msg.role}, content={content_preview}")
 
     # 
-    logger.info(f"[SimpleChat] : provider={request.provider}")
+    logger.info(f"[SimpleChat] : provider={request.provider}, session_id={session_id}")
     client = get_client(request.provider, request.apiKey, request.apiBase)
 
     messages = _to_internal_messages(request.messages)
@@ -593,9 +640,9 @@ async def simple_chat(request: SimpleChatRequest):
 
     try:
         logger.info(
-            f"[SimpleChat] 开始调用 LLM+ToolLoop: provider={request.provider}, model={client.model}"
+            f"[SimpleChat] 开始调用 LLM+ToolLoop: provider={request.provider}, model={client.model}, session_id={session_id}"
         )
-        response = await _run_chat_with_tool_loop(
+        response, executed_tools = await _run_chat_with_tool_loop(
             client,
             messages,
         )
@@ -612,8 +659,16 @@ async def simple_chat(request: SimpleChatRequest):
                 content=response.content or "",
                 provider=request.provider,
                 model=client.model,
+                sessionId=session_id,
             )
         )
+        if executed_tools:
+            logger.info(
+                "[SimpleChat] tool_calls: session_id=%s count=%s details=%s",
+                session_id,
+                len(executed_tools),
+                json.dumps(executed_tools, ensure_ascii=False)[:1200],
+            )
         logger.info(f"[SimpleChat] : code={result.code}, model={result.data.model}")
         return result
 
@@ -675,7 +730,8 @@ async def simple_chat_stream(request: SimpleChatRequest):
     - `event: done` - 完成
     - `event: error` - 错误
     """
-    logger.info(f"[SimpleChatStream] : provider={request.provider}")
+    session_id = _resolve_session_id(request.sessionId)
+    logger.info(f"[SimpleChatStream] : provider={request.provider}, session_id={session_id}")
     
     async def event_generator():
         try:
@@ -685,26 +741,34 @@ async def simple_chat_stream(request: SimpleChatRequest):
             messages = _append_instruction_to_system(messages, TOOL_AWARE_SYSTEM_GUARD)
             
             # Send start event
-            yield f"event: start\ndata: {json.dumps({'model': client.model, 'provider': request.provider})}\n\n"
+            yield f"event: start\ndata: {json.dumps({'model': client.model, 'provider': request.provider, 'session_id': session_id})}\n\n"
             
             # Stream endpoint now also supports tools by using the same tool loop.
-            response = await _run_chat_with_tool_loop(client, messages)
+            response, executed_tools = await _run_chat_with_tool_loop(client, messages)
+            for tool_event in executed_tools:
+                tool_payload = {
+                    "session_id": session_id,
+                    **tool_event,
+                }
+                yield f"event: tool\ndata: {json.dumps(tool_payload, ensure_ascii=False)}\n\n"
             full_content = response.content or ""
             chunk_size = 80
             for i in range(0, len(full_content), chunk_size):
                 delta = full_content[i : i + chunk_size]
                 yield f"event: delta\ndata: {json.dumps({'content': delta})}\n\n"
 
-            yield f"event: done\ndata: {json.dumps({'content': full_content, 'model': client.model, 'provider': request.provider})}\n\n"
+            yield f"event: done\ndata: {json.dumps({'content': full_content, 'model': client.model, 'provider': request.provider, 'session_id': session_id})}\n\n"
             
-            logger.info(f"[SimpleChatStream] : content_length={len(full_content)}")
+            logger.info(
+                f"[SimpleChatStream] : session_id={session_id}, content_length={len(full_content)}, tools={len(executed_tools)}"
+            )
             
         except HTTPException as he:
             logger.error(f"[SimpleChatStream] HTTPException: {he.detail}")
-            yield f"event: error\ndata: {json.dumps({'code': he.status_code, 'message': he.detail})}\n\n"
+            yield f"event: error\ndata: {json.dumps({'code': he.status_code, 'message': he.detail, 'session_id': session_id})}\n\n"
         except Exception as e:
             logger.error(f"[SimpleChatStream] : {type(e).__name__}: {e}")
-            yield f"event: error\ndata: {json.dumps({'code': 500, 'message': str(e)})}\n\n"
+            yield f"event: error\ndata: {json.dumps({'code': 500, 'message': str(e), 'session_id': session_id})}\n\n"
     
     return StreamingResponse(
         event_generator(),
