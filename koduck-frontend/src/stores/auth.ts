@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import { authApi, type UserInfo } from '@/api/auth'
+import { authApi, type TokenResponse, type UserInfo } from '@/api/auth'
 
 interface AuthState {
   accessToken: string | null
@@ -13,33 +13,36 @@ interface AuthState {
   refreshAccessToken: () => Promise<boolean>
 }
 
+const EMPTY_AUTH_STATE = {
+  accessToken: null,
+  refreshToken: null,
+  user: null,
+  isAuthenticated: false,
+  expiresIn: null,
+} as const
+
+const mapTokenResponseToAuthState = (response: TokenResponse) => ({
+  accessToken: response.accessToken,
+  refreshToken: response.refreshToken,
+  user: response.user,
+  isAuthenticated: true,
+  expiresIn: response.expiresIn,
+})
+
 export const useAuthStore = create<AuthState>()(
   persist(
     (set, get) => ({
-      accessToken: null,
-      refreshToken: null,
-      user: null,
-      isAuthenticated: false,
-      expiresIn: null,
+      ...EMPTY_AUTH_STATE,
 
       /**
        * 用户登录
        */
       login: async (credentials) => {
-        try {
-          const response = await authApi.login(credentials)
-          
-          set({
-            accessToken: response.accessToken,
-            refreshToken: response.refreshToken,
-            user: response.user,
-            isAuthenticated: true,
-            expiresIn: response.expiresIn,
-          })
-        } catch (error) {
-          // 登录失败，抛出错误让调用方处理
-          throw error
-        }
+        const response = await authApi.login({
+          ...credentials,
+          username: credentials.username.trim(),
+        })
+        set(mapTokenResponseToAuthState(response))
       },
 
       /**
@@ -58,13 +61,7 @@ export const useAuthStore = create<AuthState>()(
           console.error('Logout API error:', error)
         } finally {
           // 清除所有状态
-          set({
-            accessToken: null,
-            refreshToken: null,
-            user: null,
-            isAuthenticated: false,
-            expiresIn: null,
-          })
+          set(EMPTY_AUTH_STATE)
         }
       },
 
@@ -80,25 +77,13 @@ export const useAuthStore = create<AuthState>()(
 
         try {
           const response = await authApi.refreshToken({ refreshToken })
-          
-          set({
-            accessToken: response.accessToken,
-            refreshToken: response.refreshToken,
-            user: response.user,
-            isAuthenticated: true,
-            expiresIn: response.expiresIn,
-          })
+          set(mapTokenResponseToAuthState(response))
           
           return true
         } catch (error) {
+          console.warn('Refresh token failed:', error)
           // 刷新失败，清除登录状态
-          set({
-            accessToken: null,
-            refreshToken: null,
-            user: null,
-            isAuthenticated: false,
-            expiresIn: null,
-          })
+          set(EMPTY_AUTH_STATE)
           return false
         }
       },

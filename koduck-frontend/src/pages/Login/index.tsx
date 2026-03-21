@@ -2,27 +2,49 @@ import { useState } from 'react'
 import { useAuthStore } from '@/stores/auth'
 import { useNavigate } from 'react-router-dom'
 
+const getErrorMessage = (error: unknown): string => {
+  if (error instanceof Error && error.message) {
+    return error.message
+  }
+  return 'Login failed. Please check your credentials.'
+}
+
+type SubmitEventLike = {
+  preventDefault: () => void
+}
+
 export default function Login() {
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [sessionTimestamp] = useState(() => Math.floor(Date.now() / 1000))
   const { login } = useAuthStore()
   const navigate = useNavigate()
+  const normalizedUsername = username.trim()
+  const canSubmit = normalizedUsername.length > 0 && password.length > 0
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
+  const submitLogin = async () => {
+    if (!canSubmit || loading) {
+      return
+    }
+
     setLoading(true)
     setError('')
-    
+
     try {
-      await login({ username, password })
+      await login({ username: normalizedUsername, password })
       navigate('/market')
-    } catch (err: any) {
-      setError(err.message || 'Login failed. Please check your credentials.')
+    } catch (err: unknown) {
+      setError(getErrorMessage(err))
     } finally {
       setLoading(false)
     }
+  }
+
+  const handleSubmit = (e: SubmitEventLike) => {
+    e.preventDefault()
+    void submitLogin()
   }
 
   return (
@@ -47,7 +69,7 @@ export default function Login() {
       <div className="fixed top-8 right-8 hidden lg:block text-right">
         <div className="text-[10px] font-mono-data text-fluid-text-dim leading-relaxed">
           LOC: SECTOR_A<br/>
-          TS: {Math.floor(Date.now() / 1000)}<br/>
+          TS: {sessionTimestamp}<br/>
           CMD: INIT_AUTH
         </div>
         <div className="mt-4 w-12 h-1 bg-fluid-primary ml-auto" />
@@ -75,7 +97,7 @@ export default function Login() {
         <form onSubmit={handleSubmit} className="space-y-6">
           {/* Username Input */}
           <div className="space-y-1.5">
-            <label className="font-mono-data text-[11px] uppercase tracking-wider text-fluid-text-muted px-1">
+            <label htmlFor="login-username" className="font-mono-data text-[11px] uppercase tracking-wider text-fluid-text-muted px-1">
               Access Protocol ID
             </label>
             <div className="relative group">
@@ -83,10 +105,22 @@ export default function Login() {
                 fingerprint
               </span>
               <input
+                id="login-username"
                 type="text"
                 value={username}
-                onChange={(e) => setUsername(e.target.value)}
+                onChange={(e) => {
+                  setUsername(e.target.value)
+                  if (error) {
+                    setError('')
+                  }
+                }}
                 placeholder="CMD_USR_8821"
+                autoComplete="username"
+                autoFocus
+                required
+                disabled={loading}
+                aria-invalid={Boolean(error)}
+                aria-describedby={error ? 'login-error-message' : undefined}
                 className="w-full bg-fluid-surface-container-low border border-fluid-outline-variant pl-11 pr-4 py-3 rounded-lg text-sm font-mono-data focus:outline-none focus:border-fluid-primary focus:ring-1 focus:ring-fluid-primary/30 placeholder:text-fluid-text-dim/50 transition-all"
               />
             </div>
@@ -95,29 +129,40 @@ export default function Login() {
           {/* Password Input */}
           <div className="space-y-1.5">
             <div className="flex justify-between items-center px-1">
-              <label className="font-mono-data text-[11px] uppercase tracking-wider text-fluid-text-muted">
+              <label htmlFor="login-password" className="font-mono-data text-[11px] uppercase tracking-wider text-fluid-text-muted">
                 Encryption Key
               </label>
-              <a href="#" className="font-mono-data text-[10px] uppercase text-fluid-primary/60 hover:text-fluid-primary transition-colors">
+              <button type="button" className="font-mono-data text-[10px] uppercase text-fluid-primary/60 hover:text-fluid-primary transition-colors">
                 Recovery
-              </a>
+              </button>
             </div>
             <div className="relative group">
               <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-fluid-text-dim text-lg group-focus-within:text-fluid-primary transition-colors">
                 key
               </span>
               <input
+                id="login-password"
                 type="password"
                 value={password}
-                onChange={(e) => setPassword(e.target.value)}
+                onChange={(e) => {
+                  setPassword(e.target.value)
+                  if (error) {
+                    setError('')
+                  }
+                }}
                 placeholder="••••••••••••"
+                autoComplete="current-password"
+                required
+                disabled={loading}
+                aria-invalid={Boolean(error)}
+                aria-describedby={error ? 'login-error-message' : undefined}
                 className="w-full bg-fluid-surface-container-low border border-fluid-outline-variant pl-11 pr-4 py-3 rounded-lg text-sm font-mono-data focus:outline-none focus:border-fluid-primary focus:ring-1 focus:ring-fluid-primary/30 placeholder:text-fluid-text-dim/50 transition-all"
               />
             </div>
           </div>
 
           {error && (
-            <div className="text-fluid-secondary text-xs font-mono-data text-center">
+            <div id="login-error-message" className="text-fluid-secondary text-xs font-mono-data text-center" role="alert" aria-live="polite">
               {error}
             </div>
           )}
@@ -126,7 +171,7 @@ export default function Login() {
           <div className="pt-4">
             <button
               type="submit"
-              disabled={loading}
+              disabled={loading || !canSubmit}
               className="w-full py-4 bg-fluid-primary text-fluid-surface-container-lowest font-headline font-bold uppercase tracking-widest text-sm rounded-lg hover:shadow-glow-primary hover:brightness-110 active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {loading ? 'Initializing...' : 'Initialize Session'}
@@ -138,7 +183,7 @@ export default function Login() {
         <div className="mt-8 flex justify-between items-center text-[10px] font-mono-data text-fluid-text-dim/50 uppercase">
           <div className="flex items-center gap-1.5">
             <span className="w-1.5 h-1.5 rounded-full bg-fluid-primary animate-pulse"></span>
-            Terminal: Secure
+            <span>Terminal: Secure</span>
           </div>
           <span>E2EE: Verified</span>
         </div>
