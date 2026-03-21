@@ -65,3 +65,52 @@ print(json.dumps({"command": args.command, "content": args.content}))
     assert result["status"] == 0
     assert '"command": "ping"' in result["stdout"]
     assert '"content": "hello"' in result["stdout"]
+
+
+def test_builtin_tools_include_news_search() -> None:
+    quant_tools.refresh_tool_registry()
+    tool_names = [tool["function"]["name"] for tool in quant_tools.QUANT_TOOL_DEFS]
+    assert "search_web_news" in tool_names
+
+
+@pytest.mark.asyncio
+async def test_search_web_news_success(monkeypatch: pytest.MonkeyPatch) -> None:
+    class DummyAsyncClient:
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, exc_type, exc, tb):
+            return False
+
+    async def fake_fetch_news_rss(client, query: str, language: str):  # noqa: ANN001
+        assert query == "今日新闻"
+        assert language == "zh-CN"
+        return "google_news", [
+            {
+                "title": "示例新闻A",
+                "url": "https://example.com/a",
+                "published_at": "Sat, 21 Mar 2026 10:00:00 GMT",
+                "source": "示例源",
+            },
+            {
+                "title": "示例新闻B",
+                "url": "https://example.com/b",
+                "published_at": "Sat, 21 Mar 2026 09:00:00 GMT",
+                "source": "示例源2",
+            },
+        ]
+
+    monkeypatch.setattr(quant_tools.httpx, "AsyncClient", lambda *args, **kwargs: DummyAsyncClient())
+    monkeypatch.setattr(quant_tools, "_fetch_news_rss", fake_fetch_news_rss)
+
+    raw = await quant_tools.execute_tool(
+        "search_web_news",
+        {"query": "今日新闻", "limit": 1, "language": "zh-CN"},
+    )
+    import json
+
+    result = json.loads(raw)
+    assert result["ok"] is True
+    assert result["provider"] == "google_news"
+    assert result["count"] == 1
+    assert result["items"][0]["title"] == "示例新闻A"

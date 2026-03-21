@@ -44,9 +44,6 @@ public class AiAnalysisService {
 
     private static final Pattern SYMBOL_PATTERN = Pattern.compile("\\b\\d{6}\\b");
     private static final Set<String> SUPPORTED_LLM_PROVIDERS = Set.of("minimax", "deepseek", "openai");
-    private static final String NO_TOOL_MARKUP_GUARD =
-        "输出约束: 不要使用或模拟任何工具调用，不要输出 <minimax:tool_call>、<invoke>、<parameter>、XML/JSON函数调用片段。"
-            + "请直接输出面向用户的自然语言分析结论。";
     private final PortfolioPositionRepository positionRepository;
     private final StrategyRepository strategyRepository;
     private final BacktestResultRepository backtestResultRepository;
@@ -204,8 +201,7 @@ public class AiAnalysisService {
             .apiBase(effectiveConfig != null ? effectiveConfig.getApiBase() : null)
             .messages(request.getMessages())
             .build();
-        ChatStreamRequest guardedRequest = appendInstructionToSystem(configuredRequest, NO_TOOL_MARKUP_GUARD);
-        ChatStreamRequest enhancedRequest = enrichWithQuantSignalIfNeeded(guardedRequest);
+        ChatStreamRequest enhancedRequest = enrichWithQuantSignalIfNeeded(configuredRequest);
         CompletableFuture.runAsync(() -> relayAgentStream(enhancedRequest, emitter));
         return emitter;
     }

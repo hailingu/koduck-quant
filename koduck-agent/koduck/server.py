@@ -33,6 +33,13 @@ logger = logging.getLogger(__name__)
 # 
 _clients: dict[str, Any] = {}
 MAX_TOOL_CALL_ROUNDS = 4
+TOOL_AWARE_SYSTEM_GUARD = (
+    "工具调用约束:\n"
+    "1) 你可以调用工具来获取外部信息，尤其是实时信息。\n"
+    "2) 当用户询问今日新闻、最新消息、实时事件、当前行情等时，优先调用 search_web_news 工具，"
+    "不要直接回答“无法联网/无法获取实时信息”。\n"
+    "3) 拿到工具结果后，先给出简要结论，再列出关键来源与发布时间；若工具失败，明确说明失败原因并给出可执行替代建议。"
+)
 
 
 def setup_logging() -> None:
@@ -258,6 +265,28 @@ def _to_internal_messages(messages: list[ChatMessage]) -> list[Message]:
     ]
 
 
+def _append_instruction_to_system(
+    messages: list[Message],
+    instruction: str,
+) -> list[Message]:
+    if not instruction.strip():
+        return messages
+    updated = list(messages)
+    for i, msg in enumerate(updated):
+        if msg.role.lower() == "system":
+            merged = (msg.content or "").strip()
+            merged_content = instruction if not merged else f"{merged}\n\n{instruction}"
+            updated[i] = Message(
+                role=msg.role,
+                content=merged_content,
+                thinking=msg.thinking,
+                tool_call_id=msg.tool_call_id,
+            )
+            return updated
+    updated.insert(0, Message(role="system", content=instruction))
+    return updated
+
+
 def _to_openai_tool_calls(tool_calls: list[ToolCall]) -> list[dict[str, Any]]:
     return [
         {
@@ -427,6 +456,7 @@ async def chat_completions(request: ChatCompletionRequest):
     client = get_client(request.provider, request.apiKey, request.apiBase)
 
     messages = _to_internal_messages(request.messages)
+    messages = _append_instruction_to_system(messages, TOOL_AWARE_SYSTEM_GUARD)
 
     try:
         logger.info(
@@ -559,6 +589,7 @@ async def simple_chat(request: SimpleChatRequest):
     client = get_client(request.provider, request.apiKey, request.apiBase)
 
     messages = _to_internal_messages(request.messages)
+    messages = _append_instruction_to_system(messages, TOOL_AWARE_SYSTEM_GUARD)
 
     try:
         logger.info(
@@ -651,14 +682,17 @@ async def simple_chat_stream(request: SimpleChatRequest):
             client = get_client(request.provider, request.apiKey, request.apiBase, request.model)
             
             messages = _to_internal_messages(request.messages)
+            messages = _append_instruction_to_system(messages, TOOL_AWARE_SYSTEM_GUARD)
             
             # Send start event
             yield f"event: start\ndata: {json.dumps({'model': client.model, 'provider': request.provider})}\n\n"
             
-            # Use true streaming - call LLM with generate_stream
-            full_content = ""
-            async for delta in client.generate_stream(messages):
-                full_content += delta
+            # Stream endpoint now also supports tools by using the same tool loop.
+            response = await _run_chat_with_tool_loop(client, messages)
+            full_content = response.content or ""
+            chunk_size = 80
+            for i in range(0, len(full_content), chunk_size):
+                delta = full_content[i : i + chunk_size]
                 yield f"event: delta\ndata: {json.dumps({'content': delta})}\n\n"
 
             yield f"event: done\ndata: {json.dumps({'content': full_content, 'model': client.model, 'provider': request.provider})}\n\n"

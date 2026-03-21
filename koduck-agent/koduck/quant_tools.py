@@ -8,6 +8,8 @@ import logging
 import os
 import re
 import sys
+import urllib.parse
+import xml.etree.ElementTree as ET
 from pathlib import Path
 from typing import Any, Awaitable, Callable
 
@@ -52,6 +54,36 @@ def _builtin_tool_defs() -> list[dict[str, Any]]:
                         },
                     },
                     "required": ["symbol"],
+                },
+            },
+        },
+        {
+            "type": "function",
+            "function": {
+                "name": "search_web_news",
+                "description": (
+                    "Search latest web news for a topic. "
+                    "Useful for requests about today's news, latest events, or real-time updates."
+                ),
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "query": {
+                            "type": "string",
+                            "description": "News topic or keywords, e.g. 今日新闻, AI, 美股.",
+                        },
+                        "limit": {
+                            "type": "integer",
+                            "description": "Max number of returned items (1-10).",
+                            "default": 5,
+                        },
+                        "language": {
+                            "type": "string",
+                            "description": "Language code (zh-CN / en-US). Default zh-CN.",
+                            "default": "zh-CN",
+                        },
+                    },
+                    "required": ["query"],
                 },
             },
         },
@@ -311,6 +343,8 @@ def refresh_tool_registry() -> None:
         QUANT_TOOL_DEFS.append(tool_def)
         if name == "get_quant_signal":
             _TOOL_EXECUTORS[name] = _get_quant_signal
+        elif name == "search_web_news":
+            _TOOL_EXECUTORS[name] = _search_web_news
 
     discovered_entries = _discover_skill_entries()
     for entry in discovered_entries:
@@ -483,6 +517,135 @@ async def _get_quant_signal(arguments: dict[str, Any]) -> str:
                 "action": action,
             },
             "note": "Quant signal is for reference only, not financial advice.",
+        },
+        ensure_ascii=False,
+    )
+
+
+def _clip_int(raw: Any, default: int, minimum: int, maximum: int) -> int:
+    try:
+        value = int(raw)
+    except Exception:
+        value = default
+    return max(minimum, min(maximum, value))
+
+
+def _parse_rss_items(xml_text: str, limit: int) -> list[dict[str, str]]:
+    items: list[dict[str, str]] = []
+    try:
+        root = ET.fromstring(xml_text)
+    except Exception:
+        return items
+
+    for item in root.findall(".//item"):
+        title = (item.findtext("title") or "").strip()
+        link = (item.findtext("link") or "").strip()
+        pub_date = (item.findtext("pubDate") or "").strip()
+        source = ""
+        source_node = item.find("source")
+        if source_node is not None and source_node.text:
+            source = source_node.text.strip()
+        if not source and title:
+            # Common RSS title format: "Title - SourceName"
+            if " - " in title:
+                source = title.rsplit(" - ", 1)[-1].strip()
+
+        if not title and not link:
+            continue
+        items.append(
+            {
+                "title": title,
+                "url": link,
+                "published_at": pub_date,
+                "source": source,
+            }
+        )
+        if len(items) >= limit:
+            break
+    return items
+
+
+async def _fetch_news_rss(client: httpx.AsyncClient, query: str, language: str) -> tuple[str, list[dict[str, str]]]:
+    lang = "zh-CN" if language.lower().startswith("zh") else "en-US"
+    hl = "zh-CN" if lang == "zh-CN" else "en-US"
+    gl = "CN" if lang == "zh-CN" else "US"
+    ceid = f"{gl}:{hl}"
+    encoded_query = urllib.parse.quote_plus(query)
+
+    providers = [
+        (
+            "google_news",
+            f"https://news.google.com/rss/search?q={encoded_query}&hl={hl}&gl={gl}&ceid={ceid}",
+        ),
+        (
+            "bing_news",
+            f"https://www.bing.com/news/search?q={encoded_query}&format=rss&setlang={hl}",
+        ),
+    ]
+
+    for provider, url in providers:
+        try:
+            resp = await client.get(url)
+        except Exception as e:
+            logger.warning("news search request failed: provider=%s error=%s", provider, e)
+            continue
+        if resp.status_code != 200 or not resp.text:
+            logger.warning(
+                "news search non-200: provider=%s status=%s",
+                provider,
+                resp.status_code,
+            )
+            continue
+        return provider, _parse_rss_items(resp.text, limit=10)
+
+    return "", []
+
+
+async def _search_web_news(arguments: dict[str, Any]) -> str:
+    query = str(arguments.get("query", "")).strip()
+    if not query:
+        return json.dumps(
+            {"ok": False, "error": "Missing required argument: query"},
+            ensure_ascii=False,
+        )
+
+    limit = _clip_int(arguments.get("limit", 5), default=5, minimum=1, maximum=10)
+    language = str(arguments.get("language", "zh-CN")).strip() or "zh-CN"
+    timeout = httpx.Timeout(10.0, connect=5.0)
+    headers = {"User-Agent": "koduck-agent/0.1 (+https://koduck.local)"}
+
+    provider = ""
+    items: list[dict[str, str]] = []
+    try:
+        async with httpx.AsyncClient(timeout=timeout, headers=headers, follow_redirects=True) as client:
+            provider, parsed_items = await _fetch_news_rss(client, query=query, language=language)
+            items = parsed_items[:limit]
+    except Exception as e:
+        logger.warning("search_web_news failed: %s", e)
+        return json.dumps(
+            {"ok": False, "query": query, "error": f"News search request failed: {e}"},
+            ensure_ascii=False,
+        )
+
+    if not items:
+        return json.dumps(
+            {
+                "ok": False,
+                "query": query,
+                "error": "No news results found from available RSS providers",
+            },
+            ensure_ascii=False,
+        )
+
+    return json.dumps(
+        {
+            "ok": True,
+            "query": query,
+            "language": language,
+            "provider": provider,
+            "count": len(items),
+            "items": items,
+            "note": "Results are from public news RSS feeds and may include redirects.",
         },
         ensure_ascii=False,
     )
