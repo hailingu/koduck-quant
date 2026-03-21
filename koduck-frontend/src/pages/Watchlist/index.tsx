@@ -307,8 +307,13 @@ export default function Watchlist() {
       })
       showToast('添加成功', 'success')
       setShowAddModal(false)
-      // 直接使用返回的数据更新列表，立即显示价格
+      // 立即添加新项到列表
       setWatchlist((prev) => [...prev, newItem])
+      
+      // 延迟刷新以获取最新价格（给后端时间从数据源同步价格）
+      setTimeout(() => {
+        void loadWatchlist({ silent: true })
+      }, 500)
     } catch {
       showToast('添加自选股失败', 'error')
     }
