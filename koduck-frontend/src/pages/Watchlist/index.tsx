@@ -9,6 +9,7 @@ import StockSearch from '@/components/StockSearch'
 import PriceDisplay from '@/components/PriceDisplay'
 import { isTradingHours } from '@/utils/trading'
 import { marketApi } from '@/api/market'
+import { klineApi } from '@/api/kline'
 
 interface WatchlistDisplayItem extends WatchlistItem {
   realtimeTimestamp?: number
@@ -308,29 +309,42 @@ export default function Watchlist() {
   }
 
   const handleQuickAdd = async () => {
-    const normalized = normalizeSymbol(quickSymbol)
-    if (!normalized) {
+    const trimmedInput = quickSymbol.trim()
+    if (!trimmedInput) {
       setShowAddModal(true)
       return
     }
 
-    // 验证是否为有效的 A 股代码格式（6位数字）
-    if (!/^\d{6}$/.test(normalized)) {
-      showToast('请输入有效的股票代码（如：601012）', 'warning')
-      return
-    }
+    // 判断输入类型：6位数字为代码，其他为名称
+    const isCode = /^\d{6}$/.test(trimmedInput)
 
-    // 查询股票详情获取名称
     try {
-      const stockDetail = await marketApi.getStockDetail(normalized)
-      if (stockDetail) {
-        await handleAddStock(stockDetail.symbol, stockDetail.name, 'AShare')
+      if (isCode) {
+        // 输入的是股票代码，直接查询详情
+        const stockDetail = await marketApi.getStockDetail(trimmedInput)
+        if (stockDetail) {
+          await handleAddStock(stockDetail.symbol, stockDetail.name, 'AShare')
+        } else {
+          showToast('未找到该股票，请检查代码是否正确', 'warning')
+        }
       } else {
-        showToast('未找到该股票，请检查代码是否正确', 'warning')
+        // 输入的是股票名称，先搜索
+        const results = await klineApi.searchStocks(trimmedInput, 5)
+        if (!results || results.length === 0) {
+          showToast('未找到该股票，请检查名称是否正确', 'warning')
+          return
+        }
+
+        // 优先选择精确匹配的结果
+        const exactMatch = results.find(
+          (r) => r.name === trimmedInput || r.symbol === trimmedInput
+        )
+        const target = exactMatch || results[0]
+
+        await handleAddStock(target.symbol, target.name, target.market)
       }
     } catch {
-      // 查询失败，不执行降级添加，避免用错误的数据创建记录
-      showToast('未找到该股票，请检查代码是否正确', 'warning')
+      showToast('添加失败，请稍后重试', 'error')
     }
     setQuickSymbol('')
   }
