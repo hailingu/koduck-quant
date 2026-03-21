@@ -211,8 +211,9 @@ export default function Watchlist() {
 
   useEffect(() => {
     const intervalId = globalThis.setInterval(() => {
-      // Trading hours keeps values changing quickly; outside hours this is lightweight fallback.
-      if (connectionState !== 'connected' || marketTrading) {
+      // Only refresh during trading hours when WebSocket is not connected
+      // Non-trading hours: no need to refresh as prices don't change
+      if (marketTrading && connectionState !== 'connected') {
         loadWatchlist({ silent: true })
       }
     }, WATCHLIST_REFRESH_MS)
