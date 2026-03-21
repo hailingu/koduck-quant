@@ -7,24 +7,7 @@ from pathlib import Path
 import pytest
 
 from koduck import quant_tools
-from koduck.quant_tools import (
-    execute_tool,
-    get_tool_definition,
-    list_discovered_skills,
-    run_skill_command,
-)
-from koduck.tool_runtime import ToolRiskLevel
-
-
-def test_builtin_memory_tools_registered() -> None:
-    quant_tools.refresh_tool_registry()
-    tool_names = [tool["function"]["name"] for tool in quant_tools.QUANT_TOOL_DEFS]
-    assert "memory_set_config" in tool_names
-    assert "memory_write_l1" in tool_names
-    assert "memory_rebuild_l2" in tool_names
-    assert "memory_rebuild_l3" in tool_names
-    assert "memory_query" in tool_names
-    assert "memory_cleanup" in tool_names
+from koduck.quant_tools import execute_tool
 
 
 @pytest.mark.asyncio
@@ -83,18 +66,96 @@ print(json.dumps({"command": args.command, "content": args.content}))
     assert '"command": "ping"' in result["stdout"]
     assert '"content": "hello"' in result["stdout"]
 
-    tool_def = get_tool_definition("run_skill_demo_skill")
-    assert tool_def is not None
-    assert tool_def.policy.risk_level == ToolRiskLevel.RESTRICTED
-    assert tool_def.policy.timeout_seconds == 20
 
-    skills = list_discovered_skills()
-    assert any(item["skill_name"] == "demo_skill" for item in skills)
+def test_builtin_tools_include_news_search() -> None:
+    quant_tools.refresh_tool_registry()
+    tool_names = [tool["function"]["name"] for tool in quant_tools.QUANT_TOOL_DEFS]
+    assert "search_web_news" in tool_names
+    assert "search_finance_news" in tool_names
 
-    second_result_raw = await run_skill_command(
-        "demo-skill",
-        "pong",
-        {"content": "again"},
+
+@pytest.mark.asyncio
+async def test_search_web_news_success(monkeypatch: pytest.MonkeyPatch) -> None:
+    class DummyAsyncClient:
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, exc_type, exc, tb):
+            return False
+
+    async def fake_fetch_news_rss(client, query: str, language: str):  # noqa: ANN001
+        assert query == "今日新闻"
+        assert language == "zh-CN"
+        return "google_news", [
+            {
+                "title": "示例新闻A",
+                "url": "https://example.com/a",
+                "published_at": "Sat, 21 Mar 2026 10:00:00 GMT",
+                "source": "示例源",
+            },
+            {
+                "title": "示例新闻B",
+                "url": "https://example.com/b",
+                "published_at": "Sat, 21 Mar 2026 09:00:00 GMT",
+                "source": "示例源2",
+            },
+        ]
+
+    monkeypatch.setattr(quant_tools.httpx, "AsyncClient", lambda *args, **kwargs: DummyAsyncClient())
+    monkeypatch.setattr(quant_tools, "_fetch_news_rss", fake_fetch_news_rss)
+
+    raw = await quant_tools.execute_tool(
+        "search_web_news",
+        {"query": "今日新闻", "limit": 1, "language": "zh-CN"},
     )
-    second_result = json.loads(second_result_raw)
-    assert second_result["ok"] is True
+    import json
+
+    result = json.loads(raw)
+    assert result["ok"] is True
+    assert result["provider"] == "google_news"
+    assert result["count"] == 1
+    assert result["items"][0]["title"] == "示例新闻A"
+
+
+@pytest.mark.asyncio
+async def test_search_finance_news_prefers_selected_sources(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class DummyAsyncClient:
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, exc_type, exc, tb):
+            return False
+
+    async def fake_fetch_news_rss(client, query: str, language: str):  # noqa: ANN001
+        assert "site:www.cls.cn" in query
+        assert "site:www.yicai.com" in query
+        return "google_news", [
+            {
+                "title": "其他来源新闻",
+                "url": "https://example.com/1",
+                "published_at": "Sat, 21 Mar 2026 10:00:00 GMT",
+                "source": "其他",
+            },
+            {
+                "title": "财联社快讯",
+                "url": "https://www.cls.cn/detail/123",
+                "published_at": "Sat, 21 Mar 2026 09:00:00 GMT",
+                "source": "财联社",
+            },
+        ]
+
+    monkeypatch.setattr(quant_tools.httpx, "AsyncClient", lambda *args, **kwargs: DummyAsyncClient())
+    monkeypatch.setattr(quant_tools, "_fetch_news_rss", fake_fetch_news_rss)
+
+    raw = await quant_tools.execute_tool(
+        "search_finance_news",
+        {"query": "今日财经新闻", "sources": ["cls", "yicai"], "limit": 1},
+    )
+    import json
+
+    result = json.loads(raw)
+    assert result["ok"] is True
+    assert result["count"] == 1
+    assert result["items"][0]["title"] == "财联社快讯"

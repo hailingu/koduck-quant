@@ -8,16 +8,12 @@ import logging
 import os
 import re
 import sys
+import urllib.parse
+import xml.etree.ElementTree as ET
 from pathlib import Path
 from typing import Any, Awaitable, Callable
 
 import httpx
-from koduck.tool_runtime import (
-    ToolDefinition,
-    ToolExecutionPolicy,
-    ToolRiskLevel,
-)
-from . import memory_pg
 
 try:
     import yaml
@@ -31,7 +27,6 @@ DEFAULT_SKILL_TIMEOUT_SECONDS = 20
 
 _TOOL_EXECUTORS: dict[str, Callable[[dict[str, Any]], Awaitable[str]]] = {}
 QUANT_TOOL_DEFS: list[dict[str, Any]] = []
-TOOL_REGISTRY: dict[str, ToolDefinition] = {}
 
 
 def _backend_base_url() -> str:
@@ -65,107 +60,66 @@ def _builtin_tool_defs() -> list[dict[str, Any]]:
         {
             "type": "function",
             "function": {
-                "name": "memory_set_config",
-                "description": "Configure PageIndex-style memory mode/tier settings for a user (L0-L3).",
+                "name": "search_web_news",
+                "description": (
+                    "Search latest web news for a topic. "
+                    "Useful for requests about today's news, latest events, or real-time updates."
+                ),
                 "parameters": {
                     "type": "object",
                     "properties": {
-                        "user_id": {"type": "integer"},
-                        "mode": {"type": "string", "description": "L0/L1/L2/L3"},
-                        "enabled": {"type": "boolean"},
-                        "enable_l1": {"type": "boolean"},
-                        "enable_l2": {"type": "boolean"},
-                        "enable_l3": {"type": "boolean"},
-                        "write_per_turn": {"type": "boolean"},
-                        "async_index": {"type": "boolean"},
-                        "retrieve_max_pages": {"type": "integer"},
-                        "retrieve_token_budget": {"type": "integer"},
-                        "ttl_days_l1": {"type": "integer"},
-                        "ttl_days_l2": {"type": "integer"},
-                        "ttl_days_l3": {"type": "integer"},
+                        "query": {
+                            "type": "string",
+                            "description": "News topic or keywords, e.g. 今日新闻, AI, 美股.",
+                        },
+                        "limit": {
+                            "type": "integer",
+                            "description": "Max number of returned items (1-10).",
+                            "default": 5,
+                        },
+                        "language": {
+                            "type": "string",
+                            "description": "Language code (zh-CN / en-US). Default zh-CN.",
+                            "default": "zh-CN",
+                        },
                     },
-                    "required": ["user_id"],
+                    "required": ["query"],
                 },
             },
         },
         {
             "type": "function",
             "function": {
-                "name": "memory_write_l1",
-                "description": "Write one raw memory page (L1) with compression and md5.",
+                "name": "search_finance_news",
+                "description": (
+                    "Search latest finance news with source preference. "
+                    "Use for requests like 财联社/第一财经/财经快讯/市场新闻."
+                ),
                 "parameters": {
                     "type": "object",
                     "properties": {
-                        "user_id": {"type": "integer"},
-                        "session_id": {"type": "string"},
-                        "role_pack": {"type": "string"},
-                        "content": {"type": "string"},
-                        "meta": {"type": "object"},
+                        "query": {
+                            "type": "string",
+                            "description": "Finance topic keywords, e.g. 今日A股新闻, 美联储, 科技股.",
+                        },
+                        "sources": {
+                            "type": "array",
+                            "items": {"type": "string", "enum": ["cls", "yicai"]},
+                            "description": "Preferred finance sources. cls=财联社, yicai=第一财经.",
+                            "default": ["cls", "yicai"],
+                        },
+                        "limit": {
+                            "type": "integer",
+                            "description": "Max number of returned items (1-10).",
+                            "default": 5,
+                        },
+                        "language": {
+                            "type": "string",
+                            "description": "Language code (zh-CN / en-US). Default zh-CN.",
+                            "default": "zh-CN",
+                        },
                     },
-                    "required": ["user_id", "content"],
-                },
-            },
-        },
-        {
-            "type": "function",
-            "function": {
-                "name": "memory_rebuild_l2",
-                "description": "Rebuild L2 themes from recent L1 pages with LLM-based extraction.",
-                "parameters": {
-                    "type": "object",
-                    "properties": {
-                        "user_id": {"type": "integer"},
-                        "limit": {"type": "integer"},
-                        "provider": {"type": "string", "description": "Extractor provider: minimax/deepseek/openai"},
-                        "model": {"type": "string", "description": "Extractor model id"},
-                        "api_key": {"type": "string", "description": "Override extractor API key"},
-                        "api_base": {"type": "string", "description": "Override extractor API base"},
-                    },
-                    "required": ["user_id"],
-                },
-            },
-        },
-        {
-            "type": "function",
-            "function": {
-                "name": "memory_rebuild_l3",
-                "description": "Rebuild L3 keyword index from L2 themes.",
-                "parameters": {
-                    "type": "object",
-                    "properties": {
-                        "user_id": {"type": "integer"},
-                    },
-                    "required": ["user_id"],
-                },
-            },
-        },
-        {
-            "type": "function",
-            "function": {
-                "name": "memory_query",
-                "description": "Retrieve memory with fixed order: keyword -> theme -> raw page.",
-                "parameters": {
-                    "type": "object",
-                    "properties": {
-                        "user_id": {"type": "integer"},
-                        "query": {"type": "string"},
-                        "max_pages": {"type": "integer"},
-                    },
-                    "required": ["user_id", "query"],
-                },
-            },
-        },
-        {
-            "type": "function",
-            "function": {
-                "name": "memory_cleanup",
-                "description": "Cleanup expired memory pages/themes/keywords by TTL config.",
-                "parameters": {
-                    "type": "object",
-                    "properties": {
-                        "user_id": {"type": "integer"},
-                    },
-                    "required": ["user_id"],
+                    "required": ["query"],
                 },
             },
         },
@@ -419,102 +373,16 @@ def refresh_tool_registry() -> None:
     """Rebuild tool defs/executors from builtin tools plus discovered skills."""
     QUANT_TOOL_DEFS.clear()
     _TOOL_EXECUTORS.clear()
-    TOOL_REGISTRY.clear()
 
     for tool_def in _builtin_tool_defs():
         name = str(tool_def["function"]["name"])
         QUANT_TOOL_DEFS.append(tool_def)
         if name == "get_quant_signal":
             _TOOL_EXECUTORS[name] = _get_quant_signal
-            TOOL_REGISTRY[name] = ToolDefinition(
-                name=name,
-                schema=tool_def,
-                description=str(tool_def["function"]["description"]),
-                policy=ToolExecutionPolicy(
-                    timeout_seconds=10,
-                    max_retries=1,
-                    risk_level=ToolRiskLevel.SAFE,
-                ),
-                executor=_get_quant_signal,
-            )
-        elif name == "memory_set_config":
-            _TOOL_EXECUTORS[name] = _memory_set_config
-            TOOL_REGISTRY[name] = ToolDefinition(
-                name=name,
-                schema=tool_def,
-                description=str(tool_def["function"]["description"]),
-                policy=ToolExecutionPolicy(
-                    timeout_seconds=DEFAULT_SKILL_TIMEOUT_SECONDS,
-                    max_retries=0,
-                    risk_level=ToolRiskLevel.RESTRICTED,
-                ),
-                executor=_memory_set_config,
-            )
-        elif name == "memory_write_l1":
-            _TOOL_EXECUTORS[name] = _memory_write_l1
-            TOOL_REGISTRY[name] = ToolDefinition(
-                name=name,
-                schema=tool_def,
-                description=str(tool_def["function"]["description"]),
-                policy=ToolExecutionPolicy(
-                    timeout_seconds=DEFAULT_SKILL_TIMEOUT_SECONDS,
-                    max_retries=0,
-                    risk_level=ToolRiskLevel.RESTRICTED,
-                ),
-                executor=_memory_write_l1,
-            )
-        elif name == "memory_rebuild_l2":
-            _TOOL_EXECUTORS[name] = _memory_rebuild_l2
-            TOOL_REGISTRY[name] = ToolDefinition(
-                name=name,
-                schema=tool_def,
-                description=str(tool_def["function"]["description"]),
-                policy=ToolExecutionPolicy(
-                    timeout_seconds=DEFAULT_SKILL_TIMEOUT_SECONDS,
-                    max_retries=0,
-                    risk_level=ToolRiskLevel.RESTRICTED,
-                ),
-                executor=_memory_rebuild_l2,
-            )
-        elif name == "memory_rebuild_l3":
-            _TOOL_EXECUTORS[name] = _memory_rebuild_l3
-            TOOL_REGISTRY[name] = ToolDefinition(
-                name=name,
-                schema=tool_def,
-                description=str(tool_def["function"]["description"]),
-                policy=ToolExecutionPolicy(
-                    timeout_seconds=DEFAULT_SKILL_TIMEOUT_SECONDS,
-                    max_retries=0,
-                    risk_level=ToolRiskLevel.RESTRICTED,
-                ),
-                executor=_memory_rebuild_l3,
-            )
-        elif name == "memory_query":
-            _TOOL_EXECUTORS[name] = _memory_query
-            TOOL_REGISTRY[name] = ToolDefinition(
-                name=name,
-                schema=tool_def,
-                description=str(tool_def["function"]["description"]),
-                policy=ToolExecutionPolicy(
-                    timeout_seconds=DEFAULT_SKILL_TIMEOUT_SECONDS,
-                    max_retries=0,
-                    risk_level=ToolRiskLevel.RESTRICTED,
-                ),
-                executor=_memory_query,
-            )
-        elif name == "memory_cleanup":
-            _TOOL_EXECUTORS[name] = _memory_cleanup
-            TOOL_REGISTRY[name] = ToolDefinition(
-                name=name,
-                schema=tool_def,
-                description=str(tool_def["function"]["description"]),
-                policy=ToolExecutionPolicy(
-                    timeout_seconds=DEFAULT_SKILL_TIMEOUT_SECONDS,
-                    max_retries=0,
-                    risk_level=ToolRiskLevel.RESTRICTED,
-                ),
-                executor=_memory_cleanup,
-            )
+        elif name == "search_web_news":
+            _TOOL_EXECUTORS[name] = _search_web_news
+        elif name == "search_finance_news":
+            _TOOL_EXECUTORS[name] = _search_finance_news
 
     discovered_entries = _discover_skill_entries()
     for entry in discovered_entries:
@@ -559,17 +427,6 @@ def refresh_tool_registry() -> None:
             )
 
         _TOOL_EXECUTORS[tool_name] = _executor
-        TOOL_REGISTRY[tool_name] = ToolDefinition(
-            name=tool_name,
-            schema=QUANT_TOOL_DEFS[-1],
-            description=str(QUANT_TOOL_DEFS[-1]["function"]["description"]),
-            policy=ToolExecutionPolicy(
-                timeout_seconds=DEFAULT_SKILL_TIMEOUT_SECONDS,
-                max_retries=0,
-                risk_level=ToolRiskLevel.RESTRICTED,
-            ),
-            executor=_executor,
-        )
 
     logger.info(
         "Tool registry refreshed: builtin=%s discovered_skills=%s total=%s",
@@ -592,95 +449,6 @@ async def execute_tool(name: str, arguments: dict[str, Any]) -> str:
             ensure_ascii=False,
         )
     return await executor(arguments)
-
-
-def get_tool_definitions() -> list[ToolDefinition]:
-    """List all registered tool definitions."""
-    return list(TOOL_REGISTRY.values())
-
-
-def get_tool_definition(name: str) -> ToolDefinition | None:
-    """Get one registered tool definition."""
-    return TOOL_REGISTRY.get(name)
-
-
-def list_discovered_skills() -> list[dict[str, Any]]:
-    """Return discovered skills for API/console usage."""
-    skills: list[dict[str, Any]] = []
-    for tool in get_tool_definitions():
-        if not tool.name.startswith("run_skill_"):
-            continue
-        skill_name = tool.name.removeprefix("run_skill_")
-        skills.append(
-            {
-                "tool_name": tool.name,
-                "skill_name": skill_name,
-                "description": tool.description,
-                "risk_level": tool.policy.risk_level.value,
-            }
-        )
-    return skills
-
-
-async def run_skill_command(skill_name: str, command: str, args: dict[str, Any] | None = None) -> str:
-    """Execute one discovered skill by logical skill name."""
-    normalized = _normalize_skill_name(skill_name)
-    tool_name = f"run_skill_{normalized}"
-    return await execute_tool(
-        tool_name,
-        {
-            "command": command,
-            "args": args or {},
-        },
-    )
-
-
-async def _memory_set_config(arguments: dict[str, Any]) -> str:
-    try:
-        result = await asyncio.to_thread(memory_pg.set_config, arguments)
-        return json.dumps(result, ensure_ascii=False)
-    except Exception as e:
-        return json.dumps({"ok": False, "error": f"memory_set_config failed: {e}"}, ensure_ascii=False)
-
-
-async def _memory_write_l1(arguments: dict[str, Any]) -> str:
-    try:
-        result = await asyncio.to_thread(memory_pg.write_l1, arguments)
-        return json.dumps(result, ensure_ascii=False)
-    except Exception as e:
-        return json.dumps({"ok": False, "error": f"memory_write_l1 failed: {e}"}, ensure_ascii=False)
-
-
-async def _memory_rebuild_l2(arguments: dict[str, Any]) -> str:
-    try:
-        result = await asyncio.to_thread(memory_pg.rebuild_l2, arguments)
-        return json.dumps(result, ensure_ascii=False)
-    except Exception as e:
-        return json.dumps({"ok": False, "error": f"memory_rebuild_l2 failed: {e}"}, ensure_ascii=False)
-
-
-async def _memory_rebuild_l3(arguments: dict[str, Any]) -> str:
-    try:
-        result = await asyncio.to_thread(memory_pg.rebuild_l3, arguments)
-        return json.dumps(result, ensure_ascii=False)
-    except Exception as e:
-        return json.dumps({"ok": False, "error": f"memory_rebuild_l3 failed: {e}"}, ensure_ascii=False)
-
-
-async def _memory_query(arguments: dict[str, Any]) -> str:
-    try:
-        result = await asyncio.to_thread(memory_pg.query, arguments)
-        return json.dumps(result, ensure_ascii=False)
-    except Exception as e:
-        return json.dumps({"ok": False, "error": f"memory_query failed: {e}"}, ensure_ascii=False)
-
-
-async def _memory_cleanup(arguments: dict[str, Any]) -> str:
-    try:
-        result = await asyncio.to_thread(memory_pg.cleanup, arguments)
-        return json.dumps(result, ensure_ascii=False)
-    except Exception as e:
-        return json.dumps({"ok": False, "error": f"memory_cleanup failed: {e}"}, ensure_ascii=False)
 
 
 async def _get_quant_signal(arguments: dict[str, Any]) -> str:
@@ -787,6 +555,257 @@ async def _get_quant_signal(arguments: dict[str, Any]) -> str:
                 "action": action,
             },
             "note": "Quant signal is for reference only, not financial advice.",
+        },
+        ensure_ascii=False,
+    )
+
+
+def _clip_int(raw: Any, default: int, minimum: int, maximum: int) -> int:
+    try:
+        value = int(raw)
+    except Exception:
+        value = default
+    return max(minimum, min(maximum, value))
+
+
+def _parse_rss_items(xml_text: str, limit: int) -> list[dict[str, str]]:
+    items: list[dict[str, str]] = []
+    try:
+        root = ET.fromstring(xml_text)
+    except Exception:
+        return items
+
+    for item in root.findall(".//item"):
+        title = (item.findtext("title") or "").strip()
+        link = (item.findtext("link") or "").strip()
+        pub_date = (item.findtext("pubDate") or "").strip()
+        source = ""
+        source_node = item.find("source")
+        if source_node is not None and source_node.text:
+            source = source_node.text.strip()
+        if not source and title:
+            # Common RSS title format: "Title - SourceName"
+            if " - " in title:
+                source = title.rsplit(" - ", 1)[-1].strip()
+
+        if not title and not link:
+            continue
+        items.append(
+            {
+                "title": title,
+                "url": link,
+                "published_at": pub_date,
+                "source": source,
+            }
+        )
+        if len(items) >= limit:
+            break
+    return items
+
+
+async def _fetch_news_rss(client: httpx.AsyncClient, query: str, language: str) -> tuple[str, list[dict[str, str]]]:
+    lang = "zh-CN" if language.lower().startswith("zh") else "en-US"
+    hl = "zh-CN" if lang == "zh-CN" else "en-US"
+    gl = "CN" if lang == "zh-CN" else "US"
+    ceid = f"{gl}:{hl}"
+    encoded_query = urllib.parse.quote_plus(query)
+
+    providers = [
+        (
+            "google_news",
+            f"https://news.google.com/rss/search?q={encoded_query}&hl={hl}&gl={gl}&ceid={ceid}",
+        ),
+        (
+            "bing_news",
+            f"https://www.bing.com/news/search?q={encoded_query}&format=rss&setlang={hl}",
+        ),
+    ]
+
+    for provider, url in providers:
+        try:
+            resp = await client.get(url)
+        except Exception as e:
+            logger.warning("news search request failed: provider=%s error=%s", provider, e)
+            continue
+        if resp.status_code != 200 or not resp.text:
+            logger.warning(
+                "news search non-200: provider=%s status=%s",
+                provider,
+                resp.status_code,
+            )
+            continue
+        return provider, _parse_rss_items(resp.text, limit=10)
+
+    return "", []
+
+
+async def _search_web_news(arguments: dict[str, Any]) -> str:
+    query = str(arguments.get("query", "")).strip()
+    if not query:
+        return json.dumps(
+            {"ok": False, "error": "Missing required argument: query"},
+            ensure_ascii=False,
+        )
+
+    limit = _clip_int(arguments.get("limit", 5), default=5, minimum=1, maximum=10)
+    language = str(arguments.get("language", "zh-CN")).strip() or "zh-CN"
+    timeout = httpx.Timeout(10.0, connect=5.0)
+    headers = {"User-Agent": "koduck-agent/0.1 (+https://koduck.local)"}
+
+    provider = ""
+    items: list[dict[str, str]] = []
+    try:
+        async with httpx.AsyncClient(timeout=timeout, headers=headers, follow_redirects=True) as client:
+            provider, parsed_items = await _fetch_news_rss(client, query=query, language=language)
+            items = parsed_items[:limit]
+    except Exception as e:
+        logger.warning("search_web_news failed: %s", e)
+        return json.dumps(
+            {"ok": False, "query": query, "error": f"News search request failed: {e}"},
+            ensure_ascii=False,
+        )
+
+    if not items:
+        return json.dumps(
+            {
+                "ok": False,
+                "query": query,
+                "error": "No news results found from available RSS providers",
+            },
+            ensure_ascii=False,
+        )
+
+    return json.dumps(
+        {
+            "ok": True,
+            "query": query,
+            "language": language,
+            "provider": provider,
+            "count": len(items),
+            "items": items,
+            "note": "Results are from public news RSS feeds and may include redirects.",
+        },
+        ensure_ascii=False,
+    )
+
+
+def _normalize_finance_sources(raw_sources: Any) -> list[str]:
+    if not raw_sources:
+        return ["cls", "yicai"]
+    if isinstance(raw_sources, str):
+        candidates = [raw_sources]
+    elif isinstance(raw_sources, list):
+        candidates = [str(x) for x in raw_sources]
+    else:
+        return ["cls", "yicai"]
+
+    supported = {"cls", "yicai"}
+    cleaned: list[str] = []
+    for candidate in candidates:
+        key = candidate.strip().lower()
+        if key in supported and key not in cleaned:
+            cleaned.append(key)
+    return cleaned or ["cls", "yicai"]
+
+
+def _domain_for_source(source: str) -> str:
+    if source == "cls":
+        return "www.cls.cn"
+    if source == "yicai":
+        return "www.yicai.com"
+    return ""
+
+
+def _infer_source_by_url(url: str) -> str:
+    try:
+        host = (urllib.parse.urlparse(url).hostname or "").lower()
+    except Exception:
+        host = ""
+    if "cls.cn" in host:
+        return "cls"
+    if "yicai.com" in host:
+        return "yicai"
+    return ""
+
+
+async def _search_finance_news(arguments: dict[str, Any]) -> str:
+    query = str(arguments.get("query", "")).strip()
+    if not query:
+        return json.dumps(
+            {"ok": False, "error": "Missing required argument: query"},
+            ensure_ascii=False,
+        )
+
+    limit = _clip_int(arguments.get("limit", 5), default=5, minimum=1, maximum=10)
+    language = str(arguments.get("language", "zh-CN")).strip() or "zh-CN"
+    sources = _normalize_finance_sources(arguments.get("sources"))
+    timeout = httpx.Timeout(10.0, connect=5.0)
+    headers = {"User-Agent": "koduck-agent/0.1 (+https://koduck.local)"}
+
+    # Use site-scoped news search for finance sources.
+    # Example query: "今日新闻 site:www.cls.cn OR site:www.yicai.com"
+    site_query_parts = [f"site:{_domain_for_source(s)}" for s in sources if _domain_for_source(s)]
+    scoped_query = query
+    if site_query_parts:
+        scoped_query = f"{query} " + " OR ".join(site_query_parts)
+
+    provider = ""
+    items: list[dict[str, str]] = []
+    try:
+        async with httpx.AsyncClient(timeout=timeout, headers=headers, follow_redirects=True) as client:
+            provider, parsed_items = await _fetch_news_rss(
+                client,
+                query=scoped_query,
+                language=language,
+            )
+            for item in parsed_items:
+                detected_source = _infer_source_by_url(item.get("url", ""))
+                if detected_source:
+                    item["source_code"] = detected_source
+                if not detected_source and item.get("source"):
+                    lowered = item["source"].lower()
+                    if "财联社" in item["source"] or "cls" in lowered:
+                        item["source_code"] = "cls"
+                    elif "第一财经" in item["source"] or "yicai" in lowered:
+                        item["source_code"] = "yicai"
+            # If source filtering is requested, keep matching items first.
+            preferred = [i for i in parsed_items if i.get("source_code") in sources]
+            fallback = [i for i in parsed_items if i.get("source_code") not in sources]
+            items = (preferred + fallback)[:limit]
+    except Exception as e:
+        logger.warning("search_finance_news failed: %s", e)
+        return json.dumps(
+            {
+                "ok": False,
+                "query": query,
+                "sources": sources,
+                "error": f"Finance news search request failed: {e}",
+            },
+            ensure_ascii=False,
+        )
+
+    if not items:
+        return json.dumps(
+            {
+                "ok": False,
+                "query": query,
+                "sources": sources,
+                "error": "No finance news results found from preferred sources",
+            },
+            ensure_ascii=False,
+        )
+
+    return json.dumps(
+        {
+            "ok": True,
+            "query": query,
+            "scoped_query": scoped_query,
+            "sources": sources,
+            "language": language,
+            "provider": provider,
+            "count": len(items),
+            "items": items,
+            "note": "Results are ranked with preferred finance sources first.",
         },
         ensure_ascii=False,
     )
