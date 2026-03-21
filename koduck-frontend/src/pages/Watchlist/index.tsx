@@ -300,14 +300,15 @@ export default function Watchlist() {
         return
       }
 
-      await watchlistApi.addToWatchlist({
+      const newItem = await watchlistApi.addToWatchlist({
         market,
         symbol: normalizedSymbol,
         name,
       })
       showToast('添加成功', 'success')
       setShowAddModal(false)
-      await loadWatchlist()
+      // 直接使用返回的数据更新列表，立即显示价格
+      setWatchlist((prev) => [...prev, newItem])
     } catch {
       showToast('添加自选股失败', 'error')
     }
