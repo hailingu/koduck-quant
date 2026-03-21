@@ -12,19 +12,26 @@ import com.koduck.dto.ai.StockAnalysisRequest;
 import com.koduck.dto.ai.StockAnalysisResponse;
 import com.koduck.dto.ai.StrategyRecommendRequest;
 import com.koduck.dto.ai.StrategyRecommendResponse;
+import com.koduck.entity.MemoryChatMessage;
 import com.koduck.security.UserPrincipal;
 import com.koduck.service.AiAnalysisService;
+import com.koduck.service.MemoryService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.http.MediaType;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
+import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 
 /**
@@ -45,6 +52,7 @@ import java.util.Objects;
 public class AiAnalysisController {
 
     private final AiAnalysisService aiAnalysisService;
+    private final MemoryService memoryService;
 
     /**
      * Perform an AI-driven stock analysis.
@@ -152,6 +160,53 @@ public class AiAnalysisController {
             request.getPortfolioId()
         );
         return ApiResponse.success(response);
+    }
+
+    @DeleteMapping("/memory/session/{sessionId}")
+    public ApiResponse<Map<String, Object>> clearSessionMemory(
+        @AuthenticationPrincipal UserPrincipal userPrincipal,
+        @PathVariable String sessionId
+    ) {
+        Long userId = requireUserId(userPrincipal);
+        String normalizedSessionId = memoryService.resolveSessionId(sessionId);
+        int deleted = memoryService.clearSessionMessages(userId, normalizedSessionId);
+        return ApiResponse.success(Map.of(
+            "sessionId", normalizedSessionId,
+            "deletedMessages", deleted
+        ));
+    }
+
+    @DeleteMapping("/memory/profile")
+    public ApiResponse<Map<String, Object>> clearProfileMemory(
+        @AuthenticationPrincipal UserPrincipal userPrincipal
+    ) {
+        Long userId = requireUserId(userPrincipal);
+        memoryService.clearProfile(userId);
+        return ApiResponse.success(Map.of("cleared", true));
+    }
+
+    @GetMapping("/memory/session/{sessionId}")
+    public ApiResponse<Map<String, Object>> getSessionMemorySummary(
+        @AuthenticationPrincipal UserPrincipal userPrincipal,
+        @PathVariable String sessionId
+    ) {
+        Long userId = requireUserId(userPrincipal);
+        String normalizedSessionId = memoryService.resolveSessionId(sessionId);
+        List<MemoryChatMessage> messages = memoryService.getRecentMessages(
+            userId,
+            normalizedSessionId,
+            memoryService.getL1MaxTurns()
+        );
+        List<Map<String, Object>> summary = messages.stream().map(m -> Map.<String, Object>of(
+            "role", m.getRole() != null ? m.getRole() : "unknown",
+            "content", m.getContent() != null ? m.getContent() : "",
+            "createdAt", m.getCreatedAt() != null ? m.getCreatedAt().toString() : ""
+        )).toList();
+        return ApiResponse.success(Map.of(
+            "sessionId", normalizedSessionId,
+            "messageCount", summary.size(),
+            "messages", summary
+        ));
     }
 
     private Long requireUserId(UserPrincipal userPrincipal) {
