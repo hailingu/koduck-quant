@@ -224,7 +224,7 @@ def create_parser() -> argparse.ArgumentParser:
   python -m koduck                    #  (MiniMax)
   python -m koduck --provider deepseek    #  DeepSeek
   python -m koduck --provider openai -m gpt-4o-mini    #  OpenAI
-  python -m koduck -p minimax -m MiniMax-M2.5    #  MiniMax 
+  python -m koduck -p minimax -m MiniMax-M2.7    #  MiniMax 
         """,
     )
 

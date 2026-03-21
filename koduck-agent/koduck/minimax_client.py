@@ -26,12 +26,13 @@ class MiniMaxClient(LLMClientBase):
     参考: https://platform.minimaxi.com/docs/api-reference/text-openai-api
     
     支持模型:
-    - MiniMax-M2.5: 最新旗舰模型（支持深度推理）
+    - MiniMax-M2.7: 最新旗舰模型（支持深度推理）
     - MiniMax-Text-01: 文本生成模型
     """
 
     # 
     SUPPORTED_MODELS = [
+        "MiniMax-M2.7",
         "MiniMax-M2.5",
         "MiniMax-Text-01",
         "MiniMax-M1",
@@ -43,7 +44,7 @@ class MiniMaxClient(LLMClientBase):
         self,
         api_key: str,
         api_base: str = "https://api.minimax.chat/v1",
-        model: str = "MiniMax-M2.5",
+        model: str = "MiniMax-M2.7",
         retry_config: RetryConfig | None = None,
         temperature: float = 0.7,
         max_tokens: int | None = None,
@@ -169,7 +170,7 @@ class MiniMaxClient(LLMClientBase):
             "temperature": self.temperature,
             "top_p": self.top_p,
             # MiniMax  reasoning_split 
-            "extra_body": {"reasoning_split": True} if "M2.5" in self.model or "M1" in self.model else {},
+            "extra_body": {"reasoning_split": True} if "M2.7" in self.model or "M2.5" in self.model or "M1" in self.model else {},
         }
         
         if self.max_tokens:

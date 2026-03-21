@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Bot, ChevronDown, Send, Sparkles, User } from 'lucide-react'
+import ReactMarkdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
 import { settingsApi } from '@/api/settings'
 
 interface Message {
@@ -35,12 +37,6 @@ interface Provider {
   name: string
 }
 
-interface RuntimeEvent {
-  type: string
-  ts?: string
-  payload?: Record<string, unknown>
-}
-
 const PROVIDERS: Provider[] = [
   { id: 'minimax', name: 'MiniMax' },
   { id: 'deepseek', name: 'DeepSeek' },
@@ -74,6 +70,44 @@ const getAuthToken = (): string => {
   }
 }
 
+function TypingIndicator() {
+  const dotStyle = {
+    animationDuration: '1.5s',
+  } as const
+
+  return (
+    <div className="flex gap-2">
+      <div className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-primary-500 to-blue-500">
+        <Bot className="h-4 w-4 text-white" />
+      </div>
+      <div className="max-w-[85%] rounded-2xl rounded-bl-md bg-gray-100 px-3 py-2 text-sm text-gray-800 dark:bg-gray-700 dark:text-gray-200">
+        <div className="inline-flex items-center gap-2 rounded-xl border border-gray-200/60 bg-white/50 px-3 py-2 dark:border-gray-600/60 dark:bg-gray-800/50">
+          <span className="flex gap-1.5">
+            <span
+              className="h-1.5 w-1.5 animate-pulse rounded-full bg-[#00F2FF] shadow-[0_0_8px_#00F2FF]"
+              style={dotStyle}
+            />
+            <span
+              className="h-1.5 w-1.5 animate-pulse rounded-full bg-[#00F2FF] shadow-[0_0_8px_#00F2FF]"
+              style={{ ...dotStyle, animationDelay: '0.2s' }}
+            />
+            <span
+              className="h-1.5 w-1.5 animate-pulse rounded-full bg-[#00F2FF] shadow-[0_0_8px_#00F2FF]"
+              style={{ ...dotStyle, animationDelay: '0.4s' }}
+            />
+          </span>
+          <span
+            className="ml-2 animate-pulse text-[10px] font-mono uppercase tracking-[0.2em] text-[#00F2FF]"
+            style={{ animationDuration: '2s' }}
+          >
+            Aura is calculating...
+          </span>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export function AIChat({ symbol, stockName, stockInfo }: AIChatProps) {
   const storageKey = `ai_chat_session_${symbol}`
   const createSessionId = () => `sess_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`
@@ -93,7 +127,6 @@ export function AIChat({ symbol, stockName, stockInfo }: AIChatProps) {
       content: `您好！我是 AI 助手，可以帮您分析 ${stockName} (${symbol})。`,
     },
   ])
-  const [events, setEvents] = useState<RuntimeEvent[]>([])
   const [input, setInput] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [selectedProvider, setSelectedProvider] = useState<ProviderId>('minimax')
@@ -105,15 +138,9 @@ export function AIChat({ symbol, stockName, stockInfo }: AIChatProps) {
   const [showRoleDropdown, setShowRoleDropdown] = useState(false)
 
   const messagesEndRef = useRef<HTMLDivElement>(null)
-  const eventListRef = useRef<HTMLDivElement>(null)
-
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages, isLoading])
-
-  useEffect(() => {
-    eventListRef.current?.scrollTo({ top: eventListRef.current.scrollHeight })
-  }, [events])
 
   useEffect(() => {
     const loadPreferredProvider = async () => {
@@ -130,14 +157,21 @@ export function AIChat({ symbol, stockName, stockInfo }: AIChatProps) {
     loadPreferredProvider()
   }, [])
 
-  const appendEvent = (evt: RuntimeEvent) => {
-    setEvents((prev) => [...prev.slice(-149), evt])
-  }
-
   const updateAssistantMessage = (messageId: string, appendText: string) => {
-    setMessages((prev) =>
-      prev.map((msg) => (msg.id === messageId ? { ...msg, content: msg.content + appendText } : msg)),
-    )
+    setMessages((prev) => {
+      const existingIndex = prev.findIndex((msg) => msg.id === messageId)
+      if (existingIndex === -1) {
+        return [
+          ...prev,
+          {
+            id: messageId,
+            role: 'assistant',
+            content: appendText,
+          },
+        ]
+      }
+      return prev.map((msg) => (msg.id === messageId ? { ...msg, content: msg.content + appendText } : msg))
+    })
   }
 
   const callChatStream = async (userContent: string, assistantMessageId: string) => {
@@ -153,7 +187,7 @@ export function AIChat({ symbol, stockName, stockInfo }: AIChatProps) {
       role: selectedRole,
       runtime: {
         enableTools,
-        emitEvents: true,
+        emitEvents: false,
         allowRestrictedTools,
         subAgents: selectedSubAgents.map((role) => ({ role, name: role })),
         mergeStrategy: 'lead-agent-summary',
@@ -239,18 +273,10 @@ export function AIChat({ symbol, stockName, stockInfo }: AIChatProps) {
             updateAssistantMessage(assistantMessageId, payload.content)
             continue
           }
-          if (eventType === 'done') {
-            appendEvent({ type: 'run.done', payload })
-            continue
-          }
           if (eventType === 'error') {
             throw new Error(payload.message || 'AI 服务异常')
           }
-          appendEvent({ type: eventType, ts: payload.ts, payload: payload.payload || payload })
         } catch (err) {
-          if (eventType !== 'delta') {
-            appendEvent({ type: 'event.parse_error', payload: { raw: dataRaw } })
-          }
           if (err instanceof Error && eventType === 'error') {
             throw err
           }
@@ -281,7 +307,6 @@ export function AIChat({ symbol, stockName, stockInfo }: AIChatProps) {
         content: `您好！我是 AI 助手，可以帮您分析 ${stockName} (${symbol})。`,
       },
     ])
-    appendEvent({ type: 'memory.cleared', payload: { previousSessionId: sessionId, nextSessionId } })
   }
 
   const handleSend = async () => {
@@ -298,24 +323,27 @@ export function AIChat({ symbol, stockName, stockInfo }: AIChatProps) {
       role: 'user',
       content,
     }
-    const assistantMessage: Message = {
-      id: `a_${Date.now()}`,
-      role: 'assistant',
-      content: '',
-    }
+    const assistantMessageId = `a_${Date.now()}`
 
-    setMessages((prev) => [...prev, userMessage, assistantMessage])
-    appendEvent({
-      type: 'run.started',
-      payload: { role: selectedRole, provider: selectedProvider, sessionId },
-    })
-
+    setMessages((prev) => [...prev, userMessage])
     try {
-      await callChatStream(content, assistantMessage.id)
+      await callChatStream(content, assistantMessageId)
     } catch (error) {
       const msg = error instanceof Error ? error.message : 'AI 服务暂不可用'
-      setMessages((prev) => prev.map((m) => (m.id === assistantMessage.id ? { ...m, content: `❌ ${msg}` } : m)))
-      appendEvent({ type: 'run.error', payload: { message: msg } })
+      setMessages((prev) => {
+        const existing = prev.some((m) => m.id === assistantMessageId)
+        if (existing) {
+          return prev.map((m) => (m.id === assistantMessageId ? { ...m, content: `❌ ${msg}` } : m))
+        }
+        return [
+          ...prev,
+          {
+            id: assistantMessageId,
+            role: 'assistant',
+            content: `❌ ${msg}`,
+          },
+        ]
+      })
     } finally {
       setIsLoading(false)
     }
@@ -353,8 +381,7 @@ export function AIChat({ symbol, stockName, stockInfo }: AIChatProps) {
                 try {
                   await resetSessionMemory()
                 } catch (e) {
-                  const message = e instanceof Error ? e.message : '清空记忆失败'
-                  appendEvent({ type: 'memory.clear_error', payload: { message } })
+                  // noop
                 }
               }}
             >
@@ -467,11 +494,41 @@ export function AIChat({ symbol, stockName, stockInfo }: AIChatProps) {
                     : 'rounded-bl-md bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200'
                 }`}
               >
-                <p className="whitespace-pre-wrap">{message.content}</p>
+                {message.role === 'assistant' ? (
+                  <div className="leading-relaxed">
+                    <ReactMarkdown
+                      remarkPlugins={[remarkGfm]}
+                      components={{
+                        h1: ({ children }) => <h1 className="mb-2 text-base font-semibold">{children}</h1>,
+                        h2: ({ children }) => <h2 className="mb-2 text-[15px] font-semibold">{children}</h2>,
+                        h3: ({ children }) => <h3 className="mb-1 text-sm font-semibold">{children}</h3>,
+                        p: ({ children }) => <p className="mb-2 last:mb-0 whitespace-pre-wrap">{children}</p>,
+                        ul: ({ children }) => <ul className="mb-2 list-disc pl-5 space-y-1">{children}</ul>,
+                        ol: ({ children }) => <ol className="mb-2 list-decimal pl-5 space-y-1">{children}</ol>,
+                        li: ({ children }) => <li>{children}</li>,
+                        strong: ({ children }) => <strong className="font-semibold">{children}</strong>,
+                        a: ({ href, children }) => (
+                          <a href={href} target="_blank" rel="noreferrer" className="underline underline-offset-2">
+                            {children}
+                          </a>
+                        ),
+                        code: ({ children }) => (
+                          <code className="rounded bg-gray-200 px-1 py-0.5 text-[12px] dark:bg-gray-600">
+                            {children}
+                          </code>
+                        ),
+                      }}
+                    >
+                      {message.content}
+                    </ReactMarkdown>
+                  </div>
+                ) : (
+                  <p className="whitespace-pre-wrap">{message.content}</p>
+                )}
               </div>
             </div>
           ))}
-          {isLoading && <p className="text-xs text-gray-400">正在生成中...</p>}
+          {isLoading && <TypingIndicator />}
           <div ref={messagesEndRef} />
         </div>
 
@@ -496,22 +553,6 @@ export function AIChat({ symbol, stockName, stockInfo }: AIChatProps) {
         </div>
       </div>
 
-      <div className="hidden w-80 border-l border-gray-200 bg-gray-50 p-3 dark:border-gray-700 dark:bg-gray-900/40 lg:block">
-        <h4 className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">Runtime Events</h4>
-        <div ref={eventListRef} className="h-[calc(100%-24px)] space-y-2 overflow-y-auto text-xs">
-          {events.map((evt, index) => (
-            <div key={`${evt.type}_${index}`} className="rounded-md border border-gray-200 bg-white p-2 dark:border-gray-700 dark:bg-gray-800">
-              <div className="font-medium text-gray-800 dark:text-gray-100">{evt.type}</div>
-              {evt.payload && (
-                <pre className="mt-1 whitespace-pre-wrap break-all text-[11px] text-gray-500 dark:text-gray-300">
-                  {JSON.stringify(evt.payload)}
-                </pre>
-              )}
-            </div>
-          ))}
-          {events.length === 0 && <p className="text-gray-400">暂无事件</p>}
-        </div>
-      </div>
     </div>
   )
 }

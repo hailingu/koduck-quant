@@ -180,7 +180,7 @@ def _provider_model(provider: str, arguments: dict[str, Any]) -> str:
         return str(os.getenv("OPENAI_MODEL") or "gpt-4o-mini").strip()
     if provider == "deepseek":
         return str(os.getenv("DEEPSEEK_MODEL") or "deepseek-chat").strip()
-    return str(os.getenv("MINIMAX_MODEL") or "MiniMax-M2.5").strip()
+    return str(os.getenv("MINIMAX_MODEL") or "MiniMax-M2.7").strip()
 
 
 def _extract_json_object(text: str) -> dict[str, Any] | None:

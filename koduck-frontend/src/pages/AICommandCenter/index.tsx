@@ -1,5 +1,7 @@
 // Aura AI Command Center Page
 import { useState, useRef, useEffect } from 'react'
+import ReactMarkdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
 
 // Types
 interface Message {
@@ -16,6 +18,9 @@ interface FlowItem {
   time: string
 }
 
+type ProviderId = 'minimax' | 'deepseek' | 'openai'
+type AgentRoleId = 'general' | 'architect' | 'coder' | 'reviewer' | 'analyst'
+
 // Mock data
 const MOCK_FLOWS: FlowItem[] = [
   { source: 'Pool_X92', asset: '$WETH', amount: '1,240.00', time: 'Just Now' },
@@ -27,23 +32,11 @@ const MOCK_FLOWS: FlowItem[] = [
 
 const INITIAL_MESSAGES: Message[] = [
   {
-    id: '1',
+    id: 'welcome',
     role: 'assistant',
-    content: 'Welcome back. I have detected an unusual liquidity concentration in the Arbitrum-Lido pool. Market volatility is projected to increase by 4.2% in the next hour.',
-    timestamp: '10:24 AM'
+    content: '您好，我是 Aura。现在会走真实 Agent 与工具链路，您可以直接提问比如“今日新闻”。',
+    timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
   },
-  {
-    id: '2',
-    role: 'user',
-    content: 'Analyze the risk factor for a 50k injection into that pool.',
-    timestamp: '10:25 AM'
-  },
-  {
-    id: '3',
-    role: 'assistant',
-    content: 'Calculating risk metrics... Based on current volatility (14.2%) and pool depth ($2.4M), a 50k injection carries moderate risk. Recommended entry: stagger over 4 tranches to minimize slippage.',
-    timestamp: '10:25 AM'
-  }
 ]
 
 const QUICK_ACTIONS = [
@@ -53,6 +46,33 @@ const QUICK_ACTIONS = [
   'Market Pulse',
   'Portfolio Check'
 ]
+
+const PROVIDERS: { id: ProviderId; name: string }[] = [
+  { id: 'minimax', name: 'MiniMax' },
+  { id: 'deepseek', name: 'DeepSeek' },
+  { id: 'openai', name: 'OpenAI' },
+]
+
+const AGENT_ROLES: { id: AgentRoleId; name: string }[] = [
+  { id: 'general', name: 'General' },
+  { id: 'architect', name: 'Architect' },
+  { id: 'coder', name: 'Coder' },
+  { id: 'reviewer', name: 'Reviewer' },
+  { id: 'analyst', name: 'Analyst' },
+]
+
+const getAuthToken = (): string => {
+  const authStorage = localStorage.getItem('auth-storage')
+  if (!authStorage) {
+    return ''
+  }
+  try {
+    const authState = JSON.parse(authStorage)
+    return authState?.state?.token || ''
+  } catch {
+    return ''
+  }
+}
 
 // Components
 function ChartBars() {
@@ -132,7 +152,35 @@ function ChatMessage({ message }: { message: Message }) {
               : 'bg-fluid-surface-container rounded-tl-none border border-fluid-outline-variant/5 text-fluid-text'
           }`}
         >
-          {message.content}
+          {isUser ? (
+            message.content
+          ) : (
+            <ReactMarkdown
+              remarkPlugins={[remarkGfm]}
+              components={{
+                h1: ({ children }) => <h1 className="mb-2 text-base font-semibold">{children}</h1>,
+                h2: ({ children }) => <h2 className="mb-2 text-[15px] font-semibold">{children}</h2>,
+                h3: ({ children }) => <h3 className="mb-1 text-sm font-semibold">{children}</h3>,
+                p: ({ children }) => <p className="mb-2 last:mb-0 whitespace-pre-wrap">{children}</p>,
+                ul: ({ children }) => <ul className="mb-2 list-disc pl-5 space-y-1">{children}</ul>,
+                ol: ({ children }) => <ol className="mb-2 list-decimal pl-5 space-y-1">{children}</ol>,
+                li: ({ children }) => <li>{children}</li>,
+                strong: ({ children }) => <strong className="font-semibold">{children}</strong>,
+                a: ({ href, children }) => (
+                  <a href={href} target="_blank" rel="noreferrer" className="underline underline-offset-2">
+                    {children}
+                  </a>
+                ),
+                code: ({ children }) => (
+                  <code className="rounded bg-fluid-surface-container-lowest px-1 py-0.5 text-[12px]">
+                    {children}
+                  </code>
+                ),
+              }}
+            >
+              {message.content}
+            </ReactMarkdown>
+          )}
         </div>
         <span className={`text-[10px] font-mono-data text-fluid-text-dim mt-2 block uppercase ${isUser ? 'text-right' : ''}`}>
           {isUser ? 'You' : 'Aura'} • {message.timestamp}
@@ -143,16 +191,34 @@ function ChatMessage({ message }: { message: Message }) {
 }
 
 function TypingIndicator() {
+  const dotStyle = {
+    animationDuration: '1.5s',
+  } as const
+
   return (
     <div className="flex gap-4">
       <div className="flex-1">
-        <div className="bg-fluid-surface-container px-4 py-3 rounded-xl rounded-tl-none inline-flex items-center gap-2">
-          <span className="flex gap-1">
-            <span className="w-1 h-1 bg-fluid-primary rounded-full animate-bounce" />
-            <span className="w-1 h-1 bg-fluid-primary rounded-full animate-bounce" style={{ animationDelay: '0.2s' }} />
-            <span className="w-1 h-1 bg-fluid-primary rounded-full animate-bounce" style={{ animationDelay: '0.4s' }} />
+        <div className="bg-fluid-surface-container px-4 py-3 rounded-xl rounded-tl-none inline-flex items-center gap-2 border border-fluid-outline-variant/5">
+          <span className="flex gap-1.5">
+            <span
+              className="h-1.5 w-1.5 animate-pulse rounded-full bg-[#00F2FF] shadow-[0_0_8px_#00F2FF]"
+              style={dotStyle}
+            />
+            <span
+              className="h-1.5 w-1.5 animate-pulse rounded-full bg-[#00F2FF] shadow-[0_0_8px_#00F2FF]"
+              style={{ ...dotStyle, animationDelay: '0.2s' }}
+            />
+            <span
+              className="h-1.5 w-1.5 animate-pulse rounded-full bg-[#00F2FF] shadow-[0_0_8px_#00F2FF]"
+              style={{ ...dotStyle, animationDelay: '0.4s' }}
+            />
           </span>
-          <span className="text-[10px] font-mono-data text-fluid-primary uppercase tracking-widest">Aura is calculating...</span>
+          <span
+            className="ml-2 animate-pulse text-[10px] font-mono-data uppercase tracking-[0.2em] text-[#00F2FF]"
+            style={{ animationDuration: '2s' }}
+          >
+            Aura is calculating...
+          </span>
         </div>
       </div>
     </div>
@@ -160,9 +226,25 @@ function TypingIndicator() {
 }
 
 export default function AICommandCenter() {
+  const storageKey = 'ai_chat_session_command_center'
+  const createSessionId = () => `sess_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`
+  const [sessionId] = useState<string>(() => {
+    const existing = localStorage.getItem(storageKey)
+    if (existing) {
+      return existing
+    }
+    const created = createSessionId()
+    localStorage.setItem(storageKey, created)
+    return created
+  })
   const [messages, setMessages] = useState<Message[]>(INITIAL_MESSAGES)
   const [input, setInput] = useState('')
   const [isTyping, setIsTyping] = useState(false)
+  const [selectedProvider] = useState<ProviderId>('minimax')
+  const [selectedRole] = useState<AgentRoleId>('general')
+  const [enableTools] = useState(true)
+  const [allowRestrictedTools] = useState(false)
+  const [selectedSubAgents] = useState<AgentRoleId[]>([])
   const messagesEndRef = useRef<HTMLDivElement>(null)
   
   const scrollToBottom = () => {
@@ -173,32 +255,170 @@ export default function AICommandCenter() {
     scrollToBottom()
   }, [messages, isTyping])
   
-  const handleSend = () => {
+  const updateAssistantMessage = (messageId: string, appendText: string) => {
+    setMessages((prev) => {
+      const existingIndex = prev.findIndex((msg) => msg.id === messageId)
+      if (existingIndex === -1) {
+        return [
+          ...prev,
+          {
+            id: messageId,
+            role: 'assistant',
+            content: appendText,
+            timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          },
+        ]
+      }
+      return prev.map((msg) => (msg.id === messageId ? { ...msg, content: msg.content + appendText } : msg))
+    })
+  }
+
+  const callChatStream = async (userContent: string, assistantMessageId: string) => {
+    const token = getAuthToken()
+    const chatMessages = messages
+      .filter((m) => m.id !== 'welcome')
+      .map((m) => ({ role: m.role, content: m.content }))
+
+    const body = {
+      provider: selectedProvider,
+      sessionId,
+      role: selectedRole,
+      runtime: {
+        enableTools,
+        emitEvents: false,
+        allowRestrictedTools,
+        subAgents: selectedSubAgents.map((role) => ({ role, name: role })),
+        mergeStrategy: 'lead-agent-summary',
+      },
+      messages: [
+        {
+          role: 'system',
+          content:
+            '你是 Aura，回答要准确、简洁。若可调用工具请优先使用工具获取事实，尤其是新闻与实时信息场景。',
+        },
+        ...chatMessages,
+        { role: 'user', content: userContent },
+      ],
+    }
+
+    const response = await fetch('/api/v1/ai/chat/stream', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: JSON.stringify(body),
+    })
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`)
+    }
+
+    const reader = response.body?.getReader()
+    if (!reader) {
+      throw new Error('无法读取响应流')
+    }
+
+    const decoder = new TextDecoder()
+    let buffer = ''
+
+    const parseField = (line: string, field: 'event' | 'data') => {
+      const prefix = `${field}:`
+      if (!line.startsWith(prefix)) {
+        return null
+      }
+      return line.slice(prefix.length).trimStart()
+    }
+
+    while (true) {
+      const { done, value } = await reader.read()
+      if (done) {
+        break
+      }
+      buffer += decoder.decode(value, { stream: true })
+      const chunks = buffer.split('\n\n')
+      buffer = chunks.pop() || ''
+
+      for (const raw of chunks) {
+        if (!raw.trim()) {
+          continue
+        }
+        const lines = raw.split('\n')
+        let eventType = 'message'
+        const dataParts: string[] = []
+
+        for (const line of lines) {
+          const e = parseField(line, 'event')
+          if (e !== null) {
+            eventType = e || 'message'
+            continue
+          }
+          const d = parseField(line, 'data')
+          if (d !== null) {
+            dataParts.push(d)
+          }
+        }
+
+        const dataRaw = dataParts.join('\n').trim()
+        if (!dataRaw) {
+          continue
+        }
+        try {
+          const payload = JSON.parse(dataRaw)
+          if (eventType === 'delta' && payload.content) {
+            updateAssistantMessage(assistantMessageId, payload.content)
+            continue
+          }
+          if (eventType === 'error') {
+            throw new Error(payload.message || 'AI 服务异常')
+          }
+        } catch (err) {
+          if (err instanceof Error && eventType === 'error') {
+            throw err
+          }
+        }
+      }
+    }
+  }
+
+  const handleSend = async () => {
     if (!input.trim()) return
+    if (isTyping) return
+    const content = input.trim()
     
-    // Add user message
+    setInput('')
+    setIsTyping(true)
+
     const userMessage: Message = {
       id: Date.now().toString(),
       role: 'user',
-      content: input,
+      content,
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     }
-    
+
+    const assistantId = `a_${Date.now()}`
     setMessages(prev => [...prev, userMessage])
-    setInput('')
-    setIsTyping(true)
-    
-    // Simulate AI response
-    setTimeout(() => {
-      const aiMessage: Message = {
-        id: (Date.now() + 1).toString(),
-        role: 'assistant',
-        content: 'I\'ve analyzed your query. Based on current market conditions and liquidity data, I recommend monitoring the Tech sector closely. There are early signals of potential divergence forming.',
-        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-      }
-      setMessages(prev => [...prev, aiMessage])
+    try {
+      await callChatStream(content, assistantId)
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : 'AI 服务暂不可用'
+      setMessages((prev) => {
+        const existing = prev.some((m) => m.id === assistantId)
+        if (existing) {
+          return prev.map((m) => (m.id === assistantId ? { ...m, content: `❌ ${msg}` } : m))
+        }
+        return [
+          ...prev,
+          {
+            id: assistantId,
+            role: 'assistant',
+            content: `❌ ${msg}`,
+            timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          },
+        ]
+      })
+    } finally {
       setIsTyping(false)
-    }, 2000)
+    }
   }
   
   const handleQuickAction = (action: string) => {
@@ -267,11 +487,15 @@ export default function AICommandCenter() {
                 <span className="w-1.5 h-1.5 bg-fluid-primary rounded-full animate-pulse" />
                 <span className="text-[10px] font-mono-data text-fluid-primary uppercase tracking-widest">Active Intelligence</span>
               </div>
+              <div className="text-[10px] font-mono-data text-fluid-text-dim mt-1">
+                session: {sessionId}
+              </div>
             </div>
           </div>
-          <button className="material-symbols-outlined text-fluid-text-muted hover:text-fluid-text transition-colors">
-            history
-          </button>
+          <div className="text-right text-[10px] font-mono-data uppercase tracking-widest text-fluid-text-dim">
+            <div>{PROVIDERS.find((p) => p.id === selectedProvider)?.name} · {AGENT_ROLES.find((r) => r.id === selectedRole)?.name}</div>
+            <div>Tools: {enableTools ? 'On' : 'Off'}</div>
+          </div>
         </div>
         
         {/* Chat History */}
@@ -304,11 +528,13 @@ export default function AICommandCenter() {
               type="text"
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && handleSend()}
+              onKeyDown={(e) => e.key === 'Enter' && void handleSend()}
+              disabled={isTyping}
             />
             <button 
-              onClick={handleSend}
-              className="absolute right-3 top-1/2 -translate-y-1/2 w-10 h-10 bg-fluid-primary text-fluid-surface-container-lowest rounded-lg flex items-center justify-center shadow-lg shadow-fluid-primary/20 hover:shadow-glow-primary active:scale-95 transition-all"
+              onClick={() => void handleSend()}
+              disabled={isTyping || !input.trim()}
+              className="absolute right-3 top-1/2 -translate-y-1/2 w-10 h-10 bg-fluid-primary text-fluid-surface-container-lowest rounded-lg flex items-center justify-center shadow-lg shadow-fluid-primary/20 hover:shadow-glow-primary active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <span className="material-symbols-outlined">send</span>
             </button>

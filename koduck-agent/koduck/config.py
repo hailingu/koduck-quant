@@ -24,7 +24,7 @@ _PROVIDER_DEFAULTS: dict[LLMProvider, dict[str, str]] = {
     },
     LLMProvider.MINIMAX: {
         "api_base": "https://api.minimax.chat/v1",
-        "model": "MiniMax-M2.5",
+        "model": "MiniMax-M2.7",
     },
     LLMProvider.DEEPSEEK: {
         "api_base": "https://api.deepseek.com/v1",
@@ -162,7 +162,7 @@ api_base: ""
 
 #  (，)
 # openai: gpt-4o-mini, gpt-4o
-# minimax: MiniMax-M2.5, MiniMax-Text-01, abab6.5s-chat
+# minimax: MiniMax-M2.7, MiniMax-Text-01, abab6.5s-chat
 # deepseek: deepseek-chat, deepseek-reasoner
 model: ""
 

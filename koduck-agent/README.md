@@ -53,7 +53,7 @@ curl -X POST http://localhost:8001/v1/chat/completions \
 ## 支持的模型
 
 ### MiniMax
-- MiniMax-M2.5
+- MiniMax-M2.7
 - MiniMax-Text-01
 
 ### DeepSeek

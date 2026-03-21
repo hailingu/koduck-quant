@@ -15,11 +15,14 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 # Set work directory
 WORKDIR /app
 
-# Install system dependencies
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    gcc \
-    g++ \
-    && rm -rf /var/lib/apt/lists/*
+# Install system dependencies with retries (avoid transient Debian mirror 502)
+RUN set -eux; \
+    export DEBIAN_FRONTEND=noninteractive; \
+    apt-get update -o Acquire::Retries=5; \
+    apt-get install -y --no-install-recommends --fix-missing \
+      gcc \
+      g++; \
+    rm -rf /var/lib/apt/lists/*
 
 # Install Python dependencies
 COPY requirements.txt .

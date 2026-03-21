@@ -155,7 +155,7 @@ public class AiAnalysisService {
         // 
         Map<String, Object> requestBody = new HashMap<>();
         requestBody.put("provider", resolveProvider(provider));
-        requestBody.put("apiKey", config != null && config.getApiKey() != null ? config.getApiKey() : "");
+        requestBody.put("apiKey", blankToNull(config != null ? config.getApiKey() : null));
         requestBody.put("apiBase", config != null ? config.getApiBase() : null);
         
         List<Map<String, String>> messages = new ArrayList<>();
@@ -204,7 +204,7 @@ public class AiAnalysisService {
         UserSettingsDto.LlmConfigDto effectiveConfig = userSettingsService.getEffectiveLlmConfig(userId, provider);
         ChatStreamRequest configuredRequest = ChatStreamRequest.builder()
             .provider(provider)
-            .apiKey(effectiveConfig != null && effectiveConfig.getApiKey() != null ? effectiveConfig.getApiKey() : "")
+            .apiKey(blankToNull(effectiveConfig != null ? effectiveConfig.getApiKey() : null))
             .apiBase(effectiveConfig != null ? effectiveConfig.getApiBase() : null)
             .sessionId(sessionId)
             .role(request.getRole())
@@ -529,7 +529,7 @@ public class AiAnalysisService {
             String provider = resolveProvider(request.getProvider());
             ChatStreamRequest normalizedRequest = ChatStreamRequest.builder()
                 .provider(provider)
-                .apiKey(request.getApiKey())
+                .apiKey(blankToNull(request.getApiKey()))
                 .apiBase(request.getApiBase())
                 .sessionId(request.getSessionId())
                 .role(request.getRole())
@@ -765,6 +765,13 @@ public class AiAnalysisService {
         }
         String normalized = provider.trim().toLowerCase(Locale.ROOT);
         return SUPPORTED_LLM_PROVIDERS.contains(normalized) ? normalized : "minimax";
+    }
+
+    private String blankToNull(String value) {
+        if (value == null || value.isBlank()) {
+            return null;
+        }
+        return value;
     }
     
     /**

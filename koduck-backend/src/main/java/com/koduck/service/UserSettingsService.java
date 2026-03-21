@@ -252,7 +252,7 @@ public class UserSettingsService {
             .build();
     }
 
-    @Transactional(readOnly = true)
+    @Transactional
     public UserSettingsDto.LlmConfigDto getEffectiveLlmConfig(Long userId, String provider) {
         UserSettings settings = settingsRepository.findByUserId(userId)
             .orElseGet(() -> createDefaultSettings(userId));
