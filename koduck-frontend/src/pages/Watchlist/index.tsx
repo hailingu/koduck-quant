@@ -480,8 +480,8 @@ export default function Watchlist() {
                 <thead className="hidden">
                   <tr>
                     <th className="px-6 py-3 text-left text-[13px] font-medium text-fluid-text-muted">
-                      <button
-                        className="flex items-center gap-1 hover:text-fluid-text"
+                      <div
+                        className="flex cursor-pointer items-center gap-1 hover:text-fluid-text"
                         onClick={() => handleSort('name')}
                       >
                         股票名称
@@ -490,11 +490,11 @@ export default function Watchlist() {
                           onClick={() => handleSort('name')}
                           active={sortConfig?.key === 'name'}
                         />
-                      </button>
+                      </div>
                     </th>
                     <th className="px-6 py-3 text-right text-[13px] font-medium text-fluid-text-muted">
-                      <button
-                        className="ml-auto flex items-center justify-end gap-1 hover:text-fluid-text"
+                      <div
+                        className="ml-auto flex cursor-pointer items-center justify-end gap-1 hover:text-fluid-text"
                         onClick={() => handleSort('price')}
                       >
                         最新价
@@ -503,11 +503,11 @@ export default function Watchlist() {
                           onClick={() => handleSort('price')}
                           active={sortConfig?.key === 'price'}
                         />
-                      </button>
+                      </div>
                     </th>
                     <th className="px-6 py-3 text-right text-[13px] font-medium text-fluid-text-muted">
-                      <button
-                        className="ml-auto flex items-center justify-end gap-1 hover:text-fluid-text"
+                      <div
+                        className="ml-auto flex cursor-pointer items-center justify-end gap-1 hover:text-fluid-text"
                         onClick={() => handleSort('change')}
                       >
                         涨跌幅
@@ -516,11 +516,11 @@ export default function Watchlist() {
                           onClick={() => handleSort('change')}
                           active={sortConfig?.key === 'change'}
                         />
-                      </button>
+                      </div>
                     </th>
                     <th className="px-6 py-3 text-right text-[13px] font-medium text-fluid-text-muted">
-                      <button
-                        className="ml-auto flex items-center justify-end gap-1 hover:text-fluid-text"
+                      <div
+                        className="ml-auto flex cursor-pointer items-center justify-end gap-1 hover:text-fluid-text"
                         onClick={() => handleSort('time')}
                       >
                         添加时间
@@ -529,7 +529,7 @@ export default function Watchlist() {
                           onClick={() => handleSort('time')}
                           active={sortConfig?.key === 'time'}
                         />
-                      </button>
+                      </div>
                     </th>
                     <th className="px-6 py-3 text-right text-[13px] font-medium text-[#8e8e93] dark:text-gray-400">
                       操作
