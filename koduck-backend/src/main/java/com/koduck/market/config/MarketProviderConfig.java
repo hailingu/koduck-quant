@@ -2,6 +2,7 @@ package com.koduck.market.config;
 
 import com.koduck.market.provider.ProviderFactory;
 import com.koduck.service.market.AKShareDataProvider;
+import com.koduck.service.market.USStockProvider;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.ApplicationArguments;
@@ -25,7 +26,8 @@ public class MarketProviderConfig {
     
     @Bean
     public ApplicationRunner registerProviders(ProviderFactory providerFactory, 
-                                               AKShareDataProvider akShareDataProvider) {
+                                               AKShareDataProvider akShareDataProvider,
+                                               USStockProvider usStockProvider) {
         return (ApplicationArguments args) -> {
             log.info("Registering market data providers...");
             
@@ -34,6 +36,12 @@ public class MarketProviderConfig {
             log.info("Registered provider: {} for market {}", 
                     akShareDataProvider.getProviderName(), 
                     akShareDataProvider.getMarketType());
+            
+            // Register US Stock provider
+            providerFactory.registerProvider(usStockProvider);
+            log.info("Registered provider: {} for market {}", 
+                    usStockProvider.getProviderName(), 
+                    usStockProvider.getMarketType());
             
             // Log registered markets
             log.info("Supported markets: {}", providerFactory.getSupportedMarkets());
