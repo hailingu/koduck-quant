@@ -85,8 +85,9 @@ export interface VolumeSummary {
   avgVolume: number;
   dailyData: Array<{
     date: string;
-    volume: number;
-    amount: number;
+    tickCount: number;
+    totalVolume: number;
+    avgPrice: number;
   }>;
 }
 
@@ -193,14 +194,17 @@ export const tickApi = {
     const dailyData = Array.from({ length: days }, (_, i) => {
       const date = new Date();
       date.setDate(date.getDate() - i);
+      const tickCount = Math.floor(Math.random() * 50000) + 10000;
+      const totalVolume = Math.floor(Math.random() * 1000000) + 500000;
       return {
         date: date.toISOString().split('T')[0],
-        volume: Math.floor(Math.random() * 1000000) + 500000,
-        amount: Math.floor(Math.random() * 10000000) + 5000000,
+        tickCount,
+        totalVolume,
+        avgPrice: Math.random() * 100 + 50,
       };
     });
 
-    const totalVolume = dailyData.reduce((sum, d) => sum + d.volume, 0);
+    const totalVolume = dailyData.reduce((sum, d) => sum + d.totalVolume, 0);
     
     return {
       symbol,
