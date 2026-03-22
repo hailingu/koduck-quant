@@ -16,6 +16,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.ResponseEntity;
+import com.koduck.exception.ExternalServiceException;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
@@ -236,8 +237,8 @@ public class AKShareDataProvider implements MarketDataProvider {
     
     public PriceQuoteDto getPrice(String symbol) {
         if (!isAvailable()) {
-            log.warn(DATA_SERVICE_DISABLED_MESSAGE);
-            return null;
+            throw new ExternalServiceException("DataService", 
+                    "Data service is not available");
         }
         
         try {
@@ -260,7 +261,8 @@ public class AKShareDataProvider implements MarketDataProvider {
             
         } catch (RestClientException e) {
             log.error("Failed to get price for {}: {}", symbol, e.getMessage());
-            return null;
+            throw new ExternalServiceException("DataService",
+                    "Failed to get price for " + symbol, e);
         }
     }
     
@@ -336,8 +338,8 @@ public class AKShareDataProvider implements MarketDataProvider {
     
     public StockValuationDto getStockValuation(String symbol) {
         if (!isAvailable()) {
-            log.warn(DATA_SERVICE_DISABLED_MESSAGE);
-            return null;
+            throw new ExternalServiceException("DataService",
+                    "Data service is not available");
         }
 
         try {
@@ -360,14 +362,15 @@ public class AKShareDataProvider implements MarketDataProvider {
 
         } catch (RestClientException e) {
             log.error("Failed to get valuation for {}: {}", symbol, e.getMessage());
-            return null;
+            throw new ExternalServiceException("DataService",
+                    "Failed to get valuation for " + symbol, e);
         }
     }
     
     public StockIndustryDto getStockIndustry(String symbol) {
         if (!isAvailable()) {
-            log.warn(DATA_SERVICE_DISABLED_MESSAGE);
-            return null;
+            throw new ExternalServiceException("DataService",
+                    "Data service is not available");
         }
 
         try {
@@ -390,7 +393,8 @@ public class AKShareDataProvider implements MarketDataProvider {
 
         } catch (RestClientException e) {
             log.error("Failed to get industry for {}: {}", symbol, e.getMessage());
-            return null;
+            throw new ExternalServiceException("DataService",
+                    "Failed to get industry for " + symbol, e);
         }
     }
     

@@ -1,33 +1,39 @@
 package com.koduck.profile.controller;
 
+import com.koduck.dto.ApiResponse;
+import com.koduck.profile.dto.*;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
+/**
+ * Profile management controller.
+ */
 @RestController
 @RequestMapping("/api/v1/profile")
 public class ProfileController {
 
     @GetMapping
-    public ProfileResponse getProfile() {
-        return new ProfileResponse();
+    public ApiResponse<ProfileResponse> getProfile() {
+        return ApiResponse.success(ProfileResponse.builder().build());
     }
 
     @PutMapping
-    public ProfileResponse updateProfile(@RequestBody UpdateProfileRequest request) {
-        return new ProfileResponse();
+    public ApiResponse<ProfileResponse> updateProfile(@RequestBody UpdateProfileRequest request) {
+        return ApiResponse.success(ProfileResponse.builder().build());
     }
 
     @PostMapping("/avatar")
-    public AvatarResponse uploadAvatar(@RequestParam("file") MultipartFile file) {
-        return new AvatarResponse();
+    public ApiResponse<AvatarResponse> uploadAvatar(@RequestParam("file") MultipartFile file) {
+        return ApiResponse.success(AvatarResponse.builder().build());
     }
 
     @GetMapping("/preferences")
-    public PreferencesResponse getPreferences() {
-        return new PreferencesResponse();
+    public ApiResponse<PreferencesResponse> getPreferences() {
+        return ApiResponse.success(PreferencesResponse.builder().build());
     }
 
     @PutMapping("/preferences")
-    public PreferencesResponse updatePreferences(@RequestBody UpdatePreferencesRequest request) {
-        return new PreferencesResponse();
+    public ApiResponse<PreferencesResponse> updatePreferences(@RequestBody UpdatePreferencesRequest request) {
+        return ApiResponse.success(PreferencesResponse.builder().build());
     }
 }
