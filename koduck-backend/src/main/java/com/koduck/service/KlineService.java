@@ -248,6 +248,7 @@ public class KlineService {
     public void saveKlineData(List<KlineDataDto> dtos, String market, String symbol, String timeframe) {
         List<KlineData> entities = dtos.stream()
                 .map(dto -> convertToEntity(dto, market, symbol, timeframe))
+                .filter(entity -> entity != null)
                 .filter(entity -> !klineDataRepository.existsByMarketAndSymbolAndTimeframeAndKlineTime(
                         market, symbol, timeframe, entity.getKlineTime()))
                 .collect(Collectors.toList());
@@ -271,6 +272,11 @@ public class KlineService {
     }
 
     private KlineData convertToEntity(KlineDataDto dto, String market, String symbol, String timeframe) {
+        if (dto == null || dto.timestamp() == null) {
+            log.warn("Skipping invalid KlineDataDto: timestamp is null");
+            return null;
+        }
+        
         LocalDateTime klineTime = LocalDateTime.ofInstant(
                 Instant.ofEpochSecond(dto.timestamp()), MARKET_ZONE);
 
