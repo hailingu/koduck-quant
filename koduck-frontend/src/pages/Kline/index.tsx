@@ -227,12 +227,11 @@ export default function Kline() {
         </div>
 
         {/* Chart Area */}
-        <div className="flex-1 glass-panel rounded-xl overflow-hidden min-h-0">
+        <div className="flex-1 glass-panel rounded-xl overflow-hidden" style={{ minHeight: '400px' }}>
           <KLineChart 
             symbol={symbol}
             market={market}
             timeframe={timeframe}
-            height={undefined} // Use container height
           />
         </div>
       </div>

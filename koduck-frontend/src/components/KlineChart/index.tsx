@@ -11,9 +11,10 @@ interface KLineChartProps {
 }
 
 // Convert API data to TradingView format
+// API returns milliseconds timestamp, convert to seconds for lightweight-charts
 function convertToChartData(data: ApiKlineData[]): CandlestickData[] {
   return data.map((item) => ({
-    time: item.timestamp as Time,
+    time: Math.floor(item.timestamp / 1000) as Time,
     open: item.open,
     high: item.high,
     low: item.low,
@@ -39,7 +40,7 @@ export default function KLineChart({
   symbol, 
   market = 'AShare', 
   timeframe = '1D',
-  height = 500 
+  height 
 }: KLineChartProps) {
   const chartContainerRef = useRef<HTMLDivElement>(null)
   const chartRef = useRef<IChartApi | null>(null)
@@ -49,6 +50,7 @@ export default function KLineChart({
   const { showToast } = useToast()
   
   const [loading, setLoading] = useState(false)
+  const [containerHeight, setContainerHeight] = useState(height || 500)
 
   // Initialize chart
   useEffect(() => {
@@ -92,8 +94,11 @@ export default function KLineChart({
         borderColor: 'rgba(132, 148, 149, 0.2)',
         scaleMargins: {
           top: 0.1,
-          bottom: 0.2,
+          bottom: 0.25,
         },
+      },
+      leftPriceScale: {
+        visible: false,
       },
       timeScale: {
         borderColor: 'rgba(132, 148, 149, 0.2)',
@@ -127,32 +132,38 @@ export default function KLineChart({
     })
     vwapSeriesRef.current = vwapSeries
 
-    // Create volume histogram
+    // Create volume histogram - use separate price scale
     const volumeSeries = chart.addSeries(HistogramSeries, {
       color: '#00F2FF',
       priceFormat: {
         type: 'volume',
       },
-      priceScaleId: '',
+      priceScaleId: 'volume',
+    })
+    volumeSeries.priceScale().applyOptions({
       scaleMargins: {
         top: 0.85,
         bottom: 0,
       },
+      borderColor: 'rgba(132, 148, 149, 0.2)',
     })
     volumeSeriesRef.current = volumeSeries
 
     // Handle resize
     const handleResize = () => {
       if (chartContainerRef.current) {
+        const rect = chartContainerRef.current.getBoundingClientRect()
+        const newHeight = height || rect.height || 500
         chart.applyOptions({
-          width: chartContainerRef.current.clientWidth,
-          height: chartContainerRef.current.clientHeight,
+          width: rect.width,
+          height: newHeight,
         })
+        setContainerHeight(newHeight)
       }
     }
     
-    // Initial resize
-    handleResize()
+    // Initial resize with slight delay to ensure container is rendered
+    setTimeout(handleResize, 0)
     
     window.addEventListener('resize', handleResize)
 
@@ -170,7 +181,11 @@ export default function KLineChart({
     try {
       setLoading(true)
       const apiTimeframe = timeframeMap[timeframe] || '1D'
-      const response = await klineApi.getKlineData(market, symbol, apiTimeframe, 300)
+      const response = await klineApi.getKline({
+        symbol,
+        timeframe: apiTimeframe,
+        limit: 300,
+      })
       
       if (response && response.length > 0) {
         // Convert to chart data
@@ -186,7 +201,7 @@ export default function KLineChart({
             .slice(0, index + 1)
             .reduce((sum, d) => sum + d.volume, 0)
           return {
-            time: item.timestamp as Time,
+            time: Math.floor(item.timestamp / 1000) as Time,
             value: cumulativeVol > 0 ? cumulativeTPV / cumulativeVol : item.close,
           }
         })
@@ -194,7 +209,7 @@ export default function KLineChart({
         
         // Set volume data
         const volumeData = response.map((item) => ({
-          time: item.timestamp as Time,
+          time: Math.floor(item.timestamp / 1000) as Time,
           value: item.volume,
           color: item.close >= item.open ? '#00F2FF' : '#DE0541',
         }))
@@ -218,7 +233,7 @@ export default function KLineChart({
   }, [fetchKlineData])
 
   return (
-    <div className="relative w-full" style={{ height }}>
+    <div className="relative w-full h-full">
       {loading && (
         <div className="absolute inset-0 flex items-center justify-center bg-fluid-surface-container/50 backdrop-blur-sm z-10">
           <div className="flex items-center gap-2 text-fluid-text-dim">
@@ -229,8 +244,12 @@ export default function KLineChart({
       )}
       <div 
         ref={chartContainerRef} 
-        className="w-full h-full"
-        style={{ cursor: 'crosshair' }}
+        className="w-full"
+        style={{ 
+          cursor: 'crosshair',
+          height: containerHeight,
+          minHeight: '300px',
+        }}
       />
     </div>
   )
