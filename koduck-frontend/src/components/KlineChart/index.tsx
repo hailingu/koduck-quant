@@ -92,14 +92,12 @@ export default function KLineChart({
           width: 1,
           style: 2,
           labelBackgroundColor: '#00F2FF',
-          labelTextColor: '#10131A',
         },
         horzLine: {
           color: 'rgba(0, 242, 255, 0.5)',
           width: 1,
           style: 2,
           labelBackgroundColor: '#00F2FF',
-          labelTextColor: '#10131A',
         },
       },
       rightPriceScale: {

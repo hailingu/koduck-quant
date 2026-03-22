@@ -6,6 +6,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestTemplate;
 
@@ -22,7 +23,7 @@ import java.util.List;
 public class DataServiceClient {
 
     private final DataServiceProperties dataServiceProperties;
-    private final RestTemplate restTemplate;
+    private final RestTemplate dataServiceRestTemplate;
 
     private static final String REALTIME_UPDATE_PATH = "/market/realtime/update";
 
@@ -67,7 +68,7 @@ public class DataServiceClient {
 
             HttpEntity<Object> request = new HttpEntity<>(requestBody, headers);
 
-            restTemplate.postForObject(url, request, Void.class);
+            dataServiceRestTemplate.postForObject(url, request, Void.class);
 
             log.info("realtime_update_triggered symbolsCount={} symbols={}",
                     symbols.size(), symbols);

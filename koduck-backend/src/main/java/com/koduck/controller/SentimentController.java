@@ -1,6 +1,6 @@
 package com.koduck.controller;
 
-import com.koduck.dto.common.ApiResponse;
+import com.koduck.dto.ApiResponse;
 import com.koduck.dto.market.MarketSentimentDto;
 import com.koduck.market.MarketType;
 import com.koduck.service.MarketSentimentService;

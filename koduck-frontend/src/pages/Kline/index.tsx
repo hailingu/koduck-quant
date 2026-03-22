@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useSearchParams, useNavigate } from 'react-router-dom'
 import { createChart, HistogramSeries, type Time } from 'lightweight-charts'
-import KLineChart from '@/components/KLineChart'
+import KLineChart from '@/components/KlineChart'
 import IntradayChart from '@/components/IntradayChart'
 import WebSocketStatus from '@/components/WebSocketStatus'
 import { usePriceAnimation, useLastUpdateTime } from '@/hooks/usePriceAnimation'
@@ -62,7 +62,6 @@ function TimeAndSales({
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [tickStats, setTickStats] = useState<TickStatistics | null>(null)
-  const { showToast } = useToast()
   const prevPriceRef = useRef<number | null>(null)
   const containerRef = useRef<HTMLDivElement>(null)
 
@@ -259,7 +258,6 @@ function TickDistributionChart({
     avgPrice: number
   }[]>([])
   const [loading, setLoading] = useState(true)
-  const { showToast } = useToast()
 
   useEffect(() => {
     const fetchVolumeData = async () => {
@@ -347,7 +345,6 @@ function VolumeChart({
   const chartContainerRef = useRef<HTMLDivElement>(null)
   const chartRef = useRef<any>(null)
   const volumeSeriesRef = useRef<any>(null)
-  const { showToast } = useToast()
   
   const timeframeMap: Record<string, string> = {
     'intraday': '1m', '1m': '1m', '5m': '5m', '15m': '15m', '30m': '30m',
@@ -631,11 +628,6 @@ export default function Kline() {
     }
     void fetchQuote()
   }, [symbol, market, showToast])
-
-  const isUp = quote ? quote.change >= 0 : false
-  const changePercent = quote?.prevClose 
-    ? ((quote.change / quote.prevClose) * 100).toFixed(2) 
-    : '0.00'
 
   // WebSocket real-time price
   const { stockPrices } = useWebSocketStore()

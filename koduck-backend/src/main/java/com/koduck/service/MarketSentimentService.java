@@ -3,6 +3,7 @@ package com.koduck.service;
 import com.koduck.dto.market.MarketSentimentDto;
 import com.koduck.market.MarketType;
 import com.koduck.market.model.KlineData;
+import com.koduck.market.provider.MarketDataProvider;
 import com.koduck.market.provider.ProviderFactory;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -94,12 +95,12 @@ public class MarketSentimentService {
 
             // Calculate average volume
             double avgVolume = klines.stream()
-                    .mapToLong(KlineData::getVolume)
+                    .mapToLong(KlineData::volume)
                     .average()
                     .orElse(0);
 
             // Get latest volume
-            long latestVolume = klines.get(klines.size() - 1).getVolume();
+            long latestVolume = klines.get(klines.size() - 1).volume();
 
             // Compare to 20-day average
             double ratio = avgVolume > 0 ? (double) latestVolume / avgVolume : 1.0;
@@ -135,9 +136,9 @@ public class MarketSentimentService {
                 KlineData current = klines.get(i);
                 KlineData previous = klines.get(i - 1);
                 
-                double high = current.getHigh().doubleValue();
-                double low = current.getLow().doubleValue();
-                double prevClose = previous.getClose().doubleValue();
+                double high = current.high().doubleValue();
+                double low = current.low().doubleValue();
+                double prevClose = previous.close().doubleValue();
                 
                 double range = Math.max(high - low, 
                     Math.max(Math.abs(high - prevClose), Math.abs(low - prevClose)));
@@ -146,7 +147,7 @@ public class MarketSentimentService {
 
             double avgRange = totalRange / (klines.size() - 1);
             double avgPrice = klines.stream()
-                    .mapToDouble(k -> k.getClose().doubleValue())
+                    .mapToDouble(k -> k.close().doubleValue())
                     .average()
                     .orElse(1);
 
@@ -240,14 +241,14 @@ public class MarketSentimentService {
 
             // Find 60-day high and low
             double high60 = klines.stream()
-                    .mapToDouble(k -> k.getHigh().doubleValue())
+                    .mapToDouble(k -> k.high().doubleValue())
                     .max()
                     .orElse(0);
             double low60 = klines.stream()
-                    .mapToDouble(k -> k.getLow().doubleValue())
+                    .mapToDouble(k -> k.low().doubleValue())
                     .min()
                     .orElse(0);
-            double current = klines.get(klines.size() - 1).getClose().doubleValue();
+            double current = klines.get(klines.size() - 1).close().doubleValue();
 
             if (high60 <= low60) {
                 return 50;
@@ -281,11 +282,11 @@ public class MarketSentimentService {
             double negativeFlow = 0;
 
             for (KlineData kline : klines) {
-                double close = kline.getClose().doubleValue();
-                double open = kline.getOpen().doubleValue();
-                double high = kline.getHigh().doubleValue();
-                double low = kline.getLow().doubleValue();
-                long volume = kline.getVolume();
+                double close = kline.close().doubleValue();
+                double open = kline.open().doubleValue();
+                double high = kline.high().doubleValue();
+                double low = kline.low().doubleValue();
+                long volume = kline.volume();
 
                 // Typical price
                 double typicalPrice = (high + low + close) / 3;
@@ -363,10 +364,22 @@ public class MarketSentimentService {
     }
 
     private List<KlineData> getRecentKlines(String symbol, MarketType marketType, int limit) {
-        return providerFactory.getAvailableProvider(marketType)
-                .map(provider -> provider.getKlineData(symbol, "1D", limit, 
-                        Instant.now().minus(limit * 2, ChronoUnit.DAYS), Instant.now()))
-                .orElse(List.of());
+        try {
+            return providerFactory.getAvailableProvider(marketType)
+                    .map(provider -> {
+                        try {
+                            return provider.getKlineData(symbol, "1D", limit, 
+                                    Instant.now().minus(limit * 2, ChronoUnit.DAYS), Instant.now());
+                        } catch (MarketDataProvider.MarketDataException e) {
+                            log.warn("Failed to get kline data for {} from provider: {}", symbol, e.getMessage());
+                            return List.<KlineData>of();
+                        }
+                    })
+                    .orElse(List.of());
+        } catch (Exception e) {
+            log.warn("Failed to get recent klines for {}: {}", symbol, e.getMessage());
+            return List.of();
+        }
     }
 
     private double calculateMA(List<KlineData> klines, int period) {
@@ -374,7 +387,7 @@ public class MarketSentimentService {
             return 0;
         }
         return klines.subList(klines.size() - period, klines.size()).stream()
-                .mapToDouble(k -> k.getClose().doubleValue())
+                .mapToDouble(k -> k.close().doubleValue())
                 .average()
                 .orElse(0);
     }
@@ -383,8 +396,8 @@ public class MarketSentimentService {
         if (klines.size() < period) {
             return 0;
         }
-        double current = klines.get(klines.size() - 1).getClose().doubleValue();
-        double past = klines.get(klines.size() - period).getClose().doubleValue();
+        double current = klines.get(klines.size() - 1).close().doubleValue();
+        double past = klines.get(klines.size() - period).close().doubleValue();
         return past > 0 ? ((current - past) / past) * 100 : 0;
     }
 
@@ -393,11 +406,11 @@ public class MarketSentimentService {
             return 0;
         }
         double recent = klines.subList(klines.size() - 5, klines.size()).stream()
-                .mapToLong(KlineData::getVolume)
+                .mapToLong(KlineData::volume)
                 .average()
                 .orElse(0);
         double past = klines.subList(0, klines.size() - 5).stream()
-                .mapToLong(KlineData::getVolume)
+                .mapToLong(KlineData::volume)
                 .average()
                 .orElse(0);
         return past > 0 ? (recent - past) / past : 0;

@@ -32,7 +32,7 @@ function convertToVolumeData(data: KlineData[]) {
 
 export default function IntradayChart({ 
   symbol, 
-  market = 'AShare',
+  market: _market = 'AShare',
   height 
 }: IntradayChartProps) {
   const chartContainerRef = useRef<HTMLDivElement>(null)
@@ -70,13 +70,11 @@ export default function IntradayChart({
           color: 'rgba(0, 242, 255, 0.5)',
           width: 1,
           labelBackgroundColor: '#00F2FF',
-          labelTextColor: '#10131A',
         },
         horzLine: {
           color: 'rgba(0, 242, 255, 0.5)',
           width: 1,
           labelBackgroundColor: '#00F2FF',
-          labelTextColor: '#10131A',
         },
       },
       rightPriceScale: {

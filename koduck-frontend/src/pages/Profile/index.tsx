@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useToast } from '@/hooks/useToast'
-import { Check, Upload, X } from 'lucide-react'
+import { Check, Upload } from 'lucide-react'
 
 // Mock user data
 interface UserProfile {
