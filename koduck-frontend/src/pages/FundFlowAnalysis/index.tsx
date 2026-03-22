@@ -258,11 +258,11 @@ export default function FundFlowAnalysis() {
           <p className="text-fluid-text-muted mt-2">Monitoring institutional accumulation cycles and retail liquidity exhaustion.</p>
         </div>
         <div className="flex gap-4">
-          <div className="bg-fluid-surface-container-low px-4 py-2 rounded-lg flex flex-col border-l-2 border-fluid-primary">
+          <div className="bg-fluid-surface-container-low px-4 py-2 flex flex-col border-l-2 border-fluid-primary">
             <span className="text-[10px] font-mono-data text-fluid-text-muted uppercase">Market Heat</span>
             <span className="text-xl font-mono-data text-fluid-primary">74.8%</span>
           </div>
-          <div className="bg-fluid-surface-container-low px-4 py-2 rounded-lg flex flex-col border-l-2 border-fluid-tertiary">
+          <div className="bg-fluid-surface-container-low px-4 py-2 flex flex-col border-l-2 border-fluid-tertiary">
             <span className="text-[10px] font-mono-data text-fluid-text-muted uppercase">Divergence Index</span>
             <span className="text-xl font-mono-data text-fluid-tertiary">CRITICAL</span>
           </div>
