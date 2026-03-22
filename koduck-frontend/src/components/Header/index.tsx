@@ -1,5 +1,6 @@
 import { useAuthStore } from '@/stores/auth'
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 
 interface HeaderProps {
   title?: string
@@ -17,6 +18,7 @@ export default function Header({
   showSearch = true 
 }: HeaderProps) {
   const { user } = useAuthStore()
+  const navigate = useNavigate()
   const [searchFocused, setSearchFocused] = useState(false)
 
   return (
@@ -78,7 +80,11 @@ export default function Header({
           </button>
           
           {/* User Avatar */}
-          <button className="ml-2 w-9 h-9 rounded-full bg-gradient-to-br from-fluid-primary/30 to-fluid-primary/10 border border-fluid-primary/30 flex items-center justify-center text-fluid-primary font-medium text-sm hover:border-fluid-primary/50 transition-colors">
+          <button 
+            onClick={() => navigate('/profile')}
+            className="ml-2 w-9 h-9 rounded-full bg-gradient-to-br from-fluid-primary/30 to-fluid-primary/10 border border-fluid-primary/30 flex items-center justify-center text-fluid-primary font-medium text-sm hover:border-fluid-primary/50 transition-colors cursor-pointer"
+            title="个人中心"
+          >
             {user?.username?.charAt(0).toUpperCase() || 'U'}
           </button>
         </div>
