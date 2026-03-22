@@ -12,7 +12,7 @@ from datetime import datetime, timedelta
 from typing import Dict, List, Optional, Any, Union
 from dataclasses import dataclass, asdict
 
-import aioredis
+from redis import asyncio as aioredis
 from app.config import settings
 
 logger = logging.getLogger(__name__)
