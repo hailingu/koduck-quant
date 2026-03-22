@@ -2,6 +2,7 @@ import { useEffect, useRef, useCallback, useState } from 'react'
 import { createChart, AreaSeries, LineSeries, HistogramSeries, type IChartApi, type Time, type AreaSeriesPartialOptions } from 'lightweight-charts'
 import { klineApi, type KlineData as ApiKlineData } from '@/api/kline'
 import { useToast } from '@/hooks/useToast'
+import { useWebSocketStore } from '@/stores/websocket'
 
 interface KLineChartProps {
   symbol: string
@@ -16,6 +17,16 @@ function convertToLineData(data: ApiKlineData[]) {
     time: Math.floor(item.timestamp / 1000) as Time,
     value: item.close,
   }))
+}
+
+// Get timeframe duration in seconds
+function getTimeframeSeconds(timeframe: string): number {
+  const map: Record<string, number> = {
+    '1m': 60, '5m': 300, '15m': 900, '30m': 1800,
+    '60m': 3600, '1h': 3600, '1D': 86400, '1W': 604800, '1M': 2592000,
+    'intraday': 60, 'daily': 86400, 'weekly': 604800, 'monthly': 2592000,
+  }
+  return map[timeframe] || 86400
 }
 
 // Timeframe mapping
@@ -43,10 +54,15 @@ export default function KLineChart({
   const areaSeriesRef = useRef<any>(null)
   const vwapSeriesRef = useRef<any>(null)
   const volumeSeriesRef = useRef<any>(null)
+  const lastDataRef = useRef<ApiKlineData[]>([])
   const { showToast } = useToast()
   
   const [loading, setLoading] = useState(false)
   const [containerHeight, setContainerHeight] = useState(height || 500)
+  
+  // WebSocket integration
+  const { subscribe, unsubscribe, stockPrices } = useWebSocketStore()
+  const priceUpdate = stockPrices.get(symbol)
 
   // Initialize chart
   useEffect(() => {
@@ -173,6 +189,70 @@ export default function KLineChart({
     }
   }, [])
 
+  // Subscribe to WebSocket for real-time price updates
+  useEffect(() => {
+    if (!symbol) return
+    
+    subscribe([symbol])
+    
+    return () => {
+      unsubscribe([symbol])
+    }
+  }, [symbol, subscribe, unsubscribe])
+
+  // Handle real-time price updates
+  useEffect(() => {
+    if (!priceUpdate || !areaSeriesRef.current || lastDataRef.current.length === 0) return
+    
+    const tfSeconds = getTimeframeSeconds(timeframeMap[timeframe] || '1D')
+    const lastData = lastDataRef.current[lastDataRef.current.length - 1]
+    const lastTime = Math.floor(lastData.timestamp / 1000)
+    const updateTime = Math.floor(priceUpdate.timestamp / 1000)
+    
+    // Check if we're still in the same timeframe bucket
+    const lastBucket = Math.floor(lastTime / tfSeconds) * tfSeconds
+    const updateBucket = Math.floor(updateTime / tfSeconds) * tfSeconds
+    
+    if (updateBucket === lastBucket) {
+      // Update the last candle with new price
+      areaSeriesRef.current.update({
+        time: lastTime as Time,
+        value: priceUpdate.price,
+      })
+      
+      // Update volume if available
+      if (volumeSeriesRef.current && priceUpdate.volume > 0) {
+        const volumeDelta = priceUpdate.volume - lastData.volume
+        if (volumeDelta > 0) {
+          volumeSeriesRef.current.update({
+            time: lastTime as Time,
+            value: priceUpdate.volume,
+            color: priceUpdate.change >= 0 ? '#00F2FF' : '#DE0541',
+          })
+        }
+      }
+    } else {
+      // New timeframe bucket - add new data point
+      // Note: This is a simplified approach. In production, you'd want to
+      // fetch the proper OHLC data for the new candle from the backend
+      areaSeriesRef.current.update({
+        time: updateBucket as Time,
+        value: priceUpdate.price,
+      })
+      
+      if (volumeSeriesRef.current) {
+        volumeSeriesRef.current.update({
+          time: updateBucket as Time,
+          value: 0, // Will be updated as ticks come in
+          color: priceUpdate.change >= 0 ? '#00F2FF' : '#DE0541',
+        })
+      }
+      
+      // Refresh data to get proper OHLC for the new candle
+      void fetchKlineData()
+    }
+  }, [priceUpdate, timeframe])
+
   // Fetch and update data
   const fetchKlineData = useCallback(async () => {
     if (!symbol || !areaSeriesRef.current) return
@@ -187,6 +267,9 @@ export default function KLineChart({
       })
       
       if (response && response.length > 0) {
+        // Store reference to raw data for real-time updates
+        lastDataRef.current = response
+        
         // Convert to area chart data (using close price)
         const lineData = convertToLineData(response)
         areaSeriesRef.current.setData(lineData)
