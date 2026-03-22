@@ -1,6 +1,107 @@
 import { apiClient } from './client';
 
 // ============================================================================
+// Legacy Types (for backward compatibility with existing Portfolio page)
+// ============================================================================
+
+export interface PortfolioItem {
+  id: string;
+  symbol: string;
+  name: string;
+  sector: string;
+  quantity: number;
+  avgCost: number;
+  currentPrice: number;
+  marketValue: number;
+  pnl: number;
+  pnlPercent: number;
+  weight: number;
+}
+
+export interface PortfolioSummary {
+  totalValue: number;
+  totalCost: number;
+  totalPnl: number;
+  totalPnlPercent: number;
+  dailyPnl: number;
+  dailyPnlPercent: number;
+  availableCash: number;
+  totalEquity: number;
+}
+
+export interface TradeRecord {
+  id: string;
+  symbol: string;
+  name: string;
+  type: 'buy' | 'sell';
+  quantity: number;
+  price: number;
+  amount: number;
+  time: string;
+  date: string;
+}
+
+export interface SectorDistribution {
+  name: string;
+  value: number;
+  percent: number;
+  color?: string;
+}
+
+// Legacy API object for backward compatibility
+export const portfolioApi = {
+  async getPortfolio(): Promise<PortfolioItem[]> {
+    const response = await apiClient.get('/portfolio/positions');
+    return response || [];
+  },
+
+  async getPortfolioSummary(): Promise<PortfolioSummary> {
+    const response = await apiClient.get('/portfolio/summary');
+    return response || {
+      totalValue: 0,
+      totalCost: 0,
+      totalPnl: 0,
+      totalPnlPercent: 0,
+      dailyPnl: 0,
+      dailyPnlPercent: 0,
+      availableCash: 0,
+      totalEquity: 0,
+    };
+  },
+
+  async getTradeRecords(): Promise<TradeRecord[]> {
+    const response = await apiClient.get('/portfolio/trades');
+    return response || [];
+  },
+
+  async getSectorDistribution(positions?: PortfolioItem[]): Promise<SectorDistribution[]> {
+    // If positions provided, calculate distribution client-side
+    if (positions && positions.length > 0) {
+      const sectorMap = new Map<string, number>();
+      const totalValue = positions.reduce((sum, p) => sum + p.marketValue, 0);
+
+      positions.forEach((position) => {
+        const current = sectorMap.get(position.sector) || 0;
+        sectorMap.set(position.sector, current + position.marketValue);
+      });
+
+      const colors = ['#00F2FF', '#DE0541', '#FFB3B5', '#FFD81D', '#00DBE7', '#7D7D7D'];
+
+      return Array.from(sectorMap.entries()).map(([name, value], index) => ({
+        name,
+        value,
+        percent: totalValue > 0 ? (value / totalValue) * 100 : 0,
+        color: colors[index % colors.length],
+      }));
+    }
+
+    // Otherwise fetch from API
+    const response = await apiClient.get('/portfolio/sector-distribution');
+    return response || [];
+  },
+};
+
+// ============================================================================
 // Types - Issue #203: Northbound Flow
 // ============================================================================
 
@@ -126,19 +227,19 @@ export async function getNorthboundFlow(tradeDate?: string): Promise<NorthboundF
   const response = await apiClient.get('/market/northbound-flow', {
     params: { trade_date: tradeDate }
   });
-  return response.data.data;
+  return response;
 }
 
 export async function getNorthboundHistory(days: number = 30): Promise<NorthboundHistoryResponse> {
   const response = await apiClient.get('/market/northbound-flow/history', {
     params: { days }
   });
-  return response.data.data;
+  return response;
 }
 
 export async function getNorthboundStats(): Promise<any> {
   const response = await apiClient.get('/market/northbound-flow/stats');
-  return response.data.data;
+  return response;
 }
 
 // ============================================================================
@@ -149,14 +250,14 @@ export async function getPnLHistory(period: PeriodType = '1w'): Promise<PnLHisto
   const response = await apiClient.get('/portfolio/pnl-history', {
     params: { period }
   });
-  return response.data.data;
+  return response;
 }
 
 export async function getDailyPnL(startDate?: string, endDate?: string): Promise<PnLDataPoint[]> {
   const response = await apiClient.get('/portfolio/pnl-history/daily', {
     params: { start_date: startDate, end_date: endDate }
   });
-  return response.data.data;
+  return response;
 }
 
 // ============================================================================
@@ -167,21 +268,21 @@ export async function getSectorAllocation(minPercent: number = 0.5): Promise<Sec
   const response = await apiClient.get('/portfolio/sector-allocation', {
     params: { min_percent: minPercent }
   });
-  return response.data.data;
+  return response;
 }
 
 export async function getSectorAllocationTrend(months: number = 6): Promise<any[]> {
   const response = await apiClient.get('/portfolio/sector-allocation/trend', {
     params: { months }
   });
-  return response.data.data;
+  return response;
 }
 
 export async function getPortfolioHoldings(sortBy: string = 'value', limit: number = 50): Promise<any[]> {
   const response = await apiClient.get('/portfolio/holdings', {
     params: { sort_by: sortBy, limit }
   });
-  return response.data.data;
+  return response;
 }
 
 // ============================================================================
@@ -256,3 +357,25 @@ export const mockSectorAllocation: SectorAllocationResponse = {
   diversification_score: 72.5,
   top_heavy_risk: 'medium'
 };
+
+// Legacy mock data for Portfolio API
+export const mockPortfolioItems: PortfolioItem[] = [
+  { id: '1', symbol: '600519', name: '贵州茅台', sector: '食品饮料', quantity: 100, avgCost: 1500, currentPrice: 1650, marketValue: 165000, pnl: 15000, pnlPercent: 10, weight: 25 },
+  { id: '2', symbol: '000858', name: '五粮液', sector: '食品饮料', quantity: 200, avgCost: 140, currentPrice: 155, marketValue: 31000, pnl: 3000, pnlPercent: 10.7, weight: 15 },
+];
+
+export const mockPortfolioSummary: PortfolioSummary = {
+  totalValue: 500000,
+  totalCost: 450000,
+  totalPnl: 50000,
+  totalPnlPercent: 11.1,
+  dailyPnl: 5000,
+  dailyPnlPercent: 1.0,
+  availableCash: 100000,
+  totalEquity: 600000,
+};
+
+export const mockTradeRecords: TradeRecord[] = [
+  { id: '1', symbol: '600519', name: '贵州茅台', type: 'buy', quantity: 100, price: 1500, amount: 150000, time: '09:30:00', date: '2024-01-15' },
+  { id: '2', symbol: '000858', name: '五粮液', type: 'buy', quantity: 200, price: 140, amount: 28000, time: '10:15:00', date: '2024-01-15' },
+];
