@@ -1,23 +1,37 @@
-import { useEffect, useState, useCallback, useMemo } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { portfolioApi, type PortfolioItem, type PortfolioSummary, type TradeRecord, type SectorDistribution } from '@/api/portfolio'
 import { useToast } from '@/hooks/useToast'
 
-// Utility function to format currency
-function formatCurrency(value: number): string {
-  return new Intl.NumberFormat('zh-CN', {
-    style: 'currency',
-    currency: 'CNY',
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  }).format(value)
-}
+const currencyFormatter = new Intl.NumberFormat('zh-CN', {
+  style: 'currency',
+  currency: 'CNY',
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2,
+})
 
-// Utility function to format number
-function formatNumber(value: number, decimals: number = 2): string {
-  return new Intl.NumberFormat('zh-CN', {
+const numberFormatterCache = new Map<number, Intl.NumberFormat>()
+
+function getNumberFormatter(decimals: number): Intl.NumberFormat {
+  const cachedFormatter = numberFormatterCache.get(decimals)
+  if (cachedFormatter) {
+    return cachedFormatter
+  }
+
+  const formatter = new Intl.NumberFormat('zh-CN', {
     minimumFractionDigits: decimals,
     maximumFractionDigits: decimals,
-  }).format(value)
+  })
+
+  numberFormatterCache.set(decimals, formatter)
+  return formatter
+}
+
+function formatCurrency(value: number): string {
+  return currencyFormatter.format(value)
+}
+
+function formatNumber(value: number, decimals: number = 2): string {
+  return getNumberFormatter(decimals).format(value)
 }
 
 // PnL Chart Component
@@ -158,18 +172,27 @@ function SectorAllocation({
   
   // Calculate stroke dasharray for donut chart
   const circumference = 2 * Math.PI * 40
-  let currentOffset = 0
-  const chartData = sectors.slice(0, 4).map((s, i) => {
-    const dashArray = (s.percent / 100) * circumference
-    const data = {
-      ...s,
+  const chartData = sectors.slice(0, 4).reduce<{
+    items: Array<SectorDistribution & { color: string; dashArray: string; offset: number }>
+    offset: number
+  }>((acc, sector, i) => {
+    const dashLength = (sector.percent / 100) * circumference
+
+    acc.items.push({
+      ...sector,
       color: colors[i % colors.length],
-      dashArray: `${dashArray} ${circumference}`,
-      offset: -currentOffset
+      dashArray: `${dashLength} ${circumference}`,
+      offset: -acc.offset,
+    })
+
+    return {
+      items: acc.items,
+      offset: acc.offset + dashLength,
     }
-    currentOffset += dashArray
-    return data
-  })
+  }, {
+    items: [],
+    offset: 0,
+  }).items
 
   return (
     <div className="glass-panel p-5 rounded-xl">
@@ -328,10 +351,12 @@ function PositionsTable({
 // Recent Events Component
 function RecentEvents({ 
   trades, 
-  loading 
+  loading,
+  error,
 }: { 
   trades: TradeRecord[]
   loading: boolean 
+  error: string | null
 }) {
   if (loading) {
     return (
@@ -349,6 +374,21 @@ function RecentEvents({
               </div>
             </div>
           ))}
+        </div>
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="glass-panel p-5 rounded-xl">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="font-headline font-bold text-sm text-fluid-text uppercase tracking-wide">Recent Trades</h3>
+        </div>
+        <div className="py-8 text-center text-fluid-secondary">
+          <span className="material-symbols-outlined text-3xl mb-2">error_outline</span>
+          <p className="text-sm">Failed to load recent trades</p>
+          <p className="text-xs text-fluid-text-dim mt-1">{error}</p>
         </div>
       </div>
     )
@@ -435,63 +475,84 @@ export default function Portfolio() {
 
   // Fetch all portfolio data
   const fetchPortfolioData = useCallback(async () => {
-    // Fetch positions
-    try {
-      setLoadingPositions(true)
-      setErrorPositions(null)
-      const positionsData = await portfolioApi.getPortfolio()
+    setLoadingPositions(true)
+    setLoadingSummary(true)
+    setLoadingTrades(true)
+    setErrorPositions(null)
+    setErrorSummary(null)
+    setErrorTrades(null)
+
+    const [positionsResult, summaryResult, tradesResult] = await Promise.allSettled([
+      portfolioApi.getPortfolio(),
+      portfolioApi.getPortfolioSummary(),
+      portfolioApi.getTradeRecords(),
+    ])
+
+    if (positionsResult.status === 'fulfilled') {
+      const positionsData = positionsResult.value
       setPositions(positionsData)
-      
-      // Calculate sector distribution from positions
+
       if (positionsData.length > 0) {
-        const sectorData = await portfolioApi.getSectorDistribution(positionsData)
-        setSectors(sectorData)
+        try {
+          const sectorData = await portfolioApi.getSectorDistribution(positionsData)
+          setSectors(sectorData)
+        } catch {
+          setSectors([])
+        }
+      } else {
+        setSectors([])
       }
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to load positions'
+    } else {
+      const errorMessage = positionsResult.reason instanceof Error
+        ? positionsResult.reason.message
+        : 'Failed to load positions'
       setErrorPositions(errorMessage)
+      setPositions([])
+      setSectors([])
       showToast('Failed to load portfolio positions', 'error')
-    } finally {
-      setLoadingPositions(false)
     }
-    
-    // Fetch summary
-    try {
-      setLoadingSummary(true)
-      setErrorSummary(null)
-      const summaryData = await portfolioApi.getPortfolioSummary()
-      setSummary(summaryData)
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to load summary'
+
+    if (summaryResult.status === 'fulfilled') {
+      setSummary(summaryResult.value)
+    } else {
+      const errorMessage = summaryResult.reason instanceof Error
+        ? summaryResult.reason.message
+        : 'Failed to load summary'
       setErrorSummary(errorMessage)
+      setSummary(null)
       showToast('Failed to load portfolio summary', 'error')
-    } finally {
-      setLoadingSummary(false)
     }
-    
-    // Fetch trades
-    try {
-      setLoadingTrades(true)
-      setErrorTrades(null)
-      const tradesData = await portfolioApi.getTradeRecords()
-      setTrades(tradesData)
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to load trades'
+
+    if (tradesResult.status === 'fulfilled') {
+      setTrades(tradesResult.value)
+    } else {
+      const errorMessage = tradesResult.reason instanceof Error
+        ? tradesResult.reason.message
+        : 'Failed to load trades'
       setErrorTrades(errorMessage)
+      setTrades([])
       showToast('Failed to load trade records', 'error')
-    } finally {
-      setLoadingTrades(false)
     }
+
+    setLoadingPositions(false)
+    setLoadingSummary(false)
+    setLoadingTrades(false)
   }, [showToast])
 
   // Initial load
   useEffect(() => {
-    void fetchPortfolioData()
+    const timerId = window.setTimeout(() => {
+      void fetchPortfolioData()
+    }, 0)
+
+    return () => {
+      window.clearTimeout(timerId)
+    }
   }, [fetchPortfolioData])
 
   // Derived state
   const totalNetValue = summary?.totalMarketValue ?? 0
-  const isPositive = summary?.dailyPnl && summary.dailyPnl >= 0
+  const isPositive = summary ? summary.dailyPnl >= 0 : true
 
   return (
     <div className="space-y-6 pb-8">
@@ -539,7 +600,7 @@ export default function Portfolio() {
       />
 
       {/* Recent Events */}
-      <RecentEvents trades={trades} loading={loadingTrades} />
+      <RecentEvents trades={trades} loading={loadingTrades} error={errorTrades} />
     </div>
   )
 }

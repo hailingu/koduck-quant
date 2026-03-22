@@ -1,6 +1,6 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Bot, ChevronDown, Send, Sparkles, User } from 'lucide-react'
-import ReactMarkdown from 'react-markdown'
+import ReactMarkdown, { type Components } from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { settingsApi } from '@/api/settings'
 
@@ -70,6 +70,36 @@ const getAuthToken = (): string => {
   }
 }
 
+const createSessionId = () =>
+  `sess_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`
+
+const buildWelcomeMessage = (stockName: string, symbol: string): Message => ({
+  id: 'welcome',
+  role: 'assistant',
+  content: `您好！我是 AI 助手，可以帮您分析 ${stockName} (${symbol})。`,
+})
+
+const MARKDOWN_COMPONENTS: Components = {
+  h1: ({ children }) => <h1 className="mb-2 text-base font-semibold">{children}</h1>,
+  h2: ({ children }) => <h2 className="mb-2 text-[15px] font-semibold">{children}</h2>,
+  h3: ({ children }) => <h3 className="mb-1 text-sm font-semibold">{children}</h3>,
+  p: ({ children }) => <p className="mb-2 last:mb-0 whitespace-pre-wrap">{children}</p>,
+  ul: ({ children }) => <ul className="mb-2 list-disc pl-5 space-y-1">{children}</ul>,
+  ol: ({ children }) => <ol className="mb-2 list-decimal pl-5 space-y-1">{children}</ol>,
+  li: ({ children }) => <li>{children}</li>,
+  strong: ({ children }) => <strong className="font-semibold">{children}</strong>,
+  a: ({ href, children }) => (
+    <a href={href} target="_blank" rel="noreferrer" className="underline underline-offset-2">
+      {children}
+    </a>
+  ),
+  code: ({ children }) => (
+    <code className="rounded bg-gray-200 px-1 py-0.5 text-[12px] dark:bg-gray-600">{children}</code>
+  ),
+}
+
+const MARKDOWN_PLUGINS = [remarkGfm]
+
 function TypingIndicator() {
   const dotStyle = {
     animationDuration: '1.5s',
@@ -110,7 +140,6 @@ function TypingIndicator() {
 
 export function AIChat({ symbol, stockName, stockInfo }: AIChatProps) {
   const storageKey = `ai_chat_session_${symbol}`
-  const createSessionId = () => `sess_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`
   const [sessionId, setSessionId] = useState<string>(() => {
     const existing = localStorage.getItem(storageKey)
     if (existing) {
@@ -121,11 +150,7 @@ export function AIChat({ symbol, stockName, stockInfo }: AIChatProps) {
     return created
   })
   const [messages, setMessages] = useState<Message[]>([
-    {
-      id: 'welcome',
-      role: 'assistant',
-      content: `您好！我是 AI 助手，可以帮您分析 ${stockName} (${symbol})。`,
-    },
+    buildWelcomeMessage(stockName, symbol),
   ])
   const [input, setInput] = useState('')
   const [isLoading, setIsLoading] = useState(false)
@@ -138,9 +163,59 @@ export function AIChat({ symbol, stockName, stockInfo }: AIChatProps) {
   const [showRoleDropdown, setShowRoleDropdown] = useState(false)
 
   const messagesEndRef = useRef<HTMLDivElement>(null)
+  const providerDropdownRef = useRef<HTMLDivElement>(null)
+  const roleDropdownRef = useRef<HTMLDivElement>(null)
+  const activeRequestRef = useRef<AbortController | null>(null)
+
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages, isLoading])
+
+  useEffect(() => {
+    const existing = localStorage.getItem(storageKey)
+    if (existing) {
+      setSessionId(existing)
+    } else {
+      const created = createSessionId()
+      localStorage.setItem(storageKey, created)
+      setSessionId(created)
+    }
+
+    setMessages([buildWelcomeMessage(stockName, symbol)])
+  }, [storageKey, stockName, symbol])
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as Node
+      if (providerDropdownRef.current && !providerDropdownRef.current.contains(target)) {
+        setShowProviderDropdown(false)
+      }
+      if (roleDropdownRef.current && !roleDropdownRef.current.contains(target)) {
+        setShowRoleDropdown(false)
+      }
+    }
+
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setShowProviderDropdown(false)
+        setShowRoleDropdown(false)
+      }
+    }
+
+    document.addEventListener('mousedown', handleClickOutside)
+    document.addEventListener('keydown', handleEscape)
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+      document.removeEventListener('keydown', handleEscape)
+    }
+  }, [])
+
+  useEffect(() => {
+    return () => {
+      activeRequestRef.current?.abort()
+    }
+  }, [])
 
   useEffect(() => {
     const loadPreferredProvider = async () => {
@@ -175,6 +250,10 @@ export function AIChat({ symbol, stockName, stockInfo }: AIChatProps) {
   }
 
   const callChatStream = async (userContent: string, assistantMessageId: string) => {
+    activeRequestRef.current?.abort()
+    const controller = new AbortController()
+    activeRequestRef.current = controller
+
     const token = getAuthToken()
 
     const chatMessages = messages
@@ -209,6 +288,7 @@ export function AIChat({ symbol, stockName, stockInfo }: AIChatProps) {
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
       },
       body: JSON.stringify(body),
+      signal: controller.signal,
     })
 
     if (!response.ok) {
@@ -222,6 +302,27 @@ export function AIChat({ symbol, stockName, stockInfo }: AIChatProps) {
 
     const decoder = new TextDecoder()
     let buffer = ''
+    let bufferedDelta = ''
+    let flushTimerId: number | null = null
+
+    const flushBufferedDelta = () => {
+      if (!bufferedDelta) {
+        return
+      }
+      updateAssistantMessage(assistantMessageId, bufferedDelta)
+      bufferedDelta = ''
+    }
+
+    const scheduleFlush = () => {
+      if (flushTimerId !== null) {
+        return
+      }
+
+      flushTimerId = window.setTimeout(() => {
+        flushTimerId = null
+        flushBufferedDelta()
+      }, 50)
+    }
 
     const parseField = (line: string, field: 'event' | 'data') => {
       const prefix = `${field}:`
@@ -231,57 +332,67 @@ export function AIChat({ symbol, stockName, stockInfo }: AIChatProps) {
       return line.slice(prefix.length).trimStart()
     }
 
-    while (true) {
-      const { done, value } = await reader.read()
-      if (done) {
-        break
-      }
-
-      buffer += decoder.decode(value, { stream: true })
-      const chunks = buffer.split('\n\n')
-      buffer = chunks.pop() || ''
-
-      for (const raw of chunks) {
-        if (!raw.trim()) {
-          continue
+    try {
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) {
+          break
         }
 
-        const lines = raw.split('\n')
-        let eventType = 'message'
-        const dataParts: string[] = []
+        buffer += decoder.decode(value, { stream: true })
+        const chunks = buffer.split('\n\n')
+        buffer = chunks.pop() || ''
 
-        for (const line of lines) {
-          const e = parseField(line, 'event')
-          if (e !== null) {
-            eventType = e || 'message'
+        for (const raw of chunks) {
+          if (!raw.trim()) {
             continue
           }
-          const d = parseField(line, 'data')
-          if (d !== null) {
-            dataParts.push(d)
+
+          const lines = raw.split('\n')
+          let eventType = 'message'
+          const dataParts: string[] = []
+
+          for (const line of lines) {
+            const eventValue = parseField(line, 'event')
+            if (eventValue !== null) {
+              eventType = eventValue || 'message'
+              continue
+            }
+
+            const dataValue = parseField(line, 'data')
+            if (dataValue !== null) {
+              dataParts.push(dataValue)
+            }
           }
-        }
 
-        const dataRaw = dataParts.join('\n').trim()
-        if (!dataRaw) {
-          continue
-        }
-
-        try {
-          const payload = JSON.parse(dataRaw)
-          if (eventType === 'delta' && payload.content) {
-            updateAssistantMessage(assistantMessageId, payload.content)
+          const dataRaw = dataParts.join('\n').trim()
+          if (!dataRaw) {
             continue
           }
-          if (eventType === 'error') {
-            throw new Error(payload.message || 'AI 服务异常')
-          }
-        } catch (err) {
-          if (err instanceof Error && eventType === 'error') {
-            throw err
+
+          try {
+            const payload = JSON.parse(dataRaw)
+            if (eventType === 'delta' && payload.content) {
+              bufferedDelta += String(payload.content)
+              scheduleFlush()
+              continue
+            }
+
+            if (eventType === 'error') {
+              throw new Error(payload.message || 'AI 服务异常')
+            }
+          } catch (err) {
+            if (err instanceof Error && eventType === 'error') {
+              throw err
+            }
           }
         }
       }
+    } finally {
+      if (flushTimerId !== null) {
+        window.clearTimeout(flushTimerId)
+      }
+      flushBufferedDelta()
     }
   }
 
@@ -300,13 +411,7 @@ export function AIChat({ symbol, stockName, stockInfo }: AIChatProps) {
     const nextSessionId = createSessionId()
     setSessionId(nextSessionId)
     localStorage.setItem(storageKey, nextSessionId)
-    setMessages([
-      {
-        id: 'welcome',
-        role: 'assistant',
-        content: `您好！我是 AI 助手，可以帮您分析 ${stockName} (${symbol})。`,
-      },
-    ])
+    setMessages([buildWelcomeMessage(stockName, symbol)])
   }
 
   const handleSend = async () => {
@@ -329,6 +434,9 @@ export function AIChat({ symbol, stockName, stockInfo }: AIChatProps) {
     try {
       await callChatStream(content, assistantMessageId)
     } catch (error) {
+      if (error instanceof DOMException && error.name === 'AbortError') {
+        return
+      }
       const msg = error instanceof Error ? error.message : 'AI 服务暂不可用'
       setMessages((prev) => {
         const existing = prev.some((m) => m.id === assistantMessageId)
@@ -345,6 +453,7 @@ export function AIChat({ symbol, stockName, stockInfo }: AIChatProps) {
         ]
       })
     } finally {
+      activeRequestRef.current = null
       setIsLoading(false)
     }
   }
@@ -355,8 +464,15 @@ export function AIChat({ symbol, stockName, stockInfo }: AIChatProps) {
     )
   }
 
-  const currentProvider = PROVIDERS.find((p) => p.id === selectedProvider)
-  const currentRole = AGENT_ROLES.find((r) => r.id === selectedRole)
+  const currentProvider = useMemo(
+    () => PROVIDERS.find((p) => p.id === selectedProvider),
+    [selectedProvider],
+  )
+
+  const currentRole = useMemo(
+    () => AGENT_ROLES.find((r) => r.id === selectedRole),
+    [selectedRole],
+  )
 
   return (
     <div className="flex h-full min-h-[560px] overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-800">
@@ -380,14 +496,14 @@ export function AIChat({ symbol, stockName, stockInfo }: AIChatProps) {
               onClick={async () => {
                 try {
                   await resetSessionMemory()
-                } catch (e) {
+                } catch {
                   // noop
                 }
               }}
             >
               清空记忆
             </button>
-            <div className="relative">
+            <div className="relative" ref={providerDropdownRef}>
               <button
                 className="flex items-center gap-1 rounded-lg border border-gray-200 bg-white px-2 py-1 text-xs dark:border-gray-600 dark:bg-gray-700"
                 onClick={() => setShowProviderDropdown((v) => !v)}
@@ -414,7 +530,7 @@ export function AIChat({ symbol, stockName, stockInfo }: AIChatProps) {
               )}
             </div>
 
-            <div className="relative">
+            <div className="relative" ref={roleDropdownRef}>
               <button
                 className="flex items-center gap-1 rounded-lg border border-gray-200 bg-white px-2 py-1 text-xs dark:border-gray-600 dark:bg-gray-700"
                 onClick={() => setShowRoleDropdown((v) => !v)}
@@ -496,29 +612,7 @@ export function AIChat({ symbol, stockName, stockInfo }: AIChatProps) {
               >
                 {message.role === 'assistant' ? (
                   <div className="leading-relaxed">
-                    <ReactMarkdown
-                      remarkPlugins={[remarkGfm]}
-                      components={{
-                        h1: ({ children }) => <h1 className="mb-2 text-base font-semibold">{children}</h1>,
-                        h2: ({ children }) => <h2 className="mb-2 text-[15px] font-semibold">{children}</h2>,
-                        h3: ({ children }) => <h3 className="mb-1 text-sm font-semibold">{children}</h3>,
-                        p: ({ children }) => <p className="mb-2 last:mb-0 whitespace-pre-wrap">{children}</p>,
-                        ul: ({ children }) => <ul className="mb-2 list-disc pl-5 space-y-1">{children}</ul>,
-                        ol: ({ children }) => <ol className="mb-2 list-decimal pl-5 space-y-1">{children}</ol>,
-                        li: ({ children }) => <li>{children}</li>,
-                        strong: ({ children }) => <strong className="font-semibold">{children}</strong>,
-                        a: ({ href, children }) => (
-                          <a href={href} target="_blank" rel="noreferrer" className="underline underline-offset-2">
-                            {children}
-                          </a>
-                        ),
-                        code: ({ children }) => (
-                          <code className="rounded bg-gray-200 px-1 py-0.5 text-[12px] dark:bg-gray-600">
-                            {children}
-                          </code>
-                        ),
-                      }}
-                    >
+                    <ReactMarkdown remarkPlugins={MARKDOWN_PLUGINS} components={MARKDOWN_COMPONENTS}>
                       {message.content}
                     </ReactMarkdown>
                   </div>
@@ -538,7 +632,12 @@ export function AIChat({ symbol, stockName, stockInfo }: AIChatProps) {
               className="flex-1 rounded-lg bg-gray-100 px-3 py-2 text-sm outline-none ring-primary-500 focus:ring-2 dark:bg-gray-700"
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && handleSend()}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault()
+                  void handleSend()
+                }
+              }}
               placeholder={`向 ${currentProvider?.name}(${currentRole?.name}) 提问...`}
               disabled={isLoading}
             />
