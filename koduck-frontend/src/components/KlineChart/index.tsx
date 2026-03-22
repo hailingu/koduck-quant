@@ -1,5 +1,5 @@
 import { useEffect, useRef, useCallback, useState } from 'react'
-import { createChart, CandlestickSeries, LineSeries, HistogramSeries, type IChartApi, type CandlestickData, type Time, type CandlestickSeriesPartialOptions } from 'lightweight-charts'
+import { createChart, AreaSeries, LineSeries, HistogramSeries, type IChartApi, type Time, type AreaSeriesPartialOptions } from 'lightweight-charts'
 import { klineApi, type KlineData as ApiKlineData } from '@/api/kline'
 import { useToast } from '@/hooks/useToast'
 
@@ -10,15 +10,11 @@ interface KLineChartProps {
   height?: number
 }
 
-// Convert API data to TradingView format
-// API returns milliseconds timestamp, convert to seconds for lightweight-charts
-function convertToChartData(data: ApiKlineData[]): CandlestickData[] {
+// Convert API data to line/area chart format (using close price)
+function convertToLineData(data: ApiKlineData[]) {
   return data.map((item) => ({
     time: Math.floor(item.timestamp / 1000) as Time,
-    open: item.open,
-    high: item.high,
-    low: item.low,
-    close: item.close,
+    value: item.close,
   }))
 }
 
@@ -44,7 +40,7 @@ export default function KLineChart({
 }: KLineChartProps) {
   const chartContainerRef = useRef<HTMLDivElement>(null)
   const chartRef = useRef<IChartApi | null>(null)
-  const candlestickSeriesRef = useRef<any>(null)
+  const areaSeriesRef = useRef<any>(null)
   const vwapSeriesRef = useRef<any>(null)
   const volumeSeriesRef = useRef<any>(null)
   const { showToast } = useToast()
@@ -65,11 +61,11 @@ export default function KLineChart({
       },
       grid: {
         vertLines: {
-          color: 'rgba(132, 148, 149, 0.1)',
-          style: 2, // dashed
+          color: 'rgba(132, 148, 149, 0.15)',
+          style: 2,
         },
         horzLines: {
-          color: 'rgba(132, 148, 149, 0.1)',
+          color: 'rgba(132, 148, 149, 0.15)',
           style: 2,
         },
       },
@@ -112,16 +108,17 @@ export default function KLineChart({
 
     chartRef.current = chart
 
-    // Create candlestick series with custom colors
-    const candlestickSeries = chart.addSeries(CandlestickSeries, {
-      upColor: '#00F2FF',
-      downColor: '#DE0541',
-      borderUpColor: '#00F2FF',
-      borderDownColor: '#DE0541',
-      wickUpColor: '#00F2FF',
-      wickDownColor: '#DE0541',
-    } as CandlestickSeriesPartialOptions)
-    candlestickSeriesRef.current = candlestickSeries
+    // Create area series (main price chart with fill)
+    const areaSeries = chart.addSeries(AreaSeries, {
+      lineColor: '#00F2FF',
+      topColor: 'rgba(0, 242, 255, 0.4)',
+      bottomColor: 'rgba(0, 242, 255, 0.05)',
+      lineWidth: 2,
+      priceLineVisible: false,
+      lastValueVisible: true,
+      title: 'PRICE',
+    } as AreaSeriesPartialOptions)
+    areaSeriesRef.current = areaSeries
 
     // Create VWAP line series
     const vwapSeries = chart.addSeries(LineSeries, {
@@ -129,12 +126,14 @@ export default function KLineChart({
       lineWidth: 2,
       lineStyle: 2, // dashed
       title: 'VWAP',
+      priceLineVisible: false,
+      lastValueVisible: true,
     })
     vwapSeriesRef.current = vwapSeries
 
-    // Create volume histogram - use separate price scale
+    // Create volume histogram - overlaid on main chart with transparency
     const volumeSeries = chart.addSeries(HistogramSeries, {
-      color: '#00F2FF',
+      color: 'rgba(0, 242, 255, 0.3)',
       priceFormat: {
         type: 'volume',
       },
@@ -142,10 +141,10 @@ export default function KLineChart({
     })
     volumeSeries.priceScale().applyOptions({
       scaleMargins: {
-        top: 0.85,
+        top: 0.7,
         bottom: 0,
       },
-      borderColor: 'rgba(132, 148, 149, 0.2)',
+      borderVisible: false,
     })
     volumeSeriesRef.current = volumeSeries
 
@@ -176,7 +175,7 @@ export default function KLineChart({
 
   // Fetch and update data
   const fetchKlineData = useCallback(async () => {
-    if (!symbol || !candlestickSeriesRef.current) return
+    if (!symbol || !areaSeriesRef.current) return
     
     try {
       setLoading(true)
@@ -188,9 +187,9 @@ export default function KLineChart({
       })
       
       if (response && response.length > 0) {
-        // Convert to chart data
-        const chartData = convertToChartData(response)
-        candlestickSeriesRef.current.setData(chartData)
+        // Convert to area chart data (using close price)
+        const lineData = convertToLineData(response)
+        areaSeriesRef.current.setData(lineData)
         
         // Calculate and set VWAP data
         const vwapData = response.map((item, index) => {
@@ -207,11 +206,14 @@ export default function KLineChart({
         })
         vwapSeriesRef.current.setData(vwapData)
         
-        // Set volume data
+        // Set volume data - semi-transparent overlay
+        const maxVol = Math.max(...response.map(d => d.volume))
         const volumeData = response.map((item) => ({
           time: Math.floor(item.timestamp / 1000) as Time,
           value: item.volume,
-          color: item.close >= item.open ? '#00F2FF' : '#DE0541',
+          color: item.close >= item.open 
+            ? `rgba(0, 242, 255, ${0.2 + (item.volume / maxVol) * 0.3})` 
+            : `rgba(222, 5, 65, ${0.2 + (item.volume / maxVol) * 0.3})`,
         }))
         volumeSeriesRef.current.setData(volumeData)
         

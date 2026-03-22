@@ -1,7 +1,9 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useSearchParams } from 'react-router-dom'
+import { createChart, AreaSeries, LineSeries, HistogramSeries, type Time, type AreaSeriesPartialOptions } from 'lightweight-charts'
 import KLineChart from '@/components/KLineChart'
 import { marketApi, type PriceQuote } from '@/api/market'
+import { klineApi, type KlineData } from '@/api/kline'
 import { useToast } from '@/hooks/useToast'
 
 // Time & Sales Component
@@ -41,6 +43,121 @@ function TimeAndSales() {
           </div>
         ))}
       </div>
+    </div>
+  )
+}
+
+// Volume Chart Component
+function VolumeChart({ 
+  symbol, 
+  market = 'AShare', 
+  timeframe = '1D' 
+}: { 
+  symbol: string
+  market?: string
+  timeframe?: string 
+}) {
+  const chartContainerRef = useRef<HTMLDivElement>(null)
+  const chartRef = useRef<any>(null)
+  const volumeSeriesRef = useRef<any>(null)
+  const { showToast } = useToast()
+  
+  const timeframeMap: Record<string, string> = {
+    'intraday': '1m', '1m': '1m', '5m': '5m', '15m': '15m', '30m': '30m',
+    '1h': '60m', 'daily': '1D', '1D': '1D', 'weekly': '1W', 'monthly': '1M',
+  }
+
+  useEffect(() => {
+    if (!chartContainerRef.current) return
+
+    const chart = createChart(chartContainerRef.current, {
+      layout: {
+        background: { color: 'transparent' },
+        textColor: '#849495',
+        fontFamily: 'JetBrains Mono, monospace',
+      },
+      grid: {
+        vertLines: { color: 'rgba(132, 148, 149, 0.08)' },
+        horzLines: { color: 'rgba(132, 148, 149, 0.08)' },
+      },
+      crosshair: {
+        mode: 1,
+        vertLine: { color: 'rgba(0, 242, 255, 0.3)', width: 1, labelVisible: false },
+        horzLine: { visible: false },
+      },
+      rightPriceScale: {
+        borderColor: 'rgba(132, 148, 149, 0.2)',
+        scaleMargins: { top: 0.1, bottom: 0.1 },
+      },
+      leftPriceScale: { visible: false },
+      timeScale: {
+        borderColor: 'rgba(132, 148, 149, 0.2)',
+        timeVisible: timeframe === 'intraday' || timeframe === '1m' || timeframe === '5m',
+        secondsVisible: false,
+      },
+      handleScroll: { vertTouchDrag: false },
+    })
+
+    const volumeSeries = chart.addSeries(HistogramSeries, {
+      priceFormat: { type: 'volume' },
+      priceScaleId: 'right',
+    })
+    volumeSeriesRef.current = volumeSeries
+    chartRef.current = chart
+
+    const handleResize = () => {
+      if (chartContainerRef.current) {
+        chart.applyOptions({
+          width: chartContainerRef.current.clientWidth,
+          height: chartContainerRef.current.clientHeight,
+        })
+      }
+    }
+    
+    setTimeout(handleResize, 0)
+    window.addEventListener('resize', handleResize)
+
+    return () => {
+      window.removeEventListener('resize', handleResize)
+      chart.remove()
+    }
+  }, [timeframe])
+
+  useEffect(() => {
+    const fetchData = async () => {
+      if (!symbol || !volumeSeriesRef.current) return
+      
+      try {
+        const apiTimeframe = timeframeMap[timeframe] || '1D'
+        const response = await klineApi.getKline({
+          symbol,
+          timeframe: apiTimeframe,
+          limit: 100,
+        })
+        
+        if (response && response.length > 0) {
+          const volumeData = response.map((item: KlineData) => ({
+            time: Math.floor(item.timestamp / 1000) as Time,
+            value: item.volume,
+            color: item.close >= item.open ? '#00F2FF' : '#DE0541',
+          }))
+          volumeSeriesRef.current.setData(volumeData)
+          chartRef.current?.timeScale().fitContent()
+        }
+      } catch (err) {
+        console.error('Volume data fetch error:', err)
+      }
+    }
+    
+    void fetchData()
+  }, [symbol, market, timeframe])
+
+  return (
+    <div className="relative w-full h-full p-2">
+      <div className="absolute top-2 left-3 z-10">
+        <span className="text-[10px] font-mono-data text-fluid-text-muted uppercase tracking-wider">Volume Analysis</span>
+      </div>
+      <div ref={chartContainerRef} className="w-full h-full" style={{ cursor: 'crosshair' }} />
     </div>
   )
 }
@@ -210,29 +327,25 @@ export default function Kline() {
           </div>
         </div>
 
-        {/* Legend */}
-        <div className="flex items-center gap-4 text-xs">
-          <div className="flex items-center gap-1.5">
-            <span className="w-2 h-2 rounded-full bg-fluid-primary" />
-            <span className="text-fluid-text-muted font-mono-data">K线</span>
+        {/* Chart Area - Main Chart + Volume */}
+        <div className="flex-1 flex flex-col gap-3">
+          {/* Main Chart */}
+          <div className="flex-[3] glass-panel rounded-xl overflow-hidden">
+            <KLineChart 
+              symbol={symbol}
+              market={market}
+              timeframe={timeframe}
+            />
           </div>
-          <div className="flex items-center gap-1.5">
-            <span className="w-2 h-2 rounded-full bg-fluid-tertiary" />
-            <span className="text-fluid-text-muted font-mono-data">VWAP</span>
+          
+          {/* Volume Chart */}
+          <div className="flex-1 glass-panel rounded-xl overflow-hidden min-h-[120px]">
+            <VolumeChart 
+              symbol={symbol}
+              market={market}
+              timeframe={timeframe}
+            />
           </div>
-          <div className="flex items-center gap-1.5">
-            <span className="w-2 h-2 rounded-full bg-fluid-text-dim" />
-            <span className="text-fluid-text-muted font-mono-data">成交量</span>
-          </div>
-        </div>
-
-        {/* Chart Area */}
-        <div className="flex-1 glass-panel rounded-xl overflow-hidden" style={{ minHeight: '400px' }}>
-          <KLineChart 
-            symbol={symbol}
-            market={market}
-            timeframe={timeframe}
-          />
         </div>
       </div>
 
