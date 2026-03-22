@@ -108,15 +108,16 @@ export default function SectorNetworkGraph() {
     setLinks(initialLinks)
 
     // 创建力导向模拟
+    const linkForce = d3.forceLink<SectorNode, SectorLink>(initialLinks)
+      .id((d: SectorNode) => d.id)
+      .distance(100)
+      .strength((d: SectorLink) => Math.abs(d.value) * 0.5)
+    
     const simulation = d3.forceSimulation<SectorNode>(initialNodes)
-      .force('link', d3.forceLink<SectorNode, SectorLink>(initialLinks)
-        .id(d => d.id)
-        .distance(100)
-        .strength(d => Math.abs(d.value) * 0.5)
-      )
+      .force('link', linkForce)
       .force('charge', d3.forceManyBody().strength(-300))
       .force('center', d3.forceCenter(width / 2, height / 2))
-      .force('collision', d3.forceCollide<SectorNode>().radius(d => getNodeSize(d.marketCap) + 5))
+      .force('collision', d3.forceCollide<SectorNode>().radius((d: SectorNode) => getNodeSize(d.marketCap) + 5))
       .force('x', d3.forceX(width / 2).strength(0.05))
       .force('y', d3.forceY(height / 2).strength(0.05))
 
@@ -148,8 +149,6 @@ export default function SectorNetworkGraph() {
     if (!svg) return
 
     const rect = svg.getBoundingClientRect()
-    const startX = event.clientX - rect.left
-    const startY = event.clientY - rect.top
 
     // 固定节点位置
     node.fx = node.x
