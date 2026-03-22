@@ -3,6 +3,7 @@ package com.koduck.service;
 import com.koduck.dto.market.MarketIndexDto;
 import com.koduck.dto.market.PriceQuoteDto;
 import com.koduck.dto.market.StockIndustryDto;
+import com.koduck.dto.market.StockStatsDto;
 import com.koduck.dto.market.StockValuationDto;
 import com.koduck.dto.market.SymbolInfoDto;
 
@@ -72,4 +73,13 @@ public interface MarketService {
      * @return 
      */
     List<PriceQuoteDto> getBatchPrices(List<String> symbols);
+
+    /**
+     * 
+     *
+     * @param symbol 
+     * @param market 
+     * @return 
+     */
+    StockStatsDto getStockStats(String symbol, String market);
 }

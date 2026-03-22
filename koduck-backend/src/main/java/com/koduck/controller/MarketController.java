@@ -7,6 +7,7 @@ import com.koduck.dto.market.KlineDataDto;
 import com.koduck.dto.market.MarketIndexDto;
 import com.koduck.dto.market.PriceQuoteDto;
 import com.koduck.dto.market.StockIndustryDto;
+import com.koduck.dto.market.StockStatsDto;
 import com.koduck.dto.market.StockValuationDto;
 import com.koduck.dto.market.SymbolInfoDto;
 import com.koduck.service.KlineSyncService;
@@ -88,6 +89,30 @@ public class MarketController {
             return ApiResponse.error(404, "股票代码不存在: " + symbol);
         }
         return ApiResponse.success(quote);
+    }
+
+    /**
+     * Get stock daily statistics.
+     * <p>Retrieves daily trading statistics including open/high/low/current prices,
+     * change/changePercent, volume and amount.</p>
+     *
+     * @param symbol stock symbol (e.g. "600519"), must not be blank
+     * @param market market code (e.g. "AShare"), defaults to AShare
+     * @return daily statistics for the stock
+     */
+    @GetMapping("/stocks/{symbol}/stats")
+    public ApiResponse<StockStatsDto> getStockStats(
+            @PathVariable @NotBlank(message = "股票代码不能为空")
+            String symbol,
+            @RequestParam(defaultValue = "AShare") String market) {
+        
+        log.info("GET /api/v1/market/stocks/{}/stats?market={}", symbol, market);
+        
+        StockStatsDto stats = marketService.getStockStats(symbol, market);
+        if (stats == null) {
+            return ApiResponse.error(404, "股票统计信息不存在: " + symbol);
+        }
+        return ApiResponse.success(stats);
     }
 
     /**

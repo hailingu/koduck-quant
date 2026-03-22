@@ -4,6 +4,7 @@ import com.koduck.config.CacheConfig;
 import com.koduck.dto.market.MarketIndexDto;
 import com.koduck.dto.market.PriceQuoteDto;
 import com.koduck.dto.market.StockIndustryDto;
+import com.koduck.dto.market.StockStatsDto;
 import com.koduck.dto.market.StockValuationDto;
 import com.koduck.dto.market.SymbolInfoDto;
 import com.koduck.entity.StockBasic;
@@ -315,6 +316,68 @@ public class MarketServiceImpl implements MarketService {
                 .map(quoteMap::get)
                 .toList();
     }
+
+    /**
+     * Get daily trading statistics for a stock.
+     * <p>Returns open/high/low/current prices, change metrics, volume and amount.</p>
+     *
+     * @param symbol stock symbol
+     * @param market market code
+     * @return stock stats when found, otherwise {@code null}
+     */
+    @Override
+    @Cacheable(value = "stock:stats", key = "#symbol + '_' + #market", unless = "#result == null")
+    public StockStatsDto getStockStats(String symbol, String market) {
+        log.debug("Getting stock stats from database: symbol={}, market={}", symbol, market);
+        
+        if (symbol == null || symbol.isBlank()) {
+            log.warn("Invalid symbol for stats: null or blank");
+            return null;
+        }
+        
+        try {
+            // Try to get from stock_realtime first
+            StockRealtime entity = stockRealtimeRepository
+                    .findFirstBySymbolOrderByUpdatedAtDesc(symbol)
+                    .orElse(null);
+            
+            if (entity != null) {
+                return mapToStockStatsDto(entity, market);
+            }
+            
+            // Fallback: try to build from kline data
+            StockStatsDto klineStats = tryBuildStatsFromKline(symbol, market);
+            if (klineStats != null) {
+                log.info("Built stock stats from kline data: symbol={}", symbol);
+                return klineStats;
+            }
+            
+            // Final fallback: try data provider
+            PriceQuoteDto providerQuote = akShareDataProvider.getPrice(symbol);
+            if (providerQuote != null) {
+                return mapPriceQuoteToStats(providerQuote, market);
+            }
+            
+            log.warn("Stock stats not found for symbol={}", symbol);
+            return null;
+            
+        } catch (Exception e) {
+            log.error("Error getting stock stats: symbol={}, error={}", symbol, e.getMessage(), e);
+            
+            // Try fallback on exception
+            StockStatsDto klineStats = tryBuildStatsFromKline(symbol, market);
+            if (klineStats != null) {
+                return klineStats;
+            }
+            
+            PriceQuoteDto providerQuote = akShareDataProvider.getPrice(symbol);
+            if (providerQuote != null) {
+                return mapPriceQuoteToStats(providerQuote, market);
+            }
+            
+            return null;
+        }
+    }
     
     /**
      * Get major market index quotes.
@@ -579,5 +642,85 @@ public class MarketServiceImpl implements MarketService {
                 .symbol(basic.getSymbol())
                 .name(basic.getName())
                 .build();
+    }
+    
+    // ============ StockStats Helper Methods ============
+    
+    private StockStatsDto mapToStockStatsDto(StockRealtime entity, String market) {
+        return StockStatsDto.builder()
+                .symbol(entity.getSymbol())
+                .market(market)
+                .open(entity.getOpenPrice())
+                .high(entity.getHigh())
+                .low(entity.getLow())
+                .current(entity.getPrice())
+                .prevClose(entity.getPrevClose())
+                .change(entity.getChangeAmount())
+                .changePercent(entity.getChangePercent())
+                .volume(entity.getVolume())
+                .amount(entity.getAmount())
+                .timestamp(entity.getUpdatedAt() != null ? entity.getUpdatedAt().toInstant(ZoneOffset.UTC) : null)
+                .build();
+    }
+    
+    private StockStatsDto mapPriceQuoteToStats(PriceQuoteDto quote, String market) {
+        return StockStatsDto.builder()
+                .symbol(quote.symbol())
+                .market(market)
+                .open(quote.open())
+                .high(quote.high())
+                .low(quote.low())
+                .current(quote.price())
+                .prevClose(quote.prevClose())
+                .change(quote.change())
+                .changePercent(quote.changePercent())
+                .volume(quote.volume())
+                .amount(quote.amount())
+                .timestamp(quote.timestamp())
+                .build();
+    }
+    
+    private StockStatsDto tryBuildStatsFromKline(String symbol, String market) {
+        try {
+            StockBasic basic = stockBasicRepository.findBySymbol(symbol).orElse(null);
+            if (basic == null) {
+                return null;
+            }
+            
+            String actualMarket = market != null && !market.isBlank() ? market : 
+                    (basic.getMarket() != null && !basic.getMarket().isBlank() ? basic.getMarket() : DEFAULT_MARKET);
+            
+            List<com.koduck.dto.market.KlineDataDto> recent =
+                    klineService.getKlineData(actualMarket, symbol, DAILY_TIMEFRAME, 2, null);
+            recent = normalizeKlineData(recent);
+            
+            if (recent.isEmpty()) {
+                return null;
+            }
+            
+            com.koduck.dto.market.KlineDataDto latest = recent.get(recent.size() - 1);
+            BigDecimal prevClose = recent.size() >= 2 ? recent.get(recent.size() - 2).close() : null;
+            BigDecimal current = latest.close();
+            BigDecimal change = calculateChange(current, prevClose);
+            BigDecimal changePercent = calculateChangePercent(change, prevClose);
+            
+            return StockStatsDto.builder()
+                    .symbol(symbol)
+                    .market(actualMarket)
+                    .open(latest.open())
+                    .high(latest.high())
+                    .low(latest.low())
+                    .current(current)
+                    .prevClose(prevClose)
+                    .change(change)
+                    .changePercent(changePercent)
+                    .volume(latest.volume())
+                    .amount(latest.amount())
+                    .timestamp(latest.timestamp() != null ? Instant.ofEpochSecond(latest.timestamp()) : null)
+                    .build();
+        } catch (Exception ex) {
+            log.warn("Failed to build stats from kline: symbol={}, error={}", symbol, ex.getMessage());
+            return null;
+        }
     }
 }
