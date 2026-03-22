@@ -6,6 +6,11 @@ import com.koduck.dto.market.PriceQuoteDto;
 import com.koduck.dto.market.StockIndustryDto;
 import com.koduck.dto.market.StockValuationDto;
 import com.koduck.dto.market.SymbolInfoDto;
+import com.koduck.market.MarketType;
+import com.koduck.market.model.KlineData;
+import com.koduck.market.model.TickData;
+import com.koduck.market.provider.MarketDataProvider;
+import com.koduck.market.util.DataConverter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.core.ParameterizedTypeReference;
@@ -21,10 +26,14 @@ import java.time.Instant;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * AKShare data provider implementation.
- * Fetches A-share market data from Python Data Service.
+ * AKShare data provider implementation for A-Share market.
+ * Fetches market data from Python Data Service.
+ * Implements the new MarketDataProvider interface.
  */
 @Component
 public class AKShareDataProvider implements MarketDataProvider {
@@ -37,6 +46,9 @@ public class AKShareDataProvider implements MarketDataProvider {
     
     private final RestTemplate restTemplate;
     private final DataServiceProperties properties;
+    private final Set<String> subscribedSymbols = ConcurrentHashMap.newKeySet();
+    private volatile boolean available = true;
+    private volatile int healthScore = 100;
     
     public AKShareDataProvider(RestTemplate dataServiceRestTemplate, DataServiceProperties properties) {
         this.restTemplate = dataServiceRestTemplate;
@@ -44,13 +56,153 @@ public class AKShareDataProvider implements MarketDataProvider {
     }
     
     @Override
-    public MarketType getMarketType() {
-        return MarketType.ASHARE;
+    public String getProviderName() {
+        return "akshare-a-share";
     }
     
     @Override
-    public List<SymbolInfoDto> searchSymbols(String keyword, int limit) {
+    public MarketType getMarketType() {
+        return MarketType.A_SHARE;
+    }
+    
+    @Override
+    public boolean isAvailable() {
+        return available && properties.isEnabled();
+    }
+    
+    @Override
+    public int getHealthScore() {
         if (!properties.isEnabled()) {
+            return 0;
+        }
+        return healthScore;
+    }
+    
+    @Override
+    public List<KlineData> getKlineData(String symbol, String timeframe, int limit,
+                                         Instant startTime, Instant endTime) 
+            throws MarketDataException {
+        
+        if (!isAvailable()) {
+            throw new MarketDataException("Provider is not available");
+        }
+        
+        try {
+            UriComponentsBuilder builder = UriComponentsBuilder
+                    .fromUriString(properties.getBaseUrl() + A_SHARE_BASE_PATH + "/kline/{symbol}")
+                    .queryParam("timeframe", timeframe)
+                    .queryParam("limit", limit);
+            
+            if (startTime != null) {
+                builder.queryParam("startTime", startTime.toEpochMilli());
+            }
+            if (endTime != null) {
+                builder.queryParam("endTime", endTime.toEpochMilli());
+            }
+            
+            String url = builder.buildAndExpand(symbol).toUriString();
+            
+            log.debug("Getting kline data: symbol={}, timeframe={}, limit={}", symbol, timeframe, limit);
+            
+            ResponseEntity<DataServiceResponse<List<Map<String, Object>>>> response = 
+                    restTemplate.exchange(
+                            url,
+                            HttpMethod.GET,
+                            null,
+                            new ParameterizedTypeReference<>() {}
+                    );
+            
+            return parseKlineResponse(response.getBody());
+            
+        } catch (RestClientException e) {
+            log.error("Failed to get kline data for {}: {}", symbol, e.getMessage());
+            throw new MarketDataException("Failed to get kline data", e);
+        }
+    }
+    
+    @Override
+    public Optional<TickData> getRealTimeTick(String symbol) throws MarketDataException {
+        PriceQuoteDto priceQuote = getPrice(symbol);
+        if (priceQuote == null) {
+            return Optional.empty();
+        }
+        
+        TickData tickData = TickData.builder()
+            .symbol(priceQuote.symbol())
+            .market(MarketType.A_SHARE.getCode())
+            .timestamp(priceQuote.timestamp() != null ? priceQuote.timestamp() : Instant.now())
+            .price(priceQuote.price())
+            .change(priceQuote.change())
+            .changePercent(priceQuote.changePercent())
+            .volume(priceQuote.volume())
+            .amount(priceQuote.amount())
+            .bidPrice(priceQuote.bidPrice())
+            .bidVolume(priceQuote.bidVolume())
+            .askPrice(priceQuote.askPrice())
+            .askVolume(priceQuote.askVolume())
+            .open(priceQuote.open())
+            .dayHigh(priceQuote.high())
+            .dayLow(priceQuote.low())
+            .prevClose(priceQuote.prevClose())
+            .build();
+            
+        return Optional.of(tickData);
+    }
+    
+    @Override
+    public void subscribeRealTime(List<String> symbols, RealTimeDataCallback callback) 
+            throws MarketDataException {
+        
+        if (!isAvailable()) {
+            throw new MarketDataException("Provider is not available");
+        }
+        
+        subscribedSymbols.addAll(symbols);
+        log.info("Subscribed to {} symbols for real-time data", symbols.size());
+        
+        // In production, this would establish WebSocket connection to data service
+        // For now, just track subscriptions
+    }
+    
+    @Override
+    public void unsubscribeRealTime(List<String> symbols) {
+        subscribedSymbols.removeAll(symbols);
+        log.info("Unsubscribed from {} symbols", symbols.size());
+    }
+    
+    @Override
+    public MarketStatus getMarketStatus() {
+        // A-Share trading hours: 9:30-11:30, 13:00-15:00 (Beijing time)
+        java.time.ZonedDateTime now = java.time.ZonedDateTime.now(java.time.ZoneId.of("Asia/Shanghai"));
+        int hour = now.getHour();
+        int minute = now.getMinute();
+        java.time.DayOfWeek dayOfWeek = now.getDayOfWeek();
+        
+        // Weekend
+        if (dayOfWeek == java.time.DayOfWeek.SATURDAY || dayOfWeek == java.time.DayOfWeek.SUNDAY) {
+            return MarketStatus.CLOSED;
+        }
+        
+        int timeInMinutes = hour * 60 + minute;
+        int openMorning = 9 * 60 + 30;   // 9:30
+        int closeMorning = 11 * 60 + 30; // 11:30
+        int openAfternoon = 13 * 60;     // 13:00
+        int closeAfternoon = 15 * 60;    // 15:00
+        
+        if (timeInMinutes >= openMorning && timeInMinutes <= closeMorning) {
+            return MarketStatus.OPEN;
+        } else if (timeInMinutes > closeMorning && timeInMinutes < openAfternoon) {
+            return MarketStatus.BREAK;
+        } else if (timeInMinutes >= openAfternoon && timeInMinutes <= closeAfternoon) {
+            return MarketStatus.OPEN;
+        } else {
+            return MarketStatus.CLOSED;
+        }
+    }
+    
+    @Override
+    public List<SymbolInfo> searchSymbols(String keyword, int limit) {
+        if (!isAvailable()) {
             log.warn(DATA_SERVICE_DISABLED_MESSAGE);
             return Collections.emptyList();
         }
@@ -72,7 +224,7 @@ public class AKShareDataProvider implements MarketDataProvider {
                             new ParameterizedTypeReference<>() {}
                     );
             
-            return parseSymbolListResponse(response.getBody());
+            return parseSymbolInfoResponse(response.getBody());
             
         } catch (RestClientException e) {
             log.error("Failed to search symbols: {}", e.getMessage());
@@ -80,9 +232,10 @@ public class AKShareDataProvider implements MarketDataProvider {
         }
     }
     
-    @Override
+    // Legacy methods for backward compatibility
+    
     public PriceQuoteDto getPrice(String symbol) {
-        if (!properties.isEnabled()) {
+        if (!isAvailable()) {
             log.warn(DATA_SERVICE_DISABLED_MESSAGE);
             return null;
         }
@@ -111,9 +264,8 @@ public class AKShareDataProvider implements MarketDataProvider {
         }
     }
     
-    @Override
     public List<PriceQuoteDto> getBatchPrices(List<String> symbols) {
-        if (!properties.isEnabled()) {
+        if (!isAvailable()) {
             log.warn(DATA_SERVICE_DISABLED_MESSAGE);
             return Collections.emptyList();
         }
@@ -151,70 +303,9 @@ public class AKShareDataProvider implements MarketDataProvider {
             return Collections.emptyList();
         }
     }
-
-    public StockValuationDto getStockValuation(String symbol) {
-        if (!properties.isEnabled()) {
-            log.warn(DATA_SERVICE_DISABLED_MESSAGE);
-            return null;
-        }
-
-        try {
-            String url = UriComponentsBuilder
-                    .fromUriString(properties.getBaseUrl() + A_SHARE_BASE_PATH + "/valuation/{symbol}")
-                    .buildAndExpand(symbol)
-                    .toUriString();
-
-            log.debug("Getting valuation for symbol: {}", symbol);
-
-            ResponseEntity<DataServiceResponse<Map<String, Object>>> response =
-                    restTemplate.exchange(
-                            url,
-                            HttpMethod.GET,
-                            null,
-                            new ParameterizedTypeReference<>() {}
-                    );
-
-            return parseStockValuationResponse(response.getBody());
-
-        } catch (RestClientException e) {
-            log.error("Failed to get valuation for {}: {}", symbol, e.getMessage());
-            return null;
-        }
-    }
-
-    public StockIndustryDto getStockIndustry(String symbol) {
-        if (!properties.isEnabled()) {
-            log.warn(DATA_SERVICE_DISABLED_MESSAGE);
-            return null;
-        }
-
-        try {
-            String url = UriComponentsBuilder
-                    .fromUriString(properties.getBaseUrl() + "/market/stocks/{symbol}/industry")
-                    .buildAndExpand(symbol)
-                    .toUriString();
-
-            log.debug("Getting industry for symbol: {}", symbol);
-
-            ResponseEntity<DataServiceResponse<Map<String, Object>>> response =
-                    restTemplate.exchange(
-                            url,
-                            HttpMethod.GET,
-                            null,
-                            new ParameterizedTypeReference<>() {}
-                    );
-
-            return parseStockIndustryResponse(response.getBody());
-
-        } catch (RestClientException e) {
-            log.error("Failed to get industry for {}: {}", symbol, e.getMessage());
-            return null;
-        }
-    }
     
-    @Override
     public List<SymbolInfoDto> getHotSymbols(int limit) {
-        if (!properties.isEnabled()) {
+        if (!isAvailable()) {
             log.warn(DATA_SERVICE_DISABLED_MESSAGE);
             return Collections.emptyList();
         }
@@ -243,6 +334,119 @@ public class AKShareDataProvider implements MarketDataProvider {
         }
     }
     
+    public StockValuationDto getStockValuation(String symbol) {
+        if (!isAvailable()) {
+            log.warn(DATA_SERVICE_DISABLED_MESSAGE);
+            return null;
+        }
+
+        try {
+            String url = UriComponentsBuilder
+                    .fromUriString(properties.getBaseUrl() + A_SHARE_BASE_PATH + "/valuation/{symbol}")
+                    .buildAndExpand(symbol)
+                    .toUriString();
+
+            log.debug("Getting valuation for symbol: {}", symbol);
+
+            ResponseEntity<DataServiceResponse<Map<String, Object>>> response =
+                    restTemplate.exchange(
+                            url,
+                            HttpMethod.GET,
+                            null,
+                            new ParameterizedTypeReference<>() {}
+                    );
+
+            return parseStockValuationResponse(response.getBody());
+
+        } catch (RestClientException e) {
+            log.error("Failed to get valuation for {}: {}", symbol, e.getMessage());
+            return null;
+        }
+    }
+    
+    public StockIndustryDto getStockIndustry(String symbol) {
+        if (!isAvailable()) {
+            log.warn(DATA_SERVICE_DISABLED_MESSAGE);
+            return null;
+        }
+
+        try {
+            String url = UriComponentsBuilder
+                    .fromUriString(properties.getBaseUrl() + "/market/stocks/{symbol}/industry")
+                    .buildAndExpand(symbol)
+                    .toUriString();
+
+            log.debug("Getting industry for symbol: {}", symbol);
+
+            ResponseEntity<DataServiceResponse<Map<String, Object>>> response =
+                    restTemplate.exchange(
+                            url,
+                            HttpMethod.GET,
+                            null,
+                            new ParameterizedTypeReference<>() {}
+                    );
+
+            return parseStockIndustryResponse(response.getBody());
+
+        } catch (RestClientException e) {
+            log.error("Failed to get industry for {}: {}", symbol, e.getMessage());
+            return null;
+        }
+    }
+    
+    // Helper methods
+    
+    private List<KlineData> parseKlineResponse(DataServiceResponse<List<Map<String, Object>>> response) {
+        if (response == null || response.data() == null) {
+            return Collections.emptyList();
+        }
+        
+        return response.data().stream()
+                .map(this::mapToKlineData)
+                .toList();
+    }
+    
+    private KlineData mapToKlineData(Map<String, Object> data) {
+        return KlineData.builder()
+            .symbol(getString(data, KEY_SYMBOL))
+            .market(MarketType.A_SHARE.getCode())
+            .timestamp(DataConverter.toInstantFromMillis(getLong(data, "timestamp")))
+            .open(DataConverter.toBigDecimal(getString(data, "open")))
+            .high(DataConverter.toBigDecimal(getString(data, "high")))
+            .low(DataConverter.toBigDecimal(getString(data, "low")))
+            .close(DataConverter.toBigDecimal(getString(data, "close")))
+            .volume(getLong(data, "volume"))
+            .amount(DataConverter.toBigDecimal(getString(data, "amount")))
+            .timeframe(getString(data, "timeframe"))
+            .build();
+    }
+    
+    private List<SymbolInfo> parseSymbolInfoResponse(DataServiceResponse<List<Map<String, Object>>> response) {
+        if (response == null || response.data() == null) {
+            return Collections.emptyList();
+        }
+        
+        return response.data().stream()
+                .map(this::mapToSymbolInfo)
+                .toList();
+    }
+    
+    private SymbolInfo mapToSymbolInfo(Map<String, Object> data) {
+        String symbol = getString(data, KEY_SYMBOL);
+        // Normalize symbol with exchange suffix
+        String normalizedSymbol = DataConverter.normalizeSymbol(symbol, MarketType.A_SHARE.getCode());
+        String exchange = normalizedSymbol.contains(".SH") ? "SH" : 
+                         normalizedSymbol.contains(".SZ") ? "SZ" : "CN";
+        
+        return new SymbolInfo(
+            normalizedSymbol,
+            getString(data, KEY_NAME),
+            MarketType.A_SHARE.getCode(),
+            exchange,
+            "stock"
+        );
+    }
+    
     private List<SymbolInfoDto> parseSymbolListResponse(DataServiceResponse<List<Map<String, Object>>> response) {
         if (response == null || response.data() == null) {
             return Collections.emptyList();
@@ -258,10 +462,10 @@ public class AKShareDataProvider implements MarketDataProvider {
                 .symbol(getString(data, KEY_SYMBOL))
                 .name(getString(data, KEY_NAME))
                 .market(getString(data, "market"))
-                .price(getBigDecimal(data, "price"))
-                .changePercent(getBigDecimal(data, "change_percent"))
+                .price(DataConverter.toBigDecimal(getString(data, "price")))
+                .changePercent(DataConverter.toBigDecimal(getString(data, "change_percent")))
                 .volume(getLong(data, "volume"))
-                .amount(getBigDecimal(data, "amount"))
+                .amount(DataConverter.toBigDecimal(getString(data, "amount")))
                 .build();
     }
     
@@ -293,18 +497,18 @@ public class AKShareDataProvider implements MarketDataProvider {
         return PriceQuoteDto.builder()
                 .symbol(getString(data, KEY_SYMBOL))
                 .name(getString(data, KEY_NAME))
-                .price(getBigDecimal(data, "price"))
-                .open(getBigDecimal(data, "open"))
-                .high(getBigDecimal(data, "high"))
-                .low(getBigDecimal(data, "low"))
-                .prevClose(getBigDecimal(data, "prev_close"))
+                .price(DataConverter.toBigDecimal(getString(data, "price")))
+                .open(DataConverter.toBigDecimal(getString(data, "open")))
+                .high(DataConverter.toBigDecimal(getString(data, "high")))
+                .low(DataConverter.toBigDecimal(getString(data, "low")))
+                .prevClose(DataConverter.toBigDecimal(getString(data, "prev_close")))
                 .volume(getLong(data, "volume"))
-                .amount(getBigDecimal(data, "amount"))
-                .change(getBigDecimal(data, "change"))
-                .changePercent(getBigDecimal(data, "change_percent"))
-                .bidPrice(getBigDecimal(data, "bid_price"))
+                .amount(DataConverter.toBigDecimal(getString(data, "amount")))
+                .change(DataConverter.toBigDecimal(getString(data, "change")))
+                .changePercent(DataConverter.toBigDecimal(getString(data, "change_percent")))
+                .bidPrice(DataConverter.toBigDecimal(getString(data, "bid_price")))
                 .bidVolume(getLong(data, "bid_volume"))
-                .askPrice(getBigDecimal(data, "ask_price"))
+                .askPrice(DataConverter.toBigDecimal(getString(data, "ask_price")))
                 .askVolume(getLong(data, "ask_volume"))
                 .timestamp(getInstant(data, "timestamp"))
                 .build();
@@ -314,15 +518,15 @@ public class AKShareDataProvider implements MarketDataProvider {
         return StockValuationDto.builder()
                 .symbol(getString(data, KEY_SYMBOL))
                 .name(getString(data, KEY_NAME))
-                .peTtm(getBigDecimal(data, "pe_ttm"))
-                .pb(getBigDecimal(data, "pb"))
-                .psTtm(getBigDecimal(data, "ps_ttm"))
-                .marketCap(getBigDecimal(data, "market_cap"))
-                .floatMarketCap(getBigDecimal(data, "float_market_cap"))
-                .totalShares(getBigDecimal(data, "total_shares"))
-                .floatShares(getBigDecimal(data, "float_shares"))
-                .floatRatio(getBigDecimal(data, "float_ratio"))
-                .turnoverRate(getBigDecimal(data, "turnover_rate"))
+                .peTtm(DataConverter.toBigDecimal(getString(data, "pe_ttm")))
+                .pb(DataConverter.toBigDecimal(getString(data, "pb")))
+                .psTtm(DataConverter.toBigDecimal(getString(data, "ps_ttm")))
+                .marketCap(DataConverter.toBigDecimal(getString(data, "market_cap")))
+                .floatMarketCap(DataConverter.toBigDecimal(getString(data, "float_market_cap")))
+                .totalShares(DataConverter.toBigDecimal(getString(data, "total_shares")))
+                .floatShares(DataConverter.toBigDecimal(getString(data, "float_shares")))
+                .floatRatio(DataConverter.toBigDecimal(getString(data, "float_ratio")))
+                .turnoverRate(DataConverter.toBigDecimal(getString(data, "turnover_rate")))
                 .build();
     }
 
@@ -341,21 +545,6 @@ public class AKShareDataProvider implements MarketDataProvider {
     private String getString(Map<String, Object> data, String key) {
         Object value = data.get(key);
         return value != null ? value.toString() : null;
-    }
-    
-    private BigDecimal getBigDecimal(Map<String, Object> data, String key) {
-        Object value = data.get(key);
-        if (value == null) {
-            return null;
-        }
-        if (value instanceof Number) {
-            return BigDecimal.valueOf(((Number) value).doubleValue());
-        }
-        try {
-            return new BigDecimal(value.toString());
-        } catch (NumberFormatException e) {
-            return null;
-        }
     }
     
     private Long getLong(Map<String, Object> data, String key) {
