@@ -16,6 +16,7 @@
     "@mui/material": "^7.3.9",
     "@stomp/stompjs": "^7.3.0",
     "axios": "^1.13.6",
+    "d3": "^7.9.0",
     "echarts": "^6.0.0",
     "lightweight-charts": "^5.1.0",
     "lucide-react": "^0.577.0",

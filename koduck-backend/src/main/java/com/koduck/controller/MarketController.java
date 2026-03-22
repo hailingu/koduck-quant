@@ -6,6 +6,7 @@ import com.koduck.dto.ApiResponse;
 import com.koduck.dto.market.KlineDataDto;
 import com.koduck.dto.market.MarketIndexDto;
 import com.koduck.dto.market.PriceQuoteDto;
+import com.koduck.dto.market.SectorNetworkDto;
 import com.koduck.dto.market.StockIndustryDto;
 import com.koduck.dto.market.StockStatsDto;
 import com.koduck.dto.market.StockValuationDto;
@@ -227,6 +228,23 @@ public class MarketController {
         
         List<MarketIndexDto> indices = marketService.getMarketIndices();
         return ApiResponse.success(indices);
+    }
+
+    /**
+     * Get sector network data for correlation graph.
+     * <p>Returns nodes (sectors) and links (correlations) for force-directed visualization.</p>
+     *
+     * @param market market code, defaults to AShare
+     * @return sector network data with nodes and links
+     */
+    @GetMapping("/sectors/network")
+    public ApiResponse<SectorNetworkDto> getSectorNetwork(
+            @RequestParam(defaultValue = "AShare") String market) {
+        
+        log.info("GET /api/v1/market/sectors/network?market={}", market);
+        
+        SectorNetworkDto network = marketService.getSectorNetwork(market);
+        return ApiResponse.success(network);
     }
     
     /**

@@ -3,6 +3,7 @@ package com.koduck.service.impl;
 import com.koduck.config.CacheConfig;
 import com.koduck.dto.market.MarketIndexDto;
 import com.koduck.dto.market.PriceQuoteDto;
+import com.koduck.dto.market.SectorNetworkDto;
 import com.koduck.dto.market.StockIndustryDto;
 import com.koduck.dto.market.StockStatsDto;
 import com.koduck.dto.market.StockValuationDto;
@@ -722,5 +723,96 @@ public class MarketServiceImpl implements MarketService {
             log.warn("Failed to build stats from kline: symbol={}, error={}", symbol, ex.getMessage());
             return null;
         }
+    }
+
+    // ============ Sector Network Methods ============
+
+    @Override
+    public SectorNetworkDto getSectorNetwork(String market) {
+        log.debug("Getting sector network data for market: {}", market);
+        
+        // For now, return mock data
+        // In production, this should fetch from industry/sector data tables
+        // and calculate correlations based on historical price data
+        return generateMockSectorNetwork();
+    }
+    
+    private SectorNetworkDto generateMockSectorNetwork() {
+        var nodes = List.of(
+            SectorNetworkDto.SectorNode.builder()
+                    .id("1").name("新能源").marketCap(new BigDecimal("8500"))
+                    .flow(new BigDecimal("67.3")).change(new BigDecimal("3.2")).group(1).build(),
+            SectorNetworkDto.SectorNode.builder()
+                    .id("2").name("锂电池").marketCap(new BigDecimal("4200"))
+                    .flow(new BigDecimal("34.2")).change(new BigDecimal("2.8")).group(1).build(),
+            SectorNetworkDto.SectorNode.builder()
+                    .id("3").name("光伏").marketCap(new BigDecimal("3800"))
+                    .flow(new BigDecimal("28.5")).change(new BigDecimal("2.1")).group(1).build(),
+            SectorNetworkDto.SectorNode.builder()
+                    .id("4").name("储能").marketCap(new BigDecimal("2900"))
+                    .flow(new BigDecimal("15.8")).change(new BigDecimal("1.9")).group(1).build(),
+            SectorNetworkDto.SectorNode.builder()
+                    .id("5").name("银行").marketCap(new BigDecimal("12000"))
+                    .flow(new BigDecimal("45.2")).change(new BigDecimal("1.2")).group(2).build(),
+            SectorNetworkDto.SectorNode.builder()
+                    .id("6").name("保险").marketCap(new BigDecimal("5600"))
+                    .flow(new BigDecimal("12.3")).change(new BigDecimal("0.8")).group(2).build(),
+            SectorNetworkDto.SectorNode.builder()
+                    .id("7").name("证券").marketCap(new BigDecimal("4800"))
+                    .flow(new BigDecimal("-8.5")).change(new BigDecimal("-0.5")).group(2).build(),
+            SectorNetworkDto.SectorNode.builder()
+                    .id("8").name("科技").marketCap(new BigDecimal("9200"))
+                    .flow(new BigDecimal("-67.5")).change(new BigDecimal("-2.8")).group(3).build(),
+            SectorNetworkDto.SectorNode.builder()
+                    .id("9").name("半导体").marketCap(new BigDecimal("6500"))
+                    .flow(new BigDecimal("-45.2")).change(new BigDecimal("-2.1")).group(3).build(),
+            SectorNetworkDto.SectorNode.builder()
+                    .id("10").name("软件").marketCap(new BigDecimal("3800"))
+                    .flow(new BigDecimal("-22.3")).change(new BigDecimal("-1.5")).group(3).build(),
+            SectorNetworkDto.SectorNode.builder()
+                    .id("11").name("医药").marketCap(new BigDecimal("7200"))
+                    .flow(new BigDecimal("-12.1")).change(new BigDecimal("-0.8")).group(4).build(),
+            SectorNetworkDto.SectorNode.builder()
+                    .id("12").name("医疗器械").marketCap(new BigDecimal("3400"))
+                    .flow(new BigDecimal("8.5")).change(new BigDecimal("0.5")).group(4).build(),
+            SectorNetworkDto.SectorNode.builder()
+                    .id("13").name("消费").marketCap(new BigDecimal("6800"))
+                    .flow(new BigDecimal("23.4")).change(new BigDecimal("1.5")).group(5).build(),
+            SectorNetworkDto.SectorNode.builder()
+                    .id("14").name("白酒").marketCap(new BigDecimal("5200"))
+                    .flow(new BigDecimal("18.9")).change(new BigDecimal("1.2")).group(5).build(),
+            SectorNetworkDto.SectorNode.builder()
+                    .id("15").name("汽车").marketCap(new BigDecimal("5800"))
+                    .flow(new BigDecimal("15.6")).change(new BigDecimal("0.9")).group(6).build(),
+            SectorNetworkDto.SectorNode.builder()
+                    .id("16").name("军工").marketCap(new BigDecimal("4200"))
+                    .flow(new BigDecimal("12.8")).change(new BigDecimal("0.7")).group(7).build(),
+            SectorNetworkDto.SectorNode.builder()
+                    .id("17").name("地产").marketCap(new BigDecimal("3600"))
+                    .flow(new BigDecimal("-45.6")).change(new BigDecimal("-3.2")).group(8).build(),
+            SectorNetworkDto.SectorNode.builder()
+                    .id("18").name("建材").marketCap(new BigDecimal("2800"))
+                    .flow(new BigDecimal("-18.9")).change(new BigDecimal("-1.8")).group(8).build()
+        );
+        
+        var links = List.of(
+            SectorNetworkDto.SectorLink.builder().source("1").target("2").value(new BigDecimal("0.85")).type("positive").build(),
+            SectorNetworkDto.SectorLink.builder().source("1").target("3").value(new BigDecimal("0.78")).type("positive").build(),
+            SectorNetworkDto.SectorLink.builder().source("1").target("4").value(new BigDecimal("0.72")).type("positive").build(),
+            SectorNetworkDto.SectorLink.builder().source("2").target("3").value(new BigDecimal("0.65")).type("positive").build(),
+            SectorNetworkDto.SectorLink.builder().source("5").target("6").value(new BigDecimal("0.68")).type("positive").build(),
+            SectorNetworkDto.SectorLink.builder().source("5").target("7").value(new BigDecimal("0.55")).type("positive").build(),
+            SectorNetworkDto.SectorLink.builder().source("8").target("9").value(new BigDecimal("0.82")).type("positive").build(),
+            SectorNetworkDto.SectorLink.builder().source("8").target("10").value(new BigDecimal("0.75")).type("positive").build(),
+            SectorNetworkDto.SectorLink.builder().source("9").target("10").value(new BigDecimal("0.70")).type("positive").build(),
+            SectorNetworkDto.SectorLink.builder().source("11").target("12").value(new BigDecimal("0.62")).type("positive").build(),
+            SectorNetworkDto.SectorLink.builder().source("13").target("14").value(new BigDecimal("0.58")).type("positive").build(),
+            SectorNetworkDto.SectorLink.builder().source("1").target("8").value(new BigDecimal("-0.65")).type("negative").build(),
+            SectorNetworkDto.SectorLink.builder().source("1").target("5").value(new BigDecimal("-0.45")).type("negative").build(),
+            SectorNetworkDto.SectorLink.builder().source("5").target("8").value(new BigDecimal("-0.55")).type("negative").build(),
+            SectorNetworkDto.SectorLink.builder().source("2").target("9").value(new BigDecimal("-0.48")).type("negative").build()
+        );
+        
+        return SectorNetworkDto.builder().nodes(nodes).links(links).build();
     }
 }
