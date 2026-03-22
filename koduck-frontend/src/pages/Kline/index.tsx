@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { useSearchParams, useNavigate } from 'react-router-dom'
 import { createChart, HistogramSeries, type Time } from 'lightweight-charts'
 import KLineChart from '@/components/KLineChart'
@@ -8,6 +8,7 @@ import { usePriceAnimation, useLastUpdateTime } from '@/hooks/usePriceAnimation'
 import { useWebSocketStore } from '@/stores/websocket'
 import { marketApi, type PriceQuote } from '@/api/market'
 import { klineApi, type KlineData } from '@/api/kline'
+import { tickApi, type TickData, type TickStatistics } from '@/api/tick'
 import { useToast } from '@/hooks/useToast'
 
 // Market definitions
@@ -21,42 +22,313 @@ const MARKETS = [
 
 type MarketType = typeof MARKETS[number]['key']
 
-// Time & Sales Component
-function TimeAndSales() {
-  const ticks = [
-    { time: '14:02:11', price: '63,492.10', size: '0.421', total: 'BTC', highlight: false },
-    { time: '14:02:10', price: '63,491.95', size: '1.220', total: 'BTC', highlight: false },
-    { time: '14:02:08', price: '63,492.05', size: '0.015', total: 'BTC', highlight: false },
-    { time: '14:02:07', price: '63,492.20', size: '5.842', total: 'BTC', highlight: true },
-    { time: '14:02:05', price: '63,491.50', size: '0.050', total: 'BTC', highlight: false },
-    { time: '14:02:02', price: '63,491.90', size: '0.118', total: 'BTC', highlight: false },
-    { time: '14:02:00', price: '63,491.20', size: '2.440', total: 'BTC', highlight: true },
-    { time: '14:01:58', price: '63,491.80', size: '0.992', total: 'BTC', highlight: false },
-    { time: '14:01:55', price: '63,491.10', size: '0.022', total: 'BTC', highlight: false },
-    { time: '14:01:52', price: '63,490.95', size: '1.050', total: 'BTC', highlight: false },
-  ]
+// Format timestamp for display
+function formatTickTime(timestamp: number): string {
+  const date = new Date(timestamp)
+  return date.toLocaleTimeString('zh-CN', { 
+    hour12: false, 
+    hour: '2-digit', 
+    minute: '2-digit', 
+    second: '2-digit' 
+  })
+}
+
+// Format price with proper decimal places
+function formatPrice(price: number | null | undefined): string {
+  if (price === null || price === undefined) return '--'
+  return price.toFixed(2)
+}
+
+// Format volume
+function formatVolume(volume: number | null | undefined): string {
+  if (volume === null || volume === undefined) return '--'
+  if (volume >= 10000) {
+    return (volume / 10000).toFixed(2) + '万'
+  }
+  return volume.toString()
+}
+
+// Time & Sales Component with Real Tick Data
+function TimeAndSales({ 
+  symbol, 
+  market = 'AShare',
+  realtimePrice 
+}: { 
+  symbol: string
+  market?: MarketType
+  realtimePrice?: { price: number; timestamp: number } | null
+}) {
+  const [ticks, setTicks] = useState<TickData[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [tickStats, setTickStats] = useState<TickStatistics | null>(null)
+  const { showToast } = useToast()
+  const prevPriceRef = useRef<number | null>(null)
+  const containerRef = useRef<HTMLDivElement>(null)
+
+  // Fetch tick data
+  const fetchTicks = useCallback(async () => {
+    if (!symbol) return
+    
+    try {
+      setLoading(true)
+      setError(null)
+      
+      // Fetch latest 50 ticks
+      const response = await tickApi.getTickHistory(symbol, {
+        market,
+        hours: 1,
+        limit: 50,
+      })
+      
+      // Sort by timestamp descending (newest first)
+      const sortedTicks = [...response.data].sort((a, b) => b.timestamp - a.timestamp)
+      setTicks(sortedTicks)
+      
+      // Fetch statistics
+      const stats = await tickApi.getTickStatistics(symbol, { market })
+      setTickStats(stats)
+      
+    } catch (err) {
+      console.error('Failed to fetch tick data:', err)
+      setError('获取 Tick 数据失败')
+      // Don't show toast to avoid spamming
+    } finally {
+      setLoading(false)
+    }
+  }, [symbol, market])
+
+  // Initial fetch
+  useEffect(() => {
+    fetchTicks()
+  }, [fetchTicks])
+
+  // Auto refresh every 10 seconds
+  useEffect(() => {
+    const interval = setInterval(fetchTicks, 10000)
+    return () => clearInterval(interval)
+  }, [fetchTicks])
+
+  // Handle realtime price updates
+  useEffect(() => {
+    if (realtimePrice && realtimePrice.price !== prevPriceRef.current) {
+      // Create a new tick from realtime data
+      const newTick: TickData = {
+        timestamp: realtimePrice.timestamp,
+        price: realtimePrice.price,
+        volume: Math.floor(Math.random() * 1000) + 1, // Placeholder volume
+        change: realtimePrice.price - (prevPriceRef.current || realtimePrice.price),
+      }
+      
+      setTicks(prev => {
+        const updated = [newTick, ...prev].slice(0, 50)
+        return updated
+      })
+      
+      prevPriceRef.current = realtimePrice.price
+      
+      // Scroll to top
+      if (containerRef.current) {
+        containerRef.current.scrollTop = 0
+      }
+    }
+  }, [realtimePrice])
+
+  // Calculate highlight based on price change
+  const getHighlight = (tick: TickData, index: number) => {
+    if (index >= ticks.length - 1) return false
+    const nextTick = ticks[index + 1]
+    return tick.volume > (nextTick.volume * 5) // Highlight large volume
+  }
+
+  const getTickColor = (tick: TickData, index: number) => {
+    if (index >= ticks.length - 1) return 'text-fluid-text'
+    const nextTick = ticks[index + 1]
+    if (tick.price > nextTick.price) return 'text-fluid-primary'
+    if (tick.price < nextTick.price) return 'text-fluid-secondary'
+    return 'text-fluid-text'
+  }
+
+  return (
+    <div className="glass-panel p-4 rounded-xl h-full flex flex-col">
+      <div className="flex items-center justify-between mb-3">
+        <h3 className="font-headline font-bold text-sm text-fluid-text">Time & Sales (Tick)</h3>
+        <div className="flex items-center gap-2">
+          {tickStats && (
+            <span className="text-[10px] font-mono-data text-fluid-text-dim">
+              {tickStats.count} ticks / {formatVolume(tickStats.totalVolume)} vol
+            </span>
+          )}
+          <div className="flex items-center gap-1 text-[10px] font-mono-data text-fluid-primary">
+            <span className="w-1.5 h-1.5 rounded-full bg-fluid-primary animate-pulse" />
+            LIVE
+          </div>
+        </div>
+      </div>
+      
+      {/* Header */}
+      <div className="flex justify-between text-[10px] font-mono-data text-fluid-text-dim mb-2 px-1">
+        <span>Time</span>
+        <span>Price</span>
+        <span>Volume</span>
+      </div>
+      
+      {/* Tick List */}
+      <div 
+        ref={containerRef}
+        className="flex-1 overflow-y-auto space-y-0.5 font-mono-data text-xs scrollbar-thin"
+      >
+        {loading && ticks.length === 0 ? (
+          <div className="flex items-center justify-center h-32 text-fluid-text-dim">
+            <span className="animate-pulse">Loading ticks...</span>
+          </div>
+        ) : error ? (
+          <div className="flex flex-col items-center justify-center h-32 text-fluid-secondary text-xs">
+            <span>{error}</span>
+            <button 
+              onClick={fetchTicks}
+              className="mt-2 px-3 py-1 bg-fluid-surface-container rounded text-fluid-text hover:bg-fluid-surface-container-high transition-colors"
+            >
+              重试
+            </button>
+          </div>
+        ) : ticks.length === 0 ? (
+          <div className="flex items-center justify-center h-32 text-fluid-text-dim text-xs">
+            No tick data available
+          </div>
+        ) : (
+          ticks.map((tick, idx) => {
+            const highlight = getHighlight(tick, idx)
+            const colorClass = getTickColor(tick, idx)
+            
+            return (
+              <div 
+                key={`${tick.timestamp}-${idx}`} 
+                className={`flex justify-between items-center py-1 px-1 rounded hover:bg-fluid-surface-container/50 transition-colors ${
+                  highlight ? 'bg-fluid-primary/10' : ''
+                }`}
+              >
+                <span className="text-fluid-text-dim w-16">
+                  {formatTickTime(tick.timestamp)}
+                </span>
+                <span className={`${colorClass} font-medium w-16 text-right ${highlight ? 'font-semibold' : ''}`}>
+                  {formatPrice(tick.price)}
+                </span>
+                <span className={`text-fluid-text-muted w-16 text-right ${highlight ? 'text-fluid-primary' : ''}`}>
+                  {formatVolume(tick.volume)}
+                </span>
+              </div>
+            )
+          })
+        )}
+      </div>
+      
+      {/* Tick Statistics Footer */}
+      {tickStats && tickStats.count > 0 && (
+        <div className="mt-3 pt-3 border-t border-fluid-outline-variant/30">
+          <div className="grid grid-cols-2 gap-2 text-[10px] font-mono-data">
+            <div className="flex justify-between">
+              <span className="text-fluid-text-dim">Avg</span>
+              <span className="text-fluid-text">{formatPrice(tickStats.avgPrice)}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-fluid-text-dim">Range</span>
+              <span className="text-fluid-text">
+                {formatPrice(tickStats.minPrice)} - {formatPrice(tickStats.maxPrice)}
+              </span>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// Tick Distribution Chart Component
+function TickDistributionChart({ 
+  symbol, 
+  market = 'AShare' 
+}: { 
+  symbol: string
+  market?: MarketType
+}) {
+  const [volumeData, setVolumeData] = useState<{
+    date: string
+    tickCount: number
+    totalVolume: number
+    avgPrice: number
+  }[]>([])
+  const [loading, setLoading] = useState(true)
+  const { showToast } = useToast()
+
+  useEffect(() => {
+    const fetchVolumeData = async () => {
+      if (!symbol) return
+      
+      try {
+        setLoading(true)
+        const response = await tickApi.getVolumeSummary(symbol, 7)
+        
+        if (response.dailyData) {
+          setVolumeData(response.dailyData.slice(0, 7).reverse())
+        }
+      } catch (err) {
+        console.error('Failed to fetch volume data:', err)
+      } finally {
+        setLoading(false)
+      }
+    }
+    
+    fetchVolumeData()
+  }, [symbol, market])
+
+  if (loading) {
+    return (
+      <div className="glass-panel p-4 rounded-xl h-full flex items-center justify-center">
+        <span className="text-fluid-text-dim text-xs animate-pulse">Loading...</span>
+      </div>
+    )
+  }
+
+  if (volumeData.length === 0) {
+    return (
+      <div className="glass-panel p-4 rounded-xl h-full flex items-center justify-center">
+        <span className="text-fluid-text-dim text-xs">No volume data</span>
+      </div>
+    )
+  }
+
+  const maxTicks = Math.max(...volumeData.map(d => d.tickCount), 1)
 
   return (
     <div className="glass-panel p-4 rounded-xl h-full">
       <div className="flex items-center justify-between mb-3">
-        <h3 className="font-headline font-bold text-sm text-fluid-text">Time & Sales</h3>
-        <div className="flex items-center gap-1 text-[10px] font-mono-data text-fluid-primary">
-          <span className="w-1.5 h-1.5 rounded-full bg-fluid-primary animate-pulse" />
-          LIVE
-        </div>
+        <h3 className="font-headline font-bold text-sm text-fluid-text">Tick Distribution (7D)</h3>
       </div>
-      <div className="space-y-1 font-mono-data text-xs">
-        {ticks.map((tick, idx) => (
-          <div key={idx} className="flex justify-between items-center py-1">
-            <span className="text-fluid-text-dim">{tick.time}</span>
-            <span className={tick.highlight ? 'text-fluid-primary font-semibold' : 'text-fluid-text'}>
-              {tick.price}
-            </span>
-            <span className={tick.highlight ? 'text-fluid-primary' : 'text-fluid-text-muted'}>
-              {tick.size} {tick.total}
-            </span>
-          </div>
-        ))}
+      
+      <div className="space-y-2">
+        {volumeData.map((day) => {
+          const percentage = (day.tickCount / maxTicks) * 100
+          
+          return (
+            <div key={day.date} className="space-y-1">
+              <div className="flex justify-between text-[10px] font-mono-data">
+                <span className="text-fluid-text-dim">{day.date.slice(5)}</span>
+                <span className="text-fluid-text">{day.tickCount.toLocaleString()} ticks</span>
+              </div>
+              <div className="h-1.5 bg-fluid-surface-container rounded-full overflow-hidden">
+                <div 
+                  className="h-full bg-gradient-to-r from-fluid-primary/50 to-fluid-primary rounded-full transition-all duration-500"
+                  style={{ width: `${percentage}%` }}
+                />
+              </div>
+              <div className="flex justify-between text-[9px] font-mono-data text-fluid-text-muted">
+                <span>Vol: {formatVolume(day.totalVolume)}</span>
+                <span>Avg: ¥{day.avgPrice.toFixed(2)}</span>
+              </div>
+            </div>
+          )
+        })}
       </div>
     </div>
   )
@@ -501,8 +773,30 @@ export default function Kline() {
 
       {/* Side Panel - 3 cols */}
       <div className="col-span-3 flex flex-col gap-4">
-        <TimeAndSales />
-        <MarketStats quote={quote} market={market} />
+        {/* Time & Sales with Real Tick Data */}
+        <div className="flex-[2]">
+          <TimeAndSales 
+            symbol={symbol}
+            market={market}
+            realtimePrice={realtimePrice ? {
+              price: realtimePrice.price,
+              timestamp: realtimePrice.timestamp
+            } : null}
+          />
+        </div>
+        
+        {/* Tick Distribution Chart */}
+        <div className="flex-1 min-h-[150px]">
+          <TickDistributionChart 
+            symbol={symbol}
+            market={market}
+          />
+        </div>
+        
+        {/* Market Stats */}
+        <div className="flex-1">
+          <MarketStats quote={quote} market={market} />
+        </div>
       </div>
     </div>
   )
