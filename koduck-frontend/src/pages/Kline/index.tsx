@@ -3,6 +3,9 @@ import { useSearchParams } from 'react-router-dom'
 import { createChart, AreaSeries, LineSeries, HistogramSeries, type Time, type AreaSeriesPartialOptions } from 'lightweight-charts'
 import KLineChart from '@/components/KLineChart'
 import IntradayChart from '@/components/IntradayChart'
+import WebSocketStatus from '@/components/WebSocketStatus'
+import { usePriceAnimation, useLastUpdateTime } from '@/hooks/usePriceAnimation'
+import { useWebSocketStore } from '@/stores/websocket'
 import { marketApi, type PriceQuote } from '@/api/market'
 import { klineApi, type KlineData } from '@/api/kline'
 import { useToast } from '@/hooks/useToast'
@@ -268,6 +271,26 @@ export default function Kline() {
     ? ((quote.change / quote.prevClose) * 100).toFixed(2) 
     : '0.00'
 
+  // WebSocket real-time price
+  const { stockPrices } = useWebSocketStore()
+  const realtimePrice = stockPrices.get(symbol)
+  const displayPrice = realtimePrice?.price ?? quote?.price
+  const displayChange = realtimePrice?.changePercent ?? (quote?.changePercent || 0)
+  const displayIsUp = displayChange >= 0
+  
+  // Price animation
+  const priceAnimation = usePriceAnimation(displayPrice)
+  
+  // Last update time
+  const lastUpdateTime = useLastUpdateTime(realtimePrice?.timestamp || null)
+
+  // Subscribe to symbol
+  useEffect(() => {
+    const { subscribe, unsubscribe } = useWebSocketStore.getState()
+    subscribe([symbol])
+    return () => unsubscribe([symbol])
+  }, [symbol])
+
   return (
     <div className="h-[calc(100vh-140px)] grid grid-cols-12 gap-5">
       {/* Main Chart - 9 cols */}
@@ -283,8 +306,8 @@ export default function Kline() {
                   --
                 </span>
               ) : (
-                <span className={`px-2 py-0.5 ${isUp ? 'bg-fluid-primary/20 text-fluid-primary' : 'bg-fluid-secondary/20 text-fluid-secondary'} text-xs font-mono-data rounded`}>
-                  {isUp ? '+' : ''}{changePercent}%
+                <span className={`px-2 py-0.5 ${displayIsUp ? 'bg-fluid-primary/20 text-fluid-primary' : 'bg-fluid-secondary/20 text-fluid-secondary'} text-xs font-mono-data rounded`}>
+                  {displayIsUp ? '+' : ''}{displayChange.toFixed(2)}%
                 </span>
               )}
             </div>
@@ -293,9 +316,23 @@ export default function Kline() {
                 <span className="text-fluid-text-dim text-xl">Loading...</span>
               ) : (
                 <>
-                  <span className={`text-2xl font-bold ${isUp ? 'text-fluid-primary' : 'text-fluid-secondary'}`}>
-                    {quote?.price?.toFixed(2) ?? '--'}
+                  <span 
+                    className={`
+                      text-2xl font-bold 
+                      transition-all duration-300
+                      ${displayIsUp ? 'text-fluid-primary' : 'text-fluid-secondary'}
+                      ${priceAnimation === 'up' ? 'bg-fluid-primary/20 scale-105' : ''}
+                      ${priceAnimation === 'down' ? 'bg-fluid-secondary/20 scale-105' : ''}
+                      rounded px-1
+                    `}
+                  >
+                    {displayPrice?.toFixed(2) ?? '--'}
                   </span>
+                  {realtimePrice && (
+                    <span className="text-[10px] text-fluid-text-muted ml-1">
+                      {lastUpdateTime}
+                    </span>
+                  )}
                   <span className="text-fluid-text-muted">
                     高: <span className="text-fluid-text">{quote?.high?.toFixed(2) ?? '--'}</span>
                   </span>
@@ -310,21 +347,26 @@ export default function Kline() {
             </div>
           </div>
           
-          {/* Timeframe Tabs */}
-          <div className="flex items-center gap-1 bg-fluid-surface-container rounded-lg p-1">
-            {timeframes.map((tf) => (
-              <button
-                key={tf.key}
-                onClick={() => setTimeframe(tf.key)}
-                className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
-                  timeframe === tf.key
-                    ? 'bg-fluid-primary text-fluid-surface-container-lowest'
-                    : 'text-fluid-text-muted hover:text-fluid-text'
-                }`}
-              >
-                {tf.label}
-              </button>
-            ))}
+          <div className="flex items-center gap-3">
+            {/* WebSocket Status */}
+            <WebSocketStatus />
+            
+            {/* Timeframe Tabs */}
+            <div className="flex items-center gap-1 bg-fluid-surface-container rounded-lg p-1">
+              {timeframes.map((tf) => (
+                <button
+                  key={tf.key}
+                  onClick={() => setTimeframe(tf.key)}
+                  className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
+                    timeframe === tf.key
+                      ? 'bg-fluid-primary text-fluid-surface-container-lowest'
+                      : 'text-fluid-text-muted hover:text-fluid-text'
+                  }`}
+                >
+                  {tf.label}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
 
