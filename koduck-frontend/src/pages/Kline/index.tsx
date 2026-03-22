@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { createChart, AreaSeries, LineSeries, HistogramSeries, type Time, type AreaSeriesPartialOptions } from 'lightweight-charts'
 import KLineChart from '@/components/KLineChart'
+import IntradayChart from '@/components/IntradayChart'
 import { marketApi, type PriceQuote } from '@/api/market'
 import { klineApi, type KlineData } from '@/api/kline'
 import { useToast } from '@/hooks/useToast'
@@ -329,23 +330,32 @@ export default function Kline() {
 
         {/* Chart Area - Main Chart + Volume */}
         <div className="flex-1 flex flex-col gap-3">
-          {/* Main Chart */}
+          {/* Main Chart - Show IntradayChart for 分时, KLineChart for others */}
           <div className="flex-[3] glass-panel rounded-xl overflow-hidden">
-            <KLineChart 
-              symbol={symbol}
-              market={market}
-              timeframe={timeframe}
-            />
+            {timeframe === 'intraday' ? (
+              <IntradayChart 
+                symbol={symbol}
+                market={market}
+              />
+            ) : (
+              <KLineChart 
+                symbol={symbol}
+                market={market}
+                timeframe={timeframe}
+              />
+            )}
           </div>
           
-          {/* Volume Chart */}
-          <div className="flex-1 glass-panel rounded-xl overflow-hidden min-h-[120px]">
-            <VolumeChart 
-              symbol={symbol}
-              market={market}
-              timeframe={timeframe}
-            />
-          </div>
+          {/* Volume Chart - Hide for intraday (volume is in IntradayChart) */}
+          {timeframe !== 'intraday' && (
+            <div className="flex-1 glass-panel rounded-xl overflow-hidden min-h-[120px]">
+              <VolumeChart 
+                symbol={symbol}
+                market={market}
+                timeframe={timeframe}
+              />
+            </div>
+          )}
         </div>
       </div>
 
