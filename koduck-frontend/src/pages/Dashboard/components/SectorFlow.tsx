@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { getSectorFlow, mockSectorFlow, type SectorFlowResponse, type SectorFlowItem } from '../../../api/dashboard';
 
 interface Props {

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { getFearGreedIndex, mockFearGreedIndex, type FearGreedIndex as FGIndexType } from '../../../api/dashboard';
 
 interface Props {

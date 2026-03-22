@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from 'react';
-import { getSectorAllocation, mockSectorAllocation, type SectorAllocationResponse, type SectorAllocationItem } from '../../../api/portfolio';
+import { useEffect, useState } from 'react';
+import { getSectorAllocation, mockSectorAllocation, type SectorAllocationResponse } from '../../../api/portfolio';
 
 interface Props {
   useMock?: boolean;
@@ -153,7 +153,7 @@ export function SectorAllocation({ useMock = false }: Props) {
             </div>
             <div className="text-right">
               <div className="text-sm font-mono text-slate-200">{data.cash_percent.toFixed(1)}%</div>
-              <div className="text-xs text-slate-500">{data.cash_value_formatted}</div>
+              <div className="text-xs text-slate-500">{data.total_value_formatted}</div>
             </div>
           </div>
           

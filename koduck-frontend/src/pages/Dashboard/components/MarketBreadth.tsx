@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { getMarketBreadth, mockMarketBreadth, type MarketBreadth as MBType } from '../../../api/dashboard';
 
 interface Props {
@@ -88,7 +88,7 @@ export function MarketBreadth({ useMock = false }: Props) {
       <div className="mb-4">
         <div className="text-xs text-slate-500 mb-2">涨跌分布热力图</div>
         <div className="grid grid-cols-11 gap-1">
-          {data.distribution.map((item, index) => {
+          {data.distribution.map((item) => {
             const getColor = () => {
               if (item.range.includes('+')) {
                 const intensity = Math.min(item.percentage / 15, 1);

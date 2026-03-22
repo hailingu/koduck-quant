@@ -27,6 +27,7 @@ export interface PortfolioSummary {
   dailyPnlPercent: number;
   availableCash: number;
   totalEquity: number;
+  totalMarketValue?: number;
 }
 
 export interface TradeRecord {
@@ -39,6 +40,7 @@ export interface TradeRecord {
   amount: number;
   time: string;
   date: string;
+  tradeTime?: string;
 }
 
 export interface SectorDistribution {
@@ -46,32 +48,39 @@ export interface SectorDistribution {
   value: number;
   percent: number;
   color?: string;
+  sector?: string;
 }
 
 // Legacy API object for backward compatibility
 export const portfolioApi = {
   async getPortfolio(): Promise<PortfolioItem[]> {
-    const response = await apiClient.get('/portfolio/positions');
-    return response || [];
+    const response = await apiClient.get<PortfolioItem[]>('/portfolio/positions');
+    return (response as unknown as PortfolioItem[]) || [];
   },
 
   async getPortfolioSummary(): Promise<PortfolioSummary> {
-    const response = await apiClient.get('/portfolio/summary');
-    return response || {
-      totalValue: 0,
-      totalCost: 0,
-      totalPnl: 0,
-      totalPnlPercent: 0,
-      dailyPnl: 0,
-      dailyPnlPercent: 0,
-      availableCash: 0,
-      totalEquity: 0,
+    const response = await apiClient.get<PortfolioSummary>('/portfolio/summary');
+    const data = (response as unknown as PortfolioSummary);
+    return {
+      totalValue: data?.totalValue ?? 0,
+      totalCost: data?.totalCost ?? 0,
+      totalPnl: data?.totalPnl ?? 0,
+      totalPnlPercent: data?.totalPnlPercent ?? 0,
+      dailyPnl: data?.dailyPnl ?? 0,
+      dailyPnlPercent: data?.dailyPnlPercent ?? 0,
+      availableCash: data?.availableCash ?? 0,
+      totalEquity: data?.totalEquity ?? 0,
+      totalMarketValue: data?.totalMarketValue ?? data?.totalValue ?? 0,
     };
   },
 
   async getTradeRecords(): Promise<TradeRecord[]> {
-    const response = await apiClient.get('/portfolio/trades');
-    return response || [];
+    const response = await apiClient.get<TradeRecord[]>('/portfolio/trades');
+    const records = (response as unknown as TradeRecord[]) || [];
+    return records.map(r => ({
+      ...r,
+      tradeTime: r.time,
+    }));
   },
 
   async getSectorDistribution(positions?: PortfolioItem[]): Promise<SectorDistribution[]> {
@@ -90,14 +99,19 @@ export const portfolioApi = {
       return Array.from(sectorMap.entries()).map(([name, value], index) => ({
         name,
         value,
+        sector: name,
         percent: totalValue > 0 ? (value / totalValue) * 100 : 0,
         color: colors[index % colors.length],
       }));
     }
 
     // Otherwise fetch from API
-    const response = await apiClient.get('/portfolio/sector-distribution');
-    return response || [];
+    const response = await apiClient.get<SectorDistribution[]>('/portfolio/sector-distribution');
+    const data = (response as unknown as SectorDistribution[]) || [];
+    return data.map(d => ({
+      ...d,
+      sector: d.name,
+    }));
   },
 };
 
@@ -224,21 +238,21 @@ export interface SectorAllocationResponse {
 // ============================================================================
 
 export async function getNorthboundFlow(tradeDate?: string): Promise<NorthboundFlowResponse> {
-  const response = await apiClient.get('/market/northbound-flow', {
+  const response = await apiClient.get<NorthboundFlowResponse>('/market/northbound-flow', {
     params: { trade_date: tradeDate }
   });
-  return response;
+  return response as unknown as NorthboundFlowResponse;
 }
 
 export async function getNorthboundHistory(days: number = 30): Promise<NorthboundHistoryResponse> {
-  const response = await apiClient.get('/market/northbound-flow/history', {
+  const response = await apiClient.get<NorthboundHistoryResponse>('/market/northbound-flow/history', {
     params: { days }
   });
-  return response;
+  return response as unknown as NorthboundHistoryResponse;
 }
 
-export async function getNorthboundStats(): Promise<any> {
-  const response = await apiClient.get('/market/northbound-flow/stats');
+export async function getNorthboundStats(): Promise<unknown> {
+  const response = await apiClient.get<unknown>('/market/northbound-flow/stats');
   return response;
 }
 
@@ -247,17 +261,17 @@ export async function getNorthboundStats(): Promise<any> {
 // ============================================================================
 
 export async function getPnLHistory(period: PeriodType = '1w'): Promise<PnLHistoryResponse> {
-  const response = await apiClient.get('/portfolio/pnl-history', {
+  const response = await apiClient.get<PnLHistoryResponse>('/portfolio/pnl-history', {
     params: { period }
   });
-  return response;
+  return response as unknown as PnLHistoryResponse;
 }
 
 export async function getDailyPnL(startDate?: string, endDate?: string): Promise<PnLDataPoint[]> {
-  const response = await apiClient.get('/portfolio/pnl-history/daily', {
+  const response = await apiClient.get<PnLDataPoint[]>('/portfolio/pnl-history/daily', {
     params: { start_date: startDate, end_date: endDate }
   });
-  return response;
+  return (response as unknown as PnLDataPoint[]) || [];
 }
 
 // ============================================================================
@@ -265,24 +279,24 @@ export async function getDailyPnL(startDate?: string, endDate?: string): Promise
 // ============================================================================
 
 export async function getSectorAllocation(minPercent: number = 0.5): Promise<SectorAllocationResponse> {
-  const response = await apiClient.get('/portfolio/sector-allocation', {
+  const response = await apiClient.get<SectorAllocationResponse>('/portfolio/sector-allocation', {
     params: { min_percent: minPercent }
   });
-  return response;
+  return response as unknown as SectorAllocationResponse;
 }
 
-export async function getSectorAllocationTrend(months: number = 6): Promise<any[]> {
-  const response = await apiClient.get('/portfolio/sector-allocation/trend', {
+export async function getSectorAllocationTrend(months: number = 6): Promise<unknown[]> {
+  const response = await apiClient.get<unknown[]>('/portfolio/sector-allocation/trend', {
     params: { months }
   });
-  return response;
+  return (response as unknown as unknown[]) || [];
 }
 
-export async function getPortfolioHoldings(sortBy: string = 'value', limit: number = 50): Promise<any[]> {
-  const response = await apiClient.get('/portfolio/holdings', {
+export async function getPortfolioHoldings(sortBy: string = 'value', limit: number = 50): Promise<unknown[]> {
+  const response = await apiClient.get<unknown[]>('/portfolio/holdings', {
     params: { sort_by: sortBy, limit }
   });
-  return response;
+  return (response as unknown as unknown[]) || [];
 }
 
 // ============================================================================
@@ -373,9 +387,10 @@ export const mockPortfolioSummary: PortfolioSummary = {
   dailyPnlPercent: 1.0,
   availableCash: 100000,
   totalEquity: 600000,
+  totalMarketValue: 500000,
 };
 
 export const mockTradeRecords: TradeRecord[] = [
-  { id: '1', symbol: '600519', name: '贵州茅台', type: 'buy', quantity: 100, price: 1500, amount: 150000, time: '09:30:00', date: '2024-01-15' },
-  { id: '2', symbol: '000858', name: '五粮液', type: 'buy', quantity: 200, price: 140, amount: 28000, time: '10:15:00', date: '2024-01-15' },
+  { id: '1', symbol: '600519', name: '贵州茅台', type: 'buy', quantity: 100, price: 1500, amount: 150000, time: '09:30:00', date: '2024-01-15', tradeTime: '09:30:00' },
+  { id: '2', symbol: '000858', name: '五粮液', type: 'buy', quantity: 200, price: 140, amount: 28000, time: '10:15:00', date: '2024-01-15', tradeTime: '10:15:00' },
 ];

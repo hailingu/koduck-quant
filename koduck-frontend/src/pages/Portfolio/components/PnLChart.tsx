@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from 'react';
-import { getPnLHistory, mockPnLHistory, type PnLHistoryResponse, type PnLDataPoint, type PeriodType } from '../../../api/portfolio';
+import { useEffect, useState } from 'react';
+import { getPnLHistory, mockPnLHistory, type PnLHistoryResponse, type PeriodType } from '../../../api/portfolio';
 
 interface Props {
   useMock?: boolean;

@@ -80,6 +80,13 @@ export interface BigOrderStats {
   top_sectors: { name: string; volume: number }[];
 }
 
+// API Response type
+interface ApiResponse<T> {
+  data: T;
+  code: number;
+  message: string;
+}
+
 // ============================================================================
 // API Functions
 // ============================================================================
@@ -89,8 +96,8 @@ export interface BigOrderStats {
  * Issue #199
  */
 export async function getFearGreedIndex(): Promise<FearGreedIndex> {
-  const response = await apiClient.get('/market/fear-greed-index');
-  return response.data.data;
+  const response = await apiClient.get<ApiResponse<FearGreedIndex>>('/market/fear-greed-index');
+  return (response as unknown as ApiResponse<FearGreedIndex>).data;
 }
 
 /**
@@ -101,10 +108,10 @@ export async function getSectorFlow(
   sortBy: string = 'net_flow',
   limit: number = 10
 ): Promise<SectorFlowResponse> {
-  const response = await apiClient.get('/market/sector-flow', {
+  const response = await apiClient.get<ApiResponse<SectorFlowResponse>>('/market/sector-flow', {
     params: { sort_by: sortBy, limit }
   });
-  return response.data.data;
+  return (response as unknown as ApiResponse<SectorFlowResponse>).data;
 }
 
 /**
@@ -112,8 +119,8 @@ export async function getSectorFlow(
  * Issue #201
  */
 export async function getMarketBreadth(): Promise<MarketBreadth> {
-  const response = await apiClient.get('/market/breadth');
-  return response.data.data;
+  const response = await apiClient.get<ApiResponse<MarketBreadth>>('/market/breadth');
+  return (response as unknown as ApiResponse<MarketBreadth>).data;
 }
 
 /**
@@ -125,10 +132,10 @@ export async function getBigOrders(
   orderType?: 'buy' | 'sell',
   minAmount: number = 500000
 ): Promise<BigOrderAlert[]> {
-  const response = await apiClient.get('/market/big-orders', {
+  const response = await apiClient.get<ApiResponse<BigOrderAlert[]>>('/market/big-orders', {
     params: { limit, order_type: orderType, min_amount: minAmount }
   });
-  return response.data.data;
+  return (response as unknown as ApiResponse<BigOrderAlert[]>).data;
 }
 
 /**
@@ -136,8 +143,8 @@ export async function getBigOrders(
  * Issue #202
  */
 export async function getBigOrderStats(): Promise<BigOrderStats> {
-  const response = await apiClient.get('/market/big-orders/stats');
-  return response.data.data;
+  const response = await apiClient.get<ApiResponse<BigOrderStats>>('/market/big-orders/stats');
+  return (response as unknown as ApiResponse<BigOrderStats>).data;
 }
 
 // ============================================================================

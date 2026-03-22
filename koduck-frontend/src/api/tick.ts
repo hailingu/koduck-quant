@@ -12,15 +12,18 @@ export interface Tick {
 
 // For Kline page compatibility
 export interface TickData {
-  id: string;
-  symbol: string;
+  id?: string;
+  symbol?: string;
   timestamp: number;
   price: number;
-  size: number;
-  amount: number;
-  type: 'buy' | 'sell' | 'unknown';
-  side: 'buy' | 'sell';
-  flag: 'NORMAL' | 'BLOCK_ORDER' | 'ICEBERG';
+  size?: number;
+  amount?: number;
+  type?: 'buy' | 'sell' | 'unknown';
+  side?: 'buy' | 'sell';
+  flag?: 'NORMAL' | 'BLOCK_ORDER' | 'ICEBERG';
+  volume: number;
+  count?: number;
+  change?: number;
 }
 
 export interface TickSummary {
@@ -45,6 +48,11 @@ export interface TickStatistics {
   blockOrderCount: number;
   avgTradeSize: number;
   buySellRatio: number;
+  count: number;
+  totalVolume: number;
+  avgPrice: number;
+  minPrice: number;
+  maxPrice: number;
 }
 
 export interface MarketStats {
@@ -158,6 +166,7 @@ export const tickApi = {
       type: tick.type,
       side: tick.type,
       flag: tick.flag,
+      volume: tick.size,
     }));
     
     return { data };
@@ -180,6 +189,11 @@ export const tickApi = {
       blockOrderCount: summary.blockOrderCount,
       avgTradeSize: summary.avgTradeSize,
       buySellRatio: summary.buyVolume / (summary.sellVolume || 1),
+      count: summary.totalTrades,
+      totalVolume: summary.totalVolume,
+      avgPrice: summary.totalAmount / (summary.totalVolume || 1),
+      minPrice: 0,
+      maxPrice: 0,
     };
   },
 

@@ -36,7 +36,7 @@ function formatCurrency(value: number): string {
 }
 
 // Signal config
-const signalConfig = {
+const signalConfig: Record<string, { label: string; color: string; bgColor: string; borderColor?: string }> = {
   main_dominant: { label: '主力主导', color: 'text-emerald-400', bgColor: 'bg-emerald-400/10' },
   balanced: { label: '均衡博弈', color: 'text-amber-400', bgColor: 'bg-amber-400/10' },
   retail_dominant: { label: '散户主导', color: 'text-rose-400', bgColor: 'bg-rose-400/10' },
@@ -242,7 +242,7 @@ export function SectorFundGameMatrix() {
                   {/* Expanded Detail Row */}
                   {isExpanded && (
                     <tr className="bg-slate-900/50">
-                      <td colSpan={7} className="py-4 px-4">
+                      <td colSpan={7} className="py-4 px-4" suppressHydrationWarning>
                         <div className="grid grid-cols-3 gap-4">
                           {/* Fund Flow Detail */}
                           <div className="col-span-2 grid grid-cols-3 gap-4">

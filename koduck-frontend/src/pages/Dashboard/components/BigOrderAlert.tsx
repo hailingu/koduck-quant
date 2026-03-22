@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { getBigOrders, mockBigOrders, type BigOrderAlert as BOType } from '../../../api/dashboard';
 
 interface Props {

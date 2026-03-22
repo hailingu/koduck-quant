@@ -1,11 +1,10 @@
 import { useEffect, useState } from 'react';
-import { getMarketOverview, getHotStocks, searchStocks } from '@/api/market';
+import { getMarketOverview, getHotStocks } from '@/api/market';
 import { SearchBar } from '@/components/SearchBar';
 import { 
   EmptyState, 
   SearchEmptyState, 
   ErrorEmptyState, 
-  LoadingState,
   NoDataState,
   SkeletonLoader,
   TableSkeleton,

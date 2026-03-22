@@ -1,5 +1,3 @@
-import React from 'react';
-
 interface EmptyStateProps {
   type: 'search' | 'error' | 'loading' | 'data' | 'network';
   title?: string;

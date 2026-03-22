@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { getNorthboundFlow, mockNorthboundFlow, type NorthboundFlowResponse, type PeriodFlow } from '../../../api/portfolio';
 
 interface Props {
@@ -153,24 +153,25 @@ function PeriodBar({ period, totalInflow }: { period: PeriodFlow; totalInflow: n
   );
 }
 
-function StockRow({ stock, rank, type }: { stock: any; rank: number; type: 'buy' | 'sell' }) {
+function StockRow({ stock, rank, type }: { stock: unknown; rank: number; type: 'buy' | 'sell' }) {
   const isBuy = type === 'buy';
+  const s = stock as { name: string; symbol: string; net_flow: number; holding_change: number };
   
   return (
     <div className="flex items-center justify-between py-2 border-b border-slate-800/50 last:border-0">
       <div className="flex items-center gap-3">
         <span className="text-xs text-slate-500 w-4">{rank}</span>
         <div>
-          <div className="font-medium text-slate-200 text-sm">{stock.name}</div>
-          <div className="text-xs text-slate-500">{stock.symbol}</div>
+          <div className="font-medium text-slate-200 text-sm">{s.name}</div>
+          <div className="text-xs text-slate-500">{s.symbol}</div>
         </div>
       </div>
       <div className="text-right">
         <div className={`text-sm font-mono font-bold ${isBuy ? 'text-emerald-400' : 'text-rose-400'}`}>
-          {isBuy ? '+' : ''}{(stock.net_flow / 100000000).toFixed(2)}亿
+          {isBuy ? '+' : ''}{(s.net_flow / 100000000).toFixed(2)}亿
         </div>
-        <div className={`text-xs ${stock.holding_change >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
-          持仓{stock.holding_change >= 0 ? '+' : ''}{stock.holding_change.toFixed(2)}%
+        <div className={`text-xs ${s.holding_change >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+          持仓{s.holding_change >= 0 ? '+' : ''}{s.holding_change.toFixed(2)}%
         </div>
       </div>
     </div>

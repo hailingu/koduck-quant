@@ -229,7 +229,7 @@ function SectorAllocation({
           <div key={i} className="flex items-center justify-between text-xs">
             <div className="flex items-center gap-2">
               <span className={`w-2 h-2 rounded-full ${colors[i % colors.length]}`} />
-              <span className="text-fluid-text font-mono-data">{s.sector}</span>
+              <span className="text-fluid-text font-mono-data">{s.sector ?? s.name}</span>
             </div>
             <span className="text-fluid-text-muted">{formatNumber(s.percent)}%</span>
           </div>
@@ -417,7 +417,7 @@ function RecentEvents({
 
       <div className="space-y-3">
         {trades.slice(0, 5).map((trade) => {
-          const isBuy = trade.type === 'BUY'
+          const isBuy = trade.type.toLowerCase() === 'buy'
           const icon = isBuy ? 'trending_up' : 'trending_down'
           const iconBg = isBuy ? 'bg-fluid-primary/20' : 'bg-fluid-secondary/20'
           const iconColor = isBuy ? 'text-fluid-primary' : 'text-fluid-secondary'
@@ -434,7 +434,7 @@ function RecentEvents({
                     {isBuy ? 'Buy' : 'Sell'} {trade.name}
                   </div>
                   <div className="text-xs text-fluid-text-dim">
-                    {new Date(trade.tradeTime).toLocaleString('zh-CN')}
+                    {new Date(trade.tradeTime ?? trade.time ?? '').toLocaleString('zh-CN')}
                   </div>
                 </div>
               </div>
@@ -551,7 +551,7 @@ export default function Portfolio() {
   }, [fetchPortfolioData])
 
   // Derived state
-  const totalNetValue = summary?.totalMarketValue ?? 0
+  const totalNetValue = summary?.totalMarketValue ?? summary?.totalValue ?? 0
   const isPositive = summary ? summary.dailyPnl >= 0 : true
 
   return (

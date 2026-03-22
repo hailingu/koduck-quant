@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState, useCallback } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 
 interface FundFlowData {
   layer: string;
@@ -9,24 +9,8 @@ interface FundFlowData {
   color: string;
 }
 
-interface RiverNode {
-  id: string;
-  name: string;
-  x: number;
-  y: number;
-  flow: number;
-  color: string;
-  layer: 'northbound' | 'main' | 'retail';
-}
-
-interface RiverFlow {
-  from: string;
-  to: string;
-  value: number;
-  color: string;
-}
-
 interface Props {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   useMock?: boolean;
 }
 
@@ -42,24 +26,14 @@ const mockFundData: FundFlowData[] = [
   { layer: '散户资金', sector: '传媒', inflow: 400000000, outflow: 800000000, netFlow: -400000000, color: '#FFB3B5' },
 ];
 
-export function CapitalRiver({ useMock = true }: Props) {
+export function CapitalRiver({ useMock: _useMock = true }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const animationRef = useRef<number>(0);
   const [selectedLayer, setSelectedLayer] = useState<string | null>(null);
   const [isPlaying, setIsPlaying] = useState(true);
   const [hoveredSector, setHoveredSector] = useState<string | null>(null);
   
-  // Particle system for flowing animation
-  const particlesRef = useRef<Array<{
-    x: number;
-    y: number;
-    vx: number;
-    vy: number;
-    life: number;
-    maxLife: number;
-    color: string;
-    size: number;
-  }>>([]);
+  // Particle system for flowing animation (reserved for future use - particle code removed for now)
 
   const getRiverWidth = (flow: number) => {
     const maxWidth = 80;
