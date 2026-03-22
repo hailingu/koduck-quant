@@ -1,5 +1,5 @@
 import { useEffect, useRef, useCallback, useState } from 'react'
-import { createChart, type IChartApi, type CandlestickData, type Time, type AreaSeriesPartialOptions, type CandlestickSeriesPartialOptions } from 'lightweight-charts'
+import { createChart, CandlestickSeries, LineSeries, HistogramSeries, type IChartApi, type CandlestickData, type Time, type CandlestickSeriesPartialOptions } from 'lightweight-charts'
 import { klineApi, type KlineData as ApiKlineData } from '@/api/kline'
 import { useToast } from '@/hooks/useToast'
 
@@ -108,7 +108,7 @@ export default function KLineChart({
     chartRef.current = chart
 
     // Create candlestick series with custom colors
-    const candlestickSeries = chart.addCandlestickSeries({
+    const candlestickSeries = chart.addSeries(CandlestickSeries, {
       upColor: '#00F2FF',
       downColor: '#DE0541',
       borderUpColor: '#00F2FF',
@@ -119,7 +119,7 @@ export default function KLineChart({
     candlestickSeriesRef.current = candlestickSeries
 
     // Create VWAP line series
-    const vwapSeries = chart.addLineSeries({
+    const vwapSeries = chart.addSeries(LineSeries, {
       color: '#FFD81D',
       lineWidth: 2,
       lineStyle: 2, // dashed
@@ -128,7 +128,7 @@ export default function KLineChart({
     vwapSeriesRef.current = vwapSeries
 
     // Create volume histogram
-    const volumeSeries = chart.addHistogramSeries({
+    const volumeSeries = chart.addSeries(HistogramSeries, {
       color: '#00F2FF',
       priceFormat: {
         type: 'volume',
