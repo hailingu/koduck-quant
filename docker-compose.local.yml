@@ -125,6 +125,9 @@ services:
       - OPENAI_API_BASE=${OPENAI_API_BASE:-https://api.openai.com/v1}
       - MINIMAX_API_BASE=${MINIMAX_API_BASE:-https://api.minimax.chat/v1}
       - DEEPSEEK_API_BASE=${DEEPSEEK_API_BASE:-https://api.deepseek.com/v1}
+      # Finnhub US Stock API
+      - FINNHUB_ENABLED=${FINNHUB_ENABLED:-true}
+      - FINNHUB_API_KEY=${FINNHUB_API_KEY:-d6nrnmhr01qse5qmqub0d6nrnmhr01qse5qmqubg}
       # Demo user configuration - disabled by default for security
       # Enable for local testing: APP_DEMO_ENABLED=true
       - APP_DEMO_ENABLED=${APP_DEMO_ENABLED:-true}
