@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
-import { useSearchParams } from 'react-router-dom'
-import { createChart, AreaSeries, LineSeries, HistogramSeries, type Time, type AreaSeriesPartialOptions } from 'lightweight-charts'
+import { useSearchParams, useNavigate } from 'react-router-dom'
+import { createChart, HistogramSeries, type Time } from 'lightweight-charts'
 import KLineChart from '@/components/KLineChart'
 import IntradayChart from '@/components/IntradayChart'
 import WebSocketStatus from '@/components/WebSocketStatus'
@@ -9,6 +9,17 @@ import { useWebSocketStore } from '@/stores/websocket'
 import { marketApi, type PriceQuote } from '@/api/market'
 import { klineApi, type KlineData } from '@/api/kline'
 import { useToast } from '@/hooks/useToast'
+
+// Market definitions
+const MARKETS = [
+  { key: 'AShare', label: 'A股', currency: 'CNY' },
+  { key: 'HK', label: '港股', currency: 'HKD' },
+  { key: 'US', label: '美股', currency: 'USD' },
+  { key: 'Forex', label: '外汇', currency: 'USD' },
+  { key: 'Futures', label: '期货', currency: 'CNY' },
+] as const
+
+type MarketType = typeof MARKETS[number]['key']
 
 // Time & Sales Component
 function TimeAndSales() {
@@ -58,7 +69,7 @@ function VolumeChart({
   timeframe = '1D' 
 }: { 
   symbol: string
-  market?: string
+  market?: MarketType
   timeframe?: string 
 }) {
   const chartContainerRef = useRef<HTMLDivElement>(null)
@@ -135,6 +146,7 @@ function VolumeChart({
         const apiTimeframe = timeframeMap[timeframe] || '1D'
         const response = await klineApi.getKline({
           symbol,
+          market,
           timeframe: apiTimeframe,
           limit: 100,
         })
@@ -167,7 +179,9 @@ function VolumeChart({
 }
 
 // Market Stats Component
-function MarketStats({ quote }: { quote: PriceQuote | null }) {
+function MarketStats({ quote, market }: { quote: PriceQuote | null, market: MarketType }) {
+  const marketInfo = MARKETS.find(m => m.key === market)
+  
   if (!quote) {
     return (
       <div className="glass-panel p-4 rounded-xl">
@@ -190,6 +204,7 @@ function MarketStats({ quote }: { quote: PriceQuote | null }) {
     <div className="glass-panel p-4 rounded-xl">
       <div className="flex items-center justify-between mb-4">
         <span className="text-[10px] font-mono-data text-fluid-text-muted uppercase">Market Stats</span>
+        <span className="text-[10px] font-mono-data text-fluid-primary">{marketInfo?.currency}</span>
       </div>
       <div className="space-y-3">
         <div className="flex justify-between text-xs">
@@ -225,14 +240,85 @@ function MarketStats({ quote }: { quote: PriceQuote | null }) {
   )
 }
 
+// Market Selector Dropdown
+function MarketSelector({ 
+  currentMarket, 
+  onMarketChange 
+}: { 
+  currentMarket: MarketType
+  onMarketChange: (market: MarketType) => void 
+}) {
+  const [isOpen, setIsOpen] = useState(false)
+  const containerRef = useRef<HTMLDivElement>(null)
+  
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+        setIsOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
+  
+  const currentMarketInfo = MARKETS.find(m => m.key === currentMarket)
+  
+  return (
+    <div ref={containerRef} className="relative">
+      <button
+        onClick={() => setIsOpen(!isOpen)}
+        className="flex items-center gap-2 px-3 py-1.5 bg-fluid-surface-container rounded-lg text-xs font-medium text-fluid-text hover:bg-fluid-surface-container-high transition-colors"
+      >
+        <span className="text-fluid-primary font-semibold">{currentMarketInfo?.label}</span>
+        <span className="text-fluid-text-dim">{currentMarketInfo?.currency}</span>
+        <svg 
+          className={`w-3 h-3 text-fluid-text-muted transition-transform ${isOpen ? 'rotate-180' : ''}`} 
+          fill="none" 
+          viewBox="0 0 24 24" 
+          stroke="currentColor"
+        >
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+        </svg>
+      </button>
+      
+      {isOpen && (
+        <div className="absolute top-full left-0 mt-1 w-32 glass-panel rounded-lg shadow-lg overflow-hidden z-50">
+          {MARKETS.map((market) => (
+            <button
+              key={market.key}
+              onClick={() => {
+                onMarketChange(market.key)
+                setIsOpen(false)
+              }}
+              className={`w-full flex items-center justify-between px-3 py-2 text-xs hover:bg-fluid-surface-container-high transition-colors ${
+                currentMarket === market.key ? 'bg-fluid-primary/10 text-fluid-primary' : 'text-fluid-text'
+              }`}
+            >
+              <span className="font-medium">{market.label}</span>
+              <span className="text-fluid-text-dim">{market.currency}</span>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
 export default function Kline() {
   const [searchParams] = useSearchParams()
+  const navigate = useNavigate()
   const { showToast } = useToast()
   
   // Get symbol from URL params or default
   const symbol = searchParams.get('symbol') || '601012'
-  const market = searchParams.get('market') || 'AShare'
+  const marketParam = searchParams.get('market') || 'AShare'
   const name = searchParams.get('name') || '隆基绿能'
+  
+  // Validate market param
+  const validMarkets: MarketType[] = ['AShare', 'HK', 'US', 'Forex', 'Futures']
+  const market: MarketType = validMarkets.includes(marketParam as MarketType) 
+    ? (marketParam as MarketType) 
+    : 'AShare'
   
   const [timeframe, setTimeframe] = useState('daily')
   const [quote, setQuote] = useState<PriceQuote | null>(null)
@@ -250,12 +336,20 @@ export default function Kline() {
     { key: 'monthly', label: '月线' },
   ]
 
+  // Handle market change
+  const handleMarketChange = (newMarket: MarketType) => {
+    // Update URL with new market
+    const params = new URLSearchParams(searchParams)
+    params.set('market', newMarket)
+    navigate(`/kline?${params.toString()}`, { replace: true })
+  }
+
   // Fetch stock quote
   useEffect(() => {
     const fetchQuote = async () => {
       try {
         setLoading(true)
-        const data = await marketApi.getStockDetail(symbol)
+        const data = await marketApi.getStockDetail(symbol, market)
         setQuote(data)
       } catch (err) {
         showToast('Failed to load stock quote', 'error')
@@ -264,7 +358,7 @@ export default function Kline() {
       }
     }
     void fetchQuote()
-  }, [symbol, showToast])
+  }, [symbol, market, showToast])
 
   const isUp = quote ? quote.change >= 0 : false
   const changePercent = quote?.prevClose 
@@ -301,6 +395,10 @@ export default function Kline() {
             <div className="flex items-center gap-3 mb-1">
               <h1 className="text-3xl font-headline font-bold text-fluid-text">{name}</h1>
               <span className="text-lg text-fluid-text-dim font-mono-data">{symbol}</span>
+              
+              {/* Market Selector */}
+              <MarketSelector currentMarket={market} onMarketChange={handleMarketChange} />
+              
               {loading ? (
                 <span className="px-2 py-0.5 bg-fluid-surface-higher text-fluid-text-dim text-xs font-mono-data rounded">
                   --
@@ -404,7 +502,7 @@ export default function Kline() {
       {/* Side Panel - 3 cols */}
       <div className="col-span-3 flex flex-col gap-4">
         <TimeAndSales />
-        <MarketStats quote={quote} />
+        <MarketStats quote={quote} market={market} />
       </div>
     </div>
   )

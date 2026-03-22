@@ -1,4 +1,5 @@
 import request from './request'
+import type { MarketType } from './market'
 
 export interface KlineData {
   timestamp: number
@@ -39,17 +40,19 @@ export interface SearchResult {
 export const klineApi = {
   getKline: (params: {
     symbol: string
+    market?: MarketType
     timeframe: string
     limit?: number
     beforeTime?: number
   }) =>
     request.get<KlineData[]>(`/api/v1/market/stocks/${params.symbol}/kline`, {
       params: {
+        market: params.market ?? 'AShare',
         timeframe: params.timeframe,
         limit: params.limit,
         beforeTime: params.beforeTime,
       },
-      timeout: 30000, // K 
+      timeout: 30000,
     }),
 
   getLatestPrice: (params: { symbol: string; timeframe?: string; market?: string }) =>

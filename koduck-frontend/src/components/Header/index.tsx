@@ -1,6 +1,14 @@
 import { useAuthStore } from '@/stores/auth'
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
+
+const MARKET_LABELS: Record<string, { label: string; currency: string }> = {
+  'AShare': { label: 'A股', currency: 'CNY' },
+  'HK': { label: '港股', currency: 'HKD' },
+  'US': { label: '美股', currency: 'USD' },
+  'Forex': { label: '外汇', currency: 'USD' },
+  'Futures': { label: '期货', currency: 'CNY' },
+}
 
 interface HeaderProps {
   title?: string
@@ -19,7 +27,11 @@ export default function Header({
 }: HeaderProps) {
   const { user } = useAuthStore()
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
   const [searchFocused, setSearchFocused] = useState(false)
+  
+  const currentMarket = searchParams.get('market') || 'AShare'
+  const marketInfo = MARKET_LABELS[currentMarket]
 
   return (
     <header className="fixed top-0 right-0 left-64 z-30 h-16 glass-panel border-b-0 rounded-none flex items-center justify-between px-6">
@@ -47,6 +59,14 @@ export default function Header({
               </button>
             ))}
           </nav>
+        )}
+        
+        {/* Market Badge */}
+        {marketInfo && (
+          <div className="ml-4 flex items-center gap-1.5 px-2.5 py-1 bg-fluid-surface-container rounded-lg">
+            <span className="text-xs font-medium text-fluid-primary">{marketInfo.label}</span>
+            <span className="text-[10px] text-fluid-text-dim">{marketInfo.currency}</span>
+          </div>
         )}
       </div>
 

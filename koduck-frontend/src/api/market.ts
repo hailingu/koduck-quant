@@ -67,14 +67,19 @@ export interface MarketIndex {
   timestamp: string
 }
 
+export type MarketType = 'AShare' | 'HK' | 'US' | 'Forex' | 'Futures'
+
 export const marketApi = {
-  searchSymbols: (keyword: string, page: number = 1, size: number = 20) =>
+  searchSymbols: (keyword: string, market?: MarketType, page: number = 1, size: number = 20) =>
     request.get<SymbolInfo[]>('/api/v1/market/search', {
-      params: { keyword, page, size },
+      params: { keyword, market, page, size },
     }),
 
-  getStockDetail: (symbol: string) =>
-    request.get<PriceQuote>(`/api/v1/market/stocks/${symbol}`, { timeout: 15000 }),
+  getStockDetail: (symbol: string, market: MarketType = 'AShare') =>
+    request.get<PriceQuote>(`/api/v1/market/stocks/${symbol}`, { 
+      params: { market },
+      timeout: 15000 
+    }),
 
   getMarketIndices: () =>
     request.get<MarketIndex[]>('/api/v1/market/indices'),
