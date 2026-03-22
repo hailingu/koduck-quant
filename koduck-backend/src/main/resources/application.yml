@@ -91,9 +91,9 @@ koduck:
 # 注意: 生产环境应设置 app.demo.enabled=false 或不设置 APP_DEMO_PASSWORD
 app:
   demo:
-    enabled: ${APP_DEMO_ENABLED:false}
+    enabled: ${APP_DEMO_ENABLED:true}
     username: ${APP_DEMO_USERNAME:demo}
-    password: ${APP_DEMO_PASSWORD:}  # 启用时必须配置
+    password: ${APP_DEMO_PASSWORD:demo123}
 
 # SpringDoc OpenAPI 配置
 springdoc:
