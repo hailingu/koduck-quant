@@ -5,13 +5,16 @@ import java.time.LocalDateTime;
 
 /**
  * Trade record DTO.
+ * Issue #210: Added status and notes fields
  */
 public record TradeDto(
     Long id,
     String market,
     String symbol,
     String name,
-    String tradeType,
+    String tradeType,    // BUY/SELL
+    String status,       // PENDING/SUCCESS/FAILED/CANCELLED
+    String notes,        // 交易备注
     BigDecimal quantity,
     BigDecimal price,
     BigDecimal amount,
@@ -29,6 +32,8 @@ public record TradeDto(
         private String symbol;
         private String name;
         private String tradeType;
+        private String status = "SUCCESS";  // Default status
+        private String notes;
         private BigDecimal quantity;
         private BigDecimal price;
         private BigDecimal amount;
@@ -60,6 +65,16 @@ public record TradeDto(
             return this;
         }
         
+        public Builder status(String status) {
+            this.status = status;
+            return this;
+        }
+        
+        public Builder notes(String notes) {
+            this.notes = notes;
+            return this;
+        }
+        
         public Builder quantity(BigDecimal quantity) {
             this.quantity = quantity;
             return this;
@@ -86,8 +101,8 @@ public record TradeDto(
         }
         
         public TradeDto build() {
-            return new TradeDto(id, market, symbol, name, tradeType, quantity, price,
-                    amount, tradeTime, createdAt);
+            return new TradeDto(id, market, symbol, name, tradeType, status, notes,
+                    quantity, price, amount, tradeTime, createdAt);
         }
     }
 }
