@@ -120,7 +120,7 @@ function DivergenceAlerts() {
   ]
 
   return (
-    <div className="glass-panel p-6 rounded-xl flex flex-col h-full">
+    <div className="bg-fluid-surface-container-lowest p-6 flex flex-col h-full border-l-[3px] border-l-fluid-tertiary">
       <h2 className="text-lg font-headline font-semibold mb-6 flex items-center gap-2">
         <span className="material-symbols-outlined text-fluid-tertiary">crisis_alert</span>
         Divergence Alerts
@@ -129,10 +129,10 @@ function DivergenceAlerts() {
         {alerts.map((alert, idx) => (
           <div 
             key={idx} 
-            className={`bg-fluid-surface-container-lowest p-4 rounded-lg border-l-[3px] ${
-              alert.type === 'golden' ? 'border-fluid-tertiary' :
-              alert.type === 'negative' ? 'border-fluid-secondary' :
-              'border-fluid-primary'
+            className={`bg-fluid-surface-container-low p-4 border-l-[2px] ${
+              alert.type === 'golden' ? 'border-l-fluid-tertiary' :
+              alert.type === 'negative' ? 'border-l-fluid-secondary' :
+              'border-l-fluid-primary'
             }`}
           >
             <div className="flex justify-between items-start mb-1">
