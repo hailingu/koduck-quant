@@ -129,8 +129,8 @@ function DivergenceAlerts() {
         {alerts.map((alert, idx) => (
           <div 
             key={idx} 
-            className={`bg-fluid-surface-container-low p-4 rounded-lg border-l-4 ${
-              alert.type === 'golden' ? 'border-fluid-tertiary glow-tertiary' :
+            className={`bg-fluid-surface-container-lowest p-4 rounded-lg border-l-[3px] ${
+              alert.type === 'golden' ? 'border-fluid-tertiary' :
               alert.type === 'negative' ? 'border-fluid-secondary' :
               'border-fluid-primary'
             }`}

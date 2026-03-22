@@ -41,25 +41,22 @@ function WarningSystem() {
     <div className="glass-panel p-5 rounded-xl">
       <h3 className="font-headline font-bold text-sm text-fluid-text mb-4">Warning System</h3>
       
-      {/* Golden Pit Alert */}
-      <div className="relative group mb-3">
-        <div className="absolute -inset-0.5 bg-fluid-tertiary rounded-lg blur opacity-20 group-hover:opacity-40 transition duration-500" />
-        <div className="relative flex items-center gap-3 p-4 bg-fluid-surface-container-low rounded-lg border border-fluid-tertiary/30">
-          <span className="material-symbols-outlined text-fluid-tertiary animate-pulse">warning</span>
-          <div>
-            <h4 className="text-[11px] font-bold text-fluid-tertiary uppercase tracking-wider">Golden Pit Detected</h4>
-            <p className="text-[10px] text-fluid-text-muted leading-tight mt-0.5">Price drop on rising net inflow. Accumulation phase.</p>
-          </div>
+      {/* Golden Pit Alert - Left border accent style */}
+      <div className="flex items-center gap-3 p-4 bg-fluid-surface-container-lowest rounded-lg border-l-[3px] border-l-fluid-tertiary mb-3">
+        <div className="flex-1">
+          <h4 className="text-[11px] font-bold text-fluid-tertiary uppercase tracking-wider">Golden Pit Detected</h4>
+          <p className="text-[10px] text-fluid-text-muted leading-tight mt-0.5">Price drop on rising net inflow. Accumulation phase.</p>
         </div>
+        <span className="material-symbols-outlined text-fluid-tertiary">warning</span>
       </div>
       
-      {/* False Breakout Alert */}
-      <div className="flex items-center gap-3 p-4 bg-fluid-surface-container-low rounded-lg border border-fluid-secondary/20">
-        <span className="material-symbols-outlined text-fluid-secondary">trending_down</span>
-        <div>
+      {/* False Breakout Alert - Left border accent style */}
+      <div className="flex items-center gap-3 p-4 bg-fluid-surface-container-lowest rounded-lg border-l-[3px] border-l-fluid-secondary">
+        <div className="flex-1">
           <h4 className="text-[11px] font-bold text-fluid-secondary uppercase tracking-wider">False Breakout</h4>
           <p className="text-[10px] text-fluid-text-muted leading-tight mt-0.5">Price peak on cooling momentum. High reversal risk.</p>
         </div>
+        <span className="material-symbols-outlined text-fluid-secondary">trending_down</span>
       </div>
     </div>
   )
