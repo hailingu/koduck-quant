@@ -1,11 +1,13 @@
 package com.koduck.service.market;
 
+import com.koduck.config.properties.FinnhubProperties;
 import com.koduck.market.MarketType;
 import com.koduck.market.model.KlineData;
 import com.koduck.market.model.TickData;
 import com.koduck.market.provider.MarketDataProvider;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.web.client.RestTemplate;
 
 import java.time.Instant;
 import java.util.List;
@@ -19,17 +21,20 @@ import static org.junit.jupiter.api.Assertions.*;
 class USStockProviderTest {
     
     private USStockProvider provider;
+    private FinnhubProperties properties;
+    private RestTemplate restTemplate;
     
     @BeforeEach
     void setUp() {
-        provider = new USStockProvider();
-        provider.setAvailable(true);
-        provider.setHealthScore(100);
+        properties = new FinnhubProperties();
+        properties.setEnabled(false); // Use mock data for tests
+        restTemplate = new RestTemplate();
+        provider = new USStockProvider(properties, restTemplate);
     }
     
     @Test
     void testGetProviderName() {
-        assertEquals("us-stock-yahoo", provider.getProviderName());
+        assertEquals("finnhub-us-stock", provider.getProviderName());
     }
     
     @Test
@@ -40,20 +45,21 @@ class USStockProviderTest {
     @Test
     void testIsAvailable() {
         assertTrue(provider.isAvailable());
-        
-        provider.setAvailable(false);
-        assertFalse(provider.isAvailable());
     }
     
     @Test
     void testGetHealthScore() {
-        assertEquals(100, provider.getHealthScore());
-        
-        provider.setHealthScore(50);
+        // When not configured, should return mock provider score (50)
         assertEquals(50, provider.getHealthScore());
         
-        provider.setAvailable(false);
-        assertEquals(0, provider.getHealthScore());
+        // When configured but no API key
+        properties.setEnabled(true);
+        assertEquals(50, provider.getHealthScore());
+        
+        // When fully configured
+        properties.setEnabled(true);
+        properties.setApiKey("test-api-key");
+        assertEquals(100, provider.getHealthScore());
     }
     
     @Test
@@ -130,24 +136,6 @@ class USStockProviderTest {
                    status == MarketDataProvider.MarketStatus.CLOSED ||
                    status == MarketDataProvider.MarketStatus.PRE_MARKET ||
                    status == MarketDataProvider.MarketStatus.POST_MARKET);
-    }
-    
-    @Test
-    void testGetKlineDataWhenUnavailable() {
-        provider.setAvailable(false);
-        
-        assertThrows(MarketDataProvider.MarketDataException.class, () -> {
-            provider.getKlineData("AAPL", "1d", 10, null, null);
-        });
-    }
-    
-    @Test
-    void testGetRealTimeTickWhenUnavailable() {
-        provider.setAvailable(false);
-        
-        assertThrows(MarketDataProvider.MarketDataException.class, () -> {
-            provider.getRealTimeTick("AAPL");
-        });
     }
     
     @Test

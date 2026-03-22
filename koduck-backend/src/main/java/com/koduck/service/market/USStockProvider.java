@@ -1,27 +1,37 @@
 package com.koduck.service.market;
 
+import com.koduck.config.properties.FinnhubProperties;
 import com.koduck.market.MarketType;
 import com.koduck.market.model.KlineData;
 import com.koduck.market.model.TickData;
 import com.koduck.market.provider.MarketDataProvider;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.core.ParameterizedTypeReference;
+import org.springframework.http.HttpMethod;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Component;
+import org.springframework.web.client.RestClientException;
+import org.springframework.web.client.RestTemplate;
+import org.springframework.web.util.UriComponentsBuilder;
 
 import java.math.BigDecimal;
 import java.time.*;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ThreadLocalRandom;
 
 /**
- * US Stock market data provider.
+ * US Stock market data provider using Finnhub API.
  * Supports US equities with pre-market and after-hours trading.
+ * 
+ * Free tier limits: 60 calls/minute
  * 
  * Trading Hours (Eastern Time):
  * - Pre-market: 04:00 - 09:30
  * - Regular: 09:30 - 16:00
  * - After-hours: 16:00 - 20:00
+ * 
+ * @see <a href="https://finnhub.io/docs/api">Finnhub API Docs</a>
  */
 @Component
 public class USStockProvider implements MarketDataProvider {
@@ -29,26 +39,18 @@ public class USStockProvider implements MarketDataProvider {
     private static final Logger log = LoggerFactory.getLogger(USStockProvider.class);
     private static final ZoneId US_EASTERN = ZoneId.of("America/New_York");
     
-    private final String providerName = "us-stock-yahoo";
+    private final String providerName = "finnhub-us-stock";
+    private final FinnhubProperties properties;
+    private final RestTemplate restTemplate;
     private final Set<String> subscribedSymbols = ConcurrentHashMap.newKeySet();
-    private volatile boolean available = true;
-    private volatile int healthScore = 100;
     
-    // Cache for mock data generation (consistent prices per symbol)
-    private final Map<String, BigDecimal> basePrices = new ConcurrentHashMap<>();
+    // Fallback to mock data when API is not available
+    private final MockDataProvider mockProvider;
     
-    public USStockProvider() {
-        // Initialize base prices for common US stocks
-        basePrices.put("AAPL", new BigDecimal("175.50"));
-        basePrices.put("MSFT", new BigDecimal("420.00"));
-        basePrices.put("GOOGL", new BigDecimal("165.00"));
-        basePrices.put("AMZN", new BigDecimal("180.00"));
-        basePrices.put("TSLA", new BigDecimal("240.00"));
-        basePrices.put("META", new BigDecimal("500.00"));
-        basePrices.put("NVDA", new BigDecimal("880.00"));
-        basePrices.put("AMD", new BigDecimal("180.00"));
-        basePrices.put("INTC", new BigDecimal("45.00"));
-        basePrices.put("NFLX", new BigDecimal("600.00"));
+    public USStockProvider(FinnhubProperties properties, RestTemplate finnhubRestTemplate) {
+        this.properties = properties;
+        this.restTemplate = finnhubRestTemplate;
+        this.mockProvider = new MockDataProvider();
     }
     
     @Override
@@ -63,12 +65,18 @@ public class USStockProvider implements MarketDataProvider {
     
     @Override
     public boolean isAvailable() {
-        return available;
+        return properties.isReady() || mockProvider.isAvailable();
     }
     
     @Override
     public int getHealthScore() {
-        return healthScore;
+        if (properties.isReady()) {
+            return 100;
+        } else if (properties.isEnabled()) {
+            return 50; // Configured but no API key
+        } else {
+            return mockProvider.getHealthScore();
+        }
     }
     
     @Override
@@ -76,116 +84,117 @@ public class USStockProvider implements MarketDataProvider {
                                          Instant startTime, Instant endTime) 
             throws MarketDataException {
         
-        if (!isAvailable()) {
-            throw new MarketDataException("Provider is not available");
+        if (!properties.isReady()) {
+            log.debug("Finnhub not configured, using mock data for kline");
+            return mockProvider.getKlineData(symbol, timeframe, limit, startTime, endTime);
         }
         
-        log.debug("Getting kline data for US stock: symbol={}, timeframe={}, limit={}", 
-                symbol, timeframe, limit);
-        
-        // Normalize symbol
-        String normalizedSymbol = normalizeSymbol(symbol);
-        
-        // Generate mock kline data
-        List<KlineData> klines = new ArrayList<>();
-        BigDecimal basePrice = getBasePrice(normalizedSymbol);
-        
-        Instant currentTime = endTime != null ? endTime : Instant.now();
-        Duration interval = parseTimeframe(timeframe);
-        
-        BigDecimal currentPrice = basePrice;
-        for (int i = 0; i < limit; i++) {
-            // Generate random price movement (-2% to +2%)
-            double changePercent = (ThreadLocalRandom.current().nextDouble() - 0.5) * 0.04;
-            BigDecimal change = currentPrice.multiply(BigDecimal.valueOf(changePercent));
-            BigDecimal close = currentPrice.add(change);
+        try {
+            String resolution = mapTimeframe(timeframe);
             
-            BigDecimal high = close.multiply(BigDecimal.valueOf(1 + ThreadLocalRandom.current().nextDouble() * 0.01));
-            BigDecimal low = close.multiply(BigDecimal.valueOf(1 - ThreadLocalRandom.current().nextDouble() * 0.01));
-            BigDecimal open = currentPrice;
+            long from = startTime != null ? startTime.getEpochSecond() : 
+                       Instant.now().minusSeconds(86400 * 30).getEpochSecond();
+            long to = endTime != null ? endTime.getEpochSecond() : Instant.now().getEpochSecond();
             
-            long volume = ThreadLocalRandom.current().nextLong(100000, 10000000);
+            String url = UriComponentsBuilder
+                    .fromUriString(properties.getBaseUrl() + "/stock/candle")
+                    .queryParam("symbol", symbol.toUpperCase())
+                    .queryParam("resolution", resolution)
+                    .queryParam("from", from)
+                    .queryParam("to", to)
+                    .queryParam("token", properties.getApiKey())
+                    .toUriString();
             
-            klines.add(KlineData.builder()
-                .symbol(normalizedSymbol)
-                .market(MarketType.US_STOCK.getCode())
-                .timestamp(currentTime)
-                .open(open)
-                .high(high)
-                .low(low)
-                .close(close)
-                .volume(volume)
-                .amount(close.multiply(BigDecimal.valueOf(volume)))
-                .timeframe(timeframe)
-                .build());
+            log.debug("Fetching kline from Finnhub: symbol={}, resolution={}", symbol, resolution);
             
-            currentPrice = close;
-            currentTime = currentTime.minus(interval);
+            ResponseEntity<CandleResponse> response = restTemplate.exchange(
+                    url,
+                    HttpMethod.GET,
+                    null,
+                    CandleResponse.class
+            );
+            
+            CandleResponse body = response.getBody();
+            if (body == null || body.s == null || !body.s.equals("ok")) {
+                throw new MarketDataException("Invalid response from Finnhub: " + 
+                    (body != null ? body.s : "null"));
+            }
+            
+            return convertToKlineData(body, symbol.toUpperCase(), timeframe, limit);
+            
+        } catch (RestClientException e) {
+            log.error("Failed to fetch kline from Finnhub: {}", e.getMessage());
+            // Fallback to mock data
+            return mockProvider.getKlineData(symbol, timeframe, limit, startTime, endTime);
         }
-        
-        // Reverse to have oldest first
-        Collections.reverse(klines);
-        return klines;
     }
     
     @Override
     public Optional<TickData> getRealTimeTick(String symbol) throws MarketDataException {
-        if (!isAvailable()) {
-            throw new MarketDataException("Provider is not available");
+        if (!properties.isReady()) {
+            log.debug("Finnhub not configured, using mock data for tick");
+            return mockProvider.getRealTimeTick(symbol);
         }
         
-        String normalizedSymbol = normalizeSymbol(symbol);
-        BigDecimal basePrice = getBasePrice(normalizedSymbol);
-        
-        // Generate random current price
-        double changePercent = (ThreadLocalRandom.current().nextDouble() - 0.5) * 0.02;
-        BigDecimal price = basePrice.multiply(BigDecimal.valueOf(1 + changePercent));
-        BigDecimal change = price.subtract(basePrice);
-        BigDecimal changePercentValue = change.divide(basePrice, 4, BigDecimal.ROUND_HALF_UP)
-                                              .multiply(BigDecimal.valueOf(100));
-        
-        long volume = ThreadLocalRandom.current().nextLong(1000000, 50000000);
-        
-        TickData tickData = TickData.builder()
-            .symbol(normalizedSymbol)
-            .market(MarketType.US_STOCK.getCode())
-            .timestamp(Instant.now())
-            .price(price)
-            .change(change)
-            .changePercent(changePercentValue)
-            .volume(volume)
-            .amount(price.multiply(BigDecimal.valueOf(volume)))
-            .bidPrice(price.multiply(BigDecimal.valueOf(0.999)))
-            .bidVolume(ThreadLocalRandom.current().nextLong(100, 10000))
-            .askPrice(price.multiply(BigDecimal.valueOf(1.001)))
-            .askVolume(ThreadLocalRandom.current().nextLong(100, 10000))
-            .dayHigh(price.multiply(BigDecimal.valueOf(1.02)))
-            .dayLow(price.multiply(BigDecimal.valueOf(0.98)))
-            .open(basePrice)
-            .prevClose(basePrice)
-            .build();
-        
-        return Optional.of(tickData);
+        try {
+            String url = UriComponentsBuilder
+                    .fromUriString(properties.getBaseUrl() + "/quote")
+                    .queryParam("symbol", symbol.toUpperCase())
+                    .queryParam("token", properties.getApiKey())
+                    .toUriString();
+            
+            log.debug("Fetching quote from Finnhub: symbol={}", symbol);
+            
+            ResponseEntity<QuoteResponse> response = restTemplate.exchange(
+                    url,
+                    HttpMethod.GET,
+                    null,
+                    QuoteResponse.class
+            );
+            
+            QuoteResponse quote = response.getBody();
+            if (quote == null) {
+                return Optional.empty();
+            }
+            
+            TickData tickData = TickData.builder()
+                .symbol(symbol.toUpperCase())
+                .market(MarketType.US_STOCK.getCode())
+                .timestamp(Instant.ofEpochSecond(quote.t))
+                .price(BigDecimal.valueOf(quote.c)) // Current price
+                .change(BigDecimal.valueOf(quote.d)) // Change
+                .changePercent(BigDecimal.valueOf(quote.dp)) // Change percent
+                .open(BigDecimal.valueOf(quote.o))
+                .dayHigh(BigDecimal.valueOf(quote.h))
+                .dayLow(BigDecimal.valueOf(quote.l))
+                .prevClose(BigDecimal.valueOf(quote.pc))
+                .volume(null) // Quote doesn't provide volume
+                .build();
+            
+            return Optional.of(tickData);
+            
+        } catch (RestClientException e) {
+            log.error("Failed to fetch quote from Finnhub: {}", e.getMessage());
+            // Fallback to mock data
+            return mockProvider.getRealTimeTick(symbol);
+        }
     }
     
     @Override
     public void subscribeRealTime(List<String> symbols, RealTimeDataCallback callback) 
             throws MarketDataException {
         
-        if (!isAvailable()) {
-            throw new MarketDataException("Provider is not available");
-        }
-        
-        symbols.forEach(sym -> subscribedSymbols.add(normalizeSymbol(sym)));
+        symbols.forEach(sym -> subscribedSymbols.add(sym.toUpperCase()));
         log.info("Subscribed to {} US stocks for real-time data", symbols.size());
         
-        // In production, this would establish WebSocket connection
+        // Finnhub WebSocket requires separate connection
         // For now, just track subscriptions
+        // In production, implement WebSocket connection to wss://ws.finnhub.io
     }
     
     @Override
     public void unsubscribeRealTime(List<String> symbols) {
-        symbols.forEach(sym -> subscribedSymbols.remove(normalizeSymbol(sym)));
+        symbols.forEach(sym -> subscribedSymbols.remove(sym.toUpperCase()));
         log.info("Unsubscribed from {} US stocks", symbols.size());
     }
     
@@ -200,16 +209,12 @@ public class USStockProvider implements MarketDataProvider {
             return MarketStatus.CLOSED;
         }
         
-        // Market holidays (simplified - would need a proper calendar)
+        // Market holidays (simplified)
         if (isMarketHoliday(now.toLocalDate())) {
             return MarketStatus.CLOSED;
         }
         
         // Trading hours (Eastern Time)
-        // Pre-market: 04:00 - 09:30
-        // Regular: 09:30 - 16:00
-        // After-hours: 16:00 - 20:00
-        
         if (time.isAfter(LocalTime.of(4, 0)) && time.isBefore(LocalTime.of(9, 30))) {
             return MarketStatus.PRE_MARKET;
         } else if ((time.equals(LocalTime.of(9, 30)) || time.isAfter(LocalTime.of(9, 30))) 
@@ -225,93 +230,91 @@ public class USStockProvider implements MarketDataProvider {
     
     @Override
     public List<SymbolInfo> searchSymbols(String keyword, int limit) {
-        // Mock search results for US stocks
-        List<SymbolInfo> results = new ArrayList<>();
-        String upperKeyword = keyword.toUpperCase();
-        
-        Map<String, String> usStocks = Map.of(
-            "AAPL", "Apple Inc.",
-            "MSFT", "Microsoft Corporation",
-            "GOOGL", "Alphabet Inc.",
-            "AMZN", "Amazon.com Inc.",
-            "TSLA", "Tesla Inc.",
-            "META", "Meta Platforms Inc.",
-            "NVDA", "NVIDIA Corporation",
-            "AMD", "Advanced Micro Devices",
-            "INTC", "Intel Corporation",
-            "NFLX", "Netflix Inc."
-        );
-        
-        usStocks.entrySet().stream()
-            .filter(e -> e.getKey().contains(upperKeyword) || 
-                        e.getValue().toUpperCase().contains(upperKeyword))
-            .limit(limit)
-            .forEach(e -> results.add(new SymbolInfo(
-                e.getKey(),
-                e.getValue(),
-                MarketType.US_STOCK.getCode(),
-                "NASDAQ",
-                "stock"
-            )));
-        
-        return results;
-    }
-    
-    /**
-     * Get subscribed symbols
-     */
-    public Set<String> getSubscribedSymbols() {
-        return new HashSet<>(subscribedSymbols);
-    }
-    
-    /**
-     * Set provider availability
-     */
-    public void setAvailable(boolean available) {
-        this.available = available;
-        if (!available) {
-            this.healthScore = 0;
+        if (!properties.isReady()) {
+            return mockProvider.searchSymbols(keyword, limit);
         }
-    }
-    
-    /**
-     * Set health score
-     */
-    public void setHealthScore(int score) {
-        this.healthScore = Math.max(0, Math.min(100, score));
-        this.available = healthScore > 0;
+        
+        try {
+            String url = UriComponentsBuilder
+                    .fromUriString(properties.getBaseUrl() + "/search")
+                    .queryParam("q", keyword)
+                    .queryParam("token", properties.getApiKey())
+                    .toUriString();
+            
+            ResponseEntity<SearchResponse> response = restTemplate.exchange(
+                    url,
+                    HttpMethod.GET,
+                    null,
+                    SearchResponse.class
+            );
+            
+            SearchResponse body = response.getBody();
+            if (body == null || body.result == null) {
+                return Collections.emptyList();
+            }
+            
+            return body.result.stream()
+                    .filter(r -> r.type != null && r.type.equals("Common Stock"))
+                    .limit(limit)
+                    .map(r -> new SymbolInfo(
+                        r.symbol,
+                        r.description,
+                        MarketType.US_STOCK.getCode(),
+                        r.exchange != null ? r.exchange : "NASDAQ",
+                        "stock"
+                    ))
+                    .toList();
+                    
+        } catch (RestClientException e) {
+            log.error("Failed to search symbols from Finnhub: {}", e.getMessage());
+            return mockProvider.searchSymbols(keyword, limit);
+        }
     }
     
     // Helper methods
     
-    private String normalizeSymbol(String symbol) {
-        if (symbol == null || symbol.trim().isEmpty()) {
-            return "";
-        }
-        return symbol.trim().toUpperCase();
-    }
-    
-    private BigDecimal getBasePrice(String symbol) {
-        return basePrices.getOrDefault(symbol, new BigDecimal("100.00"));
-    }
-    
-    private Duration parseTimeframe(String timeframe) {
+    private String mapTimeframe(String timeframe) {
         return switch (timeframe.toLowerCase()) {
-            case "1m" -> Duration.ofMinutes(1);
-            case "5m" -> Duration.ofMinutes(5);
-            case "15m" -> Duration.ofMinutes(15);
-            case "30m" -> Duration.ofMinutes(30);
-            case "1h", "60m" -> Duration.ofHours(1);
-            case "1d", "daily" -> Duration.ofDays(1);
-            case "1w", "weekly" -> Duration.ofDays(7);
-            case "1mth", "monthly" -> Duration.ofDays(30);
-            default -> Duration.ofDays(1);
+            case "1m" -> "1";
+            case "5m" -> "5";
+            case "15m" -> "15";
+            case "30m" -> "30";
+            case "1h", "60m" -> "60";
+            case "1d", "daily" -> "D";
+            case "1w", "weekly" -> "W";
+            case "1mth", "monthly" -> "M";
+            default -> "D";
         };
     }
     
+    private List<KlineData> convertToKlineData(CandleResponse response, String symbol, 
+                                                String timeframe, int limit) {
+        List<KlineData> klines = new ArrayList<>();
+        
+        if (response.t == null || response.t.isEmpty()) {
+            return klines;
+        }
+        
+        int count = Math.min(response.t.size(), limit);
+        for (int i = 0; i < count; i++) {
+            klines.add(KlineData.builder()
+                .symbol(symbol)
+                .market(MarketType.US_STOCK.getCode())
+                .timestamp(Instant.ofEpochSecond(response.t.get(i)))
+                .open(BigDecimal.valueOf(response.o.get(i)))
+                .high(BigDecimal.valueOf(response.h.get(i)))
+                .low(BigDecimal.valueOf(response.l.get(i)))
+                .close(BigDecimal.valueOf(response.c.get(i)))
+                .volume(response.v.get(i).longValue())
+                .amount(BigDecimal.valueOf(response.c.get(i) * response.v.get(i)))
+                .timeframe(timeframe)
+                .build());
+        }
+        
+        return klines;
+    }
+    
     private boolean isMarketHoliday(LocalDate date) {
-        // Simplified holiday check
-        // In production, this would check against a proper market calendar
         int month = date.getMonthValue();
         int day = date.getDayOfMonth();
         DayOfWeek dow = date.getDayOfWeek();
@@ -334,5 +337,196 @@ public class USStockProvider implements MarketDataProvider {
         }
         
         return false;
+    }
+    
+    /**
+     * Get subscribed symbols
+     */
+    public Set<String> getSubscribedSymbols() {
+        return new HashSet<>(subscribedSymbols);
+    }
+    
+    // Finnhub API Response Classes
+    
+    static class CandleResponse {
+        public String s; // Status: "ok" or "no_data"
+        public List<Long> t; // Timestamps
+        public List<Double> o; // Open prices
+        public List<Double> h; // High prices
+        public List<Double> l; // Low prices
+        public List<Double> c; // Close prices
+        public List<Long> v; // Volumes
+    }
+    
+    static class QuoteResponse {
+        public double c;  // Current price
+        public double d;  // Change
+        public double dp; // Change percent
+        public double h;  // High
+        public double l;  // Low
+        public double o;  // Open
+        public double pc; // Previous close
+        public long t;    // Timestamp
+    }
+    
+    static class SearchResponse {
+        public int count;
+        public List<SearchResult> result;
+    }
+    
+    static class SearchResult {
+        public String description;
+        public String displaySymbol;
+        public String symbol;
+        public String type;
+        public String exchange;
+    }
+    
+    /**
+     * Mock data provider for fallback when API is not available
+     */
+    private static class MockDataProvider {
+        private final Map<String, BigDecimal> basePrices = new HashMap<>();
+        
+        MockDataProvider() {
+            basePrices.put("AAPL", new BigDecimal("175.50"));
+            basePrices.put("MSFT", new BigDecimal("420.00"));
+            basePrices.put("GOOGL", new BigDecimal("165.00"));
+            basePrices.put("AMZN", new BigDecimal("180.00"));
+            basePrices.put("TSLA", new BigDecimal("240.00"));
+            basePrices.put("META", new BigDecimal("500.00"));
+            basePrices.put("NVDA", new BigDecimal("880.00"));
+            basePrices.put("AMD", new BigDecimal("180.00"));
+            basePrices.put("INTC", new BigDecimal("45.00"));
+            basePrices.put("NFLX", new BigDecimal("600.00"));
+        }
+        
+        boolean isAvailable() {
+            return true;
+        }
+        
+        int getHealthScore() {
+            return 50;
+        }
+        
+        List<KlineData> getKlineData(String symbol, String timeframe, int limit,
+                                      Instant startTime, Instant endTime) {
+            List<KlineData> klines = new ArrayList<>();
+            BigDecimal basePrice = basePrices.getOrDefault(symbol.toUpperCase(), new BigDecimal("100.00"));
+            
+            Instant currentTime = endTime != null ? endTime : Instant.now();
+            Duration interval = parseTimeframe(timeframe);
+            
+            BigDecimal currentPrice = basePrice;
+            for (int i = 0; i < limit; i++) {
+                double changePercent = (Math.random() - 0.5) * 0.04;
+                BigDecimal change = currentPrice.multiply(BigDecimal.valueOf(changePercent));
+                BigDecimal close = currentPrice.add(change);
+                
+                BigDecimal high = close.multiply(BigDecimal.valueOf(1 + Math.random() * 0.01));
+                BigDecimal low = close.multiply(BigDecimal.valueOf(1 - Math.random() * 0.01));
+                BigDecimal open = currentPrice;
+                
+                long volume = (long) (Math.random() * 9900000 + 100000);
+                
+                klines.add(KlineData.builder()
+                    .symbol(symbol.toUpperCase())
+                    .market(MarketType.US_STOCK.getCode())
+                    .timestamp(currentTime)
+                    .open(open)
+                    .high(high)
+                    .low(low)
+                    .close(close)
+                    .volume(volume)
+                    .amount(close.multiply(BigDecimal.valueOf(volume)))
+                    .timeframe(timeframe)
+                    .build());
+                
+                currentPrice = close;
+                currentTime = currentTime.minus(interval);
+            }
+            
+            Collections.reverse(klines);
+            return klines;
+        }
+        
+        Optional<TickData> getRealTimeTick(String symbol) {
+            BigDecimal basePrice = basePrices.getOrDefault(symbol.toUpperCase(), new BigDecimal("100.00"));
+            
+            double changePercent = (Math.random() - 0.5) * 0.02;
+            BigDecimal price = basePrice.multiply(BigDecimal.valueOf(1 + changePercent));
+            BigDecimal change = price.subtract(basePrice);
+            BigDecimal changePercentValue = change.divide(basePrice, 4, BigDecimal.ROUND_HALF_UP)
+                                                  .multiply(BigDecimal.valueOf(100));
+            
+            long volume = (long) (Math.random() * 49000000 + 1000000);
+            
+            TickData tickData = TickData.builder()
+                .symbol(symbol.toUpperCase())
+                .market(MarketType.US_STOCK.getCode())
+                .timestamp(Instant.now())
+                .price(price)
+                .change(change)
+                .changePercent(changePercentValue)
+                .volume(volume)
+                .amount(price.multiply(BigDecimal.valueOf(volume)))
+                .bidPrice(price.multiply(BigDecimal.valueOf(0.999)))
+                .bidVolume((long) (Math.random() * 9900 + 100))
+                .askPrice(price.multiply(BigDecimal.valueOf(1.001)))
+                .askVolume((long) (Math.random() * 9900 + 100))
+                .dayHigh(price.multiply(BigDecimal.valueOf(1.02)))
+                .dayLow(price.multiply(BigDecimal.valueOf(0.98)))
+                .open(basePrice)
+                .prevClose(basePrice)
+                .build();
+            
+            return Optional.of(tickData);
+        }
+        
+        List<SymbolInfo> searchSymbols(String keyword, int limit) {
+            List<SymbolInfo> results = new ArrayList<>();
+            String upperKeyword = keyword.toUpperCase();
+            
+            Map<String, String> usStocks = Map.of(
+                "AAPL", "Apple Inc.",
+                "MSFT", "Microsoft Corporation",
+                "GOOGL", "Alphabet Inc.",
+                "AMZN", "Amazon.com Inc.",
+                "TSLA", "Tesla Inc.",
+                "META", "Meta Platforms Inc.",
+                "NVDA", "NVIDIA Corporation",
+                "AMD", "Advanced Micro Devices",
+                "INTC", "Intel Corporation",
+                "NFLX", "Netflix Inc."
+            );
+            
+            usStocks.entrySet().stream()
+                .filter(e -> e.getKey().contains(upperKeyword) || 
+                            e.getValue().toUpperCase().contains(upperKeyword))
+                .limit(limit)
+                .forEach(e -> results.add(new SymbolInfo(
+                    e.getKey(),
+                    e.getValue(),
+                    MarketType.US_STOCK.getCode(),
+                    "NASDAQ",
+                    "stock"
+                )));
+            
+            return results;
+        }
+        
+        Duration parseTimeframe(String timeframe) {
+            return switch (timeframe.toLowerCase()) {
+                case "1m" -> Duration.ofMinutes(1);
+                case "5m" -> Duration.ofMinutes(5);
+                case "15m" -> Duration.ofMinutes(15);
+                case "30m" -> Duration.ofMinutes(30);
+                case "1h", "60m" -> Duration.ofHours(1);
+                case "1d", "daily" -> Duration.ofDays(1);
+                case "1w", "weekly" -> Duration.ofDays(7);
+                case "1mth", "monthly" -> Duration.ofDays(30);
+                default -> Duration.ofDays(1);
+            };
+        }
     }
 }
