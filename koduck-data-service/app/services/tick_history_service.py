@@ -6,7 +6,7 @@ including queries, analytics, and maintenance operations.
 
 import logging
 from datetime import datetime, timedelta
-from typing import Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 from dataclasses import dataclass
 
 from app.db import tick_history_db, Database
