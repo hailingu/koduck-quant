@@ -140,13 +140,18 @@ async def get_tick_data(
     - `type`: Transaction type - "buy" or "sell"
     - `flag`: Transaction flag - "NORMAL", "BLOCK_ORDER" (大单), or "ICEBERG"
     """
-    # Validate market
-    valid_markets = ["SH", "SZ", "HK", "US"]
-    if market.upper() not in valid_markets:
+    # Validate market (accept AShare as alias for A-share market)
+    valid_markets = ["SH", "SZ", "HK", "US", "ASHARE", "A_SHARE"]
+    market_upper = market.upper().replace("-", "")
+    if market_upper not in valid_markets:
         raise HTTPException(
             status_code=400,
-            detail=f"Invalid market. Must be one of: {', '.join(valid_markets)}"
+            detail=f"Invalid market. Must be one of: SH, SZ, HK, US, AShare"
         )
+    
+    # Normalize AShare to SH for data generation
+    if market_upper in ["ASHARE", "A_SHARE"]:
+        market = "SH"
     
     # Generate mock tick data
     # In production, this would query actual tick database
