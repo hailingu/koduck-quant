@@ -129,7 +129,7 @@ function DivergenceAlerts() {
         {alerts.map((alert, idx) => (
           <div 
             key={idx} 
-            className={`bg-fluid-surface-container-low p-4 rounded-lg border-l-[3px] ${
+            className={`bg-fluid-surface-container-low p-4 border-l-2 ${
               alert.type === 'golden' ? 'border-l-fluid-tertiary' :
               alert.type === 'negative' ? 'border-l-fluid-secondary' :
               'border-l-fluid-primary'
