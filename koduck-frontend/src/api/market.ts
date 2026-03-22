@@ -69,20 +69,33 @@ export interface MarketIndex {
 
 export type MarketType = 'AShare' | 'HK' | 'US' | 'Forex' | 'Futures'
 
+// Individual function exports for backward compatibility
+export const searchStocks = (keyword: string, market?: MarketType, page: number = 1, size: number = 20) =>
+  request.get<SymbolInfo[]>('/api/v1/market/search', {
+    params: { keyword, market, page, size },
+  })
+
+export const getMarketOverview = () =>
+  request.get<MarketIndex[]>('/api/v1/market/indices')
+
+export const getHotStocks = (market: MarketType = 'AShare', limit: number = 20) =>
+  request.get<SymbolInfo[]>('/api/v1/market/hot', {
+    params: { market, limit },
+  })
+
+export const getStockDetail = (symbol: string, market: MarketType = 'AShare') =>
+  request.get<PriceQuote>(`/api/v1/market/stocks/${symbol}`, { 
+    params: { market },
+    timeout: 15000 
+  })
+
+// Market API object (for new code)
 export const marketApi = {
-  searchSymbols: (keyword: string, market?: MarketType, page: number = 1, size: number = 20) =>
-    request.get<SymbolInfo[]>('/api/v1/market/search', {
-      params: { keyword, market, page, size },
-    }),
+  searchSymbols: searchStocks,
 
-  getStockDetail: (symbol: string, market: MarketType = 'AShare') =>
-    request.get<PriceQuote>(`/api/v1/market/stocks/${symbol}`, { 
-      params: { market },
-      timeout: 15000 
-    }),
+  getStockDetail,
 
-  getMarketIndices: () =>
-    request.get<MarketIndex[]>('/api/v1/market/indices'),
+  getMarketIndices: getMarketOverview,
 
   getStockValuation: (symbol: string) =>
     request.get<StockValuation>(`/api/v1/market/stocks/${symbol}/valuation`, { timeout: 15000 }),
