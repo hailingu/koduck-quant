@@ -15,12 +15,15 @@ from fastapi.responses import JSONResponse
 from app.config import settings
 from app.db import Database
 from app.models.schemas import ApiResponse, HealthStatus
-from app.routers import a_share, ai_analysis, kline, market
+from app.routers import a_share, ai_analysis, kline, market, tick_monitor
 from app.services.data_updater import data_updater, test_icbc_update
 from app.services.kline_initializer import kline_initializer
 from app.services.kline_scheduler import kline_scheduler
 from app.services.stock_basic_manager import stock_basic_manager
 from app.services.stock_initializer import stock_initializer
+from app.services.tick_scheduler import tick_scheduler
+from app.services.tick_monitor import tick_monitor
+from app.services.tick_redis_cache import tick_redis_cache
 
 API_V1_PREFIX = "/api/v1"
 
@@ -201,6 +204,24 @@ async def lifespan(app: FastAPI):
     logger.info("Starting K-line scheduler...")
     await kline_scheduler.start()
     
+    # Start tick scheduler for maintenance tasks
+    if settings.TICK_HISTORY_ENABLED:
+        logger.info("Starting tick scheduler...")
+        await tick_scheduler.start()
+        
+        # Start tick monitor for health monitoring
+        if getattr(settings, 'TICK_MONITOR_ENABLED', True):
+            logger.info("Starting tick monitor...")
+            await tick_monitor.start()
+        
+        # Connect to Redis for tick caching
+        try:
+            logger.info("Connecting to Redis for tick caching...")
+            await tick_redis_cache.connect()
+            logger.info("Redis connection: SUCCESS")
+        except Exception as e:
+            logger.warning(f"Redis connection: FAILED ({e})")
+    
     # Start realtime data update task (update stocks with kline data)
     logger.info("Starting realtime stock data update task (watchlist only)...")
     realtime_task = asyncio.create_task(run_realtime_update_scheduler())
@@ -212,6 +233,13 @@ async def lifespan(app: FastAPI):
     
     # Stop K-line scheduler
     await kline_scheduler.stop()
+    
+    # Stop tick scheduler and monitor
+    if settings.TICK_HISTORY_ENABLED:
+        await tick_scheduler.stop()
+        if getattr(settings, 'TICK_MONITOR_ENABLED', True):
+            await tick_monitor.stop()
+        await tick_redis_cache.close_cache()
     
     realtime_task.cancel()
     try:
@@ -391,6 +419,7 @@ def create_app() -> FastAPI:
     app.include_router(ai_analysis.router, prefix=API_V1_PREFIX)
     app.include_router(kline.router, prefix=API_V1_PREFIX)
     app.include_router(market.router, prefix=API_V1_PREFIX)
+    app.include_router(tick_monitor.router, prefix=API_V1_PREFIX)
 
     @app.middleware("http")
     async def log_healthcheck_requests(request, call_next):

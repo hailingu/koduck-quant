@@ -57,6 +57,20 @@ class Settings(BaseSettings):
     TICK_BATCH_SIZE: int = 100
     TICK_WRITE_ASYNC: bool = True
     TICK_PARTITION_RETENTION_MONTHS: int = 3
+    TICK_PARTITION_MONTHS_AHEAD: int = 3  # Pre-create partitions for N months ahead
+    
+    # Tick Cache Configuration
+    TICK_CACHE_TTL_LATEST: int = 300  # 5 minutes
+    TICK_CACHE_TTL_BATCH: int = 3600  # 1 hour
+    TICK_CACHE_TTL_METRICS: int = 60  # 1 minute
+    
+    # Tick Monitor Configuration
+    TICK_MONITOR_ENABLED: bool = True
+    TICK_MONITOR_INTERVAL_SECONDS: int = 60  # Check interval
+    TICK_MONITOR_MAX_LATENCY_MS: int = 5000  # 5 seconds
+    TICK_MONITOR_MAX_GAP_SECONDS: int = 300  # 5 minutes
+    TICK_MONITOR_MIN_TICKS_PER_HOUR: int = 10
+    TICK_MONITOR_ALERT_COOLDOWN_SECONDS: int = 3600  # 1 hour between same alerts
 
     # Realtime scheduler behavior
     # Default: update only during trading sessions; no updates after market close.
