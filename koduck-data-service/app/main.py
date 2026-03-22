@@ -22,7 +22,7 @@ from app.services.kline_scheduler import kline_scheduler
 from app.services.stock_basic_manager import stock_basic_manager
 from app.services.stock_initializer import stock_initializer
 from app.services.tick_scheduler import tick_scheduler
-from app.services.tick_monitor import tick_monitor
+from app.services.tick_monitor import tick_monitor as tick_monitor_service
 from app.services.tick_redis_cache import tick_redis_cache
 
 API_V1_PREFIX = "/api/v1"
@@ -212,7 +212,7 @@ async def lifespan(app: FastAPI):
         # Start tick monitor for health monitoring
         if getattr(settings, 'TICK_MONITOR_ENABLED', True):
             logger.info("Starting tick monitor...")
-            await tick_monitor.start()
+            await tick_monitor_service.start()
         
         # Connect to Redis for tick caching
         try:
@@ -238,7 +238,7 @@ async def lifespan(app: FastAPI):
     if settings.TICK_HISTORY_ENABLED:
         await tick_scheduler.stop()
         if getattr(settings, 'TICK_MONITOR_ENABLED', True):
-            await tick_monitor.stop()
+            await tick_monitor_service.stop()
         await tick_redis_cache.close_cache()
     
     realtime_task.cancel()
