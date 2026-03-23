@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
-import { createChart, AreaSeries, LineSeries, HistogramSeries, type IChartApi, type Time, type AreaSeriesPartialOptions } from 'lightweight-charts'
+import { createChart, AreaSeries, LineSeries, HistogramSeries, TickMarkType, type IChartApi, type Time, type AreaSeriesPartialOptions } from 'lightweight-charts'
 import { klineApi, type KlineData } from '@/api/kline'
 import { useWebSocketStore } from '@/stores/websocket'
 import { useToast } from '@/hooks/useToast'
@@ -10,17 +10,56 @@ interface IntradayChartProps {
   height?: number
 }
 
-// Convert Beijing timestamp to local timezone timestamp for display
-function beijingToLocalTimestamp(beijingTs: number): number {
-  const beijingOffset = -480; // Beijing is UTC+8 (480 minutes ahead)
-  const localOffset = new Date().getTimezoneOffset(); // Local timezone offset from UTC (minutes)
-  return beijingTs - beijingOffset * 60 + localOffset * 60;
+function formatTimeInBeijing(time: Time): string {
+  if (typeof time !== 'number') return ''
+  const date = new Date(time * 1000)
+  const parts = new Intl.DateTimeFormat('zh-CN', {
+    timeZone: 'Asia/Shanghai',
+    hour12: false,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+  }).formatToParts(date)
+  const get = (type: string) => parts.find((p) => p.type === type)?.value ?? ''
+  return `${get('year')}-${get('month')}-${get('day')} ${get('hour')}:${get('minute')}:${get('second')}`
+}
+
+function formatTickInBeijing(time: Time, tickMarkType: TickMarkType): string {
+  if (typeof time !== 'number') return ''
+  const date = new Date(time * 1000)
+  const parts = new Intl.DateTimeFormat('zh-CN', {
+    timeZone: 'Asia/Shanghai',
+    hour12: false,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+  }).formatToParts(date)
+  const get = (type: string) => parts.find((p) => p.type === type)?.value ?? ''
+  const yyyy = get('year')
+  const MM = get('month')
+  const dd = get('day')
+  const HH = get('hour')
+  const mm = get('minute')
+  const ss = get('second')
+
+  if (tickMarkType === TickMarkType.Year) return yyyy
+  if (tickMarkType === TickMarkType.Month) return `${yyyy}-${MM}`
+  if (tickMarkType === TickMarkType.DayOfMonth) return `${MM}-${dd}`
+  if (tickMarkType === TickMarkType.TimeWithSeconds) return `${HH}:${mm}:${ss}`
+  if (tickMarkType === TickMarkType.Time) return `${HH}:${mm}`
+  return `${yyyy}-${MM}-${dd} ${HH}:${mm}`
 }
 
 // Convert KlineData to line chart format
 function convertToLineData(data: KlineData[]) {
   return data.map((item) => ({
-    time: beijingToLocalTimestamp(item.timestamp) as Time,
+    time: item.timestamp as Time,
     value: item.close,
   }))
 }
@@ -29,7 +68,7 @@ function convertToLineData(data: KlineData[]) {
 function convertToVolumeData(data: KlineData[]) {
   const maxVol = Math.max(...data.map(d => d.volume))
   return data.map((item) => ({
-    time: beijingToLocalTimestamp(item.timestamp) as Time,
+    time: item.timestamp as Time,
     value: item.volume,
     color: item.close >= item.open 
       ? `rgba(0, 242, 255, ${0.3 + (item.volume / maxVol) * 0.4})` 
@@ -93,6 +132,12 @@ export default function IntradayChart({
         borderColor: 'rgba(132, 148, 149, 0.2)',
         timeVisible: true,
         secondsVisible: false,
+        tickMarkFormatter: (time: Time, tickMarkType: TickMarkType) =>
+          formatTickInBeijing(time, tickMarkType),
+      },
+      localization: {
+        locale: 'zh-CN',
+        timeFormatter: (time: Time) => formatTimeInBeijing(time),
       },
       handleScroll: { vertTouchDrag: false },
     })
@@ -165,8 +210,8 @@ export default function IntradayChart({
     if (!priceUpdate || !areaSeriesRef.current || lastDataRef.current.length === 0) return
     
     const lastData = lastDataRef.current[lastDataRef.current.length - 1]
-    const lastTime = beijingToLocalTimestamp(lastData.timestamp)
-    const updateTime = beijingToLocalTimestamp(Math.floor(priceUpdate.timestamp / 1000))  // WebSocket uses milliseconds
+    const lastTime = lastData.timestamp
+    const updateTime = Math.floor(priceUpdate.timestamp / 1000)  // WebSocket uses milliseconds
     
     // Same minute bucket - update
     if (Math.floor(priceUpdate.timestamp / 1000 / 60) === Math.floor(lastData.timestamp / 60)) {
@@ -214,7 +259,7 @@ export default function IntradayChart({
           const totalTPV = slice.reduce((sum, d) => sum + ((d.high + d.low + d.close) / 3) * d.volume, 0)
           const totalVol = slice.reduce((sum, d) => sum + d.volume, 0)
           return {
-            time: beijingToLocalTimestamp(item.timestamp) as Time,
+            time: item.timestamp as Time,
             value: totalVol > 0 ? totalTPV / totalVol : item.close,
           }
         })

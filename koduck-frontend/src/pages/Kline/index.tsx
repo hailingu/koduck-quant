@@ -22,12 +22,8 @@ const MARKETS = [
 
 type MarketType = typeof MARKETS[number]['key']
 
-// Convert Beijing timestamp to local timezone timestamp for display
-// Backend returns timestamps in Asia/Shanghai timezone (UTC+8)
 function beijingToLocalTimestamp(beijingTs: number): number {
-  const beijingOffset = -480; // Beijing is UTC+8 (480 minutes ahead)
-  const localOffset = new Date().getTimezoneOffset(); // Local timezone offset from UTC (minutes)
-  return beijingTs - beijingOffset * 60 + localOffset * 60;
+  return beijingTs
 }
 
 // Format timestamp for display

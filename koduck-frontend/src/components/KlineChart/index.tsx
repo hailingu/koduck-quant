@@ -1,5 +1,5 @@
 import { useEffect, useRef, useCallback, useState } from 'react'
-import { createChart, AreaSeries, LineSeries, HistogramSeries, type BusinessDay, type IChartApi, type Time, type AreaSeriesPartialOptions } from 'lightweight-charts'
+import { createChart, AreaSeries, LineSeries, HistogramSeries, TickMarkType, type BusinessDay, type IChartApi, type Time, type AreaSeriesPartialOptions } from 'lightweight-charts'
 import { klineApi, type KlineData as ApiKlineData } from '@/api/kline'
 import { useToast } from '@/hooks/useToast'
 import { useWebSocketStore } from '@/stores/websocket'
@@ -9,15 +9,6 @@ interface KLineChartProps {
   market?: string
   timeframe?: string
   height?: number
-}
-
-// Convert Beijing timestamp to local timezone timestamp for display
-// Backend returns timestamps in Asia/Shanghai timezone (UTC+8)
-function beijingToLocalTimestamp(beijingTs: number): number {
-  const beijingOffset = -480; // Beijing is UTC+8 (480 minutes ahead)
-  const localOffset = new Date().getTimezoneOffset(); // Local timezone offset from UTC (minutes)
-  // Convert: Beijing -> UTC -> Local
-  return beijingTs - beijingOffset * 60 + localOffset * 60;
 }
 
 function toBeijingBusinessDay(beijingTs: number): BusinessDay {
@@ -33,7 +24,47 @@ function toChartTime(beijingTs: number, apiTimeframe: string): Time {
   if (apiTimeframe === '1D' || apiTimeframe === '1W' || apiTimeframe === '1M') {
     return toBeijingBusinessDay(beijingTs) as Time
   }
-  return beijingToLocalTimestamp(beijingTs) as Time
+  return beijingTs as Time
+}
+
+function timeToEpochSeconds(time: Time): number {
+  if (typeof time === 'number') return time
+  const businessDay = time as BusinessDay
+  return Math.floor(Date.UTC(businessDay.year, businessDay.month - 1, businessDay.day) / 1000)
+}
+
+function formatTimeInBeijing(time: Time, tickMarkType?: TickMarkType): string {
+  if (typeof time !== 'number') {
+    const b = time as BusinessDay
+    return `${b.year}-${String(b.month).padStart(2, '0')}-${String(b.day).padStart(2, '0')}`
+  }
+
+  const ms = timeToEpochSeconds(time) * 1000
+  const beijingDate = new Date(ms)
+  const parts = new Intl.DateTimeFormat('zh-CN', {
+    timeZone: 'Asia/Shanghai',
+    hour12: false,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+  }).formatToParts(beijingDate)
+  const get = (type: string) => parts.find((p) => p.type === type)?.value ?? ''
+  const yyyy = get('year')
+  const MM = get('month')
+  const dd = get('day')
+  const HH = get('hour')
+  const mm = get('minute')
+  const ss = get('second')
+
+  if (tickMarkType === TickMarkType.Year) return yyyy
+  if (tickMarkType === TickMarkType.Month) return `${yyyy}-${MM}`
+  if (tickMarkType === TickMarkType.DayOfMonth) return `${MM}-${dd}`
+  if (tickMarkType === TickMarkType.TimeWithSeconds) return `${HH}:${mm}:${ss}`
+  if (tickMarkType === TickMarkType.Time) return `${HH}:${mm}`
+  return `${yyyy}-${MM}-${dd} ${HH}:${mm}`
 }
 
 // Convert API data to line/area chart format (using close price)
@@ -152,6 +183,12 @@ export default function KLineChart({
         fixLeftEdge: shouldFixLeftEdge,
         fixRightEdge: shouldFixRightEdge,
         rightOffset: 0,
+        tickMarkFormatter: (time: Time, tickMarkType: TickMarkType) =>
+          formatTimeInBeijing(time, tickMarkType),
+      },
+      localization: {
+        locale: 'zh-CN',
+        timeFormatter: (time: Time) => formatTimeInBeijing(time),
       },
     })
     debugLog('interaction_mode_applied', {
@@ -229,6 +266,12 @@ export default function KLineChart({
         secondsVisible: false,
         fixLeftEdge: false,
         fixRightEdge: false,
+        tickMarkFormatter: (time: Time, tickMarkType: TickMarkType) =>
+          formatTimeInBeijing(time, tickMarkType),
+      },
+      localization: {
+        locale: 'zh-CN',
+        timeFormatter: (time: Time) => formatTimeInBeijing(time),
       },
       handleScroll: {
         mouseWheel: true,
