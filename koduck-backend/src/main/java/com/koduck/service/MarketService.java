@@ -28,6 +28,14 @@ public interface MarketService {
     List<SymbolInfoDto> searchSymbols(String keyword, int page, int size);
     
     /**
+     * Get hot stocks by trading volume.
+     * @param market market code (e.g., "AShare")
+     * @param limit number of stocks to return
+     * @return list of hot stocks ordered by volume
+     */
+    List<SymbolInfoDto> getHotStocks(String market, int limit);
+    
+    /**
      * （）
      *
      * @param symbol 

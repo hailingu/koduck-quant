@@ -65,9 +65,9 @@ export const klineApi = {
       timeout: 10000,
     }),
 
-  searchStocks: (keyword: string, limit: number = 20) =>
+  searchStocks: (keyword: string, size: number = 20) =>
     request.get<SearchResult[]>('/api/v1/market/search', {
-      params: { keyword, limit },
+      params: { keyword, size },
       timeout: 10000,
     }),
 }

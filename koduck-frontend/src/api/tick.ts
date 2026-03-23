@@ -108,7 +108,7 @@ export async function getTickData(
   symbol: string,
   limit: number = 50
 ): Promise<Tick[]> {
-  return apiClient.get<Tick[]>(`/market/ticks`, {
+  return apiClient.get<Tick[]>(`/api/v1/market/ticks`, {
     params: { market, symbol, limit }
   });
 }
@@ -117,7 +117,7 @@ export async function getTickData(
  * Get today's tick summary statistics
  */
 export async function getTickSummary(market: string, symbol: string): Promise<TickSummary> {
-  return apiClient.get<TickSummary>(`/market/ticks/summary`, {
+  return apiClient.get<TickSummary>(`/api/v1/market/ticks/summary`, {
     params: { market, symbol }
   });
 }
@@ -126,7 +126,7 @@ export async function getTickSummary(market: string, symbol: string): Promise<Ti
  * Get market statistics and liquidity indicators
  */
 export async function getMarketStats(market: string, symbol: string): Promise<MarketStats> {
-  return apiClient.get<MarketStats>(`/market/stats`, {
+  return apiClient.get<MarketStats>(`/api/v1/market/stats`, {
     params: { market, symbol }
   });
 }
@@ -139,7 +139,7 @@ export async function getMarketDepth(
   symbol: string,
   levels: number = 10
 ): Promise<MarketDepth> {
-  return apiClient.get<MarketDepth>(`/market/stats/depth`, {
+  return apiClient.get<MarketDepth>(`/api/v1/market/stats/depth`, {
     params: { market, symbol, levels }
   });
 }
@@ -174,12 +174,18 @@ export const tickApi = {
 
   /**
    * Get tick statistics for a symbol
+   * Returns default values if no tick data available
    */
   async getTickStatistics(
     symbol: string,
     params: { market: string }
-  ): Promise<TickStatistics> {
+  ): Promise<TickStatistics | null> {
     const summary = await getTickSummary(params.market, symbol);
+    
+    // Return null if no tick data available
+    if (!summary) {
+      return null;
+    }
     
     return {
       symbol: summary.symbol,

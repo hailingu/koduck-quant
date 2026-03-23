@@ -416,6 +416,78 @@ public class MarketServiceImpl implements MarketService {
                 .toList();
     }
     
+    /**
+     * Get hot stocks by trading volume.
+     * Returns stocks ordered by trading volume descending.
+     *
+     * @param market market code (e.g., "AShare")
+     * @param limit number of stocks to return
+     * @return list of hot stocks
+     */
+    @Override
+    public List<SymbolInfoDto> getHotStocks(String market, int limit) {
+        log.debug("Getting hot stocks: market={}, limit={}", market, limit);
+        
+        try {
+            // Get stocks ordered by volume from database
+            List<StockRealtime> hotStocks = stockRealtimeRepository.findTopByVolume(limit);
+            
+            if (hotStocks.isEmpty()) {
+                log.warn("No hot stocks found in database");
+                return Collections.emptyList();
+            }
+            
+            // Get symbols for batch lookup of basic info
+            List<String> symbols = hotStocks.stream()
+                    .map(StockRealtime::getSymbol)
+                    .toList();
+            
+            // Get basic info for these stocks
+            List<StockBasic> basics = stockBasicRepository.findBySymbolIn(symbols);
+            Map<String, StockBasic> basicMap = basics.stream()
+                    .collect(Collectors.toMap(StockBasic::getSymbol, Function.identity(), (a, b) -> a));
+            
+            // Map to DTOs
+            return hotStocks.stream()
+                    .map(realtime -> mapRealtimeToSymbolInfoDto(realtime, basicMap.get(realtime.getSymbol()), market))
+                    .filter(dto -> dto != null)
+                    .limit(limit)
+                    .toList();
+                    
+        } catch (Exception e) {
+            log.error("Error getting hot stocks: market={}, limit={}, error={}", market, limit, e.getMessage(), e);
+            return Collections.emptyList();
+        }
+    }
+    
+    private SymbolInfoDto mapRealtimeToSymbolInfoDto(StockRealtime realtime, StockBasic basic, String defaultMarket) {
+        if (realtime == null) {
+            return null;
+        }
+        
+        String market = defaultMarket;
+        String name = realtime.getName();
+        
+        if (basic != null) {
+            if (basic.getMarket() != null && !basic.getMarket().isBlank()) {
+                market = basic.getMarket();
+            }
+            if (basic.getName() != null && !basic.getName().isBlank()) {
+                name = basic.getName();
+            }
+        }
+        
+        return SymbolInfoDto.builder()
+                .symbol(realtime.getSymbol())
+                .name(name)
+                .market(market)
+                .price(realtime.getPrice())
+                .changePercent(realtime.getChangePercent())
+                .volume(realtime.getVolume())
+                .amount(realtime.getAmount())
+                .build();
+    }
+    
     // ============ Mapping Methods ============
     
     private SymbolInfoDto mapToSymbolInfoDto(StockBasic basic, StockRealtime realtime) {

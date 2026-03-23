@@ -1,9 +1,4 @@
-﻿
-# ==========================================
-# Docker Compose 配置 (本地 JAR 模式)
-# ==========================================
-# 用于网络问题无法构建镜像时的临时方案
-# 需要先本地构建: cd koduck-backend && mvn clean package -DskipTests
+version: '3.8'
 
 services:
   # PostgreSQL Database
@@ -51,7 +46,7 @@ services:
   data-service:
     build:
       context: ./koduck-data-service
-      dockerfile: Dockerfile
+      # dockerfile: Dockerfile
       args:
         - PIP_INDEX_URL=${PIP_INDEX_URL:-https://pypi.org/simple}
     container_name: koduck-data-service
@@ -71,36 +66,34 @@ services:
       # Eastmoney Client Settings
       - EASTMONEY_COOKIE_TTL=3600
       - EASTMONEY_MIN_REQUEST_INTERVAL=3.0
-      # Timezone for scheduled tasks
+      # Timezone for scheduled tasks (market hours in Shanghai)
       - TZ=Asia/Shanghai
       # K-line scheduler configuration
       - KLINE_CHECK_INTERVAL=3600
       - KLINE_UPDATE_TIME=15:35
     volumes:
-      # Mount local code for development (code changes take effect immediately)
-      - ./koduck-data-service/app:/app/app:ro
       # Mount K-line data for persistence (rw: container can update CSV)
       - ./koduck-data-service/data:/app/data
       # Mount logs directory
       - ./koduck-data-service/logs:/app/logs
     depends_on:
+      postgresql:
+        condition: service_healthy
       redis:
         condition: service_healthy
     restart: unless-stopped
     networks:
       - koduck-network
     healthcheck:
-      test: ["CMD", "python", "-c", "import requests; requests.get('http://localhost:8000/health')"]
+      test: ["CMD", "python", "-c", "import httpx; httpx.get('http://localhost:8000/health', timeout=5.0)"]
       interval: 30s
       timeout: 10s
       retries: 3
-      start_period: 5s
+      start_period: 60s
 
-  # Java Backend (Build in Container)
+  # Java Backend
   backend:
-    build:
-      context: ./koduck-backend
-      dockerfile: Dockerfile.build
+    image: koduck-backend:local
     container_name: koduck-backend
     ports:
       - "8080:8080"
@@ -130,9 +123,9 @@ services:
       - FINNHUB_API_KEY=${FINNHUB_API_KEY:-d6nrnmhr01qse5qmqub0d6nrnmhr01qse5qmqubg}
       # Demo user configuration - disabled by default for security
       # Enable for local testing: APP_DEMO_ENABLED=true
-      - APP_DEMO_ENABLED=${APP_DEMO_ENABLED:-true}
-      - APP_DEMO_USERNAME=${APP_DEMO_USERNAME:-demo}
-      - APP_DEMO_PASSWORD=${APP_DEMO_PASSWORD:-demo123}
+      # APP_DEMO_ENABLED=${APP_DEMO_ENABLED:-false}
+      # APP_DEMO_USERNAME=${APP_DEMO_USERNAME:-demo}
+      # APP_DEMO_PASSWORD=${APP_DEMO_PASSWORD:-}
     depends_on:
       postgresql:
         condition: service_healthy
@@ -154,14 +147,14 @@ services:
   agent:
     build:
       context: ./koduck-agent
-      dockerfile: Dockerfile
+      # dockerfile: Dockerfile
     container_name: koduck-agent
     ports:
       - "8001:8000"
     environment:
-      - GPT_API_KEY=${GPT_API_KEY:-sk-nMf377d662a0487d39595169052ff392f1024eb9eb6DrB2R}
+      - GPT_API_KEY=${GPT_API_KEY:-}
       - OPENAI_API_KEY=${OPENAI_API_KEY:-}
-      - MINIMAX_API_KEY=${MINIMAX_API_KEY:-sk-cp-Q8Vqg-HD-PcTNZjr89vtizXmVuJpGYGwKKdcGLUcS27OQAbe5Air88GCtBZyh8E04QPweg3XU_W5Tx7D5i4OWlk_G_fOajMdBxMiE9hikmLGYP3DYjiR_5k}
+      - MINIMAX_API_KEY=${MINIMAX_API_KEY:-}
       - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY:-}
       - POSTGRES_HOST=postgresql
       - POSTGRES_PORT=5432
@@ -180,11 +173,6 @@ services:
     restart: unless-stopped
     networks:
       - koduck-network
-    depends_on:
-      postgresql:
-        condition: service_healthy
-      backend:
-        condition: service_healthy
     healthcheck:
       test: ["CMD", "python", "-c", "import httpx; httpx.get('http://localhost:8000/health', timeout=5.0)"]
       interval: 30s
@@ -196,7 +184,7 @@ services:
   frontend:
     build:
       context: ./koduck-frontend
-      dockerfile: Dockerfile
+      # dockerfile: Dockerfile
       args:
         - VITE_API_BASE_URL=
     container_name: koduck-frontend
@@ -205,6 +193,8 @@ services:
     environment:
       - NGINX_BACKEND_URL=http://backend:8080
     depends_on:
+      postgresql:
+        condition: service_healthy
       backend:
         condition: service_healthy
     restart: unless-stopped

@@ -10,10 +10,17 @@ interface IntradayChartProps {
   height?: number
 }
 
+// Convert Beijing timestamp to local timezone timestamp for display
+function beijingToLocalTimestamp(beijingTs: number): number {
+  const beijingOffset = -480; // Beijing is UTC+8 (480 minutes ahead)
+  const localOffset = new Date().getTimezoneOffset(); // Local timezone offset from UTC (minutes)
+  return beijingTs - beijingOffset * 60 + localOffset * 60;
+}
+
 // Convert KlineData to line chart format
 function convertToLineData(data: KlineData[]) {
   return data.map((item) => ({
-    time: Math.floor(item.timestamp / 1000) as Time,
+    time: beijingToLocalTimestamp(item.timestamp) as Time,
     value: item.close,
   }))
 }
@@ -22,7 +29,7 @@ function convertToLineData(data: KlineData[]) {
 function convertToVolumeData(data: KlineData[]) {
   const maxVol = Math.max(...data.map(d => d.volume))
   return data.map((item) => ({
-    time: Math.floor(item.timestamp / 1000) as Time,
+    time: beijingToLocalTimestamp(item.timestamp) as Time,
     value: item.volume,
     color: item.close >= item.open 
       ? `rgba(0, 242, 255, ${0.3 + (item.volume / maxVol) * 0.4})` 
@@ -158,11 +165,11 @@ export default function IntradayChart({
     if (!priceUpdate || !areaSeriesRef.current || lastDataRef.current.length === 0) return
     
     const lastData = lastDataRef.current[lastDataRef.current.length - 1]
-    const lastTime = Math.floor(lastData.timestamp / 1000)
-    const updateTime = Math.floor(priceUpdate.timestamp / 1000)
+    const lastTime = beijingToLocalTimestamp(lastData.timestamp)
+    const updateTime = beijingToLocalTimestamp(Math.floor(priceUpdate.timestamp / 1000))  // WebSocket uses milliseconds
     
     // Same minute bucket - update
-    if (Math.floor(updateTime / 60) === Math.floor(lastTime / 60)) {
+    if (Math.floor(priceUpdate.timestamp / 1000 / 60) === Math.floor(lastData.timestamp / 60)) {
       areaSeriesRef.current.update({
         time: lastTime as Time,
         value: priceUpdate.price,
@@ -192,26 +199,29 @@ export default function IntradayChart({
       })
       
       if (response && response.length > 0) {
-        lastDataRef.current = response
+        // Sort data by timestamp ascending (oldest first)
+        const sortedResponse = [...response].sort((a, b) => a.timestamp - b.timestamp)
+        
+        lastDataRef.current = sortedResponse
         
         // Set price data
-        const lineData = convertToLineData(response)
+        const lineData = convertToLineData(sortedResponse)
         areaSeriesRef.current.setData(lineData)
         
         // Calculate and set average price (cumulative VWAP)
-        const avgData = response.map((item, index) => {
-          const slice = response.slice(0, index + 1)
+        const avgData = sortedResponse.map((item, index) => {
+          const slice = sortedResponse.slice(0, index + 1)
           const totalTPV = slice.reduce((sum, d) => sum + ((d.high + d.low + d.close) / 3) * d.volume, 0)
           const totalVol = slice.reduce((sum, d) => sum + d.volume, 0)
           return {
-            time: Math.floor(item.timestamp / 1000) as Time,
+            time: beijingToLocalTimestamp(item.timestamp) as Time,
             value: totalVol > 0 ? totalTPV / totalVol : item.close,
           }
         })
         avgLineRef.current?.setData(avgData)
         
         // Set volume data
-        const volumeData = convertToVolumeData(response)
+        const volumeData = convertToVolumeData(sortedResponse)
         volumeSeriesRef.current?.setData(volumeData)
         
         // Fit content

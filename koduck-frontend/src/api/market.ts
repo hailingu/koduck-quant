@@ -70,9 +70,9 @@ export interface MarketIndex {
 export type MarketType = 'AShare' | 'HK' | 'US' | 'Forex' | 'Futures'
 
 // Individual function exports for backward compatibility
-export const searchStocks = (keyword: string, market?: MarketType, page: number = 1, size: number = 20) =>
+export const searchStocks = (keyword: string, page: number = 1, size: number = 20) =>
   request.get<SymbolInfo[]>('/api/v1/market/search', {
-    params: { keyword, market, page, size },
+    params: { keyword, page, size },
   })
 
 export const getMarketOverview = () =>

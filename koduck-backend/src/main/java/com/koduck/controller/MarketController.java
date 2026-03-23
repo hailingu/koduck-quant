@@ -24,6 +24,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
@@ -229,6 +230,28 @@ public class MarketController {
         List<MarketIndexDto> indices = marketService.getMarketIndices();
         return ApiResponse.success(indices);
     }
+    
+    /**
+     * Get hot stocks by trading volume.
+     * <p>Returns the most actively traded stocks ordered by volume.</p>
+     *
+     * @param market market code, defaults to AShare
+     * @param limit number of stocks to return (default 20, max 100)
+     * @return list of hot stocks
+     */
+    @GetMapping("/hot")
+    public ApiResponse<List<SymbolInfoDto>> getHotStocks(
+            @RequestParam(defaultValue = "AShare") String market,
+            @RequestParam(defaultValue = "20") 
+            @Min(value = 1, message = "每页数量最小为 1") 
+            @Max(value = 100, message = "每页数量最大为 100") 
+            Integer limit) {
+        
+        log.info("GET /api/v1/market/hot?market={}&limit={}", market, limit);
+        
+        List<SymbolInfoDto> hotStocks = marketService.getHotStocks(market, limit);
+        return ApiResponse.success(hotStocks);
+    }
 
     /**
      * Get sector network data for correlation graph.
@@ -266,6 +289,62 @@ public class MarketController {
         return ApiResponse.success(quotes);
     }
 
+    /**
+     * Get tick-by-tick transaction data
+     * Note: A-share Level-1 only provides 3-5s snapshots
+     * Returns empty list if no real tick data available
+     */
+    @GetMapping("/ticks")
+    public ApiResponse<List<TickDto>> getTickData(
+            @RequestParam String market,
+            @RequestParam String symbol,
+            @RequestParam(defaultValue = "50") @Min(1) @Max(500) Integer limit) {
+        
+        log.info("GET /api/v1/market/ticks: market={}, symbol={}, limit={}", market, symbol, limit);
+        
+        // TODO: In production, fetch from real tick data source (e.g., stock_tick table)
+        // For now, return empty list to indicate no tick data available
+        return ApiResponse.success(List.of());
+    }
+
+    /**
+     * Get tick summary statistics
+     * Returns null if no real tick data available
+     */
+    @GetMapping("/ticks/summary")
+    public ApiResponse<TickSummaryDto> getTickSummary(
+            @RequestParam String market,
+            @RequestParam String symbol) {
+        
+        log.info("GET /api/v1/market/ticks/summary: market={}, symbol={}", market, symbol);
+        
+        // TODO: In production, fetch from real tick data source
+        // For now, return null to indicate no tick data available
+        return ApiResponse.success(null);
+    }
+
+    // Tick DTO records
+    public record TickDto(
+        String time,
+        double price,
+        int size,
+        double amount,
+        String type,
+        String flag
+    ) {}
+    
+    public record TickSummaryDto(
+        String symbol,
+        String market,
+        int totalTrades,
+        long totalVolume,
+        java.math.BigDecimal totalAmount,
+        long buyVolume,
+        long sellVolume,
+        int blockOrderCount,
+        double avgTradeSize,
+        String lastUpdated
+    ) {}
 
     private List<KlineDataDto> waitForKlineData(
             String market,

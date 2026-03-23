@@ -22,6 +22,14 @@ const MARKETS = [
 
 type MarketType = typeof MARKETS[number]['key']
 
+// Convert Beijing timestamp to local timezone timestamp for display
+// Backend returns timestamps in Asia/Shanghai timezone (UTC+8)
+function beijingToLocalTimestamp(beijingTs: number): number {
+  const beijingOffset = -480; // Beijing is UTC+8 (480 minutes ahead)
+  const localOffset = new Date().getTimezoneOffset(); // Local timezone offset from UTC (minutes)
+  return beijingTs - beijingOffset * 60 + localOffset * 60;
+}
+
 // Format timestamp for display
 function formatTickTime(timestamp: number): string {
   const date = new Date(timestamp)
@@ -84,14 +92,14 @@ function TimeAndSales({
       const sortedTicks = [...response.data].sort((a, b) => b.timestamp - a.timestamp)
       setTicks(sortedTicks)
       
-      // Fetch statistics
+      // Fetch statistics (may be null if no tick data available)
       const stats = await tickApi.getTickStatistics(symbol, { market })
       setTickStats(stats)
       
     } catch (err) {
       console.error('Failed to fetch tick data:', err)
-      setError('获取 Tick 数据失败')
-      // Don't show toast to avoid spamming
+      // Only show error for actual request failures, not for empty data
+      // setError('获取 Tick 数据失败')
     } finally {
       setLoading(false)
     }
@@ -421,8 +429,11 @@ function VolumeChart({
         })
         
         if (response && response.length > 0) {
-          const volumeData = response.map((item: KlineData) => ({
-            time: Math.floor(item.timestamp / 1000) as Time,
+          // Sort data by timestamp ascending (oldest first)
+          const sortedResponse = [...response].sort((a, b) => a.timestamp - b.timestamp)
+          
+          const volumeData = sortedResponse.map((item: KlineData) => ({
+            time: beijingToLocalTimestamp(item.timestamp) as Time,
             value: item.volume,
             color: item.close >= item.open ? '#00F2FF' : '#DE0541',
           }))
