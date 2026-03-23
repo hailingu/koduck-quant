@@ -56,11 +56,13 @@ function formatVolume(volume: number | null | undefined): string {
 function TimeAndSales({ 
   symbol, 
   market = 'AShare',
-  realtimePrice 
+  realtimePrice,
+  onTickDataStateChange,
 }: { 
   symbol: string
   market?: MarketType
   realtimePrice?: { price: number; timestamp: number } | null
+  onTickDataStateChange?: (hasData: boolean) => void
 }) {
   const [ticks, setTicks] = useState<TickData[]>([])
   const [loading, setLoading] = useState(true)
@@ -87,6 +89,7 @@ function TimeAndSales({
       // Sort by timestamp descending (newest first)
       const sortedTicks = [...response.data].sort((a, b) => b.timestamp - a.timestamp)
       setTicks(sortedTicks)
+      onTickDataStateChange?.(sortedTicks.length > 0)
       
       // Fetch statistics (may be null if no tick data available)
       const stats = await tickApi.getTickStatistics(symbol, { market })
@@ -94,12 +97,13 @@ function TimeAndSales({
       
     } catch (err) {
       console.error('Failed to fetch tick data:', err)
+      onTickDataStateChange?.(false)
       // Only show error for actual request failures, not for empty data
       // setError('获取 Tick 数据失败')
     } finally {
       setLoading(false)
     }
-  }, [symbol, market])
+  }, [symbol, market, onTickDataStateChange])
 
   // Initial fetch
   useEffect(() => {
@@ -127,6 +131,7 @@ function TimeAndSales({
         const updated = [newTick, ...prev].slice(0, 50)
         return updated
       })
+      onTickDataStateChange?.(true)
       
       prevPriceRef.current = realtimePrice.price
       
@@ -135,7 +140,7 @@ function TimeAndSales({
         containerRef.current.scrollTop = 0
       }
     }
-  }, [realtimePrice])
+  }, [realtimePrice, onTickDataStateChange])
 
   // Calculate highlight based on price change
   const getHighlight = (tick: TickData, index: number) => {
@@ -250,10 +255,12 @@ function TimeAndSales({
 // Tick Distribution Chart Component
 function TickDistributionChart({ 
   symbol, 
-  market = 'AShare' 
+  market = 'AShare',
+  enabled = true,
 }: { 
   symbol: string
   market?: MarketType
+  enabled?: boolean
 }) {
   const [volumeData, setVolumeData] = useState<{
     date: string
@@ -265,6 +272,11 @@ function TickDistributionChart({
 
   useEffect(() => {
     const fetchVolumeData = async () => {
+      if (!enabled) {
+        setVolumeData([])
+        setLoading(false)
+        return
+      }
       if (!symbol) return
       
       try {
@@ -281,8 +293,8 @@ function TickDistributionChart({
       }
     }
     
-    fetchVolumeData()
-  }, [symbol, market])
+    void fetchVolumeData()
+  }, [symbol, market, enabled])
 
   if (loading) {
     return (
@@ -455,7 +467,21 @@ function VolumeChart({
 }
 
 // Market Stats Component
-function MarketStats({ quote, market }: { quote: PriceQuote | null, market: MarketType }) {
+function MarketStats({
+  quote,
+  market,
+  latestPrice,
+  latestChange,
+  latestChangePercent,
+  realtimeVolume,
+}: {
+  quote: PriceQuote | null
+  market: MarketType
+  latestPrice?: number | null
+  latestChange?: number | null
+  latestChangePercent?: number | null
+  realtimeVolume?: number | null
+}) {
   const marketInfo = MARKETS.find(m => m.key === market)
   
   if (!quote) {
@@ -473,8 +499,20 @@ function MarketStats({ quote, market }: { quote: PriceQuote | null, market: Mark
     )
   }
 
-  const isUp = quote.change >= 0
-  const changePercent = quote.prevClose ? ((quote.change / quote.prevClose) * 100).toFixed(2) : '0.00'
+  const resolvedPrice = latestPrice ?? quote.price ?? null
+  const resolvedChange = latestChange
+    ?? (quote.prevClose && resolvedPrice !== null ? resolvedPrice - quote.prevClose : null)
+    ?? quote.change
+    ?? null
+  const resolvedChangePercent = latestChangePercent
+    ?? (quote.prevClose && resolvedChange !== null ? (resolvedChange / quote.prevClose) * 100 : null)
+    ?? quote.changePercent
+    ?? null
+  const resolvedVolume =
+    typeof realtimeVolume === 'number' && realtimeVolume > 0
+      ? realtimeVolume
+      : quote.volume
+  const isUp = (resolvedChange ?? 0) >= 0
 
   return (
     <div className="glass-panel p-4 rounded-xl">
@@ -502,13 +540,20 @@ function MarketStats({ quote, market }: { quote: PriceQuote | null, market: Mark
         <div className="flex justify-between text-xs">
           <span className="text-fluid-text-muted">Volume</span>
           <span className="font-mono-data text-fluid-text">
-            {quote.volume ? (quote.volume / 10000).toFixed(2) + '万' : '--'}
+            {resolvedVolume ? (resolvedVolume / 10000).toFixed(2) + '万' : '--'}
           </span>
         </div>
         <div className="flex justify-between text-xs">
           <span className="text-fluid-text-muted">Change</span>
           <span className={`font-mono-data ${isUp ? 'text-fluid-primary' : 'text-fluid-secondary'}`}>
-            {isUp ? '+' : ''}{quote.change?.toFixed(2) ?? '--'} ({isUp ? '+' : ''}{changePercent}%)
+            {resolvedChange !== null && resolvedChange !== undefined
+              ? `${isUp ? '+' : ''}${resolvedChange.toFixed(2)}`
+              : '--'}{' '}
+            (
+            {resolvedChangePercent !== null && resolvedChangePercent !== undefined
+              ? `${isUp ? '+' : ''}${resolvedChangePercent.toFixed(2)}%`
+              : '--'}
+            )
           </span>
         </div>
       </div>
@@ -598,6 +643,8 @@ export default function Kline() {
   
   const [timeframe, setTimeframe] = useState('daily')
   const [quote, setQuote] = useState<PriceQuote | null>(null)
+  const [latestPrice, setLatestPrice] = useState<number | null>(null)
+  const [hasTickData, setHasTickData] = useState(false)
   const [loading, setLoading] = useState(true)
 
   const timeframes = [
@@ -639,8 +686,11 @@ export default function Kline() {
   // WebSocket real-time price
   const { stockPrices } = useWebSocketStore()
   const realtimePrice = stockPrices.get(symbol)
-  const displayPrice = realtimePrice?.price ?? quote?.price
-  const displayChange = realtimePrice?.changePercent ?? (quote?.changePercent || 0)
+  const displayPrice = realtimePrice?.price ?? latestPrice ?? quote?.price
+  const displayChange = realtimePrice?.changePercent
+    ?? ((displayPrice !== undefined && displayPrice !== null && quote?.prevClose)
+      ? ((displayPrice - quote.prevClose) / quote.prevClose) * 100
+      : (quote?.changePercent || 0))
   const displayIsUp = displayChange >= 0
   
   // Price animation
@@ -655,6 +705,47 @@ export default function Kline() {
     subscribe([symbol])
     return () => unsubscribe([symbol])
   }, [symbol])
+
+  // Poll latest price as fallback when WebSocket is disconnected/stale
+  useEffect(() => {
+    let stopped = false
+
+    const fetchLatestPrice = async () => {
+      try {
+        const apiTimeframe = timeframe === 'intraday'
+          ? '1m'
+          : ({
+            '1m': '1m',
+            '5m': '5m',
+            '15m': '15m',
+            '30m': '30m',
+            '1h': '60m',
+            daily: '1D',
+            weekly: '1W',
+            monthly: '1M',
+          }[timeframe] || '1D')
+        const latest = await klineApi.getLatestPrice({
+          symbol,
+          market,
+          timeframe: apiTimeframe,
+        })
+        if (!stopped) {
+          setLatestPrice(typeof latest?.price === 'number' ? latest.price : null)
+        }
+      } catch (error) {
+        if (!stopped) {
+          setLatestPrice(null)
+        }
+      }
+    }
+
+    void fetchLatestPrice()
+    const timer = setInterval(fetchLatestPrice, 10000)
+    return () => {
+      stopped = true
+      clearInterval(timer)
+    }
+  }, [symbol, market, timeframe])
 
   return (
     <div className="h-[calc(100vh-140px)] grid grid-cols-12 gap-5">
@@ -781,6 +872,7 @@ export default function Kline() {
               price: realtimePrice.price,
               timestamp: realtimePrice.timestamp
             } : null}
+            onTickDataStateChange={setHasTickData}
           />
         </div>
         
@@ -789,12 +881,20 @@ export default function Kline() {
           <TickDistributionChart 
             symbol={symbol}
             market={market}
+            enabled={hasTickData}
           />
         </div>
         
         {/* Market Stats */}
         <div className="flex-1">
-          <MarketStats quote={quote} market={market} />
+          <MarketStats
+            quote={quote}
+            market={market}
+            latestPrice={displayPrice}
+            latestChange={realtimePrice?.change ?? null}
+            latestChangePercent={displayChange}
+            realtimeVolume={realtimePrice?.volume ?? null}
+          />
         </div>
       </div>
     </div>

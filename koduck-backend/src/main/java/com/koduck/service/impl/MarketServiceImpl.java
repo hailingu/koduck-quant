@@ -129,7 +129,6 @@ public class MarketServiceImpl implements MarketService {
      * @return quote when found, otherwise {@code null}
      */
     @Override
-    @Cacheable(value = CacheConfig.CACHE_STOCK_DETAIL, key = "#symbol", unless = "#result == null")
     public PriceQuoteDto getStockDetail(String symbol) {
         log.debug("Getting stock detail from database: symbol={}", symbol);
         

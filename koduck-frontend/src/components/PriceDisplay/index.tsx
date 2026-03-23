@@ -155,7 +155,7 @@ export const PriceDisplay = memo(function PriceDisplay({
   // （，）
   const priceClasses = [
     'price-display',
-    isUp ? 'text-stock-up' : isDown ? 'text-stock-down' : 'text-gray-900 dark:text-white',
+    isUp ? 'text-stock-up' : isDown ? 'text-stock-down' : 'text-fluid-text',
     className,
   ]
     .filter(Boolean)

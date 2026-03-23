@@ -76,7 +76,10 @@ const getAuthToken = (): string | null => {
 
   try {
     const authState = JSON.parse(authStorage)
-    return typeof authState?.state?.token === 'string' ? authState.state.token : null
+    const accessToken = authState?.state?.accessToken
+    return typeof accessToken === 'string' && accessToken.trim().length > 0
+      ? accessToken
+      : null
   } catch {
     return null
   }
@@ -93,9 +96,15 @@ export const useWebSocketStore = create<WebSocketState>((set, get) => ({
   connect: () => {
     const { client, connectionState } = get()
     
-    // Don't reconnect if already connected or connecting
-    if (client && (connectionState === 'connected' || connectionState === 'connecting')) {
+    // Don't reconnect if already connected or in-flight.
+    if (connectionState === 'connected' || connectionState === 'connecting') {
       return
+    }
+
+    // Clean up stale client instance before creating a new connection.
+    if (client) {
+      void client.deactivate()
+      set({ client: null, priceSubscription: null })
     }
 
     set({ connectionState: 'connecting' })
@@ -180,7 +189,7 @@ export const useWebSocketStore = create<WebSocketState>((set, get) => ({
   },
 
   subscribe: (symbols: string[]) => {
-    const { client, symbolRefCounts, subscribedSymbols } = get()
+    const { client, symbolRefCounts, subscribedSymbols, connectionState } = get()
 
     const normalizedSymbols = Array.from(new Set(symbols.map((symbol) => normalizeSymbol(symbol))))
     if (normalizedSymbols.length === 0) {
@@ -199,6 +208,11 @@ export const useWebSocketStore = create<WebSocketState>((set, get) => ({
     if (toSubscribe.length === 0) {
       set({ symbolRefCounts: new Map(symbolRefCounts) })
       return
+    }
+
+    if (!client || connectionState === 'disconnected') {
+      // Auto-connect to ensure queued symbols are flushed after refresh/page entry.
+      get().connect()
     }
 
     if (client?.connected) {

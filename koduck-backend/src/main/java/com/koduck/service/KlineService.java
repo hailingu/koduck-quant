@@ -71,7 +71,6 @@ public class KlineService {
      * Get the latest price for a symbol.
      * Cached for 30 seconds.
      */
-    @Cacheable(value = CacheConfig.CACHE_PRICE, key = "#market + ':' + #symbol + ':' + #timeframe")
     public Optional<BigDecimal> getLatestPrice(String market, String symbol, String timeframe) {
         for (String marketCandidate : buildMarketCandidates(market)) {
             for (String symbolCandidate : buildSymbolCandidates(symbol)) {

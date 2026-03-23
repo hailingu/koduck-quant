@@ -15,17 +15,35 @@ import {
 interface MarketIndex {
   symbol: string;
   name: string;
-  price: number;
-  change: number;
-  changePercent: number;
+  price: number | null;
+  change: number | null;
+  changePercent: number | null;
 }
 
 interface HotStock {
   symbol: string;
   name: string;
-  price: number;
-  changePercent: number;
-  volume: number;
+  price: number | null;
+  changePercent: number | null;
+  volume: number | null;
+}
+
+function formatFixed(value: number | null | undefined, digits = 2): string {
+  return typeof value === 'number' && Number.isFinite(value) ? value.toFixed(digits) : '--';
+}
+
+function formatSignedPercent(value: number | null | undefined, digits = 2): string {
+  if (typeof value !== 'number' || !Number.isFinite(value)) {
+    return '--';
+  }
+  return `${value >= 0 ? '+' : ''}${value.toFixed(digits)}%`;
+}
+
+function formatVolumeWan(value: number | null | undefined): string {
+  if (typeof value !== 'number' || !Number.isFinite(value)) {
+    return '--';
+  }
+  return `${(value / 10000).toFixed(0)}万`;
 }
 
 export default function Market() {
@@ -138,9 +156,9 @@ export default function Market() {
         {indices.map((index) => (
           <div key={index.symbol} className="glass-panel p-4 rounded-xl">
             <div className="text-sm text-slate-400">{index.name}</div>
-            <div className="text-2xl font-bold text-slate-200">{index.price.toFixed(2)}</div>
-            <div className={`text-sm ${index.changePercent >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
-              {index.changePercent >= 0 ? '+' : ''}{index.changePercent.toFixed(2)}%
+            <div className="text-2xl font-bold text-slate-200">{formatFixed(index.price, 2)}</div>
+            <div className={`text-sm ${(index.changePercent ?? 0) >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+              {formatSignedPercent(index.changePercent, 2)}
             </div>
           </div>
         ))}
@@ -192,11 +210,11 @@ export default function Market() {
             <tr key={stock.symbol} className="border-b border-slate-800/50 hover:bg-slate-800/30">
               <td className="py-3 text-slate-300">{stock.symbol}</td>
               <td className="py-3 text-slate-300">{stock.name}</td>
-              <td className="py-3 text-right text-slate-300">{stock.price.toFixed(2)}</td>
-              <td className={`py-3 text-right ${stock.changePercent >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
-                {stock.changePercent >= 0 ? '+' : ''}{stock.changePercent.toFixed(2)}%
+              <td className="py-3 text-right text-slate-300">{formatFixed(stock.price, 2)}</td>
+              <td className={`py-3 text-right ${(stock.changePercent ?? 0) >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                {formatSignedPercent(stock.changePercent, 2)}
               </td>
-              <td className="py-3 text-right text-slate-400">{(stock.volume / 10000).toFixed(0)}万</td>
+              <td className="py-3 text-right text-slate-400">{formatVolumeWan(stock.volume)}</td>
             </tr>
           ))}
         </tbody>
@@ -242,7 +260,7 @@ export default function Market() {
                   <span className="font-medium text-slate-200">{result.name}</span>
                   <span className="ml-2 text-xs text-slate-500">{result.symbol}</span>
                 </div>
-                <span className="text-slate-300">¥{result.price.toFixed(2)}</span>
+                <span className="text-slate-300">¥{formatFixed(result.price, 2)}</span>
               </div>
             </div>
           ))}
