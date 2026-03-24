@@ -6,7 +6,7 @@
 -- does not depend on Flyway migrations being enabled.
 
 CREATE TABLE IF NOT EXISTS stock_basic (
-    id SERIAL PRIMARY KEY,
+    id BIGSERIAL PRIMARY KEY,
     symbol VARCHAR(20) NOT NULL UNIQUE,
     name VARCHAR(100) NOT NULL,
     market VARCHAR(20) NOT NULL,
