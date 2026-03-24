@@ -93,6 +93,9 @@ services:
 
   # Java Backend
   backend:
+    build:
+      context: ./koduck-backend
+      # dockerfile: Dockerfile
     image: koduck-backend:local
     container_name: koduck-backend
     ports:
@@ -110,9 +113,9 @@ services:
       - JWT_SECRET=${JWT_SECRET:-your-256-bit-secret-key-for-jwt-signing-must-be-at-least-32-characters-long}
       - DEFAULT_LLM_PROVIDER=${DEFAULT_LLM_PROVIDER:-minimax}
       - LLM_PROVIDER=${LLM_PROVIDER:-}
-      - LLM_API_KEY=${LLM_API_KEY:-}
+      - LLM_API_KEY=${LLM_API_KEY:-${MINIMAX_API_KEY:-${OPENAI_API_KEY:-}}}
       - OPENAI_API_KEY=${OPENAI_API_KEY:-}
-      - MINIMAX_API_KEY=${MINIMAX_API_KEY:-}
+      - MINIMAX_API_KEY=${MINIMAX_API_KEY:-${LLM_API_KEY:-${OPENAI_API_KEY:-}}}
       - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY:-}
       - LLM_API_BASE=${LLM_API_BASE:-https://api.gptsapi.net}
       - OPENAI_API_BASE=${OPENAI_API_BASE:-https://api.openai.com/v1}
@@ -121,11 +124,12 @@ services:
       # Finnhub US Stock API
       - FINNHUB_ENABLED=${FINNHUB_ENABLED:-true}
       - FINNHUB_API_KEY=${FINNHUB_API_KEY:-d6nrnmhr01qse5qmqub0d6nrnmhr01qse5qmqubg}
-      # Demo user configuration - disabled by default for security
-      # Enable for local testing: APP_DEMO_ENABLED=true
-      # APP_DEMO_ENABLED=${APP_DEMO_ENABLED:-false}
-      # APP_DEMO_USERNAME=${APP_DEMO_USERNAME:-demo}
-      # APP_DEMO_PASSWORD=${APP_DEMO_PASSWORD:-}
+      # Demo user configuration (local only)
+      - APP_DEMO_ENABLED=${APP_DEMO_ENABLED:-true}
+      - APP_DEMO_USERNAME=${APP_DEMO_USERNAME:-demo}
+      - APP_DEMO_PASSWORD=${APP_DEMO_PASSWORD:-demo123}
+    env_file:
+      - .env.local
     depends_on:
       postgresql:
         condition: service_healthy
@@ -153,8 +157,9 @@ services:
       - "8001:8000"
     environment:
       - GPT_API_KEY=${GPT_API_KEY:-}
+      - LLM_API_KEY=${LLM_API_KEY:-${MINIMAX_API_KEY:-${OPENAI_API_KEY:-}}}
       - OPENAI_API_KEY=${OPENAI_API_KEY:-}
-      - MINIMAX_API_KEY=${MINIMAX_API_KEY:-}
+      - MINIMAX_API_KEY=${MINIMAX_API_KEY:-${LLM_API_KEY:-${OPENAI_API_KEY:-}}}
       - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY:-}
       - POSTGRES_HOST=postgresql
       - POSTGRES_PORT=5432
@@ -167,6 +172,8 @@ services:
       - MINIMAX_API_BASE=${MINIMAX_API_BASE:-https://api.minimax.chat/v1}
       - DEEPSEEK_API_BASE=${DEEPSEEK_API_BASE:-https://api.deepseek.com/v1}
       - LOG_LEVEL=INFO
+    env_file:
+      - .env.local
     volumes:
       # Mount local code for development (changes take effect on restart)
       - ./koduck-agent/koduck:/app/koduck:ro

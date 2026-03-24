@@ -12,6 +12,7 @@ import org.springframework.boot.CommandLineRunner;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
@@ -34,6 +35,7 @@ public class DataInitializer implements CommandLineRunner {
      * Role name assigned to regular users.  Used when creating demo account.
      */
     private static final String ROLE_USER = "USER";
+    private static final String ROLE_USER_DESCRIPTION = "Default role for regular users";
 
     /**
      * Default email address for the demo account.
@@ -49,6 +51,7 @@ public class DataInitializer implements CommandLineRunner {
     private final RoleRepository roleRepository;
     private final UserRoleRepository userRoleRepository;
     private final PasswordEncoder passwordEncoder;
+    private final JdbcTemplate jdbcTemplate;
 
     @Value("${app.demo.enabled:false}")
     private boolean demoEnabled;
@@ -63,11 +66,13 @@ public class DataInitializer implements CommandLineRunner {
             UserRepository userRepository,
             RoleRepository roleRepository,
             UserRoleRepository userRoleRepository,
-            PasswordEncoder passwordEncoder) {
+            PasswordEncoder passwordEncoder,
+            JdbcTemplate jdbcTemplate) {
         this.userRepository = userRepository;
         this.roleRepository = roleRepository;
         this.userRoleRepository = userRoleRepository;
         this.passwordEncoder = passwordEncoder;
+        this.jdbcTemplate = jdbcTemplate;
     }
 
     /**
@@ -126,12 +131,8 @@ public class DataInitializer implements CommandLineRunner {
             return;
         }
 
-        // fetch USER role
-        Optional<Role> userRoleOpt = roleRepository.findByName(ROLE_USER);
-        if (userRoleOpt.isEmpty()) {
-            log.warn("{} role not found, cannot create demo user", ROLE_USER);
-            return;
-        }
+        // fetch (or create) USER role
+        Role userRole = getOrCreateUserRole();
 
         try {
             // create demo user
@@ -145,12 +146,45 @@ public class DataInitializer implements CommandLineRunner {
             demoUser = userRepository.save(demoUser);
             log.info("Created demo user: {} with id={}", demoUsername, demoUser.getId());
 
-            // assign USER role
-            userRoleRepository.insertUserRole(demoUser.getId(), userRoleOpt.get().getId());
+            // assign USER role when join table exists
+            if (hasUserRolesTable()) {
+                userRoleRepository.insertUserRole(demoUser.getId(), userRole.getId());
+            } else {
+                log.warn("Table 'user_roles' not found, skipping demo role mapping");
+            }
 
             log.info("Successfully initialized demo user: {}", demoUsername);
         } catch (DataIntegrityViolationException e) {
             log.warn("Demo user may already exist (concurrent creation): {}", e.getMessage());
         }
+    }
+
+    private Role getOrCreateUserRole() {
+        Optional<Role> existingRole = roleRepository.findByName(ROLE_USER);
+        if (existingRole.isPresent()) {
+            return existingRole.get();
+        }
+
+        try {
+            Role created = Role.builder()
+                .name(ROLE_USER)
+                .description(ROLE_USER_DESCRIPTION)
+                .build();
+            created = roleRepository.save(created);
+            log.info("Created missing role: {}", ROLE_USER);
+            return created;
+        } catch (DataIntegrityViolationException e) {
+            // concurrent startup: another instance may have created it
+            return roleRepository.findByName(ROLE_USER)
+                .orElseThrow(() -> e);
+        }
+    }
+
+    private boolean hasUserRolesTable() {
+        Integer count = jdbcTemplate.queryForObject(
+            "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'user_roles'",
+            Integer.class
+        );
+        return count != null && count > 0;
     }
 }

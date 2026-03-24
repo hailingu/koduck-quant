@@ -225,7 +225,7 @@ export const useWebSocketStore = create<WebSocketState>((set, get) => ({
         subscribedSymbols.add(symbol)
       })
     } else {
-      console.warn('WebSocket not connected yet, symbols queued for subscribe on connect')
+      console.info('WebSocket not connected yet, symbols queued for subscribe on connect')
     }
 
     set({

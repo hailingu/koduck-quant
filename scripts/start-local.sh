@@ -17,6 +17,14 @@ echo -e "${BLUE}  Koduck Quant 本地开发模式${NC}"
 echo -e "${BLUE}=========================================${NC}"
 echo ""
 
+# Compose env file priority: .env.local > .env
+COMPOSE_ENV_ARGS=""
+if [ -f ".env.local" ]; then
+    COMPOSE_ENV_ARGS="--env-file .env.local"
+elif [ -f ".env" ]; then
+    COMPOSE_ENV_ARGS="--env-file .env"
+fi
+
 # 检查本地 JAR 是否存在
 if [ ! -f "koduck-backend/target/koduck-backend-0.1.0-SNAPSHOT.jar" ]; then
     echo -e "${YELLOW}⚠️  本地 JAR 不存在，开始构建...${NC}"
@@ -27,7 +35,7 @@ fi
 
 # 启动基础设施
 echo -e "${BLUE}🚀 启动基础设施 (PostgreSQL, Redis, Data Service)...${NC}"
-docker-compose -f docker-compose.local.yml up -d
+docker-compose ${COMPOSE_ENV_ARGS} -f docker-compose.local.yml up -d
 
 echo ""
 echo -e "${BLUE}⏳ 等待基础设施就绪...${NC}"
@@ -35,7 +43,7 @@ sleep 5
 
 # 检查服务状态
 echo -e "${YELLOW}检查服务状态：${NC}"
-docker-compose -f docker-compose.local.yml ps
+docker-compose ${COMPOSE_ENV_ARGS} -f docker-compose.local.yml ps
 
 echo ""
 echo -e "${GREEN}=========================================${NC}"

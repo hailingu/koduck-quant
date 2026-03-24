@@ -3,7 +3,9 @@ package com.koduck.service;
 import com.koduck.config.CacheConfig;
 import com.koduck.dto.market.KlineDataDto;
 import com.koduck.entity.KlineData;
+import com.koduck.entity.StockRealtime;
 import com.koduck.repository.KlineDataRepository;
+import com.koduck.repository.StockRealtimeRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.cache.annotation.CacheEvict;
@@ -34,6 +36,7 @@ public class KlineService {
     private static final ZoneId MARKET_ZONE = ZoneId.of("Asia/Shanghai");
 
     private final KlineDataRepository klineDataRepository;
+    private final StockRealtimeRepository stockRealtimeRepository;
 
     /**
      * Get K-line data for a symbol.
@@ -72,6 +75,11 @@ public class KlineService {
      * Cached for 30 seconds.
      */
     public Optional<BigDecimal> getLatestPrice(String market, String symbol, String timeframe) {
+        Optional<BigDecimal> realtimePrice = getLatestRealtimePrice(symbol);
+        if (realtimePrice.isPresent()) {
+            return realtimePrice;
+        }
+
         for (String marketCandidate : buildMarketCandidates(market)) {
             for (String symbolCandidate : buildSymbolCandidates(symbol)) {
                 for (String timeframeCandidate : buildTimeframeCandidates(timeframe)) {
@@ -82,6 +90,19 @@ public class KlineService {
                         return latest.map(KlineData::getClosePrice);
                     }
                 }
+            }
+        }
+        return Optional.empty();
+    }
+
+    private Optional<BigDecimal> getLatestRealtimePrice(String symbol) {
+        for (String symbolCandidate : buildSymbolCandidates(symbol)) {
+            Optional<BigDecimal> price = stockRealtimeRepository
+                    .findFirstBySymbolOrderByUpdatedAtDesc(symbolCandidate)
+                    .map(StockRealtime::getPrice)
+                    .filter(value -> value != null && value.compareTo(BigDecimal.ZERO) > 0);
+            if (price.isPresent()) {
+                return price;
             }
         }
         return Optional.empty();

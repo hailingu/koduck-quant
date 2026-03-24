@@ -14,6 +14,8 @@ import com.koduck.repository.*;
 import com.koduck.util.JwtUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DataAccessException;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -48,6 +50,7 @@ public class AuthService {
     private final EmailService emailService;
     private final RateLimiterService rateLimiterService;
     private final MailProperties mailProperties;
+    private final JdbcTemplate jdbcTemplate;
 
     private static final int DEFAULT_ROLE_ID = 2; // USER 
 
@@ -62,6 +65,8 @@ public class AuthService {
      * （URL-safe Base64）
      */
     private static final int RESET_TOKEN_LENGTH = 32;
+    private static final int MAX_REFRESH_TOKENS_PER_USER = 2;
+    private volatile Boolean userRolesTableExists;
 
     /**
      * 
@@ -331,8 +336,25 @@ public class AuthService {
      * @return Token 
      */
     private TokenResponse generateTokenResponse(User user) {
-        // 
-        List<String> roleNames = roleRepository.findRoleNamesByUserId(user.getId());
+        List<String> roleNames;
+        if (!hasUserRolesTable()) {
+            roleNames = List.of("USER");
+        } else {
+            try {
+                roleNames = roleRepository.findRoleNamesByUserId(user.getId());
+                if (roleNames == null || roleNames.isEmpty()) {
+                    roleNames = List.of("USER");
+                }
+            } catch (DataAccessException ex) {
+                log.warn("Failed to load roles for userId={}, fallback to default USER role: {}",
+                        user.getId(), ex.getMessage());
+                roleNames = List.of("USER");
+            }
+        }
+
+        if (roleNames == null || roleNames.isEmpty()) {
+            roleNames = List.of("USER");
+        }
 
         //  Access Token
         String accessToken = jwtUtil.generateAccessToken(user.getId(), user.getUsername(), user.getEmail());
@@ -340,13 +362,8 @@ public class AuthService {
         //  Refresh Token
         String refreshToken = jwtUtil.generateRefreshToken(user.getId());
 
-        //  Refresh Token
-        RefreshToken tokenEntity = RefreshToken.builder()
-                .userId(user.getId())
-                .tokenHash(hashToken(refreshToken))
-                .expiresAt(LocalDateTime.now().plusDays(7))
-                .build();
-        refreshTokenRepository.save(Objects.requireNonNull(tokenEntity));
+        //  Refresh Token（每个用户最多保留 MAX_REFRESH_TOKENS_PER_USER 条）
+        upsertRefreshTokenWithLimit(user.getId(), hashToken(refreshToken));
 
         //  UserInfo
         UserInfo userInfo = UserInfo.builder()
@@ -366,6 +383,33 @@ public class AuthService {
                 .tokenType("Bearer")
                 .user(userInfo)
                 .build();
+    }
+
+    /**
+     * Persist refresh token and enforce per-user token cap.
+     *
+     * <p>Policy: at most {@value #MAX_REFRESH_TOKENS_PER_USER} active refresh tokens per user.</p>
+     */
+    private void upsertRefreshTokenWithLimit(Long userId, String tokenHash) {
+        LocalDateTime now = LocalDateTime.now();
+        refreshTokenRepository.deleteAllExpiredBefore(now);
+
+        long existingCount = refreshTokenRepository.countByUserId(userId);
+        if (existingCount >= MAX_REFRESH_TOKENS_PER_USER) {
+            int removeCount = (int) (existingCount - (MAX_REFRESH_TOKENS_PER_USER - 1));
+            List<RefreshToken> oldestTokens = refreshTokenRepository.findByUserIdOrderByCreatedAtAsc(userId);
+            if (!oldestTokens.isEmpty() && removeCount > 0) {
+                int toIndex = Math.min(removeCount, oldestTokens.size());
+                refreshTokenRepository.deleteAllInBatch(oldestTokens.subList(0, toIndex));
+            }
+        }
+
+        RefreshToken tokenEntity = RefreshToken.builder()
+                .userId(userId)
+                .tokenHash(tokenHash)
+                .expiresAt(now.plusDays(7))
+                .build();
+        refreshTokenRepository.save(Objects.requireNonNull(tokenEntity));
     }
 
     /**
@@ -390,5 +434,28 @@ public class AuthService {
         byte[] bytes = new byte[RESET_TOKEN_LENGTH];
         random.nextBytes(bytes);
         return Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
+    }
+
+    private boolean hasUserRolesTable() {
+        Boolean cached = userRolesTableExists;
+        if (cached != null) {
+            return cached;
+        }
+
+        boolean exists;
+        try {
+            Integer count = jdbcTemplate.queryForObject(
+                    "SELECT COUNT(*) FROM information_schema.tables " +
+                            "WHERE table_schema = 'public' AND table_name = 'user_roles'",
+                    Integer.class
+            );
+            exists = count != null && count > 0;
+        } catch (DataAccessException ex) {
+            log.warn("Failed to check user_roles table existence, assume missing: {}", ex.getMessage());
+            exists = false;
+        }
+
+        userRolesTableExists = exists;
+        return exists;
     }
 }

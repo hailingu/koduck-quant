@@ -21,6 +21,8 @@ public interface RefreshTokenRepository extends JpaRepository<RefreshToken, Long
 
     List<RefreshToken> findByUserId(Long userId);
 
+    List<RefreshToken> findByUserIdOrderByCreatedAtAsc(Long userId);
+
     @Modifying
     @Query("DELETE FROM RefreshToken rt WHERE rt.tokenHash = :tokenHash")
     void deleteByTokenHash(@Param("tokenHash") String tokenHash);

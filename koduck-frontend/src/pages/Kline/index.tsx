@@ -21,6 +21,15 @@ const MARKETS = [
 ] as const
 
 type MarketType = typeof MARKETS[number]['key']
+const REALTIME_STALE_MS = 20000
+
+const normalizeSymbol = (symbol: string): string => {
+  const digits = symbol.replaceAll(/\D/g, '')
+  if (digits.length >= 1 && digits.length <= 6) {
+    return digits.padStart(6, '0')
+  }
+  return symbol.trim().toUpperCase()
+}
 
 function beijingToLocalTimestamp(beijingTs: number): number {
   return beijingTs
@@ -56,19 +65,16 @@ function formatVolume(volume: number | null | undefined): string {
 function TimeAndSales({ 
   symbol, 
   market = 'AShare',
-  realtimePrice,
   onTickDataStateChange,
 }: { 
   symbol: string
   market?: MarketType
-  realtimePrice?: { price: number; timestamp: number } | null
   onTickDataStateChange?: (hasData: boolean) => void
 }) {
   const [ticks, setTicks] = useState<TickData[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [tickStats, setTickStats] = useState<TickStatistics | null>(null)
-  const prevPriceRef = useRef<number | null>(null)
   const containerRef = useRef<HTMLDivElement>(null)
 
   // Fetch tick data
@@ -110,37 +116,64 @@ function TimeAndSales({
     fetchTicks()
   }, [fetchTicks])
 
-  // Auto refresh every 10 seconds
+  // Auto refresh every 10 seconds (fallback)
   useEffect(() => {
     const interval = setInterval(fetchTicks, 10000)
     return () => clearInterval(interval)
   }, [fetchTicks])
 
-  // Handle realtime price updates
+  // Subscribe SSE tick stream for realtime incremental updates
   useEffect(() => {
-    if (realtimePrice && realtimePrice.price !== prevPriceRef.current) {
-      // Create a new tick from realtime data
-      const newTick: TickData = {
-        timestamp: realtimePrice.timestamp,
-        price: realtimePrice.price,
-        volume: Math.floor(Math.random() * 1000) + 1, // Placeholder volume
-        change: realtimePrice.price - (prevPriceRef.current || realtimePrice.price),
-      }
-      
-      setTicks(prev => {
-        const updated = [newTick, ...prev].slice(0, 50)
-        return updated
-      })
-      onTickDataStateChange?.(true)
-      
-      prevPriceRef.current = realtimePrice.price
-      
-      // Scroll to top
-      if (containerRef.current) {
-        containerRef.current.scrollTop = 0
+    if (!symbol) {
+      return
+    }
+    const streamUrl = `/api/v1/market/ticks/stream?market=${encodeURIComponent(market)}&symbol=${encodeURIComponent(symbol)}`
+    const eventSource = new EventSource(streamUrl)
+
+    const onTick = (event: MessageEvent) => {
+      try {
+        const payload = JSON.parse(event.data) as {
+          time?: string
+          price?: number
+          size?: number
+          amount?: number
+          type?: 'buy' | 'sell'
+          flag?: 'NORMAL' | 'BLOCK_ORDER' | 'ICEBERG'
+          epochMillis?: number | null
+        }
+        if (typeof payload.price !== 'number') {
+          return
+        }
+        const newTick: TickData = {
+          timestamp: typeof payload.epochMillis === 'number' ? payload.epochMillis : Date.now(),
+          price: payload.price,
+          volume: typeof payload.size === 'number' ? payload.size : 0,
+          size: typeof payload.size === 'number' ? payload.size : 0,
+          amount: typeof payload.amount === 'number' ? payload.amount : 0,
+          type: payload.type,
+          flag: payload.flag,
+          side: payload.type,
+        }
+        setTicks((prev) => [newTick, ...prev].slice(0, 50))
+        onTickDataStateChange?.(true)
+        if (containerRef.current) {
+          containerRef.current.scrollTop = 0
+        }
+      } catch (err) {
+        console.warn('Tick SSE parse failed', err)
       }
     }
-  }, [realtimePrice, onTickDataStateChange])
+
+    eventSource.addEventListener('tick', onTick)
+    eventSource.onerror = () => {
+      eventSource.close()
+    }
+
+    return () => {
+      eventSource.removeEventListener('tick', onTick)
+      eventSource.close()
+    }
+  }, [symbol, market, onTickDataStateChange])
 
   // Calculate highlight based on price change
   const getHighlight = (tick: TickData, index: number) => {
@@ -158,7 +191,7 @@ function TimeAndSales({
   }
 
   return (
-    <div className="glass-panel p-4 rounded-xl h-full flex flex-col">
+    <div className="glass-panel p-4 rounded-xl h-full min-h-0 flex flex-col">
       <div className="flex items-center justify-between mb-3">
         <h3 className="font-headline font-bold text-sm text-fluid-text">Time & Sales (Tick)</h3>
         <div className="flex items-center gap-2">
@@ -281,7 +314,7 @@ function TickDistributionChart({
       
       try {
         setLoading(true)
-        const response = await tickApi.getVolumeSummary(symbol, 7)
+        const response = await tickApi.getVolumeSummary(symbol, 7, market)
         
         if (response.dailyData) {
           setVolumeData(response.dailyData.slice(0, 7).reverse())
@@ -685,9 +718,13 @@ export default function Kline() {
 
   // WebSocket real-time price
   const { stockPrices } = useWebSocketStore()
-  const realtimePrice = stockPrices.get(symbol)
-  const displayPrice = realtimePrice?.price ?? latestPrice ?? quote?.price
-  const displayChange = realtimePrice?.changePercent
+  const normalizedSymbol = normalizeSymbol(symbol)
+  const realtimePrice = stockPrices.get(normalizedSymbol)
+  const isRealtimeFresh = realtimePrice !== undefined
+    && Date.now() - realtimePrice.timestamp <= REALTIME_STALE_MS
+  const effectiveRealtimePrice = isRealtimeFresh ? realtimePrice : null
+  const displayPrice = effectiveRealtimePrice?.price ?? latestPrice ?? quote?.price
+  const displayChange = effectiveRealtimePrice?.changePercent
     ?? ((displayPrice !== undefined && displayPrice !== null && quote?.prevClose)
       ? ((displayPrice - quote.prevClose) / quote.prevClose) * 100
       : (quote?.changePercent || 0))
@@ -697,7 +734,7 @@ export default function Kline() {
   const priceAnimation = usePriceAnimation(displayPrice)
   
   // Last update time
-  const lastUpdateTime = useLastUpdateTime(realtimePrice?.timestamp || null)
+  const lastUpdateTime = useLastUpdateTime(effectiveRealtimePrice?.timestamp || null)
 
   // Subscribe to symbol
   useEffect(() => {
@@ -788,7 +825,7 @@ export default function Kline() {
                   >
                     {displayPrice?.toFixed(2) ?? '--'}
                   </span>
-                  {realtimePrice && (
+                  {effectiveRealtimePrice && (
                     <span className="text-[10px] text-fluid-text-muted ml-1">
                       {lastUpdateTime}
                     </span>
@@ -831,9 +868,9 @@ export default function Kline() {
         </div>
 
         {/* Chart Area - Main Chart + Volume */}
-        <div className="flex-1 flex flex-col gap-3">
+        <div className="flex-none flex flex-col gap-3">
           {/* Main Chart - Show IntradayChart for 分时, KLineChart for others */}
-          <div className="flex-[3] glass-panel rounded-xl overflow-hidden">
+          <div className="h-[380px] xl:h-[430px] glass-panel rounded-xl overflow-hidden">
             {timeframe === 'intraday' ? (
               <IntradayChart 
                 symbol={symbol}
@@ -850,7 +887,7 @@ export default function Kline() {
           
           {/* Volume Chart - Hide for intraday (volume is in IntradayChart) */}
           {timeframe !== 'intraday' && (
-            <div className="flex-1 glass-panel rounded-xl overflow-hidden min-h-[120px]">
+            <div className="h-[180px] xl:h-[220px] glass-panel rounded-xl overflow-hidden min-h-[120px]">
               <VolumeChart 
                 symbol={symbol}
                 market={market}
@@ -862,22 +899,18 @@ export default function Kline() {
       </div>
 
       {/* Side Panel - 3 cols */}
-      <div className="col-span-3 flex flex-col gap-4">
+      <div className="col-span-3 flex flex-col gap-4 min-h-0">
         {/* Time & Sales with Real Tick Data */}
-        <div className="flex-[2]">
+        <div className="h-[560px] shrink-0">
           <TimeAndSales 
             symbol={symbol}
             market={market}
-            realtimePrice={realtimePrice ? {
-              price: realtimePrice.price,
-              timestamp: realtimePrice.timestamp
-            } : null}
             onTickDataStateChange={setHasTickData}
           />
         </div>
         
         {/* Tick Distribution Chart */}
-        <div className="flex-1 min-h-[150px]">
+        <div className="h-[220px] shrink-0">
           <TickDistributionChart 
             symbol={symbol}
             market={market}
@@ -886,14 +919,14 @@ export default function Kline() {
         </div>
         
         {/* Market Stats */}
-        <div className="flex-1">
+        <div className="flex-1 min-h-0">
           <MarketStats
             quote={quote}
             market={market}
             latestPrice={displayPrice}
-            latestChange={realtimePrice?.change ?? null}
+            latestChange={effectiveRealtimePrice?.change ?? null}
             latestChangePercent={displayChange}
-            realtimeVolume={realtimePrice?.volume ?? null}
+            realtimeVolume={effectiveRealtimePrice?.volume ?? null}
           />
         </div>
       </div>

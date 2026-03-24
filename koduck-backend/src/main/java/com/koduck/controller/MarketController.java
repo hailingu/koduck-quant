@@ -14,6 +14,8 @@ import com.koduck.dto.market.SymbolInfoDto;
 import com.koduck.service.KlineSyncService;
 import com.koduck.service.KlineService;
 import com.koduck.service.MarketService;
+import com.koduck.service.SyntheticTickService;
+import com.koduck.service.TickStreamService;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
@@ -22,11 +24,20 @@ import jakarta.validation.constraints.Size;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.validation.annotation.Validated;
+import org.springframework.http.MediaType;
+import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 import org.springframework.web.bind.annotation.*;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
+import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
 /**
  * REST API controller for market data.
@@ -39,10 +50,15 @@ import java.util.Map;
 @Validated
 @Slf4j
 public class MarketController {
+    private static final ZoneId MARKET_ZONE = ZoneId.of("Asia/Shanghai");
+    private static final DateTimeFormatter TICK_TIME_FORMATTER = DateTimeFormatter.ofPattern("HH:mm:ss");
+    private static final long BLOCK_ORDER_VOLUME_THRESHOLD = 100_000L;
     
     private final MarketService marketService;
     private final KlineService klineService;
     private final KlineSyncService klineSyncService;
+    private final SyntheticTickService syntheticTickService;
+    private final TickStreamService tickStreamService;
     
     /**
      * Search for symbols.
@@ -301,10 +317,23 @@ public class MarketController {
             @RequestParam(defaultValue = "50") @Min(1) @Max(500) Integer limit) {
         
         log.info("GET /api/v1/market/ticks: market={}, symbol={}, limit={}", market, symbol, limit);
-        
-        // TODO: In production, fetch from real tick data source (e.g., stock_tick table)
-        // For now, return empty list to indicate no tick data available
-        return ApiResponse.success(List.of());
+        syntheticTickService.trackSymbol(symbol);
+
+        List<TickDto> historyTicks = syntheticTickService.getLatestTicks(symbol, limit);
+        if (!historyTicks.isEmpty()) {
+            return ApiResponse.success(historyTicks);
+        }
+
+        List<?> minuteBarsRaw = klineService.getKlineData(market, symbol, "1m", limit, null);
+        List<KlineDataDto> minuteBars = normalizeKlineData(minuteBarsRaw);
+        if (minuteBars.isEmpty()) {
+            return ApiResponse.success(List.of());
+        }
+
+        List<TickDto> ticks = minuteBars.stream()
+                .map(this::mapMinuteBarToTick)
+                .toList();
+        return ApiResponse.success(ticks);
     }
 
     /**
@@ -317,10 +346,116 @@ public class MarketController {
             @RequestParam String symbol) {
         
         log.info("GET /api/v1/market/ticks/summary: market={}, symbol={}", market, symbol);
-        
-        // TODO: In production, fetch from real tick data source
-        // For now, return null to indicate no tick data available
-        return ApiResponse.success(null);
+        syntheticTickService.trackSymbol(symbol);
+
+        List<TickDto> historyTicks = syntheticTickService.getLatestTicks(symbol, 300);
+        if (!historyTicks.isEmpty()) {
+            long totalVolume = historyTicks.stream().mapToLong(TickDto::size).sum();
+            BigDecimal totalAmount = historyTicks.stream()
+                    .map(TickDto::amount)
+                    .map(BigDecimal::valueOf)
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+            long buyVolume = historyTicks.stream()
+                    .filter(tick -> "buy".equalsIgnoreCase(tick.type()))
+                    .mapToLong(TickDto::size)
+                    .sum();
+            long sellVolume = totalVolume - buyVolume;
+            int blockOrderCount = (int) historyTicks.stream()
+                    .filter(tick -> "BLOCK_ORDER".equalsIgnoreCase(tick.flag()))
+                    .count();
+            int totalTrades = historyTicks.size();
+            double avgTradeSize = totalTrades > 0
+                    ? BigDecimal.valueOf(totalVolume)
+                    .divide(BigDecimal.valueOf(totalTrades), 4, RoundingMode.HALF_UP)
+                    .doubleValue()
+                    : 0D;
+
+            TickDto latest = historyTicks.get(0);
+            TickSummaryDto summary = new TickSummaryDto(
+                    symbol,
+                    market,
+                    totalTrades,
+                    totalVolume,
+                    totalAmount,
+                    buyVolume,
+                    sellVolume,
+                    blockOrderCount,
+                    avgTradeSize,
+                    formatTickTimestampIso(latest.epochMillis())
+            );
+            return ApiResponse.success(summary);
+        }
+
+        List<?> minuteBarsRaw = klineService.getKlineData(market, symbol, "1m", 300, null);
+        List<KlineDataDto> minuteBars = normalizeKlineData(minuteBarsRaw);
+        if (minuteBars.isEmpty()) {
+            return ApiResponse.success(null);
+        }
+
+        long totalVolume = minuteBars.stream()
+                .map(KlineDataDto::volume)
+                .filter(v -> v != null && v > 0)
+                .mapToLong(Long::longValue)
+                .sum();
+
+        BigDecimal totalAmount = minuteBars.stream()
+                .map(KlineDataDto::amount)
+                .filter(v -> v != null && v.compareTo(BigDecimal.ZERO) > 0)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        long buyVolume = minuteBars.stream()
+                .filter(this::isBuyMinuteBar)
+                .map(KlineDataDto::volume)
+                .filter(v -> v != null && v > 0)
+                .mapToLong(Long::longValue)
+                .sum();
+
+        long sellVolume = minuteBars.stream()
+                .filter(bar -> !isBuyMinuteBar(bar))
+                .map(KlineDataDto::volume)
+                .filter(v -> v != null && v > 0)
+                .mapToLong(Long::longValue)
+                .sum();
+
+        int blockOrderCount = (int) minuteBars.stream()
+                .map(KlineDataDto::volume)
+                .filter(v -> v != null && v >= BLOCK_ORDER_VOLUME_THRESHOLD)
+                .count();
+
+        int totalTrades = minuteBars.size();
+        double avgTradeSize = totalTrades > 0
+                ? BigDecimal.valueOf(totalVolume)
+                .divide(BigDecimal.valueOf(totalTrades), 4, RoundingMode.HALF_UP)
+                .doubleValue()
+                : 0D;
+
+        KlineDataDto latestBar = minuteBars.get(minuteBars.size() - 1);
+        String lastUpdated = formatTickTimestampIso(
+                latestBar.timestamp() == null ? null : latestBar.timestamp() * 1000
+        );
+
+        TickSummaryDto summary = new TickSummaryDto(
+                symbol,
+                market,
+                totalTrades,
+                totalVolume,
+                totalAmount,
+                buyVolume,
+                sellVolume,
+                blockOrderCount,
+                avgTradeSize,
+                lastUpdated
+        );
+        return ApiResponse.success(summary);
+    }
+
+    @GetMapping(value = "/ticks/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    public SseEmitter streamTicks(
+            @RequestParam String market,
+            @RequestParam String symbol) {
+        log.info("GET /api/v1/market/ticks/stream: market={}, symbol={}", market, symbol);
+        syntheticTickService.trackSymbol(symbol);
+        return tickStreamService.subscribe(symbol);
     }
 
     // Tick DTO records
@@ -330,7 +465,8 @@ public class MarketController {
         int size,
         double amount,
         String type,
-        String flag
+        String flag,
+        Long epochMillis
     ) {}
     
     public record TickSummaryDto(
@@ -345,6 +481,108 @@ public class MarketController {
         double avgTradeSize,
         String lastUpdated
     ) {}
+
+    private TickDto mapMinuteBarToTick(KlineDataDto bar) {
+        long volume = bar.volume() == null ? 0L : bar.volume();
+        int size = volume > Integer.MAX_VALUE ? Integer.MAX_VALUE : (int) volume;
+        double amount = bar.amount() == null ? 0D : bar.amount().doubleValue();
+        BigDecimal price = bar.close() == null ? BigDecimal.ZERO : bar.close();
+        String type = isBuyMinuteBar(bar) ? "buy" : "sell";
+        String flag = volume >= BLOCK_ORDER_VOLUME_THRESHOLD ? "BLOCK_ORDER" : "NORMAL";
+
+        return new TickDto(
+                formatTickTime(bar.timestamp()),
+                price.doubleValue(),
+                size,
+                amount,
+                type,
+                flag,
+                bar.timestamp() == null ? null : bar.timestamp() * 1000
+        );
+    }
+
+    private boolean isBuyMinuteBar(KlineDataDto bar) {
+        if (bar.close() == null || bar.open() == null) {
+            return true;
+        }
+        return bar.close().compareTo(bar.open()) >= 0;
+    }
+
+    private String formatTickTime(Long epochSeconds) {
+        if (epochSeconds == null) {
+            return "--:--:--";
+        }
+        return LocalDateTime.ofInstant(Instant.ofEpochSecond(epochSeconds), MARKET_ZONE)
+                .format(TICK_TIME_FORMATTER);
+    }
+
+    private String formatTickTimestampIso(Long epochMillis) {
+        if (epochMillis == null) {
+            return LocalDateTime.now(MARKET_ZONE).toString();
+        }
+        return LocalDateTime.ofInstant(Instant.ofEpochMilli(epochMillis), MARKET_ZONE).toString();
+    }
+
+    private List<KlineDataDto> normalizeKlineData(List<?> rawBars) {
+        if (rawBars == null || rawBars.isEmpty()) {
+            return List.of();
+        }
+        return rawBars.stream()
+                .map(this::coerceKlineDataDto)
+                .filter(Objects::nonNull)
+                .toList();
+    }
+
+    @SuppressWarnings("unchecked")
+    private KlineDataDto coerceKlineDataDto(Object raw) {
+        if (raw instanceof KlineDataDto dto) {
+            return dto;
+        }
+        if (!(raw instanceof Map<?, ?> map)) {
+            return null;
+        }
+
+        return new KlineDataDto(
+                toLong(map.get("timestamp")),
+                toBigDecimal(map.get("open")),
+                toBigDecimal(map.get("high")),
+                toBigDecimal(map.get("low")),
+                toBigDecimal(map.get("close")),
+                toLong(map.get("volume")),
+                toBigDecimal(map.get("amount"))
+        );
+    }
+
+    private Long toLong(Object value) {
+        if (value == null) {
+            return null;
+        }
+        if (value instanceof Number num) {
+            return num.longValue();
+        }
+        try {
+            return Long.parseLong(String.valueOf(value));
+        } catch (NumberFormatException ex) {
+            return null;
+        }
+    }
+
+    private BigDecimal toBigDecimal(Object value) {
+        if (value == null) {
+            return null;
+        }
+        if (value instanceof BigDecimal decimal) {
+            return decimal;
+        }
+        if (value instanceof Number num) {
+            return BigDecimal.valueOf(num.doubleValue());
+        }
+        try {
+            return new BigDecimal(String.valueOf(value));
+        } catch (NumberFormatException ex) {
+            return null;
+        }
+    }
 
     private List<KlineDataDto> waitForKlineData(
             String market,

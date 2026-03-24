@@ -69,7 +69,8 @@ const getAuthToken = (): string => {
   }
   try {
     const authState = JSON.parse(authStorage)
-    return authState?.state?.token || ''
+    const accessToken = authState?.state?.accessToken
+    return typeof accessToken === 'string' ? accessToken : ''
   } catch {
     return ''
   }

@@ -1,5 +1,6 @@
 package com.koduck.service;
 
+import com.koduck.controller.MarketController;
 import com.koduck.entity.StockRealtime;
 import com.koduck.repository.StockRealtimeRepository;
 import lombok.RequiredArgsConstructor;
@@ -28,6 +29,8 @@ public class PricePushService {
 
     private final StockSubscriptionService stockSubscriptionService;
     private final StockRealtimeRepository stockRealtimeRepository;
+    private final SyntheticTickService syntheticTickService;
+    private final TickStreamService tickStreamService;
 
     /**
      * ：symbol -> last price
@@ -57,13 +60,14 @@ public class PricePushService {
     public void checkAndPushPriceUpdates() {
         try {
             // 
-            Set<String> subscribedSymbols = stockSubscriptionService.getAllSubscribedSymbols();
-            if (subscribedSymbols.isEmpty()) {
+            Set<String> symbolsToProcess = new HashSet<>(stockSubscriptionService.getAllSubscribedSymbols());
+            symbolsToProcess.addAll(syntheticTickService.snapshotTrackedSymbols());
+            if (symbolsToProcess.isEmpty()) {
                 return;
             }
 
             // 
-            List<StockRealtime> realtimeList = stockRealtimeRepository.findBySymbolIn(new ArrayList<>(subscribedSymbols));
+            List<StockRealtime> realtimeList = stockRealtimeRepository.findBySymbolIn(new ArrayList<>(symbolsToProcess));
 
             long now = System.currentTimeMillis();
 
@@ -73,6 +77,13 @@ public class PricePushService {
                 Double lastPrice = lastPrices.get(symbol);
 
                 boolean shouldPush = shouldPush(symbol, now);
+                MarketController.TickDto syntheticTick = null;
+                if (shouldPush) {
+                    syntheticTick = syntheticTickService.appendSyntheticTickFromRealtime(realtime);
+                    if (syntheticTick != null) {
+                        tickStreamService.publishTick(symbol, syntheticTick);
+                    }
+                }
 
                 // Push initial snapshot immediately for new subscriptions.
                 if (lastPrice == null) {
@@ -99,7 +110,7 @@ public class PricePushService {
                 // 
                 boolean priceChanged = !Objects.equals(currentPrice, lastPrice);
 
-                if (priceChanged && shouldPush) {
+                if ((priceChanged || syntheticTick != null) && shouldPush) {
                     // 
                     StockSubscriptionService.PriceUpdate priceUpdate = StockSubscriptionService.PriceUpdate.builder()
                             .symbol(realtime.getSymbol())

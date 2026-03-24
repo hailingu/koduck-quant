@@ -8,6 +8,7 @@ export interface Tick {
   amount: number;
   type: 'buy' | 'sell';
   flag: 'NORMAL' | 'BLOCK_ORDER' | 'ICEBERG';
+  epochMillis?: number | null;
 }
 
 // For Kline page compatibility
@@ -159,7 +160,9 @@ export const tickApi = {
     const data: TickData[] = ticks.map((tick, index) => ({
       id: `${symbol}-${tick.time}-${index}`,
       symbol,
-      timestamp: new Date(`1970-01-01T${tick.time}`).getTime() || Date.now(),
+      timestamp: typeof tick.epochMillis === 'number' && Number.isFinite(tick.epochMillis)
+        ? tick.epochMillis
+        : Date.now(),
       price: tick.price,
       size: tick.size,
       amount: tick.amount,
@@ -187,6 +190,16 @@ export const tickApi = {
       return null;
     }
     
+    const tickHistory = await tickApi.getTickHistory(symbol, {
+      market: params.market,
+      limit: 200,
+    });
+    const prices = tickHistory.data
+      .map((tick) => tick.price)
+      .filter((value) => typeof value === 'number' && Number.isFinite(value));
+    const minPrice = prices.length > 0 ? Math.min(...prices) : 0;
+    const maxPrice = prices.length > 0 ? Math.max(...prices) : 0;
+
     return {
       symbol: summary.symbol,
       totalTrades: summary.totalTrades,
@@ -198,8 +211,8 @@ export const tickApi = {
       count: summary.totalTrades,
       totalVolume: summary.totalVolume,
       avgPrice: summary.totalAmount / (summary.totalVolume || 1),
-      minPrice: 0,
-      maxPrice: 0,
+      minPrice,
+      maxPrice,
     };
   },
 
@@ -208,28 +221,46 @@ export const tickApi = {
    */
   async getVolumeSummary(
     symbol: string,
-    days: number = 7
+    days: number = 7,
+    market: string = 'AShare'
   ): Promise<VolumeSummary> {
-    // This is a mock implementation - in production this would call a real API
-    const dailyData = Array.from({ length: days }, (_, i) => {
-      const date = new Date();
-      date.setDate(date.getDate() - i);
-      const tickCount = Math.floor(Math.random() * 50000) + 10000;
-      const totalVolume = Math.floor(Math.random() * 1000000) + 500000;
-      return {
-        date: date.toISOString().split('T')[0],
-        tickCount,
-        totalVolume,
-        avgPrice: Math.random() * 100 + 50,
-      };
+    const history = await tickApi.getTickHistory(symbol, {
+      market,
+      limit: 500,
     });
+    if (history.data.length === 0) {
+      return {
+        symbol,
+        totalVolume: 0,
+        avgVolume: 0,
+        dailyData: [],
+      };
+    }
+    const grouped = new Map<string, { tickCount: number; totalVolume: number; totalPrice: number }>();
+    history.data.forEach((tick) => {
+      const date = new Date(tick.timestamp).toISOString().slice(0, 10);
+      const current = grouped.get(date) ?? { tickCount: 0, totalVolume: 0, totalPrice: 0 };
+      current.tickCount += 1;
+      current.totalVolume += tick.volume || 0;
+      current.totalPrice += tick.price || 0;
+      grouped.set(date, current);
+    });
+    const dailyData = Array.from(grouped.entries())
+      .sort(([a], [b]) => (a < b ? 1 : -1))
+      .slice(0, days)
+      .map(([date, value]) => ({
+        date,
+        tickCount: value.tickCount,
+        totalVolume: value.totalVolume,
+        avgPrice: value.tickCount > 0 ? value.totalPrice / value.tickCount : 0,
+      }));
 
     const totalVolume = dailyData.reduce((sum, d) => sum + d.totalVolume, 0);
     
     return {
       symbol,
       totalVolume,
-      avgVolume: Math.floor(totalVolume / days),
+      avgVolume: dailyData.length > 0 ? Math.floor(totalVolume / dailyData.length) : 0,
       dailyData,
     };
   },

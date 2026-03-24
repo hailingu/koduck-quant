@@ -235,16 +235,24 @@ class MiniMaxClient(LLMClientBase):
         message = response.choices[0].message
         raw_content = message.content or ""
         
-        logger.info(f"[MiniMax] : finish_reason={response.choices[0].finish_reason}")
-        logger.info(f"[MiniMax] : {len(raw_content)}")
-        logger.info(f"[MiniMax] : {raw_content[:200]}..." if len(raw_content) > 200 else f"[MiniMax] : {raw_content}")
+        logger.info(f"[MiniMax] parse_response: finish_reason={response.choices[0].finish_reason}")
+        logger.info(f"[MiniMax] parse_response: raw_content_length={len(raw_content)}")
+        logger.info(
+            f"[MiniMax] parse_response: raw_content_preview={raw_content[:200]}..."
+            if len(raw_content) > 200
+            else f"[MiniMax] parse_response: raw_content_preview={raw_content}"
+        )
         
         # 
         thinking, content = self._extract_thinking(raw_content)
         
-        logger.info(f"[MiniMax] : content_length={len(content)}, has_thinking={bool(thinking)}")
+        logger.info(f"[MiniMax] parse_response: content_length={len(content)}, has_thinking={bool(thinking)}")
         if thinking:
-            logger.info(f"[MiniMax] : {thinking[:100]}..." if len(thinking) > 100 else f"[MiniMax] : {thinking}")
+            logger.info(
+                f"[MiniMax] parse_response: thinking_preview={thinking[:100]}..."
+                if len(thinking) > 100
+                else f"[MiniMax] parse_response: thinking_preview={thinking}"
+            )
         
         result = LLMResponse(
             content=content,
