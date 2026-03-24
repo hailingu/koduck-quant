@@ -8,6 +8,7 @@ import asyncio
 import logging
 from datetime import datetime
 from typing import Any, Optional, Tuple
+from zoneinfo import ZoneInfo
 
 from app.db import Database, stock_db, tick_history_db
 from app.config import settings
@@ -55,6 +56,10 @@ class DataUpdater:
         self._tick_buffer: list[dict[str, Any]] = []   # Buffer for batch insert
         # Per-symbol last persisted tick time (for optional throttling)
         self._last_tick_time_by_symbol: dict[str, datetime] = {}
+        # Per-symbol cached prev_close for the current Beijing trading date.
+        # Key: symbol, Value: (YYYY-MM-DD, prev_close)
+        self._prev_close_cache_by_symbol: dict[str, tuple[str, float]] = {}
+        self._beijing_tz = ZoneInfo("Asia/Shanghai")
 
     def _normalize_market_data(self, data: StockPayload) -> StockPayload:
         """Convert raw Eastmoney values to human-readable units.
@@ -93,6 +98,80 @@ class DataUpdater:
                 data["_data_source"] = "after_hours"  # Mark data source
 
         return data
+
+    def _current_beijing_date_key(self) -> str:
+        """Return Beijing local date key used for daily cache invalidation."""
+        return datetime.now(self._beijing_tz).strftime("%Y-%m-%d")
+
+    async def _get_prev_close_from_daily_cache(self, symbol: str) -> Optional[float]:
+        """Get prev_close cached per symbol per Beijing date.
+
+        The value is loaded at most once per symbol per day from daily kline
+        data, then reused for subsequent tick updates.
+        """
+        day_key = self._current_beijing_date_key()
+        cached = self._prev_close_cache_by_symbol.get(symbol)
+        if cached and cached[0] == day_key:
+            return cached[1]
+
+        prev_close: Optional[float] = None
+        try:
+            row = await Database.fetchrow(
+                """
+                SELECT close_price
+                FROM kline_data
+                WHERE symbol = $1
+                  AND timeframe = '1d'
+                ORDER BY kline_time DESC
+                LIMIT 1
+                """,
+                symbol,
+            )
+            if row and row.get("close_price") is not None:
+                prev_close = float(row["close_price"])
+        except Exception:
+            logger.debug(
+                "Failed to load prev_close from kline_data for %s",
+                symbol,
+                exc_info=True,
+            )
+
+        # Fallback to realtime table if daily row is unavailable.
+        if prev_close is None:
+            try:
+                existing = await stock_db.get_stock(symbol)
+                if existing and existing.get("prev_close") is not None:
+                    prev_close = float(existing["prev_close"])
+            except Exception:
+                logger.debug(
+                    "Failed to fallback prev_close from stock_realtime for %s",
+                    symbol,
+                    exc_info=True,
+                )
+
+        if prev_close is not None and prev_close > 0:
+            self._prev_close_cache_by_symbol[symbol] = (day_key, prev_close)
+            return prev_close
+        return None
+
+    async def _apply_cached_daily_change(self, symbol: str, data: StockPayload) -> None:
+        """Recompute change fields using cached daily prev_close + latest price."""
+        price_raw = data.get("price")
+        if price_raw is None:
+            return
+        try:
+            price = float(price_raw)
+        except (TypeError, ValueError):
+            return
+
+        prev_close = await self._get_prev_close_from_daily_cache(symbol)
+        if prev_close is None or prev_close <= 0:
+            return
+
+        change = price - prev_close
+        data["prev_close"] = prev_close
+        data["change"] = change
+        data["change_percent"] = change / prev_close
 
     @staticmethod
     def _resolve_secid_prefix(symbol: str) -> str:
@@ -372,6 +451,7 @@ class DataUpdater:
             # Normalize price data (Eastmoney returns price * 100)
             # Also handles after-hours price=0 case
             data = self._normalize_market_data(data)
+            await self._apply_cached_daily_change(symbol, data)
             
             # Save to realtime database (UPSERT)
             success = await stock_db.upsert_stock(data)

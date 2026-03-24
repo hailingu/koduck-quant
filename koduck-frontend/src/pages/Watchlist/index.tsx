@@ -25,6 +25,8 @@ type SearchResult = {
 const REALTIME_STALE_MS = 20000
 const WATCHLIST_REFRESH_MS = 15000
 const MARKET_STATUS_CHECK_MS = 30000
+const NO_PRICE_POLL_INTERVAL_MS = 1500
+const NO_PRICE_POLL_MAX_MS = 20000
 
 const WATCHLIST_PANEL_CLASS = 'glass-panel rounded-xl border border-fluid-outline-variant/30'
 const INDICATOR_LEVELS: ReadonlyArray<number> = [1, 2, 3]
@@ -249,6 +251,9 @@ export default function Watchlist() {
   const searchContainerRef = useRef<HTMLDivElement>(null)
   const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const delayedRefreshTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const noPricePollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const noPricePollTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const isNoPricePollingRef = useRef(false)
   const latestSearchRequestIdRef = useRef(0)
 
   const stockPrices = useWebSocketStore((state) => state.stockPrices)
@@ -346,6 +351,31 @@ export default function Watchlist() {
     }
   }, [showToast])
 
+  const stopNoPricePolling = useCallback(() => {
+    if (noPricePollIntervalRef.current) {
+      clearInterval(noPricePollIntervalRef.current)
+      noPricePollIntervalRef.current = null
+    }
+    if (noPricePollTimeoutRef.current) {
+      clearTimeout(noPricePollTimeoutRef.current)
+      noPricePollTimeoutRef.current = null
+    }
+    isNoPricePollingRef.current = false
+  }, [])
+
+  const startNoPricePolling = useCallback(() => {
+    if (isNoPricePollingRef.current) {
+      return
+    }
+    isNoPricePollingRef.current = true
+    noPricePollIntervalRef.current = setInterval(() => {
+      void loadWatchlist({ silent: true })
+    }, NO_PRICE_POLL_INTERVAL_MS)
+    noPricePollTimeoutRef.current = setTimeout(() => {
+      stopNoPricePolling()
+    }, NO_PRICE_POLL_MAX_MS)
+  }, [loadWatchlist, stopNoPricePolling])
+
   useEffect(() => {
     loadWatchlist()
   }, [loadWatchlist])
@@ -368,8 +398,23 @@ export default function Watchlist() {
       if (delayedRefreshTimeoutRef.current) {
         clearTimeout(delayedRefreshTimeoutRef.current)
       }
+      stopNoPricePolling()
     }
-  }, [])
+  }, [stopNoPricePolling])
+
+  useEffect(() => {
+    if (!isNoPricePollingRef.current) {
+      return
+    }
+    if (watchlistWithRealtime.length === 0) {
+      stopNoPricePolling()
+      return
+    }
+    const hasNoPriceItem = watchlistWithRealtime.some((item) => item.price == null)
+    if (!hasNoPriceItem) {
+      stopNoPricePolling()
+    }
+  }, [watchlistWithRealtime, stopNoPricePolling])
 
   // Click outside to close search dropdown
   useEffect(() => {
@@ -482,6 +527,7 @@ export default function Watchlist() {
       delayedRefreshTimeoutRef.current = setTimeout(() => {
         void loadWatchlist({ silent: true })
       }, 500)
+      startNoPricePolling()
     } catch {
       showToast('添加自选股失败', 'error')
     }
@@ -523,7 +569,14 @@ export default function Watchlist() {
       return
     }
 
-    // 如果有搜索结果，直接添加第一个
+    // 名称/模糊查询必须走下拉选择，避免误加第一条（如“隆基”）
+    if (searchResults.length > 0 && !/^\d{6}$/.test(trimmedInput)) {
+      setShowSearchDropdown(true)
+      showToast('请从下拉列表选择股票', 'warning')
+      return
+    }
+
+    // 6 位代码查询可以快捷添加
     if (searchResults.length > 0) {
       await handleSelectSearchResult(searchResults[0])
       return

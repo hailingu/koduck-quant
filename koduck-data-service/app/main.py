@@ -4,7 +4,9 @@ import asyncio
 import logging
 import sys
 from contextlib import asynccontextmanager
+from datetime import datetime
 from time import perf_counter
+from zoneinfo import ZoneInfo
 
 import structlog
 from fastapi import FastAPI
@@ -56,6 +58,13 @@ def setup_logging():
     The function sets up ``structlog`` processors and binds the standard library
     logging level.
     """
+    shanghai_tz = ZoneInfo("Asia/Shanghai")
+
+    def add_shanghai_timestamp(_, __, event_dict):
+        """Attach ISO8601 timestamp in Asia/Shanghai timezone."""
+        event_dict["timestamp"] = datetime.now(shanghai_tz).isoformat(timespec="microseconds")
+        return event_dict
+
     def reorder_log_fields(_, __, event_dict):
         """Keep key order stable for readability in JSON logs."""
         preferred_order = (
@@ -93,7 +102,7 @@ def setup_logging():
         structlog.stdlib.add_logger_name,
         structlog.stdlib.add_log_level,
         structlog.stdlib.PositionalArgumentsFormatter(),
-        structlog.processors.TimeStamper(fmt="iso"),
+        add_shanghai_timestamp,
         structlog.processors.StackInfoRenderer(),
         structlog.processors.format_exc_info,
         structlog.processors.UnicodeDecoder(),

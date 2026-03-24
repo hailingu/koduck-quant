@@ -9,14 +9,16 @@ This module provides:
 
 import asyncio
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, time as dt_time
 from typing import Dict, List, Optional, Any, Callable
 from dataclasses import dataclass, field
 from enum import Enum
 from collections import deque
+from zoneinfo import ZoneInfo
 
 from app.db import Database, tick_history_db
 from app.config import settings
+from app.utils.trading_hours import is_a_share_trading_time
 
 logger = logging.getLogger(__name__)
 
@@ -100,6 +102,8 @@ class TickMonitor:
     DEFAULT_MAX_LATENCY_MS = 5000  # 5 seconds
     DEFAULT_MAX_GAP_SECONDS = 300  # 5 minutes
     DEFAULT_MIN_TICKS_PER_HOUR = 10
+    US_REGULAR_START = dt_time(9, 30)
+    US_REGULAR_END = dt_time(16, 0)
     
     def __init__(self):
         self._running = False
@@ -110,11 +114,36 @@ class TickMonitor:
         self._latency_history: deque = deque(maxlen=1000)
         self._alert_handlers: List[Callable[[Alert], None]] = []
         self._check_interval_seconds = 60  # Check every minute
+        self._us_tz = ZoneInfo("America/New_York")
         
         # Configuration
         self.max_latency_ms = getattr(settings, 'TICK_MONITOR_MAX_LATENCY_MS', self.DEFAULT_MAX_LATENCY_MS)
         self.max_gap_seconds = getattr(settings, 'TICK_MONITOR_MAX_GAP_SECONDS', self.DEFAULT_MAX_GAP_SECONDS)
         self.min_ticks_per_hour = getattr(settings, 'TICK_MONITOR_MIN_TICKS_PER_HOUR', self.DEFAULT_MIN_TICKS_PER_HOUR)
+
+    @staticmethod
+    def _normalize_market(market: Optional[str]) -> str:
+        """Normalize market code into coarse monitor market groups."""
+        value = (market or "").strip().upper()
+        if value in {"ASHARE", "A_SHARE", "SSE", "SZSE", "SH", "SZ"}:
+            return "A"
+        if value in {"US", "USSTOCK", "NASDAQ", "NYSE"}:
+            return "US"
+        return "OTHER"
+
+    def _is_market_trading(self, market: str, now: Optional[datetime] = None) -> bool:
+        """Return whether the given market is in its trading session now."""
+        ref = now or datetime.now()
+        normalized = self._normalize_market(market)
+        if normalized == "A":
+            return is_a_share_trading_time(ref)
+        if normalized == "US":
+            now_us = ref.astimezone(self._us_tz) if ref.tzinfo else datetime.now(self._us_tz)
+            if now_us.weekday() >= 5:
+                return False
+            current_time = now_us.time()
+            return self.US_REGULAR_START <= current_time <= self.US_REGULAR_END
+        return False
     
     def add_alert_handler(self, handler: Callable[[Alert], None]):
         """Add an alert handler callback.
@@ -198,7 +227,8 @@ class TickMonitor:
                 """
                 SELECT COUNT(DISTINCT symbol) as count 
                 FROM watchlist_items 
-                WHERE market IN ('AShare', 'SSE', 'SZSE')
+                WHERE symbol IS NOT NULL
+                  AND btrim(symbol) <> ''
                 """
             )
             self._system_metrics.total_symbols = row['count'] if row else 0
@@ -253,16 +283,21 @@ class TickMonitor:
             # Get symbols from watchlist
             rows = await Database.fetch(
                 """
-                SELECT DISTINCT symbol 
+                SELECT DISTINCT symbol, market
                 FROM watchlist_items 
-                WHERE market IN ('AShare', 'SSE', 'SZSE')
+                WHERE symbol IS NOT NULL
+                  AND btrim(symbol) <> ''
                 """
             )
-            symbols = [r['symbol'] for r in rows]
+            tradable_rows = [
+                r for r in rows
+                if self._is_market_trading(r.get('market'), now)
+            ]
             
             active_symbols = 0
             
-            for symbol in symbols:
+            for row in tradable_rows:
+                symbol = row['symbol']
                 try:
                     # Get latest tick
                     latest_ticks = await tick_history_db.get_latest_ticks(symbol, limit=1)

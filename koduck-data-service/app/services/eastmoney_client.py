@@ -1,5 +1,7 @@
 """Eastmoney API client with browser simulation and automatic cookie management."""
 
+import asyncio
+import concurrent.futures
 import gzip
 import json
 import logging
@@ -8,6 +10,7 @@ import random
 import time
 import urllib.error
 import urllib.request
+import zlib
 from datetime import UTC, datetime
 from pathlib import Path
 from threading import Lock
@@ -120,7 +123,7 @@ class EastmoneyClient:
             "User-Agent": random.choice(USER_AGENTS),  # noqa: S311
             "Accept": "*/*",
             "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8",
-            "Accept-Encoding": "gzip, deflate, br",
+            "Accept-Encoding": "gzip, deflate",
             "Connection": "keep-alive",
             "Cache-Control": "no-cache",
         }
@@ -192,47 +195,23 @@ class EastmoneyClient:
                     return True
         
         try:
-            from playwright.sync_api import sync_playwright
-            
+            # Import check first so missing dependency still falls back clearly.
+            from playwright.sync_api import sync_playwright as _sync_playwright  # noqa: F401
+
             # Get a stock to use for cookie refresh
             stock = self._get_cookie_stock()
             logger.info(f"Refreshing cookie using Playwright browser (stock: {stock})...")
-            
-            with sync_playwright() as p:
-                # Launch browser in headless mode
-                browser = p.chromium.launch(headless=True)
-                context = browser.new_context(
-                    user_agent=random.choice(USER_AGENTS)  # noqa: S311
-                )
-                page = context.new_page()
-                
-                # Visit concept page for the selected stock
-                url = f"https://quote.eastmoney.com/concept/{stock}.html?from=classic"
-                page.goto(url, wait_until="domcontentloaded", timeout=30000)
-                page.wait_for_timeout(2000)  # Wait for JavaScript to execute
-                
-                # Get all cookies
-                cookies = context.cookies()
-                browser.close()
-                
-                if cookies:
-                    # Format cookie string
-                    cookie_parts = [f"{c['name']}={c['value']}" for c in cookies]
-                    cookie_str = "; ".join(cookie_parts)
-                    
-                    with self._state_lock:
-                        self._cookie = cookie_str
-                        self._cookie_timestamp = datetime.now(UTC)
-                    
-                    logger.info(
-                        "Cookie refreshed with %s cookies from Playwright (stock: %s)",
-                        len(cookies),
-                        stock,
-                    )
-                    return True
-                
-                logger.warning("No cookies received from Playwright")
-                return False
+
+            try:
+                asyncio.get_running_loop()
+                in_event_loop = True
+            except RuntimeError:
+                in_event_loop = False
+
+            if in_event_loop:
+                # Avoid Playwright Sync API usage directly in asyncio event loop.
+                return self._refresh_cookie_with_playwright_threaded(stock)
+            return self._refresh_cookie_with_playwright_sync(stock)
 
         except ImportError:
             logger.warning("Playwright not installed, falling back to HTTP request")
@@ -240,6 +219,56 @@ class EastmoneyClient:
         except Exception as error:
             logger.warning("Failed to refresh cookie with Playwright: %s", error)
             return self._refresh_cookie_fallback()
+
+    def _refresh_cookie_with_playwright_threaded(self, stock: str) -> bool:
+        """Run Playwright sync API in a worker thread when asyncio loop is active."""
+        try:
+            with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
+                future = executor.submit(self._refresh_cookie_with_playwright_sync, stock)
+                return bool(future.result(timeout=45))
+        except Exception as error:
+            logger.warning("Threaded Playwright cookie refresh failed: %s", error)
+            return self._refresh_cookie_fallback()
+
+    def _refresh_cookie_with_playwright_sync(self, stock: str) -> bool:
+        """Refresh cookie using Playwright Sync API in a non-asyncio context."""
+        from playwright.sync_api import sync_playwright
+
+        with sync_playwright() as p:
+            # Launch browser in headless mode
+            browser = p.chromium.launch(headless=True)
+            context = browser.new_context(
+                user_agent=random.choice(USER_AGENTS)  # noqa: S311
+            )
+            page = context.new_page()
+
+            # Visit concept page for the selected stock
+            url = f"https://quote.eastmoney.com/concept/{stock}.html?from=classic"
+            page.goto(url, wait_until="domcontentloaded", timeout=30000)
+            page.wait_for_timeout(2000)  # Wait for JavaScript to execute
+
+            # Get all cookies
+            cookies = context.cookies()
+            browser.close()
+
+            if cookies:
+                # Format cookie string
+                cookie_parts = [f"{c['name']}={c['value']}" for c in cookies]
+                cookie_str = "; ".join(cookie_parts)
+
+                with self._state_lock:
+                    self._cookie = cookie_str
+                    self._cookie_timestamp = datetime.now(UTC)
+
+                logger.info(
+                    "Cookie refreshed with %s cookies from Playwright (stock: %s)",
+                    len(cookies),
+                    stock,
+                )
+                return True
+
+            logger.warning("No cookies received from Playwright")
+            return False
     
     def _refresh_cookie_fallback(self) -> bool:
         """Fallback method to obtain cookies using HTTP request.
@@ -394,7 +423,32 @@ class EastmoneyClient:
         return req
 
     @staticmethod
-    def _decode_json_response(response: Any) -> dict[str, Any] | None:
+    def _decode_json_bytes(content: bytes, encoding: str) -> dict[str, Any]:
+        """Decode compressed/raw payload bytes into a JSON object."""
+        normalized = (encoding or "").lower()
+        decoded = content
+
+        if "gzip" in normalized:
+            decoded = gzip.decompress(decoded)
+        elif "deflate" in normalized:
+            try:
+                decoded = zlib.decompress(decoded)
+            except zlib.error:
+                decoded = zlib.decompress(decoded, -zlib.MAX_WBITS)
+
+        # Header may be missing/misleading; sniff common gzip signatures.
+        if len(decoded) >= 2 and decoded[:2] == b"\x1f\x8b":
+            decoded = gzip.decompress(decoded)
+        elif decoded and decoded[0] == 0x8B:
+            try:
+                decoded = gzip.decompress(decoded)
+            except (OSError, EOFError, gzip.BadGzipFile):
+                pass
+
+        return json.loads(decoded.decode("utf-8"))
+
+    @classmethod
+    def _decode_json_response(cls, response: Any) -> dict[str, Any] | None:
         """Read an HTTP response and decode JSON content.
 
         Args:
@@ -406,10 +460,7 @@ class EastmoneyClient:
         """
         content = response.read()
         encoding = response.headers.get("Content-Encoding", "")
-        if "gzip" in encoding:
-            content = gzip.decompress(content)
-
-        data = json.loads(content.decode("utf-8"))
+        data = cls._decode_json_bytes(content, encoding)
         if not isinstance(data, dict):
             logger.warning("Unexpected response payload type: %s", type(data))
             return None
@@ -885,7 +936,7 @@ class EastmoneyClient:
             "User-Agent": random.choice(USER_AGENTS),  # noqa: S311
             "Accept": "application/json, text/javascript, */*; q=0.01",
             "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8",
-            "Accept-Encoding": "gzip, deflate, br",
+            "Accept-Encoding": "gzip, deflate",
             "Referer": "https://quote.eastmoney.com/",
             "Cookie": cookie,
             "Connection": "keep-alive",
@@ -897,10 +948,7 @@ class EastmoneyClient:
             
             content = response.read()
             encoding = response.headers.get("Content-Encoding", "")
-            if "gzip" in encoding:
-                content = gzip.decompress(content)
-            
-            data = json.loads(content.decode("utf-8"))
+            data = self._decode_json_bytes(content, encoding)
             
             if not data or not data.get("data"):
                 logger.warning(f"No kline data received for {symbol}")

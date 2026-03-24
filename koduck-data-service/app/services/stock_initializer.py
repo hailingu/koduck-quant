@@ -6,7 +6,8 @@ This module is responsible for initializing stock basic information
 
 import asyncio
 from collections.abc import Awaitable, Callable
-from datetime import datetime, timezone
+from datetime import datetime
+from zoneinfo import ZoneInfo
 from typing import Any, TypedDict
 
 import akshare as ak
@@ -18,6 +19,7 @@ from app.db import Database, StockRealtimeDB
 
 logger = structlog.get_logger(__name__)
 FETCH_ATTEMPT_MESSAGE = "Attempting to fetch A-share stock list via %s..."
+CN_TZ = ZoneInfo("Asia/Shanghai")
 
 
 class StockBasicRecord(TypedDict):
@@ -297,7 +299,9 @@ class StockInitializer:
             List of processed stock dictionaries
         """
         stocks: list[StockBasicRecord] = []
-        now = datetime.now(timezone.utc)  # noqa: UP017
+        # stock_basic.created_at/updated_at are timestamp without time zone.
+        # Store local China time as naive datetime to avoid asyncpg tz-aware/naive errors.
+        now = datetime.now(CN_TZ).replace(tzinfo=None)
 
         for _, row in df.iterrows():
             try:

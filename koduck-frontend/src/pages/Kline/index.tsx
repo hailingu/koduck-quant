@@ -185,8 +185,8 @@ function TimeAndSales({
   const getTickColor = (tick: TickData, index: number) => {
     if (index >= ticks.length - 1) return 'text-fluid-text'
     const nextTick = ticks[index + 1]
-    if (tick.price > nextTick.price) return 'text-fluid-primary'
-    if (tick.price < nextTick.price) return 'text-fluid-secondary'
+    if (tick.price > nextTick.price) return 'text-stock-up'
+    if (tick.price < nextTick.price) return 'text-stock-down'
     return 'text-fluid-text'
   }
 
@@ -578,7 +578,7 @@ function MarketStats({
         </div>
         <div className="flex justify-between text-xs">
           <span className="text-fluid-text-muted">Change</span>
-          <span className={`font-mono-data ${isUp ? 'text-fluid-primary' : 'text-fluid-secondary'}`}>
+          <span className={`font-mono-data ${isUp ? 'text-stock-up' : 'text-stock-down'}`}>
             {resolvedChange !== null && resolvedChange !== undefined
               ? `${isUp ? '+' : ''}${resolvedChange.toFixed(2)}`
               : '--'}{' '}
@@ -803,7 +803,7 @@ export default function Kline() {
                   --
                 </span>
               ) : (
-                <span className={`px-2 py-0.5 ${displayIsUp ? 'bg-fluid-primary/20 text-fluid-primary' : 'bg-fluid-secondary/20 text-fluid-secondary'} text-xs font-mono-data rounded`}>
+                <span className={`px-2 py-0.5 ${displayIsUp ? 'bg-stock-up/20 text-stock-up' : 'bg-stock-down/20 text-stock-down'} text-xs font-mono-data rounded`}>
                   {displayIsUp ? '+' : ''}{displayChange.toFixed(2)}%
                 </span>
               )}
@@ -817,9 +817,9 @@ export default function Kline() {
                     className={`
                       text-2xl font-bold 
                       transition-all duration-300
-                      ${displayIsUp ? 'text-fluid-primary' : 'text-fluid-secondary'}
-                      ${priceAnimation === 'up' ? 'bg-fluid-primary/20 scale-105' : ''}
-                      ${priceAnimation === 'down' ? 'bg-fluid-secondary/20 scale-105' : ''}
+                      ${displayIsUp ? 'text-stock-up' : 'text-stock-down'}
+                      ${priceAnimation === 'up' ? 'bg-stock-up/20 scale-105' : ''}
+                      ${priceAnimation === 'down' ? 'bg-stock-down/20 scale-105' : ''}
                       rounded px-1
                     `}
                   >

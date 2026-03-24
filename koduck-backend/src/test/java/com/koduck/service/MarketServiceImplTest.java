@@ -10,6 +10,7 @@ import com.koduck.entity.StockBasic;
 import com.koduck.entity.StockRealtime;
 import com.koduck.repository.StockBasicRepository;
 import com.koduck.repository.StockRealtimeRepository;
+import com.koduck.market.provider.MarketDataProvider.SymbolInfo;
 import com.koduck.service.impl.MarketServiceImpl;
 import com.koduck.service.market.AKShareDataProvider;
 import org.junit.jupiter.api.BeforeEach;
@@ -136,6 +137,24 @@ class MarketServiceImplTest {
         List<SymbolInfoDto> results = marketService.searchSymbols("", 1, 20);
 
         assertThat(results).isEmpty();
+    }
+
+    @Test
+    @DisplayName("shouldFallbackToDataServiceWhenDatabaseSearchReturnsEmpty")
+    void shouldFallbackToDataServiceWhenDatabaseSearchReturnsEmpty() {
+        when(stockBasicRepository.searchByKeyword("隆基", PageRequest.of(0, 5)))
+                .thenReturn(new PageImpl<>(List.of()));
+        when(akShareDataProvider.searchSymbols("隆基", 5))
+                .thenReturn(List.of(
+                        new SymbolInfo("601012", "隆基绿能", "AShare", "SSE", "stock"),
+                        new SymbolInfo("002363", "隆基机械", "AShare", "SZSE", "stock")
+                ));
+
+        List<SymbolInfoDto> results = marketService.searchSymbols("隆基", 1, 5);
+
+        assertThat(results).hasSize(2);
+        assertThat(results).extracting(SymbolInfoDto::symbol).containsExactly("601012", "002363");
+        assertThat(results).extracting(SymbolInfoDto::name).containsExactly("隆基绿能", "隆基机械");
     }
 
     @Test

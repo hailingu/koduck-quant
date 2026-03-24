@@ -96,7 +96,8 @@ public class MarketServiceImpl implements MarketService {
         List<StockBasic> basics = pageResult.getContent();
         
         if (basics.isEmpty()) {
-            return Collections.emptyList();
+            log.info("No symbols found in stock_basic, fallback to data service: keyword={}, size={}", keyword, size);
+            return searchSymbolsFromProvider(keyword, size);
         }
         
         // Get symbols for batch lookup
@@ -120,6 +121,40 @@ public class MarketServiceImpl implements MarketService {
         }
 
         return new ArrayList<>(deduplicated.values());
+    }
+
+    private List<SymbolInfoDto> searchSymbolsFromProvider(String keyword, int size) {
+        List<com.koduck.market.provider.MarketDataProvider.SymbolInfo> providerResults =
+                akShareDataProvider.searchSymbols(keyword, size);
+        if (providerResults == null || providerResults.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        Map<String, SymbolInfoDto> deduplicated = new LinkedHashMap<>();
+        for (com.koduck.market.provider.MarketDataProvider.SymbolInfo symbolInfo : providerResults) {
+            if (symbolInfo == null || symbolInfo.symbol() == null || symbolInfo.symbol().isBlank()) {
+                continue;
+            }
+            String normalizedSymbol = SymbolUtils.normalize(symbolInfo.symbol());
+            String market = symbolInfo.market() == null || symbolInfo.market().isBlank()
+                    ? DEFAULT_MARKET
+                    : symbolInfo.market();
+            String name = symbolInfo.name() == null || symbolInfo.name().isBlank()
+                    ? normalizedSymbol
+                    : symbolInfo.name();
+
+            SymbolInfoDto dto = SymbolInfoDto.builder()
+                    .symbol(normalizedSymbol)
+                    .name(name)
+                    .market(market)
+                    .build();
+            deduplicated.putIfAbsent(market + ":" + normalizedSymbol, dto);
+        }
+
+        if (deduplicated.isEmpty()) {
+            return Collections.emptyList();
+        }
+        return deduplicated.values().stream().limit(size).toList();
     }
     
     /**

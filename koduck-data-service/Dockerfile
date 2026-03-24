@@ -10,7 +10,8 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1 \
     PIP_INDEX_URL=${PIP_INDEX_URL} \
     PIP_DEFAULT_TIMEOUT=180 \
-    PIP_RETRIES=10
+    PIP_RETRIES=10 \
+    PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
 
 # Set work directory
 WORKDIR /app
@@ -30,13 +31,14 @@ RUN python -m pip install --upgrade pip setuptools wheel && \
     pip install --no-cache-dir \
     --retries ${PIP_RETRIES} \
     --timeout ${PIP_DEFAULT_TIMEOUT} \
-    -r requirements.txt
+    -r requirements.txt && \
+    python -m playwright install --with-deps chromium
 
 # Copy application code
 COPY app/ ./app/
 
 # Create non-root user
-RUN useradd -m -u 1000 appuser && chown -R appuser:appuser /app
+RUN useradd -m -u 1000 appuser && chown -R appuser:appuser /app /ms-playwright
 USER appuser
 
 # Expose port

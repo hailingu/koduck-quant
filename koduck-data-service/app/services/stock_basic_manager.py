@@ -29,11 +29,64 @@ class StockBasicManager:
     def __init__(self):
         self.data_dir = DATA_DIR
         self.csv_file = CSV_FILE
+        self._schema_ensured = False
         self._ensure_directory()
 
     def _ensure_directory(self):
         """Ensure data directory exists."""
         self.data_dir.mkdir(parents=True, exist_ok=True)
+
+    async def _ensure_stock_basic_full_schema(self) -> bool:
+        """Ensure stock_basic has all columns/indexes needed by full upsert.
+
+        This is an idempotent self-healing step for environments where Flyway
+        is not enabled. It keeps data-service startup resilient after a fresh
+        database rebuild (e.g. make dev-rebuild-clean).
+        """
+        ddl_statements = [
+            "ALTER TABLE stock_basic ADD COLUMN IF NOT EXISTS board VARCHAR(20)",
+            "ALTER TABLE stock_basic ADD COLUMN IF NOT EXISTS industry VARCHAR(100)",
+            "ALTER TABLE stock_basic ADD COLUMN IF NOT EXISTS sector VARCHAR(100)",
+            "ALTER TABLE stock_basic ADD COLUMN IF NOT EXISTS sub_industry VARCHAR(100)",
+            "ALTER TABLE stock_basic ADD COLUMN IF NOT EXISTS province VARCHAR(50)",
+            "ALTER TABLE stock_basic ADD COLUMN IF NOT EXISTS city VARCHAR(50)",
+            "ALTER TABLE stock_basic ADD COLUMN IF NOT EXISTS total_shares BIGINT",
+            "ALTER TABLE stock_basic ADD COLUMN IF NOT EXISTS float_shares BIGINT",
+            "ALTER TABLE stock_basic ADD COLUMN IF NOT EXISTS float_ratio DECIMAL(5, 4)",
+            "ALTER TABLE stock_basic ADD COLUMN IF NOT EXISTS status VARCHAR(20) DEFAULT 'Active'",
+            "ALTER TABLE stock_basic ADD COLUMN IF NOT EXISTS is_shanghai_hongkong BOOLEAN DEFAULT FALSE",
+            "ALTER TABLE stock_basic ADD COLUMN IF NOT EXISTS is_shenzhen_hongkong BOOLEAN DEFAULT FALSE",
+            "ALTER TABLE stock_basic ADD COLUMN IF NOT EXISTS stock_type VARCHAR(20) DEFAULT 'A'",
+            "ALTER TABLE stock_basic ADD COLUMN IF NOT EXISTS pe_ttm DECIMAL(12, 4)",
+            "ALTER TABLE stock_basic ADD COLUMN IF NOT EXISTS pb DECIMAL(12, 4)",
+            "ALTER TABLE stock_basic ADD COLUMN IF NOT EXISTS ps_ttm DECIMAL(12, 4)",
+            "ALTER TABLE stock_basic ADD COLUMN IF NOT EXISTS market_cap DECIMAL(18, 2)",
+            "ALTER TABLE stock_basic ADD COLUMN IF NOT EXISTS float_market_cap DECIMAL(18, 2)",
+            "ALTER TABLE stock_basic ADD COLUMN IF NOT EXISTS turnover_rate DECIMAL(10, 4)",
+            "CREATE INDEX IF NOT EXISTS idx_stock_basic_board ON stock_basic(board)",
+            "CREATE INDEX IF NOT EXISTS idx_stock_basic_market_board ON stock_basic(market, board)",
+            "CREATE INDEX IF NOT EXISTS idx_stock_basic_industry ON stock_basic(industry)",
+            "CREATE INDEX IF NOT EXISTS idx_stock_basic_sector ON stock_basic(sector)",
+        ]
+
+        try:
+            for ddl in ddl_statements:
+                await Database.execute(ddl)
+            logger.info("Ensured stock_basic enhanced schema for data-service full upsert")
+            return True
+        except Exception as e:
+            logger.error(f"Failed to ensure stock_basic enhanced schema: {e}")
+            return False
+
+    async def _ensure_schema_once(self) -> bool:
+        """Ensure schema only once per process lifecycle."""
+        if self._schema_ensured:
+            return True
+
+        schema_ok = await self._ensure_stock_basic_full_schema()
+        if schema_ok:
+            self._schema_ensured = True
+        return schema_ok
 
     def _extract_field(self, row: pd.Series, possible_names: list[str], default=None):
         """Extract field from row using multiple possible column names."""
@@ -237,6 +290,10 @@ class StockBasicManager:
             logger.warning("No data to import")
             return 0, 0
 
+        schema_ok = await self._ensure_schema_once()
+        if not schema_ok:
+            logger.warning("stock_basic schema not fully ensured before import")
+
         success_count = 0
         error_count = 0
 
@@ -286,6 +343,10 @@ class StockBasicManager:
         Returns:
             True if successful
         """
+        schema_ok = await self._ensure_schema_once()
+        if not schema_ok:
+            logger.warning("stock_basic schema self-healing failed; import may be partially unavailable")
+
         # Try to load from CSV first
         if not force_refresh and self.csv_file.exists():
             logger.info("Loading stock basic data from CSV...")

@@ -143,7 +143,7 @@ WHERE symbol = $1 AND tick_time BETWEEN $2 AND $3
 """
 
 SELECT_TICK_HISTORY_LATEST = """
-SELECT id, symbol, tick_time, price, open_price, high, low, prev_close,
+SELECT id, symbol, tick_time, price, high, low, prev_close,
        volume, amount, change_amount, change_percent,
        bid_price, bid_volume, ask_price, ask_volume, raw_data, created_at
 FROM stock_tick_history 
