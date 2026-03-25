@@ -245,12 +245,28 @@ function TimeAndSales({
     return tick.volume > (nextTick.volume * 5) // Highlight large volume
   }
 
-  const getTickColor = (tick: TickData, index: number) => {
-    // 优先使用后端给出的成交方向，避免仅靠价格比较导致的误判
-    if (tick.type === 'buy' || tick.side === 'buy') return 'text-stock-up'
-    if (tick.type === 'sell' || tick.side === 'sell') return 'text-stock-down'
+  // Get reference price for tick color comparison (prevClose from quote or first available price)
+  const getReferencePrice = useCallback(() => {
+    // Try to get prevClose from somewhere - in a real app this would come from props or context
+    // For now, use the last tick's price as reference (ticks are sorted newest first)
+    if (ticks.length > 0) {
+      return ticks[ticks.length - 1].price
+    }
+    return null
+  }, [ticks])
 
-    // 回退到价格比较：当前行与时间上更早的一笔比较
+  const getTickColor = (tick: TickData, index: number) => {
+    // Get reference price (last tick in the list, which is the oldest)
+    const referencePrice = getReferencePrice()
+    
+    // If we have a reference price, compare with it
+    if (referencePrice !== null) {
+      if (tick.price > referencePrice) return 'text-stock-up'   // Red for up (A-share convention)
+      if (tick.price < referencePrice) return 'text-stock-down' // Green for down
+      return 'text-fluid-text'
+    }
+    
+    // Fallback: compare with next tick (older one)
     if (index >= ticks.length - 1) return 'text-fluid-text'
     let compareIndex = index + 1
     while (compareIndex < ticks.length && ticks[compareIndex].price === tick.price) {

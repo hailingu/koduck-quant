@@ -59,16 +59,18 @@ function shouldKeepIntradayPoint(timestamp: number, market: string): boolean {
     return false
   }
 
+  // Allow data from last 2 days (in case of weekend or data delay)
+  const twoDaysAgo = new Date(now.getTime() - 2 * 24 * 60 * 60 * 1000)
+  if (pointDate.getTime() < twoDaysAgo.getTime()) {
+    return false
+  }
+
   if (market !== 'AShare') {
     return true
   }
 
-  const nowParts = getBeijingParts(now)
+  // For AShare, check if time is within trading session
   const pointParts = getBeijingParts(pointDate)
-  if (nowParts.date !== pointParts.date) {
-    return false
-  }
-
   return isInAShareSessionByBeijingTime(pointParts.hour, pointParts.minute)
 }
 
@@ -146,8 +148,11 @@ function aggregateTicksToKline(ticks: TickData[]): KlineData[] {
   const grouped = new Map<number, TickData[]>()
   
   ticks.forEach(tick => {
+    // Handle both seconds and milliseconds timestamps
+    // If timestamp > 1e10, it's milliseconds
+    const ts = tick.timestamp > 1e10 ? tick.timestamp : tick.timestamp * 1000
     // Round to minute (remove seconds)
-    const minuteTs = Math.floor(tick.timestamp / 60000) * 60
+    const minuteTs = Math.floor(ts / 60000) * 60
     const existing = grouped.get(minuteTs) || []
     existing.push(tick)
     grouped.set(minuteTs, existing)
