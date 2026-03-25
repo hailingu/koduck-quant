@@ -37,9 +37,13 @@ function formatSignedPercent(value: number | null | undefined, digits = 2): stri
   return `${value >= 0 ? '+' : ''}${value.toFixed(digits)}%`;
 }
 
-function formatVolumeWan(value: number | null | undefined): string {
+function formatVolume(value: number | null | undefined): string {
   if (typeof value !== 'number' || !Number.isFinite(value)) {
     return '--';
+  }
+  // 大于等于1亿显示为亿，否则显示为万
+  if (value >= 100000000) {
+    return `${(value / 100000000).toFixed(1)}亿`;
   }
   return `${(value / 10000).toFixed(0)}万`;
 }
@@ -107,7 +111,7 @@ export default function Market() {
           <div key={index.symbol} className="glass-panel p-4 rounded-xl">
             <div className="text-sm text-slate-400">{index.name}</div>
             <div className="text-2xl font-bold text-slate-200">{formatFixed(index.price, 2)}</div>
-            <div className={`text-sm ${(index.changePercent ?? 0) >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+            <div className={`text-sm ${(index.changePercent ?? 0) >= 0 ? 'text-rose-500' : 'text-emerald-500'}`}>
               {formatSignedPercent(index.changePercent, 2)}
             </div>
           </div>
@@ -161,10 +165,10 @@ export default function Market() {
               <td className="py-3 text-slate-300">{stock.symbol}</td>
               <td className="py-3 text-slate-300">{stock.name}</td>
               <td className="py-3 text-right text-slate-300">{formatFixed(stock.price, 2)}</td>
-              <td className={`py-3 text-right ${(stock.changePercent ?? 0) >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+              <td className={`py-3 text-right ${(stock.changePercent ?? 0) >= 0 ? 'text-rose-500' : 'text-emerald-500'}`}>
                 {formatSignedPercent(stock.changePercent, 2)}
               </td>
-              <td className="py-3 text-right text-slate-400">{formatVolumeWan(stock.volume)}</td>
+              <td className="py-3 text-right text-slate-400">{formatVolume(stock.volume)}</td>
             </tr>
           ))}
         </tbody>
