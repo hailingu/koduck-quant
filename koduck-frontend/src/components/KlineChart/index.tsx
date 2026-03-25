@@ -75,6 +75,50 @@ function convertToLineData(data: ApiKlineData[], apiTimeframe: string) {
   }))
 }
 
+function ensureStrictAscByTimestamp<T extends { timestamp: number }>(
+  data: T[],
+): { cleaned: T[]; removed: number } {
+  if (data.length <= 1) {
+    return { cleaned: data, removed: 0 }
+  }
+
+  const sorted = [...data].sort((a, b) => a.timestamp - b.timestamp)
+  const cleaned: T[] = []
+  for (const item of sorted) {
+    const last = cleaned[cleaned.length - 1]
+    if (last && last.timestamp === item.timestamp) {
+      // keep latest item for duplicate timestamp
+      cleaned[cleaned.length - 1] = item
+      continue
+    }
+    cleaned.push(item)
+  }
+  return { cleaned, removed: sorted.length - cleaned.length }
+}
+
+function sanitizeAShareMinuteKline(
+  data: ApiKlineData[],
+  market: string,
+  apiTimeframe: string,
+): { cleaned: ApiKlineData[]; removed: number } {
+  const isMinuteTimeframe = ['1m', '5m', '15m', '30m', '60m'].includes(apiTimeframe)
+  if (!isMinuteTimeframe || market !== 'AShare') {
+    return { cleaned: data, removed: 0 }
+  }
+
+  // A股盘中时段过滤，去掉混入到分钟级别中的日线/异常时间点（例如北京时间 00:00）
+  const allowedHours = new Set([9, 10, 11, 13, 14, 15])
+  const cleaned = data.filter((item) => {
+    const beijingHour = new Date((item.timestamp + 8 * 3600) * 1000).getUTCHours()
+    return allowedHours.has(beijingHour)
+  })
+
+  if (cleaned.length === 0) {
+    return { cleaned: data, removed: 0 }
+  }
+  return { cleaned, removed: data.length - cleaned.length }
+}
+
 // Get timeframe duration in seconds
 function getTimeframeSeconds(timeframe: string): number {
   const map: Record<string, number> = {
@@ -131,6 +175,9 @@ export default function KLineChart({
   const adjustingRangeRef = useRef(false)
   const pendingVisibleRangeRef = useRef<{ from: number; to: number } | null>(null)
   const requestedLimitRef = useRef(DEFAULT_LIMIT)
+  const disposedRef = useRef(false)
+  const timeoutIdsRef = useRef<Set<number>>(new Set())
+  const fetchRequestIdRef = useRef(0)
   const fetchKlineDataRef = useRef<
     (opts?: { preserveLogicalRange?: boolean; pinRightToLatest?: boolean }) => Promise<void>
   >(
@@ -146,6 +193,20 @@ export default function KLineChart({
     if (!isDebugEnabledRef.current) return
     const now = new Date().toISOString()
     console.log(`[KLineDebug][${now}] ${event}`, payload ?? {})
+  }, [])
+
+  const scheduleTimeout = useCallback((callback: () => void, delay = 0) => {
+    const timerId = window.setTimeout(() => {
+      timeoutIdsRef.current.delete(timerId)
+      callback()
+    }, delay)
+    timeoutIdsRef.current.add(timerId)
+    return timerId
+  }, [])
+
+  const clearAllTimeouts = useCallback(() => {
+    timeoutIdsRef.current.forEach((id) => window.clearTimeout(id))
+    timeoutIdsRef.current.clear()
   }, [])
   
   // WebSocket integration
@@ -205,6 +266,7 @@ export default function KLineChart({
 
   // Initialize chart
   useEffect(() => {
+    disposedRef.current = false
     try {
       isDebugEnabledRef.current = window.localStorage.getItem(KLINE_DEBUG_KEY) === '1'
     } catch {
@@ -343,14 +405,19 @@ export default function KLineChart({
     }
     
     // Initial resize with slight delay to ensure container is rendered
-    setTimeout(handleResize, 0)
+    scheduleTimeout(handleResize, 0)
     
     window.addEventListener('resize', handleResize)
 
     return () => {
+      disposedRef.current = true
+      clearAllTimeouts()
       window.removeEventListener('resize', handleResize)
       chart.remove()
       chartRef.current = null
+      areaSeriesRef.current = null
+      vwapSeriesRef.current = null
+      volumeSeriesRef.current = null
     }
   }, [])
 
@@ -379,7 +446,13 @@ export default function KLineChart({
 
   // Handle real-time price updates
   useEffect(() => {
-    if (!priceUpdate || !areaSeriesRef.current || lastDataRef.current.length === 0) return
+    if (
+      disposedRef.current
+      || !priceUpdate
+      || !chartRef.current
+      || !areaSeriesRef.current
+      || lastDataRef.current.length === 0
+    ) return
     
     const apiTimeframe = timeframeMap[timeframe] || '1D'
     const tfSeconds = getTimeframeSeconds(apiTimeframe)
@@ -431,9 +504,10 @@ export default function KLineChart({
 
   // Fetch and update data
   const fetchKlineData = useCallback(async (opts?: { preserveLogicalRange?: boolean; pinRightToLatest?: boolean }) => {
-    if (!symbol || !areaSeriesRef.current) return
+    if (!symbol || !areaSeriesRef.current || !chartRef.current || disposedRef.current) return
     
     try {
+      const currentRequestId = ++fetchRequestIdRef.current
       const preserveLogicalRange = opts?.preserveLogicalRange ?? false
       const pinRightToLatest = opts?.pinRightToLatest ?? false
       const previousDataCount = lastDataRef.current.length
@@ -453,6 +527,15 @@ export default function KLineChart({
         timeframe: apiTimeframe,
         limit,
       })
+
+      if (
+        disposedRef.current
+        || currentRequestId !== fetchRequestIdRef.current
+        || !chartRef.current
+        || !areaSeriesRef.current
+      ) {
+        return
+      }
       debugLog('fetch_kline_response', {
         symbol,
         apiTimeframe,
@@ -463,13 +546,39 @@ export default function KLineChart({
       })
       
       if (response && response.length > 0) {
-        // Sort data by timestamp ascending (oldest first) - required by lightweight-charts
-        const sortedResponse = [...response].sort((a, b) => a.timestamp - b.timestamp)
+        // Ensure strict ascending/unique timestamps for lightweight-charts.
+        const { cleaned: sortedResponse, removed: removedDuplicates } =
+          ensureStrictAscByTimestamp(response)
+        if (removedDuplicates > 0) {
+          debugLog('sanitize_kline_removed_duplicate_timestamps', {
+            symbol,
+            market,
+            apiTimeframe,
+            removed: removedDuplicates,
+            before: response.length,
+            after: sortedResponse.length,
+          })
+        }
+        const { cleaned: normalizedResponse, removed } = sanitizeAShareMinuteKline(
+          sortedResponse,
+          market,
+          apiTimeframe,
+        )
+        if (removed > 0) {
+          debugLog('sanitize_kline_removed_non_session_bars', {
+            symbol,
+            market,
+            apiTimeframe,
+            removed,
+            before: sortedResponse.length,
+            after: normalizedResponse.length,
+          })
+        }
         
         // Store reference to raw data for real-time updates
-        lastDataRef.current = sortedResponse
-        weeklyFullyLoadedRef.current = apiTimeframe === '1W' && sortedResponse.length < limit
-        dailyFullyLoadedRef.current = apiTimeframe === '1D' && sortedResponse.length < limit
+        lastDataRef.current = normalizedResponse
+        weeklyFullyLoadedRef.current = apiTimeframe === '1W' && normalizedResponse.length < limit
+        dailyFullyLoadedRef.current = apiTimeframe === '1D' && normalizedResponse.length < limit
         if (apiTimeframe === '1W') {
           applyInteractionMode(weeklyFullyLoadedRef.current ? 'weekly-post-full' : 'weekly-loading')
         } else if (apiTimeframe === '1D') {
@@ -479,15 +588,15 @@ export default function KLineChart({
         }
         
         // Convert to area chart data (using close price)
-        const lineData = convertToLineData(sortedResponse, apiTimeframe)
+        const lineData = convertToLineData(normalizedResponse, apiTimeframe)
         areaSeriesRef.current.setData(lineData)
         
         // Calculate and set VWAP data
-        const vwapData = sortedResponse.map((item, index) => {
-          const cumulativeTPV = sortedResponse
+        const vwapData = normalizedResponse.map((item, index) => {
+          const cumulativeTPV = normalizedResponse
             .slice(0, index + 1)
             .reduce((sum, d) => sum + ((d.high + d.low + d.close) / 3) * d.volume, 0)
-          const cumulativeVol = sortedResponse
+          const cumulativeVol = normalizedResponse
             .slice(0, index + 1)
             .reduce((sum, d) => sum + d.volume, 0)
           return {
@@ -495,31 +604,33 @@ export default function KLineChart({
             value: cumulativeVol > 0 ? cumulativeTPV / cumulativeVol : item.close,
           }
         })
-        vwapSeriesRef.current.setData(vwapData)
+        vwapSeriesRef.current?.setData(vwapData)
         
         // Set volume data - semi-transparent overlay
-        const maxVol = Math.max(...sortedResponse.map(d => d.volume))
-        const volumeData = sortedResponse.map((item) => ({
+        const maxVol = Math.max(...normalizedResponse.map(d => d.volume))
+        const volumeData = normalizedResponse.map((item) => ({
           time: toChartTime(item.timestamp, apiTimeframe),
           value: item.volume,
           color: item.close >= item.open 
             ? `rgba(0, 242, 255, ${0.2 + (item.volume / maxVol) * 0.3})` 
             : `rgba(222, 5, 65, ${0.2 + (item.volume / maxVol) * 0.3})`,
         }))
-        volumeSeriesRef.current.setData(volumeData)
+        volumeSeriesRef.current?.setData(volumeData)
         
-        setTimeout(() => {
-          if (chartRef.current && sortedResponse.length > 0) {
+        scheduleTimeout(() => {
+          if (!chartRef.current || disposedRef.current || normalizedResponse.length <= 0) {
+            return
+          }
             if (preserveLogicalRange && previousLogicalRange) {
               if (pinRightToLatest && previousLogicalSpan !== null && previousLogicalSpan > 0) {
-                const latestLogicalIndex = sortedResponse.length - 1
+                const latestLogicalIndex = normalizedResponse.length - 1
                 const anchoredTo = latestLogicalIndex + previousRightOffset
                 chartRef.current.timeScale().setVisibleLogicalRange({
                   from: anchoredTo - previousLogicalSpan,
                   to: anchoredTo,
                 })
               } else {
-                const prependedCount = Math.max(0, sortedResponse.length - previousDataCount)
+                const prependedCount = Math.max(0, normalizedResponse.length - previousDataCount)
                 chartRef.current.timeScale().setVisibleLogicalRange({
                   from: previousLogicalRange.from + prependedCount,
                   to: previousLogicalRange.to + prependedCount,
@@ -529,14 +640,14 @@ export default function KLineChart({
                 symbol,
                 apiTimeframe,
                 previousCount: previousDataCount,
-                newCount: sortedResponse.length,
+                newCount: normalizedResponse.length,
                 previousLogicalRange,
                 previousLogicalSpan,
                 previousRightOffset,
               })
             } else {
-              const firstTime = toChartTime(sortedResponse[0].timestamp, apiTimeframe)
-              const lastTime = toChartTime(sortedResponse[sortedResponse.length - 1].timestamp, apiTimeframe)
+              const firstTime = toChartTime(normalizedResponse[0].timestamp, apiTimeframe)
+              const lastTime = toChartTime(normalizedResponse[normalizedResponse.length - 1].timestamp, apiTimeframe)
               chartRef.current.timeScale().setVisibleRange({
                 from: firstTime,
                 to: lastTime,
@@ -546,7 +657,7 @@ export default function KLineChart({
                 apiTimeframe,
                 from: firstTime,
                 to: lastTime,
-                dataCount: sortedResponse.length,
+                dataCount: normalizedResponse.length,
               })
             }
 
@@ -558,11 +669,10 @@ export default function KLineChart({
             if (apiTimeframe === '1D' && dailyFullyLoadedRef.current && !dailyFirstFullShownRef.current) {
               dailyFirstFullShownRef.current = true
             }
-          }
         }, 0)
       } else {
         // Clear chart data when no data available
-        areaSeriesRef.current.setData([])
+        areaSeriesRef.current?.setData([])
         vwapSeriesRef.current?.setData([])
         volumeSeriesRef.current?.setData([])
         lastDataRef.current = []
@@ -575,7 +685,9 @@ export default function KLineChart({
       showToast('Failed to load K-line data', 'error')
       console.error('K-line data fetch error:', err)
     } finally {
-      setLoading(false)
+      if (!disposedRef.current) {
+        setLoading(false)
+      }
     }
   }, [symbol, market, timeframe, showToast, applyInteractionMode])
 
@@ -702,7 +814,11 @@ export default function KLineChart({
           from: nextFrom,
           to: nextTo,
         })
-        setTimeout(() => {
+        scheduleTimeout(() => {
+          if (disposedRef.current) {
+            adjustingRangeRef.current = false
+            return
+          }
           adjustingRangeRef.current = false
           const latestRange = pendingVisibleRangeRef.current ?? timeScale.getVisibleLogicalRange()
           pendingVisibleRangeRef.current = null
@@ -720,7 +836,7 @@ export default function KLineChart({
             from: secondPass.from,
             to: secondPass.to,
           })
-          setTimeout(() => {
+          scheduleTimeout(() => {
             adjustingRangeRef.current = false
           }, 0)
         }, 0)
@@ -778,7 +894,7 @@ export default function KLineChart({
     return () => {
       timeScale.unsubscribeVisibleLogicalRangeChange(onVisibleLogicalRangeChange)
     }
-  }, [timeframe, applyInteractionMode])
+  }, [timeframe, applyInteractionMode, debugLog, fetchKlineDataRef, scheduleTimeout, symbol])
 
   return (
     <div className="relative w-full h-full">

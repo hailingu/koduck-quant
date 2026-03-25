@@ -20,6 +20,7 @@ from app.services.kline_sync import kline_sync
 from app.utils.trading_hours import is_a_share_trading_time
 
 logger = structlog.get_logger(__name__)
+SCHEDULED_PERIOD_MAP = {"1D": "101", "1W": "102", "1M": "103"}
 
 
 class SchedulerState(Enum):
@@ -208,6 +209,12 @@ class KlineScheduler:
                     continue
                 
                 timeframe = tf_dir.name
+                if timeframe not in SCHEDULED_PERIOD_MAP:
+                    logger.debug(
+                        "Skipping unsupported timeframe directory in scheduled update",
+                        timeframe=timeframe,
+                    )
+                    continue
                 
                 for csv_file in tf_dir.glob("*.csv"):
                     symbol = csv_file.stem
@@ -259,6 +266,14 @@ class KlineScheduler:
         import pandas as pd
         
         try:
+            if timeframe not in SCHEDULED_PERIOD_MAP:
+                logger.debug(
+                    "Skipping unsupported timeframe in scheduled update",
+                    symbol=symbol,
+                    timeframe=timeframe,
+                )
+                return True
+
             if symbol.isdigit():
                 symbol = symbol.zfill(6)
 
@@ -284,8 +299,7 @@ class KlineScheduler:
                 return True
             
             # Fetch from Eastmoney
-            period_map = {"1D": "101", "1W": "102", "1M": "103"}
-            period = period_map.get(timeframe, "101")
+            period = SCHEDULED_PERIOD_MAP[timeframe]
             secid_prefix = "1" if symbol.startswith("6") else "0"
             
             logger.debug(f"{symbol}: Fetching {start_date} to {end_date}")

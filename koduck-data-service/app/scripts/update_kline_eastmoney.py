@@ -153,7 +153,13 @@ def incremental_update_symbol(
         
         #  -  Eastmoney 
         period_map = {"1D": "101", "1W": "102", "1M": "103"}  # Eastmoney period codes
-        period = period_map.get(timeframe, "101")
+        if timeframe not in period_map:
+            logger.error(
+                f"{symbol}: Unsupported timeframe '{timeframe}' for this script. "
+                "Use daily/weekly/monthly only (1D/1W/1M)."
+            )
+            return False
+        period = period_map[timeframe]
         secid_prefix = "1" if symbol.startswith("6") else "0"  # =1, =0
         
         logger.info(f"{symbol}: Fetching data from {start_date} to {end_date}")

@@ -16,6 +16,7 @@ import sys
 from datetime import datetime
 from pathlib import Path
 from typing import Any, List, Optional
+from zoneinfo import ZoneInfo
 
 import pandas as pd
 import structlog
@@ -41,6 +42,7 @@ DEFAULT_STOCKS = [
     ("002326", "永太科技"),
     ("002156", "通富微电"),
 ]
+ASIA_SHANGHAI_TZ = ZoneInfo("Asia/Shanghai")
 
 
 def setup_logging(verbose: bool = False):
@@ -136,14 +138,30 @@ def _resolve_symbol(df: pd.DataFrame, csv_path: Path) -> str:
     return csv_path.stem
 
 
-def _extract_kline_time(row: pd.Series) -> Optional[datetime]:
+def _extract_kline_time(row: pd.Series, timeframe: str) -> Optional[datetime]:
     """Extract and normalize kline timestamp from one CSV row."""
-    if 'datetime' in row:
-        return pd.to_datetime(row['datetime'])
-    if 'kline_time' in row:
-        return pd.to_datetime(row['kline_time'])
-    if 'timestamp' in row:
-        return datetime.fromtimestamp(row['timestamp'])
+    is_minute_timeframe = timeframe.endswith("m")
+
+    if is_minute_timeframe and 'timestamp' in row and pd.notna(row['timestamp']):
+        return (
+            pd.to_datetime(float(row['timestamp']), unit='s', utc=True)
+            .tz_convert(ASIA_SHANGHAI_TZ)
+            .tz_localize(None)
+            .to_pydatetime()
+        )
+    if 'datetime' in row and pd.notna(row['datetime']):
+        ts = pd.to_datetime(row['datetime'])
+        return ts.to_pydatetime() if isinstance(ts, pd.Timestamp) else ts
+    if 'kline_time' in row and pd.notna(row['kline_time']):
+        ts = pd.to_datetime(row['kline_time'])
+        return ts.to_pydatetime() if isinstance(ts, pd.Timestamp) else ts
+    if 'timestamp' in row and pd.notna(row['timestamp']):
+        return (
+            pd.to_datetime(float(row['timestamp']), unit='s', utc=True)
+            .tz_convert(ASIA_SHANGHAI_TZ)
+            .tz_localize(None)
+            .to_pydatetime()
+        )
     return None
 
 
@@ -181,7 +199,7 @@ async def _import_rows(
 
     for _, row in df.iterrows():
         try:
-            kline_time = _extract_kline_time(row)
+            kline_time = _extract_kline_time(row, db_timeframe)
             if kline_time is None:
                 skipped += 1
                 continue

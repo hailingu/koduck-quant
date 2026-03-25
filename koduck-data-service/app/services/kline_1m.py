@@ -18,6 +18,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any
+from zoneinfo import ZoneInfo
 
 import pandas as pd
 
@@ -33,6 +34,7 @@ DATA_DIR = Path(__file__).parent.parent.parent / "data" / "kline" / "1m"
 MORNING_MINUTES = 120  # 09:30 - 11:30
 AFTERNOON_MINUTES = 120  # 13:00 - 15:00
 DAILY_TRADING_MINUTES = MORNING_MINUTES + AFTERNOON_MINUTES  # 240
+ASIA_SHANGHAI_TZ = ZoneInfo("Asia/Shanghai")
 
 
 @dataclass
@@ -203,7 +205,10 @@ class Minute1KlineTool:
 
             # Calculate statistics
             fetched_dates = [
-                datetime.fromtimestamp(k["timestamp"]) for k in klines
+                datetime.fromtimestamp(k["timestamp"], tz=ASIA_SHANGHAI_TZ).replace(
+                    tzinfo=None
+                )
+                for k in klines
             ]
             fetched_min = min(fetched_dates) if fetched_dates else None
             fetched_max = max(fetched_dates) if fetched_dates else None
@@ -385,7 +390,10 @@ class Minute1KlineTool:
 
             # Calculate statistics
             fetched_dates = [
-                datetime.fromtimestamp(k["timestamp"]) for k in klines
+                datetime.fromtimestamp(k["timestamp"], tz=ASIA_SHANGHAI_TZ).replace(
+                    tzinfo=None
+                )
+                for k in klines
             ]
             fetched_min = min(fetched_dates) if fetched_dates else None
             fetched_max = max(fetched_dates) if fetched_dates else None
@@ -448,8 +456,12 @@ class Minute1KlineTool:
             min_ts = df["timestamp"].min()
             max_ts = df["timestamp"].max()
 
-            min_dt = datetime.fromtimestamp(min_ts)
-            max_dt = datetime.fromtimestamp(max_ts)
+            min_dt = datetime.fromtimestamp(min_ts, tz=ASIA_SHANGHAI_TZ).replace(
+                tzinfo=None
+            )
+            max_dt = datetime.fromtimestamp(max_ts, tz=ASIA_SHANGHAI_TZ).replace(
+                tzinfo=None
+            )
 
             logger.info(f"Local data range for {symbol}: {min_dt} to {max_dt}")
             return min_dt, max_dt
@@ -491,7 +503,9 @@ class Minute1KlineTool:
         # Convert new data to DataFrame
         new_data = []
         for kline in klines:
-            dt = datetime.fromtimestamp(kline["timestamp"])
+            dt = datetime.fromtimestamp(
+                kline["timestamp"], tz=ASIA_SHANGHAI_TZ
+            ).replace(tzinfo=None)
             new_data.append({
                 "symbol": symbol,
                 "datetime": dt.strftime("%Y-%m-%d %H:%M:%S"),
@@ -556,7 +570,9 @@ class Minute1KlineTool:
             # Use executemany for batch insert
             records = []
             for kline in klines:
-                kline_time = datetime.fromtimestamp(kline["timestamp"])
+                kline_time = datetime.fromtimestamp(
+                    kline["timestamp"], tz=ASIA_SHANGHAI_TZ
+                ).replace(tzinfo=None)
                 records.append((
                     market,
                     symbol,
@@ -676,13 +692,17 @@ class Minute1KlineTool:
             if start_date:
                 start_dt = datetime.strptime(start_date, "%Y-%m-%d")
             else:
-                start_dt = datetime.fromtimestamp(df["timestamp"].min())
+                start_dt = datetime.fromtimestamp(
+                    df["timestamp"].min(), tz=ASIA_SHANGHAI_TZ
+                ).replace(tzinfo=None)
 
             if end_date:
                 end_dt = datetime.strptime(end_date, "%Y-%m-%d")
                 end_dt = end_dt.replace(hour=15, minute=0)
             else:
-                end_dt = datetime.fromtimestamp(df["timestamp"].max())
+                end_dt = datetime.fromtimestamp(
+                    df["timestamp"].max(), tz=ASIA_SHANGHAI_TZ
+                ).replace(tzinfo=None)
 
             # Generate expected timestamps for trading hours
             gaps = []

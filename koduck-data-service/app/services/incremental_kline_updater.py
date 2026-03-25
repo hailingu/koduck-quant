@@ -15,6 +15,7 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Optional
 import inspect
+from zoneinfo import ZoneInfo
 
 import pandas as pd
 
@@ -22,6 +23,7 @@ from app.db import Database
 from app.services.akshare_client import akshare_client
 
 logger = logging.getLogger(__name__)
+ASIA_SHANGHAI_TZ = ZoneInfo("Asia/Shanghai")
 
 # CSV data directory
 DATA_DIR = Path(__file__).parent.parent.parent / "data" / "kline"
@@ -293,12 +295,18 @@ class IncrementalKlineUpdater:
         
         # Convert new data to DataFrame
         new_data = []
+        is_minute_timeframe = timeframe.endswith("m")
         for kline in klines:
+            ts = int(kline["timestamp"])
+            dt = pd.to_datetime(ts, unit="s", utc=True).tz_convert(ASIA_SHANGHAI_TZ)
             new_data.append({
                 "symbol": symbol,
                 "name": kline.get("name", ""),
-                "datetime": datetime.fromtimestamp(kline["timestamp"]).strftime("%Y-%m-%d"),
-                "timestamp": kline["timestamp"],
+                # Keep minute precision for minute bars to avoid date-only pollution.
+                "datetime": dt.strftime("%Y-%m-%d %H:%M:%S")
+                if is_minute_timeframe
+                else dt.strftime("%Y-%m-%d"),
+                "timestamp": ts,
                 "open": kline.get("open", 0),
                 "high": kline.get("high", 0),
                 "low": kline.get("low", 0),
@@ -360,7 +368,9 @@ class IncrementalKlineUpdater:
         try:
             for kline in klines:
                 # Convert timestamp to datetime
-                kline_time = datetime.fromtimestamp(kline["timestamp"])
+                kline_time = datetime.fromtimestamp(
+                    kline["timestamp"], tz=ASIA_SHANGHAI_TZ
+                ).replace(tzinfo=None)
 
                 query = """
                     INSERT INTO kline_data (

@@ -9,6 +9,7 @@ import asyncio
 from datetime import datetime
 from pathlib import Path
 from typing import TypedDict
+from zoneinfo import ZoneInfo
 
 import pandas as pd
 import structlog
@@ -18,6 +19,7 @@ from app.db import Database
 logger = structlog.get_logger(__name__)
 
 DATA_DIR = Path(__file__).parent.parent.parent / "data" / "kline"
+ASIA_SHANGHAI_TZ = ZoneInfo("Asia/Shanghai")
 
 
 class SyncResult(TypedDict):
@@ -38,6 +40,21 @@ class KlineSync:
     This service compares CSV files with database records and imports
     any missing or updated data.
     """
+
+    @staticmethod
+    def _epoch_to_beijing_naive(epoch_seconds: float | int) -> datetime:
+        """Convert UNIX epoch (UTC) to Asia/Shanghai naive datetime."""
+        ts = pd.to_datetime(epoch_seconds, unit="s", utc=True)
+        ts = ts.tz_convert(ASIA_SHANGHAI_TZ).tz_localize(None)
+        return ts.to_pydatetime()
+
+    @staticmethod
+    def _normalize_datetime_value(value: datetime | pd.Timestamp) -> datetime:
+        """Normalize datetime-like value to Asia/Shanghai naive datetime."""
+        ts = pd.Timestamp(value)
+        if ts.tzinfo is None:
+            return ts.to_pydatetime()
+        return ts.tz_convert(ASIA_SHANGHAI_TZ).tz_localize(None).to_pydatetime()
 
     def __init__(self) -> None:
         """Initialize the sync service."""
@@ -117,21 +134,22 @@ class KlineSync:
     ) -> datetime | pd.Timestamp | None:
         """Extract kline timestamp from row with timeframe validation."""
         parsed_time: datetime | pd.Timestamp | None = None
+        is_minute_timeframe = timeframe.endswith("m")
 
-        if "datetime" in row:
+        # For minute-level data, always prefer timestamp to preserve intraday time.
+        if is_minute_timeframe and "timestamp" in row and pd.notna(row["timestamp"]):
+            parsed_time = self._epoch_to_beijing_naive(float(row["timestamp"]))
+        elif "datetime" in row:
             parsed_time = pd.to_datetime(row["datetime"])
         elif "kline_time" in row:
             parsed_time = pd.to_datetime(row["kline_time"])
         elif "timestamp" in row:
-            parsed_time = datetime.fromtimestamp(row["timestamp"])
+            parsed_time = self._epoch_to_beijing_naive(float(row["timestamp"]))
 
         if parsed_time is None or pd.isna(parsed_time):
             return None
 
-        if isinstance(parsed_time, pd.Timestamp):
-            check_time = parsed_time.to_pydatetime()
-        else:
-            check_time = parsed_time
+        check_time = self._normalize_datetime_value(parsed_time)
 
         if timeframe in {"1D", "1W", "1M"}:
             if (
@@ -142,7 +160,7 @@ class KlineSync:
             ):
                 return None
 
-        return parsed_time
+        return check_time
 
     async def get_db_last_update(self, symbol: str, timeframe: str) -> datetime | None:
         """Get the last update time for a symbol from database."""
@@ -168,7 +186,9 @@ class KlineSync:
                 times = pd.to_datetime(df["datetime"])
                 return times.min(), times.max()
             if "timestamp" in df.columns:
-                times = pd.to_datetime(df["timestamp"], unit="s")
+                times = pd.to_datetime(df["timestamp"], unit="s", utc=True).dt.tz_convert(
+                    ASIA_SHANGHAI_TZ
+                ).dt.tz_localize(None)
                 return times.min(), times.max()
             return None
         except Exception:

@@ -115,17 +115,27 @@ class DataUpdater:
             return cached[1]
 
         prev_close: Optional[float] = None
+        beijing_now = datetime.now(self._beijing_tz)
+        day_start = beijing_now.replace(
+            hour=0,
+            minute=0,
+            second=0,
+            microsecond=0,
+            tzinfo=None,
+        )
         try:
             row = await Database.fetchrow(
                 """
                 SELECT close_price
                 FROM kline_data
                 WHERE symbol = $1
-                  AND timeframe = '1d'
+                  AND LOWER(timeframe) = '1d'
+                  AND kline_time < $2
                 ORDER BY kline_time DESC
                 LIMIT 1
                 """,
                 symbol,
+                day_start,
             )
             if row and row.get("close_price") is not None:
                 prev_close = float(row["close_price"])
@@ -164,7 +174,18 @@ class DataUpdater:
         except (TypeError, ValueError):
             return
 
-        prev_close = await self._get_prev_close_from_daily_cache(symbol)
+        prev_close: Optional[float] = None
+        upstream_prev_close_raw = data.get("prev_close")
+        if upstream_prev_close_raw is not None:
+            try:
+                upstream_prev_close = float(upstream_prev_close_raw)
+                if upstream_prev_close > 0:
+                    prev_close = upstream_prev_close
+            except (TypeError, ValueError):
+                prev_close = None
+
+        if prev_close is None:
+            prev_close = await self._get_prev_close_from_daily_cache(symbol)
         if prev_close is None or prev_close <= 0:
             return
 

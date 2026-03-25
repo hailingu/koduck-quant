@@ -22,6 +22,7 @@ const MARKETS = [
 
 type MarketType = typeof MARKETS[number]['key']
 const REALTIME_STALE_MS = 20000
+const BEIJING_TZ = 'Asia/Shanghai'
 
 const normalizeSymbol = (symbol: string): string => {
   const digits = symbol.replaceAll(/\D/g, '')
@@ -33,6 +34,61 @@ const normalizeSymbol = (symbol: string): string => {
 
 function beijingToLocalTimestamp(beijingTs: number): number {
   return beijingTs
+}
+
+type BeijingParts = {
+  date: string
+  hour: number
+  minute: number
+}
+
+function getBeijingParts(input: Date): BeijingParts {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: BEIJING_TZ,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  }).formatToParts(input)
+  const pick = (type: Intl.DateTimeFormatPartTypes) =>
+    parts.find((part) => part.type === type)?.value ?? ''
+  return {
+    date: `${pick('year')}-${pick('month')}-${pick('day')}`,
+    hour: Number.parseInt(pick('hour'), 10),
+    minute: Number.parseInt(pick('minute'), 10),
+  }
+}
+
+function isInAShareSessionByBeijingTime(hour: number, minute: number): boolean {
+  const current = hour * 60 + minute
+  const morningStart = 9 * 60 + 30
+  const morningEnd = 11 * 60 + 30
+  const afternoonStart = 13 * 60
+  const afternoonEnd = 15 * 60
+  return (current >= morningStart && current <= morningEnd)
+    || (current >= afternoonStart && current <= afternoonEnd)
+}
+
+function isValidTickForCurrentAShareSession(timestamp: number): boolean {
+  if (!Number.isFinite(timestamp)) {
+    return false
+  }
+
+  const now = new Date()
+  const tickDate = new Date(timestamp)
+  if (tickDate.getTime() > now.getTime()) {
+    return false
+  }
+
+  const nowParts = getBeijingParts(now)
+  const tickParts = getBeijingParts(tickDate)
+  if (tickParts.date !== nowParts.date) {
+    return false
+  }
+
+  return isInAShareSessionByBeijingTime(tickParts.hour, tickParts.minute)
 }
 
 // Format timestamp for display
@@ -93,7 +149,9 @@ function TimeAndSales({
       })
       
       // Sort by timestamp descending (newest first)
-      const sortedTicks = [...response.data].sort((a, b) => b.timestamp - a.timestamp)
+      const sortedTicks = [...response.data]
+        .filter((tick) => market !== 'AShare' || isValidTickForCurrentAShareSession(tick.timestamp))
+        .sort((a, b) => b.timestamp - a.timestamp)
       setTicks(sortedTicks)
       onTickDataStateChange?.(sortedTicks.length > 0)
       
@@ -154,8 +212,13 @@ function TimeAndSales({
           flag: payload.flag,
           side: payload.type,
         }
-        setTicks((prev) => [newTick, ...prev].slice(0, 50))
-        onTickDataStateChange?.(true)
+        setTicks((prev) => {
+          const merged = [newTick, ...prev]
+            .filter((tick) => market !== 'AShare' || isValidTickForCurrentAShareSession(tick.timestamp))
+            .sort((a, b) => b.timestamp - a.timestamp)
+          onTickDataStateChange?.(merged.length > 0)
+          return merged.slice(0, 50)
+        })
         if (containerRef.current) {
           containerRef.current.scrollTop = 0
         }
@@ -183,10 +246,20 @@ function TimeAndSales({
   }
 
   const getTickColor = (tick: TickData, index: number) => {
+    // 优先使用后端给出的成交方向，避免仅靠价格比较导致的误判
+    if (tick.type === 'buy' || tick.side === 'buy') return 'text-stock-up'
+    if (tick.type === 'sell' || tick.side === 'sell') return 'text-stock-down'
+
+    // 回退到价格比较：当前行与时间上更早的一笔比较
     if (index >= ticks.length - 1) return 'text-fluid-text'
-    const nextTick = ticks[index + 1]
-    if (tick.price > nextTick.price) return 'text-stock-up'
-    if (tick.price < nextTick.price) return 'text-stock-down'
+    let compareIndex = index + 1
+    while (compareIndex < ticks.length && ticks[compareIndex].price === tick.price) {
+      compareIndex += 1
+    }
+    if (compareIndex >= ticks.length) return 'text-fluid-text'
+    const referenceTick = ticks[compareIndex]
+    if (tick.price > referenceTick.price) return 'text-stock-up'
+    if (tick.price < referenceTick.price) return 'text-stock-down'
     return 'text-fluid-text'
   }
 
@@ -381,6 +454,26 @@ function TickDistributionChart({
   )
 }
 
+function ensureStrictAscByTimestamp<T extends { timestamp: number }>(
+  data: T[],
+): { cleaned: T[]; removed: number } {
+  if (data.length <= 1) {
+    return { cleaned: data, removed: 0 }
+  }
+
+  const sorted = [...data].sort((a, b) => a.timestamp - b.timestamp)
+  const cleaned: T[] = []
+  for (const item of sorted) {
+    const last = cleaned[cleaned.length - 1]
+    if (last && last.timestamp === item.timestamp) {
+      cleaned[cleaned.length - 1] = item
+      continue
+    }
+    cleaned.push(item)
+  }
+  return { cleaned, removed: sorted.length - cleaned.length }
+}
+
 // Volume Chart Component
 function VolumeChart({ 
   symbol, 
@@ -470,8 +563,10 @@ function VolumeChart({
         })
         
         if (response && response.length > 0) {
-          // Sort data by timestamp ascending (oldest first)
-          const sortedResponse = [...response].sort((a, b) => a.timestamp - b.timestamp)
+          const { cleaned: sortedResponse, removed } = ensureStrictAscByTimestamp(response)
+          if (removed > 0) {
+            console.warn(`[VolumeChart] removed ${removed} duplicate timestamp rows for ${symbol}/${apiTimeframe}`)
+          }
           
           const volumeData = sortedResponse.map((item: KlineData) => ({
             time: beijingToLocalTimestamp(item.timestamp) as Time,
@@ -533,12 +628,14 @@ function MarketStats({
   }
 
   const resolvedPrice = latestPrice ?? quote.price ?? null
-  const resolvedChange = latestChange
-    ?? (quote.prevClose && resolvedPrice !== null ? resolvedPrice - quote.prevClose : null)
-    ?? quote.change
+  const resolvedChange = (quote.prevClose !== null && quote.prevClose !== undefined && quote.prevClose !== 0 && resolvedPrice !== null)
+    ? (resolvedPrice - quote.prevClose)
+    : (latestChange ?? quote.change)
     ?? null
   const resolvedChangePercent = latestChangePercent
-    ?? (quote.prevClose && resolvedChange !== null ? (resolvedChange / quote.prevClose) * 100 : null)
+    ?? (quote.prevClose !== null && quote.prevClose !== undefined && quote.prevClose !== 0 && resolvedChange !== null
+      ? (resolvedChange / quote.prevClose) * 100
+      : null)
     ?? quote.changePercent
     ?? null
   const resolvedVolume =
@@ -724,10 +821,9 @@ export default function Kline() {
     && Date.now() - realtimePrice.timestamp <= REALTIME_STALE_MS
   const effectiveRealtimePrice = isRealtimeFresh ? realtimePrice : null
   const displayPrice = effectiveRealtimePrice?.price ?? latestPrice ?? quote?.price
-  const displayChange = effectiveRealtimePrice?.changePercent
-    ?? ((displayPrice !== undefined && displayPrice !== null && quote?.prevClose)
-      ? ((displayPrice - quote.prevClose) / quote.prevClose) * 100
-      : (quote?.changePercent || 0))
+  const displayChange = (displayPrice !== undefined && displayPrice !== null && quote?.prevClose !== undefined && quote?.prevClose !== null && quote.prevClose !== 0)
+    ? ((displayPrice - quote.prevClose) / quote.prevClose) * 100
+    : (effectiveRealtimePrice?.changePercent ?? quote?.changePercent ?? 0)
   const displayIsUp = displayChange >= 0
   
   // Price animation

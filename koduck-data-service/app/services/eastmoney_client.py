@@ -15,6 +15,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from threading import Lock
 from typing import Any
+from zoneinfo import ZoneInfo
 
 import pandas as pd
 
@@ -60,6 +61,7 @@ QUOTE_PAGE_URL = "https://quote.eastmoney.com/center/gridlist.html#hs_a_board"
 # Default stock for cookie refresh (when watchlist is empty)
 DEFAULT_COOKIE_STOCKS = ["sh603777", "sh600519", "sz000001", "sh601012", "sz002594"]
 DATA_DIR = Path(__file__).parent.parent.parent / "data"
+ASIA_SHANGHAI_TZ = ZoneInfo("Asia/Shanghai")
 
 
 class EastmoneyClient:
@@ -817,6 +819,59 @@ class EastmoneyClient:
 
         return None
 
+    def fetch_intraday_trends(
+        self,
+        symbol: str,
+        secid_prefix: str = "1",
+        ndays: int = 1,
+        limit: int = 1200,
+    ) -> list[dict] | None:
+        """Fetch 1-minute intraday trend data from Eastmoney trends2 API."""
+        ndays = max(1, min(ndays, 5))
+        url = (
+            f"https://push2.eastmoney.com/api/qt/stock/trends2/get?"
+            f"fields1=f1,f2,f3,f4,f5,f6,f7,f8&"
+            f"fields2=f51,f52,f53,f54,f55,f56,f57,f58&"
+            f"ut=7eea3edcaed734bea9cbfc24409ed989&"
+            f"iscr=0&ndays={ndays}&secid={secid_prefix}.{symbol}"
+        )
+
+        data = self._make_request(url)
+        if not data or not data.get("data"):
+            logger.warning("No intraday trend data received for %s", symbol)
+            return None
+
+        raw_trends = data["data"].get("trends", [])
+        if not raw_trends:
+            return []
+
+        results: list[dict[str, Any]] = []
+        for row in raw_trends[-limit:]:
+            parts = row.split(",")
+            if len(parts) < 7:
+                continue
+            try:
+                dt = datetime.strptime(parts[0], "%Y-%m-%d %H:%M").replace(
+                    tzinfo=ASIA_SHANGHAI_TZ
+                )
+                results.append(
+                    {
+                        "timestamp": int(dt.timestamp()),
+                        "datetime": parts[0],
+                        "open": float(parts[1]),
+                        "close": float(parts[2]),
+                        "high": float(parts[3]),
+                        "low": float(parts[4]),
+                        "volume": int(float(parts[5])),
+                        "amount": float(parts[6]),
+                    }
+                )
+            except (ValueError, TypeError):
+                continue
+
+        logger.info("Fetched %s intraday trend rows for %s", len(results), symbol)
+        return results
+
 
     def fetch_kline_data(
         self,
@@ -872,9 +927,18 @@ class EastmoneyClient:
         for raw in raw_klines[-limit:]:  # Take last N records
             parts = raw.split(",")
             if len(parts) >= 6:
+                date_str = parts[0]
+                if " " in date_str:
+                    dt = datetime.strptime(date_str, "%Y-%m-%d %H:%M").replace(
+                        tzinfo=ASIA_SHANGHAI_TZ
+                    )
+                else:
+                    dt = datetime.strptime(date_str, "%Y-%m-%d").replace(
+                        tzinfo=ASIA_SHANGHAI_TZ
+                    )
                 klines.append({
-                    "timestamp": int(datetime.strptime(parts[0], "%Y-%m-%d").timestamp()),
-                    "date": parts[0],
+                    "timestamp": int(dt.timestamp()),
+                    "date": date_str,
                     "open": float(parts[1]),
                     "close": float(parts[2]),
                     "high": float(parts[3]),
@@ -962,9 +1026,18 @@ class EastmoneyClient:
             for raw in raw_klines[-limit:]:
                 parts = raw.split(",")
                 if len(parts) >= 6:
+                    date_str = parts[0]
+                if " " in date_str:
+                    dt = datetime.strptime(date_str, "%Y-%m-%d %H:%M").replace(
+                        tzinfo=ASIA_SHANGHAI_TZ
+                    )
+                else:
+                    dt = datetime.strptime(date_str, "%Y-%m-%d").replace(
+                        tzinfo=ASIA_SHANGHAI_TZ
+                    )
                     klines.append({
-                        "timestamp": int(datetime.strptime(parts[0], "%Y-%m-%d").timestamp()),
-                        "date": parts[0],
+                        "timestamp": int(dt.timestamp()),
+                        "date": date_str,
                         "open": float(parts[1]),
                         "close": float(parts[2]),
                         "high": float(parts[3]),

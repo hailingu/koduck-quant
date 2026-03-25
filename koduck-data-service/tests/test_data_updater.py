@@ -117,3 +117,46 @@ def test_update_single_stock_reuses_existing_realtime_outside_trading_hours(
     assert result is not None
     assert result["symbol"] == "601398"
     assert result["price"] == 5.12
+
+
+def test_apply_cached_daily_change_preserves_upstream_prev_close(monkeypatch: Any) -> None:
+    """When upstream provides valid prev_close, do not override it with cache."""
+    updater = DataUpdater()
+
+    async def fake_cached_prev_close(_symbol: str) -> float:
+        return 18.81
+
+    monkeypatch.setattr(updater, "_get_prev_close_from_daily_cache", fake_cached_prev_close)
+
+    payload: dict[str, Any] = {
+        "symbol": "601012",
+        "price": 18.99,
+        "prev_close": 19.04,
+    }
+
+    asyncio.run(updater._apply_cached_daily_change("601012", payload))
+
+    assert payload["prev_close"] == pytest.approx(19.04)
+    assert payload["change"] == pytest.approx(-0.05, abs=1e-8)
+    assert payload["change_percent"] == pytest.approx(-0.05 / 19.04, abs=1e-8)
+
+
+def test_apply_cached_daily_change_uses_cache_when_prev_close_missing(monkeypatch: Any) -> None:
+    """If upstream prev_close is missing, fallback to cached daily prev_close."""
+    updater = DataUpdater()
+
+    async def fake_cached_prev_close(_symbol: str) -> float:
+        return 19.04
+
+    monkeypatch.setattr(updater, "_get_prev_close_from_daily_cache", fake_cached_prev_close)
+
+    payload: dict[str, Any] = {
+        "symbol": "601012",
+        "price": 18.99,
+    }
+
+    asyncio.run(updater._apply_cached_daily_change("601012", payload))
+
+    assert payload["prev_close"] == pytest.approx(19.04)
+    assert payload["change"] == pytest.approx(-0.05, abs=1e-8)
+    assert payload["change_percent"] == pytest.approx(-0.05 / 19.04, abs=1e-8)
