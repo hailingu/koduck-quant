@@ -277,6 +277,16 @@ class DataUpdater:
 
         return self._should_store_tick(symbol, data)
 
+    def _normalize_symbol(self, symbol: str) -> str:
+        """Normalize symbol to 6-digit format with leading zeros."""
+        if not symbol:
+            return symbol
+        symbol = str(symbol).strip()
+        # For numeric symbols, ensure 6-digit format
+        if symbol.isdigit():
+            symbol = symbol.zfill(6)
+        return symbol
+
     async def _save_tick_history(self, data: StockPayload) -> bool:
         """Save tick data to history table.
         
@@ -286,7 +296,7 @@ class DataUpdater:
         Returns:
             True if successful, False otherwise
         """
-        symbol = str(data.get("symbol", "")).strip()
+        symbol = self._normalize_symbol(str(data.get("symbol", "")).strip())
         try:
             should_persist = await self._should_persist_tick(symbol, data)
         except TypeError:
@@ -463,6 +473,9 @@ class DataUpdater:
                     return fallback_data
 
                 return None
+            
+            # Normalize symbol to 6-digit format
+            symbol = self._normalize_symbol(symbol)
             
             # Ensure symbol and name are set
             data['symbol'] = symbol

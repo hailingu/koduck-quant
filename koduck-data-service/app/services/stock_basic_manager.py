@@ -126,10 +126,14 @@ class StockBasicManager:
             if not symbol or not name:
                 return None
 
-            # Clean symbol
+            # Clean symbol and ensure 6-digit format
             symbol = str(symbol).strip()
             if '.' in symbol:
                 symbol = symbol.split('.')[0]
+            
+            # Ensure symbol is 6-digit (pad with leading zeros for numeric codes)
+            if symbol.isdigit():
+                symbol = symbol.zfill(6)
 
             # Classify market and board
             market, board = classify_stock(symbol)

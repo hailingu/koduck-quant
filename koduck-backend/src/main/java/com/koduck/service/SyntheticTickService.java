@@ -136,11 +136,51 @@ public class SyntheticTickService {
     }
 
     public List<MarketController.TickDto> getLatestTicks(String symbol, int limit) {
-        return stockTickHistoryRepository
-                .findBySymbolOrderByTickTimeDescIdDesc(symbol, PageRequest.of(0, limit))
-                .stream()
-                .map(this::toTickDto)
-                .toList();
+        // Try different symbol formats to handle leading zeros inconsistency
+        List<String> symbolVariants = buildSymbolVariants(symbol);
+        
+        for (String variant : symbolVariants) {
+            List<StockTickHistory> ticks = stockTickHistoryRepository
+                    .findBySymbolOrderByTickTimeDescIdDesc(variant, PageRequest.of(0, limit));
+            if (!ticks.isEmpty()) {
+                return ticks.stream()
+                        .map(this::toTickDto)
+                        .toList();
+            }
+        }
+        return List.of();
+    }
+    
+    private List<String> buildSymbolVariants(String symbol) {
+        List<String> variants = new ArrayList<>();
+        if (symbol == null || symbol.isBlank()) {
+            return variants;
+        }
+        
+        String normalized = symbol.trim();
+        variants.add(normalized);
+        
+        // For numeric symbols, try with/without leading zeros
+        if (normalized.matches("\\d+")) {
+            // Add version without leading zeros
+            String noZeros = normalized.replaceFirst("^0+", "");
+            if (!noZeros.isEmpty() && !noZeros.equals(normalized)) {
+                variants.add(noZeros);
+            }
+            // Add 6-digit padded version
+            if (normalized.length() <= 6) {
+                try {
+                    String padded = String.format("%06d", Integer.parseInt(normalized));
+                    if (!padded.equals(normalized)) {
+                        variants.add(padded);
+                    }
+                } catch (NumberFormatException ignored) {
+                    // Ignore if number is too large
+                }
+            }
+        }
+        
+        return variants;
     }
 
     private MarketController.TickDto toTickDto(StockTickHistory row) {
