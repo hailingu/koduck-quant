@@ -181,17 +181,11 @@ public class KlineService {
     }
 
     private List<String> buildMarketCandidates(String market) {
-        LinkedHashSet<String> candidates = new LinkedHashSet<>();
-        if (market != null && !market.isBlank()) {
-            String normalized = market.trim();
-            candidates.add(normalized);
-            candidates.add(normalized.toLowerCase(Locale.ROOT));
-            candidates.add(normalized.toUpperCase(Locale.ROOT));
+        // Strict match only - avoid cross-market data mixing
+        if (market == null || market.isBlank()) {
+            return List.of("AShare");
         }
-        candidates.add("AShare");
-        candidates.add("Ashare");
-        candidates.add("ashare");
-        return new ArrayList<>(candidates);
+        return List.of(market.trim());
     }
 
     private List<String> buildTimeframeCandidates(String timeframe) {
@@ -226,25 +220,8 @@ public class KlineService {
         if (symbol == null || symbol.isBlank()) {
             return List.of();
         }
-
-        LinkedHashSet<String> candidates = new LinkedHashSet<>();
-        String normalized = symbol.trim();
-        candidates.add(normalized);
-
-        String noPrefixZero = normalized.replaceFirst("^0+", "");
-        if (!noPrefixZero.isEmpty()) {
-            candidates.add(noPrefixZero);
-        }
-
-        if (normalized.matches("\\d{1,6}")) {
-            try {
-                candidates.add(String.format("%06d", Integer.parseInt(normalized)));
-            } catch (NumberFormatException ignored) {
-                // keep best-effort candidates only
-            }
-        }
-
-        return new ArrayList<>(candidates);
+        // Strict match only - return exact symbol to avoid cross-stock data mixing
+        return List.of(symbol.trim());
     }
 
     private String normalizeTimeframeAlias(String timeframe) {
