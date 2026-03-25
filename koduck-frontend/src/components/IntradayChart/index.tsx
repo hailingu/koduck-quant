@@ -55,13 +55,18 @@ function shouldKeepIntradayPoint(timestamp: number, market: string): boolean {
 
   const pointDate = new Date(timestamp * 1000)
   const now = new Date()
+  
+  // Filter out future data - can't show data from the future
   if (pointDate.getTime() > now.getTime()) {
     return false
   }
 
-  // Allow data from last 2 days (in case of weekend or data delay)
-  const twoDaysAgo = new Date(now.getTime() - 2 * 24 * 60 * 60 * 1000)
-  if (pointDate.getTime() < twoDaysAgo.getTime()) {
+  // For intraday chart, only show today's data
+  const nowParts = getBeijingParts(now)
+  const pointParts = getBeijingParts(pointDate)
+  
+  // Only keep data from today
+  if (nowParts.date !== pointParts.date) {
     return false
   }
 
@@ -70,7 +75,6 @@ function shouldKeepIntradayPoint(timestamp: number, market: string): boolean {
   }
 
   // For AShare, check if time is within trading session
-  const pointParts = getBeijingParts(pointDate)
   return isInAShareSessionByBeijingTime(pointParts.hour, pointParts.minute)
 }
 
