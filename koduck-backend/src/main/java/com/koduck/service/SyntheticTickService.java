@@ -81,9 +81,9 @@ public class SyntheticTickService {
         BigDecimal currentPrice = realtime.getPrice();
 
         // Check if price is the same as the last tick - merge instead of creating new tick
-        StockTickHistory lastTick = stockTickHistoryRepository
-                .findFirstBySymbolOrderByTickTimeDescIdDesc(symbol, PageRequest.of(0, 1))
-                .stream().findFirst().orElse(null);
+        List<StockTickHistory> lastTicks = stockTickHistoryRepository
+                .findBySymbolOrderByTickTimeDescIdDesc(symbol, PageRequest.of(0, 1));
+        StockTickHistory lastTick = lastTicks.isEmpty() ? null : lastTicks.get(0);
 
         if (lastTick != null && lastTick.getPrice().compareTo(currentPrice) == 0) {
             // Price unchanged - merge with last tick: update time and accumulate volume
