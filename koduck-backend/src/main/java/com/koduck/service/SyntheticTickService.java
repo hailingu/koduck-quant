@@ -78,20 +78,50 @@ public class SyntheticTickService {
 
         BigDecimal deltaAmount = computeDeltaAmount(symbol, realtime.getAmount(), deltaVolume, realtime.getPrice());
         LocalDateTime tickTime = LocalDateTime.now(MARKET_ZONE);
+        BigDecimal currentPrice = realtime.getPrice();
 
+        // Check if price is the same as the last tick - merge instead of creating new tick
+        StockTickHistory lastTick = stockTickHistoryRepository
+                .findFirstBySymbolOrderByTickTimeDescIdDesc(symbol, PageRequest.of(0, 1))
+                .stream().findFirst().orElse(null);
+
+        if (lastTick != null && lastTick.getPrice().compareTo(currentPrice) == 0) {
+            // Price unchanged - merge with last tick: update time and accumulate volume
+            lastTick.setTickTime(tickTime);
+            lastTick.setVolume(lastTick.getVolume() + deltaVolume);
+            lastTick.setAmount(lastTick.getAmount().add(deltaAmount));
+            
+            StockTickHistory saved = stockTickHistoryRepository.save(lastTick);
+            
+            BigDecimal prevPrice = lastPrice.put(symbol, currentPrice);
+            boolean isBuy = prevPrice == null || currentPrice.compareTo(prevPrice) >= 0;
+            String flag = saved.getVolume() >= BLOCK_ORDER_VOLUME_THRESHOLD ? "BLOCK_ORDER" : "NORMAL";
+            
+            return new MarketController.TickDto(
+                    tickTime.format(TIME_FORMATTER),
+                    saved.getPrice().doubleValue(),
+                    saved.getVolume() > Integer.MAX_VALUE ? Integer.MAX_VALUE : saved.getVolume().intValue(),
+                    saved.getAmount() == null ? 0D : saved.getAmount().doubleValue(),
+                    isBuy ? "buy" : "sell",
+                    flag,
+                    tickTime.atZone(MARKET_ZONE).toInstant().toEpochMilli()
+            );
+        }
+
+        // Price changed - create new tick
         StockTickHistory saved = stockTickHistoryRepository.save(
                 StockTickHistory.builder()
                         .symbol(symbol)
                         .tickTime(tickTime)
-                        .price(realtime.getPrice())
+                        .price(currentPrice)
                         .volume(deltaVolume)
                         .amount(deltaAmount)
                         .createdAt(LocalDateTime.now(MARKET_ZONE))
                         .build()
         );
 
-        BigDecimal prevPrice = lastPrice.put(symbol, realtime.getPrice());
-        boolean isBuy = prevPrice == null || realtime.getPrice().compareTo(prevPrice) >= 0;
+        BigDecimal prevPrice = lastPrice.put(symbol, currentPrice);
+        boolean isBuy = prevPrice == null || currentPrice.compareTo(prevPrice) >= 0;
         String flag = deltaVolume >= BLOCK_ORDER_VOLUME_THRESHOLD ? "BLOCK_ORDER" : "NORMAL";
 
         return new MarketController.TickDto(
