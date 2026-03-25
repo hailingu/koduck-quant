@@ -27,7 +27,14 @@ interface HotStock {
 }
 
 function formatFixed(value: number | null | undefined, digits = 2): string {
-  return typeof value === 'number' && Number.isFinite(value) ? value.toFixed(digits) : '--';
+  if (typeof value !== 'number' || !Number.isFinite(value)) {
+    return '--';
+  }
+  // 使用千分位逗号格式化
+  return value.toLocaleString('zh-CN', {
+    minimumFractionDigits: digits,
+    maximumFractionDigits: digits,
+  });
 }
 
 function formatSignedPercent(value: number | null | undefined, digits = 2): string {
