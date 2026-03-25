@@ -145,28 +145,12 @@ public class KlineService {
     }
 
     private List<KlineData> queryKlineWithFallback(String market, String symbol, String timeframe, Pageable pageable) {
-        // For minute-level timeframes, only query today's data
-        LocalDateTime startTime = null;
-        if (isMinuteTimeframe(timeframe)) {
-            startTime = LocalDateTime.now(MARKET_ZONE).toLocalDate().atStartOfDay();
-        }
-        
         for (String marketCandidate : buildMarketCandidates(market)) {
             for (String symbolCandidate : buildSymbolCandidates(symbol)) {
                 for (String timeframeCandidate : buildTimeframeCandidates(timeframe)) {
-                    List<KlineData> data;
-                    if (startTime != null) {
-                        // Query only today's data for minute-level timeframes
-                        data = klineDataRepository
-                                .findByMarketAndSymbolAndTimeframeAndKlineTimeBetweenOrderByKlineTimeDesc(
-                                        marketCandidate, symbolCandidate, timeframeCandidate, 
-                                        startTime, LocalDateTime.now(MARKET_ZONE).plusDays(1),
-                                        pageable);
-                    } else {
-                        data = klineDataRepository
-                                .findByMarketAndSymbolAndTimeframeOrderByKlineTimeDesc(
-                                        marketCandidate, symbolCandidate, timeframeCandidate, pageable);
-                    }
+                    List<KlineData> data = klineDataRepository
+                            .findByMarketAndSymbolAndTimeframeOrderByKlineTimeDesc(
+                                    marketCandidate, symbolCandidate, timeframeCandidate, pageable);
                     if (!data.isEmpty()) {
                         return data;
                     }
@@ -174,13 +158,6 @@ public class KlineService {
             }
         }
         return List.of();
-    }
-    
-    private boolean isMinuteTimeframe(String timeframe) {
-        if (timeframe == null) return false;
-        String lower = timeframe.toLowerCase(Locale.ROOT);
-        return lower.matches("^\\d+m$") || lower.equals("1m") || lower.equals("5m") || 
-               lower.equals("15m") || lower.equals("30m") || lower.equals("60m");
     }
 
     private List<KlineData> queryBeforeTimeWithFallback(
