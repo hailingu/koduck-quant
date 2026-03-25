@@ -306,9 +306,9 @@ public class MarketController {
     }
 
     /**
-     * Get tick-by-tick transaction data
+     * Get tick-by-tick transaction data from stock_tick_history only.
      * Note: A-share Level-1 only provides 3-5s snapshots
-     * Returns empty list if no real tick data available
+     * Returns empty list if no real tick data available (no fallback to kline)
      */
     @GetMapping("/ticks")
     public ApiResponse<List<TickDto>> getTickData(
@@ -319,26 +319,14 @@ public class MarketController {
         log.info("GET /api/v1/market/ticks: market={}, symbol={}, limit={}", market, symbol, limit);
         syntheticTickService.trackSymbol(symbol);
 
+        // Only fetch from stock_tick_history, no fallback to kline data
         List<TickDto> historyTicks = syntheticTickService.getLatestTicks(symbol, limit);
-        if (!historyTicks.isEmpty()) {
-            return ApiResponse.success(historyTicks);
-        }
-
-        List<?> minuteBarsRaw = klineService.getKlineData(market, symbol, "1m", limit, null);
-        List<KlineDataDto> minuteBars = normalizeKlineData(minuteBarsRaw);
-        if (minuteBars.isEmpty()) {
-            return ApiResponse.success(List.of());
-        }
-
-        List<TickDto> ticks = minuteBars.stream()
-                .map(this::mapMinuteBarToTick)
-                .toList();
-        return ApiResponse.success(ticks);
+        return ApiResponse.success(historyTicks);
     }
 
     /**
-     * Get tick summary statistics
-     * Returns null if no real tick data available
+     * Get tick summary statistics from stock_tick_history only.
+     * Returns null if no real tick data available (no fallback to kline)
      */
     @GetMapping("/ticks/summary")
     public ApiResponse<TickSummaryDto> getTickSummary(
@@ -348,92 +336,33 @@ public class MarketController {
         log.info("GET /api/v1/market/ticks/summary: market={}, symbol={}", market, symbol);
         syntheticTickService.trackSymbol(symbol);
 
+        // Only fetch from stock_tick_history, no fallback to kline data
         List<TickDto> historyTicks = syntheticTickService.getLatestTicks(symbol, 300);
-        if (!historyTicks.isEmpty()) {
-            long totalVolume = historyTicks.stream().mapToLong(TickDto::size).sum();
-            BigDecimal totalAmount = historyTicks.stream()
-                    .map(TickDto::amount)
-                    .map(BigDecimal::valueOf)
-                    .reduce(BigDecimal.ZERO, BigDecimal::add);
-            long buyVolume = historyTicks.stream()
-                    .filter(tick -> "buy".equalsIgnoreCase(tick.type()))
-                    .mapToLong(TickDto::size)
-                    .sum();
-            long sellVolume = totalVolume - buyVolume;
-            int blockOrderCount = (int) historyTicks.stream()
-                    .filter(tick -> "BLOCK_ORDER".equalsIgnoreCase(tick.flag()))
-                    .count();
-            int totalTrades = historyTicks.size();
-            double avgTradeSize = totalTrades > 0
-                    ? BigDecimal.valueOf(totalVolume)
-                    .divide(BigDecimal.valueOf(totalTrades), 4, RoundingMode.HALF_UP)
-                    .doubleValue()
-                    : 0D;
-
-            TickDto latest = historyTicks.get(0);
-            TickSummaryDto summary = new TickSummaryDto(
-                    symbol,
-                    market,
-                    totalTrades,
-                    totalVolume,
-                    totalAmount,
-                    buyVolume,
-                    sellVolume,
-                    blockOrderCount,
-                    avgTradeSize,
-                    formatTickTimestampIso(latest.epochMillis())
-            );
-            return ApiResponse.success(summary);
-        }
-
-        List<?> minuteBarsRaw = klineService.getKlineData(market, symbol, "1m", 300, null);
-        List<KlineDataDto> minuteBars = normalizeKlineData(minuteBarsRaw);
-        if (minuteBars.isEmpty()) {
+        if (historyTicks.isEmpty()) {
             return ApiResponse.success(null);
         }
 
-        long totalVolume = minuteBars.stream()
-                .map(KlineDataDto::volume)
-                .filter(v -> v != null && v > 0)
-                .mapToLong(Long::longValue)
-                .sum();
-
-        BigDecimal totalAmount = minuteBars.stream()
-                .map(KlineDataDto::amount)
-                .filter(v -> v != null && v.compareTo(BigDecimal.ZERO) > 0)
+        long totalVolume = historyTicks.stream().mapToLong(TickDto::size).sum();
+        BigDecimal totalAmount = historyTicks.stream()
+                .map(TickDto::amount)
+                .map(BigDecimal::valueOf)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
-
-        long buyVolume = minuteBars.stream()
-                .filter(this::isBuyMinuteBar)
-                .map(KlineDataDto::volume)
-                .filter(v -> v != null && v > 0)
-                .mapToLong(Long::longValue)
+        long buyVolume = historyTicks.stream()
+                .filter(tick -> "buy".equalsIgnoreCase(tick.type()))
+                .mapToLong(TickDto::size)
                 .sum();
-
-        long sellVolume = minuteBars.stream()
-                .filter(bar -> !isBuyMinuteBar(bar))
-                .map(KlineDataDto::volume)
-                .filter(v -> v != null && v > 0)
-                .mapToLong(Long::longValue)
-                .sum();
-
-        int blockOrderCount = (int) minuteBars.stream()
-                .map(KlineDataDto::volume)
-                .filter(v -> v != null && v >= BLOCK_ORDER_VOLUME_THRESHOLD)
+        long sellVolume = totalVolume - buyVolume;
+        int blockOrderCount = (int) historyTicks.stream()
+                .filter(tick -> "BLOCK_ORDER".equalsIgnoreCase(tick.flag()))
                 .count();
-
-        int totalTrades = minuteBars.size();
+        int totalTrades = historyTicks.size();
         double avgTradeSize = totalTrades > 0
                 ? BigDecimal.valueOf(totalVolume)
                 .divide(BigDecimal.valueOf(totalTrades), 4, RoundingMode.HALF_UP)
                 .doubleValue()
                 : 0D;
 
-        KlineDataDto latestBar = minuteBars.get(minuteBars.size() - 1);
-        String lastUpdated = formatTickTimestampIso(
-                latestBar.timestamp() == null ? null : latestBar.timestamp() * 1000
-        );
-
+        TickDto latest = historyTicks.get(0);
         TickSummaryDto summary = new TickSummaryDto(
                 symbol,
                 market,
@@ -444,7 +373,7 @@ public class MarketController {
                 sellVolume,
                 blockOrderCount,
                 avgTradeSize,
-                lastUpdated
+                formatTickTimestampIso(latest.epochMillis())
         );
         return ApiResponse.success(summary);
     }
