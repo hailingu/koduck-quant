@@ -67,12 +67,43 @@ function formatTimeInBeijing(time: Time, tickMarkType?: TickMarkType): string {
   return `${yyyy}-${MM}-${dd} ${HH}:${mm}`
 }
 
+// Type guard for BusinessDay
+function isBusinessDay(time: Time): time is BusinessDay {
+  return typeof time === 'object' && time !== null && 'year' in time && 'month' in time && 'day' in time
+}
+
 // Convert API data to line/area chart format (using close price)
-function convertToLineData(data: ApiKlineData[], apiTimeframe: string) {
-  return data.map((item) => ({
+// Also handles duplicate chart times (e.g., different timestamps mapping to same BusinessDay)
+function convertToLineData(data: ApiKlineData[], apiTimeframe: string): { time: Time; value: number }[] {
+  const converted = data.map((item) => ({
     time: toChartTime(item.timestamp, apiTimeframe),
     value: item.close,
   }))
+
+  // Remove duplicates based on chart time (for daily/weekly/monthly, different timestamps may map to same day)
+  const seen = new Set<string | number>()
+  const cleaned: { time: Time; value: number }[] = []
+  for (const item of converted) {
+    const timeKey = typeof item.time === 'number' ? item.time : 
+      isBusinessDay(item.time) ? `${item.time.year}-${item.time.month}-${item.time.day}` : String(item.time)
+    if (seen.has(timeKey)) {
+      // Replace with latest value for duplicate time
+      const existingIndex = cleaned.findIndex((c) => {
+        if (typeof item.time === 'number') return c.time === item.time
+        if (isBusinessDay(item.time) && isBusinessDay(c.time)) {
+          return c.time.year === item.time.year && c.time.month === item.time.month && c.time.day === item.time.day
+        }
+        return false
+      })
+      if (existingIndex >= 0) {
+        cleaned[existingIndex] = item
+      }
+      continue
+    }
+    seen.add(timeKey)
+    cleaned.push(item)
+  }
+  return cleaned
 }
 
 function ensureStrictAscByTimestamp<T extends { timestamp: number }>(

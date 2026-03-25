@@ -764,6 +764,82 @@ async def test_icbc_update() -> bool:
     return data is not None and db_data is not None
 
 
+# Main index symbols for A-share market
+MAIN_INDEX_CODES = [
+    "000001",  # 上证指数
+    "399001",  # 深证成指
+    "399006",  # 创业板指
+]
+
+
+async def update_market_indices() -> int:
+    """Update main market indices to stock_realtime and stock_basic tables.
+    
+    Fetches market indices from Eastmoney/AKShare and persists them
+    to both stock_realtime and stock_basic tables with type='INDEX'.
+    
+    Returns:
+        Number of indices successfully updated
+    """
+    from app.services.akshare_client import akshare_client
+    
+    try:
+        # Fetch market indices from AKShare client
+        indices = akshare_client.get_market_indices()
+        
+        if not indices:
+            logger.warning("No market indices returned from provider")
+            return 0
+        
+        success_count = 0
+        for index in indices:
+            try:
+                # Convert MarketIndex to stock_realtime format
+                index_data = {
+                    "symbol": index.symbol,
+                    "name": index.name,
+                    "type": "INDEX",  # Mark as index type
+                    "price": index.price,
+                    "open": index.open,
+                    "high": index.high,
+                    "low": index.low,
+                    "prev_close": index.prev_close,
+                    "volume": index.volume,
+                    "amount": index.amount,
+                    "change": index.change,
+                    "change_percent": index.change_percent,
+                }
+                
+                # Upsert to stock_realtime table
+                realtime_success = await stock_db.upsert_stock(index_data)
+                
+                # Also upsert to stock_basic table for search/lookup
+                basic_success = await stock_db.upsert_stock_basic(
+                    symbol=index.symbol,
+                    name=index.name,
+                    market="AShare",
+                    type="INDEX"
+                )
+                
+                if realtime_success and basic_success:
+                    success_count += 1
+                    logger.debug(f"Updated index: {index.symbol} - {index.name}")
+                else:
+                    logger.warning(f"Failed to update index: {index.symbol} "
+                                 f"(realtime={realtime_success}, basic={basic_success})")
+                    
+            except Exception as e:
+                logger.error(f"Error updating index {index.symbol}: {e}")
+                continue
+        
+        logger.info(f"Market indices update completed: {success_count}/{len(indices)} indices updated")
+        return success_count
+        
+    except Exception as e:
+        logger.error(f"Failed to update market indices: {e}", exc_info=True)
+        return 0
+
+
 if __name__ == "__main__":
     # Run quick test
     asyncio.run(test_icbc_update())

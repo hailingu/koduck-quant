@@ -3,6 +3,7 @@ import request from './request'
 export interface SymbolInfo {
   symbol: string
   name: string
+  type: 'STOCK' | 'INDEX'
   market: string
   price: number
   changePercent: number
@@ -13,6 +14,7 @@ export interface SymbolInfo {
 export interface PriceQuote {
   symbol: string
   name: string
+  type: 'STOCK' | 'INDEX'
   price: number
   open: number
   high: number
@@ -55,6 +57,7 @@ export interface StockIndustry {
 export interface MarketIndex {
   symbol: string
   name: string
+  type: 'STOCK' | 'INDEX'
   price: number
   change: number
   changePercent: number

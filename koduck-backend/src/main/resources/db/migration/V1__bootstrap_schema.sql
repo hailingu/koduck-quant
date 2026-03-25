@@ -668,6 +668,7 @@ SELECT setval('users_id_seq', COALESCE((SELECT MAX(id) FROM users), 0) + 1, fals
 CREATE TABLE IF NOT EXISTS stock_realtime (
     symbol VARCHAR(20) PRIMARY KEY,
     name VARCHAR(100) NOT NULL,
+    type VARCHAR(10) NOT NULL DEFAULT 'STOCK' CHECK (type IN ('STOCK', 'INDEX')),
     price DECIMAL(18, 4),
     open_price DECIMAL(18, 4),
     high DECIMAL(18, 4),
@@ -692,17 +693,21 @@ CREATE INDEX IF NOT EXISTS idx_stock_realtime_change_percent ON stock_realtime(c
 -- Stock Basic Information Table (用于搜索功能)
 CREATE TABLE IF NOT EXISTS stock_basic (
     id BIGSERIAL PRIMARY KEY,
-    symbol VARCHAR(20) NOT NULL UNIQUE,
+    symbol VARCHAR(20) NOT NULL,
     name VARCHAR(100) NOT NULL,
+    type VARCHAR(10) NOT NULL DEFAULT 'STOCK' CHECK (type IN ('STOCK', 'INDEX')),
     market VARCHAR(20) NOT NULL,
     list_date DATE,
     delist_date DATE,
     is_hs BOOLEAN DEFAULT FALSE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    UNIQUE (symbol, type)
 );
 
 CREATE INDEX IF NOT EXISTS idx_stock_basic_symbol ON stock_basic(symbol);
+CREATE INDEX IF NOT EXISTS idx_stock_basic_symbol_type ON stock_basic(symbol, type);
+CREATE INDEX IF NOT EXISTS idx_stock_basic_type ON stock_basic(type);
 CREATE INDEX IF NOT EXISTS idx_stock_basic_name ON stock_basic(name);
 CREATE INDEX IF NOT EXISTS idx_stock_basic_name_search ON stock_basic USING gin(to_tsvector('simple', name));
 CREATE INDEX IF NOT EXISTS idx_stock_basic_market ON stock_basic(market);
@@ -1630,6 +1635,13 @@ CREATE INDEX IF NOT EXISTS idx_stock_tick_history_symbol_time
 -- V24: Ensure stock_basic has all columns required by data-service full upsert
 -- This migration is idempotent and safe for partially-initialized databases.
 
+-- Core columns (symbol, name, type, market)
+ALTER TABLE stock_basic ADD COLUMN IF NOT EXISTS type VARCHAR(10) NOT NULL DEFAULT 'STOCK' CHECK (type IN ('STOCK', 'INDEX'));
+ALTER TABLE stock_basic DROP CONSTRAINT IF EXISTS stock_basic_symbol_key;
+CREATE UNIQUE INDEX IF NOT EXISTS idx_stock_basic_symbol_type ON stock_basic(symbol, type);
+CREATE INDEX IF NOT EXISTS idx_stock_basic_type ON stock_basic(type);
+
+-- Extended columns
 ALTER TABLE stock_basic ADD COLUMN IF NOT EXISTS board VARCHAR(20);
 ALTER TABLE stock_basic ADD COLUMN IF NOT EXISTS industry VARCHAR(100);
 ALTER TABLE stock_basic ADD COLUMN IF NOT EXISTS sector VARCHAR(100);

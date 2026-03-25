@@ -18,7 +18,7 @@ from app.config import settings
 from app.db import Database
 from app.models.schemas import ApiResponse, HealthStatus
 from app.routers import a_share, ai_analysis, kline, market, tick_monitor, tick, market_stats
-from app.services.data_updater import data_updater, test_icbc_update
+from app.services.data_updater import data_updater, test_icbc_update, update_market_indices
 from app.services.kline_initializer import kline_initializer
 from app.services.kline_scheduler import kline_scheduler
 from app.services.stock_basic_manager import stock_basic_manager
@@ -235,6 +235,10 @@ async def lifespan(app: FastAPI):
     logger.info("Starting realtime stock data update task (watchlist only)...")
     realtime_task = asyncio.create_task(run_realtime_update_scheduler())
     
+    # Start market indices update task
+    logger.info("Starting market indices update task...")
+    indices_task = asyncio.create_task(run_indices_update_scheduler())
+    
     yield
     
     # Shutdown
@@ -251,13 +255,16 @@ async def lifespan(app: FastAPI):
         await tick_redis_cache.close_cache()
     
     realtime_task.cancel()
+    indices_task.cancel()
     try:
         await realtime_task
     except asyncio.CancelledError:
-        await Database.close()
-        raise
-    else:
-        await Database.close()
+        pass
+    try:
+        await indices_task
+    except asyncio.CancelledError:
+        pass
+    await Database.close()
 
 
 async def run_realtime_update_scheduler():
@@ -365,6 +372,58 @@ async def run_realtime_update_scheduler():
         except Exception:
             logger.error("Realtime watchlist scheduler error", exc_info=True)
 
+        await asyncio.sleep(interval_seconds)
+
+
+async def run_indices_update_scheduler():
+    """Periodically update market indices to stock_realtime table.
+    
+    Updates main A-share market indices (上证指数, 深证成指, 创业板指)
+    every 30 seconds during trading hours.
+    """
+    logger = structlog.get_logger()
+    
+    # Wait a bit for service to fully start
+    await asyncio.sleep(5)
+    
+    iteration = 0
+    interval_seconds = 30  # Update every 30 seconds
+    
+    logger.info("Starting market indices scheduler loop")
+    
+    while True:
+        try:
+            from app.utils.trading_hours import is_a_share_trading_time
+            
+            is_trading_time = is_a_share_trading_time()
+            should_run = should_run_realtime_update(
+                is_trading_time=is_trading_time,
+                only_during_trading_hours=settings.REALTIME_ONLY_DURING_TRADING_HOURS,
+                skip_during_trading_hours=settings.REALTIME_SKIP_DURING_TRADING_HOURS,
+            )
+            
+            if not should_run:
+                logger.debug(
+                    "Skipping indices update by strategy",
+                    is_trading_time=is_trading_time,
+                )
+                await asyncio.sleep(interval_seconds)
+                continue
+            
+            iteration += 1
+            success_count = await update_market_indices()
+            
+            if success_count > 0:
+                logger.debug(
+                    f"[{iteration}] Market indices update completed: {success_count} indices updated"
+                )
+            
+        except asyncio.CancelledError:
+            logger.info("Market indices scheduler cancelled")
+            raise
+        except Exception:
+            logger.error("Market indices scheduler error", exc_info=True)
+        
         await asyncio.sleep(interval_seconds)
 
 

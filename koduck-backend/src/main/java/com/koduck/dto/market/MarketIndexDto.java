@@ -23,6 +23,7 @@ import java.time.Instant;
 public record MarketIndexDto(
     String symbol,
     String name,
+    String type,
     BigDecimal price,
     BigDecimal change,
     BigDecimal changePercent,
@@ -47,6 +48,7 @@ public record MarketIndexDto(
     public static class Builder {
         private String symbol;
         private String name;
+        private String type;
         private BigDecimal price;
         private BigDecimal change;
         private BigDecimal changePercent;
@@ -65,6 +67,11 @@ public record MarketIndexDto(
         
         public Builder name(String name) {
             this.name = name;
+            return this;
+        }
+        
+        public Builder type(String type) {
+            this.type = type;
             return this;
         }
         
@@ -120,7 +127,7 @@ public record MarketIndexDto(
         
         public MarketIndexDto build() {
             return new MarketIndexDto(
-                symbol, name, price, change, changePercent,
+                symbol, name, type, price, change, changePercent,
                 open, high, low, prevClose, volume, amount, timestamp
             );
         }

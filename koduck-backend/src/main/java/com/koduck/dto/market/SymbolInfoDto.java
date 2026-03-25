@@ -8,6 +8,7 @@ import java.math.BigDecimal;
 public record SymbolInfoDto(
     String symbol,
     String name,
+    String type,
     String market,
     BigDecimal price,
     BigDecimal changePercent,
@@ -29,6 +30,7 @@ public record SymbolInfoDto(
     public static class Builder {
         private String symbol;
         private String name;
+        private String type;
         private String market;
         private BigDecimal price;
         private BigDecimal changePercent;
@@ -42,6 +44,11 @@ public record SymbolInfoDto(
         
         public Builder name(String name) {
             this.name = name;
+            return this;
+        }
+        
+        public Builder type(String type) {
+            this.type = type;
             return this;
         }
         
@@ -71,7 +78,7 @@ public record SymbolInfoDto(
         }
         
         public SymbolInfoDto build() {
-            return new SymbolInfoDto(symbol, name, market, price, changePercent, volume, amount);
+            return new SymbolInfoDto(symbol, name, type, market, price, changePercent, volume, amount);
         }
     }
 }

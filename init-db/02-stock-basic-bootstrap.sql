@@ -7,8 +7,9 @@
 
 CREATE TABLE IF NOT EXISTS stock_basic (
     id BIGSERIAL PRIMARY KEY,
-    symbol VARCHAR(20) NOT NULL UNIQUE,
+    symbol VARCHAR(20) NOT NULL,
     name VARCHAR(100) NOT NULL,
+    type VARCHAR(10) NOT NULL DEFAULT 'STOCK' CHECK (type IN ('STOCK', 'INDEX')),
     market VARCHAR(20) NOT NULL,
     board VARCHAR(20),
     industry VARCHAR(100),
@@ -33,11 +34,13 @@ CREATE TABLE IF NOT EXISTS stock_basic (
     float_market_cap DECIMAL(18, 2),
     turnover_rate DECIMAL(10, 4),
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    UNIQUE (symbol, type)
 );
 
 -- Idempotent compatibility patch for environments where stock_basic was
 -- previously created with a reduced column set.
+ALTER TABLE stock_basic ADD COLUMN IF NOT EXISTS type VARCHAR(10) NOT NULL DEFAULT 'STOCK' CHECK (type IN ('STOCK', 'INDEX'));
 ALTER TABLE stock_basic ADD COLUMN IF NOT EXISTS board VARCHAR(20);
 ALTER TABLE stock_basic ADD COLUMN IF NOT EXISTS industry VARCHAR(100);
 ALTER TABLE stock_basic ADD COLUMN IF NOT EXISTS sector VARCHAR(100);
@@ -59,6 +62,8 @@ ALTER TABLE stock_basic ADD COLUMN IF NOT EXISTS float_market_cap DECIMAL(18, 2)
 ALTER TABLE stock_basic ADD COLUMN IF NOT EXISTS turnover_rate DECIMAL(10, 4);
 
 CREATE INDEX IF NOT EXISTS idx_stock_basic_symbol ON stock_basic(symbol);
+CREATE INDEX IF NOT EXISTS idx_stock_basic_symbol_type ON stock_basic(symbol, type);
+CREATE INDEX IF NOT EXISTS idx_stock_basic_type ON stock_basic(type);
 CREATE INDEX IF NOT EXISTS idx_stock_basic_name ON stock_basic(name);
 CREATE INDEX IF NOT EXISTS idx_stock_basic_market ON stock_basic(market);
 CREATE INDEX IF NOT EXISTS idx_stock_basic_board ON stock_basic(board);

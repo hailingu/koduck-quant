@@ -146,6 +146,7 @@ public class MarketServiceImpl implements MarketService {
             SymbolInfoDto dto = SymbolInfoDto.builder()
                     .symbol(normalizedSymbol)
                     .name(name)
+                    .type("STOCK")
                     .market(market)
                     .build();
             deduplicated.putIfAbsent(market + ":" + normalizedSymbol, dto);
@@ -424,29 +425,31 @@ public class MarketServiceImpl implements MarketService {
     public List<MarketIndexDto> getMarketIndices() {
         log.debug("Getting market indices from database");
         
-        // Get index data from stock_realtime
-        List<StockRealtime> indices = stockRealtimeRepository.findBySymbolIn(MAIN_INDICES);
+        // Get index data from stock_realtime, filtering by type='INDEX'
+        // to avoid conflicts with stocks having same symbol codes (e.g., 000001 = 上证指数 vs 平安银行)
+        List<StockRealtime> indices = stockRealtimeRepository.findBySymbolInAndType(MAIN_INDICES, "INDEX");
         
-        if (indices.isEmpty()) {
-            // Fallback: try to get from stock_basic with realtime data
-            log.warn("No index data found in stock_realtime, checking stock_basic");
-            List<StockBasic> basics = stockBasicRepository.findBySymbolIn(MAIN_INDICES);
-            if (basics.isEmpty()) {
-                return Collections.emptyList();
-            }
-            
-            Map<String, StockRealtime> realtimeMap = stockRealtimeRepository.findBySymbolIn(
-                            basics.stream().map(StockBasic::getSymbol).toList())
-                    .stream()
-                    .collect(Collectors.toMap(StockRealtime::getSymbol, Function.identity()));
-            
-            return basics.stream()
-                    .map(basic -> mapToMarketIndexDto(basic, realtimeMap.get(basic.getSymbol())))
+        if (!indices.isEmpty()) {
+            log.debug("Found {} indices in stock_realtime", indices.size());
+            return indices.stream()
+                    .map(this::mapToMarketIndexDto)
                     .toList();
         }
         
-        return indices.stream()
-                .map(this::mapToMarketIndexDto)
+        // Fallback: try to get from stock_basic with type='INDEX'
+        log.warn("No index data found in stock_realtime with type='INDEX', checking stock_basic");
+        List<StockBasic> basicIndices = stockBasicRepository.findBySymbolInAndType(MAIN_INDICES, "INDEX");
+        
+        if (basicIndices.isEmpty()) {
+            log.warn("No index data found in stock_basic with type='INDEX'. " +
+                     "Ensure data-service is running and updating indices.");
+            return Collections.emptyList();
+        }
+        
+        log.debug("Found {} indices in stock_basic", basicIndices.size());
+        // Map from StockBasic to MarketIndexDto (without price data)
+        return basicIndices.stream()
+                .map(this::mapBasicToMarketIndexDto)
                 .toList();
     }
     
@@ -514,6 +517,7 @@ public class MarketServiceImpl implements MarketService {
         return SymbolInfoDto.builder()
                 .symbol(realtime.getSymbol())
                 .name(name)
+                .type(realtime.getType())
                 .market(market)
                 .price(realtime.getPrice())
                 .changePercent(realtime.getChangePercent())
@@ -531,6 +535,7 @@ public class MarketServiceImpl implements MarketService {
             return SymbolInfoDto.builder()
                     .symbol(normalizedSymbol)
                     .name(basic.getName())
+                    .type(realtime.getType())
                     .market(basic.getMarket())
                     .price(realtime.getPrice())
                     .changePercent(realtime.getChangePercent())
@@ -543,6 +548,7 @@ public class MarketServiceImpl implements MarketService {
         return SymbolInfoDto.builder()
             .symbol(normalizedSymbol)
                 .name(basic.getName())
+                .type("STOCK")
                 .market(basic.getMarket())
                 .build();
     }
@@ -565,6 +571,7 @@ public class MarketServiceImpl implements MarketService {
             return PriceQuoteDto.builder()
                     .symbol(entity.getSymbol())
                     .name(entity.getName())
+                    .type(entity.getType())
                     .price(entity.getPrice())
                     .open(entity.getOpenPrice())
                     .high(entity.getHigh())
@@ -635,6 +642,7 @@ public class MarketServiceImpl implements MarketService {
         return PriceQuoteDto.builder()
             .symbol(symbol)
             .name(basic.getName())
+            .type("STOCK")
             .price(price)
             .open(latest.open())
             .high(latest.high())
@@ -727,6 +735,7 @@ public class MarketServiceImpl implements MarketService {
         return MarketIndexDto.builder()
                 .symbol(entity.getSymbol())
                 .name(entity.getName())
+                .type(entity.getType())
                 .price(entity.getPrice())
                 .change(entity.getChangeAmount())
                 .changePercent(entity.getChangePercent())
@@ -748,6 +757,15 @@ public class MarketServiceImpl implements MarketService {
         return MarketIndexDto.builder()
                 .symbol(basic.getSymbol())
                 .name(basic.getName())
+                .type(basic.getType())
+                .build();
+    }
+    
+    private MarketIndexDto mapBasicToMarketIndexDto(StockBasic basic) {
+        return MarketIndexDto.builder()
+                .symbol(basic.getSymbol())
+                .name(basic.getName())
+                .type(basic.getType())
                 .build();
     }
     

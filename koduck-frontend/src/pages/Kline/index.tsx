@@ -776,16 +776,19 @@ export default function Kline() {
   const navigate = useNavigate()
   const { showToast } = useToast()
   
-  // Get symbol from URL params or default
-  const symbol = searchParams.get('symbol') || '601012'
+  // Get symbol from URL params (no default)
+  const symbol = searchParams.get('symbol') || ''
   const marketParam = searchParams.get('market') || 'AShare'
-  const name = searchParams.get('name') || '隆基绿能'
+  const name = searchParams.get('name') || ''
   
   // Validate market param
   const validMarkets: MarketType[] = ['AShare', 'HK', 'US', 'Forex', 'Futures']
   const market: MarketType = validMarkets.includes(marketParam as MarketType) 
     ? (marketParam as MarketType) 
     : 'AShare'
+  
+  // Check if symbol is provided
+  const hasSymbol = symbol && symbol.trim() !== ''
   
   const [timeframe, setTimeframe] = useState('daily')
   const [quote, setQuote] = useState<PriceQuote | null>(null)
@@ -813,8 +816,12 @@ export default function Kline() {
     navigate(`/kline?${params.toString()}`, { replace: true })
   }
 
-  // Fetch stock quote
+  // Fetch stock quote (only when symbol is provided)
   useEffect(() => {
+    if (!hasSymbol) {
+      setLoading(false)
+      return
+    }
     const fetchQuote = async () => {
       try {
         setLoading(true)
@@ -827,7 +834,7 @@ export default function Kline() {
       }
     }
     void fetchQuote()
-  }, [symbol, market, showToast])
+  }, [symbol, market, showToast, hasSymbol])
 
   // WebSocket real-time price
   const { stockPrices } = useWebSocketStore()
@@ -848,15 +855,17 @@ export default function Kline() {
   // Last update time
   const lastUpdateTime = useLastUpdateTime(effectiveRealtimePrice?.timestamp || null)
 
-  // Subscribe to symbol
+  // Subscribe to symbol (only when symbol is provided)
   useEffect(() => {
+    if (!hasSymbol) return
     const { subscribe, unsubscribe } = useWebSocketStore.getState()
     subscribe([symbol])
     return () => unsubscribe([symbol])
-  }, [symbol])
+  }, [symbol, hasSymbol])
 
-  // Poll latest price as fallback when WebSocket is disconnected/stale
+  // Poll latest price as fallback when WebSocket is disconnected/stale (only when symbol is provided)
   useEffect(() => {
+    if (!hasSymbol) return
     let stopped = false
 
     const fetchLatestPrice = async () => {
@@ -894,7 +903,45 @@ export default function Kline() {
       stopped = true
       clearInterval(timer)
     }
-  }, [symbol, market, timeframe])
+  }, [symbol, market, timeframe, hasSymbol])
+
+  // Empty state when no symbol is selected
+  if (!hasSymbol) {
+    return (
+      <div className="h-[calc(100vh-140px)] flex items-center justify-center">
+        <div className="text-center">
+          <svg
+            className="mx-auto h-16 w-16 text-fluid-text-dim/50 mb-4"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={1.5}
+              d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
+            />
+          </svg>
+          <h2 className="text-xl font-headline font-bold text-fluid-text mb-2">
+            选择股票查看行情
+          </h2>
+          <p className="text-fluid-text-dim text-sm mb-6">
+            请从自选股列表中选择一只股票，或搜索股票代码
+          </p>
+          <button
+            onClick={() => navigate('/watchlist')}
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-fluid-primary/50 bg-fluid-primary/10 text-fluid-primary text-sm font-medium transition-all hover:bg-fluid-primary/20"
+          >
+            <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 10h16M4 14h16M4 18h16" />
+            </svg>
+            前往自选股
+          </button>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="h-[calc(100vh-140px)] grid grid-cols-12 gap-5">

@@ -67,7 +67,9 @@ public class KlineService {
                 .map(this::convertToDto)
                 .collect(Collectors.toList());
         java.util.Collections.reverse(result);
-        return result;
+        
+        // Remove duplicate timestamps (keep latest)
+        return deduplicateByTimestamp(result, timeframe);
     }
 
     /**
@@ -289,5 +291,42 @@ public class KlineService {
                 .volume(dto.volume())
                 .amount(dto.amount())
                 .build();
+    }
+
+    /**
+     * Remove duplicate timestamps from K-line data.
+     * For minute-level timeframes: exact timestamp deduplication.
+     * For daily/weekly/monthly: date-based deduplication (86400s boundary).
+     */
+    private List<KlineDataDto> deduplicateByTimestamp(List<KlineDataDto> data, String timeframe) {
+        if (data == null || data.size() <= 1) {
+            return data;
+        }
+        
+        boolean isDailyOrHigher = timeframe != null && 
+            (timeframe.equalsIgnoreCase("1D") || 
+             timeframe.equalsIgnoreCase("1W") || 
+             timeframe.equalsIgnoreCase("1M") ||
+             timeframe.toLowerCase().matches("^(day|daily|week|weekly|month|monthly|1mth|1mo)$"));
+        
+        java.util.LinkedHashMap<Long, KlineDataDto> uniqueMap = new java.util.LinkedHashMap<>();
+        for (KlineDataDto item : data) {
+            Long key;
+            if (isDailyOrHigher) {
+                // Normalize to date boundary (00:00:00) for daily/weekly/monthly
+                key = (item.timestamp() / 86400L) * 86400L;
+            } else {
+                // Use exact timestamp for minute-level data
+                key = item.timestamp();
+            }
+            uniqueMap.put(key, item); // Keep latest for duplicates
+        }
+        
+        List<KlineDataDto> result = new ArrayList<>(uniqueMap.values());
+        int removed = data.size() - result.size();
+        if (removed > 0) {
+            log.debug("Removed {} duplicate timestamp records from K-line data (timeframe={})", removed, timeframe);
+        }
+        return result;
     }
 }

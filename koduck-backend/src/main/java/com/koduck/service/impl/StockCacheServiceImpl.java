@@ -157,6 +157,7 @@ public class StockCacheServiceImpl implements StockCacheService {
                 
                 if (map.containsKey("symbol")) builder.symbol(map.get("symbol").toString());
                 if (map.containsKey("name")) builder.name(map.get("name").toString());
+                if (map.containsKey("type")) builder.type(map.get("type").toString());
                 if (map.containsKey("price")) builder.price(new java.math.BigDecimal(map.get("price").toString()));
                 if (map.containsKey("changePercent")) {
                     Object changePercent = map.get("changePercent");

@@ -311,8 +311,11 @@ class StockBasicManager:
                     if pd.isna(value):
                         data[key] = None
                     elif key == 'symbol':
-                        # Ensure symbol is always a string
-                        data[key] = str(value)
+                        # Ensure symbol is always a string with 6-digit padding
+                        symbol = str(value).strip()
+                        if symbol.isdigit():
+                            symbol = symbol.zfill(6)
+                        data[key] = symbol
                     elif key == 'list_date' and value:
                         # Ensure list_date is a date object
                         if isinstance(value, str):

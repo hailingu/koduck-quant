@@ -17,7 +17,8 @@ import java.time.LocalDateTime;
  * Maps to stock_basic table in PostgreSQL.
  */
 @Entity
-@Table(name = "stock_basic")
+@Table(name = "stock_basic", 
+       uniqueConstraints = @UniqueConstraint(columnNames = {"symbol", "type"}, name = "uk_stock_basic_symbol_type"))
 @Data
 @Builder
 @NoArgsConstructor
@@ -28,8 +29,12 @@ public class StockBasic {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
     
-    @Column(name = "symbol", nullable = false, unique = true, length = 20)
+    @Column(name = "symbol", nullable = false, length = 20)
     private String symbol;
+    
+    @Column(name = "type", nullable = false, length = 10)
+    @Builder.Default
+    private String type = "STOCK"; // STOCK or INDEX
     
     @Column(name = "name", nullable = false, length = 100)
     private String name;

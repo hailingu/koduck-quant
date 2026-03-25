@@ -23,12 +23,13 @@ logger.info(f"Database config: host={DB_HOST}, port={DB_PORT}, db={DB_NAME}, use
 # SQL queries
 INSERT_STOCK_REALTIME = """
 INSERT INTO stock_realtime (
-    symbol, name, price, open_price, high, low, prev_close,
+    symbol, name, type, price, open_price, high, low, prev_close,
     volume, amount, change_amount, change_percent,
     bid_price, bid_volume, ask_price, ask_volume, updated_at
-) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, NOW())
+) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, NOW())
 ON CONFLICT (symbol) DO UPDATE SET
     name = EXCLUDED.name,
+    type = EXCLUDED.type,
     price = EXCLUDED.price,
     open_price = EXCLUDED.open_price,
     high = EXCLUDED.high,
@@ -47,9 +48,9 @@ ON CONFLICT (symbol) DO UPDATE SET
 
 # Basic stock info insert (for realtime updates)
 INSERT_STOCK_BASIC = """
-INSERT INTO stock_basic (symbol, name, market, updated_at)
-VALUES ($1, $2, $3, NOW())
-ON CONFLICT (symbol) DO UPDATE SET
+INSERT INTO stock_basic (symbol, name, type, market, updated_at)
+VALUES ($1, $2, $3, $4, NOW())
+ON CONFLICT (symbol, type) DO UPDATE SET
     name = EXCLUDED.name,
     updated_at = NOW()
 """
@@ -57,14 +58,14 @@ ON CONFLICT (symbol) DO UPDATE SET
 # Full stock info insert (for initialization with enhanced fields)
 INSERT_STOCK_BASIC_FULL = """
 INSERT INTO stock_basic (
-    symbol, name, market, board, 
+    symbol, name, type, market, board, 
     industry, sector, sub_industry, province, city,
     total_shares, float_shares, float_ratio, status,
     is_shanghai_hongkong, is_shenzhen_hongkong, stock_type,
     list_date, pe_ttm, pb, ps_ttm, market_cap, float_market_cap,
     updated_at
-) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, NOW())
-ON CONFLICT (symbol) DO UPDATE SET
+) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, NOW())
+ON CONFLICT (symbol, type) DO UPDATE SET
     name = EXCLUDED.name,
     market = EXCLUDED.market,
     board = EXCLUDED.board,
@@ -90,7 +91,7 @@ ON CONFLICT (symbol) DO UPDATE SET
 """
 
 SELECT_STOCK_REALTIME = """
-SELECT symbol, name, price, open_price, high, low, prev_close,
+SELECT symbol, name, type, price, open_price, high, low, prev_close,
        volume, amount, change_amount, change_percent,
        bid_price, bid_volume, ask_price, ask_volume, updated_at
 FROM stock_realtime WHERE symbol = $1
@@ -220,6 +221,7 @@ class StockRealtimeDB:
                 INSERT_STOCK_REALTIME,
                 data['symbol'],
                 data.get('name', ''),
+                data.get('type', 'STOCK'),  # Default to STOCK if not specified
                 data.get('price'),
                 data.get('open'),
                 data.get('high'),
@@ -241,11 +243,11 @@ class StockRealtimeDB:
             return False
     
     @staticmethod
-    async def upsert_stock_basic(symbol: str, name: str, market: str = "AShare"):
+    async def upsert_stock_basic(symbol: str, name: str, market: str = "AShare", type: str = "STOCK"):
         """Insert or update stock basic info."""
         try:
-            await Database.execute(INSERT_STOCK_BASIC, symbol, name, market)
-            logger.debug(f"Upserted stock basic: {symbol}")
+            await Database.execute(INSERT_STOCK_BASIC, symbol, name, type, market)
+            logger.debug(f"Upserted stock basic: {symbol} type={type}")
             return True
         except Exception as e:
             logger.error(f"Failed to upsert stock basic {symbol}: {e}")
@@ -266,6 +268,7 @@ class StockRealtimeDB:
                 INSERT_STOCK_BASIC_FULL,
                 data.get('symbol'),
                 data.get('name'),
+                data.get('type', 'STOCK'),
                 data.get('market'),
                 data.get('board'),
                 data.get('industry'),
