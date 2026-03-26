@@ -12,8 +12,8 @@ export default function MainLayout() {
       <Header />
 
       {/* Main Content */}
-      <main className="pt-16 min-h-screen pl-64">
-        <div className="p-6">
+      <main className="h-screen pl-64 pt-16 pb-8 overflow-hidden">
+        <div className="h-full p-6 overflow-hidden">
           <Outlet />
         </div>
       </main>

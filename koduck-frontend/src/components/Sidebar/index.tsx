@@ -8,7 +8,7 @@ interface MenuItem {
 }
 
 const mainMenuItems: MenuItem[] = [
-  { key: 'market', label: 'Dashboard', path: '/market', icon: 'dashboard' },
+  { key: 'dashboard', label: 'Dashboard', path: '/dashboard', icon: 'dashboard' },
   { key: 'ai', label: 'Aura AI', path: '/ai', icon: 'auto_awesome' },
   { key: 'sector', label: 'Sector Network', path: '/sector', icon: 'hub' },
   { key: 'fundflow', label: 'Flow Game', path: '/fundflow', icon: 'water' },

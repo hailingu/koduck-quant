@@ -13,6 +13,9 @@ from typing import List, Optional
 from datetime import datetime, timezone
 from enum import Enum
 
+import akshare as ak
+import pandas as pd
+
 from fastapi import APIRouter, Query, HTTPException
 from pydantic import BaseModel, Field
 
@@ -118,86 +121,243 @@ async def get_fear_greed_index():
 class SectorFlowItem(BaseModel):
     """Individual sector flow data."""
     name: str = Field(..., description="Sector name")
-    code: str = Field(..., description="Sector code")
+    code: str = Field(default="", description="Sector code")
     inflow: float = Field(default=0, description="Inflow amount")
     outflow: float = Field(default=0, description="Outflow amount")
     net_flow: float = Field(..., description="Net flow (inflow - outflow)")
-    change: float = Field(..., description="Change percentage")
+    change: float = Field(default=0, description="Change percentage")
     market_cap: float = Field(default=0, description="Total market cap")
     leading_stocks: List[str] = Field(default=[], description="Top gaining stocks")
 
 
 class SectorFlowResponse(BaseModel):
     """Sector flow response model."""
-    total_inflow: float = Field(..., description="Total market inflow")
-    total_outflow: float = Field(..., description="Total market outflow")
-    net_flow: float = Field(..., description="Net market flow")
-    sectors: List[SectorFlowItem] = Field(..., description="Sector details")
+    total_inflow: float = Field(default=0, description="Total market inflow")
+    total_outflow: float = Field(default=0, description="Total market outflow")
+    net_flow: float = Field(default=0, description="Net market flow")
+    industry: List[SectorFlowItem] = Field(default=[], description="Industry sectors")
+    concept: List[SectorFlowItem] = Field(default=[], description="Concept sectors")
+    region: List[SectorFlowItem] = Field(default=[], description="Region sectors")
     timestamp: str = Field(..., description="ISO timestamp")
 
 
-# Mock sector data
-SECTOR_MOCK_DATA = [
-    {"name": "科技", "code": "TECH", "inflow": 12.5, "outflow": 3.2, "change": 0.028},
-    {"name": "金融", "code": "FINANCE", "inflow": 28.3, "outflow": 5.1, "change": 0.045},
-    {"name": "能源", "code": "ENERGY", "inflow": 4.2, "outflow": 8.5, "change": -0.032},
-    {"name": "医药", "code": "HEALTHCARE", "inflow": 6.8, "outflow": 4.2, "change": 0.015},
-    {"name": "消费", "code": "CONSUMER", "inflow": 9.1, "outflow": 6.3, "change": 0.022},
-    {"name": "工业", "code": "INDUSTRIAL", "inflow": 7.5, "outflow": 5.8, "change": 0.012},
-    {"name": "材料", "code": "MATERIALS", "inflow": 5.2, "outflow": 4.1, "change": 0.018},
-    {"name": "房地产", "code": "REAL_ESTATE", "inflow": 2.1, "outflow": 7.3, "change": -0.045},
+def fetch_sector_fund_flow_realtime() -> pd.DataFrame:
+    """Fetch real-time sector fund flow from AKShare.
+    
+    Uses ak.stock_sector_fund_flow_rank() to get current fund flow data.
+    """
+    try:
+        # Get industry fund flow (行业资金流)
+        df = ak.stock_sector_fund_flow_rank(indicator="今日", sector_type="行业资金流")
+        return df
+    except Exception as e:
+        logger.warning(f"Failed to fetch sector fund flow: {e}")
+        return pd.DataFrame()
+
+
+def parse_sector_flow_df(df: pd.DataFrame, sector_type: str, limit: int = 10) -> List[SectorFlowItem]:
+    """Parse DataFrame into SectorFlowItem list.
+    
+    Args:
+        df: DataFrame with AKShare sector fund flow data
+        sector_type: Type of sector (industry/concept/region)
+        limit: Maximum number of sectors to return
+    """
+    if df.empty:
+        return []
+    
+    result = []
+    try:
+        # Handle different column naming conventions in AKShare
+        # Common columns: 名称, 今日主力净流入-净额, 今日主力净流入-净占比, etc.
+        name_col = "名称"
+        
+        # Try different possible column names for inflow/outflow
+        inflow_cols = ["今日主力净流入-净额", "主力净流入-净额", "今日净流入", "主力净流入"]
+        net_percent_cols = ["今日主力净流入-净占比", "主力净流入-净占比", "净流入占比", "涨跌幅"]
+        
+        inflow_col = None
+        for col in inflow_cols:
+            if col in df.columns:
+                inflow_col = col
+                break
+        
+        net_percent_col = None
+        for col in net_percent_cols:
+            if col in df.columns:
+                net_percent_col = col
+                break
+        
+        if not inflow_col or name_col not in df.columns:
+            logger.warning(f"Required columns not found in DataFrame. Available: {df.columns.tolist()}")
+            return []
+        
+        # Sort by inflow and take top items
+        df_sorted = df.sort_values(by=inflow_col, ascending=False).head(limit * 2)
+        
+        for _, row in df_sorted.head(limit).iterrows():
+            try:
+                name = str(row[name_col])
+                net_flow = float(row[inflow_col]) if pd.notna(row[inflow_col]) else 0
+                
+                # Net flow is in 10k yuan (万元), convert to yuan
+                net_flow = net_flow * 10000
+                
+                # Estimate inflow/outflow based on net flow
+                if net_flow > 0:
+                    inflow = net_flow
+                    outflow = 0
+                else:
+                    inflow = 0
+                    outflow = abs(net_flow)
+                
+                change = 0
+                if net_percent_col and net_percent_col in row:
+                    change_val = row[net_percent_col]
+                    if pd.notna(change_val):
+                        # Remove % sign if present and convert to float
+                        change_str = str(change_val).replace('%', '')
+                        try:
+                            change = float(change_str) / 100
+                        except ValueError:
+                            change = 0
+                
+                result.append(SectorFlowItem(
+                    name=name,
+                    code="",
+                    inflow=inflow,
+                    outflow=outflow,
+                    net_flow=net_flow,
+                    change=change,
+                ))
+            except Exception as e:
+                logger.debug(f"Error parsing row: {e}")
+                continue
+                
+    except Exception as e:
+        logger.warning(f"Error parsing sector flow DataFrame: {e}")
+    
+    return result
+
+
+# Fallback mock data
+SECTOR_MOCK_DATA_INDUSTRY = [
+    {"name": "半导体", "inflow": 15.2, "outflow": 3.2, "change": 0.028},
+    {"name": "银行", "inflow": 28.3, "outflow": 5.1, "change": 0.045},
+    {"name": "电力", "inflow": 8.2, "outflow": 2.5, "change": 0.022},
+    {"name": "医药商业", "inflow": 6.8, "outflow": 4.2, "change": 0.015},
+    {"name": "白酒", "inflow": 9.1, "outflow": 6.3, "change": 0.022},
 ]
+
+SECTOR_MOCK_DATA_CONCEPT = [
+    {"name": "人工智能", "inflow": 22.5, "outflow": 4.2, "change": 0.035},
+    {"name": "芯片", "inflow": 18.3, "outflow": 3.1, "change": 0.028},
+    {"name": "新能源", "inflow": 12.5, "outflow": 5.2, "change": 0.018},
+    {"name": "5G", "inflow": 8.8, "outflow": 2.2, "change": 0.015},
+    {"name": "元宇宙", "inflow": 5.2, "outflow": 1.8, "change": 0.012},
+]
+
+SECTOR_MOCK_DATA_REGION = [
+    {"name": "浙江", "inflow": 25.5, "outflow": 8.2, "change": 0.032},
+    {"name": "广东", "inflow": 32.3, "outflow": 9.1, "change": 0.042},
+    {"name": "上海", "inflow": 18.8, "outflow": 6.5, "change": 0.025},
+    {"name": "北京", "inflow": 15.2, "outflow": 4.8, "change": 0.018},
+    {"name": "江苏", "inflow": 12.5, "outflow": 3.9, "change": 0.015},
+]
+
+
+def get_mock_sector_data(data_list: List[dict]) -> List[SectorFlowItem]:
+    """Convert mock data to SectorFlowItem."""
+    result = []
+    for item in data_list:
+        inflow = item["inflow"] * 100000000  # Convert to yuan
+        outflow = item["outflow"] * 100000000
+        result.append(SectorFlowItem(
+            name=item["name"],
+            code="",
+            inflow=inflow,
+            outflow=outflow,
+            net_flow=inflow - outflow,
+            change=item["change"],
+        ))
+    return result
 
 
 @router.get("/sector-flow", response_model=ApiResponse[SectorFlowResponse])
 async def get_sector_flow(
     sort_by: Optional[str] = Query("net_flow", description="Sort by: net_flow, inflow, outflow, change"),
-    limit: int = Query(10, ge=1, le=20, description="Number of sectors to return")
+    limit: int = Query(10, ge=1, le=20, description="Number of sectors per type to return")
 ):
     """Get sector capital flow data for Capital River component.
     
-    Returns inflow/outflow data for all major sectors.
+    Returns inflow/outflow data for industry, concept, and region sectors.
+    Data is fetched from AKShare in real-time.
     """
     try:
-        # Build sector list
-        sectors = []
-        total_inflow = 0
-        total_outflow = 0
+        # Try to fetch real data from AKShare
+        industry_data = []
+        concept_data = []
+        region_data = []
         
-        for sector_data in SECTOR_MOCK_DATA[:limit]:
-            inflow = sector_data["inflow"] * 100000000  # Convert to actual amount
-            outflow = sector_data["outflow"] * 100000000
-            net_flow = inflow - outflow
-            
-            total_inflow += inflow
-            total_outflow += outflow
-            
-            sectors.append(SectorFlowItem(
-                name=sector_data["name"],
-                code=sector_data["code"],
-                inflow=inflow,
-                outflow=outflow,
-                net_flow=net_flow,
-                change=sector_data["change"],
-                market_cap=random.randint(500, 5000) * 100000000,
-                leading_stocks=[f"STOCK{i}" for i in range(random.randint(2, 5))]
-            ))
+        try:
+            # Fetch industry fund flow
+            df_industry = ak.stock_sector_fund_flow_rank(indicator="今日", sector_type="行业资金流")
+            industry_data = parse_sector_flow_df(df_industry, "industry", limit)
+            logger.info(f"Fetched {len(industry_data)} industry sectors from AKShare")
+        except Exception as e:
+            logger.warning(f"Failed to fetch industry data: {e}")
+        
+        try:
+            # Fetch concept fund flow
+            df_concept = ak.stock_sector_fund_flow_rank(indicator="今日", sector_type="概念资金流")
+            concept_data = parse_sector_flow_df(df_concept, "concept", limit)
+            logger.info(f"Fetched {len(concept_data)} concept sectors from AKShare")
+        except Exception as e:
+            logger.warning(f"Failed to fetch concept data: {e}")
+        
+        try:
+            # Fetch region fund flow
+            df_region = ak.stock_sector_fund_flow_rank(indicator="今日", sector_type="地域资金流")
+            region_data = parse_sector_flow_df(df_region, "region", limit)
+            logger.info(f"Fetched {len(region_data)} region sectors from AKShare")
+        except Exception as e:
+            logger.warning(f"Failed to fetch region data: {e}")
+        
+        # Use mock data if real data is empty
+        if not industry_data:
+            industry_data = get_mock_sector_data(SECTOR_MOCK_DATA_INDUSTRY)
+        if not concept_data:
+            concept_data = get_mock_sector_data(SECTOR_MOCK_DATA_CONCEPT)
+        if not region_data:
+            region_data = get_mock_sector_data(SECTOR_MOCK_DATA_REGION)
         
         # Sort by specified field
-        if sort_by == "net_flow":
-            sectors.sort(key=lambda x: abs(x.net_flow), reverse=True)
-        elif sort_by == "inflow":
-            sectors.sort(key=lambda x: x.inflow, reverse=True)
-        elif sort_by == "outflow":
-            sectors.sort(key=lambda x: x.outflow, reverse=True)
-        elif sort_by == "change":
-            sectors.sort(key=lambda x: x.change, reverse=True)
+        def sort_sectors(sectors: List[SectorFlowItem]) -> List[SectorFlowItem]:
+            if sort_by == "net_flow":
+                return sorted(sectors, key=lambda x: abs(x.net_flow), reverse=True)
+            elif sort_by == "inflow":
+                return sorted(sectors, key=lambda x: x.inflow, reverse=True)
+            elif sort_by == "outflow":
+                return sorted(sectors, key=lambda x: x.outflow, reverse=True)
+            elif sort_by == "change":
+                return sorted(sectors, key=lambda x: x.change, reverse=True)
+            return sectors
+        
+        industry_data = sort_sectors(industry_data)[:limit]
+        concept_data = sort_sectors(concept_data)[:limit]
+        region_data = sort_sectors(region_data)[:limit]
+        
+        # Calculate totals
+        total_inflow = sum(s.inflow for s in industry_data + concept_data + region_data)
+        total_outflow = sum(s.outflow for s in industry_data + concept_data + region_data)
         
         result = SectorFlowResponse(
             total_inflow=total_inflow,
             total_outflow=total_outflow,
             net_flow=total_inflow - total_outflow,
-            sectors=sectors,
+            industry=industry_data,
+            concept=concept_data,
+            region=region_data,
             timestamp=datetime.now(timezone.utc).isoformat()
         )
         
@@ -205,7 +365,24 @@ async def get_sector_flow(
         
     except Exception as e:
         logger.error(f"Failed to get sector flow: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        # Return fallback data even on error
+        industry_data = get_mock_sector_data(SECTOR_MOCK_DATA_INDUSTRY)[:limit]
+        concept_data = get_mock_sector_data(SECTOR_MOCK_DATA_CONCEPT)[:limit]
+        region_data = get_mock_sector_data(SECTOR_MOCK_DATA_REGION)[:limit]
+        
+        total_inflow = sum(s.inflow for s in industry_data + concept_data + region_data)
+        total_outflow = sum(s.outflow for s in industry_data + concept_data + region_data)
+        
+        result = SectorFlowResponse(
+            total_inflow=total_inflow,
+            total_outflow=total_outflow,
+            net_flow=total_inflow - total_outflow,
+            industry=industry_data,
+            concept=concept_data,
+            region=region_data,
+            timestamp=datetime.now(timezone.utc).isoformat()
+        )
+        return ApiResponse(code=200, message="success (fallback)", data=result)
 
 
 # ============================================================================
@@ -334,24 +511,24 @@ class BigOrderStats(BaseModel):
 
 # Mock big order data
 BIG_ORDER_MOCK_DATA = [
-    {"symbol": "NVDA.US", "name": "NVIDIA Corp", "type": "buy", "amount": 2400000, "price": 485.50, "volume": 4943, "type_label": "BLOCK ORDER", "exchange": "NYSE", "urgency": "high"},
-    {"symbol": "TSLA.US", "name": "Tesla Inc", "type": "sell", "amount": 1800000, "price": 245.30, "volume": 7338, "type_label": "DARK POOL", "exchange": "NASDAQ", "urgency": "medium"},
-    {"symbol": "AAPL.US", "name": "Apple Inc", "type": "buy", "amount": 3200000, "price": 178.90, "volume": 17887, "type_label": "ICEBERG", "exchange": "NASDAQ", "urgency": "high"},
-    {"symbol": "MSFT.US", "name": "Microsoft Corp", "type": "buy", "amount": 1500000, "price": 378.20, "volume": 3966, "type_label": "BLOCK ORDER", "exchange": "NASDAQ", "urgency": "medium"},
-    {"symbol": "AMZN.US", "name": "Amazon.com Inc", "type": "sell", "amount": 2100000, "price": 145.80, "volume": 14403, "type_label": "SWEEPER", "exchange": "NASDAQ", "urgency": "high"},
-    {"symbol": "GOOGL.US", "name": "Alphabet Inc", "type": "buy", "amount": 980000, "price": 142.60, "volume": 6872, "type_label": "DARK POOL", "exchange": "NASDAQ", "urgency": "low"},
-    {"symbol": "META.US", "name": "Meta Platforms", "type": "sell", "amount": 1650000, "price": 325.40, "volume": 5071, "type_label": "BLOCK ORDER", "exchange": "NASDAQ", "urgency": "medium"},
-    {"symbol": "AMD.US", "name": "AMD Inc", "type": "buy", "amount": 750000, "price": 128.90, "volume": 5818, "type_label": "ICEBERG", "exchange": "NASDAQ", "urgency": "high"},
+    {"symbol": "000001", "name": "平安银行", "type": "buy", "amount": 2400000, "price": 10.50, "volume": 228571, "type_label": "BLOCK ORDER", "exchange": "SZSE", "urgency": "high"},
+    {"symbol": "600519", "name": "贵州茅台", "type": "sell", "amount": 1800000, "price": 1650.30, "volume": 1091, "type_label": "DARK POOL", "exchange": "SSE", "urgency": "medium"},
+    {"symbol": "000858", "name": "五 粮 液", "type": "buy", "amount": 3200000, "price": 145.80, "volume": 21947, "type_label": "ICEBERG", "exchange": "SZSE", "urgency": "high"},
+    {"symbol": "600036", "name": "招商银行", "type": "buy", "amount": 1500000, "price": 32.20, "volume": 46584, "type_label": "BLOCK ORDER", "exchange": "SSE", "urgency": "medium"},
+    {"symbol": "002594", "name": "比亚迪", "type": "sell", "amount": 2100000, "price": 245.80, "volume": 8543, "type_label": "SWEEPER", "exchange": "SZSE", "urgency": "high"},
+    {"symbol": "300750", "name": "宁德时代", "type": "buy", "amount": 980000, "price": 182.60, "volume": 5366, "type_label": "DARK POOL", "exchange": "SZSE", "urgency": "low"},
+    {"symbol": "600900", "name": "长江电力", "type": "sell", "amount": 1650000, "price": 25.40, "volume": 64960, "type_label": "BLOCK ORDER", "exchange": "SSE", "urgency": "medium"},
+    {"symbol": "002371", "name": "北方华创", "type": "buy", "amount": 750000, "price": 328.90, "volume": 2280, "type_label": "ICEBERG", "exchange": "SZSE", "urgency": "high"},
 ]
 
 
 def format_amount(amount: float) -> str:
     """Format amount to human readable string."""
     if amount >= 1000000:
-        return f"${amount/1000000:.1f}M"
+        return f"{(amount/1000000):.1f}M"
     elif amount >= 1000:
-        return f"${amount/1000:.1f}K"
-    return f"${amount:.0f}"
+        return f"{(amount/1000):.1f}K"
+    return f"{amount:.0f}"
 
 
 @router.get("/big-orders", response_model=ApiResponse[List[BigOrderAlert]])
@@ -414,9 +591,9 @@ async def get_big_order_stats():
             total_volume_24h=random.randint(500000000, 1500000000),
             buy_sell_ratio=round(buy_count / max(sell_count, 1), 2),
             top_sectors=[
-                {"name": "TECH", "volume": 450000000},
-                {"name": "FINANCE", "volume": 280000000},
-                {"name": "HEALTHCARE", "volume": 150000000},
+                {"name": "银行", "volume": 450000000},
+                {"name": "科技", "volume": 280000000},
+                {"name": "消费", "volume": 150000000},
             ]
         )
         

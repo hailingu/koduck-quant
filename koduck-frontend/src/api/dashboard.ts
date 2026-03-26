@@ -34,7 +34,9 @@ export interface SectorFlowResponse {
   total_inflow: number;
   total_outflow: number;
   net_flow: number;
-  sectors: SectorFlowItem[];
+  industry: SectorFlowItem[];
+  concept: SectorFlowItem[];
+  region: SectorFlowItem[];
   timestamp: string;
 }
 
@@ -170,10 +172,20 @@ export const mockSectorFlow: SectorFlowResponse = {
   total_inflow: 4200000000,
   total_outflow: 2100000000,
   net_flow: 2100000000,
-  sectors: [
-    { name: "科技", code: "TECH", inflow: 1200000000, outflow: 320000000, net_flow: 880000000, change: 0.028, market_cap: 2500000000000, leading_stocks: ["NVDA", "AAPL"] },
-    { name: "金融", code: "FINANCE", inflow: 2800000000, outflow: 510000000, net_flow: 2290000000, change: 0.045, market_cap: 1800000000000, leading_stocks: ["JPM", "BAC"] },
-    { name: "能源", code: "ENERGY", inflow: 420000000, outflow: 850000000, net_flow: -430000000, change: -0.032, market_cap: 800000000000, leading_stocks: ["XOM"] },
+  industry: [
+    { name: "半导体", code: "", inflow: 1520000000, outflow: 320000000, net_flow: 1200000000, change: 0.028, market_cap: 2500000000000, leading_stocks: ["中芯国际", "韦尔股份"] },
+    { name: "银行", code: "", inflow: 2830000000, outflow: 510000000, net_flow: 2320000000, change: 0.045, market_cap: 1800000000000, leading_stocks: ["招商银行", "平安银行"] },
+    { name: "电力", code: "", inflow: 820000000, outflow: 250000000, net_flow: 570000000, change: 0.022, market_cap: 800000000000, leading_stocks: ["长江电力", "华能水电"] },
+  ],
+  concept: [
+    { name: "人工智能", code: "", inflow: 2250000000, outflow: 420000000, net_flow: 1830000000, change: 0.035, market_cap: 2200000000000, leading_stocks: ["科大讯飞", "寒武纪"] },
+    { name: "芯片", code: "", inflow: 1830000000, outflow: 310000000, net_flow: 1520000000, change: 0.028, market_cap: 1900000000000, leading_stocks: ["中芯国际", "兆易创新"] },
+    { name: "新能源", code: "", inflow: 1250000000, outflow: 520000000, net_flow: 730000000, change: 0.018, market_cap: 1500000000000, leading_stocks: ["宁德时代", "比亚迪"] },
+  ],
+  region: [
+    { name: "浙江", code: "", inflow: 2550000000, outflow: 820000000, net_flow: 1730000000, change: 0.032, market_cap: 2500000000000, leading_stocks: ["海康威视", "宁波银行"] },
+    { name: "广东", code: "", inflow: 3230000000, outflow: 910000000, net_flow: 2320000000, change: 0.042, market_cap: 3000000000000, leading_stocks: ["中国平安", "美的集团"] },
+    { name: "上海", code: "", inflow: 1880000000, outflow: 650000000, net_flow: 1230000000, change: 0.025, market_cap: 1800000000000, leading_stocks: ["浦发银行", "上汽集团"] },
   ],
   timestamp: new Date().toISOString()
 };

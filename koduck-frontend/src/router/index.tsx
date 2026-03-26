@@ -8,6 +8,7 @@ import Portfolio from '@/pages/Portfolio'
 import Settings from '@/pages/Settings'
 import Kline from '@/pages/Kline'
 import Market from '@/pages/Market'
+import Dashboard from '@/pages/Dashboard'
 import FundFlowAnalysis from '@/pages/FundFlowAnalysis'
 import SectorNetwork from '@/pages/SectorNetwork'
 import HistoryPlayback from '@/pages/HistoryPlayback'
@@ -29,7 +30,7 @@ const PUBLIC_ROUTES: ReadonlyArray<AppRouteConfig> = [
 ]
 
 const PRIVATE_LAYOUT_ROUTES: ReadonlyArray<AppRouteConfig> = [
-  { path: '/dashboard', element: <Navigate to={MARKET_PATH} replace /> },
+  { path: '/dashboard', element: <Dashboard /> },
   { path: MARKET_PATH, element: <Market /> },
   { path: '/fundflow', element: <FundFlowAnalysis /> },
   { path: '/sector', element: <SectorNetwork /> },

@@ -17,7 +17,7 @@ from fastapi.responses import JSONResponse
 from app.config import settings
 from app.db import Database
 from app.models.schemas import ApiResponse, HealthStatus
-from app.routers import a_share, ai_analysis, kline, market, tick_monitor, tick, market_stats
+from app.routers import a_share, ai_analysis, dashboard, kline, market, tick_monitor, tick, market_stats
 from app.services.data_updater import data_updater, test_icbc_update, update_market_indices
 from app.services.kline_initializer import kline_initializer
 from app.services.kline_scheduler import kline_scheduler
@@ -485,6 +485,7 @@ def create_app() -> FastAPI:
     # Include routers
     app.include_router(a_share.router, prefix=API_V1_PREFIX)
     app.include_router(ai_analysis.router, prefix=API_V1_PREFIX)
+    app.include_router(dashboard.router)  # Dashboard router has its own prefix
     app.include_router(kline.router, prefix=API_V1_PREFIX)
     app.include_router(market.router, prefix=API_V1_PREFIX)
     app.include_router(tick_monitor.router, prefix=API_V1_PREFIX)

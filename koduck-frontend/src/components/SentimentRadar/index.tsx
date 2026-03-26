@@ -85,9 +85,9 @@ export default function SentimentRadar({ market = 'a_share' }: { market?: string
     if (!sentiment?.dimensions) {
       // Default fallback data
       return {
-        size: 200,
-        center: 100,
-        radius: 70,
+        size: 160,
+        center: 80,
+        radius: 55,
         points: [],
         values: [50, 30, 50, 50, 50, 50],
         path: '',
@@ -104,9 +104,9 @@ export default function SentimentRadar({ market = 'a_share' }: { market?: string
       dims.fundFlow.value,
     ]
 
-    const size = 200
+    const size = 160
     const center = size / 2
-    const radius = 70
+    const radius = 55
 
     // Hexagon vertices (6 dimensions, 60 degrees apart)
     const points = values.map((value, i) => {
@@ -131,12 +131,12 @@ export default function SentimentRadar({ market = 'a_share' }: { market?: string
   // Label positions for hexagon
   const labelPositions = useMemo(
     () => [
-      { key: 'activity', x: 100, y: 15 },
-      { key: 'volatility', x: 185, y: 60 },
-      { key: 'trendStrength', x: 185, y: 140 },
-      { key: 'fearGreed', x: 100, y: 185 },
-      { key: 'valuation', x: 15, y: 140 },
-      { key: 'fundFlow', x: 15, y: 60 },
+      { key: 'activity', x: 80, y: 10 },
+      { key: 'volatility', x: 150, y: 48 },
+      { key: 'trendStrength', x: 150, y: 112 },
+      { key: 'fearGreed', x: 80, y: 150 },
+      { key: 'valuation', x: 10, y: 112 },
+      { key: 'fundFlow', x: 10, y: 48 },
     ],
     []
   )
@@ -162,29 +162,29 @@ export default function SentimentRadar({ market = 'a_share' }: { market?: string
     : []
 
   return (
-    <div className="glass-panel p-5 rounded-xl">
+    <div className="glass-panel p-3 rounded-xl">
       {/* Header */}
-      <div className="flex justify-between items-center mb-4">
+      <div className="flex justify-between items-center mb-2">
         <div>
-          <h2 className="font-headline font-bold text-lg text-fluid-text tracking-tight uppercase">
+          <h2 className="font-headline font-bold text-sm text-fluid-text tracking-tight uppercase">
             Sentiment Radar
           </h2>
-          <div className="flex items-center gap-2 mt-1">
-            <span className={`text-xs font-mono-data ${statusDisplay.color}`}>{statusDisplay.label}</span>
-            <span className="text-xs text-fluid-text-dim">•</span>
-            <span className="text-xs font-mono-data text-fluid-primary">
-              Overall: {sentiment?.overall ?? '--'}
+          <div className="flex items-center gap-1.5 mt-0.5">
+            <span className={`text-[10px] font-mono-data ${statusDisplay.color}`}>{statusDisplay.label}</span>
+            <span className="text-[10px] text-fluid-text-dim">•</span>
+            <span className="text-[10px] font-mono-data text-fluid-primary">
+              {sentiment?.overall ?? '--'}
             </span>
           </div>
         </div>
-        <span className="material-symbols-outlined text-fluid-primary/60">radar</span>
+        <span className="material-symbols-outlined text-fluid-primary/60 text-base">radar</span>
       </div>
 
       {/* Radar Chart */}
-      <div className="relative w-full aspect-square flex items-center justify-center mb-6">
+      <div className="relative w-full aspect-square flex items-center justify-center mb-3 max-w-[140px] mx-auto">
         {loading ? (
           <div className="absolute inset-0 flex items-center justify-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-2 border-fluid-primary border-t-transparent" />
+            <div className="animate-spin rounded-full h-8 w-8 border-2 border-fluid-primary border-t-transparent" />
           </div>
         ) : (
           <>
@@ -199,17 +199,17 @@ export default function SentimentRadar({ market = 'a_share' }: { market?: string
             {/* SVG Radar */}
             {radarData.path && (
               <svg
-                className="w-full h-full max-w-[180px] drop-shadow-[0_0_8px_rgba(0,242,255,0.4)]"
-                viewBox="0 0 200 200"
+                className="w-full h-full drop-shadow-[0_0_6px_rgba(0,242,255,0.4)]"
+                viewBox="0 0 160 160"
               >
                 <polygon
                   points={radarData.points.map((p) => `${p.x},${p.y}`).join(' ')}
                   fill="rgba(0, 242, 255, 0.2)"
                   stroke="#00F2FF"
-                  strokeWidth="1.5"
+                  strokeWidth="1"
                 />
                 {radarData.points.map((p, i) => (
-                  <circle key={i} cx={p.x} cy={p.y} r="3" fill="#00F2FF" />
+                  <circle key={i} cx={p.x} cy={p.y} r="2" fill="#00F2FF" />
                 ))}
               </svg>
             )}
@@ -218,18 +218,18 @@ export default function SentimentRadar({ market = 'a_share' }: { market?: string
             {labelPositions.map((label) => (
               <div
                 key={label.key}
-                className="absolute text-[9px] font-mono-data text-fluid-primary cursor-help group"
+                className="absolute text-[8px] font-mono-data text-fluid-primary cursor-help group"
                 style={{
-                  left: label.x > 100 ? `${(label.x / 200) * 100}%` : undefined,
-                  right: label.x <= 100 ? `${((200 - label.x) / 200) * 100}%` : undefined,
-                  top: `${(label.y / 200) * 100}%`,
+                  left: label.x > 80 ? `${(label.x / 160) * 100}%` : undefined,
+                  right: label.x <= 80 ? `${((160 - label.x) / 160) * 100}%` : undefined,
+                  top: `${(label.y / 160) * 100}%`,
                   transform: 'translateY(-50%)',
                 }}
               >
                 {dimensionLabels[label.key]}
 
                 {/* Tooltip */}
-                <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-fluid-surface-container-high rounded text-[10px] text-fluid-text whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10">
+                <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 px-1.5 py-0.5 bg-fluid-surface-container-high rounded text-[9px] text-fluid-text whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10">
                   {dimensionDescriptions[label.key]}
                 </div>
               </div>
@@ -240,18 +240,18 @@ export default function SentimentRadar({ market = 'a_share' }: { market?: string
 
       {/* Dimension Values Grid */}
       {dimensionDetails.length > 0 && (
-        <div className="grid grid-cols-3 gap-2 mb-4">
+        <div className="grid grid-cols-3 gap-1.5 mb-2">
           {dimensionDetails.map((dim) => (
-            <div key={dim.key} className="text-center p-2 bg-fluid-surface-container-low rounded">
-              <div className="text-[8px] text-fluid-text-dim uppercase">{dimensionLabels[dim.key]}</div>
+            <div key={dim.key} className="text-center p-1.5 bg-fluid-surface-container-low rounded">
+              <div className="text-[7px] text-fluid-text-dim uppercase">{dimensionLabels[dim.key]}</div>
               <div
-                className={`text-sm font-mono-data font-bold ${
+                className={`text-xs font-mono-data font-bold ${
                   dim.value >= 60 ? 'text-fluid-primary' : dim.value <= 40 ? 'text-fluid-secondary' : 'text-fluid-text'
                 }`}
               >
                 {dim.value}
               </div>
-              <div className="text-[8px] text-fluid-text-dim">
+              <div className="text-[7px] text-fluid-text-dim">
                 {dim.trend === 'up' ? '↑' : dim.trend === 'down' ? '↓' : '→'}
               </div>
             </div>
@@ -260,11 +260,11 @@ export default function SentimentRadar({ market = 'a_share' }: { market?: string
       )}
 
       {/* Fear/Greed Index */}
-      <div className="space-y-3">
+      <div className="space-y-2">
         <div className="flex justify-between items-end">
-          <span className="text-xs text-fluid-text-muted font-mono-data">Fear/Greed Index</span>
+          <span className="text-[10px] text-fluid-text-muted font-mono-data">Fear/Greed</span>
           <span
-            className={`text-xl font-headline font-bold ${
+            className={`text-base font-headline font-bold ${
               fearGreedValue >= 70
                 ? 'text-fluid-tertiary'
                 : fearGreedValue <= 30
@@ -275,23 +275,23 @@ export default function SentimentRadar({ market = 'a_share' }: { market?: string
             {fearGreedValue}
           </span>
         </div>
-        <div className="h-1.5 w-full bg-fluid-surface-container-low rounded-full overflow-hidden">
+        <div className="h-1 w-full bg-fluid-surface-container-low rounded-full overflow-hidden">
           <div
             className="h-full bg-gradient-to-r from-fluid-secondary via-fluid-tertiary to-fluid-primary transition-all duration-500"
             style={{ width: `${fearGreedValue}%` }}
           />
         </div>
-        <div className="flex justify-between text-[10px] font-mono-data text-fluid-text-dim">
-          <span>EXTREME FEAR</span>
+        <div className="flex justify-between text-[8px] font-mono-data text-fluid-text-dim">
+          <span>FEAR</span>
           <span>GREED</span>
         </div>
       </div>
 
       {/* Last Updated */}
       {sentiment?.timestamp && (
-        <div className="mt-4 text-center">
-          <span className="text-[9px] text-fluid-text-dim font-mono-data">
-            Updated: {new Date(sentiment.timestamp).toLocaleTimeString()}
+        <div className="mt-2 text-center">
+          <span className="text-[8px] text-fluid-text-dim font-mono-data">
+            {new Date(sentiment.timestamp).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })}
           </span>
         </div>
       )}

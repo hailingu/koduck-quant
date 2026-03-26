@@ -34,8 +34,8 @@ export function FearGreedIndex({ useMock = false }: Props) {
 
   if (loading || !data) {
     return (
-      <div className="glass-panel p-6 rounded-xl animate-pulse">
-        <div className="h-32 bg-slate-800/50 rounded"></div>
+      <div className="glass-panel p-3 rounded-xl animate-pulse">
+        <div className="h-28 bg-slate-800/50 rounded"></div>
       </div>
     );
   }
@@ -65,63 +65,63 @@ export function FearGreedIndex({ useMock = false }: Props) {
   };
 
   return (
-    <div className="glass-panel p-6 rounded-xl">
-      <div className="flex justify-between items-center mb-4">
-        <h2 className="text-lg font-headline font-semibold flex items-center gap-2">
-          <span className="material-symbols-outlined text-cyan-400">psychology</span>
-          恐惧贪婪指数
+    <div className="glass-panel p-3 rounded-xl">
+      <div className="flex justify-between items-center mb-2">
+        <h2 className="text-sm font-headline font-semibold flex items-center gap-1.5">
+          <span className="material-symbols-outlined text-cyan-400 text-base">psychology</span>
+          恐惧贪婪
         </h2>
-        <span className="text-xs text-slate-500">
-          {new Date(data.timestamp).toLocaleTimeString('zh-CN')}
+        <span className="text-[10px] text-slate-500">
+          {new Date(data.timestamp).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })}
         </span>
       </div>
 
       {/* Main Gauge */}
-      <div className="flex items-center justify-center mb-6">
-        <div className="relative w-32 h-32">
+      <div className="flex items-center justify-center mb-3">
+        <div className="relative w-20 h-20">
           {/* Background circle */}
           <svg className="w-full h-full transform -rotate-90">
             <circle
-              cx="64"
-              cy="64"
-              r="56"
+              cx="40"
+              cy="40"
+              r="34"
               fill="none"
               stroke="#1e293b"
-              strokeWidth="12"
+              strokeWidth="8"
             />
             {/* Progress circle */}
             <circle
-              cx="64"
-              cy="64"
-              r="56"
+              cx="40"
+              cy="40"
+              r="34"
               fill="none"
               stroke="currentColor"
-              strokeWidth="12"
+              strokeWidth="8"
               strokeLinecap="round"
-              strokeDasharray={`${(data.value / 100) * 351.86} 351.86`}
+              strokeDasharray={`${(data.value / 100) * 213.6} 213.6`}
               className={`${getColor(data.value)} transition-all duration-1000`}
             />
           </svg>
           {/* Center text */}
           <div className="absolute inset-0 flex flex-col items-center justify-center">
-            <span className={`text-3xl font-bold ${getColor(data.value)}`}>
+            <span className={`text-xl font-bold ${getColor(data.value)}`}>
               {data.value}
             </span>
-            <span className="text-xs text-slate-400">{getLabel(data.value)}</span>
+            <span className="text-[10px] text-slate-400 scale-90">{getLabel(data.value)}</span>
           </div>
         </div>
       </div>
 
       {/* Change indicator */}
-      <div className="flex justify-center mb-4">
-        <span className={`text-sm ${data.change >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+      <div className="flex justify-center mb-2">
+        <span className={`text-xs ${data.change >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
           {data.change >= 0 ? '▲' : '▼'} {Math.abs(data.change)} 较昨日
         </span>
       </div>
 
       {/* Component breakdown */}
-      <div className="space-y-2">
-        <div className="text-xs text-slate-500 mb-2">指标构成</div>
+      <div className="space-y-1">
+        <div className="text-[10px] text-slate-500">指标构成</div>
         {[
           { label: '波动性', value: data.components.volatility },
           { label: '动量', value: data.components.momentum },
@@ -130,14 +130,14 @@ export function FearGreedIndex({ useMock = false }: Props) {
           { label: '北向资金', value: data.components.northbound },
         ].map((item) => (
           <div key={item.label} className="flex items-center gap-2">
-            <span className="text-xs text-slate-400 w-16">{item.label}</span>
-            <div className="flex-1 bg-slate-800 h-1.5 rounded-full overflow-hidden">
+            <span className="text-[10px] text-slate-400 w-12">{item.label}</span>
+            <div className="flex-1 bg-slate-800 h-1 rounded-full overflow-hidden">
               <div
                 className={`h-full ${getBgColor(item.value)} rounded-full transition-all duration-500`}
                 style={{ width: `${item.value}%` }}
               />
             </div>
-            <span className={`text-xs ${getColor(item.value)} w-8 text-right`}>
+            <span className={`text-[10px] ${getColor(item.value)} w-6 text-right`}>
               {item.value}
             </span>
           </div>
