@@ -78,6 +78,21 @@ class Settings(BaseSettings):
     # Legacy switch: when ONLY_DURING is False, skip updates during trading.
     REALTIME_SKIP_DURING_TRADING_HOURS: bool = False
 
+    # Market daily net-flow scheduler behavior
+    MARKET_NET_FLOW_ENABLED: bool = True
+    MARKET_NET_FLOW_TRADING_INTERVAL_SECONDS: int = 60
+    MARKET_NET_FLOW_NON_TRADING_INTERVAL_SECONDS: int = 600
+
+    # Market daily breadth scheduler behavior
+    MARKET_BREADTH_ENABLED: bool = True
+    MARKET_BREADTH_TRADING_INTERVAL_SECONDS: int = 60
+    MARKET_BREADTH_NON_TRADING_INTERVAL_SECONDS: int = 600
+
+    # Market sector net-flow scheduler behavior
+    MARKET_SECTOR_NET_FLOW_ENABLED: bool = True
+    MARKET_SECTOR_NET_FLOW_TRADING_INTERVAL_SECONDS: int = 300
+    MARKET_SECTOR_NET_FLOW_NON_TRADING_INTERVAL_SECONDS: int = 1800
+
     # Logging
     LOG_LEVEL: str = "INFO"
     LOG_FORMAT: str = "json"

@@ -7,7 +7,7 @@ import { apiClient } from './client';
 export interface FearGreedIndex {
   value: number;
   label: string;
-  prev_value: number;
+  prevValue: number;
   change: number;
   timestamp: string;
   components: {
@@ -24,20 +24,76 @@ export interface SectorFlowItem {
   code: string;
   inflow: number;
   outflow: number;
-  net_flow: number;
+  netFlow: number;
   change: number;
-  market_cap: number;
-  leading_stocks: string[];
+  marketCap: number;
+  leadingStocks: string[];
 }
 
 export interface SectorFlowResponse {
-  total_inflow: number;
-  total_outflow: number;
-  net_flow: number;
+  totalInflow: number;
+  totalOutflow: number;
+  netFlow: number;
   industry: SectorFlowItem[];
   concept: SectorFlowItem[];
   region: SectorFlowItem[];
   timestamp: string;
+}
+
+export interface SectorNetFlowItem {
+  sectorType: 'industry' | 'concept' | 'region' | string;
+  sectorName: string;
+  mainForceNet: number;
+  retailNet: number;
+  superBigNet?: number | null;
+  bigNet?: number | null;
+  mediumNet?: number | null;
+  smallNet?: number | null;
+  changePct?: number | null;
+  snapshotTime?: string | null;
+}
+
+export interface SectorNetFlowResponse {
+  market: string;
+  indicator: string;
+  tradeDate: string;
+  totalMainForceNet: number;
+  totalRetailNet: number;
+  industry: SectorNetFlowItem[];
+  concept: SectorNetFlowItem[];
+  region: SectorNetFlowItem[];
+  source: string;
+  quality: string;
+}
+
+export interface DailyNetFlow {
+  market: string;
+  flowType: string;
+  tradeDate: string;
+  netInflow: number;
+  totalInflow?: number | null;
+  totalOutflow?: number | null;
+  currency: string;
+  source: string;
+  quality: string;
+  snapshotTime: string;
+  updatedAt: string;
+}
+
+export interface DailyBreadth {
+  market: string;
+  breadthType: string;
+  tradeDate: string;
+  gainers: number;
+  losers: number;
+  unchanged: number;
+  suspended?: number | null;
+  totalStocks: number;
+  advanceDeclineLine: number;
+  source: string;
+  quality: string;
+  snapshotTime: string;
+  updatedAt: string;
 }
 
 export interface PriceRangeDistribution {
@@ -47,16 +103,16 @@ export interface PriceRangeDistribution {
 }
 
 export interface MarketBreadth {
-  total_stocks: number;
+  totalStocks: number;
   gainers: number;
   losers: number;
   unchanged: number;
-  gainers_percentage: number;
-  losers_percentage: number;
+  gainersPercentage: number;
+  losersPercentage: number;
   distribution: PriceRangeDistribution[];
-  advance_decline_line: number;
-  new_highs: number;
-  new_lows: number;
+  advanceDeclineLine: number;
+  newHighs: number;
+  newLows: number;
   timestamp: string;
 }
 
@@ -66,27 +122,20 @@ export interface BigOrderAlert {
   name: string;
   type: 'buy' | 'sell';
   amount: number;
-  amount_formatted: string;
+  amountFormatted: string;
   price: number;
   volume: number;
   time: string;
-  type_label: string;
+  typeLabel: string;
   exchange: string;
   urgency: string;
 }
 
 export interface BigOrderStats {
-  total_count_24h: number;
-  total_volume_24h: number;
-  buy_sell_ratio: number;
-  top_sectors: { name: string; volume: number }[];
-}
-
-// API Response type
-interface ApiResponse<T> {
-  data: T;
-  code: number;
-  message: string;
+  totalCount24h: number;
+  totalVolume24h: number;
+  buySellRatio: number;
+  topSectors: { name: string; volume: number }[];
 }
 
 // ============================================================================
@@ -98,8 +147,9 @@ interface ApiResponse<T> {
  * Issue #199
  */
 export async function getFearGreedIndex(): Promise<FearGreedIndex> {
-  const response = await apiClient.get<ApiResponse<FearGreedIndex>>('/market/fear-greed-index');
-  return (response as unknown as ApiResponse<FearGreedIndex>).data;
+  return apiClient.get<FearGreedIndex>('/api/v1/market/fear-greed-index', {
+    timeout: 1500,
+  });
 }
 
 /**
@@ -110,10 +160,78 @@ export async function getSectorFlow(
   sortBy: string = 'net_flow',
   limit: number = 10
 ): Promise<SectorFlowResponse> {
-  const response = await apiClient.get<ApiResponse<SectorFlowResponse>>('/market/sector-flow', {
-    params: { sort_by: sortBy, limit }
+  return apiClient.get<SectorFlowResponse>('/api/v1/market/sector-flow', {
+    params: { sort_by: sortBy, limit },
+    timeout: 1200,
   });
-  return (response as unknown as ApiResponse<SectorFlowResponse>).data;
+}
+
+/**
+ * Get sector net-flow snapshot data (DB-backed).
+ */
+export async function getSectorNetFlow(
+  market: string = 'AShare',
+  indicator: string = 'TODAY',
+  limit: number = 10
+): Promise<SectorNetFlowResponse> {
+  return apiClient.get<SectorNetFlowResponse>('/api/v1/market/sector-net-flow', {
+    params: { market, indicator, limit },
+    timeout: 4000,
+  });
+}
+
+/**
+ * Get daily market net flow (latest trading day by default)
+ */
+export async function getDailyNetFlow(
+  market: string = 'AShare',
+  flowType: string = 'MAIN_FORCE'
+): Promise<DailyNetFlow> {
+  return apiClient.get<DailyNetFlow>('/api/v1/market/net-flow/daily', {
+    params: { market, flowType }
+  });
+}
+
+/**
+ * Get daily market net-flow history
+ */
+export async function getDailyNetFlowHistory(
+  from: string,
+  to: string,
+  market: string = 'AShare',
+  flowType: string = 'MAIN_FORCE'
+): Promise<DailyNetFlow[]> {
+  const response = await apiClient.get<DailyNetFlow[]>('/api/v1/market/net-flow/daily/history', {
+    params: { from, to, market, flowType }
+  });
+  return response || [];
+}
+
+/**
+ * Get daily market breadth (latest trading day by default)
+ */
+export async function getDailyBreadth(
+  market: string = 'AShare',
+  breadthType: string = 'ALL_A'
+): Promise<DailyBreadth> {
+  return apiClient.get<DailyBreadth>('/api/v1/market/breadth/daily', {
+    params: { market, breadthType }
+  });
+}
+
+/**
+ * Get daily market breadth history
+ */
+export async function getDailyBreadthHistory(
+  from: string,
+  to: string,
+  market: string = 'AShare',
+  breadthType: string = 'ALL_A'
+): Promise<DailyBreadth[]> {
+  const response = await apiClient.get<DailyBreadth[]>('/api/v1/market/breadth/daily/history', {
+    params: { from, to, market, breadthType }
+  });
+  return response || [];
 }
 
 /**
@@ -121,8 +239,9 @@ export async function getSectorFlow(
  * Issue #201
  */
 export async function getMarketBreadth(): Promise<MarketBreadth> {
-  const response = await apiClient.get<ApiResponse<MarketBreadth>>('/market/breadth');
-  return (response as unknown as ApiResponse<MarketBreadth>).data;
+  return apiClient.get<MarketBreadth>('/api/v1/market/breadth', {
+    timeout: 1500,
+  });
 }
 
 /**
@@ -134,10 +253,11 @@ export async function getBigOrders(
   orderType?: 'buy' | 'sell',
   minAmount: number = 500000
 ): Promise<BigOrderAlert[]> {
-  const response = await apiClient.get<ApiResponse<BigOrderAlert[]>>('/market/big-orders', {
-    params: { limit, order_type: orderType, min_amount: minAmount }
+  const response = await apiClient.get<BigOrderAlert[]>('/api/v1/market/big-orders', {
+    params: { limit, order_type: orderType, min_amount: minAmount },
+    timeout: 1500,
   });
-  return (response as unknown as ApiResponse<BigOrderAlert[]>).data;
+  return response || [];
 }
 
 /**
@@ -145,8 +265,7 @@ export async function getBigOrders(
  * Issue #202
  */
 export async function getBigOrderStats(): Promise<BigOrderStats> {
-  const response = await apiClient.get<ApiResponse<BigOrderStats>>('/market/big-orders/stats');
-  return (response as unknown as ApiResponse<BigOrderStats>).data;
+  return apiClient.get<BigOrderStats>('/api/v1/market/big-orders/stats');
 }
 
 // ============================================================================
@@ -156,7 +275,7 @@ export async function getBigOrderStats(): Promise<BigOrderStats> {
 export const mockFearGreedIndex: FearGreedIndex = {
   value: 64,
   label: "Greed",
-  prev_value: 61,
+  prevValue: 61,
   change: 3,
   timestamp: new Date().toISOString(),
   components: {
@@ -169,34 +288,34 @@ export const mockFearGreedIndex: FearGreedIndex = {
 };
 
 export const mockSectorFlow: SectorFlowResponse = {
-  total_inflow: 4200000000,
-  total_outflow: 2100000000,
-  net_flow: 2100000000,
+  totalInflow: 4200000000,
+  totalOutflow: 2100000000,
+  netFlow: 2100000000,
   industry: [
-    { name: "半导体", code: "", inflow: 1520000000, outflow: 320000000, net_flow: 1200000000, change: 0.028, market_cap: 2500000000000, leading_stocks: ["中芯国际", "韦尔股份"] },
-    { name: "银行", code: "", inflow: 2830000000, outflow: 510000000, net_flow: 2320000000, change: 0.045, market_cap: 1800000000000, leading_stocks: ["招商银行", "平安银行"] },
-    { name: "电力", code: "", inflow: 820000000, outflow: 250000000, net_flow: 570000000, change: 0.022, market_cap: 800000000000, leading_stocks: ["长江电力", "华能水电"] },
+    { name: "半导体", code: "", inflow: 1520000000, outflow: 320000000, netFlow: 1200000000, change: 0.028, marketCap: 2500000000000, leadingStocks: ["中芯国际", "韦尔股份"] },
+    { name: "银行", code: "", inflow: 2830000000, outflow: 510000000, netFlow: 2320000000, change: 0.045, marketCap: 1800000000000, leadingStocks: ["招商银行", "平安银行"] },
+    { name: "电力", code: "", inflow: 820000000, outflow: 250000000, netFlow: 570000000, change: 0.022, marketCap: 800000000000, leadingStocks: ["长江电力", "华能水电"] },
   ],
   concept: [
-    { name: "人工智能", code: "", inflow: 2250000000, outflow: 420000000, net_flow: 1830000000, change: 0.035, market_cap: 2200000000000, leading_stocks: ["科大讯飞", "寒武纪"] },
-    { name: "芯片", code: "", inflow: 1830000000, outflow: 310000000, net_flow: 1520000000, change: 0.028, market_cap: 1900000000000, leading_stocks: ["中芯国际", "兆易创新"] },
-    { name: "新能源", code: "", inflow: 1250000000, outflow: 520000000, net_flow: 730000000, change: 0.018, market_cap: 1500000000000, leading_stocks: ["宁德时代", "比亚迪"] },
+    { name: "人工智能", code: "", inflow: 2250000000, outflow: 420000000, netFlow: 1830000000, change: 0.035, marketCap: 2200000000000, leadingStocks: ["科大讯飞", "寒武纪"] },
+    { name: "芯片", code: "", inflow: 1830000000, outflow: 310000000, netFlow: 1520000000, change: 0.028, marketCap: 1900000000000, leadingStocks: ["中芯国际", "兆易创新"] },
+    { name: "新能源", code: "", inflow: 1250000000, outflow: 520000000, netFlow: 730000000, change: 0.018, marketCap: 1500000000000, leadingStocks: ["宁德时代", "比亚迪"] },
   ],
   region: [
-    { name: "浙江", code: "", inflow: 2550000000, outflow: 820000000, net_flow: 1730000000, change: 0.032, market_cap: 2500000000000, leading_stocks: ["海康威视", "宁波银行"] },
-    { name: "广东", code: "", inflow: 3230000000, outflow: 910000000, net_flow: 2320000000, change: 0.042, market_cap: 3000000000000, leading_stocks: ["中国平安", "美的集团"] },
-    { name: "上海", code: "", inflow: 1880000000, outflow: 650000000, net_flow: 1230000000, change: 0.025, market_cap: 1800000000000, leading_stocks: ["浦发银行", "上汽集团"] },
+    { name: "浙江", code: "", inflow: 2550000000, outflow: 820000000, netFlow: 1730000000, change: 0.032, marketCap: 2500000000000, leadingStocks: ["海康威视", "宁波银行"] },
+    { name: "广东", code: "", inflow: 3230000000, outflow: 910000000, netFlow: 2320000000, change: 0.042, marketCap: 3000000000000, leadingStocks: ["中国平安", "美的集团"] },
+    { name: "上海", code: "", inflow: 1880000000, outflow: 650000000, netFlow: 1230000000, change: 0.025, marketCap: 1800000000000, leadingStocks: ["浦发银行", "上汽集团"] },
   ],
   timestamp: new Date().toISOString()
 };
 
 export const mockMarketBreadth: MarketBreadth = {
-  total_stocks: 4657,
+  totalStocks: 4657,
   gainers: 2856,
   losers: 1567,
   unchanged: 234,
-  gainers_percentage: 61.33,
-  losers_percentage: 33.65,
+  gainersPercentage: 61.33,
+  losersPercentage: 33.65,
   distribution: [
     { range: ">+10%", count: 45, percentage: 0.97 },
     { range: "+7%~+10%", count: 123, percentage: 2.64 },
@@ -210,16 +329,16 @@ export const mockMarketBreadth: MarketBreadth = {
     { range: "-10%~-7%", count: 123, percentage: 2.64 },
     { range: "<-10%", count: 62, percentage: 1.33 },
   ],
-  advance_decline_line: 1289,
-  new_highs: 45,
-  new_lows: 23,
+  advanceDeclineLine: 1289,
+  newHighs: 45,
+  newLows: 23,
   timestamp: new Date().toISOString()
 };
 
 export const mockBigOrders: BigOrderAlert[] = [
-  { id: "1", symbol: "NVDA.US", name: "NVIDIA Corp", type: "buy", amount: 2400000, amount_formatted: "$2.4M", price: 485.50, volume: 4943, time: "14:23:45", type_label: "BLOCK ORDER", exchange: "NYSE", urgency: "high" },
-  { id: "2", symbol: "TSLA.US", name: "Tesla Inc", type: "sell", amount: 1800000, amount_formatted: "$1.8M", price: 245.30, volume: 7338, time: "14:23:12", type_label: "DARK POOL", exchange: "NASDAQ", urgency: "medium" },
-  { id: "3", symbol: "AAPL.US", name: "Apple Inc", type: "buy", amount: 3200000, amount_formatted: "$3.2M", price: 178.90, volume: 17887, time: "14:22:08", type_label: "ICEBERG", exchange: "NASDAQ", urgency: "high" },
-  { id: "4", symbol: "MSFT.US", name: "Microsoft Corp", type: "buy", amount: 1500000, amount_formatted: "$1.5M", price: 378.20, volume: 3966, time: "14:21:45", type_label: "BLOCK ORDER", exchange: "NASDAQ", urgency: "medium" },
-  { id: "5", symbol: "AMZN.US", name: "Amazon.com Inc", type: "sell", amount: 2100000, amount_formatted: "$2.1M", price: 145.80, volume: 14403, time: "14:21:12", type_label: "SWEEPER", exchange: "NASDAQ", urgency: "high" },
+  { id: "1", symbol: "NVDA.US", name: "NVIDIA Corp", type: "buy", amount: 2400000, amountFormatted: "$2.4M", price: 485.50, volume: 4943, time: "14:23:45", typeLabel: "BLOCK ORDER", exchange: "NYSE", urgency: "high" },
+  { id: "2", symbol: "TSLA.US", name: "Tesla Inc", type: "sell", amount: 1800000, amountFormatted: "$1.8M", price: 245.30, volume: 7338, time: "14:23:12", typeLabel: "DARK POOL", exchange: "NASDAQ", urgency: "medium" },
+  { id: "3", symbol: "AAPL.US", name: "Apple Inc", type: "buy", amount: 3200000, amountFormatted: "$3.2M", price: 178.90, volume: 17887, time: "14:22:08", typeLabel: "ICEBERG", exchange: "NASDAQ", urgency: "high" },
+  { id: "4", symbol: "MSFT.US", name: "Microsoft Corp", type: "buy", amount: 1500000, amountFormatted: "$1.5M", price: 378.20, volume: 3966, time: "14:21:45", typeLabel: "BLOCK ORDER", exchange: "NASDAQ", urgency: "medium" },
+  { id: "5", symbol: "AMZN.US", name: "Amazon.com Inc", type: "sell", amount: 2100000, amountFormatted: "$2.1M", price: 145.80, volume: 14403, time: "14:21:12", typeLabel: "SWEEPER", exchange: "NASDAQ", urgency: "high" },
 ];

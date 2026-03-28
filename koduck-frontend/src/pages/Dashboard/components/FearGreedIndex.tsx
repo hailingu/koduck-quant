@@ -3,13 +3,21 @@ import { getFearGreedIndex, mockFearGreedIndex, type FearGreedIndex as FGIndexTy
 
 interface Props {
   useMock?: boolean;
+  data?: FGIndexType | null;
+  loading?: boolean;
 }
 
-export function FearGreedIndex({ useMock = false }: Props) {
+export function FearGreedIndex({ useMock = false, data: externalData, loading: externalLoading }: Props) {
   const [data, setData] = useState<FGIndexType | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [internalLoading, setInternalLoading] = useState(true);
+  const useExternalData = externalData !== undefined;
 
   useEffect(() => {
+    if (useExternalData) {
+      setInternalLoading(false);
+      return;
+    }
+
     async function fetchData() {
       try {
         if (useMock) {
@@ -22,7 +30,7 @@ export function FearGreedIndex({ useMock = false }: Props) {
         console.error('Failed to fetch fear/greed index:', error);
         setData(mockFearGreedIndex);
       } finally {
-        setLoading(false);
+        setInternalLoading(false);
       }
     }
 
@@ -30,12 +38,26 @@ export function FearGreedIndex({ useMock = false }: Props) {
     // Refresh every 60 seconds
     const interval = setInterval(fetchData, 60000);
     return () => clearInterval(interval);
-  }, [useMock]);
+  }, [useMock, useExternalData]);
 
-  if (loading || !data) {
+  const sourceData = useExternalData ? (externalData ?? null) : data;
+  const loading = useExternalData ? Boolean(externalLoading) : internalLoading;
+
+  if (loading) {
     return (
       <div className="glass-panel p-3 rounded-xl animate-pulse">
         <div className="h-28 bg-slate-800/50 rounded"></div>
+      </div>
+    );
+  }
+
+  if (!sourceData) {
+    return (
+      <div className="glass-panel p-3 rounded-xl h-full flex items-center justify-center">
+        <div className="text-center text-slate-500">
+          <span className="material-symbols-outlined text-2xl mb-1">psychology</span>
+          <p className="text-xs">暂无恐惧贪婪数据</p>
+        </div>
       </div>
     );
   }
@@ -72,7 +94,7 @@ export function FearGreedIndex({ useMock = false }: Props) {
           恐惧贪婪
         </h2>
         <span className="text-[10px] text-slate-500">
-          {new Date(data.timestamp).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })}
+          {new Date(sourceData.timestamp).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })}
         </span>
       </div>
 
@@ -98,24 +120,24 @@ export function FearGreedIndex({ useMock = false }: Props) {
               stroke="currentColor"
               strokeWidth="8"
               strokeLinecap="round"
-              strokeDasharray={`${(data.value / 100) * 213.6} 213.6`}
-              className={`${getColor(data.value)} transition-all duration-1000`}
+              strokeDasharray={`${(sourceData.value / 100) * 213.6} 213.6`}
+              className={`${getColor(sourceData.value)} transition-all duration-1000`}
             />
           </svg>
           {/* Center text */}
           <div className="absolute inset-0 flex flex-col items-center justify-center">
-            <span className={`text-xl font-bold ${getColor(data.value)}`}>
-              {data.value}
+            <span className={`text-xl font-bold ${getColor(sourceData.value)}`}>
+              {sourceData.value}
             </span>
-            <span className="text-[10px] text-slate-400 scale-90">{getLabel(data.value)}</span>
+            <span className="text-[10px] text-slate-400 scale-90">{getLabel(sourceData.value)}</span>
           </div>
         </div>
       </div>
 
       {/* Change indicator */}
       <div className="flex justify-center mb-2">
-        <span className={`text-xs ${data.change >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
-          {data.change >= 0 ? '▲' : '▼'} {Math.abs(data.change)} 较昨日
+        <span className={`text-xs ${sourceData.change >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+          {sourceData.change >= 0 ? '▲' : '▼'} {Math.abs(sourceData.change)} 较昨日
         </span>
       </div>
 
@@ -123,11 +145,11 @@ export function FearGreedIndex({ useMock = false }: Props) {
       <div className="space-y-1">
         <div className="text-[10px] text-slate-500">指标构成</div>
         {[
-          { label: '波动性', value: data.components.volatility },
-          { label: '动量', value: data.components.momentum },
-          { label: '成交量', value: data.components.volume },
-          { label: '市场宽度', value: data.components.breadth },
-          { label: '北向资金', value: data.components.northbound },
+          { label: '波动性', value: sourceData.components.volatility },
+          { label: '动量', value: sourceData.components.momentum },
+          { label: '成交量', value: sourceData.components.volume },
+          { label: '市场宽度', value: sourceData.components.breadth },
+          { label: '北向资金', value: sourceData.components.northbound },
         ].map((item) => (
           <div key={item.label} className="flex items-center gap-2">
             <span className="text-[10px] text-slate-400 w-12">{item.label}</span>

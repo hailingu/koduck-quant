@@ -2,7 +2,12 @@ package com.koduck.controller;
 
 import io.swagger.v3.oas.annotations.tags.Tag;
 
+import com.koduck.config.properties.DataServiceProperties;
 import com.koduck.dto.ApiResponse;
+import com.koduck.dto.market.BigOrderAlertDto;
+import com.koduck.dto.market.BigOrderStatsDto;
+import com.koduck.dto.market.DataServiceResponse;
+import com.koduck.dto.market.DailyBreadthDto;
 import com.koduck.dto.market.KlineDataDto;
 import com.koduck.dto.market.MarketIndexDto;
 import com.koduck.dto.market.PriceQuoteDto;
@@ -11,9 +16,14 @@ import com.koduck.dto.market.StockIndustryDto;
 import com.koduck.dto.market.StockStatsDto;
 import com.koduck.dto.market.StockValuationDto;
 import com.koduck.dto.market.SymbolInfoDto;
+import com.koduck.dto.market.DailyNetFlowDto;
+import com.koduck.dto.market.SectorNetFlowDto;
 import com.koduck.service.KlineSyncService;
 import com.koduck.service.KlineService;
+import com.koduck.service.MarketBreadthService;
+import com.koduck.service.MarketFlowService;
 import com.koduck.service.MarketService;
+import com.koduck.service.MarketSectorNetFlowService;
 import com.koduck.service.SyntheticTickService;
 import com.koduck.service.TickStreamService;
 import jakarta.validation.constraints.Max;
@@ -24,13 +34,22 @@ import jakarta.validation.constraints.Size;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.validation.annotation.Validated;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.MediaType;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.core.ParameterizedTypeReference;
+import org.springframework.http.HttpMethod;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.client.RestClientException;
+import org.springframework.web.client.RestTemplate;
+import org.springframework.web.util.UriComponentsBuilder;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 import org.springframework.web.bind.annotation.*;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
@@ -53,12 +72,23 @@ public class MarketController {
     private static final ZoneId MARKET_ZONE = ZoneId.of("Asia/Shanghai");
     private static final DateTimeFormatter TICK_TIME_FORMATTER = DateTimeFormatter.ofPattern("HH:mm:ss");
     private static final long BLOCK_ORDER_VOLUME_THRESHOLD = 100_000L;
+    private static final String FEAR_GREED_INDEX_PATH = "/market/fear-greed-index";
+    private static final String SECTOR_FLOW_PATH = "/market/sector-flow";
+    private static final String BREADTH_PATH = "/market/breadth";
+    private static final String BIG_ORDERS_PATH = "/market/big-orders";
+    private static final String BIG_ORDERS_STATS_PATH = "/market/big-orders/stats";
     
     private final MarketService marketService;
+    private final MarketFlowService marketFlowService;
+    private final MarketBreadthService marketBreadthService;
+    private final MarketSectorNetFlowService marketSectorNetFlowService;
     private final KlineService klineService;
     private final KlineSyncService klineSyncService;
     private final SyntheticTickService syntheticTickService;
     private final TickStreamService tickStreamService;
+    private final DataServiceProperties dataServiceProperties;
+    @Qualifier("dataServiceRestTemplate")
+    private final RestTemplate dataServiceRestTemplate;
     
     /**
      * Search for symbols.
@@ -245,6 +275,289 @@ public class MarketController {
         
         List<MarketIndexDto> indices = marketService.getMarketIndices();
         return ApiResponse.success(indices);
+    }
+
+    /**
+     * Get daily market net flow.
+     * If tradeDate is omitted, returns latest available trading-day data.
+     */
+    @GetMapping("/net-flow/daily")
+    public ApiResponse<DailyNetFlowDto> getDailyNetFlow(
+            @RequestParam(defaultValue = "AShare") String market,
+            @RequestParam(defaultValue = "MAIN_FORCE") String flowType,
+            @RequestParam(required = false)
+            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
+            LocalDate tradeDate) {
+        log.info("GET /api/v1/market/net-flow/daily: market={}, flowType={}, tradeDate={}",
+                market, flowType, tradeDate);
+
+        DailyNetFlowDto result = tradeDate == null
+                ? marketFlowService.getLatestDailyNetFlow(market, flowType)
+                : marketFlowService.getDailyNetFlow(market, flowType, tradeDate);
+
+        if (result == null) {
+            return ApiResponse.error(404, "未找到市场净流入数据");
+        }
+        return ApiResponse.success(result);
+    }
+
+    /**
+     * Get daily market net flow history.
+     */
+    @GetMapping("/net-flow/daily/history")
+    public ApiResponse<List<DailyNetFlowDto>> getDailyNetFlowHistory(
+            @RequestParam(defaultValue = "AShare") String market,
+            @RequestParam(defaultValue = "MAIN_FORCE") String flowType,
+            @RequestParam
+            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
+            LocalDate from,
+            @RequestParam
+            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
+            LocalDate to) {
+        log.info("GET /api/v1/market/net-flow/daily/history: market={}, flowType={}, from={}, to={}",
+                market, flowType, from, to);
+
+        if (to.isBefore(from)) {
+            return ApiResponse.error(400, "参数错误: to 不能早于 from");
+        }
+
+        List<DailyNetFlowDto> result = marketFlowService.getDailyNetFlowHistory(market, flowType, from, to);
+        return ApiResponse.success(result);
+    }
+
+    /**
+     * Get daily market breadth (gainers/losers/unchanged counts).
+     * If tradeDate is omitted, returns latest available trading-day data.
+     */
+    @GetMapping("/breadth/daily")
+    public ApiResponse<DailyBreadthDto> getDailyBreadth(
+            @RequestParam(defaultValue = "AShare") String market,
+            @RequestParam(defaultValue = "ALL_A") String breadthType,
+            @RequestParam(required = false)
+            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
+            LocalDate tradeDate) {
+        log.info("GET /api/v1/market/breadth/daily: market={}, breadthType={}, tradeDate={}",
+                market, breadthType, tradeDate);
+
+        DailyBreadthDto result = tradeDate == null
+                ? marketBreadthService.getLatestDailyBreadth(market, breadthType)
+                : marketBreadthService.getDailyBreadth(market, breadthType, tradeDate);
+        if (result == null) {
+            return ApiResponse.error(404, "未找到市场涨跌宽度数据");
+        }
+        return ApiResponse.success(result);
+    }
+
+    /**
+     * Get daily market breadth history.
+     */
+    @GetMapping("/breadth/daily/history")
+    public ApiResponse<List<DailyBreadthDto>> getDailyBreadthHistory(
+            @RequestParam(defaultValue = "AShare") String market,
+            @RequestParam(defaultValue = "ALL_A") String breadthType,
+            @RequestParam
+            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
+            LocalDate from,
+            @RequestParam
+            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
+            LocalDate to) {
+        log.info("GET /api/v1/market/breadth/daily/history: market={}, breadthType={}, from={}, to={}",
+                market, breadthType, from, to);
+
+        if (to.isBefore(from)) {
+            return ApiResponse.error(400, "参数错误: to 不能早于 from");
+        }
+        List<DailyBreadthDto> result = marketBreadthService.getDailyBreadthHistory(market, breadthType, from, to);
+        return ApiResponse.success(result);
+    }
+
+    /**
+     * Get fear-greed index (proxy from data-service dashboard router).
+     */
+    @GetMapping("/fear-greed-index")
+    public ApiResponse<Map<String, Object>> getFearGreedIndex() {
+        log.info("GET /api/v1/market/fear-greed-index");
+        if (!dataServiceProperties.isEnabled()) {
+            return ApiResponse.error(503, "数据服务未启用");
+        }
+        try {
+            ResponseEntity<DataServiceResponse<Map<String, Object>>> response = dataServiceRestTemplate.exchange(
+                    dataServiceProperties.getBaseUrl() + FEAR_GREED_INDEX_PATH,
+                    HttpMethod.GET,
+                    null,
+                    new ParameterizedTypeReference<>() {
+                    });
+            DataServiceResponse<Map<String, Object>> body = response.getBody();
+            if (body == null || !body.isSuccess() || body.data() == null) {
+                return ApiResponse.error(502, "获取恐惧贪婪指数失败");
+            }
+            return ApiResponse.success(body.data());
+        } catch (RestClientException e) {
+            log.warn("fear_greed_proxy_failed: {}", e.getMessage());
+            return ApiResponse.error(502, "获取恐惧贪婪指数失败");
+        }
+    }
+
+    /**
+     * Get sector capital flow (proxy from data-service dashboard router).
+     */
+    @GetMapping("/sector-flow")
+    public ApiResponse<Map<String, Object>> getSectorFlow(
+            @RequestParam(name = "sort_by", defaultValue = "net_flow") String sortBy,
+            @RequestParam(defaultValue = "10") @Min(1) @Max(100) Integer limit) {
+        log.info("GET /api/v1/market/sector-flow: sortBy={}, limit={}", sortBy, limit);
+        if (!dataServiceProperties.isEnabled()) {
+            return ApiResponse.error(503, "数据服务未启用");
+        }
+        try {
+            String url = UriComponentsBuilder
+                    .fromUriString(dataServiceProperties.getBaseUrl() + SECTOR_FLOW_PATH)
+                    .queryParam("sort_by", sortBy)
+                    .queryParam("limit", limit)
+                    .toUriString();
+            ResponseEntity<DataServiceResponse<Map<String, Object>>> response = dataServiceRestTemplate.exchange(
+                    url,
+                    HttpMethod.GET,
+                    null,
+                    new ParameterizedTypeReference<>() {
+                    });
+            DataServiceResponse<Map<String, Object>> body = response.getBody();
+            if (body == null || !body.isSuccess() || body.data() == null) {
+                return ApiResponse.error(502, "获取资金流失败");
+            }
+            return ApiResponse.success(body.data());
+        } catch (RestClientException e) {
+            log.warn("sector_flow_proxy_failed: {}", e.getMessage());
+            return ApiResponse.error(502, "获取资金流失败");
+        }
+    }
+
+    /**
+     * Get sector net-flow snapshot from local DB.
+     */
+    @GetMapping("/sector-net-flow")
+    public ApiResponse<SectorNetFlowDto> getSectorNetFlow(
+            @RequestParam(defaultValue = "AShare") String market,
+            @RequestParam(defaultValue = "TODAY") String indicator,
+            @RequestParam(defaultValue = "10") @Min(1) @Max(100) Integer limit,
+            @RequestParam(required = false)
+            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
+            LocalDate tradeDate) {
+        log.info("GET /api/v1/market/sector-net-flow: market={}, indicator={}, limit={}, tradeDate={}",
+                market, indicator, limit, tradeDate);
+
+        SectorNetFlowDto result = tradeDate == null
+                ? marketSectorNetFlowService.getLatest(market, indicator, limit)
+                : marketSectorNetFlowService.getByTradeDate(market, indicator, tradeDate, limit);
+
+        if (result == null) {
+            return ApiResponse.error(404, "未找到板块净流向数据");
+        }
+        return ApiResponse.success(result);
+    }
+
+    /**
+     * Get market breadth (proxy from data-service dashboard router).
+     */
+    @GetMapping("/breadth")
+    public ApiResponse<Map<String, Object>> getMarketBreadth() {
+        log.info("GET /api/v1/market/breadth");
+        if (!dataServiceProperties.isEnabled()) {
+            return ApiResponse.error(503, "数据服务未启用");
+        }
+        try {
+            ResponseEntity<DataServiceResponse<Map<String, Object>>> response = dataServiceRestTemplate.exchange(
+                    dataServiceProperties.getBaseUrl() + BREADTH_PATH,
+                    HttpMethod.GET,
+                    null,
+                    new ParameterizedTypeReference<>() {
+                    });
+            DataServiceResponse<Map<String, Object>> body = response.getBody();
+            if (body == null || !body.isSuccess() || body.data() == null) {
+                return ApiResponse.error(502, "获取市场宽度失败");
+            }
+            return ApiResponse.success(body.data());
+        } catch (RestClientException e) {
+            log.warn("breadth_proxy_failed: {}", e.getMessage());
+            return ApiResponse.error(502, "获取市场宽度失败");
+        }
+    }
+
+    /**
+     * Get big-order alerts (proxy from data-service).
+     */
+    @GetMapping("/big-orders")
+    public ApiResponse<List<BigOrderAlertDto>> getBigOrders(
+            @RequestParam(defaultValue = "10") @Min(1) @Max(50) Integer limit,
+            @RequestParam(name = "order_type", required = false) String orderType,
+            @RequestParam(name = "min_amount", defaultValue = "500000") @Min(0) Double minAmount) {
+        log.info("GET /api/v1/market/big-orders: limit={}, orderType={}, minAmount={}", limit, orderType, minAmount);
+        if (!dataServiceProperties.isEnabled()) {
+            log.warn("big_orders_proxy_skipped reason=data_service_disabled");
+            return ApiResponse.success(List.of());
+        }
+
+        try {
+            UriComponentsBuilder builder = UriComponentsBuilder
+                    .fromUriString(dataServiceProperties.getBaseUrl() + BIG_ORDERS_PATH)
+                    .queryParam("limit", limit)
+                    .queryParam("min_amount", minAmount);
+            if (orderType != null && !orderType.isBlank()) {
+                builder.queryParam("order_type", orderType);
+            }
+
+            ResponseEntity<DataServiceResponse<List<BigOrderAlertDto>>> response = dataServiceRestTemplate.exchange(
+                    builder.toUriString(),
+                    HttpMethod.GET,
+                    null,
+                    new ParameterizedTypeReference<>() {
+                    });
+
+            DataServiceResponse<List<BigOrderAlertDto>> body = response.getBody();
+            if (body == null || !body.isSuccess() || body.data() == null) {
+                log.warn("big_orders_proxy_empty code={} message={}",
+                        body == null ? null : body.code(),
+                        body == null ? null : body.message());
+                return ApiResponse.success(List.of());
+            }
+            return ApiResponse.success(body.data());
+        } catch (RestClientException e) {
+            log.warn("big_orders_proxy_failed: {}", e.getMessage());
+            return ApiResponse.success(List.of());
+        }
+    }
+
+    /**
+     * Get big-order statistics (proxy from data-service).
+     */
+    @GetMapping("/big-orders/stats")
+    public ApiResponse<BigOrderStatsDto> getBigOrderStats() {
+        log.info("GET /api/v1/market/big-orders/stats");
+        if (!dataServiceProperties.isEnabled()) {
+            log.warn("big_order_stats_proxy_skipped reason=data_service_disabled");
+            return ApiResponse.success(BigOrderStatsDto.empty());
+        }
+
+        try {
+            ResponseEntity<DataServiceResponse<BigOrderStatsDto>> response = dataServiceRestTemplate.exchange(
+                    dataServiceProperties.getBaseUrl() + BIG_ORDERS_STATS_PATH,
+                    HttpMethod.GET,
+                    null,
+                    new ParameterizedTypeReference<>() {
+                    });
+
+            DataServiceResponse<BigOrderStatsDto> body = response.getBody();
+            if (body == null || !body.isSuccess() || body.data() == null) {
+                log.warn("big_order_stats_proxy_empty code={} message={}",
+                        body == null ? null : body.code(),
+                        body == null ? null : body.message());
+                return ApiResponse.success(BigOrderStatsDto.empty());
+            }
+            return ApiResponse.success(body.data());
+        } catch (RestClientException e) {
+            log.warn("big_order_stats_proxy_failed: {}", e.getMessage());
+            return ApiResponse.success(BigOrderStatsDto.empty());
+        }
     }
     
     /**

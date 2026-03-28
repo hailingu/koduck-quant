@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { marketApi } from '@/api/market'
 import { useToast } from '@/hooks/useToast'
 
@@ -57,18 +57,29 @@ export default function SentimentRadar({ market = 'a_share' }: { market?: string
   const [sentiment, setSentiment] = useState<SentimentData | null>(null)
   const [loading, setLoading] = useState(true)
   const { showToast } = useToast()
+  const inFlightRef = useRef(false)
+  const hasLoadedRef = useRef(false)
 
   // Fetch sentiment data
   useEffect(() => {
     const fetchSentiment = async () => {
+      if (inFlightRef.current) return
+      inFlightRef.current = true
       try {
-        setLoading(true)
+        // Only show spinner for first load; polling refresh should be silent.
+        if (!hasLoadedRef.current) {
+          setLoading(true)
+        }
         const data = await marketApi.getMarketSentiment(market)
         setSentiment(data)
+        hasLoadedRef.current = true
       } catch (error) {
         console.error('Failed to fetch sentiment:', error)
-        showToast('Failed to load sentiment data', 'error')
+        if (!hasLoadedRef.current) {
+          showToast('Failed to load sentiment data', 'error')
+        }
       } finally {
+        inFlightRef.current = false
         setLoading(false)
       }
     }
@@ -162,9 +173,9 @@ export default function SentimentRadar({ market = 'a_share' }: { market?: string
     : []
 
   return (
-    <div className="glass-panel p-3 rounded-xl">
+    <div className="glass-panel p-5 rounded-xl border border-outline-variant/10 h-full flex flex-col">
       {/* Header */}
-      <div className="flex justify-between items-center mb-2">
+      <div className="flex justify-between items-center mb-3">
         <div>
           <h2 className="font-headline font-bold text-sm text-fluid-text tracking-tight uppercase">
             Sentiment Radar
@@ -181,7 +192,7 @@ export default function SentimentRadar({ market = 'a_share' }: { market?: string
       </div>
 
       {/* Radar Chart */}
-      <div className="relative w-full aspect-square flex items-center justify-center mb-3 max-w-[140px] mx-auto">
+      <div className="relative w-full aspect-square flex items-center justify-center mb-2 max-w-[175px] mx-auto">
         {loading ? (
           <div className="absolute inset-0 flex items-center justify-center">
             <div className="animate-spin rounded-full h-8 w-8 border-2 border-fluid-primary border-t-transparent" />

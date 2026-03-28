@@ -1,228 +1,168 @@
-import { useEffect, useState, useMemo } from 'react';
-import { 
-  getFearGreedIndex, 
-  getSectorFlow, 
-  getMarketBreadth, 
-  getBigOrders,
-  type FearGreedIndex,
-  type SectorFlowResponse,
-  type MarketBreadth,
-  type BigOrderAlert 
-} from '@/api/dashboard';
-import { getMarketOverview, type MarketIndex } from '@/api/market';
-import { FearGreedIndex as FearGreedIndexComponent } from './components/FearGreedIndex';
-import { CapitalRiver, type FundFlowData } from './components/CapitalRiver';
-import { BigOrderAlert as BigOrderAlertComponent } from './components/BigOrderAlert';
-import { MarketBreadth as MarketBreadthComponent } from './components/MarketBreadth';
 import SentimentRadar from '@/components/SentimentRadar';
-import { EmptyState } from '@/components/EmptyState';
+import { CapitalRiver } from './components/CapitalRiver';
 
-// Dashboard 数据接口
-interface DashboardData {
-  indices: MarketIndex[];
-  fearGreed: FearGreedIndex | null;
-  sectorFlow: SectorFlowResponse | null;
-  marketBreadth: MarketBreadth | null;
-  bigOrders: BigOrderAlert[];
+function HistoryPlaybackCard() {
+  return (
+    <div className="glass-panel rounded-xl border border-outline-variant/10 p-6 h-full flex flex-col">
+      <div className="flex-1 flex items-start">
+        <h3 className="font-headline font-bold text-sm text-on-surface flex items-center gap-2">
+          <span className="material-symbols-outlined text-sm text-on-surface-variant">history</span>
+          History Playback
+        </h3>
+      </div>
+
+      <div className="flex-1 flex items-center">
+        <div className="bg-surface-container-lowest rounded-lg p-3 w-full">
+          <div className="flex items-center justify-between text-on-surface-variant">
+            <button className="material-symbols-outlined text-2xl hover:text-primary transition-colors">fast_rewind</button>
+            <button className="material-symbols-outlined text-primary text-4xl">play_circle</button>
+            <button className="material-symbols-outlined text-2xl hover:text-primary transition-colors">fast_forward</button>
+          </div>
+        </div>
+      </div>
+
+      <div className="flex-1 flex flex-col justify-end">
+        <div className="flex items-center justify-between text-[10px] font-label text-on-surface-variant">
+          <span>T-12h</span>
+          <span>Live</span>
+        </div>
+        <div className="mt-2 h-1 rounded-full bg-surface-container-highest relative overflow-visible">
+          <div className="h-full w-1/2 rounded-full bg-primary-container" />
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-6 h-6 rounded-full bg-primary-container shadow-[0_0_12px_rgba(0,242,255,0.35)]" />
+        </div>
+      </div>
+    </div>
+  );
 }
 
-// Transform sector flow data for Capital River
-function transformSectorFlowToFundData(sectorFlow: SectorFlowResponse): FundFlowData[] {
-  const result: FundFlowData[] = [];
-  
-  // Transform industry sectors
-  sectorFlow.industry?.forEach((sector) => {
-    result.push({
-      layer: 'industry',
-      sector: sector.name,
-      inflow: sector.inflow,
-      outflow: sector.outflow,
-      netFlow: sector.net_flow,
-    });
-  });
-  
-  // Transform concept sectors
-  sectorFlow.concept?.forEach((sector) => {
-    result.push({
-      layer: 'concept',
-      sector: sector.name,
-      inflow: sector.inflow,
-      outflow: sector.outflow,
-      netFlow: sector.net_flow,
-    });
-  });
-  
-  // Transform region sectors
-  sectorFlow.region?.forEach((sector) => {
-    result.push({
-      layer: 'region',
-      sector: sector.name,
-      inflow: sector.inflow,
-      outflow: sector.outflow,
-      netFlow: sector.net_flow,
-    });
-  });
-  
-  return result;
+function WarningSystemCard() {
+  return (
+    <div className="glass-panel rounded-xl border border-outline-variant/10 p-5 h-full flex flex-col">
+      <h3 className="text-sm font-headline font-bold text-on-surface">Warning System</h3>
+
+      <div className="mt-4 rounded-lg border border-amber-400/35 bg-[#0a1019] p-4 flex items-center gap-3">
+        <span className="material-symbols-outlined text-amber-300 text-xl">warning</span>
+        <div>
+          <div className="text-[11px] uppercase tracking-wider text-amber-300 font-bold">GOLDEN PIT DETECTED</div>
+          <p className="mt-1 text-[10px] text-on-surface-variant leading-tight">
+            Price drop on rising net inflow.
+            <br />
+            Accumulation phase.
+          </p>
+        </div>
+      </div>
+
+      <div className="mt-4 rounded-lg border border-rose-500/30 bg-[#0a1019] p-4 flex items-center gap-3">
+        <span className="material-symbols-outlined text-rose-300 text-xl">trending_down</span>
+        <div>
+          <div className="text-[11px] uppercase tracking-wider text-rose-300 font-bold">FALSE BREAKOUT</div>
+          <p className="mt-1 text-[10px] text-on-surface-variant leading-tight">
+            Price peak on cooling momentum.
+            <br />
+            High reversal risk.
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function NorthboundFlowCard() {
+  const bars = [24, 32, 48, 86, 62, 47, 25];
+
+  return (
+    <div className="glass-panel rounded-xl border border-outline-variant/10 p-5 h-full flex flex-col justify-between">
+      <div className="flex items-center justify-between">
+        <h3 className="text-sm font-headline font-bold text-on-surface">Northbound Flow</h3>
+        <span className="text-cyan-200 text-[10px] font-label font-bold">+¥2.4B</span>
+      </div>
+
+      <div className="mt-4 flex items-end gap-2 h-20">
+        {bars.map((h, idx) => (
+          <div
+            key={`${idx}-${h}`}
+            className={`flex-1 rounded-t-sm ${idx === 3 ? 'bg-cyan-400 shadow-[0_0_10px_rgba(34,211,238,0.35)]' : 'bg-slate-500/55'}`}
+            style={{ height: `${h}%` }}
+          />
+        ))}
+      </div>
+
+      <div className="mt-2 flex items-center justify-between text-[8px] text-on-surface-variant/50 tracking-widest uppercase font-label">
+        <span>OPEN</span>
+        <span>MID-DAY</span>
+        <span>CLOSE</span>
+      </div>
+    </div>
+  );
 }
 
 export default function Dashboard() {
-  const [data, setData] = useState<DashboardData>({
-    indices: [],
-    fearGreed: null,
-    sectorFlow: null,
-    marketBreadth: null,
-    bigOrders: []
-  });
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  const fetchDashboardData = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-
-      const [
-        indicesData,
-        fearGreedData,
-        sectorFlowData,
-        marketBreadthData,
-        bigOrdersData
-      ] = await Promise.all([
-        getMarketOverview().catch(() => []),
-        getFearGreedIndex().catch(() => null),
-        getSectorFlow().catch(() => null),
-        getMarketBreadth().catch(() => null),
-        getBigOrders(5).catch(() => [])
-      ]);
-
-      setData({
-        indices: indicesData || [],
-        fearGreed: fearGreedData,
-        sectorFlow: sectorFlowData,
-        marketBreadth: marketBreadthData,
-        bigOrders: bigOrdersData
-      });
-    } catch (err) {
-      console.error('Dashboard data fetch error:', err);
-      setError('无法获取市场数据');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchDashboardData();
-    
-    // 每30秒自动刷新
-    const interval = setInterval(fetchDashboardData, 30000);
-    return () => clearInterval(interval);
-  }, []);
-
-  // Transform sector flow data for Capital River
-  const capitalRiverData = useMemo(() => {
-    if (!data.sectorFlow) return [];
-    return transformSectorFlowToFundData(data.sectorFlow);
-  }, [data.sectorFlow]);
-
-  if (loading) {
-    return (
-      <div className="h-full p-4 space-y-4">
-        <div className="grid grid-cols-12 gap-4">
-          {/* Left Column - Loading Skeleton */}
-          <div className="col-span-12 lg:col-span-3 space-y-4">
-            <div className="glass-panel p-4 rounded-xl animate-pulse h-64" />
-            <div className="glass-panel p-4 rounded-xl animate-pulse h-40" />
-          </div>
-          
-          {/* Center Column - Loading Skeleton */}
-          <div className="col-span-12 lg:col-span-6">
-            <div className="glass-panel p-4 rounded-xl animate-pulse h-80" />
-          </div>
-          
-          {/* Right Column - Loading Skeleton */}
-          <div className="col-span-12 lg:col-span-3 space-y-4">
-            <div className="glass-panel p-4 rounded-xl animate-pulse h-48" />
-            <div className="glass-panel p-4 rounded-xl animate-pulse h-48" />
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="h-full p-4">
-        <EmptyState
-          type="error"
-          title="数据加载失败"
-          description={error}
-          action={{ label: '重试', onClick: fetchDashboardData }}
-        />
-      </div>
-    );
-  }
-
-  // 计算市场统计
-  const totalInflow = data.sectorFlow?.total_inflow || 0;
-  const totalOutflow = data.sectorFlow?.total_outflow || 0;
-  const netFlow = totalInflow - totalOutflow;
-
   return (
-    <div className="h-full px-4 pt-3 pb-2 space-y-3 overflow-hidden">
-      {/* Header Stats - 更紧凑 */}
-      <div className="grid grid-cols-2 xl:grid-cols-4 gap-3">
-        <div className="glass-panel p-3 rounded-lg">
-          <div className="text-[10px] text-slate-400 uppercase tracking-wider">市场净流入</div>
-          <div className={`text-lg font-mono font-bold ${netFlow >= 0 ? 'text-rose-500' : 'text-emerald-500'}`}>
-            {netFlow >= 0 ? '+' : ''}{(netFlow / 100000000).toFixed(1)}亿
+    <div className="h-full px-4 pt-2 pb-2 flex flex-col gap-3 overflow-hidden">
+      <div className="grid grid-cols-12 gap-4 flex-1 min-h-0">
+        <div className="col-span-12 xl:col-span-3 min-h-0 flex flex-col gap-4">
+          <div className="flex-[1.18] min-h-0 [&>*]:h-full">
+            <SentimentRadar />
+          </div>
+          <div className="flex-[0.82] min-h-0">
+            <HistoryPlaybackCard />
           </div>
         </div>
-        <div className="glass-panel p-3 rounded-lg">
-          <div className="text-[10px] text-slate-400 uppercase tracking-wider">总流入</div>
-          <div className="text-lg font-mono font-bold text-cyan-400">
-            {(totalInflow / 100000000).toFixed(1)}亿
+
+        <div className="col-span-12 xl:col-span-6 min-h-0 [&>*]:h-full">
+          <CapitalRiver />
+        </div>
+
+        <div className="col-span-12 xl:col-span-3 min-h-0 flex flex-col gap-4">
+          <div className="flex-[1.1] min-h-0">
+            <div className="glass-panel rounded-xl border border-outline-variant/10 p-6 h-full flex flex-col">
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-headline font-bold text-on-surface whitespace-nowrap">Big Order Alert</h3>
+                <span className="px-2 py-0.5 rounded bg-cyan-500/15 text-cyan-100 text-[10px] font-label">
+                  LIVE
+                </span>
+              </div>
+
+              <div className="mt-5 space-y-3">
+                <div className="flex items-center gap-3 p-2 rounded hover:bg-surface-container-high transition-colors">
+                  <span className="material-symbols-outlined text-cyan-200 text-sm">rocket_launch</span>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="text-on-surface text-[10px] leading-none font-label font-bold">NVDA.US</span>
+                      <span className="text-cyan-300 text-[10px] leading-none font-label font-bold whitespace-nowrap">$2.4M BUY</span>
+                    </div>
+                    <div className="mt-1 text-on-surface-variant/60 text-[9px] leading-none">14:23:45 • BLOCK ORDER</div>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3 p-2 rounded hover:bg-surface-container-high transition-colors">
+                  <span className="material-symbols-outlined text-rose-300 text-sm">trending_down</span>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="text-on-surface text-[10px] leading-none font-label font-bold">TSLA.US</span>
+                      <span className="text-rose-300 text-[10px] leading-none font-label font-bold whitespace-nowrap">$1.8M SELL</span>
+                    </div>
+                    <div className="mt-1 text-on-surface-variant/60 text-[9px] leading-none">14:23:12 • DARK POOL</div>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3 p-2 rounded hover:bg-surface-container-high transition-colors">
+                  <span className="material-symbols-outlined text-cyan-200 text-sm">rocket_launch</span>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="text-on-surface text-[10px] leading-none font-label font-bold">AAPL.US</span>
+                      <span className="text-cyan-300 text-[10px] leading-none font-label font-bold whitespace-nowrap">$5.1M BUY</span>
+                    </div>
+                    <div className="mt-1 text-on-surface-variant/60 text-[9px] leading-none">14:22:58 • ICEBERG</div>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
-        </div>
-        <div className="glass-panel p-3 rounded-lg">
-          <div className="text-[10px] text-slate-400 uppercase tracking-wider">总流出</div>
-          <div className="text-lg font-mono font-bold text-amber-400">
-            {(totalOutflow / 100000000).toFixed(1)}亿
+          <div className="flex-[1.05] min-h-0">
+            <WarningSystemCard />
           </div>
-        </div>
-        <div className="glass-panel p-3 rounded-lg">
-          <div className="text-[10px] text-slate-400 uppercase tracking-wider">涨跌比</div>
-          <div className="text-lg font-mono font-bold text-slate-200">
-            {data.marketBreadth ? 
-              `${data.marketBreadth.gainers}:${data.marketBreadth.losers}` : 
-              '--'
-            }
+          <div className="flex-[0.9] min-h-0">
+            <NorthboundFlowCard />
           </div>
-        </div>
-      </div>
-
-      {/* Main Grid - 更紧凑的布局 */}
-      <div className="grid grid-cols-12 gap-4 items-stretch">
-        {/* Row 1 */}
-        <div className="col-span-12 xl:col-span-3 2xl:col-span-2 h-full [&>*]:h-full">
-          <SentimentRadar />
-        </div>
-
-        <div className="col-span-12 xl:col-span-6 2xl:col-span-7 h-full [&>*]:h-full">
-          <CapitalRiver data={capitalRiverData} loading={loading} />
-        </div>
-
-        <div className="col-span-12 xl:col-span-3 xl:row-span-2 h-full [&>*]:h-full">
-          <BigOrderAlertComponent limit={5} />
-        </div>
-
-        {/* Row 2 */}
-        <div className="col-span-12 xl:col-span-3 2xl:col-span-2 h-full [&>*]:h-full">
-          <FearGreedIndexComponent />
-        </div>
-
-        <div className="col-span-12 xl:col-span-6 2xl:col-span-7 h-full [&>*]:h-full">
-          <MarketBreadthComponent />
         </div>
       </div>
     </div>

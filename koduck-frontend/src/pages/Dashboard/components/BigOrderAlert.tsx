@@ -4,27 +4,35 @@ import { getBigOrders, mockBigOrders, type BigOrderAlert as BOType } from '../..
 interface Props {
   useMock?: boolean;
   limit?: number;
+  data?: BOType[];
+  loading?: boolean;
 }
 
-export function BigOrderAlert({ useMock = false, limit = 10 }: Props) {
+export function BigOrderAlert({ useMock = false, limit = 10, data: externalData, loading: externalLoading }: Props) {
   const [data, setData] = useState<BOType[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [internalLoading, setInternalLoading] = useState(true);
   const [filter, setFilter] = useState<'all' | 'buy' | 'sell'>('all');
+  const useExternalData = externalData !== undefined;
 
   useEffect(() => {
+    if (useExternalData) {
+      setInternalLoading(false);
+      return;
+    }
+
     async function fetchData() {
       try {
         if (useMock) {
           setData(mockBigOrders.slice(0, limit));
         } else {
           const result = await getBigOrders(limit);
-          setData(result);
+          setData(Array.isArray(result) ? result : []);
         }
       } catch (error) {
         console.error('Failed to fetch big orders:', error);
         setData(mockBigOrders.slice(0, limit));
       } finally {
-        setLoading(false);
+        setInternalLoading(false);
       }
     }
 
@@ -32,11 +40,13 @@ export function BigOrderAlert({ useMock = false, limit = 10 }: Props) {
     // Refresh every 30 seconds
     const interval = setInterval(fetchData, 30000);
     return () => clearInterval(interval);
-  }, [useMock, limit]);
+  }, [useMock, limit, useExternalData]);
 
+  const sourceData = useExternalData ? (externalData || []) : data;
+  const loading = useExternalData ? Boolean(externalLoading) : internalLoading;
   const filteredData = filter === 'all' 
-    ? data 
-    : data.filter(order => order.type === filter);
+    ? sourceData
+    : sourceData.filter(order => order.type === filter);
 
   if (loading) {
     return (
@@ -115,6 +125,8 @@ export function BigOrderAlert({ useMock = false, limit = 10 }: Props) {
 
 function OrderCard({ order }: { order: BOType }) {
   const isBuy = order.type === 'buy';
+  const typeLabel = (order.typeLabel || (order as unknown as { type_label?: string }).type_label || 'BLOCK ORDER');
+  const amountText = (order.amountFormatted || (order as unknown as { amount_formatted?: string }).amount_formatted || '--');
   
   const getTypeColor = (typeLabel: string) => {
     switch (typeLabel) {
@@ -158,7 +170,7 @@ function OrderCard({ order }: { order: BOType }) {
         {/* Right: Amount and time */}
         <div className="text-right">
           <div className={`text-sm font-mono font-bold ${isBuy ? 'text-emerald-400' : 'text-rose-400'}`}>
-            {order.amount_formatted}
+            {amountText}
           </div>
           <div className="text-[10px] text-slate-500">{order.time}</div>
         </div>
@@ -170,9 +182,9 @@ function OrderCard({ order }: { order: BOType }) {
           {/* Type badge */}
           <span className={`
             px-1.5 py-0 rounded text-[9px] font-medium text-white
-            ${getTypeColor(order.type_label)}
+            ${getTypeColor(typeLabel)}
           `}>
-            {order.type_label.split(' ')[0]}
+            {typeLabel.split(' ')[0]}
           </span>
           
           {/* Exchange */}

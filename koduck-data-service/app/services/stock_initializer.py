@@ -44,6 +44,7 @@ STOCK_RANGES: list[tuple[int, int, str, str]] = [
     (300000, 303999, "SZSE", "ChiNext"),  # 
     # Beijing Stock Exchange (BSE)
     (430001, 899999, "BSE", "BSE"),  # 
+    (920000, 920999, "BSE", "BSE"),  # 北交所 920xxx 代码段
 ]
 
 
@@ -414,10 +415,10 @@ class StockInitializer:
                 logger.info("Using basic insert with board column")
                 insert_sql = """
                     INSERT INTO stock_basic (
-                        symbol, name, market, board, created_at, updated_at
+                        symbol, name, type, market, board, created_at, updated_at
                     )
-                    VALUES ($1, $2, $3, $4, $5, $6)
-                    ON CONFLICT (symbol) DO UPDATE SET
+                    VALUES ($1, $2, $3, $4, $5, $6, $7)
+                    ON CONFLICT (symbol, type) DO UPDATE SET
                         name = EXCLUDED.name,
                         market = EXCLUDED.market,
                         board = EXCLUDED.board,
@@ -432,6 +433,7 @@ class StockInitializer:
                                 insert_sql,
                                 stock["symbol"],
                                 stock["name"],
+                                "STOCK",
                                 stock["market"],
                                 stock["board"],
                                 stock["created_at"],
@@ -450,10 +452,10 @@ class StockInitializer:
                 logger.warning("board column not found, inserting without board data")
                 insert_sql = """
                     INSERT INTO stock_basic (
-                        symbol, name, market, created_at, updated_at
+                        symbol, name, type, market, created_at, updated_at
                     )
-                    VALUES ($1, $2, $3, $4, $5)
-                    ON CONFLICT (symbol) DO UPDATE SET
+                    VALUES ($1, $2, $3, $4, $5, $6)
+                    ON CONFLICT (symbol, type) DO UPDATE SET
                         name = EXCLUDED.name,
                         market = EXCLUDED.market,
                         updated_at = EXCLUDED.updated_at
@@ -467,6 +469,7 @@ class StockInitializer:
                                 insert_sql,
                                 stock["symbol"],
                                 stock["name"],
+                                "STOCK",
                                 stock["market"],
                                 stock["created_at"],
                                 stock["updated_at"],

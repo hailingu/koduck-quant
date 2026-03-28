@@ -26,6 +26,9 @@ from app.services.stock_initializer import stock_initializer
 from app.services.tick_scheduler import tick_scheduler
 from app.services.tick_monitor import tick_monitor as tick_monitor_service
 from app.services.tick_redis_cache import tick_redis_cache
+from app.services.market_net_flow_updater import market_net_flow_updater
+from app.services.market_breadth_updater import market_breadth_updater
+from app.services.market_sector_net_flow_updater import market_sector_net_flow_updater
 
 API_V1_PREFIX = "/api/v1"
 
@@ -238,6 +241,19 @@ async def lifespan(app: FastAPI):
     # Start market indices update task
     logger.info("Starting market indices update task...")
     indices_task = asyncio.create_task(run_indices_update_scheduler())
+
+    market_net_flow_task = None
+    if settings.MARKET_NET_FLOW_ENABLED:
+        logger.info("Starting market daily net-flow update task...")
+        market_net_flow_task = asyncio.create_task(run_market_net_flow_scheduler())
+    market_breadth_task = None
+    if settings.MARKET_BREADTH_ENABLED:
+        logger.info("Starting market daily breadth update task...")
+        market_breadth_task = asyncio.create_task(run_market_breadth_scheduler())
+    market_sector_net_flow_task = None
+    if settings.MARKET_SECTOR_NET_FLOW_ENABLED:
+        logger.info("Starting market sector net-flow update task...")
+        market_sector_net_flow_task = asyncio.create_task(run_market_sector_net_flow_scheduler())
     
     yield
     
@@ -256,6 +272,12 @@ async def lifespan(app: FastAPI):
     
     realtime_task.cancel()
     indices_task.cancel()
+    if market_net_flow_task:
+        market_net_flow_task.cancel()
+    if market_breadth_task:
+        market_breadth_task.cancel()
+    if market_sector_net_flow_task:
+        market_sector_net_flow_task.cancel()
     try:
         await realtime_task
     except asyncio.CancelledError:
@@ -264,6 +286,21 @@ async def lifespan(app: FastAPI):
         await indices_task
     except asyncio.CancelledError:
         pass
+    if market_net_flow_task:
+        try:
+            await market_net_flow_task
+        except asyncio.CancelledError:
+            pass
+    if market_breadth_task:
+        try:
+            await market_breadth_task
+        except asyncio.CancelledError:
+            pass
+    if market_sector_net_flow_task:
+        try:
+            await market_sector_net_flow_task
+        except asyncio.CancelledError:
+            pass
     await Database.close()
 
 
@@ -424,6 +461,126 @@ async def run_indices_update_scheduler():
         except Exception:
             logger.error("Market indices scheduler error", exc_info=True)
         
+        await asyncio.sleep(interval_seconds)
+
+
+async def run_market_net_flow_scheduler():
+    """Periodically refresh daily market net-flow aggregate."""
+    from app.utils.trading_hours import is_a_share_trading_time
+
+    logger = structlog.get_logger()
+
+    # Wait for service readiness
+    await asyncio.sleep(5)
+
+    iteration = 0
+    logger.info("Starting market daily net-flow scheduler loop")
+
+    while True:
+        try:
+            is_trading_time = is_a_share_trading_time()
+            interval_seconds = (
+                settings.MARKET_NET_FLOW_TRADING_INTERVAL_SECONDS
+                if is_trading_time
+                else settings.MARKET_NET_FLOW_NON_TRADING_INTERVAL_SECONDS
+            )
+
+            success = await market_net_flow_updater.update_once()
+            iteration += 1
+            logger.debug(
+                "Market net-flow scheduler iteration completed",
+                iteration=iteration,
+                is_trading_time=is_trading_time,
+                success=success,
+                interval_seconds=interval_seconds,
+            )
+        except asyncio.CancelledError:
+            logger.info("Market daily net-flow scheduler cancelled")
+            raise
+        except Exception:
+            logger.error("Market daily net-flow scheduler error", exc_info=True)
+            interval_seconds = settings.MARKET_NET_FLOW_NON_TRADING_INTERVAL_SECONDS
+
+        await asyncio.sleep(interval_seconds)
+
+
+async def run_market_breadth_scheduler():
+    """Periodically refresh daily market breadth aggregate."""
+    from app.utils.trading_hours import is_a_share_trading_time
+
+    logger = structlog.get_logger()
+
+    # Wait for service readiness
+    await asyncio.sleep(5)
+
+    iteration = 0
+    logger.info("Starting market daily breadth scheduler loop")
+
+    while True:
+        try:
+            is_trading_time = is_a_share_trading_time()
+            interval_seconds = (
+                settings.MARKET_BREADTH_TRADING_INTERVAL_SECONDS
+                if is_trading_time
+                else settings.MARKET_BREADTH_NON_TRADING_INTERVAL_SECONDS
+            )
+
+            success = await market_breadth_updater.update_once()
+            iteration += 1
+            logger.debug(
+                "Market breadth scheduler iteration completed",
+                iteration=iteration,
+                is_trading_time=is_trading_time,
+                success=success,
+                interval_seconds=interval_seconds,
+            )
+        except asyncio.CancelledError:
+            logger.info("Market daily breadth scheduler cancelled")
+            raise
+        except Exception:
+            logger.error("Market daily breadth scheduler error", exc_info=True)
+            interval_seconds = settings.MARKET_BREADTH_NON_TRADING_INTERVAL_SECONDS
+
+        await asyncio.sleep(interval_seconds)
+
+
+async def run_market_sector_net_flow_scheduler():
+    """Periodically refresh sector-level market net-flow snapshots."""
+    from app.utils.trading_hours import is_a_share_trading_time
+
+    logger = structlog.get_logger()
+
+    # Wait for service readiness
+    await asyncio.sleep(5)
+
+    iteration = 0
+    logger.info("Starting market sector net-flow scheduler loop")
+
+    while True:
+        try:
+            is_trading_time = is_a_share_trading_time()
+            interval_seconds = (
+                settings.MARKET_SECTOR_NET_FLOW_TRADING_INTERVAL_SECONDS
+                if is_trading_time
+                else settings.MARKET_SECTOR_NET_FLOW_NON_TRADING_INTERVAL_SECONDS
+            )
+
+            success = await market_sector_net_flow_updater.update_once()
+            iteration += 1
+            logger.debug(
+                "Market sector net-flow scheduler iteration completed",
+                iteration=iteration,
+                is_trading_time=is_trading_time,
+                success=success,
+                interval_seconds=interval_seconds,
+            )
+        except asyncio.CancelledError:
+            logger.info("Market sector net-flow scheduler cancelled")
+            raise
+        except Exception:
+            logger.error("Market sector net-flow scheduler error", exc_info=True)
+            interval_seconds = settings.MARKET_SECTOR_NET_FLOW_NON_TRADING_INTERVAL_SECONDS
+
         await asyncio.sleep(interval_seconds)
 
 

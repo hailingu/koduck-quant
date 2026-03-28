@@ -1,15 +1,24 @@
-import { Outlet } from 'react-router-dom'
+import { Outlet, useLocation } from 'react-router-dom'
 import Sidebar from '@/components/Sidebar'
 import Header from '@/components/Header'
 
 export default function MainLayout() {
+  const location = useLocation()
+  const isDashboard = location.pathname === '/dashboard'
+
   return (
     <div className="min-h-screen bg-fluid-surface-container-lowest">
       {/* Sidebar - Fixed 64 */}
       <Sidebar />
 
       {/* Header - Fixed with left offset */}
-      <Header />
+      <Header
+        tabs={isDashboard ? [
+          { key: 'indices', label: 'Indices', active: true },
+          { key: 'volume', label: 'Volume' },
+          { key: 'volatility', label: 'Volatility' },
+        ] : []}
+      />
 
       {/* Main Content */}
       <main className="h-screen pl-64 pt-16 pb-8 overflow-hidden">

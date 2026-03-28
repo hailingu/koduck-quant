@@ -168,15 +168,15 @@ export default function Header({
         
         {/* Tabs */}
         {tabs.length > 0 && (
-          <nav className="flex items-center gap-1 ml-4">
+          <nav className="hidden md:flex items-center gap-6 ml-2 font-headline tracking-tight text-sm">
             {tabs.map((tab) => (
               <button
                 key={tab.key}
                 onClick={() => onTabChange?.(tab.key)}
-                className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all duration-200 ${
+                className={`leading-none pb-1 transition-colors ${
                   tab.active
-                    ? 'bg-fluid-primary/10 text-fluid-primary'
-                    : 'text-fluid-text-muted hover:text-fluid-text hover:bg-white/5'
+                    ? 'text-fluid-primary border-b-2 border-fluid-primary'
+                    : 'text-fluid-text-muted/80 hover:text-fluid-text'
                 }`}
               >
                 {tab.label}

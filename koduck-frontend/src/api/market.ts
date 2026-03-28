@@ -133,7 +133,7 @@ export const marketApi = {
       }
     }>('/api/v1/market/sentiment/radar', {
       params: { market },
-      timeout: 10000,
+      timeout: 1500,
     }),
 
   getAllMarketsSentiment: () =>

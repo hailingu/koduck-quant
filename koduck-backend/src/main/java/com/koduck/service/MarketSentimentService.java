@@ -45,13 +45,16 @@ public class MarketSentimentService {
         log.debug("Calculating market sentiment for {} using symbol {}", marketType, symbol);
 
         try {
+            // 关键优化：只拉取一次 60 日 K 线，所有维度复用，避免重复远程请求
+            List<KlineData> klines60 = getRecentKlines(symbol, marketType, 60);
+
             // Calculate six dimensions
-            int activity = calculateActivityScore(marketType, symbol);
-            int volatility = calculateVolatilityScore(marketType, symbol);
-            int trendStrength = calculateTrendStrengthScore(marketType, symbol);
-            int fearGreed = calculateFearGreedScore(marketType, symbol);
-            int valuation = calculateValuationScore(marketType, symbol);
-            int fundFlow = calculateFundFlowScore(marketType, symbol);
+            int activity = calculateActivityScore(klines60);
+            int volatility = calculateVolatilityScore(klines60);
+            int trendStrength = calculateTrendStrengthScore(klines60);
+            int fearGreed = calculateFearGreedScore(klines60);
+            int valuation = calculateValuationScore(klines60);
+            int fundFlow = calculateFundFlowScore(klines60);
 
             // Calculate overall score with weights
             double overall = calculateOverallScore(
@@ -86,9 +89,9 @@ public class MarketSentimentService {
     /**
      * Calculate activity score (0-100) based on volume and turnover.
      */
-    private int calculateActivityScore(MarketType marketType, String symbol) {
+    private int calculateActivityScore(List<KlineData> klines60) {
         try {
-            List<KlineData> klines = getRecentKlines(symbol, marketType, 20);
+            List<KlineData> klines = tailKlines(klines60, 20);
             if (klines.isEmpty()) {
                 return 50;
             }
@@ -123,9 +126,9 @@ public class MarketSentimentService {
     /**
      * Calculate volatility score (0-100) based on ATR-like measurement.
      */
-    private int calculateVolatilityScore(MarketType marketType, String symbol) {
+    private int calculateVolatilityScore(List<KlineData> klines60) {
         try {
-            List<KlineData> klines = getRecentKlines(symbol, marketType, 14);
+            List<KlineData> klines = tailKlines(klines60, 14);
             if (klines.size() < 2) {
                 return 30;
             }
@@ -168,9 +171,9 @@ public class MarketSentimentService {
     /**
      * Calculate trend strength score (0-100) based on moving averages.
      */
-    private int calculateTrendStrengthScore(MarketType marketType, String symbol) {
+    private int calculateTrendStrengthScore(List<KlineData> klines60) {
         try {
-            List<KlineData> klines = getRecentKlines(symbol, marketType, 60);
+            List<KlineData> klines = tailKlines(klines60, 60);
             if (klines.size() < 20) {
                 return 50;
             }
@@ -202,9 +205,9 @@ public class MarketSentimentService {
      * Calculate fear/greed score (0-100).
      * 0 = extreme fear, 100 = extreme greed.
      */
-    private int calculateFearGreedScore(MarketType marketType, String symbol) {
+    private int calculateFearGreedScore(List<KlineData> klines60) {
         try {
-            List<KlineData> klines = getRecentKlines(symbol, marketType, 30);
+            List<KlineData> klines = tailKlines(klines60, 30);
             if (klines.size() < 10) {
                 return 50;
             }
@@ -232,9 +235,9 @@ public class MarketSentimentService {
      * Calculate valuation score (0-100).
      * Based on price relative to recent range.
      */
-    private int calculateValuationScore(MarketType marketType, String symbol) {
+    private int calculateValuationScore(List<KlineData> klines60) {
         try {
-            List<KlineData> klines = getRecentKlines(symbol, marketType, 60);
+            List<KlineData> klines = tailKlines(klines60, 60);
             if (klines.size() < 20) {
                 return 50;
             }
@@ -270,9 +273,9 @@ public class MarketSentimentService {
      * Calculate fund flow score (0-100).
      * Based on price-volume relationship.
      */
-    private int calculateFundFlowScore(MarketType marketType, String symbol) {
+    private int calculateFundFlowScore(List<KlineData> klines60) {
         try {
-            List<KlineData> klines = getRecentKlines(symbol, marketType, 20);
+            List<KlineData> klines = tailKlines(klines60, 20);
             if (klines.size() < 5) {
                 return 50;
             }
@@ -380,6 +383,16 @@ public class MarketSentimentService {
             log.warn("Failed to get recent klines for {}: {}", symbol, e.getMessage());
             return List.of();
         }
+    }
+
+    private List<KlineData> tailKlines(List<KlineData> klines, int limit) {
+        if (klines == null || klines.isEmpty()) {
+            return List.of();
+        }
+        if (klines.size() <= limit) {
+            return klines;
+        }
+        return klines.subList(klines.size() - limit, klines.size());
     }
 
     private double calculateMA(List<KlineData> klines, int period) {

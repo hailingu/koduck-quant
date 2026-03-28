@@ -158,6 +158,81 @@ DELETE FROM stock_tick_history
 WHERE tick_time < $1
 """
 
+# Market Daily Net Flow SQL queries
+UPSERT_MARKET_DAILY_NET_FLOW = """
+INSERT INTO market_daily_net_flow (
+    market, flow_type, trade_date,
+    net_inflow, total_inflow, total_outflow,
+    currency, source, quality, snapshot_time, updated_at
+) VALUES (
+    $1, $2, $3,
+    $4, $5, $6,
+    $7, $8, $9, $10, NOW()
+)
+ON CONFLICT (market, flow_type, trade_date) DO UPDATE SET
+    net_inflow = EXCLUDED.net_inflow,
+    total_inflow = EXCLUDED.total_inflow,
+    total_outflow = EXCLUDED.total_outflow,
+    currency = EXCLUDED.currency,
+    source = EXCLUDED.source,
+    quality = EXCLUDED.quality,
+    snapshot_time = EXCLUDED.snapshot_time,
+    updated_at = NOW()
+"""
+
+UPSERT_MARKET_DAILY_BREADTH = """
+INSERT INTO market_daily_breadth (
+    market, breadth_type, trade_date,
+    gainers, losers, unchanged, suspended,
+    total_stocks, advance_decline_line,
+    source, quality, snapshot_time, updated_at
+) VALUES (
+    $1, $2, $3,
+    $4, $5, $6, $7,
+    $8, $9,
+    $10, $11, $12, NOW()
+)
+ON CONFLICT (market, breadth_type, trade_date) DO UPDATE SET
+    gainers = EXCLUDED.gainers,
+    losers = EXCLUDED.losers,
+    unchanged = EXCLUDED.unchanged,
+    suspended = EXCLUDED.suspended,
+    total_stocks = EXCLUDED.total_stocks,
+    advance_decline_line = EXCLUDED.advance_decline_line,
+    source = EXCLUDED.source,
+    quality = EXCLUDED.quality,
+    snapshot_time = EXCLUDED.snapshot_time,
+    updated_at = NOW()
+"""
+
+UPSERT_MARKET_SECTOR_NET_FLOW = """
+INSERT INTO market_sector_net_flow (
+    market, indicator, trade_date,
+    sector_type, sector_name,
+    main_force_net, retail_net,
+    super_big_net, big_net, medium_net, small_net,
+    change_pct, source, quality, snapshot_time, updated_at
+) VALUES (
+    $1, $2, $3,
+    $4, $5,
+    $6, $7,
+    $8, $9, $10, $11,
+    $12, $13, $14, $15, NOW()
+)
+ON CONFLICT (market, indicator, trade_date, sector_type, sector_name) DO UPDATE SET
+    main_force_net = EXCLUDED.main_force_net,
+    retail_net = EXCLUDED.retail_net,
+    super_big_net = EXCLUDED.super_big_net,
+    big_net = EXCLUDED.big_net,
+    medium_net = EXCLUDED.medium_net,
+    small_net = EXCLUDED.small_net,
+    change_pct = EXCLUDED.change_pct,
+    source = EXCLUDED.source,
+    quality = EXCLUDED.quality,
+    snapshot_time = EXCLUDED.snapshot_time,
+    updated_at = NOW()
+"""
+
 
 class Database:
     """PostgreSQL database connection pool."""
@@ -611,7 +686,156 @@ class TickHistoryDB:
         return await TickHistoryDB.delete_old_ticks(cutoff_time)
 
 
+class MarketNetFlowDB:
+    """Daily market net flow database operations."""
+
+    @staticmethod
+    async def upsert_daily_net_flow(
+        market: str,
+        flow_type: str,
+        trade_date,
+        net_inflow: float,
+        total_inflow: float,
+        total_outflow: float,
+        source: str,
+        quality: str,
+        snapshot_time: datetime,
+        currency: str = "CNY",
+    ) -> bool:
+        """Insert or update one daily net-flow record."""
+        try:
+            await Database.execute(
+                UPSERT_MARKET_DAILY_NET_FLOW,
+                market,
+                flow_type,
+                trade_date,
+                net_inflow,
+                total_inflow,
+                total_outflow,
+                currency,
+                source,
+                quality,
+                snapshot_time,
+            )
+            return True
+        except Exception as e:
+            logger.error(
+                "Failed to upsert market daily net flow: market=%s flow_type=%s trade_date=%s error=%s",
+                market,
+                flow_type,
+                trade_date,
+                e,
+            )
+            return False
+
+
+class MarketBreadthDB:
+    """Daily market breadth database operations."""
+
+    @staticmethod
+    async def upsert_daily_breadth(
+        market: str,
+        breadth_type: str,
+        trade_date,
+        gainers: int,
+        losers: int,
+        unchanged: int,
+        suspended: int | None,
+        total_stocks: int,
+        advance_decline_line: int,
+        source: str,
+        quality: str,
+        snapshot_time: datetime,
+    ) -> bool:
+        """Insert or update one daily breadth record."""
+        try:
+            await Database.execute(
+                UPSERT_MARKET_DAILY_BREADTH,
+                market,
+                breadth_type,
+                trade_date,
+                gainers,
+                losers,
+                unchanged,
+                suspended,
+                total_stocks,
+                advance_decline_line,
+                source,
+                quality,
+                snapshot_time,
+            )
+            return True
+        except Exception as e:
+            logger.error(
+                "Failed to upsert market daily breadth: market=%s breadth_type=%s trade_date=%s error=%s",
+                market,
+                breadth_type,
+                trade_date,
+                e,
+            )
+            return False
+
+
+class MarketSectorNetFlowDB:
+    """Sector-level market net-flow snapshot database operations."""
+
+    @staticmethod
+    async def upsert_sector_net_flow(
+        market: str,
+        indicator: str,
+        trade_date,
+        sector_type: str,
+        sector_name: str,
+        main_force_net: float,
+        retail_net: float,
+        super_big_net: float | None,
+        big_net: float | None,
+        medium_net: float | None,
+        small_net: float | None,
+        change_pct: float | None,
+        source: str,
+        quality: str,
+        snapshot_time: datetime,
+    ) -> bool:
+        """Insert or update one sector net-flow record."""
+        try:
+            await Database.execute(
+                UPSERT_MARKET_SECTOR_NET_FLOW,
+                market,
+                indicator,
+                trade_date,
+                sector_type,
+                sector_name,
+                main_force_net,
+                retail_net,
+                super_big_net,
+                big_net,
+                medium_net,
+                small_net,
+                change_pct,
+                source,
+                quality,
+                snapshot_time,
+            )
+            return True
+        except Exception as e:
+            logger.error(
+                "Failed to upsert market sector net flow: market=%s indicator=%s trade_date=%s "
+                "sector_type=%s sector_name=%s error=%s",
+                market,
+                indicator,
+                trade_date,
+                sector_type,
+                sector_name,
+                e,
+            )
+            return False
+
+
 # Global database instances
 db = Database()
 stock_db = StockRealtimeDB()
 tick_history_db = TickHistoryDB()
+market_net_flow_db = MarketNetFlowDB()
+market_breadth_db = MarketBreadthDB()
+market_sector_net_flow_db = MarketSectorNetFlowDB()

@@ -81,8 +81,8 @@ export function SectorFlow({ useMock = false }: Props) {
           <p className="text-xs text-slate-400 mt-1">各行业板块资金流入流出情况</p>
         </div>
         <div className="text-right">
-          <div className={`text-xl font-mono font-bold ${data.net_flow >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
-            {data.net_flow >= 0 ? '+' : ''}{formatAmount(data.net_flow)}
+          <div className={`text-xl font-mono font-bold ${data.netFlow >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+            {data.netFlow >= 0 ? '+' : ''}{formatAmount(data.netFlow)}
           </div>
           <div className="text-xs text-slate-500">净流入</div>
         </div>
@@ -116,7 +116,7 @@ export function SectorFlow({ useMock = false }: Props) {
 }
 
 function SectorCard({ sector }: { sector: SectorFlowItem }) {
-  const isPositive = sector.net_flow >= 0;
+  const isPositive = sector.netFlow >= 0;
   const maxFlow = Math.max(sector.inflow, sector.outflow, 1);
   
   return (
@@ -159,7 +159,7 @@ function SectorCard({ sector }: { sector: SectorFlowItem }) {
       <div className="mt-2 pt-2 border-t border-slate-700/50 flex justify-between items-center">
         <span className="text-xs text-slate-400">净流入</span>
         <span className={`text-xs font-mono font-bold ${isPositive ? 'text-emerald-400' : 'text-rose-400'}`}>
-          {isPositive ? '+' : ''}{formatAmount(sector.net_flow)}
+          {isPositive ? '+' : ''}{formatAmount(sector.netFlow)}
         </span>
       </div>
     </div>

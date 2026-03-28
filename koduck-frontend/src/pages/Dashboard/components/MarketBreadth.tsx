@@ -3,13 +3,21 @@ import { getMarketBreadth, mockMarketBreadth, type MarketBreadth as MBType } fro
 
 interface Props {
   useMock?: boolean;
+  data?: MBType | null;
+  loading?: boolean;
 }
 
-export function MarketBreadth({ useMock = false }: Props) {
+export function MarketBreadth({ useMock = false, data: externalData, loading: externalLoading }: Props) {
   const [data, setData] = useState<MBType | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [internalLoading, setInternalLoading] = useState(true);
+  const useExternalData = externalData !== undefined;
 
   useEffect(() => {
+    if (useExternalData) {
+      setInternalLoading(false);
+      return;
+    }
+
     async function fetchData() {
       try {
         if (useMock) {
@@ -22,7 +30,7 @@ export function MarketBreadth({ useMock = false }: Props) {
         console.error('Failed to fetch market breadth:', error);
         setData(mockMarketBreadth);
       } finally {
-        setLoading(false);
+        setInternalLoading(false);
       }
     }
 
@@ -30,12 +38,26 @@ export function MarketBreadth({ useMock = false }: Props) {
     // Refresh every 60 seconds
     const interval = setInterval(fetchData, 60000);
     return () => clearInterval(interval);
-  }, [useMock]);
+  }, [useMock, useExternalData]);
 
-  if (loading || !data) {
+  const sourceData = useExternalData ? (externalData ?? null) : data;
+  const loading = useExternalData ? Boolean(externalLoading) : internalLoading;
+
+  if (loading) {
     return (
       <div className="glass-panel p-3 rounded-xl animate-pulse h-full">
         <div className="h-36 bg-slate-800/50 rounded"></div>
+      </div>
+    );
+  }
+
+  if (!sourceData) {
+    return (
+      <div className="glass-panel p-3 rounded-xl h-full flex items-center justify-center">
+        <div className="text-center text-slate-500">
+          <span className="material-symbols-outlined text-2xl mb-1">heatmap</span>
+          <p className="text-xs">暂无市场宽度数据</p>
+        </div>
       </div>
     );
   }
@@ -53,15 +75,15 @@ export function MarketBreadth({ useMock = false }: Props) {
           <div className="flex gap-3 text-right">
             <div>
               <div className="text-[10px] text-slate-500">涨</div>
-              <div className="text-sm font-mono font-bold text-emerald-400">{data.gainers}</div>
+              <div className="text-sm font-mono font-bold text-emerald-400">{sourceData.gainers}</div>
             </div>
             <div>
               <div className="text-[10px] text-slate-500">跌</div>
-              <div className="text-sm font-mono font-bold text-rose-400">{data.losers}</div>
+              <div className="text-sm font-mono font-bold text-rose-400">{sourceData.losers}</div>
             </div>
             <div>
               <div className="text-[10px] text-slate-500">平</div>
-              <div className="text-sm font-mono font-bold text-slate-400">{data.unchanged}</div>
+              <div className="text-sm font-mono font-bold text-slate-400">{sourceData.unchanged}</div>
             </div>
           </div>
         </div>
@@ -69,16 +91,16 @@ export function MarketBreadth({ useMock = false }: Props) {
         {/* Overview stats */}
         <div className="grid grid-cols-3 gap-2 mb-3">
           <div className="bg-emerald-500/10 border border-emerald-500/30 p-2 rounded text-center">
-            <div className="text-lg font-bold text-emerald-400">{data.gainers_percentage}%</div>
+            <div className="text-lg font-bold text-emerald-400">{sourceData.gainersPercentage}%</div>
             <div className="text-[10px] text-slate-400">上涨</div>
           </div>
           <div className="bg-rose-500/10 border border-rose-500/30 p-2 rounded text-center">
-            <div className="text-lg font-bold text-rose-400">{data.losers_percentage}%</div>
+            <div className="text-lg font-bold text-rose-400">{sourceData.losersPercentage}%</div>
             <div className="text-[10px] text-slate-400">下跌</div>
           </div>
           <div className="bg-cyan-500/10 border border-cyan-500/30 p-2 rounded text-center">
-            <div className={`text-lg font-bold ${data.advance_decline_line >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
-              {data.advance_decline_line >= 0 ? '+' : ''}{data.advance_decline_line}
+            <div className={`text-lg font-bold ${sourceData.advanceDeclineLine >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+              {sourceData.advanceDeclineLine >= 0 ? '+' : ''}{sourceData.advanceDeclineLine}
             </div>
             <div className="text-[10px] text-slate-400">涨跌差</div>
           </div>
@@ -88,7 +110,7 @@ export function MarketBreadth({ useMock = false }: Props) {
         <div className="mb-2">
           <div className="text-[10px] text-slate-500 mb-1">涨跌分布热力图</div>
           <div className="grid grid-cols-11 gap-0.5">
-            {data.distribution.map((item) => {
+            {sourceData.distribution.map((item) => {
               const getColor = () => {
                 if (item.range.includes('+')) {
                   const intensity = Math.min(item.percentage / 15, 1);
@@ -132,11 +154,11 @@ export function MarketBreadth({ useMock = false }: Props) {
       <div className="flex justify-between text-xs pt-2 border-t border-slate-700/30">
         <div className="flex items-center gap-1">
           <span className="text-slate-400 text-[10px]">新高:</span>
-          <span className="text-emerald-400 font-mono">{data.new_highs}</span>
+          <span className="text-emerald-400 font-mono">{sourceData.newHighs}</span>
         </div>
         <div className="flex items-center gap-1">
           <span className="text-slate-400 text-[10px]">新低:</span>
-          <span className="text-rose-400 font-mono">{data.new_lows}</span>
+          <span className="text-rose-400 font-mono">{sourceData.newLows}</span>
         </div>
       </div>
     </div>

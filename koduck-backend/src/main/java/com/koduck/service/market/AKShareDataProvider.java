@@ -90,7 +90,8 @@ public class AKShareDataProvider implements MarketDataProvider {
         
         try {
             UriComponentsBuilder builder = UriComponentsBuilder
-                    .fromUriString(properties.getBaseUrl() + A_SHARE_BASE_PATH + "/kline/{symbol}")
+                    .fromUriString(properties.getBaseUrl() + A_SHARE_BASE_PATH + "/kline")
+                    .queryParam("symbol", symbol)
                     .queryParam("timeframe", timeframe)
                     .queryParam("limit", limit);
             
@@ -101,7 +102,7 @@ public class AKShareDataProvider implements MarketDataProvider {
                 builder.queryParam("endTime", endTime.toEpochMilli());
             }
             
-            String url = builder.buildAndExpand(symbol).toUriString();
+            String url = builder.toUriString();
             
             log.debug("Getting kline data: symbol={}, timeframe={}, limit={}", symbol, timeframe, limit);
             
