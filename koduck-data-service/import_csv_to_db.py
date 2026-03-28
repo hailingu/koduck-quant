@@ -58,8 +58,11 @@ async def import_csv_to_db(csv_path: Path, dry_run: bool = False):
         INSERT INTO kline_data (
             market, symbol, timeframe, kline_time,
             open_price, high_price, low_price, close_price,
-            volume, amount, created_at, updated_at
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW(), NOW())
+            volume, amount, pre_close_price, is_suspended,
+            created_at, updated_at
+        ) VALUES (
+            $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, NOW(), NOW()
+        )
         ON CONFLICT (market, symbol, timeframe, kline_time) DO NOTHING
     """
     
@@ -104,6 +107,14 @@ async def import_csv_to_db(csv_path: Path, dry_run: bool = False):
                             float(row.get('close', 0)),         # close_price
                             int(row.get('volume', 0)),          # volume
                             float(row.get('amount', 0)),        # amount
+                            (
+                                float(row.get('pre_close_price', row.get('preClose')))
+                                if row.get('pre_close_price', row.get('preClose')) is not None
+                                else None
+                            ),
+                            str(
+                                row.get('is_suspended', row.get('suspendFlag', 0))
+                            ).strip().lower() in {"1", "true", "t", "yes", "y"},
                         )
                         imported += 1
                     except Exception as e:

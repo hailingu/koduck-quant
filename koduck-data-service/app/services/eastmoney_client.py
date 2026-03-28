@@ -19,6 +19,8 @@ from zoneinfo import ZoneInfo
 
 import pandas as pd
 
+from app.services.kline_storage import KlineStorage
+
 logger = logging.getLogger(__name__)
 
 # Browser-like User-Agent pool
@@ -95,6 +97,7 @@ class EastmoneyClient:
         self._request_count = 0
         self._last_request_time = 0.0
         self._min_request_interval = settings.EASTMONEY_MIN_REQUEST_INTERVAL
+        self._kline_storage = KlineStorage()
         
         # Check for preset cookie from environment variable
         self._preset_cookie = os.environ.get("EASTMONEY_COOKIE")
@@ -144,27 +147,28 @@ class EastmoneyClient:
         """Get a stock symbol to use for cookie refresh.
         
         Tries to use stocks from:
-        1. CSV files in data/kline/1D/ directory
-        2. DEFAULT_COOKIE_STOCKS if no CSV files exist
+        1. local kline files in data/kline/1D/ directory
+        2. DEFAULT_COOKIE_STOCKS if no local files exist
         
         Returns:
             Stock symbol with exchange prefix (e.g., "sh603777")
         """
         try:
-            # Try to get stocks from CSV files
-            kline_dir = DATA_DIR / "kline" / "1D"
+            # Try to get stocks from local kline files
+            kline_root = DATA_DIR / "kline"
+            kline_dir = kline_root / "1D"
             if kline_dir.exists():
-                csv_files = list(kline_dir.glob("*.csv"))
-                if csv_files:
-                    # Pick a random stock from CSV files
-                    stock_code = random.choice(csv_files).stem  # noqa: S311
+                files = self._kline_storage.list_kline_files(kline_root, ["1D"])
+                if files:
+                    # Pick a random stock from local files
+                    stock_code = random.choice(files).stem  # noqa: S311
                     # Add exchange prefix
                     if stock_code.startswith("6"):
                         return f"sh{stock_code}"
                     else:
                         return f"sz{stock_code}"
         except Exception as e:
-            logger.debug(f"Failed to get stock from CSV: {e}")
+            logger.debug(f"Failed to get stock from local files: {e}")
         
         # Fallback to default stocks
         return random.choice(DEFAULT_COOKIE_STOCKS)  # noqa: S311

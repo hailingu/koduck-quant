@@ -7,6 +7,7 @@ yet available.
 """
 
 import asyncio
+import hashlib
 from datetime import datetime
 from pathlib import Path
 from typing import TypedDict
@@ -15,7 +16,9 @@ from zoneinfo import ZoneInfo
 import pandas as pd
 import structlog
 
+from app.config import settings
 from app.db import Database
+from app.services.kline_storage import KlineStorage, KlineStorageError
 
 logger = structlog.get_logger(__name__)
 
@@ -42,6 +45,7 @@ class KlineInitializer:
         self._initialized = False
         self._retry_interval = 30  # （）
         self._retry_task: asyncio.Task[None] | None = None
+        self._storage = KlineStorage()
     
     async def check_table_exists(self) -> bool:
         """Return ``True`` if the ``kline_data`` table exists in the database.
@@ -151,25 +155,9 @@ class KlineInitializer:
             A list of :class:`pathlib.Path` objects pointing to discovered CSV
             files.  An empty list is returned if the data directory is missing.
         """
-        files = []
-        
-        if not DATA_DIR.exists():
-            logger.warning(f"Data directory does not exist: {DATA_DIR}")
-            return files
-        
-        if timeframes:
-            for tf in timeframes:
-                tf_dir = DATA_DIR / tf
-                if tf_dir.exists():
-                    csv_files = list(tf_dir.glob("*.csv"))
-                    files.extend(csv_files)
-        else:
-            # CSV
-            for tf_dir in DATA_DIR.iterdir():
-                if tf_dir.is_dir():
-                    csv_files = list(tf_dir.glob("*.csv"))
-                    files.extend(csv_files)
-        
+        files = self._storage.list_kline_files(DATA_DIR, timeframes)
+        if not files:
+            logger.warning("No kline local files found under %s", DATA_DIR)
         return files
     
     def load_csv_data(self, csv_path: Path) -> pd.DataFrame | None:
@@ -183,11 +171,103 @@ class KlineInitializer:
             failure.  Errors are logged.
         """
         try:
-            df = pd.read_csv(csv_path, encoding="utf-8-sig")
+            df = self._storage.read_dataframe(csv_path)
             return df
+        except KlineStorageError:
+            logger.error("Failed to load kline file %s", csv_path, exc_info=True)
+            return None
         except Exception:
             logger.error("Failed to load CSV %s", csv_path, exc_info=True)
             return None
+
+    async def _ensure_manifest_table(self) -> None:
+        """Ensure kline import manifest table exists."""
+        await Database.execute(
+            """
+            CREATE TABLE IF NOT EXISTS kline_file_manifest (
+                id BIGSERIAL PRIMARY KEY,
+                file_path TEXT NOT NULL UNIQUE,
+                file_hash VARCHAR(64) NOT NULL,
+                market VARCHAR(20) NOT NULL DEFAULT 'AShare',
+                symbol VARCHAR(20),
+                timeframe VARCHAR(10),
+                record_count INTEGER NOT NULL DEFAULT 0,
+                max_kline_time TIMESTAMP,
+                imported_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+            )
+            """
+        )
+        await Database.execute(
+            """
+            CREATE INDEX IF NOT EXISTS idx_kline_file_manifest_symbol_tf
+            ON kline_file_manifest (symbol, timeframe)
+            """
+        )
+
+    def _calculate_file_hash(self, file_path: Path) -> str:
+        """Calculate SHA256 hash for file content."""
+        sha256 = hashlib.sha256()
+        with file_path.open("rb") as fh:
+            for chunk in iter(lambda: fh.read(1024 * 1024), b""):
+                sha256.update(chunk)
+        return sha256.hexdigest()
+
+    async def _is_file_unchanged(self, file_path: Path, file_hash: str) -> bool:
+        """Return True when file hash already imported."""
+        row = await Database.fetchrow(
+            """
+            SELECT file_hash
+            FROM kline_file_manifest
+            WHERE file_path = $1
+            """,
+            str(file_path),
+        )
+        if not row:
+            return False
+        return row.get("file_hash") == file_hash
+
+    async def _upsert_manifest(
+        self,
+        *,
+        file_path: Path,
+        file_hash: str,
+        symbol: str,
+        timeframe: str,
+        record_count: int,
+        max_kline_time: datetime | None,
+    ) -> None:
+        """Upsert one manifest record after import."""
+        await Database.execute(
+            """
+            INSERT INTO kline_file_manifest (
+                file_path,
+                file_hash,
+                market,
+                symbol,
+                timeframe,
+                record_count,
+                max_kline_time,
+                imported_at,
+                updated_at
+            ) VALUES ($1, $2, 'AShare', $3, $4, $5, $6, NOW(), NOW())
+            ON CONFLICT (file_path) DO UPDATE SET
+                file_hash = EXCLUDED.file_hash,
+                symbol = EXCLUDED.symbol,
+                timeframe = EXCLUDED.timeframe,
+                record_count = EXCLUDED.record_count,
+                max_kline_time = EXCLUDED.max_kline_time,
+                imported_at = NOW(),
+                updated_at = NOW()
+            """,
+            str(file_path),
+            file_hash,
+            symbol,
+            timeframe,
+            record_count,
+            max_kline_time,
+        )
     
     def detect_timeframe(self, csv_path: Path) -> str:
         """Infer timeframe from the CSV file path.
@@ -215,6 +295,10 @@ class KlineInitializer:
         text = str(symbol).strip()
         if not text:
             return text
+
+        # Handle filenames such as 600519.SH or 000001.SZ
+        if "." in text:
+            text = text.split(".", maxsplit=1)[0]
 
         # Handle pandas numeric parsing cases like 2050 or 2050.0
         if text.endswith(".0"):
@@ -253,6 +337,12 @@ class KlineInitializer:
             parsed_time = pd.to_datetime(row["datetime"])
         elif "kline_time" in row:
             parsed_time = pd.to_datetime(row["kline_time"])
+        elif "time" in row and not pd.isna(row["time"]):
+            parsed_time = datetime.fromtimestamp(
+                float(row["time"]) / 1000, tz=ASIA_SHANGHAI_TZ
+            ).replace(tzinfo=None)
+        elif "stime" in row and not pd.isna(row["stime"]):
+            parsed_time = pd.to_datetime(str(row["stime"]), format="%Y%m%d", errors="coerce")
         elif timestamp_value is not None and not pd.isna(timestamp_value):
             parsed_time = datetime.fromtimestamp(
                 float(timestamp_value), tz=ASIA_SHANGHAI_TZ
@@ -286,6 +376,29 @@ class KlineInitializer:
         low_price = float(row.get("low", 0) or row.get("low_price", 0) or 0)
         close_price = float(row.get("close", 0) or row.get("close_price", 0) or 0)
         return open_price, high_price, low_price, close_price
+
+    def _extract_pre_close_price(self, row: pd.Series) -> float | None:
+        """Extract previous close price from compatible aliases."""
+        value = row.get("pre_close_price", row.get("preClose"))
+        if value is None or pd.isna(value):
+            return None
+        try:
+            return float(value)
+        except Exception:
+            return None
+
+    def _extract_is_suspended(self, row: pd.Series) -> bool:
+        """Extract suspension flag from compatible aliases."""
+        value = row.get("is_suspended", row.get("suspendFlag"))
+        if value is None or pd.isna(value):
+            return False
+        if isinstance(value, bool):
+            return value
+        try:
+            return int(float(value)) == 1
+        except Exception:
+            text = str(value).strip().lower()
+            return text in {"1", "true", "t", "yes", "y"}
     
     async def import_csv_file(
         self, csv_path: Path, batch_size: int = 100
@@ -314,6 +427,12 @@ class KlineInitializer:
             "error": None,
         }
         
+        file_hash = self._calculate_file_hash(csv_path)
+        if await self._is_file_unchanged(csv_path, file_hash):
+            result["success"] = True
+            logger.info("Skipping unchanged kline file: %s", csv_path)
+            return result
+
         df = self.load_csv_data(csv_path)
         if df is None or df.empty:
             result["error"] = "Empty or load failed"
@@ -328,8 +447,11 @@ class KlineInitializer:
             INSERT INTO kline_data (
                 market, symbol, timeframe, kline_time,
                 open_price, high_price, low_price, close_price,
-                volume, amount, created_at, updated_at
-            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW(), NOW())
+                volume, amount, pre_close_price, is_suspended,
+                created_at, updated_at
+            ) VALUES (
+                $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, NOW(), NOW()
+            )
             ON CONFLICT (market, symbol, timeframe, kline_time) DO NOTHING
         """
         
@@ -337,6 +459,7 @@ class KlineInitializer:
             pool = await Database.get_pool()
             imported = 0
             skipped = 0
+            imported_max_kline_time: datetime | None = None
             
             async with pool.acquire() as conn:
                 async with conn.transaction():
@@ -351,6 +474,8 @@ class KlineInitializer:
                             open_price, high_price, low_price, close_price = (
                                 self._extract_price_fields(row)
                             )
+                            pre_close_price = self._extract_pre_close_price(row)
+                            is_suspended = self._extract_is_suspended(row)
                             
                             await conn.execute(
                                 insert_sql,
@@ -364,8 +489,19 @@ class KlineInitializer:
                                 close_price,
                                 int(row.get("volume", 0) or 0),
                                 float(row.get("amount", 0) or 0),
+                                pre_close_price,
+                                is_suspended,
                             )
                             imported += 1
+                            as_dt = (
+                                kline_time.to_pydatetime()
+                                if isinstance(kline_time, pd.Timestamp)
+                                else kline_time
+                            )
+                            if imported_max_kline_time is None or (
+                                as_dt > imported_max_kline_time
+                            ):
+                                imported_max_kline_time = as_dt
                             
                         except Exception:
                             logger.warning("Failed to import row", exc_info=True)
@@ -376,6 +512,14 @@ class KlineInitializer:
             result["imported"] = imported
             result["skipped"] = skipped
             logger.info("Imported %s records for %s (%s)", imported, symbol, timeframe)
+            await self._upsert_manifest(
+                file_path=csv_path,
+                file_hash=file_hash,
+                symbol=symbol,
+                timeframe=timeframe,
+                record_count=len(df),
+                max_kline_time=imported_max_kline_time,
+            )
             
         except Exception as e:
             result["error"] = str(e)
@@ -394,7 +538,12 @@ class KlineInitializer:
             ``True`` if every file imported successfully; ``False`` if any file
             failed.
         """
-        # CSV
+        # kline files (csv/parquet/parquet.zst)
+        if settings.KLINE_STORAGE_FORMAT == "parquet.zst":
+            logger.info("K-line storage format is parquet.zst (external zstd)")
+
+        await self._ensure_manifest_table()
+
         csv_files = self.find_csv_files(timeframes)
         
         if not csv_files:

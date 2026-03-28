@@ -18,6 +18,7 @@ project_root = Path(__file__).parent
 sys.path.insert(0, str(project_root))
 
 from app.services.akshare_client import akshare_client
+from app.services.kline_storage import KlineStorage
 
 ASIA_SHANGHAI_TZ = ZoneInfo("Asia/Shanghai")
 
@@ -31,6 +32,7 @@ MINUTE_TIMEFRAMES = {
     "15m": "15",
     "60m": "60",
 }
+storage = KlineStorage()
 
 
 def get_all_daily_symbols():
@@ -40,15 +42,14 @@ def get_all_daily_symbols():
         return []
     
     symbols = []
-    for csv_file in DAILY_DIR.glob("*.csv"):
-        symbol = csv_file.stem
-        symbols.append(symbol)
+    for path in storage.list_kline_files(DATA_DIR, ["1D"]):
+        symbols.append(path.stem)
     
     return sorted(symbols)
 
 
-def save_to_csv(klines: list[dict], symbol: str, timeframe: str):
-    """KCSV"""
+def save_to_file(klines: list[dict], symbol: str, timeframe: str):
+    """Save minute K-line records to configured local storage file."""
     if not klines:
         return 0
     
@@ -56,7 +57,7 @@ def save_to_csv(klines: list[dict], symbol: str, timeframe: str):
     save_dir = DATA_DIR / timeframe
     save_dir.mkdir(parents=True, exist_ok=True)
     
-    csv_path = save_dir / f"{symbol}.csv"
+    file_path = storage.build_symbol_path(save_dir, symbol)
     
     # DataFrame
     data = []
@@ -77,8 +78,7 @@ def save_to_csv(klines: list[dict], symbol: str, timeframe: str):
     df = pd.DataFrame(data)
     df = df.sort_values(by="timestamp", ascending=True)
     
-    # CSV
-    df.to_csv(csv_path, index=False, encoding='utf-8-sig')
+    storage.write_dataframe(df, file_path)
     
     return len(df)
 
@@ -137,8 +137,7 @@ async def main():
             klines, count = await fetch_minute_for_symbol(symbol, period, limit=300)
             
             if klines:
-                # CSV
-                saved_count = save_to_csv(klines, symbol, timeframe)
+                saved_count = save_to_file(klines, symbol, timeframe)
                 
                 success_count += 1
                 total_records += saved_count
@@ -178,11 +177,11 @@ async def main():
     for tf in MINUTE_TIMEFRAMES.keys():
         tf_dir = DATA_DIR / tf
         if tf_dir.exists():
-            csv_files = sorted(tf_dir.glob("*.csv"))
-            print(f"\n  {tf}/ ({len(csv_files)} ):")
-            for csv_file in csv_files:
-                size = csv_file.stat().st_size
-                print(f"    - {csv_file.name} ({size:,} bytes)")
+            files = storage.list_kline_files(DATA_DIR, [tf])
+            print(f"\n  {tf}/ ({len(files)} ):")
+            for path in files:
+                size = path.stat().st_size
+                print(f"    - {path.name} ({size:,} bytes)")
 
 
 if __name__ == "__main__":

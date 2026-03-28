@@ -16,6 +16,7 @@ import structlog
 from app.db import Database
 from app.services.eastmoney_client import eastmoney_client
 from app.services.kline_file_lock import csv_lock
+from app.services.kline_storage import KlineStorage
 from app.services.kline_sync import kline_sync
 from app.utils.trading_hours import is_a_share_trading_time
 
@@ -72,6 +73,7 @@ class KlineScheduler:
             "updates_count": 0,
             "errors_count": 0,
         }
+        self._storage = KlineStorage()
     
     @staticmethod
     def _parse_time(time_str: str) -> time:
@@ -199,7 +201,7 @@ class KlineScheduler:
         try:
             logger.info("Starting scheduled K-line update")
             
-            # Find all CSV files to update
+            # Find all local kline files to update
             DATA_DIR = Path(__file__).parent.parent.parent / "data" / "kline"
             
             updated_symbols = []
@@ -216,14 +218,14 @@ class KlineScheduler:
                     )
                     continue
                 
-                for csv_file in tf_dir.glob("*.csv"):
-                    symbol = csv_file.stem
+                for data_file in self._storage.list_kline_files(DATA_DIR, [timeframe]):
+                    symbol = data_file.stem
                     
                     # Try to acquire lock
                     with csv_lock(symbol, timeframe, blocking=False) as acquired:
                         if not acquired:
                             logger.warning(
-                                f"{symbol} CSV is locked, skipping scheduled update"
+                                f"{symbol} kline file is locked, skipping scheduled update"
                             )
                             continue
                         
@@ -278,11 +280,12 @@ class KlineScheduler:
                 symbol = symbol.zfill(6)
 
             DATA_DIR = Path(__file__).parent.parent.parent / "data" / "kline"
-            csv_path = DATA_DIR / timeframe / f"{symbol}.csv"
+            tf_dir = DATA_DIR / timeframe
+            file_path = self._storage.discover_symbol_path(tf_dir, symbol)
             
-            # Get last date from CSV
-            if csv_path.exists():
-                df = pd.read_csv(csv_path, encoding='utf-8-sig')
+            # Get last date from local kline file
+            if file_path.exists():
+                df = self._storage.read_dataframe(file_path)
                 if not df.empty:
                     last_timestamp = df['timestamp'].max()
                     last_date = datetime.fromtimestamp(last_timestamp)
@@ -330,8 +333,8 @@ class KlineScheduler:
                 })
             
             # Merge with existing
-            if csv_path.exists():
-                df = pd.read_csv(csv_path, encoding='utf-8-sig')
+            if file_path.exists():
+                df = self._storage.read_dataframe(file_path)
                 existing = df.to_dict('records')
             else:
                 existing = []
@@ -355,7 +358,7 @@ class KlineScheduler:
             df['datetime'] = bj.dt.normalize().dt.tz_localize(None)
             
             df = df[['symbol', 'name', 'datetime', 'timestamp', 'open', 'high', 'low', 'close', 'volume', 'amount']]
-            df.to_csv(csv_path, index=False, encoding='utf-8-sig')
+            self._storage.write_dataframe(df, file_path)
             
             logger.info(f"{symbol}: Updated with {len(new_records)} new records")
             return True

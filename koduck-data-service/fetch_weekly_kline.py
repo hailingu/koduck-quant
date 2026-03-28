@@ -15,11 +15,13 @@ project_root = Path(__file__).parent
 sys.path.insert(0, str(project_root))
 
 from app.services.akshare_client import akshare_client
+from app.services.kline_storage import KlineStorage
 
 # 
 DATA_DIR = project_root / "data" / "kline"
 DAILY_DIR = DATA_DIR / "1D"
 WEEKLY_DIR = DATA_DIR / "1W"
+storage = KlineStorage()
 
 
 def get_all_daily_symbols():
@@ -29,15 +31,14 @@ def get_all_daily_symbols():
         return []
     
     symbols = []
-    for csv_file in DAILY_DIR.glob("*.csv"):
-        symbol = csv_file.stem  #  .csv 
-        symbols.append(symbol)
+    for path in storage.list_kline_files(DATA_DIR, ["1D"]):
+        symbols.append(path.stem)
     
     return sorted(symbols)
 
 
-def save_to_csv(klines: list[dict], symbol: str, timeframe: str = "1W"):
-    """KCSV"""
+def save_to_file(klines: list[dict], symbol: str, timeframe: str = "1W"):
+    """Save K-line records to configured local storage file."""
     import pandas as pd
     
     if not klines:
@@ -47,7 +48,7 @@ def save_to_csv(klines: list[dict], symbol: str, timeframe: str = "1W"):
     save_dir = DATA_DIR / timeframe
     save_dir.mkdir(parents=True, exist_ok=True)
     
-    csv_path = save_dir / f"{symbol}.csv"
+    file_path = storage.build_symbol_path(save_dir, symbol)
     
     # DataFrame
     data = []
@@ -67,8 +68,7 @@ def save_to_csv(klines: list[dict], symbol: str, timeframe: str = "1W"):
     df = pd.DataFrame(data)
     df = df.sort_values(by="timestamp", ascending=True)
     
-    # CSV
-    df.to_csv(csv_path, index=False, encoding='utf-8-sig')
+    storage.write_dataframe(df, file_path)
     
     return len(df)
 
@@ -87,8 +87,7 @@ async def fetch_weekly_for_symbol(symbol: str, limit: int = 500):
         if not klines:
             return None, 0
         
-        # CSV
-        count = save_to_csv(klines, symbol, "1W")
+        count = save_to_file(klines, symbol, "1W")
         
         return klines, count
         
@@ -154,9 +153,9 @@ async def main():
     
     # 
     print("\n:")
-    for csv_file in sorted(WEEKLY_DIR.glob("*.csv")):
-        size = csv_file.stat().st_size
-        print(f"  - {csv_file.name} ({size:,} bytes)")
+    for path in storage.list_kline_files(DATA_DIR, ["1W"]):
+        size = path.stat().st_size
+        print(f"  - {path.name} ({size:,} bytes)")
 
 
 if __name__ == "__main__":

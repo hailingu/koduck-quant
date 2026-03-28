@@ -131,11 +131,17 @@ def convert_timeframe_to_db(tf: str) -> str:
 
 def _resolve_symbol(df: pd.DataFrame, csv_path: Path) -> str:
     """Resolve symbol from CSV content or fallback to filename stem."""
+    def _normalize(value: str) -> str:
+        text = str(value).strip()
+        if "." in text:
+            text = text.split(".", maxsplit=1)[0]
+        return text
+
     if 'symbol' in df.columns:
         symbols = df['symbol'].unique()
         if len(symbols) > 0:
-            return str(symbols[0])
-    return csv_path.stem
+            return _normalize(str(symbols[0]))
+    return _normalize(csv_path.stem)
 
 
 def _extract_kline_time(row: pd.Series, timeframe: str) -> Optional[datetime]:
@@ -154,6 +160,16 @@ def _extract_kline_time(row: pd.Series, timeframe: str) -> Optional[datetime]:
         return ts.to_pydatetime() if isinstance(ts, pd.Timestamp) else ts
     if 'kline_time' in row and pd.notna(row['kline_time']):
         ts = pd.to_datetime(row['kline_time'])
+        return ts.to_pydatetime() if isinstance(ts, pd.Timestamp) else ts
+    if 'time' in row and pd.notna(row['time']):
+        return (
+            pd.to_datetime(float(row['time']), unit='ms', utc=True)
+            .tz_convert(ASIA_SHANGHAI_TZ)
+            .tz_localize(None)
+            .to_pydatetime()
+        )
+    if 'stime' in row and pd.notna(row['stime']):
+        ts = pd.to_datetime(str(row['stime']), format='%Y%m%d', errors='coerce')
         return ts.to_pydatetime() if isinstance(ts, pd.Timestamp) else ts
     if 'timestamp' in row and pd.notna(row['timestamp']):
         return (
@@ -183,6 +199,13 @@ def _build_insert_values(
         float(row.get('close', 0) or row.get('close_price', 0)),
         int(row.get('volume', 0) or 0),
         float(row.get('amount', 0) or row.get('amount', 0) or 0),
+        (
+            float(row.get('pre_close_price', row.get('preClose')))
+            if row.get('pre_close_price', row.get('preClose')) not in (None, "")
+            else None
+        ),
+        str(row.get('is_suspended', row.get('suspendFlag', 0))).strip().lower()
+        in {"1", "true", "t", "yes", "y"},
     )
 
 
@@ -268,8 +291,11 @@ async def import_kline_to_db(
         INSERT INTO kline_data (
             market, symbol, timeframe, kline_time,
             open_price, high_price, low_price, close_price,
-            volume, amount, created_at, updated_at
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW(), NOW())
+            volume, amount, pre_close_price, is_suspended,
+            created_at, updated_at
+        ) VALUES (
+            $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, NOW(), NOW()
+        )
         ON CONFLICT (market, symbol, timeframe, kline_time) DO NOTHING
     """
     

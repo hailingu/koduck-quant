@@ -40,6 +40,12 @@ class Settings(BaseSettings):
     # AKShare settings
     AKSHARE_TIMEOUT: int = 30
 
+    # K-line local file storage
+    # Supported: "csv", "parquet", "parquet.zst"
+    KLINE_STORAGE_FORMAT: str = "parquet.zst"
+    KLINE_COMPRESSION_LEVEL: int = 6
+    KLINE_LEGACY_CSV_FALLBACK: bool = True
+
     # Bootstrap completeness thresholds
     # Re-run stock_basic initialization until at least this many rows exist.
     STOCK_BASIC_MIN_COUNT: int = 3000

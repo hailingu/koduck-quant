@@ -122,8 +122,11 @@ async def insert_kline_records(records):
     INSERT INTO kline_data (
         market, symbol, timeframe, kline_time,
         open_price, high_price, low_price, close_price,
-        volume, amount, created_at, updated_at
-    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW(), NOW())
+        volume, amount, pre_close_price, is_suspended,
+        created_at, updated_at
+    ) VALUES (
+        $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, NOW(), NOW()
+    )
     ON CONFLICT (market, symbol, timeframe, kline_time) DO UPDATE SET
         open_price = EXCLUDED.open_price,
         high_price = EXCLUDED.high_price,
@@ -131,6 +134,8 @@ async def insert_kline_records(records):
         close_price = EXCLUDED.close_price,
         volume = EXCLUDED.volume,
         amount = EXCLUDED.amount,
+        pre_close_price = EXCLUDED.pre_close_price,
+        is_suspended = EXCLUDED.is_suspended,
         updated_at = NOW()
     """
     
@@ -149,7 +154,9 @@ async def insert_kline_records(records):
                     record['low_price'],
                     record['close_price'],
                     record['volume'],
-                    record['amount']
+                    record['amount'],
+                    record.get('pre_close_price'),
+                    bool(record.get('is_suspended', False)),
                 )
                 kline_date = record['kline_time'].date() if hasattr(record['kline_time'], 'date') else record['kline_time']
                 logger.debug("Inserted or updated K-line", symbol=record['symbol'], kline_date=str(kline_date))
