@@ -1,5 +1,7 @@
+import { useEffect, useMemo, useState } from 'react';
+import { getCapitalRiver, type CapitalRiverResponse } from '@/api/dashboard';
 import SentimentRadar from '@/components/SentimentRadar';
-import { CapitalRiver } from './components/CapitalRiver';
+import { CapitalRiver, type FundFlowData } from './components/CapitalRiver';
 
 function HistoryPlaybackCard() {
   return (
@@ -97,6 +99,57 @@ function NorthboundFlowCard() {
 }
 
 export default function Dashboard() {
+  const [capitalRiver, setCapitalRiver] = useState<CapitalRiverResponse | null>(null);
+  const [capitalRiverLoading, setCapitalRiverLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const fetchCapitalRiver = async () => {
+      try {
+        setCapitalRiverLoading(true);
+        const data = await getCapitalRiver('AShare', 'TODAY', 3, 10);
+        if (!cancelled) {
+          setCapitalRiver(data);
+        }
+      } catch (error) {
+        if (!cancelled) {
+          setCapitalRiver(null);
+        }
+        console.warn('Failed to fetch capital river data:', error);
+      } finally {
+        if (!cancelled) {
+          setCapitalRiverLoading(false);
+        }
+      }
+    };
+
+    fetchCapitalRiver();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const capitalRiverData: FundFlowData[] = useMemo(() => {
+    if (!capitalRiver?.tracks) return [];
+
+    const mapItems = (items: { sectorName: string; sectorType: string; mainForceNet: number; changePct?: number | null }[]) =>
+      items.map((item) => ({
+        layer: item.sectorType,
+        sector: item.sectorName,
+        inflow: Math.max(item.mainForceNet ?? 0, 0),
+        outflow: Math.max(-(item.mainForceNet ?? 0), 0),
+        netFlow: item.mainForceNet ?? 0,
+        changePct: item.changePct ?? null,
+      }));
+
+    return [
+      ...mapItems(capitalRiver.tracks.industry || []),
+      ...mapItems(capitalRiver.tracks.concept || []),
+      ...mapItems(capitalRiver.tracks.region || []),
+    ];
+  }, [capitalRiver]);
+
   return (
     <div className="h-full px-4 pt-2 pb-2 flex flex-col gap-3 overflow-hidden">
       <div className="grid grid-cols-12 gap-4 flex-1 min-h-0">
@@ -110,7 +163,12 @@ export default function Dashboard() {
         </div>
 
         <div className="col-span-12 xl:col-span-6 min-h-0 [&>*]:h-full">
-          <CapitalRiver />
+          <CapitalRiver
+            data={capitalRiverData}
+            loading={capitalRiverLoading}
+            inflow={capitalRiver?.inflow ?? null}
+            outflow={capitalRiver?.outflow ?? null}
+          />
         </div>
 
         <div className="col-span-12 xl:col-span-3 min-h-0 flex flex-col gap-4">

@@ -6,6 +6,11 @@ import com.koduck.config.properties.DataServiceProperties;
 import com.koduck.dto.ApiResponse;
 import com.koduck.dto.market.BigOrderAlertDto;
 import com.koduck.dto.market.BigOrderStatsDto;
+import com.koduck.dto.market.CapitalRiverBreadthBandsDto;
+import com.koduck.dto.market.CapitalRiverBubbleDto;
+import com.koduck.dto.market.CapitalRiverDto;
+import com.koduck.dto.market.CapitalRiverTrackItemDto;
+import com.koduck.dto.market.CapitalRiverTracksDto;
 import com.koduck.dto.market.DataServiceResponse;
 import com.koduck.dto.market.DailyBreadthDto;
 import com.koduck.dto.market.KlineDataDto;
@@ -18,6 +23,7 @@ import com.koduck.dto.market.StockValuationDto;
 import com.koduck.dto.market.SymbolInfoDto;
 import com.koduck.dto.market.DailyNetFlowDto;
 import com.koduck.dto.market.SectorNetFlowDto;
+import com.koduck.dto.market.SectorNetFlowItemDto;
 import com.koduck.service.KlineSyncService;
 import com.koduck.service.KlineService;
 import com.koduck.service.MarketBreadthService;
@@ -54,6 +60,7 @@ import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -73,7 +80,6 @@ public class MarketController {
     private static final DateTimeFormatter TICK_TIME_FORMATTER = DateTimeFormatter.ofPattern("HH:mm:ss");
     private static final long BLOCK_ORDER_VOLUME_THRESHOLD = 100_000L;
     private static final String FEAR_GREED_INDEX_PATH = "/market/fear-greed-index";
-    private static final String SECTOR_FLOW_PATH = "/market/sector-flow";
     private static final String BREADTH_PATH = "/market/breadth";
     private static final String BIG_ORDERS_PATH = "/market/big-orders";
     private static final String BIG_ORDERS_STATS_PATH = "/market/big-orders/stats";
@@ -399,40 +405,6 @@ public class MarketController {
     }
 
     /**
-     * Get sector capital flow (proxy from data-service dashboard router).
-     */
-    @GetMapping("/sector-flow")
-    public ApiResponse<Map<String, Object>> getSectorFlow(
-            @RequestParam(name = "sort_by", defaultValue = "net_flow") String sortBy,
-            @RequestParam(defaultValue = "10") @Min(1) @Max(100) Integer limit) {
-        log.info("GET /api/v1/market/sector-flow: sortBy={}, limit={}", sortBy, limit);
-        if (!dataServiceProperties.isEnabled()) {
-            return ApiResponse.error(503, "数据服务未启用");
-        }
-        try {
-            String url = UriComponentsBuilder
-                    .fromUriString(dataServiceProperties.getBaseUrl() + SECTOR_FLOW_PATH)
-                    .queryParam("sort_by", sortBy)
-                    .queryParam("limit", limit)
-                    .toUriString();
-            ResponseEntity<DataServiceResponse<Map<String, Object>>> response = dataServiceRestTemplate.exchange(
-                    url,
-                    HttpMethod.GET,
-                    null,
-                    new ParameterizedTypeReference<>() {
-                    });
-            DataServiceResponse<Map<String, Object>> body = response.getBody();
-            if (body == null || !body.isSuccess() || body.data() == null) {
-                return ApiResponse.error(502, "获取资金流失败");
-            }
-            return ApiResponse.success(body.data());
-        } catch (RestClientException e) {
-            log.warn("sector_flow_proxy_failed: {}", e.getMessage());
-            return ApiResponse.error(502, "获取资金流失败");
-        }
-    }
-
-    /**
      * Get sector net-flow snapshot from local DB.
      */
     @GetMapping("/sector-net-flow")
@@ -454,6 +426,66 @@ public class MarketController {
             return ApiResponse.error(404, "未找到板块净流向数据");
         }
         return ApiResponse.success(result);
+    }
+
+    /**
+     * Get capital-river payload (DB-backed).
+     * <p>Uses sector-net-flow snapshot and keeps inflow/outflow as null
+     * because separated real inflow/outflow values are not available yet.</p>
+     */
+    @GetMapping("/capital-river")
+    public ApiResponse<CapitalRiverDto> getCapitalRiver(
+            @RequestParam(defaultValue = "AShare") String market,
+            @RequestParam(defaultValue = "TODAY") String indicator,
+            @RequestParam(defaultValue = "3") @Min(1) @Max(10) Integer bubbleCount,
+            @RequestParam(defaultValue = "10") @Min(1) @Max(100) Integer listLimit,
+            @RequestParam(required = false)
+            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
+            LocalDate tradeDate) {
+        log.info("GET /api/v1/market/capital-river: market={}, indicator={}, bubbleCount={}, listLimit={}, tradeDate={}",
+                market, indicator, bubbleCount, listLimit, tradeDate);
+
+        SectorNetFlowDto snapshot = tradeDate == null
+                ? marketSectorNetFlowService.getLatest(market, indicator, listLimit)
+                : marketSectorNetFlowService.getByTradeDate(market, indicator, tradeDate, listLimit);
+
+        if (snapshot == null) {
+            return ApiResponse.error(404, "未找到资金河流图数据");
+        }
+
+        List<CapitalRiverTrackItemDto> industry = toTrackItems(snapshot.industry());
+        List<CapitalRiverTrackItemDto> concept = toTrackItems(snapshot.concept());
+        List<CapitalRiverTrackItemDto> region = toTrackItems(snapshot.region());
+
+        List<CapitalRiverBubbleDto> bubbles = allTrackItems(industry, concept, region).stream()
+                .sorted(Comparator.comparing(this::absMainForceNet).reversed())
+                .limit(Math.max(1, bubbleCount))
+                .map(item -> new CapitalRiverBubbleDto(
+                        item.sectorName(),
+                        item.sectorType(),
+                        item.mainForceNet(),
+                        item.changePct()
+                ))
+                .toList();
+
+        CapitalRiverDto payload = new CapitalRiverDto(
+                snapshot.market(),
+                snapshot.indicator(),
+                snapshot.tradeDate(),
+                null,
+                null,
+                bubbles,
+                new CapitalRiverTracksDto(industry, concept, region),
+                new CapitalRiverBreadthBandsDto(
+                        "Max Gainers (+10%)",
+                        "Sector Breadth Distribution",
+                        "Max Losers (-10%)",
+                        List.of(100, 90, 82, 72, 60, 50, 40, 34, 28, 22, 16)
+                ),
+                snapshot.source(),
+                snapshot.quality()
+        );
+        return ApiResponse.success(payload);
     }
 
     /**
@@ -773,6 +805,37 @@ public class MarketController {
                 .map(this::coerceKlineDataDto)
                 .filter(Objects::nonNull)
                 .toList();
+    }
+
+    private List<CapitalRiverTrackItemDto> toTrackItems(List<SectorNetFlowItemDto> items) {
+        if (items == null || items.isEmpty()) {
+            return List.of();
+        }
+        return items.stream()
+                .map(item -> new CapitalRiverTrackItemDto(
+                        item.sectorName(),
+                        item.sectorType(),
+                        item.mainForceNet(),
+                        item.changePct()
+                ))
+                .toList();
+    }
+
+    private List<CapitalRiverTrackItemDto> allTrackItems(
+            List<CapitalRiverTrackItemDto> industry,
+            List<CapitalRiverTrackItemDto> concept,
+            List<CapitalRiverTrackItemDto> region
+    ) {
+        List<CapitalRiverTrackItemDto> all = new ArrayList<>();
+        all.addAll(industry);
+        all.addAll(concept);
+        all.addAll(region);
+        return all;
+    }
+
+    private BigDecimal absMainForceNet(CapitalRiverTrackItemDto item) {
+        BigDecimal net = item.mainForceNet();
+        return net == null ? BigDecimal.ZERO : net.abs();
     }
 
     @SuppressWarnings("unchecked")

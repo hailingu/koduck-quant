@@ -66,6 +66,46 @@ export interface SectorNetFlowResponse {
   quality: string;
 }
 
+export interface CapitalRiverBubble {
+  sectorName: string;
+  sectorType: 'industry' | 'concept' | 'region' | string;
+  mainForceNet: number;
+  changePct?: number | null;
+}
+
+export interface CapitalRiverTrackItem {
+  sectorName: string;
+  sectorType: 'industry' | 'concept' | 'region' | string;
+  mainForceNet: number;
+  changePct?: number | null;
+}
+
+export interface CapitalRiverTracks {
+  industry: CapitalRiverTrackItem[];
+  concept: CapitalRiverTrackItem[];
+  region: CapitalRiverTrackItem[];
+}
+
+export interface CapitalRiverBreadthBands {
+  leftLabel: string;
+  centerLabel: string;
+  rightLabel: string;
+  values: number[];
+}
+
+export interface CapitalRiverResponse {
+  market: string;
+  indicator: string;
+  tradeDate: string;
+  inflow?: number | null;
+  outflow?: number | null;
+  bubbles: CapitalRiverBubble[];
+  tracks: CapitalRiverTracks;
+  breadthBands: CapitalRiverBreadthBands;
+  source: string;
+  quality: string;
+}
+
 export interface DailyNetFlow {
   market: string;
   flowType: string;
@@ -176,6 +216,21 @@ export async function getSectorNetFlow(
 ): Promise<SectorNetFlowResponse> {
   return apiClient.get<SectorNetFlowResponse>('/api/v1/market/sector-net-flow', {
     params: { market, indicator, limit },
+    timeout: 4000,
+  });
+}
+
+/**
+ * Get capital-river payload (DB-backed).
+ */
+export async function getCapitalRiver(
+  market: string = 'AShare',
+  indicator: string = 'TODAY',
+  bubbleCount: number = 3,
+  listLimit: number = 10
+): Promise<CapitalRiverResponse> {
+  return apiClient.get<CapitalRiverResponse>('/api/v1/market/capital-river', {
+    params: { market, indicator, bubbleCount, listLimit },
     timeout: 4000,
   });
 }

@@ -6,12 +6,15 @@ export interface FundFlowData {
   inflow: number;
   outflow: number;
   netFlow: number;
+  changePct?: number | null;
   color?: string;
 }
 
 interface Props {
   data?: FundFlowData[];
   loading?: boolean;
+  inflow?: number | null;
+  outflow?: number | null;
 }
 
 const FEATURE_BUBBLES = [
@@ -28,7 +31,34 @@ const PARTICLES = [
   { className: 'cr-particle-5' },
 ];
 
-export function CapitalRiver({ data: _data = [], loading: _loading = false }: Props) {
+const formatAmount = (value: number | null | undefined) => {
+  if (value === null || value === undefined) return '-';
+  if (!Number.isFinite(value)) return '-';
+  const abs = Math.abs(value);
+  if (abs >= 1e8) return `${(value / 1e8).toFixed(1)}亿`;
+  if (abs >= 1e4) return `${(value / 1e4).toFixed(1)}万`;
+  return value.toFixed(0);
+};
+
+const formatChangePct = (value: number | null | undefined) => {
+  if (value === null || value === undefined || !Number.isFinite(value)) return '--';
+  const sign = value > 0 ? '+' : '';
+  return `${sign}${value.toFixed(1)}%`;
+};
+
+export function CapitalRiver({ data = [], loading = false, inflow = null, outflow = null }: Props) {
+  const bubbles = data.length > 0
+    ? [...data]
+        .sort((a, b) => Math.abs(b.netFlow) - Math.abs(a.netFlow))
+        .slice(0, 3)
+        .map((item, index) => ({
+          label: item.sector.length > 8 ? `${item.sector.slice(0, 8)}…` : item.sector,
+          value: formatChangePct(item.changePct),
+          tone: item.netFlow >= 0 ? 'cyan' : 'rose',
+          className: index === 0 ? 'cr-bubble-finance' : index === 1 ? 'cr-bubble-tech' : 'cr-bubble-energy',
+        }))
+    : FEATURE_BUBBLES;
+
   return (
     <div className="glass-panel p-6 rounded-xl h-full flex flex-col justify-between overflow-hidden">
       <div className="flex items-start justify-between mb-4">
@@ -39,16 +69,21 @@ export function CapitalRiver({ data: _data = [], loading: _loading = false }: Pr
         <div className="flex items-center gap-2">
           <div className="bg-surface-container px-3 py-1 rounded text-[10px] font-label text-primary flex items-center gap-1">
             <span className="w-1.5 h-1.5 rounded-full bg-primary shadow-[0_0_4px_rgba(0,242,255,1)]" />
-            INFLOW: $4.2B
+            INFLOW: {formatAmount(inflow)}
           </div>
           <div className="bg-surface-container px-3 py-1 rounded text-[10px] font-label text-secondary flex items-center gap-1">
             <span className="w-1.5 h-1.5 rounded-full bg-secondary shadow-[0_0_4px_rgba(255,179,181,1)]" />
-            OUTFLOW: $2.1B
+            OUTFLOW: {formatAmount(outflow)}
           </div>
         </div>
       </div>
 
       <div className="capital-river-scene mt-2 flex-1 min-h-[300px]">
+        {loading && (
+          <div className="absolute inset-0 z-20 flex items-center justify-center bg-surface-container-lowest/35 backdrop-blur-[1px]">
+            <div className="text-xs text-fluid-text-muted font-mono-data">Loading...</div>
+          </div>
+        )}
         <svg
           className="absolute inset-0 h-full w-full pointer-events-none"
           viewBox="0 0 1200 560"
@@ -73,7 +108,7 @@ export function CapitalRiver({ data: _data = [], loading: _loading = false }: Pr
         ))}
 
         <div className="absolute w-full h-full flex items-center justify-around z-10 px-12">
-          {FEATURE_BUBBLES.map((bubble) => (
+          {bubbles.map((bubble) => (
             <div
               key={bubble.label}
               className={`cr-bubble ${bubble.className} ${
