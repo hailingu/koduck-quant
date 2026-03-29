@@ -2,9 +2,12 @@ package com.koduck.config;
 
 import com.koduck.entity.Role;
 import com.koduck.entity.User;
+import com.koduck.entity.UserCredential;
+import com.koduck.repository.CredentialRepository;
 import com.koduck.repository.RoleRepository;
 import com.koduck.repository.UserRepository;
 import com.koduck.repository.UserRoleRepository;
+import com.koduck.util.CredentialEncryptionUtil;
 import jakarta.annotation.PostConstruct;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -17,6 +20,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
 import com.koduck.util.ReservedUsernameValidator;
+import java.util.Map;
 import java.util.Optional;
 
 /**
@@ -50,6 +54,7 @@ public class DataInitializer implements CommandLineRunner {
     private final UserRepository userRepository;
     private final RoleRepository roleRepository;
     private final UserRoleRepository userRoleRepository;
+    private final CredentialRepository credentialRepository;
     private final PasswordEncoder passwordEncoder;
     private final JdbcTemplate jdbcTemplate;
 
@@ -66,11 +71,13 @@ public class DataInitializer implements CommandLineRunner {
             UserRepository userRepository,
             RoleRepository roleRepository,
             UserRoleRepository userRoleRepository,
+            CredentialRepository credentialRepository,
             PasswordEncoder passwordEncoder,
             JdbcTemplate jdbcTemplate) {
         this.userRepository = userRepository;
         this.roleRepository = roleRepository;
         this.userRoleRepository = userRoleRepository;
+        this.credentialRepository = credentialRepository;
         this.passwordEncoder = passwordEncoder;
         this.jdbcTemplate = jdbcTemplate;
     }
@@ -114,6 +121,14 @@ public class DataInitializer implements CommandLineRunner {
             createDemoUserIfNotExists();
         } catch (Exception e) {
             log.error("Failed to initialize demo user", e);
+            // do not abort startup on failure
+        }
+
+        // 初始化环境变量中的 LLM API Key 到 user_credentials 表
+        try {
+            initializeLlmCredentialsFromEnv();
+        } catch (Exception e) {
+            log.error("Failed to initialize LLM credentials from environment", e);
             // do not abort startup on failure
         }
     }
@@ -187,4 +202,141 @@ public class DataInitializer implements CommandLineRunner {
         );
         return count != null && count > 0;
     }
+
+    /**
+     * 将环境变量中的 LLM API Key 初始化到 user_credentials 表
+     * <p>
+     * 支持的环境变量:
+     * - OPENAI_API_KEY / GPT_API_KEY
+     * - MINIMAX_API_KEY
+     * - DEEPSEEK_API_KEY
+     * - LLM_API_KEY (通用 fallback)
+     * <p>
+     * 对应的 API Base 环境变量:
+     * - OPENAI_API_BASE
+     * - MINIMAX_API_BASE
+     * - DEEPSEEK_API_BASE
+     * - LLM_API_BASE
+     */
+    private void initializeLlmCredentialsFromEnv() {
+        // 查找 demo 用户或第一个可用的用户
+        Optional<User> targetUser = userRepository.findByUsername(demoUsername);
+        if (targetUser.isEmpty()) {
+            log.warn("No demo user found, skipping LLM credentials initialization");
+            return;
+        }
+        Long userId = targetUser.get().getId();
+
+        // 定义要检查的 provider 及其环境变量
+        Map<String, ProviderEnvConfig> providerConfigs = Map.of(
+            "openai", new ProviderEnvConfig(
+                System.getenv("OPENAI_API_KEY"),
+                System.getenv("GPT_API_KEY"),
+                firstNonBlank(System.getenv("OPENAI_API_BASE"), System.getenv("LLM_API_BASE")),
+                "https://api.openai.com/v1"
+            ),
+            "minimax", new ProviderEnvConfig(
+                System.getenv("MINIMAX_API_KEY"),
+                System.getenv("LLM_API_KEY"),
+                firstNonBlank(System.getenv("MINIMAX_API_BASE"), System.getenv("LLM_API_BASE")),
+                "https://api.minimax.chat/v1"
+            ),
+            "deepseek", new ProviderEnvConfig(
+                System.getenv("DEEPSEEK_API_KEY"),
+                System.getenv("LLM_API_KEY"),
+                firstNonBlank(System.getenv("DEEPSEEK_API_BASE"), System.getenv("LLM_API_BASE")),
+                "https://api.deepseek.com/v1"
+            )
+        );
+
+        int initializedCount = 0;
+        for (Map.Entry<String, ProviderEnvConfig> entry : providerConfigs.entrySet()) {
+            String provider = entry.getKey();
+            ProviderEnvConfig config = entry.getValue();
+            
+            // 获取实际的 API Key（优先特定 provider，其次通用）
+            String apiKey = firstNonBlank(config.specificKey(), config.fallbackKey());
+            if (!StringUtils.hasText(apiKey)) {
+                log.debug("No API key found for provider: {}", provider);
+                continue;
+            }
+            
+            // 记录原始 API Key 信息（只打印长度和前 8 位，不打印完整 key）
+            log.info("Found API key for provider: {}, length: {}, prefix: {}...", 
+                provider, apiKey.length(), 
+                apiKey.substring(0, Math.min(8, apiKey.length())));
+
+            // 检查是否已存在该 provider 的凭证
+            long count = credentialRepository.countByUserIdAndProvider(userId, provider);
+            if (count > 0) {
+                log.debug("Credential already exists for provider: {}, userId: {}", provider, userId);
+                continue;
+            }
+
+            try {
+                // 加密 API Key
+                log.debug("Encrypting API key for provider: {}, original length: {}", provider, apiKey.length());
+                String encryptedKey = CredentialEncryptionUtil.encrypt(apiKey);
+                log.debug("Encrypted API key length: {}", encryptedKey.length());
+                
+                // 验证加密/解密一致性（测试用）
+                String decryptedTest = CredentialEncryptionUtil.decrypt(encryptedKey);
+                if (!apiKey.equals(decryptedTest)) {
+                    log.error("Encryption verification failed for provider: {}. Original length: {}, Decrypted length: {}", 
+                        provider, apiKey.length(), decryptedTest.length());
+                    continue;
+                }
+                
+                // 确定 API Base
+                String apiBase = firstNonBlank(config.apiBase(), config.defaultBase());
+                
+                // 创建凭证实体
+                UserCredential credential = UserCredential.builder()
+                    .userId(userId)
+                    .name(provider.toUpperCase() + " API Key (Auto)")
+                    .type(UserCredential.CredentialType.AI_PROVIDER)
+                    .provider(provider)
+                    .apiKeyEncrypted(encryptedKey)
+                    .environment(UserCredential.Environment.live)
+                    .isActive(true)
+                    .additionalConfig(apiBase != null ? Map.of("apiBase", apiBase) : Map.of())
+                    .lastVerifiedStatus(UserCredential.VerificationStatus.PENDING)
+                    .build();
+
+                credentialRepository.save(credential);
+                initializedCount++;
+                log.info("Initialized LLM credential from environment: provider={}, userId={}", provider, userId);
+            } catch (Exception e) {
+                log.error("Failed to initialize credential for provider: {}", provider, e);
+            }
+        }
+
+        if (initializedCount > 0) {
+            log.info("Successfully initialized {} LLM credential(s) from environment variables", initializedCount);
+        } else {
+            log.debug("No new LLM credentials to initialize from environment");
+        }
+    }
+
+    private String firstNonBlank(String... values) {
+        if (values == null) {
+            return null;
+        }
+        for (String value : values) {
+            if (StringUtils.hasText(value)) {
+                return value.trim();
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Provider 环境变量配置记录
+     */
+    private record ProviderEnvConfig(
+        String specificKey,    // 特定 provider 的 key，如 OPENAI_API_KEY
+        String fallbackKey,    // fallback key，如 LLM_API_KEY
+        String apiBase,        // API base URL
+        String defaultBase     // 默认 base URL
+    ) {}
 }

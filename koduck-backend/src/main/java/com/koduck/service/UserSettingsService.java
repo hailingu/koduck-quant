@@ -1,8 +1,11 @@
 package com.koduck.service;
 
 import com.koduck.dto.settings.*;
+import com.koduck.entity.UserCredential;
 import com.koduck.entity.UserSettings;
+import com.koduck.repository.CredentialRepository;
 import com.koduck.repository.UserSettingsRepository;
+import com.koduck.util.CredentialEncryptionUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.env.Environment;
@@ -11,6 +14,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Locale;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -25,6 +29,7 @@ public class UserSettingsService {
     private static final Set<String> SUPPORTED_LLM_PROVIDERS = Set.of("minimax", "deepseek", "openai");
     private static final Set<String> SUPPORTED_MEMORY_MODES = Set.of("L0", "L1", "L2", "L3");
     private final UserSettingsRepository settingsRepository;
+    private final CredentialRepository credentialRepository;
     private final Environment environment;
 
     /**
@@ -263,11 +268,16 @@ public class UserSettingsService {
         String activeProvider = normalizeLlmProvider(firstNonBlank(provider, llmConfig.getProvider()));
         llmConfig.setProvider(activeProvider);
 
+        // 1. 优先从 user_credentials 表读取加密的 LLM API Key
+        String credentialsApiKey = getLlmApiKeyFromCredentials(userId, activeProvider);
+        String credentialsApiBase = getLlmApiBaseFromCredentials(userId, activeProvider);
+
         UserSettings.ProviderConfig providerConfig = getProviderConfig(llmConfig, activeProvider);
         String legacyProvider = normalizeLlmProvider(llmConfig.getProvider());
         String legacyApiKey = legacyProvider.equals(activeProvider) ? normalizeBlank(llmConfig.getApiKey()) : null;
         String legacyApiBase = legacyProvider.equals(activeProvider) ? normalizeBlank(llmConfig.getApiBase()) : null;
 
+        // 2. 从 user_settings 表读取（作为 fallback）
         String settingsApiKey = firstNonBlank(
             normalizeBlank(providerConfig != null ? providerConfig.getApiKey() : null),
             legacyApiKey
@@ -277,23 +287,65 @@ public class UserSettingsService {
             legacyApiBase
         );
 
+        // 3. 优先级：credentials > user_settings > 环境变量
         String apiKey;
         String apiBase;
         if ("minimax".equals(activeProvider)) {
             apiKey = firstNonBlank(
-                settingsApiKey,
+                credentialsApiKey,      // 优先：user_credentials 表（加密存储）
+                settingsApiKey,         // 其次：user_settings 表
                 environment.getProperty("MINIMAX_API_KEY"),
                 environment.getProperty("LLM_API_KEY")
             );
             apiBase = firstNonBlank(
-                settingsApiBase,
+                credentialsApiBase,     // 优先：user_credentials 表
+                settingsApiBase,        // 其次：user_settings 表
                 environment.getProperty("MINIMAX_API_BASE"),
                 environment.getProperty("LLM_API_BASE"),
                 defaultApiBaseForProvider(activeProvider)
             );
+        } else if ("openai".equals(activeProvider)) {
+            apiKey = firstNonBlank(
+                credentialsApiKey,      // 优先：user_credentials 表
+                settingsApiKey,         // 其次：user_settings 表
+                environment.getProperty("OPENAI_API_KEY"),
+                environment.getProperty("GPT_API_KEY"),
+                environment.getProperty("LLM_API_KEY")
+            );
+            apiBase = firstNonBlank(
+                credentialsApiBase,     // 优先：user_credentials 表
+                settingsApiBase,        // 其次：user_settings 表
+                environment.getProperty("OPENAI_API_BASE"),
+                environment.getProperty("LLM_API_BASE"),
+                defaultApiBaseForProvider(activeProvider)
+            );
+        } else if ("deepseek".equals(activeProvider)) {
+            apiKey = firstNonBlank(
+                credentialsApiKey,      // 优先：user_credentials 表
+                settingsApiKey,         // 其次：user_settings 表
+                environment.getProperty("DEEPSEEK_API_KEY"),
+                environment.getProperty("LLM_API_KEY")
+            );
+            apiBase = firstNonBlank(
+                credentialsApiBase,     // 优先：user_credentials 表
+                settingsApiBase,        // 其次：user_settings 表
+                environment.getProperty("DEEPSEEK_API_BASE"),
+                environment.getProperty("LLM_API_BASE"),
+                defaultApiBaseForProvider(activeProvider)
+            );
         } else {
-            apiKey = settingsApiKey;
-            apiBase = firstNonBlank(settingsApiBase, defaultApiBaseForProvider(activeProvider));
+            // 其他 provider，使用通用 fallback
+            apiKey = firstNonBlank(
+                credentialsApiKey,
+                settingsApiKey,
+                environment.getProperty("LLM_API_KEY")
+            );
+            apiBase = firstNonBlank(
+                credentialsApiBase,
+                settingsApiBase,
+                environment.getProperty("LLM_API_BASE"),
+                defaultApiBaseForProvider(activeProvider)
+            );
         }
 
         return UserSettingsDto.LlmConfigDto.builder()
@@ -600,5 +652,71 @@ public class UserSettingsService {
             case "minimax" -> "https://api.minimax.chat/v1";
             default -> "https://api.minimax.chat/v1";
         };
+    }
+
+    /**
+     * 从 user_credentials 表读取指定用户的 LLM API Key
+     * 
+     * @param userId 用户ID
+     * @param provider LLM 提供商 (minimax/deepseek/openai)
+     * @return 解密后的 API Key，如果未找到则返回 null
+     */
+    private String getLlmApiKeyFromCredentials(Long userId, String provider) {
+        try {
+            List<UserCredential> credentials = credentialRepository.findByUserIdAndType(
+                userId, 
+                UserCredential.CredentialType.AI_PROVIDER
+            );
+            
+            Optional<UserCredential> matchedCredential = credentials.stream()
+                .filter(c -> c.getProvider().equalsIgnoreCase(provider))
+                .filter(c -> Boolean.TRUE.equals(c.getIsActive()))
+                .findFirst();
+            
+            if (matchedCredential.isPresent()) {
+                UserCredential credential = matchedCredential.get();
+                String decryptedKey = CredentialEncryptionUtil.decrypt(credential.getApiKeyEncrypted());
+                log.debug("Loaded LLM API key from user_credentials: userId={}, provider={}", userId, provider);
+                return decryptedKey;
+            }
+        } catch (Exception e) {
+            log.warn("Failed to get LLM API key from credentials for user {}: {}", userId, e.getMessage());
+        }
+        return null;
+    }
+
+    /**
+     * 从 user_credentials 表读取指定用户的 LLM API Base URL
+     * 
+     * @param userId 用户ID
+     * @param provider LLM 提供商 (minimax/deepseek/openai)
+     * @return API Base URL，如果未找到则返回 null
+     */
+    private String getLlmApiBaseFromCredentials(Long userId, String provider) {
+        try {
+            List<UserCredential> credentials = credentialRepository.findByUserIdAndType(
+                userId, 
+                UserCredential.CredentialType.AI_PROVIDER
+            );
+            
+            Optional<UserCredential> matchedCredential = credentials.stream()
+                .filter(c -> c.getProvider().equalsIgnoreCase(provider))
+                .filter(c -> Boolean.TRUE.equals(c.getIsActive()))
+                .findFirst();
+            
+            if (matchedCredential.isPresent()) {
+                UserCredential credential = matchedCredential.get();
+                // 从 additional_config JSON 字段中读取 apiBase
+                if (credential.getAdditionalConfig() != null) {
+                    Object apiBase = credential.getAdditionalConfig().get("apiBase");
+                    if (apiBase != null && !apiBase.toString().isBlank()) {
+                        return apiBase.toString();
+                    }
+                }
+            }
+        } catch (Exception e) {
+            log.warn("Failed to get LLM API base from credentials for user {}: {}", userId, e.getMessage());
+        }
+        return null;
     }
 }
