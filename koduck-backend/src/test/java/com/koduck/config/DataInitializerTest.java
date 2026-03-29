@@ -12,6 +12,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
 import java.lang.reflect.Field;
@@ -48,6 +49,9 @@ class DataInitializerTest {
     @Mock
     private PasswordEncoder passwordEncoder;
 
+    @Mock
+    private JdbcTemplate jdbcTemplate;
+
     private DataInitializer dataInitializer;
 
     @BeforeEach
@@ -56,7 +60,8 @@ class DataInitializerTest {
                 userRepository,
                 roleRepository,
                 userRoleRepository,
-                passwordEncoder
+            passwordEncoder,
+            jdbcTemplate
         );
     }
 
