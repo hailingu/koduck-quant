@@ -13,6 +13,7 @@ import logging
 import os
 import re
 import sys
+import time
 import uuid
 from contextlib import asynccontextmanager
 from typing import Any
@@ -27,7 +28,9 @@ from koduck.schema import FunctionCall, LLMProvider, Message, ToolCall
 from koduck.quant_tools import (
     QUANT_TOOL_DEFS,
     execute_tool,
+    get_tool_definition,
 )
+from koduck.tool_policy import append_tool_audit, can_execute_tool
 
 logger = logging.getLogger(__name__)
 
@@ -198,6 +201,10 @@ class ChatCompletionRequest(BaseModel):
     temperature: float | None = Field(None, description="采样温度")
     max_tokens: int | None = Field(None, description="最大生成 token 数")
     stream: bool = Field(False, description="是否流式输出（暂不支持）")
+    runtimeOptions: dict[str, Any] | None = Field(
+        None,
+        description="可选：运行时工具/策略配置",
+    )
 
     class Config:
         json_schema_extra = {
@@ -241,6 +248,10 @@ class SimpleChatRequest(BaseModel):
     sessionId: str | None = Field(None, description="可选：会话 ID（不传则自动生成）")
     apiKey: str | None = Field(None, description="可选：覆盖环境变量的 API Key")
     apiBase: str | None = Field(None, description="可选：覆盖环境变量的 API Base URL")
+    runtimeOptions: dict[str, Any] | None = Field(
+        None,
+        description="可选：运行时工具/策略配置",
+    )
 
 
 class SimpleChatData(BaseModel):
@@ -329,14 +340,55 @@ def _ensure_tool_call_id(tool_call: ToolCall) -> ToolCall:
 async def _run_chat_with_tool_loop(
     client: Any,
     messages: list[Message],
-) -> tuple[Any, list[dict[str, Any]]]:
+    runtime_options: dict[str, Any] | None = None,
+) -> tuple[Any, list[dict[str, Any]], str]:
     """Execute tool-calling loop and return final assistant response."""
+    runtime_options = runtime_options or {}
+    run_id = str(runtime_options.get("runId") or f"run_{uuid.uuid4().hex[:12]}")
+    tools_enabled = bool(runtime_options.get("enableTools", True))
+
     history = list(messages)
     tool_round = 0
-    executed_tools: list[dict[str, Any]] = []
-    final_response = await client.generate(history, tools=QUANT_TOOL_DEFS)
+    runtime_events: list[dict[str, Any]] = []
+    runtime_events.append({"type": "run.started", "run_id": run_id})
+
+    for idx, sub_agent in enumerate(runtime_options.get("subAgents", []) or []):
+        if not isinstance(sub_agent, dict):
+            continue
+        agent_name = str(sub_agent.get("name") or f"subagent_{idx + 1}")
+        agent_role = str(sub_agent.get("role") or "general")
+        runtime_events.append(
+            {
+                "type": "agent.spawned",
+                "run_id": run_id,
+                "agent": agent_name,
+                "role": agent_role,
+            }
+        )
+        runtime_events.append(
+            {
+                "type": "agent.completed",
+                "run_id": run_id,
+                "agent": agent_name,
+                "role": agent_role,
+            }
+        )
+
+    if runtime_options.get("subAgents"):
+        runtime_events.append(
+            {
+                "type": "agent.merge.completed",
+                "run_id": run_id,
+                "strategy": runtime_options.get("mergeStrategy", "lead-agent-summary"),
+            }
+        )
+
+    active_tools = QUANT_TOOL_DEFS if tools_enabled else []
+    final_response = await client.generate(history, tools=active_tools)
 
     while final_response.tool_calls and tool_round < MAX_TOOL_CALL_ROUNDS:
+        if not tools_enabled:
+            break
         tool_round += 1
         tool_calls = [_ensure_tool_call_id(tc) for tc in final_response.tool_calls]
         history.append(
@@ -349,7 +401,51 @@ async def _run_chat_with_tool_loop(
         )
 
         for tc in tool_calls:
-            tool_content = await execute_tool(tc.function.name, tc.function.arguments)
+            tool_def = get_tool_definition(tc.function.name)
+            tool_meta = (tool_def.metadata or {}) if tool_def is not None else {}
+            tool_source = str(tool_meta.get("source") or "")
+            tool_publisher = str(tool_meta.get("publisher") or "")
+            tool_version = str(tool_meta.get("version") or "")
+            tool_checksum = str(tool_meta.get("checksum") or "")
+            allowed, reason = can_execute_tool(tc.function.name, runtime_options)
+            runtime_events.append(
+                {
+                    "type": "tool.requested",
+                    "run_id": run_id,
+                    "tool_name": tc.function.name,
+                    "tool_call_id": tc.id,
+                    "arguments": tc.function.arguments,
+                }
+            )
+
+            started_at = time.perf_counter()
+            if not allowed:
+                tool_content = json.dumps(
+                    {
+                        "ok": False,
+                        "error": f"Tool policy denied: {reason}",
+                        "tool": tc.function.name,
+                    },
+                    ensure_ascii=False,
+                )
+            else:
+                tool_content = await execute_tool(tc.function.name, tc.function.arguments)
+
+            elapsed_ms = int((time.perf_counter() - started_at) * 1000)
+
+            append_tool_audit(
+                run_id=run_id,
+                tool_name=tc.function.name,
+                tool_call_id=tc.id,
+                allowed=allowed,
+                reason=reason,
+                elapsed_ms=elapsed_ms,
+                source=tool_source,
+                publisher=tool_publisher,
+                version=tool_version,
+                checksum=tool_checksum,
+            )
+
             result_ok = False
             result_error = ""
             try:
@@ -360,7 +456,9 @@ async def _run_chat_with_tool_loop(
             except Exception:
                 parsed_result = None
 
-            tool_event = {
+            completed_event = {
+                "type": "tool.completed",
+                "run_id": run_id,
                 "round": tool_round,
                 "tool_name": tc.function.name,
                 "tool_call_id": tc.id,
@@ -368,8 +466,15 @@ async def _run_chat_with_tool_loop(
                 "ok": result_ok,
                 "error": result_error,
                 "result_preview": tool_content[:500],
+                "elapsed_ms": elapsed_ms,
+                "allowed": allowed,
+                "policy_reason": reason,
+                "source": tool_source,
+                "publisher": tool_publisher,
+                "version": tool_version,
+                "checksum": tool_checksum,
             }
-            executed_tools.append(tool_event)
+            runtime_events.append(completed_event)
             history.append(
                 Message(
                     role="tool",
@@ -378,21 +483,30 @@ async def _run_chat_with_tool_loop(
                 )
             )
             logger.info(
-                "[ToolLoop] Executed tool: name=%s id=%s ok=%s error=%s",
+                "[ToolLoop] Executed tool: name=%s id=%s ok=%s allowed=%s error=%s",
                 tc.function.name,
                 tc.id,
                 result_ok,
+                allowed,
                 result_error[:160],
             )
 
-        final_response = await client.generate(history, tools=QUANT_TOOL_DEFS)
+        final_response = await client.generate(history, tools=active_tools)
 
     if final_response.tool_calls:
         logger.warning(
             "[ToolLoop] Reached max rounds with remaining tool_calls: rounds=%s",
             tool_round,
         )
-    return final_response, executed_tools
+    runtime_events.append(
+        {
+            "type": "run.completed",
+            "run_id": run_id,
+            "tool_rounds": tool_round,
+            "finish_reason": final_response.finish_reason,
+        }
+    )
+    return final_response, runtime_events, run_id
 
 
 @asynccontextmanager
@@ -500,9 +614,10 @@ async def chat_completions(request: ChatCompletionRequest):
         logger.info(
             f"[ChatCompletions] 开始调用 LLM+ToolLoop: provider={request.provider}, model={client.model}, session_id={session_id}"
         )
-        response, executed_tools = await _run_chat_with_tool_loop(
+        response, executed_tools, _ = await _run_chat_with_tool_loop(
             client,
             messages,
+            request.runtimeOptions or {},
         )
         logger.info(f"[ChatCompletions] LLM : finish_reason={response.finish_reason}")
         logger.debug(f"[ChatCompletions] LLM : {response.content[:200]}..." if response.content and len(response.content) > 200 else f"[ChatCompletions] LLM : {response.content}")
@@ -540,12 +655,13 @@ async def chat_completions(request: ChatCompletionRequest):
             choices=[choice],
             usage=usage,
         )
-        if executed_tools:
+        tool_events = [evt for evt in executed_tools if evt.get("type") == "tool.completed"]
+        if tool_events:
             logger.info(
                 "[ChatCompletions] tool_calls: session_id=%s count=%s details=%s",
                 session_id,
-                len(executed_tools),
-                json.dumps(executed_tools, ensure_ascii=False)[:1200],
+                len(tool_events),
+                json.dumps(tool_events, ensure_ascii=False)[:1200],
             )
         logger.info(f"[ChatCompletions] : model={result.model}, provider={result.provider}")
         return result
@@ -642,9 +758,10 @@ async def simple_chat(request: SimpleChatRequest):
         logger.info(
             f"[SimpleChat] 开始调用 LLM+ToolLoop: provider={request.provider}, model={client.model}, session_id={session_id}"
         )
-        response, executed_tools = await _run_chat_with_tool_loop(
+        response, executed_tools, _ = await _run_chat_with_tool_loop(
             client,
             messages,
+            request.runtimeOptions or {},
         )
         logger.info(f"[SimpleChat] LLM : finish_reason={response.finish_reason}")
         
@@ -662,12 +779,13 @@ async def simple_chat(request: SimpleChatRequest):
                 sessionId=session_id,
             )
         )
-        if executed_tools:
+        tool_events = [evt for evt in executed_tools if evt.get("type") == "tool.completed"]
+        if tool_events:
             logger.info(
                 "[SimpleChat] tool_calls: session_id=%s count=%s details=%s",
                 session_id,
-                len(executed_tools),
-                json.dumps(executed_tools, ensure_ascii=False)[:1200],
+                len(tool_events),
+                json.dumps(tool_events, ensure_ascii=False)[:1200],
             )
         logger.info(f"[SimpleChat] : code={result.code}, model={result.data.model}")
         return result
@@ -744,8 +862,14 @@ async def simple_chat_stream(request: SimpleChatRequest):
             yield f"event: start\ndata: {json.dumps({'model': client.model, 'provider': request.provider, 'session_id': session_id})}\n\n"
             
             # Stream endpoint now also supports tools by using the same tool loop.
-            response, executed_tools = await _run_chat_with_tool_loop(client, messages)
-            for tool_event in executed_tools:
+            response, runtime_events, _ = await _run_chat_with_tool_loop(
+                client,
+                messages,
+                request.runtimeOptions or {},
+            )
+            for tool_event in runtime_events:
+                if tool_event.get("type") != "tool.completed":
+                    continue
                 tool_payload = {
                     "session_id": session_id,
                     **tool_event,
@@ -760,7 +884,7 @@ async def simple_chat_stream(request: SimpleChatRequest):
             yield f"event: done\ndata: {json.dumps({'content': full_content, 'model': client.model, 'provider': request.provider, 'session_id': session_id})}\n\n"
             
             logger.info(
-                f"[SimpleChatStream] : session_id={session_id}, content_length={len(full_content)}, tools={len(executed_tools)}"
+                f"[SimpleChatStream] : session_id={session_id}, content_length={len(full_content)}, tools={len([e for e in runtime_events if e.get('type') == 'tool.completed'])}"
             )
             
         except HTTPException as he:

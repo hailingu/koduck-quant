@@ -4,6 +4,7 @@ uvicorn[standard]==0.32.0
 
 # Data Sources
 akshare==1.18.30
+baostock>=0.8.9
 yfinance==0.2.54
 
 # HTTP Client

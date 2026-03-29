@@ -33,3 +33,4 @@ class ToolDefinition:
     description: str
     policy: ToolExecutionPolicy
     executor: Callable[[dict[str, Any]], Awaitable[str]]
+    metadata: dict[str, Any] | None = None

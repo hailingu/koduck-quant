@@ -6,6 +6,7 @@ from pathlib import Path
 
 from koduck import quant_tools
 from koduck.tool_policy import append_tool_audit, can_execute_tool, read_tool_audits
+from koduck.tool_runtime import ToolDefinition, ToolExecutionPolicy, ToolRiskLevel
 
 
 def test_restricted_skill_blocked_without_runtime_flag(
@@ -56,3 +57,70 @@ def test_tool_audit_append_and_read(monkeypatch, tmp_path: Path) -> None:
     assert len(records) == 1
     assert records[0]["run_id"] == "run_1"
     assert records[0]["tool_name"] == "demo_tool"
+    assert records[0]["source"] == ""
+    assert records[0]["publisher"] == ""
+    assert records[0]["version"] == ""
+    assert records[0]["checksum"] == ""
+
+
+def test_market_skill_requires_runtime_flag(monkeypatch) -> None:
+    async def _noop(args):  # noqa: ANN001, ANN202
+        return "{}"
+
+    tool = ToolDefinition(
+        name="run_skill_market_news",
+        schema={},
+        description="market",
+        policy=ToolExecutionPolicy(risk_level=ToolRiskLevel.RESTRICTED),
+        executor=_noop,
+        metadata={"source": "openclaw", "publisher": "openclaw", "version": "1.0.0"},
+    )
+    monkeypatch.setattr("koduck.tool_policy.get_tool_definition", lambda name: tool)
+
+    allowed, reason = can_execute_tool("run_skill_market_news", runtime={"allowRestrictedTools": True})
+    assert allowed is False
+    assert "allowMarketSkills" in reason
+
+    allowed, _ = can_execute_tool(
+        "run_skill_market_news",
+        runtime={"allowRestrictedTools": True, "allowMarketSkills": True},
+    )
+    assert allowed is True
+
+
+def test_market_skill_publisher_and_version_filters(monkeypatch) -> None:
+    async def _noop(args):  # noqa: ANN001, ANN202
+        return "{}"
+
+    tool = ToolDefinition(
+        name="run_skill_market_news",
+        schema={},
+        description="market",
+        policy=ToolExecutionPolicy(risk_level=ToolRiskLevel.RESTRICTED),
+        executor=_noop,
+        metadata={"source": "openclaw", "publisher": "trusted", "version": "2.0.0"},
+    )
+    monkeypatch.setattr("koduck.tool_policy.get_tool_definition", lambda name: tool)
+
+    allowed, reason = can_execute_tool(
+        "run_skill_market_news",
+        runtime={
+            "allowRestrictedTools": True,
+            "allowMarketSkills": True,
+            "allowedSkillPublishers": ["other"],
+        },
+    )
+    assert allowed is False
+    assert "allowedSkillPublishers" in reason
+
+    allowed, reason = can_execute_tool(
+        "run_skill_market_news",
+        runtime={
+            "allowRestrictedTools": True,
+            "allowMarketSkills": True,
+            "allowedSkillPublishers": ["trusted"],
+            "pinnedSkillVersions": {"run_skill_market_news": "1.9.0"},
+        },
+    )
+    assert allowed is False
+    assert "pinnedSkillVersions" in reason

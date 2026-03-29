@@ -52,6 +52,23 @@ class LLMConfig:
             self.model = defaults.get("model", "")
 
 
+@dataclass
+class SkillMarketConfig:
+    """Skill market integration config."""
+
+    enabled: bool = False
+    base_url: str = ""
+    source_name: str = "openclaw"
+
+
+def load_skill_market_config() -> SkillMarketConfig:
+    """Load skill market config from environment."""
+    enabled = os.getenv("KODUCK_SKILL_MARKET_ENABLED", "false").strip().lower() == "true"
+    base_url = os.getenv("KODUCK_SKILL_MARKET_BASE_URL", "").strip()
+    source_name = os.getenv("KODUCK_SKILL_MARKET_SOURCE", "openclaw").strip() or "openclaw"
+    return SkillMarketConfig(enabled=enabled, base_url=base_url, source_name=source_name)
+
+
 def _parse_retry_config(retry_cfg: dict | None) -> RetryConfig:
     """.
     

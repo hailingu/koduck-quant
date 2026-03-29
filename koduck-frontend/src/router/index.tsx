@@ -11,7 +11,6 @@ import Market from '@/pages/Market'
 import Dashboard from '@/pages/Dashboard'
 import FundFlowAnalysis from '@/pages/FundFlowAnalysis'
 import SectorNetwork from '@/pages/SectorNetwork'
-import HistoryPlayback from '@/pages/HistoryPlayback'
 import AICommandCenter from '@/pages/AICommandCenter'
 import Profile from '@/pages/Profile'
 import { ProtectedRoute, PublicRoute } from './RouteGuards'
@@ -34,7 +33,6 @@ const PRIVATE_LAYOUT_ROUTES: ReadonlyArray<AppRouteConfig> = [
   { path: MARKET_PATH, element: <Market /> },
   { path: '/fundflow', element: <FundFlowAnalysis /> },
   { path: '/sector', element: <SectorNetwork /> },
-  { path: '/history', element: <HistoryPlayback /> },
   { path: '/watchlist', element: <Watchlist /> },
   { path: '/kline', element: <Kline /> },
   { path: '/portfolio', element: <Portfolio /> },

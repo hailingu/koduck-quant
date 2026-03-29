@@ -122,6 +122,16 @@ class KlineSync:
                 return self._normalize_symbol(symbols[0])
         return self._normalize_symbol(csv_path.stem)
 
+    def _extract_symbol_from_path(self, data_path: Path) -> str:
+        """Extract normalized symbol from supported file names.
+
+        Examples:
+        - 601012.csv -> 601012
+        - 601012.SH.csv -> 601012
+        - 601012.SH.parquet.zst -> 601012
+        """
+        return self._normalize_symbol(data_path.name.split(".", maxsplit=1)[0])
+
     def _extract_kline_time(
         self,
         row: pd.Series,
@@ -381,10 +391,14 @@ class KlineSync:
         csv_files = self.find_csv_files(timeframes)
         
         if symbols:
-            csv_files = [f for f in csv_files if f.stem in symbols]
+            symbol_set = {self._normalize_symbol(symbol) for symbol in symbols}
+            csv_files = [
+                f for f in csv_files
+                if self._extract_symbol_from_path(f) in symbol_set
+            ]
 
         if not csv_files:
-            logger.warning("No CSV files found to sync")
+            logger.warning("No kline files found to sync")
             return {
                 "total": 0,
                 "success": 0,

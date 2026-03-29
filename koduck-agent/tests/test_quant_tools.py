@@ -8,6 +8,7 @@ import pytest
 
 from koduck import quant_tools
 from koduck.quant_tools import execute_tool
+from koduck.skills_lock import SkillLockEntry, write_lockfile
 
 
 @pytest.mark.asyncio
@@ -65,6 +66,10 @@ print(json.dumps({"command": args.command, "content": args.content}))
     assert result["status"] == 0
     assert '"command": "ping"' in result["stdout"]
     assert '"content": "hello"' in result["stdout"]
+
+    tool_def = quant_tools.get_tool_definition("run_skill_demo_skill")
+    assert tool_def is not None
+    assert (tool_def.metadata or {}).get("source") == "local"
 
 
 def test_builtin_tools_include_news_search() -> None:
@@ -159,3 +164,130 @@ async def test_search_finance_news_prefers_selected_sources(
     assert result["ok"] is True
     assert result["count"] == 1
     assert result["items"][0]["title"] == "财联社快讯"
+
+
+@pytest.mark.asyncio
+async def test_openclaw_skill_loaded_from_lockfile(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    script_path = tmp_path / "entry.py"
+    script_path.write_text(
+        """import argparse\nimport json\np = argparse.ArgumentParser(); p.add_argument('command'); args = p.parse_args(); print(json.dumps({'command': args.command}))\n""",
+        encoding="utf-8",
+    )
+    lock_path = tmp_path / "skills.lock"
+    write_lockfile(
+        lock_path,
+        {
+            "market-news": SkillLockEntry(
+                skill_id="market-news",
+                source="openclaw",
+                version="1.0.0",
+                publisher="openclaw",
+                artifact_url="https://example.com/entry.py",
+                checksum="abc123",
+                installed_path=str(script_path),
+                installed_at="2026-03-29T00:00:00Z",
+            )
+        },
+    )
+    monkeypatch.setenv("KODUCK_SKILLS_LOCKFILE", str(lock_path))
+    monkeypatch.delenv("KODUCK_SKILL_MARKET_ENABLED", raising=False)
+    quant_tools.refresh_tool_registry()
+
+    tool_names = [tool["function"]["name"] for tool in quant_tools.QUANT_TOOL_DEFS]
+    assert "run_skill_market_news" in tool_names
+    tool_def = quant_tools.get_tool_definition("run_skill_market_news")
+    assert tool_def is not None
+    assert (tool_def.metadata or {}).get("source") == "openclaw"
+    assert (tool_def.metadata or {}).get("checksum") == "abc123"
+
+    result_raw = await execute_tool(
+        "run_skill_market_news",
+        {"command": "ping"},
+    )
+    import json
+
+    result = json.loads(result_raw)
+    assert result["ok"] is True
+
+
+@pytest.mark.asyncio
+async def test_get_quant_signal_reads_from_db(monkeypatch: pytest.MonkeyPatch) -> None:
+    bars: list[quant_tools.kline_db.KlineBar] = []
+    for i in range(1, 121):
+        bars.append(
+            quant_tools.kline_db.KlineBar(
+                timestamp=1700000000 + i * 86400,
+                open=float(i),
+                high=float(i) + 1.0,
+                low=float(i) - 1.0,
+                close=float(i),
+                volume=1000.0 + i,
+                amount=100000.0 + i,
+            )
+        )
+
+    def fake_fetch_kline_bars(**kwargs):  # noqa: ANN003
+        assert kwargs["market"] == "AShare"
+        assert kwargs["symbol"] == "002326"
+        assert kwargs["timeframe"] == "1D"
+        return bars
+
+    monkeypatch.setattr(quant_tools.kline_db, "fetch_kline_bars", fake_fetch_kline_bars)
+
+    raw = await execute_tool("get_quant_signal", {"symbol": "002326"})
+    import json
+
+    result = json.loads(raw)
+    assert result["ok"] is True
+    assert result["symbol"] == "002326"
+    assert result["signal"]["action"] in {
+        "BUY_OR_HOLD",
+        "REDUCE_OR_WAIT",
+        "NEUTRAL_WAIT_CONFIRM",
+    }
+
+
+@pytest.mark.asyncio
+async def test_get_quant_signal_insufficient_db_data(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    bars = [
+        quant_tools.kline_db.KlineBar(
+            timestamp=1700000000 + i * 86400,
+            open=10.0,
+            high=11.0,
+            low=9.0,
+            close=10.0 + i * 0.1,
+            volume=1000.0,
+            amount=10000.0,
+        )
+        for i in range(30)
+    ]
+    monkeypatch.setattr(quant_tools.kline_db, "fetch_kline_bars", lambda **kwargs: bars)
+
+    raw = await execute_tool("get_quant_signal", {"symbol": "002326"})
+    import json
+
+    result = json.loads(raw)
+    assert result["ok"] is False
+    assert "Insufficient kline data" in result["error"]
+
+
+@pytest.mark.asyncio
+async def test_get_quant_signal_db_query_failure(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def raise_db_error(**kwargs):  # noqa: ANN003
+        raise RuntimeError("db down")
+
+    monkeypatch.setattr(quant_tools.kline_db, "fetch_kline_bars", raise_db_error)
+
+    raw = await execute_tool("get_quant_signal", {"symbol": "002326"})
+    import json
+
+    result = json.loads(raw)
+    assert result["ok"] is False
+    assert "Kline database query failed" in result["error"]

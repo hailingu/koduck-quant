@@ -14,23 +14,46 @@ from pathlib import Path
 from typing import Any, Awaitable, Callable
 
 import httpx
-
-try:
-    import yaml
-except Exception:  # pragma: no cover - dependency is expected to exist in runtime
-    yaml = None
+from koduck import kline_db
+from koduck.skill_source import SkillEntry
+from koduck.skill_source_openclaw import OpenClawSkillSource
+from koduck.skill_source_local import LocalSkillSource
+from koduck.skills_lock import read_lockfile
+from koduck.tool_runtime import ToolDefinition, ToolExecutionPolicy, ToolRiskLevel
+from koduck.tool_registry import registry as TOOL_REGISTRY
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_DATA_SERVICE_BASE = "http://data-service:8000"
 DEFAULT_SKILL_TIMEOUT_SECONDS = 20
 
 _TOOL_EXECUTORS: dict[str, Callable[[dict[str, Any]], Awaitable[str]]] = {}
 QUANT_TOOL_DEFS: list[dict[str, Any]] = []
 
 
-def _backend_base_url() -> str:
-    return os.getenv("DATA_SERVICE_BASE", DEFAULT_DATA_SERVICE_BASE).rstrip("/")
+def _register_tool_definition(
+    *,
+    name: str,
+    schema: dict[str, Any],
+    description: str,
+    policy: ToolExecutionPolicy,
+    executor: Callable[[dict[str, Any]], Awaitable[str]],
+    metadata: dict[str, Any] | None = None,
+) -> None:
+    _TOOL_EXECUTORS[name] = executor
+    TOOL_REGISTRY.register(
+        ToolDefinition(
+            name=name,
+            schema=schema,
+            description=description,
+            policy=policy,
+            executor=executor,
+            metadata=metadata or {},
+        )
+    )
+
+
+def get_tool_definition(name: str) -> ToolDefinition | None:
+    return TOOL_REGISTRY.get(name)
 
 
 def _builtin_tool_defs() -> list[dict[str, Any]]:
@@ -126,115 +149,86 @@ def _builtin_tool_defs() -> list[dict[str, Any]]:
     ]
 
 
-def _normalize_skill_name(name: str) -> str:
-    normalized = re.sub(r"[^a-z0-9]+", "_", name.lower()).strip("_")
-    return normalized or "skill"
-
-
-def _skill_roots() -> list[Path]:
-    env_value = os.getenv("KODUCK_SKILLS_DIRS", "").strip()
-    roots: list[Path] = []
-
-    if env_value:
-        for raw in env_value.split(os.pathsep):
-            candidate = Path(raw).expanduser().resolve()
-            if candidate.is_dir():
-                roots.append(candidate)
-    else:
-        # Discover .github/skills by walking up from this file and current working directory.
-        candidates: list[Path] = [Path.cwd()]
-        candidates.extend(Path(__file__).resolve().parents)
-        for base in candidates:
-            skill_root = (base / ".github" / "skills").resolve()
-            if skill_root.is_dir():
-                roots.append(skill_root)
-
-    # Deduplicate while preserving order.
-    deduped: list[Path] = []
-    seen: set[str] = set()
-    for root in roots:
-        key = str(root)
-        if key not in seen:
-            seen.add(key)
-            deduped.append(root)
-    return deduped
-
-
-def _parse_skill_frontmatter(skill_md_path: Path) -> tuple[str, str]:
-    skill_name = skill_md_path.parent.name
-    description = "Run discovered skill command."
-
-    try:
-        raw = skill_md_path.read_text(encoding="utf-8")
-    except Exception:
-        return skill_name, description
-
-    if not raw.startswith("---"):
-        return skill_name, description
-
-    lines = raw.splitlines()
-    end_idx = None
-    for idx, line in enumerate(lines[1:], start=1):
-        if line.strip() == "---":
-            end_idx = idx
-            break
-
-    if end_idx is None:
-        return skill_name, description
-
-    frontmatter = "\n".join(lines[1:end_idx]).strip()
-    if not frontmatter:
-        return skill_name, description
-
-    if yaml is not None:
-        try:
-            parsed = yaml.safe_load(frontmatter) or {}
-            if isinstance(parsed, dict):
-                maybe_name = parsed.get("name")
-                maybe_desc = parsed.get("description")
-                if isinstance(maybe_name, str) and maybe_name.strip():
-                    skill_name = maybe_name.strip()
-                if isinstance(maybe_desc, str) and maybe_desc.strip():
-                    description = maybe_desc.strip()
-        except Exception:
-            logger.debug("Failed to parse skill frontmatter: %s", skill_md_path)
-
-    return skill_name, description
-
-
 def _discover_skill_entries() -> list[dict[str, Any]]:
-    discovered: list[dict[str, Any]] = []
+    discovered = LocalSkillSource().discover()
+    discovered.extend(_discover_openclaw_skill_entries())
+    return [
+        {
+            "tool_name": item.tool_name,
+            "skill_name": item.skill_name,
+            "description": item.description,
+            "script_path": item.script_path,
+            "skill_md": item.skill_md,
+            "source": item.source,
+            "version": item.version,
+            "publisher": item.publisher,
+            "artifact_url": item.artifact_url,
+            "checksum": item.checksum,
+        }
+        for item in discovered
+    ]
 
-    for root in _skill_roots():
-        for skill_dir in sorted(root.iterdir()):
-            if not skill_dir.is_dir():
-                continue
-            skill_md = skill_dir / "SKILL.md"
-            if not skill_md.is_file():
-                continue
 
-            script_candidates = sorted((skill_dir / "scripts").glob("*.py"))
-            if not script_candidates:
-                continue
+def _agent_root() -> Path:
+    return Path(__file__).resolve().parents[1]
 
-            script_path = script_candidates[0]
-            skill_name, description = _parse_skill_frontmatter(skill_md)
-            tool_name = f"run_skill_{_normalize_skill_name(skill_name)}"
-            discovered.append(
-                {
-                    "tool_name": tool_name,
-                    "skill_name": skill_name,
-                    "description": description,
-                    "script_path": script_path,
-                    "skill_md": skill_md,
-                }
+
+def _default_skills_lockfile() -> Path:
+    return (_agent_root() / "skills.lock").resolve()
+
+
+def _discover_openclaw_skill_entries() -> list[Any]:
+    lockfile_path = Path(
+        os.getenv("KODUCK_SKILLS_LOCKFILE", str(_default_skills_lockfile()))
+    ).resolve()
+    lock_entries = read_lockfile(lockfile_path)
+    if not lock_entries:
+        return []
+
+    market_index = {
+        item.skill_name: item for item in OpenClawSkillSource().discover()
+    }
+    installed_entries: list[Any] = []
+    for lock in lock_entries.values():
+        if lock.source != "openclaw":
+            continue
+        script_path = Path(lock.installed_path)
+        if not script_path.is_file():
+            logger.warning(
+                "OpenClaw skill missing installed file: skill=%s path=%s",
+                lock.skill_id,
+                script_path,
             )
-
-    # Last one wins for duplicate tool names; keep deterministic behavior.
-    merged: dict[str, dict[str, Any]] = {}
-    for item in discovered:
-        merged[item["tool_name"]] = item
-    return list(merged.values())
+            continue
+        market_entry = market_index.get(lock.skill_id)
+        description = (
+            market_entry.description if market_entry is not None else "OpenClaw market skill"
+        )
+        tool_name = (
+            market_entry.tool_name
+            if market_entry is not None
+            else f"run_skill_{re.sub(r'[^a-z0-9]+', '_', lock.skill_id.lower()).strip('_')}"
+        )
+        skill_md = (
+            market_entry.skill_md
+            if market_entry is not None
+            else Path(f"/tmp/openclaw-market/{lock.skill_id}/SKILL.md")
+        )
+        installed_entries.append(
+            SkillEntry(
+                tool_name=tool_name,
+                skill_name=lock.skill_id,
+                description=description,
+                script_path=script_path,
+                skill_md=skill_md,
+                source="openclaw",
+                version=lock.version,
+                publisher=lock.publisher,
+                artifact_url=lock.artifact_url,
+                checksum=lock.checksum,
+            )
+        )
+    return installed_entries
 
 
 def _skill_args_to_argv(arguments: dict[str, Any]) -> list[str]:
@@ -373,16 +367,38 @@ def refresh_tool_registry() -> None:
     """Rebuild tool defs/executors from builtin tools plus discovered skills."""
     QUANT_TOOL_DEFS.clear()
     _TOOL_EXECUTORS.clear()
+    TOOL_REGISTRY.clear()
 
     for tool_def in _builtin_tool_defs():
         name = str(tool_def["function"]["name"])
         QUANT_TOOL_DEFS.append(tool_def)
         if name == "get_quant_signal":
-            _TOOL_EXECUTORS[name] = _get_quant_signal
+            _register_tool_definition(
+                name=name,
+                schema=tool_def["function"].get("parameters", {}),
+                description=tool_def["function"].get("description", ""),
+                policy=ToolExecutionPolicy(risk_level=ToolRiskLevel.SAFE),
+                executor=_get_quant_signal,
+                metadata={"source": "builtin", "version": "", "publisher": ""},
+            )
         elif name == "search_web_news":
-            _TOOL_EXECUTORS[name] = _search_web_news
+            _register_tool_definition(
+                name=name,
+                schema=tool_def["function"].get("parameters", {}),
+                description=tool_def["function"].get("description", ""),
+                policy=ToolExecutionPolicy(risk_level=ToolRiskLevel.SAFE),
+                executor=_search_web_news,
+                metadata={"source": "builtin", "version": "", "publisher": ""},
+            )
         elif name == "search_finance_news":
-            _TOOL_EXECUTORS[name] = _search_finance_news
+            _register_tool_definition(
+                name=name,
+                schema=tool_def["function"].get("parameters", {}),
+                description=tool_def["function"].get("description", ""),
+                policy=ToolExecutionPolicy(risk_level=ToolRiskLevel.SAFE),
+                executor=_search_finance_news,
+                metadata={"source": "builtin", "version": "", "publisher": ""},
+            )
 
     discovered_entries = _discover_skill_entries()
     for entry in discovered_entries:
@@ -426,7 +442,27 @@ def refresh_tool_registry() -> None:
                 arguments=args,
             )
 
-        _TOOL_EXECUTORS[tool_name] = _executor
+        _register_tool_definition(
+            name=tool_name,
+            schema={
+                "type": "object",
+                "properties": {
+                    "command": {"type": "string"},
+                    "args": {"type": "object"},
+                },
+                "required": ["command"],
+            },
+            description=description,
+            policy=ToolExecutionPolicy(risk_level=ToolRiskLevel.RESTRICTED),
+            executor=_executor,
+            metadata={
+                "source": entry.get("source", "local"),
+                "version": entry.get("version", ""),
+                "publisher": entry.get("publisher", ""),
+                "artifact_url": entry.get("artifact_url", ""),
+                "checksum": entry.get("checksum", ""),
+            },
+        )
 
     logger.info(
         "Tool registry refreshed: builtin=%s discovered_skills=%s total=%s",
@@ -461,43 +497,32 @@ async def _get_quant_signal(arguments: dict[str, Any]) -> str:
             ensure_ascii=False,
         )
 
-    base = _backend_base_url()
-    timeout = httpx.Timeout(10.0, connect=5.0)
-    endpoint = f"{base}/api/v1/a-share/kline"
-
+    normalized_symbol = kline_db.normalize_symbol(symbol)
     try:
-        async with httpx.AsyncClient(timeout=timeout) as client:
-            resp = await client.get(
-                endpoint,
-                params={
-                    "symbol": symbol,
-                    "timeframe": "1D",
-                    "limit": 260,
-                },
-            )
-    except Exception as e:
-        logger.warning("quant tool request failed: %s", e)
-        return json.dumps(
-            {"ok": False, "symbol": symbol, "error": f"Data service request failed: {e}"},
-            ensure_ascii=False,
+        bars = await asyncio.to_thread(
+            kline_db.fetch_kline_bars,
+            market=market,
+            symbol=normalized_symbol,
+            timeframe="1D",
+            limit=260,
         )
-
-    if resp.status_code != 200:
+    except Exception as e:
+        logger.warning("quant db query failed: %s", e)
         return json.dumps(
             {
                 "ok": False,
-                "symbol": symbol,
-                "error": f"Kline API failed: status={resp.status_code}",
+                "symbol": normalized_symbol or symbol,
+                "error": f"Kline database query failed: {e}",
             },
             ensure_ascii=False,
         )
 
-    closes = _extract_close_prices(resp.json())
+    closes = [bar.close for bar in bars]
     if len(closes) < 60:
         return json.dumps(
             {
                 "ok": False,
-                "symbol": symbol,
+                "symbol": normalized_symbol or symbol,
                 "error": f"Insufficient kline data: {len(closes)} points",
             },
             ensure_ascii=False,
@@ -507,29 +532,42 @@ async def _get_quant_signal(arguments: dict[str, Any]) -> str:
     ema60 = _ema(closes, 60)
     ema12 = _ema(closes, 12)
     ema26 = _ema(closes, 26)
-    if None in (ema12, ema26):
+    if ema12 is None or ema26 is None:
         return json.dumps(
-            {"ok": False, "symbol": symbol, "error": "Failed to compute MACD base values"},
+            {
+                "ok": False,
+                "symbol": normalized_symbol or symbol,
+                "error": "Failed to compute MACD base values",
+            },
             ensure_ascii=False,
         )
     macd_series = _macd_series(closes)
     if len(macd_series) < 9:
         return json.dumps(
-            {"ok": False, "symbol": symbol, "error": "Insufficient MACD series"},
+            {
+                "ok": False,
+                "symbol": normalized_symbol or symbol,
+                "error": "Insufficient MACD series",
+            },
             ensure_ascii=False,
         )
     signal = _ema(macd_series, 9)
     macd = ema12 - ema26
-    hist = macd - signal if signal is not None else None
 
-    if None in (ema20, ema60, macd, signal, hist):
+    if ema20 is None or ema60 is None or signal is None:
         return json.dumps(
-            {"ok": False, "symbol": symbol, "error": "Incomplete indicator values"},
+            {
+                "ok": False,
+                "symbol": normalized_symbol or symbol,
+                "error": "Incomplete indicator values",
+            },
             ensure_ascii=False,
         )
 
-    direction = "LONG_BIAS" if float(ema20) >= float(ema60) else "SHORT_BIAS"
-    momentum = "MOMENTUM_UP" if float(hist) >= 0 else "MOMENTUM_DOWN"
+    hist = macd - signal
+
+    direction = "LONG_BIAS" if ema20 >= ema60 else "SHORT_BIAS"
+    momentum = "MOMENTUM_UP" if hist >= 0 else "MOMENTUM_DOWN"
     if direction == "LONG_BIAS" and momentum == "MOMENTUM_UP":
         action = "BUY_OR_HOLD"
     elif direction == "SHORT_BIAS" and momentum == "MOMENTUM_DOWN":
@@ -540,14 +578,14 @@ async def _get_quant_signal(arguments: dict[str, Any]) -> str:
     return json.dumps(
         {
             "ok": True,
-            "symbol": symbol,
+            "symbol": normalized_symbol or symbol,
             "market": market,
             "indicators": {
-                "ema20": round(float(ema20), 4),
-                "ema60": round(float(ema60), 4),
-                "macd": round(float(macd), 4),
-                "signal": round(float(signal), 4),
-                "histogram": round(float(hist), 4),
+                "ema20": round(ema20, 4),
+                "ema60": round(ema60, 4),
+                "macd": round(macd, 4),
+                "signal": round(signal, 4),
+                "histogram": round(hist, 4),
             },
             "signal": {
                 "direction": direction,
@@ -809,21 +847,6 @@ async def _search_finance_news(arguments: dict[str, Any]) -> str:
         },
         ensure_ascii=False,
     )
-
-
-def _extract_close_prices(payload: dict[str, Any]) -> list[float]:
-    # Data-service response shape: {"code":0,"message":"success","data":[{...}]}
-    data = payload.get("data") if isinstance(payload, dict) else None
-    if not isinstance(data, list):
-        return []
-    closes: list[float] = []
-    for item in data:
-        if isinstance(item, dict) and item.get("close") is not None:
-            try:
-                closes.append(float(item["close"]))
-            except Exception:
-                continue
-    return closes
 
 
 def _ema(values: list[float], period: int) -> float | None:

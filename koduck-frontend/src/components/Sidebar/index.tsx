@@ -12,7 +12,6 @@ const mainMenuItems: MenuItem[] = [
   { key: 'ai', label: 'Aura AI', path: '/ai', icon: 'auto_awesome' },
   { key: 'sector', label: 'Sector Network', path: '/sector', icon: 'hub' },
   { key: 'fundflow', label: 'Flow Game', path: '/fundflow', icon: 'water' },
-  { key: 'history', label: 'History Playback', path: '/history', icon: 'history' },
   { key: 'watchlist', label: 'Watchlist', path: '/watchlist', icon: 'star' },
   { key: 'kline', label: 'K-Line Analysis', path: '/kline', icon: 'candlestick_chart' },
   { key: 'portfolio', label: 'Portfolio', path: '/portfolio', icon: 'account_balance_wallet' },
