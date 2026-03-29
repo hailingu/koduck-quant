@@ -3,6 +3,7 @@ import { memo, useEffect, useRef, useState } from 'react'
 import ReactMarkdown from 'react-markdown'
 import type { Components } from 'react-markdown'
 import remarkGfm from 'remark-gfm'
+import VisualModalTemplate from '@/components/VisualModalTemplate'
 
 // Types
 interface Message {
@@ -30,6 +31,22 @@ interface MemorySummaryResponse {
     sessionId?: string
     messageCount?: number
     messages?: MemorySummaryItem[]
+  }
+}
+
+interface Session {
+  sessionId: string
+  title: string
+  status: string
+  lastMessageAt: string
+  createdAt: string
+}
+
+interface SessionsResponse {
+  code?: number
+  message?: string
+  data?: {
+    sessions?: Session[]
   }
 }
 
@@ -340,6 +357,10 @@ export default function AICommandCenter() {
   const [enableTools] = useState(true)
   const [allowRestrictedTools] = useState(false)
   const [selectedSubAgents] = useState<AgentRoleId[]>([])
+  const [sessions, setSessions] = useState<Session[]>([])
+  const [showSessionList, setShowSessionList] = useState(false)
+  const [deletingSession, setDeletingSession] = useState<Session | null>(null)
+  const [deleting, setDeleting] = useState(false)
   const activeRequestRef = useRef<AbortController | null>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   
@@ -539,6 +560,70 @@ export default function AICommandCenter() {
     setIsTyping(false)
   }
 
+  const fetchSessions = async () => {
+    try {
+      const token = getAuthToken()
+      const response = await fetch('/api/v1/ai/memory/sessions', {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+      })
+      const result = (await response.json()) as SessionsResponse
+      if (result.data?.sessions) {
+        setSessions(result.data.sessions)
+      }
+    } catch {
+      // Ignore error
+    }
+  }
+
+  const switchSession = (newSessionId: string) => {
+    if (newSessionId === sessionId) {
+      setShowSessionList(false)
+      return
+    }
+    activeRequestRef.current?.abort()
+    localStorage.setItem(SESSION_STORAGE_KEY, newSessionId)
+    setSessionId(newSessionId)
+    setMessages(INITIAL_MESSAGES)
+    setInput('')
+    setIsTyping(false)
+    setShowSessionList(false)
+  }
+
+  const handleDeleteClick = (s: Session, e: React.MouseEvent) => {
+    e.stopPropagation()
+    setDeletingSession(s)
+  }
+
+  const confirmDeleteSession = async () => {
+    if (!deletingSession || deleting) return
+    setDeleting(true)
+    try {
+      const token = getAuthToken()
+      const response = await fetch(`/api/v1/ai/memory/session/${encodeURIComponent(deletingSession.sessionId)}`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+      })
+      if (response.ok) {
+        setSessions((prev) => prev.filter((s) => s.sessionId !== deletingSession.sessionId))
+        if (deletingSession.sessionId === sessionId) {
+          handleNewSession()
+        }
+      }
+    } catch {
+      // Ignore error
+    } finally {
+      setDeleting(false)
+      setDeletingSession(null)
+    }
+  }
+
   const handleSend = async () => {
     if (!input.trim()) return
     if (isTyping) return
@@ -603,15 +688,80 @@ export default function AICommandCenter() {
                 <span className="w-1.5 h-1.5 bg-fluid-primary rounded-full animate-pulse" />
                 <span className="text-[10px] font-mono-data text-fluid-primary uppercase tracking-widest">Active Intelligence</span>
               </div>
-              <div className="text-[10px] font-mono-data text-fluid-text-dim mt-1">
-                session: {sessionId}
-              </div>
+
             </div>
           </div>
           <div className="flex items-center gap-4">
             <div className="text-right text-[10px] font-mono-data uppercase tracking-widest text-fluid-text-dim">
               <div>{PROVIDERS.find((p) => p.id === selectedProvider)?.name} · {AGENT_ROLES.find((r) => r.id === selectedRole)?.name}</div>
               <div>Tools: {enableTools ? 'On' : 'Off'}</div>
+            </div>
+            {/* Session History Dropdown */}
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => {
+                  if (!showSessionList) {
+                    void fetchSessions()
+                  }
+                  setShowSessionList(!showSessionList)
+                }}
+                className="inline-flex items-center gap-1 rounded-lg border border-fluid-outline-variant/30 px-2 py-2 text-[10px] font-mono-data uppercase tracking-widest text-fluid-text-muted transition-colors hover:border-fluid-primary hover:text-fluid-primary"
+                title="Session History"
+              >
+                <span className="material-symbols-outlined text-sm">history</span>
+              </button>
+              {showSessionList && (
+                <>
+                  <div
+                    className="fixed inset-0 z-40"
+                    onClick={() => setShowSessionList(false)}
+                  />
+                  <div className="absolute right-0 top-full mt-2 w-72 max-h-[210px] overflow-y-auto bg-fluid-surface-container-lowest border border-fluid-outline-variant/30 rounded-lg shadow-lg z-50">
+                    <div className="p-2 border-b border-fluid-outline-variant/20">
+                      <span className="text-[10px] font-mono-data uppercase tracking-widest text-fluid-text-dim">Recent Sessions</span>
+                    </div>
+                    {sessions.length === 0 ? (
+                      <div className="p-3 text-[11px] text-fluid-text-dim text-center">No sessions found</div>
+                    ) : (
+                      sessions.map((s) => (
+                        <div
+                          key={s.sessionId}
+                          onClick={() => switchSession(s.sessionId)}
+                          className={`flex items-center justify-between px-3 py-2 hover:bg-fluid-primary/10 transition-colors cursor-pointer ${
+                            s.sessionId === sessionId ? 'bg-fluid-primary/20' : ''
+                          }`}
+                        >
+                          <div className="flex-1 min-w-0">
+                            <div className="text-[11px] font-medium text-fluid-text truncate">
+                              {s.title || s.sessionId}
+                            </div>
+                            <div className="text-[9px] text-fluid-text-dim mt-0.5">
+                              {s.lastMessageAt
+                                ? new Date(s.lastMessageAt).toLocaleString('zh-CN', {
+                                    month: 'numeric',
+                                    day: 'numeric',
+                                    hour: '2-digit',
+                                    minute: '2-digit',
+                                    second: '2-digit',
+                                  }).replace(',', '')
+                                : 'No messages'}
+                            </div>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={(e) => handleDeleteClick(s, e)}
+                            className="ml-2 p-1 rounded hover:bg-fluid-error/20 text-fluid-text-dim hover:text-fluid-error transition-colors"
+                            title="Delete session"
+                          >
+                            <span className="material-symbols-outlined text-xs">delete</span>
+                          </button>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </>
+              )}
             </div>
             <button
               type="button"
@@ -667,6 +817,43 @@ export default function AICommandCenter() {
           </div>
         </div>
       </section>
+
+      {/* Delete Session Confirmation Modal */}
+      <VisualModalTemplate
+        open={!!deletingSession}
+        onClose={() => {
+          if (!deleting) {
+            setDeletingSession(null)
+          }
+        }}
+        closeAriaLabel="关闭删除会话确认弹窗"
+        title="确认删除会话？"
+        description={`会话 "${deletingSession?.title || deletingSession?.sessionId}" 将被永久删除，该操作不可撤销。`}
+        accent="secondary"
+        icon={
+          <span className="material-symbols-outlined text-3xl">delete_forever</span>
+        }
+        actions={
+          <>
+            <button
+              type="button"
+              onClick={() => setDeletingSession(null)}
+              disabled={deleting}
+              className="px-6 py-3 font-mono-data text-[10px] uppercase tracking-[0.2em] text-fluid-text-dim transition-all duration-300 hover:bg-fluid-surface-higher disabled:opacity-60"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={() => void confirmDeleteSession()}
+              disabled={deleting}
+              className="bg-fluid-secondary px-6 py-3 font-mono-data text-[10px] uppercase tracking-[0.2em] text-fluid-surface transition-all duration-300 hover:bg-fluid-secondary-bright disabled:opacity-60"
+            >
+              {deleting ? 'Deleting...' : 'Delete'}
+            </button>
+          </>
+        }
+      />
     </div>
   )
 }

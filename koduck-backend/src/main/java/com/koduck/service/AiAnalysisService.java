@@ -524,6 +524,7 @@ public class AiAnalysisService {
     private void relayAgentStream(Long userId, ChatStreamRequest request, SseEmitter emitter) {
         HttpURLConnection connection = null;
         String finalAssistantContent = null;
+        Integer finalTokenCount = null;
         try {
             String agentUrl = agentConfig.getUrl() + "/api/v1/ai/chat/stream";
             String provider = resolveProvider(request.getProvider());
@@ -574,7 +575,9 @@ public class AiAnalysisService {
                 while ((line = reader.readLine()) != null) {
                     if (line.isEmpty()) {
                         if ("done".equals(eventName)) {
-                            finalAssistantContent = extractAssistantContent(dataBuilder.toString());
+                            String donePayload = dataBuilder.toString();
+                            finalAssistantContent = extractAssistantContent(donePayload);
+                            finalTokenCount = extractTokenUsage(donePayload);
                         }
                         flushSseEvent(emitter, eventName, dataBuilder);
                         eventName = "message";
@@ -599,7 +602,7 @@ public class AiAnalysisService {
             }
 
             if (finalAssistantContent != null && !finalAssistantContent.isBlank()) {
-                scheduleAssistantMemoryWriteback(userId, request, finalAssistantContent);
+                scheduleAssistantMemoryWriteback(userId, request, finalAssistantContent, finalTokenCount);
             }
             log.info("AI chat stream relay completed: provider={}, session={}", provider, request.getSessionId());
             emitter.complete();
@@ -649,7 +652,7 @@ public class AiAnalysisService {
         });
     }
 
-    private void scheduleAssistantMemoryWriteback(Long userId, ChatStreamRequest request, String content) {
+    private void scheduleAssistantMemoryWriteback(Long userId, ChatStreamRequest request, String content, Integer tokenCount) {
         if (!memoryService.isEnabled()) {
             return;
         }
@@ -661,7 +664,7 @@ public class AiAnalysisService {
                     sessionId,
                     "assistant",
                     content,
-                    null,
+                    tokenCount,
                     Map.of("source", "chat-stream")
                 );
             } catch (Exception e) {
@@ -680,6 +683,27 @@ public class AiAnalysisService {
             return content == null ? "" : String.valueOf(content);
         } catch (Exception e) {
             return "";
+        }
+    }
+
+    private Integer extractTokenUsage(String donePayload) {
+        if (donePayload == null || donePayload.isBlank()) {
+            return null;
+        }
+        try {
+            Map<String, Object> data = objectMapper.readValue(donePayload, Map.class);
+            @SuppressWarnings("unchecked")
+            Map<String, Object> usage = (Map<String, Object>) data.get("usage");
+            if (usage != null && usage.get("total_tokens") != null) {
+                Object totalTokens = usage.get("total_tokens");
+                if (totalTokens instanceof Number) {
+                    return ((Number) totalTokens).intValue();
+                }
+            }
+            return null;
+        } catch (Exception e) {
+            log.debug("Failed to extract token usage from done payload: {}", e.getMessage());
+            return null;
         }
     }
 

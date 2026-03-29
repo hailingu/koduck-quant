@@ -51,6 +51,11 @@ public class MemoryService {
         return input.trim();
     }
 
+    @Transactional(readOnly = true)
+    public List<MemoryChatSession> getUserSessions(Long userId) {
+        return chatSessionRepository.findByUserIdOrderByLastMessageAtDesc(userId);
+    }
+
     @Transactional
     public MemoryChatSession ensureSession(Long userId, String sessionId, String title) {
         String normalizedSessionId = resolveSessionId(sessionId);
@@ -164,6 +169,14 @@ public class MemoryService {
         );
         chatMessageRepository.deleteByUserIdAndSessionId(userId, sessionId);
         return existing.size();
+    }
+
+    @Transactional
+    public void deleteSession(Long userId, String sessionId) {
+        // Delete messages first, then delete session
+        chatMessageRepository.deleteByUserIdAndSessionId(userId, sessionId);
+        chatSessionRepository.deleteByUserIdAndSessionId(userId, sessionId);
+        log.debug("Deleted session: user={}, sessionId={}", userId, sessionId);
     }
 
     @Transactional

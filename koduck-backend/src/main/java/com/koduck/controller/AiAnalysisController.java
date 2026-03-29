@@ -163,16 +163,16 @@ public class AiAnalysisController {
     }
 
     @DeleteMapping("/memory/session/{sessionId}")
-    public ApiResponse<Map<String, Object>> clearSessionMemory(
+    public ApiResponse<Map<String, Object>> deleteSession(
         @AuthenticationPrincipal UserPrincipal userPrincipal,
         @PathVariable String sessionId
     ) {
         Long userId = requireUserId(userPrincipal);
         String normalizedSessionId = memoryService.resolveSessionId(sessionId);
-        int deleted = memoryService.clearSessionMessages(userId, normalizedSessionId);
+        memoryService.deleteSession(userId, normalizedSessionId);
         return ApiResponse.success(Map.of(
             "sessionId", normalizedSessionId,
-            "deletedMessages", deleted
+            "deleted", true
         ));
     }
 
@@ -183,6 +183,22 @@ public class AiAnalysisController {
         Long userId = requireUserId(userPrincipal);
         memoryService.clearProfile(userId);
         return ApiResponse.success(Map.of("cleared", true));
+    }
+
+    @GetMapping("/memory/sessions")
+    public ApiResponse<Map<String, Object>> listUserSessions(
+        @AuthenticationPrincipal UserPrincipal userPrincipal
+    ) {
+        Long userId = requireUserId(userPrincipal);
+        var sessions = memoryService.getUserSessions(userId);
+        var sessionList = sessions.stream().map(s -> Map.<String, Object>of(
+            "sessionId", s.getSessionId(),
+            "title", s.getTitle() != null ? s.getTitle() : s.getSessionId(),
+            "status", s.getStatus(),
+            "lastMessageAt", s.getLastMessageAt() != null ? s.getLastMessageAt().toString() : "",
+            "createdAt", s.getCreatedAt() != null ? s.getCreatedAt().toString() : ""
+        )).toList();
+        return ApiResponse.success(Map.of("sessions", sessionList));
     }
 
     @GetMapping("/memory/session/{sessionId}")

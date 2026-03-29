@@ -881,7 +881,15 @@ async def simple_chat_stream(request: SimpleChatRequest):
                 delta = full_content[i : i + chunk_size]
                 yield f"event: delta\ndata: {json.dumps({'content': delta})}\n\n"
 
-            yield f"event: done\ndata: {json.dumps({'content': full_content, 'model': client.model, 'provider': request.provider, 'session_id': session_id})}\n\n"
+            # Prepare usage info for done event
+            usage_dict = None
+            if response.usage:
+                usage_dict = {
+                    "prompt_tokens": response.usage.prompt_tokens,
+                    "completion_tokens": response.usage.completion_tokens,
+                    "total_tokens": response.usage.total_tokens,
+                }
+            yield f"event: done\ndata: {json.dumps({'content': full_content, 'model': client.model, 'provider': request.provider, 'session_id': session_id, 'usage': usage_dict})}\n\n"
             
             logger.info(
                 f"[SimpleChatStream] : session_id={session_id}, content_length={len(full_content)}, tools={len([e for e in runtime_events if e.get('type') == 'tool.completed'])}"
