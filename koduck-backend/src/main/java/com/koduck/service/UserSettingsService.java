@@ -288,70 +288,80 @@ public class UserSettingsService {
         );
 
         // 3. 优先级：credentials > user_settings > 环境变量
-        String apiKey;
-        String apiBase;
+        ResolvedValue apiKeyResolved;
+        ResolvedValue apiBaseResolved;
         if ("minimax".equals(activeProvider)) {
-            apiKey = firstNonBlank(
-                credentialsApiKey,      // 优先：user_credentials 表（加密存储）
-                settingsApiKey,         // 其次：user_settings 表
-                environment.getProperty("MINIMAX_API_KEY"),
-                environment.getProperty("LLM_API_KEY")
+            apiKeyResolved = pickFirstNonBlank(
+                resolved("credentials", credentialsApiKey), // 优先：user_credentials 表（加密存储）
+                resolved("user_settings", settingsApiKey),  // 其次：user_settings 表
+                resolved("env:MINIMAX_API_KEY", environment.getProperty("MINIMAX_API_KEY")),
+                resolved("env:LLM_API_KEY", environment.getProperty("LLM_API_KEY"))
             );
-            apiBase = firstNonBlank(
-                credentialsApiBase,     // 优先：user_credentials 表
-                settingsApiBase,        // 其次：user_settings 表
-                environment.getProperty("MINIMAX_API_BASE"),
-                environment.getProperty("LLM_API_BASE"),
-                defaultApiBaseForProvider(activeProvider)
+            apiBaseResolved = pickFirstNonBlank(
+                resolved("credentials", credentialsApiBase), // 优先：user_credentials 表
+                resolved("user_settings", settingsApiBase),  // 其次：user_settings 表
+                resolved("env:MINIMAX_API_BASE", environment.getProperty("MINIMAX_API_BASE")),
+                resolved("env:LLM_API_BASE", environment.getProperty("LLM_API_BASE")),
+                resolved("default", defaultApiBaseForProvider(activeProvider))
             );
         } else if ("openai".equals(activeProvider)) {
-            apiKey = firstNonBlank(
-                credentialsApiKey,      // 优先：user_credentials 表
-                settingsApiKey,         // 其次：user_settings 表
-                environment.getProperty("OPENAI_API_KEY"),
-                environment.getProperty("GPT_API_KEY"),
-                environment.getProperty("LLM_API_KEY")
+            apiKeyResolved = pickFirstNonBlank(
+                resolved("credentials", credentialsApiKey), // 优先：user_credentials 表
+                resolved("user_settings", settingsApiKey),  // 其次：user_settings 表
+                resolved("env:OPENAI_API_KEY", environment.getProperty("OPENAI_API_KEY")),
+                resolved("env:GPT_API_KEY", environment.getProperty("GPT_API_KEY")),
+                resolved("env:LLM_API_KEY", environment.getProperty("LLM_API_KEY"))
             );
-            apiBase = firstNonBlank(
-                credentialsApiBase,     // 优先：user_credentials 表
-                settingsApiBase,        // 其次：user_settings 表
-                environment.getProperty("OPENAI_API_BASE"),
-                environment.getProperty("LLM_API_BASE"),
-                defaultApiBaseForProvider(activeProvider)
+            apiBaseResolved = pickFirstNonBlank(
+                resolved("credentials", credentialsApiBase), // 优先：user_credentials 表
+                resolved("user_settings", settingsApiBase),  // 其次：user_settings 表
+                resolved("env:OPENAI_API_BASE", environment.getProperty("OPENAI_API_BASE")),
+                resolved("env:LLM_API_BASE", environment.getProperty("LLM_API_BASE")),
+                resolved("default", defaultApiBaseForProvider(activeProvider))
             );
         } else if ("deepseek".equals(activeProvider)) {
-            apiKey = firstNonBlank(
-                credentialsApiKey,      // 优先：user_credentials 表
-                settingsApiKey,         // 其次：user_settings 表
-                environment.getProperty("DEEPSEEK_API_KEY"),
-                environment.getProperty("LLM_API_KEY")
+            apiKeyResolved = pickFirstNonBlank(
+                resolved("credentials", credentialsApiKey), // 优先：user_credentials 表
+                resolved("user_settings", settingsApiKey),  // 其次：user_settings 表
+                resolved("env:DEEPSEEK_API_KEY", environment.getProperty("DEEPSEEK_API_KEY")),
+                resolved("env:LLM_API_KEY", environment.getProperty("LLM_API_KEY"))
             );
-            apiBase = firstNonBlank(
-                credentialsApiBase,     // 优先：user_credentials 表
-                settingsApiBase,        // 其次：user_settings 表
-                environment.getProperty("DEEPSEEK_API_BASE"),
-                environment.getProperty("LLM_API_BASE"),
-                defaultApiBaseForProvider(activeProvider)
+            apiBaseResolved = pickFirstNonBlank(
+                resolved("credentials", credentialsApiBase), // 优先：user_credentials 表
+                resolved("user_settings", settingsApiBase),  // 其次：user_settings 表
+                resolved("env:DEEPSEEK_API_BASE", environment.getProperty("DEEPSEEK_API_BASE")),
+                resolved("env:LLM_API_BASE", environment.getProperty("LLM_API_BASE")),
+                resolved("default", defaultApiBaseForProvider(activeProvider))
             );
         } else {
             // 其他 provider，使用通用 fallback
-            apiKey = firstNonBlank(
-                credentialsApiKey,
-                settingsApiKey,
-                environment.getProperty("LLM_API_KEY")
+            apiKeyResolved = pickFirstNonBlank(
+                resolved("credentials", credentialsApiKey),
+                resolved("user_settings", settingsApiKey),
+                resolved("env:LLM_API_KEY", environment.getProperty("LLM_API_KEY"))
             );
-            apiBase = firstNonBlank(
-                credentialsApiBase,
-                settingsApiBase,
-                environment.getProperty("LLM_API_BASE"),
-                defaultApiBaseForProvider(activeProvider)
+            apiBaseResolved = pickFirstNonBlank(
+                resolved("credentials", credentialsApiBase),
+                resolved("user_settings", settingsApiBase),
+                resolved("env:LLM_API_BASE", environment.getProperty("LLM_API_BASE")),
+                resolved("default", defaultApiBaseForProvider(activeProvider))
             );
         }
 
+        log.info(
+            "Resolved LLM config: userId={}, provider={}, apiKeySource={}, apiKeyMasked={}, apiBaseSource={}, apiBase={}",
+            userId,
+            activeProvider,
+            apiKeyResolved.source(),
+            CredentialEncryptionUtil.maskApiKey(apiKeyResolved.value()),
+            apiBaseResolved.source(),
+            apiBaseResolved.value() == null ? "" : apiBaseResolved.value()
+        );
+
         return UserSettingsDto.LlmConfigDto.builder()
             .provider(activeProvider)
-            .apiKey(apiKey)
-            .apiBase(apiBase)
+            .apiKey(apiKeyResolved.value())
+            .apiBase(apiBaseResolved.value())
             .minimax(resolveProviderConfig("minimax", llmConfig))
             .deepseek(resolveProviderConfig("deepseek", llmConfig))
             .openai(resolveProviderConfig("openai", llmConfig))
@@ -644,6 +654,24 @@ public class UserSettingsService {
         }
         return null;
     }
+
+    private ResolvedValue pickFirstNonBlank(ResolvedValue... values) {
+        if (values == null || values.length == 0) {
+            return new ResolvedValue("none", null);
+        }
+        for (ResolvedValue value : values) {
+            if (value != null && value.value() != null && !value.value().trim().isEmpty()) {
+                return new ResolvedValue(value.source(), value.value().trim());
+            }
+        }
+        return new ResolvedValue("none", null);
+    }
+
+    private ResolvedValue resolved(String source, String value) {
+        return new ResolvedValue(source, value);
+    }
+
+    private record ResolvedValue(String source, String value) {}
 
     private String defaultApiBaseForProvider(String provider) {
         return switch (provider) {

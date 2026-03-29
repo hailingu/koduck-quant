@@ -204,6 +204,7 @@ public class AiAnalysisService {
         UserSettingsDto.LlmConfigDto effectiveConfig = userSettingsService.getEffectiveLlmConfig(userId, provider);
         ChatStreamRequest configuredRequest = ChatStreamRequest.builder()
             .provider(provider)
+            .model(blankToNull(request.getModel()))
             .apiKey(blankToNull(effectiveConfig != null ? effectiveConfig.getApiKey() : null))
             .apiBase(effectiveConfig != null ? effectiveConfig.getApiBase() : null)
             .sessionId(sessionId)
@@ -370,6 +371,7 @@ public class AiAnalysisService {
 
         return ChatStreamRequest.builder()
             .provider(request.getProvider())
+            .model(request.getModel())
             .apiKey(request.getApiKey())
             .apiBase(request.getApiBase())
             .sessionId(request.getSessionId())
@@ -412,6 +414,7 @@ public class AiAnalysisService {
 
         return ChatStreamRequest.builder()
             .provider(request.getProvider())
+            .model(request.getModel())
             .apiKey(request.getApiKey())
             .apiBase(request.getApiBase())
             .sessionId(request.getSessionId())
@@ -530,6 +533,7 @@ public class AiAnalysisService {
             String provider = resolveProvider(request.getProvider());
             ChatStreamRequest normalizedRequest = ChatStreamRequest.builder()
                 .provider(provider)
+                .model(blankToNull(request.getModel()))
                 .apiKey(blankToNull(request.getApiKey()))
                 .apiBase(request.getApiBase())
                 .sessionId(request.getSessionId())
@@ -604,7 +608,12 @@ public class AiAnalysisService {
             if (finalAssistantContent != null && !finalAssistantContent.isBlank()) {
                 scheduleAssistantMemoryWriteback(userId, request, finalAssistantContent, finalTokenCount);
             }
-            log.info("AI chat stream relay completed: provider={}, session={}", provider, request.getSessionId());
+            log.info(
+                "AI chat stream relay completed: provider={}, model={}, session={}",
+                provider,
+                request.getModel(),
+                request.getSessionId()
+            );
             emitter.complete();
         } catch (Exception e) {
             log.error("AI chat stream relay failed: {}", e.getMessage(), e);

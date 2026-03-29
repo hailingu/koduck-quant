@@ -22,6 +22,11 @@ public class ChatStreamRequest {
     @Builder.Default
     private String provider = "minimax";
 
+    /**
+     * Optional model name. When blank, provider default model will be used.
+     */
+    private String model;
+
     private String apiKey;
 
     private String apiBase;

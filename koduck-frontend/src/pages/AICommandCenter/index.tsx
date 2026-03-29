@@ -52,13 +52,28 @@ interface SessionsResponse {
 
 type ProviderId = 'minimax' | 'deepseek' | 'openai'
 type AgentRoleId = 'general' | 'architect' | 'coder' | 'reviewer' | 'analyst'
+type ModelId =
+  | 'MiniMax-M2.7'
+  | 'deepseek-chat'
+  | 'deepseek-reasoner'
+  | 'gpt-5.4'
+  | 'gpt-4o-mini'
+
+// Helper to get Beijing time (UTC+8)
+const getBeijingTimestamp = (): string => {
+  const now = new Date()
+  const beijingTime = new Date(now.getTime() + (8 * 60 * 60 * 1000))
+  const hours = beijingTime.getUTCHours().toString().padStart(2, '0')
+  const minutes = beijingTime.getUTCMinutes().toString().padStart(2, '0')
+  return `${hours}:${minutes}`
+}
 
 const INITIAL_MESSAGES: Message[] = [
   {
     id: 'welcome',
     role: 'assistant',
-    content: '您好，我是 Aura。现在会走真实 Agent 与工具链路，您可以直接提问比如“今日新闻”。',
-    timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+    content: '您好，我是 Aura。现在会走真实 Agent 与工具链路，您可以直接提问比如"今日新闻"。',
+    timestamp: getBeijingTimestamp(),
   },
 ]
 
@@ -78,6 +93,20 @@ const PROVIDERS: { id: ProviderId; name: string }[] = [
   { id: 'deepseek', name: 'DeepSeek' },
   { id: 'openai', name: 'OpenAI' },
 ]
+
+const PROVIDER_MODELS: Record<ProviderId, { id: ModelId; name: string }[]> = {
+  minimax: [
+    { id: 'MiniMax-M2.7', name: 'MiniMax M2.7' },
+  ],
+  deepseek: [
+    { id: 'deepseek-chat', name: 'DeepSeek Chat' },
+    { id: 'deepseek-reasoner', name: 'DeepSeek Reasoner' },
+  ],
+  openai: [
+    { id: 'gpt-5.4', name: 'GPT-5.4' },
+    { id: 'gpt-4o-mini', name: 'GPT-4o Mini' },
+  ],
+}
 
 const AGENT_ROLES: { id: AgentRoleId; name: string }[] = [
   { id: 'general', name: 'General' },
@@ -101,20 +130,22 @@ const getAuthToken = (): string => {
   }
 }
 
-const createTimestamp = (): string =>
-  new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
 
 const toMessageTimestamp = (value?: string): string => {
   if (!value) {
-    return createTimestamp()
+    return getBeijingTimestamp()
   }
 
   const parsed = new Date(value)
   if (Number.isNaN(parsed.getTime())) {
-    return createTimestamp()
+    return getBeijingTimestamp()
   }
 
-  return parsed.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+  // Convert to Beijing time (UTC+8)
+  const beijingTime = new Date(parsed.getTime() + (8 * 60 * 60 * 1000))
+  const hours = beijingTime.getUTCHours().toString().padStart(2, '0')
+  const minutes = beijingTime.getUTCMinutes().toString().padStart(2, '0')
+  return `${hours}:${minutes}`
 }
 
 const normalizeRole = (role?: string): Message['role'] =>
@@ -336,6 +367,7 @@ function TypingIndicator() {
 
 export default function AICommandCenter() {
   const createSessionId = () => `sess_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`
+  const getDefaultModel = (provider: ProviderId): ModelId => PROVIDER_MODELS[provider][0].id
   const [sessionId, setSessionId] = useState<string>(() => {
     const existing = localStorage.getItem(SESSION_STORAGE_KEY)
     if (existing) {
@@ -352,7 +384,8 @@ export default function AICommandCenter() {
   })
   const [input, setInput] = useState('')
   const [isTyping, setIsTyping] = useState(false)
-  const [selectedProvider] = useState<ProviderId>('minimax')
+  const [selectedProvider, setSelectedProvider] = useState<ProviderId>('minimax')
+  const [selectedModel, setSelectedModel] = useState<ModelId>(() => getDefaultModel('minimax'))
   const [selectedRole] = useState<AgentRoleId>('general')
   const [enableTools] = useState(true)
   const [allowRestrictedTools] = useState(false)
@@ -363,6 +396,17 @@ export default function AICommandCenter() {
   const [deleting, setDeleting] = useState(false)
   const activeRequestRef = useRef<AbortController | null>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
+  
+  // Stream control states
+  const [streamStatus, setStreamStatus] = useState<'idle' | 'streaming' | 'paused'>('idle')
+  const streamStatusRef = useRef(streamStatus)
+  const pauseBufferRef = useRef<string>('')
+  const currentAssistantIdRef = useRef<string>('')
+  
+  // Sync streamStatusRef with streamStatus state
+  useEffect(() => {
+    streamStatusRef.current = streamStatus
+  }, [streamStatus])
   
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -442,6 +486,13 @@ export default function AICommandCenter() {
   }, [sessionId])
   
   const updateAssistantMessage = (messageId: string, appendText: string) => {
+    // If paused, buffer the content instead of updating UI
+    // Use ref to get latest value since this may be called from async callbacks
+    if (streamStatusRef.current === 'paused') {
+      pauseBufferRef.current += appendText
+      return
+    }
+    
     setMessages((prev) => {
       const existingIndex = prev.findIndex((msg) => msg.id === messageId)
       if (existingIndex === -1) {
@@ -451,7 +502,7 @@ export default function AICommandCenter() {
             id: messageId,
             role: 'assistant',
             content: appendText,
-            timestamp: createTimestamp(),
+            timestamp: getBeijingTimestamp(),
           },
         ]
       }
@@ -488,6 +539,7 @@ export default function AICommandCenter() {
 
     const body = {
       provider: selectedProvider,
+      model: selectedModel,
       sessionId,
       role: selectedRole,
       runtime: {
@@ -651,15 +703,17 @@ export default function AICommandCenter() {
     
     setInput('')
     setIsTyping(true)
+    setStreamStatus('streaming')
 
     const userMessage: Message = {
       id: Date.now().toString(),
       role: 'user',
       content,
-      timestamp: createTimestamp(),
+      timestamp: getBeijingTimestamp(),
     }
 
     const assistantId = `a_${Date.now()}`
+    currentAssistantIdRef.current = assistantId
     setMessages(prev => [...prev, userMessage])
     try {
       await callChatStream(content, assistantId)
@@ -680,13 +734,38 @@ export default function AICommandCenter() {
             id: assistantId,
             role: 'assistant',
             content: `❌ ${msg}`,
-            timestamp: createTimestamp(),
+            timestamp: getBeijingTimestamp(),
           },
         ]
       })
     } finally {
       setIsTyping(false)
+      setStreamStatus('idle')
+      pauseBufferRef.current = ''
+      currentAssistantIdRef.current = ''
     }
+  }
+  
+  const handlePause = () => {
+    setStreamStatus('paused')
+  }
+  
+  const handleResume = () => {
+    setStreamStatus('streaming')
+    // Flush buffered content
+    if (pauseBufferRef.current && currentAssistantIdRef.current) {
+      const buffered = pauseBufferRef.current
+      pauseBufferRef.current = ''
+      updateAssistantMessage(currentAssistantIdRef.current, buffered)
+    }
+  }
+  
+  const handleStop = () => {
+    activeRequestRef.current?.abort()
+    setStreamStatus('idle')
+    setIsTyping(false)
+    pauseBufferRef.current = ''
+    currentAssistantIdRef.current = ''
   }
   
   const handleQuickAction = (action: string) => {
@@ -713,7 +792,38 @@ export default function AICommandCenter() {
           </div>
           <div className="flex items-center gap-4">
             <div className="text-right text-[10px] font-mono-data uppercase tracking-widest text-fluid-text-dim">
-              <div>{PROVIDERS.find((p) => p.id === selectedProvider)?.name} · {AGENT_ROLES.find((r) => r.id === selectedRole)?.name}</div>
+              <div className="inline-flex items-center gap-1">
+                <select
+                  value={selectedProvider}
+                  onChange={(e) => {
+                    const nextProvider = e.target.value as ProviderId
+                    setSelectedProvider(nextProvider)
+                    setSelectedModel(getDefaultModel(nextProvider))
+                  }}
+                  className="max-w-[86px] cursor-pointer appearance-none border-none bg-transparent p-0 text-[10px] font-mono-data uppercase tracking-widest text-fluid-text-dim outline-none"
+                  aria-label="Select provider"
+                >
+                  {PROVIDERS.map((provider) => (
+                    <option key={provider.id} value={provider.id}>
+                      {provider.name}
+                    </option>
+                  ))}
+                </select>
+                <span>·</span>
+                <select
+                  value={selectedModel}
+                  onChange={(e) => setSelectedModel(e.target.value as ModelId)}
+                  className="max-w-[120px] cursor-pointer appearance-none border-none bg-transparent p-0 text-[10px] font-mono-data uppercase tracking-widest text-fluid-text-dim outline-none"
+                  aria-label="Select model"
+                >
+                  {PROVIDER_MODELS[selectedProvider].map((model) => (
+                    <option key={model.id} value={model.id}>
+                      {model.id}
+                    </option>
+                  ))}
+                </select>
+                <span>· {AGENT_ROLES.find((r) => r.id === selectedRole)?.name}</span>
+              </div>
               <div>Tools: {enableTools ? 'On' : 'Off'}</div>
             </div>
             {/* Session History Dropdown */}
@@ -819,21 +929,68 @@ export default function AICommandCenter() {
           </div>
           <div className="relative">
             <input 
-              className="w-full bg-fluid-surface-container-lowest border border-fluid-outline-variant/30 focus:border-fluid-primary focus:ring-1 focus:ring-fluid-primary/30 rounded-lg px-4 py-4 text-sm font-body text-fluid-text placeholder:text-fluid-text-dim/50 outline-none transition-all"
-              placeholder="Command Aura AI..."
+              className="w-full bg-fluid-surface-container-lowest border border-fluid-outline-variant/30 focus:border-fluid-primary focus:ring-1 focus:ring-fluid-primary/30 rounded-lg px-4 py-4 text-sm font-body text-fluid-text placeholder:text-fluid-text-dim/50 outline-none transition-all pr-28"
+              placeholder={streamStatus === 'paused' ? '已暂停...' : streamStatus === 'streaming' ? '生成中...' : 'Command Aura AI...'}
               type="text"
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && void handleSend()}
-              disabled={isTyping}
+              onKeyDown={(e) => e.key === 'Enter' && streamStatus === 'idle' && void handleSend()}
+              disabled={streamStatus !== 'idle'}
             />
-            <button 
-              onClick={() => void handleSend()}
-              disabled={isTyping || !input.trim()}
-              className="absolute right-3 top-1/2 -translate-y-1/2 w-10 h-10 bg-fluid-primary text-fluid-surface-container-lowest rounded-lg flex items-center justify-center shadow-lg shadow-fluid-primary/20 hover:shadow-glow-primary active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              <span className="material-symbols-outlined">send</span>
-            </button>
+            {/* Control Buttons */}
+            <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-2">
+              {streamStatus === 'streaming' && (
+                <>
+                  {/* Pause Button */}
+                  <button
+                    onClick={handlePause}
+                    className="w-10 h-10 bg-fluid-tertiary/20 text-fluid-tertiary rounded-lg flex items-center justify-center hover:bg-fluid-tertiary/30 active:scale-95 transition-all"
+                    title="暂停生成"
+                  >
+                    <span className="material-symbols-outlined">pause</span>
+                  </button>
+                  {/* Stop Button */}
+                  <button
+                    onClick={handleStop}
+                    className="w-10 h-10 bg-fluid-secondary/20 text-fluid-secondary rounded-lg flex items-center justify-center hover:bg-fluid-secondary/30 active:scale-95 transition-all"
+                    title="停止生成"
+                  >
+                    <span className="material-symbols-outlined">stop</span>
+                  </button>
+                </>
+              )}
+              
+              {streamStatus === 'paused' && (
+                <>
+                  {/* Resume Button */}
+                  <button
+                    onClick={handleResume}
+                    className="w-10 h-10 bg-fluid-primary/20 text-fluid-primary rounded-lg flex items-center justify-center hover:bg-fluid-primary/30 active:scale-95 transition-all"
+                    title="继续生成"
+                  >
+                    <span className="material-symbols-outlined">play_arrow</span>
+                  </button>
+                  {/* Stop Button */}
+                  <button
+                    onClick={handleStop}
+                    className="w-10 h-10 bg-fluid-secondary/20 text-fluid-secondary rounded-lg flex items-center justify-center hover:bg-fluid-secondary/30 active:scale-95 transition-all"
+                    title="停止生成"
+                  >
+                    <span className="material-symbols-outlined">stop</span>
+                  </button>
+                </>
+              )}
+              
+              {streamStatus === 'idle' && (
+                <button 
+                  onClick={() => void handleSend()}
+                  disabled={!input.trim()}
+                  className="w-10 h-10 bg-fluid-primary text-fluid-surface-container-lowest rounded-lg flex items-center justify-center shadow-lg shadow-fluid-primary/20 hover:shadow-glow-primary active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <span className="material-symbols-outlined">send</span>
+                </button>
+              )}
+            </div>
           </div>
         </div>
       </section>

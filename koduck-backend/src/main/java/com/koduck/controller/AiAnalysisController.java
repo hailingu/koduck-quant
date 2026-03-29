@@ -86,7 +86,12 @@ public class AiAnalysisController {
             @Valid @RequestBody ChatStreamRequest request) {
 
         Long userId = requireUserId(userPrincipal);
-        log.debug("POST /api/v1/ai/chat/stream: user={}, provider={}", userId, request.getProvider());
+        log.debug(
+            "POST /api/v1/ai/chat/stream: user={}, provider={}, model={}",
+            userId,
+            request.getProvider(),
+            request.getModel()
+        );
         return aiAnalysisService.streamChat(userId, request);
     }
 
