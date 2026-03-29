@@ -116,7 +116,11 @@ def _builtin_tool_defs() -> list[dict[str, Any]]:
                 "name": "search_finance_news",
                 "description": (
                     "Search latest finance news with source preference. "
-                    "Use for requests like 财联社/第一财经/财经快讯/市场新闻."
+                    "To maximize coverage, make MULTIPLE parallel calls: "
+                    "- Call 1: Chinese keywords + sources=[\"cls\", \"yicai\"] "
+                    "- Call 2: English keywords + sources=[\"bloomberg\", \"reuters\", \"cnbc\", ...] "
+                    "Chinese sources (cls=财联社, yicai=第一财经) need Chinese query. "
+                    "English sources (bloomberg, reuters, ft, wsj, cnbc) need English query."
                 ),
                 "parameters": {
                     "type": "object",
@@ -127,8 +131,21 @@ def _builtin_tool_defs() -> list[dict[str, Any]]:
                         },
                         "sources": {
                             "type": "array",
-                            "items": {"type": "string", "enum": ["cls", "yicai"]},
-                            "description": "Preferred finance sources. cls=财联社, yicai=第一财经.",
+                            "items": {
+                                "type": "string",
+                                "enum": [
+                                    "cls", "yicai",
+                                    "bloomberg", "reuters", "ft", "wsj", "cnbc",
+                                    "marketwatch", "investing", "seekingalpha"
+                                ]
+                            },
+                            "description": (
+                                "Preferred finance sources. "
+                                "Chinese: cls=财联社, yicai=第一财经. "
+                                "US/EU: bloomberg=Bloomberg, reuters=Reuters, ft=Financial Times, "
+                                "wsj=Wall Street Journal, cnbc=CNBC, marketwatch=MarketWatch, "
+                                "investing=Investing.com, seekingalpha=Seeking Alpha."
+                            ),
                             "default": ["cls", "yicai"],
                         },
                         "limit": {
@@ -727,6 +744,23 @@ async def _search_web_news(arguments: dict[str, Any]) -> str:
     )
 
 
+# Supported finance sources mapping
+_FINANCE_SOURCES = {
+    # Chinese
+    "cls": "cls",
+    "yicai": "yicai",
+    # US/EU
+    "bloomberg": "bloomberg",
+    "reuters": "reuters",
+    "ft": "ft",
+    "wsj": "wsj",
+    "cnbc": "cnbc",
+    "marketwatch": "marketwatch",
+    "investing": "investing",
+    "seekingalpha": "seekingalpha",
+}
+
+
 def _normalize_finance_sources(raw_sources: Any) -> list[str]:
     if not raw_sources:
         return ["cls", "yicai"]
@@ -737,32 +771,61 @@ def _normalize_finance_sources(raw_sources: Any) -> list[str]:
     else:
         return ["cls", "yicai"]
 
-    supported = {"cls", "yicai"}
     cleaned: list[str] = []
     for candidate in candidates:
         key = candidate.strip().lower()
-        if key in supported and key not in cleaned:
+        if key in _FINANCE_SOURCES and key not in cleaned:
             cleaned.append(key)
     return cleaned or ["cls", "yicai"]
 
 
 def _domain_for_source(source: str) -> str:
-    if source == "cls":
-        return "www.cls.cn"
-    if source == "yicai":
-        return "www.yicai.com"
-    return ""
+    """Map source code to domain for site-scoped search."""
+    domains = {
+        # Chinese
+        "cls": "www.cls.cn",
+        "yicai": "www.yicai.com",
+        # US/EU
+        "bloomberg": "www.bloomberg.com",
+        "reuters": "www.reuters.com",
+        "ft": "www.ft.com",
+        "wsj": "www.wsj.com",
+        "cnbc": "www.cnbc.com",
+        "marketwatch": "www.marketwatch.com",
+        "investing": "www.investing.com",
+        "seekingalpha": "seekingalpha.com",
+    }
+    return domains.get(source, "")
 
 
 def _infer_source_by_url(url: str) -> str:
+    """Infer source code from URL hostname."""
     try:
         host = (urllib.parse.urlparse(url).hostname or "").lower()
     except Exception:
         host = ""
+    # Chinese sources
     if "cls.cn" in host:
         return "cls"
     if "yicai.com" in host:
         return "yicai"
+    # US/EU sources
+    if "bloomberg.com" in host:
+        return "bloomberg"
+    if "reuters.com" in host:
+        return "reuters"
+    if "ft.com" in host:
+        return "ft"
+    if "wsj.com" in host:
+        return "wsj"
+    if "cnbc.com" in host:
+        return "cnbc"
+    if "marketwatch.com" in host:
+        return "marketwatch"
+    if "investing.com" in host:
+        return "investing"
+    if "seekingalpha.com" in host:
+        return "seekingalpha"
     return ""
 
 
@@ -802,10 +865,28 @@ async def _search_finance_news(arguments: dict[str, Any]) -> str:
                     item["source_code"] = detected_source
                 if not detected_source and item.get("source"):
                     lowered = item["source"].lower()
+                    # Chinese sources
                     if "财联社" in item["source"] or "cls" in lowered:
                         item["source_code"] = "cls"
                     elif "第一财经" in item["source"] or "yicai" in lowered:
                         item["source_code"] = "yicai"
+                    # US/EU sources
+                    elif "bloomberg" in lowered:
+                        item["source_code"] = "bloomberg"
+                    elif "reuters" in lowered:
+                        item["source_code"] = "reuters"
+                    elif "financial times" in lowered or "ft.com" in lowered:
+                        item["source_code"] = "ft"
+                    elif "wall street journal" in lowered or "wsj" in lowered:
+                        item["source_code"] = "wsj"
+                    elif "cnbc" in lowered:
+                        item["source_code"] = "cnbc"
+                    elif "marketwatch" in lowered:
+                        item["source_code"] = "marketwatch"
+                    elif "investing.com" in lowered:
+                        item["source_code"] = "investing"
+                    elif "seeking alpha" in lowered or "seekingalpha" in lowered:
+                        item["source_code"] = "seekingalpha"
             # If source filtering is requested, keep matching items first.
             preferred = [i for i in parsed_items if i.get("source_code") in sources]
             fallback = [i for i in parsed_items if i.get("source_code") not in sources]

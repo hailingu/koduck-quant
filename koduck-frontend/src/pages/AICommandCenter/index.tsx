@@ -571,11 +571,31 @@ export default function AICommandCenter() {
         },
       })
       const result = (await response.json()) as SessionsResponse
-      if (result.data?.sessions) {
-        setSessions(result.data.sessions)
+      const fetchedSessions = result.data?.sessions ?? []
+      
+      // If current session is not in the list, add it as a temporary entry
+      const currentSessionExists = fetchedSessions.some(s => s.sessionId === sessionId)
+      if (!currentSessionExists) {
+        const currentSession: Session = {
+          sessionId,
+          title: 'Current Session',
+          status: 'active',
+          lastMessageAt: new Date().toISOString(),
+          createdAt: new Date().toISOString(),
+        }
+        setSessions([currentSession, ...fetchedSessions])
+      } else {
+        setSessions(fetchedSessions)
       }
     } catch {
-      // Ignore error
+      // If API fails, still show current session
+      setSessions([{
+        sessionId,
+        title: 'Current Session',
+        status: 'active',
+        lastMessageAt: new Date().toISOString(),
+        createdAt: new Date().toISOString(),
+      }])
     }
   }
 

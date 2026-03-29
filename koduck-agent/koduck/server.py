@@ -43,7 +43,11 @@ TOOL_AWARE_SYSTEM_GUARD = (
     "2) 当用户询问财经新闻、市场快讯、财联社、第一财经等问题时，优先调用 search_finance_news 工具；"
     "当用户询问一般今日新闻、最新消息、实时事件时，优先调用 search_web_news 工具；"
     "不要直接回答“无法联网/无法获取实时信息”。\n"
-    "3) 拿到工具结果后，先给出简要结论，再列出关键来源与发布时间；若工具失败，明确说明失败原因并给出可执行替代建议。"
+    "3) 调用 search_finance_news 时，为了覆盖更全面的信息，你应该同时用中英文查询: "
+    "用中文关键词(如\"工商银行\")查询中文媒体(cls/yicai)，"
+    "用英文关键词(如\"ICBC Industrial Commercial Bank\")查询英文媒体(bloomberg/reuters等)。"
+    "如果用户没有指定媒体来源，请同时查询中英文所有可用来源。\n"
+    "4) 拿到工具结果后，先给出简要结论，再列出关键来源与发布时间；若工具失败，明确说明失败原因并给出可执行替代建议。"
 )
 
 
@@ -482,13 +486,29 @@ async def _run_chat_with_tool_loop(
                     content=tool_content,
                 )
             )
+            # Extract useful info from parsed result for logging
+            result_query = ""
+            result_sources: list[str] = []
+            result_provider = ""
+            result_count = 0
+            if isinstance(parsed_result, dict):
+                result_query = str(parsed_result.get("query", ""))[:50]
+                result_provider = str(parsed_result.get("provider", ""))
+                result_count = int(parsed_result.get("count", 0))
+                raw_sources = parsed_result.get("sources")
+                if isinstance(raw_sources, list):
+                    result_sources = [str(s) for s in raw_sources]
             logger.info(
-                "[ToolLoop] Executed tool: name=%s id=%s ok=%s allowed=%s error=%s",
+                "[ToolLoop] Executed tool: name=%s id=%s ok=%s allowed=%s query=%s sources=%s provider=%s count=%s error=%s",
                 tc.function.name,
                 tc.id,
                 result_ok,
                 allowed,
-                result_error[:160],
+                result_query,
+                ",".join(result_sources) if result_sources else "-",
+                result_provider or "-",
+                result_count,
+                result_error[:100],
             )
 
         final_response = await client.generate(history, tools=active_tools)
