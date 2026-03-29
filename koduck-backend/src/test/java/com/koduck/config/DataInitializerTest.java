@@ -2,6 +2,7 @@ package com.koduck.config;
 
 import com.koduck.entity.Role;
 import com.koduck.entity.User;
+import com.koduck.repository.CredentialRepository;
 import com.koduck.repository.RoleRepository;
 import com.koduck.repository.UserRepository;
 import com.koduck.repository.UserRoleRepository;
@@ -22,6 +23,7 @@ import java.util.Optional;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
@@ -47,6 +49,9 @@ class DataInitializerTest {
     private UserRoleRepository userRoleRepository;
 
     @Mock
+    private CredentialRepository credentialRepository;
+
+    @Mock
     private PasswordEncoder passwordEncoder;
 
     @Mock
@@ -60,8 +65,9 @@ class DataInitializerTest {
                 userRepository,
                 roleRepository,
                 userRoleRepository,
-            passwordEncoder,
-            jdbcTemplate
+                credentialRepository,
+                passwordEncoder,
+                jdbcTemplate
         );
     }
 
@@ -75,7 +81,7 @@ class DataInitializerTest {
 
         dataInitializer.run();
 
-        verifyNoInteractions(userRepository, roleRepository, userRoleRepository, passwordEncoder);
+        verifyNoInteractions(userRepository, roleRepository, userRoleRepository, credentialRepository, passwordEncoder);
     }
 
     /**
@@ -105,10 +111,11 @@ class DataInitializerTest {
 
         dataInitializer.run();
 
-        verify(userRepository).findByUsername("demoUser");
+        verify(userRepository, times(2)).findByUsername("demoUser");
         verify(roleRepository, never()).findByName("USER");
         verify(userRoleRepository, never()).insertUserRole(org.mockito.ArgumentMatchers.anyLong(), org.mockito.ArgumentMatchers.anyInt());
-        verifyNoMoreInteractions(userRepository);
+        verifyNoInteractions(credentialRepository);
+        verifyNoMoreInteractions(userRepository, roleRepository, userRoleRepository, credentialRepository);
     }
 
     /**
@@ -134,10 +141,11 @@ class DataInitializerTest {
 
         assertDoesNotThrow(() -> dataInitializer.run());
 
-        verify(userRepository).findByUsername("demoUser");
+        verify(userRepository, times(2)).findByUsername("demoUser");
         verify(roleRepository).findByName("USER");
         verify(userRepository).save(org.mockito.ArgumentMatchers.argThat(Objects::nonNull));
         verify(userRoleRepository, never()).insertUserRole(org.mockito.ArgumentMatchers.anyLong(), org.mockito.ArgumentMatchers.anyInt());
+        verifyNoInteractions(credentialRepository);
     }
 
     /**

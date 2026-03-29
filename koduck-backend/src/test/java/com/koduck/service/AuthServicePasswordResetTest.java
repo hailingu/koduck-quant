@@ -12,9 +12,9 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
 import java.time.LocalDateTime;
@@ -63,6 +63,9 @@ class AuthServicePasswordResetTest {
     @Mock
     private MailProperties mailProperties;
 
+        @Mock
+        private JdbcTemplate jdbcTemplate;
+
     private AuthService authService;
 
     private static final String TEST_IP = "192.168.1.1";
@@ -82,7 +85,8 @@ class AuthServicePasswordResetTest {
                 passwordEncoder,
                 emailService,
                 rateLimiterService,
-                mailProperties
+                                mailProperties,
+                                jdbcTemplate
         );
     }
 
