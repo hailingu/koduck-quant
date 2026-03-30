@@ -27,38 +27,37 @@ import static com.koduck.util.ServiceValidationUtils.requireFound;
 @RequiredArgsConstructor
 @Slf4j
 public class StrategyServiceImpl implements StrategyService {
-    
+
     private final StrategyRepository strategyRepository;
     private final StrategyVersionRepository versionRepository;
     private final StrategyParameterRepository parameterRepository;
     private final StrategyAccessSupport strategyAccessSupport;
-    
+
     private static final String DEFAULT_CODE_TEMPLATE = """
-# 
-#  Python 
+#
+# Python
 
 def initialize(context):
-    # ，
+    # Set the default symbol and market.
     context.symbol = "000001"
     context.market = "AShare"
-    
+
 def handle_data(context, data):
-    # 
-    # 
+    # Read the current price.
     current_price = data.get_price(context.symbol)
-    
-    # 
+
+    # Check the current position.
     position = context.portfolio.get_position(context.symbol)
-    
-    # 
+
+    # Calculate moving averages.
     ma20 = data.get_ma(context.symbol, 20)
     ma60 = data.get_ma(context.symbol, 60)
-    
+
     if ma20 > ma60 and position == 0:
-        # 
+        # Buy when the short-term trend turns positive.
         context.order_buy(context.symbol, 100)
     elif ma20 < ma60 and position > 0:
-        # 
+        # Sell when the trend weakens.
         context.order_sell(context.symbol, position)
 """;
     

@@ -15,6 +15,7 @@ import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.util.StringUtils;
 
+import java.io.Serial;
 import java.util.Collections;
 import java.util.Objects;
 import java.util.Optional;
@@ -135,6 +136,9 @@ public class WebSocketChannelInterceptor implements ChannelInterceptor {
      * WebSocket  Principal
      */
     public static class WebSocketUserPrincipal implements org.springframework.security.core.userdetails.UserDetails {
+
+        @Serial
+        private static final long serialVersionUID = 1L;
 
         private final Long userId;
 

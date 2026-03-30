@@ -7,7 +7,6 @@ import com.koduck.market.model.TickData;
 import com.koduck.market.provider.MarketDataProvider;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Component;
@@ -16,6 +15,7 @@ import org.springframework.web.client.RestTemplate;
 import org.springframework.web.util.UriComponentsBuilder;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.*;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
@@ -456,7 +456,7 @@ public class USStockProvider implements MarketDataProvider {
             double changePercent = (Math.random() - 0.5) * 0.02;
             BigDecimal price = basePrice.multiply(BigDecimal.valueOf(1 + changePercent));
             BigDecimal change = price.subtract(basePrice);
-            BigDecimal changePercentValue = change.divide(basePrice, 4, BigDecimal.ROUND_HALF_UP)
+            BigDecimal changePercentValue = change.divide(basePrice, 4, RoundingMode.HALF_UP)
                                                   .multiply(BigDecimal.valueOf(100));
             
             long volume = (long) (Math.random() * 49000000 + 1000000);

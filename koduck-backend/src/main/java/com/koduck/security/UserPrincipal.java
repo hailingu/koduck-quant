@@ -5,6 +5,7 @@ import lombok.Getter;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 
+import java.io.Serial;
 import java.util.Collection;
 
 /**
@@ -13,8 +14,11 @@ import java.util.Collection;
 @Getter
 public class UserPrincipal implements UserDetails {
 
-    private final User user;
-    private final Collection<? extends GrantedAuthority> authorities;
+    @Serial
+    private static final long serialVersionUID = 1L;
+
+    private final transient User user;
+    private final transient Collection<? extends GrantedAuthority> authorities;
 
     public UserPrincipal(User user, Collection<? extends GrantedAuthority> authorities) {
         this.user = user;

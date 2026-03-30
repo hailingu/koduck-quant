@@ -60,10 +60,6 @@ public class MarketSentimentDto {
          */
         private String trend;
 
-        /**
-         * Historical values for charting (optional)
-         */
-        // private List<Integer> history;
     }
 
     /**

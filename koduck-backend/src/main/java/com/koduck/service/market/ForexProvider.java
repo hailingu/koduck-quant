@@ -17,6 +17,7 @@ import org.springframework.web.client.RestTemplate;
 import org.springframework.web.util.UriComponentsBuilder;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.*;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
@@ -41,6 +42,7 @@ public class ForexProvider implements MarketDataProvider {
     private static final ZoneId NEW_YORK_ZONE = ZoneId.of("America/New_York");
     private static final String FOREX_BASE_PATH = "/forex";
     private static final String PROVIDER_NAME = "akshare-forex";
+    private static final HttpMethod HTTP_GET = HttpMethod.GET;
     
     private final DataServiceProperties properties;
     private final RestTemplate restTemplate;
@@ -125,7 +127,7 @@ public class ForexProvider implements MarketDataProvider {
             
             ResponseEntity<List<Map<String, Object>>> response = restTemplate.exchange(
                     url,
-                    HttpMethod.GET,
+                    HTTP_GET,
                     null,
                     new ParameterizedTypeReference<>() {}
             );
@@ -162,7 +164,7 @@ public class ForexProvider implements MarketDataProvider {
             
             ResponseEntity<Map<String, Object>> response = restTemplate.exchange(
                     url,
-                    HttpMethod.GET,
+                    HTTP_GET,
                     null,
                     new ParameterizedTypeReference<>() {}
             );
@@ -231,7 +233,7 @@ public class ForexProvider implements MarketDataProvider {
             
             ResponseEntity<List<Map<String, Object>>> response = restTemplate.exchange(
                     url,
-                    HttpMethod.GET,
+                    HTTP_GET,
                     null,
                     new ParameterizedTypeReference<>() {}
             );
@@ -342,7 +344,7 @@ public class ForexProvider implements MarketDataProvider {
         double changePercent = (Math.random() - 0.5) * volatility * 2;
         BigDecimal price = baseRate.multiply(BigDecimal.valueOf(1 + changePercent));
         BigDecimal change = price.subtract(baseRate);
-        BigDecimal changePercentValue = change.divide(baseRate, 4, BigDecimal.ROUND_HALF_UP)
+        BigDecimal changePercentValue = change.divide(baseRate, 4, RoundingMode.HALF_UP)
                                               .multiply(BigDecimal.valueOf(100));
         
         long volume = (long) (Math.random() * 4900000 + 100000);

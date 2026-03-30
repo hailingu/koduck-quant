@@ -2,6 +2,8 @@ package com.koduck.exception;
 
 import lombok.Getter;
 
+import java.io.Serial;
+
 /**
  * 
  *
@@ -11,6 +13,9 @@ import lombok.Getter;
  */
 @Getter
 public class ExternalServiceException extends BusinessException {
+
+    @Serial
+    private static final long serialVersionUID = 1L;
 
     /**
      * 

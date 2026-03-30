@@ -2,6 +2,7 @@ package com.koduck.exception;
 
 import lombok.Getter;
 
+import java.io.Serial;
 import java.util.Collections;
 import java.util.Map;
 
@@ -15,10 +16,13 @@ import java.util.Map;
 @Getter
 public class ValidationException extends BusinessException {
 
+    @Serial
+    private static final long serialVersionUID = 1L;
+
     /**
      * ，key ，value 
      */
-    private final Map<String, String> fieldErrors;
+    private final transient Map<String, String> fieldErrors;
 
     /**
      * 

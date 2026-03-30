@@ -9,54 +9,24 @@ import java.time.Instant;
  * This is the standard format that all providers must convert their data to.
  */
 public record KlineData(
-    /**
-     * Symbol code (normalized)
-     */
     String symbol,
-    
-    /**
-     * Market type
-     */
+
     String market,
-    
-    /**
-     * Timestamp of the k-line
-     */
+
     Instant timestamp,
-    
-    /**
-     * Open price
-     */
+
     BigDecimal open,
-    
-    /**
-     * High price
-     */
+
     BigDecimal high,
-    
-    /**
-     * Low price
-     */
+
     BigDecimal low,
-    
-    /**
-     * Close price
-     */
+
     BigDecimal close,
-    
-    /**
-     * Trading volume
-     */
+
     Long volume,
-    
-    /**
-     * Trading amount (optional)
-     */
+
     BigDecimal amount,
-    
-    /**
-     * Timeframe (e.g., "1m", "5m", "1h", "1d")
-     */
+
     String timeframe
 ) {
     

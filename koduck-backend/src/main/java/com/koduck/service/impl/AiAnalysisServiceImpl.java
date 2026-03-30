@@ -1,5 +1,6 @@
 package com.koduck.service.impl;
 
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.koduck.config.AgentConfig;
 import com.koduck.dto.ai.*;
@@ -748,7 +749,7 @@ public class AiAnalysisServiceImpl implements AiAnalysisService {
             return "";
         }
         try {
-            Map<String, Object> data = objectMapper.readValue(donePayload, Map.class);
+            Map<String, Object> data = objectMapper.readValue(donePayload, new TypeReference<Map<String, Object>>() { });
             Object content = data.get("content");
             return content == null ? "" : String.valueOf(content);
         } catch (Exception e) {
@@ -761,9 +762,16 @@ public class AiAnalysisServiceImpl implements AiAnalysisService {
             return null;
         }
         try {
-            Map<String, Object> data = objectMapper.readValue(donePayload, Map.class);
-            @SuppressWarnings("unchecked")
-            Map<String, Object> usage = (Map<String, Object>) data.get("usage");
+            Map<String, Object> data = objectMapper.readValue(donePayload, new TypeReference<Map<String, Object>>() { });
+            Object usageObject = data.get("usage");
+            if (!(usageObject instanceof Map<?, ?>)) {
+                return null;
+            }
+
+            Map<String, Object> usage = objectMapper.convertValue(
+                    usageObject,
+                    new TypeReference<Map<String, Object>>() { }
+            );
             if (usage != null && usage.get("total_tokens") != null) {
                 Object totalTokens = usage.get("total_tokens");
                 if (totalTokens instanceof Number) {

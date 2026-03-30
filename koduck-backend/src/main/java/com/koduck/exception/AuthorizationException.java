@@ -1,5 +1,7 @@
 package com.koduck.exception;
 
+import java.io.Serial;
+
 /**
  * 
  *
@@ -8,6 +10,9 @@ package com.koduck.exception;
  * @author Koduck Team
  */
 public class AuthorizationException extends BusinessException {
+
+    @Serial
+    private static final long serialVersionUID = 1L;
 
     /**
      * 

@@ -8,84 +8,36 @@ import java.time.Instant;
  * Represents a single trade/tick in the market.
  */
 public record TickData(
-    /**
-     * Symbol code
-     */
     String symbol,
-    
-    /**
-     * Market type
-     */
+
     String market,
-    
-    /**
-     * Tick timestamp
-     */
+
     Instant timestamp,
-    
-    /**
-     * Current price
-     */
+
     BigDecimal price,
-    
-    /**
-     * Price change from previous close
-     */
+
     BigDecimal change,
-    
-    /**
-     * Price change percentage
-     */
+
     BigDecimal changePercent,
-    
-    /**
-     * Trading volume
-     */
+
     Long volume,
-    
-    /**
-     * Trading amount
-     */
+
     BigDecimal amount,
-    
-    /**
-     * Bid price (best buy)
-     */
+
     BigDecimal bidPrice,
-    
-    /**
-     * Bid volume
-     */
+
     Long bidVolume,
-    
-    /**
-     * Ask price (best sell)
-     */
+
     BigDecimal askPrice,
-    
-    /**
-     * Ask volume
-     */
+
     Long askVolume,
-    
-    /**
-     * Day high
-     */
+
     BigDecimal dayHigh,
-    
-    /**
-     * Day low
-     */
+
     BigDecimal dayLow,
-    
-    /**
-     * Open price
-     */
+
     BigDecimal open,
-    
-    /**
-     * Previous close
-     */
+
     BigDecimal prevClose
 ) {
     

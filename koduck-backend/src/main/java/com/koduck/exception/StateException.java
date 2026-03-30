@@ -1,5 +1,7 @@
 package com.koduck.exception;
 
+import java.io.Serial;
+
 import lombok.Getter;
 
 /**
@@ -11,6 +13,9 @@ import lombok.Getter;
  */
 @Getter
 public class StateException extends BusinessException {
+
+    @Serial
+    private static final long serialVersionUID = 1L;
 
     /**
      * 

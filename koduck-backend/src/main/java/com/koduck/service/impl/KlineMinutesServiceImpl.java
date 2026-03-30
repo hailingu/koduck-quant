@@ -33,6 +33,7 @@ public class KlineMinutesServiceImpl implements KlineMinutesService {
     private final DataServiceProperties properties;
 
     private static final String A_SHARE_BASE_PATH = "/a-share";
+    private static final HttpMethod HTTP_GET = HttpMethod.GET;
 
     @Override
     public List<KlineDataDto> getMinuteKline(String market, String symbol, String timeframe,
@@ -44,7 +45,7 @@ public class KlineMinutesServiceImpl implements KlineMinutesService {
 
         try {
             String url = UriComponentsBuilder
-                    .fromHttpUrl(properties.getBaseUrl() + A_SHARE_BASE_PATH + "/kline")
+                    .fromUriString(properties.getBaseUrl() + A_SHARE_BASE_PATH + "/kline")
                     .queryParam("symbol", symbol)
                     .queryParam("timeframe", timeframe)
                     .queryParam("limit", limit)
@@ -55,7 +56,7 @@ public class KlineMinutesServiceImpl implements KlineMinutesService {
             ResponseEntity<DataServiceResponse<List<Map<String, Object>>>> response =
                     dataServiceRestTemplate.exchange(
                             url,
-                            HttpMethod.GET,
+                            HTTP_GET,
                             null,
                             new ParameterizedTypeReference<>() {}
                     );

@@ -17,6 +17,7 @@ import org.springframework.web.client.RestTemplate;
 import org.springframework.web.util.UriComponentsBuilder;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.*;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
@@ -48,6 +49,7 @@ public class FuturesProvider implements MarketDataProvider {
     private static final ZoneId BEIJING_ZONE = ZoneId.of("Asia/Shanghai");
     private static final String FUTURES_BASE_PATH = "/futures";
     private static final String PROVIDER_NAME = "akshare-futures";
+    private static final HttpMethod HTTP_GET = HttpMethod.GET;
     
     private final DataServiceProperties properties;
     private final RestTemplate restTemplate;
@@ -148,7 +150,7 @@ public class FuturesProvider implements MarketDataProvider {
             
             ResponseEntity<List<Map<String, Object>>> response = restTemplate.exchange(
                     url,
-                    HttpMethod.GET,
+                    HTTP_GET,
                     null,
                     new ParameterizedTypeReference<>() {}
             );
@@ -185,7 +187,7 @@ public class FuturesProvider implements MarketDataProvider {
             
             ResponseEntity<Map<String, Object>> response = restTemplate.exchange(
                     url,
-                    HttpMethod.GET,
+                    HTTP_GET,
                     null,
                     new ParameterizedTypeReference<>() {}
             );
@@ -277,7 +279,7 @@ public class FuturesProvider implements MarketDataProvider {
             
             ResponseEntity<List<Map<String, Object>>> response = restTemplate.exchange(
                     url,
-                    HttpMethod.GET,
+                    HTTP_GET,
                     null,
                     new ParameterizedTypeReference<>() {}
             );
@@ -369,7 +371,7 @@ public class FuturesProvider implements MarketDataProvider {
         double changePercent = (Math.random() - 0.5) * volatility * 2;
         BigDecimal price = basePrice.multiply(BigDecimal.valueOf(1 + changePercent));
         BigDecimal change = price.subtract(basePrice);
-        BigDecimal changePercentValue = change.divide(basePrice, 4, BigDecimal.ROUND_HALF_UP)
+        BigDecimal changePercentValue = change.divide(basePrice, 4, RoundingMode.HALF_UP)
                                               .multiply(BigDecimal.valueOf(100));
         
         long volume = (long) (Math.random() * 490000 + 10000);

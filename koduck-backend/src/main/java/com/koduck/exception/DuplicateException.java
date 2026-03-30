@@ -2,6 +2,8 @@ package com.koduck.exception;
 
 import lombok.Getter;
 
+import java.io.Serial;
+
 /**
  * 
  *
@@ -12,6 +14,9 @@ import lombok.Getter;
 @Getter
 public class DuplicateException extends BusinessException {
 
+    @Serial
+    private static final long serialVersionUID = 1L;
+
     /**
      * 
      */
@@ -20,7 +25,7 @@ public class DuplicateException extends BusinessException {
     /**
      * 
      */
-    private final Object value;
+    private final transient Object value;
 
     /**
      * 

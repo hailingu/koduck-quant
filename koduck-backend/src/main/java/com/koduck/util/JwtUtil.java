@@ -1,7 +1,12 @@
 package com.koduck.util;
 
 import com.koduck.config.JwtConfig;
-import io.jsonwebtoken.*;
+import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.ExpiredJwtException;
+import io.jsonwebtoken.Jwts;
+import io.jsonwebtoken.MalformedJwtException;
+import io.jsonwebtoken.UnsupportedJwtException;
+import io.jsonwebtoken.security.SignatureException;
 import io.jsonwebtoken.security.Keys;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -113,7 +118,7 @@ public class JwtUtil {
         try {
             Claims claims = parseToken(token);
             return claims.getExpiration().before(new Date());
-        } catch (ExpiredJwtException e) {
+        } catch (ExpiredJwtException ignored) {
             return true;
         }
     }
@@ -132,7 +137,7 @@ public class JwtUtil {
         try {
             Claims claims = parseToken(token);
             return "refresh".equals(claims.get("type"));
-        } catch (Exception e) {
+        } catch (Exception ignored) {
             return false;
         }
     }
