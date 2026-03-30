@@ -23,5 +23,8 @@ public record CapitalRiverDto(
         String source,
         String quality
 ) {
+        public CapitalRiverDto {
+                bubbles = bubbles == null ? null : List.copyOf(bubbles);
+        }
 }
 

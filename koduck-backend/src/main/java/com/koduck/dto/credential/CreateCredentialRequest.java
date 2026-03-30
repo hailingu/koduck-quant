@@ -8,8 +8,11 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import lombok.Singular;
 
 import java.util.Map;
+
+import com.koduck.util.CollectionCopyUtils;
 
 /**
  *  DTO
@@ -40,5 +43,14 @@ public class CreateCredentialRequest {
     @Pattern(regexp = "paper|live|sandbox", message = "环境类型必须是 paper, live 或 sandbox")
     private String environment;
 
+    @Singular("additionalConfigEntry")
     private Map<String, Object> additionalConfig;
+
+    public Map<String, Object> getAdditionalConfig() {
+        return CollectionCopyUtils.copyMap(additionalConfig);
+    }
+
+    public void setAdditionalConfig(Map<String, Object> additionalConfig) {
+        this.additionalConfig = CollectionCopyUtils.copyMap(additionalConfig);
+    }
 }

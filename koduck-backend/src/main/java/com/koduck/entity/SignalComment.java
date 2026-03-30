@@ -1,5 +1,7 @@
 package com.koduck.entity;
 
+import com.koduck.util.CollectionCopyUtils;
+import com.koduck.util.EntityCopyUtils;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -72,4 +74,36 @@ public class SignalComment {
     // （）
     @OneToMany(mappedBy = "parent", fetch = FetchType.LAZY)
     private List<SignalComment> replies;
+
+    public CommunitySignal getSignal() {
+        return EntityCopyUtils.copyCommunitySignal(signal);
+    }
+
+    public void setSignal(CommunitySignal signal) {
+        this.signal = EntityCopyUtils.copyCommunitySignal(signal);
+    }
+
+    public User getUser() {
+        return EntityCopyUtils.copyUser(user);
+    }
+
+    public void setUser(User user) {
+        this.user = EntityCopyUtils.copyUser(user);
+    }
+
+    public SignalComment getParent() {
+        return EntityCopyUtils.copySignalCommentShallow(parent);
+    }
+
+    public void setParent(SignalComment parent) {
+        this.parent = EntityCopyUtils.copySignalCommentShallow(parent);
+    }
+
+    public List<SignalComment> getReplies() {
+        return CollectionCopyUtils.copyList(replies);
+    }
+
+    public void setReplies(List<SignalComment> replies) {
+        this.replies = CollectionCopyUtils.copyList(replies);
+    }
 }

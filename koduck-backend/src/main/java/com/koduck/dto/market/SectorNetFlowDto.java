@@ -23,4 +23,9 @@ public record SectorNetFlowDto(
         String source,
         String quality
 ) {
+        public SectorNetFlowDto {
+                industry = industry == null ? null : List.copyOf(industry);
+                concept = concept == null ? null : List.copyOf(concept);
+                region = region == null ? null : List.copyOf(region);
+        }
 }

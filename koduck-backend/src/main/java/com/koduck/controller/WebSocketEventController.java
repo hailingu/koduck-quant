@@ -235,10 +235,6 @@ public class WebSocketEventController {
     }
 
     private SubscriptionMessage parseSubscriptionMessage(Object payload) {
-        if (payload == null) {
-            return null;
-        }
-
         try {
             if (payload instanceof SubscriptionMessage message) {
                 return message;

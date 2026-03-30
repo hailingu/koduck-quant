@@ -1,10 +1,12 @@
 package com.koduck.dto.community;
 
 import com.fasterxml.jackson.annotation.JsonFormat;
+import com.koduck.util.CollectionCopyUtils;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import lombok.Singular;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -29,6 +31,7 @@ public class CommentResponse {
     private Integer likeCount;
     private Boolean isDeleted;
 
+    @Singular
     private List<CommentResponse> replies; // 
 
     @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
@@ -36,4 +39,12 @@ public class CommentResponse {
 
     @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
     private LocalDateTime updatedAt;
+
+    public List<CommentResponse> getReplies() {
+        return CollectionCopyUtils.copyList(replies);
+    }
+
+    public void setReplies(List<CommentResponse> replies) {
+        this.replies = CollectionCopyUtils.copyList(replies);
+    }
 }

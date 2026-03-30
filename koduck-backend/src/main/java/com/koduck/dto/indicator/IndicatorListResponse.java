@@ -1,5 +1,6 @@
 package com.koduck.dto.indicator;
 
+import com.koduck.util.CollectionCopyUtils;
 import java.util.List;
 
 /**
@@ -8,6 +9,14 @@ import java.util.List;
 public record IndicatorListResponse(
     List<IndicatorInfo> indicators
 ) {
+    public IndicatorListResponse {
+        indicators = CollectionCopyUtils.copyList(indicators);
+    }
+
+    @Override
+    public List<IndicatorInfo> indicators() {
+        return CollectionCopyUtils.copyList(indicators);
+    }
     
     public record IndicatorInfo(
         String code,
@@ -15,7 +24,11 @@ public record IndicatorListResponse(
         String description,
         List<Integer> defaultPeriods,
         String category
-    ) {}
+    ) {
+        public IndicatorInfo {
+            defaultPeriods = CollectionCopyUtils.copyList(defaultPeriods);
+        }
+    }
     
     public static Builder builder() {
         return new Builder();
@@ -25,7 +38,7 @@ public record IndicatorListResponse(
         private List<IndicatorInfo> indicators;
         
         public Builder indicators(List<IndicatorInfo> indicators) {
-            this.indicators = indicators;
+            this.indicators = CollectionCopyUtils.copyList(indicators);
             return this;
         }
         

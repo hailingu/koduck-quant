@@ -1,5 +1,6 @@
 package com.koduck.dto.settings;
 
+import com.koduck.util.CollectionCopyUtils;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -42,6 +43,121 @@ public class UserSettingsDto {
 
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
+
+    public NotificationConfigDto getNotification() {
+        return copyNotification(notification);
+    }
+
+    public void setNotification(NotificationConfigDto notification) {
+        this.notification = copyNotification(notification);
+    }
+
+    public TradingConfigDto getTrading() {
+        return copyTrading(trading);
+    }
+
+    public void setTrading(TradingConfigDto trading) {
+        this.trading = copyTrading(trading);
+    }
+
+    public DisplayConfigDto getDisplay() {
+        return copyDisplay(display);
+    }
+
+    public void setDisplay(DisplayConfigDto display) {
+        this.display = copyDisplay(display);
+    }
+
+    public List<QuickLinkDto> getQuickLinks() {
+        return CollectionCopyUtils.copyList(quickLinks);
+    }
+
+    public void setQuickLinks(List<QuickLinkDto> quickLinks) {
+        this.quickLinks = CollectionCopyUtils.copyList(quickLinks);
+    }
+
+    public LlmConfigDto getLlmConfig() {
+        return copyLlmConfig(llmConfig);
+    }
+
+    public void setLlmConfig(LlmConfigDto llmConfig) {
+        this.llmConfig = copyLlmConfig(llmConfig);
+    }
+
+    private static NotificationConfigDto copyNotification(NotificationConfigDto source) {
+        if (source == null) {
+            return null;
+        }
+        return NotificationConfigDto.builder()
+                .email(source.getEmail())
+                .browser(source.getBrowser())
+                .priceAlert(source.getPriceAlert())
+                .tradeAlert(source.getTradeAlert())
+                .strategyAlert(source.getStrategyAlert())
+                .build();
+    }
+
+    private static TradingConfigDto copyTrading(TradingConfigDto source) {
+        if (source == null) {
+            return null;
+        }
+        return TradingConfigDto.builder()
+                .defaultMarket(source.getDefaultMarket())
+                .commissionRate(source.getCommissionRate())
+                .minCommission(source.getMinCommission())
+                .enableConfirmation(source.getEnableConfirmation())
+                .build();
+    }
+
+    private static DisplayConfigDto copyDisplay(DisplayConfigDto source) {
+        if (source == null) {
+            return null;
+        }
+        return DisplayConfigDto.builder()
+                .currency(source.getCurrency())
+                .dateFormat(source.getDateFormat())
+                .numberFormat(source.getNumberFormat())
+                .compactMode(source.getCompactMode())
+                .build();
+    }
+
+    private static LlmConfigDto copyLlmConfig(LlmConfigDto source) {
+        if (source == null) {
+            return null;
+        }
+        return LlmConfigDto.builder()
+                .provider(source.getProvider())
+                .apiKey(source.getApiKey())
+                .apiBase(source.getApiBase())
+                .minimax(copyProviderConfig(source.getMinimax()))
+                .deepseek(copyProviderConfig(source.getDeepseek()))
+                .openai(copyProviderConfig(source.getOpenai()))
+                .memory(copyMemoryConfig(source.getMemory()))
+                .build();
+    }
+
+    private static ProviderConfigDto copyProviderConfig(ProviderConfigDto source) {
+        if (source == null) {
+            return null;
+        }
+        return ProviderConfigDto.builder()
+                .apiKey(source.getApiKey())
+                .apiBase(source.getApiBase())
+                .build();
+    }
+
+    private static MemoryConfigDto copyMemoryConfig(MemoryConfigDto source) {
+        if (source == null) {
+            return null;
+        }
+        return MemoryConfigDto.builder()
+                .enabled(source.getEnabled())
+                .mode(source.getMode())
+                .enableL1(source.getEnableL1())
+                .enableL2(source.getEnableL2())
+                .enableL3(source.getEnableL3())
+                .build();
+    }
 
     /**
      *  DTO
@@ -117,6 +233,38 @@ public class UserSettingsDto {
         private ProviderConfigDto deepseek;
         private ProviderConfigDto openai;
         private MemoryConfigDto memory;
+
+        public ProviderConfigDto getMinimax() {
+            return copyProviderConfig(minimax);
+        }
+
+        public void setMinimax(ProviderConfigDto minimax) {
+            this.minimax = copyProviderConfig(minimax);
+        }
+
+        public ProviderConfigDto getDeepseek() {
+            return copyProviderConfig(deepseek);
+        }
+
+        public void setDeepseek(ProviderConfigDto deepseek) {
+            this.deepseek = copyProviderConfig(deepseek);
+        }
+
+        public ProviderConfigDto getOpenai() {
+            return copyProviderConfig(openai);
+        }
+
+        public void setOpenai(ProviderConfigDto openai) {
+            this.openai = copyProviderConfig(openai);
+        }
+
+        public MemoryConfigDto getMemory() {
+            return copyMemoryConfig(memory);
+        }
+
+        public void setMemory(MemoryConfigDto memory) {
+            this.memory = copyMemoryConfig(memory);
+        }
     }
 
     @Data

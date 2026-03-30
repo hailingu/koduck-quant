@@ -3,6 +3,7 @@ package com.koduck.service;
 import java.util.List;
 import java.util.Map;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.Set;
 
 /**
@@ -81,24 +82,24 @@ public interface StockSubscriptionService {
         private final Map<String, String> failed;
 
         public SubscribeResult(List<String> success, Map<String, String> failed) {
-            this.success = success;
-            this.failed = failed;
+            this.success = success == null ? List.of() : List.copyOf(success);
+            this.failed = failed == null ? Map.of() : Map.copyOf(new HashMap<>(failed));
+        }
+    
+        public List<String> getSuccess() {
+            return List.copyOf(success);
+        }
+    
+        public Map<String, String> getFailed() {
+            return Map.copyOf(failed);
         }
 
         public static SubscribeResult failure(List<String> symbols, String reason) {
-            Map<String, String> failed = new java.util.HashMap<>();
+            Map<String, String> failed = new HashMap<>();
             if (symbols != null) {
                 symbols.forEach(s -> failed.put(s, reason));
             }
             return new SubscribeResult(Collections.emptyList(), failed);
-        }
-
-        public List<String> getSuccess() {
-            return success;
-        }
-
-        public Map<String, String> getFailed() {
-            return failed;
         }
 
         public boolean hasFailures() {
@@ -169,6 +170,17 @@ public interface StockSubscriptionService {
             public void setVolume(Long volume) {
                 this.volume = volume;
             }
+
+            private PriceData copy() {
+                PriceData copy = new PriceData();
+                copy.setSymbol(symbol);
+                copy.setName(name);
+                copy.setPrice(price);
+                copy.setChange(change);
+                copy.setChangePercent(changePercent);
+                copy.setVolume(volume);
+                return copy;
+            }
         }
 
         // Getters and setters
@@ -189,44 +201,11 @@ public interface StockSubscriptionService {
         }
 
         public PriceData getData() {
-            return data;
+            return data == null ? null : data.copy();
         }
 
         public void setData(PriceData data) {
-            this.data = data;
-        }
-
-        public static PriceUpdateMessageBuilder builder() {
-            return new PriceUpdateMessageBuilder();
-        }
-
-        public static class PriceUpdateMessageBuilder {
-            private String type = "PRICE_UPDATE";
-            private String timestamp;
-            private PriceData data;
-
-            public PriceUpdateMessageBuilder type(String type) {
-                this.type = type;
-                return this;
-            }
-
-            public PriceUpdateMessageBuilder timestamp(String timestamp) {
-                this.timestamp = timestamp;
-                return this;
-            }
-
-            public PriceUpdateMessageBuilder data(PriceData data) {
-                this.data = data;
-                return this;
-            }
-
-            public PriceUpdateMessage build() {
-                PriceUpdateMessage message = new PriceUpdateMessage();
-                message.type = this.type;
-                message.timestamp = this.timestamp;
-                message.data = this.data;
-                return message;
-            }
+            this.data = data == null ? null : data.copy();
         }
     }
 

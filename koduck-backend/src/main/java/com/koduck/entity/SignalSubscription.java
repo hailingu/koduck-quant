@@ -1,5 +1,6 @@
 package com.koduck.entity;
 
+import com.koduck.util.EntityCopyUtils;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -47,4 +48,20 @@ public class SignalSubscription {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", insertable = false, updatable = false)
     private User user;
+
+    public CommunitySignal getSignal() {
+        return EntityCopyUtils.copyCommunitySignal(signal);
+    }
+
+    public void setSignal(CommunitySignal signal) {
+        this.signal = EntityCopyUtils.copyCommunitySignal(signal);
+    }
+
+    public User getUser() {
+        return EntityCopyUtils.copyUser(user);
+    }
+
+    public void setUser(User user) {
+        this.user = EntityCopyUtils.copyUser(user);
+    }
 }

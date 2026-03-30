@@ -1,5 +1,6 @@
 package com.koduck.dto.indicator;
 
+import com.koduck.util.CollectionCopyUtils;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.Map;
@@ -16,6 +17,14 @@ public record IndicatorResponse(
     String trend,
     LocalDateTime timestamp
 ) {
+    public IndicatorResponse {
+        values = CollectionCopyUtils.copyMap(values);
+    }
+
+    @Override
+    public Map<String, BigDecimal> values() {
+        return CollectionCopyUtils.copyMap(values);
+    }
     
     public static Builder builder() {
         return new Builder();
@@ -51,7 +60,7 @@ public record IndicatorResponse(
         }
         
         public Builder values(Map<String, BigDecimal> values) {
-            this.values = values;
+            this.values = CollectionCopyUtils.copyMap(values);
             return this;
         }
         

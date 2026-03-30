@@ -1,5 +1,6 @@
 package com.koduck.entity;
 
+import com.koduck.util.CollectionCopyUtils;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -63,4 +64,12 @@ public class DataSourceStatus {
     @UpdateTimestamp
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
+
+    public Map<String, Object> getMetadata() {
+        return CollectionCopyUtils.copyMap(metadata);
+    }
+
+    public void setMetadata(Map<String, Object> metadata) {
+        this.metadata = CollectionCopyUtils.copyMap(metadata);
+    }
 }

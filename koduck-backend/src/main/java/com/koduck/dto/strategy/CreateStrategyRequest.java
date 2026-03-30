@@ -21,4 +21,8 @@ public record CreateStrategyRequest(
     
     @Valid
     List<StrategyParameterRequest> parameters
-) {}
+) {
+    public CreateStrategyRequest {
+        parameters = parameters == null ? null : List.copyOf(parameters);
+    }
+}

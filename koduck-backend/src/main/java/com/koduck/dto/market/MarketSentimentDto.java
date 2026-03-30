@@ -42,6 +42,38 @@ public class MarketSentimentDto {
      */
     private SentimentDimensions dimensions;
 
+    public SentimentDimensions getDimensions() {
+        return copyDimensions(dimensions);
+    }
+
+    public void setDimensions(SentimentDimensions dimensions) {
+        this.dimensions = copyDimensions(dimensions);
+    }
+
+    private static SentimentDimension copyDimension(SentimentDimension source) {
+        if (source == null) {
+            return null;
+        }
+        return SentimentDimension.builder()
+                .value(source.getValue())
+                .trend(source.getTrend())
+                .build();
+    }
+
+    private static SentimentDimensions copyDimensions(SentimentDimensions source) {
+        if (source == null) {
+            return null;
+        }
+        return SentimentDimensions.builder()
+                .activity(copyDimension(source.getActivity()))
+                .volatility(copyDimension(source.getVolatility()))
+                .trendStrength(copyDimension(source.getTrendStrength()))
+                .fearGreed(copyDimension(source.getFearGreed()))
+                .valuation(copyDimension(source.getValuation()))
+                .fundFlow(copyDimension(source.getFundFlow()))
+                .build();
+    }
+
     /**
      * Sentiment dimension data
      */
@@ -105,12 +137,63 @@ public class MarketSentimentDto {
          * Higher = more inflow
          */
         private SentimentDimension fundFlow;
+
+        public SentimentDimension getActivity() {
+            return copyDimension(activity);
+        }
+
+        public void setActivity(SentimentDimension activity) {
+            this.activity = copyDimension(activity);
+        }
+
+        public SentimentDimension getVolatility() {
+            return copyDimension(volatility);
+        }
+
+        public void setVolatility(SentimentDimension volatility) {
+            this.volatility = copyDimension(volatility);
+        }
+
+        public SentimentDimension getTrendStrength() {
+            return copyDimension(trendStrength);
+        }
+
+        public void setTrendStrength(SentimentDimension trendStrength) {
+            this.trendStrength = copyDimension(trendStrength);
+        }
+
+        public SentimentDimension getFearGreed() {
+            return copyDimension(fearGreed);
+        }
+
+        public void setFearGreed(SentimentDimension fearGreed) {
+            this.fearGreed = copyDimension(fearGreed);
+        }
+
+        public SentimentDimension getValuation() {
+            return copyDimension(valuation);
+        }
+
+        public void setValuation(SentimentDimension valuation) {
+            this.valuation = copyDimension(valuation);
+        }
+
+        public SentimentDimension getFundFlow() {
+            return copyDimension(fundFlow);
+        }
+
+        public void setFundFlow(SentimentDimension fundFlow) {
+            this.fundFlow = copyDimension(fundFlow);
+        }
     }
 
     /**
      * Market status constants
      */
     public static class Status {
+        private Status() {
+        }
+
         public static final String STRONG_BULLISH = "strong_bullish";
         public static final String BULLISH = "bullish";
         public static final String CAUTIOUS_BULLISH = "cautious_bullish";

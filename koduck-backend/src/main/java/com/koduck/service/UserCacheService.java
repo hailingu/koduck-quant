@@ -1,5 +1,7 @@
 package com.koduck.service;
 
+import org.springframework.lang.NonNull;
+
 import java.util.Set;
 
 /**
@@ -17,7 +19,7 @@ public interface UserCacheService {
      * @param userId  user ID
      * @param symbol  stock symbol to add
      */
-    void addToUserTrackList(Long userId, String symbol);
+    void addToUserTrackList(@NonNull Long userId, @NonNull String symbol);
 
     /**
      * Remove stock from user's tracking list.
@@ -25,7 +27,7 @@ public interface UserCacheService {
      * @param userId  user ID
      * @param symbol  stock symbol to remove
      */
-    void removeFromUserTrackList(Long userId, String symbol);
+    void removeFromUserTrackList(@NonNull Long userId, @NonNull String symbol);
 
     /**
      * Get user's tracking list from cache.
@@ -33,7 +35,7 @@ public interface UserCacheService {
      * @param userId user ID
      * @return set of stock symbols
      */
-    Set<String> getUserTrackList(Long userId);
+    Set<String> getUserTrackList(@NonNull Long userId);
 
     /**
      * Check if stock is in user's tracking list.
@@ -42,7 +44,7 @@ public interface UserCacheService {
      * @param symbol  stock symbol
      * @return true if exists
      */
-    boolean isInUserTrackList(Long userId, String symbol);
+    boolean isInUserTrackList(@NonNull Long userId, @NonNull String symbol);
 
     // ==================== User Watchlist () ====================
 
@@ -53,7 +55,7 @@ public interface UserCacheService {
      * @param userId  user ID
      * @param symbol  stock symbol to add
      */
-    void addToUserWatchList(Long userId, String symbol);
+    void addToUserWatchList(@NonNull Long userId, @NonNull String symbol);
 
     /**
      * Remove stock from user's watchlist.
@@ -61,7 +63,7 @@ public interface UserCacheService {
      * @param userId  user ID
      * @param symbol  stock symbol to remove
      */
-    void removeFromUserWatchList(Long userId, String symbol);
+    void removeFromUserWatchList(@NonNull Long userId, @NonNull String symbol);
 
     /**
      * Get user's watchlist from cache.
@@ -69,7 +71,7 @@ public interface UserCacheService {
      * @param userId user ID
      * @return set of stock symbols
      */
-    Set<String> getUserWatchList(Long userId);
+    Set<String> getUserWatchList(@NonNull Long userId);
 
     // ==================== Bulk Operations ====================
 
@@ -79,7 +81,7 @@ public interface UserCacheService {
      * @param userId   user ID
      * @param symbols  list of stock symbols
      */
-    void cacheUserTrackList(Long userId, Set<String> symbols);
+    void cacheUserTrackList(@NonNull Long userId, Set<String> symbols);
 
     /**
      * Cache user's watchlist (full replacement).
@@ -87,12 +89,12 @@ public interface UserCacheService {
      * @param userId   user ID
      * @param symbols  list of stock symbols
      */
-    void cacheUserWatchList(Long userId, Set<String> symbols);
+    void cacheUserWatchList(@NonNull Long userId, Set<String> symbols);
 
     /**
      * Invalidate user's all cached data.
      *
      * @param userId user ID
      */
-    void invalidateUserCache(Long userId);
+    void invalidateUserCache(@NonNull Long userId);
 }

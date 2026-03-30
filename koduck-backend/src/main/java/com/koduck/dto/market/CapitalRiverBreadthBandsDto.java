@@ -15,4 +15,7 @@ public record CapitalRiverBreadthBandsDto(
         String rightLabel,
         List<Integer> values
 ) {
+        public CapitalRiverBreadthBandsDto {
+                values = values == null ? null : List.copyOf(values);
+        }
 }

@@ -1,7 +1,9 @@
 package com.koduck.dto.market;
 
+import com.koduck.util.CollectionCopyUtils;
 import lombok.Builder;
 import lombok.Data;
+import lombok.Singular;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -14,8 +16,26 @@ import java.util.List;
 @Builder
 public class SectorNetworkDto {
     
+    @Singular
     private List<SectorNode> nodes;
+    @Singular
     private List<SectorLink> links;
+
+    public List<SectorNode> getNodes() {
+        return CollectionCopyUtils.copyList(nodes);
+    }
+
+    public void setNodes(List<SectorNode> nodes) {
+        this.nodes = CollectionCopyUtils.copyList(nodes);
+    }
+
+    public List<SectorLink> getLinks() {
+        return CollectionCopyUtils.copyList(links);
+    }
+
+    public void setLinks(List<SectorLink> links) {
+        this.links = CollectionCopyUtils.copyList(links);
+    }
     
     /**
      * Sector node representing a market sector.

@@ -14,6 +14,10 @@ public record BigOrderStatsDto(
         @JsonProperty("top_sectors")
         List<BigOrderSectorDto> topSectors
 ) {
+    public BigOrderStatsDto {
+        topSectors = topSectors == null ? null : List.copyOf(topSectors);
+    }
+
     public static BigOrderStatsDto empty() {
         return new BigOrderStatsDto(0, 0D, 0D, List.of());
     }

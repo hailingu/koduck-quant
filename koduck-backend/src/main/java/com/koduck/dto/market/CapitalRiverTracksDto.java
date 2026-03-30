@@ -14,4 +14,9 @@ public record CapitalRiverTracksDto(
         List<CapitalRiverTrackItemDto> concept,
         List<CapitalRiverTrackItemDto> region
 ) {
+        public CapitalRiverTracksDto {
+                industry = industry == null ? null : List.copyOf(industry);
+                concept = concept == null ? null : List.copyOf(concept);
+                region = region == null ? null : List.copyOf(region);
+        }
 }

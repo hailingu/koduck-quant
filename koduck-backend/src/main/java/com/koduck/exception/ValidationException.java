@@ -1,9 +1,8 @@
 package com.koduck.exception;
 
-import lombok.Getter;
-
 import java.io.Serial;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.Map;
 
 /**
@@ -13,7 +12,6 @@ import java.util.Map;
  *
  * @author Koduck Team
  */
-@Getter
 public class ValidationException extends BusinessException {
 
     @Serial
@@ -53,6 +51,12 @@ public class ValidationException extends BusinessException {
     public ValidationException(String message, Map<String, String> fieldErrors) {
         super(ErrorCode.VALIDATION_ERROR.getCode(), message);
         this.fieldErrors = fieldErrors != null ? Map.copyOf(fieldErrors) : Collections.emptyMap();
+    }
+    
+    public Map<String, String> getFieldErrors() {
+        return fieldErrors == null || fieldErrors.isEmpty()
+                ? Collections.emptyMap()
+                : Map.copyOf(new HashMap<>(fieldErrors));
     }
 
     /**

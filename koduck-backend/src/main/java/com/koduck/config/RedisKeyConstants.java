@@ -1,5 +1,7 @@
 package com.koduck.config;
 
+import org.springframework.lang.NonNull;
+
 /**
  * Redis key constants for the caching layer.
  * Defines all key patterns used for caching stock data and user watchlists.
@@ -162,7 +164,7 @@ public final class RedisKeyConstants {
      * @param userId user identifier
      * @return Redis key in pattern {@code user:track:{userId}}
      */
-    public static String userTrackKey(Long userId) {
+    public static @NonNull String userTrackKey(Long userId) {
         return USER_TRACK_PREFIX + userId;
     }
 
@@ -172,7 +174,7 @@ public final class RedisKeyConstants {
      * @param userId user identifier
      * @return Redis key in pattern {@code user:watch:{userId}}
      */
-    public static String userWatchKey(Long userId) {
+    public static @NonNull String userWatchKey(Long userId) {
         return USER_WATCH_PREFIX + userId;
     }
 }

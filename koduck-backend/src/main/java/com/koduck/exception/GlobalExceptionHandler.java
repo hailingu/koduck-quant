@@ -291,6 +291,6 @@ public class GlobalExceptionHandler {
 
     private ResponseEntity<ApiResponse<Void>> buildErrorResponse(HttpStatus status, int code, String message) {
         ApiResponse<Void> response = ApiResponse.error(code, message);
-        return ResponseEntity.status(status).body(response);
+        return ResponseEntity.status(status.value()).body(response);
     }
 }

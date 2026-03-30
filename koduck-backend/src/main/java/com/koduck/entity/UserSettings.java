@@ -1,5 +1,6 @@
 package com.koduck.entity;
 
+import com.koduck.util.CollectionCopyUtils;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -81,6 +82,121 @@ public class UserSettings {
     @UpdateTimestamp
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
+
+    public NotificationConfig getNotificationConfig() {
+        return copyNotificationConfig(notificationConfig);
+    }
+
+    public void setNotificationConfig(NotificationConfig notificationConfig) {
+        this.notificationConfig = copyNotificationConfig(notificationConfig);
+    }
+
+    public TradingConfig getTradingConfig() {
+        return copyTradingConfig(tradingConfig);
+    }
+
+    public void setTradingConfig(TradingConfig tradingConfig) {
+        this.tradingConfig = copyTradingConfig(tradingConfig);
+    }
+
+    public DisplayConfig getDisplayConfig() {
+        return copyDisplayConfig(displayConfig);
+    }
+
+    public void setDisplayConfig(DisplayConfig displayConfig) {
+        this.displayConfig = copyDisplayConfig(displayConfig);
+    }
+
+    public List<QuickLink> getQuickLinks() {
+        return CollectionCopyUtils.copyList(quickLinks);
+    }
+
+    public void setQuickLinks(List<QuickLink> quickLinks) {
+        this.quickLinks = CollectionCopyUtils.copyList(quickLinks);
+    }
+
+    public LlmConfig getLlmConfig() {
+        return copyLlmConfig(llmConfig);
+    }
+
+    public void setLlmConfig(LlmConfig llmConfig) {
+        this.llmConfig = copyLlmConfig(llmConfig);
+    }
+
+    private static NotificationConfig copyNotificationConfig(NotificationConfig source) {
+        if (source == null) {
+            return null;
+        }
+        return NotificationConfig.builder()
+                .email(source.getEmail())
+                .browser(source.getBrowser())
+                .priceAlert(source.getPriceAlert())
+                .tradeAlert(source.getTradeAlert())
+                .strategyAlert(source.getStrategyAlert())
+                .build();
+    }
+
+    private static TradingConfig copyTradingConfig(TradingConfig source) {
+        if (source == null) {
+            return null;
+        }
+        return TradingConfig.builder()
+                .defaultMarket(source.getDefaultMarket())
+                .commissionRate(source.getCommissionRate())
+                .minCommission(source.getMinCommission())
+                .enableConfirmation(source.getEnableConfirmation())
+                .build();
+    }
+
+    private static DisplayConfig copyDisplayConfig(DisplayConfig source) {
+        if (source == null) {
+            return null;
+        }
+        return DisplayConfig.builder()
+                .currency(source.getCurrency())
+                .dateFormat(source.getDateFormat())
+                .numberFormat(source.getNumberFormat())
+                .compactMode(source.getCompactMode())
+                .build();
+    }
+
+    private static LlmConfig copyLlmConfig(LlmConfig source) {
+        if (source == null) {
+            return null;
+        }
+        return LlmConfig.builder()
+                .provider(source.getProvider())
+                .apiKey(source.getApiKey())
+                .apiBase(source.getApiBase())
+                .minimax(copyProviderConfig(source.getMinimax()))
+                .deepseek(copyProviderConfig(source.getDeepseek()))
+                .openai(copyProviderConfig(source.getOpenai()))
+                .memory(copyMemoryConfig(source.getMemory()))
+                .build();
+    }
+
+    private static ProviderConfig copyProviderConfig(ProviderConfig source) {
+        if (source == null) {
+            return null;
+        }
+        return ProviderConfig.builder()
+                .apiKey(source.getApiKey())
+                .apiBase(source.getApiBase())
+                .build();
+    }
+
+    private static MemoryConfig copyMemoryConfig(MemoryConfig source) {
+        if (source == null) {
+            return null;
+        }
+        return MemoryConfig.builder()
+                .enabled(source.getEnabled())
+                .mode(source.getMode())
+                .enableL1(source.getEnableL1())
+                .enableL2(source.getEnableL2())
+                .enableL3(source.getEnableL3())
+                .build();
+    }
 
     /**
      * 
@@ -170,6 +286,38 @@ public class UserSettings {
         private ProviderConfig openai;
         @Builder.Default
         private MemoryConfig memory = new MemoryConfig();
+
+        public ProviderConfig getMinimax() {
+            return copyProviderConfig(minimax);
+        }
+
+        public void setMinimax(ProviderConfig minimax) {
+            this.minimax = copyProviderConfig(minimax);
+        }
+
+        public ProviderConfig getDeepseek() {
+            return copyProviderConfig(deepseek);
+        }
+
+        public void setDeepseek(ProviderConfig deepseek) {
+            this.deepseek = copyProviderConfig(deepseek);
+        }
+
+        public ProviderConfig getOpenai() {
+            return copyProviderConfig(openai);
+        }
+
+        public void setOpenai(ProviderConfig openai) {
+            this.openai = copyProviderConfig(openai);
+        }
+
+        public MemoryConfig getMemory() {
+            return copyMemoryConfig(memory);
+        }
+
+        public void setMemory(MemoryConfig memory) {
+            this.memory = copyMemoryConfig(memory);
+        }
     }
 
     @Data

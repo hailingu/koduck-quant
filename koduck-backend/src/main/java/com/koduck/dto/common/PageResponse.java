@@ -1,9 +1,11 @@
 package com.koduck.dto.common;
 
+import com.koduck.util.CollectionCopyUtils;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import lombok.Singular;
 
 import java.util.List;
 
@@ -16,6 +18,7 @@ import java.util.List;
 @AllArgsConstructor
 public class PageResponse<T> {
 
+    @Singular("contentItem")
     private List<T> content;
     private int page;
     private int size;
@@ -23,4 +26,12 @@ public class PageResponse<T> {
     private int totalPages;
     private boolean first;
     private boolean last;
+
+    public List<T> getContent() {
+        return CollectionCopyUtils.copyList(content);
+    }
+
+    public void setContent(List<T> content) {
+        this.content = CollectionCopyUtils.copyList(content);
+    }
 }

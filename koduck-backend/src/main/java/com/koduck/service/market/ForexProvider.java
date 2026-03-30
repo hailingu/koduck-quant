@@ -12,6 +12,7 @@ import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Component;
+import org.springframework.lang.NonNull;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.util.UriComponentsBuilder;
@@ -21,6 +22,8 @@ import java.math.RoundingMode;
 import java.time.*;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ThreadLocalRandom;
+import java.util.Objects;
 
 /**
  * Forex (Foreign Exchange) market data provider.
@@ -42,7 +45,6 @@ public class ForexProvider implements MarketDataProvider {
     private static final ZoneId NEW_YORK_ZONE = ZoneId.of("America/New_York");
     private static final String FOREX_BASE_PATH = "/forex";
     private static final String PROVIDER_NAME = "akshare-forex";
-    private static final HttpMethod HTTP_GET = HttpMethod.GET;
     
     private final DataServiceProperties properties;
     private final RestTemplate restTemplate;
@@ -125,12 +127,12 @@ public class ForexProvider implements MarketDataProvider {
             log.debug("Fetching forex kline from data service: symbol={}, timeframe={}", 
                     normalizedSymbol, timeframe);
             
-            ResponseEntity<List<Map<String, Object>>> response = restTemplate.exchange(
+                ResponseEntity<List<Map<String, Object>>> response = restTemplate.exchange(
                     url,
-                    HTTP_GET,
+                    getHttpGet(),
                     null,
                     new ParameterizedTypeReference<>() {}
-            );
+                );
             
             List<Map<String, Object>> data = response.getBody();
             if (data == null || data.isEmpty()) {
@@ -162,12 +164,12 @@ public class ForexProvider implements MarketDataProvider {
             
             log.debug("Fetching forex price from data service: symbol={}", normalizedSymbol);
             
-            ResponseEntity<Map<String, Object>> response = restTemplate.exchange(
+                ResponseEntity<Map<String, Object>> response = restTemplate.exchange(
                     url,
-                    HTTP_GET,
+                    getHttpGet(),
                     null,
                     new ParameterizedTypeReference<>() {}
-            );
+                );
             
             Map<String, Object> data = response.getBody();
             if (data == null || data.isEmpty()) {
@@ -231,12 +233,12 @@ public class ForexProvider implements MarketDataProvider {
                     .queryParam("limit", limit)
                     .toUriString();
             
-            ResponseEntity<List<Map<String, Object>>> response = restTemplate.exchange(
+                ResponseEntity<List<Map<String, Object>>> response = restTemplate.exchange(
                     url,
-                    HTTP_GET,
+                    getHttpGet(),
                     null,
                     new ParameterizedTypeReference<>() {}
-            );
+                );
             
             List<Map<String, Object>> data = response.getBody();
             if (data == null || data.isEmpty()) {
@@ -294,23 +296,26 @@ public class ForexProvider implements MarketDataProvider {
         BigDecimal baseRate = baseRates.getOrDefault(normalizedSymbol, new BigDecimal("1.0000"));
         
         Instant currentTime = endTime != null ? endTime : Instant.now();
+        if (endTime == null && startTime != null) {
+            currentTime = startTime;
+        }
         Duration interval = parseTimeframe(timeframe);
         
         // Adjust volatility based on pair (precious metals more volatile)
-        double volatility = normalizedSymbol.startsWith("XAU") || normalizedSymbol.startsWith("XAG") 
-                           ? 0.008 : 0.0015;
+        double volatility = normalizedSymbol.startsWith("XAU") || normalizedSymbol.startsWith("XAG")
+            ? 0.008 : 0.0015;
         
         BigDecimal currentRate = baseRate;
         for (int i = 0; i < limit; i++) {
-            double changePercent = (Math.random() - 0.5) * volatility * 2;
+            double changePercent = (ThreadLocalRandom.current().nextDouble() - 0.5) * volatility * 2;
             BigDecimal change = currentRate.multiply(BigDecimal.valueOf(changePercent));
             BigDecimal close = currentRate.add(change);
             
-            BigDecimal high = close.multiply(BigDecimal.valueOf(1 + Math.random() * volatility));
-            BigDecimal low = close.multiply(BigDecimal.valueOf(1 - Math.random() * volatility));
+            BigDecimal high = close.multiply(BigDecimal.valueOf(1 + ThreadLocalRandom.current().nextDouble() * volatility));
+            BigDecimal low = close.multiply(BigDecimal.valueOf(1 - ThreadLocalRandom.current().nextDouble() * volatility));
             BigDecimal open = currentRate;
             
-            long volume = (long) (Math.random() * 990000 + 10000);
+            long volume = ThreadLocalRandom.current().nextLong(10_000L, 1_000_000L);
             
             klines.add(KlineData.builder()
                 .symbol(normalizedSymbol)
@@ -338,20 +343,24 @@ public class ForexProvider implements MarketDataProvider {
         BigDecimal baseRate = baseRates.getOrDefault(normalizedSymbol, new BigDecimal("1.0000"));
         
         // Adjust volatility based on pair
-        double volatility = normalizedSymbol.startsWith("XAU") || normalizedSymbol.startsWith("XAG") 
-                           ? 0.005 : 0.001;
+        double volatility = normalizedSymbol.startsWith("XAU") || normalizedSymbol.startsWith("XAG")
+                ? 0.005 : 0.001;
         
-        double changePercent = (Math.random() - 0.5) * volatility * 2;
+        double changePercent = (ThreadLocalRandom.current().nextDouble() - 0.5) * volatility * 2;
         BigDecimal price = baseRate.multiply(BigDecimal.valueOf(1 + changePercent));
         BigDecimal change = price.subtract(baseRate);
         BigDecimal changePercentValue = change.divide(baseRate, 4, RoundingMode.HALF_UP)
                                               .multiply(BigDecimal.valueOf(100));
         
-        long volume = (long) (Math.random() * 4900000 + 100000);
+        long volume = ThreadLocalRandom.current().nextLong(100_000L, 5_000_000L);
         
         // Calculate pip size based on pair
-        int pipDigits = normalizedSymbol.contains("JPY") || normalizedSymbol.startsWith("XAG") 
-                       ? 3 : (normalizedSymbol.startsWith("XAU") ? 2 : 4);
+        int pipDigits = 4;
+        if (normalizedSymbol.startsWith("XAU")) {
+            pipDigits = 2;
+        } else if (normalizedSymbol.contains("JPY") || normalizedSymbol.startsWith("XAG")) {
+            pipDigits = 3;
+        }
         BigDecimal pipSize = BigDecimal.valueOf(Math.pow(10, -pipDigits));
         
         TickData tickData = TickData.builder()
@@ -364,9 +373,9 @@ public class ForexProvider implements MarketDataProvider {
             .volume(volume)
             .amount(price.multiply(BigDecimal.valueOf(volume)))
             .bidPrice(price.subtract(pipSize.multiply(BigDecimal.valueOf(2))))
-            .bidVolume((long) (Math.random() * 9900 + 100))
+            .bidVolume(ThreadLocalRandom.current().nextLong(100L, 10_000L))
             .askPrice(price.add(pipSize.multiply(BigDecimal.valueOf(2))))
-            .askVolume((long) (Math.random() * 9900 + 100))
+            .askVolume(ThreadLocalRandom.current().nextLong(100L, 10_000L))
             .dayHigh(price.multiply(BigDecimal.valueOf(1.01)))
             .dayLow(price.multiply(BigDecimal.valueOf(0.99)))
             .open(baseRate)
@@ -475,12 +484,18 @@ public class ForexProvider implements MarketDataProvider {
     private Long getLong(Map<String, Object> data, String key) {
         Object value = data.get(key);
         if (value == null) return null;
-        if (value instanceof Number) return ((Number) value).longValue();
+        if (value instanceof Number number) {
+            return number.longValue();
+        }
         try {
             return Long.parseLong(value.toString());
-        } catch (NumberFormatException e) {
+        } catch (NumberFormatException _) {
             return null;
         }
+    }
+
+    private static @NonNull HttpMethod getHttpGet() {
+        return Objects.requireNonNull(HttpMethod.GET, "HTTP GET must not be null");
     }
     
     private Duration parseTimeframe(String timeframe) {

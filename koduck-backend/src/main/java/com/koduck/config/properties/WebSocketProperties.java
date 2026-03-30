@@ -1,5 +1,6 @@
 package com.koduck.config.properties;
 
+import com.koduck.util.CollectionCopyUtils;
 import lombok.Getter;
 import lombok.Setter;
 import org.springframework.boot.context.properties.ConfigurationProperties;
@@ -51,5 +52,31 @@ public class WebSocketProperties {
          * （）
          */
         private String queuePrefix = "/queue";
+
+        public Broker() {
+        }
+
+        public Broker(Broker broker) {
+            if (broker != null) {
+                this.topicPrefix = broker.topicPrefix;
+                this.queuePrefix = broker.queuePrefix;
+            }
+        }
+    }
+
+    public String[] getAllowedOrigins() {
+        return CollectionCopyUtils.copyArray(allowedOrigins);
+    }
+
+    public void setAllowedOrigins(String[] allowedOrigins) {
+        this.allowedOrigins = CollectionCopyUtils.copyArray(allowedOrigins);
+    }
+
+    public Broker getBroker() {
+        return broker == null ? null : new Broker(broker);
+    }
+
+    public void setBroker(Broker broker) {
+        this.broker = broker == null ? null : new Broker(broker);
     }
 }

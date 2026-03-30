@@ -1,10 +1,12 @@
 package com.koduck.dto.community;
 
+import com.koduck.util.CollectionCopyUtils;
 import jakarta.validation.constraints.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import lombok.Singular;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -48,5 +50,14 @@ public class CreateSignalRequest {
     @Max(value = 100, message = "信心指数最大为 100")
     private Integer confidence;
 
+    @Singular
     private List<String> tags;
+
+    public List<String> getTags() {
+        return CollectionCopyUtils.copyList(tags);
+    }
+
+    public void setTags(List<String> tags) {
+        this.tags = CollectionCopyUtils.copyList(tags);
+    }
 }

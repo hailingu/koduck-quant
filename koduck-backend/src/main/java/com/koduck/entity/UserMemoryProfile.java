@@ -1,5 +1,6 @@
 package com.koduck.entity;
 
+import com.koduck.util.CollectionCopyUtils;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
@@ -49,4 +50,28 @@ public class UserMemoryProfile {
     @UpdateTimestamp
     @Column(name = "updated_at", nullable = false)
     private LocalDateTime updatedAt;
+
+    public List<String> getWatchSymbols() {
+        return CollectionCopyUtils.copyList(watchSymbols);
+    }
+
+    public void setWatchSymbols(List<String> watchSymbols) {
+        this.watchSymbols = CollectionCopyUtils.copyList(watchSymbols);
+    }
+
+    public List<String> getPreferredSources() {
+        return CollectionCopyUtils.copyList(preferredSources);
+    }
+
+    public void setPreferredSources(List<String> preferredSources) {
+        this.preferredSources = CollectionCopyUtils.copyList(preferredSources);
+    }
+
+    public Map<String, Object> getProfileFacts() {
+        return CollectionCopyUtils.copyMap(profileFacts);
+    }
+
+    public void setProfileFacts(Map<String, Object> profileFacts) {
+        this.profileFacts = CollectionCopyUtils.copyMap(profileFacts);
+    }
 }

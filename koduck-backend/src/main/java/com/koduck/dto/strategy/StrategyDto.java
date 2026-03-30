@@ -1,5 +1,6 @@
 package com.koduck.dto.strategy;
 
+import com.koduck.util.CollectionCopyUtils;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -16,6 +17,14 @@ public record StrategyDto(
     LocalDateTime updatedAt,
     List<StrategyParameterDto> parameters
 ) {
+    public StrategyDto {
+        parameters = CollectionCopyUtils.copyList(parameters);
+    }
+
+    @Override
+    public List<StrategyParameterDto> parameters() {
+        return CollectionCopyUtils.copyList(parameters);
+    }
     
     public static Builder builder() {
         return new Builder();
@@ -67,13 +76,13 @@ public record StrategyDto(
         }
         
         public Builder parameters(List<StrategyParameterDto> parameters) {
-            this.parameters = parameters;
+            this.parameters = CollectionCopyUtils.copyList(parameters);
             return this;
         }
         
         public StrategyDto build() {
-            return new StrategyDto(id, name, description, status, currentVersion, 
-                                  createdAt, updatedAt, parameters);
+            return new StrategyDto(id, name, description, status, currentVersion,
+                    createdAt, updatedAt, parameters);
         }
     }
 }

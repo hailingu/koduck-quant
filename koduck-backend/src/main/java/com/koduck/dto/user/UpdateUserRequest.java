@@ -1,6 +1,7 @@
 package com.koduck.dto.user;
 
 import com.koduck.entity.User;
+import com.koduck.util.CollectionCopyUtils;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.Size;
 import lombok.Data;
@@ -26,4 +27,12 @@ public class UpdateUserRequest {
     private User.UserStatus status;
 
     private List<Integer> roleIds;
+
+    public List<Integer> getRoleIds() {
+        return CollectionCopyUtils.copyList(roleIds);
+    }
+
+    public void setRoleIds(List<Integer> roleIds) {
+        this.roleIds = CollectionCopyUtils.copyList(roleIds);
+    }
 }

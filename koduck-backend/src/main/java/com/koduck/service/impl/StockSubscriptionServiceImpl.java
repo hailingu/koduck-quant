@@ -82,7 +82,7 @@ public class StockSubscriptionServiceImpl implements StockSubscriptionService {
         log.info("User {} subscription result: success={}, failed={}", userId, successList.size(), failedMap.size());
         return new SubscribeResult(successList, failedMap);
     }
-
+    
     /**
      * 
      *
@@ -97,31 +97,32 @@ public class StockSubscriptionServiceImpl implements StockSubscriptionService {
         }
 
         if (symbols == null || symbols.isEmpty()) {
-            // 
-            Set<String> userSubList = userSubscriptions.remove(userId);
-            if (userSubList != null) {
-                for (String symbol : userSubList) {
-                    Set<Long> subscribers = symbolSubscribers.get(symbol);
-                    if (subscribers != null) {
-                        subscribers.remove(userId);
-                        if (subscribers.isEmpty()) {
-                            symbolSubscribers.remove(symbol);
-                        }
-                    }
-                }
-            }
-            log.info("User {} unsubscribed from all stocks", userId);
-            return new SubscribeResult(new ArrayList<>(userSubList), Collections.emptyMap());
+            return unsubscribeAll(userId);
         }
 
-        Set<String> userSubList = userSubscriptions.get(userId);
-        List<String> successList = new ArrayList<>();
-        Map<String, String> failedMap = new HashMap<>();
+        return unsubscribeSymbols(userId, symbols);
+    }
 
+    private SubscribeResult unsubscribeAll(Long userId) {
+        Set<String> userSubList = userSubscriptions.remove(userId);
+        if (userSubList != null) {
+            for (String symbol : userSubList) {
+                removeSubscriberFromSymbol(userId, symbol);
+            }
+        }
+        List<String> successList = userSubList == null ? List.of() : new ArrayList<>(userSubList);
+        log.info("User {} unsubscribed from all stocks", userId);
+        return new SubscribeResult(successList, Collections.emptyMap());
+    }
+
+    private SubscribeResult unsubscribeSymbols(Long userId, List<String> symbols) {
+        Set<String> userSubList = userSubscriptions.get(userId);
         if (userSubList == null || userSubList.isEmpty()) {
             return SubscribeResult.failure(symbols, "No subscriptions found");
         }
 
+        List<String> successList = new ArrayList<>();
+        Map<String, String> failedMap = new HashMap<>();
         for (String symbol : symbols) {
             try {
                 String normalizedSymbol = normalizeSymbol(symbol);
@@ -130,18 +131,8 @@ public class StockSubscriptionServiceImpl implements StockSubscriptionService {
                     continue;
                 }
 
-                // 
                 userSubList.remove(normalizedSymbol);
-
-                // 
-                Set<Long> subscribers = symbolSubscribers.get(normalizedSymbol);
-                if (subscribers != null) {
-                    subscribers.remove(userId);
-                    if (subscribers.isEmpty()) {
-                        symbolSubscribers.remove(normalizedSymbol);
-                    }
-                }
-
+                removeSubscriberFromSymbol(userId, normalizedSymbol);
                 successList.add(normalizedSymbol);
                 log.debug("User {} unsubscribed from stock {}", userId, normalizedSymbol);
             } catch (Exception e) {
@@ -150,13 +141,24 @@ public class StockSubscriptionServiceImpl implements StockSubscriptionService {
             }
         }
 
-        // ，
         if (userSubList.isEmpty()) {
             userSubscriptions.remove(userId);
         }
 
         log.info("User {} unsubscription result: success={}, failed={}", userId, successList.size(), failedMap.size());
         return new SubscribeResult(successList, failedMap);
+    }
+
+    private void removeSubscriberFromSymbol(Long userId, String symbol) {
+        Set<Long> subscribers = symbolSubscribers.get(symbol);
+        if (subscribers == null) {
+            return;
+        }
+
+        subscribers.remove(userId);
+        if (subscribers.isEmpty()) {
+            symbolSubscribers.remove(symbol);
+        }
     }
 
     /**
@@ -227,18 +229,17 @@ public class StockSubscriptionServiceImpl implements StockSubscriptionService {
         }
 
         // 
-        PriceUpdateMessage message = PriceUpdateMessage.builder()
-                .type("PRICE_UPDATE")
-                .timestamp(Instant.now().toString())
-                .data(createPriceData(priceUpdate))
-                .build();
+        PriceUpdateMessage message = new PriceUpdateMessage();
+        message.setType("PRICE_UPDATE");
+        message.setTimestamp(Instant.now().toString());
+        message.setData(createPriceData(priceUpdate));
 
         // 
         for (Long userId : subscribers) {
             try {
                 //  /queue/user/<userId>/price 
                 messagingTemplate.convertAndSendToUser(
-                        userId.toString(),
+                    Objects.requireNonNull(String.valueOf(userId), "destination user must not be null"),
                         "/queue/price",
                         message
                 );
@@ -276,7 +277,6 @@ public class StockSubscriptionServiceImpl implements StockSubscriptionService {
             return;
         }
 
-        // 
         unsubscribe(userId, Collections.emptyList());
         log.info("Cleaned up subscriptions for disconnected user {}", userId);
     }

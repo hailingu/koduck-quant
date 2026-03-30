@@ -1,10 +1,12 @@
 package com.koduck.dto.credential;
 
 import com.fasterxml.jackson.annotation.JsonFormat;
+import com.koduck.util.CollectionCopyUtils;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import lombok.Singular;
 
 import java.time.LocalDateTime;
 import java.util.Map;
@@ -31,6 +33,7 @@ public class CredentialDetailResponse {
     //  API Secret（）
     private String apiSecret;
 
+    @Singular("additionalConfigEntry")
     private Map<String, Object> additionalConfig;
 
     private String lastVerifiedStatus;
@@ -43,4 +46,12 @@ public class CredentialDetailResponse {
 
     @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
     private LocalDateTime updatedAt;
+
+    public Map<String, Object> getAdditionalConfig() {
+        return CollectionCopyUtils.copyMap(additionalConfig);
+    }
+
+    public void setAdditionalConfig(Map<String, Object> additionalConfig) {
+        this.additionalConfig = CollectionCopyUtils.copyMap(additionalConfig);
+    }
 }

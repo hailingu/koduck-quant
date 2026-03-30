@@ -1,10 +1,12 @@
 package com.koduck.dto.community;
 
 import com.fasterxml.jackson.annotation.JsonFormat;
+import com.koduck.util.CollectionCopyUtils;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import lombok.Singular;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -49,6 +51,7 @@ public class SignalResponse {
     private Integer viewCount;
 
     private Boolean isFeatured;
+    @Singular
     private List<String> tags;
 
     // 
@@ -61,4 +64,12 @@ public class SignalResponse {
 
     @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
     private LocalDateTime updatedAt;
+
+    public List<String> getTags() {
+        return CollectionCopyUtils.copyList(tags);
+    }
+
+    public void setTags(List<String> tags) {
+        this.tags = CollectionCopyUtils.copyList(tags);
+    }
 }

@@ -21,4 +21,8 @@ public record UpdateStrategyRequest(
     
     @Valid
     List<StrategyParameterRequest> parameters
-) {}
+) {
+    public UpdateStrategyRequest {
+        parameters = parameters == null ? null : List.copyOf(parameters);
+    }
+}

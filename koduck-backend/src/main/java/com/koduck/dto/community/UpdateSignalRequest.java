@@ -1,5 +1,6 @@
 package com.koduck.dto.community;
 
+import com.koduck.util.CollectionCopyUtils;
 import jakarta.validation.constraints.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -37,4 +38,12 @@ public class UpdateSignalRequest {
     private String status;
 
     private List<String> tags;
+
+    public List<String> getTags() {
+        return CollectionCopyUtils.copyList(tags);
+    }
+
+    public void setTags(List<String> tags) {
+        this.tags = CollectionCopyUtils.copyList(tags);
+    }
 }
