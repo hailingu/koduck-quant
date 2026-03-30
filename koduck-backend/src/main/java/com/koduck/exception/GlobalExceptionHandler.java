@@ -11,7 +11,6 @@ import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.DisabledException;
 import org.springframework.security.authentication.LockedException;
-import org.springframework.security.core.AuthenticationException;
 import org.springframework.validation.BindException;
 import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -166,11 +165,6 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
     }
 
-    // ==========  ==========
-
-    /**
-     * 
-     */
     @ExceptionHandler(MissingServletRequestParameterException.class)
     public ResponseEntity<ApiResponse<Void>> handleMissingServletRequestParameterException(
             MissingServletRequestParameterException e) {
@@ -186,8 +180,10 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(MethodArgumentTypeMismatchException.class)
     public ResponseEntity<ApiResponse<Void>> handleMethodArgumentTypeMismatchException(
             MethodArgumentTypeMismatchException e) {
+        Class<?> requiredType = e.getRequiredType();
+        String requiredTypeName = requiredType == null ? "unknown" : requiredType.getSimpleName();
         String message = String.format("参数类型错误: %s 期望类型 %s",
-                e.getName(), e.getRequiredType() != null ? e.getRequiredType().getSimpleName() : "unknown");
+            e.getName(), requiredTypeName);
         log.warn(message);
         ApiResponse<Void> response = ApiResponse.error(ErrorCode.BAD_REQUEST.getCode(), message);
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);

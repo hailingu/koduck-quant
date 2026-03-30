@@ -1,6 +1,7 @@
 package com.koduck.market.model;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.Instant;
 
 /**
@@ -80,7 +81,7 @@ public record KlineData(
             return BigDecimal.ZERO;
         }
         return close.subtract(open)
-                   .divide(open, 4, BigDecimal.ROUND_HALF_UP)
+                   .divide(open, 4, RoundingMode.HALF_UP)
                    .multiply(BigDecimal.valueOf(100));
     }
     

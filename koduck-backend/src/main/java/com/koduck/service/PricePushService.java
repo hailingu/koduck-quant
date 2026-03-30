@@ -1,16 +1,5 @@
 package com.koduck.service;
 
-import com.koduck.controller.MarketController;
-import com.koduck.entity.StockRealtime;
-import com.koduck.repository.StockRealtimeRepository;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.scheduling.annotation.Scheduled;
-import org.springframework.stereotype.Service;
-
-import java.util.*;
-import java.util.concurrent.ConcurrentHashMap;
-
 /**
  * 
  *
@@ -22,151 +11,23 @@ import java.util.concurrent.ConcurrentHashMap;
  *   <li>（）</li>
  * </ul>
  */
-@Slf4j
-@Service
-@RequiredArgsConstructor
-public class PricePushService {
-
-    private final StockSubscriptionService stockSubscriptionService;
-    private final StockRealtimeRepository stockRealtimeRepository;
-    private final SyntheticTickService syntheticTickService;
-    private final TickStreamService tickStreamService;
-
-    /**
-     * ：symbol -> last price
-     */
-    private final ConcurrentHashMap<String, Double> lastPrices = new ConcurrentHashMap<>();
-
-    /**
-     * ：symbol -> timestamp
-     */
-    private final ConcurrentHashMap<String, Long> lastPushTime = new ConcurrentHashMap<>();
-
-    /**
-     * （）， 5 
-     */
-    private static final long PUSH_INTERVAL_MS = 5000;
-
-    /**
-     * ， 0.01%（）
-     */
-    private static final double PRICE_CHANGE_THRESHOLD = 0.0001;
+public interface PricePushService {
 
     /**
      * 
      *  3 
      */
-    @Scheduled(fixedRate = 3000)
-    public void checkAndPushPriceUpdates() {
-        try {
-            // 
-            Set<String> symbolsToProcess = new HashSet<>(stockSubscriptionService.getAllSubscribedSymbols());
-            symbolsToProcess.addAll(syntheticTickService.snapshotTrackedSymbols());
-            if (symbolsToProcess.isEmpty()) {
-                return;
-            }
-
-            // 
-            List<StockRealtime> realtimeList = stockRealtimeRepository.findBySymbolIn(new ArrayList<>(symbolsToProcess));
-
-            long now = System.currentTimeMillis();
-
-            for (StockRealtime realtime : realtimeList) {
-                String symbol = realtime.getSymbol();
-                Double currentPrice = realtime.getPrice() != null ? realtime.getPrice().doubleValue() : null;
-                Double lastPrice = lastPrices.get(symbol);
-
-                boolean shouldPush = shouldPush(symbol, now);
-                MarketController.TickDto syntheticTick = null;
-                if (shouldPush) {
-                    syntheticTick = syntheticTickService.appendSyntheticTickFromRealtime(realtime);
-                    if (syntheticTick != null) {
-                        tickStreamService.publishTick(symbol, syntheticTick);
-                    }
-                }
-
-                // Push initial snapshot immediately for new subscriptions.
-                if (lastPrice == null) {
-                    if (currentPrice != null && shouldPush) {
-                        StockSubscriptionService.PriceUpdate initialUpdate = StockSubscriptionService.PriceUpdate.builder()
-                                .symbol(realtime.getSymbol())
-                                .name(realtime.getName())
-                                .price(currentPrice)
-                                .change(realtime.getChangeAmount() != null ? realtime.getChangeAmount().doubleValue() : null)
-                                .changePercent(realtime.getChangePercent() != null ? realtime.getChangePercent().doubleValue() : null)
-                                .volume(realtime.getVolume())
-                                .build();
-
-                        stockSubscriptionService.onPriceUpdate(initialUpdate);
-                        lastPushTime.put(symbol, now);
-                    }
-
-                    if (currentPrice != null) {
-                        lastPrices.put(symbol, currentPrice);
-                    }
-                    continue;
-                }
-
-                // 
-                boolean priceChanged = !Objects.equals(currentPrice, lastPrice);
-
-                if ((priceChanged || syntheticTick != null) && shouldPush) {
-                    // 
-                    StockSubscriptionService.PriceUpdate priceUpdate = StockSubscriptionService.PriceUpdate.builder()
-                            .symbol(realtime.getSymbol())
-                            .name(realtime.getName())
-                            .price(currentPrice)
-                            .change(realtime.getChangeAmount() != null ? realtime.getChangeAmount().doubleValue() : null)
-                            .changePercent(realtime.getChangePercent() != null ? realtime.getChangePercent().doubleValue() : null)
-                            .volume(realtime.getVolume())
-                            .build();
-
-                    stockSubscriptionService.onPriceUpdate(priceUpdate);
-
-                    // 
-                    lastPushTime.put(symbol, now);
-                }
-
-                // 
-                if (currentPrice != null) {
-                    lastPrices.put(symbol, currentPrice);
-                }
-            }
-        } catch (Exception e) {
-            log.error(": {}", e.getMessage(), e);
-        }
-    }
-
-    /**
-     * 
-     *
-     * @param symbol 
-     * @param now   
-     * @return 
-     */
-    private boolean shouldPush(String symbol, long now) {
-        Long lastPush = lastPushTime.get(symbol);
-        if (lastPush == null) {
-            return true;
-        }
-        return now - lastPush >= PUSH_INTERVAL_MS;
-    }
+    void checkAndPushPriceUpdates();
 
     /**
      * （）
      */
-    public void clearCache() {
-        lastPrices.clear();
-        lastPushTime.clear();
-        log.info("");
-    }
+    void clearCache();
 
     /**
      * 
      *
      * @return 
      */
-    public int getCachedPriceCount() {
-        return lastPrices.size();
-    }
+    int getCachedPriceCount();
 }

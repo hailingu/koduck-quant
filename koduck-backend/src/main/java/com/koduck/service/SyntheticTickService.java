@@ -2,219 +2,44 @@ package com.koduck.service;
 
 import com.koduck.controller.MarketController;
 import com.koduck.entity.StockRealtime;
-import com.koduck.entity.StockTickHistory;
-import com.koduck.repository.StockTickHistoryRepository;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.stereotype.Service;
 
-import java.math.BigDecimal;
-import java.time.LocalDateTime;
-import java.time.ZoneId;
-import java.time.format.DateTimeFormatter;
-import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
 
-@Service
-@RequiredArgsConstructor
-@Slf4j
-public class SyntheticTickService {
+/**
+ * 合成Tick服务接口。
+ * 提供股票实时数据追踪和合成Tick生成功能。
+ */
+public interface SyntheticTickService {
 
-    private static final ZoneId MARKET_ZONE = ZoneId.of("Asia/Shanghai");
-    private static final DateTimeFormatter TIME_FORMATTER = DateTimeFormatter.ofPattern("HH:mm:ss");
-    private static final long BLOCK_ORDER_VOLUME_THRESHOLD = 100_000L;
+    /**
+     * 追踪指定股票代码。
+     *
+     * @param symbol 股票代码
+     */
+    void trackSymbol(String symbol);
 
-    private final StockTickHistoryRepository stockTickHistoryRepository;
+    /**
+     * 获取当前追踪的股票代码快照。
+     *
+     * @return 追踪的股票代码集合
+     */
+    Set<String> snapshotTrackedSymbols();
 
-    private final Map<String, Long> lastCumulativeVolume = new ConcurrentHashMap<>();
-    private final Map<String, BigDecimal> lastCumulativeAmount = new ConcurrentHashMap<>();
-    private final Map<String, BigDecimal> lastPrice = new ConcurrentHashMap<>();
-    private final Set<String> trackedSymbols = ConcurrentHashMap.newKeySet();
+    /**
+     * 从实时数据追加合成Tick。
+     *
+     * @param realtime 实时股票数据
+     * @return Tick数据传输对象
+     */
+    MarketController.TickDto appendSyntheticTickFromRealtime(StockRealtime realtime);
 
-    public void trackSymbol(String symbol) {
-        if (symbol == null || symbol.isBlank()) {
-            return;
-        }
-        trackedSymbols.add(symbol.trim());
-    }
-
-    public Set<String> snapshotTrackedSymbols() {
-        return Set.copyOf(trackedSymbols);
-    }
-
-    public MarketController.TickDto appendSyntheticTickFromRealtime(StockRealtime realtime) {
-        if (realtime == null || realtime.getSymbol() == null || realtime.getPrice() == null) {
-            return null;
-        }
-
-        String symbol = realtime.getSymbol();
-        Long currentVolume = realtime.getVolume();
-        if (currentVolume == null || currentVolume <= 0) {
-            return null;
-        }
-
-        Long previousVolume = lastCumulativeVolume.put(symbol, currentVolume);
-        if (previousVolume == null) {
-            // First snapshot: only establish baseline.
-            lastPrice.put(symbol, realtime.getPrice());
-            if (realtime.getAmount() != null) {
-                lastCumulativeAmount.put(symbol, realtime.getAmount());
-            }
-            return null;
-        }
-
-        long deltaVolume = currentVolume - previousVolume;
-        if (deltaVolume <= 0) {
-            // Cross-day reset or stale snapshot.
-            if (realtime.getAmount() != null) {
-                lastCumulativeAmount.put(symbol, realtime.getAmount());
-            }
-            lastPrice.put(symbol, realtime.getPrice());
-            return null;
-        }
-
-        BigDecimal deltaAmount = computeDeltaAmount(symbol, realtime.getAmount(), deltaVolume, realtime.getPrice());
-        LocalDateTime tickTime = LocalDateTime.now(MARKET_ZONE);
-        BigDecimal currentPrice = realtime.getPrice();
-
-        // Check if price is the same as the last tick - merge instead of creating new tick
-        List<StockTickHistory> lastTicks = stockTickHistoryRepository
-                .findBySymbolOrderByTickTimeDescIdDesc(symbol, PageRequest.of(0, 1));
-        StockTickHistory lastTick = lastTicks.isEmpty() ? null : lastTicks.get(0);
-
-        if (lastTick != null && lastTick.getPrice().compareTo(currentPrice) == 0) {
-            // Price unchanged - merge with last tick: update time and accumulate volume
-            lastTick.setTickTime(tickTime);
-            lastTick.setVolume(lastTick.getVolume() + deltaVolume);
-            lastTick.setAmount(lastTick.getAmount().add(deltaAmount));
-            
-            StockTickHistory saved = stockTickHistoryRepository.save(lastTick);
-            
-            BigDecimal prevPrice = lastPrice.put(symbol, currentPrice);
-            boolean isBuy = prevPrice == null || currentPrice.compareTo(prevPrice) >= 0;
-            String flag = saved.getVolume() >= BLOCK_ORDER_VOLUME_THRESHOLD ? "BLOCK_ORDER" : "NORMAL";
-            
-            return new MarketController.TickDto(
-                    tickTime.format(TIME_FORMATTER),
-                    saved.getPrice().doubleValue(),
-                    saved.getVolume() > Integer.MAX_VALUE ? Integer.MAX_VALUE : saved.getVolume().intValue(),
-                    saved.getAmount() == null ? 0D : saved.getAmount().doubleValue(),
-                    isBuy ? "buy" : "sell",
-                    flag,
-                    tickTime.atZone(MARKET_ZONE).toInstant().toEpochMilli()
-            );
-        }
-
-        // Price changed - create new tick
-        StockTickHistory saved = stockTickHistoryRepository.save(
-                StockTickHistory.builder()
-                        .symbol(symbol)
-                        .tickTime(tickTime)
-                        .price(currentPrice)
-                        .volume(deltaVolume)
-                        .amount(deltaAmount)
-                        .createdAt(LocalDateTime.now(MARKET_ZONE))
-                        .build()
-        );
-
-        BigDecimal prevPrice = lastPrice.put(symbol, currentPrice);
-        boolean isBuy = prevPrice == null || currentPrice.compareTo(prevPrice) >= 0;
-        String flag = deltaVolume >= BLOCK_ORDER_VOLUME_THRESHOLD ? "BLOCK_ORDER" : "NORMAL";
-
-        return new MarketController.TickDto(
-                tickTime.format(TIME_FORMATTER),
-                saved.getPrice().doubleValue(),
-                deltaVolume > Integer.MAX_VALUE ? Integer.MAX_VALUE : (int) deltaVolume,
-                saved.getAmount() == null ? 0D : saved.getAmount().doubleValue(),
-                isBuy ? "buy" : "sell",
-                flag,
-                tickTime.atZone(MARKET_ZONE).toInstant().toEpochMilli()
-        );
-    }
-
-    public List<MarketController.TickDto> getLatestTicks(String symbol, int limit) {
-        // Try different symbol formats to handle leading zeros inconsistency
-        List<String> symbolVariants = buildSymbolVariants(symbol);
-        
-        for (String variant : symbolVariants) {
-            List<StockTickHistory> ticks = stockTickHistoryRepository
-                    .findBySymbolOrderByTickTimeDescIdDesc(variant, PageRequest.of(0, limit));
-            if (!ticks.isEmpty()) {
-                return ticks.stream()
-                        .map(this::toTickDto)
-                        .toList();
-            }
-        }
-        return List.of();
-    }
-    
-    private List<String> buildSymbolVariants(String symbol) {
-        List<String> variants = new ArrayList<>();
-        if (symbol == null || symbol.isBlank()) {
-            return variants;
-        }
-        
-        String normalized = symbol.trim();
-        variants.add(normalized);
-        
-        // For numeric symbols, try with/without leading zeros
-        if (normalized.matches("\\d+")) {
-            // Add version without leading zeros
-            String noZeros = normalized.replaceFirst("^0+", "");
-            if (!noZeros.isEmpty() && !noZeros.equals(normalized)) {
-                variants.add(noZeros);
-            }
-            // Add 6-digit padded version
-            if (normalized.length() <= 6) {
-                try {
-                    String padded = String.format("%06d", Integer.parseInt(normalized));
-                    if (!padded.equals(normalized)) {
-                        variants.add(padded);
-                    }
-                } catch (NumberFormatException ignored) {
-                    // Ignore if number is too large
-                }
-            }
-        }
-        
-        return variants;
-    }
-
-    private MarketController.TickDto toTickDto(StockTickHistory row) {
-        BigDecimal amount = row.getAmount() == null ? BigDecimal.ZERO : row.getAmount();
-        String flag = row.getVolume() != null && row.getVolume() >= BLOCK_ORDER_VOLUME_THRESHOLD
-                ? "BLOCK_ORDER"
-                : "NORMAL";
-
-        return new MarketController.TickDto(
-                row.getTickTime().format(TIME_FORMATTER),
-                row.getPrice().doubleValue(),
-                row.getVolume() == null ? 0 : (row.getVolume() > Integer.MAX_VALUE ? Integer.MAX_VALUE : row.getVolume().intValue()),
-                amount.doubleValue(),
-                "buy",
-                flag,
-                row.getTickTime().atZone(MARKET_ZONE).toInstant().toEpochMilli()
-        );
-    }
-
-    private BigDecimal computeDeltaAmount(
-            String symbol,
-            BigDecimal currentAmount,
-            long deltaVolume,
-            BigDecimal currentPrice) {
-        if (currentAmount != null) {
-            BigDecimal previousAmount = lastCumulativeAmount.put(symbol, currentAmount);
-            if (previousAmount != null) {
-                BigDecimal delta = currentAmount.subtract(previousAmount);
-                if (delta.compareTo(BigDecimal.ZERO) > 0) {
-                    return delta;
-                }
-            }
-        }
-        return currentPrice.multiply(BigDecimal.valueOf(deltaVolume));
-    }
+    /**
+     * 获取指定股票的最新Tick数据。
+     *
+     * @param symbol 股票代码
+     * @param limit  返回记录数限制
+     * @return Tick数据传输对象列表
+     */
+    List<MarketController.TickDto> getLatestTicks(String symbol, int limit);
 }

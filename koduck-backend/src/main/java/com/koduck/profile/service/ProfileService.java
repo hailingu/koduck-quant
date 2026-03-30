@@ -2,19 +2,13 @@ package com.koduck.profile.service;
 
 import com.koduck.profile.dto.ProfileDTO;
 import com.koduck.profile.dto.UpdateProfileDTO;
-import org.springframework.stereotype.Service;
 
 /**
  * Profile management service.
  */
-@Service
-public class ProfileService {
+public interface ProfileService {
     
-    public ProfileDTO getProfile(Long userId) {
-        return ProfileDTO.builder().build();
-    }
+    ProfileDTO getProfile(Long userId);
     
-    public ProfileDTO updateProfile(Long userId, UpdateProfileDTO dto) {
-        return ProfileDTO.builder().build();
-    }
+    ProfileDTO updateProfile(Long userId, UpdateProfileDTO dto);
 }

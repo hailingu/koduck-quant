@@ -4,6 +4,7 @@ import com.koduck.market.model.KlineData;
 import com.koduck.market.model.TickData;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
@@ -200,7 +201,7 @@ public final class DataConverter {
             BigDecimal typicalPrice = kline.high()
                 .add(kline.low())
                 .add(kline.close())
-                .divide(BigDecimal.valueOf(3), 8, BigDecimal.ROUND_HALF_UP);
+                .divide(BigDecimal.valueOf(3), 8, RoundingMode.HALF_UP);
             
             totalTPV = totalTPV.add(typicalPrice.multiply(BigDecimal.valueOf(kline.volume())));
             totalVolume += kline.volume();
@@ -210,6 +211,6 @@ public final class DataConverter {
             return BigDecimal.ZERO;
         }
         
-        return totalTPV.divide(BigDecimal.valueOf(totalVolume), 4, BigDecimal.ROUND_HALF_UP);
+        return totalTPV.divide(BigDecimal.valueOf(totalVolume), 4, RoundingMode.HALF_UP);
     }
 }
