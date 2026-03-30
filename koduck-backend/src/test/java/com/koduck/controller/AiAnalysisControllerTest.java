@@ -44,7 +44,6 @@ import static org.mockito.Mockito.when;
  * @date 2026-03-05
  */
 @ExtendWith(MockitoExtension.class)
-@SuppressWarnings("null")
 class AiAnalysisControllerTest {
 
         private static final String USER_PRINCIPAL_REQUIRED_MESSAGE = "userPrincipal must not be null";

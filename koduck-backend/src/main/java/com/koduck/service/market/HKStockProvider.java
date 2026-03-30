@@ -8,7 +8,6 @@ import com.koduck.market.provider.MarketDataProvider;
 import com.koduck.market.util.DataConverter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.HttpMethod;
@@ -53,17 +52,18 @@ public class HKStockProvider implements MarketDataProvider {
             new ParameterizedTypeReference<>() {
             };
     
-    @Autowired
-    private DataServiceProperties properties;
-    @Autowired
-    @Qualifier("dataServiceRestTemplate")
-    private RestTemplate restTemplate;
+    private final DataServiceProperties properties;
+    private final RestTemplate restTemplate;
     private final Set<String> subscribedSymbols = ConcurrentHashMap.newKeySet();
     
     // Mock data for fallback
     private final Map<String, BigDecimal> basePrices = new HashMap<>();
     
-    public HKStockProvider() {
+    public HKStockProvider(
+            DataServiceProperties properties,
+            @Qualifier("dataServiceRestTemplate") RestTemplate restTemplate) {
+        this.properties = Objects.requireNonNull(properties, "properties must not be null");
+        this.restTemplate = Objects.requireNonNull(restTemplate, "restTemplate must not be null");
         // Initialize base prices for popular HK stocks
         basePrices.put("00700", new BigDecimal("380.00")); // Tencent
         basePrices.put("09988", new BigDecimal("75.00"));  // Alibaba Health

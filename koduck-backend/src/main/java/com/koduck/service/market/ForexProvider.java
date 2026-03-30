@@ -8,7 +8,6 @@ import com.koduck.market.provider.MarketDataProvider;
 import com.koduck.market.util.DataConverter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.HttpMethod;
@@ -54,17 +53,18 @@ public class ForexProvider implements MarketDataProvider {
             new ParameterizedTypeReference<>() {
             };
     
-    @Autowired
-    private DataServiceProperties properties;
-    @Autowired
-    @Qualifier("dataServiceRestTemplate")
-    private RestTemplate restTemplate;
+    private final DataServiceProperties properties;
+    private final RestTemplate restTemplate;
     private final Set<String> subscribedSymbols = ConcurrentHashMap.newKeySet();
     
     // Base rates for major currency pairs (mock data fallback)
     private final Map<String, BigDecimal> baseRates = new HashMap<>();
     
-    public ForexProvider() {
+    public ForexProvider(
+            DataServiceProperties properties,
+            @Qualifier("dataServiceRestTemplate") RestTemplate restTemplate) {
+        this.properties = Objects.requireNonNull(properties, "properties must not be null");
+        this.restTemplate = Objects.requireNonNull(restTemplate, "restTemplate must not be null");
         // Initialize base rates for major pairs
         baseRates.put("EUR/USD", new BigDecimal("1.0850"));
         baseRates.put("USD/JPY", new BigDecimal("149.50"));

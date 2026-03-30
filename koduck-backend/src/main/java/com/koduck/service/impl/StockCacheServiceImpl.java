@@ -4,12 +4,14 @@ import com.koduck.config.RedisKeyConstants;
 import com.koduck.dto.market.PriceQuoteDto;
 import com.koduck.service.StockCacheService;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -19,8 +21,11 @@ import java.util.concurrent.TimeUnit;
 @Service
 @Slf4j
 public class StockCacheServiceImpl implements StockCacheService {
-    @Autowired
-    private RedisTemplate<String, Object> redisTemplate;
+    private final RedisTemplate<String, Object> redisTemplate;
+
+    public StockCacheServiceImpl(RedisTemplate<String, Object> redisTemplate) {
+        this.redisTemplate = Objects.requireNonNull(redisTemplate, "redisTemplate must not be null");
+    }
 
     // ==================== Stock Tracking () ====================
 
@@ -89,7 +94,6 @@ public class StockCacheServiceImpl implements StockCacheService {
     }
 
     @Override
-    @SuppressWarnings("unchecked")
     public List<String> getCachedHotStocks(String type) {
         String key = RedisKeyConstants.hotStocksKey(type);
         try {
@@ -140,15 +144,14 @@ public class StockCacheServiceImpl implements StockCacheService {
      * Convert cached object to PriceQuoteDto.
      * Handles various deserialization scenarios.
      */
-    @SuppressWarnings("unchecked")
     private PriceQuoteDto convertToPriceQuoteDto(Object cached) {
         if (cached instanceof PriceQuoteDto) {
             return (PriceQuoteDto) cached;
         }
 
         // Handle LinkedHashMap (Jackson JSON deserialization)
-        if (cached instanceof java.util.Map) {
-            java.util.Map<String, Object> map = (java.util.Map<String, Object>) cached;
+        if (cached instanceof Map<?, ?> rawMap) {
+            Map<String, Object> map = toStringKeyMap(rawMap);
             try {
                 PriceQuoteDto.Builder builder = PriceQuoteDto.builder();
                 
@@ -171,4 +174,14 @@ public class StockCacheServiceImpl implements StockCacheService {
         
         return null;
     }
+
+            private Map<String, Object> toStringKeyMap(Map<?, ?> rawMap) {
+                Map<String, Object> normalized = new LinkedHashMap<>();
+                for (Map.Entry<?, ?> entry : rawMap.entrySet()) {
+                    if (entry.getKey() instanceof String key) {
+                        normalized.put(key, entry.getValue());
+                    }
+                }
+                return normalized;
+            }
 }

@@ -7,7 +7,6 @@ import com.koduck.market.model.TickData;
 import com.koduck.market.provider.MarketDataProvider;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.ResponseEntity;
@@ -42,15 +41,19 @@ public class USStockProvider implements MarketDataProvider {
     private static final ZoneId US_EASTERN = ZoneId.of("America/New_York");
     private static final String PROVIDER_NAME = "finnhub-us-stock";
     
-    @Autowired
-    private FinnhubProperties properties;
-    @Autowired
-    @Qualifier("finnhubRestTemplate")
-    private RestTemplate restTemplate;
+    private final FinnhubProperties properties;
+    private final RestTemplate restTemplate;
     private final Set<String> subscribedSymbols = ConcurrentHashMap.newKeySet();
     
     // Fallback to mock data when API is not available
     private final MockDataProvider mockProvider = new MockDataProvider();
+
+    public USStockProvider(
+            FinnhubProperties properties,
+            @Qualifier("finnhubRestTemplate") RestTemplate restTemplate) {
+        this.properties = Objects.requireNonNull(properties, "properties must not be null");
+        this.restTemplate = Objects.requireNonNull(restTemplate, "restTemplate must not be null");
+    }
     
     @Override
     public String getProviderName() {

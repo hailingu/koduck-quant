@@ -8,9 +8,9 @@ import com.koduck.security.JwtAuthenticationFilter;
 import com.koduck.service.CommunitySignalService;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
+import org.springframework.test.context.TestConstructor;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
@@ -38,11 +38,10 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  */
 @WebMvcTest(controllers = CommunitySignalController.class)
 @AutoConfigureMockMvc(addFilters = false)
-@SuppressWarnings("null")
+@TestConstructor(autowireMode = TestConstructor.AutowireMode.ALL)
 class CommunitySignalControllerValidationTest {
 
-    @Autowired
-    private MockMvc mockMvc;
+    private final MockMvc mockMvc;
 
     @MockitoBean
     private CommunitySignalService signalService;
@@ -52,6 +51,10 @@ class CommunitySignalControllerValidationTest {
 
     @MockitoBean
     private AuthenticatedUserResolver authenticatedUserResolver;
+
+    CommunitySignalControllerValidationTest(MockMvc mockMvc) {
+        this.mockMvc = mockMvc;
+    }
 
     @Test
     @DisplayName("shouldReturnBadRequestWhenSortIsInvalid")

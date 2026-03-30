@@ -29,7 +29,6 @@ import static org.mockito.Mockito.when;
  * @date 2026-03-05
  */
 @ExtendWith(MockitoExtension.class)
-@SuppressWarnings("null")
 class PortfolioServiceTest {
 
     @Mock

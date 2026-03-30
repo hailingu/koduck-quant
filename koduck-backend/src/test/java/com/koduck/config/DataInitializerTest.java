@@ -128,7 +128,6 @@ class DataInitializerTest {
      */
     @Test
     @DisplayName("shouldSwallowDataIntegrityViolationDuringConcurrentCreation")
-    @SuppressWarnings("null")
     void shouldSwallowDataIntegrityViolationDuringConcurrentCreation() {
         setField("demoEnabled", true);
         setField("demoUsername", "demoUser");

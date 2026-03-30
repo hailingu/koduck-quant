@@ -9,13 +9,13 @@ import com.koduck.security.UserPrincipal;
 import com.koduck.service.CredentialService;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.test.context.TestConstructor;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
@@ -40,13 +40,12 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  */
 @WebMvcTest(controllers = CredentialController.class)
 @AutoConfigureMockMvc(addFilters = false)
-@SuppressWarnings("null")
+@TestConstructor(autowireMode = TestConstructor.AutowireMode.ALL)
 class CredentialControllerValidationTest {
 
     private static final Long USER_ID = 1001L;
 
-    @Autowired
-    private MockMvc mockMvc;
+        private final MockMvc mockMvc;
 
     @MockitoBean
     private CredentialService credentialService;
@@ -56,6 +55,10 @@ class CredentialControllerValidationTest {
 
         @MockitoBean
         private AuthenticatedUserResolver authenticatedUserResolver;
+
+        CredentialControllerValidationTest(MockMvc mockMvc) {
+                this.mockMvc = mockMvc;
+        }
 
     @Test
     @DisplayName("shouldReturnBadRequestWhenPageIsNegativeForCredentials")

@@ -15,10 +15,10 @@ import com.koduck.entity.User;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.test.context.TestConstructor;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 
@@ -32,23 +32,28 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * UserController 
  */
 @AutoConfigureMockMvc
+@TestConstructor(autowireMode = TestConstructor.AutowireMode.ALL)
 class UserControllerIntegrationTest extends AbstractIntegrationTest {
 
         private static final int ADMIN_ROLE_ID = 1;
 
-    @Autowired
-    private MockMvc mockMvc;
-
-    @Autowired
-    private ObjectMapper objectMapper;
-
-    @Autowired
-    private JdbcTemplate jdbcTemplate;
+        private final MockMvc mockMvc;
+        private final ObjectMapper objectMapper;
+        private final JdbcTemplate jdbcTemplate;
 
     private String accessToken;
     private String adminAccessToken;
     private Long normalUserId;
     private String normalUsername;
+
+        UserControllerIntegrationTest(
+                        MockMvc mockMvc,
+                        ObjectMapper objectMapper,
+                        JdbcTemplate jdbcTemplate) {
+                this.mockMvc = mockMvc;
+                this.objectMapper = objectMapper;
+                this.jdbcTemplate = jdbcTemplate;
+        }
 
     @BeforeEach
     void setUp() throws Exception {

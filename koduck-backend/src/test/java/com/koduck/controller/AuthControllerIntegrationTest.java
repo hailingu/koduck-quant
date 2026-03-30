@@ -11,9 +11,9 @@ import com.koduck.dto.auth.ResetPasswordRequest;
 import com.koduck.dto.auth.TokenResponse;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.http.MediaType;
+import org.springframework.test.context.TestConstructor;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 
@@ -29,14 +29,16 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * @date 2026-03-05
  */
 @AutoConfigureMockMvc
-@SuppressWarnings("null")
+@TestConstructor(autowireMode = TestConstructor.AutowireMode.ALL)
 class AuthControllerIntegrationTest extends AbstractIntegrationTest {
 
-    @Autowired
-    private MockMvc mockMvc;
+        private final MockMvc mockMvc;
+        private final ObjectMapper objectMapper;
 
-    @Autowired
-    private ObjectMapper objectMapper;
+        AuthControllerIntegrationTest(MockMvc mockMvc, ObjectMapper objectMapper) {
+                this.mockMvc = mockMvc;
+                this.objectMapper = objectMapper;
+        }
 
     @Test
     @DisplayName("shouldRegisterUserSuccessfully")

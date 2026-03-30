@@ -40,7 +40,6 @@ import static org.mockito.Mockito.when;
  * @date 2026-03-05
  */
 @ExtendWith(MockitoExtension.class)
-@SuppressWarnings("null")
 class MarketServiceImplTest {
 
     @Mock
@@ -227,7 +226,6 @@ class MarketServiceImplTest {
 
         @Test
         @DisplayName("shouldBuildStockDetailFromCachedMapKlineWhenCacheReturnsLinkedHashMap")
-        @SuppressWarnings({"unchecked", "rawtypes"})
         void shouldBuildStockDetailFromCachedMapKlineWhenCacheReturnsLinkedHashMap() {
                 StockBasic basic = StockBasic.builder()
                                 .symbol("601919")
@@ -256,8 +254,25 @@ class MarketServiceImplTest {
                 when(stockRealtimeRepository.findFirstBySymbolOrderByUpdatedAtDesc("601919"))
                                 .thenReturn(Optional.empty());
                 when(stockBasicRepository.findBySymbol("601919")).thenReturn(Optional.of(basic));
+                KlineDataDto previousKline = new KlineDataDto(
+                                ((Number) previous.get("timestamp")).longValue(),
+                                new BigDecimal(previous.get("open").toString()),
+                                new BigDecimal(previous.get("high").toString()),
+                                new BigDecimal(previous.get("low").toString()),
+                                new BigDecimal(previous.get("close").toString()),
+                                ((Number) previous.get("volume")).longValue(),
+                                new BigDecimal(previous.get("amount").toString()));
+                KlineDataDto latestKline = new KlineDataDto(
+                                ((Number) latest.get("timestamp")).longValue(),
+                                new BigDecimal(latest.get("open").toString()),
+                                new BigDecimal(latest.get("high").toString()),
+                                new BigDecimal(latest.get("low").toString()),
+                                new BigDecimal(latest.get("close").toString()),
+                                ((Number) latest.get("volume")).longValue(),
+                                new BigDecimal(latest.get("amount").toString()));
+
                 when(klineService.getKlineData("AShare", "601919", "1D", 2, null))
-                                .thenReturn((List) List.of(previous, latest));
+                                .thenReturn(List.of(previousKline, latestKline));
 
                 PriceQuoteDto quote = marketService.getStockDetail("601919");
 

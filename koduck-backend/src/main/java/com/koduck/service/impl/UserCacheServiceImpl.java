@@ -3,11 +3,11 @@ package com.koduck.service.impl;
 import com.koduck.config.RedisKeyConstants;
 import com.koduck.service.UserCacheService;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.lang.NonNull;
 
+import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -18,8 +18,11 @@ import java.util.stream.Collectors;
 @Service
 @Slf4j
 public class UserCacheServiceImpl implements UserCacheService {
-    @Autowired
-    private RedisTemplate<String, Object> redisTemplate;
+    private final RedisTemplate<String, Object> redisTemplate;
+
+    public UserCacheServiceImpl(RedisTemplate<String, Object> redisTemplate) {
+        this.redisTemplate = Objects.requireNonNull(redisTemplate, "redisTemplate must not be null");
+    }
 
     // ==================== User Tracking List () ====================
 

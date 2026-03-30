@@ -8,7 +8,6 @@ import com.koduck.market.provider.MarketDataProvider;
 import com.koduck.market.util.DataConverter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.HttpMethod;
@@ -59,17 +58,18 @@ public class FuturesProvider implements MarketDataProvider {
             new ParameterizedTypeReference<>() {
             };
     
-    @Autowired
-    private DataServiceProperties properties;
-    @Autowired
-    @Qualifier("dataServiceRestTemplate")
-    private RestTemplate restTemplate;
+    private final DataServiceProperties properties;
+    private final RestTemplate restTemplate;
     private final Set<String> subscribedSymbols = ConcurrentHashMap.newKeySet();
     
     // Base prices for popular futures (mock data fallback)
     private final Map<String, BigDecimal> basePrices = new HashMap<>();
     
-    public FuturesProvider() {
+    public FuturesProvider(
+            DataServiceProperties properties,
+            @Qualifier("dataServiceRestTemplate") RestTemplate restTemplate) {
+        this.properties = Objects.requireNonNull(properties, "properties must not be null");
+        this.restTemplate = Objects.requireNonNull(restTemplate, "restTemplate must not be null");
         // SHFE (上海期货交易所)
         basePrices.put("AU2412", new BigDecimal("480.00"));  // Gold (CNY/g)
         basePrices.put("AG2412", new BigDecimal("5800.00")); // Silver (CNY/kg)

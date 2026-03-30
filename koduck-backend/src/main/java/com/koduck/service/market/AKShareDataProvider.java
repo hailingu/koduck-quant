@@ -13,7 +13,6 @@ import com.koduck.market.provider.MarketDataProvider;
 import com.koduck.market.util.DataConverter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.HttpMethod;
@@ -28,6 +27,7 @@ import java.time.Instant;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -52,14 +52,18 @@ public class AKShareDataProvider implements MarketDataProvider {
             MAP_DATA_RESPONSE_TYPE = new ParameterizedTypeReference<>() {
             };
     
-    @Autowired
-    @Qualifier("dataServiceRestTemplate")
-    private RestTemplate restTemplate;
-    @Autowired
-    private DataServiceProperties properties;
+    private final RestTemplate restTemplate;
+    private final DataServiceProperties properties;
     private final Set<String> subscribedSymbols = ConcurrentHashMap.newKeySet();
     private volatile boolean available = true;
     private volatile int healthScore = 100;
+
+    public AKShareDataProvider(
+            @Qualifier("dataServiceRestTemplate") RestTemplate restTemplate,
+            DataServiceProperties properties) {
+        this.restTemplate = Objects.requireNonNull(restTemplate, "restTemplate must not be null");
+        this.properties = Objects.requireNonNull(properties, "properties must not be null");
+    }
     
     @Override
     public String getProviderName() {

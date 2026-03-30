@@ -2,10 +2,10 @@ package com.koduck.controller;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.test.context.TestConstructor;
 import org.springframework.test.web.servlet.MockMvc;
 import com.koduck.service.MonitoringService;
 import com.koduck.security.JwtAuthenticationFilter;
@@ -24,16 +24,20 @@ import static org.mockito.Mockito.when;
  */
 @WebMvcTest(MonitoringController.class)
 @AutoConfigureMockMvc(addFilters = false)
+@TestConstructor(autowireMode = TestConstructor.AutowireMode.ALL)
 class MonitoringControllerTest {
 
-    @Autowired
-    private MockMvc mockMvc;
+    private final MockMvc mockMvc;
 
     @MockBean
     private MonitoringService monitoringService;
 
     @MockBean
     private JwtAuthenticationFilter jwtAuthenticationFilter;
+
+    MonitoringControllerTest(MockMvc mockMvc) {
+        this.mockMvc = mockMvc;
+    }
 
     @Test
     @DisplayName("数据新鲜度接口应正常返回")
