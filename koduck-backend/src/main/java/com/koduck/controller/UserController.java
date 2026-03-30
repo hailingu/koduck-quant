@@ -1,5 +1,4 @@
 package com.koduck.controller;
-
 import com.koduck.controller.support.AuthenticatedUserResolver;
 import com.koduck.dto.ApiResponse;
 import com.koduck.dto.common.PageResponse;
@@ -14,27 +13,24 @@ import com.koduck.service.UserService;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Positive;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
-
 /**
  * REST API controller for user profile and administrative user management.
  */
 @RestController
 @RequestMapping("/api/v1/users")
-@RequiredArgsConstructor
 @Validated
 @Slf4j
 @Tag(name = "User Management", description = "APIs for user profile query/update and admin user management")
 public class UserController {
-
-    private final AuthenticatedUserResolver authenticatedUserResolver;
-    private final UserService userService;
-
+    @org.springframework.beans.factory.annotation.Autowired
+    private AuthenticatedUserResolver authenticatedUserResolver;
+    @org.springframework.beans.factory.annotation.Autowired
+    private UserService userService;
     /**
      * Retrieve current user details.
      */
@@ -46,7 +42,6 @@ public class UserController {
         UserDetailResponse response = userService.getCurrentUser(userId);
         return ApiResponse.success(response);
     }
-
     /**
      * Update current user's profile.
      */
@@ -59,7 +54,6 @@ public class UserController {
         UserDetailResponse response = userService.updateProfile(userId, request);
         return ApiResponse.success(response);
     }
-
     /**
      * Change current user's password.
      */
@@ -72,7 +66,6 @@ public class UserController {
         userService.changePassword(userId, request);
         return ApiResponse.successNoContent();
     }
-
     /**
      * List users with pagination for administrators.
      */
@@ -84,7 +77,6 @@ public class UserController {
         PageResponse<UserDetailResponse> response = userService.listUsers(request);
         return ApiResponse.success(response);
     }
-
     /**
      * Get user detail by user id for administrators.
      */
@@ -96,7 +88,6 @@ public class UserController {
         UserDetailResponse response = userService.getUserById(id);
         return ApiResponse.success(response);
     }
-
     /**
      * Create user for administrators.
      */
@@ -108,7 +99,6 @@ public class UserController {
         UserDetailResponse response = userService.createUser(request);
         return ApiResponse.success(response);
     }
-
     /**
      * Update user for administrators.
      */
@@ -121,7 +111,6 @@ public class UserController {
         UserDetailResponse response = userService.updateUser(id, request);
         return ApiResponse.success(response);
     }
-
     /**
      * Delete user for administrators.
      */

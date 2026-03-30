@@ -1,5 +1,4 @@
 package com.koduck.controller;
-
 import com.koduck.dto.ApiResponse;
 import com.koduck.dto.auth.ForgotPasswordRequest;
 import com.koduck.dto.auth.LoginRequest;
@@ -19,9 +18,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
-
 import java.util.Objects;
-
 /**
  * Authentication REST controller.
  *
@@ -36,13 +33,10 @@ import java.util.Objects;
 @RequiredArgsConstructor
 @Tag(name = "认证管理", description = "用户登录、注册、Token刷新等认证相关接口")
 public class AuthController {
-
     private static final String HEADER_USER_AGENT = "User-Agent";
     private static final String HEADER_X_FORWARDED_FOR = "X-Forwarded-For";
     private static final String HEADER_X_REAL_IP = "X-Real-IP";
-
     private final AuthService authService;
-
     /**
      * Authenticate a user and issue JWT tokens.
      *
@@ -60,7 +54,6 @@ public class AuthController {
         TokenResponse response = authService.login(request, ipAddress, userAgent);
         return ApiResponse.success(response);
     }
-
     /**
      * Register a new user account.
      *
@@ -73,7 +66,6 @@ public class AuthController {
         TokenResponse response = authService.register(request);
         return ApiResponse.success(response);
     }
-
     /**
      * Refresh an access token using a valid refresh token.
      *
@@ -86,7 +78,6 @@ public class AuthController {
         TokenResponse response = authService.refreshToken(request);
         return ApiResponse.success(response);
     }
-
     /**
      * Logout current session by revoking refresh token when provided.
      *
@@ -100,7 +91,6 @@ public class AuthController {
         authService.logout(refreshToken);
         return ApiResponse.successNoContent();
     }
-
     /**
      * Retrieve security-related client configuration.
      *
@@ -112,7 +102,6 @@ public class AuthController {
         SecurityConfigResponse config = authService.getSecurityConfig();
         return ApiResponse.success(config);
     }
-
     /**
      * Trigger forgot-password flow for an email address.
      *
@@ -129,7 +118,6 @@ public class AuthController {
         authService.forgotPassword(request, ipAddress);
         return ApiResponse.successNoContent();
     }
-
     /**
      * Reset password using a reset token.
      *
@@ -142,7 +130,6 @@ public class AuthController {
         authService.resetPassword(request);
         return ApiResponse.successNoContent();
     }
-
     /**
      * Resolve client IP address from trusted proxy headers.
      *
@@ -160,7 +147,6 @@ public class AuthController {
         }
         return request.getRemoteAddr();
     }
-
     private String normalizeRefreshToken(RefreshTokenRequest request) {
         if (request == null) {
             return null;

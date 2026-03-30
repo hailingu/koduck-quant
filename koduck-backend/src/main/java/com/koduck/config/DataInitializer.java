@@ -1,5 +1,4 @@
 package com.koduck.config;
-
 import com.koduck.entity.Role;
 import com.koduck.entity.User;
 import com.koduck.entity.UserCredential;
@@ -10,7 +9,6 @@ import com.koduck.repository.UserRoleRepository;
 import com.koduck.util.CredentialEncryptionUtil;
 import jakarta.annotation.PostConstruct;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -19,13 +17,11 @@ import org.springframework.stereotype.Component;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
-
 import com.koduck.util.ReservedUsernameValidator;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
-
 /**
  * Data initializer - creates a demo user when the application starts.
  * <p>
@@ -37,70 +33,39 @@ import java.util.Optional;
 @Slf4j
 @Component
 public class DataInitializer implements CommandLineRunner {
-
     /**
      * Role name assigned to regular users.  Used when creating demo account.
      */
     private static final String ROLE_USER = "USER";
     private static final String ROLE_USER_DESCRIPTION = "Default role for regular users";
-
     /**
      * Default email address for the demo account.
      */
     private static final String DEMO_EMAIL = "demo@koduck.local";
-
     /**
      * Default nickname stored on the demo user record.
      */
     private static final String DEMO_NICKNAME = "Demo User";
-
+    @org.springframework.beans.factory.annotation.Autowired
     private UserRepository userRepository;
-
+    @org.springframework.beans.factory.annotation.Autowired
     private RoleRepository roleRepository;
-
+    @org.springframework.beans.factory.annotation.Autowired
     private UserRoleRepository userRoleRepository;
-
+    @org.springframework.beans.factory.annotation.Autowired
     private CredentialRepository credentialRepository;
-
+    @org.springframework.beans.factory.annotation.Autowired
     private PasswordEncoder passwordEncoder;
-
+    @org.springframework.beans.factory.annotation.Autowired
     private JdbcTemplate jdbcTemplate;
-
-    /**
-     * Injects the repositories and infrastructure dependencies required by the initializer.
-     *
-     * @param userRepository user repository
-     * @param roleRepository role repository
-     * @param userRoleRepository user-role repository
-     * @param credentialRepository credential repository
-     * @param passwordEncoder password encoder
-     * @param jdbcTemplate JDBC template
-     */
-    @Autowired
-    public void setDependencies(
-            UserRepository userRepository,
-            RoleRepository roleRepository,
-            UserRoleRepository userRoleRepository,
-            CredentialRepository credentialRepository,
-            PasswordEncoder passwordEncoder,
-            JdbcTemplate jdbcTemplate) {
-        this.userRepository = userRepository;
-        this.roleRepository = roleRepository;
-        this.userRoleRepository = userRoleRepository;
-        this.credentialRepository = credentialRepository;
-        this.passwordEncoder = passwordEncoder;
-        this.jdbcTemplate = jdbcTemplate;
-    }
-
+    @org.springframework.beans.factory.annotation.Autowired
+    private CredentialEncryptionUtil credentialEncryptionUtil;
     @Value("${app.demo.enabled:false}")
     private boolean demoEnabled;
-
     @Value("${app.demo.username:demo}")
     private String demoUsername;
-
     @Value("${app.demo.password:}")
     private String demoPassword;
-
     /**
      * Validates configuration on startup. Fails fast if demo is enabled but password is not set.
      */
@@ -110,7 +75,6 @@ public class DataInitializer implements CommandLineRunner {
             log.debug("Demo mode is disabled, skipping demo user creation");
             return;
         }
-
         log.info("Demo mode is enabled, username: {}", demoUsername);
         if (!StringUtils.hasText(demoPassword)) {
             throw new IllegalStateException(
@@ -122,7 +86,6 @@ public class DataInitializer implements CommandLineRunner {
             log.warn("Using reserved username '{}' for demo account is not recommended", demoUsername);
         }
     }
-
     /**
      * Callback executed during application startup.
      *
@@ -135,14 +98,12 @@ public class DataInitializer implements CommandLineRunner {
             log.debug("Demo mode is disabled, skipping demo user creation");
             return;
         }
-
         try {
             createDemoUserIfNotExists();
         } catch (Exception e) {
             log.error("Failed to initialize demo user", e);
             // do not abort startup on failure
         }
-
         // 初始化环境变量中的 LLM API Key 到 user_credentials 表
         try {
             initializeLlmCredentialsFromEnv();
@@ -151,7 +112,6 @@ public class DataInitializer implements CommandLineRunner {
             // do not abort startup on failure
         }
     }
-
     /**
      * Creates a demo user account if none exists.
      * <p>
@@ -164,10 +124,8 @@ public class DataInitializer implements CommandLineRunner {
             log.debug("Demo user '{}' already exists, skipping creation", demoUsername);
             return;
         }
-
         // fetch (or create) USER role
         Role userRole = getOrCreateUserRole();
-
         try {
             // create demo user
             User demoUser = new User();
@@ -176,29 +134,24 @@ public class DataInitializer implements CommandLineRunner {
             demoUser.setPasswordHash(passwordEncoder.encode(demoPassword));
             demoUser.setNickname(DEMO_NICKNAME);
             demoUser.setStatus(User.UserStatus.ACTIVE);
-
             demoUser = userRepository.save(demoUser);
             log.info("Created demo user: {} with id={}", demoUsername, demoUser.getId());
-
             // assign USER role when join table exists
             if (hasUserRolesTable()) {
                 userRoleRepository.insertUserRole(demoUser.getId(), userRole.getId());
             } else {
                 log.warn("Table 'user_roles' not found, skipping demo role mapping");
             }
-
             log.info("Successfully initialized demo user: {}", demoUsername);
         } catch (DataIntegrityViolationException e) {
             log.warn("Demo user may already exist (concurrent creation): {}", e.getMessage());
         }
     }
-
     private Role getOrCreateUserRole() {
         Optional<Role> existingRole = roleRepository.findByName(ROLE_USER);
         if (existingRole.isPresent()) {
             return existingRole.get();
         }
-
         try {
             Role created = Objects.requireNonNull(
                 Role.builder()
@@ -216,7 +169,6 @@ public class DataInitializer implements CommandLineRunner {
                 .orElseThrow(() -> e);
         }
     }
-
     private boolean hasUserRolesTable() {
         Integer count = jdbcTemplate.queryForObject(
             "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'user_roles'",
@@ -224,7 +176,6 @@ public class DataInitializer implements CommandLineRunner {
         );
         return count != null && count > 0;
     }
-
     /**
      * 将环境变量中的 LLM API Key 初始化到 user_credentials 表
      * <p>
@@ -248,7 +199,6 @@ public class DataInitializer implements CommandLineRunner {
             return;
         }
         Long userId = targetUser.get().getId();
-
         // 定义要检查的 provider 及其环境变量
         Map<String, ProviderEnvConfig> providerConfigs = Map.of(
             "openai", new ProviderEnvConfig(
@@ -270,48 +220,40 @@ public class DataInitializer implements CommandLineRunner {
                 "https://api.deepseek.com/v1"
             )
         );
-
         int initializedCount = 0;
         for (Map.Entry<String, ProviderEnvConfig> entry : providerConfigs.entrySet()) {
             String provider = entry.getKey();
             ProviderEnvConfig config = entry.getValue();
-            
             // 获取实际的 API Key（优先特定 provider，其次通用）
             String apiKey = firstNonBlank(config.specificKey(), config.fallbackKey());
             if (!StringUtils.hasText(apiKey)) {
                 log.debug("No API key found for provider: {}", provider);
                 continue;
             }
-            
             // 记录原始 API Key 信息（只打印长度和前 8 位，不打印完整 key）
             log.info("Found API key for provider: {}, length: {}, prefix: {}...", 
                 provider, apiKey.length(), 
                 apiKey.substring(0, Math.min(8, apiKey.length())));
-
             // 检查是否已存在该 provider 的凭证
             long count = credentialRepository.countByUserIdAndProvider(userId, provider);
             if (count > 0) {
                 log.debug("Credential already exists for provider: {}, userId: {}", provider, userId);
                 continue;
             }
-
             try {
                 // 加密 API Key
                 log.debug("Encrypting API key for provider: {}, original length: {}", provider, apiKey.length());
-                String encryptedKey = CredentialEncryptionUtil.encrypt(apiKey);
+                String encryptedKey = credentialEncryptionUtil.encrypt(apiKey);
                 log.debug("Encrypted API key length: {}", encryptedKey.length());
-                
                 // 验证加密/解密一致性（测试用）
-                String decryptedTest = CredentialEncryptionUtil.decrypt(encryptedKey);
+                String decryptedTest = credentialEncryptionUtil.decrypt(encryptedKey);
                 if (!apiKey.equals(decryptedTest)) {
                     log.error("Encryption verification failed for provider: {}. Original length: {}, Decrypted length: {}", 
                         provider, apiKey.length(), decryptedTest.length());
                     continue;
                 }
-                
                 // 确定 API Base
                 String apiBase = firstNonBlank(config.apiBase(), config.defaultBase());
-                
                 // 创建凭证实体
                 UserCredential credential = Objects.requireNonNull(
                     UserCredential.builder()
@@ -327,7 +269,6 @@ public class DataInitializer implements CommandLineRunner {
                         .build(),
                     "UserCredential entity must not be null"
                 );
-
                 credentialRepository.save(credential);
                 initializedCount++;
                 log.info("Initialized LLM credential from environment: provider={}, userId={}", provider, userId);
@@ -335,14 +276,12 @@ public class DataInitializer implements CommandLineRunner {
                 log.error("Failed to initialize credential for provider: {}", provider, e);
             }
         }
-
         if (initializedCount > 0) {
             log.info("Successfully initialized {} LLM credential(s) from environment variables", initializedCount);
         } else {
             log.debug("No new LLM credentials to initialize from environment");
         }
     }
-
     private String firstNonBlank(String... values) {
         if (values == null) {
             return null;
@@ -354,7 +293,6 @@ public class DataInitializer implements CommandLineRunner {
         }
         return null;
     }
-
     /**
      * Provider 环境变量配置记录
      */

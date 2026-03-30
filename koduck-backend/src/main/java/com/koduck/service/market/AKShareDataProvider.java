@@ -13,6 +13,8 @@ import com.koduck.market.provider.MarketDataProvider;
 import com.koduck.market.util.DataConverter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.ResponseEntity;
@@ -43,17 +45,21 @@ public class AKShareDataProvider implements MarketDataProvider {
     private static final String A_SHARE_BASE_PATH = "/a-share";
     private static final String KEY_SYMBOL = "symbol";
     private static final String KEY_NAME = "name";
+        private static final ParameterizedTypeReference<DataServiceResponse<List<Map<String, Object>>>>
+            LIST_DATA_RESPONSE_TYPE = new ParameterizedTypeReference<>() {
+            };
+        private static final ParameterizedTypeReference<DataServiceResponse<Map<String, Object>>>
+            MAP_DATA_RESPONSE_TYPE = new ParameterizedTypeReference<>() {
+            };
     
-    private final RestTemplate restTemplate;
-    private final DataServiceProperties properties;
+    @Autowired
+    @Qualifier("dataServiceRestTemplate")
+    private RestTemplate restTemplate;
+    @Autowired
+    private DataServiceProperties properties;
     private final Set<String> subscribedSymbols = ConcurrentHashMap.newKeySet();
     private volatile boolean available = true;
     private volatile int healthScore = 100;
-    
-    public AKShareDataProvider(RestTemplate dataServiceRestTemplate, DataServiceProperties properties) {
-        this.restTemplate = dataServiceRestTemplate;
-        this.properties = properties;
-    }
     
     @Override
     public String getProviderName() {
@@ -110,7 +116,7 @@ public class AKShareDataProvider implements MarketDataProvider {
                             url,
                             HttpMethod.GET,
                             null,
-                            new ParameterizedTypeReference<>() {}
+                        LIST_DATA_RESPONSE_TYPE
                     );
             
             return parseKlineResponse(response.getBody());
@@ -222,7 +228,7 @@ public class AKShareDataProvider implements MarketDataProvider {
                             url,
                             HttpMethod.GET,
                             null,
-                            new ParameterizedTypeReference<>() {}
+                        LIST_DATA_RESPONSE_TYPE
                     );
             
             return parseSymbolInfoResponse(response.getBody());
@@ -254,7 +260,7 @@ public class AKShareDataProvider implements MarketDataProvider {
                             url,
                             HttpMethod.GET,
                             null,
-                            new ParameterizedTypeReference<>() {}
+                        MAP_DATA_RESPONSE_TYPE
                     );
             
             return parsePriceQuoteResponse(response.getBody());
@@ -288,7 +294,7 @@ public class AKShareDataProvider implements MarketDataProvider {
                             url,
                             HttpMethod.POST,
                             new org.springframework.http.HttpEntity<>(request),
-                            new ParameterizedTypeReference<>() {}
+                        LIST_DATA_RESPONSE_TYPE
                     );
             
             DataServiceResponse<List<Map<String, Object>>> body = response.getBody();
@@ -325,7 +331,7 @@ public class AKShareDataProvider implements MarketDataProvider {
                             url,
                             HttpMethod.GET,
                             null,
-                            new ParameterizedTypeReference<>() {}
+                        LIST_DATA_RESPONSE_TYPE
                     );
             
             return parseSymbolListResponse(response.getBody());
@@ -355,7 +361,7 @@ public class AKShareDataProvider implements MarketDataProvider {
                             url,
                             HttpMethod.GET,
                             null,
-                            new ParameterizedTypeReference<>() {}
+                        MAP_DATA_RESPONSE_TYPE
                     );
 
             return parseStockValuationResponse(response.getBody());
@@ -386,7 +392,7 @@ public class AKShareDataProvider implements MarketDataProvider {
                             url,
                             HttpMethod.GET,
                             null,
-                            new ParameterizedTypeReference<>() {}
+                        MAP_DATA_RESPONSE_TYPE
                     );
 
             return parseStockIndustryResponse(response.getBody());

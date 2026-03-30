@@ -4,6 +4,7 @@ import com.koduck.config.RedisKeyConstants;
 import com.koduck.dto.market.PriceQuoteDto;
 import com.koduck.service.StockCacheService;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 
@@ -18,12 +19,8 @@ import java.util.concurrent.TimeUnit;
 @Service
 @Slf4j
 public class StockCacheServiceImpl implements StockCacheService {
-
-    private final RedisTemplate<String, Object> redisTemplate;
-
-    public StockCacheServiceImpl(RedisTemplate<String, Object> redisTemplate) {
-        this.redisTemplate = redisTemplate;
-    }
+    @Autowired
+    private RedisTemplate<String, Object> redisTemplate;
 
     // ==================== Stock Tracking () ====================
 

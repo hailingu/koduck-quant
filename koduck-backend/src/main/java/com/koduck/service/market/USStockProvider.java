@@ -7,6 +7,8 @@ import com.koduck.market.model.TickData;
 import com.koduck.market.provider.MarketDataProvider;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Component;
@@ -40,18 +42,15 @@ public class USStockProvider implements MarketDataProvider {
     private static final ZoneId US_EASTERN = ZoneId.of("America/New_York");
     private static final String PROVIDER_NAME = "finnhub-us-stock";
     
-    private final FinnhubProperties properties;
-    private final RestTemplate restTemplate;
+    @Autowired
+    private FinnhubProperties properties;
+    @Autowired
+    @Qualifier("finnhubRestTemplate")
+    private RestTemplate restTemplate;
     private final Set<String> subscribedSymbols = ConcurrentHashMap.newKeySet();
     
     // Fallback to mock data when API is not available
-    private final MockDataProvider mockProvider;
-    
-    public USStockProvider(FinnhubProperties properties, RestTemplate finnhubRestTemplate) {
-        this.properties = properties;
-        this.restTemplate = finnhubRestTemplate;
-        this.mockProvider = new MockDataProvider();
-    }
+    private final MockDataProvider mockProvider = new MockDataProvider();
     
     @Override
     public String getProviderName() {
@@ -249,18 +248,18 @@ public class USStockProvider implements MarketDataProvider {
             );
             
             SearchResponse body = response.getBody();
-            if (body == null || body.result == null) {
+            if (body == null || body.result() == null) {
                 return Collections.emptyList();
             }
             
-            return body.result.stream()
-                    .filter(r -> r.type != null && r.type.equals("Common Stock"))
+            return body.result().stream()
+                    .filter(r -> r.type() != null && r.type().equals("Common Stock"))
                     .limit(limit)
                     .map(r -> new SymbolInfo(
-                        r.symbol,
-                        r.description,
+                        r.symbol(),
+                        r.description(),
                         MarketType.US_STOCK.getCode(),
-                        r.exchange != null ? r.exchange : "NASDAQ",
+                        r.exchange() != null ? r.exchange() : "NASDAQ",
                         "stock"
                     ))
                     .toList();
@@ -369,17 +368,10 @@ public class USStockProvider implements MarketDataProvider {
         public long t;    // Timestamp
     }
     
-    static class SearchResponse {
-        public int count;
-        public List<SearchResult> result;
+    record SearchResponse(int count, List<SearchResult> result) {
     }
-    
-    static class SearchResult {
-        public String description;
-        public String displaySymbol;
-        public String symbol;
-        public String type;
-        public String exchange;
+
+    record SearchResult(String description, String displaySymbol, String symbol, String type, String exchange) {
     }
     
     /**

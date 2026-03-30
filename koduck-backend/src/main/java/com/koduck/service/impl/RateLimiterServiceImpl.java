@@ -1,15 +1,11 @@
 package com.koduck.service.impl;
-
 import com.koduck.service.RateLimiterService;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
-
 import java.time.Duration;
 import java.util.Locale;
 import java.util.concurrent.TimeUnit;
-
 /**
  * 限流服务实现类。
  *
@@ -19,22 +15,18 @@ import java.util.concurrent.TimeUnit;
  */
 @Slf4j
 @Service
-@RequiredArgsConstructor
 public class RateLimiterServiceImpl implements RateLimiterService {
-
-    private final StringRedisTemplate redisTemplate;
-
+    @org.springframework.beans.factory.annotation.Autowired
+    private StringRedisTemplate redisTemplate;
     // 限流 key 前缀
     private static final String KEY_PREFIX = "rate_limit:";
     private static final String PASSWORD_RESET_PREFIX = KEY_PREFIX + "password_reset:";
     private static final String PASSWORD_RESET_EMAIL_PREFIX = KEY_PREFIX + "password_reset_email:";
-
     // 限流配置常量
     public static final int MAX_REQUESTS_PER_USER = 3;          // 每用户每小时最大请求数
     public static final int MAX_REQUESTS_PER_EMAIL = 5;         // 每邮箱每小时最大请求数
     public static final int MAX_REQUESTS_PER_IP = 10;           // 每 IP 每小时最大请求数
     public static final Duration WINDOW_DURATION = Duration.ofHours(1);
-
     /**
      * 检查是否允许密码重置请求。
      *
@@ -52,7 +44,6 @@ public class RateLimiterServiceImpl implements RateLimiterService {
                 log.warn("Password reset rate limit exceeded for IP: {}", ip);
                 return false;
             }
-
             // 2. 检查邮箱限制
             if (email != null && !email.isBlank()) {
                 String emailKey = PASSWORD_RESET_EMAIL_PREFIX + hashEmail(email);
@@ -61,7 +52,6 @@ public class RateLimiterServiceImpl implements RateLimiterService {
                     return false;
                 }
             }
-
             // 3. 检查用户限制（如果提供了 userId）
             if (userId != null && !userId.isBlank()) {
                 String userKey = PASSWORD_RESET_PREFIX + "user:" + userId;
@@ -70,7 +60,6 @@ public class RateLimiterServiceImpl implements RateLimiterService {
                     return false;
                 }
             }
-
             return true;
         } catch (Exception e) {
             // Redis 异常时，允许请求通过（降级处理）
@@ -78,7 +67,6 @@ public class RateLimiterServiceImpl implements RateLimiterService {
             return true;
         }
     }
-
     /**
      * 增加计数并检查是否超过限制。
      *
@@ -90,22 +78,17 @@ public class RateLimiterServiceImpl implements RateLimiterService {
     private boolean incrementAndCheckLimit(String key, int maxCount, Duration window) {
         String countStr = redisTemplate.opsForValue().get(key);
         long count = countStr != null ? Long.parseLong(countStr) : 0;
-
         if (count >= maxCount) {
             return false;
         }
-
         // 使用 Redis INCR 原子操作
         Long newCount = redisTemplate.opsForValue().increment(key);
-
         // 首次设置过期时间
         if (newCount != null && newCount == 1) {
             redisTemplate.expire(key, window.getSeconds(), TimeUnit.SECONDS);
         }
-
         return newCount != null && newCount <= maxCount;
     }
-
     /**
      * 获取当前计数（用于调试）。
      *
@@ -117,7 +100,6 @@ public class RateLimiterServiceImpl implements RateLimiterService {
         String countStr = redisTemplate.opsForValue().get(key);
         return countStr != null ? Long.parseLong(countStr) : 0;
     }
-
     /**
      * 重置限流计数（用于测试或手动解锁）。
      *
@@ -137,14 +119,12 @@ public class RateLimiterServiceImpl implements RateLimiterService {
             redisTemplate.delete(PASSWORD_RESET_PREFIX + "user:" + userId);
         }
     }
-
     /**
      * 对 IP 进行简单哈希（避免暴露原始 IP）
      */
     private String hashIp(String ip) {
         return String.valueOf(ip.hashCode());
     }
-
     /**
      * 对邮箱进行简单哈希
      */

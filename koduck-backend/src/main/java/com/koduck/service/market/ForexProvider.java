@@ -8,6 +8,8 @@ import com.koduck.market.provider.MarketDataProvider;
 import com.koduck.market.util.DataConverter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.ResponseEntity;
@@ -45,18 +47,24 @@ public class ForexProvider implements MarketDataProvider {
     private static final ZoneId NEW_YORK_ZONE = ZoneId.of("America/New_York");
     private static final String FOREX_BASE_PATH = "/forex";
     private static final String PROVIDER_NAME = "akshare-forex";
+        private static final ParameterizedTypeReference<List<Map<String, Object>>> LIST_MAP_RESPONSE_TYPE =
+            new ParameterizedTypeReference<>() {
+            };
+        private static final ParameterizedTypeReference<Map<String, Object>> MAP_RESPONSE_TYPE =
+            new ParameterizedTypeReference<>() {
+            };
     
-    private final DataServiceProperties properties;
-    private final RestTemplate restTemplate;
+    @Autowired
+    private DataServiceProperties properties;
+    @Autowired
+    @Qualifier("dataServiceRestTemplate")
+    private RestTemplate restTemplate;
     private final Set<String> subscribedSymbols = ConcurrentHashMap.newKeySet();
     
     // Base rates for major currency pairs (mock data fallback)
     private final Map<String, BigDecimal> baseRates = new HashMap<>();
     
-    public ForexProvider(DataServiceProperties properties, RestTemplate dataServiceRestTemplate) {
-        this.properties = properties;
-        this.restTemplate = dataServiceRestTemplate;
-        
+    public ForexProvider() {
         // Initialize base rates for major pairs
         baseRates.put("EUR/USD", new BigDecimal("1.0850"));
         baseRates.put("USD/JPY", new BigDecimal("149.50"));
@@ -131,7 +139,7 @@ public class ForexProvider implements MarketDataProvider {
                     url,
                     getHttpGet(),
                     null,
-                    new ParameterizedTypeReference<>() {}
+                    LIST_MAP_RESPONSE_TYPE
                 );
             
             List<Map<String, Object>> data = response.getBody();
@@ -168,7 +176,7 @@ public class ForexProvider implements MarketDataProvider {
                     url,
                     getHttpGet(),
                     null,
-                    new ParameterizedTypeReference<>() {}
+                    MAP_RESPONSE_TYPE
                 );
             
             Map<String, Object> data = response.getBody();
@@ -237,7 +245,7 @@ public class ForexProvider implements MarketDataProvider {
                     url,
                     getHttpGet(),
                     null,
-                    new ParameterizedTypeReference<>() {}
+                    LIST_MAP_RESPONSE_TYPE
                 );
             
             List<Map<String, Object>> data = response.getBody();

@@ -1,5 +1,4 @@
 package com.koduck.util;
-
 import com.koduck.config.JwtConfig;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.ExpiredJwtException;
@@ -8,31 +7,25 @@ import io.jsonwebtoken.MalformedJwtException;
 import io.jsonwebtoken.UnsupportedJwtException;
 import io.jsonwebtoken.security.SignatureException;
 import io.jsonwebtoken.security.Keys;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
-
 import javax.crypto.SecretKey;
 import java.nio.charset.StandardCharsets;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
-
 /**
  * JWT 
  */
 @Slf4j
 @Component
-@RequiredArgsConstructor
 public class JwtUtil {
-
-    private final JwtConfig jwtConfig;
-
+    @org.springframework.beans.factory.annotation.Autowired
+    private JwtConfig jwtConfig;
     private SecretKey getSigningKey() {
         return Keys.hmacShaKeyFor(jwtConfig.getSecret().getBytes(StandardCharsets.UTF_8));
     }
-
     /**
      *  Access Token
      */
@@ -42,7 +35,6 @@ public class JwtUtil {
         claims.put("username", username);
         claims.put("email", email);
         claims.put("type", "access");
-
         return Jwts.builder()
                 .claims(claims)
                 .subject(String.valueOf(userId))
@@ -52,7 +44,6 @@ public class JwtUtil {
                 .signWith(getSigningKey(), Jwts.SIG.HS256)
                 .compact();
     }
-
     /**
      *  Refresh Token
      */
@@ -60,7 +51,6 @@ public class JwtUtil {
         Map<String, Object> claims = new HashMap<>();
         claims.put("userId", userId);
         claims.put("type", "refresh");
-
         return Jwts.builder()
                 .claims(claims)
                 .subject(String.valueOf(userId))
@@ -70,7 +60,6 @@ public class JwtUtil {
                 .signWith(getSigningKey(), Jwts.SIG.HS256)
                 .compact();
     }
-
     /**
      *  Token
      */
@@ -81,7 +70,6 @@ public class JwtUtil {
                 .parseSignedClaims(token)
                 .getPayload();
     }
-
     /**
      *  Token 
      */
@@ -102,7 +90,6 @@ public class JwtUtil {
         }
         return false;
     }
-
     /**
      *  Token  ID
      */
@@ -110,7 +97,6 @@ public class JwtUtil {
         Claims claims = parseToken(token);
         return Long.valueOf(claims.getSubject());
     }
-
     /**
      *  Token 
      */
@@ -122,14 +108,12 @@ public class JwtUtil {
             return true;
         }
     }
-
     /**
      *  Token 
      */
     public Date getExpirationDateFromToken(String token) {
         return parseToken(token).getExpiration();
     }
-
     /**
      *  Refresh Token
      */

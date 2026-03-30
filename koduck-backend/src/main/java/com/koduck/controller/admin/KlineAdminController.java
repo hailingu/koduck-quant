@@ -1,5 +1,4 @@
 package com.koduck.controller.admin;
-
 import com.koduck.dto.ApiResponse;
 import com.koduck.service.KlineSyncService;
 import jakarta.validation.constraints.Max;
@@ -15,10 +14,8 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
-
 import java.util.List;
 import java.util.Objects;
-
 /**
  * Admin controller for K-line data management.
  * Requires ADMIN role.
@@ -33,7 +30,6 @@ import java.util.Objects;
 @PreAuthorize("hasRole('ADMIN')")
 @Validated
 public class KlineAdminController {
-
     private static final String DEFAULT_TIMEFRAME = "1D";
     private static final String DEFAULT_MARKET = "AShare";
     private static final String DEFAULT_BACKFILL_DAYS = "365";
@@ -43,9 +39,7 @@ public class KlineAdminController {
     private static final String MESSAGE_BATCH_SYNC_TRIGGERED_SUFFIX = " symbols";
     private static final String ERROR_SYMBOLS_REQUIRED = "symbols must not be empty";
     private static final String ERROR_SYMBOLS_CONTAINS_BLANK = "symbols must not contain blank values";
-    
     private final KlineSyncService klineSyncService;
-    
     /**
      * Manually triggers K-line data synchronization for a symbol.
      *
@@ -59,14 +53,10 @@ public class KlineAdminController {
             @PathVariable @NotBlank String market,
             @PathVariable @NotBlank String symbol,
             @RequestParam(defaultValue = DEFAULT_TIMEFRAME) @NotBlank String timeframe) {
-        
         log.info("Manual sync triggered for {}/{}/{}", market, symbol, timeframe);
-        
         klineSyncService.syncSymbolKline(market, symbol, timeframe);
-        
         return ApiResponse.success(MESSAGE_SYNC_TRIGGERED_PREFIX + symbol);
     }
-    
     /**
      * Triggers historical data backfill for a symbol.
      *
@@ -82,14 +72,10 @@ public class KlineAdminController {
             @PathVariable @NotBlank String symbol,
             @RequestParam(defaultValue = DEFAULT_TIMEFRAME) @NotBlank String timeframe,
             @RequestParam(defaultValue = DEFAULT_BACKFILL_DAYS) @Min(1) @Max(3650) int days) {
-        
         log.info("Backfill triggered for {}/{}/{} for {} days", market, symbol, timeframe, days);
-        
         klineSyncService.backfillHistoricalData(market, symbol, timeframe, days);
-        
         return ApiResponse.success(MESSAGE_BACKFILL_TRIGGERED_PREFIX + symbol);
     }
-    
     /**
      * Triggers asynchronous batch synchronization for multiple symbols.
      *
@@ -110,9 +96,7 @@ public class KlineAdminController {
         if (symbols.stream().anyMatch(symbol -> symbol == null || symbol.isBlank())) {
             throw new IllegalArgumentException(ERROR_SYMBOLS_CONTAINS_BLANK);
         }
-        
         log.info("Batch sync triggered for {} symbols", symbols.size());
-
         klineSyncService.syncBatchSymbols(market, symbols, timeframe);
         return ApiResponse.success(
                 MESSAGE_BATCH_SYNC_TRIGGERED_PREFIX + symbols.size() + MESSAGE_BATCH_SYNC_TRIGGERED_SUFFIX

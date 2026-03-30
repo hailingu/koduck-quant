@@ -1,5 +1,4 @@
 package com.koduck.controller;
-
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
@@ -9,16 +8,13 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
-
 import com.koduck.dto.ApiResponse;
 import com.koduck.dto.market.KlineDataDto;
 import com.koduck.dto.market.SymbolInfoDto;
 import com.koduck.service.KlineService;
 import com.koduck.service.MarketService;
-
 import java.math.BigDecimal;
 import java.util.List;
-
 /**
  * A-Share market data controller.
  * <p>Provides search endpoints for A-share stocks. Routes requests to MarketService.</p>
@@ -30,10 +26,8 @@ import java.util.List;
 @Validated
 @Slf4j
 public class AShareController {
-
     private final MarketService marketService;
     private final KlineService klineService;
-
     /**
      * Search A-share stocks by keyword.
      * <p>This endpoint is used by frontend search components to find stocks by name or symbol.</p>
@@ -55,13 +49,10 @@ public class AShareController {
             @Min(value = 1, message = "每页数量最小为 1")
             @Max(value = 100, message = "每页数量最大为 100")
             Integer size) {
-
         log.info("GET /api/v1/a-share/search: keyword={}, page={}, size={}", keyword, page, size);
-
         List<SymbolInfoDto> results = marketService.searchSymbols(keyword, page, size);
         return ApiResponse.success(results);
     }
-
     /**
      * Get K-line (candlestick) historical data for A-share stocks.
      * <p>Supports both daily (1D, 1W, 1M) and minute-level (1m, 5m, 15m, 30m, 60m) timeframes.</p>
@@ -79,16 +70,12 @@ public class AShareController {
             @RequestParam(defaultValue = "1D") String timeframe,
             @RequestParam(defaultValue = "300") @Min(1) @Max(1000) Integer limit,
             @RequestParam(required = false) Long beforeTime) {
-
         log.debug("GET /api/v1/a-share/kline: symbol={}, timeframe={}, limit={}, beforeTime={}",
                 symbol, timeframe, limit, beforeTime);
-
         List<KlineDataDto> data =
                 klineService.getKlineData("AShare", symbol, timeframe, limit, beforeTime);
-
         return ApiResponse.success(data);
     }
-
     /**
      * Get latest price for an A-share stock.
      *
@@ -101,14 +88,11 @@ public class AShareController {
             @RequestParam @NotBlank(message = "股票代码不能为空")
             String symbol,
             @RequestParam(defaultValue = "1D") String timeframe) {
-
         log.debug("GET /api/v1/a-share/kline/price: symbol={}, timeframe={}", symbol, timeframe);
-
         return klineService.getLatestPrice("AShare", symbol, timeframe)
                 .map(price -> ApiResponse.success(new LatestPriceResponse(symbol, price)))
                 .orElse(ApiResponse.error(404, "No price data found"));
     }
-
     /**
      * Response for latest price endpoint.
      */

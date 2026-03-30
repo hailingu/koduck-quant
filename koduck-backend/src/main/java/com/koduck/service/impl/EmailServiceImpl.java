@@ -1,17 +1,14 @@
 package com.koduck.service.impl;
-
 import com.koduck.config.properties.MailProperties;
 import com.koduck.service.EmailService;
 import jakarta.mail.MessagingException;
 import jakarta.mail.internet.MimeMessage;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
-
 /**
  * 邮件服务实现类。
  *
@@ -21,12 +18,11 @@ import org.springframework.stereotype.Service;
  */
 @Slf4j
 @Service
-@RequiredArgsConstructor
 public class EmailServiceImpl implements EmailService {
-
-    private final JavaMailSender mailSender;
-    private final MailProperties mailProperties;
-
+    @org.springframework.beans.factory.annotation.Autowired
+    private JavaMailSender mailSender;
+    @org.springframework.beans.factory.annotation.Autowired
+    private MailProperties mailProperties;
     /**
      * 发送密码重置邮件。
      *
@@ -45,18 +41,15 @@ public class EmailServiceImpl implements EmailService {
                     to, maskToken(resetToken));
             return;
         }
-
         try {
             String subject = "【Koduck Quant】密码重置请求";
             String htmlContent = buildPasswordResetEmailHtml(username, resetUrl, resetToken);
-
             sendHtmlEmail(to, subject, htmlContent);
             log.info("[EmailService] Password reset email sent to {}", to);
         } catch (Exception e) {
             log.error("[EmailService] Failed to send password reset email to {}", to, e);
         }
     }
-
     /**
      * 发送纯文本邮件。
      *
@@ -71,10 +64,8 @@ public class EmailServiceImpl implements EmailService {
         message.setTo(to);
         message.setSubject(subject);
         message.setText(text);
-
         mailSender.send(message);
     }
-
     /**
      * 发送 HTML 邮件。
      *
@@ -87,7 +78,6 @@ public class EmailServiceImpl implements EmailService {
     public void sendHtmlEmail(String to, String subject, String htmlContent) throws MessagingException {
         MimeMessage message = mailSender.createMimeMessage();
         MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
-
         try {
             helper.setFrom(mailProperties.getFrom(), mailProperties.getFromName());
         } catch (java.io.UnsupportedEncodingException e) {
@@ -97,16 +87,13 @@ public class EmailServiceImpl implements EmailService {
         helper.setTo(to);
         helper.setSubject(subject);
         helper.setText(htmlContent, true);
-
         mailSender.send(message);
     }
-
     /**
      * 构建密码重置邮件的 HTML 内容。
      */
     private String buildPasswordResetEmailHtml(String username, String resetUrl, String resetToken) {
         int expiryMinutes = mailProperties.getPasswordResetTokenExpiryMinutes();
-
         String template = """
             <!DOCTYPE html>
             <html>
@@ -147,14 +134,12 @@ public class EmailServiceImpl implements EmailService {
             </body>
             </html>
             """;
-
         return template
                 .replace("{USERNAME}", username)
                 .replace("{RESET_URL}", resetUrl)
             .replace("{RESET_TOKEN}", resetToken)
                 .replace("{EXPIRY_MINUTES}", String.valueOf(expiryMinutes));
     }
-
     /**
      * 掩码处理令牌，用于日志显示。
      */

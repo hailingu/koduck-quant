@@ -8,6 +8,8 @@ import com.koduck.market.provider.MarketDataProvider;
 import com.koduck.market.util.DataConverter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.ResponseEntity;
@@ -44,18 +46,24 @@ public class HKStockProvider implements MarketDataProvider {
     private static final String HK_STOCK_BASE_PATH = "/hk-stock";
     private static final String PROVIDER_NAME = "akshare-hk-stock";
     private static final HttpMethod HTTP_GET = HttpMethod.GET;
+        private static final ParameterizedTypeReference<List<Map<String, Object>>> LIST_MAP_RESPONSE_TYPE =
+            new ParameterizedTypeReference<>() {
+            };
+        private static final ParameterizedTypeReference<Map<String, Object>> MAP_RESPONSE_TYPE =
+            new ParameterizedTypeReference<>() {
+            };
     
-    private final DataServiceProperties properties;
-    private final RestTemplate restTemplate;
+    @Autowired
+    private DataServiceProperties properties;
+    @Autowired
+    @Qualifier("dataServiceRestTemplate")
+    private RestTemplate restTemplate;
     private final Set<String> subscribedSymbols = ConcurrentHashMap.newKeySet();
     
     // Mock data for fallback
     private final Map<String, BigDecimal> basePrices = new HashMap<>();
     
-    public HKStockProvider(DataServiceProperties properties, RestTemplate dataServiceRestTemplate) {
-        this.properties = properties;
-        this.restTemplate = dataServiceRestTemplate;
-        
+    public HKStockProvider() {
         // Initialize base prices for popular HK stocks
         basePrices.put("00700", new BigDecimal("380.00")); // Tencent
         basePrices.put("09988", new BigDecimal("75.00"));  // Alibaba Health
@@ -126,7 +134,7 @@ public class HKStockProvider implements MarketDataProvider {
                     url,
                     HTTP_GET,
                     null,
-                    new ParameterizedTypeReference<>() {}
+                    LIST_MAP_RESPONSE_TYPE
             );
             
             List<Map<String, Object>> data = response.getBody();
@@ -163,7 +171,7 @@ public class HKStockProvider implements MarketDataProvider {
                     url,
                     HTTP_GET,
                     null,
-                    new ParameterizedTypeReference<>() {}
+                    MAP_RESPONSE_TYPE
             );
             
             Map<String, Object> data = response.getBody();
@@ -256,7 +264,7 @@ public class HKStockProvider implements MarketDataProvider {
                     url,
                     HTTP_GET,
                     null,
-                    new ParameterizedTypeReference<>() {}
+                    LIST_MAP_RESPONSE_TYPE
             );
             
             List<Map<String, Object>> data = response.getBody();

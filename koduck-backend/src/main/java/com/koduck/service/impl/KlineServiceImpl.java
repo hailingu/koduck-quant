@@ -1,17 +1,14 @@
 package com.koduck.service.impl;
-
 import com.koduck.dto.market.KlineDataDto;
 import com.koduck.entity.KlineData;
 import com.koduck.entity.StockRealtime;
 import com.koduck.repository.KlineDataRepository;
 import com.koduck.repository.StockRealtimeRepository;
 import com.koduck.service.KlineService;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
-
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDateTime;
@@ -22,28 +19,24 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
 import java.util.stream.Collectors;
-
 /**
  * Implementation of K-line data service.
  */
 @Service
-@RequiredArgsConstructor
 @Slf4j
 public class KlineServiceImpl implements KlineService {
     private static final ZoneId MARKET_ZONE = ZoneId.of("Asia/Shanghai");
-
-    private final KlineDataRepository klineDataRepository;
-    private final StockRealtimeRepository stockRealtimeRepository;
-
+    @org.springframework.beans.factory.annotation.Autowired
+    private KlineDataRepository klineDataRepository;
+    @org.springframework.beans.factory.annotation.Autowired
+    private StockRealtimeRepository stockRealtimeRepository;
     @Override
     public List<KlineDataDto> getKlineData(String market, String symbol, String timeframe,
                                            Integer limit, Long beforeTime) {
         log.debug("Getting kline data: market={}, symbol={}, timeframe={}, limit={}, beforeTime={}",
                 market, symbol, timeframe, limit, beforeTime);
-
         Pageable pageable = PageRequest.of(0, limit);
         List<KlineData> data;
-
         if (beforeTime != null) {
             LocalDateTime beforeDateTime = LocalDateTime.ofInstant(
                     Instant.ofEpochSecond(beforeTime), ZoneId.systemDefault());
@@ -51,24 +44,20 @@ public class KlineServiceImpl implements KlineService {
         } else {
             data = queryKlineWithFallback(market, symbol, timeframe, pageable);
         }
-
         // Reverse to ascending order (oldest to newest) for frontend charting
         List<KlineDataDto> result = data.stream()
                 .map(this::convertToDto)
                 .collect(Collectors.toList());
         java.util.Collections.reverse(result);
-        
         // Remove duplicate timestamps (keep latest)
         return deduplicateByTimestamp(result, timeframe);
     }
-
     @Override
     public Optional<BigDecimal> getLatestPrice(String market, String symbol, String timeframe) {
         Optional<BigDecimal> realtimePrice = getLatestRealtimePrice(symbol);
         if (realtimePrice.isPresent()) {
             return realtimePrice;
         }
-
         for (String marketCandidate : buildMarketCandidates(market)) {
             for (String symbolCandidate : buildSymbolCandidates(symbol)) {
                 for (String timeframeCandidate : buildTimeframeCandidates(timeframe)) {
@@ -83,7 +72,6 @@ public class KlineServiceImpl implements KlineService {
         }
         return Optional.empty();
     }
-
     private Optional<BigDecimal> getLatestRealtimePrice(String symbol) {
         for (String symbolCandidate : buildSymbolCandidates(symbol)) {
             Optional<BigDecimal> price = stockRealtimeRepository
@@ -96,19 +84,16 @@ public class KlineServiceImpl implements KlineService {
         }
         return Optional.empty();
     }
-
     @Override
     public Optional<BigDecimal> getPreviousClosePrice(String market, String symbol, String timeframe) {
         Pageable pageable = PageRequest.of(0, 2);
         List<KlineData> data = queryKlineWithFallback(market, symbol, timeframe, pageable);
-
         // Return the second record (yesterday's close), skipping the most recent one
         if (data.size() >= 2) {
             return Optional.of(data.get(1).getClosePrice());
         }
         return Optional.empty();
     }
-
     @Override
     public Optional<KlineData> getLatestKline(String market, String symbol, String timeframe) {
         for (String marketCandidate : buildMarketCandidates(market)) {
@@ -125,7 +110,6 @@ public class KlineServiceImpl implements KlineService {
         }
         return Optional.empty();
     }
-
     private List<KlineData> queryKlineWithFallback(String market, String symbol, String timeframe, Pageable pageable) {
         for (String marketCandidate : buildMarketCandidates(market)) {
             for (String symbolCandidate : buildSymbolCandidates(symbol)) {
@@ -141,7 +125,6 @@ public class KlineServiceImpl implements KlineService {
         }
         return List.of();
     }
-
     private List<KlineData> queryBeforeTimeWithFallback(
             String market,
             String symbol,
@@ -161,7 +144,6 @@ public class KlineServiceImpl implements KlineService {
         }
         return List.of();
     }
-
     private List<String> buildMarketCandidates(String market) {
         // Strict match only - avoid cross-market data mixing
         if (market == null || market.isBlank()) {
@@ -169,26 +151,22 @@ public class KlineServiceImpl implements KlineService {
         }
         return List.of(market.trim());
     }
-
     private List<String> buildTimeframeCandidates(String timeframe) {
         LinkedHashSet<String> candidates = new LinkedHashSet<>();
         if (timeframe == null || timeframe.isBlank()) {
             candidates.add("1D");
             return new ArrayList<>(candidates);
         }
-
         String normalized = timeframe.trim();
         String lowerNormalized = normalized.toLowerCase(Locale.ROOT);
         boolean minuteTimeframe = lowerNormalized.matches("^\\d+m$");
-
         candidates.add(normalized);
         candidates.add(lowerNormalized);
         if (!minuteTimeframe) {
             candidates.add(normalized.toUpperCase(Locale.ROOT));
         }
-
         String alias = normalizeTimeframeAlias(normalized);
-        if (alias != null && !alias.isBlank()) {
+        if (!alias.isBlank()) {
             candidates.add(alias);
             candidates.add(alias.toLowerCase(Locale.ROOT));
             if (!minuteTimeframe) {
@@ -197,7 +175,6 @@ public class KlineServiceImpl implements KlineService {
         }
         return new ArrayList<>(candidates);
     }
-
     private List<String> buildSymbolCandidates(String symbol) {
         if (symbol == null || symbol.isBlank()) {
             return List.of();
@@ -205,7 +182,6 @@ public class KlineServiceImpl implements KlineService {
         // Strict match only - return exact symbol to avoid cross-stock data mixing
         return List.of(symbol.trim());
     }
-
     private String normalizeTimeframeAlias(String timeframe) {
         String lower = timeframe.toLowerCase(Locale.ROOT);
         return switch (lower) {
@@ -215,7 +191,6 @@ public class KlineServiceImpl implements KlineService {
             default -> timeframe;
         };
     }
-
     @Override
     public void saveKlineData(List<KlineDataDto> dtos, String market, String symbol, String timeframe) {
         List<KlineData> entities = dtos.stream()
@@ -224,13 +199,11 @@ public class KlineServiceImpl implements KlineService {
                 .filter(entity -> !klineDataRepository.existsByMarketAndSymbolAndTimeframeAndKlineTime(
                         market, symbol, timeframe, entity.getKlineTime()))
                 .collect(Collectors.toList());
-
         if (!entities.isEmpty()) {
             klineDataRepository.saveAll(entities);
             log.info("Saved {} kline records for {}/{}/{}", entities.size(), market, symbol, timeframe);
         }
     }
-
     private KlineDataDto convertToDto(KlineData entity) {
         return KlineDataDto.builder()
                 .timestamp(entity.getKlineTime().atZone(MARKET_ZONE).toEpochSecond())
@@ -242,16 +215,13 @@ public class KlineServiceImpl implements KlineService {
                 .amount(entity.getAmount())
                 .build();
     }
-
     private KlineData convertToEntity(KlineDataDto dto, String market, String symbol, String timeframe) {
         if (dto == null || dto.timestamp() == null) {
             log.warn("Skipping invalid KlineDataDto: timestamp is null");
             return null;
         }
-        
         LocalDateTime klineTime = LocalDateTime.ofInstant(
                 Instant.ofEpochSecond(dto.timestamp()), MARKET_ZONE);
-
         return KlineData.builder()
                 .market(market)
                 .symbol(symbol)
@@ -265,7 +235,6 @@ public class KlineServiceImpl implements KlineService {
                 .amount(dto.amount())
                 .build();
     }
-
     /**
      * Remove duplicate timestamps from K-line data.
      * For minute-level timeframes: exact timestamp deduplication.
@@ -275,13 +244,11 @@ public class KlineServiceImpl implements KlineService {
         if (data == null || data.size() <= 1) {
             return data;
         }
-        
         boolean isDailyOrHigher = timeframe != null && 
             (timeframe.equalsIgnoreCase("1D") || 
              timeframe.equalsIgnoreCase("1W") || 
              timeframe.equalsIgnoreCase("1M") ||
              timeframe.toLowerCase(Locale.ROOT).matches("^(day|daily|week|weekly|month|monthly|1mth|1mo)$"));
-        
         java.util.LinkedHashMap<Long, KlineDataDto> uniqueMap = new java.util.LinkedHashMap<>();
         for (KlineDataDto item : data) {
             Long key;
@@ -294,7 +261,6 @@ public class KlineServiceImpl implements KlineService {
             }
             uniqueMap.put(key, item); // Keep latest for duplicates
         }
-        
         List<KlineDataDto> result = new ArrayList<>(uniqueMap.values());
         int removed = data.size() - result.size();
         if (removed > 0) {

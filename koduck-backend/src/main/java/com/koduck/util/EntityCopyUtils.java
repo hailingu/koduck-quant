@@ -46,7 +46,7 @@ public final class EntityCopyUtils {
                 .reason(source.getReason())
                 .targetPrice(source.getTargetPrice())
                 .stopLoss(source.getStopLoss())
-                .timeFrame(source.getTimeFrame())
+                .timeFrame(source.getTimeframe())
                 .confidence(source.getConfidence())
                 .status(source.getStatus())
                 .resultStatus(source.getResultStatus())

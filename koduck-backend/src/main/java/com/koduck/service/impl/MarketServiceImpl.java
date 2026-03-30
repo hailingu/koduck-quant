@@ -749,18 +749,6 @@ public class MarketServiceImpl implements MarketService {
                 .build();
     }
     
-    private MarketIndexDto mapToMarketIndexDto(StockBasic basic, StockRealtime realtime) {
-        if (realtime != null) {
-            return mapToMarketIndexDto(realtime);
-        }
-        
-        return MarketIndexDto.builder()
-                .symbol(basic.getSymbol())
-                .name(basic.getName())
-                .type(basic.getType())
-                .build();
-    }
-    
     private MarketIndexDto mapBasicToMarketIndexDto(StockBasic basic) {
         return MarketIndexDto.builder()
                 .symbol(basic.getSymbol())

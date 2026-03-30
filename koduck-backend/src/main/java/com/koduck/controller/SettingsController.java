@@ -1,7 +1,5 @@
 package com.koduck.controller;
-
 import io.swagger.v3.oas.annotations.tags.Tag;
-
 import com.koduck.controller.support.AuthenticatedUserResolver;
 import com.koduck.dto.ApiResponse;
 import com.koduck.dto.settings.*;
@@ -13,7 +11,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
-
 /**
  * REST API controller for system and user settings.
  *
@@ -27,10 +24,8 @@ import org.springframework.web.bind.annotation.*;
 @Tag(name = "Settings", description = "User preferences, theme, notifications, trading preferences, etc.")
 @Slf4j
 public class SettingsController {
-
     private final AuthenticatedUserResolver authenticatedUserResolver;
     private final UserSettingsService settingsService;
-
     /**
      * Retrieve settings for the authenticated user.
      *
@@ -42,11 +37,9 @@ public class SettingsController {
             @AuthenticationPrincipal UserPrincipal userPrincipal) {
         Long userId = authenticatedUserResolver.requireUserId(userPrincipal);
         log.debug("GET /api/v1/settings: user={}", userId);
-
         UserSettingsDto settings = settingsService.getSettings(userId);
         return ApiResponse.success(settings);
     }
-
     /**
      * Update settings for the authenticated user.
      *
@@ -60,11 +53,9 @@ public class SettingsController {
             @Valid @RequestBody UpdateSettingsRequest request) {
         Long userId = authenticatedUserResolver.requireUserId(userPrincipal);
         log.debug("PUT /api/v1/settings: user={}", userId);
-
         UserSettingsDto settings = settingsService.updateSettings(userId, request);
         return ApiResponse.success(settings);
     }
-
     /**
      * Update theme preference for the authenticated user.
      *
@@ -78,11 +69,9 @@ public class SettingsController {
             @Valid @RequestBody UpdateThemeRequest request) {
         Long userId = authenticatedUserResolver.requireUserId(userPrincipal);
         log.debug("PUT /api/v1/settings/theme: user={}, theme={}", userId, request.getTheme());
-
         UserSettingsDto settings = settingsService.updateTheme(userId, request.getTheme());
         return ApiResponse.success(settings);
     }
-
     /**
      * Update notification settings for the authenticated user.
      *
@@ -96,7 +85,6 @@ public class SettingsController {
             @Valid @RequestBody UpdateNotificationRequest request) {
         Long userId = authenticatedUserResolver.requireUserId(userPrincipal);
         log.debug("PUT /api/v1/settings/notification: user={}", userId);
-
         UserSettingsDto settings = settingsService.updateNotification(userId, request);
         return ApiResponse.success(settings);
     }

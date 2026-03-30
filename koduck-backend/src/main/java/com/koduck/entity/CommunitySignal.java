@@ -50,7 +50,7 @@ public class CommunitySignal {
     private BigDecimal stopLoss;
 
     @Column(name = "time_frame", length = 20)
-    private String timeFrame;
+    private String timeframe;
 
     private Integer confidence;
 
@@ -169,7 +169,7 @@ public class CommunitySignal {
             signal.setReason(reason);
             signal.setTargetPrice(targetPrice);
             signal.setStopLoss(stopLoss);
-            signal.setTimeFrame(timeFrame);
+            signal.setTimeframe(timeFrame);
             signal.setConfidence(confidence);
             signal.setStatus(status);
             signal.setResultStatus(resultStatus);

@@ -1,5 +1,4 @@
 package com.koduck.service.impl;
-
 import com.koduck.dto.portfolio.*;
 import com.koduck.entity.PortfolioPosition;
 import com.koduck.entity.Trade;
@@ -7,11 +6,9 @@ import com.koduck.repository.PortfolioPositionRepository;
 import com.koduck.repository.TradeRepository;
 import com.koduck.service.KlineService;
 import com.koduck.service.PortfolioService;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDateTime;
@@ -19,76 +16,61 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.Collectors;
-
 import static com.koduck.util.ServiceValidationUtils.assertOwner;
 import static com.koduck.util.ServiceValidationUtils.requireFound;
-
 /**
  * Implementation of portfolio service operations.
  */
 @Service
-@RequiredArgsConstructor
 @Slf4j
 public class PortfolioServiceImpl implements PortfolioService {
-    
-    private final PortfolioPositionRepository positionRepository;
-    private final TradeRepository tradeRepository;
-    private final KlineService klineService;
-    
+    @org.springframework.beans.factory.annotation.Autowired
+    private PortfolioPositionRepository positionRepository;
+    @org.springframework.beans.factory.annotation.Autowired
+    private TradeRepository tradeRepository;
+    @org.springframework.beans.factory.annotation.Autowired
+    private KlineService klineService;
     private static final String DEFAULT_TIMEFRAME = "1D";
     private static final int SCALE = 4;
-    
     /**
      * {@inheritDoc}
      */
     @Override
     public List<PortfolioPositionDto> getPositions(Long userId) {
         log.debug("Getting portfolio positions for user: {}", userId);
-        
         List<PortfolioPosition> positions = positionRepository.findByUserId(userId);
-        
         return positions.stream()
             .map(this::convertToDtoWithCalculations)
             .collect(Collectors.toList());
     }
-    
     /**
      * {@inheritDoc}
      */
     @Override
     public PortfolioSummaryDto getPortfolioSummary(Long userId) {
         log.debug("Getting portfolio summary for user: {}", userId);
-        
         List<PortfolioPosition> positions = positionRepository.findByUserId(userId);
-        
         BigDecimal totalCost = BigDecimal.ZERO;
         BigDecimal totalMarketValue = BigDecimal.ZERO;
         BigDecimal totalDailyPnl = BigDecimal.ZERO;
-        
         for (PortfolioPosition position : positions) {
             Optional<BigDecimal> currentPriceOpt = klineService.getLatestPrice(
                 position.getMarket(), position.getSymbol(), DEFAULT_TIMEFRAME);
-            
             BigDecimal currentPrice = currentPriceOpt.orElse(position.getAvgCost());
             BigDecimal cost = position.getAvgCost().multiply(position.getQuantity());
             BigDecimal marketValue = currentPrice.multiply(position.getQuantity());
-            
             totalCost = totalCost.add(cost);
             totalMarketValue = totalMarketValue.add(marketValue);
-            
             // Calculate daily PnL for this position
             Optional<BigDecimal> dailyPnlOpt = calculatePositionDailyPnl(position, currentPrice);
             totalDailyPnl = totalDailyPnl.add(dailyPnlOpt.orElse(BigDecimal.ZERO));
         }
-        
         BigDecimal totalPnl = totalMarketValue.subtract(totalCost);
         BigDecimal totalPnlPercent = totalCost.compareTo(BigDecimal.ZERO) > 0
             ? totalPnl.multiply(BigDecimal.valueOf(100)).divide(totalCost, SCALE, RoundingMode.HALF_UP)
             : BigDecimal.ZERO;
-        
         // Calculate daily PnL percentage based on yesterday's total market value
         BigDecimal dailyPnlPercent = calculateDailyPnlPercent(totalDailyPnl, totalMarketValue, totalDailyPnl);
-        
         return PortfolioSummaryDto.builder()
             .totalCost(totalCost)
             .totalMarketValue(totalMarketValue)
@@ -98,7 +80,6 @@ public class PortfolioServiceImpl implements PortfolioService {
             .dailyPnlPercent(dailyPnlPercent)
             .build();
     }
-    
     /**
      * Calculate daily PnL for a single position.
      * Formula: (currentPrice - previousClosePrice) * quantity
@@ -110,24 +91,19 @@ public class PortfolioServiceImpl implements PortfolioService {
     private Optional<BigDecimal> calculatePositionDailyPnl(PortfolioPosition position, BigDecimal currentPrice) {
         Optional<BigDecimal> prevCloseOpt = klineService.getPreviousClosePrice(
             position.getMarket(), position.getSymbol(), DEFAULT_TIMEFRAME);
-        
         if (prevCloseOpt.isEmpty()) {
             log.warn("Previous close price not available for {}/{}, skipping daily PnL calculation",
                 position.getMarket(), position.getSymbol());
             return Optional.empty();
         }
-        
         BigDecimal prevClosePrice = prevCloseOpt.get();
         BigDecimal priceChange = currentPrice.subtract(prevClosePrice);
         BigDecimal dailyPnl = priceChange.multiply(position.getQuantity());
-        
         log.debug("Daily PnL for {}: currentPrice={}, prevClose={}, change={}, quantity={}, dailyPnl={}",
             position.getSymbol(), currentPrice, prevClosePrice, priceChange, 
             position.getQuantity(), dailyPnl);
-        
         return Optional.of(dailyPnl);
     }
-    
     /**
      * Calculate daily PnL percentage.
      * Formula: (dailyPnl / (totalMarketValue - dailyPnl)) * 100
@@ -141,16 +117,13 @@ public class PortfolioServiceImpl implements PortfolioService {
     private BigDecimal calculateDailyPnlPercent(BigDecimal dailyPnl, BigDecimal totalMarketValue, BigDecimal totalDailyPnl) {
         // Yesterday's market value = today's market value - today's daily PnL
         BigDecimal yesterdayMarketValue = totalMarketValue.subtract(totalDailyPnl);
-        
         if (yesterdayMarketValue.compareTo(BigDecimal.ZERO) <= 0) {
             log.debug("Yesterday's market value is zero or negative, returning zero for daily PnL percent");
             return BigDecimal.ZERO;
         }
-        
         return dailyPnl.multiply(BigDecimal.valueOf(100))
             .divide(yesterdayMarketValue, SCALE, RoundingMode.HALF_UP);
     }
-    
     /**
      * {@inheritDoc}
      */
@@ -159,11 +132,9 @@ public class PortfolioServiceImpl implements PortfolioService {
     public PortfolioPositionDto addPosition(Long userId, AddPositionRequest request) {
         log.debug("Adding position: user={}, market={}, symbol={}, quantity={}", 
                  userId, request.market(), request.symbol(), request.quantity());
-        
         // Check if position already exists
         Optional<PortfolioPosition> existingOpt = positionRepository
             .findByUserIdAndMarketAndSymbol(userId, request.market(), request.symbol());
-        
         if (existingOpt.isPresent()) {
             // Update existing position with weighted average cost
             PortfolioPosition existing = existingOpt.get();
@@ -171,16 +142,13 @@ public class PortfolioServiceImpl implements PortfolioService {
             BigDecimal totalCost = existing.getAvgCost().multiply(existing.getQuantity())
                 .add(request.avgCost().multiply(request.quantity()));
             BigDecimal newAvgCost = totalCost.divide(totalQuantity, SCALE, RoundingMode.HALF_UP);
-            
             existing.setQuantity(totalQuantity);
             existing.setAvgCost(newAvgCost);
             existing.setName(request.name());
-            
             PortfolioPosition saved = positionRepository.save(existing);
             log.info("Updated position: id={}, user={}, symbol={}", saved.getId(), userId, request.symbol());
             return convertToDtoWithCalculations(saved);
         }
-        
         // Create new position
         PortfolioPosition position = PortfolioPosition.builder()
             .userId(userId)
@@ -190,13 +158,10 @@ public class PortfolioServiceImpl implements PortfolioService {
             .quantity(request.quantity())
             .avgCost(request.avgCost())
             .build();
-        
         PortfolioPosition saved = positionRepository.save(position);
         log.info("Added position: id={}, user={}, symbol={}", saved.getId(), userId, request.symbol());
-        
         return convertToDtoWithCalculations(saved);
     }
-    
     /**
      * {@inheritDoc}
      */
@@ -204,24 +169,18 @@ public class PortfolioServiceImpl implements PortfolioService {
     @Transactional
     public PortfolioPositionDto updatePosition(Long userId, Long positionId, UpdatePositionRequest request) {
         log.debug("Updating position: user={}, positionId={}", userId, positionId);
-        
         PortfolioPosition position = loadPositionOrThrow(positionId);
-        
         assertOwner(position.getUserId(), userId, "Not authorized to update this position");
-        
         if (request.quantity() != null) {
             position.setQuantity(request.quantity());
         }
         if (request.avgCost() != null) {
             position.setAvgCost(request.avgCost());
         }
-        
         PortfolioPosition saved = positionRepository.save(position);
         log.info("Updated position: id={}, user={}", saved.getId(), userId);
-        
         return convertToDtoWithCalculations(saved);
     }
-    
     /**
      * {@inheritDoc}
      */
@@ -229,25 +188,20 @@ public class PortfolioServiceImpl implements PortfolioService {
     @Transactional
     public void deletePosition(Long userId, Long positionId) {
         log.debug("Deleting position: user={}, positionId={}", userId, positionId);
-        
         positionRepository.deleteByUserIdAndId(userId, positionId);
         log.info("Deleted position: user={}, positionId={}", userId, positionId);
     }
-    
     /**
      * {@inheritDoc}
      */
     @Override
     public List<TradeDto> getTrades(Long userId) {
         log.debug("Getting trades for user: {}", userId);
-        
         List<Trade> trades = tradeRepository.findByUserIdOrderByTradeTimeDesc(userId);
-        
         return trades.stream()
             .map(this::convertTradeToDto)
             .collect(Collectors.toList());
     }
-    
     /**
      * {@inheritDoc}
      */
@@ -256,10 +210,8 @@ public class PortfolioServiceImpl implements PortfolioService {
     public TradeDto addTrade(Long userId, AddTradeRequest request) {
         log.debug("Adding trade: user={}, market={}, symbol={}, type={}, quantity={}", 
                  userId, request.market(), request.symbol(), request.tradeType(), request.quantity());
-        
         // Calculate amount
         BigDecimal amount = request.price().multiply(request.quantity());
-        
         // Create trade record
         Trade trade = Trade.builder()
             .userId(userId)
@@ -272,26 +224,19 @@ public class PortfolioServiceImpl implements PortfolioService {
             .amount(amount)
             .tradeTime(request.tradeTime() != null ? request.tradeTime() : LocalDateTime.now())
             .build();
-        
         Trade savedTrade = tradeRepository.save(trade);
-        
         // Update position based on trade
         updatePositionFromTrade(userId, request);
-        
         log.info("Added trade: id={}, user={}, symbol={}", savedTrade.getId(), userId, request.symbol());
-        
         return convertTradeToDto(savedTrade);
     }
-    
     /**
      * Update position based on trade.
      */
     private void updatePositionFromTrade(Long userId, AddTradeRequest request) {
         Optional<PortfolioPosition> positionOpt = positionRepository
             .findByUserIdAndMarketAndSymbol(userId, request.market(), request.symbol());
-        
         Trade.TradeType tradeType = Trade.TradeType.valueOf(request.tradeType());
-        
         if (tradeType == Trade.TradeType.BUY) {
             // For buy trades, add to position or create new
             if (positionOpt.isPresent()) {
@@ -300,7 +245,6 @@ public class PortfolioServiceImpl implements PortfolioService {
                 BigDecimal totalCost = position.getAvgCost().multiply(position.getQuantity())
                     .add(request.price().multiply(request.quantity()));
                 BigDecimal newAvgCost = totalCost.divide(totalQuantity, SCALE, RoundingMode.HALF_UP);
-                
                 position.setQuantity(totalQuantity);
                 position.setAvgCost(newAvgCost);
                 positionRepository.save(position);
@@ -320,7 +264,6 @@ public class PortfolioServiceImpl implements PortfolioService {
             if (positionOpt.isPresent()) {
                 PortfolioPosition position = positionOpt.get();
                 BigDecimal remainingQuantity = position.getQuantity().subtract(request.quantity());
-                
                 if (remainingQuantity.compareTo(BigDecimal.ZERO) <= 0) {
                     // Delete position if fully sold
                     positionRepository.delete(position);
@@ -332,12 +275,10 @@ public class PortfolioServiceImpl implements PortfolioService {
             }
         }
     }
-    
     private PortfolioPositionDto convertToDtoWithCalculations(PortfolioPosition position) {
         // Get real-time price
         Optional<BigDecimal> currentPriceOpt = klineService.getLatestPrice(
             position.getMarket(), position.getSymbol(), DEFAULT_TIMEFRAME);
-        
         BigDecimal currentPrice = currentPriceOpt.orElse(position.getAvgCost());
         BigDecimal marketValue = currentPrice.multiply(position.getQuantity());
         BigDecimal cost = position.getAvgCost().multiply(position.getQuantity());
@@ -345,7 +286,6 @@ public class PortfolioServiceImpl implements PortfolioService {
         BigDecimal pnlPercent = cost.compareTo(BigDecimal.ZERO) > 0
             ? pnl.multiply(BigDecimal.valueOf(100)).divide(cost, SCALE, RoundingMode.HALF_UP)
             : BigDecimal.ZERO;
-        
         return PortfolioPositionDto.builder()
             .id(position.getId())
             .market(position.getMarket())
@@ -361,7 +301,6 @@ public class PortfolioServiceImpl implements PortfolioService {
             .updatedAt(position.getUpdatedAt())
             .build();
     }
-    
     private TradeDto convertTradeToDto(Trade trade) {
         return TradeDto.builder()
             .id(trade.getId())
@@ -376,7 +315,6 @@ public class PortfolioServiceImpl implements PortfolioService {
             .createdAt(trade.getCreatedAt())
             .build();
     }
-
     private PortfolioPosition loadPositionOrThrow(Long positionId) {
         Long nonNullPositionId = Objects.requireNonNull(positionId, "positionId must not be null");
         return requireFound(positionRepository.findById(nonNullPositionId),

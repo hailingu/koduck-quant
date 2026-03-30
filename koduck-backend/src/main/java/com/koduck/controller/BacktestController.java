@@ -1,19 +1,15 @@
 package com.koduck.controller;
-
 import com.koduck.controller.support.AuthenticatedUserResolver;
 import com.koduck.dto.ApiResponse;
 import com.koduck.dto.backtest.*;
 import com.koduck.security.UserPrincipal;
 import com.koduck.service.BacktestService;
 import jakarta.validation.Valid;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
-
 import java.util.List;
-
 /**
  * REST API controller for backtest operations.
  *
@@ -22,14 +18,13 @@ import java.util.List;
  */
 @RestController
 @RequestMapping("/api/v1/backtest")
-@RequiredArgsConstructor
 @Validated
 @Slf4j
 public class BacktestController {
-    
-    private final AuthenticatedUserResolver authenticatedUserResolver;
-    private final BacktestService backtestService;
-    
+    @org.springframework.beans.factory.annotation.Autowired
+    private AuthenticatedUserResolver authenticatedUserResolver;
+    @org.springframework.beans.factory.annotation.Autowired
+    private BacktestService backtestService;
     /**
      * Retrieve all backtest results belonging to the authenticated user.
      *
@@ -42,13 +37,10 @@ public class BacktestController {
     public ApiResponse<List<BacktestResultDto>> getBacktestResults(
             @AuthenticationPrincipal UserPrincipal userPrincipal) {
         Long userId = authenticatedUserResolver.requireUserId(userPrincipal);
-        
         log.debug("GET /api/v1/backtest: user={}", userId);
-        
         List<BacktestResultDto> results = backtestService.getBacktestResults(userId);
         return ApiResponse.success(results);
     }
-    
     /**
      * Retrieve a single backtest result by its identifier.
      *
@@ -61,13 +53,10 @@ public class BacktestController {
             @AuthenticationPrincipal UserPrincipal userPrincipal,
             @PathVariable Long id) {
         Long userId = authenticatedUserResolver.requireUserId(userPrincipal);
-        
         log.debug("GET /api/v1/backtest/{}: user={}", id, userId);
-        
         BacktestResultDto result = backtestService.getBacktestResult(userId, id);
         return ApiResponse.success(result);
     }
-    
     /**
      * Execute a new backtest using the supplied request parameters.
      *
@@ -81,14 +70,11 @@ public class BacktestController {
             @AuthenticationPrincipal UserPrincipal userPrincipal,
             @Valid @RequestBody RunBacktestRequest request) {
         Long userId = authenticatedUserResolver.requireUserId(userPrincipal);
-        
         log.debug("POST /api/v1/backtest/run: user={}, strategyId={}, symbol={}", 
                  userId, request.strategyId(), request.symbol());
-        
         BacktestResultDto result = backtestService.runBacktest(userId, request);
         return ApiResponse.success(result);
     }
-    
     /**
      * List all trades produced by a given backtest result.
      *
@@ -101,13 +87,10 @@ public class BacktestController {
             @AuthenticationPrincipal UserPrincipal userPrincipal,
             @PathVariable Long id) {
         Long userId = authenticatedUserResolver.requireUserId(userPrincipal);
-        
         log.debug("GET /api/v1/backtest/{}/trades: user={}", id, userId);
-        
         List<BacktestTradeDto> trades = backtestService.getBacktestTrades(userId, id);
         return ApiResponse.success(trades);
     }
-    
     /**
      * Remove a backtest result owned by the current user.
      *
@@ -120,9 +103,7 @@ public class BacktestController {
             @AuthenticationPrincipal UserPrincipal userPrincipal,
             @PathVariable Long id) {
         Long userId = authenticatedUserResolver.requireUserId(userPrincipal);
-        
         log.debug("DELETE /api/v1/backtest/{}: user={}", id, userId);
-        
         backtestService.deleteBacktestResult(userId, id);
         return ApiResponse.successNoContent();
     }

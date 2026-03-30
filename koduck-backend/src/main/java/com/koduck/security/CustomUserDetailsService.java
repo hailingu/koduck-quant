@@ -1,10 +1,8 @@
 package com.koduck.security;
-
 import com.koduck.entity.User;
 import com.koduck.repository.PermissionRepository;
 import com.koduck.repository.RoleRepository;
 import com.koduck.repository.UserRepository;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataAccessException;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -13,24 +11,23 @@ import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
-
 import java.util.List;
 import java.util.stream.Collectors;
-
 /**
  *  UserDetailsService（，）
  */
 @Service
 @Slf4j
-@RequiredArgsConstructor
 public class CustomUserDetailsService implements UserDetailsService {
-
-    private final UserRepository userRepository;
-    private final RoleRepository roleRepository;
-    private final PermissionRepository permissionRepository;
-    private final JdbcTemplate jdbcTemplate;
+    @org.springframework.beans.factory.annotation.Autowired
+    private UserRepository userRepository;
+    @org.springframework.beans.factory.annotation.Autowired
+    private RoleRepository roleRepository;
+    @org.springframework.beans.factory.annotation.Autowired
+    private PermissionRepository permissionRepository;
+    @org.springframework.beans.factory.annotation.Autowired
+    private JdbcTemplate jdbcTemplate;
     private volatile Boolean userRolesTableExists;
-
     @Override
     public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
         //  userId  username  email 
@@ -45,7 +42,6 @@ public class CustomUserDetailsService implements UserDetailsService {
                     .orElseGet(() -> userRepository.findByUsername(username)
                             .orElseThrow(() -> new UsernameNotFoundException("User not found: " + username)));
         }
-
         List<String> roleNames;
         List<String> permissionCodes;
         if (!hasUserRolesTable()) {
@@ -62,25 +58,20 @@ public class CustomUserDetailsService implements UserDetailsService {
                 permissionCodes = List.of();
             }
         }
-
         List<SimpleGrantedAuthority> authorities = roleNames.stream()
                 .map(role -> new SimpleGrantedAuthority("ROLE_" + role))
                 .collect(Collectors.toList());
-
         authorities.addAll(permissionCodes.stream()
                 .map(SimpleGrantedAuthority::new)
                 .collect(Collectors.toList()));
-
         //  UserPrincipal  User 
         return new UserPrincipal(user, authorities);
     }
-
     private boolean hasUserRolesTable() {
         Boolean cached = userRolesTableExists;
         if (cached != null) {
             return cached;
         }
-
         boolean exists;
         try {
             Integer count = jdbcTemplate.queryForObject(
@@ -94,7 +85,6 @@ public class CustomUserDetailsService implements UserDetailsService {
                     ex.getMessage());
             exists = false;
         }
-
         userRolesTableExists = exists;
         return exists;
     }

@@ -1,6 +1,7 @@
 package com.koduck.dto.community;
 
 import com.koduck.util.CollectionCopyUtils;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.validation.constraints.*;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -39,7 +40,8 @@ public class CreateSignalRequest {
     private BigDecimal stopLoss;
 
     @Size(max = 20, message = "时间周期最多 20 个字符")
-    private String timeFrame;
+    @JsonProperty("timeFrame")
+    private String signalTimeFrame;
 
     @Min(value = 0, message = "信心指数最小为 0")
     @Max(value = 100, message = "信心指数最大为 100")
@@ -52,39 +54,30 @@ public class CreateSignalRequest {
     }
 
     public static final class Builder {
+        private final CreateSignalRequest request = new CreateSignalRequest();
 
-        private Long strategyId;
-        private String symbol;
-        private String signalType;
-        private String reason;
-        private BigDecimal targetPrice;
-        private BigDecimal stopLoss;
-        private String timeFrame;
-        private Integer confidence;
-        private List<String> tags;
-
-        public Builder strategyId(Long strategyId) { this.strategyId = strategyId; return this; }
-        public Builder symbol(String symbol) { this.symbol = symbol; return this; }
-        public Builder signalType(String signalType) { this.signalType = signalType; return this; }
-        public Builder reason(String reason) { this.reason = reason; return this; }
-        public Builder targetPrice(BigDecimal targetPrice) { this.targetPrice = targetPrice; return this; }
-        public Builder stopLoss(BigDecimal stopLoss) { this.stopLoss = stopLoss; return this; }
-        public Builder timeFrame(String timeFrame) { this.timeFrame = timeFrame; return this; }
-        public Builder confidence(Integer confidence) { this.confidence = confidence; return this; }
-        public Builder tags(List<String> tags) { this.tags = CollectionCopyUtils.copyList(tags); return this; }
+        public Builder strategyId(Long strategyId) { request.setStrategyId(strategyId); return this; }
+        public Builder symbol(String symbol) { request.setSymbol(symbol); return this; }
+        public Builder signalType(String signalType) { request.setSignalType(signalType); return this; }
+        public Builder reason(String reason) { request.setReason(reason); return this; }
+        public Builder targetPrice(BigDecimal targetPrice) { request.setTargetPrice(targetPrice); return this; }
+        public Builder stopLoss(BigDecimal stopLoss) { request.setStopLoss(stopLoss); return this; }
+        public Builder timeFrame(String timeFrame) { request.setSignalTimeFrame(timeFrame); return this; }
+        public Builder confidence(Integer confidence) { request.setConfidence(confidence); return this; }
+        public Builder tags(List<String> tags) { request.setTags(tags); return this; }
 
         public CreateSignalRequest build() {
-            CreateSignalRequest request = new CreateSignalRequest();
-            request.setStrategyId(strategyId);
-            request.setSymbol(symbol);
-            request.setSignalType(signalType);
-            request.setReason(reason);
-            request.setTargetPrice(targetPrice);
-            request.setStopLoss(stopLoss);
-            request.setTimeFrame(timeFrame);
-            request.setConfidence(confidence);
-            request.setTags(tags);
-            return request;
+            CreateSignalRequest built = new CreateSignalRequest();
+            built.setStrategyId(request.getStrategyId());
+            built.setSymbol(request.getSymbol());
+            built.setSignalType(request.getSignalType());
+            built.setReason(request.getReason());
+            built.setTargetPrice(request.getTargetPrice());
+            built.setStopLoss(request.getStopLoss());
+            built.setSignalTimeFrame(request.getSignalTimeFrame());
+            built.setConfidence(request.getConfidence());
+            built.setTags(request.getTags());
+            return built;
         }
     }
 

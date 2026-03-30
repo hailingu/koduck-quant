@@ -1,5 +1,6 @@
 package com.koduck.dto.community;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonFormat;
 import com.koduck.util.CollectionCopyUtils;
 import lombok.Data;
@@ -29,7 +30,8 @@ public class SignalResponse {
 
     private BigDecimal targetPrice;
     private BigDecimal stopLoss;
-    private String timeFrame;
+    @JsonProperty("timeFrame")
+    private String signalTimeFrame;
     private Integer confidence;
 
     private String status;
@@ -76,7 +78,7 @@ public class SignalResponse {
         private String reason;
         private BigDecimal targetPrice;
         private BigDecimal stopLoss;
-        private String timeFrame;
+        private String signalTimeFrame;
         private Integer confidence;
         private String status;
         private String resultStatus;
@@ -106,7 +108,7 @@ public class SignalResponse {
         public Builder reason(String reason) { this.reason = reason; return this; }
         public Builder targetPrice(BigDecimal targetPrice) { this.targetPrice = targetPrice; return this; }
         public Builder stopLoss(BigDecimal stopLoss) { this.stopLoss = stopLoss; return this; }
-        public Builder timeFrame(String timeFrame) { this.timeFrame = timeFrame; return this; }
+        public Builder timeFrame(String timeFrame) { this.signalTimeFrame = timeFrame; return this; }
         public Builder confidence(Integer confidence) { this.confidence = confidence; return this; }
         public Builder status(String status) { this.status = status; return this; }
         public Builder resultStatus(String resultStatus) { this.resultStatus = resultStatus; return this; }
@@ -138,7 +140,7 @@ public class SignalResponse {
             response.setReason(reason);
             response.setTargetPrice(targetPrice);
             response.setStopLoss(stopLoss);
-            response.setTimeFrame(timeFrame);
+            response.setSignalTimeFrame(signalTimeFrame);
             response.setConfidence(confidence);
             response.setStatus(status);
             response.setResultStatus(resultStatus);

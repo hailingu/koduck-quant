@@ -26,6 +26,13 @@ import java.util.concurrent.ConcurrentHashMap;
  */
 public abstract class AbstractDataServiceMarketProvider implements MarketDataProvider {
 
+    private static final ParameterizedTypeReference<List<Map<String, Object>>> LIST_MAP_RESPONSE_TYPE =
+        new ParameterizedTypeReference<>() {
+        };
+    private static final ParameterizedTypeReference<Map<String, Object>> MAP_RESPONSE_TYPE =
+        new ParameterizedTypeReference<>() {
+        };
+
     private final DataServiceProperties properties;
     private final RestTemplate restTemplate;
     private final Set<String> subscribedSymbols = ConcurrentHashMap.newKeySet();
@@ -78,8 +85,7 @@ public abstract class AbstractDataServiceMarketProvider implements MarketDataPro
                     url,
                     Objects.requireNonNull(HttpMethod.GET),
                     null,
-                    new ParameterizedTypeReference<>() {
-                    }
+                    LIST_MAP_RESPONSE_TYPE
             );
 
             List<Map<String, Object>> data = response.getBody();
@@ -115,8 +121,7 @@ public abstract class AbstractDataServiceMarketProvider implements MarketDataPro
                     url,
                     Objects.requireNonNull(HttpMethod.GET),
                     null,
-                    new ParameterizedTypeReference<>() {
-                    }
+                    MAP_RESPONSE_TYPE
             );
 
             Map<String, Object> data = response.getBody();
@@ -174,8 +179,7 @@ public abstract class AbstractDataServiceMarketProvider implements MarketDataPro
                     url,
                     Objects.requireNonNull(HttpMethod.GET),
                     null,
-                    new ParameterizedTypeReference<>() {
-                    }
+                    LIST_MAP_RESPONSE_TYPE
             );
 
             List<Map<String, Object>> data = response.getBody();

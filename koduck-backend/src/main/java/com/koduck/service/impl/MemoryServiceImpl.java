@@ -1,5 +1,4 @@
 package com.koduck.service.impl;
-
 import com.koduck.entity.MemoryChatMessage;
 import com.koduck.entity.MemoryChatSession;
 import com.koduck.entity.UserMemoryProfile;
@@ -7,13 +6,11 @@ import com.koduck.repository.MemoryChatMessageRepository;
 import com.koduck.repository.MemoryChatSessionRepository;
 import com.koduck.repository.UserMemoryProfileRepository;
 import com.koduck.service.MemoryService;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -21,32 +18,27 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
-
 @Service
-@RequiredArgsConstructor
 @Slf4j
 public class MemoryServiceImpl implements MemoryService {
-
-    private final MemoryChatSessionRepository chatSessionRepository;
-    private final MemoryChatMessageRepository chatMessageRepository;
-    private final UserMemoryProfileRepository memoryProfileRepository;
-
+    @org.springframework.beans.factory.annotation.Autowired
+    private MemoryChatSessionRepository chatSessionRepository;
+    @org.springframework.beans.factory.annotation.Autowired
+    private MemoryChatMessageRepository chatMessageRepository;
+    @org.springframework.beans.factory.annotation.Autowired
+    private UserMemoryProfileRepository memoryProfileRepository;
     @Value("${memory.enabled:true}")
     private boolean memoryEnabled;
-
     @Value("${memory.l1.max-turns:20}")
     private int l1MaxTurns;
-
     @Override
     public boolean isEnabled() {
         return memoryEnabled;
     }
-
     @Override
     public int getL1MaxTurns() {
         return Math.max(1, l1MaxTurns);
     }
-
     @Override
     public String resolveSessionId(String input) {
         if (input == null || input.isBlank()) {
@@ -54,13 +46,11 @@ public class MemoryServiceImpl implements MemoryService {
         }
         return input.trim();
     }
-
     @Override
     @Transactional(readOnly = true)
     public List<MemoryChatSession> getUserSessions(Long userId) {
         return chatSessionRepository.findByUserIdOrderByLastMessageAtDesc(userId);
     }
-
     @Override
     @Transactional
     public MemoryChatSession ensureSession(Long userId, String sessionId, String title) {
@@ -83,7 +73,6 @@ public class MemoryServiceImpl implements MemoryService {
             .build();
         return chatSessionRepository.save(created);
     }
-
     @Override
     @Transactional
     public MemoryChatMessage appendMessage(
@@ -111,7 +100,6 @@ public class MemoryServiceImpl implements MemoryService {
         chatSessionRepository.save(session);
         return saved;
     }
-
     @Override
     @Transactional(readOnly = true)
     public List<MemoryChatMessage> getRecentMessages(Long userId, String sessionId, Integer maxTurns) {
@@ -129,7 +117,6 @@ public class MemoryServiceImpl implements MemoryService {
         ));
         return ascMessages;
     }
-
     @Override
     @Transactional(readOnly = true)
     public UserMemoryProfile getOrCreateProfile(Long userId) {
@@ -140,7 +127,6 @@ public class MemoryServiceImpl implements MemoryService {
             .profileFacts(Map.of())
             .build());
     }
-
     @Override
     @Transactional
     public UserMemoryProfile upsertProfile(
@@ -169,7 +155,6 @@ public class MemoryServiceImpl implements MemoryService {
         log.debug("Upserted user memory profile: user={}", userId);
         return saved;
     }
-
     @Override
     @Transactional
     public int clearSessionMessages(Long userId, String sessionId) {
@@ -181,7 +166,6 @@ public class MemoryServiceImpl implements MemoryService {
         chatMessageRepository.deleteByUserIdAndSessionId(userId, sessionId);
         return existing.size();
     }
-
     @Override
     @Transactional
     public void deleteSession(Long userId, String sessionId) {
@@ -190,7 +174,6 @@ public class MemoryServiceImpl implements MemoryService {
         chatSessionRepository.deleteByUserIdAndSessionId(userId, sessionId);
         log.debug("Deleted session: user={}, sessionId={}", userId, sessionId);
     }
-
     @Override
     @Transactional
     public void clearProfile(Long userId) {

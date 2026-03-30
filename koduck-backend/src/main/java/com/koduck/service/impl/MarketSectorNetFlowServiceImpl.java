@@ -1,5 +1,4 @@
 package com.koduck.service.impl;
-
 import com.koduck.dto.market.SectorNetFlowDto;
 import com.koduck.dto.market.SectorNetFlowItemDto;
 import com.koduck.entity.MarketSectorNetFlow;
@@ -8,7 +7,6 @@ import com.koduck.service.MarketSectorNetFlowService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.Comparator;
@@ -16,13 +14,10 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.stream.Collectors;
-
 @Service
 @RequiredArgsConstructor
 public class MarketSectorNetFlowServiceImpl implements MarketSectorNetFlowService {
-
     private final MarketSectorNetFlowRepository repository;
-
     @Override
     @Transactional(readOnly = true)
     public SectorNetFlowDto getLatest(String market, String indicator, int limitPerType) {
@@ -33,7 +28,6 @@ public class MarketSectorNetFlowServiceImpl implements MarketSectorNetFlowServic
                 ))
                 .orElse(null);
     }
-
     @Override
     @Transactional(readOnly = true)
     public SectorNetFlowDto getByTradeDate(String market, String indicator, LocalDate tradeDate, int limitPerType) {
@@ -43,15 +37,12 @@ public class MarketSectorNetFlowServiceImpl implements MarketSectorNetFlowServic
         }
         return buildResponse(rows, limitPerType);
     }
-
     private SectorNetFlowDto buildResponse(List<MarketSectorNetFlow> rows, int limitPerType) {
         Map<String, List<MarketSectorNetFlow>> byType = rows.stream()
                 .collect(Collectors.groupingBy(row -> normalizeType(row.getSectorType())));
-
         List<SectorNetFlowItemDto> industry = toItems(byType.getOrDefault("industry", List.of()), limitPerType);
         List<SectorNetFlowItemDto> concept = toItems(byType.getOrDefault("concept", List.of()), limitPerType);
         List<SectorNetFlowItemDto> region = toItems(byType.getOrDefault("region", List.of()), limitPerType);
-
         BigDecimal totalMainForce = rows.stream()
                 .map(MarketSectorNetFlow::getMainForceNet)
                 .filter(v -> v != null)
@@ -60,7 +51,6 @@ public class MarketSectorNetFlowServiceImpl implements MarketSectorNetFlowServic
                 .map(MarketSectorNetFlow::getRetailNet)
                 .filter(v -> v != null)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
-
         MarketSectorNetFlow first = rows.get(0);
         return new SectorNetFlowDto(
                 first.getMarket(),
@@ -75,7 +65,6 @@ public class MarketSectorNetFlowServiceImpl implements MarketSectorNetFlowServic
                 first.getQuality()
         );
     }
-
     private List<SectorNetFlowItemDto> toItems(List<MarketSectorNetFlow> rows, int limitPerType) {
         return rows.stream()
                 .sorted(Comparator.comparing(MarketSectorNetFlowServiceImpl::absMainForceNet).reversed())
@@ -83,7 +72,6 @@ public class MarketSectorNetFlowServiceImpl implements MarketSectorNetFlowServic
                 .map(this::toItemDto)
                 .toList();
     }
-
     private SectorNetFlowItemDto toItemDto(MarketSectorNetFlow entity) {
         return new SectorNetFlowItemDto(
                 normalizeType(entity.getSectorType()),
@@ -98,12 +86,10 @@ public class MarketSectorNetFlowServiceImpl implements MarketSectorNetFlowServic
                 entity.getSnapshotTime()
         );
     }
-
     private static BigDecimal absMainForceNet(MarketSectorNetFlow row) {
         BigDecimal value = row.getMainForceNet();
         return value == null ? BigDecimal.ZERO : value.abs();
     }
-
     private static String normalizeType(String sectorType) {
         if (sectorType == null) {
             return "industry";

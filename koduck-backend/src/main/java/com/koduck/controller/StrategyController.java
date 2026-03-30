@@ -1,7 +1,5 @@
 package com.koduck.controller;
-
 import io.swagger.v3.oas.annotations.tags.Tag;
-
 import com.koduck.controller.support.AuthenticatedUserResolver;
 import com.koduck.dto.ApiResponse;
 import com.koduck.dto.strategy.CreateStrategyRequest;
@@ -12,14 +10,11 @@ import com.koduck.security.UserPrincipal;
 import com.koduck.service.StrategyService;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Positive;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
-
 import java.util.List;
-
 /**
  * REST API controller for trading strategies.
  * <p>
@@ -28,15 +23,14 @@ import java.util.List;
  */
 @RestController
 @RequestMapping("/api/v1/strategies")
-@RequiredArgsConstructor
 @Validated
 @Tag(name = "Strategies", description = "Trading strategy management APIs")
 @Slf4j
 public class StrategyController {
-    
-    private final AuthenticatedUserResolver authenticatedUserResolver;
-    private final StrategyService strategyService;
-    
+    @org.springframework.beans.factory.annotation.Autowired
+    private AuthenticatedUserResolver authenticatedUserResolver;
+    @org.springframework.beans.factory.annotation.Autowired
+    private StrategyService strategyService;
     /**
      * Retrieve all strategies owned by the authenticated user.
      *
@@ -47,13 +41,10 @@ public class StrategyController {
     public ApiResponse<List<StrategyDto>> getStrategies(
             @AuthenticationPrincipal UserPrincipal userPrincipal) {
         Long userId = authenticatedUserResolver.requireUserId(userPrincipal);
-        
         log.debug("GET /api/v1/strategies: user={}", userId);
-        
         List<StrategyDto> strategies = strategyService.getStrategies(userId);
         return ApiResponse.success(strategies);
     }
-    
     /**
      * Retrieve a specific strategy by its identifier.
      *
@@ -66,13 +57,10 @@ public class StrategyController {
             @AuthenticationPrincipal UserPrincipal userPrincipal,
             @PathVariable @Positive(message = "Strategy ID must be positive") Long id) {
         Long userId = authenticatedUserResolver.requireUserId(userPrincipal);
-        
         log.debug("GET /api/v1/strategies/{}: user={}", id, userId);
-        
         StrategyDto strategy = strategyService.getStrategy(userId, id);
         return ApiResponse.success(strategy);
     }
-    
     /**
      * Create a new strategy for the current user.
      *
@@ -85,13 +73,10 @@ public class StrategyController {
             @AuthenticationPrincipal UserPrincipal userPrincipal,
             @Valid @RequestBody CreateStrategyRequest request) {
         Long userId = authenticatedUserResolver.requireUserId(userPrincipal);
-        
         log.debug("POST /api/v1/strategies: user={}, name={}", userId, request.name());
-        
         StrategyDto strategy = strategyService.createStrategy(userId, request);
         return ApiResponse.success(strategy);
     }
-    
     /**
      * Update an existing strategy.
      *
@@ -106,13 +91,10 @@ public class StrategyController {
             @PathVariable @Positive(message = "Strategy ID must be positive") Long id,
             @Valid @RequestBody UpdateStrategyRequest request) {
         Long userId = authenticatedUserResolver.requireUserId(userPrincipal);
-        
         log.debug("PUT /api/v1/strategies/{}: user={}", id, userId);
-        
         StrategyDto strategy = strategyService.updateStrategy(userId, id, request);
         return ApiResponse.success(strategy);
     }
-    
     /**
      * Delete a strategy by its identifier.
      *
@@ -125,13 +107,10 @@ public class StrategyController {
             @AuthenticationPrincipal UserPrincipal userPrincipal,
             @PathVariable @Positive(message = "Strategy ID must be positive") Long id) {
         Long userId = authenticatedUserResolver.requireUserId(userPrincipal);
-        
         log.debug("DELETE /api/v1/strategies/{}: user={}", id, userId);
-        
         strategyService.deleteStrategy(userId, id);
         return ApiResponse.successNoContent();
     }
-    
     /**
      * Publish (make active) a strategy.
      *
@@ -144,13 +123,10 @@ public class StrategyController {
             @AuthenticationPrincipal UserPrincipal userPrincipal,
             @PathVariable @Positive(message = "Strategy ID must be positive") Long id) {
         Long userId = authenticatedUserResolver.requireUserId(userPrincipal);
-        
         log.debug("POST /api/v1/strategies/{}/publish: user={}", id, userId);
-        
         StrategyDto strategy = strategyService.publishStrategy(userId, id);
         return ApiResponse.success(strategy);
     }
-    
     /**
      * Disable a previously published strategy.
      *
@@ -163,13 +139,10 @@ public class StrategyController {
             @AuthenticationPrincipal UserPrincipal userPrincipal,
             @PathVariable @Positive(message = "Strategy ID must be positive") Long id) {
         Long userId = authenticatedUserResolver.requireUserId(userPrincipal);
-        
         log.debug("POST /api/v1/strategies/{}/disable: user={}", id, userId);
-        
         StrategyDto strategy = strategyService.disableStrategy(userId, id);
         return ApiResponse.success(strategy);
     }
-    
     /**
      * List all versions belonging to a strategy.
      *
@@ -182,13 +155,10 @@ public class StrategyController {
             @AuthenticationPrincipal UserPrincipal userPrincipal,
             @PathVariable @Positive(message = "Strategy ID must be positive") Long id) {
         Long userId = authenticatedUserResolver.requireUserId(userPrincipal);
-        
         log.debug("GET /api/v1/strategies/{}/versions: user={}", id, userId);
-        
         List<StrategyVersionDto> versions = strategyService.getVersions(userId, id);
         return ApiResponse.success(versions);
     }
-    
     /**
      * Retrieve a particular version of a strategy.
      *
@@ -203,13 +173,10 @@ public class StrategyController {
             @PathVariable @Positive(message = "Strategy ID must be positive") Long id,
             @PathVariable @Positive(message = "Version number must be positive") Integer versionNumber) {
         Long userId = authenticatedUserResolver.requireUserId(userPrincipal);
-        
         log.debug("GET /api/v1/strategies/{}/versions/{}: user={}", id, versionNumber, userId);
-        
         StrategyVersionDto version = strategyService.getVersion(userId, id, versionNumber);
         return ApiResponse.success(version);
     }
-    
     /**
      * Activate a given version of the strategy (set it as current).
      *
@@ -224,9 +191,7 @@ public class StrategyController {
             @PathVariable @Positive(message = "Strategy ID must be positive") Long id,
             @PathVariable @Positive(message = "Version ID must be positive") Long versionId) {
         Long userId = authenticatedUserResolver.requireUserId(userPrincipal);
-        
         log.debug("POST /api/v1/strategies/{}/versions/{}/activate: user={}", id, versionId, userId);
-        
         StrategyVersionDto version = strategyService.activateVersion(userId, id, versionId);
         return ApiResponse.success(version);
     }

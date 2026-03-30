@@ -1,5 +1,4 @@
 package com.koduck.config;
-
 import com.koduck.config.properties.WebSocketProperties;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.lang.NonNull;
@@ -8,7 +7,6 @@ import org.springframework.messaging.simp.config.MessageBrokerRegistry;
 import org.springframework.web.socket.config.annotation.EnableWebSocketMessageBroker;
 import org.springframework.web.socket.config.annotation.StompEndpointRegistry;
 import org.springframework.web.socket.config.annotation.WebSocketMessageBrokerConfigurer;
-
 /**
  * WebSocket 
  *
@@ -23,25 +21,10 @@ import org.springframework.web.socket.config.annotation.WebSocketMessageBrokerCo
 @Configuration
 @EnableWebSocketMessageBroker
 public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
-
-    private WebSocketProperties webSocketProperties;
-
-    private WebSocketChannelInterceptor webSocketChannelInterceptor;
-
-    /**
-     * Injects the WebSocket dependencies.
-     *
-     * @param webSocketProperties WebSocket configuration properties
-     * @param webSocketChannelInterceptor inbound channel interceptor
-     */
     @org.springframework.beans.factory.annotation.Autowired
-    public void setDependencies(
-            WebSocketProperties webSocketProperties,
-            WebSocketChannelInterceptor webSocketChannelInterceptor) {
-        this.webSocketProperties = webSocketProperties;
-        this.webSocketChannelInterceptor = webSocketChannelInterceptor;
-    }
-
+    private WebSocketProperties webSocketProperties;
+    @org.springframework.beans.factory.annotation.Autowired
+    private WebSocketChannelInterceptor webSocketChannelInterceptor;
     /**
      * 
      *
@@ -59,12 +42,10 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
         //  -  /app/*  @MessageMapping 
         config.setApplicationDestinationPrefixes(webSocketProperties.getApplicationDestinationPrefix());
     }
-
     @Override
     public void configureClientInboundChannel(@NonNull ChannelRegistration registration) {
         registration.interceptors(webSocketChannelInterceptor);
     }
-
     /**
      *  STOMP 
      *

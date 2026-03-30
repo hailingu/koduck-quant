@@ -1,5 +1,4 @@
 package com.koduck.service.impl;
-
 import com.koduck.dto.settings.*;
 import com.koduck.entity.UserCredential;
 import com.koduck.entity.UserSettings;
@@ -7,32 +6,31 @@ import com.koduck.repository.CredentialRepository;
 import com.koduck.repository.UserSettingsRepository;
 import com.koduck.service.UserSettingsService;
 import com.koduck.util.CredentialEncryptionUtil;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.env.Environment;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
 import java.util.Locale;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
-
 /**
  * 用户设置服务实现类
  */
 @Service
-@RequiredArgsConstructor
 @Slf4j
 public class UserSettingsServiceImpl implements UserSettingsService {
-
     private static final Set<String> SUPPORTED_LLM_PROVIDERS = Set.of("minimax", "deepseek", "openai");
     private static final Set<String> SUPPORTED_MEMORY_MODES = Set.of("L0", "L1", "L2", "L3");
-    private final UserSettingsRepository settingsRepository;
-    private final CredentialRepository credentialRepository;
-    private final Environment environment;
-
+    @org.springframework.beans.factory.annotation.Autowired
+    private UserSettingsRepository settingsRepository;
+    @org.springframework.beans.factory.annotation.Autowired
+    private CredentialRepository credentialRepository;
+    @org.springframework.beans.factory.annotation.Autowired
+    private Environment environment;
+    @org.springframework.beans.factory.annotation.Autowired
+    private CredentialEncryptionUtil credentialEncryptionUtil;
     /**
      * 获取用户设置
      */
@@ -40,13 +38,10 @@ public class UserSettingsServiceImpl implements UserSettingsService {
     @Transactional
     public UserSettingsDto getSettings(Long userId) {
         log.debug("Getting settings for user: {}", userId);
-
         UserSettings settings = settingsRepository.findByUserId(userId)
             .orElseGet(() -> createDefaultSettings(userId));
-
         return convertToDto(settings);
     }
-
     /**
      * 更新用户设置
      */
@@ -54,10 +49,8 @@ public class UserSettingsServiceImpl implements UserSettingsService {
     @Transactional
     public UserSettingsDto updateSettings(Long userId, UpdateSettingsRequest request) {
         log.debug("Updating settings for user: {}", userId);
-
         UserSettings settings = settingsRepository.findByUserId(userId)
             .orElseGet(() -> createDefaultSettings(userId));
-
         // 更新基本设置
         if (request.getTheme() != null) {
             settings.setTheme(request.getTheme());
@@ -68,7 +61,6 @@ public class UserSettingsServiceImpl implements UserSettingsService {
         if (request.getTimezone() != null) {
             settings.setTimezone(request.getTimezone());
         }
-
         // 更新通知配置
         if (request.getNotification() != null) {
             UserSettings.NotificationConfig config = new UserSettings.NotificationConfig();
@@ -79,7 +71,6 @@ public class UserSettingsServiceImpl implements UserSettingsService {
             config.setStrategyAlert(request.getNotification().getStrategyAlert());
             settings.setNotificationConfig(config);
         }
-
         // 更新交易配置
         if (request.getTrading() != null) {
             UserSettings.TradingConfig config = new UserSettings.TradingConfig();
@@ -89,7 +80,6 @@ public class UserSettingsServiceImpl implements UserSettingsService {
             config.setEnableConfirmation(request.getTrading().getEnableConfirmation());
             settings.setTradingConfig(config);
         }
-
         // 更新显示配置
         if (request.getDisplay() != null) {
             UserSettings.DisplayConfig config = new UserSettings.DisplayConfig();
@@ -99,22 +89,18 @@ public class UserSettingsServiceImpl implements UserSettingsService {
             config.setCompactMode(request.getDisplay().getCompactMode());
             settings.setDisplayConfig(config);
         }
-
         // 更新 LLM 配置
         if (request.getLlmConfig() != null) {
             UserSettings.LlmConfig current = settings.getLlmConfig() != null
                 ? settings.getLlmConfig()
                 : new UserSettings.LlmConfig();
             UpdateSettingsRequest.LlmConfigDto req = request.getLlmConfig();
-
             String activeProvider = normalizeLlmProvider(firstNonBlank(req.getProvider(), current.getProvider()));
             current.setProvider(activeProvider);
-
             current.setMinimax(mergeProviderConfig(current.getMinimax(), req.getMinimax()));
             current.setDeepseek(mergeProviderConfig(current.getDeepseek(), req.getDeepseek()));
             current.setOpenai(mergeProviderConfig(current.getOpenai(), req.getOpenai()));
             current.setMemory(mergeMemoryConfig(current.getMemory(), req.getMemory()));
-
             // 兼容旧版：优先更新 apiKey/apiBase 到当前 provider
             if (req.getApiKey() != null || req.getApiBase() != null) {
                 UserSettings.ProviderConfig existing = getProviderConfig(current, activeProvider);
@@ -124,15 +110,12 @@ public class UserSettingsServiceImpl implements UserSettingsService {
                     .build();
                 setProviderConfig(current, activeProvider, legacyMerged);
             }
-
             // 兼容 legacy 字段：当前 provider 的配置同步到 apiKey/apiBase
             UserSettings.ProviderConfig activeConfig = getProviderConfig(current, activeProvider);
             current.setApiKey(activeConfig != null ? normalizeBlank(activeConfig.getApiKey()) : null);
             current.setApiBase(activeConfig != null ? normalizeBlank(activeConfig.getApiBase()) : null);
-
             settings.setLlmConfig(current);
         }
-
         // 更新快捷链接
         if (request.getQuickLinks() != null) {
             List<UserSettings.QuickLink> links = request.getQuickLinks().stream()
@@ -146,11 +129,9 @@ public class UserSettingsServiceImpl implements UserSettingsService {
                 .collect(Collectors.toList());
             settings.setQuickLinks(links);
         }
-
         UserSettings saved = settingsRepository.save(settings);
         return convertToDto(saved);
     }
-
     /**
      * 更新主题设置
      */
@@ -158,15 +139,12 @@ public class UserSettingsServiceImpl implements UserSettingsService {
     @Transactional
     public UserSettingsDto updateTheme(Long userId, String theme) {
         log.debug("Updating theme for user: {}, theme: {}", userId, theme);
-
         UserSettings settings = settingsRepository.findByUserId(userId)
             .orElseGet(() -> createDefaultSettings(userId));
-
         settings.setTheme(theme);
         UserSettings saved = settingsRepository.save(settings);
         return convertToDto(saved);
     }
-
     /**
      * 更新通知设置
      */
@@ -174,32 +152,26 @@ public class UserSettingsServiceImpl implements UserSettingsService {
     @Transactional
     public UserSettingsDto updateNotification(Long userId, UpdateNotificationRequest request) {
         log.debug("Updating notification settings for user: {}", userId);
-
         UserSettings settings = settingsRepository.findByUserId(userId)
             .orElseGet(() -> createDefaultSettings(userId));
-
         UserSettings.NotificationConfig config = settings.getNotificationConfig();
         if (config == null) {
             config = new UserSettings.NotificationConfig();
         }
-
         if (request.getEmail() != null) config.setEmail(request.getEmail());
         if (request.getBrowser() != null) config.setBrowser(request.getBrowser());
         if (request.getPriceAlert() != null) config.setPriceAlert(request.getPriceAlert());
         if (request.getTradeAlert() != null) config.setTradeAlert(request.getTradeAlert());
         if (request.getStrategyAlert() != null) config.setStrategyAlert(request.getStrategyAlert());
-
         settings.setNotificationConfig(config);
         UserSettings saved = settingsRepository.save(settings);
         return convertToDto(saved);
     }
-
     /**
      * 创建默认设置
      */
     private UserSettings createDefaultSettings(Long userId) {
         log.debug("Creating default settings for user: {}", userId);
-
         UserSettings settings = UserSettings.builder()
             .userId(userId)
             .theme("light")
@@ -238,10 +210,8 @@ public class UserSettingsServiceImpl implements UserSettingsService {
                     .build()
             ))
             .build();
-
         return settingsRepository.save(settings);
     }
-
     /**
      * 转换为 DTO
      */
@@ -261,7 +231,6 @@ public class UserSettingsServiceImpl implements UserSettingsService {
             .updatedAt(settings.getUpdatedAt())
             .build();
     }
-
     @Override
     @Transactional
     public UserSettingsDto.LlmConfigDto getEffectiveLlmConfig(Long userId, String provider) {
@@ -273,16 +242,13 @@ public class UserSettingsServiceImpl implements UserSettingsService {
         }
         String activeProvider = normalizeLlmProvider(firstNonBlank(provider, llmConfig.getProvider()));
         llmConfig.setProvider(activeProvider);
-
         // 1. 优先从 user_credentials 表读取加密的 LLM API Key
         String credentialsApiKey = getLlmApiKeyFromCredentials(userId, activeProvider);
         String credentialsApiBase = getLlmApiBaseFromCredentials(userId, activeProvider);
-
         UserSettings.ProviderConfig providerConfig = getProviderConfig(llmConfig, activeProvider);
         String legacyProvider = normalizeLlmProvider(llmConfig.getProvider());
         String legacyApiKey = legacyProvider.equals(activeProvider) ? normalizeBlank(llmConfig.getApiKey()) : null;
         String legacyApiBase = legacyProvider.equals(activeProvider) ? normalizeBlank(llmConfig.getApiBase()) : null;
-
         // 2. 从 user_settings 表读取（作为 fallback）
         String settingsApiKey = firstNonBlank(
             normalizeBlank(providerConfig != null ? providerConfig.getApiKey() : null),
@@ -292,7 +258,6 @@ public class UserSettingsServiceImpl implements UserSettingsService {
             normalizeBlank(providerConfig != null ? providerConfig.getApiBase() : null),
             legacyApiBase
         );
-
         // 3. 优先级：credentials > user_settings > 环境变量
         ResolvedValue apiKeyResolved;
         ResolvedValue apiBaseResolved;
@@ -353,7 +318,6 @@ public class UserSettingsServiceImpl implements UserSettingsService {
                 resolved("default", defaultApiBaseForProvider(activeProvider))
             );
         }
-
         log.info(
             "Resolved LLM config: userId={}, provider={}, apiKeySource={}, apiKeyMasked={}, apiBaseSource={}, apiBase={}",
             userId,
@@ -363,7 +327,6 @@ public class UserSettingsServiceImpl implements UserSettingsService {
             apiBaseResolved.source(),
             apiBaseResolved.value() == null ? "" : apiBaseResolved.value()
         );
-
         return UserSettingsDto.LlmConfigDto.builder()
             .provider(activeProvider)
             .apiKey(apiKeyResolved.value())
@@ -374,7 +337,6 @@ public class UserSettingsServiceImpl implements UserSettingsService {
             .memory(resolveMemoryConfig(llmConfig.getMemory()))
             .build();
     }
-
     private UserSettingsDto.NotificationConfigDto convertNotificationToDto(
             UserSettings.NotificationConfig config) {
         if (config == null) return null;
@@ -386,7 +348,6 @@ public class UserSettingsServiceImpl implements UserSettingsService {
             .strategyAlert(config.getStrategyAlert())
             .build();
     }
-
     private UserSettingsDto.TradingConfigDto convertTradingToDto(
             UserSettings.TradingConfig config) {
         if (config == null) return null;
@@ -397,7 +358,6 @@ public class UserSettingsServiceImpl implements UserSettingsService {
             .enableConfirmation(config.getEnableConfirmation())
             .build();
     }
-
     private UserSettingsDto.DisplayConfigDto convertDisplayToDto(
             UserSettings.DisplayConfig config) {
         if (config == null) return null;
@@ -408,7 +368,6 @@ public class UserSettingsServiceImpl implements UserSettingsService {
             .compactMode(config.getCompactMode())
             .build();
     }
-
     private List<UserSettingsDto.QuickLinkDto> convertQuickLinksToDto(
             List<UserSettings.QuickLink> links) {
         if (links == null) return List.of();
@@ -422,33 +381,28 @@ public class UserSettingsServiceImpl implements UserSettingsService {
                 .build())
             .collect(Collectors.toList());
     }
-
     private UserSettingsDto.LlmConfigDto resolveLlmConfig(UserSettings.LlmConfig config) {
         UserSettings.LlmConfig source = config == null ? new UserSettings.LlmConfig() : config;
         String provider = normalizeLlmProvider(source.getProvider());
-
         UserSettingsDto.ProviderConfigDto minimax = resolveProviderConfig("minimax", source);
         UserSettingsDto.ProviderConfigDto deepseek = resolveProviderConfig("deepseek", source);
         UserSettingsDto.ProviderConfigDto openai = resolveProviderConfig("openai", source);
-
         UserSettingsDto.ProviderConfigDto active = switch (provider) {
             case "deepseek" -> deepseek;
             case "openai" -> openai;
             case "minimax" -> minimax;
             default -> minimax;
         };
-
         return UserSettingsDto.LlmConfigDto.builder()
             .provider(provider)
-            .apiKey(active != null ? active.getApiKey() : null)
-            .apiBase(active != null ? active.getApiBase() : null)
+            .apiKey(active.getApiKey())
+            .apiBase(active.getApiBase())
             .minimax(minimax)
             .deepseek(deepseek)
             .openai(openai)
             .memory(resolveMemoryConfig(source.getMemory()))
             .build();
     }
-
     private UserSettings.ProviderConfig mergeProviderConfig(
             UserSettings.ProviderConfig existing,
             UpdateSettingsRequest.ProviderConfigDto incoming) {
@@ -461,7 +415,6 @@ public class UserSettingsServiceImpl implements UserSettingsService {
             .apiBase(incoming.getApiBase() != null ? normalizeBlank(incoming.getApiBase()) : normalizeBlank(base.getApiBase()))
             .build();
     }
-
     private UserSettings.MemoryConfig mergeMemoryConfig(
             UserSettings.MemoryConfig existing,
             UpdateSettingsRequest.MemoryConfigDto incoming) {
@@ -474,13 +427,10 @@ public class UserSettingsServiceImpl implements UserSettingsService {
                 .enableL2(true)
                 .enableL3(true)
                 .build();
-
         if (incoming == null) {
             return base;
         }
-
         String mode = incoming.getMode() != null ? normalizeMemoryMode(incoming.getMode()) : normalizeMemoryMode(base.getMode());
-
         Boolean modeEnableL1 = base.getEnableL1();
         Boolean modeEnableL2 = base.getEnableL2();
         Boolean modeEnableL3 = base.getEnableL3();
@@ -489,7 +439,6 @@ public class UserSettingsServiceImpl implements UserSettingsService {
             modeEnableL2 = !"L1".equals(mode);
             modeEnableL3 = "L0".equals(mode) || "L3".equals(mode);
         }
-
         return UserSettings.MemoryConfig.builder()
             .enabled(incoming.getEnabled() != null ? incoming.getEnabled() : defaultBoolean(base.getEnabled(), true))
             .mode(mode)
@@ -498,7 +447,6 @@ public class UserSettingsServiceImpl implements UserSettingsService {
             .enableL3(incoming.getEnableL3() != null ? incoming.getEnableL3() : defaultBoolean(modeEnableL3, true))
             .build();
     }
-
     private UserSettings.ProviderConfig getProviderConfig(UserSettings.LlmConfig config, String provider) {
         if (config == null) {
             return null;
@@ -510,7 +458,6 @@ public class UserSettingsServiceImpl implements UserSettingsService {
             default -> config.getMinimax();
         };
     }
-
     private void setProviderConfig(UserSettings.LlmConfig config, String provider, UserSettings.ProviderConfig value) {
         if (config == null) {
             return;
@@ -522,18 +469,14 @@ public class UserSettingsServiceImpl implements UserSettingsService {
             default -> config.setMinimax(value);
         }
     }
-
     private UserSettingsDto.ProviderConfigDto resolveProviderConfig(String provider, UserSettings.LlmConfig config) {
         UserSettings.ProviderConfig settingsProviderConfig = getProviderConfig(config, provider);
-
         // 兼容旧 provider 配置：如果 provider 匹配，从 apiKey/apiBase 字段读取到对应 provider
         String legacyProvider = normalizeLlmProvider(config != null ? config.getProvider() : null);
         String legacyApiKey = legacyProvider.equals(provider) ? normalizeBlank(config != null ? config.getApiKey() : null) : null;
         String legacyApiBase = legacyProvider.equals(provider) ? normalizeBlank(config != null ? config.getApiBase() : null) : null;
-
         String settingsApiKey = normalizeBlank(settingsProviderConfig != null ? settingsProviderConfig.getApiKey() : null);
         String settingsApiBase = normalizeBlank(settingsProviderConfig != null ? settingsProviderConfig.getApiBase() : null);
-
         String apiKey;
         String apiBase;
         switch (provider) {
@@ -585,13 +528,11 @@ public class UserSettingsServiceImpl implements UserSettingsService {
                 );
                 break;
         }
-
         return UserSettingsDto.ProviderConfigDto.builder()
             .apiKey(apiKey)
             .apiBase(apiBase)
             .build();
     }
-
     private UserSettingsDto.MemoryConfigDto resolveMemoryConfig(UserSettings.MemoryConfig config) {
         UserSettings.MemoryConfig source = config != null
             ? config
@@ -602,7 +543,6 @@ public class UserSettingsServiceImpl implements UserSettingsService {
                 .enableL2(true)
                 .enableL3(true)
                 .build();
-
         return UserSettingsDto.MemoryConfigDto.builder()
             .enabled(defaultBoolean(source.getEnabled(), true))
             .mode(normalizeMemoryMode(source.getMode()))
@@ -611,7 +551,6 @@ public class UserSettingsServiceImpl implements UserSettingsService {
             .enableL3(defaultBoolean(source.getEnableL3(), true))
             .build();
     }
-
     private String normalizeLlmProvider(String provider) {
         String fallback = firstNonBlank(
             environment.getProperty("DEFAULT_LLM_PROVIDER"),
@@ -623,12 +562,10 @@ public class UserSettingsServiceImpl implements UserSettingsService {
         }
         return normalizeProviderOrDefault(provider);
     }
-
     private String normalizeProviderOrDefault(String value) {
         String normalized = value == null ? "minimax" : value.trim().toLowerCase(Locale.ROOT);
         return SUPPORTED_LLM_PROVIDERS.contains(normalized) ? normalized : "minimax";
     }
-
     private String normalizeMemoryMode(String value) {
         if (value == null || value.isBlank()) {
             return "L0";
@@ -636,11 +573,9 @@ public class UserSettingsServiceImpl implements UserSettingsService {
         String normalized = value.trim().toUpperCase(Locale.ROOT);
         return SUPPORTED_MEMORY_MODES.contains(normalized) ? normalized : "L0";
     }
-
     private boolean defaultBoolean(Boolean value, boolean defaultValue) {
         return value != null ? value : defaultValue;
     }
-
     private String normalizeBlank(String value) {
         if (value == null) {
             return null;
@@ -648,7 +583,6 @@ public class UserSettingsServiceImpl implements UserSettingsService {
         String trimmed = value.trim();
         return trimmed.isEmpty() ? null : trimmed;
     }
-
     private String firstNonBlank(String... values) {
         if (values == null) {
             return null;
@@ -660,7 +594,6 @@ public class UserSettingsServiceImpl implements UserSettingsService {
         }
         return null;
     }
-
     private ResolvedValue pickFirstNonBlank(ResolvedValue... values) {
         if (values == null || values.length == 0) {
             return new ResolvedValue("none", null);
@@ -672,13 +605,10 @@ public class UserSettingsServiceImpl implements UserSettingsService {
         }
         return new ResolvedValue("none", null);
     }
-
     private ResolvedValue resolved(String source, String value) {
         return new ResolvedValue(source, value);
     }
-
     private record ResolvedValue(String source, String value) {}
-
     private String defaultApiBaseForProvider(String provider) {
         return switch (provider) {
             case "openai" -> "https://api.openai.com/v1";
@@ -687,7 +617,6 @@ public class UserSettingsServiceImpl implements UserSettingsService {
             default -> "https://api.minimax.chat/v1";
         };
     }
-
     /**
      * 从 user_credentials 表读取指定用户的 LLM API Key
      * 
@@ -701,15 +630,13 @@ public class UserSettingsServiceImpl implements UserSettingsService {
                 userId, 
                 UserCredential.CredentialType.AI_PROVIDER
             );
-            
             Optional<UserCredential> matchedCredential = credentials.stream()
                 .filter(c -> c.getProvider().equalsIgnoreCase(provider))
                 .filter(c -> Boolean.TRUE.equals(c.getIsActive()))
                 .findFirst();
-            
             if (matchedCredential.isPresent()) {
                 UserCredential credential = matchedCredential.get();
-                String decryptedKey = CredentialEncryptionUtil.decrypt(credential.getApiKeyEncrypted());
+                String decryptedKey = credentialEncryptionUtil.decrypt(credential.getApiKeyEncrypted());
                 log.debug("Loaded LLM API key from user_credentials: userId={}, provider={}", userId, provider);
                 return decryptedKey;
             }
@@ -718,7 +645,6 @@ public class UserSettingsServiceImpl implements UserSettingsService {
         }
         return null;
     }
-
     /**
      * 从 user_credentials 表读取指定用户的 LLM API Base URL
      * 
@@ -732,12 +658,10 @@ public class UserSettingsServiceImpl implements UserSettingsService {
                 userId, 
                 UserCredential.CredentialType.AI_PROVIDER
             );
-            
             Optional<UserCredential> matchedCredential = credentials.stream()
                 .filter(c -> c.getProvider().equalsIgnoreCase(provider))
                 .filter(c -> Boolean.TRUE.equals(c.getIsActive()))
                 .findFirst();
-            
             if (matchedCredential.isPresent()) {
                 UserCredential credential = matchedCredential.get();
                 // 从 additional_config JSON 字段中读取 apiBase

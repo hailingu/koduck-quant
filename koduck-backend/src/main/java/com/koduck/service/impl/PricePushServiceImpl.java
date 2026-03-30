@@ -1,5 +1,4 @@
 package com.koduck.service.impl;
-
 import com.koduck.controller.MarketController;
 import com.koduck.entity.StockRealtime;
 import com.koduck.repository.StockRealtimeRepository;
@@ -7,14 +6,11 @@ import com.koduck.service.PricePushService;
 import com.koduck.service.StockSubscriptionService;
 import com.koduck.service.SyntheticTickService;
 import com.koduck.service.TickStreamService;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
-
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
-
 /**
  * 
  *
@@ -28,34 +24,31 @@ import java.util.concurrent.ConcurrentHashMap;
  */
 @Slf4j
 @Service
-@RequiredArgsConstructor
 public class PricePushServiceImpl implements PricePushService {
-
-    private final StockSubscriptionService stockSubscriptionService;
-    private final StockRealtimeRepository stockRealtimeRepository;
-    private final SyntheticTickService syntheticTickService;
-    private final TickStreamService tickStreamService;
-
+    @org.springframework.beans.factory.annotation.Autowired
+    private StockSubscriptionService stockSubscriptionService;
+    @org.springframework.beans.factory.annotation.Autowired
+    private StockRealtimeRepository stockRealtimeRepository;
+    @org.springframework.beans.factory.annotation.Autowired
+    private SyntheticTickService syntheticTickService;
+    @org.springframework.beans.factory.annotation.Autowired
+    private TickStreamService tickStreamService;
     /**
      * ：symbol -> last price
      */
     private final ConcurrentHashMap<String, Double> lastPrices = new ConcurrentHashMap<>();
-
     /**
      * ：symbol -> timestamp
      */
     private final ConcurrentHashMap<String, Long> lastPushTime = new ConcurrentHashMap<>();
-
     /**
      * （）， 5 
      */
     private static final long PUSH_INTERVAL_MS = 5000;
-
     /**
      * ， 0.01%（）
      */
     private static final double PRICE_CHANGE_THRESHOLD = 0.0001;
-
     /**
      * 
      *  3 
@@ -70,18 +63,14 @@ public class PricePushServiceImpl implements PricePushService {
             if (symbolsToProcess.isEmpty()) {
                 return;
             }
-
             // 
             List<StockRealtime> realtimeList = stockRealtimeRepository.findBySymbolIn(new ArrayList<>(symbolsToProcess));
-
             long now = System.currentTimeMillis();
-
             for (StockRealtime realtime : realtimeList) {
                 String symbol = realtime.getSymbol();
                 Double currentPrice = realtime.getPrice() != null ? realtime.getPrice().doubleValue() : null;
-                Double lastPrice = lastPrices.get(symbol);
-
-                boolean shouldPush = shouldPush(symbol, now);
+                Double lastPrice = currentPrice != null ? lastPrices.put(symbol, currentPrice) : lastPrices.get(symbol);
+                boolean shouldPush = shouldPushAndMark(symbol, now);
                 MarketController.TickDto syntheticTick = null;
                 if (shouldPush) {
                     syntheticTick = syntheticTickService.appendSyntheticTickFromRealtime(realtime);
@@ -89,7 +78,6 @@ public class PricePushServiceImpl implements PricePushService {
                         tickStreamService.publishTick(symbol, syntheticTick);
                     }
                 }
-
                 // Push initial snapshot immediately for new subscriptions.
                 if (lastPrice == null) {
                     if (currentPrice != null && shouldPush) {
@@ -101,20 +89,15 @@ public class PricePushServiceImpl implements PricePushService {
                                 .changePercent(realtime.getChangePercent() != null ? realtime.getChangePercent().doubleValue() : null)
                                 .volume(realtime.getVolume())
                                 .build();
-
                         stockSubscriptionService.onPriceUpdate(initialUpdate);
-                        lastPushTime.put(symbol, now);
                     }
-
                     if (currentPrice != null) {
                         lastPrices.put(symbol, currentPrice);
                     }
                     continue;
                 }
-
                 // 
                 boolean priceChanged = !Objects.equals(currentPrice, lastPrice);
-
                 if ((priceChanged || syntheticTick != null) && shouldPush) {
                     // 
                     StockSubscriptionService.PriceUpdate priceUpdate = StockSubscriptionService.PriceUpdate.builder()
@@ -125,23 +108,13 @@ public class PricePushServiceImpl implements PricePushService {
                             .changePercent(realtime.getChangePercent() != null ? realtime.getChangePercent().doubleValue() : null)
                             .volume(realtime.getVolume())
                             .build();
-
                     stockSubscriptionService.onPriceUpdate(priceUpdate);
-
-                    // 
-                    lastPushTime.put(symbol, now);
-                }
-
-                // 
-                if (currentPrice != null) {
-                    lastPrices.put(symbol, currentPrice);
                 }
             }
-        } catch (Exception e) {
+        } catch (RuntimeException e) {
             log.error(": {}", e.getMessage(), e);
         }
     }
-
     /**
      * 
      *
@@ -149,14 +122,17 @@ public class PricePushServiceImpl implements PricePushService {
      * @param now   
      * @return 
      */
-    private boolean shouldPush(String symbol, long now) {
-        Long lastPush = lastPushTime.get(symbol);
-        if (lastPush == null) {
-            return true;
-        }
-        return now - lastPush >= PUSH_INTERVAL_MS;
+    private boolean shouldPushAndMark(String symbol, long now) {
+        final boolean[] shouldPushHolder = {false};
+        lastPushTime.compute(symbol, (key, lastPush) -> {
+            if (lastPush == null || now - lastPush >= PUSH_INTERVAL_MS) {
+                shouldPushHolder[0] = true;
+                return now;
+            }
+            return lastPush;
+        });
+        return shouldPushHolder[0];
     }
-
     /**
      * （）
      */
@@ -166,7 +142,6 @@ public class PricePushServiceImpl implements PricePushService {
         lastPushTime.clear();
         log.info("");
     }
-
     /**
      * 
      *

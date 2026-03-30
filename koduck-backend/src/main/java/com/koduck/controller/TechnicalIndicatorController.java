@@ -1,5 +1,4 @@
 package com.koduck.controller;
-
 import com.koduck.dto.ApiResponse;
 import com.koduck.dto.indicator.IndicatorListResponse;
 import com.koduck.dto.indicator.IndicatorResponse;
@@ -16,7 +15,6 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
-
 /**
  * Technical Indicator REST API controller.
  *
@@ -30,11 +28,8 @@ import org.springframework.web.bind.annotation.RestController;
 @Slf4j
 @Tag(name = "Technical Indicators", description = "Indicator listing and calculation endpoints")
 public class TechnicalIndicatorController {
-
     private static final String DEFAULT_PERIOD = "20";
-
     private final TechnicalIndicatorService indicatorService;
-
     /**
      * Get available technical indicators.
      *
@@ -44,11 +39,9 @@ public class TechnicalIndicatorController {
     @Operation(summary = "Get available technical indicators")
     public ApiResponse<IndicatorListResponse> getAvailableIndicators() {
         log.debug("GET /api/v1/indicators");
-
         IndicatorListResponse indicators = indicatorService.getAvailableIndicators();
         return ApiResponse.success(indicators);
     }
-
     /**
      * Calculate technical indicator for a symbol.
      *
@@ -67,14 +60,12 @@ public class TechnicalIndicatorController {
             @RequestParam @NotBlank String market,
             @RequestParam @NotBlank String indicator,
             @RequestParam(defaultValue = DEFAULT_PERIOD) @Positive Integer period) {
-
         log.debug(
                 "GET /api/v1/indicators/{}: market={}, indicator={}, period={}",
                 symbol,
                 market,
                 indicator,
                 period);
-
         IndicatorResponse response = indicatorService.calculateIndicator(market, symbol, indicator, period);
         return ApiResponse.success(response);
     }

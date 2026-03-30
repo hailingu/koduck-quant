@@ -1,11 +1,9 @@
 package com.koduck.controller;
-
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.koduck.config.WebSocketChannelInterceptor;
 import com.koduck.dto.websocket.SubscriptionMessage;
 import com.koduck.dto.websocket.WebSocketMessage;
 import com.koduck.service.StockSubscriptionService;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.event.EventListener;
 import org.springframework.messaging.handler.annotation.MessageMapping;
@@ -16,14 +14,12 @@ import org.springframework.stereotype.Controller;
 import org.springframework.web.socket.messaging.SessionConnectEvent;
 import org.springframework.web.socket.messaging.SessionDisconnectEvent;
 import org.springframework.web.socket.messaging.SessionSubscribeEvent;
-
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
-
 /**
  * WebSocket 
  *
@@ -36,21 +32,18 @@ import java.util.concurrent.ConcurrentHashMap;
  */
 @Slf4j
 @Controller
-@RequiredArgsConstructor
 public class WebSocketEventController {
-
     private static final String SUBSCRIBE_RESULT = "SUBSCRIBE_RESULT";
     private static final String UNSUBSCRIBE_RESULT = "UNSUBSCRIBE_RESULT";
-
-    private final StockSubscriptionService stockSubscriptionService;
-    private final ObjectMapper objectMapper;
-
+    @org.springframework.beans.factory.annotation.Autowired
+    private StockSubscriptionService stockSubscriptionService;
+    @org.springframework.beans.factory.annotation.Autowired
+    private ObjectMapper objectMapper;
     /**
      * 
      * userId -> sessionId
      */
     private final Map<Long, String> activeConnections = new ConcurrentHashMap<>();
-
     /**
      * （）
      *
@@ -63,9 +56,7 @@ public class WebSocketEventController {
             @Payload(required = false) Object payload,
             SimpMessageHeaderAccessor headerAccessor) {
         log.info("websocket_subscribe_request sessionId={}", headerAccessor.getSessionId());
-
         SubscriptionMessage request = parseSubscriptionMessage(payload);
-
         // 
         WebSocketChannelInterceptor.WebSocketUserPrincipal principal = getUserPrincipal(headerAccessor);
         if (principal == null) {
@@ -75,14 +66,11 @@ public class WebSocketEventController {
                     .timestamp(System.currentTimeMillis())
                     .build();
         }
-
         Long userId = principal.getUserId();
         activeConnections.put(userId, headerAccessor.getSessionId());
-
         List<String> symbols = request != null && request.getSymbols() != null
             ? request.getSymbols()
             : new ArrayList<>();
-
         // Frontend may publish UNSUBSCRIBE intent to /app/subscribe.
         if (request != null && "UNSUBSCRIBE".equalsIgnoreCase(request.getType())) {
             StockSubscriptionService.SubscribeResult result = stockSubscriptionService.unsubscribe(userId, symbols);
@@ -96,7 +84,6 @@ public class WebSocketEventController {
                 .timestamp(System.currentTimeMillis())
                 .build();
         }
-
         if (symbols.isEmpty()) {
             // 
             Set<String> subscriptions = stockSubscriptionService.getUserSubscriptions(userId);
@@ -106,13 +93,10 @@ public class WebSocketEventController {
                     .timestamp(System.currentTimeMillis())
                     .build();
         }
-
         // 
         StockSubscriptionService.SubscribeResult result = stockSubscriptionService.subscribe(userId, symbols);
-
         // 
         Set<String> allSubscriptions = stockSubscriptionService.getUserSubscriptions(userId);
-
         return SubscriptionMessage.builder()
             .type(SUBSCRIBE_RESULT)
                 .symbols(symbols)
@@ -122,7 +106,6 @@ public class WebSocketEventController {
                 .timestamp(System.currentTimeMillis())
                 .build();
     }
-
     /**
      * 
      *
@@ -135,9 +118,7 @@ public class WebSocketEventController {
             @Payload(required = false) Object payload,
             SimpMessageHeaderAccessor headerAccessor) {
         log.info("websocket_unsubscribe_request sessionId={}", headerAccessor.getSessionId());
-
         SubscriptionMessage request = parseSubscriptionMessage(payload);
-
         // 
         WebSocketChannelInterceptor.WebSocketUserPrincipal principal = getUserPrincipal(headerAccessor);
         if (principal == null) {
@@ -147,19 +128,14 @@ public class WebSocketEventController {
                     .timestamp(System.currentTimeMillis())
                     .build();
         }
-
         Long userId = principal.getUserId();
-
         List<String> symbols = request != null && request.getSymbols() != null
             ? request.getSymbols()
             : new ArrayList<>();
-
         // 
         StockSubscriptionService.SubscribeResult result = stockSubscriptionService.unsubscribe(userId, symbols);
-
         // 
         Set<String> allSubscriptions = stockSubscriptionService.getUserSubscriptions(userId);
-
         return SubscriptionMessage.builder()
             .type(UNSUBSCRIBE_RESULT)
                 .symbols(symbols)
@@ -169,7 +145,6 @@ public class WebSocketEventController {
                 .timestamp(System.currentTimeMillis())
                 .build();
     }
-
     /**
      * /ping 
      *
@@ -182,7 +157,6 @@ public class WebSocketEventController {
         return WebSocketMessage.success("pong", "/app/ping",
                 Map.of("timestamp", System.currentTimeMillis()));
     }
-
     /**
      * 
      */
@@ -190,7 +164,6 @@ public class WebSocketEventController {
     public void handleSessionConnect(SessionConnectEvent event) {
         log.info("websocket_session_connect headers={}", event.getMessage().getHeaders());
     }
-
     /**
      *  - 
      */
@@ -198,7 +171,6 @@ public class WebSocketEventController {
     public void handleSessionDisconnect(SessionDisconnectEvent event) {
         String sessionId = event.getSessionId();
         log.info("websocket_session_disconnect sessionId={}", sessionId);
-
         // 
         Long disconnectedUserId = null;
         for (Map.Entry<Long, String> entry : activeConnections.entrySet()) {
@@ -207,7 +179,6 @@ public class WebSocketEventController {
                 break;
             }
         }
-
         if (disconnectedUserId != null) {
             activeConnections.remove(disconnectedUserId);
             // 
@@ -215,7 +186,6 @@ public class WebSocketEventController {
             log.info("websocket_user_subscriptions_cleared userId={}", disconnectedUserId);
         }
     }
-
     /**
      * 
      */
@@ -223,7 +193,6 @@ public class WebSocketEventController {
     public void handleSessionSubscribe(SessionSubscribeEvent event) {
         log.info("websocket_session_subscribe headers={}", event.getMessage().getHeaders());
     }
-
     /**
      *  Principal
      */
@@ -233,20 +202,17 @@ public class WebSocketEventController {
         }
         return null;
     }
-
     private SubscriptionMessage parseSubscriptionMessage(Object payload) {
         try {
             if (payload instanceof SubscriptionMessage message) {
                 return message;
             }
-
             if (payload instanceof String text) {
                 if (text.isBlank()) {
                     return null;
                 }
                 return objectMapper.readValue(text, SubscriptionMessage.class);
             }
-
             if (payload instanceof byte[] bytes) {
                 String text = new String(bytes, StandardCharsets.UTF_8);
                 if (text.isBlank()) {
@@ -254,7 +220,6 @@ public class WebSocketEventController {
                 }
                 return objectMapper.readValue(text, SubscriptionMessage.class);
             }
-
             return objectMapper.convertValue(payload, SubscriptionMessage.class);
         } catch (Exception ex) {
             log.warn("websocket_subscription_message_parse_failed payloadType={} payload={} error={}",
@@ -264,7 +229,6 @@ public class WebSocketEventController {
             return null;
         }
     }
-
     /**
      * 
      */

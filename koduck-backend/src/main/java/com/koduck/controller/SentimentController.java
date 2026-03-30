@@ -1,5 +1,4 @@
 package com.koduck.controller;
-
 import com.koduck.dto.ApiResponse;
 import com.koduck.dto.market.MarketSentimentDto;
 import com.koduck.market.MarketType;
@@ -13,11 +12,9 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
-
 import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
-
 /**
  * Market sentiment analysis controller.
  * Provides six-dimensional sentiment indicators for market analysis.
@@ -28,9 +25,7 @@ import java.util.Locale;
 @RequiredArgsConstructor
 @Tag(name = "Market Sentiment", description = "Market sentiment analysis APIs")
 public class SentimentController {
-
     private final MarketSentimentService sentimentService;
-
     /**
      * Get market sentiment radar data.
      *
@@ -43,15 +38,11 @@ public class SentimentController {
     public ApiResponse<MarketSentimentDto> getSentimentRadar(
             @Parameter(description = "Market type: a_share, hk, us")
             @RequestParam(defaultValue = "a_share") String market) {
-
         log.info("Getting sentiment radar for market: {}", market);
-
         MarketType marketType = parseMarketType(market);
         MarketSentimentDto sentiment = sentimentService.getMarketSentiment(marketType);
-
         return ApiResponse.success(sentiment);
     }
-
     /**
      * Get sentiment data for all supported markets.
      *
@@ -61,18 +52,14 @@ public class SentimentController {
     @Operation(summary = "Get sentiment for all markets",
                description = "Returns sentiment data for all supported markets")
     public ApiResponse<List<MarketSentimentDto>> getAllMarketsSentiment() {
-        
         log.info("Getting sentiment for all markets");
-
         List<MarketSentimentDto> sentiments = Arrays.asList(
                 sentimentService.getMarketSentiment(MarketType.A_SHARE),
                 sentimentService.getMarketSentiment(MarketType.HK_STOCK),
                 sentimentService.getMarketSentiment(MarketType.US_STOCK)
         );
-
         return ApiResponse.success(sentiments);
     }
-
     /**
      * Parse market type string to enum.
      */

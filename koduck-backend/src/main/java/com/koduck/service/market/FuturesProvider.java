@@ -8,6 +8,8 @@ import com.koduck.market.provider.MarketDataProvider;
 import com.koduck.market.util.DataConverter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.ResponseEntity;
@@ -50,18 +52,24 @@ public class FuturesProvider implements MarketDataProvider {
     private static final String FUTURES_BASE_PATH = "/futures";
     private static final String PROVIDER_NAME = "akshare-futures";
     private static final HttpMethod HTTP_GET = HttpMethod.GET;
+        private static final ParameterizedTypeReference<List<Map<String, Object>>> LIST_MAP_RESPONSE_TYPE =
+            new ParameterizedTypeReference<>() {
+            };
+        private static final ParameterizedTypeReference<Map<String, Object>> MAP_RESPONSE_TYPE =
+            new ParameterizedTypeReference<>() {
+            };
     
-    private final DataServiceProperties properties;
-    private final RestTemplate restTemplate;
+    @Autowired
+    private DataServiceProperties properties;
+    @Autowired
+    @Qualifier("dataServiceRestTemplate")
+    private RestTemplate restTemplate;
     private final Set<String> subscribedSymbols = ConcurrentHashMap.newKeySet();
     
     // Base prices for popular futures (mock data fallback)
     private final Map<String, BigDecimal> basePrices = new HashMap<>();
     
-    public FuturesProvider(DataServiceProperties properties, RestTemplate dataServiceRestTemplate) {
-        this.properties = properties;
-        this.restTemplate = dataServiceRestTemplate;
-        
+    public FuturesProvider() {
         // SHFE (上海期货交易所)
         basePrices.put("AU2412", new BigDecimal("480.00"));  // Gold (CNY/g)
         basePrices.put("AG2412", new BigDecimal("5800.00")); // Silver (CNY/kg)
@@ -152,7 +160,7 @@ public class FuturesProvider implements MarketDataProvider {
                     url,
                     HTTP_GET,
                     null,
-                    new ParameterizedTypeReference<>() {}
+                    LIST_MAP_RESPONSE_TYPE
             );
             
             List<Map<String, Object>> data = response.getBody();
@@ -189,7 +197,7 @@ public class FuturesProvider implements MarketDataProvider {
                     url,
                     HTTP_GET,
                     null,
-                    new ParameterizedTypeReference<>() {}
+                    MAP_RESPONSE_TYPE
             );
             
             Map<String, Object> data = response.getBody();
@@ -281,7 +289,7 @@ public class FuturesProvider implements MarketDataProvider {
                     url,
                     HTTP_GET,
                     null,
-                    new ParameterizedTypeReference<>() {}
+                    LIST_MAP_RESPONSE_TYPE
             );
             
             List<Map<String, Object>> data = response.getBody();
@@ -378,10 +386,8 @@ public class FuturesProvider implements MarketDataProvider {
         
         // Tick size varies by product
         BigDecimal tickSize = normalizedSymbol.startsWith("AU") || normalizedSymbol.equals("GC")
-                              ? new BigDecimal("0.02")
-                              : normalizedSymbol.startsWith("AG") || normalizedSymbol.equals("SI")
-                              ? new BigDecimal("1")
-                              : new BigDecimal("1");
+                      ? new BigDecimal("0.02")
+                      : new BigDecimal("1");
         
         TickData tickData = TickData.builder()
             .symbol(normalizedSymbol)

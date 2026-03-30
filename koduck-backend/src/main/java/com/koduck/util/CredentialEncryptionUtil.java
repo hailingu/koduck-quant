@@ -12,6 +12,7 @@ import javax.crypto.spec.SecretKeySpec;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
+import java.security.GeneralSecurityException;
 import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
 import java.util.Base64;
@@ -32,7 +33,7 @@ public class CredentialEncryptionUtil {
     @Value("${credential.encryption.key:}")
     private String encryptionKeyFromConfig;
 
-    private static SecretKey secretKey;
+    private SecretKey secretKey;
     private static final SecureRandom SECURE_RANDOM = new SecureRandom();
 
     @PostConstruct
@@ -72,7 +73,7 @@ public class CredentialEncryptionUtil {
      * @param plainText 
      * @return  Base64 （ IV）
      */
-    public static String encrypt(String plainText) {
+    public String encrypt(String plainText) {
         if (plainText == null || plainText.isEmpty()) {
             return null;
         }
@@ -96,7 +97,7 @@ public class CredentialEncryptionUtil {
             byteBuffer.put(cipherText);
 
             return Base64.getEncoder().encodeToString(byteBuffer.array());
-        } catch (Exception e) {
+        } catch (GeneralSecurityException e) {
             log.error("", e);
             throw new RuntimeException("加密失败", e);
         }
@@ -108,7 +109,7 @@ public class CredentialEncryptionUtil {
      * @param encryptedText  Base64 （ IV）
      * @return 
      */
-    public static String decrypt(String encryptedText) {
+    public String decrypt(String encryptedText) {
         if (encryptedText == null || encryptedText.isEmpty()) {
             return null;
         }
@@ -133,7 +134,7 @@ public class CredentialEncryptionUtil {
             // 
             byte[] plainText = cipher.doFinal(cipherText);
             return new String(plainText, StandardCharsets.UTF_8);
-        } catch (Exception e) {
+        } catch (GeneralSecurityException | IllegalArgumentException e) {
             log.error("", e);
             throw new RuntimeException("解密失败，可能是密钥不正确或数据已损坏", e);
         }

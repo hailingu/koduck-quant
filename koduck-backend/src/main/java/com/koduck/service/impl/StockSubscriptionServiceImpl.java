@@ -1,16 +1,12 @@
 package com.koduck.service.impl;
-
 import com.koduck.service.StockSubscriptionService;
 import com.koduck.util.SymbolUtils;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
-
 import java.time.Instant;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
-
 /**
  * 
  *
@@ -24,21 +20,17 @@ import java.util.concurrent.ConcurrentHashMap;
  */
 @Slf4j
 @Service
-@RequiredArgsConstructor
 public class StockSubscriptionServiceImpl implements StockSubscriptionService {
-
-    private final SimpMessagingTemplate messagingTemplate;
-
+    @org.springframework.beans.factory.annotation.Autowired
+    private SimpMessagingTemplate messagingTemplate;
     /**
      * : userId -> Set<symbol>
      */
     private final ConcurrentHashMap<Long, Set<String>> userSubscriptions = new ConcurrentHashMap<>();
-
     /**
      * : symbol -> Set<userId>
      */
     private final ConcurrentHashMap<String, Set<Long>> symbolSubscribers = new ConcurrentHashMap<>();
-
     /**
      * 
      *
@@ -51,11 +43,9 @@ public class StockSubscriptionServiceImpl implements StockSubscriptionService {
         if (userId == null || symbols == null || symbols.isEmpty()) {
             return SubscribeResult.failure(symbols, "Invalid parameters");
         }
-
         Set<String> userSubList = userSubscriptions.computeIfAbsent(userId, k -> ConcurrentHashMap.newKeySet());
         List<String> successList = new ArrayList<>();
         Map<String, String> failedMap = new HashMap<>();
-
         for (String symbol : symbols) {
             try {
                 String normalizedSymbol = normalizeSymbol(symbol);
@@ -63,14 +53,11 @@ public class StockSubscriptionServiceImpl implements StockSubscriptionService {
                     failedMap.put(symbol, "Invalid symbol format");
                     continue;
                 }
-
                 // 
                 userSubList.add(normalizedSymbol);
-
                 // 
                 symbolSubscribers.computeIfAbsent(normalizedSymbol, k -> ConcurrentHashMap.newKeySet())
                         .add(userId);
-
                 successList.add(normalizedSymbol);
                 log.debug("User {} subscribed to stock {}", userId, normalizedSymbol);
             } catch (Exception e) {
@@ -78,11 +65,9 @@ public class StockSubscriptionServiceImpl implements StockSubscriptionService {
                 log.warn("Failed to subscribe user {} to stock {}: {}", userId, symbol, e.getMessage());
             }
         }
-
         log.info("User {} subscription result: success={}, failed={}", userId, successList.size(), failedMap.size());
         return new SubscribeResult(successList, failedMap);
     }
-    
     /**
      * 
      *
@@ -95,14 +80,11 @@ public class StockSubscriptionServiceImpl implements StockSubscriptionService {
         if (userId == null) {
             return SubscribeResult.failure(symbols != null ? symbols : Collections.emptyList(), "Invalid userId");
         }
-
         if (symbols == null || symbols.isEmpty()) {
             return unsubscribeAll(userId);
         }
-
         return unsubscribeSymbols(userId, symbols);
     }
-
     private SubscribeResult unsubscribeAll(Long userId) {
         Set<String> userSubList = userSubscriptions.remove(userId);
         if (userSubList != null) {
@@ -114,13 +96,11 @@ public class StockSubscriptionServiceImpl implements StockSubscriptionService {
         log.info("User {} unsubscribed from all stocks", userId);
         return new SubscribeResult(successList, Collections.emptyMap());
     }
-
     private SubscribeResult unsubscribeSymbols(Long userId, List<String> symbols) {
         Set<String> userSubList = userSubscriptions.get(userId);
         if (userSubList == null || userSubList.isEmpty()) {
             return SubscribeResult.failure(symbols, "No subscriptions found");
         }
-
         List<String> successList = new ArrayList<>();
         Map<String, String> failedMap = new HashMap<>();
         for (String symbol : symbols) {
@@ -130,7 +110,6 @@ public class StockSubscriptionServiceImpl implements StockSubscriptionService {
                     failedMap.put(symbol, "Invalid symbol format");
                     continue;
                 }
-
                 userSubList.remove(normalizedSymbol);
                 removeSubscriberFromSymbol(userId, normalizedSymbol);
                 successList.add(normalizedSymbol);
@@ -140,27 +119,22 @@ public class StockSubscriptionServiceImpl implements StockSubscriptionService {
                 log.warn("Failed to unsubscribe user {} from stock {}: {}", userId, symbol, e.getMessage());
             }
         }
-
         if (userSubList.isEmpty()) {
             userSubscriptions.remove(userId);
         }
-
         log.info("User {} unsubscription result: success={}, failed={}", userId, successList.size(), failedMap.size());
         return new SubscribeResult(successList, failedMap);
     }
-
     private void removeSubscriberFromSymbol(Long userId, String symbol) {
         Set<Long> subscribers = symbolSubscribers.get(symbol);
         if (subscribers == null) {
             return;
         }
-
         subscribers.remove(userId);
         if (subscribers.isEmpty()) {
             symbolSubscribers.remove(symbol);
         }
     }
-
     /**
      * ID
      *
@@ -178,7 +152,6 @@ public class StockSubscriptionServiceImpl implements StockSubscriptionService {
         }
         return symbolSubscribers.getOrDefault(normalizedSymbol, Collections.emptySet());
     }
-
     /**
      * 
      *
@@ -193,7 +166,6 @@ public class StockSubscriptionServiceImpl implements StockSubscriptionService {
         Set<String> subscriptions = userSubscriptions.get(userId);
         return subscriptions != null ? new HashSet<>(subscriptions) : Collections.emptySet();
     }
-
     /**
      * 
      *
@@ -203,7 +175,6 @@ public class StockSubscriptionServiceImpl implements StockSubscriptionService {
     public Set<String> getAllSubscribedSymbols() {
         return new HashSet<>(symbolSubscribers.keySet());
     }
-
     /**
      * ，
      *
@@ -215,25 +186,21 @@ public class StockSubscriptionServiceImpl implements StockSubscriptionService {
             log.warn("Invalid price update: {}", priceUpdate);
             return;
         }
-
         String symbol = normalizeSymbol(priceUpdate.getSymbol());
         if (symbol == null) {
             log.warn("Invalid symbol in price update: {}", priceUpdate.getSymbol());
             return;
         }
-
         Set<Long> subscribers = getSubscribers(symbol);
         if (subscribers.isEmpty()) {
             log.debug("No subscribers for symbol {}", symbol);
             return;
         }
-
         // 
         PriceUpdateMessage message = new PriceUpdateMessage();
         message.setType("PRICE_UPDATE");
         message.setTimestamp(Instant.now().toString());
         message.setData(createPriceData(priceUpdate));
-
         // 
         for (Long userId : subscribers) {
             try {
@@ -248,10 +215,8 @@ public class StockSubscriptionServiceImpl implements StockSubscriptionService {
                 log.error("Failed to send price update to user {}: {}", userId, e.getMessage());
             }
         }
-
         log.info("Price update for {} sent to {} subscribers", symbol, subscribers.size());
     }
-
     /**
      * Helper method to create PriceData from PriceUpdate
      */
@@ -265,7 +230,6 @@ public class StockSubscriptionServiceImpl implements StockSubscriptionService {
         data.setVolume(priceUpdate.getVolume());
         return data;
     }
-
     /**
      * 
      *
@@ -276,11 +240,9 @@ public class StockSubscriptionServiceImpl implements StockSubscriptionService {
         if (userId == null) {
             return;
         }
-
         unsubscribe(userId, Collections.emptyList());
         log.info("Cleaned up subscriptions for disconnected user {}", userId);
     }
-
     /**
      * 
      *
@@ -291,12 +253,10 @@ public class StockSubscriptionServiceImpl implements StockSubscriptionService {
         if (symbol == null || symbol.isBlank()) {
             return null;
         }
-
         String normalized = SymbolUtils.normalize(symbol);
         if (normalized == null || normalized.isBlank()) {
             return null;
         }
-
         return normalized;
     }
 }

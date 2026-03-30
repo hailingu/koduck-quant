@@ -1,17 +1,13 @@
 package com.koduck.client;
-
 import com.koduck.config.properties.DataServiceProperties;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestTemplate;
-
 import java.util.Collections;
 import java.util.List;
-
 /**
  * Client for communicating with the external data-service.
  * Provides methods to trigger realtime data updates for stock symbols.
@@ -19,23 +15,10 @@ import java.util.List;
 @Component
 @Slf4j
 public class DataServiceClient {
-
+    @org.springframework.beans.factory.annotation.Autowired
     private DataServiceProperties dataServiceProperties;
-
+    @org.springframework.beans.factory.annotation.Autowired
     private RestTemplate dataServiceRestTemplate;
-
-    /**
-     * Injects the client dependencies.
-     *
-     * @param dataServiceProperties data-service configuration properties
-     * @param dataServiceRestTemplate RestTemplate used to call the data service
-     */
-    @Autowired
-    public void setDependencies(DataServiceProperties dataServiceProperties, RestTemplate dataServiceRestTemplate) {
-        this.dataServiceProperties = dataServiceProperties;
-        this.dataServiceRestTemplate = dataServiceRestTemplate;
-    }
-
     /**
      * Trigger realtime data update for a single stock symbol.
      * This is an asynchronous operation - the method returns immediately
@@ -46,7 +29,6 @@ public class DataServiceClient {
     public void triggerRealtimeUpdate(String symbol) {
         triggerRealtimeUpdate(Collections.singletonList(symbol));
     }
-
     /**
      * Trigger realtime data update for multiple stock symbols.
      * This is an asynchronous operation - the method returns immediately
@@ -59,25 +41,18 @@ public class DataServiceClient {
             log.debug("realtime_update_skipped reason=data_service_disabled");
             return;
         }
-
         if (symbols == null || symbols.isEmpty()) {
             log.debug("realtime_update_skipped reason=empty_symbols");
             return;
         }
-
         String url = dataServiceProperties.getBaseUrl() + dataServiceProperties.getRealtimeUpdatePath();
-
         try {
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.APPLICATION_JSON);
-
             var requestBody = new java.util.HashMap<String, Object>();
             requestBody.put("symbols", symbols);
-
             HttpEntity<Object> request = new HttpEntity<>(requestBody, headers);
-
             dataServiceRestTemplate.postForObject(url, request, Void.class);
-
             log.info("realtime_update_triggered symbolsCount={} symbols={}",
                     symbols.size(), symbols);
         } catch (Exception e) {

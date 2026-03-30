@@ -1,5 +1,4 @@
 package com.koduck.service.impl;
-
 import com.koduck.dto.market.DailyNetFlowDto;
 import com.koduck.entity.MarketDailyNetFlow;
 import com.koduck.repository.MarketDailyNetFlowRepository;
@@ -7,16 +6,12 @@ import com.koduck.service.MarketFlowService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
 import java.time.LocalDate;
 import java.util.List;
-
 @Service
 @RequiredArgsConstructor
 public class MarketFlowServiceImpl implements MarketFlowService {
-
     private final MarketDailyNetFlowRepository marketDailyNetFlowRepository;
-
     @Override
     @Transactional(readOnly = true)
     public DailyNetFlowDto getLatestDailyNetFlow(String market, String flowType) {
@@ -25,7 +20,6 @@ public class MarketFlowServiceImpl implements MarketFlowService {
                 .map(this::toDto)
                 .orElse(null);
     }
-
     @Override
     @Transactional(readOnly = true)
     public DailyNetFlowDto getDailyNetFlow(String market, String flowType, LocalDate tradeDate) {
@@ -34,7 +28,6 @@ public class MarketFlowServiceImpl implements MarketFlowService {
                 .map(this::toDto)
                 .orElse(null);
     }
-
     @Override
     @Transactional(readOnly = true)
     public List<DailyNetFlowDto> getDailyNetFlowHistory(String market, String flowType, LocalDate from, LocalDate to) {
@@ -44,7 +37,6 @@ public class MarketFlowServiceImpl implements MarketFlowService {
                 .map(this::toDto)
                 .toList();
     }
-
     private DailyNetFlowDto toDto(MarketDailyNetFlow entity) {
         return new DailyNetFlowDto(
                 entity.getMarket(),

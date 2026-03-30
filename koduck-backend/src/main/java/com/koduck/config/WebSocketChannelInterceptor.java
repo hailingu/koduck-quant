@@ -1,7 +1,5 @@
 package com.koduck.config;
-
 import com.koduck.util.JwtUtil;
-import org.springframework.beans.factory.annotation.Autowired;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import org.springframework.messaging.Message;
@@ -15,12 +13,10 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.util.StringUtils;
-
 import java.io.Serial;
 import java.util.Collections;
 import java.util.Objects;
 import java.util.Optional;
-
 /**
  * WebSocket 
  *
@@ -34,25 +30,11 @@ import java.util.Optional;
 @Slf4j
 @Component
 public class WebSocketChannelInterceptor implements ChannelInterceptor {
-
     private static final String BEARER_PREFIX = "Bearer ";
-
+    @org.springframework.beans.factory.annotation.Autowired
     private JwtUtil jwtUtil;
-
+    @org.springframework.beans.factory.annotation.Autowired
     private JwtConfig jwtConfig;
-
-    /**
-     * Injects the JWT dependencies used during STOMP CONNECT handling.
-     *
-     * @param jwtUtil JWT utility
-     * @param jwtConfig JWT configuration
-     */
-    @Autowired
-    public void setDependencies(JwtUtil jwtUtil, JwtConfig jwtConfig) {
-        this.jwtUtil = jwtUtil;
-        this.jwtConfig = jwtConfig;
-    }
-
     /**
      * 
      *
@@ -62,11 +44,9 @@ public class WebSocketChannelInterceptor implements ChannelInterceptor {
     @Override
     public Message<?> preSend(@NonNull Message<?> message, MessageChannel channel) {
         StompHeaderAccessor accessor = MessageHeaderAccessor.getAccessor(message, StompHeaderAccessor.class);
-
         if (accessor == null) {
             return message;
         }
-
         //  -  JWT Token
         if (StompCommand.CONNECT.equals(accessor.getCommand())) {
             handleConnect(accessor);
@@ -75,10 +55,8 @@ public class WebSocketChannelInterceptor implements ChannelInterceptor {
         else if (StompCommand.DISCONNECT.equals(accessor.getCommand())) {
             handleDisconnect(accessor);
         }
-
         return message;
     }
-
     /**
      *  WebSocket 
      *
@@ -93,23 +71,18 @@ public class WebSocketChannelInterceptor implements ChannelInterceptor {
         Optional<String> bearerTokenOptional = Optional
             .ofNullable(accessor.getFirstNativeHeader(headerName))
             .filter(StringUtils::hasText);
-
         if (bearerTokenOptional.isEmpty()) {
             log.warn("WebSocket  Token ");
             return;
         }
-
         String bearerToken = bearerTokenOptional.get();
-
         //  Bearer （）
         if (bearerToken.startsWith(BEARER_PREFIX)) {
             bearerToken = bearerToken.substring(BEARER_PREFIX.length());
         }
-
         try {
             if (jwtUtil.validateToken(bearerToken)) {
                 Long userId = jwtUtil.getUserIdFromToken(bearerToken);
-
                 // （ Principal）
                 WebSocketUserPrincipal principal = new WebSocketUserPrincipal(userId);
                 UsernamePasswordAuthenticationToken authentication =
@@ -118,13 +91,10 @@ public class WebSocketChannelInterceptor implements ChannelInterceptor {
                                 null,
                                 Collections.singletonList(new SimpleGrantedAuthority("ROLE_USER"))
                         );
-
                 //  Security Context
                 SecurityContextHolder.getContext().setAuthentication(authentication);
-
                 //  Session
                 accessor.setUser(authentication);
-
                 log.info("WebSocket : userId={}", userId);
             } else {
                 log.warn("WebSocket  Token ");
@@ -133,7 +103,6 @@ public class WebSocketChannelInterceptor implements ChannelInterceptor {
             log.error("WebSocket : {}", e.getMessage());
         }
     }
-
     /**
      *  WebSocket 
      *
@@ -145,55 +114,44 @@ public class WebSocketChannelInterceptor implements ChannelInterceptor {
             log.info("WebSocket : {}", user.getName());
         }
     }
-
     /**
      * WebSocket  Principal
      */
     public static class WebSocketUserPrincipal implements org.springframework.security.core.userdetails.UserDetails {
-
         @Serial
         private static final long serialVersionUID = 1L;
-
-        private final Long userId;
-
+        @org.springframework.beans.factory.annotation.Autowired
+        private Long userId;
         public WebSocketUserPrincipal(Long userId) {
             this.userId = userId;
         }
-
         public Long getUserId() {
             return userId;
         }
-
         @Override
         public String getUsername() {
             return String.valueOf(userId);
         }
-
         @Override
         public String getPassword() {
             return null;
         }
-
         @Override
         public java.util.Collection<? extends org.springframework.security.core.GrantedAuthority> getAuthorities() {
             return Collections.singletonList(new SimpleGrantedAuthority("ROLE_USER"));
         }
-
         @Override
         public boolean isAccountNonExpired() {
             return true;
         }
-
         @Override
         public boolean isAccountNonLocked() {
             return true;
         }
-
         @Override
         public boolean isCredentialsNonExpired() {
             return true;
         }
-
         @Override
         public boolean isEnabled() {
             return true;

@@ -1,11 +1,9 @@
 package com.koduck.service.impl;
-
 import com.koduck.config.properties.DataServiceProperties;
 import com.koduck.dto.market.DataServiceResponse;
 import com.koduck.dto.market.KlineDataDto;
 import com.koduck.service.KlineService;
 import com.koduck.service.KlineSyncService;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.RequestEntity;
@@ -16,33 +14,33 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.util.UriComponentsBuilder;
-
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
-
 /**
  * Implementation of KlineSyncService for syncing K-line data from Python Data Service.
  */
 @Service
-@RequiredArgsConstructor
 @Slf4j
 public class KlineSyncServiceImpl implements KlineSyncService {
-
-    private final RestTemplate dataServiceRestTemplate;
-    private final DataServiceProperties properties;
-    private final KlineService klineService;
-
+    @org.springframework.beans.factory.annotation.Autowired
+    private RestTemplate dataServiceRestTemplate;
+    @org.springframework.beans.factory.annotation.Autowired
+    private DataServiceProperties properties;
+    @org.springframework.beans.factory.annotation.Autowired
+    private KlineService klineService;
     private static final String A_SHARE_BASE_PATH = "/a-share";
     private static final String DEFAULT_MARKET = "AShare";
     private static final String DEFAULT_TIMEFRAME = "1D";
     private static final long DEFAULT_BATCH_INTERVAL_MILLIS = 500L;
     private static final int DEFAULT_KLINE_QUERY_LIMIT = 1000;
+    private static final ParameterizedTypeReference<DataServiceResponse<List<Map<String, Object>>>>
+        KLINE_LIST_RESPONSE_TYPE = new ParameterizedTypeReference<>() {
+        };
     private final Set<String> inFlightSyncKeys = ConcurrentHashMap.newKeySet();
-
     /**
      * {@inheritDoc}
      */
@@ -50,7 +48,6 @@ public class KlineSyncServiceImpl implements KlineSyncService {
     @Scheduled(cron = "0 5 15 ? * MON-FRI", zone = "Asia/Shanghai")
     public void syncDailyKlineData() {
         log.info("Starting daily K-line data sync");
-
         // Popular A-share stocks to sync
         List<String> popularSymbols = List.of(
             "000001", // 
@@ -62,7 +59,6 @@ public class KlineSyncServiceImpl implements KlineSyncService {
             "600036", // 
             "601318"  // 
         );
-
         for (String symbol : popularSymbols) {
             try {
                 syncSymbolKlineInternal(DEFAULT_MARKET, symbol, DEFAULT_TIMEFRAME);
@@ -76,10 +72,8 @@ public class KlineSyncServiceImpl implements KlineSyncService {
                 log.error("Failed to sync {}: {}", symbol, e.getMessage());
             }
         }
-
         log.info("Daily K-line data sync completed");
     }
-
     /**
      * {@inheritDoc}
      */
@@ -88,7 +82,6 @@ public class KlineSyncServiceImpl implements KlineSyncService {
     public void syncSymbolKline(String market, String symbol, String timeframe) {
         syncSymbolKlineInternal(market, symbol, timeframe);
     }
-
     /**
      * {@inheritDoc}
      */
@@ -100,7 +93,6 @@ public class KlineSyncServiceImpl implements KlineSyncService {
             log.warn("Batch sync skipped because symbols is empty");
             return;
         }
-
         log.info("Starting batch sync for {} symbols, market={}, timeframe={}", symbols.size(), market, timeframe);
         for (String symbol : symbols) {
             syncSymbolKlineInternal(market, symbol, timeframe);
@@ -114,7 +106,6 @@ public class KlineSyncServiceImpl implements KlineSyncService {
         }
         log.info("Batch sync finished for {} symbols", symbols.size());
     }
-
     /**
      * {@inheritDoc}
      */
@@ -124,13 +115,11 @@ public class KlineSyncServiceImpl implements KlineSyncService {
             log.warn("Data service is disabled, skipping async sync request");
             return false;
         }
-
         String key = String.format("%s:%s:%s", market, symbol, timeframe);
         if (!inFlightSyncKeys.add(key)) {
             log.debug("K-line sync already in progress for key={}", key);
             return false;
         }
-
         CompletableFuture.runAsync(() -> {
             try {
                 syncSymbolKlineInternal(market, symbol, timeframe);
@@ -140,16 +129,13 @@ public class KlineSyncServiceImpl implements KlineSyncService {
         });
         return true;
     }
-
     private void syncSymbolKlineInternal(String market, String symbol, String timeframe) {
         if (!properties.isEnabled()) {
             log.warn("Data service is disabled, skipping sync");
             return;
         }
-
         try {
             log.debug("Syncing K-line data for {}/{}/{}", market, symbol, timeframe);
-
             java.net.URI requestUri = UriComponentsBuilder
                     .fromUriString(properties.getBaseUrl() + A_SHARE_BASE_PATH + "/kline")
                     .queryParam("symbol", symbol)
@@ -157,32 +143,26 @@ public class KlineSyncServiceImpl implements KlineSyncService {
                     .queryParam("limit", DEFAULT_KLINE_QUERY_LIMIT)
                 .build(true)
                 .toUri();
-
             RequestEntity<Void> requestEntity = RequestEntity.get(requestUri).build();
             ResponseEntity<DataServiceResponse<List<Map<String, Object>>>> response =
                     dataServiceRestTemplate.exchange(
                     requestEntity,
-                            new ParameterizedTypeReference<>() {}
+                        KLINE_LIST_RESPONSE_TYPE
                     );
-
             DataServiceResponse<List<Map<String, Object>>> body = response.getBody();
             if (body == null || body.data() == null) {
                 log.warn("Empty response for {}/{}/{}", market, symbol, timeframe);
                 return;
             }
-
             List<KlineDataDto> klineData = body.data().stream()
                     .map(this::mapToKlineDataDto)
                     .toList();
-
             klineService.saveKlineData(klineData, market, symbol, timeframe);
             log.info("Synced {} records for {}/{}/{}", klineData.size(), market, symbol, timeframe);
-
         } catch (RestClientException e) {
             log.error("Failed to sync K-line data for {}: {}", symbol, e.getMessage());
         }
     }
-
     /**
      * {@inheritDoc}
      */
@@ -191,7 +171,6 @@ public class KlineSyncServiceImpl implements KlineSyncService {
         log.info("Backfilling {} days of historical data for {}/{}/{}", days, market, symbol, timeframe);
         syncSymbolKlineInternal(market, symbol, timeframe);
     }
-
     private KlineDataDto mapToKlineDataDto(Map<String, Object> data) {
         return KlineDataDto.builder()
                 .timestamp(getLong(data, "timestamp"))
@@ -203,7 +182,6 @@ public class KlineSyncServiceImpl implements KlineSyncService {
                 .amount(getBigDecimal(data, "amount"))
                 .build();
     }
-
     private java.math.BigDecimal getBigDecimal(Map<String, Object> data, String key) {
         Object value = data.get(key);
         if (value == null) return null;
@@ -217,7 +195,6 @@ public class KlineSyncServiceImpl implements KlineSyncService {
             return null;
         }
     }
-
     private Long getLong(Map<String, Object> data, String key) {
         Object value = data.get(key);
         if (value == null) return null;
