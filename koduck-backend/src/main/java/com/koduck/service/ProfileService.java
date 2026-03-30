@@ -1,7 +1,7 @@
-package com.koduck.profile.service;
+package com.koduck.service;
 
-import com.koduck.profile.dto.ProfileDTO;
-import com.koduck.profile.dto.UpdateProfileDTO;
+import com.koduck.dto.profile.ProfileDTO;
+import com.koduck.dto.profile.UpdateProfileDTO;
 
 /**
  * Profile management service.

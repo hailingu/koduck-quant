@@ -1,7 +1,7 @@
-package com.koduck.profile.controller;
+package com.koduck.controller;
 
 import com.koduck.dto.ApiResponse;
-import com.koduck.profile.dto.*;
+import com.koduck.dto.profile.*;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 

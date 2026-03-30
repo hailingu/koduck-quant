@@ -1,4 +1,4 @@
-package com.koduck.profile.dto;
+package com.koduck.dto.profile;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -8,13 +8,13 @@ import lombok.NoArgsConstructor;
 import java.time.LocalDateTime;
 
 /**
- * User profile data transfer object.
+ * Response DTO for profile endpoints.
  */
 @Data
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class ProfileDTO {
+public class ProfileResponse {
     
     private Long id;
     private String username;
@@ -23,8 +23,6 @@ public class ProfileDTO {
     private String avatarUrl;
     private String phone;
     private String bio;
-    private String location;
-    private String website;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 }

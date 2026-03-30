@@ -1,8 +1,8 @@
-package com.koduck.profile.service.impl;
+package com.koduck.service.impl;
 
-import com.koduck.profile.dto.ProfileDTO;
-import com.koduck.profile.dto.UpdateProfileDTO;
-import com.koduck.profile.service.ProfileService;
+import com.koduck.dto.profile.ProfileDTO;
+import com.koduck.dto.profile.UpdateProfileDTO;
+import com.koduck.service.ProfileService;
 import org.springframework.stereotype.Service;
 
 /**

@@ -10,6 +10,8 @@ import com.koduck.entity.MemoryChatMessage;
 import com.koduck.entity.PortfolioPosition;
 import com.koduck.entity.Strategy;
 import com.koduck.entity.UserMemoryProfile;
+import com.koduck.exception.ExternalServiceException;
+import com.koduck.exception.ResourceNotFoundException;
 import com.koduck.repository.BacktestResultRepository;
 import com.koduck.repository.PortfolioPositionRepository;
 import com.koduck.repository.StrategyRepository;
@@ -109,7 +111,7 @@ public class AiAnalysisServiceImpl implements AiAnalysisService {
                 
         } catch (Exception e) {
             log.error("Failed to call koduck-agent: {}", e.getMessage(), e);
-            throw new RuntimeException("AI 分析服务调用失败: " + e.getMessage(), e);
+            throw ExternalServiceException.of("koduck-agent", "AI 分析服务调用失败: " + e.getMessage(), e);
         }
     }
     
@@ -185,26 +187,37 @@ public class AiAnalysisServiceImpl implements AiAnalysisService {
         );
         
         log.debug("Agent response: {}", response.getBody());
-        
-        Map<?, ?> body = response.getBody();
-        if (body != null) {
-            Object choicesObject = body.get("choices");
-            if (choicesObject instanceof List<?> choices && !choices.isEmpty()) {
-                Object firstChoice = choices.get(0);
-                if (firstChoice instanceof Map<?, ?> choiceMap) {
-                    Object messageObject = choiceMap.get("message");
-                    if (messageObject instanceof Map<?, ?> messageMap) {
-                        Object contentObject = messageMap.get("content");
-                        if (contentObject instanceof String content) {
-                            log.info("Agent response content: {}", content);
-                            return content;
-                        }
-                    }
-                }
-            }
+
+        String content = extractAgentContent(response.getBody());
+        if (content != null) {
+            log.info("Agent response content: {}", content);
+            return content;
         }
         
-        throw new RuntimeException("Invalid response from agent: empty response");
+        throw ExternalServiceException.of("koduck-agent", "Invalid response from agent: empty response");
+    }
+
+    private String extractAgentContent(Map<?, ?> body) {
+        if (body == null) {
+            return null;
+        }
+        Object choicesObject = body.get("choices");
+        if (!(choicesObject instanceof List<?> choices) || choices.isEmpty()) {
+            return null;
+        }
+        Object firstChoice = choices.get(0);
+        if (!(firstChoice instanceof Map<?, ?> choiceMap)) {
+            return null;
+        }
+        Object messageObject = choiceMap.get("message");
+        if (!(messageObject instanceof Map<?, ?> messageMap)) {
+            return null;
+        }
+        Object contentObject = messageMap.get("content");
+        if (contentObject instanceof String content) {
+            return content;
+        }
+        return null;
     }
 
     /**
@@ -232,7 +245,7 @@ public class AiAnalysisServiceImpl implements AiAnalysisService {
             ? appendInstructionToSystem(memoryEnhancedRequest, NO_TOOL_MARKUP_GUARD)
             : memoryEnhancedRequest;
         ChatStreamRequest enhancedRequest = enrichWithQuantSignalIfNeeded(guardedRequest);
-        scheduleUserMemoryWriteback(userId, enhancedRequest);
+        scheduleUserMemoryWriteBack(userId, enhancedRequest);
         CompletableFuture.runAsync(() -> relayAgentStream(userId, enhancedRequest, emitter));
         return emitter;
     }
@@ -275,45 +288,73 @@ public class AiAnalysisServiceImpl implements AiAnalysisService {
         builder.append("【Memory Context】\n");
         builder.append("session_id: ").append(sessionId).append("\n");
 
-        boolean hasProfile = profile != null
-            && ((profile.getRiskPreference() != null && !profile.getRiskPreference().isBlank())
-            || (profile.getWatchSymbols() != null && !profile.getWatchSymbols().isEmpty())
-            || (profile.getPreferredSources() != null && !profile.getPreferredSources().isEmpty()));
-
-        if (hasProfile) {
-            builder.append("用户偏好:\n");
-            if (profile.getRiskPreference() != null && !profile.getRiskPreference().isBlank()) {
-                builder.append("- risk_preference: ").append(profile.getRiskPreference()).append("\n");
-            }
-            if (profile.getWatchSymbols() != null && !profile.getWatchSymbols().isEmpty()) {
-                builder.append("- watch_symbols: ").append(String.join(", ", profile.getWatchSymbols())).append("\n");
-            }
-            if (profile.getPreferredSources() != null && !profile.getPreferredSources().isEmpty()) {
-                builder.append("- preferred_sources: ").append(String.join(", ", profile.getPreferredSources())).append("\n");
-            }
-        }
-
-        if (recentMessages != null && !recentMessages.isEmpty()) {
-            builder.append("最近会话片段:\n");
-            int maxLines = Math.min(recentMessages.size(), 8);
-            for (int i = Math.max(0, recentMessages.size() - maxLines); i < recentMessages.size(); i++) {
-                MemoryChatMessage item = recentMessages.get(i);
-                String role = item.getRole() == null ? "unknown" : item.getRole();
-                String content = item.getContent() == null ? "" : item.getContent().trim();
-                if (content.length() > 180) {
-                    content = content.substring(0, 180) + "...";
-                }
-                builder.append("- ").append(role).append(": ").append(content).append("\n");
-            }
-        }
-
-        boolean hasRecent = recentMessages != null && !recentMessages.isEmpty();
+        boolean hasProfile = appendProfileMemoryContext(builder, profile);
+        boolean hasRecent = appendRecentMessagesContext(builder, recentMessages);
         if (!hasProfile && !hasRecent) {
             return "";
         }
         String result = builder.toString().trim();
         return result
             + "\n请把以上内容视为会话记忆，仅用于提升连续性，不要编造不存在的事实。";
+    }
+
+    private boolean appendProfileMemoryContext(StringBuilder builder, UserMemoryProfile profile) {
+        if (profile == null) {
+            return false;
+        }
+        String riskPreference = profile.getRiskPreference();
+        List<String> watchSymbols = profile.getWatchSymbols();
+        List<String> preferredSources = profile.getPreferredSources();
+
+        boolean hasRiskPreference = riskPreference != null && !riskPreference.isBlank();
+        boolean hasWatchSymbols = watchSymbols != null && !watchSymbols.isEmpty();
+        boolean hasPreferredSources = preferredSources != null && !preferredSources.isEmpty();
+        if (!hasRiskPreference && !hasWatchSymbols && !hasPreferredSources) {
+            return false;
+        }
+
+        builder.append("用户偏好:\n");
+        if (hasRiskPreference) {
+            builder.append("- risk_preference: ").append(riskPreference).append("\n");
+        }
+        if (hasWatchSymbols) {
+            builder.append("- watch_symbols: ").append(String.join(", ", watchSymbols)).append("\n");
+        }
+        if (hasPreferredSources) {
+            builder.append("- preferred_sources: ").append(String.join(", ", preferredSources)).append("\n");
+        }
+        return true;
+    }
+
+    private boolean appendRecentMessagesContext(StringBuilder builder, List<MemoryChatMessage> recentMessages) {
+        if (recentMessages == null || recentMessages.isEmpty()) {
+            return false;
+        }
+        builder.append("最近会话片段:\n");
+        int maxLines = Math.min(recentMessages.size(), 8);
+        int startIndex = Math.max(0, recentMessages.size() - maxLines);
+        for (int i = startIndex; i < recentMessages.size(); i++) {
+            MemoryChatMessage item = recentMessages.get(i);
+            String role = resolveRole(item);
+            String content = normalizeContent(item == null ? null : item.getContent());
+            builder.append("- ").append(role).append(": ").append(content).append("\n");
+        }
+        return true;
+    }
+
+    private String resolveRole(MemoryChatMessage item) {
+        if (item == null || item.getRole() == null) {
+            return "unknown";
+        }
+        return item.getRole();
+    }
+
+    private String normalizeContent(String content) {
+        String safeContent = content == null ? "" : content.trim();
+        if (safeContent.length() > 180) {
+            return safeContent.substring(0, 180) + "...";
+        }
+        return safeContent;
     }
 
     private ChatStreamRequest enrichWithQuantSignalIfNeeded(ChatStreamRequest request) {
@@ -358,18 +399,21 @@ public class AiAnalysisServiceImpl implements AiAnalysisService {
             return request;
         }
 
+        List<ChatMessageRequest> updatedMessages = mergeSystemInstruction(originalMessages, instruction);
+        return rebuildChatStreamRequest(request, updatedMessages);
+    }
+
+    private List<ChatMessageRequest> mergeSystemInstruction(
+        List<ChatMessageRequest> originalMessages,
+        String instruction
+    ) {
         List<ChatMessageRequest> updatedMessages = new ArrayList<>(originalMessages.size() + 1);
         boolean merged = false;
 
         for (int i = 0; i < originalMessages.size(); i++) {
             ChatMessageRequest msg = originalMessages.get(i);
             if (!merged && "system".equalsIgnoreCase(msg.getRole())) {
-                String existing = msg.getContent() == null ? "" : msg.getContent();
-                String mergedContent = existing.isBlank() ? instruction : existing + "\n\n" + instruction;
-                updatedMessages.add(ChatMessageRequest.builder()
-                    .role(msg.getRole())
-                    .content(mergedContent)
-                    .build());
+                updatedMessages.add(buildMergedSystemMessage(msg, instruction));
                 merged = true;
             } else {
                 updatedMessages.add(msg);
@@ -383,6 +427,19 @@ public class AiAnalysisServiceImpl implements AiAnalysisService {
                 .build());
         }
 
+        return updatedMessages;
+    }
+
+    private ChatMessageRequest buildMergedSystemMessage(ChatMessageRequest message, String instruction) {
+        String existing = message.getContent() == null ? "" : message.getContent();
+        String mergedContent = existing.isBlank() ? instruction : existing + "\n\n" + instruction;
+        return ChatMessageRequest.builder()
+            .role(message.getRole())
+            .content(mergedContent)
+            .build();
+    }
+
+    private ChatStreamRequest rebuildChatStreamRequest(ChatStreamRequest request, List<ChatMessageRequest> messages) {
         return ChatStreamRequest.builder()
             .provider(request.getProvider())
             .model(request.getModel())
@@ -392,7 +449,7 @@ public class AiAnalysisServiceImpl implements AiAnalysisService {
             .role(request.getRole())
             .runtime(request.getRuntime())
             .disableToolCalls(request.getDisableToolCalls())
-            .messages(updatedMessages)
+            .messages(messages)
             .build();
     }
 
@@ -426,17 +483,7 @@ public class AiAnalysisServiceImpl implements AiAnalysisService {
             }
         }
 
-        return ChatStreamRequest.builder()
-            .provider(request.getProvider())
-            .model(request.getModel())
-            .apiKey(request.getApiKey())
-            .apiBase(request.getApiBase())
-            .sessionId(request.getSessionId())
-            .role(request.getRole())
-            .runtime(request.getRuntime())
-            .disableToolCalls(request.getDisableToolCalls())
-            .messages(updatedMessages)
-            .build();
+        return rebuildChatStreamRequest(request, updatedMessages);
     }
 
     private ChatMessageRequest findLatestUserMessage(List<ChatMessageRequest> messages) {
@@ -609,7 +656,7 @@ public class AiAnalysisServiceImpl implements AiAnalysisService {
                     }
 
                     if (line.startsWith("data:")) {
-                        if (dataBuilder.length() > 0) {
+                        if (!dataBuilder.isEmpty()) {
                             dataBuilder.append('\n');
                         }
                         dataBuilder.append(line.substring("data:".length()).trim());
@@ -620,7 +667,7 @@ public class AiAnalysisServiceImpl implements AiAnalysisService {
             }
 
             if (finalAssistantContent != null && !finalAssistantContent.isBlank()) {
-                scheduleAssistantMemoryWriteback(userId, request, finalAssistantContent, finalTokenCount);
+                scheduleAssistantMemoryWriteBack(userId, request, finalAssistantContent, finalTokenCount);
             }
             log.info(
                 "AI chat stream relay completed: provider={}, model={}, session={}",
@@ -648,7 +695,7 @@ public class AiAnalysisServiceImpl implements AiAnalysisService {
         }
     }
 
-    private void scheduleUserMemoryWriteback(Long userId, ChatStreamRequest request) {
+    private void scheduleUserMemoryWriteBack(Long userId, ChatStreamRequest request) {
         if (!memoryService.isEnabled()) {
             return;
         }
@@ -675,7 +722,7 @@ public class AiAnalysisServiceImpl implements AiAnalysisService {
         });
     }
 
-    private void scheduleAssistantMemoryWriteback(Long userId, ChatStreamRequest request, String content, Integer tokenCount) {
+    private void scheduleAssistantMemoryWriteBack(Long userId, ChatStreamRequest request, String content, Integer tokenCount) {
         if (!memoryService.isEnabled()) {
             return;
         }
@@ -797,7 +844,7 @@ public class AiAnalysisServiceImpl implements AiAnalysisService {
             StringBuilder builder = new StringBuilder();
             String line;
             while ((line = reader.readLine()) != null) {
-                if (builder.length() > 0) {
+                if (!builder.isEmpty()) {
                     builder.append('\n');
                 }
                 builder.append(line);
@@ -885,7 +932,7 @@ public class AiAnalysisServiceImpl implements AiAnalysisService {
         log.debug("Interpreting backtest: {} for user: {}", backtestResultId, userId);
 
         BacktestResult result = backtestResultRepository.findByIdAndUserId(backtestResultId, userId)
-            .orElseThrow(() -> new RuntimeException("Backtest result not found"));
+            .orElseThrow(() -> ResourceNotFoundException.of("Backtest result", backtestResultId));
 
         boolean isGoodPerformance = result.getTotalReturn().compareTo(new BigDecimal("0.1")) > 0;
 

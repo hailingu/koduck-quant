@@ -22,6 +22,7 @@ import org.springframework.web.method.annotation.MethodArgumentTypeMismatchExcep
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 import org.springframework.web.servlet.NoHandlerFoundException;
 
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 /**
@@ -35,17 +36,13 @@ import java.util.stream.Collectors;
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
-    // ==========  ==========
-
-    /**
-     * 
-     */
     @ExceptionHandler(BusinessException.class)
     public ResponseEntity<ApiResponse<Void>> handleBusinessException(BusinessException e) {
         log.warn("Business exception: code={}, message={}", e.getCode(), e.getMessage());
         ErrorCode errorCode = ErrorCode.fromCode(e.getCode());
         ApiResponse<Void> response = ApiResponse.error(e.getCode(), e.getMessage());
-        return ResponseEntity.status(errorCode.getHttpStatus()).body(response);
+        HttpStatus status = Objects.requireNonNull(errorCode.getHttpStatus(), "httpStatus must not be null");
+        return ResponseEntity.status(status).body(response);
     }
 
     /**

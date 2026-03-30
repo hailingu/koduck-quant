@@ -1,4 +1,4 @@
-package com.koduck.profile.dto;
+package com.koduck.dto.profile;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;
