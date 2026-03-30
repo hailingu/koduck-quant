@@ -107,7 +107,7 @@ public class EmailServiceImpl implements EmailService {
     private String buildPasswordResetEmailHtml(String username, String resetUrl, String resetToken) {
         int expiryMinutes = mailProperties.getPasswordResetTokenExpiryMinutes();
 
-        return """
+        String template = """
             <!DOCTYPE html>
             <html>
             <head>
@@ -115,7 +115,7 @@ public class EmailServiceImpl implements EmailService {
                 <style>
                     body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; }
                     .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-                    .header { background: linear-gradient(135deg, #667eea 0%%, #764ba2 100%%); padding: 30px; text-align: center; border-radius: 8px 8px 0 0; }
+                    .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; text-align: center; border-radius: 8px 8px 0 0; }
                     .header h1 { color: white; margin: 0; font-size: 24px; }
                     .content { background: #f9f9f9; padding: 30px; border-radius: 0 0 8px 8px; }
                     .button { display: inline-block; background: #667eea; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; margin: 20px 0; }
@@ -130,14 +130,14 @@ public class EmailServiceImpl implements EmailService {
                     </div>
                     <div class="content">
                         <h2>密码重置请求</h2>
-                        <p>您好 %s，</p>
+                        <p>您好 {USERNAME}，</p>
                         <p>我们收到了您的密码重置请求。请点击下方按钮重置密码：</p>
                         <p style="text-align: center;">
-                            <a href="%s" class="button">重置密码</a>
+                            <a href="{RESET_URL}" class="button">重置密码</a>
                         </p>
                         <p>或者复制以下链接到浏览器：</p>
-                        <div class="token-box">%s</div>
-                        <p><strong>注意：</strong>此链接将在 %d 分钟后失效。</p>
+                        <div class="token-box">{RESET_TOKEN}</div>
+                        <p><strong>注意：</strong>此链接将在 {EXPIRY_MINUTES} 分钟后失效。</p>
                         <p>如果您没有请求重置密码，请忽略此邮件。</p>
                         <div class="footer">
                             <p>此邮件由 Koduck Quant 系统自动发送，请勿回复。</p>
@@ -146,7 +146,13 @@ public class EmailServiceImpl implements EmailService {
                 </div>
             </body>
             </html>
-            """.formatted(username, resetUrl, resetUrl, expiryMinutes);
+            """;
+
+        return template
+                .replace("{USERNAME}", username)
+                .replace("{RESET_URL}", resetUrl)
+            .replace("{RESET_TOKEN}", resetToken)
+                .replace("{EXPIRY_MINUTES}", String.valueOf(expiryMinutes));
     }
 
     /**

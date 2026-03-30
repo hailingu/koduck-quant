@@ -1,6 +1,5 @@
 package com.koduck.service.impl;
 
-import com.koduck.config.CacheConfig;
 import com.koduck.dto.market.KlineDataDto;
 import com.koduck.entity.KlineData;
 import com.koduck.entity.StockRealtime;
@@ -9,9 +8,6 @@ import com.koduck.repository.StockRealtimeRepository;
 import com.koduck.service.KlineService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.cache.annotation.CacheEvict;
-import org.springframework.cache.annotation.Caching;
-import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -284,7 +280,7 @@ public class KlineServiceImpl implements KlineService {
             (timeframe.equalsIgnoreCase("1D") || 
              timeframe.equalsIgnoreCase("1W") || 
              timeframe.equalsIgnoreCase("1M") ||
-             timeframe.toLowerCase().matches("^(day|daily|week|weekly|month|monthly|1mth|1mo)$"));
+             timeframe.toLowerCase(Locale.ROOT).matches("^(day|daily|week|weekly|month|monthly|1mth|1mo)$"));
         
         java.util.LinkedHashMap<Long, KlineDataDto> uniqueMap = new java.util.LinkedHashMap<>();
         for (KlineDataDto item : data) {

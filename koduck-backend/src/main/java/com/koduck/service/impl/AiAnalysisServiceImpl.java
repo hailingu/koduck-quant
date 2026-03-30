@@ -874,7 +874,7 @@ public class AiAnalysisServiceImpl implements AiAnalysisService {
      * 根据 AI 响应生成推荐
      */
     private String generateRecommendationFromResponse(String response) {
-        response = response.toLowerCase();
+        response = response.toLowerCase(Locale.ROOT);
         if (response.contains("买入") || response.contains("建议买入") || response.contains("强烈推荐")) {
             return "建议买入";
         } else if (response.contains("持有") || response.contains("观望")) {

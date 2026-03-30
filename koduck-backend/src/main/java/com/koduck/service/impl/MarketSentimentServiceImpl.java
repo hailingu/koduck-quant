@@ -366,7 +366,7 @@ public class MarketSentimentServiceImpl implements MarketSentimentService {
                     .map(provider -> {
                         try {
                             return provider.getKlineData(symbol, "1D", limit, 
-                                    Instant.now().minus(limit * 2, ChronoUnit.DAYS), Instant.now());
+                                    Instant.now().minus(2L * limit, ChronoUnit.DAYS), Instant.now());
                         } catch (MarketDataProvider.MarketDataException e) {
                             log.warn("Failed to get kline data for {} from provider: {}", symbol, e.getMessage());
                             return List.<KlineData>of();

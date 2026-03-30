@@ -41,8 +41,8 @@ public class HKStockProvider implements MarketDataProvider {
     private static final ZoneId HONG_KONG_ZONE = ZoneId.of("Asia/Hong_Kong");
     private static final String DATA_SERVICE_DISABLED_MESSAGE = "Data service is disabled";
     private static final String HK_STOCK_BASE_PATH = "/hk-stock";
+    private static final String PROVIDER_NAME = "akshare-hk-stock";
     
-    private final String providerName = "akshare-hk-stock";
     private final DataServiceProperties properties;
     private final RestTemplate restTemplate;
     private final Set<String> subscribedSymbols = ConcurrentHashMap.newKeySet();
@@ -69,7 +69,7 @@ public class HKStockProvider implements MarketDataProvider {
     
     @Override
     public String getProviderName() {
-        return providerName;
+        return PROVIDER_NAME;
     }
     
     @Override
@@ -280,7 +280,7 @@ public class HKStockProvider implements MarketDataProvider {
             return "";
         }
         
-        String normalized = symbol.trim().toUpperCase();
+        String normalized = symbol.trim().toUpperCase(Locale.ROOT);
         
         // Remove .HK suffix if present
         if (normalized.endsWith(".HK")) {
@@ -373,7 +373,7 @@ public class HKStockProvider implements MarketDataProvider {
     
     private List<SymbolInfo> generateMockSearchResults(String keyword, int limit) {
         List<SymbolInfo> results = new ArrayList<>();
-        String upperKeyword = keyword.toUpperCase();
+        String upperKeyword = keyword.toUpperCase(Locale.ROOT);
         
         Map<String, String> hkStocks = new LinkedHashMap<>();
         hkStocks.put("00700", "Tencent Holdings Ltd.");
@@ -389,7 +389,7 @@ public class HKStockProvider implements MarketDataProvider {
         
         hkStocks.entrySet().stream()
             .filter(e -> e.getKey().contains(upperKeyword) || 
-                        e.getValue().toUpperCase().contains(upperKeyword))
+                        e.getValue().toUpperCase(Locale.ROOT).contains(upperKeyword))
             .limit(limit)
             .forEach(e -> results.add(new SymbolInfo(
                 e.getKey(),
@@ -471,7 +471,7 @@ public class HKStockProvider implements MarketDataProvider {
     }
     
     private Duration parseTimeframe(String timeframe) {
-        return switch (timeframe.toLowerCase()) {
+        return switch (timeframe.toLowerCase(Locale.ROOT)) {
             case "1m" -> Duration.ofMinutes(1);
             case "5m" -> Duration.ofMinutes(5);
             case "15m" -> Duration.ofMinutes(15);

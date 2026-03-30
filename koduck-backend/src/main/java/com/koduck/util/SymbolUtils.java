@@ -2,6 +2,9 @@ package com.koduck.util;
 
 import lombok.extern.slf4j.Slf4j;
 
+import java.util.Locale;
+import java.util.Objects;
+
 /**
  * Utility class for stock symbol normalization and comparison.
  * Handles various symbol formats: SH601012, sh601012, 601012.SH, 601012
@@ -28,7 +31,7 @@ public class SymbolUtils {
         }
 
         // Convert to uppercase and remove all non-digit characters
-        String normalized = symbol.toUpperCase()
+        String normalized = symbol.toUpperCase(Locale.ROOT)
                 .replace(".SH", "")
                 .replace(".SZ", "")
                 .replace(".BJ", "")
@@ -57,7 +60,7 @@ public class SymbolUtils {
      */
     public static boolean matches(String symbol1, String symbol2) {
         if (symbol1 == null || symbol2 == null) {
-            return symbol1 == symbol2;
+            return Objects.equals(symbol1, symbol2);
         }
         return normalize(symbol1).equals(normalize(symbol2));
     }
@@ -73,7 +76,7 @@ public class SymbolUtils {
             return null;
         }
 
-        String upper = symbol.toUpperCase();
+        String upper = symbol.toUpperCase(Locale.ROOT);
         if (upper.startsWith("SH")) {
             return "SH";
         } else if (upper.startsWith("SZ")) {

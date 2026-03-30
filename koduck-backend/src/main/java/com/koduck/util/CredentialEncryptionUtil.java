@@ -33,7 +33,7 @@ public class CredentialEncryptionUtil {
     private String encryptionKeyFromConfig;
 
     private static SecretKey secretKey;
-    private static SecureRandom secureRandom;
+    private static final SecureRandom SECURE_RANDOM = new SecureRandom();
 
     @PostConstruct
     public void init() {
@@ -50,7 +50,6 @@ public class CredentialEncryptionUtil {
         try {
             byte[] keyBytes = deriveKey(keyToUse);
             secretKey = new SecretKeySpec(keyBytes, ALGORITHM);
-            secureRandom = new SecureRandom();
             log.info("");
         } catch (Exception e) {
             log.error("", e);
@@ -81,7 +80,7 @@ public class CredentialEncryptionUtil {
         try {
             //  IV
             byte[] iv = new byte[GCM_IV_LENGTH];
-            secureRandom.nextBytes(iv);
+            SECURE_RANDOM.nextBytes(iv);
 
             //  Cipher
             Cipher cipher = Cipher.getInstance(TRANSFORMATION);
@@ -176,8 +175,7 @@ public class CredentialEncryptionUtil {
      */
     public static String generateRandomKey() {
         byte[] key = new byte[KEY_LENGTH];
-        SecureRandom random = new SecureRandom();
-        random.nextBytes(key);
+        SECURE_RANDOM.nextBytes(key);
         return Base64.getEncoder().encodeToString(key);
     }
 }

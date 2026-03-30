@@ -47,8 +47,8 @@ public class FuturesProvider implements MarketDataProvider {
     private static final Logger log = LoggerFactory.getLogger(FuturesProvider.class);
     private static final ZoneId BEIJING_ZONE = ZoneId.of("Asia/Shanghai");
     private static final String FUTURES_BASE_PATH = "/futures";
+    private static final String PROVIDER_NAME = "akshare-futures";
     
-    private final String providerName = "akshare-futures";
     private final DataServiceProperties properties;
     private final RestTemplate restTemplate;
     private final Set<String> subscribedSymbols = ConcurrentHashMap.newKeySet();
@@ -95,7 +95,7 @@ public class FuturesProvider implements MarketDataProvider {
     
     @Override
     public String getProviderName() {
-        return providerName;
+        return PROVIDER_NAME;
     }
     
     @Override
@@ -305,7 +305,7 @@ public class FuturesProvider implements MarketDataProvider {
             return "";
         }
         
-        String normalized = symbol.trim().toUpperCase();
+        String normalized = symbol.trim().toUpperCase(Locale.ROOT);
         
         // Remove any exchange suffix if present
         if (normalized.contains(".")) {
@@ -405,7 +405,7 @@ public class FuturesProvider implements MarketDataProvider {
     
     private List<SymbolInfo> generateMockSearchResults(String keyword, int limit) {
         List<SymbolInfo> results = new ArrayList<>();
-        String upperKeyword = keyword.toUpperCase();
+        String upperKeyword = keyword.toUpperCase(Locale.ROOT);
         
         // SHFE (上海期货交易所)
         Map<String, String> shfeFutures = new LinkedHashMap<>();
@@ -443,7 +443,7 @@ public class FuturesProvider implements MarketDataProvider {
         
         allFutures.entrySet().stream()
             .filter(e -> e.getKey().contains(upperKeyword) || 
-                        e.getValue().toUpperCase().contains(upperKeyword))
+                        e.getValue().toUpperCase(Locale.ROOT).contains(upperKeyword))
             .limit(limit)
             .forEach(e -> {
                 String exchange = shfeFutures.containsKey(e.getKey()) ? "SHFE" :
@@ -529,7 +529,7 @@ public class FuturesProvider implements MarketDataProvider {
     }
     
     private Duration parseTimeframe(String timeframe) {
-        return switch (timeframe.toLowerCase()) {
+        return switch (timeframe.toLowerCase(Locale.ROOT)) {
             case "1m" -> Duration.ofMinutes(1);
             case "5m" -> Duration.ofMinutes(5);
             case "15m" -> Duration.ofMinutes(15);

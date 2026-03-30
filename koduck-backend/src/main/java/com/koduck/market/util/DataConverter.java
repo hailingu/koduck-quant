@@ -10,6 +10,7 @@ import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
+import java.util.Locale;
 
 /**
  * Utility class for converting data between different formats.
@@ -138,7 +139,7 @@ public final class DataConverter {
             return "";
         }
         
-        String normalized = symbol.trim().toUpperCase();
+        String normalized = symbol.trim().toUpperCase(Locale.ROOT);
         
         // Add market suffix if not present
         if ("a_share".equals(market) && !normalized.contains(".")) {

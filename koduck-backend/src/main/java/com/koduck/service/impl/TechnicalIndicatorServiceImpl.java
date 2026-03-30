@@ -35,6 +35,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
 /**
@@ -94,7 +95,7 @@ public class TechnicalIndicatorServiceImpl implements TechnicalIndicatorService 
         BarSeries series = convertToBarSeries(klineData);
         
         // Calculate indicator
-        return switch (indicator.toUpperCase()) {
+        return switch (indicator.toUpperCase(Locale.ROOT)) {
             case "MA", "SMA" -> calculateMA(series, market, symbol, period != null ? period : 20);
             case "EMA" -> calculateEMA(series, market, symbol, period != null ? period : 20);
             case "MACD" -> calculateMACD(series, market, symbol);

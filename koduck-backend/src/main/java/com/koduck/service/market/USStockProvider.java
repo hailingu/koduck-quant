@@ -38,8 +38,8 @@ public class USStockProvider implements MarketDataProvider {
     
     private static final Logger log = LoggerFactory.getLogger(USStockProvider.class);
     private static final ZoneId US_EASTERN = ZoneId.of("America/New_York");
+    private static final String PROVIDER_NAME = "finnhub-us-stock";
     
-    private final String providerName = "finnhub-us-stock";
     private final FinnhubProperties properties;
     private final RestTemplate restTemplate;
     private final Set<String> subscribedSymbols = ConcurrentHashMap.newKeySet();
@@ -55,7 +55,7 @@ public class USStockProvider implements MarketDataProvider {
     
     @Override
     public String getProviderName() {
-        return providerName;
+        return PROVIDER_NAME;
     }
     
     @Override
@@ -98,7 +98,7 @@ public class USStockProvider implements MarketDataProvider {
             
             String url = UriComponentsBuilder
                     .fromUriString(properties.getBaseUrl() + "/stock/candle")
-                    .queryParam("symbol", symbol.toUpperCase())
+                    .queryParam("symbol", symbol.toUpperCase(Locale.ROOT))
                     .queryParam("resolution", resolution)
                     .queryParam("from", from)
                     .queryParam("to", to)
@@ -120,7 +120,7 @@ public class USStockProvider implements MarketDataProvider {
                     (body != null ? body.s : "null"));
             }
             
-            return convertToKlineData(body, symbol.toUpperCase(), timeframe, limit);
+            return convertToKlineData(body, symbol.toUpperCase(Locale.ROOT), timeframe, limit);
             
         } catch (RestClientException e) {
             log.error("Failed to fetch kline from Finnhub: {}", e.getMessage());
@@ -139,7 +139,7 @@ public class USStockProvider implements MarketDataProvider {
         try {
             String url = UriComponentsBuilder
                     .fromUriString(properties.getBaseUrl() + "/quote")
-                    .queryParam("symbol", symbol.toUpperCase())
+                    .queryParam("symbol", symbol.toUpperCase(Locale.ROOT))
                     .queryParam("token", properties.getApiKey())
                     .toUriString();
             
@@ -158,7 +158,7 @@ public class USStockProvider implements MarketDataProvider {
             }
             
             TickData tickData = TickData.builder()
-                .symbol(symbol.toUpperCase())
+                .symbol(symbol.toUpperCase(Locale.ROOT))
                 .market(MarketType.US_STOCK.getCode())
                 .timestamp(Instant.ofEpochSecond(quote.t))
                 .price(BigDecimal.valueOf(quote.c)) // Current price
@@ -184,7 +184,7 @@ public class USStockProvider implements MarketDataProvider {
     public void subscribeRealTime(List<String> symbols, RealTimeDataCallback callback) 
             throws MarketDataException {
         
-        symbols.forEach(sym -> subscribedSymbols.add(sym.toUpperCase()));
+        symbols.forEach(sym -> subscribedSymbols.add(sym.toUpperCase(Locale.ROOT)));
         log.info("Subscribed to {} US stocks for real-time data", symbols.size());
         
         // Finnhub WebSocket requires separate connection
@@ -194,7 +194,7 @@ public class USStockProvider implements MarketDataProvider {
     
     @Override
     public void unsubscribeRealTime(List<String> symbols) {
-        symbols.forEach(sym -> subscribedSymbols.remove(sym.toUpperCase()));
+        symbols.forEach(sym -> subscribedSymbols.remove(sym.toUpperCase(Locale.ROOT)));
         log.info("Unsubscribed from {} US stocks", symbols.size());
     }
     
@@ -274,7 +274,7 @@ public class USStockProvider implements MarketDataProvider {
     // Helper methods
     
     private String mapTimeframe(String timeframe) {
-        return switch (timeframe.toLowerCase()) {
+        return switch (timeframe.toLowerCase(Locale.ROOT)) {
             case "1m" -> "1";
             case "5m" -> "5";
             case "15m" -> "15";
@@ -305,7 +305,7 @@ public class USStockProvider implements MarketDataProvider {
                 .high(BigDecimal.valueOf(response.h.get(i)))
                 .low(BigDecimal.valueOf(response.l.get(i)))
                 .close(BigDecimal.valueOf(response.c.get(i)))
-                .volume(response.v.get(i).longValue())
+                .volume(response.v.get(i))
                 .amount(BigDecimal.valueOf(response.c.get(i) * response.v.get(i)))
                 .timeframe(timeframe)
                 .build());
@@ -412,7 +412,7 @@ public class USStockProvider implements MarketDataProvider {
         List<KlineData> getKlineData(String symbol, String timeframe, int limit,
                                       Instant startTime, Instant endTime) {
             List<KlineData> klines = new ArrayList<>();
-            BigDecimal basePrice = basePrices.getOrDefault(symbol.toUpperCase(), new BigDecimal("100.00"));
+            BigDecimal basePrice = basePrices.getOrDefault(symbol.toUpperCase(Locale.ROOT), new BigDecimal("100.00"));
             
             Instant currentTime = endTime != null ? endTime : Instant.now();
             Duration interval = parseTimeframe(timeframe);
@@ -430,7 +430,7 @@ public class USStockProvider implements MarketDataProvider {
                 long volume = (long) (Math.random() * 9900000 + 100000);
                 
                 klines.add(KlineData.builder()
-                    .symbol(symbol.toUpperCase())
+                    .symbol(symbol.toUpperCase(Locale.ROOT))
                     .market(MarketType.US_STOCK.getCode())
                     .timestamp(currentTime)
                     .open(open)
@@ -451,7 +451,7 @@ public class USStockProvider implements MarketDataProvider {
         }
         
         Optional<TickData> getRealTimeTick(String symbol) {
-            BigDecimal basePrice = basePrices.getOrDefault(symbol.toUpperCase(), new BigDecimal("100.00"));
+            BigDecimal basePrice = basePrices.getOrDefault(symbol.toUpperCase(Locale.ROOT), new BigDecimal("100.00"));
             
             double changePercent = (Math.random() - 0.5) * 0.02;
             BigDecimal price = basePrice.multiply(BigDecimal.valueOf(1 + changePercent));
@@ -462,7 +462,7 @@ public class USStockProvider implements MarketDataProvider {
             long volume = (long) (Math.random() * 49000000 + 1000000);
             
             TickData tickData = TickData.builder()
-                .symbol(symbol.toUpperCase())
+                .symbol(symbol.toUpperCase(Locale.ROOT))
                 .market(MarketType.US_STOCK.getCode())
                 .timestamp(Instant.now())
                 .price(price)
@@ -485,7 +485,7 @@ public class USStockProvider implements MarketDataProvider {
         
         List<SymbolInfo> searchSymbols(String keyword, int limit) {
             List<SymbolInfo> results = new ArrayList<>();
-            String upperKeyword = keyword.toUpperCase();
+            String upperKeyword = keyword.toUpperCase(Locale.ROOT);
             
             Map<String, String> usStocks = Map.of(
                 "AAPL", "Apple Inc.",
@@ -502,7 +502,7 @@ public class USStockProvider implements MarketDataProvider {
             
             usStocks.entrySet().stream()
                 .filter(e -> e.getKey().contains(upperKeyword) || 
-                            e.getValue().toUpperCase().contains(upperKeyword))
+                            e.getValue().toUpperCase(Locale.ROOT).contains(upperKeyword))
                 .limit(limit)
                 .forEach(e -> results.add(new SymbolInfo(
                     e.getKey(),
@@ -516,7 +516,7 @@ public class USStockProvider implements MarketDataProvider {
         }
         
         Duration parseTimeframe(String timeframe) {
-            return switch (timeframe.toLowerCase()) {
+            return switch (timeframe.toLowerCase(Locale.ROOT)) {
                 case "1m" -> Duration.ofMinutes(1);
                 case "5m" -> Duration.ofMinutes(5);
                 case "15m" -> Duration.ofMinutes(15);

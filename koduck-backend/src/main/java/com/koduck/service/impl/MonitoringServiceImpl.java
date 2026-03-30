@@ -247,7 +247,7 @@ public class MonitoringServiceImpl implements MonitoringService {
                 warning = count;
             }
             
-            stats.put(severity.toLowerCase(), count);
+            stats.put(severity.toLowerCase(Locale.ROOT), count);
         }
         
         stats.put("total", total);

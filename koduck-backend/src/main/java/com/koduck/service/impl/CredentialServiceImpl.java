@@ -22,6 +22,7 @@ import org.springframework.web.context.request.ServletRequestAttributes;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Locale;
 import java.util.stream.Collectors;
 
 import static com.koduck.util.ServiceValidationUtils.requireFound;
@@ -286,7 +287,7 @@ public class CredentialServiceImpl implements CredentialService {
         }
 
         // 根据提供商执行不同的验证逻辑
-        switch (credential.getProvider().toLowerCase()) {
+        switch (credential.getProvider().toLowerCase(Locale.ROOT)) {
             case "alpaca":
                 // TODO: 调用 Alpaca API 进行验证
                 return VerificationResult.success("Alpaca API 凭证有效");

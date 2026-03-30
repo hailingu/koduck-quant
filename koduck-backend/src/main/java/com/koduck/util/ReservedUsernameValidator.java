@@ -1,5 +1,7 @@
 package com.koduck.util;
 
+import java.util.Locale;
+
 /**
  * Utility class for validating reserved usernames.
  * <p>
@@ -27,9 +29,9 @@ public final class ReservedUsernameValidator {
         if (username == null || username.isBlank()) {
             return false;
         }
-        String lowerUsername = username.toLowerCase();
+        String lowerUsername = username.toLowerCase(Locale.ROOT);
         for (String reserved : RESERVED_USERNAMES) {
-            if (reserved.equalsIgnoreCase(lowerUsername)) {
+            if (reserved.equals(lowerUsername)) {
                 return true;
             }
         }

@@ -20,6 +20,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
 import com.koduck.util.ReservedUsernameValidator;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -298,7 +299,7 @@ public class DataInitializer implements CommandLineRunner {
                 UserCredential credential = Objects.requireNonNull(
                     UserCredential.builder()
                         .userId(userId)
-                        .name(provider.toUpperCase() + " API Key (Auto)")
+                        .name(provider.toUpperCase(Locale.ROOT) + " API Key (Auto)")
                         .type(UserCredential.CredentialType.AI_PROVIDER)
                         .provider(provider)
                         .apiKeyEncrypted(encryptedKey)

@@ -15,6 +15,7 @@ import com.koduck.service.AuthService;
 import com.koduck.service.EmailService;
 import com.koduck.service.RateLimiterService;
 import com.koduck.util.JwtUtil;
+import com.koduck.util.ReservedUsernameValidator;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataAccessException;
@@ -23,6 +24,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.nio.charset.StandardCharsets;
 import java.security.SecureRandom;
 import java.time.LocalDateTime;
 import java.util.Base64;
@@ -58,16 +60,10 @@ public class AuthServiceImpl implements AuthService {
     private static final int DEFAULT_ROLE_ID = 2; // USER 角色
 
     /**
-     * 保留用户名列表（不允许注册）
-     */
-    private static final List<String> RESERVED_USERNAMES = List.of(
-            "admin", "administrator", "root", "system", "test", "guest", "demo"
-    );
-
-    /**
      * 密码重置令牌长度（URL-safe Base64）
      */
     private static final int RESET_TOKEN_LENGTH = 32;
+    private static final SecureRandom SECURE_RANDOM = new SecureRandom();
     private static final int MAX_REFRESH_TOKENS_PER_USER = 2;
     private volatile Boolean userRolesTableExists;
 
@@ -100,7 +96,7 @@ public class AuthServiceImpl implements AuthService {
     @Transactional
     public TokenResponse register(RegisterRequest request) {
         // 检查保留用户名（大小写不敏感）
-        if (RESERVED_USERNAMES.contains(request.getUsername().toLowerCase())) {
+        if (ReservedUsernameValidator.isReserved(request.getUsername())) {
             throw new BusinessException(ErrorCode.USER_RESERVED_USERNAME);
         }
 
@@ -273,7 +269,7 @@ public class AuthServiceImpl implements AuthService {
             throw new BusinessException("重置令牌已过期，请重新申请");
         }
 
-        if (resetToken.getUsed()) {
+        if (Boolean.TRUE.equals(resetToken.getUsed())) {
             throw new BusinessException("重置令牌已被使用");
         }
 
@@ -387,7 +383,7 @@ public class AuthServiceImpl implements AuthService {
      * @return Token Hash
      */
     private String hashToken(String token) {
-        return UUID.nameUUIDFromBytes(token.getBytes()).toString();
+        return UUID.nameUUIDFromBytes(token.getBytes(StandardCharsets.UTF_8)).toString();
     }
 
     /**
@@ -398,9 +394,8 @@ public class AuthServiceImpl implements AuthService {
      * @return 安全随机令牌
      */
     private String generateSecureToken() {
-        SecureRandom random = new SecureRandom();
         byte[] bytes = new byte[RESET_TOKEN_LENGTH];
-        random.nextBytes(bytes);
+        SECURE_RANDOM.nextBytes(bytes);
         return Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
     }
 

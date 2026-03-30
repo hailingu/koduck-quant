@@ -40,8 +40,8 @@ public class ForexProvider implements MarketDataProvider {
     private static final Logger log = LoggerFactory.getLogger(ForexProvider.class);
     private static final ZoneId NEW_YORK_ZONE = ZoneId.of("America/New_York");
     private static final String FOREX_BASE_PATH = "/forex";
+    private static final String PROVIDER_NAME = "akshare-forex";
     
-    private final String providerName = "akshare-forex";
     private final DataServiceProperties properties;
     private final RestTemplate restTemplate;
     private final Set<String> subscribedSymbols = ConcurrentHashMap.newKeySet();
@@ -72,7 +72,7 @@ public class ForexProvider implements MarketDataProvider {
     
     @Override
     public String getProviderName() {
-        return providerName;
+        return PROVIDER_NAME;
     }
     
     @Override
@@ -259,7 +259,7 @@ public class ForexProvider implements MarketDataProvider {
             return "";
         }
         
-        String normalized = symbol.trim().toUpperCase();
+        String normalized = symbol.trim().toUpperCase(Locale.ROOT);
         
         // Handle different formats: EURUSD, EUR-USD, EUR_USD -> EUR/USD
         normalized = normalized.replace("-", "/").replace("_", "/");
@@ -376,7 +376,7 @@ public class ForexProvider implements MarketDataProvider {
     
     private List<SymbolInfo> generateMockSearchResults(String keyword, int limit) {
         List<SymbolInfo> results = new ArrayList<>();
-        String upperKeyword = keyword.toUpperCase();
+        String upperKeyword = keyword.toUpperCase(Locale.ROOT);
         
         Map<String, String> forexPairs = new LinkedHashMap<>();
         // Major pairs
@@ -400,7 +400,7 @@ public class ForexProvider implements MarketDataProvider {
         
         forexPairs.entrySet().stream()
             .filter(e -> e.getKey().contains(upperKeyword) || 
-                        e.getValue().toUpperCase().contains(upperKeyword))
+                        e.getValue().toUpperCase(Locale.ROOT).contains(upperKeyword))
             .limit(limit)
             .forEach(e -> results.add(new SymbolInfo(
                 e.getKey(),
@@ -482,7 +482,7 @@ public class ForexProvider implements MarketDataProvider {
     }
     
     private Duration parseTimeframe(String timeframe) {
-        return switch (timeframe.toLowerCase()) {
+        return switch (timeframe.toLowerCase(Locale.ROOT)) {
             case "1m" -> Duration.ofMinutes(1);
             case "5m" -> Duration.ofMinutes(5);
             case "15m" -> Duration.ofMinutes(15);

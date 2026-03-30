@@ -18,6 +18,7 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -60,10 +61,10 @@ public class CommunitySignalServiceImpl implements CommunitySignalService {
         if ("hot".equalsIgnoreCase(sort)) {
             signalPage = signalRepository.findHotSignals(CommunitySignal.Status.ACTIVE, pageable);
         } else if (symbol != null && !symbol.isEmpty()) {
-            signalPage = signalRepository.findBySymbolContainingAndStatus(symbol.toUpperCase(), CommunitySignal.Status.ACTIVE, pageable);
+            signalPage = signalRepository.findBySymbolContainingAndStatus(symbol.toUpperCase(Locale.ROOT), CommunitySignal.Status.ACTIVE, pageable);
         } else if (type != null && !type.isEmpty()) {
             signalPage = signalRepository.findBySignalTypeAndStatus(
-                    CommunitySignal.SignalType.valueOf(type.toUpperCase()), CommunitySignal.Status.ACTIVE, pageable);
+                    CommunitySignal.SignalType.valueOf(type.toUpperCase(Locale.ROOT)), CommunitySignal.Status.ACTIVE, pageable);
         } else {
             signalPage = signalRepository.findByStatus(CommunitySignal.Status.ACTIVE, 
                     PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt")));
@@ -170,7 +171,7 @@ public class CommunitySignalServiceImpl implements CommunitySignalService {
         CommunitySignal signal = CommunitySignal.builder()
                 .userId(userId)
                 .strategyId(request.getStrategyId())
-                .symbol(request.getSymbol().toUpperCase())
+                .symbol(request.getSymbol().toUpperCase(Locale.ROOT))
                 .signalType(CommunitySignal.SignalType.valueOf(request.getSignalType()))
                 .reason(request.getReason())
                 .targetPrice(request.getTargetPrice())

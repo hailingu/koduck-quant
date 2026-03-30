@@ -61,6 +61,7 @@ import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 
@@ -830,7 +831,7 @@ public class MarketController {
         if (period == null || period.isBlank()) {
             return "1D";
         }
-        return switch (period.toLowerCase()) {
+        return switch (period.toLowerCase(Locale.ROOT)) {
             case "daily", "day", "1d" -> "1D";
             case "weekly", "week", "1w" -> "1W";
             case "monthly", "month", "1mth", "1mo", "1m" -> "1M";

@@ -16,6 +16,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.util.Arrays;
 import java.util.List;
+import java.util.Locale;
 
 /**
  * Market sentiment analysis controller.
@@ -76,7 +77,7 @@ public class SentimentController {
      * Parse market type string to enum.
      */
     private MarketType parseMarketType(String market) {
-        return switch (market.toLowerCase()) {
+        return switch (market.toLowerCase(Locale.ROOT)) {
             case "hk", "hk_stock" -> MarketType.HK_STOCK;
             case "us", "us_stock" -> MarketType.US_STOCK;
             case "a_share", "a", "cn" -> MarketType.A_SHARE;

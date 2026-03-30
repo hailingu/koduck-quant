@@ -7,6 +7,7 @@ import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 
 import java.time.Duration;
+import java.util.Locale;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -148,6 +149,6 @@ public class RateLimiterServiceImpl implements RateLimiterService {
      * 对邮箱进行简单哈希
      */
     private String hashEmail(String email) {
-        return String.valueOf(email.toLowerCase().hashCode());
+        return String.valueOf(email.toLowerCase(Locale.ROOT).hashCode());
     }
 }
