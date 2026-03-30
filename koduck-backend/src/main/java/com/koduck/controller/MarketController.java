@@ -58,7 +58,6 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
-import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
@@ -77,8 +76,6 @@ import java.util.Objects;
 @Slf4j
 public class MarketController {
     private static final ZoneId MARKET_ZONE = ZoneId.of("Asia/Shanghai");
-    private static final DateTimeFormatter TICK_TIME_FORMATTER = DateTimeFormatter.ofPattern("HH:mm:ss");
-    private static final long BLOCK_ORDER_VOLUME_THRESHOLD = 100_000L;
     private static final String FEAR_GREED_INDEX_PATH = "/market/fear-greed-index";
     private static final String BREADTH_PATH = "/market/breadth";
     private static final String BIG_ORDERS_PATH = "/market/big-orders";
@@ -756,55 +753,11 @@ public class MarketController {
         String lastUpdated
     ) {}
 
-    private TickDto mapMinuteBarToTick(KlineDataDto bar) {
-        long volume = bar.volume() == null ? 0L : bar.volume();
-        int size = volume > Integer.MAX_VALUE ? Integer.MAX_VALUE : (int) volume;
-        double amount = bar.amount() == null ? 0D : bar.amount().doubleValue();
-        BigDecimal price = bar.close() == null ? BigDecimal.ZERO : bar.close();
-        String type = isBuyMinuteBar(bar) ? "buy" : "sell";
-        String flag = volume >= BLOCK_ORDER_VOLUME_THRESHOLD ? "BLOCK_ORDER" : "NORMAL";
-
-        return new TickDto(
-                formatTickTime(bar.timestamp()),
-                price.doubleValue(),
-                size,
-                amount,
-                type,
-                flag,
-                bar.timestamp() == null ? null : bar.timestamp() * 1000
-        );
-    }
-
-    private boolean isBuyMinuteBar(KlineDataDto bar) {
-        if (bar.close() == null || bar.open() == null) {
-            return true;
-        }
-        return bar.close().compareTo(bar.open()) >= 0;
-    }
-
-    private String formatTickTime(Long epochSeconds) {
-        if (epochSeconds == null) {
-            return "--:--:--";
-        }
-        return LocalDateTime.ofInstant(Instant.ofEpochSecond(epochSeconds), MARKET_ZONE)
-                .format(TICK_TIME_FORMATTER);
-    }
-
     private String formatTickTimestampIso(Long epochMillis) {
         if (epochMillis == null) {
             return LocalDateTime.now(MARKET_ZONE).toString();
         }
         return LocalDateTime.ofInstant(Instant.ofEpochMilli(epochMillis), MARKET_ZONE).toString();
-    }
-
-    private List<KlineDataDto> normalizeKlineData(List<?> rawBars) {
-        if (rawBars == null || rawBars.isEmpty()) {
-            return List.of();
-        }
-        return rawBars.stream()
-                .map(this::coerceKlineDataDto)
-                .filter(Objects::nonNull)
-                .toList();
     }
 
     private List<CapitalRiverTrackItemDto> toTrackItems(List<SectorNetFlowItemDto> items) {
@@ -836,57 +789,6 @@ public class MarketController {
     private BigDecimal absMainForceNet(CapitalRiverTrackItemDto item) {
         BigDecimal net = item.mainForceNet();
         return net == null ? BigDecimal.ZERO : net.abs();
-    }
-
-    @SuppressWarnings("unchecked")
-    private KlineDataDto coerceKlineDataDto(Object raw) {
-        if (raw instanceof KlineDataDto dto) {
-            return dto;
-        }
-        if (!(raw instanceof Map<?, ?> map)) {
-            return null;
-        }
-
-        return new KlineDataDto(
-                toLong(map.get("timestamp")),
-                toBigDecimal(map.get("open")),
-                toBigDecimal(map.get("high")),
-                toBigDecimal(map.get("low")),
-                toBigDecimal(map.get("close")),
-                toLong(map.get("volume")),
-                toBigDecimal(map.get("amount"))
-        );
-    }
-
-    private Long toLong(Object value) {
-        if (value == null) {
-            return null;
-        }
-        if (value instanceof Number num) {
-            return num.longValue();
-        }
-        try {
-            return Long.parseLong(String.valueOf(value));
-        } catch (NumberFormatException ex) {
-            return null;
-        }
-    }
-
-    private BigDecimal toBigDecimal(Object value) {
-        if (value == null) {
-            return null;
-        }
-        if (value instanceof BigDecimal decimal) {
-            return decimal;
-        }
-        if (value instanceof Number num) {
-            return BigDecimal.valueOf(num.doubleValue());
-        }
-        try {
-            return new BigDecimal(String.valueOf(value));
-        } catch (NumberFormatException ex) {
-            return null;
-        }
     }
 
     private List<KlineDataDto> waitForKlineData(

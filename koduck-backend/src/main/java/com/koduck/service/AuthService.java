@@ -270,7 +270,7 @@ public class AuthService {
                 .used(false)
                 .build();
 
-        passwordResetTokenRepository.save(resetToken);
+        passwordResetTokenRepository.save(Objects.requireNonNull(resetToken));
 
         // 7. （）
         String resetUrl = mailProperties.buildPasswordResetUrl(rawToken);
@@ -312,7 +312,8 @@ public class AuthService {
         }
 
         // 5. 
-        User user = userRepository.findById(resetToken.getUserId())
+        Long userId = Objects.requireNonNull(resetToken.getUserId(), "resetToken.userId must not be null");
+        User user = userRepository.findById(userId)
                 .orElseThrow(() -> new BusinessException("用户不存在"));
 
         // 6. 
@@ -400,7 +401,8 @@ public class AuthService {
             List<RefreshToken> oldestTokens = refreshTokenRepository.findByUserIdOrderByCreatedAtAsc(userId);
             if (!oldestTokens.isEmpty() && removeCount > 0) {
                 int toIndex = Math.min(removeCount, oldestTokens.size());
-                refreshTokenRepository.deleteAllInBatch(oldestTokens.subList(0, toIndex));
+                List<RefreshToken> tokensToDelete = List.copyOf(oldestTokens.subList(0, toIndex));
+                refreshTokenRepository.deleteAllInBatch(Objects.requireNonNull(tokensToDelete));
             }
         }
 
