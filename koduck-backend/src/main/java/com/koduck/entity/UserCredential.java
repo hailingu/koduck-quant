@@ -56,6 +56,7 @@ public class UserCredential {
     private Map<String, Object> additionalConfig;
 
     @Column(name = "is_active")
+    @Builder.Default
     private Boolean isActive = true;
 
     @Column(name = "last_verified_at")

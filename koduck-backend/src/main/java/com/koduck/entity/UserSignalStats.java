@@ -8,6 +8,7 @@ import lombok.NoArgsConstructor;
 import org.hibernate.annotations.UpdateTimestamp;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDateTime;
 
 /**
@@ -70,7 +71,7 @@ public class UserSignalStats {
         if (totalSignals != null && totalSignals > 0) {
             this.winRate = BigDecimal.valueOf(winSignals)
                     .multiply(BigDecimal.valueOf(100))
-                    .divide(BigDecimal.valueOf(totalSignals), 2, BigDecimal.ROUND_HALF_UP);
+                    .divide(BigDecimal.valueOf(totalSignals), 2, RoundingMode.HALF_UP);
         } else {
             this.winRate = BigDecimal.ZERO;
         }

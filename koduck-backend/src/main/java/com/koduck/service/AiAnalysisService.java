@@ -16,6 +16,7 @@ import com.koduck.repository.StrategyRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.web.client.RestTemplateBuilder;
+import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.*;
 import org.springframework.stereotype.Service;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
@@ -170,23 +171,30 @@ public class AiAnalysisService {
         
         log.info("Calling koduck-agent: provider={}, url={}", provider, agentUrl);
         
-        ResponseEntity<Map> response = getRestTemplate().exchange(
+        ResponseEntity<Map<String, Object>> response = getRestTemplate().exchange(
             agentUrl,
-            HttpMethod.POST,
+            Objects.requireNonNull(HttpMethod.POST, "httpMethod must not be null"),
             entity,
-            Map.class
+            new ParameterizedTypeReference<Map<String, Object>>() {
+            }
         );
         
         log.debug("Agent response: {}", response.getBody());
         
-        if (response.getBody() != null) {
-            List<Map<String, Object>> choices = (List<Map<String, Object>>) response.getBody().get("choices");
-            if (choices != null && !choices.isEmpty()) {
-                Map<String, Object> message = (Map<String, Object>) choices.get(0).get("message");
-                if (message != null) {
-                    String content = (String) message.get("content");
-                    log.info("Agent response content: {}", content);
-                    return content;
+        Map<?, ?> body = response.getBody();
+        if (body != null) {
+            Object choicesObject = body.get("choices");
+            if (choicesObject instanceof List<?> choices && !choices.isEmpty()) {
+                Object firstChoice = choices.get(0);
+                if (firstChoice instanceof Map<?, ?> choiceMap) {
+                    Object messageObject = choiceMap.get("message");
+                    if (messageObject instanceof Map<?, ?> messageMap) {
+                        Object contentObject = messageMap.get("content");
+                        if (contentObject instanceof String content) {
+                            log.info("Agent response content: {}", content);
+                            return content;
+                        }
+                    }
                 }
             }
         }
@@ -770,7 +778,9 @@ public class AiAnalysisService {
     }
 
     private void sendSseEvent(SseEmitter emitter, String eventName, Object data) throws IOException {
-        emitter.send(SseEmitter.event().name(eventName).data(data));
+        String nonNullEventName = Objects.requireNonNull(eventName, "eventName must not be null");
+        Object nonNullData = Objects.requireNonNull(data, "data must not be null");
+        emitter.send(SseEmitter.event().name(nonNullEventName).data(nonNullData));
     }
 
     private String readInputStream(InputStream stream) {
@@ -821,71 +831,14 @@ public class AiAnalysisService {
         }
         return "建议观望";
     }
-    
-    /**
-     * 
-     */
-    private StockAnalysisResponse analyzeStockWithMock(StockAnalysisRequest request) {
-        Random random = new Random();
-        int overallScore = 60 + random.nextInt(31);
-        String overallRating = overallScore >= 80 ? "买入" : overallScore >= 70 ? "持有" : "观望";
-        
-        String reasoning = String.format(
-            "%s 当前综合评分为 %d 分。从技术面看，股票处于%s；基本面稳健，估值%s；市场情绪%s。建议%s。",
-            request.getSymbol(), overallScore,
-            overallScore >= 70 ? "上升趋势" : "震荡整理",
-            overallScore >= 70 ? "合理" : "略高",
-            overallScore >= 70 ? "积极" : "中性",
-            overallScore >= 70 ? "关注买入机会" : "观望等待"
-        );
-        
-        return StockAnalysisResponse.builder()
-            .analysis(reasoning)
-            .provider(request.getProvider())
-            .model(request.getProvider() != null ? request.getProvider() + "-model" : null)
-            .symbol(request.getSymbol())
-            .market(request.getMarket())
-            .overallScore(overallScore)
-            .overallRating(overallRating)
-            .reasoning(reasoning)
-            .recommendation(overallRating)
-            .generatedAt(LocalDateTime.now())
-            .build();
-    }
-    
-    /**
-     * 
-     */
-    private String generateReasoningWithQuestion(String symbol, int score, String question) {
-        String baseReasoning = String.format(
-            "%s 当前综合评分为 %d 分。从技术面看，股票处于%s；" +
-            "基本面稳健，估值%s；市场情绪%s。",
-            symbol, score,
-            score >= 70 ? "上升趋势" : "震荡整理",
-            score >= 70 ? "合理" : "略高",
-            score >= 70 ? "积极" : "中性"
-        );
-        
-        // 
-        String personalizedAnswer = "";
-        if (question.contains("趋势")) {
-            personalizedAnswer = score >= 70 ? "从趋势来看，股票处于上升通道，建议关注。" : "当前趋势不明朗，建议观望。";
-        } else if (question.contains("建议") || question.contains("投资")) {
-            personalizedAnswer = generateRecommendation(score) + "，请根据自身风险承受能力做出决策。";
-        } else if (question.contains("指标")) {
-            personalizedAnswer = "技术指标显示" + (score >= 70 ? "积极信号" : "需要观察") + "。";
-        }
-        
-        return baseReasoning + " " + personalizedAnswer;
-    }
 
+    
     /**
      * 
      */
     public StrategyRecommendResponse recommendStrategies(Long userId, StrategyRecommendRequest request) {
         log.debug("Recommending strategies for user: {}, risk: {}", userId, request.getRiskPreference());
 
-        // 
         List<Strategy> userStrategies = strategyRepository.findByUserId(userId);
         
         List<StrategyRecommendResponse.StrategyRecommendation> recommendations = new ArrayList<>();
@@ -965,81 +918,6 @@ public class AiAnalysisService {
             .build();
     }
 
-    // ==========  ==========
-
-    private StockAnalysisResponse.TechnicalAnalysis generateTechnicalAnalysis() {
-        return StockAnalysisResponse.TechnicalAnalysis.builder()
-            .score(60 + random.nextInt(31))
-            .trend(random.nextBoolean() ? "上升趋势" : "震荡整理")
-            .maSignal(random.nextBoolean() ? "金叉" : "多头排列")
-            .macdSignal(random.nextBoolean() ? " bullish" : "neutral")
-            .rsiSignal("中性")
-            .supportLevel("$" + (100 + random.nextInt(50)))
-            .resistanceLevel("$" + (150 + random.nextInt(50)))
-            .build();
-    }
-
-    private StockAnalysisResponse.FundamentalAnalysis generateFundamentalAnalysis() {
-        return StockAnalysisResponse.FundamentalAnalysis.builder()
-            .score(60 + random.nextInt(31))
-            .peEvaluation(random.nextBoolean() ? "合理估值" : "略微高估")
-            .pbEvaluation("合理")
-            .profitability("良好")
-            .growthPotential("中等")
-            .build();
-    }
-
-    private StockAnalysisResponse.SentimentAnalysis generateSentimentAnalysis() {
-        return StockAnalysisResponse.SentimentAnalysis.builder()
-            .score(60 + random.nextInt(31))
-            .marketSentiment(random.nextBoolean() ? "乐观" : "中性")
-            .newsSentiment("正面")
-            .socialSentiment("积极")
-            .build();
-    }
-
-    private String generateRecommendation(int score) {
-        if (score >= 80) return "强烈建议买入";
-        if (score >= 70) return "建议买入";
-        if (score >= 60) return "谨慎持有";
-        return "建议观望";
-    }
-
-    private String generateReasoning(String symbol, int score) {
-        return String.format(
-            "%s 当前综合评分为 %d 分。从技术面看，股票处于%s；" +
-            "基本面稳健，估值%s；市场情绪%s。建议%s。",
-            symbol, score,
-            score >= 70 ? "上升趋势" : "震荡整理",
-            score >= 70 ? "合理" : "略高",
-            score >= 70 ? "积极" : "中性",
-            score >= 70 ? "关注买入机会" : "观望等待"
-        );
-    }
-
-    private List<StockAnalysisResponse.KeyMetric> generateKeyMetrics() {
-        return List.of(
-            StockAnalysisResponse.KeyMetric.builder()
-                .name("市盈率(PE)").value("25.3").interpretation("行业平均水平").build(),
-            StockAnalysisResponse.KeyMetric.builder()
-                .name("市净率(PB)").value("3.2").interpretation("合理区间").build(),
-            StockAnalysisResponse.KeyMetric.builder()
-                .name("ROE").value("15.6%").interpretation("盈利能力良好").build(),
-            StockAnalysisResponse.KeyMetric.builder()
-                .name("股息率").value("2.1%").interpretation("稳定的分红").build()
-        );
-    }
-
-    private List<StockAnalysisResponse.RiskFactor> generateRiskFactors() {
-        return List.of(
-            StockAnalysisResponse.RiskFactor.builder()
-                .type("市场风险").description("市场整体波动可能影响股价")
-                .severity("中等").build(),
-            StockAnalysisResponse.RiskFactor.builder()
-                .type("行业风险").description("行业周期性波动")
-                .severity("低").build()
-        );
-    }
 
     private String generateMatchReason(String riskPreference) {
         return switch (riskPreference) {
