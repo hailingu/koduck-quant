@@ -1,8 +1,9 @@
 package com.koduck.config;
 
 import com.koduck.util.JwtUtil;
-import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Autowired;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Component;
 import org.springframework.messaging.Message;
 import org.springframework.messaging.MessageChannel;
 import org.springframework.messaging.simp.stomp.StompCommand;
@@ -31,13 +32,26 @@ import java.util.Optional;
  * </ul>
  */
 @Slf4j
-@RequiredArgsConstructor
+@Component
 public class WebSocketChannelInterceptor implements ChannelInterceptor {
 
     private static final String BEARER_PREFIX = "Bearer ";
 
-    private final JwtUtil jwtUtil;
-    private final JwtConfig jwtConfig;
+    private JwtUtil jwtUtil;
+
+    private JwtConfig jwtConfig;
+
+    /**
+     * Injects the JWT dependencies used during STOMP CONNECT handling.
+     *
+     * @param jwtUtil JWT utility
+     * @param jwtConfig JWT configuration
+     */
+    @Autowired
+    public void setDependencies(JwtUtil jwtUtil, JwtConfig jwtConfig) {
+        this.jwtUtil = jwtUtil;
+        this.jwtConfig = jwtConfig;
+    }
 
     /**
      * 
@@ -46,7 +60,7 @@ public class WebSocketChannelInterceptor implements ChannelInterceptor {
      * @return 
      */
     @Override
-    public Message<?> preSend(@NonNull Message<?> message, @NonNull MessageChannel channel) {
+    public Message<?> preSend(@NonNull Message<?> message, MessageChannel channel) {
         StompHeaderAccessor accessor = MessageHeaderAccessor.getAccessor(message, StompHeaderAccessor.class);
 
         if (accessor == null) {

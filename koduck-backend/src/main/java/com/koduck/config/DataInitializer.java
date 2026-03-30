@@ -10,6 +10,7 @@ import com.koduck.repository.UserRoleRepository;
 import com.koduck.util.CredentialEncryptionUtil;
 import jakarta.annotation.PostConstruct;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -53,23 +54,30 @@ public class DataInitializer implements CommandLineRunner {
      */
     private static final String DEMO_NICKNAME = "Demo User";
 
-    private final UserRepository userRepository;
-    private final RoleRepository roleRepository;
-    private final UserRoleRepository userRoleRepository;
-    private final CredentialRepository credentialRepository;
-    private final PasswordEncoder passwordEncoder;
-    private final JdbcTemplate jdbcTemplate;
+    private UserRepository userRepository;
 
-    @Value("${app.demo.enabled:false}")
-    private boolean demoEnabled;
+    private RoleRepository roleRepository;
 
-    @Value("${app.demo.username:demo}")
-    private String demoUsername;
+    private UserRoleRepository userRoleRepository;
 
-    @Value("${app.demo.password:}")
-    private String demoPassword;
+    private CredentialRepository credentialRepository;
 
-    public DataInitializer(
+    private PasswordEncoder passwordEncoder;
+
+    private JdbcTemplate jdbcTemplate;
+
+    /**
+     * Injects the repositories and infrastructure dependencies required by the initializer.
+     *
+     * @param userRepository user repository
+     * @param roleRepository role repository
+     * @param userRoleRepository user-role repository
+     * @param credentialRepository credential repository
+     * @param passwordEncoder password encoder
+     * @param jdbcTemplate JDBC template
+     */
+    @Autowired
+    public void setDependencies(
             UserRepository userRepository,
             RoleRepository roleRepository,
             UserRoleRepository userRoleRepository,
@@ -83,6 +91,15 @@ public class DataInitializer implements CommandLineRunner {
         this.passwordEncoder = passwordEncoder;
         this.jdbcTemplate = jdbcTemplate;
     }
+
+    @Value("${app.demo.enabled:false}")
+    private boolean demoEnabled;
+
+    @Value("${app.demo.username:demo}")
+    private String demoUsername;
+
+    @Value("${app.demo.password:}")
+    private String demoPassword;
 
     /**
      * Validates configuration on startup. Fails fast if demo is enabled but password is not set.
@@ -303,7 +320,7 @@ public class DataInitializer implements CommandLineRunner {
                         .type(UserCredential.CredentialType.AI_PROVIDER)
                         .provider(provider)
                         .apiKeyEncrypted(encryptedKey)
-                        .environment(UserCredential.Environment.live)
+                        .environment(UserCredential.Environment.LIVE)
                         .isActive(true)
                         .additionalConfig(apiBase != null ? Map.of("apiBase", apiBase) : Map.of())
                         .lastVerifiedStatus(UserCredential.VerificationStatus.PENDING)

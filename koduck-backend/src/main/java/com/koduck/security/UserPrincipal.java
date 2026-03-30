@@ -19,12 +19,12 @@ public class UserPrincipal implements UserDetails {
     @Serial
     private static final long serialVersionUID = 1L;
 
-    private final transient Long id;
-    private final transient String email;
-    private final transient String nickname;
-    private final transient String passwordHash;
-    private final transient User.UserStatus status;
-    private final transient Collection<? extends GrantedAuthority> authorities;
+    private final Long id;
+    private final String email;
+    private final String nickname;
+    private final String passwordHash;
+    private final User.UserStatus status;
+    private final Collection<? extends GrantedAuthority> authorities;
 
     public UserPrincipal(User user, Collection<? extends GrantedAuthority> authorities) {
         User nonNullUser = Objects.requireNonNull(user, "user must not be null");
@@ -38,7 +38,7 @@ public class UserPrincipal implements UserDetails {
 
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
-        return authorities;
+        return Collections.unmodifiableList(new ArrayList<>(authorities));
     }
 
     @Override

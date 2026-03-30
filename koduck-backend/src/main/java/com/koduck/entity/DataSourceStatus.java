@@ -2,8 +2,6 @@ package com.koduck.entity;
 
 import com.koduck.util.CollectionCopyUtils;
 import jakarta.persistence.*;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import org.hibernate.annotations.CreationTimestamp;
@@ -20,9 +18,7 @@ import java.util.Map;
 @Entity
 @Table(name = "data_source_status")
 @Data
-@Builder
 @NoArgsConstructor
-@AllArgsConstructor
 public class DataSourceStatus {
     
     @Id
@@ -64,6 +60,56 @@ public class DataSourceStatus {
     @UpdateTimestamp
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
+
+    public static Builder builder() {
+        return new Builder();
+    }
+
+    public static final class Builder {
+
+        private Long id;
+        private String sourceName;
+        private String sourceType;
+        private String status;
+        private LocalDateTime lastSuccessAt;
+        private LocalDateTime lastFailureAt;
+        private Integer failureCount;
+        private Integer consecutiveFailures;
+        private Integer responseTimeMs;
+        private Map<String, Object> metadata;
+        private LocalDateTime createdAt;
+        private LocalDateTime updatedAt;
+
+        public Builder id(Long id) { this.id = id; return this; }
+        public Builder sourceName(String sourceName) { this.sourceName = sourceName; return this; }
+        public Builder sourceType(String sourceType) { this.sourceType = sourceType; return this; }
+        public Builder status(String status) { this.status = status; return this; }
+        public Builder lastSuccessAt(LocalDateTime lastSuccessAt) { this.lastSuccessAt = lastSuccessAt; return this; }
+        public Builder lastFailureAt(LocalDateTime lastFailureAt) { this.lastFailureAt = lastFailureAt; return this; }
+        public Builder failureCount(Integer failureCount) { this.failureCount = failureCount; return this; }
+        public Builder consecutiveFailures(Integer consecutiveFailures) { this.consecutiveFailures = consecutiveFailures; return this; }
+        public Builder responseTimeMs(Integer responseTimeMs) { this.responseTimeMs = responseTimeMs; return this; }
+        public Builder metadata(Map<String, Object> metadata) { this.metadata = CollectionCopyUtils.copyMap(metadata); return this; }
+        public Builder createdAt(LocalDateTime createdAt) { this.createdAt = createdAt; return this; }
+        public Builder updatedAt(LocalDateTime updatedAt) { this.updatedAt = updatedAt; return this; }
+
+        public DataSourceStatus build() {
+            DataSourceStatus statusEntity = new DataSourceStatus();
+            statusEntity.setId(id);
+            statusEntity.setSourceName(sourceName);
+            statusEntity.setSourceType(sourceType);
+            statusEntity.setStatus(status);
+            statusEntity.setLastSuccessAt(lastSuccessAt);
+            statusEntity.setLastFailureAt(lastFailureAt);
+            statusEntity.setFailureCount(failureCount);
+            statusEntity.setConsecutiveFailures(consecutiveFailures);
+            statusEntity.setResponseTimeMs(responseTimeMs);
+            statusEntity.setMetadata(metadata);
+            statusEntity.setCreatedAt(createdAt);
+            statusEntity.setUpdatedAt(updatedAt);
+            return statusEntity;
+        }
+    }
 
     public Map<String, Object> getMetadata() {
         return CollectionCopyUtils.copyMap(metadata);

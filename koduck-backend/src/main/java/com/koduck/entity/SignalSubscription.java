@@ -2,8 +2,6 @@ package com.koduck.entity;
 
 import com.koduck.util.EntityCopyUtils;
 import jakarta.persistence.*;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import org.hibernate.annotations.CreationTimestamp;
@@ -16,9 +14,7 @@ import java.time.LocalDateTime;
 @Entity
 @Table(name = "signal_subscriptions")
 @Data
-@Builder
 @NoArgsConstructor
-@AllArgsConstructor
 public class SignalSubscription {
 
     @Id
@@ -32,7 +28,6 @@ public class SignalSubscription {
     private Long userId;
 
     @Column(name = "notify_enabled")
-    @Builder.Default
     private Boolean notifyEnabled = true;
 
     @CreationTimestamp
@@ -48,6 +43,41 @@ public class SignalSubscription {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", insertable = false, updatable = false)
     private User user;
+
+    public static Builder builder() {
+        return new Builder();
+    }
+
+    public static final class Builder {
+
+        private Long id;
+        private Long signalId;
+        private Long userId;
+        private Boolean notifyEnabled;
+        private LocalDateTime createdAt;
+        private CommunitySignal signal;
+        private User user;
+
+        public Builder id(Long id) { this.id = id; return this; }
+        public Builder signalId(Long signalId) { this.signalId = signalId; return this; }
+        public Builder userId(Long userId) { this.userId = userId; return this; }
+        public Builder notifyEnabled(Boolean notifyEnabled) { this.notifyEnabled = notifyEnabled; return this; }
+        public Builder createdAt(LocalDateTime createdAt) { this.createdAt = createdAt; return this; }
+        public Builder signal(CommunitySignal signal) { this.signal = EntityCopyUtils.copyCommunitySignal(signal); return this; }
+        public Builder user(User user) { this.user = EntityCopyUtils.copyUser(user); return this; }
+
+        public SignalSubscription build() {
+            SignalSubscription subscription = new SignalSubscription();
+            subscription.setId(id);
+            subscription.setSignalId(signalId);
+            subscription.setUserId(userId);
+            subscription.setNotifyEnabled(notifyEnabled);
+            subscription.setCreatedAt(createdAt);
+            subscription.setSignal(signal);
+            subscription.setUser(user);
+            return subscription;
+        }
+    }
 
     public CommunitySignal getSignal() {
         return EntityCopyUtils.copyCommunitySignal(signal);

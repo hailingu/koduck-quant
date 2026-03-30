@@ -1,8 +1,8 @@
 package com.koduck.client;
 
 import com.koduck.config.properties.DataServiceProperties;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
@@ -17,14 +17,24 @@ import java.util.List;
  * Provides methods to trigger realtime data updates for stock symbols.
  */
 @Component
-@RequiredArgsConstructor
 @Slf4j
 public class DataServiceClient {
 
-    private final DataServiceProperties dataServiceProperties;
-    private final RestTemplate dataServiceRestTemplate;
+    private DataServiceProperties dataServiceProperties;
 
-    private static final String REALTIME_UPDATE_PATH = "/market/realtime/update";
+    private RestTemplate dataServiceRestTemplate;
+
+    /**
+     * Injects the client dependencies.
+     *
+     * @param dataServiceProperties data-service configuration properties
+     * @param dataServiceRestTemplate RestTemplate used to call the data service
+     */
+    @Autowired
+    public void setDependencies(DataServiceProperties dataServiceProperties, RestTemplate dataServiceRestTemplate) {
+        this.dataServiceProperties = dataServiceProperties;
+        this.dataServiceRestTemplate = dataServiceRestTemplate;
+    }
 
     /**
      * Trigger realtime data update for a single stock symbol.
@@ -55,13 +65,12 @@ public class DataServiceClient {
             return;
         }
 
-        String url = dataServiceProperties.getBaseUrl() + REALTIME_UPDATE_PATH;
+        String url = dataServiceProperties.getBaseUrl() + dataServiceProperties.getRealtimeUpdatePath();
 
         try {
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.APPLICATION_JSON);
 
-            // Request body: {"symbols": ["601398", "600000"]}
             var requestBody = new java.util.HashMap<String, Object>();
             requestBody.put("symbols", symbols);
 

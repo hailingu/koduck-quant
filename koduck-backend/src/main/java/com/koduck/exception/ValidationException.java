@@ -20,7 +20,7 @@ public class ValidationException extends BusinessException {
     /**
      * ，key ，value 
      */
-    private final transient Map<String, String> fieldErrors;
+    private final Map<String, String> fieldErrors;
 
     /**
      * 

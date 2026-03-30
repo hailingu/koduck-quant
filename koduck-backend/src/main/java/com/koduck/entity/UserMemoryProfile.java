@@ -5,8 +5,6 @@ import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import org.hibernate.annotations.JdbcTypeCode;
@@ -20,9 +18,7 @@ import java.util.Map;
 @Entity
 @Table(name = "user_memory_profile")
 @Data
-@Builder
 @NoArgsConstructor
-@AllArgsConstructor
 public class UserMemoryProfile {
 
     @Id
@@ -34,22 +30,51 @@ public class UserMemoryProfile {
 
     @Column(name = "watch_symbols", nullable = false, columnDefinition = "jsonb")
     @JdbcTypeCode(SqlTypes.JSON)
-    @Builder.Default
     private List<String> watchSymbols = List.of();
 
     @Column(name = "preferred_sources", nullable = false, columnDefinition = "jsonb")
     @JdbcTypeCode(SqlTypes.JSON)
-    @Builder.Default
     private List<String> preferredSources = List.of();
 
     @Column(name = "profile_facts", nullable = false, columnDefinition = "jsonb")
     @JdbcTypeCode(SqlTypes.JSON)
-    @Builder.Default
     private Map<String, Object> profileFacts = Map.of();
 
     @UpdateTimestamp
     @Column(name = "updated_at", nullable = false)
     private LocalDateTime updatedAt;
+
+    public static Builder builder() {
+        return new Builder();
+    }
+
+    public static final class Builder {
+
+        private Long userId;
+        private String riskPreference;
+        private List<String> watchSymbols;
+        private List<String> preferredSources;
+        private Map<String, Object> profileFacts;
+        private LocalDateTime updatedAt;
+
+        public Builder userId(Long userId) { this.userId = userId; return this; }
+        public Builder riskPreference(String riskPreference) { this.riskPreference = riskPreference; return this; }
+        public Builder watchSymbols(List<String> watchSymbols) { this.watchSymbols = CollectionCopyUtils.copyList(watchSymbols); return this; }
+        public Builder preferredSources(List<String> preferredSources) { this.preferredSources = CollectionCopyUtils.copyList(preferredSources); return this; }
+        public Builder profileFacts(Map<String, Object> profileFacts) { this.profileFacts = CollectionCopyUtils.copyMap(profileFacts); return this; }
+        public Builder updatedAt(LocalDateTime updatedAt) { this.updatedAt = updatedAt; return this; }
+
+        public UserMemoryProfile build() {
+            UserMemoryProfile profile = new UserMemoryProfile();
+            profile.setUserId(userId);
+            profile.setRiskPreference(riskPreference);
+            profile.setWatchSymbols(watchSymbols);
+            profile.setPreferredSources(preferredSources);
+            profile.setProfileFacts(profileFacts);
+            profile.setUpdatedAt(updatedAt);
+            return profile;
+        }
+    }
 
     public List<String> getWatchSymbols() {
         return CollectionCopyUtils.copyList(watchSymbols);

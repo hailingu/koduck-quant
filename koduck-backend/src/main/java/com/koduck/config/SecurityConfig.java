@@ -3,7 +3,6 @@ package com.koduck.config;
 import com.koduck.security.JwtAuthenticationFilter;
 import jakarta.servlet.DispatcherType;
 import jakarta.servlet.http.HttpServletResponse;
-import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -31,7 +30,6 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 @Configuration
 @EnableWebSecurity
 @EnableMethodSecurity(prePostEnabled = true)
-@RequiredArgsConstructor
 public class SecurityConfig {
 
     private static final String AUTH_ENDPOINT_PATTERN = "/api/v1/auth/**";
@@ -42,18 +40,19 @@ public class SecurityConfig {
     private static final String WEBSOCKET_ENDPOINT = "/ws/**";
     private static final String A_SHARE_ENDPOINT_PATTERN = "/api/v1/a-share/**";
 
-    private final JwtAuthenticationFilter jwtAuthenticationFilter;
-    private final UserDetailsService userDetailsService;
-
     /**
      * Builds the security filter chain and configures endpoint authorization.
      *
      * @param http Spring Security HTTP configuration builder
+     * @param jwtAuthenticationFilter JWT filter used to authenticate incoming requests
      * @return configured security filter chain
      * @throws Exception when the security configuration cannot be built
      */
     @Bean
-    public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+    public SecurityFilterChain securityFilterChain(
+            HttpSecurity http,
+            JwtAuthenticationFilter jwtAuthenticationFilter,
+            UserDetailsService userDetailsService) throws Exception {
         http
             .csrf(AbstractHttpConfigurer::disable)
             .sessionManagement(session ->
@@ -75,7 +74,7 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.GET, MARKET_ENDPOINT_PATTERN).permitAll()
                 .anyRequest().authenticated()
             )
-            .authenticationProvider(authenticationProvider())
+            .authenticationProvider(authenticationProvider(userDetailsService))
             .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
@@ -84,10 +83,11 @@ public class SecurityConfig {
     /**
      * Creates the authentication provider backed by {@link UserDetailsService}.
      *
+     * @param userDetailsService user details service used for authentication
      * @return configured authentication provider
      */
     @Bean
-    public AuthenticationProvider authenticationProvider() {
+    public AuthenticationProvider authenticationProvider(UserDetailsService userDetailsService) {
         DaoAuthenticationProvider authProvider = new DaoAuthenticationProvider();
         authProvider.setUserDetailsService(userDetailsService);
         authProvider.setPasswordEncoder(passwordEncoder());

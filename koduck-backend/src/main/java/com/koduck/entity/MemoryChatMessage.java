@@ -2,8 +2,6 @@ package com.koduck.entity;
 
 import com.koduck.util.CollectionCopyUtils;
 import jakarta.persistence.*;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import org.hibernate.annotations.CreationTimestamp;
@@ -16,9 +14,7 @@ import java.util.Map;
 @Entity
 @Table(name = "chat_messages")
 @Data
-@Builder
 @NoArgsConstructor
-@AllArgsConstructor
 public class MemoryChatMessage {
 
     @Id
@@ -42,12 +38,49 @@ public class MemoryChatMessage {
 
     @Column(name = "metadata", nullable = false, columnDefinition = "jsonb")
     @JdbcTypeCode(SqlTypes.JSON)
-    @Builder.Default
     private Map<String, Object> metadata = Map.of();
 
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
+
+    public static Builder builder() {
+        return new Builder();
+    }
+
+    public static final class Builder {
+
+        private Long id;
+        private Long userId;
+        private String sessionId;
+        private String role;
+        private String content;
+        private Integer tokenCount;
+        private Map<String, Object> metadata;
+        private LocalDateTime createdAt;
+
+        public Builder id(Long id) { this.id = id; return this; }
+        public Builder userId(Long userId) { this.userId = userId; return this; }
+        public Builder sessionId(String sessionId) { this.sessionId = sessionId; return this; }
+        public Builder role(String role) { this.role = role; return this; }
+        public Builder content(String content) { this.content = content; return this; }
+        public Builder tokenCount(Integer tokenCount) { this.tokenCount = tokenCount; return this; }
+        public Builder metadata(Map<String, Object> metadata) { this.metadata = CollectionCopyUtils.copyMap(metadata); return this; }
+        public Builder createdAt(LocalDateTime createdAt) { this.createdAt = createdAt; return this; }
+
+        public MemoryChatMessage build() {
+            MemoryChatMessage message = new MemoryChatMessage();
+            message.setId(id);
+            message.setUserId(userId);
+            message.setSessionId(sessionId);
+            message.setRole(role);
+            message.setContent(content);
+            message.setTokenCount(tokenCount);
+            message.setMetadata(metadata);
+            message.setCreatedAt(createdAt);
+            return message;
+        }
+    }
 
     public Map<String, Object> getMetadata() {
         return CollectionCopyUtils.copyMap(metadata);

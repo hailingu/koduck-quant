@@ -20,7 +20,7 @@ import com.koduck.service.AiAnalysisService;
 import com.koduck.service.MemoryService;
 import com.koduck.service.TechnicalIndicatorService;
 import com.koduck.service.UserSettingsService;
-import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Autowired;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.web.client.RestTemplateBuilder;
 import org.springframework.core.ParameterizedTypeReference;
@@ -48,7 +48,6 @@ import java.util.regex.Pattern;
  * AI 分析服务实现 - 调用 koduck-agent
  */
 @Service
-@RequiredArgsConstructor
 @Slf4j
 public class AiAnalysisServiceImpl implements AiAnalysisService {
 
@@ -57,14 +56,53 @@ public class AiAnalysisServiceImpl implements AiAnalysisService {
     private static final String NO_TOOL_MARKUP_GUARD =
         "输出约束: 不要使用或模拟任何工具调用，不要输出 <minimax:tool_call>、<invoke>、<parameter>、XML/JSON函数调用片段。"
             + "请直接输出面向用户的自然语言分析结论。";
-    private final PortfolioPositionRepository positionRepository;
-    private final StrategyRepository strategyRepository;
-    private final BacktestResultRepository backtestResultRepository;
-    private final TechnicalIndicatorService technicalIndicatorService;
-    private final UserSettingsService userSettingsService;
-    private final MemoryService memoryService;
-    private final AgentConfig agentConfig;
-    private final ObjectMapper objectMapper;
+    private PortfolioPositionRepository positionRepository;
+
+    private StrategyRepository strategyRepository;
+
+    private BacktestResultRepository backtestResultRepository;
+
+    private TechnicalIndicatorService technicalIndicatorService;
+
+    private UserSettingsService userSettingsService;
+
+    private MemoryService memoryService;
+
+    private AgentConfig agentConfig;
+
+    private ObjectMapper objectMapper;
+
+    /**
+     * Injects the service dependencies used by the analysis workflow.
+     *
+     * @param positionRepository portfolio position repository
+     * @param strategyRepository strategy repository
+     * @param backtestResultRepository backtest result repository
+     * @param technicalIndicatorService technical indicator service
+     * @param userSettingsService user settings service
+     * @param memoryService memory service
+     * @param agentConfig agent configuration
+     * @param objectMapper JSON object mapper
+     */
+    @Autowired
+    public void setDependencies(
+            PortfolioPositionRepository positionRepository,
+            StrategyRepository strategyRepository,
+            BacktestResultRepository backtestResultRepository,
+            TechnicalIndicatorService technicalIndicatorService,
+            UserSettingsService userSettingsService,
+            MemoryService memoryService,
+            AgentConfig agentConfig,
+            ObjectMapper objectMapper) {
+        this.positionRepository = positionRepository;
+        this.strategyRepository = strategyRepository;
+        this.backtestResultRepository = backtestResultRepository;
+        this.technicalIndicatorService = technicalIndicatorService;
+        this.userSettingsService = userSettingsService;
+        this.memoryService = memoryService;
+        this.agentConfig = agentConfig;
+        this.objectMapper = objectMapper;
+    }
     private final Random random = new Random();
     private RestTemplate restTemplate;
 

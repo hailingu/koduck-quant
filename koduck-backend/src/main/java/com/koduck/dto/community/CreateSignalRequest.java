@@ -2,11 +2,8 @@ package com.koduck.dto.community;
 
 import com.koduck.util.CollectionCopyUtils;
 import jakarta.validation.constraints.*;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import lombok.Singular;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -15,9 +12,7 @@ import java.util.List;
  *  DTO
  */
 @Data
-@Builder
 @NoArgsConstructor
-@AllArgsConstructor
 public class CreateSignalRequest {
 
     @NotNull(message = "策略 ID 不能为空")
@@ -50,8 +45,48 @@ public class CreateSignalRequest {
     @Max(value = 100, message = "信心指数最大为 100")
     private Integer confidence;
 
-    @Singular
     private List<String> tags;
+
+    public static Builder builder() {
+        return new Builder();
+    }
+
+    public static final class Builder {
+
+        private Long strategyId;
+        private String symbol;
+        private String signalType;
+        private String reason;
+        private BigDecimal targetPrice;
+        private BigDecimal stopLoss;
+        private String timeFrame;
+        private Integer confidence;
+        private List<String> tags;
+
+        public Builder strategyId(Long strategyId) { this.strategyId = strategyId; return this; }
+        public Builder symbol(String symbol) { this.symbol = symbol; return this; }
+        public Builder signalType(String signalType) { this.signalType = signalType; return this; }
+        public Builder reason(String reason) { this.reason = reason; return this; }
+        public Builder targetPrice(BigDecimal targetPrice) { this.targetPrice = targetPrice; return this; }
+        public Builder stopLoss(BigDecimal stopLoss) { this.stopLoss = stopLoss; return this; }
+        public Builder timeFrame(String timeFrame) { this.timeFrame = timeFrame; return this; }
+        public Builder confidence(Integer confidence) { this.confidence = confidence; return this; }
+        public Builder tags(List<String> tags) { this.tags = CollectionCopyUtils.copyList(tags); return this; }
+
+        public CreateSignalRequest build() {
+            CreateSignalRequest request = new CreateSignalRequest();
+            request.setStrategyId(strategyId);
+            request.setSymbol(symbol);
+            request.setSignalType(signalType);
+            request.setReason(reason);
+            request.setTargetPrice(targetPrice);
+            request.setStopLoss(stopLoss);
+            request.setTimeFrame(timeFrame);
+            request.setConfidence(confidence);
+            request.setTags(tags);
+            return request;
+        }
+    }
 
     public List<String> getTags() {
         return CollectionCopyUtils.copyList(tags);

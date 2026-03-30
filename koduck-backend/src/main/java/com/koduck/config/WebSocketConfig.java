@@ -1,8 +1,6 @@
 package com.koduck.config;
 
 import com.koduck.config.properties.WebSocketProperties;
-import com.koduck.util.JwtUtil;
-import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.lang.NonNull;
 import org.springframework.messaging.simp.config.ChannelRegistration;
@@ -24,12 +22,25 @@ import org.springframework.web.socket.config.annotation.WebSocketMessageBrokerCo
  */
 @Configuration
 @EnableWebSocketMessageBroker
-@RequiredArgsConstructor
 public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
 
-    private final WebSocketProperties webSocketProperties;
-    private final JwtUtil jwtUtil;
-    private final JwtConfig jwtConfig;
+    private WebSocketProperties webSocketProperties;
+
+    private WebSocketChannelInterceptor webSocketChannelInterceptor;
+
+    /**
+     * Injects the WebSocket dependencies.
+     *
+     * @param webSocketProperties WebSocket configuration properties
+     * @param webSocketChannelInterceptor inbound channel interceptor
+     */
+    @org.springframework.beans.factory.annotation.Autowired
+    public void setDependencies(
+            WebSocketProperties webSocketProperties,
+            WebSocketChannelInterceptor webSocketChannelInterceptor) {
+        this.webSocketProperties = webSocketProperties;
+        this.webSocketChannelInterceptor = webSocketChannelInterceptor;
+    }
 
     /**
      * 
@@ -51,7 +62,7 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
 
     @Override
     public void configureClientInboundChannel(@NonNull ChannelRegistration registration) {
-        registration.interceptors(new WebSocketChannelInterceptor(jwtUtil, jwtConfig));
+        registration.interceptors(webSocketChannelInterceptor);
     }
 
     /**

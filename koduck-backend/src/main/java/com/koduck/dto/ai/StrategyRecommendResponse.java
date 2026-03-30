@@ -13,7 +13,6 @@ import java.util.List;
  */
 @Data
 @NoArgsConstructor
-@AllArgsConstructor
 public class StrategyRecommendResponse {
 
     private String riskProfile;
@@ -128,7 +127,6 @@ public class StrategyRecommendResponse {
      */
     @Data
     @NoArgsConstructor
-    @AllArgsConstructor
     public static class StrategyRecommendation {
         private Long strategyId;
         private String strategyName;
@@ -211,7 +209,7 @@ public class StrategyRecommendResponse {
                 recommendation.matchReason = matchReason;
                 recommendation.expectedReturn = expectedReturn;
                 recommendation.riskLevel = riskLevel;
-                recommendation.suitableMarkets = CollectionCopyUtils.copyList(suitableMarkets);
+                recommendation.setSuitableMarkets(suitableMarkets);
                 return recommendation;
             }
         }
@@ -222,7 +220,6 @@ public class StrategyRecommendResponse {
      */
     @Data
     @NoArgsConstructor
-    @AllArgsConstructor
     public static class AssetAllocationSuggestion {
         private List<AssetClass> assetClasses;
         private String rebalancingSuggestion;
@@ -256,7 +253,7 @@ public class StrategyRecommendResponse {
 
             public AssetAllocationSuggestion build() {
                 AssetAllocationSuggestion suggestion = new AssetAllocationSuggestion();
-                suggestion.assetClasses = CollectionCopyUtils.copyList(assetClasses);
+                suggestion.setAssetClasses(assetClasses);
                 suggestion.rebalancingSuggestion = rebalancingSuggestion;
                 return suggestion;
             }

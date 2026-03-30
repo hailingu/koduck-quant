@@ -1,7 +1,5 @@
 package com.koduck.dto.market;
 
-import lombok.AllArgsConstructor;
-import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
@@ -10,9 +8,7 @@ import lombok.NoArgsConstructor;
  * Contains six-dimensional sentiment indicators.
  */
 @Data
-@Builder
 @NoArgsConstructor
-@AllArgsConstructor
 public class MarketSentimentDto {
 
     /**
@@ -42,6 +38,56 @@ public class MarketSentimentDto {
      */
     private SentimentDimensions dimensions;
 
+    public static Builder builder() {
+        return new Builder();
+    }
+
+    public static final class Builder {
+
+        private String timestamp;
+        private Integer overall;
+        private String status;
+        private String market;
+        private SentimentDimensions dimensions;
+
+        public Builder timestamp(String timestamp) {
+            this.timestamp = timestamp;
+            return this;
+        }
+
+        public Builder overall(Integer overall) {
+            this.overall = overall;
+            return this;
+        }
+
+        public Builder status(String status) {
+            this.status = status;
+            return this;
+        }
+
+        public Builder market(String market) {
+            this.market = market;
+            return this;
+        }
+
+        public Builder dimensions(SentimentDimensions dimensions) {
+            this.dimensions = copyDimensions(dimensions);
+            return this;
+        }
+
+        public MarketSentimentDto build() {
+            MarketSentimentDto sentiment = new MarketSentimentDto();
+            sentiment.setTimestamp(timestamp);
+            if (overall != null) {
+                sentiment.setOverall(overall);
+            }
+            sentiment.setStatus(status);
+            sentiment.setMarket(market);
+            sentiment.setDimensions(dimensions);
+            return sentiment;
+        }
+    }
+
     public SentimentDimensions getDimensions() {
         return copyDimensions(dimensions);
     }
@@ -54,33 +100,31 @@ public class MarketSentimentDto {
         if (source == null) {
             return null;
         }
-        return SentimentDimension.builder()
-                .value(source.getValue())
-                .trend(source.getTrend())
-                .build();
+        SentimentDimension copy = new SentimentDimension();
+        copy.setValue(source.getValue());
+        copy.setTrend(source.getTrend());
+        return copy;
     }
 
     private static SentimentDimensions copyDimensions(SentimentDimensions source) {
         if (source == null) {
             return null;
         }
-        return SentimentDimensions.builder()
-                .activity(copyDimension(source.getActivity()))
-                .volatility(copyDimension(source.getVolatility()))
-                .trendStrength(copyDimension(source.getTrendStrength()))
-                .fearGreed(copyDimension(source.getFearGreed()))
-                .valuation(copyDimension(source.getValuation()))
-                .fundFlow(copyDimension(source.getFundFlow()))
-                .build();
+        SentimentDimensions copy = new SentimentDimensions();
+        copy.setActivity(copyDimension(source.getActivity()));
+        copy.setVolatility(copyDimension(source.getVolatility()));
+        copy.setTrendStrength(copyDimension(source.getTrendStrength()));
+        copy.setFearGreed(copyDimension(source.getFearGreed()));
+        copy.setValuation(copyDimension(source.getValuation()));
+        copy.setFundFlow(copyDimension(source.getFundFlow()));
+        return copy;
     }
 
     /**
      * Sentiment dimension data
      */
     @Data
-    @Builder
     @NoArgsConstructor
-    @AllArgsConstructor
     public static class SentimentDimension {
         /**
          * Dimension value (0-100)
@@ -92,15 +136,42 @@ public class MarketSentimentDto {
          */
         private String trend;
 
+        public static Builder builder() {
+            return new Builder();
+        }
+
+        public static final class Builder {
+
+            private Integer value;
+            private String trend;
+
+            public Builder value(Integer value) {
+                this.value = value;
+                return this;
+            }
+
+            public Builder trend(String trend) {
+                this.trend = trend;
+                return this;
+            }
+
+            public SentimentDimension build() {
+                SentimentDimension dimension = new SentimentDimension();
+                if (value != null) {
+                    dimension.setValue(value);
+                }
+                dimension.setTrend(trend);
+                return dimension;
+            }
+        }
+
     }
 
     /**
      * Container for all six dimensions
      */
     @Data
-    @Builder
     @NoArgsConstructor
-    @AllArgsConstructor
     public static class SentimentDimensions {
         /**
          * Activity: Market trading activity level (0-100)
@@ -109,6 +180,61 @@ public class MarketSentimentDto {
         private SentimentDimension activity;
 
         /**
+
+        public static Builder builder() {
+            return new Builder();
+        }
+
+        public static final class Builder {
+
+            private SentimentDimension activity;
+            private SentimentDimension volatility;
+            private SentimentDimension trendStrength;
+            private SentimentDimension fearGreed;
+            private SentimentDimension valuation;
+            private SentimentDimension fundFlow;
+
+            public Builder activity(SentimentDimension activity) {
+                this.activity = copyDimension(activity);
+                return this;
+            }
+
+            public Builder volatility(SentimentDimension volatility) {
+                this.volatility = copyDimension(volatility);
+                return this;
+            }
+
+            public Builder trendStrength(SentimentDimension trendStrength) {
+                this.trendStrength = copyDimension(trendStrength);
+                return this;
+            }
+
+            public Builder fearGreed(SentimentDimension fearGreed) {
+                this.fearGreed = copyDimension(fearGreed);
+                return this;
+            }
+
+            public Builder valuation(SentimentDimension valuation) {
+                this.valuation = copyDimension(valuation);
+                return this;
+            }
+
+            public Builder fundFlow(SentimentDimension fundFlow) {
+                this.fundFlow = copyDimension(fundFlow);
+                return this;
+            }
+
+            public SentimentDimensions build() {
+                SentimentDimensions dimensions = new SentimentDimensions();
+                dimensions.setActivity(activity);
+                dimensions.setVolatility(volatility);
+                dimensions.setTrendStrength(trendStrength);
+                dimensions.setFearGreed(fearGreed);
+                dimensions.setValuation(valuation);
+                dimensions.setFundFlow(fundFlow);
+                return dimensions;
+            }
+        }
          * Volatility: Price volatility level (0-100)
          * Higher = more volatile
          */

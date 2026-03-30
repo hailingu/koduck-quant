@@ -28,6 +28,11 @@ public record IndicatorListResponse(
         public IndicatorInfo {
             defaultPeriods = CollectionCopyUtils.copyList(defaultPeriods);
         }
+
+        @Override
+        public List<Integer> defaultPeriods() {
+            return CollectionCopyUtils.copyList(defaultPeriods);
+        }
     }
     
     public static Builder builder() {
