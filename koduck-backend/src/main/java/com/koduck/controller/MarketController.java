@@ -389,7 +389,7 @@ public class MarketController {
         try {
             ResponseEntity<DataServiceResponse<Map<String, Object>>> response = dataServiceRestTemplate.exchange(
                     dataServiceProperties.getBaseUrl() + FEAR_GREED_INDEX_PATH,
-                    HttpMethod.GET,
+                    Objects.requireNonNull(HttpMethod.GET),
                     null,
                     new ParameterizedTypeReference<>() {
                     });
@@ -500,7 +500,7 @@ public class MarketController {
         try {
             ResponseEntity<DataServiceResponse<Map<String, Object>>> response = dataServiceRestTemplate.exchange(
                     dataServiceProperties.getBaseUrl() + BREADTH_PATH,
-                    HttpMethod.GET,
+                    Objects.requireNonNull(HttpMethod.GET),
                     null,
                     new ParameterizedTypeReference<>() {
                     });
@@ -540,7 +540,7 @@ public class MarketController {
 
             ResponseEntity<DataServiceResponse<List<BigOrderAlertDto>>> response = dataServiceRestTemplate.exchange(
                     builder.toUriString(),
-                    HttpMethod.GET,
+                    Objects.requireNonNull(HttpMethod.GET),
                     null,
                     new ParameterizedTypeReference<>() {
                     });
@@ -573,7 +573,7 @@ public class MarketController {
         try {
             ResponseEntity<DataServiceResponse<BigOrderStatsDto>> response = dataServiceRestTemplate.exchange(
                     dataServiceProperties.getBaseUrl() + BIG_ORDERS_STATS_PATH,
-                    HttpMethod.GET,
+                    Objects.requireNonNull(HttpMethod.GET),
                     null,
                     new ParameterizedTypeReference<>() {
                     });
@@ -689,8 +689,8 @@ public class MarketController {
 
         long totalVolume = historyTicks.stream().mapToLong(TickDto::size).sum();
         BigDecimal totalAmount = historyTicks.stream()
-                .map(TickDto::amount)
-                .map(BigDecimal::valueOf)
+            .mapToDouble(TickDto::amount)
+            .mapToObj(BigDecimal::valueOf)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
         long buyVolume = historyTicks.stream()
                 .filter(tick -> "buy".equalsIgnoreCase(tick.type()))
