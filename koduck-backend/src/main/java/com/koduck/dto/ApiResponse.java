@@ -101,6 +101,25 @@ public class ApiResponse<T> {
     }
 
     /**
+     * Returns a success response with message and no payload.
+     *
+     * @param message success message
+     * @return success response without data
+     */
+    public static ApiResponse<Void> successMessage(String message) {
+        return success(message, null);
+    }
+
+    /**
+     * Returns a success response with no payload.
+     *
+     * @return success response without data
+     */
+    public static ApiResponse<Void> successNoContent() {
+        return success();
+    }
+
+    /**
      * 
      *
      * @param code    
@@ -163,7 +182,7 @@ public class ApiResponse<T> {
     private static String getCurrentTraceId() {
         try {
             return MDC.get(TRACE_ID_KEY);
-        } catch (Exception e) {
+        } catch (Exception _) {
             return null;
         }
     }

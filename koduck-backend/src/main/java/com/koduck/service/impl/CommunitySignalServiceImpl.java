@@ -19,10 +19,14 @@ import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+
+import static com.koduck.util.ServiceValidationUtils.assertOwner;
+import static com.koduck.util.ServiceValidationUtils.requireFound;
 
 /**
  * 社区信号服务实现
@@ -114,8 +118,7 @@ public class CommunitySignalServiceImpl implements CommunitySignalService {
     public SignalResponse getSignal(Long currentUserId, Long signalId) {
         log.info(": signalId={}", signalId);
 
-        CommunitySignal signal = signalRepository.findById(signalId)
-                .orElseThrow(() -> new ResourceNotFoundException("信号不存在: " + signalId));
+        CommunitySignal signal = loadSignalOrThrow(signalId);
 
         // 
         signalRepository.incrementViewCount(signalId);
@@ -196,13 +199,9 @@ public class CommunitySignalServiceImpl implements CommunitySignalService {
     public SignalResponse updateSignal(Long userId, Long signalId, UpdateSignalRequest request) {
         log.info(": userId={}, signalId={}", userId, signalId);
 
-        CommunitySignal signal = signalRepository.findById(signalId)
-                .orElseThrow(() -> new ResourceNotFoundException("信号不存在: " + signalId));
+        CommunitySignal signal = loadSignalOrThrow(signalId);
 
-        // 
-        if (!signal.getUserId().equals(userId)) {
-            throw new IllegalArgumentException("无权更新此信号");
-        }
+        assertOwner(signal.getUserId(), userId, "无权更新此信号");
 
         if (request.getReason() != null) {
             signal.setReason(request.getReason());
@@ -235,13 +234,9 @@ public class CommunitySignalServiceImpl implements CommunitySignalService {
     public SignalResponse closeSignal(Long userId, Long signalId, String resultStatus, BigDecimal resultProfit) {
         log.info(": userId={}, signalId={}, result={}", userId, signalId, resultStatus);
 
-        CommunitySignal signal = signalRepository.findById(signalId)
-                .orElseThrow(() -> new ResourceNotFoundException("信号不存在: " + signalId));
+        CommunitySignal signal = loadSignalOrThrow(signalId);
 
-        // 
-        if (!signal.getUserId().equals(userId)) {
-            throw new IllegalArgumentException("无权关闭此信号");
-        }
+        assertOwner(signal.getUserId(), userId, "无权关闭此信号");
 
         signal.setStatus(CommunitySignal.Status.CLOSED);
         signal.setResultStatus(CommunitySignal.ResultStatus.valueOf(resultStatus));
@@ -263,13 +258,9 @@ public class CommunitySignalServiceImpl implements CommunitySignalService {
     public void deleteSignal(Long userId, Long signalId) {
         log.info(": userId={}, signalId={}", userId, signalId);
 
-        CommunitySignal signal = signalRepository.findById(signalId)
-                .orElseThrow(() -> new ResourceNotFoundException("信号不存在: " + signalId));
+        CommunitySignal signal = loadSignalOrThrow(signalId);
 
-        // 
-        if (!signal.getUserId().equals(userId)) {
-            throw new IllegalArgumentException("无权删除此信号");
-        }
+        assertOwner(signal.getUserId(), userId, "无权删除此信号");
 
         signalRepository.delete(signal);
     }
@@ -284,8 +275,7 @@ public class CommunitySignalServiceImpl implements CommunitySignalService {
     public SignalSubscriptionResponse subscribeSignal(Long userId, Long signalId) {
         log.info(": userId={}, signalId={}", userId, signalId);
 
-        CommunitySignal signal = signalRepository.findById(signalId)
-                .orElseThrow(() -> new ResourceNotFoundException("信号不存在: " + signalId));
+        CommunitySignal signal = loadSignalOrThrow(signalId);
 
         // 
         if (subscriptionRepository.existsBySignalIdAndUserId(signalId, userId)) {
@@ -453,8 +443,7 @@ public class CommunitySignalServiceImpl implements CommunitySignalService {
     public CommentResponse createComment(Long userId, Long signalId, CreateCommentRequest request) {
         log.info(": userId={}, signalId={}", userId, signalId);
 
-        CommunitySignal signal = signalRepository.findById(signalId)
-                .orElseThrow(() -> new ResourceNotFoundException("信号不存在: " + signalId));
+        loadSignalOrThrow(signalId);
 
         SignalComment comment = SignalComment.builder()
                 .signalId(signalId)
@@ -477,13 +466,9 @@ public class CommunitySignalServiceImpl implements CommunitySignalService {
     public void deleteComment(Long userId, Long commentId) {
         log.info(": userId={}, commentId={}", userId, commentId);
 
-        SignalComment comment = commentRepository.findById(commentId)
-                .orElseThrow(() -> new ResourceNotFoundException("评论不存在: " + commentId));
+        SignalComment comment = loadCommentOrThrow(commentId);
 
-        // 
-        if (!comment.getUserId().equals(userId)) {
-            throw new IllegalArgumentException("无权删除此评论");
-        }
+        assertOwner(comment.getUserId(), userId, "无权删除此评论");
 
         commentRepository.softDelete(commentId);
         signalRepository.decrementCommentCount(comment.getSignalId());
@@ -524,6 +509,18 @@ public class CommunitySignalServiceImpl implements CommunitySignalService {
     }
 
     // ========== 私有方法 ==========
+
+    private CommunitySignal loadSignalOrThrow(Long signalId) {
+        Long nonNullSignalId = Objects.requireNonNull(signalId, "signalId must not be null");
+        return requireFound(signalRepository.findById(nonNullSignalId),
+                () -> new ResourceNotFoundException("信号不存在: " + signalId));
+    }
+
+    private SignalComment loadCommentOrThrow(Long commentId) {
+        Long nonNullCommentId = Objects.requireNonNull(commentId, "commentId must not be null");
+        return requireFound(commentRepository.findById(nonNullCommentId),
+                () -> new ResourceNotFoundException("评论不存在: " + commentId));
+    }
 
     private SignalResponse toSignalResponse(CommunitySignal signal,
                                            Set<Long> likedSignalIds,
@@ -609,7 +606,6 @@ public class CommunitySignalServiceImpl implements CommunitySignalService {
 
             // 
             long totalSignals = signalRepository.countByUserId(userId);
-            long activeSignals = signalRepository.countByUserIdAndStatus(userId, CommunitySignal.Status.ACTIVE);
 
             stats.setTotalSignals((int) totalSignals);
             stats.calculateWinRate();

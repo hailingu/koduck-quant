@@ -98,7 +98,7 @@ public class AuthController {
     public ApiResponse<Void> logout(@Valid @RequestBody(required = false) RefreshTokenRequest request) {
         String refreshToken = normalizeRefreshToken(request);
         authService.logout(refreshToken);
-        return ApiResponse.success();
+        return ApiResponse.successNoContent();
     }
 
     /**
@@ -127,7 +127,7 @@ public class AuthController {
             HttpServletRequest httpRequest) {
         String ipAddress = getClientIpAddress(httpRequest);
         authService.forgotPassword(request, ipAddress);
-        return ApiResponse.success();
+        return ApiResponse.successNoContent();
     }
 
     /**
@@ -140,7 +140,7 @@ public class AuthController {
     @Operation(summary = "重置密码", description = "使用重置令牌设置新密码")
     public ApiResponse<Void> resetPassword(@Valid @RequestBody ResetPasswordRequest request) {
         authService.resetPassword(request);
-        return ApiResponse.success();
+        return ApiResponse.successNoContent();
     }
 
     /**

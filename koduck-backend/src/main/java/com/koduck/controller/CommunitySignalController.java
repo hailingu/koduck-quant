@@ -11,6 +11,7 @@ import com.koduck.dto.community.SignalResponse;
 import com.koduck.dto.community.SignalSubscriptionResponse;
 import com.koduck.dto.community.UpdateSignalRequest;
 import com.koduck.dto.community.UserSignalStatsResponse;
+import com.koduck.controller.support.AuthenticatedUserResolver;
 import com.koduck.security.UserPrincipal;
 import com.koduck.service.CommunitySignalService;
 import jakarta.validation.Valid;
@@ -35,7 +36,6 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.math.BigDecimal;
 import java.util.List;
-import java.util.Objects;
 
 /**
  * REST controller for community trading signals.
@@ -62,6 +62,7 @@ public class CommunitySignalController {
     private static final String MESSAGE_UNFAVORITED_SUCCESSFULLY = "Unfavorited successfully";
 
     private final CommunitySignalService signalService;
+    private final AuthenticatedUserResolver authenticatedUserResolver;
 
     /**
      * Retrieves signal list with filtering and paging.
@@ -87,7 +88,7 @@ public class CommunitySignalController {
             @Min(value = 1, message = "size must be >= 1")
             @Max(value = 100, message = "size must be <= 100") int size) {
 
-        Long currentUserId = getOptionalUserId(userPrincipal);
+        Long currentUserId = authenticatedUserResolver.getOptionalUserId(userPrincipal);
         log.info("Get signals: sort={}, symbol={}, type={}", sort, symbol, type);
 
         SignalListResponse response = signalService.getSignals(currentUserId, sort, symbol, type, page, size);
@@ -104,7 +105,7 @@ public class CommunitySignalController {
     public ApiResponse<List<SignalResponse>> getFeaturedSignals(
             @AuthenticationPrincipal UserPrincipal userPrincipal) {
 
-        Long currentUserId = getOptionalUserId(userPrincipal);
+        Long currentUserId = authenticatedUserResolver.getOptionalUserId(userPrincipal);
         log.info("Get featured signals");
 
         List<SignalResponse> signals = signalService.getFeaturedSignals(currentUserId);
@@ -123,7 +124,7 @@ public class CommunitySignalController {
             @AuthenticationPrincipal UserPrincipal userPrincipal,
             @PathVariable @Positive(message = "id must be positive") Long id) {
 
-        Long currentUserId = getOptionalUserId(userPrincipal);
+        Long currentUserId = authenticatedUserResolver.getOptionalUserId(userPrincipal);
         log.info("Get signal detail: id={}", id);
 
         SignalResponse signal = signalService.getSignal(currentUserId, id);
@@ -142,7 +143,7 @@ public class CommunitySignalController {
             @AuthenticationPrincipal UserPrincipal userPrincipal,
             @PathVariable @Positive(message = "userId must be positive") Long userId) {
 
-        Long currentUserId = getOptionalUserId(userPrincipal);
+        Long currentUserId = authenticatedUserResolver.getOptionalUserId(userPrincipal);
         log.info("Get user signals: userId={}", userId);
 
         List<SignalResponse> signals = signalService.getUserSignals(currentUserId, userId);
@@ -161,7 +162,7 @@ public class CommunitySignalController {
             @AuthenticationPrincipal UserPrincipal userPrincipal,
             @Valid @RequestBody CreateSignalRequest request) {
 
-        Long userId = requireUserId(userPrincipal);
+        Long userId = authenticatedUserResolver.requireUserId(userPrincipal);
         log.info("Create signal: userId={}, symbol={}", userId, request.getSymbol());
 
         SignalResponse signal = signalService.createSignal(userId, request);
@@ -182,7 +183,7 @@ public class CommunitySignalController {
             @PathVariable @Positive(message = "id must be positive") Long id,
             @Valid @RequestBody UpdateSignalRequest request) {
 
-        Long userId = requireUserId(userPrincipal);
+        Long userId = authenticatedUserResolver.requireUserId(userPrincipal);
         log.info("Update signal: userId={}, id={}", userId, id);
 
         SignalResponse signal = signalService.updateSignal(userId, id, request);
@@ -207,7 +208,7 @@ public class CommunitySignalController {
             String resultStatus,
             @RequestParam(required = false) BigDecimal resultProfit) {
 
-        Long userId = requireUserId(userPrincipal);
+        Long userId = authenticatedUserResolver.requireUserId(userPrincipal);
         log.info("Close signal: userId={}, id={}, resultStatus={}", userId, id, resultStatus);
 
         SignalResponse signal = signalService.closeSignal(userId, id, resultStatus, resultProfit);
@@ -226,11 +227,11 @@ public class CommunitySignalController {
             @AuthenticationPrincipal UserPrincipal userPrincipal,
             @PathVariable @Positive(message = "id must be positive") Long id) {
 
-        Long userId = requireUserId(userPrincipal);
+        Long userId = authenticatedUserResolver.requireUserId(userPrincipal);
         log.info("Delete signal: userId={}, id={}", userId, id);
 
         signalService.deleteSignal(userId, id);
-        return new ApiResponse<>(0, MESSAGE_DELETED_SUCCESSFULLY, null);
+        return ApiResponse.successMessage(MESSAGE_DELETED_SUCCESSFULLY);
     }
 
     /**
@@ -245,7 +246,7 @@ public class CommunitySignalController {
             @AuthenticationPrincipal UserPrincipal userPrincipal,
             @PathVariable @Positive(message = "id must be positive") Long id) {
 
-        Long userId = requireUserId(userPrincipal);
+        Long userId = authenticatedUserResolver.requireUserId(userPrincipal);
         log.info("Subscribe signal: userId={}, id={}", userId, id);
 
         SignalSubscriptionResponse response = signalService.subscribeSignal(userId, id);
@@ -264,11 +265,11 @@ public class CommunitySignalController {
             @AuthenticationPrincipal UserPrincipal userPrincipal,
             @PathVariable @Positive(message = "id must be positive") Long id) {
 
-        Long userId = requireUserId(userPrincipal);
+        Long userId = authenticatedUserResolver.requireUserId(userPrincipal);
         log.info("Unsubscribe signal: userId={}, id={}", userId, id);
 
         signalService.unsubscribeSignal(userId, id);
-        return new ApiResponse<>(0, MESSAGE_UNSUBSCRIBED_SUCCESSFULLY, null);
+        return ApiResponse.successMessage(MESSAGE_UNSUBSCRIBED_SUCCESSFULLY);
     }
 
     /**
@@ -281,7 +282,7 @@ public class CommunitySignalController {
     public ApiResponse<List<SignalSubscriptionResponse>> getMySubscriptions(
             @AuthenticationPrincipal UserPrincipal userPrincipal) {
 
-        Long userId = requireUserId(userPrincipal);
+        Long userId = authenticatedUserResolver.requireUserId(userPrincipal);
         log.info("Get my subscriptions: userId={}", userId);
 
         List<SignalSubscriptionResponse> subscriptions = signalService.getMySubscriptions(userId);
@@ -300,11 +301,11 @@ public class CommunitySignalController {
             @AuthenticationPrincipal UserPrincipal userPrincipal,
             @PathVariable @Positive(message = "id must be positive") Long id) {
 
-        Long userId = requireUserId(userPrincipal);
+        Long userId = authenticatedUserResolver.requireUserId(userPrincipal);
         log.info("Like signal: userId={}, id={}", userId, id);
 
         signalService.likeSignal(userId, id);
-        return new ApiResponse<>(0, MESSAGE_LIKED_SUCCESSFULLY, null);
+        return ApiResponse.successMessage(MESSAGE_LIKED_SUCCESSFULLY);
     }
 
     /**
@@ -319,11 +320,11 @@ public class CommunitySignalController {
             @AuthenticationPrincipal UserPrincipal userPrincipal,
             @PathVariable @Positive(message = "id must be positive") Long id) {
 
-        Long userId = requireUserId(userPrincipal);
+        Long userId = authenticatedUserResolver.requireUserId(userPrincipal);
         log.info("Unlike signal: userId={}, id={}", userId, id);
 
         signalService.unlikeSignal(userId, id);
-        return new ApiResponse<>(0, MESSAGE_UNLIKED_SUCCESSFULLY, null);
+        return ApiResponse.successMessage(MESSAGE_UNLIKED_SUCCESSFULLY);
     }
 
     /**
@@ -340,11 +341,11 @@ public class CommunitySignalController {
             @PathVariable @Positive(message = "id must be positive") Long id,
             @RequestParam(required = false) @Size(max = 200, message = "note length must be <= 200") String note) {
 
-        Long userId = requireUserId(userPrincipal);
+        Long userId = authenticatedUserResolver.requireUserId(userPrincipal);
         log.info("Favorite signal: userId={}, id={}", userId, id);
 
         signalService.favoriteSignal(userId, id, note);
-        return new ApiResponse<>(0, MESSAGE_FAVORITED_SUCCESSFULLY, null);
+        return ApiResponse.successMessage(MESSAGE_FAVORITED_SUCCESSFULLY);
     }
 
     /**
@@ -359,11 +360,11 @@ public class CommunitySignalController {
             @AuthenticationPrincipal UserPrincipal userPrincipal,
             @PathVariable @Positive(message = "id must be positive") Long id) {
 
-        Long userId = requireUserId(userPrincipal);
+        Long userId = authenticatedUserResolver.requireUserId(userPrincipal);
         log.info("Unfavorite signal: userId={}, id={}", userId, id);
 
         signalService.unfavoriteSignal(userId, id);
-        return new ApiResponse<>(0, MESSAGE_UNFAVORITED_SUCCESSFULLY, null);
+        return ApiResponse.successMessage(MESSAGE_UNFAVORITED_SUCCESSFULLY);
     }
 
     /**
@@ -402,7 +403,7 @@ public class CommunitySignalController {
             @PathVariable @Positive(message = "id must be positive") Long id,
             @Valid @RequestBody CreateCommentRequest request) {
 
-        Long userId = requireUserId(userPrincipal);
+        Long userId = authenticatedUserResolver.requireUserId(userPrincipal);
         log.info("Create comment: userId={}, signalId={}", userId, id);
 
         CommentResponse comment = signalService.createComment(userId, id, request);
@@ -421,11 +422,11 @@ public class CommunitySignalController {
             @AuthenticationPrincipal UserPrincipal userPrincipal,
             @PathVariable @Positive(message = "commentId must be positive") Long commentId) {
 
-        Long userId = requireUserId(userPrincipal);
+        Long userId = authenticatedUserResolver.requireUserId(userPrincipal);
         log.info("Delete comment: userId={}, commentId={}", userId, commentId);
 
         signalService.deleteComment(userId, commentId);
-        return new ApiResponse<>(0, MESSAGE_DELETED_SUCCESSFULLY, null);
+        return ApiResponse.successMessage(MESSAGE_DELETED_SUCCESSFULLY);
     }
 
     /**
@@ -444,12 +445,4 @@ public class CommunitySignalController {
         return ApiResponse.success(stats);
     }
 
-    private Long getOptionalUserId(UserPrincipal userPrincipal) {
-        return userPrincipal != null ? userPrincipal.getUser().getId() : null;
-    }
-
-    private Long requireUserId(UserPrincipal userPrincipal) {
-        UserPrincipal principal = Objects.requireNonNull(userPrincipal, "authenticated user is required");
-        return principal.getUser().getId();
-    }
 }

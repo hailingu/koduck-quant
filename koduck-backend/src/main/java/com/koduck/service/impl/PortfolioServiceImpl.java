@@ -16,8 +16,12 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.Collectors;
+
+import static com.koduck.util.ServiceValidationUtils.assertOwner;
+import static com.koduck.util.ServiceValidationUtils.requireFound;
 
 /**
  * Implementation of portfolio service operations.
@@ -201,12 +205,9 @@ public class PortfolioServiceImpl implements PortfolioService {
     public PortfolioPositionDto updatePosition(Long userId, Long positionId, UpdatePositionRequest request) {
         log.debug("Updating position: user={}, positionId={}", userId, positionId);
         
-        PortfolioPosition position = positionRepository.findById(positionId)
-            .orElseThrow(() -> new IllegalArgumentException("Position not found"));
+        PortfolioPosition position = loadPositionOrThrow(positionId);
         
-        if (!position.getUserId().equals(userId)) {
-            throw new IllegalArgumentException("Not authorized to update this position");
-        }
+        assertOwner(position.getUserId(), userId, "Not authorized to update this position");
         
         if (request.quantity() != null) {
             position.setQuantity(request.quantity());
@@ -374,5 +375,11 @@ public class PortfolioServiceImpl implements PortfolioService {
             .tradeTime(trade.getTradeTime())
             .createdAt(trade.getCreatedAt())
             .build();
+    }
+
+    private PortfolioPosition loadPositionOrThrow(Long positionId) {
+        Long nonNullPositionId = Objects.requireNonNull(positionId, "positionId must not be null");
+        return requireFound(positionRepository.findById(nonNullPositionId),
+                () -> new IllegalArgumentException("Position not found"));
     }
 }

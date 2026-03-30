@@ -1,5 +1,6 @@
 package com.koduck.controller;
 
+import com.koduck.controller.support.AuthenticatedUserResolver;
 import com.koduck.dto.ApiResponse;
 import com.koduck.dto.common.PageResponse;
 import com.koduck.dto.user.ChangePasswordRequest;
@@ -31,6 +32,7 @@ import org.springframework.web.bind.annotation.*;
 @Tag(name = "User Management", description = "APIs for user profile query/update and admin user management")
 public class UserController {
 
+    private final AuthenticatedUserResolver authenticatedUserResolver;
     private final UserService userService;
 
     /**
@@ -39,7 +41,7 @@ public class UserController {
     @GetMapping("/me")
     public ApiResponse<UserDetailResponse> getCurrentUser(
             @AuthenticationPrincipal UserPrincipal userPrincipal) {
-        Long userId = userPrincipal.getUser().getId();
+        Long userId = authenticatedUserResolver.requireUserId(userPrincipal);
         log.debug("GET /api/v1/users/me, userId={}", userId);
         UserDetailResponse response = userService.getCurrentUser(userId);
         return ApiResponse.success(response);
@@ -52,7 +54,7 @@ public class UserController {
     public ApiResponse<UserDetailResponse> updateProfile(
             @AuthenticationPrincipal UserPrincipal userPrincipal,
             @Valid @RequestBody UpdateProfileRequest request) {
-        Long userId = userPrincipal.getUser().getId();
+        Long userId = authenticatedUserResolver.requireUserId(userPrincipal);
         log.debug("PUT /api/v1/users/me, userId={}", userId);
         UserDetailResponse response = userService.updateProfile(userId, request);
         return ApiResponse.success(response);
@@ -65,10 +67,10 @@ public class UserController {
     public ApiResponse<Void> changePassword(
             @AuthenticationPrincipal UserPrincipal userPrincipal,
             @Valid @RequestBody ChangePasswordRequest request) {
-        Long userId = userPrincipal.getUser().getId();
+        Long userId = authenticatedUserResolver.requireUserId(userPrincipal);
         log.debug("PUT /api/v1/users/me/password, userId={}", userId);
         userService.changePassword(userId, request);
-        return ApiResponse.success();
+        return ApiResponse.successNoContent();
     }
 
     /**
@@ -128,9 +130,9 @@ public class UserController {
     public ApiResponse<Void> deleteUser(
             @PathVariable @Positive(message = "User ID must be positive") Long id,
             @AuthenticationPrincipal UserPrincipal userPrincipal) {
-        Long currentUserId = userPrincipal.getUser().getId();
+        Long currentUserId = authenticatedUserResolver.requireUserId(userPrincipal);
         log.debug("DELETE /api/v1/users/{}, operatorUserId={}", id, currentUserId);
         userService.deleteUser(id, currentUserId);
-        return ApiResponse.success();
+        return ApiResponse.successNoContent();
     }
 }

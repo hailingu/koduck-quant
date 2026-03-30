@@ -1,5 +1,6 @@
 package com.koduck.controller;
 
+import com.koduck.controller.support.AuthenticatedUserResolver;
 import com.koduck.dto.ApiResponse;
 import com.koduck.dto.settings.UpdateNotificationRequest;
 import com.koduck.dto.settings.UpdateSettingsRequest;
@@ -22,6 +23,8 @@ import java.util.Collections;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -32,6 +35,9 @@ class SettingsControllerTest {
 
     @Mock
     private UserSettingsService userSettingsService;
+
+    @Mock
+    private AuthenticatedUserResolver authenticatedUserResolver;
 
     @InjectMocks
     private SettingsController settingsController;
@@ -48,6 +54,7 @@ class SettingsControllerTest {
                 .status(User.UserStatus.ACTIVE)
                 .build();
         userPrincipal = new UserPrincipal(user, Collections.emptyList());
+        lenient().when(authenticatedUserResolver.requireUserId(any(UserPrincipal.class))).thenReturn(USER_ID);
     }
 
     @Test
@@ -135,6 +142,7 @@ class SettingsControllerTest {
     @Test
     @DisplayName("Get settings should throw when user principal is null")
     void getSettings_shouldThrowWhenUserPrincipalIsNull() {
+        when(authenticatedUserResolver.requireUserId(null)).thenThrow(new NullPointerException());
         assertThrows(NullPointerException.class, () -> settingsController.getSettings(null));
     }
 }

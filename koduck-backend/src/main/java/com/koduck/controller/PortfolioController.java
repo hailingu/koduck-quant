@@ -2,6 +2,7 @@ package com.koduck.controller;
 
 import io.swagger.v3.oas.annotations.tags.Tag;
 
+import com.koduck.controller.support.AuthenticatedUserResolver;
 import com.koduck.dto.ApiResponse;
 import com.koduck.dto.portfolio.*;
 import com.koduck.security.UserPrincipal;
@@ -28,6 +29,7 @@ import java.util.List;
 @Slf4j
 public class PortfolioController {
     
+    private final AuthenticatedUserResolver authenticatedUserResolver;
     private final PortfolioService portfolioService;
     
     /**
@@ -39,10 +41,11 @@ public class PortfolioController {
     @GetMapping
     public ApiResponse<List<PortfolioPositionDto>> getPositions(
             @AuthenticationPrincipal UserPrincipal userPrincipal) {
+        Long userId = authenticatedUserResolver.requireUserId(userPrincipal);
         
-        log.debug("GET /api/v1/portfolio: user={}", userPrincipal.getUser().getId());
+        log.debug("GET /api/v1/portfolio: user={}", userId);
         
-        List<PortfolioPositionDto> positions = portfolioService.getPositions(userPrincipal.getUser().getId());
+        List<PortfolioPositionDto> positions = portfolioService.getPositions(userId);
         return ApiResponse.success(positions);
     }
     
@@ -55,10 +58,11 @@ public class PortfolioController {
     @GetMapping("/summary")
     public ApiResponse<PortfolioSummaryDto> getPortfolioSummary(
             @AuthenticationPrincipal UserPrincipal userPrincipal) {
+        Long userId = authenticatedUserResolver.requireUserId(userPrincipal);
         
-        log.debug("GET /api/v1/portfolio/summary: user={}", userPrincipal.getUser().getId());
+        log.debug("GET /api/v1/portfolio/summary: user={}", userId);
         
-        PortfolioSummaryDto summary = portfolioService.getPortfolioSummary(userPrincipal.getUser().getId());
+        PortfolioSummaryDto summary = portfolioService.getPortfolioSummary(userId);
         return ApiResponse.success(summary);
     }
     
@@ -73,11 +77,12 @@ public class PortfolioController {
     public ApiResponse<PortfolioPositionDto> addPosition(
             @AuthenticationPrincipal UserPrincipal userPrincipal,
             @Valid @RequestBody AddPositionRequest request) {
+        Long userId = authenticatedUserResolver.requireUserId(userPrincipal);
         
         log.debug("POST /api/v1/portfolio: user={}, market={}, symbol={}", 
-                 userPrincipal.getUser().getId(), request.market(), request.symbol());
+                 userId, request.market(), request.symbol());
         
-        PortfolioPositionDto position = portfolioService.addPosition(userPrincipal.getUser().getId(), request);
+        PortfolioPositionDto position = portfolioService.addPosition(userId, request);
         return ApiResponse.success(position);
     }
     
@@ -94,10 +99,11 @@ public class PortfolioController {
             @AuthenticationPrincipal UserPrincipal userPrincipal,
             @PathVariable @Positive(message = "Position ID must be positive") Long id,
             @Valid @RequestBody UpdatePositionRequest request) {
+        Long userId = authenticatedUserResolver.requireUserId(userPrincipal);
         
-        log.debug("PUT /api/v1/portfolio/{}: user={}", id, userPrincipal.getUser().getId());
+        log.debug("PUT /api/v1/portfolio/{}: user={}", id, userId);
         
-        PortfolioPositionDto position = portfolioService.updatePosition(userPrincipal.getUser().getId(), id, request);
+        PortfolioPositionDto position = portfolioService.updatePosition(userId, id, request);
         return ApiResponse.success(position);
     }
     
@@ -112,11 +118,12 @@ public class PortfolioController {
     public ApiResponse<Void> deletePosition(
             @AuthenticationPrincipal UserPrincipal userPrincipal,
             @PathVariable @Positive(message = "Position ID must be positive") Long id) {
+        Long userId = authenticatedUserResolver.requireUserId(userPrincipal);
         
-        log.debug("DELETE /api/v1/portfolio/{}: user={}", id, userPrincipal.getUser().getId());
+        log.debug("DELETE /api/v1/portfolio/{}: user={}", id, userId);
         
-        portfolioService.deletePosition(userPrincipal.getUser().getId(), id);
-        return ApiResponse.success();
+        portfolioService.deletePosition(userId, id);
+        return ApiResponse.successNoContent();
     }
     
     /**
@@ -128,10 +135,11 @@ public class PortfolioController {
     @GetMapping("/trades")
     public ApiResponse<List<TradeDto>> getTrades(
             @AuthenticationPrincipal UserPrincipal userPrincipal) {
+        Long userId = authenticatedUserResolver.requireUserId(userPrincipal);
         
-        log.debug("GET /api/v1/portfolio/trades: user={}", userPrincipal.getUser().getId());
+        log.debug("GET /api/v1/portfolio/trades: user={}", userId);
         
-        List<TradeDto> trades = portfolioService.getTrades(userPrincipal.getUser().getId());
+        List<TradeDto> trades = portfolioService.getTrades(userId);
         return ApiResponse.success(trades);
     }
     
@@ -146,11 +154,12 @@ public class PortfolioController {
     public ApiResponse<TradeDto> addTrade(
             @AuthenticationPrincipal UserPrincipal userPrincipal,
             @Valid @RequestBody AddTradeRequest request) {
+        Long userId = authenticatedUserResolver.requireUserId(userPrincipal);
         
         log.debug("POST /api/v1/portfolio/trades: user={}, market={}, symbol={}, type={}", 
-                 userPrincipal.getUser().getId(), request.market(), request.symbol(), request.tradeType());
+                 userId, request.market(), request.symbol(), request.tradeType());
         
-        TradeDto trade = portfolioService.addTrade(userPrincipal.getUser().getId(), request);
+        TradeDto trade = portfolioService.addTrade(userId, request);
         return ApiResponse.success(trade);
     }
 }

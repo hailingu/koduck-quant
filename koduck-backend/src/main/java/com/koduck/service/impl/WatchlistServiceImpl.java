@@ -27,6 +27,9 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
+import static com.koduck.util.ServiceValidationUtils.assertOwner;
+import static com.koduck.util.ServiceValidationUtils.requireFound;
+
 /**
  * Implementation of {@link WatchlistService} for watchlist operations.
  */
@@ -149,12 +152,9 @@ public class WatchlistServiceImpl implements WatchlistService {
     public WatchlistItemDto updateNotes(Long userId, Long itemId, String notes) {
         log.debug("watchlist_update_notes_start userId={} itemId={}", userId, itemId);
 
-        WatchlistItem item = watchlistRepository.findById(Objects.requireNonNull(itemId))
-            .orElseThrow(() -> new IllegalArgumentException("Watchlist item not found"));
+        WatchlistItem item = loadWatchlistItemOrThrow(itemId);
 
-        if (!item.getUserId().equals(userId)) {
-            throw new IllegalArgumentException("Not authorized to update this item");
-        }
+        assertOwner(item.getUserId(), userId, "Not authorized to update this item");
 
         item.setNotes(notes);
         WatchlistItem saved = watchlistRepository.save(item);
@@ -163,6 +163,11 @@ public class WatchlistServiceImpl implements WatchlistService {
         Map<String, StockRealtime> realtimeBySymbol =
                 loadRealtimeMap(normalizedSymbol == null ? Collections.emptyList() : Collections.singletonList(normalizedSymbol));
         return convertToDtoWithPrice(saved, realtimeBySymbol);
+    }
+
+    private WatchlistItem loadWatchlistItemOrThrow(Long itemId) {
+        return requireFound(watchlistRepository.findById(Objects.requireNonNull(itemId)),
+                () -> new IllegalArgumentException("Watchlist item not found"));
     }
 
     private Map<String, StockRealtime> loadRealtimeMap(List<String> normalizedSymbols) {

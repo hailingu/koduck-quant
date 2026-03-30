@@ -1,5 +1,6 @@
 package com.koduck.controller;
 
+import com.koduck.controller.support.AuthenticatedUserResolver;
 import com.koduck.dto.ApiResponse;
 import com.koduck.dto.portfolio.AddPositionRequest;
 import com.koduck.dto.portfolio.AddTradeRequest;
@@ -29,6 +30,8 @@ import java.util.List;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -39,6 +42,9 @@ class PortfolioControllerTest {
 
     @Mock
     private PortfolioService portfolioService;
+
+        @Mock
+        private AuthenticatedUserResolver authenticatedUserResolver;
 
     @InjectMocks
     private PortfolioController portfolioController;
@@ -55,6 +61,7 @@ class PortfolioControllerTest {
                 .status(User.UserStatus.ACTIVE)
                 .build();
         userPrincipal = new UserPrincipal(user, Collections.emptyList());
+        lenient().when(authenticatedUserResolver.requireUserId(any(UserPrincipal.class))).thenReturn(USER_ID);
     }
 
     @Test

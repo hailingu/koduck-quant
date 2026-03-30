@@ -1,5 +1,6 @@
 package com.koduck.controller;
 
+import com.koduck.controller.support.AuthenticatedUserResolver;
 import com.koduck.dto.ApiResponse;
 import com.koduck.dto.watchlist.AddWatchlistRequest;
 import com.koduck.dto.watchlist.SortWatchlistRequest;
@@ -26,6 +27,8 @@ import java.util.List;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -36,6 +39,9 @@ class WatchlistControllerTest {
 
     @Mock
     private WatchlistService watchlistService;
+
+    @Mock
+    private AuthenticatedUserResolver authenticatedUserResolver;
 
     @InjectMocks
     private WatchlistController watchlistController;
@@ -52,6 +58,7 @@ class WatchlistControllerTest {
                 .status(User.UserStatus.ACTIVE)
                 .build();
         userPrincipal = new UserPrincipal(user, Collections.emptyList());
+        lenient().when(authenticatedUserResolver.requireUserId(any(UserPrincipal.class))).thenReturn(USER_ID);
     }
 
     @Test

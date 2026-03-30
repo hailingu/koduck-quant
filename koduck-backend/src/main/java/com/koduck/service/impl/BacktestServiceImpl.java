@@ -9,6 +9,7 @@ import com.koduck.repository.StrategyRepository;
 import com.koduck.repository.StrategyVersionRepository;
 import com.koduck.service.BacktestService;
 import com.koduck.service.KlineService;
+import com.koduck.service.support.StrategyAccessSupport;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -20,10 +21,10 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
-import java.util.Optional;
 import java.util.stream.Collectors;
+
+import static com.koduck.util.ServiceValidationUtils.requireFound;
 
 /**
  * Implementation of BacktestService.
@@ -38,6 +39,7 @@ public class BacktestServiceImpl implements BacktestService {
     private final StrategyRepository strategyRepository;
     private final StrategyVersionRepository versionRepository;
     private final KlineService klineService;
+    private final StrategyAccessSupport strategyAccessSupport;
     
     private static final int SCALE = 4;
     private static final String DEFAULT_TIMEFRAME = "1D";
@@ -63,8 +65,7 @@ public class BacktestServiceImpl implements BacktestService {
     public BacktestResultDto getBacktestResult(Long userId, Long id) {
         log.debug("Getting backtest result: user={}, id={}", userId, id);
         
-        BacktestResult result = resultRepository.findByIdAndUserId(id, userId)
-            .orElseThrow(() -> new IllegalArgumentException("Backtest result not found"));
+        BacktestResult result = loadBacktestResultOrThrow(userId, id);
         
         return convertToDto(result);
     }
@@ -78,13 +79,11 @@ public class BacktestServiceImpl implements BacktestService {
         log.info("Running backtest: user={}, strategyId={}, symbol={}", userId, request.strategyId(), request.symbol());
         
         // Get strategy
-        Strategy strategy = strategyRepository.findByIdAndUserId(request.strategyId(), userId)
-            .orElseThrow(() -> new IllegalArgumentException("Strategy not found"));
+        Strategy strategy = strategyAccessSupport.loadStrategyOrThrow(userId, request.strategyId());
         
         // Get active version
         StrategyVersion version = versionRepository.findByStrategyIdAndIsActiveTrue(strategy.getId())
-            .orElse(versionRepository.findFirstByStrategyIdOrderByVersionNumberDesc(strategy.getId())
-                .orElseThrow(() -> new IllegalArgumentException("No version found for strategy")));
+            .orElseGet(() -> loadLatestVersionOrThrow(strategy.getId()));
         
         // Create backtest result record
         BacktestResult result = BacktestResult.builder()
@@ -133,10 +132,7 @@ public class BacktestServiceImpl implements BacktestService {
     public List<BacktestTradeDto> getBacktestTrades(Long userId, Long backtestId) {
         log.debug("Getting backtest trades: user={}, backtestId={}", userId, backtestId);
         
-        // Verify ownership
-        if (!resultRepository.findByIdAndUserId(backtestId, userId).isPresent()) {
-            throw new IllegalArgumentException("Backtest result not found");
-        }
+        loadBacktestResultOrThrow(userId, backtestId);
         
         List<BacktestTrade> trades = tradeRepository.findByBacktestResultIdOrderByTradeTimeAsc(backtestId);
         
@@ -153,8 +149,7 @@ public class BacktestServiceImpl implements BacktestService {
     public void deleteBacktestResult(Long userId, Long id) {
         log.debug("Deleting backtest result: user={}, id={}", userId, id);
         
-        BacktestResult result = resultRepository.findByIdAndUserId(id, userId)
-            .orElseThrow(() -> new IllegalArgumentException("Backtest result not found"));
+        BacktestResult result = loadBacktestResultOrThrow(userId, id);
         
         // Delete trades first
         tradeRepository.deleteByBacktestResultId(id);
@@ -522,6 +517,16 @@ public class BacktestServiceImpl implements BacktestService {
         }
         
         return BigDecimal.ZERO;
+    }
+
+    private BacktestResult loadBacktestResultOrThrow(Long userId, Long backtestId) {
+        return requireFound(resultRepository.findByIdAndUserId(backtestId, userId),
+                () -> new IllegalArgumentException("Backtest result not found"));
+    }
+
+    private StrategyVersion loadLatestVersionOrThrow(Long strategyId) {
+        return requireFound(versionRepository.findFirstByStrategyIdOrderByVersionNumberDesc(strategyId),
+                () -> new IllegalArgumentException("No version found for strategy"));
     }
     
     /**

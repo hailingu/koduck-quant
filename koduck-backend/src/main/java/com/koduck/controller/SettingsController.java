@@ -2,6 +2,7 @@ package com.koduck.controller;
 
 import io.swagger.v3.oas.annotations.tags.Tag;
 
+import com.koduck.controller.support.AuthenticatedUserResolver;
 import com.koduck.dto.ApiResponse;
 import com.koduck.dto.settings.*;
 import com.koduck.security.UserPrincipal;
@@ -12,8 +13,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
-
-import java.util.Objects;
 
 /**
  * REST API controller for system and user settings.
@@ -29,8 +28,7 @@ import java.util.Objects;
 @Slf4j
 public class SettingsController {
 
-    private static final String USER_PRINCIPAL_NOT_NULL_MSG = "userPrincipal must not be null";
-
+    private final AuthenticatedUserResolver authenticatedUserResolver;
     private final UserSettingsService settingsService;
 
     /**
@@ -42,9 +40,7 @@ public class SettingsController {
     @GetMapping
     public ApiResponse<UserSettingsDto> getSettings(
             @AuthenticationPrincipal UserPrincipal userPrincipal) {
-        Objects.requireNonNull(userPrincipal, USER_PRINCIPAL_NOT_NULL_MSG);
-
-        Long userId = userPrincipal.getUser().getId();
+        Long userId = authenticatedUserResolver.requireUserId(userPrincipal);
         log.debug("GET /api/v1/settings: user={}", userId);
 
         UserSettingsDto settings = settingsService.getSettings(userId);
@@ -62,9 +58,7 @@ public class SettingsController {
     public ApiResponse<UserSettingsDto> updateSettings(
             @AuthenticationPrincipal UserPrincipal userPrincipal,
             @Valid @RequestBody UpdateSettingsRequest request) {
-        Objects.requireNonNull(userPrincipal, USER_PRINCIPAL_NOT_NULL_MSG);
-
-        Long userId = userPrincipal.getUser().getId();
+        Long userId = authenticatedUserResolver.requireUserId(userPrincipal);
         log.debug("PUT /api/v1/settings: user={}", userId);
 
         UserSettingsDto settings = settingsService.updateSettings(userId, request);
@@ -82,9 +76,7 @@ public class SettingsController {
     public ApiResponse<UserSettingsDto> updateTheme(
             @AuthenticationPrincipal UserPrincipal userPrincipal,
             @Valid @RequestBody UpdateThemeRequest request) {
-        Objects.requireNonNull(userPrincipal, USER_PRINCIPAL_NOT_NULL_MSG);
-
-        Long userId = userPrincipal.getUser().getId();
+        Long userId = authenticatedUserResolver.requireUserId(userPrincipal);
         log.debug("PUT /api/v1/settings/theme: user={}, theme={}", userId, request.getTheme());
 
         UserSettingsDto settings = settingsService.updateTheme(userId, request.getTheme());
@@ -102,9 +94,7 @@ public class SettingsController {
     public ApiResponse<UserSettingsDto> updateNotification(
             @AuthenticationPrincipal UserPrincipal userPrincipal,
             @Valid @RequestBody UpdateNotificationRequest request) {
-        Objects.requireNonNull(userPrincipal, USER_PRINCIPAL_NOT_NULL_MSG);
-
-        Long userId = userPrincipal.getUser().getId();
+        Long userId = authenticatedUserResolver.requireUserId(userPrincipal);
         log.debug("PUT /api/v1/settings/notification: user={}", userId);
 
         UserSettingsDto settings = settingsService.updateNotification(userId, request);

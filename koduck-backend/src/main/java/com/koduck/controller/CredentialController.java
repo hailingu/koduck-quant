@@ -2,6 +2,7 @@ package com.koduck.controller;
 
 import io.swagger.v3.oas.annotations.tags.Tag;
 
+import com.koduck.controller.support.AuthenticatedUserResolver;
 import com.koduck.dto.ApiResponse;
 import com.koduck.dto.credential.CreateCredentialRequest;
 import com.koduck.dto.credential.CredentialAuditLogResponse;
@@ -30,7 +31,6 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
-import java.util.Objects;
 
 /**
  * REST controller for credential management.
@@ -50,12 +50,7 @@ public class CredentialController {
     private static final int MAX_PAGE_SIZE = 100;
 
     private final CredentialService credentialService;
-
-    private Long requireUserId(UserPrincipal userPrincipal) {
-        Objects.requireNonNull(userPrincipal, "userPrincipal must not be null");
-        Objects.requireNonNull(userPrincipal.getUser(), "authenticated user must not be null");
-        return Objects.requireNonNull(userPrincipal.getUser().getId(), "authenticated user id must not be null");
-    }
+    private final AuthenticatedUserResolver authenticatedUserResolver;
 
     /**
      * Retrieve paged credential summaries for the authenticated user.
@@ -71,7 +66,7 @@ public class CredentialController {
             @RequestParam(defaultValue = "0") @Min(DEFAULT_PAGE) int page,
             @RequestParam(defaultValue = "20") @Min(1) @Max(MAX_PAGE_SIZE) int size) {
 
-        Long userId = requireUserId(userPrincipal);
+        Long userId = authenticatedUserResolver.requireUserId(userPrincipal);
         log.info("List credentials: userId={}, page={}, size={}", userId, page, size);
 
         CredentialListResponse response = credentialService.getCredentials(userId, page, size);
@@ -88,7 +83,7 @@ public class CredentialController {
     public ApiResponse<List<CredentialResponse>> getAllCredentials(
             @AuthenticationPrincipal UserPrincipal userPrincipal) {
 
-        Long userId = requireUserId(userPrincipal);
+        Long userId = authenticatedUserResolver.requireUserId(userPrincipal);
         log.info("List all credentials: userId={}", userId);
 
         List<CredentialResponse> credentials = credentialService.getAllCredentials(userId);
@@ -107,7 +102,7 @@ public class CredentialController {
             @AuthenticationPrincipal UserPrincipal userPrincipal,
             @PathVariable Long id) {
 
-        Long userId = requireUserId(userPrincipal);
+        Long userId = authenticatedUserResolver.requireUserId(userPrincipal);
         log.info("Get credential summary: userId={}, credentialId={}", userId, id);
 
         CredentialResponse credential = credentialService.getCredential(userId, id);
@@ -126,7 +121,7 @@ public class CredentialController {
             @AuthenticationPrincipal UserPrincipal userPrincipal,
             @PathVariable Long id) {
 
-        Long userId = requireUserId(userPrincipal);
+        Long userId = authenticatedUserResolver.requireUserId(userPrincipal);
         log.info("Get credential detail: userId={}, credentialId={}", userId, id);
 
         CredentialDetailResponse credential = credentialService.getCredentialDetail(userId, id);
@@ -145,7 +140,7 @@ public class CredentialController {
             @AuthenticationPrincipal UserPrincipal userPrincipal,
             @Valid @RequestBody CreateCredentialRequest request) {
 
-        Long userId = requireUserId(userPrincipal);
+        Long userId = authenticatedUserResolver.requireUserId(userPrincipal);
         log.info("Create credential: userId={}, name={}", userId, request.getName());
 
         CredentialResponse credential = credentialService.createCredential(userId, request);
@@ -166,7 +161,7 @@ public class CredentialController {
             @PathVariable Long id,
             @Valid @RequestBody UpdateCredentialRequest request) {
 
-        Long userId = requireUserId(userPrincipal);
+        Long userId = authenticatedUserResolver.requireUserId(userPrincipal);
         log.info("Update credential: userId={}, credentialId={}", userId, id);
 
         CredentialResponse credential = credentialService.updateCredential(userId, id, request);
@@ -185,11 +180,11 @@ public class CredentialController {
             @AuthenticationPrincipal UserPrincipal userPrincipal,
             @PathVariable Long id) {
 
-        Long userId = requireUserId(userPrincipal);
+        Long userId = authenticatedUserResolver.requireUserId(userPrincipal);
         log.info("Delete credential: userId={}, credentialId={}", userId, id);
 
         credentialService.deleteCredential(userId, id);
-        return ApiResponse.success();
+        return ApiResponse.successNoContent();
     }
 
     /**
@@ -204,7 +199,7 @@ public class CredentialController {
             @AuthenticationPrincipal UserPrincipal userPrincipal,
             @PathVariable Long id) {
 
-        Long userId = requireUserId(userPrincipal);
+        Long userId = authenticatedUserResolver.requireUserId(userPrincipal);
         log.info("Verify credential: userId={}, credentialId={}", userId, id);
 
         VerifyCredentialResponse result = credentialService.verifyCredential(userId, id);
@@ -225,7 +220,7 @@ public class CredentialController {
             @RequestParam(defaultValue = "0") @Min(DEFAULT_PAGE) int page,
             @RequestParam(defaultValue = "20") @Min(1) @Max(MAX_PAGE_SIZE) int size) {
 
-        Long userId = requireUserId(userPrincipal);
+        Long userId = authenticatedUserResolver.requireUserId(userPrincipal);
         log.info("Get audit logs: userId={}, page={}, size={}", userId, page, size);
 
         List<CredentialAuditLogResponse> logs = credentialService.getAuditLogs(userId, page, size);

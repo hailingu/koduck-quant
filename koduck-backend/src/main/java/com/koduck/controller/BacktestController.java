@@ -1,5 +1,6 @@
 package com.koduck.controller;
 
+import com.koduck.controller.support.AuthenticatedUserResolver;
 import com.koduck.dto.ApiResponse;
 import com.koduck.dto.backtest.*;
 import com.koduck.security.UserPrincipal;
@@ -26,6 +27,7 @@ import java.util.List;
 @Slf4j
 public class BacktestController {
     
+    private final AuthenticatedUserResolver authenticatedUserResolver;
     private final BacktestService backtestService;
     
     /**
@@ -39,10 +41,11 @@ public class BacktestController {
     @GetMapping
     public ApiResponse<List<BacktestResultDto>> getBacktestResults(
             @AuthenticationPrincipal UserPrincipal userPrincipal) {
+        Long userId = authenticatedUserResolver.requireUserId(userPrincipal);
         
-        log.debug("GET /api/v1/backtest: user={}", userPrincipal.getUser().getId());
+        log.debug("GET /api/v1/backtest: user={}", userId);
         
-        List<BacktestResultDto> results = backtestService.getBacktestResults(userPrincipal.getUser().getId());
+        List<BacktestResultDto> results = backtestService.getBacktestResults(userId);
         return ApiResponse.success(results);
     }
     
@@ -57,10 +60,11 @@ public class BacktestController {
     public ApiResponse<BacktestResultDto> getBacktestResult(
             @AuthenticationPrincipal UserPrincipal userPrincipal,
             @PathVariable Long id) {
+        Long userId = authenticatedUserResolver.requireUserId(userPrincipal);
         
-        log.debug("GET /api/v1/backtest/{}: user={}", id, userPrincipal.getUser().getId());
+        log.debug("GET /api/v1/backtest/{}: user={}", id, userId);
         
-        BacktestResultDto result = backtestService.getBacktestResult(userPrincipal.getUser().getId(), id);
+        BacktestResultDto result = backtestService.getBacktestResult(userId, id);
         return ApiResponse.success(result);
     }
     
@@ -76,11 +80,12 @@ public class BacktestController {
     public ApiResponse<BacktestResultDto> runBacktest(
             @AuthenticationPrincipal UserPrincipal userPrincipal,
             @Valid @RequestBody RunBacktestRequest request) {
+        Long userId = authenticatedUserResolver.requireUserId(userPrincipal);
         
         log.debug("POST /api/v1/backtest/run: user={}, strategyId={}, symbol={}", 
-                 userPrincipal.getUser().getId(), request.strategyId(), request.symbol());
+                 userId, request.strategyId(), request.symbol());
         
-        BacktestResultDto result = backtestService.runBacktest(userPrincipal.getUser().getId(), request);
+        BacktestResultDto result = backtestService.runBacktest(userId, request);
         return ApiResponse.success(result);
     }
     
@@ -95,10 +100,11 @@ public class BacktestController {
     public ApiResponse<List<BacktestTradeDto>> getBacktestTrades(
             @AuthenticationPrincipal UserPrincipal userPrincipal,
             @PathVariable Long id) {
+        Long userId = authenticatedUserResolver.requireUserId(userPrincipal);
         
-        log.debug("GET /api/v1/backtest/{}/trades: user={}", id, userPrincipal.getUser().getId());
+        log.debug("GET /api/v1/backtest/{}/trades: user={}", id, userId);
         
-        List<BacktestTradeDto> trades = backtestService.getBacktestTrades(userPrincipal.getUser().getId(), id);
+        List<BacktestTradeDto> trades = backtestService.getBacktestTrades(userId, id);
         return ApiResponse.success(trades);
     }
     
@@ -113,10 +119,11 @@ public class BacktestController {
     public ApiResponse<Void> deleteBacktestResult(
             @AuthenticationPrincipal UserPrincipal userPrincipal,
             @PathVariable Long id) {
+        Long userId = authenticatedUserResolver.requireUserId(userPrincipal);
         
-        log.debug("DELETE /api/v1/backtest/{}: user={}", id, userPrincipal.getUser().getId());
+        log.debug("DELETE /api/v1/backtest/{}: user={}", id, userId);
         
-        backtestService.deleteBacktestResult(userPrincipal.getUser().getId(), id);
-        return ApiResponse.success();
+        backtestService.deleteBacktestResult(userId, id);
+        return ApiResponse.successNoContent();
     }
 }

@@ -8,6 +8,7 @@ import com.koduck.repository.StrategyParameterRepository;
 import com.koduck.repository.StrategyRepository;
 import com.koduck.repository.StrategyVersionRepository;
 import com.koduck.service.StrategyService;
+import com.koduck.service.support.StrategyAccessSupport;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -16,6 +17,8 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
+
+import static com.koduck.util.ServiceValidationUtils.requireFound;
 
 /**
  * Implementation of StrategyService.
@@ -28,6 +31,7 @@ public class StrategyServiceImpl implements StrategyService {
     private final StrategyRepository strategyRepository;
     private final StrategyVersionRepository versionRepository;
     private final StrategyParameterRepository parameterRepository;
+    private final StrategyAccessSupport strategyAccessSupport;
     
     private static final String DEFAULT_CODE_TEMPLATE = """
 # 
@@ -73,8 +77,7 @@ def handle_data(context, data):
     public StrategyDto getStrategy(Long userId, Long strategyId) {
         log.debug("Getting strategy: user={}, strategyId={}", userId, strategyId);
         
-        Strategy strategy = strategyRepository.findByIdAndUserId(strategyId, userId)
-            .orElseThrow(() -> new IllegalArgumentException("Strategy not found"));
+        Strategy strategy = strategyAccessSupport.loadStrategyOrThrow(userId, strategyId);
         
         return convertToDtoWithParameters(strategy);
     }
@@ -121,8 +124,7 @@ def handle_data(context, data):
     public StrategyDto updateStrategy(Long userId, Long strategyId, UpdateStrategyRequest request) {
         log.debug("Updating strategy: user={}, strategyId={}", userId, strategyId);
         
-        Strategy strategy = strategyRepository.findByIdAndUserId(strategyId, userId)
-            .orElseThrow(() -> new IllegalArgumentException("Strategy not found"));
+        Strategy strategy = strategyAccessSupport.loadStrategyOrThrow(userId, strategyId);
         
         // Update basic info
         if (request.name() != null) {
@@ -173,8 +175,7 @@ def handle_data(context, data):
     public StrategyDto publishStrategy(Long userId, Long strategyId) {
         log.debug("Publishing strategy: user={}, strategyId={}", userId, strategyId);
         
-        Strategy strategy = strategyRepository.findByIdAndUserId(strategyId, userId)
-            .orElseThrow(() -> new IllegalArgumentException("Strategy not found"));
+        Strategy strategy = strategyAccessSupport.loadStrategyOrThrow(userId, strategyId);
         
         strategy.setStatus(Strategy.StrategyStatus.PUBLISHED);
         Strategy saved = strategyRepository.save(strategy);
@@ -189,8 +190,7 @@ def handle_data(context, data):
     public StrategyDto disableStrategy(Long userId, Long strategyId) {
         log.debug("Disabling strategy: user={}, strategyId={}", userId, strategyId);
         
-        Strategy strategy = strategyRepository.findByIdAndUserId(strategyId, userId)
-            .orElseThrow(() -> new IllegalArgumentException("Strategy not found"));
+        Strategy strategy = strategyAccessSupport.loadStrategyOrThrow(userId, strategyId);
         
         strategy.setStatus(Strategy.StrategyStatus.DISABLED);
         Strategy saved = strategyRepository.save(strategy);
@@ -204,10 +204,7 @@ def handle_data(context, data):
     public List<StrategyVersionDto> getVersions(Long userId, Long strategyId) {
         log.debug("Getting versions: user={}, strategyId={}", userId, strategyId);
         
-        // Verify ownership
-        if (!strategyRepository.existsByIdAndUserId(strategyId, userId)) {
-            throw new IllegalArgumentException("Strategy not found");
-        }
+        verifyStrategyOwnershipOrThrow(userId, strategyId);
         
         List<StrategyVersion> versions = versionRepository.findByStrategyIdOrderByVersionNumberDesc(strategyId);
         
@@ -220,13 +217,9 @@ def handle_data(context, data):
     public StrategyVersionDto getVersion(Long userId, Long strategyId, Integer versionNumber) {
         log.debug("Getting version: user={}, strategyId={}, version={}", userId, strategyId, versionNumber);
         
-        // Verify ownership
-        if (!strategyRepository.existsByIdAndUserId(strategyId, userId)) {
-            throw new IllegalArgumentException("Strategy not found");
-        }
+        verifyStrategyOwnershipOrThrow(userId, strategyId);
         
-        StrategyVersion version = versionRepository.findByStrategyIdAndVersionNumber(strategyId, versionNumber)
-            .orElseThrow(() -> new IllegalArgumentException("Version not found"));
+        StrategyVersion version = loadVersionByNumberOrThrow(strategyId, versionNumber);
         
         return convertVersionToDto(version);
     }
@@ -236,10 +229,7 @@ def handle_data(context, data):
     public StrategyVersionDto activateVersion(Long userId, Long strategyId, Long versionId) {
         log.debug("Activating version: user={}, strategyId={}, versionId={}", userId, strategyId, versionId);
         
-        // Verify ownership
-        if (!strategyRepository.existsByIdAndUserId(strategyId, userId)) {
-            throw new IllegalArgumentException("Strategy not found");
-        }
+        verifyStrategyOwnershipOrThrow(userId, strategyId);
         
         // Deactivate all versions
         versionRepository.deactivateAllVersions(strategyId);
@@ -247,8 +237,7 @@ def handle_data(context, data):
         // Activate specified version
         versionRepository.activateVersion(versionId);
         
-        StrategyVersion version = versionRepository.findById(versionId)
-            .orElseThrow(() -> new IllegalArgumentException("Version not found"));
+        StrategyVersion version = loadVersionByIdOrThrow(versionId);
         
         log.info("Activated version: strategyId={}, versionId={}", strategyId, versionId);
         
@@ -308,6 +297,22 @@ def handle_data(context, data):
         }
         
         parameterRepository.saveAll(entities);
+    }
+
+    private StrategyVersion loadVersionByIdOrThrow(Long versionId) {
+        return requireFound(versionRepository.findById(versionId),
+                () -> new IllegalArgumentException("Version not found"));
+    }
+
+    private StrategyVersion loadVersionByNumberOrThrow(Long strategyId, Integer versionNumber) {
+        return requireFound(versionRepository.findByStrategyIdAndVersionNumber(strategyId, versionNumber),
+                () -> new IllegalArgumentException("Version not found"));
+    }
+
+    private void verifyStrategyOwnershipOrThrow(Long userId, Long strategyId) {
+        if (!strategyRepository.existsByIdAndUserId(strategyId, userId)) {
+            throw new IllegalArgumentException("Strategy not found");
+        }
     }
     
     /**

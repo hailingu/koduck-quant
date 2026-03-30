@@ -2,6 +2,7 @@ package com.koduck.controller;
 
 import io.swagger.v3.oas.annotations.tags.Tag;
 
+import com.koduck.controller.support.AuthenticatedUserResolver;
 import com.koduck.dto.ApiResponse;
 import com.koduck.dto.ai.BacktestInterpretRequest;
 import com.koduck.dto.ai.BacktestInterpretResponse;
@@ -32,7 +33,6 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 
 /**
  * REST API controller exposing AI analysis endpoints.
@@ -51,8 +51,11 @@ import java.util.Objects;
 @Slf4j
 public class AiAnalysisController {
 
+    private static final String KEY_SESSION_ID = "sessionId";
+
     private final AiAnalysisService aiAnalysisService;
     private final MemoryService memoryService;
+    private final AuthenticatedUserResolver authenticatedUserResolver;
 
     /**
      * Perform an AI-driven stock analysis.
@@ -70,7 +73,7 @@ public class AiAnalysisController {
             @AuthenticationPrincipal UserPrincipal userPrincipal,
             @Valid @RequestBody StockAnalysisRequest request) {
 
-        Long userId = requireUserId(userPrincipal);
+        Long userId = authenticatedUserResolver.requireUserId(userPrincipal);
         log.debug("POST /api/v1/ai/analyze: user={}, symbol={}, question={}", userId, request.getSymbol(), request.getQuestion());
 
         StockAnalysisResponse response = aiAnalysisService.analyzeStock(userId, request);
@@ -85,7 +88,7 @@ public class AiAnalysisController {
             @AuthenticationPrincipal UserPrincipal userPrincipal,
             @Valid @RequestBody ChatStreamRequest request) {
 
-        Long userId = requireUserId(userPrincipal);
+        Long userId = authenticatedUserResolver.requireUserId(userPrincipal);
         log.debug(
             "POST /api/v1/ai/chat/stream: user={}, provider={}, model={}",
             userId,
@@ -111,7 +114,7 @@ public class AiAnalysisController {
             @AuthenticationPrincipal UserPrincipal userPrincipal,
             @Valid @RequestBody StrategyRecommendRequest request) {
 
-        Long userId = requireUserId(userPrincipal);
+        Long userId = authenticatedUserResolver.requireUserId(userPrincipal);
         log.debug("POST /api/v1/ai/strategy-recommend: user={}, risk={}",
                  userId, request.getRiskPreference());
 
@@ -133,7 +136,7 @@ public class AiAnalysisController {
             @AuthenticationPrincipal UserPrincipal userPrincipal,
             @Valid @RequestBody BacktestInterpretRequest request) {
 
-        Long userId = requireUserId(userPrincipal);
+        Long userId = authenticatedUserResolver.requireUserId(userPrincipal);
         log.debug("POST /api/v1/ai/interpret-backtest: user={}, backtestId={}",
                  userId, request.getBacktestResultId());
 
@@ -156,7 +159,7 @@ public class AiAnalysisController {
             @AuthenticationPrincipal UserPrincipal userPrincipal,
             @Valid @RequestBody RiskAssessmentRequest request) {
 
-        Long userId = requireUserId(userPrincipal);
+        Long userId = authenticatedUserResolver.requireUserId(userPrincipal);
         log.debug("POST /api/v1/ai/risk-assessment: user={}, portfolioId={}",
                  userId, request.getPortfolioId());
 
@@ -172,11 +175,11 @@ public class AiAnalysisController {
         @AuthenticationPrincipal UserPrincipal userPrincipal,
         @PathVariable String sessionId
     ) {
-        Long userId = requireUserId(userPrincipal);
+        Long userId = authenticatedUserResolver.requireUserId(userPrincipal);
         String normalizedSessionId = memoryService.resolveSessionId(sessionId);
         memoryService.deleteSession(userId, normalizedSessionId);
         return ApiResponse.success(Map.of(
-            "sessionId", normalizedSessionId,
+            KEY_SESSION_ID, normalizedSessionId,
             "deleted", true
         ));
     }
@@ -185,7 +188,7 @@ public class AiAnalysisController {
     public ApiResponse<Map<String, Object>> clearProfileMemory(
         @AuthenticationPrincipal UserPrincipal userPrincipal
     ) {
-        Long userId = requireUserId(userPrincipal);
+        Long userId = authenticatedUserResolver.requireUserId(userPrincipal);
         memoryService.clearProfile(userId);
         return ApiResponse.success(Map.of("cleared", true));
     }
@@ -194,10 +197,10 @@ public class AiAnalysisController {
     public ApiResponse<Map<String, Object>> listUserSessions(
         @AuthenticationPrincipal UserPrincipal userPrincipal
     ) {
-        Long userId = requireUserId(userPrincipal);
+        Long userId = authenticatedUserResolver.requireUserId(userPrincipal);
         var sessions = memoryService.getUserSessions(userId);
         var sessionList = sessions.stream().map(s -> Map.<String, Object>of(
-            "sessionId", s.getSessionId(),
+            KEY_SESSION_ID, s.getSessionId(),
             "title", s.getTitle() != null ? s.getTitle() : s.getSessionId(),
             "status", s.getStatus(),
             "lastMessageAt", s.getLastMessageAt() != null ? s.getLastMessageAt().toString() : "",
@@ -211,7 +214,7 @@ public class AiAnalysisController {
         @AuthenticationPrincipal UserPrincipal userPrincipal,
         @PathVariable String sessionId
     ) {
-        Long userId = requireUserId(userPrincipal);
+        Long userId = authenticatedUserResolver.requireUserId(userPrincipal);
         String normalizedSessionId = memoryService.resolveSessionId(sessionId);
         List<MemoryChatMessage> messages = memoryService.getRecentMessages(
             userId,
@@ -224,14 +227,10 @@ public class AiAnalysisController {
             "createdAt", m.getCreatedAt() != null ? m.getCreatedAt().toString() : ""
         )).toList();
         return ApiResponse.success(Map.of(
-            "sessionId", normalizedSessionId,
+            KEY_SESSION_ID, normalizedSessionId,
             "messageCount", summary.size(),
             "messages", summary
         ));
     }
 
-    private Long requireUserId(UserPrincipal userPrincipal) {
-        UserPrincipal principal = Objects.requireNonNull(userPrincipal, "authenticated user is required");
-        return principal.getUser().getId();
-    }
 }

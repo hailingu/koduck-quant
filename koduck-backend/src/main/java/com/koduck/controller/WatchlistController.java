@@ -2,6 +2,7 @@ package com.koduck.controller;
 
 import io.swagger.v3.oas.annotations.tags.Tag;
 
+import com.koduck.controller.support.AuthenticatedUserResolver;
 import com.koduck.dto.ApiResponse;
 import com.koduck.dto.watchlist.AddWatchlistRequest;
 import com.koduck.dto.watchlist.SortWatchlistRequest;
@@ -31,6 +32,7 @@ import java.util.List;
 @Slf4j
 public class WatchlistController {
 
+    private final AuthenticatedUserResolver authenticatedUserResolver;
     private final WatchlistService watchlistService;
 
     /**
@@ -39,10 +41,11 @@ public class WatchlistController {
     @GetMapping
     public ApiResponse<List<WatchlistItemDto>> getWatchlist(
             @AuthenticationPrincipal UserPrincipal userPrincipal) {
+        Long userId = authenticatedUserResolver.requireUserId(userPrincipal);
 
-        log.debug("GET /api/v1/watchlist: user={}", userPrincipal.getUser().getId());
+        log.debug("GET /api/v1/watchlist: user={}", userId);
 
-        List<WatchlistItemDto> watchlist = watchlistService.getWatchlist(userPrincipal.getUser().getId());
+        List<WatchlistItemDto> watchlist = watchlistService.getWatchlist(userId);
         return ApiResponse.success(watchlist);
     }
 
@@ -53,11 +56,12 @@ public class WatchlistController {
     public ApiResponse<WatchlistItemDto> addToWatchlist(
             @AuthenticationPrincipal UserPrincipal userPrincipal,
             @Valid @RequestBody AddWatchlistRequest request) {
+        Long userId = authenticatedUserResolver.requireUserId(userPrincipal);
 
         log.debug("POST /api/v1/watchlist: user={}, market={}, symbol={}",
-                 userPrincipal.getUser().getId(), request.market(), request.symbol());
+                 userId, request.market(), request.symbol());
 
-        WatchlistItemDto item = watchlistService.addToWatchlist(userPrincipal.getUser().getId(), request);
+        WatchlistItemDto item = watchlistService.addToWatchlist(userId, request);
         return ApiResponse.success(item);
     }
 
@@ -68,11 +72,12 @@ public class WatchlistController {
     public ApiResponse<Void> removeFromWatchlist(
             @AuthenticationPrincipal UserPrincipal userPrincipal,
             @PathVariable @Positive Long id) {
+        Long userId = authenticatedUserResolver.requireUserId(userPrincipal);
 
-        log.debug("DELETE /api/v1/watchlist/{}: user={}", id, userPrincipal.getUser().getId());
+        log.debug("DELETE /api/v1/watchlist/{}: user={}", id, userId);
 
-        watchlistService.removeFromWatchlist(userPrincipal.getUser().getId(), id);
-        return ApiResponse.success();
+        watchlistService.removeFromWatchlist(userId, id);
+        return ApiResponse.successNoContent();
     }
 
     /**
@@ -82,11 +87,12 @@ public class WatchlistController {
     public ApiResponse<Void> sortWatchlist(
             @AuthenticationPrincipal UserPrincipal userPrincipal,
             @Valid @RequestBody SortWatchlistRequest request) {
+        Long userId = authenticatedUserResolver.requireUserId(userPrincipal);
 
-        log.debug("PUT /api/v1/watchlist/sort: user={}, items={}", userPrincipal.getUser().getId(), request.items().size());
+        log.debug("PUT /api/v1/watchlist/sort: user={}, items={}", userId, request.items().size());
 
-        watchlistService.sortWatchlist(userPrincipal.getUser().getId(), request);
-        return ApiResponse.success();
+        watchlistService.sortWatchlist(userId, request);
+        return ApiResponse.successNoContent();
     }
 
     /**
@@ -97,10 +103,11 @@ public class WatchlistController {
             @AuthenticationPrincipal UserPrincipal userPrincipal,
             @PathVariable @Positive Long id,
             @RequestBody @NotNull @Size(max = 500, message = "Notes too long") String notes) {
+        Long userId = authenticatedUserResolver.requireUserId(userPrincipal);
 
-        log.debug("PUT /api/v1/watchlist/{}/notes: user={}", id, userPrincipal.getUser().getId());
+        log.debug("PUT /api/v1/watchlist/{}/notes: user={}", id, userId);
 
-        WatchlistItemDto item = watchlistService.updateNotes(userPrincipal.getUser().getId(), id, notes);
+        WatchlistItemDto item = watchlistService.updateNotes(userId, id, notes);
         return ApiResponse.success(item);
     }
 }

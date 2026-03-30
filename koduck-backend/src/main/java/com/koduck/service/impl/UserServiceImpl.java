@@ -26,6 +26,8 @@ import org.springframework.util.StringUtils;
 import java.util.List;
 import java.util.stream.Collectors;
 
+import static com.koduck.util.ServiceValidationUtils.requireFound;
+
 /**
  * 用户服务实现类。
  */
@@ -47,8 +49,7 @@ public class UserServiceImpl implements UserService {
      */
     @Override
     public UserDetailResponse getCurrentUser(Long userId) {
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new ResourceNotFoundException("用户", userId));
+        User user = loadUserOrThrow(userId);
         return convertToDetailResponse(user);
     }
 
@@ -58,8 +59,7 @@ public class UserServiceImpl implements UserService {
     @Override
     @Transactional
     public UserDetailResponse updateProfile(Long userId, UpdateProfileRequest request) {
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new ResourceNotFoundException("用户", userId));
+        User user = loadUserOrThrow(userId);
 
         if (StringUtils.hasText(request.getNickname())) {
             user.setNickname(request.getNickname());
@@ -78,8 +78,7 @@ public class UserServiceImpl implements UserService {
     @Override
     @Transactional
     public void changePassword(Long userId, ChangePasswordRequest request) {
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new ResourceNotFoundException("用户", userId));
+        User user = loadUserOrThrow(userId);
 
         // 验证旧密码
         if (!passwordEncoder.matches(request.getOldPassword(), user.getPasswordHash())) {
@@ -135,8 +134,7 @@ public class UserServiceImpl implements UserService {
      */
     @Override
     public UserDetailResponse getUserById(Long userId) {
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new ResourceNotFoundException("用户", userId));
+        User user = loadUserOrThrow(userId);
         return convertToDetailResponse(user);
     }
 
@@ -186,8 +184,7 @@ public class UserServiceImpl implements UserService {
     @Override
     @Transactional
     public UserDetailResponse updateUser(Long userId, UpdateUserRequest request) {
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new ResourceNotFoundException("用户", userId));
+        User user = loadUserOrThrow(userId);
 
         // 更新邮箱（如果变更且不为空）
         if (StringUtils.hasText(request.getEmail()) && !request.getEmail().equals(user.getEmail())) {
@@ -232,14 +229,18 @@ public class UserServiceImpl implements UserService {
             throw new BusinessException(ErrorCode.USER_CANNOT_DELETE_SELF);
         }
 
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new ResourceNotFoundException("用户", userId));
+        User user = loadUserOrThrow(userId);
 
         // 删除用户角色关联
         userRoleRepository.deleteAllByUserId(userId);
 
         // 删除用户
         userRepository.delete(user);
+    }
+
+    private User loadUserOrThrow(Long userId) {
+        return requireFound(userRepository.findById(userId),
+                () -> new ResourceNotFoundException("用户", userId));
     }
 
     /**

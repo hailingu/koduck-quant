@@ -24,6 +24,8 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
 
+import static com.koduck.util.ServiceValidationUtils.requireFound;
+
 /**
  * 用户凭证服务实现
  */
@@ -86,8 +88,7 @@ public class CredentialServiceImpl implements CredentialService {
     public CredentialResponse getCredential(Long userId, Long credentialId) {
         log.info("查询凭证: userId={}, credentialId={}", userId, credentialId);
 
-        UserCredential credential = credentialRepository.findByIdAndUserId(credentialId, userId)
-                .orElseThrow(() -> new ResourceNotFoundException("凭证不存在: " + credentialId));
+        UserCredential credential = loadCredentialOrThrow(userId, credentialId);
 
         auditLog(userId, credentialId, CredentialAuditLog.ActionType.VIEW, true, null);
 
@@ -101,8 +102,7 @@ public class CredentialServiceImpl implements CredentialService {
     public CredentialDetailResponse getCredentialDetail(Long userId, Long credentialId) {
         log.info("查询凭证详情: userId={}, credentialId={}", userId, credentialId);
 
-        UserCredential credential = credentialRepository.findByIdAndUserId(credentialId, userId)
-                .orElseThrow(() -> new ResourceNotFoundException("凭证不存在: " + credentialId));
+        UserCredential credential = loadCredentialOrThrow(userId, credentialId);
 
         auditLog(userId, credentialId, CredentialAuditLog.ActionType.VIEW, true, null);
 
@@ -159,8 +159,7 @@ public class CredentialServiceImpl implements CredentialService {
     public CredentialResponse updateCredential(Long userId, Long credentialId, UpdateCredentialRequest request) {
         log.info("更新凭证: userId={}, credentialId={}", userId, credentialId);
 
-        UserCredential credential = credentialRepository.findByIdAndUserId(credentialId, userId)
-                .orElseThrow(() -> new ResourceNotFoundException("凭证不存在: " + credentialId));
+        UserCredential credential = loadCredentialOrThrow(userId, credentialId);
 
         // 检查名称是否重复
         if (!credential.getName().equals(request.getName())
@@ -208,8 +207,7 @@ public class CredentialServiceImpl implements CredentialService {
     public void deleteCredential(Long userId, Long credentialId) {
         log.info("删除凭证: userId={}, credentialId={}", userId, credentialId);
 
-        UserCredential credential = credentialRepository.findByIdAndUserId(credentialId, userId)
-                .orElseThrow(() -> new ResourceNotFoundException("凭证不存在: " + credentialId));
+        UserCredential credential = loadCredentialOrThrow(userId, credentialId);
 
         credentialRepository.delete(credential);
 
@@ -225,8 +223,7 @@ public class CredentialServiceImpl implements CredentialService {
     public VerifyCredentialResponse verifyCredential(Long userId, Long credentialId) {
         log.info("验证凭证: userId={}, credentialId={}", userId, credentialId);
 
-        UserCredential credential = credentialRepository.findByIdAndUserId(credentialId, userId)
-                .orElseThrow(() -> new ResourceNotFoundException("凭证不存在: " + credentialId));
+        UserCredential credential = loadCredentialOrThrow(userId, credentialId);
 
         // 解密 API Key 和 Secret
         String apiKey = CredentialEncryptionUtil.decrypt(credential.getApiKeyEncrypted());
@@ -271,6 +268,11 @@ public class CredentialServiceImpl implements CredentialService {
     }
 
     // ===== 私有方法 =====
+
+    private UserCredential loadCredentialOrThrow(Long userId, Long credentialId) {
+        return requireFound(credentialRepository.findByIdAndUserId(credentialId, userId),
+                () -> new ResourceNotFoundException("凭证不存在: " + credentialId));
+    }
 
     /**
      * 执行凭证验证（模拟实现）
