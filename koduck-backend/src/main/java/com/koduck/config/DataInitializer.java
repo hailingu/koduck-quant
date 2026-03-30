@@ -21,6 +21,7 @@ import org.springframework.util.StringUtils;
 
 import com.koduck.util.ReservedUsernameValidator;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 
 /**
@@ -181,11 +182,14 @@ public class DataInitializer implements CommandLineRunner {
         }
 
         try {
-            Role created = Role.builder()
-                .name(ROLE_USER)
-                .description(ROLE_USER_DESCRIPTION)
-                .build();
-            created = roleRepository.save(created);
+            Role created = Objects.requireNonNull(
+                Role.builder()
+                    .name(ROLE_USER)
+                    .description(ROLE_USER_DESCRIPTION)
+                    .build(),
+                "Role entity must not be null"
+            );
+            roleRepository.save(created);
             log.info("Created missing role: {}", ROLE_USER);
             return created;
         } catch (DataIntegrityViolationException e) {
@@ -291,17 +295,20 @@ public class DataInitializer implements CommandLineRunner {
                 String apiBase = firstNonBlank(config.apiBase(), config.defaultBase());
                 
                 // 创建凭证实体
-                UserCredential credential = UserCredential.builder()
-                    .userId(userId)
-                    .name(provider.toUpperCase() + " API Key (Auto)")
-                    .type(UserCredential.CredentialType.AI_PROVIDER)
-                    .provider(provider)
-                    .apiKeyEncrypted(encryptedKey)
-                    .environment(UserCredential.Environment.live)
-                    .isActive(true)
-                    .additionalConfig(apiBase != null ? Map.of("apiBase", apiBase) : Map.of())
-                    .lastVerifiedStatus(UserCredential.VerificationStatus.PENDING)
-                    .build();
+                UserCredential credential = Objects.requireNonNull(
+                    UserCredential.builder()
+                        .userId(userId)
+                        .name(provider.toUpperCase() + " API Key (Auto)")
+                        .type(UserCredential.CredentialType.AI_PROVIDER)
+                        .provider(provider)
+                        .apiKeyEncrypted(encryptedKey)
+                        .environment(UserCredential.Environment.live)
+                        .isActive(true)
+                        .additionalConfig(apiBase != null ? Map.of("apiBase", apiBase) : Map.of())
+                        .lastVerifiedStatus(UserCredential.VerificationStatus.PENDING)
+                        .build(),
+                    "UserCredential entity must not be null"
+                );
 
                 credentialRepository.save(credential);
                 initializedCount++;

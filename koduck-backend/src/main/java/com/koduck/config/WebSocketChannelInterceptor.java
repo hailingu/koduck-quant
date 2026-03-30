@@ -9,12 +9,15 @@ import org.springframework.messaging.simp.stomp.StompCommand;
 import org.springframework.messaging.simp.stomp.StompHeaderAccessor;
 import org.springframework.messaging.support.ChannelInterceptor;
 import org.springframework.messaging.support.MessageHeaderAccessor;
+import org.springframework.lang.NonNull;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.util.StringUtils;
 
 import java.util.Collections;
+import java.util.Objects;
+import java.util.Optional;
 
 /**
  * WebSocket 
@@ -42,7 +45,7 @@ public class WebSocketChannelInterceptor implements ChannelInterceptor {
      * @return 
      */
     @Override
-    public Message<?> preSend(Message<?> message, MessageChannel channel) {
+    public Message<?> preSend(@NonNull Message<?> message, @NonNull MessageChannel channel) {
         StompHeaderAccessor accessor = MessageHeaderAccessor.getAccessor(message, StompHeaderAccessor.class);
 
         if (accessor == null) {
@@ -68,12 +71,20 @@ public class WebSocketChannelInterceptor implements ChannelInterceptor {
      */
     private void handleConnect(StompHeaderAccessor accessor) {
         //  STOMP  Token
-        String bearerToken = accessor.getFirstNativeHeader(jwtConfig.getHeaderName());
+        String headerName = Objects.requireNonNull(
+            jwtConfig.getHeaderName(),
+            "JWT header name must not be null"
+        );
+        Optional<String> bearerTokenOptional = Optional
+            .ofNullable(accessor.getFirstNativeHeader(headerName))
+            .filter(StringUtils::hasText);
 
-        if (!StringUtils.hasText(bearerToken)) {
+        if (bearerTokenOptional.isEmpty()) {
             log.warn("WebSocket  Token ");
             return;
         }
+
+        String bearerToken = bearerTokenOptional.get();
 
         //  Bearer （）
         if (bearerToken.startsWith(BEARER_PREFIX)) {
@@ -114,8 +125,9 @@ public class WebSocketChannelInterceptor implements ChannelInterceptor {
      * @param accessor STOMP 
      */
     private void handleDisconnect(StompHeaderAccessor accessor) {
-        if (accessor.getUser() != null) {
-            log.info("WebSocket : {}", accessor.getUser().getName());
+        java.security.Principal user = accessor.getUser();
+        if (user != null) {
+            log.info("WebSocket : {}", user.getName());
         }
     }
 
