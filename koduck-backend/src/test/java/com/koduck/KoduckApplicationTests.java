@@ -8,7 +8,7 @@ import org.springframework.boot.test.context.SpringBootTest;
  *
  * @author Koduck Team
  */
-@SpringBootTest
+@SpringBootTest(properties = "app.demo.enabled=false")
 class KoduckApplicationTests {
 
     @Test

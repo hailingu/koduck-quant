@@ -379,7 +379,7 @@ class MarketServiceImplTest {
                 .updatedAt(LocalDateTime.now())
                 .build();
 
-        when(stockRealtimeRepository.findBySymbolIn(List.of("000001", "399001", "399006")))
+        when(stockRealtimeRepository.findBySymbolInAndType(List.of("000001", "399001", "399006"), "INDEX"))
                 .thenReturn(List.of(index));
 
         List<MarketIndexDto> indices = marketService.getMarketIndices();

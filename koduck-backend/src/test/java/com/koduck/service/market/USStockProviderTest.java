@@ -7,6 +7,7 @@ import com.koduck.market.model.TickData;
 import com.koduck.market.provider.MarketDataProvider;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.web.client.RestTemplate;
 
 import java.time.Instant;
@@ -29,7 +30,9 @@ class USStockProviderTest {
         properties = new FinnhubProperties();
         properties.setEnabled(false); // Use mock data for tests
         restTemplate = new RestTemplate();
-        provider = new USStockProvider(properties, restTemplate);
+        provider = new USStockProvider();
+        ReflectionTestUtils.setField(provider, "properties", properties);
+        ReflectionTestUtils.setField(provider, "restTemplate", restTemplate);
     }
     
     @Test

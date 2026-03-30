@@ -7,6 +7,7 @@ import com.koduck.entity.PasswordResetToken;
 import com.koduck.entity.User;
 import com.koduck.exception.BusinessException;
 import com.koduck.repository.*;
+import com.koduck.service.impl.AuthServiceImpl;
 import com.koduck.util.JwtUtil;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -16,6 +17,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import java.time.LocalDateTime;
 import java.util.Optional;
@@ -66,7 +68,7 @@ class AuthServicePasswordResetTest {
         @Mock
         private JdbcTemplate jdbcTemplate;
 
-    private AuthService authService;
+    private AuthServiceImpl authService;
 
     private static final String TEST_IP = "192.168.1.1";
     private static final String TEST_EMAIL = "user@example.com";
@@ -75,19 +77,18 @@ class AuthServicePasswordResetTest {
 
     @BeforeEach
     void setUp() {
-        authService = new AuthService(
-                userRepository,
-                roleRepository,
-                refreshTokenRepository,
-                userRoleRepository,
-                passwordResetTokenRepository,
-                jwtUtil,
-                passwordEncoder,
-                emailService,
-                rateLimiterService,
-                                mailProperties,
-                                jdbcTemplate
-        );
+        authService = new AuthServiceImpl();
+        ReflectionTestUtils.setField(authService, "userRepository", userRepository);
+        ReflectionTestUtils.setField(authService, "roleRepository", roleRepository);
+        ReflectionTestUtils.setField(authService, "refreshTokenRepository", refreshTokenRepository);
+        ReflectionTestUtils.setField(authService, "userRoleRepository", userRoleRepository);
+        ReflectionTestUtils.setField(authService, "passwordResetTokenRepository", passwordResetTokenRepository);
+        ReflectionTestUtils.setField(authService, "jwtUtil", jwtUtil);
+        ReflectionTestUtils.setField(authService, "passwordEncoder", passwordEncoder);
+        ReflectionTestUtils.setField(authService, "emailService", emailService);
+        ReflectionTestUtils.setField(authService, "rateLimiterService", rateLimiterService);
+        ReflectionTestUtils.setField(authService, "mailProperties", mailProperties);
+        ReflectionTestUtils.setField(authService, "jdbcTemplate", jdbcTemplate);
     }
 
     // ========== Forgot Password Tests ==========

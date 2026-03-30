@@ -10,6 +10,8 @@ import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.ValueOperations;
+import org.springframework.test.util.ReflectionTestUtils;
+import com.koduck.service.impl.RateLimiterServiceImpl;
 
 import static org.assertj.core.api.Assertions.*;
 import static org.mockito.Mockito.*;
@@ -29,12 +31,13 @@ class RateLimiterServiceTest {
     @Mock
     private ValueOperations<String, String> valueOperations;
 
-    private RateLimiterService rateLimiterService;
+    private RateLimiterServiceImpl rateLimiterService;
 
     @BeforeEach
     void setUp() {
         when(redisTemplate.opsForValue()).thenReturn(valueOperations);
-        rateLimiterService = new RateLimiterService(redisTemplate);
+        rateLimiterService = new RateLimiterServiceImpl();
+        ReflectionTestUtils.setField(rateLimiterService, "redisTemplate", redisTemplate);
     }
 
     @Test

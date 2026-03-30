@@ -3,6 +3,7 @@ package com.koduck.controller;
 import com.koduck.dto.community.CommentResponse;
 import com.koduck.dto.community.SignalListResponse;
 import com.koduck.dto.community.UserSignalStatsResponse;
+import com.koduck.controller.support.AuthenticatedUserResolver;
 import com.koduck.security.JwtAuthenticationFilter;
 import com.koduck.service.CommunitySignalService;
 import org.junit.jupiter.api.DisplayName;
@@ -19,6 +20,9 @@ import java.util.List;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.ArgumentMatchers.nullable;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -45,6 +49,9 @@ class CommunitySignalControllerValidationTest {
 
     @MockitoBean
     private JwtAuthenticationFilter jwtAuthenticationFilter;
+
+    @MockitoBean
+    private AuthenticatedUserResolver authenticatedUserResolver;
 
     @Test
     @DisplayName("shouldReturnBadRequestWhenSortIsInvalid")
@@ -131,7 +138,8 @@ class CommunitySignalControllerValidationTest {
             .size(20)
             .totalPages(0)
             .build();
-        when(signalService.getSignals(null, "new", null, null, 0, 20)).thenReturn(response);
+        when(signalService.getSignals(nullable(Long.class), eq("new"), isNull(), isNull(), eq(0), eq(20)))
+            .thenReturn(response);
 
         mockMvc.perform(get("/api/v1/community/signals")
                 .param("sort", "new")
@@ -142,7 +150,7 @@ class CommunitySignalControllerValidationTest {
             .andExpect(jsonPath("$.data.page").value(0))
             .andExpect(jsonPath("$.data.size").value(20));
 
-        verify(signalService).getSignals(null, "new", null, null, 0, 20);
+        verify(signalService).getSignals(nullable(Long.class), eq("new"), isNull(), isNull(), eq(0), eq(20));
         }
 
         @Test

@@ -16,7 +16,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  *
  * @author Koduck Team
  */
-@SpringBootTest
+@SpringBootTest(properties = "app.demo.enabled=false")
 @AutoConfigureMockMvc
 class HealthControllerTest {
 

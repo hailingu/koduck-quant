@@ -6,10 +6,10 @@ import com.koduck.entity.UserMemoryProfile;
 import com.koduck.repository.MemoryChatMessageRepository;
 import com.koduck.repository.MemoryChatSessionRepository;
 import com.koduck.repository.UserMemoryProfileRepository;
+import com.koduck.service.impl.MemoryServiceImpl;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.Pageable;
@@ -28,6 +28,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
+@SuppressWarnings("null")
 class MemoryServiceTest {
 
     @Mock
@@ -39,11 +40,14 @@ class MemoryServiceTest {
     @Mock
     private UserMemoryProfileRepository memoryProfileRepository;
 
-    @InjectMocks
-    private MemoryService memoryService;
+    private MemoryServiceImpl memoryService;
 
     @BeforeEach
     void setUp() {
+        memoryService = new MemoryServiceImpl();
+        ReflectionTestUtils.setField(memoryService, "chatSessionRepository", chatSessionRepository);
+        ReflectionTestUtils.setField(memoryService, "chatMessageRepository", chatMessageRepository);
+        ReflectionTestUtils.setField(memoryService, "memoryProfileRepository", memoryProfileRepository);
         ReflectionTestUtils.setField(memoryService, "memoryEnabled", true);
         ReflectionTestUtils.setField(memoryService, "l1MaxTurns", 20);
     }

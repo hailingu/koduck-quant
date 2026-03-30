@@ -6,12 +6,14 @@ import com.koduck.dto.portfolio.PortfolioSummaryDto;
 import com.koduck.entity.PortfolioPosition;
 import com.koduck.repository.PortfolioPositionRepository;
 import com.koduck.repository.TradeRepository;
+import com.koduck.service.impl.PortfolioServiceImpl;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -39,11 +41,14 @@ class PortfolioServiceTest {
     @Mock
     private KlineService klineService;
 
-    private PortfolioService portfolioService;
+        private PortfolioServiceImpl portfolioService;
 
     @BeforeEach
     void setUp() {
-        portfolioService = new PortfolioService(positionRepository, tradeRepository, klineService);
+                portfolioService = new PortfolioServiceImpl();
+                ReflectionTestUtils.setField(portfolioService, "positionRepository", positionRepository);
+                ReflectionTestUtils.setField(portfolioService, "tradeRepository", tradeRepository);
+                ReflectionTestUtils.setField(portfolioService, "klineService", klineService);
     }
 
     @Test

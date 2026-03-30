@@ -3,6 +3,7 @@ package com.koduck.controller;
 import com.koduck.dto.credential.CredentialAuditLogResponse;
 import com.koduck.dto.credential.CredentialListResponse;
 import com.koduck.entity.User;
+import com.koduck.controller.support.AuthenticatedUserResolver;
 import com.koduck.security.JwtAuthenticationFilter;
 import com.koduck.security.UserPrincipal;
 import com.koduck.service.CredentialService;
@@ -20,6 +21,7 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import java.util.List;
 
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -51,6 +53,9 @@ class CredentialControllerValidationTest {
 
     @MockitoBean
     private JwtAuthenticationFilter jwtAuthenticationFilter;
+
+        @MockitoBean
+        private AuthenticatedUserResolver authenticatedUserResolver;
 
     @Test
     @DisplayName("shouldReturnBadRequestWhenPageIsNegativeForCredentials")
@@ -105,6 +110,7 @@ class CredentialControllerValidationTest {
                 .page(0)
                 .size(20)
                 .build();
+        when(authenticatedUserResolver.requireUserId(any())).thenReturn(USER_ID);
         when(credentialService.getCredentials(USER_ID, 0, 20)).thenReturn(listResponse);
 
                 SecurityContextHolder.getContext().setAuthentication(buildAuthentication(USER_ID));
@@ -124,6 +130,7 @@ class CredentialControllerValidationTest {
     @Test
     @DisplayName("shouldReturnOkWhenPagingParamsAreValidForAuditLogs")
     void shouldReturnOkWhenPagingParamsAreValidForAuditLogs() throws Exception {
+                when(authenticatedUserResolver.requireUserId(any())).thenReturn(USER_ID);
         when(credentialService.getAuditLogs(USER_ID, 0, 20)).thenReturn(List.<CredentialAuditLogResponse>of());
 
                 SecurityContextHolder.getContext().setAuthentication(buildAuthentication(USER_ID));
