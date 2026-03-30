@@ -7,6 +7,7 @@ Usage:
     python -m koduck.server
 """
 
+import asyncio
 import json
 import hashlib
 import logging
@@ -31,6 +32,18 @@ from koduck.quant_tools import (
     get_tool_definition,
 )
 from koduck.tool_policy import append_tool_audit, can_execute_tool
+
+# Memory System Integration
+try:
+    from koduck.memory import (
+        build_messages_with_memory,
+        process_session_summary
+    )
+    MEMORY_SYSTEM_AVAILABLE = True
+except ImportError:
+    MEMORY_SYSTEM_AVAILABLE = False
+    logger = logging.getLogger(__name__)
+    logger.warning("[Memory] Memory system not available, skipping context injection")
 
 logger = logging.getLogger(__name__)
 
@@ -541,6 +554,17 @@ async def lifespan(app: FastAPI):
         log_level=os.getenv("LOG_LEVEL", "INFO").upper(),
         log_format=os.getenv("LOG_FORMAT", "json").lower(),
     )
+    
+    # Initialize Memory System
+    if MEMORY_SYSTEM_AVAILABLE:
+        try:
+            from koduck.memory.server_integration import init_memory_integration
+            # Note: db_pool should be passed from app state or created here
+            # For now, we'll initialize lazily in the first request
+            service_logger.info("[Memory] Memory system available, will initialize on first use")
+        except Exception as e:
+            service_logger.warning(f"[Memory] Failed to import memory integration: {e}")
+    
     yield
     # 
     service_logger.info("Shutting down Koduck API Server")
@@ -772,6 +796,30 @@ async def simple_chat(request: SimpleChatRequest):
     client = get_client(request.provider, request.apiKey, request.apiBase)
 
     messages = _to_internal_messages(request.messages)
+    
+    # ===== Memory System: Inject Context =====
+    memory_options = (request.runtimeOptions or {}).get("memory", {})
+    if MEMORY_SYSTEM_AVAILABLE and memory_options.get("retrieve_context", True):
+        try:
+            from koduck.memory import build_messages_with_memory
+            # Get user_id from runtime options or default to 1
+            user_id = int(memory_options.get("user_id", 1))
+            
+            # Lazy initialize db_pool if needed
+            db_pool = await _get_db_pool()
+            if db_pool:
+                messages = await build_messages_with_memory(
+                    user_id=user_id,
+                    session_id=session_id,
+                    messages=messages,
+                    db_pool=db_pool,
+                    memory_config=memory_options
+                )
+                logger.info(f"[Memory] Context injected for user {user_id}, session {session_id}")
+        except Exception as e:
+            logger.warning(f"[Memory] Failed to inject context: {e}")
+    # ==========================================
+    
     messages = _append_instruction_to_system(messages, TOOL_AWARE_SYSTEM_GUARD)
 
     try:
@@ -808,6 +856,24 @@ async def simple_chat(request: SimpleChatRequest):
                 json.dumps(tool_events, ensure_ascii=False)[:1200],
             )
         logger.info(f"[SimpleChat] : code={result.code}, model={result.data.model}")
+        
+        # ===== Memory System: Async Summary Generation =====
+        if MEMORY_SYSTEM_AVAILABLE and memory_options.get("auto_summarize", True):
+            try:
+                asyncio.create_task(
+                    _generate_summary_async(
+                        user_id=int(memory_options.get("user_id", 1)),
+                        session_id=session_id,
+                        messages=request.messages + [
+                            ChatMessage(role="assistant", content=response.content or "")
+                        ]
+                    )
+                )
+                logger.debug(f"[Memory] Triggered async summary generation for session {session_id}")
+            except Exception as e:
+                logger.warning(f"[Memory] Failed to trigger summary generation: {e}")
+        # ==================================================
+        
         return result
 
     except HTTPException as he:
@@ -876,6 +942,28 @@ async def simple_chat_stream(request: SimpleChatRequest):
             client = get_client(request.provider, request.apiKey, request.apiBase, request.model)
             
             messages = _to_internal_messages(request.messages)
+            
+            # ===== Memory System: Inject Context =====
+            memory_options = (request.runtimeOptions or {}).get("memory", {})
+            if MEMORY_SYSTEM_AVAILABLE and memory_options.get("retrieve_context", True):
+                try:
+                    from koduck.memory import build_messages_with_memory
+                    user_id = int(memory_options.get("user_id", 1))
+                    
+                    db_pool = await _get_db_pool()
+                    if db_pool:
+                        messages = await build_messages_with_memory(
+                            user_id=user_id,
+                            session_id=session_id,
+                            messages=messages,
+                            db_pool=db_pool,
+                            memory_config=memory_options
+                        )
+                        logger.info(f"[Memory] Context injected for user {user_id}, session {session_id}")
+                except Exception as e:
+                    logger.warning(f"[Memory] Failed to inject context: {e}")
+            # ==========================================
+            
             messages = _append_instruction_to_system(messages, TOOL_AWARE_SYSTEM_GUARD)
             
             # Send start event
@@ -915,6 +1003,23 @@ async def simple_chat_stream(request: SimpleChatRequest):
                 f"[SimpleChatStream] : session_id={session_id}, content_length={len(full_content)}, tools={len([e for e in runtime_events if e.get('type') == 'tool.completed'])}"
             )
             
+            # ===== Memory System: Async Summary Generation =====
+            if MEMORY_SYSTEM_AVAILABLE and memory_options.get("auto_summarize", True):
+                try:
+                    asyncio.create_task(
+                        _generate_summary_async(
+                            user_id=int(memory_options.get("user_id", 1)),
+                            session_id=session_id,
+                            messages=request.messages + [
+                                ChatMessage(role="assistant", content=full_content)
+                            ]
+                        )
+                    )
+                    logger.debug(f"[Memory] Triggered async summary generation for session {session_id}")
+                except Exception as e:
+                    logger.warning(f"[Memory] Failed to trigger summary generation: {e}")
+            # ==================================================
+            
         except HTTPException as he:
             logger.error(f"[SimpleChatStream] HTTPException: {he.detail}")
             yield f"event: error\ndata: {json.dumps({'code': he.status_code, 'message': he.detail, 'session_id': session_id})}\n\n"
@@ -941,6 +1046,68 @@ async def http_exception_handler(request, exc):
         content={"error": {"message": exc.detail, "type": "api_error"}},
     )
 
+
+# ==================== Memory System Helpers ====================
+
+_db_pool = None
+
+async def _get_db_pool():
+    """获取数据库连接池 (延迟初始化)"""
+    global _db_pool
+    if _db_pool is None:
+        try:
+            import asyncpg
+            db_url = os.getenv("DATABASE_URL") or os.getenv("MEMORY_DATABASE_URL")
+            if db_url:
+                _db_pool = await asyncpg.create_pool(db_url, min_size=1, max_size=10)
+                logger.info("[Memory] Database pool initialized")
+            else:
+                logger.warning("[Memory] DATABASE_URL not set, memory system disabled")
+        except Exception as e:
+            logger.error(f"[Memory] Failed to initialize database pool: {e}")
+    return _db_pool
+
+async def _generate_summary_async(user_id: int, session_id: str, messages: list):
+    """异步生成会话摘要"""
+    try:
+        from koduck.memory import process_session_summary
+        
+        # Convert ChatMessage to dict format expected by memory system
+        message_dicts = [
+            {"role": msg.role, "content": msg.content}
+            for msg in messages
+        ]
+        
+        # Get db pool
+        db_pool = await _get_db_pool()
+        if not db_pool:
+            return
+        
+        # Process summary
+        result = await process_session_summary(
+            user_id=user_id,
+            session_id=session_id,
+            messages=message_dicts,
+            db_pool=db_pool
+        )
+        
+        if result and result.get("status") == "success":
+            logger.info(
+                f"[Memory] Summary generated for session {session_id}, "
+                f"score={result.get('value_score', 0):.2f}, type={result.get('summary_type')}"
+            )
+        elif result and result.get("status") == "filtered":
+            logger.debug(
+                f"[Memory] Summary filtered for session {session_id}, "
+                f"score={result.get('score', 0):.2f}"
+            )
+        else:
+            logger.debug(f"[Memory] Summary not generated for session {session_id}: {result}")
+            
+    except Exception as e:
+        logger.error(f"[Memory] Failed to generate summary: {e}")
+
+# =============================================================
 
 def run_server(host: str = "0.0.0.0", port: int = 8000):
     """ API ."""

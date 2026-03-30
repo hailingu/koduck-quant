@@ -24,7 +24,8 @@ RUN pip install --no-cache-dir \
     python-dotenv>=1.0.0 \
     fastapi>=0.109.0 \
     uvicorn>=0.27.0 \
-    psycopg[binary]>=3.2.0
+    psycopg[binary]>=3.2.0 \
+    asyncpg>=0.29.0
 
 # Copy application code
 COPY koduck/ ./koduck/

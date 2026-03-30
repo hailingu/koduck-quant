@@ -430,10 +430,21 @@ export default function AICommandCenter() {
     localStorage.setItem(messagesStorageKey, JSON.stringify(payload))
   }, [messages, messagesStorageKey, sessionId])
 
+  // Restore messages from server only if localStorage is empty
+  // This prevents overwriting local messages when user switches tabs during streaming
   useEffect(() => {
     let cancelled = false
 
     const hydrateFromMemory = async () => {
+      // Check if we already have messages in localStorage
+      const localData = localStorage.getItem(messagesStorageKey)
+      const parsedLocal = localData ? parsePersistedMessages(localData, sessionId) : null
+      
+      // If local messages exist and have content, don't overwrite from server
+      if (parsedLocal && parsedLocal.length > 0) {
+        return
+      }
+
       const token = getAuthToken()
       if (!token) {
         return
@@ -470,7 +481,7 @@ export default function AICommandCenter() {
           }
         })
 
-        if (!cancelled) {
+        if (!cancelled && restoredMessages.length > 0) {
           setMessages(restoredMessages)
         }
       } catch {
@@ -483,7 +494,7 @@ export default function AICommandCenter() {
     return () => {
       cancelled = true
     }
-  }, [sessionId])
+  }, [sessionId, messagesStorageKey])
   
   const updateAssistantMessage = (messageId: string, appendText: string) => {
     // If paused, buffer the content instead of updating UI

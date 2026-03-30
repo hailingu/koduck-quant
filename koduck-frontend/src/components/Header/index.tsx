@@ -1,4 +1,5 @@
 import { useAuthStore } from '@/stores/auth'
+import { useThemeStore } from '@/stores/theme'
 import { klineApi } from '@/api/kline'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
@@ -63,6 +64,7 @@ export default function Header({
   showSearch = true 
 }: HeaderProps) {
   const { user } = useAuthStore()
+  const { sidebarCollapsed } = useThemeStore()
   const navigate = useNavigate()
   const location = useLocation()
   const [searchParams] = useSearchParams()
@@ -158,7 +160,7 @@ export default function Header({
   }
 
   return (
-    <header className="fixed top-0 right-0 left-64 z-30 h-16 glass-panel border-b-0 rounded-none flex items-center justify-between px-6">
+    <header className={`fixed top-0 right-0 z-30 h-16 glass-panel border-b-0 rounded-none flex items-center justify-between px-6 transition-all duration-300 ${sidebarCollapsed ? 'left-16' : 'left-64'}`}>
       {/* Left: Title & Tabs */}
       <div className="flex items-center gap-6">
         <div>
