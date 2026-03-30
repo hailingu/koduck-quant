@@ -180,6 +180,34 @@ public class MarketSentimentDto {
         private SentimentDimension activity;
 
         /**
+         * Volatility: Price volatility level (0-100)
+         * Higher = more volatile
+         */
+        private SentimentDimension volatility;
+
+        /**
+         * Trend Strength: Current trend strength (0-100)
+         * Higher = stronger uptrend
+         */
+        private SentimentDimension trendStrength;
+
+        /**
+         * Fear/Greed: Market sentiment (0-100)
+         * 0 = extreme fear, 100 = extreme greed
+         */
+        private SentimentDimension fearGreed;
+
+        /**
+         * Valuation: Current valuation level (0-100)
+         * 0 = cheap, 100 = expensive
+         */
+        private SentimentDimension valuation;
+
+        /**
+         * Fund Flow: Capital inflow/outflow (0-100)
+         * Higher = more inflow
+         */
+        private SentimentDimension fundFlow;
 
         public static Builder builder() {
             return new Builder();
@@ -235,34 +263,6 @@ public class MarketSentimentDto {
                 return dimensions;
             }
         }
-         * Volatility: Price volatility level (0-100)
-         * Higher = more volatile
-         */
-        private SentimentDimension volatility;
-
-        /**
-         * Trend Strength: Current trend strength (0-100)
-         * Higher = stronger uptrend
-         */
-        private SentimentDimension trendStrength;
-
-        /**
-         * Fear/Greed: Market sentiment (0-100)
-         * 0 = extreme fear, 100 = extreme greed
-         */
-        private SentimentDimension fearGreed;
-
-        /**
-         * Valuation: Current valuation level (0-100)
-         * 0 = cheap, 100 = expensive
-         */
-        private SentimentDimension valuation;
-
-        /**
-         * Fund Flow: Capital inflow/outflow (0-100)
-         * Higher = more inflow
-         */
-        private SentimentDimension fundFlow;
 
         public SentimentDimension getActivity() {
             return copyDimension(activity);
