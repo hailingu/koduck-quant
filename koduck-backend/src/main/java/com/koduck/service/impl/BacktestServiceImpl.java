@@ -2,6 +2,7 @@ package com.koduck.service.impl;
 import com.koduck.dto.backtest.*;
 import com.koduck.dto.market.KlineDataDto;
 import com.koduck.entity.*;
+import com.koduck.mapper.BacktestTradeMapper;
 import com.koduck.repository.BacktestResultRepository;
 import com.koduck.repository.BacktestTradeRepository;
 import com.koduck.repository.StrategyRepository;
@@ -37,6 +38,8 @@ public class BacktestServiceImpl implements BacktestService {
     private StrategyVersionRepository versionRepository;
     @org.springframework.beans.factory.annotation.Autowired
     private KlineService klineService;
+    @org.springframework.beans.factory.annotation.Autowired
+    private BacktestTradeMapper backtestTradeMapper;
     @org.springframework.beans.factory.annotation.Autowired
     private StrategyAccessSupport strategyAccessSupport;
     private static final int SCALE = 4;
@@ -483,23 +486,7 @@ public class BacktestServiceImpl implements BacktestService {
      * Convert BacktestTrade to DTO.
      */
     private BacktestTradeDto convertTradeToDto(BacktestTrade trade) {
-        return BacktestTradeDto.builder()
-            .id(trade.getId())
-            .tradeType(trade.getTradeType().name())
-            .tradeTime(trade.getTradeTime())
-            .symbol(trade.getSymbol())
-            .price(trade.getPrice())
-            .quantity(trade.getQuantity())
-            .amount(trade.getAmount())
-            .commission(trade.getCommission())
-            .slippageCost(trade.getSlippageCost())
-            .totalCost(trade.getTotalCost())
-            .cashAfter(trade.getCashAfter())
-            .positionAfter(trade.getPositionAfter())
-            .pnl(trade.getPnl())
-            .pnlPercent(trade.getPnlPercent())
-            .signalReason(trade.getSignalReason())
-            .build();
+        return backtestTradeMapper.toDto(trade);
     }
     // Enums
     private enum Signal { BUY, SELL, HOLD }

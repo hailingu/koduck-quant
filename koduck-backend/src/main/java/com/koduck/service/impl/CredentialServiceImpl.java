@@ -3,6 +3,7 @@ import com.koduck.dto.credential.*;
 import com.koduck.entity.CredentialAuditLog;
 import com.koduck.entity.UserCredential;
 import com.koduck.exception.DuplicateException;
+import com.koduck.mapper.CredentialMapper;
 import com.koduck.exception.ResourceNotFoundException;
 import com.koduck.repository.CredentialAuditLogRepository;
 import com.koduck.repository.CredentialRepository;
@@ -34,6 +35,8 @@ public class CredentialServiceImpl implements CredentialService {
     private CredentialAuditLogRepository auditLogRepository;
     @org.springframework.beans.factory.annotation.Autowired
     private CredentialEncryptionUtil credentialEncryptionUtil;
+    @org.springframework.beans.factory.annotation.Autowired
+    private CredentialMapper credentialMapper;
     /**
      * 获取凭证列表（分页）
      */
@@ -299,22 +302,10 @@ public class CredentialServiceImpl implements CredentialService {
         String apiSecret = credential.getApiSecretEncrypted() != null
             ? credentialEncryptionUtil.decrypt(credential.getApiSecretEncrypted())
                 : null;
-        return CredentialResponse.builder()
-                .id(credential.getId())
-                .name(credential.getName())
-                .type(credential.getType() != null ? credential.getType().name() : null)
-                .provider(credential.getProvider())
-                .environment(credential.getEnvironment() != null ? credential.getEnvironment().name() : null)
-                .isActive(credential.getIsActive())
-                .apiKeyMasked(CredentialEncryptionUtil.maskApiKey(apiKey))
-                .apiSecretMasked(CredentialEncryptionUtil.maskApiSecret(apiSecret))
-                .additionalConfig(credential.getAdditionalConfig())
-                .lastVerifiedStatus(credential.getLastVerifiedStatus() != null
-                        ? credential.getLastVerifiedStatus().name() : null)
-                .lastVerifiedAt(credential.getLastVerifiedAt())
-                .createdAt(credential.getCreatedAt())
-                .updatedAt(credential.getUpdatedAt())
-                .build();
+        return credentialMapper.toCredentialResponse(
+            credential,
+            CredentialEncryptionUtil.maskApiKey(apiKey),
+            CredentialEncryptionUtil.maskApiSecret(apiSecret));
     }
     /**
      * 转换为详情响应对象
@@ -324,36 +315,13 @@ public class CredentialServiceImpl implements CredentialService {
         String apiSecret = credential.getApiSecretEncrypted() != null
             ? credentialEncryptionUtil.decrypt(credential.getApiSecretEncrypted())
                 : null;
-        return CredentialDetailResponse.builder()
-                .id(credential.getId())
-                .name(credential.getName())
-                .type(credential.getType() != null ? credential.getType().name() : null)
-                .provider(credential.getProvider())
-                .environment(credential.getEnvironment() != null ? credential.getEnvironment().name() : null)
-                .isActive(credential.getIsActive())
-                .apiKey(apiKey)
-                .apiSecret(apiSecret)
-                .additionalConfig(credential.getAdditionalConfig())
-                .lastVerifiedStatus(credential.getLastVerifiedStatus() != null
-                        ? credential.getLastVerifiedStatus().name() : null)
-                .lastVerifiedAt(credential.getLastVerifiedAt())
-                .createdAt(credential.getCreatedAt())
-                .updatedAt(credential.getUpdatedAt())
-                .build();
+        return credentialMapper.toCredentialDetailResponse(credential, apiKey, apiSecret);
     }
     /**
      * 转换为审计日志响应对象
      */
     private CredentialAuditLogResponse toAuditLogResponse(CredentialAuditLog log) {
-        return CredentialAuditLogResponse.builder()
-                .id(log.getId())
-                .credentialId(log.getCredentialId())
-                .action(log.getAction() != null ? log.getAction().name() : null)
-                .ipAddress(log.getIpAddress())
-                .success(log.getSuccess())
-                .errorMessage(log.getErrorMessage())
-                .createdAt(log.getCreatedAt())
-                .build();
+        return credentialMapper.toCredentialAuditLogResponse(log);
     }
     /**
      * 验证结果内部类

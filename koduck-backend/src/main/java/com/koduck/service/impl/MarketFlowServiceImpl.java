@@ -1,6 +1,7 @@
 package com.koduck.service.impl;
 import com.koduck.dto.market.DailyNetFlowDto;
 import com.koduck.entity.MarketDailyNetFlow;
+import com.koduck.mapper.MarketFlowMapper;
 import com.koduck.repository.MarketDailyNetFlowRepository;
 import com.koduck.service.MarketFlowService;
 import lombok.RequiredArgsConstructor;
@@ -12,12 +13,13 @@ import java.util.List;
 @RequiredArgsConstructor
 public class MarketFlowServiceImpl implements MarketFlowService {
     private final MarketDailyNetFlowRepository marketDailyNetFlowRepository;
+    private final MarketFlowMapper marketFlowMapper;
     @Override
     @Transactional(readOnly = true)
     public DailyNetFlowDto getLatestDailyNetFlow(String market, String flowType) {
         return marketDailyNetFlowRepository
                 .findFirstByMarketAndFlowTypeOrderByTradeDateDesc(market, flowType)
-                .map(this::toDto)
+            .map(marketFlowMapper::toDto)
                 .orElse(null);
     }
     @Override
@@ -25,7 +27,7 @@ public class MarketFlowServiceImpl implements MarketFlowService {
     public DailyNetFlowDto getDailyNetFlow(String market, String flowType, LocalDate tradeDate) {
         return marketDailyNetFlowRepository
                 .findByMarketAndFlowTypeAndTradeDate(market, flowType, tradeDate)
-                .map(this::toDto)
+            .map(marketFlowMapper::toDto)
                 .orElse(null);
     }
     @Override
@@ -34,22 +36,7 @@ public class MarketFlowServiceImpl implements MarketFlowService {
         return marketDailyNetFlowRepository
                 .findByMarketAndFlowTypeAndTradeDateBetweenOrderByTradeDateAsc(market, flowType, from, to)
                 .stream()
-                .map(this::toDto)
+            .map(marketFlowMapper::toDto)
                 .toList();
-    }
-    private DailyNetFlowDto toDto(MarketDailyNetFlow entity) {
-        return new DailyNetFlowDto(
-                entity.getMarket(),
-                entity.getFlowType(),
-                entity.getTradeDate(),
-                entity.getNetInflow(),
-                entity.getTotalInflow(),
-                entity.getTotalOutflow(),
-                entity.getCurrency(),
-                entity.getSource(),
-                entity.getQuality(),
-                entity.getSnapshotTime(),
-                entity.getUpdatedAt()
-        );
     }
 }

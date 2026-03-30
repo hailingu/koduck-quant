@@ -2,6 +2,7 @@ package com.koduck.service.impl;
 import com.koduck.config.properties.DataServiceProperties;
 import com.koduck.dto.market.DataServiceResponse;
 import com.koduck.dto.market.KlineDataDto;
+import com.koduck.mapper.KlineDataDtoMapper;
 import com.koduck.service.KlineService;
 import com.koduck.service.KlineSyncService;
 import lombok.extern.slf4j.Slf4j;
@@ -32,6 +33,8 @@ public class KlineSyncServiceImpl implements KlineSyncService {
     private DataServiceProperties properties;
     @org.springframework.beans.factory.annotation.Autowired
     private KlineService klineService;
+    @org.springframework.beans.factory.annotation.Autowired
+    private KlineDataDtoMapper klineDataDtoMapper;
     private static final String A_SHARE_BASE_PATH = "/a-share";
     private static final String DEFAULT_MARKET = "AShare";
     private static final String DEFAULT_TIMEFRAME = "1D";
@@ -147,7 +150,9 @@ public class KlineSyncServiceImpl implements KlineSyncService {
             ResponseEntity<DataServiceResponse<List<Map<String, Object>>>> response =
                     dataServiceRestTemplate.exchange(
                     requestEntity,
-                        KLINE_LIST_RESPONSE_TYPE
+                        Objects.requireNonNull(
+                                KLINE_LIST_RESPONSE_TYPE,
+                                "KLINE_LIST_RESPONSE_TYPE must not be null")
                     );
             DataServiceResponse<List<Map<String, Object>>> body = response.getBody();
             if (body == null || body.data() == null) {
@@ -155,7 +160,7 @@ public class KlineSyncServiceImpl implements KlineSyncService {
                 return;
             }
             List<KlineDataDto> klineData = body.data().stream()
-                    .map(this::mapToKlineDataDto)
+                    .map(klineDataDtoMapper::fromMap)
                     .toList();
             klineService.saveKlineData(klineData, market, symbol, timeframe);
             log.info("Synced {} records for {}/{}/{}", klineData.size(), market, symbol, timeframe);
@@ -170,42 +175,5 @@ public class KlineSyncServiceImpl implements KlineSyncService {
     public void backfillHistoricalData(String market, String symbol, String timeframe, int days) {
         log.info("Backfilling {} days of historical data for {}/{}/{}", days, market, symbol, timeframe);
         syncSymbolKlineInternal(market, symbol, timeframe);
-    }
-    private KlineDataDto mapToKlineDataDto(Map<String, Object> data) {
-        return KlineDataDto.builder()
-                .timestamp(getLong(data, "timestamp"))
-                .open(getBigDecimal(data, "open"))
-                .high(getBigDecimal(data, "high"))
-                .low(getBigDecimal(data, "low"))
-                .close(getBigDecimal(data, "close"))
-                .volume(getLong(data, "volume"))
-                .amount(getBigDecimal(data, "amount"))
-                .build();
-    }
-    private java.math.BigDecimal getBigDecimal(Map<String, Object> data, String key) {
-        Object value = data.get(key);
-        if (value == null) return null;
-        if (value instanceof Number number) {
-            return java.math.BigDecimal.valueOf(number.doubleValue());
-        }
-        try {
-            return new java.math.BigDecimal(value.toString());
-        } catch (NumberFormatException exception) {
-            log.debug("Failed to parse BigDecimal for key={}", key, exception);
-            return null;
-        }
-    }
-    private Long getLong(Map<String, Object> data, String key) {
-        Object value = data.get(key);
-        if (value == null) return null;
-        if (value instanceof Number number) {
-            return number.longValue();
-        }
-        try {
-            return Long.parseLong(value.toString());
-        } catch (NumberFormatException exception) {
-            log.debug("Failed to parse Long for key={}", key, exception);
-            return null;
-        }
     }
 }

@@ -3,6 +3,7 @@ import com.koduck.dto.strategy.*;
 import com.koduck.entity.Strategy;
 import com.koduck.entity.StrategyParameter;
 import com.koduck.entity.StrategyVersion;
+import com.koduck.mapper.StrategyMapper;
 import com.koduck.repository.StrategyParameterRepository;
 import com.koduck.repository.StrategyRepository;
 import com.koduck.repository.StrategyVersionRepository;
@@ -27,6 +28,8 @@ public class StrategyServiceImpl implements StrategyService {
     private StrategyVersionRepository versionRepository;
     @org.springframework.beans.factory.annotation.Autowired
     private StrategyParameterRepository parameterRepository;
+    @org.springframework.beans.factory.annotation.Autowired
+    private StrategyMapper strategyMapper;
     @org.springframework.beans.factory.annotation.Autowired
     private StrategyAccessSupport strategyAccessSupport;
     private static final String DEFAULT_CODE_TEMPLATE = """
@@ -56,7 +59,7 @@ def handle_data(context, data):
         log.debug("Getting strategies for user: {}", userId);
         List<Strategy> strategies = strategyRepository.findByUserId(userId);
         return strategies.stream()
-            .map(this::convertToDto)
+            .map(strategyMapper::toStrategyDto)
             .collect(Collectors.toList());
     }
     @Override
@@ -239,66 +242,20 @@ def handle_data(context, data):
         }
     }
     /**
-     * Convert Strategy to DTO.
-     */
-    private StrategyDto convertToDto(Strategy strategy) {
-        return StrategyDto.builder()
-            .id(strategy.getId())
-            .name(strategy.getName())
-            .description(strategy.getDescription())
-            .status(strategy.getStatus().name())
-            .currentVersion(strategy.getCurrentVersion())
-            .createdAt(strategy.getCreatedAt())
-            .updatedAt(strategy.getUpdatedAt())
-            .build();
-    }
-    /**
      * Convert Strategy to DTO with parameters.
      */
     private StrategyDto convertToDtoWithParameters(Strategy strategy) {
         List<StrategyParameter> parameters = parameterRepository
             .findByStrategyIdOrderBySortOrderAsc(strategy.getId());
         List<StrategyParameterDto> paramDtos = parameters.stream()
-            .map(this::convertParameterToDto)
+            .map(strategyMapper::toStrategyParameterDto)
             .collect(Collectors.toList());
-        return StrategyDto.builder()
-            .id(strategy.getId())
-            .name(strategy.getName())
-            .description(strategy.getDescription())
-            .status(strategy.getStatus().name())
-            .currentVersion(strategy.getCurrentVersion())
-            .createdAt(strategy.getCreatedAt())
-            .updatedAt(strategy.getUpdatedAt())
-            .parameters(paramDtos)
-            .build();
-    }
-    /**
-     * Convert StrategyParameter to DTO.
-     */
-    private StrategyParameterDto convertParameterToDto(StrategyParameter param) {
-        return StrategyParameterDto.builder()
-            .id(param.getId())
-            .paramName(param.getParamName())
-            .paramType(param.getParamType().name())
-            .defaultValue(param.getDefaultValue())
-            .minValue(param.getMinValue())
-            .maxValue(param.getMaxValue())
-            .description(param.getDescription())
-            .isRequired(param.getIsRequired())
-            .sortOrder(param.getSortOrder())
-            .build();
+        return strategyMapper.toStrategyDto(strategy, paramDtos);
     }
     /**
      * Convert StrategyVersion to DTO.
      */
     private StrategyVersionDto convertVersionToDto(StrategyVersion version) {
-        return StrategyVersionDto.builder()
-            .id(version.getId())
-            .versionNumber(version.getVersionNumber())
-            .code(version.getCode())
-            .changelog(version.getChangelog())
-            .isActive(version.getIsActive())
-            .createdAt(version.getCreatedAt())
-            .build();
+        return strategyMapper.toStrategyVersionDto(version);
     }
 }

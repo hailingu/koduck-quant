@@ -2,6 +2,7 @@ package com.koduck.service.impl;
 import com.koduck.config.properties.DataServiceProperties;
 import com.koduck.dto.market.DataServiceResponse;
 import com.koduck.dto.market.KlineDataDto;
+import com.koduck.mapper.KlineDataDtoMapper;
 import com.koduck.service.KlineMinutesService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.ParameterizedTypeReference;
@@ -11,11 +12,11 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.util.UriComponentsBuilder;
-import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 /**
  * Implementation of KlineMinutesService.
  * Fetches real-time minute data from Python Data Service.
@@ -27,6 +28,8 @@ public class KlineMinutesServiceImpl implements KlineMinutesService {
     private RestTemplate dataServiceRestTemplate;
     @org.springframework.beans.factory.annotation.Autowired
     private DataServiceProperties properties;
+    @org.springframework.beans.factory.annotation.Autowired
+    private KlineDataDtoMapper klineDataDtoMapper;
     private static final String A_SHARE_BASE_PATH = "/a-share";
     private static final HttpMethod HTTP_GET = HttpMethod.GET;
     private static final ParameterizedTypeReference<DataServiceResponse<List<Map<String, Object>>>>
@@ -50,16 +53,18 @@ public class KlineMinutesServiceImpl implements KlineMinutesService {
             ResponseEntity<DataServiceResponse<List<Map<String, Object>>>> response =
                     dataServiceRestTemplate.exchange(
                             url,
-                            HTTP_GET,
+                            Objects.requireNonNull(HTTP_GET, "HTTP_GET must not be null"),
                             null,
-                        KLINE_LIST_RESPONSE_TYPE
+                        Objects.requireNonNull(
+                                KLINE_LIST_RESPONSE_TYPE,
+                                "KLINE_LIST_RESPONSE_TYPE must not be null")
                     );
             DataServiceResponse<List<Map<String, Object>>> body = response.getBody();
             if (body == null || body.data() == null) {
                 return Collections.emptyList();
             }
             List<KlineDataDto> klines = body.data().stream()
-                    .map(this::mapToKlineDataDto)
+                    .map(klineDataDtoMapper::fromMap)
                     .toList();
             // Filter by beforeTime if specified
             if (beforeTime != null) {
@@ -81,40 +86,5 @@ public class KlineMinutesServiceImpl implements KlineMinutesService {
     public boolean isMinuteTimeframe(String timeframe) {
         return timeframe != null && (timeframe.equals("1m") || timeframe.equals("5m") ||
                timeframe.equals("15m") || timeframe.equals("30m") || timeframe.equals("60m"));
-    }
-    private KlineDataDto mapToKlineDataDto(Map<String, Object> data) {
-        return KlineDataDto.builder()
-                .timestamp(getLong(data, "timestamp"))
-                .open(getBigDecimal(data, "open"))
-                .high(getBigDecimal(data, "high"))
-                .low(getBigDecimal(data, "low"))
-                .close(getBigDecimal(data, "close"))
-                .volume(getLong(data, "volume"))
-                .amount(getBigDecimal(data, "amount"))
-                .build();
-    }
-    private BigDecimal getBigDecimal(Map<String, Object> data, String key) {
-        Object value = data.get(key);
-        if (value == null) return null;
-        if (value instanceof Number) {
-            return BigDecimal.valueOf(((Number) value).doubleValue());
-        }
-        try {
-            return new BigDecimal(value.toString());
-        } catch (NumberFormatException e) {
-            return null;
-        }
-    }
-    private Long getLong(Map<String, Object> data, String key) {
-        Object value = data.get(key);
-        if (value == null) return null;
-        if (value instanceof Number) {
-            return ((Number) value).longValue();
-        }
-        try {
-            return Long.parseLong(value.toString());
-        } catch (NumberFormatException e) {
-            return null;
-        }
     }
 }
