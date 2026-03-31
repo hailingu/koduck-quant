@@ -1,6 +1,7 @@
 package com.koduck.service.impl;
 
 import com.koduck.common.constants.MarketConstants;
+import com.koduck.config.CacheConfig;
 import com.koduck.dto.market.KlineDataDto;
 import com.koduck.entity.KlineData;
 import com.koduck.entity.StockRealtime;
@@ -15,8 +16,12 @@ import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Objects;
 import java.util.Optional;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.cache.annotation.Caching;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -47,6 +52,10 @@ public class KlineServiceImpl implements KlineService {
     }
 
     @Override
+    @Cacheable(
+            value = CacheConfig.CACHE_KLINE,
+            key = "#market + ':' + #symbol + ':' + #timeframe + ':' + #limit + ':' + #beforeTime",
+            unless = "#result == null || #result.isEmpty()")
     public List<KlineDataDto> getKlineData(String market, String symbol, String timeframe,
                                            Integer limit, Long beforeTime) {
         log.debug("Getting kline data: market={}, symbol={}, timeframe={}, limit={}, beforeTime={}",
@@ -101,6 +110,7 @@ public class KlineServiceImpl implements KlineService {
         return Optional.empty();
     }
     @Override
+    @Cacheable(value = CacheConfig.CACHE_KLINE, key = "#market + ':' + #symbol + ':' + #timeframe + ':prevClose'")
     public Optional<BigDecimal> getPreviousClosePrice(String market, String symbol, String timeframe) {
         Pageable pageable = PageRequest.of(0, 2);
         List<KlineData> data = queryKlineWithFallback(market, symbol, timeframe, pageable);
@@ -208,10 +218,14 @@ public class KlineServiceImpl implements KlineService {
         };
     }
     @Override
+    @Caching(evict = {
+            @CacheEvict(value = CacheConfig.CACHE_KLINE, allEntries = true),
+            @CacheEvict(value = CacheConfig.CACHE_PRICE, key = "#market + ':' + #symbol + ':' + #timeframe")
+    })
     public void saveKlineData(List<KlineDataDto> dtos, String market, String symbol, String timeframe) {
         List<KlineData> entities = dtos.stream()
                 .map(dto -> convertToEntity(dto, market, symbol, timeframe))
-                .filter(entity -> entity != null)
+                .filter(Objects::nonNull)
                 .filter(entity -> !klineDataRepository.existsByMarketAndSymbolAndTimeframeAndKlineTime(
                         market, symbol, timeframe, entity.getKlineTime()))
                 .toList();

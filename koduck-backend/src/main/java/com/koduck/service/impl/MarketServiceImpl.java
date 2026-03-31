@@ -32,6 +32,7 @@ import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -46,6 +47,9 @@ public class MarketServiceImpl implements MarketService {
 
     private static final String DEFAULT_MARKET = MarketConstants.DEFAULT_MARKET;
     private static final String DAILY_TIMEFRAME = MarketConstants.DEFAULT_TIMEFRAME;
+    private static final String STOCK_TYPE = "STOCK";
+    private static final String POSITIVE_LINK_TYPE = "positive";
+    private static final String NEGATIVE_LINK_TYPE = "negative";
     
     // Main index symbols
     private static final List<String> MAIN_INDICES = List.of(
@@ -147,7 +151,7 @@ public class MarketServiceImpl implements MarketService {
             SymbolInfoDto dto = SymbolInfoDto.builder()
                     .symbol(normalizedSymbol)
                     .name(name)
-                    .type("STOCK")
+                    .type(STOCK_TYPE)
                     .market(market)
                     .build();
             deduplicated.putIfAbsent(market + ":" + normalizedSymbol, dto);
@@ -488,7 +492,7 @@ public class MarketServiceImpl implements MarketService {
             // Map to DTOs
             return hotStocks.stream()
                     .map(realtime -> mapRealtimeToSymbolInfoDto(realtime, basicMap.get(realtime.getSymbol()), market))
-                    .filter(dto -> dto != null)
+                    .filter(Objects::nonNull)
                     .limit(limit)
                     .toList();
                     
@@ -549,7 +553,7 @@ public class MarketServiceImpl implements MarketService {
         return SymbolInfoDto.builder()
             .symbol(normalizedSymbol)
                 .name(basic.getName())
-                .type("STOCK")
+                .type(STOCK_TYPE)
                 .market(basic.getMarket())
                 .build();
     }
@@ -643,7 +647,7 @@ public class MarketServiceImpl implements MarketService {
         return PriceQuoteDto.builder()
             .symbol(symbol)
             .name(basic.getName())
-            .type("STOCK")
+            .type(STOCK_TYPE)
             .price(price)
             .open(latest.open())
             .high(latest.high())
@@ -698,7 +702,7 @@ public class MarketServiceImpl implements MarketService {
         }
         try {
             return new BigDecimal(value.toString());
-        } catch (NumberFormatException ex) {
+        } catch (NumberFormatException _) {
             return null;
         }
     }
@@ -712,7 +716,7 @@ public class MarketServiceImpl implements MarketService {
         }
         try {
             return Long.parseLong(value.toString());
-        } catch (NumberFormatException ex) {
+        } catch (NumberFormatException _) {
             return null;
         }
     }
@@ -800,9 +804,16 @@ public class MarketServiceImpl implements MarketService {
             if (basic == null) {
                 return null;
             }
-            
-            String actualMarket = market != null && !market.isBlank() ? market : 
-                    (basic.getMarket() != null && !basic.getMarket().isBlank() ? basic.getMarket() : DEFAULT_MARKET);
+
+            String actualMarket = market;
+            if (actualMarket == null || actualMarket.isBlank()) {
+                String basicMarket = basic.getMarket();
+                if (basicMarket != null && !basicMarket.isBlank()) {
+                    actualMarket = basicMarket;
+                } else {
+                    actualMarket = DEFAULT_MARKET;
+                }
+            }
             
             List<com.koduck.dto.market.KlineDataDto> recent =
                     klineService.getKlineData(actualMarket, symbol, DAILY_TIMEFRAME, 2, null);
@@ -909,21 +920,21 @@ public class MarketServiceImpl implements MarketService {
         );
         
         var links = List.of(
-            SectorNetworkDto.SectorLink.builder().source("1").target("2").value(new BigDecimal("0.85")).type("positive").build(),
-            SectorNetworkDto.SectorLink.builder().source("1").target("3").value(new BigDecimal("0.78")).type("positive").build(),
-            SectorNetworkDto.SectorLink.builder().source("1").target("4").value(new BigDecimal("0.72")).type("positive").build(),
-            SectorNetworkDto.SectorLink.builder().source("2").target("3").value(new BigDecimal("0.65")).type("positive").build(),
-            SectorNetworkDto.SectorLink.builder().source("5").target("6").value(new BigDecimal("0.68")).type("positive").build(),
-            SectorNetworkDto.SectorLink.builder().source("5").target("7").value(new BigDecimal("0.55")).type("positive").build(),
-            SectorNetworkDto.SectorLink.builder().source("8").target("9").value(new BigDecimal("0.82")).type("positive").build(),
-            SectorNetworkDto.SectorLink.builder().source("8").target("10").value(new BigDecimal("0.75")).type("positive").build(),
-            SectorNetworkDto.SectorLink.builder().source("9").target("10").value(new BigDecimal("0.70")).type("positive").build(),
-            SectorNetworkDto.SectorLink.builder().source("11").target("12").value(new BigDecimal("0.62")).type("positive").build(),
-            SectorNetworkDto.SectorLink.builder().source("13").target("14").value(new BigDecimal("0.58")).type("positive").build(),
-            SectorNetworkDto.SectorLink.builder().source("1").target("8").value(new BigDecimal("-0.65")).type("negative").build(),
-            SectorNetworkDto.SectorLink.builder().source("1").target("5").value(new BigDecimal("-0.45")).type("negative").build(),
-            SectorNetworkDto.SectorLink.builder().source("5").target("8").value(new BigDecimal("-0.55")).type("negative").build(),
-            SectorNetworkDto.SectorLink.builder().source("2").target("9").value(new BigDecimal("-0.48")).type("negative").build()
+            SectorNetworkDto.SectorLink.builder().source("1").target("2").value(new BigDecimal("0.85")).type(POSITIVE_LINK_TYPE).build(),
+            SectorNetworkDto.SectorLink.builder().source("1").target("3").value(new BigDecimal("0.78")).type(POSITIVE_LINK_TYPE).build(),
+            SectorNetworkDto.SectorLink.builder().source("1").target("4").value(new BigDecimal("0.72")).type(POSITIVE_LINK_TYPE).build(),
+            SectorNetworkDto.SectorLink.builder().source("2").target("3").value(new BigDecimal("0.65")).type(POSITIVE_LINK_TYPE).build(),
+            SectorNetworkDto.SectorLink.builder().source("5").target("6").value(new BigDecimal("0.68")).type(POSITIVE_LINK_TYPE).build(),
+            SectorNetworkDto.SectorLink.builder().source("5").target("7").value(new BigDecimal("0.55")).type(POSITIVE_LINK_TYPE).build(),
+            SectorNetworkDto.SectorLink.builder().source("8").target("9").value(new BigDecimal("0.82")).type(POSITIVE_LINK_TYPE).build(),
+            SectorNetworkDto.SectorLink.builder().source("8").target("10").value(new BigDecimal("0.75")).type(POSITIVE_LINK_TYPE).build(),
+            SectorNetworkDto.SectorLink.builder().source("9").target("10").value(new BigDecimal("0.70")).type(POSITIVE_LINK_TYPE).build(),
+            SectorNetworkDto.SectorLink.builder().source("11").target("12").value(new BigDecimal("0.62")).type(POSITIVE_LINK_TYPE).build(),
+            SectorNetworkDto.SectorLink.builder().source("13").target("14").value(new BigDecimal("0.58")).type(POSITIVE_LINK_TYPE).build(),
+            SectorNetworkDto.SectorLink.builder().source("1").target("8").value(new BigDecimal("-0.65")).type(NEGATIVE_LINK_TYPE).build(),
+            SectorNetworkDto.SectorLink.builder().source("1").target("5").value(new BigDecimal("-0.45")).type(NEGATIVE_LINK_TYPE).build(),
+            SectorNetworkDto.SectorLink.builder().source("5").target("8").value(new BigDecimal("-0.55")).type(NEGATIVE_LINK_TYPE).build(),
+            SectorNetworkDto.SectorLink.builder().source("2").target("9").value(new BigDecimal("-0.48")).type(NEGATIVE_LINK_TYPE).build()
         );
         
         return SectorNetworkDto.builder().nodes(nodes).links(links).build();
