@@ -44,6 +44,14 @@ jobs:
           path: koduck-backend/target/surefire-reports/
           if-no-files-found: ignore
 
+      - name: Upload backend coverage reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: dev-backend-jacoco-report-${{ github.run_id }}
+          path: koduck-backend/target/site/jacoco/
+          if-no-files-found: ignore
+
   data-service-tests:
     name: Data Service Tests (Python 3.13)
     runs-on: ubuntu-latest

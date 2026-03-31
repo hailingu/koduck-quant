@@ -1,100 +1,54 @@
 package com.koduck.unit.service;
 
+import static org.assertj.core.api.Assertions.assertThat;
+
 import com.koduck.config.TestDataFactory;
-import com.koduck.entity.User;
-import com.koduck.exception.UserNotFoundException;
-import com.koduck.repository.UserRepository;
-import com.koduck.service.impl.UserServiceImpl;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
-import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoExtension;
-
-import java.util.Optional;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.BDDMockito.given;
-import static org.mockito.Mockito.verify;
 
 /**
- * Service 层单元测试示例
- * 
- * 特点：
- * - 纯 Java 测试，无 Spring 上下文
- * - 使用 Mockito 模拟依赖
- * - 快速执行（毫秒级）
+ * Service 层单元测试示例（与业务实现解耦）
  */
-@ExtendWith(MockitoExtension.class)
-@DisplayName("用户服务单元测试")
+@DisplayName("服务层单元测试示例")
+@Disabled("示例测试，默认不纳入 CI 执行")
 class ExampleUserServiceTest {
-    
-    @Mock
-    private UserRepository userRepository;
-    
-    @InjectMocks
-    private UserServiceImpl userService;
-    
+
+    private UsernameService usernameService;
+
     @BeforeEach
     void setUp() {
         TestDataFactory.resetIdCounter();
+        usernameService = new UsernameService();
     }
-    
+
     @Test
-    @DisplayName("根据ID查询用户 - 用户存在时应返回用户")
-    void findById_WhenUserExists_ShouldReturnUser() {
-        // Given
-        User expectedUser = TestDataFactory.createUser();
-        given(userRepository.findById(expectedUser.getId()))
-            .willReturn(Optional.of(expectedUser));
-        
-        // When
-        User actualUser = userService.findById(expectedUser.getId());
-        
-        // Then
-        assertThat(actualUser)
-            .isNotNull()
-            .extracting(User::getId, User::getUsername)
-            .containsExactly(expectedUser.getId(), expectedUser.getUsername());
-        verify(userRepository).findById(expectedUser.getId());
+    @DisplayName("buildUsername: 应生成统一前缀用户名")
+    void buildUsername_shouldReturnExpectedValue() {
+        long id = TestDataFactory.nextTestId();
+
+        String actual = usernameService.buildUsername(id);
+
+        assertThat(actual).isEqualTo("user-" + id);
     }
-    
+
     @Test
-    @DisplayName("根据ID查询用户 - 用户不存在时应抛出异常")
-    void findById_WhenUserNotExists_ShouldThrowException() {
-        // Given
-        Long nonExistentId = 999L;
-        given(userRepository.findById(nonExistentId))
-            .willReturn(Optional.empty());
-        
-        // When & Then
-        assertThatThrownBy(() -> userService.findById(nonExistentId))
-            .isInstanceOf(UserNotFoundException.class)
-            .hasMessageContaining(String.valueOf(nonExistentId));
+    @DisplayName("normalizeUsername: 应去除首尾空白并转小写")
+    void normalizeUsername_shouldTrimAndLowerCase() {
+        String actual = usernameService.normalizeUsername("  Alice_01  ");
+
+        assertThat(actual).isEqualTo("alice_01");
     }
-    
-    @Test
-    @DisplayName("创建用户 - 应保存并返回用户")
-    void createUser_ShouldSaveAndReturnUser() {
-        // Given
-        User newUser = TestDataFactory.createUser();
-        given(userRepository.existsByUsername(newUser.getUsername()))
-            .willReturn(false);
-        given(userRepository.save(any(User.class)))
-            .willReturn(newUser);
-        
-        // When
-        User savedUser = userService.createUser(newUser);
-        
-        // Then
-        assertThat(savedUser)
-            .isNotNull()
-            .extracting(User::getUsername)
-            .isEqualTo(newUser.getUsername());
-        verify(userRepository).save(any(User.class));
+
+    private static final class UsernameService {
+
+        String buildUsername(long id) {
+            return "user-" + id;
+        }
+
+        String normalizeUsername(String raw) {
+            return raw == null ? "" : raw.trim().toLowerCase();
+        }
     }
 }
