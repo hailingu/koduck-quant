@@ -5,6 +5,7 @@ import com.koduck.entity.*;
 import com.koduck.exception.ResourceNotFoundException;
 import com.koduck.repository.*;
 import com.koduck.service.CommunitySignalService;
+import com.koduck.service.support.CommunitySignalResponseAssembler;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
@@ -60,6 +61,8 @@ public class CommunitySignalServiceImpl implements CommunitySignalService {
 
     private final UserRepository userRepository;
 
+    private final CommunitySignalResponseAssembler responseAssembler;
+
     // ========== 信号查询 ==========
     /**
      * 获取信号列表
@@ -84,7 +87,7 @@ public class CommunitySignalServiceImpl implements CommunitySignalService {
         // Resolve current user's interaction flags for each signal item.
         InteractionFlags interactionFlags = loadInteractionFlags(currentUserId);
         List<SignalResponse> items = signalPage.getContent().stream()
-            .map(s -> toSignalResponse(
+            .map(s -> responseAssembler.toSignalResponse(
                 s,
                 interactionFlags.likedSignalIds(),
                 interactionFlags.favoritedSignalIds(),
@@ -107,7 +110,7 @@ public class CommunitySignalServiceImpl implements CommunitySignalService {
         Page<CommunitySignal> signals = signalRepository.findByIsFeaturedTrueAndStatus(pageable, CommunitySignal.Status.ACTIVE);
         InteractionFlags interactionFlags = loadInteractionFlags(currentUserId);
         return signals.getContent().stream()
-            .map(s -> toSignalResponse(
+            .map(s -> responseAssembler.toSignalResponse(
                 s,
                 interactionFlags.likedSignalIds(),
                 interactionFlags.favoritedSignalIds(),
@@ -130,7 +133,7 @@ public class CommunitySignalServiceImpl implements CommunitySignalService {
                 ? Set.of(signalId) : Set.of();
         Set<Long> subscribedSignalIds = currentUserId != null && subscriptionRepository.existsBySignalIdAndUserId(signalId, currentUserId)
                 ? Set.of(signalId) : Set.of();
-        return toSignalResponse(signal, likedSignalIds, favoritedSignalIds, subscribedSignalIds);
+        return responseAssembler.toSignalResponse(signal, likedSignalIds, favoritedSignalIds, subscribedSignalIds);
     }
     /**
      * 获取用户发布的信号
@@ -141,7 +144,7 @@ public class CommunitySignalServiceImpl implements CommunitySignalService {
         List<CommunitySignal> signals = signalRepository.findByUserIdOrderByCreatedAtDesc(userId);
         InteractionFlags interactionFlags = loadInteractionFlags(currentUserId);
         return signals.stream()
-            .map(s -> toSignalResponse(
+            .map(s -> responseAssembler.toSignalResponse(
                 s,
                 interactionFlags.likedSignalIds(),
                 interactionFlags.favoritedSignalIds(),
@@ -176,7 +179,7 @@ public class CommunitySignalServiceImpl implements CommunitySignalService {
         CommunitySignal saved = signalRepository.save(Objects.requireNonNull(signal, "signal must not be null"));
         // 
         updateUserStats(userId);
-        return toSignalResponse(saved, Set.of(), Set.of(), Set.of());
+        return responseAssembler.toSignalResponse(saved, Set.of(), Set.of(), Set.of());
     }
     /**
      * 更新信号
@@ -206,7 +209,7 @@ public class CommunitySignalServiceImpl implements CommunitySignalService {
             signal.setTags(request.getTags());
         }
         CommunitySignal saved = signalRepository.save(signal);
-        return toSignalResponse(saved, Set.of(), Set.of(), Set.of());
+        return responseAssembler.toSignalResponse(saved, Set.of(), Set.of(), Set.of());
     }
     /**
      * 关闭信号
@@ -224,7 +227,7 @@ public class CommunitySignalServiceImpl implements CommunitySignalService {
         CommunitySignal saved = signal;
         // Refresh publisher statistics after closing a signal.
         updateUserStats(userId);
-        return toSignalResponse(saved, Set.of(), Set.of(), Set.of());
+        return responseAssembler.toSignalResponse(saved, Set.of(), Set.of(), Set.of());
     }
     /**
      * 删除信号
@@ -257,7 +260,7 @@ public class CommunitySignalServiceImpl implements CommunitySignalService {
                 .build();
         subscriptionRepository.save(Objects.requireNonNull(subscription, "subscription must not be null"));
         signalRepository.incrementSubscribeCount(signalId);
-        return toSubscriptionResponse(subscription, signal);
+        return responseAssembler.toSubscriptionResponse(subscription, signal);
     }
     /**
      * 取消订阅信号
@@ -284,7 +287,7 @@ public class CommunitySignalServiceImpl implements CommunitySignalService {
                 Objects.requireNonNull(signalIds, "signalIds must not be null"))
                 .stream().collect(Collectors.toMap(CommunitySignal::getId, Function.identity()));
         return subscriptions.stream()
-                .map(s -> toSubscriptionResponse(s, signalMap.get(s.getSignalId())))
+                .map(s -> responseAssembler.toSubscriptionResponse(s, signalMap.get(s.getSignalId())))
                 .toList();
     }
     // ========== 点赞与收藏 ==========
@@ -372,7 +375,7 @@ public class CommunitySignalServiceImpl implements CommunitySignalService {
                 (a, b) -> a
             ));
         return commentPage.getContent().stream()
-                .map(c -> toCommentResponse(c, repliesMap.getOrDefault(c.getId(), List.of())))
+            .map(c -> responseAssembler.toCommentResponse(c, repliesMap.getOrDefault(c.getId(), List.of())))
             .toList();
     }
     /**
@@ -391,7 +394,7 @@ public class CommunitySignalServiceImpl implements CommunitySignalService {
                 .build();
         SignalComment saved = commentRepository.save(Objects.requireNonNull(comment, "comment must not be null"));
         signalRepository.incrementCommentCount(signalId);
-        return toCommentResponse(saved, List.of());
+        return responseAssembler.toCommentResponse(saved, List.of());
     }
     /**
      * 删除评论
@@ -464,75 +467,6 @@ public class CommunitySignalServiceImpl implements CommunitySignalService {
         return requireFound(commentRepository.findById(nonNullCommentId),
             () -> new ResourceNotFoundException("评论不存在: " + commentId));
         }
-        private SignalResponse toSignalResponse(CommunitySignal signal,
-                            Set<Long> likedSignalIds,
-                            Set<Long> favoritedSignalIds,
-                            Set<Long> subscribedSignalIds) {
-        User user = userRepository.findById(Objects.requireNonNull(signal.getUserId(), "signal userId must not be null")).orElse(null);
-        return SignalResponse.builder()
-            .id(signal.getId())
-            .userId(signal.getUserId())
-            .username(user != null ? user.getUsername() : null)
-            .avatarUrl(user != null ? user.getAvatarUrl() : null)
-            .strategyId(signal.getStrategyId())
-            .symbol(signal.getSymbol())
-            .signalType(signal.getSignalType() != null ? signal.getSignalType().name() : null)
-            .reason(signal.getReason())
-            .targetPrice(signal.getTargetPrice())
-            .stopLoss(signal.getStopLoss())
-            .timeFrame(signal.getTimeframe())
-            .confidence(signal.getConfidence())
-            .status(signal.getStatus() != null ? signal.getStatus().name() : null)
-            .resultStatus(signal.getResultStatus() != null ? signal.getResultStatus().name() : null)
-            .resultProfit(signal.getResultProfit())
-            .expiresAt(signal.getExpiresAt())
-            .likeCount(signal.getLikeCount())
-            .favoriteCount(signal.getFavoriteCount())
-            .subscribeCount(signal.getSubscribeCount())
-            .commentCount(signal.getCommentCount())
-            .viewCount(signal.getViewCount())
-            .isFeatured(signal.getIsFeatured())
-            .tags(signal.getTags())
-            .isLiked(likedSignalIds.contains(signal.getId()))
-            .isFavorited(favoritedSignalIds.contains(signal.getId()))
-            .isSubscribed(subscribedSignalIds.contains(signal.getId()))
-            .createdAt(signal.getCreatedAt())
-            .updatedAt(signal.getUpdatedAt())
-            .build();
-    }
-    private SignalSubscriptionResponse toSubscriptionResponse(SignalSubscription subscription, CommunitySignal signal) {
-        User user = userRepository.findById(Objects.requireNonNull(subscription.getUserId(), "subscription userId must not be null")).orElse(null);
-        return SignalSubscriptionResponse.builder()
-                .id(subscription.getId())
-                .signalId(subscription.getSignalId())
-                .symbol(signal != null ? signal.getSymbol() : null)
-                .signalType(signal != null && signal.getSignalType() != null ? signal.getSignalType().name() : null)
-                .reason(signal != null ? signal.getReason() : null)
-                .userId(subscription.getUserId())
-                .username(user != null ? user.getUsername() : null)
-                .notifyEnabled(subscription.getNotifyEnabled())
-                .createdAt(subscription.getCreatedAt())
-                .build();
-    }
-    private CommentResponse toCommentResponse(SignalComment comment, List<SignalComment> replies) {
-        User user = userRepository.findById(Objects.requireNonNull(comment.getUserId(), "comment userId must not be null")).orElse(null);
-        List<CommentResponse> replyResponses = replies != null ?
-                replies.stream().map(r -> toCommentResponse(r, List.of())).toList() : List.of();
-        return CommentResponse.builder()
-                .id(comment.getId())
-                .signalId(comment.getSignalId())
-                .userId(comment.getUserId())
-                .username(user != null ? user.getUsername() : null)
-                .avatarUrl(user != null ? user.getAvatarUrl() : null)
-                .parentId(comment.getParentId())
-                .content(comment.getContent())
-                .likeCount(comment.getLikeCount())
-                .isDeleted(comment.getIsDeleted())
-                .replies(replyResponses)
-                .createdAt(comment.getCreatedAt())
-                .updatedAt(comment.getUpdatedAt())
-                .build();
-    }
     private void updateUserStats(Long userId) {
         Optional<UserSignalStats> optionalStats = statsRepository.findByUserId(userId);
         if (optionalStats.isPresent()) {
