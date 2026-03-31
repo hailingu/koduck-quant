@@ -1,6 +1,7 @@
 package com.koduck.dto.community;
 
 import com.fasterxml.jackson.annotation.JsonFormat;
+import com.koduck.common.constants.DateTimePatternConstants;
 import com.koduck.util.CollectionCopyUtils;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -28,10 +29,10 @@ public class CommentResponse {
 
     private List<CommentResponse> replies;
 
-    @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
+    @JsonFormat(pattern = DateTimePatternConstants.STANDARD_DATE_TIME_PATTERN)
     private LocalDateTime createdAt;
 
-    @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
+    @JsonFormat(pattern = DateTimePatternConstants.STANDARD_DATE_TIME_PATTERN)
     private LocalDateTime updatedAt;
 
     public List<CommentResponse> getReplies() {

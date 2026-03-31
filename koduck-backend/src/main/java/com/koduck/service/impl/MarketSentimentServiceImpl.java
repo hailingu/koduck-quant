@@ -1,5 +1,6 @@
 package com.koduck.service.impl;
 
+import com.koduck.common.constants.MarketConstants;
 import com.koduck.dto.market.MarketSentimentDto;
 import com.koduck.market.MarketType;
 import com.koduck.market.model.KlineData;
@@ -316,7 +317,7 @@ public class MarketSentimentServiceImpl implements MarketSentimentService {
             return providerFactory.getAvailableProvider(marketType)
                     .map(provider -> {
                         try {
-                            return provider.getKlineData(symbol, "1D", limit, 
+                            return provider.getKlineData(symbol, MarketConstants.DEFAULT_TIMEFRAME, limit,
                                     Instant.now().minus(2L * limit, ChronoUnit.DAYS), Instant.now());
                         } catch (MarketDataProvider.MarketDataException e) {
                             log.warn("Failed to get kline data for {} from provider: {}", symbol, e.getMessage());

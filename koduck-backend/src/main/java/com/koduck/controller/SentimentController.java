@@ -1,4 +1,5 @@
 package com.koduck.controller;
+import com.koduck.common.constants.MarketConstants;
 import com.koduck.dto.ApiResponse;
 import com.koduck.dto.market.MarketSentimentDto;
 import com.koduck.market.MarketType;
@@ -37,7 +38,7 @@ public class SentimentController {
                description = "Returns six-dimensional sentiment indicators for market analysis")
     public ApiResponse<MarketSentimentDto> getSentimentRadar(
             @Parameter(description = "Market type: a_share, hk, us")
-            @RequestParam(defaultValue = "a_share") String market) {
+            @RequestParam(defaultValue = MarketConstants.DEFAULT_MARKET_CODE) String market) {
         log.info("Getting sentiment radar for market: {}", market);
         MarketType marketType = parseMarketType(market);
         MarketSentimentDto sentiment = sentimentService.getMarketSentiment(marketType);
@@ -67,7 +68,7 @@ public class SentimentController {
         return switch (market.toLowerCase(Locale.ROOT)) {
             case "hk", "hk_stock" -> MarketType.HK_STOCK;
             case "us", "us_stock" -> MarketType.US_STOCK;
-            case "a_share", "a", "cn" -> MarketType.A_SHARE;
+            case MarketConstants.DEFAULT_MARKET_CODE, "a", "cn" -> MarketType.A_SHARE;
             default -> MarketType.A_SHARE;
         };
     }

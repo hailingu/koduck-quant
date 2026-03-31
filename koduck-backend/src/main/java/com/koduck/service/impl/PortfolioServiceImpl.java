@@ -1,5 +1,6 @@
 package com.koduck.service.impl;
 
+import com.koduck.common.constants.MarketConstants;
 import com.koduck.dto.portfolio.AddPositionRequest;
 import com.koduck.dto.portfolio.AddTradeRequest;
 import com.koduck.dto.portfolio.PortfolioPositionDto;
@@ -39,7 +40,7 @@ public class PortfolioServiceImpl implements PortfolioService {
     private final TradeRepository tradeRepository;
     private final KlineService klineService;
 
-    private static final String DEFAULT_TIMEFRAME = "1D";
+    private static final String DEFAULT_TIMEFRAME = MarketConstants.DEFAULT_TIMEFRAME;
     private static final int SCALE = 4;
 
     public PortfolioServiceImpl(PortfolioPositionRepository positionRepository,

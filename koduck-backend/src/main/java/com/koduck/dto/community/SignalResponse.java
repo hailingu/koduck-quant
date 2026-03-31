@@ -2,6 +2,7 @@ package com.koduck.dto.community;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonFormat;
+import com.koduck.common.constants.DateTimePatternConstants;
 import com.koduck.util.CollectionCopyUtils;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -38,7 +39,7 @@ public class SignalResponse {
     private String resultStatus;
     private BigDecimal resultProfit;
 
-    @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
+    @JsonFormat(pattern = DateTimePatternConstants.STANDARD_DATE_TIME_PATTERN)
     private LocalDateTime expiresAt;
 
     private Integer likeCount;
@@ -55,10 +56,10 @@ public class SignalResponse {
     private Boolean isFavorited;
     private Boolean isSubscribed;
 
-    @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
+    @JsonFormat(pattern = DateTimePatternConstants.STANDARD_DATE_TIME_PATTERN)
     private LocalDateTime createdAt;
 
-    @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
+    @JsonFormat(pattern = DateTimePatternConstants.STANDARD_DATE_TIME_PATTERN)
     private LocalDateTime updatedAt;
 
     public static Builder builder() {

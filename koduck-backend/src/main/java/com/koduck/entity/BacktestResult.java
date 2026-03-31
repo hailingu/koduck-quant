@@ -1,5 +1,6 @@
 package com.koduck.entity;
 
+import com.koduck.common.constants.MarketConstants;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -55,7 +56,7 @@ public class BacktestResult {
     
     @Column(name = "timeframe", length = 10)
     @Builder.Default
-    private String timeframe = "1D";
+    private String timeframe = MarketConstants.DEFAULT_TIMEFRAME;
     
     // 
     @Column(name = "initial_capital", nullable = false, precision = 19, scale = 4)

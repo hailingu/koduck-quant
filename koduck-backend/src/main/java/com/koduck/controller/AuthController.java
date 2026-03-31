@@ -1,4 +1,5 @@
 package com.koduck.controller;
+import com.koduck.common.constants.HttpHeaderConstants;
 import com.koduck.dto.ApiResponse;
 import com.koduck.dto.auth.ForgotPasswordRequest;
 import com.koduck.dto.auth.LoginRequest;
@@ -33,9 +34,6 @@ import java.util.Objects;
 @RequiredArgsConstructor
 @Tag(name = "认证管理", description = "用户登录、注册、Token刷新等认证相关接口")
 public class AuthController {
-    private static final String HEADER_USER_AGENT = "User-Agent";
-    private static final String HEADER_X_FORWARDED_FOR = "X-Forwarded-For";
-    private static final String HEADER_X_REAL_IP = "X-Real-IP";
     private final AuthService authService;
     /**
      * Authenticate a user and issue JWT tokens.
@@ -50,7 +48,7 @@ public class AuthController {
             @Valid @RequestBody LoginRequest request,
             HttpServletRequest httpRequest) {
         String ipAddress = getClientIpAddress(httpRequest);
-        String userAgent = httpRequest.getHeader(HEADER_USER_AGENT);
+        String userAgent = httpRequest.getHeader(HttpHeaderConstants.USER_AGENT);
         TokenResponse response = authService.login(request, ipAddress, userAgent);
         return ApiResponse.success(response);
     }
@@ -137,11 +135,11 @@ public class AuthController {
      * @return resolved client IP address
      */
     private String getClientIpAddress(HttpServletRequest request) {
-        String xForwardedFor = request.getHeader(HEADER_X_FORWARDED_FOR);
+        String xForwardedFor = request.getHeader(HttpHeaderConstants.X_FORWARDED_FOR);
         if (xForwardedFor != null && !xForwardedFor.isEmpty()) {
             return xForwardedFor.split(",")[0].trim();
         }
-        String xRealIp = request.getHeader(HEADER_X_REAL_IP);
+        String xRealIp = request.getHeader(HttpHeaderConstants.X_REAL_IP);
         if (xRealIp != null && !xRealIp.isEmpty()) {
             return xRealIp;
         }

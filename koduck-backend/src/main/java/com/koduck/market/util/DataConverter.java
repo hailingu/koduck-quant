@@ -1,5 +1,6 @@
 package com.koduck.market.util;
 
+import com.koduck.common.constants.DateTimePatternConstants;
 import com.koduck.market.model.KlineData;
 import com.koduck.market.model.TickData;
 
@@ -19,7 +20,7 @@ import java.util.Locale;
 public final class DataConverter {
     
     private static final DateTimeFormatter DATE_FORMATTER = 
-        DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+        DateTimeFormatter.ofPattern(DateTimePatternConstants.STANDARD_DATE_TIME_PATTERN);
     
     private DataConverter() {
         // Utility class, prevent instantiation

@@ -1,6 +1,7 @@
 package com.koduck.controller;
 
 import io.swagger.v3.oas.annotations.tags.Tag;
+import com.koduck.common.constants.PaginationConstants;
 import com.koduck.controller.support.AuthenticatedUserResolver;
 import com.koduck.dto.ApiResponse;
 import com.koduck.dto.community.CommentResponse;
@@ -81,10 +82,11 @@ public class CommunitySignalController {
             @RequestParam(required = false) String symbol,
             @RequestParam(required = false)
             @Pattern(regexp = "BUY|SELL|HOLD", message = "type must be BUY, SELL or HOLD") String type,
-            @RequestParam(defaultValue = "0") @Min(value = 0, message = "page must be >= 0") int page,
-            @RequestParam(defaultValue = "20")
+            @RequestParam(defaultValue = PaginationConstants.DEFAULT_PAGE_ZERO_STR)
+            @Min(value = PaginationConstants.DEFAULT_PAGE_ZERO, message = "page must be >= 0") int page,
+            @RequestParam(defaultValue = PaginationConstants.DEFAULT_PAGE_SIZE_STR)
             @Min(value = 1, message = "size must be >= 1")
-            @Max(value = 100, message = "size must be <= 100") int size) {
+            @Max(value = PaginationConstants.MAX_PAGE_SIZE, message = "size must be <= 100") int size) {
         Long currentUserId = authenticatedUserResolver.getOptionalUserId(userPrincipal);
         log.info("Get signals: sort={}, symbol={}, type={}", sort, symbol, type);
         SignalListResponse response = signalService.getSignals(currentUserId, sort, symbol, type, page, size);
@@ -331,10 +333,11 @@ public class CommunitySignalController {
     @GetMapping("/signals/{id}/comments")
     public ApiResponse<List<CommentResponse>> getComments(
             @PathVariable @Positive(message = "id must be positive") Long id,
-            @RequestParam(defaultValue = "0") @Min(value = 0, message = "page must be >= 0") int page,
-            @RequestParam(defaultValue = "20")
+            @RequestParam(defaultValue = PaginationConstants.DEFAULT_PAGE_ZERO_STR)
+            @Min(value = PaginationConstants.DEFAULT_PAGE_ZERO, message = "page must be >= 0") int page,
+            @RequestParam(defaultValue = PaginationConstants.DEFAULT_PAGE_SIZE_STR)
             @Min(value = 1, message = "size must be >= 1")
-            @Max(value = 100, message = "size must be <= 100") int size) {
+            @Max(value = PaginationConstants.MAX_PAGE_SIZE, message = "size must be <= 100") int size) {
         log.info("Get comments: signalId={}", id);
         List<CommentResponse> comments = signalService.getComments(id, page, size);
         return ApiResponse.success(comments);

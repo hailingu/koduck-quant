@@ -1,5 +1,6 @@
 package com.koduck.service.impl;
 
+import com.koduck.common.constants.MarketConstants;
 import com.koduck.config.properties.DataServiceProperties;
 import com.koduck.dto.market.DataServiceResponse;
 import com.koduck.dto.market.KlineDataDto;
@@ -40,8 +41,8 @@ public class KlineSyncServiceImpl implements KlineSyncService {
     private final KlineDataDtoMapper klineDataDtoMapper;
 
     private static final String A_SHARE_BASE_PATH = "/a-share";
-    private static final String DEFAULT_MARKET = "AShare";
-    private static final String DEFAULT_TIMEFRAME = "1D";
+    private static final String DEFAULT_MARKET = MarketConstants.DEFAULT_MARKET;
+    private static final String DEFAULT_TIMEFRAME = MarketConstants.DEFAULT_TIMEFRAME;
     private static final long DEFAULT_BATCH_INTERVAL_MILLIS = 500L;
     private static final int DEFAULT_KLINE_QUERY_LIMIT = 1000;
     private static final ParameterizedTypeReference<DataServiceResponse<List<Map<String, Object>>>>

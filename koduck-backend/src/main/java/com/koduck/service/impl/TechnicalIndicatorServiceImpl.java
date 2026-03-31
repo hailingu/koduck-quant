@@ -1,4 +1,5 @@
 package com.koduck.service.impl;
+import com.koduck.common.constants.MarketConstants;
 import com.koduck.dto.indicator.IndicatorListResponse;
 import com.koduck.dto.indicator.IndicatorResponse;
 import com.koduck.dto.market.KlineDataDto;
@@ -76,7 +77,8 @@ public class TechnicalIndicatorServiceImpl implements TechnicalIndicatorService 
         log.debug("Calculating indicator: market={}, symbol={}, indicator={}, period={}", 
                  market, symbol, indicator, period);
         // Get kline data
-        List<KlineDataDto> klineData = klineService.getKlineData(market, symbol, "1D", DEFAULT_LIMIT, null);
+        List<KlineDataDto> klineData =
+            klineService.getKlineData(market, symbol, MarketConstants.DEFAULT_TIMEFRAME, DEFAULT_LIMIT, null);
         if (klineData.isEmpty()) {
             throw new IllegalArgumentException("No kline data found for " + market + "/" + symbol);
         }

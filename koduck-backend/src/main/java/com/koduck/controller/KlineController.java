@@ -1,5 +1,9 @@
 package com.koduck.controller;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import com.koduck.common.constants.ApiStatusCodeConstants;
+import com.koduck.common.constants.ApiMessageConstants;
+import com.koduck.common.constants.MarketConstants;
+import com.koduck.common.constants.PaginationConstants;
 import com.koduck.dto.ApiResponse;
 import com.koduck.dto.market.KlineDataDto;
 import com.koduck.service.KlineService;
@@ -31,8 +35,8 @@ public class KlineController {
     public ApiResponse<List<KlineDataDto>> getKline(
             @RequestParam @NotBlank String market,
             @RequestParam @NotBlank String symbol,
-            @RequestParam(defaultValue = "1D") String timeframe,
-            @RequestParam(defaultValue = "300") @Min(1) @Max(1000) Integer limit,
+            @RequestParam(defaultValue = MarketConstants.DEFAULT_TIMEFRAME) String timeframe,
+            @RequestParam(defaultValue = PaginationConstants.DEFAULT_KLINE_LIMIT_STR) @Min(1) @Max(1000) Integer limit,
             @RequestParam(required = false) Long beforeTime) {
         log.debug("GET /api/v1/kline: market={}, symbol={}, timeframe={}, limit={}, beforeTime={}",
                  market, symbol, timeframe, limit, beforeTime);
@@ -46,11 +50,11 @@ public class KlineController {
     public ApiResponse<LatestPriceResponse> getLatestPrice(
             @RequestParam @NotBlank String market,
             @RequestParam @NotBlank String symbol,
-            @RequestParam(defaultValue = "1D") String timeframe) {
+            @RequestParam(defaultValue = MarketConstants.DEFAULT_TIMEFRAME) String timeframe) {
         log.debug("GET /api/v1/kline/price: market={}, symbol={}, timeframe={}", market, symbol, timeframe);
         return klineService.getLatestPrice(market, symbol, timeframe)
             .map(price -> ApiResponse.success(new LatestPriceResponse(symbol, price)))
-            .orElse(ApiResponse.error(404, "No price data found"));
+            .orElse(ApiResponse.error(ApiStatusCodeConstants.NOT_FOUND, ApiMessageConstants.NO_PRICE_DATA_FOUND));
     }
     /**
      * Response for latest price endpoint.

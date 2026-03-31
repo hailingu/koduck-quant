@@ -1,5 +1,6 @@
 package com.koduck.service.impl;
 
+import com.koduck.common.constants.HttpHeaderConstants;
 import com.koduck.dto.credential.*;
 import com.koduck.entity.CredentialAuditLog;
 import com.koduck.entity.UserCredential;
@@ -288,7 +289,7 @@ public class CredentialServiceImpl implements CredentialService {
             if (attributes != null) {
                 HttpServletRequest request = attributes.getRequest();
                 ipAddress = getClientIpAddress(request);
-                userAgent = request.getHeader("User-Agent");
+                userAgent = request.getHeader(HttpHeaderConstants.USER_AGENT);
             }
 
             CredentialAuditLog log = CredentialAuditLog.builder()
@@ -311,10 +312,10 @@ public class CredentialServiceImpl implements CredentialService {
      */
     private String getClientIpAddress(HttpServletRequest request) {
         String[] headerNames = {
-                "X-Forwarded-For",
-                "X-Real-IP",
-                "Proxy-Client-IP",
-                "WL-Proxy-Client-IP"
+            HttpHeaderConstants.X_FORWARDED_FOR,
+            HttpHeaderConstants.X_REAL_IP,
+            HttpHeaderConstants.PROXY_CLIENT_IP,
+            HttpHeaderConstants.WL_PROXY_CLIENT_IP
         };
         for (String headerName : headerNames) {
             String value = request.getHeader(headerName);

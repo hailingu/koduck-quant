@@ -1,6 +1,6 @@
 package com.koduck.controller;
 
-import io.swagger.v3.oas.annotations.tags.Tag;
+import com.koduck.common.constants.PaginationConstants;
 import com.koduck.controller.support.AuthenticatedUserResolver;
 import com.koduck.dto.ApiResponse;
 import com.koduck.dto.credential.CreateCredentialRequest;
@@ -12,6 +12,7 @@ import com.koduck.dto.credential.UpdateCredentialRequest;
 import com.koduck.dto.credential.VerifyCredentialResponse;
 import com.koduck.security.UserPrincipal;
 import com.koduck.service.CredentialService;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
@@ -46,8 +47,6 @@ import org.springframework.web.bind.annotation.RestController;
 @Slf4j
 @RequiredArgsConstructor
 public class CredentialController {
-    private static final int DEFAULT_PAGE = 0;
-    private static final int MAX_PAGE_SIZE = 100;
 
     private final CredentialService credentialService;
     private final AuthenticatedUserResolver authenticatedUserResolver;
@@ -63,13 +62,16 @@ public class CredentialController {
     @GetMapping
     public ApiResponse<CredentialListResponse> getCredentials(
             @AuthenticationPrincipal UserPrincipal userPrincipal,
-            @RequestParam(defaultValue = "0") @Min(DEFAULT_PAGE) int page,
-            @RequestParam(defaultValue = "20") @Min(1) @Max(MAX_PAGE_SIZE) int size) {
+            @RequestParam(defaultValue = PaginationConstants.DEFAULT_PAGE_ZERO_STR)
+            @Min(PaginationConstants.DEFAULT_PAGE_ZERO) int page,
+            @RequestParam(defaultValue = PaginationConstants.DEFAULT_PAGE_SIZE_STR)
+            @Min(1) @Max(PaginationConstants.MAX_PAGE_SIZE) int size) {
         Long userId = requireUserId(userPrincipal);
         log.info("List credentials: userId={}, page={}, size={}", userId, page, size);
         CredentialListResponse response = credentialService.getCredentials(userId, page, size);
         return ApiResponse.success(response);
     }
+
     /**
      * Retrieve all credentials without pagination.
      *
@@ -84,6 +86,7 @@ public class CredentialController {
         List<CredentialResponse> credentials = credentialService.getAllCredentials(userId);
         return ApiResponse.success(credentials);
     }
+
     /**
      * Retrieve a masked credential by id.
      *
@@ -100,6 +103,7 @@ public class CredentialController {
         CredentialResponse credential = credentialService.getCredential(userId, id);
         return ApiResponse.success(credential);
     }
+
     /**
      * Retrieve complete credential details, including decrypted API key and secret.
      *
@@ -116,6 +120,7 @@ public class CredentialController {
         CredentialDetailResponse credential = credentialService.getCredentialDetail(userId, id);
         return ApiResponse.success(credential);
     }
+
     /**
      * Create a new credential for the authenticated user.
      *
@@ -132,6 +137,7 @@ public class CredentialController {
         CredentialResponse credential = credentialService.createCredential(userId, request);
         return ApiResponse.success(credential);
     }
+
     /**
      * Update an existing credential.
      *
@@ -150,6 +156,7 @@ public class CredentialController {
         CredentialResponse credential = credentialService.updateCredential(userId, id, request);
         return ApiResponse.success(credential);
     }
+
     /**
      * Delete a credential by id.
      *
@@ -166,6 +173,7 @@ public class CredentialController {
         credentialService.deleteCredential(userId, id);
         return ApiResponse.successNoContent();
     }
+
     /**
      * Verify credential connectivity and validity.
      *
@@ -182,6 +190,7 @@ public class CredentialController {
         VerifyCredentialResponse result = credentialService.verifyCredential(userId, id);
         return ApiResponse.success(result);
     }
+
     /**
      * Retrieve credential audit logs with pagination.
      *
@@ -193,8 +202,10 @@ public class CredentialController {
     @GetMapping("/audit-logs")
     public ApiResponse<List<CredentialAuditLogResponse>> getAuditLogs(
             @AuthenticationPrincipal UserPrincipal userPrincipal,
-            @RequestParam(defaultValue = "0") @Min(DEFAULT_PAGE) int page,
-            @RequestParam(defaultValue = "20") @Min(1) @Max(MAX_PAGE_SIZE) int size) {
+            @RequestParam(defaultValue = PaginationConstants.DEFAULT_PAGE_ZERO_STR)
+            @Min(PaginationConstants.DEFAULT_PAGE_ZERO) int page,
+            @RequestParam(defaultValue = PaginationConstants.DEFAULT_PAGE_SIZE_STR)
+            @Min(1) @Max(PaginationConstants.MAX_PAGE_SIZE) int size) {
         Long userId = requireUserId(userPrincipal);
         log.info("Get audit logs: userId={}, page={}, size={}", userId, page, size);
         List<CredentialAuditLogResponse> logs = credentialService.getAuditLogs(userId, page, size);

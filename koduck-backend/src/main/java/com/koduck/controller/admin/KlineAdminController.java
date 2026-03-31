@@ -1,4 +1,5 @@
 package com.koduck.controller.admin;
+import com.koduck.common.constants.MarketConstants;
 import com.koduck.dto.ApiResponse;
 import com.koduck.service.KlineSyncService;
 import jakarta.validation.constraints.Max;
@@ -30,8 +31,6 @@ import java.util.Objects;
 @PreAuthorize("hasRole('ADMIN')")
 @Validated
 public class KlineAdminController {
-    private static final String DEFAULT_TIMEFRAME = "1D";
-    private static final String DEFAULT_MARKET = "AShare";
     private static final String DEFAULT_BACKFILL_DAYS = "365";
     private static final String MESSAGE_SYNC_TRIGGERED_PREFIX = "Sync triggered for ";
     private static final String MESSAGE_BACKFILL_TRIGGERED_PREFIX = "Backfill triggered for ";
@@ -52,7 +51,7 @@ public class KlineAdminController {
     public ApiResponse<String> syncSymbol(
             @PathVariable @NotBlank String market,
             @PathVariable @NotBlank String symbol,
-            @RequestParam(defaultValue = DEFAULT_TIMEFRAME) @NotBlank String timeframe) {
+            @RequestParam(defaultValue = MarketConstants.DEFAULT_TIMEFRAME) @NotBlank String timeframe) {
         log.info("Manual sync triggered for {}/{}/{}", market, symbol, timeframe);
         klineSyncService.syncSymbolKline(market, symbol, timeframe);
         return ApiResponse.success(MESSAGE_SYNC_TRIGGERED_PREFIX + symbol);
@@ -70,7 +69,7 @@ public class KlineAdminController {
     public ApiResponse<String> backfillSymbol(
             @PathVariable @NotBlank String market,
             @PathVariable @NotBlank String symbol,
-            @RequestParam(defaultValue = DEFAULT_TIMEFRAME) @NotBlank String timeframe,
+            @RequestParam(defaultValue = MarketConstants.DEFAULT_TIMEFRAME) @NotBlank String timeframe,
             @RequestParam(defaultValue = DEFAULT_BACKFILL_DAYS) @Min(1) @Max(3650) int days) {
         log.info("Backfill triggered for {}/{}/{} for {} days", market, symbol, timeframe, days);
         klineSyncService.backfillHistoricalData(market, symbol, timeframe, days);
@@ -87,8 +86,8 @@ public class KlineAdminController {
     @PostMapping("/sync/batch")
     public ApiResponse<String> syncBatch(
             @RequestParam @NotEmpty List<@NotBlank String> symbols,
-            @RequestParam(defaultValue = DEFAULT_MARKET) @NotBlank String market,
-            @RequestParam(defaultValue = DEFAULT_TIMEFRAME) @NotBlank String timeframe) {
+            @RequestParam(defaultValue = MarketConstants.DEFAULT_MARKET) @NotBlank String market,
+            @RequestParam(defaultValue = MarketConstants.DEFAULT_TIMEFRAME) @NotBlank String timeframe) {
         Objects.requireNonNull(symbols, ERROR_SYMBOLS_REQUIRED);
         if (symbols.isEmpty()) {
             throw new IllegalArgumentException(ERROR_SYMBOLS_REQUIRED);

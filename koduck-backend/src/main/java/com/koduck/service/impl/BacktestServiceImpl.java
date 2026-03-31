@@ -1,5 +1,6 @@
 package com.koduck.service.impl;
 
+import com.koduck.common.constants.MarketConstants;
 import com.koduck.dto.backtest.*;
 import com.koduck.dto.market.KlineDataDto;
 import com.koduck.entity.*;
@@ -52,7 +53,7 @@ public class BacktestServiceImpl implements BacktestService {
     private final StrategyAccessSupport strategyAccessSupport;
 
     private static final int SCALE = 4;
-    private static final String DEFAULT_TIMEFRAME = "1D";
+    private static final String DEFAULT_TIMEFRAME = MarketConstants.DEFAULT_TIMEFRAME;
     /**
      * Get all backtest results for a user.
      */

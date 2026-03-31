@@ -2,6 +2,7 @@ package com.koduck.service.impl;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.koduck.common.constants.MarketConstants;
 import com.koduck.config.AgentConfig;
 import com.koduck.dto.ai.*;
 import com.koduck.dto.settings.UserSettingsDto;
@@ -354,7 +355,7 @@ public class AiAnalysisServiceImpl implements AiAnalysisService {
                 log.debug("Skip quant signal: no symbol found in chat messages");
                 return request;
             }
-            String quantContext = buildQuantSignalContext(symbol, "AShare");
+            String quantContext = buildQuantSignalContext(symbol, MarketConstants.DEFAULT_MARKET);
             if (quantContext == null || quantContext.isBlank()) {
                 return request;
             }

@@ -1,6 +1,7 @@
 package com.koduck.dto.credential;
 
 import com.fasterxml.jackson.annotation.JsonFormat;
+import com.koduck.common.constants.DateTimePatternConstants;
 import com.koduck.util.CollectionCopyUtils;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -32,13 +33,13 @@ public class CredentialResponse {
 
     private String lastVerifiedStatus;
 
-    @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
+    @JsonFormat(pattern = DateTimePatternConstants.STANDARD_DATE_TIME_PATTERN)
     private LocalDateTime lastVerifiedAt;
 
-    @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
+    @JsonFormat(pattern = DateTimePatternConstants.STANDARD_DATE_TIME_PATTERN)
     private LocalDateTime createdAt;
 
-    @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
+    @JsonFormat(pattern = DateTimePatternConstants.STANDARD_DATE_TIME_PATTERN)
     private LocalDateTime updatedAt;
 
     public static Builder builder() {

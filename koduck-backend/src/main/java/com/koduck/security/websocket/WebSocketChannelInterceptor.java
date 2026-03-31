@@ -1,5 +1,6 @@
 package com.koduck.security.websocket;
 
+import com.koduck.common.constants.HttpHeaderConstants;
 import com.koduck.config.JwtConfig;
 import com.koduck.util.JwtUtil;
 import java.io.Serial;
@@ -37,8 +38,8 @@ import org.springframework.util.StringUtils;
 @Component
 public class WebSocketChannelInterceptor implements ChannelInterceptor {
 
-    private static final String BEARER_PREFIX = "Bearer ";
-    private static final String DEFAULT_AUTHORIZATION_HEADER = "Authorization";
+    private static final String BEARER_PREFIX = HttpHeaderConstants.BEARER_PREFIX;
+    private static final String DEFAULT_AUTHORIZATION_HEADER = HttpHeaderConstants.AUTHORIZATION;
     private static final String ROLE_USER = "ROLE_USER";
     private static final Collection<? extends GrantedAuthority> USER_AUTHORITIES =
             Collections.singletonList(new SimpleGrantedAuthority(ROLE_USER));

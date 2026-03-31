@@ -1,5 +1,6 @@
 package com.koduck.controller;
 
+import com.koduck.common.constants.PaginationConstants;
 import com.koduck.dto.ApiResponse;
 import com.koduck.dto.monitoring.AlertRuleRequest;
 import com.koduck.entity.AlertHistory;
@@ -124,8 +125,8 @@ public class MonitoringController {
      */
     @GetMapping("/alerts")
     public ApiResponse<List<AlertHistory>> getAlertHistory(
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size) {
+            @RequestParam(defaultValue = PaginationConstants.DEFAULT_PAGE_ZERO_STR) int page,
+            @RequestParam(defaultValue = PaginationConstants.DEFAULT_PAGE_SIZE_STR) int size) {
         return ApiResponse.success(monitoringService.getAlertHistory(page, size));
     }
     /**

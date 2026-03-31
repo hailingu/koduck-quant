@@ -1,20 +1,28 @@
 package com.koduck.controller;
-import io.swagger.v3.oas.annotations.tags.Tag;
-import jakarta.validation.constraints.Max;
-import jakarta.validation.constraints.Min;
-import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.Size;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.validation.annotation.Validated;
-import org.springframework.web.bind.annotation.*;
+
+import com.koduck.common.constants.ApiStatusCodeConstants;
+import com.koduck.common.constants.ApiMessageConstants;
+import com.koduck.common.constants.MarketConstants;
+import com.koduck.common.constants.PaginationConstants;
 import com.koduck.dto.ApiResponse;
 import com.koduck.dto.market.KlineDataDto;
 import com.koduck.dto.market.SymbolInfoDto;
 import com.koduck.service.KlineService;
 import com.koduck.service.MarketService;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
 import java.math.BigDecimal;
 import java.util.List;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.validation.annotation.Validated;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
 /**
  * A-Share market data controller.
  * <p>Provides search endpoints for A-share stocks. Routes requests to MarketService.</p>
@@ -42,10 +50,10 @@ public class AShareController {
             @RequestParam @NotBlank(message = "关键词不能为空")
             @Size(max = 50, message = "关键词长度不能超过 50")
             String keyword,
-            @RequestParam(defaultValue = "1")
+            @RequestParam(defaultValue = PaginationConstants.DEFAULT_PAGE_ONE_STR)
             @Min(value = 1, message = "页码最小为 1")
             Integer page,
-            @RequestParam(defaultValue = "20")
+            @RequestParam(defaultValue = PaginationConstants.DEFAULT_PAGE_SIZE_STR)
             @Min(value = 1, message = "每页数量最小为 1")
             @Max(value = 100, message = "每页数量最大为 100")
             Integer size) {
@@ -67,13 +75,13 @@ public class AShareController {
     public ApiResponse<List<KlineDataDto>> getKline(
             @RequestParam @NotBlank(message = "股票代码不能为空")
             String symbol,
-            @RequestParam(defaultValue = "1D") String timeframe,
-            @RequestParam(defaultValue = "300") @Min(1) @Max(1000) Integer limit,
+            @RequestParam(defaultValue = MarketConstants.DEFAULT_TIMEFRAME) String timeframe,
+            @RequestParam(defaultValue = PaginationConstants.DEFAULT_KLINE_LIMIT_STR) @Min(1) @Max(1000) Integer limit,
             @RequestParam(required = false) Long beforeTime) {
         log.debug("GET /api/v1/a-share/kline: symbol={}, timeframe={}, limit={}, beforeTime={}",
                 symbol, timeframe, limit, beforeTime);
         List<KlineDataDto> data =
-                klineService.getKlineData("AShare", symbol, timeframe, limit, beforeTime);
+                klineService.getKlineData(MarketConstants.DEFAULT_MARKET, symbol, timeframe, limit, beforeTime);
         return ApiResponse.success(data);
     }
     /**
@@ -87,11 +95,11 @@ public class AShareController {
     public ApiResponse<LatestPriceResponse> getLatestPrice(
             @RequestParam @NotBlank(message = "股票代码不能为空")
             String symbol,
-            @RequestParam(defaultValue = "1D") String timeframe) {
+            @RequestParam(defaultValue = MarketConstants.DEFAULT_TIMEFRAME) String timeframe) {
         log.debug("GET /api/v1/a-share/kline/price: symbol={}, timeframe={}", symbol, timeframe);
-        return klineService.getLatestPrice("AShare", symbol, timeframe)
+        return klineService.getLatestPrice(MarketConstants.DEFAULT_MARKET, symbol, timeframe)
                 .map(price -> ApiResponse.success(new LatestPriceResponse(symbol, price)))
-                .orElse(ApiResponse.error(404, "No price data found"));
+                .orElse(ApiResponse.error(ApiStatusCodeConstants.NOT_FOUND, ApiMessageConstants.NO_PRICE_DATA_FOUND));
     }
     /**
      * Response for latest price endpoint.

@@ -1,5 +1,6 @@
 package com.koduck.service.impl;
 
+import com.koduck.common.constants.MarketConstants;
 import com.koduck.config.CacheConfig;
 import com.koduck.dto.market.MarketIndexDto;
 import com.koduck.dto.market.PriceQuoteDto;
@@ -43,8 +44,8 @@ import java.util.stream.Collectors;
 @Slf4j
 public class MarketServiceImpl implements MarketService {
 
-    private static final String DEFAULT_MARKET = "AShare";
-    private static final String DAILY_TIMEFRAME = "1D";
+    private static final String DEFAULT_MARKET = MarketConstants.DEFAULT_MARKET;
+    private static final String DAILY_TIMEFRAME = MarketConstants.DEFAULT_TIMEFRAME;
     
     // Main index symbols
     private static final List<String> MAIN_INDICES = List.of(
