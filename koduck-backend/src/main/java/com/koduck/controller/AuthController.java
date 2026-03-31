@@ -13,7 +13,10 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
+import java.util.Arrays;
+import java.util.Set;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -34,7 +37,12 @@ import java.util.Objects;
 @RequiredArgsConstructor
 @Tag(name = "认证管理", description = "用户登录、注册、Token刷新等认证相关接口")
 public class AuthController {
+    private static final String DEFAULT_TRUSTED_PROXIES = "127.0.0.1,::1,0:0:0:0:0:0:0:1";
+
     private final AuthService authService;
+
+    @Value("${security.trusted-proxies:" + DEFAULT_TRUSTED_PROXIES + "}")
+    private String trustedProxies = DEFAULT_TRUSTED_PROXIES;
     /**
      * Authenticate a user and issue JWT tokens.
      *
@@ -135,15 +143,35 @@ public class AuthController {
      * @return resolved client IP address
      */
     private String getClientIpAddress(HttpServletRequest request) {
+        String remoteAddr = request.getRemoteAddr();
+        if (!isTrustedProxy(remoteAddr)) {
+            return remoteAddr;
+        }
+
         String xForwardedFor = request.getHeader(HttpHeaderConstants.X_FORWARDED_FOR);
         if (xForwardedFor != null && !xForwardedFor.isEmpty()) {
-            return xForwardedFor.split(",")[0].trim();
+            String[] forwardedIps = xForwardedFor.split(",");
+            if (forwardedIps.length > 0 && !forwardedIps[0].isBlank()) {
+                return forwardedIps[0].trim();
+            }
         }
+
         String xRealIp = request.getHeader(HttpHeaderConstants.X_REAL_IP);
         if (xRealIp != null && !xRealIp.isEmpty()) {
-            return xRealIp;
+            return xRealIp.trim();
         }
-        return request.getRemoteAddr();
+        return remoteAddr;
+    }
+
+    private boolean isTrustedProxy(String remoteAddr) {
+        if (remoteAddr == null || remoteAddr.isBlank()) {
+            return false;
+        }
+        Set<String> trustedProxySet = Arrays.stream(trustedProxies.split(","))
+            .map(String::trim)
+            .filter(ip -> !ip.isEmpty())
+            .collect(java.util.stream.Collectors.toSet());
+        return trustedProxySet.contains(remoteAddr.trim());
     }
     private String normalizeRefreshToken(RefreshTokenRequest request) {
         if (request == null) {

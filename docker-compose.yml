@@ -109,7 +109,7 @@ services:
       - REDIS_HOST=redis
       - REDIS_PORT=6379
       - DATA_SERVICE_URL=http://data-service:8000/api/v1
-      - JWT_SECRET=${JWT_SECRET:-your-256-bit-secret-key-for-jwt-signing-must-be-at-least-32-characters-long}
+      - JWT_SECRET=${JWT_SECRET:-}
       - DEFAULT_LLM_PROVIDER=${DEFAULT_LLM_PROVIDER:-minimax}
       - LLM_PROVIDER=${LLM_PROVIDER:-}
       - LLM_API_KEY=${LLM_API_KEY:-}
@@ -122,7 +122,7 @@ services:
       - DEEPSEEK_API_BASE=${DEEPSEEK_API_BASE:-https://api.deepseek.com/v1}
       # Finnhub US Stock API
       - FINNHUB_ENABLED=${FINNHUB_ENABLED:-true}
-      - FINNHUB_API_KEY=${FINNHUB_API_KEY:-d6nrnmhr01qse5qmqub0d6nrnmhr01qse5qmqubg}
+      - FINNHUB_API_KEY=${FINNHUB_API_KEY:-}
       # Demo user configuration - disabled by default for security
       # Enable for local testing: APP_DEMO_ENABLED=true
       # APP_DEMO_ENABLED=${APP_DEMO_ENABLED:-false}

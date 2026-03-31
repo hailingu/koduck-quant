@@ -36,7 +36,6 @@ import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.web.client.RestTemplateBuilder;
 import org.springframework.core.ParameterizedTypeReference;
@@ -54,7 +53,6 @@ import org.springframework.web.client.RestTemplate;
  */
 @Service
 @Slf4j
-@RequiredArgsConstructor
 public class AiAnalysisServiceImpl implements AiAnalysisService {
     private static final Pattern SYMBOL_PATTERN = Pattern.compile("\\b\\d{6}\\b");
     private static final String DEFAULT_LLM_PROVIDER = "minimax";
@@ -87,10 +85,32 @@ public class AiAnalysisServiceImpl implements AiAnalysisService {
     private final MemoryService memoryService;
     private final AgentConfig agentConfig;
     private final ObjectMapper objectMapper;
-    private final RestTemplateBuilder restTemplateBuilder;
+    private final RestTemplate restTemplate;
 
     private final Random random = new Random();
-    private RestTemplate restTemplate;
+
+    public AiAnalysisServiceImpl(PortfolioPositionRepository positionRepository,
+                                 StrategyRepository strategyRepository,
+                                 BacktestResultRepository backtestResultRepository,
+                                 TechnicalIndicatorService technicalIndicatorService,
+                                 UserSettingsService userSettingsService,
+                                 MemoryService memoryService,
+                                 AgentConfig agentConfig,
+                                 ObjectMapper objectMapper,
+                                 RestTemplateBuilder restTemplateBuilder) {
+        this.positionRepository = positionRepository;
+        this.strategyRepository = strategyRepository;
+        this.backtestResultRepository = backtestResultRepository;
+        this.technicalIndicatorService = technicalIndicatorService;
+        this.userSettingsService = userSettingsService;
+        this.memoryService = memoryService;
+        this.agentConfig = agentConfig;
+        this.objectMapper = objectMapper;
+        this.restTemplate = restTemplateBuilder
+            .connectTimeout(Duration.ofSeconds(30))
+            .readTimeout(Duration.ofSeconds(60))
+            .build();
+    }
 
     private static @NonNull ParameterizedTypeReference<Map<String, Object>> getMapResponseType() {
         return Objects.requireNonNull(MAP_RESPONSE_TYPE, RESPONSE_TYPE_NULL_MESSAGE);
@@ -100,15 +120,6 @@ public class AiAnalysisServiceImpl implements AiAnalysisService {
         return Objects.requireNonNull(HttpMethod.POST, HTTP_METHOD_NULL_MESSAGE);
     }
 
-    private RestTemplate getRestTemplate() {
-        if (restTemplate == null) {
-            restTemplate = restTemplateBuilder
-                .connectTimeout(Duration.ofSeconds(30))
-                .readTimeout(Duration.ofSeconds(60))
-                .build();
-        }
-        return restTemplate;
-    }
     /**
      * 分析股票 - 调用 koduck-agent AI 服务
      */
@@ -194,7 +205,7 @@ public class AiAnalysisServiceImpl implements AiAnalysisService {
         headers.setContentType(MediaType.APPLICATION_JSON);
         HttpEntity<Map<String, Object>> entity = new HttpEntity<>(requestBody, headers);
         log.info("Calling koduck-agent: provider={}, url={}", provider, agentUrl);
-        ResponseEntity<Map<String, Object>> response = getRestTemplate().exchange(
+        ResponseEntity<Map<String, Object>> response = restTemplate.exchange(
             agentUrl,
             getHttpPostMethod(),
             entity,

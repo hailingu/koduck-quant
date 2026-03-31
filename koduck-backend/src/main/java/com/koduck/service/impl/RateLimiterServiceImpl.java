@@ -9,6 +9,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.lang.NonNull;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
+import org.springframework.util.StringUtils;
 
 /**
  * 限流服务实现类。
@@ -29,9 +30,14 @@ public class RateLimiterServiceImpl implements RateLimiterService {
 
     // 限流 key 前缀
     private static final String KEY_PREFIX = "rate_limit:";
+    private static final String LOGIN_FAILURE_PREFIX = KEY_PREFIX + "login_failure:";
+    private static final String LOGIN_FAILURE_IP_PREFIX = KEY_PREFIX + "login_failure_ip:";
     private static final String PASSWORD_RESET_PREFIX = KEY_PREFIX + "password_reset:";
     private static final String PASSWORD_RESET_EMAIL_PREFIX = KEY_PREFIX + "password_reset_email:";
     // 限流配置常量
+    public static final int MAX_LOGIN_FAILURES_PER_USER = 5;
+    public static final int MAX_LOGIN_FAILURES_PER_IP = 20;
+    public static final Duration LOGIN_WINDOW_DURATION = Duration.ofMinutes(15);
     public static final int MAX_REQUESTS_PER_USER = 3;          // 每用户每小时最大请求数
     public static final int MAX_REQUESTS_PER_EMAIL = 5;         // 每邮箱每小时最大请求数
     public static final int MAX_REQUESTS_PER_IP = 10;           // 每 IP 每小时最大请求数
@@ -39,6 +45,54 @@ public class RateLimiterServiceImpl implements RateLimiterService {
 
     public RateLimiterServiceImpl(StringRedisTemplate redisTemplate) {
         this.redisTemplate = Objects.requireNonNull(redisTemplate, "redisTemplate must not be null");
+    }
+
+    @Override
+    public boolean allowLoginAttempt(String loginIdentifier, String ip) {
+        try {
+            if (StringUtils.hasText(loginIdentifier)) {
+                long userFailureCount = getCounterValue(LOGIN_FAILURE_PREFIX + hashLoginIdentifier(loginIdentifier));
+                if (userFailureCount >= MAX_LOGIN_FAILURES_PER_USER) {
+                    log.warn("Login temporarily locked due to repeated failures, loginIdentifier={}", loginIdentifier);
+                    return false;
+                }
+            }
+            if (StringUtils.hasText(ip)) {
+                long ipFailureCount = getCounterValue(LOGIN_FAILURE_IP_PREFIX + hashIp(ip));
+                if (ipFailureCount >= MAX_LOGIN_FAILURES_PER_IP) {
+                    log.warn("Login temporarily locked due to repeated failures from ip={}", ip);
+                    return false;
+                }
+            }
+            return true;
+        } catch (Exception ex) {
+            log.error("Login rate limiter check failed, allowing request", ex);
+            return true;
+        }
+    }
+
+    @Override
+    public void recordLoginFailure(String loginIdentifier, String ip) {
+        try {
+            if (StringUtils.hasText(loginIdentifier)) {
+                incrementCounter(LOGIN_FAILURE_PREFIX + hashLoginIdentifier(loginIdentifier), LOGIN_WINDOW_DURATION);
+            }
+            if (StringUtils.hasText(ip)) {
+                incrementCounter(LOGIN_FAILURE_IP_PREFIX + hashIp(ip), LOGIN_WINDOW_DURATION);
+            }
+        } catch (Exception ex) {
+            log.error("Failed to record login failure", ex);
+        }
+    }
+
+    @Override
+    public void recordLoginSuccess(String loginIdentifier, String ip) {
+        if (StringUtils.hasText(loginIdentifier)) {
+            redisTemplate.delete(LOGIN_FAILURE_PREFIX + hashLoginIdentifier(loginIdentifier));
+        }
+        if (StringUtils.hasText(ip)) {
+            redisTemplate.delete(LOGIN_FAILURE_IP_PREFIX + hashIp(ip));
+        }
     }
 
     /**
@@ -107,6 +161,22 @@ public class RateLimiterServiceImpl implements RateLimiterService {
         }
         return newCount <= maxCount;
     }
+
+    private long getCounterValue(String key) {
+        String counter = redisTemplate.opsForValue().get(requireNonNullKey(key));
+        if (counter == null) {
+            return 0L;
+        }
+        return Long.parseLong(counter);
+    }
+
+    private void incrementCounter(String key, Duration window) {
+        String nonNullKey = requireNonNullKey(key);
+        Long newCount = redisTemplate.opsForValue().increment(nonNullKey);
+        if (newCount != null && newCount == 1L) {
+            redisTemplate.expire(nonNullKey, window.getSeconds(), TimeUnit.SECONDS);
+        }
+    }
     /**
      * 获取当前计数（用于调试）。
      *
@@ -148,6 +218,10 @@ public class RateLimiterServiceImpl implements RateLimiterService {
      */
     private String hashEmail(String email) {
         return String.valueOf(email.toLowerCase(Locale.ROOT).hashCode());
+    }
+
+    private String hashLoginIdentifier(String loginIdentifier) {
+        return String.valueOf(loginIdentifier.toLowerCase(Locale.ROOT).hashCode());
     }
 
     private static @NonNull String requireNonNullKey(String key) {

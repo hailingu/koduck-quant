@@ -1,6 +1,7 @@
 package com.koduck.config;
 
 import com.koduck.config.properties.WebSocketProperties;
+import java.util.Arrays;
 import com.koduck.security.websocket.WebSocketChannelInterceptor;
 import java.util.Objects;
 import org.springframework.context.annotation.Configuration;
@@ -60,9 +61,17 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
      */
     @Override
     public void registerStompEndpoints(@NonNull StompEndpointRegistry registry) {
+        String[] allowedOrigins = Arrays.stream(webSocketProperties.getAllowedOrigins())
+            .map(String::trim)
+            .filter(origin -> !origin.isEmpty())
+            .filter(origin -> !"*".equals(origin))
+            .toArray(String[]::new);
+        if (allowedOrigins.length == 0) {
+            throw new IllegalStateException("WebSocket allowed-origins must not be empty or wildcard");
+        }
+
         registry.addEndpoint(webSocketProperties.getEndpoint())
-                // 
-                .setAllowedOriginPatterns("*")
+            .setAllowedOrigins(allowedOrigins)
                 //  SockJS fallback
                 .withSockJS();
     }

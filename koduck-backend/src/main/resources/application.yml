@@ -45,7 +45,7 @@ logging:
 
 # JWT 配置
 jwt:
-  secret: ${JWT_SECRET:your-256-bit-secret-key-for-jwt-signing-must-be-at-least-32-characters-long}
+  secret: ${JWT_SECRET}
   access-token-expiration: 86400000  # 24小时 (毫秒)
   refresh-token-expiration: 604800000  # 7天 (毫秒)
   token-prefix: "Bearer "
@@ -83,8 +83,7 @@ koduck:
   websocket:
     endpoint: /ws
     application-destination-prefix: /app
-    allowed-origins:
-      - "*"
+    allowed-origins: ${WEBSOCKET_ALLOWED_ORIGINS:http://localhost:5173,http://127.0.0.1:5173}
     heartbeat-interval: 25
     broker:
       topic-prefix: /topic

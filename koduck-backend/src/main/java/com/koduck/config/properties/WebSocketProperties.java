@@ -35,7 +35,7 @@ public class WebSocketProperties {
     /**
      * CORS allowed origins for WebSocket handshake.
      */
-    private String[] allowedOrigins = {"*"};
+    private String[] allowedOrigins = {"http://localhost:5173", "http://127.0.0.1:5173"};
 
     /**
      * Heartbeat interval in seconds.

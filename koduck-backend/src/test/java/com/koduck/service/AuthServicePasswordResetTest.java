@@ -12,6 +12,9 @@ import com.koduck.service.impl.AuthServiceImpl;
 import com.koduck.service.support.DefaultUserRoleResolver;
 import com.koduck.service.support.UserRolesTableChecker;
 import com.koduck.util.JwtUtil;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -21,8 +24,8 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
 import java.time.LocalDateTime;
+import java.util.Base64;
 import java.util.Optional;
-import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.*;
 import static org.mockito.Mockito.*;
@@ -202,7 +205,7 @@ class AuthServicePasswordResetTest {
     void shouldResetPasswordWhenTokenValid() {
         // Given
         String rawToken = "valid-token-12345";
-        String tokenHash = UUID.nameUUIDFromBytes(rawToken.getBytes()).toString();
+        String tokenHash = hashTokenForTest(rawToken);
         String newPassword = "newPassword123";
         String encodedPassword = "encodedPassword123";
 
@@ -260,7 +263,7 @@ class AuthServicePasswordResetTest {
     void shouldThrowExceptionWhenTokenNotFound() {
         // Given
         String rawToken = "invalid-token";
-        String tokenHash = UUID.nameUUIDFromBytes(rawToken.getBytes()).toString();
+        String tokenHash = hashTokenForTest(rawToken);
 
         ResetPasswordRequest request = new ResetPasswordRequest();
         request.setToken(rawToken);
@@ -280,7 +283,7 @@ class AuthServicePasswordResetTest {
     void shouldThrowExceptionWhenTokenExpired() {
         // Given
         String rawToken = "expired-token";
-        String tokenHash = UUID.nameUUIDFromBytes(rawToken.getBytes()).toString();
+        String tokenHash = hashTokenForTest(rawToken);
 
         ResetPasswordRequest request = new ResetPasswordRequest();
         request.setToken(rawToken);
@@ -308,7 +311,7 @@ class AuthServicePasswordResetTest {
     void shouldThrowExceptionWhenTokenAlreadyUsed() {
         // Given
         String rawToken = "used-token";
-        String tokenHash = UUID.nameUUIDFromBytes(rawToken.getBytes()).toString();
+        String tokenHash = hashTokenForTest(rawToken);
 
         ResetPasswordRequest request = new ResetPasswordRequest();
         request.setToken(rawToken);
@@ -358,4 +361,14 @@ class AuthServicePasswordResetTest {
         verify(passwordResetTokenRepository).deleteByUserId(TEST_USER_ID);
         verify(passwordResetTokenRepository).save(any(PasswordResetToken.class));
     }
+
+        private String hashTokenForTest(String token) {
+                try {
+                        MessageDigest messageDigest = MessageDigest.getInstance("SHA-256");
+                        byte[] hash = messageDigest.digest(token.getBytes(StandardCharsets.UTF_8));
+                        return Base64.getUrlEncoder().withoutPadding().encodeToString(hash);
+                } catch (NoSuchAlgorithmException ex) {
+                        throw new IllegalStateException("SHA-256 not available", ex);
+                }
+        }
 }

@@ -20,13 +20,14 @@ import com.koduck.service.support.UserRolesTableChecker;
 import com.koduck.util.JwtUtil;
 import com.koduck.util.ReservedUsernameValidator;
 import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
 import java.time.LocalDateTime;
 import java.util.Base64;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataAccessException;
@@ -80,18 +81,29 @@ public class AuthServiceImpl implements AuthService {
     @Override
     @Transactional
     public TokenResponse login(LoginRequest request, String ipAddress, String userAgent) {
+        String loginIdentifier = normalizeLoginIdentifier(request.getUsername());
+        if (!rateLimiterService.allowLoginAttempt(loginIdentifier, ipAddress)) {
+            throw AuthenticationException.accountLocked();
+        }
         // 查找用户（支持用户名或邮箱登录）
-        User user = userRepository.findByUsername(request.getUsername())
-                .orElseGet(() -> userRepository.findByEmail(request.getUsername())
-                        .orElseThrow(AuthenticationException::invalidCredentials));
+        User user = userRepository.findByUsername(loginIdentifier)
+                .orElseGet(() -> userRepository.findByEmail(loginIdentifier)
+                        .orElse(null));
+        if (user == null) {
+            rateLimiterService.recordLoginFailure(loginIdentifier, ipAddress);
+            throw AuthenticationException.invalidCredentials();
+        }
         // 检查账户状态
         if (user.getStatus() == User.UserStatus.DISABLED) {
+            rateLimiterService.recordLoginFailure(loginIdentifier, ipAddress);
             throw AuthenticationException.accountDisabled();
         }
         // 验证密码
         if (!passwordEncoder.matches(request.getPassword(), user.getPasswordHash())) {
+            rateLimiterService.recordLoginFailure(loginIdentifier, ipAddress);
             throw AuthenticationException.invalidCredentials();
         }
+        rateLimiterService.recordLoginSuccess(loginIdentifier, ipAddress);
         // 更新最后登录时间
         userRepository.updateLastLogin(user.getId(), LocalDateTime.now(), ipAddress);
         // 生成并返回 Token
@@ -338,7 +350,20 @@ public class AuthServiceImpl implements AuthService {
      * @return Token Hash
      */
     private String hashToken(String token) {
-        return UUID.nameUUIDFromBytes(token.getBytes(StandardCharsets.UTF_8)).toString();
+        try {
+            MessageDigest messageDigest = MessageDigest.getInstance("SHA-256");
+            byte[] hash = messageDigest.digest(token.getBytes(StandardCharsets.UTF_8));
+            return Base64.getUrlEncoder().withoutPadding().encodeToString(hash);
+        } catch (NoSuchAlgorithmException ex) {
+            throw new IllegalStateException("SHA-256 algorithm is not available", ex);
+        }
+    }
+
+    private String normalizeLoginIdentifier(String username) {
+        if (username == null) {
+            return "";
+        }
+        return username.trim();
     }
     /**
      * 生成安全随机令牌
