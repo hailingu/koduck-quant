@@ -1,51 +1,39 @@
 ---
-name: 🚀 Feature Request
-about: Suggest a new feature or improvement
-title: '[Feature] '
-labels: enhancement
+name: Feature Request
+about: 建议新功能或改进
+title: "[Feature] "
+labels: ["enhancement"]
 assignees: ''
 ---
 
-## Summary
+## 功能描述
 
-<!-- A brief summary of the feature/enhancement you're requesting -->
+<!-- 清晰描述你期望的功能 -->
 
-## Problem Statement
+## 使用场景
 
-<!-- Describe the problem or pain point this feature would solve -->
+<!-- 描述这个功能将如何使用，解决什么问题 -->
 
-**Current limitation:**
+## 期望行为
 
-<!-- Describe current behavior and why it's problematic -->
+<!-- 描述你期望这个功能如何工作 -->
 
-**Impact:**
+## 验收标准 (Definition of Done)
 
-<!-- Describe how this limitation affects users or the project -->
+<!-- 如何确认这个功能已完成 -->
 
-## Proposed Solution
+- [ ] 功能实现完成
+- [ ] 单元测试通过
+- [ ] 集成测试通过
+- [ ] 文档更新完成
+- [ ] 代码审查通过
 
-<!-- Describe your proposed solution or enhancement -->
+## 优先级
 
-### Core Features
+- [ ] 🔴 高 (影响核心功能)
+- [ ] 🟡 中 (改善体验)
+- [ ] 🟢 低 (锦上添花)
 
-<!-- List the main features or changes you're proposing -->
+## 额外信息
 
-### User Experience
-
-<!-- Describe how this would improve the user experience -->
-
-### Implementation Suggestions (Optional)
-
-<!-- Optional: suggest how this could be implemented -->
-
-## Alternatives Considered
-
-<!-- Describe any alternative solutions or features you've considered -->
-
-## Additional Context
-
-<!-- Add any other context, diagrams, or examples about the feature request here -->
-
----
-
-**IMPORTANT**: Please search existing issues and discussions before creating a new feature request to avoid duplicates.
+<!-- 其他相关信息，如参考链接、设计图等 -->
