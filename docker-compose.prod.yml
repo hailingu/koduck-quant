@@ -1,5 +1,3 @@
-version: '3.8'
-
 # ==========================================
 # Production Docker Compose Configuration
 # ==========================================
@@ -13,9 +11,9 @@ services:
     ports:
       - "5432:5432"
     environment:
-      POSTGRES_DB: ${POSTGRES_DB}
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:-koduck_prod}
+      POSTGRES_USER: ${POSTGRES_USER:-koduck}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change-me-postgres-password}
     volumes:
       - postgres_prod_data:/var/lib/postgresql/data
       - ./init-db:/docker-entrypoint-initdb.d:ro
@@ -23,7 +21,7 @@ services:
     networks:
       - koduck-prod-network
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-koduck} -d ${POSTGRES_DB:-koduck_prod}"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -68,8 +66,8 @@ services:
       - "5672:5672"
       - "15672:15672"
     environment:
-      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USERNAME}
-      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD}
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USERNAME:-guest}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-guest}
       RABBITMQ_DEFAULT_VHOST: ${RABBITMQ_VHOST:-/}
     restart: always
     networks:
@@ -102,8 +100,8 @@ services:
       - PRICE_PUSH_MQ_ENABLED=true
       - RABBITMQ_HOST=rabbitmq
       - RABBITMQ_PORT=5672
-      - RABBITMQ_USERNAME=${RABBITMQ_USERNAME}
-      - RABBITMQ_PASSWORD=${RABBITMQ_PASSWORD}
+      - RABBITMQ_USERNAME=${RABBITMQ_USERNAME:-guest}
+      - RABBITMQ_PASSWORD=${RABBITMQ_PASSWORD:-guest}
       - RABBITMQ_VHOST=${RABBITMQ_VHOST:-/}
       - LOG_LEVEL=WARNING
       - DEBUG=false
@@ -154,19 +152,26 @@ services:
       - SPRING_PROFILES_ACTIVE=prod
       - DB_HOST=postgresql
       - DB_PORT=5432
-      - DB_NAME=${POSTGRES_DB}
-      - DB_USERNAME=${POSTGRES_USER}
-      - DB_PASSWORD=${POSTGRES_PASSWORD}
+      - DB_NAME=${POSTGRES_DB:-koduck_prod}
+      - DB_USERNAME=${POSTGRES_USER:-koduck}
+      - DB_PASSWORD=${POSTGRES_PASSWORD:-change-me-postgres-password}
       - REDIS_HOST=redis
       - REDIS_PORT=6379
       - DATA_SERVICE_URL=http://data-service:8000/api/v1
+      - RATE_LIMIT_LOGIN_FAILURE_MAX_PER_USER=${RATE_LIMIT_LOGIN_FAILURE_MAX_PER_USER:-5}
+      - RATE_LIMIT_LOGIN_FAILURE_MAX_PER_IP=${RATE_LIMIT_LOGIN_FAILURE_MAX_PER_IP:-20}
+      - RATE_LIMIT_LOGIN_FAILURE_WINDOW=${RATE_LIMIT_LOGIN_FAILURE_WINDOW:-15m}
+      - RATE_LIMIT_PASSWORD_RESET_MAX_PER_USER=${RATE_LIMIT_PASSWORD_RESET_MAX_PER_USER:-3}
+      - RATE_LIMIT_PASSWORD_RESET_MAX_PER_EMAIL=${RATE_LIMIT_PASSWORD_RESET_MAX_PER_EMAIL:-5}
+      - RATE_LIMIT_PASSWORD_RESET_MAX_PER_IP=${RATE_LIMIT_PASSWORD_RESET_MAX_PER_IP:-10}
+      - RATE_LIMIT_PASSWORD_RESET_WINDOW=${RATE_LIMIT_PASSWORD_RESET_WINDOW:-1h}
       - PRICE_PUSH_MQ_ENABLED=true
       - RABBITMQ_HOST=rabbitmq
       - RABBITMQ_PORT=5672
-      - RABBITMQ_USERNAME=${RABBITMQ_USERNAME}
-      - RABBITMQ_PASSWORD=${RABBITMQ_PASSWORD}
+      - RABBITMQ_USERNAME=${RABBITMQ_USERNAME:-guest}
+      - RABBITMQ_PASSWORD=${RABBITMQ_PASSWORD:-guest}
       - RABBITMQ_VHOST=${RABBITMQ_VHOST:-/}
-      - JWT_SECRET=${JWT_SECRET}
+      - JWT_SECRET=${JWT_SECRET:-change-me-jwt-secret-at-least-32-characters}
       - DEFAULT_LLM_PROVIDER=${DEFAULT_LLM_PROVIDER:-minimax}
       - LLM_PROVIDER=${LLM_PROVIDER:-}
       - LLM_API_KEY=${LLM_API_KEY:-}
@@ -216,17 +221,17 @@ services:
     ports:
       - "8001:8000"
     environment:
-      - GPT_API_KEY=${GPT_API_KEY}
-      - OPENAI_API_KEY=${OPENAI_API_KEY}
-      - MINIMAX_API_KEY=${MINIMAX_API_KEY}
-      - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY}
+      - GPT_API_KEY=${GPT_API_KEY:-}
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - MINIMAX_API_KEY=${MINIMAX_API_KEY:-}
+      - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY:-}
       - POSTGRES_HOST=postgresql
       - POSTGRES_PORT=5432
-      - POSTGRES_DB=${POSTGRES_DB}
-      - POSTGRES_USER=${POSTGRES_USER}
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
-      - MEMORY_DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgresql:5432/${POSTGRES_DB}
-      - KODUCK_KLINE_DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgresql:5432/${POSTGRES_DB}
+      - POSTGRES_DB=${POSTGRES_DB:-koduck_prod}
+      - POSTGRES_USER=${POSTGRES_USER:-koduck}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-change-me-postgres-password}
+      - MEMORY_DATABASE_URL=postgresql://${POSTGRES_USER:-koduck}:${POSTGRES_PASSWORD:-change-me-postgres-password}@postgresql:5432/${POSTGRES_DB:-koduck_prod}
+      - KODUCK_KLINE_DATABASE_URL=postgresql://${POSTGRES_USER:-koduck}:${POSTGRES_PASSWORD:-change-me-postgres-password}@postgresql:5432/${POSTGRES_DB:-koduck_prod}
       - LLM_API_BASE=${LLM_API_BASE:-https://api.gptsapi.net}
       - OPENAI_API_BASE=${OPENAI_API_BASE:-https://api.openai.com/v1}
       - MINIMAX_API_BASE=${MINIMAX_API_BASE:-https://api.minimax.chat/v1}

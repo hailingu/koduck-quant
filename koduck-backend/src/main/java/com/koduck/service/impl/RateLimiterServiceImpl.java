@@ -1,5 +1,6 @@
 package com.koduck.service.impl;
 
+import com.koduck.config.properties.RateLimitProperties;
 import com.koduck.service.RateLimiterService;
 import java.time.Duration;
 import java.util.Locale;
@@ -34,32 +35,31 @@ public class RateLimiterServiceImpl implements RateLimiterService {
     private static final String LOGIN_FAILURE_IP_PREFIX = KEY_PREFIX + "login_failure_ip:";
     private static final String PASSWORD_RESET_PREFIX = KEY_PREFIX + "password_reset:";
     private static final String PASSWORD_RESET_EMAIL_PREFIX = KEY_PREFIX + "password_reset_email:";
-    // 限流配置常量
-    public static final int MAX_LOGIN_FAILURES_PER_USER = 5;
-    public static final int MAX_LOGIN_FAILURES_PER_IP = 20;
-    public static final Duration LOGIN_WINDOW_DURATION = Duration.ofMinutes(15);
-    public static final int MAX_REQUESTS_PER_USER = 3;          // 每用户每小时最大请求数
-    public static final int MAX_REQUESTS_PER_EMAIL = 5;         // 每邮箱每小时最大请求数
-    public static final int MAX_REQUESTS_PER_IP = 10;           // 每 IP 每小时最大请求数
-    public static final Duration WINDOW_DURATION = Duration.ofHours(1);
 
-    public RateLimiterServiceImpl(StringRedisTemplate redisTemplate) {
+    private final RateLimitProperties rateLimitProperties;
+
+    public RateLimiterServiceImpl(
+            StringRedisTemplate redisTemplate,
+            RateLimitProperties rateLimitProperties) {
         this.redisTemplate = Objects.requireNonNull(redisTemplate, "redisTemplate must not be null");
+        this.rateLimitProperties = Objects.requireNonNull(
+                rateLimitProperties, "rateLimitProperties must not be null");
     }
 
     @Override
     public boolean allowLoginAttempt(String loginIdentifier, String ip) {
         try {
+            RateLimitProperties.LoginFailure loginFailure = rateLimitProperties.getLoginFailure();
             if (StringUtils.hasText(loginIdentifier)) {
                 long userFailureCount = getCounterValue(LOGIN_FAILURE_PREFIX + hashLoginIdentifier(loginIdentifier));
-                if (userFailureCount >= MAX_LOGIN_FAILURES_PER_USER) {
+                if (userFailureCount >= loginFailure.getMaxFailuresPerUser()) {
                     log.warn("Login temporarily locked due to repeated failures, loginIdentifier={}", loginIdentifier);
                     return false;
                 }
             }
             if (StringUtils.hasText(ip)) {
                 long ipFailureCount = getCounterValue(LOGIN_FAILURE_IP_PREFIX + hashIp(ip));
-                if (ipFailureCount >= MAX_LOGIN_FAILURES_PER_IP) {
+                if (ipFailureCount >= loginFailure.getMaxFailuresPerIp()) {
                     log.warn("Login temporarily locked due to repeated failures from ip={}", ip);
                     return false;
                 }
@@ -74,11 +74,12 @@ public class RateLimiterServiceImpl implements RateLimiterService {
     @Override
     public void recordLoginFailure(String loginIdentifier, String ip) {
         try {
+            Duration windowDuration = rateLimitProperties.getLoginFailure().getWindowDuration();
             if (StringUtils.hasText(loginIdentifier)) {
-                incrementCounter(LOGIN_FAILURE_PREFIX + hashLoginIdentifier(loginIdentifier), LOGIN_WINDOW_DURATION);
+                incrementCounter(LOGIN_FAILURE_PREFIX + hashLoginIdentifier(loginIdentifier), windowDuration);
             }
             if (StringUtils.hasText(ip)) {
-                incrementCounter(LOGIN_FAILURE_IP_PREFIX + hashIp(ip), LOGIN_WINDOW_DURATION);
+                incrementCounter(LOGIN_FAILURE_IP_PREFIX + hashIp(ip), windowDuration);
             }
         } catch (Exception ex) {
             log.error("Failed to record login failure", ex);
@@ -106,20 +107,27 @@ public class RateLimiterServiceImpl implements RateLimiterService {
     @Override
     public boolean allowPasswordResetRequest(String userId, String email, String ip) {
         try {
+            RateLimitProperties.PasswordReset passwordReset = rateLimitProperties.getPasswordReset();
             if (ip == null || ip.isBlank()) {
                 log.warn("Password reset rate limit check skipped due to blank ip");
                 return true;
             }
             // 1. 检查 IP 限制
             String ipKey = PASSWORD_RESET_PREFIX + IP_KEY_SEGMENT + hashIp(ip);
-            if (!incrementAndCheckLimit(ipKey, MAX_REQUESTS_PER_IP, WINDOW_DURATION)) {
+            if (!incrementAndCheckLimit(
+                    ipKey,
+                    passwordReset.getMaxRequestsPerIp(),
+                    passwordReset.getWindowDuration())) {
                 log.warn("Password reset rate limit exceeded for IP: {}", ip);
                 return false;
             }
             // 2. 检查邮箱限制
             if (email != null && !email.isBlank()) {
                 String emailKey = PASSWORD_RESET_EMAIL_PREFIX + hashEmail(email);
-                if (!incrementAndCheckLimit(emailKey, MAX_REQUESTS_PER_EMAIL, WINDOW_DURATION)) {
+                if (!incrementAndCheckLimit(
+                        emailKey,
+                        passwordReset.getMaxRequestsPerEmail(),
+                        passwordReset.getWindowDuration())) {
                     log.warn("Password reset rate limit exceeded for email: {}", email);
                     return false;
                 }
@@ -127,7 +135,10 @@ public class RateLimiterServiceImpl implements RateLimiterService {
             // 3. 检查用户限制（如果提供了 userId）
             if (userId != null && !userId.isBlank()) {
                 String userKey = PASSWORD_RESET_PREFIX + USER_KEY_SEGMENT + userId;
-                if (!incrementAndCheckLimit(userKey, MAX_REQUESTS_PER_USER, WINDOW_DURATION)) {
+                if (!incrementAndCheckLimit(
+                        userKey,
+                        passwordReset.getMaxRequestsPerUser(),
+                        passwordReset.getWindowDuration())) {
                     log.warn("Password reset rate limit exceeded for user: {}", userId);
                     return false;
                 }

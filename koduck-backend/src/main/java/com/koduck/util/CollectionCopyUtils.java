@@ -6,21 +6,57 @@ import java.util.Map;
 
 /**
  * Collection defensive copy helpers.
+ *
+ * @author GitHub Copilot
+ * @date 2026-03-31
  */
 public final class CollectionCopyUtils {
 
     private CollectionCopyUtils() {
     }
 
-    public static <T> List<T> copyList(List<T> source) {
-        return source == null ? null : List.copyOf(source);
+    /**
+     * Creates an immutable defensive copy of the provided list.
+     *
+     * @param source source list
+     * @param <T> element type
+     * @return copied immutable list or null when source is null
+     */
+    public static <T> List<T> copyList(final List<T> source) {
+        List<T> copied = null;
+        if (source != null) {
+            copied = List.copyOf(source);
+        }
+        return copied;
     }
 
-    public static <K, V> Map<K, V> copyMap(Map<K, V> source) {
-        return source == null ? null : Map.copyOf(source);
+    /**
+     * Creates an immutable defensive copy of the provided map.
+     *
+     * @param source source map
+     * @param <K> key type
+     * @param <V> value type
+     * @return copied immutable map or null when source is null
+     */
+    public static <K, V> Map<K, V> copyMap(final Map<K, V> source) {
+        Map<K, V> copied = null;
+        if (source != null) {
+            copied = Map.copyOf(source);
+        }
+        return copied;
     }
 
-    public static String[] copyArray(String[] source) {
-        return source == null ? null : Arrays.copyOf(source, source.length);
+    /**
+     * Creates a defensive copy of the provided string array.
+     *
+     * @param source source array
+     * @return copied array or null when source is null
+     */
+    public static String[] copyArray(final String... source) {
+        String[] copied = null;
+        if (source != null) {
+            copied = Arrays.copyOf(source, source.length);
+        }
+        return copied;
     }
 }

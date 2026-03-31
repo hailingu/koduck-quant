@@ -8,36 +8,54 @@ import org.springframework.stereotype.Component;
 
 /**
  * Checks whether {@code user_roles} join table exists and caches the result.
+ *
+ * @author GitHub Copilot
+ * @date 2026-03-31
  */
 @Component
 @RequiredArgsConstructor
 @Slf4j
 public class UserRolesTableChecker {
 
-    private static final String USER_ROLES_TABLE_EXISTS_SQL =
+    /**
+     * Query used to check the presence of the user_roles join table.
+     */
+    private static final String HAS_USER_ROLES_SQL =
             "SELECT COUNT(*) FROM information_schema.tables "
                     + "WHERE table_schema = 'public' AND table_name = 'user_roles'";
 
+    /**
+     * JDBC client used for metadata lookup.
+     */
     private final JdbcTemplate jdbcTemplate;
 
-    private volatile Boolean userRolesTableExists;
+    /**
+     * Cached existence flag for the join table.
+     */
+    private volatile Boolean userRolesTablePresent;
 
+    /**
+     * Returns whether the user_roles join table exists.
+     *
+     * @return true when the table exists
+     */
     public boolean hasUserRolesTable() {
-        Boolean cached = userRolesTableExists;
-        if (cached != null) {
-            return cached;
-        }
-
+        final Boolean cached = userRolesTablePresent;
         boolean exists;
-        try {
-            Integer count = jdbcTemplate.queryForObject(USER_ROLES_TABLE_EXISTS_SQL, Integer.class);
-            exists = count != null && count > 0;
-        } catch (DataAccessException ex) {
-            log.warn("Failed to check user_roles table existence, assume missing: {}", ex.getMessage());
-            exists = false;
+        if (cached != null) {
+            exists = cached;
+        } else {
+            try {
+                final Integer count = jdbcTemplate.queryForObject(HAS_USER_ROLES_SQL, Integer.class);
+                exists = count != null && count > 0;
+            } catch (DataAccessException ex) {
+                if (log.isWarnEnabled()) {
+                    log.warn("Failed to check user_roles table existence, assume missing: {}", ex.getMessage());
+                }
+                exists = false;
+            }
+            userRolesTablePresent = exists;
         }
-
-        userRolesTableExists = exists;
         return exists;
     }
 }

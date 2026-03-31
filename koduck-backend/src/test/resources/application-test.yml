@@ -23,6 +23,10 @@ jwt:
   access-token-expiration: 3600000  # 1小时 (测试用)
   refresh-token-expiration: 86400000  # 1天 (测试用)
 
+credential:
+  encryption:
+    key: test-credential-encryption-key
+
 logging:
   level:
     root: WARN

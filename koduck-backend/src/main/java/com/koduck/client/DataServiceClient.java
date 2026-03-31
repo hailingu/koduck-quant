@@ -2,15 +2,15 @@ package com.koduck.client;
 
 import com.koduck.config.properties.DataServiceProperties;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.List;
-import lombok.RequiredArgsConstructor;
+import java.util.Map;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
+import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
 
 /**
@@ -22,15 +22,36 @@ import org.springframework.web.client.RestTemplate;
  */
 @Component
 @Slf4j
-@RequiredArgsConstructor
 public class DataServiceClient {
 
+    /**
+     * Request body key for stock symbol collections.
+     */
     private static final String KEY_SYMBOLS = "symbols";
 
-    private final DataServiceProperties dataServiceProperties;
+    /**
+     * Data-service feature flags and endpoint settings.
+     */
+    private final DataServiceProperties dataSvcProps;
 
+    /**
+     * Dedicated HTTP client for data-service requests.
+     */
     @Qualifier("dataServiceRestTemplate")
-    private final RestTemplate dataServiceRestTemplate;
+    private final RestTemplate dataSvcRestTemplate;
+
+    /**
+     * Creates a client for interacting with the data-service.
+     *
+     * @param dataSvcProps data-service properties
+     * @param dataSvcRestTemplate RestTemplate qualified for data-service access
+     */
+    public DataServiceClient(
+            final DataServiceProperties dataSvcProps,
+            @Qualifier("dataServiceRestTemplate") final RestTemplate dataSvcRestTemplate) {
+        this.dataSvcProps = dataSvcProps;
+        this.dataSvcRestTemplate = dataSvcRestTemplate;
+    }
 
     /**
      * Trigger realtime data update for a single stock symbol.
@@ -39,7 +60,7 @@ public class DataServiceClient {
      *
      * @param symbol the stock symbol to update (e.g., "601398")
      */
-    public void triggerRealtimeUpdate(String symbol) {
+    public void triggerRealtimeUpdate(final String symbol) {
         if (symbol == null || symbol.isBlank()) {
             log.debug("realtime_update_skipped reason=blank_symbol");
             return;
@@ -54,30 +75,42 @@ public class DataServiceClient {
      *
      * @param symbols list of stock symbols to update
      */
-    public void triggerRealtimeUpdate(List<String> symbols) {
-        if (!dataServiceProperties.isEnabled()) {
+    public void triggerRealtimeUpdate(final List<String> symbols) {
+        final boolean shouldTrigger;
+        final List<String> requestedSymbols;
+        if (!dataSvcProps.isEnabled()) {
             log.debug("realtime_update_skipped reason=data_service_disabled");
-            return;
-        }
-        if (symbols == null || symbols.isEmpty()) {
+            shouldTrigger = false;
+            requestedSymbols = Collections.emptyList();
+        } else if (symbols == null || symbols.isEmpty()) {
             log.debug("realtime_update_skipped reason=empty_symbols");
-            return;
+            shouldTrigger = false;
+            requestedSymbols = Collections.emptyList();
+        } else {
+            shouldTrigger = true;
+            requestedSymbols = List.copyOf(symbols);
         }
-        String url = dataServiceProperties.getBaseUrl() + dataServiceProperties.getRealtimeUpdatePath();
-        try {
-            HttpHeaders headers = new HttpHeaders();
-            headers.setContentType(MediaType.APPLICATION_JSON);
-            HashMap<String, Object> requestBody = HashMap.newHashMap(1);
-            requestBody.put(KEY_SYMBOLS, symbols);
-            HttpEntity<Object> request = new HttpEntity<>(requestBody, headers);
-            dataServiceRestTemplate.postForObject(url, request, Void.class);
-            log.info("realtime_update_triggered symbolsCount={} symbols={}",
-                    symbols.size(), symbols);
-        } catch (Exception e) {
-            // Log warning but don't fail the main operation
-            // The data will be updated on the next scheduled sync
-            log.warn("realtime_update_trigger_failed symbols={} error={}",
-                    symbols, e.getMessage());
+
+        if (shouldTrigger) {
+            final String url = dataSvcProps.getBaseUrl() + dataSvcProps.getRealtimeUpdatePath();
+            try {
+                final HttpHeaders headers = new HttpHeaders();
+                headers.setContentType(MediaType.APPLICATION_JSON);
+
+                final Map<String, Object> requestBody = Map.of(KEY_SYMBOLS, requestedSymbols);
+                final HttpEntity<Map<String, Object>> request = new HttpEntity<>(requestBody, headers);
+                dataSvcRestTemplate.postForObject(url, request, Void.class);
+
+                if (log.isInfoEnabled()) {
+                    log.info("realtime_update_triggered symbolsCount={} symbols={}",
+                            requestedSymbols.size(), requestedSymbols);
+                }
+            } catch (RestClientException ex) {
+                if (log.isWarnEnabled()) {
+                    log.warn("realtime_update_trigger_failed symbols={} error={}",
+                            requestedSymbols, ex.getMessage());
+                }
+            }
         }
     }
 }

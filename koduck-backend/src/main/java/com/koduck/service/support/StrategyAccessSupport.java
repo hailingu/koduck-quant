@@ -16,11 +16,18 @@ import static com.koduck.util.ServiceValidationUtils.requireFound;
 @Component
 public class StrategyAccessSupport {
 
-    private final StrategyRepository strategyRepository;
+    /**
+     * Repository used to resolve strategies for the current user.
+     */
+    private final StrategyRepository strategyRepo;
 
-    public StrategyAccessSupport(StrategyRepository strategyRepository) {
-        this.strategyRepository = Objects.requireNonNull(strategyRepository,
-                "strategyRepository must not be null");
+    /**
+     * Creates a strategy access helper.
+     *
+     * @param strategyRepo repository used for strategy ownership checks
+     */
+    public StrategyAccessSupport(final StrategyRepository strategyRepo) {
+        this.strategyRepo = Objects.requireNonNull(strategyRepo, "strategyRepo must not be null");
     }
 
     /**
@@ -30,8 +37,8 @@ public class StrategyAccessSupport {
      * @param strategyId target strategy id
      * @return owned strategy entity
      */
-    public Strategy loadStrategyOrThrow(Long userId, Long strategyId) {
-        return requireFound(strategyRepository.findByIdAndUserId(strategyId, userId),
+    public Strategy loadStrategyOrThrow(final Long userId, final Long strategyId) {
+        return requireFound(strategyRepo.findByIdAndUserId(strategyId, userId),
                 () -> new IllegalArgumentException("Strategy not found"));
     }
 }

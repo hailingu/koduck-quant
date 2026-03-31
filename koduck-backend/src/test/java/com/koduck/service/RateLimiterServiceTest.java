@@ -1,5 +1,8 @@
 package com.koduck.service;
 
+import com.koduck.config.properties.RateLimitProperties;
+import com.koduck.service.impl.RateLimiterServiceImpl;
+import java.time.Duration;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -10,10 +13,14 @@ import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.ValueOperations;
-import com.koduck.service.impl.RateLimiterServiceImpl;
 
-import static org.assertj.core.api.Assertions.*;
-import static org.mockito.Mockito.*;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.contains;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 /**
  * Unit tests for {@link RateLimiterService}.
@@ -36,7 +43,7 @@ class RateLimiterServiceTest {
     @BeforeEach
     void setUp() {
         when(redisTemplate.opsForValue()).thenReturn(valueOperations);
-        rateLimiterService = new RateLimiterServiceImpl(redisTemplate);
+        rateLimiterService = new RateLimiterServiceImpl(redisTemplate, createRateLimitProperties());
     }
 
     @Test
@@ -187,5 +194,32 @@ class RateLimiterServiceTest {
 
         // Then
         assertThat(count).isZero();
+    }
+
+    @Test
+    @DisplayName("shouldBlockLoginAttemptWhenConfiguredUserFailureThresholdReached")
+    void shouldBlockLoginAttemptWhenConfiguredUserFailureThresholdReached() {
+        // Given
+        String loginIdentifier = "trader@example.com";
+        String ip = "192.168.1.1";
+
+        RateLimitProperties properties = new RateLimitProperties(
+            new RateLimitProperties.LoginFailure(2, 20, Duration.ofMinutes(15)),
+            new RateLimitProperties.PasswordReset(3, 5, 10, Duration.ofHours(1)));
+        RateLimiterServiceImpl customRateLimiterService = new RateLimiterServiceImpl(redisTemplate, properties);
+
+        when(valueOperations.get(contains("login_failure:"))).thenReturn("2");
+
+        // When
+        boolean allowed = customRateLimiterService.allowLoginAttempt(loginIdentifier, ip);
+
+        // Then
+        assertThat(allowed).isFalse();
+    }
+
+    private RateLimitProperties createRateLimitProperties() {
+        return new RateLimitProperties(
+                new RateLimitProperties.LoginFailure(5, 20, Duration.ofMinutes(15)),
+                new RateLimitProperties.PasswordReset(3, 5, 10, Duration.ofHours(1)));
     }
 }
