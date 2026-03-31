@@ -12,6 +12,9 @@ import org.springframework.web.client.RestTemplate;
 
 /**
  * RestTemplate configuration for external API calls.
+ *
+ * @author GitHub Copilot
+ * @date 2026-03-31
  */
 @Configuration
 public class RestTemplateConfig {
