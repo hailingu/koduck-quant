@@ -29,6 +29,7 @@ from app.services.tick_redis_cache import tick_redis_cache
 from app.services.market_net_flow_updater import market_net_flow_updater
 from app.services.market_breadth_updater import market_breadth_updater
 from app.services.market_sector_net_flow_updater import market_sector_net_flow_updater
+from app.services.realtime_event_publisher import realtime_event_publisher
 
 API_V1_PREFIX = "/api/v1"
 
@@ -182,6 +183,12 @@ async def lifespan(app: FastAPI):
     logger.info("Initializing database connection...")
     await Database.get_pool()
 
+    if settings.PRICE_PUSH_MQ_ENABLED:
+        try:
+            await realtime_event_publisher.start()
+        except Exception as e:
+            logger.warning("Realtime MQ publisher init failed", error=str(e))
+
     # Initialize A-share stock basic data (enhanced with CSV caching)
     logger.info("Initializing A-share stock basic data with CSV caching...")
     stock_basic_table_exists = await stock_initializer.check_table_exists()
@@ -301,6 +308,7 @@ async def lifespan(app: FastAPI):
             await market_sector_net_flow_task
         except asyncio.CancelledError:
             pass
+    await realtime_event_publisher.close()
     await Database.close()
 
 

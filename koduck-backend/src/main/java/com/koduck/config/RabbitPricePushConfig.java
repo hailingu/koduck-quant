@@ -3,6 +3,7 @@ package com.koduck.config;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.koduck.config.properties.PricePushRabbitProperties;
 import java.util.Map;
+import java.util.Objects;
 import org.springframework.amqp.core.Binding;
 import org.springframework.amqp.core.BindingBuilder;
 import org.springframework.amqp.core.DirectExchange;
@@ -74,7 +75,7 @@ public class RabbitPricePushConfig {
 
     @Bean
     public MessageConverter rabbitMessageConverter(ObjectMapper objectMapper) {
-        return new Jackson2JsonMessageConverter(objectMapper);
+        return new Jackson2JsonMessageConverter(Objects.requireNonNull(objectMapper, "objectMapper must not be null"));
     }
 
     @Bean(name = "pricePushRabbitListenerContainerFactory")

@@ -13,6 +13,7 @@ from zoneinfo import ZoneInfo
 from app.db import Database, stock_db, tick_history_db
 from app.config import settings
 from app.services.eastmoney_client import eastmoney_client
+from app.services.realtime_event_publisher import realtime_event_publisher
 from app.utils.trading_hours import is_a_share_trading_time
 
 logger = logging.getLogger(__name__)
@@ -500,6 +501,9 @@ class DataUpdater:
                     data.get('name', ''), 
                     "AShare"
                 )
+
+                # Publish realtime event to RabbitMQ for backend push fanout.
+                await realtime_event_publisher.publish_stock_realtime(data)
                 
                 self._update_count += 1
                 

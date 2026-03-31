@@ -38,3 +38,6 @@ mypy==1.13.0
 # Database
 asyncpg>=0.29.0
 apscheduler>=3.10.0
+
+# Messaging
+aio-pika==9.5.4
