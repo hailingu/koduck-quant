@@ -14,6 +14,9 @@ import org.springframework.data.redis.serializer.StringRedisSerializer;
 /**
  * Redis configuration for low-level Redis operations.
  * Provides {@link RedisTemplate} and {@link StringRedisTemplate} beans.
+ *
+ * @author GitHub Copilot
+ * @date 2026-03-31
  */
 @Configuration
 public class RedisConfig {
