@@ -319,9 +319,6 @@ public abstract class AbstractDataServiceMarketProvider implements MarketDataPro
      */
     protected abstract String normalizeSymbol(String symbol);
 
-    protected abstract List<KlineData> generateMockKlineData(String symbol, String timeframe, int limit,
-                                                             Instant startTime, Instant endTime);
-
     /**
      * Generates mock kline data when the real data service is unavailable.
      *
