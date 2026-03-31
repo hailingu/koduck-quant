@@ -244,31 +244,31 @@ public class DataInitializer implements CommandLineRunner {
         for (Map.Entry<String, ProviderEnvConfig> entry : providerConfigs.entrySet()) {
             String provider = entry.getKey();
             ProviderEnvConfig config = entry.getValue();
-            // 获取实际的 API Key（优先特定 provider，其次通用）
+            // Obtain effective API key (provider-specific first, fallback second)
             String apiKey = firstNonBlank(config.specificKey(), config.fallbackKey());
             if (!StringUtils.hasText(apiKey)) {
                 log.debug("No API key found for provider: {}", provider);
                 continue;
             }
 
-            // 安全日志：仅记录长度，不输出任何 key 片段。
+            // Security note: only log length, do not reveal key material
             log.info("Found API key for provider: {}, length={}", provider, apiKey.length());
 
-            // 检查是否已存在该 provider 的凭证
+            // Check whether a credential already exists for this provider
             long count = credentialRepository.countByUserIdAndProvider(userId, provider);
             if (count > 0) {
                 log.debug("Credential already exists for provider: {}, userId: {}", provider, userId);
             } else {
                 try {
-                    // 加密 API Key
+                    // Encrypt API key
                     log.debug("Encrypting API key for provider: {}, original length: {}", provider, apiKey.length());
                     String encryptedKey = credentialEncryptionUtil.encrypt(apiKey);
                     log.debug("Encrypted API key length: {}", encryptedKey.length());
 
-                    // 确定 API Base
+                    // Determine API base URL
                     String apiBase = firstNonBlank(config.apiBase(), config.defaultBase());
 
-                    // 创建凭证实体
+                    // Build credential entity
                     UserCredential credential = Objects.requireNonNull(
                         UserCredential.builder()
                             .userId(userId)
