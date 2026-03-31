@@ -1,7 +1,6 @@
 package com.koduck.service;
 
 import com.koduck.dto.auth.*;
-import org.springframework.transaction.annotation.Transactional;
 
 /**
  * 认证服务接口
@@ -20,7 +19,6 @@ public interface AuthService {
      * @param userAgent 用户代理
      * @return Token 响应
      */
-    @Transactional
     TokenResponse login(LoginRequest request, String ipAddress, String userAgent);
 
     /**
@@ -29,7 +27,6 @@ public interface AuthService {
      * @param request 注册请求
      * @return Token 响应
      */
-    @Transactional
     TokenResponse register(RegisterRequest request);
 
     /**
@@ -38,7 +35,6 @@ public interface AuthService {
      * @param request 刷新 Token 请求
      * @return Token 响应
      */
-    @Transactional
     TokenResponse refreshToken(RefreshTokenRequest request);
 
     /**
@@ -46,7 +42,6 @@ public interface AuthService {
      *
      * @param refreshTokenValue 刷新 Token
      */
-    @Transactional
     void logout(String refreshTokenValue);
 
     /**
@@ -65,7 +60,6 @@ public interface AuthService {
      * @param request   忘记密码请求
      * @param ipAddress IP 地址
      */
-    @Transactional
     void forgotPassword(ForgotPasswordRequest request, String ipAddress);
 
     /**
@@ -73,6 +67,5 @@ public interface AuthService {
      *
      * @param request 重置密码请求
      */
-    @Transactional
     void resetPassword(ResetPasswordRequest request);
 }

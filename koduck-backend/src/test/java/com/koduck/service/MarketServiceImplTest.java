@@ -10,9 +10,9 @@ import com.koduck.entity.StockBasic;
 import com.koduck.entity.StockRealtime;
 import com.koduck.repository.StockBasicRepository;
 import com.koduck.repository.StockRealtimeRepository;
-import com.koduck.market.provider.MarketDataProvider.SymbolInfo;
 import com.koduck.service.impl.MarketServiceImpl;
-import com.koduck.service.market.AKShareDataProvider;
+import com.koduck.service.support.MarketFallbackSupport;
+import com.koduck.service.support.MarketServiceSupport;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -54,21 +54,20 @@ class MarketServiceImplTest {
     private StockCacheService stockCacheService;
 
         @Mock
-        private KlineService klineService;
-
-        @Mock
-        private AKShareDataProvider akShareDataProvider;
+        private MarketFallbackSupport marketFallbackSupport;
 
     private MarketServiceImpl marketService;
 
     @BeforeEach
     void setUp() {
-                marketService = new MarketServiceImpl(
-                                stockRealtimeRepository,
-                                stockBasicRepository,
-                                stockCacheService,
-                                klineService,
-                                akShareDataProvider);
+        MarketServiceSupport marketServiceSupport =
+                new MarketServiceSupport(stockRealtimeRepository, stockBasicRepository);
+        marketService = new MarketServiceImpl(
+                stockRealtimeRepository,
+                stockBasicRepository,
+                stockCacheService,
+                marketServiceSupport,
+                marketFallbackSupport);
     }
 
     @Test
@@ -145,10 +144,12 @@ class MarketServiceImplTest {
     void shouldFallbackToDataServiceWhenDatabaseSearchReturnsEmpty() {
         when(stockBasicRepository.searchByKeyword("隆基", PageRequest.of(0, 5)))
                 .thenReturn(new PageImpl<>(emptyStockBasics()));
-        when(akShareDataProvider.searchSymbols("隆基", 5))
+        when(marketFallbackSupport.searchSymbolsFromProvider("隆基", 5))
                 .thenReturn(List.of(
-                        new SymbolInfo("601012", "隆基绿能", "AShare", "SSE", "stock"),
-                        new SymbolInfo("002363", "隆基机械", "AShare", "SZSE", "stock")
+                        SymbolInfoDto.builder().symbol("601012").name("隆基绿能").market("AShare").type("STOCK")
+                                .build(),
+                        SymbolInfoDto.builder().symbol("002363").name("隆基机械").market("AShare").type("STOCK")
+                                .build()
                 ));
 
         List<SymbolInfoDto> results = marketService.searchSymbols("隆基", 1, 5);
@@ -194,14 +195,6 @@ class MarketServiceImplTest {
                                 .name("京泉华")
                                 .market("AShare")
                                 .build();
-                KlineDataDto previousKline = new KlineDataDto(
-                                1741262400L,
-                                new BigDecimal("12.00"),
-                                new BigDecimal("12.18"),
-                                new BigDecimal("11.95"),
-                                new BigDecimal("12.00"),
-                                245000L,
-                                new BigDecimal("2980000.00"));
                 KlineDataDto latestKline = new KlineDataDto(
                                 1741348800L,
                                 new BigDecimal("12.10"),
@@ -213,8 +206,14 @@ class MarketServiceImplTest {
 
                 when(stockRealtimeRepository.findFirstBySymbolOrderByUpdatedAtDesc("002885")).thenReturn(Optional.empty());
                 when(stockBasicRepository.findBySymbol("002885")).thenReturn(Optional.of(basic));
-                when(klineService.getKlineData("AShare", "002885", "1D", 2, null))
-                                .thenReturn(List.of(previousKline, latestKline));
+                when(marketFallbackSupport.tryBuildQuoteFromLatestKline("002885"))
+                                .thenReturn(PriceQuoteDto.builder()
+                                                .symbol("002885")
+                                                .name("京泉华")
+                                                .price(latestKline.close())
+                                                .change(new BigDecimal("0.28"))
+                                                .changePercent(new BigDecimal("2.3333"))
+                                                .build());
 
                 PriceQuoteDto quote = marketService.getStockDetail("002885");
 
@@ -256,14 +255,6 @@ class MarketServiceImplTest {
                 when(stockRealtimeRepository.findFirstBySymbolOrderByUpdatedAtDesc("601919"))
                                 .thenReturn(Optional.empty());
                 when(stockBasicRepository.findBySymbol("601919")).thenReturn(Optional.of(basic));
-                KlineDataDto previousKline = new KlineDataDto(
-                                ((Number) previous.get("timestamp")).longValue(),
-                                new BigDecimal(previous.get("open").toString()),
-                                new BigDecimal(previous.get("high").toString()),
-                                new BigDecimal(previous.get("low").toString()),
-                                new BigDecimal(previous.get("close").toString()),
-                                ((Number) previous.get("volume")).longValue(),
-                                new BigDecimal(previous.get("amount").toString()));
                 KlineDataDto latestKline = new KlineDataDto(
                                 ((Number) latest.get("timestamp")).longValue(),
                                 new BigDecimal(latest.get("open").toString()),
@@ -273,8 +264,13 @@ class MarketServiceImplTest {
                                 ((Number) latest.get("volume")).longValue(),
                                 new BigDecimal(latest.get("amount").toString()));
 
-                when(klineService.getKlineData("AShare", "601919", "1D", 2, null))
-                                .thenReturn(List.of(previousKline, latestKline));
+                when(marketFallbackSupport.tryBuildQuoteFromLatestKline("601919"))
+                                .thenReturn(PriceQuoteDto.builder()
+                                                .symbol("601919")
+                                                .name("中远海控")
+                                                .price(latestKline.close())
+                                                .change(new BigDecimal("0.15"))
+                                                .build());
 
                 PriceQuoteDto quote = marketService.getStockDetail("601919");
 
@@ -295,7 +291,7 @@ class MarketServiceImplTest {
                                 .build();
 
                 when(stockRealtimeRepository.findFirstBySymbolOrderByUpdatedAtDesc("002885")).thenReturn(Optional.empty());
-                when(akShareDataProvider.getPrice("002885")).thenReturn(providerQuote);
+                when(marketFallbackSupport.fetchProviderPrice("002885")).thenReturn(providerQuote);
 
                 PriceQuoteDto quote = marketService.getStockDetail("002885");
 
@@ -303,7 +299,7 @@ class MarketServiceImplTest {
                 assertThat(quote.symbol()).isEqualTo("002885");
                 assertThat(quote.name()).isEqualTo("京泉华");
                 assertThat(quote.price()).isEqualByComparingTo(new BigDecimal("32.50"));
-                verify(akShareDataProvider).getPrice("002885");
+                verify(marketFallbackSupport).fetchProviderPrice("002885");
         }
 
         @Test
@@ -319,7 +315,7 @@ class MarketServiceImplTest {
                 when(stockRealtimeRepository.findFirstBySymbolOrderByUpdatedAtDesc("601919"))
                                 .thenThrow(new RuntimeException("db lookup failed"));
                 when(stockBasicRepository.findBySymbol("601919")).thenReturn(Optional.empty());
-                when(akShareDataProvider.getPrice("601919")).thenReturn(providerQuote);
+                when(marketFallbackSupport.fetchProviderPrice("601919")).thenReturn(providerQuote);
 
                 PriceQuoteDto quote = marketService.getStockDetail("601919");
 
@@ -327,7 +323,7 @@ class MarketServiceImplTest {
                 assertThat(quote.symbol()).isEqualTo("601919");
                 assertThat(quote.name()).isEqualTo("中远海控");
                 assertThat(quote.price()).isEqualByComparingTo(new BigDecimal("15.45"));
-                verify(akShareDataProvider).getPrice("601919");
+                verify(marketFallbackSupport).fetchProviderPrice("601919");
         }
 
     @Test
@@ -349,7 +345,7 @@ class MarketServiceImplTest {
                                 .marketCap(new BigDecimal("1393.52"))
                                 .build();
 
-                when(akShareDataProvider.getStockValuation("601012")).thenReturn(valuation);
+                when(marketFallbackSupport.fetchProviderValuation("601012")).thenReturn(valuation);
 
                 StockValuationDto result = marketService.getStockValuation("601012");
 
@@ -358,7 +354,7 @@ class MarketServiceImplTest {
                 assertThat(result.peTtm()).isEqualByComparingTo(new BigDecimal("18.39"));
                 assertThat(result.pb()).isEqualByComparingTo(new BigDecimal("2.17"));
                 assertThat(result.marketCap()).isEqualByComparingTo(new BigDecimal("1393.52"));
-                verify(akShareDataProvider).getStockValuation("601012");
+                verify(marketFallbackSupport).fetchProviderValuation("601012");
         }
 
         @Test
@@ -373,7 +369,7 @@ class MarketServiceImplTest {
                                 .board("主板")
                                 .build();
 
-                when(akShareDataProvider.getStockIndustry("601012")).thenReturn(industry);
+                when(marketFallbackSupport.fetchProviderIndustry("601012")).thenReturn(industry);
 
                 StockIndustryDto result = marketService.getStockIndustry("601012");
 
@@ -381,7 +377,7 @@ class MarketServiceImplTest {
                 assertThat(result.symbol()).isEqualTo("601012");
                 assertThat(result.industry()).isEqualTo("电力设备");
                 assertThat(result.subIndustry()).isEqualTo("光伏设备");
-                verify(akShareDataProvider).getStockIndustry("601012");
+                verify(marketFallbackSupport).fetchProviderIndustry("601012");
         }
 
     @Test

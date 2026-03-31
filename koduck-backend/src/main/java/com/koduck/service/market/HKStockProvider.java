@@ -6,6 +6,9 @@ import com.koduck.market.model.KlineData;
 import com.koduck.market.model.TickData;
 import com.koduck.market.provider.MarketDataProvider;
 import com.koduck.market.util.DataConverter;
+import com.koduck.service.market.support.HKStockMarketCalendar;
+import com.koduck.service.market.support.MarketDataMapReader;
+import com.koduck.service.market.support.MarketTimeframeParser;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -20,8 +23,22 @@ import org.springframework.web.util.UriComponentsBuilder;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
-import java.time.*;
-import java.util.*;
+import java.time.DayOfWeek;
+import java.time.Duration;
+import java.time.Instant;
+import java.time.LocalTime;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ThreadLocalRandom;
 
@@ -218,23 +235,25 @@ public class HKStockProvider implements MarketDataProvider {
         LocalTime time = now.toLocalTime();
         DayOfWeek dayOfWeek = now.getDayOfWeek();
 
-        if (isWeekend(dayOfWeek) || isPublicHoliday(now.toLocalDate())) {
+        if (HKStockMarketCalendar.isWeekend(dayOfWeek)
+                || HKStockMarketCalendar.isPublicHoliday(now.toLocalDate())) {
             return MarketStatus.CLOSED;
         }
 
-        if (isPreMarket(time)) {
+        if (HKStockMarketCalendar.isPreMarket(time)) {
             return MarketStatus.PRE_MARKET;
         }
 
-        if (isMorningSession(time) || isAfternoonSession(time)) {
+        if (HKStockMarketCalendar.isMorningSession(time)
+                || HKStockMarketCalendar.isAfternoonSession(time)) {
             return MarketStatus.OPEN;
         }
 
-        if (isLunchBreak(time)) {
+        if (HKStockMarketCalendar.isLunchBreak(time)) {
             return MarketStatus.BREAK;
         }
 
-        if (isClosingAuction(time)) {
+        if (HKStockMarketCalendar.isClosingAuction(time)) {
             return MarketStatus.POST_MARKET;
         }
 
@@ -306,7 +325,7 @@ public class HKStockProvider implements MarketDataProvider {
         BigDecimal basePrice = basePrices.getOrDefault(normalizedSymbol, new BigDecimal("50.00"));
         
         Instant currentTime = endTime != null ? endTime : Instant.now();
-        Duration interval = parseTimeframe(timeframe);
+        Duration interval = MarketTimeframeParser.parseStandard(timeframe);
         
         BigDecimal currentPrice = basePrice;
         for (int i = 0; i < limit; i++) {
@@ -413,13 +432,13 @@ public class HKStockProvider implements MarketDataProvider {
             klines.add(KlineData.builder()
                 .symbol(symbol)
                 .market(MarketType.HK_STOCK.getCode())
-                .timestamp(DataConverter.toInstantFromMillis(getLong(item, "timestamp")))
-                .open(DataConverter.toBigDecimal(getString(item, "open")))
-                .high(DataConverter.toBigDecimal(getString(item, "high")))
-                .low(DataConverter.toBigDecimal(getString(item, "low")))
-                .close(DataConverter.toBigDecimal(getString(item, "close")))
-                .volume(getLong(item, "volume"))
-                .amount(DataConverter.toBigDecimal(getString(item, "amount")))
+                .timestamp(DataConverter.toInstantFromMillis(MarketDataMapReader.getLong(item, "timestamp")))
+                .open(DataConverter.toBigDecimal(MarketDataMapReader.getString(item, "open")))
+                .high(DataConverter.toBigDecimal(MarketDataMapReader.getString(item, "high")))
+                .low(DataConverter.toBigDecimal(MarketDataMapReader.getString(item, "low")))
+                .close(DataConverter.toBigDecimal(MarketDataMapReader.getString(item, "close")))
+                .volume(MarketDataMapReader.getLong(item, "volume"))
+                .amount(DataConverter.toBigDecimal(MarketDataMapReader.getString(item, "amount")))
                 .timeframe(timeframe)
                 .build());
         }
@@ -431,127 +450,37 @@ public class HKStockProvider implements MarketDataProvider {
         return TickData.builder()
             .symbol(symbol)
             .market(MarketType.HK_STOCK.getCode())
-            .timestamp(DataConverter.toInstantFromMillis(getLong(data, "timestamp")))
-            .price(DataConverter.toBigDecimal(getString(data, "price")))
-            .change(DataConverter.toBigDecimal(getString(data, "change")))
-            .changePercent(DataConverter.toBigDecimal(getString(data, "changePercent")))
-            .volume(getLong(data, "volume"))
-            .amount(DataConverter.toBigDecimal(getString(data, "amount")))
-            .bidPrice(DataConverter.toBigDecimal(getString(data, "bidPrice")))
-            .bidVolume(getLong(data, "bidVolume"))
-            .askPrice(DataConverter.toBigDecimal(getString(data, "askPrice")))
-            .askVolume(getLong(data, "askVolume"))
-            .dayHigh(DataConverter.toBigDecimal(getString(data, "high")))
-            .dayLow(DataConverter.toBigDecimal(getString(data, "low")))
-            .open(DataConverter.toBigDecimal(getString(data, "open")))
-            .prevClose(DataConverter.toBigDecimal(getString(data, "prevClose")))
+                .timestamp(DataConverter.toInstantFromMillis(MarketDataMapReader.getLong(data, "timestamp")))
+                .price(DataConverter.toBigDecimal(MarketDataMapReader.getString(data, "price")))
+                .change(DataConverter.toBigDecimal(MarketDataMapReader.getString(data, "change")))
+                .changePercent(DataConverter.toBigDecimal(MarketDataMapReader.getString(data, "changePercent")))
+                .volume(MarketDataMapReader.getLong(data, "volume"))
+                .amount(DataConverter.toBigDecimal(MarketDataMapReader.getString(data, "amount")))
+                .bidPrice(DataConverter.toBigDecimal(MarketDataMapReader.getString(data, "bidPrice")))
+                .bidVolume(MarketDataMapReader.getLong(data, "bidVolume"))
+                .askPrice(DataConverter.toBigDecimal(MarketDataMapReader.getString(data, "askPrice")))
+                .askVolume(MarketDataMapReader.getLong(data, "askVolume"))
+                .dayHigh(DataConverter.toBigDecimal(MarketDataMapReader.getString(data, "high")))
+                .dayLow(DataConverter.toBigDecimal(MarketDataMapReader.getString(data, "low")))
+                .open(DataConverter.toBigDecimal(MarketDataMapReader.getString(data, "open")))
+                .prevClose(DataConverter.toBigDecimal(MarketDataMapReader.getString(data, "prevClose")))
             .build();
     }
     
     private SymbolInfo convertToSymbolInfo(Map<String, Object> data) {
         return new SymbolInfo(
-            getString(data, "symbol"),
-            getString(data, "name"),
+            MarketDataMapReader.getString(data, "symbol"),
+            MarketDataMapReader.getString(data, "name"),
             MarketType.HK_STOCK.getCode(),
-            getString(data, "exchange") != null ? getString(data, "exchange") : "HKEX",
+            MarketDataMapReader.getString(data, "exchange") != null
+                ? MarketDataMapReader.getString(data, "exchange")
+                : "HKEX",
             "stock"
         );
-    }
-    
-    private String getString(Map<String, Object> data, String key) {
-        Object value = data.get(key);
-        return value != null ? value.toString() : null;
-    }
-    
-    private Long getLong(Map<String, Object> data, String key) {
-        Object value = data.get(key);
-        if (value == null) return null;
-        if (value instanceof Number number) return number.longValue();
-        try {
-            return Long.parseLong(value.toString());
-        } catch (NumberFormatException _) {
-            return null;
-        }
     }
 
     private static @NonNull HttpMethod getHttpGet() {
         return Objects.requireNonNull(HttpMethod.GET, "HTTP GET must not be null");
     }
     
-    private Duration parseTimeframe(String timeframe) {
-        return switch (timeframe.toLowerCase(Locale.ROOT)) {
-            case "1m" -> Duration.ofMinutes(1);
-            case "5m" -> Duration.ofMinutes(5);
-            case "15m" -> Duration.ofMinutes(15);
-            case "30m" -> Duration.ofMinutes(30);
-            case "1h", "60m" -> Duration.ofHours(1);
-            case "1d", "daily" -> Duration.ofDays(1);
-            case "1w", "weekly" -> Duration.ofDays(7);
-            case "1mth", "monthly" -> Duration.ofDays(30);
-            default -> Duration.ofDays(1);
-        };
-    }
-
-    private boolean isWeekend(DayOfWeek dayOfWeek) {
-        return dayOfWeek == DayOfWeek.SATURDAY || dayOfWeek == DayOfWeek.SUNDAY;
-    }
-
-    private boolean isPreMarket(LocalTime time) {
-        return time.isAfter(LocalTime.of(9, 0)) && time.isBefore(LocalTime.of(9, 30));
-    }
-
-    private boolean isMorningSession(LocalTime time) {
-        return isAtOrAfter(time, LocalTime.of(9, 30)) && time.isBefore(LocalTime.of(12, 0));
-    }
-
-    private boolean isLunchBreak(LocalTime time) {
-        return isAtOrAfter(time, LocalTime.of(12, 0)) && time.isBefore(LocalTime.of(13, 0));
-    }
-
-    private boolean isAfternoonSession(LocalTime time) {
-        return isAtOrAfter(time, LocalTime.of(13, 0)) && time.isBefore(LocalTime.of(16, 0));
-    }
-
-    private boolean isClosingAuction(LocalTime time) {
-        return isAtOrAfter(time, LocalTime.of(16, 0)) && time.isBefore(LocalTime.of(16, 10));
-    }
-
-    private boolean isAtOrAfter(LocalTime time, LocalTime threshold) {
-        return time.equals(threshold) || time.isAfter(threshold);
-    }
-    
-    private boolean isPublicHoliday(LocalDate date) {
-        // Simplified holiday check for HK
-        // In production, should check against HKEX official calendar
-        int month = date.getMonthValue();
-        int day = date.getDayOfMonth();
-        
-        // Lunar New Year (approximate - varies by year)
-        if (month == 2 && day >= 10 && day <= 13) {
-            return true;
-        }
-        
-        // Ching Ming Festival (approximate)
-        if (month == 4 && day == 4) {
-            return true;
-        }
-        
-        // Labour Day
-        if (month == 5 && day == 1) {
-            return true;
-        }
-        
-        // Mid-Autumn Festival (approximate)
-        if (month == 9 && day >= 17 && day <= 18) {
-            return true;
-        }
-        
-        // National Day
-        if (month == 10 && day == 1) {
-            return true;
-        }
-        
-        // Christmas
-        return month == 12 && (day == 25 || day == 26);
-    }
 }

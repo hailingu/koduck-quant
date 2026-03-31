@@ -11,6 +11,8 @@ import com.koduck.repository.StrategyRepository;
 import com.koduck.repository.StrategyVersionRepository;
 import com.koduck.service.BacktestService;
 import com.koduck.service.KlineService;
+import com.koduck.service.support.BacktestExecutionContext;
+import com.koduck.service.support.BacktestSignal;
 import com.koduck.service.support.StrategyAccessSupport;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -39,17 +41,11 @@ import static com.koduck.util.ServiceValidationUtils.requireFound;
 public class BacktestServiceImpl implements BacktestService {
 
     private final BacktestResultRepository resultRepository;
-
     private final BacktestTradeRepository backtestTradeRepository;
-
     private final StrategyRepository strategyRepository;
-
     private final StrategyVersionRepository versionRepository;
-
     private final KlineService klineService;
-
     private final BacktestTradeMapper backtestTradeMapper;
-
     private final StrategyAccessSupport strategyAccessSupport;
 
     private static final int SCALE = 4;
@@ -168,7 +164,7 @@ public class BacktestServiceImpl implements BacktestService {
             throw new IllegalStateException("Insufficient data for backtest (need at least 60 bars)");
         }
         // Initialize backtest state
-        BacktestContext context = new BacktestContext(
+        BacktestExecutionContext context = new BacktestExecutionContext(
             result.getInitialCapital(),
             result.getCommissionRate(),
             result.getSlippage()
@@ -180,21 +176,20 @@ public class BacktestServiceImpl implements BacktestService {
             List<KlineDataDto> history = filteredData.subList(0, i + 1);
             KlineDataDto current = filteredData.get(i);
             // Simple MA crossover strategy
-            Signal signal = generateSignal(history);
-            if (signal == Signal.BUY && context.position.compareTo(BigDecimal.ZERO) == 0) {
+            BacktestSignal signal = generateSignal(history);
+            if (signal == BacktestSignal.BUY && context.getPosition().compareTo(BigDecimal.ZERO) == 0) {
                 // Execute buy
                 BacktestTrade trade = executeBuy(context, current, result.getId());
                 if (trade != null) {
                     trades.add(trade);
                 }
-            } else if (signal == Signal.SELL && context.position.compareTo(BigDecimal.ZERO) > 0) {
+            } else if (signal == BacktestSignal.SELL && context.getPosition().compareTo(BigDecimal.ZERO) > 0) {
                 // Execute sell
                 BacktestTrade trade = executeSell(context, current, result.getId());
                 trades.add(trade);
             }
             // Record equity
-            BigDecimal currentEquity = context.cash.add(
-                context.position.multiply(current.close()));
+            BigDecimal currentEquity = context.getCash().add(context.getPosition().multiply(current.close()));
             equityCurve.add(currentEquity);
         }
         // Calculate final metrics
@@ -207,9 +202,9 @@ public class BacktestServiceImpl implements BacktestService {
     /**
      * Generate trading signal based on MA crossover.
      */
-    private Signal generateSignal(List<KlineDataDto> history) {
+    private BacktestSignal generateSignal(List<KlineDataDto> history) {
         if (history.size() < 60) {
-            return Signal.HOLD;
+            return BacktestSignal.HOLD;
         }
         // Calculate MA20 and MA60
         BigDecimal ma20 = calculateMA(history, 20);
@@ -220,13 +215,13 @@ public class BacktestServiceImpl implements BacktestService {
         BigDecimal prevMa60 = calculateMA(prevHistory, 60);
         // Golden cross: MA20 crosses above MA60
         if (ma20.compareTo(ma60) > 0 && prevMa20.compareTo(prevMa60) <= 0) {
-            return Signal.BUY;
+            return BacktestSignal.BUY;
         }
         // Death cross: MA20 crosses below MA60
         if (ma20.compareTo(ma60) < 0 && prevMa20.compareTo(prevMa60) >= 0) {
-            return Signal.SELL;
+            return BacktestSignal.SELL;
         }
-        return Signal.HOLD;
+        return BacktestSignal.HOLD;
     }
     /**
      * Calculate Moving Average.
@@ -245,22 +240,22 @@ public class BacktestServiceImpl implements BacktestService {
     /**
      * Execute buy order.
      */
-    private BacktestTrade executeBuy(BacktestContext context, KlineDataDto current,
+    private BacktestTrade executeBuy(BacktestExecutionContext context, KlineDataDto current,
                                      Long backtestResultId) {
         BigDecimal price = current.close().multiply(
-            BigDecimal.ONE.add(context.slippage)).setScale(SCALE, RoundingMode.HALF_UP);
+            BigDecimal.ONE.add(context.getSlippage())).setScale(SCALE, RoundingMode.HALF_UP);
         // Use 90% of cash for position
-        BigDecimal positionValue = context.cash.multiply(new BigDecimal("0.9"));
+        BigDecimal positionValue = context.getCash().multiply(new BigDecimal("0.9"));
         BigDecimal quantity = positionValue.divide(price, 0, RoundingMode.DOWN);
         if (quantity.compareTo(BigDecimal.ZERO) <= 0) {
             return null;
         }
         BigDecimal amount = price.multiply(quantity);
-        BigDecimal commission = amount.multiply(context.commissionRate).setScale(SCALE, RoundingMode.HALF_UP);
+        BigDecimal commission = amount.multiply(context.getCommissionRate()).setScale(SCALE, RoundingMode.HALF_UP);
         BigDecimal totalCost = amount.add(commission);
-        context.cash = context.cash.subtract(totalCost);
-        context.position = context.position.add(quantity);
-        context.entryPrice = price;
+        context.setCash(context.getCash().subtract(totalCost));
+        context.setPosition(context.getPosition().add(quantity));
+        context.setEntryPrice(price);
         return BacktestTrade.builder()
             .backtestResultId(backtestResultId)
             .tradeType(BacktestTrade.TradeType.BUY)
@@ -269,33 +264,33 @@ public class BacktestServiceImpl implements BacktestService {
             .price(price)
             .quantity(quantity)
             .amount(amount)
-            .commission(commission)
-            .slippageCost(amount.multiply(context.slippage).setScale(SCALE, RoundingMode.HALF_UP))
+                .commission(commission)
+                .slippageCost(amount.multiply(context.getSlippage()).setScale(SCALE, RoundingMode.HALF_UP))
             .totalCost(totalCost)
-            .cashAfter(context.cash)
-            .positionAfter(context.position)
+                .cashAfter(context.getCash())
+                .positionAfter(context.getPosition())
             .signalReason("MA20 crosses above MA60")
             .build();
     }
     /**
      * Execute sell order.
      */
-    private BacktestTrade executeSell(BacktestContext context, KlineDataDto current,
+    private BacktestTrade executeSell(BacktestExecutionContext context, KlineDataDto current,
                                       Long backtestResultId) {
         BigDecimal price = current.close().multiply(
-            BigDecimal.ONE.subtract(context.slippage)).setScale(SCALE, RoundingMode.HALF_UP);
-        BigDecimal quantity = context.position;
+            BigDecimal.ONE.subtract(context.getSlippage())).setScale(SCALE, RoundingMode.HALF_UP);
+        BigDecimal quantity = context.getPosition();
         BigDecimal amount = price.multiply(quantity);
-        BigDecimal commission = amount.multiply(context.commissionRate).setScale(SCALE, RoundingMode.HALF_UP);
+        BigDecimal commission = amount.multiply(context.getCommissionRate()).setScale(SCALE, RoundingMode.HALF_UP);
         BigDecimal totalCost = amount.subtract(commission);
         // Calculate PnL
-        BigDecimal pnl = totalCost.subtract(context.entryPrice.multiply(quantity));
-        BigDecimal pnlPercent = context.entryPrice.compareTo(BigDecimal.ZERO) > 0
-            ? pnl.divide(context.entryPrice.multiply(quantity), SCALE, RoundingMode.HALF_UP)
+        BigDecimal pnl = totalCost.subtract(context.getEntryPrice().multiply(quantity));
+        BigDecimal pnlPercent = context.getEntryPrice().compareTo(BigDecimal.ZERO) > 0
+            ? pnl.divide(context.getEntryPrice().multiply(quantity), SCALE, RoundingMode.HALF_UP)
                 .multiply(BigDecimal.valueOf(100))
             : BigDecimal.ZERO;
-        context.cash = context.cash.add(totalCost);
-        context.position = BigDecimal.ZERO;
+        context.setCash(context.getCash().add(totalCost));
+        context.setPosition(BigDecimal.ZERO);
         return BacktestTrade.builder()
             .backtestResultId(backtestResultId)
             .tradeType(BacktestTrade.TradeType.SELL)
@@ -304,11 +299,11 @@ public class BacktestServiceImpl implements BacktestService {
             .price(price)
             .quantity(quantity)
             .amount(amount)
-            .commission(commission)
-            .slippageCost(amount.multiply(context.slippage).setScale(SCALE, RoundingMode.HALF_UP))
+                .commission(commission)
+                .slippageCost(amount.multiply(context.getSlippage()).setScale(SCALE, RoundingMode.HALF_UP))
             .totalCost(totalCost)
-            .cashAfter(context.cash)
-            .positionAfter(context.position)
+                .cashAfter(context.getCash())
+                .positionAfter(context.getPosition())
             .pnl(pnl)
             .pnlPercent(pnlPercent)
             .signalReason("MA20 crosses below MA60")
@@ -317,12 +312,12 @@ public class BacktestServiceImpl implements BacktestService {
     /**
      * Calculate backtest metrics.
      */
-    private void calculateMetrics(BacktestResult result, BacktestContext context,
+    private void calculateMetrics(BacktestResult result, BacktestExecutionContext context,
                                   List<BacktestTrade> trades, List<BigDecimal> equityCurve,
                                   List<KlineDataDto> data) {
         // Final capital
         BigDecimal finalPrice = data.get(data.size() - 1).close();
-        BigDecimal finalCapital = context.cash.add(context.position.multiply(finalPrice));
+        BigDecimal finalCapital = context.getCash().add(context.getPosition().multiply(finalPrice));
         result.setFinalCapital(finalCapital);
         // Total return
         BigDecimal totalReturn = finalCapital.subtract(result.getInitialCapital())
@@ -498,24 +493,5 @@ public class BacktestServiceImpl implements BacktestService {
      */
     private BacktestTradeDto convertTradeToDto(BacktestTrade trade) {
         return backtestTradeMapper.toDto(trade);
-    }
-    // Enums
-    private enum Signal { BUY, SELL, HOLD }
-    /**
-     * Backtest context for tracking state.
-     */
-    private static class BacktestContext {
-        BigDecimal cash;
-        BigDecimal position;
-        BigDecimal entryPrice;
-        final BigDecimal commissionRate;
-        final BigDecimal slippage;
-        BacktestContext(BigDecimal initialCapital, BigDecimal commissionRate, BigDecimal slippage) {
-            this.cash = initialCapital;
-            this.position = BigDecimal.ZERO;
-            this.entryPrice = BigDecimal.ZERO;
-            this.commissionRate = commissionRate;
-            this.slippage = slippage;
-        }
     }
 }

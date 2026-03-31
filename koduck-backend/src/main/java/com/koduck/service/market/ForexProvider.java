@@ -6,6 +6,8 @@ import com.koduck.market.model.KlineData;
 import com.koduck.market.model.TickData;
 import com.koduck.market.provider.MarketDataProvider;
 import com.koduck.market.util.DataConverter;
+import com.koduck.service.market.support.MarketDataMapReader;
+import com.koduck.service.market.support.MarketTimeframeParser;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -308,7 +310,7 @@ public class ForexProvider implements MarketDataProvider {
         if (endTime == null && startTime != null) {
             currentTime = startTime;
         }
-        Duration interval = parseTimeframe(timeframe);
+        Duration interval = MarketTimeframeParser.parseWithFourHour(timeframe);
         
         // Adjust volatility based on pair (precious metals more volatile)
         double volatility = normalizedSymbol.startsWith("XAU") || normalizedSymbol.startsWith("XAG")
@@ -440,13 +442,13 @@ public class ForexProvider implements MarketDataProvider {
             klines.add(KlineData.builder()
                 .symbol(symbol)
                 .market(MarketType.FOREX.getCode())
-                .timestamp(DataConverter.toInstantFromMillis(getLong(item, "timestamp")))
-                .open(DataConverter.toBigDecimal(getString(item, "open")))
-                .high(DataConverter.toBigDecimal(getString(item, "high")))
-                .low(DataConverter.toBigDecimal(getString(item, "low")))
-                .close(DataConverter.toBigDecimal(getString(item, "close")))
-                .volume(getLong(item, "volume"))
-                .amount(DataConverter.toBigDecimal(getString(item, "amount")))
+                .timestamp(DataConverter.toInstantFromMillis(MarketDataMapReader.getLong(item, "timestamp")))
+                .open(DataConverter.toBigDecimal(MarketDataMapReader.getString(item, "open")))
+                .high(DataConverter.toBigDecimal(MarketDataMapReader.getString(item, "high")))
+                .low(DataConverter.toBigDecimal(MarketDataMapReader.getString(item, "low")))
+                .close(DataConverter.toBigDecimal(MarketDataMapReader.getString(item, "close")))
+                .volume(MarketDataMapReader.getLong(item, "volume"))
+                .amount(DataConverter.toBigDecimal(MarketDataMapReader.getString(item, "amount")))
                 .timeframe(timeframe)
                 .build());
         }
@@ -458,67 +460,35 @@ public class ForexProvider implements MarketDataProvider {
         return TickData.builder()
             .symbol(symbol)
             .market(MarketType.FOREX.getCode())
-            .timestamp(DataConverter.toInstantFromMillis(getLong(data, "timestamp")))
-            .price(DataConverter.toBigDecimal(getString(data, "price")))
-            .change(DataConverter.toBigDecimal(getString(data, "change")))
-            .changePercent(DataConverter.toBigDecimal(getString(data, "changePercent")))
-            .volume(getLong(data, "volume"))
-            .amount(DataConverter.toBigDecimal(getString(data, "amount")))
-            .bidPrice(DataConverter.toBigDecimal(getString(data, "bidPrice")))
-            .bidVolume(getLong(data, "bidVolume"))
-            .askPrice(DataConverter.toBigDecimal(getString(data, "askPrice")))
-            .askVolume(getLong(data, "askVolume"))
-            .dayHigh(DataConverter.toBigDecimal(getString(data, "high")))
-            .dayLow(DataConverter.toBigDecimal(getString(data, "low")))
-            .open(DataConverter.toBigDecimal(getString(data, "open")))
-            .prevClose(DataConverter.toBigDecimal(getString(data, "prevClose")))
+                .timestamp(DataConverter.toInstantFromMillis(MarketDataMapReader.getLong(data, "timestamp")))
+                .price(DataConverter.toBigDecimal(MarketDataMapReader.getString(data, "price")))
+                .change(DataConverter.toBigDecimal(MarketDataMapReader.getString(data, "change")))
+                .changePercent(DataConverter.toBigDecimal(MarketDataMapReader.getString(data, "changePercent")))
+                .volume(MarketDataMapReader.getLong(data, "volume"))
+                .amount(DataConverter.toBigDecimal(MarketDataMapReader.getString(data, "amount")))
+                .bidPrice(DataConverter.toBigDecimal(MarketDataMapReader.getString(data, "bidPrice")))
+                .bidVolume(MarketDataMapReader.getLong(data, "bidVolume"))
+                .askPrice(DataConverter.toBigDecimal(MarketDataMapReader.getString(data, "askPrice")))
+                .askVolume(MarketDataMapReader.getLong(data, "askVolume"))
+                .dayHigh(DataConverter.toBigDecimal(MarketDataMapReader.getString(data, "high")))
+                .dayLow(DataConverter.toBigDecimal(MarketDataMapReader.getString(data, "low")))
+                .open(DataConverter.toBigDecimal(MarketDataMapReader.getString(data, "open")))
+                .prevClose(DataConverter.toBigDecimal(MarketDataMapReader.getString(data, "prevClose")))
             .build();
     }
     
     private SymbolInfo convertToSymbolInfo(Map<String, Object> data) {
         return new SymbolInfo(
-            getString(data, "symbol"),
-            getString(data, "name"),
+            MarketDataMapReader.getString(data, "symbol"),
+            MarketDataMapReader.getString(data, "name"),
             MarketType.FOREX.getCode(),
             "FOREX",
             "forex"
         );
-    }
-    
-    private String getString(Map<String, Object> data, String key) {
-        Object value = data.get(key);
-        return value != null ? value.toString() : null;
-    }
-    
-    private Long getLong(Map<String, Object> data, String key) {
-        Object value = data.get(key);
-        if (value == null) return null;
-        if (value instanceof Number number) {
-            return number.longValue();
-        }
-        try {
-            return Long.parseLong(value.toString());
-        } catch (NumberFormatException _) {
-            return null;
-        }
     }
 
     private static @NonNull HttpMethod getHttpGet() {
         return Objects.requireNonNull(HttpMethod.GET, "HTTP GET must not be null");
     }
     
-    private Duration parseTimeframe(String timeframe) {
-        return switch (timeframe.toLowerCase(Locale.ROOT)) {
-            case "1m" -> Duration.ofMinutes(1);
-            case "5m" -> Duration.ofMinutes(5);
-            case "15m" -> Duration.ofMinutes(15);
-            case "30m" -> Duration.ofMinutes(30);
-            case "1h", "60m" -> Duration.ofHours(1);
-            case "4h" -> Duration.ofHours(4);
-            case "1d", "daily" -> Duration.ofDays(1);
-            case "1w", "weekly" -> Duration.ofDays(7);
-            case "1mth", "monthly" -> Duration.ofDays(30);
-            default -> Duration.ofDays(1);
-        };
-    }
 }

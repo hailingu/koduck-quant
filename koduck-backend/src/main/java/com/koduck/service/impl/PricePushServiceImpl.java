@@ -1,20 +1,17 @@
 package com.koduck.service.impl;
 
+import com.koduck.dto.market.RealtimePriceEventMessage;
 import com.koduck.dto.market.TickDto;
 import com.koduck.entity.StockRealtime;
-import com.koduck.repository.StockRealtimeRepository;
 import com.koduck.service.PricePushService;
 import com.koduck.service.StockSubscriptionService;
 import com.koduck.service.SyntheticTickService;
 import com.koduck.service.TickStreamService;
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import com.koduck.util.SymbolUtils;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
 /**
@@ -28,7 +25,6 @@ import org.springframework.stereotype.Service;
 public class PricePushServiceImpl implements PricePushService {
 
     private final StockSubscriptionService stockSubscriptionService;
-    private final StockRealtimeRepository stockRealtimeRepository;
     private final SyntheticTickService syntheticTickService;
     private final TickStreamService tickStreamService;
 
@@ -38,44 +34,33 @@ public class PricePushServiceImpl implements PricePushService {
     private static final long PUSH_INTERVAL_MS = 5000L;
 
     public PricePushServiceImpl(StockSubscriptionService stockSubscriptionService,
-                                StockRealtimeRepository stockRealtimeRepository,
                                 SyntheticTickService syntheticTickService,
                                 TickStreamService tickStreamService) {
         this.stockSubscriptionService = stockSubscriptionService;
-        this.stockRealtimeRepository = stockRealtimeRepository;
         this.syntheticTickService = syntheticTickService;
         this.tickStreamService = tickStreamService;
     }
 
     @Override
-    @Scheduled(fixedRate = 3000)
     public void checkAndPushPriceUpdates() {
-        try {
-            Set<String> symbolsToProcess = collectSymbolsToProcess();
-            if (symbolsToProcess.isEmpty()) {
-                return;
-            }
-            processRealtimeSnapshots(symbolsToProcess, System.currentTimeMillis());
-        } catch (RuntimeException e) {
-            log.error("Failed to push price updates: {}", e.getMessage(), e);
+        // Polling is disabled after RabbitMQ event-driven migration.
+        log.debug("checkAndPushPriceUpdates is disabled; expecting RabbitMQ realtime events");
+    }
+
+    @Override
+    public void onRealtimePriceEvent(RealtimePriceEventMessage event) {
+        if (event == null || event.getSymbol() == null || event.getSymbol().isBlank()) {
+            return;
         }
-    }
-
-    private Set<String> collectSymbolsToProcess() {
-        Set<String> symbolsToProcess = new HashSet<>(stockSubscriptionService.getAllSubscribedSymbols());
-        symbolsToProcess.addAll(syntheticTickService.snapshotTrackedSymbols());
-        return symbolsToProcess;
-    }
-
-    private void processRealtimeSnapshots(Set<String> symbolsToProcess, long now) {
-        List<StockRealtime> realtimeList = stockRealtimeRepository.findBySymbolIn(new ArrayList<>(symbolsToProcess));
-        for (StockRealtime realtime : realtimeList) {
-            processSingleRealtime(realtime, now);
+        String symbol = normalizeSymbol(event.getSymbol());
+        if (symbol == null) {
+            return;
         }
-    }
-
-    private void processSingleRealtime(StockRealtime realtime, long now) {
-        String symbol = realtime.getSymbol();
+        if (!isActiveSymbol(symbol)) {
+            return;
+        }
+        long now = System.currentTimeMillis();
+        StockRealtime realtime = toRealtime(event, symbol);
         Double currentPrice = extractCurrentPrice(realtime);
         Double lastPrice = getAndUpdateLastPrice(symbol, currentPrice);
         boolean shouldPush = shouldPushAndMark(symbol, now);
@@ -150,6 +135,38 @@ public class PricePushServiceImpl implements PricePushService {
                 .changePercent(realtime.getChangePercent() != null ? realtime.getChangePercent().doubleValue() : null)
                 .volume(realtime.getVolume())
                 .build();
+    }
+
+    private boolean isActiveSymbol(String symbol) {
+        if (symbol == null || symbol.isBlank()) {
+            return false;
+        }
+        Set<String> subscribedSymbols = stockSubscriptionService.getAllSubscribedSymbols();
+        if (subscribedSymbols.contains(symbol)) {
+            return true;
+        }
+        return syntheticTickService.snapshotTrackedSymbols().contains(symbol);
+    }
+
+    private StockRealtime toRealtime(RealtimePriceEventMessage event, String normalizedSymbol) {
+        return StockRealtime.builder()
+                .symbol(normalizedSymbol)
+                .name(event.getName() != null && !event.getName().isBlank() ? event.getName() : normalizedSymbol)
+                .type(event.getType() != null ? event.getType() : "STOCK")
+                .price(event.getPrice())
+                .changeAmount(event.getChangeAmount())
+                .changePercent(event.getChangePercent())
+                .volume(event.getVolume())
+                .amount(event.getAmount())
+                .build();
+    }
+
+    private String normalizeSymbol(String symbol) {
+        if (symbol == null || symbol.isBlank()) {
+            return null;
+        }
+        String normalized = SymbolUtils.normalize(symbol);
+        return normalized == null || normalized.isBlank() ? null : normalized;
     }
 
     private boolean shouldPushAndMark(String symbol, long now) {

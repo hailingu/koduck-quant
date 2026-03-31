@@ -103,6 +103,20 @@ class Settings(BaseSettings):
     LOG_LEVEL: str = "INFO"
     LOG_FORMAT: str = "json"
 
+    # RabbitMQ realtime price push
+    PRICE_PUSH_MQ_ENABLED: bool = False
+    RABBITMQ_HOST: str = "localhost"
+    RABBITMQ_PORT: int = 5672
+    RABBITMQ_USERNAME: str = "guest"
+    RABBITMQ_PASSWORD: str = "guest"
+    RABBITMQ_VHOST: str = "/"
+    PRICE_PUSH_MQ_EXCHANGE: str = "koduck.price.exchange"
+    PRICE_PUSH_MQ_QUEUE: str = "koduck.price.realtime.queue"
+    PRICE_PUSH_MQ_ROUTING_KEY: str = "stock.realtime"
+    PRICE_PUSH_MQ_DLX: str = "koduck.price.dlx"
+    PRICE_PUSH_MQ_DLQ: str = "koduck.price.realtime.dlq"
+    PRICE_PUSH_MQ_DLK: str = "stock.realtime.dlq"
+
 
 # Global settings instance
 settings = Settings()

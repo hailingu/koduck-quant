@@ -21,7 +21,9 @@ public final class ServiceValidationUtils {
      * @param <T> value type
      * @return existing value
      */
-    public static <T> T requireFound(Optional<T> candidate, Supplier<? extends RuntimeException> exceptionSupplier) {
+    public static <T> T requireFound(
+            final Optional<T> candidate,
+            final Supplier<? extends RuntimeException> exceptionSupplier) {
         Objects.requireNonNull(candidate, "candidate must not be null");
         Objects.requireNonNull(exceptionSupplier, "exceptionSupplier must not be null");
         return candidate.orElseThrow(exceptionSupplier);
@@ -34,7 +36,7 @@ public final class ServiceValidationUtils {
      * @param currentUserId current request user id
      * @param message exception message when ownership check fails
      */
-    public static void assertOwner(Long ownerUserId, Long currentUserId, String message) {
+    public static void assertOwner(final Long ownerUserId, final Long currentUserId, final String message) {
         if (!Objects.equals(ownerUserId, currentUserId)) {
             throw new IllegalArgumentException(message);
         }

@@ -7,17 +7,27 @@ import java.util.List;
 
 /**
  * Entity defensive copy helpers.
+ *
+ * @author GitHub Copilot
+ * @date 2026-03-31
  */
 public final class EntityCopyUtils {
 
     private EntityCopyUtils() {
     }
 
-    public static User copyUser(User source) {
+    /**
+     * Creates a detached copy of a user entity.
+     *
+     * @param source source entity
+     * @return copied user or null when source is null
+     */
+    public static User copyUser(final User source) {
+        User copied = null;
         if (source == null) {
-            return null;
+            return copied;
         }
-        return User.builder()
+        copied = User.builder()
                 .id(source.getId())
                 .username(source.getUsername())
                 .email(source.getEmail())
@@ -31,13 +41,21 @@ public final class EntityCopyUtils {
                 .createdAt(source.getCreatedAt())
                 .updatedAt(source.getUpdatedAt())
                 .build();
+        return copied;
     }
 
-    public static CommunitySignal copyCommunitySignal(CommunitySignal source) {
+    /**
+     * Creates a detached copy of a community signal.
+     *
+     * @param source source entity
+     * @return copied signal or null when source is null
+     */
+    public static CommunitySignal copyCommunitySignal(final CommunitySignal source) {
+        CommunitySignal copied = null;
         if (source == null) {
-            return null;
+            return copied;
         }
-        return CommunitySignal.builder()
+        copied = CommunitySignal.builder()
                 .id(source.getId())
                 .userId(source.getUserId())
                 .strategyId(source.getStrategyId())
@@ -63,13 +81,21 @@ public final class EntityCopyUtils {
                 .updatedAt(source.getUpdatedAt())
                 .user(copyUser(source.getUser()))
                 .build();
+        return copied;
     }
 
-    public static SignalComment copySignalComment(SignalComment source) {
+    /**
+     * Creates a detached copy of a signal comment including shallow relations.
+     *
+     * @param source source entity
+     * @return copied comment or null when source is null
+     */
+    public static SignalComment copySignalComment(final SignalComment source) {
+        SignalComment copied = null;
         if (source == null) {
-            return null;
+            return copied;
         }
-        return SignalComment.builder()
+        copied = SignalComment.builder()
                 .id(source.getId())
                 .signalId(source.getSignalId())
                 .userId(source.getUserId())
@@ -84,13 +110,21 @@ public final class EntityCopyUtils {
                 .parent(copySignalCommentShallow(source.getParent()))
                 .replies(copySignalCommentShallowList(source.getReplies()))
                 .build();
+        return copied;
     }
 
-    public static SignalComment copySignalCommentShallow(SignalComment source) {
+    /**
+     * Creates a shallow detached copy of a signal comment.
+     *
+     * @param source source entity
+     * @return shallow copied comment or null when source is null
+     */
+    public static SignalComment copySignalCommentShallow(final SignalComment source) {
+        SignalComment copied = null;
         if (source == null) {
-            return null;
+            return copied;
         }
-        return SignalComment.builder()
+        copied = SignalComment.builder()
                 .id(source.getId())
                 .signalId(source.getSignalId())
                 .userId(source.getUserId())
@@ -103,9 +137,20 @@ public final class EntityCopyUtils {
                 .signal(copyCommunitySignal(source.getSignal()))
                 .user(copyUser(source.getUser()))
                 .build();
+        return copied;
     }
 
-    public static List<SignalComment> copySignalCommentShallowList(List<SignalComment> source) {
-        return source == null ? null : source.stream().map(EntityCopyUtils::copySignalCommentShallow).toList();
+    /**
+     * Creates shallow detached copies of a comment list.
+     *
+     * @param source source list
+     * @return copied list or null when source is null
+     */
+    public static List<SignalComment> copySignalCommentShallowList(final List<SignalComment> source) {
+        List<SignalComment> copied = null;
+        if (source != null) {
+            copied = source.stream().map(EntityCopyUtils::copySignalCommentShallow).toList();
+        }
+        return copied;
     }
 }

@@ -9,26 +9,42 @@ import org.springframework.stereotype.Component;
 
 /**
  * Resolves default USER role ID from database and caches the value.
+ *
+ * @author GitHub Copilot
+ * @date 2026-03-31
  */
 @Component
 @RequiredArgsConstructor
 public class DefaultUserRoleResolver {
 
+    /**
+     * Repository used to load the default role definition.
+     */
     private final RoleRepository roleRepository;
 
+    /**
+     * Cached default role id.
+     */
     private volatile Integer defaultUserRoleId;
 
+    /**
+     * Resolves and caches the default user role id.
+     *
+     * @return default role id
+     */
     public int resolveRoleId() {
-        Integer cached = defaultUserRoleId;
+        final Integer cached = defaultUserRoleId;
+        int resolvedRoleId;
         if (cached != null) {
-            return cached;
+            resolvedRoleId = cached;
+        } else {
+            final Role role = roleRepository.findByName(RoleConstants.DEFAULT_USER_ROLE_NAME)
+                    .orElseThrow(() -> new IllegalStateException(
+                            "Default role not found in database: " + RoleConstants.DEFAULT_USER_ROLE_NAME));
+            final Integer roleId = Objects.requireNonNull(role.getId(), "Default user role id must not be null");
+            defaultUserRoleId = roleId;
+            resolvedRoleId = roleId;
         }
-
-        Role role = roleRepository.findByName(RoleConstants.DEFAULT_USER_ROLE_NAME)
-                .orElseThrow(() -> new IllegalStateException(
-                        "Default role not found in database: " + RoleConstants.DEFAULT_USER_ROLE_NAME));
-        Integer roleId = Objects.requireNonNull(role.getId(), "Default user role id must not be null");
-        defaultUserRoleId = roleId;
-        return roleId;
+        return resolvedRoleId;
     }
 }
