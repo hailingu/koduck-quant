@@ -1,135 +1,151 @@
-# P2-04: PMD 非阻断项治理开发指南
+# P2-03: 模块边界梳理开发指南
 
 ## 任务目标
-分批治理 PMD 非阻断项，先处理高价值规则，目标下降 >= 30%。
+梳理核心模块边界，收敛依赖关系，提升模块化与可维护性。
+
+## 当前架构分析
+
+### 目录结构
+```
+com.koduck/
+├── client/          # 外部客户端调用
+├── common/          # 共享常量/工具
+├── config/          # 配置类
+├── controller/      # API 控制器层
+├── dto/             # 数据传输对象
+├── entity/          # JPA 实体
+├── exception/       # 异常定义
+├── mapper/          # MapStruct 映射
+├── market/          # 行情模块
+├── messaging/       # 消息队列
+├── repository/      # 数据访问层
+├── security/        # 安全认证
+├── service/         # 业务逻辑层
+└── util/            # 工具类
+```
 
 ## 开发步骤
 
-### 1. 查看当前 PMD 报告
+### 1. 生成当前依赖图
 
 ```bash
+# 使用 Maven 依赖分析
 cd koduck-backend
-mvn pmd:pmd
-open target/pmd.html
+mvn dependency:analyze -DoutputType=graph
+
+# 或使用 JDepend
+mvn jdepend:generate
 ```
 
-### 2. 分析规则优先级
+### 2. 检查违规依赖
 
-按影响排序处理：
-
-| 优先级 | 规则族 | 说明 | 处理策略 |
-|--------|--------|------|----------|
-| P0 | UnusedImports | 未使用导入 | 自动修复 |
-| P0 | UnnecessaryModifier | 多余修饰符 | 自动修复 |
-| P1 | UnusedPrivateMethod | 未使用私有方法 | 删除或标记 |
-| P1 | UnusedLocalVariable | 未使用局部变量 | 删除 |
-| P2 | SimplifiedTernary | 简化三元表达式 | 重构 |
-| P2 | UselessParentheses | 多余括号 | 简化 |
-| P3 | CommentRequired | 缺少注释 | 补充文档 |
-
-### 3. 分批处理策略
-
-#### 第一批（低风险，自动修复）
-
-创建修复脚本 `scripts/fix-pmd-batch1.sh`：
+创建脚本检查以下问题：
 
 ```bash
 #!/bin/bash
-# 自动修复简单问题
+# check-violations.sh
 
-echo "=== 修复 UnusedImports ==="
-# 使用 IDE 或 sed 批量移除未使用导入
-find src -name "*.java" -exec grep -l "unused import" {} \;
+echo "=== 检查跨层依赖违规 ==="
 
-echo "=== 修复 UnnecessaryModifier ==="
-# 移除 interface 中的 public static final 等冗余修饰符
+# 1. Repository 层不应调用 Service 层
+grep -r "import com.koduck.service" src/main/java/com/koduck/repository/ && echo "❌ 发现 repository -> service 违规" || echo "✅ repository 层干净"
+
+# 2. Service 层不应调用 Controller 层
+grep -r "import com.koduck.controller" src/main/java/com/koduck/service/ && echo "❌ 发现 service -> controller 违规" || echo "✅ service 层干净"
+
+# 3. 检查循环依赖
+# 使用 Maven 或 jdeps 工具
 ```
 
-#### 第二批（需人工审核）
+### 3. 梳理依赖方向
 
-```bash
-# 生成待审核清单
-mvn pmd:pmd -Dpmd.printFailingErrors=true 2>&1 | grep -E "(UnusedPrivate|UnusedLocal)" > /tmp/pmd-review.txt
-echo "需人工审核的问题："
-cat /tmp/pmd-review.txt
-```
-
-### 4. 配置 PMD 规则分级
-
-修改 `pom.xml` 中的 PMD 配置：
-
-```xml
-<plugin>
-    <groupId>org.apache.maven.plugins</groupId>
-    <artifactId>maven-pmd-plugin</artifactId>
-    <configuration>
-        <rulesets>
-            <ruleset>rulesets/pmd-base.xml</ruleset>
-        </rulesets>
-        <!-- 第一批治理：降低阈值 -->
-        <minimumTokens>50</minimumTokens>
-        <targetJdk>23</targetJdk>
-    </configuration>
-</plugin>
-```
-
-### 5. 记录延期项
-
-创建 `docs/static-analysis.md`：
+创建 `docs/architecture/module-boundary.md`：
 
 ```markdown
-## PMD 治理记录
+## 模块依赖规则
 
-### Phase 2 第一批治理 (目标: -30%)
-
-#### 已处理规则
-- [x] UnusedImports: 修复 45 处
-- [x] UnnecessaryModifier: 修复 23 处
-- [x] UnusedLocalVariable: 修复 18 处
-
-#### 延期处理（需业务评估）
-| 规则 | 位置 | 延期原因 | 计划时间 |
-|------|------|----------|----------|
-| UnusedPrivateMethod | AiAnalysisService | 可能后续使用 | Phase 3 |
-| CommentRequired | MarketController | 待API稳定后补充 | Phase 3 |
-
-### 治理前后对比
-- 治理前: XXX 个非阻断项
-- 治理后: XXX 个非阻断项
-- 下降比例: XX%
+### 分层依赖方向
+```
+Controller → Service → Repository → Entity
+    ↓           ↓           ↓
+   DTO        DTO/Entity   Entity
 ```
 
-### 6. 增量检查
+### 禁止的依赖
+- ❌ Repository → Service
+- ❌ Service → Controller
+- ❌ Entity → DTO
 
-配置 CI 只检查新增代码：
+### 允许的跨模块调用
+- ✅ Service 之间可以调用（注意避免循环）
+- ✅ 通过接口解耦
+```
+
+### 4. 识别循环依赖
+
+检查以下模式：
+```
+ServiceA -> ServiceB -> ServiceA
+ervice -> MarketService -> Service
+```
+
+### 5. 重构计划
+
+对于发现的违规依赖：
+
+#### 方案 A: 提取公共接口
+```java
+// 创建接口
+public interface DataProvider {
+    MarketData getData(String symbol);
+}
+
+// Service 依赖接口而非实现
+@Service
+public class MarketService {
+    private final DataProvider dataProvider;
+    
+    public MarketService(DataProvider dataProvider) {
+        this.dataProvider = dataProvider;
+    }
+}
+```
+
+#### 方案 B: 事件驱动解耦
+```java
+// 使用 Spring Event
+@Component
+public class OrderEventListener {
+    @EventListener
+    public void onOrderCreated(OrderCreatedEvent event) {
+        // 处理订单创建
+    }
+}
+```
+
+### 6. 建立边界检查 CI
+
+创建 `.github/workflows/arch-guard.yml`：
 
 ```yaml
-# .github/workflows/pmd-pr.yml
-name: PMD PR Check
+name: Architecture Guard
 on: [pull_request]
 
 jobs:
-  pmd:
+  check:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-      - name: Run PMD on changed files
+      - name: Check architecture violations
         run: |
           cd koduck-backend
-          # 只对修改的文件运行 PMD
-          git diff --name-only origin/dev | grep "\\.java$" > changed_files.txt
-          mvn pmd:check -Dpmd.includesFile=changed_files.txt
+          chmod +x scripts/check-arch-violations.sh
+          ./scripts/check-arch-violations.sh
 ```
 
 ## 验收标准
-- [ ] PMD 非阻断总量下降 >= 30%
-- [ ] 无新增阻断级问题
-- [ ] 延期项有明确责任人与时间窗口
-- [ ] 文档记录完整
-
-## 注意事项
-- ⚠️ 不要一次性修改太多文件，分批提交 PR
-- ⚠️ 每个批次单独测试确保无回归
-- ⚠️ 复杂重构先写测试再修改
+- [ ] 产出模块边界文档
+- [ ] 产出依赖关系图（改造前后对比）
+- [ ] 消除所有跨层反向依赖
+- [ ] 消除关键循环依赖
+- [ ] 回归测试全通过
