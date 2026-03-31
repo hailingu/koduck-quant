@@ -117,7 +117,7 @@ public class DataInitializer implements CommandLineRunner {
             log.error("Failed to initialize demo user", e);
             // do not abort startup on failure
         }
-        // 初始化环境变量中的 LLM API Key 到 user_credentials 表
+        // Initialize LLM API keys from environment variables into user_credentials table
         try {
             initializeLlmCredentialsFromEnv();
         } catch (Exception e) {
@@ -210,7 +210,7 @@ public class DataInitializer implements CommandLineRunner {
      * </p>
      */
     private void initializeLlmCredentialsFromEnv() {
-        // 查找 demo 用户或第一个可用的用户
+        // Find demo user or available user
         Optional<User> targetUser = userRepository.findByUsername(demoUsername);
         if (targetUser.isEmpty()) {
             log.warn("No demo user found, skipping LLM credentials initialization");
@@ -219,7 +219,7 @@ public class DataInitializer implements CommandLineRunner {
 
         Long userId = targetUser.get().getId();
 
-        // 定义要检查的 provider 及其环境变量
+        // Define provider and its environment variables to check
         Map<String, ProviderEnvConfig> providerConfigs = Map.of(
             "openai", new ProviderEnvConfig(
                 System.getenv("OPENAI_API_KEY"),
@@ -316,9 +316,6 @@ public class DataInitializer implements CommandLineRunner {
         }
         return null;
     }
-    /**
-     * Provider 环境变量配置记录
-     */
     /**
      * Provider environment variable configuration holder.
      *
