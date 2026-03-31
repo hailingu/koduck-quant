@@ -1,5 +1,9 @@
 package com.koduck.controller;
 
+import com.koduck.common.constants.ApiStatusCodeConstants;
+import com.koduck.common.constants.ApiMessageConstants;
+import com.koduck.common.constants.MarketConstants;
+import com.koduck.common.constants.PaginationConstants;
 import com.koduck.config.properties.DataServiceProperties;
 import com.koduck.dto.ApiResponse;
 import com.koduck.dto.market.BigOrderAlertDto;
@@ -129,10 +133,10 @@ public class MarketController {
             @RequestParam @NotBlank(message = "关键词不能为空") 
             @Size(max = 50, message = "关键词长度不能超过 50") 
             String keyword,
-            @RequestParam(defaultValue = "1") 
+            @RequestParam(defaultValue = PaginationConstants.DEFAULT_PAGE_ONE_STR) 
             @Min(value = 1, message = "页码最小为 1") 
             Integer page,
-            @RequestParam(defaultValue = "20") 
+            @RequestParam(defaultValue = PaginationConstants.DEFAULT_PAGE_SIZE_STR) 
             @Min(value = 1, message = "每页数量最小为 1") 
             @Max(value = 100, message = "每页数量最大为 100") 
             Integer size) {
@@ -154,7 +158,8 @@ public class MarketController {
         log.info("GET /api/v1/market/stocks/{}", symbol);
         PriceQuoteDto quote = marketService.getStockDetail(symbol);
         if (quote == null) {
-            return ApiResponse.error(404, "股票代码不存在: " + symbol);
+            return ApiResponse.error(ApiStatusCodeConstants.NOT_FOUND,
+                    ApiMessageConstants.STOCK_NOT_FOUND_PREFIX + symbol);
         }
         return ApiResponse.success(quote);
     }
@@ -171,11 +176,12 @@ public class MarketController {
     public ApiResponse<StockStatsDto> getStockStats(
             @PathVariable @NotBlank(message = "股票代码不能为空")
             String symbol,
-            @RequestParam(defaultValue = "AShare") String market) {
+            @RequestParam(defaultValue = MarketConstants.DEFAULT_MARKET) String market) {
         log.info("GET /api/v1/market/stocks/{}/stats?market={}", symbol, market);
         StockStatsDto stats = marketService.getStockStats(symbol, market);
         if (stats == null) {
-            return ApiResponse.error(404, "股票统计信息不存在: " + symbol);
+            return ApiResponse.error(ApiStatusCodeConstants.NOT_FOUND,
+                    ApiMessageConstants.STOCK_STATS_NOT_FOUND_PREFIX + symbol);
         }
         return ApiResponse.success(stats);
     }
@@ -193,7 +199,8 @@ public class MarketController {
         log.info("GET /api/v1/market/stocks/{}/valuation", symbol);
         StockValuationDto valuation = marketService.getStockValuation(symbol);
         if (valuation == null) {
-            return ApiResponse.error(404, "股票估值不存在: " + symbol);
+            return ApiResponse.error(ApiStatusCodeConstants.NOT_FOUND,
+                    ApiMessageConstants.STOCK_VALUATION_NOT_FOUND_PREFIX + symbol);
         }
         return ApiResponse.success(valuation);
     }
@@ -211,7 +218,8 @@ public class MarketController {
         log.info("GET /api/v1/market/stocks/{}/industry", symbol);
         StockIndustryDto industry = marketService.getStockIndustry(symbol);
         if (industry == null) {
-            return ApiResponse.error(404, "股票行业信息不存在: " + symbol);
+            return ApiResponse.error(ApiStatusCodeConstants.NOT_FOUND,
+                    ApiMessageConstants.STOCK_INDUSTRY_NOT_FOUND_PREFIX + symbol);
         }
         return ApiResponse.success(industry);
     }
@@ -247,10 +255,10 @@ public class MarketController {
     @GetMapping("/stocks/{symbol}/kline")
     public ApiResponse<List<KlineDataDto>> getStockKline(
             @PathVariable @NotBlank(message = "股票代码不能为空") String symbol,
-            @RequestParam(defaultValue = "AShare") String market,
+            @RequestParam(defaultValue = MarketConstants.DEFAULT_MARKET) String market,
             @RequestParam(required = false) String period,
             @RequestParam(required = false) String timeframe,
-            @RequestParam(defaultValue = "300") @Min(1) @Max(1000) Integer limit,
+            @RequestParam(defaultValue = PaginationConstants.DEFAULT_KLINE_LIMIT_STR) @Min(1) @Max(1000) Integer limit,
             @RequestParam(required = false) Long beforeTime) {
         String normalizedTimeframe = normalizeTimeframe(period, timeframe);
         log.info("GET /api/v1/market/stocks/{}/kline: market={}, period={}, timeframe={}, normalizedTimeframe={}, limit={}, beforeTime={}",
@@ -284,8 +292,8 @@ public class MarketController {
      */
     @GetMapping("/net-flow/daily")
     public ApiResponse<DailyNetFlowDto> getDailyNetFlow(
-            @RequestParam(defaultValue = "AShare") String market,
-            @RequestParam(defaultValue = "MAIN_FORCE") String flowType,
+            @RequestParam(defaultValue = MarketConstants.DEFAULT_MARKET) String market,
+            @RequestParam(defaultValue = MarketConstants.DEFAULT_FLOW_TYPE) String flowType,
             @RequestParam(required = false)
             @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
             LocalDate tradeDate) {
@@ -295,7 +303,7 @@ public class MarketController {
                 ? marketFlowService.getLatestDailyNetFlow(market, flowType)
                 : marketFlowService.getDailyNetFlow(market, flowType, tradeDate);
         if (result == null) {
-            return ApiResponse.error(404, "未找到市场净流入数据");
+            return ApiResponse.error(ApiStatusCodeConstants.NOT_FOUND, ApiMessageConstants.MARKET_NET_FLOW_NOT_FOUND);
         }
         return ApiResponse.success(result);
     }
@@ -304,8 +312,8 @@ public class MarketController {
      */
     @GetMapping("/net-flow/daily/history")
     public ApiResponse<List<DailyNetFlowDto>> getDailyNetFlowHistory(
-            @RequestParam(defaultValue = "AShare") String market,
-            @RequestParam(defaultValue = "MAIN_FORCE") String flowType,
+            @RequestParam(defaultValue = MarketConstants.DEFAULT_MARKET) String market,
+            @RequestParam(defaultValue = MarketConstants.DEFAULT_FLOW_TYPE) String flowType,
             @RequestParam
             @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
             LocalDate from,
@@ -315,7 +323,7 @@ public class MarketController {
         log.info("GET /api/v1/market/net-flow/daily/history: market={}, flowType={}, from={}, to={}",
                 market, flowType, from, to);
         if (to.isBefore(from)) {
-            return ApiResponse.error(400, "参数错误: to 不能早于 from");
+            return ApiResponse.error(ApiStatusCodeConstants.BAD_REQUEST, ApiMessageConstants.INVALID_DATE_RANGE);
         }
         List<DailyNetFlowDto> result = marketFlowService.getDailyNetFlowHistory(market, flowType, from, to);
         return ApiResponse.success(result);
@@ -326,8 +334,8 @@ public class MarketController {
      */
     @GetMapping("/breadth/daily")
     public ApiResponse<DailyBreadthDto> getDailyBreadth(
-            @RequestParam(defaultValue = "AShare") String market,
-            @RequestParam(defaultValue = "ALL_A") String breadthType,
+            @RequestParam(defaultValue = MarketConstants.DEFAULT_MARKET) String market,
+            @RequestParam(defaultValue = MarketConstants.DEFAULT_BREADTH_TYPE) String breadthType,
             @RequestParam(required = false)
             @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
             LocalDate tradeDate) {
@@ -337,7 +345,7 @@ public class MarketController {
                 ? marketBreadthService.getLatestDailyBreadth(market, breadthType)
                 : marketBreadthService.getDailyBreadth(market, breadthType, tradeDate);
         if (result == null) {
-            return ApiResponse.error(404, "未找到市场涨跌宽度数据");
+            return ApiResponse.error(ApiStatusCodeConstants.NOT_FOUND, ApiMessageConstants.MARKET_BREADTH_NOT_FOUND);
         }
         return ApiResponse.success(result);
     }
@@ -346,8 +354,8 @@ public class MarketController {
      */
     @GetMapping("/breadth/daily/history")
     public ApiResponse<List<DailyBreadthDto>> getDailyBreadthHistory(
-            @RequestParam(defaultValue = "AShare") String market,
-            @RequestParam(defaultValue = "ALL_A") String breadthType,
+            @RequestParam(defaultValue = MarketConstants.DEFAULT_MARKET) String market,
+            @RequestParam(defaultValue = MarketConstants.DEFAULT_BREADTH_TYPE) String breadthType,
             @RequestParam
             @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
             LocalDate from,
@@ -357,7 +365,7 @@ public class MarketController {
         log.info("GET /api/v1/market/breadth/daily/history: market={}, breadthType={}, from={}, to={}",
                 market, breadthType, from, to);
         if (to.isBefore(from)) {
-            return ApiResponse.error(400, "参数错误: to 不能早于 from");
+            return ApiResponse.error(ApiStatusCodeConstants.BAD_REQUEST, ApiMessageConstants.INVALID_DATE_RANGE);
         }
         List<DailyBreadthDto> result = marketBreadthService.getDailyBreadthHistory(market, breadthType, from, to);
         return ApiResponse.success(result);
@@ -369,7 +377,7 @@ public class MarketController {
     public ApiResponse<Map<String, Object>> getFearGreedIndex() {
         log.info("GET /api/v1/market/fear-greed-index");
         if (!dataServiceProperties.isEnabled()) {
-            return ApiResponse.error(503, "数据服务未启用");
+            return ApiResponse.error(ApiStatusCodeConstants.SERVICE_UNAVAILABLE, ApiMessageConstants.DATA_SERVICE_DISABLED);
         }
         try {
             ResponseEntity<DataServiceResponse<Map<String, Object>>> response = dataServiceRestTemplate.exchange(
@@ -379,12 +387,12 @@ public class MarketController {
                     Objects.requireNonNull(DATA_SERVICE_MAP_RESPONSE_TYPE));
             DataServiceResponse<Map<String, Object>> body = response.getBody();
             if (body == null || !body.isSuccess() || body.data() == null) {
-                return ApiResponse.error(502, "获取恐惧贪婪指数失败");
+                return ApiResponse.error(ApiStatusCodeConstants.BAD_GATEWAY, ApiMessageConstants.FEAR_GREED_FETCH_FAILED);
             }
             return ApiResponse.success(body.data());
         } catch (RestClientException e) {
             log.warn("fear_greed_proxy_failed: {}", e.getMessage());
-            return ApiResponse.error(502, "获取恐惧贪婪指数失败");
+            return ApiResponse.error(ApiStatusCodeConstants.BAD_GATEWAY, ApiMessageConstants.FEAR_GREED_FETCH_FAILED);
         }
     }
     /**
@@ -392,9 +400,9 @@ public class MarketController {
      */
     @GetMapping("/sector-net-flow")
     public ApiResponse<SectorNetFlowDto> getSectorNetFlow(
-            @RequestParam(defaultValue = "AShare") String market,
-            @RequestParam(defaultValue = "TODAY") String indicator,
-            @RequestParam(defaultValue = "10") @Min(1) @Max(100) Integer limit,
+            @RequestParam(defaultValue = MarketConstants.DEFAULT_MARKET) String market,
+            @RequestParam(defaultValue = MarketConstants.DEFAULT_INDICATOR) String indicator,
+            @RequestParam(defaultValue = PaginationConstants.DEFAULT_LIST_LIMIT_STR) @Min(1) @Max(100) Integer limit,
             @RequestParam(required = false)
             @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
             LocalDate tradeDate) {
@@ -404,7 +412,7 @@ public class MarketController {
                 ? marketSectorNetFlowService.getLatest(market, indicator, limit)
                 : marketSectorNetFlowService.getByTradeDate(market, indicator, tradeDate, limit);
         if (result == null) {
-            return ApiResponse.error(404, "未找到板块净流向数据");
+            return ApiResponse.error(ApiStatusCodeConstants.NOT_FOUND, ApiMessageConstants.SECTOR_NET_FLOW_NOT_FOUND);
         }
         return ApiResponse.success(result);
     }
@@ -415,10 +423,10 @@ public class MarketController {
      */
     @GetMapping("/capital-river")
     public ApiResponse<CapitalRiverDto> getCapitalRiver(
-            @RequestParam(defaultValue = "AShare") String market,
-            @RequestParam(defaultValue = "TODAY") String indicator,
-            @RequestParam(defaultValue = "3") @Min(1) @Max(10) Integer bubbleCount,
-            @RequestParam(defaultValue = "10") @Min(1) @Max(100) Integer listLimit,
+            @RequestParam(defaultValue = MarketConstants.DEFAULT_MARKET) String market,
+            @RequestParam(defaultValue = MarketConstants.DEFAULT_INDICATOR) String indicator,
+            @RequestParam(defaultValue = PaginationConstants.DEFAULT_BUBBLE_COUNT_STR) @Min(1) @Max(10) Integer bubbleCount,
+            @RequestParam(defaultValue = PaginationConstants.DEFAULT_LIST_LIMIT_STR) @Min(1) @Max(100) Integer listLimit,
             @RequestParam(required = false)
             @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
             LocalDate tradeDate) {
@@ -428,7 +436,7 @@ public class MarketController {
                 ? marketSectorNetFlowService.getLatest(market, indicator, listLimit)
                 : marketSectorNetFlowService.getByTradeDate(market, indicator, tradeDate, listLimit);
         if (snapshot == null) {
-            return ApiResponse.error(404, "未找到资金河流图数据");
+            return ApiResponse.error(ApiStatusCodeConstants.NOT_FOUND, ApiMessageConstants.CAPITAL_RIVER_NOT_FOUND);
         }
         List<CapitalRiverTrackItemDto> industry = toTrackItems(snapshot.industry());
         List<CapitalRiverTrackItemDto> concept = toTrackItems(snapshot.concept());
@@ -469,7 +477,7 @@ public class MarketController {
     public ApiResponse<Map<String, Object>> getMarketBreadth() {
         log.info("GET /api/v1/market/breadth");
         if (!dataServiceProperties.isEnabled()) {
-            return ApiResponse.error(503, "数据服务未启用");
+            return ApiResponse.error(ApiStatusCodeConstants.SERVICE_UNAVAILABLE, ApiMessageConstants.DATA_SERVICE_DISABLED);
         }
         try {
             ResponseEntity<DataServiceResponse<Map<String, Object>>> response = dataServiceRestTemplate.exchange(
@@ -479,12 +487,12 @@ public class MarketController {
                     Objects.requireNonNull(DATA_SERVICE_MAP_RESPONSE_TYPE));
             DataServiceResponse<Map<String, Object>> body = response.getBody();
             if (body == null || !body.isSuccess() || body.data() == null) {
-                return ApiResponse.error(502, "获取市场宽度失败");
+                return ApiResponse.error(ApiStatusCodeConstants.BAD_GATEWAY, ApiMessageConstants.BREADTH_FETCH_FAILED);
             }
             return ApiResponse.success(body.data());
         } catch (RestClientException e) {
             log.warn("breadth_proxy_failed: {}", e.getMessage());
-            return ApiResponse.error(502, "获取市场宽度失败");
+            return ApiResponse.error(ApiStatusCodeConstants.BAD_GATEWAY, ApiMessageConstants.BREADTH_FETCH_FAILED);
         }
     }
     /**
@@ -492,7 +500,7 @@ public class MarketController {
      */
     @GetMapping("/big-orders")
     public ApiResponse<List<BigOrderAlertDto>> getBigOrders(
-            @RequestParam(defaultValue = "10") @Min(1) @Max(50) Integer limit,
+            @RequestParam(defaultValue = PaginationConstants.DEFAULT_LIST_LIMIT_STR) @Min(1) @Max(50) Integer limit,
             @RequestParam(name = "order_type", required = false) String orderType,
             @RequestParam(name = "min_amount", defaultValue = "500000") @Min(0) Double minAmount) {
         log.info("GET /api/v1/market/big-orders: limit={}, orderType={}, minAmount={}", limit, orderType, minAmount);
@@ -565,8 +573,8 @@ public class MarketController {
      */
     @GetMapping("/hot")
     public ApiResponse<List<SymbolInfoDto>> getHotStocks(
-            @RequestParam(defaultValue = "AShare") String market,
-            @RequestParam(defaultValue = "20") 
+            @RequestParam(defaultValue = MarketConstants.DEFAULT_MARKET) String market,
+            @RequestParam(defaultValue = PaginationConstants.DEFAULT_PAGE_SIZE_STR) 
             @Min(value = 1, message = "每页数量最小为 1") 
             @Max(value = 100, message = "每页数量最大为 100") 
             Integer limit) {
@@ -583,7 +591,7 @@ public class MarketController {
      */
     @GetMapping("/sectors/network")
     public ApiResponse<SectorNetworkDto> getSectorNetwork(
-            @RequestParam(defaultValue = "AShare") String market) {
+            @RequestParam(defaultValue = MarketConstants.DEFAULT_MARKET) String market) {
         log.info("GET /api/v1/market/sectors/network?market={}", market);
         SectorNetworkDto network = marketService.getSectorNetwork(market);
         return ApiResponse.success(network);
@@ -613,7 +621,7 @@ public class MarketController {
     public ApiResponse<List<TickDto>> getTickData(
             @RequestParam String market,
             @RequestParam String symbol,
-            @RequestParam(defaultValue = "50") @Min(1) @Max(500) Integer limit) {
+            @RequestParam(defaultValue = PaginationConstants.DEFAULT_TICK_LIMIT_STR) @Min(1) @Max(500) Integer limit) {
         log.info("GET /api/v1/market/ticks: market={}, symbol={}, limit={}", market, symbol, limit);
         syntheticTickService.trackSymbol(symbol);
         // Only fetch from stock_tick_history, no fallback to kline data
@@ -773,12 +781,12 @@ public class MarketController {
             return timeframe;
         }
         if (period == null || period.isBlank()) {
-            return "1D";
+            return MarketConstants.DEFAULT_TIMEFRAME;
         }
         return switch (period.toLowerCase(Locale.ROOT)) {
-            case "daily", "day", "1d" -> "1D";
-            case "weekly", "week", "1w" -> "1W";
-            case "monthly", "month", "1mth", "1mo", "1m" -> "1M";
+            case "daily", "day", "1d" -> MarketConstants.DEFAULT_TIMEFRAME;
+            case "weekly", "week", "1w" -> MarketConstants.WEEKLY_TIMEFRAME;
+            case "monthly", "month", "1mth", "1mo", "1m" -> MarketConstants.MONTHLY_TIMEFRAME;
             default -> period;
         };
     }

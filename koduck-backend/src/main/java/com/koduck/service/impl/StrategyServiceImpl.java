@@ -1,5 +1,6 @@
 package com.koduck.service.impl;
 
+import com.koduck.common.constants.MarketConstants;
 import com.koduck.dto.strategy.CreateStrategyRequest;
 import com.koduck.dto.strategy.StrategyDto;
 import com.koduck.dto.strategy.StrategyParameterDto;
@@ -36,6 +37,10 @@ import static com.koduck.util.ServiceValidationUtils.requireFound;
 @RequiredArgsConstructor
 public class StrategyServiceImpl implements StrategyService {
 
+    private static final String DEFAULT_TEMPLATE_SYMBOL = "000001";
+    private static final String TEMPLATE_SYMBOL_PLACEHOLDER = "__DEFAULT_SYMBOL__";
+    private static final String TEMPLATE_MARKET_PLACEHOLDER = "__DEFAULT_MARKET__";
+
     private final StrategyRepository strategyRepository;
 
     private final StrategyVersionRepository versionRepository;
@@ -46,13 +51,16 @@ public class StrategyServiceImpl implements StrategyService {
 
     private final StrategyAccessSupport strategyAccessSupport;
 
-    private static final String DEFAULT_CODE_TEMPLATE = """
+    private static final String DEFAULT_CODE_TEMPLATE = buildDefaultCodeTemplate();
+
+    private static String buildDefaultCodeTemplate() {
+        return """
 #
 # Python
 def initialize(context):
     # Set the default symbol and market.
-    context.symbol = "000001"
-    context.market = "AShare"
+    context.symbol = "__DEFAULT_SYMBOL__"
+    context.market = "__DEFAULT_MARKET__"
 def handle_data(context, data):
     # Read the current price.
     current_price = data.get_price(context.symbol)
@@ -67,7 +75,10 @@ def handle_data(context, data):
     elif ma20 < ma60 and position > 0:
         # Sell when the trend weakens.
         context.order_sell(context.symbol, position)
-""";
+"""
+            .replace(TEMPLATE_SYMBOL_PLACEHOLDER, DEFAULT_TEMPLATE_SYMBOL)
+            .replace(TEMPLATE_MARKET_PLACEHOLDER, MarketConstants.DEFAULT_MARKET);
+    }
     @Override
     public List<StrategyDto> getStrategies(Long userId) {
         log.debug("Getting strategies for user: {}", userId);
