@@ -97,6 +97,10 @@ public class DataInitializer implements CommandLineRunner {
     }
     /**
      * Callback executed during application startup.
+     * <p>
+     * When demo mode is enabled, attempts to create the demo user and initialize
+     * LLM credentials from environment variables.
+     * </p>
      *
      * @param args command-line arguments (ignored)
      */
@@ -157,6 +161,11 @@ public class DataInitializer implements CommandLineRunner {
             log.warn("Demo user may already exist (concurrent creation): {}", e.getMessage());
         }
     }
+    /**
+     * Retrieves the "USER" role, creating it if missing.
+     *
+     * @return the user role entity
+     */
     private Role getOrCreateUserRole() {
         Optional<Role> existingRole = roleRepository.findByName(ROLE_USER);
         if (existingRole.isPresent()) {
@@ -194,19 +203,11 @@ public class DataInitializer implements CommandLineRunner {
     }
 
     /**
-     * 将环境变量中的 LLM API Key 初始化到 user_credentials 表
+     * Initializes LLM provider credentials from environment variables.
      * <p>
-     * 支持的环境变量:
-     * - OPENAI_API_KEY / GPT_API_KEY
-     * - MINIMAX_API_KEY
-     * - DEEPSEEK_API_KEY
-     * - LLM_API_KEY (通用 fallback)
-     * <p>
-     * 对应的 API Base 环境变量:
-     * - OPENAI_API_BASE
-     * - MINIMAX_API_BASE
-     * - DEEPSEEK_API_BASE
-     * - LLM_API_BASE
+     * Supports per-provider and fallback keys/base URLs. For each provider,
+     * checks if an existing credential exists for demo user before creating.
+     * </p>
      */
     private void initializeLlmCredentialsFromEnv() {
         // 查找 demo 用户或第一个可用的用户
@@ -317,6 +318,14 @@ public class DataInitializer implements CommandLineRunner {
     }
     /**
      * Provider 环境变量配置记录
+     */
+    /**
+     * Provider environment variable configuration holder.
+     *
+     * @param specificKey provider-specific API key from environment
+     * @param fallbackKey fallback API key from environment
+     * @param apiBase resolved API base URL from environment
+     * @param defaultBase default API base URL for provider
      */
     private record ProviderEnvConfig(
         String specificKey,
