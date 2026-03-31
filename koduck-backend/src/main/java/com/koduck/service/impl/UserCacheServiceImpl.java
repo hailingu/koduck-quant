@@ -1,6 +1,6 @@
 package com.koduck.service.impl;
 
-import com.koduck.config.RedisKeyConstants;
+import com.koduck.common.constants.RedisKeyConstants;
 import com.koduck.service.UserCacheService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.RedisTemplate;

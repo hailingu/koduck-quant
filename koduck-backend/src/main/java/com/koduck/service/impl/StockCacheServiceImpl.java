@@ -1,6 +1,6 @@
 package com.koduck.service.impl;
 
-import com.koduck.config.RedisKeyConstants;
+import com.koduck.common.constants.RedisKeyConstants;
 import com.koduck.dto.market.PriceQuoteDto;
 import com.koduck.service.StockCacheService;
 import lombok.extern.slf4j.Slf4j;

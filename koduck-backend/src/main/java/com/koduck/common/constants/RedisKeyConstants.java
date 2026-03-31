@@ -1,4 +1,4 @@
-package com.koduck.config;
+package com.koduck.common.constants;
 
 import org.springframework.lang.NonNull;
 
@@ -21,6 +21,11 @@ public final class RedisKeyConstants {
      * TTL: 10 seconds
      */
     public static final String STOCK_TRACK_PREFIX = "stock:track:";
+
+    /**
+     * TTL for stock tracking real-time data: 10 seconds
+     */
+    public static final long TTL_STOCK_TRACK = 10;
 
     /**
      * Stock watch 1-minute K-line (Sorted Set)
@@ -79,11 +84,6 @@ public final class RedisKeyConstants {
      * TTL: Permanent (session-level)
      */
     public static final String USER_WATCH_PREFIX = "user:watch:";
-
-    /**
-     * TTL for tracking () real-time data: 10 seconds
-     */
-    public static final long TTL_STOCK_TRACK = 10;
 
     /**
      * TTL for watch K-line data: 1 hour
