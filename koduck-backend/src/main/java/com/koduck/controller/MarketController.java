@@ -26,6 +26,7 @@ import com.koduck.dto.market.StockIndustryDto;
 import com.koduck.dto.market.StockStatsDto;
 import com.koduck.dto.market.StockValuationDto;
 import com.koduck.dto.market.SymbolInfoDto;
+import com.koduck.dto.market.TickDto;
 import com.koduck.service.KlineSyncService;
 import com.koduck.service.KlineService;
 import com.koduck.service.MarketBreadthService;
@@ -685,19 +686,6 @@ public class MarketController {
         syntheticTickService.trackSymbol(symbol);
         return tickStreamService.subscribe(symbol);
     }
-
-    /**
-     * Tick event payload for tick history and stream APIs.
-     */
-    public record TickDto(
-        String time,
-        double price,
-        int size,
-        double amount,
-        String type,
-        String flag,
-        Long epochMillis
-    ) {}
 
     /**
      * Tick summary payload aggregated from recent ticks.

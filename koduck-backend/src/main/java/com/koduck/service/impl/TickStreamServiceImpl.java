@@ -1,6 +1,6 @@
 package com.koduck.service.impl;
 
-import com.koduck.controller.MarketController;
+import com.koduck.dto.market.TickDto;
 import com.koduck.service.TickStreamService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -40,7 +40,7 @@ public class TickStreamServiceImpl implements TickStreamService {
     }
 
     @Override
-    public void publishTick(String symbol, MarketController.TickDto tick) {
+    public void publishTick(String symbol, TickDto tick) {
         List<SseEmitter> emitters = emittersBySymbol.get(symbol);
         if (emitters == null || emitters.isEmpty()) {
             return;

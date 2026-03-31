@@ -6,6 +6,7 @@ import com.koduck.repository.CredentialRepository;
 import com.koduck.repository.RoleRepository;
 import com.koduck.repository.UserRepository;
 import com.koduck.repository.UserRoleRepository;
+import com.koduck.service.support.UserRolesTableChecker;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -14,7 +15,6 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.lang.NonNull;
 import org.springframework.dao.DataIntegrityViolationException;
-import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import com.koduck.util.CredentialEncryptionUtil;
 
@@ -56,10 +56,10 @@ class DataInitializerTest {
     private PasswordEncoder passwordEncoder;
 
     @Mock
-    private JdbcTemplate jdbcTemplate;
+    private CredentialEncryptionUtil credentialEncryptionUtil;
 
     @Mock
-    private CredentialEncryptionUtil credentialEncryptionUtil;
+    private UserRolesTableChecker userRolesTableChecker;
 
     private DataInitializer dataInitializer;
 
@@ -71,8 +71,8 @@ class DataInitializerTest {
                 userRoleRepository,
                 credentialRepository,
                 passwordEncoder,
-                jdbcTemplate,
-                credentialEncryptionUtil
+                credentialEncryptionUtil,
+                userRolesTableChecker
         );
     }
 

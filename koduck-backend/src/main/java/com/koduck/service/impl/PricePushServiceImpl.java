@@ -1,6 +1,6 @@
 package com.koduck.service.impl;
 
-import com.koduck.controller.MarketController;
+import com.koduck.dto.market.TickDto;
 import com.koduck.entity.StockRealtime;
 import com.koduck.repository.StockRealtimeRepository;
 import com.koduck.service.PricePushService;
@@ -12,10 +12,10 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
-import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Pushes subscribed stock price updates to websocket subscribers.
@@ -32,18 +32,10 @@ public class PricePushServiceImpl implements PricePushService {
     private final SyntheticTickService syntheticTickService;
     private final TickStreamService tickStreamService;
 
-    /**
-     * ：symbol -> last price
-     */
     private final ConcurrentHashMap<String, Double> lastPrices = new ConcurrentHashMap<>();
-    /**
-     * ：symbol -> timestamp
-     */
     private final ConcurrentHashMap<String, Long> lastPushTime = new ConcurrentHashMap<>();
-    /**
-     * （）， 5 
-     */
-    private static final long PUSH_INTERVAL_MS = 5000;
+
+    private static final long PUSH_INTERVAL_MS = 5000L;
 
     public PricePushServiceImpl(StockSubscriptionService stockSubscriptionService,
                                 StockRealtimeRepository stockRealtimeRepository,
@@ -55,79 +47,111 @@ public class PricePushServiceImpl implements PricePushService {
         this.tickStreamService = tickStreamService;
     }
 
-    /**
-     * 
-     *  3 
-     */
     @Override
     @Scheduled(fixedRate = 3000)
     public void checkAndPushPriceUpdates() {
         try {
-            // 
-            Set<String> symbolsToProcess = new HashSet<>(stockSubscriptionService.getAllSubscribedSymbols());
-            symbolsToProcess.addAll(syntheticTickService.snapshotTrackedSymbols());
+            Set<String> symbolsToProcess = collectSymbolsToProcess();
             if (symbolsToProcess.isEmpty()) {
                 return;
             }
-            // 
-            List<StockRealtime> realtimeList = stockRealtimeRepository.findBySymbolIn(new ArrayList<>(symbolsToProcess));
-            long now = System.currentTimeMillis();
-            for (StockRealtime realtime : realtimeList) {
-                String symbol = realtime.getSymbol();
-                Double currentPrice = realtime.getPrice() != null ? realtime.getPrice().doubleValue() : null;
-                Double lastPrice = currentPrice != null ? lastPrices.put(symbol, currentPrice) : lastPrices.get(symbol);
-                boolean shouldPush = shouldPushAndMark(symbol, now);
-                MarketController.TickDto syntheticTick = null;
-                if (shouldPush) {
-                    syntheticTick = syntheticTickService.appendSyntheticTickFromRealtime(realtime);
-                    if (syntheticTick != null) {
-                        tickStreamService.publishTick(symbol, syntheticTick);
-                    }
-                }
-                // Push initial snapshot immediately for new subscriptions.
-                if (lastPrice == null) {
-                    if (currentPrice != null && shouldPush) {
-                        StockSubscriptionService.PriceUpdate initialUpdate = StockSubscriptionService.PriceUpdate.builder()
-                                .symbol(realtime.getSymbol())
-                                .name(realtime.getName())
-                                .price(currentPrice)
-                                .change(realtime.getChangeAmount() != null ? realtime.getChangeAmount().doubleValue() : null)
-                                .changePercent(realtime.getChangePercent() != null ? realtime.getChangePercent().doubleValue() : null)
-                                .volume(realtime.getVolume())
-                                .build();
-                        stockSubscriptionService.onPriceUpdate(initialUpdate);
-                    }
-                    if (currentPrice != null) {
-                        lastPrices.put(symbol, currentPrice);
-                    }
-                    continue;
-                }
-                // 
-                boolean priceChanged = !Objects.equals(currentPrice, lastPrice);
-                if ((priceChanged || syntheticTick != null) && shouldPush) {
-                    // 
-                    StockSubscriptionService.PriceUpdate priceUpdate = StockSubscriptionService.PriceUpdate.builder()
-                            .symbol(realtime.getSymbol())
-                            .name(realtime.getName())
-                            .price(currentPrice)
-                            .change(realtime.getChangeAmount() != null ? realtime.getChangeAmount().doubleValue() : null)
-                            .changePercent(realtime.getChangePercent() != null ? realtime.getChangePercent().doubleValue() : null)
-                            .volume(realtime.getVolume())
-                            .build();
-                    stockSubscriptionService.onPriceUpdate(priceUpdate);
-                }
-            }
+            processRealtimeSnapshots(symbolsToProcess, System.currentTimeMillis());
         } catch (RuntimeException e) {
-            log.error(": {}", e.getMessage(), e);
+            log.error("Failed to push price updates: {}", e.getMessage(), e);
         }
     }
-    /**
-     * 
-     *
-     * @param symbol 
-     * @param now   
-     * @return 
-     */
+
+    private Set<String> collectSymbolsToProcess() {
+        Set<String> symbolsToProcess = new HashSet<>(stockSubscriptionService.getAllSubscribedSymbols());
+        symbolsToProcess.addAll(syntheticTickService.snapshotTrackedSymbols());
+        return symbolsToProcess;
+    }
+
+    private void processRealtimeSnapshots(Set<String> symbolsToProcess, long now) {
+        List<StockRealtime> realtimeList = stockRealtimeRepository.findBySymbolIn(new ArrayList<>(symbolsToProcess));
+        for (StockRealtime realtime : realtimeList) {
+            processSingleRealtime(realtime, now);
+        }
+    }
+
+    private void processSingleRealtime(StockRealtime realtime, long now) {
+        String symbol = realtime.getSymbol();
+        Double currentPrice = extractCurrentPrice(realtime);
+        Double lastPrice = getAndUpdateLastPrice(symbol, currentPrice);
+        boolean shouldPush = shouldPushAndMark(symbol, now);
+        TickDto syntheticTick = appendAndPublishSyntheticTick(realtime, symbol, shouldPush);
+
+        if (handleInitialSnapshotIfNeeded(realtime, symbol, currentPrice, lastPrice, shouldPush)) {
+            return;
+        }
+
+        if (shouldPushRegularUpdate(currentPrice, lastPrice, syntheticTick, shouldPush)) {
+            stockSubscriptionService.onPriceUpdate(buildPriceUpdate(realtime, currentPrice));
+        }
+    }
+
+    private Double extractCurrentPrice(StockRealtime realtime) {
+        return realtime.getPrice() != null ? realtime.getPrice().doubleValue() : null;
+    }
+
+    private Double getAndUpdateLastPrice(String symbol, Double currentPrice) {
+        if (currentPrice != null) {
+            return lastPrices.put(symbol, currentPrice);
+        }
+        return lastPrices.get(symbol);
+    }
+
+    private TickDto appendAndPublishSyntheticTick(StockRealtime realtime, String symbol, boolean shouldPush) {
+        if (!shouldPush) {
+            return null;
+        }
+        TickDto syntheticTick = syntheticTickService.appendSyntheticTickFromRealtime(realtime);
+        if (syntheticTick != null) {
+            tickStreamService.publishTick(symbol, syntheticTick);
+        }
+        return syntheticTick;
+    }
+
+    private boolean handleInitialSnapshotIfNeeded(StockRealtime realtime,
+                                                  String symbol,
+                                                  Double currentPrice,
+                                                  Double lastPrice,
+                                                  boolean shouldPush) {
+        if (lastPrice != null) {
+            return false;
+        }
+
+        if (currentPrice != null && shouldPush) {
+            stockSubscriptionService.onPriceUpdate(buildPriceUpdate(realtime, currentPrice));
+        }
+        if (currentPrice != null) {
+            lastPrices.put(symbol, currentPrice);
+        }
+        return true;
+    }
+
+    private boolean shouldPushRegularUpdate(Double currentPrice,
+                                            Double lastPrice,
+                                            TickDto syntheticTick,
+                                            boolean shouldPush) {
+        if (!shouldPush) {
+            return false;
+        }
+        boolean priceChanged = !Objects.equals(currentPrice, lastPrice);
+        return priceChanged || syntheticTick != null;
+    }
+
+    private StockSubscriptionService.PriceUpdate buildPriceUpdate(StockRealtime realtime, Double currentPrice) {
+        return StockSubscriptionService.PriceUpdate.builder()
+                .symbol(realtime.getSymbol())
+                .name(realtime.getName())
+                .price(currentPrice)
+                .change(realtime.getChangeAmount() != null ? realtime.getChangeAmount().doubleValue() : null)
+                .changePercent(realtime.getChangePercent() != null ? realtime.getChangePercent().doubleValue() : null)
+                .volume(realtime.getVolume())
+                .build();
+    }
+
     private boolean shouldPushAndMark(String symbol, long now) {
         final boolean[] shouldPushHolder = {false};
         lastPushTime.compute(symbol, (key, lastPush) -> {
@@ -139,20 +163,14 @@ public class PricePushServiceImpl implements PricePushService {
         });
         return shouldPushHolder[0];
     }
-    /**
-     * （）
-     */
+
     @Override
     public void clearCache() {
         lastPrices.clear();
         lastPushTime.clear();
-        log.info("");
+        log.info("Price push caches cleared");
     }
-    /**
-     * 
-     *
-     * @return 
-     */
+
     @Override
     public int getCachedPriceCount() {
         return lastPrices.size();

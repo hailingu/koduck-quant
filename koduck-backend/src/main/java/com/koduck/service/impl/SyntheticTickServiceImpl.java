@@ -1,6 +1,6 @@
 package com.koduck.service.impl;
 
-import com.koduck.controller.MarketController;
+import com.koduck.dto.market.TickDto;
 import com.koduck.entity.StockRealtime;
 import com.koduck.entity.StockTickHistory;
 import com.koduck.repository.StockTickHistoryRepository;
@@ -53,7 +53,7 @@ public class SyntheticTickServiceImpl implements SyntheticTickService {
     }
 
     @Override
-    public MarketController.TickDto appendSyntheticTickFromRealtime(StockRealtime realtime) {
+    public TickDto appendSyntheticTickFromRealtime(StockRealtime realtime) {
         if (!isRealtimeValid(realtime)) {
             return null;
         }
@@ -97,9 +97,9 @@ public class SyntheticTickServiceImpl implements SyntheticTickService {
         lastPrice.put(symbol, realtime.getPrice());
     }
 
-    private MarketController.TickDto createOrMergeTick(String symbol,
-                                                       StockRealtime realtime,
-                                                       long deltaVolume) {
+    private TickDto createOrMergeTick(String symbol,
+                                      StockRealtime realtime,
+                                      long deltaVolume) {
         BigDecimal deltaAmount = computeDeltaAmount(symbol, realtime.getAmount(), deltaVolume, realtime.getPrice());
         LocalDateTime tickTime = LocalDateTime.now(MARKET_ZONE);
         BigDecimal currentPrice = realtime.getPrice();
@@ -121,12 +121,12 @@ public class SyntheticTickServiceImpl implements SyntheticTickService {
         return lastTicks.get(0);
     }
 
-    private MarketController.TickDto mergeWithLastTick(StockTickHistory lastTick,
-                                                       String symbol,
-                                                       BigDecimal currentPrice,
-                                                       long deltaVolume,
-                                                       BigDecimal deltaAmount,
-                                                       LocalDateTime tickTime) {
+    private TickDto mergeWithLastTick(StockTickHistory lastTick,
+                                      String symbol,
+                                      BigDecimal currentPrice,
+                                      long deltaVolume,
+                                      BigDecimal deltaAmount,
+                                      LocalDateTime tickTime) {
         lastTick.setTickTime(tickTime);
         lastTick.setVolume(lastTick.getVolume() + deltaVolume);
         lastTick.setAmount(lastTick.getAmount().add(deltaAmount));
@@ -137,11 +137,11 @@ public class SyntheticTickServiceImpl implements SyntheticTickService {
         return toTickDto(tickTime, saved.getPrice(), saved.getVolume(), saved.getAmount(), isBuy, flag);
     }
 
-    private MarketController.TickDto createNewTick(String symbol,
-                                                   BigDecimal currentPrice,
-                                                   long deltaVolume,
-                                                   BigDecimal deltaAmount,
-                                                   LocalDateTime tickTime) {
+    private TickDto createNewTick(String symbol,
+                                  BigDecimal currentPrice,
+                                  long deltaVolume,
+                                  BigDecimal deltaAmount,
+                                  LocalDateTime tickTime) {
         StockTickHistory newTick = StockTickHistory.builder()
                 .symbol(symbol)
                 .tickTime(tickTime)
@@ -158,13 +158,13 @@ public class SyntheticTickServiceImpl implements SyntheticTickService {
         return toTickDto(tickTime, saved.getPrice(), deltaVolume, saved.getAmount(), isBuy, flag);
     }
 
-    private MarketController.TickDto toTickDto(LocalDateTime tickTime,
-                                               BigDecimal price,
-                                               long volume,
-                                               BigDecimal amount,
-                                               boolean isBuy,
-                                               String flag) {
-        return new MarketController.TickDto(
+    private TickDto toTickDto(LocalDateTime tickTime,
+                              BigDecimal price,
+                              long volume,
+                              BigDecimal amount,
+                              boolean isBuy,
+                              String flag) {
+        return new TickDto(
                 tickTime.format(TIME_FORMATTER),
                 price.doubleValue(),
                 safeLongToInt(volume),
@@ -176,7 +176,7 @@ public class SyntheticTickServiceImpl implements SyntheticTickService {
     }
 
     @Override
-    public List<MarketController.TickDto> getLatestTicks(String symbol, int limit) {
+    public List<TickDto> getLatestTicks(String symbol, int limit) {
         // Try different symbol formats to handle leading zeros inconsistency
         List<String> symbolVariants = buildSymbolVariants(symbol);
         for (String variant : symbolVariants) {
@@ -220,10 +220,10 @@ public class SyntheticTickServiceImpl implements SyntheticTickService {
         return variants;
     }
 
-    private MarketController.TickDto toTickDto(StockTickHistory row) {
+    private TickDto toTickDto(StockTickHistory row) {
         BigDecimal amount = row.getAmount() == null ? BigDecimal.ZERO : row.getAmount();
         String flag = resolveFlag(row.getVolume());
-        return new MarketController.TickDto(
+        return new TickDto(
                 row.getTickTime().format(TIME_FORMATTER),
                 row.getPrice().doubleValue(),
                 safeNullableLongToInt(row.getVolume()),

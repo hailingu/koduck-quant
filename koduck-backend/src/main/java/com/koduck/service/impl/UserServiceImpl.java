@@ -17,6 +17,7 @@ import com.koduck.repository.RoleRepository;
 import com.koduck.repository.UserRepository;
 import com.koduck.repository.UserRoleRepository;
 import com.koduck.service.UserService;
+import com.koduck.service.support.DefaultUserRoleResolver;
 import java.util.List;
 import java.util.Objects;
 import lombok.RequiredArgsConstructor;
@@ -55,7 +56,7 @@ public class UserServiceImpl implements UserService {
 
     private final PasswordEncoder passwordEncoder;
 
-    private static final int DEFAULT_ROLE_ID = 2; // USER
+    private final DefaultUserRoleResolver defaultUserRoleResolver;
     /**
      * {@inheritDoc}
      */
@@ -166,7 +167,7 @@ public class UserServiceImpl implements UserService {
             }
         } else {
             // 分配默认角色
-            userRoleRepository.insertUserRole(user.getId(), DEFAULT_ROLE_ID);
+            userRoleRepository.insertUserRole(user.getId(), defaultUserRoleResolver.resolveRoleId());
         }
         return convertToDetailResponse(user);
     }

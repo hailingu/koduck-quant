@@ -6,8 +6,11 @@ import com.koduck.dto.auth.ResetPasswordRequest;
 import com.koduck.entity.PasswordResetToken;
 import com.koduck.entity.User;
 import com.koduck.exception.BusinessException;
+import com.koduck.exception.ErrorCode;
 import com.koduck.repository.*;
 import com.koduck.service.impl.AuthServiceImpl;
+import com.koduck.service.support.DefaultUserRoleResolver;
+import com.koduck.service.support.UserRolesTableChecker;
 import com.koduck.util.JwtUtil;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -15,7 +18,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
 import java.time.LocalDateTime;
@@ -65,7 +67,10 @@ class AuthServicePasswordResetTest {
     private MailProperties mailProperties;
 
     @Mock
-    private JdbcTemplate jdbcTemplate;
+    private UserRolesTableChecker userRolesTableChecker;
+
+    @Mock
+    private DefaultUserRoleResolver defaultUserRoleResolver;
 
     private AuthServiceImpl authService;
 
@@ -87,7 +92,8 @@ class AuthServicePasswordResetTest {
                 emailService,
                 rateLimiterService,
                 mailProperties,
-                jdbcTemplate
+                userRolesTableChecker,
+                defaultUserRoleResolver
         );
     }
 
@@ -266,7 +272,7 @@ class AuthServicePasswordResetTest {
         // When & Then
         assertThatThrownBy(() -> authService.resetPassword(request))
                 .isInstanceOf(BusinessException.class)
-                .hasMessage("无效或已过期的重置令牌");
+                .hasMessage(ErrorCode.AUTH_TOKEN_INVALID.getDefaultMessage());
     }
 
     @Test

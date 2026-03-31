@@ -1,5 +1,6 @@
 package com.koduck.config;
 
+import com.koduck.common.constants.RoleConstants;
 import com.koduck.entity.Role;
 import com.koduck.entity.User;
 import com.koduck.entity.UserCredential;
@@ -7,6 +8,7 @@ import com.koduck.repository.CredentialRepository;
 import com.koduck.repository.RoleRepository;
 import com.koduck.repository.UserRepository;
 import com.koduck.repository.UserRoleRepository;
+import com.koduck.service.support.UserRolesTableChecker;
 import com.koduck.util.CredentialEncryptionUtil;
 import jakarta.annotation.PostConstruct;
 import java.util.Locale;
@@ -18,7 +20,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.dao.DataIntegrityViolationException;
-import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
@@ -41,11 +42,6 @@ import com.koduck.util.ReservedUsernameValidator;
 @RequiredArgsConstructor
 public class DataInitializer implements CommandLineRunner {
     /**
-     * Role name assigned to regular users.  Used when creating demo account.
-     */
-    private static final String ROLE_USER = "USER";
-    private static final String ROLE_USER_DESCRIPTION = "Default role for regular users";
-    /**
      * Default email address for the demo account.
      */
     private static final String DEMO_EMAIL = "demo@koduck.local";
@@ -54,8 +50,6 @@ public class DataInitializer implements CommandLineRunner {
      */
     private static final String DEMO_NICKNAME = "Demo User";
 
-    private static final String USER_ROLES_TABLE_EXISTS_SQL =
-            "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'user_roles'";
     private static final String ENV_LLM_API_BASE = "LLM_API_BASE";
 
     private final UserRepository userRepository;
@@ -63,8 +57,8 @@ public class DataInitializer implements CommandLineRunner {
     private final UserRoleRepository userRoleRepository;
     private final CredentialRepository credentialRepository;
     private final PasswordEncoder passwordEncoder;
-    private final JdbcTemplate jdbcTemplate;
     private final CredentialEncryptionUtil credentialEncryptionUtil;
+    private final UserRolesTableChecker userRolesTableChecker;
 
     @Value("${app.demo.enabled:false}")
     private boolean demoEnabled;
@@ -151,7 +145,7 @@ public class DataInitializer implements CommandLineRunner {
             demoUser = userRepository.save(demoUser);
             log.info("Created demo user: {} with id={}", demoUsername, demoUser.getId());
             // assign USER role when join table exists
-            if (hasUserRolesTable()) {
+            if (userRolesTableChecker.hasUserRolesTable()) {
                 userRoleRepository.insertUserRole(demoUser.getId(), userRole.getId());
             } else {
                 log.warn("Table 'user_roles' not found, skipping demo role mapping");
@@ -167,39 +161,26 @@ public class DataInitializer implements CommandLineRunner {
      * @return the user role entity
      */
     private Role getOrCreateUserRole() {
-        Optional<Role> existingRole = roleRepository.findByName(ROLE_USER);
+        Optional<Role> existingRole = roleRepository.findByName(RoleConstants.DEFAULT_USER_ROLE_NAME);
         if (existingRole.isPresent()) {
             return existingRole.get();
         }
         try {
             Role created = Objects.requireNonNull(
                 Role.builder()
-                    .name(ROLE_USER)
-                    .description(ROLE_USER_DESCRIPTION)
+                    .name(RoleConstants.DEFAULT_USER_ROLE_NAME)
+                    .description(RoleConstants.DEFAULT_USER_ROLE_DESCRIPTION)
                     .build(),
                 "Role entity must not be null"
             );
             roleRepository.save(created);
-            log.info("Created missing role: {}", ROLE_USER);
+            log.info("Created missing role: {}", RoleConstants.DEFAULT_USER_ROLE_NAME);
             return created;
         } catch (DataIntegrityViolationException e) {
             // concurrent startup: another instance may have created it
-            return roleRepository.findByName(ROLE_USER)
+            return roleRepository.findByName(RoleConstants.DEFAULT_USER_ROLE_NAME)
                 .orElseThrow(() -> e);
         }
-    }
-
-    /**
-     * Checks whether {@code user_roles} join table exists in current schema.
-     *
-     * @return true when the table exists, otherwise false
-     */
-    private boolean hasUserRolesTable() {
-        Integer count = jdbcTemplate.queryForObject(
-            USER_ROLES_TABLE_EXISTS_SQL,
-            Integer.class
-        );
-        return count != null && count > 0;
     }
 
     /**

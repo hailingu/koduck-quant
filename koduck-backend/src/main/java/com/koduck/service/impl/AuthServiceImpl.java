@@ -1,5 +1,6 @@
 package com.koduck.service.impl;
 
+import com.koduck.common.constants.RoleConstants;
 import com.koduck.config.properties.MailProperties;
 import com.koduck.dto.UserInfo;
 import com.koduck.dto.auth.*;
@@ -14,6 +15,8 @@ import com.koduck.repository.*;
 import com.koduck.service.AuthService;
 import com.koduck.service.EmailService;
 import com.koduck.service.RateLimiterService;
+import com.koduck.service.support.DefaultUserRoleResolver;
+import com.koduck.service.support.UserRolesTableChecker;
 import com.koduck.util.JwtUtil;
 import com.koduck.util.ReservedUsernameValidator;
 import java.nio.charset.StandardCharsets;
@@ -27,7 +30,6 @@ import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataAccessException;
-import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -65,16 +67,16 @@ public class AuthServiceImpl implements AuthService {
 
     private final MailProperties mailProperties;
 
-    private final JdbcTemplate jdbcTemplate;
+    private final UserRolesTableChecker userRolesTableChecker;
 
-    private static final int DEFAULT_ROLE_ID = 2; // USER 角色
+    private final DefaultUserRoleResolver defaultUserRoleResolver;
+
     /**
      * 密码重置令牌长度（URL-safe Base64）
      */
     private static final int RESET_TOKEN_LENGTH = 32;
     private static final SecureRandom SECURE_RANDOM = new SecureRandom();
     private static final int MAX_REFRESH_TOKENS_PER_USER = 2;
-    private volatile Boolean userRolesTableExists;
     @Override
     @Transactional
     public TokenResponse login(LoginRequest request, String ipAddress, String userAgent) {
@@ -126,7 +128,7 @@ public class AuthServiceImpl implements AuthService {
                 userRepository.save(Objects.requireNonNull(user, "user must not be null")))
             .orElseThrow(() -> new IllegalStateException("Saved user must not be null"));
         // 分配默认角色（USER）
-        userRoleRepository.insertUserRole(savedUser.getId(), DEFAULT_ROLE_ID);
+        userRoleRepository.insertUserRole(savedUser.getId(), defaultUserRoleResolver.resolveRoleId());
         // 生成并返回 Token
         return generateTokenResponse(savedUser);
     }
@@ -233,7 +235,7 @@ public class AuthServiceImpl implements AuthService {
         String tokenHash = hashToken(rawToken);
         // 3. 查找令牌
         PasswordResetToken resetToken = passwordResetTokenRepository.findByTokenHash(tokenHash)
-                .orElseThrow(() -> new BusinessException("无效或已过期的重置令牌"));
+            .orElseThrow(() -> new BusinessException(ErrorCode.AUTH_TOKEN_INVALID));
         // 4. 检查令牌状态
         if (resetToken.isExpired()) {
             throw new BusinessException("重置令牌已过期，请重新申请");
@@ -244,7 +246,7 @@ public class AuthServiceImpl implements AuthService {
         // 5. 获取用户
         Long userId = Objects.requireNonNull(resetToken.getUserId(), "resetToken.userId must not be null");
         User user = userRepository.findById(userId)
-                .orElseThrow(() -> new BusinessException("用户不存在"));
+            .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
         // 6. 更新密码
         String newPasswordHash = passwordEncoder.encode(request.getNewPassword());
         userRepository.updatePassword(user.getId(), newPasswordHash);
@@ -263,22 +265,22 @@ public class AuthServiceImpl implements AuthService {
      */
     private TokenResponse generateTokenResponse(User user) {
         List<String> roleNames;
-        if (!hasUserRolesTable()) {
-            roleNames = List.of("USER");
+        if (!userRolesTableChecker.hasUserRolesTable()) {
+            roleNames = List.of(RoleConstants.DEFAULT_USER_ROLE_NAME);
         } else {
             try {
                 roleNames = roleRepository.findRoleNamesByUserId(user.getId());
                 if (roleNames == null || roleNames.isEmpty()) {
-                    roleNames = List.of("USER");
+                    roleNames = List.of(RoleConstants.DEFAULT_USER_ROLE_NAME);
                 }
             } catch (DataAccessException ex) {
                 log.warn("Failed to load roles for userId={}, fallback to default USER role: {}",
                         user.getId(), ex.getMessage());
-                roleNames = List.of("USER");
+                roleNames = List.of(RoleConstants.DEFAULT_USER_ROLE_NAME);
             }
         }
         if (roleNames == null || roleNames.isEmpty()) {
-            roleNames = List.of("USER");
+            roleNames = List.of(RoleConstants.DEFAULT_USER_ROLE_NAME);
         }
         // 生成 Access Token
         String accessToken = jwtUtil.generateAccessToken(user.getId(), user.getUsername(), user.getEmail());
@@ -349,25 +351,5 @@ public class AuthServiceImpl implements AuthService {
         byte[] bytes = new byte[RESET_TOKEN_LENGTH];
         SECURE_RANDOM.nextBytes(bytes);
         return Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
-    }
-    private boolean hasUserRolesTable() {
-        Boolean cached = userRolesTableExists;
-        if (cached != null) {
-            return cached;
-        }
-        boolean exists;
-        try {
-            Integer count = jdbcTemplate.queryForObject(
-                    "SELECT COUNT(*) FROM information_schema.tables " +
-                            "WHERE table_schema = 'public' AND table_name = 'user_roles'",
-                    Integer.class
-            );
-            exists = count != null && count > 0;
-        } catch (DataAccessException ex) {
-            log.warn("Failed to check user_roles table existence, assume missing: {}", ex.getMessage());
-            exists = false;
-        }
-        userRolesTableExists = exists;
-        return exists;
     }
 }

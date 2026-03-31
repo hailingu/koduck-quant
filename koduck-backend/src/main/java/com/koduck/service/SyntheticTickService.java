@@ -1,6 +1,6 @@
 package com.koduck.service;
 
-import com.koduck.controller.MarketController;
+import com.koduck.dto.market.TickDto;
 import com.koduck.entity.StockRealtime;
 
 import java.util.List;
@@ -32,7 +32,7 @@ public interface SyntheticTickService {
      * @param realtime 实时股票数据
      * @return Tick数据传输对象
      */
-    MarketController.TickDto appendSyntheticTickFromRealtime(StockRealtime realtime);
+    TickDto appendSyntheticTickFromRealtime(StockRealtime realtime);
 
     /**
      * 获取指定股票的最新Tick数据。
@@ -41,5 +41,5 @@ public interface SyntheticTickService {
      * @param limit  返回记录数限制
      * @return Tick数据传输对象列表
      */
-    List<MarketController.TickDto> getLatestTicks(String symbol, int limit);
+    List<TickDto> getLatestTicks(String symbol, int limit);
 }
