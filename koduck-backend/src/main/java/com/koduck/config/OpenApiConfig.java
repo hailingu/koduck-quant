@@ -28,24 +28,24 @@ import java.util.List;
 @Profile("!prod")
 public class OpenApiConfig {
 
-        private static final String SECURITY_SCHEME_NAME = "bearerAuth";
-        private static final String LOCAL_SERVER_URL_PREFIX = "http://localhost:";
-        private static final String CURRENT_SERVER_URL = "/";
+    private static final String SECURITY_SCHEME_NAME = "bearerAuth";
+    private static final String LOCAL_SERVER_URL_PREFIX = "http://localhost:";
+    private static final String CURRENT_SERVER_URL = "/";
 
-        private static final String OPENAPI_TITLE = "Koduck Quant API";
-        private static final String OPENAPI_VERSION = "v1.0.0";
-        private static final String TEAM_NAME = "Koduck Team";
-        private static final String TEAM_URL = "https://github.com/hailingu/koduck-quant";
-        private static final String TEAM_EMAIL = "support@koduck.com";
+    private static final String OPENAPI_TITLE = "Koduck Quant API";
+    private static final String OPENAPI_VERSION = "v1.0.0";
+    private static final String TEAM_NAME = "Koduck Team";
+    private static final String TEAM_URL = "https://github.com/hailingu/koduck-quant";
+    private static final String TEAM_EMAIL = "support@koduck.com";
 
-        private static final String LICENSE_NAME = "MIT License";
-        private static final String LICENSE_URL = "https://opensource.org/licenses/MIT";
+    private static final String LICENSE_NAME = "MIT License";
+    private static final String LICENSE_URL = "https://opensource.org/licenses/MIT";
 
     /**
      * Port on which server is running; used to populate development server URL.
      */
     @Value("${server.port:8080}")
-        private int serverPort;
+    private int serverPort;
 
     /**
      * Creates a customized OpenAPI bean including server info,

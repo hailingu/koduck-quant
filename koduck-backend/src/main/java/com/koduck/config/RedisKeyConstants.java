@@ -15,8 +15,6 @@ public final class RedisKeyConstants {
         // Prevent instantiation
     }
 
-    // ==================== Stock Data Keys ====================
-
     /**
      * Stock tracking real-time data (Hash)
      * Key pattern: stock:track:{symbol}
@@ -45,8 +43,6 @@ public final class RedisKeyConstants {
      */
     public static final String STOCK_WATCH_DAILY_PREFIX = "stock:watch:daily:";
 
-    // ==================== Hot Stock Keys ====================
-
     /**
      * Hot stocks list - List
      * Key pattern: hot:stocks:{type}
@@ -70,8 +66,6 @@ public final class RedisKeyConstants {
      */
     public static final String HOT_STOCKS_LOSS = "loss";
 
-    // ==================== User Watchlist Keys ====================
-
     /**
      * User tracking list (Set)
      * Key pattern: user:track:{userId}
@@ -85,8 +79,6 @@ public final class RedisKeyConstants {
      * TTL: Permanent (session-level)
      */
     public static final String USER_WATCH_PREFIX = "user:watch:";
-
-    // ==================== TTL Constants (in seconds) ====================
 
     /**
      * TTL for tracking () real-time data: 10 seconds
@@ -108,8 +100,6 @@ public final class RedisKeyConstants {
      * TTL for daily K-line: 24 hours
      */
     public static final long TTL_STOCK_WATCH_DAILY = 86400;
-
-    // ==================== Helper Methods ====================
 
     /**
      * Generate stock tracking key.
