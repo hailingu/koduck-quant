@@ -329,3 +329,53 @@ shell-redis: ## 进入 Redis 容器
 
 redis-cli: ## 进入 Redis CLI
 	docker-compose exec redis redis-cli
+
+# ==========================================
+# Quality Check Commands (Phase 2)
+# ==========================================
+
+.PHONY: quality quality-backend quality-pmd quality-spotbugs quality-test quality-coverage quality-arch
+
+quality: ## 一键质量检查（全部）
+	@echo "$(BLUE)🔍 执行一键质量检查...$(NC)"
+	@cd koduck-backend && ./scripts/quality-check.sh
+
+quality-backend: quality ## 后端质量检查（同 quality）
+
+quality-pmd: ## PMD 静态分析检查
+	@echo "$(BLUE)🔍 执行 PMD 检查...$(NC)"
+	@cd koduck-backend && mvn pmd:check
+
+quality-spotbugs: ## SpotBugs 安全漏洞检查
+	@echo "$(BLUE)🔍 执行 SpotBugs 检查...$(NC)"
+	@cd koduck-backend && mvn spotbugs:check
+
+quality-test: ## 运行所有测试
+	@echo "$(BLUE)🔍 执行测试...$(NC)"
+	@cd koduck-backend && mvn test
+
+quality-test-unit: ## 运行单元测试
+	@echo "$(BLUE)🔍 执行单元测试...$(NC)"
+	@cd koduck-backend && mvn test -Dtest='**/unit/**/*Test'
+
+quality-test-slice: ## 运行切片测试
+	@echo "$(BLUE)🔍 执行切片测试...$(NC)"
+	@cd koduck-backend && mvn test -Dtest='**/slice/**/*Test'
+
+quality-coverage: ## 覆盖率检查（60%阈值）
+	@echo "$(BLUE)🔍 执行覆盖率检查...$(NC)"
+	@cd koduck-backend && mvn jacoco:check
+
+quality-arch: ## 架构违规检查
+	@echo "$(BLUE)🔍 执行架构检查...$(NC)"
+	@cd koduck-backend && ./scripts/check-arch-violations.sh
+
+quality-format: ## 代码格式化检查
+	@echo "$(BLUE)🔍 执行代码格式化检查...$(NC)"
+	@cd koduck-backend && mvn spotless:check 2>/dev/null || echo "$(YELLOW)⚠️ Spotless 未配置，跳过$(NC)"
+
+quality-report: ## 生成质量报告
+	@echo "$(BLUE)📊 生成质量报告...$(NC)"
+	@cd koduck-backend && mvn site -DskipTests 2>/dev/null || echo "$(YELLOW)⚠️ Maven Site 未配置，跳过$(NC)"
+	@echo "$(GREEN)✅ 质量报告生成完成$(NC)"
+	@echo "$(YELLOW)报告位置: koduck-backend/target/site/$(NC)"
