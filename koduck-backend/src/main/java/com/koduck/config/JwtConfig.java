@@ -13,6 +13,10 @@ import org.springframework.validation.annotation.Validated;
  * Bound from application properties with prefix {@code jwt}. Contains
  * secret key, expiration settings, and header/token prefix values used by
  * the security filters.
+ * </p>
+ *
+ * @author GitHub Copilot
+ * @date 2026-03-31
  */
 @Data
 @Configuration
