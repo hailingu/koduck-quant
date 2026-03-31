@@ -299,10 +299,13 @@ public class AiAnalysisServiceImpl implements AiAnalysisService {
 
     private void sendStreamErrorEvent(SseEmitter emitter, int code, String message) {
         try {
-            emitter.send(SseEmitter.event().name("error").data(objectMapper.writeValueAsString(Map.of(
-                "code", code,
-                KEY_MESSAGE, message
-            ))));
+            Map<String, Object> payload = new HashMap<>();
+            payload.put("code", code);
+            payload.put(KEY_MESSAGE, message == null ? "" : message);
+            Object serializedPayload = Objects.requireNonNull(
+                objectMapper.writeValueAsString(payload),
+                "serializedPayload must not be null");
+            emitter.send(SseEmitter.event().name("error").data(serializedPayload));
         } catch (IOException | RuntimeException sendError) {
             log.warn("Failed to send SSE error event: {}", sendError.getMessage());
         } finally {

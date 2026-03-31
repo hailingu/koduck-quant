@@ -26,7 +26,6 @@ public class AiRecommendationSupport {
 
     private static final String RISK_AGGRESSIVE = "aggressive";
     private static final String RISK_CONSERVATIVE = "conservative";
-    private static final String RISK_BALANCED = "balanced";
 
     private final Random random = new Random();
 

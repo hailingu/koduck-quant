@@ -2,12 +2,11 @@ package com.koduck.service;
 
 import com.koduck.dto.market.PriceQuoteDto;
 import com.koduck.entity.StockRealtime;
-import com.koduck.market.MarketType;
-import com.koduck.market.provider.ProviderFactory;
 import com.koduck.repository.StockBasicRepository;
 import com.koduck.repository.StockRealtimeRepository;
 import com.koduck.service.impl.MarketServiceImpl;
-import com.koduck.service.market.AKShareDataProvider;
+import com.koduck.service.support.MarketFallbackSupport;
+import com.koduck.service.support.MarketServiceSupport;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -17,10 +16,8 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.when;
 
 /**
@@ -41,24 +38,22 @@ class MarketServiceImplBatchPricesTest {
     @Mock
     StockCacheService stockCacheService;
     @Mock
-    KlineService klineService;
+    MarketServiceSupport marketServiceSupport;
     @Mock
-    AKShareDataProvider akShareDataProvider;
-    @Mock
-    ProviderFactory providerFactory;
+    MarketFallbackSupport marketFallbackSupport;
 
     private MarketServiceImpl marketService;
 
     @BeforeEach
     void setUp() {
+      MarketServiceSupport realMarketServiceSupport =
+        new MarketServiceSupport(stockRealtimeRepository, stockBasicRepository);
         marketService = new MarketServiceImpl(
-          stockRealtimeRepository,
-          stockBasicRepository,
-          stockCacheService,
-          klineService,
-          providerFactory);
-        lenient().when(providerFactory.getPrimaryProvider(MarketType.A_SHARE))
-          .thenReturn(Optional.of(akShareDataProvider));
+            stockRealtimeRepository,
+            stockBasicRepository,
+            stockCacheService,
+        realMarketServiceSupport,
+            marketFallbackSupport);
     }
 
     /**

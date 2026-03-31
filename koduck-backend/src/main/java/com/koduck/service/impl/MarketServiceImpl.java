@@ -1,6 +1,5 @@
 package com.koduck.service.impl;
 
-import com.koduck.common.constants.MarketConstants;
 import com.koduck.config.CacheConfig;
 import com.koduck.dto.market.MarketIndexDto;
 import com.koduck.dto.market.PriceQuoteDto;
@@ -17,14 +16,11 @@ import com.koduck.service.MarketService;
 import com.koduck.service.StockCacheService;
 import com.koduck.service.support.MarketFallbackSupport;
 import com.koduck.service.support.MarketServiceSupport;
-import com.koduck.util.SymbolUtils;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 
-import java.math.BigDecimal;
-import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedHashMap;
@@ -42,9 +38,6 @@ import java.util.stream.Collectors;
 @Slf4j
 public class MarketServiceImpl implements MarketService {
 
-    private static final String DEFAULT_MARKET = MarketConstants.DEFAULT_MARKET;
-    private static final String DAILY_TIMEFRAME = MarketConstants.DEFAULT_TIMEFRAME;
-    private static final String STOCK_TYPE = "STOCK";
     private static final String POSITIVE_LINK_TYPE = "positive";
     private static final String NEGATIVE_LINK_TYPE = "negative";
     

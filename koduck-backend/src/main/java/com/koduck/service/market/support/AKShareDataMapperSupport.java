@@ -170,7 +170,7 @@ public final class AKShareDataMapperSupport {
         if (value instanceof String timestamp) {
             try {
                 return Instant.parse(timestamp);
-            } catch (Exception ex) {
+            } catch (Exception _) {
                 return null;
             }
         }

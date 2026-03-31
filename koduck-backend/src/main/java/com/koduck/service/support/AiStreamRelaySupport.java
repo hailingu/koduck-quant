@@ -136,7 +136,7 @@ public class AiStreamRelaySupport {
             Map<String, Object> data = objectMapper.readValue(donePayload, MAP_TYPE_REFERENCE);
             Object content = data.get(KEY_CONTENT);
             return content == null ? "" : String.valueOf(content);
-        } catch (IOException | RuntimeException ignored) {
+        } catch (IOException | RuntimeException _) {
             return "";
         }
     }
@@ -159,7 +159,7 @@ public class AiStreamRelaySupport {
                 }
             }
             return null;
-        } catch (IOException | RuntimeException ignored) {
+        } catch (IOException | RuntimeException _) {
             return null;
         }
     }

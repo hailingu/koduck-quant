@@ -28,7 +28,7 @@ public final class MarketDataMapReader {
         }
         try {
             return Long.parseLong(value.toString());
-        } catch (NumberFormatException ex) {
+        } catch (NumberFormatException _) {
             return null;
         }
     }
