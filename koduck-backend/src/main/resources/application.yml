@@ -21,6 +21,16 @@ spring:
   threads:
     virtual:
       enabled: true
+  rabbitmq:
+    host: ${RABBITMQ_HOST:localhost}
+    port: ${RABBITMQ_PORT:5672}
+    username: ${RABBITMQ_USERNAME:guest}
+    password: ${RABBITMQ_PASSWORD:guest}
+    virtual-host: ${RABBITMQ_VHOST:/}
+    listener:
+      simple:
+        acknowledge-mode: auto
+        default-requeue-rejected: false
 
 server:
   port: 8080
@@ -91,6 +101,15 @@ koduck:
     broker:
       topic-prefix: /topic
       queue-prefix: /queue
+  messaging:
+    price-push:
+      enabled: ${PRICE_PUSH_MQ_ENABLED:true}
+      exchange: ${PRICE_PUSH_MQ_EXCHANGE:koduck.price.exchange}
+      queue: ${PRICE_PUSH_MQ_QUEUE:koduck.price.realtime.queue}
+      routing-key: ${PRICE_PUSH_MQ_ROUTING_KEY:stock.realtime}
+      dead-letter-exchange: ${PRICE_PUSH_MQ_DLX:koduck.price.dlx}
+      dead-letter-queue: ${PRICE_PUSH_MQ_DLQ:koduck.price.realtime.dlq}
+      dead-letter-routing-key: ${PRICE_PUSH_MQ_DLK:stock.realtime.dlq}
 
 # Demo 用户配置
 # 注意: 生产环境应设置 app.demo.enabled=false 或不设置 APP_DEMO_PASSWORD
