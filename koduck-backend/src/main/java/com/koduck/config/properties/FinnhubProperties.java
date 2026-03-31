@@ -7,10 +7,16 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.util.StringUtils;
 
 /**
- * Configuration properties for Finnhub API.
- * Used for US stock market data.
- * 
+ * Configuration properties for Finnhub API integration.
+ * <p>
+ * This class binds properties prefixed with {@code koduck.finnhub}. It also
+ * supports overriding the API key via the {@code FINNHUB_API_KEY} environment
+ * variable, and performs validation at initialization.
+ * </p>
+ *
  * @see <a href="https://finnhub.io/docs/api">Finnhub API Docs</a>
+ * @author GitHub Copilot
+ * @date 2026-03-31
  */
 @Configuration
 @ConfigurationProperties(prefix = "koduck.finnhub")
@@ -48,6 +54,14 @@ public class FinnhubProperties {
      */
     private boolean enabled = false;
 
+    /**
+     * Initialize and validate the Finnhub configuration after construction.
+     * <p>
+     * The method checks whether an API key is provided via environment variables
+     * and logs the runtime configuration. If Finnhub is enabled, it warns when
+     * the API key is missing.
+     * </p>
+     */
     @PostConstruct
     public void init() {
         // Prefer reading API key from environment variable
@@ -65,48 +79,100 @@ public class FinnhubProperties {
         }
     }
 
+    /**
+     * Gets the Finnhub API key.
+     *
+     * @return API key, may be empty if not configured
+     */
     public String getApiKey() {
         return apiKey;
     }
 
+    /**
+     * Sets the Finnhub API key.
+     *
+     * @param apiKey API key value to set
+     */
     public void setApiKey(String apiKey) {
         this.apiKey = apiKey;
     }
 
+    /**
+     * Gets the Finnhub base URL.
+     *
+     * @return base API URL
+     */
     public String getBaseUrl() {
         return baseUrl;
     }
 
+    /**
+     * Sets the Finnhub base URL.
+     *
+     * @param baseUrl base API URL to use
+     */
     public void setBaseUrl(String baseUrl) {
         this.baseUrl = baseUrl;
     }
 
+    /**
+     * Gets HTTP connection timeout in milliseconds.
+     *
+     * @return connect timeout value
+     */
     public int getConnectTimeoutMs() {
         return connectTimeoutMs;
     }
 
+    /**
+     * Sets HTTP connection timeout in milliseconds.
+     *
+     * @param connectTimeoutMs connect timeout value
+     */
     public void setConnectTimeoutMs(int connectTimeoutMs) {
         this.connectTimeoutMs = connectTimeoutMs;
     }
 
+    /**
+     * Gets HTTP read timeout in milliseconds.
+     *
+     * @return read timeout value
+     */
     public int getReadTimeoutMs() {
         return readTimeoutMs;
     }
 
+    /**
+     * Sets HTTP read timeout in milliseconds.
+     *
+     * @param readTimeoutMs read timeout value
+     */
     public void setReadTimeoutMs(int readTimeoutMs) {
         this.readTimeoutMs = readTimeoutMs;
     }
 
+    /**
+     * Returns whether Finnhub integration is enabled.
+     *
+     * @return true if enabled; false otherwise
+     */
     public boolean isEnabled() {
         return enabled;
     }
 
+    /**
+     * Sets whether Finnhub integration is enabled.
+     *
+     * @param enabled true to enable; false to disable
+     */
     public void setEnabled(boolean enabled) {
         this.enabled = enabled;
     }
     
     /**
-     * Check if Finnhub is properly configured and ready to use
+     * Check whether Finnhub integration is enabled and has a non-empty API key.
+     *
+     * @return true when the integration is configured properly; false otherwise
      */
     public boolean isReady() {
         return enabled && StringUtils.hasText(apiKey);
