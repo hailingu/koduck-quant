@@ -56,7 +56,8 @@ import org.springframework.web.client.RestTemplate;
 @RequiredArgsConstructor
 public class AiAnalysisServiceImpl implements AiAnalysisService {
     private static final Pattern SYMBOL_PATTERN = Pattern.compile("\\b\\d{6}\\b");
-    private static final Set<String> SUPPORTED_LLM_PROVIDERS = Set.of("minimax", "deepseek", "openai");
+    private static final String DEFAULT_LLM_PROVIDER = "minimax";
+    private static final Set<String> SUPPORTED_LLM_PROVIDERS = Set.of(DEFAULT_LLM_PROVIDER, "deepseek", "openai");
     private static final String NO_TOOL_MARKUP_GUARD =
         "输出约束: 不要使用或模拟任何工具调用，不要输出 <minimax:tool_call>、<invoke>、<parameter>、XML/JSON函数调用片段。"
             + "请直接输出面向用户的自然语言分析结论。";
@@ -796,10 +797,10 @@ public class AiAnalysisServiceImpl implements AiAnalysisService {
     }
     private String resolveProvider(String provider) {
         if (provider == null || provider.isBlank()) {
-            return "minimax";
+            return DEFAULT_LLM_PROVIDER;
         }
         String normalized = provider.trim().toLowerCase(Locale.ROOT);
-        return SUPPORTED_LLM_PROVIDERS.contains(normalized) ? normalized : "minimax";
+        return SUPPORTED_LLM_PROVIDERS.contains(normalized) ? normalized : DEFAULT_LLM_PROVIDER;
     }
     private String blankToNull(String value) {
         if (value == null || value.isBlank()) {
