@@ -15,28 +15,28 @@ public final class RedisKeyConstants {
     // ==================== Stock Data Keys ====================
 
     /**
-     * Stock tracking () real-time data - Hash
+     * Stock tracking real-time data (Hash)
      * Key pattern: stock:track:{symbol}
      * TTL: 10 seconds
      */
     public static final String STOCK_TRACK_PREFIX = "stock:track:";
 
     /**
-     * Stock watch () 1-minute K-line - Sorted Set
+     * Stock watch 1-minute K-line (Sorted Set)
      * Key pattern: stock:watch:1m:{symbol}
      * TTL: 3600 seconds (1 hour)
      */
     public static final String STOCK_WATCH_1M_PREFIX = "stock:watch:1m:";
 
     /**
-     * Stock watch 5-minute K-line - Sorted Set
+     * Stock watch 5-minute K-line (Sorted Set)
      * Key pattern: stock:watch:5m:{symbol}
      * TTL: 3600 seconds (1 hour)
      */
     public static final String STOCK_WATCH_5M_PREFIX = "stock:watch:5m:";
 
     /**
-     * Stock watch daily K-line - Sorted Set
+     * Stock watch daily K-line (Sorted Set)
      * Key pattern: stock:watch:daily:{symbol}
      * TTL: 86400 seconds (24 hours)
      */
@@ -58,26 +58,26 @@ public final class RedisKeyConstants {
     public static final String HOT_STOCKS_VOLUME = "volume";
 
     /**
-     * Hot stocks by gain ()
+     * Hot stocks by gain
      */
     public static final String HOT_STOCKS_GAIN = "gain";
 
     /**
-     * Hot stocks by loss ()
+     * Hot stocks by loss
      */
     public static final String HOT_STOCKS_LOSS = "loss";
 
     // ==================== User Watchlist Keys ====================
 
     /**
-     * User tracking list () - Set
+     * User tracking list (Set)
      * Key pattern: user:track:{userId}
      * TTL: Permanent (session-level)
      */
     public static final String USER_TRACK_PREFIX = "user:track:";
 
     /**
-     * User watchlist () - Set
+     * User watchlist (Set)
      * Key pattern: user:watch:{userId}
      * TTL: Permanent (session-level)
      */

@@ -20,9 +20,12 @@ import java.util.List;
  *
  * <p>Defines API metadata, server endpoints, and JWT Bearer authentication
  * settings used by the interactive API documentation.</p>
+ *
+ * @author GitHub Copilot
+ * @date 2026-03-31
  */
 @Configuration
-@Profile("!prod")  // disabled in production environment
+@Profile("!prod")
 public class OpenApiConfig {
 
         private static final String SECURITY_SCHEME_NAME = "bearerAuth";
