@@ -21,18 +21,12 @@ import com.koduck.service.AiAnalysisService;
 import com.koduck.service.MemoryService;
 import com.koduck.service.TechnicalIndicatorService;
 import com.koduck.service.UserSettingsService;
-import java.io.BufferedReader;
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.io.OutputStream;
 import java.math.BigDecimal;
-import java.net.HttpURLConnection;
-import java.net.URI;
-import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.*;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.CompletableFuture;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -42,8 +36,11 @@ import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.*;
 import org.springframework.lang.NonNull;
 import org.springframework.stereotype.Service;
-import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 import org.springframework.web.client.RestTemplate;
+import org.springframework.web.reactive.function.client.WebClient;
+import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
+
+import reactor.core.publisher.Mono;
 
 /**
  * AI 分析服务实现 - 调用 koduck-agent
@@ -66,6 +63,10 @@ public class AiAnalysisServiceImpl implements AiAnalysisService {
     private static final String RISK_BALANCED = "balanced";
     private static final String RESPONSE_TYPE_NULL_MESSAGE = "responseType must not be null";
     private static final String HTTP_METHOD_NULL_MESSAGE = "httpMethod must not be null";
+    private static final String AGENT_URL_NULL_MESSAGE = "agentUrl must not be null";
+    private static final String STREAM_REQUEST_NULL_MESSAGE = "normalizedRequest must not be null";
+    private static final String APPLICATION_JSON_NULL_MESSAGE = "application/json media type must not be null";
+    private static final String EVENT_STREAM_NULL_MESSAGE = "text/event-stream media type must not be null";
     private static final Set<String> SUPPORTED_LLM_PROVIDERS = Set.of(DEFAULT_LLM_PROVIDER, "deepseek", "openai");
     private static final String NO_TOOL_MARKUP_GUARD =
         "输出约束: 不要使用或模拟任何工具调用，不要输出 <minimax:tool_call>、<invoke>、<parameter>、XML/JSON函数调用片段。"
@@ -86,6 +87,7 @@ public class AiAnalysisServiceImpl implements AiAnalysisService {
     private final AgentConfig agentConfig;
     private final ObjectMapper objectMapper;
     private final RestTemplate restTemplate;
+    private final WebClient webClient;
 
     private final Random random = new Random();
 
@@ -97,7 +99,8 @@ public class AiAnalysisServiceImpl implements AiAnalysisService {
                                  MemoryService memoryService,
                                  AgentConfig agentConfig,
                                  ObjectMapper objectMapper,
-                                 RestTemplateBuilder restTemplateBuilder) {
+                                 RestTemplateBuilder restTemplateBuilder,
+                                 WebClient.Builder webClientBuilder) {
         this.positionRepository = positionRepository;
         this.strategyRepository = strategyRepository;
         this.backtestResultRepository = backtestResultRepository;
@@ -110,6 +113,8 @@ public class AiAnalysisServiceImpl implements AiAnalysisService {
             .connectTimeout(Duration.ofSeconds(30))
             .readTimeout(Duration.ofSeconds(60))
             .build();
+        this.webClient = webClientBuilder
+            .build();
     }
 
     private static @NonNull ParameterizedTypeReference<Map<String, Object>> getMapResponseType() {
@@ -118,6 +123,22 @@ public class AiAnalysisServiceImpl implements AiAnalysisService {
 
     private static @NonNull HttpMethod getHttpPostMethod() {
         return Objects.requireNonNull(HttpMethod.POST, HTTP_METHOD_NULL_MESSAGE);
+    }
+
+    private static @NonNull String getAgentUrl(String agentUrl) {
+        return Objects.requireNonNull(agentUrl, AGENT_URL_NULL_MESSAGE);
+    }
+
+    private static @NonNull ChatStreamRequest getStreamRequest(ChatStreamRequest request) {
+        return Objects.requireNonNull(request, STREAM_REQUEST_NULL_MESSAGE);
+    }
+
+    private static @NonNull MediaType getApplicationJsonMediaType() {
+        return Objects.requireNonNull(MediaType.APPLICATION_JSON, APPLICATION_JSON_NULL_MESSAGE);
+    }
+
+    private static @NonNull MediaType getTextEventStreamMediaType() {
+        return Objects.requireNonNull(MediaType.TEXT_EVENT_STREAM, EVENT_STREAM_NULL_MESSAGE);
     }
 
     /**
@@ -571,21 +592,11 @@ public class AiAnalysisServiceImpl implements AiAnalysisService {
         return response.values().get(key);
     }
     private void relayAgentStream(Long userId, ChatStreamRequest request, SseEmitter emitter) {
-        HttpURLConnection connection = null;
         try {
             String agentUrl = agentConfig.getUrl() + "/api/v1/ai/chat/stream";
             String provider = resolveProvider(request.getProvider());
             ChatStreamRequest normalizedRequest = normalizeStreamRequest(request, provider);
-            String requestBody = objectMapper.writeValueAsString(normalizedRequest);
-            connection = openStreamConnection(agentUrl, requestBody);
-
-            int statusCode = connection.getResponseCode();
-            if (statusCode < 200 || statusCode >= 300) {
-                handleStreamErrorResponse(connection, emitter, statusCode);
-                return;
-            }
-
-            StreamRelayResult relayResult = relayStreamEvents(connection, emitter);
+            StreamRelayResult relayResult = relayStreamEvents(agentUrl, normalizedRequest, emitter);
             if (relayResult.assistantContent() != null && !relayResult.assistantContent().isBlank()) {
                 scheduleAssistantMemoryWriteBack(userId, request, relayResult.assistantContent(), relayResult.tokenCount());
             }
@@ -597,22 +608,25 @@ public class AiAnalysisServiceImpl implements AiAnalysisService {
                 request.getSessionId()
             );
             emitter.complete();
-        } catch (IOException | RuntimeException e) {
+        } catch (StreamRelayException e) {
+            log.error("AI chat stream relay failed with upstream status {}: {}", e.statusCode(), e.getMessage());
+            sendStreamErrorEvent(emitter, e.statusCode(), "AI 服务调用失败: " + e.detail());
+        } catch (RuntimeException e) {
             log.error("AI chat stream relay failed: {}", e.getMessage(), e);
-            try {
-                sendSseEvent(emitter, "error", objectMapper.writeValueAsString(Map.of(
-                    "code", 500,
-                    KEY_MESSAGE, "后端转发 AI 流式响应失败: " + e.getMessage()
-                )));
-                emitter.complete();
-            } catch (IOException | RuntimeException sendError) {
-                log.warn("Failed to send SSE error event: {}", sendError.getMessage());
-                emitter.complete();
-            }
+            sendStreamErrorEvent(emitter, 500, "后端转发 AI 流式响应失败: " + e.getMessage());
+        }
+    }
+
+    private void sendStreamErrorEvent(SseEmitter emitter, int code, String message) {
+        try {
+            sendSseEvent(emitter, "error", objectMapper.writeValueAsString(Map.of(
+                "code", code,
+                KEY_MESSAGE, message
+            )));
+        } catch (IOException | RuntimeException sendError) {
+            log.warn("Failed to send SSE error event: {}", sendError.getMessage());
         } finally {
-            if (connection != null) {
-                connection.disconnect();
-            }
+            emitter.complete();
         }
     }
 
@@ -630,77 +644,122 @@ public class AiAnalysisServiceImpl implements AiAnalysisService {
             .build();
     }
 
-    private HttpURLConnection openStreamConnection(String agentUrl, String requestBody) throws IOException {
-        HttpURLConnection connection = (HttpURLConnection) URI.create(agentUrl).toURL().openConnection();
-        connection.setRequestMethod("POST");
-        connection.setDoOutput(true);
-        connection.setConnectTimeout(30000);
-        connection.setReadTimeout(0);
-        connection.setRequestProperty("Content-Type", MediaType.APPLICATION_JSON_VALUE);
-        connection.setRequestProperty("Accept", MediaType.TEXT_EVENT_STREAM_VALUE);
-        connection.setRequestProperty("Cache-Control", "no-cache");
-        try (OutputStream output = connection.getOutputStream()) {
-            output.write(requestBody.getBytes(StandardCharsets.UTF_8));
-            output.flush();
-        }
-        return connection;
-    }
+    private StreamRelayResult relayStreamEvents(String agentUrl,
+                                                ChatStreamRequest normalizedRequest,
+                                                SseEmitter emitter) {
+        AtomicReference<String> finalAssistantContent = new AtomicReference<>(null);
+        AtomicReference<Integer> finalTokenCount = new AtomicReference<>(null);
 
-    private void handleStreamErrorResponse(HttpURLConnection connection,
-                                           SseEmitter emitter,
-                                           int statusCode) throws IOException {
-        String detail = readInputStream(connection.getErrorStream());
-        sendSseEvent(emitter, "error", objectMapper.writeValueAsString(Map.of(
-            "code", statusCode,
-            KEY_MESSAGE, "AI 服务调用失败: " + (detail.isBlank() ? "unknown error" : detail)
-        )));
-        emitter.complete();
-    }
-
-    private StreamRelayResult relayStreamEvents(HttpURLConnection connection,
-                                                SseEmitter emitter) throws IOException {
-        String finalAssistantContent = null;
-        Integer finalTokenCount = null;
-        try (BufferedReader reader = new BufferedReader(
-            new InputStreamReader(connection.getInputStream(), StandardCharsets.UTF_8)
-        )) {
-            String line;
-            String eventName = EVENT_MESSAGE;
-            StringBuilder dataBuilder = new StringBuilder();
-            while ((line = reader.readLine()) != null) {
-                if (line.isEmpty()) {
-                    if (EVENT_DONE.equals(eventName)) {
-                        String donePayload = dataBuilder.toString();
-                        finalAssistantContent = extractAssistantContent(donePayload);
-                        finalTokenCount = extractTokenUsage(donePayload);
-                    }
-                    flushSseEvent(emitter, eventName, dataBuilder);
-                    eventName = EVENT_MESSAGE;
-                    dataBuilder.setLength(0);
-                } else if (line.startsWith("event:")) {
-                    eventName = line.substring("event:".length()).trim();
-                } else if (line.startsWith("data:")) {
-                    appendSseDataLine(dataBuilder, line);
+        StreamRelayResult relayResult = webClient.post()
+            .uri(getAgentUrl(agentUrl))
+            .contentType(getApplicationJsonMediaType())
+            .accept(getTextEventStreamMediaType())
+            .bodyValue(getStreamRequest(normalizedRequest))
+            .exchangeToMono(response -> {
+                if (response.statusCode().isError()) {
+                    return response.bodyToMono(String.class)
+                        .defaultIfEmpty("")
+                        .flatMap(detail -> Mono.error(
+                            new StreamRelayException(
+                                response.statusCode().value(),
+                                detail.isBlank() ? "unknown error" : detail
+                            )
+                        ));
                 }
-            }
-            if (EVENT_DONE.equals(eventName)) {
-                String donePayload = dataBuilder.toString();
-                finalAssistantContent = extractAssistantContent(donePayload);
-                finalTokenCount = extractTokenUsage(donePayload);
-            }
-            flushSseEvent(emitter, eventName, dataBuilder);
-        }
-        return new StreamRelayResult(finalAssistantContent, finalTokenCount);
+                return response.bodyToFlux(String.class)
+                    .doOnNext(rawChunk -> {
+                        if (rawChunk == null || rawChunk.isBlank()) {
+                            return;
+                        }
+                        try {
+                            processSseChunk(rawChunk, emitter, finalAssistantContent, finalTokenCount);
+                        } catch (IOException exception) {
+                            throw new IllegalStateException("Failed to forward SSE chunk", exception);
+                        }
+                    })
+                    .then(Mono.fromSupplier(() -> new StreamRelayResult(
+                        finalAssistantContent.get(),
+                        finalTokenCount.get()
+                    )));
+            })
+            .block();
+
+        return relayResult != null ? relayResult : new StreamRelayResult(null, null);
     }
 
-    private void appendSseDataLine(StringBuilder dataBuilder, String line) {
+    private void processSseChunk(String rawChunk,
+                                 SseEmitter emitter,
+                                 AtomicReference<String> finalAssistantContent,
+                                 AtomicReference<Integer> finalTokenCount) throws IOException {
+        String[] events = rawChunk.split("\\r?\\n\\r?\\n");
+        for (String eventBlock : events) {
+            ParsedSseEvent parsedEvent = parseSseEvent(eventBlock);
+            if (parsedEvent != null) {
+                updateRelayResult(parsedEvent, finalAssistantContent, finalTokenCount);
+                sendSseEvent(emitter, parsedEvent.eventName(), parsedEvent.payload());
+            }
+        }
+    }
+
+    private ParsedSseEvent parseSseEvent(String eventBlock) {
+        if (eventBlock == null || eventBlock.isBlank()) {
+            return null;
+        }
+        String eventName = EVENT_MESSAGE;
+        StringBuilder dataBuilder = new StringBuilder();
+        String[] lines = eventBlock.split("\\r?\\n");
+        for (String line : lines) {
+            if (line.startsWith("event:")) {
+                eventName = line.substring("event:".length()).trim();
+            } else if (line.startsWith("data:")) {
+                appendSseData(dataBuilder, line);
+            }
+        }
+        if (dataBuilder.isEmpty()) {
+            return null;
+        }
+        return new ParsedSseEvent(eventName, dataBuilder.toString());
+    }
+
+    private void appendSseData(StringBuilder dataBuilder, String line) {
         if (!dataBuilder.isEmpty()) {
             dataBuilder.append('\n');
         }
         dataBuilder.append(line.substring("data:".length()).trim());
     }
 
+    private void updateRelayResult(ParsedSseEvent parsedEvent,
+                                   AtomicReference<String> finalAssistantContent,
+                                   AtomicReference<Integer> finalTokenCount) {
+        if (EVENT_DONE.equals(parsedEvent.eventName())) {
+            finalAssistantContent.set(extractAssistantContent(parsedEvent.payload()));
+            finalTokenCount.set(extractTokenUsage(parsedEvent.payload()));
+        }
+    }
+
+    private record ParsedSseEvent(String eventName, String payload) {
+    }
+
     private record StreamRelayResult(String assistantContent, Integer tokenCount) {
+    }
+
+    private static final class StreamRelayException extends RuntimeException {
+        private final int statusCode;
+        private final String detail;
+
+        private StreamRelayException(int statusCode, String detail) {
+            super(detail);
+            this.statusCode = statusCode;
+            this.detail = detail;
+        }
+
+        private int statusCode() {
+            return statusCode;
+        }
+
+        private String detail() {
+            return detail;
+        }
     }
     private void scheduleUserMemoryWriteBack(Long userId, ChatStreamRequest request) {
         if (!memoryService.isEnabled()) {
@@ -826,36 +885,10 @@ public class AiAnalysisServiceImpl implements AiAnalysisService {
             existing.getProfileFacts()
         );
     }
-    private void flushSseEvent(SseEmitter emitter, String eventName, StringBuilder dataBuilder)
-        throws IOException {
-        if (dataBuilder.isEmpty()) {
-            return;
-        }
-        // Forward raw upstream payload to avoid converter mismatches that may break chunked stream.
-        sendSseEvent(emitter, eventName, dataBuilder.toString());
-    }
     private void sendSseEvent(SseEmitter emitter, String eventName, Object data) throws IOException {
         String nonNullEventName = Objects.requireNonNull(eventName, "eventName must not be null");
         Object nonNullData = Objects.requireNonNull(data, "data must not be null");
         emitter.send(SseEmitter.event().name(nonNullEventName).data(nonNullData));
-    }
-    private String readInputStream(InputStream stream) {
-        if (stream == null) {
-            return "";
-        }
-        try (BufferedReader reader = new BufferedReader(new InputStreamReader(stream, StandardCharsets.UTF_8))) {
-            StringBuilder builder = new StringBuilder();
-            String line;
-            while ((line = reader.readLine()) != null) {
-                if (!builder.isEmpty()) {
-                    builder.append('\n');
-                }
-                builder.append(line);
-            }
-            return builder.toString();
-        } catch (IOException _) {
-            return "";
-        }
     }
     private String resolveProvider(String provider) {
         if (provider == null || provider.isBlank()) {

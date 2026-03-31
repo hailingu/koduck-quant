@@ -2,10 +2,12 @@ package com.koduck.service;
 
 import com.koduck.dto.market.PriceQuoteDto;
 import com.koduck.entity.StockRealtime;
+import com.koduck.market.MarketType;
+import com.koduck.market.provider.ProviderFactory;
 import com.koduck.repository.StockBasicRepository;
 import com.koduck.repository.StockRealtimeRepository;
-import com.koduck.service.market.AKShareDataProvider;
 import com.koduck.service.impl.MarketServiceImpl;
+import com.koduck.service.market.AKShareDataProvider;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -15,8 +17,10 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.when;
 
 /**
@@ -40,17 +44,21 @@ class MarketServiceImplBatchPricesTest {
     KlineService klineService;
     @Mock
     AKShareDataProvider akShareDataProvider;
+    @Mock
+    ProviderFactory providerFactory;
 
     private MarketServiceImpl marketService;
 
     @BeforeEach
     void setUp() {
-      marketService = new MarketServiceImpl(
+        marketService = new MarketServiceImpl(
           stockRealtimeRepository,
           stockBasicRepository,
           stockCacheService,
           klineService,
-          akShareDataProvider);
+          providerFactory);
+        lenient().when(providerFactory.getPrimaryProvider(MarketType.A_SHARE))
+          .thenReturn(Optional.of(akShareDataProvider));
     }
 
     /**

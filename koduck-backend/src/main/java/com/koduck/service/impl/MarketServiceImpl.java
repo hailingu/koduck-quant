@@ -13,6 +13,9 @@ import com.koduck.entity.StockBasic;
 import com.koduck.entity.StockRealtime;
 import com.koduck.repository.StockBasicRepository;
 import com.koduck.repository.StockRealtimeRepository;
+import com.koduck.market.MarketType;
+import com.koduck.market.provider.MarketDataProvider;
+import com.koduck.market.provider.ProviderFactory;
 import com.koduck.service.KlineService;
 import com.koduck.service.MarketService;
 import com.koduck.service.StockCacheService;
@@ -33,6 +36,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -62,19 +66,19 @@ public class MarketServiceImpl implements MarketService {
     private final StockBasicRepository stockBasicRepository;
     private final StockCacheService stockCacheService;
     private final KlineService klineService;
-    private final AKShareDataProvider akShareDataProvider;
+    private final ProviderFactory providerFactory;
     
     public MarketServiceImpl(
             StockRealtimeRepository stockRealtimeRepository,
             StockBasicRepository stockBasicRepository,
             StockCacheService stockCacheService,
             KlineService klineService,
-            AKShareDataProvider akShareDataProvider) {
+            ProviderFactory providerFactory) {
         this.stockRealtimeRepository = stockRealtimeRepository;
         this.stockBasicRepository = stockBasicRepository;
         this.stockCacheService = stockCacheService;
         this.klineService = klineService;
-        this.akShareDataProvider = akShareDataProvider;
+        this.providerFactory = providerFactory;
     }
     
     /**
@@ -129,14 +133,15 @@ public class MarketServiceImpl implements MarketService {
     }
 
     private List<SymbolInfoDto> searchSymbolsFromProvider(String keyword, int size) {
-        List<com.koduck.market.provider.MarketDataProvider.SymbolInfo> providerResults =
-                akShareDataProvider.searchSymbols(keyword, size);
+        List<MarketDataProvider.SymbolInfo> providerResults = getAShareProvider()
+                .map(provider -> provider.searchSymbols(keyword, size))
+                .orElse(Collections.emptyList());
         if (providerResults == null || providerResults.isEmpty()) {
             return Collections.emptyList();
         }
 
         Map<String, SymbolInfoDto> deduplicated = new LinkedHashMap<>();
-        for (com.koduck.market.provider.MarketDataProvider.SymbolInfo symbolInfo : providerResults) {
+        for (MarketDataProvider.SymbolInfo symbolInfo : providerResults) {
             if (symbolInfo == null || symbolInfo.symbol() == null || symbolInfo.symbol().isBlank()) {
                 continue;
             }
@@ -189,7 +194,7 @@ public class MarketServiceImpl implements MarketService {
                     return fallbackQuote;
                 }
 
-                PriceQuoteDto providerQuote = akShareDataProvider.getPrice(symbol);
+                PriceQuoteDto providerQuote = fetchProviderPrice(symbol);
                 if (providerQuote != null) {
                     log.info("Fetched stock detail from data service: symbol={}", symbol);
                     return providerQuote;
@@ -211,7 +216,7 @@ public class MarketServiceImpl implements MarketService {
                 return fallbackQuote;
             }
 
-            PriceQuoteDto providerQuote = akShareDataProvider.getPrice(symbol);
+            PriceQuoteDto providerQuote = fetchProviderPrice(symbol);
             if (providerQuote != null) {
                 log.info("Recovered stock detail from data service after exception: symbol={}", symbol);
                 return providerQuote;
@@ -237,7 +242,7 @@ public class MarketServiceImpl implements MarketService {
         }
 
         try {
-            return akShareDataProvider.getStockValuation(symbol);
+            return fetchProviderValuation(symbol);
         } catch (Exception e) {
             log.error("Error getting stock valuation: symbol={}, error={}", symbol, e.getMessage(), e);
             throw e;
@@ -260,7 +265,7 @@ public class MarketServiceImpl implements MarketService {
         }
 
         try {
-            return akShareDataProvider.getStockIndustry(symbol);
+            return fetchProviderIndustry(symbol);
         } catch (Exception e) {
             log.error("Error getting stock industry: symbol={}, error={}", symbol, e.getMessage(), e);
             return null;
@@ -394,7 +399,7 @@ public class MarketServiceImpl implements MarketService {
             }
             
             // Final fallback: try data provider
-            PriceQuoteDto providerQuote = akShareDataProvider.getPrice(symbol);
+            PriceQuoteDto providerQuote = fetchProviderPrice(symbol);
             if (providerQuote != null) {
                 return mapPriceQuoteToStats(providerQuote, market);
             }
@@ -411,7 +416,7 @@ public class MarketServiceImpl implements MarketService {
                 return klineStats;
             }
             
-            PriceQuoteDto providerQuote = akShareDataProvider.getPrice(symbol);
+            PriceQuoteDto providerQuote = fetchProviderPrice(symbol);
             if (providerQuote != null) {
                 return mapPriceQuoteToStats(providerQuote, market);
             }
@@ -529,6 +534,39 @@ public class MarketServiceImpl implements MarketService {
                 .volume(realtime.getVolume())
                 .amount(realtime.getAmount())
                 .build();
+    }
+
+    private Optional<MarketDataProvider> getAShareProvider() {
+        return providerFactory.getPrimaryProvider(MarketType.A_SHARE);
+    }
+
+    private PriceQuoteDto fetchProviderPrice(String symbol) {
+        return getAShareProvider()
+                .flatMap(this::toAkShareProvider)
+                .map(provider -> provider.getPrice(symbol))
+                .orElse(null);
+    }
+
+    private StockValuationDto fetchProviderValuation(String symbol) {
+        return getAShareProvider()
+                .flatMap(this::toAkShareProvider)
+                .map(provider -> provider.getStockValuation(symbol))
+                .orElse(null);
+    }
+
+    private StockIndustryDto fetchProviderIndustry(String symbol) {
+        return getAShareProvider()
+                .flatMap(this::toAkShareProvider)
+                .map(provider -> provider.getStockIndustry(symbol))
+                .orElse(null);
+    }
+
+    private Optional<AKShareDataProvider> toAkShareProvider(MarketDataProvider provider) {
+        if (provider instanceof AKShareDataProvider akShareProvider) {
+            return Optional.of(akShareProvider);
+        }
+        log.warn("Primary provider for A_SHARE is not AKShareDataProvider: {}", provider.getProviderName());
+        return Optional.empty();
     }
     
     // ============ Mapping Methods ============

@@ -8,6 +8,8 @@ import com.koduck.dto.market.StockValuationDto;
 import com.koduck.dto.market.SymbolInfoDto;
 import com.koduck.entity.StockBasic;
 import com.koduck.entity.StockRealtime;
+import com.koduck.market.MarketType;
+import com.koduck.market.provider.ProviderFactory;
 import com.koduck.repository.StockBasicRepository;
 import com.koduck.repository.StockRealtimeRepository;
 import com.koduck.market.provider.MarketDataProvider.SymbolInfo;
@@ -32,6 +34,7 @@ import java.util.Objects;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -59,16 +62,21 @@ class MarketServiceImplTest {
         @Mock
         private AKShareDataProvider akShareDataProvider;
 
+        @Mock
+        private ProviderFactory providerFactory;
+
     private MarketServiceImpl marketService;
 
     @BeforeEach
     void setUp() {
                 marketService = new MarketServiceImpl(
-                                stockRealtimeRepository,
-                                stockBasicRepository,
-                                stockCacheService,
-                                klineService,
-                                akShareDataProvider);
+                        stockRealtimeRepository,
+                        stockBasicRepository,
+                        stockCacheService,
+                        klineService,
+                        providerFactory);
+                lenient().when(providerFactory.getPrimaryProvider(MarketType.A_SHARE))
+                        .thenReturn(Optional.of(akShareDataProvider));
     }
 
     @Test
