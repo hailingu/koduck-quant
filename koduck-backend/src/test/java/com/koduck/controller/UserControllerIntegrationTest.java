@@ -39,6 +39,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  */
 @AutoConfigureMockMvc
 @TestConstructor(autowireMode = TestConstructor.AutowireMode.ALL)
+@SuppressWarnings("null")
 class UserControllerIntegrationTest extends AbstractIntegrationTest {
 
         private static final int ADMIN_ROLE_ID = 1;

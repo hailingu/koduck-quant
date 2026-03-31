@@ -19,6 +19,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.lang.NonNull;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 
@@ -27,6 +28,7 @@ import java.time.LocalDateTime;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -87,7 +89,7 @@ class MarketServiceImplTest {
                 .build();
 
         when(stockBasicRepository.searchByKeyword("永太", PageRequest.of(0, 20)))
-                .thenReturn(new PageImpl<>(List.of(basic)));
+                .thenReturn(new PageImpl<>(stockBasicsOf(basic)));
         when(stockRealtimeRepository.findBySymbolIn(List.of("002326")))
                 .thenReturn(List.of(realtime));
 
@@ -119,7 +121,7 @@ class MarketServiceImplTest {
                 .build();
 
         when(stockBasicRepository.searchByKeyword("京泉华", PageRequest.of(0, 20)))
-                .thenReturn(new PageImpl<>(List.of(shortCode, canonicalCode)));
+                .thenReturn(new PageImpl<>(stockBasicsOf(shortCode, canonicalCode)));
         when(stockRealtimeRepository.findBySymbolIn(List.of("2885", "002885")))
                 .thenReturn(List.of(realtime));
 
@@ -142,7 +144,7 @@ class MarketServiceImplTest {
     @DisplayName("shouldFallbackToDataServiceWhenDatabaseSearchReturnsEmpty")
     void shouldFallbackToDataServiceWhenDatabaseSearchReturnsEmpty() {
         when(stockBasicRepository.searchByKeyword("隆基", PageRequest.of(0, 5)))
-                .thenReturn(new PageImpl<>(List.of()));
+                .thenReturn(new PageImpl<>(emptyStockBasics()));
         when(akShareDataProvider.searchSymbols("隆基", 5))
                 .thenReturn(List.of(
                         new SymbolInfo("601012", "隆基绿能", "AShare", "SSE", "stock"),
@@ -438,4 +440,14 @@ class MarketServiceImplTest {
 
         assertThat(quotes).isEmpty();
     }
+
+        @NonNull
+        private static List<StockBasic> stockBasicsOf(StockBasic... basics) {
+                return Objects.requireNonNull(List.of(basics), "stock basics list must not be null");
+        }
+
+        @NonNull
+        private static List<StockBasic> emptyStockBasics() {
+                return Objects.requireNonNull(List.<StockBasic>of(), "stock basics list must not be null");
+        }
 }

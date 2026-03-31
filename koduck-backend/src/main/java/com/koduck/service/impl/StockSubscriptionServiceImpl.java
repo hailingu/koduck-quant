@@ -221,8 +221,10 @@ public class StockSubscriptionServiceImpl implements StockSubscriptionService {
         for (Long userId : subscribers) {
             try {
                 //  /queue/user/<userId>/price 
+            String principal = Objects.requireNonNull(String.valueOf(userId),
+                "user principal must not be null");
                 messagingTemplate.convertAndSendToUser(
-                        String.valueOf(userId),
+                principal,
                         PRICE_QUEUE_DESTINATION,
                         message
                 );

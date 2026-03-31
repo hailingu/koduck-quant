@@ -122,7 +122,9 @@ public class AuthServiceImpl implements AuthService {
                 .nickname(request.getNickname() != null ? request.getNickname() : request.getUsername())
                 .status(User.UserStatus.ACTIVE)
                 .build();
-        User savedUser = Objects.requireNonNull(userRepository.save(user));
+        User savedUser = Optional.ofNullable(
+                userRepository.save(Objects.requireNonNull(user, "user must not be null")))
+            .orElseThrow(() -> new IllegalStateException("Saved user must not be null"));
         // 分配默认角色（USER）
         userRoleRepository.insertUserRole(savedUser.getId(), DEFAULT_ROLE_ID);
         // 生成并返回 Token

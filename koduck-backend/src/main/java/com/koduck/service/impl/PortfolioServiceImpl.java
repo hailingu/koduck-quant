@@ -41,6 +41,7 @@ public class PortfolioServiceImpl implements PortfolioService {
     private final KlineService klineService;
 
     private static final String DEFAULT_TIMEFRAME = MarketConstants.DEFAULT_TIMEFRAME;
+    private static final String POSITION_NULL_MESSAGE = "position must not be null";
     private static final int SCALE = 4;
 
     public PortfolioServiceImpl(PortfolioPositionRepository positionRepository,
@@ -164,7 +165,8 @@ public class PortfolioServiceImpl implements PortfolioService {
             existing.setQuantity(totalQuantity);
             existing.setAvgCost(newAvgCost);
             existing.setName(request.name());
-            PortfolioPosition saved = positionRepository.save(existing);
+            PortfolioPosition saved = positionRepository.save(
+                Objects.requireNonNull(existing, POSITION_NULL_MESSAGE));
             log.info("Updated position: id={}, user={}, symbol={}", saved.getId(), userId, request.symbol());
             return convertToDtoWithCalculations(saved);
         }
@@ -177,7 +179,8 @@ public class PortfolioServiceImpl implements PortfolioService {
             .quantity(request.quantity())
             .avgCost(request.avgCost())
             .build();
-        PortfolioPosition saved = positionRepository.save(position);
+        PortfolioPosition saved = positionRepository.save(
+            Objects.requireNonNull(position, POSITION_NULL_MESSAGE));
         log.info("Added position: id={}, user={}, symbol={}", saved.getId(), userId, request.symbol());
         return convertToDtoWithCalculations(saved);
     }
@@ -196,7 +199,8 @@ public class PortfolioServiceImpl implements PortfolioService {
         if (request.avgCost() != null) {
             position.setAvgCost(request.avgCost());
         }
-        PortfolioPosition saved = positionRepository.save(position);
+        PortfolioPosition saved = positionRepository.save(
+            Objects.requireNonNull(position, POSITION_NULL_MESSAGE));
         log.info("Updated position: id={}, user={}", saved.getId(), userId);
         return convertToDtoWithCalculations(saved);
     }
@@ -243,7 +247,7 @@ public class PortfolioServiceImpl implements PortfolioService {
             .amount(amount)
             .tradeTime(request.tradeTime() != null ? request.tradeTime() : LocalDateTime.now())
             .build();
-        Trade savedTrade = tradeRepository.save(trade);
+        Trade savedTrade = tradeRepository.save(Objects.requireNonNull(trade, "trade must not be null"));
         // Update position based on trade
         updatePositionFromTrade(userId, request);
         log.info("Added trade: id={}, user={}, symbol={}", savedTrade.getId(), userId, request.symbol());
@@ -266,7 +270,7 @@ public class PortfolioServiceImpl implements PortfolioService {
                 BigDecimal newAvgCost = totalCost.divide(totalQuantity, SCALE, RoundingMode.HALF_UP);
                 position.setQuantity(totalQuantity);
                 position.setAvgCost(newAvgCost);
-                positionRepository.save(position);
+                positionRepository.save(Objects.requireNonNull(position, POSITION_NULL_MESSAGE));
             } else {
                 PortfolioPosition newPosition = PortfolioPosition.builder()
                     .userId(userId)
@@ -276,21 +280,19 @@ public class PortfolioServiceImpl implements PortfolioService {
                     .quantity(request.quantity())
                     .avgCost(request.price())
                     .build();
-                positionRepository.save(newPosition);
+                positionRepository.save(Objects.requireNonNull(newPosition, "newPosition must not be null"));
             }
-        } else if (tradeType == Trade.TradeType.SELL) {
+        } else if (tradeType == Trade.TradeType.SELL && positionOpt.isPresent()) {
             // For sell trades, reduce position
-            if (positionOpt.isPresent()) {
-                PortfolioPosition position = positionOpt.get();
-                BigDecimal remainingQuantity = position.getQuantity().subtract(request.quantity());
-                if (remainingQuantity.compareTo(BigDecimal.ZERO) <= 0) {
-                    // Delete position if fully sold
-                    positionRepository.delete(position);
-                } else {
-                    // Keep avg cost same for sell (FIFO accounting would be more complex)
-                    position.setQuantity(remainingQuantity);
-                    positionRepository.save(position);
-                }
+            PortfolioPosition position = positionOpt.get();
+            BigDecimal remainingQuantity = position.getQuantity().subtract(request.quantity());
+            if (remainingQuantity.compareTo(BigDecimal.ZERO) <= 0) {
+                // Delete position if fully sold
+                positionRepository.delete(position);
+            } else {
+                // Keep avg cost same for sell (FIFO accounting would be more complex)
+                position.setQuantity(remainingQuantity);
+                positionRepository.save(Objects.requireNonNull(position, POSITION_NULL_MESSAGE));
             }
         }
     }

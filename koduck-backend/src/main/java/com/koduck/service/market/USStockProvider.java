@@ -5,11 +5,14 @@ import com.koduck.market.MarketType;
 import com.koduck.market.model.KlineData;
 import com.koduck.market.model.TickData;
 import com.koduck.market.provider.MarketDataProvider;
+import lombok.Getter;
+import lombok.Setter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.ResponseEntity;
+import org.springframework.lang.NonNull;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
@@ -20,6 +23,7 @@ import java.math.RoundingMode;
 import java.time.*;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ThreadLocalRandom;
 
 /**
  * US Stock market data provider using Finnhub API.
@@ -40,6 +44,8 @@ public class USStockProvider implements MarketDataProvider {
     private static final Logger log = LoggerFactory.getLogger(USStockProvider.class);
     private static final ZoneId US_EASTERN = ZoneId.of("America/New_York");
     private static final String PROVIDER_NAME = "finnhub-us-stock";
+    private static final String QUERY_PARAM_TOKEN = "token";
+    private static final long THIRTY_DAYS_SECONDS = 86_400L * 30L;
     
     private final FinnhubProperties properties;
     private final RestTemplate restTemplate;
@@ -95,7 +101,7 @@ public class USStockProvider implements MarketDataProvider {
             String resolution = mapTimeframe(timeframe);
             
             long from = startTime != null ? startTime.getEpochSecond() : 
-                       Instant.now().minusSeconds(86400 * 30).getEpochSecond();
+                       Instant.now().minusSeconds(THIRTY_DAYS_SECONDS).getEpochSecond();
             long to = endTime != null ? endTime.getEpochSecond() : Instant.now().getEpochSecond();
             
             String url = UriComponentsBuilder
@@ -104,22 +110,22 @@ public class USStockProvider implements MarketDataProvider {
                     .queryParam("resolution", resolution)
                     .queryParam("from", from)
                     .queryParam("to", to)
-                    .queryParam("token", properties.getApiKey())
+                    .queryParam(QUERY_PARAM_TOKEN, properties.getApiKey())
                     .toUriString();
             
             log.debug("Fetching kline from Finnhub: symbol={}, resolution={}", symbol, resolution);
             
             ResponseEntity<CandleResponse> response = restTemplate.exchange(
                     url,
-                    HttpMethod.GET,
+                    getHttpGet(),
                     null,
                     CandleResponse.class
             );
             
             CandleResponse body = response.getBody();
-            if (body == null || body.s == null || !body.s.equals("ok")) {
+                if (body == null || body.getS() == null || !body.getS().equals("ok")) {
                 throw new MarketDataException("Invalid response from Finnhub: " + 
-                    (body != null ? body.s : "null"));
+                    (body != null ? body.getS() : "null"));
             }
             
             return convertToKlineData(body, symbol.toUpperCase(Locale.ROOT), timeframe, limit);
@@ -142,14 +148,14 @@ public class USStockProvider implements MarketDataProvider {
             String url = UriComponentsBuilder
                     .fromUriString(properties.getBaseUrl() + "/quote")
                     .queryParam("symbol", symbol.toUpperCase(Locale.ROOT))
-                    .queryParam("token", properties.getApiKey())
+                    .queryParam(QUERY_PARAM_TOKEN, properties.getApiKey())
                     .toUriString();
             
             log.debug("Fetching quote from Finnhub: symbol={}", symbol);
             
             ResponseEntity<QuoteResponse> response = restTemplate.exchange(
                     url,
-                    HttpMethod.GET,
+                    getHttpGet(),
                     null,
                     QuoteResponse.class
             );
@@ -162,14 +168,14 @@ public class USStockProvider implements MarketDataProvider {
             TickData tickData = TickData.builder()
                 .symbol(symbol.toUpperCase(Locale.ROOT))
                 .market(MarketType.US_STOCK.getCode())
-                .timestamp(Instant.ofEpochSecond(quote.t))
-                .price(BigDecimal.valueOf(quote.c)) // Current price
-                .change(BigDecimal.valueOf(quote.d)) // Change
-                .changePercent(BigDecimal.valueOf(quote.dp)) // Change percent
-                .open(BigDecimal.valueOf(quote.o))
-                .dayHigh(BigDecimal.valueOf(quote.h))
-                .dayLow(BigDecimal.valueOf(quote.l))
-                .prevClose(BigDecimal.valueOf(quote.pc))
+                .timestamp(Instant.ofEpochSecond(quote.getT()))
+                .price(BigDecimal.valueOf(quote.getC())) // Current price
+                .change(BigDecimal.valueOf(quote.getD())) // Change
+                .changePercent(BigDecimal.valueOf(quote.getDp())) // Change percent
+                .open(BigDecimal.valueOf(quote.getO()))
+                .dayHigh(BigDecimal.valueOf(quote.getH()))
+                .dayLow(BigDecimal.valueOf(quote.getL()))
+                .prevClose(BigDecimal.valueOf(quote.getPc()))
                 .volume(null) // Quote doesn't provide volume
                 .build();
             
@@ -240,12 +246,12 @@ public class USStockProvider implements MarketDataProvider {
             String url = UriComponentsBuilder
                     .fromUriString(properties.getBaseUrl() + "/search")
                     .queryParam("q", keyword)
-                    .queryParam("token", properties.getApiKey())
+                    .queryParam(QUERY_PARAM_TOKEN, properties.getApiKey())
                     .toUriString();
             
             ResponseEntity<SearchResponse> response = restTemplate.exchange(
                     url,
-                    HttpMethod.GET,
+                    getHttpGet(),
                     null,
                     SearchResponse.class
             );
@@ -293,22 +299,22 @@ public class USStockProvider implements MarketDataProvider {
                                                 String timeframe, int limit) {
         List<KlineData> klines = new ArrayList<>();
         
-        if (response.t == null || response.t.isEmpty()) {
+        if (response.getT() == null || response.getT().isEmpty()) {
             return klines;
         }
         
-        int count = Math.min(response.t.size(), limit);
+        int count = Math.min(response.getT().size(), limit);
         for (int i = 0; i < count; i++) {
             klines.add(KlineData.builder()
                 .symbol(symbol)
                 .market(MarketType.US_STOCK.getCode())
-                .timestamp(Instant.ofEpochSecond(response.t.get(i)))
-                .open(BigDecimal.valueOf(response.o.get(i)))
-                .high(BigDecimal.valueOf(response.h.get(i)))
-                .low(BigDecimal.valueOf(response.l.get(i)))
-                .close(BigDecimal.valueOf(response.c.get(i)))
-                .volume(response.v.get(i))
-                .amount(BigDecimal.valueOf(response.c.get(i) * response.v.get(i)))
+                .timestamp(Instant.ofEpochSecond(response.getT().get(i)))
+                .open(BigDecimal.valueOf(response.getO().get(i)))
+                .high(BigDecimal.valueOf(response.getH().get(i)))
+                .low(BigDecimal.valueOf(response.getL().get(i)))
+                .close(BigDecimal.valueOf(response.getC().get(i)))
+                .volume(response.getV().get(i))
+                .amount(BigDecimal.valueOf(response.getC().get(i) * response.getV().get(i)))
                 .timeframe(timeframe)
                 .build());
         }
@@ -320,25 +326,30 @@ public class USStockProvider implements MarketDataProvider {
         int month = date.getMonthValue();
         int day = date.getDayOfMonth();
         DayOfWeek dow = date.getDayOfWeek();
-        
-        // New Year's Day (observed)
-        if (month == 1 && (day == 1 || (day == 2 && dow == DayOfWeek.MONDAY))) {
-            return true;
-        }
-        
-        // Independence Day
-        if (month == 7 && (day == 4 || (day == 3 && dow == DayOfWeek.FRIDAY) || 
-            (day == 5 && dow == DayOfWeek.MONDAY))) {
-            return true;
-        }
-        
-        // Christmas
-        if (month == 12 && (day == 25 || (day == 24 && dow == DayOfWeek.FRIDAY) ||
-            (day == 26 && dow == DayOfWeek.MONDAY))) {
-            return true;
-        }
-        
-        return false;
+
+        return isNewYearHoliday(month, day, dow)
+                || isIndependenceDayHoliday(month, day, dow)
+                || isChristmasHoliday(month, day, dow);
+    }
+
+    private boolean isNewYearHoliday(int month, int day, DayOfWeek dow) {
+        return month == 1 && (day == 1 || (day == 2 && dow == DayOfWeek.MONDAY));
+    }
+
+    private boolean isIndependenceDayHoliday(int month, int day, DayOfWeek dow) {
+        return month == 7 && (day == 4
+                || (day == 3 && dow == DayOfWeek.FRIDAY)
+                || (day == 5 && dow == DayOfWeek.MONDAY));
+    }
+
+    private boolean isChristmasHoliday(int month, int day, DayOfWeek dow) {
+        return month == 12 && (day == 25
+                || (day == 24 && dow == DayOfWeek.FRIDAY)
+                || (day == 26 && dow == DayOfWeek.MONDAY));
+    }
+
+    private static @NonNull HttpMethod getHttpGet() {
+        return Objects.requireNonNull(HttpMethod.GET, "HTTP GET must not be null");
     }
     
     /**
@@ -350,25 +361,29 @@ public class USStockProvider implements MarketDataProvider {
     
     // Finnhub API Response Classes
     
+    @Getter
+    @Setter
     static class CandleResponse {
-        public String s; // Status: "ok" or "no_data"
-        public List<Long> t; // Timestamps
-        public List<Double> o; // Open prices
-        public List<Double> h; // High prices
-        public List<Double> l; // Low prices
-        public List<Double> c; // Close prices
-        public List<Long> v; // Volumes
+        private String s; // Status: "ok" or "no_data"
+        private List<Long> t; // Timestamps
+        private List<Double> o; // Open prices
+        private List<Double> h; // High prices
+        private List<Double> l; // Low prices
+        private List<Double> c; // Close prices
+        private List<Long> v; // Volumes
     }
     
+    @Getter
+    @Setter
     static class QuoteResponse {
-        public double c;  // Current price
-        public double d;  // Change
-        public double dp; // Change percent
-        public double h;  // High
-        public double l;  // Low
-        public double o;  // Open
-        public double pc; // Previous close
-        public long t;    // Timestamp
+        private double c;  // Current price
+        private double d;  // Change
+        private double dp; // Change percent
+        private double h;  // High
+        private double l;  // Low
+        private double o;  // Open
+        private double pc; // Previous close
+        private long t;    // Timestamp
     }
     
     record SearchResponse(int count, List<SearchResult> result) {
@@ -410,19 +425,24 @@ public class USStockProvider implements MarketDataProvider {
             BigDecimal basePrice = basePrices.getOrDefault(symbol.toUpperCase(Locale.ROOT), new BigDecimal("100.00"));
             
             Instant currentTime = endTime != null ? endTime : Instant.now();
+            if (endTime == null && startTime != null) {
+                currentTime = startTime;
+            }
             Duration interval = parseTimeframe(timeframe);
             
             BigDecimal currentPrice = basePrice;
             for (int i = 0; i < limit; i++) {
-                double changePercent = (Math.random() - 0.5) * 0.04;
+                double changePercent = (ThreadLocalRandom.current().nextDouble() - 0.5) * 0.04;
                 BigDecimal change = currentPrice.multiply(BigDecimal.valueOf(changePercent));
                 BigDecimal close = currentPrice.add(change);
                 
-                BigDecimal high = close.multiply(BigDecimal.valueOf(1 + Math.random() * 0.01));
-                BigDecimal low = close.multiply(BigDecimal.valueOf(1 - Math.random() * 0.01));
+                BigDecimal high = close.multiply(
+                    BigDecimal.valueOf(1 + ThreadLocalRandom.current().nextDouble() * 0.01));
+                BigDecimal low = close.multiply(
+                    BigDecimal.valueOf(1 - ThreadLocalRandom.current().nextDouble() * 0.01));
                 BigDecimal open = currentPrice;
                 
-                long volume = (long) (Math.random() * 9900000 + 100000);
+                long volume = ThreadLocalRandom.current().nextLong(100_000L, 10_000_000L);
                 
                 klines.add(KlineData.builder()
                     .symbol(symbol.toUpperCase(Locale.ROOT))
@@ -448,13 +468,13 @@ public class USStockProvider implements MarketDataProvider {
         Optional<TickData> getRealTimeTick(String symbol) {
             BigDecimal basePrice = basePrices.getOrDefault(symbol.toUpperCase(Locale.ROOT), new BigDecimal("100.00"));
             
-            double changePercent = (Math.random() - 0.5) * 0.02;
+            double changePercent = (ThreadLocalRandom.current().nextDouble() - 0.5) * 0.02;
             BigDecimal price = basePrice.multiply(BigDecimal.valueOf(1 + changePercent));
             BigDecimal change = price.subtract(basePrice);
             BigDecimal changePercentValue = change.divide(basePrice, 4, RoundingMode.HALF_UP)
                                                   .multiply(BigDecimal.valueOf(100));
             
-            long volume = (long) (Math.random() * 49000000 + 1000000);
+            long volume = ThreadLocalRandom.current().nextLong(1_000_000L, 50_000_000L);
             
             TickData tickData = TickData.builder()
                 .symbol(symbol.toUpperCase(Locale.ROOT))
@@ -466,9 +486,9 @@ public class USStockProvider implements MarketDataProvider {
                 .volume(volume)
                 .amount(price.multiply(BigDecimal.valueOf(volume)))
                 .bidPrice(price.multiply(BigDecimal.valueOf(0.999)))
-                .bidVolume((long) (Math.random() * 9900 + 100))
+                .bidVolume(ThreadLocalRandom.current().nextLong(100L, 10_000L))
                 .askPrice(price.multiply(BigDecimal.valueOf(1.001)))
-                .askVolume((long) (Math.random() * 9900 + 100))
+                .askVolume(ThreadLocalRandom.current().nextLong(100L, 10_000L))
                 .dayHigh(price.multiply(BigDecimal.valueOf(1.02)))
                 .dayLow(price.multiply(BigDecimal.valueOf(0.98)))
                 .open(basePrice)

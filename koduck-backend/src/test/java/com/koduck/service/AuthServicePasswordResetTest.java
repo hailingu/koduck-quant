@@ -31,6 +31,7 @@ import static org.mockito.Mockito.*;
  * @author Koduck Team
  */
 @ExtendWith(MockitoExtension.class)
+@SuppressWarnings("null")
 class AuthServicePasswordResetTest {
 
     @Mock

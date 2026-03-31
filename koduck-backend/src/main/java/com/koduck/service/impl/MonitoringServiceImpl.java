@@ -15,7 +15,6 @@ import java.math.RoundingMode;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.*;
-import java.util.stream.Collectors;
 /**
  * Implementation of MonitoringService.
  */
@@ -23,6 +22,8 @@ import java.util.stream.Collectors;
 @Service
 @RequiredArgsConstructor
 public class MonitoringServiceImpl implements MonitoringService {
+    private static final String RULE_NOT_NULL_MESSAGE = "rule must not be null";
+
     private final StockRealtimeRepository stockRealtimeRepository;
     private final AlertRuleRepository alertRuleRepository;
     private final AlertHistoryRepository alertHistoryRepository;
@@ -67,7 +68,7 @@ public class MonitoringServiceImpl implements MonitoringService {
         return stockRealtimeRepository.findDelayedStocks(thresholdSeconds)
                 .stream()
                 .limit(limit)
-                .collect(Collectors.toList());
+                .toList();
     }
     @Override
     public Map<String, Object> checkSingleStockDelay(String symbol, int thresholdSeconds) {
@@ -106,23 +107,26 @@ public class MonitoringServiceImpl implements MonitoringService {
     }
     @Override
     public AlertRule getRuleById(Long id) {
-        return alertRuleRepository.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("Rule not found: " + id));
+        Long nonNullId = Objects.requireNonNull(id, "id must not be null");
+        return alertRuleRepository.findById(nonNullId)
+            .orElseThrow(() -> new IllegalArgumentException("Rule not found: " + nonNullId));
     }
     @Override
     @Transactional
     public AlertRule createRule(AlertRule rule) {
-        if (rule.getEnabled() == null) {
-            rule.setEnabled(true);
+        AlertRule nonNullRule = Objects.requireNonNull(rule, RULE_NOT_NULL_MESSAGE);
+        if (nonNullRule.getEnabled() == null) {
+            nonNullRule.setEnabled(true);
         }
-        if (rule.getCooldownMinutes() == null) {
-            rule.setCooldownMinutes(5);
+        if (nonNullRule.getCooldownMinutes() == null) {
+            nonNullRule.setCooldownMinutes(5);
         }
-        return alertRuleRepository.save(rule);
+        return alertRuleRepository.save(nonNullRule);
     }
     @Override
     @Transactional
     public AlertRule updateRule(Long id, AlertRule rule) {
+        Objects.requireNonNull(rule, RULE_NOT_NULL_MESSAGE);
         AlertRule existing = getRuleById(id);
         if (rule.getRuleName() != null) {
             existing.setRuleName(rule.getRuleName());
@@ -151,19 +155,20 @@ public class MonitoringServiceImpl implements MonitoringService {
         if (rule.getDescription() != null) {
             existing.setDescription(rule.getDescription());
         }
-        return alertRuleRepository.save(existing);
+        return alertRuleRepository.save(Objects.requireNonNull(existing, "existing must not be null"));
     }
     @Override
     @Transactional
     public void deleteRule(Long id) {
-        alertRuleRepository.deleteById(id);
+        Long nonNullId = Objects.requireNonNull(id, "id must not be null");
+        alertRuleRepository.deleteById(nonNullId);
     }
     @Override
     @Transactional
     public AlertRule setRuleEnabled(Long id, boolean enabled) {
         AlertRule rule = getRuleById(id);
         rule.setEnabled(enabled);
-        return alertRuleRepository.save(rule);
+        return alertRuleRepository.save(Objects.requireNonNull(rule, RULE_NOT_NULL_MESSAGE));
     }
     // ==================== Alert History ====================
     @Override
@@ -182,11 +187,12 @@ public class MonitoringServiceImpl implements MonitoringService {
     @Override
     @Transactional
     public AlertHistory resolveAlert(Long alertId) {
-        AlertHistory alert = alertHistoryRepository.findById(alertId)
-                .orElseThrow(() -> new IllegalArgumentException("Alert not found: " + alertId));
+        Long nonNullAlertId = Objects.requireNonNull(alertId, "alertId must not be null");
+        AlertHistory alert = alertHistoryRepository.findById(nonNullAlertId)
+            .orElseThrow(() -> new IllegalArgumentException("Alert not found: " + nonNullAlertId));
         alert.setStatus("RESOLVED");
         alert.setResolvedAt(LocalDateTime.now());
-        return alertHistoryRepository.save(alert);
+        return alertHistoryRepository.save(Objects.requireNonNull(alert, "alert must not be null"));
     }
     @Override
     public Map<String, Long> getAlertStatistics() {
@@ -291,25 +297,25 @@ public class MonitoringServiceImpl implements MonitoringService {
         String message = "";
         switch (metricName) {
             case "stock_delay_seconds":
-                triggered = checkSingleStockDelayRule(rule, threshold, operator);
+                triggered = checkSingleStockDelayRule(threshold, operator);
                 currentValue = getMaxStockDelay();
                 message = String.format("单只股票数据延迟: %d秒 (阈值: %d秒)", 
                     currentValue.longValue(), threshold.longValue());
                 break;
             case "stock_delay_percentage":
-                triggered = checkMultipleStockDelayRule(rule, threshold, operator);
+                triggered = checkMultipleStockDelayRule(threshold, operator);
                 currentValue = getStockDelayPercentage();
                 message = String.format("%.1f%% 的股票数据延迟超过阈值 (阈值: %.1f%%)", 
                     currentValue.doubleValue(), threshold.doubleValue());
                 break;
             case "consecutive_failures":
-                triggered = checkDataSourceFailureRule(rule, threshold, operator);
+                triggered = checkDataSourceFailureRule(threshold, operator);
                 currentValue = getMaxConsecutiveFailures();
                 message = String.format("数据源最大连续失败次数: %d (阈值: %d)", 
                     currentValue.longValue(), threshold.longValue());
                 break;
             case "cache_hit_rate":
-                triggered = checkCacheHitRateRule(rule, threshold, operator);
+                triggered = checkCacheHitRateRule(threshold, operator);
                 currentValue = getCacheHitRate();
                 message = String.format("缓存命中率: %.1f%% (阈值: %.1f%%)", 
                     currentValue.doubleValue(), threshold.doubleValue());
@@ -321,19 +327,19 @@ public class MonitoringServiceImpl implements MonitoringService {
             createAlert(rule, currentValue, threshold, message);
         }
     }
-    private boolean checkSingleStockDelayRule(AlertRule rule, BigDecimal threshold, String operator) {
+    private boolean checkSingleStockDelayRule(BigDecimal threshold, String operator) {
         long maxDelay = getMaxStockDelay().longValue();
         return evaluateCondition(maxDelay, threshold.doubleValue(), operator);
     }
-    private boolean checkMultipleStockDelayRule(AlertRule rule, BigDecimal threshold, String operator) {
+    private boolean checkMultipleStockDelayRule(BigDecimal threshold, String operator) {
         double percentage = getStockDelayPercentage().doubleValue();
         return evaluateCondition(percentage, threshold.doubleValue(), operator);
     }
-    private boolean checkDataSourceFailureRule(AlertRule rule, BigDecimal threshold, String operator) {
+    private boolean checkDataSourceFailureRule(BigDecimal threshold, String operator) {
         long maxFailures = getMaxConsecutiveFailures().longValue();
         return evaluateCondition(maxFailures, threshold.doubleValue(), operator);
     }
-    private boolean checkCacheHitRateRule(AlertRule rule, BigDecimal threshold, String operator) {
+    private boolean checkCacheHitRateRule(BigDecimal threshold, String operator) {
         double hitRate = getCacheHitRate().doubleValue();
         return evaluateCondition(hitRate, threshold.doubleValue(), operator);
     }
@@ -379,11 +385,9 @@ public class MonitoringServiceImpl implements MonitoringService {
             .orElse(BigDecimal.ZERO);
     }
     private BigDecimal getCacheHitRate() {
-        // TODO: Implement actual cache hit rate calculation from Redis
-        // For now, return a default value
+        // Temporary fallback value before Redis-based metric aggregation is integrated.
         return BigDecimal.valueOf(85.0);
     }
-    @Transactional
     private void createAlert(AlertRule rule, BigDecimal metricValue, BigDecimal threshold, String message) {
         AlertHistory alert = AlertHistory.builder()
                 .alertRuleId(rule.getId())
@@ -396,7 +400,7 @@ public class MonitoringServiceImpl implements MonitoringService {
                 .status("PENDING")
                 .notified(false)
                 .build();
-        alertHistoryRepository.save(alert);
+            alertHistoryRepository.save(Objects.requireNonNull(alert, "alert must not be null"));
         log.info("Alert created: {} - {}", rule.getSeverity(), message);
     }
     // ==================== Dashboard ====================

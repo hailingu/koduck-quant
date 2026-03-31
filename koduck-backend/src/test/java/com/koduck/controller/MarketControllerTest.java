@@ -14,6 +14,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.lang.NonNull;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
@@ -22,6 +23,7 @@ import java.math.BigDecimal;
 import java.lang.reflect.Method;
 import java.time.Instant;
 import java.util.List;
+import java.util.Objects;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -64,7 +66,7 @@ class MarketControllerTest {
                 .param("keyword", "永太")
                 .param("page", "1")
                 .param("size", "20")
-                .contentType(MediaType.APPLICATION_JSON))
+                .contentType(jsonMediaType()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(0))
                 .andExpect(jsonPath("$.data[0].symbol").value("002326"))
@@ -83,7 +85,7 @@ class MarketControllerTest {
                 .param("keyword", "")
                 .param("page", "1")
                 .param("size", "20")
-                .contentType(MediaType.APPLICATION_JSON))
+                .contentType(jsonMediaType()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(0))
                 .andExpect(jsonPath("$.data").isArray());
@@ -114,7 +116,7 @@ class MarketControllerTest {
 
         // When & Then
         mockMvc.perform(get("/api/v1/market/stocks/002326")
-                .contentType(MediaType.APPLICATION_JSON))
+                .contentType(jsonMediaType()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(0))
                 .andExpect(jsonPath("$.data.symbol").value("002326"))
@@ -129,7 +131,7 @@ class MarketControllerTest {
         when(marketService.getStockDetail("999999")).thenReturn(null);
 
         mockMvc.perform(get("/api/v1/market/stocks/999999")
-                .contentType(MediaType.APPLICATION_JSON))
+                .contentType(jsonMediaType()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(404));
 
@@ -150,7 +152,7 @@ class MarketControllerTest {
                 when(marketService.getStockValuation("601012")).thenReturn(valuation);
 
                 mockMvc.perform(get("/api/v1/market/stocks/601012/valuation")
-                                .contentType(MediaType.APPLICATION_JSON))
+                                .contentType(jsonMediaType()))
                                 .andExpect(status().isOk())
                                 .andExpect(jsonPath("$.code").value(0))
                                 .andExpect(jsonPath("$.data.symbol").value("601012"))
@@ -175,7 +177,7 @@ class MarketControllerTest {
                 when(marketService.getStockIndustry("601012")).thenReturn(industry);
 
                 mockMvc.perform(get("/api/v1/market/stocks/601012/industry")
-                                                .contentType(MediaType.APPLICATION_JSON))
+                                                .contentType(jsonMediaType()))
                                 .andExpect(status().isOk())
                                 .andExpect(jsonPath("$.code").value(0))
                                 .andExpect(jsonPath("$.data.symbol").value("601012"))
@@ -202,7 +204,7 @@ class MarketControllerTest {
 
         // When & Then
         mockMvc.perform(get("/api/v1/market/indices")
-                .contentType(MediaType.APPLICATION_JSON))
+                .contentType(jsonMediaType()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(0))
                 .andExpect(jsonPath("$.data[0].symbol").value("000001"))
@@ -228,7 +230,7 @@ class MarketControllerTest {
 
         mockMvc.perform(get("/api/v1/market/batch")
                 .param("symbols", "000001", "600000")
-                .contentType(MediaType.APPLICATION_JSON))
+                .contentType(jsonMediaType()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(0))
                 .andExpect(jsonPath("$.data[0].symbol").value("000001"));
@@ -245,5 +247,9 @@ class MarketControllerTest {
         assertNotNull(size);
         assertEquals(50, size.max());
     }
+
+        private static @NonNull MediaType jsonMediaType() {
+                return Objects.requireNonNull(MediaType.APPLICATION_JSON, "application/json media type must not be null");
+        }
 
 }

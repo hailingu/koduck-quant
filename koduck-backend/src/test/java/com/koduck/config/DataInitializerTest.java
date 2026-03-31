@@ -12,13 +12,13 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.lang.NonNull;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import com.koduck.util.CredentialEncryptionUtil;
 
 import java.lang.reflect.Field;
-import java.util.Objects;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
@@ -140,16 +140,21 @@ class DataInitializerTest {
         when(userRepository.findByUsername("demoUser")).thenReturn(Optional.empty());
         when(roleRepository.findByName("USER")).thenReturn(Optional.of(role));
         when(passwordEncoder.encode("secure-password")).thenReturn("encoded-password");
-        when(userRepository.save(org.mockito.ArgumentMatchers.argThat(Objects::nonNull)))
+        when(userRepository.save(anyNonNullUser()))
                 .thenThrow(new DataIntegrityViolationException("duplicate key"));
 
         assertDoesNotThrow(() -> dataInitializer.run());
 
         verify(userRepository, times(2)).findByUsername("demoUser");
         verify(roleRepository).findByName("USER");
-        verify(userRepository).save(org.mockito.ArgumentMatchers.argThat(Objects::nonNull));
+        verify(userRepository).save(anyNonNullUser());
         verify(userRoleRepository, never()).insertUserRole(org.mockito.ArgumentMatchers.anyLong(), org.mockito.ArgumentMatchers.anyInt());
         verifyNoInteractions(credentialRepository);
+    }
+
+    private @NonNull User anyNonNullUser() {
+        org.mockito.ArgumentMatchers.any(User.class);
+        return new User();
     }
 
     /**

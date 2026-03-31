@@ -4,6 +4,7 @@ import com.koduck.config.properties.MailProperties;
 import com.koduck.service.EmailService;
 import jakarta.mail.MessagingException;
 import jakarta.mail.internet.MimeMessage;
+import java.util.Objects;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
@@ -26,8 +27,8 @@ public class EmailServiceImpl implements EmailService {
     private final MailProperties mailProperties;
 
     public EmailServiceImpl(JavaMailSender mailSender, MailProperties mailProperties) {
-        this.mailSender = mailSender;
-        this.mailProperties = mailProperties;
+        this.mailSender = Objects.requireNonNull(mailSender, "mailSender must not be null");
+        this.mailProperties = Objects.requireNonNull(mailProperties, "mailProperties must not be null");
     }
 
     /**
@@ -66,11 +67,15 @@ public class EmailServiceImpl implements EmailService {
      */
     @Override
     public void sendSimpleEmail(String to, String subject, String text) {
+        String nonNullTo = Objects.requireNonNull(to, "to must not be null");
+        String nonNullSubject = Objects.requireNonNull(subject, "subject must not be null");
+        String nonNullText = Objects.requireNonNull(text, "text must not be null");
+        String from = Objects.requireNonNull(mailProperties.getFrom(), "mail.from must not be null");
         SimpleMailMessage message = new SimpleMailMessage();
-        message.setFrom(mailProperties.getFrom());
-        message.setTo(to);
-        message.setSubject(subject);
-        message.setText(text);
+        message.setFrom(from);
+        message.setTo(nonNullTo);
+        message.setSubject(nonNullSubject);
+        message.setText(nonNullText);
         mailSender.send(message);
     }
     /**
@@ -83,17 +88,26 @@ public class EmailServiceImpl implements EmailService {
      */
     @Override
     public void sendHtmlEmail(String to, String subject, String htmlContent) throws MessagingException {
+        String nonNullTo = Objects.requireNonNull(to, "to must not be null");
+        String nonNullSubject = Objects.requireNonNull(subject, "subject must not be null");
+        String nonNullHtmlContent = Objects.requireNonNull(htmlContent, "htmlContent must not be null");
+        String from = Objects.requireNonNull(mailProperties.getFrom(), "mail.from must not be null");
         MimeMessage message = mailSender.createMimeMessage();
         MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
         try {
-            helper.setFrom(mailProperties.getFrom(), mailProperties.getFromName());
-        } catch (java.io.UnsupportedEncodingException e) {
+            String fromName = mailProperties.getFromName();
+            if (fromName != null && !fromName.isBlank()) {
+                helper.setFrom(from, fromName);
+            } else {
+                helper.setFrom(from);
+            }
+        } catch (java.io.UnsupportedEncodingException _) {
             // Fallback to simple from address if encoding fails
-            helper.setFrom(mailProperties.getFrom());
+            helper.setFrom(from);
         }
-        helper.setTo(to);
-        helper.setSubject(subject);
-        helper.setText(htmlContent, true);
+        helper.setTo(nonNullTo);
+        helper.setSubject(nonNullSubject);
+        helper.setText(nonNullHtmlContent, true);
         mailSender.send(message);
     }
     /**

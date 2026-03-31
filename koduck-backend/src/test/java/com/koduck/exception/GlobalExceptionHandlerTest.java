@@ -19,6 +19,7 @@ import static org.mockito.Mockito.when;
  * GlobalExceptionHandler 
  */
 @DisplayName("全局异常处理器测试")
+@SuppressWarnings("null")
 class GlobalExceptionHandlerTest {
 
     private GlobalExceptionHandler handler;

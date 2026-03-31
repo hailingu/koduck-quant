@@ -46,11 +46,12 @@ public class ForexProvider implements MarketDataProvider {
     private static final ZoneId NEW_YORK_ZONE = ZoneId.of("America/New_York");
     private static final String FOREX_BASE_PATH = "/forex";
     private static final String PROVIDER_NAME = "akshare-forex";
-        private static final ParameterizedTypeReference<List<Map<String, Object>>> LIST_MAP_RESPONSE_TYPE =
-            new ParameterizedTypeReference<>() {
+    private static final String RESPONSE_TYPE_MESSAGE = "responseType must not be null";
+    private static final ParameterizedTypeReference<List<Map<String, Object>>> LIST_MAP_RESPONSE_TYPE =
+            new ParameterizedTypeReference<List<Map<String, Object>>>() {
             };
-        private static final ParameterizedTypeReference<Map<String, Object>> MAP_RESPONSE_TYPE =
-            new ParameterizedTypeReference<>() {
+    private static final ParameterizedTypeReference<Map<String, Object>> MAP_RESPONSE_TYPE =
+            new ParameterizedTypeReference<Map<String, Object>>() {
             };
     
     private final DataServiceProperties properties;
@@ -139,7 +140,7 @@ public class ForexProvider implements MarketDataProvider {
                     url,
                     getHttpGet(),
                     null,
-                    LIST_MAP_RESPONSE_TYPE
+                    Objects.requireNonNull(LIST_MAP_RESPONSE_TYPE, RESPONSE_TYPE_MESSAGE)
                 );
             
             List<Map<String, Object>> data = response.getBody();
@@ -176,7 +177,7 @@ public class ForexProvider implements MarketDataProvider {
                     url,
                     getHttpGet(),
                     null,
-                    MAP_RESPONSE_TYPE
+                    Objects.requireNonNull(MAP_RESPONSE_TYPE, RESPONSE_TYPE_MESSAGE)
                 );
             
             Map<String, Object> data = response.getBody();
@@ -245,7 +246,7 @@ public class ForexProvider implements MarketDataProvider {
                     url,
                     getHttpGet(),
                     null,
-                    LIST_MAP_RESPONSE_TYPE
+                    Objects.requireNonNull(LIST_MAP_RESPONSE_TYPE, RESPONSE_TYPE_MESSAGE)
                 );
             
             List<Map<String, Object>> data = response.getBody();

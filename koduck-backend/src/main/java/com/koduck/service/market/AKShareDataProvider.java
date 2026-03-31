@@ -6,6 +6,7 @@ import com.koduck.dto.market.PriceQuoteDto;
 import com.koduck.dto.market.StockIndustryDto;
 import com.koduck.dto.market.StockValuationDto;
 import com.koduck.dto.market.SymbolInfoDto;
+import com.koduck.exception.ExternalServiceException;
 import com.koduck.market.MarketType;
 import com.koduck.market.model.KlineData;
 import com.koduck.market.model.TickData;
@@ -17,7 +18,7 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.ResponseEntity;
-import com.koduck.exception.ExternalServiceException;
+import org.springframework.lang.NonNull;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
@@ -45,11 +46,22 @@ public class AKShareDataProvider implements MarketDataProvider {
     private static final String A_SHARE_BASE_PATH = "/a-share";
     private static final String KEY_SYMBOL = "symbol";
     private static final String KEY_NAME = "name";
-        private static final ParameterizedTypeReference<DataServiceResponse<List<Map<String, Object>>>>
-            LIST_DATA_RESPONSE_TYPE = new ParameterizedTypeReference<>() {
+    private static final String KEY_LIMIT = "limit";
+    private static final String KEY_VOLUME = "volume";
+    private static final String KEY_AMOUNT = "amount";
+    private static final String EXCHANGE_SH = "SH";
+    private static final String EXCHANGE_SZ = "SZ";
+    private static final String EXCHANGE_CN = "CN";
+    private static final String RESPONSE_TYPE_MESSAGE = "responseType must not be null";
+    private static final String HTTP_GET_MESSAGE = "HTTP GET must not be null";
+    private static final String HTTP_POST_MESSAGE = "HTTP POST must not be null";
+    private static final ParameterizedTypeReference<DataServiceResponse<List<Map<String, Object>>>>
+        LIST_DATA_RESPONSE_TYPE =
+            new ParameterizedTypeReference<DataServiceResponse<List<Map<String, Object>>>>() {
             };
-        private static final ParameterizedTypeReference<DataServiceResponse<Map<String, Object>>>
-            MAP_DATA_RESPONSE_TYPE = new ParameterizedTypeReference<>() {
+    private static final ParameterizedTypeReference<DataServiceResponse<Map<String, Object>>>
+        MAP_DATA_RESPONSE_TYPE =
+            new ParameterizedTypeReference<DataServiceResponse<Map<String, Object>>>() {
             };
     
     private final RestTemplate restTemplate;
@@ -100,9 +112,9 @@ public class AKShareDataProvider implements MarketDataProvider {
         try {
             UriComponentsBuilder builder = UriComponentsBuilder
                     .fromUriString(properties.getBaseUrl() + A_SHARE_BASE_PATH + "/kline")
-                    .queryParam("symbol", symbol)
+                    .queryParam(KEY_SYMBOL, symbol)
                     .queryParam("timeframe", timeframe)
-                    .queryParam("limit", limit);
+                    .queryParam(KEY_LIMIT, limit);
             
             if (startTime != null) {
                 builder.queryParam("startTime", startTime.toEpochMilli());
@@ -118,15 +130,14 @@ public class AKShareDataProvider implements MarketDataProvider {
             ResponseEntity<DataServiceResponse<List<Map<String, Object>>>> response = 
                     restTemplate.exchange(
                             url,
-                            HttpMethod.GET,
+                            getHttpGet(),
                             null,
-                        LIST_DATA_RESPONSE_TYPE
+                            getListDataResponseType()
                     );
             
             return parseKlineResponse(response.getBody());
             
         } catch (RestClientException e) {
-            log.error("Failed to get kline data for {}: {}", symbol, e.getMessage());
             throw new MarketDataException("Failed to get kline data", e);
         }
     }
@@ -222,7 +233,7 @@ public class AKShareDataProvider implements MarketDataProvider {
             String url = UriComponentsBuilder
                     .fromUriString(properties.getBaseUrl() + A_SHARE_BASE_PATH + "/search")
                     .queryParam("keyword", keyword)
-                    .queryParam("limit", limit)
+                    .queryParam(KEY_LIMIT, limit)
                     .toUriString();
             
             log.debug("Searching symbols: keyword={}, limit={}", keyword, limit);
@@ -230,9 +241,9 @@ public class AKShareDataProvider implements MarketDataProvider {
             ResponseEntity<DataServiceResponse<List<Map<String, Object>>>> response = 
                     restTemplate.exchange(
                             url,
-                            HttpMethod.GET,
+                            getHttpGet(),
                             null,
-                        LIST_DATA_RESPONSE_TYPE
+                            getListDataResponseType()
                     );
             
             return parseSymbolInfoResponse(response.getBody());
@@ -262,15 +273,14 @@ public class AKShareDataProvider implements MarketDataProvider {
             ResponseEntity<DataServiceResponse<Map<String, Object>>> response =
                     restTemplate.exchange(
                             url,
-                            HttpMethod.GET,
+                            getHttpGet(),
                             null,
-                        MAP_DATA_RESPONSE_TYPE
+                            getMapDataResponseType()
                     );
             
             return parsePriceQuoteResponse(response.getBody());
             
         } catch (RestClientException e) {
-            log.error("Failed to get price for {}: {}", symbol, e.getMessage());
             throw new ExternalServiceException("DataService",
                     "Failed to get price for " + symbol, e);
         }
@@ -296,9 +306,10 @@ public class AKShareDataProvider implements MarketDataProvider {
             ResponseEntity<DataServiceResponse<List<Map<String, Object>>>> response =
                     restTemplate.exchange(
                             url,
-                            HttpMethod.POST,
-                            new org.springframework.http.HttpEntity<>(request),
-                        LIST_DATA_RESPONSE_TYPE
+                            getHttpPost(),
+                            new org.springframework.http.HttpEntity<>(
+                                Objects.requireNonNull(request, "request must not be null")),
+                            getListDataResponseType()
                     );
             
             DataServiceResponse<List<Map<String, Object>>> body = response.getBody();
@@ -325,7 +336,7 @@ public class AKShareDataProvider implements MarketDataProvider {
         try {
             String url = UriComponentsBuilder
                     .fromUriString(properties.getBaseUrl() + A_SHARE_BASE_PATH + "/hot")
-                    .queryParam("limit", limit)
+                    .queryParam(KEY_LIMIT, limit)
                     .toUriString();
             
             log.debug("Getting hot symbols with limit={}", limit);
@@ -333,9 +344,9 @@ public class AKShareDataProvider implements MarketDataProvider {
             ResponseEntity<DataServiceResponse<List<Map<String, Object>>>> response =
                     restTemplate.exchange(
                             url,
-                            HttpMethod.GET,
+                            getHttpGet(),
                             null,
-                        LIST_DATA_RESPONSE_TYPE
+                            getListDataResponseType()
                     );
             
             return parseSymbolListResponse(response.getBody());
@@ -363,15 +374,14 @@ public class AKShareDataProvider implements MarketDataProvider {
             ResponseEntity<DataServiceResponse<Map<String, Object>>> response =
                     restTemplate.exchange(
                             url,
-                            HttpMethod.GET,
+                            getHttpGet(),
                             null,
-                        MAP_DATA_RESPONSE_TYPE
+                            getMapDataResponseType()
                     );
 
             return parseStockValuationResponse(response.getBody());
 
         } catch (RestClientException e) {
-            log.error("Failed to get valuation for {}: {}", symbol, e.getMessage());
             throw new ExternalServiceException("DataService",
                     "Failed to get valuation for " + symbol, e);
         }
@@ -394,15 +404,14 @@ public class AKShareDataProvider implements MarketDataProvider {
             ResponseEntity<DataServiceResponse<Map<String, Object>>> response =
                     restTemplate.exchange(
                             url,
-                            HttpMethod.GET,
+                            getHttpGet(),
                             null,
-                        MAP_DATA_RESPONSE_TYPE
+                            getMapDataResponseType()
                     );
 
             return parseStockIndustryResponse(response.getBody());
 
         } catch (RestClientException e) {
-            log.error("Failed to get industry for {}: {}", symbol, e.getMessage());
             throw new ExternalServiceException("DataService",
                     "Failed to get industry for " + symbol, e);
         }
@@ -429,8 +438,8 @@ public class AKShareDataProvider implements MarketDataProvider {
             .high(DataConverter.toBigDecimal(getString(data, "high")))
             .low(DataConverter.toBigDecimal(getString(data, "low")))
             .close(DataConverter.toBigDecimal(getString(data, "close")))
-            .volume(getLong(data, "volume"))
-            .amount(DataConverter.toBigDecimal(getString(data, "amount")))
+            .volume(getLong(data, KEY_VOLUME))
+            .amount(DataConverter.toBigDecimal(getString(data, KEY_AMOUNT)))
             .timeframe(getString(data, "timeframe"))
             .build();
     }
@@ -449,8 +458,7 @@ public class AKShareDataProvider implements MarketDataProvider {
         String symbol = getString(data, KEY_SYMBOL);
         // Normalize symbol with exchange suffix
         String normalizedSymbol = DataConverter.normalizeSymbol(symbol, MarketType.A_SHARE.getCode());
-        String exchange = normalizedSymbol.contains(".SH") ? "SH" : 
-                         normalizedSymbol.contains(".SZ") ? "SZ" : "CN";
+        String exchange = resolveExchange(normalizedSymbol);
         
         return new SymbolInfo(
             normalizedSymbol,
@@ -479,8 +487,8 @@ public class AKShareDataProvider implements MarketDataProvider {
                 .market(getString(data, "market"))
                 .price(DataConverter.toBigDecimal(getString(data, "price")))
                 .changePercent(DataConverter.toBigDecimal(getString(data, "change_percent")))
-                .volume(getLong(data, "volume"))
-                .amount(DataConverter.toBigDecimal(getString(data, "amount")))
+                .volume(getLong(data, KEY_VOLUME))
+                .amount(DataConverter.toBigDecimal(getString(data, KEY_AMOUNT)))
                 .build();
     }
     
@@ -518,8 +526,8 @@ public class AKShareDataProvider implements MarketDataProvider {
                 .high(DataConverter.toBigDecimal(getString(data, "high")))
                 .low(DataConverter.toBigDecimal(getString(data, "low")))
                 .prevClose(DataConverter.toBigDecimal(getString(data, "prev_close")))
-                .volume(getLong(data, "volume"))
-                .amount(DataConverter.toBigDecimal(getString(data, "amount")))
+                .volume(getLong(data, KEY_VOLUME))
+                .amount(DataConverter.toBigDecimal(getString(data, KEY_AMOUNT)))
                 .change(DataConverter.toBigDecimal(getString(data, "change")))
                 .changePercent(DataConverter.toBigDecimal(getString(data, "change_percent")))
                 .bidPrice(DataConverter.toBigDecimal(getString(data, "bid_price")))
@@ -568,12 +576,12 @@ public class AKShareDataProvider implements MarketDataProvider {
         if (value == null) {
             return null;
         }
-        if (value instanceof Number) {
-            return ((Number) value).longValue();
+        if (value instanceof Number number) {
+            return number.longValue();
         }
         try {
             return Long.parseLong(value.toString());
-        } catch (NumberFormatException e) {
+        } catch (NumberFormatException _) {
             return null;
         }
     }
@@ -583,13 +591,40 @@ public class AKShareDataProvider implements MarketDataProvider {
         if (value == null) {
             return null;
         }
-        if (value instanceof String) {
+        if (value instanceof String timestamp) {
             try {
-                return Instant.parse((String) value);
-            } catch (Exception e) {
+                return Instant.parse(timestamp);
+            } catch (Exception _) {
                 return null;
             }
         }
         return null;
+    }
+
+    private String resolveExchange(String normalizedSymbol) {
+        if (normalizedSymbol.contains(".SH")) {
+            return EXCHANGE_SH;
+        }
+        if (normalizedSymbol.contains(".SZ")) {
+            return EXCHANGE_SZ;
+        }
+        return EXCHANGE_CN;
+    }
+
+    private static @NonNull HttpMethod getHttpGet() {
+        return Objects.requireNonNull(HttpMethod.GET, HTTP_GET_MESSAGE);
+    }
+
+    private static @NonNull HttpMethod getHttpPost() {
+        return Objects.requireNonNull(HttpMethod.POST, HTTP_POST_MESSAGE);
+    }
+
+    private static @NonNull ParameterizedTypeReference<DataServiceResponse<List<Map<String, Object>>>>
+    getListDataResponseType() {
+        return Objects.requireNonNull(LIST_DATA_RESPONSE_TYPE, RESPONSE_TYPE_MESSAGE);
+    }
+
+    private static @NonNull ParameterizedTypeReference<DataServiceResponse<Map<String, Object>>> getMapDataResponseType() {
+        return Objects.requireNonNull(MAP_DATA_RESPONSE_TYPE, RESPONSE_TYPE_MESSAGE);
     }
 }

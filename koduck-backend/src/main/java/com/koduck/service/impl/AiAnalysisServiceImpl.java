@@ -41,6 +41,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.web.client.RestTemplateBuilder;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.*;
+import org.springframework.lang.NonNull;
 import org.springframework.stereotype.Service;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 import org.springframework.web.client.RestTemplate;
@@ -57,6 +58,16 @@ import org.springframework.web.client.RestTemplate;
 public class AiAnalysisServiceImpl implements AiAnalysisService {
     private static final Pattern SYMBOL_PATTERN = Pattern.compile("\\b\\d{6}\\b");
     private static final String DEFAULT_LLM_PROVIDER = "minimax";
+    private static final String KEY_CHOICES = "choices";
+    private static final String KEY_MESSAGE = "message";
+    private static final String KEY_CONTENT = "content";
+    private static final String EVENT_MESSAGE = "message";
+    private static final String EVENT_DONE = "done";
+    private static final String RISK_AGGRESSIVE = "aggressive";
+    private static final String RISK_CONSERVATIVE = "conservative";
+    private static final String RISK_BALANCED = "balanced";
+    private static final String RESPONSE_TYPE_NULL_MESSAGE = "responseType must not be null";
+    private static final String HTTP_METHOD_NULL_MESSAGE = "httpMethod must not be null";
     private static final Set<String> SUPPORTED_LLM_PROVIDERS = Set.of(DEFAULT_LLM_PROVIDER, "deepseek", "openai");
     private static final String NO_TOOL_MARKUP_GUARD =
         "输出约束: 不要使用或模拟任何工具调用，不要输出 <minimax:tool_call>、<invoke>、<parameter>、XML/JSON函数调用片段。"
@@ -80,6 +91,14 @@ public class AiAnalysisServiceImpl implements AiAnalysisService {
 
     private final Random random = new Random();
     private RestTemplate restTemplate;
+
+    private static @NonNull ParameterizedTypeReference<Map<String, Object>> getMapResponseType() {
+        return Objects.requireNonNull(MAP_RESPONSE_TYPE, RESPONSE_TYPE_NULL_MESSAGE);
+    }
+
+    private static @NonNull HttpMethod getHttpPostMethod() {
+        return Objects.requireNonNull(HttpMethod.POST, HTTP_METHOD_NULL_MESSAGE);
+    }
 
     private RestTemplate getRestTemplate() {
         if (restTemplate == null) {
@@ -168,7 +187,7 @@ public class AiAnalysisServiceImpl implements AiAnalysisService {
         requestBody.put("apiKey", blankToNull(config != null ? config.getApiKey() : null));
         requestBody.put("apiBase", config != null ? config.getApiBase() : null);
         List<Map<String, String>> messages = new ArrayList<>();
-        messages.add(Map.of("role", "user", "content", userMessage));
+        messages.add(Map.of("role", "user", KEY_CONTENT, userMessage));
         requestBody.put("messages", messages);
         requestBody.put("stream", false);
         HttpHeaders headers = new HttpHeaders();
@@ -177,9 +196,9 @@ public class AiAnalysisServiceImpl implements AiAnalysisService {
         log.info("Calling koduck-agent: provider={}, url={}", provider, agentUrl);
         ResponseEntity<Map<String, Object>> response = getRestTemplate().exchange(
             agentUrl,
-            Objects.requireNonNull(HttpMethod.POST, "httpMethod must not be null"),
+            getHttpPostMethod(),
             entity,
-            MAP_RESPONSE_TYPE
+            getMapResponseType()
         );
         log.debug("Agent response: {}", response.getBody());
         String content = extractAgentContent(response.getBody());
@@ -193,7 +212,7 @@ public class AiAnalysisServiceImpl implements AiAnalysisService {
         if (body == null) {
             return null;
         }
-        Object choicesObject = body.get("choices");
+        Object choicesObject = body.get(KEY_CHOICES);
         if (!(choicesObject instanceof List<?> choices) || choices.isEmpty()) {
             return null;
         }
@@ -201,11 +220,11 @@ public class AiAnalysisServiceImpl implements AiAnalysisService {
         if (!(firstChoice instanceof Map<?, ?> choiceMap)) {
             return null;
         }
-        Object messageObject = choiceMap.get("message");
+        Object messageObject = choiceMap.get(KEY_MESSAGE);
         if (!(messageObject instanceof Map<?, ?> messageMap)) {
             return null;
         }
-        Object contentObject = messageMap.get("content");
+        Object contentObject = messageMap.get(KEY_CONTENT);
         if (contentObject instanceof String content) {
             return content;
         }
@@ -542,79 +561,24 @@ public class AiAnalysisServiceImpl implements AiAnalysisService {
     }
     private void relayAgentStream(Long userId, ChatStreamRequest request, SseEmitter emitter) {
         HttpURLConnection connection = null;
-        String finalAssistantContent = null;
-        Integer finalTokenCount = null;
         try {
             String agentUrl = agentConfig.getUrl() + "/api/v1/ai/chat/stream";
             String provider = resolveProvider(request.getProvider());
-            ChatStreamRequest normalizedRequest = ChatStreamRequest.builder()
-                .provider(provider)
-                .model(blankToNull(request.getModel()))
-                .apiKey(blankToNull(request.getApiKey()))
-                .apiBase(request.getApiBase())
-                .sessionId(request.getSessionId())
-                .role(request.getRole())
-                .runtime(request.getRuntime())
-                .disableToolCalls(request.getDisableToolCalls())
-                .messages(request.getMessages())
-                .build();
+            ChatStreamRequest normalizedRequest = normalizeStreamRequest(request, provider);
             String requestBody = objectMapper.writeValueAsString(normalizedRequest);
-            connection = (HttpURLConnection) URI.create(agentUrl).toURL().openConnection();
-            connection.setRequestMethod("POST");
-            connection.setDoOutput(true);
-            connection.setConnectTimeout(30000);
-            connection.setReadTimeout(0);
-            connection.setRequestProperty("Content-Type", MediaType.APPLICATION_JSON_VALUE);
-            connection.setRequestProperty("Accept", MediaType.TEXT_EVENT_STREAM_VALUE);
-            connection.setRequestProperty("Cache-Control", "no-cache");
-            try (OutputStream output = connection.getOutputStream()) {
-                output.write(requestBody.getBytes(StandardCharsets.UTF_8));
-                output.flush();
-            }
+            connection = openStreamConnection(agentUrl, requestBody);
+
             int statusCode = connection.getResponseCode();
             if (statusCode < 200 || statusCode >= 300) {
-                String detail = readInputStream(connection.getErrorStream());
-                sendSseEvent(emitter, "error", objectMapper.writeValueAsString(Map.of(
-                    "code", statusCode,
-                    "message", "AI 服务调用失败: " + (detail.isBlank() ? "unknown error" : detail)
-                )));
-                emitter.complete();
+                handleStreamErrorResponse(connection, emitter, statusCode);
                 return;
             }
-            try (BufferedReader reader = new BufferedReader(
-                new InputStreamReader(connection.getInputStream(), StandardCharsets.UTF_8)
-            )) {
-                String line;
-                String eventName = "message";
-                StringBuilder dataBuilder = new StringBuilder();
-                while ((line = reader.readLine()) != null) {
-                    if (line.isEmpty()) {
-                        if ("done".equals(eventName)) {
-                            String donePayload = dataBuilder.toString();
-                            finalAssistantContent = extractAssistantContent(donePayload);
-                            finalTokenCount = extractTokenUsage(donePayload);
-                        }
-                        flushSseEvent(emitter, eventName, dataBuilder);
-                        eventName = "message";
-                        dataBuilder.setLength(0);
-                        continue;
-                    }
-                    if (line.startsWith("event:")) {
-                        eventName = line.substring("event:".length()).trim();
-                        continue;
-                    }
-                    if (line.startsWith("data:")) {
-                        if (!dataBuilder.isEmpty()) {
-                            dataBuilder.append('\n');
-                        }
-                        dataBuilder.append(line.substring("data:".length()).trim());
-                    }
-                }
-                flushSseEvent(emitter, eventName, dataBuilder);
+
+            StreamRelayResult relayResult = relayStreamEvents(connection, emitter);
+            if (relayResult.assistantContent() != null && !relayResult.assistantContent().isBlank()) {
+                scheduleAssistantMemoryWriteBack(userId, request, relayResult.assistantContent(), relayResult.tokenCount());
             }
-            if (finalAssistantContent != null && !finalAssistantContent.isBlank()) {
-                scheduleAssistantMemoryWriteBack(userId, request, finalAssistantContent, finalTokenCount);
-            }
+
             log.info(
                 "AI chat stream relay completed: provider={}, model={}, session={}",
                 provider,
@@ -627,7 +591,7 @@ public class AiAnalysisServiceImpl implements AiAnalysisService {
             try {
                 sendSseEvent(emitter, "error", objectMapper.writeValueAsString(Map.of(
                     "code", 500,
-                    "message", "后端转发 AI 流式响应失败: " + e.getMessage()
+                    KEY_MESSAGE, "后端转发 AI 流式响应失败: " + e.getMessage()
                 )));
                 emitter.complete();
             } catch (IOException | RuntimeException sendError) {
@@ -639,6 +603,93 @@ public class AiAnalysisServiceImpl implements AiAnalysisService {
                 connection.disconnect();
             }
         }
+    }
+
+    private ChatStreamRequest normalizeStreamRequest(ChatStreamRequest request, String provider) {
+        return ChatStreamRequest.builder()
+            .provider(provider)
+            .model(blankToNull(request.getModel()))
+            .apiKey(blankToNull(request.getApiKey()))
+            .apiBase(request.getApiBase())
+            .sessionId(request.getSessionId())
+            .role(request.getRole())
+            .runtime(request.getRuntime())
+            .disableToolCalls(request.getDisableToolCalls())
+            .messages(request.getMessages())
+            .build();
+    }
+
+    private HttpURLConnection openStreamConnection(String agentUrl, String requestBody) throws IOException {
+        HttpURLConnection connection = (HttpURLConnection) URI.create(agentUrl).toURL().openConnection();
+        connection.setRequestMethod("POST");
+        connection.setDoOutput(true);
+        connection.setConnectTimeout(30000);
+        connection.setReadTimeout(0);
+        connection.setRequestProperty("Content-Type", MediaType.APPLICATION_JSON_VALUE);
+        connection.setRequestProperty("Accept", MediaType.TEXT_EVENT_STREAM_VALUE);
+        connection.setRequestProperty("Cache-Control", "no-cache");
+        try (OutputStream output = connection.getOutputStream()) {
+            output.write(requestBody.getBytes(StandardCharsets.UTF_8));
+            output.flush();
+        }
+        return connection;
+    }
+
+    private void handleStreamErrorResponse(HttpURLConnection connection,
+                                           SseEmitter emitter,
+                                           int statusCode) throws IOException {
+        String detail = readInputStream(connection.getErrorStream());
+        sendSseEvent(emitter, "error", objectMapper.writeValueAsString(Map.of(
+            "code", statusCode,
+            KEY_MESSAGE, "AI 服务调用失败: " + (detail.isBlank() ? "unknown error" : detail)
+        )));
+        emitter.complete();
+    }
+
+    private StreamRelayResult relayStreamEvents(HttpURLConnection connection,
+                                                SseEmitter emitter) throws IOException {
+        String finalAssistantContent = null;
+        Integer finalTokenCount = null;
+        try (BufferedReader reader = new BufferedReader(
+            new InputStreamReader(connection.getInputStream(), StandardCharsets.UTF_8)
+        )) {
+            String line;
+            String eventName = EVENT_MESSAGE;
+            StringBuilder dataBuilder = new StringBuilder();
+            while ((line = reader.readLine()) != null) {
+                if (line.isEmpty()) {
+                    if (EVENT_DONE.equals(eventName)) {
+                        String donePayload = dataBuilder.toString();
+                        finalAssistantContent = extractAssistantContent(donePayload);
+                        finalTokenCount = extractTokenUsage(donePayload);
+                    }
+                    flushSseEvent(emitter, eventName, dataBuilder);
+                    eventName = EVENT_MESSAGE;
+                    dataBuilder.setLength(0);
+                } else if (line.startsWith("event:")) {
+                    eventName = line.substring("event:".length()).trim();
+                } else if (line.startsWith("data:")) {
+                    appendSseDataLine(dataBuilder, line);
+                }
+            }
+            if (EVENT_DONE.equals(eventName)) {
+                String donePayload = dataBuilder.toString();
+                finalAssistantContent = extractAssistantContent(donePayload);
+                finalTokenCount = extractTokenUsage(donePayload);
+            }
+            flushSseEvent(emitter, eventName, dataBuilder);
+        }
+        return new StreamRelayResult(finalAssistantContent, finalTokenCount);
+    }
+
+    private void appendSseDataLine(StringBuilder dataBuilder, String line) {
+        if (!dataBuilder.isEmpty()) {
+            dataBuilder.append('\n');
+        }
+        dataBuilder.append(line.substring("data:".length()).trim());
+    }
+
+    private record StreamRelayResult(String assistantContent, Integer tokenCount) {
     }
     private void scheduleUserMemoryWriteBack(Long userId, ChatStreamRequest request) {
         if (!memoryService.isEnabled()) {
@@ -692,9 +743,9 @@ public class AiAnalysisServiceImpl implements AiAnalysisService {
         }
         try {
             Map<String, Object> data = objectMapper.readValue(donePayload, MAP_TYPE_REFERENCE);
-            Object content = data.get("content");
+            Object content = data.get(KEY_CONTENT);
             return content == null ? "" : String.valueOf(content);
-        } catch (IOException | RuntimeException e) {
+        } catch (IOException | RuntimeException _) {
             return "";
         }
     }
@@ -714,8 +765,8 @@ public class AiAnalysisServiceImpl implements AiAnalysisService {
             );
             if (usage != null && usage.get("total_tokens") != null) {
                 Object totalTokens = usage.get("total_tokens");
-                if (totalTokens instanceof Number) {
-                    return ((Number) totalTokens).intValue();
+                if (totalTokens instanceof Number number) {
+                    return number.intValue();
                 }
             }
             return null;
@@ -731,11 +782,11 @@ public class AiAnalysisServiceImpl implements AiAnalysisService {
         UserMemoryProfile existing = memoryService.getOrCreateProfile(userId);
         String riskPreference = existing.getRiskPreference();
         if (latestUserMessage.contains("激进")) {
-            riskPreference = "aggressive";
+            riskPreference = RISK_AGGRESSIVE;
         } else if (latestUserMessage.contains("保守")) {
-            riskPreference = "conservative";
+            riskPreference = RISK_CONSERVATIVE;
         } else if (latestUserMessage.contains("稳健")) {
-            riskPreference = "balanced";
+            riskPreference = RISK_BALANCED;
         }
         Set<String> watchSymbols = new LinkedHashSet<>(
             existing.getWatchSymbols() != null ? existing.getWatchSymbols() : List.of()
@@ -791,7 +842,7 @@ public class AiAnalysisServiceImpl implements AiAnalysisService {
                 builder.append(line);
             }
             return builder.toString();
-        } catch (IOException e) {
+        } catch (IOException _) {
             return "";
         }
     }
@@ -866,7 +917,7 @@ public class AiAnalysisServiceImpl implements AiAnalysisService {
         return BacktestInterpretResponse.builder()
             .backtestResultId(backtestResultId)
             .strategyName("策略 " + result.getStrategyId())
-            .performance(generatePerformanceInterpretation(result, isGoodPerformance))
+            .performance(generatePerformanceInterpretation(isGoodPerformance))
             .risk(generateRiskInterpretation(result))
             .tradingBehavior(generateTradingBehaviorAnalysis(result))
             .improvements(generateImprovementSuggestions(result))
@@ -883,7 +934,7 @@ public class AiAnalysisServiceImpl implements AiAnalysisService {
         log.debug("Assessing risk for portfolio: {} of user: {}", portfolioId, userId);
         List<PortfolioPosition> positions = positionRepository.findByUserId(userId);
         int overallScore = 40 + random.nextInt(41); // 40-80，模拟评分
-        String riskLevel = overallScore >= 70 ? "低风险" : overallScore >= 55 ? "中风险" : "高风险";
+        String riskLevel = resolveRiskLevel(overallScore);
         return RiskAssessmentResponse.builder()
             .portfolioId(portfolioId)
             .overallRiskScore(overallScore)
@@ -898,8 +949,8 @@ public class AiAnalysisServiceImpl implements AiAnalysisService {
     }
     private String generateMatchReason(String riskPreference) {
         return switch (riskPreference) {
-            case "conservative" -> "适合稳健型投资者，风险可控";
-            case "aggressive" -> "追求高收益，适合激进型投资者";
+            case RISK_CONSERVATIVE -> "适合稳健型投资者，风险可控";
+            case RISK_AGGRESSIVE -> "追求高收益，适合激进型投资者";
             default -> "风险收益平衡，适合大多数投资者";
         };
     }
@@ -911,12 +962,12 @@ public class AiAnalysisServiceImpl implements AiAnalysisService {
     private StrategyRecommendResponse.AssetAllocationSuggestion generateAssetAllocation(String riskPreference) {
         List<StrategyRecommendResponse.AssetClass> classes = new ArrayList<>();
         switch (riskPreference) {
-            case "conservative" -> {
+            case RISK_CONSERVATIVE -> {
                 classes.add(new StrategyRecommendResponse.AssetClass("股票", 40, "稳健型股票"));
                 classes.add(new StrategyRecommendResponse.AssetClass("债券", 50, "国债、企业债"));
                 classes.add(new StrategyRecommendResponse.AssetClass("现金", 10, "货币基金"));
             }
-            case "aggressive" -> {
+            case RISK_AGGRESSIVE -> {
                 classes.add(new StrategyRecommendResponse.AssetClass("股票", 80, "成长型股票"));
                 classes.add(new StrategyRecommendResponse.AssetClass("债券", 15, "高收益债"));
                 classes.add(new StrategyRecommendResponse.AssetClass("现金", 5, "应急资金"));
@@ -934,19 +985,28 @@ public class AiAnalysisServiceImpl implements AiAnalysisService {
     }
     private String generateRecommendationSummary(String riskPreference) {
         return switch (riskPreference) {
-            case "conservative" -> "基于您的保守风险偏好，建议优先选择稳健型策略，注重资本保护。";
-            case "aggressive" -> "基于您的激进风险偏好，建议重点关注高收益策略，但需注意风险控制。";
+            case RISK_CONSERVATIVE -> "基于您的保守风险偏好，建议优先选择稳健型策略，注重资本保护。";
+            case RISK_AGGRESSIVE -> "基于您的激进风险偏好，建议重点关注高收益策略，但需注意风险控制。";
             default -> "基于您的平衡风险偏好，建议采用多元化策略组合，平衡风险与收益。";
         };
     }
-    private BacktestInterpretResponse.PerformanceInterpretation generatePerformanceInterpretation(
-            BacktestResult result, boolean isGood) {
+    private BacktestInterpretResponse.PerformanceInterpretation generatePerformanceInterpretation(boolean isGood) {
         return BacktestInterpretResponse.PerformanceInterpretation.builder()
             .totalReturnAssessment(isGood ? "优秀" : "一般")
             .annualizedReturnAssessment(isGood ? "超越大盘" : "持平大盘")
             .benchmarkComparison(isGood ? "跑赢基准指数" : "与基准持平")
             .consistencyEvaluation("收益稳定性" + (isGood ? "良好" : "一般"))
             .build();
+    }
+
+    private String resolveRiskLevel(int overallScore) {
+        if (overallScore >= 70) {
+            return "低风险";
+        }
+        if (overallScore >= 55) {
+            return "中风险";
+        }
+        return "高风险";
     }
     private BacktestInterpretResponse.RiskInterpretation generateRiskInterpretation(BacktestResult result) {
         return BacktestInterpretResponse.RiskInterpretation.builder()

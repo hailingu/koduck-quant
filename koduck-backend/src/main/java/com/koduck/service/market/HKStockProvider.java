@@ -12,6 +12,7 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.ResponseEntity;
+import org.springframework.lang.NonNull;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
@@ -22,6 +23,7 @@ import java.math.RoundingMode;
 import java.time.*;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ThreadLocalRandom;
 
 /**
  * Hong Kong Stock market data provider.
@@ -41,16 +43,21 @@ public class HKStockProvider implements MarketDataProvider {
     
     private static final Logger log = LoggerFactory.getLogger(HKStockProvider.class);
     private static final ZoneId HONG_KONG_ZONE = ZoneId.of("Asia/Hong_Kong");
-    private static final String DATA_SERVICE_DISABLED_MESSAGE = "Data service is disabled";
     private static final String HK_STOCK_BASE_PATH = "/hk-stock";
     private static final String PROVIDER_NAME = "akshare-hk-stock";
-    private static final HttpMethod HTTP_GET = HttpMethod.GET;
-        private static final ParameterizedTypeReference<List<Map<String, Object>>> LIST_MAP_RESPONSE_TYPE =
-            new ParameterizedTypeReference<>() {
-            };
-        private static final ParameterizedTypeReference<Map<String, Object>> MAP_RESPONSE_TYPE =
-            new ParameterizedTypeReference<>() {
-            };
+    private static final String RESPONSE_TYPE_MESSAGE = "responseType must not be null";
+    private static final long KLINE_VOLUME_MIN = 100_000L;
+    private static final long KLINE_VOLUME_MAX_EXCLUSIVE = 10_000_000L;
+    private static final long TICK_VOLUME_MIN = 1_000_000L;
+    private static final long TICK_VOLUME_MAX_EXCLUSIVE = 50_000_000L;
+    private static final long ORDER_BOOK_VOLUME_MIN = 100L;
+    private static final long ORDER_BOOK_VOLUME_MAX_EXCLUSIVE = 10_000L;
+    private static final ParameterizedTypeReference<List<Map<String, Object>>> LIST_MAP_RESPONSE_TYPE =
+        new ParameterizedTypeReference<List<Map<String, Object>>>() {
+        };
+    private static final ParameterizedTypeReference<Map<String, Object>> MAP_RESPONSE_TYPE =
+        new ParameterizedTypeReference<Map<String, Object>>() {
+        };
     
     private final DataServiceProperties properties;
     private final RestTemplate restTemplate;
@@ -107,7 +114,7 @@ public class HKStockProvider implements MarketDataProvider {
         
         if (!isAvailable()) {
             log.debug("Data service not available, using mock data for HK stock kline");
-            return generateMockKlineData(symbol, timeframe, limit, startTime, endTime);
+            return generateMockKlineData(symbol, timeframe, limit, endTime);
         }
         
         String normalizedSymbol = normalizeSymbol(symbol);
@@ -132,21 +139,21 @@ public class HKStockProvider implements MarketDataProvider {
             
             ResponseEntity<List<Map<String, Object>>> response = restTemplate.exchange(
                     url,
-                    HTTP_GET,
+                    getHttpGet(),
                     null,
-                    LIST_MAP_RESPONSE_TYPE
+                    Objects.requireNonNull(LIST_MAP_RESPONSE_TYPE, RESPONSE_TYPE_MESSAGE)
             );
             
             List<Map<String, Object>> data = response.getBody();
             if (data == null || data.isEmpty()) {
-                return generateMockKlineData(symbol, timeframe, limit, startTime, endTime);
+                return generateMockKlineData(symbol, timeframe, limit, endTime);
             }
             
             return convertToKlineData(data, normalizedSymbol, timeframe);
             
         } catch (RestClientException e) {
             log.error("Failed to fetch HK stock kline from data service: {}", e.getMessage());
-            return generateMockKlineData(symbol, timeframe, limit, startTime, endTime);
+            return generateMockKlineData(symbol, timeframe, limit, endTime);
         }
     }
     
@@ -169,9 +176,9 @@ public class HKStockProvider implements MarketDataProvider {
             
             ResponseEntity<Map<String, Object>> response = restTemplate.exchange(
                     url,
-                    HTTP_GET,
+                    getHttpGet(),
                     null,
-                    MAP_RESPONSE_TYPE
+                    Objects.requireNonNull(MAP_RESPONSE_TYPE, RESPONSE_TYPE_MESSAGE)
             );
             
             Map<String, Object> data = response.getBody();
@@ -210,41 +217,28 @@ public class HKStockProvider implements MarketDataProvider {
         ZonedDateTime now = ZonedDateTime.now(HONG_KONG_ZONE);
         LocalTime time = now.toLocalTime();
         DayOfWeek dayOfWeek = now.getDayOfWeek();
-        
-        // Weekend check
-        if (dayOfWeek == DayOfWeek.SATURDAY || dayOfWeek == DayOfWeek.SUNDAY) {
+
+        if (isWeekend(dayOfWeek) || isPublicHoliday(now.toLocalDate())) {
             return MarketStatus.CLOSED;
         }
-        
-        // Public holidays (simplified)
-        if (isPublicHoliday(now.toLocalDate())) {
-            return MarketStatus.CLOSED;
+
+        if (isPreMarket(time)) {
+            return MarketStatus.PRE_MARKET;
         }
-        
-        // Trading hours (Hong Kong Time)
-        // Pre-market opening: 09:00 - 09:30
-        // Morning session: 09:30 - 12:00
-        // Lunch break: 12:00 - 13:00
-        // Afternoon session: 13:00 - 16:00
-        // Closing auction: 16:00 - 16:10
-        
-        if (time.isAfter(LocalTime.of(9, 0)) && time.isBefore(LocalTime.of(9, 30))) {
-            return MarketStatus.PRE_MARKET; // Opening auction
-        } else if ((time.equals(LocalTime.of(9, 30)) || time.isAfter(LocalTime.of(9, 30))) 
-                   && time.isBefore(LocalTime.of(12, 0))) {
+
+        if (isMorningSession(time) || isAfternoonSession(time)) {
             return MarketStatus.OPEN;
-        } else if (time.equals(LocalTime.of(12, 0)) || 
-                   (time.isAfter(LocalTime.of(12, 0)) && time.isBefore(LocalTime.of(13, 0)))) {
-            return MarketStatus.BREAK; // Lunch break
-        } else if ((time.equals(LocalTime.of(13, 0)) || time.isAfter(LocalTime.of(13, 0))) 
-                   && time.isBefore(LocalTime.of(16, 0))) {
-            return MarketStatus.OPEN;
-        } else if ((time.equals(LocalTime.of(16, 0)) || time.isAfter(LocalTime.of(16, 0))) 
-                   && time.isBefore(LocalTime.of(16, 10))) {
-            return MarketStatus.POST_MARKET; // Closing auction
-        } else {
-            return MarketStatus.CLOSED;
         }
+
+        if (isLunchBreak(time)) {
+            return MarketStatus.BREAK;
+        }
+
+        if (isClosingAuction(time)) {
+            return MarketStatus.POST_MARKET;
+        }
+
+        return MarketStatus.CLOSED;
     }
     
     @Override
@@ -262,9 +256,9 @@ public class HKStockProvider implements MarketDataProvider {
             
             ResponseEntity<List<Map<String, Object>>> response = restTemplate.exchange(
                     url,
-                    HTTP_GET,
+                    getHttpGet(),
                     null,
-                    LIST_MAP_RESPONSE_TYPE
+                    Objects.requireNonNull(LIST_MAP_RESPONSE_TYPE, RESPONSE_TYPE_MESSAGE)
             );
             
             List<Map<String, Object>> data = response.getBody();
@@ -306,7 +300,7 @@ public class HKStockProvider implements MarketDataProvider {
     }
     
     private List<KlineData> generateMockKlineData(String symbol, String timeframe, int limit,
-                                                   Instant startTime, Instant endTime) {
+                                                   Instant endTime) {
         List<KlineData> klines = new ArrayList<>();
         String normalizedSymbol = normalizeSymbol(symbol);
         BigDecimal basePrice = basePrices.getOrDefault(normalizedSymbol, new BigDecimal("50.00"));
@@ -324,7 +318,7 @@ public class HKStockProvider implements MarketDataProvider {
             BigDecimal low = close.multiply(BigDecimal.valueOf(1 - Math.random() * 0.01));
             BigDecimal open = currentPrice;
             
-            long volume = (long) (Math.random() * 9900000 + 100000);
+            long volume = ThreadLocalRandom.current().nextLong(KLINE_VOLUME_MIN, KLINE_VOLUME_MAX_EXCLUSIVE);
             
             klines.add(KlineData.builder()
                 .symbol(normalizedSymbol)
@@ -357,7 +351,7 @@ public class HKStockProvider implements MarketDataProvider {
         BigDecimal changePercentValue = change.divide(basePrice, 4, RoundingMode.HALF_UP)
                                               .multiply(BigDecimal.valueOf(100));
         
-        long volume = (long) (Math.random() * 49000000 + 1000000);
+        long volume = ThreadLocalRandom.current().nextLong(TICK_VOLUME_MIN, TICK_VOLUME_MAX_EXCLUSIVE);
         
         TickData tickData = TickData.builder()
             .symbol(normalizedSymbol)
@@ -369,9 +363,9 @@ public class HKStockProvider implements MarketDataProvider {
             .volume(volume)
             .amount(price.multiply(BigDecimal.valueOf(volume)))
             .bidPrice(price.multiply(BigDecimal.valueOf(0.999)))
-            .bidVolume((long) (Math.random() * 9900 + 100))
+            .bidVolume(ThreadLocalRandom.current().nextLong(ORDER_BOOK_VOLUME_MIN, ORDER_BOOK_VOLUME_MAX_EXCLUSIVE))
             .askPrice(price.multiply(BigDecimal.valueOf(1.001)))
-            .askVolume((long) (Math.random() * 9900 + 100))
+            .askVolume(ThreadLocalRandom.current().nextLong(ORDER_BOOK_VOLUME_MIN, ORDER_BOOK_VOLUME_MAX_EXCLUSIVE))
             .dayHigh(price.multiply(BigDecimal.valueOf(1.02)))
             .dayLow(price.multiply(BigDecimal.valueOf(0.98)))
             .open(basePrice)
@@ -472,12 +466,16 @@ public class HKStockProvider implements MarketDataProvider {
     private Long getLong(Map<String, Object> data, String key) {
         Object value = data.get(key);
         if (value == null) return null;
-        if (value instanceof Number) return ((Number) value).longValue();
+        if (value instanceof Number number) return number.longValue();
         try {
             return Long.parseLong(value.toString());
-        } catch (NumberFormatException e) {
+        } catch (NumberFormatException _) {
             return null;
         }
+    }
+
+    private static @NonNull HttpMethod getHttpGet() {
+        return Objects.requireNonNull(HttpMethod.GET, "HTTP GET must not be null");
     }
     
     private Duration parseTimeframe(String timeframe) {
@@ -492,6 +490,34 @@ public class HKStockProvider implements MarketDataProvider {
             case "1mth", "monthly" -> Duration.ofDays(30);
             default -> Duration.ofDays(1);
         };
+    }
+
+    private boolean isWeekend(DayOfWeek dayOfWeek) {
+        return dayOfWeek == DayOfWeek.SATURDAY || dayOfWeek == DayOfWeek.SUNDAY;
+    }
+
+    private boolean isPreMarket(LocalTime time) {
+        return time.isAfter(LocalTime.of(9, 0)) && time.isBefore(LocalTime.of(9, 30));
+    }
+
+    private boolean isMorningSession(LocalTime time) {
+        return isAtOrAfter(time, LocalTime.of(9, 30)) && time.isBefore(LocalTime.of(12, 0));
+    }
+
+    private boolean isLunchBreak(LocalTime time) {
+        return isAtOrAfter(time, LocalTime.of(12, 0)) && time.isBefore(LocalTime.of(13, 0));
+    }
+
+    private boolean isAfternoonSession(LocalTime time) {
+        return isAtOrAfter(time, LocalTime.of(13, 0)) && time.isBefore(LocalTime.of(16, 0));
+    }
+
+    private boolean isClosingAuction(LocalTime time) {
+        return isAtOrAfter(time, LocalTime.of(16, 0)) && time.isBefore(LocalTime.of(16, 10));
+    }
+
+    private boolean isAtOrAfter(LocalTime time, LocalTime threshold) {
+        return time.equals(threshold) || time.isAfter(threshold);
     }
     
     private boolean isPublicHoliday(LocalDate date) {
@@ -526,10 +552,6 @@ public class HKStockProvider implements MarketDataProvider {
         }
         
         // Christmas
-        if (month == 12 && (day == 25 || day == 26)) {
-            return true;
-        }
-        
-        return false;
+        return month == 12 && (day == 25 || day == 26);
     }
 }

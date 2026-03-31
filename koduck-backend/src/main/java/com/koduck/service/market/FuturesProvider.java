@@ -12,6 +12,7 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.ResponseEntity;
+import org.springframework.lang.NonNull;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
@@ -19,9 +20,24 @@ import org.springframework.web.util.UriComponentsBuilder;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
-import java.time.*;
-import java.util.*;
+import java.time.DayOfWeek;
+import java.time.Duration;
+import java.time.Instant;
+import java.time.LocalTime;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ThreadLocalRandom;
 
 /**
  * Futures market data provider.
@@ -50,13 +66,22 @@ public class FuturesProvider implements MarketDataProvider {
     private static final ZoneId BEIJING_ZONE = ZoneId.of("Asia/Shanghai");
     private static final String FUTURES_BASE_PATH = "/futures";
     private static final String PROVIDER_NAME = "akshare-futures";
+    private static final String HTTP_GET_MESSAGE = "HTTP GET must not be null";
+    private static final String RESPONSE_TYPE_MESSAGE = "responseType must not be null";
+    private static final String DEFAULT_EXCHANGE = "SHFE";
+    private static final long KLINE_VOLUME_MIN = 1_000L;
+    private static final long KLINE_VOLUME_MAX_EXCLUSIVE = 100_000L;
+    private static final long TICK_VOLUME_MIN = 10_000L;
+    private static final long TICK_VOLUME_MAX_EXCLUSIVE = 500_000L;
+    private static final long ORDER_BOOK_VOLUME_MIN = 10L;
+    private static final long ORDER_BOOK_VOLUME_MAX_EXCLUSIVE = 1_000L;
     private static final HttpMethod HTTP_GET = HttpMethod.GET;
-        private static final ParameterizedTypeReference<List<Map<String, Object>>> LIST_MAP_RESPONSE_TYPE =
-            new ParameterizedTypeReference<>() {
-            };
-        private static final ParameterizedTypeReference<Map<String, Object>> MAP_RESPONSE_TYPE =
-            new ParameterizedTypeReference<>() {
-            };
+    private static final ParameterizedTypeReference<List<Map<String, Object>>> LIST_MAP_RESPONSE_TYPE =
+        new ParameterizedTypeReference<List<Map<String, Object>>>() {
+        };
+    private static final ParameterizedTypeReference<Map<String, Object>> MAP_RESPONSE_TYPE =
+        new ParameterizedTypeReference<Map<String, Object>>() {
+        };
     
     private final DataServiceProperties properties;
     private final RestTemplate restTemplate;
@@ -133,7 +158,7 @@ public class FuturesProvider implements MarketDataProvider {
         
         if (!isAvailable()) {
             log.debug("Data service not available, using mock data for futures kline");
-            return generateMockKlineData(symbol, timeframe, limit, startTime, endTime);
+            return generateMockKlineData(symbol, timeframe, limit, endTime);
         }
         
         String normalizedSymbol = normalizeSymbol(symbol);
@@ -158,21 +183,21 @@ public class FuturesProvider implements MarketDataProvider {
             
             ResponseEntity<List<Map<String, Object>>> response = restTemplate.exchange(
                     url,
-                    HTTP_GET,
+                    getHttpGet(),
                     null,
-                    LIST_MAP_RESPONSE_TYPE
+                    getListMapResponseType()
             );
             
             List<Map<String, Object>> data = response.getBody();
             if (data == null || data.isEmpty()) {
-                return generateMockKlineData(symbol, timeframe, limit, startTime, endTime);
+                return generateMockKlineData(symbol, timeframe, limit, endTime);
             }
             
             return convertToKlineData(data, normalizedSymbol, timeframe);
             
         } catch (RestClientException e) {
             log.error("Failed to fetch futures kline from data service: {}", e.getMessage());
-            return generateMockKlineData(symbol, timeframe, limit, startTime, endTime);
+            return generateMockKlineData(symbol, timeframe, limit, endTime);
         }
     }
     
@@ -195,9 +220,9 @@ public class FuturesProvider implements MarketDataProvider {
             
             ResponseEntity<Map<String, Object>> response = restTemplate.exchange(
                     url,
-                    HTTP_GET,
+                    getHttpGet(),
                     null,
-                    MAP_RESPONSE_TYPE
+                    getMapResponseType()
             );
             
             Map<String, Object> data = response.getBody();
@@ -237,39 +262,23 @@ public class FuturesProvider implements MarketDataProvider {
         LocalTime time = now.toLocalTime();
         DayOfWeek dayOfWeek = now.getDayOfWeek();
         
-        // Weekend check
-        if (dayOfWeek == DayOfWeek.SATURDAY || dayOfWeek == DayOfWeek.SUNDAY) {
+        if (isWeekend(dayOfWeek)) {
             return MarketStatus.CLOSED;
         }
-        
-        // Chinese futures trading hours (Beijing Time)
-        // Day session: 09:00 - 10:15, 10:30 - 11:30, 13:30 - 15:00
-        // Night session varies by product (e.g., 21:00 - 02:30 for some metals)
-        
-        boolean isDaySession = 
-            (time.isAfter(LocalTime.of(9, 0)) && time.isBefore(LocalTime.of(10, 15))) ||
-            (time.isAfter(LocalTime.of(10, 30)) && time.isBefore(LocalTime.of(11, 30))) ||
-            (time.isAfter(LocalTime.of(13, 30)) && time.isBefore(LocalTime.of(15, 0)));
-        
-        boolean isNightSession = 
-            time.isAfter(LocalTime.of(21, 0)) ||
-            time.isBefore(LocalTime.of(2, 30));
-        
-        if (isDaySession) {
+
+        if (isDaySession(time)) {
             return MarketStatus.OPEN;
-        } else if (isNightSession) {
-            // Night session - some products trade
-            return MarketStatus.POST_MARKET; // Using post-market to indicate after-hours
-        } else if ((time.equals(LocalTime.of(10, 15)) || 
-                   (time.isAfter(LocalTime.of(10, 15)) && time.isBefore(LocalTime.of(10, 30)))) ||
-                   (time.equals(LocalTime.of(11, 30)) || 
-                   (time.isAfter(LocalTime.of(11, 30)) && time.isBefore(LocalTime.of(13, 30)))) ||
-                   (time.equals(LocalTime.of(15, 0)) || 
-                   (time.isAfter(LocalTime.of(15, 0)) && time.isBefore(LocalTime.of(21, 0))))) {
-            return MarketStatus.BREAK;
-        } else {
-            return MarketStatus.CLOSED;
         }
+
+        if (isNightSession(time)) {
+            return MarketStatus.POST_MARKET;
+        }
+
+        if (isBreakSession(time)) {
+            return MarketStatus.BREAK;
+        }
+
+        return MarketStatus.CLOSED;
     }
     
     @Override
@@ -287,9 +296,9 @@ public class FuturesProvider implements MarketDataProvider {
             
             ResponseEntity<List<Map<String, Object>>> response = restTemplate.exchange(
                     url,
-                    HTTP_GET,
+                    getHttpGet(),
                     null,
-                    LIST_MAP_RESPONSE_TYPE
+                    getListMapResponseType()
             );
             
             List<Map<String, Object>> data = response.getBody();
@@ -324,9 +333,21 @@ public class FuturesProvider implements MarketDataProvider {
         
         return normalized;
     }
+
+    private static @NonNull HttpMethod getHttpGet() {
+        return Objects.requireNonNull(HTTP_GET, HTTP_GET_MESSAGE);
+    }
+
+    private static @NonNull ParameterizedTypeReference<List<Map<String, Object>>> getListMapResponseType() {
+        return Objects.requireNonNull(LIST_MAP_RESPONSE_TYPE, RESPONSE_TYPE_MESSAGE);
+    }
+
+    private static @NonNull ParameterizedTypeReference<Map<String, Object>> getMapResponseType() {
+        return Objects.requireNonNull(MAP_RESPONSE_TYPE, RESPONSE_TYPE_MESSAGE);
+    }
     
     private List<KlineData> generateMockKlineData(String symbol, String timeframe, int limit,
-                                                   Instant startTime, Instant endTime) {
+                                                   Instant endTime) {
         List<KlineData> klines = new ArrayList<>();
         String normalizedSymbol = normalizeSymbol(symbol);
         BigDecimal basePrice = basePrices.getOrDefault(normalizedSymbol, new BigDecimal("5000.00"));
@@ -348,7 +369,8 @@ public class FuturesProvider implements MarketDataProvider {
             BigDecimal low = close.multiply(BigDecimal.valueOf(1 - Math.random() * volatility));
             BigDecimal open = currentPrice;
             
-            long volume = (long) (Math.random() * 99000 + 1000);
+            long volume = ThreadLocalRandom.current()
+                    .nextLong(KLINE_VOLUME_MIN, KLINE_VOLUME_MAX_EXCLUSIVE);
             
             klines.add(KlineData.builder()
                 .symbol(normalizedSymbol)
@@ -382,7 +404,7 @@ public class FuturesProvider implements MarketDataProvider {
         BigDecimal changePercentValue = change.divide(basePrice, 4, RoundingMode.HALF_UP)
                                               .multiply(BigDecimal.valueOf(100));
         
-        long volume = (long) (Math.random() * 490000 + 10000);
+        long volume = ThreadLocalRandom.current().nextLong(TICK_VOLUME_MIN, TICK_VOLUME_MAX_EXCLUSIVE);
         
         // Tick size varies by product
         BigDecimal tickSize = normalizedSymbol.startsWith("AU") || normalizedSymbol.equals("GC")
@@ -399,9 +421,11 @@ public class FuturesProvider implements MarketDataProvider {
             .volume(volume)
             .amount(price.multiply(BigDecimal.valueOf(volume)))
             .bidPrice(price.subtract(tickSize))
-            .bidVolume((long) (Math.random() * 990 + 10))
+            .bidVolume(ThreadLocalRandom.current()
+                    .nextLong(ORDER_BOOK_VOLUME_MIN, ORDER_BOOK_VOLUME_MAX_EXCLUSIVE))
             .askPrice(price.add(tickSize))
-            .askVolume((long) (Math.random() * 990 + 10))
+            .askVolume(ThreadLocalRandom.current()
+                    .nextLong(ORDER_BOOK_VOLUME_MIN, ORDER_BOOK_VOLUME_MAX_EXCLUSIVE))
             .dayHigh(price.multiply(BigDecimal.valueOf(1.02)))
             .dayLow(price.multiply(BigDecimal.valueOf(0.98)))
             .open(basePrice)
@@ -454,8 +478,7 @@ public class FuturesProvider implements MarketDataProvider {
                         e.getValue().toUpperCase(Locale.ROOT).contains(upperKeyword))
             .limit(limit)
             .forEach(e -> {
-                String exchange = shfeFutures.containsKey(e.getKey()) ? "SHFE" :
-                                 dceFutures.containsKey(e.getKey()) ? "DCE" : "CFFEX";
+                String exchange = resolveExchange(e.getKey(), shfeFutures, dceFutures);
                 results.add(new SymbolInfo(
                     e.getKey(),
                     e.getValue(),
@@ -515,7 +538,7 @@ public class FuturesProvider implements MarketDataProvider {
             getString(data, "symbol"),
             getString(data, "name"),
             MarketType.FUTURES.getCode(),
-            getString(data, "exchange") != null ? getString(data, "exchange") : "SHFE",
+            resolveExchange(getString(data, "exchange")),
             "futures"
         );
     }
@@ -527,13 +550,58 @@ public class FuturesProvider implements MarketDataProvider {
     
     private Long getLong(Map<String, Object> data, String key) {
         Object value = data.get(key);
-        if (value == null) return null;
-        if (value instanceof Number) return ((Number) value).longValue();
-        try {
-            return Long.parseLong(value.toString());
-        } catch (NumberFormatException e) {
+        if (value == null) {
             return null;
         }
+        if (value instanceof Number number) {
+            return number.longValue();
+        }
+        try {
+            return Long.parseLong(value.toString());
+        } catch (NumberFormatException _) {
+            return null;
+        }
+    }
+
+    private boolean isWeekend(DayOfWeek dayOfWeek) {
+        return dayOfWeek == DayOfWeek.SATURDAY || dayOfWeek == DayOfWeek.SUNDAY;
+    }
+
+    private boolean isDaySession(LocalTime time) {
+        return (time.isAfter(LocalTime.of(9, 0)) && time.isBefore(LocalTime.of(10, 15)))
+                || (time.isAfter(LocalTime.of(10, 30)) && time.isBefore(LocalTime.of(11, 30)))
+                || (time.isAfter(LocalTime.of(13, 30)) && time.isBefore(LocalTime.of(15, 0)));
+    }
+
+    private boolean isNightSession(LocalTime time) {
+        return time.isAfter(LocalTime.of(21, 0)) || time.isBefore(LocalTime.of(2, 30));
+    }
+
+    private boolean isBreakSession(LocalTime time) {
+        return (time.equals(LocalTime.of(10, 15))
+                || (time.isAfter(LocalTime.of(10, 15)) && time.isBefore(LocalTime.of(10, 30))))
+                || (time.equals(LocalTime.of(11, 30))
+                || (time.isAfter(LocalTime.of(11, 30)) && time.isBefore(LocalTime.of(13, 30))))
+                || (time.equals(LocalTime.of(15, 0))
+                || (time.isAfter(LocalTime.of(15, 0)) && time.isBefore(LocalTime.of(21, 0))));
+    }
+
+    private String resolveExchange(String symbol, Map<String, String> shfeFutures,
+                                   Map<String, String> dceFutures) {
+        if (shfeFutures.containsKey(symbol)) {
+            return DEFAULT_EXCHANGE;
+        }
+        if (dceFutures.containsKey(symbol)) {
+            return "DCE";
+        }
+        return "CFFEX";
+    }
+
+    private String resolveExchange(String exchange) {
+        if (exchange == null || exchange.isBlank()) {
+            return DEFAULT_EXCHANGE;
+        }
+        return exchange;
     }
     
     private Duration parseTimeframe(String timeframe) {

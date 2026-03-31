@@ -29,6 +29,7 @@ import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -47,6 +48,7 @@ import static org.mockito.Mockito.when;
 class AiAnalysisControllerTest {
 
         private static final String USER_PRINCIPAL_REQUIRED_MESSAGE = "userPrincipal must not be null";
+        private static final String CONTROLLER_REQUIRED_MESSAGE = "aiAnalysisController must not be null";
 
     @Mock
     private AiAnalysisService aiAnalysisService;
@@ -67,7 +69,10 @@ class AiAnalysisControllerTest {
 
         @BeforeEach
         void setUp() {
-                ReflectionTestUtils.setField(aiAnalysisController, "authenticatedUserResolver", new AuthenticatedUserResolver());
+                ReflectionTestUtils.setField(
+                                Objects.requireNonNull(aiAnalysisController, CONTROLLER_REQUIRED_MESSAGE),
+                                "authenticatedUserResolver",
+                                new AuthenticatedUserResolver());
         }
 
     /**
@@ -113,7 +118,7 @@ class AiAnalysisControllerTest {
                 () -> aiAnalysisController.analyzeStock(null, request)
         );
 
-                assertEquals(USER_PRINCIPAL_REQUIRED_MESSAGE, exception.getMessage());
+        assertEquals(USER_PRINCIPAL_REQUIRED_MESSAGE, exception.getMessage());
     }
 
     /**

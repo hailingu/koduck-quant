@@ -1,6 +1,5 @@
 package com.koduck.service.impl;
 import com.koduck.dto.market.DailyNetFlowDto;
-import com.koduck.entity.MarketDailyNetFlow;
 import com.koduck.mapper.MarketFlowMapper;
 import com.koduck.repository.MarketDailyNetFlowRepository;
 import com.koduck.service.MarketFlowService;

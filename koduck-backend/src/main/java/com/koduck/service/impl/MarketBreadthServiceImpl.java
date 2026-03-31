@@ -1,6 +1,5 @@
 package com.koduck.service.impl;
 import com.koduck.dto.market.DailyBreadthDto;
-import com.koduck.entity.MarketDailyBreadth;
 import com.koduck.mapper.MarketBreadthMapper;
 import com.koduck.repository.MarketDailyBreadthRepository;
 import com.koduck.service.MarketBreadthService;

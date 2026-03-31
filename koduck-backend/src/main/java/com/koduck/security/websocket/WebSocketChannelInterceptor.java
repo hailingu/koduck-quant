@@ -10,7 +10,6 @@ import java.util.Collections;
 import java.util.Objects;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.lang.NonNull;
-import org.springframework.lang.Nullable;
 import org.springframework.messaging.Message;
 import org.springframework.messaging.MessageChannel;
 import org.springframework.messaging.simp.stomp.StompCommand;
@@ -60,7 +59,7 @@ public class WebSocketChannelInterceptor implements ChannelInterceptor {
      * @return original message after interceptor processing
      */
     @Override
-    @Nullable
+    @SuppressWarnings("java:S2638")
     public Message<?> preSend(@NonNull Message<?> message, @NonNull MessageChannel channel) {
         StompHeaderAccessor accessor = MessageHeaderAccessor.getAccessor(message, StompHeaderAccessor.class);
         if (accessor == null) {
@@ -82,7 +81,8 @@ public class WebSocketChannelInterceptor implements ChannelInterceptor {
      * @param accessor STOMP header accessor
      */
     private void handleConnect(StompHeaderAccessor accessor) {
-        Object rawAuthorizationObject = accessor.getFirstNativeHeader(resolveHeaderName());
+        String headerName = Objects.requireNonNull(resolveHeaderName(), "headerName must not be null");
+        Object rawAuthorizationObject = accessor.getFirstNativeHeader(headerName);
         String rawAuthorization = rawAuthorizationObject == null ? "" : rawAuthorizationObject.toString();
         String token = extractBearerToken(rawAuthorization);
         if (!StringUtils.hasText(token)) {

@@ -11,11 +11,14 @@ import com.koduck.dto.auth.ResetPasswordRequest;
 import com.koduck.dto.auth.TokenResponse;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.springframework.lang.NonNull;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.TestConstructor;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
+
+import java.util.Objects;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -52,8 +55,8 @@ class AuthControllerIntegrationTest extends AbstractIntegrationTest {
         request.setNickname("Test User");
 
         mockMvc.perform(post("/api/v1/auth/register")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(request)))
+                        .contentType(jsonMediaType())
+                        .content(toJson(request)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(0))
                 .andExpect(jsonPath("$.message").value("success"))
@@ -73,8 +76,8 @@ class AuthControllerIntegrationTest extends AbstractIntegrationTest {
         request.setConfirmPassword("password123");
 
         mockMvc.perform(post("/api/v1/auth/register")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(request)))
+                        .contentType(jsonMediaType())
+                        .content(toJson(request)))
                 .andExpect(status().isOk());
 
         // Use duplicate username to verify uniqueness validation.
@@ -85,8 +88,8 @@ class AuthControllerIntegrationTest extends AbstractIntegrationTest {
         request2.setConfirmPassword("password123");
 
         mockMvc.perform(post("/api/v1/auth/register")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(request2)))
+                        .contentType(jsonMediaType())
+                        .content(toJson(request2)))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value(-1))
                 .andExpect(jsonPath("$.message").value("用户名已被使用"));
@@ -103,8 +106,8 @@ class AuthControllerIntegrationTest extends AbstractIntegrationTest {
         registerRequest.setConfirmPassword("password123");
 
         mockMvc.perform(post("/api/v1/auth/register")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(registerRequest)))
+                        .contentType(jsonMediaType())
+                        .content(toJson(registerRequest)))
                 .andExpect(status().isOk());
 
         // then perform login
@@ -113,8 +116,8 @@ class AuthControllerIntegrationTest extends AbstractIntegrationTest {
         loginRequest.setPassword("password123");
 
         mockMvc.perform(post("/api/v1/auth/login")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(loginRequest)))
+                        .contentType(jsonMediaType())
+                        .content(toJson(loginRequest)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(0))
                 .andExpect(jsonPath("$.data.accessToken").exists())
@@ -132,8 +135,8 @@ class AuthControllerIntegrationTest extends AbstractIntegrationTest {
         registerRequest.setConfirmPassword("password123");
 
         mockMvc.perform(post("/api/v1/auth/register")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(registerRequest)))
+                        .contentType(jsonMediaType())
+                        .content(toJson(registerRequest)))
                 .andExpect(status().isOk());
 
         // attempt login with wrong password
@@ -142,8 +145,8 @@ class AuthControllerIntegrationTest extends AbstractIntegrationTest {
         loginRequest.setPassword("wrongpassword");
 
         mockMvc.perform(post("/api/v1/auth/login")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(loginRequest)))
+                        .contentType(jsonMediaType())
+                        .content(toJson(loginRequest)))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value(-1))
                 .andExpect(jsonPath("$.message").value("用户名或密码错误")); // original message kept until localization
@@ -160,8 +163,8 @@ class AuthControllerIntegrationTest extends AbstractIntegrationTest {
         registerRequest.setConfirmPassword("password123");
 
         MvcResult result = mockMvc.perform(post("/api/v1/auth/register")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(registerRequest)))
+                        .contentType(jsonMediaType())
+                        .content(toJson(registerRequest)))
                 .andExpect(status().isOk())
                 .andReturn();
 
@@ -176,8 +179,8 @@ class AuthControllerIntegrationTest extends AbstractIntegrationTest {
         refreshRequest.setRefreshToken(refreshToken);
 
         mockMvc.perform(post("/api/v1/auth/refresh")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(refreshRequest)))
+                        .contentType(jsonMediaType())
+                        .content(toJson(refreshRequest)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(0))
                 .andExpect(jsonPath("$.data.accessToken").exists())
@@ -200,8 +203,8 @@ class AuthControllerIntegrationTest extends AbstractIntegrationTest {
         request.setEmail("forgot@example.com");
 
         mockMvc.perform(post("/api/v1/auth/forgot-password")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(request)))
+                        .contentType(jsonMediaType())
+                        .content(toJson(request)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(0));
     }
@@ -215,9 +218,17 @@ class AuthControllerIntegrationTest extends AbstractIntegrationTest {
         request.setConfirmPassword("password123");
 
         mockMvc.perform(post("/api/v1/auth/reset-password")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(request)))
+                                                .contentType(jsonMediaType())
+                                                .content(toJson(request)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(0));
     }
+
+        private static @NonNull MediaType jsonMediaType() {
+                return Objects.requireNonNull(MediaType.APPLICATION_JSON, "application/json media type must not be null");
+        }
+
+        private @NonNull String toJson(Object requestBody) throws Exception {
+                return Objects.requireNonNull(objectMapper.writeValueAsString(requestBody), "request body json must not be null");
+        }
 }

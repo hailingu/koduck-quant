@@ -21,6 +21,7 @@ import org.springframework.test.util.ReflectionTestUtils;
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.Objects;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -37,6 +38,7 @@ import static org.mockito.Mockito.when;
 class CommunitySignalControllerTest {
 
     private static final String USER_PRINCIPAL_REQUIRED_MESSAGE = "userPrincipal must not be null";
+    private static final String CONTROLLER_REQUIRED_MESSAGE = "controller must not be null";
 
     @Mock
     private CommunitySignalService signalService;
@@ -46,7 +48,10 @@ class CommunitySignalControllerTest {
 
     @BeforeEach
     void setUp() {
-        ReflectionTestUtils.setField(controller, "authenticatedUserResolver", new AuthenticatedUserResolver());
+        ReflectionTestUtils.setField(
+                Objects.requireNonNull(controller, CONTROLLER_REQUIRED_MESSAGE),
+                "authenticatedUserResolver",
+                new AuthenticatedUserResolver());
     }
 
     @Test

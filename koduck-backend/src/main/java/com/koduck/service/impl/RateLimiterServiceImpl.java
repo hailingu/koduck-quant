@@ -6,6 +6,7 @@ import java.util.Locale;
 import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.lang.NonNull;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 
@@ -94,14 +95,15 @@ public class RateLimiterServiceImpl implements RateLimiterService {
      */
     private boolean incrementAndCheckLimit(String key, int maxCount, Duration window) {
         // 使用 Redis INCR 原子操作
-        Long newCount = redisTemplate.opsForValue().increment(key);
+        String nonNullKey = requireNonNullKey(key);
+        Long newCount = redisTemplate.opsForValue().increment(nonNullKey);
         if (newCount == null) {
             log.warn("Rate limiter increment returned null, key={}", key);
             return true;
         }
         // 首次设置过期时间
         if (newCount == 1L) {
-            redisTemplate.expire(key, window.getSeconds(), TimeUnit.SECONDS);
+            redisTemplate.expire(nonNullKey, window.getSeconds(), TimeUnit.SECONDS);
         }
         return newCount <= maxCount;
     }
@@ -113,7 +115,7 @@ public class RateLimiterServiceImpl implements RateLimiterService {
      */
     @Override
     public long getCurrentCount(String key) {
-        String countStr = redisTemplate.opsForValue().get(key);
+        String countStr = redisTemplate.opsForValue().get(requireNonNullKey(key));
         return countStr != null ? Long.parseLong(countStr) : 0;
     }
     /**
@@ -146,5 +148,9 @@ public class RateLimiterServiceImpl implements RateLimiterService {
      */
     private String hashEmail(String email) {
         return String.valueOf(email.toLowerCase(Locale.ROOT).hashCode());
+    }
+
+    private static @NonNull String requireNonNullKey(String key) {
+        return Objects.requireNonNull(key, "key must not be null");
     }
 }

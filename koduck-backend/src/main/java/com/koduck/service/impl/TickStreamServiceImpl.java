@@ -9,6 +9,7 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 
@@ -29,8 +30,10 @@ public class TickStreamServiceImpl implements TickStreamService {
         emitter.onError(ex -> removeEmitter(symbol, emitter));
 
         try {
-            emitter.send(SseEmitter.event().name("ready").data(Map.of("symbol", symbol)));
-        } catch (IOException ex) {
+            Object readyPayload = Map.of("symbol", symbol);
+            emitter.send(SseEmitter.event().name("ready")
+                    .data(Objects.requireNonNull(readyPayload, "readyPayload must not be null")));
+        } catch (IOException _) {
             removeEmitter(symbol, emitter);
         }
         return emitter;
@@ -45,8 +48,10 @@ public class TickStreamServiceImpl implements TickStreamService {
 
         for (SseEmitter emitter : emitters) {
             try {
-                emitter.send(SseEmitter.event().name("tick").data(tick));
-            } catch (IOException ex) {
+                Object tickPayload = tick;
+                emitter.send(SseEmitter.event().name("tick")
+                        .data(Objects.requireNonNull(tickPayload, "tickPayload must not be null")));
+            } catch (IOException _) {
                 removeEmitter(symbol, emitter);
             }
         }

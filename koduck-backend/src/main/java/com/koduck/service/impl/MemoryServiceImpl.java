@@ -12,6 +12,7 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 import lombok.extern.slf4j.Slf4j;
@@ -30,6 +31,9 @@ import org.springframework.transaction.annotation.Transactional;
 @Slf4j
 public class MemoryServiceImpl implements MemoryService {
 
+    private static final String USER_ID_NULL_MESSAGE = "userId must not be null";
+    private static final String SESSION_ID_NULL_MESSAGE = "sessionId must not be null";
+
     private final MemoryChatSessionRepository chatSessionRepository;
     private final MemoryChatMessageRepository chatMessageRepository;
     private final UserMemoryProfileRepository memoryProfileRepository;
@@ -41,9 +45,12 @@ public class MemoryServiceImpl implements MemoryService {
                              UserMemoryProfileRepository memoryProfileRepository,
                              @Value("${memory.enabled:true}") boolean memoryEnabled,
                              @Value("${memory.l1.max-turns:20}") int l1MaxTurns) {
-        this.chatSessionRepository = chatSessionRepository;
-        this.chatMessageRepository = chatMessageRepository;
-        this.memoryProfileRepository = memoryProfileRepository;
+        this.chatSessionRepository = Objects.requireNonNull(chatSessionRepository,
+            "chatSessionRepository must not be null");
+        this.chatMessageRepository = Objects.requireNonNull(chatMessageRepository,
+            "chatMessageRepository must not be null");
+        this.memoryProfileRepository = Objects.requireNonNull(memoryProfileRepository,
+            "memoryProfileRepository must not be null");
         this.memoryEnabled = memoryEnabled;
         this.l1MaxTurns = l1MaxTurns;
     }
@@ -66,29 +73,36 @@ public class MemoryServiceImpl implements MemoryService {
     @Override
     @Transactional(readOnly = true)
     public List<MemoryChatSession> getUserSessions(Long userId) {
-        return chatSessionRepository.findByUserIdOrderByLastMessageAtDesc(userId);
+        Long nonNullUserId = Objects.requireNonNull(userId, USER_ID_NULL_MESSAGE);
+        return chatSessionRepository.findByUserIdOrderByLastMessageAtDesc(nonNullUserId);
     }
     @Override
     @Transactional
     public MemoryChatSession ensureSession(Long userId, String sessionId, String title) {
+        Long nonNullUserId = Objects.requireNonNull(userId, USER_ID_NULL_MESSAGE);
         String normalizedSessionId = resolveSessionId(sessionId);
-        Optional<MemoryChatSession> existing = chatSessionRepository.findByUserIdAndSessionId(userId, normalizedSessionId);
+        return ensureSessionInternal(nonNullUserId, normalizedSessionId, title);
+    }
+
+    private MemoryChatSession ensureSessionInternal(Long userId, String sessionId, String title) {
+        Optional<MemoryChatSession> existing =
+                chatSessionRepository.findByUserIdAndSessionId(userId, sessionId);
         if (existing.isPresent()) {
             MemoryChatSession session = existing.get();
             session.setLastMessageAt(LocalDateTime.now());
             if (title != null && !title.isBlank()) {
                 session.setTitle(title.trim());
             }
-            return chatSessionRepository.save(session);
+            return chatSessionRepository.save(Objects.requireNonNull(session, "session must not be null"));
         }
         MemoryChatSession created = MemoryChatSession.builder()
             .userId(userId)
-            .sessionId(normalizedSessionId)
+            .sessionId(sessionId)
             .title(title)
             .status("active")
             .lastMessageAt(LocalDateTime.now())
             .build();
-        return chatSessionRepository.save(created);
+        return chatSessionRepository.save(Objects.requireNonNull(created, "created must not be null"));
     }
     @Override
     @Transactional
@@ -103,28 +117,35 @@ public class MemoryServiceImpl implements MemoryService {
         if (!memoryEnabled) {
             throw new IllegalStateException("Memory is disabled");
         }
-        MemoryChatSession session = ensureSession(userId, sessionId, null);
+        Long nonNullUserId = Objects.requireNonNull(userId, USER_ID_NULL_MESSAGE);
+        String nonNullRole = Objects.requireNonNull(role, "role must not be null");
+        String nonNullContent = Objects.requireNonNull(content, "content must not be null");
+        String normalizedSessionId = resolveSessionId(sessionId);
+        MemoryChatSession session = ensureSessionInternal(nonNullUserId, normalizedSessionId, null);
         MemoryChatMessage message = MemoryChatMessage.builder()
-            .userId(userId)
+            .userId(nonNullUserId)
             .sessionId(session.getSessionId())
-            .role(role)
-            .content(content)
+            .role(nonNullRole)
+            .content(nonNullContent)
             .tokenCount(tokenCount)
             .metadata(metadata != null ? metadata : Map.of())
             .build();
-        MemoryChatMessage saved = chatMessageRepository.save(message);
+        MemoryChatMessage saved = chatMessageRepository.save(
+                Objects.requireNonNull(message, "message must not be null"));
         session.setLastMessageAt(saved.getCreatedAt() != null ? saved.getCreatedAt() : LocalDateTime.now());
-        chatSessionRepository.save(session);
+        chatSessionRepository.save(Objects.requireNonNull(session, "session must not be null"));
         return saved;
     }
     @Override
     @Transactional(readOnly = true)
     public List<MemoryChatMessage> getRecentMessages(Long userId, String sessionId, Integer maxTurns) {
+        Long nonNullUserId = Objects.requireNonNull(userId, USER_ID_NULL_MESSAGE);
+        String nonNullSessionId = Objects.requireNonNull(sessionId, SESSION_ID_NULL_MESSAGE);
         int turns = maxTurns != null ? maxTurns : l1MaxTurns;
         int limit = Math.max(1, turns) * 2;
         List<MemoryChatMessage> descMessages = chatMessageRepository.findByUserIdAndSessionIdOrderByCreatedAtDesc(
-            userId,
-            sessionId,
+            nonNullUserId,
+            nonNullSessionId,
             PageRequest.of(0, limit)
         );
         List<MemoryChatMessage> ascMessages = new ArrayList<>(descMessages);
@@ -137,8 +158,9 @@ public class MemoryServiceImpl implements MemoryService {
     @Override
     @Transactional(readOnly = true)
     public UserMemoryProfile getOrCreateProfile(Long userId) {
-        return memoryProfileRepository.findById(userId).orElseGet(() -> UserMemoryProfile.builder()
-            .userId(userId)
+        Long nonNullUserId = Objects.requireNonNull(userId, USER_ID_NULL_MESSAGE);
+        return memoryProfileRepository.findById(nonNullUserId).orElseGet(() -> UserMemoryProfile.builder()
+            .userId(nonNullUserId)
             .watchSymbols(List.of())
             .preferredSources(List.of())
             .profileFacts(Map.of())
@@ -153,8 +175,9 @@ public class MemoryServiceImpl implements MemoryService {
         List<String> preferredSources,
         Map<String, Object> profileFacts
     ) {
-        UserMemoryProfile profile = memoryProfileRepository.findById(userId).orElseGet(() -> UserMemoryProfile.builder()
-            .userId(userId)
+        Long nonNullUserId = Objects.requireNonNull(userId, USER_ID_NULL_MESSAGE);
+        UserMemoryProfile profile = memoryProfileRepository.findById(nonNullUserId).orElseGet(() -> UserMemoryProfile.builder()
+            .userId(nonNullUserId)
             .build());
         if (riskPreference != null) {
             profile.setRiskPreference(riskPreference);
@@ -168,32 +191,38 @@ public class MemoryServiceImpl implements MemoryService {
         if (profileFacts != null) {
             profile.setProfileFacts(profileFacts);
         }
-        UserMemoryProfile saved = memoryProfileRepository.save(profile);
-        log.debug("Upserted user memory profile: user={}", userId);
+        UserMemoryProfile saved = memoryProfileRepository.save(
+            Objects.requireNonNull(profile, "profile must not be null"));
+        log.debug("Upserted user memory profile: user={}", nonNullUserId);
         return saved;
     }
     @Override
     @Transactional
     public int clearSessionMessages(Long userId, String sessionId) {
+        Long nonNullUserId = Objects.requireNonNull(userId, USER_ID_NULL_MESSAGE);
+        String nonNullSessionId = Objects.requireNonNull(sessionId, SESSION_ID_NULL_MESSAGE);
         List<MemoryChatMessage> existing = chatMessageRepository.findByUserIdAndSessionIdOrderByCreatedAtDesc(
-            userId,
-            sessionId,
+            nonNullUserId,
+            nonNullSessionId,
             PageRequest.of(0, 10_000)
         );
-        chatMessageRepository.deleteByUserIdAndSessionId(userId, sessionId);
+        chatMessageRepository.deleteByUserIdAndSessionId(nonNullUserId, nonNullSessionId);
         return existing.size();
     }
     @Override
     @Transactional
     public void deleteSession(Long userId, String sessionId) {
+        Long nonNullUserId = Objects.requireNonNull(userId, USER_ID_NULL_MESSAGE);
+        String nonNullSessionId = Objects.requireNonNull(sessionId, SESSION_ID_NULL_MESSAGE);
         // Delete messages first, then delete session
-        chatMessageRepository.deleteByUserIdAndSessionId(userId, sessionId);
-        chatSessionRepository.deleteByUserIdAndSessionId(userId, sessionId);
-        log.debug("Deleted session: user={}, sessionId={}", userId, sessionId);
+        chatMessageRepository.deleteByUserIdAndSessionId(nonNullUserId, nonNullSessionId);
+        chatSessionRepository.deleteByUserIdAndSessionId(nonNullUserId, nonNullSessionId);
+        log.debug("Deleted session: user={}, sessionId={}", nonNullUserId, nonNullSessionId);
     }
     @Override
     @Transactional
     public void clearProfile(Long userId) {
-        memoryProfileRepository.deleteById(userId);
+        Long nonNullUserId = Objects.requireNonNull(userId, USER_ID_NULL_MESSAGE);
+        memoryProfileRepository.deleteById(nonNullUserId);
     }
 }
