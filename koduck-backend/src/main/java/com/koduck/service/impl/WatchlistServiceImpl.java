@@ -1,4 +1,5 @@
 package com.koduck.service.impl;
+
 import com.koduck.client.DataServiceClient;
 import com.koduck.dto.watchlist.AddWatchlistRequest;
 import com.koduck.dto.watchlist.SortWatchlistRequest;
@@ -9,9 +10,6 @@ import com.koduck.repository.StockRealtimeRepository;
 import com.koduck.repository.WatchlistRepository;
 import com.koduck.service.WatchlistService;
 import com.koduck.util.SymbolUtils;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -23,21 +21,34 @@ import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
 import static com.koduck.util.ServiceValidationUtils.assertOwner;
 import static com.koduck.util.ServiceValidationUtils.requireFound;
+
 /**
  * Implementation of {@link WatchlistService} for watchlist operations.
+ *
+ * @author GitHub Copilot
+ * @date 2026-03-31
  */
 @Service
 @Slf4j
+@RequiredArgsConstructor
 public class WatchlistServiceImpl implements WatchlistService {
-    @org.springframework.beans.factory.annotation.Autowired
-    private WatchlistRepository watchlistRepository;
-    @org.springframework.beans.factory.annotation.Autowired
-    private StockRealtimeRepository stockRealtimeRepository;
-    @org.springframework.beans.factory.annotation.Autowired
-    private DataServiceClient dataServiceClient;
+
     private static final int MAX_WATCHLIST_SIZE = 100;
+    private static final long REALTIME_UPDATE_TIMEOUT_SECONDS = 3L;
+
+    private final WatchlistRepository watchlistRepository;
+
+    private final StockRealtimeRepository stockRealtimeRepository;
+
+    private final DataServiceClient dataServiceClient;
+
     /**
      * {@inheritDoc}
      */
@@ -88,7 +99,7 @@ public class WatchlistServiceImpl implements WatchlistService {
             .notes(request.notes())
             .sortOrder(maxOrder + 1)
             .build();
-        WatchlistItem saved = watchlistRepository.save(Objects.requireNonNull(item));
+        WatchlistItem saved = watchlistRepository.save(Objects.requireNonNull(item, "watchlist item must not be null"));
         log.info("watchlist_add_success id={} userId={} symbol={}",
                 saved.getId(), userId, request.symbol());
         // Trigger realtime data update for the newly added symbol
@@ -158,7 +169,7 @@ public class WatchlistServiceImpl implements WatchlistService {
             return;
         }
         CompletableFuture.runAsync(() -> dataServiceClient.triggerRealtimeUpdate(symbolsToRefresh))
-                .orTimeout(3, TimeUnit.SECONDS)
+                .orTimeout(REALTIME_UPDATE_TIMEOUT_SECONDS, TimeUnit.SECONDS)
                 .exceptionally(ex -> {
                     log.warn("watchlist_realtime_update_failed symbols={} error={}",
                             symbolsToRefresh, ex.getMessage());

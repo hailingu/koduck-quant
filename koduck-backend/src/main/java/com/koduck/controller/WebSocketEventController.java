@@ -1,9 +1,17 @@
 package com.koduck.controller;
+
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.koduck.config.WebSocketChannelInterceptor;
 import com.koduck.dto.websocket.SubscriptionMessage;
 import com.koduck.dto.websocket.WebSocketMessage;
+import com.koduck.security.websocket.WebSocketChannelInterceptor;
 import com.koduck.service.StockSubscriptionService;
+import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.event.EventListener;
 import org.springframework.messaging.handler.annotation.MessageMapping;
@@ -14,15 +22,8 @@ import org.springframework.stereotype.Controller;
 import org.springframework.web.socket.messaging.SessionConnectEvent;
 import org.springframework.web.socket.messaging.SessionDisconnectEvent;
 import org.springframework.web.socket.messaging.SessionSubscribeEvent;
-import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
 /**
  * WebSocket 
- *
  * <p> WebSocket ：</p>
  * <ul>
  *   <li>/</li>
@@ -35,10 +36,14 @@ import java.util.concurrent.ConcurrentHashMap;
 public class WebSocketEventController {
     private static final String SUBSCRIBE_RESULT = "SUBSCRIBE_RESULT";
     private static final String UNSUBSCRIBE_RESULT = "UNSUBSCRIBE_RESULT";
-    @org.springframework.beans.factory.annotation.Autowired
-    private StockSubscriptionService stockSubscriptionService;
-    @org.springframework.beans.factory.annotation.Autowired
-    private ObjectMapper objectMapper;
+    private final StockSubscriptionService stockSubscriptionService;
+    private final ObjectMapper objectMapper;
+
+    public WebSocketEventController(StockSubscriptionService stockSubscriptionService, ObjectMapper objectMapper) {
+        this.stockSubscriptionService = Objects.requireNonNull(stockSubscriptionService,
+                "stockSubscriptionService must not be null");
+        this.objectMapper = Objects.requireNonNull(objectMapper, "objectMapper must not be null");
+    }
     /**
      * 
      * userId -> sessionId

@@ -1,4 +1,5 @@
 package com.koduck.controller;
+
 import io.swagger.v3.oas.annotations.tags.Tag;
 import com.koduck.controller.support.AuthenticatedUserResolver;
 import com.koduck.dto.ApiResponse;
@@ -10,27 +11,40 @@ import com.koduck.security.UserPrincipal;
 import com.koduck.service.StrategyService;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Positive;
+import java.util.List;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.validation.annotation.Validated;
-import org.springframework.web.bind.annotation.*;
-import java.util.List;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
 /**
  * REST API controller for trading strategies.
  * <p>
  * Provides endpoints to manage user-defined strategies, including versioning
  * and publication controls.
+ *
+ * @author GitHub Copilot
+ * @date 2026-03-31
  */
 @RestController
 @RequestMapping("/api/v1/strategies")
 @Validated
 @Tag(name = "Strategies", description = "Trading strategy management APIs")
 @Slf4j
+@RequiredArgsConstructor
 public class StrategyController {
-    @org.springframework.beans.factory.annotation.Autowired
-    private AuthenticatedUserResolver authenticatedUserResolver;
-    @org.springframework.beans.factory.annotation.Autowired
-    private StrategyService strategyService;
+
+    private final AuthenticatedUserResolver authenticatedUserResolver;
+    private final StrategyService strategyService;
+
     /**
      * Retrieve all strategies owned by the authenticated user.
      *
@@ -40,7 +54,7 @@ public class StrategyController {
     @GetMapping
     public ApiResponse<List<StrategyDto>> getStrategies(
             @AuthenticationPrincipal UserPrincipal userPrincipal) {
-        Long userId = authenticatedUserResolver.requireUserId(userPrincipal);
+        Long userId = requireUserId(userPrincipal);
         log.debug("GET /api/v1/strategies: user={}", userId);
         List<StrategyDto> strategies = strategyService.getStrategies(userId);
         return ApiResponse.success(strategies);
@@ -56,7 +70,7 @@ public class StrategyController {
     public ApiResponse<StrategyDto> getStrategy(
             @AuthenticationPrincipal UserPrincipal userPrincipal,
             @PathVariable @Positive(message = "Strategy ID must be positive") Long id) {
-        Long userId = authenticatedUserResolver.requireUserId(userPrincipal);
+        Long userId = requireUserId(userPrincipal);
         log.debug("GET /api/v1/strategies/{}: user={}", id, userId);
         StrategyDto strategy = strategyService.getStrategy(userId, id);
         return ApiResponse.success(strategy);
@@ -72,7 +86,7 @@ public class StrategyController {
     public ApiResponse<StrategyDto> createStrategy(
             @AuthenticationPrincipal UserPrincipal userPrincipal,
             @Valid @RequestBody CreateStrategyRequest request) {
-        Long userId = authenticatedUserResolver.requireUserId(userPrincipal);
+        Long userId = requireUserId(userPrincipal);
         log.debug("POST /api/v1/strategies: user={}, name={}", userId, request.name());
         StrategyDto strategy = strategyService.createStrategy(userId, request);
         return ApiResponse.success(strategy);
@@ -90,7 +104,7 @@ public class StrategyController {
             @AuthenticationPrincipal UserPrincipal userPrincipal,
             @PathVariable @Positive(message = "Strategy ID must be positive") Long id,
             @Valid @RequestBody UpdateStrategyRequest request) {
-        Long userId = authenticatedUserResolver.requireUserId(userPrincipal);
+        Long userId = requireUserId(userPrincipal);
         log.debug("PUT /api/v1/strategies/{}: user={}", id, userId);
         StrategyDto strategy = strategyService.updateStrategy(userId, id, request);
         return ApiResponse.success(strategy);
@@ -106,7 +120,7 @@ public class StrategyController {
     public ApiResponse<Void> deleteStrategy(
             @AuthenticationPrincipal UserPrincipal userPrincipal,
             @PathVariable @Positive(message = "Strategy ID must be positive") Long id) {
-        Long userId = authenticatedUserResolver.requireUserId(userPrincipal);
+        Long userId = requireUserId(userPrincipal);
         log.debug("DELETE /api/v1/strategies/{}: user={}", id, userId);
         strategyService.deleteStrategy(userId, id);
         return ApiResponse.successNoContent();
@@ -122,7 +136,7 @@ public class StrategyController {
     public ApiResponse<StrategyDto> publishStrategy(
             @AuthenticationPrincipal UserPrincipal userPrincipal,
             @PathVariable @Positive(message = "Strategy ID must be positive") Long id) {
-        Long userId = authenticatedUserResolver.requireUserId(userPrincipal);
+        Long userId = requireUserId(userPrincipal);
         log.debug("POST /api/v1/strategies/{}/publish: user={}", id, userId);
         StrategyDto strategy = strategyService.publishStrategy(userId, id);
         return ApiResponse.success(strategy);
@@ -138,7 +152,7 @@ public class StrategyController {
     public ApiResponse<StrategyDto> disableStrategy(
             @AuthenticationPrincipal UserPrincipal userPrincipal,
             @PathVariable @Positive(message = "Strategy ID must be positive") Long id) {
-        Long userId = authenticatedUserResolver.requireUserId(userPrincipal);
+        Long userId = requireUserId(userPrincipal);
         log.debug("POST /api/v1/strategies/{}/disable: user={}", id, userId);
         StrategyDto strategy = strategyService.disableStrategy(userId, id);
         return ApiResponse.success(strategy);
@@ -154,7 +168,7 @@ public class StrategyController {
     public ApiResponse<List<StrategyVersionDto>> getVersions(
             @AuthenticationPrincipal UserPrincipal userPrincipal,
             @PathVariable @Positive(message = "Strategy ID must be positive") Long id) {
-        Long userId = authenticatedUserResolver.requireUserId(userPrincipal);
+        Long userId = requireUserId(userPrincipal);
         log.debug("GET /api/v1/strategies/{}/versions: user={}", id, userId);
         List<StrategyVersionDto> versions = strategyService.getVersions(userId, id);
         return ApiResponse.success(versions);
@@ -172,7 +186,7 @@ public class StrategyController {
             @AuthenticationPrincipal UserPrincipal userPrincipal,
             @PathVariable @Positive(message = "Strategy ID must be positive") Long id,
             @PathVariable @Positive(message = "Version number must be positive") Integer versionNumber) {
-        Long userId = authenticatedUserResolver.requireUserId(userPrincipal);
+        Long userId = requireUserId(userPrincipal);
         log.debug("GET /api/v1/strategies/{}/versions/{}: user={}", id, versionNumber, userId);
         StrategyVersionDto version = strategyService.getVersion(userId, id, versionNumber);
         return ApiResponse.success(version);
@@ -190,9 +204,13 @@ public class StrategyController {
             @AuthenticationPrincipal UserPrincipal userPrincipal,
             @PathVariable @Positive(message = "Strategy ID must be positive") Long id,
             @PathVariable @Positive(message = "Version ID must be positive") Long versionId) {
-        Long userId = authenticatedUserResolver.requireUserId(userPrincipal);
+        Long userId = requireUserId(userPrincipal);
         log.debug("POST /api/v1/strategies/{}/versions/{}/activate: user={}", id, versionId, userId);
         StrategyVersionDto version = strategyService.activateVersion(userId, id, versionId);
         return ApiResponse.success(version);
+    }
+
+    private Long requireUserId(UserPrincipal userPrincipal) {
+        return authenticatedUserResolver.requireUserId(userPrincipal);
     }
 }

@@ -1,24 +1,37 @@
 package com.koduck.client;
+
 import com.koduck.config.properties.DataServiceProperties;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestTemplate;
-import java.util.Collections;
-import java.util.List;
+
 /**
  * Client for communicating with the external data-service.
  * Provides methods to trigger realtime data updates for stock symbols.
+ *
+ * @author GitHub Copilot
+ * @date 2026-03-31
  */
 @Component
 @Slf4j
+@RequiredArgsConstructor
 public class DataServiceClient {
-    @org.springframework.beans.factory.annotation.Autowired
-    private DataServiceProperties dataServiceProperties;
-    @org.springframework.beans.factory.annotation.Autowired
-    private RestTemplate dataServiceRestTemplate;
+
+    private static final String KEY_SYMBOLS = "symbols";
+
+    private final DataServiceProperties dataServiceProperties;
+
+    @Qualifier("dataServiceRestTemplate")
+    private final RestTemplate dataServiceRestTemplate;
+
     /**
      * Trigger realtime data update for a single stock symbol.
      * This is an asynchronous operation - the method returns immediately
@@ -27,8 +40,13 @@ public class DataServiceClient {
      * @param symbol the stock symbol to update (e.g., "601398")
      */
     public void triggerRealtimeUpdate(String symbol) {
+        if (symbol == null || symbol.isBlank()) {
+            log.debug("realtime_update_skipped reason=blank_symbol");
+            return;
+        }
         triggerRealtimeUpdate(Collections.singletonList(symbol));
     }
+
     /**
      * Trigger realtime data update for multiple stock symbols.
      * This is an asynchronous operation - the method returns immediately
@@ -49,8 +67,8 @@ public class DataServiceClient {
         try {
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.APPLICATION_JSON);
-            var requestBody = new java.util.HashMap<String, Object>();
-            requestBody.put("symbols", symbols);
+            HashMap<String, Object> requestBody = HashMap.newHashMap(1);
+            requestBody.put(KEY_SYMBOLS, symbols);
             HttpEntity<Object> request = new HttpEntity<>(requestBody, headers);
             dataServiceRestTemplate.postForObject(url, request, Void.class);
             log.info("realtime_update_triggered symbolsCount={} symbols={}",

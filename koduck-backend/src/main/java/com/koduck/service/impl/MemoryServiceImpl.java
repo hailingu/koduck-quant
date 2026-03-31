@@ -1,4 +1,5 @@
 package com.koduck.service.impl;
+
 import com.koduck.entity.MemoryChatMessage;
 import com.koduck.entity.MemoryChatSession;
 import com.koduck.entity.UserMemoryProfile;
@@ -6,11 +7,6 @@ import com.koduck.repository.MemoryChatMessageRepository;
 import com.koduck.repository.MemoryChatSessionRepository;
 import com.koduck.repository.UserMemoryProfileRepository;
 import com.koduck.service.MemoryService;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -18,19 +14,40 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+/**
+ * Implementation of memory session and profile service.
+ *
+ * @author GitHub Copilot
+ * @date 2026-03-31
+ */
 @Service
 @Slf4j
 public class MemoryServiceImpl implements MemoryService {
-    @org.springframework.beans.factory.annotation.Autowired
-    private MemoryChatSessionRepository chatSessionRepository;
-    @org.springframework.beans.factory.annotation.Autowired
-    private MemoryChatMessageRepository chatMessageRepository;
-    @org.springframework.beans.factory.annotation.Autowired
-    private UserMemoryProfileRepository memoryProfileRepository;
-    @Value("${memory.enabled:true}")
-    private boolean memoryEnabled;
-    @Value("${memory.l1.max-turns:20}")
-    private int l1MaxTurns;
+
+    private final MemoryChatSessionRepository chatSessionRepository;
+    private final MemoryChatMessageRepository chatMessageRepository;
+    private final UserMemoryProfileRepository memoryProfileRepository;
+    private final boolean memoryEnabled;
+    private final int l1MaxTurns;
+
+    public MemoryServiceImpl(MemoryChatSessionRepository chatSessionRepository,
+                             MemoryChatMessageRepository chatMessageRepository,
+                             UserMemoryProfileRepository memoryProfileRepository,
+                             @Value("${memory.enabled:true}") boolean memoryEnabled,
+                             @Value("${memory.l1.max-turns:20}") int l1MaxTurns) {
+        this.chatSessionRepository = chatSessionRepository;
+        this.chatMessageRepository = chatMessageRepository;
+        this.memoryProfileRepository = memoryProfileRepository;
+        this.memoryEnabled = memoryEnabled;
+        this.l1MaxTurns = l1MaxTurns;
+    }
+
     @Override
     public boolean isEnabled() {
         return memoryEnabled;

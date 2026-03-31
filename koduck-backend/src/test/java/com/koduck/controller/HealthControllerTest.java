@@ -12,9 +12,10 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
- * HealthController 
+ * Integration tests for {@link HealthController}.
  *
- * @author Koduck Team
+ * @author GitHub Copilot
+ * @date 2026-03-31
  */
 @SpringBootTest(properties = "app.demo.enabled=false")
 @AutoConfigureMockMvc

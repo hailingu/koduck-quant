@@ -1,4 +1,5 @@
 package com.koduck.service.impl;
+
 import com.koduck.dto.backtest.*;
 import com.koduck.dto.market.KlineDataDto;
 import com.koduck.entity.*;
@@ -10,9 +11,6 @@ import com.koduck.repository.StrategyVersionRepository;
 import com.koduck.service.BacktestService;
 import com.koduck.service.KlineService;
 import com.koduck.service.support.StrategyAccessSupport;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
@@ -20,28 +18,39 @@ import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.stream.Collectors;
+import java.util.Objects;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
 import static com.koduck.util.ServiceValidationUtils.requireFound;
+
 /**
  * Implementation of BacktestService.
+ *
+ * @author GitHub Copilot
+ * @date 2026-03-31
  */
 @Service
 @Slf4j
+@RequiredArgsConstructor
 public class BacktestServiceImpl implements BacktestService {
-    @org.springframework.beans.factory.annotation.Autowired
-    private BacktestResultRepository resultRepository;
-    @org.springframework.beans.factory.annotation.Autowired
-    private BacktestTradeRepository tradeRepository;
-    @org.springframework.beans.factory.annotation.Autowired
-    private StrategyRepository strategyRepository;
-    @org.springframework.beans.factory.annotation.Autowired
-    private StrategyVersionRepository versionRepository;
-    @org.springframework.beans.factory.annotation.Autowired
-    private KlineService klineService;
-    @org.springframework.beans.factory.annotation.Autowired
-    private BacktestTradeMapper backtestTradeMapper;
-    @org.springframework.beans.factory.annotation.Autowired
-    private StrategyAccessSupport strategyAccessSupport;
+
+    private final BacktestResultRepository resultRepository;
+
+    private final BacktestTradeRepository backtestTradeRepository;
+
+    private final StrategyRepository strategyRepository;
+
+    private final StrategyVersionRepository versionRepository;
+
+    private final KlineService klineService;
+
+    private final BacktestTradeMapper backtestTradeMapper;
+
+    private final StrategyAccessSupport strategyAccessSupport;
+
     private static final int SCALE = 4;
     private static final String DEFAULT_TIMEFRAME = "1D";
     /**
@@ -53,7 +62,7 @@ public class BacktestServiceImpl implements BacktestService {
         List<BacktestResult> results = resultRepository.findByUserIdOrderByCreatedAtDesc(userId);
         return results.stream()
             .map(this::convertToDto)
-            .collect(Collectors.toList());
+            .toList();
     }
     /**
      * Get a backtest result by id.
@@ -91,10 +100,10 @@ public class BacktestServiceImpl implements BacktestService {
             .slippage(request.slippage() != null ? request.slippage() : new BigDecimal("0.001"))
             .status(BacktestResult.BacktestStatus.RUNNING)
             .build();
-        BacktestResult savedResult = resultRepository.save(result);
+        BacktestResult savedResult = resultRepository.save(Objects.requireNonNull(result, "result must not be null"));
         try {
             // Execute backtest
-            executeBacktest(savedResult, version.getCode());
+            executeBacktest(savedResult);
             // Update status
             savedResult.setStatus(BacktestResult.BacktestStatus.COMPLETED);
             savedResult.setCompletedAt(LocalDateTime.now());
@@ -116,10 +125,10 @@ public class BacktestServiceImpl implements BacktestService {
     public List<BacktestTradeDto> getBacktestTrades(Long userId, Long backtestId) {
         log.debug("Getting backtest trades: user={}, backtestId={}", userId, backtestId);
         loadBacktestResultOrThrow(userId, backtestId);
-        List<BacktestTrade> trades = tradeRepository.findByBacktestResultIdOrderByTradeTimeAsc(backtestId);
+        List<BacktestTrade> trades = backtestTradeRepository.findByBacktestResultIdOrderByTradeTimeAsc(backtestId);
         return trades.stream()
             .map(this::convertTradeToDto)
-            .collect(Collectors.toList());
+            .toList();
     }
     /**
      * Delete a backtest result.
@@ -130,15 +139,15 @@ public class BacktestServiceImpl implements BacktestService {
         log.debug("Deleting backtest result: user={}, id={}", userId, id);
         BacktestResult result = loadBacktestResultOrThrow(userId, id);
         // Delete trades first
-        tradeRepository.deleteByBacktestResultId(id);
+        backtestTradeRepository.deleteByBacktestResultId(id);
         // Delete result
-        resultRepository.delete(result);
+        resultRepository.delete(Objects.requireNonNull(result, "result must not be null"));
         log.info("Deleted backtest result: user={}, id={}", userId, id);
     }
     /**
      * Execute backtest logic.
      */
-    private void executeBacktest(BacktestResult result, String strategyCode) {
+    private void executeBacktest(BacktestResult result) {
         // Get historical data
         String timeframe = result.getTimeframe() != null ? result.getTimeframe() : DEFAULT_TIMEFRAME;
         List<KlineDataDto> klineData = klineService.getKlineData(
@@ -153,7 +162,7 @@ public class BacktestServiceImpl implements BacktestService {
                 return !date.isBefore(result.getStartDate()) && !date.isAfter(result.getEndDate());
             })
             .sorted((a, b) -> Long.compare(a.timestamp(), b.timestamp()))
-            .collect(Collectors.toList());
+            .toList();
         if (filteredData.size() < 60) {
             throw new IllegalStateException("Insufficient data for backtest (need at least 60 bars)");
         }
@@ -173,13 +182,13 @@ public class BacktestServiceImpl implements BacktestService {
             Signal signal = generateSignal(history);
             if (signal == Signal.BUY && context.position.compareTo(BigDecimal.ZERO) == 0) {
                 // Execute buy
-                BacktestTrade trade = executeBuy(context, current, result.getId(), i);
+                BacktestTrade trade = executeBuy(context, current, result.getId());
                 if (trade != null) {
                     trades.add(trade);
                 }
             } else if (signal == Signal.SELL && context.position.compareTo(BigDecimal.ZERO) > 0) {
                 // Execute sell
-                BacktestTrade trade = executeSell(context, current, result.getId(), i, trades);
+                BacktestTrade trade = executeSell(context, current, result.getId());
                 trades.add(trade);
             }
             // Record equity
@@ -191,7 +200,7 @@ public class BacktestServiceImpl implements BacktestService {
         calculateMetrics(result, context, trades, equityCurve, filteredData);
         // Save trades
         if (!trades.isEmpty()) {
-            tradeRepository.saveAll(trades);
+            backtestTradeRepository.saveAll(trades);
         }
     }
     /**
@@ -235,8 +244,8 @@ public class BacktestServiceImpl implements BacktestService {
     /**
      * Execute buy order.
      */
-    private BacktestTrade executeBuy(BacktestContext context, KlineDataDto current, 
-                                     Long backtestResultId, int index) {
+    private BacktestTrade executeBuy(BacktestContext context, KlineDataDto current,
+                                     Long backtestResultId) {
         BigDecimal price = current.close().multiply(
             BigDecimal.ONE.add(context.slippage)).setScale(SCALE, RoundingMode.HALF_UP);
         // Use 90% of cash for position
@@ -271,7 +280,7 @@ public class BacktestServiceImpl implements BacktestService {
      * Execute sell order.
      */
     private BacktestTrade executeSell(BacktestContext context, KlineDataDto current,
-                                      Long backtestResultId, int index, List<BacktestTrade> trades) {
+                                      Long backtestResultId) {
         BigDecimal price = current.close().multiply(
             BigDecimal.ONE.subtract(context.slippage)).setScale(SCALE, RoundingMode.HALF_UP);
         BigDecimal quantity = context.position;
@@ -333,7 +342,7 @@ public class BacktestServiceImpl implements BacktestService {
         // Trade statistics
         List<BacktestTrade> sellTrades = trades.stream()
             .filter(t -> t.getTradeType() == BacktestTrade.TradeType.SELL)
-            .collect(Collectors.toList());
+            .toList();
         int totalTrades = sellTrades.size();
         int winningTrades = (int) sellTrades.stream()
             .filter(t -> t.getPnl() != null && t.getPnl().compareTo(BigDecimal.ZERO) > 0)
@@ -382,7 +391,7 @@ public class BacktestServiceImpl implements BacktestService {
         }
         // Sharpe ratio (simplified)
         if (equityCurve.size() > 1) {
-            BigDecimal sharpeRatio = calculateSharpeRatio(equityCurve, result.getInitialCapital());
+            BigDecimal sharpeRatio = calculateSharpeRatio(equityCurve);
             result.setSharpeRatio(sharpeRatio);
         }
     }
@@ -408,7 +417,7 @@ public class BacktestServiceImpl implements BacktestService {
     /**
      * Calculate Sharpe ratio (simplified).
      */
-    private BigDecimal calculateSharpeRatio(List<BigDecimal> equityCurve, BigDecimal initialCapital) {
+    private BigDecimal calculateSharpeRatio(List<BigDecimal> equityCurve) {
         List<BigDecimal> returns = new ArrayList<>();
         for (int i = 1; i < equityCurve.size(); i++) {
             BigDecimal dailyReturn = equityCurve.get(i).subtract(equityCurve.get(i - 1))
@@ -448,7 +457,8 @@ public class BacktestServiceImpl implements BacktestService {
      */
     private BacktestResultDto convertToDto(BacktestResult result) {
         // Get strategy name
-        String strategyName = strategyRepository.findById(result.getStrategyId())
+        String strategyName = strategyRepository.findById(
+            Objects.requireNonNull(result.getStrategyId(), "strategyId must not be null"))
             .map(Strategy::getName)
             .orElse("Unknown");
         return BacktestResultDto.builder()

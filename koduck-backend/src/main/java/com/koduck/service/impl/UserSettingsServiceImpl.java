@@ -1,36 +1,45 @@
 package com.koduck.service.impl;
-import com.koduck.dto.settings.*;
+
+import com.koduck.dto.settings.UpdateNotificationRequest;
+import com.koduck.dto.settings.UpdateSettingsRequest;
+import com.koduck.dto.settings.UserSettingsDto;
 import com.koduck.entity.UserCredential;
 import com.koduck.entity.UserSettings;
 import com.koduck.repository.CredentialRepository;
 import com.koduck.repository.UserSettingsRepository;
 import com.koduck.service.UserSettingsService;
 import com.koduck.util.CredentialEncryptionUtil;
+import java.util.List;
+import java.util.Locale;
+import java.util.Optional;
+import java.util.Set;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.env.Environment;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import java.util.Locale;
-import java.util.List;
-import java.util.Optional;
-import java.util.Set;
-import java.util.stream.Collectors;
+
 /**
  * 用户设置服务实现类
+ *
+ * @author GitHub Copilot
+ * @date 2026-03-31
  */
 @Service
 @Slf4j
+@RequiredArgsConstructor
 public class UserSettingsServiceImpl implements UserSettingsService {
+
     private static final Set<String> SUPPORTED_LLM_PROVIDERS = Set.of("minimax", "deepseek", "openai");
     private static final Set<String> SUPPORTED_MEMORY_MODES = Set.of("L0", "L1", "L2", "L3");
-    @org.springframework.beans.factory.annotation.Autowired
-    private UserSettingsRepository settingsRepository;
-    @org.springframework.beans.factory.annotation.Autowired
-    private CredentialRepository credentialRepository;
-    @org.springframework.beans.factory.annotation.Autowired
-    private Environment environment;
-    @org.springframework.beans.factory.annotation.Autowired
-    private CredentialEncryptionUtil credentialEncryptionUtil;
+
+    private final UserSettingsRepository settingsRepository;
+
+    private final CredentialRepository credentialRepository;
+
+    private final Environment environment;
+
+    private final CredentialEncryptionUtil credentialEncryptionUtil;
     /**
      * 获取用户设置
      */
@@ -126,7 +135,7 @@ public class UserSettingsServiceImpl implements UserSettingsService {
                     .path(dto.getPath())
                     .sortOrder(dto.getSortOrder())
                     .build())
-                .collect(Collectors.toList());
+                .toList();
             settings.setQuickLinks(links);
         }
         UserSettings saved = settingsRepository.save(settings);
@@ -379,7 +388,7 @@ public class UserSettingsServiceImpl implements UserSettingsService {
                 .path(link.getPath())
                 .sortOrder(link.getSortOrder())
                 .build())
-            .collect(Collectors.toList());
+            .toList();
     }
     private UserSettingsDto.LlmConfigDto resolveLlmConfig(UserSettings.LlmConfig config) {
         UserSettings.LlmConfig source = config == null ? new UserSettings.LlmConfig() : config;

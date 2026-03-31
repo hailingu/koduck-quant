@@ -13,7 +13,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.Pageable;
-import org.springframework.test.util.ReflectionTestUtils;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -43,12 +42,13 @@ class MemoryServiceTest {
 
     @BeforeEach
     void setUp() {
-        memoryService = new MemoryServiceImpl();
-        ReflectionTestUtils.setField(memoryService, "chatSessionRepository", chatSessionRepository);
-        ReflectionTestUtils.setField(memoryService, "chatMessageRepository", chatMessageRepository);
-        ReflectionTestUtils.setField(memoryService, "memoryProfileRepository", memoryProfileRepository);
-        ReflectionTestUtils.setField(memoryService, "memoryEnabled", true);
-        ReflectionTestUtils.setField(memoryService, "l1MaxTurns", 20);
+        memoryService = new MemoryServiceImpl(
+            chatSessionRepository,
+            chatMessageRepository,
+            memoryProfileRepository,
+            true,
+            20
+        );
     }
 
     @Test

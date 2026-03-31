@@ -1,4 +1,5 @@
 package com.koduck.service.impl;
+
 import com.koduck.controller.MarketController;
 import com.koduck.entity.StockRealtime;
 import com.koduck.repository.StockRealtimeRepository;
@@ -6,33 +7,31 @@ import com.koduck.service.PricePushService;
 import com.koduck.service.StockSubscriptionService;
 import com.koduck.service.SyntheticTickService;
 import com.koduck.service.TickStreamService;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Objects;
+import java.util.Set;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
-import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+
 /**
- * 
+ * Pushes subscribed stock price updates to websocket subscribers.
  *
- * <p></p>
- * <p>：</p>
- * <ul>
- *   <li></li>
- *   <li></li>
- *   <li>（）</li>
- * </ul>
+ * @author GitHub Copilot
+ * @date 2026-03-31
  */
 @Slf4j
 @Service
 public class PricePushServiceImpl implements PricePushService {
-    @org.springframework.beans.factory.annotation.Autowired
-    private StockSubscriptionService stockSubscriptionService;
-    @org.springframework.beans.factory.annotation.Autowired
-    private StockRealtimeRepository stockRealtimeRepository;
-    @org.springframework.beans.factory.annotation.Autowired
-    private SyntheticTickService syntheticTickService;
-    @org.springframework.beans.factory.annotation.Autowired
-    private TickStreamService tickStreamService;
+
+    private final StockSubscriptionService stockSubscriptionService;
+    private final StockRealtimeRepository stockRealtimeRepository;
+    private final SyntheticTickService syntheticTickService;
+    private final TickStreamService tickStreamService;
+
     /**
      * ：symbol -> last price
      */
@@ -45,10 +44,17 @@ public class PricePushServiceImpl implements PricePushService {
      * （）， 5 
      */
     private static final long PUSH_INTERVAL_MS = 5000;
-    /**
-     * ， 0.01%（）
-     */
-    private static final double PRICE_CHANGE_THRESHOLD = 0.0001;
+
+    public PricePushServiceImpl(StockSubscriptionService stockSubscriptionService,
+                                StockRealtimeRepository stockRealtimeRepository,
+                                SyntheticTickService syntheticTickService,
+                                TickStreamService tickStreamService) {
+        this.stockSubscriptionService = stockSubscriptionService;
+        this.stockRealtimeRepository = stockRealtimeRepository;
+        this.syntheticTickService = syntheticTickService;
+        this.tickStreamService = tickStreamService;
+    }
+
     /**
      * 
      *  3 

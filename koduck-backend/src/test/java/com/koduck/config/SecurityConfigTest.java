@@ -11,7 +11,6 @@ import org.springframework.test.context.TestConstructor;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.test.web.servlet.MockMvc;
-import org.springframework.test.util.ReflectionTestUtils;
 
 import com.koduck.util.JwtUtil;
 import com.koduck.security.JwtAuthenticationFilter;
@@ -89,9 +88,7 @@ class SecurityConfigTest {
          */
         @Bean
         JwtUtil jwtUtil(JwtConfig jwtConfig) {
-            JwtUtil jwtUtil = new JwtUtil();
-            ReflectionTestUtils.setField(jwtUtil, "jwtConfig", jwtConfig);
-            return jwtUtil;
+            return new JwtUtil(jwtConfig);
         }
 
         /**
@@ -119,11 +116,7 @@ class SecurityConfigTest {
                 JwtUtil jwtUtil,
                 JwtConfig jwtConfig,
                 UserDetailsService userDetailsService) {
-            JwtAuthenticationFilter filter = new JwtAuthenticationFilter();
-            ReflectionTestUtils.setField(filter, "jwtUtil", jwtUtil);
-            ReflectionTestUtils.setField(filter, "jwtConfig", jwtConfig);
-            ReflectionTestUtils.setField(filter, "userDetailsService", userDetailsService);
-            return filter;
+            return new JwtAuthenticationFilter(jwtUtil, jwtConfig, userDetailsService);
         }
     }
 

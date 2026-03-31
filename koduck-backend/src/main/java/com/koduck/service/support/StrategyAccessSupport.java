@@ -1,18 +1,28 @@
 package com.koduck.service.support;
+
 import com.koduck.entity.Strategy;
 import com.koduck.repository.StrategyRepository;
+import java.util.Objects;
 import org.springframework.stereotype.Component;
+
 import static com.koduck.util.ServiceValidationUtils.requireFound;
+
 /**
  * Shared support for strategy ownership validation and loading.
  *
  * @author GitHub Copilot
- * @date 2026-03-30
+ * @date 2026-03-31
  */
 @Component
 public class StrategyAccessSupport {
-    @org.springframework.beans.factory.annotation.Autowired
-    private StrategyRepository strategyRepository;
+
+    private final StrategyRepository strategyRepository;
+
+    public StrategyAccessSupport(StrategyRepository strategyRepository) {
+        this.strategyRepository = Objects.requireNonNull(strategyRepository,
+                "strategyRepository must not be null");
+    }
+
     /**
      * Loads a strategy owned by the specified user or throws when absent.
      *

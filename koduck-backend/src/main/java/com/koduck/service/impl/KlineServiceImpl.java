@@ -1,14 +1,11 @@
 package com.koduck.service.impl;
+
 import com.koduck.dto.market.KlineDataDto;
 import com.koduck.entity.KlineData;
 import com.koduck.entity.StockRealtime;
 import com.koduck.repository.KlineDataRepository;
 import com.koduck.repository.StockRealtimeRepository;
 import com.koduck.service.KlineService;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Pageable;
-import org.springframework.stereotype.Service;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDateTime;
@@ -18,18 +15,32 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
-import java.util.stream.Collectors;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.stereotype.Service;
+
 /**
  * Implementation of K-line data service.
+ *
+ * @author GitHub Copilot
+ * @date 2026-03-31
  */
 @Service
 @Slf4j
 public class KlineServiceImpl implements KlineService {
+
     private static final ZoneId MARKET_ZONE = ZoneId.of("Asia/Shanghai");
-    @org.springframework.beans.factory.annotation.Autowired
-    private KlineDataRepository klineDataRepository;
-    @org.springframework.beans.factory.annotation.Autowired
-    private StockRealtimeRepository stockRealtimeRepository;
+
+    private final KlineDataRepository klineDataRepository;
+    private final StockRealtimeRepository stockRealtimeRepository;
+
+    public KlineServiceImpl(KlineDataRepository klineDataRepository,
+                            StockRealtimeRepository stockRealtimeRepository) {
+        this.klineDataRepository = klineDataRepository;
+        this.stockRealtimeRepository = stockRealtimeRepository;
+    }
+
     @Override
     public List<KlineDataDto> getKlineData(String market, String symbol, String timeframe,
                                            Integer limit, Long beforeTime) {
@@ -45,9 +56,9 @@ public class KlineServiceImpl implements KlineService {
             data = queryKlineWithFallback(market, symbol, timeframe, pageable);
         }
         // Reverse to ascending order (oldest to newest) for frontend charting
-        List<KlineDataDto> result = data.stream()
-                .map(this::convertToDto)
-                .collect(Collectors.toList());
+        List<KlineDataDto> result = new ArrayList<>(data.stream()
+            .map(this::convertToDto)
+            .toList());
         java.util.Collections.reverse(result);
         // Remove duplicate timestamps (keep latest)
         return deduplicateByTimestamp(result, timeframe);
@@ -198,7 +209,7 @@ public class KlineServiceImpl implements KlineService {
                 .filter(entity -> entity != null)
                 .filter(entity -> !klineDataRepository.existsByMarketAndSymbolAndTimeframeAndKlineTime(
                         market, symbol, timeframe, entity.getKlineTime()))
-                .collect(Collectors.toList());
+                .toList();
         if (!entities.isEmpty()) {
             klineDataRepository.saveAll(entities);
             log.info("Saved {} kline records for {}/{}/{}", entities.size(), market, symbol, timeframe);

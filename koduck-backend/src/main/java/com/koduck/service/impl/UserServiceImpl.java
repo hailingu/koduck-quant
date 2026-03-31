@@ -1,6 +1,12 @@
 package com.koduck.service.impl;
+
 import com.koduck.dto.common.PageResponse;
-import com.koduck.dto.user.*;
+import com.koduck.dto.user.ChangePasswordRequest;
+import com.koduck.dto.user.CreateUserRequest;
+import com.koduck.dto.user.UpdateProfileRequest;
+import com.koduck.dto.user.UpdateUserRequest;
+import com.koduck.dto.user.UserDetailResponse;
+import com.koduck.dto.user.UserPageRequest;
 import com.koduck.entity.User;
 import com.koduck.exception.BusinessException;
 import com.koduck.exception.DuplicateException;
@@ -11,6 +17,9 @@ import com.koduck.repository.RoleRepository;
 import com.koduck.repository.UserRepository;
 import com.koduck.repository.UserRoleRepository;
 import com.koduck.service.UserService;
+import java.util.List;
+import java.util.Objects;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -20,33 +29,39 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
-import java.util.List;
-import java.util.stream.Collectors;
+
 import static com.koduck.util.ServiceValidationUtils.requireFound;
+
 /**
  * 用户服务实现类。
+ *
+ * @author GitHub Copilot
+ * @date 2026-03-31
  */
 @Slf4j
 @Service
+@RequiredArgsConstructor
 public class UserServiceImpl implements UserService {
-    @org.springframework.beans.factory.annotation.Autowired
-    private UserRepository userRepository;
-    @org.springframework.beans.factory.annotation.Autowired
-    private RoleRepository roleRepository;
-    @org.springframework.beans.factory.annotation.Autowired
-    private PermissionRepository permissionRepository;
-    @org.springframework.beans.factory.annotation.Autowired
-    private UserRoleRepository userRoleRepository;
-    @org.springframework.beans.factory.annotation.Autowired
-    private PasswordEncoder passwordEncoder;
+
+    private static final String USER_NULL_ERROR = "user must not be null";
+
+    private final UserRepository userRepository;
+
+    private final RoleRepository roleRepository;
+
+    private final PermissionRepository permissionRepository;
+
+    private final UserRoleRepository userRoleRepository;
+
+    private final PasswordEncoder passwordEncoder;
+
     private static final int DEFAULT_ROLE_ID = 2; // USER
     /**
      * {@inheritDoc}
      */
     @Override
     public UserDetailResponse getCurrentUser(Long userId) {
-        User user = loadUserOrThrow(userId);
-        return convertToDetailResponse(user);
+        return getUserById(userId);
     }
     /**
      * {@inheritDoc}
@@ -61,7 +76,7 @@ public class UserServiceImpl implements UserService {
         if (StringUtils.hasText(request.getAvatarUrl())) {
             user.setAvatarUrl(request.getAvatarUrl());
         }
-        user = userRepository.save(user);
+        user = userRepository.save(Objects.requireNonNull(user, USER_NULL_ERROR));
         return convertToDetailResponse(user);
     }
     /**
@@ -102,7 +117,7 @@ public class UserServiceImpl implements UserService {
         }
         List<UserDetailResponse> content = userPage.getContent().stream()
                 .map(this::convertToDetailResponse)
-                .collect(Collectors.toList());
+            .toList();
         return PageResponse.<UserDetailResponse>builder()
                 .content(content)
                 .page(request.getPage())
@@ -143,7 +158,7 @@ public class UserServiceImpl implements UserService {
                 .nickname(request.getNickname() != null ? request.getNickname() : request.getUsername())
                 .status(request.getStatus() != null ? request.getStatus() : User.UserStatus.ACTIVE)
                 .build();
-        user = userRepository.save(user);
+        user = userRepository.save(Objects.requireNonNull(user, USER_NULL_ERROR));
         // 分配角色
         if (request.getRoleIds() != null && !request.getRoleIds().isEmpty()) {
             for (Integer roleId : request.getRoleIds()) {
@@ -179,7 +194,7 @@ public class UserServiceImpl implements UserService {
         if (request.getStatus() != null) {
             user.setStatus(request.getStatus());
         }
-        user = userRepository.save(user);
+        user = userRepository.save(Objects.requireNonNull(user, USER_NULL_ERROR));
         // 更新角色关联
         if (request.getRoleIds() != null) {
             userRoleRepository.deleteAllByUserId(userId);
@@ -203,10 +218,10 @@ public class UserServiceImpl implements UserService {
         // 删除用户角色关联
         userRoleRepository.deleteAllByUserId(userId);
         // 删除用户
-        userRepository.delete(user);
+        userRepository.delete(Objects.requireNonNull(user, USER_NULL_ERROR));
     }
     private User loadUserOrThrow(Long userId) {
-        return requireFound(userRepository.findById(userId),
+        return requireFound(userRepository.findById(Objects.requireNonNull(userId, "userId must not be null")),
                 () -> new ResourceNotFoundException("用户", userId));
     }
     /**

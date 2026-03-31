@@ -1,31 +1,39 @@
 package com.koduck.service.impl;
+
 import com.koduck.dto.market.MarketSentimentDto;
 import com.koduck.market.MarketType;
 import com.koduck.market.model.KlineData;
 import com.koduck.market.provider.MarketDataProvider;
 import com.koduck.market.provider.ProviderFactory;
 import com.koduck.service.MarketSentimentService;
-import com.koduck.service.MarketService;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.stereotype.Service;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Service;
+
 /**
  * Market sentiment analysis service implementation.
  * Calculates six-dimensional sentiment indicators for market analysis.
+ *
+ * @author GitHub Copilot
+ * @date 2026-03-31
  */
 @Slf4j
 @Service
 public class MarketSentimentServiceImpl implements MarketSentimentService {
-    @org.springframework.beans.factory.annotation.Autowired
-    private ProviderFactory providerFactory;
-    @org.springframework.beans.factory.annotation.Autowired
-    private MarketService marketService;
+
+    private final ProviderFactory providerFactory;
+
     // Representative index symbols for each market
     private static final String A_SHARE_INDEX = "000001"; // Shanghai Composite
     private static final String HK_INDEX = "00700"; // Tencent as proxy for HK
     private static final String US_INDEX = "AAPL"; // Apple as proxy for US
+
+    public MarketSentimentServiceImpl(ProviderFactory providerFactory) {
+        this.providerFactory = providerFactory;
+    }
+
     @Override
     public MarketSentimentDto getMarketSentiment(MarketType marketType) {
         String symbol = getRepresentativeSymbol(marketType);

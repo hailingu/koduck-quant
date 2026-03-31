@@ -1,4 +1,5 @@
 package com.koduck.service.impl;
+
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.koduck.config.AgentConfig;
@@ -19,6 +20,22 @@ import com.koduck.service.AiAnalysisService;
 import com.koduck.service.MemoryService;
 import com.koduck.service.TechnicalIndicatorService;
 import com.koduck.service.UserSettingsService;
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.io.OutputStream;
+import java.math.BigDecimal;
+import java.net.HttpURLConnection;
+import java.net.URI;
+import java.nio.charset.StandardCharsets;
+import java.time.Duration;
+import java.time.LocalDateTime;
+import java.util.*;
+import java.util.concurrent.CompletableFuture;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.web.client.RestTemplateBuilder;
 import org.springframework.core.ParameterizedTypeReference;
@@ -26,25 +43,16 @@ import org.springframework.http.*;
 import org.springframework.stereotype.Service;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 import org.springframework.web.client.RestTemplate;
-import java.io.BufferedReader;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.io.OutputStream;
-import java.net.HttpURLConnection;
-import java.net.URI;
-import java.nio.charset.StandardCharsets;
-import java.math.BigDecimal;
-import java.time.LocalDateTime;
-import java.util.*;
-import java.util.concurrent.CompletableFuture;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
+
 /**
  * AI 分析服务实现 - 调用 koduck-agent
+ *
+ * @author GitHub Copilot
+ * @date 2026-03-31
  */
 @Service
 @Slf4j
+@RequiredArgsConstructor
 public class AiAnalysisServiceImpl implements AiAnalysisService {
     private static final Pattern SYMBOL_PATTERN = Pattern.compile("\\b\\d{6}\\b");
     private static final Set<String> SUPPORTED_LLM_PROVIDERS = Set.of("minimax", "deepseek", "openai");
@@ -57,29 +65,25 @@ public class AiAnalysisServiceImpl implements AiAnalysisService {
     private static final TypeReference<Map<String, Object>> MAP_TYPE_REFERENCE =
         new TypeReference<>() {
         };
-    @org.springframework.beans.factory.annotation.Autowired
-    private PortfolioPositionRepository positionRepository;
-    @org.springframework.beans.factory.annotation.Autowired
-    private StrategyRepository strategyRepository;
-    @org.springframework.beans.factory.annotation.Autowired
-    private BacktestResultRepository backtestResultRepository;
-    @org.springframework.beans.factory.annotation.Autowired
-    private TechnicalIndicatorService technicalIndicatorService;
-    @org.springframework.beans.factory.annotation.Autowired
-    private UserSettingsService userSettingsService;
-    @org.springframework.beans.factory.annotation.Autowired
-    private MemoryService memoryService;
-    @org.springframework.beans.factory.annotation.Autowired
-    private AgentConfig agentConfig;
-    @org.springframework.beans.factory.annotation.Autowired
-    private ObjectMapper objectMapper;
+
+    private final PortfolioPositionRepository positionRepository;
+    private final StrategyRepository strategyRepository;
+    private final BacktestResultRepository backtestResultRepository;
+    private final TechnicalIndicatorService technicalIndicatorService;
+    private final UserSettingsService userSettingsService;
+    private final MemoryService memoryService;
+    private final AgentConfig agentConfig;
+    private final ObjectMapper objectMapper;
+    private final RestTemplateBuilder restTemplateBuilder;
+
     private final Random random = new Random();
     private RestTemplate restTemplate;
+
     private RestTemplate getRestTemplate() {
         if (restTemplate == null) {
-            restTemplate = new RestTemplateBuilder()
-                .connectTimeout(java.time.Duration.ofSeconds(30))
-                .readTimeout(java.time.Duration.ofSeconds(60))
+            restTemplate = restTemplateBuilder
+                .connectTimeout(Duration.ofSeconds(30))
+                .readTimeout(Duration.ofSeconds(60))
                 .build();
         }
         return restTemplate;

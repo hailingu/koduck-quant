@@ -1,5 +1,11 @@
 package com.koduck.service.impl;
-import com.koduck.dto.strategy.*;
+
+import com.koduck.dto.strategy.CreateStrategyRequest;
+import com.koduck.dto.strategy.StrategyDto;
+import com.koduck.dto.strategy.StrategyParameterDto;
+import com.koduck.dto.strategy.StrategyParameterRequest;
+import com.koduck.dto.strategy.StrategyVersionDto;
+import com.koduck.dto.strategy.UpdateStrategyRequest;
 import com.koduck.entity.Strategy;
 import com.koduck.entity.StrategyParameter;
 import com.koduck.entity.StrategyVersion;
@@ -9,29 +15,37 @@ import com.koduck.repository.StrategyRepository;
 import com.koduck.repository.StrategyVersionRepository;
 import com.koduck.service.StrategyService;
 import com.koduck.service.support.StrategyAccessSupport;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Objects;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.stream.Collectors;
+
 import static com.koduck.util.ServiceValidationUtils.requireFound;
+
 /**
  * Implementation of StrategyService.
+ *
+ * @author GitHub Copilot
+ * @date 2026-03-31
  */
 @Service
 @Slf4j
+@RequiredArgsConstructor
 public class StrategyServiceImpl implements StrategyService {
-    @org.springframework.beans.factory.annotation.Autowired
-    private StrategyRepository strategyRepository;
-    @org.springframework.beans.factory.annotation.Autowired
-    private StrategyVersionRepository versionRepository;
-    @org.springframework.beans.factory.annotation.Autowired
-    private StrategyParameterRepository parameterRepository;
-    @org.springframework.beans.factory.annotation.Autowired
-    private StrategyMapper strategyMapper;
-    @org.springframework.beans.factory.annotation.Autowired
-    private StrategyAccessSupport strategyAccessSupport;
+
+    private final StrategyRepository strategyRepository;
+
+    private final StrategyVersionRepository versionRepository;
+
+    private final StrategyParameterRepository parameterRepository;
+
+    private final StrategyMapper strategyMapper;
+
+    private final StrategyAccessSupport strategyAccessSupport;
+
     private static final String DEFAULT_CODE_TEMPLATE = """
 #
 # Python
@@ -60,7 +74,7 @@ def handle_data(context, data):
         List<Strategy> strategies = strategyRepository.findByUserId(userId);
         return strategies.stream()
             .map(strategyMapper::toStrategyDto)
-            .collect(Collectors.toList());
+            .toList();
     }
     @Override
     public StrategyDto getStrategy(Long userId, Long strategyId) {
@@ -80,7 +94,7 @@ def handle_data(context, data):
             .status(Strategy.StrategyStatus.DRAFT)
             .currentVersion(1)
             .build();
-        Strategy savedStrategy = strategyRepository.save(strategy);
+        Strategy savedStrategy = strategyRepository.save(Objects.requireNonNull(strategy, "strategy must not be null"));
         // Create initial version
         StrategyVersion version = StrategyVersion.builder()
             .strategyId(savedStrategy.getId())
@@ -89,7 +103,7 @@ def handle_data(context, data):
             .changelog("Initial version")
             .isActive(true)
             .build();
-        versionRepository.save(version);
+        versionRepository.save(Objects.requireNonNull(version, "version must not be null"));
         // Create parameters if provided
         if (request.parameters() != null && !request.parameters().isEmpty()) {
             saveParameters(savedStrategy.getId(), request.parameters());
@@ -109,7 +123,7 @@ def handle_data(context, data):
         if (request.description() != null) {
             strategy.setDescription(request.description());
         }
-        Strategy savedStrategy = strategyRepository.save(strategy);
+        Strategy savedStrategy = strategyRepository.save(Objects.requireNonNull(strategy, "strategy must not be null"));
         // Create new version if code is provided
         if (request.code() != null && !request.code().isEmpty()) {
             createNewVersion(strategyId, request.code(), request.changelog());
@@ -130,7 +144,7 @@ def handle_data(context, data):
         parameterRepository.deleteByStrategyId(strategyId);
         // Delete versions (cascade or manual)
         List<StrategyVersion> versions = versionRepository.findByStrategyIdOrderByVersionNumberDesc(strategyId);
-        versionRepository.deleteAll(versions);
+        versionRepository.deleteAll(Objects.requireNonNull(versions, "versions must not be null"));
         // Delete strategy
         strategyRepository.deleteByIdAndUserId(strategyId, userId);
         log.info("Deleted strategy: user={}, strategyId={}", userId, strategyId);
@@ -162,7 +176,7 @@ def handle_data(context, data):
         List<StrategyVersion> versions = versionRepository.findByStrategyIdOrderByVersionNumberDesc(strategyId);
         return versions.stream()
             .map(this::convertVersionToDto)
-            .collect(Collectors.toList());
+            .toList();
     }
     @Override
     public StrategyVersionDto getVersion(Long userId, Long strategyId, Integer versionNumber) {
@@ -202,7 +216,7 @@ def handle_data(context, data):
             .changelog(changelog != null ? changelog : "Updated")
             .isActive(true)
             .build();
-        versionRepository.save(newVersion);
+        versionRepository.save(Objects.requireNonNull(newVersion, "newVersion must not be null"));
         // Update strategy version number
         strategyRepository.incrementVersion(strategyId);
     }
@@ -210,7 +224,7 @@ def handle_data(context, data):
      * Save parameters for a strategy.
      */
     private void saveParameters(Long strategyId, List<StrategyParameterRequest> parameters) {
-        List<StrategyParameter> entities = new ArrayList<>();
+        List<StrategyParameter> entities = new ArrayList<>(parameters.size());
         for (int i = 0; i < parameters.size(); i++) {
             StrategyParameterRequest param = parameters.get(i);
             StrategyParameter entity = StrategyParameter.builder()
@@ -221,7 +235,7 @@ def handle_data(context, data):
                 .minValue(param.minValue())
                 .maxValue(param.maxValue())
                 .description(param.description())
-                .isRequired(param.isRequired() != null ? param.isRequired() : true)
+                .isRequired(!Boolean.FALSE.equals(param.isRequired()))
                 .sortOrder(param.sortOrder() != null ? param.sortOrder() : i)
                 .build();
             entities.add(entity);
@@ -229,7 +243,7 @@ def handle_data(context, data):
         parameterRepository.saveAll(entities);
     }
     private StrategyVersion loadVersionByIdOrThrow(Long versionId) {
-        return requireFound(versionRepository.findById(versionId),
+        return requireFound(versionRepository.findById(Objects.requireNonNull(versionId, "versionId must not be null")),
                 () -> new IllegalArgumentException("Version not found"));
     }
     private StrategyVersion loadVersionByNumberOrThrow(Long strategyId, Integer versionNumber) {
@@ -249,7 +263,7 @@ def handle_data(context, data):
             .findByStrategyIdOrderBySortOrderAsc(strategy.getId());
         List<StrategyParameterDto> paramDtos = parameters.stream()
             .map(strategyMapper::toStrategyParameterDto)
-            .collect(Collectors.toList());
+            .toList();
         return strategyMapper.toStrategyDto(strategy, paramDtos);
     }
     /**

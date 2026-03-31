@@ -15,7 +15,6 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.test.util.ReflectionTestUtils;
 import com.koduck.util.CredentialEncryptionUtil;
 
 import java.lang.reflect.Field;
@@ -66,14 +65,15 @@ class DataInitializerTest {
 
     @BeforeEach
     void setUp() {
-        dataInitializer = new DataInitializer();
-        ReflectionTestUtils.setField(dataInitializer, "userRepository", userRepository);
-        ReflectionTestUtils.setField(dataInitializer, "roleRepository", roleRepository);
-        ReflectionTestUtils.setField(dataInitializer, "userRoleRepository", userRoleRepository);
-        ReflectionTestUtils.setField(dataInitializer, "credentialRepository", credentialRepository);
-        ReflectionTestUtils.setField(dataInitializer, "passwordEncoder", passwordEncoder);
-        ReflectionTestUtils.setField(dataInitializer, "jdbcTemplate", jdbcTemplate);
-        ReflectionTestUtils.setField(dataInitializer, "credentialEncryptionUtil", credentialEncryptionUtil);
+        dataInitializer = new DataInitializer(
+                userRepository,
+                roleRepository,
+                userRoleRepository,
+                credentialRepository,
+                passwordEncoder,
+                jdbcTemplate,
+                credentialEncryptionUtil
+        );
     }
 
     /**

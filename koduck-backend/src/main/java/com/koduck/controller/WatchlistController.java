@@ -1,4 +1,5 @@
 package com.koduck.controller;
+
 import io.swagger.v3.oas.annotations.tags.Tag;
 import com.koduck.controller.support.AuthenticatedUserResolver;
 import com.koduck.dto.ApiResponse;
@@ -11,31 +12,44 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.Size;
+import java.util.List;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.validation.annotation.Validated;
-import org.springframework.web.bind.annotation.*;
-import java.util.List;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
 /**
- * Watchlist () REST API controller.
+ * REST API controller for watchlist management.
+ *
+ * @author GitHub Copilot
+ * @date 2026-03-31
  */
 @RestController
 @RequestMapping("/api/v1/watchlist")
 @Validated
 @Tag(name = "自选股", description = "自选股列表管理接口")
 @Slf4j
+@RequiredArgsConstructor
 public class WatchlistController {
-    @org.springframework.beans.factory.annotation.Autowired
-    private AuthenticatedUserResolver authenticatedUserResolver;
-    @org.springframework.beans.factory.annotation.Autowired
-    private WatchlistService watchlistService;
+
+    private final AuthenticatedUserResolver authenticatedUserResolver;
+    private final WatchlistService watchlistService;
+
     /**
      * Get user's watchlist with real-time prices.
      */
     @GetMapping
     public ApiResponse<List<WatchlistItemDto>> getWatchlist(
             @AuthenticationPrincipal UserPrincipal userPrincipal) {
-        Long userId = authenticatedUserResolver.requireUserId(userPrincipal);
+        Long userId = requireUserId(userPrincipal);
         log.debug("GET /api/v1/watchlist: user={}", userId);
         List<WatchlistItemDto> watchlist = watchlistService.getWatchlist(userId);
         return ApiResponse.success(watchlist);
@@ -47,7 +61,7 @@ public class WatchlistController {
     public ApiResponse<WatchlistItemDto> addToWatchlist(
             @AuthenticationPrincipal UserPrincipal userPrincipal,
             @Valid @RequestBody AddWatchlistRequest request) {
-        Long userId = authenticatedUserResolver.requireUserId(userPrincipal);
+        Long userId = requireUserId(userPrincipal);
         log.debug("POST /api/v1/watchlist: user={}, market={}, symbol={}",
                  userId, request.market(), request.symbol());
         WatchlistItemDto item = watchlistService.addToWatchlist(userId, request);
@@ -60,7 +74,7 @@ public class WatchlistController {
     public ApiResponse<Void> removeFromWatchlist(
             @AuthenticationPrincipal UserPrincipal userPrincipal,
             @PathVariable @Positive Long id) {
-        Long userId = authenticatedUserResolver.requireUserId(userPrincipal);
+        Long userId = requireUserId(userPrincipal);
         log.debug("DELETE /api/v1/watchlist/{}: user={}", id, userId);
         watchlistService.removeFromWatchlist(userId, id);
         return ApiResponse.successNoContent();
@@ -72,7 +86,7 @@ public class WatchlistController {
     public ApiResponse<Void> sortWatchlist(
             @AuthenticationPrincipal UserPrincipal userPrincipal,
             @Valid @RequestBody SortWatchlistRequest request) {
-        Long userId = authenticatedUserResolver.requireUserId(userPrincipal);
+        Long userId = requireUserId(userPrincipal);
         log.debug("PUT /api/v1/watchlist/sort: user={}, items={}", userId, request.items().size());
         watchlistService.sortWatchlist(userId, request);
         return ApiResponse.successNoContent();
@@ -85,9 +99,13 @@ public class WatchlistController {
             @AuthenticationPrincipal UserPrincipal userPrincipal,
             @PathVariable @Positive Long id,
             @RequestBody @NotNull @Size(max = 500, message = "Notes too long") String notes) {
-        Long userId = authenticatedUserResolver.requireUserId(userPrincipal);
+        Long userId = requireUserId(userPrincipal);
         log.debug("PUT /api/v1/watchlist/{}/notes: user={}", id, userId);
         WatchlistItemDto item = watchlistService.updateNotes(userId, id, notes);
         return ApiResponse.success(item);
+    }
+
+    private Long requireUserId(UserPrincipal userPrincipal) {
+        return authenticatedUserResolver.requireUserId(userPrincipal);
     }
 }

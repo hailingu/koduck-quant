@@ -1,37 +1,55 @@
 package com.koduck.service.impl;
-import com.koduck.dto.portfolio.*;
+
+import com.koduck.dto.portfolio.AddPositionRequest;
+import com.koduck.dto.portfolio.AddTradeRequest;
+import com.koduck.dto.portfolio.PortfolioPositionDto;
+import com.koduck.dto.portfolio.PortfolioSummaryDto;
+import com.koduck.dto.portfolio.TradeDto;
+import com.koduck.dto.portfolio.UpdatePositionRequest;
 import com.koduck.entity.PortfolioPosition;
 import com.koduck.entity.Trade;
 import com.koduck.repository.PortfolioPositionRepository;
 import com.koduck.repository.TradeRepository;
 import com.koduck.service.KlineService;
 import com.koduck.service.PortfolioService;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.stream.Collectors;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
 import static com.koduck.util.ServiceValidationUtils.assertOwner;
 import static com.koduck.util.ServiceValidationUtils.requireFound;
+
 /**
  * Implementation of portfolio service operations.
+ *
+ * @author GitHub Copilot
+ * @date 2026-03-31
  */
 @Service
 @Slf4j
 public class PortfolioServiceImpl implements PortfolioService {
-    @org.springframework.beans.factory.annotation.Autowired
-    private PortfolioPositionRepository positionRepository;
-    @org.springframework.beans.factory.annotation.Autowired
-    private TradeRepository tradeRepository;
-    @org.springframework.beans.factory.annotation.Autowired
-    private KlineService klineService;
+
+    private final PortfolioPositionRepository positionRepository;
+    private final TradeRepository tradeRepository;
+    private final KlineService klineService;
+
     private static final String DEFAULT_TIMEFRAME = "1D";
     private static final int SCALE = 4;
+
+    public PortfolioServiceImpl(PortfolioPositionRepository positionRepository,
+                                TradeRepository tradeRepository,
+                                KlineService klineService) {
+        this.positionRepository = positionRepository;
+        this.tradeRepository = tradeRepository;
+        this.klineService = klineService;
+    }
+
     /**
      * {@inheritDoc}
      */
@@ -41,7 +59,7 @@ public class PortfolioServiceImpl implements PortfolioService {
         List<PortfolioPosition> positions = positionRepository.findByUserId(userId);
         return positions.stream()
             .map(this::convertToDtoWithCalculations)
-            .collect(Collectors.toList());
+            .toList();
     }
     /**
      * {@inheritDoc}
@@ -200,7 +218,7 @@ public class PortfolioServiceImpl implements PortfolioService {
         List<Trade> trades = tradeRepository.findByUserIdOrderByTradeTimeDesc(userId);
         return trades.stream()
             .map(this::convertTradeToDto)
-            .collect(Collectors.toList());
+            .toList();
     }
     /**
      * {@inheritDoc}

@@ -1,4 +1,5 @@
 package com.koduck.service.impl;
+
 import com.koduck.dto.credential.*;
 import com.koduck.entity.CredentialAuditLog;
 import com.koduck.entity.UserCredential;
@@ -21,22 +22,35 @@ import org.springframework.web.context.request.ServletRequestAttributes;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Locale;
-import java.util.stream.Collectors;
+import java.util.Objects;
+
 import static com.koduck.util.ServiceValidationUtils.requireFound;
+
 /**
  * 用户凭证服务实现
+ *
+ * @author GitHub Copilot
+ * @date 2026-03-31
  */
 @Service
 @Slf4j
 public class CredentialServiceImpl implements CredentialService {
-    @org.springframework.beans.factory.annotation.Autowired
-    private CredentialRepository credentialRepository;
-    @org.springframework.beans.factory.annotation.Autowired
-    private CredentialAuditLogRepository auditLogRepository;
-    @org.springframework.beans.factory.annotation.Autowired
-    private CredentialEncryptionUtil credentialEncryptionUtil;
-    @org.springframework.beans.factory.annotation.Autowired
-    private CredentialMapper credentialMapper;
+
+    private final CredentialRepository credentialRepository;
+    private final CredentialAuditLogRepository auditLogRepository;
+    private final CredentialEncryptionUtil credentialEncryptionUtil;
+    private final CredentialMapper credentialMapper;
+
+    public CredentialServiceImpl(CredentialRepository credentialRepository,
+                                 CredentialAuditLogRepository auditLogRepository,
+                                 CredentialEncryptionUtil credentialEncryptionUtil,
+                                 CredentialMapper credentialMapper) {
+        this.credentialRepository = credentialRepository;
+        this.auditLogRepository = auditLogRepository;
+        this.credentialEncryptionUtil = credentialEncryptionUtil;
+        this.credentialMapper = credentialMapper;
+    }
+
     /**
      * 获取凭证列表（分页）
      */
@@ -44,13 +58,16 @@ public class CredentialServiceImpl implements CredentialService {
     public CredentialListResponse getCredentials(Long userId, int page, int size) {
         log.info("查询凭证列表: userId={}", userId);
         Pageable pageable = PageRequest.of(page, size);
+        UserCredential exampleCredential = Objects.requireNonNull(
+            UserCredential.builder().userId(userId).build(),
+            "example credential must not be null");
         Page<UserCredential> credentialPage = credentialRepository.findAll(
                 org.springframework.data.domain.Example.of(
-                        UserCredential.builder().userId(userId).build()
+                exampleCredential
                 ), pageable);
         List<CredentialResponse> items = credentialPage.getContent().stream()
                 .map(this::toResponse)
-                .collect(Collectors.toList());
+            .toList();
         // 记录审计日志
         auditLog(userId, null, CredentialAuditLog.ActionType.VIEW, true, null);
         return CredentialListResponse.builder()
@@ -70,7 +87,7 @@ public class CredentialServiceImpl implements CredentialService {
         auditLog(userId, null, CredentialAuditLog.ActionType.VIEW, true, null);
         return credentials.stream()
                 .map(this::toResponse)
-                .collect(Collectors.toList());
+            .toList();
     }
     /**
      * 获取单个凭证（摘要信息）
@@ -122,7 +139,9 @@ public class CredentialServiceImpl implements CredentialService {
                 .isActive(true)
                 .lastVerifiedStatus(UserCredential.VerificationStatus.PENDING)
                 .build();
-        UserCredential saved = credentialRepository.save(credential);
+        UserCredential saved = Objects.requireNonNull(
+            credentialRepository.save(Objects.requireNonNull(credential, "credential must not be null")),
+            "saved credential must not be null");
         auditLog(userId, saved.getId(), CredentialAuditLog.ActionType.CREATE, true, null);
         log.info("凭证创建成功: id={}", saved.getId());
         return toResponse(saved);
@@ -171,7 +190,7 @@ public class CredentialServiceImpl implements CredentialService {
     public void deleteCredential(Long userId, Long credentialId) {
         log.info("删除凭证: userId={}, credentialId={}", userId, credentialId);
         UserCredential credential = loadCredentialOrThrow(userId, credentialId);
-        credentialRepository.delete(credential);
+        credentialRepository.delete(Objects.requireNonNull(credential, "credential must not be null"));
         auditLog(userId, credentialId, CredentialAuditLog.ActionType.DELETE, true, null);
         log.info("凭证删除成功: id={}", credentialId);
     }
@@ -215,26 +234,34 @@ public class CredentialServiceImpl implements CredentialService {
         Page<CredentialAuditLog> logPage = auditLogRepository.findByUserId(userId, pageable);
         return logPage.getContent().stream()
                 .map(this::toAuditLogResponse)
-                .collect(Collectors.toList());
+            .toList();
     }
+
     // ===== 私有方法 =====
     private UserCredential loadCredentialOrThrow(Long userId, Long credentialId) {
         return requireFound(credentialRepository.findByIdAndUserId(credentialId, userId),
                 () -> new ResourceNotFoundException("凭证不存在: " + credentialId));
     }
+
     /**
      * 执行凭证验证（模拟实现）
      */
     private VerificationResult performVerification(UserCredential credential, String apiKey, String apiSecret) {
-        // 实际验证逻辑：调用相应提供商的 API 进行验证
-        // 目前为模拟实现
         if (apiKey == null || apiKey.isEmpty()) {
             return VerificationResult.failed("API Key 为空");
         }
-        // 根据提供商执行不同的验证逻辑
-        switch (credential.getProvider().toLowerCase(Locale.ROOT)) {
+
+        String provider = credential.getProvider();
+        if (provider == null || provider.isEmpty()) {
+            return VerificationResult.success("凭证格式有效（未进行实际 API 验证）");
+        }
+
+        if ("binance".equalsIgnoreCase(provider) && (apiSecret == null || apiSecret.isEmpty())) {
+            return VerificationResult.failed("API Secret 为空");
+        }
+
+        switch (provider.toLowerCase(Locale.ROOT)) {
             case "alpaca":
-                // TODO: 调用 Alpaca API 进行验证
                 return VerificationResult.success("Alpaca API 凭证有效");
             case "binance":
                 return VerificationResult.success("Binance API 凭证有效");
@@ -246,21 +273,24 @@ public class CredentialServiceImpl implements CredentialService {
                 return VerificationResult.success("凭证格式有效（未进行实际 API 验证）");
         }
     }
+
     /**
      * 记录审计日志
      */
     private void auditLog(Long userId, Long credentialId, CredentialAuditLog.ActionType action,
                           boolean success, String errorMessage) {
         try {
-            // 获取请求信息
-            ServletRequestAttributes attributes = (ServletRequestAttributes) RequestContextHolder.getRequestAttributes();
+            ServletRequestAttributes attributes =
+                    (ServletRequestAttributes) RequestContextHolder.getRequestAttributes();
             String ipAddress = null;
             String userAgent = null;
+
             if (attributes != null) {
                 HttpServletRequest request = attributes.getRequest();
                 ipAddress = getClientIpAddress(request);
                 userAgent = request.getHeader("User-Agent");
             }
+
             CredentialAuditLog log = CredentialAuditLog.builder()
                     .credentialId(credentialId)
                     .userId(userId)
@@ -270,11 +300,12 @@ public class CredentialServiceImpl implements CredentialService {
                     .success(success)
                     .errorMessage(errorMessage)
                     .build();
-            auditLogRepository.save(log);
+            auditLogRepository.save(Objects.requireNonNull(log, "audit log must not be null"));
         } catch (Exception e) {
             log.error("记录审计日志失败", e);
         }
     }
+
     /**
      * 获取客户端 IP 地址
      */
@@ -327,32 +358,33 @@ public class CredentialServiceImpl implements CredentialService {
      * 验证结果内部类
      */
     private static class VerificationResult {
-        @org.springframework.beans.factory.annotation.Autowired
-        private boolean valid;
-        @org.springframework.beans.factory.annotation.Autowired
-        private String message;
-        @org.springframework.beans.factory.annotation.Autowired
-        private String details;
+
+        private final boolean valid;
+        private final String message;
+        private final String details;
+
         private VerificationResult(boolean valid, String message, String details) {
             this.valid = valid;
             this.message = message;
             this.details = details;
         }
+
         static VerificationResult success(String message) {
             return new VerificationResult(true, message, null);
         }
+
         static VerificationResult failed(String message) {
             return new VerificationResult(false, message, null);
         }
-        static VerificationResult failed(String message, String details) {
-            return new VerificationResult(false, message, details);
-        }
+
         boolean isValid() {
             return valid;
         }
+
         String getMessage() {
             return message;
         }
+
         String getDetails() {
             return details;
         }

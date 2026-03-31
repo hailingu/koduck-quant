@@ -1,12 +1,15 @@
-package com.koduck.config;
+package com.koduck.security.websocket;
 
+import com.koduck.config.JwtConfig;
 import com.koduck.util.JwtUtil;
 import java.io.Serial;
 import java.security.Principal;
 import java.util.Collection;
+import java.util.Collections;
+import java.util.Objects;
 import lombok.extern.slf4j.Slf4j;
-import org.jspecify.annotations.Nullable;
 import org.springframework.lang.NonNull;
+import org.springframework.lang.Nullable;
 import org.springframework.messaging.Message;
 import org.springframework.messaging.MessageChannel;
 import org.springframework.messaging.simp.stomp.StompCommand;
@@ -19,9 +22,6 @@ import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
-import java.util.Collections;
-import java.util.Objects;
-import java.util.Optional;
 
 /**
  * Intercepts STOMP channel traffic and performs JWT authentication on CONNECT.
@@ -59,7 +59,8 @@ public class WebSocketChannelInterceptor implements ChannelInterceptor {
      * @return original message after interceptor processing
      */
     @Override
-    public @Nullable Message<?> preSend(@NonNull Message<?> message, @NonNull MessageChannel channel) {
+    @Nullable
+    public Message<?> preSend(@NonNull Message<?> message, @NonNull MessageChannel channel) {
         StompHeaderAccessor accessor = MessageHeaderAccessor.getAccessor(message, StompHeaderAccessor.class);
         if (accessor == null) {
             return message;
@@ -80,9 +81,8 @@ public class WebSocketChannelInterceptor implements ChannelInterceptor {
      * @param accessor STOMP header accessor
      */
     private void handleConnect(StompHeaderAccessor accessor) {
-        String rawAuthorization = Optional
-            .ofNullable(accessor.getFirstNativeHeader(resolveHeaderName()))
-            .orElse("");
+        Object rawAuthorizationObject = accessor.getFirstNativeHeader(resolveHeaderName());
+        String rawAuthorization = rawAuthorizationObject == null ? "" : rawAuthorizationObject.toString();
         String token = extractBearerToken(rawAuthorization);
         if (!StringUtils.hasText(token)) {
             log.warn("WebSocket CONNECT rejected: missing JWT token");

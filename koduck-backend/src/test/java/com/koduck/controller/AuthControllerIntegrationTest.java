@@ -77,7 +77,7 @@ class AuthControllerIntegrationTest extends AbstractIntegrationTest {
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isOk());
 
-        // 
+        // Use duplicate username to verify uniqueness validation.
         RegisterRequest request2 = new RegisterRequest();
         request2.setUsername("existinguser");
         request2.setEmail("another@example.com");
@@ -187,37 +187,37 @@ class AuthControllerIntegrationTest extends AbstractIntegrationTest {
     @Test
     @DisplayName("shouldReturnSecurityConfiguration")
     void getSecurityConfig() throws Exception {
-                mockMvc.perform(get("/api/v1/auth/security-config"))
+        mockMvc.perform(get("/api/v1/auth/security-config"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(0))
                 .andExpect(jsonPath("$.data.registrationEnabled").value(true));
     }
 
-        @Test
-        @DisplayName("forgotPasswordEndpointShouldSucceed")
-        void forgotPasswordShouldReturnSuccess() throws Exception {
-                ForgotPasswordRequest request = new ForgotPasswordRequest();
-                request.setEmail("forgot@example.com");
+    @Test
+    @DisplayName("forgotPasswordEndpointShouldSucceed")
+    void forgotPasswordShouldReturnSuccess() throws Exception {
+        ForgotPasswordRequest request = new ForgotPasswordRequest();
+        request.setEmail("forgot@example.com");
 
-                mockMvc.perform(post("/api/v1/auth/forgot-password")
-                                                .contentType(MediaType.APPLICATION_JSON)
-                                                .content(objectMapper.writeValueAsString(request)))
-                                .andExpect(status().isOk())
-                                .andExpect(jsonPath("$.code").value(0));
-        }
+        mockMvc.perform(post("/api/v1/auth/forgot-password")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(0));
+    }
 
-        @Test
-        @DisplayName("resetPasswordEndpointShouldSucceed")
-        void resetPasswordShouldReturnSuccess() throws Exception {
-                ResetPasswordRequest request = new ResetPasswordRequest();
-                request.setToken("mock-reset-token");
-                request.setNewPassword("password123");
-                request.setConfirmPassword("password123");
+    @Test
+    @DisplayName("resetPasswordEndpointShouldSucceed")
+    void resetPasswordShouldReturnSuccess() throws Exception {
+        ResetPasswordRequest request = new ResetPasswordRequest();
+        request.setToken("mock-reset-token");
+        request.setNewPassword("password123");
+        request.setConfirmPassword("password123");
 
-                mockMvc.perform(post("/api/v1/auth/reset-password")
-                                                .contentType(MediaType.APPLICATION_JSON)
-                                                .content(objectMapper.writeValueAsString(request)))
-                                .andExpect(status().isOk())
-                                .andExpect(jsonPath("$.code").value(0));
-        }
+        mockMvc.perform(post("/api/v1/auth/reset-password")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(0));
+    }
 }

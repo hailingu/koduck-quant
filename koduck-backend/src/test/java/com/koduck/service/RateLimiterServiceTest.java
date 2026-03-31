@@ -10,7 +10,6 @@ import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.ValueOperations;
-import org.springframework.test.util.ReflectionTestUtils;
 import com.koduck.service.impl.RateLimiterServiceImpl;
 
 import static org.assertj.core.api.Assertions.*;
@@ -36,8 +35,7 @@ class RateLimiterServiceTest {
     @BeforeEach
     void setUp() {
         when(redisTemplate.opsForValue()).thenReturn(valueOperations);
-        rateLimiterService = new RateLimiterServiceImpl();
-        ReflectionTestUtils.setField(rateLimiterService, "redisTemplate", redisTemplate);
+        rateLimiterService = new RateLimiterServiceImpl(redisTemplate);
     }
 
     @Test
@@ -66,7 +64,7 @@ class RateLimiterServiceTest {
         String email = "user@example.com";
         String ip = "192.168.1.1";
 
-        when(valueOperations.get(contains("ip:"))).thenReturn("10");
+        when(valueOperations.increment(contains("ip:"))).thenReturn(11L);
 
         // When
         boolean result = rateLimiterService.allowPasswordResetRequest(userId, email, ip);
@@ -83,9 +81,8 @@ class RateLimiterServiceTest {
         String email = "user@example.com";
         String ip = "192.168.1.1";
 
-        when(valueOperations.get(contains("ip:"))).thenReturn(null);
         when(valueOperations.increment(contains("ip:"))).thenReturn(1L);
-        when(valueOperations.get(contains("email:"))).thenReturn("5");
+        when(valueOperations.increment(contains("email:"))).thenReturn(6L);
 
         // When
         boolean result = rateLimiterService.allowPasswordResetRequest(userId, email, ip);
@@ -102,11 +99,9 @@ class RateLimiterServiceTest {
         String email = "user@example.com";
         String ip = "192.168.1.1";
 
-        when(valueOperations.get(contains("ip:"))).thenReturn(null);
         when(valueOperations.increment(contains("ip:"))).thenReturn(1L);
-        when(valueOperations.get(contains("email:"))).thenReturn(null);
         when(valueOperations.increment(contains("email:"))).thenReturn(1L);
-        when(valueOperations.get(contains("user:"))).thenReturn("3");
+        when(valueOperations.increment(contains("user:"))).thenReturn(4L);
 
         // When
         boolean result = rateLimiterService.allowPasswordResetRequest(userId, email, ip);
@@ -123,7 +118,7 @@ class RateLimiterServiceTest {
         String email = "user@example.com";
         String ip = "192.168.1.1";
 
-        when(valueOperations.get(anyString())).thenThrow(new RuntimeException("Redis connection failed"));
+        when(valueOperations.increment(anyString())).thenThrow(new RuntimeException("Redis connection failed"));
 
         // When
         boolean result = rateLimiterService.allowPasswordResetRequest(userId, email, ip);
@@ -139,7 +134,6 @@ class RateLimiterServiceTest {
         String email = "user@example.com";
         String ip = "192.168.1.1";
 
-        when(valueOperations.get(anyString())).thenReturn(null);
         when(valueOperations.increment(anyString())).thenReturn(1L);
 
         // When
@@ -148,7 +142,7 @@ class RateLimiterServiceTest {
         // Then
         assertThat(result).isTrue();
         // Should only check IP and email, not user
-        verify(valueOperations, never()).get(contains("user:"));
+        verify(valueOperations, never()).increment(contains("user:"));
     }
 
     @Test
@@ -191,6 +185,6 @@ class RateLimiterServiceTest {
         long count = rateLimiterService.getCurrentCount(key);
 
         // Then
-        assertThat(count).isEqualTo(0);
+        assertThat(count).isZero();
     }
 }

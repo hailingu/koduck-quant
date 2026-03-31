@@ -1,5 +1,5 @@
 package com.koduck.controller;
-import io.swagger.v3.oas.annotations.tags.Tag;
+
 import com.koduck.controller.support.AuthenticatedUserResolver;
 import com.koduck.dto.ApiResponse;
 import com.koduck.dto.ai.BacktestInterpretRequest;
@@ -16,9 +16,13 @@ import com.koduck.security.UserPrincipal;
 import com.koduck.service.AiAnalysisService;
 import com.koduck.service.MemoryService;
 import jakarta.validation.Valid;
+import java.util.List;
+import java.util.Map;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.http.MediaType;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -27,8 +31,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
-import java.util.List;
-import java.util.Map;
+
 /**
  * REST API controller exposing AI analysis endpoints.
  *
@@ -43,14 +46,15 @@ import java.util.Map;
 @RequestMapping("/api/v1/ai")
 @Tag(name = "AI分析", description = "智能股票分析、策略推荐、风险评估等AI分析接口")
 @Slf4j
+@RequiredArgsConstructor
 public class AiAnalysisController {
+
     private static final String KEY_SESSION_ID = "sessionId";
-    @org.springframework.beans.factory.annotation.Autowired
-    private AiAnalysisService aiAnalysisService;
-    @org.springframework.beans.factory.annotation.Autowired
-    private MemoryService memoryService;
-    @org.springframework.beans.factory.annotation.Autowired
-    private AuthenticatedUserResolver authenticatedUserResolver;
+
+    private final AiAnalysisService aiAnalysisService;
+    private final MemoryService memoryService;
+    private final AuthenticatedUserResolver authenticatedUserResolver;
+
     /**
      * Perform an AI-driven stock analysis.
      *
@@ -66,11 +70,13 @@ public class AiAnalysisController {
     public ApiResponse<StockAnalysisResponse> analyzeStock(
             @AuthenticationPrincipal UserPrincipal userPrincipal,
             @Valid @RequestBody StockAnalysisRequest request) {
-        Long userId = authenticatedUserResolver.requireUserId(userPrincipal);
-        log.debug("POST /api/v1/ai/analyze: user={}, symbol={}, question={}", userId, request.getSymbol(), request.getQuestion());
+        Long userId = requireUserId(userPrincipal);
+        log.debug("POST /api/v1/ai/analyze: user={}, symbol={}, question={}",
+            userId, request.getSymbol(), request.getQuestion());
         StockAnalysisResponse response = aiAnalysisService.analyzeStock(userId, request);
         return ApiResponse.success(response);
     }
+
     /**
      * Proxy chat stream request through backend for unified AI access.
      */
@@ -78,7 +84,7 @@ public class AiAnalysisController {
     public SseEmitter chatStream(
             @AuthenticationPrincipal UserPrincipal userPrincipal,
             @Valid @RequestBody ChatStreamRequest request) {
-        Long userId = authenticatedUserResolver.requireUserId(userPrincipal);
+        Long userId = requireUserId(userPrincipal);
         log.debug(
             "POST /api/v1/ai/chat/stream: user={}, provider={}, model={}",
             userId,
@@ -87,6 +93,7 @@ public class AiAnalysisController {
         );
         return aiAnalysisService.streamChat(userId, request);
     }
+
     /**
      * Generate strategy recommendations for the user.
      *
@@ -102,7 +109,7 @@ public class AiAnalysisController {
     public ApiResponse<StrategyRecommendResponse> recommendStrategies(
             @AuthenticationPrincipal UserPrincipal userPrincipal,
             @Valid @RequestBody StrategyRecommendRequest request) {
-        Long userId = authenticatedUserResolver.requireUserId(userPrincipal);
+        Long userId = requireUserId(userPrincipal);
         log.debug("POST /api/v1/ai/strategy-recommend: user={}, risk={}",
                  userId, request.getRiskPreference());
         StrategyRecommendResponse response = aiAnalysisService.recommendStrategies(userId, request);
@@ -121,7 +128,7 @@ public class AiAnalysisController {
     public ApiResponse<BacktestInterpretResponse> interpretBacktest(
             @AuthenticationPrincipal UserPrincipal userPrincipal,
             @Valid @RequestBody BacktestInterpretRequest request) {
-        Long userId = authenticatedUserResolver.requireUserId(userPrincipal);
+        Long userId = requireUserId(userPrincipal);
         log.debug("POST /api/v1/ai/interpret-backtest: user={}, backtestId={}",
                  userId, request.getBacktestResultId());
         BacktestInterpretResponse response = aiAnalysisService.interpretBacktest(
@@ -141,7 +148,7 @@ public class AiAnalysisController {
     public ApiResponse<RiskAssessmentResponse> assessRisk(
             @AuthenticationPrincipal UserPrincipal userPrincipal,
             @Valid @RequestBody RiskAssessmentRequest request) {
-        Long userId = authenticatedUserResolver.requireUserId(userPrincipal);
+        Long userId = requireUserId(userPrincipal);
         log.debug("POST /api/v1/ai/risk-assessment: user={}, portfolioId={}",
                  userId, request.getPortfolioId());
         RiskAssessmentResponse response = aiAnalysisService.assessRisk(
@@ -152,30 +159,32 @@ public class AiAnalysisController {
     }
     @DeleteMapping("/memory/session/{sessionId}")
     public ApiResponse<Map<String, Object>> deleteSession(
-        @AuthenticationPrincipal UserPrincipal userPrincipal,
-        @PathVariable String sessionId
+            @AuthenticationPrincipal UserPrincipal userPrincipal,
+            @PathVariable String sessionId
     ) {
-        Long userId = authenticatedUserResolver.requireUserId(userPrincipal);
+        Long userId = requireUserId(userPrincipal);
         String normalizedSessionId = memoryService.resolveSessionId(sessionId);
         memoryService.deleteSession(userId, normalizedSessionId);
         return ApiResponse.success(Map.of(
-            KEY_SESSION_ID, normalizedSessionId,
-            "deleted", true
+                KEY_SESSION_ID, normalizedSessionId,
+                "deleted", true
         ));
     }
+
     @DeleteMapping("/memory/profile")
     public ApiResponse<Map<String, Object>> clearProfileMemory(
-        @AuthenticationPrincipal UserPrincipal userPrincipal
+            @AuthenticationPrincipal UserPrincipal userPrincipal
     ) {
-        Long userId = authenticatedUserResolver.requireUserId(userPrincipal);
+        Long userId = requireUserId(userPrincipal);
         memoryService.clearProfile(userId);
         return ApiResponse.success(Map.of("cleared", true));
     }
+
     @GetMapping("/memory/sessions")
     public ApiResponse<Map<String, Object>> listUserSessions(
-        @AuthenticationPrincipal UserPrincipal userPrincipal
+            @AuthenticationPrincipal UserPrincipal userPrincipal
     ) {
-        Long userId = authenticatedUserResolver.requireUserId(userPrincipal);
+        Long userId = requireUserId(userPrincipal);
         var sessions = memoryService.getUserSessions(userId);
         var sessionList = sessions.stream().map(s -> Map.<String, Object>of(
             KEY_SESSION_ID, s.getSessionId(),
@@ -186,27 +195,32 @@ public class AiAnalysisController {
         )).toList();
         return ApiResponse.success(Map.of("sessions", sessionList));
     }
+
     @GetMapping("/memory/session/{sessionId}")
     public ApiResponse<Map<String, Object>> getSessionMemorySummary(
-        @AuthenticationPrincipal UserPrincipal userPrincipal,
-        @PathVariable String sessionId
+            @AuthenticationPrincipal UserPrincipal userPrincipal,
+            @PathVariable String sessionId
     ) {
-        Long userId = authenticatedUserResolver.requireUserId(userPrincipal);
+        Long userId = requireUserId(userPrincipal);
         String normalizedSessionId = memoryService.resolveSessionId(sessionId);
         List<MemoryChatMessage> messages = memoryService.getRecentMessages(
-            userId,
-            normalizedSessionId,
-            memoryService.getL1MaxTurns()
+                userId,
+                normalizedSessionId,
+                memoryService.getL1MaxTurns()
         );
         List<Map<String, Object>> summary = messages.stream().map(m -> Map.<String, Object>of(
-            "role", m.getRole() != null ? m.getRole() : "unknown",
-            "content", m.getContent() != null ? m.getContent() : "",
-            "createdAt", m.getCreatedAt() != null ? m.getCreatedAt().toString() : ""
+                "role", m.getRole() != null ? m.getRole() : "unknown",
+                "content", m.getContent() != null ? m.getContent() : "",
+                "createdAt", m.getCreatedAt() != null ? m.getCreatedAt().toString() : ""
         )).toList();
         return ApiResponse.success(Map.of(
-            KEY_SESSION_ID, normalizedSessionId,
-            "messageCount", summary.size(),
-            "messages", summary
+                KEY_SESSION_ID, normalizedSessionId,
+                "messageCount", summary.size(),
+                "messages", summary
         ));
+    }
+
+    private Long requireUserId(UserPrincipal userPrincipal) {
+        return authenticatedUserResolver.requireUserId(userPrincipal);
     }
 }

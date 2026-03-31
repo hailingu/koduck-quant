@@ -1,28 +1,43 @@
 package com.koduck.service.impl;
+
 import com.koduck.service.StockSubscriptionService;
 import com.koduck.util.SymbolUtils;
+import java.time.Instant;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
-import java.time.Instant;
-import java.util.*;
-import java.util.concurrent.ConcurrentHashMap;
+
 /**
- * 
+ * In-memory subscription registry and websocket push service.
  *
- * <p>，</p>
- * <p>（ ConcurrentHashMap），：</p>
- * <ul>
- *   <li>-（userId -> Set<symbol>）</li>
- *   <li>（symbol -> Set<userId>）</li>
- *   <li></li>
- * </ul>
+ * <p>Maintains user-symbol subscriptions and fan-outs price updates to subscribed users.</p>
+ *
+ * @author GitHub Copilot
+ * @date 2026-03-31
  */
 @Slf4j
 @Service
 public class StockSubscriptionServiceImpl implements StockSubscriptionService {
-    @org.springframework.beans.factory.annotation.Autowired
-    private SimpMessagingTemplate messagingTemplate;
+
+    private static final String PRICE_QUEUE_DESTINATION = "/queue/price";
+    private static final String PRICE_UPDATE_TYPE = "PRICE_UPDATE";
+
+    private final SimpMessagingTemplate messagingTemplate;
+
+    public StockSubscriptionServiceImpl(SimpMessagingTemplate messagingTemplate) {
+        this.messagingTemplate = Objects.requireNonNull(messagingTemplate,
+                "messagingTemplate must not be null");
+    }
+
     /**
      * : userId -> Set<symbol>
      */
@@ -41,7 +56,7 @@ public class StockSubscriptionServiceImpl implements StockSubscriptionService {
     @Override
     public SubscribeResult subscribe(Long userId, List<String> symbols) {
         if (userId == null || symbols == null || symbols.isEmpty()) {
-            return SubscribeResult.failure(symbols, "Invalid parameters");
+            return SubscribeResult.failure(symbols == null ? List.of() : symbols, "Invalid parameters");
         }
         Set<String> userSubList = userSubscriptions.computeIfAbsent(userId, k -> ConcurrentHashMap.newKeySet());
         List<String> successList = new ArrayList<>();
@@ -150,7 +165,8 @@ public class StockSubscriptionServiceImpl implements StockSubscriptionService {
         if (normalizedSymbol == null) {
             return Collections.emptySet();
         }
-        return symbolSubscribers.getOrDefault(normalizedSymbol, Collections.emptySet());
+        Set<Long> subscribers = symbolSubscribers.get(normalizedSymbol);
+        return subscribers == null ? Collections.emptySet() : new HashSet<>(subscribers);
     }
     /**
      * 
@@ -198,7 +214,7 @@ public class StockSubscriptionServiceImpl implements StockSubscriptionService {
         }
         // 
         PriceUpdateMessage message = new PriceUpdateMessage();
-        message.setType("PRICE_UPDATE");
+        message.setType(PRICE_UPDATE_TYPE);
         message.setTimestamp(Instant.now().toString());
         message.setData(createPriceData(priceUpdate));
         // 
@@ -206,8 +222,8 @@ public class StockSubscriptionServiceImpl implements StockSubscriptionService {
             try {
                 //  /queue/user/<userId>/price 
                 messagingTemplate.convertAndSendToUser(
-                    Objects.requireNonNull(String.valueOf(userId), "destination user must not be null"),
-                        "/queue/price",
+                        String.valueOf(userId),
+                        PRICE_QUEUE_DESTINATION,
                         message
                 );
                 log.debug("Sent price update for {} to user {}", symbol, userId);

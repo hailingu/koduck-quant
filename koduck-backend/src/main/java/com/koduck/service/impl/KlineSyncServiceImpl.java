@@ -1,11 +1,19 @@
 package com.koduck.service.impl;
+
 import com.koduck.config.properties.DataServiceProperties;
 import com.koduck.dto.market.DataServiceResponse;
 import com.koduck.dto.market.KlineDataDto;
 import com.koduck.mapper.KlineDataDtoMapper;
 import com.koduck.service.KlineService;
 import com.koduck.service.KlineSyncService;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.RequestEntity;
 import org.springframework.http.ResponseEntity;
@@ -15,26 +23,22 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.util.UriComponentsBuilder;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Set;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ConcurrentHashMap;
+
 /**
  * Implementation of KlineSyncService for syncing K-line data from Python Data Service.
+ *
+ * @author GitHub Copilot
+ * @date 2026-03-31
  */
 @Service
 @Slf4j
 public class KlineSyncServiceImpl implements KlineSyncService {
-    @org.springframework.beans.factory.annotation.Autowired
-    private RestTemplate dataServiceRestTemplate;
-    @org.springframework.beans.factory.annotation.Autowired
-    private DataServiceProperties properties;
-    @org.springframework.beans.factory.annotation.Autowired
-    private KlineService klineService;
-    @org.springframework.beans.factory.annotation.Autowired
-    private KlineDataDtoMapper klineDataDtoMapper;
+
+    private final RestTemplate dataServiceRestTemplate;
+    private final DataServiceProperties properties;
+    private final KlineService klineService;
+    private final KlineDataDtoMapper klineDataDtoMapper;
+
     private static final String A_SHARE_BASE_PATH = "/a-share";
     private static final String DEFAULT_MARKET = "AShare";
     private static final String DEFAULT_TIMEFRAME = "1D";
@@ -44,6 +48,17 @@ public class KlineSyncServiceImpl implements KlineSyncService {
         KLINE_LIST_RESPONSE_TYPE = new ParameterizedTypeReference<>() {
         };
     private final Set<String> inFlightSyncKeys = ConcurrentHashMap.newKeySet();
+
+    public KlineSyncServiceImpl(@Qualifier("dataServiceRestTemplate") RestTemplate dataServiceRestTemplate,
+                                DataServiceProperties properties,
+                                KlineService klineService,
+                                KlineDataDtoMapper klineDataDtoMapper) {
+        this.dataServiceRestTemplate = dataServiceRestTemplate;
+        this.properties = properties;
+        this.klineService = klineService;
+        this.klineDataDtoMapper = klineDataDtoMapper;
+    }
+
     /**
      * {@inheritDoc}
      */

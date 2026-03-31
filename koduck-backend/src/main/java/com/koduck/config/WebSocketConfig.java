@@ -1,5 +1,8 @@
 package com.koduck.config;
+
 import com.koduck.config.properties.WebSocketProperties;
+import com.koduck.security.websocket.WebSocketChannelInterceptor;
+import java.util.Objects;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.lang.NonNull;
 import org.springframework.messaging.simp.config.ChannelRegistration;
@@ -9,7 +12,6 @@ import org.springframework.web.socket.config.annotation.StompEndpointRegistry;
 import org.springframework.web.socket.config.annotation.WebSocketMessageBrokerConfigurer;
 /**
  * WebSocket 
- *
  * <p> STOMP  WebSocket Broker，：</p>
  * <ul>
  *   <li>（/topic  /queue）</li>
@@ -21,10 +23,15 @@ import org.springframework.web.socket.config.annotation.WebSocketMessageBrokerCo
 @Configuration
 @EnableWebSocketMessageBroker
 public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
-    @org.springframework.beans.factory.annotation.Autowired
-    private WebSocketProperties webSocketProperties;
-    @org.springframework.beans.factory.annotation.Autowired
-    private WebSocketChannelInterceptor webSocketChannelInterceptor;
+    private final WebSocketProperties webSocketProperties;
+    private final WebSocketChannelInterceptor webSocketChannelInterceptor;
+
+    public WebSocketConfig(WebSocketProperties webSocketProperties,
+                           WebSocketChannelInterceptor webSocketChannelInterceptor) {
+        this.webSocketProperties = Objects.requireNonNull(webSocketProperties, "webSocketProperties must not be null");
+        this.webSocketChannelInterceptor = Objects.requireNonNull(webSocketChannelInterceptor,
+                "webSocketChannelInterceptor must not be null");
+    }
     /**
      * 
      *

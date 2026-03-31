@@ -1,5 +1,5 @@
 package com.koduck.controller;
-import io.swagger.v3.oas.annotations.tags.Tag;
+
 import com.koduck.config.properties.DataServiceProperties;
 import com.koduck.dto.ApiResponse;
 import com.koduck.dto.market.BigOrderAlertDto;
@@ -11,17 +11,17 @@ import com.koduck.dto.market.CapitalRiverTrackItemDto;
 import com.koduck.dto.market.CapitalRiverTracksDto;
 import com.koduck.dto.market.DataServiceResponse;
 import com.koduck.dto.market.DailyBreadthDto;
+import com.koduck.dto.market.DailyNetFlowDto;
 import com.koduck.dto.market.KlineDataDto;
 import com.koduck.dto.market.MarketIndexDto;
 import com.koduck.dto.market.PriceQuoteDto;
 import com.koduck.dto.market.SectorNetworkDto;
+import com.koduck.dto.market.SectorNetFlowDto;
+import com.koduck.dto.market.SectorNetFlowItemDto;
 import com.koduck.dto.market.StockIndustryDto;
 import com.koduck.dto.market.StockStatsDto;
 import com.koduck.dto.market.StockValuationDto;
 import com.koduck.dto.market.SymbolInfoDto;
-import com.koduck.dto.market.DailyNetFlowDto;
-import com.koduck.dto.market.SectorNetFlowDto;
-import com.koduck.dto.market.SectorNetFlowItemDto;
 import com.koduck.service.KlineSyncService;
 import com.koduck.service.KlineService;
 import com.koduck.service.MarketBreadthService;
@@ -30,24 +30,12 @@ import com.koduck.service.MarketService;
 import com.koduck.service.MarketSectorNetFlowService;
 import com.koduck.service.SyntheticTickService;
 import com.koduck.service.TickStreamService;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.Size;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.validation.annotation.Validated;
-import org.springframework.format.annotation.DateTimeFormat;
-import org.springframework.http.MediaType;
-import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.core.ParameterizedTypeReference;
-import org.springframework.http.HttpMethod;
-import org.springframework.http.ResponseEntity;
-import org.springframework.web.client.RestClientException;
-import org.springframework.web.client.RestTemplate;
-import org.springframework.web.util.UriComponentsBuilder;
-import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
-import org.springframework.web.bind.annotation.*;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.Instant;
@@ -60,21 +48,50 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.core.ParameterizedTypeReference;
+import org.springframework.http.HttpMethod;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
+import org.springframework.validation.annotation.Validated;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.client.RestClientException;
+import org.springframework.web.client.RestTemplate;
+import org.springframework.web.util.UriComponentsBuilder;
+import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
+
 /**
  * REST API controller for market data.
  * <p>Provides endpoints for symbol search, stock details, market indices, and batch quotes.</p>
+ *
+ * @author GitHub Copilot
+ * @date 2026-03-31
  */
 @RestController
 @RequestMapping("/api/v1/market")
 @Tag(name = "市场数据", description = "市场配置、股票代码搜索、市场指数等市场相关接口")
 @Validated
 @Slf4j
+@RequiredArgsConstructor
 public class MarketController {
     private static final ZoneId MARKET_ZONE = ZoneId.of("Asia/Shanghai");
-    private static final String FEAR_GREED_INDEX_PATH = "/market/fear-greed-index";
-    private static final String BREADTH_PATH = "/market/breadth";
-    private static final String BIG_ORDERS_PATH = "/market/big-orders";
-    private static final String BIG_ORDERS_STATS_PATH = "/market/big-orders/stats";
+    private static final String FEAR_GREED_INDEX_PATH =
+        System.getProperty("koduck.market.path.fearGreedIndex", "/market/fear-greed-index");
+    private static final String BREADTH_PATH =
+        System.getProperty("koduck.market.path.breadth", "/market/breadth");
+    private static final String BIG_ORDERS_PATH =
+        System.getProperty("koduck.market.path.bigOrders", "/market/big-orders");
+    private static final String BIG_ORDERS_STATS_PATH =
+        System.getProperty("koduck.market.path.bigOrdersStats", "/market/big-orders/stats");
     private static final ParameterizedTypeReference<DataServiceResponse<Map<String, Object>>>
         DATA_SERVICE_MAP_RESPONSE_TYPE = new ParameterizedTypeReference<>() {
         };
@@ -84,27 +101,20 @@ public class MarketController {
     private static final ParameterizedTypeReference<DataServiceResponse<BigOrderStatsDto>>
         BIG_ORDER_STATS_RESPONSE_TYPE = new ParameterizedTypeReference<>() {
         };
-    @org.springframework.beans.factory.annotation.Autowired
-    private MarketService marketService;
-    @org.springframework.beans.factory.annotation.Autowired
-    private MarketFlowService marketFlowService;
-    @org.springframework.beans.factory.annotation.Autowired
-    private MarketBreadthService marketBreadthService;
-    @org.springframework.beans.factory.annotation.Autowired
-    private MarketSectorNetFlowService marketSectorNetFlowService;
-    @org.springframework.beans.factory.annotation.Autowired
-    private KlineService klineService;
-    @org.springframework.beans.factory.annotation.Autowired
-    private KlineSyncService klineSyncService;
-    @org.springframework.beans.factory.annotation.Autowired
-    private SyntheticTickService syntheticTickService;
-    @org.springframework.beans.factory.annotation.Autowired
-    private TickStreamService tickStreamService;
-    @org.springframework.beans.factory.annotation.Autowired
-    private DataServiceProperties dataServiceProperties;
+
+    private final MarketService marketService;
+    private final MarketFlowService marketFlowService;
+    private final MarketBreadthService marketBreadthService;
+    private final MarketSectorNetFlowService marketSectorNetFlowService;
+    private final KlineService klineService;
+    private final KlineSyncService klineSyncService;
+    private final TickStreamService tickStreamService;
+    private final SyntheticTickService syntheticTickService;
+    private final DataServiceProperties dataServiceProperties;
+
     @Qualifier("dataServiceRestTemplate")
-    @org.springframework.beans.factory.annotation.Autowired
-    private RestTemplate dataServiceRestTemplate;
+    private final RestTemplate dataServiceRestTemplate;
+
     /**
      * Search for symbols.
      * <p>Finds stock symbols or names matching the given keyword.</p>
@@ -366,7 +376,7 @@ public class MarketController {
                     dataServiceProperties.getBaseUrl() + FEAR_GREED_INDEX_PATH,
                     Objects.requireNonNull(HttpMethod.GET),
                     null,
-                    DATA_SERVICE_MAP_RESPONSE_TYPE);
+                    Objects.requireNonNull(DATA_SERVICE_MAP_RESPONSE_TYPE));
             DataServiceResponse<Map<String, Object>> body = response.getBody();
             if (body == null || !body.isSuccess() || body.data() == null) {
                 return ApiResponse.error(502, "获取恐惧贪婪指数失败");
@@ -466,7 +476,7 @@ public class MarketController {
                     dataServiceProperties.getBaseUrl() + BREADTH_PATH,
                     Objects.requireNonNull(HttpMethod.GET),
                     null,
-                    DATA_SERVICE_MAP_RESPONSE_TYPE);
+                    Objects.requireNonNull(DATA_SERVICE_MAP_RESPONSE_TYPE));
             DataServiceResponse<Map<String, Object>> body = response.getBody();
             if (body == null || !body.isSuccess() || body.data() == null) {
                 return ApiResponse.error(502, "获取市场宽度失败");
@@ -502,7 +512,7 @@ public class MarketController {
                     builder.toUriString(),
                     Objects.requireNonNull(HttpMethod.GET),
                     null,
-                    BIG_ORDER_LIST_RESPONSE_TYPE);
+                    Objects.requireNonNull(BIG_ORDER_LIST_RESPONSE_TYPE));
             DataServiceResponse<List<BigOrderAlertDto>> body = response.getBody();
             if (body == null || !body.isSuccess() || body.data() == null) {
                 log.warn("big_orders_proxy_empty code={} message={}",
@@ -531,7 +541,7 @@ public class MarketController {
                     dataServiceProperties.getBaseUrl() + BIG_ORDERS_STATS_PATH,
                     Objects.requireNonNull(HttpMethod.GET),
                     null,
-                    BIG_ORDER_STATS_RESPONSE_TYPE);
+                    Objects.requireNonNull(BIG_ORDER_STATS_RESPONSE_TYPE));
             DataServiceResponse<BigOrderStatsDto> body = response.getBody();
             if (body == null || !body.isSuccess() || body.data() == null) {
                 log.warn("big_order_stats_proxy_empty code={} message={}",
@@ -667,7 +677,10 @@ public class MarketController {
         syntheticTickService.trackSymbol(symbol);
         return tickStreamService.subscribe(symbol);
     }
-    // Tick DTO records
+
+    /**
+     * Tick event payload for tick history and stream APIs.
+     */
     public record TickDto(
         String time,
         double price,
@@ -677,12 +690,16 @@ public class MarketController {
         String flag,
         Long epochMillis
     ) {}
+
+    /**
+     * Tick summary payload aggregated from recent ticks.
+     */
     public record TickSummaryDto(
         String symbol,
         String market,
         int totalTrades,
         long totalVolume,
-        java.math.BigDecimal totalAmount,
+        BigDecimal totalAmount,
         long buyVolume,
         long sellVolume,
         int blockOrderCount,

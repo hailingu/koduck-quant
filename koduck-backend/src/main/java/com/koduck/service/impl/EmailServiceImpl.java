@@ -1,4 +1,5 @@
 package com.koduck.service.impl;
+
 import com.koduck.config.properties.MailProperties;
 import com.koduck.service.EmailService;
 import jakarta.mail.MessagingException;
@@ -15,14 +16,20 @@ import org.springframework.stereotype.Service;
  * <p>提供发送纯文本邮件、HTML 邮件以及密码重置邮件等功能。</p>
  *
  * @author Koduck Team
+ * @date 2026-03-31
  */
 @Slf4j
 @Service
 public class EmailServiceImpl implements EmailService {
-    @org.springframework.beans.factory.annotation.Autowired
-    private JavaMailSender mailSender;
-    @org.springframework.beans.factory.annotation.Autowired
-    private MailProperties mailProperties;
+
+    private final JavaMailSender mailSender;
+    private final MailProperties mailProperties;
+
+    public EmailServiceImpl(JavaMailSender mailSender, MailProperties mailProperties) {
+        this.mailSender = mailSender;
+        this.mailProperties = mailProperties;
+    }
+
     /**
      * 发送密码重置邮件。
      *

@@ -1,4 +1,5 @@
 package com.koduck.service.impl;
+
 import com.koduck.config.properties.MailProperties;
 import com.koduck.dto.UserInfo;
 import com.koduck.dto.auth.*;
@@ -15,12 +16,6 @@ import com.koduck.service.EmailService;
 import com.koduck.service.RateLimiterService;
 import com.koduck.util.JwtUtil;
 import com.koduck.util.ReservedUsernameValidator;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.dao.DataAccessException;
-import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 import java.nio.charset.StandardCharsets;
 import java.security.SecureRandom;
 import java.time.LocalDateTime;
@@ -29,38 +24,49 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DataAccessException;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
 /**
  * 认证服务实现类
  *
  * <p>Token 管理、用户认证与密码重置</p>
  *
  * @author Koduck Team
+ * @date 2026-03-31
  */
 @Slf4j
 @Service
+@RequiredArgsConstructor
 public class AuthServiceImpl implements AuthService {
-    @org.springframework.beans.factory.annotation.Autowired
-    private UserRepository userRepository;
-    @org.springframework.beans.factory.annotation.Autowired
-    private RoleRepository roleRepository;
-    @org.springframework.beans.factory.annotation.Autowired
-    private RefreshTokenRepository refreshTokenRepository;
-    @org.springframework.beans.factory.annotation.Autowired
-    private UserRoleRepository userRoleRepository;
-    @org.springframework.beans.factory.annotation.Autowired
-    private PasswordResetTokenRepository passwordResetTokenRepository;
-    @org.springframework.beans.factory.annotation.Autowired
-    private JwtUtil jwtUtil;
-    @org.springframework.beans.factory.annotation.Autowired
-    private PasswordEncoder passwordEncoder;
-    @org.springframework.beans.factory.annotation.Autowired
-    private EmailService emailService;
-    @org.springframework.beans.factory.annotation.Autowired
-    private RateLimiterService rateLimiterService;
-    @org.springframework.beans.factory.annotation.Autowired
-    private MailProperties mailProperties;
-    @org.springframework.beans.factory.annotation.Autowired
-    private JdbcTemplate jdbcTemplate;
+
+    private final UserRepository userRepository;
+
+    private final RoleRepository roleRepository;
+
+    private final RefreshTokenRepository refreshTokenRepository;
+
+    private final UserRoleRepository userRoleRepository;
+
+    private final PasswordResetTokenRepository passwordResetTokenRepository;
+
+    private final JwtUtil jwtUtil;
+
+    private final PasswordEncoder passwordEncoder;
+
+    private final EmailService emailService;
+
+    private final RateLimiterService rateLimiterService;
+
+    private final MailProperties mailProperties;
+
+    private final JdbcTemplate jdbcTemplate;
+
     private static final int DEFAULT_ROLE_ID = 2; // USER 角色
     /**
      * 密码重置令牌长度（URL-safe Base64）

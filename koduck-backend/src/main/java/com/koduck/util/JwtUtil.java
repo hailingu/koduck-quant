@@ -1,4 +1,5 @@
 package com.koduck.util;
+
 import com.koduck.config.JwtConfig;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.ExpiredJwtException;
@@ -7,22 +8,32 @@ import io.jsonwebtoken.MalformedJwtException;
 import io.jsonwebtoken.UnsupportedJwtException;
 import io.jsonwebtoken.security.SignatureException;
 import io.jsonwebtoken.security.Keys;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.stereotype.Component;
-import javax.crypto.SecretKey;
 import java.nio.charset.StandardCharsets;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Objects;
 import java.util.UUID;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Component;
+import javax.crypto.SecretKey;
+
 /**
- * JWT 
+ * JWT utility for token generation, parsing, and validation.
+ *
+ * @author GitHub Copilot
+ * @date 2026-03-31
  */
 @Slf4j
 @Component
 public class JwtUtil {
-    @org.springframework.beans.factory.annotation.Autowired
-    private JwtConfig jwtConfig;
+
+    private final JwtConfig jwtConfig;
+
+    public JwtUtil(JwtConfig jwtConfig) {
+        this.jwtConfig = Objects.requireNonNull(jwtConfig, "jwtConfig must not be null");
+    }
+
     private SecretKey getSigningKey() {
         return Keys.hmacShaKeyFor(jwtConfig.getSecret().getBytes(StandardCharsets.UTF_8));
     }
@@ -104,7 +115,7 @@ public class JwtUtil {
         try {
             Claims claims = parseToken(token);
             return claims.getExpiration().before(new Date());
-        } catch (ExpiredJwtException ignored) {
+        } catch (ExpiredJwtException _) {
             return true;
         }
     }
@@ -121,7 +132,7 @@ public class JwtUtil {
         try {
             Claims claims = parseToken(token);
             return "refresh".equals(claims.get("type"));
-        } catch (Exception ignored) {
+        } catch (Exception _) {
             return false;
         }
     }

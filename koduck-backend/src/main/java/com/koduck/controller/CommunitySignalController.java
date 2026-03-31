@@ -1,5 +1,7 @@
 package com.koduck.controller;
+
 import io.swagger.v3.oas.annotations.tags.Tag;
+import com.koduck.controller.support.AuthenticatedUserResolver;
 import com.koduck.dto.ApiResponse;
 import com.koduck.dto.community.CommentResponse;
 import com.koduck.dto.community.CreateCommentRequest;
@@ -9,7 +11,6 @@ import com.koduck.dto.community.SignalResponse;
 import com.koduck.dto.community.SignalSubscriptionResponse;
 import com.koduck.dto.community.UpdateSignalRequest;
 import com.koduck.dto.community.UserSignalStatsResponse;
-import com.koduck.controller.support.AuthenticatedUserResolver;
 import com.koduck.security.UserPrincipal;
 import com.koduck.service.CommunitySignalService;
 import jakarta.validation.Valid;
@@ -18,6 +19,9 @@ import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.Size;
+import java.math.BigDecimal;
+import java.util.List;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.validation.annotation.Validated;
@@ -30,8 +34,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
-import java.math.BigDecimal;
-import java.util.List;
+
 /**
  * REST controller for community trading signals.
  *
@@ -46,6 +49,7 @@ import java.util.List;
 @Tag(name = "社区信号", description = "策略信号分享、订阅、点赞、评论等社区功能接口")
 @Validated
 @Slf4j
+@RequiredArgsConstructor
 public class CommunitySignalController {
     private static final String MESSAGE_DELETED_SUCCESSFULLY = "Deleted successfully";
     private static final String MESSAGE_UNSUBSCRIBED_SUCCESSFULLY = "Unsubscribed successfully";
@@ -53,10 +57,11 @@ public class CommunitySignalController {
     private static final String MESSAGE_UNLIKED_SUCCESSFULLY = "Unliked successfully";
     private static final String MESSAGE_FAVORITED_SUCCESSFULLY = "Favorited successfully";
     private static final String MESSAGE_UNFAVORITED_SUCCESSFULLY = "Unfavorited successfully";
-    @org.springframework.beans.factory.annotation.Autowired
-    private CommunitySignalService signalService;
-    @org.springframework.beans.factory.annotation.Autowired
-    private AuthenticatedUserResolver authenticatedUserResolver;
+
+    private final CommunitySignalService signalService;
+
+    private final AuthenticatedUserResolver authenticatedUserResolver;
+
     /**
      * Retrieves signal list with filtering and paging.
      *
@@ -142,7 +147,7 @@ public class CommunitySignalController {
     public ApiResponse<SignalResponse> createSignal(
             @AuthenticationPrincipal UserPrincipal userPrincipal,
             @Valid @RequestBody CreateSignalRequest request) {
-        Long userId = authenticatedUserResolver.requireUserId(userPrincipal);
+        Long userId = requireUserId(userPrincipal);
         log.info("Create signal: userId={}, symbol={}", userId, request.getSymbol());
         SignalResponse signal = signalService.createSignal(userId, request);
         return ApiResponse.success(signal);
@@ -160,7 +165,7 @@ public class CommunitySignalController {
             @AuthenticationPrincipal UserPrincipal userPrincipal,
             @PathVariable @Positive(message = "id must be positive") Long id,
             @Valid @RequestBody UpdateSignalRequest request) {
-        Long userId = authenticatedUserResolver.requireUserId(userPrincipal);
+        Long userId = requireUserId(userPrincipal);
         log.info("Update signal: userId={}, id={}", userId, id);
         SignalResponse signal = signalService.updateSignal(userId, id, request);
         return ApiResponse.success(signal);
@@ -182,7 +187,7 @@ public class CommunitySignalController {
             @Pattern(regexp = "HIT_TARGET|HIT_STOP|TIMEOUT", message = "invalid resultStatus")
             String resultStatus,
             @RequestParam(required = false) BigDecimal resultProfit) {
-        Long userId = authenticatedUserResolver.requireUserId(userPrincipal);
+        Long userId = requireUserId(userPrincipal);
         log.info("Close signal: userId={}, id={}, resultStatus={}", userId, id, resultStatus);
         SignalResponse signal = signalService.closeSignal(userId, id, resultStatus, resultProfit);
         return ApiResponse.success(signal);
@@ -198,7 +203,7 @@ public class CommunitySignalController {
     public ApiResponse<Void> deleteSignal(
             @AuthenticationPrincipal UserPrincipal userPrincipal,
             @PathVariable @Positive(message = "id must be positive") Long id) {
-        Long userId = authenticatedUserResolver.requireUserId(userPrincipal);
+        Long userId = requireUserId(userPrincipal);
         log.info("Delete signal: userId={}, id={}", userId, id);
         signalService.deleteSignal(userId, id);
         return ApiResponse.successMessage(MESSAGE_DELETED_SUCCESSFULLY);
@@ -214,7 +219,7 @@ public class CommunitySignalController {
     public ApiResponse<SignalSubscriptionResponse> subscribeSignal(
             @AuthenticationPrincipal UserPrincipal userPrincipal,
             @PathVariable @Positive(message = "id must be positive") Long id) {
-        Long userId = authenticatedUserResolver.requireUserId(userPrincipal);
+        Long userId = requireUserId(userPrincipal);
         log.info("Subscribe signal: userId={}, id={}", userId, id);
         SignalSubscriptionResponse response = signalService.subscribeSignal(userId, id);
         return ApiResponse.success(response);
@@ -230,7 +235,7 @@ public class CommunitySignalController {
     public ApiResponse<Void> unsubscribeSignal(
             @AuthenticationPrincipal UserPrincipal userPrincipal,
             @PathVariable @Positive(message = "id must be positive") Long id) {
-        Long userId = authenticatedUserResolver.requireUserId(userPrincipal);
+        Long userId = requireUserId(userPrincipal);
         log.info("Unsubscribe signal: userId={}, id={}", userId, id);
         signalService.unsubscribeSignal(userId, id);
         return ApiResponse.successMessage(MESSAGE_UNSUBSCRIBED_SUCCESSFULLY);
@@ -244,7 +249,7 @@ public class CommunitySignalController {
     @GetMapping("/subscriptions")
     public ApiResponse<List<SignalSubscriptionResponse>> getMySubscriptions(
             @AuthenticationPrincipal UserPrincipal userPrincipal) {
-        Long userId = authenticatedUserResolver.requireUserId(userPrincipal);
+        Long userId = requireUserId(userPrincipal);
         log.info("Get my subscriptions: userId={}", userId);
         List<SignalSubscriptionResponse> subscriptions = signalService.getMySubscriptions(userId);
         return ApiResponse.success(subscriptions);
@@ -260,7 +265,7 @@ public class CommunitySignalController {
     public ApiResponse<Void> likeSignal(
             @AuthenticationPrincipal UserPrincipal userPrincipal,
             @PathVariable @Positive(message = "id must be positive") Long id) {
-        Long userId = authenticatedUserResolver.requireUserId(userPrincipal);
+        Long userId = requireUserId(userPrincipal);
         log.info("Like signal: userId={}, id={}", userId, id);
         signalService.likeSignal(userId, id);
         return ApiResponse.successMessage(MESSAGE_LIKED_SUCCESSFULLY);
@@ -276,7 +281,7 @@ public class CommunitySignalController {
     public ApiResponse<Void> unlikeSignal(
             @AuthenticationPrincipal UserPrincipal userPrincipal,
             @PathVariable @Positive(message = "id must be positive") Long id) {
-        Long userId = authenticatedUserResolver.requireUserId(userPrincipal);
+        Long userId = requireUserId(userPrincipal);
         log.info("Unlike signal: userId={}, id={}", userId, id);
         signalService.unlikeSignal(userId, id);
         return ApiResponse.successMessage(MESSAGE_UNLIKED_SUCCESSFULLY);
@@ -294,7 +299,7 @@ public class CommunitySignalController {
             @AuthenticationPrincipal UserPrincipal userPrincipal,
             @PathVariable @Positive(message = "id must be positive") Long id,
             @RequestParam(required = false) @Size(max = 200, message = "note length must be <= 200") String note) {
-        Long userId = authenticatedUserResolver.requireUserId(userPrincipal);
+        Long userId = requireUserId(userPrincipal);
         log.info("Favorite signal: userId={}, id={}", userId, id);
         signalService.favoriteSignal(userId, id, note);
         return ApiResponse.successMessage(MESSAGE_FAVORITED_SUCCESSFULLY);
@@ -310,7 +315,7 @@ public class CommunitySignalController {
     public ApiResponse<Void> unfavoriteSignal(
             @AuthenticationPrincipal UserPrincipal userPrincipal,
             @PathVariable @Positive(message = "id must be positive") Long id) {
-        Long userId = authenticatedUserResolver.requireUserId(userPrincipal);
+        Long userId = requireUserId(userPrincipal);
         log.info("Unfavorite signal: userId={}, id={}", userId, id);
         signalService.unfavoriteSignal(userId, id);
         return ApiResponse.successMessage(MESSAGE_UNFAVORITED_SUCCESSFULLY);
@@ -347,7 +352,7 @@ public class CommunitySignalController {
             @AuthenticationPrincipal UserPrincipal userPrincipal,
             @PathVariable @Positive(message = "id must be positive") Long id,
             @Valid @RequestBody CreateCommentRequest request) {
-        Long userId = authenticatedUserResolver.requireUserId(userPrincipal);
+        Long userId = requireUserId(userPrincipal);
         log.info("Create comment: userId={}, signalId={}", userId, id);
         CommentResponse comment = signalService.createComment(userId, id, request);
         return ApiResponse.success(comment);
@@ -363,7 +368,7 @@ public class CommunitySignalController {
     public ApiResponse<Void> deleteComment(
             @AuthenticationPrincipal UserPrincipal userPrincipal,
             @PathVariable @Positive(message = "commentId must be positive") Long commentId) {
-        Long userId = authenticatedUserResolver.requireUserId(userPrincipal);
+        Long userId = requireUserId(userPrincipal);
         log.info("Delete comment: userId={}, commentId={}", userId, commentId);
         signalService.deleteComment(userId, commentId);
         return ApiResponse.successMessage(MESSAGE_DELETED_SUCCESSFULLY);
@@ -380,5 +385,9 @@ public class CommunitySignalController {
         log.info("Get user stats: userId={}", userId);
         UserSignalStatsResponse stats = signalService.getUserStats(userId);
         return ApiResponse.success(stats);
+    }
+
+    private Long requireUserId(UserPrincipal userPrincipal) {
+        return authenticatedUserResolver.requireUserId(userPrincipal);
     }
 }

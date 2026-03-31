@@ -13,7 +13,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.test.util.ReflectionTestUtils;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -44,10 +43,7 @@ class PortfolioServiceTest {
 
     @BeforeEach
     void setUp() {
-                portfolioService = new PortfolioServiceImpl();
-                ReflectionTestUtils.setField(portfolioService, "positionRepository", positionRepository);
-                ReflectionTestUtils.setField(portfolioService, "tradeRepository", tradeRepository);
-                ReflectionTestUtils.setField(portfolioService, "klineService", klineService);
+                portfolioService = new PortfolioServiceImpl(positionRepository, tradeRepository, klineService);
     }
 
     @Test

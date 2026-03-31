@@ -1,26 +1,29 @@
 package com.koduck.controller;
 
+import com.koduck.security.JwtAuthenticationFilter;
+import com.koduck.service.MonitoringService;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.test.context.TestConstructor;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
-import com.koduck.service.MonitoringService;
-import com.koduck.security.JwtAuthenticationFilter;
 
 import java.util.Collections;
-import java.util.HashMap;
+import java.util.Map;
 
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
-import static org.mockito.ArgumentMatchers.anyInt;
-import static org.mockito.Mockito.when;
 
 /**
- * MonitoringController 
+ * Web layer tests for {@link MonitoringController}.
+ *
+ * @author GitHub Copilot
+ * @date 2026-03-31
  */
 @WebMvcTest(MonitoringController.class)
 @AutoConfigureMockMvc(addFilters = false)
@@ -29,10 +32,10 @@ class MonitoringControllerTest {
 
     private final MockMvc mockMvc;
 
-    @MockBean
+    @MockitoBean
     private MonitoringService monitoringService;
 
-    @MockBean
+    @MockitoBean
     private JwtAuthenticationFilter jwtAuthenticationFilter;
 
     MonitoringControllerTest(MockMvc mockMvc) {
@@ -42,7 +45,7 @@ class MonitoringControllerTest {
     @Test
     @DisplayName("数据新鲜度接口应正常返回")
     void freshnessShouldReturnOk() throws Exception {
-        when(monitoringService.getDataFreshnessMetrics()).thenReturn(new HashMap<>());
+        when(monitoringService.getDataFreshnessMetrics()).thenReturn(Map.of());
         mockMvc.perform(get("/api/v1/monitoring/freshness"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(0))
@@ -85,7 +88,7 @@ class MonitoringControllerTest {
     @Test
     @DisplayName("仪表盘摘要接口应正常返回")
     void dashboardShouldReturnOk() throws Exception {
-        when(monitoringService.getDashboardSummary()).thenReturn(new HashMap<>());
+        when(monitoringService.getDashboardSummary()).thenReturn(Map.of());
         mockMvc.perform(get("/api/v1/monitoring/dashboard"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(0))
@@ -108,7 +111,7 @@ class MonitoringControllerTest {
     @Test
     @DisplayName("告警统计接口应正常返回")
     void alertStatisticsShouldReturnOk() throws Exception {
-        when(monitoringService.getAlertStatistics()).thenReturn(new HashMap<>());
+        when(monitoringService.getAlertStatistics()).thenReturn(Map.of());
         mockMvc.perform(get("/api/v1/monitoring/alerts/statistics"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(0))

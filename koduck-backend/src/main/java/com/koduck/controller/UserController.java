@@ -1,4 +1,5 @@
 package com.koduck.controller;
+
 import com.koduck.controller.support.AuthenticatedUserResolver;
 import com.koduck.dto.ApiResponse;
 import com.koduck.dto.common.PageResponse;
@@ -13,31 +14,44 @@ import com.koduck.service.UserService;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Positive;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.validation.annotation.Validated;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
 /**
  * REST API controller for user profile and administrative user management.
+ *
+ * @author GitHub Copilot
+ * @date 2026-03-31
  */
 @RestController
 @RequestMapping("/api/v1/users")
 @Validated
 @Slf4j
 @Tag(name = "User Management", description = "APIs for user profile query/update and admin user management")
+@RequiredArgsConstructor
 public class UserController {
-    @org.springframework.beans.factory.annotation.Autowired
-    private AuthenticatedUserResolver authenticatedUserResolver;
-    @org.springframework.beans.factory.annotation.Autowired
-    private UserService userService;
+
+    private final AuthenticatedUserResolver authenticatedUserResolver;
+    private final UserService userService;
+
     /**
      * Retrieve current user details.
      */
     @GetMapping("/me")
     public ApiResponse<UserDetailResponse> getCurrentUser(
             @AuthenticationPrincipal UserPrincipal userPrincipal) {
-        Long userId = authenticatedUserResolver.requireUserId(userPrincipal);
+        Long userId = requireUserId(userPrincipal);
         log.debug("GET /api/v1/users/me, userId={}", userId);
         UserDetailResponse response = userService.getCurrentUser(userId);
         return ApiResponse.success(response);
@@ -49,7 +63,7 @@ public class UserController {
     public ApiResponse<UserDetailResponse> updateProfile(
             @AuthenticationPrincipal UserPrincipal userPrincipal,
             @Valid @RequestBody UpdateProfileRequest request) {
-        Long userId = authenticatedUserResolver.requireUserId(userPrincipal);
+        Long userId = requireUserId(userPrincipal);
         log.debug("PUT /api/v1/users/me, userId={}", userId);
         UserDetailResponse response = userService.updateProfile(userId, request);
         return ApiResponse.success(response);
@@ -61,7 +75,7 @@ public class UserController {
     public ApiResponse<Void> changePassword(
             @AuthenticationPrincipal UserPrincipal userPrincipal,
             @Valid @RequestBody ChangePasswordRequest request) {
-        Long userId = authenticatedUserResolver.requireUserId(userPrincipal);
+        Long userId = requireUserId(userPrincipal);
         log.debug("PUT /api/v1/users/me/password, userId={}", userId);
         userService.changePassword(userId, request);
         return ApiResponse.successNoContent();
@@ -119,9 +133,13 @@ public class UserController {
     public ApiResponse<Void> deleteUser(
             @PathVariable @Positive(message = "User ID must be positive") Long id,
             @AuthenticationPrincipal UserPrincipal userPrincipal) {
-        Long currentUserId = authenticatedUserResolver.requireUserId(userPrincipal);
+        Long currentUserId = requireUserId(userPrincipal);
         log.debug("DELETE /api/v1/users/{}, operatorUserId={}", id, currentUserId);
         userService.deleteUser(id, currentUserId);
         return ApiResponse.successNoContent();
+    }
+
+    private Long requireUserId(UserPrincipal userPrincipal) {
+        return authenticatedUserResolver.requireUserId(userPrincipal);
     }
 }
