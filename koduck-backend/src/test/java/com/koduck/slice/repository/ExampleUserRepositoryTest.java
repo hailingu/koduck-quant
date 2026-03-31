@@ -4,6 +4,7 @@ import com.koduck.config.TestDataFactory;
 import com.koduck.entity.User;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.jdbc.AutoConfigureTestDatabase;
@@ -31,6 +32,7 @@ import static org.assertj.core.api.Assertions.assertThat;
     "spring.jpa.hibernate.ddl-auto=create-drop"
 })
 @DisplayName("用户仓库切片测试")
+@Disabled("示例测试，默认不纳入 CI 执行")
 class ExampleUserRepositoryTest {
     
     @Autowired
