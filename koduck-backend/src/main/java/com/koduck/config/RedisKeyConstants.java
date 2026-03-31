@@ -5,6 +5,9 @@ import org.springframework.lang.NonNull;
 /**
  * Redis key constants for the caching layer.
  * Defines all key patterns used for caching stock data and user watchlists.
+ *
+ * @author GitHub Copilot
+ * @date 2026-03-31
  */
 public final class RedisKeyConstants {
 
