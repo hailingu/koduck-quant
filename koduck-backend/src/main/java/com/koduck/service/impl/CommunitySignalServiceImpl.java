@@ -40,6 +40,11 @@ import static com.koduck.util.ServiceValidationUtils.requireFound;
 public class CommunitySignalServiceImpl implements CommunitySignalService {
 
     private static final String USER_ID_SIGNAL_ID_LOG_TEMPLATE = ": userId={}, signalId={}";
+    private static final InteractionFlags EMPTY_INTERACTION_FLAGS = new InteractionFlags(
+        Set.of(),
+        Set.of(),
+        Set.of()
+    );
 
     private final CommunitySignalRepository signalRepository;
 
@@ -76,15 +81,14 @@ public class CommunitySignalServiceImpl implements CommunitySignalService {
             signalPage = signalRepository.findByStatus(CommunitySignal.Status.ACTIVE, 
                     PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt")));
         }
-            // Resolve current user's interaction flags for each signal item.
-        Set<Long> likedSignalIds = currentUserId != null ?
-                likeRepository.findSignalIdsByUserId(currentUserId).stream().collect(Collectors.toSet()) : Set.of();
-        Set<Long> favoritedSignalIds = currentUserId != null ?
-                favoriteRepository.findSignalIdsByUserId(currentUserId).stream().collect(Collectors.toSet()) : Set.of();
-        Set<Long> subscribedSignalIds = currentUserId != null ?
-                subscriptionRepository.findSignalIdsByUserId(currentUserId).stream().collect(Collectors.toSet()) : Set.of();
+        // Resolve current user's interaction flags for each signal item.
+        InteractionFlags interactionFlags = loadInteractionFlags(currentUserId);
         List<SignalResponse> items = signalPage.getContent().stream()
-                .map(s -> toSignalResponse(s, likedSignalIds, favoritedSignalIds, subscribedSignalIds))
+            .map(s -> toSignalResponse(
+                s,
+                interactionFlags.likedSignalIds(),
+                interactionFlags.favoritedSignalIds(),
+                interactionFlags.subscribedSignalIds()))
             .toList();
         return SignalListResponse.builder()
                 .items(items)
@@ -101,14 +105,13 @@ public class CommunitySignalServiceImpl implements CommunitySignalService {
     public List<SignalResponse> getFeaturedSignals(Long currentUserId) {
         Pageable pageable = PageRequest.of(0, 5);
         Page<CommunitySignal> signals = signalRepository.findByIsFeaturedTrueAndStatus(pageable, CommunitySignal.Status.ACTIVE);
-        Set<Long> likedSignalIds = currentUserId != null ?
-                likeRepository.findSignalIdsByUserId(currentUserId).stream().collect(Collectors.toSet()) : Set.of();
-        Set<Long> favoritedSignalIds = currentUserId != null ?
-                favoriteRepository.findSignalIdsByUserId(currentUserId).stream().collect(Collectors.toSet()) : Set.of();
-        Set<Long> subscribedSignalIds = currentUserId != null ?
-                subscriptionRepository.findSignalIdsByUserId(currentUserId).stream().collect(Collectors.toSet()) : Set.of();
+        InteractionFlags interactionFlags = loadInteractionFlags(currentUserId);
         return signals.getContent().stream()
-                .map(s -> toSignalResponse(s, likedSignalIds, favoritedSignalIds, subscribedSignalIds))
+            .map(s -> toSignalResponse(
+                s,
+                interactionFlags.likedSignalIds(),
+                interactionFlags.favoritedSignalIds(),
+                interactionFlags.subscribedSignalIds()))
             .toList();
     }
     /**
@@ -136,14 +139,13 @@ public class CommunitySignalServiceImpl implements CommunitySignalService {
     public List<SignalResponse> getUserSignals(Long currentUserId, Long userId) {
         log.info(": userId={}", userId);
         List<CommunitySignal> signals = signalRepository.findByUserIdOrderByCreatedAtDesc(userId);
-        Set<Long> likedSignalIds = currentUserId != null ?
-                likeRepository.findSignalIdsByUserId(currentUserId).stream().collect(Collectors.toSet()) : Set.of();
-        Set<Long> favoritedSignalIds = currentUserId != null ?
-                favoriteRepository.findSignalIdsByUserId(currentUserId).stream().collect(Collectors.toSet()) : Set.of();
-        Set<Long> subscribedSignalIds = currentUserId != null ?
-                subscriptionRepository.findSignalIdsByUserId(currentUserId).stream().collect(Collectors.toSet()) : Set.of();
+        InteractionFlags interactionFlags = loadInteractionFlags(currentUserId);
         return signals.stream()
-                .map(s -> toSignalResponse(s, likedSignalIds, favoritedSignalIds, subscribedSignalIds))
+            .map(s -> toSignalResponse(
+                s,
+                interactionFlags.likedSignalIds(),
+                interactionFlags.favoritedSignalIds(),
+                interactionFlags.subscribedSignalIds()))
             .toList();
     }
     // ========== 信号管理 ==========
@@ -436,6 +438,22 @@ public class CommunitySignalServiceImpl implements CommunitySignalService {
                 .build();
     }
     // ========== 私有方法 ==========
+    private InteractionFlags loadInteractionFlags(Long currentUserId) {
+        if (currentUserId == null) {
+            return EMPTY_INTERACTION_FLAGS;
+        }
+        Set<Long> likedSignalIds = likeRepository.findSignalIdsByUserId(currentUserId)
+            .stream()
+            .collect(Collectors.toSet());
+        Set<Long> favoritedSignalIds = favoriteRepository.findSignalIdsByUserId(currentUserId)
+            .stream()
+            .collect(Collectors.toSet());
+        Set<Long> subscribedSignalIds = subscriptionRepository.findSignalIdsByUserId(currentUserId)
+            .stream()
+            .collect(Collectors.toSet());
+        return new InteractionFlags(likedSignalIds, favoritedSignalIds, subscribedSignalIds);
+    }
+
     private CommunitySignal loadSignalOrThrow(Long signalId) {
         Long nonNullSignalId = Objects.requireNonNull(signalId, "signalId must not be null");
         return requireFound(signalRepository.findById(nonNullSignalId),
@@ -535,5 +553,12 @@ public class CommunitySignalServiceImpl implements CommunitySignalService {
             newStats.setReputationScore(0);
             statsRepository.save(newStats);
         }
+    }
+
+    private record InteractionFlags(
+        Set<Long> likedSignalIds,
+        Set<Long> favoritedSignalIds,
+        Set<Long> subscribedSignalIds
+    ) {
     }
 }

@@ -27,21 +27,13 @@ public class RestTemplateConfig {
     public RestTemplate dataServiceRestTemplate(
             RestTemplateBuilder builder,
             DataServiceProperties properties) {
-        RestTemplateBuilder nonNullBuilder = Objects.requireNonNull(builder, "builder must not be null");
         DataServiceProperties nonNullProperties =
                 Objects.requireNonNull(properties, "properties must not be null");
 
-        int connectTimeoutMs = nonNullProperties.getConnectTimeoutMs();
-        int readTimeoutMs = nonNullProperties.getReadTimeoutMs();
-
-        SimpleClientHttpRequestFactory requestFactory = new SimpleClientHttpRequestFactory();
-        requestFactory.setConnectTimeout(connectTimeoutMs);
-        requestFactory.setReadTimeout(readTimeoutMs);
-
-        BufferingClientHttpRequestFactory bufferingFactory =
-                new BufferingClientHttpRequestFactory(requestFactory);
-
-        return nonNullBuilder.requestFactory(() -> bufferingFactory).build();
+        return buildBufferedRestTemplate(
+                builder,
+                nonNullProperties.getConnectTimeoutMs(),
+                nonNullProperties.getReadTimeoutMs());
     }
     
     /**
@@ -55,12 +47,20 @@ public class RestTemplateConfig {
     public RestTemplate finnhubRestTemplate(
             RestTemplateBuilder builder,
             FinnhubProperties properties) {
-        RestTemplateBuilder nonNullBuilder = Objects.requireNonNull(builder, "builder must not be null");
         FinnhubProperties nonNullProperties =
                 Objects.requireNonNull(properties, "properties must not be null");
 
-        int connectTimeoutMs = nonNullProperties.getConnectTimeoutMs();
-        int readTimeoutMs = nonNullProperties.getReadTimeoutMs();
+        return buildBufferedRestTemplate(
+                builder,
+                nonNullProperties.getConnectTimeoutMs(),
+                nonNullProperties.getReadTimeoutMs());
+    }
+
+    private RestTemplate buildBufferedRestTemplate(
+            RestTemplateBuilder builder,
+            int connectTimeoutMs,
+            int readTimeoutMs) {
+        RestTemplateBuilder nonNullBuilder = Objects.requireNonNull(builder, "builder must not be null");
 
         SimpleClientHttpRequestFactory requestFactory = new SimpleClientHttpRequestFactory();
         requestFactory.setConnectTimeout(connectTimeoutMs);

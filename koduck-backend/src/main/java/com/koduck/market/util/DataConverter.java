@@ -38,7 +38,7 @@ public final class DataConverter {
         }
         try {
             return new BigDecimal(priceStr.trim());
-        } catch (NumberFormatException e) {
+        } catch (NumberFormatException _) {
             return BigDecimal.ZERO;
         }
     }
@@ -55,7 +55,7 @@ public final class DataConverter {
         }
         try {
             return Long.parseLong(volumeStr.trim());
-        } catch (NumberFormatException e) {
+        } catch (NumberFormatException _) {
             return 0L;
         }
     }
@@ -75,20 +75,23 @@ public final class DataConverter {
         try {
             long epochMillis = Long.parseLong(timestamp.trim());
             return Instant.ofEpochMilli(epochMillis);
-        } catch (NumberFormatException ignored) {
+        } catch (NumberFormatException _) {
+            // Ignore and continue with the next timestamp format.
         }
         
         // Try ISO format
         try {
             return Instant.parse(timestamp.trim());
-        } catch (Exception ignored) {
+        } catch (Exception _) {
+            // Ignore and continue with the next timestamp format.
         }
         
         // Try custom format
         try {
             LocalDateTime dateTime = LocalDateTime.parse(timestamp.trim(), DATE_FORMATTER);
             return dateTime.atZone(ZoneId.systemDefault()).toInstant();
-        } catch (Exception ignored) {
+        } catch (Exception _) {
+            // Ignore and return null when all known formats fail.
         }
         
         return null;
@@ -143,15 +146,13 @@ public final class DataConverter {
         String normalized = symbol.trim().toUpperCase(Locale.ROOT);
         
         // Add market suffix if not present
-        if ("a_share".equals(market) && !normalized.contains(".")) {
+        if ("a_share".equals(market) && !normalized.contains(".") && normalized.length() == 6) {
             // A-Share: add exchange suffix based on first digit
-            if (normalized.length() == 6) {
-                char firstDigit = normalized.charAt(0);
-                if (firstDigit == '6') {
-                    normalized += ".SH";
-                } else {
-                    normalized += ".SZ";
-                }
+            char firstDigit = normalized.charAt(0);
+            if (firstDigit == '6') {
+                normalized += ".SH";
+            } else {
+                normalized += ".SZ";
             }
         }
         

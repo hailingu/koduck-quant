@@ -5,6 +5,7 @@ import com.koduck.dto.settings.UpdateSettingsRequest;
 import com.koduck.dto.settings.UserSettingsDto;
 import com.koduck.entity.UserCredential;
 import com.koduck.entity.UserSettings;
+import com.koduck.mapper.UserSettingsMapper;
 import com.koduck.repository.CredentialRepository;
 import com.koduck.repository.UserSettingsRepository;
 import com.koduck.service.UserSettingsService;
@@ -40,6 +41,9 @@ public class UserSettingsServiceImpl implements UserSettingsService {
     private final Environment environment;
 
     private final CredentialEncryptionUtil credentialEncryptionUtil;
+
+    private final UserSettingsMapper userSettingsMapper;
+
     /**
      * 获取用户设置
      */
@@ -47,8 +51,7 @@ public class UserSettingsServiceImpl implements UserSettingsService {
     @Transactional
     public UserSettingsDto getSettings(Long userId) {
         log.debug("Getting settings for user: {}", userId);
-        UserSettings settings = settingsRepository.findByUserId(userId)
-            .orElseGet(() -> createDefaultSettings(userId));
+        UserSettings settings = findOrCreateSettings(userId);
         return convertToDto(settings);
     }
     /**
@@ -58,46 +61,24 @@ public class UserSettingsServiceImpl implements UserSettingsService {
     @Transactional
     public UserSettingsDto updateSettings(Long userId, UpdateSettingsRequest request) {
         log.debug("Updating settings for user: {}", userId);
-        UserSettings settings = settingsRepository.findByUserId(userId)
-            .orElseGet(() -> createDefaultSettings(userId));
-        // 更新基本设置
-        if (request.getTheme() != null) {
-            settings.setTheme(request.getTheme());
-        }
-        if (request.getLanguage() != null) {
-            settings.setLanguage(request.getLanguage());
-        }
-        if (request.getTimezone() != null) {
-            settings.setTimezone(request.getTimezone());
-        }
+        UserSettings settings = findOrCreateSettings(userId);
+        userSettingsMapper.updateBasicFields(request, settings);
+
         // 更新通知配置
         if (request.getNotification() != null) {
-            UserSettings.NotificationConfig config = new UserSettings.NotificationConfig();
-            config.setEmail(request.getNotification().getEmail());
-            config.setBrowser(request.getNotification().getBrowser());
-            config.setPriceAlert(request.getNotification().getPriceAlert());
-            config.setTradeAlert(request.getNotification().getTradeAlert());
-            config.setStrategyAlert(request.getNotification().getStrategyAlert());
-            settings.setNotificationConfig(config);
+            settings.setNotificationConfig(userSettingsMapper.toNotificationConfig(request.getNotification()));
         }
+
         // 更新交易配置
         if (request.getTrading() != null) {
-            UserSettings.TradingConfig config = new UserSettings.TradingConfig();
-            config.setDefaultMarket(request.getTrading().getDefaultMarket());
-            config.setCommissionRate(request.getTrading().getCommissionRate());
-            config.setMinCommission(request.getTrading().getMinCommission());
-            config.setEnableConfirmation(request.getTrading().getEnableConfirmation());
-            settings.setTradingConfig(config);
+            settings.setTradingConfig(userSettingsMapper.toTradingConfig(request.getTrading()));
         }
+
         // 更新显示配置
         if (request.getDisplay() != null) {
-            UserSettings.DisplayConfig config = new UserSettings.DisplayConfig();
-            config.setCurrency(request.getDisplay().getCurrency());
-            config.setDateFormat(request.getDisplay().getDateFormat());
-            config.setNumberFormat(request.getDisplay().getNumberFormat());
-            config.setCompactMode(request.getDisplay().getCompactMode());
-            settings.setDisplayConfig(config);
+            settings.setDisplayConfig(userSettingsMapper.toDisplayConfig(request.getDisplay()));
         }
+
         // 更新 LLM 配置
         if (request.getLlmConfig() != null) {
             UserSettings.LlmConfig current = settings.getLlmConfig() != null
@@ -125,19 +106,12 @@ public class UserSettingsServiceImpl implements UserSettingsService {
             current.setApiBase(activeConfig != null ? normalizeBlank(activeConfig.getApiBase()) : null);
             settings.setLlmConfig(current);
         }
+
         // 更新快捷链接
         if (request.getQuickLinks() != null) {
-            List<UserSettings.QuickLink> links = request.getQuickLinks().stream()
-                .map(dto -> UserSettings.QuickLink.builder()
-                    .id(dto.getId())
-                    .name(dto.getName())
-                    .icon(dto.getIcon())
-                    .path(dto.getPath())
-                    .sortOrder(dto.getSortOrder())
-                    .build())
-                .toList();
-            settings.setQuickLinks(links);
+            settings.setQuickLinks(userSettingsMapper.toQuickLinks(request.getQuickLinks()));
         }
+
         UserSettings saved = settingsRepository.save(settings);
         return convertToDto(saved);
     }
@@ -148,8 +122,7 @@ public class UserSettingsServiceImpl implements UserSettingsService {
     @Transactional
     public UserSettingsDto updateTheme(Long userId, String theme) {
         log.debug("Updating theme for user: {}, theme: {}", userId, theme);
-        UserSettings settings = settingsRepository.findByUserId(userId)
-            .orElseGet(() -> createDefaultSettings(userId));
+        UserSettings settings = findOrCreateSettings(userId);
         settings.setTheme(theme);
         UserSettings saved = settingsRepository.save(settings);
         return convertToDto(saved);
@@ -161,17 +134,12 @@ public class UserSettingsServiceImpl implements UserSettingsService {
     @Transactional
     public UserSettingsDto updateNotification(Long userId, UpdateNotificationRequest request) {
         log.debug("Updating notification settings for user: {}", userId);
-        UserSettings settings = settingsRepository.findByUserId(userId)
-            .orElseGet(() -> createDefaultSettings(userId));
+        UserSettings settings = findOrCreateSettings(userId);
         UserSettings.NotificationConfig config = settings.getNotificationConfig();
         if (config == null) {
             config = new UserSettings.NotificationConfig();
         }
-        if (request.getEmail() != null) config.setEmail(request.getEmail());
-        if (request.getBrowser() != null) config.setBrowser(request.getBrowser());
-        if (request.getPriceAlert() != null) config.setPriceAlert(request.getPriceAlert());
-        if (request.getTradeAlert() != null) config.setTradeAlert(request.getTradeAlert());
-        if (request.getStrategyAlert() != null) config.setStrategyAlert(request.getStrategyAlert());
+        userSettingsMapper.updateNotificationConfig(request, config);
         settings.setNotificationConfig(config);
         UserSettings saved = settingsRepository.save(settings);
         return convertToDto(saved);
@@ -225,26 +193,14 @@ public class UserSettingsServiceImpl implements UserSettingsService {
      * 转换为 DTO
      */
     private UserSettingsDto convertToDto(UserSettings settings) {
-        return UserSettingsDto.builder()
-            .id(settings.getId())
-            .userId(settings.getUserId())
-            .theme(settings.getTheme())
-            .language(settings.getLanguage())
-            .timezone(settings.getTimezone())
-            .notification(convertNotificationToDto(settings.getNotificationConfig()))
-            .trading(convertTradingToDto(settings.getTradingConfig()))
-            .display(convertDisplayToDto(settings.getDisplayConfig()))
-            .quickLinks(convertQuickLinksToDto(settings.getQuickLinks()))
-            .llmConfig(resolveLlmConfig(settings.getLlmConfig()))
-            .createdAt(settings.getCreatedAt())
-            .updatedAt(settings.getUpdatedAt())
-            .build();
+        UserSettingsDto dto = userSettingsMapper.toDto(settings);
+        dto.setLlmConfig(resolveLlmConfig(settings.getLlmConfig()));
+        return dto;
     }
     @Override
     @Transactional
     public UserSettingsDto.LlmConfigDto getEffectiveLlmConfig(Long userId, String provider) {
-        UserSettings settings = settingsRepository.findByUserId(userId)
-            .orElseGet(() -> createDefaultSettings(userId));
+        UserSettings settings = findOrCreateSettings(userId);
         UserSettings.LlmConfig llmConfig = settings.getLlmConfig();
         if (llmConfig == null) {
             llmConfig = new UserSettings.LlmConfig();
@@ -345,50 +301,6 @@ public class UserSettingsServiceImpl implements UserSettingsService {
             .openai(resolveProviderConfig("openai", llmConfig))
             .memory(resolveMemoryConfig(llmConfig.getMemory()))
             .build();
-    }
-    private UserSettingsDto.NotificationConfigDto convertNotificationToDto(
-            UserSettings.NotificationConfig config) {
-        if (config == null) return null;
-        return UserSettingsDto.NotificationConfigDto.builder()
-            .email(config.getEmail())
-            .browser(config.getBrowser())
-            .priceAlert(config.getPriceAlert())
-            .tradeAlert(config.getTradeAlert())
-            .strategyAlert(config.getStrategyAlert())
-            .build();
-    }
-    private UserSettingsDto.TradingConfigDto convertTradingToDto(
-            UserSettings.TradingConfig config) {
-        if (config == null) return null;
-        return UserSettingsDto.TradingConfigDto.builder()
-            .defaultMarket(config.getDefaultMarket())
-            .commissionRate(config.getCommissionRate())
-            .minCommission(config.getMinCommission())
-            .enableConfirmation(config.getEnableConfirmation())
-            .build();
-    }
-    private UserSettingsDto.DisplayConfigDto convertDisplayToDto(
-            UserSettings.DisplayConfig config) {
-        if (config == null) return null;
-        return UserSettingsDto.DisplayConfigDto.builder()
-            .currency(config.getCurrency())
-            .dateFormat(config.getDateFormat())
-            .numberFormat(config.getNumberFormat())
-            .compactMode(config.getCompactMode())
-            .build();
-    }
-    private List<UserSettingsDto.QuickLinkDto> convertQuickLinksToDto(
-            List<UserSettings.QuickLink> links) {
-        if (links == null) return List.of();
-        return links.stream()
-            .map(link -> UserSettingsDto.QuickLinkDto.builder()
-                .id(link.getId())
-                .name(link.getName())
-                .icon(link.getIcon())
-                .path(link.getPath())
-                .sortOrder(link.getSortOrder())
-                .build())
-            .toList();
     }
     private UserSettingsDto.LlmConfigDto resolveLlmConfig(UserSettings.LlmConfig config) {
         UserSettings.LlmConfig source = config == null ? new UserSettings.LlmConfig() : config;
@@ -626,6 +538,12 @@ public class UserSettingsServiceImpl implements UserSettingsService {
             default -> "https://api.minimax.chat/v1";
         };
     }
+
+    private UserSettings findOrCreateSettings(Long userId) {
+        return settingsRepository.findByUserId(userId)
+            .orElseGet(() -> createDefaultSettings(userId));
+    }
+
     /**
      * 从 user_credentials 表读取指定用户的 LLM API Key
      * 

@@ -1,7 +1,5 @@
 package com.koduck.service;
 
-import java.time.Duration;
-
 /**
  * 限流服务接口。
  *
