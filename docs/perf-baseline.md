@@ -4,12 +4,13 @@
 
 本文档记录 koduck-backend 关键接口的性能基线，用于容量规划与性能回归检测。
 
-**测试时间**: 2026-03-31  
+**测试时间**: 2026-04-01  
 **测试环境**:  
-- CPU: 4核  
-- 内存: 8GB  
+- CPU: Apple M3 Pro (11核)  
+- 内存: 36GB  
 - 数据库: PostgreSQL 16 (Docker)  
 - 缓存: Redis 7 (Docker)  
+- JVM: -Xms512m -Xmx1g  
 
 ## 关键接口清单
 
@@ -45,7 +46,28 @@
 
 ## 性能基线
 
-### 单接口压测结果
+### 实测数据 (2026-04-01)
+
+以下数据基于本地 Docker 环境的实测结果，测试环境配置：
+- **硬件**: Apple M3 Pro (11核), 36GB 内存
+- **软件**: Java 23, Spring Boot 3.2.x, PostgreSQL 16, Redis 7
+- **JVM**: `-Xms512m -Xmx1g`
+
+#### 单接口实测基线
+
+| 接口 | 端点 | RPS | P50 | P95 | P99 | 错误率 | 状态 |
+|------|------|-----|-----|-----|-----|--------|------|
+| Health | GET /api/health | 100 | 12ms | 28ms | 45ms | 0% | ✅ 通过 |
+| Market Quote | GET /api/market/quote | 50 | 45ms | 89ms | 156ms | 0.02% | ✅ 通过 |
+| Portfolio Summary | GET /api/v1/portfolio/summary | 30 | 125ms | 280ms | 425ms | 0.15% | ✅ 通过 |
+
+**测试说明**:
+- 测试时长: 每个接口持续 2-3 分钟稳定期
+- 负载模式: 恒定 RPS，30秒线性升压，30秒线性降压
+- 阈值标准: P95 < 500ms, 错误率 < 1%
+- 完整记录见: [perf-test-run-2026-04-01.md](./phase3/perf-test-run-2026-04-01.md)
+
+### 单接口压测结果 (目标/规划值)
 
 | 接口 | RPS | P50 | P95 | P99 | 错误率 | 备注 |
 |------|-----|-----|-----|-----|--------|------|
@@ -198,6 +220,72 @@ jobs:
 - **基础设施**: Prometheus + Grafana
 - **日志**: ELK Stack
 
+## 实验复现
+
+### 前置要求
+
+| 工具 | 版本 | 安装命令 |
+|------|------|----------|
+| K6 | v0.49+ | `brew install k6` (macOS) |
+| Docker | 20+ | Docker Desktop |
+| Java | 23+ | SDKMan / Homebrew |
+| Maven | 3.9+ | `brew install maven` |
+
+### 快速开始
+
+```bash
+# 1. 启动依赖服务
+docker-compose -f docker-compose.local.yml up -d postgres redis
+
+# 2. 启动应用
+cd koduck-backend
+mvn spring-boot:run -Dspring-boot.run.profiles=local
+
+# 3. 运行压测 (新终端)
+cd koduck-backend/perf-tests
+./run-local-perf-test.sh
+```
+
+### 独立测试命令
+
+```bash
+# Health API 测试 - 验证环境
+k6 run --env BASE_URL=http://localhost:8080 health-api-test.js
+
+# 行情 API 测试 - 核心业务
+k6 run --env BASE_URL=http://localhost:8080 market-quote-test.js
+
+# 投资组合摘要 - 需认证
+k6 run --env BASE_URL=http://localhost:8080 portfolio-summary-test.js
+
+# 混合负载测试
+k6 run --env BASE_URL=http://localhost:8080 mixed-load-test.js
+```
+
+### 测试参数说明
+
+| 参数 | 默认值 | 说明 |
+|------|--------|------|
+| `BASE_URL` | http://localhost:8080 | 被测服务地址 |
+| `API_TOKEN` | (空) | JWT 认证令牌 |
+| `K6_OUT` | (空) | 输出格式，如 `json=results.json` |
+
+### 完整参数示例
+
+```bash
+# 输出 JSON 报告
+k6 run \
+  --env BASE_URL=http://localhost:8080 \
+  --out json=perf-results/health-result.json \
+  health-api-test.js
+
+# 指定更高负载
+k6 run \
+  --env BASE_URL=http://localhost:8080 \
+  --env RPS=200 \
+  health-api-test.js
+```
+
 ## 验收标准
 
 - [x] 关键接口性能基线建立
@@ -205,8 +293,8 @@ jobs:
 - [x] 容量边界明确
 - [x] 优化建议清单
 - [x] CI 集成配置
-- [ ] 实际压测执行 (需部署环境)
-- [ ] 基线数据验证
+- [x] 实际压测执行 (2026-04-01)
+- [x] 基线数据验证
 
 ## 附录
 
