@@ -8,7 +8,7 @@ import com.koduck.entity.User;
 import com.koduck.exception.BusinessException;
 import com.koduck.exception.ErrorCode;
 import com.koduck.repository.*;
-import com.koduck.service.impl.AuthServiceImpl;
+import com.koduck.identity.application.AuthServiceImpl;
 import com.koduck.service.support.DefaultUserRoleResolver;
 import com.koduck.service.support.UserRolesTableChecker;
 import com.koduck.util.JwtUtil;

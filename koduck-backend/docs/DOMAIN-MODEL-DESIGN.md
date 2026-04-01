@@ -101,3 +101,15 @@ com.koduck
 - 是否引入了不必要的跨域依赖？
 - 是否复用了 `shared` 中的值对象与异常语义？
 - 变更是否需要补 ADR（新增上下文、重大边界调整、跨域契约变更）？
+
+## 8. 实施状态（Phase 1）
+
+已完成核心服务首批迁移（接口不变，迁移实现包）：
+
+- `com.koduck.identity.application.AuthServiceImpl`
+- `com.koduck.market.application.{MarketServiceImpl,KlineServiceImpl,TechnicalIndicatorServiceImpl,WatchlistServiceImpl}`
+- `com.koduck.strategy.application.StrategyServiceImpl`
+- `com.koduck.trading.application.{BacktestServiceImpl,PortfolioServiceImpl}`
+- `com.koduck.community.application.CommunitySignalServiceImpl`
+
+后续迭代将继续把剩余 `service.impl` 类按领域收敛，并补充跨域依赖检查。
