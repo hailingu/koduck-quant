@@ -57,7 +57,8 @@ public class SentimentController {
     })
     @GetMapping("/radar")
     public ApiResponse<MarketSentimentDto> getSentimentRadar(
-            @Parameter(description = "市场类型", example = "a_share", allowableValues = {"a_share", "hk", "us"})
+            @Parameter(description = "市场类型", example = "a_share",
+                schema = @Schema(allowableValues = {"a_share", "hk", "us"}))
             @RequestParam(defaultValue = MarketConstants.DEFAULT_MARKET_CODE) String market) {
         log.info("Getting sentiment radar for market: {}", market);
         MarketType marketType = parseMarketType(market);

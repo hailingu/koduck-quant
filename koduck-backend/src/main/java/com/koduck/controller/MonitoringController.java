@@ -338,7 +338,8 @@ public class MonitoringController {
     })
     @GetMapping("/alerts/severity/{severity}")
     public ApiResponse<List<AlertHistory>> getAlertsBySeverity(
-            @Parameter(description = "严重级别", example = "HIGH", allowableValues = {"LOW", "MEDIUM", "HIGH", "CRITICAL"})
+            @Parameter(description = "严重级别", example = "HIGH",
+                schema = @Schema(allowableValues = {"LOW", "MEDIUM", "HIGH", "CRITICAL"}))
             @PathVariable String severity) {
         return ApiResponse.success(monitoringService.getAlertsBySeverity(severity));
     }

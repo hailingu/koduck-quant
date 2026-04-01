@@ -117,7 +117,8 @@ public class AShareController {
             @Parameter(description = "股票代码", example = "600519")
             @RequestParam @NotBlank(message = "股票代码不能为空")
             String symbol,
-            @Parameter(description = "时间周期", example = "1D", allowableValues = {"1m", "5m", "15m", "30m", "60m", "1D", "1W", "1M"})
+            @Parameter(description = "时间周期", example = "1D",
+                schema = @Schema(allowableValues = {"1m", "5m", "15m", "30m", "60m", "1D", "1W", "1M"}))
             @RequestParam(defaultValue = MarketConstants.DEFAULT_TIMEFRAME) String timeframe,
             @Parameter(description = "返回记录数，最大1000", example = "300")
             @RequestParam(defaultValue = PaginationConstants.DEFAULT_KLINE_LIMIT_STR) @Min(1) @Max(1000) Integer limit,

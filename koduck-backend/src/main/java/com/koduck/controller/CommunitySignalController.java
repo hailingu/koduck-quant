@@ -98,12 +98,14 @@ public class CommunitySignalController {
     public ApiResponse<SignalListResponse> getSignals(
             @Parameter(description = "当前用户认证信息（可选）", hidden = true)
             @AuthenticationPrincipal UserPrincipal userPrincipal,
-            @Parameter(description = "排序方式", example = "new", allowableValues = {"new", "hot"})
+            @Parameter(description = "排序方式", example = "new",
+                schema = @Schema(allowableValues = {"new", "hot"}))
             @RequestParam(defaultValue = "new")
             @Pattern(regexp = "new|hot", message = "sort must be 'new' or 'hot'") String sort,
             @Parameter(description = "股票代码筛选", example = "600519")
             @RequestParam(required = false) String symbol,
-            @Parameter(description = "信号类型筛选", example = "BUY", allowableValues = {"BUY", "SELL", "HOLD"})
+            @Parameter(description = "信号类型筛选", example = "BUY",
+                schema = @Schema(allowableValues = {"BUY", "SELL", "HOLD"}))
             @RequestParam(required = false)
             @Pattern(regexp = "BUY|SELL|HOLD", message = "type must be BUY, SELL or HOLD") String type,
             @Parameter(description = "页码，从0开始", example = "0")
@@ -311,7 +313,8 @@ public class CommunitySignalController {
             @AuthenticationPrincipal UserPrincipal userPrincipal,
             @Parameter(description = "信号ID", example = "1")
             @PathVariable @Positive(message = "id must be positive") Long id,
-            @Parameter(description = "结果状态", example = "HIT_TARGET", allowableValues = {"HIT_TARGET", "HIT_STOP", "TIMEOUT"})
+            @Parameter(description = "结果状态", example = "HIT_TARGET",
+                schema = @Schema(allowableValues = {"HIT_TARGET", "HIT_STOP", "TIMEOUT"}))
             @RequestParam
             @Pattern(regexp = "HIT_TARGET|HIT_STOP|TIMEOUT", message = "invalid resultStatus")
             String resultStatus,

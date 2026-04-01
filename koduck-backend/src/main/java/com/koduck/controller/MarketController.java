@@ -319,7 +319,8 @@ public class MarketController {
             @RequestParam(defaultValue = MarketConstants.DEFAULT_MARKET) String market,
             @Parameter(description = "周期别名（兼容参数）", example = "daily")
             @RequestParam(required = false) String period,
-            @Parameter(description = "时间周期", example = "1D", allowableValues = {"1m", "5m", "15m", "30m", "60m", "1D", "1W", "1M"})
+            @Parameter(description = "时间周期", example = "1D",
+                schema = @Schema(allowableValues = {"1m", "5m", "15m", "30m", "60m", "1D", "1W", "1M"}))
             @RequestParam(required = false) String timeframe,
             @Parameter(description = "返回记录数", example = "300")
             @RequestParam(defaultValue = PaginationConstants.DEFAULT_KLINE_LIMIT_STR) @Min(1) @Max(1000) Integer limit,

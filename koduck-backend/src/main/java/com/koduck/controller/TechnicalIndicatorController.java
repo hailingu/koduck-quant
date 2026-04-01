@@ -93,7 +93,8 @@ public class TechnicalIndicatorController {
             @PathVariable @NotBlank String symbol,
             @Parameter(description = "市场代码", example = "AShare")
             @RequestParam @NotBlank String market,
-            @Parameter(description = "指标类型", example = "MA", allowableValues = {"MA", "EMA", "MACD", "RSI", "KDJ", "BOLL", "VOL"})
+            @Parameter(description = "指标类型", example = "MA",
+                schema = @Schema(allowableValues = {"MA", "EMA", "MACD", "RSI", "KDJ", "BOLL", "VOL"}))
             @RequestParam @NotBlank String indicator,
             @Parameter(description = "计算周期", example = "20")
             @RequestParam(defaultValue = DEFAULT_PERIOD) @Positive Integer period) {
