@@ -2,10 +2,9 @@ package com.koduck.service.impl;
 
 import com.koduck.common.constants.RedisKeyConstants;
 import com.koduck.dto.market.PriceQuoteDto;
+import com.koduck.service.cache.CacheLayer;
 import com.koduck.service.StockCacheService;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.lang.NonNull;
-import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
@@ -14,7 +13,6 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 
 /**
@@ -30,10 +28,10 @@ public class StockCacheServiceImpl implements StockCacheService {
     private static final String KEY_TYPE = "type";
     private static final String KEY_PRICE = "price";
     private static final String KEY_CHANGE_PERCENT = "changePercent";
-    private final RedisTemplate<String, Object> redisTemplate;
+    private final CacheLayer cacheLayer;
 
-    public StockCacheServiceImpl(RedisTemplate<String, Object> redisTemplate) {
-        this.redisTemplate = Objects.requireNonNull(redisTemplate, "redisTemplate must not be null");
+    public StockCacheServiceImpl(CacheLayer cacheLayer) {
+        this.cacheLayer = Objects.requireNonNull(cacheLayer, "cacheLayer must not be null");
     }
 
     // ==================== Stock Tracking () ====================
@@ -45,11 +43,11 @@ public class StockCacheServiceImpl implements StockCacheService {
         }
         String key = RedisKeyConstants.stockTrackKey(symbol);
         try {
-            redisTemplate.opsForValue().set(
+            cacheLayer.setValue(
                     requireNonNullString(key, KEY_NULL_MESSAGE),
                     requireNonNullObject(quote, "quote must not be null"),
-                    RedisKeyConstants.TTL_STOCK_TRACK,
-                    TimeUnit.SECONDS);
+                    RedisKeyConstants.TTL_STOCK_TRACK
+            );
             log.debug("Cached stock track: symbol={}", symbol);
         } catch (Exception e) {
             log.warn("Failed to cache stock track: symbol={}, error={}", symbol, e.getMessage());
@@ -60,7 +58,7 @@ public class StockCacheServiceImpl implements StockCacheService {
     public PriceQuoteDto getCachedStockTrack(String symbol) {
         String key = RedisKeyConstants.stockTrackKey(symbol);
         try {
-            Object cached = redisTemplate.opsForValue().get(requireNonNullObject(key, KEY_NULL_MESSAGE));
+            Object cached = cacheLayer.getValue(requireNonNullString(key, KEY_NULL_MESSAGE));
             if (cached instanceof PriceQuoteDto priceQuoteDto) {
                 log.debug("Cache hit: stock track {}", symbol);
                 return priceQuoteDto;
@@ -97,12 +95,7 @@ public class StockCacheServiceImpl implements StockCacheService {
         String key = RedisKeyConstants.hotStocksKey(type);
         try {
             String nonNullKey = requireNonNullString(key, KEY_NULL_MESSAGE);
-            redisTemplate.delete(nonNullKey);
-            if (symbols != null && !symbols.isEmpty()) {
-                Object[] symbolArray = requireNonNullObjectArray(symbols.toArray(), "symbolArray must not be null");
-                redisTemplate.opsForList().rightPushAll(nonNullKey, symbolArray);
-                redisTemplate.expire(nonNullKey, RedisKeyConstants.TTL_HOT_STOCKS, TimeUnit.SECONDS);
-            }
+            cacheLayer.replaceList(nonNullKey, symbols, RedisKeyConstants.TTL_HOT_STOCKS);
             log.debug("Cached hot stocks: type={}, count={}", type, symbols != null ? symbols.size() : 0);
         } catch (Exception e) {
             log.warn("Failed to cache hot stocks: type={}, error={}", type, e.getMessage());
@@ -113,8 +106,7 @@ public class StockCacheServiceImpl implements StockCacheService {
     public List<String> getCachedHotStocks(String type) {
         String key = RedisKeyConstants.hotStocksKey(type);
         try {
-            List<Object> cached = redisTemplate.opsForList().range(
-                    requireNonNullString(key, KEY_NULL_MESSAGE), 0, -1);
+            List<Object> cached = cacheLayer.getListRange(requireNonNullString(key, KEY_NULL_MESSAGE), 0, -1);
             if (cached != null && !cached.isEmpty()) {
                 log.debug("Cache hit: hot stocks type={}", type);
                 return cached.stream()
@@ -147,8 +139,7 @@ public class StockCacheServiceImpl implements StockCacheService {
     public boolean isStockTrackCached(String symbol) {
         String key = RedisKeyConstants.stockTrackKey(symbol);
         try {
-            Boolean exists = redisTemplate.hasKey(requireNonNullString(key, KEY_NULL_MESSAGE));
-            return Boolean.TRUE.equals(exists);
+            return cacheLayer.hasKey(requireNonNullString(key, KEY_NULL_MESSAGE));
         } catch (Exception e) {
             log.warn("Failed to check stock track cache: symbol={}, error={}", symbol, e.getMessage());
             return false;
@@ -225,8 +216,4 @@ public class StockCacheServiceImpl implements StockCacheService {
         return Objects.requireNonNull(value, message);
     }
 
-    
-    private static Object[] requireNonNullObjectArray(Object[] value, String message) {
-        return Objects.requireNonNull(value, message);
-    }
 }
