@@ -1,0 +1,61 @@
+name: Flaky Tracker
+
+on:
+  schedule:
+    - cron: "0 2 * * 1"
+  workflow_dispatch:
+    inputs:
+      test_class:
+        description: "Optional test class name (e.g. UserServiceTest). Leave empty to run all."
+        required: false
+        type: string
+      runs:
+        description: "Repeat count"
+        required: false
+        default: "5"
+        type: string
+      rerun_count:
+        description: "Surefire rerunFailingTestsCount"
+        required: false
+        default: "2"
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  flaky-detection:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    defaults:
+      run:
+        working-directory: koduck-backend
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 23
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "23"
+          cache: maven
+
+      - name: Run flaky detection
+        run: |
+          set -euo pipefail
+          TEST_CLASS="${{ inputs.test_class }}"
+          RUNS="${{ inputs.runs }}"
+          RERUN="${{ inputs.rerun_count }}"
+          if [ -z "$RUNS" ]; then RUNS=5; fi
+          if [ -z "$RERUN" ]; then RERUN=2; fi
+          ./scripts/detect-flaky.sh "$TEST_CLASS" "$RUNS" "$RERUN"
+
+      - name: Upload surefire reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: flaky-tracker-surefire-${{ github.run_id }}
+          path: koduck-backend/target/surefire-reports/
+          if-no-files-found: ignore
