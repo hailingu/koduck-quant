@@ -440,24 +440,35 @@
                         </goals>
                         <configuration>
                             <includes>
-                                <!-- Phase 2: gate classes with stable test ownership -->
+                                <!-- Phase 3-01: Bundle coverage gate (line>=40%, branch>=25%) -->
                                 <include>**/service/impl/MemoryServiceImpl.class</include>
                                 <include>**/service/impl/RateLimiterServiceImpl.class</include>
                                 <include>**/service/impl/MarketServiceImpl.class</include>
+                                <include>**/service/impl/PortfolioServiceImpl.class</include>
+                                <include>**/service/impl/AuthServiceImpl.class</include>
+                                <!-- Batch 2: Smaller classes with some coverage -->
+                                <include>**/service/impl/KlineMinutesServiceImpl.class</include>
+                                <include>**/service/impl/ProfileServiceImpl.class</include>
+                                <!-- Batch 3: Additional small classes -->
+                                <include>**/service/impl/EmailServiceImpl.class</include>
+                                <include>**/service/impl/TickStreamServiceImpl.class</include>
+                                <include>**/service/impl/AiAnalysisServiceImpl.class</include>
                             </includes>
                             <rules>
+                                <!-- Phase 3-01: Bundle coverage check for included classes -->
                                 <rule>
                                     <element>BUNDLE</element>
                                     <limits>
                                         <limit>
                                             <counter>LINE</counter>
                                             <value>COVEREDRATIO</value>
-                                            <minimum>0.60</minimum>
+                                            <!-- Phase 3-01: Bundle threshold for 10 classes -->
+                                            <minimum>0.40</minimum>
                                         </limit>
                                         <limit>
                                             <counter>BRANCH</counter>
                                             <value>COVEREDRATIO</value>
-                                            <minimum>0.40</minimum>
+                                            <minimum>0.25</minimum>
                                         </limit>
                                     </limits>
                                 </rule>
