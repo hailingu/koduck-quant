@@ -170,6 +170,7 @@ mvn spring-boot:run
 
 - PMD 存量治理计划：[`../../docs/phase3/pmd-backlog-governance.md`](../../docs/phase3/pmd-backlog-governance.md)
 - PMD 存量 Ratchet ADR：`ADR-0024-pmd-debt-ratchet-governance.md`
+- PMD 第一轮治理 ADR：`ADR-0025-pmd-batch1-method-argument-finalization.md`
 
 ## 测试
 

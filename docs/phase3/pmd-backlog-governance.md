@@ -12,7 +12,7 @@
 
 | 规则名 | 规则集 | 预估问题数 | 延期原因 | 治理价值 |
 |--------|--------|-----------|----------|----------|
-| `MethodArgumentCouldBeFinal` | codestyle | ~1800 | 高频低价值 | 提升不变性语义 |
+| `MethodArgumentCouldBeFinal` | codestyle | 0（已完成） | 已在 Batch 1 收口 | 提升不变性语义 |
 | `LocalVariableCouldBeFinal` | codestyle | ~2200 | 高频低价值 | 提升不变性语义 |
 | `CommentRequired` | documentation | ~1500 | 需人工判断 | 提升文档覆盖率 |
 | **合计** | - | **~5500** | - | - |
@@ -25,7 +25,7 @@
 
 | 批次 | 规则 | 预估问题数 | 时间窗口 | Owner | 验收标准 |
 |------|------|-----------|----------|-------|----------|
-| Batch 1 | `MethodArgumentCouldBeFinal` | ~1800 | 2026-04-07 ~ 2026-04-13 | @dev-team | 该规则违规 = 0 |
+| Batch 1 | `MethodArgumentCouldBeFinal` | 0（已清零） | 2026-04-07 ~ 2026-04-13 | @dev-team | 该规则违规 = 0 |
 | Batch 2 | `LocalVariableCouldBeFinal` | ~2200 | 2026-04-14 ~ 2026-04-20 | @dev-team | 该规则违规 = 0 |
 | Batch 3 | `CommentRequired` | ~1500 | 2026-04-21 ~ 2026-04-27 | @doc-team | 核心类注释覆盖 |
 | Batch 4 | 遗留杂项清理 | ~500 | 2026-04-28 ~ 2026-05-04 | @dev-team | P3 规则集违规 = 0 |
@@ -147,7 +147,7 @@
 
 | 批次 | Owner | 计划开始 | 计划完成 | 实际开始 | 实际完成 | 已完成数量（截至 2026-04-01） | 状态 | 备注 |
 |------|-------|----------|----------|----------|----------|----------------------------|------|------|
-| Batch 1 | @dev-team | 04/07 | 04/13 | - | - | 0 / ~1800 | 🟡 已建账，待执行 | 规则: `MethodArgumentCouldBeFinal` |
+| Batch 1 | @dev-team | 04/07 | 04/13 | 04/02 | 04/02 | 已完成（违规 0） | 🟢 已完成 | 规则已启用，基线已下调 |
 | Batch 2 | @dev-team | 04/14 | 04/20 | - | - | 0 / ~2200 | ⚪ 待开始 | 规则: `LocalVariableCouldBeFinal` |
 | Batch 3 | @doc-team | 04/21 | 04/27 | - | - | 0 / ~1500 | ⚪ 待开始 | 规则: `CommentRequired` |
 | Batch 4 | @dev-team | 04/28 | 05/04 | - | - | 0 / ~500 | ⚪ 待开始 | 遗留杂项 |
@@ -165,6 +165,16 @@
   - [x] `mvn -q -f koduck-backend/pom.xml pmd:check` 通过
 - **问题与风险**:
   - 存量清偿尚未启动，当前为治理准备阶段
+
+#### Week 1 (2026-04-02 执行补记)
+
+- **目标**: Batch 1 完成
+- **进展**:
+  - [x] 取消 `ruleset-phase2.xml` 对 `MethodArgumentCouldBeFinal` 的排除
+  - [x] 全量 PMD 复验该规则违规数 = 0
+  - [x] PMD 存量基线由 9951 下调至 0（`debt-baseline.txt`）
+- **问题与风险**:
+  - Batch 2/3/4 尚未执行，需保持周度追踪
 
 #### Week 1 (2026-04-07 ~ 2026-04-13)
 
@@ -244,4 +254,4 @@ mvn -q -f koduck-backend/pom.xml pmd:check
 
 ---
 
-*最后更新: 2026-04-01*
+*最后更新: 2026-04-02*

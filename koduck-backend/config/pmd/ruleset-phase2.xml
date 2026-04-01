@@ -10,7 +10,6 @@
     <rule ref="category/java/bestpractices.xml"/>
 
     <rule ref="category/java/codestyle.xml">
-        <exclude name="MethodArgumentCouldBeFinal"/>
         <exclude name="LocalVariableCouldBeFinal"/>
     </rule>
 
