@@ -1,4 +1,4 @@
-package com.koduck.service.impl;
+package com.koduck.market.application;
 
 import com.koduck.common.constants.RedisKeyConstants;
 import com.koduck.dto.market.PriceQuoteDto;

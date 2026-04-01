@@ -1,4 +1,4 @@
-package com.koduck.service.impl;
+package com.koduck.shared.application;
 
 import com.koduck.config.properties.RateLimitProperties;
 import com.koduck.service.RateLimiterService;

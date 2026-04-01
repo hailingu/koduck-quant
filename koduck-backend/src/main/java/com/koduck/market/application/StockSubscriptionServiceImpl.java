@@ -1,4 +1,4 @@
-package com.koduck.service.impl;
+package com.koduck.market.application;
 
 import com.koduck.service.StockSubscriptionService;
 import com.koduck.util.SymbolUtils;

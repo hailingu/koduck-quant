@@ -102,14 +102,30 @@ com.koduck
 - 是否复用了 `shared` 中的值对象与异常语义？
 - 变更是否需要补 ADR（新增上下文、重大边界调整、跨域契约变更）？
 
-## 8. 实施状态（Phase 1）
+## 8. 实施状态（Phase 1 + Phase 2）
 
-已完成核心服务首批迁移（接口不变，迁移实现包）：
+已完成从 `com.koduck.service.impl` 到领域 `application` 包的迁移：
 
-- `com.koduck.identity.application.AuthServiceImpl`
-- `com.koduck.market.application.{MarketServiceImpl,KlineServiceImpl,TechnicalIndicatorServiceImpl,WatchlistServiceImpl}`
-- `com.koduck.strategy.application.StrategyServiceImpl`
-- `com.koduck.trading.application.{BacktestServiceImpl,PortfolioServiceImpl}`
-- `com.koduck.community.application.CommunitySignalServiceImpl`
+- `identity.application`：
+  `AuthServiceImpl`, `CredentialServiceImpl`, `ProfileServiceImpl`, `UserServiceImpl`,
+  `UserCacheServiceImpl`, `UserSettingsServiceImpl`
+- `market.application`：
+  `MarketServiceImpl`, `KlineServiceImpl`, `KlineMinutesServiceImpl`, `KlineSyncServiceImpl`,
+  `TechnicalIndicatorServiceImpl`, `WatchlistServiceImpl`, `MarketBreadthServiceImpl`,
+  `MarketFlowServiceImpl`, `MarketSectorNetFlowServiceImpl`, `MarketSentimentServiceImpl`,
+  `PricePushServiceImpl`, `StockCacheServiceImpl`, `StockSubscriptionServiceImpl`,
+  `SyntheticTickServiceImpl`, `TickStreamServiceImpl`
+- `strategy.application`：
+  `StrategyServiceImpl`
+- `trading.application`：
+  `BacktestServiceImpl`, `PortfolioServiceImpl`
+- `community.application`：
+  `CommunitySignalServiceImpl`
+- `shared.application`：
+  `AiAnalysisServiceImpl`, `EmailServiceImpl`, `MemoryServiceImpl`,
+  `MonitoringServiceImpl`, `RateLimiterServiceImpl`
 
-后续迭代将继续把剩余 `service.impl` 类按领域收敛，并补充跨域依赖检查。
+当前状态：
+
+- `com.koduck.service.impl` 已不再承载业务实现类；
+- 领域模块边界已在代码结构中完整体现。

@@ -1,4 +1,4 @@
-package com.koduck.service.impl;
+package com.koduck.identity.application;
 
 import com.koduck.dto.settings.UpdateNotificationRequest;
 import com.koduck.dto.settings.UpdateSettingsRequest;

@@ -1,4 +1,4 @@
-package com.koduck.service.impl;
+package com.koduck.market.application;
 import com.koduck.dto.market.DailyBreadthDto;
 import com.koduck.mapper.MarketDataMapper;
 import com.koduck.repository.MarketDailyBreadthRepository;

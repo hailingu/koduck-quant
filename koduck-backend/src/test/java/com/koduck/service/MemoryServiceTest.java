@@ -6,7 +6,7 @@ import com.koduck.entity.UserMemoryProfile;
 import com.koduck.repository.MemoryChatMessageRepository;
 import com.koduck.repository.MemoryChatSessionRepository;
 import com.koduck.repository.UserMemoryProfileRepository;
-import com.koduck.service.impl.MemoryServiceImpl;
+import com.koduck.shared.application.MemoryServiceImpl;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;

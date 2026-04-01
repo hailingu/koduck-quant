@@ -1,4 +1,4 @@
-package com.koduck.service.impl;
+package com.koduck.shared.application;
 import com.koduck.entity.AlertHistory;
 import com.koduck.entity.AlertRule;
 import com.koduck.entity.DataSourceStatus;

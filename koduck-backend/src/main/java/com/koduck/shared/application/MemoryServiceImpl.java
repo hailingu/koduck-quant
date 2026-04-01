@@ -1,4 +1,4 @@
-package com.koduck.service.impl;
+package com.koduck.shared.application;
 
 import com.koduck.entity.MemoryChatMessage;
 import com.koduck.entity.MemoryChatSession;

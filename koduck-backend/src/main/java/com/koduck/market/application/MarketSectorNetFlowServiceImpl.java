@@ -1,4 +1,4 @@
-package com.koduck.service.impl;
+package com.koduck.market.application;
 import com.koduck.dto.market.SectorNetFlowDto;
 import com.koduck.dto.market.SectorNetFlowItemDto;
 import com.koduck.entity.MarketSectorNetFlow;

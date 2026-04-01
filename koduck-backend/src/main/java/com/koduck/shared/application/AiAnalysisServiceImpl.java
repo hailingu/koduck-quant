@@ -1,4 +1,4 @@
-package com.koduck.service.impl;
+package com.koduck.shared.application;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.koduck.config.AgentConfig;
