@@ -1,6 +1,7 @@
 package com.koduck.client;
 
 import com.koduck.config.properties.DataServiceProperties;
+import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -28,6 +29,7 @@ public class DataServiceClient {
      * Request body key for stock symbol collections.
      */
     private static final String KEY_SYMBOLS = "symbols";
+    private static final String CB_DATA_SERVICE_CLIENT = "dataServiceClient";
 
     /**
      * Data-service feature flags and endpoint settings.
@@ -75,6 +77,7 @@ public class DataServiceClient {
      *
      * @param symbols list of stock symbols to update
      */
+    @CircuitBreaker(name = CB_DATA_SERVICE_CLIENT, fallbackMethod = "triggerRealtimeUpdateFallback")
     public void triggerRealtimeUpdate(final List<String> symbols) {
         final boolean shouldTrigger;
         final List<String> requestedSymbols;
@@ -92,25 +95,43 @@ public class DataServiceClient {
         }
 
         if (shouldTrigger) {
-            final String url = dataSvcProps.getBaseUrl() + dataSvcProps.getRealtimeUpdatePath();
-            try {
-                final HttpHeaders headers = new HttpHeaders();
-                headers.setContentType(MediaType.APPLICATION_JSON);
-
-                final Map<String, Object> requestBody = Map.of(KEY_SYMBOLS, requestedSymbols);
-                final HttpEntity<Map<String, Object>> request = new HttpEntity<>(requestBody, headers);
-                dataSvcRestTemplate.postForObject(url, request, Void.class);
-
-                if (log.isInfoEnabled()) {
-                    log.info("realtime_update_triggered symbolsCount={} symbols={}",
-                            requestedSymbols.size(), requestedSymbols);
-                }
-            } catch (RestClientException ex) {
-                if (log.isWarnEnabled()) {
-                    log.warn("realtime_update_trigger_failed symbols={} error={}",
-                            requestedSymbols, ex.getMessage());
-                }
-            }
+            invokeRealtimeUpdate(requestedSymbols);
         }
+    }
+
+    /**
+     * Invokes data-service realtime update endpoint with circuit breaker protection.
+     *
+     * @param requestedSymbols symbols to trigger refresh
+     */
+    void invokeRealtimeUpdate(final List<String> requestedSymbols) {
+        final String url = dataSvcProps.getBaseUrl() + dataSvcProps.getRealtimeUpdatePath();
+        final HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+
+        final Map<String, Object> requestBody = Map.of(KEY_SYMBOLS, requestedSymbols);
+        final HttpEntity<Map<String, Object>> request = new HttpEntity<>(requestBody, headers);
+        dataSvcRestTemplate.postForObject(url, request, Void.class);
+
+        if (log.isInfoEnabled()) {
+            log.info("realtime_update_triggered symbolsCount={} symbols={}",
+                    requestedSymbols.size(), requestedSymbols);
+        }
+    }
+
+    /**
+     * Circuit-breaker fallback for realtime update invocation failures.
+     *
+     * @param requestedSymbols symbols to trigger refresh
+     * @param throwable root cause
+     */
+    void triggerRealtimeUpdateFallback(final List<String> requestedSymbols, final Throwable throwable) {
+        if (throwable instanceof RestClientException restClientException) {
+            log.warn("realtime_update_trigger_failed symbols={} error={}",
+                    requestedSymbols, restClientException.getMessage());
+            return;
+        }
+        log.warn("realtime_update_trigger_failed symbols={} errorType={} error={}",
+                requestedSymbols, throwable.getClass().getSimpleName(), throwable.getMessage());
     }
 }
