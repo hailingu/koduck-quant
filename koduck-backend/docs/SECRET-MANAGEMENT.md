@@ -60,3 +60,13 @@ export VAULT_KV_CONTEXT=koduck-backend
 - 生产建议使用 TLS（`VAULT_SCHEME=https`）；
 - 建议通过短期令牌或 AppRole 等方式替代长期静态令牌；
 - 启用审计日志并按最小权限分配访问策略。
+
+## 生产环境强制要求（JWT）
+
+自 `ADR-0015` 起，生产环境执行以下强制策略：
+
+- `application-prod.yml` 使用 `spring.config.import=vault://`（非 optional）；
+- `spring.cloud.vault.enabled=true` 且 `fail-fast=true`；
+- 生产 JWT 密钥 `JWT_SECRET` 必须由 Vault 提供，不再接受“无 Vault 可启动”。
+
+建议在 Vault 中维护与运行时一致的键名，并通过最小权限策略限制读取范围。

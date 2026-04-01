@@ -1,4 +1,10 @@
 spring:
+  config:
+    import: vault://
+  cloud:
+    vault:
+      enabled: true
+      fail-fast: true
   datasource:
     url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:koduck}
     username: ${DB_USERNAME}
