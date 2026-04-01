@@ -129,6 +129,11 @@ mvn spring-boot:run
 - API 版本策略文档：[`API-VERSIONING.md`](API-VERSIONING.md)
 - 版本治理 ADR：`ADR-0012-api-versioning-strategy.md`
 
+## 密钥与敏感信息管理
+
+- 密钥管理文档：[`SECRET-MANAGEMENT.md`](SECRET-MANAGEMENT.md)
+- 密钥治理 ADR：`ADR-0013-spring-vault-secret-management-baseline.md`
+
 ## 测试
 
 ```bash
