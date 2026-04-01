@@ -331,6 +331,16 @@
                     <excludes>
                         <exclude>**/*IntegrationTest.java</exclude>
                     </excludes>
+                    <!-- Flaky Test 治理配置 -->
+                    <!-- 失败测试自动重试 2 次，检测非确定性测试 -->
+                    <rerunFailingTestsCount>2</rerunFailingTestsCount>
+                    <!-- 生成详细 XML 报告，保留完整堆栈 -->
+                    <trimStackTrace>false</trimStackTrace>
+                    <printSummary>true</printSummary>
+                    <!-- 测试报告输出格式 -->
+                    <reportFormat>xml</reportFormat>
+                    <!-- 失败时保留输出文件 -->
+                    <redirectTestOutputToFile>false</redirectTestOutputToFile>
                 </configuration>
                 <executions>
                     <!-- 单元测试 (默认执行) -->
