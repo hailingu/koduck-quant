@@ -235,7 +235,8 @@ public class RateLimiterServiceImpl implements RateLimiterService {
         return String.valueOf(loginIdentifier.toLowerCase(Locale.ROOT).hashCode());
     }
 
-    private static @NonNull String requireNonNullKey(String key) {
+    
+    private static String requireNonNullKey(String key) {
         return Objects.requireNonNull(key, "key must not be null");
     }
 }

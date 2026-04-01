@@ -9,7 +9,7 @@ spring:
   jpa:
     hibernate:
       ddl-auto: update
-    show-sql: true
+    show-sql: false
     properties:
       hibernate:
         dialect: org.hibernate.dialect.H2Dialect
@@ -17,6 +17,10 @@ spring:
     enabled: false
     locations: classpath:db/migration
     baseline-on-migrate: true
+  rabbitmq:
+    listener:
+      simple:
+        auto-startup: false
 
 jwt:
   secret: test-secret-key-for-jwt-signing-must-be-at-least-32-characters-long
@@ -30,5 +34,5 @@ credential:
 logging:
   level:
     root: WARN
-    com.koduck: DEBUG
+    com.koduck: INFO
     org.testcontainers: INFO

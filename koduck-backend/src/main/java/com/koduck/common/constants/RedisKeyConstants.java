@@ -157,7 +157,8 @@ public final class RedisKeyConstants {
      * @param userId user identifier
      * @return Redis key in pattern {@code user:track:{userId}}
      */
-    public static @NonNull String userTrackKey(Long userId) {
+    @NonNull
+    public static String userTrackKey(Long userId) {
         return USER_TRACK_PREFIX + userId;
     }
 
@@ -167,7 +168,8 @@ public final class RedisKeyConstants {
      * @param userId user identifier
      * @return Redis key in pattern {@code user:watch:{userId}}
      */
-    public static @NonNull String userWatchKey(Long userId) {
+    @NonNull
+    public static String userWatchKey(Long userId) {
         return USER_WATCH_PREFIX + userId;
     }
 }

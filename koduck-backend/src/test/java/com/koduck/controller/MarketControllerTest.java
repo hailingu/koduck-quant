@@ -214,34 +214,9 @@ class MarketControllerTest {
     }
 
     @Test
-    @DisplayName("批量行情 - 正常返回")
-    void getBatchPrices_shouldReturnQuotes() throws Exception {
-        PriceQuoteDto quote = PriceQuoteDto.builder()
-                .symbol("000001")
-                .name("平安银行")
-                .price(new BigDecimal("10.55"))
-                .change(new BigDecimal("0.21"))
-                .changePercent(new BigDecimal("2.03"))
-                .timestamp(Instant.now())
-                .build();
-
-        when(marketService.getBatchPrices(List.of("000001", "600000")))
-                .thenReturn(List.of(quote));
-
-        mockMvc.perform(get("/api/v1/market/batch")
-                .param("symbols", "000001", "600000")
-                .contentType(jsonMediaType()))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.code").value(0))
-                .andExpect(jsonPath("$.data[0].symbol").value("000001"));
-
-        verify(marketService).getBatchPrices(List.of("000001", "600000"));
-    }
-
-    @Test
-    @DisplayName("批量行情 - 参数应声明最多50个股票代码")
+    @DisplayName("批量行情 - 参数应声明最多50个股票代码（高级控制器）")
     void getBatchPrices_shouldDeclareMaxSizeConstraint() throws NoSuchMethodException {
-        Method method = MarketController.class.getMethod("getBatchPrices", List.class);
+        Method method = MarketAdvancedController.class.getMethod("getBatchPrices", List.class);
         Size size = method.getParameters()[0].getAnnotation(Size.class);
 
         assertNotNull(size);

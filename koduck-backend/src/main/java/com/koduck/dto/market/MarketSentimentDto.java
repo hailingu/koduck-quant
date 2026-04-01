@@ -316,7 +316,7 @@ public class MarketSentimentDto {
     /**
      * Market status constants
      */
-    public static class Status {
+    public static final class Status {
         private Status() {
         }
 

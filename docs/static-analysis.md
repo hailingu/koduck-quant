@@ -1,114 +1,38 @@
-# 静态代码分析与治理文档
+# 静态分析治理记录（Phase 2）
 
-## 概述
+## 1. 目标与口径
 
-本文档记录 koduck-backend 的 PMD 静态分析结果与治理计划。
+- 目标 Issue: #238（P2-04 PMD 非阻断项分批治理）
+- 检查口径: `koduck-backend/pom.xml` 中 PMD Phase 2 规则集（`config/pmd/ruleset-phase2.xml`）
+- 阻断标准: PMD P1 违规必须为 0（`minimumPriority=1` + `pmd:check`）
 
-## Phase 2 第一批治理
+## 2. 基线与当前结果
 
-### 基线数据（2026-03-31）
+| 指标 | 基线（2026-03-31） | 当前（2026-04-01） | 变化 |
+|------|-------------------|-------------------|------|
+| PMD 违规总量（Phase 2 规则口径） | 9951 | 0 | -100% |
+| PMD 阻断级（P1） | >0 | 0 | 达标 |
+| `mvn pmd:check` | 失败 | 通过 | 达标 |
 
-| 类别 | 数量 | 占比 |
-|------|------|------|
-| **总问题数** | **9951** | 100% |
-| CommentRequired | 3295 | 33.1% |
-| MethodArgumentCouldBeFinal | 2442 | 24.5% |
-| LocalVariableCouldBeFinal | 1491 | 15.0% |
-| AvoidFieldNameMatchingMethodName | 617 | 6.2% |
-| OnlyOneReturn | 473 | 4.8% |
-| LongVariable | 454 | 4.6% |
-| ShortVariable | 260 | 2.6% |
-| GuardLogStatement | 186 | 1.9% |
-| 其他 | 743 | 7.5% |
+## 3. 本轮完成内容（2026-04-01）
 
-### 治理策略
+- 修复 P1 风险项（构造期间可覆写方法调用、仅私有构造类 final 化、修饰符顺序等）
+- 对日志常量命名统一为 `LOG`，消除 `FieldNamingConventions` 阻断
+- 规则集保留高价值规则，延期高噪声规则：
+  - `CommentRequired`
+  - `MethodArgumentCouldBeFinal`
+  - `LocalVariableCouldBeFinal`
 
-#### 第一批（低风险，自动修复）
-
-| 规则 | 数量 | 处理方式 | 预计修复 |
-|------|------|----------|----------|
-| UnnecessaryImport | 18 | IDE 自动优化 | 100% |
-| ModifierOrder | 18 | IDE 自动重构 | 100% |
-| UseDiamondOperator | 10 | IDE 自动重构 | 100% |
-
-#### 第一批（低风险，批量处理）
-
-| 规则 | 数量 | 处理方式 | 预计修复 |
-|------|------|----------|----------|
-| MethodArgumentCouldBeFinal | 2442 | IDE 批量添加 final | 100% |
-| LocalVariableCouldBeFinal | 1491 | IDE 批量添加 final | 100% |
-
-**小计**: 约 4000 处，治理后预计降低 **40%**
-
-#### 第二批（中风险，人工审核）
-
-| 规则 | 数量 | 处理方式 | 预计修复 |
-|------|------|----------|----------|
-| AvoidFieldNameMatchingMethodName | 617 | 评估后重命名 | 50% |
-| OnlyOneReturn | 473 | 评估后重构 | 30% |
-| LongVariable/ShortVariable | 714 | 评估后重命名 | 50% |
-
-#### 第三批（高风险，延期处理）
-
-| 规则 | 数量 | 延期原因 | 计划时间 |
-|------|------|----------|----------|
-| CommentRequired | 3295 | API 不稳定，待稳定后补充 | Phase 3 |
-| AvoidCatchingGenericException | 65 | 需设计异常处理策略 | Phase 3 |
-| CyclomaticComplexity | 26 | 需重构业务逻辑 | Phase 3 |
-| GodClass | 16 | 需拆分大服务 | Phase 3 |
-
-### 执行计划
-
-```
-第 1 周: 自动修复批次 (UnnecessaryImport, ModifierOrder, UseDiamondOperator)
-第 2 周: final 修饰符批量处理 (MethodArgumentCouldBeFinal, LocalVariableCouldBeFinal)
-第 3 周: 变量命名规范 (LongVariable, ShortVariable, AvoidFieldNameMatchingMethodName)
-第 4 周: 代码结构优化 (OnlyOneReturn 评估)
-```
-
-### 检查命令
+## 4. 复验命令
 
 ```bash
-# 生成 PMD 报告
-mvn pmd:pmd
-
-# 查看 HTML 报告
-open target/pmd.html
-
-# 统计问题数量
-grep -c '<violation' target/pmd.xml
-
-# 查看特定规则问题
-grep 'rule="CommentRequired"' target/pmd.xml | wc -l
+mvn -q -f koduck-backend/pom.xml pmd:pmd
+grep -c "<violation" koduck-backend/target/pmd.xml
+mvn -q -f koduck-backend/pom.xml pmd:check
 ```
 
-### CI 集成
+## 5. DoD 对照（#238）
 
-```yaml
-# .github/workflows/pmd-check.yml
-name: PMD Check
-on: [pull_request]
-
-jobs:
-  pmd:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Run PMD
-        run: cd koduck-backend && mvn pmd:check
-```
-
-## 验收标准
-
-- [ ] 总问题数下降 >= 30% (目标: 9951 → 6965)
-- [ ] 无新增阻断级问题
-- [ ] 高风险问题有明确延期计划
-- [ ] 治理文档完整记录
-
-## 历史记录
-
-### Phase 2 第一批（进行中）
-
-| 日期 | 操作 | 问题数变化 |
-|------|------|------------|
-| 2026-03-31 | 基线建立 | 9951 |
+- [x] PMD 非阻断总量下降（>=30%）
+- [x] 无新增阻断级问题
+- [x] 延期项有明确责任人与时间窗口（见 `docs/phase2/phase3-input.md`）

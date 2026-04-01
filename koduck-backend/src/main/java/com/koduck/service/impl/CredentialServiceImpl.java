@@ -358,7 +358,7 @@ public class CredentialServiceImpl implements CredentialService {
     /**
      * 验证结果内部类
      */
-    private static class VerificationResult {
+    private static final class VerificationResult {
 
         private final boolean valid;
         private final String message;

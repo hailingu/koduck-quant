@@ -58,7 +58,7 @@ import java.util.concurrent.ThreadLocalRandom;
 @Component
 public class HKStockProvider implements MarketDataProvider {
     
-    private static final Logger log = LoggerFactory.getLogger(HKStockProvider.class);
+    private static final Logger LOG = LoggerFactory.getLogger(HKStockProvider.class);
     private static final ZoneId HONG_KONG_ZONE = ZoneId.of("Asia/Hong_Kong");
     private static final String HK_STOCK_BASE_PATH = "/hk-stock";
     private static final String PROVIDER_NAME = "akshare-hk-stock";
@@ -130,7 +130,7 @@ public class HKStockProvider implements MarketDataProvider {
             throws MarketDataException {
         
         if (!isAvailable()) {
-            log.debug("Data service not available, using mock data for HK stock kline");
+            LOG.debug("Data service not available, using mock data for HK stock kline");
             return generateMockKlineData(symbol, timeframe, limit, endTime);
         }
         
@@ -151,7 +151,7 @@ public class HKStockProvider implements MarketDataProvider {
             
             String url = builder.buildAndExpand(normalizedSymbol).toUriString();
             
-            log.debug("Fetching HK stock kline from data service: symbol={}, timeframe={}", 
+            LOG.debug("Fetching HK stock kline from data service: symbol={}, timeframe={}", 
                     normalizedSymbol, timeframe);
             
             ResponseEntity<List<Map<String, Object>>> response = restTemplate.exchange(
@@ -169,7 +169,7 @@ public class HKStockProvider implements MarketDataProvider {
             return convertToKlineData(data, normalizedSymbol, timeframe);
             
         } catch (RestClientException e) {
-            log.error("Failed to fetch HK stock kline from data service: {}", e.getMessage());
+            LOG.error("Failed to fetch HK stock kline from data service: {}", e.getMessage());
             return generateMockKlineData(symbol, timeframe, limit, endTime);
         }
     }
@@ -177,7 +177,7 @@ public class HKStockProvider implements MarketDataProvider {
     @Override
     public Optional<TickData> getRealTimeTick(String symbol) throws MarketDataException {
         if (!isAvailable()) {
-            log.debug("Data service not available, using mock data for HK stock tick");
+            LOG.debug("Data service not available, using mock data for HK stock tick");
             return generateMockTickData(symbol);
         }
         
@@ -189,7 +189,7 @@ public class HKStockProvider implements MarketDataProvider {
                     .buildAndExpand(normalizedSymbol)
                     .toUriString();
             
-            log.debug("Fetching HK stock price from data service: symbol={}", normalizedSymbol);
+            LOG.debug("Fetching HK stock price from data service: symbol={}", normalizedSymbol);
             
             ResponseEntity<Map<String, Object>> response = restTemplate.exchange(
                     url,
@@ -206,7 +206,7 @@ public class HKStockProvider implements MarketDataProvider {
             return Optional.of(convertToTickData(data, normalizedSymbol));
             
         } catch (RestClientException e) {
-            log.error("Failed to fetch HK stock price from data service: {}", e.getMessage());
+            LOG.error("Failed to fetch HK stock price from data service: {}", e.getMessage());
             return generateMockTickData(symbol);
         }
     }
@@ -220,13 +220,13 @@ public class HKStockProvider implements MarketDataProvider {
         }
         
         symbols.forEach(sym -> subscribedSymbols.add(normalizeSymbol(sym)));
-        log.info("Subscribed to {} HK stocks for real-time data", symbols.size());
+        LOG.info("Subscribed to {} HK stocks for real-time data", symbols.size());
     }
     
     @Override
     public void unsubscribeRealTime(List<String> symbols) {
         symbols.forEach(sym -> subscribedSymbols.remove(normalizeSymbol(sym)));
-        log.info("Unsubscribed from {} HK stocks", symbols.size());
+        LOG.info("Unsubscribed from {} HK stocks", symbols.size());
     }
     
     @Override
@@ -291,7 +291,7 @@ public class HKStockProvider implements MarketDataProvider {
                     .toList();
                     
         } catch (RestClientException e) {
-            log.error("Failed to search HK stocks: {}", e.getMessage());
+            LOG.error("Failed to search HK stocks: {}", e.getMessage());
             return generateMockSearchResults(keyword, limit);
         }
     }
@@ -479,7 +479,8 @@ public class HKStockProvider implements MarketDataProvider {
         );
     }
 
-    private static @NonNull HttpMethod getHttpGet() {
+    
+    private static HttpMethod getHttpGet() {
         return Objects.requireNonNull(HttpMethod.GET, "HTTP GET must not be null");
     }
     

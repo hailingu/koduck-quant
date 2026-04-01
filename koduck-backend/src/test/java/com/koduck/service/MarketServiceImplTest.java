@@ -190,11 +190,6 @@ class MarketServiceImplTest {
         @Test
         @DisplayName("shouldBuildStockDetailFromLatestKlineWhenRealtimeIsMissing")
         void shouldBuildStockDetailFromLatestKlineWhenRealtimeIsMissing() {
-                StockBasic basic = StockBasic.builder()
-                                .symbol("002885")
-                                .name("京泉华")
-                                .market("AShare")
-                                .build();
                 KlineDataDto latestKline = new KlineDataDto(
                                 1741348800L,
                                 new BigDecimal("12.10"),
@@ -205,7 +200,6 @@ class MarketServiceImplTest {
                                 new BigDecimal("3158200.00"));
 
                 when(stockRealtimeRepository.findFirstBySymbolOrderByUpdatedAtDesc("002885")).thenReturn(Optional.empty());
-                when(stockBasicRepository.findBySymbol("002885")).thenReturn(Optional.of(basic));
                 when(marketFallbackSupport.tryBuildQuoteFromLatestKline("002885"))
                                 .thenReturn(PriceQuoteDto.builder()
                                                 .symbol("002885")
@@ -228,12 +222,6 @@ class MarketServiceImplTest {
         @Test
         @DisplayName("shouldBuildStockDetailFromCachedMapKlineWhenCacheReturnsLinkedHashMap")
         void shouldBuildStockDetailFromCachedMapKlineWhenCacheReturnsLinkedHashMap() {
-                StockBasic basic = StockBasic.builder()
-                                .symbol("601919")
-                                .name("中远海控")
-                                .market("AShare")
-                                .build();
-
                 Map<String, Object> previous = new LinkedHashMap<>();
                 previous.put("timestamp", 1741262400L);
                 previous.put("open", "15.20");
@@ -254,7 +242,6 @@ class MarketServiceImplTest {
 
                 when(stockRealtimeRepository.findFirstBySymbolOrderByUpdatedAtDesc("601919"))
                                 .thenReturn(Optional.empty());
-                when(stockBasicRepository.findBySymbol("601919")).thenReturn(Optional.of(basic));
                 KlineDataDto latestKline = new KlineDataDto(
                                 ((Number) latest.get("timestamp")).longValue(),
                                 new BigDecimal(latest.get("open").toString()),
@@ -314,7 +301,6 @@ class MarketServiceImplTest {
 
                 when(stockRealtimeRepository.findFirstBySymbolOrderByUpdatedAtDesc("601919"))
                                 .thenThrow(new RuntimeException("db lookup failed"));
-                when(stockBasicRepository.findBySymbol("601919")).thenReturn(Optional.empty());
                 when(marketFallbackSupport.fetchProviderPrice("601919")).thenReturn(providerQuote);
 
                 PriceQuoteDto quote = marketService.getStockDetail("601919");

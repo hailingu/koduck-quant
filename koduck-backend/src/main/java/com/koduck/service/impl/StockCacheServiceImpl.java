@@ -215,15 +215,18 @@ public class StockCacheServiceImpl implements StockCacheService {
         return normalized;
     }
 
-    private static @NonNull String requireNonNullString(String value, String message) {
+    
+    private static String requireNonNullString(String value, String message) {
         return Objects.requireNonNull(value, message);
     }
 
-    private static @NonNull Object requireNonNullObject(Object value, String message) {
+    
+    private static Object requireNonNullObject(Object value, String message) {
         return Objects.requireNonNull(value, message);
     }
 
-    private static @NonNull Object[] requireNonNullObjectArray(Object[] value, String message) {
+    
+    private static Object[] requireNonNullObjectArray(Object[] value, String message) {
         return Objects.requireNonNull(value, message);
     }
 }
