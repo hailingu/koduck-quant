@@ -127,7 +127,9 @@ mvn spring-boot:run
 ## API 版本管理
 
 - API 版本策略文档：[`API-VERSIONING.md`](API-VERSIONING.md)
+- API 变更历史文档：[`API-CHANGELOG.md`](API-CHANGELOG.md)
 - 版本治理 ADR：`ADR-0012-api-versioning-strategy.md`
+- Changelog 治理 ADR：`ADR-0020-api-changelog-governance.md`
 
 ## 密钥与敏感信息管理
 
