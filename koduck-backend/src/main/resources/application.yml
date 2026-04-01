@@ -137,6 +137,23 @@ app:
     username: ${APP_DEMO_USERNAME:demo}
     password: ${APP_DEMO_PASSWORD:demo123}
 
+# Resilience4j 熔断配置
+resilience4j:
+  circuitbreaker:
+    instances:
+      dataServiceClient:
+        registerHealthIndicator: true
+        slidingWindowType: COUNT_BASED
+        slidingWindowSize: ${DATA_SERVICE_CB_WINDOW_SIZE:20}
+        minimumNumberOfCalls: ${DATA_SERVICE_CB_MIN_CALLS:10}
+        failureRateThreshold: ${DATA_SERVICE_CB_FAILURE_RATE:50}
+        waitDurationInOpenState: ${DATA_SERVICE_CB_OPEN_WAIT:30s}
+        permittedNumberOfCallsInHalfOpenState: ${DATA_SERVICE_CB_HALF_OPEN_CALLS:3}
+        automaticTransitionFromOpenToHalfOpenEnabled: true
+        recordExceptions:
+          - org.springframework.web.client.RestClientException
+          - java.lang.RuntimeException
+
 # SpringDoc OpenAPI 配置
 springdoc:
   api-docs:
