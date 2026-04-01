@@ -13,7 +13,6 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
-import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.constraints.Max;
@@ -60,14 +59,14 @@ public class AShareController {
         summary = "搜索A股",
         description = "根据关键词搜索A股股票代码和名称，支持拼音首字母搜索"
     )
-    @ApiResponses(value = {
-        @ApiResponse(
+    @io.swagger.v3.oas.annotations.responses.ApiResponses(value = {
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
             responseCode = "200",
             description = "搜索成功",
             content = @Content(schema = @Schema(implementation = SymbolInfoDto.class))
         ),
-        @ApiResponse(responseCode = "400", description = "关键词为空或长度超过50字符"),
-        @ApiResponse(responseCode = "500", description = "服务器内部错误")
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "关键词为空或长度超过50字符"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "500", description = "服务器内部错误")
     })
     @GetMapping("/search")
     public ApiResponse<List<SymbolInfoDto>> searchSymbols(
@@ -104,14 +103,14 @@ public class AShareController {
         description = "获取A股股票的历史K线数据\n\n" +
                       "支持的时间周期：1m, 5m, 15m, 30m, 60m, 1D, 1W, 1M"
     )
-    @ApiResponses(value = {
-        @ApiResponse(
+    @io.swagger.v3.oas.annotations.responses.ApiResponses(value = {
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
             responseCode = "200",
             description = "获取成功",
             content = @Content(schema = @Schema(implementation = KlineDataDto.class))
         ),
-        @ApiResponse(responseCode = "400", description = "股票代码为空或参数错误"),
-        @ApiResponse(responseCode = "500", description = "服务器内部错误")
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "股票代码为空或参数错误"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "500", description = "服务器内部错误")
     })
     @GetMapping("/kline")
     public ApiResponse<List<KlineDataDto>> getKline(
@@ -142,15 +141,15 @@ public class AShareController {
         summary = "获取A股最新价格",
         description = "获取A股股票的最新收盘价"
     )
-    @ApiResponses(value = {
-        @ApiResponse(
+    @io.swagger.v3.oas.annotations.responses.ApiResponses(value = {
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
             responseCode = "200",
             description = "获取成功",
             content = @Content(schema = @Schema(implementation = LatestPriceResponse.class))
         ),
-        @ApiResponse(responseCode = "400", description = "股票代码为空"),
-        @ApiResponse(responseCode = "404", description = "价格数据不存在"),
-        @ApiResponse(responseCode = "500", description = "服务器内部错误")
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "股票代码为空"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "价格数据不存在"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "500", description = "服务器内部错误")
     })
     @GetMapping("/kline/price")
     public ApiResponse<LatestPriceResponse> getLatestPrice(

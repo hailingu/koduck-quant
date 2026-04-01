@@ -23,7 +23,6 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
-import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.constraints.Max;
@@ -81,14 +80,14 @@ public class MarketController {
         description = "根据关键词搜索股票代码和名称，支持拼音首字母搜索\n\n" +
                       "示例：搜索\"茅台\"可找到\"贵州茅台(600519)\""
     )
-    @ApiResponses(value = {
-        @ApiResponse(
+    @io.swagger.v3.oas.annotations.responses.ApiResponses(value = {
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
             responseCode = "200",
             description = "搜索成功",
             content = @Content(schema = @Schema(implementation = SymbolInfoDto.class))
         ),
-        @ApiResponse(responseCode = "400", description = "关键词为空或长度超过50字符"),
-        @ApiResponse(responseCode = "500", description = "服务器内部错误")
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "关键词为空或长度超过50字符"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "500", description = "服务器内部错误")
     })
     @GetMapping("/search")
     public ApiResponse<List<SymbolInfoDto>> searchSymbols(
@@ -121,15 +120,15 @@ public class MarketController {
         summary = "获取股票详情",
         description = "获取单只股票的实时行情报价"
     )
-    @ApiResponses(value = {
-        @ApiResponse(
+    @io.swagger.v3.oas.annotations.responses.ApiResponses(value = {
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
             responseCode = "200",
             description = "获取成功",
             content = @Content(schema = @Schema(implementation = PriceQuoteDto.class))
         ),
-        @ApiResponse(responseCode = "400", description = "股票代码为空"),
-        @ApiResponse(responseCode = "404", description = "股票不存在"),
-        @ApiResponse(responseCode = "500", description = "服务器内部错误")
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "股票代码为空"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "股票不存在"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "500", description = "服务器内部错误")
     })
     @GetMapping("/stocks/{symbol}")
     public ApiResponse<PriceQuoteDto> getStockDetail(
@@ -158,15 +157,15 @@ public class MarketController {
         summary = "获取股票日统计",
         description = "获取单只股票的日交易统计数据，包括开盘价、最高价、最低价、成交量等"
     )
-    @ApiResponses(value = {
-        @ApiResponse(
+    @io.swagger.v3.oas.annotations.responses.ApiResponses(value = {
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
             responseCode = "200",
             description = "获取成功",
             content = @Content(schema = @Schema(implementation = StockStatsDto.class))
         ),
-        @ApiResponse(responseCode = "400", description = "股票代码为空"),
-        @ApiResponse(responseCode = "404", description = "股票统计信息不存在"),
-        @ApiResponse(responseCode = "500", description = "服务器内部错误")
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "股票代码为空"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "股票统计信息不存在"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "500", description = "服务器内部错误")
     })
     @GetMapping("/stocks/{symbol}/stats")
     public ApiResponse<StockStatsDto> getStockStats(
@@ -195,15 +194,15 @@ public class MarketController {
         summary = "获取股票估值信息",
         description = "获取单只股票的估值指标，包括市盈率(PE)、市净率(PB)、市值等"
     )
-    @ApiResponses(value = {
-        @ApiResponse(
+    @io.swagger.v3.oas.annotations.responses.ApiResponses(value = {
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
             responseCode = "200",
             description = "获取成功",
             content = @Content(schema = @Schema(implementation = StockValuationDto.class))
         ),
-        @ApiResponse(responseCode = "400", description = "股票代码为空"),
-        @ApiResponse(responseCode = "404", description = "股票估值信息不存在"),
-        @ApiResponse(responseCode = "500", description = "服务器内部错误")
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "股票代码为空"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "股票估值信息不存在"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "500", description = "服务器内部错误")
     })
     @GetMapping("/stocks/{symbol}/valuation")
     public ApiResponse<StockValuationDto> getStockValuation(
@@ -230,15 +229,15 @@ public class MarketController {
         summary = "获取股票行业信息",
         description = "获取单只股票的行业分类信息，包括所属行业、板块、概念等"
     )
-    @ApiResponses(value = {
-        @ApiResponse(
+    @io.swagger.v3.oas.annotations.responses.ApiResponses(value = {
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
             responseCode = "200",
             description = "获取成功",
             content = @Content(schema = @Schema(implementation = StockIndustryDto.class))
         ),
-        @ApiResponse(responseCode = "400", description = "股票代码为空"),
-        @ApiResponse(responseCode = "404", description = "股票行业信息不存在"),
-        @ApiResponse(responseCode = "500", description = "服务器内部错误")
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "股票代码为空"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "股票行业信息不存在"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "500", description = "服务器内部错误")
     })
     @GetMapping("/stocks/{symbol}/industry")
     public ApiResponse<StockIndustryDto> getStockIndustry(
@@ -265,14 +264,14 @@ public class MarketController {
         summary = "批量获取股票行业信息",
         description = "批量获取多只股票的行业分类信息，最多支持200只股票"
     )
-    @ApiResponses(value = {
-        @ApiResponse(
+    @io.swagger.v3.oas.annotations.responses.ApiResponses(value = {
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
             responseCode = "200",
             description = "获取成功",
             content = @Content(schema = @Schema(implementation = StockIndustryDto.class))
         ),
-        @ApiResponse(responseCode = "400", description = "股票代码列表为空或超过200个"),
-        @ApiResponse(responseCode = "500", description = "服务器内部错误")
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "股票代码列表为空或超过200个"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "500", description = "服务器内部错误")
     })
     @PostMapping("/stocks/industry/batch")
     public ApiResponse<Map<String, StockIndustryDto>> getStockIndustries(
@@ -303,14 +302,14 @@ public class MarketController {
         description = "获取单只股票的历史K线数据\n\n" +
                       "支持的时间周期：1m, 5m, 15m, 30m, 60m, 1D, 1W, 1M"
     )
-    @ApiResponses(value = {
-        @ApiResponse(
+    @io.swagger.v3.oas.annotations.responses.ApiResponses(value = {
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
             responseCode = "200",
             description = "获取成功",
             content = @Content(schema = @Schema(implementation = KlineDataDto.class))
         ),
-        @ApiResponse(responseCode = "400", description = "股票代码为空或参数错误"),
-        @ApiResponse(responseCode = "500", description = "服务器内部错误")
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "股票代码为空或参数错误"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "500", description = "服务器内部错误")
     })
     @GetMapping("/stocks/{symbol}/kline")
     public ApiResponse<List<KlineDataDto>> getStockKline(
@@ -351,13 +350,13 @@ public class MarketController {
         summary = "获取市场指数",
         description = "获取主要市场指数行情，包括上证指数、深证成指、创业板指等"
     )
-    @ApiResponses(value = {
-        @ApiResponse(
+    @io.swagger.v3.oas.annotations.responses.ApiResponses(value = {
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
             responseCode = "200",
             description = "获取成功",
             content = @Content(schema = @Schema(implementation = MarketIndexDto.class))
         ),
-        @ApiResponse(responseCode = "500", description = "服务器内部错误")
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "500", description = "服务器内部错误")
     })
     @GetMapping("/indices")
     public ApiResponse<List<MarketIndexDto>> getMarketIndices() {
@@ -374,14 +373,14 @@ public class MarketController {
         summary = "获取每日资金流向",
         description = "获取市场每日资金流向数据，不指定日期则返回最新交易日数据"
     )
-    @ApiResponses(value = {
-        @ApiResponse(
+    @io.swagger.v3.oas.annotations.responses.ApiResponses(value = {
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
             responseCode = "200",
             description = "获取成功",
             content = @Content(schema = @Schema(implementation = DailyNetFlowDto.class))
         ),
-        @ApiResponse(responseCode = "404", description = "资金流向数据不存在"),
-        @ApiResponse(responseCode = "500", description = "服务器内部错误")
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "资金流向数据不存在"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "500", description = "服务器内部错误")
     })
     @GetMapping("/net-flow/daily")
     public ApiResponse<DailyNetFlowDto> getDailyNetFlow(
@@ -411,14 +410,14 @@ public class MarketController {
         summary = "获取每日资金流向历史",
         description = "获取指定日期范围内的市场资金流向历史数据"
     )
-    @ApiResponses(value = {
-        @ApiResponse(
+    @io.swagger.v3.oas.annotations.responses.ApiResponses(value = {
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
             responseCode = "200",
             description = "获取成功",
             content = @Content(schema = @Schema(implementation = DailyNetFlowDto.class))
         ),
-        @ApiResponse(responseCode = "400", description = "日期范围无效"),
-        @ApiResponse(responseCode = "500", description = "服务器内部错误")
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "日期范围无效"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "500", description = "服务器内部错误")
     })
     @GetMapping("/net-flow/daily/history")
     public ApiResponse<List<DailyNetFlowDto>> getDailyNetFlowHistory(
@@ -451,14 +450,14 @@ public class MarketController {
         summary = "获取每日市场宽度",
         description = "获取市场每日涨跌统计（上涨家数、下跌家数、平盘家数），不指定日期则返回最新交易日数据"
     )
-    @ApiResponses(value = {
-        @ApiResponse(
+    @io.swagger.v3.oas.annotations.responses.ApiResponses(value = {
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
             responseCode = "200",
             description = "获取成功",
             content = @Content(schema = @Schema(implementation = DailyBreadthDto.class))
         ),
-        @ApiResponse(responseCode = "404", description = "市场宽度数据不存在"),
-        @ApiResponse(responseCode = "500", description = "服务器内部错误")
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "市场宽度数据不存在"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "500", description = "服务器内部错误")
     })
     @GetMapping("/breadth/daily")
     public ApiResponse<DailyBreadthDto> getDailyBreadth(
@@ -488,14 +487,14 @@ public class MarketController {
         summary = "获取每日市场宽度历史",
         description = "获取指定日期范围内的市场宽度历史数据"
     )
-    @ApiResponses(value = {
-        @ApiResponse(
+    @io.swagger.v3.oas.annotations.responses.ApiResponses(value = {
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
             responseCode = "200",
             description = "获取成功",
             content = @Content(schema = @Schema(implementation = DailyBreadthDto.class))
         ),
-        @ApiResponse(responseCode = "400", description = "日期范围无效"),
-        @ApiResponse(responseCode = "500", description = "服务器内部错误")
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "日期范围无效"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "500", description = "服务器内部错误")
     })
     @GetMapping("/breadth/daily/history")
     public ApiResponse<List<DailyBreadthDto>> getDailyBreadthHistory(

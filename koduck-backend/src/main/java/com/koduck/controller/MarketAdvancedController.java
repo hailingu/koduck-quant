@@ -28,7 +28,6 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
-import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.constraints.Max;
@@ -109,10 +108,10 @@ public class MarketAdvancedController {
         summary = "获取恐惧贪婪指数",
         description = "获取市场恐惧贪婪指数"
     )
-    @ApiResponses(value = {
-        @ApiResponse(responseCode = "200", description = "获取成功"),
-        @ApiResponse(responseCode = "503", description = "数据服务不可用"),
-        @ApiResponse(responseCode = "500", description = "服务器内部错误")
+    @io.swagger.v3.oas.annotations.responses.ApiResponses(value = {
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "获取成功"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "503", description = "数据服务不可用"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "500", description = "服务器内部错误")
     })
     @GetMapping("/fear-greed-index")
     public ApiResponse<Map<String, Object>> getFearGreedIndex() {
@@ -141,14 +140,14 @@ public class MarketAdvancedController {
         summary = "获取板块资金流向",
         description = "获取各板块的资金净流入/流出数据"
     )
-    @ApiResponses(value = {
-        @ApiResponse(
+    @io.swagger.v3.oas.annotations.responses.ApiResponses(value = {
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
             responseCode = "200",
             description = "获取成功",
             content = @Content(schema = @Schema(implementation = SectorNetFlowDto.class))
         ),
-        @ApiResponse(responseCode = "404", description = "数据不存在"),
-        @ApiResponse(responseCode = "500", description = "服务器内部错误")
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "数据不存在"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "500", description = "服务器内部错误")
     })
     @GetMapping("/sector-net-flow")
     public ApiResponse<SectorNetFlowDto> getSectorNetFlow(
@@ -177,14 +176,14 @@ public class MarketAdvancedController {
         summary = "获取资金流向图",
         description = "获取资金流向可视化数据（资本河流图）"
     )
-    @ApiResponses(value = {
-        @ApiResponse(
+    @io.swagger.v3.oas.annotations.responses.ApiResponses(value = {
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
             responseCode = "200",
             description = "获取成功",
             content = @Content(schema = @Schema(implementation = CapitalRiverDto.class))
         ),
-        @ApiResponse(responseCode = "404", description = "数据不存在"),
-        @ApiResponse(responseCode = "500", description = "服务器内部错误")
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "数据不存在"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "500", description = "服务器内部错误")
     })
     @GetMapping("/capital-river")
     public ApiResponse<CapitalRiverDto> getCapitalRiver(
@@ -243,10 +242,10 @@ public class MarketAdvancedController {
         summary = "获取市场宽度",
         description = "获取市场宽度数据"
     )
-    @ApiResponses(value = {
-        @ApiResponse(responseCode = "200", description = "获取成功"),
-        @ApiResponse(responseCode = "503", description = "数据服务不可用"),
-        @ApiResponse(responseCode = "500", description = "服务器内部错误")
+    @io.swagger.v3.oas.annotations.responses.ApiResponses(value = {
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "获取成功"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "503", description = "数据服务不可用"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "500", description = "服务器内部错误")
     })
     @GetMapping("/breadth")
     public ApiResponse<Map<String, Object>> getMarketBreadth() {
@@ -275,13 +274,13 @@ public class MarketAdvancedController {
         summary = "获取大单追踪",
         description = "获取大额交易订单追踪数据"
     )
-    @ApiResponses(value = {
-        @ApiResponse(
+    @io.swagger.v3.oas.annotations.responses.ApiResponses(value = {
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
             responseCode = "200",
             description = "获取成功",
             content = @Content(schema = @Schema(implementation = BigOrderAlertDto.class))
         ),
-        @ApiResponse(responseCode = "500", description = "服务器内部错误")
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "500", description = "服务器内部错误")
     })
     @GetMapping("/big-orders")
     public ApiResponse<List<BigOrderAlertDto>> getBigOrders(
@@ -327,13 +326,13 @@ public class MarketAdvancedController {
         summary = "获取大单统计",
         description = "获取大额交易订单统计数据"
     )
-    @ApiResponses(value = {
-        @ApiResponse(
+    @io.swagger.v3.oas.annotations.responses.ApiResponses(value = {
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
             responseCode = "200",
             description = "获取成功",
             content = @Content(schema = @Schema(implementation = BigOrderStatsDto.class))
         ),
-        @ApiResponse(responseCode = "500", description = "服务器内部错误")
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "500", description = "服务器内部错误")
     })
     @GetMapping("/big-orders/stats")
     public ApiResponse<BigOrderStatsDto> getBigOrderStats() {
@@ -366,13 +365,13 @@ public class MarketAdvancedController {
         summary = "获取热门股票",
         description = "获取市场热门股票列表"
     )
-    @ApiResponses(value = {
-        @ApiResponse(
+    @io.swagger.v3.oas.annotations.responses.ApiResponses(value = {
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
             responseCode = "200",
             description = "获取成功",
             content = @Content(schema = @Schema(implementation = SymbolInfoDto.class))
         ),
-        @ApiResponse(responseCode = "500", description = "服务器内部错误")
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "500", description = "服务器内部错误")
     })
     @GetMapping("/hot")
     public ApiResponse<List<SymbolInfoDto>> getHotStocks(
@@ -392,13 +391,13 @@ public class MarketAdvancedController {
         summary = "获取板块关联网络",
         description = "获取板块之间的关联关系网络数据"
     )
-    @ApiResponses(value = {
-        @ApiResponse(
+    @io.swagger.v3.oas.annotations.responses.ApiResponses(value = {
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
             responseCode = "200",
             description = "获取成功",
             content = @Content(schema = @Schema(implementation = SectorNetworkDto.class))
         ),
-        @ApiResponse(responseCode = "500", description = "服务器内部错误")
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "500", description = "服务器内部错误")
     })
     @GetMapping("/sectors/network")
     public ApiResponse<SectorNetworkDto> getSectorNetwork(
@@ -413,14 +412,14 @@ public class MarketAdvancedController {
         summary = "批量获取股价",
         description = "批量获取多只股票的价格数据"
     )
-    @ApiResponses(value = {
-        @ApiResponse(
+    @io.swagger.v3.oas.annotations.responses.ApiResponses(value = {
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
             responseCode = "200",
             description = "获取成功",
             content = @Content(schema = @Schema(implementation = PriceQuoteDto.class))
         ),
-        @ApiResponse(responseCode = "400", description = "股票代码列表为空或超过50个"),
-        @ApiResponse(responseCode = "500", description = "服务器内部错误")
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "股票代码列表为空或超过50个"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "500", description = "服务器内部错误")
     })
     @GetMapping("/batch")
     public ApiResponse<List<PriceQuoteDto>> getBatchPrices(
@@ -437,13 +436,13 @@ public class MarketAdvancedController {
         summary = "获取分笔数据",
         description = "获取股票的分笔成交数据"
     )
-    @ApiResponses(value = {
-        @ApiResponse(
+    @io.swagger.v3.oas.annotations.responses.ApiResponses(value = {
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
             responseCode = "200",
             description = "获取成功",
             content = @Content(schema = @Schema(implementation = TickDto.class))
         ),
-        @ApiResponse(responseCode = "500", description = "服务器内部错误")
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "500", description = "服务器内部错误")
     })
     @GetMapping("/ticks")
     public ApiResponse<List<TickDto>> getTickData(
@@ -463,13 +462,13 @@ public class MarketAdvancedController {
         summary = "获取分笔统计",
         description = "获取股票分笔成交的统计信息"
     )
-    @ApiResponses(value = {
-        @ApiResponse(
+    @io.swagger.v3.oas.annotations.responses.ApiResponses(value = {
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
             responseCode = "200",
             description = "获取成功",
             content = @Content(schema = @Schema(implementation = TickSummaryDto.class))
         ),
-        @ApiResponse(responseCode = "500", description = "服务器内部错误")
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "500", description = "服务器内部错误")
     })
     @GetMapping("/ticks/summary")
     public ApiResponse<TickSummaryDto> getTickSummary(
@@ -521,8 +520,8 @@ public class MarketAdvancedController {
         summary = "订阅分笔数据流",
         description = "通过SSE协议订阅实时分笔数据流"
     )
-    @ApiResponses(value = {
-        @ApiResponse(responseCode = "200", description = "流式响应开始")
+    @io.swagger.v3.oas.annotations.responses.ApiResponses(value = {
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "流式响应开始")
     })
     @GetMapping(value = "/ticks/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public SseEmitter streamTicks(

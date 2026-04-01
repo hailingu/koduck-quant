@@ -4,7 +4,6 @@ import com.koduck.dto.ApiResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
-import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.Data;
@@ -36,8 +35,8 @@ public class HealthController {
         summary = "健康检查",
         description = "获取服务健康状态、版本信息和运行时长"
     )
-    @ApiResponses(value = {
-        @ApiResponse(
+    @io.swagger.v3.oas.annotations.responses.ApiResponses(value = {
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
             responseCode = "200",
             description = "服务正常",
             content = @Content(schema = @Schema(implementation = HealthInfo.class))
@@ -63,8 +62,8 @@ public class HealthController {
         summary = "Ping测试",
         description = "简单的连通性测试接口"
     )
-    @ApiResponses(value = {
-        @ApiResponse(
+    @io.swagger.v3.oas.annotations.responses.ApiResponses(value = {
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
             responseCode = "200",
             description = "正常响应",
             content = @Content(schema = @Schema(implementation = String.class))
