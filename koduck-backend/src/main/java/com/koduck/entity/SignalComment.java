@@ -4,6 +4,8 @@ import com.koduck.util.CollectionCopyUtils;
 import com.koduck.util.EntityCopyUtils;
 import jakarta.persistence.*;
 import lombok.Data;
+import lombok.Setter;
+import lombok.AccessLevel;
 import lombok.NoArgsConstructor;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
@@ -22,6 +24,7 @@ public class SignalComment {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Setter(AccessLevel.NONE)
     private Long id;
 
     @Column(name = "signal_id", nullable = false)
@@ -44,6 +47,7 @@ public class SignalComment {
 
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
+    @Setter(AccessLevel.NONE)
     private LocalDateTime createdAt;
 
     @UpdateTimestamp
@@ -105,14 +109,14 @@ public class SignalComment {
 
         public SignalComment build() {
             SignalComment comment = new SignalComment();
-            comment.setId(id);
+            comment.id = id;
             comment.setSignalId(signalId);
             comment.setUserId(userId);
             comment.setParentId(parentId);
             comment.setContent(content);
             comment.setLikeCount(likeCount);
             comment.setIsDeleted(isDeleted);
-            comment.setCreatedAt(createdAt);
+            comment.createdAt = createdAt;
             comment.setUpdatedAt(updatedAt);
             comment.setSignal(signal);
             comment.setUser(user);

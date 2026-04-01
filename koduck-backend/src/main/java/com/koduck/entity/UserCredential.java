@@ -3,6 +3,8 @@ package com.koduck.entity;
 import com.koduck.util.CollectionCopyUtils;
 import jakarta.persistence.*;
 import lombok.Data;
+import lombok.Setter;
+import lombok.AccessLevel;
 import lombok.NoArgsConstructor;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.JdbcTypeCode;
@@ -23,6 +25,7 @@ public class UserCredential {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Setter(AccessLevel.NONE)
     private Long id;
 
     @Column(name = "user_id", nullable = false)
@@ -64,6 +67,7 @@ public class UserCredential {
 
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
+    @Setter(AccessLevel.NONE)
     private LocalDateTime createdAt;
 
     @UpdateTimestamp
@@ -116,7 +120,7 @@ public class UserCredential {
 
         public UserCredential build() {
             UserCredential credential = new UserCredential();
-            credential.setId(id);
+            credential.id = id;
             credential.setUserId(userId);
             credential.setName(name);
             credential.setType(type);
@@ -130,7 +134,7 @@ public class UserCredential {
             }
             credential.setLastVerifiedAt(lastVerifiedAt);
             credential.setLastVerifiedStatus(lastVerifiedStatus);
-            credential.setCreatedAt(createdAt);
+            credential.createdAt = createdAt;
             credential.setUpdatedAt(updatedAt);
             return credential;
         }

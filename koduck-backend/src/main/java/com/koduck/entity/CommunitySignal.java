@@ -4,6 +4,8 @@ import com.koduck.util.CollectionCopyUtils;
 import com.koduck.util.EntityCopyUtils;
 import jakarta.persistence.*;
 import lombok.Data;
+import lombok.Setter;
+import lombok.AccessLevel;
 import lombok.NoArgsConstructor;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.JdbcTypeCode;
@@ -25,6 +27,7 @@ public class CommunitySignal {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Setter(AccessLevel.NONE)
     private Long id;
 
     @Column(name = "user_id", nullable = false)
@@ -92,6 +95,7 @@ public class CommunitySignal {
 
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
+    @Setter(AccessLevel.NONE)
     private LocalDateTime createdAt;
 
     @UpdateTimestamp
@@ -161,7 +165,7 @@ public class CommunitySignal {
 
         public CommunitySignal build() {
             CommunitySignal signal = new CommunitySignal();
-            signal.setId(id);
+            signal.id = id;
             signal.setUserId(userId);
             signal.setStrategyId(strategyId);
             signal.setSymbol(symbol);
@@ -182,7 +186,7 @@ public class CommunitySignal {
             signal.setViewCount(viewCount);
             signal.setIsFeatured(isFeatured);
             signal.setTags(tags);
-            signal.setCreatedAt(createdAt);
+            signal.createdAt = createdAt;
             signal.setUpdatedAt(updatedAt);
             signal.setUser(user);
             return signal;

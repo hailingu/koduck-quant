@@ -10,6 +10,8 @@ import jakarta.persistence.Table;
 import java.time.LocalDateTime;
 import java.util.List;
 import lombok.AllArgsConstructor;
+import lombok.Setter;
+import lombok.AccessLevel;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -32,6 +34,7 @@ public class UserSettings {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Setter(AccessLevel.NONE)
     private Long id;
 
     @Column(name = "user_id", nullable = false, unique = true)
@@ -68,6 +71,7 @@ public class UserSettings {
 
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
+    @Setter(AccessLevel.NONE)
     private LocalDateTime createdAt;
 
     @UpdateTimestamp
@@ -245,7 +249,7 @@ public class UserSettings {
 
         public UserSettings build() {
             UserSettings settings = new UserSettings();
-            settings.setId(id);
+            settings.id = id;
             settings.setUserId(userId);
             settings.setTheme(theme);
             settings.setLanguage(language);
@@ -255,7 +259,7 @@ public class UserSettings {
             settings.setDisplayConfig(displayConfig);
             settings.setQuickLinks(quickLinks);
             settings.setLlmConfig(llmConfig);
-            settings.setCreatedAt(createdAt);
+            settings.createdAt = createdAt;
             settings.setUpdatedAt(updatedAt);
             return settings;
         }

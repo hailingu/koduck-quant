@@ -2,6 +2,8 @@ package com.koduck.entity;
 
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
+import lombok.Setter;
+import lombok.AccessLevel;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -28,6 +30,7 @@ public class BacktestTrade {
     
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Setter(AccessLevel.NONE)
     private Long id;
     
     @Column(name = "backtest_result_id", nullable = false)
@@ -78,6 +81,7 @@ public class BacktestTrade {
     
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
+    @Setter(AccessLevel.NONE)
     private LocalDateTime createdAt;
     
     public enum TradeType {

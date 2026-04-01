@@ -3,6 +3,8 @@ package com.koduck.entity;
 import com.koduck.util.CollectionCopyUtils;
 import jakarta.persistence.*;
 import lombok.Data;
+import lombok.Setter;
+import lombok.AccessLevel;
 import lombok.NoArgsConstructor;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.JdbcTypeCode;
@@ -19,6 +21,7 @@ public class MemoryChatMessage {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Setter(AccessLevel.NONE)
     private Long id;
 
     @Column(name = "user_id", nullable = false)
@@ -42,6 +45,7 @@ public class MemoryChatMessage {
 
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
+    @Setter(AccessLevel.NONE)
     private LocalDateTime createdAt;
 
     public static Builder builder() {
@@ -70,14 +74,14 @@ public class MemoryChatMessage {
 
         public MemoryChatMessage build() {
             MemoryChatMessage message = new MemoryChatMessage();
-            message.setId(id);
+            message.id = id;
             message.setUserId(userId);
             message.setSessionId(sessionId);
             message.setRole(role);
             message.setContent(content);
             message.setTokenCount(tokenCount);
             message.setMetadata(metadata);
-            message.setCreatedAt(createdAt);
+            message.createdAt = createdAt;
             return message;
         }
     }

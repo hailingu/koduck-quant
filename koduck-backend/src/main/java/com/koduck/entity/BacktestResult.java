@@ -3,6 +3,8 @@ package com.koduck.entity;
 import com.koduck.common.constants.MarketConstants;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
+import lombok.Setter;
+import lombok.AccessLevel;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -31,6 +33,7 @@ public class BacktestResult {
     
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Setter(AccessLevel.NONE)
     private Long id;
     
     @Column(name = "user_id", nullable = false)
@@ -118,6 +121,7 @@ public class BacktestResult {
     
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
+    @Setter(AccessLevel.NONE)
     private LocalDateTime createdAt;
     
     @Column(name = "completed_at")
