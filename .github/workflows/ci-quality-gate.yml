@@ -16,8 +16,30 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  detect-changes:
+    name: Detect Changed Modules
+    runs-on: ubuntu-latest
+    outputs:
+      backend: ${{ steps.filter.outputs.backend }}
+      data_service: ${{ steps.filter.outputs.data_service }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Detect changed paths
+        id: filter
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            backend:
+              - 'koduck-backend/**'
+            data_service:
+              - 'koduck-data-service/**'
+
   backend-unit-tests:
     name: Backend Unit Tests (Java 23)
+    needs: detect-changes
+    if: ${{ needs.detect-changes.outputs.backend == 'true' }}
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:
@@ -48,6 +70,8 @@ jobs:
 
   data-service-tests:
     name: Data Service Tests (Python 3.13)
+    needs: detect-changes
+    if: ${{ needs.detect-changes.outputs.data_service == 'true' }}
     runs-on: ubuntu-latest
     timeout-minutes: 25
     defaults:
