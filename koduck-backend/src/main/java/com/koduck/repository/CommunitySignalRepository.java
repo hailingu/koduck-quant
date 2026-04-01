@@ -4,6 +4,7 @@ import com.koduck.entity.CommunitySignal;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -21,38 +22,52 @@ public interface CommunitySignalRepository extends JpaRepository<CommunitySignal
     /**
      *  ID 
      */
+    @EntityGraph(attributePaths = "user")
     Page<CommunitySignal> findByUserId(Long userId, Pageable pageable);
 
     /**
      * 
      */
+    @EntityGraph(attributePaths = "user")
     Page<CommunitySignal> findByStatus(CommunitySignal.Status status, Pageable pageable);
 
     /**
      * 
      */
+    @EntityGraph(attributePaths = "user")
     Page<CommunitySignal> findByIsFeaturedTrueAndStatus(Pageable pageable, CommunitySignal.Status status);
 
     /**
      * 
      */
+    @EntityGraph(attributePaths = "user")
     Page<CommunitySignal> findBySymbolContainingAndStatus(String symbol, CommunitySignal.Status status, Pageable pageable);
 
     /**
      * 
      */
+    @EntityGraph(attributePaths = "user")
     Page<CommunitySignal> findBySignalTypeAndStatus(CommunitySignal.SignalType signalType, CommunitySignal.Status status, Pageable pageable);
 
     /**
      * （）
      */
+    @EntityGraph(attributePaths = "user")
     @Query("SELECT s FROM CommunitySignal s WHERE s.status = :status ORDER BY (s.likeCount + s.subscribeCount * 2 + s.commentCount * 3) DESC")
     Page<CommunitySignal> findHotSignals(@Param("status") CommunitySignal.Status status, Pageable pageable);
 
     /**
      * 
      */
+    @EntityGraph(attributePaths = "user")
     List<CommunitySignal> findByUserIdOrderByCreatedAtDesc(Long userId);
+
+    /**
+     * 详情查询预加载 user，避免组装阶段触发额外查询。
+     */
+    @Override
+    @EntityGraph(attributePaths = "user")
+    java.util.Optional<CommunitySignal> findById(Long id);
 
     /**
      * 

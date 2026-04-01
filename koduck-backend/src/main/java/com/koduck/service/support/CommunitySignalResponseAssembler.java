@@ -31,8 +31,7 @@ public class CommunitySignalResponseAssembler {
             Set<Long> likedSignalIds,
             Set<Long> favoritedSignalIds,
             Set<Long> subscribedSignalIds) {
-        User user = userRepository.findById(Objects.requireNonNull(signal.getUserId(), "signal userId must not be null"))
-            .orElse(null);
+        User user = resolveSignalUser(signal);
         return SignalResponse.builder()
             .id(signal.getId())
             .userId(signal.getUserId())
@@ -63,6 +62,16 @@ public class CommunitySignalResponseAssembler {
             .createdAt(signal.getCreatedAt())
             .updatedAt(signal.getUpdatedAt())
             .build();
+    }
+
+    private User resolveSignalUser(CommunitySignal signal) {
+        Objects.requireNonNull(signal, "signal must not be null");
+        User user = signal.getUser();
+        if (user != null) {
+            return user;
+        }
+        Long userId = Objects.requireNonNull(signal.getUserId(), "signal userId must not be null");
+        return userRepository.findById(userId).orElse(null);
     }
 
     public SignalSubscriptionResponse toSubscriptionResponse(SignalSubscription subscription, CommunitySignal signal) {
