@@ -450,10 +450,15 @@
                         </goals>
                         <configuration>
                             <includes>
-                                <!-- Phase 2: gate classes with stable test ownership -->
+                                <!-- Phase 3: widen gate scope to 8 core classes -->
                                 <include>**/service/impl/MemoryServiceImpl.class</include>
                                 <include>**/service/impl/RateLimiterServiceImpl.class</include>
                                 <include>**/service/impl/MarketServiceImpl.class</include>
+                                <include>**/market/provider/ProviderFactory.class</include>
+                                <include>**/market/util/DataConverter.class</include>
+                                <include>**/service/market/support/USStockMockDataProvider.class</include>
+                                <include>**/util/SymbolUtils.class</include>
+                                <include>**/util/CollectionCopyUtils.class</include>
                             </includes>
                             <rules>
                                 <rule>

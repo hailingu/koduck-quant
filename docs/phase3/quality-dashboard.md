@@ -28,7 +28,7 @@
 
 - **最新数据**: [quality-metrics-2026-04-01.json](./quality-trend/quality-metrics-2026-04-01.json)
 - **历史趋势目录**: [quality-trend/](./quality-trend/)
-- **CI 报告**: GitHub Actions → [Quality Report](https://github.com/guhailin/koduck-quant/actions/workflows/quality-report.yml)
+- **CI 报告**: GitHub Actions → [CI Quality Gate](https://github.com/hailingu/koduck-quant/actions/workflows/ci-quality-gate.yml)
 
 ### 本地查看
 
@@ -205,7 +205,7 @@ graph LR
 ### 手动触发
 
 在 GitHub 仓库页面：
-1. 进入 **Actions** → **Quality Report**
+1. 进入 **Actions** → **CI Quality Gate**
 2. 点击 **Run workflow**
 3. 可选：指定日期或启用模拟模式
 
@@ -263,4 +263,4 @@ sudo apt-get install jq
 
 ---
 
-**维护说明**: 本看板由 CI 自动更新，如需修改配置请编辑 `.github/workflows/quality-report.yml` 和 `scripts/quality-metrics-collector.sh`。
+**维护说明**: 本看板由 CI 自动更新，如需修改配置请编辑 `.github/workflows/ci-quality-gate.yml` 和 `scripts/quality-metrics-collector.sh`。

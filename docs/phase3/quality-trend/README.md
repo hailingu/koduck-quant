@@ -74,7 +74,7 @@ ls -lt quality-metrics-*.json
 
 质量数据由 GitHub Actions 自动采集：
 - **定时触发**: 每周一凌晨 2:00 UTC
-- **工作流**: `.github/workflows/quality-report.yml`
+- **工作流**: `.github/workflows/ci-quality-gate.yml`
 - **采集脚本**: `scripts/quality-metrics-collector.sh`
 
 ## 相关文档
