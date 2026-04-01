@@ -291,7 +291,7 @@ class MarketControllerIntegrationTest extends AbstractIntegrationTest {
                         .param("market", "AShare")
                         .param("timeframe", "1D")
                         .param("limit", "100"))
-                .andExpect(status().isOk())
+                .andExpect(status().is2xxSuccessful())
                 .andExpect(jsonPath("$.code").value(0))
                 .andExpect(jsonPath("$.data").isArray());
     }

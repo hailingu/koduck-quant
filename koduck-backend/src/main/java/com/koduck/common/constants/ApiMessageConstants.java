@@ -21,6 +21,7 @@ public final class ApiMessageConstants {
     public static final String MARKET_BREADTH_NOT_FOUND = "未找到市场涨跌宽度数据";
     public static final String SECTOR_NET_FLOW_NOT_FOUND = "未找到板块净流向数据";
     public static final String CAPITAL_RIVER_NOT_FOUND = "未找到资金河流图数据";
+    public static final String KLINE_SYNC_ACCEPTED = "K-line sync accepted; data is being prepared";
 
     private ApiMessageConstants() {
     }

@@ -1,10 +1,16 @@
 package com.koduck.controller;
 
+import com.koduck.common.constants.ApiMessageConstants;
+import com.koduck.dto.market.KlineDataDto;
 import com.koduck.dto.market.MarketIndexDto;
 import com.koduck.dto.market.PriceQuoteDto;
 import com.koduck.dto.market.StockIndustryDto;
 import com.koduck.dto.market.StockValuationDto;
 import com.koduck.dto.market.SymbolInfoDto;
+import com.koduck.service.KlineSyncService;
+import com.koduck.service.KlineService;
+import com.koduck.service.MarketBreadthService;
+import com.koduck.service.MarketFlowService;
 import com.koduck.service.MarketService;
 import jakarta.validation.constraints.Size;
 import org.junit.jupiter.api.BeforeEach;
@@ -36,6 +42,18 @@ class MarketControllerTest {
 
     @Mock
     private MarketService marketService;
+
+    @Mock
+    private MarketFlowService marketFlowService;
+
+    @Mock
+    private MarketBreadthService marketBreadthService;
+
+    @Mock
+    private KlineService klineService;
+
+    @Mock
+    private KlineSyncService klineSyncService;
 
     @InjectMocks
     private MarketController marketController;
@@ -211,6 +229,55 @@ class MarketControllerTest {
                 .andExpect(jsonPath("$.data[0].name").value("上证指数"));
 
         verify(marketService).getMarketIndices();
+    }
+
+    @Test
+    @DisplayName("K线数据 - 已有数据时返回200")
+    void getStockKline_withAvailableData_shouldReturnOk() throws Exception {
+        KlineDataDto klineData = KlineDataDto.builder()
+                .timestamp(1704067200000L)
+                .open(new BigDecimal("12.30"))
+                .high(new BigDecimal("12.80"))
+                .low(new BigDecimal("12.20"))
+                .close(new BigDecimal("12.50"))
+                .volume(1000000L)
+                .amount(new BigDecimal("12500000"))
+                .build();
+        when(klineService.getKlineData("AShare", "000001", "1D", 100, null)).thenReturn(List.of(klineData));
+
+        mockMvc.perform(get("/api/v1/market/stocks/{symbol}/kline", "000001")
+                        .param("market", "AShare")
+                        .param("timeframe", "1D")
+                        .param("limit", "100")
+                        .contentType(jsonMediaType()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(0))
+                .andExpect(jsonPath("$.data").isArray())
+                .andExpect(jsonPath("$.data[0].close").value(12.50));
+
+        verify(klineService).getKlineData("AShare", "000001", "1D", 100, null);
+        verifyNoInteractions(klineSyncService);
+    }
+
+    @Test
+    @DisplayName("K线数据 - 触发异步同步时返回202")
+    void getStockKline_whenSyncTriggered_shouldReturnAccepted() throws Exception {
+        when(klineService.getKlineData("AShare", "000001", "1D", 100, null)).thenReturn(List.of());
+        when(klineSyncService.requestSyncSymbolKline("AShare", "000001", "1D")).thenReturn(true);
+
+        mockMvc.perform(get("/api/v1/market/stocks/{symbol}/kline", "000001")
+                        .param("market", "AShare")
+                        .param("timeframe", "1D")
+                        .param("limit", "100")
+                        .contentType(jsonMediaType()))
+                .andExpect(status().isAccepted())
+                .andExpect(jsonPath("$.code").value(0))
+                .andExpect(jsonPath("$.message").value(ApiMessageConstants.KLINE_SYNC_ACCEPTED))
+                .andExpect(jsonPath("$.data").isArray())
+                .andExpect(jsonPath("$.data").isEmpty());
+
+        verify(klineService).getKlineData("AShare", "000001", "1D", 100, null);
+        verify(klineSyncService).requestSyncSymbolKline("AShare", "000001", "1D");
     }
 
     @Test
