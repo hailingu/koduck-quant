@@ -1,6 +1,8 @@
 -- ==========================================
--- Baseline migration
--- Single source of truth for schema bootstrap in the next development phase.
+-- Baseline migration (rebased)
+-- Single source of truth for NEW-environment schema bootstrap.
+-- Historical migration compatibility is intentionally dropped.
+-- Issue: #296
 -- ==========================================
 
 
@@ -1630,3 +1632,609 @@ ALTER TABLE user_signal_stats
     ADD CONSTRAINT uk_user_signal_stats_user_id UNIQUE (user_id);
 
 -- ===== END: V25__normalize_unique_constraints_for_user_tables.sql =====
+
+
+-- ==========================================
+-- BEGIN: Rebased incremental migrations (legacy V2-V7, V26-V27)
+-- NOTE: This repository intentionally rebases Flyway for NEW environments only.
+-- ==========================================
+
+
+
+-- ===== BEGIN REBASED: V2__market_daily_net_flow.sql =====
+
+-- Market daily net flow aggregate table
+-- Stores per-market, per-flow-type daily snapshot metrics for dashboard indicators.
+
+CREATE TABLE IF NOT EXISTS market_daily_net_flow (
+    id BIGSERIAL PRIMARY KEY,
+    market VARCHAR(20) NOT NULL,
+    flow_type VARCHAR(20) NOT NULL,
+    trade_date DATE NOT NULL,
+    net_inflow DECIMAL(20, 2) NOT NULL DEFAULT 0,
+    total_inflow DECIMAL(20, 2),
+    total_outflow DECIMAL(20, 2),
+    currency VARCHAR(10) NOT NULL DEFAULT 'CNY',
+    source VARCHAR(50) NOT NULL,
+    quality VARCHAR(20) NOT NULL DEFAULT 'ESTIMATED',
+    snapshot_time TIMESTAMP NOT NULL,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT uk_market_daily_net_flow UNIQUE (market, flow_type, trade_date)
+);
+
+CREATE INDEX IF NOT EXISTS idx_market_daily_net_flow_market_flow_date
+    ON market_daily_net_flow (market, flow_type, trade_date DESC);
+
+COMMENT ON TABLE market_daily_net_flow IS '市场日资金流聚合表（按市场/口径/交易日）';
+COMMENT ON COLUMN market_daily_net_flow.market IS '市场代码，如 AShare';
+COMMENT ON COLUMN market_daily_net_flow.flow_type IS '资金流口径，如 MAIN_FORCE';
+COMMENT ON COLUMN market_daily_net_flow.trade_date IS '交易日（Asia/Shanghai）';
+COMMENT ON COLUMN market_daily_net_flow.net_inflow IS '当日净流入（元）';
+COMMENT ON COLUMN market_daily_net_flow.total_inflow IS '当日流入（元）';
+COMMENT ON COLUMN market_daily_net_flow.total_outflow IS '当日流出（元）';
+COMMENT ON COLUMN market_daily_net_flow.source IS '数据源，如 AKSHARE';
+COMMENT ON COLUMN market_daily_net_flow.quality IS '数据质量：OFFICIAL/ESTIMATED/FALLBACK';
+
+
+-- ===== END REBASED: V2__market_daily_net_flow.sql =====
+
+
+-- ===== BEGIN REBASED: V3__market_daily_breadth.sql =====
+
+-- Market daily breadth aggregate table
+-- Stores per-market daily breadth counts for dashboard ratio card.
+
+CREATE TABLE IF NOT EXISTS market_daily_breadth (
+    id BIGSERIAL PRIMARY KEY,
+    market VARCHAR(20) NOT NULL,
+    breadth_type VARCHAR(20) NOT NULL,
+    trade_date DATE NOT NULL,
+    gainers INTEGER NOT NULL DEFAULT 0,
+    losers INTEGER NOT NULL DEFAULT 0,
+    unchanged INTEGER NOT NULL DEFAULT 0,
+    suspended INTEGER,
+    total_stocks INTEGER NOT NULL DEFAULT 0,
+    advance_decline_line INTEGER NOT NULL DEFAULT 0,
+    source VARCHAR(50) NOT NULL,
+    quality VARCHAR(20) NOT NULL DEFAULT 'OFFICIAL',
+    snapshot_time TIMESTAMP NOT NULL,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT uk_market_daily_breadth UNIQUE (market, breadth_type, trade_date)
+);
+
+CREATE INDEX IF NOT EXISTS idx_market_daily_breadth_market_type_date
+    ON market_daily_breadth (market, breadth_type, trade_date DESC);
+
+COMMENT ON TABLE market_daily_breadth IS '市场日涨跌宽度聚合表（按市场/口径/交易日）';
+COMMENT ON COLUMN market_daily_breadth.market IS '市场代码，如 AShare';
+COMMENT ON COLUMN market_daily_breadth.breadth_type IS '宽度口径，如 ALL_A';
+COMMENT ON COLUMN market_daily_breadth.trade_date IS '交易日（Asia/Shanghai）';
+COMMENT ON COLUMN market_daily_breadth.gainers IS '上涨家数';
+COMMENT ON COLUMN market_daily_breadth.losers IS '下跌家数';
+COMMENT ON COLUMN market_daily_breadth.unchanged IS '平盘家数';
+COMMENT ON COLUMN market_daily_breadth.suspended IS '停牌家数';
+COMMENT ON COLUMN market_daily_breadth.total_stocks IS '统计总家数';
+COMMENT ON COLUMN market_daily_breadth.advance_decline_line IS '涨跌差（上涨-下跌）';
+COMMENT ON COLUMN market_daily_breadth.source IS '数据源，如 AKSHARE_MARKET_ACTIVITY_LEGU';
+COMMENT ON COLUMN market_daily_breadth.quality IS '数据质量：OFFICIAL/ESTIMATED/PARTIAL';
+
+
+-- ===== END REBASED: V3__market_daily_breadth.sql =====
+
+
+-- ===== BEGIN REBASED: V4__market_sector_net_flow.sql =====
+
+-- Market sector net-flow snapshot table
+-- Stores per-market, per-indicator, per-sector-type net-flow metrics for dashboard Capital River.
+
+CREATE TABLE IF NOT EXISTS market_sector_net_flow (
+    id BIGSERIAL PRIMARY KEY,
+    market VARCHAR(20) NOT NULL,
+    indicator VARCHAR(20) NOT NULL,
+    trade_date DATE NOT NULL,
+    sector_type VARCHAR(20) NOT NULL,
+    sector_name VARCHAR(100) NOT NULL,
+    main_force_net DECIMAL(20, 2) NOT NULL DEFAULT 0,
+    retail_net DECIMAL(20, 2) NOT NULL DEFAULT 0,
+    super_big_net DECIMAL(20, 2),
+    big_net DECIMAL(20, 2),
+    medium_net DECIMAL(20, 2),
+    small_net DECIMAL(20, 2),
+    change_pct DECIMAL(10, 4),
+    source VARCHAR(50) NOT NULL,
+    quality VARCHAR(20) NOT NULL DEFAULT 'OFFICIAL',
+    snapshot_time TIMESTAMP NOT NULL,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT uk_market_sector_net_flow UNIQUE (market, indicator, trade_date, sector_type, sector_name)
+);
+
+CREATE INDEX IF NOT EXISTS idx_market_sector_net_flow_market_indicator_date
+    ON market_sector_net_flow (market, indicator, trade_date DESC);
+
+CREATE INDEX IF NOT EXISTS idx_market_sector_net_flow_sector_type
+    ON market_sector_net_flow (sector_type, trade_date DESC);
+
+COMMENT ON TABLE market_sector_net_flow IS '市场板块净流向快照表（行业/概念/地域）';
+COMMENT ON COLUMN market_sector_net_flow.market IS '市场代码，如 AShare';
+COMMENT ON COLUMN market_sector_net_flow.indicator IS '统计周期，如 TODAY/5D/10D';
+COMMENT ON COLUMN market_sector_net_flow.trade_date IS '交易日（Asia/Shanghai）';
+COMMENT ON COLUMN market_sector_net_flow.sector_type IS '板块类型：industry/concept/region';
+COMMENT ON COLUMN market_sector_net_flow.sector_name IS '板块名称';
+COMMENT ON COLUMN market_sector_net_flow.main_force_net IS '主力净流入净额（元）';
+COMMENT ON COLUMN market_sector_net_flow.retail_net IS '散户净流入净额（中单+小单，元）';
+COMMENT ON COLUMN market_sector_net_flow.super_big_net IS '超大单净流入净额（元）';
+COMMENT ON COLUMN market_sector_net_flow.big_net IS '大单净流入净额（元）';
+COMMENT ON COLUMN market_sector_net_flow.medium_net IS '中单净流入净额（元）';
+COMMENT ON COLUMN market_sector_net_flow.small_net IS '小单净流入净额（元）';
+COMMENT ON COLUMN market_sector_net_flow.change_pct IS '当日涨跌幅（%）';
+COMMENT ON COLUMN market_sector_net_flow.source IS '数据源，如 AKSHARE_STOCK_SECTOR_FUND_FLOW_RANK';
+COMMENT ON COLUMN market_sector_net_flow.quality IS '数据质量：OFFICIAL/ESTIMATED/PARTIAL';
+
+
+-- ===== END REBASED: V4__market_sector_net_flow.sql =====
+
+
+-- ===== BEGIN REBASED: V5__kline_file_manifest.sql =====
+
+-- K-line file import manifest table
+-- Track imported local files by content hash for incremental startup loading.
+
+CREATE TABLE IF NOT EXISTS kline_file_manifest (
+    id BIGSERIAL PRIMARY KEY,
+    file_path TEXT NOT NULL UNIQUE,
+    file_hash VARCHAR(64) NOT NULL,
+    market VARCHAR(20) NOT NULL DEFAULT 'AShare',
+    symbol VARCHAR(20),
+    timeframe VARCHAR(10),
+    record_count INTEGER NOT NULL DEFAULT 0,
+    max_kline_time TIMESTAMP,
+    imported_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_kline_file_manifest_symbol_tf
+ON kline_file_manifest(symbol, timeframe);
+
+CREATE INDEX IF NOT EXISTS idx_kline_file_manifest_imported_at
+ON kline_file_manifest(imported_at DESC);
+
+
+-- ===== END REBASED: V5__kline_file_manifest.sql =====
+
+
+-- ===== BEGIN REBASED: V6__kline_add_preclose_suspend.sql =====
+
+-- Add extra kline dimensions for daily bars
+-- pre_close_price: previous close
+-- is_suspended: suspension status (1 suspended, 0 active)
+
+ALTER TABLE kline_data
+    ADD COLUMN IF NOT EXISTS pre_close_price DECIMAL(18, 8);
+
+ALTER TABLE kline_data
+    ADD COLUMN IF NOT EXISTS is_suspended BOOLEAN NOT NULL DEFAULT FALSE;
+
+
+-- ===== END REBASED: V6__kline_add_preclose_suspend.sql =====
+
+
+-- ===== BEGIN REBASED: V7__rebuild_kline_partitioned.sql =====
+
+-- Rebuild kline_data as a partitioned table.
+-- NOTE: This migration intentionally drops the old table and all existing kline rows.
+
+DROP TABLE IF EXISTS kline_data CASCADE;
+
+CREATE TABLE kline_data (
+    id BIGINT GENERATED BY DEFAULT AS IDENTITY,
+    market VARCHAR(20) NOT NULL,
+    symbol VARCHAR(20) NOT NULL,
+    timeframe VARCHAR(10) NOT NULL,
+    kline_time TIMESTAMP NOT NULL,
+    open_price DECIMAL(18, 8) NOT NULL,
+    high_price DECIMAL(18, 8) NOT NULL,
+    low_price DECIMAL(18, 8) NOT NULL,
+    close_price DECIMAL(18, 8) NOT NULL,
+    volume BIGINT,
+    amount DECIMAL(24, 8),
+    pre_close_price DECIMAL(18, 8),
+    is_suspended BOOLEAN NOT NULL DEFAULT FALSE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT kline_data_pkey PRIMARY KEY (id, timeframe, kline_time),
+    CONSTRAINT uk_kline_data UNIQUE (market, symbol, timeframe, kline_time)
+) PARTITION BY LIST (timeframe);
+
+COMMENT ON TABLE kline_data IS 'Historical K-line data, partitioned by timeframe and kline_time';
+
+-- Level-1 partitions by timeframe, each sub-partitioned by time range.
+CREATE TABLE kline_data_tf_1m PARTITION OF kline_data
+    FOR VALUES IN ('1m') PARTITION BY RANGE (kline_time);
+CREATE TABLE kline_data_tf_5m PARTITION OF kline_data
+    FOR VALUES IN ('5m') PARTITION BY RANGE (kline_time);
+CREATE TABLE kline_data_tf_15m PARTITION OF kline_data
+    FOR VALUES IN ('15m') PARTITION BY RANGE (kline_time);
+CREATE TABLE kline_data_tf_30m PARTITION OF kline_data
+    FOR VALUES IN ('30m') PARTITION BY RANGE (kline_time);
+CREATE TABLE kline_data_tf_60m PARTITION OF kline_data
+    FOR VALUES IN ('60m') PARTITION BY RANGE (kline_time);
+CREATE TABLE kline_data_tf_1d PARTITION OF kline_data
+    FOR VALUES IN ('1D') PARTITION BY RANGE (kline_time);
+CREATE TABLE kline_data_tf_1w PARTITION OF kline_data
+    FOR VALUES IN ('1W') PARTITION BY RANGE (kline_time);
+CREATE TABLE kline_data_tf_1mon PARTITION OF kline_data
+    FOR VALUES IN ('1M') PARTITION BY RANGE (kline_time);
+
+-- Fallback for unexpected timeframes to prevent ingestion failures.
+CREATE TABLE kline_data_tf_default PARTITION OF kline_data DEFAULT;
+
+-- Minute partitions: monthly partitions from 2020-01 to 2030-12.
+DO $$
+DECLARE
+    tf TEXT;
+    start_ts DATE;
+    end_ts DATE;
+    parent_name TEXT;
+    leaf_name TEXT;
+BEGIN
+    FOR tf IN SELECT unnest(ARRAY['1m', '5m', '15m', '30m', '60m']) LOOP
+        parent_name := format('kline_data_tf_%s', lower(tf));
+        start_ts := DATE '2020-01-01';
+        WHILE start_ts < DATE '2031-01-01' LOOP
+            end_ts := (start_ts + INTERVAL '1 month')::DATE;
+            leaf_name := format('kline_data_%s_%s', lower(tf), to_char(start_ts, 'YYYY_MM'));
+            EXECUTE format(
+                'CREATE TABLE IF NOT EXISTS %I PARTITION OF %I FOR VALUES FROM (%L) TO (%L)',
+                leaf_name,
+                parent_name,
+                start_ts,
+                end_ts
+            );
+            start_ts := end_ts;
+        END LOOP;
+    END LOOP;
+END $$;
+
+-- Daily/Weekly/Monthly partitions: yearly partitions from 1990 to 2030.
+DO $$
+DECLARE
+    tf TEXT;
+    tf_name TEXT;
+    start_ts DATE;
+    end_ts DATE;
+    parent_name TEXT;
+    leaf_name TEXT;
+BEGIN
+    FOR tf, tf_name IN
+        SELECT * FROM (VALUES
+            ('1D', '1d'),
+            ('1W', '1w'),
+            ('1M', '1mon')
+        ) AS t(tf, tf_name)
+    LOOP
+        parent_name := format('kline_data_tf_%s', tf_name);
+        start_ts := DATE '1990-01-01';
+        WHILE start_ts < DATE '2031-01-01' LOOP
+            end_ts := (start_ts + INTERVAL '1 year')::DATE;
+            leaf_name := format('kline_data_%s_%s', tf_name, to_char(start_ts, 'YYYY'));
+            EXECUTE format(
+                'CREATE TABLE IF NOT EXISTS %I PARTITION OF %I FOR VALUES FROM (%L) TO (%L)',
+                leaf_name,
+                parent_name,
+                start_ts,
+                end_ts
+            );
+            start_ts := end_ts;
+        END LOOP;
+    END LOOP;
+END $$;
+
+-- Parent-level indexes for common query patterns.
+CREATE INDEX IF NOT EXISTS idx_kline_market_symbol ON kline_data(market, symbol);
+CREATE INDEX IF NOT EXISTS idx_kline_timeframe ON kline_data(timeframe);
+CREATE INDEX IF NOT EXISTS idx_kline_time ON kline_data(kline_time);
+CREATE INDEX IF NOT EXISTS idx_kline_composite ON kline_data(market, symbol, timeframe, kline_time DESC);
+
+
+-- ===== END REBASED: V7__rebuild_kline_partitioned.sql =====
+
+
+-- ===== BEGIN REBASED: V26__cleanup_memory_l2_themes.sql =====
+
+-- V26: Cleanup memory_l2_themes table - remove deprecated fields
+-- Issue: Clean up redundant fields after V2 architecture simplification
+
+-- Step 1: Backup existing data (optional safety)
+-- CREATE TABLE IF NOT EXISTS memory_l2_themes_backup AS SELECT * FROM memory_l2_themes;
+
+-- Step 2: Rename and consolidate fields
+-- Merge aggregated_summary and theme_description into summary, then rename to description
+ALTER TABLE memory_l2_themes 
+    ADD COLUMN IF NOT EXISTS description TEXT;
+
+-- Migrate data with runtime column-existence checks
+DO $$
+DECLARE
+    has_aggregated_summary BOOLEAN;
+    has_theme_description BOOLEAN;
+BEGIN
+    SELECT EXISTS (
+        SELECT 1
+        FROM information_schema.columns
+        WHERE table_schema = 'public'
+          AND table_name = 'memory_l2_themes'
+          AND column_name = 'aggregated_summary'
+    ) INTO has_aggregated_summary;
+
+    SELECT EXISTS (
+        SELECT 1
+        FROM information_schema.columns
+        WHERE table_schema = 'public'
+          AND table_name = 'memory_l2_themes'
+          AND column_name = 'theme_description'
+    ) INTO has_theme_description;
+
+    IF has_aggregated_summary AND has_theme_description THEN
+        EXECUTE $sql$
+            UPDATE memory_l2_themes
+            SET description = COALESCE(aggregated_summary, theme_description, '')
+            WHERE description IS NULL OR description = ''
+        $sql$;
+    ELSIF has_aggregated_summary THEN
+        EXECUTE $sql$
+            UPDATE memory_l2_themes
+            SET description = COALESCE(aggregated_summary, '')
+            WHERE description IS NULL OR description = ''
+        $sql$;
+    ELSIF has_theme_description THEN
+        EXECUTE $sql$
+            UPDATE memory_l2_themes
+            SET description = COALESCE(theme_description, '')
+            WHERE description IS NULL OR description = ''
+        $sql$;
+    ELSE
+        EXECUTE $sql$
+            UPDATE memory_l2_themes
+            SET description = ''
+            WHERE description IS NULL
+        $sql$;
+    END IF;
+END
+$$;
+
+-- Step 3: Merge related_keywords into keywords
+DO $$
+BEGIN
+    IF EXISTS (
+        SELECT 1
+        FROM information_schema.columns
+        WHERE table_schema = 'public'
+          AND table_name = 'memory_l2_themes'
+          AND column_name = 'related_keywords'
+    ) THEN
+        EXECUTE $sql$
+            UPDATE memory_l2_themes
+            SET keywords = array_cat(keywords, related_keywords)
+            WHERE related_keywords IS NOT NULL
+              AND array_length(related_keywords, 1) > 0
+        $sql$;
+    END IF;
+END
+$$;
+
+-- Deduplicate keywords after merge
+UPDATE memory_l2_themes 
+SET keywords = ARRAY(
+    SELECT DISTINCT unnest(keywords)
+    LIMIT 20
+);
+
+-- Step 4: Rename first_seen_at to created_at
+DO $$
+BEGIN
+    IF EXISTS (
+        SELECT 1
+        FROM information_schema.columns
+        WHERE table_schema = 'public'
+          AND table_name = 'memory_l2_themes'
+          AND column_name = 'first_seen_at'
+    ) AND NOT EXISTS (
+        SELECT 1
+        FROM information_schema.columns
+        WHERE table_schema = 'public'
+          AND table_name = 'memory_l2_themes'
+          AND column_name = 'created_at'
+    ) THEN
+        ALTER TABLE memory_l2_themes RENAME COLUMN first_seen_at TO created_at;
+    END IF;
+END
+$$;
+
+-- Step 5: Drop deprecated columns
+ALTER TABLE memory_l2_themes
+    DROP COLUMN IF EXISTS theme_description,
+    DROP COLUMN IF EXISTS aggregated_summary,
+    DROP COLUMN IF EXISTS summary,
+    DROP COLUMN IF EXISTS related_keywords,
+    DROP COLUMN IF EXISTS page_ids,
+    DROP COLUMN IF EXISTS access_count;
+
+-- Step 6: Ensure defaults are correct
+ALTER TABLE memory_l2_themes 
+    ALTER COLUMN keywords SET DEFAULT '{}',
+    ALTER COLUMN summary_l1_ids SET DEFAULT '{}',
+    ALTER COLUMN summary_count SET DEFAULT 0,
+    ALTER COLUMN created_at SET DEFAULT CURRENT_TIMESTAMP,
+    ALTER COLUMN updated_at SET DEFAULT CURRENT_TIMESTAMP;
+
+-- Step 7: Add comment for documentation
+COMMENT ON TABLE memory_l2_themes IS 'Memory System V2: L2 Themes (aggregated long-term memory)';
+COMMENT ON COLUMN memory_l2_themes.description IS 'Theme description/summary aggregated from L1 summaries';
+COMMENT ON COLUMN memory_l2_themes.keywords IS 'Theme keywords (merged from related_keywords)';
+COMMENT ON COLUMN memory_l2_themes.summary_l1_ids IS 'IDs of related L1 summaries';
+COMMENT ON COLUMN memory_l2_themes.summary_count IS 'Cached count of related L1 summaries';
+
+
+-- ===== END REBASED: V26__cleanup_memory_l2_themes.sql =====
+
+
+-- ===== BEGIN REBASED: V27__optimize_memory_l1_summaries.sql =====
+
+-- V27: Optimize memory_l1_summaries table structure
+-- Simplify fields based on方案2 (平衡版)
+
+DO $$
+DECLARE
+    has_table BOOLEAN;
+BEGIN
+    SELECT EXISTS (
+        SELECT 1
+        FROM information_schema.tables
+        WHERE table_schema = 'public'
+          AND table_name = 'memory_l1_summaries'
+    ) INTO has_table;
+
+    IF NOT has_table THEN
+        RAISE NOTICE 'Skip V27: table memory_l1_summaries does not exist';
+        RETURN;
+    END IF;
+
+    -- Step 1: Add new columns
+    ALTER TABLE IF EXISTS memory_l1_summaries
+        ADD COLUMN IF NOT EXISTS highlights TEXT[],
+        ADD COLUMN IF NOT EXISTS value_factors JSONB DEFAULT '{}',
+        ADD COLUMN IF NOT EXISTS tags TEXT[];
+
+    -- Step 2.1: Merge summary_detail into summary
+    IF EXISTS (
+        SELECT 1
+        FROM information_schema.columns
+        WHERE table_schema = 'public'
+          AND table_name = 'memory_l1_summaries'
+          AND column_name = 'summary_detail'
+    ) THEN
+        EXECUTE $sql$
+            UPDATE memory_l1_summaries
+            SET summary = CASE
+                WHEN summary_detail IS NOT NULL AND summary_detail != ''
+                    THEN summary || E'\n\n[详细]' || summary_detail
+                ELSE summary
+            END
+            WHERE summary_detail IS NOT NULL AND summary_detail != ''
+        $sql$;
+    END IF;
+
+    -- Step 2.2: Migrate key_points to highlights
+    IF EXISTS (
+        SELECT 1
+        FROM information_schema.columns
+        WHERE table_schema = 'public'
+          AND table_name = 'memory_l1_summaries'
+          AND column_name = 'key_points'
+    ) THEN
+        EXECUTE $sql$
+            UPDATE memory_l1_summaries
+            SET highlights = key_points
+            WHERE highlights IS NULL AND key_points IS NOT NULL
+        $sql$;
+    END IF;
+
+    -- Step 2.3: Build value_factors JSONB from legacy columns
+    IF EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_schema='public' AND table_name='memory_l1_summaries' AND column_name='value_importance'
+    ) AND EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_schema='public' AND table_name='memory_l1_summaries' AND column_name='value_novelty'
+    ) AND EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_schema='public' AND table_name='memory_l1_summaries' AND column_name='value_intent'
+    ) THEN
+        EXECUTE $sql$
+            UPDATE memory_l1_summaries
+            SET value_factors = jsonb_build_object(
+                'importance', COALESCE(value_importance, 0),
+                'novelty', COALESCE(value_novelty, 0),
+                'intent', COALESCE(value_intent, 0)
+            )::jsonb
+            WHERE value_factors IS NULL OR value_factors = '{}'
+        $sql$;
+    END IF;
+
+    -- Step 2.4: Migrate category_tags to tags
+    IF EXISTS (
+        SELECT 1
+        FROM information_schema.columns
+        WHERE table_schema = 'public'
+          AND table_name = 'memory_l1_summaries'
+          AND column_name = 'category_tags'
+    ) THEN
+        EXECUTE $sql$
+            UPDATE memory_l1_summaries
+            SET tags = category_tags
+            WHERE tags IS NULL AND category_tags IS NOT NULL
+        $sql$;
+    END IF;
+
+    -- Step 3: Drop deprecated columns
+    ALTER TABLE IF EXISTS memory_l1_summaries
+        DROP COLUMN IF EXISTS summary_detail,
+        DROP COLUMN IF EXISTS chat_digest,
+        DROP COLUMN IF EXISTS message_count,
+        DROP COLUMN IF EXISTS value_importance,
+        DROP COLUMN IF EXISTS value_density,
+        DROP COLUMN IF EXISTS value_timeliness,
+        DROP COLUMN IF EXISTS value_novelty,
+        DROP COLUMN IF EXISTS value_intent,
+        DROP COLUMN IF EXISTS is_auto_generated,
+        DROP COLUMN IF EXISTS access_count,
+        DROP COLUMN IF EXISTS last_accessed_at,
+        DROP COLUMN IF EXISTS key_points,
+        DROP COLUMN IF EXISTS category_tags;
+
+    -- Step 4: Set defaults only for existing columns
+    IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='memory_l1_summaries' AND column_name='highlights') THEN
+        ALTER TABLE memory_l1_summaries ALTER COLUMN highlights SET DEFAULT '{}';
+    END IF;
+    IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='memory_l1_summaries' AND column_name='value_factors') THEN
+        ALTER TABLE memory_l1_summaries ALTER COLUMN value_factors SET DEFAULT '{}';
+    END IF;
+    IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='memory_l1_summaries' AND column_name='tags') THEN
+        ALTER TABLE memory_l1_summaries ALTER COLUMN tags SET DEFAULT '{}';
+    END IF;
+    IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='memory_l1_summaries' AND column_name='extracted_entities') THEN
+        ALTER TABLE memory_l1_summaries ALTER COLUMN extracted_entities SET DEFAULT '[]';
+    END IF;
+    IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='memory_l1_summaries' AND column_name='meta') THEN
+        ALTER TABLE memory_l1_summaries ALTER COLUMN meta SET DEFAULT '{}';
+    END IF;
+
+    -- Step 5: Comments
+    COMMENT ON TABLE memory_l1_summaries IS 'Memory System V2: L1 Session Summaries';
+    IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='memory_l1_summaries' AND column_name='summary') THEN
+        COMMENT ON COLUMN memory_l1_summaries.summary IS 'Core summary content (merged from summary + summary_detail + chat_digest)';
+    END IF;
+    IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='memory_l1_summaries' AND column_name='highlights') THEN
+        COMMENT ON COLUMN memory_l1_summaries.highlights IS 'Key points/highlights extracted from conversation';
+    END IF;
+    IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='memory_l1_summaries' AND column_name='value_factors') THEN
+        COMMENT ON COLUMN memory_l1_summaries.value_factors IS 'JSON object with importance, novelty, intent scores';
+    END IF;
+    IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='memory_l1_summaries' AND column_name='tags') THEN
+        COMMENT ON COLUMN memory_l1_summaries.tags IS 'Category tags for classification';
+    END IF;
+    IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='memory_l1_summaries' AND column_name='extracted_entities') THEN
+        COMMENT ON COLUMN memory_l1_summaries.extracted_entities IS 'JSON array of extracted entities';
+    END IF;
+    IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='memory_l1_summaries' AND column_name='meta') THEN
+        COMMENT ON COLUMN memory_l1_summaries.meta IS 'Additional metadata (JSONB)';
+    END IF;
+END
+$$;
+
+
+-- ===== END REBASED: V27__optimize_memory_l1_summaries.sql =====
