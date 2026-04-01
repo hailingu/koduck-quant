@@ -144,6 +144,10 @@ mvn spring-boot:run
 
 - Provider 抽象统一 ADR：`ADR-0016-market-provider-abstraction-unification.md`
 
+## 持久化性能治理
+
+- JDBC Batch 优化 ADR：`ADR-0017-jdbc-batch-for-bulk-persistence.md`
+
 ## 测试
 
 ```bash

@@ -24,6 +24,11 @@ spring:
       hibernate:
         format_sql: true
         dialect: org.hibernate.dialect.PostgreSQLDialect
+        jdbc:
+          batch_size: ${JPA_JDBC_BATCH_SIZE:50}
+          batch_versioned_data: true
+        order_inserts: true
+        order_updates: true
   flyway:
     enabled: true
   config:
