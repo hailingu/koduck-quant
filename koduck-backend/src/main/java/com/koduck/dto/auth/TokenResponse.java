@@ -23,7 +23,7 @@ public class TokenResponse {
         this.refreshToken = refreshToken;
         this.expiresIn = expiresIn;
         this.tokenType = tokenType;
-        setUser(user);
+        this.user = copyUserInfo(user);
     }
 
     public static Builder builder() {
@@ -100,9 +100,12 @@ public class TokenResponse {
     }
 
     public void setUser(UserInfo user) {
+        this.user = copyUserInfo(user);
+    }
+
+    private static UserInfo copyUserInfo(UserInfo user) {
         if (user == null) {
-            this.user = null;
-            return;
+            return null;
         }
         UserInfo copy = new UserInfo();
         copy.setId(user.getId());
@@ -114,6 +117,6 @@ public class TokenResponse {
         copy.setEmailVerifiedAt(user.getEmailVerifiedAt());
         copy.setLastLoginAt(user.getLastLoginAt());
         copy.setRoles(CollectionCopyUtils.copyList(user.getRoles()));
-        this.user = copy;
+        return copy;
     }
 }

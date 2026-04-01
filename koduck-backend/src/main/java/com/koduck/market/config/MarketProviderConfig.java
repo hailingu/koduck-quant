@@ -17,7 +17,7 @@ import org.springframework.context.annotation.Configuration;
 @Configuration
 public class MarketProviderConfig {
     
-    private static final Logger log = LoggerFactory.getLogger(MarketProviderConfig.class);
+    private static final Logger LOG = LoggerFactory.getLogger(MarketProviderConfig.class);
     
     @Bean
     public ProviderFactory providerFactory() {
@@ -29,22 +29,22 @@ public class MarketProviderConfig {
                                                AKShareDataProvider akShareDataProvider,
                                                USStockProvider usStockProvider) {
         return (ApplicationArguments args) -> {
-            log.info("Registering market data providers...");
+            LOG.info("Registering market data providers...");
             
             // Register A-Share provider
             providerFactory.registerProvider(akShareDataProvider);
-            log.info("Registered provider: {} for market {}", 
+            LOG.info("Registered provider: {} for market {}", 
                     akShareDataProvider.getProviderName(), 
                     akShareDataProvider.getMarketType());
             
             // Register US Stock provider
             providerFactory.registerProvider(usStockProvider);
-            log.info("Registered provider: {} for market {}", 
+            LOG.info("Registered provider: {} for market {}", 
                     usStockProvider.getProviderName(), 
                     usStockProvider.getMarketType());
             
             // Log registered markets
-            log.info("Supported markets: {}", providerFactory.getSupportedMarkets());
+            LOG.info("Supported markets: {}", providerFactory.getSupportedMarkets());
         };
     }
 }

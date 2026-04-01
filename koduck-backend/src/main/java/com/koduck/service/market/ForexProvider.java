@@ -44,7 +44,7 @@ import java.util.Objects;
 @Component
 public class ForexProvider implements MarketDataProvider {
     
-    private static final Logger log = LoggerFactory.getLogger(ForexProvider.class);
+    private static final Logger LOG = LoggerFactory.getLogger(ForexProvider.class);
     private static final ZoneId NEW_YORK_ZONE = ZoneId.of("America/New_York");
     private static final String FOREX_BASE_PATH = "/forex";
     private static final String PROVIDER_NAME = "akshare-forex";
@@ -114,7 +114,7 @@ public class ForexProvider implements MarketDataProvider {
             throws MarketDataException {
         
         if (!isAvailable()) {
-            log.debug("Data service not available, using mock data for forex kline");
+            LOG.debug("Data service not available, using mock data for forex kline");
             return generateMockKlineData(symbol, timeframe, limit, startTime, endTime);
         }
         
@@ -135,7 +135,7 @@ public class ForexProvider implements MarketDataProvider {
             
             String url = builder.buildAndExpand(normalizedSymbol).toUriString();
             
-            log.debug("Fetching forex kline from data service: symbol={}, timeframe={}", 
+            LOG.debug("Fetching forex kline from data service: symbol={}, timeframe={}", 
                     normalizedSymbol, timeframe);
             
                 ResponseEntity<List<Map<String, Object>>> response = restTemplate.exchange(
@@ -153,7 +153,7 @@ public class ForexProvider implements MarketDataProvider {
             return convertToKlineData(data, normalizedSymbol, timeframe);
             
         } catch (RestClientException e) {
-            log.error("Failed to fetch forex kline from data service: {}", e.getMessage());
+            LOG.error("Failed to fetch forex kline from data service: {}", e.getMessage());
             return generateMockKlineData(symbol, timeframe, limit, startTime, endTime);
         }
     }
@@ -161,7 +161,7 @@ public class ForexProvider implements MarketDataProvider {
     @Override
     public Optional<TickData> getRealTimeTick(String symbol) throws MarketDataException {
         if (!isAvailable()) {
-            log.debug("Data service not available, using mock data for forex tick");
+            LOG.debug("Data service not available, using mock data for forex tick");
             return generateMockTickData(symbol);
         }
         
@@ -173,7 +173,7 @@ public class ForexProvider implements MarketDataProvider {
                     .buildAndExpand(normalizedSymbol)
                     .toUriString();
             
-            log.debug("Fetching forex price from data service: symbol={}", normalizedSymbol);
+            LOG.debug("Fetching forex price from data service: symbol={}", normalizedSymbol);
             
                 ResponseEntity<Map<String, Object>> response = restTemplate.exchange(
                     url,
@@ -190,7 +190,7 @@ public class ForexProvider implements MarketDataProvider {
             return Optional.of(convertToTickData(data, normalizedSymbol));
             
         } catch (RestClientException e) {
-            log.error("Failed to fetch forex price from data service: {}", e.getMessage());
+            LOG.error("Failed to fetch forex price from data service: {}", e.getMessage());
             return generateMockTickData(symbol);
         }
     }
@@ -204,13 +204,13 @@ public class ForexProvider implements MarketDataProvider {
         }
         
         symbols.forEach(sym -> subscribedSymbols.add(normalizeSymbol(sym)));
-        log.info("Subscribed to {} forex pairs for real-time data", symbols.size());
+        LOG.info("Subscribed to {} forex pairs for real-time data", symbols.size());
     }
     
     @Override
     public void unsubscribeRealTime(List<String> symbols) {
         symbols.forEach(sym -> subscribedSymbols.remove(normalizeSymbol(sym)));
-        log.info("Unsubscribed from {} forex pairs", symbols.size());
+        LOG.info("Unsubscribed from {} forex pairs", symbols.size());
     }
     
     @Override
@@ -262,7 +262,7 @@ public class ForexProvider implements MarketDataProvider {
                     .toList();
                     
         } catch (RestClientException e) {
-            log.error("Failed to search forex pairs: {}", e.getMessage());
+            LOG.error("Failed to search forex pairs: {}", e.getMessage());
             return generateMockSearchResults(keyword, limit);
         }
     }
@@ -487,7 +487,8 @@ public class ForexProvider implements MarketDataProvider {
         );
     }
 
-    private static @NonNull HttpMethod getHttpGet() {
+    
+    private static HttpMethod getHttpGet() {
         return Objects.requireNonNull(HttpMethod.GET, "HTTP GET must not be null");
     }
     

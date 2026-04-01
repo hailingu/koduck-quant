@@ -43,7 +43,6 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
-import org.springframework.lang.NonNull;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
@@ -192,11 +191,13 @@ public class AiAnalysisServiceImpl implements AiAnalysisService {
         return aiRecommendationSupport.buildRiskAssessment(portfolioId, positions);
     }
 
-    private static @NonNull ParameterizedTypeReference<Map<String, Object>> getMapResponseType() {
+    
+    private static ParameterizedTypeReference<Map<String, Object>> getMapResponseType() {
         return Objects.requireNonNull(MAP_RESPONSE_TYPE, RESPONSE_TYPE_NULL_MESSAGE);
     }
 
-    private static @NonNull HttpMethod getHttpPostMethod() {
+    
+    private static HttpMethod getHttpPostMethod() {
         return Objects.requireNonNull(HttpMethod.POST, HTTP_METHOD_NULL_MESSAGE);
     }
 

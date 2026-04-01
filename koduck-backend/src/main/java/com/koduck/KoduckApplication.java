@@ -16,10 +16,6 @@ import org.springframework.scheduling.annotation.EnableAsync;
 @EnableAsync
 public class KoduckApplication {
 
-    private KoduckApplication() {
-        // Prevent instantiation.
-    }
-
     /**
      * Starts the Spring Boot application.
      *

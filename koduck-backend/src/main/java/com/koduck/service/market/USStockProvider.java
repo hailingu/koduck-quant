@@ -40,7 +40,7 @@ import java.util.concurrent.ConcurrentHashMap;
 @Component
 public class USStockProvider implements MarketDataProvider {
     
-    private static final Logger log = LoggerFactory.getLogger(USStockProvider.class);
+    private static final Logger LOG = LoggerFactory.getLogger(USStockProvider.class);
     private static final ZoneId US_EASTERN = ZoneId.of("America/New_York");
     private static final String PROVIDER_NAME = "finnhub-us-stock";
     private static final String QUERY_PARAM_TOKEN = "token";
@@ -92,7 +92,7 @@ public class USStockProvider implements MarketDataProvider {
             throws MarketDataException {
         
         if (!properties.isReady()) {
-            log.debug("Finnhub not configured, using mock data for kline");
+            LOG.debug("Finnhub not configured, using mock data for kline");
             return mockProvider.getKlineData(symbol, timeframe, limit, startTime, endTime);
         }
         
@@ -112,7 +112,7 @@ public class USStockProvider implements MarketDataProvider {
                     .queryParam(QUERY_PARAM_TOKEN, properties.getApiKey())
                     .toUriString();
             
-            log.debug("Fetching kline from Finnhub: symbol={}, resolution={}", symbol, resolution);
+            LOG.debug("Fetching kline from Finnhub: symbol={}, resolution={}", symbol, resolution);
             
             ResponseEntity<CandleResponse> response = restTemplate.exchange(
                     url,
@@ -130,7 +130,7 @@ public class USStockProvider implements MarketDataProvider {
             return convertToKlineData(body, symbol.toUpperCase(Locale.ROOT), timeframe, limit);
             
         } catch (RestClientException e) {
-            log.error("Failed to fetch kline from Finnhub: {}", e.getMessage());
+            LOG.error("Failed to fetch kline from Finnhub: {}", e.getMessage());
             // Fallback to mock data
             return mockProvider.getKlineData(symbol, timeframe, limit, startTime, endTime);
         }
@@ -139,7 +139,7 @@ public class USStockProvider implements MarketDataProvider {
     @Override
     public Optional<TickData> getRealTimeTick(String symbol) throws MarketDataException {
         if (!properties.isReady()) {
-            log.debug("Finnhub not configured, using mock data for tick");
+            LOG.debug("Finnhub not configured, using mock data for tick");
             return mockProvider.getRealTimeTick(symbol);
         }
         
@@ -150,7 +150,7 @@ public class USStockProvider implements MarketDataProvider {
                     .queryParam(QUERY_PARAM_TOKEN, properties.getApiKey())
                     .toUriString();
             
-            log.debug("Fetching quote from Finnhub: symbol={}", symbol);
+            LOG.debug("Fetching quote from Finnhub: symbol={}", symbol);
             
             ResponseEntity<QuoteResponse> response = restTemplate.exchange(
                     url,
@@ -181,7 +181,7 @@ public class USStockProvider implements MarketDataProvider {
             return Optional.of(tickData);
             
         } catch (RestClientException e) {
-            log.error("Failed to fetch quote from Finnhub: {}", e.getMessage());
+            LOG.error("Failed to fetch quote from Finnhub: {}", e.getMessage());
             // Fallback to mock data
             return mockProvider.getRealTimeTick(symbol);
         }
@@ -192,7 +192,7 @@ public class USStockProvider implements MarketDataProvider {
             throws MarketDataException {
         
         symbols.forEach(sym -> subscribedSymbols.add(sym.toUpperCase(Locale.ROOT)));
-        log.info("Subscribed to {} US stocks for real-time data", symbols.size());
+        LOG.info("Subscribed to {} US stocks for real-time data", symbols.size());
         
         // Finnhub WebSocket requires separate connection
         // For now, just track subscriptions
@@ -202,7 +202,7 @@ public class USStockProvider implements MarketDataProvider {
     @Override
     public void unsubscribeRealTime(List<String> symbols) {
         symbols.forEach(sym -> subscribedSymbols.remove(sym.toUpperCase(Locale.ROOT)));
-        log.info("Unsubscribed from {} US stocks", symbols.size());
+        LOG.info("Unsubscribed from {} US stocks", symbols.size());
     }
     
     @Override
@@ -273,7 +273,7 @@ public class USStockProvider implements MarketDataProvider {
                     .toList();
                     
         } catch (RestClientException e) {
-            log.error("Failed to search symbols from Finnhub: {}", e.getMessage());
+            LOG.error("Failed to search symbols from Finnhub: {}", e.getMessage());
             return mockProvider.searchSymbols(keyword, limit);
         }
     }
@@ -347,7 +347,8 @@ public class USStockProvider implements MarketDataProvider {
                 || (day == 26 && dow == DayOfWeek.MONDAY));
     }
 
-    private static @NonNull HttpMethod getHttpGet() {
+    
+    private static HttpMethod getHttpGet() {
         return Objects.requireNonNull(HttpMethod.GET, "HTTP GET must not be null");
     }
     

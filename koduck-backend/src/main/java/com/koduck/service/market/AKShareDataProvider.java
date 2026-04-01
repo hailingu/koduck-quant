@@ -41,7 +41,7 @@ import java.util.concurrent.ConcurrentHashMap;
 @Component
 public class AKShareDataProvider implements MarketDataProvider {
     
-    private static final Logger log = LoggerFactory.getLogger(AKShareDataProvider.class);
+    private static final Logger LOG = LoggerFactory.getLogger(AKShareDataProvider.class);
     private static final String DATA_SERVICE_DISABLED_MESSAGE = "Data service is disabled";
     private static final String A_SHARE_BASE_PATH = "/a-share";
     private static final String KEY_SYMBOL = "symbol";
@@ -119,7 +119,7 @@ public class AKShareDataProvider implements MarketDataProvider {
             
             String url = builder.toUriString();
             
-            log.debug("Getting kline data: symbol={}, timeframe={}, limit={}", symbol, timeframe, limit);
+            LOG.debug("Getting kline data: symbol={}, timeframe={}, limit={}", symbol, timeframe, limit);
             
             ResponseEntity<DataServiceResponse<List<Map<String, Object>>>> response = 
                     restTemplate.exchange(
@@ -175,7 +175,7 @@ public class AKShareDataProvider implements MarketDataProvider {
         }
         
         subscribedSymbols.addAll(symbols);
-        log.info("Subscribed to {} symbols for real-time data", symbols.size());
+        LOG.info("Subscribed to {} symbols for real-time data", symbols.size());
         
         // In production, this would establish WebSocket connection to data service
         // For now, just track subscriptions
@@ -184,7 +184,7 @@ public class AKShareDataProvider implements MarketDataProvider {
     @Override
     public void unsubscribeRealTime(List<String> symbols) {
         subscribedSymbols.removeAll(symbols);
-        log.info("Unsubscribed from {} symbols", symbols.size());
+        LOG.info("Unsubscribed from {} symbols", symbols.size());
     }
     
     @Override
@@ -220,7 +220,7 @@ public class AKShareDataProvider implements MarketDataProvider {
     @Override
     public List<SymbolInfo> searchSymbols(String keyword, int limit) {
         if (!isAvailable()) {
-            log.warn(DATA_SERVICE_DISABLED_MESSAGE);
+            LOG.warn(DATA_SERVICE_DISABLED_MESSAGE);
             return Collections.emptyList();
         }
         
@@ -231,7 +231,7 @@ public class AKShareDataProvider implements MarketDataProvider {
                     .queryParam(KEY_LIMIT, limit)
                     .toUriString();
             
-            log.debug("Searching symbols: keyword={}, limit={}", keyword, limit);
+            LOG.debug("Searching symbols: keyword={}, limit={}", keyword, limit);
             
             ResponseEntity<DataServiceResponse<List<Map<String, Object>>>> response = 
                     restTemplate.exchange(
@@ -245,7 +245,7 @@ public class AKShareDataProvider implements MarketDataProvider {
             return AKShareDataMapperSupport.parseSymbolInfoResponse(body == null ? null : body.data());
             
         } catch (RestClientException e) {
-            log.error("Failed to search symbols: {}", e.getMessage());
+            LOG.error("Failed to search symbols: {}", e.getMessage());
             return Collections.emptyList();
         }
     }
@@ -264,7 +264,7 @@ public class AKShareDataProvider implements MarketDataProvider {
                     .buildAndExpand(symbol)
                     .toUriString();
             
-            log.debug("Getting price for symbol: {}", symbol);
+            LOG.debug("Getting price for symbol: {}", symbol);
             
             ResponseEntity<DataServiceResponse<Map<String, Object>>> response =
                     restTemplate.exchange(
@@ -285,7 +285,7 @@ public class AKShareDataProvider implements MarketDataProvider {
     
     public List<PriceQuoteDto> getBatchPrices(List<String> symbols) {
         if (!isAvailable()) {
-            log.warn(DATA_SERVICE_DISABLED_MESSAGE);
+            LOG.warn(DATA_SERVICE_DISABLED_MESSAGE);
             return Collections.emptyList();
         }
         
@@ -298,7 +298,7 @@ public class AKShareDataProvider implements MarketDataProvider {
             
             Map<String, List<String>> request = Map.of("symbols", symbols);
             
-            log.debug("Getting batch prices for {} symbols", symbols.size());
+            LOG.debug("Getting batch prices for {} symbols", symbols.size());
             
             ResponseEntity<DataServiceResponse<List<Map<String, Object>>>> response =
                     restTemplate.exchange(
@@ -319,14 +319,14 @@ public class AKShareDataProvider implements MarketDataProvider {
                     .toList();
             
         } catch (RestClientException e) {
-            log.error("Failed to get batch prices: {}", e.getMessage());
+            LOG.error("Failed to get batch prices: {}", e.getMessage());
             return Collections.emptyList();
         }
     }
     
     public List<SymbolInfoDto> getHotSymbols(int limit) {
         if (!isAvailable()) {
-            log.warn(DATA_SERVICE_DISABLED_MESSAGE);
+            LOG.warn(DATA_SERVICE_DISABLED_MESSAGE);
             return Collections.emptyList();
         }
         
@@ -336,7 +336,7 @@ public class AKShareDataProvider implements MarketDataProvider {
                     .queryParam(KEY_LIMIT, limit)
                     .toUriString();
             
-            log.debug("Getting hot symbols with limit={}", limit);
+            LOG.debug("Getting hot symbols with limit={}", limit);
             
             ResponseEntity<DataServiceResponse<List<Map<String, Object>>>> response =
                     restTemplate.exchange(
@@ -350,7 +350,7 @@ public class AKShareDataProvider implements MarketDataProvider {
             return AKShareDataMapperSupport.parseSymbolListResponse(body == null ? null : body.data());
             
         } catch (RestClientException e) {
-            log.error("Failed to get hot symbols: {}", e.getMessage());
+            LOG.error("Failed to get hot symbols: {}", e.getMessage());
             return Collections.emptyList();
         }
     }
@@ -367,7 +367,7 @@ public class AKShareDataProvider implements MarketDataProvider {
                     .buildAndExpand(symbol)
                     .toUriString();
 
-            log.debug("Getting valuation for symbol: {}", symbol);
+            LOG.debug("Getting valuation for symbol: {}", symbol);
 
             ResponseEntity<DataServiceResponse<Map<String, Object>>> response =
                     restTemplate.exchange(
@@ -398,7 +398,7 @@ public class AKShareDataProvider implements MarketDataProvider {
                     .buildAndExpand(symbol)
                     .toUriString();
 
-            log.debug("Getting industry for symbol: {}", symbol);
+            LOG.debug("Getting industry for symbol: {}", symbol);
 
             ResponseEntity<DataServiceResponse<Map<String, Object>>> response =
                     restTemplate.exchange(
@@ -417,20 +417,24 @@ public class AKShareDataProvider implements MarketDataProvider {
         }
     }
     
-    private static @NonNull HttpMethod getHttpGet() {
+    
+    private static HttpMethod getHttpGet() {
         return Objects.requireNonNull(HttpMethod.GET, HTTP_GET_MESSAGE);
     }
 
-    private static @NonNull HttpMethod getHttpPost() {
+    
+    private static HttpMethod getHttpPost() {
         return Objects.requireNonNull(HttpMethod.POST, HTTP_POST_MESSAGE);
     }
 
-    private static @NonNull ParameterizedTypeReference<DataServiceResponse<List<Map<String, Object>>>>
+    
+    private static ParameterizedTypeReference<DataServiceResponse<List<Map<String, Object>>>>
     getListDataResponseType() {
         return Objects.requireNonNull(LIST_DATA_RESPONSE_TYPE, RESPONSE_TYPE_MESSAGE);
     }
 
-    private static @NonNull ParameterizedTypeReference<DataServiceResponse<Map<String, Object>>> getMapDataResponseType() {
+    
+    private static ParameterizedTypeReference<DataServiceResponse<Map<String, Object>>> getMapDataResponseType() {
         return Objects.requireNonNull(MAP_DATA_RESPONSE_TYPE, RESPONSE_TYPE_MESSAGE);
     }
 }

@@ -58,7 +58,7 @@ import java.util.concurrent.ConcurrentHashMap;
 @Component
 public class FuturesProvider implements MarketDataProvider {
     
-    private static final Logger log = LoggerFactory.getLogger(FuturesProvider.class);
+    private static final Logger LOG = LoggerFactory.getLogger(FuturesProvider.class);
     private static final ZoneId BEIJING_ZONE = ZoneId.of("Asia/Shanghai");
     private static final String FUTURES_BASE_PATH = "/futures";
     private static final String PROVIDER_NAME = "akshare-futures";
@@ -116,7 +116,7 @@ public class FuturesProvider implements MarketDataProvider {
             throws MarketDataException {
         
         if (!isAvailable()) {
-            log.debug("Data service not available, using mock data for futures kline");
+            LOG.debug("Data service not available, using mock data for futures kline");
             return FuturesMockDataSupport.generateMockKlineData(
                 normalizeSymbol(symbol), timeframe, limit, endTime, basePrices);
         }
@@ -138,7 +138,7 @@ public class FuturesProvider implements MarketDataProvider {
             
             String url = builder.buildAndExpand(normalizedSymbol).toUriString();
             
-            log.debug("Fetching futures kline from data service: symbol={}, timeframe={}", 
+            LOG.debug("Fetching futures kline from data service: symbol={}, timeframe={}", 
                     normalizedSymbol, timeframe);
             
             ResponseEntity<List<Map<String, Object>>> response = restTemplate.exchange(
@@ -157,7 +157,7 @@ public class FuturesProvider implements MarketDataProvider {
             return convertToKlineData(data, normalizedSymbol, timeframe);
             
         } catch (RestClientException e) {
-            log.error("Failed to fetch futures kline from data service: {}", e.getMessage());
+            LOG.error("Failed to fetch futures kline from data service: {}", e.getMessage());
             return FuturesMockDataSupport.generateMockKlineData(
                 normalizeSymbol(symbol), timeframe, limit, endTime, basePrices);
         }
@@ -166,7 +166,7 @@ public class FuturesProvider implements MarketDataProvider {
     @Override
     public Optional<TickData> getRealTimeTick(String symbol) throws MarketDataException {
         if (!isAvailable()) {
-            log.debug("Data service not available, using mock data for futures tick");
+            LOG.debug("Data service not available, using mock data for futures tick");
             return Optional.of(FuturesMockDataSupport.generateMockTickData(normalizeSymbol(symbol), basePrices));
         }
         
@@ -178,7 +178,7 @@ public class FuturesProvider implements MarketDataProvider {
                     .buildAndExpand(normalizedSymbol)
                     .toUriString();
             
-            log.debug("Fetching futures price from data service: symbol={}", normalizedSymbol);
+            LOG.debug("Fetching futures price from data service: symbol={}", normalizedSymbol);
             
             ResponseEntity<Map<String, Object>> response = restTemplate.exchange(
                     url,
@@ -195,7 +195,7 @@ public class FuturesProvider implements MarketDataProvider {
             return Optional.of(convertToTickData(data, normalizedSymbol));
             
         } catch (RestClientException e) {
-            log.error("Failed to fetch futures price from data service: {}", e.getMessage());
+            LOG.error("Failed to fetch futures price from data service: {}", e.getMessage());
             return Optional.of(FuturesMockDataSupport.generateMockTickData(normalizeSymbol(symbol), basePrices));
         }
     }
@@ -209,13 +209,13 @@ public class FuturesProvider implements MarketDataProvider {
         }
         
         symbols.forEach(sym -> subscribedSymbols.add(normalizeSymbol(sym)));
-        log.info("Subscribed to {} futures contracts for real-time data", symbols.size());
+        LOG.info("Subscribed to {} futures contracts for real-time data", symbols.size());
     }
     
     @Override
     public void unsubscribeRealTime(List<String> symbols) {
         symbols.forEach(sym -> subscribedSymbols.remove(normalizeSymbol(sym)));
-        log.info("Unsubscribed from {} futures contracts", symbols.size());
+        LOG.info("Unsubscribed from {} futures contracts", symbols.size());
     }
     
     @Override
@@ -274,7 +274,7 @@ public class FuturesProvider implements MarketDataProvider {
                     .toList();
                     
         } catch (RestClientException e) {
-            log.error("Failed to search futures: {}", e.getMessage());
+            LOG.error("Failed to search futures: {}", e.getMessage());
             return FuturesMockDataSupport.generateMockSearchResults(keyword, limit);
         }
     }
@@ -296,15 +296,18 @@ public class FuturesProvider implements MarketDataProvider {
         return normalized;
     }
 
-    private static @NonNull HttpMethod getHttpGet() {
+    
+    private static HttpMethod getHttpGet() {
         return Objects.requireNonNull(HTTP_GET, HTTP_GET_MESSAGE);
     }
 
-    private static @NonNull ParameterizedTypeReference<List<Map<String, Object>>> getListMapResponseType() {
+    
+    private static ParameterizedTypeReference<List<Map<String, Object>>> getListMapResponseType() {
         return Objects.requireNonNull(LIST_MAP_RESPONSE_TYPE, RESPONSE_TYPE_MESSAGE);
     }
 
-    private static @NonNull ParameterizedTypeReference<Map<String, Object>> getMapResponseType() {
+    
+    private static ParameterizedTypeReference<Map<String, Object>> getMapResponseType() {
         return Objects.requireNonNull(MAP_RESPONSE_TYPE, RESPONSE_TYPE_MESSAGE);
     }
     

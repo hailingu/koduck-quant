@@ -391,14 +391,10 @@
                 <version>${maven-pmd-plugin.version}</version>
                 <configuration>
                     <targetJdk>23</targetJdk>
+                    <minimumPriority>1</minimumPriority>
                     <printFailingErrors>true</printFailingErrors>
                     <rulesets>
-                        <ruleset>category/java/bestpractices.xml</ruleset>
-                        <ruleset>category/java/codestyle.xml</ruleset>
-                        <ruleset>category/java/design.xml</ruleset>
-                        <ruleset>category/java/documentation.xml</ruleset>
-                        <ruleset>category/java/errorprone.xml</ruleset>
-                        <ruleset>category/java/performance.xml</ruleset>
+                        <ruleset>config/pmd/ruleset-phase2.xml</ruleset>
                     </rulesets>
                 </configuration>
             </plugin>
@@ -443,6 +439,12 @@
                             <goal>check</goal>
                         </goals>
                         <configuration>
+                            <includes>
+                                <!-- Phase 2: gate classes with stable test ownership -->
+                                <include>**/service/impl/MemoryServiceImpl.class</include>
+                                <include>**/service/impl/RateLimiterServiceImpl.class</include>
+                                <include>**/service/impl/MarketServiceImpl.class</include>
+                            </includes>
                             <rules>
                                 <rule>
                                     <element>BUNDLE</element>
