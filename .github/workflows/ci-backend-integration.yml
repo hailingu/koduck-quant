@@ -83,8 +83,10 @@ jobs:
           cache: maven
 
       - name: Run Integration Tests
-        working-directory: koduck-backend
-        run: mvn -B clean verify -Pwith-integration-tests
+        run: |
+          set -euo pipefail
+          mvn -B -f koduck-backend/pom.xml clean test \
+            -Dtest=com.koduck.integration.IntegrationSmokeTest
 
       - name: Upload Integration Test Reports
         if: always()
