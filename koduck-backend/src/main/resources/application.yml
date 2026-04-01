@@ -26,6 +26,22 @@ spring:
         dialect: org.hibernate.dialect.PostgreSQLDialect
   flyway:
     enabled: true
+  config:
+    import: optional:vault://
+  cloud:
+    vault:
+      enabled: ${VAULT_ENABLED:false}
+      fail-fast: ${VAULT_FAIL_FAST:false}
+      authentication: token
+      token: ${VAULT_TOKEN:}
+      scheme: ${VAULT_SCHEME:http}
+      host: ${VAULT_HOST:localhost}
+      port: ${VAULT_PORT:8200}
+      kv:
+        enabled: true
+        backend: ${VAULT_KV_BACKEND:secret}
+        default-context: ${VAULT_KV_CONTEXT:koduck-backend}
+        profile-separator: /
   threads:
     virtual:
       enabled: true
