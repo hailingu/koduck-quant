@@ -10,6 +10,9 @@ import com.koduck.dto.strategy.UpdateStrategyRequest;
 import com.koduck.entity.Strategy;
 import com.koduck.entity.StrategyParameter;
 import com.koduck.entity.StrategyVersion;
+import com.koduck.exception.BusinessException;
+import com.koduck.exception.ErrorCode;
+import com.koduck.exception.ResourceNotFoundException;
 import com.koduck.mapper.StrategyMapper;
 import com.koduck.repository.StrategyParameterRepository;
 import com.koduck.repository.StrategyRepository;
@@ -255,15 +258,16 @@ def handle_data(context, data):
     }
     private StrategyVersion loadVersionByIdOrThrow(Long versionId) {
         return requireFound(versionRepository.findById(Objects.requireNonNull(versionId, "versionId must not be null")),
-                () -> new IllegalArgumentException("Version not found"));
+                () -> new ResourceNotFoundException("strategy version", versionId));
     }
     private StrategyVersion loadVersionByNumberOrThrow(Long strategyId, Integer versionNumber) {
         return requireFound(versionRepository.findByStrategyIdAndVersionNumber(strategyId, versionNumber),
-                () -> new IllegalArgumentException("Version not found"));
+                () -> new ResourceNotFoundException(
+                        "Strategy version not found: strategyId=" + strategyId + ", version=" + versionNumber));
     }
     private void verifyStrategyOwnershipOrThrow(Long userId, Long strategyId) {
         if (!strategyRepository.existsByIdAndUserId(strategyId, userId)) {
-            throw new IllegalArgumentException("Strategy not found");
+            throw new BusinessException(ErrorCode.STRATEGY_NOT_FOUND, "Strategy not found");
         }
     }
     /**

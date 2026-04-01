@@ -3,6 +3,9 @@ import com.koduck.common.constants.MarketConstants;
 import com.koduck.dto.indicator.IndicatorListResponse;
 import com.koduck.dto.indicator.IndicatorResponse;
 import com.koduck.dto.market.KlineDataDto;
+import com.koduck.exception.BusinessException;
+import com.koduck.exception.ErrorCode;
+import com.koduck.exception.ValidationException;
 import com.koduck.service.KlineService;
 import com.koduck.service.TechnicalIndicatorService;
 import lombok.RequiredArgsConstructor;
@@ -80,7 +83,9 @@ public class TechnicalIndicatorServiceImpl implements TechnicalIndicatorService 
         List<KlineDataDto> klineData =
             klineService.getKlineData(market, symbol, MarketConstants.DEFAULT_TIMEFRAME, DEFAULT_LIMIT, null);
         if (klineData.isEmpty()) {
-            throw new IllegalArgumentException("No kline data found for " + market + "/" + symbol);
+            throw new BusinessException(
+                    ErrorCode.MARKET_DATA_NOT_FOUND,
+                    "No kline data found for " + market + "/" + symbol);
         }
         // Convert to BarSeries
         BarSeries series = convertToBarSeries(klineData);
@@ -92,7 +97,7 @@ public class TechnicalIndicatorServiceImpl implements TechnicalIndicatorService 
             case "RSI" -> calculateRSI(series, market, symbol, period != null ? period : 14);
             case "BOLL" -> calculateBOLL(series, market, symbol, period != null ? period : 20);
             case "VOL" -> calculateVOL(series, market, symbol, period != null ? period : 5);
-            default -> throw new IllegalArgumentException("Unsupported indicator: " + indicator);
+            default -> throw new ValidationException("Unsupported indicator: " + indicator);
         };
     }
     /**

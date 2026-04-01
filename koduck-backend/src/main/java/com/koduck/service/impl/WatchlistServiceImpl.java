@@ -6,6 +6,9 @@ import com.koduck.dto.watchlist.SortWatchlistRequest;
 import com.koduck.dto.watchlist.WatchlistItemDto;
 import com.koduck.entity.StockRealtime;
 import com.koduck.entity.WatchlistItem;
+import com.koduck.exception.DuplicateException;
+import com.koduck.exception.ResourceNotFoundException;
+import com.koduck.exception.StateException;
 import com.koduck.repository.StockRealtimeRepository;
 import com.koduck.repository.WatchlistRepository;
 import com.koduck.service.WatchlistService;
@@ -82,12 +85,12 @@ public class WatchlistServiceImpl implements WatchlistService {
         // Check if already exists (using normalized symbol)
         if (watchlistRepository.existsByUserIdAndMarketAndSymbol(
                 userId, request.market(), normalizedSymbol)) {
-            throw new IllegalArgumentException("Stock already in watchlist");
+            throw new DuplicateException("symbol", normalizedSymbol, "Stock already in watchlist");
         }
         // Check watchlist size limit
         long currentSize = watchlistRepository.countByUserId(userId);
         if (currentSize >= MAX_WATCHLIST_SIZE) {
-            throw new IllegalStateException("Watchlist limit reached (" + MAX_WATCHLIST_SIZE + ")");
+            throw new StateException("Watchlist limit reached (" + MAX_WATCHLIST_SIZE + ")");
         }
         // Get next sort order
         Integer maxOrder = watchlistRepository.findMaxSortOrderByUserId(userId).orElse(-1);
@@ -148,7 +151,7 @@ public class WatchlistServiceImpl implements WatchlistService {
     }
     private WatchlistItem loadWatchlistItemOrThrow(Long itemId) {
         return requireFound(watchlistRepository.findById(Objects.requireNonNull(itemId)),
-                () -> new IllegalArgumentException("Watchlist item not found"));
+                () -> new ResourceNotFoundException("watchlist item", itemId));
     }
     private Map<String, StockRealtime> loadRealtimeMap(List<String> normalizedSymbols) {
         if (normalizedSymbols == null || normalizedSymbols.isEmpty()) {
