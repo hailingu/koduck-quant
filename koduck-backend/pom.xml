@@ -477,10 +477,10 @@
                         </goals>
                         <configuration>
                             <includes>
-                                <!-- Phase 3: widen gate scope to 8 core classes -->
-                                <include>**/service/impl/MemoryServiceImpl.class</include>
-                                <include>**/service/impl/RateLimiterServiceImpl.class</include>
-                                <include>**/service/impl/MarketServiceImpl.class</include>
+                                <!-- Phase 4: keep gate aligned with DDD package migration -->
+                                <include>**/shared/application/MemoryServiceImpl.class</include>
+                                <include>**/shared/application/RateLimiterServiceImpl.class</include>
+                                <include>**/market/application/MarketServiceImpl.class</include>
                                 <include>**/market/provider/ProviderFactory.class</include>
                                 <include>**/market/util/DataConverter.class</include>
                                 <include>**/service/market/support/USStockMockDataProvider.class</include>

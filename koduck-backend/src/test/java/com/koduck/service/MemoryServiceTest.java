@@ -106,9 +106,16 @@ class MemoryServiceTest {
         when(chatMessageRepository.save(any(MemoryChatMessage.class)))
             .thenAnswer(invocation -> {
                 MemoryChatMessage arg = invocation.getArgument(0);
-                arg.setId(99L);
-                arg.setCreatedAt(LocalDateTime.of(2026, 3, 21, 10, 10));
-                return arg;
+                return MemoryChatMessage.builder()
+                    .id(99L)
+                    .userId(arg.getUserId())
+                    .sessionId(arg.getSessionId())
+                    .role(arg.getRole())
+                    .content(arg.getContent())
+                    .tokenCount(arg.getTokenCount())
+                    .metadata(arg.getMetadata())
+                    .createdAt(LocalDateTime.of(2026, 3, 21, 10, 10))
+                    .build();
             });
 
         MemoryChatMessage saved = memoryService.appendMessage(

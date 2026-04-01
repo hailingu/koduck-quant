@@ -4,6 +4,7 @@ import com.koduck.entity.StockBasic;
 import com.koduck.entity.StockRealtime;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -40,12 +41,12 @@ public final class StockFixtures {
                 .changePercent(new BigDecimal("0.025"))
                 .changeAmount(new BigDecimal("0.25"))
                 .openPrice(new BigDecimal("10.25"))
-                .highPrice(new BigDecimal("10.80"))
-                .lowPrice(new BigDecimal("10.20"))
-                .preClosePrice(new BigDecimal("10.25"))
+                .high(new BigDecimal("10.80"))
+                .low(new BigDecimal("10.20"))
+                .prevClose(new BigDecimal("10.25"))
                 .volume(1000000L)
                 .amount(new BigDecimal("10500000"))
-                .updateTime(LocalDateTime.now())
+                .updatedAt(LocalDateTime.now())
                 .build();
     }
 
@@ -64,12 +65,12 @@ public final class StockFixtures {
                 .changePercent(new BigDecimal("0.025"))
                 .changeAmount(new BigDecimal("0.25"))
                 .openPrice(new BigDecimal("10.25"))
-                .highPrice(new BigDecimal("10.80"))
-                .lowPrice(new BigDecimal("10.20"))
-                .preClosePrice(new BigDecimal("10.25"))
+                .high(new BigDecimal("10.80"))
+                .low(new BigDecimal("10.20"))
+                .prevClose(new BigDecimal("10.25"))
                 .volume(1000000L)
                 .amount(new BigDecimal("10500000"))
-                .updateTime(LocalDateTime.now())
+                .updatedAt(LocalDateTime.now())
                 .build();
     }
 
@@ -99,12 +100,12 @@ public final class StockFixtures {
                 .changePercent(new BigDecimal("0.100"))
                 .changeAmount(new BigDecimal("1.00"))
                 .openPrice(new BigDecimal("10.20"))
-                .highPrice(new BigDecimal("11.00"))
-                .lowPrice(new BigDecimal("10.10"))
-                .preClosePrice(new BigDecimal("10.00"))
+                .high(new BigDecimal("11.00"))
+                .low(new BigDecimal("10.10"))
+                .prevClose(new BigDecimal("10.00"))
                 .volume(5000000L)
                 .amount(new BigDecimal("55000000"))
-                .updateTime(LocalDateTime.now())
+                .updatedAt(LocalDateTime.now())
                 .build();
     }
 
@@ -122,12 +123,12 @@ public final class StockFixtures {
                 .changePercent(new BigDecimal("-0.100"))
                 .changeAmount(new BigDecimal("-1.00"))
                 .openPrice(new BigDecimal("9.80"))
-                .highPrice(new BigDecimal("9.90"))
-                .lowPrice(new BigDecimal("9.00"))
-                .preClosePrice(new BigDecimal("10.00"))
+                .high(new BigDecimal("9.90"))
+                .low(new BigDecimal("9.00"))
+                .prevClose(new BigDecimal("10.00"))
                 .volume(8000000L)
                 .amount(new BigDecimal("72000000"))
-                .updateTime(LocalDateTime.now())
+                .updatedAt(LocalDateTime.now())
                 .build();
     }
 
@@ -145,12 +146,12 @@ public final class StockFixtures {
                 .changePercent(BigDecimal.ZERO)
                 .changeAmount(BigDecimal.ZERO)
                 .openPrice(new BigDecimal("10.00"))
-                .highPrice(new BigDecimal("10.10"))
-                .lowPrice(new BigDecimal("9.90"))
-                .preClosePrice(new BigDecimal("10.00"))
+                .high(new BigDecimal("10.10"))
+                .low(new BigDecimal("9.90"))
+                .prevClose(new BigDecimal("10.00"))
                 .volume(1000000L)
                 .amount(new BigDecimal("10000000"))
-                .updateTime(LocalDateTime.now())
+                .updatedAt(LocalDateTime.now())
                 .build();
     }
 
@@ -166,11 +167,11 @@ public final class StockFixtures {
         return StockBasic.builder()
                 .symbol(symbol)
                 .name("测试股票")
-                .exchange("SZSE")
+                .market("SZSE")
                 .industry("其他")
-                .area("深圳")
-                .listDate("20200101")
-                .status(1)
+                .city("深圳")
+                .listDate(LocalDate.of(2020, 1, 1))
+                .status("Active")
                 .build();
     }
 
@@ -186,11 +187,11 @@ public final class StockFixtures {
         return StockBasic.builder()
                 .symbol(symbol)
                 .name(name)
-                .exchange(symbol.endsWith(".SZ") ? "SZSE" : "SSE")
+                .market(symbol.endsWith(".SZ") ? "SZSE" : "SSE")
                 .industry(industry)
-                .area("深圳")
-                .listDate("20200101")
-                .status(1)
+                .city("深圳")
+                .listDate(LocalDate.of(2020, 1, 1))
+                .status("Active")
                 .build();
     }
 

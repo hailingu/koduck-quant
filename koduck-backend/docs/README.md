@@ -172,6 +172,7 @@ mvn spring-boot:run
 - PMD 存量 Ratchet ADR：`ADR-0024-pmd-debt-ratchet-governance.md`
 - PMD 第一轮治理 ADR：`ADR-0025-pmd-batch1-method-argument-finalization.md`
 - pre-commit 本地门禁 ADR：`ADR-0026-pre-commit-local-quality-gate.md`
+- 覆盖率门禁 60% ADR：`ADR-0027-coverage-gate-60-and-jacoco-scope-alignment.md`
 
 ## 测试
 

@@ -133,9 +133,10 @@ class DataInitializerTest {
         setField("demoUsername", "demoUser");
         setField("demoPassword", "secure-password");
 
-        Role role = new Role();
-        role.setId(1);
-        role.setName("USER");
+        Role role = Role.builder()
+                .id(1)
+                .name("USER")
+                .build();
 
         when(userRepository.findByUsername("demoUser")).thenReturn(Optional.empty());
         when(roleRepository.findByName("USER")).thenReturn(Optional.of(role));
