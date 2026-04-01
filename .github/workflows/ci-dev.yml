@@ -21,7 +21,6 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       backend: ${{ steps.filter.outputs.backend }}
-      data_service: ${{ steps.filter.outputs.data_service }}
       frontend: ${{ steps.filter.outputs.frontend }}
     steps:
       - name: Checkout code
@@ -34,8 +33,6 @@ jobs:
           filters: |
             backend:
               - 'koduck-backend/**'
-            data_service:
-              - 'koduck-data-service/**'
             frontend:
               - 'koduck-frontend/**'
 
@@ -76,39 +73,6 @@ jobs:
           name: dev-backend-jacoco-report-${{ github.run_id }}
           path: koduck-backend/target/site/jacoco/
           if-no-files-found: ignore
-
-  data-service-tests:
-    name: Data Service Tests (Python 3.13)
-    needs: detect-changes
-    if: ${{ needs.detect-changes.outputs.data_service == 'true' }}
-    runs-on: ubuntu-latest
-    timeout-minutes: 25
-    defaults:
-      run:
-        working-directory: koduck-data-service
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Set up Python 3.13
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.13"
-          cache: pip
-          cache-dependency-path: |
-            koduck-data-service/requirements.txt
-            koduck-data-service/pyproject.toml
-
-      - name: Install dependencies
-        run: |
-          set -euo pipefail
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
-
-      - name: Run data service tests
-        run: |
-          set -euo pipefail
-          pytest -q tests
 
   frontend-quality:
     name: Frontend Lint & Build (Node 22)
