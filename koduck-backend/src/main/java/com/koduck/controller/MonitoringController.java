@@ -12,7 +12,6 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
-import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -56,10 +55,10 @@ public class MonitoringController {
         summary = "获取数据新鲜度",
         description = "获取各数据源的最新数据时间戳和延迟情况"
     )
-    @ApiResponses(value = {
-        @ApiResponse(responseCode = "200", description = "获取成功"),
-        @ApiResponse(responseCode = "401", description = "未登录或Token无效"),
-        @ApiResponse(responseCode = "500", description = "服务器内部错误")
+    @io.swagger.v3.oas.annotations.responses.ApiResponses(value = {
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "获取成功"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "未登录或Token无效"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "500", description = "服务器内部错误")
     })
     @GetMapping("/freshness")
     public ApiResponse<Map<String, Object>> getDataFreshness() {
@@ -73,14 +72,14 @@ public class MonitoringController {
         summary = "获取延迟股票",
         description = "获取数据延迟超过阈值的股票列表"
     )
-    @ApiResponses(value = {
-        @ApiResponse(
+    @io.swagger.v3.oas.annotations.responses.ApiResponses(value = {
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
             responseCode = "200",
             description = "获取成功",
             content = @Content(schema = @Schema(implementation = StockRealtime.class))
         ),
-        @ApiResponse(responseCode = "401", description = "未登录或Token无效"),
-        @ApiResponse(responseCode = "500", description = "服务器内部错误")
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "未登录或Token无效"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "500", description = "服务器内部错误")
     })
     @GetMapping("/delayed-stocks")
     public ApiResponse<List<StockRealtime>> getDelayedStocks(
@@ -98,10 +97,10 @@ public class MonitoringController {
         summary = "检查单只股票延迟",
         description = "检查指定股票的数据延迟情况"
     )
-    @ApiResponses(value = {
-        @ApiResponse(responseCode = "200", description = "获取成功"),
-        @ApiResponse(responseCode = "401", description = "未登录或Token无效"),
-        @ApiResponse(responseCode = "500", description = "服务器内部错误")
+    @io.swagger.v3.oas.annotations.responses.ApiResponses(value = {
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "获取成功"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "未登录或Token无效"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "500", description = "服务器内部错误")
     })
     @GetMapping("/stock/{symbol}/delay")
     public ApiResponse<Map<String, Object>> checkStockDelay(
@@ -120,14 +119,14 @@ public class MonitoringController {
         summary = "获取告警规则列表",
         description = "获取所有告警规则"
     )
-    @ApiResponses(value = {
-        @ApiResponse(
+    @io.swagger.v3.oas.annotations.responses.ApiResponses(value = {
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
             responseCode = "200",
             description = "获取成功",
             content = @Content(schema = @Schema(implementation = AlertRule.class))
         ),
-        @ApiResponse(responseCode = "401", description = "未登录或Token无效"),
-        @ApiResponse(responseCode = "500", description = "服务器内部错误")
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "未登录或Token无效"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "500", description = "服务器内部错误")
     })
     @GetMapping("/rules")
     public ApiResponse<List<AlertRule>> getAllRules() {
@@ -141,14 +140,14 @@ public class MonitoringController {
         summary = "获取启用的告警规则",
         description = "获取所有已启用的告警规则"
     )
-    @ApiResponses(value = {
-        @ApiResponse(
+    @io.swagger.v3.oas.annotations.responses.ApiResponses(value = {
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
             responseCode = "200",
             description = "获取成功",
             content = @Content(schema = @Schema(implementation = AlertRule.class))
         ),
-        @ApiResponse(responseCode = "401", description = "未登录或Token无效"),
-        @ApiResponse(responseCode = "500", description = "服务器内部错误")
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "未登录或Token无效"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "500", description = "服务器内部错误")
     })
     @GetMapping("/rules/enabled")
     public ApiResponse<List<AlertRule>> getEnabledRules() {
@@ -162,15 +161,15 @@ public class MonitoringController {
         summary = "获取告警规则详情",
         description = "获取指定ID的告警规则详情"
     )
-    @ApiResponses(value = {
-        @ApiResponse(
+    @io.swagger.v3.oas.annotations.responses.ApiResponses(value = {
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
             responseCode = "200",
             description = "获取成功",
             content = @Content(schema = @Schema(implementation = AlertRule.class))
         ),
-        @ApiResponse(responseCode = "401", description = "未登录或Token无效"),
-        @ApiResponse(responseCode = "404", description = "告警规则不存在"),
-        @ApiResponse(responseCode = "500", description = "服务器内部错误")
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "未登录或Token无效"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "告警规则不存在"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "500", description = "服务器内部错误")
     })
     @GetMapping("/rules/{id}")
     public ApiResponse<AlertRule> getRuleById(
@@ -186,15 +185,15 @@ public class MonitoringController {
         summary = "创建告警规则",
         description = "创建新的告警规则"
     )
-    @ApiResponses(value = {
-        @ApiResponse(
+    @io.swagger.v3.oas.annotations.responses.ApiResponses(value = {
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
             responseCode = "200",
             description = "创建成功",
             content = @Content(schema = @Schema(implementation = AlertRule.class))
         ),
-        @ApiResponse(responseCode = "400", description = "请求参数错误"),
-        @ApiResponse(responseCode = "401", description = "未登录或Token无效"),
-        @ApiResponse(responseCode = "500", description = "服务器内部错误")
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "请求参数错误"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "未登录或Token无效"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "500", description = "服务器内部错误")
     })
     @PostMapping("/rules")
     public ApiResponse<AlertRule> createRule(@Valid @RequestBody AlertRuleRequest request) {
@@ -208,16 +207,16 @@ public class MonitoringController {
         summary = "更新告警规则",
         description = "更新指定ID的告警规则"
     )
-    @ApiResponses(value = {
-        @ApiResponse(
+    @io.swagger.v3.oas.annotations.responses.ApiResponses(value = {
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
             responseCode = "200",
             description = "更新成功",
             content = @Content(schema = @Schema(implementation = AlertRule.class))
         ),
-        @ApiResponse(responseCode = "400", description = "请求参数错误"),
-        @ApiResponse(responseCode = "401", description = "未登录或Token无效"),
-        @ApiResponse(responseCode = "404", description = "告警规则不存在"),
-        @ApiResponse(responseCode = "500", description = "服务器内部错误")
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "请求参数错误"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "未登录或Token无效"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "告警规则不存在"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "500", description = "服务器内部错误")
     })
     @PutMapping("/rules/{id}")
     public ApiResponse<AlertRule> updateRule(
@@ -234,11 +233,11 @@ public class MonitoringController {
         summary = "删除告警规则",
         description = "删除指定ID的告警规则"
     )
-    @ApiResponses(value = {
-        @ApiResponse(responseCode = "200", description = "删除成功"),
-        @ApiResponse(responseCode = "401", description = "未登录或Token无效"),
-        @ApiResponse(responseCode = "404", description = "告警规则不存在"),
-        @ApiResponse(responseCode = "500", description = "服务器内部错误")
+    @io.swagger.v3.oas.annotations.responses.ApiResponses(value = {
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "删除成功"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "未登录或Token无效"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "告警规则不存在"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "500", description = "服务器内部错误")
     })
     @DeleteMapping("/rules/{id}")
     public ApiResponse<Void> deleteRule(
@@ -255,15 +254,15 @@ public class MonitoringController {
         summary = "启用/禁用告警规则",
         description = "启用或禁用指定ID的告警规则"
     )
-    @ApiResponses(value = {
-        @ApiResponse(
+    @io.swagger.v3.oas.annotations.responses.ApiResponses(value = {
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
             responseCode = "200",
             description = "操作成功",
             content = @Content(schema = @Schema(implementation = AlertRule.class))
         ),
-        @ApiResponse(responseCode = "401", description = "未登录或Token无效"),
-        @ApiResponse(responseCode = "404", description = "告警规则不存在"),
-        @ApiResponse(responseCode = "500", description = "服务器内部错误")
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "未登录或Token无效"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "告警规则不存在"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "500", description = "服务器内部错误")
     })
     @PatchMapping("/rules/{id}/enable")
     public ApiResponse<AlertRule> setRuleEnabled(
@@ -282,14 +281,14 @@ public class MonitoringController {
         summary = "获取告警历史",
         description = "分页获取告警历史记录"
     )
-    @ApiResponses(value = {
-        @ApiResponse(
+    @io.swagger.v3.oas.annotations.responses.ApiResponses(value = {
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
             responseCode = "200",
             description = "获取成功",
             content = @Content(schema = @Schema(implementation = AlertHistory.class))
         ),
-        @ApiResponse(responseCode = "401", description = "未登录或Token无效"),
-        @ApiResponse(responseCode = "500", description = "服务器内部错误")
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "未登录或Token无效"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "500", description = "服务器内部错误")
     })
     @GetMapping("/alerts")
     public ApiResponse<List<AlertHistory>> getAlertHistory(
@@ -307,14 +306,14 @@ public class MonitoringController {
         summary = "获取待处理告警",
         description = "获取所有待处理的告警"
     )
-    @ApiResponses(value = {
-        @ApiResponse(
+    @io.swagger.v3.oas.annotations.responses.ApiResponses(value = {
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
             responseCode = "200",
             description = "获取成功",
             content = @Content(schema = @Schema(implementation = AlertHistory.class))
         ),
-        @ApiResponse(responseCode = "401", description = "未登录或Token无效"),
-        @ApiResponse(responseCode = "500", description = "服务器内部错误")
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "未登录或Token无效"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "500", description = "服务器内部错误")
     })
     @GetMapping("/alerts/pending")
     public ApiResponse<List<AlertHistory>> getPendingAlerts() {
@@ -328,14 +327,14 @@ public class MonitoringController {
         summary = "按严重级别获取告警",
         description = "获取指定严重级别的告警"
     )
-    @ApiResponses(value = {
-        @ApiResponse(
+    @io.swagger.v3.oas.annotations.responses.ApiResponses(value = {
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
             responseCode = "200",
             description = "获取成功",
             content = @Content(schema = @Schema(implementation = AlertHistory.class))
         ),
-        @ApiResponse(responseCode = "401", description = "未登录或Token无效"),
-        @ApiResponse(responseCode = "500", description = "服务器内部错误")
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "未登录或Token无效"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "500", description = "服务器内部错误")
     })
     @GetMapping("/alerts/severity/{severity}")
     public ApiResponse<List<AlertHistory>> getAlertsBySeverity(
@@ -351,15 +350,15 @@ public class MonitoringController {
         summary = "解决告警",
         description = "将指定告警标记为已解决"
     )
-    @ApiResponses(value = {
-        @ApiResponse(
+    @io.swagger.v3.oas.annotations.responses.ApiResponses(value = {
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
             responseCode = "200",
             description = "操作成功",
             content = @Content(schema = @Schema(implementation = AlertHistory.class))
         ),
-        @ApiResponse(responseCode = "401", description = "未登录或Token无效"),
-        @ApiResponse(responseCode = "404", description = "告警不存在"),
-        @ApiResponse(responseCode = "500", description = "服务器内部错误")
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "未登录或Token无效"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "告警不存在"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "500", description = "服务器内部错误")
     })
     @PostMapping("/alerts/{id}/resolve")
     public ApiResponse<AlertHistory> resolveAlert(
@@ -375,10 +374,10 @@ public class MonitoringController {
         summary = "获取告警统计",
         description = "获取告警统计数据"
     )
-    @ApiResponses(value = {
-        @ApiResponse(responseCode = "200", description = "获取成功"),
-        @ApiResponse(responseCode = "401", description = "未登录或Token无效"),
-        @ApiResponse(responseCode = "500", description = "服务器内部错误")
+    @io.swagger.v3.oas.annotations.responses.ApiResponses(value = {
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "获取成功"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "未登录或Token无效"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "500", description = "服务器内部错误")
     })
     @GetMapping("/alerts/statistics")
     public ApiResponse<Map<String, Long>> getAlertStatistics() {
@@ -393,14 +392,14 @@ public class MonitoringController {
         summary = "获取数据源状态",
         description = "获取所有数据源的状态信息"
     )
-    @ApiResponses(value = {
-        @ApiResponse(
+    @io.swagger.v3.oas.annotations.responses.ApiResponses(value = {
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
             responseCode = "200",
             description = "获取成功",
             content = @Content(schema = @Schema(implementation = DataSourceStatus.class))
         ),
-        @ApiResponse(responseCode = "401", description = "未登录或Token无效"),
-        @ApiResponse(responseCode = "500", description = "服务器内部错误")
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "未登录或Token无效"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "500", description = "服务器内部错误")
     })
     @GetMapping("/datasources")
     public ApiResponse<List<DataSourceStatus>> getAllDataSources() {
@@ -414,15 +413,15 @@ public class MonitoringController {
         summary = "获取指定数据源",
         description = "获取指定名称的数据源状态"
     )
-    @ApiResponses(value = {
-        @ApiResponse(
+    @io.swagger.v3.oas.annotations.responses.ApiResponses(value = {
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
             responseCode = "200",
             description = "获取成功",
             content = @Content(schema = @Schema(implementation = DataSourceStatus.class))
         ),
-        @ApiResponse(responseCode = "401", description = "未登录或Token无效"),
-        @ApiResponse(responseCode = "404", description = "数据源不存在"),
-        @ApiResponse(responseCode = "500", description = "服务器内部错误")
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "未登录或Token无效"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "数据源不存在"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "500", description = "服务器内部错误")
     })
     @GetMapping("/datasources/{sourceName}")
     public ApiResponse<DataSourceStatus> getDataSourceByName(
@@ -438,14 +437,14 @@ public class MonitoringController {
         summary = "获取异常数据源",
         description = "获取所有状态异常的数据源"
     )
-    @ApiResponses(value = {
-        @ApiResponse(
+    @io.swagger.v3.oas.annotations.responses.ApiResponses(value = {
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
             responseCode = "200",
             description = "获取成功",
             content = @Content(schema = @Schema(implementation = DataSourceStatus.class))
         ),
-        @ApiResponse(responseCode = "401", description = "未登录或Token无效"),
-        @ApiResponse(responseCode = "500", description = "服务器内部错误")
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "未登录或Token无效"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "500", description = "服务器内部错误")
     })
     @GetMapping("/datasources/unhealthy")
     public ApiResponse<List<DataSourceStatus>> getUnhealthyDataSources() {
@@ -460,10 +459,10 @@ public class MonitoringController {
         summary = "获取监控仪表盘",
         description = "获取监控仪表盘汇总数据"
     )
-    @ApiResponses(value = {
-        @ApiResponse(responseCode = "200", description = "获取成功"),
-        @ApiResponse(responseCode = "401", description = "未登录或Token无效"),
-        @ApiResponse(responseCode = "500", description = "服务器内部错误")
+    @io.swagger.v3.oas.annotations.responses.ApiResponses(value = {
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "获取成功"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "未登录或Token无效"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "500", description = "服务器内部错误")
     })
     @GetMapping("/dashboard")
     public ApiResponse<Map<String, Object>> getDashboard() {
@@ -477,10 +476,10 @@ public class MonitoringController {
         summary = "手动执行监控检查",
         description = "手动触发一次监控检查"
     )
-    @ApiResponses(value = {
-        @ApiResponse(responseCode = "200", description = "检查完成"),
-        @ApiResponse(responseCode = "401", description = "未登录或Token无效"),
-        @ApiResponse(responseCode = "500", description = "服务器内部错误")
+    @io.swagger.v3.oas.annotations.responses.ApiResponses(value = {
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "检查完成"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "未登录或Token无效"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "500", description = "服务器内部错误")
     })
     @PostMapping("/check")
     public ApiResponse<Void> runMonitoringCheck() {

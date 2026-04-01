@@ -8,7 +8,6 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
-import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.constraints.NotBlank;
@@ -47,13 +46,13 @@ public class TechnicalIndicatorController {
         summary = "获取可用技术指标",
         description = "获取系统支持的所有技术指标列表及其参数定义"
     )
-    @ApiResponses(value = {
-        @ApiResponse(
+    @io.swagger.v3.oas.annotations.responses.ApiResponses(value = {
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
             responseCode = "200",
             description = "获取成功",
             content = @Content(schema = @Schema(implementation = IndicatorListResponse.class))
         ),
-        @ApiResponse(responseCode = "500", description = "服务器内部错误")
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "500", description = "服务器内部错误")
     })
     @GetMapping
     public ApiResponse<IndicatorListResponse> getAvailableIndicators() {
@@ -78,15 +77,15 @@ public class TechnicalIndicatorController {
         description = "为指定股票计算技术指标\n\n" +
                       "示例：GET /api/v1/indicators/600519?market=AShare&indicator=MA&period=20"
     )
-    @ApiResponses(value = {
-        @ApiResponse(
+    @io.swagger.v3.oas.annotations.responses.ApiResponses(value = {
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
             responseCode = "200",
             description = "计算成功",
             content = @Content(schema = @Schema(implementation = IndicatorResponse.class))
         ),
-        @ApiResponse(responseCode = "400", description = "请求参数错误或指标不存在"),
-        @ApiResponse(responseCode = "404", description = "股票不存在"),
-        @ApiResponse(responseCode = "500", description = "服务器内部错误")
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "请求参数错误或指标不存在"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "股票不存在"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "500", description = "服务器内部错误")
     })
     @GetMapping("/{symbol}")
     public ApiResponse<IndicatorResponse> calculateIndicator(

@@ -5,7 +5,6 @@ import com.koduck.dto.profile.*;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
-import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -34,14 +33,14 @@ public class ProfileController {
         summary = "获取用户资料",
         description = "获取当前登录用户的详细资料"
     )
-    @ApiResponses(value = {
-        @ApiResponse(
+    @io.swagger.v3.oas.annotations.responses.ApiResponses(value = {
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
             responseCode = "200",
             description = "获取成功",
             content = @Content(schema = @Schema(implementation = ProfileResponse.class))
         ),
-        @ApiResponse(responseCode = "401", description = "未登录或Token无效"),
-        @ApiResponse(responseCode = "500", description = "服务器内部错误")
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "未登录或Token无效"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "500", description = "服务器内部错误")
     })
     @GetMapping
     public ApiResponse<ProfileResponse> getProfile() {
@@ -58,15 +57,15 @@ public class ProfileController {
         summary = "更新用户资料",
         description = "更新当前用户的资料信息"
     )
-    @ApiResponses(value = {
-        @ApiResponse(
+    @io.swagger.v3.oas.annotations.responses.ApiResponses(value = {
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
             responseCode = "200",
             description = "更新成功",
             content = @Content(schema = @Schema(implementation = ProfileResponse.class))
         ),
-        @ApiResponse(responseCode = "400", description = "请求参数错误"),
-        @ApiResponse(responseCode = "401", description = "未登录或Token无效"),
-        @ApiResponse(responseCode = "500", description = "服务器内部错误")
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "请求参数错误"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "未登录或Token无效"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "500", description = "服务器内部错误")
     })
     @PutMapping
     public ApiResponse<ProfileResponse> updateProfile(@RequestBody UpdateProfileRequest request) {
@@ -85,15 +84,15 @@ public class ProfileController {
                       "支持格式：JPG, PNG\n" +
                       "最大尺寸：2MB"
     )
-    @ApiResponses(value = {
-        @ApiResponse(
+    @io.swagger.v3.oas.annotations.responses.ApiResponses(value = {
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
             responseCode = "200",
             description = "上传成功",
             content = @Content(schema = @Schema(implementation = AvatarResponse.class))
         ),
-        @ApiResponse(responseCode = "400", description = "文件格式不正确或文件过大"),
-        @ApiResponse(responseCode = "401", description = "未登录或Token无效"),
-        @ApiResponse(responseCode = "500", description = "服务器内部错误")
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "文件格式不正确或文件过大"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "未登录或Token无效"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "500", description = "服务器内部错误")
     })
     @PostMapping("/avatar")
     public ApiResponse<AvatarResponse> uploadAvatar(
@@ -111,14 +110,14 @@ public class ProfileController {
         summary = "获取用户偏好",
         description = "获取当前用户的偏好设置"
     )
-    @ApiResponses(value = {
-        @ApiResponse(
+    @io.swagger.v3.oas.annotations.responses.ApiResponses(value = {
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
             responseCode = "200",
             description = "获取成功",
             content = @Content(schema = @Schema(implementation = PreferencesResponse.class))
         ),
-        @ApiResponse(responseCode = "401", description = "未登录或Token无效"),
-        @ApiResponse(responseCode = "500", description = "服务器内部错误")
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "未登录或Token无效"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "500", description = "服务器内部错误")
     })
     @GetMapping("/preferences")
     public ApiResponse<PreferencesResponse> getPreferences() {
@@ -135,15 +134,15 @@ public class ProfileController {
         summary = "更新用户偏好",
         description = "更新当前用户的偏好设置"
     )
-    @ApiResponses(value = {
-        @ApiResponse(
+    @io.swagger.v3.oas.annotations.responses.ApiResponses(value = {
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
             responseCode = "200",
             description = "更新成功",
             content = @Content(schema = @Schema(implementation = PreferencesResponse.class))
         ),
-        @ApiResponse(responseCode = "400", description = "请求参数错误"),
-        @ApiResponse(responseCode = "401", description = "未登录或Token无效"),
-        @ApiResponse(responseCode = "500", description = "服务器内部错误")
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "请求参数错误"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "未登录或Token无效"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "500", description = "服务器内部错误")
     })
     @PutMapping("/preferences")
     public ApiResponse<PreferencesResponse> updatePreferences(@RequestBody UpdatePreferencesRequest request) {

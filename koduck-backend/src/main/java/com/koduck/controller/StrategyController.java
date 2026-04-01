@@ -4,7 +4,6 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
-import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -63,14 +62,14 @@ public class StrategyController {
         summary = "获取策略列表",
         description = "获取当前用户创建的所有策略"
     )
-    @ApiResponses(value = {
-        @ApiResponse(
+    @io.swagger.v3.oas.annotations.responses.ApiResponses(value = {
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
             responseCode = "200",
             description = "获取成功",
             content = @Content(schema = @Schema(implementation = StrategyDto.class))
         ),
-        @ApiResponse(responseCode = "401", description = "未登录或Token无效"),
-        @ApiResponse(responseCode = "500", description = "服务器内部错误")
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "未登录或Token无效"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "500", description = "服务器内部错误")
     })
     @GetMapping
     public ApiResponse<List<StrategyDto>> getStrategies(
@@ -93,16 +92,16 @@ public class StrategyController {
         summary = "获取策略详情",
         description = "获取指定ID的策略详细信息"
     )
-    @ApiResponses(value = {
-        @ApiResponse(
+    @io.swagger.v3.oas.annotations.responses.ApiResponses(value = {
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
             responseCode = "200",
             description = "获取成功",
             content = @Content(schema = @Schema(implementation = StrategyDto.class))
         ),
-        @ApiResponse(responseCode = "401", description = "未登录或Token无效"),
-        @ApiResponse(responseCode = "403", description = "无权访问该策略"),
-        @ApiResponse(responseCode = "404", description = "策略不存在"),
-        @ApiResponse(responseCode = "500", description = "服务器内部错误")
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "未登录或Token无效"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "无权访问该策略"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "策略不存在"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "500", description = "服务器内部错误")
     })
     @GetMapping("/{id}")
     public ApiResponse<StrategyDto> getStrategy(
@@ -127,15 +126,15 @@ public class StrategyController {
         summary = "创建策略",
         description = "创建新的交易策略"
     )
-    @ApiResponses(value = {
-        @ApiResponse(
+    @io.swagger.v3.oas.annotations.responses.ApiResponses(value = {
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
             responseCode = "200",
             description = "创建成功",
             content = @Content(schema = @Schema(implementation = StrategyDto.class))
         ),
-        @ApiResponse(responseCode = "400", description = "请求参数错误"),
-        @ApiResponse(responseCode = "401", description = "未登录或Token无效"),
-        @ApiResponse(responseCode = "500", description = "服务器内部错误")
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "请求参数错误"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "未登录或Token无效"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "500", description = "服务器内部错误")
     })
     @PostMapping
     public ApiResponse<StrategyDto> createStrategy(
@@ -160,17 +159,17 @@ public class StrategyController {
         summary = "更新策略",
         description = "更新指定ID的策略信息"
     )
-    @ApiResponses(value = {
-        @ApiResponse(
+    @io.swagger.v3.oas.annotations.responses.ApiResponses(value = {
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
             responseCode = "200",
             description = "更新成功",
             content = @Content(schema = @Schema(implementation = StrategyDto.class))
         ),
-        @ApiResponse(responseCode = "400", description = "请求参数错误"),
-        @ApiResponse(responseCode = "401", description = "未登录或Token无效"),
-        @ApiResponse(responseCode = "403", description = "无权更新该策略"),
-        @ApiResponse(responseCode = "404", description = "策略不存在"),
-        @ApiResponse(responseCode = "500", description = "服务器内部错误")
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "请求参数错误"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "未登录或Token无效"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "无权更新该策略"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "策略不存在"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "500", description = "服务器内部错误")
     })
     @PutMapping("/{id}")
     public ApiResponse<StrategyDto> updateStrategy(
@@ -196,12 +195,12 @@ public class StrategyController {
         summary = "删除策略",
         description = "删除指定ID的策略"
     )
-    @ApiResponses(value = {
-        @ApiResponse(responseCode = "200", description = "删除成功"),
-        @ApiResponse(responseCode = "401", description = "未登录或Token无效"),
-        @ApiResponse(responseCode = "403", description = "无权删除该策略"),
-        @ApiResponse(responseCode = "404", description = "策略不存在"),
-        @ApiResponse(responseCode = "500", description = "服务器内部错误")
+    @io.swagger.v3.oas.annotations.responses.ApiResponses(value = {
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "删除成功"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "未登录或Token无效"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "无权删除该策略"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "策略不存在"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "500", description = "服务器内部错误")
     })
     @DeleteMapping("/{id}")
     public ApiResponse<Void> deleteStrategy(
@@ -226,17 +225,17 @@ public class StrategyController {
         summary = "发布策略",
         description = "发布策略，使其处于激活状态"
     )
-    @ApiResponses(value = {
-        @ApiResponse(
+    @io.swagger.v3.oas.annotations.responses.ApiResponses(value = {
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
             responseCode = "200",
             description = "发布成功",
             content = @Content(schema = @Schema(implementation = StrategyDto.class))
         ),
-        @ApiResponse(responseCode = "400", description = "策略状态不允许发布"),
-        @ApiResponse(responseCode = "401", description = "未登录或Token无效"),
-        @ApiResponse(responseCode = "403", description = "无权发布该策略"),
-        @ApiResponse(responseCode = "404", description = "策略不存在"),
-        @ApiResponse(responseCode = "500", description = "服务器内部错误")
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "策略状态不允许发布"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "未登录或Token无效"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "无权发布该策略"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "策略不存在"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "500", description = "服务器内部错误")
     })
     @PostMapping("/{id}/publish")
     public ApiResponse<StrategyDto> publishStrategy(
@@ -261,17 +260,17 @@ public class StrategyController {
         summary = "停用策略",
         description = "停用已发布的策略"
     )
-    @ApiResponses(value = {
-        @ApiResponse(
+    @io.swagger.v3.oas.annotations.responses.ApiResponses(value = {
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
             responseCode = "200",
             description = "停用成功",
             content = @Content(schema = @Schema(implementation = StrategyDto.class))
         ),
-        @ApiResponse(responseCode = "400", description = "策略状态不允许停用"),
-        @ApiResponse(responseCode = "401", description = "未登录或Token无效"),
-        @ApiResponse(responseCode = "403", description = "无权停用该策略"),
-        @ApiResponse(responseCode = "404", description = "策略不存在"),
-        @ApiResponse(responseCode = "500", description = "服务器内部错误")
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "策略状态不允许停用"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "未登录或Token无效"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "无权停用该策略"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "策略不存在"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "500", description = "服务器内部错误")
     })
     @PostMapping("/{id}/disable")
     public ApiResponse<StrategyDto> disableStrategy(
@@ -296,16 +295,16 @@ public class StrategyController {
         summary = "获取策略版本列表",
         description = "获取指定策略的所有版本历史"
     )
-    @ApiResponses(value = {
-        @ApiResponse(
+    @io.swagger.v3.oas.annotations.responses.ApiResponses(value = {
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
             responseCode = "200",
             description = "获取成功",
             content = @Content(schema = @Schema(implementation = StrategyVersionDto.class))
         ),
-        @ApiResponse(responseCode = "401", description = "未登录或Token无效"),
-        @ApiResponse(responseCode = "403", description = "无权访问该策略"),
-        @ApiResponse(responseCode = "404", description = "策略不存在"),
-        @ApiResponse(responseCode = "500", description = "服务器内部错误")
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "未登录或Token无效"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "无权访问该策略"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "策略不存在"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "500", description = "服务器内部错误")
     })
     @GetMapping("/{id}/versions")
     public ApiResponse<List<StrategyVersionDto>> getVersions(
@@ -331,16 +330,16 @@ public class StrategyController {
         summary = "获取策略版本详情",
         description = "获取指定策略的指定版本详情"
     )
-    @ApiResponses(value = {
-        @ApiResponse(
+    @io.swagger.v3.oas.annotations.responses.ApiResponses(value = {
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
             responseCode = "200",
             description = "获取成功",
             content = @Content(schema = @Schema(implementation = StrategyVersionDto.class))
         ),
-        @ApiResponse(responseCode = "401", description = "未登录或Token无效"),
-        @ApiResponse(responseCode = "403", description = "无权访问该策略"),
-        @ApiResponse(responseCode = "404", description = "策略或版本不存在"),
-        @ApiResponse(responseCode = "500", description = "服务器内部错误")
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "未登录或Token无效"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "无权访问该策略"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "策略或版本不存在"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "500", description = "服务器内部错误")
     })
     @GetMapping("/{id}/versions/{versionNumber}")
     public ApiResponse<StrategyVersionDto> getVersion(
@@ -368,17 +367,17 @@ public class StrategyController {
         summary = "激活策略版本",
         description = "将指定版本设为当前生效版本"
     )
-    @ApiResponses(value = {
-        @ApiResponse(
+    @io.swagger.v3.oas.annotations.responses.ApiResponses(value = {
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
             responseCode = "200",
             description = "激活成功",
             content = @Content(schema = @Schema(implementation = StrategyVersionDto.class))
         ),
-        @ApiResponse(responseCode = "400", description = "版本状态不允许激活"),
-        @ApiResponse(responseCode = "401", description = "未登录或Token无效"),
-        @ApiResponse(responseCode = "403", description = "无权操作该策略"),
-        @ApiResponse(responseCode = "404", description = "策略或版本不存在"),
-        @ApiResponse(responseCode = "500", description = "服务器内部错误")
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "版本状态不允许激活"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "未登录或Token无效"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "无权操作该策略"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "策略或版本不存在"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "500", description = "服务器内部错误")
     })
     @PostMapping("/{id}/versions/{versionId}/activate")
     public ApiResponse<StrategyVersionDto> activateVersion(

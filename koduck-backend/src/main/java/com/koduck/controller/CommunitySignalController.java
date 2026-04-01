@@ -4,7 +4,6 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
-import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -86,14 +85,14 @@ public class CommunitySignalController {
         summary = "获取信号列表",
         description = "获取社区信号列表，支持排序、筛选和分页"
     )
-    @ApiResponses(value = {
-        @ApiResponse(
+    @io.swagger.v3.oas.annotations.responses.ApiResponses(value = {
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
             responseCode = "200",
             description = "获取成功",
             content = @Content(schema = @Schema(implementation = SignalListResponse.class))
         ),
-        @ApiResponse(responseCode = "400", description = "请求参数错误"),
-        @ApiResponse(responseCode = "500", description = "服务器内部错误")
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "请求参数错误"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "500", description = "服务器内部错误")
     })
     @GetMapping("/signals")
     public ApiResponse<SignalListResponse> getSignals(
@@ -130,13 +129,13 @@ public class CommunitySignalController {
         summary = "获取精选信号",
         description = "获取社区精选的优质信号"
     )
-    @ApiResponses(value = {
-        @ApiResponse(
+    @io.swagger.v3.oas.annotations.responses.ApiResponses(value = {
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
             responseCode = "200",
             description = "获取成功",
             content = @Content(schema = @Schema(implementation = SignalResponse.class))
         ),
-        @ApiResponse(responseCode = "500", description = "服务器内部错误")
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "500", description = "服务器内部错误")
     })
     @GetMapping("/signals/featured")
     public ApiResponse<List<SignalResponse>> getFeaturedSignals(
@@ -159,14 +158,14 @@ public class CommunitySignalController {
         summary = "获取信号详情",
         description = "获取指定ID的信号详细信息"
     )
-    @ApiResponses(value = {
-        @ApiResponse(
+    @io.swagger.v3.oas.annotations.responses.ApiResponses(value = {
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
             responseCode = "200",
             description = "获取成功",
             content = @Content(schema = @Schema(implementation = SignalResponse.class))
         ),
-        @ApiResponse(responseCode = "404", description = "信号不存在"),
-        @ApiResponse(responseCode = "500", description = "服务器内部错误")
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "信号不存在"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "500", description = "服务器内部错误")
     })
     @GetMapping("/signals/{id}")
     public ApiResponse<SignalResponse> getSignal(
@@ -191,14 +190,14 @@ public class CommunitySignalController {
         summary = "获取用户信号",
         description = "获取指定用户发布的所有信号"
     )
-    @ApiResponses(value = {
-        @ApiResponse(
+    @io.swagger.v3.oas.annotations.responses.ApiResponses(value = {
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
             responseCode = "200",
             description = "获取成功",
             content = @Content(schema = @Schema(implementation = SignalResponse.class))
         ),
-        @ApiResponse(responseCode = "404", description = "用户不存在"),
-        @ApiResponse(responseCode = "500", description = "服务器内部错误")
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "用户不存在"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "500", description = "服务器内部错误")
     })
     @GetMapping("/users/{userId}/signals")
     public ApiResponse<List<SignalResponse>> getUserSignals(
@@ -223,15 +222,15 @@ public class CommunitySignalController {
         summary = "创建信号",
         description = "发布新的交易信号"
     )
-    @ApiResponses(value = {
-        @ApiResponse(
+    @io.swagger.v3.oas.annotations.responses.ApiResponses(value = {
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
             responseCode = "200",
             description = "创建成功",
             content = @Content(schema = @Schema(implementation = SignalResponse.class))
         ),
-        @ApiResponse(responseCode = "400", description = "请求参数错误"),
-        @ApiResponse(responseCode = "401", description = "未登录或Token无效"),
-        @ApiResponse(responseCode = "500", description = "服务器内部错误")
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "请求参数错误"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "未登录或Token无效"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "500", description = "服务器内部错误")
     })
     @PostMapping("/signals")
     public ApiResponse<SignalResponse> createSignal(
@@ -256,17 +255,17 @@ public class CommunitySignalController {
         summary = "更新信号",
         description = "更新指定ID的信号信息"
     )
-    @ApiResponses(value = {
-        @ApiResponse(
+    @io.swagger.v3.oas.annotations.responses.ApiResponses(value = {
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
             responseCode = "200",
             description = "更新成功",
             content = @Content(schema = @Schema(implementation = SignalResponse.class))
         ),
-        @ApiResponse(responseCode = "400", description = "请求参数错误"),
-        @ApiResponse(responseCode = "401", description = "未登录或Token无效"),
-        @ApiResponse(responseCode = "403", description = "无权更新该信号"),
-        @ApiResponse(responseCode = "404", description = "信号不存在"),
-        @ApiResponse(responseCode = "500", description = "服务器内部错误")
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "请求参数错误"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "未登录或Token无效"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "无权更新该信号"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "信号不存在"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "500", description = "服务器内部错误")
     })
     @PutMapping("/signals/{id}")
     public ApiResponse<SignalResponse> updateSignal(
@@ -294,17 +293,17 @@ public class CommunitySignalController {
         summary = "关闭信号",
         description = "关闭信号并记录结果"
     )
-    @ApiResponses(value = {
-        @ApiResponse(
+    @io.swagger.v3.oas.annotations.responses.ApiResponses(value = {
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
             responseCode = "200",
             description = "关闭成功",
             content = @Content(schema = @Schema(implementation = SignalResponse.class))
         ),
-        @ApiResponse(responseCode = "400", description = "请求参数错误"),
-        @ApiResponse(responseCode = "401", description = "未登录或Token无效"),
-        @ApiResponse(responseCode = "403", description = "无权关闭该信号"),
-        @ApiResponse(responseCode = "404", description = "信号不存在"),
-        @ApiResponse(responseCode = "500", description = "服务器内部错误")
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "请求参数错误"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "未登录或Token无效"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "无权关闭该信号"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "信号不存在"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "500", description = "服务器内部错误")
     })
     @PostMapping("/signals/{id}/close")
     public ApiResponse<SignalResponse> closeSignal(
@@ -335,12 +334,12 @@ public class CommunitySignalController {
         summary = "删除信号",
         description = "删除指定ID的信号"
     )
-    @ApiResponses(value = {
-        @ApiResponse(responseCode = "200", description = "删除成功"),
-        @ApiResponse(responseCode = "401", description = "未登录或Token无效"),
-        @ApiResponse(responseCode = "403", description = "无权删除该信号"),
-        @ApiResponse(responseCode = "404", description = "信号不存在"),
-        @ApiResponse(responseCode = "500", description = "服务器内部错误")
+    @io.swagger.v3.oas.annotations.responses.ApiResponses(value = {
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "删除成功"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "未登录或Token无效"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "无权删除该信号"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "信号不存在"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "500", description = "服务器内部错误")
     })
     @DeleteMapping("/signals/{id}")
     public ApiResponse<Void> deleteSignal(
@@ -365,16 +364,16 @@ public class CommunitySignalController {
         summary = "订阅信号",
         description = "订阅指定信号，接收更新通知"
     )
-    @ApiResponses(value = {
-        @ApiResponse(
+    @io.swagger.v3.oas.annotations.responses.ApiResponses(value = {
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
             responseCode = "200",
             description = "订阅成功",
             content = @Content(schema = @Schema(implementation = SignalSubscriptionResponse.class))
         ),
-        @ApiResponse(responseCode = "401", description = "未登录或Token无效"),
-        @ApiResponse(responseCode = "404", description = "信号不存在"),
-        @ApiResponse(responseCode = "409", description = "已经订阅该信号"),
-        @ApiResponse(responseCode = "500", description = "服务器内部错误")
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "未登录或Token无效"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "信号不存在"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "409", description = "已经订阅该信号"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "500", description = "服务器内部错误")
     })
     @PostMapping("/signals/{id}/subscribe")
     public ApiResponse<SignalSubscriptionResponse> subscribeSignal(
@@ -399,11 +398,11 @@ public class CommunitySignalController {
         summary = "取消订阅信号",
         description = "取消对指定信号的订阅"
     )
-    @ApiResponses(value = {
-        @ApiResponse(responseCode = "200", description = "取消订阅成功"),
-        @ApiResponse(responseCode = "401", description = "未登录或Token无效"),
-        @ApiResponse(responseCode = "404", description = "未订阅该信号或信号不存在"),
-        @ApiResponse(responseCode = "500", description = "服务器内部错误")
+    @io.swagger.v3.oas.annotations.responses.ApiResponses(value = {
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "取消订阅成功"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "未登录或Token无效"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "未订阅该信号或信号不存在"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "500", description = "服务器内部错误")
     })
     @DeleteMapping("/signals/{id}/subscribe")
     public ApiResponse<Void> unsubscribeSignal(
@@ -427,14 +426,14 @@ public class CommunitySignalController {
         summary = "获取我的订阅",
         description = "获取当前用户订阅的所有信号"
     )
-    @ApiResponses(value = {
-        @ApiResponse(
+    @io.swagger.v3.oas.annotations.responses.ApiResponses(value = {
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
             responseCode = "200",
             description = "获取成功",
             content = @Content(schema = @Schema(implementation = SignalSubscriptionResponse.class))
         ),
-        @ApiResponse(responseCode = "401", description = "未登录或Token无效"),
-        @ApiResponse(responseCode = "500", description = "服务器内部错误")
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "未登录或Token无效"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "500", description = "服务器内部错误")
     })
     @GetMapping("/subscriptions")
     public ApiResponse<List<SignalSubscriptionResponse>> getMySubscriptions(
@@ -457,12 +456,12 @@ public class CommunitySignalController {
         summary = "点赞信号",
         description = "为指定信号点赞"
     )
-    @ApiResponses(value = {
-        @ApiResponse(responseCode = "200", description = "点赞成功"),
-        @ApiResponse(responseCode = "401", description = "未登录或Token无效"),
-        @ApiResponse(responseCode = "404", description = "信号不存在"),
-        @ApiResponse(responseCode = "409", description = "已经点赞过该信号"),
-        @ApiResponse(responseCode = "500", description = "服务器内部错误")
+    @io.swagger.v3.oas.annotations.responses.ApiResponses(value = {
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "点赞成功"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "未登录或Token无效"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "信号不存在"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "409", description = "已经点赞过该信号"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "500", description = "服务器内部错误")
     })
     @PostMapping("/signals/{id}/like")
     public ApiResponse<Void> likeSignal(
@@ -487,11 +486,11 @@ public class CommunitySignalController {
         summary = "取消点赞",
         description = "取消对指定信号的点赞"
     )
-    @ApiResponses(value = {
-        @ApiResponse(responseCode = "200", description = "取消点赞成功"),
-        @ApiResponse(responseCode = "401", description = "未登录或Token无效"),
-        @ApiResponse(responseCode = "404", description = "未点赞过该信号或信号不存在"),
-        @ApiResponse(responseCode = "500", description = "服务器内部错误")
+    @io.swagger.v3.oas.annotations.responses.ApiResponses(value = {
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "取消点赞成功"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "未登录或Token无效"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "未点赞过该信号或信号不存在"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "500", description = "服务器内部错误")
     })
     @DeleteMapping("/signals/{id}/like")
     public ApiResponse<Void> unlikeSignal(
@@ -517,12 +516,12 @@ public class CommunitySignalController {
         summary = "收藏信号",
         description = "收藏指定信号"
     )
-    @ApiResponses(value = {
-        @ApiResponse(responseCode = "200", description = "收藏成功"),
-        @ApiResponse(responseCode = "401", description = "未登录或Token无效"),
-        @ApiResponse(responseCode = "404", description = "信号不存在"),
-        @ApiResponse(responseCode = "409", description = "已经收藏过该信号"),
-        @ApiResponse(responseCode = "500", description = "服务器内部错误")
+    @io.swagger.v3.oas.annotations.responses.ApiResponses(value = {
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "收藏成功"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "未登录或Token无效"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "信号不存在"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "409", description = "已经收藏过该信号"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "500", description = "服务器内部错误")
     })
     @PostMapping("/signals/{id}/favorite")
     public ApiResponse<Void> favoriteSignal(
@@ -549,11 +548,11 @@ public class CommunitySignalController {
         summary = "取消收藏",
         description = "取消对指定信号的收藏"
     )
-    @ApiResponses(value = {
-        @ApiResponse(responseCode = "200", description = "取消收藏成功"),
-        @ApiResponse(responseCode = "401", description = "未登录或Token无效"),
-        @ApiResponse(responseCode = "404", description = "未收藏过该信号或信号不存在"),
-        @ApiResponse(responseCode = "500", description = "服务器内部错误")
+    @io.swagger.v3.oas.annotations.responses.ApiResponses(value = {
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "取消收藏成功"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "未登录或Token无效"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "未收藏过该信号或信号不存在"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "500", description = "服务器内部错误")
     })
     @DeleteMapping("/signals/{id}/favorite")
     public ApiResponse<Void> unfavoriteSignal(
@@ -579,14 +578,14 @@ public class CommunitySignalController {
         summary = "获取信号评论",
         description = "获取指定信号的评论列表"
     )
-    @ApiResponses(value = {
-        @ApiResponse(
+    @io.swagger.v3.oas.annotations.responses.ApiResponses(value = {
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
             responseCode = "200",
             description = "获取成功",
             content = @Content(schema = @Schema(implementation = CommentResponse.class))
         ),
-        @ApiResponse(responseCode = "404", description = "信号不存在"),
-        @ApiResponse(responseCode = "500", description = "服务器内部错误")
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "信号不存在"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "500", description = "服务器内部错误")
     })
     @GetMapping("/signals/{id}/comments")
     public ApiResponse<List<CommentResponse>> getComments(
@@ -616,16 +615,16 @@ public class CommunitySignalController {
         summary = "创建评论",
         description = "为指定信号添加评论"
     )
-    @ApiResponses(value = {
-        @ApiResponse(
+    @io.swagger.v3.oas.annotations.responses.ApiResponses(value = {
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
             responseCode = "200",
             description = "创建成功",
             content = @Content(schema = @Schema(implementation = CommentResponse.class))
         ),
-        @ApiResponse(responseCode = "400", description = "请求参数错误"),
-        @ApiResponse(responseCode = "401", description = "未登录或Token无效"),
-        @ApiResponse(responseCode = "404", description = "信号不存在"),
-        @ApiResponse(responseCode = "500", description = "服务器内部错误")
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "请求参数错误"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "未登录或Token无效"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "信号不存在"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "500", description = "服务器内部错误")
     })
     @PostMapping("/signals/{id}/comments")
     public ApiResponse<CommentResponse> createComment(
@@ -651,12 +650,12 @@ public class CommunitySignalController {
         summary = "删除评论",
         description = "删除指定ID的评论"
     )
-    @ApiResponses(value = {
-        @ApiResponse(responseCode = "200", description = "删除成功"),
-        @ApiResponse(responseCode = "401", description = "未登录或Token无效"),
-        @ApiResponse(responseCode = "403", description = "无权删除该评论"),
-        @ApiResponse(responseCode = "404", description = "评论不存在"),
-        @ApiResponse(responseCode = "500", description = "服务器内部错误")
+    @io.swagger.v3.oas.annotations.responses.ApiResponses(value = {
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "删除成功"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "未登录或Token无效"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "无权删除该评论"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "评论不存在"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "500", description = "服务器内部错误")
     })
     @DeleteMapping("/comments/{commentId}")
     public ApiResponse<Void> deleteComment(
@@ -680,14 +679,14 @@ public class CommunitySignalController {
         summary = "获取用户信号统计",
         description = "获取指定用户的信号发布统计"
     )
-    @ApiResponses(value = {
-        @ApiResponse(
+    @io.swagger.v3.oas.annotations.responses.ApiResponses(value = {
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
             responseCode = "200",
             description = "获取成功",
             content = @Content(schema = @Schema(implementation = UserSignalStatsResponse.class))
         ),
-        @ApiResponse(responseCode = "404", description = "用户不存在"),
-        @ApiResponse(responseCode = "500", description = "服务器内部错误")
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "用户不存在"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "500", description = "服务器内部错误")
     })
     @GetMapping("/users/{userId}/stats")
     public ApiResponse<UserSignalStatsResponse> getUserStats(

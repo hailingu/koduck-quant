@@ -11,7 +11,6 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
-import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -62,14 +61,14 @@ public class BacktestController {
         summary = "获取回测结果列表",
         description = "获取当前用户的所有回测结果"
     )
-    @ApiResponses(value = {
-        @ApiResponse(
+    @io.swagger.v3.oas.annotations.responses.ApiResponses(value = {
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
             responseCode = "200",
             description = "获取成功",
             content = @Content(schema = @Schema(implementation = BacktestResultDto.class))
         ),
-        @ApiResponse(responseCode = "401", description = "未登录或Token无效"),
-        @ApiResponse(responseCode = "500", description = "服务器内部错误")
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "未登录或Token无效"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "500", description = "服务器内部错误")
     })
     @GetMapping
     public ApiResponse<List<BacktestResultDto>> getBacktestResults(
@@ -92,16 +91,16 @@ public class BacktestController {
         summary = "获取回测结果详情",
         description = "获取指定ID的回测结果详细信息"
     )
-    @ApiResponses(value = {
-        @ApiResponse(
+    @io.swagger.v3.oas.annotations.responses.ApiResponses(value = {
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
             responseCode = "200",
             description = "获取成功",
             content = @Content(schema = @Schema(implementation = BacktestResultDto.class))
         ),
-        @ApiResponse(responseCode = "401", description = "未登录或Token无效"),
-        @ApiResponse(responseCode = "403", description = "无权访问该回测结果"),
-        @ApiResponse(responseCode = "404", description = "回测结果不存在"),
-        @ApiResponse(responseCode = "500", description = "服务器内部错误")
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "未登录或Token无效"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "无权访问该回测结果"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "回测结果不存在"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "500", description = "服务器内部错误")
     })
     @GetMapping("/{id}")
     public ApiResponse<BacktestResultDto> getBacktestResult(
@@ -128,17 +127,17 @@ public class BacktestController {
         description = "使用指定参数执行策略回测\n\n" +
                       "注意：回测执行可能需要较长时间，请耐心等待"
     )
-    @ApiResponses(value = {
-        @ApiResponse(
+    @io.swagger.v3.oas.annotations.responses.ApiResponses(value = {
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
             responseCode = "200",
             description = "回测执行成功",
             content = @Content(schema = @Schema(implementation = BacktestResultDto.class))
         ),
-        @ApiResponse(responseCode = "400", description = "请求参数错误或策略无效"),
-        @ApiResponse(responseCode = "401", description = "未登录或Token无效"),
-        @ApiResponse(responseCode = "404", description = "策略不存在"),
-        @ApiResponse(responseCode = "429", description = "回测请求过于频繁"),
-        @ApiResponse(responseCode = "500", description = "服务器内部错误或回测执行失败")
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "请求参数错误或策略无效"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "未登录或Token无效"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "策略不存在"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "429", description = "回测请求过于频繁"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "500", description = "服务器内部错误或回测执行失败")
     })
     @PostMapping("/run")
     public ApiResponse<BacktestResultDto> runBacktest(
@@ -163,16 +162,16 @@ public class BacktestController {
         summary = "获取回测交易记录",
         description = "获取指定回测结果的所有交易记录"
     )
-    @ApiResponses(value = {
-        @ApiResponse(
+    @io.swagger.v3.oas.annotations.responses.ApiResponses(value = {
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
             responseCode = "200",
             description = "获取成功",
             content = @Content(schema = @Schema(implementation = BacktestTradeDto.class))
         ),
-        @ApiResponse(responseCode = "401", description = "未登录或Token无效"),
-        @ApiResponse(responseCode = "403", description = "无权访问该回测结果"),
-        @ApiResponse(responseCode = "404", description = "回测结果不存在"),
-        @ApiResponse(responseCode = "500", description = "服务器内部错误")
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "未登录或Token无效"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "无权访问该回测结果"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "回测结果不存在"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "500", description = "服务器内部错误")
     })
     @GetMapping("/{id}/trades")
     public ApiResponse<List<BacktestTradeDto>> getBacktestTrades(
@@ -197,12 +196,12 @@ public class BacktestController {
         summary = "删除回测结果",
         description = "删除指定ID的回测结果及其交易记录"
     )
-    @ApiResponses(value = {
-        @ApiResponse(responseCode = "200", description = "删除成功"),
-        @ApiResponse(responseCode = "401", description = "未登录或Token无效"),
-        @ApiResponse(responseCode = "403", description = "无权删除该回测结果"),
-        @ApiResponse(responseCode = "404", description = "回测结果不存在"),
-        @ApiResponse(responseCode = "500", description = "服务器内部错误")
+    @io.swagger.v3.oas.annotations.responses.ApiResponses(value = {
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "删除成功"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "未登录或Token无效"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "无权删除该回测结果"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "回测结果不存在"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "500", description = "服务器内部错误")
     })
     @DeleteMapping("/{id}")
     public ApiResponse<Void> deleteBacktestResult(
