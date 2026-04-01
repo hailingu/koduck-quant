@@ -5,6 +5,7 @@ import org.springframework.stereotype.Component;
 
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CopyOnWriteArrayList;
 
 /**
  * Factory for managing and retrieving market data providers.
@@ -30,7 +31,7 @@ public class ProviderFactory {
         providersByName.put(providerName, provider);
         
         // Add to market map
-        providersByMarket.computeIfAbsent(marketType, k -> new ArrayList<>())
+        providersByMarket.computeIfAbsent(marketType, k -> new CopyOnWriteArrayList<>())
                         .add(provider);
         
         // Set as primary if no primary exists for this market
@@ -93,7 +94,11 @@ public class ProviderFactory {
      * @return list of providers (may be empty)
      */
     public List<MarketDataProvider> getProviders(MarketType marketType) {
-        return providersByMarket.getOrDefault(marketType, Collections.emptyList());
+        List<MarketDataProvider> providers = providersByMarket.get(marketType);
+        if (providers == null || providers.isEmpty()) {
+            return Collections.emptyList();
+        }
+        return List.copyOf(providers);
     }
     
     /**
