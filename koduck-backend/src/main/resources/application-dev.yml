@@ -53,3 +53,8 @@ logging:
     org.hibernate.SQL: INFO
     org.hibernate.type.descriptor.sql.BasicBinder: INFO
     com.koduck.service: DEBUG
+
+# Demo 用户配置（仅开发环境默认开启）
+app:
+  demo:
+    enabled: ${APP_DEMO_ENABLED:true}

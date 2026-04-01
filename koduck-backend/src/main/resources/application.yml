@@ -133,7 +133,7 @@ koduck:
 # 注意: 生产环境应设置 app.demo.enabled=false 或不设置 APP_DEMO_PASSWORD
 app:
   demo:
-    enabled: ${APP_DEMO_ENABLED:true}
+    enabled: ${APP_DEMO_ENABLED:false}
     username: ${APP_DEMO_USERNAME:demo}
     password: ${APP_DEMO_PASSWORD:demo123}
 
