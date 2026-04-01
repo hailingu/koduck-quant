@@ -166,6 +166,11 @@ mvn spring-boot:run
 - DDD Phase 1 实施 ADR：`ADR-0022-ddd-phase1-code-implementation.md`
 - DDD Phase 2 实施 ADR：`ADR-0023-ddd-phase2-complete-service-impl-migration.md`
 
+## 静态分析债务治理
+
+- PMD 存量治理计划：[`../../docs/phase3/pmd-backlog-governance.md`](../../docs/phase3/pmd-backlog-governance.md)
+- PMD 存量 Ratchet ADR：`ADR-0024-pmd-debt-ratchet-governance.md`
+
 ## 测试
 
 ```bash

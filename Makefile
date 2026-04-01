@@ -334,7 +334,7 @@ redis-cli: ## 进入 Redis CLI
 # Quality Check Commands (Phase 2)
 # ==========================================
 
-.PHONY: quality quality-backend quality-pmd quality-spotbugs quality-test quality-coverage quality-arch
+.PHONY: quality quality-backend quality-pmd quality-pmd-debt quality-spotbugs quality-test quality-coverage quality-arch
 
 quality: ## 一键质量检查（全部）
 	@echo "$(BLUE)🔍 执行一键质量检查...$(NC)"
@@ -345,6 +345,10 @@ quality-backend: quality ## 后端质量检查（同 quality）
 quality-pmd: ## PMD 静态分析检查
 	@echo "$(BLUE)🔍 执行 PMD 检查...$(NC)"
 	@cd koduck-backend && mvn pmd:check
+
+quality-pmd-debt: ## PMD 存量非回退检查（ratchet）
+	@echo "$(BLUE)🔍 执行 PMD 存量非回退检查...$(NC)"
+	@cd koduck-backend && ./scripts/pmd-debt-guard.sh
 
 quality-spotbugs: ## SpotBugs 安全漏洞检查
 	@echo "$(BLUE)🔍 执行 SpotBugs 检查...$(NC)"
