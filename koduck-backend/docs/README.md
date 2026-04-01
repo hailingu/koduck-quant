@@ -134,6 +134,11 @@ mvn spring-boot:run
 - 密钥管理文档：[`SECRET-MANAGEMENT.md`](SECRET-MANAGEMENT.md)
 - 密钥治理 ADR：`ADR-0013-spring-vault-secret-management-baseline.md`
 
+## Security 策略配置
+
+- 公开端点配置文档：[`SECURITY-ENDPOINTS.md`](SECURITY-ENDPOINTS.md)
+- 配置化治理 ADR：`ADR-0014-security-permitall-endpoint-externalization.md`
+
 ## 测试
 
 ```bash
