@@ -9,15 +9,75 @@
 ALTER TABLE memory_l2_themes 
     ADD COLUMN IF NOT EXISTS description TEXT;
 
--- Migrate data: use aggregated_summary as description if exists, else use theme_description
-UPDATE memory_l2_themes 
-SET description = COALESCE(aggregated_summary, theme_description, '')
-WHERE description IS NULL OR description = '';
+-- Migrate data with runtime column-existence checks
+DO $$
+DECLARE
+    has_aggregated_summary BOOLEAN;
+    has_theme_description BOOLEAN;
+BEGIN
+    SELECT EXISTS (
+        SELECT 1
+        FROM information_schema.columns
+        WHERE table_schema = 'public'
+          AND table_name = 'memory_l2_themes'
+          AND column_name = 'aggregated_summary'
+    ) INTO has_aggregated_summary;
+
+    SELECT EXISTS (
+        SELECT 1
+        FROM information_schema.columns
+        WHERE table_schema = 'public'
+          AND table_name = 'memory_l2_themes'
+          AND column_name = 'theme_description'
+    ) INTO has_theme_description;
+
+    IF has_aggregated_summary AND has_theme_description THEN
+        EXECUTE $sql$
+            UPDATE memory_l2_themes
+            SET description = COALESCE(aggregated_summary, theme_description, '')
+            WHERE description IS NULL OR description = ''
+        $sql$;
+    ELSIF has_aggregated_summary THEN
+        EXECUTE $sql$
+            UPDATE memory_l2_themes
+            SET description = COALESCE(aggregated_summary, '')
+            WHERE description IS NULL OR description = ''
+        $sql$;
+    ELSIF has_theme_description THEN
+        EXECUTE $sql$
+            UPDATE memory_l2_themes
+            SET description = COALESCE(theme_description, '')
+            WHERE description IS NULL OR description = ''
+        $sql$;
+    ELSE
+        EXECUTE $sql$
+            UPDATE memory_l2_themes
+            SET description = ''
+            WHERE description IS NULL
+        $sql$;
+    END IF;
+END
+$$;
 
 -- Step 3: Merge related_keywords into keywords
-UPDATE memory_l2_themes 
-SET keywords = array_cat(keywords, related_keywords)
-WHERE related_keywords IS NOT NULL AND array_length(related_keywords, 1) > 0;
+DO $$
+BEGIN
+    IF EXISTS (
+        SELECT 1
+        FROM information_schema.columns
+        WHERE table_schema = 'public'
+          AND table_name = 'memory_l2_themes'
+          AND column_name = 'related_keywords'
+    ) THEN
+        EXECUTE $sql$
+            UPDATE memory_l2_themes
+            SET keywords = array_cat(keywords, related_keywords)
+            WHERE related_keywords IS NOT NULL
+              AND array_length(related_keywords, 1) > 0
+        $sql$;
+    END IF;
+END
+$$;
 
 -- Deduplicate keywords after merge
 UPDATE memory_l2_themes 
@@ -27,8 +87,25 @@ SET keywords = ARRAY(
 );
 
 -- Step 4: Rename first_seen_at to created_at
-ALTER TABLE memory_l2_themes 
-    RENAME COLUMN first_seen_at TO created_at;
+DO $$
+BEGIN
+    IF EXISTS (
+        SELECT 1
+        FROM information_schema.columns
+        WHERE table_schema = 'public'
+          AND table_name = 'memory_l2_themes'
+          AND column_name = 'first_seen_at'
+    ) AND NOT EXISTS (
+        SELECT 1
+        FROM information_schema.columns
+        WHERE table_schema = 'public'
+          AND table_name = 'memory_l2_themes'
+          AND column_name = 'created_at'
+    ) THEN
+        ALTER TABLE memory_l2_themes RENAME COLUMN first_seen_at TO created_at;
+    END IF;
+END
+$$;
 
 -- Step 5: Drop deprecated columns
 ALTER TABLE memory_l2_themes
