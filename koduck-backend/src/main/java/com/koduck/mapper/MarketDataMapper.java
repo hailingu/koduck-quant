@@ -1,14 +1,24 @@
 package com.koduck.mapper;
 
 import com.koduck.dto.market.DailyBreadthDto;
+import com.koduck.dto.market.DailyNetFlowDto;
 import com.koduck.entity.MarketDailyBreadth;
+import com.koduck.entity.MarketDailyNetFlow;
 import org.mapstruct.Mapper;
 
 /**
- * Mapper for market daily breadth.
+ * Consolidated mapper for market data DTO conversions.
  */
 @Mapper(componentModel = "spring")
-public interface MarketBreadthMapper {
+public interface MarketDataMapper {
+
+    /**
+     * Maps net flow entity to DTO.
+     *
+     * @param entity net flow entity
+     * @return net flow DTO
+     */
+    DailyNetFlowDto toDto(MarketDailyNetFlow entity);
 
     /**
      * Maps market breadth entity to DTO.
