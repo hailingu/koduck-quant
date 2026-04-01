@@ -3,6 +3,8 @@ package com.koduck.entity;
 import com.koduck.util.EntityCopyUtils;
 import jakarta.persistence.*;
 import lombok.Data;
+import lombok.Setter;
+import lombok.AccessLevel;
 import lombok.NoArgsConstructor;
 import org.hibernate.annotations.CreationTimestamp;
 
@@ -19,6 +21,7 @@ public class SignalLike {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Setter(AccessLevel.NONE)
     private Long id;
 
     @Column(name = "signal_id", nullable = false)
@@ -29,6 +32,7 @@ public class SignalLike {
 
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
+    @Setter(AccessLevel.NONE)
     private LocalDateTime createdAt;
 
     // 
@@ -63,10 +67,10 @@ public class SignalLike {
 
         public SignalLike build() {
             SignalLike like = new SignalLike();
-            like.setId(id);
+            like.id = id;
             like.setSignalId(signalId);
             like.setUserId(userId);
-            like.setCreatedAt(createdAt);
+            like.createdAt = createdAt;
             like.setSignal(signal);
             like.setUser(user);
             return like;

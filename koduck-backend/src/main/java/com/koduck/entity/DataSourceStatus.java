@@ -3,6 +3,8 @@ package com.koduck.entity;
 import com.koduck.util.CollectionCopyUtils;
 import jakarta.persistence.*;
 import lombok.Data;
+import lombok.Setter;
+import lombok.AccessLevel;
 import lombok.NoArgsConstructor;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.JdbcTypeCode;
@@ -23,6 +25,7 @@ public class DataSourceStatus {
     
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Setter(AccessLevel.NONE)
     private Long id;
     
     @Column(name = "source_name", nullable = false, unique = true, length = 100)
@@ -55,6 +58,7 @@ public class DataSourceStatus {
     
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
+    @Setter(AccessLevel.NONE)
     private LocalDateTime createdAt;
     
     @UpdateTimestamp
@@ -95,7 +99,7 @@ public class DataSourceStatus {
 
         public DataSourceStatus build() {
             DataSourceStatus statusEntity = new DataSourceStatus();
-            statusEntity.setId(id);
+            statusEntity.id = id;
             statusEntity.setSourceName(sourceName);
             statusEntity.setSourceType(sourceType);
             statusEntity.setStatus(status);
@@ -105,7 +109,7 @@ public class DataSourceStatus {
             statusEntity.setConsecutiveFailures(consecutiveFailures);
             statusEntity.setResponseTimeMs(responseTimeMs);
             statusEntity.setMetadata(metadata);
-            statusEntity.setCreatedAt(createdAt);
+            statusEntity.createdAt = createdAt;
             statusEntity.setUpdatedAt(updatedAt);
             return statusEntity;
         }

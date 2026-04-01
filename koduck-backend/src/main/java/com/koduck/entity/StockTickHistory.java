@@ -7,6 +7,8 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import lombok.AllArgsConstructor;
+import lombok.Setter;
+import lombok.AccessLevel;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -27,6 +29,7 @@ public class StockTickHistory {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Setter(AccessLevel.NONE)
     private Long id;
 
     @Column(name = "symbol", nullable = false, length = 20)
@@ -45,6 +48,7 @@ public class StockTickHistory {
     private BigDecimal amount;
 
     @Column(name = "created_at")
+    @Setter(AccessLevel.NONE)
     private LocalDateTime createdAt;
 }
 

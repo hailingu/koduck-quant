@@ -2,6 +2,8 @@ package com.koduck.entity;
 
 import jakarta.persistence.*;
 import lombok.*;
+import lombok.Setter;
+import lombok.AccessLevel;
 import org.hibernate.annotations.CreationTimestamp;
 
 import java.time.LocalDateTime;
@@ -20,6 +22,7 @@ public class Role {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Setter(AccessLevel.NONE)
     private Integer id;
 
     @Column(nullable = false, unique = true, length = 50)
@@ -30,5 +33,6 @@ public class Role {
 
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
+    @Setter(AccessLevel.NONE)
     private LocalDateTime createdAt;
 }

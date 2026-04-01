@@ -3,6 +3,8 @@ package com.koduck.entity;
 import com.koduck.util.EntityCopyUtils;
 import jakarta.persistence.*;
 import lombok.Data;
+import lombok.Setter;
+import lombok.AccessLevel;
 import lombok.NoArgsConstructor;
 import org.hibernate.annotations.CreationTimestamp;
 
@@ -19,6 +21,7 @@ public class SignalFavorite {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Setter(AccessLevel.NONE)
     private Long id;
 
     @Column(name = "signal_id", nullable = false)
@@ -32,6 +35,7 @@ public class SignalFavorite {
 
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
+    @Setter(AccessLevel.NONE)
     private LocalDateTime createdAt;
 
     // 
@@ -68,11 +72,11 @@ public class SignalFavorite {
 
         public SignalFavorite build() {
             SignalFavorite favorite = new SignalFavorite();
-            favorite.setId(id);
+            favorite.id = id;
             favorite.setSignalId(signalId);
             favorite.setUserId(userId);
             favorite.setNote(note);
-            favorite.setCreatedAt(createdAt);
+            favorite.createdAt = createdAt;
             favorite.setSignal(signal);
             favorite.setUser(user);
             return favorite;
