@@ -379,3 +379,29 @@ quality-report: ## 生成质量报告
 	@cd koduck-backend && mvn site -DskipTests 2>/dev/null || echo "$(YELLOW)⚠️ Maven Site 未配置，跳过$(NC)"
 	@echo "$(GREEN)✅ 质量报告生成完成$(NC)"
 	@echo "$(YELLOW)报告位置: koduck-backend/target/site/$(NC)"
+
+# ==========================================
+# Release & Rollback
+# ==========================================
+
+rollback: ## 回滚到指定版本 (用法: make rollback VERSION=v1.2.2)
+	@if [ -z "$(VERSION)" ]; then \
+		echo "$(RED)❌ 错误: 请指定 VERSION 参数$(NC)"; \
+		echo "$(YELLOW)用法: make rollback VERSION=v1.2.2$(NC)"; \
+		exit 1; \
+	fi
+	@echo "$(RED)🚨 启动回滚流程...$(NC)"
+	@echo "$(YELLOW)目标版本: $(VERSION)$(NC)"
+	@read -p "确定要回滚到 $(VERSION) 吗? [y/N] " confirm && [ $$confirm = "y" ] || exit 0
+	@echo "$(BLUE)🛑 停止当前服务...$(NC)"
+	@docker-compose down
+	@echo "$(BLUE)📥 拉取目标版本镜像...$(NC)"
+	@docker-compose pull backend:$(VERSION) 2>/dev/null || echo "$(YELLOW)⚠️ 使用本地镜像$(NC)"
+	@echo "$(BLUE)🚀 启动 $(VERSION) 版本...$(NC)"
+	@VERSION=$(VERSION) docker-compose up -d
+	@echo "$(GREEN)✅ 回滚完成，开始验证...$(NC)"
+	@sleep 5
+	@curl -s http://localhost:8080/actuator/health | jq -r '.status' | grep -q "UP" && \
+		echo "$(GREEN)✅ 健康检查通过$(NC)" || \
+		echo "$(RED)❌ 健康检查失败，请查看日志$(NC)"
+	@echo "$(YELLOW)请执行完整的回滚验证: docs/rollback-runbook.md$(NC)"
