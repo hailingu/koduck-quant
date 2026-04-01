@@ -24,6 +24,12 @@ import com.koduck.service.MarketSectorNetFlowService;
 import com.koduck.service.MarketService;
 import com.koduck.service.SyntheticTickService;
 import com.koduck.service.TickStreamService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
@@ -65,7 +71,7 @@ import org.springframework.web.util.UriComponentsBuilder;
  */
 @RestController
 @RequestMapping("/api/v1/market")
-@Tag(name = "市场数据", description = "市场高级数据接口")
+@Tag(name = "市场数据-高级", description = "市场高级数据接口，包括资金流向、大单追踪等")
 @Validated
 @Slf4j
 @RequiredArgsConstructor
@@ -99,6 +105,15 @@ public class MarketAdvancedController {
     @Qualifier("dataServiceRestTemplate")
     private final RestTemplate dataServiceRestTemplate;
 
+    @Operation(
+        summary = "获取恐惧贪婪指数",
+        description = "获取市场恐惧贪婪指数"
+    )
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "200", description = "获取成功"),
+        @ApiResponse(responseCode = "503", description = "数据服务不可用"),
+        @ApiResponse(responseCode = "500", description = "服务器内部错误")
+    })
     @GetMapping("/fear-greed-index")
     public ApiResponse<Map<String, Object>> getFearGreedIndex() {
         log.info("GET /api/v1/market/fear-greed-index");
@@ -122,11 +137,28 @@ public class MarketAdvancedController {
         }
     }
 
+    @Operation(
+        summary = "获取板块资金流向",
+        description = "获取各板块的资金净流入/流出数据"
+    )
+    @ApiResponses(value = {
+        @ApiResponse(
+            responseCode = "200",
+            description = "获取成功",
+            content = @Content(schema = @Schema(implementation = SectorNetFlowDto.class))
+        ),
+        @ApiResponse(responseCode = "404", description = "数据不存在"),
+        @ApiResponse(responseCode = "500", description = "服务器内部错误")
+    })
     @GetMapping("/sector-net-flow")
     public ApiResponse<SectorNetFlowDto> getSectorNetFlow(
+            @Parameter(description = "市场代码", example = "AShare")
             @RequestParam(defaultValue = MarketConstants.DEFAULT_MARKET) String market,
+            @Parameter(description = "指标类型", example = "main")
             @RequestParam(defaultValue = MarketConstants.DEFAULT_INDICATOR) String indicator,
+            @Parameter(description = "返回数量", example = "20")
             @RequestParam(defaultValue = PaginationConstants.DEFAULT_LIST_LIMIT_STR) @Min(1) @Max(100) Integer limit,
+            @Parameter(description = "交易日期", example = "2024-01-15")
             @RequestParam(required = false)
             @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
             LocalDate tradeDate) {
@@ -141,12 +173,30 @@ public class MarketAdvancedController {
         return ApiResponse.success(result);
     }
 
+    @Operation(
+        summary = "获取资金流向图",
+        description = "获取资金流向可视化数据（资本河流图）"
+    )
+    @ApiResponses(value = {
+        @ApiResponse(
+            responseCode = "200",
+            description = "获取成功",
+            content = @Content(schema = @Schema(implementation = CapitalRiverDto.class))
+        ),
+        @ApiResponse(responseCode = "404", description = "数据不存在"),
+        @ApiResponse(responseCode = "500", description = "服务器内部错误")
+    })
     @GetMapping("/capital-river")
     public ApiResponse<CapitalRiverDto> getCapitalRiver(
+            @Parameter(description = "市场代码", example = "AShare")
             @RequestParam(defaultValue = MarketConstants.DEFAULT_MARKET) String market,
+            @Parameter(description = "指标类型", example = "main")
             @RequestParam(defaultValue = MarketConstants.DEFAULT_INDICATOR) String indicator,
+            @Parameter(description = "气泡数量", example = "5")
             @RequestParam(defaultValue = PaginationConstants.DEFAULT_BUBBLE_COUNT_STR) @Min(1) @Max(10) Integer bubbleCount,
+            @Parameter(description = "列表数量限制", example = "20")
             @RequestParam(defaultValue = PaginationConstants.DEFAULT_LIST_LIMIT_STR) @Min(1) @Max(100) Integer listLimit,
+            @Parameter(description = "交易日期", example = "2024-01-15")
             @RequestParam(required = false)
             @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
             LocalDate tradeDate) {
@@ -189,6 +239,15 @@ public class MarketAdvancedController {
         return ApiResponse.success(payload);
     }
 
+    @Operation(
+        summary = "获取市场宽度",
+        description = "获取市场宽度数据"
+    )
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "200", description = "获取成功"),
+        @ApiResponse(responseCode = "503", description = "数据服务不可用"),
+        @ApiResponse(responseCode = "500", description = "服务器内部错误")
+    })
     @GetMapping("/breadth")
     public ApiResponse<Map<String, Object>> getMarketBreadth() {
         log.info("GET /api/v1/market/breadth");
@@ -212,10 +271,25 @@ public class MarketAdvancedController {
         }
     }
 
+    @Operation(
+        summary = "获取大单追踪",
+        description = "获取大额交易订单追踪数据"
+    )
+    @ApiResponses(value = {
+        @ApiResponse(
+            responseCode = "200",
+            description = "获取成功",
+            content = @Content(schema = @Schema(implementation = BigOrderAlertDto.class))
+        ),
+        @ApiResponse(responseCode = "500", description = "服务器内部错误")
+    })
     @GetMapping("/big-orders")
     public ApiResponse<List<BigOrderAlertDto>> getBigOrders(
+            @Parameter(description = "返回数量", example = "20")
             @RequestParam(defaultValue = PaginationConstants.DEFAULT_LIST_LIMIT_STR) @Min(1) @Max(50) Integer limit,
+            @Parameter(description = "订单类型", example = "buy")
             @RequestParam(name = "order_type", required = false) String orderType,
+            @Parameter(description = "最小金额", example = "500000")
             @RequestParam(name = "min_amount", defaultValue = "500000") @Min(0) Double minAmount) {
         log.info("GET /api/v1/market/big-orders: limit={}, orderType={}, minAmount={}", limit, orderType, minAmount);
         if (!dataServiceProperties.isEnabled()) {
@@ -249,6 +323,18 @@ public class MarketAdvancedController {
         }
     }
 
+    @Operation(
+        summary = "获取大单统计",
+        description = "获取大额交易订单统计数据"
+    )
+    @ApiResponses(value = {
+        @ApiResponse(
+            responseCode = "200",
+            description = "获取成功",
+            content = @Content(schema = @Schema(implementation = BigOrderStatsDto.class))
+        ),
+        @ApiResponse(responseCode = "500", description = "服务器内部错误")
+    })
     @GetMapping("/big-orders/stats")
     public ApiResponse<BigOrderStatsDto> getBigOrderStats() {
         log.info("GET /api/v1/market/big-orders/stats");
@@ -276,9 +362,23 @@ public class MarketAdvancedController {
         }
     }
 
+    @Operation(
+        summary = "获取热门股票",
+        description = "获取市场热门股票列表"
+    )
+    @ApiResponses(value = {
+        @ApiResponse(
+            responseCode = "200",
+            description = "获取成功",
+            content = @Content(schema = @Schema(implementation = SymbolInfoDto.class))
+        ),
+        @ApiResponse(responseCode = "500", description = "服务器内部错误")
+    })
     @GetMapping("/hot")
     public ApiResponse<List<SymbolInfoDto>> getHotStocks(
+            @Parameter(description = "市场代码", example = "AShare")
             @RequestParam(defaultValue = MarketConstants.DEFAULT_MARKET) String market,
+            @Parameter(description = "返回数量", example = "20")
             @RequestParam(defaultValue = PaginationConstants.DEFAULT_PAGE_SIZE_STR)
             @Min(value = 1, message = "每页数量最小为 1")
             @Max(value = 100, message = "每页数量最大为 100")
@@ -288,16 +388,43 @@ public class MarketAdvancedController {
         return ApiResponse.success(hotStocks);
     }
 
+    @Operation(
+        summary = "获取板块关联网络",
+        description = "获取板块之间的关联关系网络数据"
+    )
+    @ApiResponses(value = {
+        @ApiResponse(
+            responseCode = "200",
+            description = "获取成功",
+            content = @Content(schema = @Schema(implementation = SectorNetworkDto.class))
+        ),
+        @ApiResponse(responseCode = "500", description = "服务器内部错误")
+    })
     @GetMapping("/sectors/network")
     public ApiResponse<SectorNetworkDto> getSectorNetwork(
+            @Parameter(description = "市场代码", example = "AShare")
             @RequestParam(defaultValue = MarketConstants.DEFAULT_MARKET) String market) {
         log.info("GET /api/v1/market/sectors/network?market={}", market);
         SectorNetworkDto network = marketService.getSectorNetwork(market);
         return ApiResponse.success(network);
     }
 
+    @Operation(
+        summary = "批量获取股价",
+        description = "批量获取多只股票的价格数据"
+    )
+    @ApiResponses(value = {
+        @ApiResponse(
+            responseCode = "200",
+            description = "获取成功",
+            content = @Content(schema = @Schema(implementation = PriceQuoteDto.class))
+        ),
+        @ApiResponse(responseCode = "400", description = "股票代码列表为空或超过50个"),
+        @ApiResponse(responseCode = "500", description = "服务器内部错误")
+    })
     @GetMapping("/batch")
     public ApiResponse<List<PriceQuoteDto>> getBatchPrices(
+            @Parameter(description = "股票代码列表", example = "[\"600519\", \"000001\"]")
             @RequestParam @NotEmpty(message = "股票代码列表不能为空")
             @jakarta.validation.constraints.Size(max = 50, message = "股票代码最多 50 个")
             List<String> symbols) {
@@ -306,10 +433,25 @@ public class MarketAdvancedController {
         return ApiResponse.success(quotes);
     }
 
+    @Operation(
+        summary = "获取分笔数据",
+        description = "获取股票的分笔成交数据"
+    )
+    @ApiResponses(value = {
+        @ApiResponse(
+            responseCode = "200",
+            description = "获取成功",
+            content = @Content(schema = @Schema(implementation = TickDto.class))
+        ),
+        @ApiResponse(responseCode = "500", description = "服务器内部错误")
+    })
     @GetMapping("/ticks")
     public ApiResponse<List<TickDto>> getTickData(
+            @Parameter(description = "市场代码", example = "AShare")
             @RequestParam String market,
+            @Parameter(description = "股票代码", example = "600519")
             @RequestParam String symbol,
+            @Parameter(description = "返回数量", example = "100")
             @RequestParam(defaultValue = PaginationConstants.DEFAULT_TICK_LIMIT_STR) @Min(1) @Max(500) Integer limit) {
         log.info("GET /api/v1/market/ticks: market={}, symbol={}, limit={}", market, symbol, limit);
         syntheticTickService.trackSymbol(symbol);
@@ -317,9 +459,23 @@ public class MarketAdvancedController {
         return ApiResponse.success(historyTicks);
     }
 
+    @Operation(
+        summary = "获取分笔统计",
+        description = "获取股票分笔成交的统计信息"
+    )
+    @ApiResponses(value = {
+        @ApiResponse(
+            responseCode = "200",
+            description = "获取成功",
+            content = @Content(schema = @Schema(implementation = TickSummaryDto.class))
+        ),
+        @ApiResponse(responseCode = "500", description = "服务器内部错误")
+    })
     @GetMapping("/ticks/summary")
     public ApiResponse<TickSummaryDto> getTickSummary(
+            @Parameter(description = "市场代码", example = "AShare")
             @RequestParam String market,
+            @Parameter(description = "股票代码", example = "600519")
             @RequestParam String symbol) {
         log.info("GET /api/v1/market/ticks/summary: market={}, symbol={}", market, symbol);
         syntheticTickService.trackSymbol(symbol);
@@ -361,23 +517,45 @@ public class MarketAdvancedController {
         return ApiResponse.success(summary);
     }
 
+    @Operation(
+        summary = "订阅分笔数据流",
+        description = "通过SSE协议订阅实时分笔数据流"
+    )
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "200", description = "流式响应开始")
+    })
     @GetMapping(value = "/ticks/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
-    public SseEmitter streamTicks(@RequestParam String market, @RequestParam String symbol) {
+    public SseEmitter streamTicks(
+            @Parameter(description = "市场代码", example = "AShare")
+            @RequestParam String market,
+            @Parameter(description = "股票代码", example = "600519")
+            @RequestParam String symbol) {
         log.info("GET /api/v1/market/ticks/stream: market={}, symbol={}", market, symbol);
         syntheticTickService.trackSymbol(symbol);
         return tickStreamService.subscribe(symbol);
     }
 
+    @Schema(description = "分笔数据统计")
     public record TickSummaryDto(
+        @Schema(description = "股票代码", example = "600519")
         String symbol,
+        @Schema(description = "市场代码", example = "AShare")
         String market,
+        @Schema(description = "总成交笔数", example = "1000")
         int totalTrades,
+        @Schema(description = "总成交量", example = "1000000")
         long totalVolume,
+        @Schema(description = "总成交金额", example = "16888888.88")
         BigDecimal totalAmount,
+        @Schema(description = "买入量", example = "600000")
         long buyVolume,
+        @Schema(description = "卖出量", example = "400000")
         long sellVolume,
+        @Schema(description = "大单数量", example = "50")
         int blockOrderCount,
+        @Schema(description = "平均成交手数", example = "1000.50")
         double avgTradeSize,
+        @Schema(description = "最后更新时间", example = "2024-01-15T09:30:00")
         String lastUpdated
     ) {
     }

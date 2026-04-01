@@ -1,5 +1,12 @@
 package com.koduck.controller;
 
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import com.koduck.controller.support.AuthenticatedUserResolver;
 import com.koduck.dto.ApiResponse;
@@ -37,6 +44,7 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequestMapping("/api/v1/portfolio")
 @Tag(name = "投资组合", description = "持仓管理、交易记录、盈亏统计等投资组合接口")
+@SecurityRequirement(name = "bearerAuth")
 @Validated
 @Slf4j
 @RequiredArgsConstructor
@@ -51,28 +59,58 @@ public class PortfolioController {
      * @param userPrincipal authenticated user principal injected by Spring Security
      * @return list of {@link PortfolioPositionDto} objects representing current holdings
      */
+    @Operation(
+        summary = "获取持仓列表",
+        description = "获取当前用户的所有持仓记录"
+    )
+    @ApiResponses(value = {
+        @ApiResponse(
+            responseCode = "200",
+            description = "获取成功",
+            content = @Content(schema = @Schema(implementation = PortfolioPositionDto.class))
+        ),
+        @ApiResponse(responseCode = "401", description = "未登录或Token无效"),
+        @ApiResponse(responseCode = "500", description = "服务器内部错误")
+    })
     @GetMapping
     public ApiResponse<List<PortfolioPositionDto>> getPositions(
+            @Parameter(description = "当前用户认证信息", hidden = true)
             @AuthenticationPrincipal UserPrincipal userPrincipal) {
         Long userId = requireUserId(userPrincipal);
         log.debug("GET /api/v1/portfolio: user={}", userId);
         List<PortfolioPositionDto> positions = portfolioService.getPositions(userId);
         return ApiResponse.success(positions);
     }
+
     /**
      * Retrieve a summary of the authenticated user's portfolio.
      *
      * @param userPrincipal authenticated user principal
      * @return {@link PortfolioSummaryDto} containing aggregated costs, market values and PnL
      */
+    @Operation(
+        summary = "获取投资组合概览",
+        description = "获取当前用户的投资组合汇总信息，包括总成本、市值、盈亏等"
+    )
+    @ApiResponses(value = {
+        @ApiResponse(
+            responseCode = "200",
+            description = "获取成功",
+            content = @Content(schema = @Schema(implementation = PortfolioSummaryDto.class))
+        ),
+        @ApiResponse(responseCode = "401", description = "未登录或Token无效"),
+        @ApiResponse(responseCode = "500", description = "服务器内部错误")
+    })
     @GetMapping("/summary")
     public ApiResponse<PortfolioSummaryDto> getPortfolioSummary(
+            @Parameter(description = "当前用户认证信息", hidden = true)
             @AuthenticationPrincipal UserPrincipal userPrincipal) {
         Long userId = requireUserId(userPrincipal);
         log.debug("GET /api/v1/portfolio/summary: user={}", userId);
         PortfolioSummaryDto summary = portfolioService.getPortfolioSummary(userId);
         return ApiResponse.success(summary);
     }
+
     /**
      * Create a new position or update an existing one in the user's portfolio.
      *
@@ -80,8 +118,24 @@ public class PortfolioController {
      * @param request payload describing the position to add ({@link AddPositionRequest})
      * @return the created or updated {@link PortfolioPositionDto}
      */
+    @Operation(
+        summary = "添加持仓",
+        description = "添加新的持仓记录，如果同市场同代码持仓已存在则更新"
+    )
+    @ApiResponses(value = {
+        @ApiResponse(
+            responseCode = "200",
+            description = "添加成功",
+            content = @Content(schema = @Schema(implementation = PortfolioPositionDto.class))
+        ),
+        @ApiResponse(responseCode = "400", description = "请求参数错误"),
+        @ApiResponse(responseCode = "401", description = "未登录或Token无效"),
+        @ApiResponse(responseCode = "404", description = "股票不存在"),
+        @ApiResponse(responseCode = "500", description = "服务器内部错误")
+    })
     @PostMapping
     public ApiResponse<PortfolioPositionDto> addPosition(
+            @Parameter(description = "当前用户认证信息", hidden = true)
             @AuthenticationPrincipal UserPrincipal userPrincipal,
             @Valid @RequestBody AddPositionRequest request) {
         Long userId = requireUserId(userPrincipal);
@@ -90,6 +144,7 @@ public class PortfolioController {
         PortfolioPositionDto position = portfolioService.addPosition(userId, request);
         return ApiResponse.success(position);
     }
+
     /**
      * Modify an existing portfolio position.
      *
@@ -98,9 +153,27 @@ public class PortfolioController {
      * @param request fields to change ({@link UpdatePositionRequest})
      * @return updated {@link PortfolioPositionDto}
      */
+    @Operation(
+        summary = "更新持仓",
+        description = "更新指定ID的持仓记录"
+    )
+    @ApiResponses(value = {
+        @ApiResponse(
+            responseCode = "200",
+            description = "更新成功",
+            content = @Content(schema = @Schema(implementation = PortfolioPositionDto.class))
+        ),
+        @ApiResponse(responseCode = "400", description = "请求参数错误"),
+        @ApiResponse(responseCode = "401", description = "未登录或Token无效"),
+        @ApiResponse(responseCode = "403", description = "无权更新该持仓"),
+        @ApiResponse(responseCode = "404", description = "持仓记录不存在"),
+        @ApiResponse(responseCode = "500", description = "服务器内部错误")
+    })
     @PutMapping("/{id}")
     public ApiResponse<PortfolioPositionDto> updatePosition(
+            @Parameter(description = "当前用户认证信息", hidden = true)
             @AuthenticationPrincipal UserPrincipal userPrincipal,
+            @Parameter(description = "持仓ID", example = "1")
             @PathVariable @Positive(message = "Position ID must be positive") Long id,
             @Valid @RequestBody UpdatePositionRequest request) {
         Long userId = requireUserId(userPrincipal);
@@ -108,6 +181,7 @@ public class PortfolioController {
         PortfolioPositionDto position = portfolioService.updatePosition(userId, id, request);
         return ApiResponse.success(position);
     }
+
     /**
      * Remove a position from the user's portfolio.
      *
@@ -115,29 +189,58 @@ public class PortfolioController {
      * @param id identifier of the position to delete
      * @return empty success response
      */
+    @Operation(
+        summary = "删除持仓",
+        description = "删除指定ID的持仓记录"
+    )
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "200", description = "删除成功"),
+        @ApiResponse(responseCode = "401", description = "未登录或Token无效"),
+        @ApiResponse(responseCode = "403", description = "无权删除该持仓"),
+        @ApiResponse(responseCode = "404", description = "持仓记录不存在"),
+        @ApiResponse(responseCode = "500", description = "服务器内部错误")
+    })
     @DeleteMapping("/{id}")
     public ApiResponse<Void> deletePosition(
+            @Parameter(description = "当前用户认证信息", hidden = true)
             @AuthenticationPrincipal UserPrincipal userPrincipal,
+            @Parameter(description = "持仓ID", example = "1")
             @PathVariable @Positive(message = "Position ID must be positive") Long id) {
         Long userId = requireUserId(userPrincipal);
         log.debug("DELETE /api/v1/portfolio/{}: user={}", id, userId);
         portfolioService.deletePosition(userId, id);
         return ApiResponse.successNoContent();
     }
+
     /**
      * List trade records associated with the authenticated user.
      *
      * @param userPrincipal authenticated user principal
      * @return list of {@link TradeDto} entries sorted by trade time descending
      */
+    @Operation(
+        summary = "获取交易记录",
+        description = "获取当前用户的所有交易记录，按交易时间倒序排列"
+    )
+    @ApiResponses(value = {
+        @ApiResponse(
+            responseCode = "200",
+            description = "获取成功",
+            content = @Content(schema = @Schema(implementation = TradeDto.class))
+        ),
+        @ApiResponse(responseCode = "401", description = "未登录或Token无效"),
+        @ApiResponse(responseCode = "500", description = "服务器内部错误")
+    })
     @GetMapping("/trades")
     public ApiResponse<List<TradeDto>> getTrades(
+            @Parameter(description = "当前用户认证信息", hidden = true)
             @AuthenticationPrincipal UserPrincipal userPrincipal) {
         Long userId = requireUserId(userPrincipal);
         log.debug("GET /api/v1/portfolio/trades: user={}", userId);
         List<TradeDto> trades = portfolioService.getTrades(userId);
         return ApiResponse.success(trades);
     }
+
     /**
      * Create a new trade record and update the corresponding position.
      *
@@ -145,8 +248,23 @@ public class PortfolioController {
      * @param request trade details ({@link AddTradeRequest})
      * @return the created {@link TradeDto}
      */
+    @Operation(
+        summary = "添加交易记录",
+        description = "添加新的交易记录，并自动更新对应的持仓"
+    )
+    @ApiResponses(value = {
+        @ApiResponse(
+            responseCode = "200",
+            description = "添加成功",
+            content = @Content(schema = @Schema(implementation = TradeDto.class))
+        ),
+        @ApiResponse(responseCode = "400", description = "请求参数错误"),
+        @ApiResponse(responseCode = "401", description = "未登录或Token无效"),
+        @ApiResponse(responseCode = "500", description = "服务器内部错误")
+    })
     @PostMapping("/trades")
     public ApiResponse<TradeDto> addTrade(
+            @Parameter(description = "当前用户认证信息", hidden = true)
             @AuthenticationPrincipal UserPrincipal userPrincipal,
             @Valid @RequestBody AddTradeRequest request) {
         Long userId = requireUserId(userPrincipal);
