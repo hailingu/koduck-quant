@@ -3,6 +3,8 @@ package com.koduck.exception;
 import com.koduck.dto.ApiResponse;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.ConstraintViolationException;
+import java.util.Objects;
+import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -19,16 +21,14 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
-import org.springframework.web.servlet.resource.NoResourceFoundException;
 import org.springframework.web.servlet.NoHandlerFoundException;
-
-import java.util.Objects;
-import java.util.stream.Collectors;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 /**
- * 
+ * Global REST exception handler.
  *
- * <p>， API </p>
+ * <p>Converts domain, validation, security and framework exceptions into
+ * unified {@link ApiResponse} payloads.</p>
  *
  * @author Koduck Team
  */
@@ -36,6 +36,12 @@ import java.util.stream.Collectors;
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
+    /**
+     * Handles all {@link BusinessException} and maps status from {@link ErrorCode}.
+     *
+     * @param e business exception
+     * @return unified error response
+     */
     @ExceptionHandler(BusinessException.class)
     public ResponseEntity<ApiResponse<Void>> handleBusinessException(BusinessException e) {
         log.warn("Business exception: code={}, message={}", e.getCode(), e.getMessage());
@@ -45,7 +51,10 @@ public class GlobalExceptionHandler {
     }
 
     /**
-     * 
+     * Handles {@link ResourceNotFoundException}.
+     *
+     * @param e resource-not-found exception
+     * @return 404 error response
      */
     @ExceptionHandler(ResourceNotFoundException.class)
     public ResponseEntity<ApiResponse<Void>> handleResourceNotFoundException(ResourceNotFoundException e) {
@@ -54,7 +63,10 @@ public class GlobalExceptionHandler {
     }
 
     /**
-     * 
+     * Handles {@link ValidationException}.
+     *
+     * @param e validation exception
+     * @return 400 error response
      */
     @ExceptionHandler(ValidationException.class)
     public ResponseEntity<ApiResponse<Void>> handleValidationException(ValidationException e) {
@@ -63,7 +75,10 @@ public class GlobalExceptionHandler {
     }
 
     /**
-     * 
+     * Handles {@link DuplicateException}.
+     *
+     * @param e duplicate exception
+     * @return 409 error response
      */
     @ExceptionHandler(DuplicateException.class)
     public ResponseEntity<ApiResponse<Void>> handleDuplicateException(DuplicateException e) {
@@ -72,7 +87,10 @@ public class GlobalExceptionHandler {
     }
 
     /**
-     * （）
+     * Handles custom authentication exception from domain layer.
+     *
+     * @param e authentication exception
+     * @return 401 error response
      */
     @ExceptionHandler(com.koduck.exception.AuthenticationException.class)
     public ResponseEntity<ApiResponse<Void>> handleCustomAuthenticationException(
@@ -82,7 +100,10 @@ public class GlobalExceptionHandler {
     }
 
     /**
-     * 
+     * Handles {@link AuthorizationException}.
+     *
+     * @param e authorization exception
+     * @return 403 error response
      */
     @ExceptionHandler(AuthorizationException.class)
     public ResponseEntity<ApiResponse<Void>> handleAuthorizationException(AuthorizationException e) {
@@ -91,7 +112,10 @@ public class GlobalExceptionHandler {
     }
 
     /**
-     * 
+     * Handles {@link StateException}.
+     *
+     * @param e invalid-state exception
+     * @return 400 error response
      */
     @ExceptionHandler(StateException.class)
     public ResponseEntity<ApiResponse<Void>> handleStateException(StateException e) {
@@ -100,7 +124,10 @@ public class GlobalExceptionHandler {
     }
 
     /**
-     * 
+     * Handles {@link ExternalServiceException} for downstream dependency failures.
+     *
+     * @param e external service exception
+     * @return 502 error response
      */
     @ExceptionHandler(ExternalServiceException.class)
     public ResponseEntity<ApiResponse<Void>> handleExternalServiceException(ExternalServiceException e) {
@@ -111,7 +138,10 @@ public class GlobalExceptionHandler {
     // ========== Spring Validation  ==========
 
     /**
-     * （@Valid）
+     * Handles bean validation errors raised by {@code @Valid}.
+     *
+     * @param e method argument validation exception
+     * @return 400 error response with aggregated field messages
      */
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<ApiResponse<Void>> handleMethodArgumentNotValidException(
@@ -125,7 +155,10 @@ public class GlobalExceptionHandler {
     }
 
     /**
-     * 
+     * Handles binding failures for request parameters/form fields.
+     *
+     * @param e bind exception
+     * @return 400 error response with binding details
      */
     @ExceptionHandler(BindException.class)
     public ResponseEntity<ApiResponse<Void>> handleBindException(BindException e) {
@@ -138,7 +171,10 @@ public class GlobalExceptionHandler {
     }
 
     /**
-     * （@Validated）
+     * Handles constraint violations raised by {@code @Validated}.
+     *
+     * @param e constraint violation exception
+     * @return 400 error response with violation details
      */
     @ExceptionHandler(ConstraintViolationException.class)
     public ResponseEntity<ApiResponse<Void>> handleConstraintViolationException(
@@ -151,6 +187,12 @@ public class GlobalExceptionHandler {
             "参数校验失败: " + message);
     }
 
+    /**
+     * Handles missing required request parameter errors.
+     *
+     * @param e missing-parameter exception
+     * @return 400 error response
+     */
     @ExceptionHandler(MissingServletRequestParameterException.class)
     public ResponseEntity<ApiResponse<Void>> handleMissingServletRequestParameterException(
             MissingServletRequestParameterException e) {
@@ -160,7 +202,10 @@ public class GlobalExceptionHandler {
     }
 
     /**
-     * 
+     * Handles request parameter type mismatch errors.
+     *
+     * @param e type mismatch exception
+     * @return 400 error response
      */
     @ExceptionHandler(MethodArgumentTypeMismatchException.class)
     public ResponseEntity<ApiResponse<Void>> handleMethodArgumentTypeMismatchException(
@@ -174,7 +219,10 @@ public class GlobalExceptionHandler {
     }
 
     /**
-     * 
+     * Handles malformed JSON or unreadable request body errors.
+     *
+     * @param e message-not-readable exception
+     * @return 400 error response
      */
     @ExceptionHandler(HttpMessageNotReadableException.class)
     public ResponseEntity<ApiResponse<Void>> handleHttpMessageNotReadableException(
@@ -185,7 +233,10 @@ public class GlobalExceptionHandler {
     }
 
     /**
-     * 
+     * Handles unsupported HTTP method errors.
+     *
+     * @param e method-not-supported exception
+     * @return 405 error response
      */
     @ExceptionHandler(HttpRequestMethodNotSupportedException.class)
     public ResponseEntity<ApiResponse<Void>> handleHttpRequestMethodNotSupportedException(
@@ -196,7 +247,10 @@ public class GlobalExceptionHandler {
     }
 
     /**
-     * 
+     * Handles unmatched route errors when no handler is found.
+     *
+     * @param e no-handler exception
+     * @return 404 error response
      */
     @ExceptionHandler(NoHandlerFoundException.class)
     public ResponseEntity<ApiResponse<Void>> handleNoHandlerFoundException(NoHandlerFoundException e) {
@@ -206,7 +260,10 @@ public class GlobalExceptionHandler {
     }
 
     /**
-     * 
+     * Handles static-resource route miss errors.
+     *
+     * @param e no-resource exception
+     * @return 404 error response
      */
     @ExceptionHandler(NoResourceFoundException.class)
     public ResponseEntity<ApiResponse<Void>> handleNoResourceFoundException(NoResourceFoundException e) {
@@ -218,7 +275,10 @@ public class GlobalExceptionHandler {
     // ========== Spring Security  ==========
 
     /**
-     *  Spring Security 
+     * Handles Spring Security bad-credentials errors.
+     *
+     * @param e bad credentials exception
+     * @return 401 error response
      */
     @ExceptionHandler(BadCredentialsException.class)
     public ResponseEntity<ApiResponse<Void>> handleBadCredentialsException(BadCredentialsException e) {
@@ -228,7 +288,10 @@ public class GlobalExceptionHandler {
     }
 
     /**
-     * 
+     * Handles disabled-account authentication errors.
+     *
+     * @param e disabled exception
+     * @return 403 error response
      */
     @ExceptionHandler(DisabledException.class)
     public ResponseEntity<ApiResponse<Void>> handleDisabledException(DisabledException e) {
@@ -238,7 +301,10 @@ public class GlobalExceptionHandler {
     }
 
     /**
-     * 
+     * Handles locked-account authentication errors.
+     *
+     * @param e locked exception
+     * @return 403 error response
      */
     @ExceptionHandler(LockedException.class)
     public ResponseEntity<ApiResponse<Void>> handleLockedException(LockedException e) {
@@ -248,7 +314,10 @@ public class GlobalExceptionHandler {
     }
 
     /**
-     *  Spring Security 
+     * Handles Spring Security access-denied errors.
+     *
+     * @param e access denied exception
+     * @return 403 error response
      */
     @ExceptionHandler(AccessDeniedException.class)
     public ResponseEntity<ApiResponse<Void>> handleAccessDeniedException(AccessDeniedException e) {
@@ -258,7 +327,10 @@ public class GlobalExceptionHandler {
     }
 
     /**
-     * 
+     * Handles {@link IllegalArgumentException} from service/controller layer.
+     *
+     * @param e illegal argument exception
+     * @return 400 error response
      */
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<ApiResponse<Void>> handleIllegalArgumentException(IllegalArgumentException e) {
@@ -268,7 +340,10 @@ public class GlobalExceptionHandler {
     }
 
     /**
-     * 
+     * Handles {@link IllegalStateException} from service/controller layer.
+     *
+     * @param e illegal state exception
+     * @return 400 error response
      */
     @ExceptionHandler(IllegalStateException.class)
     public ResponseEntity<ApiResponse<Void>> handleIllegalStateException(IllegalStateException e) {
@@ -278,7 +353,11 @@ public class GlobalExceptionHandler {
     }
 
     /**
-     * 
+     * Handles uncaught exceptions as final fallback.
+     *
+     * @param e unexpected exception
+     * @param request HTTP request
+     * @return 500 error response
      */
     @ExceptionHandler(Exception.class)
     @ResponseStatus(HttpStatus.INTERNAL_SERVER_ERROR)
@@ -289,6 +368,14 @@ public class GlobalExceptionHandler {
                 "系统内部错误，请稍后重试");
     }
 
+    /**
+     * Builds unified API error response with given status/code/message.
+     *
+     * @param status HTTP status
+     * @param code business error code
+     * @param message error message
+     * @return response entity containing unified error payload
+     */
     private ResponseEntity<ApiResponse<Void>> buildErrorResponse(HttpStatus status, int code, String message) {
         ApiResponse<Void> response = ApiResponse.error(code, message);
         return ResponseEntity.status(status.value()).body(response);
