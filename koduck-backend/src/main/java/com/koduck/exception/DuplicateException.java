@@ -5,9 +5,9 @@ import lombok.Getter;
 import java.io.Serial;
 
 /**
- * 
+ * Exception for duplicate resource or unique-constraint conflicts.
  *
- * <p></p>
+ * <p>Typically used when creating/updating data violates uniqueness rules.</p>
  *
  * @author Koduck Team
  */
@@ -18,19 +18,19 @@ public class DuplicateException extends BusinessException {
     private static final long serialVersionUID = 1L;
 
     /**
-     * 
+     * Name of the duplicate field.
      */
     private final String field;
 
     /**
-     * 
+     * Duplicate field value.
      */
     private final transient Object value;
 
     /**
-     * 
+     * Creates an exception with custom message.
      *
-     * @param message 
+     * @param message error message
      */
     public DuplicateException(String message) {
         super(ErrorCode.DUPLICATE_ERROR.getCode(), message);
@@ -39,9 +39,9 @@ public class DuplicateException extends BusinessException {
     }
 
     /**
-     * 
+     * Creates an exception from predefined error code.
      *
-     * @param errorCode 
+     * @param errorCode duplicate-related error code
      */
     public DuplicateException(ErrorCode errorCode) {
         super(errorCode.getCode(), errorCode.getDefaultMessage());
@@ -50,11 +50,11 @@ public class DuplicateException extends BusinessException {
     }
 
     /**
-     * 
+     * Creates an exception from duplicate field/value and custom message.
      *
-     * @param field   
-     * @param value   
-     * @param message 
+     * @param field duplicate field name
+     * @param value duplicate value
+     * @param message custom error message
      */
     public DuplicateException(String field, Object value, String message) {
         super(ErrorCode.DUPLICATE_ERROR.getCode(), message);
@@ -63,33 +63,33 @@ public class DuplicateException extends BusinessException {
     }
 
     /**
-     * （）
+     * Creates an exception from duplicate field/value with default message.
      *
-     * @param field 
-     * @param value 
+     * @param field duplicate field name
+     * @param value duplicate value
      */
     public DuplicateException(String field, Object value) {
         this(field, value, field + " 已存在: " + value);
     }
 
     /**
-     * 
+     * Factory method for duplicate exception with custom message.
      *
-     * @param field   
-     * @param value   
-     * @param message 
-     * @return DuplicateException
+     * @param field duplicate field name
+     * @param value duplicate value
+     * @param message custom error message
+     * @return exception instance
      */
     public static DuplicateException of(String field, Object value, String message) {
         return new DuplicateException(field, value, message);
     }
 
     /**
-     * （）
+     * Factory method for duplicate exception with default message.
      *
-     * @param field 
-     * @param value 
-     * @return DuplicateException
+     * @param field duplicate field name
+     * @param value duplicate value
+     * @return exception instance
      */
     public static DuplicateException of(String field, Object value) {
         return new DuplicateException(field, value);
