@@ -86,7 +86,8 @@ jobs:
         run: |
           set -euo pipefail
           mvn -B -f koduck-backend/pom.xml clean test \
-            -Dtest=com.koduck.integration.IntegrationSmokeTest
+            -Dtest=com.koduck.integration.IntegrationSmokeTest \
+            -Djacoco.skip=true
 
       - name: Upload Integration Test Reports
         if: always()
