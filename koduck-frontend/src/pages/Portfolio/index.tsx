@@ -1,778 +1,606 @@
-import { useEffect, useState, useCallback, useRef, useMemo } from 'react'
-import { useNavigate } from 'react-router-dom'
-import * as echarts from 'echarts'
-import type {
-  PortfolioItem,
-  SectorDistribution,
-  PnLPoint,
-} from '@/api/portfolio'
-import { portfolioApi } from '@/api/portfolio'
-import { marketApi } from '@/api/market'
+import { useEffect, useState, useCallback } from 'react'
+import { portfolioApi, type PortfolioItem, type PortfolioSummary, type TradeRecord, type SectorDistribution } from '@/api/portfolio'
 import { useToast } from '@/hooks/useToast'
-import { useWebSocketSubscription } from '@/hooks/useWebSocket'
-import { useWebSocketStore } from '@/stores/websocket'
-import StockSearch from '@/components/StockSearch'
-import { isTradingHours } from '@/utils/trading'
 
-interface PortfolioDisplayItem extends PortfolioItem {
-  realtimeTimestamp?: number
-}
+const currencyFormatter = new Intl.NumberFormat('zh-CN', {
+  style: 'currency',
+  currency: 'CNY',
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2,
+})
 
-const REALTIME_STALE_MS = 20000
-const SNAPSHOT_STALE_MS = 120000
-const MARKET_STATUS_CHECK_MS = 30000
-const TRADING_QUOTE_POLL_MS = 5000
-const CLOSED_QUOTE_POLL_MS = 30000
-const WS_BACKUP_QUOTE_POLL_MS = 15000
-const QUOTE_POLL_CONCURRENCY = 4
+const numberFormatterCache = new Map<number, Intl.NumberFormat>()
 
-const normalizeSymbol = (symbol: string): string => {
-  const digits = symbol.replaceAll(/\D/g, '')
-  if (digits.length >= 1 && digits.length <= 6) {
-    return digits.padStart(6, '0')
+function getNumberFormatter(decimals: number): Intl.NumberFormat {
+  const cachedFormatter = numberFormatterCache.get(decimals)
+  if (cachedFormatter) {
+    return cachedFormatter
   }
-  return symbol.trim()
-}
 
-// 数字格式化
-const formatNumber = (num: number, decimals: number = 2) => {
-  return num.toLocaleString('zh-CN', {
+  const formatter = new Intl.NumberFormat('zh-CN', {
     minimumFractionDigits: decimals,
     maximumFractionDigits: decimals,
   })
+
+  numberFormatterCache.set(decimals, formatter)
+  return formatter
 }
 
-// 金额格式化
-const formatMoney = (num: number) => {
-  if (Math.abs(num) >= 100000000) {
-    return `${(num / 100000000).toFixed(2)}亿`
-  } else if (Math.abs(num) >= 10000) {
-    return `${(num / 10000).toFixed(2)}万`
-  }
-  return formatNumber(num)
+function formatCurrency(value: number): string {
+  return currencyFormatter.format(value)
 }
 
-const APPLE_CARD_CLASS =
-  'bg-white dark:bg-[#1c1c1e] rounded-[24px] shadow-[0_4px_24px_rgba(0,0,0,0.04)] border border-gray-100 dark:border-white/5'
+function formatNumber(value: number, decimals: number = 2): string {
+  return getNumberFormatter(decimals).format(value)
+}
 
-const GLASS_MODAL_CLASS =
-  'relative overflow-hidden rounded-[24px] bg-white dark:bg-[#1c1c1e] shadow-[0_25px_60px_rgba(0,0,0,0.15)] ring-1 ring-black/5 dark:ring-white/10'
-
-// 持仓行组件
-function PortfolioRow({
-  item,
-  onEdit,
-  onDelete,
-  onClick,
-}: {
-  item: PortfolioDisplayItem
-  onEdit: (item: PortfolioItem) => void
-  onDelete: (id: number) => void
-  onClick: (symbol: string, market: string) => void
+// PnL Chart Component
+function PnLChart({ 
+  summary, 
+  loading 
+}: { 
+  summary: PortfolioSummary | null
+  loading: boolean 
 }) {
-  const isProfit = item.pnl >= 0
-  const colorClass = isProfit ? 'text-[#34c759]' : 'text-[#ff3b30]'
+  if (loading) {
+    return (
+      <div className="glass-panel p-5 rounded-xl">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <div className="text-[10px] font-mono-data text-fluid-text-muted uppercase mb-1">Daily PNL (盈亏)</div>
+            <div className="h-8 w-32 bg-fluid-surface-higher rounded animate-pulse" />
+          </div>
+        </div>
+        <div className="h-40 bg-fluid-surface-higher/50 rounded animate-pulse" />
+      </div>
+    )
+  }
+
+  if (!summary) {
+    return (
+      <div className="glass-panel p-5 rounded-xl">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <div className="text-[10px] font-mono-data text-fluid-text-muted uppercase mb-1">Daily PNL (盈亏)</div>
+            <div className="text-3xl font-headline font-bold text-fluid-text-dim">--</div>
+          </div>
+        </div>
+        <div className="h-40 flex items-center justify-center text-fluid-text-dim text-sm">
+          No data available
+        </div>
+      </div>
+    )
+  }
+
+  const isPositive = summary.dailyPnl >= 0
+  const pnlColor = isPositive ? 'text-fluid-primary' : 'text-fluid-secondary'
+  const bgColor = isPositive ? 'bg-fluid-primary/10' : 'bg-fluid-secondary/10'
 
   return (
-    <tr className="hover:bg-gray-50/50 dark:hover:bg-white/5 transition-colors group">
-      <td className="px-6 py-4 whitespace-nowrap">
-        <div className="flex flex-col">
-          <div
-            className="text-[15px] font-medium text-[#1d1d1f] dark:text-white cursor-pointer hover:text-blue-500 transition-colors"
-            onClick={() => onClick(item.symbol, item.market)}
-          >
-            {item.name}
-          </div>
-          <div className="text-[13px] text-[#86868b] dark:text-gray-500 mt-0.5">{item.symbol}</div>
-        </div>
-      </td>
-      <td className="px-6 py-4 whitespace-nowrap text-right text-[15px] text-[#1d1d1f] dark:text-white">
-        {item.quantity}
-      </td>
-      <td className="px-6 py-4 whitespace-nowrap text-right text-[15px] text-[#1d1d1f] dark:text-white">
-        {formatNumber(item.avgCost)}
-      </td>
-      <td className="px-6 py-4 whitespace-nowrap text-right text-[15px] text-[#1d1d1f] dark:text-white">
-        {formatNumber(item.currentPrice)}
-      </td>
-      <td className="px-6 py-4 whitespace-nowrap text-right text-[15px] font-medium text-[#1d1d1f] dark:text-white">
-        {formatMoney(item.marketValue)}
-      </td>
-      <td className="px-6 py-4 whitespace-nowrap text-right tabular-nums">
-        <div className="flex flex-col items-end">
-          <div className={`text-[15px] font-medium ${colorClass}`}>{formatMoney(item.pnl)}</div>
-          <div className={`text-[13px] ${colorClass} mt-0.5`}>
-            {isProfit ? '+' : ''}
-            {item.pnlPercent.toFixed(2)}%
+    <div className="glass-panel p-5 rounded-xl">
+      <div className="flex items-center justify-between mb-4">
+        <div>
+          <div className="text-[10px] font-mono-data text-fluid-text-muted uppercase mb-1">Daily PNL (盈亏)</div>
+          <div className="flex items-baseline gap-3">
+            <span className={`text-3xl font-headline font-bold ${pnlColor}`}>
+              {isPositive ? '+' : ''}{formatCurrency(summary.dailyPnl)}
+            </span>
+            <span className={`px-2 py-0.5 ${bgColor} ${pnlColor} text-xs font-mono-data rounded`}>
+              {isPositive ? '+' : ''}{formatNumber(summary.dailyPnlPercent)}%
+            </span>
           </div>
         </div>
-      </td>
-      <td className="px-6 py-4 whitespace-nowrap text-right">
-        <div
-          className="
-            inline-flex w-[88px] items-center justify-end gap-2
-            transition-all duration-200
-            opacity-100 translate-x-0
-          "
-        >
-          <button
-            onClick={() => onEdit(item)}
-            className="text-blue-500 hover:text-blue-600 p-2 hover:bg-blue-50 dark:hover:bg-blue-500/10 rounded-lg transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400/60"
-            title="编辑"
-            aria-label={`编辑 ${item.name}`}
-          >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-            </svg>
-          </button>
-          <button
-            onClick={() => onDelete(item.id)}
-            className="text-red-500 hover:text-red-600 p-2 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-lg transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-400/60"
-            title="删除"
-            aria-label={`删除 ${item.name}`}
-          >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-            </svg>
-          </button>
+        <div className="flex gap-2">
+          {['1D', '1W', '1M'].map((period) => (
+            <button 
+              key={period}
+              className={`px-3 py-1 rounded text-xs font-mono-data ${
+                period === '1D' 
+                  ? 'bg-fluid-primary/20 text-fluid-primary' 
+                  : 'text-fluid-text-muted hover:text-fluid-text'
+              }`}
+            >
+              {period}
+            </button>
+          ))}
         </div>
-      </td>
-    </tr>
+      </div>
+      
+      {/* Line Chart Placeholder */}
+      <div className="h-40 relative">
+        <svg className="w-full h-full" preserveAspectRatio="none" viewBox="0 0 400 100">
+          <defs>
+            <linearGradient id="pnlGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+              <stop offset="0%" stopColor={isPositive ? '#00F2FF' : '#DE0541'} stopOpacity="0.3" />
+              <stop offset="100%" stopColor={isPositive ? '#00F2FF' : '#DE0541'} stopOpacity="0" />
+            </linearGradient>
+          </defs>
+          <path 
+            d="M0 80 Q50 70 100 60 T200 40 T300 50 T400 30 L400 100 L0 100 Z" 
+            fill="url(#pnlGrad)"
+          />
+          <path 
+            d="M0 80 Q50 70 100 60 T200 40 T300 50 T400 30" 
+            fill="none" 
+            stroke={isPositive ? '#00F2FF' : '#DE0541'}
+            strokeWidth="2"
+          />
+        </svg>
+      </div>
+    </div>
+  )
+}
+
+// Sector Allocation Component
+function SectorAllocation({ 
+  sectors, 
+  loading 
+}: { 
+  sectors: SectorDistribution[]
+  loading: boolean 
+}) {
+  if (loading) {
+    return (
+      <div className="glass-panel p-5 rounded-xl">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="font-headline font-bold text-sm text-fluid-text uppercase tracking-wide">Sector Allocation</h3>
+        </div>
+        <div className="py-12 text-center">
+          <div className="w-32 h-32 mx-auto rounded-full bg-fluid-surface-higher animate-pulse" />
+        </div>
+      </div>
+    )
+  }
+
+  if (sectors.length === 0) {
+    return (
+      <div className="glass-panel p-5 rounded-xl">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="font-headline font-bold text-sm text-fluid-text uppercase tracking-wide">Sector Allocation</h3>
+        </div>
+        <div className="py-12 text-center text-fluid-text-dim">
+          <span className="material-symbols-outlined text-4xl mb-2">donut_large</span>
+          <p className="text-sm">No sector data</p>
+          <p className="text-xs mt-1">Add positions to see allocation</p>
+        </div>
+      </div>
+    )
+  }
+
+  const totalAssets = sectors.length
+  const colors = ['bg-fluid-primary', 'bg-fluid-secondary', 'bg-fluid-tertiary', 'bg-fluid-text-dim']
+  
+  // Calculate stroke dasharray for donut chart
+  const circumference = 2 * Math.PI * 40
+  const chartData = sectors.slice(0, 4).reduce<{
+    items: Array<SectorDistribution & { color: string; dashArray: string; offset: number }>
+    offset: number
+  }>((acc, sector, i) => {
+    const dashLength = (sector.percent / 100) * circumference
+
+    acc.items.push({
+      ...sector,
+      color: colors[i % colors.length],
+      dashArray: `${dashLength} ${circumference}`,
+      offset: -acc.offset,
+    })
+
+    return {
+      items: acc.items,
+      offset: acc.offset + dashLength,
+    }
+  }, {
+    items: [],
+    offset: 0,
+  }).items
+
+  return (
+    <div className="glass-panel p-5 rounded-xl">
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="font-headline font-bold text-sm text-fluid-text uppercase tracking-wide">Sector Allocation</h3>
+      </div>
+      
+      {/* Donut Chart */}
+      <div className="relative w-32 h-32 mx-auto mb-4">
+        <svg viewBox="0 0 100 100" className="w-full h-full -rotate-90">
+          <circle cx="50" cy="50" r="40" fill="none" stroke="#1D2026" strokeWidth="12" />
+          {chartData.map((s, i) => (
+            <circle 
+              key={i}
+              cx="50" 
+              cy="50" 
+              r="40" 
+              fill="none" 
+              stroke={i === 0 ? '#00F2FF' : i === 1 ? '#DE0541' : i === 2 ? '#FFD81D' : '#849495'}
+              strokeWidth="12" 
+              strokeDasharray={s.dashArray}
+              strokeDashoffset={s.offset}
+            />
+          ))}
+        </svg>
+        <div className="absolute inset-0 flex items-center justify-center">
+          <span className="text-lg font-bold text-fluid-text">{totalAssets} Assets</span>
+        </div>
+      </div>
+
+      {/* Legend */}
+      <div className="space-y-2">
+        {sectors.slice(0, 4).map((s, i) => (
+          <div key={i} className="flex items-center justify-between text-xs">
+            <div className="flex items-center gap-2">
+              <span className={`w-2 h-2 rounded-full ${colors[i % colors.length]}`} />
+              <span className="text-fluid-text font-mono-data">{s.sector ?? s.name}</span>
+            </div>
+            <span className="text-fluid-text-muted">{formatNumber(s.percent)}%</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+// Positions Table Component
+function PositionsTable({ 
+  positions, 
+  loading, 
+  error 
+}: { 
+  positions: PortfolioItem[]
+  loading: boolean
+  error: string | null 
+}) {
+  if (loading) {
+    return (
+      <div className="glass-panel p-5 rounded-xl">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="font-headline font-bold text-sm text-fluid-text uppercase tracking-wide">
+            Open Positions
+          </h3>
+        </div>
+        <div className="py-12 text-center">
+          <div className="inline-flex items-center gap-2 text-fluid-text-dim">
+            <div className="w-5 h-5 border-2 border-fluid-primary border-t-transparent rounded-full animate-spin" />
+            <span className="text-sm">Loading positions...</span>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="glass-panel p-5 rounded-xl">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="font-headline font-bold text-sm text-fluid-text uppercase tracking-wide">
+            Open Positions
+          </h3>
+        </div>
+        <div className="py-12 text-center text-fluid-secondary">
+          <span className="material-symbols-outlined text-4xl mb-2">error_outline</span>
+          <p className="text-sm">Failed to load positions</p>
+          <p className="text-xs text-fluid-text-dim mt-1">{error}</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (positions.length === 0) {
+    return (
+      <div className="glass-panel p-5 rounded-xl">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="font-headline font-bold text-sm text-fluid-text uppercase tracking-wide">
+            Open Positions
+          </h3>
+        </div>
+        <div className="py-12 text-center text-fluid-text-dim">
+          <span className="material-symbols-outlined text-4xl mb-2">inventory_2</span>
+          <p className="text-sm">No open positions</p>
+          <p className="text-xs mt-1">Add your first trade to see holdings</p>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="glass-panel p-5 rounded-xl">
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="font-headline font-bold text-sm text-fluid-text uppercase tracking-wide">
+          Open Positions ({positions.length})
+        </h3>
+        <span className="material-symbols-outlined text-fluid-text-dim">filter_list</span>
+      </div>
+
+      <table className="w-full">
+        <thead>
+          <tr className="text-[10px] font-mono-data text-fluid-text-muted uppercase tracking-wider border-b border-fluid-outline-variant/30">
+            <th className="text-left py-3">Asset</th>
+            <th className="text-right py-3">Avg Price</th>
+            <th className="text-right py-3">Current Price</th>
+            <th className="text-right py-3">PnL %</th>
+            <th className="text-right py-3">Market Value</th>
+          </tr>
+        </thead>
+        <tbody>
+          {positions.map((pos) => (
+            <tr key={pos.id} className="border-b border-fluid-outline-variant/10 last:border-0 hover:bg-fluid-surface-higher/30 transition-colors">
+              <td className="py-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-lg bg-fluid-surface-container flex items-center justify-center text-[10px] font-mono-data text-fluid-text">
+                    {pos.symbol.slice(0, 2)}
+                  </div>
+                  <div>
+                    <div className="text-sm font-medium text-fluid-text">{pos.name}</div>
+                    <div className="text-xs text-fluid-text-dim">{formatNumber(pos.quantity)} {pos.symbol}</div>
+                  </div>
+                </div>
+              </td>
+              <td className="text-right py-4 text-sm text-fluid-text-muted">{formatCurrency(pos.avgCost)}</td>
+              <td className="text-right py-4 text-sm text-fluid-text">{formatCurrency(pos.currentPrice)}</td>
+              <td className={`text-right py-4 text-sm font-mono-data ${pos.pnlPercent >= 0 ? 'text-fluid-primary' : 'text-fluid-secondary'}`}>
+                {pos.pnlPercent >= 0 ? '+' : ''}{formatNumber(pos.pnlPercent)}%
+              </td>
+              <td className="text-right py-4 text-sm font-medium text-fluid-text">{formatCurrency(pos.marketValue)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  )
+}
+
+// Recent Events Component
+function RecentEvents({ 
+  trades, 
+  loading,
+  error,
+}: { 
+  trades: TradeRecord[]
+  loading: boolean 
+  error: string | null
+}) {
+  if (loading) {
+    return (
+      <div className="glass-panel p-5 rounded-xl">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="font-headline font-bold text-sm text-fluid-text uppercase tracking-wide">Recent Trades</h3>
+        </div>
+        <div className="space-y-3">
+          {[1, 2].map((i) => (
+            <div key={i} className="flex items-center gap-3 py-2">
+              <div className="w-10 h-10 rounded-lg bg-fluid-surface-higher animate-pulse" />
+              <div className="flex-1">
+                <div className="h-4 w-32 bg-fluid-surface-higher rounded animate-pulse" />
+                <div className="h-3 w-20 bg-fluid-surface-higher rounded animate-pulse mt-1" />
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="glass-panel p-5 rounded-xl">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="font-headline font-bold text-sm text-fluid-text uppercase tracking-wide">Recent Trades</h3>
+        </div>
+        <div className="py-8 text-center text-fluid-secondary">
+          <span className="material-symbols-outlined text-3xl mb-2">error_outline</span>
+          <p className="text-sm">Failed to load recent trades</p>
+          <p className="text-xs text-fluid-text-dim mt-1">{error}</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (trades.length === 0) {
+    return (
+      <div className="glass-panel p-5 rounded-xl">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="font-headline font-bold text-sm text-fluid-text uppercase tracking-wide">Recent Trades</h3>
+        </div>
+        <div className="py-8 text-center text-fluid-text-dim">
+          <span className="material-symbols-outlined text-3xl mb-2">receipt_long</span>
+          <p className="text-sm">No recent trades</p>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="glass-panel p-5 rounded-xl">
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="font-headline font-bold text-sm text-fluid-text uppercase tracking-wide">Recent Trades</h3>
+        <button className="text-xs text-fluid-primary hover:text-fluid-primary/80 transition-colors">VIEW ALL</button>
+      </div>
+
+      <div className="space-y-3">
+        {trades.slice(0, 5).map((trade) => {
+          const isBuy = trade.type.toLowerCase() === 'buy'
+          const icon = isBuy ? 'trending_up' : 'trending_down'
+          const iconBg = isBuy ? 'bg-fluid-primary/20' : 'bg-fluid-secondary/20'
+          const iconColor = isBuy ? 'text-fluid-primary' : 'text-fluid-secondary'
+          const valuePrefix = isBuy ? '+' : '-'
+          
+          return (
+            <div key={trade.id} className="flex items-center justify-between py-2">
+              <div className="flex items-center gap-3">
+                <div className={`w-10 h-10 rounded-lg ${iconBg} flex items-center justify-center`}>
+                  <span className={`material-symbols-outlined ${iconColor}`}>{icon}</span>
+                </div>
+                <div>
+                  <div className="text-sm font-medium text-fluid-text">
+                    {isBuy ? 'Buy' : 'Sell'} {trade.name}
+                  </div>
+                  <div className="text-xs text-fluid-text-dim">
+                    {new Date(trade.tradeTime ?? trade.time ?? '').toLocaleString('zh-CN')}
+                  </div>
+                </div>
+              </div>
+              <div className="text-right">
+                <div className="text-sm font-mono-data text-fluid-text">
+                  {valuePrefix}{formatNumber(trade.quantity)} {trade.symbol}
+                </div>
+                <div className="text-[10px] text-fluid-text-muted">
+                  @ {formatCurrency(trade.price)}
+                </div>
+              </div>
+            </div>
+          )
+        })}
+      </div>
+    </div>
   )
 }
 
 export default function Portfolio() {
-  const navigate = useNavigate()
   const { showToast } = useToast()
-  const [loading, setLoading] = useState(true)
-  const [coreLoaded, setCoreLoaded] = useState(false)
-  const [sectorsLoading, setSectorsLoading] = useState(false)
-  const [portfolio, setPortfolio] = useState<PortfolioItem[]>([])
+  
+  // Data states
+  const [positions, setPositions] = useState<PortfolioItem[]>([])
+  const [summary, setSummary] = useState<PortfolioSummary | null>(null)
+  const [trades, setTrades] = useState<TradeRecord[]>([])
   const [sectors, setSectors] = useState<SectorDistribution[]>([])
-  const [pnlHistory, setPnLHistory] = useState<PnLPoint[]>([])
-  const [marketTrading, setMarketTrading] = useState<boolean>(isTradingHours())
+  
+  // Loading states
+  const [loadingPositions, setLoadingPositions] = useState(true)
+  const [loadingSummary, setLoadingSummary] = useState(true)
+  const [loadingTrades, setLoadingTrades] = useState(true)
+  
+  // Error states
+  const [errorPositions, setErrorPositions] = useState<string | null>(null)
+  const [errorSummary, setErrorSummary] = useState<string | null>(null)
+  const [errorTrades, setErrorTrades] = useState<string | null>(null)
 
-  // 弹窗状态
-  const [showAddModal, setShowAddModal] = useState(false)
-  const [showEditModal, setShowEditModal] = useState(false)
-  const [editingItem, setEditingItem] = useState<PortfolioItem | null>(null)
-  const [formData, setFormData] = useState({
-    market: 'SZ',
-    symbol: '',
-    name: '',
-    quantity: '',
-    avgCost: '',
-  })
-  const [editForm, setEditForm] = useState({
-    quantity: '',
-    avgCost: '',
-  })
-  const [closedMarketQuotes, setClosedMarketQuotes] = useState<
-    Map<string, { price: number; change: number; timestamp: number }>
-  >(new Map())
+  // Fetch all portfolio data
+  const fetchPortfolioData = useCallback(async () => {
+    setLoadingPositions(true)
+    setLoadingSummary(true)
+    setLoadingTrades(true)
+    setErrorPositions(null)
+    setErrorSummary(null)
+    setErrorTrades(null)
 
-  // WebSocket
-  const stockPrices = useWebSocketStore((state) => state.stockPrices)
-  const connectionState = useWebSocketStore((state) => state.connectionState)
-  const symbols = useMemo(() => portfolio.map((item) => normalizeSymbol(item.symbol)), [portfolio])
+    const [positionsResult, summaryResult, tradesResult] = await Promise.allSettled([
+      portfolioApi.getPortfolio(),
+      portfolioApi.getPortfolioSummary(),
+      portfolioApi.getTradeRecords(),
+    ])
 
-  useWebSocketSubscription(symbols, symbols.length > 0)
+    if (positionsResult.status === 'fulfilled') {
+      const positionsData = positionsResult.value
+      setPositions(positionsData)
 
-  useEffect(() => {
-    const intervalId = globalThis.setInterval(() => {
-      setMarketTrading(isTradingHours())
-    }, MARKET_STATUS_CHECK_MS)
-    return () => globalThis.clearInterval(intervalId)
-  }, [])
-
-  const pollClosedMarketQuotes = useCallback(async () => {
-    if (symbols.length === 0) return
-
-    const quoteEntries: Array<
-      readonly [string, { price: number; change: number; timestamp: number }] | null
-    > = []
-
-    for (let i = 0; i < symbols.length; i += QUOTE_POLL_CONCURRENCY) {
-      const chunk = symbols.slice(i, i + QUOTE_POLL_CONCURRENCY)
-      const chunkEntries = await Promise.all(
-        chunk.map(async (symbol) => {
-          try {
-            const quote = await marketApi.getStockDetail(symbol)
-            if (quote && Number.isFinite(quote.price) && quote.price > 0) {
-              return [
-                normalizeSymbol(symbol),
-                { price: quote.price, change: quote.change, timestamp: Date.now() },
-              ] as const
-            }
-          } catch {
-            // ignore
-          }
-          return null
-        })
-      )
-      quoteEntries.push(...chunkEntries)
-    }
-
-    setClosedMarketQuotes((prev) => {
-      const next = new Map(prev)
-      quoteEntries.forEach((entry) => {
-        if (!entry) return
-        const [symbol, quote] = entry
-        next.set(symbol, quote)
-      })
-      return next
-    })
-  }, [symbols])
-
-  useEffect(() => {
-    if (!coreLoaded || symbols.length === 0) return
-    void pollClosedMarketQuotes()
-    const pollIntervalMs =
-      connectionState === 'connected'
-        ? WS_BACKUP_QUOTE_POLL_MS
-        : marketTrading
-          ? TRADING_QUOTE_POLL_MS
-          : CLOSED_QUOTE_POLL_MS
-    const intervalId = globalThis.setInterval(() => {
-      void pollClosedMarketQuotes()
-    }, pollIntervalMs)
-    return () => globalThis.clearInterval(intervalId)
-  }, [coreLoaded, symbols, pollClosedMarketQuotes, marketTrading, connectionState])
-
-  const portfolioWithRealtime = useMemo<PortfolioDisplayItem[]>(() => {
-    const now = Date.now()
-    return portfolio.map((item) => {
-      const normalizedSymbol = normalizeSymbol(item.symbol)
-      const realtimePrice = stockPrices.get(normalizedSymbol)
-      const closedQuote = closedMarketQuotes.get(normalizedSymbol)
-      const isRealtimeFresh = realtimePrice !== undefined && now - realtimePrice.timestamp <= REALTIME_STALE_MS
-      const isSnapshotFresh = closedQuote !== undefined && now - closedQuote.timestamp <= SNAPSHOT_STALE_MS
-
-      if (isRealtimeFresh && realtimePrice) {
-        const currentPrice = realtimePrice.price
-        const totalCost = item.avgCost * item.quantity
-        const marketValue = currentPrice * item.quantity
-        const pnl = marketValue - totalCost
-        const pnlPercent = totalCost > 0 ? (pnl / totalCost) * 100 : 0
-        return { ...item, currentPrice, marketValue, pnl, pnlPercent, realtimeTimestamp: realtimePrice.timestamp }
-      }
-
-      if (isSnapshotFresh && closedQuote && Number.isFinite(closedQuote.price) && closedQuote.price > 0) {
-        const currentPrice = closedQuote.price
-        const totalCost = item.avgCost * item.quantity
-        const marketValue = currentPrice * item.quantity
-        const pnl = marketValue - totalCost
-        const pnlPercent = totalCost > 0 ? (pnl / totalCost) * 100 : 0
-        return { ...item, currentPrice, marketValue, pnl, pnlPercent, realtimeTimestamp: closedQuote.timestamp }
-      }
-
-      if (marketTrading && connectionState !== 'connected') {
-        return item
-      }
-      return item
-    })
-  }, [portfolio, stockPrices, closedMarketQuotes, marketTrading, connectionState])
-
-  const summaryMetrics = useMemo(() => {
-    const totalCost = portfolioWithRealtime.reduce((sum, item) => sum + item.avgCost * item.quantity, 0)
-    const totalMarketValue = portfolioWithRealtime.reduce((sum, item) => sum + item.marketValue, 0)
-    const totalPnl = totalMarketValue - totalCost
-    const totalPnlPercent = totalCost > 0 ? (totalPnl / totalCost) * 100 : 0
-
-    let dailyPnl = 0
-    let previousMarketValue = 0
-    portfolioWithRealtime.forEach((item) => {
-      const normalizedSymbol = normalizeSymbol(item.symbol)
-      const realtimePrice = stockPrices.get(normalizedSymbol)
-      const closedQuote = closedMarketQuotes.get(normalizedSymbol)
-      const now = Date.now()
-      const isRealtimeFresh = realtimePrice !== undefined && now - realtimePrice.timestamp <= REALTIME_STALE_MS
-      const isSnapshotFresh = closedQuote !== undefined && now - closedQuote.timestamp <= SNAPSHOT_STALE_MS
-      const quoteChange = isRealtimeFresh
-        ? (realtimePrice?.change ?? 0)
-        : isSnapshotFresh
-          ? (closedQuote?.change ?? 0)
-          : 0
-      dailyPnl += quoteChange * item.quantity
-      previousMarketValue += (item.currentPrice - quoteChange) * item.quantity
-    })
-    const dailyPnlPercent = previousMarketValue > 0 ? (dailyPnl / previousMarketValue) * 100 : 0
-
-    return {
-      totalCost,
-      totalMarketValue,
-      totalPnl,
-      totalPnlPercent,
-      dailyPnl,
-      dailyPnlPercent,
-    }
-  }, [portfolioWithRealtime, stockPrices, closedMarketQuotes])
-
-  // 图表
-  const pnlChartRef = useRef<HTMLDivElement>(null)
-  const barChartRef = useRef<HTMLDivElement>(null)
-  const pnlChartInstance = useRef<echarts.ECharts | null>(null)
-  const barChartInstance = useRef<echarts.ECharts | null>(null)
-
-  const loadData = useCallback(async () => {
-    try {
-      setLoading(true)
-      setCoreLoaded(false)
-
-      const [portfolioData, summaryData] = await Promise.all([
-        portfolioApi.getPortfolio(),
-        portfolioApi.getPortfolioSummary(),
-      ])
-
-      const tradeRecords = await portfolioApi.getTradeRecords().catch(() => [])
-      const now = Date.now()
-      const earliestTradeTs = tradeRecords
-        .map((trade) => new Date(trade.tradeTime).getTime())
-        .filter((ts) => Number.isFinite(ts) && ts > 0)
-        .sort((a, b) => a - b)[0]
-      const activeDays = earliestTradeTs
-        ? Math.max(1, Math.floor((now - earliestTradeTs) / (24 * 60 * 60 * 1000)) + 1)
-        : summaryData.totalCost > 0 || summaryData.totalMarketValue > 0
-          ? 1
-          : 0
-      const pnlData = await portfolioApi.getPnLHistory(summaryData, activeDays)
-      setPortfolio(portfolioData)
-      setPnLHistory(pnlData)
-      setLoading(false)
-      setCoreLoaded(true)
-
-      // 行业分布异步加载，不阻塞主界面
-      setSectorsLoading(true)
-      void portfolioApi
-        .getSectorDistribution(portfolioData)
-        .then((sectorData) => {
+      if (positionsData.length > 0) {
+        try {
+          const sectorData = await portfolioApi.getSectorDistribution(positionsData)
           setSectors(sectorData)
-        })
-        .catch(() => {
+        } catch {
           setSectors([])
-        })
-        .finally(() => {
-          setSectorsLoading(false)
-        })
-    } catch (error) {
-      showToast('加载数据失败', 'error')
-      setCoreLoaded(false)
-      setSectorsLoading(false)
-    } finally {
-      setLoading(false)
+        }
+      } else {
+        setSectors([])
+      }
+    } else {
+      const errorMessage = positionsResult.reason instanceof Error
+        ? positionsResult.reason.message
+        : 'Failed to load positions'
+      setErrorPositions(errorMessage)
+      setPositions([])
+      setSectors([])
+      showToast('Failed to load portfolio positions', 'error')
     }
+
+    if (summaryResult.status === 'fulfilled') {
+      setSummary(summaryResult.value)
+    } else {
+      const errorMessage = summaryResult.reason instanceof Error
+        ? summaryResult.reason.message
+        : 'Failed to load summary'
+      setErrorSummary(errorMessage)
+      setSummary(null)
+      showToast('Failed to load portfolio summary', 'error')
+    }
+
+    if (tradesResult.status === 'fulfilled') {
+      setTrades(tradesResult.value)
+    } else {
+      const errorMessage = tradesResult.reason instanceof Error
+        ? tradesResult.reason.message
+        : 'Failed to load trades'
+      setErrorTrades(errorMessage)
+      setTrades([])
+      showToast('Failed to load trade records', 'error')
+    }
+
+    setLoadingPositions(false)
+    setLoadingSummary(false)
+    setLoadingTrades(false)
   }, [showToast])
 
+  // Initial load
   useEffect(() => {
-    loadData()
-  }, [loadData])
-
-  useEffect(() => {
-    if (loading || !pnlChartRef.current || !barChartRef.current) return
-
-    const pnlRateSeries =
-      pnlHistory.length > 0 && pnlHistory[0].value > 0
-        ? pnlHistory.map((point) => Number((((point.value - pnlHistory[0].value) / pnlHistory[0].value) * 100).toFixed(2)))
-        : []
-
-    pnlChartInstance.current = echarts.init(pnlChartRef.current)
-    pnlChartInstance.current.setOption({
-      backgroundColor: 'transparent',
-      tooltip: {
-        trigger: 'axis',
-        formatter: (params: any) => {
-          const data = params[0]
-          return `<div class="font-[system-ui]">${data.name}<br/><span class="font-medium">收益率: ${Number(data.value).toFixed(2)}%</span></div>`
-        },
-        backgroundColor: 'rgba(255,255,255,0.9)',
-        borderColor: '#f0f0f0',
-        textStyle: { color: '#1d1d1f' },
-        padding: [8, 12],
-        extraCssText: 'box-shadow: 0 4px 12px rgba(0,0,0,0.08); border-radius: 8px;',
-      },
-      grid: { top: 10, left: 10, right: 10, bottom: 20, containLabel: true },
-      xAxis: {
-        type: 'category',
-        data: pnlHistory.map((p) => p.date.slice(5)),
-        axisLine: { show: false },
-        axisTick: { show: false },
-        axisLabel: { color: '#86868b', margin: 12 },
-      },
-      yAxis: {
-        type: 'value',
-        axisLine: { show: false },
-        axisTick: { show: false },
-        splitLine: { lineStyle: { color: '#f5f5f7', type: 'dashed' } },
-        axisLabel: {
-          color: '#86868b',
-          formatter: (value: number) => `${value}%`,
-        },
-      },
-      series: [
-        {
-          name: '收益率',
-          type: 'line',
-          data: pnlRateSeries,
-          smooth: 0.3,
-          showSymbol: false,
-          areaStyle: {
-            color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
-              { offset: 0, color: 'rgba(0, 122, 255, 0.15)' },
-              { offset: 1, color: 'rgba(0, 122, 255, 0.01)' },
-            ]),
-          },
-          lineStyle: { color: '#007AFF', width: 3 },
-          itemStyle: { color: '#007AFF' },
-        },
-      ],
-    })
-
-    barChartInstance.current = echarts.init(barChartRef.current)
-    barChartInstance.current.setOption({
-      backgroundColor: 'transparent',
-      tooltip: { 
-        trigger: 'axis', 
-        axisPointer: { type: 'none' },
-        backgroundColor: 'rgba(255,255,255,0.9)',
-        borderColor: '#f0f0f0',
-        textStyle: { color: '#1d1d1f' },
-        padding: [8, 12],
-        extraCssText: 'box-shadow: 0 4px 12px rgba(0,0,0,0.08); border-radius: 8px;',
-      },
-      grid: { top: 10, left: 10, right: 10, bottom: 20, containLabel: true },
-      xAxis: {
-        type: 'category',
-        data: sectors.map((s) => s.sector),
-        axisLine: { show: false },
-        axisTick: { show: false },
-        axisLabel: { color: '#86868b', margin: 12 },
-      },
-      yAxis: {
-        type: 'value',
-        axisLine: { show: false },
-        axisTick: { show: false },
-        splitLine: { lineStyle: { color: '#f5f5f7', type: 'dashed' } },
-        axisLabel: { color: '#86868b' },
-      },
-      series: [
-        {
-          type: 'bar',
-          barWidth: '32px',
-          data: sectors.map((s) => s.value),
-          itemStyle: {
-            color: '#007AFF',
-            borderRadius: [4, 4, 0, 0],
-          },
-        },
-      ],
-    })
-
-    const handleResize = () => {
-      pnlChartInstance.current?.resize()
-      barChartInstance.current?.resize()
-    }
-    window.addEventListener('resize', handleResize)
+    const timerId = window.setTimeout(() => {
+      void fetchPortfolioData()
+    }, 0)
 
     return () => {
-      window.removeEventListener('resize', handleResize)
-      pnlChartInstance.current?.dispose()
-      barChartInstance.current?.dispose()
+      window.clearTimeout(timerId)
     }
-  }, [loading, pnlHistory, sectors])
+  }, [fetchPortfolioData])
 
-  // 添加、编辑、删除
-  const handleAdd = async () => {
-    const quantity = Number(formData.quantity)
-    const avgCost = Number(formData.avgCost)
-
-    if (!formData.symbol || !formData.name) return showToast('请先选择股票', 'warning')
-    if (!Number.isFinite(quantity) || quantity <= 0) return showToast('数量必须大于 0', 'warning')
-    if (!Number.isFinite(avgCost) || avgCost <= 0) return showToast('成本价必须大于 0', 'warning')
-
-    try {
-      await portfolioApi.addPortfolio({ market: formData.market, symbol: formData.symbol, name: formData.name, quantity, avgCost })
-      showToast('添加成功', 'success')
-      setShowAddModal(false)
-      setFormData({ market: 'SZ', symbol: '', name: '', quantity: '', avgCost: '' })
-      loadData()
-    } catch {
-      showToast('添加失败', 'error')
-    }
-  }
-
-  const handleEdit = async () => {
-    if (!editingItem) return
-    const quantity = Number(editForm.quantity)
-    const avgCost = Number(editForm.avgCost)
-    if (!Number.isFinite(quantity) || quantity <= 0) return showToast('数量必须大于 0', 'warning')
-    if (!Number.isFinite(avgCost) || avgCost <= 0) return showToast('成本价必须大于 0', 'warning')
-
-    try {
-      await portfolioApi.updatePortfolio(editingItem.id, { quantity, avgCost })
-      showToast('更新成功', 'success')
-      setShowEditModal(false)
-      setEditingItem(null)
-      setEditForm({ quantity: '', avgCost: '' })
-      loadData()
-    } catch {
-      showToast('更新失败', 'error')
-    }
-  }
-
-  const handleDelete = async (id: number) => {
-    if (!confirm('确定要删除该持仓吗？')) return
-    try {
-      await portfolioApi.deletePortfolio(id)
-      showToast('删除成功', 'success')
-      loadData()
-    } catch {
-      showToast('删除失败', 'error')
-    }
-  }
-
-  const handleClickStock = (symbol: string, market: string) => {
-    navigate(`/kline?symbol=${symbol}&market=${market}`)
-  }
+  // Derived state
+  const totalNetValue = summary?.totalMarketValue ?? summary?.totalValue ?? 0
+  const isPositive = summary ? summary.dailyPnl >= 0 : true
 
   return (
-    <div className="min-h-[calc(100vh-theme(spacing.16))] py-6 px-4 md:px-8 space-y-6 [font-family:-apple-system,BlinkMacSystemFont,'SF_Pro_Text','Helvetica_Neue','Segoe_UI',sans-serif] text-[#1d1d1f] dark:text-white">
-      {/* 紧凑型数据中枢 */}
-      <div className={`${APPLE_CARD_CLASS} px-6 py-6 md:px-8`}>
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 md:gap-0">
-          <div className="flex flex-col gap-1 md:w-1/4">
-            <div className="flex items-center gap-2 mb-1">
-              <span className="text-[13px] font-medium text-[#86868b] dark:text-gray-400">总资产 (¥)</span>
-              {marketTrading && connectionState === 'connected' ? (
-                <span className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-[#34c759]/10 text-[#34c759] text-[10px] font-bold tracking-widest uppercase">
-                  <span className="w-1.5 h-1.5 rounded-full bg-[#34c759] animate-pulse" />
-                  Live
-                </span>
-              ) : (
-                <span className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-gray-100 dark:bg-gray-800 text-[#86868b] text-[10px] font-bold tracking-widest uppercase">
-                  <span className="w-1.5 h-1.5 rounded-full bg-gray-400" />
-                  Closed
-                </span>
-              )}
-            </div>
-            <div className="text-[28px] md:text-[32px] font-semibold tracking-tight text-[#1d1d1f] dark:text-white leading-none tabular-nums">
-              {formatMoney(summaryMetrics.totalMarketValue)}
-            </div>
-          </div>
-
-          <div className="hidden md:block w-px h-12 bg-gray-100 dark:bg-white/5 mx-6"></div>
-
-          <div className="flex flex-col gap-1 md:w-1/4">
-            <span className="text-[13px] font-medium text-[#86868b] dark:text-gray-400 mb-1">今日盈亏</span>
-            <div className={`text-[20px] font-medium tracking-tight leading-none tabular-nums ${summaryMetrics.dailyPnl >= 0 ? 'text-[#34c759]' : 'text-[#ff3b30]'}`}>
-              {summaryMetrics.dailyPnl >= 0 ? '+' : ''}{formatMoney(summaryMetrics.dailyPnl)}
-            </div>
-            <span className={`text-[13px] font-medium tabular-nums ${summaryMetrics.dailyPnl >= 0 ? 'text-[#34c759]' : 'text-[#ff3b30]'}`}>
-              {summaryMetrics.dailyPnlPercent >= 0 ? '+' : ''}{summaryMetrics.dailyPnlPercent.toFixed(2)}%
-            </span>
-          </div>
-
-          <div className="hidden md:block w-px h-12 bg-gray-100 dark:bg-white/5 mx-6"></div>
-
-          <div className="flex flex-col gap-1 md:w-1/4">
-            <span className="text-[13px] font-medium text-[#86868b] dark:text-gray-400 mb-1">累计盈亏</span>
-            <div className={`text-[20px] font-medium tracking-tight leading-none tabular-nums ${summaryMetrics.totalPnl >= 0 ? 'text-[#34c759]' : 'text-[#ff3b30]'}`}>
-              {summaryMetrics.totalPnl >= 0 ? '+' : ''}{formatMoney(summaryMetrics.totalPnl)}
-            </div>
-            <span className={`text-[13px] font-medium tabular-nums ${summaryMetrics.totalPnl >= 0 ? 'text-[#34c759]' : 'text-[#ff3b30]'}`}>
-              {summaryMetrics.totalPnlPercent >= 0 ? '+' : ''}{summaryMetrics.totalPnlPercent.toFixed(2)}%
-            </span>
-          </div>
-
-          <div className="hidden md:block w-px h-12 bg-gray-100 dark:bg-white/5 mx-6"></div>
-
-          <div className="flex flex-col gap-1 md:w-1/4">
-            <span className="text-[13px] font-medium text-[#86868b] dark:text-gray-400 mb-1">持仓情况</span>
-            <div className="text-[20px] font-medium tracking-tight text-[#1d1d1f] dark:text-white leading-none tabular-nums">
-              {portfolio.length} 只股票
-            </div>
-            <span className="text-[13px] font-medium text-[#86868b] dark:text-gray-500 tabular-nums">
-              成本: ¥{formatMoney(summaryMetrics.totalCost)}
-            </span>
-          </div>
+    <div className="space-y-6 pb-8">
+      {/* Header */}
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+        <div>
+          <h1 className="text-4xl font-headline font-bold tracking-tight text-fluid-primary">
+            Portfolio Management
+          </h1>
+          <p className="text-fluid-text-muted mt-1 font-mono-data text-xs uppercase tracking-wider">
+            System Status: Active | Global Liquidity: High
+          </p>
         </div>
-      </div>
-
-      {/* 图表区域 */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-        <div className={`lg:col-span-2 ${APPLE_CARD_CLASS} p-6`}>
-          <h3 className="text-[18px] font-medium text-[#1d1d1f] dark:text-white mb-6">收益曲线</h3>
-          <div ref={pnlChartRef} className="h-[280px] w-full" />
-        </div>
-        <div className={`${APPLE_CARD_CLASS} p-6`}>
-          <h3 className="text-[18px] font-medium text-[#1d1d1f] dark:text-white mb-6">行业分布</h3>
-          <div ref={barChartRef} className="h-[280px] w-full" />
-          {sectorsLoading && (
-            <p className="mt-2 text-[13px] text-[#86868b] dark:text-gray-400">行业数据加载中...</p>
-          )}
-        </div>
-      </div>
-
-      {/* 标签页 */}
-      <div className={`${APPLE_CARD_CLASS} p-6 flex flex-col`}>
-        <div className="mb-6 flex items-center justify-between">
-          <div className="inline-flex bg-gray-100 dark:bg-gray-800 p-0.5 rounded-[10px]">
-            <span className="px-4 py-1.5 rounded-[8px] text-[14px] font-medium bg-white text-[#1d1d1f] shadow-sm dark:bg-[#2c2c2e] dark:text-white">
-              持仓列表
-            </span>
-          </div>
-          <button
-            onClick={() => setShowAddModal(true)}
-            className="inline-flex h-8 items-center justify-center gap-1.5 px-3.5 rounded-full bg-white dark:bg-[#1c1c1e] text-[#1d1d1f] dark:text-white font-medium text-[13px] shadow-sm border border-gray-200 dark:border-white/10 hover:bg-gray-50 dark:hover:bg-[#2c2c2e] transition-colors"
-          >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-            </svg>
-            添加持仓
-          </button>
-        </div>
-
-        <div className="overflow-x-auto -mx-6 px-6">
-          {portfolio.length === 0 ? (
-            <div className="py-16 text-center text-[#86868b]">
-              <p className="mb-4">暂无持仓</p>
-              <button
-                onClick={() => setShowAddModal(true)}
-                className="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-[10px] text-[14px] font-medium transition-colors"
-              >
-                添加第一笔持仓
-              </button>
-            </div>
+        <div className="text-right">
+          <div className="text-[10px] font-mono-data text-fluid-text-muted uppercase">Total Net Value</div>
+          {loadingSummary ? (
+            <div className="h-10 w-40 bg-fluid-surface-higher rounded animate-pulse mt-1" />
+          ) : errorSummary ? (
+            <div className="text-xl font-headline font-bold text-fluid-secondary">--</div>
           ) : (
-            <table className="min-w-full">
-              <thead>
-                <tr className="border-b border-gray-100 dark:border-gray-800">
-                  <th className="px-6 pb-3 text-left text-[13px] font-medium text-[#86868b] dark:text-gray-400">股票</th>
-                  <th className="px-6 pb-3 text-right text-[13px] font-medium text-[#86868b] dark:text-gray-400">持仓数量</th>
-                  <th className="px-6 pb-3 text-right text-[13px] font-medium text-[#86868b] dark:text-gray-400">成本价</th>
-                  <th className="px-6 pb-3 text-right text-[13px] font-medium text-[#86868b] dark:text-gray-400">当前价</th>
-                  <th className="px-6 pb-3 text-right text-[13px] font-medium text-[#86868b] dark:text-gray-400">市值</th>
-                  <th className="px-6 pb-3 text-right text-[13px] font-medium text-[#86868b] dark:text-gray-400">盈亏</th>
-                  <th className="px-6 pb-3 text-right text-[13px] font-medium text-[#86868b] dark:text-gray-400">操作</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-50 dark:divide-white/5">
-                {portfolioWithRealtime.map((item) => (
-                  <PortfolioRow
-                    key={item.id}
-                    item={item}
-                    onEdit={(item) => {
-                      setEditingItem(item)
-                      setEditForm({ quantity: String(item.quantity), avgCost: String(item.avgCost) })
-                      setShowEditModal(true)
-                    }}
-                    onDelete={handleDelete}
-                    onClick={handleClickStock}
-                  />
-                ))}
-              </tbody>
-            </table>
+            <div className="text-3xl font-headline font-bold text-fluid-text">
+              <span className={isPositive ? 'text-fluid-primary' : 'text-fluid-secondary'}>
+                {formatCurrency(totalNetValue)}
+              </span>
+            </div>
           )}
         </div>
       </div>
 
-      {/* 添加持仓弹窗 */}
-      {showAddModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/20 backdrop-blur-sm" onClick={() => setShowAddModal(false)} />
-          <div className={`${GLASS_MODAL_CLASS} w-full max-w-md p-6 relative animate-in fade-in zoom-in-95 duration-200`}>
-            <h3 className="text-[20px] font-semibold text-[#1d1d1f] dark:text-white mb-6">添加持仓</h3>
-            <div className="space-y-5">
-              <StockSearch
-                onSelect={(symbol, name, market) => {
-                  setFormData((prev) => ({ ...prev, symbol, name, market: market || 'SZ' }))
-                }}
-              />
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-[13px] font-medium text-[#86868b] mb-1.5">数量</label>
-                  <input
-                    type="number"
-                    value={formData.quantity}
-                    onChange={(e) => setFormData((prev) => ({ ...prev, quantity: e.target.value }))}
-                    className="w-full px-3 py-2 rounded-[10px] border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-black focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[13px] font-medium text-[#86868b] mb-1.5">成本价</label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    value={formData.avgCost}
-                    onChange={(e) => setFormData((prev) => ({ ...prev, avgCost: e.target.value }))}
-                    className="w-full px-3 py-2 rounded-[10px] border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-black focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all"
-                  />
-                </div>
-              </div>
-            </div>
-            <div className="flex justify-end gap-3 mt-8">
-              <button
-                onClick={() => setShowAddModal(false)}
-                className="px-4 py-2 rounded-[10px] text-[14px] font-medium text-[#1d1d1f] dark:text-white bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 transition-colors"
-              >
-                取消
-              </button>
-              <button
-                onClick={handleAdd}
-                className="px-4 py-2 rounded-[10px] text-[14px] font-medium text-white bg-blue-500 hover:bg-blue-600 transition-colors"
-              >
-                添加
-              </button>
-            </div>
-          </div>
+      {/* Top Grid */}
+      <div className="grid grid-cols-12 gap-5">
+        <div className="col-span-12 lg:col-span-8">
+          <PnLChart summary={summary} loading={loadingSummary} />
         </div>
-      )}
+        <div className="col-span-12 lg:col-span-4">
+          <SectorAllocation sectors={sectors} loading={loadingPositions} />
+        </div>
+      </div>
 
-      {/* 编辑持仓弹窗 */}
-      {showEditModal && editingItem && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/20 backdrop-blur-sm" onClick={() => setShowEditModal(false)} />
-          <div className={`${GLASS_MODAL_CLASS} w-full max-w-md p-6 relative animate-in fade-in zoom-in-95 duration-200`}>
-            <h3 className="text-[20px] font-semibold text-[#1d1d1f] dark:text-white mb-6">编辑持仓 - {editingItem.name}</h3>
-            <div className="space-y-5">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-[13px] font-medium text-[#86868b] mb-1.5">数量</label>
-                  <input
-                    type="number"
-                    value={editForm.quantity}
-                    onChange={(e) => setEditForm((prev) => ({ ...prev, quantity: e.target.value }))}
-                    className="w-full px-3 py-2 rounded-[10px] border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-black focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[13px] font-medium text-[#86868b] mb-1.5">成本价</label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    value={editForm.avgCost}
-                    onChange={(e) => setEditForm((prev) => ({ ...prev, avgCost: e.target.value }))}
-                    className="w-full px-3 py-2 rounded-[10px] border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-black focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all"
-                  />
-                </div>
-              </div>
-            </div>
-            <div className="flex justify-end gap-3 mt-8">
-              <button
-                onClick={() => setShowEditModal(false)}
-                className="px-4 py-2 rounded-[10px] text-[14px] font-medium text-[#1d1d1f] dark:text-white bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 transition-colors"
-              >
-                取消
-              </button>
-              <button
-                onClick={handleEdit}
-                className="px-4 py-2 rounded-[10px] text-[14px] font-medium text-white bg-blue-500 hover:bg-blue-600 transition-colors"
-              >
-                保存
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Positions Table */}
+      <PositionsTable 
+        positions={positions} 
+        loading={loadingPositions} 
+        error={errorPositions} 
+      />
+
+      {/* Recent Events */}
+      <RecentEvents trades={trades} loading={loadingTrades} error={errorTrades} />
     </div>
   )
 }

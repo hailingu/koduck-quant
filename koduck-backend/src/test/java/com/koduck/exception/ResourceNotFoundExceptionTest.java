@@ -6,7 +6,7 @@ import org.junit.jupiter.api.Test;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * ResourceNotFoundException 单元测试。
+ * ResourceNotFoundException 
  */
 @DisplayName("资源不存在异常测试")
 class ResourceNotFoundExceptionTest {

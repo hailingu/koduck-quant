@@ -18,11 +18,12 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any
+from zoneinfo import ZoneInfo
 
 import pandas as pd
-
 from app.db import Database
 from app.services.akshare_client import akshare_client
+from app.services.kline_storage import KlineStorage, KlineStorageError
 
 logger = logging.getLogger(__name__)
 
@@ -33,6 +34,7 @@ DATA_DIR = Path(__file__).parent.parent.parent / "data" / "kline" / "1m"
 MORNING_MINUTES = 120  # 09:30 - 11:30
 AFTERNOON_MINUTES = 120  # 13:00 - 15:00
 DAILY_TRADING_MINUTES = MORNING_MINUTES + AFTERNOON_MINUTES  # 240
+ASIA_SHANGHAI_TZ = ZoneInfo("Asia/Shanghai")
 
 
 @dataclass
@@ -118,22 +120,27 @@ class Minute1KlineTool:
         self._cache_dir = cache_dir or DATA_DIR
         self._progress_callback = progress_callback
         self._client = akshare_client
+        self._storage = KlineStorage()
 
     def _report_progress(self, current: int, total: int, message: str) -> None:
         """Report progress to callback if available."""
         if self._progress_callback:
             self._progress_callback(current, total, message)
 
-    def _get_csv_path(self, symbol: str) -> Path:
-        """Get CSV file path for a symbol.
+    def _get_cache_path(self, symbol: str) -> Path:
+        """Get cache file path for a symbol.
 
         Args:
             symbol: Stock symbol (e.g., '000001')
 
         Returns:
-            Path to the CSV file
+            Path to cache file
         """
-        return self._cache_dir / f"{symbol}.csv"
+        return self._storage.discover_symbol_path(self._cache_dir, symbol)
+
+    # Backward-compatible alias for existing tests/scripts.
+    def _get_csv_path(self, symbol: str) -> Path:
+        return self._get_cache_path(symbol)
 
     def _ensure_cache_dir(self) -> None:
         """Ensure cache directory exists."""
@@ -203,7 +210,10 @@ class Minute1KlineTool:
 
             # Calculate statistics
             fetched_dates = [
-                datetime.fromtimestamp(k["timestamp"]) for k in klines
+                datetime.fromtimestamp(k["timestamp"], tz=ASIA_SHANGHAI_TZ).replace(
+                    tzinfo=None
+                )
+                for k in klines
             ]
             fetched_min = min(fetched_dates) if fetched_dates else None
             fetched_max = max(fetched_dates) if fetched_dates else None
@@ -385,7 +395,10 @@ class Minute1KlineTool:
 
             # Calculate statistics
             fetched_dates = [
-                datetime.fromtimestamp(k["timestamp"]) for k in klines
+                datetime.fromtimestamp(k["timestamp"], tz=ASIA_SHANGHAI_TZ).replace(
+                    tzinfo=None
+                )
+                for k in klines
             ]
             fetched_min = min(fetched_dates) if fetched_dates else None
             fetched_max = max(fetched_dates) if fetched_dates else None
@@ -434,13 +447,13 @@ class Minute1KlineTool:
         Returns:
             Tuple of (min_datetime, max_datetime) or (None, None) if no data
         """
-        csv_path = self._get_csv_path(symbol)
+        cache_path = self._get_cache_path(symbol)
 
-        if not csv_path.exists():
+        if not cache_path.exists():
             return None, None
 
         try:
-            df = pd.read_csv(csv_path, encoding="utf-8-sig")
+            df = self._storage.read_dataframe(cache_path)
 
             if df.empty or "timestamp" not in df.columns:
                 return None, None
@@ -448,8 +461,12 @@ class Minute1KlineTool:
             min_ts = df["timestamp"].min()
             max_ts = df["timestamp"].max()
 
-            min_dt = datetime.fromtimestamp(min_ts)
-            max_dt = datetime.fromtimestamp(max_ts)
+            min_dt = datetime.fromtimestamp(min_ts, tz=ASIA_SHANGHAI_TZ).replace(
+                tzinfo=None
+            )
+            max_dt = datetime.fromtimestamp(max_ts, tz=ASIA_SHANGHAI_TZ).replace(
+                tzinfo=None
+            )
 
             logger.info(f"Local data range for {symbol}: {min_dt} to {max_dt}")
             return min_dt, max_dt
@@ -478,20 +495,22 @@ class Minute1KlineTool:
             return 0
 
         self._ensure_cache_dir()
-        csv_path = self._get_csv_path(symbol)
+        cache_path = self._get_cache_path(symbol)
 
         # Load existing data
         existing_df = pd.DataFrame()
-        if csv_path.exists():
+        if cache_path.exists():
             try:
-                existing_df = pd.read_csv(csv_path, encoding="utf-8-sig")
+                existing_df = self._storage.read_dataframe(cache_path)
             except Exception as e:
                 logger.warning(f"Failed to load existing cache: {e}")
 
         # Convert new data to DataFrame
         new_data = []
         for kline in klines:
-            dt = datetime.fromtimestamp(kline["timestamp"])
+            dt = datetime.fromtimestamp(
+                kline["timestamp"], tz=ASIA_SHANGHAI_TZ
+            ).replace(tzinfo=None)
             new_data.append({
                 "symbol": symbol,
                 "datetime": dt.strftime("%Y-%m-%d %H:%M:%S"),
@@ -518,12 +537,15 @@ class Minute1KlineTool:
         # Sort by timestamp
         merged_df = merged_df.sort_values(by="timestamp", ascending=True)
 
-        # Save to CSV
+        # Save cache file (parquet.zst by default)
         try:
-            merged_df.to_csv(csv_path, index=False, encoding="utf-8-sig")
+            self._storage.write_dataframe(merged_df, cache_path)
             records_added = len(merged_df) - len(existing_df)
             logger.info(f"Saved {records_added} new records to cache for {symbol}")
             return max(0, records_added)
+        except KlineStorageError as e:
+            logger.error(f"Storage format error for {symbol}: {e}")
+            raise
         except Exception as e:
             logger.error(f"Failed to save cache for {symbol}: {e}")
             raise
@@ -556,7 +578,9 @@ class Minute1KlineTool:
             # Use executemany for batch insert
             records = []
             for kline in klines:
-                kline_time = datetime.fromtimestamp(kline["timestamp"])
+                kline_time = datetime.fromtimestamp(
+                    kline["timestamp"], tz=ASIA_SHANGHAI_TZ
+                ).replace(tzinfo=None)
                 records.append((
                     market,
                     symbol,
@@ -568,15 +592,22 @@ class Minute1KlineTool:
                     kline.get("close", 0),
                     kline.get("volume", 0),
                     kline.get("amount", 0),
+                    kline.get("pre_close_price", kline.get("preClose")),
+                    str(
+                        kline.get("is_suspended", kline.get("suspendFlag", "0"))
+                    ).strip().lower() in {"1", "true", "t", "yes", "y"},
                 ))
 
             query = """
                 INSERT INTO kline_data (
                     market, symbol, timeframe, kline_time,
                     open_price, high_price, low_price, close_price,
-                    volume, amount, created_at, updated_at
+                    volume, amount, pre_close_price, is_suspended,
+                    created_at, updated_at
                 )
-                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW(), NOW())
+                VALUES (
+                    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, NOW(), NOW()
+                )
                 ON CONFLICT (market, symbol, timeframe, kline_time) DO NOTHING
             """
 
@@ -658,13 +689,13 @@ class Minute1KlineTool:
         Returns:
             List of DataGap objects representing missing periods
         """
-        csv_path = self._get_csv_path(symbol)
+        cache_path = self._get_cache_path(symbol)
 
-        if not csv_path.exists():
+        if not cache_path.exists():
             return []
 
         try:
-            df = pd.read_csv(csv_path, encoding="utf-8-sig")
+            df = self._storage.read_dataframe(cache_path)
 
             if df.empty or "timestamp" not in df.columns:
                 return []
@@ -676,13 +707,17 @@ class Minute1KlineTool:
             if start_date:
                 start_dt = datetime.strptime(start_date, "%Y-%m-%d")
             else:
-                start_dt = datetime.fromtimestamp(df["timestamp"].min())
+                start_dt = datetime.fromtimestamp(
+                    df["timestamp"].min(), tz=ASIA_SHANGHAI_TZ
+                ).replace(tzinfo=None)
 
             if end_date:
                 end_dt = datetime.strptime(end_date, "%Y-%m-%d")
                 end_dt = end_dt.replace(hour=15, minute=0)
             else:
-                end_dt = datetime.fromtimestamp(df["timestamp"].max())
+                end_dt = datetime.fromtimestamp(
+                    df["timestamp"].max(), tz=ASIA_SHANGHAI_TZ
+                ).replace(tzinfo=None)
 
             # Generate expected timestamps for trading hours
             gaps = []
@@ -770,15 +805,15 @@ class Minute1KlineTool:
         """
         gaps = self.detect_gaps(symbol, start_date, end_date)
 
-        csv_path = self._get_csv_path(symbol)
+        cache_path = self._get_cache_path(symbol)
         total_records = 0
 
-        if csv_path.exists():
+        if cache_path.exists():
             try:
-                df = pd.read_csv(csv_path, encoding="utf-8-sig")
+                df = self._storage.read_dataframe(cache_path)
                 total_records = len(df)
             except Exception as e:
-                logger.warning(f"Failed to read CSV for validation: {e}")
+                logger.warning(f"Failed to read cache file for validation: {e}")
 
         return {
             "symbol": symbol,
@@ -805,13 +840,13 @@ class Minute1KlineTool:
         Returns:
             List of K-line data dictionaries
         """
-        csv_path = self._get_csv_path(symbol)
+        cache_path = self._get_cache_path(symbol)
 
-        if not csv_path.exists():
+        if not cache_path.exists():
             return []
 
         try:
-            df = pd.read_csv(csv_path, encoding="utf-8-sig")
+            df = self._storage.read_dataframe(cache_path)
 
             if df.empty:
                 return []

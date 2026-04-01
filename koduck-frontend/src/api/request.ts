@@ -16,16 +16,16 @@ const axiosInstance: AxiosInstance = axios.create({
 // Request interceptor
 axiosInstance.interceptors.request.use(
   (config) => {
-    // 从 Zustand persist 存储中获取 token
+    //  Zustand persist  token
     const authStorage = localStorage.getItem('auth-storage')
     if (authStorage) {
       try {
         const authState = JSON.parse(authStorage)
-        if (authState.state?.token) {
-          config.headers.Authorization = `Bearer ${authState.state.token}`
+        if (authState.state?.accessToken) {
+          config.headers.Authorization = `Bearer ${authState.state.accessToken}`
         }
       } catch (e) {
-        // 解析失败，忽略
+        // ，
       }
     }
     return config
@@ -40,25 +40,24 @@ axiosInstance.interceptors.response.use(
   (response: AxiosResponse<ApiResponse<unknown>>) => {
     const apiResponse = response.data
     
-    // 统一处理响应码：0 或 200 都表示成功
+    // ：0  200 
     if (apiResponse.code !== 0 && apiResponse.code !== 200) {
       return Promise.reject(new Error(apiResponse.message || '请求失败'))
     }
     
-    // 转换 snake_case 到 camelCase
+    //  snake_case  camelCase
     const camelData = keysToCamelCase(apiResponse.data)
     
     return camelData as unknown as AxiosResponse<unknown>
   },
   (error) => {
-    // 处理 HTTP 错误状态
+    //  HTTP 
     if (error.response) {
       const status = error.response.status
       const message = error.response.data?.message || error.message
       
-      // 401 未授权，清除 token 并跳转登录
+      // 401 ， token 
       if (status === 401) {
-        localStorage.removeItem('token')
         localStorage.removeItem('auth-storage')
         window.location.href = '/login'
       }
@@ -66,7 +65,7 @@ axiosInstance.interceptors.response.use(
       return Promise.reject(new Error(message))
     }
     
-    // 网络错误
+    // 
     if (error.request) {
       return Promise.reject(new Error('网络错误，请检查连接'))
     }

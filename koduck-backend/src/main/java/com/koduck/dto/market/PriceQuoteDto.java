@@ -9,6 +9,7 @@ import java.time.Instant;
 public record PriceQuoteDto(
     String symbol,
     String name,
+    String type,
     BigDecimal price,
     BigDecimal open,
     BigDecimal high,
@@ -38,6 +39,7 @@ public record PriceQuoteDto(
     public static class Builder {
         private String symbol;
         private String name;
+        private String type;
         private BigDecimal price;
         private BigDecimal open;
         private BigDecimal high;
@@ -60,6 +62,11 @@ public record PriceQuoteDto(
         
         public Builder name(String name) {
             this.name = name;
+            return this;
+        }
+        
+        public Builder type(String type) {
+            this.type = type;
             return this;
         }
         
@@ -135,7 +142,7 @@ public record PriceQuoteDto(
         
         public PriceQuoteDto build() {
             return new PriceQuoteDto(
-                symbol, name, price, open, high, low, prevClose,
+                symbol, name, type, price, open, high, low, prevClose,
                 volume, amount, change, changePercent,
                 bidPrice, bidVolume, askPrice, askVolume, timestamp
             );

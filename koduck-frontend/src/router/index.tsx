@@ -1,5 +1,5 @@
-import { createBrowserRouter, Navigate, Outlet } from 'react-router-dom'
-import { useAuthStore } from '@/stores/auth'
+import type { ReactElement } from 'react'
+import { createBrowserRouter, Navigate } from 'react-router-dom'
 import MainLayout from '@/layouts/MainLayout'
 import Login from '@/pages/Login'
 import Register from '@/pages/Register'
@@ -8,52 +8,55 @@ import Portfolio from '@/pages/Portfolio'
 import Settings from '@/pages/Settings'
 import Kline from '@/pages/Kline'
 import Market from '@/pages/Market'
+import Dashboard from '@/pages/Dashboard'
+import FundFlowAnalysis from '@/pages/FundFlowAnalysis'
+import SectorNetwork from '@/pages/SectorNetwork'
+import AICommandCenter from '@/pages/AICommandCenter'
+import Profile from '@/pages/Profile'
+import { ProtectedRoute, PublicRoute } from './RouteGuards'
 
-// Protected Route wrapper
-function ProtectedRoute() {
-  const { isAuthenticated } = useAuthStore()
-  return isAuthenticated ? <Outlet /> : <Navigate to="/login" replace />
+type AppRouteConfig = {
+  readonly path: string
+  readonly element: ReactElement
 }
 
-// Public Route wrapper (redirect to market if authenticated)
-function PublicRoute() {
-  const { isAuthenticated } = useAuthStore()
-  return !isAuthenticated ? <Outlet /> : <Navigate to="/market" replace />
-}
+const LOGIN_PATH = '/login'
+const MARKET_PATH = '/market'
+
+const PUBLIC_ROUTES: ReadonlyArray<AppRouteConfig> = [
+  { path: LOGIN_PATH, element: <Login /> },
+  { path: '/register', element: <Register /> },
+]
+
+const PRIVATE_LAYOUT_ROUTES: ReadonlyArray<AppRouteConfig> = [
+  { path: '/dashboard', element: <Dashboard /> },
+  { path: MARKET_PATH, element: <Market /> },
+  { path: '/fundflow', element: <FundFlowAnalysis /> },
+  { path: '/sector', element: <SectorNetwork /> },
+  { path: '/watchlist', element: <Watchlist /> },
+  { path: '/kline', element: <Kline /> },
+  { path: '/portfolio', element: <Portfolio /> },
+  { path: '/ai', element: <AICommandCenter /> },
+  { path: '/settings', element: <Settings /> },
+  { path: '/profile', element: <Profile /> },
+]
 
 export const router = createBrowserRouter([
   {
     element: <PublicRoute />,
-    children: [
-      { path: '/login', element: <Login /> },
-      { path: '/register', element: <Register /> },
-    ],
+    children: PUBLIC_ROUTES.map((route) => ({ path: route.path, element: route.element })),
   },
   {
     element: <ProtectedRoute />,
     children: [
       {
         element: <MainLayout />,
-        children: [
-          { path: '/dashboard', element: <Navigate to="/market" replace /> },
-          { path: '/market', element: <Market /> },
-          { path: '/watchlist', element: <Watchlist /> },
-          { path: '/kline', element: <Kline /> },
-          { path: '/portfolio', element: <Portfolio /> },
-          { path: '/settings', element: <Settings /> },
-          { path: '/monitoring', element: <Navigate to="/market" replace /> },
-          { path: '/profile', element: <Navigate to="/settings" replace /> },
-          { path: '/profile/edit', element: <Navigate to="/settings" replace /> },
-          { path: '/profile/preferences', element: <Navigate to="/settings" replace /> },
-          { path: '/profile/security', element: <Navigate to="/settings" replace /> },
-          { path: '/profile/api', element: <Navigate to="/settings" replace /> },
-          { path: '/profile/data', element: <Navigate to="/settings" replace /> },
-        ],
+        children: PRIVATE_LAYOUT_ROUTES.map((route) => ({ path: route.path, element: route.element })),
       },
     ],
   },
   {
     path: '/',
-    element: <Navigate to="/market" replace />,
+    element: <Navigate to={MARKET_PATH} replace />,
   },
 ])

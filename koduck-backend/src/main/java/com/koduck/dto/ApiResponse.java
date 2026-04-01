@@ -1,6 +1,7 @@
 package com.koduck.dto;
 
 import com.koduck.exception.ErrorCode;
+import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -10,9 +11,9 @@ import java.time.Instant;
 import java.util.Objects;
 
 /**
- * 统一 API 响应封装。
+ * 统一 API 响应包装类
  *
- * <p>所有 API 响应都应使用此类进行包装，以保证响应格式的一致性。</p>
+ * <p>所有 API 响应都使用此类进行包装，确保响应格式统一。</p>
  *
  * @param <T> 响应数据类型
  * @author Koduck Team
@@ -20,6 +21,7 @@ import java.util.Objects;
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
+@Schema(description = "统一API响应结构")
 public class ApiResponse<T> {
 
     /**
@@ -30,30 +32,35 @@ public class ApiResponse<T> {
     /**
      * 响应码，0 表示成功
      */
+    @Schema(description = "响应码，0表示成功", example = "0")
     private int code;
 
     /**
      * 响应消息
      */
+    @Schema(description = "响应消息", example = "success")
     private String message;
 
     /**
      * 响应数据
      */
+    @Schema(description = "响应数据")
     private T data;
 
     /**
      * 响应时间戳
      */
+    @Schema(description = "响应时间戳(毫秒)", example = "1704067200000")
     private long timestamp;
 
     /**
-     * 请求链路追踪 ID
+     * 请求追踪 ID
      */
+    @Schema(description = "请求追踪ID", example = "abc123def456")
     private String traceId;
 
     /**
-     * 构造方法。
+     * 完整构造函数
      *
      * @param code    响应码
      * @param message 响应消息
@@ -68,102 +75,122 @@ public class ApiResponse<T> {
     }
 
     /**
-     * 创建成功响应。
+     * 成功响应
      *
      * @param data 响应数据
      * @param <T>  数据类型
-     * @return 成功响应对象
+     * @return 成功响应
      */
     public static <T> ApiResponse<T> success(T data) {
         return new ApiResponse<>(ErrorCode.SUCCESS.getCode(), ErrorCode.SUCCESS.getDefaultMessage(), data);
     }
 
     /**
-     * 创建成功响应（无数据）。
+     * 成功响应（无数据）
      *
      * @param <T> 数据类型
-     * @return 成功响应对象
+     * @return 成功响应
      */
     public static <T> ApiResponse<T> success() {
         return success(null);
     }
 
     /**
-     * 创建成功响应（带自定义消息）。
+     * 成功响应（带消息）
      *
      * @param message 成功消息
      * @param data    响应数据
      * @param <T>     数据类型
-     * @return 成功响应对象
+     * @return 成功响应
      */
     public static <T> ApiResponse<T> success(String message, T data) {
         return new ApiResponse<>(ErrorCode.SUCCESS.getCode(), message, data);
     }
 
     /**
-     * 创建错误响应。
+     * Returns a success response with message and no payload.
+     *
+     * @param message success message
+     * @return success response without data
+     */
+    public static ApiResponse<Void> successMessage(String message) {
+        return success(message, null);
+    }
+
+    /**
+     * Returns a success response with no payload.
+     *
+     * @return success response without data
+     */
+    public static ApiResponse<Void> successNoContent() {
+        return success();
+    }
+
+    /**
+     * 错误响应
      *
      * @param code    错误码
      * @param message 错误消息
      * @param <T>     数据类型
-     * @return 错误响应对象
+     * @return 错误响应
      */
     public static <T> ApiResponse<T> error(int code, String message) {
         return new ApiResponse<>(code, message, null);
     }
 
     /**
-     * 创建错误响应。
+     * 错误响应
      *
      * @param errorCode 错误码枚举
      * @param <T>       数据类型
-     * @return 错误响应对象
+     * @return 错误响应
      */
     public static <T> ApiResponse<T> error(ErrorCode errorCode) {
         return new ApiResponse<>(errorCode.getCode(), errorCode.getDefaultMessage(), null);
     }
 
     /**
-     * 创建错误响应。
+     * 错误响应
      *
      * @param errorCode 错误码枚举
      * @param message   自定义错误消息
      * @param <T>       数据类型
-     * @return 错误响应对象
+     * @return 错误响应
      */
     public static <T> ApiResponse<T> error(ErrorCode errorCode, String message) {
         return new ApiResponse<>(errorCode.getCode(), message, null);
     }
 
     /**
-     * 创建错误响应（默认错误码）。
+     * 错误响应（默认业务错误）
      *
      * @param message 错误消息
      * @param <T>     数据类型
-     * @return 错误响应对象
+     * @return 错误响应
      */
     public static <T> ApiResponse<T> error(String message) {
         return new ApiResponse<>(ErrorCode.BUSINESS_ERROR.getCode(), message, null);
     }
 
     /**
-     * 判断是否成功。
+     * 判断是否成功
      *
      * @return 是否成功
      */
+    @Schema(hidden = true)
     public boolean isSuccess() {
         return code == ErrorCode.SUCCESS.getCode();
     }
 
     /**
-     * 获取当前 Trace ID。
+     * 获取当前 Trace ID
      *
-     * @return Trace ID 或 null
+     * @return Trace ID，如果不存在则返回 null
      */
     private static String getCurrentTraceId() {
         try {
             return MDC.get(TRACE_ID_KEY);
-        } catch (Exception e) {
+        } catch (Exception _) {
             return null;
         }
     }

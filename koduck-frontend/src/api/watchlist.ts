@@ -8,7 +8,7 @@ export interface WatchlistItem {
   notes: string | null
   sortOrder: number
   createdAt: string
-  // 实时数据（可能为null）
+  // （null）
   price?: number
   change?: number
   changePercent?: number
@@ -22,26 +22,26 @@ export interface AddWatchlistRequest {
 }
 
 export const watchlistApi = {
-  // 获取自选股列表
+  // 
   getWatchlist: () => request.get<WatchlistItem[]>('/api/v1/watchlist'),
 
-  // 添加自选股
+  // 
   addToWatchlist: (data: AddWatchlistRequest) =>
     request.post<WatchlistItem>('/api/v1/watchlist', data),
 
-  // 删除自选股
+  // 
   removeFromWatchlist: (id: number) =>
     request.delete<void>(`/api/v1/watchlist/${id}`),
 
-  // 更新排序
+  // 
   updateSortOrder: (id: number, sortOrder: number) =>
     request.patch<WatchlistItem>(`/api/v1/watchlist/${id}/sort`, { sortOrder }),
 
-  // 批量排序
+  // 
   sortWatchlist: (items: { id: number; sortOrder: number }[]) =>
     request.put<void>('/api/v1/watchlist/sort', { items }),
 
-  // 更新备注
+  // 
   updateNotes: (id: number, notes: string) =>
     request.put<WatchlistItem>(`/api/v1/watchlist/${id}/notes`, notes),
 }

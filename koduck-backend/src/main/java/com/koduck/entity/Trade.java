@@ -11,7 +11,7 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 /**
- * 交易记录实体
+ * 
  */
 @Entity
 @Table(name = "trades",
@@ -63,7 +63,22 @@ public class Trade {
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
     
+    @Column(name = "status", length = 20)
+    @Enumerated(EnumType.STRING)
+    @Builder.Default
+    private TradeStatus status = TradeStatus.SUCCESS;
+    
+    @Column(name = "notes", length = 500)
+    private String notes;
+    
     public enum TradeType {
         BUY, SELL
+    }
+    
+    public enum TradeStatus {
+        PENDING,    // 待执行
+        SUCCESS,    // 成功
+        FAILED,     // 失败
+        CANCELLED   // 已取消
     }
 }

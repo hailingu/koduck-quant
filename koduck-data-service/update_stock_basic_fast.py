@@ -29,7 +29,7 @@ def main():
         spot_df = ak.stock_zh_a_spot_em()
         
         # Check available columns
-        print(f"Spot data columns: {[c for c in spot_df.columns if '业' in c or '行业' in c or 'sector' in c.lower()]}")
+        print(f"Spot data columns: {[c for c in spot_df.columns if '' in c or '' in c or 'sector' in c.lower()]}")
         
         # Create symbol -> industry mapping if available
         industry_map = {}

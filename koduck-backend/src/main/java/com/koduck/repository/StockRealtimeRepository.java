@@ -45,6 +45,12 @@ public interface StockRealtimeRepository extends JpaRepository<StockRealtime, St
     List<StockRealtime> findBySymbolIn(List<String> symbols);
     
     /**
+     * Find multiple stocks by symbols and type.
+     * Used to distinguish between stocks and indices with same symbol code.
+     */
+    List<StockRealtime> findBySymbolInAndType(List<String> symbols, String type);
+    
+    /**
      * Find stocks ordered by volume descending.
      */
     @Query("SELECT s FROM StockRealtime s WHERE s.volume IS NOT NULL ORDER BY s.volume DESC")

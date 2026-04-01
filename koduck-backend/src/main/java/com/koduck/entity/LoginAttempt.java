@@ -7,7 +7,7 @@ import org.hibernate.annotations.CreationTimestamp;
 import java.time.LocalDateTime;
 
 /**
- * 登录尝试记录实体（无外键关联）
+ * （）
  */
 @Entity
 @Table(name = "login_attempts")

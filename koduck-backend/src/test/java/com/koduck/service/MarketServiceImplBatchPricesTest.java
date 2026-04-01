@@ -4,8 +4,9 @@ import com.koduck.dto.market.PriceQuoteDto;
 import com.koduck.entity.StockRealtime;
 import com.koduck.repository.StockBasicRepository;
 import com.koduck.repository.StockRealtimeRepository;
-import com.koduck.service.market.AKShareDataProvider;
 import com.koduck.service.impl.MarketServiceImpl;
+import com.koduck.service.support.MarketFallbackSupport;
+import com.koduck.service.support.MarketServiceSupport;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -37,20 +38,22 @@ class MarketServiceImplBatchPricesTest {
     @Mock
     StockCacheService stockCacheService;
     @Mock
-    KlineService klineService;
+    MarketServiceSupport marketServiceSupport;
     @Mock
-    AKShareDataProvider akShareDataProvider;
+    MarketFallbackSupport marketFallbackSupport;
 
     private MarketServiceImpl marketService;
 
     @BeforeEach
     void setUp() {
-      marketService = new MarketServiceImpl(
-          stockRealtimeRepository,
-          stockBasicRepository,
-          stockCacheService,
-          klineService,
-          akShareDataProvider);
+      MarketServiceSupport realMarketServiceSupport =
+        new MarketServiceSupport(stockRealtimeRepository, stockBasicRepository);
+        marketService = new MarketServiceImpl(
+            stockRealtimeRepository,
+            stockBasicRepository,
+            stockCacheService,
+        realMarketServiceSupport,
+            marketFallbackSupport);
     }
 
     /**

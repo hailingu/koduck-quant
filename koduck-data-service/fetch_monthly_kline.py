@@ -10,46 +10,47 @@ import sys
 from pathlib import Path
 from datetime import datetime
 
-# 添加项目路径
+# 
 project_root = Path(__file__).parent
 sys.path.insert(0, str(project_root))
 
 from app.services.akshare_client import akshare_client
+from app.services.kline_storage import KlineStorage
 
-# 数据目录
+# 
 DATA_DIR = project_root / "data" / "kline"
 DAILY_DIR = DATA_DIR / "1D"
 MONTHLY_DIR = DATA_DIR / "1M"
+storage = KlineStorage()
 
 
 def get_all_daily_symbols():
-    """获取所有有日线数据的股票代码"""
+    """"""
     if not DAILY_DIR.exists():
-        print(f"日线数据目录不存在: {DAILY_DIR}")
+        print(f": {DAILY_DIR}")
         return []
     
     symbols = []
-    for csv_file in DAILY_DIR.glob("*.csv"):
-        symbol = csv_file.stem  # 去掉 .csv 后缀
-        symbols.append(symbol)
+    for path in storage.list_kline_files(DATA_DIR, ["1D"]):
+        symbols.append(path.stem)
     
     return sorted(symbols)
 
 
-def save_to_csv(klines: list[dict], symbol: str, timeframe: str = "1M"):
-    """将K线数据保存到CSV文件"""
+def save_to_file(klines: list[dict], symbol: str, timeframe: str = "1M"):
+    """Save K-line records to configured local storage file."""
     import pandas as pd
     
     if not klines:
         return 0
     
-    # 构建目录
+    # 
     save_dir = DATA_DIR / timeframe
     save_dir.mkdir(parents=True, exist_ok=True)
     
-    csv_path = save_dir / f"{symbol}.csv"
+    file_path = storage.build_symbol_path(save_dir, symbol)
     
-    # 转换为DataFrame
+    # DataFrame
     data = []
     for kline in klines:
         data.append({
@@ -67,61 +68,59 @@ def save_to_csv(klines: list[dict], symbol: str, timeframe: str = "1M"):
     df = pd.DataFrame(data)
     df = df.sort_values(by="timestamp", ascending=True)
     
-    # 保存到CSV
-    df.to_csv(csv_path, index=False, encoding='utf-8-sig')
+    storage.write_dataframe(df, file_path)
     
     return len(df)
 
 
 async def fetch_monthly_for_symbol(symbol: str, limit: int = 300):
-    """获取单只股票的月线数据"""
+    """"""
     try:
-        # 使用方法2: AKShare客户端获取月线数据
+        # 2: AKShare
         klines = await asyncio.to_thread(
             akshare_client.get_kline_data,
             symbol=symbol,
-            period="monthly",  # 月线
+            period="monthly",  # 
             limit=limit
         )
         
         if not klines:
             return None, 0
         
-        # 保存到CSV
-        count = save_to_csv(klines, symbol, "1M")
+        count = save_to_file(klines, symbol, "1M")
         
         return klines, count
         
     except Exception as e:
-        print(f"  获取 {symbol} 月线数据失败: {e}")
+        print(f"   {symbol} : {e}")
         return None, 0
 
 
 async def main():
-    """主函数"""
+    """"""
     print("=" * 60)
-    print("使用方法2 (AKShare客户端) 获取月线数据")
+    print("2 (AKShare) ")
     print("=" * 60)
     
-    # 获取所有日线股票列表
+    # 
     symbols = get_all_daily_symbols()
-    print(f"\n发现 {len(symbols)} 只日线数据股票: {symbols}")
+    print(f"\n {len(symbols)} : {symbols}")
     
-    # 创建月线目录
+    # 
     MONTHLY_DIR.mkdir(parents=True, exist_ok=True)
-    print(f"月线数据保存目录: {MONTHLY_DIR}")
+    print(f": {MONTHLY_DIR}")
     
-    # 统计
+    # 
     success_count = 0
     fail_count = 0
     total_records = 0
     
     print("\n" + "-" * 60)
-    print("开始获取月线数据...")
+    print("...")
     print("-" * 60)
     
     for i, symbol in enumerate(symbols, 1):
-        print(f"\n[{i}/{len(symbols)}] 正在获取 {symbol} 的月线数据...")
+        print(f"\n[{i}/{len(symbols)}]  {symbol} ...")
         
         klines, count = await fetch_monthly_for_symbol(symbol)
         
@@ -129,34 +128,34 @@ async def main():
             success_count += 1
             total_records += count
             
-            # 显示数据范围
+            # 
             first_date = datetime.fromtimestamp(klines[0]["timestamp"]).strftime("%Y-%m-%d")
             last_date = datetime.fromtimestamp(klines[-1]["timestamp"]).strftime("%Y-%m-%d")
             
-            print(f"  ✓ 成功获取 {count} 条月线数据")
-            print(f"    数据范围: {first_date} ~ {last_date}")
-            print(f"    最新收盘: {klines[-1]['close']}")
+            print(f"  ✓  {count} ")
+            print(f"    : {first_date} ~ {last_date}")
+            print(f"    : {klines[-1]['close']}")
         else:
             fail_count += 1
-            print(f"  ✗ 获取失败或暂无数据")
+            print(f"  ✗ ")
         
-        # 添加小延迟避免请求过快
+        # 
         await asyncio.sleep(0.5)
     
-    # 汇总
+    # 
     print("\n" + "=" * 60)
-    print("获取完成!")
-    print(f"  成功: {success_count} 只股票")
-    print(f"  失败: {fail_count} 只股票")
-    print(f"  总记录数: {total_records} 条月线数据")
-    print(f"  保存位置: {MONTHLY_DIR}")
+    print("!")
+    print(f"  : {success_count} ")
+    print(f"  : {fail_count} ")
+    print(f"  : {total_records} ")
+    print(f"  : {MONTHLY_DIR}")
     print("=" * 60)
     
-    # 列出保存的文件
-    print("\n已保存的月线数据文件:")
-    for csv_file in sorted(MONTHLY_DIR.glob("*.csv")):
-        size = csv_file.stat().st_size
-        print(f"  - {csv_file.name} ({size:,} bytes)")
+    # 
+    print("\n:")
+    for path in storage.list_kline_files(DATA_DIR, ["1M"]):
+        size = path.stat().st_size
+        print(f"  - {path.name} ({size:,} bytes)")
 
 
 if __name__ == "__main__":

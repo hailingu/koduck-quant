@@ -8,15 +8,24 @@ import { useAuthStore } from '@/stores/auth'
 import { useThemeStore } from '@/stores/theme'
 
 const LLM_PROVIDERS = ['minimax', 'deepseek', 'openai'] as const
+const MEMORY_MODES = ['L0', 'L1', 'L2', 'L3'] as const
 type LlmProvider = (typeof LLM_PROVIDERS)[number]
+type MemoryMode = (typeof MEMORY_MODES)[number]
 type LlmProviderConfig = { apiKey: string; apiBase: string }
 type LlmProviderConfigMap = Record<LlmProvider, LlmProviderConfig>
+type MemoryLevels = { enableL1: boolean; enableL2: boolean; enableL3: boolean }
 
 const createEmptyLlmProviderConfigMap = (): LlmProviderConfigMap => ({
   minimax: { apiKey: '', apiBase: '' },
   deepseek: { apiKey: '', apiBase: '' },
   openai: { apiKey: '', apiBase: '' },
 })
+
+const memoryModeToLevels = (mode: MemoryMode): MemoryLevels => {
+  if (mode === 'L1') return { enableL1: true, enableL2: false, enableL3: false }
+  if (mode === 'L2') return { enableL1: true, enableL2: true, enableL3: false }
+  return { enableL1: true, enableL2: true, enableL3: true }
+}
 
 const formatBuildTime = (value: string): string => {
   const date = new Date(value)
@@ -33,7 +42,7 @@ const formatBuildTime = (value: string): string => {
   })
 }
 
-// 个人资料表单
+// 
 function ProfileForm({ user, onUpdate }: { user: UserDetail; onUpdate: (u: UserDetail) => void }) {
   const { showToast } = useToast()
   const [loading, setLoading] = useState(false)
@@ -216,6 +225,9 @@ function PreferencesForm({
   const [timezone, setTimezone] = useState('Asia/Shanghai')
   const [llmProvider, setLlmProvider] = useState<LlmProvider>('minimax')
   const [llmConfigs, setLlmConfigs] = useState<LlmProviderConfigMap>(createEmptyLlmProviderConfigMap())
+  const [memoryEnabled, setMemoryEnabled] = useState(true)
+  const [memoryMode, setMemoryMode] = useState<MemoryMode>('L0')
+  const [memoryLevels, setMemoryLevels] = useState<MemoryLevels>(memoryModeToLevels('L0'))
   const [isApiKeyEditing, setIsApiKeyEditing] = useState(false)
   const [saving, setSaving] = useState(false)
 
@@ -244,7 +256,7 @@ function PreferencesForm({
       apiKey: settings.llmConfig?.openai?.apiKey || '',
       apiBase: settings.llmConfig?.openai?.apiBase || '',
     }
-    // 兼容旧结构：只有当前 provider 顶层 apiKey/apiBase 时回填
+    // ： provider  apiKey/apiBase 
     if (!nextConfigs[activeProvider].apiKey && settings.llmConfig?.apiKey) {
       nextConfigs[activeProvider].apiKey = settings.llmConfig.apiKey
     }
@@ -252,6 +264,17 @@ function PreferencesForm({
       nextConfigs[activeProvider].apiBase = settings.llmConfig.apiBase
     }
     setLlmConfigs(nextConfigs)
+
+    const savedMemoryEnabled = settings.llmConfig?.memory?.enabled
+    const savedMode = settings.llmConfig?.memory?.mode
+    const mode: MemoryMode = MEMORY_MODES.includes(savedMode as MemoryMode) ? (savedMode as MemoryMode) : 'L0'
+    setMemoryEnabled(savedMemoryEnabled !== false)
+    setMemoryMode(mode)
+    setMemoryLevels({
+      enableL1: settings.llmConfig?.memory?.enableL1 ?? memoryModeToLevels(mode).enableL1,
+      enableL2: settings.llmConfig?.memory?.enableL2 ?? memoryModeToLevels(mode).enableL2,
+      enableL3: settings.llmConfig?.memory?.enableL3 ?? memoryModeToLevels(mode).enableL3,
+    })
   }, [settings, setThemeMode])
 
   const handleSave = async () => {
@@ -272,6 +295,13 @@ function PreferencesForm({
           provider: llmProvider.trim(),
           apiKey: currentLlmConfig.apiKey.trim(),
           apiBase: currentLlmConfig.apiBase.trim(),
+          memory: {
+            enabled: memoryEnabled,
+            mode: memoryMode,
+            enableL1: memoryLevels.enableL1,
+            enableL2: memoryLevels.enableL2,
+            enableL3: memoryLevels.enableL3,
+          },
           ...providerSpecificConfig,
         },
       })
@@ -293,6 +323,11 @@ function PreferencesForm({
     if (!value) return ''
     if (value.length <= 8) return `${value.slice(0, 2)}****`
     return `${value.slice(0, 4)}****${value.slice(-4)}`
+  }
+
+  const handleMemoryModeChange = (mode: MemoryMode) => {
+    setMemoryMode(mode)
+    setMemoryLevels(memoryModeToLevels(mode))
   }
 
   const currentLlmConfig = llmConfigs[llmProvider]
@@ -414,7 +449,7 @@ function PreferencesForm({
             />
           </div>
 
-          <div className="flex items-center justify-between gap-4 px-4 py-3">
+          <div className="flex items-center justify-between gap-4 px-4 py-3 border-b border-gray-200 dark:border-white/10">
             <span className="text-[13px] font-medium text-gray-700 dark:text-gray-200 whitespace-nowrap">API URL</span>
             <input
               type="text"
@@ -427,6 +462,95 @@ function PreferencesForm({
               }
               className="w-full max-w-[560px] px-0 py-1 bg-transparent border-0 rounded-none text-right text-gray-900 dark:text-white caret-[#0a84ff] focus:outline-none focus:ring-0"
             />
+          </div>
+
+          <div className="flex items-center justify-between gap-4 px-4 py-3 border-b border-gray-200 dark:border-white/10">
+            <span className="text-[13px] font-medium text-gray-700 dark:text-gray-200">Memory</span>
+            <button
+              onClick={() => setMemoryEnabled(!memoryEnabled)}
+              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                memoryEnabled ? 'bg-[#1d1d1f] dark:bg-white' : 'bg-gray-300 dark:bg-gray-600'
+              }`}
+            >
+              <span
+                className={`inline-block h-4 w-4 transform rounded-full bg-white dark:bg-[#1c1c1e] transition-transform shadow-sm ${
+                  memoryEnabled ? 'translate-x-6' : 'translate-x-1'
+                }`}
+              />
+            </button>
+          </div>
+
+          <div className="flex items-center justify-between gap-4 px-4 py-3 border-b border-gray-200 dark:border-white/10">
+            <span className="text-[13px] font-medium text-gray-700 dark:text-gray-200">Memory 分级</span>
+            <div className="relative inline-flex items-center rounded-full bg-[#f5f5f7] dark:bg-[#2c2c2e] border border-gray-200 dark:border-white/10 p-[2px]">
+              <span
+                className="absolute top-[2px] left-[2px] h-8 w-[64px] rounded-full bg-white dark:bg-[#1c1c1e] border border-gray-200 dark:border-white/10 shadow-sm transition-transform duration-300 ease-out"
+                style={{ transform: `translateX(${MEMORY_MODES.indexOf(memoryMode) * 64}px)` }}
+              />
+              {MEMORY_MODES.map((mode) => (
+                <button
+                  key={mode}
+                  onClick={() => handleMemoryModeChange(mode)}
+                  disabled={!memoryEnabled}
+                  className={`relative z-10 inline-flex h-8 w-[64px] items-center justify-center rounded-full text-[13px] font-medium transition-colors disabled:opacity-50 ${
+                    memoryMode === mode ? 'text-[#1d1d1f] dark:text-white' : 'text-[#6e6e73] dark:text-gray-300'
+                  }`}
+                >
+                  {mode}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="flex items-center justify-between gap-4 px-4 py-3 border-b border-gray-200 dark:border-white/10">
+            <span className="text-[13px] font-medium text-gray-700 dark:text-gray-200">L1 原始记忆</span>
+            <button
+              onClick={() => setMemoryLevels((prev) => ({ ...prev, enableL1: !prev.enableL1 }))}
+              disabled={!memoryEnabled}
+              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors disabled:opacity-50 ${
+                memoryLevels.enableL1 && memoryEnabled ? 'bg-[#1d1d1f] dark:bg-white' : 'bg-gray-300 dark:bg-gray-600'
+              }`}
+            >
+              <span
+                className={`inline-block h-4 w-4 transform rounded-full bg-white dark:bg-[#1c1c1e] transition-transform shadow-sm ${
+                  memoryLevels.enableL1 && memoryEnabled ? 'translate-x-6' : 'translate-x-1'
+                }`}
+              />
+            </button>
+          </div>
+
+          <div className="flex items-center justify-between gap-4 px-4 py-3 border-b border-gray-200 dark:border-white/10">
+            <span className="text-[13px] font-medium text-gray-700 dark:text-gray-200">L2 主题记忆</span>
+            <button
+              onClick={() => setMemoryLevels((prev) => ({ ...prev, enableL2: !prev.enableL2 }))}
+              disabled={!memoryEnabled}
+              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors disabled:opacity-50 ${
+                memoryLevels.enableL2 && memoryEnabled ? 'bg-[#1d1d1f] dark:bg-white' : 'bg-gray-300 dark:bg-gray-600'
+              }`}
+            >
+              <span
+                className={`inline-block h-4 w-4 transform rounded-full bg-white dark:bg-[#1c1c1e] transition-transform shadow-sm ${
+                  memoryLevels.enableL2 && memoryEnabled ? 'translate-x-6' : 'translate-x-1'
+                }`}
+              />
+            </button>
+          </div>
+
+          <div className="flex items-center justify-between gap-4 px-4 py-3">
+            <span className="text-[13px] font-medium text-gray-700 dark:text-gray-200">L3 关键词记忆</span>
+            <button
+              onClick={() => setMemoryLevels((prev) => ({ ...prev, enableL3: !prev.enableL3 }))}
+              disabled={!memoryEnabled}
+              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors disabled:opacity-50 ${
+                memoryLevels.enableL3 && memoryEnabled ? 'bg-[#1d1d1f] dark:bg-white' : 'bg-gray-300 dark:bg-gray-600'
+              }`}
+            >
+              <span
+                className={`inline-block h-4 w-4 transform rounded-full bg-white dark:bg-[#1c1c1e] transition-transform shadow-sm ${
+                  memoryLevels.enableL3 && memoryEnabled ? 'translate-x-6' : 'translate-x-1'
+                }`}
+              />
+            </button>
           </div>
         </div>
       </div>

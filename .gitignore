@@ -39,6 +39,8 @@ __pycache__/
 # Local agent/config folders
 .agents/
 .clinerules/
+.github/agents/
+.github/skills/
 
 memory/
 tools/
@@ -63,3 +65,10 @@ koduck-data-service/data/
 *.png
 
 docker-compose.local.yml
+.github/
+
+1D/
+1W/
+
+*.csv
+

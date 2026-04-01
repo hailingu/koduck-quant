@@ -12,7 +12,7 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 /**
- * 策略参数实体
+ * 
  */
 @Entity
 @Table(name = "strategy_parameters",
@@ -68,10 +68,10 @@ public class StrategyParameter {
     private LocalDateTime updatedAt;
     
     public enum ParameterType {
-        STRING,     // 字符串
-        INTEGER,    // 整数
-        DECIMAL,    // 小数
-        BOOLEAN,    // 布尔值
-        ENUM        // 枚举
+        STRING,     // 
+        INTEGER,    // 
+        DECIMAL,    // 
+        BOOLEAN,    // 
+        ENUM        // 
     }
 }

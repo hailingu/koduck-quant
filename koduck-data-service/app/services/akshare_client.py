@@ -40,12 +40,12 @@ class AKShareClient:
     """
 
     _INDEX_CODES = [
-        "000001",  # 上证指数
-        "399001",  # 深证成指
-        "399006",  # 创业板指
-        "000016",  # 上证50
-        "000300",  # 沪深300
-        "399005",  # 中小板指
+        "000001",  # 
+        "399001",  # 
+        "399006",  # 
+        "000016",  # 50
+        "000300",  # 300
+        "399005",  # 
     ]
     _INDEX_NAMES = {
         "000001": "上证指数",
@@ -611,81 +611,213 @@ class AKShareClient:
         Returns:
             List of minute K-line data points
         """
+        # Validate period
+        valid_periods = ["1", "5", "15", "30", "60"]
+        if period not in valid_periods:
+            logger.error(f"Invalid minute period: {period}")
+            return []
+
+        def _normalize_ohlc(row: dict) -> dict:
+            open_price = self._safe_float(row.get("open"), 0.0)
+            close_price = self._safe_float(row.get("close"), 0.0)
+            high_price = self._safe_float(row.get("high"), 0.0)
+            low_price = self._safe_float(row.get("low"), 0.0)
+
+            if open_price <= 0 and close_price > 0:
+                open_price = close_price
+            if high_price <= 0:
+                high_price = max(open_price, close_price)
+            if low_price <= 0:
+                low_price = min(open_price, close_price)
+            high_price = max(high_price, open_price, close_price)
+            low_price = min(low_price, open_price, close_price)
+
+            row["open"] = open_price
+            row["close"] = close_price
+            row["high"] = high_price
+            row["low"] = low_price
+            return row
+
+        # Primary source: AKShare minute endpoint
         try:
-            # Validate period
-            valid_periods = ["1", "5", "15", "30", "60"]
-            if period not in valid_periods:
-                logger.error(f"Invalid minute period: {period}")
-                return []
-            
-            # Use AKShare to fetch minute-level data
-            # Note: This fetches recent data only (today or recent days)
             df = ak.stock_zh_a_hist_min_em(symbol=symbol, period=period, adjust="")
-            
-            if df.empty:
-                return []
-            
-            # Map Chinese column names to English
-            column_mapping = {
-                '时间': 'datetime',
-                '开盘': 'open',
-                '收盘': 'close',
-                '最高': 'high',
-                '最低': 'low',
-                '成交量': 'volume',
-                '成交额': 'amount',
-            }
-            df = df.rename(columns=column_mapping)
-            
-            # Sort by time ascending
-            df = df.sort_values('datetime')
-            
-            # Limit results
-            df = df.tail(limit)
-            
-            klines = []
-            for _, row in df.iterrows():
-                try:
-                    # Parse timestamp
-                    time_str = str(row['datetime'])
-                    # AKShare minute datetime is China local time but without tz.
-                    # Attach Asia/Shanghai explicitly to avoid container timezone drift.
-                    local_dt = pd.Timestamp(time_str).tz_localize(ASIA_SHANGHAI_TZ)
-                    timestamp = int(local_dt.timestamp())
+            if not df.empty:
+                column_mapping = {
+                    "时间": "datetime",
+                    "开盘": "open",
+                    "收盘": "close",
+                    "最高": "high",
+                    "最低": "low",
+                    "成交量": "volume",
+                    "成交额": "amount",
+                }
+                df = df.rename(columns=column_mapping)
+                df = df.sort_values("datetime").tail(limit)
 
-                    open_price = self._safe_float(row.get('open'), 0.0)
-                    close_price = self._safe_float(row.get('close'), 0.0)
-                    high_price = self._safe_float(row.get('high'), 0.0)
-                    low_price = self._safe_float(row.get('low'), 0.0)
+                klines = []
+                for _, row in df.iterrows():
+                    try:
+                        time_str = str(row["datetime"])
+                        local_dt = pd.Timestamp(time_str).tz_localize(ASIA_SHANGHAI_TZ)
+                        kline = _normalize_ohlc(
+                            {
+                                "timestamp": int(local_dt.timestamp()),
+                                "open": row.get("open"),
+                                "high": row.get("high"),
+                                "low": row.get("low"),
+                                "close": row.get("close"),
+                                "volume": self._safe_int(row.get("volume")),
+                                "amount": self._safe_float(row.get("amount")),
+                            }
+                        )
+                        klines.append(kline)
+                    except Exception as e:
+                        logger.warning(f"Failed to parse minute kline row: {e}")
+                        continue
 
-                    # Some minute rows may have invalid open=0 from upstream source.
-                    # Normalize OHLC to keep bars renderable and consistent.
-                    if open_price <= 0 and close_price > 0:
-                        open_price = close_price
-                    if high_price <= 0:
-                        high_price = max(open_price, close_price)
-                    if low_price <= 0:
-                        low_price = min(open_price, close_price)
-                    high_price = max(high_price, open_price, close_price)
-                    low_price = min(low_price, open_price, close_price)
-                    
-                    kline = {
-                        "timestamp": timestamp,
-                        "open": open_price,
-                        "high": high_price,
-                        "low": low_price,
-                        "close": close_price,
-                        "volume": self._safe_int(row.get('volume')),
-                        "amount": self._safe_float(row.get('amount'))
-                    }
-                    klines.append(kline)
-                except Exception as e:
-                    logger.warning(f"Failed to parse minute kline row: {e}")
+                if klines:
+                    logger.info(
+                        "Minute kline query for %s (%sm) returned %s results from AKShare",
+                        symbol,
+                        period,
+                        len(klines),
+                    )
+                    return klines
+            else:
+                logger.warning(
+                    "AKShare minute endpoint returned empty for %s (%sm), trying Eastmoney fallback",
+                    symbol,
+                    period,
+                )
+        except Exception as e:
+            logger.warning(
+                "AKShare minute query failed for %s (%sm), trying Eastmoney fallback: %s",
+                symbol,
+                period,
+                e,
+            )
+
+        def _aggregate_trends(trends_1m: List[dict], interval_minutes: int) -> List[dict]:
+            if interval_minutes <= 1:
+                return sorted(trends_1m, key=lambda x: x["timestamp"])
+
+            buckets: dict[int, dict] = {}
+            for item in sorted(trends_1m, key=lambda x: x["timestamp"]):
+                dt = pd.Timestamp(item["timestamp"], unit="s", tz=ASIA_SHANGHAI_TZ)
+
+                # Respect A-share split sessions (09:30-11:30, 13:00-15:00).
+                morning_start = dt.replace(hour=9, minute=30, second=0, microsecond=0)
+                afternoon_start = dt.replace(hour=13, minute=0, second=0, microsecond=0)
+                if dt.hour < 12:
+                    session_start = morning_start
+                else:
+                    session_start = afternoon_start
+
+                offset_minutes = int((dt - session_start).total_seconds() // 60)
+                if offset_minutes < 0:
                     continue
-            
-            logger.info(f"Minute kline query for {symbol} ({period}m) returned {len(klines)} results")
+                bucket_start = session_start + pd.Timedelta(
+                    minutes=(offset_minutes // interval_minutes) * interval_minutes
+                )
+                bucket_ts = int(bucket_start.timestamp())
+
+                existing = buckets.get(bucket_ts)
+                if existing is None:
+                    buckets[bucket_ts] = {
+                        "timestamp": bucket_ts,
+                        "open": item["open"],
+                        "high": item["high"],
+                        "low": item["low"],
+                        "close": item["close"],
+                        "volume": item.get("volume", 0),
+                        "amount": item.get("amount", 0.0),
+                    }
+                else:
+                    existing["high"] = max(existing["high"], item["high"])
+                    existing["low"] = min(existing["low"], item["low"])
+                    existing["close"] = item["close"]
+                    existing["volume"] += item.get("volume", 0)
+                    existing["amount"] += item.get("amount", 0.0)
+
+            return [buckets[k] for k in sorted(buckets.keys())]
+
+        # Fallback source: Eastmoney trends2 (1m data) -> aggregate to target period
+        try:
+            secid_prefix = "1" if str(symbol).startswith("6") else "0"
+            trends_1m = eastmoney_client.fetch_intraday_trends(
+                symbol=symbol,
+                secid_prefix=secid_prefix,
+                ndays=5,
+                limit=max(1500, limit * int(period)),
+            )
+            if trends_1m:
+                aggregated = _aggregate_trends(trends_1m, int(period))
+                klines = []
+                for item in aggregated[-limit:]:
+                    kline = _normalize_ohlc(
+                        {
+                            "timestamp": int(item.get("timestamp", 0)),
+                            "open": item.get("open"),
+                            "high": item.get("high"),
+                            "low": item.get("low"),
+                            "close": item.get("close"),
+                            "volume": self._safe_int(item.get("volume")),
+                            "amount": self._safe_float(item.get("amount")),
+                        }
+                    )
+                    if kline["timestamp"] > 0:
+                        klines.append(kline)
+                logger.info(
+                    "Minute kline query for %s (%sm) returned %s results from Eastmoney trends fallback",
+                    symbol,
+                    period,
+                    len(klines),
+                )
+                return klines
+
+            # Secondary fallback: legacy push2his minute endpoint
+            fallback = eastmoney_client.fetch_kline_data(
+                symbol=symbol,
+                secid_prefix=secid_prefix,
+                period=period,
+                limit=limit,
+            )
+            if not fallback:
+                logger.error(
+                    "Minute kline query failed for %s (%sm): empty fallback result",
+                    symbol,
+                    period,
+                )
+                return []
+
+            klines = []
+            for item in fallback:
+                try:
+                    kline = _normalize_ohlc(
+                        {
+                            "timestamp": int(item.get("timestamp", 0)),
+                            "open": item.get("open"),
+                            "high": item.get("high"),
+                            "low": item.get("low"),
+                            "close": item.get("close"),
+                            "volume": self._safe_int(item.get("volume")),
+                            "amount": self._safe_float(item.get("amount")),
+                        }
+                    )
+                    if kline["timestamp"] > 0:
+                        klines.append(kline)
+                except Exception as e:
+                    logger.warning(f"Failed to parse Eastmoney minute kline row: {e}")
+                    continue
+
+            klines = sorted(klines, key=lambda x: x["timestamp"])[-limit:]
+            logger.info(
+                "Minute kline query for %s (%sm) returned %s results from Eastmoney fallback",
+                symbol,
+                period,
+                len(klines),
+            )
             return klines
-            
         except Exception as e:
             logger.error(f"Minute kline query failed for {symbol}: {e}")
             return []
@@ -741,11 +873,11 @@ class AKShareClient:
                     date_str = str(row['date'])
                     timestamp = int(pd.Timestamp(date_str).timestamp())
                     
-                    # Note: Tencent 'amount' column is actually volume in '手' (100 shares)
+                    # Note: Tencent 'amount' column is actually volume in '' (100 shares)
                     volume_hands = self._safe_float(row.get('amount'), 0.0)
                     volume_shares = int(volume_hands * 100)
                     
-                    # Calculate approximate amount (成交额) 
+                    # Calculate approximate amount () 
                     # Using average of OHLC * volume for better accuracy
                     avg_price = (self._safe_float(row.get('open'), 0.0) + 
                                 self._safe_float(row.get('high'), 0.0) + 
@@ -885,6 +1017,156 @@ class AKShareClient:
             
         # Fallback to Tencent API
         return self._get_kline_from_tencent(symbol, period, start_date, end_date, limit)
+    
+    def get_kline_yearly(self, symbol: str, limit: int = 10) -> List[dict]:
+        """Get yearly K-line data by aggregating monthly data.
+        
+        Issue #144, #147: Provides yearly OHLCV data for long-term trend analysis.
+        
+        Args:
+            symbol: Stock symbol (e.g., '002326')
+            limit: Maximum number of years to return (default 10, max 30)
+            
+        Returns:
+            List of yearly K-line data points with OHLCV fields
+        """
+        try:
+            # Limit check
+            limit = min(max(limit, 1), 30)
+            
+            # Get monthly data (need extra months to ensure complete years)
+            monthly_data = self.get_kline_data(
+                symbol=symbol,
+                period="monthly",
+                limit=limit * 12 + 12  # Extra year for safety
+            )
+            
+            if not monthly_data:
+                logger.warning(f"No monthly data available for {symbol}")
+                return []
+            
+            # Aggregate by year
+            yearly_klines = []
+            current_year = None
+            year_data = None
+            
+            for kline in monthly_data:
+                ts = kline["timestamp"]
+                dt = datetime.fromtimestamp(ts, tz=ASIA_SHANGHAI_TZ)
+                year = dt.year
+                
+                if year != current_year:
+                    # Save previous year data
+                    if year_data:
+                        yearly_klines.append(year_data)
+                    
+                    # Start new year
+                    current_year = year
+                    year_data = {
+                        "timestamp": int(datetime(year, 1, 1, tzinfo=ASIA_SHANGHAI_TZ).timestamp()),
+                        "year": year,
+                        "open": kline["open"],
+                        "high": kline["high"],
+                        "low": kline["low"],
+                        "close": kline["close"],
+                        "volume": kline["volume"],
+                        "amount": kline.get("amount", 0)
+                    }
+                else:
+                    # Update year data
+                    year_data["high"] = max(year_data["high"], kline["high"])
+                    year_data["low"] = min(year_data["low"], kline["low"])
+                    year_data["close"] = kline["close"]
+                    year_data["volume"] += kline["volume"]
+                    year_data["amount"] += kline.get("amount", 0)
+            
+            # Don't forget the last year
+            if year_data:
+                yearly_klines.append(year_data)
+            
+            # Return only the requested number of years
+            result = yearly_klines[-limit:] if len(yearly_klines) > limit else yearly_klines
+            
+            logger.info(f"Yearly kline query for {symbol} returned {len(result)} results")
+            return result
+            
+        except Exception as e:
+            logger.error(f"Yearly kline query failed for {symbol}: {e}")
+            return []
+    
+    def incremental_update_yearly(self, symbol: str, existing_data: List[dict]) -> dict:
+        """Incrementally update yearly K-line data.
+        
+        Issue #147: Smart merge of new yearly data with existing data.
+        
+        Args:
+            symbol: Stock symbol
+            existing_data: Existing yearly K-line data
+            
+        Returns:
+            Update result with metadata
+        """
+        try:
+            # Get latest year from existing data
+            latest_year = None
+            if existing_data:
+                latest_year = max(d.get("year", 0) for d in existing_data)
+            
+            # Fetch new data
+            new_data = self.get_kline_yearly(symbol, limit=30)
+            
+            if not new_data:
+                return {
+                    "symbol": symbol,
+                    "records_added": 0,
+                    "records_updated": 0,
+                    "message": "No new data available"
+                }
+            
+            # Create lookup for existing years
+            existing_years = {d.get("year"): d for d in existing_data}
+            
+            added = 0
+            updated = 0
+            merged_data = []
+            
+            for new_kline in new_data:
+                year = new_kline.get("year")
+                
+                if year not in existing_years:
+                    # New year
+                    merged_data.append(new_kline)
+                    added += 1
+                elif latest_year and year == latest_year:
+                    # Update current year (may have new monthly data)
+                    merged_data.append(new_kline)
+                    updated += 1
+                else:
+                    # Keep existing year data
+                    merged_data.append(existing_years[year])
+            
+            # Sort by year
+            merged_data.sort(key=lambda x: x.get("year", 0))
+            
+            return {
+                "symbol": symbol,
+                "records_added": added,
+                "records_updated": updated,
+                "date_range": {
+                    "start": merged_data[0].get("year") if merged_data else None,
+                    "end": merged_data[-1].get("year") if merged_data else None
+                },
+                "data": merged_data
+            }
+            
+        except Exception as e:
+            logger.error(f"Incremental update failed for {symbol}: {e}")
+            return {
+                "symbol": symbol,
+                "records_added": 0,
+                "records_updated": 0,
+                "error": str(e)
+            }
     
     @staticmethod
     def _safe_float(value, default: Optional[float] = None) -> Optional[float]:

@@ -1,6 +1,7 @@
 package com.koduck.dto.community;
 
 import com.fasterxml.jackson.annotation.JsonFormat;
+import com.koduck.common.constants.DateTimePatternConstants;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -9,7 +10,7 @@ import lombok.NoArgsConstructor;
 import java.time.LocalDateTime;
 
 /**
- * 信号订阅响应 DTO
+ *  DTO
  */
 @Data
 @Builder
@@ -26,6 +27,6 @@ public class SignalSubscriptionResponse {
     private String username;
     private Boolean notifyEnabled;
 
-    @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
+    @JsonFormat(pattern = DateTimePatternConstants.STANDARD_DATE_TIME_PATTERN)
     private LocalDateTime createdAt;
 }

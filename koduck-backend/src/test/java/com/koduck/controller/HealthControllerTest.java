@@ -2,9 +2,9 @@ package com.koduck.controller;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.test.context.TestConstructor;
 import org.springframework.test.web.servlet.MockMvc;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -12,16 +12,21 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
- * HealthController 测试。
+ * Integration tests for {@link HealthController}.
  *
- * @author Koduck Team
+ * @author GitHub Copilot
+ * @date 2026-03-31
  */
-@SpringBootTest
+@SpringBootTest(properties = "app.demo.enabled=false")
 @AutoConfigureMockMvc
+@TestConstructor(autowireMode = TestConstructor.AutowireMode.ALL)
 class HealthControllerTest {
 
-    @Autowired
-    private MockMvc mockMvc;
+    private final MockMvc mockMvc;
+
+    HealthControllerTest(MockMvc mockMvc) {
+        this.mockMvc = mockMvc;
+    }
 
     @Test
     @DisplayName("健康检查接口应返回 UP 状态")

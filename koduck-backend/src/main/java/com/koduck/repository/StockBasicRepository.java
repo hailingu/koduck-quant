@@ -45,4 +45,16 @@ public interface StockBasicRepository extends JpaRepository<StockBasic, Long> {
      * Find stocks by market.
      */
     List<StockBasic> findByMarket(String market);
+    
+    /**
+     * Find stock by symbol and type.
+     * Used to distinguish between stocks and indices with same symbol code.
+     */
+    Optional<StockBasic> findBySymbolAndType(String symbol, String type);
+    
+    /**
+     * Find stocks by symbol list and type.
+     * Used to query indices (type='INDEX') or stocks (type='STOCK').
+     */
+    List<StockBasic> findBySymbolInAndType(List<String> symbols, String type);
 }

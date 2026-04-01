@@ -1,128 +1,344 @@
 package com.koduck.dto.settings;
 
+import com.koduck.util.CollectionCopyUtils;
 import jakarta.validation.Valid;
+import java.util.List;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.util.List;
-
 /**
- * 更新设置请求 DTO
+ * 用户设置更新请求 DTO。
+ *
+ * @author GitHub Copilot
+ * @date 2026-03-31
  */
 @Data
-@Builder
 @NoArgsConstructor
-@AllArgsConstructor
 public class UpdateSettingsRequest {
 
-    // 主题设置
     private String theme;
+
     private String language;
+
     private String timezone;
 
-    // 通知设置
     @Valid
     private NotificationConfigDto notification;
 
-    // 交易设置
     @Valid
     private TradingConfigDto trading;
 
-    // 显示设置
     @Valid
     private DisplayConfigDto display;
 
-    // 快捷入口
     private List<QuickLinkDto> quickLinks;
 
-    // 大模型配置
     @Valid
     private LlmConfigDto llmConfig;
 
-    /**
-     * 通知配置 DTO
-     */
+    public static BuilderWrapper builder() {
+        return new BuilderWrapper();
+    }
+
+    public NotificationConfigDto getNotification() {
+        return copyNotification(notification);
+    }
+
+    public void setNotification(NotificationConfigDto notification) {
+        this.notification = copyNotification(notification);
+    }
+
+    public TradingConfigDto getTrading() {
+        return copyTrading(trading);
+    }
+
+    public void setTrading(TradingConfigDto trading) {
+        this.trading = copyTrading(trading);
+    }
+
+    public DisplayConfigDto getDisplay() {
+        return copyDisplay(display);
+    }
+
+    public void setDisplay(DisplayConfigDto display) {
+        this.display = copyDisplay(display);
+    }
+
+    public List<QuickLinkDto> getQuickLinks() {
+        return CollectionCopyUtils.copyList(quickLinks);
+    }
+
+    public void setQuickLinks(List<QuickLinkDto> quickLinks) {
+        this.quickLinks = CollectionCopyUtils.copyList(quickLinks);
+    }
+
+    public LlmConfigDto getLlmConfig() {
+        return copyLlmConfig(llmConfig);
+    }
+
+    public void setLlmConfig(LlmConfigDto llmConfig) {
+        this.llmConfig = copyLlmConfig(llmConfig);
+    }
+
+    private static NotificationConfigDto copyNotification(NotificationConfigDto source) {
+        if (source == null) {
+            return null;
+        }
+        return source.toBuilder().build();
+    }
+
+    private static TradingConfigDto copyTrading(TradingConfigDto source) {
+        if (source == null) {
+            return null;
+        }
+        return source.toBuilder().build();
+    }
+
+    private static DisplayConfigDto copyDisplay(DisplayConfigDto source) {
+        if (source == null) {
+            return null;
+        }
+        return source.toBuilder().build();
+    }
+
+    private static LlmConfigDto copyLlmConfig(LlmConfigDto source) {
+        if (source == null) {
+            return null;
+        }
+        return LlmConfigDto.builder()
+            .provider(source.getProvider())
+            .apiKey(source.getApiKey())
+            .apiBase(source.getApiBase())
+            .minimax(copyProviderConfig(source.getMinimax()))
+            .deepseek(copyProviderConfig(source.getDeepseek()))
+            .openai(copyProviderConfig(source.getOpenai()))
+            .memory(copyMemoryConfig(source.getMemory()))
+            .build();
+    }
+
+    private static ProviderConfigDto copyProviderConfig(ProviderConfigDto source) {
+        if (source == null) {
+            return null;
+        }
+        return source.toBuilder().build();
+    }
+
+    private static MemoryConfigDto copyMemoryConfig(MemoryConfigDto source) {
+        if (source == null) {
+            return null;
+        }
+        return source.toBuilder().build();
+    }
+
+    public static final class BuilderWrapper {
+
+        private String theme;
+        private String language;
+        private String timezone;
+        private NotificationConfigDto notification;
+        private TradingConfigDto trading;
+        private DisplayConfigDto display;
+        private List<QuickLinkDto> quickLinks;
+        private LlmConfigDto llmConfig;
+
+        public BuilderWrapper theme(String theme) {
+            this.theme = theme;
+            return this;
+        }
+
+        public BuilderWrapper language(String language) {
+            this.language = language;
+            return this;
+        }
+
+        public BuilderWrapper timezone(String timezone) {
+            this.timezone = timezone;
+            return this;
+        }
+
+        public BuilderWrapper notification(NotificationConfigDto notification) {
+            this.notification = copyNotification(notification);
+            return this;
+        }
+
+        public BuilderWrapper trading(TradingConfigDto trading) {
+            this.trading = copyTrading(trading);
+            return this;
+        }
+
+        public BuilderWrapper display(DisplayConfigDto display) {
+            this.display = copyDisplay(display);
+            return this;
+        }
+
+        public BuilderWrapper quickLinks(List<QuickLinkDto> quickLinks) {
+            this.quickLinks = CollectionCopyUtils.copyList(quickLinks);
+            return this;
+        }
+
+        public BuilderWrapper llmConfig(LlmConfigDto llmConfig) {
+            this.llmConfig = copyLlmConfig(llmConfig);
+            return this;
+        }
+
+        public UpdateSettingsRequest build() {
+            UpdateSettingsRequest request = new UpdateSettingsRequest();
+            request.setTheme(theme);
+            request.setLanguage(language);
+            request.setTimezone(timezone);
+            request.setNotification(notification);
+            request.setTrading(trading);
+            request.setDisplay(display);
+            request.setQuickLinks(quickLinks);
+            request.setLlmConfig(llmConfig);
+            return request;
+        }
+    }
+
     @Data
-    @Builder
     @NoArgsConstructor
     @AllArgsConstructor
+    @Builder(toBuilder = true)
     public static class NotificationConfigDto {
+
         private Boolean email;
+
         private Boolean browser;
+
         private Boolean priceAlert;
+
         private Boolean tradeAlert;
+
         private Boolean strategyAlert;
     }
 
-    /**
-     * 交易配置 DTO
-     */
     @Data
-    @Builder
     @NoArgsConstructor
     @AllArgsConstructor
+    @Builder(toBuilder = true)
     public static class TradingConfigDto {
+
         private String defaultMarket;
+
         private Double commissionRate;
+
         private Double minCommission;
+
         private Boolean enableConfirmation;
     }
 
-    /**
-     * 显示配置 DTO
-     */
     @Data
-    @Builder
     @NoArgsConstructor
     @AllArgsConstructor
+    @Builder(toBuilder = true)
     public static class DisplayConfigDto {
+
         private String currency;
+
         private String dateFormat;
+
         private String numberFormat;
+
         private Boolean compactMode;
     }
 
-    /**
-     * 快捷入口 DTO
-     */
     @Data
-    @Builder
     @NoArgsConstructor
     @AllArgsConstructor
+    @Builder(toBuilder = true)
     public static class QuickLinkDto {
+
         private Long id;
+
         private String name;
+
         private String icon;
+
         private String path;
+
         private Integer sortOrder;
     }
 
-    /**
-     * 大模型配置 DTO
-     */
     @Data
-    @Builder
     @NoArgsConstructor
     @AllArgsConstructor
+    @Builder(toBuilder = true)
     public static class LlmConfigDto {
+
         private String provider;
-        // 当前激活 provider 的输入值（兼容前端旧提交方式）
+
         private String apiKey;
+
         private String apiBase;
+
         private ProviderConfigDto minimax;
+
         private ProviderConfigDto deepseek;
+
         private ProviderConfigDto openai;
+
+        private MemoryConfigDto memory;
+
+        public ProviderConfigDto getMinimax() {
+            return copyProviderConfig(minimax);
+        }
+
+        public void setMinimax(ProviderConfigDto minimax) {
+            this.minimax = copyProviderConfig(minimax);
+        }
+
+        public ProviderConfigDto getDeepseek() {
+            return copyProviderConfig(deepseek);
+        }
+
+        public void setDeepseek(ProviderConfigDto deepseek) {
+            this.deepseek = copyProviderConfig(deepseek);
+        }
+
+        public ProviderConfigDto getOpenai() {
+            return copyProviderConfig(openai);
+        }
+
+        public void setOpenai(ProviderConfigDto openai) {
+            this.openai = copyProviderConfig(openai);
+        }
+
+        public MemoryConfigDto getMemory() {
+            return copyMemoryConfig(memory);
+        }
+
+        public void setMemory(MemoryConfigDto memory) {
+            this.memory = copyMemoryConfig(memory);
+        }
     }
 
     @Data
-    @Builder
     @NoArgsConstructor
     @AllArgsConstructor
+    @Builder(toBuilder = true)
     public static class ProviderConfigDto {
+
         private String apiKey;
+
         private String apiBase;
     }
 
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    @Builder(toBuilder = true)
+    public static class MemoryConfigDto {
+
+        private Boolean enabled;
+
+        private String mode;
+
+        private Boolean enableL1;
+
+        private Boolean enableL2;
+
+        private Boolean enableL3;
+    }
 }

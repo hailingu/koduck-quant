@@ -17,6 +17,14 @@ echo -e "${BLUE}  Koduck Quant 本地开发模式${NC}"
 echo -e "${BLUE}=========================================${NC}"
 echo ""
 
+# Compose env file priority: .env.local > .env
+COMPOSE_ENV_ARGS=""
+if [ -f ".env.local" ]; then
+    COMPOSE_ENV_ARGS="--env-file .env.local"
+elif [ -f ".env" ]; then
+    COMPOSE_ENV_ARGS="--env-file .env"
+fi
+
 # 检查本地 JAR 是否存在
 if [ ! -f "koduck-backend/target/koduck-backend-0.1.0-SNAPSHOT.jar" ]; then
     echo -e "${YELLOW}⚠️  本地 JAR 不存在，开始构建...${NC}"
@@ -27,7 +35,7 @@ fi
 
 # 启动基础设施
 echo -e "${BLUE}🚀 启动基础设施 (PostgreSQL, Redis, Data Service)...${NC}"
-docker-compose -f docker-compose.local.yml up -d
+docker-compose ${COMPOSE_ENV_ARGS} -f docker-compose.local.yml up -d
 
 echo ""
 echo -e "${BLUE}⏳ 等待基础设施就绪...${NC}"
@@ -35,7 +43,7 @@ sleep 5
 
 # 检查服务状态
 echo -e "${YELLOW}检查服务状态：${NC}"
-docker-compose -f docker-compose.local.yml ps
+docker-compose ${COMPOSE_ENV_ARGS} -f docker-compose.local.yml ps
 
 echo ""
 echo -e "${GREEN}=========================================${NC}"
@@ -56,6 +64,13 @@ echo "  export REDIS_HOST=localhost"
 echo "  export REDIS_PORT=6379"
 echo "  export DATA_SERVICE_URL=http://localhost:8000/api/v1"
 echo "  export JWT_SECRET=your-256-bit-secret-key-for-jwt-signing-must-be-at-least-32-characters-long"
+echo "  export RATE_LIMIT_LOGIN_FAILURE_MAX_PER_USER=${RATE_LIMIT_LOGIN_FAILURE_MAX_PER_USER:-5}"
+echo "  export RATE_LIMIT_LOGIN_FAILURE_MAX_PER_IP=${RATE_LIMIT_LOGIN_FAILURE_MAX_PER_IP:-20}"
+echo "  export RATE_LIMIT_LOGIN_FAILURE_WINDOW=${RATE_LIMIT_LOGIN_FAILURE_WINDOW:-15m}"
+echo "  export RATE_LIMIT_PASSWORD_RESET_MAX_PER_USER=${RATE_LIMIT_PASSWORD_RESET_MAX_PER_USER:-3}"
+echo "  export RATE_LIMIT_PASSWORD_RESET_MAX_PER_EMAIL=${RATE_LIMIT_PASSWORD_RESET_MAX_PER_EMAIL:-5}"
+echo "  export RATE_LIMIT_PASSWORD_RESET_MAX_PER_IP=${RATE_LIMIT_PASSWORD_RESET_MAX_PER_IP:-10}"
+echo "  export RATE_LIMIT_PASSWORD_RESET_WINDOW=${RATE_LIMIT_PASSWORD_RESET_WINDOW:-1h}"
 echo "  java -jar target/koduck-backend-0.1.0-SNAPSHOT.jar"
 echo ""
 echo -e "${BLUE}终端 2 - 前端:${NC}"

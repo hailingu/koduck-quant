@@ -1,183 +1,225 @@
 package com.koduck.util;
 
+import com.koduck.exception.CredentialEncryptionException;
 import jakarta.annotation.PostConstruct;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.stereotype.Component;
-
-import javax.crypto.Cipher;
-import javax.crypto.SecretKey;
-import javax.crypto.spec.GCMParameterSpec;
-import javax.crypto.spec.SecretKeySpec;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
+import java.security.GeneralSecurityException;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
 import java.util.Base64;
+import javax.crypto.Cipher;
+import javax.crypto.SecretKey;
+import javax.crypto.spec.GCMParameterSpec;
+import javax.crypto.spec.SecretKeySpec;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Component;
+import org.springframework.util.StringUtils;
 
 /**
- * 凭证加密工具类 - 使用 AES-256-GCM 加密
+ * Encrypts and decrypts credential secrets with AES-256-GCM.
+ *
+ * @author GitHub Copilot
+ * @date 2026-03-31
  */
 @Component
 @Slf4j
 public class CredentialEncryptionUtil {
 
     private static final String ALGORITHM = "AES";
+    private static final String ENV_CREDENTIAL_ENCRYPTION_KEY = "CREDENTIAL_ENCRYPTION_KEY";
+    private static final String MASKED_VALUE = "***";
     private static final String TRANSFORMATION = "AES/GCM/NoPadding";
-    private static final int GCM_IV_LENGTH = 12; // 96 bits
-    private static final int GCM_TAG_LENGTH = 16; // 128 bits
-    private static final int KEY_LENGTH = 32; // 256 bits
+    private static final int API_KEY_MIN_MASK_LENGTH = 8;
+    private static final int API_KEY_VISIBLE_EDGE_LENGTH = 4;
+    private static final int GCM_IV_LENGTH = 12;
+    private static final int GCM_TAG_LENGTH = 16;
+    private static final int KEY_LENGTH = 32;
 
+    /**
+     * Encryption key configured via Spring properties.
+     */
     @Value("${credential.encryption.key:}")
     private String encryptionKeyFromConfig;
 
-    private static SecretKey secretKey;
-    private static SecureRandom secureRandom;
+    /**
+     * Runtime AES key derived from configuration.
+     */
+    private SecretKey secretKey;
 
+    /**
+     * Secure random source used for GCM initialization vectors.
+     */
+    private static final SecureRandom SECURE_RANDOM = new SecureRandom();
+
+    /**
+     * Creates the credential encryption utility.
+     */
+    public CredentialEncryptionUtil() {
+        // Default constructor for Spring-managed component initialization.
+    }
+
+    /**
+     * Initializes the runtime encryption key.
+     */
     @PostConstruct
     public void init() {
-        String keyFromEnv = System.getenv("CREDENTIAL_ENCRYPTION_KEY");
-        String keyToUse = (keyFromEnv != null && !keyFromEnv.isEmpty()) 
-                ? keyFromEnv 
-                : encryptionKeyFromConfig;
-
-        if (keyToUse == null || keyToUse.isEmpty()) {
-            log.warn("未配置凭证加密密钥，将使用默认密钥（仅用于开发环境）");
-            keyToUse = "KODUCK_DEFAULT_CREDENTIAL_ENCRYPTION_KEY_32BYTES!";
-        }
+        final String keyToUse = resolveEncryptionKey();
 
         try {
-            byte[] keyBytes = deriveKey(keyToUse);
+            final byte[] keyBytes = deriveKey(keyToUse);
             secretKey = new SecretKeySpec(keyBytes, ALGORITHM);
-            secureRandom = new SecureRandom();
-            log.info("凭证加密工具初始化完成");
-        } catch (Exception e) {
-            log.error("凭证加密工具初始化失败", e);
-            throw new RuntimeException("无法初始化凭证加密工具", e);
+            log.info("Credential encryption key initialized successfully.");
+        } catch (NoSuchAlgorithmException ex) {
+            log.error("Failed to initialize credential encryption key.", ex);
+            throw new IllegalStateException("Unable to initialize credential encryption utility", ex);
         }
     }
 
-    /**
-     * 从密钥字符串派生 256 位密钥
-     */
-    private byte[] deriveKey(String key) throws NoSuchAlgorithmException {
-        MessageDigest digest = MessageDigest.getInstance("SHA-256");
-        byte[] hash = digest.digest(key.getBytes(StandardCharsets.UTF_8));
-        return hash;
+    private String resolveEncryptionKey() {
+        String resolvedKey = encryptionKeyFromConfig;
+        final String envKey = getEncryptionKeyFromEnvironment();
+        if (StringUtils.hasText(envKey)) {
+            resolvedKey = envKey;
+        } else if (!StringUtils.hasText(encryptionKeyFromConfig)) {
+            throw new IllegalStateException(
+                    "Missing credential encryption key: configure CREDENTIAL_ENCRYPTION_KEY or credential.encryption.key"
+            );
+        }
+        return resolvedKey;
     }
 
     /**
-     * 加密文本
+     * Returns the encryption key from the process environment.
      *
-     * @param plainText 明文
-     * @return 加密后的 Base64 字符串（包含 IV）
+     * @return environment key or null when absent
      */
-    public static String encrypt(String plainText) {
+    String getEncryptionKeyFromEnvironment() {
+        return System.getenv(ENV_CREDENTIAL_ENCRYPTION_KEY);
+    }
+
+    /**
+     * Derives a 256-bit key from the configured secret.
+     *
+     * @param key source secret
+     * @return derived key bytes
+     * @throws NoSuchAlgorithmException when SHA-256 is unavailable
+     */
+    private byte[] deriveKey(final String key) throws NoSuchAlgorithmException {
+        final MessageDigest digest = MessageDigest.getInstance("SHA-256");
+        return digest.digest(key.getBytes(StandardCharsets.UTF_8));
+    }
+
+    /**
+     * Encrypts a plain-text credential value.
+     *
+     * @param plainText source text
+     * @return encrypted Base64 payload or null when the source is blank
+     */
+    public String encrypt(final String plainText) {
+        String encrypted = null;
         if (plainText == null || plainText.isEmpty()) {
-            return null;
+            return encrypted;
         }
 
         try {
-            // 生成随机 IV
-            byte[] iv = new byte[GCM_IV_LENGTH];
-            secureRandom.nextBytes(iv);
+            final byte[] initVector = new byte[GCM_IV_LENGTH];
+            SECURE_RANDOM.nextBytes(initVector);
 
-            // 初始化 Cipher
-            Cipher cipher = Cipher.getInstance(TRANSFORMATION);
-            GCMParameterSpec gcmSpec = new GCMParameterSpec(GCM_TAG_LENGTH * 8, iv);
+            final Cipher cipher = Cipher.getInstance(TRANSFORMATION);
+            final GCMParameterSpec gcmSpec = new GCMParameterSpec(GCM_TAG_LENGTH * 8, initVector);
             cipher.init(Cipher.ENCRYPT_MODE, secretKey, gcmSpec);
 
-            // 加密
-            byte[] cipherText = cipher.doFinal(plainText.getBytes(StandardCharsets.UTF_8));
-
-            // 组合 IV + ciphertext
-            ByteBuffer byteBuffer = ByteBuffer.allocate(iv.length + cipherText.length);
-            byteBuffer.put(iv);
+            final byte[] cipherText = cipher.doFinal(plainText.getBytes(StandardCharsets.UTF_8));
+            final ByteBuffer byteBuffer = ByteBuffer.allocate(initVector.length + cipherText.length);
+            byteBuffer.put(initVector);
             byteBuffer.put(cipherText);
-
-            return Base64.getEncoder().encodeToString(byteBuffer.array());
-        } catch (Exception e) {
-            log.error("加密失败", e);
-            throw new RuntimeException("加密失败", e);
+            encrypted = Base64.getEncoder().encodeToString(byteBuffer.array());
+        } catch (GeneralSecurityException ex) {
+            log.error("Failed to encrypt credential.", ex);
+            throw new CredentialEncryptionException("加密失败", ex);
         }
+        return encrypted;
     }
 
     /**
-     * 解密文本
+     * Decrypts an encrypted credential value.
      *
-     * @param encryptedText 加密后的 Base64 字符串（包含 IV）
-     * @return 明文
+     * @param encryptedText Base64 payload including IV
+     * @return decrypted plain text or null when the source is blank
      */
-    public static String decrypt(String encryptedText) {
+    public String decrypt(final String encryptedText) {
+        String decrypted = null;
         if (encryptedText == null || encryptedText.isEmpty()) {
-            return null;
+            return decrypted;
         }
 
         try {
-            byte[] decoded = Base64.getDecoder().decode(encryptedText);
+            final byte[] decoded = Base64.getDecoder().decode(encryptedText);
+            final ByteBuffer byteBuffer = ByteBuffer.wrap(decoded);
+            final byte[] initVector = new byte[GCM_IV_LENGTH];
+            byteBuffer.get(initVector);
 
-            // 提取 IV
-            ByteBuffer byteBuffer = ByteBuffer.wrap(decoded);
-            byte[] iv = new byte[GCM_IV_LENGTH];
-            byteBuffer.get(iv);
-
-            // 提取 ciphertext
-            byte[] cipherText = new byte[byteBuffer.remaining()];
+            final byte[] cipherText = new byte[byteBuffer.remaining()];
             byteBuffer.get(cipherText);
 
-            // 初始化 Cipher
-            Cipher cipher = Cipher.getInstance(TRANSFORMATION);
-            GCMParameterSpec gcmSpec = new GCMParameterSpec(GCM_TAG_LENGTH * 8, iv);
+            final Cipher cipher = Cipher.getInstance(TRANSFORMATION);
+            final GCMParameterSpec gcmSpec = new GCMParameterSpec(GCM_TAG_LENGTH * 8, initVector);
             cipher.init(Cipher.DECRYPT_MODE, secretKey, gcmSpec);
 
-            // 解密
-            byte[] plainText = cipher.doFinal(cipherText);
-            return new String(plainText, StandardCharsets.UTF_8);
-        } catch (Exception e) {
-            log.error("解密失败", e);
-            throw new RuntimeException("解密失败，可能是密钥不正确或数据已损坏", e);
+            final byte[] plainText = cipher.doFinal(cipherText);
+            decrypted = new String(plainText, StandardCharsets.UTF_8);
+        } catch (GeneralSecurityException | IllegalArgumentException ex) {
+            log.error("Failed to decrypt credential.", ex);
+            throw new CredentialEncryptionException("解密失败，可能是密钥不正确或数据已损坏", ex);
         }
+        return decrypted;
     }
 
     /**
-     * 对 API Key 进行脱敏处理
+     * Masks an API key for display.
      *
-     * @param apiKey 原始 API Key
-     * @return 脱敏后的 API Key（如 PK***XXXX）
+     * @param apiKey original API key
+     * @return masked API key
      */
-    public static String maskApiKey(String apiKey) {
+    public static String maskApiKey(final String apiKey) {
+        String masked = MASKED_VALUE;
         if (apiKey == null || apiKey.isEmpty()) {
-            return "***";
+            return masked;
         }
-        if (apiKey.length() <= 8) {
-            return "***";
+        if (apiKey.length() > API_KEY_MIN_MASK_LENGTH) {
+            masked = apiKey.substring(0, API_KEY_VISIBLE_EDGE_LENGTH)
+                    + MASKED_VALUE
+                    + apiKey.substring(apiKey.length() - API_KEY_VISIBLE_EDGE_LENGTH);
         }
-        return apiKey.substring(0, 4) + "***" + apiKey.substring(apiKey.length() - 4);
+        return masked;
     }
 
     /**
-     * 对 API Secret 进行脱敏处理
+     * Masks an API secret for display.
      *
-     * @param apiSecret 原始 API Secret
-     * @return 脱敏后的 API Secret（如 ***）
+     * @param apiSecret original API secret
+     * @return masked secret or null when the source is blank
      */
-    public static String maskApiSecret(String apiSecret) {
+    public static String maskApiSecret(final String apiSecret) {
+        String masked = null;
         if (apiSecret == null || apiSecret.isEmpty()) {
-            return null;
+            return masked;
         }
-        return "***";
+        masked = MASKED_VALUE;
+        return masked;
     }
 
     /**
-     * 生成安全的随机密钥（用于初始化配置）
+     * Generates a random Base64-encoded secret key.
      *
-     * @return Base64 编码的随机密钥
+     * @return generated key material
      */
     public static String generateRandomKey() {
-        byte[] key = new byte[KEY_LENGTH];
-        SecureRandom random = new SecureRandom();
-        random.nextBytes(key);
+        final byte[] key = new byte[KEY_LENGTH];
+        SECURE_RANDOM.nextBytes(key);
         return Base64.getEncoder().encodeToString(key);
     }
 }

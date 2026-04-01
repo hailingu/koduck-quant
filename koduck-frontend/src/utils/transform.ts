@@ -1,24 +1,24 @@
 /**
- * 数据转换工具函数
- * 用于处理后端 snake_case 到前端 camelCase 的转换
+ * 
+ *  snake_case  camelCase 
  */
 
 /**
- * 将 snake_case 字符串转换为 camelCase
+ *  snake_case  camelCase
  */
 export function toCamelCase(str: string): string {
   return str.replace(/_([a-z])/g, (_, letter) => letter.toUpperCase())
 }
 
 /**
- * 将 camelCase 字符串转换为 snake_case
+ *  camelCase  snake_case
  */
 export function toSnakeCase(str: string): string {
   return str.replace(/[A-Z]/g, (letter) => `_${letter.toLowerCase()}`)
 }
 
 /**
- * 递归转换对象的键名 (snake_case -> camelCase)
+ *  (snake_case -> camelCase)
  */
 export function keysToCamelCase<T>(obj: any): T {
   if (obj === null || obj === undefined || typeof obj !== 'object') {
@@ -34,9 +34,9 @@ export function keysToCamelCase<T>(obj: any): T {
     const camelKey = toCamelCase(key)
     const value = obj[key]
     
-    // 递归转换嵌套对象
+    // 
     if (value && typeof value === 'object' && !Array.isArray(value)) {
-      // 检查是否为 Date 对象
+      //  Date 
       if (value instanceof Date) {
         result[camelKey] = value
       } else {
@@ -55,7 +55,7 @@ export function keysToCamelCase<T>(obj: any): T {
 }
 
 /**
- * 递归转换对象的键名 (camelCase -> snake_case)
+ *  (camelCase -> snake_case)
  */
 export function keysToSnakeCase<T>(obj: any): T {
   if (obj === null || obj === undefined || typeof obj !== 'object') {
@@ -86,8 +86,8 @@ export function keysToSnakeCase<T>(obj: any): T {
 }
 
 /**
- * 格式化日期时间
- * 将后端时间戳或 ISO 字符串转换为本地化显示
+ * 
+ *  ISO 
  */
 export function formatDateTime(value: string | number | Date): string {
   const date = new Date(value)
@@ -102,7 +102,7 @@ export function formatDateTime(value: string | number | Date): string {
 }
 
 /**
- * 格式化日期
+ * 
  */
 export function formatDate(value: string | number | Date): string {
   const date = new Date(value)

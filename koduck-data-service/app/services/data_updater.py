@@ -8,15 +8,17 @@ import asyncio
 import logging
 from datetime import datetime
 from typing import Any, Optional, Tuple
+from zoneinfo import ZoneInfo
 
 from app.db import Database, stock_db, tick_history_db
 from app.config import settings
 from app.services.eastmoney_client import eastmoney_client
+from app.services.realtime_event_publisher import realtime_event_publisher
 from app.utils.trading_hours import is_a_share_trading_time
 
 logger = logging.getLogger(__name__)
 
-# Test symbol: 工商银行 (Industrial and Commercial Bank of China)
+# Test symbol:  (Industrial and Commercial Bank of China)
 TEST_SYMBOL = "601398"
 TEST_SYMBOL_NAME = "工商银行"
 PRICE_FIELDS = (
@@ -55,6 +57,10 @@ class DataUpdater:
         self._tick_buffer: list[dict[str, Any]] = []   # Buffer for batch insert
         # Per-symbol last persisted tick time (for optional throttling)
         self._last_tick_time_by_symbol: dict[str, datetime] = {}
+        # Per-symbol cached prev_close for the current Beijing trading date.
+        # Key: symbol, Value: (YYYY-MM-DD, prev_close)
+        self._prev_close_cache_by_symbol: dict[str, tuple[str, float]] = {}
+        self._beijing_tz = ZoneInfo("Asia/Shanghai")
 
     def _normalize_market_data(self, data: StockPayload) -> StockPayload:
         """Convert raw Eastmoney values to human-readable units.
@@ -93,6 +99,101 @@ class DataUpdater:
                 data["_data_source"] = "after_hours"  # Mark data source
 
         return data
+
+    def _current_beijing_date_key(self) -> str:
+        """Return Beijing local date key used for daily cache invalidation."""
+        return datetime.now(self._beijing_tz).strftime("%Y-%m-%d")
+
+    async def _get_prev_close_from_daily_cache(self, symbol: str) -> Optional[float]:
+        """Get prev_close cached per symbol per Beijing date.
+
+        The value is loaded at most once per symbol per day from daily kline
+        data, then reused for subsequent tick updates.
+        """
+        day_key = self._current_beijing_date_key()
+        cached = self._prev_close_cache_by_symbol.get(symbol)
+        if cached and cached[0] == day_key:
+            return cached[1]
+
+        prev_close: Optional[float] = None
+        beijing_now = datetime.now(self._beijing_tz)
+        day_start = beijing_now.replace(
+            hour=0,
+            minute=0,
+            second=0,
+            microsecond=0,
+            tzinfo=None,
+        )
+        try:
+            row = await Database.fetchrow(
+                """
+                SELECT close_price
+                FROM kline_data
+                WHERE symbol = $1
+                  AND LOWER(timeframe) = '1d'
+                  AND kline_time < $2
+                ORDER BY kline_time DESC
+                LIMIT 1
+                """,
+                symbol,
+                day_start,
+            )
+            if row and row.get("close_price") is not None:
+                prev_close = float(row["close_price"])
+        except Exception:
+            logger.debug(
+                "Failed to load prev_close from kline_data for %s",
+                symbol,
+                exc_info=True,
+            )
+
+        # Fallback to realtime table if daily row is unavailable.
+        if prev_close is None:
+            try:
+                existing = await stock_db.get_stock(symbol)
+                if existing and existing.get("prev_close") is not None:
+                    prev_close = float(existing["prev_close"])
+            except Exception:
+                logger.debug(
+                    "Failed to fallback prev_close from stock_realtime for %s",
+                    symbol,
+                    exc_info=True,
+                )
+
+        if prev_close is not None and prev_close > 0:
+            self._prev_close_cache_by_symbol[symbol] = (day_key, prev_close)
+            return prev_close
+        return None
+
+    async def _apply_cached_daily_change(self, symbol: str, data: StockPayload) -> None:
+        """Recompute change fields using cached daily prev_close + latest price."""
+        price_raw = data.get("price")
+        if price_raw is None:
+            return
+        try:
+            price = float(price_raw)
+        except (TypeError, ValueError):
+            return
+
+        prev_close: Optional[float] = None
+        upstream_prev_close_raw = data.get("prev_close")
+        if upstream_prev_close_raw is not None:
+            try:
+                upstream_prev_close = float(upstream_prev_close_raw)
+                if upstream_prev_close > 0:
+                    prev_close = upstream_prev_close
+            except (TypeError, ValueError):
+                prev_close = None
+
+        if prev_close is None:
+            prev_close = await self._get_prev_close_from_daily_cache(symbol)
+        if prev_close is None or prev_close <= 0:
+            return
+
+        change = price - prev_close
+        data["prev_close"] = prev_close
+        data["change"] = change
+        data["change_percent"] = change / prev_close
 
     @staticmethod
     def _resolve_secid_prefix(symbol: str) -> str:
@@ -177,6 +278,16 @@ class DataUpdater:
 
         return self._should_store_tick(symbol, data)
 
+    def _normalize_symbol(self, symbol: str) -> str:
+        """Normalize symbol to 6-digit format with leading zeros."""
+        if not symbol:
+            return symbol
+        symbol = str(symbol).strip()
+        # For numeric symbols, ensure 6-digit format
+        if symbol.isdigit():
+            symbol = symbol.zfill(6)
+        return symbol
+
     async def _save_tick_history(self, data: StockPayload) -> bool:
         """Save tick data to history table.
         
@@ -186,7 +297,7 @@ class DataUpdater:
         Returns:
             True if successful, False otherwise
         """
-        symbol = str(data.get("symbol", "")).strip()
+        symbol = self._normalize_symbol(str(data.get("symbol", "")).strip())
         try:
             should_persist = await self._should_persist_tick(symbol, data)
         except TypeError:
@@ -364,6 +475,9 @@ class DataUpdater:
 
                 return None
             
+            # Normalize symbol to 6-digit format
+            symbol = self._normalize_symbol(symbol)
+            
             # Ensure symbol and name are set
             data['symbol'] = symbol
             if not data.get('name'):
@@ -372,6 +486,7 @@ class DataUpdater:
             # Normalize price data (Eastmoney returns price * 100)
             # Also handles after-hours price=0 case
             data = self._normalize_market_data(data)
+            await self._apply_cached_daily_change(symbol, data)
             
             # Save to realtime database (UPSERT)
             success = await stock_db.upsert_stock(data)
@@ -386,6 +501,9 @@ class DataUpdater:
                     data.get('name', ''), 
                     "AShare"
                 )
+
+                # Publish realtime event to RabbitMQ for backend push fanout.
+                await realtime_event_publisher.publish_stock_realtime(data)
                 
                 self._update_count += 1
                 
@@ -648,6 +766,82 @@ async def test_icbc_update() -> bool:
         logger.error("Database read test: FAILED")
     
     return data is not None and db_data is not None
+
+
+# Main index symbols for A-share market
+MAIN_INDEX_CODES = [
+    "000001",  # 上证指数
+    "399001",  # 深证成指
+    "399006",  # 创业板指
+]
+
+
+async def update_market_indices() -> int:
+    """Update main market indices to stock_realtime and stock_basic tables.
+    
+    Fetches market indices from Eastmoney/AKShare and persists them
+    to both stock_realtime and stock_basic tables with type='INDEX'.
+    
+    Returns:
+        Number of indices successfully updated
+    """
+    from app.services.akshare_client import akshare_client
+    
+    try:
+        # Fetch market indices from AKShare client
+        indices = akshare_client.get_market_indices()
+        
+        if not indices:
+            logger.warning("No market indices returned from provider")
+            return 0
+        
+        success_count = 0
+        for index in indices:
+            try:
+                # Convert MarketIndex to stock_realtime format
+                index_data = {
+                    "symbol": index.symbol,
+                    "name": index.name,
+                    "type": "INDEX",  # Mark as index type
+                    "price": index.price,
+                    "open": index.open,
+                    "high": index.high,
+                    "low": index.low,
+                    "prev_close": index.prev_close,
+                    "volume": index.volume,
+                    "amount": index.amount,
+                    "change": index.change,
+                    "change_percent": index.change_percent,
+                }
+                
+                # Upsert to stock_realtime table
+                realtime_success = await stock_db.upsert_stock(index_data)
+                
+                # Also upsert to stock_basic table for search/lookup
+                basic_success = await stock_db.upsert_stock_basic(
+                    symbol=index.symbol,
+                    name=index.name,
+                    market="AShare",
+                    type="INDEX"
+                )
+                
+                if realtime_success and basic_success:
+                    success_count += 1
+                    logger.debug(f"Updated index: {index.symbol} - {index.name}")
+                else:
+                    logger.warning(f"Failed to update index: {index.symbol} "
+                                 f"(realtime={realtime_success}, basic={basic_success})")
+                    
+            except Exception as e:
+                logger.error(f"Error updating index {index.symbol}: {e}")
+                continue
+        
+        logger.info(f"Market indices update completed: {success_count}/{len(indices)} indices updated")
+        return success_count
+        
+    except Exception as e:
+        logger.error(f"Failed to update market indices: {e}", exc_info=True)
+        return 0
 
 
 if __name__ == "__main__":

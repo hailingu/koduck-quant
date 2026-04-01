@@ -1,5 +1,6 @@
 package com.koduck.controller;
 
+import com.koduck.controller.support.AuthenticatedUserResolver;
 import com.koduck.dto.ApiResponse;
 import com.koduck.dto.strategy.CreateStrategyRequest;
 import com.koduck.dto.strategy.StrategyDto;
@@ -25,6 +26,8 @@ import java.util.List;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -36,6 +39,9 @@ class StrategyControllerTest {
 
     @Mock
     private StrategyService strategyService;
+
+    @Mock
+    private AuthenticatedUserResolver authenticatedUserResolver;
 
     @InjectMocks
     private StrategyController strategyController;
@@ -52,6 +58,7 @@ class StrategyControllerTest {
                 .status(User.UserStatus.ACTIVE)
                 .build();
         userPrincipal = new UserPrincipal(user, Collections.emptyList());
+        lenient().when(authenticatedUserResolver.requireUserId(any(UserPrincipal.class))).thenReturn(USER_ID);
     }
 
     @Test
@@ -154,6 +161,7 @@ class StrategyControllerTest {
     @Test
     @DisplayName("Get strategies should throw when user principal is null")
     void getStrategies_shouldThrowWhenUserPrincipalIsNull() {
+        when(authenticatedUserResolver.requireUserId(null)).thenThrow(new NullPointerException());
         assertThrows(NullPointerException.class, () -> strategyController.getStrategies(null));
     }
 

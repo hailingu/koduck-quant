@@ -1,4 +1,4 @@
-"""重试逻辑实现."""
+"""."""
 
 import asyncio
 import logging
@@ -13,7 +13,7 @@ T = TypeVar("T")
 
 @dataclass
 class RetryConfig:
-    """重试配置."""
+    """."""
     
     enabled: bool = True
     max_retries: int = 3
@@ -23,7 +23,7 @@ class RetryConfig:
     retryable_exceptions: tuple[type[Exception], ...] = (
         ConnectionError,
         TimeoutError,
-        Exception,  # 默认重试所有异常
+        Exception,  # 
     )
 
 
@@ -31,7 +31,7 @@ def async_retry(
     config: RetryConfig | None = None,
     on_retry: Callable[[int, Exception], None] | None = None,
 ) -> Callable[[Callable[..., T]], Callable[..., T]]:
-    """异步函数重试装饰器.
+    """.
     
     Args:
         config: 重试配置
@@ -53,7 +53,7 @@ def async_retry(
                 except Exception as e:
                     last_exception = e
                     
-                    # 检查是否应该重试
+                    # 
                     if attempt >= cfg.max_retries:
                         logger.error(
                             f"{func.__name__} failed after {cfg.max_retries + 1} attempts: {e}"
@@ -63,7 +63,7 @@ def async_retry(
                     if not isinstance(e, cfg.retryable_exceptions):
                         raise
                     
-                    # 计算延迟时间
+                    # 
                     delay = min(
                         cfg.base_delay * (cfg.exponential_base ** attempt),
                         cfg.max_delay,
@@ -79,7 +79,7 @@ def async_retry(
                     
                     await asyncio.sleep(delay)
             
-            # 不应该到达这里
+            # 
             raise last_exception or RuntimeError("Unexpected retry failure")
         
         return wrapper  # type: ignore

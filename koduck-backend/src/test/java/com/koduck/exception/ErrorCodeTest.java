@@ -7,7 +7,7 @@ import org.springframework.http.HttpStatus;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * ErrorCode 枚举单元测试。
+ * ErrorCode 
  */
 @DisplayName("错误码枚举测试")
 class ErrorCodeTest {

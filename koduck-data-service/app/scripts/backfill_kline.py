@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""K线数据回填脚本
+"""K
 
 用于从AKShare获取股票历史K线数据并保存到本地CSV文件。
 支持日线和分钟K线数据。
@@ -28,7 +28,7 @@ from app.services.akshare_client import AKShareClient
 
 logger = structlog.get_logger(__name__)
 
-# 默认股票列表
+# 
 DEFAULT_STOCKS = [
     ("601012", "隆基绿能"),
     ("002050", "三花智控"),
@@ -39,13 +39,13 @@ DEFAULT_STOCKS = [
     ("002156", "通富微电"),
 ]
 
-# 数据存储根目录
+# 
 DATA_DIR = Path(__file__).parent.parent.parent / "data" / "kline"
 DATA_DIR.mkdir(parents=True, exist_ok=True)
 
 
 def setup_logging(verbose: bool = False):
-    """配置日志"""
+    """"""
     structlog.configure(
         processors=[
             structlog.stdlib.filter_by_level,
@@ -72,7 +72,7 @@ def setup_logging(verbose: bool = False):
 
 
 def get_timeframe_dir(timeframe: str) -> Path:
-    """获取时间周期对应的存储目录"""
+    """"""
     return DATA_DIR / timeframe
 
 
@@ -93,25 +93,25 @@ def save_kline_to_csv(data: List[dict], symbol: str, name: str, timeframe: str) 
         logger.warning(f"No data to save for {symbol} ({timeframe})")
         return None
     
-    # 创建目录
+    # 
     tf_dir = get_timeframe_dir(timeframe)
     tf_dir.mkdir(parents=True, exist_ok=True)
     
-    # 创建DataFrame
+    # DataFrame
     df = pd.DataFrame(data)
     
-    # 添加元数据列
+    # 
     df['symbol'] = symbol
     df['name'] = name
     
-    # 转换时间戳为可读格式
+    # 
     df['datetime'] = pd.to_datetime(df['timestamp'], unit='s')
     
-    # 重新排列列顺序
+    # 
     columns = ['symbol', 'name', 'datetime', 'timestamp', 'open', 'high', 'low', 'close', 'volume', 'amount']
     df = df[[col for col in columns if col in df.columns]]
     
-    # 保存到CSV
+    # CSV
     file_path = tf_dir / f"{symbol}.csv"
     df.to_csv(file_path, index=False, encoding='utf-8-sig')
     
@@ -124,7 +124,7 @@ async def fetch_and_save_kline(
     symbol: str,
     name: str,
     timeframe: str,
-    days: int = 730,  # 默认获取2年数据
+    days: int = 730,  # 2
 ) -> bool:
     """Fetch k-line data from AKShare and write it to CSV.
 
@@ -146,13 +146,13 @@ async def fetch_and_save_kline(
     try:
         logger.info(f"Fetching {timeframe} data for {symbol} ({name})...")
         
-        # 根据时间周期选择不同的获取方法
-        if timeframe.endswith('m'):  # 分钟K线
+        # 
+        if timeframe.endswith('m'):  # K
             minute_period = timeframe.replace('m', '')
-            limit = 500  # 分钟K线限制
+            limit = 500  # K
             data = client.get_kline_minutes(symbol, period=minute_period, limit=limit)
-        else:  # 日K线
-            # 计算日期范围
+        else:  # K
+            # 
             end_date = datetime.now().strftime("%Y%m%d")
             start_date = (datetime.now() - timedelta(days=days)).strftime("%Y%m%d")
             
@@ -175,7 +175,7 @@ async def fetch_and_save_kline(
             logger.warning(f"No data returned for {symbol} ({timeframe})")
             return False
         
-        # 保存到CSV
+        # CSV
         file_path = save_kline_to_csv(data, symbol, name, timeframe)
         
         if file_path:
@@ -213,16 +213,16 @@ async def backfill_kline_data(
     """
     client = AKShareClient()
     
-    # 使用默认股票列表或指定的股票
+    # 
     stock_list = DEFAULT_STOCKS
     if symbols:
-        stock_list = [(s, "") for s in symbols]  # 如果只提供代码，使用空名称
+        stock_list = [(s, "") for s in symbols]  # ，
     
-    # 默认时间周期
+    # 
     if timeframes is None:
         timeframes = ["1D", "5m"]
     
-    # 过滤有效的时间周期
+    # 
     valid_timeframes = ["1m", "5m", "15m", "30m", "60m", "1D", "1W", "1M"]
     timeframes = [t for t in timeframes if t in valid_timeframes]
     
@@ -338,26 +338,26 @@ async def main():
     
     setup_logging(args.verbose)
     
-    # 列出已保存数据
+    # 
     if args.list:
         info = list_saved_data()
-        print(f"\n数据目录: {info['data_dir']}")
-        print("\n已保存的数据:")
+        print(f"\n: {info['data_dir']}")
+        print("\n:")
         for tf, data in info['timeframes'].items():
-            print(f"  {tf}: {data['count']} 只股票")
+            print(f"  {tf}: {data['count']} ")
             print(f"    {', '.join(data['files'])}")
         return
     
-    # 解析参数
+    # 
     symbols = None
     if args.symbols:
         symbols = [s.strip() for s in args.symbols.split(",")]
     elif args.all:
-        symbols = None  # 使用默认列表
+        symbols = None  # 
     
     timeframes = [t.strip() for t in args.timeframes.split(",")]
     
-    # 执行回填
+    # 
     logger.info(f"Starting K-line backfill...")
     logger.info(f"  Symbols: {symbols or 'default list'}")
     logger.info(f"  Timeframes: {timeframes}")
@@ -369,13 +369,13 @@ async def main():
         days=args.days
     )
     
-    print(f"\n回填完成!")
-    print(f"  成功: {results['success']}")
-    print(f"  失败: {results['failed']}")
+    print(f"\n!")
+    print(f"  : {results['success']}")
+    print(f"  : {results['failed']}")
     
-    # 显示详细信息
+    # 
     if args.verbose:
-        print("\n详细结果:")
+        print("\n:")
         for detail in results['details']:
             status = "✓" if detail['success'] else "✗"
             print(f"  {status} {detail['symbol']} - {detail['timeframe']}")

@@ -1,5 +1,6 @@
 package com.koduck.controller;
 
+import com.koduck.controller.support.AuthenticatedUserResolver;
 import com.koduck.dto.community.CommentResponse;
 import com.koduck.dto.community.SignalListResponse;
 import com.koduck.dto.community.UserSignalStatsResponse;
@@ -7,15 +8,18 @@ import com.koduck.security.JwtAuthenticationFilter;
 import com.koduck.service.CommunitySignalService;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.context.TestConstructor;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.test.web.servlet.MockMvc;
 
 import java.math.BigDecimal;
 import java.util.List;
 
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.ArgumentMatchers.nullable;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -34,17 +38,23 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  */
 @WebMvcTest(controllers = CommunitySignalController.class)
 @AutoConfigureMockMvc(addFilters = false)
-@SuppressWarnings("null")
+@TestConstructor(autowireMode = TestConstructor.AutowireMode.ALL)
 class CommunitySignalControllerValidationTest {
 
-    @Autowired
-    private MockMvc mockMvc;
+    private final MockMvc mockMvc;
 
     @MockitoBean
     private CommunitySignalService signalService;
 
     @MockitoBean
     private JwtAuthenticationFilter jwtAuthenticationFilter;
+
+    @MockitoBean
+    private AuthenticatedUserResolver authenticatedUserResolver;
+
+    CommunitySignalControllerValidationTest(MockMvc mockMvc) {
+        this.mockMvc = mockMvc;
+    }
 
     @Test
     @DisplayName("shouldReturnBadRequestWhenSortIsInvalid")
@@ -121,67 +131,68 @@ class CommunitySignalControllerValidationTest {
         verifyNoInteractions(signalService);
     }
 
-        @Test
-        @DisplayName("shouldReturnOkAndInvokeServiceWhenSignalsParamsAreValid")
-        void shouldReturnOkAndInvokeServiceWhenSignalsParamsAreValid() throws Exception {
+    @Test
+    @DisplayName("shouldReturnOkAndInvokeServiceWhenSignalsParamsAreValid")
+    void shouldReturnOkAndInvokeServiceWhenSignalsParamsAreValid() throws Exception {
         SignalListResponse response = SignalListResponse.builder()
-            .items(List.of())
-            .total(0L)
-            .page(0)
-            .size(20)
-            .totalPages(0)
-            .build();
-        when(signalService.getSignals(null, "new", null, null, 0, 20)).thenReturn(response);
+                .items(List.of())
+                .total(0L)
+                .page(0)
+                .size(20)
+                .totalPages(0)
+                .build();
+        when(signalService.getSignals(nullable(Long.class), eq("new"), isNull(), isNull(), eq(0), eq(20)))
+                .thenReturn(response);
 
         mockMvc.perform(get("/api/v1/community/signals")
-                .param("sort", "new")
-                .param("page", "0")
-                .param("size", "20"))
-            .andExpect(status().isOk())
-            .andExpect(jsonPath("$.code").value(0))
-            .andExpect(jsonPath("$.data.page").value(0))
-            .andExpect(jsonPath("$.data.size").value(20));
+                        .param("sort", "new")
+                        .param("page", "0")
+                        .param("size", "20"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(0))
+                .andExpect(jsonPath("$.data.page").value(0))
+                .andExpect(jsonPath("$.data.size").value(20));
 
-        verify(signalService).getSignals(null, "new", null, null, 0, 20);
-        }
+        verify(signalService).getSignals(nullable(Long.class), eq("new"), isNull(), isNull(), eq(0), eq(20));
+    }
 
-        @Test
-        @DisplayName("shouldReturnOkAndInvokeServiceWhenCommentsParamsAreValid")
-        void shouldReturnOkAndInvokeServiceWhenCommentsParamsAreValid() throws Exception {
+    @Test
+    @DisplayName("shouldReturnOkAndInvokeServiceWhenCommentsParamsAreValid")
+    void shouldReturnOkAndInvokeServiceWhenCommentsParamsAreValid() throws Exception {
         CommentResponse response = CommentResponse.builder()
-            .id(1L)
-            .signalId(9L)
-            .content("good signal")
-            .build();
+                .id(1L)
+                .signalId(9L)
+                .content("good signal")
+                .build();
         when(signalService.getComments(9L, 0, 20)).thenReturn(List.of(response));
 
         mockMvc.perform(get("/api/v1/community/signals/9/comments")
-                .param("page", "0")
-                .param("size", "20"))
-            .andExpect(status().isOk())
-            .andExpect(jsonPath("$.code").value(0))
-            .andExpect(jsonPath("$.data[0].id").value(1))
-            .andExpect(jsonPath("$.data[0].content").value("good signal"));
+                        .param("page", "0")
+                        .param("size", "20"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(0))
+                .andExpect(jsonPath("$.data[0].id").value(1))
+                .andExpect(jsonPath("$.data[0].content").value("good signal"));
 
         verify(signalService).getComments(9L, 0, 20);
-        }
+    }
 
-        @Test
-        @DisplayName("shouldReturnOkAndInvokeServiceWhenUserStatsIdIsValid")
-        void shouldReturnOkAndInvokeServiceWhenUserStatsIdIsValid() throws Exception {
+    @Test
+    @DisplayName("shouldReturnOkAndInvokeServiceWhenUserStatsIdIsValid")
+    void shouldReturnOkAndInvokeServiceWhenUserStatsIdIsValid() throws Exception {
         UserSignalStatsResponse response = UserSignalStatsResponse.builder()
-            .userId(1L)
-            .totalSignals(10)
-            .winRate(new BigDecimal("0.60"))
-            .build();
+                .userId(1L)
+                .totalSignals(10)
+                .winRate(new BigDecimal("0.60"))
+                .build();
         when(signalService.getUserStats(1L)).thenReturn(response);
 
         mockMvc.perform(get("/api/v1/community/users/1/stats"))
-            .andExpect(status().isOk())
-            .andExpect(jsonPath("$.code").value(0))
-            .andExpect(jsonPath("$.data.userId").value(1))
-            .andExpect(jsonPath("$.data.totalSignals").value(10));
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(0))
+                .andExpect(jsonPath("$.data.userId").value(1))
+                .andExpect(jsonPath("$.data.totalSignals").value(10));
 
         verify(signalService).getUserStats(1L);
-        }
+    }
 }

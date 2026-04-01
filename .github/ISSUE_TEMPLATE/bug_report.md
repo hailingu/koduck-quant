@@ -1,58 +1,46 @@
 ---
-name: 🐛 Bug Report
-about: Create a report to help us improve
-title: '[Bug] '
-labels: bug
+name: Bug Report
+about: 报告一个问题
+title: "[Bug] "
+labels: ["bug"]
 assignees: ''
 ---
 
-## Description
+## 问题描述
 
-<!-- A clear and concise description of what the bug is. -->
+<!-- 清晰描述遇到的问题 -->
 
-## Steps to Reproduce
+## 复现步骤
 
-<!--
-Steps to reproduce the behavior:
-1. Go to '...'
-2. Click on '....'
-3. Scroll down to '....'
-4. See error
--->
+<!-- 如何复现这个问题 -->
 
-**Expected behavior:**
+1. 
+2. 
+3. 
 
-<!-- A clear and concise description of what you expected to happen. -->
+## 期望行为
 
-**Actual behavior:**
+<!-- 你期望发生什么 -->
 
-<!-- A clear and concise description of what actually happened. -->
+## 实际行为
 
-**Screenshots:**
+<!-- 实际发生了什么 -->
 
-<!-- If applicable, add screenshots to help explain your problem. -->
+## 环境信息
 
-## Environment
+- OS: 
+- Java: 
+- 版本/分支: 
 
-- OS: [e.g., macOS, Windows, Linux]
-- Version: [e.g., 1.0.0]
-- Python version: [e.g., 3.9]
-- Related component: [e.g., agent, skill, template]
-
-## Additional Context
-
-<!-- Add any other context about the problem here. -->
-
-## Possible Solution
-
-<!-- Optional: suggest a fix or reason for the bug (if known) -->
-
-## Log Output
+## 错误日志
 
 ```
-<!-- If applicable, paste relevant log output here -->
+<!-- 粘贴相关错误日志 -->
 ```
 
----
+## 验收标准 (Definition of Done)
 
-**IMPORTANT**: Please search existing issues before creating a new one to avoid duplicates.
+- [ ] Bug 已修复
+- [ ] 回归测试已添加
+- [ ] 测试通过
+- [ ] 已验证修复

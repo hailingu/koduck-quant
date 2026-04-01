@@ -6,7 +6,7 @@ import org.junit.jupiter.api.Test;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * DuplicateException 单元测试。
+ * DuplicateException 
  */
 @DisplayName("数据重复异常测试")
 class DuplicateExceptionTest {

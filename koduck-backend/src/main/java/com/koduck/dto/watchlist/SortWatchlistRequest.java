@@ -14,6 +14,9 @@ public record SortWatchlistRequest(
     @Valid
     List<SortItem> items
 ) {
+    public SortWatchlistRequest {
+        items = items == null ? null : List.copyOf(items);
+    }
     
     public record SortItem(
         @NotNull(message = "ID cannot be null")

@@ -1,15 +1,19 @@
 package com.koduck.util;
 
+import java.util.Locale;
+
 /**
  * Utility class for validating reserved usernames.
- * <p>
- * Reserved usernames are typically reserved for system use or administrative
- * purposes and should not be available for regular user registration.
+ *
+ * @author GitHub Copilot
+ * @date 2026-03-31
  */
 public final class ReservedUsernameValidator {
 
-    // Reserved usernames list
-    private static final String[] RESERVED_USERNAMES = {
+    /**
+     * Reserved usernames that cannot be used by normal accounts.
+     */
+    private static final String[] RESERVED_NAMES = {
         "admin", "administrator", "root", "system", "demo", "test", "api", "support", "info", "noreply"
     };
 
@@ -23,17 +27,19 @@ public final class ReservedUsernameValidator {
      * @param username the username to check
      * @return true if the username is reserved, false otherwise
      */
-    public static boolean isReserved(String username) {
+    public static boolean isReserved(final String username) {
+        boolean reserved = false;
         if (username == null || username.isBlank()) {
-            return false;
+            return reserved;
         }
-        String lowerUsername = username.toLowerCase();
-        for (String reserved : RESERVED_USERNAMES) {
-            if (reserved.equalsIgnoreCase(lowerUsername)) {
-                return true;
+        final String lowerUsername = username.toLowerCase(Locale.ROOT);
+        for (final String reservedName : RESERVED_NAMES) {
+            if (reservedName.equals(lowerUsername)) {
+                reserved = true;
+                break;
             }
         }
-        return false;
+        return reserved;
     }
 
     /**
@@ -42,6 +48,6 @@ public final class ReservedUsernameValidator {
      * @return array of reserved usernames
      */
     public static String[] getReservedUsernames() {
-        return RESERVED_USERNAMES.clone();
+        return RESERVED_NAMES.clone();
     }
 }

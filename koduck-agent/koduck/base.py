@@ -1,4 +1,4 @@
-"""LLM 客户端基类."""
+"""LLM ."""
 
 from abc import ABC, abstractmethod
 from typing import Any
@@ -8,7 +8,7 @@ from koduck.schema import LLMResponse, Message
 
 
 class LLMClientBase(ABC):
-    """LLM 客户端抽象基类.
+    """LLM .
     
     所有具体 LLM 客户端都必须继承此类并实现 generate 方法.
     """
@@ -20,7 +20,7 @@ class LLMClientBase(ABC):
         model: str,
         retry_config: RetryConfig | None = None,
     ):
-        """初始化 LLM 客户端.
+        """ LLM .
         
         Args:
             api_key: API 密钥
@@ -33,7 +33,7 @@ class LLMClientBase(ABC):
         self.model = model
         self.retry_config = retry_config or RetryConfig()
         
-        # 重试回调
+        # 
         self.retry_callback: Any = None
 
     @abstractmethod
@@ -42,7 +42,7 @@ class LLMClientBase(ABC):
         messages: list[Message],
         tools: list[Any] | None = None,
     ) -> LLMResponse:
-        """生成 LLM 响应.
+        """ LLM .
         
         Args:
             messages: 对话消息列表
@@ -58,7 +58,7 @@ class LLMClientBase(ABC):
         messages: list[Message],
         tools: list[Any] | None = None,
     ):
-        """流式生成 LLM 响应.
+        """ LLM .
         
         Args:
             messages: 对话消息列表
@@ -67,8 +67,8 @@ class LLMClientBase(ABC):
         Yields:
             流式响应块 (delta 内容)
         """
-        # 默认实现：使用普通 generate 并一次性返回
-        # 子类应该覆盖此方法以提供真正的流式支持
+        # ： generate 
+        # 
         response = await self.generate(messages, tools)
         yield response.content or ""
 
@@ -78,7 +78,7 @@ class LLMClientBase(ABC):
         messages: list[Message],
         tools: list[Any] | None = None,
     ) -> dict[str, Any]:
-        """准备 API 请求.
+        """ API .
         
         Args:
             messages: 对话消息列表
@@ -91,7 +91,7 @@ class LLMClientBase(ABC):
 
     @abstractmethod
     def _convert_messages(self, messages: list[Message]) -> list[dict[str, Any]]:
-        """转换消息格式.
+        """.
         
         Args:
             messages: 内部 Message 对象列表

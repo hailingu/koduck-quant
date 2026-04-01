@@ -1,44 +1,49 @@
 package com.koduck.exception;
 
+import java.io.Serial;
+
 /**
- * 认证异常。
+ * 
  *
- * <p>用于表示用户认证失败的情况，如登录失败、令牌无效等。</p>
+ * <p>，</p>
  *
  * @author Koduck Team
  */
 public class AuthenticationException extends BusinessException {
 
+    @Serial
+    private static final long serialVersionUID = 1L;
+
     /**
-     * 创建认证异常。
+     * 
      *
-     * @param message 错误消息
+     * @param message 
      */
     public AuthenticationException(String message) {
         super(ErrorCode.AUTH_ERROR.getCode(), message);
     }
 
     /**
-     * 创建认证异常。
+     * 
      *
-     * @param errorCode 错误码枚举
+     * @param errorCode 
      */
     public AuthenticationException(ErrorCode errorCode) {
         super(errorCode.getCode(), errorCode.getDefaultMessage());
     }
 
     /**
-     * 创建认证异常。
+     * 
      *
-     * @param errorCode 错误码枚举
-     * @param message   自定义错误消息
+     * @param errorCode 
+     * @param message   
      */
     public AuthenticationException(ErrorCode errorCode, String message) {
         super(errorCode.getCode(), message);
     }
 
     /**
-     * 用户名或密码错误。
+     * 
      *
      * @return AuthenticationException
      */
@@ -47,7 +52,7 @@ public class AuthenticationException extends BusinessException {
     }
 
     /**
-     * 令牌过期。
+     * 
      *
      * @return AuthenticationException
      */
@@ -56,7 +61,7 @@ public class AuthenticationException extends BusinessException {
     }
 
     /**
-     * 令牌无效。
+     * 
      *
      * @return AuthenticationException
      */
@@ -65,7 +70,7 @@ public class AuthenticationException extends BusinessException {
     }
 
     /**
-     * 账号已被禁用。
+     * 
      *
      * @return AuthenticationException
      */
@@ -74,7 +79,7 @@ public class AuthenticationException extends BusinessException {
     }
 
     /**
-     * 账号已被锁定。
+     * 
      *
      * @return AuthenticationException
      */

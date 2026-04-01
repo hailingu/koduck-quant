@@ -7,7 +7,7 @@ import org.springframework.http.HttpStatus;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * BusinessException 单元测试。
+ * BusinessException 
  */
 @DisplayName("业务异常测试")
 class BusinessExceptionTest {

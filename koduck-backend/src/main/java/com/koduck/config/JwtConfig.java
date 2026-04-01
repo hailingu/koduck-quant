@@ -1,5 +1,6 @@
 package com.koduck.config;
 
+import com.koduck.common.constants.HttpHeaderConstants;
 import jakarta.validation.constraints.NotBlank;
 import lombok.Data;
 import org.springframework.boot.context.properties.ConfigurationProperties;
@@ -12,6 +13,10 @@ import org.springframework.validation.annotation.Validated;
  * Bound from application properties with prefix {@code jwt}. Contains
  * secret key, expiration settings, and header/token prefix values used by
  * the security filters.
+ * </p>
+ *
+ * @author GitHub Copilot
+ * @date 2026-03-31
  */
 @Data
 @Configuration
@@ -21,8 +26,8 @@ public class JwtConfig {
 
     private static final long DEFAULT_ACCESS_TOKEN_EXPIRATION_MS = 86_400_000L;
     private static final long DEFAULT_REFRESH_TOKEN_EXPIRATION_MS = 604_800_000L;
-    private static final String DEFAULT_TOKEN_PREFIX = "Bearer ";
-    private static final String DEFAULT_HEADER_NAME = "Authorization";
+    private static final String DEFAULT_TOKEN_PREFIX = HttpHeaderConstants.BEARER_PREFIX;
+    private static final String DEFAULT_HEADER_NAME = HttpHeaderConstants.AUTHORIZATION;
 
     /**
      * Secret key used to sign JWT tokens. Should be a secure random string.

@@ -12,7 +12,7 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 /**
- * 投资组合持仓实体
+ * 
  */
 @Entity
 @Table(name = "portfolio_positions",

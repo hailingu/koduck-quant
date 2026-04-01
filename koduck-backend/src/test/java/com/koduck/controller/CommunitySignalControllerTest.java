@@ -5,9 +5,11 @@ import com.koduck.dto.community.CommentResponse;
 import com.koduck.dto.community.CreateSignalRequest;
 import com.koduck.dto.community.SignalListResponse;
 import com.koduck.dto.community.SignalResponse;
+import com.koduck.controller.support.AuthenticatedUserResolver;
 import com.koduck.security.UserPrincipal;
 import com.koduck.service.CommunitySignalService;
 import com.koduck.entity.User;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -15,9 +17,11 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.Objects;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -33,11 +37,22 @@ import static org.mockito.Mockito.when;
 @ExtendWith(MockitoExtension.class)
 class CommunitySignalControllerTest {
 
+    private static final String USER_PRINCIPAL_REQUIRED_MESSAGE = "userPrincipal must not be null";
+    private static final String CONTROLLER_REQUIRED_MESSAGE = "controller must not be null";
+
     @Mock
     private CommunitySignalService signalService;
 
     @InjectMocks
     private CommunitySignalController controller;
+
+    @BeforeEach
+    void setUp() {
+        ReflectionTestUtils.setField(
+                Objects.requireNonNull(controller, CONTROLLER_REQUIRED_MESSAGE),
+                "authenticatedUserResolver",
+                new AuthenticatedUserResolver());
+    }
 
     @Test
     @DisplayName("shouldGetSignalsWithAnonymousUser")
@@ -79,7 +94,7 @@ class CommunitySignalControllerTest {
                 () -> controller.createSignal(null, request)
         );
 
-        assertEquals("authenticated user is required", exception.getMessage());
+        assertEquals(USER_PRINCIPAL_REQUIRED_MESSAGE, exception.getMessage());
     }
 
     @Test

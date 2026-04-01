@@ -8,7 +8,7 @@ import org.hibernate.annotations.UpdateTimestamp;
 import java.time.LocalDateTime;
 
 /**
- * 用户实体（无外键关联，关系在应用层维护）
+ * （，）
  */
 @Entity
 @Table(name = "users")

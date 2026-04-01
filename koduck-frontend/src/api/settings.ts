@@ -22,6 +22,13 @@ export interface UserSettings {
       apiKey?: string
       apiBase?: string
     }
+    memory?: {
+      enabled?: boolean
+      mode?: 'L0' | 'L1' | 'L2' | 'L3'
+      enableL1?: boolean
+      enableL2?: boolean
+      enableL3?: boolean
+    }
   }
 }
 
@@ -44,6 +51,13 @@ export interface UpdateSettingsRequest {
     openai?: {
       apiKey?: string
       apiBase?: string
+    }
+    memory?: {
+      enabled?: boolean
+      mode?: 'L0' | 'L1' | 'L2' | 'L3'
+      enableL1?: boolean
+      enableL2?: boolean
+      enableL3?: boolean
     }
   }
 }

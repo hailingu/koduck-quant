@@ -66,6 +66,13 @@ public class KlineData {
     
     @Column(name = "amount", precision = 24, scale = 8)
     private BigDecimal amount;
+
+    @Column(name = "pre_close_price", precision = 18, scale = 8)
+    private BigDecimal preClosePrice;
+
+    @Column(name = "is_suspended", nullable = false)
+    @Builder.Default
+    private Boolean isSuspended = false;
     
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)

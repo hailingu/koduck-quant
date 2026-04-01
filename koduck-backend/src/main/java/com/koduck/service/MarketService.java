@@ -2,7 +2,9 @@ package com.koduck.service;
 
 import com.koduck.dto.market.MarketIndexDto;
 import com.koduck.dto.market.PriceQuoteDto;
+import com.koduck.dto.market.SectorNetworkDto;
 import com.koduck.dto.market.StockIndustryDto;
+import com.koduck.dto.market.StockStatsDto;
 import com.koduck.dto.market.StockValuationDto;
 import com.koduck.dto.market.SymbolInfoDto;
 
@@ -10,66 +12,93 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * 市场数据服务接口。
- * 提供股票搜索、详情、指数等功能。
+ * Market data service interface for stock search, quotes, indices, sectors, and related operations.
+ *
+ * @author GitHub Copilot
+ * @date 2026-03-31
  */
 public interface MarketService {
-    
+
     /**
-     * 搜索股票。
+     * Searches stock symbols and names by keyword.
      *
-     * @param keyword 搜索关键词
-     * @param page    页码
-     * @param size    每页数量
-     * @return 匹配的股票列表
+     * @param keyword keyword matching symbol or name
+     * @param page page number (1-based)
+     * @param size page size
+     * @return list of matching stock symbol info
      */
     List<SymbolInfoDto> searchSymbols(String keyword, int page, int size);
-    
+
     /**
-     * 获取股票详情（实时行情）。
+     * Returns hot stocks ordered by trading volume.
      *
-     * @param symbol 股票代码
-     * @return 实时行情数据
+     * @param market market code (e.g., "AShare")
+     * @param limit maximum number of stocks to return
+     * @return list of hot stocks ordered by volume
+     */
+    List<SymbolInfoDto> getHotStocks(String market, int limit);
+
+    /**
+     * Retrieves real-time quote details for a single stock.
+     *
+     * @param symbol stock symbol
+     * @return stock quote details, or {@code null} if not found
      */
     PriceQuoteDto getStockDetail(String symbol);
 
     /**
-     * 获取股票估值信息。
+     * Retrieves valuation metrics for a single stock.
      *
-     * @param symbol 股票代码
-     * @return 估值数据
+     * @param symbol stock symbol
+     * @return valuation info, or {@code null} if not found
      */
     StockValuationDto getStockValuation(String symbol);
 
     /**
-     * 获取股票所属行业信息。
+     * Retrieves industry/sector metadata for a single stock.
      *
-     * @param symbol 股票代码
-     * @return 行业信息
+     * @param symbol stock symbol
+     * @return industry info, or {@code null} if not found
      */
     StockIndustryDto getStockIndustry(String symbol);
 
     /**
-     * 批量获取股票所属行业信息。
+     * Batch-retrieves industry/sector metadata for multiple stocks.
      *
-     * @param symbols 股票代码列表
-     * @return 行业信息映射（key 为 symbol）
+     * @param symbols list of stock symbols
+     * @return map keyed by stock symbol to industry info
      */
     Map<String, StockIndustryDto> getStockIndustries(List<String> symbols);
-    
+
     /**
-     * 获取市场指数列表。
-     * 包含上证指数、深证成指、创业板指等主要指数。
+     * Retrieves a list of major market indices.
      *
-     * @return 指数列表
+     * @return list of market index quotes
      */
     List<MarketIndexDto> getMarketIndices();
-    
+
     /**
-     * 批量获取股票实时行情。
+     * Batch-retrieves real-time quotes for multiple stocks.
      *
-     * @param symbols 股票代码列表
-     * @return 实时行情列表
+     * @param symbols list of stock symbols
+     * @return quotes matching the input symbols
      */
     List<PriceQuoteDto> getBatchPrices(List<String> symbols);
+
+    /**
+     * Retrieves trading statistics for a single stock.
+     *
+     * @param symbol stock symbol
+     * @param market market code
+     * @return stock statistics, or {@code null} if not found
+     */
+    StockStatsDto getStockStats(String symbol, String market);
+
+    /**
+     * Retrieves the sector/network relationship data for a given market.
+     *
+     * @param market market code
+     * @return sector network relationship data
+     */
+    SectorNetworkDto getSectorNetwork(String market);
 }

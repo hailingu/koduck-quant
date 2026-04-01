@@ -1,6 +1,7 @@
 package com.koduck.config;
 
 import com.koduck.config.properties.DataServiceProperties;
+import com.koduck.config.properties.FinnhubProperties;
 import java.util.Objects;
 import org.springframework.boot.web.client.RestTemplateBuilder;
 import org.springframework.context.annotation.Bean;
@@ -11,6 +12,9 @@ import org.springframework.web.client.RestTemplate;
 
 /**
  * RestTemplate configuration for external API calls.
+ *
+ * @author GitHub Copilot
+ * @date 2026-03-31
  */
 @Configuration
 public class RestTemplateConfig {
@@ -26,12 +30,40 @@ public class RestTemplateConfig {
     public RestTemplate dataServiceRestTemplate(
             RestTemplateBuilder builder,
             DataServiceProperties properties) {
-        RestTemplateBuilder nonNullBuilder = Objects.requireNonNull(builder, "builder must not be null");
         DataServiceProperties nonNullProperties =
                 Objects.requireNonNull(properties, "properties must not be null");
 
-        int connectTimeoutMs = nonNullProperties.getConnectTimeoutMs();
-        int readTimeoutMs = nonNullProperties.getReadTimeoutMs();
+        return buildBufferedRestTemplate(
+                builder,
+                nonNullProperties.getConnectTimeoutMs(),
+                nonNullProperties.getReadTimeoutMs());
+    }
+    
+    /**
+     * Builds a dedicated {@link RestTemplate} for Finnhub API calls.
+     *
+     * @param builder RestTemplate builder provided by Spring
+     * @param properties Finnhub timeout properties
+     * @return configured RestTemplate instance
+     */
+    @Bean
+    public RestTemplate finnhubRestTemplate(
+            RestTemplateBuilder builder,
+            FinnhubProperties properties) {
+        FinnhubProperties nonNullProperties =
+                Objects.requireNonNull(properties, "properties must not be null");
+
+        return buildBufferedRestTemplate(
+                builder,
+                nonNullProperties.getConnectTimeoutMs(),
+                nonNullProperties.getReadTimeoutMs());
+    }
+
+    private RestTemplate buildBufferedRestTemplate(
+            RestTemplateBuilder builder,
+            int connectTimeoutMs,
+            int readTimeoutMs) {
+        RestTemplateBuilder nonNullBuilder = Objects.requireNonNull(builder, "builder must not be null");
 
         SimpleClientHttpRequestFactory requestFactory = new SimpleClientHttpRequestFactory();
         requestFactory.setConnectTimeout(connectTimeoutMs);

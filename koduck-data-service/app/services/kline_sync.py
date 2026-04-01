@@ -1,6 +1,6 @@
-"""K-line CSV to Database synchronization service.
+"""K-line file to Database synchronization service.
 
-This module provides functionality to synchronize local CSV files with the
+This module provides functionality to synchronize local kline files with the
 PostgreSQL database, ensuring data consistency between the file cache and
 the database.
 """
@@ -9,19 +9,22 @@ import asyncio
 from datetime import datetime
 from pathlib import Path
 from typing import TypedDict
+from zoneinfo import ZoneInfo
 
 import pandas as pd
 import structlog
 
 from app.db import Database
+from app.services.kline_storage import KlineStorage, KlineStorageError
 
 logger = structlog.get_logger(__name__)
 
 DATA_DIR = Path(__file__).parent.parent.parent / "data" / "kline"
+ASIA_SHANGHAI_TZ = ZoneInfo("Asia/Shanghai")
 
 
 class SyncResult(TypedDict):
-    """Result of synchronizing one CSV file."""
+    """Result of synchronizing one local kline file."""
 
     file: str
     symbol: str
@@ -33,14 +36,30 @@ class SyncResult(TypedDict):
 
 
 class KlineSync:
-    """Synchronize K-line CSV files with database.
+    """Synchronize K-line files with database.
     
     This service compares CSV files with database records and imports
     any missing or updated data.
     """
 
+    @staticmethod
+    def _epoch_to_beijing_naive(epoch_seconds: float | int) -> datetime:
+        """Convert UNIX epoch (UTC) to Asia/Shanghai naive datetime."""
+        ts = pd.to_datetime(epoch_seconds, unit="s", utc=True)
+        ts = ts.tz_convert(ASIA_SHANGHAI_TZ).tz_localize(None)
+        return ts.to_pydatetime()
+
+    @staticmethod
+    def _normalize_datetime_value(value: datetime | pd.Timestamp) -> datetime:
+        """Normalize datetime-like value to Asia/Shanghai naive datetime."""
+        ts = pd.Timestamp(value)
+        if ts.tzinfo is None:
+            return ts.to_pydatetime()
+        return ts.tz_convert(ASIA_SHANGHAI_TZ).tz_localize(None).to_pydatetime()
+
     def __init__(self) -> None:
         """Initialize the sync service."""
+        self._storage = KlineStorage()
         self._sync_stats = {
             "last_sync": None,
             "files_processed": 0,
@@ -48,32 +67,22 @@ class KlineSync:
         }
 
     def find_csv_files(self, timeframes: list[str] | None = None) -> list[Path]:
-        """Find all CSV files in the data directory."""
-        files = []
-        
-        if not DATA_DIR.exists():
-            logger.warning(f"Data directory does not exist: {DATA_DIR}")
-            return files
-        
-        if timeframes:
-            for tf in timeframes:
-                tf_dir = DATA_DIR / tf
-                if tf_dir.exists():
-                    files.extend(tf_dir.glob("*.csv"))
-        else:
-            for tf_dir in DATA_DIR.iterdir():
-                if tf_dir.is_dir():
-                    files.extend(tf_dir.glob("*.csv"))
-        
+        """Find all kline files in the data directory."""
+        files = self._storage.list_kline_files(DATA_DIR, timeframes)
+        if not files:
+            logger.warning("No kline files found in data dir: %s", DATA_DIR)
         return files
 
     def load_csv_data(self, csv_path: Path) -> pd.DataFrame | None:
-        """Load CSV file into DataFrame."""
+        """Load local kline file into DataFrame."""
         try:
-            df = pd.read_csv(csv_path, encoding="utf-8-sig")
+            df = self._storage.read_dataframe(csv_path)
             return df
+        except KlineStorageError:
+            logger.error("Failed to load kline file %s", csv_path, exc_info=True)
+            return None
         except Exception:
-            logger.error("Failed to load CSV %s", csv_path, exc_info=True)
+            logger.error("Failed to load kline file %s", csv_path, exc_info=True)
             return None
 
     def detect_timeframe(self, csv_path: Path) -> str:
@@ -94,6 +103,9 @@ class KlineSync:
         if not text:
             return text
 
+        if "." in text:
+            text = text.split(".", maxsplit=1)[0]
+
         # Handle pandas numeric parsing cases like 2885 or 2885.0
         if text.endswith(".0"):
             text = text[:-2]
@@ -110,6 +122,16 @@ class KlineSync:
                 return self._normalize_symbol(symbols[0])
         return self._normalize_symbol(csv_path.stem)
 
+    def _extract_symbol_from_path(self, data_path: Path) -> str:
+        """Extract normalized symbol from supported file names.
+
+        Examples:
+        - 601012.csv -> 601012
+        - 601012.SH.csv -> 601012
+        - 601012.SH.parquet.zst -> 601012
+        """
+        return self._normalize_symbol(data_path.name.split(".", maxsplit=1)[0])
+
     def _extract_kline_time(
         self,
         row: pd.Series,
@@ -117,21 +139,26 @@ class KlineSync:
     ) -> datetime | pd.Timestamp | None:
         """Extract kline timestamp from row with timeframe validation."""
         parsed_time: datetime | pd.Timestamp | None = None
+        is_minute_timeframe = timeframe.endswith("m")
 
-        if "datetime" in row:
+        # For minute-level data, always prefer timestamp to preserve intraday time.
+        if is_minute_timeframe and "timestamp" in row and pd.notna(row["timestamp"]):
+            parsed_time = self._epoch_to_beijing_naive(float(row["timestamp"]))
+        elif "datetime" in row:
             parsed_time = pd.to_datetime(row["datetime"])
         elif "kline_time" in row:
             parsed_time = pd.to_datetime(row["kline_time"])
+        elif "time" in row and pd.notna(row["time"]):
+            parsed_time = self._epoch_to_beijing_naive(float(row["time"]) / 1000)
+        elif "stime" in row and pd.notna(row["stime"]):
+            parsed_time = pd.to_datetime(str(row["stime"]), format="%Y%m%d", errors="coerce")
         elif "timestamp" in row:
-            parsed_time = datetime.fromtimestamp(row["timestamp"])
+            parsed_time = self._epoch_to_beijing_naive(float(row["timestamp"]))
 
         if parsed_time is None or pd.isna(parsed_time):
             return None
 
-        if isinstance(parsed_time, pd.Timestamp):
-            check_time = parsed_time.to_pydatetime()
-        else:
-            check_time = parsed_time
+        check_time = self._normalize_datetime_value(parsed_time)
 
         if timeframe in {"1D", "1W", "1M"}:
             if (
@@ -142,7 +169,29 @@ class KlineSync:
             ):
                 return None
 
-        return parsed_time
+        return check_time
+
+    @staticmethod
+    def _extract_pre_close_price(row: pd.Series) -> float | None:
+        value = row.get("pre_close_price", row.get("preClose"))
+        if value is None or pd.isna(value):
+            return None
+        try:
+            return float(value)
+        except Exception:
+            return None
+
+    @staticmethod
+    def _extract_is_suspended(row: pd.Series) -> bool:
+        value = row.get("is_suspended", row.get("suspendFlag"))
+        if value is None or pd.isna(value):
+            return False
+        if isinstance(value, bool):
+            return value
+        try:
+            return int(float(value)) == 1
+        except Exception:
+            return str(value).strip().lower() in {"1", "true", "t", "yes", "y"}
 
     async def get_db_last_update(self, symbol: str, timeframe: str) -> datetime | None:
         """Get the last update time for a symbol from database."""
@@ -167,8 +216,20 @@ class KlineSync:
             if "datetime" in df.columns:
                 times = pd.to_datetime(df["datetime"])
                 return times.min(), times.max()
+            if "stime" in df.columns:
+                times = pd.to_datetime(df["stime"].astype(str), format="%Y%m%d", errors="coerce")
+                times = times.dropna()
+                if not times.empty:
+                    return times.min(), times.max()
             if "timestamp" in df.columns:
-                times = pd.to_datetime(df["timestamp"], unit="s")
+                times = pd.to_datetime(df["timestamp"], unit="s", utc=True).dt.tz_convert(
+                    ASIA_SHANGHAI_TZ
+                ).dt.tz_localize(None)
+                return times.min(), times.max()
+            if "time" in df.columns:
+                times = pd.to_datetime(df["time"], unit="ms", utc=True).dt.tz_convert(
+                    ASIA_SHANGHAI_TZ
+                ).dt.tz_localize(None)
                 return times.min(), times.max()
             return None
         except Exception:
@@ -228,7 +289,7 @@ class KlineSync:
                     return result
 
         logger.info(
-            "Syncing K-line CSV to database",
+            "Syncing K-line file to database",
             symbol=symbol,
             timeframe=timeframe,
             records=len(df),
@@ -238,8 +299,11 @@ class KlineSync:
             INSERT INTO kline_data (
                 market, symbol, timeframe, kline_time,
                 open_price, high_price, low_price, close_price,
-                volume, amount, created_at, updated_at
-            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW(), NOW())
+                volume, amount, pre_close_price, is_suspended,
+                created_at, updated_at
+            ) VALUES (
+                $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, NOW(), NOW()
+            )
             ON CONFLICT (market, symbol, timeframe, kline_time) 
             DO UPDATE SET
                 open_price = EXCLUDED.open_price,
@@ -248,6 +312,8 @@ class KlineSync:
                 close_price = EXCLUDED.close_price,
                 volume = EXCLUDED.volume,
                 amount = EXCLUDED.amount,
+                pre_close_price = EXCLUDED.pre_close_price,
+                is_suspended = EXCLUDED.is_suspended,
                 updated_at = NOW()
         """
 
@@ -277,6 +343,8 @@ class KlineSync:
                                 float(row.get("close", 0) or 0),
                                 int(row.get("volume", 0) or 0),
                                 float(row.get("amount", 0) or 0),
+                                self._extract_pre_close_price(row),
+                                self._extract_is_suspended(row),
                             )
                             imported += 1
 
@@ -323,10 +391,14 @@ class KlineSync:
         csv_files = self.find_csv_files(timeframes)
         
         if symbols:
-            csv_files = [f for f in csv_files if f.stem in symbols]
+            symbol_set = {self._normalize_symbol(symbol) for symbol in symbols}
+            csv_files = [
+                f for f in csv_files
+                if self._extract_symbol_from_path(f) in symbol_set
+            ]
 
         if not csv_files:
-            logger.warning("No CSV files found to sync")
+            logger.warning("No kline files found to sync")
             return {
                 "total": 0,
                 "success": 0,

@@ -1,8 +1,8 @@
 package com.koduck.entity;
 
+import com.koduck.util.CollectionCopyUtils;
+import com.koduck.util.EntityCopyUtils;
 import jakarta.persistence.*;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import org.hibernate.annotations.CreationTimestamp;
@@ -15,14 +15,12 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 /**
- * 社区信号实体
+ * 
  */
 @Entity
 @Table(name = "community_signals")
 @Data
-@Builder
 @NoArgsConstructor
-@AllArgsConstructor
 public class CommunitySignal {
 
     @Id
@@ -52,7 +50,7 @@ public class CommunitySignal {
     private BigDecimal stopLoss;
 
     @Column(name = "time_frame", length = 20)
-    private String timeFrame;
+    private String timeframe;
 
     private Integer confidence;
 
@@ -71,27 +69,21 @@ public class CommunitySignal {
     private LocalDateTime expiresAt;
 
     @Column(name = "like_count")
-    @Builder.Default
     private Integer likeCount = 0;
 
     @Column(name = "favorite_count")
-    @Builder.Default
     private Integer favoriteCount = 0;
 
     @Column(name = "subscribe_count")
-    @Builder.Default
     private Integer subscribeCount = 0;
 
     @Column(name = "comment_count")
-    @Builder.Default
     private Integer commentCount = 0;
 
     @Column(name = "view_count")
-    @Builder.Default
     private Integer viewCount = 0;
 
     @Column(name = "is_featured")
-    @Builder.Default
     private Boolean isFeatured = false;
 
     @Column(columnDefinition = "JSONB")
@@ -106,37 +98,139 @@ public class CommunitySignal {
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
 
-    // 关联用户（非强制加载）
+    // （）
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", insertable = false, updatable = false)
     private User user;
 
+    public static Builder builder() {
+        return new Builder();
+    }
+
+    public static final class Builder {
+
+        private Long id;
+        private Long userId;
+        private Long strategyId;
+        private String symbol;
+        private SignalType signalType;
+        private String reason;
+        private BigDecimal targetPrice;
+        private BigDecimal stopLoss;
+        private String timeFrame;
+        private Integer confidence;
+        private Status status;
+        private ResultStatus resultStatus;
+        private BigDecimal resultProfit;
+        private LocalDateTime expiresAt;
+        private Integer likeCount;
+        private Integer favoriteCount;
+        private Integer subscribeCount;
+        private Integer commentCount;
+        private Integer viewCount;
+        private Boolean isFeatured;
+        private List<String> tags;
+        private LocalDateTime createdAt;
+        private LocalDateTime updatedAt;
+        private User user;
+
+        public Builder id(Long id) { this.id = id; return this; }
+        public Builder userId(Long userId) { this.userId = userId; return this; }
+        public Builder strategyId(Long strategyId) { this.strategyId = strategyId; return this; }
+        public Builder symbol(String symbol) { this.symbol = symbol; return this; }
+        public Builder signalType(SignalType signalType) { this.signalType = signalType; return this; }
+        public Builder reason(String reason) { this.reason = reason; return this; }
+        public Builder targetPrice(BigDecimal targetPrice) { this.targetPrice = targetPrice; return this; }
+        public Builder stopLoss(BigDecimal stopLoss) { this.stopLoss = stopLoss; return this; }
+        public Builder timeFrame(String timeFrame) { this.timeFrame = timeFrame; return this; }
+        public Builder confidence(Integer confidence) { this.confidence = confidence; return this; }
+        public Builder status(Status status) { this.status = status; return this; }
+        public Builder resultStatus(ResultStatus resultStatus) { this.resultStatus = resultStatus; return this; }
+        public Builder resultProfit(BigDecimal resultProfit) { this.resultProfit = resultProfit; return this; }
+        public Builder expiresAt(LocalDateTime expiresAt) { this.expiresAt = expiresAt; return this; }
+        public Builder likeCount(Integer likeCount) { this.likeCount = likeCount; return this; }
+        public Builder favoriteCount(Integer favoriteCount) { this.favoriteCount = favoriteCount; return this; }
+        public Builder subscribeCount(Integer subscribeCount) { this.subscribeCount = subscribeCount; return this; }
+        public Builder commentCount(Integer commentCount) { this.commentCount = commentCount; return this; }
+        public Builder viewCount(Integer viewCount) { this.viewCount = viewCount; return this; }
+        public Builder isFeatured(Boolean isFeatured) { this.isFeatured = isFeatured; return this; }
+        public Builder tags(List<String> tags) { this.tags = CollectionCopyUtils.copyList(tags); return this; }
+        public Builder createdAt(LocalDateTime createdAt) { this.createdAt = createdAt; return this; }
+        public Builder updatedAt(LocalDateTime updatedAt) { this.updatedAt = updatedAt; return this; }
+        public Builder user(User user) { this.user = EntityCopyUtils.copyUser(user); return this; }
+
+        public CommunitySignal build() {
+            CommunitySignal signal = new CommunitySignal();
+            signal.setId(id);
+            signal.setUserId(userId);
+            signal.setStrategyId(strategyId);
+            signal.setSymbol(symbol);
+            signal.setSignalType(signalType);
+            signal.setReason(reason);
+            signal.setTargetPrice(targetPrice);
+            signal.setStopLoss(stopLoss);
+            signal.setTimeframe(timeFrame);
+            signal.setConfidence(confidence);
+            signal.setStatus(status);
+            signal.setResultStatus(resultStatus);
+            signal.setResultProfit(resultProfit);
+            signal.setExpiresAt(expiresAt);
+            signal.setLikeCount(likeCount);
+            signal.setFavoriteCount(favoriteCount);
+            signal.setSubscribeCount(subscribeCount);
+            signal.setCommentCount(commentCount);
+            signal.setViewCount(viewCount);
+            signal.setIsFeatured(isFeatured);
+            signal.setTags(tags);
+            signal.setCreatedAt(createdAt);
+            signal.setUpdatedAt(updatedAt);
+            signal.setUser(user);
+            return signal;
+        }
+    }
+
+    public List<String> getTags() {
+        return CollectionCopyUtils.copyList(tags);
+    }
+
+    public void setTags(List<String> tags) {
+        this.tags = CollectionCopyUtils.copyList(tags);
+    }
+
+    public User getUser() {
+        return EntityCopyUtils.copyUser(user);
+    }
+
+    public void setUser(User user) {
+        this.user = EntityCopyUtils.copyUser(user);
+    }
+
     /**
-     * 信号类型枚举
+     * 
      */
     public enum SignalType {
-        BUY,   // 买入
-        SELL,  // 卖出
-        HOLD   // 持有
+        BUY,   // 
+        SELL,  // 
+        HOLD   // 
     }
 
     /**
-     * 信号状态枚举
+     * 
      */
     public enum Status {
-        ACTIVE,     // 活跃
-        CLOSED,     // 已关闭
-        EXPIRED,    // 已过期
-        CANCELLED   // 已取消
+        ACTIVE,     // 
+        CLOSED,     // 
+        EXPIRED,    // 
+        CANCELLED   // 
     }
 
     /**
-     * 结果状态枚举
+     * 
      */
     public enum ResultStatus {
-        PENDING,     // 等待中
-        HIT_TARGET,  // 达到目标价
-        HIT_STOP,    // 触及止损价
-        TIMEOUT      // 超时
+        PENDING,     // 
+        HIT_TARGET,  // 
+        HIT_STOP,    // 
+        TIMEOUT      // 
     }
 }

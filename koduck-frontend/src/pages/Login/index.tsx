@@ -1,110 +1,213 @@
 import { useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
 import { useAuthStore } from '@/stores/auth'
-import { useToast } from '@/hooks/useToast'
+import { useNavigate } from 'react-router-dom'
+
+const getErrorMessage = (error: unknown): string => {
+  if (error instanceof Error && error.message) {
+    return error.message
+  }
+  return 'Login failed. Please check your credentials.'
+}
+
+type SubmitEventLike = {
+  preventDefault: () => void
+}
 
 export default function Login() {
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+  const [sessionTimestamp] = useState(() => Math.floor(Date.now() / 1000))
+  const { login } = useAuthStore()
   const navigate = useNavigate()
-  const { setToken, setUser } = useAuthStore()
-  const { showToast } = useToast()
+  const normalizedUsername = username.trim()
+  const canSubmit = normalizedUsername.length > 0 && password.length > 0
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!username || !password) {
-      showToast('请输入用户名和密码', 'warning')
+  const submitLogin = async () => {
+    if (!canSubmit || loading) {
       return
     }
 
     setLoading(true)
+    setError('')
+
     try {
-      const response = await fetch('/api/v1/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, password }),
-      })
-      const data = await response.json()
-      
-      if ((data.code === 200 || data.code === 0) && data.data) {
-        setToken(data.data.accessToken)
-        setUser(data.data.user)
-        showToast('登录成功', 'success')
-        navigate('/market')
-      } else {
-        showToast(data.message || '登录失败', 'error')
-      }
-    } catch {
-      showToast('登录失败', 'error')
+      await login({ username: normalizedUsername, password })
+      navigate('/market')
+    } catch (err: unknown) {
+      setError(getErrorMessage(err))
     } finally {
       setLoading(false)
     }
   }
 
+  const handleSubmit = (e: SubmitEventLike) => {
+    e.preventDefault()
+    void submitLogin()
+  }
+
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900 px-4">
-      <div className="max-w-md w-full space-y-8">
-        <div className="text-center">
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">KODUCK</h1>
-          <p className="mt-2 text-gray-600 dark:text-gray-400">量化交易平台</p>
+    <div className="min-h-screen bg-fluid-surface-container-lowest flex flex-col items-center justify-center px-6 py-12 relative overflow-hidden">
+      {/* Animated Background */}
+      <div className="fixed inset-0 -z-10">
+        {/* Gradient Background */}
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,#1d2026_0%,#0b0e14_100%)]" />
+        
+        {/* Flow Streams */}
+        <div className="absolute left-[10%] top-[-20%] w-px h-[300px] bg-gradient-to-b from-transparent via-fluid-primary/15 to-transparent" />
+        <div className="absolute left-[25%] top-[40%] w-px h-[200px] bg-gradient-to-b from-transparent via-fluid-primary/15 to-transparent" />
+        <div className="absolute left-[60%] top-[10%] w-px h-[400px] bg-gradient-to-b from-transparent via-fluid-primary/15 to-transparent" />
+        <div className="absolute left-[85%] top-[60%] w-px h-[150px] bg-gradient-to-b from-transparent via-fluid-primary/15 to-transparent" />
+        
+        {/* Glow Orbs */}
+        <div className="absolute top-1/4 -left-20 w-96 h-96 bg-fluid-primary/5 rounded-full blur-[120px]" />
+        <div className="absolute bottom-1/4 -right-20 w-80 h-80 bg-fluid-secondary/5 rounded-full blur-[100px]" />
+      </div>
+
+      {/* Top Right Info */}
+      <div className="fixed top-8 right-8 hidden lg:block text-right">
+        <div className="text-[10px] font-mono-data text-fluid-text-dim leading-relaxed">
+          LOC: SECTOR_A<br/>
+          TS: {sessionTimestamp}<br/>
+          CMD: INIT_AUTH
+        </div>
+        <div className="mt-4 w-12 h-1 bg-fluid-primary ml-auto" />
+      </div>
+
+      {/* Brand Header */}
+      <header className="mb-12 text-center">
+        <h1 className="font-headline text-3xl md:text-4xl font-bold tracking-tighter text-fluid-primary mb-2">
+          The Fluid Ledger
+        </h1>
+        <p className="font-mono-data text-[10px] uppercase tracking-[0.3em] text-fluid-text-muted">
+          Kinetic Command System
+        </p>
+      </header>
+
+      {/* Login Card */}
+      <div className="w-full max-w-[420px] glass-panel p-8 relative">
+        {/* Header */}
+        <div className="mb-8 text-center">
+          <h2 className="font-headline text-lg font-semibold text-fluid-text">Authentication</h2>
+          <p className="text-xs text-fluid-text-muted mt-1">Initialize your session</p>
         </div>
 
-        <div className="bg-white dark:bg-gray-800 p-8 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
-          <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-6">登录</h2>
-          
-          <form onSubmit={handleSubmit} className="space-y-6">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                用户名
-              </label>
+        {/* Form */}
+        <form onSubmit={handleSubmit} className="space-y-6">
+          {/* Username Input */}
+          <div className="space-y-1.5">
+            <label htmlFor="login-username" className="font-mono-data text-[11px] uppercase tracking-wider text-fluid-text-muted px-1">
+              Access Protocol ID
+            </label>
+            <div className="relative group">
+              <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-fluid-text-dim text-lg group-focus-within:text-fluid-primary transition-colors">
+                fingerprint
+              </span>
               <input
+                id="login-username"
                 type="text"
                 value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                placeholder="请输入用户名"
+                onChange={(e) => {
+                  setUsername(e.target.value)
+                  if (error) {
+                    setError('')
+                  }
+                }}
+                placeholder="CMD_USR_8821"
+                autoComplete="username"
+                autoFocus
+                required
+                disabled={loading}
+                aria-invalid={Boolean(error)}
+                aria-describedby={error ? 'login-error-message' : undefined}
+                className="w-full bg-fluid-surface-container-low border border-fluid-outline-variant pl-11 pr-4 py-3 rounded-lg text-sm font-mono-data focus:outline-none focus:border-fluid-primary focus:ring-1 focus:ring-fluid-primary/30 placeholder:text-fluid-text-dim/50 transition-all"
               />
             </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                密码
-              </label>
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                placeholder="请输入密码"
-              />
-            </div>
-
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full py-2 px-4 bg-primary-600 hover:bg-primary-700 disabled:opacity-50 text-white font-medium rounded-lg transition-colors"
-            >
-              {loading ? '登录中...' : '登录'}
-            </button>
-          </form>
-
-          <div className="mt-6 text-center">
-            <p className="text-sm text-gray-600 dark:text-gray-400">
-              还没有账号？{' '}
-              <Link to="/register" className="text-primary-600 hover:text-primary-700 dark:text-primary-400">
-                立即注册
-              </Link>
-            </p>
           </div>
 
-          {/* 演示账号提示 */}
-          <div className="mt-6 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
-            <p className="text-sm font-medium text-blue-800 dark:text-blue-300 mb-2">演示账号</p>
-            <div className="text-sm text-blue-700 dark:text-blue-400 space-y-1">
-              <p>用户名: <code className="px-1 py-0.5 bg-blue-100 dark:bg-blue-800 rounded">demo</code></p>
-              <p>密码: <code className="px-1 py-0.5 bg-blue-100 dark:bg-blue-800 rounded">demo123</code></p>
+          {/* Password Input */}
+          <div className="space-y-1.5">
+            <div className="flex justify-between items-center px-1">
+              <label htmlFor="login-password" className="font-mono-data text-[11px] uppercase tracking-wider text-fluid-text-muted">
+                Encryption Key
+              </label>
+              <button type="button" className="font-mono-data text-[10px] uppercase text-fluid-primary/60 hover:text-fluid-primary transition-colors">
+                Recovery
+              </button>
             </div>
+            <div className="relative group">
+              <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-fluid-text-dim text-lg group-focus-within:text-fluid-primary transition-colors">
+                key
+              </span>
+              <input
+                id="login-password"
+                type="password"
+                value={password}
+                onChange={(e) => {
+                  setPassword(e.target.value)
+                  if (error) {
+                    setError('')
+                  }
+                }}
+                placeholder="••••••••••••"
+                autoComplete="current-password"
+                required
+                disabled={loading}
+                aria-invalid={Boolean(error)}
+                aria-describedby={error ? 'login-error-message' : undefined}
+                className="w-full bg-fluid-surface-container-low border border-fluid-outline-variant pl-11 pr-4 py-3 rounded-lg text-sm font-mono-data focus:outline-none focus:border-fluid-primary focus:ring-1 focus:ring-fluid-primary/30 placeholder:text-fluid-text-dim/50 transition-all"
+              />
+            </div>
+          </div>
+
+          {error && (
+            <div id="login-error-message" className="text-fluid-secondary text-xs font-mono-data text-center" role="alert" aria-live="polite">
+              {error}
+            </div>
+          )}
+
+          {/* Action Button */}
+          <div className="pt-4">
+            <button
+              type="submit"
+              disabled={loading || !canSubmit}
+              className="w-full py-4 bg-fluid-primary text-fluid-surface-container-lowest font-headline font-bold uppercase tracking-widest text-sm rounded-lg hover:shadow-glow-primary hover:brightness-110 active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {loading ? 'Initializing...' : 'Initialize Session'}
+            </button>
+          </div>
+        </form>
+
+        {/* Card Footer */}
+        <div className="mt-8 flex justify-between items-center text-[10px] font-mono-data text-fluid-text-dim/50 uppercase">
+          <div className="flex items-center gap-1.5">
+            <span className="w-1.5 h-1.5 rounded-full bg-fluid-primary animate-pulse"></span>
+            <span>Terminal: Secure</span>
+          </div>
+          <span>E2EE: Verified</span>
+        </div>
+      </div>
+
+      {/* Global Footer */}
+      <footer className="mt-auto w-full max-w-4xl border-t border-fluid-outline-variant/10 pt-8 flex flex-col md:flex-row justify-between items-center gap-4 opacity-40 hover:opacity-100 transition-opacity">
+        <div className="font-mono-data text-[10px] tracking-[0.2em] uppercase text-fluid-text-muted">
+          © 2024 THE FLUID LEDGER | SYSTEM_HEALTH: <span className="text-fluid-primary">OPTIMAL</span>
+        </div>
+        <div className="flex gap-6 font-mono-data text-[10px] tracking-[0.1em] uppercase text-fluid-text-muted">
+          <span className="hover:text-fluid-primary transition-colors cursor-pointer">Network Latency: 12ms</span>
+          <span className="hover:text-fluid-primary transition-colors cursor-pointer">Data Feed: Live</span>
+          <span className="hover:text-fluid-primary transition-colors cursor-pointer">Privacy Protocol</span>
+        </div>
+      </footer>
+
+      {/* Bottom Left Visual */}
+      <div className="fixed bottom-8 left-8 hidden lg:block">
+        <div className="p-4 border-l border-b border-fluid-primary/20 rounded-bl-xl">
+          <div className="flex gap-2">
+            <div className="w-1 h-6 bg-fluid-primary/40"></div>
+            <div className="w-1 h-4 bg-fluid-primary/20 mt-2"></div>
+            <div className="w-1 h-8 bg-fluid-primary/60 -mt-2"></div>
           </div>
         </div>
       </div>

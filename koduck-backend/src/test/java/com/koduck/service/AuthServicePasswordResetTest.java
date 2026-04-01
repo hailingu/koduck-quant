@@ -6,20 +6,26 @@ import com.koduck.dto.auth.ResetPasswordRequest;
 import com.koduck.entity.PasswordResetToken;
 import com.koduck.entity.User;
 import com.koduck.exception.BusinessException;
+import com.koduck.exception.ErrorCode;
 import com.koduck.repository.*;
+import com.koduck.service.impl.AuthServiceImpl;
+import com.koduck.service.support.DefaultUserRoleResolver;
+import com.koduck.service.support.UserRolesTableChecker;
 import com.koduck.util.JwtUtil;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
 import java.time.LocalDateTime;
+import java.util.Base64;
 import java.util.Optional;
-import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.*;
 import static org.mockito.Mockito.*;
@@ -63,7 +69,13 @@ class AuthServicePasswordResetTest {
     @Mock
     private MailProperties mailProperties;
 
-    private AuthService authService;
+    @Mock
+    private UserRolesTableChecker userRolesTableChecker;
+
+    @Mock
+    private DefaultUserRoleResolver defaultUserRoleResolver;
+
+    private AuthServiceImpl authService;
 
     private static final String TEST_IP = "192.168.1.1";
     private static final String TEST_EMAIL = "user@example.com";
@@ -72,7 +84,7 @@ class AuthServicePasswordResetTest {
 
     @BeforeEach
     void setUp() {
-        authService = new AuthService(
+        authService = new AuthServiceImpl(
                 userRepository,
                 roleRepository,
                 refreshTokenRepository,
@@ -82,7 +94,9 @@ class AuthServicePasswordResetTest {
                 passwordEncoder,
                 emailService,
                 rateLimiterService,
-                mailProperties
+                mailProperties,
+                userRolesTableChecker,
+                defaultUserRoleResolver
         );
     }
 
@@ -191,7 +205,7 @@ class AuthServicePasswordResetTest {
     void shouldResetPasswordWhenTokenValid() {
         // Given
         String rawToken = "valid-token-12345";
-        String tokenHash = UUID.nameUUIDFromBytes(rawToken.getBytes()).toString();
+        String tokenHash = hashTokenForTest(rawToken);
         String newPassword = "newPassword123";
         String encodedPassword = "encodedPassword123";
 
@@ -249,7 +263,7 @@ class AuthServicePasswordResetTest {
     void shouldThrowExceptionWhenTokenNotFound() {
         // Given
         String rawToken = "invalid-token";
-        String tokenHash = UUID.nameUUIDFromBytes(rawToken.getBytes()).toString();
+        String tokenHash = hashTokenForTest(rawToken);
 
         ResetPasswordRequest request = new ResetPasswordRequest();
         request.setToken(rawToken);
@@ -261,7 +275,7 @@ class AuthServicePasswordResetTest {
         // When & Then
         assertThatThrownBy(() -> authService.resetPassword(request))
                 .isInstanceOf(BusinessException.class)
-                .hasMessage("无效或已过期的重置令牌");
+                .hasMessage(ErrorCode.AUTH_TOKEN_INVALID.getDefaultMessage());
     }
 
     @Test
@@ -269,7 +283,7 @@ class AuthServicePasswordResetTest {
     void shouldThrowExceptionWhenTokenExpired() {
         // Given
         String rawToken = "expired-token";
-        String tokenHash = UUID.nameUUIDFromBytes(rawToken.getBytes()).toString();
+        String tokenHash = hashTokenForTest(rawToken);
 
         ResetPasswordRequest request = new ResetPasswordRequest();
         request.setToken(rawToken);
@@ -297,7 +311,7 @@ class AuthServicePasswordResetTest {
     void shouldThrowExceptionWhenTokenAlreadyUsed() {
         // Given
         String rawToken = "used-token";
-        String tokenHash = UUID.nameUUIDFromBytes(rawToken.getBytes()).toString();
+        String tokenHash = hashTokenForTest(rawToken);
 
         ResetPasswordRequest request = new ResetPasswordRequest();
         request.setToken(rawToken);
@@ -347,4 +361,14 @@ class AuthServicePasswordResetTest {
         verify(passwordResetTokenRepository).deleteByUserId(TEST_USER_ID);
         verify(passwordResetTokenRepository).save(any(PasswordResetToken.class));
     }
+
+        private String hashTokenForTest(String token) {
+                try {
+                        MessageDigest messageDigest = MessageDigest.getInstance("SHA-256");
+                        byte[] hash = messageDigest.digest(token.getBytes(StandardCharsets.UTF_8));
+                        return Base64.getUrlEncoder().withoutPadding().encodeToString(hash);
+                } catch (NoSuchAlgorithmException ex) {
+                        throw new IllegalStateException("SHA-256 not available", ex);
+                }
+        }
 }

@@ -1,29 +1,31 @@
 package com.koduck.exception;
 
-import lombok.Getter;
-
+import java.io.Serial;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.Map;
 
 /**
- * 参数校验异常。
+ * 
  *
- * <p>用于表示请求参数校验失败的情况，可以携带具体的字段错误信息。</p>
+ * <p>，</p>
  *
  * @author Koduck Team
  */
-@Getter
 public class ValidationException extends BusinessException {
 
+    @Serial
+    private static final long serialVersionUID = 1L;
+
     /**
-     * 字段错误映射，key 为字段名，value 为错误消息
+     * ，key ，value 
      */
     private final Map<String, String> fieldErrors;
 
     /**
-     * 创建校验异常。
+     * 
      *
-     * @param message 错误消息
+     * @param message 
      */
     public ValidationException(String message) {
         super(ErrorCode.VALIDATION_ERROR.getCode(), message);
@@ -31,9 +33,9 @@ public class ValidationException extends BusinessException {
     }
 
     /**
-     * 创建校验异常。
+     * 
      *
-     * @param errorCode 错误码枚举
+     * @param errorCode 
      */
     public ValidationException(ErrorCode errorCode) {
         super(errorCode.getCode(), errorCode.getDefaultMessage());
@@ -41,21 +43,27 @@ public class ValidationException extends BusinessException {
     }
 
     /**
-     * 创建校验异常（带字段错误）。
+     * （）
      *
-     * @param message     错误消息
-     * @param fieldErrors 字段错误映射
+     * @param message     
+     * @param fieldErrors 
      */
     public ValidationException(String message, Map<String, String> fieldErrors) {
         super(ErrorCode.VALIDATION_ERROR.getCode(), message);
         this.fieldErrors = fieldErrors != null ? Map.copyOf(fieldErrors) : Collections.emptyMap();
     }
+    
+    public Map<String, String> getFieldErrors() {
+        return fieldErrors == null || fieldErrors.isEmpty()
+                ? Collections.emptyMap()
+                : Map.copyOf(new HashMap<>(fieldErrors));
+    }
 
     /**
-     * 创建校验异常（带单个字段错误）。
+     * （）
      *
-     * @param field   字段名
-     * @param message 错误消息
+     * @param field   
+     * @param message 
      * @return ValidationException
      */
     public static ValidationException forField(String field, String message) {

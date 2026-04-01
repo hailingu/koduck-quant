@@ -1,4 +1,4 @@
-"""LLM 客户端工厂."""
+"""LLM ."""
 
 import logging
 
@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 
 
 class LLMClient:
-    """统一的 LLM 客户端包装器.
+    """ LLM .
     
     根据提供商自动实例化对应的具体客户端。
     """
@@ -26,7 +26,7 @@ class LLMClient:
         model: str = "",
         retry_config: RetryConfig | None = None,
     ):
-        """初始化 LLM 客户端.
+        """ LLM .
         
         Args:
             api_key: API 密钥
@@ -37,7 +37,7 @@ class LLMClient:
         """
         self.provider = provider
 
-        # 应用默认值（按 provider）
+        # （ provider）
         if provider == LLMProvider.OPENAI:
             self.api_base = api_base or "https://api.openai.com/v1"
             self.model = model or "gpt-4o-mini"
@@ -46,9 +46,9 @@ class LLMClient:
             self.model = model or "deepseek-chat"
         else:
             self.api_base = api_base or "https://api.minimax.chat/v1"
-            self.model = model or "MiniMax-M2.5"
+            self.model = model or "MiniMax-M2.7"
 
-        # 按 provider 实例化客户端
+        #  provider 
         self._client: LLMClientBase
         if provider == LLMProvider.OPENAI:
             self._client = OpenAIClient(
@@ -72,16 +72,16 @@ class LLMClient:
                 retry_config=retry_config,
             )
         
-        logger.info(f"初始化 LLM 客户端: provider={provider}, model={self.model}")
+        logger.info(f" LLM : provider={provider}, model={self.model}")
 
     @property
     def retry_callback(self):
-        """获取重试回调."""
+        """."""
         return self._client.retry_callback
 
     @retry_callback.setter
     def retry_callback(self, value):
-        """设置重试回调."""
+        """."""
         self._client.retry_callback = value
 
     async def generate(
@@ -89,7 +89,7 @@ class LLMClient:
         messages: list[Message],
         tools: list | None = None,
     ) -> LLMResponse:
-        """生成 LLM 响应.
+        """ LLM .
         
         Args:
             messages: 对话消息列表
@@ -105,7 +105,7 @@ class LLMClient:
         messages: list[Message],
         tools: list | None = None,
     ):
-        """流式生成 LLM 响应.
+        """ LLM .
         
         Args:
             messages: 对话消息列表
@@ -125,7 +125,7 @@ def create_client(
     model: str = "",
     retry_config: RetryConfig | None = None,
 ) -> LLMClient:
-    """创建 LLM 客户端的便捷函数.
+    """ LLM .
     
     Args:
         api_key: API 密钥，默认从环境变量 LLM_API_KEY 读取
@@ -139,7 +139,7 @@ def create_client(
     
     Example:
         >>> client = create_client()
-        >>> client = create_client(model="MiniMax-M2.5")
+        >>> client = create_client(model="MiniMax-M2.7")
     """
     import os
     

@@ -7,7 +7,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 /**
- * AI 聊天消息 DTO。
+ * AI  DTO
  */
 @Data
 @Builder

@@ -55,6 +55,7 @@ class SymbolInfo(BaseModel):
     Attributes:
         symbol (str): Stock symbol or code.
         name (str): Company name or instrument name.
+        type (str): Type of symbol (STOCK or INDEX).
         market (str): Market identifier such as ``AShare`` or ``USStock``.
         price (Optional[float]): Current last trade price.
         change_percent (Optional[float]): Percentage change from previous close.
@@ -64,6 +65,7 @@ class SymbolInfo(BaseModel):
     
     symbol: str = Field(..., description="Stock symbol/code")
     name: str = Field(..., description="Stock name")
+    type: str = Field(default="STOCK", description="Symbol type (STOCK or INDEX)")
     market: str = Field(..., description="Market type (AShare, USStock, etc.)")
     price: Optional[float] = Field(default=None, description=DESCRIPTION_CURRENT_PRICE)
     change_percent: Optional[float] = Field(
@@ -94,6 +96,7 @@ class PriceQuote(BaseModel):
     Attributes:
         symbol (str): Stock symbol.
         name (str): Name of the stock.
+        type (str): Type of symbol (STOCK or INDEX).
         price (float): Latest traded price.
         open (float): Opening price for the current session.
         high (float): Highest price during the session.
@@ -112,6 +115,7 @@ class PriceQuote(BaseModel):
     
     symbol: str = Field(..., description="Stock symbol")
     name: str = Field(..., description="Stock name")
+    type: str = Field(default="STOCK", description="Symbol type (STOCK or INDEX)")
     price: float = Field(..., description=DESCRIPTION_CURRENT_PRICE)
     open: float = Field(..., description=DESCRIPTION_OPENING_PRICE)
     high: float = Field(..., description="High price")
@@ -340,6 +344,7 @@ class MarketIndex(BaseModel):
     Attributes:
         symbol (str): Index code.
         name (str): Index name (e.g. Shanghai Composite).
+        type (str): Type of symbol, always INDEX for market indices.
         price (Optional[float]): Current index price.
         change (Optional[float]): Absolute change from previous close.
         change_percent (Optional[float]): Percentage change.
@@ -354,6 +359,7 @@ class MarketIndex(BaseModel):
     
     symbol: str = Field(..., description="Index symbol/code")
     name: str = Field(..., description="Index name")
+    type: str = Field(default="INDEX", description="Symbol type (always INDEX)")
     price: Optional[float] = Field(default=None, description=DESCRIPTION_CURRENT_PRICE)
     change: Optional[float] = Field(default=None, description="Price change")
     change_percent: Optional[float] = Field(default=None, description=DESCRIPTION_CHANGE_PERCENT)

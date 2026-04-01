@@ -13,7 +13,7 @@ import java.time.LocalDateTime;
 import java.util.Optional;
 
 /**
- * 用户仓库（无外键关联）
+ * （）
  */
 @Repository
 public interface UserRepository extends JpaRepository<User, Long> {
@@ -37,7 +37,7 @@ public interface UserRepository extends JpaRepository<User, Long> {
     void updatePassword(@Param("userId") Long userId, @Param("passwordHash") String passwordHash);
 
     /**
-     * 根据用户名或邮箱搜索（分页）
+     * （）
      */
     Page<User> findByUsernameContainingOrEmailContaining(
             String username, String email, Pageable pageable);

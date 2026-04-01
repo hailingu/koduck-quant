@@ -1,11 +1,10 @@
 package com.koduck.dto.user;
 
-import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.Size;
 import lombok.Data;
 
 /**
- * 更新个人资料请求 DTO
+ *  DTO
  */
 @Data
 public class UpdateProfileRequest {

@@ -1,6 +1,7 @@
 package com.koduck.dto.credential;
 
 import com.fasterxml.jackson.annotation.JsonFormat;
+import com.koduck.common.constants.DateTimePatternConstants;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -9,7 +10,7 @@ import lombok.NoArgsConstructor;
 import java.time.LocalDateTime;
 
 /**
- * 凭证审计日志响应 DTO
+ *  DTO
  */
 @Data
 @Builder
@@ -24,6 +25,6 @@ public class CredentialAuditLogResponse {
     private Boolean success;
     private String errorMessage;
 
-    @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
+    @JsonFormat(pattern = DateTimePatternConstants.STANDARD_DATE_TIME_PATTERN)
     private LocalDateTime createdAt;
 }

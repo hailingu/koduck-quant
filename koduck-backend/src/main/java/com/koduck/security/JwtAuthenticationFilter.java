@@ -6,8 +6,10 @@ import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import lombok.RequiredArgsConstructor;
+import java.io.IOException;
+import java.util.Objects;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.lang.NonNull;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -17,32 +19,40 @@ import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 import org.springframework.web.filter.OncePerRequestFilter;
 
-import java.io.IOException;
-
 /**
- * JWT 认证过滤器
+ * JWT 
+ *
+ * @author GitHub Copilot
+ * @date 2026-03-31
  */
 @Slf4j
 @Component
-@RequiredArgsConstructor
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private final JwtUtil jwtUtil;
+
     private final JwtConfig jwtConfig;
+
     private final UserDetailsService userDetailsService;
 
+    public JwtAuthenticationFilter(JwtUtil jwtUtil,
+                                   JwtConfig jwtConfig,
+                                   UserDetailsService userDetailsService) {
+        this.jwtUtil = Objects.requireNonNull(jwtUtil, "jwtUtil must not be null");
+        this.jwtConfig = Objects.requireNonNull(jwtConfig, "jwtConfig must not be null");
+        this.userDetailsService = Objects.requireNonNull(userDetailsService,
+                "userDetailsService must not be null");
+    }
+
     @Override
-    protected void doFilterInternal(HttpServletRequest request,
-                                    HttpServletResponse response,
-                                    FilterChain filterChain) throws ServletException, IOException {
+    protected void doFilterInternal(@NonNull HttpServletRequest request,
+                                    @NonNull HttpServletResponse response,
+                                    @NonNull FilterChain filterChain) throws ServletException, IOException {
         try {
             String jwt = getJwtFromRequest(request);
-
             if (StringUtils.hasText(jwt) && jwtUtil.validateToken(jwt)) {
                 Long userId = jwtUtil.getUserIdFromToken(jwt);
-
                 UserDetails userDetails = userDetailsService.loadUserByUsername(String.valueOf(userId));
-                
                 UsernamePasswordAuthenticationToken authentication =
                         new UsernamePasswordAuthenticationToken(
                                 userDetails,
@@ -50,13 +60,11 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                                 userDetails.getAuthorities()
                         );
                 authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
-
                 SecurityContextHolder.getContext().setAuthentication(authentication);
             }
-        } catch (Exception e) {
-            log.error("Cannot set user authentication: {}", e.getMessage());
+        } catch (RuntimeException e) {
+            log.error("Cannot set user authentication", e);
         }
-
         filterChain.doFilter(request, response);
     }
 

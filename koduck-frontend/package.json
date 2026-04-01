@@ -10,20 +10,28 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@emotion/react": "^11.14.0",
+    "@emotion/styled": "^11.14.1",
+    "@mui/icons-material": "^7.3.9",
+    "@mui/material": "^7.3.9",
     "@stomp/stompjs": "^7.3.0",
     "axios": "^1.13.6",
+    "d3": "^7.9.0",
     "echarts": "^6.0.0",
     "lightweight-charts": "^5.1.0",
     "lucide-react": "^0.577.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
+    "react-markdown": "^10.1.0",
     "react-router-dom": "^7.13.1",
+    "remark-gfm": "^4.0.1",
     "sockjs-client": "^1.6.1",
     "zustand": "^5.0.11"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.1",
     "@tailwindcss/postcss": "^4.2.1",
+    "@types/d3": "^7.4.3",
     "@types/node": "^24.11.0",
     "@types/react": "^19.2.7",
     "@types/react-dom": "^19.2.3",

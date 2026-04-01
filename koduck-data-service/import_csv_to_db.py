@@ -11,16 +11,16 @@ from pathlib import Path
 
 import pandas as pd
 
-# 添加项目路径
+# 
 project_root = Path(__file__).parent
 sys.path.insert(0, str(project_root))
 
-# 数据目录
+# 
 DATA_DIR = project_root / "data" / "kline"
 
 
 async def import_csv_to_db(csv_path: Path, dry_run: bool = False):
-    """将单个 CSV 文件导入数据库"""
+    """ CSV """
     from app.db import Database
     
     result = {
@@ -31,7 +31,7 @@ async def import_csv_to_db(csv_path: Path, dry_run: bool = False):
         "error": None
     }
     
-    # 读取 CSV
+    #  CSV
     try:
         df = pd.read_csv(csv_path, encoding='utf-8-sig')
     except Exception as e:
@@ -42,24 +42,27 @@ async def import_csv_to_db(csv_path: Path, dry_run: bool = False):
         result["error"] = "CSV 文件为空"
         return result
     
-    # 提取信息
+    # 
     symbol = csv_path.stem
     timeframe = csv_path.parent.name
     
-    print(f"  导入 {symbol} ({timeframe}): {len(df)} 条记录...")
+    print(f"   {symbol} ({timeframe}): {len(df)} ...")
     
     if dry_run:
         result["success"] = True
         result["skipped"] = len(df)
         return result
     
-    # 插入 SQL
+    #  SQL
     insert_sql = """
         INSERT INTO kline_data (
             market, symbol, timeframe, kline_time,
             open_price, high_price, low_price, close_price,
-            volume, amount, created_at, updated_at
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW(), NOW())
+            volume, amount, pre_close_price, is_suspended,
+            created_at, updated_at
+        ) VALUES (
+            $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, NOW(), NOW()
+        )
         ON CONFLICT (market, symbol, timeframe, kline_time) DO NOTHING
     """
     
@@ -72,7 +75,7 @@ async def import_csv_to_db(csv_path: Path, dry_run: bool = False):
             async with conn.transaction():
                 for _, row in df.iterrows():
                     try:
-                        # 解析时间
+                        # 
                         if 'datetime' in row:
                             kline_time = pd.to_datetime(row['datetime'])
                         elif 'timestamp' in row:
@@ -104,10 +107,18 @@ async def import_csv_to_db(csv_path: Path, dry_run: bool = False):
                             float(row.get('close', 0)),         # close_price
                             int(row.get('volume', 0)),          # volume
                             float(row.get('amount', 0)),        # amount
+                            (
+                                float(row.get('pre_close_price', row.get('preClose')))
+                                if row.get('pre_close_price', row.get('preClose')) is not None
+                                else None
+                            ),
+                            str(
+                                row.get('is_suspended', row.get('suspendFlag', 0))
+                            ).strip().lower() in {"1", "true", "t", "yes", "y"},
                         )
                         imported += 1
                     except Exception as e:
-                        print(f"    跳过一行: {e}")
+                        print(f"    : {e}")
                         skipped += 1
         
         result["success"] = True
@@ -116,32 +127,32 @@ async def import_csv_to_db(csv_path: Path, dry_run: bool = False):
         
     except Exception as e:
         result["error"] = str(e)
-        print(f"  导入失败: {e}")
+        print(f"  : {e}")
     
     return result
 
 
 async def import_all_timeframes(timeframes: list[str] = None, dry_run: bool = False):
-    """导入所有时间周期的数据"""
+    """"""
     from app.db import Database
     
     if timeframes is None:
         timeframes = ["1D", "1W", "1M"]
     
     print("=" * 60)
-    print("K 线数据 CSV 导入工具")
+    print("K  CSV ")
     print("=" * 60)
     
-    # 初始化数据库连接
-    print("\n连接数据库...")
+    # 
+    print("\n...")
     try:
         await Database.get_pool()
-        print("  ✓ 数据库连接成功")
+        print("  ✓ ")
     except Exception as e:
-        print(f"  ✗ 数据库连接失败: {e}")
+        print(f"  ✗ : {e}")
         return
     
-    # 检查表是否存在
+    # 
     try:
         result = await Database.fetchrow("""
             SELECT EXISTS (
@@ -151,14 +162,14 @@ async def import_all_timeframes(timeframes: list[str] = None, dry_run: bool = Fa
             )
         """)
         if not result or not result.get('exists', False):
-            print("  ✗ kline_data 表不存在，请先运行数据库迁移")
+            print("  ✗ kline_data ，")
             return
-        print("  ✓ kline_data 表存在")
+        print("  ✓ kline_data ")
     except Exception as e:
-        print(f"  ✗ 检查表失败: {e}")
+        print(f"  ✗ : {e}")
         return
     
-    # 统计
+    # 
     total_stats = {
         "files": 0,
         "success": 0,
@@ -167,20 +178,20 @@ async def import_all_timeframes(timeframes: list[str] = None, dry_run: bool = Fa
         "skipped": 0,
     }
     
-    # 导入每个时间周期
+    # 
     for timeframe in timeframes:
         tf_dir = DATA_DIR / timeframe
         if not tf_dir.exists():
-            print(f"\n跳过 {timeframe}: 目录不存在")
+            print(f"\n {timeframe}: ")
             continue
         
         csv_files = list(tf_dir.glob("*.csv"))
         if not csv_files:
-            print(f"\n跳过 {timeframe}: 没有 CSV 文件")
+            print(f"\n {timeframe}:  CSV ")
             continue
         
         print(f"\n{'-' * 60}")
-        print(f"导入 {timeframe} 数据 ({len(csv_files)} 个文件)")
+        print(f" {timeframe}  ({len(csv_files)} )")
         print(f"{'-' * 60}")
         
         for csv_file in sorted(csv_files):
@@ -191,42 +202,42 @@ async def import_all_timeframes(timeframes: list[str] = None, dry_run: bool = Fa
                 total_stats["success"] += 1
                 total_stats["imported"] += result["imported"]
                 total_stats["skipped"] += result["skipped"]
-                print(f"    ✓ 导入 {result['imported']} 条, 跳过 {result['skipped']} 条")
+                print(f"    ✓  {result['imported']} ,  {result['skipped']} ")
             else:
                 total_stats["failed"] += 1
-                print(f"    ✗ 失败: {result['error']}")
+                print(f"    ✗ : {result['error']}")
     
-    # 关闭数据库连接
+    # 
     await Database.close()
     
-    # 打印汇总
+    # 
     print("\n" + "=" * 60)
-    print("导入完成!")
-    print(f"  总文件数: {total_stats['files']}")
-    print(f"  成功: {total_stats['success']}")
-    print(f"  失败: {total_stats['failed']}")
-    print(f"  导入记录: {total_stats['imported']}")
-    print(f"  跳过记录: {total_stats['skipped']}")
+    print("!")
+    print(f"  : {total_stats['files']}")
+    print(f"  : {total_stats['success']}")
+    print(f"  : {total_stats['failed']}")
+    print(f"  : {total_stats['imported']}")
+    print(f"  : {total_stats['skipped']}")
     print("=" * 60)
 
 
 async def show_db_stats():
-    """显示数据库中的 K 线数据统计"""
+    """ K """
     from app.db import Database
     
     print("\n" + "=" * 60)
-    print("数据库 K 线数据统计")
+    print(" K ")
     print("=" * 60)
     
     try:
         await Database.get_pool()
         
-        # 总记录数
+        # 
         total = await Database.fetchrow("SELECT COUNT(*) as count FROM kline_data")
         total_count = total['count'] if total else 0
-        print(f"\n总记录数: {total_count}")
+        print(f"\n: {total_count}")
         
-        # 按股票和周期统计
+        # 
         rows = await Database.fetch("""
             SELECT symbol, timeframe, COUNT(*) as count 
             FROM kline_data 
@@ -235,18 +246,18 @@ async def show_db_stats():
         """)
         
         if rows:
-            print("\n按股票和周期统计:")
-            print(f"{'股票代码':<10} {'周期':<6} {'记录数':<10}")
+            print("\n:")
+            print(f"{'':<10} {'':<6} {'':<10}")
             print("-" * 30)
             for row in rows:
                 print(f"{row['symbol']:<10} {row['timeframe']:<6} {row['count']:<10}")
         else:
-            print("\n数据库中没有 K 线数据")
+            print("\n K ")
         
         await Database.close()
         
     except Exception as e:
-        print(f"获取统计失败: {e}")
+        print(f": {e}")
 
 
 if __name__ == "__main__":

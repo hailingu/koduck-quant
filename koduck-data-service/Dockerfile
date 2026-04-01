@@ -10,16 +10,20 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1 \
     PIP_INDEX_URL=${PIP_INDEX_URL} \
     PIP_DEFAULT_TIMEOUT=180 \
-    PIP_RETRIES=10
+    PIP_RETRIES=10 \
+    PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
 
 # Set work directory
 WORKDIR /app
 
-# Install system dependencies
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    gcc \
-    g++ \
-    && rm -rf /var/lib/apt/lists/*
+# Install system dependencies with retries (avoid transient Debian mirror 502)
+RUN set -eux; \
+    export DEBIAN_FRONTEND=noninteractive; \
+    apt-get update -o Acquire::Retries=5; \
+    apt-get install -y --no-install-recommends --fix-missing \
+      gcc \
+      g++; \
+    rm -rf /var/lib/apt/lists/*
 
 # Install Python dependencies
 COPY requirements.txt .
@@ -27,13 +31,14 @@ RUN python -m pip install --upgrade pip setuptools wheel && \
     pip install --no-cache-dir \
     --retries ${PIP_RETRIES} \
     --timeout ${PIP_DEFAULT_TIMEOUT} \
-    -r requirements.txt
+    -r requirements.txt && \
+    python -m playwright install --with-deps chromium
 
 # Copy application code
 COPY app/ ./app/
 
 # Create non-root user
-RUN useradd -m -u 1000 appuser && chown -R appuser:appuser /app
+RUN useradd -m -u 1000 appuser && chown -R appuser:appuser /app /ms-playwright
 USER appuser
 
 # Expose port

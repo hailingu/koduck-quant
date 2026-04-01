@@ -7,7 +7,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 /**
- * 回测结果解读请求 DTO
+ *  DTO
  */
 @Data
 @Builder

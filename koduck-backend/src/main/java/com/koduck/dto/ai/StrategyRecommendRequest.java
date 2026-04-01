@@ -8,7 +8,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 /**
- * 策略推荐请求 DTO
+ *  DTO
  */
 @Data
 @Builder

@@ -6,7 +6,8 @@ This module is responsible for initializing stock basic information
 
 import asyncio
 from collections.abc import Awaitable, Callable
-from datetime import datetime, timezone
+from datetime import datetime
+from zoneinfo import ZoneInfo
 from typing import Any, TypedDict
 
 import akshare as ak
@@ -18,6 +19,7 @@ from app.db import Database, StockRealtimeDB
 
 logger = structlog.get_logger(__name__)
 FETCH_ATTEMPT_MESSAGE = "Attempting to fetch A-share stock list via %s..."
+CN_TZ = ZoneInfo("Asia/Shanghai")
 
 
 class StockBasicRecord(TypedDict):
@@ -35,13 +37,14 @@ class StockBasicRecord(TypedDict):
 # Format: (start, end, market, board)
 STOCK_RANGES: list[tuple[int, int, str, str]] = [
     # Shanghai Stock Exchange (SSE)
-    (600000, 603999, "SSE", "Main"),  # 主板
-    (688000, 688999, "SSE", "STAR"),  # 科创板
+    (600000, 603999, "SSE", "Main"),  # 
+    (688000, 688999, "SSE", "STAR"),  # 
     # Shenzhen Stock Exchange (SZSE)
-    (0, 3999, "SZSE", "Main"),  # 主板
-    (300000, 303999, "SZSE", "ChiNext"),  # 创业板
+    (0, 3999, "SZSE", "Main"),  # 
+    (300000, 303999, "SZSE", "ChiNext"),  # 
     # Beijing Stock Exchange (BSE)
-    (430001, 899999, "BSE", "BSE"),  # 北交所
+    (430001, 899999, "BSE", "BSE"),  # 
+    (920000, 920999, "BSE", "BSE"),  # 北交所 920xxx 代码段
 ]
 
 
@@ -297,7 +300,9 @@ class StockInitializer:
             List of processed stock dictionaries
         """
         stocks: list[StockBasicRecord] = []
-        now = datetime.now(timezone.utc)  # noqa: UP017
+        # stock_basic.created_at/updated_at are timestamp without time zone.
+        # Store local China time as naive datetime to avoid asyncpg tz-aware/naive errors.
+        now = datetime.now(CN_TZ).replace(tzinfo=None)
 
         for _, row in df.iterrows():
             try:
@@ -410,10 +415,10 @@ class StockInitializer:
                 logger.info("Using basic insert with board column")
                 insert_sql = """
                     INSERT INTO stock_basic (
-                        symbol, name, market, board, created_at, updated_at
+                        symbol, name, type, market, board, created_at, updated_at
                     )
-                    VALUES ($1, $2, $3, $4, $5, $6)
-                    ON CONFLICT (symbol) DO UPDATE SET
+                    VALUES ($1, $2, $3, $4, $5, $6, $7)
+                    ON CONFLICT (symbol, type) DO UPDATE SET
                         name = EXCLUDED.name,
                         market = EXCLUDED.market,
                         board = EXCLUDED.board,
@@ -428,6 +433,7 @@ class StockInitializer:
                                 insert_sql,
                                 stock["symbol"],
                                 stock["name"],
+                                "STOCK",
                                 stock["market"],
                                 stock["board"],
                                 stock["created_at"],
@@ -446,10 +452,10 @@ class StockInitializer:
                 logger.warning("board column not found, inserting without board data")
                 insert_sql = """
                     INSERT INTO stock_basic (
-                        symbol, name, market, created_at, updated_at
+                        symbol, name, type, market, created_at, updated_at
                     )
-                    VALUES ($1, $2, $3, $4, $5)
-                    ON CONFLICT (symbol) DO UPDATE SET
+                    VALUES ($1, $2, $3, $4, $5, $6)
+                    ON CONFLICT (symbol, type) DO UPDATE SET
                         name = EXCLUDED.name,
                         market = EXCLUDED.market,
                         updated_at = EXCLUDED.updated_at
@@ -463,6 +469,7 @@ class StockInitializer:
                                 insert_sql,
                                 stock["symbol"],
                                 stock["name"],
+                                "STOCK",
                                 stock["market"],
                                 stock["created_at"],
                                 stock["updated_at"],

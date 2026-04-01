@@ -9,6 +9,7 @@ import com.koduck.dto.ai.StockAnalysisRequest;
 import com.koduck.dto.ai.StockAnalysisResponse;
 import com.koduck.dto.ai.StrategyRecommendRequest;
 import com.koduck.dto.ai.StrategyRecommendResponse;
+import com.koduck.controller.support.AuthenticatedUserResolver;
 import com.koduck.entity.User;
 import com.koduck.security.UserPrincipal;
 import com.koduck.service.AiAnalysisService;
@@ -17,6 +18,7 @@ import jakarta.validation.Validation;
 import jakarta.validation.Validator;
 import jakarta.validation.ValidatorFactory;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -24,8 +26,10 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -43,6 +47,9 @@ import static org.mockito.Mockito.when;
 @ExtendWith(MockitoExtension.class)
 class AiAnalysisControllerTest {
 
+        private static final String USER_PRINCIPAL_REQUIRED_MESSAGE = "userPrincipal must not be null";
+        private static final String CONTROLLER_REQUIRED_MESSAGE = "aiAnalysisController must not be null";
+
     @Mock
     private AiAnalysisService aiAnalysisService;
 
@@ -59,6 +66,14 @@ class AiAnalysisControllerTest {
     void tearDown() {
         validatorFactory.close();
     }
+
+        @BeforeEach
+        void setUp() {
+                ReflectionTestUtils.setField(
+                                Objects.requireNonNull(aiAnalysisController, CONTROLLER_REQUIRED_MESSAGE),
+                                "authenticatedUserResolver",
+                                new AuthenticatedUserResolver());
+        }
 
     /**
      * Verifies stock analysis delegates to service and returns wrapped success response.
@@ -103,7 +118,7 @@ class AiAnalysisControllerTest {
                 () -> aiAnalysisController.analyzeStock(null, request)
         );
 
-        assertEquals("authenticated user is required", exception.getMessage());
+        assertEquals(USER_PRINCIPAL_REQUIRED_MESSAGE, exception.getMessage());
     }
 
     /**

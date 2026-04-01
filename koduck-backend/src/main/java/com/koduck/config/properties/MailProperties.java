@@ -6,9 +6,15 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.context.annotation.Configuration;
 
 /**
- * 邮件服务配置属性
+ * Configuration properties for email service and password reset flows.
+ * <p>
+ * Binds the configuration prefix {@code koduck.mail} and provides helper methods
+ * for building password reset URLs.
+ * </p>
  *
- * <p>配置前缀: {@code koduck.mail}</p>
+ * @see <a href="https://docs.spring.io/spring-boot/docs/current/reference/htmlsingle/#features.external-config.typesafe-configuration-properties">Spring Boot Configuration Properties</a>
+ * @author GitHub Copilot
+ * @date 2026-03-31
  */
 @Configuration
 @ConfigurationProperties(prefix = "koduck.mail")
@@ -16,28 +22,27 @@ import org.springframework.context.annotation.Configuration;
 public class MailProperties {
 
     /**
-     * 是否启用邮件服务
+     * Whether email sending is enabled.
      */
     private boolean enabled = false;
 
     /**
-     * 发件人地址
+     * Email address used in the From header for outbound emails.
      */
     private String from = "noreply@koduck.local";
 
     /**
-     * 发件人显示名称
+     * Display name used in the From header for outbound emails.
      */
     private String fromName = "Koduck Quant";
 
     /**
-     * 密码重置令牌有效期（分钟）
+     * Password reset token expiry time in minutes.
      */
     private int passwordResetTokenExpiryMinutes = 30;
 
     /**
-     * 前端密码重置页面 URL 模板
-     * 使用 {token} 作为令牌占位符
+     * Template for password reset URL. The token placeholder must be {@code {token}}.
      */
     private String passwordResetUrlTemplate = "http://localhost:3000/reset-password?token={token}";
 
@@ -47,53 +52,106 @@ public class MailProperties {
                 enabled, from, passwordResetTokenExpiryMinutes);
     }
 
+    /**
+     * Returns whether mail gateway is enabled.
+     *
+     * @return true if enabled, false otherwise
+     */
     public boolean isEnabled() {
         return enabled;
     }
 
+    /**
+     * Sets whether mail gateway is enabled.
+     *
+     * @param enabled true to enable, false to disable
+     */
     public void setEnabled(boolean enabled) {
         this.enabled = enabled;
     }
 
+    /**
+     * Returns the configured sender address.
+     *
+     * @return sender address
+     */
     public String getFrom() {
         return from;
     }
 
+    /**
+     * Sets the sender email address.
+     *
+     * @param from sender email address
+     */
     public void setFrom(String from) {
         this.from = from;
     }
 
+    /**
+     * Returns the sender display name.
+     *
+     * @return sender display name
+     */
     public String getFromName() {
         return fromName;
     }
 
+    /**
+     * Sets the sender display name.
+     *
+     * @param fromName sender display name
+     */
     public void setFromName(String fromName) {
         this.fromName = fromName;
     }
 
+    /**
+     * Returns password reset token expiry in minutes.
+     *
+     * @return expiry in minutes
+     */
     public int getPasswordResetTokenExpiryMinutes() {
         return passwordResetTokenExpiryMinutes;
     }
 
+    /**
+     * Sets password reset token expiry in minutes.
+     *
+     * @param passwordResetTokenExpiryMinutes expiry in minutes
+     */
     public void setPasswordResetTokenExpiryMinutes(int passwordResetTokenExpiryMinutes) {
         this.passwordResetTokenExpiryMinutes = passwordResetTokenExpiryMinutes;
     }
 
+    /**
+     * Returns password reset URL template.
+     *
+     * @return URL template with {@code {token}} placeholder
+     */
     public String getPasswordResetUrlTemplate() {
         return passwordResetUrlTemplate;
     }
 
+    /**
+     * Sets password reset URL template.
+     *
+     * @param passwordResetUrlTemplate URL template with {@code {token}} placeholder
+     */
     public void setPasswordResetUrlTemplate(String passwordResetUrlTemplate) {
         this.passwordResetUrlTemplate = passwordResetUrlTemplate;
     }
 
     /**
-     * 生成密码重置链接
+     * Builds a password reset URL by replacing the token placeholder.
      *
-     * @param token 重置令牌
-     * @return 完整的重置链接
+     * @param token password reset token, must not be null or empty
+     * @return resolved URL
      */
     public String buildPasswordResetUrl(String token) {
+        if (token == null) {
+            throw new IllegalArgumentException("token must not be null");
+        }
         return passwordResetUrlTemplate.replace("{token}", token);
     }
 }

@@ -10,7 +10,7 @@ import org.hibernate.annotations.CreationTimestamp;
 import java.time.LocalDateTime;
 
 /**
- * 策略版本实体
+ * 
  */
 @Entity
 @Table(name = "strategy_versions",

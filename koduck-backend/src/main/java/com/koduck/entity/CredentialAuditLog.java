@@ -10,7 +10,7 @@ import org.hibernate.annotations.CreationTimestamp;
 import java.time.LocalDateTime;
 
 /**
- * 凭证操作审计日志实体
+ * 
  */
 @Entity
 @Table(name = "credential_audit_logs")
@@ -51,13 +51,13 @@ public class CredentialAuditLog {
     private LocalDateTime createdAt;
 
     /**
-     * 操作类型枚举
+     * 
      */
     public enum ActionType {
-        CREATE, // 创建凭证
-        UPDATE, // 更新凭证
-        DELETE, // 删除凭证
-        VERIFY, // 验证凭证
-        VIEW    // 查看凭证列表
+        CREATE, // 
+        UPDATE, // 
+        DELETE, // 
+        VERIFY, // 
+        VIEW    // 
     }
 }

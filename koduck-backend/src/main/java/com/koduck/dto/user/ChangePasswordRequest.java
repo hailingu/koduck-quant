@@ -5,7 +5,7 @@ import jakarta.validation.constraints.Size;
 import lombok.Data;
 
 /**
- * 修改密码请求 DTO
+ *  DTO
  */
 @Data
 public class ChangePasswordRequest {

@@ -3,10 +3,12 @@ FROM python:3.12-slim
 
 WORKDIR /app
 
-# Install system dependencies
-RUN apt-get update && apt-get install -y \
-    gcc \
-    && rm -rf /var/lib/apt/lists/*
+# Install system dependencies with retries (avoid transient Debian mirror 502)
+RUN set -eux; \
+    export DEBIAN_FRONTEND=noninteractive; \
+    apt-get update -o Acquire::Retries=5; \
+    apt-get install -y --no-install-recommends --fix-missing gcc; \
+    rm -rf /var/lib/apt/lists/*
 
 # Copy requirements
 COPY pyproject.toml README.md ./
@@ -21,7 +23,9 @@ RUN pip install --no-cache-dir \
     anthropic>=0.39.0 \
     python-dotenv>=1.0.0 \
     fastapi>=0.109.0 \
-    uvicorn>=0.27.0
+    uvicorn>=0.27.0 \
+    psycopg[binary]>=3.2.0 \
+    asyncpg>=0.29.0
 
 # Copy application code
 COPY koduck/ ./koduck/

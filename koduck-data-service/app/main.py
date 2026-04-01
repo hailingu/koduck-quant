@@ -4,7 +4,9 @@ import asyncio
 import logging
 import sys
 from contextlib import asynccontextmanager
+from datetime import datetime
 from time import perf_counter
+from zoneinfo import ZoneInfo
 
 import structlog
 from fastapi import FastAPI
@@ -15,12 +17,19 @@ from fastapi.responses import JSONResponse
 from app.config import settings
 from app.db import Database
 from app.models.schemas import ApiResponse, HealthStatus
-from app.routers import a_share, ai_analysis, kline, market
-from app.services.data_updater import data_updater, test_icbc_update
+from app.routers import a_share, ai_analysis, baostock, dashboard, kline, market, tick_monitor, tick, market_stats
+from app.services.data_updater import data_updater, test_icbc_update, update_market_indices
 from app.services.kline_initializer import kline_initializer
 from app.services.kline_scheduler import kline_scheduler
 from app.services.stock_basic_manager import stock_basic_manager
 from app.services.stock_initializer import stock_initializer
+from app.services.tick_scheduler import tick_scheduler
+from app.services.tick_monitor import tick_monitor as tick_monitor_service
+from app.services.tick_redis_cache import tick_redis_cache
+from app.services.market_net_flow_updater import market_net_flow_updater
+from app.services.market_breadth_updater import market_breadth_updater
+from app.services.market_sector_net_flow_updater import market_sector_net_flow_updater
+from app.services.realtime_event_publisher import realtime_event_publisher
 
 API_V1_PREFIX = "/api/v1"
 
@@ -53,6 +62,13 @@ def setup_logging():
     The function sets up ``structlog`` processors and binds the standard library
     logging level.
     """
+    shanghai_tz = ZoneInfo("Asia/Shanghai")
+
+    def add_shanghai_timestamp(_, __, event_dict):
+        """Attach ISO8601 timestamp in Asia/Shanghai timezone."""
+        event_dict["timestamp"] = datetime.now(shanghai_tz).isoformat(timespec="microseconds")
+        return event_dict
+
     def reorder_log_fields(_, __, event_dict):
         """Keep key order stable for readability in JSON logs."""
         preferred_order = (
@@ -90,7 +106,7 @@ def setup_logging():
         structlog.stdlib.add_logger_name,
         structlog.stdlib.add_log_level,
         structlog.stdlib.PositionalArgumentsFormatter(),
-        structlog.processors.TimeStamper(fmt="iso"),
+        add_shanghai_timestamp,
         structlog.processors.StackInfoRenderer(),
         structlog.processors.format_exc_info,
         structlog.processors.UnicodeDecoder(),
@@ -167,6 +183,12 @@ async def lifespan(app: FastAPI):
     logger.info("Initializing database connection...")
     await Database.get_pool()
 
+    if settings.PRICE_PUSH_MQ_ENABLED:
+        try:
+            await realtime_event_publisher.start()
+        except Exception as e:
+            logger.warning("Realtime MQ publisher init failed", error=str(e))
+
     # Initialize A-share stock basic data (enhanced with CSV caching)
     logger.info("Initializing A-share stock basic data with CSV caching...")
     stock_basic_table_exists = await stock_initializer.check_table_exists()
@@ -201,9 +223,44 @@ async def lifespan(app: FastAPI):
     logger.info("Starting K-line scheduler...")
     await kline_scheduler.start()
     
+    # Start tick scheduler for maintenance tasks
+    if settings.TICK_HISTORY_ENABLED:
+        logger.info("Starting tick scheduler...")
+        await tick_scheduler.start()
+        
+        # Start tick monitor for health monitoring
+        if getattr(settings, 'TICK_MONITOR_ENABLED', True):
+            logger.info("Starting tick monitor...")
+            await tick_monitor_service.start()
+        
+        # Connect to Redis for tick caching
+        try:
+            logger.info("Connecting to Redis for tick caching...")
+            await tick_redis_cache.connect()
+            logger.info("Redis connection: SUCCESS")
+        except Exception as e:
+            logger.warning(f"Redis connection: FAILED ({e})")
+    
     # Start realtime data update task (update stocks with kline data)
     logger.info("Starting realtime stock data update task (watchlist only)...")
     realtime_task = asyncio.create_task(run_realtime_update_scheduler())
+    
+    # Start market indices update task
+    logger.info("Starting market indices update task...")
+    indices_task = asyncio.create_task(run_indices_update_scheduler())
+
+    market_net_flow_task = None
+    if settings.MARKET_NET_FLOW_ENABLED:
+        logger.info("Starting market daily net-flow update task...")
+        market_net_flow_task = asyncio.create_task(run_market_net_flow_scheduler())
+    market_breadth_task = None
+    if settings.MARKET_BREADTH_ENABLED:
+        logger.info("Starting market daily breadth update task...")
+        market_breadth_task = asyncio.create_task(run_market_breadth_scheduler())
+    market_sector_net_flow_task = None
+    if settings.MARKET_SECTOR_NET_FLOW_ENABLED:
+        logger.info("Starting market sector net-flow update task...")
+        market_sector_net_flow_task = asyncio.create_task(run_market_sector_net_flow_scheduler())
     
     yield
     
@@ -213,14 +270,46 @@ async def lifespan(app: FastAPI):
     # Stop K-line scheduler
     await kline_scheduler.stop()
     
+    # Stop tick scheduler and monitor
+    if settings.TICK_HISTORY_ENABLED:
+        await tick_scheduler.stop()
+        if getattr(settings, 'TICK_MONITOR_ENABLED', True):
+            await tick_monitor_service.stop()
+        await tick_redis_cache.close_cache()
+    
     realtime_task.cancel()
+    indices_task.cancel()
+    if market_net_flow_task:
+        market_net_flow_task.cancel()
+    if market_breadth_task:
+        market_breadth_task.cancel()
+    if market_sector_net_flow_task:
+        market_sector_net_flow_task.cancel()
     try:
         await realtime_task
     except asyncio.CancelledError:
-        await Database.close()
-        raise
-    else:
-        await Database.close()
+        pass
+    try:
+        await indices_task
+    except asyncio.CancelledError:
+        pass
+    if market_net_flow_task:
+        try:
+            await market_net_flow_task
+        except asyncio.CancelledError:
+            pass
+    if market_breadth_task:
+        try:
+            await market_breadth_task
+        except asyncio.CancelledError:
+            pass
+    if market_sector_net_flow_task:
+        try:
+            await market_sector_net_flow_task
+        except asyncio.CancelledError:
+            pass
+    await realtime_event_publisher.close()
+    await Database.close()
 
 
 async def run_realtime_update_scheduler():
@@ -331,6 +420,178 @@ async def run_realtime_update_scheduler():
         await asyncio.sleep(interval_seconds)
 
 
+async def run_indices_update_scheduler():
+    """Periodically update market indices to stock_realtime table.
+    
+    Updates main A-share market indices (上证指数, 深证成指, 创业板指)
+    every 30 seconds during trading hours.
+    """
+    logger = structlog.get_logger()
+    
+    # Wait a bit for service to fully start
+    await asyncio.sleep(5)
+    
+    iteration = 0
+    interval_seconds = 30  # Update every 30 seconds
+    
+    logger.info("Starting market indices scheduler loop")
+    
+    while True:
+        try:
+            from app.utils.trading_hours import is_a_share_trading_time
+            
+            is_trading_time = is_a_share_trading_time()
+            should_run = should_run_realtime_update(
+                is_trading_time=is_trading_time,
+                only_during_trading_hours=settings.REALTIME_ONLY_DURING_TRADING_HOURS,
+                skip_during_trading_hours=settings.REALTIME_SKIP_DURING_TRADING_HOURS,
+            )
+            
+            if not should_run:
+                logger.debug(
+                    "Skipping indices update by strategy",
+                    is_trading_time=is_trading_time,
+                )
+                await asyncio.sleep(interval_seconds)
+                continue
+            
+            iteration += 1
+            success_count = await update_market_indices()
+            
+            if success_count > 0:
+                logger.debug(
+                    f"[{iteration}] Market indices update completed: {success_count} indices updated"
+                )
+            
+        except asyncio.CancelledError:
+            logger.info("Market indices scheduler cancelled")
+            raise
+        except Exception:
+            logger.error("Market indices scheduler error", exc_info=True)
+        
+        await asyncio.sleep(interval_seconds)
+
+
+async def run_market_net_flow_scheduler():
+    """Periodically refresh daily market net-flow aggregate."""
+    from app.utils.trading_hours import is_a_share_trading_time
+
+    logger = structlog.get_logger()
+
+    # Wait for service readiness
+    await asyncio.sleep(5)
+
+    iteration = 0
+    logger.info("Starting market daily net-flow scheduler loop")
+
+    while True:
+        try:
+            is_trading_time = is_a_share_trading_time()
+            interval_seconds = (
+                settings.MARKET_NET_FLOW_TRADING_INTERVAL_SECONDS
+                if is_trading_time
+                else settings.MARKET_NET_FLOW_NON_TRADING_INTERVAL_SECONDS
+            )
+
+            success = await market_net_flow_updater.update_once()
+            iteration += 1
+            logger.debug(
+                "Market net-flow scheduler iteration completed",
+                iteration=iteration,
+                is_trading_time=is_trading_time,
+                success=success,
+                interval_seconds=interval_seconds,
+            )
+        except asyncio.CancelledError:
+            logger.info("Market daily net-flow scheduler cancelled")
+            raise
+        except Exception:
+            logger.error("Market daily net-flow scheduler error", exc_info=True)
+            interval_seconds = settings.MARKET_NET_FLOW_NON_TRADING_INTERVAL_SECONDS
+
+        await asyncio.sleep(interval_seconds)
+
+
+async def run_market_breadth_scheduler():
+    """Periodically refresh daily market breadth aggregate."""
+    from app.utils.trading_hours import is_a_share_trading_time
+
+    logger = structlog.get_logger()
+
+    # Wait for service readiness
+    await asyncio.sleep(5)
+
+    iteration = 0
+    logger.info("Starting market daily breadth scheduler loop")
+
+    while True:
+        try:
+            is_trading_time = is_a_share_trading_time()
+            interval_seconds = (
+                settings.MARKET_BREADTH_TRADING_INTERVAL_SECONDS
+                if is_trading_time
+                else settings.MARKET_BREADTH_NON_TRADING_INTERVAL_SECONDS
+            )
+
+            success = await market_breadth_updater.update_once()
+            iteration += 1
+            logger.debug(
+                "Market breadth scheduler iteration completed",
+                iteration=iteration,
+                is_trading_time=is_trading_time,
+                success=success,
+                interval_seconds=interval_seconds,
+            )
+        except asyncio.CancelledError:
+            logger.info("Market daily breadth scheduler cancelled")
+            raise
+        except Exception:
+            logger.error("Market daily breadth scheduler error", exc_info=True)
+            interval_seconds = settings.MARKET_BREADTH_NON_TRADING_INTERVAL_SECONDS
+
+        await asyncio.sleep(interval_seconds)
+
+
+async def run_market_sector_net_flow_scheduler():
+    """Periodically refresh sector-level market net-flow snapshots."""
+    from app.utils.trading_hours import is_a_share_trading_time
+
+    logger = structlog.get_logger()
+
+    # Wait for service readiness
+    await asyncio.sleep(5)
+
+    iteration = 0
+    logger.info("Starting market sector net-flow scheduler loop")
+
+    while True:
+        try:
+            is_trading_time = is_a_share_trading_time()
+            interval_seconds = (
+                settings.MARKET_SECTOR_NET_FLOW_TRADING_INTERVAL_SECONDS
+                if is_trading_time
+                else settings.MARKET_SECTOR_NET_FLOW_NON_TRADING_INTERVAL_SECONDS
+            )
+
+            success = await market_sector_net_flow_updater.update_once()
+            iteration += 1
+            logger.debug(
+                "Market sector net-flow scheduler iteration completed",
+                iteration=iteration,
+                is_trading_time=is_trading_time,
+                success=success,
+                interval_seconds=interval_seconds,
+            )
+        except asyncio.CancelledError:
+            logger.info("Market sector net-flow scheduler cancelled")
+            raise
+        except Exception:
+            logger.error("Market sector net-flow scheduler error", exc_info=True)
+            interval_seconds = settings.MARKET_SECTOR_NET_FLOW_NON_TRADING_INTERVAL_SECONDS
+
+        await asyncio.sleep(interval_seconds)
+
+
 async def run_icbc_scheduler():
     """Legacy scheduler that drives ICBC-specific update logic.
 
@@ -389,8 +650,13 @@ def create_app() -> FastAPI:
     # Include routers
     app.include_router(a_share.router, prefix=API_V1_PREFIX)
     app.include_router(ai_analysis.router, prefix=API_V1_PREFIX)
+    app.include_router(dashboard.router)  # Dashboard router has its own prefix
     app.include_router(kline.router, prefix=API_V1_PREFIX)
     app.include_router(market.router, prefix=API_V1_PREFIX)
+    app.include_router(tick_monitor.router, prefix=API_V1_PREFIX)
+    app.include_router(baostock.router, prefix=API_V1_PREFIX)
+    app.include_router(tick.router)
+    app.include_router(market_stats.router)
 
     @app.middleware("http")
     async def log_healthcheck_requests(request, call_next):

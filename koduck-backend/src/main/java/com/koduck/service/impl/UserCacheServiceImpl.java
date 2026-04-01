@@ -1,11 +1,13 @@
 package com.koduck.service.impl;
 
-import com.koduck.config.RedisKeyConstants;
+import com.koduck.common.constants.RedisKeyConstants;
 import com.koduck.service.UserCacheService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
+import org.springframework.lang.NonNull;
 
+import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -16,17 +18,16 @@ import java.util.stream.Collectors;
 @Service
 @Slf4j
 public class UserCacheServiceImpl implements UserCacheService {
-
     private final RedisTemplate<String, Object> redisTemplate;
 
     public UserCacheServiceImpl(RedisTemplate<String, Object> redisTemplate) {
-        this.redisTemplate = redisTemplate;
+        this.redisTemplate = Objects.requireNonNull(redisTemplate, "redisTemplate must not be null");
     }
 
-    // ==================== User Tracking List (盯盘列表) ====================
+    // ==================== User Tracking List () ====================
 
     @Override
-    public void addToUserTrackList(Long userId, String symbol) {
+    public void addToUserTrackList(@NonNull Long userId, @NonNull String symbol) {
         String key = RedisKeyConstants.userTrackKey(userId);
         try {
             redisTemplate.opsForSet().add(key, symbol);
@@ -38,7 +39,7 @@ public class UserCacheServiceImpl implements UserCacheService {
     }
 
     @Override
-    public void removeFromUserTrackList(Long userId, String symbol) {
+    public void removeFromUserTrackList(@NonNull Long userId, @NonNull String symbol) {
         String key = RedisKeyConstants.userTrackKey(userId);
         try {
             redisTemplate.opsForSet().remove(key, symbol);
@@ -50,8 +51,7 @@ public class UserCacheServiceImpl implements UserCacheService {
     }
 
     @Override
-    @SuppressWarnings("unchecked")
-    public Set<String> getUserTrackList(Long userId) {
+    public Set<String> getUserTrackList(@NonNull Long userId) {
         String key = RedisKeyConstants.userTrackKey(userId);
         try {
             Set<Object> members = redisTemplate.opsForSet().members(key);
@@ -64,11 +64,11 @@ public class UserCacheServiceImpl implements UserCacheService {
         } catch (Exception e) {
             log.warn("Failed to get user track list: userId={}, error={}", userId, e.getMessage());
         }
-        return null;
+        return Set.of();
     }
 
     @Override
-    public boolean isInUserTrackList(Long userId, String symbol) {
+    public boolean isInUserTrackList(@NonNull Long userId, @NonNull String symbol) {
         String key = RedisKeyConstants.userTrackKey(userId);
         try {
             Boolean isMember = redisTemplate.opsForSet().isMember(key, symbol);
@@ -80,10 +80,10 @@ public class UserCacheServiceImpl implements UserCacheService {
         }
     }
 
-    // ==================== User Watchlist (观察列表) ====================
+    // ==================== User Watchlist () ====================
 
     @Override
-    public void addToUserWatchList(Long userId, String symbol) {
+    public void addToUserWatchList(@NonNull Long userId, @NonNull String symbol) {
         String key = RedisKeyConstants.userWatchKey(userId);
         try {
             redisTemplate.opsForSet().add(key, symbol);
@@ -95,7 +95,7 @@ public class UserCacheServiceImpl implements UserCacheService {
     }
 
     @Override
-    public void removeFromUserWatchList(Long userId, String symbol) {
+    public void removeFromUserWatchList(@NonNull Long userId, @NonNull String symbol) {
         String key = RedisKeyConstants.userWatchKey(userId);
         try {
             redisTemplate.opsForSet().remove(key, symbol);
@@ -107,8 +107,7 @@ public class UserCacheServiceImpl implements UserCacheService {
     }
 
     @Override
-    @SuppressWarnings("unchecked")
-    public Set<String> getUserWatchList(Long userId) {
+    public Set<String> getUserWatchList(@NonNull Long userId) {
         String key = RedisKeyConstants.userWatchKey(userId);
         try {
             Set<Object> members = redisTemplate.opsForSet().members(key);
@@ -121,18 +120,20 @@ public class UserCacheServiceImpl implements UserCacheService {
         } catch (Exception e) {
             log.warn("Failed to get user watch list: userId={}, error={}", userId, e.getMessage());
         }
-        return null;
+        return Set.of();
     }
 
     // ==================== Bulk Operations ====================
 
     @Override
-    public void cacheUserTrackList(Long userId, Set<String> symbols) {
+    public void cacheUserTrackList(@NonNull Long userId, Set<String> symbols) {
         String key = RedisKeyConstants.userTrackKey(userId);
         try {
             redisTemplate.delete(key);
             if (symbols != null && !symbols.isEmpty()) {
-                redisTemplate.opsForSet().add(key, symbols.toArray());
+                for (String item : symbols) {
+                    redisTemplate.opsForSet().add(key, item);
+                }
             }
             log.debug("Cached user track list: userId={}, count={}", userId, symbols != null ? symbols.size() : 0);
         } catch (Exception e) {
@@ -141,12 +142,14 @@ public class UserCacheServiceImpl implements UserCacheService {
     }
 
     @Override
-    public void cacheUserWatchList(Long userId, Set<String> symbols) {
+    public void cacheUserWatchList(@NonNull Long userId, Set<String> symbols) {
         String key = RedisKeyConstants.userWatchKey(userId);
         try {
             redisTemplate.delete(key);
             if (symbols != null && !symbols.isEmpty()) {
-                redisTemplate.opsForSet().add(key, symbols.toArray());
+                for (String item : symbols) {
+                    redisTemplate.opsForSet().add(key, item);
+                }
             }
             log.debug("Cached user watch list: userId={}, count={}", userId, symbols != null ? symbols.size() : 0);
         } catch (Exception e) {
@@ -155,7 +158,7 @@ public class UserCacheServiceImpl implements UserCacheService {
     }
 
     @Override
-    public void invalidateUserCache(Long userId) {
+    public void invalidateUserCache(@NonNull Long userId) {
         try {
             String trackKey = RedisKeyConstants.userTrackKey(userId);
             String watchKey = RedisKeyConstants.userWatchKey(userId);

@@ -17,6 +17,12 @@ services:
       - HOST=0.0.0.0
       - PORT=8000
       - REDIS_URL=redis://redis:6379/0
+      - PRICE_PUSH_MQ_ENABLED=true
+      - RABBITMQ_HOST=rabbitmq
+      - RABBITMQ_PORT=5672
+      - RABBITMQ_USERNAME=${RABBITMQ_USERNAME:-guest}
+      - RABBITMQ_PASSWORD=${RABBITMQ_PASSWORD:-guest}
+      - RABBITMQ_VHOST=${RABBITMQ_VHOST:-/}
       - LOG_LEVEL=INFO
       - DEBUG=false
       # Timezone for scheduled tasks (market hours in Shanghai)
@@ -26,6 +32,8 @@ services:
       - KLINE_UPDATE_TIME=15:35
     depends_on:
       redis:
+        condition: service_healthy
+      rabbitmq:
         condition: service_healthy
     restart: unless-stopped
     networks:
@@ -55,6 +63,25 @@ services:
       timeout: 3s
       retries: 3
     command: redis-server --appendonly yes
+
+  rabbitmq:
+    image: rabbitmq:3.13-management-alpine
+    container_name: koduck-rabbitmq
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USERNAME:-guest}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-guest}
+      RABBITMQ_DEFAULT_VHOST: ${RABBITMQ_VHOST:-/}
+    restart: unless-stopped
+    networks:
+      - koduck-network
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "check_running"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
 
 volumes:
   redis_data:

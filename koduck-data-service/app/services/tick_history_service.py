@@ -6,11 +6,12 @@ including queries, analytics, and maintenance operations.
 
 import logging
 from datetime import datetime, timedelta
-from typing import Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 from dataclasses import dataclass
 
-from app.db import tick_history_db
+from app.db import tick_history_db, Database
 from app.config import settings
+from app.services.tick_redis_cache import tick_redis_cache, cache_tick
 
 logger = logging.getLogger(__name__)
 
@@ -302,6 +303,329 @@ class TickHistoryService:
             })
         
         return resampled
+    
+    @staticmethod
+    async def export_ticks_for_java_backend(
+        symbols: List[str],
+        start_time: Optional[datetime] = None,
+        end_time: Optional[datetime] = None,
+        format: str = "json"
+    ) -> Dict[str, Any]:
+        """Export tick data for Java backend consumption.
+        
+        Args:
+            symbols: List of stock symbols to export
+            start_time: Start of time range (defaults to 1 hour ago)
+            end_time: End of time range (defaults to now)
+            format: Export format (json, csv)
+            
+        Returns:
+            Export result with data and metadata
+        """
+        if end_time is None:
+            end_time = datetime.now()
+        if start_time is None:
+            start_time = end_time - timedelta(hours=1)
+        
+        export_data = []
+        failed_symbols = []
+        
+        for symbol in symbols:
+            try:
+                # Try to get from cache first
+                cached = await tick_redis_cache.get_latest_ticks_batch([symbol])
+                if cached.get(symbol):
+                    export_data.append(cached[symbol])
+                    continue
+                
+                # Get from database
+                ticks = await tick_history_db.get_ticks_by_time_range(
+                    symbol, start_time, end_time, limit=1000, offset=0
+                )
+                
+                if ticks:
+                    # Cache latest tick
+                    await cache_tick(symbol, ticks[-1])
+                    
+                    export_data.append({
+                        'symbol': symbol,
+                        'ticks': ticks,
+                        'count': len(ticks)
+                    })
+                else:
+                    failed_symbols.append(symbol)
+                    
+            except Exception as e:
+                logger.error(f"Failed to export ticks for {symbol}: {e}")
+                failed_symbols.append(symbol)
+        
+        return {
+            'data': export_data,
+            'metadata': {
+                'exported_at': datetime.now().isoformat(),
+                'start_time': start_time.isoformat(),
+                'end_time': end_time.isoformat(),
+                'total_symbols': len(symbols),
+                'successful': len(export_data),
+                'failed': len(failed_symbols),
+                'failed_symbols': failed_symbols,
+                'format': format
+            }
+        }
+    
+    @staticmethod
+    async def get_multi_symbol_ticks(
+        symbols: List[str],
+        start_time: Optional[datetime] = None,
+        end_time: Optional[datetime] = None,
+        limit_per_symbol: int = 100
+    ) -> Dict[str, List[Dict]]:
+        """Get tick data for multiple symbols.
+        
+        Args:
+            symbols: List of stock symbols
+            start_time: Start of time range
+            end_time: End of time range
+            limit_per_symbol: Maximum ticks per symbol
+            
+        Returns:
+            Dictionary mapping symbol to tick list
+        """
+        if end_time is None:
+            end_time = datetime.now()
+        if start_time is None:
+            start_time = end_time - timedelta(hours=1)
+        
+        results = {}
+        
+        # Try cache first for all symbols
+        cached = await tick_redis_cache.get_latest_ticks_batch(symbols)
+        
+        for symbol in symbols:
+            if cached.get(symbol):
+                results[symbol] = [cached[symbol]]
+            else:
+                # Get from database
+                try:
+                    ticks = await tick_history_db.get_ticks_by_time_range(
+                        symbol, start_time, end_time, limit=limit_per_symbol, offset=0
+                    )
+                    results[symbol] = ticks
+                    
+                    # Cache latest if available
+                    if ticks:
+                        await cache_tick(symbol, ticks[-1])
+                        
+                except Exception as e:
+                    logger.error(f"Failed to get ticks for {symbol}: {e}")
+                    results[symbol] = []
+        
+        return results
+    
+    @staticmethod
+    async def get_tick_volume_summary(
+        symbol: str,
+        days: int = 7
+    ) -> Dict[str, Any]:
+        """Get volume summary for a symbol over multiple days.
+        
+        Args:
+            symbol: Stock symbol
+            days: Number of days to analyze
+            
+        Returns:
+            Volume summary statistics
+        """
+        end_time = datetime.now()
+        start_time = end_time - timedelta(days=days)
+        
+        try:
+            # Daily aggregation
+            rows = await Database.fetch(
+                """
+                SELECT 
+                    DATE(tick_time) as date,
+                    COUNT(*) as tick_count,
+                    SUM(volume) as total_volume,
+                    SUM(amount) as total_amount,
+                    AVG(price) as avg_price,
+                    MIN(price) as min_price,
+                    MAX(price) as max_price
+                FROM stock_tick_history
+                WHERE symbol = $1
+                  AND tick_time >= $2
+                  AND tick_time <= $3
+                GROUP BY DATE(tick_time)
+                ORDER BY date DESC
+                """,
+                symbol, start_time, end_time
+            )
+            
+            daily_data = [
+                {
+                    'date': str(r['date']),
+                    'tick_count': r['tick_count'],
+                    'total_volume': r['total_volume'],
+                    'total_amount': float(r['total_amount']) if r['total_amount'] else 0,
+                    'avg_price': float(r['avg_price']) if r['avg_price'] else 0,
+                    'min_price': float(r['min_price']) if r['min_price'] else 0,
+                    'max_price': float(r['max_price']) if r['max_price'] else 0,
+                }
+                for r in rows
+            ]
+            
+            # Calculate totals
+            total_ticks = sum(d['tick_count'] for d in daily_data)
+            total_volume = sum(d['total_volume'] for d in daily_data)
+            total_amount = sum(d['total_amount'] for d in daily_data)
+            
+            return {
+                'symbol': symbol,
+                'days_analyzed': days,
+                'daily_data': daily_data,
+                'summary': {
+                    'total_ticks': total_ticks,
+                    'total_volume': total_volume,
+                    'total_amount': total_amount,
+                    'avg_daily_ticks': total_ticks / len(daily_data) if daily_data else 0,
+                }
+            }
+            
+        except Exception as e:
+            logger.error(f"Failed to get volume summary for {symbol}: {e}")
+            return {
+                'symbol': symbol,
+                'days_analyzed': days,
+                'daily_data': [],
+                'summary': {}
+            }
+    
+    @staticmethod
+    async def search_ticks_by_price_range(
+        symbol: str,
+        min_price: float,
+        max_price: float,
+        start_time: Optional[datetime] = None,
+        end_time: Optional[datetime] = None,
+        limit: int = 1000
+    ) -> List[Dict]:
+        """Search ticks within a price range.
+        
+        Args:
+            symbol: Stock symbol
+            min_price: Minimum price
+            max_price: Maximum price
+            start_time: Start of time range
+            end_time: End of time range
+            limit: Maximum results
+            
+        Returns:
+            List of matching ticks
+        """
+        if end_time is None:
+            end_time = datetime.now()
+        if start_time is None:
+            start_time = end_time - timedelta(days=1)
+        
+        try:
+            rows = await Database.fetch(
+                """
+                SELECT *
+                FROM stock_tick_history
+                WHERE symbol = $1
+                  AND tick_time >= $2
+                  AND tick_time <= $3
+                  AND price >= $4
+                  AND price <= $5
+                ORDER BY tick_time DESC
+                LIMIT $6
+                """,
+                symbol, start_time, end_time, min_price, max_price, limit
+            )
+            
+            return [dict(r) for r in rows]
+            
+        except Exception as e:
+            logger.error(f"Failed to search ticks for {symbol}: {e}")
+            return []
+    
+    @staticmethod
+    async def get_collection_health(
+        hours: int = 24
+    ) -> Dict[str, Any]:
+        """Get overall collection health status.
+        
+        Args:
+            hours: Hours to analyze
+            
+        Returns:
+            Health status dictionary
+        """
+        end_time = datetime.now()
+        start_time = end_time - timedelta(hours=hours)
+        
+        try:
+            # Get overall stats
+            row = await Database.fetchrow(
+                """
+                SELECT 
+                    COUNT(DISTINCT symbol) as symbols_with_data,
+                    COUNT(*) as total_ticks,
+                    AVG(price) as avg_price,
+                    MIN(tick_time) as earliest_tick,
+                    MAX(tick_time) as latest_tick
+                FROM stock_tick_history
+                WHERE tick_time >= $1
+                """,
+                start_time
+            )
+            
+            # Get symbols without recent data
+            no_data_rows = await Database.fetch(
+                """
+                SELECT DISTINCT w.symbol
+                FROM watchlist_items w
+                LEFT JOIN stock_tick_history t ON w.symbol = t.symbol 
+                    AND t.tick_time >= $1
+                WHERE w.market IN ('AShare', 'SSE', 'SZSE')
+                  AND t.symbol IS NULL
+                LIMIT 100
+                """,
+                start_time
+            )
+            
+            # Get top symbols by tick count
+            top_rows = await Database.fetch(
+                """
+                SELECT 
+                    symbol,
+                    COUNT(*) as tick_count
+                FROM stock_tick_history
+                WHERE tick_time >= $1
+                GROUP BY symbol
+                ORDER BY tick_count DESC
+                LIMIT 10
+                """,
+                start_time
+            )
+            
+            return {
+                'period_hours': hours,
+                'symbols_with_data': row['symbols_with_data'] if row else 0,
+                'total_ticks': row['total_ticks'] if row else 0,
+                'avg_price': float(row['avg_price']) if row and row['avg_price'] else 0,
+                'earliest_tick': row['earliest_tick'].isoformat() if row and row['earliest_tick'] else None,
+                'latest_tick': row['latest_tick'].isoformat() if row and row['latest_tick'] else None,
+                'symbols_without_data': [r['symbol'] for r in no_data_rows],
+                'top_symbols': [
+                    {'symbol': r['symbol'], 'tick_count': r['tick_count']}
+                    for r in top_rows
+                ]
+            }
+            
+        except Exception as e:
+            logger.error(f"Failed to get collection health: {e}")
+            return {'error': str(e)}
 
 
 # Global service instance

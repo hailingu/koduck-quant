@@ -30,6 +30,10 @@ public class StockRealtime {
     @Column(name = "name", nullable = false, length = 100)
     private String name;
     
+    @Column(name = "type", nullable = false, length = 10)
+    @Builder.Default
+    private String type = "STOCK"; // STOCK or INDEX
+    
     @Column(name = "price", precision = 18, scale = 4)
     private BigDecimal price;
     

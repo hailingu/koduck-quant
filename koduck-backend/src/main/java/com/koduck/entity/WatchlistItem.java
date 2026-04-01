@@ -11,7 +11,7 @@ import org.hibernate.annotations.UpdateTimestamp;
 import java.time.LocalDateTime;
 
 /**
- * Watchlist (自选股) item entity for user stock tracking.
+ * Watchlist () item entity for user stock tracking.
  */
 @Entity
 @Table(name = "watchlist_items",

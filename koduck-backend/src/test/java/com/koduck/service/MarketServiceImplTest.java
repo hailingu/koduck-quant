@@ -11,13 +11,15 @@ import com.koduck.entity.StockRealtime;
 import com.koduck.repository.StockBasicRepository;
 import com.koduck.repository.StockRealtimeRepository;
 import com.koduck.service.impl.MarketServiceImpl;
-import com.koduck.service.market.AKShareDataProvider;
+import com.koduck.service.support.MarketFallbackSupport;
+import com.koduck.service.support.MarketServiceSupport;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.lang.NonNull;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 
@@ -26,9 +28,11 @@ import java.time.LocalDateTime;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -39,7 +43,6 @@ import static org.mockito.Mockito.when;
  * @date 2026-03-05
  */
 @ExtendWith(MockitoExtension.class)
-@SuppressWarnings("null")
 class MarketServiceImplTest {
 
     @Mock
@@ -52,21 +55,20 @@ class MarketServiceImplTest {
     private StockCacheService stockCacheService;
 
         @Mock
-        private KlineService klineService;
-
-        @Mock
-        private AKShareDataProvider akShareDataProvider;
+        private MarketFallbackSupport marketFallbackSupport;
 
     private MarketServiceImpl marketService;
 
     @BeforeEach
     void setUp() {
-                marketService = new MarketServiceImpl(
-                                stockRealtimeRepository,
-                                stockBasicRepository,
-                                stockCacheService,
-                                klineService,
-                                akShareDataProvider);
+        MarketServiceSupport marketServiceSupport =
+                new MarketServiceSupport(stockRealtimeRepository, stockBasicRepository);
+        marketService = new MarketServiceImpl(
+                stockRealtimeRepository,
+                stockBasicRepository,
+                stockCacheService,
+                marketServiceSupport,
+                marketFallbackSupport);
     }
 
     @Test
@@ -87,7 +89,7 @@ class MarketServiceImplTest {
                 .build();
 
         when(stockBasicRepository.searchByKeyword("永太", PageRequest.of(0, 20)))
-                .thenReturn(new PageImpl<>(List.of(basic)));
+                .thenReturn(new PageImpl<>(stockBasicsOf(basic)));
         when(stockRealtimeRepository.findBySymbolIn(List.of("002326")))
                 .thenReturn(List.of(realtime));
 
@@ -119,7 +121,7 @@ class MarketServiceImplTest {
                 .build();
 
         when(stockBasicRepository.searchByKeyword("京泉华", PageRequest.of(0, 20)))
-                .thenReturn(new PageImpl<>(List.of(shortCode, canonicalCode)));
+                .thenReturn(new PageImpl<>(stockBasicsOf(shortCode, canonicalCode)));
         when(stockRealtimeRepository.findBySymbolIn(List.of("2885", "002885")))
                 .thenReturn(List.of(realtime));
 
@@ -136,6 +138,26 @@ class MarketServiceImplTest {
         List<SymbolInfoDto> results = marketService.searchSymbols("", 1, 20);
 
         assertThat(results).isEmpty();
+    }
+
+    @Test
+    @DisplayName("shouldFallbackToDataServiceWhenDatabaseSearchReturnsEmpty")
+    void shouldFallbackToDataServiceWhenDatabaseSearchReturnsEmpty() {
+        when(stockBasicRepository.searchByKeyword("隆基", PageRequest.of(0, 5)))
+                .thenReturn(new PageImpl<>(emptyStockBasics()));
+        when(marketFallbackSupport.searchSymbolsFromProvider("隆基", 5))
+                .thenReturn(List.of(
+                        SymbolInfoDto.builder().symbol("601012").name("隆基绿能").market("AShare").type("STOCK")
+                                .build(),
+                        SymbolInfoDto.builder().symbol("002363").name("隆基机械").market("AShare").type("STOCK")
+                                .build()
+                ));
+
+        List<SymbolInfoDto> results = marketService.searchSymbols("隆基", 1, 5);
+
+        assertThat(results).hasSize(2);
+        assertThat(results).extracting(SymbolInfoDto::symbol).containsExactly("601012", "002363");
+        assertThat(results).extracting(SymbolInfoDto::name).containsExactly("隆基绿能", "隆基机械");
     }
 
     @Test
@@ -169,19 +191,6 @@ class MarketServiceImplTest {
         @Test
         @DisplayName("shouldBuildStockDetailFromLatestKlineWhenRealtimeIsMissing")
         void shouldBuildStockDetailFromLatestKlineWhenRealtimeIsMissing() {
-                StockBasic basic = StockBasic.builder()
-                                .symbol("002885")
-                                .name("京泉华")
-                                .market("AShare")
-                                .build();
-                KlineDataDto previousKline = new KlineDataDto(
-                                1741262400L,
-                                new BigDecimal("12.00"),
-                                new BigDecimal("12.18"),
-                                new BigDecimal("11.95"),
-                                new BigDecimal("12.00"),
-                                245000L,
-                                new BigDecimal("2980000.00"));
                 KlineDataDto latestKline = new KlineDataDto(
                                 1741348800L,
                                 new BigDecimal("12.10"),
@@ -192,9 +201,14 @@ class MarketServiceImplTest {
                                 new BigDecimal("3158200.00"));
 
                 when(stockRealtimeRepository.findFirstBySymbolOrderByUpdatedAtDesc("002885")).thenReturn(Optional.empty());
-                when(stockBasicRepository.findBySymbol("002885")).thenReturn(Optional.of(basic));
-                when(klineService.getKlineData("AShare", "002885", "1D", 2, null))
-                                .thenReturn(List.of(previousKline, latestKline));
+                when(marketFallbackSupport.tryBuildQuoteFromLatestKline("002885"))
+                                .thenReturn(PriceQuoteDto.builder()
+                                                .symbol("002885")
+                                                .name("京泉华")
+                                                .price(latestKline.close())
+                                                .change(new BigDecimal("0.28"))
+                                                .changePercent(new BigDecimal("2.3333"))
+                                                .build());
 
                 PriceQuoteDto quote = marketService.getStockDetail("002885");
 
@@ -208,14 +222,7 @@ class MarketServiceImplTest {
 
         @Test
         @DisplayName("shouldBuildStockDetailFromCachedMapKlineWhenCacheReturnsLinkedHashMap")
-        @SuppressWarnings({"unchecked", "rawtypes"})
         void shouldBuildStockDetailFromCachedMapKlineWhenCacheReturnsLinkedHashMap() {
-                StockBasic basic = StockBasic.builder()
-                                .symbol("601919")
-                                .name("中远海控")
-                                .market("AShare")
-                                .build();
-
                 Map<String, Object> previous = new LinkedHashMap<>();
                 previous.put("timestamp", 1741262400L);
                 previous.put("open", "15.20");
@@ -236,9 +243,22 @@ class MarketServiceImplTest {
 
                 when(stockRealtimeRepository.findFirstBySymbolOrderByUpdatedAtDesc("601919"))
                                 .thenReturn(Optional.empty());
-                when(stockBasicRepository.findBySymbol("601919")).thenReturn(Optional.of(basic));
-                when(klineService.getKlineData("AShare", "601919", "1D", 2, null))
-                                .thenReturn((List) List.of(previous, latest));
+                KlineDataDto latestKline = new KlineDataDto(
+                                ((Number) latest.get("timestamp")).longValue(),
+                                new BigDecimal(latest.get("open").toString()),
+                                new BigDecimal(latest.get("high").toString()),
+                                new BigDecimal(latest.get("low").toString()),
+                                new BigDecimal(latest.get("close").toString()),
+                                ((Number) latest.get("volume")).longValue(),
+                                new BigDecimal(latest.get("amount").toString()));
+
+                when(marketFallbackSupport.tryBuildQuoteFromLatestKline("601919"))
+                                .thenReturn(PriceQuoteDto.builder()
+                                                .symbol("601919")
+                                                .name("中远海控")
+                                                .price(latestKline.close())
+                                                .change(new BigDecimal("0.15"))
+                                                .build());
 
                 PriceQuoteDto quote = marketService.getStockDetail("601919");
 
@@ -259,7 +279,7 @@ class MarketServiceImplTest {
                                 .build();
 
                 when(stockRealtimeRepository.findFirstBySymbolOrderByUpdatedAtDesc("002885")).thenReturn(Optional.empty());
-                when(akShareDataProvider.getPrice("002885")).thenReturn(providerQuote);
+                when(marketFallbackSupport.fetchProviderPrice("002885")).thenReturn(providerQuote);
 
                 PriceQuoteDto quote = marketService.getStockDetail("002885");
 
@@ -267,7 +287,7 @@ class MarketServiceImplTest {
                 assertThat(quote.symbol()).isEqualTo("002885");
                 assertThat(quote.name()).isEqualTo("京泉华");
                 assertThat(quote.price()).isEqualByComparingTo(new BigDecimal("32.50"));
-                verify(akShareDataProvider).getPrice("002885");
+                verify(marketFallbackSupport).fetchProviderPrice("002885");
         }
 
         @Test
@@ -282,8 +302,7 @@ class MarketServiceImplTest {
 
                 when(stockRealtimeRepository.findFirstBySymbolOrderByUpdatedAtDesc("601919"))
                                 .thenThrow(new RuntimeException("db lookup failed"));
-                when(stockBasicRepository.findBySymbol("601919")).thenReturn(Optional.empty());
-                when(akShareDataProvider.getPrice("601919")).thenReturn(providerQuote);
+                when(marketFallbackSupport.fetchProviderPrice("601919")).thenReturn(providerQuote);
 
                 PriceQuoteDto quote = marketService.getStockDetail("601919");
 
@@ -291,7 +310,7 @@ class MarketServiceImplTest {
                 assertThat(quote.symbol()).isEqualTo("601919");
                 assertThat(quote.name()).isEqualTo("中远海控");
                 assertThat(quote.price()).isEqualByComparingTo(new BigDecimal("15.45"));
-                verify(akShareDataProvider).getPrice("601919");
+                verify(marketFallbackSupport).fetchProviderPrice("601919");
         }
 
     @Test
@@ -313,7 +332,7 @@ class MarketServiceImplTest {
                                 .marketCap(new BigDecimal("1393.52"))
                                 .build();
 
-                when(akShareDataProvider.getStockValuation("601012")).thenReturn(valuation);
+                when(marketFallbackSupport.fetchProviderValuation("601012")).thenReturn(valuation);
 
                 StockValuationDto result = marketService.getStockValuation("601012");
 
@@ -322,7 +341,7 @@ class MarketServiceImplTest {
                 assertThat(result.peTtm()).isEqualByComparingTo(new BigDecimal("18.39"));
                 assertThat(result.pb()).isEqualByComparingTo(new BigDecimal("2.17"));
                 assertThat(result.marketCap()).isEqualByComparingTo(new BigDecimal("1393.52"));
-                verify(akShareDataProvider).getStockValuation("601012");
+                verify(marketFallbackSupport).fetchProviderValuation("601012");
         }
 
         @Test
@@ -337,7 +356,7 @@ class MarketServiceImplTest {
                                 .board("主板")
                                 .build();
 
-                when(akShareDataProvider.getStockIndustry("601012")).thenReturn(industry);
+                when(marketFallbackSupport.fetchProviderIndustry("601012")).thenReturn(industry);
 
                 StockIndustryDto result = marketService.getStockIndustry("601012");
 
@@ -345,7 +364,7 @@ class MarketServiceImplTest {
                 assertThat(result.symbol()).isEqualTo("601012");
                 assertThat(result.industry()).isEqualTo("电力设备");
                 assertThat(result.subIndustry()).isEqualTo("光伏设备");
-                verify(akShareDataProvider).getStockIndustry("601012");
+                verify(marketFallbackSupport).fetchProviderIndustry("601012");
         }
 
     @Test
@@ -360,7 +379,7 @@ class MarketServiceImplTest {
                 .updatedAt(LocalDateTime.now())
                 .build();
 
-        when(stockRealtimeRepository.findBySymbolIn(List.of("000001", "399001", "399006")))
+        when(stockRealtimeRepository.findBySymbolInAndType(List.of("000001", "399001", "399006"), "INDEX"))
                 .thenReturn(List.of(index));
 
         List<MarketIndexDto> indices = marketService.getMarketIndices();
@@ -404,4 +423,194 @@ class MarketServiceImplTest {
 
         assertThat(quotes).isEmpty();
     }
+
+    // ==================== Exception Path Tests ====================
+
+    @Test
+    @DisplayName("shouldReturnEmptyListWhenSearchPageIsInvalid")
+    void shouldReturnEmptyListWhenSearchPageIsInvalid() {
+        List<SymbolInfoDto> results = marketService.searchSymbols("keyword", 0, 20);
+
+        assertThat(results).isEmpty();
+    }
+
+    @Test
+    @DisplayName("shouldReturnEmptyListWhenSearchSizeIsInvalid")
+    void shouldReturnEmptyListWhenSearchSizeIsInvalid() {
+        List<SymbolInfoDto> results = marketService.searchSymbols("keyword", 1, 0);
+
+        assertThat(results).isEmpty();
+    }
+
+    @Test
+    @DisplayName("shouldReturnNullWhenStockDetailSymbolIsNull")
+    void shouldReturnNullWhenStockDetailSymbolIsNull() {
+        PriceQuoteDto quote = marketService.getStockDetail(null);
+
+        assertThat(quote).isNull();
+    }
+
+    @Test
+    @DisplayName("shouldReturnNullWhenAllFallbacksFailForStockDetail")
+    void shouldReturnNullWhenAllFallbacksFailForStockDetail() {
+        when(stockRealtimeRepository.findFirstBySymbolOrderByUpdatedAtDesc("UNKNOWN"))
+                .thenReturn(Optional.empty());
+        when(marketFallbackSupport.tryBuildQuoteFromLatestKline("UNKNOWN"))
+                .thenReturn(null);
+        when(marketFallbackSupport.fetchProviderPrice("UNKNOWN"))
+                .thenReturn(null);
+
+        PriceQuoteDto quote = marketService.getStockDetail("UNKNOWN");
+
+        assertThat(quote).isNull();
+    }
+
+    @Test
+    @DisplayName("shouldReturnNullWhenStockValuationSymbolIsNull")
+    void shouldReturnNullWhenStockValuationSymbolIsNull() {
+        StockValuationDto valuation = marketService.getStockValuation(null);
+
+        assertThat(valuation).isNull();
+    }
+
+    @Test
+    @DisplayName("shouldReturnNullWhenStockValuationSymbolIsBlank")
+    void shouldReturnNullWhenStockValuationSymbolIsBlank() {
+        StockValuationDto valuation = marketService.getStockValuation("   ");
+
+        assertThat(valuation).isNull();
+    }
+
+    @Test
+    @DisplayName("shouldPropagateExceptionWhenValuationFetchFails")
+    void shouldPropagateExceptionWhenValuationFetchFails() {
+        when(marketFallbackSupport.fetchProviderValuation("600519"))
+                .thenThrow(new RuntimeException("Service unavailable"));
+
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> marketService.getStockValuation("600519"))
+                .isInstanceOf(RuntimeException.class)
+                .hasMessageContaining("Service unavailable");
+    }
+
+    @Test
+    @DisplayName("shouldReturnNullWhenStockIndustrySymbolIsNull")
+    void shouldReturnNullWhenStockIndustrySymbolIsNull() {
+        StockIndustryDto industry = marketService.getStockIndustry(null);
+
+        assertThat(industry).isNull();
+    }
+
+    @Test
+    @DisplayName("shouldReturnNullWhenStockIndustrySymbolIsBlank")
+    void shouldReturnNullWhenStockIndustrySymbolIsBlank() {
+        StockIndustryDto industry = marketService.getStockIndustry("   ");
+
+        assertThat(industry).isNull();
+    }
+
+    @Test
+    @DisplayName("shouldReturnNullWhenIndustryFetchThrowsException")
+    void shouldReturnNullWhenIndustryFetchThrowsException() {
+        when(marketFallbackSupport.fetchProviderIndustry("600519"))
+                .thenThrow(new RuntimeException("Service error"));
+
+        StockIndustryDto industry = marketService.getStockIndustry("600519");
+
+        assertThat(industry).isNull();
+    }
+
+    @Test
+    @DisplayName("shouldReturnEmptyMapWhenGetStockIndustriesWithNullSymbols")
+    void shouldReturnEmptyMapWhenGetStockIndustriesWithNullSymbols() {
+        java.util.Map<String, StockIndustryDto> results = marketService.getStockIndustries(null);
+
+        assertThat(results).isEmpty();
+    }
+
+    @Test
+    @DisplayName("shouldReturnEmptyMapWhenGetStockIndustriesWithEmptySymbols")
+    void shouldReturnEmptyMapWhenGetStockIndustriesWithEmptySymbols() {
+        java.util.Map<String, StockIndustryDto> results = marketService.getStockIndustries(List.of());
+
+        assertThat(results).isEmpty();
+    }
+
+    @Test
+    @DisplayName("shouldSkipNullAndBlankSymbolsInBatchIndustryLookup")
+    void shouldSkipNullAndBlankSymbolsInBatchIndustryLookup() {
+        StockIndustryDto industry = StockIndustryDto.builder()
+                .symbol("600519")
+                .name("贵州茅台")
+                .industry("白酒")
+                .build();
+
+        when(marketFallbackSupport.fetchProviderIndustry("600519"))
+                .thenReturn(industry);
+
+        java.util.List<String> symbols = new java.util.ArrayList<>();
+        symbols.add(null);
+        symbols.add("");
+        symbols.add("   ");
+        symbols.add("600519");
+        java.util.Map<String, StockIndustryDto> results = marketService.getStockIndustries(symbols);
+
+        assertThat(results).hasSize(1);
+        assertThat(results.get("600519")).isNotNull();
+    }
+
+    @Test
+    @DisplayName("shouldReturnEmptyListWhenNoIndicesFoundInRealtimeOrBasic")
+    void shouldReturnEmptyListWhenNoIndicesFoundInRealtimeOrBasic() {
+        when(stockRealtimeRepository.findBySymbolInAndType(
+                List.of("000001", "399001", "399006"), "INDEX"))
+                .thenReturn(List.of());
+        when(stockBasicRepository.findBySymbolInAndType(
+                List.of("000001", "399001", "399006"), "INDEX"))
+                .thenReturn(List.of());
+
+        List<MarketIndexDto> indices = marketService.getMarketIndices();
+
+        assertThat(indices).isEmpty();
+    }
+
+    @Test
+    @DisplayName("shouldReturnEmptyListWhenBatchPricesWithNullSymbols")
+    void shouldReturnEmptyListWhenBatchPricesWithNullSymbols() {
+        List<PriceQuoteDto> quotes = marketService.getBatchPrices(null);
+
+        assertThat(quotes).isEmpty();
+    }
+
+    @Test
+    @DisplayName("shouldReturnAllFromCacheWhenAllSymbolsCached")
+    void shouldReturnAllFromCacheWhenAllSymbolsCached() {
+        PriceQuoteDto cachedQuote1 = PriceQuoteDto.builder()
+                .symbol("002326")
+                .name("永太科技")
+                .price(new BigDecimal("9.55"))
+                .build();
+        PriceQuoteDto cachedQuote2 = PriceQuoteDto.builder()
+                .symbol("000001")
+                .name("平安银行")
+                .price(new BigDecimal("12.34"))
+                .build();
+
+        when(stockCacheService.getCachedStockTracks(List.of("002326", "000001")))
+                .thenReturn(List.of(cachedQuote1, cachedQuote2));
+
+        List<PriceQuoteDto> quotes = marketService.getBatchPrices(List.of("002326", "000001"));
+
+        assertThat(quotes).hasSize(2);
+        verify(stockCacheService, org.mockito.Mockito.never()).cacheBatchStockTracks(any());
+    }
+
+        @NonNull
+        private static List<StockBasic> stockBasicsOf(StockBasic... basics) {
+                return Objects.requireNonNull(List.of(basics), "stock basics list must not be null");
+        }
+
+        @NonNull
+        private static List<StockBasic> emptyStockBasics() {
+                return Objects.requireNonNull(List.<StockBasic>of(), "stock basics list must not be null");
+        }
 }

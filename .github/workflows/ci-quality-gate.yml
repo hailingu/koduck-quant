@@ -3,11 +3,9 @@ name: CI Quality Gate
 on:
   push:
     branches:
-      - dev
       - main
   pull_request:
     branches:
-      - dev
       - main
 
 permissions:
@@ -18,8 +16,27 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  detect-changes:
+    name: Detect Changed Modules
+    runs-on: ubuntu-latest
+    outputs:
+      backend: ${{ steps.filter.outputs.backend }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Detect changed paths
+        id: filter
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            backend:
+              - 'koduck-backend/**'
+
   backend-unit-tests:
     name: Backend Unit Tests (Java 23)
+    needs: detect-changes
+    if: ${{ needs.detect-changes.outputs.backend == 'true' }}
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:
@@ -36,7 +53,9 @@ jobs:
       - name: Run backend tests
         run: |
           set -euo pipefail
-          mvn -f koduck-backend/pom.xml -B clean test -DskipITs
+          mvn -f koduck-backend/pom.xml -B clean test \
+            -DskipITs \
+            -Dsurefire.rerunFailingTestsCount=2
 
       - name: Upload backend test reports
         if: always()

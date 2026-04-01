@@ -1,86 +1,91 @@
 package com.koduck.util;
 
+import java.util.Locale;
+import java.util.Objects;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * Utility class for stock symbol normalization and comparison.
- * Handles various symbol formats: SH601012, sh601012, 601012.SH, 601012
+ * Utility helpers for stock symbol normalization and comparison.
+ *
+ * @author GitHub Copilot
+ * @date 2026-03-31
  */
 @Slf4j
-public class SymbolUtils {
+public final class SymbolUtils {
 
     private SymbolUtils() {
-        // Utility class, no instantiation
     }
 
     /**
-     * Normalize stock symbol to standard 6-digit format.
-     * 
-     * Input examples: 601012, SH601012, sh601012, 601012.SH, sz300001
-     * Output: 601012
+     * Normalizes a stock symbol to the standard 6-digit format.
      *
-     * @param symbol the input symbol
-     * @return normalized 6-digit symbol, or original if invalid
+     * @param symbol input symbol
+     * @return normalized 6-digit symbol, or the original input if invalid
      */
-    public static String normalize(String symbol) {
+    public static String normalize(final String symbol) {
+        String normalizedSymbol = symbol;
         if (symbol == null || symbol.isBlank()) {
-            return symbol;
+            return normalizedSymbol;
         }
 
-        // Convert to uppercase and remove all non-digit characters
-        String normalized = symbol.toUpperCase()
+        normalizedSymbol = symbol.toUpperCase(Locale.ROOT)
                 .replace(".SH", "")
                 .replace(".SZ", "")
                 .replace(".BJ", "")
                 .replace("SH", "")
                 .replace("SZ", "")
                 .replace("BJ", "")
-                .replaceAll("[^0-9]", "")
+            .replaceAll("\\D", "")
                 .trim();
 
-        // Accept 1-6 digits and left-pad to keep A-share symbol width.
-        if (normalized.matches("\\d{1,6}")) {
-            return String.format("%06d", Integer.parseInt(normalized));
+        if (normalizedSymbol.matches("\\d{1,6}")) {
+            normalizedSymbol = String.format("%06d", Integer.parseInt(normalizedSymbol));
+        } else {
+            if (log.isWarnEnabled()) {
+                log.warn("Invalid symbol format: {} (original: {})", normalizedSymbol, symbol);
+            }
+            normalizedSymbol = symbol;
         }
-
-        // Keep original input for unsupported formats.
-        log.warn("Invalid symbol format: {} (original: {})", normalized, symbol);
-        return symbol;
+        return normalizedSymbol;
     }
 
     /**
-     * Check if two symbols match (ignoring market prefix and case).
+     * Checks whether two symbols match after normalization.
      *
      * @param symbol1 first symbol
      * @param symbol2 second symbol
-     * @return true if normalized forms match
+     * @return true when normalized forms match
      */
-    public static boolean matches(String symbol1, String symbol2) {
+    public static boolean matches(final String symbol1, final String symbol2) {
+        boolean matched;
         if (symbol1 == null || symbol2 == null) {
-            return symbol1 == symbol2;
+            matched = Objects.equals(symbol1, symbol2);
+        } else {
+            matched = normalize(symbol1).equals(normalize(symbol2));
         }
-        return normalize(symbol1).equals(normalize(symbol2));
+        return matched;
     }
 
     /**
-     * Get market prefix from symbol if present.
+     * Returns the market prefix from a symbol if present.
      *
-     * @param symbol the symbol (e.g., SH601012, 601012)
-     * @return market prefix (SH, SZ, BJ) or null if not found
+     * @param symbol source symbol
+     * @return market prefix or null when absent
      */
-    public static String getMarketPrefix(String symbol) {
+    public static String getMarketPrefix(final String symbol) {
+        String marketPrefix = null;
         if (symbol == null || symbol.length() < 2) {
-            return null;
+            return marketPrefix;
         }
 
-        String upper = symbol.toUpperCase();
+        final String upper = symbol.toUpperCase(Locale.ROOT);
         if (upper.startsWith("SH")) {
-            return "SH";
+            marketPrefix = "SH";
         } else if (upper.startsWith("SZ")) {
-            return "SZ";
+            marketPrefix = "SZ";
         } else if (upper.startsWith("BJ")) {
-            return "BJ";
+            marketPrefix = "BJ";
         }
-        return null;
+        return marketPrefix;
     }
 }

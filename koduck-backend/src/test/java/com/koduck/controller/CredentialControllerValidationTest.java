@@ -3,23 +3,25 @@ package com.koduck.controller;
 import com.koduck.dto.credential.CredentialAuditLogResponse;
 import com.koduck.dto.credential.CredentialListResponse;
 import com.koduck.entity.User;
+import com.koduck.controller.support.AuthenticatedUserResolver;
 import com.koduck.security.JwtAuthenticationFilter;
 import com.koduck.security.UserPrincipal;
 import com.koduck.service.CredentialService;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.test.context.TestConstructor;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.util.List;
 
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -38,19 +40,25 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  */
 @WebMvcTest(controllers = CredentialController.class)
 @AutoConfigureMockMvc(addFilters = false)
-@SuppressWarnings("null")
+@TestConstructor(autowireMode = TestConstructor.AutowireMode.ALL)
 class CredentialControllerValidationTest {
 
     private static final Long USER_ID = 1001L;
 
-    @Autowired
-    private MockMvc mockMvc;
+        private final MockMvc mockMvc;
 
     @MockitoBean
     private CredentialService credentialService;
 
     @MockitoBean
     private JwtAuthenticationFilter jwtAuthenticationFilter;
+
+        @MockitoBean
+        private AuthenticatedUserResolver authenticatedUserResolver;
+
+        CredentialControllerValidationTest(MockMvc mockMvc) {
+                this.mockMvc = mockMvc;
+        }
 
     @Test
     @DisplayName("shouldReturnBadRequestWhenPageIsNegativeForCredentials")
@@ -105,6 +113,7 @@ class CredentialControllerValidationTest {
                 .page(0)
                 .size(20)
                 .build();
+        when(authenticatedUserResolver.requireUserId(any())).thenReturn(USER_ID);
         when(credentialService.getCredentials(USER_ID, 0, 20)).thenReturn(listResponse);
 
                 SecurityContextHolder.getContext().setAuthentication(buildAuthentication(USER_ID));
@@ -124,6 +133,7 @@ class CredentialControllerValidationTest {
     @Test
     @DisplayName("shouldReturnOkWhenPagingParamsAreValidForAuditLogs")
     void shouldReturnOkWhenPagingParamsAreValidForAuditLogs() throws Exception {
+                when(authenticatedUserResolver.requireUserId(any())).thenReturn(USER_ID);
         when(credentialService.getAuditLogs(USER_ID, 0, 20)).thenReturn(List.<CredentialAuditLogResponse>of());
 
                 SecurityContextHolder.getContext().setAuthentication(buildAuthentication(USER_ID));

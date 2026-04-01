@@ -1,4 +1,4 @@
-"""GPT (OpenAI compatible) 客户端实现.
+"""GPT (OpenAI compatible) .
 
 支持使用 OpenAI 兼容 API 的 GPT 服务，如 https://api.gptsapi.net
 """
@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 
 
 class GPTClient(LLMClientBase):
-    """GPT (OpenAI compatible) 客户端.
+    """GPT (OpenAI compatible) .
     
     使用 OpenAI 兼容的 API 协议。
     
@@ -35,7 +35,7 @@ class GPTClient(LLMClientBase):
         max_tokens: int | None = None,
         top_p: float = 0.9,
     ):
-        """初始化 GPT 客户端.
+        """ GPT .
         
         Args:
             api_key: API 密钥
@@ -58,7 +58,7 @@ class GPTClient(LLMClientBase):
         )
 
     def _convert_messages(self, messages: list[Message]) -> list[dict[str, Any]]:
-        """转换为 OpenAI 格式消息."""
+        """ OpenAI ."""
         api_messages = []
         
         for msg in messages:
@@ -102,7 +102,7 @@ class GPTClient(LLMClientBase):
         return api_messages
 
     def _convert_tools(self, tools: list[Any]) -> list[dict[str, Any]]:
-        """转换工具为 OpenAI 格式."""
+        """ OpenAI ."""
         result = []
         for tool in tools:
             if isinstance(tool, dict):
@@ -128,7 +128,7 @@ class GPTClient(LLMClientBase):
         messages: list[Message],
         tools: list[Any] | None = None,
     ) -> dict[str, Any]:
-        """准备请求参数."""
+        """."""
         params: dict[str, Any] = {
             "model": self.model,
             "messages": self._convert_messages(messages),
@@ -145,13 +145,13 @@ class GPTClient(LLMClientBase):
         return params
 
     def _parse_response(self, response: Any) -> LLMResponse:
-        """解析响应."""
+        """."""
         message = response.choices[0].message
         
-        # 提取内容
+        # 
         content = message.content or ""
         
-        # 提取工具调用
+        # 
         tool_calls = []
         if message.tool_calls:
             for tc in message.tool_calls:
@@ -167,7 +167,7 @@ class GPTClient(LLMClientBase):
                     )
                 )
         
-        # 提取 Token 使用情况
+        #  Token 
         usage = None
         if hasattr(response, "usage") and response.usage:
             usage = TokenUsage(
@@ -187,7 +187,7 @@ class GPTClient(LLMClientBase):
         self,
         params: dict[str, Any],
     ) -> Any:
-        """执行 API 请求."""
+        """ API ."""
         logger.debug(f"GPT API request: model={params.get('model')}")
         return await self.client.chat.completions.create(**params)
 
@@ -196,7 +196,7 @@ class GPTClient(LLMClientBase):
         messages: list[Message],
         tools: list[Any] | None = None,
     ) -> LLMResponse:
-        """生成响应."""
+        """."""
         params = self._prepare_request(messages, tools)
         
         if self.retry_config.enabled:

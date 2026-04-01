@@ -6,7 +6,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 /**
- * 更新通知设置请求 DTO
+ *  DTO
  */
 @Data
 @Builder

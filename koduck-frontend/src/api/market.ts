@@ -3,6 +3,7 @@ import request from './request'
 export interface SymbolInfo {
   symbol: string
   name: string
+  type: 'STOCK' | 'INDEX'
   market: string
   price: number
   changePercent: number
@@ -13,6 +14,7 @@ export interface SymbolInfo {
 export interface PriceQuote {
   symbol: string
   name: string
+  type: 'STOCK' | 'INDEX'
   price: number
   open: number
   high: number
@@ -55,6 +57,7 @@ export interface StockIndustry {
 export interface MarketIndex {
   symbol: string
   name: string
+  type: 'STOCK' | 'INDEX'
   price: number
   change: number
   changePercent: number
@@ -67,17 +70,35 @@ export interface MarketIndex {
   timestamp: string
 }
 
+export type MarketType = 'AShare' | 'HK' | 'US' | 'Forex' | 'Futures'
+
+// Individual function exports for backward compatibility
+export const searchStocks = (keyword: string, page: number = 1, size: number = 20) =>
+  request.get<SymbolInfo[]>('/api/v1/market/search', {
+    params: { keyword, page, size },
+  })
+
+export const getMarketOverview = () =>
+  request.get<MarketIndex[]>('/api/v1/market/indices')
+
+export const getHotStocks = (market: MarketType = 'AShare', limit: number = 20) =>
+  request.get<SymbolInfo[]>('/api/v1/market/hot', {
+    params: { market, limit },
+  })
+
+export const getStockDetail = (symbol: string, market: MarketType = 'AShare') =>
+  request.get<PriceQuote>(`/api/v1/market/stocks/${symbol}`, { 
+    params: { market },
+    timeout: 15000 
+  })
+
+// Market API object (for new code)
 export const marketApi = {
-  searchSymbols: (keyword: string, page: number = 1, size: number = 20) =>
-    request.get<SymbolInfo[]>('/api/v1/market/search', {
-      params: { keyword, page, size },
-    }),
+  searchSymbols: searchStocks,
 
-  getStockDetail: (symbol: string) =>
-    request.get<PriceQuote>(`/api/v1/market/stocks/${symbol}`, { timeout: 15000 }),
+  getStockDetail,
 
-  getMarketIndices: () =>
-    request.get<MarketIndex[]>('/api/v1/market/indices'),
+  getMarketIndices: getMarketOverview,
 
   getStockValuation: (symbol: string) =>
     request.get<StockValuation>(`/api/v1/market/stocks/${symbol}/valuation`, { timeout: 15000 }),
@@ -93,5 +114,43 @@ export const marketApi = {
   getStockIndustries: (symbols: string[]) =>
     request.post<Record<string, StockIndustry>>('/api/v1/market/stocks/industry/batch', symbols, {
       timeout: 10000,
+    }),
+
+  // Market Sentiment Radar
+  getMarketSentiment: (market: string = 'a_share') =>
+    request.get<{
+      timestamp: string
+      overall: number
+      status: string
+      market: string
+      dimensions: {
+        activity: { value: number; trend: string }
+        volatility: { value: number; trend: string }
+        trendStrength: { value: number; trend: string }
+        fearGreed: { value: number; trend: string }
+        valuation: { value: number; trend: string }
+        fundFlow: { value: number; trend: string }
+      }
+    }>('/api/v1/market/sentiment/radar', {
+      params: { market },
+      timeout: 1500,
+    }),
+
+  getAllMarketsSentiment: () =>
+    request.get<Array<{
+      timestamp: string
+      overall: number
+      status: string
+      market: string
+      dimensions: {
+        activity: { value: number; trend: string }
+        volatility: { value: number; trend: string }
+        trendStrength: { value: number; trend: string }
+        fearGreed: { value: number; trend: string }
+        valuation: { value: number; trend: string }
+        fundFlow: { value: number; trend: string }
+      }
+    }>>('/api/v1/market/sentiment/all', {
+      timeout: 15000,
     }),
 }

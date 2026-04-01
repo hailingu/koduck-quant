@@ -6,6 +6,7 @@ import jakarta.validation.constraints.NotBlank;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.util.StringUtils;
 import org.springframework.validation.annotation.Validated;
 
@@ -42,6 +43,10 @@ public class DataServiceProperties {
 
     @Min(0)
     private int maxRetries = DEFAULT_MAX_RETRIES;
+
+    @Value("${koduck.data-service.realtime-update-path:/market/realtime/update}")
+    @NotBlank
+    private String realtimeUpdatePath;
 
     private boolean enabled = true;
 
@@ -147,5 +152,23 @@ public class DataServiceProperties {
      */
     public void setEnabled(boolean enabled) {
         this.enabled = enabled;
+    }
+
+    /**
+     * Gets the path used by the data service to trigger realtime updates.
+     *
+     * @return realtime update path
+     */
+    public String getRealtimeUpdatePath() {
+        return realtimeUpdatePath;
+    }
+
+    /**
+     * Sets the path used by the data service to trigger realtime updates.
+     *
+     * @param realtimeUpdatePath realtime update path
+     */
+    public void setRealtimeUpdatePath(String realtimeUpdatePath) {
+        this.realtimeUpdatePath = realtimeUpdatePath;
     }
 }

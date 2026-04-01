@@ -8,7 +8,7 @@ import java.util.Map;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * ValidationException 单元测试。
+ * ValidationException 
  */
 @DisplayName("参数校验异常测试")
 class ValidationExceptionTest {

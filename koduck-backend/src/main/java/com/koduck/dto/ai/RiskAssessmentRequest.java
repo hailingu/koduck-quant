@@ -7,7 +7,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 /**
- * 风险评估请求 DTO
+ *  DTO
  */
 @Data
 @Builder

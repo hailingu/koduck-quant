@@ -2,18 +2,26 @@ package com.koduck;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.boot.context.properties.ConfigurationPropertiesScan;
 import org.springframework.scheduling.annotation.EnableAsync;
 
 /**
- * Koduck Quant 后端服务启动类。
+ * Koduck backend application entry point.
  *
  * @author Koduck Team
+ * @date 2026-03-31
  */
 @SpringBootApplication
+@ConfigurationPropertiesScan
 @EnableAsync
 public class KoduckApplication {
 
-    public static void main(String[] args) {
+    /**
+     * Starts the Spring Boot application.
+     *
+     * @param args startup arguments
+     */
+    public static void main(final String[] args) {
         SpringApplication.run(KoduckApplication.class, args);
     }
 }

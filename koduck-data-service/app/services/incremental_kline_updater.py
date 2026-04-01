@@ -15,13 +15,16 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Optional
 import inspect
+from zoneinfo import ZoneInfo
 
 import pandas as pd
 
 from app.db import Database
 from app.services.akshare_client import akshare_client
+from app.services.kline_storage import KlineStorage
 
 logger = logging.getLogger(__name__)
+ASIA_SHANGHAI_TZ = ZoneInfo("Asia/Shanghai")
 
 # CSV data directory
 DATA_DIR = Path(__file__).parent.parent.parent / "data" / "kline"
@@ -65,6 +68,7 @@ class IncrementalKlineUpdater:
     def __init__(self):
         """Initialize the updater."""
         self.client = akshare_client
+        self._storage = KlineStorage()
 
     async def get_local_data_range(
         self, symbol: str, timeframe: str, market: str = "AShare"
@@ -194,7 +198,7 @@ class IncrementalKlineUpdater:
         # Process and merge data
         csv_records_added = 0
         if not dry_run:
-            # Step 1: Save to CSV (cache)
+            # Step 1: Save to local cache file
             csv_records_added = self._save_to_csv(klines, symbol, timeframe)
             
             # Step 2: Save to database
@@ -227,36 +231,45 @@ class IncrementalKlineUpdater:
         )
         return result
 
-    def _get_csv_path(self, symbol: str, timeframe: str) -> Path:
-        """Get the CSV file path for a symbol and timeframe.
+    def _get_cache_path(self, symbol: str, timeframe: str) -> Path:
+        """Get cache file path for a symbol and timeframe.
         
         Args:
             symbol: Stock symbol
             timeframe: Timeframe (e.g., '1D')
             
         Returns:
-            Path to the CSV file
+            Path to the cache file
         """
-        return DATA_DIR / timeframe / f"{symbol}.csv"
+        tf_dir = DATA_DIR / timeframe
+        return self._storage.discover_symbol_path(tf_dir, symbol)
+
+    # Backward-compatible alias for existing tests/scripts.
+    def _get_csv_path(self, symbol: str, timeframe: str) -> Path:
+        return self._get_cache_path(symbol, timeframe)
     
-    def _load_csv_data(self, csv_path: Path) -> pd.DataFrame:
-        """Load CSV data into DataFrame.
+    def _load_cache_data(self, cache_path: Path) -> pd.DataFrame:
+        """Load cache data into DataFrame.
         
         Args:
-            csv_path: Path to CSV file
+            cache_path: Path to cache file
             
         Returns:
             DataFrame with CSV data, empty if file doesn't exist
         """
-        if not csv_path.exists():
+        if not cache_path.exists():
             return pd.DataFrame()
         
         try:
-            df = pd.read_csv(csv_path, encoding='utf-8-sig')
+            df = self._storage.read_dataframe(cache_path)
             return df
         except Exception as e:
-            logger.error(f"Failed to load CSV {csv_path}: {e}")
+            logger.error(f"Failed to load cache file {cache_path}: {e}")
             return pd.DataFrame()
+
+    # Backward-compatible alias for existing tests/scripts.
+    def _load_csv_data(self, csv_path: Path) -> pd.DataFrame:
+        return self._load_cache_data(csv_path)
     
     def _save_to_csv(
         self,
@@ -283,22 +296,28 @@ class IncrementalKlineUpdater:
         if not klines:
             return 0
         
-        csv_path = self._get_csv_path(symbol, timeframe)
+        cache_path = self._get_cache_path(symbol, timeframe)
         
         # Ensure directory exists
-        csv_path.parent.mkdir(parents=True, exist_ok=True)
+        cache_path.parent.mkdir(parents=True, exist_ok=True)
         
         # Load existing data
-        existing_df = self._load_csv_data(csv_path)
+        existing_df = self._load_cache_data(cache_path)
         
         # Convert new data to DataFrame
         new_data = []
+        is_minute_timeframe = timeframe.endswith("m")
         for kline in klines:
+            ts = int(kline["timestamp"])
+            dt = pd.to_datetime(ts, unit="s", utc=True).tz_convert(ASIA_SHANGHAI_TZ)
             new_data.append({
                 "symbol": symbol,
                 "name": kline.get("name", ""),
-                "datetime": datetime.fromtimestamp(kline["timestamp"]).strftime("%Y-%m-%d"),
-                "timestamp": kline["timestamp"],
+                # Keep minute precision for minute bars to avoid date-only pollution.
+                "datetime": dt.strftime("%Y-%m-%d %H:%M:%S")
+                if is_minute_timeframe
+                else dt.strftime("%Y-%m-%d"),
+                "timestamp": ts,
                 "open": kline.get("open", 0),
                 "high": kline.get("high", 0),
                 "low": kline.get("low", 0),
@@ -321,14 +340,14 @@ class IncrementalKlineUpdater:
         # Sort by timestamp
         merged_df = merged_df.sort_values(by="timestamp", ascending=True)
         
-        # Save to CSV
+        # Save to local cache file
         try:
-            merged_df.to_csv(csv_path, index=False, encoding='utf-8-sig')
+            self._storage.write_dataframe(merged_df, cache_path)
             records_added = len(merged_df) - len(existing_df)
-            logger.info(f"Saved {records_added} new records to CSV for {symbol}")
+            logger.info(f"Saved {records_added} new records to cache for {symbol}")
             return max(0, records_added)
         except Exception as e:
-            logger.error(f"Failed to save CSV {csv_path}: {e}")
+            logger.error(f"Failed to save cache file {cache_path}: {e}")
             raise
     
     async def _save_kline_data(
@@ -360,15 +379,20 @@ class IncrementalKlineUpdater:
         try:
             for kline in klines:
                 # Convert timestamp to datetime
-                kline_time = datetime.fromtimestamp(kline["timestamp"])
+                kline_time = datetime.fromtimestamp(
+                    kline["timestamp"], tz=ASIA_SHANGHAI_TZ
+                ).replace(tzinfo=None)
 
                 query = """
                     INSERT INTO kline_data (
                         market, symbol, timeframe, kline_time,
                         open_price, high_price, low_price, close_price,
-                        volume, amount, created_at, updated_at
+                        volume, amount, pre_close_price, is_suspended,
+                        created_at, updated_at
                     )
-                    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW(), NOW())
+                    VALUES (
+                        $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, NOW(), NOW()
+                    )
                     ON CONFLICT (market, symbol, timeframe, kline_time) DO NOTHING
                 """
 
@@ -384,6 +408,10 @@ class IncrementalKlineUpdater:
                     kline.get("close", 0),
                     kline.get("volume", 0),
                     kline.get("amount", 0),
+                    kline.get("pre_close_price", kline.get("preClose")),
+                    str(
+                        kline.get("is_suspended", kline.get("suspendFlag", "0"))
+                    ).strip().lower() in {"1", "true", "t", "yes", "y"},
                 )
 
                 if inspect.isawaitable(execute_result):
