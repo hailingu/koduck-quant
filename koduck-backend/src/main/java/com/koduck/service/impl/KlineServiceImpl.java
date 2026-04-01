@@ -78,6 +78,7 @@ public class KlineServiceImpl implements KlineService {
         return deduplicateByTimestamp(result, timeframe);
     }
     @Override
+    @Cacheable(value = CacheConfig.CACHE_PRICE, key = "#market + ':' + #symbol + ':' + #timeframe", unless = "#result == null or #result.isEmpty()")
     public Optional<BigDecimal> getLatestPrice(String market, String symbol, String timeframe) {
         Optional<BigDecimal> realtimePrice = getLatestRealtimePrice(symbol);
         if (realtimePrice.isPresent()) {

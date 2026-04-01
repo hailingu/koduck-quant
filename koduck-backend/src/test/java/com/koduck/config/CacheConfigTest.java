@@ -55,7 +55,8 @@ class CacheConfigTest {
                         CacheConfig.CACHE_MARKET_SEARCH,
                         CacheConfig.CACHE_STOCK_DETAIL,
                         CacheConfig.CACHE_MARKET_INDICES,
-                        CacheConfig.CACHE_HOT_STOCKS
+                        CacheConfig.CACHE_HOT_STOCKS,
+                        CacheConfig.CACHE_PORTFOLIO_SUMMARY
                 );
 
         assertThat(resolveTtl(configurations.get(CacheConfig.CACHE_KLINE))).isEqualTo(Duration.ofMinutes(1));
@@ -64,5 +65,6 @@ class CacheConfigTest {
         assertThat(resolveTtl(configurations.get(CacheConfig.CACHE_STOCK_DETAIL))).isEqualTo(Duration.ofSeconds(30));
         assertThat(resolveTtl(configurations.get(CacheConfig.CACHE_MARKET_INDICES))).isEqualTo(Duration.ofSeconds(30));
         assertThat(resolveTtl(configurations.get(CacheConfig.CACHE_HOT_STOCKS))).isEqualTo(Duration.ofMinutes(1));
+        assertThat(resolveTtl(configurations.get(CacheConfig.CACHE_PORTFOLIO_SUMMARY))).isEqualTo(Duration.ofHours(1));
     }
 }
