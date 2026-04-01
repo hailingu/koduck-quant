@@ -1,5 +1,6 @@
 package com.koduck.config;
 
+import com.koduck.config.properties.SecurityEndpointProperties;
 import com.koduck.security.JwtAuthenticationFilter;
 import jakarta.servlet.DispatcherType;
 import jakarta.servlet.http.HttpServletResponse;
@@ -32,14 +33,6 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 @EnableMethodSecurity(prePostEnabled = true)
 public class SecurityConfig {
 
-    private static final String AUTH_ENDPOINT_PATTERN = "/api/v1/auth/**";
-    private static final String ACTUATOR_HEALTH_ENDPOINT = "/actuator/health";
-    private static final String APP_HEALTH_ENDPOINT_PATTERN = "/api/v1/health/**";
-    private static final String MARKET_ENDPOINT_PATTERN = "/api/v1/market/**";
-    private static final String MONITORING_ENDPOINT_PATTERN = "/api/v1/monitoring/**";
-    private static final String WEBSOCKET_ENDPOINT = "/ws/**";
-    private static final String A_SHARE_ENDPOINT_PATTERN = "/api/v1/a-share/**";
-
     /**
      * Builds the security filter chain and configures endpoint authorization.
      *
@@ -52,7 +45,8 @@ public class SecurityConfig {
     public SecurityFilterChain securityFilterChain(
             HttpSecurity http,
             JwtAuthenticationFilter jwtAuthenticationFilter,
-            UserDetailsService userDetailsService) throws Exception {
+            UserDetailsService userDetailsService,
+            SecurityEndpointProperties securityEndpointProperties) throws Exception {
         http
             .csrf(AbstractHttpConfigurer::disable)
             .sessionManagement(session ->
@@ -60,20 +54,24 @@ public class SecurityConfig {
             .exceptionHandling(exceptions ->
                 exceptions.authenticationEntryPoint((request, response, authException) ->
                     response.sendError(HttpServletResponse.SC_UNAUTHORIZED, authException.getMessage())))
-            .authorizeHttpRequests(auth -> auth
+            .authorizeHttpRequests(auth -> {
                 // Allow async/error dispatches (e.g. SSE) to continue after initial auth passes.
-                .dispatcherTypeMatchers(DispatcherType.ASYNC, DispatcherType.ERROR).permitAll()
-                .requestMatchers(
-                    AUTH_ENDPOINT_PATTERN,
-                    ACTUATOR_HEALTH_ENDPOINT,
-                    APP_HEALTH_ENDPOINT_PATTERN,
-                    MONITORING_ENDPOINT_PATTERN,
-                    WEBSOCKET_ENDPOINT,
-                    A_SHARE_ENDPOINT_PATTERN
-                ).permitAll()
-                .requestMatchers(HttpMethod.GET, MARKET_ENDPOINT_PATTERN).permitAll()
-                .anyRequest().authenticated()
-            )
+                auth.dispatcherTypeMatchers(DispatcherType.ASYNC, DispatcherType.ERROR).permitAll();
+
+                String[] permitAllPatterns =
+                        securityEndpointProperties.getPermitAllPatterns().toArray(String[]::new);
+                if (permitAllPatterns.length > 0) {
+                    auth.requestMatchers(permitAllPatterns).permitAll();
+                }
+
+                String[] permitAllGetPatterns =
+                        securityEndpointProperties.getPermitAllGetPatterns().toArray(String[]::new);
+                if (permitAllGetPatterns.length > 0) {
+                    auth.requestMatchers(HttpMethod.GET, permitAllGetPatterns).permitAll();
+                }
+
+                auth.anyRequest().authenticated();
+            })
             .authenticationProvider(authenticationProvider(userDetailsService))
             .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 
