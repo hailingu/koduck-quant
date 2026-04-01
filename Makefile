@@ -334,7 +334,7 @@ redis-cli: ## 进入 Redis CLI
 # Quality Check Commands (Phase 2)
 # ==========================================
 
-.PHONY: quality quality-backend quality-pmd quality-pmd-debt quality-spotbugs quality-test quality-coverage quality-arch
+.PHONY: quality quality-backend quality-pmd quality-pmd-debt quality-spotbugs quality-test quality-coverage quality-arch hooks-install hooks-uninstall
 
 quality: ## 一键质量检查（全部）
 	@echo "$(BLUE)🔍 执行一键质量检查...$(NC)"
@@ -383,6 +383,15 @@ quality-report: ## 生成质量报告
 	@cd koduck-backend && mvn site -DskipTests 2>/dev/null || echo "$(YELLOW)⚠️ Maven Site 未配置，跳过$(NC)"
 	@echo "$(GREEN)✅ 质量报告生成完成$(NC)"
 	@echo "$(YELLOW)报告位置: koduck-backend/target/site/$(NC)"
+
+hooks-install: ## 安装仓库 git hooks（启用 pre-commit 质量门禁）
+	@echo "$(BLUE)🔧 安装 Git hooks...$(NC)"
+	@./scripts/install-git-hooks.sh
+
+hooks-uninstall: ## 卸载仓库 hooksPath 配置（恢复默认 .git/hooks）
+	@echo "$(BLUE)🔧 卸载 Git hooks...$(NC)"
+	@git config --unset core.hooksPath || true
+	@echo "$(GREEN)✅ 已取消 core.hooksPath 配置$(NC)"
 
 # ==========================================
 # Release & Rollback
