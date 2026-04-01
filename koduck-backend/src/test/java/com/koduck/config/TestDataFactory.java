@@ -24,14 +24,15 @@ public class TestDataFactory {
     // ========== Entity ==========
 
     public static User createUser() {
-        User user = new User();
-        user.setId(nextId());
-        user.setUsername("testuser" + user.getId());
-        user.setEmail("test" + user.getId() + "@example.com");
-        user.setPasswordHash("encoded_password_hash");
-        user.setCreatedAt(LocalDateTime.now());
-        user.setUpdatedAt(LocalDateTime.now());
-        return user;
+        long id = nextId();
+        return User.builder()
+                .id(id)
+                .username("testuser" + id)
+                .email("test" + id + "@example.com")
+                .passwordHash("encoded_password_hash")
+                .createdAt(LocalDateTime.now())
+                .updatedAt(LocalDateTime.now())
+                .build();
     }
 
     public static User createUser(String username) {
