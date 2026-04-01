@@ -140,6 +140,10 @@ mvn spring-boot:run
 - 公开端点配置文档：[`SECURITY-ENDPOINTS.md`](SECURITY-ENDPOINTS.md)
 - 配置化治理 ADR：`ADR-0014-security-permitall-endpoint-externalization.md`
 
+## Market Provider 抽象治理
+
+- Provider 抽象统一 ADR：`ADR-0016-market-provider-abstraction-unification.md`
+
 ## 测试
 
 ```bash
