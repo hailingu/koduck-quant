@@ -152,6 +152,11 @@ mvn spring-boot:run
 
 - 异常抛出规范统一 ADR：`ADR-0018-service-layer-exception-standardization.md`
 
+## 架构可视化治理
+
+- 架构决策树与关键流程图：[`ARCHITECTURE-FLOWS.md`](ARCHITECTURE-FLOWS.md)
+- 可视化文档治理 ADR：`ADR-0019-architecture-decision-tree-and-key-flow-visualization.md`
+
 ## 测试
 
 ```bash
