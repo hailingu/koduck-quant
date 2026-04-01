@@ -15,12 +15,19 @@ import com.koduck.entity.MemoryChatMessage;
 import com.koduck.security.UserPrincipal;
 import com.koduck.service.AiAnalysisService;
 import com.koduck.service.MemoryService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import java.util.List;
 import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.http.MediaType;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -45,6 +52,7 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 @RestController
 @RequestMapping("/api/v1/ai")
 @Tag(name = "AI分析", description = "智能股票分析、策略推荐、风险评估等AI分析接口")
+@SecurityRequirement(name = "bearerAuth")
 @Slf4j
 @RequiredArgsConstructor
 public class AiAnalysisController {
@@ -66,8 +74,24 @@ public class AiAnalysisController {
      *                       type
      * @return a successful {@link ApiResponse} wrapping the analysis result
      */
+    @Operation(
+        summary = "AI股票分析",
+        description = "使用AI对指定股票进行技术面、基本面、情绪面综合分析"
+    )
+    @ApiResponses(value = {
+        @ApiResponse(
+            responseCode = "200",
+            description = "分析成功",
+            content = @Content(schema = @Schema(implementation = StockAnalysisResponse.class))
+        ),
+        @ApiResponse(responseCode = "400", description = "请求参数错误"),
+        @ApiResponse(responseCode = "401", description = "未登录或Token无效"),
+        @ApiResponse(responseCode = "429", description = "AI分析请求过于频繁"),
+        @ApiResponse(responseCode = "500", description = "服务器内部错误或AI服务不可用")
+    })
     @PostMapping("/analyze")
     public ApiResponse<StockAnalysisResponse> analyzeStock(
+            @Parameter(description = "当前用户认证信息", hidden = true)
             @AuthenticationPrincipal UserPrincipal userPrincipal,
             @Valid @RequestBody StockAnalysisRequest request) {
         Long userId = requireUserId(userPrincipal);
@@ -80,8 +104,19 @@ public class AiAnalysisController {
     /**
      * Proxy chat stream request through backend for unified AI access.
      */
+    @Operation(
+        summary = "AI流式对话",
+        description = "与AI进行流式对话，使用SSE协议返回"
+    )
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "200", description = "流式响应开始"),
+        @ApiResponse(responseCode = "400", description = "请求参数错误"),
+        @ApiResponse(responseCode = "401", description = "未登录或Token无效"),
+        @ApiResponse(responseCode = "500", description = "服务器内部错误")
+    })
     @PostMapping(value = "/chat/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public SseEmitter chatStream(
+            @Parameter(description = "当前用户认证信息", hidden = true)
             @AuthenticationPrincipal UserPrincipal userPrincipal,
             @Valid @RequestBody ChatStreamRequest request) {
         Long userId = requireUserId(userPrincipal);
@@ -105,8 +140,23 @@ public class AiAnalysisController {
      * @param request        strategy recommendation request data
      * @return an {@link ApiResponse} with strategy recommendations
      */
+    @Operation(
+        summary = "策略推荐",
+        description = "根据用户风险偏好和投资期限生成策略推荐"
+    )
+    @ApiResponses(value = {
+        @ApiResponse(
+            responseCode = "200",
+            description = "推荐成功",
+            content = @Content(schema = @Schema(implementation = StrategyRecommendResponse.class))
+        ),
+        @ApiResponse(responseCode = "400", description = "请求参数错误"),
+        @ApiResponse(responseCode = "401", description = "未登录或Token无效"),
+        @ApiResponse(responseCode = "500", description = "服务器内部错误")
+    })
     @PostMapping("/strategy-recommend")
     public ApiResponse<StrategyRecommendResponse> recommendStrategies(
+            @Parameter(description = "当前用户认证信息", hidden = true)
             @AuthenticationPrincipal UserPrincipal userPrincipal,
             @Valid @RequestBody StrategyRecommendRequest request) {
         Long userId = requireUserId(userPrincipal);
@@ -115,6 +165,7 @@ public class AiAnalysisController {
         StrategyRecommendResponse response = aiAnalysisService.recommendStrategies(userId, request);
         return ApiResponse.success(response);
     }
+
     /**
      * Interpret a previously run backtest result.
      *
@@ -124,8 +175,25 @@ public class AiAnalysisController {
      * @param request        contains the identifier of the backtest result
      * @return an {@link ApiResponse} containing interpretation details
      */
+    @Operation(
+        summary = "回测结果解读",
+        description = "使用AI解读回测结果，分析策略表现"
+    )
+    @ApiResponses(value = {
+        @ApiResponse(
+            responseCode = "200",
+            description = "解读成功",
+            content = @Content(schema = @Schema(implementation = BacktestInterpretResponse.class))
+        ),
+        @ApiResponse(responseCode = "400", description = "请求参数错误"),
+        @ApiResponse(responseCode = "401", description = "未登录或Token无效"),
+        @ApiResponse(responseCode = "403", description = "无权访问该回测结果"),
+        @ApiResponse(responseCode = "404", description = "回测结果不存在"),
+        @ApiResponse(responseCode = "500", description = "服务器内部错误")
+    })
     @PostMapping("/interpret-backtest")
     public ApiResponse<BacktestInterpretResponse> interpretBacktest(
+            @Parameter(description = "当前用户认证信息", hidden = true)
             @AuthenticationPrincipal UserPrincipal userPrincipal,
             @Valid @RequestBody BacktestInterpretRequest request) {
         Long userId = requireUserId(userPrincipal);
@@ -137,6 +205,7 @@ public class AiAnalysisController {
         );
         return ApiResponse.success(response);
     }
+
     /**
      * Perform a risk assessment on the user's portfolio.
      *
@@ -144,8 +213,25 @@ public class AiAnalysisController {
      * @param request        contains the portfolio identifier to evaluate
      * @return an {@link ApiResponse} with risk metrics and suggestions
      */
+    @Operation(
+        summary = "投资组合风险评估",
+        description = "使用AI评估投资组合风险，提供风险指标和改进建议"
+    )
+    @ApiResponses(value = {
+        @ApiResponse(
+            responseCode = "200",
+            description = "评估成功",
+            content = @Content(schema = @Schema(implementation = RiskAssessmentResponse.class))
+        ),
+        @ApiResponse(responseCode = "400", description = "请求参数错误"),
+        @ApiResponse(responseCode = "401", description = "未登录或Token无效"),
+        @ApiResponse(responseCode = "403", description = "无权访问该投资组合"),
+        @ApiResponse(responseCode = "404", description = "投资组合不存在"),
+        @ApiResponse(responseCode = "500", description = "服务器内部错误")
+    })
     @PostMapping("/risk-assessment")
     public ApiResponse<RiskAssessmentResponse> assessRisk(
+            @Parameter(description = "当前用户认证信息", hidden = true)
             @AuthenticationPrincipal UserPrincipal userPrincipal,
             @Valid @RequestBody RiskAssessmentRequest request) {
         Long userId = requireUserId(userPrincipal);
@@ -157,9 +243,21 @@ public class AiAnalysisController {
         );
         return ApiResponse.success(response);
     }
+
+    @Operation(
+        summary = "删除会话记忆",
+        description = "删除指定AI对话会话的记忆"
+    )
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "200", description = "删除成功"),
+        @ApiResponse(responseCode = "401", description = "未登录或Token无效"),
+        @ApiResponse(responseCode = "500", description = "服务器内部错误")
+    })
     @DeleteMapping("/memory/session/{sessionId}")
     public ApiResponse<Map<String, Object>> deleteSession(
+            @Parameter(description = "当前用户认证信息", hidden = true)
             @AuthenticationPrincipal UserPrincipal userPrincipal,
+            @Parameter(description = "会话ID", example = "session_123")
             @PathVariable String sessionId
     ) {
         Long userId = requireUserId(userPrincipal);
@@ -171,8 +269,18 @@ public class AiAnalysisController {
         ));
     }
 
+    @Operation(
+        summary = "清除用户记忆",
+        description = "清除当前用户的所有AI对话记忆"
+    )
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "200", description = "清除成功"),
+        @ApiResponse(responseCode = "401", description = "未登录或Token无效"),
+        @ApiResponse(responseCode = "500", description = "服务器内部错误")
+    })
     @DeleteMapping("/memory/profile")
     public ApiResponse<Map<String, Object>> clearProfileMemory(
+            @Parameter(description = "当前用户认证信息", hidden = true)
             @AuthenticationPrincipal UserPrincipal userPrincipal
     ) {
         Long userId = requireUserId(userPrincipal);
@@ -180,8 +288,18 @@ public class AiAnalysisController {
         return ApiResponse.success(Map.of("cleared", true));
     }
 
+    @Operation(
+        summary = "获取用户会话列表",
+        description = "获取当前用户的所有AI对话会话"
+    )
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "200", description = "获取成功"),
+        @ApiResponse(responseCode = "401", description = "未登录或Token无效"),
+        @ApiResponse(responseCode = "500", description = "服务器内部错误")
+    })
     @GetMapping("/memory/sessions")
     public ApiResponse<Map<String, Object>> listUserSessions(
+            @Parameter(description = "当前用户认证信息", hidden = true)
             @AuthenticationPrincipal UserPrincipal userPrincipal
     ) {
         Long userId = requireUserId(userPrincipal);
@@ -196,9 +314,20 @@ public class AiAnalysisController {
         return ApiResponse.success(Map.of("sessions", sessionList));
     }
 
+    @Operation(
+        summary = "获取会话记忆详情",
+        description = "获取指定AI对话会话的详细记忆内容"
+    )
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "200", description = "获取成功"),
+        @ApiResponse(responseCode = "401", description = "未登录或Token无效"),
+        @ApiResponse(responseCode = "500", description = "服务器内部错误")
+    })
     @GetMapping("/memory/session/{sessionId}")
     public ApiResponse<Map<String, Object>> getSessionMemorySummary(
+            @Parameter(description = "当前用户认证信息", hidden = true)
             @AuthenticationPrincipal UserPrincipal userPrincipal,
+            @Parameter(description = "会话ID", example = "session_123")
             @PathVariable String sessionId
     ) {
         Long userId = requireUserId(userPrincipal);
