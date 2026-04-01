@@ -124,6 +124,11 @@ mvn spring-boot:run
 - `data`: 响应数据
 - `timestamp`: 时间戳（毫秒）
 
+## API 版本管理
+
+- API 版本策略文档：[`API-VERSIONING.md`](API-VERSIONING.md)
+- 版本治理 ADR：`ADR-0012-api-versioning-strategy.md`
+
 ## 测试
 
 ```bash
