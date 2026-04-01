@@ -1,4 +1,4 @@
-package com.koduck.service.impl;
+package com.koduck.identity.application;
 
 import com.koduck.dto.profile.ProfileDTO;
 import com.koduck.dto.profile.UpdateProfileDTO;

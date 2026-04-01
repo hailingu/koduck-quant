@@ -1,4 +1,4 @@
-package com.koduck.service.impl;
+package com.koduck.market.application;
 
 import com.koduck.dto.market.RealtimePriceEventMessage;
 import com.koduck.dto.market.TickDto;

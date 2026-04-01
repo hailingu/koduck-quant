@@ -1,4 +1,4 @@
-package com.koduck.service.impl;
+package com.koduck.identity.application;
 
 import com.koduck.common.constants.RedisKeyConstants;
 import com.koduck.service.cache.CacheLayer;

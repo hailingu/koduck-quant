@@ -164,6 +164,7 @@ mvn spring-boot:run
 - 领域模型与模块划分文档：[`DOMAIN-MODEL-DESIGN.md`](DOMAIN-MODEL-DESIGN.md)
 - DDD 边界治理 ADR：`ADR-0021-ddd-bounded-context-module-partitioning.md`
 - DDD Phase 1 实施 ADR：`ADR-0022-ddd-phase1-code-implementation.md`
+- DDD Phase 2 实施 ADR：`ADR-0023-ddd-phase2-complete-service-impl-migration.md`
 
 ## 测试
 

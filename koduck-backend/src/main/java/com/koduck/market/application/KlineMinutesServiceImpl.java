@@ -1,4 +1,4 @@
-package com.koduck.service.impl;
+package com.koduck.market.application;
 
 import com.koduck.config.properties.DataServiceProperties;
 import com.koduck.dto.market.DataServiceResponse;

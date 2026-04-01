@@ -1,7 +1,7 @@
 package com.koduck.service;
 
 import com.koduck.config.properties.RateLimitProperties;
-import com.koduck.service.impl.RateLimiterServiceImpl;
+import com.koduck.shared.application.RateLimiterServiceImpl;
 import java.time.Duration;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
