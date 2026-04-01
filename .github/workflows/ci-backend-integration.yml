@@ -64,6 +64,7 @@ jobs:
       DB_NAME: koduck_test
       DB_USERNAME: koduck
       DB_PASSWORD: koduck_test
+      CREDENTIAL_ENCRYPTION_KEY: ci-test-credential-encryption-key-32chars
       REDIS_HOST: localhost
       REDIS_PORT: 6379
       RABBITMQ_HOST: localhost
