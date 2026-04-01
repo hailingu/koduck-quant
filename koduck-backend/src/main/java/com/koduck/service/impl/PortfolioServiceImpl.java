@@ -1,6 +1,7 @@
 package com.koduck.service.impl;
 
 import com.koduck.common.constants.MarketConstants;
+import com.koduck.config.CacheConfig;
 import com.koduck.dto.portfolio.AddPositionRequest;
 import com.koduck.dto.portfolio.AddTradeRequest;
 import com.koduck.dto.portfolio.PortfolioPositionDto;
@@ -20,6 +21,8 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -67,6 +70,7 @@ public class PortfolioServiceImpl implements PortfolioService {
      * {@inheritDoc}
      */
     @Override
+    @Cacheable(value = CacheConfig.CACHE_PORTFOLIO_SUMMARY, key = "#userId")
     public PortfolioSummaryDto getPortfolioSummary(Long userId) {
         log.debug("Getting portfolio summary for user: {}", userId);
         List<PortfolioPosition> positions = positionRepository.findByUserId(userId);
@@ -149,6 +153,7 @@ public class PortfolioServiceImpl implements PortfolioService {
      */
     @Override
     @Transactional
+    @CacheEvict(value = CacheConfig.CACHE_PORTFOLIO_SUMMARY, key = "#userId")
     public PortfolioPositionDto addPosition(Long userId, AddPositionRequest request) {
         log.debug("Adding position: user={}, market={}, symbol={}, quantity={}", 
                  userId, request.market(), request.symbol(), request.quantity());
@@ -189,6 +194,7 @@ public class PortfolioServiceImpl implements PortfolioService {
      */
     @Override
     @Transactional
+    @CacheEvict(value = CacheConfig.CACHE_PORTFOLIO_SUMMARY, key = "#userId")
     public PortfolioPositionDto updatePosition(Long userId, Long positionId, UpdatePositionRequest request) {
         log.debug("Updating position: user={}, positionId={}", userId, positionId);
         PortfolioPosition position = loadPositionOrThrow(positionId);
@@ -209,6 +215,7 @@ public class PortfolioServiceImpl implements PortfolioService {
      */
     @Override
     @Transactional
+    @CacheEvict(value = CacheConfig.CACHE_PORTFOLIO_SUMMARY, key = "#userId")
     public void deletePosition(Long userId, Long positionId) {
         log.debug("Deleting position: user={}, positionId={}", userId, positionId);
         positionRepository.deleteByUserIdAndId(userId, positionId);
@@ -230,6 +237,7 @@ public class PortfolioServiceImpl implements PortfolioService {
      */
     @Override
     @Transactional
+    @CacheEvict(value = CacheConfig.CACHE_PORTFOLIO_SUMMARY, key = "#userId")
     public TradeDto addTrade(Long userId, AddTradeRequest request) {
         log.debug("Adding trade: user={}, market={}, symbol={}, type={}, quantity={}", 
                  userId, request.market(), request.symbol(), request.tradeType(), request.quantity());

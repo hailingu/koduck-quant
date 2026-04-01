@@ -8,6 +8,14 @@ spring:
     username: ${DB_USERNAME:koduck}
     password: ${DB_PASSWORD:koduck}
     driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 20
+      minimum-idle: 5
+      connection-timeout: 30000
+      idle-timeout: 600000
+      max-lifetime: 1800000
+      leak-detection-threshold: 60000
+      pool-name: KoduckHikariPool
   jpa:
     hibernate:
       ddl-auto: validate

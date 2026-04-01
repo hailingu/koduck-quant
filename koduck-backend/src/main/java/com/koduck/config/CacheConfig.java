@@ -55,6 +55,10 @@ public class CacheConfig {
      * Cache name for hot stocks list responses.
      */
     public static final String CACHE_HOT_STOCKS = "hotStocks";
+    /**
+     * Cache name for portfolio summary.
+     */
+    public static final String CACHE_PORTFOLIO_SUMMARY = "portfolioSummary";
 
     /**
      * Default time-to-live for short-lived caches (30 seconds).
@@ -70,6 +74,11 @@ public class CacheConfig {
      * Time-to-live representing five minutes; used for market search caches.
      */
     private static final Duration TTL_5_MINUTES = Duration.ofMinutes(5);
+
+    /**
+     * Time-to-live representing one hour; used for portfolio summary cache.
+     */
+    private static final Duration TTL_1_HOUR = Duration.ofHours(1);
 
 
     /**
@@ -135,6 +144,7 @@ public class CacheConfig {
         RedisCacheConfiguration marketIndicesConfig = buildCacheConfiguration(TTL_30_SECONDS, jsonSerializer, false);
         RedisCacheConfiguration stockIndustryConfig = buildCacheConfiguration(TTL_5_MINUTES, jsonSerializer, false);
         RedisCacheConfiguration hotStocksConfig = buildCacheConfiguration(TTL_1_MINUTE, jsonSerializer, false);
+        RedisCacheConfiguration portfolioSummaryConfig = buildCacheConfiguration(TTL_1_HOUR, jsonSerializer, false);
 
         return RedisCacheManager.builder(Objects.requireNonNull(connectionFactory))
             .cacheDefaults(Objects.requireNonNull(defaultConfig))
@@ -145,6 +155,7 @@ public class CacheConfig {
             .withCacheConfiguration(CACHE_MARKET_INDICES, Objects.requireNonNull(marketIndicesConfig))
             .withCacheConfiguration(CACHE_STOCK_INDUSTRY, Objects.requireNonNull(stockIndustryConfig))
             .withCacheConfiguration(CACHE_HOT_STOCKS, Objects.requireNonNull(hotStocksConfig))
+            .withCacheConfiguration(CACHE_PORTFOLIO_SUMMARY, Objects.requireNonNull(portfolioSummaryConfig))
                 .build();
     }
 }
