@@ -36,6 +36,8 @@ import java.util.Locale;
 import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -308,11 +310,16 @@ public class MarketController {
             description = "获取成功",
             content = @Content(schema = @Schema(implementation = KlineDataDto.class))
         ),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+            responseCode = "202",
+            description = "已触发异步同步，K线数据准备中",
+            content = @Content(schema = @Schema(implementation = KlineDataDto.class))
+        ),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "股票代码为空或参数错误"),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "500", description = "服务器内部错误")
     })
     @GetMapping("/stocks/{symbol}/kline")
-    public ApiResponse<List<KlineDataDto>> getStockKline(
+    public ResponseEntity<ApiResponse<List<KlineDataDto>>> getStockKline(
             @Parameter(description = "股票代码", example = "600519")
             @PathVariable @NotBlank(message = "股票代码不能为空") String symbol,
             @Parameter(description = "市场代码", example = "AShare")
@@ -331,14 +338,16 @@ public class MarketController {
                 symbol, market, period, timeframe, normalizedTimeframe, limit, beforeTime);
         List<KlineDataDto> data = klineService.getKlineData(market, symbol, normalizedTimeframe, limit, beforeTime);
         if (!data.isEmpty()) {
-            return ApiResponse.success(data);
+            return ResponseEntity.ok(ApiResponse.success(data));
         }
         boolean syncTriggered = klineSyncService.requestSyncSymbolKline(market, symbol, normalizedTimeframe);
         if (!syncTriggered) {
-            return ApiResponse.success(data);
+            return ResponseEntity.ok(ApiResponse.success(data));
         }
-        List<KlineDataDto> refreshed = waitForKlineData(market, symbol, normalizedTimeframe, limit, beforeTime);
-        return ApiResponse.success(refreshed);
+        log.info("K-line data sync accepted asynchronously: market={}, symbol={}, timeframe={}",
+                market, symbol, normalizedTimeframe);
+        return ResponseEntity.status(HttpStatus.ACCEPTED)
+                .body(ApiResponse.success(ApiMessageConstants.KLINE_SYNC_ACCEPTED, List.of()));
     }
 
     /**
@@ -518,35 +527,6 @@ public class MarketController {
         }
         List<DailyBreadthDto> result = marketBreadthService.getDailyBreadthHistory(market, breadthType, from, to);
         return ApiResponse.success(result);
-    }
-
-    private List<KlineDataDto> waitForKlineData(
-            String market,
-            String symbol,
-            String timeframe,
-            Integer limit,
-            Long beforeTime) {
-        final int maxAttempts = 8;
-        final long sleepMillis = 500L;
-        for (int attempt = 1; attempt <= maxAttempts; attempt++) {
-            try {
-                Thread.sleep(sleepMillis);
-            } catch (InterruptedException exception) {
-                Thread.currentThread().interrupt();
-                log.warn("Interrupted while waiting for kline sync: market={}, symbol={}, timeframe={}",
-                        market, symbol, timeframe, exception);
-                break;
-            }
-            List<KlineDataDto> data = klineService.getKlineData(market, symbol, timeframe, limit, beforeTime);
-            if (!data.isEmpty()) {
-                log.info("K-line data available after async sync: market={}, symbol={}, timeframe={}, attempt={}",
-                        market, symbol, timeframe, attempt);
-                return data;
-            }
-        }
-        log.info("K-line data still empty after async sync wait: market={}, symbol={}, timeframe={}",
-                market, symbol, timeframe);
-        return List.of();
     }
 
     private String normalizeTimeframe(String period, String timeframe) {
