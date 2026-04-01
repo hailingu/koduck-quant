@@ -4,7 +4,7 @@ import com.koduck.dto.market.PriceQuoteDto;
 import com.koduck.entity.StockRealtime;
 import com.koduck.repository.StockBasicRepository;
 import com.koduck.repository.StockRealtimeRepository;
-import com.koduck.service.impl.MarketServiceImpl;
+import com.koduck.market.application.MarketServiceImpl;
 import com.koduck.service.support.MarketFallbackSupport;
 import com.koduck.service.support.MarketServiceSupport;
 import org.junit.jupiter.api.BeforeEach;

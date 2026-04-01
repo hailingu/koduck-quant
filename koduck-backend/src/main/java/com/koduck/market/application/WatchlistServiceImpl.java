@@ -1,4 +1,4 @@
-package com.koduck.service.impl;
+package com.koduck.market.application;
 
 import com.koduck.client.DataServiceClient;
 import com.koduck.dto.watchlist.AddWatchlistRequest;

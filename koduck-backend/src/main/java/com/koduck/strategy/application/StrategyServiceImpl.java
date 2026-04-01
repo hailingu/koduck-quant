@@ -1,4 +1,4 @@
-package com.koduck.service.impl;
+package com.koduck.strategy.application;
 
 import com.koduck.common.constants.MarketConstants;
 import com.koduck.dto.strategy.CreateStrategyRequest;

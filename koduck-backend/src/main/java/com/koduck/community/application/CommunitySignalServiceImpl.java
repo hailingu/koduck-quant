@@ -1,4 +1,4 @@
-package com.koduck.service.impl;
+package com.koduck.community.application;
 
 import com.koduck.dto.community.*;
 import com.koduck.entity.*;

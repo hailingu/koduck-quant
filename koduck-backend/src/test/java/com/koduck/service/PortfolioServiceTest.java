@@ -10,7 +10,7 @@ import com.koduck.entity.PortfolioPosition;
 import com.koduck.entity.Trade;
 import com.koduck.repository.PortfolioPositionRepository;
 import com.koduck.repository.TradeRepository;
-import com.koduck.service.impl.PortfolioServiceImpl;
+import com.koduck.trading.application.PortfolioServiceImpl;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
