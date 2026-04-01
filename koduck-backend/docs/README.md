@@ -148,6 +148,10 @@ mvn spring-boot:run
 
 - JDBC Batch 优化 ADR：`ADR-0017-jdbc-batch-for-bulk-persistence.md`
 
+## Service 异常治理
+
+- 异常抛出规范统一 ADR：`ADR-0018-service-layer-exception-standardization.md`
+
 ## 测试
 
 ```bash

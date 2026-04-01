@@ -4,6 +4,9 @@ import com.koduck.common.constants.MarketConstants;
 import com.koduck.dto.backtest.*;
 import com.koduck.dto.market.KlineDataDto;
 import com.koduck.entity.*;
+import com.koduck.exception.BusinessException;
+import com.koduck.exception.ErrorCode;
+import com.koduck.exception.ResourceNotFoundException;
 import com.koduck.mapper.BacktestTradeMapper;
 import com.koduck.repository.BacktestResultRepository;
 import com.koduck.repository.BacktestTradeRepository;
@@ -150,7 +153,7 @@ public class BacktestServiceImpl implements BacktestService {
         List<KlineDataDto> klineData = klineService.getKlineData(
             result.getMarket(), result.getSymbol(), timeframe, 1000, null);
         if (klineData.isEmpty()) {
-            throw new IllegalStateException("No historical data available");
+            throw new BusinessException(ErrorCode.BACKTEST_INSUFFICIENT_DATA, "No historical data available");
         }
         // Filter by date range
         List<KlineDataDto> filteredData = klineData.stream()
@@ -161,7 +164,9 @@ public class BacktestServiceImpl implements BacktestService {
             .sorted((a, b) -> Long.compare(a.timestamp(), b.timestamp()))
             .toList();
         if (filteredData.size() < 60) {
-            throw new IllegalStateException("Insufficient data for backtest (need at least 60 bars)");
+            throw new BusinessException(
+                    ErrorCode.BACKTEST_INSUFFICIENT_DATA,
+                    "Insufficient data for backtest (need at least 60 bars)");
         }
         // Initialize backtest state
         BacktestExecutionContext context = new BacktestExecutionContext(
@@ -442,11 +447,11 @@ public class BacktestServiceImpl implements BacktestService {
     }
     private BacktestResult loadBacktestResultOrThrow(Long userId, Long backtestId) {
         return requireFound(resultRepository.findByIdAndUserId(backtestId, userId),
-                () -> new IllegalArgumentException("Backtest result not found"));
+                () -> new ResourceNotFoundException("backtest result", backtestId));
     }
     private StrategyVersion loadLatestVersionOrThrow(Long strategyId) {
         return requireFound(versionRepository.findFirstByStrategyIdOrderByVersionNumberDesc(strategyId),
-                () -> new IllegalArgumentException("No version found for strategy"));
+                () -> new ResourceNotFoundException("strategy version for strategy", strategyId));
     }
     /**
      * Convert BacktestResult to DTO.

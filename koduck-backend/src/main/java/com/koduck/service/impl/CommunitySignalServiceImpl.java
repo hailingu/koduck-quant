@@ -2,6 +2,8 @@ package com.koduck.service.impl;
 
 import com.koduck.dto.community.*;
 import com.koduck.entity.*;
+import com.koduck.exception.BusinessException;
+import com.koduck.exception.ErrorCode;
 import com.koduck.exception.ResourceNotFoundException;
 import com.koduck.repository.*;
 import com.koduck.service.CommunitySignalService;
@@ -251,7 +253,7 @@ public class CommunitySignalServiceImpl implements CommunitySignalService {
         CommunitySignal signal = loadSignalOrThrow(signalId);
         // Prevent duplicate subscriptions.
         if (subscriptionRepository.existsBySignalIdAndUserId(signalId, userId)) {
-            throw new IllegalArgumentException("已订阅此信号");
+            throw new BusinessException(ErrorCode.SIGNAL_ALREADY_SUBSCRIBED);
         }
         SignalSubscription subscription = SignalSubscription.builder()
                 .signalId(signalId)
@@ -270,7 +272,7 @@ public class CommunitySignalServiceImpl implements CommunitySignalService {
     public void unsubscribeSignal(Long userId, Long signalId) {
         log.info(USER_ID_SIGNAL_ID_LOG_TEMPLATE, userId, signalId);
         if (!subscriptionRepository.existsBySignalIdAndUserId(signalId, userId)) {
-            throw new IllegalArgumentException("未订阅此信号");
+            throw new BusinessException(ErrorCode.SIGNAL_NOT_SUBSCRIBED);
         }
         subscriptionRepository.deleteBySignalIdAndUserId(signalId, userId);
         signalRepository.decrementSubscribeCount(signalId);
@@ -299,7 +301,7 @@ public class CommunitySignalServiceImpl implements CommunitySignalService {
     public void likeSignal(Long userId, Long signalId) {
         log.info(USER_ID_SIGNAL_ID_LOG_TEMPLATE, userId, signalId);
         if (likeRepository.existsBySignalIdAndUserId(signalId, userId)) {
-            throw new IllegalArgumentException("已点赞此信号");
+            throw new BusinessException(ErrorCode.SIGNAL_ALREADY_LIKED);
         }
         SignalLike like = SignalLike.builder()
                 .signalId(signalId)
@@ -316,7 +318,7 @@ public class CommunitySignalServiceImpl implements CommunitySignalService {
     public void unlikeSignal(Long userId, Long signalId) {
         log.info(USER_ID_SIGNAL_ID_LOG_TEMPLATE, userId, signalId);
         if (!likeRepository.existsBySignalIdAndUserId(signalId, userId)) {
-            throw new IllegalArgumentException("未点赞此信号");
+            throw new BusinessException(ErrorCode.SIGNAL_NOT_LIKED);
         }
         likeRepository.deleteBySignalIdAndUserId(signalId, userId);
         signalRepository.decrementLikeCount(signalId);
@@ -329,7 +331,7 @@ public class CommunitySignalServiceImpl implements CommunitySignalService {
     public void favoriteSignal(Long userId, Long signalId, String note) {
         log.info(USER_ID_SIGNAL_ID_LOG_TEMPLATE, userId, signalId);
         if (favoriteRepository.existsBySignalIdAndUserId(signalId, userId)) {
-            throw new IllegalArgumentException("已收藏此信号");
+            throw new BusinessException(ErrorCode.DUPLICATE_ERROR, "已收藏此信号");
         }
         SignalFavorite favorite = SignalFavorite.builder()
                 .signalId(signalId)
@@ -347,7 +349,7 @@ public class CommunitySignalServiceImpl implements CommunitySignalService {
     public void unfavoriteSignal(Long userId, Long signalId) {
         log.info(USER_ID_SIGNAL_ID_LOG_TEMPLATE, userId, signalId);
         if (!favoriteRepository.existsBySignalIdAndUserId(signalId, userId)) {
-            throw new IllegalArgumentException("未收藏此信号");
+            throw new BusinessException(ErrorCode.BUSINESS_ERROR, "未收藏此信号");
         }
         favoriteRepository.deleteBySignalIdAndUserId(signalId, userId);
         signalRepository.decrementFavoriteCount(signalId);

@@ -3,6 +3,7 @@ package com.koduck.service.impl;
 import com.koduck.entity.MemoryChatMessage;
 import com.koduck.entity.MemoryChatSession;
 import com.koduck.entity.UserMemoryProfile;
+import com.koduck.exception.StateException;
 import com.koduck.repository.MemoryChatMessageRepository;
 import com.koduck.repository.MemoryChatSessionRepository;
 import com.koduck.repository.UserMemoryProfileRepository;
@@ -115,7 +116,7 @@ public class MemoryServiceImpl implements MemoryService {
         Map<String, Object> metadata
     ) {
         if (!memoryEnabled) {
-            throw new IllegalStateException("Memory is disabled");
+            throw new StateException("Memory is disabled");
         }
         Long nonNullUserId = Objects.requireNonNull(userId, USER_ID_NULL_MESSAGE);
         String nonNullRole = Objects.requireNonNull(role, "role must not be null");
