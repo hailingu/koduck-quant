@@ -127,6 +127,18 @@
 | 每日构建 | 定时 | PMD 全量扫描 | P1 违规 > 0 |
 | 周度回顾 | 手动 | 存量治理进度 | 进度偏差 > 20% |
 
+### 3.3 Ratchet 非回退守门（P0）
+
+- 基线文件：`koduck-backend/config/pmd/debt-baseline.txt`（当前存量上限）
+- 守门脚本：`koduck-backend/scripts/pmd-debt-guard.sh`
+- CI 工作流：`.github/workflows/ci-pmd-debt-guard.yml`
+
+机制说明：
+
+- 任一 PR/Push 若 PMD 总量高于基线，则 CI 失败；
+- 仅允许“持平或下降”，确保存量治理不回退；
+- 每个治理批次完成后，可通过 `--update-baseline` 将基线下调。
+
 ---
 
 ## 4. 进度追踪（按 2026-04-01 基线更新）
@@ -214,6 +226,12 @@ grep '<violation' koduck-backend/target/pmd.xml | \
 
 # 阻断检查
 mvn -q -f koduck-backend/pom.xml pmd:check
+
+# 存量非回退检查（Ratchet）
+./koduck-backend/scripts/pmd-debt-guard.sh
+
+# 存量下降后下调基线
+./koduck-backend/scripts/pmd-debt-guard.sh --update-baseline
 ```
 
 ### 6.2 责任人联系

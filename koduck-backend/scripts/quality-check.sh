@@ -54,6 +54,7 @@ echo "📦 阶段 1: 代码格式检查"
 echo ""
 
 run_check "PMD 代码格式检查" "mvn pmd:check -q"
+run_check "PMD 存量非回退检查" "./scripts/pmd-debt-guard.sh --skip-scan"
 
 # ========== 2. 静态分析检查 ==========
 echo ""
