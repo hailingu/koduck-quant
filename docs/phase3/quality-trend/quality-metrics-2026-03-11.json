@@ -1,0 +1,32 @@
+{
+  "week": "2026-W11",
+  "date": "2026-03-11",
+  "timestamp": "2026-03-11T10:00:00",
+  "project": "koduck-backend",
+  "version": "0.1.0-SNAPSHOT",
+  "metrics": {
+    "tests": {
+      "total": 116,
+      "passed": 116,
+      "failed": 0,
+      "skipped": 0,
+      "duration_seconds": 48,
+      "pass_rate": 100.0
+    },
+    "coverage": {
+      "line_percent": 39.1,
+      "branch_percent": 28.3,
+      "instruction_percent": 34.2
+    },
+    "static_analysis": {
+      "pmd_violations": 0,
+      "spotbugs_warnings": 0
+    },
+    "code": {
+      "files": 325,
+      "lines": 23500,
+      "classes": 422,
+      "methods": 1688
+    }
+  }
+}
