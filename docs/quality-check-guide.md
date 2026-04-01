@@ -34,6 +34,22 @@ make quality-coverage
 make quality-arch
 ```
 
+### 安装 pre-commit 质量门禁
+
+```bash
+# 在仓库根目录执行（推荐）
+make hooks-install
+
+# 等价命令
+./scripts/install-git-hooks.sh
+```
+
+安装后，提交前会自动触发 `.githooks/pre-commit`。若暂时不需要可执行：
+
+```bash
+make hooks-uninstall
+```
+
 ## 质量检查流程
 
 ```
@@ -129,10 +145,13 @@ GitHub Actions 已配置，PR 会自动运行：
 # 1. 拉取最新代码
 git pull origin dev
 
-# 2. 运行质量检查
+# 2. 确认已安装 pre-commit hook（首次执行）
+make hooks-install
+
+# 3. 运行质量检查
 make quality
 
-# 3. 检查通过后再提交
+# 4. 检查通过后再提交（commit 时会再次自动执行门禁）
 git add .
 git commit -m "feat: your change"
 git push origin your-branch
