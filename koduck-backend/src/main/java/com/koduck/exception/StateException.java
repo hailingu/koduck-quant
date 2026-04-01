@@ -5,9 +5,9 @@ import java.io.Serial;
 import lombok.Getter;
 
 /**
- * 
+ * Exception for invalid state transitions.
  *
- * <p></p>
+ * <p>Used when current entity/process state does not match expected state.</p>
  *
  * @author Koduck Team
  */
@@ -18,19 +18,19 @@ public class StateException extends BusinessException {
     private static final long serialVersionUID = 1L;
 
     /**
-     * 
+     * Current state value.
      */
     private final String currentState;
 
     /**
-     * 
+     * Expected state value.
      */
     private final String expectedState;
 
     /**
-     * 
+     * Creates a state exception with custom message.
      *
-     * @param message 
+     * @param message error message
      */
     public StateException(String message) {
         super(ErrorCode.INVALID_STATE.getCode(), message);
@@ -39,9 +39,9 @@ public class StateException extends BusinessException {
     }
 
     /**
-     * 
+     * Creates a state exception from predefined error code.
      *
-     * @param errorCode 
+     * @param errorCode state-related error code
      */
     public StateException(ErrorCode errorCode) {
         super(errorCode.getCode(), errorCode.getDefaultMessage());
@@ -50,10 +50,10 @@ public class StateException extends BusinessException {
     }
 
     /**
-     * 
+     * Creates a state exception from current/expected states.
      *
-     * @param currentState  
-     * @param expectedState 
+     * @param currentState current state
+     * @param expectedState expected state
      */
     public StateException(String currentState, String expectedState) {
         super(ErrorCode.INVALID_STATE.getCode(),
@@ -63,11 +63,11 @@ public class StateException extends BusinessException {
     }
 
     /**
-     * 
+     * Creates a state exception with explicit state values and custom message.
      *
-     * @param currentState  
-     * @param expectedState 
-     * @param message       
+     * @param currentState current state
+     * @param expectedState expected state
+     * @param message custom error message
      */
     public StateException(String currentState, String expectedState, String message) {
         super(ErrorCode.INVALID_STATE.getCode(), message);
