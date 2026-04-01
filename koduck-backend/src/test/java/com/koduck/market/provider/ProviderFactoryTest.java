@@ -7,6 +7,11 @@ import org.junit.jupiter.api.Test;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -157,6 +162,50 @@ class ProviderFactoryTest {
         assertNotNull(health);
         assertEquals(MarketType.A_SHARE, health.marketType());
         assertTrue(health.isPrimary());
+    }
+
+    @Test
+    void testConcurrentRegisterUnregisterAndReadShouldNotThrow() throws InterruptedException {
+        int workers = 12;
+        int iterations = 150;
+        ExecutorService executorService = Executors.newFixedThreadPool(workers);
+        CountDownLatch startLatch = new CountDownLatch(1);
+        CountDownLatch doneLatch = new CountDownLatch(workers);
+        ConcurrentLinkedQueue<Throwable> errors = new ConcurrentLinkedQueue<>();
+
+        for (int i = 0; i < workers; i++) {
+            int workerIndex = i;
+            executorService.submit(() -> {
+                try {
+                    startLatch.await();
+                    for (int round = 0; round < iterations; round++) {
+                        String providerName = "concurrent-" + workerIndex + "-" + round;
+                        MarketDataProvider provider = createMockProvider(providerName, MarketType.A_SHARE);
+                        factory.registerProvider(provider);
+
+                        // Exercise concurrent iteration paths while mutation is happening.
+                        factory.getAvailableProvider(MarketType.A_SHARE);
+                        factory.getProviders(MarketType.A_SHARE);
+                        factory.getProviderHealthSummary();
+
+                        factory.unregisterProvider(providerName);
+                    }
+                } catch (Throwable throwable) {
+                    errors.add(throwable);
+                } finally {
+                    doneLatch.countDown();
+                }
+            });
+        }
+
+        startLatch.countDown();
+        assertTrue(doneLatch.await(20, TimeUnit.SECONDS), "Concurrent tasks did not finish in time");
+        executorService.shutdownNow();
+
+        if (!errors.isEmpty()) {
+            Throwable firstError = errors.peek();
+            fail("Concurrent provider operations should not throw, but got: " + firstError, firstError);
+        }
     }
     
     /**
