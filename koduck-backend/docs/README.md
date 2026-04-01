@@ -133,6 +133,7 @@ mvn spring-boot:run
 
 - 密钥管理文档：[`SECRET-MANAGEMENT.md`](SECRET-MANAGEMENT.md)
 - 密钥治理 ADR：`ADR-0013-spring-vault-secret-management-baseline.md`
+- 生产 JWT 强制 Vault ADR：`ADR-0015-prod-jwt-secret-vault-enforcement.md`
 
 ## Security 策略配置
 
