@@ -159,6 +159,11 @@ mvn spring-boot:run
 - 架构决策树与关键流程图：[`ARCHITECTURE-FLOWS.md`](ARCHITECTURE-FLOWS.md)
 - 可视化文档治理 ADR：`ADR-0019-architecture-decision-tree-and-key-flow-visualization.md`
 
+## DDD 领域建模治理
+
+- 领域模型与模块划分文档：[`DOMAIN-MODEL-DESIGN.md`](DOMAIN-MODEL-DESIGN.md)
+- DDD 边界治理 ADR：`ADR-0021-ddd-bounded-context-module-partitioning.md`
+
 ## 测试
 
 ```bash
