@@ -14,12 +14,8 @@ export const API_TOKEN = __ENV.API_TOKEN || '';
 
 // 性能阈值配置
 export const THRESHOLDS = {
-  // P50 延迟 < 100ms
-  http_req_duration: ['p(50)<100'], 
-  // P95 延迟 < 500ms
-  http_req_duration: ['p(95)<500'],
-  // P99 延迟 < 1000ms
-  http_req_duration: ['p(99)<1000'],
+  // P50 延迟 < 100ms, P95 < 500ms, P99 < 1000ms
+  http_req_duration: ['p(50)<100', 'p(95)<500', 'p(99)<1000'],
   // 错误率 < 1%
   http_req_failed: ['rate<0.01'],
 };
