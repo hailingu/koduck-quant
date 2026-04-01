@@ -32,6 +32,7 @@ import java.util.Objects;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -421,6 +422,186 @@ class MarketServiceImplTest {
         List<PriceQuoteDto> quotes = marketService.getBatchPrices(List.of());
 
         assertThat(quotes).isEmpty();
+    }
+
+    // ==================== Exception Path Tests ====================
+
+    @Test
+    @DisplayName("shouldReturnEmptyListWhenSearchPageIsInvalid")
+    void shouldReturnEmptyListWhenSearchPageIsInvalid() {
+        List<SymbolInfoDto> results = marketService.searchSymbols("keyword", 0, 20);
+
+        assertThat(results).isEmpty();
+    }
+
+    @Test
+    @DisplayName("shouldReturnEmptyListWhenSearchSizeIsInvalid")
+    void shouldReturnEmptyListWhenSearchSizeIsInvalid() {
+        List<SymbolInfoDto> results = marketService.searchSymbols("keyword", 1, 0);
+
+        assertThat(results).isEmpty();
+    }
+
+    @Test
+    @DisplayName("shouldReturnNullWhenStockDetailSymbolIsNull")
+    void shouldReturnNullWhenStockDetailSymbolIsNull() {
+        PriceQuoteDto quote = marketService.getStockDetail(null);
+
+        assertThat(quote).isNull();
+    }
+
+    @Test
+    @DisplayName("shouldReturnNullWhenAllFallbacksFailForStockDetail")
+    void shouldReturnNullWhenAllFallbacksFailForStockDetail() {
+        when(stockRealtimeRepository.findFirstBySymbolOrderByUpdatedAtDesc("UNKNOWN"))
+                .thenReturn(Optional.empty());
+        when(marketFallbackSupport.tryBuildQuoteFromLatestKline("UNKNOWN"))
+                .thenReturn(null);
+        when(marketFallbackSupport.fetchProviderPrice("UNKNOWN"))
+                .thenReturn(null);
+
+        PriceQuoteDto quote = marketService.getStockDetail("UNKNOWN");
+
+        assertThat(quote).isNull();
+    }
+
+    @Test
+    @DisplayName("shouldReturnNullWhenStockValuationSymbolIsNull")
+    void shouldReturnNullWhenStockValuationSymbolIsNull() {
+        StockValuationDto valuation = marketService.getStockValuation(null);
+
+        assertThat(valuation).isNull();
+    }
+
+    @Test
+    @DisplayName("shouldReturnNullWhenStockValuationSymbolIsBlank")
+    void shouldReturnNullWhenStockValuationSymbolIsBlank() {
+        StockValuationDto valuation = marketService.getStockValuation("   ");
+
+        assertThat(valuation).isNull();
+    }
+
+    @Test
+    @DisplayName("shouldPropagateExceptionWhenValuationFetchFails")
+    void shouldPropagateExceptionWhenValuationFetchFails() {
+        when(marketFallbackSupport.fetchProviderValuation("600519"))
+                .thenThrow(new RuntimeException("Service unavailable"));
+
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> marketService.getStockValuation("600519"))
+                .isInstanceOf(RuntimeException.class)
+                .hasMessageContaining("Service unavailable");
+    }
+
+    @Test
+    @DisplayName("shouldReturnNullWhenStockIndustrySymbolIsNull")
+    void shouldReturnNullWhenStockIndustrySymbolIsNull() {
+        StockIndustryDto industry = marketService.getStockIndustry(null);
+
+        assertThat(industry).isNull();
+    }
+
+    @Test
+    @DisplayName("shouldReturnNullWhenStockIndustrySymbolIsBlank")
+    void shouldReturnNullWhenStockIndustrySymbolIsBlank() {
+        StockIndustryDto industry = marketService.getStockIndustry("   ");
+
+        assertThat(industry).isNull();
+    }
+
+    @Test
+    @DisplayName("shouldReturnNullWhenIndustryFetchThrowsException")
+    void shouldReturnNullWhenIndustryFetchThrowsException() {
+        when(marketFallbackSupport.fetchProviderIndustry("600519"))
+                .thenThrow(new RuntimeException("Service error"));
+
+        StockIndustryDto industry = marketService.getStockIndustry("600519");
+
+        assertThat(industry).isNull();
+    }
+
+    @Test
+    @DisplayName("shouldReturnEmptyMapWhenGetStockIndustriesWithNullSymbols")
+    void shouldReturnEmptyMapWhenGetStockIndustriesWithNullSymbols() {
+        java.util.Map<String, StockIndustryDto> results = marketService.getStockIndustries(null);
+
+        assertThat(results).isEmpty();
+    }
+
+    @Test
+    @DisplayName("shouldReturnEmptyMapWhenGetStockIndustriesWithEmptySymbols")
+    void shouldReturnEmptyMapWhenGetStockIndustriesWithEmptySymbols() {
+        java.util.Map<String, StockIndustryDto> results = marketService.getStockIndustries(List.of());
+
+        assertThat(results).isEmpty();
+    }
+
+    @Test
+    @DisplayName("shouldSkipNullAndBlankSymbolsInBatchIndustryLookup")
+    void shouldSkipNullAndBlankSymbolsInBatchIndustryLookup() {
+        StockIndustryDto industry = StockIndustryDto.builder()
+                .symbol("600519")
+                .name("贵州茅台")
+                .industry("白酒")
+                .build();
+
+        when(marketFallbackSupport.fetchProviderIndustry("600519"))
+                .thenReturn(industry);
+
+        java.util.List<String> symbols = new java.util.ArrayList<>();
+        symbols.add(null);
+        symbols.add("");
+        symbols.add("   ");
+        symbols.add("600519");
+        java.util.Map<String, StockIndustryDto> results = marketService.getStockIndustries(symbols);
+
+        assertThat(results).hasSize(1);
+        assertThat(results.get("600519")).isNotNull();
+    }
+
+    @Test
+    @DisplayName("shouldReturnEmptyListWhenNoIndicesFoundInRealtimeOrBasic")
+    void shouldReturnEmptyListWhenNoIndicesFoundInRealtimeOrBasic() {
+        when(stockRealtimeRepository.findBySymbolInAndType(
+                List.of("000001", "399001", "399006"), "INDEX"))
+                .thenReturn(List.of());
+        when(stockBasicRepository.findBySymbolInAndType(
+                List.of("000001", "399001", "399006"), "INDEX"))
+                .thenReturn(List.of());
+
+        List<MarketIndexDto> indices = marketService.getMarketIndices();
+
+        assertThat(indices).isEmpty();
+    }
+
+    @Test
+    @DisplayName("shouldReturnEmptyListWhenBatchPricesWithNullSymbols")
+    void shouldReturnEmptyListWhenBatchPricesWithNullSymbols() {
+        List<PriceQuoteDto> quotes = marketService.getBatchPrices(null);
+
+        assertThat(quotes).isEmpty();
+    }
+
+    @Test
+    @DisplayName("shouldReturnAllFromCacheWhenAllSymbolsCached")
+    void shouldReturnAllFromCacheWhenAllSymbolsCached() {
+        PriceQuoteDto cachedQuote1 = PriceQuoteDto.builder()
+                .symbol("002326")
+                .name("永太科技")
+                .price(new BigDecimal("9.55"))
+                .build();
+        PriceQuoteDto cachedQuote2 = PriceQuoteDto.builder()
+                .symbol("000001")
+                .name("平安银行")
+                .price(new BigDecimal("12.34"))
+                .build();
+
+        when(stockCacheService.getCachedStockTracks(List.of("002326", "000001")))
+                .thenReturn(List.of(cachedQuote1, cachedQuote2));
+
+        List<PriceQuoteDto> quotes = marketService.getBatchPrices(List.of("002326", "000001"));
+
+        assertThat(quotes).hasSize(2);
+        verify(stockCacheService, org.mockito.Mockito.never()).cacheBatchStockTracks(any());
     }
 
         @NonNull
