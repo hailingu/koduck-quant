@@ -1,6 +1,6 @@
 package com.koduck.service.impl;
 import com.koduck.dto.market.DailyNetFlowDto;
-import com.koduck.mapper.MarketFlowMapper;
+import com.koduck.mapper.MarketDataMapper;
 import com.koduck.repository.MarketDailyNetFlowRepository;
 import com.koduck.service.MarketFlowService;
 import lombok.RequiredArgsConstructor;
@@ -12,13 +12,13 @@ import java.util.List;
 @RequiredArgsConstructor
 public class MarketFlowServiceImpl implements MarketFlowService {
     private final MarketDailyNetFlowRepository marketDailyNetFlowRepository;
-    private final MarketFlowMapper marketFlowMapper;
+    private final MarketDataMapper marketDataMapper;
     @Override
     @Transactional(readOnly = true)
     public DailyNetFlowDto getLatestDailyNetFlow(String market, String flowType) {
         return marketDailyNetFlowRepository
                 .findFirstByMarketAndFlowTypeOrderByTradeDateDesc(market, flowType)
-            .map(marketFlowMapper::toDto)
+            .map(marketDataMapper::toDto)
                 .orElse(null);
     }
     @Override
@@ -26,7 +26,7 @@ public class MarketFlowServiceImpl implements MarketFlowService {
     public DailyNetFlowDto getDailyNetFlow(String market, String flowType, LocalDate tradeDate) {
         return marketDailyNetFlowRepository
                 .findByMarketAndFlowTypeAndTradeDate(market, flowType, tradeDate)
-            .map(marketFlowMapper::toDto)
+            .map(marketDataMapper::toDto)
                 .orElse(null);
     }
     @Override
@@ -35,7 +35,7 @@ public class MarketFlowServiceImpl implements MarketFlowService {
         return marketDailyNetFlowRepository
                 .findByMarketAndFlowTypeAndTradeDateBetweenOrderByTradeDateAsc(market, flowType, from, to)
                 .stream()
-            .map(marketFlowMapper::toDto)
+            .map(marketDataMapper::toDto)
                 .toList();
     }
 }
