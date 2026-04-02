@@ -1,55 +1,101 @@
 package com.koduck.service;
 
-import com.koduck.dto.credential.*;
 import java.util.List;
 
+import com.koduck.dto.credential.CreateCredentialRequest;
+import com.koduck.dto.credential.CredentialAuditLogResponse;
+import com.koduck.dto.credential.CredentialDetailResponse;
+import com.koduck.dto.credential.CredentialListResponse;
+import com.koduck.dto.credential.CredentialResponse;
+import com.koduck.dto.credential.UpdateCredentialRequest;
+import com.koduck.dto.credential.VerifyCredentialResponse;
+
 /**
- * 用户凭证服务接口
+ * User credential service interface.
+ *
+ * @author Koduck Team
  */
 public interface CredentialService {
 
     /**
-     * 获取凭证列表（分页）
+     * Get credential list (paginated).
+     *
+     * @param userId the user ID
+     * @param page   the page number
+     * @param size   the page size
+     * @return the credential list response
      */
     CredentialListResponse getCredentials(Long userId, int page, int size);
 
     /**
-     * 获取所有凭证（不分页）
+     * Get all credentials (not paginated).
+     *
+     * @param userId the user ID
+     * @return the list of credential responses
      */
     List<CredentialResponse> getAllCredentials(Long userId);
 
     /**
-     * 获取单个凭证（摘要信息）
+     * Get a single credential (summary info).
+     *
+     * @param userId       the user ID
+     * @param credentialId the credential ID
+     * @return the credential response
      */
     CredentialResponse getCredential(Long userId, Long credentialId);
 
     /**
-     * 获取凭证详情（包含敏感信息）
+     * Get credential detail (includes sensitive information).
+     *
+     * @param userId       the user ID
+     * @param credentialId the credential ID
+     * @return the credential detail response
      */
     CredentialDetailResponse getCredentialDetail(Long userId, Long credentialId);
 
     /**
-     * 创建凭证
+     * Create a new credential.
+     *
+     * @param userId  the user ID
+     * @param request the create request
+     * @return the created credential response
      */
     CredentialResponse createCredential(Long userId, CreateCredentialRequest request);
 
     /**
-     * 更新凭证
+     * Update an existing credential.
+     *
+     * @param userId       the user ID
+     * @param credentialId the credential ID
+     * @param request      the update request
+     * @return the updated credential response
      */
     CredentialResponse updateCredential(Long userId, Long credentialId, UpdateCredentialRequest request);
 
     /**
-     * 删除凭证
+     * Delete a credential.
+     *
+     * @param userId       the user ID
+     * @param credentialId the credential ID
      */
     void deleteCredential(Long userId, Long credentialId);
 
     /**
-     * 验证凭证
+     * Verify a credential.
+     *
+     * @param userId       the user ID
+     * @param credentialId the credential ID
+     * @return the verification response
      */
     VerifyCredentialResponse verifyCredential(Long userId, Long credentialId);
 
     /**
-     * 获取审计日志
+     * Get audit logs.
+     *
+     * @param userId the user ID
+     * @param page   the page number
+     * @param size   the page size
+     * @return the list of audit log responses
      */
     List<CredentialAuditLogResponse> getAuditLogs(Long userId, int page, int size);
 }
