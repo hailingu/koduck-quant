@@ -1,24 +1,5 @@
 package com.koduck.controller;
 
-import com.koduck.common.constants.ApiMessageConstants;
-import com.koduck.common.constants.ApiStatusCodeConstants;
-import com.koduck.common.constants.MarketConstants;
-import com.koduck.common.constants.PaginationConstants;
-import com.koduck.dto.ApiResponse;
-import com.koduck.dto.market.DailyBreadthDto;
-import com.koduck.dto.market.DailyNetFlowDto;
-import com.koduck.dto.market.KlineDataDto;
-import com.koduck.dto.market.MarketIndexDto;
-import com.koduck.dto.market.PriceQuoteDto;
-import com.koduck.dto.market.StockIndustryDto;
-import com.koduck.dto.market.StockStatsDto;
-import com.koduck.dto.market.StockValuationDto;
-import com.koduck.dto.market.SymbolInfoDto;
-import com.koduck.service.KlineSyncService;
-import com.koduck.service.KlineService;
-import com.koduck.service.MarketBreadthService;
-import com.koduck.service.MarketFlowService;
-import com.koduck.service.MarketService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -47,13 +28,31 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import com.koduck.common.constants.ApiMessageConstants;
+import com.koduck.common.constants.ApiStatusCodeConstants;
+import com.koduck.common.constants.MarketConstants;
+import com.koduck.common.constants.PaginationConstants;
+import com.koduck.dto.ApiResponse;
+import com.koduck.dto.market.DailyBreadthDto;
+import com.koduck.dto.market.DailyNetFlowDto;
+import com.koduck.dto.market.KlineDataDto;
+import com.koduck.dto.market.MarketIndexDto;
+import com.koduck.dto.market.PriceQuoteDto;
+import com.koduck.dto.market.StockIndustryDto;
+import com.koduck.dto.market.StockStatsDto;
+import com.koduck.dto.market.StockValuationDto;
+import com.koduck.dto.market.SymbolInfoDto;
+import com.koduck.service.KlineSyncService;
+import com.koduck.service.KlineService;
+import com.koduck.service.MarketBreadthService;
+import com.koduck.service.MarketFlowService;
+import com.koduck.service.MarketService;
 
 /**
  * REST API controller for market data.
  * <p>Provides endpoints for symbol search, stock details, market indices, and batch quotes.</p>
  *
- * @author GitHub Copilot
- * @date 2026-03-31
+ * @author Koduck Team
  */
 @RestController
 @RequestMapping("/api/v1/market")
@@ -88,7 +87,8 @@ public class MarketController {
             description = "搜索成功",
             content = @Content(schema = @Schema(implementation = SymbolInfoDto.class))
         ),
-        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "关键词为空或长度超过50字符"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400",
+            description = "关键词为空或长度超过50字符"),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "500", description = "服务器内部错误")
     })
     @GetMapping("/search")
@@ -166,7 +166,8 @@ public class MarketController {
             content = @Content(schema = @Schema(implementation = StockStatsDto.class))
         ),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "股票代码为空"),
-        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "股票统计信息不存在"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404",
+            description = "股票统计信息不存在"),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "500", description = "服务器内部错误")
     })
     @GetMapping("/stocks/{symbol}/stats")
@@ -203,7 +204,8 @@ public class MarketController {
             content = @Content(schema = @Schema(implementation = StockValuationDto.class))
         ),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "股票代码为空"),
-        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "股票估值信息不存在"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404",
+            description = "股票估值信息不存在"),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "500", description = "服务器内部错误")
     })
     @GetMapping("/stocks/{symbol}/valuation")
@@ -238,7 +240,8 @@ public class MarketController {
             content = @Content(schema = @Schema(implementation = StockIndustryDto.class))
         ),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "股票代码为空"),
-        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "股票行业信息不存在"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404",
+            description = "股票行业信息不存在"),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "500", description = "服务器内部错误")
     })
     @GetMapping("/stocks/{symbol}/industry")
@@ -272,7 +275,8 @@ public class MarketController {
             description = "获取成功",
             content = @Content(schema = @Schema(implementation = StockIndustryDto.class))
         ),
-        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "股票代码列表为空或超过200个"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400",
+            description = "股票代码列表为空或超过200个"),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "500", description = "服务器内部错误")
     })
     @PostMapping("/stocks/industry/batch")
@@ -315,7 +319,8 @@ public class MarketController {
             description = "已触发异步同步，K线数据准备中",
             content = @Content(schema = @Schema(implementation = KlineDataDto.class))
         ),
-        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "股票代码为空或参数错误"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400",
+            description = "股票代码为空或参数错误"),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "500", description = "服务器内部错误")
     })
     @GetMapping("/stocks/{symbol}/kline")
@@ -330,17 +335,21 @@ public class MarketController {
                 schema = @Schema(allowableValues = {"1m", "5m", "15m", "30m", "60m", "1D", "1W", "1M"}))
             @RequestParam(required = false) String timeframe,
             @Parameter(description = "返回记录数", example = "300")
-            @RequestParam(defaultValue = PaginationConstants.DEFAULT_KLINE_LIMIT_STR) @Min(1) @Max(1000) Integer limit,
+            @RequestParam(defaultValue = PaginationConstants.DEFAULT_KLINE_LIMIT_STR)
+            @Min(1) @Max(1000) Integer limit,
             @Parameter(description = "时间戳游标，获取早于该时间的数据", example = "1704067200000")
             @RequestParam(required = false) Long beforeTime) {
         String normalizedTimeframe = normalizeTimeframe(period, timeframe);
-        log.info("GET /api/v1/market/stocks/{}/kline: market={}, period={}, timeframe={}, normalizedTimeframe={}, limit={}, beforeTime={}",
+        log.info("GET /api/v1/market/stocks/{}/kline: market={}, period={}, timeframe={}, "
+                + "normalizedTimeframe={}, limit={}, beforeTime={}",
                 symbol, market, period, timeframe, normalizedTimeframe, limit, beforeTime);
-        List<KlineDataDto> data = klineService.getKlineData(market, symbol, normalizedTimeframe, limit, beforeTime);
+        List<KlineDataDto> data = klineService.getKlineData(market, symbol, normalizedTimeframe,
+            limit, beforeTime);
         if (!data.isEmpty()) {
             return ResponseEntity.ok(ApiResponse.success(data));
         }
-        boolean syncTriggered = klineSyncService.requestSyncSymbolKline(market, symbol, normalizedTimeframe);
+        boolean syncTriggered = klineSyncService.requestSyncSymbolKline(market, symbol,
+            normalizedTimeframe);
         if (!syncTriggered) {
             return ResponseEntity.ok(ApiResponse.success(data));
         }
@@ -378,6 +387,11 @@ public class MarketController {
     /**
      * Get daily market net flow.
      * If tradeDate is omitted, returns latest available trading-day data.
+     *
+     * @param market market code
+     * @param flowType flow type
+     * @param tradeDate trade date
+     * @return daily net flow data
      */
     @Operation(
         summary = "获取每日资金流向",
@@ -408,13 +422,20 @@ public class MarketController {
                 ? marketFlowService.getLatestDailyNetFlow(market, flowType)
                 : marketFlowService.getDailyNetFlow(market, flowType, tradeDate);
         if (result == null) {
-            return ApiResponse.error(ApiStatusCodeConstants.NOT_FOUND, ApiMessageConstants.MARKET_NET_FLOW_NOT_FOUND);
+            return ApiResponse.error(ApiStatusCodeConstants.NOT_FOUND,
+                ApiMessageConstants.MARKET_NET_FLOW_NOT_FOUND);
         }
         return ApiResponse.success(result);
     }
 
     /**
      * Get daily market net flow history.
+     *
+     * @param market market code
+     * @param flowType flow type
+     * @param from start date
+     * @param to end date
+     * @return list of daily net flow data
      */
     @Operation(
         summary = "获取每日资金流向历史",
@@ -446,15 +467,22 @@ public class MarketController {
         log.info("GET /api/v1/market/net-flow/daily/history: market={}, flowType={}, from={}, to={}",
                 market, flowType, from, to);
         if (to.isBefore(from)) {
-            return ApiResponse.error(ApiStatusCodeConstants.BAD_REQUEST, ApiMessageConstants.INVALID_DATE_RANGE);
+            return ApiResponse.error(ApiStatusCodeConstants.BAD_REQUEST,
+                ApiMessageConstants.INVALID_DATE_RANGE);
         }
-        List<DailyNetFlowDto> result = marketFlowService.getDailyNetFlowHistory(market, flowType, from, to);
+        List<DailyNetFlowDto> result = marketFlowService.getDailyNetFlowHistory(market, flowType,
+            from, to);
         return ApiResponse.success(result);
     }
 
     /**
      * Get daily market breadth (gainers/losers/unchanged counts).
      * If tradeDate is omitted, returns latest available trading-day data.
+     *
+     * @param market market code
+     * @param breadthType breadth type
+     * @param tradeDate trade date
+     * @return daily breadth data
      */
     @Operation(
         summary = "获取每日市场宽度",
@@ -485,13 +513,20 @@ public class MarketController {
                 ? marketBreadthService.getLatestDailyBreadth(market, breadthType)
                 : marketBreadthService.getDailyBreadth(market, breadthType, tradeDate);
         if (result == null) {
-            return ApiResponse.error(ApiStatusCodeConstants.NOT_FOUND, ApiMessageConstants.MARKET_BREADTH_NOT_FOUND);
+            return ApiResponse.error(ApiStatusCodeConstants.NOT_FOUND,
+                ApiMessageConstants.MARKET_BREADTH_NOT_FOUND);
         }
         return ApiResponse.success(result);
     }
 
     /**
      * Get daily market breadth history.
+     *
+     * @param market market code
+     * @param breadthType breadth type
+     * @param from start date
+     * @param to end date
+     * @return list of daily breadth data
      */
     @Operation(
         summary = "获取每日市场宽度历史",
@@ -523,9 +558,11 @@ public class MarketController {
         log.info("GET /api/v1/market/breadth/daily/history: market={}, breadthType={}, from={}, to={}",
                 market, breadthType, from, to);
         if (to.isBefore(from)) {
-            return ApiResponse.error(ApiStatusCodeConstants.BAD_REQUEST, ApiMessageConstants.INVALID_DATE_RANGE);
+            return ApiResponse.error(ApiStatusCodeConstants.BAD_REQUEST,
+                ApiMessageConstants.INVALID_DATE_RANGE);
         }
-        List<DailyBreadthDto> result = marketBreadthService.getDailyBreadthHistory(market, breadthType, from, to);
+        List<DailyBreadthDto> result = marketBreadthService.getDailyBreadthHistory(market,
+            breadthType, from, to);
         return ApiResponse.success(result);
     }
 
