@@ -1,9 +1,26 @@
 package com.koduck.trading.application;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Objects;
+
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
 import com.koduck.common.constants.MarketConstants;
-import com.koduck.dto.backtest.*;
+import com.koduck.dto.backtest.BacktestResultDto;
+import com.koduck.dto.backtest.BacktestTradeDto;
+import com.koduck.dto.backtest.RunBacktestRequest;
 import com.koduck.dto.market.KlineDataDto;
-import com.koduck.entity.*;
+import com.koduck.entity.BacktestResult;
+import com.koduck.entity.BacktestTrade;
+import com.koduck.entity.Strategy;
+import com.koduck.entity.StrategyVersion;
 import com.koduck.exception.BusinessException;
 import com.koduck.exception.ErrorCode;
 import com.koduck.exception.ResourceNotFoundException;
@@ -17,42 +34,61 @@ import com.koduck.service.KlineService;
 import com.koduck.service.support.BacktestExecutionContext;
 import com.koduck.service.support.BacktestSignal;
 import com.koduck.service.support.StrategyAccessSupport;
-import java.math.BigDecimal;
-import java.math.RoundingMode;
-import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.time.temporal.ChronoUnit;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Objects;
+import com.koduck.util.ServiceValidationUtils;
+
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
-import static com.koduck.util.ServiceValidationUtils.requireFound;
 
 /**
  * Implementation of BacktestService.
  *
- * @author GitHub Copilot
- * @date 2026-03-31
+ * @author Koduck Team
  */
 @Service
 @Slf4j
 @RequiredArgsConstructor
 public class BacktestServiceImpl implements BacktestService {
 
+    /** The result repository. */
     private final BacktestResultRepository resultRepository;
+    /** The backtest trade repository. */
     private final BacktestTradeRepository backtestTradeRepository;
+    /** The strategy repository. */
     private final StrategyRepository strategyRepository;
+    /** The version repository. */
     private final StrategyVersionRepository versionRepository;
+    /** The kline service. */
     private final KlineService klineService;
+    /** The backtest trade mapper. */
     private final BacktestTradeMapper backtestTradeMapper;
+    /** The strategy access support. */
     private final StrategyAccessSupport strategyAccessSupport;
 
+    /** The decimal scale. */
     private static final int SCALE = 4;
+    /** The default timeframe. */
     private static final String DEFAULT_TIMEFRAME = MarketConstants.DEFAULT_TIMEFRAME;
+    /** The kline data limit. */
+    private static final int KLINE_DATA_LIMIT = 1000;
+    /** The seconds per day. */
+    private static final long SECONDS_PER_DAY = 86400L;
+    /** The minimum bars required. */
+    private static final int MINIMUM_BARS = 60;
+    /** The MA short period. */
+    private static final int MA_SHORT_PERIOD = 20;
+    /** The percentage multiplier. */
+    private static final int PERCENTAGE_MULTIPLIER = 100;
+    /** The days per year. */
+    private static final double DAYS_PER_YEAR = 365.0;
+    /** The trading days per year. */
+    private static final int TRADING_DAYS_PER_YEAR = 252;
+    /** The cash usage ratio. */
+    private static final BigDecimal CASH_USAGE_RATIO = new BigDecimal("0.9");
+    /** The buy signal reason. */
+    private static final String BUY_SIGNAL_REASON = "MA20 crosses above MA60";
+    /** The sell signal reason. */
+    private static final String SELL_SIGNAL_REASON = "MA20 crosses below MA60";
+
     /**
      * Get all backtest results for a user.
      */
@@ -64,6 +100,7 @@ public class BacktestServiceImpl implements BacktestService {
             .map(this::convertToDto)
             .toList();
     }
+
     /**
      * Get a backtest result by id.
      */
@@ -73,6 +110,7 @@ public class BacktestServiceImpl implements BacktestService {
         BacktestResult result = loadBacktestResultOrThrow(userId, id);
         return convertToDto(result);
     }
+
     /**
      * Run a backtest.
      */
@@ -109,7 +147,8 @@ public class BacktestServiceImpl implements BacktestService {
             savedResult.setCompletedAt(LocalDateTime.now());
             resultRepository.save(savedResult);
             log.info("Backtest completed: id={}, user={}", savedResult.getId(), userId);
-        } catch (Exception e) {
+        }
+        catch (Exception e) {
             log.error("Backtest failed: id={}, error={}", savedResult.getId(), e.getMessage(), e);
             savedResult.setStatus(BacktestResult.BacktestStatus.FAILED);
             savedResult.setErrorMessage(e.getMessage());
@@ -118,6 +157,7 @@ public class BacktestServiceImpl implements BacktestService {
         }
         return convertToDto(savedResult);
     }
+
     /**
      * Get trades for a backtest result.
      */
@@ -130,6 +170,7 @@ public class BacktestServiceImpl implements BacktestService {
             .map(this::convertTradeToDto)
             .toList();
     }
+
     /**
      * Delete a backtest result.
      */
@@ -144,6 +185,7 @@ public class BacktestServiceImpl implements BacktestService {
         resultRepository.delete(Objects.requireNonNull(result, "result must not be null"));
         log.info("Deleted backtest result: user={}, id={}", userId, id);
     }
+
     /**
      * Execute backtest logic.
      */
@@ -151,22 +193,22 @@ public class BacktestServiceImpl implements BacktestService {
         // Get historical data
         String timeframe = result.getTimeframe() != null ? result.getTimeframe() : DEFAULT_TIMEFRAME;
         List<KlineDataDto> klineData = klineService.getKlineData(
-            result.getMarket(), result.getSymbol(), timeframe, 1000, null);
+            result.getMarket(), result.getSymbol(), timeframe, KLINE_DATA_LIMIT, null);
         if (klineData.isEmpty()) {
             throw new BusinessException(ErrorCode.BACKTEST_INSUFFICIENT_DATA, "No historical data available");
         }
         // Filter by date range
         List<KlineDataDto> filteredData = klineData.stream()
             .filter(k -> {
-                LocalDate date = LocalDate.ofEpochDay(k.timestamp() / 86400);
+                LocalDate date = LocalDate.ofEpochDay(k.timestamp() / SECONDS_PER_DAY);
                 return !date.isBefore(result.getStartDate()) && !date.isAfter(result.getEndDate());
             })
             .sorted((a, b) -> Long.compare(a.timestamp(), b.timestamp()))
             .toList();
-        if (filteredData.size() < 60) {
+        if (filteredData.size() < MINIMUM_BARS) {
             throw new BusinessException(
                     ErrorCode.BACKTEST_INSUFFICIENT_DATA,
-                    "Insufficient data for backtest (need at least 60 bars)");
+                    "Insufficient data for backtest (need at least " + MINIMUM_BARS + " bars)");
         }
         // Initialize backtest state
         BacktestExecutionContext context = new BacktestExecutionContext(
@@ -177,7 +219,7 @@ public class BacktestServiceImpl implements BacktestService {
         List<BacktestTrade> trades = new ArrayList<>();
         List<BigDecimal> equityCurve = new ArrayList<>();
         // Run backtest simulation
-        for (int i = 60; i < filteredData.size(); i++) {
+        for (int i = MINIMUM_BARS; i < filteredData.size(); i++) {
             List<KlineDataDto> history = filteredData.subList(0, i + 1);
             KlineDataDto current = filteredData.get(i);
             // Simple MA crossover strategy
@@ -188,7 +230,8 @@ public class BacktestServiceImpl implements BacktestService {
                 if (trade != null) {
                     trades.add(trade);
                 }
-            } else if (signal == BacktestSignal.SELL && context.getPosition().compareTo(BigDecimal.ZERO) > 0) {
+            }
+            else if (signal == BacktestSignal.SELL && context.getPosition().compareTo(BigDecimal.ZERO) > 0) {
                 // Execute sell
                 BacktestTrade trade = executeSell(context, current, result.getId());
                 trades.add(trade);
@@ -204,20 +247,21 @@ public class BacktestServiceImpl implements BacktestService {
             backtestTradeRepository.saveAll(trades);
         }
     }
+
     /**
      * Generate trading signal based on MA crossover.
      */
     private BacktestSignal generateSignal(List<KlineDataDto> history) {
-        if (history.size() < 60) {
+        if (history.size() < MINIMUM_BARS) {
             return BacktestSignal.HOLD;
         }
         // Calculate MA20 and MA60
-        BigDecimal ma20 = calculateMA(history, 20);
-        BigDecimal ma60 = calculateMA(history, 60);
+        BigDecimal ma20 = calculateMA(history, MA_SHORT_PERIOD);
+        BigDecimal ma60 = calculateMA(history, MINIMUM_BARS);
         // Calculate previous MA
         List<KlineDataDto> prevHistory = history.subList(0, history.size() - 1);
-        BigDecimal prevMa20 = calculateMA(prevHistory, 20);
-        BigDecimal prevMa60 = calculateMA(prevHistory, 60);
+        BigDecimal prevMa20 = calculateMA(prevHistory, MA_SHORT_PERIOD);
+        BigDecimal prevMa60 = calculateMA(prevHistory, MINIMUM_BARS);
         // Golden cross: MA20 crosses above MA60
         if (ma20.compareTo(ma60) > 0 && prevMa20.compareTo(prevMa60) <= 0) {
             return BacktestSignal.BUY;
@@ -228,6 +272,7 @@ public class BacktestServiceImpl implements BacktestService {
         }
         return BacktestSignal.HOLD;
     }
+
     /**
      * Calculate Moving Average.
      */
@@ -242,6 +287,7 @@ public class BacktestServiceImpl implements BacktestService {
         }
         return sum.divide(BigDecimal.valueOf(period), SCALE, RoundingMode.HALF_UP);
     }
+
     /**
      * Execute buy order.
      */
@@ -250,7 +296,7 @@ public class BacktestServiceImpl implements BacktestService {
         BigDecimal price = current.close().multiply(
             BigDecimal.ONE.add(context.getSlippage())).setScale(SCALE, RoundingMode.HALF_UP);
         // Use 90% of cash for position
-        BigDecimal positionValue = context.getCash().multiply(new BigDecimal("0.9"));
+        BigDecimal positionValue = context.getCash().multiply(CASH_USAGE_RATIO);
         BigDecimal quantity = positionValue.divide(price, 0, RoundingMode.DOWN);
         if (quantity.compareTo(BigDecimal.ZERO) <= 0) {
             return null;
@@ -269,14 +315,15 @@ public class BacktestServiceImpl implements BacktestService {
             .price(price)
             .quantity(quantity)
             .amount(amount)
-                .commission(commission)
-                .slippageCost(amount.multiply(context.getSlippage()).setScale(SCALE, RoundingMode.HALF_UP))
+            .commission(commission)
+            .slippageCost(amount.multiply(context.getSlippage()).setScale(SCALE, RoundingMode.HALF_UP))
             .totalCost(totalCost)
-                .cashAfter(context.getCash())
-                .positionAfter(context.getPosition())
-            .signalReason("MA20 crosses above MA60")
+            .cashAfter(context.getCash())
+            .positionAfter(context.getPosition())
+            .signalReason(BUY_SIGNAL_REASON)
             .build();
     }
+
     /**
      * Execute sell order.
      */
@@ -292,7 +339,7 @@ public class BacktestServiceImpl implements BacktestService {
         BigDecimal pnl = totalCost.subtract(context.getEntryPrice().multiply(quantity));
         BigDecimal pnlPercent = context.getEntryPrice().compareTo(BigDecimal.ZERO) > 0
             ? pnl.divide(context.getEntryPrice().multiply(quantity), SCALE, RoundingMode.HALF_UP)
-                .multiply(BigDecimal.valueOf(100))
+                .multiply(BigDecimal.valueOf(PERCENTAGE_MULTIPLIER))
             : BigDecimal.ZERO;
         context.setCash(context.getCash().add(totalCost));
         context.setPosition(BigDecimal.ZERO);
@@ -304,16 +351,17 @@ public class BacktestServiceImpl implements BacktestService {
             .price(price)
             .quantity(quantity)
             .amount(amount)
-                .commission(commission)
-                .slippageCost(amount.multiply(context.getSlippage()).setScale(SCALE, RoundingMode.HALF_UP))
+            .commission(commission)
+            .slippageCost(amount.multiply(context.getSlippage()).setScale(SCALE, RoundingMode.HALF_UP))
             .totalCost(totalCost)
-                .cashAfter(context.getCash())
-                .positionAfter(context.getPosition())
+            .cashAfter(context.getCash())
+            .positionAfter(context.getPosition())
             .pnl(pnl)
             .pnlPercent(pnlPercent)
-            .signalReason("MA20 crosses below MA60")
+            .signalReason(SELL_SIGNAL_REASON)
             .build();
     }
+
     /**
      * Calculate backtest metrics.
      */
@@ -327,14 +375,14 @@ public class BacktestServiceImpl implements BacktestService {
         // Total return
         BigDecimal totalReturn = finalCapital.subtract(result.getInitialCapital())
             .divide(result.getInitialCapital(), SCALE, RoundingMode.HALF_UP)
-            .multiply(BigDecimal.valueOf(100));
+            .multiply(BigDecimal.valueOf(PERCENTAGE_MULTIPLIER));
         result.setTotalReturn(totalReturn);
         // Annualized return
         long days = ChronoUnit.DAYS.between(result.getStartDate(), result.getEndDate());
-        double years = days / 365.0;
+        double years = days / DAYS_PER_YEAR;
         if (years > 0) {
             double totalReturnFactor = finalCapital.doubleValue() / result.getInitialCapital().doubleValue();
-            double annualizedReturn = (Math.pow(totalReturnFactor, 1.0 / years) - 1) * 100;
+            double annualizedReturn = (Math.pow(totalReturnFactor, 1.0 / years) - 1) * PERCENTAGE_MULTIPLIER;
             result.setAnnualizedReturn(BigDecimal.valueOf(annualizedReturn).setScale(SCALE, RoundingMode.HALF_UP));
         }
         // Max drawdown
@@ -355,7 +403,7 @@ public class BacktestServiceImpl implements BacktestService {
         if (totalTrades > 0) {
             BigDecimal winRate = BigDecimal.valueOf(winningTrades)
                 .divide(BigDecimal.valueOf(totalTrades), SCALE, RoundingMode.HALF_UP)
-                .multiply(BigDecimal.valueOf(100));
+                .multiply(BigDecimal.valueOf(PERCENTAGE_MULTIPLIER));
             result.setWinRate(winRate);
         }
         // Average profit/loss
@@ -387,7 +435,8 @@ public class BacktestServiceImpl implements BacktestService {
             .abs();
         if (grossLoss.compareTo(BigDecimal.ZERO) > 0) {
             result.setProfitFactor(grossProfit.divide(grossLoss, SCALE, RoundingMode.HALF_UP));
-        } else {
+        }
+        else {
             result.setProfitFactor(BigDecimal.ZERO);
         }
         // Sharpe ratio (simplified)
@@ -396,6 +445,7 @@ public class BacktestServiceImpl implements BacktestService {
             result.setSharpeRatio(sharpeRatio);
         }
     }
+
     /**
      * Calculate maximum drawdown.
      */
@@ -408,13 +458,14 @@ public class BacktestServiceImpl implements BacktestService {
             }
             BigDecimal drawdown = peak.subtract(equity)
                 .divide(peak, SCALE, RoundingMode.HALF_UP)
-                .multiply(BigDecimal.valueOf(100));
+                .multiply(BigDecimal.valueOf(PERCENTAGE_MULTIPLIER));
             if (drawdown.compareTo(maxDrawdown) > 0) {
                 maxDrawdown = drawdown;
             }
         }
         return maxDrawdown;
     }
+
     /**
      * Calculate Sharpe ratio (simplified).
      */
@@ -439,20 +490,25 @@ public class BacktestServiceImpl implements BacktestService {
             .divide(BigDecimal.valueOf(returns.size()), SCALE, RoundingMode.HALF_UP);
         BigDecimal stdDev = BigDecimal.valueOf(Math.sqrt(variance.doubleValue()));
         if (stdDev.compareTo(BigDecimal.ZERO) > 0) {
-            // Annualized Sharpe ratio (assuming 252 trading days)
-            return meanReturn.multiply(BigDecimal.valueOf(252))
-                .divide(stdDev.multiply(BigDecimal.valueOf(Math.sqrt(252))), SCALE, RoundingMode.HALF_UP);
+            // Annualized Sharpe ratio (assuming TRADING_DAYS_PER_YEAR trading days)
+            return meanReturn.multiply(BigDecimal.valueOf(TRADING_DAYS_PER_YEAR))
+                .divide(stdDev.multiply(BigDecimal.valueOf(Math.sqrt(TRADING_DAYS_PER_YEAR))),
+                    SCALE, RoundingMode.HALF_UP);
         }
         return BigDecimal.ZERO;
     }
+
     private BacktestResult loadBacktestResultOrThrow(Long userId, Long backtestId) {
-        return requireFound(resultRepository.findByIdAndUserId(backtestId, userId),
+        return ServiceValidationUtils.requireFound(resultRepository.findByIdAndUserId(backtestId, userId),
                 () -> new ResourceNotFoundException("backtest result", backtestId));
     }
+
     private StrategyVersion loadLatestVersionOrThrow(Long strategyId) {
-        return requireFound(versionRepository.findFirstByStrategyIdOrderByVersionNumberDesc(strategyId),
+        return ServiceValidationUtils.requireFound(
+                versionRepository.findFirstByStrategyIdOrderByVersionNumberDesc(strategyId),
                 () -> new ResourceNotFoundException("strategy version for strategy", strategyId));
     }
+
     /**
      * Convert BacktestResult to DTO.
      */
@@ -493,6 +549,7 @@ public class BacktestServiceImpl implements BacktestService {
             .completedAt(result.getCompletedAt())
             .build();
     }
+
     /**
      * Convert BacktestTrade to DTO.
      */
