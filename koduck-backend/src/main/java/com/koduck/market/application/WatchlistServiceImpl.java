@@ -1,5 +1,23 @@
 package com.koduck.market.application;
 
+import static com.koduck.util.ServiceValidationUtils.assertOwner;
+import static com.koduck.util.ServiceValidationUtils.requireFound;
+
+import java.math.BigDecimal;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
+
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
 import com.koduck.client.DataServiceClient;
 import com.koduck.dto.watchlist.AddWatchlistRequest;
 import com.koduck.dto.watchlist.SortWatchlistRequest;
@@ -13,43 +31,33 @@ import com.koduck.repository.StockRealtimeRepository;
 import com.koduck.repository.WatchlistRepository;
 import com.koduck.service.WatchlistService;
 import com.koduck.util.SymbolUtils;
-import java.math.BigDecimal;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Optional;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.TimeUnit;
-import java.util.stream.Collectors;
+
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
-import static com.koduck.util.ServiceValidationUtils.assertOwner;
-import static com.koduck.util.ServiceValidationUtils.requireFound;
 
 /**
  * Implementation of {@link WatchlistService} for watchlist operations.
  *
  * @author GitHub Copilot
- * @date 2026-03-31
  */
 @Service
 @Slf4j
 @RequiredArgsConstructor
 public class WatchlistServiceImpl implements WatchlistService {
 
+    /** Maximum number of items allowed in watchlist. */
     private static final int MAX_WATCHLIST_SIZE = 100;
+
+    /** Timeout in seconds for realtime data update. */
     private static final long REALTIME_UPDATE_TIMEOUT_SECONDS = 3L;
 
+    /** Repository for watchlist items. */
     private final WatchlistRepository watchlistRepository;
 
+    /** Repository for stock realtime data. */
     private final StockRealtimeRepository stockRealtimeRepository;
 
+    /** Client for data service operations. */
     private final DataServiceClient dataServiceClient;
 
     /**
@@ -71,6 +79,7 @@ public class WatchlistServiceImpl implements WatchlistService {
             .map(item -> convertToDtoWithPrice(item, realtimeBySymbol))
             .toList();
     }
+
     /**
      * {@inheritDoc}
      */
@@ -102,15 +111,18 @@ public class WatchlistServiceImpl implements WatchlistService {
             .notes(request.notes())
             .sortOrder(maxOrder + 1)
             .build();
-        WatchlistItem saved = watchlistRepository.save(Objects.requireNonNull(item, "watchlist item must not be null"));
+        WatchlistItem saved = watchlistRepository.save(
+            Objects.requireNonNull(item, "watchlist item must not be null"));
         log.info("watchlist_add_success id={} userId={} symbol={}",
                 saved.getId(), userId, request.symbol());
         // Trigger realtime data update for the newly added symbol
         // This is asynchronous and non-blocking - failures are logged but don't affect the main flow
         triggerRealtimeUpdateAsync(Collections.singletonList(normalizedSymbol));
-        Map<String, StockRealtime> realtimeBySymbol = loadRealtimeMap(Collections.singletonList(normalizedSymbol));
+        Map<String, StockRealtime> realtimeBySymbol =
+            loadRealtimeMap(Collections.singletonList(normalizedSymbol));
         return convertToDtoWithPrice(saved, realtimeBySymbol);
     }
+
     /**
      * {@inheritDoc}
      */
@@ -121,18 +133,21 @@ public class WatchlistServiceImpl implements WatchlistService {
         watchlistRepository.deleteByUserIdAndId(userId, itemId);
         log.info("watchlist_remove_success userId={} itemId={}", userId, itemId);
     }
+
     /**
      * {@inheritDoc}
      */
     @Override
     @Transactional
     public void sortWatchlist(Long userId, SortWatchlistRequest request) {
-        log.debug("watchlist_sort_start userId={} itemsCount={}", userId, request.items().size());
+        log.debug("watchlist_sort_start userId={} itemsCount={}",
+            userId, request.items().size());
         for (SortWatchlistRequest.SortItem item : request.items()) {
             watchlistRepository.updateSortOrder(item.id(), userId, item.sortOrder());
         }
         log.info("watchlist_sort_success userId={}", userId);
     }
+
     /**
      * {@inheritDoc}
      */
@@ -146,18 +161,36 @@ public class WatchlistServiceImpl implements WatchlistService {
         WatchlistItem saved = watchlistRepository.save(item);
         String normalizedSymbol = SymbolUtils.normalize(saved.getSymbol());
         Map<String, StockRealtime> realtimeBySymbol =
-                loadRealtimeMap(normalizedSymbol == null ? Collections.emptyList() : Collections.singletonList(normalizedSymbol));
+                loadRealtimeMap(normalizedSymbol == null
+                    ? Collections.emptyList()
+                    : Collections.singletonList(normalizedSymbol));
         return convertToDtoWithPrice(saved, realtimeBySymbol);
     }
+
+    /**
+     * Load watchlist item by ID or throw exception if not found.
+     *
+     * @param itemId the item ID
+     * @return the watchlist item
+     * @throws ResourceNotFoundException if item not found
+     */
     private WatchlistItem loadWatchlistItemOrThrow(Long itemId) {
         return requireFound(watchlistRepository.findById(Objects.requireNonNull(itemId)),
                 () -> new ResourceNotFoundException("watchlist item", itemId));
     }
+
+    /**
+     * Load realtime stock data map for given symbols.
+     *
+     * @param normalizedSymbols the list of normalized symbols
+     * @return map of symbol to stock realtime data
+     */
     private Map<String, StockRealtime> loadRealtimeMap(List<String> normalizedSymbols) {
         if (normalizedSymbols == null || normalizedSymbols.isEmpty()) {
             return Collections.emptyMap();
         }
-        List<StockRealtime> realtimeList = stockRealtimeRepository.findBySymbolIn(normalizedSymbols);
+        List<StockRealtime> realtimeList =
+            stockRealtimeRepository.findBySymbolIn(normalizedSymbols);
         Map<String, StockRealtime> realtimeBySymbol = new HashMap<>();
         for (StockRealtime realtime : realtimeList) {
             if (realtime.getSymbol() == null) {
@@ -167,6 +200,12 @@ public class WatchlistServiceImpl implements WatchlistService {
         }
         return realtimeBySymbol;
     }
+
+    /**
+     * Trigger async realtime data update for given symbols.
+     *
+     * @param symbolsToRefresh the list of symbols to refresh
+     */
     private void triggerRealtimeUpdateAsync(List<String> symbolsToRefresh) {
         if (symbolsToRefresh == null || symbolsToRefresh.isEmpty()) {
             return;
@@ -179,14 +218,24 @@ public class WatchlistServiceImpl implements WatchlistService {
                     return null;
                 });
     }
-    private WatchlistItemDto convertToDtoWithPrice(WatchlistItem item, Map<String, StockRealtime> realtimeBySymbol) {
+
+    /**
+     * Convert watchlist item to DTO with price information.
+     *
+     * @param item the watchlist item
+     * @param realtimeBySymbol map of symbol to stock realtime data
+     * @return the watchlist item DTO
+     */
+    private WatchlistItemDto convertToDtoWithPrice(WatchlistItem item,
+                                                   Map<String, StockRealtime> realtimeBySymbol) {
         // Normalize symbol to match stock_realtime table format
         // stock_realtime stores symbols as 6-digit (e.g., "601012")
         // watchlist_item may have market prefix (e.g., "SH601012" or just "601012")
         String normalizedSymbol = SymbolUtils.normalize(item.getSymbol());
         log.debug("watchlist_lookup_realtime_price normalizedSymbol={} originalSymbol={}",
                 normalizedSymbol, item.getSymbol());
-        Optional<StockRealtime> realtimeOpt = Optional.ofNullable(realtimeBySymbol.get(normalizedSymbol));
+        Optional<StockRealtime> realtimeOpt =
+            Optional.ofNullable(realtimeBySymbol.get(normalizedSymbol));
         BigDecimal price = realtimeOpt.map(StockRealtime::getPrice).orElse(null);
         BigDecimal change = realtimeOpt.map(StockRealtime::getChangeAmount).orElse(null);
         BigDecimal changePercent = realtimeOpt.map(StockRealtime::getChangePercent).orElse(null);
