@@ -1,4 +1,5 @@
 package com.koduck.market.application;
+
 import com.koduck.common.constants.MarketConstants;
 import com.koduck.dto.indicator.IndicatorListResponse;
 import com.koduck.dto.indicator.IndicatorResponse;
@@ -8,6 +9,18 @@ import com.koduck.exception.ErrorCode;
 import com.koduck.exception.ValidationException;
 import com.koduck.service.KlineService;
 import com.koduck.service.TechnicalIndicatorService;
+import java.math.BigDecimal;
+import java.math.RoundingMode;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -27,61 +40,67 @@ import org.ta4j.core.indicators.helpers.VolumeIndicator;
 import org.ta4j.core.indicators.statistics.StandardDeviationIndicator;
 import org.ta4j.core.num.DecimalNum;
 import org.ta4j.core.num.Num;
-import java.math.BigDecimal;
-import java.math.RoundingMode;
-import java.time.LocalDateTime;
-import java.time.ZoneId;
-import java.time.ZonedDateTime;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Locale;
-import java.util.Map;
+
 /**
  * Implementation of TechnicalIndicatorService.
+ *
+ * @author Koduck Team
  */
 @Service
 @RequiredArgsConstructor
 @Slf4j
 public class TechnicalIndicatorServiceImpl implements TechnicalIndicatorService {
-    private final KlineService klineService;
-    private static final int DEFAULT_LIMIT = 100;
-    private static final int SCALE = 4;
+
     /**
-     * Get available indicators.
+     * The kline service for fetching market data.
      */
+    private final KlineService klineService;
+
+    /**
+     * Default limit for kline data.
+     */
+    private static final int DEFAULT_LIMIT = 100;
+
+    /**
+     * Scale for BigDecimal calculations.
+     */
+    private static final int SCALE = 4;
+
     @Override
     public IndicatorListResponse getAvailableIndicators() {
         List<IndicatorListResponse.IndicatorInfo> indicators = Arrays.asList(
-            new IndicatorListResponse.IndicatorInfo("MA", "Moving Average", "Simple Moving Average", 
+            new IndicatorListResponse.IndicatorInfo(
+                "MA", "Moving Average", "Simple Moving Average",
                 Arrays.asList(5, 10, 20, 60), "TREND"),
-            new IndicatorListResponse.IndicatorInfo("EMA", "Exponential Moving Average", "Exponential Moving Average", 
+            new IndicatorListResponse.IndicatorInfo(
+                "EMA", "Exponential Moving Average", "Exponential Moving Average",
                 Arrays.asList(5, 10, 20, 60), "TREND"),
-            new IndicatorListResponse.IndicatorInfo("MACD", "MACD", "Moving Average Convergence Divergence", 
+            new IndicatorListResponse.IndicatorInfo(
+                "MACD", "MACD", "Moving Average Convergence Divergence",
                 Arrays.asList(12, 26, 9), "MOMENTUM"),
-            new IndicatorListResponse.IndicatorInfo("RSI", "RSI", "Relative Strength Index", 
+            new IndicatorListResponse.IndicatorInfo(
+                "RSI", "RSI", "Relative Strength Index",
                 Arrays.asList(6, 12, 24), "MOMENTUM"),
-            new IndicatorListResponse.IndicatorInfo("BOLL", "Bollinger Bands", "Bollinger Bands", 
+            new IndicatorListResponse.IndicatorInfo(
+                "BOLL", "Bollinger Bands", "Bollinger Bands",
                 Arrays.asList(20), "VOLATILITY"),
-            new IndicatorListResponse.IndicatorInfo("VOL", "Volume", "Trading Volume", 
+            new IndicatorListResponse.IndicatorInfo(
+                "VOL", "Volume", "Trading Volume",
                 Arrays.asList(5, 10), "VOLUME")
         );
         return IndicatorListResponse.builder()
             .indicators(indicators)
             .build();
     }
-    /**
-     * Calculate indicator for a symbol.
-     */
+
     @Override
-    public IndicatorResponse calculateIndicator(String market, String symbol, String indicator, Integer period) {
-        log.debug("Calculating indicator: market={}, symbol={}, indicator={}, period={}", 
+    public IndicatorResponse calculateIndicator(String market, String symbol, String indicator,
+                                                Integer period) {
+        log.debug("Calculating indicator: market={}, symbol={}, indicator={}, period={}",
                  market, symbol, indicator, period);
         // Get kline data
-        List<KlineDataDto> klineData =
-            klineService.getKlineData(market, symbol, MarketConstants.DEFAULT_TIMEFRAME, DEFAULT_LIMIT, null);
+        List<KlineDataDto> klineData = klineService.getKlineData(
+            market, symbol, MarketConstants.DEFAULT_TIMEFRAME, DEFAULT_LIMIT, null);
         if (klineData.isEmpty()) {
             throw new BusinessException(
                     ErrorCode.MARKET_DATA_NOT_FOUND,
@@ -100,10 +119,18 @@ public class TechnicalIndicatorServiceImpl implements TechnicalIndicatorService 
             default -> throw new ValidationException("Unsupported indicator: " + indicator);
         };
     }
+
     /**
      * Calculate Simple Moving Average (MA/SMA).
+     *
+     * @param series the bar series
+     * @param market the market
+     * @param symbol the symbol
+     * @param period the period
+     * @return the indicator response
      */
-    private IndicatorResponse calculateMA(BarSeries series, String market, String symbol, int period) {
+    private IndicatorResponse calculateMA(BarSeries series, String market, String symbol,
+                                          int period) {
         ClosePriceIndicator closePrice = new ClosePriceIndicator(series);
         SMAIndicator sma = new SMAIndicator(closePrice, period);
         int lastIndex = series.getEndIndex();
@@ -122,10 +149,18 @@ public class TechnicalIndicatorServiceImpl implements TechnicalIndicatorService 
             .timestamp(LocalDateTime.now())
             .build();
     }
+
     /**
      * Calculate Exponential Moving Average (EMA).
+     *
+     * @param series the bar series
+     * @param market the market
+     * @param symbol the symbol
+     * @param period the period
+     * @return the indicator response
      */
-    private IndicatorResponse calculateEMA(BarSeries series, String market, String symbol, int period) {
+    private IndicatorResponse calculateEMA(BarSeries series, String market, String symbol,
+                                           int period) {
         ClosePriceIndicator closePrice = new ClosePriceIndicator(series);
         EMAIndicator ema = new EMAIndicator(closePrice, period);
         int lastIndex = series.getEndIndex();
@@ -144,8 +179,14 @@ public class TechnicalIndicatorServiceImpl implements TechnicalIndicatorService 
             .timestamp(LocalDateTime.now())
             .build();
     }
+
     /**
      * Calculate MACD (Moving Average Convergence Divergence).
+     *
+     * @param series the bar series
+     * @param market the market
+     * @param symbol the symbol
+     * @return the indicator response
      */
     private IndicatorResponse calculateMACD(BarSeries series, String market, String symbol) {
         ClosePriceIndicator closePrice = new ClosePriceIndicator(series);
@@ -172,10 +213,18 @@ public class TechnicalIndicatorServiceImpl implements TechnicalIndicatorService 
             .timestamp(LocalDateTime.now())
             .build();
     }
+
     /**
      * Calculate RSI (Relative Strength Index).
+     *
+     * @param series the bar series
+     * @param market the market
+     * @param symbol the symbol
+     * @param period the period
+     * @return the indicator response
      */
-    private IndicatorResponse calculateRSI(BarSeries series, String market, String symbol, int period) {
+    private IndicatorResponse calculateRSI(BarSeries series, String market, String symbol,
+                                           int period) {
         ClosePriceIndicator closePrice = new ClosePriceIndicator(series);
         RSIIndicator rsi = new RSIIndicator(closePrice, period);
         int lastIndex = series.getEndIndex();
@@ -201,16 +250,26 @@ public class TechnicalIndicatorServiceImpl implements TechnicalIndicatorService 
             .timestamp(LocalDateTime.now())
             .build();
     }
+
     /**
      * Calculate Bollinger Bands (BOLL).
+     *
+     * @param series the bar series
+     * @param market the market
+     * @param symbol the symbol
+     * @param period the period
+     * @return the indicator response
      */
-    private IndicatorResponse calculateBOLL(BarSeries series, String market, String symbol, int period) {
+    private IndicatorResponse calculateBOLL(BarSeries series, String market, String symbol,
+                                            int period) {
         ClosePriceIndicator closePrice = new ClosePriceIndicator(series);
         SMAIndicator sma = new SMAIndicator(closePrice, period);
         StandardDeviationIndicator stdDev = new StandardDeviationIndicator(sma, period);
         BollingerBandsMiddleIndicator middle = new BollingerBandsMiddleIndicator(sma);
-        BollingerBandsUpperIndicator upper = new BollingerBandsUpperIndicator(middle, stdDev, DecimalNum.valueOf(2));
-        BollingerBandsLowerIndicator lower = new BollingerBandsLowerIndicator(middle, stdDev, DecimalNum.valueOf(2));
+        BollingerBandsUpperIndicator upper = new BollingerBandsUpperIndicator(
+            middle, stdDev, DecimalNum.valueOf(2));
+        BollingerBandsLowerIndicator lower = new BollingerBandsLowerIndicator(
+            middle, stdDev, DecimalNum.valueOf(2));
         int lastIndex = series.getEndIndex();
         BigDecimal middleValue = toBigDecimal(middle.getValue(lastIndex));
         BigDecimal upperValue = toBigDecimal(upper.getValue(lastIndex));
@@ -239,10 +298,18 @@ public class TechnicalIndicatorServiceImpl implements TechnicalIndicatorService 
             .timestamp(LocalDateTime.now())
             .build();
     }
+
     /**
      * Calculate Volume (VOL).
+     *
+     * @param series the bar series
+     * @param market the market
+     * @param symbol the symbol
+     * @param period the period
+     * @return the indicator response
      */
-    private IndicatorResponse calculateVOL(BarSeries series, String market, String symbol, int period) {
+    private IndicatorResponse calculateVOL(BarSeries series, String market, String symbol,
+                                           int period) {
         VolumeIndicator volume = new VolumeIndicator(series, period);
         int lastIndex = series.getEndIndex();
         BigDecimal value = toBigDecimal(volume.getValue(lastIndex));
@@ -262,8 +329,12 @@ public class TechnicalIndicatorServiceImpl implements TechnicalIndicatorService 
             .timestamp(LocalDateTime.now())
             .build();
     }
+
     /**
      * Convert KlineDataDto list to BarSeries.
+     *
+     * @param klineData the list of kline data
+     * @return the bar series
      */
     private BarSeries convertToBarSeries(List<KlineDataDto> klineData) {
         BarSeries series = new BaseBarSeriesBuilder().withNumTypeOf(DecimalNum.class).build();
@@ -273,7 +344,9 @@ public class TechnicalIndicatorServiceImpl implements TechnicalIndicatorService 
         for (KlineDataDto dto : sortedData) {
             ZonedDateTime dateTime = ZonedDateTime.ofInstant(
                 java.time.Instant.ofEpochSecond(dto.timestamp()), ZoneId.systemDefault());
-            Bar bar = new BaseBar(java.time.Duration.ofDays(1), dateTime,
+            Bar bar = new BaseBar(
+                java.time.Duration.ofDays(1),
+                dateTime,
                 DecimalNum.valueOf(dto.open().toString()),
                 DecimalNum.valueOf(dto.high().toString()),
                 DecimalNum.valueOf(dto.low().toString()),
@@ -284,14 +357,23 @@ public class TechnicalIndicatorServiceImpl implements TechnicalIndicatorService 
         }
         return series;
     }
+
     /**
      * Convert DecimalNum to BigDecimal.
+     *
+     * @param num the number
+     * @return the BigDecimal value
      */
     private BigDecimal toBigDecimal(Num num) {
         return new BigDecimal(num.toString()).setScale(SCALE, RoundingMode.HALF_UP);
     }
+
     /**
      * Determine trend based on current and previous values.
+     *
+     * @param current the current value
+     * @param previous the previous value
+     * @return the trend string
      */
     private String determineTrend(BigDecimal current, BigDecimal previous) {
         if (current.compareTo(previous) > 0) {

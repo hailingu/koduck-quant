@@ -1,29 +1,5 @@
 package com.koduck.controller;
 
-import com.koduck.common.constants.ApiMessageConstants;
-import com.koduck.common.constants.ApiStatusCodeConstants;
-import com.koduck.common.constants.MarketConstants;
-import com.koduck.common.constants.PaginationConstants;
-import com.koduck.config.properties.DataServiceProperties;
-import com.koduck.dto.ApiResponse;
-import com.koduck.dto.market.BigOrderAlertDto;
-import com.koduck.dto.market.BigOrderStatsDto;
-import com.koduck.dto.market.CapitalRiverBreadthBandsDto;
-import com.koduck.dto.market.CapitalRiverBubbleDto;
-import com.koduck.dto.market.CapitalRiverDto;
-import com.koduck.dto.market.CapitalRiverTrackItemDto;
-import com.koduck.dto.market.CapitalRiverTracksDto;
-import com.koduck.dto.market.DataServiceResponse;
-import com.koduck.dto.market.PriceQuoteDto;
-import com.koduck.dto.market.SectorNetFlowDto;
-import com.koduck.dto.market.SectorNetFlowItemDto;
-import com.koduck.dto.market.SectorNetworkDto;
-import com.koduck.dto.market.SymbolInfoDto;
-import com.koduck.dto.market.TickDto;
-import com.koduck.service.MarketSectorNetFlowService;
-import com.koduck.service.MarketService;
-import com.koduck.service.SyntheticTickService;
-import com.koduck.service.TickStreamService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -61,12 +37,35 @@ import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 import org.springframework.web.util.UriComponentsBuilder;
+import com.koduck.common.constants.ApiMessageConstants;
+import com.koduck.common.constants.ApiStatusCodeConstants;
+import com.koduck.common.constants.MarketConstants;
+import com.koduck.common.constants.PaginationConstants;
+import com.koduck.config.properties.DataServiceProperties;
+import com.koduck.dto.ApiResponse;
+import com.koduck.dto.market.BigOrderAlertDto;
+import com.koduck.dto.market.BigOrderStatsDto;
+import com.koduck.dto.market.CapitalRiverBreadthBandsDto;
+import com.koduck.dto.market.CapitalRiverBubbleDto;
+import com.koduck.dto.market.CapitalRiverDto;
+import com.koduck.dto.market.CapitalRiverTrackItemDto;
+import com.koduck.dto.market.CapitalRiverTracksDto;
+import com.koduck.dto.market.DataServiceResponse;
+import com.koduck.dto.market.PriceQuoteDto;
+import com.koduck.dto.market.SectorNetFlowDto;
+import com.koduck.dto.market.SectorNetFlowItemDto;
+import com.koduck.dto.market.SectorNetworkDto;
+import com.koduck.dto.market.SymbolInfoDto;
+import com.koduck.dto.market.TickDto;
+import com.koduck.service.MarketSectorNetFlowService;
+import com.koduck.service.MarketService;
+import com.koduck.service.SyntheticTickService;
+import com.koduck.service.TickStreamService;
 
 /**
  * Advanced market endpoints split from {@link MarketController} to keep controller classes focused.
  *
- * @author GitHub Copilot
- * @date 2026-03-31
+ * @author Koduck Team
  */
 @RestController
 @RequestMapping("/api/v1/market")
@@ -104,6 +103,11 @@ public class MarketAdvancedController {
     @Qualifier("dataServiceRestTemplate")
     private final RestTemplate dataServiceRestTemplate;
 
+    /**
+     * Get fear and greed index.
+     *
+     * @return fear and greed index data
+     */
     @Operation(
         summary = "获取恐惧贪婪指数",
         description = "获取市场恐惧贪婪指数"
@@ -117,25 +121,38 @@ public class MarketAdvancedController {
     public ApiResponse<Map<String, Object>> getFearGreedIndex() {
         log.info("GET /api/v1/market/fear-greed-index");
         if (!dataServiceProperties.isEnabled()) {
-            return ApiResponse.error(ApiStatusCodeConstants.SERVICE_UNAVAILABLE, ApiMessageConstants.DATA_SERVICE_DISABLED);
+            return ApiResponse.error(ApiStatusCodeConstants.SERVICE_UNAVAILABLE,
+                ApiMessageConstants.DATA_SERVICE_DISABLED);
         }
         try {
-            ResponseEntity<DataServiceResponse<Map<String, Object>>> response = dataServiceRestTemplate.exchange(
-                dataServiceProperties.getBaseUrl() + FEAR_GREED_INDEX_PATH,
-                Objects.requireNonNull(HttpMethod.GET),
-                null,
-                Objects.requireNonNull(DATA_SERVICE_MAP_RESPONSE_TYPE));
+            ResponseEntity<DataServiceResponse<Map<String, Object>>> response =
+                dataServiceRestTemplate.exchange(
+                    dataServiceProperties.getBaseUrl() + FEAR_GREED_INDEX_PATH,
+                    Objects.requireNonNull(HttpMethod.GET),
+                    null,
+                    Objects.requireNonNull(DATA_SERVICE_MAP_RESPONSE_TYPE));
             DataServiceResponse<Map<String, Object>> body = response.getBody();
             if (body == null || !body.isSuccess() || body.data() == null) {
-                return ApiResponse.error(ApiStatusCodeConstants.BAD_GATEWAY, ApiMessageConstants.FEAR_GREED_FETCH_FAILED);
+                return ApiResponse.error(ApiStatusCodeConstants.BAD_GATEWAY,
+                    ApiMessageConstants.FEAR_GREED_FETCH_FAILED);
             }
             return ApiResponse.success(body.data());
         } catch (RestClientException e) {
             log.warn("fear_greed_proxy_failed: {}", e.getMessage());
-            return ApiResponse.error(ApiStatusCodeConstants.BAD_GATEWAY, ApiMessageConstants.FEAR_GREED_FETCH_FAILED);
+            return ApiResponse.error(ApiStatusCodeConstants.BAD_GATEWAY,
+                ApiMessageConstants.FEAR_GREED_FETCH_FAILED);
         }
     }
 
+    /**
+     * Get sector net flow data.
+     *
+     * @param market market code
+     * @param indicator indicator type
+     * @param limit number of results to return
+     * @param tradeDate trade date
+     * @return sector net flow data
+     */
     @Operation(
         summary = "获取板块资金流向",
         description = "获取各板块的资金净流入/流出数据"
@@ -156,7 +173,8 @@ public class MarketAdvancedController {
             @Parameter(description = "指标类型", example = "main")
             @RequestParam(defaultValue = MarketConstants.DEFAULT_INDICATOR) String indicator,
             @Parameter(description = "返回数量", example = "20")
-            @RequestParam(defaultValue = PaginationConstants.DEFAULT_LIST_LIMIT_STR) @Min(1) @Max(100) Integer limit,
+            @RequestParam(defaultValue = PaginationConstants.DEFAULT_LIST_LIMIT_STR)
+            @Min(1) @Max(100) Integer limit,
             @Parameter(description = "交易日期", example = "2024-01-15")
             @RequestParam(required = false)
             @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
@@ -167,11 +185,22 @@ public class MarketAdvancedController {
             ? marketSectorNetFlowService.getLatest(market, indicator, limit)
             : marketSectorNetFlowService.getByTradeDate(market, indicator, tradeDate, limit);
         if (result == null) {
-            return ApiResponse.error(ApiStatusCodeConstants.NOT_FOUND, ApiMessageConstants.SECTOR_NET_FLOW_NOT_FOUND);
+            return ApiResponse.error(ApiStatusCodeConstants.NOT_FOUND,
+                ApiMessageConstants.SECTOR_NET_FLOW_NOT_FOUND);
         }
         return ApiResponse.success(result);
     }
 
+    /**
+     * Get capital river visualization data.
+     *
+     * @param market market code
+     * @param indicator indicator type
+     * @param bubbleCount number of bubbles
+     * @param listLimit list limit
+     * @param tradeDate trade date
+     * @return capital river data
+     */
     @Operation(
         summary = "获取资金流向图",
         description = "获取资金流向可视化数据（资本河流图）"
@@ -192,20 +221,24 @@ public class MarketAdvancedController {
             @Parameter(description = "指标类型", example = "main")
             @RequestParam(defaultValue = MarketConstants.DEFAULT_INDICATOR) String indicator,
             @Parameter(description = "气泡数量", example = "5")
-            @RequestParam(defaultValue = PaginationConstants.DEFAULT_BUBBLE_COUNT_STR) @Min(1) @Max(10) Integer bubbleCount,
+            @RequestParam(defaultValue = PaginationConstants.DEFAULT_BUBBLE_COUNT_STR)
+            @Min(1) @Max(10) Integer bubbleCount,
             @Parameter(description = "列表数量限制", example = "20")
-            @RequestParam(defaultValue = PaginationConstants.DEFAULT_LIST_LIMIT_STR) @Min(1) @Max(100) Integer listLimit,
+            @RequestParam(defaultValue = PaginationConstants.DEFAULT_LIST_LIMIT_STR)
+            @Min(1) @Max(100) Integer listLimit,
             @Parameter(description = "交易日期", example = "2024-01-15")
             @RequestParam(required = false)
             @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
             LocalDate tradeDate) {
-        log.info("GET /api/v1/market/capital-river: market={}, indicator={}, bubbleCount={}, listLimit={}, tradeDate={}",
+        log.info("GET /api/v1/market/capital-river: market={}, indicator={}, bubbleCount={}, "
+            + "listLimit={}, tradeDate={}",
             market, indicator, bubbleCount, listLimit, tradeDate);
         SectorNetFlowDto snapshot = tradeDate == null
             ? marketSectorNetFlowService.getLatest(market, indicator, listLimit)
             : marketSectorNetFlowService.getByTradeDate(market, indicator, tradeDate, listLimit);
         if (snapshot == null) {
-            return ApiResponse.error(ApiStatusCodeConstants.NOT_FOUND, ApiMessageConstants.CAPITAL_RIVER_NOT_FOUND);
+            return ApiResponse.error(ApiStatusCodeConstants.NOT_FOUND,
+                ApiMessageConstants.CAPITAL_RIVER_NOT_FOUND);
         }
         List<CapitalRiverTrackItemDto> industry = toTrackItems(snapshot.industry());
         List<CapitalRiverTrackItemDto> concept = toTrackItems(snapshot.concept());
@@ -238,6 +271,11 @@ public class MarketAdvancedController {
         return ApiResponse.success(payload);
     }
 
+    /**
+     * Get market breadth data.
+     *
+     * @return market breadth data
+     */
     @Operation(
         summary = "获取市场宽度",
         description = "获取市场宽度数据"
@@ -251,25 +289,37 @@ public class MarketAdvancedController {
     public ApiResponse<Map<String, Object>> getMarketBreadth() {
         log.info("GET /api/v1/market/breadth");
         if (!dataServiceProperties.isEnabled()) {
-            return ApiResponse.error(ApiStatusCodeConstants.SERVICE_UNAVAILABLE, ApiMessageConstants.DATA_SERVICE_DISABLED);
+            return ApiResponse.error(ApiStatusCodeConstants.SERVICE_UNAVAILABLE,
+                ApiMessageConstants.DATA_SERVICE_DISABLED);
         }
         try {
-            ResponseEntity<DataServiceResponse<Map<String, Object>>> response = dataServiceRestTemplate.exchange(
-                dataServiceProperties.getBaseUrl() + BREADTH_PATH,
-                Objects.requireNonNull(HttpMethod.GET),
-                null,
-                Objects.requireNonNull(DATA_SERVICE_MAP_RESPONSE_TYPE));
+            ResponseEntity<DataServiceResponse<Map<String, Object>>> response =
+                dataServiceRestTemplate.exchange(
+                    dataServiceProperties.getBaseUrl() + BREADTH_PATH,
+                    Objects.requireNonNull(HttpMethod.GET),
+                    null,
+                    Objects.requireNonNull(DATA_SERVICE_MAP_RESPONSE_TYPE));
             DataServiceResponse<Map<String, Object>> body = response.getBody();
             if (body == null || !body.isSuccess() || body.data() == null) {
-                return ApiResponse.error(ApiStatusCodeConstants.BAD_GATEWAY, ApiMessageConstants.BREADTH_FETCH_FAILED);
+                return ApiResponse.error(ApiStatusCodeConstants.BAD_GATEWAY,
+                    ApiMessageConstants.BREADTH_FETCH_FAILED);
             }
             return ApiResponse.success(body.data());
         } catch (RestClientException e) {
             log.warn("breadth_proxy_failed: {}", e.getMessage());
-            return ApiResponse.error(ApiStatusCodeConstants.BAD_GATEWAY, ApiMessageConstants.BREADTH_FETCH_FAILED);
+            return ApiResponse.error(ApiStatusCodeConstants.BAD_GATEWAY,
+                ApiMessageConstants.BREADTH_FETCH_FAILED);
         }
     }
 
+    /**
+     * Get big order alerts.
+     *
+     * @param limit number of results to return
+     * @param orderType order type filter
+     * @param minAmount minimum amount threshold
+     * @return list of big order alerts
+     */
     @Operation(
         summary = "获取大单追踪",
         description = "获取大额交易订单追踪数据"
@@ -285,12 +335,14 @@ public class MarketAdvancedController {
     @GetMapping("/big-orders")
     public ApiResponse<List<BigOrderAlertDto>> getBigOrders(
             @Parameter(description = "返回数量", example = "20")
-            @RequestParam(defaultValue = PaginationConstants.DEFAULT_LIST_LIMIT_STR) @Min(1) @Max(50) Integer limit,
+            @RequestParam(defaultValue = PaginationConstants.DEFAULT_LIST_LIMIT_STR)
+            @Min(1) @Max(50) Integer limit,
             @Parameter(description = "订单类型", example = "buy")
             @RequestParam(name = "order_type", required = false) String orderType,
             @Parameter(description = "最小金额", example = "500000")
             @RequestParam(name = "min_amount", defaultValue = "500000") @Min(0) Double minAmount) {
-        log.info("GET /api/v1/market/big-orders: limit={}, orderType={}, minAmount={}", limit, orderType, minAmount);
+        log.info("GET /api/v1/market/big-orders: limit={}, orderType={}, minAmount={}",
+            limit, orderType, minAmount);
         if (!dataServiceProperties.isEnabled()) {
             log.warn("big_orders_proxy_skipped reason=data_service_disabled");
             return ApiResponse.success(List.of());
@@ -303,11 +355,12 @@ public class MarketAdvancedController {
             if (orderType != null && !orderType.isBlank()) {
                 builder.queryParam("order_type", orderType);
             }
-            ResponseEntity<DataServiceResponse<List<BigOrderAlertDto>>> response = dataServiceRestTemplate.exchange(
-                builder.toUriString(),
-                Objects.requireNonNull(HttpMethod.GET),
-                null,
-                Objects.requireNonNull(BIG_ORDER_LIST_RESPONSE_TYPE));
+            ResponseEntity<DataServiceResponse<List<BigOrderAlertDto>>> response =
+                dataServiceRestTemplate.exchange(
+                    builder.toUriString(),
+                    Objects.requireNonNull(HttpMethod.GET),
+                    null,
+                    Objects.requireNonNull(BIG_ORDER_LIST_RESPONSE_TYPE));
             DataServiceResponse<List<BigOrderAlertDto>> body = response.getBody();
             if (body == null || !body.isSuccess() || body.data() == null) {
                 log.warn("big_orders_proxy_empty code={} message={}",
@@ -322,6 +375,11 @@ public class MarketAdvancedController {
         }
     }
 
+    /**
+     * Get big order statistics.
+     *
+     * @return big order statistics
+     */
     @Operation(
         summary = "获取大单统计",
         description = "获取大额交易订单统计数据"
@@ -342,11 +400,12 @@ public class MarketAdvancedController {
             return ApiResponse.success(BigOrderStatsDto.empty());
         }
         try {
-            ResponseEntity<DataServiceResponse<BigOrderStatsDto>> response = dataServiceRestTemplate.exchange(
-                dataServiceProperties.getBaseUrl() + BIG_ORDERS_STATS_PATH,
-                Objects.requireNonNull(HttpMethod.GET),
-                null,
-                Objects.requireNonNull(BIG_ORDER_STATS_RESPONSE_TYPE));
+            ResponseEntity<DataServiceResponse<BigOrderStatsDto>> response =
+                dataServiceRestTemplate.exchange(
+                    dataServiceProperties.getBaseUrl() + BIG_ORDERS_STATS_PATH,
+                    Objects.requireNonNull(HttpMethod.GET),
+                    null,
+                    Objects.requireNonNull(BIG_ORDER_STATS_RESPONSE_TYPE));
             DataServiceResponse<BigOrderStatsDto> body = response.getBody();
             if (body == null || !body.isSuccess() || body.data() == null) {
                 log.warn("big_order_stats_proxy_empty code={} message={}",
@@ -361,6 +420,13 @@ public class MarketAdvancedController {
         }
     }
 
+    /**
+     * Get hot stocks.
+     *
+     * @param market market code
+     * @param limit number of results to return
+     * @return list of hot stocks
+     */
     @Operation(
         summary = "获取热门股票",
         description = "获取市场热门股票列表"
@@ -387,6 +453,12 @@ public class MarketAdvancedController {
         return ApiResponse.success(hotStocks);
     }
 
+    /**
+     * Get sector network data.
+     *
+     * @param market market code
+     * @return sector network data
+     */
     @Operation(
         summary = "获取板块关联网络",
         description = "获取板块之间的关联关系网络数据"
@@ -408,6 +480,12 @@ public class MarketAdvancedController {
         return ApiResponse.success(network);
     }
 
+    /**
+     * Get batch prices for multiple symbols.
+     *
+     * @param symbols list of stock symbols
+     * @return list of price quotes
+     */
     @Operation(
         summary = "批量获取股价",
         description = "批量获取多只股票的价格数据"
@@ -418,7 +496,8 @@ public class MarketAdvancedController {
             description = "获取成功",
             content = @Content(schema = @Schema(implementation = PriceQuoteDto.class))
         ),
-        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "股票代码列表为空或超过50个"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400",
+            description = "股票代码列表为空或超过50个"),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "500", description = "服务器内部错误")
     })
     @GetMapping("/batch")
@@ -432,6 +511,14 @@ public class MarketAdvancedController {
         return ApiResponse.success(quotes);
     }
 
+    /**
+     * Get tick data for a symbol.
+     *
+     * @param market market code
+     * @param symbol stock symbol
+     * @param limit number of ticks to return
+     * @return list of tick data
+     */
     @Operation(
         summary = "获取分笔数据",
         description = "获取股票的分笔成交数据"
@@ -451,13 +538,21 @@ public class MarketAdvancedController {
             @Parameter(description = "股票代码", example = "600519")
             @RequestParam String symbol,
             @Parameter(description = "返回数量", example = "100")
-            @RequestParam(defaultValue = PaginationConstants.DEFAULT_TICK_LIMIT_STR) @Min(1) @Max(500) Integer limit) {
+            @RequestParam(defaultValue = PaginationConstants.DEFAULT_TICK_LIMIT_STR)
+            @Min(1) @Max(500) Integer limit) {
         log.info("GET /api/v1/market/ticks: market={}, symbol={}, limit={}", market, symbol, limit);
         syntheticTickService.trackSymbol(symbol);
         List<TickDto> historyTicks = syntheticTickService.getLatestTicks(symbol, limit);
         return ApiResponse.success(historyTicks);
     }
 
+    /**
+     * Get tick summary for a symbol.
+     *
+     * @param market market code
+     * @param symbol stock symbol
+     * @return tick summary data
+     */
     @Operation(
         summary = "获取分笔统计",
         description = "获取股票分笔成交的统计信息"
@@ -516,6 +611,13 @@ public class MarketAdvancedController {
         return ApiResponse.success(summary);
     }
 
+    /**
+     * Subscribe to tick data stream.
+     *
+     * @param market market code
+     * @param symbol stock symbol
+     * @return SSE emitter for tick stream
+     */
     @Operation(
         summary = "订阅分笔数据流",
         description = "通过SSE协议订阅实时分笔数据流"
@@ -534,6 +636,20 @@ public class MarketAdvancedController {
         return tickStreamService.subscribe(symbol);
     }
 
+    /**
+     * Tick summary DTO record.
+     *
+     * @param symbol stock symbol
+     * @param market market code
+     * @param totalTrades total number of trades
+     * @param totalVolume total volume
+     * @param totalAmount total amount
+     * @param buyVolume buy volume
+     * @param sellVolume sell volume
+     * @param blockOrderCount block order count
+     * @param avgTradeSize average trade size
+     * @param lastUpdated last updated time
+     */
     @Schema(description = "分笔数据统计")
     public record TickSummaryDto(
         @Schema(description = "股票代码", example = "600519")

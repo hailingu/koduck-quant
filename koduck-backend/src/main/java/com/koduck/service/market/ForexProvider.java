@@ -30,51 +30,99 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestTemplate;
 
 /**
- * Forex (Foreign Exchange) market data provider.
+ * 外汇（Forex）市场数据提供者。
  *
- * <p>Data-service based implementation with unified retrieval and error handling inherited from
- * {@link AbstractDataServiceMarketProvider}.</p>
+ * <p>基于数据服务的实现，继承自 {@link AbstractDataServiceMarketProvider}
+ * 的统一检索和错误处理。</p>
+ *
+ * @author Koduck Team
  */
 @Component
-public class ForexProvider extends AbstractDataServiceMarketProvider {
+public class ForexProvider extends AbstractDataServiceMarketProvider
+{
 
     private static final Logger LOG = LoggerFactory.getLogger(ForexProvider.class);
     private static final ZoneId NEW_YORK_ZONE = ZoneId.of("America/New_York");
     private static final String FOREX_BASE_PATH = "/forex";
     private static final String PROVIDER_NAME = "akshare-forex";
+    private static final int FOREX_MARKET_OPEN_HOUR = 17;
+    private static final int FOREX_MARKET_CLOSE_HOUR = 17;
+    private static final int PIP_DIGITS_STANDARD = 4;
+    private static final int PIP_DIGITS_GOLD = 2;
+    private static final int PIP_DIGITS_JPY_SILVER = 3;
+    private static final int SYMBOL_LENGTH_STANDARD = 6;
+    private static final int SYMBOL_PREFIX_LENGTH = 3;
+    private static final double VOLATILITY_PRECIOUS_METALS = 0.008;
+    private static final double VOLATILITY_FOREX_PAIRS = 0.0015;
+    private static final double VOLATILITY_TICK_PRECIOUS_METALS = 0.005;
+    private static final double VOLATILITY_TICK_FOREX = 0.001;
+    private static final double PRICE_CHANGE_MULTIPLIER = 0.5;
+    private static final double HIGH_LOW_MULTIPLIER = 1.0;
+    private static final double DAY_HIGH_MULTIPLIER = 1.01;
+    private static final double DAY_LOW_MULTIPLIER = 0.99;
+    private static final long VOLUME_MIN = 10_000L;
+    private static final long VOLUME_MAX_EXCLUSIVE = 1_000_000L;
+    private static final long TICK_VOLUME_MIN = 100_000L;
+    private static final long TICK_VOLUME_MAX_EXCLUSIVE = 5_000_000L;
+    private static final long ORDER_BOOK_VOLUME_MIN = 100L;
+    private static final long ORDER_BOOK_VOLUME_MAX_EXCLUSIVE = 10_000L;
+    private static final int BID_ASK_SPREAD_MULTIPLIER = 2;
+    private static final int DIVIDE_SCALE = 4;
+    private static final double PERCENT_MULTIPLIER = 100.0;
+    private static final String XAU_PREFIX = "XAU";
+    private static final String XAG_PREFIX = "XAG";
+    private static final String JPY_SUFFIX = "JPY";
+    private static final String SYMBOL_SEPARATOR_SLASH = "/";
+    private static final String SYMBOL_SEPARATOR_DASH = "-";
+    private static final String SYMBOL_SEPARATOR_UNDERSCORE = "_";
+    private static final String EXCHANGE_FOREX = "FOREX";
+    private static final String SYMBOL_TYPE_FOREX = "forex";
+    private static final int INITIAL_CAPACITY = 14;
 
-    // Base rates for major currency pairs (mock data fallback)
-    private final Map<String, BigDecimal> baseRates = new LinkedHashMap<>();
+    // 主要货币对的基准汇率（模拟数据回退）
+    private final Map<String, BigDecimal> baseRates = new LinkedHashMap<>(INITIAL_CAPACITY);
 
-    public ForexProvider(
-            DataServiceProperties properties,
-            @Qualifier("dataServiceRestTemplate") RestTemplate restTemplate) {
+    /**
+     * 构造函数。
+     *
+     * @param properties 配置属性
+     * @param restTemplate REST模板
+     */
+    public ForexProvider(DataServiceProperties properties,
+        @Qualifier("dataServiceRestTemplate") RestTemplate restTemplate)
+    {
         super(properties, restTemplate);
         initBaseRates();
     }
 
     @Override
-    public String getProviderName() {
+    public String getProviderName()
+    {
         return PROVIDER_NAME;
     }
 
     @Override
-    public MarketType getMarketType() {
+    public MarketType getMarketType()
+    {
         return MarketType.FOREX;
     }
 
     @Override
-    public MarketStatus getMarketStatus() {
+    public MarketStatus getMarketStatus()
+    {
         ZonedDateTime now = ZonedDateTime.now(NEW_YORK_ZONE);
         DayOfWeek dayOfWeek = now.getDayOfWeek();
         LocalTime time = now.toLocalTime();
 
-        // Forex trades 24 hours from Sunday 17:00 ET to Friday 17:00 ET
+        // 外汇从周日 17:00 ET 到周五 17:00 ET 交易 24 小时
         boolean isWeekend = dayOfWeek == DayOfWeek.SATURDAY
-                || (dayOfWeek == DayOfWeek.SUNDAY && time.isBefore(LocalTime.of(17, 0)))
-                || (dayOfWeek == DayOfWeek.FRIDAY && time.isAfter(LocalTime.of(17, 0)));
+            || (dayOfWeek == DayOfWeek.SUNDAY
+            && time.isBefore(LocalTime.of(FOREX_MARKET_OPEN_HOUR, 0)))
+            || (dayOfWeek == DayOfWeek.FRIDAY
+            && time.isAfter(LocalTime.of(FOREX_MARKET_CLOSE_HOUR, 0)));
 
-        if (isWeekend) {
+        if (isWeekend)
+        {
             return MarketStatus.CLOSED;
         }
 
@@ -82,46 +130,61 @@ public class ForexProvider extends AbstractDataServiceMarketProvider {
     }
 
     @Override
-    protected Logger logger() {
+    protected Logger logger()
+    {
         return LOG;
     }
 
     @Override
-    protected String getDataServiceBasePath() {
+    protected String getDataServiceBasePath()
+    {
         return FOREX_BASE_PATH;
     }
 
     @Override
-    protected String getLogMarketName() {
+    protected String getLogMarketName()
+    {
         return "forex";
     }
 
     @Override
-    protected String getSubscriptionLabel() {
+    protected String getSubscriptionLabel()
+    {
         return "forex pairs";
     }
 
     @Override
-    protected String normalizeSymbol(String symbol) {
-        if (symbol == null || symbol.trim().isEmpty()) {
+    protected String normalizeSymbol(String symbol)
+    {
+        if (symbol == null || symbol.trim().isEmpty())
+        {
             return "";
         }
 
         String normalized = symbol.trim().toUpperCase(Locale.ROOT);
 
-        // Handle different formats: EURUSD, EUR-USD, EUR_USD -> EUR/USD
-        normalized = normalized.replace("-", "/").replace("_", "/");
+        // 处理不同格式：EURUSD, EUR-USD, EUR_USD -> EUR/USD
+        normalized = normalized.replace(SYMBOL_SEPARATOR_DASH, SYMBOL_SEPARATOR_SLASH)
+            .replace(SYMBOL_SEPARATOR_UNDERSCORE, SYMBOL_SEPARATOR_SLASH);
 
-        // If no separator and 6 chars, insert / in middle (e.g., EURUSD -> EUR/USD)
-        if (!normalized.contains("/") && normalized.length() == 6
-                && normalized.matches("[A-Z]{6}")) {
-            normalized = normalized.substring(0, 3) + "/" + normalized.substring(3);
+        // 如果没有分隔符且长度为6，在中间插入 /（如 EURUSD -> EUR/USD）
+        if (!normalized.contains(SYMBOL_SEPARATOR_SLASH)
+            && normalized.length() == SYMBOL_LENGTH_STANDARD
+            && normalized.matches("[A-Z]{6}"))
+        {
+            normalized = normalized.substring(0, SYMBOL_PREFIX_LENGTH)
+                + SYMBOL_SEPARATOR_SLASH
+                + normalized.substring(SYMBOL_PREFIX_LENGTH);
         }
 
-        // Handle XAUUSD/XAGUSD format
-        if (!normalized.contains("/") && normalized.length() == 6
-                && (normalized.startsWith("XAU") || normalized.startsWith("XAG"))) {
-            normalized = normalized.substring(0, 3) + "/" + normalized.substring(3);
+        // 处理 XAUUSD/XAGUSD 格式
+        if (!normalized.contains(SYMBOL_SEPARATOR_SLASH)
+            && normalized.length() == SYMBOL_LENGTH_STANDARD
+            && (normalized.startsWith(XAU_PREFIX) || normalized.startsWith(XAG_PREFIX)))
+        {
+            normalized = normalized.substring(0, SYMBOL_PREFIX_LENGTH)
+                + SYMBOL_SEPARATOR_SLASH
+                + normalized.substring(SYMBOL_PREFIX_LENGTH);
         }
 
         return normalized;
@@ -129,47 +192,52 @@ public class ForexProvider extends AbstractDataServiceMarketProvider {
 
     @Override
     protected List<KlineData> generateMockKlineData(String symbol, String timeframe, int limit,
-                                                    Instant startTime, Instant endTime) {
+        Instant startTime, Instant endTime)
+    {
         List<KlineData> klines = new ArrayList<>();
         String normalizedSymbol = normalizeSymbol(symbol);
-        BigDecimal baseRate = baseRates.getOrDefault(normalizedSymbol, new BigDecimal("1.0000"));
+        BigDecimal baseRate = baseRates.getOrDefault(normalizedSymbol, BigDecimal.ONE);
 
         Instant currentTime = endTime != null ? endTime : Instant.now();
-        if (endTime == null && startTime != null) {
+        if (endTime == null && startTime != null)
+        {
             currentTime = startTime;
         }
         Duration interval = MarketTimeframeParser.parseWithFourHour(timeframe);
 
-        // Precious metals are more volatile than major forex pairs
-        double volatility = normalizedSymbol.startsWith("XAU") || normalizedSymbol.startsWith("XAG")
-                ? 0.008 : 0.0015;
+        // 贵金属比主要外汇对更波动
+        double volatility = normalizedSymbol.startsWith(XAU_PREFIX)
+            || normalizedSymbol.startsWith(XAG_PREFIX)
+            ? VOLATILITY_PRECIOUS_METALS : VOLATILITY_FOREX_PAIRS;
 
         BigDecimal currentRate = baseRate;
-        for (int i = 0; i < limit; i++) {
-            double changePercent = (ThreadLocalRandom.current().nextDouble() - 0.5) * volatility * 2;
+        for (int i = 0; i < limit; i++)
+        {
+            double changePercent = (ThreadLocalRandom.current().nextDouble() - PRICE_CHANGE_MULTIPLIER)
+                * volatility * 2;
             BigDecimal change = currentRate.multiply(BigDecimal.valueOf(changePercent));
             BigDecimal close = currentRate.add(change);
 
-            BigDecimal high = close.multiply(
-                    BigDecimal.valueOf(1 + ThreadLocalRandom.current().nextDouble() * volatility));
-            BigDecimal low = close.multiply(
-                    BigDecimal.valueOf(1 - ThreadLocalRandom.current().nextDouble() * volatility));
+            BigDecimal high = close.multiply(BigDecimal.valueOf(1
+                + ThreadLocalRandom.current().nextDouble() * volatility));
+            BigDecimal low = close.multiply(BigDecimal.valueOf(1
+                - ThreadLocalRandom.current().nextDouble() * volatility));
             BigDecimal open = currentRate;
 
-            long volume = ThreadLocalRandom.current().nextLong(10_000L, 1_000_000L);
+            long volume = ThreadLocalRandom.current().nextLong(VOLUME_MIN, VOLUME_MAX_EXCLUSIVE);
 
             klines.add(KlineData.builder()
-                    .symbol(normalizedSymbol)
-                    .market(MarketType.FOREX.getCode())
-                    .timestamp(currentTime)
-                    .open(open)
-                    .high(high)
-                    .low(low)
-                    .close(close)
-                    .volume(volume)
-                    .amount(close.multiply(BigDecimal.valueOf(volume)))
-                    .timeframe(timeframe)
-                    .build());
+                .symbol(normalizedSymbol)
+                .market(MarketType.FOREX.getCode())
+                .timestamp(currentTime)
+                .open(open)
+                .high(high)
+                .low(low)
+                .close(close)
+                .volume(volume)
+                .amount(close.multiply(BigDecimal.valueOf(volume)))
+                .timeframe(timeframe)
+                .build());
 
             currentRate = close;
             currentTime = currentTime.minus(interval);
@@ -180,57 +248,70 @@ public class ForexProvider extends AbstractDataServiceMarketProvider {
     }
 
     @Override
-    protected Optional<TickData> generateMockTickData(String symbol) {
+    protected Optional<TickData> generateMockTickData(String symbol)
+    {
         String normalizedSymbol = normalizeSymbol(symbol);
-        BigDecimal baseRate = baseRates.getOrDefault(normalizedSymbol, new BigDecimal("1.0000"));
+        BigDecimal baseRate = baseRates.getOrDefault(normalizedSymbol, BigDecimal.ONE);
 
-        double volatility = normalizedSymbol.startsWith("XAU") || normalizedSymbol.startsWith("XAG")
-                ? 0.005 : 0.001;
+        double volatility = normalizedSymbol.startsWith(XAU_PREFIX)
+            || normalizedSymbol.startsWith(XAG_PREFIX)
+            ? VOLATILITY_TICK_PRECIOUS_METALS : VOLATILITY_TICK_FOREX;
 
-        double changePercent = (ThreadLocalRandom.current().nextDouble() - 0.5) * volatility * 2;
+        double changePercent = (ThreadLocalRandom.current().nextDouble() - PRICE_CHANGE_MULTIPLIER)
+            * volatility * 2;
         BigDecimal price = baseRate.multiply(BigDecimal.valueOf(1 + changePercent));
         BigDecimal change = price.subtract(baseRate);
-        BigDecimal changePercentValue = change.divide(baseRate, 4, RoundingMode.HALF_UP)
-                .multiply(BigDecimal.valueOf(100));
+        BigDecimal changePercentValue = change.divide(baseRate, DIVIDE_SCALE, RoundingMode.HALF_UP)
+            .multiply(BigDecimal.valueOf(PERCENT_MULTIPLIER));
 
-        long volume = ThreadLocalRandom.current().nextLong(100_000L, 5_000_000L);
+        long volume = ThreadLocalRandom.current().nextLong(TICK_VOLUME_MIN,
+            TICK_VOLUME_MAX_EXCLUSIVE);
 
-        int pipDigits = 4;
-        if (normalizedSymbol.startsWith("XAU")) {
-            pipDigits = 2;
-        } else if (normalizedSymbol.contains("JPY") || normalizedSymbol.startsWith("XAG")) {
-            pipDigits = 3;
+        int pipDigits = PIP_DIGITS_STANDARD;
+        if (normalizedSymbol.startsWith(XAU_PREFIX))
+        {
+            pipDigits = PIP_DIGITS_GOLD;
+        }
+        else if (normalizedSymbol.contains(JPY_SUFFIX)
+            || normalizedSymbol.startsWith(XAG_PREFIX))
+        {
+            pipDigits = PIP_DIGITS_JPY_SILVER;
         }
         BigDecimal pipSize = BigDecimal.valueOf(Math.pow(10, -pipDigits));
 
         TickData tickData = TickData.builder()
-                .symbol(normalizedSymbol)
-                .market(MarketType.FOREX.getCode())
-                .timestamp(Instant.now())
-                .price(price)
-                .change(change)
-                .changePercent(changePercentValue)
-                .volume(volume)
-                .amount(price.multiply(BigDecimal.valueOf(volume)))
-                .bidPrice(price.subtract(pipSize.multiply(BigDecimal.valueOf(2))))
-                .bidVolume(ThreadLocalRandom.current().nextLong(100L, 10_000L))
-                .askPrice(price.add(pipSize.multiply(BigDecimal.valueOf(2))))
-                .askVolume(ThreadLocalRandom.current().nextLong(100L, 10_000L))
-                .dayHigh(price.multiply(BigDecimal.valueOf(1.01)))
-                .dayLow(price.multiply(BigDecimal.valueOf(0.99)))
-                .open(baseRate)
-                .prevClose(baseRate)
-                .build();
+            .symbol(normalizedSymbol)
+            .market(MarketType.FOREX.getCode())
+            .timestamp(Instant.now())
+            .price(price)
+            .change(change)
+            .changePercent(changePercentValue)
+            .volume(volume)
+            .amount(price.multiply(BigDecimal.valueOf(volume)))
+            .bidPrice(price.subtract(pipSize.multiply(
+                BigDecimal.valueOf(BID_ASK_SPREAD_MULTIPLIER))))
+            .bidVolume(ThreadLocalRandom.current().nextLong(ORDER_BOOK_VOLUME_MIN,
+                ORDER_BOOK_VOLUME_MAX_EXCLUSIVE))
+            .askPrice(price.add(pipSize.multiply(
+                BigDecimal.valueOf(BID_ASK_SPREAD_MULTIPLIER))))
+            .askVolume(ThreadLocalRandom.current().nextLong(ORDER_BOOK_VOLUME_MIN,
+                ORDER_BOOK_VOLUME_MAX_EXCLUSIVE))
+            .dayHigh(price.multiply(BigDecimal.valueOf(DAY_HIGH_MULTIPLIER)))
+            .dayLow(price.multiply(BigDecimal.valueOf(DAY_LOW_MULTIPLIER)))
+            .open(baseRate)
+            .prevClose(baseRate)
+            .build();
 
         return Optional.of(tickData);
     }
 
     @Override
-    protected List<SymbolInfo> generateMockSearchResults(String keyword, int limit) {
+    protected List<SymbolInfo> generateMockSearchResults(String keyword, int limit)
+    {
         List<SymbolInfo> results = new ArrayList<>();
         String upperKeyword = keyword.toUpperCase(Locale.ROOT);
 
-        Map<String, String> forexPairs = new LinkedHashMap<>();
+        Map<String, String> forexPairs = new LinkedHashMap<>(INITIAL_CAPACITY);
         forexPairs.put("EUR/USD", "Euro / US Dollar");
         forexPairs.put("USD/JPY", "US Dollar / Japanese Yen");
         forexPairs.put("GBP/USD", "British Pound / US Dollar");
@@ -247,77 +328,94 @@ public class ForexProvider extends AbstractDataServiceMarketProvider {
         forexPairs.put("XAG/USD", "Silver / US Dollar");
 
         forexPairs.entrySet().stream()
-                .filter(e -> e.getKey().contains(upperKeyword)
-                        || e.getValue().toUpperCase(Locale.ROOT).contains(upperKeyword))
-                .limit(limit)
-                .forEach(e -> results.add(new SymbolInfo(
-                        e.getKey(),
-                        e.getValue(),
-                        MarketType.FOREX.getCode(),
-                        "FOREX",
-                        "forex"
-                )));
+            .filter(e -> e.getKey().contains(upperKeyword)
+                || e.getValue().toUpperCase(Locale.ROOT).contains(upperKeyword))
+            .limit(limit)
+            .forEach(e -> results.add(new SymbolInfo(e.getKey(), e.getValue(),
+                MarketType.FOREX.getCode(), EXCHANGE_FOREX, SYMBOL_TYPE_FOREX)));
 
         return results;
     }
 
     @Override
     protected List<KlineData> convertToKlineData(List<Map<String, Object>> data, String symbol,
-                                                 String timeframe) {
+        String timeframe)
+    {
         List<KlineData> klines = new ArrayList<>();
 
-        for (Map<String, Object> item : data) {
+        for (Map<String, Object> item : data)
+        {
             klines.add(KlineData.builder()
-                    .symbol(symbol)
-                    .market(MarketType.FOREX.getCode())
-                    .timestamp(DataConverter.toInstantFromMillis(MarketDataMapReader.getLong(item, "timestamp")))
-                    .open(DataConverter.toBigDecimal(MarketDataMapReader.getString(item, "open")))
-                    .high(DataConverter.toBigDecimal(MarketDataMapReader.getString(item, "high")))
-                    .low(DataConverter.toBigDecimal(MarketDataMapReader.getString(item, "low")))
-                    .close(DataConverter.toBigDecimal(MarketDataMapReader.getString(item, "close")))
-                    .volume(MarketDataMapReader.getLong(item, "volume"))
-                    .amount(DataConverter.toBigDecimal(MarketDataMapReader.getString(item, "amount")))
-                    .timeframe(timeframe)
-                    .build());
+                .symbol(symbol)
+                .market(MarketType.FOREX.getCode())
+                .timestamp(DataConverter.toInstantFromMillis(
+                    MarketDataMapReader.getLong(item, "timestamp")))
+                .open(DataConverter.toBigDecimal(
+                    MarketDataMapReader.getString(item, "open")))
+                .high(DataConverter.toBigDecimal(
+                    MarketDataMapReader.getString(item, "high")))
+                .low(DataConverter.toBigDecimal(
+                    MarketDataMapReader.getString(item, "low")))
+                .close(DataConverter.toBigDecimal(
+                    MarketDataMapReader.getString(item, "close")))
+                .volume(MarketDataMapReader.getLong(item, "volume"))
+                .amount(DataConverter.toBigDecimal(
+                    MarketDataMapReader.getString(item, "amount")))
+                .timeframe(timeframe)
+                .build());
         }
 
         return klines;
     }
 
     @Override
-    protected TickData convertToTickData(Map<String, Object> data, String symbol) {
+    protected TickData convertToTickData(Map<String, Object> data, String symbol)
+    {
         return TickData.builder()
-                .symbol(symbol)
-                .market(MarketType.FOREX.getCode())
-                .timestamp(DataConverter.toInstantFromMillis(MarketDataMapReader.getLong(data, "timestamp")))
-                .price(DataConverter.toBigDecimal(MarketDataMapReader.getString(data, "price")))
-                .change(DataConverter.toBigDecimal(MarketDataMapReader.getString(data, "change")))
-                .changePercent(DataConverter.toBigDecimal(MarketDataMapReader.getString(data, "changePercent")))
-                .volume(MarketDataMapReader.getLong(data, "volume"))
-                .amount(DataConverter.toBigDecimal(MarketDataMapReader.getString(data, "amount")))
-                .bidPrice(DataConverter.toBigDecimal(MarketDataMapReader.getString(data, "bidPrice")))
-                .bidVolume(MarketDataMapReader.getLong(data, "bidVolume"))
-                .askPrice(DataConverter.toBigDecimal(MarketDataMapReader.getString(data, "askPrice")))
-                .askVolume(MarketDataMapReader.getLong(data, "askVolume"))
-                .dayHigh(DataConverter.toBigDecimal(MarketDataMapReader.getString(data, "high")))
-                .dayLow(DataConverter.toBigDecimal(MarketDataMapReader.getString(data, "low")))
-                .open(DataConverter.toBigDecimal(MarketDataMapReader.getString(data, "open")))
-                .prevClose(DataConverter.toBigDecimal(MarketDataMapReader.getString(data, "prevClose")))
-                .build();
+            .symbol(symbol)
+            .market(MarketType.FOREX.getCode())
+            .timestamp(DataConverter.toInstantFromMillis(
+                MarketDataMapReader.getLong(data, "timestamp")))
+            .price(DataConverter.toBigDecimal(
+                MarketDataMapReader.getString(data, "price")))
+            .change(DataConverter.toBigDecimal(
+                MarketDataMapReader.getString(data, "change")))
+            .changePercent(DataConverter.toBigDecimal(
+                MarketDataMapReader.getString(data, "changePercent")))
+            .volume(MarketDataMapReader.getLong(data, "volume"))
+            .amount(DataConverter.toBigDecimal(
+                MarketDataMapReader.getString(data, "amount")))
+            .bidPrice(DataConverter.toBigDecimal(
+                MarketDataMapReader.getString(data, "bidPrice")))
+            .bidVolume(MarketDataMapReader.getLong(data, "bidVolume"))
+            .askPrice(DataConverter.toBigDecimal(
+                MarketDataMapReader.getString(data, "askPrice")))
+            .askVolume(MarketDataMapReader.getLong(data, "askVolume"))
+            .dayHigh(DataConverter.toBigDecimal(
+                MarketDataMapReader.getString(data, "high")))
+            .dayLow(DataConverter.toBigDecimal(
+                MarketDataMapReader.getString(data, "low")))
+            .open(DataConverter.toBigDecimal(
+                MarketDataMapReader.getString(data, "open")))
+            .prevClose(DataConverter.toBigDecimal(
+                MarketDataMapReader.getString(data, "prevClose")))
+            .build();
     }
 
     @Override
-    protected SymbolInfo convertToSymbolInfo(Map<String, Object> data) {
+    protected SymbolInfo convertToSymbolInfo(Map<String, Object> data)
+    {
         return new SymbolInfo(
-                MarketDataMapReader.getString(data, "symbol"),
-                MarketDataMapReader.getString(data, "name"),
-                MarketType.FOREX.getCode(),
-                "FOREX",
-                "forex"
+            MarketDataMapReader.getString(data, "symbol"),
+            MarketDataMapReader.getString(data, "name"),
+            MarketType.FOREX.getCode(),
+            EXCHANGE_FOREX,
+            SYMBOL_TYPE_FOREX
         );
     }
 
-    private void initBaseRates() {
+    private void initBaseRates()
+    {
         baseRates.put("EUR/USD", new BigDecimal("1.0850"));
         baseRates.put("USD/JPY", new BigDecimal("149.50"));
         baseRates.put("GBP/USD", new BigDecimal("1.2650"));

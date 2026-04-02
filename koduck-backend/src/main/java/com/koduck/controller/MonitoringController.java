@@ -1,13 +1,5 @@
 package com.koduck.controller;
 
-import com.koduck.common.constants.PaginationConstants;
-import com.koduck.dto.ApiResponse;
-import com.koduck.dto.monitoring.AlertRuleRequest;
-import com.koduck.entity.AlertHistory;
-import com.koduck.entity.AlertRule;
-import com.koduck.entity.DataSourceStatus;
-import com.koduck.entity.StockRealtime;
-import com.koduck.service.MonitoringService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -30,12 +22,19 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import com.koduck.common.constants.PaginationConstants;
+import com.koduck.dto.ApiResponse;
+import com.koduck.dto.monitoring.AlertRuleRequest;
+import com.koduck.entity.AlertHistory;
+import com.koduck.entity.AlertRule;
+import com.koduck.entity.DataSourceStatus;
+import com.koduck.entity.StockRealtime;
+import com.koduck.service.MonitoringService;
 
 /**
  * Monitoring and alerting API controller.
  *
- * @author GitHub Copilot
- * @date 2026-03-31
+ * @author Koduck Team
  */
 @RestController
 @RequestMapping("/api/v1/monitoring")
@@ -48,8 +47,11 @@ public class MonitoringController {
     private final MonitoringService monitoringService;
 
     // ==================== Data Freshness ====================
+
     /**
      * Get data freshness metrics.
+     *
+     * @return data freshness information
      */
     @Operation(
         summary = "获取数据新鲜度",
@@ -67,6 +69,10 @@ public class MonitoringController {
 
     /**
      * Get delayed stocks.
+     *
+     * @param thresholdSeconds delay threshold in seconds
+     * @param limit max number of stocks to return
+     * @return list of delayed stocks
      */
     @Operation(
         summary = "获取延迟股票",
@@ -92,6 +98,10 @@ public class MonitoringController {
 
     /**
      * Check single stock delay.
+     *
+     * @param symbol stock symbol
+     * @param thresholdSeconds delay threshold in seconds
+     * @return delay information for the stock
      */
     @Operation(
         summary = "检查单只股票延迟",
@@ -112,8 +122,11 @@ public class MonitoringController {
     }
 
     // ==================== Alert Rules ====================
+
     /**
      * Get all alert rules.
+     *
+     * @return list of all alert rules
      */
     @Operation(
         summary = "获取告警规则列表",
@@ -135,6 +148,8 @@ public class MonitoringController {
 
     /**
      * Get enabled alert rules.
+     *
+     * @return list of enabled alert rules
      */
     @Operation(
         summary = "获取启用的告警规则",
@@ -156,6 +171,9 @@ public class MonitoringController {
 
     /**
      * Get alert rule by ID.
+     *
+     * @param id rule ID
+     * @return alert rule details
      */
     @Operation(
         summary = "获取告警规则详情",
@@ -180,6 +198,9 @@ public class MonitoringController {
 
     /**
      * Create a new alert rule.
+     *
+     * @param request alert rule request
+     * @return created alert rule
      */
     @Operation(
         summary = "创建告警规则",
@@ -202,6 +223,10 @@ public class MonitoringController {
 
     /**
      * Update an alert rule.
+     *
+     * @param id rule ID
+     * @param request alert rule request
+     * @return updated alert rule
      */
     @Operation(
         summary = "更新告警规则",
@@ -228,6 +253,9 @@ public class MonitoringController {
 
     /**
      * Delete an alert rule.
+     *
+     * @param id rule ID
+     * @return empty response
      */
     @Operation(
         summary = "删除告警规则",
@@ -249,6 +277,10 @@ public class MonitoringController {
 
     /**
      * Enable or disable a rule.
+     *
+     * @param id rule ID
+     * @param enabled whether to enable the rule
+     * @return updated alert rule
      */
     @Operation(
         summary = "启用/禁用告警规则",
@@ -274,8 +306,13 @@ public class MonitoringController {
     }
 
     // ==================== Alert History ====================
+
     /**
      * Get alert history.
+     *
+     * @param page page number
+     * @param size page size
+     * @return list of alert history
      */
     @Operation(
         summary = "获取告警历史",
@@ -301,6 +338,8 @@ public class MonitoringController {
 
     /**
      * Get pending alerts.
+     *
+     * @return list of pending alerts
      */
     @Operation(
         summary = "获取待处理告警",
@@ -322,6 +361,9 @@ public class MonitoringController {
 
     /**
      * Get alerts by severity.
+     *
+     * @param severity alert severity level
+     * @return list of alerts with specified severity
      */
     @Operation(
         summary = "按严重级别获取告警",
@@ -346,6 +388,9 @@ public class MonitoringController {
 
     /**
      * Resolve an alert.
+     *
+     * @param id alert ID
+     * @return resolved alert
      */
     @Operation(
         summary = "解决告警",
@@ -370,6 +415,8 @@ public class MonitoringController {
 
     /**
      * Get alert statistics.
+     *
+     * @return alert statistics
      */
     @Operation(
         summary = "获取告警统计",
@@ -386,8 +433,11 @@ public class MonitoringController {
     }
 
     // ==================== Data Sources ====================
+
     /**
      * Get all data source status.
+     *
+     * @return list of data source status
      */
     @Operation(
         summary = "获取数据源状态",
@@ -409,6 +459,9 @@ public class MonitoringController {
 
     /**
      * Get data source by name.
+     *
+     * @param sourceName data source name
+     * @return data source status
      */
     @Operation(
         summary = "获取指定数据源",
@@ -433,6 +486,8 @@ public class MonitoringController {
 
     /**
      * Get unhealthy data sources.
+     *
+     * @return list of unhealthy data sources
      */
     @Operation(
         summary = "获取异常数据源",
@@ -453,8 +508,11 @@ public class MonitoringController {
     }
 
     // ==================== Dashboard ====================
+
     /**
      * Get monitoring dashboard summary.
+     *
+     * @return dashboard summary data
      */
     @Operation(
         summary = "获取监控仪表盘",
@@ -472,6 +530,8 @@ public class MonitoringController {
 
     /**
      * Run monitoring check manually.
+     *
+     * @return empty response
      */
     @Operation(
         summary = "手动执行监控检查",

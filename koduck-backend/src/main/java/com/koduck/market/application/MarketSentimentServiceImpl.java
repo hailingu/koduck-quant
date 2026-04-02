@@ -17,20 +17,37 @@ import org.springframework.stereotype.Service;
  * Market sentiment analysis service implementation.
  * Calculates six-dimensional sentiment indicators for market analysis.
  *
- * @author GitHub Copilot
- * @date 2026-03-31
+ * @author Koduck Team
  */
 @Slf4j
 @Service
 public class MarketSentimentServiceImpl implements MarketSentimentService {
 
+    /**
+     * The provider factory for market data.
+     */
     private final ProviderFactory providerFactory;
 
-    // Representative index symbols for each market
-    private static final String A_SHARE_INDEX = "000001"; // Shanghai Composite
-    private static final String HK_INDEX = "00700"; // Tencent as proxy for HK
-    private static final String US_INDEX = "AAPL"; // Apple as proxy for US
+    /**
+     * Shanghai Composite Index as representative for A-share market.
+     */
+    private static final String A_SHARE_INDEX = "000001";
 
+    /**
+     * Tencent (00700) as proxy for HK market.
+     */
+    private static final String HK_INDEX = "00700";
+
+    /**
+     * Apple (AAPL) as proxy for US market.
+     */
+    private static final String US_INDEX = "AAPL";
+
+    /**
+     * Constructs a new MarketSentimentServiceImpl.
+     *
+     * @param providerFactory the provider factory for market data
+     */
     public MarketSentimentServiceImpl(ProviderFactory providerFactory) {
         this.providerFactory = providerFactory;
     }
@@ -40,7 +57,7 @@ public class MarketSentimentServiceImpl implements MarketSentimentService {
         String symbol = getRepresentativeSymbol(marketType);
         log.debug("Calculating market sentiment for {} using symbol {}", marketType, symbol);
         try {
-            // 关键优化：只拉取一次 60 日 K 线，所有维度复用，避免重复远程请求
+            // Key optimization: fetch 60-day klines once, reuse for all dimensions
             List<KlineData> klines60 = getRecentKlines(symbol, marketType, 60);
             // Calculate six dimensions
             int activity = calculateActivityScore(klines60);
@@ -51,7 +68,7 @@ public class MarketSentimentServiceImpl implements MarketSentimentService {
             int fundFlow = calculateFundFlowScore(klines60);
             // Calculate overall score with weights
             double overall = calculateOverallScore(
-                activity, volatility, trendStrength, 
+                activity, volatility, trendStrength,
                 fearGreed, valuation, fundFlow
             );
             String status = determineMarketStatus(overall, trendStrength, fearGreed);
@@ -75,8 +92,12 @@ public class MarketSentimentServiceImpl implements MarketSentimentService {
             return createFallbackSentiment(marketType);
         }
     }
+
     /**
      * Calculate activity score (0-100) based on volume and turnover.
+     *
+     * @param klines60 the list of 60-day kline data
+     * @return the activity score (0-100)
      */
     int calculateActivityScore(List<KlineData> klines60) {
         try {
@@ -105,8 +126,12 @@ public class MarketSentimentServiceImpl implements MarketSentimentService {
             return 50;
         }
     }
+
     /**
      * Calculate volatility score (0-100) based on ATR-like measurement.
+     *
+     * @param klines60 the list of 60-day kline data
+     * @return the volatility score (0-100)
      */
     int calculateVolatilityScore(List<KlineData> klines60) {
         try {
@@ -122,7 +147,7 @@ public class MarketSentimentServiceImpl implements MarketSentimentService {
                 double high = current.high().doubleValue();
                 double low = current.low().doubleValue();
                 double prevClose = previous.close().doubleValue();
-                double range = Math.max(high - low, 
+                double range = Math.max(high - low,
                     Math.max(Math.abs(high - prevClose), Math.abs(low - prevClose)));
                 totalRange += range;
             }
@@ -142,8 +167,12 @@ public class MarketSentimentServiceImpl implements MarketSentimentService {
             return 30;
         }
     }
+
     /**
      * Calculate trend strength score (0-100) based on moving averages.
+     *
+     * @param klines60 the list of 60-day kline data
+     * @return the trend strength score (0-100)
      */
     int calculateTrendStrengthScore(List<KlineData> klines60) {
         try {
@@ -170,9 +199,13 @@ public class MarketSentimentServiceImpl implements MarketSentimentService {
             return 50;
         }
     }
+
     /**
      * Calculate fear/greed score (0-100).
      * 0 = extreme fear, 100 = extreme greed.
+     *
+     * @param klines60 the list of 60-day kline data
+     * @return the fear/greed score (0-100)
      */
     int calculateFearGreedScore(List<KlineData> klines60) {
         try {
@@ -195,9 +228,13 @@ public class MarketSentimentServiceImpl implements MarketSentimentService {
             return 50;
         }
     }
+
     /**
      * Calculate valuation score (0-100).
      * Based on price relative to recent range.
+     *
+     * @param klines60 the list of 60-day kline data
+     * @return the valuation score (0-100)
      */
     int calculateValuationScore(List<KlineData> klines60) {
         try {
@@ -228,9 +265,13 @@ public class MarketSentimentServiceImpl implements MarketSentimentService {
             return 50;
         }
     }
+
     /**
      * Calculate fund flow score (0-100).
      * Based on price-volume relationship.
+     *
+     * @param klines60 the list of 60-day kline data
+     * @return the fund flow score (0-100)
      */
     int calculateFundFlowScore(List<KlineData> klines60) {
         try {
@@ -273,23 +314,38 @@ public class MarketSentimentServiceImpl implements MarketSentimentService {
             return 50;
         }
     }
+
     /**
      * Calculate overall weighted score.
+     *
+     * @param activity the activity score
+     * @param volatility the volatility score
+     * @param trendStrength the trend strength score
+     * @param fearGreed the fear/greed score
+     * @param valuation the valuation score
+     * @param fundFlow the fund flow score
+     * @return the overall weighted score
      */
     double calculateOverallScore(int activity, int volatility, int trendStrength,
                                  int fearGreed, int valuation, int fundFlow) {
         // Weights as per requirements
         // activity: 0.15, volatility: 0.10, trendStrength: 0.25
         // fearGreed: 0.15, valuation: 0.15, fundFlow: 0.20
-        return activity * 0.15 +
-               volatility * 0.10 +
-               trendStrength * 0.25 +
-               fearGreed * 0.15 +
-               valuation * 0.15 +
-               fundFlow * 0.20;
+        return activity * 0.15
+               + volatility * 0.10
+               + trendStrength * 0.25
+               + fearGreed * 0.15
+               + valuation * 0.15
+               + fundFlow * 0.20;
     }
+
     /**
      * Determine market status based on overall score and key dimensions.
+     *
+     * @param overall the overall score
+     * @param trendStrength the trend strength score
+     * @param fearGreed the fear/greed score
+     * @return the market status string
      */
     String determineMarketStatus(double overall, int trendStrength, int fearGreed) {
         if (overall >= 75) {
@@ -304,6 +360,13 @@ public class MarketSentimentServiceImpl implements MarketSentimentService {
             return trendStrength < 20 ? "strong_bearish" : "bearish";
         }
     }
+
+    /**
+     * Get representative symbol for the given market type.
+     *
+     * @param marketType the market type
+     * @return the representative symbol
+     */
     String getRepresentativeSymbol(MarketType marketType) {
         return switch (marketType) {
             case A_SHARE -> A_SHARE_INDEX;
@@ -312,15 +375,30 @@ public class MarketSentimentServiceImpl implements MarketSentimentService {
             default -> A_SHARE_INDEX;
         };
     }
+
+    /**
+     * Get recent kline data for the given symbol and market type.
+     *
+     * @param symbol the symbol
+     * @param marketType the market type
+     * @param limit the limit of klines to fetch
+     * @return the list of kline data
+     */
     List<KlineData> getRecentKlines(String symbol, MarketType marketType, int limit) {
         try {
             return providerFactory.getAvailableProvider(marketType)
                     .map(provider -> {
                         try {
-                            return provider.getKlineData(symbol, MarketConstants.DEFAULT_TIMEFRAME, limit,
-                                    Instant.now().minus(2L * limit, ChronoUnit.DAYS), Instant.now());
+                            return provider.getKlineData(
+                                symbol,
+                                MarketConstants.DEFAULT_TIMEFRAME,
+                                limit,
+                                Instant.now().minus(2L * limit, ChronoUnit.DAYS),
+                                Instant.now()
+                            );
                         } catch (MarketDataProvider.MarketDataException e) {
-                            log.warn("Failed to get kline data for {} from provider: {}", symbol, e.getMessage());
+                            log.warn("Failed to get kline data for {} from provider: {}",
+                                symbol, e.getMessage());
                             return List.<KlineData>of();
                         }
                     })
@@ -330,6 +408,14 @@ public class MarketSentimentServiceImpl implements MarketSentimentService {
             return List.of();
         }
     }
+
+    /**
+     * Get the last n klines from the list.
+     *
+     * @param klines the list of klines
+     * @param limit the number of klines to get
+     * @return the last n klines
+     */
     private List<KlineData> tailKlines(List<KlineData> klines, int limit) {
         if (klines == null || klines.isEmpty()) {
             return List.of();
@@ -339,6 +425,14 @@ public class MarketSentimentServiceImpl implements MarketSentimentService {
         }
         return klines.subList(klines.size() - limit, klines.size());
     }
+
+    /**
+     * Calculate moving average.
+     *
+     * @param klines the list of klines
+     * @param period the period
+     * @return the moving average
+     */
     private double calculateMA(List<KlineData> klines, int period) {
         if (klines.size() < period) {
             return 0;
@@ -348,6 +442,14 @@ public class MarketSentimentServiceImpl implements MarketSentimentService {
                 .average()
                 .orElse(0);
     }
+
+    /**
+     * Calculate price change percentage.
+     *
+     * @param klines the list of klines
+     * @param period the period
+     * @return the price change percentage
+     */
     private double calculatePriceChange(List<KlineData> klines, int period) {
         if (klines.size() < period) {
             return 0;
@@ -356,6 +458,13 @@ public class MarketSentimentServiceImpl implements MarketSentimentService {
         double past = klines.get(klines.size() - period).close().doubleValue();
         return past > 0 ? ((current - past) / past) * 100 : 0;
     }
+
+    /**
+     * Calculate volume trend.
+     *
+     * @param klines the list of klines
+     * @return the volume trend
+     */
     private double calculateVolumeTrend(List<KlineData> klines) {
         if (klines.size() < 10) {
             return 0;
@@ -370,12 +479,26 @@ public class MarketSentimentServiceImpl implements MarketSentimentService {
                 .orElse(0);
         return past > 0 ? (recent - past) / past : 0;
     }
+
+    /**
+     * Create a sentiment dimension.
+     *
+     * @param value the value
+     * @return the sentiment dimension
+     */
     MarketSentimentDto.SentimentDimension createDimension(int value) {
         return MarketSentimentDto.SentimentDimension.builder()
                 .value(value)
                 .trend(value > 60 ? "up" : value < 40 ? "down" : "neutral")
                 .build();
     }
+
+    /**
+     * Create fallback sentiment when calculation fails.
+     *
+     * @param marketType the market type
+     * @return the fallback sentiment
+     */
     MarketSentimentDto createFallbackSentiment(MarketType marketType) {
         return MarketSentimentDto.builder()
                 .timestamp(Instant.now().toString())
