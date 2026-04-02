@@ -1,22 +1,28 @@
 package com.koduck.controller;
 
+import java.lang.reflect.Method;
+
 import jakarta.validation.constraints.Positive;
+
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.validation.annotation.Validated;
-
-import java.lang.reflect.Method;
 
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 /**
  * Unit tests for {@link UserController} annotation contracts.
+ *
+ * @author GitHub Copilot
  */
 class UserControllerTest {
 
+    /** The default page size. */
+    private static final int DEFAULT_PAGE_SIZE = 20;
+
     @Test
     @DisplayName("Controller should declare @Validated for method parameter validation")
-    void controller_shouldDeclareValidatedAnnotation() {
+    void controllerShouldDeclareValidatedAnnotation() {
         Validated validated = UserController.class.getAnnotation(Validated.class);
 
         assertNotNull(validated);
@@ -24,7 +30,7 @@ class UserControllerTest {
 
     @Test
     @DisplayName("Admin methods should declare positive id constraint")
-    void idParameters_shouldDeclarePositiveConstraint() throws NoSuchMethodException {
+    void idParametersShouldDeclarePositiveConstraint() throws NoSuchMethodException {
         Method getMethod = UserController.class.getMethod("getUserById", Long.class);
         Method updateMethod = UserController.class.getMethod(
                 "updateUser",

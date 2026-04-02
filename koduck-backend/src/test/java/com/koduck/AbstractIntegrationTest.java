@@ -7,6 +7,8 @@ import org.springframework.test.context.DynamicPropertySource;
 
 /**
  * 共享集成测试基类：统一使用 PostgreSQL 连接配置。
+ *
+ * @author GitHub Copilot
  */
 @SpringBootTest
 @ActiveProfiles("integration-test")
