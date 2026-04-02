@@ -1,20 +1,18 @@
 package com.koduck.dto.credential;
 
 import java.time.LocalDateTime;
-import java.util.Map;
 
 import com.fasterxml.jackson.annotation.JsonFormat;
+
+import com.koduck.common.constants.DateTimePatternConstants;
 
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import com.koduck.common.constants.DateTimePatternConstants;
-import com.koduck.util.CollectionCopyUtils;
-
 /**
  * 凭证响应 DTO（列表视图）。
  *
- * @author GitHub Copilot
+ * @author Koduck Team
  */
 @Data
 @NoArgsConstructor
@@ -29,274 +27,13 @@ public class CredentialResponse {
     /** 凭证类型. */
     private String type;
 
-    /** 提供商. */
-    private String provider;
-
-    /** 环境类型. */
-    private String environment;
-
-    /** 是否激活. */
-    private Boolean isActive;
-
-    /** 脱敏后的 API Key（如 PK***XXXX）. */
+    /** API Key（脱敏）. */
     private String apiKeyMasked;
 
-    /** 脱敏后的 API Secret（如 ***）. */
-    private String apiSecretMasked;
-
-    /** 额外配置. */
-    private Map<String, Object> additionalConfig;
-
-    /** 最后验证状态. */
-    private String lastVerifiedStatus;
-
-    /** 最后验证时间. */
-    @JsonFormat(pattern = DateTimePatternConstants.STANDARD_DATE_TIME_PATTERN)
-    private LocalDateTime lastVerifiedAt;
+    /** 是否启用. */
+    private Boolean enabled;
 
     /** 创建时间. */
     @JsonFormat(pattern = DateTimePatternConstants.STANDARD_DATE_TIME_PATTERN)
     private LocalDateTime createdAt;
-
-    /** 更新时间. */
-    @JsonFormat(pattern = DateTimePatternConstants.STANDARD_DATE_TIME_PATTERN)
-    private LocalDateTime updatedAt;
-
-    /**
-     * 创建 Builder 实例。
-     *
-     * @return Builder 实例
-     */
-    public static Builder builder() {
-        return new Builder();
-    }
-
-    /**
-     * Builder 类。
-     */
-    public static final class Builder {
-
-        /** 凭证ID. */
-        private Long id;
-
-        /** 凭证名称. */
-        private String name;
-
-        /** 凭证类型. */
-        private String type;
-
-        /** 提供商. */
-        private String provider;
-
-        /** 环境类型. */
-        private String environment;
-
-        /** 是否激活. */
-        private Boolean isActive;
-
-        /** 脱敏后的API Key. */
-        private String apiKeyMasked;
-
-        /** 脱敏后的API Secret. */
-        private String apiSecretMasked;
-
-        /** 额外配置. */
-        private Map<String, Object> additionalConfig;
-
-        /** 最后验证状态. */
-        private String lastVerifiedStatus;
-
-        /** 最后验证时间. */
-        private LocalDateTime lastVerifiedAt;
-
-        /** 创建时间. */
-        private LocalDateTime createdAt;
-
-        /** 更新时间. */
-        private LocalDateTime updatedAt;
-
-        /**
-         * 设置ID。
-         *
-         * @param idValue ID
-         * @return Builder
-         */
-        public Builder id(Long idValue) {
-            this.id = idValue;
-            return this;
-        }
-
-        /**
-         * 设置名称。
-         *
-         * @param nameValue 名称
-         * @return Builder
-         */
-        public Builder name(String nameValue) {
-            this.name = nameValue;
-            return this;
-        }
-
-        /**
-         * 设置类型。
-         *
-         * @param typeValue 类型
-         * @return Builder
-         */
-        public Builder type(String typeValue) {
-            this.type = typeValue;
-            return this;
-        }
-
-        /**
-         * 设置提供商。
-         *
-         * @param providerValue 提供商
-         * @return Builder
-         */
-        public Builder provider(String providerValue) {
-            this.provider = providerValue;
-            return this;
-        }
-
-        /**
-         * 设置环境。
-         *
-         * @param environmentValue 环境
-         * @return Builder
-         */
-        public Builder environment(String environmentValue) {
-            this.environment = environmentValue;
-            return this;
-        }
-
-        /**
-         * 设置是否激活。
-         *
-         * @param isActiveValue 是否激活
-         * @return Builder
-         */
-        public Builder isActive(Boolean isActiveValue) {
-            this.isActive = isActiveValue;
-            return this;
-        }
-
-        /**
-         * 设置脱敏后的API Key。
-         *
-         * @param apiKeyMaskedValue 脱敏后的API Key
-         * @return Builder
-         */
-        public Builder apiKeyMasked(String apiKeyMaskedValue) {
-            this.apiKeyMasked = apiKeyMaskedValue;
-            return this;
-        }
-
-        /**
-         * 设置脱敏后的API Secret。
-         *
-         * @param apiSecretMaskedValue 脱敏后的API Secret
-         * @return Builder
-         */
-        public Builder apiSecretMasked(String apiSecretMaskedValue) {
-            this.apiSecretMasked = apiSecretMaskedValue;
-            return this;
-        }
-
-        /**
-         * 设置额外配置。
-         *
-         * @param additionalConfigValue 额外配置
-         * @return Builder
-         */
-        public Builder additionalConfig(Map<String, Object> additionalConfigValue) {
-            this.additionalConfig = CollectionCopyUtils.copyMap(additionalConfigValue);
-            return this;
-        }
-
-        /**
-         * 设置最后验证状态。
-         *
-         * @param lastVerifiedStatusValue 最后验证状态
-         * @return Builder
-         */
-        public Builder lastVerifiedStatus(String lastVerifiedStatusValue) {
-            this.lastVerifiedStatus = lastVerifiedStatusValue;
-            return this;
-        }
-
-        /**
-         * 设置最后验证时间。
-         *
-         * @param lastVerifiedAtValue 最后验证时间
-         * @return Builder
-         */
-        public Builder lastVerifiedAt(LocalDateTime lastVerifiedAtValue) {
-            this.lastVerifiedAt = lastVerifiedAtValue;
-            return this;
-        }
-
-        /**
-         * 设置创建时间。
-         *
-         * @param createdAtValue 创建时间
-         * @return Builder
-         */
-        public Builder createdAt(LocalDateTime createdAtValue) {
-            this.createdAt = createdAtValue;
-            return this;
-        }
-
-        /**
-         * 设置更新时间。
-         *
-         * @param updatedAtValue 更新时间
-         * @return Builder
-         */
-        public Builder updatedAt(LocalDateTime updatedAtValue) {
-            this.updatedAt = updatedAtValue;
-            return this;
-        }
-
-        /**
-         * 构建 CredentialResponse 实例。
-         *
-         * @return CredentialResponse 实例
-         */
-        public CredentialResponse build() {
-            CredentialResponse response = new CredentialResponse();
-            response.setId(id);
-            response.setName(name);
-            response.setType(type);
-            response.setProvider(provider);
-            response.setEnvironment(environment);
-            response.setIsActive(isActive);
-            response.setApiKeyMasked(apiKeyMasked);
-            response.setApiSecretMasked(apiSecretMasked);
-            response.setAdditionalConfig(additionalConfig);
-            response.setLastVerifiedStatus(lastVerifiedStatus);
-            response.setLastVerifiedAt(lastVerifiedAt);
-            response.setCreatedAt(createdAt);
-            response.setUpdatedAt(updatedAt);
-            return response;
-        }
-    }
-
-    /**
-     * 获取额外配置（深拷贝）。
-     *
-     * @return 额外配置
-     */
-    public Map<String, Object> getAdditionalConfig() {
-        return CollectionCopyUtils.copyMap(additionalConfig);
-    }
-
-    /**
-     * 设置额外配置（深拷贝）。
-     *
-     * @param additionalConfigValue 额外配置
-     */
-    public void setAdditionalConfig(Map<String, Object> additionalConfigValue) {
-        this.additionalConfig = CollectionCopyUtils.copyMap(additionalConfigValue);
-    }
 }
