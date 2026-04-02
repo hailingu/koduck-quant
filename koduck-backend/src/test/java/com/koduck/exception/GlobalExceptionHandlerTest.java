@@ -1,7 +1,9 @@
 package com.koduck.exception;
 
-import com.koduck.dto.ApiResponse;
-import jakarta.servlet.http.HttpServletRequest;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
+
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -11,18 +13,37 @@ import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.DisabledException;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
+import com.koduck.dto.ApiResponse;
+
+import jakarta.servlet.http.HttpServletRequest;
 
 /**
- * GlobalExceptionHandler 
+ * GlobalExceptionHandler 测试类.
+ *
+ * @author Koduck Team
  */
 @DisplayName("全局异常处理器测试")
-@SuppressWarnings("null")
 class GlobalExceptionHandlerTest {
 
+    /** Resource ID for testing. */
+    private static final Long TEST_RESOURCE_ID = 123L;
+
+    /** Field name for duplicate test. */
+    private static final String FIELD_NAME = "username";
+
+    /** Field value for duplicate test. */
+    private static final String FIELD_VALUE = "test";
+
+    /** Error message for external service. */
+    private static final String EXTERNAL_SERVICE_ERROR = "连接超时";
+
+    /** Service name for external service. */
+    private static final String SERVICE_NAME = "DataService";
+
+    /** 异常处理器实例. */
     private GlobalExceptionHandler handler;
+
+    /** HTTP 请求 mock. */
     private HttpServletRequest request;
 
     @BeforeEach
@@ -34,7 +55,7 @@ class GlobalExceptionHandlerTest {
 
     @Test
     @DisplayName("处理业务异常")
-    void handleBusinessException_shouldReturnCorrectResponse() {
+    void handleBusinessExceptionShouldReturnCorrectResponse() {
         BusinessException exception = new BusinessException(ErrorCode.USER_NOT_FOUND);
 
         ResponseEntity<ApiResponse<Void>> response = handler.handleBusinessException(exception);
@@ -46,10 +67,12 @@ class GlobalExceptionHandlerTest {
 
     @Test
     @DisplayName("处理资源不存在异常")
-    void handleResourceNotFoundException_shouldReturnNotFound() {
-        ResourceNotFoundException exception = new ResourceNotFoundException("用户", 123L);
+    void handleResourceNotFoundExceptionShouldReturnNotFound() {
+        ResourceNotFoundException exception = new ResourceNotFoundException(
+            "用户", TEST_RESOURCE_ID);
 
-        ResponseEntity<ApiResponse<Void>> response = handler.handleResourceNotFoundException(exception);
+        ResponseEntity<ApiResponse<Void>> response =
+            handler.handleResourceNotFoundException(exception);
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
         assertThat(response.getBody().getCode()).isEqualTo(ErrorCode.RESOURCE_NOT_FOUND.getCode());
@@ -57,10 +80,11 @@ class GlobalExceptionHandlerTest {
 
     @Test
     @DisplayName("处理参数校验异常")
-    void handleValidationException_shouldReturnBadRequest() {
+    void handleValidationExceptionShouldReturnBadRequest() {
         ValidationException exception = new ValidationException("参数错误");
 
-        ResponseEntity<ApiResponse<Void>> response = handler.handleValidationException(exception);
+        ResponseEntity<ApiResponse<Void>> response =
+            handler.handleValidationException(exception);
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
         assertThat(response.getBody().getCode()).isEqualTo(ErrorCode.VALIDATION_ERROR.getCode());
@@ -68,8 +92,8 @@ class GlobalExceptionHandlerTest {
 
     @Test
     @DisplayName("处理数据重复异常")
-    void handleDuplicateException_shouldReturnConflict() {
-        DuplicateException exception = new DuplicateException("username", "test");
+    void handleDuplicateExceptionShouldReturnConflict() {
+        DuplicateException exception = new DuplicateException(FIELD_NAME, FIELD_VALUE);
 
         ResponseEntity<ApiResponse<Void>> response = handler.handleDuplicateException(exception);
 
@@ -79,22 +103,25 @@ class GlobalExceptionHandlerTest {
 
     @Test
     @DisplayName("处理认证异常")
-    void handleAuthenticationException_shouldReturnUnauthorized() {
-        com.koduck.exception.AuthenticationException exception = 
+    void handleAuthenticationExceptionShouldReturnUnauthorized() {
+        com.koduck.exception.AuthenticationException exception =
                 com.koduck.exception.AuthenticationException.invalidCredentials();
 
-        ResponseEntity<ApiResponse<Void>> response = handler.handleCustomAuthenticationException(exception);
+        ResponseEntity<ApiResponse<Void>> response =
+            handler.handleCustomAuthenticationException(exception);
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
-        assertThat(response.getBody().getCode()).isEqualTo(ErrorCode.AUTH_INVALID_CREDENTIALS.getCode());
+        assertThat(response.getBody().getCode())
+            .isEqualTo(ErrorCode.AUTH_INVALID_CREDENTIALS.getCode());
     }
 
     @Test
     @DisplayName("处理授权异常")
-    void handleAuthorizationException_shouldReturnForbidden() {
+    void handleAuthorizationExceptionShouldReturnForbidden() {
         AuthorizationException exception = AuthorizationException.accessDenied();
 
-        ResponseEntity<ApiResponse<Void>> response = handler.handleAuthorizationException(exception);
+        ResponseEntity<ApiResponse<Void>> response =
+            handler.handleAuthorizationException(exception);
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN);
         assertThat(response.getBody().getCode()).isEqualTo(ErrorCode.AUTH_ACCESS_DENIED.getCode());
@@ -102,7 +129,7 @@ class GlobalExceptionHandlerTest {
 
     @Test
     @DisplayName("处理状态异常")
-    void handleStateException_shouldReturnBadRequest() {
+    void handleStateExceptionShouldReturnBadRequest() {
         StateException exception = new StateException("当前状态", "期望状态");
 
         ResponseEntity<ApiResponse<Void>> response = handler.handleStateException(exception);
@@ -113,21 +140,25 @@ class GlobalExceptionHandlerTest {
 
     @Test
     @DisplayName("处理外部服务异常")
-    void handleExternalServiceException_shouldReturnBadGateway() {
-        ExternalServiceException exception = new ExternalServiceException("DataService", "连接超时");
+    void handleExternalServiceExceptionShouldReturnBadGateway() {
+        ExternalServiceException exception = new ExternalServiceException(
+            SERVICE_NAME, EXTERNAL_SERVICE_ERROR);
 
-        ResponseEntity<ApiResponse<Void>> response = handler.handleExternalServiceException(exception);
+        ResponseEntity<ApiResponse<Void>> response =
+            handler.handleExternalServiceException(exception);
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_GATEWAY);
-        assertThat(response.getBody().getCode()).isEqualTo(ErrorCode.EXTERNAL_SERVICE_ERROR.getCode());
+        assertThat(response.getBody().getCode())
+            .isEqualTo(ErrorCode.EXTERNAL_SERVICE_ERROR.getCode());
     }
 
     @Test
     @DisplayName("处理非法参数异常")
-    void handleIllegalArgumentException_shouldReturnBadRequest() {
+    void handleIllegalArgumentExceptionShouldReturnBadRequest() {
         IllegalArgumentException exception = new IllegalArgumentException("非法参数");
 
-        ResponseEntity<ApiResponse<Void>> response = handler.handleIllegalArgumentException(exception);
+        ResponseEntity<ApiResponse<Void>> response =
+            handler.handleIllegalArgumentException(exception);
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
         assertThat(response.getBody().getCode()).isEqualTo(ErrorCode.BAD_REQUEST.getCode());
@@ -135,32 +166,36 @@ class GlobalExceptionHandlerTest {
 
     @Test
     @DisplayName("处理 Spring Security 认证失败异常")
-    void handleBadCredentialsException_shouldReturnUnauthorized() {
+    void handleBadCredentialsExceptionShouldReturnUnauthorized() {
         BadCredentialsException exception = new BadCredentialsException("Bad credentials");
 
-        ResponseEntity<ApiResponse<Void>> response = handler.handleBadCredentialsException(exception);
+        ResponseEntity<ApiResponse<Void>> response =
+            handler.handleBadCredentialsException(exception);
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
-        assertThat(response.getBody().getCode()).isEqualTo(ErrorCode.AUTH_INVALID_CREDENTIALS.getCode());
+        assertThat(response.getBody().getCode())
+            .isEqualTo(ErrorCode.AUTH_INVALID_CREDENTIALS.getCode());
     }
 
     @Test
     @DisplayName("处理账号禁用异常")
-    void handleDisabledException_shouldReturnForbidden() {
+    void handleDisabledExceptionShouldReturnForbidden() {
         DisabledException exception = new DisabledException("User is disabled");
 
         ResponseEntity<ApiResponse<Void>> response = handler.handleDisabledException(exception);
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN);
-        assertThat(response.getBody().getCode()).isEqualTo(ErrorCode.AUTH_ACCOUNT_DISABLED.getCode());
+        assertThat(response.getBody().getCode())
+            .isEqualTo(ErrorCode.AUTH_ACCOUNT_DISABLED.getCode());
     }
 
     @Test
     @DisplayName("处理访问拒绝异常")
-    void handleAccessDeniedException_shouldReturnForbidden() {
+    void handleAccessDeniedExceptionShouldReturnForbidden() {
         AccessDeniedException exception = new AccessDeniedException("Access denied");
 
-        ResponseEntity<ApiResponse<Void>> response = handler.handleAccessDeniedException(exception);
+        ResponseEntity<ApiResponse<Void>> response =
+            handler.handleAccessDeniedException(exception);
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN);
         assertThat(response.getBody().getCode()).isEqualTo(ErrorCode.FORBIDDEN.getCode());
@@ -168,7 +203,7 @@ class GlobalExceptionHandlerTest {
 
     @Test
     @DisplayName("处理通用异常")
-    void handleException_shouldReturnInternalServerError() {
+    void handleExceptionShouldReturnInternalServerError() {
         Exception exception = new RuntimeException("未知错误");
 
         ApiResponse<Void> response = handler.handleException(exception, request);
