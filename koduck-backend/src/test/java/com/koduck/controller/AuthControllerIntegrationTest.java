@@ -1,6 +1,23 @@
 package com.koduck.controller;
 
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
+import java.util.Objects;
+
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
+import org.springframework.http.MediaType;
+import org.springframework.lang.NonNull;
+import org.springframework.test.context.TestConstructor;
+import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.MvcResult;
+
 import com.fasterxml.jackson.databind.ObjectMapper;
+
 import com.koduck.AbstractIntegrationTest;
 import com.koduck.dto.ApiResponse;
 import com.koduck.dto.auth.ForgotPasswordRequest;
@@ -9,39 +26,26 @@ import com.koduck.dto.auth.RefreshTokenRequest;
 import com.koduck.dto.auth.RegisterRequest;
 import com.koduck.dto.auth.ResetPasswordRequest;
 import com.koduck.dto.auth.TokenResponse;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-import org.springframework.lang.NonNull;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
-import org.springframework.http.MediaType;
-import org.springframework.test.context.TestConstructor;
-import org.springframework.test.web.servlet.MockMvc;
-import org.springframework.test.web.servlet.MvcResult;
-
-import java.util.Objects;
-
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
  * Integration tests for {@link AuthController}.
  *
  * @author GitHub Copilot
- * @date 2026-03-05
  */
 @AutoConfigureMockMvc
 @TestConstructor(autowireMode = TestConstructor.AutowireMode.ALL)
 class AuthControllerIntegrationTest extends AbstractIntegrationTest {
 
-        private final MockMvc mockMvc;
-        private final ObjectMapper objectMapper;
+    /** MockMvc for performing HTTP requests. */
+    private final MockMvc mockMvc;
 
-        AuthControllerIntegrationTest(MockMvc mockMvc, ObjectMapper objectMapper) {
-                this.mockMvc = mockMvc;
-                this.objectMapper = objectMapper;
-        }
+    /** ObjectMapper for JSON serialization. */
+    private final ObjectMapper objectMapper;
+
+    AuthControllerIntegrationTest(MockMvc mockMvc, ObjectMapper objectMapper) {
+        this.mockMvc = mockMvc;
+        this.objectMapper = objectMapper;
+    }
 
     @Test
     @DisplayName("shouldRegisterUserSuccessfully")
@@ -224,11 +228,17 @@ class AuthControllerIntegrationTest extends AbstractIntegrationTest {
                 .andExpect(jsonPath("$.code").value(0));
     }
 
-        private static @NonNull MediaType jsonMediaType() {
-                return Objects.requireNonNull(MediaType.APPLICATION_JSON, "application/json media type must not be null");
-        }
+    private static @NonNull MediaType jsonMediaType() {
+        return Objects.requireNonNull(
+            MediaType.APPLICATION_JSON,
+            "application/json media type must not be null"
+        );
+    }
 
-        private @NonNull String toJson(Object requestBody) throws Exception {
-                return Objects.requireNonNull(objectMapper.writeValueAsString(requestBody), "request body json must not be null");
-        }
+    private @NonNull String toJson(Object requestBody) throws Exception {
+        return Objects.requireNonNull(
+            objectMapper.writeValueAsString(requestBody),
+            "request body json must not be null"
+        );
+    }
 }
