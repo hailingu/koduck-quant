@@ -3,11 +3,11 @@ package com.koduck.dto.ai;
 import java.time.LocalDateTime;
 import java.util.List;
 
+import com.koduck.util.CollectionCopyUtils;
+
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-
-import com.koduck.util.CollectionCopyUtils;
 
 /**
  * 风险评估响应 DTO。
@@ -149,14 +149,23 @@ public class RiskAssessmentResponse {
      */
     public static final class Builder {
 
+        /** 投资组合ID。 */
         private Long portfolioId;
+        /** 整体风险评分。 */
         private Integer overallRiskScore;
+        /** 整体风险等级。 */
         private String overallRiskLevel;
+        /** 风险等级描述。 */
         private String riskLevelDescription;
+        /** 风险细分。 */
         private RiskBreakdown riskBreakdown;
+        /** 风险指标列表。 */
         private List<RiskMetric> metrics;
+        /** 风险警报列表。 */
         private List<RiskAlert> alerts;
+        /** 风险管理建议列表。 */
         private List<RiskManagementSuggestion> suggestions;
+        /** 生成时间。 */
         private LocalDateTime generatedAt;
 
         /**
@@ -346,10 +355,15 @@ public class RiskAssessmentResponse {
          */
         public static final class Builder {
 
+            /** 市场风险。 */
             private Integer marketRisk;
+            /** 集中度风险。 */
             private Integer concentrationRisk;
+            /** 波动率风险。 */
             private Integer volatilityRisk;
+            /** 流动性风险。 */
             private Integer liquidityRisk;
+            /** 汇率风险。 */
             private Integer currencyRisk;
 
             /**
@@ -468,9 +482,13 @@ public class RiskAssessmentResponse {
          */
         public static final class Builder {
 
+            /** 指标名称。 */
             private String name;
+            /** 指标值。 */
             private String value;
+            /** 基准值。 */
             private String benchmark;
+            /** 评估。 */
             private String assessment;
 
             /**
@@ -572,9 +590,13 @@ public class RiskAssessmentResponse {
          */
         public static final class Builder {
 
+            /** 警报类型。 */
             private String type;
+            /** 严重级别。 */
             private String severity;
+            /** 消息。 */
             private String message;
+            /** 建议。 */
             private String suggestion;
 
             /**
@@ -676,9 +698,13 @@ public class RiskAssessmentResponse {
          */
         public static final class Builder {
 
+            /** 类别。 */
             private String category;
+            /** 行动。 */
             private String action;
+            /** 预期收益。 */
             private String expectedBenefit;
+            /** 优先级。 */
             private String priority;
 
             /**
