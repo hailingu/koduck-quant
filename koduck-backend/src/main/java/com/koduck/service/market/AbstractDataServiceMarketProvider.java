@@ -1,10 +1,13 @@
 package com.koduck.service.market;
 
-import com.koduck.config.properties.DataServiceProperties;
-import com.koduck.market.model.KlineData;
-import com.koduck.market.model.TickData;
-import com.koduck.market.provider.MarketDataProvider;
-import com.koduck.market.util.MarketFieldParser;
+import java.time.Instant;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Optional;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+
 import org.slf4j.Logger;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.HttpMethod;
@@ -13,13 +16,11 @@ import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.util.UriComponentsBuilder;
 
-import java.time.Instant;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Optional;
-import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
+import com.koduck.config.properties.DataServiceProperties;
+import com.koduck.market.model.KlineData;
+import com.koduck.market.model.TickData;
+import com.koduck.market.provider.MarketDataProvider;
+import com.koduck.market.util.MarketFieldParser;
 
 /**
  * Abstract base class for market providers backed by the python data-service.
@@ -35,21 +36,40 @@ import java.util.concurrent.ConcurrentHashMap;
  * </p>
  *
  * @author GitHub Copilot
- * @date 2026-03-31
  */
 public abstract class AbstractDataServiceMarketProvider implements MarketDataProvider {
 
+    /** Response type for list of maps. */
     private static final ParameterizedTypeReference<List<Map<String, Object>>> LIST_MAP_RESPONSE_TYPE =
         new ParameterizedTypeReference<List<Map<String, Object>>>() {
         };
+
+    /** Response type for single map. */
     private static final ParameterizedTypeReference<Map<String, Object>> MAP_RESPONSE_TYPE =
         new ParameterizedTypeReference<Map<String, Object>>() {
         };
 
+    /** Health score when enabled. */
+    private static final int HEALTH_SCORE_ENABLED = 100;
+
+    /** Health score when disabled. */
+    private static final int HEALTH_SCORE_DISABLED = 0;
+
+    /** Configuration properties. */
     private final DataServiceProperties properties;
+
+    /** REST template for HTTP calls. */
     private final RestTemplate restTemplate;
+
+    /** Set of subscribed symbols. */
     private final Set<String> subscribedSymbols = ConcurrentHashMap.newKeySet();
 
+    /**
+     * Constructs a new AbstractDataServiceMarketProvider.
+     *
+     * @param properties the data service properties
+     * @param dataServiceRestTemplate the REST template
+     */
     protected AbstractDataServiceMarketProvider(
             DataServiceProperties properties,
             RestTemplate dataServiceRestTemplate) {
@@ -74,7 +94,7 @@ public abstract class AbstractDataServiceMarketProvider implements MarketDataPro
      */
     @Override
     public int getHealthScore() {
-        return properties.isEnabled() ? 100 : 0;
+        return properties.isEnabled() ? HEALTH_SCORE_ENABLED : HEALTH_SCORE_DISABLED;
     }
 
     /**
@@ -97,14 +117,16 @@ public abstract class AbstractDataServiceMarketProvider implements MarketDataPro
                                         Instant startTime, Instant endTime)
             throws MarketDataException {
         if (!isAvailable()) {
-            logger().debug("Data service not available, using mock data for {} kline", getLogMarketName());
+            logger().debug("Data service not available, using mock data for {} kline",
+                getLogMarketName());
             return generateMockKlineData(symbol, timeframe, limit, startTime, endTime);
         }
 
         String normalizedSymbol = normalizeSymbol(symbol);
         try {
             UriComponentsBuilder builder = UriComponentsBuilder
-                    .fromUriString(properties.getBaseUrl() + getDataServiceBasePath() + "/kline/{symbol}")
+                    .fromUriString(properties.getBaseUrl()
+                        + getDataServiceBasePath() + "/kline/{symbol}")
                     .queryParam("timeframe", timeframe)
                     .queryParam("limit", limit);
 
@@ -132,7 +154,8 @@ public abstract class AbstractDataServiceMarketProvider implements MarketDataPro
             }
 
             return convertToKlineData(data, normalizedSymbol, timeframe);
-        } catch (RestClientException exception) {
+        }
+        catch (RestClientException exception) {
             logger().error("Failed to fetch {} kline from data service: {}",
                     getLogMarketName(), exception.getMessage());
             return generateMockKlineData(symbol, timeframe, limit, startTime, endTime);
@@ -149,18 +172,21 @@ public abstract class AbstractDataServiceMarketProvider implements MarketDataPro
     @Override
     public Optional<TickData> getRealTimeTick(String symbol) throws MarketDataException {
         if (!isAvailable()) {
-            logger().debug("Data service not available, using mock data for {} tick", getLogMarketName());
+            logger().debug("Data service not available, using mock data for {} tick",
+                getLogMarketName());
             return generateMockTickData(symbol);
         }
 
         String normalizedSymbol = normalizeSymbol(symbol);
         try {
             String url = UriComponentsBuilder
-                    .fromUriString(properties.getBaseUrl() + getDataServiceBasePath() + "/price/{symbol}")
+                    .fromUriString(properties.getBaseUrl()
+                        + getDataServiceBasePath() + "/price/{symbol}")
                     .buildAndExpand(normalizedSymbol)
                     .toUriString();
 
-            logger().debug("Fetching {} price from data service: symbol={}", getLogMarketName(), normalizedSymbol);
+            logger().debug("Fetching {} price from data service: symbol={}",
+                getLogMarketName(), normalizedSymbol);
 
             ResponseEntity<Map<String, Object>> response = restTemplate.exchange(
                     url,
@@ -175,7 +201,8 @@ public abstract class AbstractDataServiceMarketProvider implements MarketDataPro
             }
 
             return Optional.of(convertToTickData(data, normalizedSymbol));
-        } catch (RestClientException exception) {
+        }
+        catch (RestClientException exception) {
             logger().error("Failed to fetch {} price from data service: {}",
                     getLogMarketName(), exception.getMessage());
             return generateMockTickData(symbol);
@@ -201,7 +228,8 @@ public abstract class AbstractDataServiceMarketProvider implements MarketDataPro
         }
 
         symbols.forEach(symbol -> subscribedSymbols.add(normalizeSymbol(symbol)));
-        logger().info("Subscribed to {} {} for real-time data", symbols.size(), getSubscriptionLabel());
+        logger().info("Subscribed to {} {} for real-time data",
+            symbols.size(), getSubscriptionLabel());
     }
 
     /**
@@ -234,7 +262,8 @@ public abstract class AbstractDataServiceMarketProvider implements MarketDataPro
 
         try {
             String url = UriComponentsBuilder
-                    .fromUriString(properties.getBaseUrl() + getDataServiceBasePath() + "/search")
+                    .fromUriString(properties.getBaseUrl()
+                        + getDataServiceBasePath() + "/search")
                     .queryParam("keyword", keyword)
                     .queryParam("limit", limit)
                     .toUriString();
@@ -255,8 +284,10 @@ public abstract class AbstractDataServiceMarketProvider implements MarketDataPro
                     .map(this::convertToSymbolInfo)
                     .limit(limit)
                     .toList();
-        } catch (RestClientException exception) {
-            logger().error("Failed to search {} symbols: {}", getLogMarketName(), exception.getMessage());
+        }
+        catch (RestClientException exception) {
+            logger().error("Failed to search {} symbols: {}",
+                getLogMarketName(), exception.getMessage());
             return generateMockSearchResults(keyword, limit);
         }
     }
@@ -329,8 +360,9 @@ public abstract class AbstractDataServiceMarketProvider implements MarketDataPro
      * @param endTime optional end time
      * @return list of kline data points
      */
-    protected abstract List<KlineData> generateMockKlineData(String symbol, String timeframe, int limit,
-                                                             Instant startTime, Instant endTime);
+    protected abstract List<KlineData> generateMockKlineData(String symbol, String timeframe,
+                                                             int limit, Instant startTime,
+                                                             Instant endTime);
 
     /**
      * Generates mock tick data when the real data service is unavailable.
