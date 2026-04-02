@@ -1,13 +1,5 @@
 package com.koduck.service.market;
 
-import com.koduck.config.properties.DataServiceProperties;
-import com.koduck.market.MarketType;
-import com.koduck.market.model.KlineData;
-import com.koduck.market.model.TickData;
-import com.koduck.market.util.DataConverter;
-import com.koduck.service.market.support.HKStockMarketCalendar;
-import com.koduck.service.market.support.MarketDataMapReader;
-import com.koduck.service.market.support.MarketTimeframeParser;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.DayOfWeek;
@@ -24,35 +16,105 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ThreadLocalRandom;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestTemplate;
 
+import com.koduck.config.properties.DataServiceProperties;
+import com.koduck.market.MarketType;
+import com.koduck.market.model.KlineData;
+import com.koduck.market.model.TickData;
+import com.koduck.market.util.DataConverter;
+import com.koduck.service.market.support.HKStockMarketCalendar;
+import com.koduck.service.market.support.MarketDataMapReader;
+import com.koduck.service.market.support.MarketTimeframeParser;
+
 /**
  * Hong Kong stock market data provider.
  *
  * <p>Data-service based implementation with unified retrieval and error handling inherited from
  * {@link AbstractDataServiceMarketProvider}.</p>
+ *
+ * @author Koduck Team
  */
 @Component
 public class HKStockProvider extends AbstractDataServiceMarketProvider {
 
+    /** Logger instance for this class. */
     private static final Logger LOG = LoggerFactory.getLogger(HKStockProvider.class);
+
+    /** Hong Kong timezone for market hours calculation. */
     private static final ZoneId HONG_KONG_ZONE = ZoneId.of("Asia/Hong_Kong");
+
+    /** Base path for HK stock data service endpoints. */
     private static final String HK_STOCK_BASE_PATH = "/hk-stock";
+
+    /** Provider name identifier. */
     private static final String PROVIDER_NAME = "akshare-hk-stock";
+
+    /** Minimum volume for kline mock data generation. */
     private static final long KLINE_VOLUME_MIN = 100_000L;
+
+    /** Maximum exclusive volume for kline mock data generation. */
     private static final long KLINE_VOLUME_MAX_EXCLUSIVE = 10_000_000L;
+
+    /** Minimum volume for tick mock data generation. */
     private static final long TICK_VOLUME_MIN = 1_000_000L;
+
+    /** Maximum exclusive volume for tick mock data generation. */
     private static final long TICK_VOLUME_MAX_EXCLUSIVE = 50_000_000L;
+
+    /** Minimum volume for order book mock data generation. */
     private static final long ORDER_BOOK_VOLUME_MIN = 100L;
+
+    /** Maximum exclusive volume for order book mock data generation. */
     private static final long ORDER_BOOK_VOLUME_MAX_EXCLUSIVE = 10_000L;
 
-    // Mock data for fallback
+    /** Length of the ".HK" suffix in stock symbols. */
+    private static final int HK_SUFFIX_LENGTH = 3;
+
+    /** Random offset center for price change calculation. */
+    private static final double RANDOM_OFFSET_CENTER = 0.5;
+
+    /** Maximum kline price change percentage (4%). */
+    private static final double KLINE_MAX_CHANGE_PERCENT = 0.04;
+
+    /** Maximum high/low variation percentage (1%). */
+    private static final double HIGH_LOW_VARIATION_PERCENT = 0.01;
+
+    /** Maximum tick price change percentage (2%). */
+    private static final double TICK_MAX_CHANGE_PERCENT = 0.02;
+
+    /** Decimal places for percentage division calculation. */
+    private static final int PERCENTAGE_DECIMAL_PLACES = 4;
+
+    /** Percentage multiplier (100%). */
+    private static final double PERCENTAGE_MULTIPLIER = 100.0;
+
+    /** Bid price ratio (99.9% of current price). */
+    private static final double BID_PRICE_RATIO = 0.999;
+
+    /** Ask price ratio (100.1% of current price). */
+    private static final double ASK_PRICE_RATIO = 1.001;
+
+    /** Day high ratio (102% of current price). */
+    private static final double DAY_HIGH_RATIO = 1.02;
+
+    /** Day low ratio (98% of current price). */
+    private static final double DAY_LOW_RATIO = 0.98;
+
+    /** Mock data for fallback. */
     private final Map<String, BigDecimal> basePrices = new LinkedHashMap<>();
 
+    /**
+     * Constructs a new HKStockProvider.
+     *
+     * @param properties the data service properties
+     * @param restTemplate the REST template for data service calls
+     */
     public HKStockProvider(
             DataServiceProperties properties,
             @Qualifier("dataServiceRestTemplate") RestTemplate restTemplate) {
@@ -131,7 +193,7 @@ public class HKStockProvider extends AbstractDataServiceMarketProvider {
 
         // Remove .HK suffix if present.
         if (normalized.endsWith(".HK")) {
-            normalized = normalized.substring(0, normalized.length() - 3);
+            normalized = normalized.substring(0, normalized.length() - HK_SUFFIX_LENGTH);
         }
 
         // Pad to 5 digits.
@@ -154,12 +216,12 @@ public class HKStockProvider extends AbstractDataServiceMarketProvider {
 
         BigDecimal currentPrice = basePrice;
         for (int i = 0; i < limit; i++) {
-            double changePercent = (Math.random() - 0.5) * 0.04;
+            double changePercent = (Math.random() - RANDOM_OFFSET_CENTER) * KLINE_MAX_CHANGE_PERCENT;
             BigDecimal change = currentPrice.multiply(BigDecimal.valueOf(changePercent));
             BigDecimal close = currentPrice.add(change);
 
-            BigDecimal high = close.multiply(BigDecimal.valueOf(1 + Math.random() * 0.01));
-            BigDecimal low = close.multiply(BigDecimal.valueOf(1 - Math.random() * 0.01));
+            BigDecimal high = close.multiply(BigDecimal.valueOf(1 + Math.random() * HIGH_LOW_VARIATION_PERCENT));
+            BigDecimal low = close.multiply(BigDecimal.valueOf(1 - Math.random() * HIGH_LOW_VARIATION_PERCENT));
             BigDecimal open = currentPrice;
 
             long volume = ThreadLocalRandom.current().nextLong(KLINE_VOLUME_MIN, KLINE_VOLUME_MAX_EXCLUSIVE);
@@ -190,11 +252,11 @@ public class HKStockProvider extends AbstractDataServiceMarketProvider {
         String normalizedSymbol = normalizeSymbol(symbol);
         BigDecimal basePrice = basePrices.getOrDefault(normalizedSymbol, new BigDecimal("50.00"));
 
-        double changePercent = (Math.random() - 0.5) * 0.02;
+        double changePercent = (Math.random() - RANDOM_OFFSET_CENTER) * TICK_MAX_CHANGE_PERCENT;
         BigDecimal price = basePrice.multiply(BigDecimal.valueOf(1 + changePercent));
         BigDecimal change = price.subtract(basePrice);
-        BigDecimal changePercentValue = change.divide(basePrice, 4, RoundingMode.HALF_UP)
-                .multiply(BigDecimal.valueOf(100));
+        BigDecimal changePercentValue = change.divide(basePrice, PERCENTAGE_DECIMAL_PLACES, RoundingMode.HALF_UP)
+                .multiply(BigDecimal.valueOf(PERCENTAGE_MULTIPLIER));
 
         long volume = ThreadLocalRandom.current().nextLong(TICK_VOLUME_MIN, TICK_VOLUME_MAX_EXCLUSIVE);
 
@@ -207,12 +269,12 @@ public class HKStockProvider extends AbstractDataServiceMarketProvider {
                 .changePercent(changePercentValue)
                 .volume(volume)
                 .amount(price.multiply(BigDecimal.valueOf(volume)))
-                .bidPrice(price.multiply(BigDecimal.valueOf(0.999)))
+                .bidPrice(price.multiply(BigDecimal.valueOf(BID_PRICE_RATIO)))
                 .bidVolume(ThreadLocalRandom.current().nextLong(ORDER_BOOK_VOLUME_MIN, ORDER_BOOK_VOLUME_MAX_EXCLUSIVE))
-                .askPrice(price.multiply(BigDecimal.valueOf(1.001)))
+                .askPrice(price.multiply(BigDecimal.valueOf(ASK_PRICE_RATIO)))
                 .askVolume(ThreadLocalRandom.current().nextLong(ORDER_BOOK_VOLUME_MIN, ORDER_BOOK_VOLUME_MAX_EXCLUSIVE))
-                .dayHigh(price.multiply(BigDecimal.valueOf(1.02)))
-                .dayLow(price.multiply(BigDecimal.valueOf(0.98)))
+                .dayHigh(price.multiply(BigDecimal.valueOf(DAY_HIGH_RATIO)))
+                .dayLow(price.multiply(BigDecimal.valueOf(DAY_LOW_RATIO)))
                 .open(basePrice)
                 .prevClose(basePrice)
                 .build();
