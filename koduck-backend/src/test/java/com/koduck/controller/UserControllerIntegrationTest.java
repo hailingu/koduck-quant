@@ -1,6 +1,26 @@
 package com.koduck.controller;
 
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
+import java.nio.charset.StandardCharsets;
+
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
+import org.springframework.http.MediaType;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.test.context.TestConstructor;
+import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.MvcResult;
+
 import com.fasterxml.jackson.databind.ObjectMapper;
+
 import com.koduck.AbstractIntegrationTest;
 import com.koduck.dto.ApiResponse;
 import com.koduck.dto.auth.LoginRequest;
@@ -12,61 +32,52 @@ import com.koduck.dto.user.UpdateProfileRequest;
 import com.koduck.dto.user.UpdateUserRequest;
 import com.koduck.dto.user.UserDetailResponse;
 import com.koduck.entity.User;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
-import org.springframework.http.MediaType;
-import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.test.context.TestConstructor;
-import org.springframework.test.web.servlet.MockMvc;
-import org.springframework.test.web.servlet.MvcResult;
-
-import java.nio.charset.StandardCharsets;
-
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
  * Integration tests for {@link UserController} user and admin endpoints.
  *
- * @author GitHub Copilot
- * @date 2026-03-31
+ * @author Koduck Team
  */
 @AutoConfigureMockMvc
 @TestConstructor(autowireMode = TestConstructor.AutowireMode.ALL)
 @SuppressWarnings("null")
 class UserControllerIntegrationTest extends AbstractIntegrationTest {
 
-        private static final int ADMIN_ROLE_ID = 1;
-        private static final String AUTHORIZATION_HEADER = "Authorization";
-        private static final String BEARER_PREFIX = "Bearer ";
+    /** The admin role ID. */
+    private static final int ADMIN_ROLE_ID = 1;
+    /** The authorization header name. */
+    private static final String AUTHORIZATION_HEADER = "Authorization";
+    /** The bearer prefix. */
+    private static final String BEARER_PREFIX = "Bearer ";
 
-        private final MockMvc mockMvc;
-        private final ObjectMapper objectMapper;
-        private final JdbcTemplate jdbcTemplate;
+    /** The MockMvc instance. */
+    private final MockMvc mockMvc;
+    /** The object mapper. */
+    private final ObjectMapper objectMapper;
+    /** The JDBC template. */
+    private final JdbcTemplate jdbcTemplate;
 
+    /** The access token for the normal user. */
     private String accessToken;
+    /** The access token for the admin user. */
     private String adminAccessToken;
+    /** The normal user ID. */
     private Long normalUserId;
+    /** The normal user name. */
     private String normalUsername;
 
-        UserControllerIntegrationTest(
-                        MockMvc mockMvc,
-                        ObjectMapper objectMapper,
-                        JdbcTemplate jdbcTemplate) {
-                this.mockMvc = mockMvc;
-                this.objectMapper = objectMapper;
-                this.jdbcTemplate = jdbcTemplate;
-        }
+    UserControllerIntegrationTest(
+            MockMvc mockMvc,
+            ObjectMapper objectMapper,
+            JdbcTemplate jdbcTemplate) {
+        this.mockMvc = mockMvc;
+        this.objectMapper = objectMapper;
+        this.jdbcTemplate = jdbcTemplate;
+    }
 
     @BeforeEach
     void setUp() throws Exception {
-                String suffix = Long.toString(System.nanoTime());
+        String suffix = Long.toString(System.nanoTime());
 
         RegisteredUser normalUser = registerUser("testuser_" + suffix, "password123", "Test User");
         accessToken = normalUser.accessToken();
@@ -78,14 +89,14 @@ class UserControllerIntegrationTest extends AbstractIntegrationTest {
         jdbcTemplate.update(
                 "INSERT INTO user_roles (user_id, role_id) VALUES (?, ?) ON CONFLICT DO NOTHING",
                 adminUser.userId(),
-                                ADMIN_ROLE_ID);
+                ADMIN_ROLE_ID);
 
         adminAccessToken = loginAndGetAccessToken(adminUser.username(), "password123");
     }
 
-        private String bearerToken(String token) {
-                return BEARER_PREFIX + token;
-        }
+    private String bearerToken(String token) {
+        return BEARER_PREFIX + token;
+    }
 
     private RegisteredUser registerUser(String username, String password, String nickname) throws Exception {
         RegisterRequest registerRequest = new RegisterRequest();
@@ -133,7 +144,7 @@ class UserControllerIntegrationTest extends AbstractIntegrationTest {
     @DisplayName("获取当前用户信息")
     void getCurrentUser() throws Exception {
         mockMvc.perform(get("/api/v1/users/me")
-                                                .header(AUTHORIZATION_HEADER, bearerToken(accessToken)))
+                        .header(AUTHORIZATION_HEADER, bearerToken(accessToken)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(0))
                 .andExpect(jsonPath("$.data.username").value(normalUsername))
@@ -148,7 +159,7 @@ class UserControllerIntegrationTest extends AbstractIntegrationTest {
         request.setAvatarUrl("https://example.com/avatar.png");
 
         mockMvc.perform(put("/api/v1/users/me")
-                                                .header(AUTHORIZATION_HEADER, bearerToken(accessToken))
+                        .header(AUTHORIZATION_HEADER, bearerToken(accessToken))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isOk())
@@ -205,7 +216,7 @@ class UserControllerIntegrationTest extends AbstractIntegrationTest {
     @DisplayName("普通用户无法访问管理员接口")
     void normalUserCannotAccessAdminEndpoint() throws Exception {
         mockMvc.perform(get("/api/v1/users")
-                                                .header(AUTHORIZATION_HEADER, bearerToken(accessToken)))
+                        .header(AUTHORIZATION_HEADER, bearerToken(accessToken)))
                 .andExpect(status().isForbidden());
     }
 
@@ -233,7 +244,7 @@ class UserControllerIntegrationTest extends AbstractIntegrationTest {
     @DisplayName("管理员可获取指定用户详情")
     void adminCanGetUserById() throws Exception {
         mockMvc.perform(get("/api/v1/users/{id}", normalUserId)
-                                                .header(AUTHORIZATION_HEADER, bearerToken(adminAccessToken)))
+                        .header(AUTHORIZATION_HEADER, bearerToken(adminAccessToken)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(0))
                 .andExpect(jsonPath("$.data.id").value(normalUserId))

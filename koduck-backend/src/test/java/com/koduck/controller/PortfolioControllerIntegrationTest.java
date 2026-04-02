@@ -1,21 +1,17 @@
 package com.koduck.controller;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.koduck.AbstractIntegrationTest;
-import com.koduck.dto.ApiResponse;
-import com.koduck.dto.auth.LoginRequest;
-import com.koduck.dto.auth.RegisterRequest;
-import com.koduck.dto.auth.TokenResponse;
-import com.koduck.dto.portfolio.AddPositionRequest;
-import com.koduck.dto.portfolio.AddTradeRequest;
-import com.koduck.dto.portfolio.PortfolioPositionDto;
-import com.koduck.dto.portfolio.PortfolioSummaryDto;
-import com.koduck.dto.portfolio.TradeDto;
-import com.koduck.dto.portfolio.UpdatePositionRequest;
-import com.koduck.entity.PortfolioPosition;
-import com.koduck.entity.Trade;
-import com.koduck.repository.PortfolioPositionRepository;
-import com.koduck.repository.TradeRepository;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
+import java.util.List;
+
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -26,39 +22,65 @@ import org.springframework.test.context.TestConstructor;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 
-import java.math.BigDecimal;
-import java.time.LocalDateTime;
-import java.util.List;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import com.koduck.AbstractIntegrationTest;
+import com.koduck.dto.ApiResponse;
+import com.koduck.dto.auth.RegisterRequest;
+import com.koduck.dto.auth.TokenResponse;
+import com.koduck.dto.portfolio.AddPositionRequest;
+import com.koduck.dto.portfolio.AddTradeRequest;
+import com.koduck.dto.portfolio.PortfolioPositionDto;
+import com.koduck.dto.portfolio.UpdatePositionRequest;
+import com.koduck.entity.PortfolioPosition;
+import com.koduck.entity.Trade;
+import com.koduck.repository.PortfolioPositionRepository;
+import com.koduck.repository.TradeRepository;
 
 /**
  * Integration tests for {@link PortfolioController}.
- * <p>Tests portfolio management endpoints including positions, 
+ * <p>Tests portfolio management endpoints including positions,
  * trades, and summary operations.</p>
  *
- * @author GitHub Copilot
- * @date 2026-04-01
+ * @author Koduck Team
  */
 @AutoConfigureMockMvc
 @TestConstructor(autowireMode = TestConstructor.AutowireMode.ALL)
 class PortfolioControllerIntegrationTest extends AbstractIntegrationTest {
 
+    /** The authorization header. */
     private static final String AUTHORIZATION_HEADER = "Authorization";
+    /** The bearer prefix. */
     private static final String BEARER_PREFIX = "Bearer ";
+    /** The bad request code. */
+    private static final int BAD_REQUEST_CODE = 400;
+    /** Test quantity 100. */
+    private static final int TEST_QUANTITY_100 = 100;
+    /** Test price 1500. */
+    private static final double TEST_PRICE_1500 = 1500.00;
+    /** Test quantity 1000. */
+    private static final int TEST_QUANTITY_1000 = 1000;
+    /** Test quantity 2000. */
+    private static final int TEST_QUANTITY_2000 = 2000;
+    /** Test price 13. */
+    private static final double TEST_PRICE_13 = 13.00;
+    /** Non-existent ID. */
+    private static final long NON_EXISTENT_ID = 999999L;
+    /** Test quantity 200. */
+    private static final int TEST_QUANTITY_200 = 200;
 
+    /** The MockMvc instance. */
     private final MockMvc mockMvc;
+    /** The object mapper. */
     private final ObjectMapper objectMapper;
+    /** The position repository. */
     private final PortfolioPositionRepository positionRepository;
+    /** The trade repository. */
     private final TradeRepository tradeRepository;
 
+    /** The access token for the test user. */
     private String accessToken;
+    /** The test user ID. */
     private Long userId;
 
     @Autowired
@@ -117,6 +139,21 @@ class PortfolioControllerIntegrationTest extends AbstractIntegrationTest {
     private record RegisteredUser(String accessToken, Long userId, String username) {
     }
 
+    private void addTradeRequest() throws Exception {
+        AddTradeRequest tradeRequest = new AddTradeRequest(
+                "AShare", "000001", "平安银行", "BUY",
+                new BigDecimal(TEST_QUANTITY_1000), new BigDecimal("12.50"),
+                LocalDateTime.now()
+        );
+
+        mockMvc.perform(post("/api/v1/portfolio/trades")
+                        .header(AUTHORIZATION_HEADER, bearerToken(accessToken))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(tradeRequest)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(0));
+    }
+
     // ==================== Get Positions Tests ====================
 
     @Test
@@ -139,8 +176,8 @@ class PortfolioControllerIntegrationTest extends AbstractIntegrationTest {
                 .market("AShare")
                 .symbol("600519")
                 .name("贵州茅台")
-                .quantity(new BigDecimal("100"))
-                .avgCost(new BigDecimal("1500.00"))
+                .quantity(new BigDecimal(TEST_QUANTITY_100))
+                .avgCost(new BigDecimal(String.valueOf(TEST_PRICE_1500)))
                 .build();
         positionRepository.save(position);
 
@@ -151,8 +188,8 @@ class PortfolioControllerIntegrationTest extends AbstractIntegrationTest {
                 .andExpect(jsonPath("$.data").isArray())
                 .andExpect(jsonPath("$.data[0].symbol").value("600519"))
                 .andExpect(jsonPath("$.data[0].name").value("贵州茅台"))
-                .andExpect(jsonPath("$.data[0].quantity").value(100))
-                .andExpect(jsonPath("$.data[0].avgCost").value(1500.00));
+                .andExpect(jsonPath("$.data[0].quantity").value(TEST_QUANTITY_100))
+                .andExpect(jsonPath("$.data[0].avgCost").value(TEST_PRICE_1500));
     }
 
     @Test
@@ -185,7 +222,7 @@ class PortfolioControllerIntegrationTest extends AbstractIntegrationTest {
                 .market("AShare")
                 .symbol("000001")
                 .name("平安银行")
-                .quantity(new BigDecimal("1000"))
+                .quantity(new BigDecimal(TEST_QUANTITY_1000))
                 .avgCost(new BigDecimal("12.50"))
                 .build();
         positionRepository.save(position);
@@ -205,8 +242,8 @@ class PortfolioControllerIntegrationTest extends AbstractIntegrationTest {
     @DisplayName("添加持仓-新股票")
     void addPositionNew() throws Exception {
         AddPositionRequest request = new AddPositionRequest(
-                "AShare", "600519", "贵州茅台", 
-                new BigDecimal("100"), new BigDecimal("1500.00")
+                "AShare", "600519", "贵州茅台",
+                new BigDecimal(TEST_QUANTITY_100), new BigDecimal(String.valueOf(TEST_PRICE_1500))
         );
 
         mockMvc.perform(post("/api/v1/portfolio")
@@ -217,8 +254,8 @@ class PortfolioControllerIntegrationTest extends AbstractIntegrationTest {
                 .andExpect(jsonPath("$.code").value(0))
                 .andExpect(jsonPath("$.data.symbol").value("600519"))
                 .andExpect(jsonPath("$.data.name").value("贵州茅台"))
-                .andExpect(jsonPath("$.data.quantity").value(100))
-                .andExpect(jsonPath("$.data.avgCost").value(1500.00));
+                .andExpect(jsonPath("$.data.quantity").value(TEST_QUANTITY_100))
+                .andExpect(jsonPath("$.data.avgCost").value(TEST_PRICE_1500));
     }
 
     @Test
@@ -237,8 +274,8 @@ class PortfolioControllerIntegrationTest extends AbstractIntegrationTest {
 
         // Add more of the same stock
         AddPositionRequest request = new AddPositionRequest(
-                "AShare", "000001", "平安银行", 
-                new BigDecimal("500"), new BigDecimal("13.00")
+                "AShare", "000001", "平安银行",
+                new BigDecimal("500"), new BigDecimal(String.valueOf(TEST_PRICE_13))
         );
 
         mockMvc.perform(post("/api/v1/portfolio")
@@ -247,15 +284,15 @@ class PortfolioControllerIntegrationTest extends AbstractIntegrationTest {
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(0))
-                .andExpect(jsonPath("$.data.quantity").value(1000)); // 500 + 500
+                .andExpect(jsonPath("$.data.quantity").value(TEST_QUANTITY_1000)); // 500 + 500
     }
 
     @Test
     @DisplayName("添加持仓-参数验证失败-空市场")
     void addPositionValidationEmptyMarket() throws Exception {
         AddPositionRequest request = new AddPositionRequest(
-                "", "600519", "贵州茅台", 
-                new BigDecimal("100"), new BigDecimal("1500.00")
+                "", "600519", "贵州茅台",
+                new BigDecimal(TEST_QUANTITY_100), new BigDecimal(String.valueOf(TEST_PRICE_1500))
         );
 
         mockMvc.perform(post("/api/v1/portfolio")
@@ -263,15 +300,15 @@ class PortfolioControllerIntegrationTest extends AbstractIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.code").value(400));
+                .andExpect(jsonPath("$.code").value(BAD_REQUEST_CODE));
     }
 
     @Test
     @DisplayName("添加持仓-参数验证失败-无效数量")
     void addPositionValidationInvalidQuantity() throws Exception {
         AddPositionRequest request = new AddPositionRequest(
-                "AShare", "600519", "贵州茅台", 
-                new BigDecimal("-100"), new BigDecimal("1500.00")
+                "AShare", "600519", "贵州茅台",
+                new BigDecimal("-100"), new BigDecimal(String.valueOf(TEST_PRICE_1500))
         );
 
         mockMvc.perform(post("/api/v1/portfolio")
@@ -279,7 +316,7 @@ class PortfolioControllerIntegrationTest extends AbstractIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.code").value(400));
+                .andExpect(jsonPath("$.code").value(BAD_REQUEST_CODE));
     }
 
     // ==================== Update Position Tests ====================
@@ -293,13 +330,13 @@ class PortfolioControllerIntegrationTest extends AbstractIntegrationTest {
                 .market("AShare")
                 .symbol("000001")
                 .name("平安银行")
-                .quantity(new BigDecimal("1000"))
+                .quantity(new BigDecimal(TEST_QUANTITY_1000))
                 .avgCost(new BigDecimal("12.50"))
                 .build();
         PortfolioPosition saved = positionRepository.save(position);
 
         UpdatePositionRequest request = new UpdatePositionRequest(
-                new BigDecimal("2000"), new BigDecimal("13.00")
+                new BigDecimal(TEST_QUANTITY_2000), new BigDecimal(String.valueOf(TEST_PRICE_13))
         );
 
         mockMvc.perform(put("/api/v1/portfolio/{id}", saved.getId())
@@ -308,18 +345,18 @@ class PortfolioControllerIntegrationTest extends AbstractIntegrationTest {
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(0))
-                .andExpect(jsonPath("$.data.quantity").value(2000))
-                .andExpect(jsonPath("$.data.avgCost").value(13.00));
+                .andExpect(jsonPath("$.data.quantity").value(TEST_QUANTITY_2000))
+                .andExpect(jsonPath("$.data.avgCost").value(TEST_PRICE_13));
     }
 
     @Test
     @DisplayName("更新持仓-不存在")
     void updatePositionNotFound() throws Exception {
         UpdatePositionRequest request = new UpdatePositionRequest(
-                new BigDecimal("2000"), new BigDecimal("13.00")
+                new BigDecimal(TEST_QUANTITY_2000), new BigDecimal(String.valueOf(TEST_PRICE_13))
         );
 
-        mockMvc.perform(put("/api/v1/portfolio/{id}", 999999)
+        mockMvc.perform(put("/api/v1/portfolio/{id}", NON_EXISTENT_ID)
                         .header(AUTHORIZATION_HEADER, bearerToken(accessToken))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
@@ -331,7 +368,7 @@ class PortfolioControllerIntegrationTest extends AbstractIntegrationTest {
     @DisplayName("更新持仓-无效ID")
     void updatePositionInvalidId() throws Exception {
         UpdatePositionRequest request = new UpdatePositionRequest(
-                new BigDecimal("2000"), new BigDecimal("13.00")
+                new BigDecimal(TEST_QUANTITY_2000), new BigDecimal(String.valueOf(TEST_PRICE_13))
         );
 
         mockMvc.perform(put("/api/v1/portfolio/{id}", -1)
@@ -339,7 +376,7 @@ class PortfolioControllerIntegrationTest extends AbstractIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.code").value(400));
+                .andExpect(jsonPath("$.code").value(BAD_REQUEST_CODE));
     }
 
     // ==================== Delete Position Tests ====================
@@ -353,7 +390,7 @@ class PortfolioControllerIntegrationTest extends AbstractIntegrationTest {
                 .market("AShare")
                 .symbol("000001")
                 .name("平安银行")
-                .quantity(new BigDecimal("1000"))
+                .quantity(new BigDecimal(TEST_QUANTITY_1000))
                 .avgCost(new BigDecimal("12.50"))
                 .build();
         PortfolioPosition saved = positionRepository.save(position);
@@ -370,7 +407,7 @@ class PortfolioControllerIntegrationTest extends AbstractIntegrationTest {
     @Test
     @DisplayName("删除持仓-不存在静默处理")
     void deletePositionNotFound() throws Exception {
-        mockMvc.perform(delete("/api/v1/portfolio/{id}", 999999)
+        mockMvc.perform(delete("/api/v1/portfolio/{id}", NON_EXISTENT_ID)
                         .header(AUTHORIZATION_HEADER, bearerToken(accessToken)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(0));
@@ -399,8 +436,8 @@ class PortfolioControllerIntegrationTest extends AbstractIntegrationTest {
                 .symbol("600519")
                 .name("贵州茅台")
                 .tradeType(Trade.TradeType.BUY)
-                .quantity(new BigDecimal("100"))
-                .price(new BigDecimal("1500.00"))
+                .quantity(new BigDecimal(TEST_QUANTITY_100))
+                .price(new BigDecimal(String.valueOf(TEST_PRICE_1500)))
                 .amount(new BigDecimal("150000.00"))
                 .tradeTime(LocalDateTime.now())
                 .build();
@@ -422,7 +459,7 @@ class PortfolioControllerIntegrationTest extends AbstractIntegrationTest {
     void addTradeBuyCreatePosition() throws Exception {
         AddTradeRequest request = new AddTradeRequest(
                 "AShare", "600519", "贵州茅台", "BUY",
-                new BigDecimal("100"), new BigDecimal("1500.00"),
+                new BigDecimal(TEST_QUANTITY_100), new BigDecimal(String.valueOf(TEST_PRICE_1500)),
                 LocalDateTime.now()
         );
 
@@ -434,14 +471,14 @@ class PortfolioControllerIntegrationTest extends AbstractIntegrationTest {
                 .andExpect(jsonPath("$.code").value(0))
                 .andExpect(jsonPath("$.data.symbol").value("600519"))
                 .andExpect(jsonPath("$.data.tradeType").value("BUY"))
-                .andExpect(jsonPath("$.data.quantity").value(100))
-                .andExpect(jsonPath("$.data.price").value(1500.00));
+                .andExpect(jsonPath("$.data.quantity").value(TEST_QUANTITY_100))
+                .andExpect(jsonPath("$.data.price").value(TEST_PRICE_1500));
 
         // Verify position was created
         List<PortfolioPosition> positions = positionRepository.findByUserId(userId);
         assertThat(positions).hasSize(1);
         assertThat(positions.get(0).getSymbol()).isEqualTo("600519");
-        assertThat(positions.get(0).getQuantity()).isEqualByComparingTo(new BigDecimal("100"));
+        assertThat(positions.get(0).getQuantity()).isEqualByComparingTo(new BigDecimal(TEST_QUANTITY_100));
     }
 
     @Test
@@ -453,14 +490,14 @@ class PortfolioControllerIntegrationTest extends AbstractIntegrationTest {
                 .market("AShare")
                 .symbol("000001")
                 .name("平安银行")
-                .quantity(new BigDecimal("1000"))
+                .quantity(new BigDecimal(TEST_QUANTITY_1000))
                 .avgCost(new BigDecimal("12.00"))
                 .build();
         positionRepository.save(position);
 
         AddTradeRequest request = new AddTradeRequest(
                 "AShare", "000001", "平安银行", "BUY",
-                new BigDecimal("500"), new BigDecimal("13.00"),
+                new BigDecimal("500"), new BigDecimal(String.valueOf(TEST_PRICE_13)),
                 LocalDateTime.now()
         );
 
@@ -486,7 +523,7 @@ class PortfolioControllerIntegrationTest extends AbstractIntegrationTest {
                 .market("AShare")
                 .symbol("000001")
                 .name("平安银行")
-                .quantity(new BigDecimal("1000"))
+                .quantity(new BigDecimal(TEST_QUANTITY_1000))
                 .avgCost(new BigDecimal("12.00"))
                 .build();
         positionRepository.save(position);
@@ -519,14 +556,14 @@ class PortfolioControllerIntegrationTest extends AbstractIntegrationTest {
                 .market("AShare")
                 .symbol("000001")
                 .name("平安银行")
-                .quantity(new BigDecimal("1000"))
+                .quantity(new BigDecimal(TEST_QUANTITY_1000))
                 .avgCost(new BigDecimal("12.00"))
                 .build();
         positionRepository.save(position);
 
         AddTradeRequest request = new AddTradeRequest(
                 "AShare", "000001", "平安银行", "SELL",
-                new BigDecimal("1000"), new BigDecimal("14.00"),
+                new BigDecimal(TEST_QUANTITY_1000), new BigDecimal("14.00"),
                 LocalDateTime.now()
         );
 
@@ -547,7 +584,7 @@ class PortfolioControllerIntegrationTest extends AbstractIntegrationTest {
     void addTradeValidationEmptyMarket() throws Exception {
         AddTradeRequest request = new AddTradeRequest(
                 "", "600519", "贵州茅台", "BUY",
-                new BigDecimal("100"), new BigDecimal("1500.00"),
+                new BigDecimal(TEST_QUANTITY_100), new BigDecimal(String.valueOf(TEST_PRICE_1500)),
                 LocalDateTime.now()
         );
 
@@ -556,7 +593,7 @@ class PortfolioControllerIntegrationTest extends AbstractIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.code").value(400));
+                .andExpect(jsonPath("$.code").value(BAD_REQUEST_CODE));
     }
 
     @Test
@@ -564,7 +601,7 @@ class PortfolioControllerIntegrationTest extends AbstractIntegrationTest {
     void addTradeValidationInvalidTradeType() throws Exception {
         AddTradeRequest request = new AddTradeRequest(
                 "AShare", "600519", "贵州茅台", "INVALID",
-                new BigDecimal("100"), new BigDecimal("1500.00"),
+                new BigDecimal(TEST_QUANTITY_100), new BigDecimal(String.valueOf(TEST_PRICE_1500)),
                 LocalDateTime.now()
         );
 
@@ -580,7 +617,7 @@ class PortfolioControllerIntegrationTest extends AbstractIntegrationTest {
     void addTradeValidationZeroPrice() throws Exception {
         AddTradeRequest request = new AddTradeRequest(
                 "AShare", "600519", "贵州茅台", "BUY",
-                new BigDecimal("100"), new BigDecimal("0"),
+                new BigDecimal(TEST_QUANTITY_100), new BigDecimal("0"),
                 LocalDateTime.now()
         );
 
@@ -589,7 +626,7 @@ class PortfolioControllerIntegrationTest extends AbstractIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.code").value(400));
+                .andExpect(jsonPath("$.code").value(BAD_REQUEST_CODE));
     }
 
     // ==================== End-to-End Flow Test ====================
@@ -599,8 +636,8 @@ class PortfolioControllerIntegrationTest extends AbstractIntegrationTest {
     void portfolioEndToEndFlow() throws Exception {
         // Step 1: Add a position
         AddPositionRequest addRequest = new AddPositionRequest(
-                "AShare", "600519", "贵州茅台", 
-                new BigDecimal("100"), new BigDecimal("1500.00")
+                "AShare", "600519", "贵州茅台",
+                new BigDecimal(TEST_QUANTITY_100), new BigDecimal(String.valueOf(TEST_PRICE_1500))
         );
 
         MvcResult addResult = mockMvc.perform(post("/api/v1/portfolio")
@@ -626,7 +663,7 @@ class PortfolioControllerIntegrationTest extends AbstractIntegrationTest {
 
         // Step 3: Update the position
         UpdatePositionRequest updateRequest = new UpdatePositionRequest(
-                new BigDecimal("200"), new BigDecimal("1550.00")
+                new BigDecimal(TEST_QUANTITY_200), new BigDecimal("1550.00")
         );
 
         mockMvc.perform(put("/api/v1/portfolio/{id}", positionId)
@@ -635,7 +672,7 @@ class PortfolioControllerIntegrationTest extends AbstractIntegrationTest {
                         .content(objectMapper.writeValueAsString(updateRequest)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(0))
-                .andExpect(jsonPath("$.data.quantity").value(200));
+                .andExpect(jsonPath("$.data.quantity").value(TEST_QUANTITY_200));
 
         // Step 4: Get summary
         mockMvc.perform(get("/api/v1/portfolio/summary")
@@ -644,18 +681,7 @@ class PortfolioControllerIntegrationTest extends AbstractIntegrationTest {
                 .andExpect(jsonPath("$.code").value(0));
 
         // Step 5: Add a trade
-        AddTradeRequest tradeRequest = new AddTradeRequest(
-                "AShare", "000001", "平安银行", "BUY",
-                new BigDecimal("1000"), new BigDecimal("12.50"),
-                LocalDateTime.now()
-        );
-
-        mockMvc.perform(post("/api/v1/portfolio/trades")
-                        .header(AUTHORIZATION_HEADER, bearerToken(accessToken))
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(tradeRequest)))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.code").value(0));
+        addTradeRequest();
 
         // Step 6: Get trades
         mockMvc.perform(get("/api/v1/portfolio/trades")
