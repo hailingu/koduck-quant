@@ -50,6 +50,11 @@ jobs:
           java-version: "23"
           cache: maven
 
+      - name: Run backend checkstyle
+        run: |
+          set -euo pipefail
+          mvn -f koduck-backend/pom.xml -B checkstyle:check
+
       - name: Run backend tests
         run: |
           set -euo pipefail

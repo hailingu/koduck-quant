@@ -175,6 +175,11 @@ mvn spring-boot:run
 - 覆盖率门禁 60% ADR：`ADR-0027-coverage-gate-60-and-jacoco-scope-alignment.md`
 - 核心服务覆盖率 60/40 ADR：`ADR-0028-core-service-coverage-gate-6040.md`
 
+## 代码风格与测试分层治理
+
+- 测试分类规范：[`TEST-CLASSIFICATION.md`](TEST-CLASSIFICATION.md)
+- Checkstyle 与测试分类治理 ADR：`ADR-0029-checkstyle-alibaba-and-test-classification-governance.md`
+
 ## 测试
 
 ```bash
