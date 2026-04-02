@@ -1,6 +1,36 @@
 package com.koduck.service;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
+import java.math.BigDecimal;
+import java.time.Duration;
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.boot.web.client.RestTemplateBuilder;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpMethod;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.client.RestTemplate;
+import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
+
 import com.fasterxml.jackson.databind.ObjectMapper;
+
 import com.koduck.config.AgentConfig;
 import com.koduck.dto.ai.BacktestInterpretResponse;
 import com.koduck.dto.ai.ChatMessageRequest;
@@ -19,89 +49,167 @@ import com.koduck.exception.ResourceNotFoundException;
 import com.koduck.repository.BacktestResultRepository;
 import com.koduck.repository.PortfolioPositionRepository;
 import com.koduck.repository.StrategyRepository;
-import com.koduck.shared.application.AiAnalysisServiceImpl;
 import com.koduck.service.support.AiConversationSupport;
 import com.koduck.service.support.AiRecommendationSupport;
 import com.koduck.service.support.AiStreamRelaySupport;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.boot.web.client.RestTemplateBuilder;
-import org.springframework.http.HttpEntity;
-import org.springframework.http.HttpMethod;
-import org.springframework.http.ResponseEntity;
-import org.springframework.web.client.RestTemplate;
-import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
-
-import java.math.BigDecimal;
-import java.time.Duration;
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.lenient;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
+import com.koduck.shared.application.AiAnalysisServiceImpl;
 
 /**
  * Unit tests for {@link AiAnalysisServiceImpl}.
  *
  * @author GitHub Copilot
- * @date 2026-04-01
  */
 @ExtendWith(MockitoExtension.class)
 class AiAnalysisServiceImplTest {
 
+    /** Test user ID constant. */
+    private static final Long TEST_USER_ID = 1L;
+
+    /** Test stock symbol for Kweichow Moutai. */
+    private static final String TEST_SYMBOL_MOUTAI = "600519";
+
+    /** Test A-share market identifier. */
+    private static final String TEST_MARKET_ASHARE = "AShare";
+
+    /** Test stock name for Kweichow Moutai. */
+    private static final String TEST_NAME_MOUTAI = "贵州茅台";
+
+    /** Test stock price - Moutai. */
+    private static final double TEST_PRICE_MOUTAI = 1500.0;
+
+    /** Test change percentage. */
+    private static final double TEST_CHANGE_PERCENT = 2.5;
+
+    /** Test open price. */
+    private static final double TEST_OPEN_PRICE = 1480.0;
+
+    /** Test high price. */
+    private static final double TEST_HIGH_PRICE = 1520.0;
+
+    /** Test low price. */
+    private static final double TEST_LOW_PRICE = 1470.0;
+
+    /** Test previous close price. */
+    private static final double TEST_PREV_CLOSE = 1460.0;
+
+    /** Test trading volume. */
+    private static final long TEST_VOLUME = 10000L;
+
+    /** Default LLM provider. */
+    private static final String DEFAULT_PROVIDER = "minimax";
+
+    /** Deepseek provider. */
+    private static final String PROVIDER_DEEPSEEK = "deepseek";
+
+    /** OpenAI provider. */
+    private static final String PROVIDER_OPENAI = "openai";
+
+    /** Test API key. */
+    private static final String TEST_API_KEY = "test-api-key";
+
+    /** Test API base URL. */
+    private static final String TEST_API_BASE = "http://test-api.com";
+
+    /** Test agent URL. */
+    private static final String TEST_AGENT_URL = "http://agent:8000";
+
+    /** Test session ID. */
+    private static final String TEST_SESSION_ID = "session-123";
+
+    /** Test strategy ID 1. */
+    private static final Long TEST_STRATEGY_ID_1 = 1L;
+
+    /** Test strategy ID 2. */
+    private static final Long TEST_STRATEGY_ID_2 = 2L;
+
+    /** Test backtest result ID. */
+    private static final Long TEST_BACKTEST_RESULT_ID = 100L;
+
+    /** Test non-existent backtest result ID. */
+    private static final Long TEST_BACKTEST_RESULT_ID_NONEXISTENT = 999L;
+
+    /** Test portfolio ID. */
+    private static final Long TEST_PORTFOLIO_ID = 10L;
+
+    /** Test portfolio position ID 1. */
+    private static final Long TEST_POSITION_ID_1 = 1L;
+
+    /** Test portfolio position ID 2. */
+    private static final Long TEST_POSITION_ID_2 = 2L;
+
+    /** Test quantity for position 1. */
+    private static final String TEST_QUANTITY_1 = "100";
+
+    /** Test quantity for position 2. */
+    private static final String TEST_QUANTITY_2 = "500";
+
+    /** Test symbol for position 2. */
+    private static final String TEST_SYMBOL_POSITION_2 = "000001";
+
+    /** Test total return value. */
+    private static final String TEST_TOTAL_RETURN = "0.15";
+
+    /** Test risk score - medium high. */
+    private static final int TEST_RISK_SCORE_HIGH = 65;
+
+    /** Test risk score - medium. */
+    private static final int TEST_RISK_SCORE_MEDIUM = 50;
+
+    /** Mock repository for portfolio positions. */
     @Mock
     private PortfolioPositionRepository positionRepository;
 
+    /** Mock repository for strategies. */
     @Mock
     private StrategyRepository strategyRepository;
 
+    /** Mock repository for backtest results. */
     @Mock
     private BacktestResultRepository backtestResultRepository;
 
+    /** Mock service for user settings. */
     @Mock
     private UserSettingsService userSettingsService;
 
+    /** Mock configuration for agent. */
     @Mock
     private AgentConfig agentConfig;
 
+    /** Mock builder for REST template. */
     @Mock
     private RestTemplateBuilder restTemplateBuilder;
 
+    /** Mock REST template. */
     @Mock
     private RestTemplate restTemplate;
 
+    /** Mock support for AI conversation. */
     @Mock
     private AiConversationSupport aiConversationSupport;
 
+    /** Mock support for AI stream relay. */
     @Mock
     private AiStreamRelaySupport aiStreamRelaySupport;
 
+    /** Mock support for AI recommendation. */
     @Mock
     private AiRecommendationSupport aiRecommendationSupport;
 
+    /** Object mapper for JSON processing. */
     private ObjectMapper objectMapper;
+
+    /** Service under test. */
     private AiAnalysisServiceImpl aiAnalysisService;
 
     @BeforeEach
     void setUp() {
         objectMapper = new ObjectMapper();
-        lenient().when(restTemplateBuilder.connectTimeout(any(Duration.class))).thenReturn(restTemplateBuilder);
-        lenient().when(restTemplateBuilder.readTimeout(any(Duration.class))).thenReturn(restTemplateBuilder);
+        lenient().when(restTemplateBuilder.connectTimeout(any(Duration.class)))
+                .thenReturn(restTemplateBuilder);
+        lenient().when(restTemplateBuilder.readTimeout(any(Duration.class)))
+                .thenReturn(restTemplateBuilder);
         lenient().when(restTemplateBuilder.build()).thenReturn(restTemplate);
-        lenient().when(agentConfig.getUrl()).thenReturn("http://agent:8000");
+        lenient().when(agentConfig.getUrl()).thenReturn(TEST_AGENT_URL);
 
         aiAnalysisService = new AiAnalysisServiceImpl(
                 positionRepository,
@@ -123,19 +231,19 @@ class AiAnalysisServiceImplTest {
     @DisplayName("shouldReturnAnalysisWhenAgentReturnsValidResponse")
     void shouldReturnAnalysisWhenAgentReturnsValidResponse() {
         // Given
-        Long userId = 1L;
+        Long userId = TEST_USER_ID;
         StockAnalysisRequest request = StockAnalysisRequest.builder()
-                .symbol("600519")
-                .market("AShare")
-                .name("贵州茅台")
-                .price(1500.0)
+                .symbol(TEST_SYMBOL_MOUTAI)
+                .market(TEST_MARKET_ASHARE)
+                .name(TEST_NAME_MOUTAI)
+                .price(TEST_PRICE_MOUTAI)
                 .analysisType("comprehensive")
                 .question("分析这只股票")
                 .build();
 
         UserSettingsDto.LlmConfigDto llmConfig = UserSettingsDto.LlmConfigDto.builder()
-                .apiKey("test-api-key")
-                .apiBase("http://test-api.com")
+                .apiKey(TEST_API_KEY)
+                .apiBase(TEST_API_BASE)
                 .build();
 
         Map<String, Object> agentResponse = Map.of(
@@ -144,14 +252,15 @@ class AiAnalysisServiceImplTest {
                 ))
         );
 
-        when(userSettingsService.getEffectiveLlmConfig(userId, "minimax")).thenReturn(llmConfig);
+        when(userSettingsService.getEffectiveLlmConfig(userId, DEFAULT_PROVIDER)).thenReturn(llmConfig);
         when(restTemplate.exchange(
                 anyString(),
                 eq(HttpMethod.POST),
                 any(HttpEntity.class),
                 any(org.springframework.core.ParameterizedTypeReference.class)
         )).thenReturn(ResponseEntity.ok(agentResponse));
-        when(aiRecommendationSupport.generateRecommendationFromResponse("这是一个买入信号")).thenReturn("建议买入");
+        when(aiRecommendationSupport.generateRecommendationFromResponse("这是一个买入信号"))
+                .thenReturn("建议买入");
 
         // When
         StockAnalysisResponse response = aiAnalysisService.analyzeStock(userId, request);
@@ -159,25 +268,25 @@ class AiAnalysisServiceImplTest {
         // Then
         assertThat(response).isNotNull();
         assertThat(response.getAnalysis()).isEqualTo("这是一个买入信号");
-        assertThat(response.getSymbol()).isEqualTo("600519");
+        assertThat(response.getSymbol()).isEqualTo(TEST_SYMBOL_MOUTAI);
         assertThat(response.getRecommendation()).isEqualTo("建议买入");
-        assertThat(response.getProvider()).isEqualTo("minimax");
+        assertThat(response.getProvider()).isEqualTo(DEFAULT_PROVIDER);
     }
 
     @Test
     @DisplayName("shouldUseDefaultProviderWhenProviderIsNull")
     void shouldUseDefaultProviderWhenProviderIsNull() {
         // Given
-        Long userId = 1L;
+        Long userId = TEST_USER_ID;
         StockAnalysisRequest request = StockAnalysisRequest.builder()
-                .symbol("600519")
-                .market("AShare")
+                .symbol(TEST_SYMBOL_MOUTAI)
+                .market(TEST_MARKET_ASHARE)
                 .question("分析")
                 .provider(null)
                 .build();
 
         UserSettingsDto.LlmConfigDto llmConfig = UserSettingsDto.LlmConfigDto.builder()
-                .apiKey("test-api-key")
+                .apiKey(TEST_API_KEY)
                 .build();
 
         Map<String, Object> agentResponse = Map.of(
@@ -186,33 +295,37 @@ class AiAnalysisServiceImplTest {
                 ))
         );
 
-        when(userSettingsService.getEffectiveLlmConfig(userId, "minimax")).thenReturn(llmConfig);
+        when(userSettingsService.getEffectiveLlmConfig(userId, DEFAULT_PROVIDER)).thenReturn(llmConfig);
         when(restTemplate.exchange(
-                anyString(), any(HttpMethod.class), any(HttpEntity.class), any(org.springframework.core.ParameterizedTypeReference.class)
+                anyString(),
+                any(HttpMethod.class),
+                any(HttpEntity.class),
+                any(org.springframework.core.ParameterizedTypeReference.class)
         )).thenReturn(ResponseEntity.ok(agentResponse));
-        when(aiRecommendationSupport.generateRecommendationFromResponse("分析结果")).thenReturn("建议观望");
+        when(aiRecommendationSupport.generateRecommendationFromResponse("分析结果"))
+                .thenReturn("建议观望");
 
         // When
         StockAnalysisResponse response = aiAnalysisService.analyzeStock(userId, request);
 
         // Then
-        assertThat(response.getProvider()).isEqualTo("minimax");
+        assertThat(response.getProvider()).isEqualTo(DEFAULT_PROVIDER);
     }
 
     @Test
     @DisplayName("shouldUseDeepseekProviderWhenSpecified")
     void shouldUseDeepseekProviderWhenSpecified() {
         // Given
-        Long userId = 1L;
+        Long userId = TEST_USER_ID;
         StockAnalysisRequest request = StockAnalysisRequest.builder()
-                .symbol("600519")
-                .market("AShare")
+                .symbol(TEST_SYMBOL_MOUTAI)
+                .market(TEST_MARKET_ASHARE)
                 .question("分析")
-                .provider("deepseek")
+                .provider(PROVIDER_DEEPSEEK)
                 .build();
 
         UserSettingsDto.LlmConfigDto llmConfig = UserSettingsDto.LlmConfigDto.builder()
-                .apiKey("test-api-key")
+                .apiKey(TEST_API_KEY)
                 .build();
 
         Map<String, Object> agentResponse = Map.of(
@@ -221,33 +334,37 @@ class AiAnalysisServiceImplTest {
                 ))
         );
 
-        when(userSettingsService.getEffectiveLlmConfig(userId, "deepseek")).thenReturn(llmConfig);
+        when(userSettingsService.getEffectiveLlmConfig(userId, PROVIDER_DEEPSEEK)).thenReturn(llmConfig);
         when(restTemplate.exchange(
-                anyString(), any(HttpMethod.class), any(HttpEntity.class), any(org.springframework.core.ParameterizedTypeReference.class)
+                anyString(),
+                any(HttpMethod.class),
+                any(HttpEntity.class),
+                any(org.springframework.core.ParameterizedTypeReference.class)
         )).thenReturn(ResponseEntity.ok(agentResponse));
-        when(aiRecommendationSupport.generateRecommendationFromResponse("Deepseek分析结果")).thenReturn("建议买入");
+        when(aiRecommendationSupport.generateRecommendationFromResponse("Deepseek分析结果"))
+                .thenReturn("建议买入");
 
         // When
         StockAnalysisResponse response = aiAnalysisService.analyzeStock(userId, request);
 
         // Then
-        assertThat(response.getProvider()).isEqualTo("deepseek");
+        assertThat(response.getProvider()).isEqualTo(PROVIDER_DEEPSEEK);
     }
 
     @Test
     @DisplayName("shouldFallbackToMinimaxWhenUnsupportedProviderSpecified")
     void shouldFallbackToMinimaxWhenUnsupportedProviderSpecified() {
         // Given
-        Long userId = 1L;
+        Long userId = TEST_USER_ID;
         StockAnalysisRequest request = StockAnalysisRequest.builder()
-                .symbol("600519")
-                .market("AShare")
+                .symbol(TEST_SYMBOL_MOUTAI)
+                .market(TEST_MARKET_ASHARE)
                 .question("分析")
                 .provider("unsupported")
                 .build();
 
         UserSettingsDto.LlmConfigDto llmConfig = UserSettingsDto.LlmConfigDto.builder()
-                .apiKey("test-api-key")
+                .apiKey(TEST_API_KEY)
                 .build();
 
         Map<String, Object> agentResponse = Map.of(
@@ -256,37 +373,44 @@ class AiAnalysisServiceImplTest {
                 ))
         );
 
-        when(userSettingsService.getEffectiveLlmConfig(userId, "minimax")).thenReturn(llmConfig);
+        when(userSettingsService.getEffectiveLlmConfig(userId, DEFAULT_PROVIDER)).thenReturn(llmConfig);
         when(restTemplate.exchange(
-                anyString(), any(HttpMethod.class), any(HttpEntity.class), any(org.springframework.core.ParameterizedTypeReference.class)
+                anyString(),
+                any(HttpMethod.class),
+                any(HttpEntity.class),
+                any(org.springframework.core.ParameterizedTypeReference.class)
         )).thenReturn(ResponseEntity.ok(agentResponse));
-        when(aiRecommendationSupport.generateRecommendationFromResponse("分析结果")).thenReturn("建议观望");
+        when(aiRecommendationSupport.generateRecommendationFromResponse("分析结果"))
+                .thenReturn("建议观望");
 
         // When
         StockAnalysisResponse response = aiAnalysisService.analyzeStock(userId, request);
 
         // Then
-        assertThat(response.getProvider()).isEqualTo("minimax");
+        assertThat(response.getProvider()).isEqualTo(DEFAULT_PROVIDER);
     }
 
     @Test
     @DisplayName("shouldThrowExternalServiceExceptionWhenAgentCallFails")
     void shouldThrowExternalServiceExceptionWhenAgentCallFails() {
         // Given
-        Long userId = 1L;
+        Long userId = TEST_USER_ID;
         StockAnalysisRequest request = StockAnalysisRequest.builder()
-                .symbol("600519")
-                .market("AShare")
+                .symbol(TEST_SYMBOL_MOUTAI)
+                .market(TEST_MARKET_ASHARE)
                 .question("分析")
                 .build();
 
         UserSettingsDto.LlmConfigDto llmConfig = UserSettingsDto.LlmConfigDto.builder()
-                .apiKey("test-api-key")
+                .apiKey(TEST_API_KEY)
                 .build();
 
-        when(userSettingsService.getEffectiveLlmConfig(userId, "minimax")).thenReturn(llmConfig);
+        when(userSettingsService.getEffectiveLlmConfig(userId, DEFAULT_PROVIDER)).thenReturn(llmConfig);
         when(restTemplate.exchange(
-                anyString(), any(HttpMethod.class), any(HttpEntity.class), any(org.springframework.core.ParameterizedTypeReference.class)
+                anyString(),
+                any(HttpMethod.class),
+                any(HttpEntity.class),
+                any(org.springframework.core.ParameterizedTypeReference.class)
         )).thenThrow(new RuntimeException("Connection refused"));
 
         // When & Then
@@ -299,22 +423,25 @@ class AiAnalysisServiceImplTest {
     @DisplayName("shouldThrowExternalServiceExceptionWhenAgentReturnsEmptyChoices")
     void shouldThrowExternalServiceExceptionWhenAgentReturnsEmptyChoices() {
         // Given
-        Long userId = 1L;
+        Long userId = TEST_USER_ID;
         StockAnalysisRequest request = StockAnalysisRequest.builder()
-                .symbol("600519")
-                .market("AShare")
+                .symbol(TEST_SYMBOL_MOUTAI)
+                .market(TEST_MARKET_ASHARE)
                 .question("分析")
                 .build();
 
         UserSettingsDto.LlmConfigDto llmConfig = UserSettingsDto.LlmConfigDto.builder()
-                .apiKey("test-api-key")
+                .apiKey(TEST_API_KEY)
                 .build();
 
         Map<String, Object> agentResponse = Map.of("choices", Collections.emptyList());
 
-        when(userSettingsService.getEffectiveLlmConfig(userId, "minimax")).thenReturn(llmConfig);
+        when(userSettingsService.getEffectiveLlmConfig(userId, DEFAULT_PROVIDER)).thenReturn(llmConfig);
         when(restTemplate.exchange(
-                anyString(), any(HttpMethod.class), any(HttpEntity.class), any(org.springframework.core.ParameterizedTypeReference.class)
+                anyString(),
+                any(HttpMethod.class),
+                any(HttpEntity.class),
+                any(org.springframework.core.ParameterizedTypeReference.class)
         )).thenReturn(ResponseEntity.ok(agentResponse));
 
         // When & Then
@@ -327,23 +454,23 @@ class AiAnalysisServiceImplTest {
     @DisplayName("shouldBuildPromptWithAllFieldsWhenRequestHasAllData")
     void shouldBuildPromptWithAllFieldsWhenRequestHasAllData() {
         // Given
-        Long userId = 1L;
+        Long userId = TEST_USER_ID;
         StockAnalysisRequest request = StockAnalysisRequest.builder()
-                .symbol("600519")
-                .market("AShare")
-                .name("贵州茅台")
-                .price(1500.0)
-                .changePercent(2.5)
-                .openPrice(1480.0)
-                .high(1520.0)
-                .low(1470.0)
-                .prevClose(1460.0)
-                .volume(10000L)
+                .symbol(TEST_SYMBOL_MOUTAI)
+                .market(TEST_MARKET_ASHARE)
+                .name(TEST_NAME_MOUTAI)
+                .price(TEST_PRICE_MOUTAI)
+                .changePercent(TEST_CHANGE_PERCENT)
+                .openPrice(TEST_OPEN_PRICE)
+                .high(TEST_HIGH_PRICE)
+                .low(TEST_LOW_PRICE)
+                .prevClose(TEST_PREV_CLOSE)
+                .volume(TEST_VOLUME)
                 .question("这只股票怎么样？")
                 .build();
 
         UserSettingsDto.LlmConfigDto llmConfig = UserSettingsDto.LlmConfigDto.builder()
-                .apiKey("test-api-key")
+                .apiKey(TEST_API_KEY)
                 .build();
 
         Map<String, Object> agentResponse = Map.of(
@@ -352,11 +479,15 @@ class AiAnalysisServiceImplTest {
                 ))
         );
 
-        when(userSettingsService.getEffectiveLlmConfig(userId, "minimax")).thenReturn(llmConfig);
+        when(userSettingsService.getEffectiveLlmConfig(userId, DEFAULT_PROVIDER)).thenReturn(llmConfig);
         when(restTemplate.exchange(
-                anyString(), any(HttpMethod.class), any(HttpEntity.class), any(org.springframework.core.ParameterizedTypeReference.class)
+                anyString(),
+                any(HttpMethod.class),
+                any(HttpEntity.class),
+                any(org.springframework.core.ParameterizedTypeReference.class)
         )).thenReturn(ResponseEntity.ok(agentResponse));
-        when(aiRecommendationSupport.generateRecommendationFromResponse("分析完成")).thenReturn("建议买入");
+        when(aiRecommendationSupport.generateRecommendationFromResponse("分析完成"))
+                .thenReturn("建议买入");
 
         // When
         StockAnalysisResponse response = aiAnalysisService.analyzeStock(userId, request);
@@ -371,23 +502,23 @@ class AiAnalysisServiceImplTest {
     @DisplayName("shouldReturnSseEmitterWhenStreamChatCalled")
     void shouldReturnSseEmitterWhenStreamChatCalled() {
         // Given
-        Long userId = 1L;
+        Long userId = TEST_USER_ID;
         ChatMessageRequest message = ChatMessageRequest.builder()
                 .role("user")
                 .content("你好")
                 .build();
         ChatStreamRequest request = ChatStreamRequest.builder()
-                .provider("minimax")
+                .provider(DEFAULT_PROVIDER)
                 .messages(List.of(message))
                 .disableToolCalls(false)
                 .build();
 
         UserSettingsDto.LlmConfigDto llmConfig = UserSettingsDto.LlmConfigDto.builder()
-                .apiKey("test-api-key")
+                .apiKey(TEST_API_KEY)
                 .build();
 
-        when(userSettingsService.getEffectiveLlmConfig(userId, "minimax")).thenReturn(llmConfig);
-        when(aiConversationSupport.resolveSessionId(any())).thenReturn("session-123");
+        when(userSettingsService.getEffectiveLlmConfig(userId, DEFAULT_PROVIDER)).thenReturn(llmConfig);
+        when(aiConversationSupport.resolveSessionId(any())).thenReturn(TEST_SESSION_ID);
         when(aiConversationSupport.enrichWithMemoryContext(eq(userId), any())).thenReturn(request);
         when(aiConversationSupport.enrichWithQuantSignalIfNeeded(any(), any())).thenReturn(request);
 
@@ -402,23 +533,23 @@ class AiAnalysisServiceImplTest {
     @DisplayName("shouldAppendNoToolGuardWhenDisableToolCallsIsTrue")
     void shouldAppendNoToolGuardWhenDisableToolCallsIsTrue() {
         // Given
-        Long userId = 1L;
+        Long userId = TEST_USER_ID;
         ChatMessageRequest message = ChatMessageRequest.builder()
                 .role("user")
                 .content("你好")
                 .build();
         ChatStreamRequest request = ChatStreamRequest.builder()
-                .provider("minimax")
+                .provider(DEFAULT_PROVIDER)
                 .messages(List.of(message))
                 .disableToolCalls(true)
                 .build();
 
         UserSettingsDto.LlmConfigDto llmConfig = UserSettingsDto.LlmConfigDto.builder()
-                .apiKey("test-api-key")
+                .apiKey(TEST_API_KEY)
                 .build();
 
-        when(userSettingsService.getEffectiveLlmConfig(userId, "minimax")).thenReturn(llmConfig);
-        when(aiConversationSupport.resolveSessionId(any())).thenReturn("session-123");
+        when(userSettingsService.getEffectiveLlmConfig(userId, DEFAULT_PROVIDER)).thenReturn(llmConfig);
+        when(aiConversationSupport.resolveSessionId(any())).thenReturn(TEST_SESSION_ID);
         when(aiConversationSupport.enrichWithMemoryContext(eq(userId), any())).thenReturn(request);
         when(aiConversationSupport.appendInstructionToSystem(any(), anyString())).thenReturn(request);
         when(aiConversationSupport.enrichWithQuantSignalIfNeeded(any(), any())).thenReturn(request);
@@ -435,18 +566,18 @@ class AiAnalysisServiceImplTest {
     @DisplayName("shouldHandleNullLlmConfigWhenStreaming")
     void shouldHandleNullLlmConfigWhenStreaming() {
         // Given
-        Long userId = 1L;
+        Long userId = TEST_USER_ID;
         ChatMessageRequest message = ChatMessageRequest.builder()
                 .role("user")
                 .content("你好")
                 .build();
         ChatStreamRequest request = ChatStreamRequest.builder()
-                .provider("minimax")
+                .provider(DEFAULT_PROVIDER)
                 .messages(List.of(message))
                 .build();
 
-        when(userSettingsService.getEffectiveLlmConfig(userId, "minimax")).thenReturn(null);
-        when(aiConversationSupport.resolveSessionId(any())).thenReturn("session-123");
+        when(userSettingsService.getEffectiveLlmConfig(userId, DEFAULT_PROVIDER)).thenReturn(null);
+        when(aiConversationSupport.resolveSessionId(any())).thenReturn(TEST_SESSION_ID);
         when(aiConversationSupport.enrichWithMemoryContext(eq(userId), any())).thenReturn(request);
         when(aiConversationSupport.enrichWithQuantSignalIfNeeded(any(), any())).thenReturn(request);
 
@@ -463,15 +594,15 @@ class AiAnalysisServiceImplTest {
     @DisplayName("shouldReturnRecommendationsWhenUserHasStrategies")
     void shouldReturnRecommendationsWhenUserHasStrategies() {
         // Given
-        Long userId = 1L;
+        Long userId = TEST_USER_ID;
         StrategyRecommendRequest request = StrategyRecommendRequest.builder()
                 .riskPreference("conservative")
                 .investmentHorizon("medium")
                 .build();
 
         List<Strategy> userStrategies = List.of(
-                Strategy.builder().id(1L).name("MA Cross").build(),
-                Strategy.builder().id(2L).name("RSI Strategy").build()
+                Strategy.builder().id(TEST_STRATEGY_ID_1).name("MA Cross").build(),
+                Strategy.builder().id(TEST_STRATEGY_ID_2).name("RSI Strategy").build()
         );
 
         StrategyRecommendResponse expectedResponse = StrategyRecommendResponse.builder()
@@ -479,7 +610,8 @@ class AiAnalysisServiceImplTest {
                 .build();
 
         when(strategyRepository.findByUserId(userId)).thenReturn(userStrategies);
-        when(aiRecommendationSupport.buildStrategyRecommendations(userStrategies, request)).thenReturn(expectedResponse);
+        when(aiRecommendationSupport.buildStrategyRecommendations(userStrategies, request))
+                .thenReturn(expectedResponse);
 
         // When
         StrategyRecommendResponse response = aiAnalysisService.recommendStrategies(userId, request);
@@ -493,7 +625,7 @@ class AiAnalysisServiceImplTest {
     @DisplayName("shouldReturnEmptyRecommendationsWhenUserHasNoStrategies")
     void shouldReturnEmptyRecommendationsWhenUserHasNoStrategies() {
         // Given
-        Long userId = 1L;
+        Long userId = TEST_USER_ID;
         StrategyRecommendRequest request = StrategyRecommendRequest.builder()
                 .riskPreference("aggressive")
                 .build();
@@ -504,7 +636,8 @@ class AiAnalysisServiceImplTest {
                 .build();
 
         when(strategyRepository.findByUserId(userId)).thenReturn(Collections.emptyList());
-        when(aiRecommendationSupport.buildStrategyRecommendations(Collections.emptyList(), request)).thenReturn(expectedResponse);
+        when(aiRecommendationSupport.buildStrategyRecommendations(Collections.emptyList(), request))
+                .thenReturn(expectedResponse);
 
         // When
         StrategyRecommendResponse response = aiAnalysisService.recommendStrategies(userId, request);
@@ -520,14 +653,14 @@ class AiAnalysisServiceImplTest {
     @DisplayName("shouldReturnInterpretationWhenBacktestResultExists")
     void shouldReturnInterpretationWhenBacktestResultExists() {
         // Given
-        Long userId = 1L;
-        Long backtestResultId = 100L;
+        Long userId = TEST_USER_ID;
+        Long backtestResultId = TEST_BACKTEST_RESULT_ID;
 
         BacktestResult result = BacktestResult.builder()
                 .id(backtestResultId)
                 .userId(userId)
-                .strategyId(1L)
-                .totalReturn(new BigDecimal("0.15"))
+                .strategyId(TEST_STRATEGY_ID_1)
+                .totalReturn(new BigDecimal(TEST_TOTAL_RETURN))
                 .build();
 
         BacktestInterpretResponse expectedResponse = BacktestInterpretResponse.builder()
@@ -535,8 +668,10 @@ class AiAnalysisServiceImplTest {
                 .strategyName("策略 1")
                 .build();
 
-        when(backtestResultRepository.findByIdAndUserId(backtestResultId, userId)).thenReturn(Optional.of(result));
-        when(aiRecommendationSupport.buildBacktestInterpretation(backtestResultId, result)).thenReturn(expectedResponse);
+        when(backtestResultRepository.findByIdAndUserId(backtestResultId, userId))
+                .thenReturn(Optional.of(result));
+        when(aiRecommendationSupport.buildBacktestInterpretation(backtestResultId, result))
+                .thenReturn(expectedResponse);
 
         // When
         BacktestInterpretResponse response = aiAnalysisService.interpretBacktest(userId, backtestResultId);
@@ -550,10 +685,11 @@ class AiAnalysisServiceImplTest {
     @DisplayName("shouldThrowResourceNotFoundWhenBacktestResultNotExists")
     void shouldThrowResourceNotFoundWhenBacktestResultNotExists() {
         // Given
-        Long userId = 1L;
-        Long backtestResultId = 999L;
+        Long userId = TEST_USER_ID;
+        Long backtestResultId = TEST_BACKTEST_RESULT_ID_NONEXISTENT;
 
-        when(backtestResultRepository.findByIdAndUserId(backtestResultId, userId)).thenReturn(Optional.empty());
+        when(backtestResultRepository.findByIdAndUserId(backtestResultId, userId))
+                .thenReturn(Optional.empty());
 
         // When & Then
         assertThatThrownBy(() -> aiAnalysisService.interpretBacktest(userId, backtestResultId))
@@ -567,21 +703,30 @@ class AiAnalysisServiceImplTest {
     @DisplayName("shouldReturnRiskAssessmentWhenPositionsExist")
     void shouldReturnRiskAssessmentWhenPositionsExist() {
         // Given
-        Long userId = 1L;
-        Long portfolioId = 10L;
+        Long userId = TEST_USER_ID;
+        Long portfolioId = TEST_PORTFOLIO_ID;
 
         List<PortfolioPosition> positions = List.of(
-                PortfolioPosition.builder().id(1L).symbol("600519").quantity(new BigDecimal("100")).build(),
-                PortfolioPosition.builder().id(2L).symbol("000001").quantity(new BigDecimal("500")).build()
+                PortfolioPosition.builder()
+                        .id(TEST_POSITION_ID_1)
+                        .symbol(TEST_SYMBOL_MOUTAI)
+                        .quantity(new BigDecimal(TEST_QUANTITY_1))
+                        .build(),
+                PortfolioPosition.builder()
+                        .id(TEST_POSITION_ID_2)
+                        .symbol(TEST_SYMBOL_POSITION_2)
+                        .quantity(new BigDecimal(TEST_QUANTITY_2))
+                        .build()
         );
 
         RiskAssessmentResponse expectedResponse = RiskAssessmentResponse.builder()
                 .portfolioId(portfolioId)
-                .overallRiskScore(65)
+                .overallRiskScore(TEST_RISK_SCORE_HIGH)
                 .build();
 
         when(positionRepository.findByUserId(userId)).thenReturn(positions);
-        when(aiRecommendationSupport.buildRiskAssessment(portfolioId, positions)).thenReturn(expectedResponse);
+        when(aiRecommendationSupport.buildRiskAssessment(portfolioId, positions))
+                .thenReturn(expectedResponse);
 
         // When
         RiskAssessmentResponse response = aiAnalysisService.assessRisk(userId, portfolioId);
@@ -589,23 +734,24 @@ class AiAnalysisServiceImplTest {
         // Then
         assertThat(response).isNotNull();
         assertThat(response.getPortfolioId()).isEqualTo(portfolioId);
-        assertThat(response.getOverallRiskScore()).isEqualTo(65);
+        assertThat(response.getOverallRiskScore()).isEqualTo(TEST_RISK_SCORE_HIGH);
     }
 
     @Test
     @DisplayName("shouldReturnRiskAssessmentWhenNoPositions")
     void shouldReturnRiskAssessmentWhenNoPositions() {
         // Given
-        Long userId = 1L;
-        Long portfolioId = 10L;
+        Long userId = TEST_USER_ID;
+        Long portfolioId = TEST_PORTFOLIO_ID;
 
         RiskAssessmentResponse expectedResponse = RiskAssessmentResponse.builder()
                 .portfolioId(portfolioId)
-                .overallRiskScore(50)
+                .overallRiskScore(TEST_RISK_SCORE_MEDIUM)
                 .build();
 
         when(positionRepository.findByUserId(userId)).thenReturn(Collections.emptyList());
-        when(aiRecommendationSupport.buildRiskAssessment(portfolioId, Collections.emptyList())).thenReturn(expectedResponse);
+        when(aiRecommendationSupport.buildRiskAssessment(portfolioId, Collections.emptyList()))
+                .thenReturn(expectedResponse);
 
         // When
         RiskAssessmentResponse response = aiAnalysisService.assessRisk(userId, portfolioId);
@@ -620,16 +766,16 @@ class AiAnalysisServiceImplTest {
     @DisplayName("shouldResolveOpenAiProviderWhenSpecified")
     void shouldResolveOpenAiProviderWhenSpecified() {
         // Given
-        Long userId = 1L;
+        Long userId = TEST_USER_ID;
         StockAnalysisRequest request = StockAnalysisRequest.builder()
-                .symbol("600519")
-                .market("AShare")
+                .symbol(TEST_SYMBOL_MOUTAI)
+                .market(TEST_MARKET_ASHARE)
                 .question("分析")
-                .provider("openai")
+                .provider(PROVIDER_OPENAI)
                 .build();
 
         UserSettingsDto.LlmConfigDto llmConfig = UserSettingsDto.LlmConfigDto.builder()
-                .apiKey("test-api-key")
+                .apiKey(TEST_API_KEY)
                 .build();
 
         Map<String, Object> agentResponse = Map.of(
@@ -638,33 +784,37 @@ class AiAnalysisServiceImplTest {
                 ))
         );
 
-        when(userSettingsService.getEffectiveLlmConfig(userId, "openai")).thenReturn(llmConfig);
+        when(userSettingsService.getEffectiveLlmConfig(userId, PROVIDER_OPENAI)).thenReturn(llmConfig);
         when(restTemplate.exchange(
-                anyString(), any(HttpMethod.class), any(HttpEntity.class), any(org.springframework.core.ParameterizedTypeReference.class)
+                anyString(),
+                any(HttpMethod.class),
+                any(HttpEntity.class),
+                any(org.springframework.core.ParameterizedTypeReference.class)
         )).thenReturn(ResponseEntity.ok(agentResponse));
-        when(aiRecommendationSupport.generateRecommendationFromResponse("OpenAI分析结果")).thenReturn("建议买入");
+        when(aiRecommendationSupport.generateRecommendationFromResponse("OpenAI分析结果"))
+                .thenReturn("建议买入");
 
         // When
         StockAnalysisResponse response = aiAnalysisService.analyzeStock(userId, request);
 
         // Then
-        assertThat(response.getProvider()).isEqualTo("openai");
+        assertThat(response.getProvider()).isEqualTo(PROVIDER_OPENAI);
     }
 
     @Test
     @DisplayName("shouldNormalizeProviderToLowercase")
     void shouldNormalizeProviderToLowercase() {
         // Given
-        Long userId = 1L;
+        Long userId = TEST_USER_ID;
         StockAnalysisRequest request = StockAnalysisRequest.builder()
-                .symbol("600519")
-                .market("AShare")
+                .symbol(TEST_SYMBOL_MOUTAI)
+                .market(TEST_MARKET_ASHARE)
                 .question("分析")
                 .provider("DeepSeek")
                 .build();
 
         UserSettingsDto.LlmConfigDto llmConfig = UserSettingsDto.LlmConfigDto.builder()
-                .apiKey("test-api-key")
+                .apiKey(TEST_API_KEY)
                 .build();
 
         Map<String, Object> agentResponse = Map.of(
@@ -673,37 +823,44 @@ class AiAnalysisServiceImplTest {
                 ))
         );
 
-        when(userSettingsService.getEffectiveLlmConfig(userId, "deepseek")).thenReturn(llmConfig);
+        when(userSettingsService.getEffectiveLlmConfig(userId, PROVIDER_DEEPSEEK)).thenReturn(llmConfig);
         when(restTemplate.exchange(
-                anyString(), any(HttpMethod.class), any(HttpEntity.class), any(org.springframework.core.ParameterizedTypeReference.class)
+                anyString(),
+                any(HttpMethod.class),
+                any(HttpEntity.class),
+                any(org.springframework.core.ParameterizedTypeReference.class)
         )).thenReturn(ResponseEntity.ok(agentResponse));
-        when(aiRecommendationSupport.generateRecommendationFromResponse("分析结果")).thenReturn("建议观望");
+        when(aiRecommendationSupport.generateRecommendationFromResponse("分析结果"))
+                .thenReturn("建议观望");
 
         // When
         StockAnalysisResponse response = aiAnalysisService.analyzeStock(userId, request);
 
         // Then
-        assertThat(response.getProvider()).isEqualTo("deepseek");
+        assertThat(response.getProvider()).isEqualTo(PROVIDER_DEEPSEEK);
     }
 
     @Test
     @DisplayName("shouldThrowExceptionWhenAgentReturnsNullBody")
     void shouldThrowExceptionWhenAgentReturnsNullBody() {
         // Given
-        Long userId = 1L;
+        Long userId = TEST_USER_ID;
         StockAnalysisRequest request = StockAnalysisRequest.builder()
-                .symbol("600519")
-                .market("AShare")
+                .symbol(TEST_SYMBOL_MOUTAI)
+                .market(TEST_MARKET_ASHARE)
                 .question("分析")
                 .build();
 
         UserSettingsDto.LlmConfigDto llmConfig = UserSettingsDto.LlmConfigDto.builder()
-                .apiKey("test-api-key")
+                .apiKey(TEST_API_KEY)
                 .build();
 
-        when(userSettingsService.getEffectiveLlmConfig(userId, "minimax")).thenReturn(llmConfig);
+        when(userSettingsService.getEffectiveLlmConfig(userId, DEFAULT_PROVIDER)).thenReturn(llmConfig);
         when(restTemplate.exchange(
-                anyString(), any(HttpMethod.class), any(HttpEntity.class), any(org.springframework.core.ParameterizedTypeReference.class)
+                anyString(),
+                any(HttpMethod.class),
+                any(HttpEntity.class),
+                any(org.springframework.core.ParameterizedTypeReference.class)
         )).thenReturn(ResponseEntity.ok(null));
 
         // When & Then
@@ -716,10 +873,10 @@ class AiAnalysisServiceImplTest {
     @DisplayName("shouldHandleNullEffectiveConfigApiKey")
     void shouldHandleNullEffectiveConfigApiKey() {
         // Given
-        Long userId = 1L;
+        Long userId = TEST_USER_ID;
         StockAnalysisRequest request = StockAnalysisRequest.builder()
-                .symbol("600519")
-                .market("AShare")
+                .symbol(TEST_SYMBOL_MOUTAI)
+                .market(TEST_MARKET_ASHARE)
                 .question("分析")
                 .build();
 
@@ -734,11 +891,15 @@ class AiAnalysisServiceImplTest {
                 ))
         );
 
-        when(userSettingsService.getEffectiveLlmConfig(userId, "minimax")).thenReturn(llmConfig);
+        when(userSettingsService.getEffectiveLlmConfig(userId, DEFAULT_PROVIDER)).thenReturn(llmConfig);
         when(restTemplate.exchange(
-                anyString(), any(HttpMethod.class), any(HttpEntity.class), any(org.springframework.core.ParameterizedTypeReference.class)
+                anyString(),
+                any(HttpMethod.class),
+                any(HttpEntity.class),
+                any(org.springframework.core.ParameterizedTypeReference.class)
         )).thenReturn(ResponseEntity.ok(agentResponse));
-        when(aiRecommendationSupport.generateRecommendationFromResponse("分析结果")).thenReturn("建议观望");
+        when(aiRecommendationSupport.generateRecommendationFromResponse("分析结果"))
+                .thenReturn("建议观望");
 
         // When
         StockAnalysisResponse response = aiAnalysisService.analyzeStock(userId, request);

@@ -1,20 +1,22 @@
 package com.koduck.service;
 
-import com.koduck.config.properties.MailProperties;
-import com.koduck.dto.auth.ForgotPasswordRequest;
-import com.koduck.dto.auth.ResetPasswordRequest;
-import com.koduck.entity.PasswordResetToken;
-import com.koduck.entity.User;
-import com.koduck.exception.BusinessException;
-import com.koduck.exception.ErrorCode;
-import com.koduck.repository.*;
-import com.koduck.identity.application.AuthServiceImpl;
-import com.koduck.service.support.DefaultUserRoleResolver;
-import com.koduck.service.support.UserRolesTableChecker;
-import com.koduck.util.JwtUtil;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.argThat;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.when;
+
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.time.LocalDateTime;
+import java.util.Base64;
+import java.util.Optional;
+
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -23,12 +25,22 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
-import java.time.LocalDateTime;
-import java.util.Base64;
-import java.util.Optional;
-
-import static org.assertj.core.api.Assertions.*;
-import static org.mockito.Mockito.*;
+import com.koduck.config.properties.MailProperties;
+import com.koduck.dto.auth.ForgotPasswordRequest;
+import com.koduck.dto.auth.ResetPasswordRequest;
+import com.koduck.entity.PasswordResetToken;
+import com.koduck.entity.User;
+import com.koduck.exception.BusinessException;
+import com.koduck.exception.ErrorCode;
+import com.koduck.identity.application.AuthServiceImpl;
+import com.koduck.repository.PasswordResetTokenRepository;
+import com.koduck.repository.RefreshTokenRepository;
+import com.koduck.repository.RoleRepository;
+import com.koduck.repository.UserRepository;
+import com.koduck.repository.UserRoleRepository;
+import com.koduck.service.support.DefaultUserRoleResolver;
+import com.koduck.service.support.UserRolesTableChecker;
+import com.koduck.util.JwtUtil;
 
 /**
  * Unit tests for password reset functionality in {@link AuthService}.
@@ -39,48 +51,71 @@ import static org.mockito.Mockito.*;
 @SuppressWarnings("null")
 class AuthServicePasswordResetTest {
 
+    /** Mock user repository. */
     @Mock
     private UserRepository userRepository;
 
+    /** Mock role repository. */
     @Mock
     private RoleRepository roleRepository;
 
+    /** Mock refresh token repository. */
     @Mock
     private RefreshTokenRepository refreshTokenRepository;
 
+    /** Mock user role repository. */
     @Mock
     private UserRoleRepository userRoleRepository;
 
+    /** Mock password reset token repository. */
     @Mock
     private PasswordResetTokenRepository passwordResetTokenRepository;
 
+    /** Mock JWT utility. */
     @Mock
     private JwtUtil jwtUtil;
 
+    /** Mock password encoder. */
     @Mock
     private PasswordEncoder passwordEncoder;
 
+    /** Mock email service. */
     @Mock
     private EmailService emailService;
 
+    /** Mock rate limiter service. */
     @Mock
     private RateLimiterService rateLimiterService;
 
+    /** Mock mail properties. */
     @Mock
     private MailProperties mailProperties;
 
+    /** Mock user roles table checker. */
     @Mock
     private UserRolesTableChecker userRolesTableChecker;
 
+    /** Mock default user role resolver. */
     @Mock
     private DefaultUserRoleResolver defaultUserRoleResolver;
 
+    /** Auth service implementation under test. */
     private AuthServiceImpl authService;
 
+    /** Test IP address. */
     private static final String TEST_IP = "192.168.1.1";
+
+    /** Test email address. */
     private static final String TEST_EMAIL = "user@example.com";
+
+    /** Test username. */
     private static final String TEST_USERNAME = "testuser";
+
+    /** Test user ID. */
     private static final Long TEST_USER_ID = 1L;
+
+    /** Password reset token expiry minutes. */
+    private static final int PASSWORD_RESET_TOKEN_EXPIRY_MINUTES = 30;
 
     @BeforeEach
     void setUp() {
@@ -118,7 +153,8 @@ class AuthServicePasswordResetTest {
 
         when(userRepository.findByEmail(TEST_EMAIL)).thenReturn(Optional.of(user));
         when(rateLimiterService.allowPasswordResetRequest(any(), any(), any())).thenReturn(true);
-        when(mailProperties.getPasswordResetTokenExpiryMinutes()).thenReturn(30);
+        when(mailProperties.getPasswordResetTokenExpiryMinutes())
+                .thenReturn(PASSWORD_RESET_TOKEN_EXPIRY_MINUTES);
         when(mailProperties.buildPasswordResetUrl(any())).thenReturn("http://localhost/reset?token=test");
 
         // When
@@ -351,7 +387,8 @@ class AuthServicePasswordResetTest {
 
         when(userRepository.findByEmail(TEST_EMAIL)).thenReturn(Optional.of(user));
         when(rateLimiterService.allowPasswordResetRequest(any(), any(), any())).thenReturn(true);
-        when(mailProperties.getPasswordResetTokenExpiryMinutes()).thenReturn(30);
+        when(mailProperties.getPasswordResetTokenExpiryMinutes())
+                .thenReturn(PASSWORD_RESET_TOKEN_EXPIRY_MINUTES);
         when(mailProperties.buildPasswordResetUrl(any())).thenReturn("http://localhost/reset?token=test");
 
         // When
@@ -362,13 +399,13 @@ class AuthServicePasswordResetTest {
         verify(passwordResetTokenRepository).save(any(PasswordResetToken.class));
     }
 
-        private String hashTokenForTest(String token) {
-                try {
-                        MessageDigest messageDigest = MessageDigest.getInstance("SHA-256");
-                        byte[] hash = messageDigest.digest(token.getBytes(StandardCharsets.UTF_8));
-                        return Base64.getUrlEncoder().withoutPadding().encodeToString(hash);
-                } catch (NoSuchAlgorithmException ex) {
-                        throw new IllegalStateException("SHA-256 not available", ex);
-                }
+    private String hashTokenForTest(String token) {
+        try {
+            MessageDigest messageDigest = MessageDigest.getInstance("SHA-256");
+            byte[] hash = messageDigest.digest(token.getBytes(StandardCharsets.UTF_8));
+            return Base64.getUrlEncoder().withoutPadding().encodeToString(hash);
+        } catch (NoSuchAlgorithmException ex) {
+            throw new IllegalStateException("SHA-256 not available", ex);
         }
+    }
 }
