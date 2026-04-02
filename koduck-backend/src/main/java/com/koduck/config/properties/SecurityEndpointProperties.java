@@ -31,19 +31,43 @@ public class SecurityEndpointProperties {
 
     private List<String> permitAllGetPatterns = new ArrayList<>(DEFAULT_PERMIT_ALL_GET_PATTERNS);
 
+    /**
+     * Gets permit all patterns.
+     *
+     * @return defensive copy of permit all patterns
+     */
     public List<String> getPermitAllPatterns() {
-        return permitAllPatterns;
+        return new ArrayList<>(permitAllPatterns);
     }
 
+    /**
+     * Sets permit all patterns.
+     *
+     * @param permitAllPatterns patterns to set
+     */
     public void setPermitAllPatterns(List<String> permitAllPatterns) {
-        this.permitAllPatterns = permitAllPatterns;
+        this.permitAllPatterns = permitAllPatterns != null
+            ? new ArrayList<>(permitAllPatterns)
+            : new ArrayList<>(DEFAULT_PERMIT_ALL_PATTERNS);
     }
 
+    /**
+     * Gets permit all GET patterns.
+     *
+     * @return defensive copy of permit all GET patterns
+     */
     public List<String> getPermitAllGetPatterns() {
-        return permitAllGetPatterns;
+        return new ArrayList<>(permitAllGetPatterns);
     }
 
+    /**
+     * Sets permit all GET patterns.
+     *
+     * @param permitAllGetPatterns patterns to set
+     */
     public void setPermitAllGetPatterns(List<String> permitAllGetPatterns) {
-        this.permitAllGetPatterns = permitAllGetPatterns;
+        this.permitAllGetPatterns = permitAllGetPatterns != null
+            ? new ArrayList<>(permitAllGetPatterns)
+            : new ArrayList<>(DEFAULT_PERMIT_ALL_GET_PATTERNS);
     }
 }

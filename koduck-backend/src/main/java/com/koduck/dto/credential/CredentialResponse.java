@@ -30,6 +30,9 @@ public class CredentialResponse {
     /** API Key（脱敏）. */
     private String apiKeyMasked;
 
+    /** API Secret（脱敏）. */
+    private String apiSecretMasked;
+
     /** 是否启用. */
     private Boolean enabled;
 

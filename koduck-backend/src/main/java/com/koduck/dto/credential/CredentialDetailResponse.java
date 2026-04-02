@@ -31,6 +31,9 @@ public class CredentialDetailResponse {
     /** API Key. */
     private String apiKey;
 
+    /** API Secret. */
+    private String apiSecret;
+
     /** 额外配置. */
     private Map<String, Object> extraConfig;
 

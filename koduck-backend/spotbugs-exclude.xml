@@ -9,4 +9,38 @@
     <Match>
         <Bug pattern="EI_EXPOSE_REP2"/>
     </Match>
+
+    <!--
+      DTO classes use Lombok @Data which generates getters/setters.
+      For collection/map fields in DTOs, EI_EXPOSE_REP is acceptable
+      because DTOs are primarily for JSON serialization/deserialization.
+      Manual defensive copying would add unnecessary boilerplate.
+    -->
+    <Match>
+        <Class name="~com\.koduck\.dto\..*"/>
+        <Bug pattern="EI_EXPOSE_REP"/>
+    </Match>
+
+    <!--
+      DTO inner classes also follow the same pattern as DTOs.
+      These are simple data holders for API requests/responses.
+    -->
+    <Match>
+        <Class name="~com\.koduck\.dto\..*\$.*"/>
+        <Bug pattern="EI_EXPOSE_REP"/>
+    </Match>
+
+    <!--
+      NM_CONFUSING: Method name confusion between DTOs and entities.
+      This is acceptable because DTOs and entities represent similar concepts
+      but in different layers (API vs persistence).
+    -->
+    <Match>
+        <Class name="~com\.koduck\.dto\..*"/>
+        <Bug pattern="NM_CONFUSING"/>
+    </Match>
+    <Match>
+        <Class name="~com\.koduck\.dto\..*\$.*"/>
+        <Bug pattern="NM_CONFUSING"/>
+    </Match>
 </FindBugsFilter>
