@@ -1,9 +1,5 @@
 package com.koduck.service.market.support;
 
-import com.koduck.market.MarketType;
-import com.koduck.market.model.KlineData;
-import com.koduck.market.model.TickData;
-import com.koduck.market.provider.MarketDataProvider;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.DayOfWeek;
@@ -18,74 +14,124 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.ThreadLocalRandom;
 
+import com.koduck.market.MarketType;
+import com.koduck.market.model.KlineData;
+import com.koduck.market.model.TickData;
+import com.koduck.market.provider.MarketDataProvider;
+
 /**
- * 期货提供者回退和本地搜索的模拟数据助手类。
+ * Mock data helper class for futures provider fallback and local search.
  *
  * @author Koduck Team
  */
-public final class FuturesMockDataSupport
-{
+public final class FuturesMockDataSupport {
 
+    /** Default exchange code. */
     private static final String DEFAULT_EXCHANGE = "SHFE";
+    /** Dalian Commodity Exchange code. */
     private static final String EXCHANGE_DCE = "DCE";
+    /** China Financial Futures Exchange code. */
     private static final String EXCHANGE_CFFEX = "CFFEX";
+    /** Minimum volume for kline data. */
     private static final long KLINE_VOLUME_MIN = 1_000L;
+    /** Maximum exclusive volume for kline data. */
     private static final long KLINE_VOLUME_MAX_EXCLUSIVE = 100_000L;
+    /** Minimum volume for tick data. */
     private static final long TICK_VOLUME_MIN = 10_000L;
+    /** Maximum exclusive volume for tick data. */
     private static final long TICK_VOLUME_MAX_EXCLUSIVE = 500_000L;
+    /** Minimum volume for order book. */
     private static final long ORDER_BOOK_VOLUME_MIN = 10L;
+    /** Maximum exclusive volume for order book. */
     private static final long ORDER_BOOK_VOLUME_MAX_EXCLUSIVE = 1_000L;
+    /** Volatility for gold futures. */
     private static final double VOLATILITY_GOLD = 0.008;
+    /** Default volatility for futures. */
     private static final double VOLATILITY_DEFAULT = 0.015;
+    /** Price change multiplier for random generation. */
     private static final double PRICE_CHANGE_MULTIPLIER = 0.5;
+    /** Change percent range for tick data. */
     private static final double CHANGE_PERCENT_RANGE = 0.02;
+    /** High/low price range multiplier. */
     private static final double HIGH_LOW_RANGE = 0.02;
+    /** Decimal scale for division operations. */
     private static final int DIVIDE_SCALE = 4;
+    /** Multiplier to convert to percentage. */
     private static final double PERCENT_MULTIPLIER = 100.0;
+    /** Gold futures symbol prefix. */
     private static final String PREFIX_AU = "AU";
+    /** Gold commodity symbol. */
     private static final String SYMBOL_GC = "GC";
+    /** Tick size for gold futures. */
     private static final BigDecimal TICK_SIZE_GOLD = new BigDecimal("0.02");
+    /** Default tick size. */
     private static final BigDecimal TICK_SIZE_DEFAULT = BigDecimal.ONE;
+    /** First session start hour. */
     private static final int SESSION_START_HOUR_1 = 9;
+    /** First session start minute. */
     private static final int SESSION_START_MINUTE_1 = 0;
+    /** First session end hour. */
     private static final int SESSION_END_HOUR_1 = 10;
+    /** First session end minute. */
     private static final int SESSION_END_MINUTE_1 = 15;
+    /** Second session start hour. */
     private static final int SESSION_START_HOUR_2 = 10;
+    /** Second session start minute. */
     private static final int SESSION_START_MINUTE_2 = 30;
+    /** Second session end hour. */
     private static final int SESSION_END_HOUR_2 = 11;
+    /** Second session end minute. */
     private static final int SESSION_END_MINUTE_2 = 30;
+    /** Third session start hour. */
     private static final int SESSION_START_HOUR_3 = 13;
+    /** Third session start minute. */
     private static final int SESSION_START_MINUTE_3 = 30;
+    /** Third session end hour. */
     private static final int SESSION_END_HOUR_3 = 15;
+    /** Third session end minute. */
     private static final int SESSION_END_MINUTE_3 = 0;
+    /** Night session start hour. */
     private static final int NIGHT_SESSION_START_HOUR = 21;
+    /** Night session end hour. */
     private static final int NIGHT_SESSION_END_HOUR = 2;
+    /** Night session end minute. */
     private static final int NIGHT_SESSION_END_MINUTE = 30;
+    /** First break start hour. */
     private static final int BREAK_START_HOUR_1 = 10;
+    /** First break start minute. */
     private static final int BREAK_START_MINUTE_1 = 15;
+    /** First break end hour. */
     private static final int BREAK_END_HOUR_1 = 10;
+    /** First break end minute. */
     private static final int BREAK_END_MINUTE_1 = 30;
+    /** Second break start hour. */
     private static final int BREAK_START_HOUR_2 = 11;
+    /** Second break start minute. */
     private static final int BREAK_START_MINUTE_2 = 30;
+    /** Second break end hour. */
     private static final int BREAK_END_HOUR_2 = 13;
+    /** Second break end minute. */
     private static final int BREAK_END_MINUTE_2 = 30;
+    /** Third break start hour. */
     private static final int BREAK_START_HOUR_3 = 15;
+    /** Third break start minute. */
     private static final int BREAK_START_MINUTE_3 = 0;
+    /** Third break end hour. */
     private static final int BREAK_END_HOUR_3 = 21;
+    /** Third break end minute. */
     private static final int BREAK_END_MINUTE_3 = 0;
+    /** Initial capacity for price maps. */
     private static final int INITIAL_CAPACITY = 25;
 
-    private FuturesMockDataSupport()
-    {
+    private FuturesMockDataSupport() {
     }
 
     /**
-     * 获取默认基准价格。
+     * Gets default base prices.
      *
-     * @return 代码到价格的映射
+     * @return mapping from symbol to price
      */
-    public static Map<String, BigDecimal> defaultBasePrices()
-    {
+    public static Map<String, BigDecimal> defaultBasePrices() {
         Map<String, BigDecimal> basePrices = new LinkedHashMap<>(INITIAL_CAPACITY);
         basePrices.put("AU2412", new BigDecimal("480.00"));
         basePrices.put("AG2412", new BigDecimal("5800.00"));
@@ -115,19 +161,18 @@ public final class FuturesMockDataSupport
     }
 
     /**
-     * 生成模拟 K 线数据。
+     * Generates mock K-line data.
      *
-     * @param normalizedSymbol 标准化代码
-     * @param timeframe 时间周期
-     * @param limit 数量限制
-     * @param endTime 结束时间
-     * @param basePrices 基准价格
-     * @return K 线数据列表
+     * @param normalizedSymbol normalized symbol
+     * @param timeframe time period
+     * @param limit count limit
+     * @param endTime end time
+     * @param basePrices base prices
+     * @return K-line data list
      */
     public static List<KlineData> generateMockKlineData(String normalizedSymbol,
         String timeframe, int limit, Instant endTime,
-        Map<String, BigDecimal> basePrices)
-    {
+        Map<String, BigDecimal> basePrices) {
         List<KlineData> klines = new ArrayList<>();
         BigDecimal basePrice = basePrices.getOrDefault(normalizedSymbol,
             new BigDecimal("5000.00"));
@@ -140,8 +185,7 @@ public final class FuturesMockDataSupport
             ? VOLATILITY_GOLD : VOLATILITY_DEFAULT;
 
         BigDecimal currentPrice = basePrice;
-        for (int i = 0; i < limit; i++)
-        {
+        for (int i = 0; i < limit; i++) {
             double changePercent = (Math.random() - PRICE_CHANGE_MULTIPLIER) * volatility * 2;
             BigDecimal change = currentPrice.multiply(BigDecimal.valueOf(changePercent));
             BigDecimal close = currentPrice.add(change);
@@ -174,15 +218,14 @@ public final class FuturesMockDataSupport
     }
 
     /**
-     * 生成模拟 Tick 数据。
+     * Generates mock Tick data.
      *
-     * @param normalizedSymbol 标准化代码
-     * @param basePrices 基准价格
-     * @return Tick 数据
+     * @param normalizedSymbol normalized symbol
+     * @param basePrices base prices
+     * @return Tick data
      */
     public static TickData generateMockTickData(String normalizedSymbol,
-        Map<String, BigDecimal> basePrices)
-    {
+        Map<String, BigDecimal> basePrices) {
         BigDecimal basePrice = basePrices.getOrDefault(normalizedSymbol,
             new BigDecimal("5000.00"));
 
@@ -221,15 +264,14 @@ public final class FuturesMockDataSupport
     }
 
     /**
-     * 生成模拟搜索结果。
+     * Generates mock search results.
      *
-     * @param keyword 关键词
-     * @param limit 限制数量
-     * @return 搜索结果列表
+     * @param keyword keyword
+     * @param limit limit count
+     * @return search results list
      */
     public static List<MarketDataProvider.SymbolInfo> generateMockSearchResults(
-        String keyword, int limit)
-    {
+        String keyword, int limit) {
         List<MarketDataProvider.SymbolInfo> results = new ArrayList<>();
         String upperKeyword = keyword.toUpperCase(Locale.ROOT);
 
@@ -275,39 +317,35 @@ public final class FuturesMockDataSupport
     }
 
     /**
-     * 解析交易所或返回默认值。
+     * Resolves exchange or returns default.
      *
-     * @param exchange 交易所
-     * @return 解析后的交易所
+     * @param exchange exchange
+     * @return resolved exchange
      */
-    public static String resolveExchangeOrDefault(String exchange)
-    {
-        if (exchange == null || exchange.isBlank())
-        {
+    public static String resolveExchangeOrDefault(String exchange) {
+        if (exchange == null || exchange.isBlank()) {
             return DEFAULT_EXCHANGE;
         }
         return exchange;
     }
 
     /**
-     * 判断是否为周末。
+     * Checks if weekend.
      *
-     * @param dayOfWeek 星期
-     * @return 是否为周末
+     * @param dayOfWeek day of week
+     * @return true if weekend
      */
-    public static boolean isWeekend(DayOfWeek dayOfWeek)
-    {
+    public static boolean isWeekend(DayOfWeek dayOfWeek) {
         return dayOfWeek == DayOfWeek.SATURDAY || dayOfWeek == DayOfWeek.SUNDAY;
     }
 
     /**
-     * 判断是否为日盘时间。
+     * Checks if day session time.
      *
-     * @param time 时间
-     * @return 是否为日盘
+     * @param time time
+     * @return true if day session
      */
-    public static boolean isDaySession(LocalTime time)
-    {
+    public static boolean isDaySession(LocalTime time) {
         LocalTime session1Start = LocalTime.of(SESSION_START_HOUR_1, SESSION_START_MINUTE_1);
         LocalTime session1End = LocalTime.of(SESSION_END_HOUR_1, SESSION_END_MINUTE_1);
         LocalTime session2Start = LocalTime.of(SESSION_START_HOUR_2, SESSION_START_MINUTE_2);
@@ -321,26 +359,24 @@ public final class FuturesMockDataSupport
     }
 
     /**
-     * 判断是否为夜盘时间。
+     * Checks if night session time.
      *
-     * @param time 时间
-     * @return 是否为夜盘
+     * @param time time
+     * @return true if night session
      */
-    public static boolean isNightSession(LocalTime time)
-    {
+    public static boolean isNightSession(LocalTime time) {
         LocalTime nightStart = LocalTime.of(NIGHT_SESSION_START_HOUR, 0);
         LocalTime nightEnd = LocalTime.of(NIGHT_SESSION_END_HOUR, NIGHT_SESSION_END_MINUTE);
         return time.isAfter(nightStart) || time.isBefore(nightEnd);
     }
 
     /**
-     * 判断是否为休市时间。
+     * Checks if break session time.
      *
-     * @param time 时间
-     * @return 是否为休市
+     * @param time time
+     * @return true if break session
      */
-    public static boolean isBreakSession(LocalTime time)
-    {
+    public static boolean isBreakSession(LocalTime time) {
         LocalTime break1Start = LocalTime.of(BREAK_START_HOUR_1, BREAK_START_MINUTE_1);
         LocalTime break1End = LocalTime.of(BREAK_END_HOUR_1, BREAK_END_MINUTE_1);
         LocalTime break2Start = LocalTime.of(BREAK_START_HOUR_2, BREAK_START_MINUTE_2);
@@ -357,14 +393,11 @@ public final class FuturesMockDataSupport
     }
 
     private static String resolveExchange(String symbol, Map<String, String> shfeFutures,
-        Map<String, String> dceFutures)
-    {
-        if (shfeFutures.containsKey(symbol))
-        {
+        Map<String, String> dceFutures) {
+        if (shfeFutures.containsKey(symbol)) {
             return DEFAULT_EXCHANGE;
         }
-        if (dceFutures.containsKey(symbol))
-        {
+        if (dceFutures.containsKey(symbol)) {
             return EXCHANGE_DCE;
         }
         return EXCHANGE_CFFEX;
