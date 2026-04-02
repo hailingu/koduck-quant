@@ -4,19 +4,21 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
+import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
-import org.springframework.test.web.servlet.MockMvc;
 
 /**
  * Controller 切片测试示例（与业务接口解耦）
+ *
+ * @author GitHub Copilot
  */
 @WebMvcTest(controllers = ExampleUserControllerTest.ExampleController.class)
 @AutoConfigureMockMvc(addFilters = false)
@@ -24,17 +26,19 @@ import org.springframework.test.web.servlet.MockMvc;
 @Disabled("示例测试，默认不纳入 CI 执行")
 class ExampleUserControllerTest {
 
+    /** MockMvc for HTTP request testing. */
     @Autowired
     private MockMvc mockMvc;
 
     @Test
     @DisplayName("GET /test/users/ping 返回 200 与 pong")
-    void ping_shouldReturnPong() throws Exception {
+    void pingShouldReturnPong() throws Exception {
         mockMvc.perform(get("/test/users/ping"))
             .andExpect(status().isOk())
             .andExpect(content().string("pong"));
     }
 
+    /** Example controller for testing. */
     @RestController
     @RequestMapping("/test/users")
     static class ExampleController {
