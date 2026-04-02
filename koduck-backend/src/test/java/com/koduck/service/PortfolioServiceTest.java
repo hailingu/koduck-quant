@@ -1,5 +1,24 @@
 package com.koduck.service;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
+import java.util.Collections;
+import java.util.List;
+import java.util.Optional;
+
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+
 import com.koduck.dto.portfolio.AddPositionRequest;
 import com.koduck.dto.portfolio.AddTradeRequest;
 import com.koduck.dto.portfolio.PortfolioPositionDto;
@@ -11,49 +30,41 @@ import com.koduck.entity.Trade;
 import com.koduck.repository.PortfolioPositionRepository;
 import com.koduck.repository.TradeRepository;
 import com.koduck.trading.application.PortfolioServiceImpl;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoExtension;
-
-import java.math.BigDecimal;
-import java.time.LocalDateTime;
-import java.util.Collections;
-import java.util.List;
-import java.util.Optional;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
 
 /**
  * Unit tests for {@link PortfolioService}.
  *
  * @author GitHub Copilot
- * @date 2026-03-05
  */
 @ExtendWith(MockitoExtension.class)
 @SuppressWarnings("null")
 class PortfolioServiceTest {
 
+    /** Position ID for not found tests. */
+    private static final long NOT_FOUND_POSITION_ID = 999L;
+
+    /** Mock repository for positions. */
     @Mock
     private PortfolioPositionRepository positionRepository;
 
+    /** Mock repository for trades. */
     @Mock
     private TradeRepository tradeRepository;
 
+    /** Mock service for kline data. */
     @Mock
     private KlineService klineService;
 
-        private PortfolioServiceImpl portfolioService;
+    /** Service under test. */
+    private PortfolioServiceImpl portfolioService;
 
+    /**
+     * Set up test fixtures.
+     */
     @BeforeEach
     void setUp() {
-                portfolioService = new PortfolioServiceImpl(positionRepository, tradeRepository, klineService);
+        portfolioService = new PortfolioServiceImpl(
+            positionRepository, tradeRepository, klineService);
     }
 
     @Test
@@ -225,7 +236,8 @@ class PortfolioServiceTest {
         // Given
         Long userId = 1L;
         AddPositionRequest request = new AddPositionRequest(
-                "AShare", "600519", "贵州茅台", new BigDecimal("100"), new BigDecimal("1500.00"));
+                "AShare", "600519", "贵州茅台",
+                new BigDecimal("100"), new BigDecimal("1500.00"));
 
         PortfolioPosition savedPosition = PortfolioPosition.builder()
                 .id(1L)
@@ -296,7 +308,8 @@ class PortfolioServiceTest {
         // Given
         Long userId = 1L;
         AddPositionRequest request = new AddPositionRequest(
-                "AShare", "600519", "贵州茅台", new BigDecimal("50"), new BigDecimal("1600.00"));
+                "AShare", "600519", "贵州茅台",
+                new BigDecimal("50"), new BigDecimal("1600.00"));
 
         PortfolioPosition existingPosition = PortfolioPosition.builder()
                 .id(1L)
@@ -338,7 +351,7 @@ class PortfolioServiceTest {
     void shouldThrowExceptionWhenPositionNotFoundForUpdate() {
         // Given
         Long userId = 1L;
-        Long positionId = 999L;
+        Long positionId = NOT_FOUND_POSITION_ID;
         UpdatePositionRequest request = new UpdatePositionRequest(
                 new BigDecimal("200"), new BigDecimal("1550.00"));
 
@@ -466,7 +479,7 @@ class PortfolioServiceTest {
         // Given
         Long userId = 1L;
         AddTradeRequest request = new AddTradeRequest(
-                "AShare", "600519", "贵州茅台", "BUY", 
+                "AShare", "600519", "贵州茅台", "BUY",
                 new BigDecimal("50"), new BigDecimal("1600.00"), LocalDateTime.now());
 
         Trade savedTrade = Trade.builder()
@@ -509,7 +522,7 @@ class PortfolioServiceTest {
         // Given
         Long userId = 1L;
         AddTradeRequest request = new AddTradeRequest(
-                "AShare", "600519", "贵州茅台", "SELL", 
+                "AShare", "600519", "贵州茅台", "SELL",
                 new BigDecimal("30"), new BigDecimal("1650.00"), LocalDateTime.now());
 
         Trade savedTrade = Trade.builder()
@@ -552,7 +565,7 @@ class PortfolioServiceTest {
         // Given
         Long userId = 1L;
         AddTradeRequest request = new AddTradeRequest(
-                "AShare", "600519", "贵州茅台", "SELL", 
+                "AShare", "600519", "贵州茅台", "SELL",
                 new BigDecimal("100"), new BigDecimal("1650.00"), LocalDateTime.now());
 
         Trade savedTrade = Trade.builder()
@@ -593,7 +606,8 @@ class PortfolioServiceTest {
     void shouldReturnEmptyTradesListWhenUserHasNoTrades() {
         // Given
         Long userId = 1L;
-        when(tradeRepository.findByUserIdOrderByTradeTimeDesc(userId)).thenReturn(Collections.emptyList());
+        when(tradeRepository.findByUserIdOrderByTradeTimeDesc(userId))
+            .thenReturn(Collections.emptyList());
 
         // When
         List<TradeDto> trades = portfolioService.getTrades(userId);
