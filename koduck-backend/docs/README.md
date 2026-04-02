@@ -173,6 +173,7 @@ mvn spring-boot:run
 - PMD 第一轮治理 ADR：`ADR-0025-pmd-batch1-method-argument-finalization.md`
 - pre-commit 本地门禁 ADR：`ADR-0026-pre-commit-local-quality-gate.md`
 - 覆盖率门禁 60% ADR：`ADR-0027-coverage-gate-60-and-jacoco-scope-alignment.md`
+- 核心服务覆盖率 60/40 ADR：`ADR-0028-core-service-coverage-gate-6040.md`
 
 ## 测试
 
