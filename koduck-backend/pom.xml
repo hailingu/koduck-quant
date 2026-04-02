@@ -367,6 +367,8 @@
                     <failOnViolation>true</failOnViolation>
                     <!-- Phase-in: block only error-severity violations; keep warning visibility. -->
                     <violationSeverity>error</violationSeverity>
+                    <!-- Exclude generated code from checkstyle validation -->
+                    <excludes>**/target/generated-sources/**/*,**/*Impl.java</excludes>
                 </configuration>
                 <executions>
                     <execution>
