@@ -1,17 +1,17 @@
 package com.koduck.dto.websocket;
 
+import java.util.List;
+import java.util.Map;
+
 import com.fasterxml.jackson.annotation.JsonInclude;
+
+import com.koduck.util.CollectionCopyUtils;
 
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import com.koduck.util.CollectionCopyUtils;
-
-import java.util.List;
-import java.util.Map;
-
 /**
- * WebSocket 订阅消息 DTO。
+ * WebSocket subscription message DTO.
  *
  * @author Koduck Team
  */
@@ -20,33 +20,33 @@ import java.util.Map;
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public class SubscriptionMessage {
 
-    /** 消息类型：SUBSCRIBE / UNSUBSCRIBE。 */
+    /** Message type: SUBSCRIBE / UNSUBSCRIBE. */
     private String type;
 
-    /** 要订阅的股票代码列表。 */
+    /** List of stock symbols to subscribe. */
     private List<String> symbols;
 
-    /** 订阅成功的股票代码列表。 */
+    /** List of successfully subscribed stock symbols. */
     private List<String> success;
 
-    /** 订阅失败的股票代码及原因映射。 */
+    /** Mapping of failed subscriptions to their reasons. */
     private Map<String, String> failed;
 
-    /** 当前所有订阅的股票代码列表。 */
+    /** List of all currently subscribed stock symbols. */
     private List<String> subscriptions;
 
-    /** 消息时间戳。 */
+    /** Message timestamp. */
     private Long timestamp;
 
     /**
-     * 构造方法。
+     * Constructs a SubscriptionMessage.
      *
-     * @param type          消息类型
-     * @param symbols       要订阅的股票代码列表
-     * @param success       订阅成功的股票代码列表
-     * @param failed        订阅失败的股票代码及原因映射
-     * @param subscriptions 当前所有订阅的股票代码列表
-     * @param timestamp     消息时间戳
+     * @param type          the message type
+     * @param symbols       the list of stock symbols to subscribe
+     * @param success       the list of successfully subscribed symbols
+     * @param failed        the mapping of failed subscriptions to reasons
+     * @param subscriptions the list of all currently subscribed symbols
+     * @param timestamp     the message timestamp
      */
     public SubscriptionMessage(String type, List<String> symbols, List<String> success,
                                Map<String, String> failed, List<String> subscriptions,
@@ -60,42 +60,42 @@ public class SubscriptionMessage {
     }
 
     /**
-     * 创建 Builder 实例。
+     * Creates a new Builder instance.
      *
-     * @return Builder 实例
+     * @return a Builder instance
      */
     public static Builder builder() {
         return new Builder();
     }
 
     /**
-     * 订阅消息构建器。
+     * Subscription message builder.
      */
     public static final class Builder {
 
-        /** 消息类型。 */
+        /** The message type. */
         private String type;
 
-        /** 要订阅的股票代码列表。 */
+        /** The list of stock symbols to subscribe. */
         private List<String> symbols;
 
-        /** 订阅成功的股票代码列表。 */
+        /** The list of successfully subscribed stock symbols. */
         private List<String> success;
 
-        /** 订阅失败的股票代码及原因映射。 */
+        /** The mapping of failed subscriptions to their reasons. */
         private Map<String, String> failed;
 
-        /** 当前所有订阅的股票代码列表。 */
+        /** The list of all currently subscribed stock symbols. */
         private List<String> subscriptions;
 
-        /** 消息时间戳。 */
+        /** The message timestamp. */
         private Long timestamp;
 
         /**
-         * 设置消息类型。
+         * Sets the message type.
          *
-         * @param type 消息类型
-         * @return Builder 实例
+         * @param type the message type
+         * @return this Builder instance
          */
         public Builder type(String type) {
             this.type = type;
@@ -103,10 +103,10 @@ public class SubscriptionMessage {
         }
 
         /**
-         * 设置要订阅的股票代码列表。
+         * Sets the list of stock symbols to subscribe.
          *
-         * @param symbols 股票代码列表
-         * @return Builder 实例
+         * @param symbols the list of stock symbols
+         * @return this Builder instance
          */
         public Builder symbols(List<String> symbols) {
             this.symbols = CollectionCopyUtils.copyList(symbols);
@@ -114,10 +114,10 @@ public class SubscriptionMessage {
         }
 
         /**
-         * 设置订阅成功的股票代码列表。
+         * Sets the list of successfully subscribed stock symbols.
          *
-         * @param success 成功的股票代码列表
-         * @return Builder 实例
+         * @param success the list of successful symbols
+         * @return this Builder instance
          */
         public Builder success(List<String> success) {
             this.success = CollectionCopyUtils.copyList(success);
@@ -125,10 +125,10 @@ public class SubscriptionMessage {
         }
 
         /**
-         * 设置订阅失败的股票代码及原因映射。
+         * Sets the mapping of failed subscriptions to their reasons.
          *
-         * @param failed 失败映射
-         * @return Builder 实例
+         * @param failed the mapping of failures
+         * @return this Builder instance
          */
         public Builder failed(Map<String, String> failed) {
             this.failed = CollectionCopyUtils.copyMap(failed);
@@ -136,10 +136,10 @@ public class SubscriptionMessage {
         }
 
         /**
-         * 设置当前所有订阅的股票代码列表。
+         * Sets the list of all currently subscribed stock symbols.
          *
-         * @param subscriptions 订阅列表
-         * @return Builder 实例
+         * @param subscriptions the list of subscriptions
+         * @return this Builder instance
          */
         public Builder subscriptions(List<String> subscriptions) {
             this.subscriptions = CollectionCopyUtils.copyList(subscriptions);
@@ -147,10 +147,10 @@ public class SubscriptionMessage {
         }
 
         /**
-         * 设置消息时间戳。
+         * Sets the message timestamp.
          *
-         * @param timestamp 时间戳
-         * @return Builder 实例
+         * @param timestamp the timestamp
+         * @return this Builder instance
          */
         public Builder timestamp(Long timestamp) {
             this.timestamp = timestamp;
@@ -158,9 +158,9 @@ public class SubscriptionMessage {
         }
 
         /**
-         * 构建 SubscriptionMessage 实例。
+         * Builds a SubscriptionMessage instance.
          *
-         * @return SubscriptionMessage 实例
+         * @return a SubscriptionMessage instance
          */
         public SubscriptionMessage build() {
             return new SubscriptionMessage(type, symbols, success, failed, subscriptions, timestamp);
@@ -168,72 +168,72 @@ public class SubscriptionMessage {
     }
 
     /**
-     * 获取股票代码列表的副本。
+     * Gets a copy of the stock symbols list.
      *
-     * @return 股票代码列表副本
+     * @return a copy of the symbols list
      */
     public List<String> getSymbols() {
         return CollectionCopyUtils.copyList(symbols);
     }
 
     /**
-     * 设置股票代码列表。
+     * Sets the stock symbols list.
      *
-     * @param symbols 股票代码列表
+     * @param symbols the list of stock symbols
      */
     public void setSymbols(List<String> symbols) {
         this.symbols = CollectionCopyUtils.copyList(symbols);
     }
 
     /**
-     * 获取订阅成功的股票代码列表副本。
+     * Gets a copy of the successfully subscribed stock symbols list.
      *
-     * @return 成功的股票代码列表副本
+     * @return a copy of the successful symbols list
      */
     public List<String> getSuccess() {
         return CollectionCopyUtils.copyList(success);
     }
 
     /**
-     * 设置订阅成功的股票代码列表。
+     * Sets the successfully subscribed stock symbols list.
      *
-     * @param success 成功的股票代码列表
+     * @param success the list of successful symbols
      */
     public void setSuccess(List<String> success) {
         this.success = CollectionCopyUtils.copyList(success);
     }
 
     /**
-     * 获取订阅失败的股票代码及原因映射副本。
+     * Gets a copy of the failed subscriptions mapping.
      *
-     * @return 失败的映射副本
+     * @return a copy of the failed mapping
      */
     public Map<String, String> getFailed() {
         return CollectionCopyUtils.copyMap(failed);
     }
 
     /**
-     * 设置订阅失败的股票代码及原因映射。
+     * Sets the failed subscriptions mapping.
      *
-     * @param failed 失败的映射
+     * @param failed the mapping of failures
      */
     public void setFailed(Map<String, String> failed) {
         this.failed = CollectionCopyUtils.copyMap(failed);
     }
 
     /**
-     * 获取当前所有订阅的股票代码列表副本。
+     * Gets a copy of the currently subscribed stock symbols list.
      *
-     * @return 订阅列表副本
+     * @return a copy of the subscriptions list
      */
     public List<String> getSubscriptions() {
         return CollectionCopyUtils.copyList(subscriptions);
     }
 
     /**
-     * 设置当前所有订阅的股票代码列表。
+     * Sets the currently subscribed stock symbols list.
      *
-     * @param subscriptions 订阅列表
+     * @param subscriptions the list of subscriptions
      */
     public void setSubscriptions(List<String> subscriptions) {
         this.subscriptions = CollectionCopyUtils.copyList(subscriptions);
