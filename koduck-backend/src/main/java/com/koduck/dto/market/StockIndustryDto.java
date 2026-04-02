@@ -5,6 +5,14 @@ import com.fasterxml.jackson.databind.annotation.JsonNaming;
 
 /**
  * Stock industry metadata DTO.
+ *
+ * @param symbol the symbol
+ * @param name the name
+ * @param industry the industry
+ * @param sector the sector
+ * @param subIndustry the sub industry
+ * @param board the board
+ * @author koduck
  */
 @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
 public record StockIndustryDto(
@@ -26,11 +34,17 @@ public record StockIndustryDto(
     }
 
     public static class Builder {
+        /** Symbol. */
         private String symbol;
+        /** Name. */
         private String name;
+        /** Industry. */
         private String industry;
+        /** Sector. */
         private String sector;
+        /** Sub industry. */
         private String subIndustry;
+        /** Board. */
         private String board;
 
         public Builder symbol(String symbol) {
