@@ -5,32 +5,53 @@ import com.koduck.dto.settings.UpdateSettingsRequest;
 import com.koduck.dto.settings.UserSettingsDto;
 
 /**
- * 用户设置服务接口
+ * User settings service interface.
+ *
+ * @author Koduck Team
  */
 public interface UserSettingsService {
 
     /**
-     * 获取用户设置
+     * Gets user settings.
+     *
+     * @param userId the user ID
+     * @return the user settings DTO
      */
     UserSettingsDto getSettings(Long userId);
 
     /**
-     * 更新用户设置
+     * Updates user settings.
+     *
+     * @param userId the user ID
+     * @param request the update settings request
+     * @return the updated user settings DTO
      */
     UserSettingsDto updateSettings(Long userId, UpdateSettingsRequest request);
 
     /**
-     * 更新主题设置
+     * Updates theme setting.
+     *
+     * @param userId the user ID
+     * @param theme the theme name
+     * @return the updated user settings DTO
      */
     UserSettingsDto updateTheme(Long userId, String theme);
 
     /**
-     * 更新通知设置
+     * Updates notification settings.
+     *
+     * @param userId the user ID
+     * @param request the update notification request
+     * @return the updated user settings DTO
      */
     UserSettingsDto updateNotification(Long userId, UpdateNotificationRequest request);
 
     /**
-     * 获取有效的 LLM 配置
+     * Gets effective LLM configuration.
+     *
+     * @param userId the user ID
+     * @param provider the LLM provider name
+     * @return the effective LLM configuration DTO
      */
     UserSettingsDto.LlmConfigDto getEffectiveLlmConfig(Long userId, String provider);
 }
