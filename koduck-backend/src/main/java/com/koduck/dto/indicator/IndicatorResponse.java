@@ -9,6 +9,13 @@ import com.koduck.util.CollectionCopyUtils;
 /**
  * Technical indicator response DTO.
  *
+ * @param symbol the stock symbol
+ * @param market the market identifier
+ * @param indicator the indicator name
+ * @param period the indicator period
+ * @param values the indicator values map
+ * @param trend the trend direction
+ * @param timestamp the timestamp of the indicator data
  * @author Koduck Team
  */
 public record IndicatorResponse(
