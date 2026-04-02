@@ -83,6 +83,9 @@ public class MarketSentimentServiceImpl implements MarketSentimentService {
     /** Fund flow boost increment. */
     private static final int FUND_FLOW_BOOST_INCREMENT = 10;
 
+    /** Divisor for typical price calculation (high + low + close) / divisor. */
+    private static final double TYPICAL_PRICE_DIVISOR = 3.0;
+
     /** Minimum days for trend calculation. */
     private static final int MIN_DAYS_FOR_TREND = 20;
 
