@@ -1,34 +1,48 @@
 package com.koduck.dto.community;
 
+import java.util.List;
+
 import com.koduck.util.CollectionCopyUtils;
+
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.util.List;
-
 /**
- *  DTO
+ * Signal list response DTO.
+ *
+ * @author Koduck Team
  */
 @Data
 @NoArgsConstructor
 public class SignalListResponse {
 
+    /** Signal items. */
     private List<SignalResponse> items;
+    /** Total count. */
     private long total;
+    /** Current page. */
     private int page;
+    /** Page size. */
     private int size;
+    /** Total pages. */
     private int totalPages;
 
     public static Builder builder() {
         return new Builder();
     }
 
+    /** Builder for SignalListResponse. */
     public static final class Builder {
 
+        /** Signal items. */
         private List<SignalResponse> items;
+        /** Total count. */
         private long total;
+        /** Current page. */
         private int page;
+        /** Page size. */
         private int size;
+        /** Total pages. */
         private int totalPages;
 
         public Builder items(List<SignalResponse> items) {

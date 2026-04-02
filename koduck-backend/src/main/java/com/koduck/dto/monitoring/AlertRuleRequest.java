@@ -5,8 +5,16 @@ import java.math.BigDecimal;
 /**
  * Request body for creating or updating an alert rule.
  *
- * @author GitHub Copilot
- * @date 2026-03-31
+ * @author Koduck Team
+ * @param ruleName the rule name
+ * @param ruleType the rule type
+ * @param metricName the metric name
+ * @param threshold the threshold
+ * @param operator the operator
+ * @param severity the severity
+ * @param enabled the enabled
+ * @param cooldownMinutes the cooldown minutes
+ * @param description the description
  */
 public record AlertRuleRequest(
         String ruleName,
