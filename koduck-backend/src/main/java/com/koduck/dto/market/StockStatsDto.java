@@ -6,6 +6,20 @@ import java.time.Instant;
 /**
  * Stock daily statistics DTO.
  * Provides aggregated daily trading statistics for a stock.
+ *
+ * @param symbol the stock symbol
+ * @param market the market code
+ * @param open the opening price
+ * @param high the highest price
+ * @param low the lowest price
+ * @param current the current price
+ * @param prevClose the previous closing price
+ * @param change the price change
+ * @param changePercent the price change percentage
+ * @param volume the trading volume
+ * @param amount the trading amount
+ * @param timestamp the timestamp
+ * @author Koduck Team
  */
 public record StockStatsDto(
     String symbol,
@@ -33,17 +47,29 @@ public record StockStatsDto(
     }
     
     public static class Builder {
+        /** Stock symbol. */
         private String symbol;
+        /** Market code. */
         private String market;
+        /** Opening price. */
         private BigDecimal open;
+        /** Highest price. */
         private BigDecimal high;
+        /** Lowest price. */
         private BigDecimal low;
+        /** Current price. */
         private BigDecimal current;
+        /** Previous closing price. */
         private BigDecimal prevClose;
+        /** Price change. */
         private BigDecimal change;
+        /** Price change percentage. */
         private BigDecimal changePercent;
+        /** Trading volume. */
         private Long volume;
+        /** Trading amount. */
         private BigDecimal amount;
+        /** Timestamp. */
         private Instant timestamp;
         
         public Builder symbol(String symbol) {

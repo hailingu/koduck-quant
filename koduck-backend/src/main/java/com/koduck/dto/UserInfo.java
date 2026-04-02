@@ -3,11 +3,11 @@ package com.koduck.dto;
 import java.time.LocalDateTime;
 import java.util.List;
 
-import lombok.Data;
-import lombok.NoArgsConstructor;
-
 import com.koduck.entity.User;
 import com.koduck.util.CollectionCopyUtils;
+
+import lombok.Data;
+import lombok.NoArgsConstructor;
 
 /**
  * User information DTO.
@@ -16,8 +16,7 @@ import com.koduck.util.CollectionCopyUtils;
  */
 @Data
 @NoArgsConstructor
-public class UserInfo
-{
+public class UserInfo {
 
     /**
      * User ID.
@@ -69,25 +68,58 @@ public class UserInfo
      *
      * @return a new Builder
      */
-    public static Builder builder()
-    {
+    public static Builder builder() {
         return new Builder();
     }
 
     /**
      * Builder class for UserInfo.
      */
-    public static final class Builder
-    {
+    public static final class Builder {
 
+        /**
+         * User ID.
+         */
         private Long id;
+
+        /**
+         * Username.
+         */
         private String username;
+
+        /**
+         * Email address.
+         */
         private String email;
+
+        /**
+         * Nickname.
+         */
         private String nickname;
+
+        /**
+         * Avatar URL.
+         */
         private String avatarUrl;
+
+        /**
+         * User status.
+         */
         private User.UserStatus status;
+
+        /**
+         * Email verification time.
+         */
         private LocalDateTime emailVerifiedAt;
+
+        /**
+         * Last login time.
+         */
         private LocalDateTime lastLoginAt;
+
+        /**
+         * List of user roles.
+         */
         private List<String> roles;
 
         /**
@@ -96,8 +128,7 @@ public class UserInfo
          * @param id the user ID
          * @return this builder
          */
-        public Builder id(Long id)
-        {
+        public Builder id(Long id) {
             this.id = id;
             return this;
         }
@@ -108,8 +139,7 @@ public class UserInfo
          * @param username the username
          * @return this builder
          */
-        public Builder username(String username)
-        {
+        public Builder username(String username) {
             this.username = username;
             return this;
         }
@@ -120,8 +150,7 @@ public class UserInfo
          * @param email the email
          * @return this builder
          */
-        public Builder email(String email)
-        {
+        public Builder email(String email) {
             this.email = email;
             return this;
         }
@@ -132,8 +161,7 @@ public class UserInfo
          * @param nickname the nickname
          * @return this builder
          */
-        public Builder nickname(String nickname)
-        {
+        public Builder nickname(String nickname) {
             this.nickname = nickname;
             return this;
         }
@@ -144,8 +172,7 @@ public class UserInfo
          * @param avatarUrl the avatar URL
          * @return this builder
          */
-        public Builder avatarUrl(String avatarUrl)
-        {
+        public Builder avatarUrl(String avatarUrl) {
             this.avatarUrl = avatarUrl;
             return this;
         }
@@ -156,8 +183,7 @@ public class UserInfo
          * @param status the status
          * @return this builder
          */
-        public Builder status(User.UserStatus status)
-        {
+        public Builder status(User.UserStatus status) {
             this.status = status;
             return this;
         }
@@ -168,8 +194,7 @@ public class UserInfo
          * @param emailVerifiedAt the verification time
          * @return this builder
          */
-        public Builder emailVerifiedAt(LocalDateTime emailVerifiedAt)
-        {
+        public Builder emailVerifiedAt(LocalDateTime emailVerifiedAt) {
             this.emailVerifiedAt = emailVerifiedAt;
             return this;
         }
@@ -180,8 +205,7 @@ public class UserInfo
          * @param lastLoginAt the last login time
          * @return this builder
          */
-        public Builder lastLoginAt(LocalDateTime lastLoginAt)
-        {
+        public Builder lastLoginAt(LocalDateTime lastLoginAt) {
             this.lastLoginAt = lastLoginAt;
             return this;
         }
@@ -192,8 +216,7 @@ public class UserInfo
          * @param roles the roles
          * @return this builder
          */
-        public Builder roles(List<String> roles)
-        {
+        public Builder roles(List<String> roles) {
             this.roles = CollectionCopyUtils.copyList(roles);
             return this;
         }
@@ -203,8 +226,7 @@ public class UserInfo
          *
          * @return the UserInfo
          */
-        public UserInfo build()
-        {
+        public UserInfo build() {
             UserInfo userInfo = new UserInfo();
             userInfo.setId(id);
             userInfo.setUsername(username);
@@ -224,8 +246,7 @@ public class UserInfo
      *
      * @return the roles list copy
      */
-    public List<String> getRoles()
-    {
+    public List<String> getRoles() {
         return CollectionCopyUtils.copyList(roles);
     }
 
@@ -234,8 +255,7 @@ public class UserInfo
      *
      * @param roles the roles list
      */
-    public void setRoles(List<String> roles)
-    {
+    public void setRoles(List<String> roles) {
         this.roles = CollectionCopyUtils.copyList(roles);
     }
 }

@@ -5,6 +5,20 @@ import java.time.LocalDateTime;
 
 /**
  * Portfolio position DTO with calculated fields.
+ *
+ * @param id the position ID
+ * @param market the market code
+ * @param symbol the stock symbol
+ * @param name the stock name
+ * @param quantity the quantity held
+ * @param avgCost the average cost
+ * @param currentPrice the current price
+ * @param marketValue the market value
+ * @param pnl the profit and loss
+ * @param pnlPercent the profit and loss percentage
+ * @param createdAt the creation timestamp
+ * @param updatedAt the last update timestamp
+ * @author Koduck Team
  */
 public record PortfolioPositionDto(
     Long id,
@@ -26,17 +40,29 @@ public record PortfolioPositionDto(
     }
     
     public static class Builder {
+        /** Position ID. */
         private Long id;
+        /** Market code. */
         private String market;
+        /** Stock symbol. */
         private String symbol;
+        /** Stock name. */
         private String name;
+        /** Quantity held. */
         private BigDecimal quantity;
+        /** Average cost. */
         private BigDecimal avgCost;
+        /** Current price. */
         private BigDecimal currentPrice;
+        /** Market value. */
         private BigDecimal marketValue;
+        /** Profit and loss. */
         private BigDecimal pnl;
+        /** Profit and loss percentage. */
         private BigDecimal pnlPercent;
+        /** Creation timestamp. */
         private LocalDateTime createdAt;
+        /** Last update timestamp. */
         private LocalDateTime updatedAt;
         
         public Builder id(Long id) {

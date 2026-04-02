@@ -4,6 +4,14 @@ import java.math.BigDecimal;
 
 /**
  * Portfolio summary DTO.
+ *
+ * @param totalCost the total cost
+ * @param totalMarketValue the total market value
+ * @param totalPnl the total profit and loss
+ * @param totalPnlPercent the total profit and loss percentage
+ * @param dailyPnl the daily profit and loss
+ * @param dailyPnlPercent the daily profit and loss percentage
+ * @author Koduck Team
  */
 public record PortfolioSummaryDto(
     BigDecimal totalCost,
@@ -19,11 +27,17 @@ public record PortfolioSummaryDto(
     }
     
     public static class Builder {
+        /** Total cost. */
         private BigDecimal totalCost;
+        /** Total market value. */
         private BigDecimal totalMarketValue;
+        /** Total profit and loss. */
         private BigDecimal totalPnl;
+        /** Total profit and loss percentage. */
         private BigDecimal totalPnlPercent;
+        /** Daily profit and loss. */
         private BigDecimal dailyPnl;
+        /** Daily profit and loss percentage. */
         private BigDecimal dailyPnlPercent;
         
         public Builder totalCost(BigDecimal totalCost) {

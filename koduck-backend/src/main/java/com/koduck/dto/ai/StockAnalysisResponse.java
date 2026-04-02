@@ -3,11 +3,11 @@ package com.koduck.dto.ai;
 import java.time.LocalDateTime;
 import java.util.List;
 
+import com.koduck.util.CollectionCopyUtils;
+
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-
-import com.koduck.util.CollectionCopyUtils;
 
 /**
  * 股票分析响应 DTO。
@@ -202,21 +202,37 @@ public class StockAnalysisResponse {
      */
     public static final class Builder {
 
+        /** 分析内容。 */
         private String analysis;
+        /** 提供商。 */
         private String provider;
+        /** 模型。 */
         private String model;
+        /** 股票代码。 */
         private String symbol;
+        /** 市场。 */
         private String market;
+        /** 分析类型。 */
         private String analysisType;
+        /** 综合评分。 */
         private Integer overallScore;
+        /** 综合评级。 */
         private String overallRating;
+        /** 技术分析。 */
         private TechnicalAnalysis technical;
+        /** 基本面分析。 */
         private FundamentalAnalysis fundamental;
+        /** 情绪分析。 */
         private SentimentAnalysis sentiment;
+        /** 推荐建议。 */
         private String recommendation;
+        /** 推理依据。 */
         private String reasoning;
+        /** 关键指标列表。 */
         private List<KeyMetric> keyMetrics;
+        /** 风险因素列表。 */
         private List<RiskFactor> riskFactors;
+        /** 生成时间。 */
         private LocalDateTime generatedAt;
 
         /**
@@ -539,12 +555,19 @@ public class StockAnalysisResponse {
          */
         public static final class Builder {
 
+            /** 评分。 */
             private Integer score;
+            /** 趋势。 */
             private String trend;
+            /** 均线信号。 */
             private String maSignal;
+            /** MACD信号。 */
             private String macdSignal;
+            /** RSI信号。 */
             private String rsiSignal;
+            /** 支撑位。 */
             private String supportLevel;
+            /** 阻力位。 */
             private String resistanceLevel;
 
             /**
@@ -692,10 +715,15 @@ public class StockAnalysisResponse {
          */
         public static final class Builder {
 
+            /** 评分。 */
             private Integer score;
+            /** 市盈率评估。 */
             private String peEvaluation;
+            /** 市净率评估。 */
             private String pbEvaluation;
+            /** 盈利能力。 */
             private String profitability;
+            /** 增长潜力。 */
             private String growthPotential;
 
             /**
@@ -814,9 +842,13 @@ public class StockAnalysisResponse {
          */
         public static final class Builder {
 
+            /** 评分。 */
             private Integer score;
+            /** 市场情绪。 */
             private String marketSentiment;
+            /** 新闻情绪。 */
             private String newsSentiment;
+            /** 社交情绪。 */
             private String socialSentiment;
 
             /**
@@ -918,8 +950,11 @@ public class StockAnalysisResponse {
          */
         public static final class Builder {
 
+            /** 名称。 */
             private String name;
+            /** 值。 */
             private String value;
+            /** 解读。 */
             private String interpretation;
 
             /**
@@ -1005,8 +1040,11 @@ public class StockAnalysisResponse {
          */
         public static final class Builder {
 
+            /** 类型。 */
             private String type;
+            /** 描述。 */
             private String description;
+            /** 严重级别。 */
             private String severity;
 
             /**

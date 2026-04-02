@@ -3,11 +3,11 @@ package com.koduck.dto.ai;
 import java.time.LocalDateTime;
 import java.util.List;
 
+import com.koduck.util.CollectionCopyUtils;
+
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-
-import com.koduck.util.CollectionCopyUtils;
 
 /**
  * 回测解读响应 DTO。
@@ -149,14 +149,23 @@ public class BacktestInterpretResponse {
      */
     public static final class Builder {
 
+        /** 回测结果ID。 */
         private Long backtestResultId;
+        /** 策略名称。 */
         private String strategyName;
+        /** 业绩解读。 */
         private PerformanceInterpretation performance;
+        /** 风险解读。 */
         private RiskInterpretation risk;
+        /** 交易行为分析。 */
         private TradingBehaviorAnalysis tradingBehavior;
+        /** 改进建议列表。 */
         private List<ImprovementSuggestion> improvements;
+        /** 总体评估。 */
         private String overallAssessment;
+        /** 推荐建议。 */
         private String recommendation;
+        /** 生成时间。 */
         private LocalDateTime generatedAt;
 
         /**
@@ -380,9 +389,13 @@ public class BacktestInterpretResponse {
          */
         public static final class Builder {
 
+            /** 总收益评估。 */
             private String totalReturnAssessment;
+            /** 年化收益评估。 */
             private String annualizedReturnAssessment;
+            /** 基准对比。 */
             private String benchmarkComparison;
+            /** 一致性评估。 */
             private String consistencyEvaluation;
 
             /**
@@ -491,9 +504,13 @@ public class BacktestInterpretResponse {
          */
         public static final class Builder {
 
+            /** 最大回撤评估。 */
             private String maxDrawdownAssessment;
+            /** 波动率评估。 */
             private String volatilityAssessment;
+            /** 夏普比率评估。 */
             private String sharpeRatioAssessment;
+            /** 风险调整后收益。 */
             private String riskAdjustedReturn;
 
             /**
@@ -600,9 +617,13 @@ public class BacktestInterpretResponse {
          */
         public static final class Builder {
 
+            /** 胜率分析。 */
             private String winRateAnalysis;
+            /** 盈亏比分析。 */
             private String profitFactorAnalysis;
+            /** 交易频率评估。 */
             private String tradeFrequencyAssessment;
+            /** 时机评估。 */
             private String timingEvaluation;
 
             /**
@@ -711,9 +732,13 @@ public class BacktestInterpretResponse {
          */
         public static final class Builder {
 
+            /** 类别。 */
             private String category;
+            /** 建议内容。 */
             private String suggestion;
+            /** 预期影响。 */
             private String expectedImpact;
+            /** 优先级。 */
             private String priority;
 
             /**

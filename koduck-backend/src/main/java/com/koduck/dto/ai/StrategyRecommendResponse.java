@@ -3,11 +3,11 @@ package com.koduck.dto.ai;
 import java.time.LocalDateTime;
 import java.util.List;
 
+import com.koduck.util.CollectionCopyUtils;
+
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-
-import com.koduck.util.CollectionCopyUtils;
 
 /**
  * 策略推荐响应 DTO。
@@ -131,12 +131,19 @@ public class StrategyRecommendResponse {
      */
     public static final class Builder {
 
+        /** 风险画像。 */
         private String riskProfile;
+        /** 投资期限。 */
         private String investmentHorizon;
+        /** 策略推荐列表。 */
         private List<StrategyRecommendation> recommendations;
+        /** 资产配置建议。 */
         private AssetAllocationSuggestion assetAllocation;
+        /** 总结。 */
         private String summary;
+        /** 免责声明。 */
         private String disclaimer;
+        /** 生成时间。 */
         private LocalDateTime generatedAt;
 
         /**
@@ -315,13 +322,21 @@ public class StrategyRecommendResponse {
          */
         public static final class Builder {
 
+            /** 策略ID。 */
             private Long strategyId;
+            /** 策略名称。 */
             private String strategyName;
+            /** 策略类型。 */
             private String strategyType;
+            /** 匹配分数。 */
             private Integer matchScore;
+            /** 匹配原因。 */
             private String matchReason;
+            /** 预期收益。 */
             private String expectedReturn;
+            /** 风险等级。 */
             private String riskLevel;
+            /** 适用市场列表。 */
             private List<String> suitableMarkets;
 
             /**
@@ -483,7 +498,9 @@ public class StrategyRecommendResponse {
          */
         public static final class Builder {
 
+            /** 资产类别列表。 */
             private List<AssetClass> assetClasses;
+            /** 再平衡建议。 */
             private String rebalancingSuggestion;
 
             /**
@@ -561,8 +578,11 @@ public class StrategyRecommendResponse {
          */
         public static final class Builder {
 
+            /** 类型。 */
             private String type;
+            /** 百分比。 */
             private Integer percentage;
+            /** 描述。 */
             private String description;
 
             /**
