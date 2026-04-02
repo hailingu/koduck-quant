@@ -7,13 +7,23 @@ import lombok.NoArgsConstructor;
 
 /**
  * Response DTO for avatar upload.
+ *
+ * @author Koduck Team
  */
 @Data
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class AvatarResponse {
-    
+public class AvatarResponse
+{
+
+    /**
+     * URL of the uploaded avatar.
+     */
     private String avatarUrl;
+
+    /**
+     * Response message.
+     */
     private String message;
 }
