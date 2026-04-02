@@ -1,5 +1,14 @@
 package com.koduck.service.support;
 
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Locale;
+import java.util.Random;
+
+import org.springframework.stereotype.Component;
+
 import com.koduck.dto.ai.BacktestInterpretResponse;
 import com.koduck.dto.ai.RiskAssessmentResponse;
 import com.koduck.dto.ai.StrategyRecommendRequest;
@@ -7,13 +16,6 @@ import com.koduck.dto.ai.StrategyRecommendResponse;
 import com.koduck.entity.BacktestResult;
 import com.koduck.entity.PortfolioPosition;
 import com.koduck.entity.Strategy;
-import java.math.BigDecimal;
-import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Locale;
-import java.util.Random;
-import org.springframework.stereotype.Component;
 
 /**
  * AI推荐和解释载荷生成的支持组件。
@@ -21,66 +23,122 @@ import org.springframework.stereotype.Component;
  * @author Koduck Team
  */
 @Component
-public class AiRecommendationSupport
-{
+public class AiRecommendationSupport {
 
+    /** 激进型风险偏好。 */
     private static final String RISK_AGGRESSIVE = "aggressive";
+    /** 保守型风险偏好。 */
     private static final String RISK_CONSERVATIVE = "conservative";
+    /** 稳健型风险偏好。 */
     private static final String RISK_MODERATE = "moderate";
+    /** 策略类型：均线交叉。 */
     private static final String STRATEGY_TYPE_MA_CROSS = "MA_CROSS";
+    /** 美国市场。 */
     private static final String MARKET_US = "US";
+    /** 中国市场。 */
     private static final String MARKET_CN = "CN";
+    /** 适用市场：美国、中国。 */
     private static final String SUITABLE_MARKETS_US_CN = "US, CN";
+    /** 最大推荐数量。 */
     private static final int MAX_RECOMMENDATIONS = 3;
+    /** 匹配分数基数。 */
     private static final int MATCH_SCORE_BASE = 70;
+    /** 匹配分数范围。 */
     private static final int MATCH_SCORE_RANGE = 26;
+    /** 预期最小收益基数。 */
     private static final int EXPECTED_RETURN_MIN_BASE = 8;
+    /** 预期最小收益范围。 */
     private static final int EXPECTED_RETURN_MIN_RANGE = 8;
+    /** 预期最大收益偏移基数。 */
     private static final int EXPECTED_RETURN_MAX_OFFSET_BASE = 10;
+    /** 预期最大收益偏移范围。 */
     private static final int EXPECTED_RETURN_MAX_OFFSET_RANGE = 10;
+    /** 综合评分基数。 */
     private static final int OVERALL_SCORE_BASE = 40;
+    /** 综合评分范围。 */
     private static final int OVERALL_SCORE_RANGE = 41;
+    /** 风险评分高阈值。 */
     private static final int RISK_SCORE_HIGH_THRESHOLD = 70;
+    /** 风险评分中阈值。 */
     private static final int RISK_SCORE_MEDIUM_THRESHOLD = 55;
+    /** 风险评分低阈值。 */
     private static final int RISK_SCORE_LOW_THRESHOLD = 60;
+    /** 胜率阈值。 */
     private static final int WIN_RATE_THRESHOLD = 55;
+    /** 最大回撤阈值。 */
     private static final int MAX_DRAWDOWN_THRESHOLD = 15;
+    /** 绩效阈值。 */
     private static final BigDecimal PERFORMANCE_THRESHOLD = new BigDecimal("0.1");
+    /** 夏普比率阈值。 */
     private static final BigDecimal SHARPE_RATIO_THRESHOLD = new BigDecimal("1.0");
+    /** 最大回撤小数阈值。 */
     private static final BigDecimal MAX_DRAWDOWN_DECIMAL = new BigDecimal("0.15");
+    /** 胜率小数基数。 */
     private static final BigDecimal WIN_RATE_DECIMAL = new BigDecimal("50");
+    /** 保守型股票配置比例。 */
     private static final int ASSET_ALLOCATION_STOCK_CONSERVATIVE = 40;
+    /** 保守型债券配置比例。 */
     private static final int ASSET_ALLOCATION_BOND_CONSERVATIVE = 50;
+    /** 保守型现金配置比例。 */
     private static final int ASSET_ALLOCATION_CASH_CONSERVATIVE = 10;
+    /** 激进型股票配置比例。 */
     private static final int ASSET_ALLOCATION_STOCK_AGGRESSIVE = 80;
+    /** 激进型债券配置比例。 */
     private static final int ASSET_ALLOCATION_BOND_AGGRESSIVE = 15;
+    /** 激进型现金配置比例。 */
     private static final int ASSET_ALLOCATION_CASH_AGGRESSIVE = 5;
+    /** 稳健型股票配置比例。 */
     private static final int ASSET_ALLOCATION_STOCK_MODERATE = 60;
+    /** 稳健型债券配置比例。 */
     private static final int ASSET_ALLOCATION_BOND_MODERATE = 35;
+    /** 稳健型现金配置比例。 */
     private static final int ASSET_ALLOCATION_CASH_MODERATE = 5;
+    /** 市场风险基数。 */
     private static final int RISK_MARKET_BASE = 60;
+    /** 市场风险范围。 */
     private static final int RISK_MARKET_RANGE = 21;
+    /** 集中度风险基数。 */
     private static final int RISK_CONCENTRATION_BASE = 50;
+    /** 集中度风险范围。 */
     private static final int RISK_CONCENTRATION_RANGE = 31;
+    /** 波动率风险基数。 */
     private static final int RISK_VOLATILITY_BASE = 55;
+    /** 波动率风险范围。 */
     private static final int RISK_VOLATILITY_RANGE = 26;
+    /** 流动性风险基数。 */
     private static final int RISK_LIQUIDITY_BASE = 70;
+    /** 流动性风险范围。 */
     private static final int RISK_LIQUIDITY_RANGE = 21;
+    /** 汇率风险基数。 */
     private static final int RISK_CURRENCY_BASE = 65;
+    /** 汇率风险范围。 */
     private static final int RISK_CURRENCY_RANGE = 21;
+    /** 持仓数量阈值。 */
     private static final int POSITION_COUNT_THRESHOLD = 5;
+    /** 单只股票占比阈值。 */
     private static final double SINGLE_STOCK_RATIO_THRESHOLD = 0.15;
+    /** 推荐建议：买入。 */
     private static final String RECOMMENDATION_BUY = "建议买入";
+    /** 推荐建议：持有。 */
     private static final String RECOMMENDATION_HOLD = "谨慎持有";
+    /** 推荐建议：卖出。 */
     private static final String RECOMMENDATION_SELL = "建议卖出";
+    /** 推荐建议：观望。 */
     private static final String RECOMMENDATION_WATCH = "建议观望";
+    /** 关键词：买入。 */
     private static final String KEYWORD_BUY = "买入";
+    /** 关键词：强烈买入。 */
     private static final String KEYWORD_STRONG_BUY = "建议买入";
+    /** 关键词：强烈推荐。 */
     private static final String KEYWORD_HIGHLY_RECOMMENDED = "强烈推荐";
+    /** 关键词：持有。 */
     private static final String KEYWORD_HOLD = "持有";
+    /** 关键词：观望。 */
     private static final String KEYWORD_WAIT_SEE = "观望";
+    /** 关键词：卖出。 */
     private static final String KEYWORD_SELL = "卖出";
 
+    /** 随机数生成器。 */
     private final Random random = new Random();
 
     /**
@@ -89,20 +147,16 @@ public class AiRecommendationSupport
      * @param response AI响应文本
      * @return 推荐建议
      */
-    public String generateRecommendationFromResponse(String response)
-    {
+    public String generateRecommendationFromResponse(String response) {
         String normalized = response.toLowerCase(Locale.ROOT);
         if (normalized.contains(KEYWORD_BUY) || normalized.contains(KEYWORD_STRONG_BUY)
-            || normalized.contains(KEYWORD_HIGHLY_RECOMMENDED))
-        {
+            || normalized.contains(KEYWORD_HIGHLY_RECOMMENDED)) {
             return RECOMMENDATION_BUY;
         }
-        else if (normalized.contains(KEYWORD_HOLD) || normalized.contains(KEYWORD_WAIT_SEE))
-        {
+        else if (normalized.contains(KEYWORD_HOLD) || normalized.contains(KEYWORD_WAIT_SEE)) {
             return RECOMMENDATION_HOLD;
         }
-        else if (normalized.contains(KEYWORD_SELL))
-        {
+        else if (normalized.contains(KEYWORD_SELL)) {
             return RECOMMENDATION_SELL;
         }
         return RECOMMENDATION_WATCH;
@@ -116,12 +170,10 @@ public class AiRecommendationSupport
      * @return 策略推荐响应
      */
     public StrategyRecommendResponse buildStrategyRecommendations(
-        List<Strategy> userStrategies, StrategyRecommendRequest request)
-    {
+        List<Strategy> userStrategies, StrategyRecommendRequest request) {
         List<StrategyRecommendResponse.StrategyRecommendation> recommendations = new ArrayList<>();
         int limit = Math.min(MAX_RECOMMENDATIONS, userStrategies.size());
-        for (int i = 0; i < limit; i++)
-        {
+        for (int i = 0; i < limit; i++) {
             Strategy strategy = userStrategies.get(i);
             int matchScore = MATCH_SCORE_BASE + random.nextInt(MATCH_SCORE_RANGE);
             recommendations.add(StrategyRecommendResponse.StrategyRecommendation.builder()
@@ -154,8 +206,7 @@ public class AiRecommendationSupport
      * @return 回测解释响应
      */
     public BacktestInterpretResponse buildBacktestInterpretation(Long backtestResultId,
-        BacktestResult result)
-    {
+        BacktestResult result) {
         boolean isGoodPerformance = result.getTotalReturn()
             .compareTo(PERFORMANCE_THRESHOLD) > 0;
         return BacktestInterpretResponse.builder()
@@ -180,8 +231,7 @@ public class AiRecommendationSupport
      * @return 风险评估响应
      */
     public RiskAssessmentResponse buildRiskAssessment(Long portfolioId,
-        List<PortfolioPosition> positions)
-    {
+        List<PortfolioPosition> positions) {
         int overallScore = OVERALL_SCORE_BASE + random.nextInt(OVERALL_SCORE_RANGE);
         String riskLevel = resolveRiskLevel(overallScore);
         return RiskAssessmentResponse.builder()
@@ -197,18 +247,15 @@ public class AiRecommendationSupport
             .build();
     }
 
-    private String generateMatchReason(String riskPreference)
-    {
-        return switch (riskPreference)
-        {
+    private String generateMatchReason(String riskPreference) {
+        return switch (riskPreference) {
             case RISK_CONSERVATIVE -> "适合稳健型投资者，风险可控";
             case RISK_AGGRESSIVE -> "追求高收益，适合激进型投资者";
             default -> "风险收益平衡，适合大多数投资者";
         };
     }
 
-    private String generateExpectedReturn()
-    {
+    private String generateExpectedReturn() {
         int min = EXPECTED_RETURN_MIN_BASE + random.nextInt(EXPECTED_RETURN_MIN_RANGE);
         int max = min + EXPECTED_RETURN_MAX_OFFSET_BASE
             + random.nextInt(EXPECTED_RETURN_MAX_OFFSET_RANGE);
@@ -216,13 +263,10 @@ public class AiRecommendationSupport
     }
 
     private StrategyRecommendResponse.AssetAllocationSuggestion generateAssetAllocation(
-        String riskPreference)
-    {
+        String riskPreference) {
         List<StrategyRecommendResponse.AssetClass> classes = new ArrayList<>();
-        switch (riskPreference)
-        {
-            case RISK_CONSERVATIVE ->
-            {
+        switch (riskPreference) {
+            case RISK_CONSERVATIVE -> {
                 classes.add(new StrategyRecommendResponse.AssetClass("股票",
                     ASSET_ALLOCATION_STOCK_CONSERVATIVE, "稳健型股票"));
                 classes.add(new StrategyRecommendResponse.AssetClass("债券",
@@ -230,8 +274,7 @@ public class AiRecommendationSupport
                 classes.add(new StrategyRecommendResponse.AssetClass("现金",
                     ASSET_ALLOCATION_CASH_CONSERVATIVE, "货币基金"));
             }
-            case RISK_AGGRESSIVE ->
-            {
+            case RISK_AGGRESSIVE -> {
                 classes.add(new StrategyRecommendResponse.AssetClass("股票",
                     ASSET_ALLOCATION_STOCK_AGGRESSIVE, "成长型股票"));
                 classes.add(new StrategyRecommendResponse.AssetClass("债券",
@@ -239,8 +282,7 @@ public class AiRecommendationSupport
                 classes.add(new StrategyRecommendResponse.AssetClass("现金",
                     ASSET_ALLOCATION_CASH_AGGRESSIVE, "应急资金"));
             }
-            default ->
-            {
+            default -> {
                 classes.add(new StrategyRecommendResponse.AssetClass("股票",
                     ASSET_ALLOCATION_STOCK_MODERATE, "平衡配置"));
                 classes.add(new StrategyRecommendResponse.AssetClass("债券",
@@ -255,10 +297,8 @@ public class AiRecommendationSupport
             .build();
     }
 
-    private String generateRecommendationSummary(String riskPreference)
-    {
-        return switch (riskPreference)
-        {
+    private String generateRecommendationSummary(String riskPreference) {
+        return switch (riskPreference) {
             case RISK_CONSERVATIVE ->
                 "基于您的保守风险偏好，建议优先选择稳健型策略，注重资本保护。";
             case RISK_AGGRESSIVE ->
@@ -269,8 +309,7 @@ public class AiRecommendationSupport
     }
 
     private BacktestInterpretResponse.PerformanceInterpretation generatePerformanceInterpretation(
-        boolean isGood)
-    {
+        boolean isGood) {
         return BacktestInterpretResponse.PerformanceInterpretation.builder()
             .totalReturnAssessment(isGood ? "优秀" : "一般")
             .annualizedReturnAssessment(isGood ? "超越大盘" : "持平大盘")
@@ -279,22 +318,18 @@ public class AiRecommendationSupport
             .build();
     }
 
-    private String resolveRiskLevel(int overallScore)
-    {
-        if (overallScore >= RISK_SCORE_HIGH_THRESHOLD)
-        {
+    private String resolveRiskLevel(int overallScore) {
+        if (overallScore >= RISK_SCORE_HIGH_THRESHOLD) {
             return "低风险";
         }
-        if (overallScore >= RISK_SCORE_MEDIUM_THRESHOLD)
-        {
+        if (overallScore >= RISK_SCORE_MEDIUM_THRESHOLD) {
             return "中风险";
         }
         return "高风险";
     }
 
     private BacktestInterpretResponse.RiskInterpretation generateRiskInterpretation(
-        BacktestResult result)
-    {
+        BacktestResult result) {
         return BacktestInterpretResponse.RiskInterpretation.builder()
             .maxDrawdownAssessment(result.getMaxDrawdown() != null
                 && result.getMaxDrawdown().compareTo(MAX_DRAWDOWN_DECIMAL) < 0 ? "可控" : "较高")
@@ -307,8 +342,7 @@ public class AiRecommendationSupport
     }
 
     private BacktestInterpretResponse.TradingBehaviorAnalysis generateTradingBehaviorAnalysis(
-        BacktestResult result)
-    {
+        BacktestResult result) {
         return BacktestInterpretResponse.TradingBehaviorAnalysis.builder()
             .winRateAnalysis("胜率" + result.getWinRate() + "%，"
                 + (result.getWinRate().compareTo(WIN_RATE_DECIMAL) > 0 ? "正向优势" : "需优化"))
@@ -319,12 +353,10 @@ public class AiRecommendationSupport
     }
 
     private List<BacktestInterpretResponse.ImprovementSuggestion> generateImprovementSuggestions(
-        BacktestResult result)
-    {
+        BacktestResult result) {
         List<BacktestInterpretResponse.ImprovementSuggestion> suggestions = new ArrayList<>();
         if (result.getWinRate() != null
-            && result.getWinRate().compareTo(BigDecimal.valueOf(WIN_RATE_THRESHOLD)) < 0)
-        {
+            && result.getWinRate().compareTo(BigDecimal.valueOf(WIN_RATE_THRESHOLD)) < 0) {
             suggestions.add(BacktestInterpretResponse.ImprovementSuggestion.builder()
                 .category("信号优化")
                 .suggestion("优化入场信号，提高胜率")
@@ -333,8 +365,7 @@ public class AiRecommendationSupport
                 .build());
         }
         if (result.getMaxDrawdown() != null
-            && result.getMaxDrawdown().compareTo(MAX_DRAWDOWN_DECIMAL) > 0)
-        {
+            && result.getMaxDrawdown().compareTo(MAX_DRAWDOWN_DECIMAL) > 0) {
             suggestions.add(BacktestInterpretResponse.ImprovementSuggestion.builder()
                 .category("风险控制")
                 .suggestion("增加止损机制，控制最大回撤")
@@ -351,28 +382,23 @@ public class AiRecommendationSupport
         return suggestions;
     }
 
-    private String generateOverallAssessment(boolean isGood)
-    {
+    private String generateOverallAssessment(boolean isGood) {
         return isGood
             ? "该策略在历史回测中表现优秀，各项指标均达到预期目标。"
             : "该策略在历史回测中表现一般，建议根据改进建议进行优化后再考虑实盘。";
     }
 
-    private String generateRiskDescription(int score)
-    {
-        if (score >= RISK_SCORE_HIGH_THRESHOLD)
-        {
+    private String generateRiskDescription(int score) {
+        if (score >= RISK_SCORE_HIGH_THRESHOLD) {
             return "您的投资组合风险较低，配置较为稳健。";
         }
-        if (score >= RISK_SCORE_MEDIUM_THRESHOLD)
-        {
+        if (score >= RISK_SCORE_MEDIUM_THRESHOLD) {
             return "您的投资组合风险适中，需注意个别持仓的集中度。";
         }
         return "您的投资组合风险较高，建议适当分散投资或增加避险资产。";
     }
 
-    private RiskAssessmentResponse.RiskBreakdown generateRiskBreakdown()
-    {
+    private RiskAssessmentResponse.RiskBreakdown generateRiskBreakdown() {
         return RiskAssessmentResponse.RiskBreakdown.builder()
             .marketRisk(RISK_MARKET_BASE + random.nextInt(RISK_MARKET_RANGE))
             .concentrationRisk(RISK_CONCENTRATION_BASE + random.nextInt(RISK_CONCENTRATION_RANGE))
@@ -382,8 +408,7 @@ public class AiRecommendationSupport
             .build();
     }
 
-    private List<RiskAssessmentResponse.RiskMetric> generateRiskMetrics(int positionCount)
-    {
+    private List<RiskAssessmentResponse.RiskMetric> generateRiskMetrics(int positionCount) {
         return List.of(
             RiskAssessmentResponse.RiskMetric.builder()
                 .name("持仓集中度")
@@ -406,11 +431,9 @@ public class AiRecommendationSupport
         );
     }
 
-    private List<RiskAssessmentResponse.RiskAlert> generateRiskAlerts(int overallScore)
-    {
+    private List<RiskAssessmentResponse.RiskAlert> generateRiskAlerts(int overallScore) {
         List<RiskAssessmentResponse.RiskAlert> alerts = new ArrayList<>();
-        if (overallScore < RISK_SCORE_LOW_THRESHOLD)
-        {
+        if (overallScore < RISK_SCORE_LOW_THRESHOLD) {
             alerts.add(RiskAssessmentResponse.RiskAlert.builder()
                 .type("集中度风险")
                 .severity("高")
@@ -418,8 +441,7 @@ public class AiRecommendationSupport
                 .suggestion("建议分散投资，单股占比不超过20%")
                 .build());
         }
-        if (random.nextBoolean())
-        {
+        if (random.nextBoolean()) {
             alerts.add(RiskAssessmentResponse.RiskAlert.builder()
                 .type("市场风险")
                 .severity("中")
@@ -431,8 +453,7 @@ public class AiRecommendationSupport
     }
 
     private List<RiskAssessmentResponse.RiskManagementSuggestion> generateRiskManagementSuggestions(
-        int overallScore)
-    {
+        int overallScore) {
         List<RiskAssessmentResponse.RiskManagementSuggestion> suggestions = new ArrayList<>();
         suggestions.add(RiskAssessmentResponse.RiskManagementSuggestion.builder()
             .category("资产配置")
