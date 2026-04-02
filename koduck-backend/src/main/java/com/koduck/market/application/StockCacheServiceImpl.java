@@ -1,12 +1,5 @@
 package com.koduck.market.application;
 
-import com.koduck.common.constants.RedisKeyConstants;
-import com.koduck.dto.market.PriceQuoteDto;
-import com.koduck.service.cache.CacheLayer;
-import com.koduck.service.StockCacheService;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.stereotype.Service;
-
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -15,21 +8,51 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.function.Consumer;
 
+import org.springframework.stereotype.Service;
+
+import com.koduck.common.constants.RedisKeyConstants;
+import com.koduck.dto.market.PriceQuoteDto;
+import com.koduck.service.StockCacheService;
+import com.koduck.service.cache.CacheLayer;
+
+import lombok.extern.slf4j.Slf4j;
+
 /**
  * Stock data caching service implementation using Redis.
  * Provides high-performance caching for stock real-time data.
+ *
+ * @author Koduck Team
  */
 @Service
 @Slf4j
 public class StockCacheServiceImpl implements StockCacheService {
+
+    /** Error message for null key validation. */
     private static final String KEY_NULL_MESSAGE = "key must not be null";
+
+    /** Key for symbol field in map. */
     private static final String KEY_SYMBOL = "symbol";
+
+    /** Key for name field in map. */
     private static final String KEY_NAME = "name";
+
+    /** Key for type field in map. */
     private static final String KEY_TYPE = "type";
+
+    /** Key for price field in map. */
     private static final String KEY_PRICE = "price";
+
+    /** Key for changePercent field in map. */
     private static final String KEY_CHANGE_PERCENT = "changePercent";
+
+    /** The cache layer for data storage. */
     private final CacheLayer cacheLayer;
 
+    /**
+     * Constructs a new StockCacheServiceImpl.
+     *
+     * @param cacheLayer the cache layer for data storage
+     */
     public StockCacheServiceImpl(CacheLayer cacheLayer) {
         this.cacheLayer = Objects.requireNonNull(cacheLayer, "cacheLayer must not be null");
     }
@@ -49,7 +72,8 @@ public class StockCacheServiceImpl implements StockCacheService {
                     RedisKeyConstants.TTL_STOCK_TRACK
             );
             log.debug("Cached stock track: symbol={}", symbol);
-        } catch (Exception e) {
+        }
+        catch (Exception e) {
             log.warn("Failed to cache stock track: symbol={}, error={}", symbol, e.getMessage());
         }
     }
@@ -68,7 +92,8 @@ public class StockCacheServiceImpl implements StockCacheService {
                 log.debug("Cache hit (converted): stock track {}", symbol);
                 return convertToPriceQuoteDto(cached);
             }
-        } catch (Exception e) {
+        }
+        catch (Exception e) {
             log.warn("Failed to get cached stock track: symbol={}, error={}", symbol, e.getMessage());
         }
         return null;
@@ -97,7 +122,8 @@ public class StockCacheServiceImpl implements StockCacheService {
             String nonNullKey = requireNonNullString(key, KEY_NULL_MESSAGE);
             cacheLayer.replaceList(nonNullKey, symbols, RedisKeyConstants.TTL_HOT_STOCKS);
             log.debug("Cached hot stocks: type={}, count={}", type, symbols != null ? symbols.size() : 0);
-        } catch (Exception e) {
+        }
+        catch (Exception e) {
             log.warn("Failed to cache hot stocks: type={}, error={}", type, e.getMessage());
         }
     }
@@ -113,7 +139,8 @@ public class StockCacheServiceImpl implements StockCacheService {
                         .map(Object::toString)
                         .toList();
             }
-        } catch (Exception e) {
+        }
+        catch (Exception e) {
             log.warn("Failed to get cached hot stocks: type={}, error={}", type, e.getMessage());
         }
         return List.of();
@@ -140,7 +167,8 @@ public class StockCacheServiceImpl implements StockCacheService {
         String key = RedisKeyConstants.stockTrackKey(symbol);
         try {
             return cacheLayer.hasKey(requireNonNullString(key, KEY_NULL_MESSAGE));
-        } catch (Exception e) {
+        }
+        catch (Exception e) {
             log.warn("Failed to check stock track cache: symbol={}, error={}", symbol, e.getMessage());
             return false;
         }
@@ -151,6 +179,9 @@ public class StockCacheServiceImpl implements StockCacheService {
     /**
      * Convert cached object to PriceQuoteDto.
      * Handles various deserialization scenarios.
+     *
+     * @param cached the cached object
+     * @return the converted PriceQuoteDto, or null if conversion fails
      */
     private PriceQuoteDto convertToPriceQuoteDto(Object cached) {
         if (cached instanceof PriceQuoteDto priceQuoteDto) {
@@ -162,14 +193,21 @@ public class StockCacheServiceImpl implements StockCacheService {
             Map<String, Object> map = toStringKeyMap(rawMap);
             try {
                 return buildPriceQuoteFromMap(map);
-            } catch (Exception e) {
+            }
+            catch (Exception e) {
                 log.warn("Failed to convert cached object: error={}", e.getMessage());
             }
         }
-        
+
         return null;
     }
 
+    /**
+     * Build PriceQuoteDto from a map.
+     *
+     * @param map the map containing the data
+     * @return the built PriceQuoteDto
+     */
     private PriceQuoteDto buildPriceQuoteFromMap(Map<String, Object> map) {
         PriceQuoteDto.Builder builder = PriceQuoteDto.builder();
         setStringIfPresent(map, KEY_SYMBOL, builder::symbol);
@@ -180,6 +218,13 @@ public class StockCacheServiceImpl implements StockCacheService {
         return builder.build();
     }
 
+    /**
+     * Set string value if present in map.
+     *
+     * @param map the map to get value from
+     * @param key the key to look up
+     * @param setter the setter to apply
+     */
     private void setStringIfPresent(Map<String, Object> map, String key, Consumer<String> setter) {
         Object value = map.get(key);
         if (value != null) {
@@ -187,6 +232,13 @@ public class StockCacheServiceImpl implements StockCacheService {
         }
     }
 
+    /**
+     * Set BigDecimal value if present in map.
+     *
+     * @param map the map to get value from
+     * @param key the key to look up
+     * @param setter the setter to apply
+     */
     private void setBigDecimalIfPresent(Map<String, Object> map,
                                         String key,
                                         Consumer<BigDecimal> setter) {
@@ -196,6 +248,12 @@ public class StockCacheServiceImpl implements StockCacheService {
         }
     }
 
+    /**
+     * Convert a raw map to a string-keyed map.
+     *
+     * @param rawMap the raw map with unknown key types
+     * @return a map with string keys
+     */
     private Map<String, Object> toStringKeyMap(Map<?, ?> rawMap) {
         Map<String, Object> normalized = new LinkedHashMap<>();
         for (Map.Entry<?, ?> entry : rawMap.entrySet()) {
@@ -206,14 +264,25 @@ public class StockCacheServiceImpl implements StockCacheService {
         return normalized;
     }
 
-    
+    /**
+     * Require non-null string value.
+     *
+     * @param value the value to check
+     * @param message the error message
+     * @return the non-null value
+     */
     private static String requireNonNullString(String value, String message) {
         return Objects.requireNonNull(value, message);
     }
 
-    
+    /**
+     * Require non-null object value.
+     *
+     * @param value the value to check
+     * @param message the error message
+     * @return the non-null value
+     */
     private static Object requireNonNullObject(Object value, String message) {
         return Objects.requireNonNull(value, message);
     }
-
 }
