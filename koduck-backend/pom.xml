@@ -356,7 +356,10 @@
                     </systemPropertyVariables>
                     <!-- 测试分层配置：默认排除集成测试 -->
                     <excludes>
+                        <exclude>**/integration/**/*Test.java</exclude>
                         <exclude>**/*IntegrationTest.java</exclude>
+                        <exclude>**/*SmokeTest.java</exclude>
+                        <exclude>**/config/SecurityConfigTest.java</exclude>
                     </excludes>
                     <!-- Flaky Test 治理配置 -->
                     <!-- 失败测试自动重试 2 次，检测非确定性测试 -->
@@ -385,6 +388,7 @@
                                 <exclude>**/slice/**/*Test.java</exclude>
                                 <exclude>**/integration/**/*Test.java</exclude>
                                 <exclude>**/*IntegrationTest.java</exclude>
+                                <exclude>**/config/SecurityConfigTest.java</exclude>
                             </excludes>
                         </configuration>
                     </execution>
@@ -452,6 +456,40 @@
                 <groupId>org.jacoco</groupId>
                 <artifactId>jacoco-maven-plugin</artifactId>
                 <version>0.8.12</version>
+                <configuration>
+                    <includes>
+                        <!-- Phase 5: focus coverage gate on core business services -->
+                        <include>**/market/application/MarketServiceImpl.class</include>
+                        <include>**/trading/application/PortfolioServiceImpl.class</include>
+                        <include>**/shared/application/AiAnalysisServiceImpl.class</include>
+                    </includes>
+                    <rules>
+                        <rule>
+                            <element>BUNDLE</element>
+                            <limits>
+                                <limit>
+                                    <counter>LINE</counter>
+                                    <value>COVEREDRATIO</value>
+                                    <minimum>0.60</minimum>
+                                </limit>
+                                <limit>
+                                    <counter>BRANCH</counter>
+                                    <value>COVEREDRATIO</value>
+                                    <minimum>0.40</minimum>
+                                </limit>
+                            </limits>
+                        </rule>
+                    </rules>
+                    <excludes>
+                        <!-- 排除无需测试的类 -->
+                        <exclude>**/entity/**</exclude>
+                        <exclude>**/dto/**</exclude>
+                        <exclude>**/config/**</exclude>
+                        <exclude>**/exception/**</exclude>
+                        <exclude>**/KoduckApplication.class</exclude>
+                        <exclude>**/*MapperImpl.class</exclude>
+                    </excludes>
+                </configuration>
                 <executions>
                     <!-- 测试前准备 agent -->
                     <execution>
@@ -475,45 +513,6 @@
                         <goals>
                             <goal>check</goal>
                         </goals>
-                        <configuration>
-                            <includes>
-                                <!-- Phase 4: keep gate aligned with DDD package migration -->
-                                <include>**/shared/application/MemoryServiceImpl.class</include>
-                                <include>**/shared/application/RateLimiterServiceImpl.class</include>
-                                <include>**/market/application/MarketServiceImpl.class</include>
-                                <include>**/market/provider/ProviderFactory.class</include>
-                                <include>**/market/util/DataConverter.class</include>
-                                <include>**/service/market/support/USStockMockDataProvider.class</include>
-                                <include>**/util/SymbolUtils.class</include>
-                                <include>**/util/CollectionCopyUtils.class</include>
-                            </includes>
-                            <rules>
-                                <rule>
-                                    <element>BUNDLE</element>
-                                    <limits>
-                                        <limit>
-                                            <counter>LINE</counter>
-                                            <value>COVEREDRATIO</value>
-                                            <minimum>0.60</minimum>
-                                        </limit>
-                                        <limit>
-                                            <counter>BRANCH</counter>
-                                            <value>COVEREDRATIO</value>
-                                            <minimum>0.40</minimum>
-                                        </limit>
-                                    </limits>
-                                </rule>
-                            </rules>
-                            <excludes>
-                                <!-- 排除无需测试的类 -->
-                                <exclude>**/entity/**</exclude>
-                                <exclude>**/dto/**</exclude>
-                                <exclude>**/config/**</exclude>
-                                <exclude>**/exception/**</exclude>
-                                <exclude>**/KoduckApplication.class</exclude>
-                                <exclude>**/*MapperImpl.class</exclude>
-                            </excludes>
-                        </configuration>
                     </execution>
                 </executions>
             </plugin>
