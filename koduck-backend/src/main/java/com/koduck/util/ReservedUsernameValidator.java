@@ -1,5 +1,4 @@
 package com.koduck.util;
-
 import java.util.Locale;
 
 /**

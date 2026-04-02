@@ -1,4 +1,9 @@
 package com.koduck.service.support;
+import java.util.List;
+import java.util.Objects;
+import java.util.Set;
+
+import org.springframework.stereotype.Component;
 
 import com.koduck.dto.community.CommentResponse;
 import com.koduck.dto.community.SignalResponse;
@@ -8,11 +13,8 @@ import com.koduck.entity.SignalComment;
 import com.koduck.entity.SignalSubscription;
 import com.koduck.entity.User;
 import com.koduck.repository.UserRepository;
-import java.util.List;
-import java.util.Objects;
-import java.util.Set;
+
 import lombok.RequiredArgsConstructor;
-import org.springframework.stereotype.Component;
 
 /**
  * Assembles community signal-related response DTOs.

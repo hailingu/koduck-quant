@@ -1,14 +1,8 @@
 package com.koduck.controller;
+import java.math.BigDecimal;
+import java.util.List;
+import java.util.Objects;
 
-import com.koduck.dto.ApiResponse;
-import com.koduck.dto.community.CommentResponse;
-import com.koduck.dto.community.CreateSignalRequest;
-import com.koduck.dto.community.SignalListResponse;
-import com.koduck.dto.community.SignalResponse;
-import com.koduck.controller.support.AuthenticatedUserResolver;
-import com.koduck.security.UserPrincipal;
-import com.koduck.service.CommunitySignalService;
-import com.koduck.entity.User;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -19,9 +13,15 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.test.util.ReflectionTestUtils;
 
-import java.math.BigDecimal;
-import java.util.List;
-import java.util.Objects;
+import com.koduck.controller.support.AuthenticatedUserResolver;
+import com.koduck.dto.ApiResponse;
+import com.koduck.dto.community.CommentResponse;
+import com.koduck.dto.community.CreateSignalRequest;
+import com.koduck.dto.community.SignalListResponse;
+import com.koduck.dto.community.SignalResponse;
+import com.koduck.entity.User;
+import com.koduck.security.UserPrincipal;
+import com.koduck.service.CommunitySignalService;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;

@@ -1,10 +1,9 @@
 package com.koduck.dto.market;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
 
 import com.fasterxml.jackson.databind.PropertyNamingStrategies;
 import com.fasterxml.jackson.databind.annotation.JsonNaming;
-
-import java.time.LocalDate;
-import java.time.LocalDateTime;
 
 /**
  * Daily market breadth DTO.

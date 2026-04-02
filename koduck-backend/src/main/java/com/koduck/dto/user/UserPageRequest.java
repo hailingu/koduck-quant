@@ -1,8 +1,6 @@
 package com.koduck.dto.user;
-
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
-
 import lombok.Data;
 
 /**

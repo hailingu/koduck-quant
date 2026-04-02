@@ -1,19 +1,11 @@
 package com.koduck.market.application;
-
-import com.koduck.common.constants.MarketConstants;
-import com.koduck.config.properties.DataServiceProperties;
-import com.koduck.dto.market.DataServiceResponse;
-import com.koduck.dto.market.KlineDataDto;
-import com.koduck.mapper.KlineDataDtoMapper;
-import com.koduck.service.KlineService;
-import com.koduck.service.KlineSyncService;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
-import lombok.extern.slf4j.Slf4j;
+
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.RequestEntity;
@@ -24,6 +16,16 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.util.UriComponentsBuilder;
+
+import com.koduck.common.constants.MarketConstants;
+import com.koduck.config.properties.DataServiceProperties;
+import com.koduck.dto.market.DataServiceResponse;
+import com.koduck.dto.market.KlineDataDto;
+import com.koduck.mapper.KlineDataDtoMapper;
+import com.koduck.service.KlineService;
+import com.koduck.service.KlineSyncService;
+
+import lombok.extern.slf4j.Slf4j;
 
 /**
  * Implementation of KlineSyncService for syncing K-line data from Python Data Service.

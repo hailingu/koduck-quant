@@ -1,9 +1,9 @@
 package com.koduck.util;
+import java.util.List;
 
 import com.koduck.entity.CommunitySignal;
 import com.koduck.entity.SignalComment;
 import com.koduck.entity.User;
-import java.util.List;
 
 /**
  * Entity defensive copy helpers.

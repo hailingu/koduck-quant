@@ -1,8 +1,7 @@
 package com.koduck.exception;
+import java.io.Serial;
 
 import lombok.Getter;
-
-import java.io.Serial;
 
 /**
  * Exception for duplicate resource or unique-constraint conflicts.

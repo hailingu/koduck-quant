@@ -1,12 +1,4 @@
 package com.koduck.service.market;
-
-import com.koduck.config.properties.DataServiceProperties;
-import com.koduck.market.MarketType;
-import com.koduck.market.model.KlineData;
-import com.koduck.market.model.TickData;
-import com.koduck.market.util.DataConverter;
-import com.koduck.service.market.support.MarketDataMapReader;
-import com.koduck.service.market.support.MarketTimeframeParser;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.DayOfWeek;
@@ -23,11 +15,20 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ThreadLocalRandom;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestTemplate;
+
+import com.koduck.config.properties.DataServiceProperties;
+import com.koduck.market.MarketType;
+import com.koduck.market.model.KlineData;
+import com.koduck.market.model.TickData;
+import com.koduck.market.util.DataConverter;
+import com.koduck.service.market.support.MarketDataMapReader;
+import com.koduck.service.market.support.MarketTimeframeParser;
 
 /**
  * 外汇（Forex）市场数据提供者。

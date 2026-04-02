@@ -1,4 +1,12 @@
 package com.koduck.entity;
+import java.time.LocalDateTime;
+import java.util.List;
+
+import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.UpdateTimestamp;
+
+import com.koduck.util.CollectionCopyUtils;
+import com.koduck.util.EntityCopyUtils;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -10,20 +18,10 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
-
-import java.time.LocalDateTime;
-import java.util.List;
-
 import lombok.AccessLevel;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
-
-import org.hibernate.annotations.CreationTimestamp;
-import org.hibernate.annotations.UpdateTimestamp;
-
-import com.koduck.util.CollectionCopyUtils;
-import com.koduck.util.EntityCopyUtils;
 
 /**
  * Signal comment entity.

@@ -1,11 +1,7 @@
 package com.koduck.controller;
+import java.math.BigDecimal;
+import java.util.List;
 
-import com.koduck.controller.support.AuthenticatedUserResolver;
-import com.koduck.dto.community.CommentResponse;
-import com.koduck.dto.community.SignalListResponse;
-import com.koduck.dto.community.UserSignalStatsResponse;
-import com.koduck.security.JwtAuthenticationFilter;
-import com.koduck.service.CommunitySignalService;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -14,8 +10,12 @@ import org.springframework.test.context.TestConstructor;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
-import java.math.BigDecimal;
-import java.util.List;
+import com.koduck.controller.support.AuthenticatedUserResolver;
+import com.koduck.dto.community.CommentResponse;
+import com.koduck.dto.community.SignalListResponse;
+import com.koduck.dto.community.UserSignalStatsResponse;
+import com.koduck.security.JwtAuthenticationFilter;
+import com.koduck.service.CommunitySignalService;
 
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;

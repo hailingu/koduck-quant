@@ -1,16 +1,17 @@
 package com.koduck.mapper;
-
-import com.koduck.dto.settings.UpdateNotificationRequest;
-import com.koduck.dto.settings.UpdateSettingsRequest;
-import com.koduck.dto.settings.UserSettingsDto;
-import com.koduck.entity.UserSettings;
 import java.util.List;
+
 import org.mapstruct.BeanMapping;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 import org.mapstruct.MappingTarget;
 import org.mapstruct.NullValuePropertyMappingStrategy;
 import org.mapstruct.ReportingPolicy;
+
+import com.koduck.dto.settings.UpdateNotificationRequest;
+import com.koduck.dto.settings.UpdateSettingsRequest;
+import com.koduck.dto.settings.UserSettingsDto;
+import com.koduck.entity.UserSettings;
 
 /**
  * Mapper for user settings update/request and DTO conversions.

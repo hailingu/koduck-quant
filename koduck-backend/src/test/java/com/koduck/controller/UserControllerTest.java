@@ -1,12 +1,11 @@
 package com.koduck.controller;
+import java.lang.reflect.Method;
 
-import jakarta.validation.constraints.Positive;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.validation.annotation.Validated;
 
-import java.lang.reflect.Method;
-
+import jakarta.validation.constraints.Positive;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 /**

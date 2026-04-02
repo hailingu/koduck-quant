@@ -1,7 +1,7 @@
 package com.koduck.config;
+import java.time.LocalDateTime;
 
 import com.koduck.entity.User;
-import java.time.LocalDateTime;
 
 /**
  * 测试数据工厂

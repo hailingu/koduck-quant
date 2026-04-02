@@ -1,13 +1,15 @@
 package com.koduck.messaging;
+import java.util.Objects;
+
+import org.springframework.amqp.rabbit.annotation.RabbitListener;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.stereotype.Component;
 
 import com.koduck.config.properties.PricePushRabbitProperties;
 import com.koduck.dto.market.RealtimePriceEventMessage;
 import com.koduck.service.PricePushService;
-import java.util.Objects;
+
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.amqp.rabbit.annotation.RabbitListener;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
-import org.springframework.stereotype.Component;
 
 /**
  * Consumes realtime quote events from RabbitMQ and forwards to price push service.

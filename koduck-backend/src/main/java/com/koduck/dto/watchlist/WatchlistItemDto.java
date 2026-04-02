@@ -1,5 +1,4 @@
 package com.koduck.dto.watchlist;
-
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 

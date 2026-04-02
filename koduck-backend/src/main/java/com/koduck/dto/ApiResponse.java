@@ -1,17 +1,15 @@
 package com.koduck.dto;
-
 import java.time.Instant;
 import java.util.Objects;
+
+import org.slf4j.MDC;
 
 import com.koduck.exception.ErrorCode;
 
 import io.swagger.v3.oas.annotations.media.Schema;
-
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-
-import org.slf4j.MDC;
 
 /**
  * 统一 API 响应包装类
@@ -25,8 +23,7 @@ import org.slf4j.MDC;
 @NoArgsConstructor
 @AllArgsConstructor
 @Schema(description = "统一API响应结构")
-public class ApiResponse<T>
-{
+public class ApiResponse<T> {
 
     /**
      * Trace ID key for MDC.
@@ -70,8 +67,7 @@ public class ApiResponse<T>
      * @param message 响应消息
      * @param data    响应数据
      */
-    public ApiResponse(int code, String message, T data)
-    {
+    public ApiResponse(int code, String message, T data) {
         this.code = code;
         this.message = message;
         this.data = data;
@@ -86,8 +82,7 @@ public class ApiResponse<T>
      * @param <T>  数据类型
      * @return 成功响应
      */
-    public static <T> ApiResponse<T> success(T data)
-    {
+    public static <T> ApiResponse<T> success(T data) {
         return new ApiResponse<>(ErrorCode.SUCCESS.getCode(),
                 ErrorCode.SUCCESS.getDefaultMessage(), data);
     }
@@ -98,8 +93,7 @@ public class ApiResponse<T>
      * @param <T> 数据类型
      * @return 成功响应
      */
-    public static <T> ApiResponse<T> success()
-    {
+    public static <T> ApiResponse<T> success() {
         return success(null);
     }
 
@@ -111,8 +105,7 @@ public class ApiResponse<T>
      * @param <T>     数据类型
      * @return 成功响应
      */
-    public static <T> ApiResponse<T> success(String message, T data)
-    {
+    public static <T> ApiResponse<T> success(String message, T data) {
         return new ApiResponse<>(ErrorCode.SUCCESS.getCode(), message, data);
     }
 
@@ -122,8 +115,7 @@ public class ApiResponse<T>
      * @param message success message
      * @return success response without data
      */
-    public static ApiResponse<Void> successMessage(String message)
-    {
+    public static ApiResponse<Void> successMessage(String message) {
         return success(message, null);
     }
 
@@ -132,8 +124,7 @@ public class ApiResponse<T>
      *
      * @return success response without data
      */
-    public static ApiResponse<Void> successNoContent()
-    {
+    public static ApiResponse<Void> successNoContent() {
         return success();
     }
 
@@ -145,8 +136,7 @@ public class ApiResponse<T>
      * @param <T>     数据类型
      * @return 错误响应
      */
-    public static <T> ApiResponse<T> error(int code, String message)
-    {
+    public static <T> ApiResponse<T> error(int code, String message) {
         return new ApiResponse<>(code, message, null);
     }
 
@@ -157,8 +147,7 @@ public class ApiResponse<T>
      * @param <T>       数据类型
      * @return 错误响应
      */
-    public static <T> ApiResponse<T> error(ErrorCode errorCode)
-    {
+    public static <T> ApiResponse<T> error(ErrorCode errorCode) {
         return new ApiResponse<>(errorCode.getCode(), errorCode.getDefaultMessage(), null);
     }
 
@@ -170,8 +159,7 @@ public class ApiResponse<T>
      * @param <T>       数据类型
      * @return 错误响应
      */
-    public static <T> ApiResponse<T> error(ErrorCode errorCode, String message)
-    {
+    public static <T> ApiResponse<T> error(ErrorCode errorCode, String message) {
         return new ApiResponse<>(errorCode.getCode(), message, null);
     }
 
@@ -182,8 +170,7 @@ public class ApiResponse<T>
      * @param <T>     数据类型
      * @return 错误响应
      */
-    public static <T> ApiResponse<T> error(String message)
-    {
+    public static <T> ApiResponse<T> error(String message) {
         return new ApiResponse<>(ErrorCode.BUSINESS_ERROR.getCode(), message, null);
     }
 
@@ -193,8 +180,7 @@ public class ApiResponse<T>
      * @return 是否成功
      */
     @Schema(hidden = true)
-    public boolean isSuccess()
-    {
+    public boolean isSuccess() {
         return code == ErrorCode.SUCCESS.getCode();
     }
 
@@ -203,21 +189,17 @@ public class ApiResponse<T>
      *
      * @return Trace ID，如果不存在则返回 null
      */
-    private static String getCurrentTraceId()
-    {
-        try
-        {
+    private static String getCurrentTraceId() {
+        try {
             return MDC.get(TRACE_ID_KEY);
         }
-        catch (Exception _)
-        {
+        catch (Exception _) {
             return null;
         }
     }
 
     @Override
-    public String toString()
-    {
+    public String toString() {
         return "ApiResponse{"
                 + "code=" + code
                 + ", message='" + message + '\''
@@ -227,14 +209,11 @@ public class ApiResponse<T>
     }
 
     @Override
-    public boolean equals(Object o)
-    {
-        if (this == o)
-        {
+    public boolean equals(Object o) {
+        if (this == o) {
             return true;
         }
-        if (o == null || getClass() != o.getClass())
-        {
+        if (o == null || getClass() != o.getClass()) {
             return false;
         }
         ApiResponse<?> that = (ApiResponse<?>) o;
@@ -246,8 +225,7 @@ public class ApiResponse<T>
     }
 
     @Override
-    public int hashCode()
-    {
+    public int hashCode() {
         return Objects.hash(code, message, data, timestamp, traceId);
     }
 }

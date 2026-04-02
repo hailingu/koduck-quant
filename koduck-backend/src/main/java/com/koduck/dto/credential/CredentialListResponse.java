@@ -1,10 +1,8 @@
 package com.koduck.dto.credential;
-
 import java.util.List;
 
 import lombok.Data;
 import lombok.NoArgsConstructor;
-
 
 /**
  * 凭证列表响应 DTO。

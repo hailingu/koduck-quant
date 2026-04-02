@@ -1,15 +1,4 @@
 package com.koduck.market.application;
-
-import com.koduck.dto.market.TickDto;
-import com.koduck.entity.StockRealtime;
-import com.koduck.entity.StockTickHistory;
-import com.koduck.repository.StockTickHistoryRepository;
-import com.koduck.service.SyntheticTickService;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.stereotype.Service;
-
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
@@ -20,6 +9,18 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+
+import org.springframework.data.domain.PageRequest;
+import org.springframework.stereotype.Service;
+
+import com.koduck.dto.market.TickDto;
+import com.koduck.entity.StockRealtime;
+import com.koduck.entity.StockTickHistory;
+import com.koduck.repository.StockTickHistoryRepository;
+import com.koduck.service.SyntheticTickService;
+
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 @Service
 @RequiredArgsConstructor

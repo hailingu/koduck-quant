@@ -1,13 +1,12 @@
 package com.koduck.dto.ai;
-
 import java.time.LocalDateTime;
 import java.util.List;
+
+import com.koduck.util.CollectionCopyUtils;
 
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-
-import com.koduck.util.CollectionCopyUtils;
 
 /**
  * 风险评估响应 DTO。

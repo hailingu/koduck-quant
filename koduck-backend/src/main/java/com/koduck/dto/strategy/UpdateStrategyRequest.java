@@ -1,9 +1,8 @@
 package com.koduck.dto.strategy;
+import java.util.List;
 
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Size;
-
-import java.util.List;
 
 /**
  * Request to update a strategy.

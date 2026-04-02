@@ -1,5 +1,4 @@
 package com.koduck.dto.websocket;
-
 import com.fasterxml.jackson.annotation.JsonInclude;
 
 import lombok.AllArgsConstructor;

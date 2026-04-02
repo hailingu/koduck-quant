@@ -1,7 +1,7 @@
 package com.koduck.service;
+import java.util.List;
 
 import com.koduck.dto.strategy.*;
-import java.util.List;
 
 /**
  * Service interface for strategy operations.

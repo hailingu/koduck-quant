@@ -1,4 +1,10 @@
 package com.koduck.strategy.application;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Objects;
+
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import com.koduck.common.constants.MarketConstants;
 import com.koduck.dto.strategy.CreateStrategyRequest;
@@ -19,14 +25,9 @@ import com.koduck.repository.StrategyRepository;
 import com.koduck.repository.StrategyVersionRepository;
 import com.koduck.service.StrategyService;
 import com.koduck.service.support.StrategyAccessSupport;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Objects;
+
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
 import static com.koduck.util.ServiceValidationUtils.requireFound;
 
 /**

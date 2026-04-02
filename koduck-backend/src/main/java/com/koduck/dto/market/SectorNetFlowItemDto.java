@@ -1,10 +1,9 @@
 package com.koduck.dto.market;
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
 
 import com.fasterxml.jackson.databind.PropertyNamingStrategies;
 import com.fasterxml.jackson.databind.annotation.JsonNaming;
-
-import java.math.BigDecimal;
-import java.time.LocalDateTime;
 
 /**
  * Sector-level net-flow item DTO.

@@ -1,12 +1,4 @@
 package com.koduck.service.market;
-
-import com.koduck.config.properties.DataServiceProperties;
-import com.koduck.market.MarketType;
-import com.koduck.market.model.KlineData;
-import com.koduck.market.model.TickData;
-import com.koduck.market.util.DataConverter;
-import com.koduck.service.market.support.FuturesMockDataSupport;
-import com.koduck.service.market.support.MarketDataMapReader;
 import java.math.BigDecimal;
 import java.time.DayOfWeek;
 import java.time.Instant;
@@ -18,11 +10,20 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestTemplate;
+
+import com.koduck.config.properties.DataServiceProperties;
+import com.koduck.market.MarketType;
+import com.koduck.market.model.KlineData;
+import com.koduck.market.model.TickData;
+import com.koduck.market.util.DataConverter;
+import com.koduck.service.market.support.FuturesMockDataSupport;
+import com.koduck.service.market.support.MarketDataMapReader;
 
 /**
  * Futures market data provider.

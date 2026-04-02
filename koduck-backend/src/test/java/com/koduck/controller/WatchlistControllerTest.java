@@ -1,16 +1,8 @@
 package com.koduck.controller;
+import java.lang.reflect.Method;
+import java.util.Collections;
+import java.util.List;
 
-import com.koduck.controller.support.AuthenticatedUserResolver;
-import com.koduck.dto.ApiResponse;
-import com.koduck.dto.watchlist.AddWatchlistRequest;
-import com.koduck.dto.watchlist.SortWatchlistRequest;
-import com.koduck.dto.watchlist.WatchlistItemDto;
-import com.koduck.entity.User;
-import com.koduck.security.UserPrincipal;
-import com.koduck.service.WatchlistService;
-import jakarta.validation.constraints.NotNull;
-import jakarta.validation.constraints.Positive;
-import jakarta.validation.constraints.Size;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -20,10 +12,18 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.validation.annotation.Validated;
 
-import java.lang.reflect.Method;
-import java.util.Collections;
-import java.util.List;
+import com.koduck.controller.support.AuthenticatedUserResolver;
+import com.koduck.dto.ApiResponse;
+import com.koduck.dto.watchlist.AddWatchlistRequest;
+import com.koduck.dto.watchlist.SortWatchlistRequest;
+import com.koduck.dto.watchlist.WatchlistItemDto;
+import com.koduck.entity.User;
+import com.koduck.security.UserPrincipal;
+import com.koduck.service.WatchlistService;
 
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Positive;
+import jakarta.validation.constraints.Size;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;

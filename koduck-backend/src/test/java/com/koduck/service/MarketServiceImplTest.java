@@ -1,28 +1,4 @@
 package com.koduck.service;
-
-import com.koduck.dto.market.MarketIndexDto;
-import com.koduck.dto.market.KlineDataDto;
-import com.koduck.dto.market.PriceQuoteDto;
-import com.koduck.dto.market.StockIndustryDto;
-import com.koduck.dto.market.StockValuationDto;
-import com.koduck.dto.market.SymbolInfoDto;
-import com.koduck.entity.StockBasic;
-import com.koduck.entity.StockRealtime;
-import com.koduck.repository.StockBasicRepository;
-import com.koduck.repository.StockRealtimeRepository;
-import com.koduck.market.application.MarketServiceImpl;
-import com.koduck.service.support.MarketFallbackSupport;
-import com.koduck.service.support.MarketServiceSupport;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.lang.NonNull;
-import org.springframework.data.domain.PageImpl;
-import org.springframework.data.domain.PageRequest;
-
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.LinkedHashMap;
@@ -30,6 +6,30 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.lang.NonNull;
+
+import com.koduck.dto.market.KlineDataDto;
+import com.koduck.dto.market.MarketIndexDto;
+import com.koduck.dto.market.PriceQuoteDto;
+import com.koduck.dto.market.StockIndustryDto;
+import com.koduck.dto.market.StockValuationDto;
+import com.koduck.dto.market.SymbolInfoDto;
+import com.koduck.entity.StockBasic;
+import com.koduck.entity.StockRealtime;
+import com.koduck.market.application.MarketServiceImpl;
+import com.koduck.repository.StockBasicRepository;
+import com.koduck.repository.StockRealtimeRepository;
+import com.koduck.service.support.MarketFallbackSupport;
+import com.koduck.service.support.MarketServiceSupport;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;

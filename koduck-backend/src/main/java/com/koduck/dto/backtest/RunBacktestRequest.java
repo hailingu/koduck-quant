@@ -1,5 +1,4 @@
 package com.koduck.dto.backtest;
-
 import java.math.BigDecimal;
 import java.time.LocalDate;
 

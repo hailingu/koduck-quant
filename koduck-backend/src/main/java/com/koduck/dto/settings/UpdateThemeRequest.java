@@ -1,5 +1,4 @@
 package com.koduck.dto.settings;
-
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
 import lombok.AllArgsConstructor;

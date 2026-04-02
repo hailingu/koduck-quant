@@ -1,10 +1,9 @@
 package com.koduck.service;
+import java.util.List;
+import java.util.Set;
 
 import com.koduck.dto.market.TickDto;
 import com.koduck.entity.StockRealtime;
-
-import java.util.List;
-import java.util.Set;
 
 /**
  * 合成Tick服务接口。

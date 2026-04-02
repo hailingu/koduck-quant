@@ -1,10 +1,10 @@
 package com.koduck.dto.community;
+import java.util.List;
 
 import com.koduck.util.CollectionCopyUtils;
+
 import lombok.Data;
 import lombok.NoArgsConstructor;
-
-import java.util.List;
 
 /**
  *  DTO

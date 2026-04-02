@@ -1,7 +1,7 @@
 package com.koduck.service;
+import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import com.koduck.dto.ai.*;
-import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 /**
  * AI 分析服务接口

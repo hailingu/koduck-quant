@@ -1,5 +1,4 @@
 package com.koduck.dto.strategy;
-
 import java.math.BigDecimal;
 
 /**

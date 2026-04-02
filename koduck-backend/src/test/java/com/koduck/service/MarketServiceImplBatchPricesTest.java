@@ -1,21 +1,21 @@
 package com.koduck.service;
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
+import java.util.List;
 
-import com.koduck.dto.market.PriceQuoteDto;
-import com.koduck.entity.StockRealtime;
-import com.koduck.repository.StockBasicRepository;
-import com.koduck.repository.StockRealtimeRepository;
-import com.koduck.market.application.MarketServiceImpl;
-import com.koduck.service.support.MarketFallbackSupport;
-import com.koduck.service.support.MarketServiceSupport;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import java.math.BigDecimal;
-import java.time.LocalDateTime;
-import java.util.List;
+import com.koduck.dto.market.PriceQuoteDto;
+import com.koduck.entity.StockRealtime;
+import com.koduck.market.application.MarketServiceImpl;
+import com.koduck.repository.StockBasicRepository;
+import com.koduck.repository.StockRealtimeRepository;
+import com.koduck.service.support.MarketFallbackSupport;
+import com.koduck.service.support.MarketServiceSupport;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.when;

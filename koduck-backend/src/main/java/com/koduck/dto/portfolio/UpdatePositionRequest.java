@@ -1,8 +1,7 @@
 package com.koduck.dto.portfolio;
+import java.math.BigDecimal;
 
 import jakarta.validation.constraints.Positive;
-
-import java.math.BigDecimal;
 
 /**
  * Request to update a position.

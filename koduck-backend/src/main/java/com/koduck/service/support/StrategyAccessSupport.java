@@ -1,9 +1,10 @@
 package com.koduck.service.support;
+import java.util.Objects;
+
+import org.springframework.stereotype.Component;
 
 import com.koduck.entity.Strategy;
 import com.koduck.repository.StrategyRepository;
-import java.util.Objects;
-import org.springframework.stereotype.Component;
 
 import static com.koduck.util.ServiceValidationUtils.requireFound;
 

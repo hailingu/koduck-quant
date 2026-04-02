@@ -1,12 +1,12 @@
 package com.koduck.dto.market;
+import java.math.BigDecimal;
+import java.util.List;
 
 import com.koduck.util.CollectionCopyUtils;
+
 import lombok.Builder;
 import lombok.Data;
 import lombok.Singular;
-
-import java.math.BigDecimal;
-import java.util.List;
 
 /**
  * Sector network data DTO for force-directed graph visualization.

@@ -1,5 +1,4 @@
 package com.koduck.dto.profile;
-
 import java.time.LocalDateTime;
 
 import lombok.AllArgsConstructor;

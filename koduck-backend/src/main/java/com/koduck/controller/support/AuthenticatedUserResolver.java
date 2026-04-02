@@ -1,8 +1,9 @@
 package com.koduck.controller.support;
+import java.util.Objects;
+
+import org.springframework.stereotype.Component;
 
 import com.koduck.security.UserPrincipal;
-import java.util.Objects;
-import org.springframework.stereotype.Component;
 
 /**
  * Resolver for extracting authenticated user information from security principal.

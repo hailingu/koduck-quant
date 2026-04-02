@@ -1,11 +1,13 @@
 package com.koduck.service.support;
+import java.util.Objects;
+
+import org.springframework.stereotype.Component;
 
 import com.koduck.common.constants.RoleConstants;
 import com.koduck.entity.Role;
 import com.koduck.repository.RoleRepository;
-import java.util.Objects;
+
 import lombok.RequiredArgsConstructor;
-import org.springframework.stereotype.Component;
 
 /**
  * Resolves default USER role ID from database and caches the value.

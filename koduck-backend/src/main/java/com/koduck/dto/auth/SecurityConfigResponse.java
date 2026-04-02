@@ -1,5 +1,4 @@
 package com.koduck.dto.auth;
-
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;

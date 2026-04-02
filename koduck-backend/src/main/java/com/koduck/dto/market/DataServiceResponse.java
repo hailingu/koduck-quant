@@ -1,7 +1,7 @@
 package com.koduck.dto.market;
+import java.time.Instant;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
-import java.time.Instant;
 
 /**
  * Python Data Service API response wrapper.

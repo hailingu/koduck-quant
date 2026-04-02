@@ -1,5 +1,4 @@
 package com.koduck.market.model;
-
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.Instant;

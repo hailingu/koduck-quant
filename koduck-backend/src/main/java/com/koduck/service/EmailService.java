@@ -1,5 +1,4 @@
 package com.koduck.service;
-
 import jakarta.mail.MessagingException;
 
 /**

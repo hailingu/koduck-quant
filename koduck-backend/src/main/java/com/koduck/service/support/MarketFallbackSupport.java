@@ -1,4 +1,13 @@
 package com.koduck.service.support;
+import java.math.BigDecimal;
+import java.time.Instant;
+import java.util.Collections;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+
+import org.springframework.stereotype.Component;
 
 import com.koduck.common.constants.MarketConstants;
 import com.koduck.dto.market.PriceQuoteDto;
@@ -14,16 +23,9 @@ import com.koduck.repository.StockBasicRepository;
 import com.koduck.service.KlineService;
 import com.koduck.service.market.AKShareDataProvider;
 import com.koduck.util.SymbolUtils;
-import java.math.BigDecimal;
-import java.time.Instant;
-import java.util.Collections;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
+
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.stereotype.Component;
 
 /**
  * Fallback helper for provider and kline based market query recovery.

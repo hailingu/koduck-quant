@@ -1,7 +1,6 @@
 package com.koduck.controller.admin;
+import java.util.List;
 
-import com.koduck.dto.ApiResponse;
-import com.koduck.service.KlineSyncService;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -9,7 +8,8 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import java.util.List;
+import com.koduck.dto.ApiResponse;
+import com.koduck.service.KlineSyncService;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;

@@ -1,27 +1,6 @@
 package com.koduck.controller;
-
-import io.swagger.v3.oas.annotations.Operation;
-import io.swagger.v3.oas.annotations.Parameter;
-import io.swagger.v3.oas.annotations.media.Content;
-import io.swagger.v3.oas.annotations.media.Schema;
-import io.swagger.v3.oas.annotations.responses.ApiResponses;
-import io.swagger.v3.oas.annotations.security.SecurityRequirement;
-import io.swagger.v3.oas.annotations.tags.Tag;
-import com.koduck.controller.support.AuthenticatedUserResolver;
-import com.koduck.dto.ApiResponse;
-import com.koduck.dto.portfolio.AddPositionRequest;
-import com.koduck.dto.portfolio.AddTradeRequest;
-import com.koduck.dto.portfolio.PortfolioPositionDto;
-import com.koduck.dto.portfolio.PortfolioSummaryDto;
-import com.koduck.dto.portfolio.TradeDto;
-import com.koduck.dto.portfolio.UpdatePositionRequest;
-import com.koduck.security.UserPrincipal;
-import com.koduck.service.PortfolioService;
-import jakarta.validation.Valid;
-import jakarta.validation.constraints.Positive;
 import java.util.List;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
+
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -32,6 +11,29 @@ import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+
+import com.koduck.controller.support.AuthenticatedUserResolver;
+import com.koduck.dto.ApiResponse;
+import com.koduck.dto.portfolio.AddPositionRequest;
+import com.koduck.dto.portfolio.AddTradeRequest;
+import com.koduck.dto.portfolio.PortfolioPositionDto;
+import com.koduck.dto.portfolio.PortfolioSummaryDto;
+import com.koduck.dto.portfolio.TradeDto;
+import com.koduck.dto.portfolio.UpdatePositionRequest;
+import com.koduck.security.UserPrincipal;
+import com.koduck.service.PortfolioService;
+
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.Positive;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 /**
  * REST API controller for user portfolios.

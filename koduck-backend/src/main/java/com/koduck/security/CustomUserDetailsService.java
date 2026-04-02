@@ -1,4 +1,13 @@
 package com.koduck.security;
+import java.util.ArrayList;
+import java.util.List;
+
+import org.springframework.dao.DataAccessException;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.core.userdetails.UserDetailsService;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
+import org.springframework.stereotype.Service;
 
 import com.koduck.common.constants.RoleConstants;
 import com.koduck.entity.User;
@@ -6,16 +15,9 @@ import com.koduck.repository.PermissionRepository;
 import com.koduck.repository.RoleRepository;
 import com.koduck.repository.UserRepository;
 import com.koduck.service.support.UserRolesTableChecker;
-import java.util.ArrayList;
-import java.util.List;
+
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.dao.DataAccessException;
-import org.springframework.security.core.authority.SimpleGrantedAuthority;
-import org.springframework.security.core.userdetails.UserDetails;
-import org.springframework.security.core.userdetails.UserDetailsService;
-import org.springframework.security.core.userdetails.UsernameNotFoundException;
-import org.springframework.stereotype.Service;
 
 /**
  * UserDetailsService implementation for loading users and authorities.

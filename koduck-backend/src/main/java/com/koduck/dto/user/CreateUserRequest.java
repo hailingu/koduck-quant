@@ -1,16 +1,14 @@
 package com.koduck.dto.user;
-
 import java.util.List;
+
+import com.koduck.entity.User;
+import com.koduck.util.CollectionCopyUtils;
 
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
-
 import lombok.Data;
-
-import com.koduck.entity.User;
-import com.koduck.util.CollectionCopyUtils;
 
 /**
  * 创建用户请求 DTO。

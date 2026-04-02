@@ -1,9 +1,4 @@
 package com.koduck.market.util;
-
-import com.koduck.common.constants.DateTimePatternConstants;
-import com.koduck.market.model.KlineData;
-import com.koduck.market.model.TickData;
-
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.Instant;
@@ -12,6 +7,10 @@ import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Locale;
+
+import com.koduck.common.constants.DateTimePatternConstants;
+import com.koduck.market.model.KlineData;
+import com.koduck.market.model.TickData;
 
 /**
  * Utility class for converting data between different formats.

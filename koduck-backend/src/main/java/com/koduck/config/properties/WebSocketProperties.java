@@ -1,10 +1,11 @@
 package com.koduck.config.properties;
-
-import com.koduck.util.CollectionCopyUtils;
-import lombok.Getter;
-import lombok.Setter;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.stereotype.Component;
+
+import com.koduck.util.CollectionCopyUtils;
+
+import lombok.Getter;
+import lombok.Setter;
 
 /**
  * Properties for WebSocket messaging configuration.

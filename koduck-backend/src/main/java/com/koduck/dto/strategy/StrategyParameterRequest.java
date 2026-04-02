@@ -1,10 +1,9 @@
 package com.koduck.dto.strategy;
+import java.math.BigDecimal;
 
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
-
-import java.math.BigDecimal;
 
 /**
  * Request for strategy parameter.

@@ -1,14 +1,15 @@
 package com.koduck.config;
-
-import com.koduck.config.properties.DataServiceProperties;
-import com.koduck.config.properties.FinnhubProperties;
 import java.util.Objects;
+
 import org.springframework.boot.web.client.RestTemplateBuilder;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.client.BufferingClientHttpRequestFactory;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.web.client.RestTemplate;
+
+import com.koduck.config.properties.DataServiceProperties;
+import com.koduck.config.properties.FinnhubProperties;
 
 /**
  * RestTemplate configuration for external API calls.

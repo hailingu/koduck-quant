@@ -1,5 +1,4 @@
 package com.koduck.dto.credential;
-
 import java.time.LocalDateTime;
 
 import lombok.AllArgsConstructor;
