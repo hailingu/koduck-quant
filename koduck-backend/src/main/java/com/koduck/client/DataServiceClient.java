@@ -1,11 +1,9 @@
 package com.koduck.client;
 
-import com.koduck.config.properties.DataServiceProperties;
-import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
-import lombok.extern.slf4j.Slf4j;
+
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
@@ -14,12 +12,16 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
 
+import com.koduck.config.properties.DataServiceProperties;
+
+import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
+import lombok.extern.slf4j.Slf4j;
+
 /**
  * Client for communicating with the external data-service.
  * Provides methods to trigger realtime data updates for stock symbols.
  *
  * @author GitHub Copilot
- * @date 2026-03-31
  */
 @Component
 @Slf4j
@@ -29,6 +31,10 @@ public class DataServiceClient {
      * Request body key for stock symbol collections.
      */
     private static final String KEY_SYMBOLS = "symbols";
+
+    /**
+     * Circuit breaker name for data service client.
+     */
     private static final String CB_DATA_SERVICE_CLIENT = "dataServiceClient";
 
     /**
@@ -85,11 +91,13 @@ public class DataServiceClient {
             log.debug("realtime_update_skipped reason=data_service_disabled");
             shouldTrigger = false;
             requestedSymbols = Collections.emptyList();
-        } else if (symbols == null || symbols.isEmpty()) {
+        }
+        else if (symbols == null || symbols.isEmpty()) {
             log.debug("realtime_update_skipped reason=empty_symbols");
             shouldTrigger = false;
             requestedSymbols = Collections.emptyList();
-        } else {
+        }
+        else {
             shouldTrigger = true;
             requestedSymbols = List.copyOf(symbols);
         }
