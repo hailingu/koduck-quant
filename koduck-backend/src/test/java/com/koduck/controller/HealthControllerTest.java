@@ -1,5 +1,9 @@
 package com.koduck.controller;
 
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -7,23 +11,24 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.TestConstructor;
 import org.springframework.test.web.servlet.MockMvc;
 
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
-
 /**
  * Integration tests for {@link HealthController}.
  *
  * @author GitHub Copilot
- * @date 2026-03-31
  */
 @SpringBootTest(properties = "app.demo.enabled=false")
 @AutoConfigureMockMvc
 @TestConstructor(autowireMode = TestConstructor.AutowireMode.ALL)
 class HealthControllerTest {
 
+    /** MockMvc for HTTP request testing. */
     private final MockMvc mockMvc;
 
+    /**
+     * Constructs test with MockMvc.
+     *
+     * @param mockMvc the mock MVC
+     */
     HealthControllerTest(MockMvc mockMvc) {
         this.mockMvc = mockMvc;
     }
