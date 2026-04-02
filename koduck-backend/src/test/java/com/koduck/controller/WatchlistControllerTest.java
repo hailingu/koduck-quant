@@ -1,16 +1,17 @@
 package com.koduck.controller;
 
-import com.koduck.controller.support.AuthenticatedUserResolver;
-import com.koduck.dto.ApiResponse;
-import com.koduck.dto.watchlist.AddWatchlistRequest;
-import com.koduck.dto.watchlist.SortWatchlistRequest;
-import com.koduck.dto.watchlist.WatchlistItemDto;
-import com.koduck.entity.User;
-import com.koduck.security.UserPrincipal;
-import com.koduck.service.WatchlistService;
-import jakarta.validation.constraints.NotNull;
-import jakarta.validation.constraints.Positive;
-import jakarta.validation.constraints.Size;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
+import java.lang.reflect.Method;
+import java.util.Collections;
+import java.util.List;
+
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -20,32 +21,55 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.validation.annotation.Validated;
 
-import java.lang.reflect.Method;
-import java.util.Collections;
-import java.util.List;
+import com.koduck.controller.support.AuthenticatedUserResolver;
+import com.koduck.dto.ApiResponse;
+import com.koduck.dto.watchlist.AddWatchlistRequest;
+import com.koduck.dto.watchlist.SortWatchlistRequest;
+import com.koduck.dto.watchlist.WatchlistItemDto;
+import com.koduck.entity.User;
+import com.koduck.security.UserPrincipal;
+import com.koduck.service.WatchlistService;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.lenient;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Positive;
+import jakarta.validation.constraints.Size;
 
+/**
+ * Unit tests for {@link WatchlistController}.
+ *
+ * @author Koduck Team
+ */
 @ExtendWith(MockitoExtension.class)
 class WatchlistControllerTest {
 
+    /** Test user ID constant. */
     private static final Long USER_ID = 1001L;
 
+    /** Test watchlist item ID for remove operation. */
+    private static final Long REMOVE_ITEM_ID = 3L;
+
+    /** Test watchlist item ID for update operation. */
+    private static final Long UPDATE_ITEM_ID = 4L;
+
+    /** Test sort order for update operation. */
+    private static final int UPDATE_SORT_ORDER = 4;
+
+    /** Maximum notes length constant. */
+    private static final int MAX_NOTES_LENGTH = 500;
+
+    /** Mock watchlist service. */
     @Mock
     private WatchlistService watchlistService;
 
+    /** Mock authenticated user resolver. */
     @Mock
     private AuthenticatedUserResolver authenticatedUserResolver;
 
+    /** Controller under test. */
     @InjectMocks
     private WatchlistController watchlistController;
 
+    /** Test user principal. */
     private UserPrincipal userPrincipal;
 
     @BeforeEach
@@ -63,7 +87,7 @@ class WatchlistControllerTest {
 
     @Test
     @DisplayName("Get watchlist should return data from service")
-    void getWatchlist_shouldReturnWatchlist() {
+    void getWatchlistShouldReturnWatchlist() {
         WatchlistItemDto item = WatchlistItemDto.builder()
                 .id(1L)
                 .market("AShare")
@@ -85,8 +109,13 @@ class WatchlistControllerTest {
 
     @Test
     @DisplayName("Add watchlist item should delegate to service")
-    void addToWatchlist_shouldReturnItem() {
-        AddWatchlistRequest request = new AddWatchlistRequest("AShare", "600000", "PF Bank", "Value watch");
+    void addToWatchlistShouldReturnItem() {
+        AddWatchlistRequest request = new AddWatchlistRequest(
+                "AShare",
+                "600000",
+                "PF Bank",
+                "Value watch"
+        );
         WatchlistItemDto item = WatchlistItemDto.builder()
                 .id(2L)
                 .market("AShare")
@@ -107,19 +136,25 @@ class WatchlistControllerTest {
 
     @Test
     @DisplayName("Remove watchlist item should return empty success response")
-    void removeFromWatchlist_shouldReturnSuccess() {
-        ApiResponse<Void> response = watchlistController.removeFromWatchlist(userPrincipal, 3L);
+    void removeFromWatchlistShouldReturnSuccess() {
+        ApiResponse<Void> response = watchlistController.removeFromWatchlist(
+                userPrincipal,
+                REMOVE_ITEM_ID
+        );
 
         assertEquals(0, response.getCode());
         assertNull(response.getData());
-        verify(watchlistService).removeFromWatchlist(USER_ID, 3L);
+        verify(watchlistService).removeFromWatchlist(USER_ID, REMOVE_ITEM_ID);
     }
 
     @Test
     @DisplayName("Sort watchlist should delegate to service")
-    void sortWatchlist_shouldReturnSuccess() {
+    void sortWatchlistShouldReturnSuccess() {
         SortWatchlistRequest request = new SortWatchlistRequest(
-                List.of(new SortWatchlistRequest.SortItem(1L, 1), new SortWatchlistRequest.SortItem(2L, 2))
+                List.of(
+                        new SortWatchlistRequest.SortItem(1L, 1),
+                        new SortWatchlistRequest.SortItem(2L, 2)
+                )
         );
 
         ApiResponse<Void> response = watchlistController.sortWatchlist(userPrincipal, request);
@@ -131,28 +166,33 @@ class WatchlistControllerTest {
 
     @Test
     @DisplayName("Update notes should delegate to service")
-    void updateNotes_shouldReturnUpdatedItem() {
+    void updateNotesShouldReturnUpdatedItem() {
         WatchlistItemDto item = WatchlistItemDto.builder()
-                .id(4L)
+                .id(UPDATE_ITEM_ID)
                 .market("AShare")
                 .symbol("300750")
                 .name("CATL")
-                .sortOrder(4)
+                .sortOrder(UPDATE_SORT_ORDER)
                 .notes("Momentum watch")
                 .build();
-        when(watchlistService.updateNotes(USER_ID, 4L, "Momentum watch")).thenReturn(item);
+        when(watchlistService.updateNotes(USER_ID, UPDATE_ITEM_ID, "Momentum watch"))
+                .thenReturn(item);
 
-        ApiResponse<WatchlistItemDto> response = watchlistController.updateNotes(userPrincipal, 4L, "Momentum watch");
+        ApiResponse<WatchlistItemDto> response = watchlistController.updateNotes(
+                userPrincipal,
+                UPDATE_ITEM_ID,
+                "Momentum watch"
+        );
 
         assertEquals(0, response.getCode());
         assertNotNull(response.getData());
         assertEquals("Momentum watch", response.getData().notes());
-        verify(watchlistService).updateNotes(USER_ID, 4L, "Momentum watch");
+        verify(watchlistService).updateNotes(USER_ID, UPDATE_ITEM_ID, "Momentum watch");
     }
 
     @Test
     @DisplayName("Controller should declare @Validated for method parameter validation")
-    void controller_shouldDeclareValidatedAnnotation() {
+    void controllerShouldDeclareValidatedAnnotation() {
         Validated validated = WatchlistController.class.getAnnotation(Validated.class);
 
         assertNotNull(validated);
@@ -160,7 +200,7 @@ class WatchlistControllerTest {
 
     @Test
     @DisplayName("ID parameters should declare positive constraint")
-    void idParameters_shouldDeclarePositiveConstraint() throws NoSuchMethodException {
+    void idParametersShouldDeclarePositiveConstraint() throws NoSuchMethodException {
         Method removeMethod = WatchlistController.class.getMethod(
                 "removeFromWatchlist",
                 UserPrincipal.class,
@@ -182,7 +222,7 @@ class WatchlistControllerTest {
 
     @Test
     @DisplayName("Notes parameter should declare null and length constraints")
-    void notesParameter_shouldDeclareValidationConstraints() throws NoSuchMethodException {
+    void notesParameterShouldDeclareValidationConstraints() throws NoSuchMethodException {
         Method updateMethod = WatchlistController.class.getMethod(
                 "updateNotes",
                 UserPrincipal.class,
@@ -195,6 +235,6 @@ class WatchlistControllerTest {
 
         assertNotNull(notNull);
         assertNotNull(size);
-        assertEquals(500, size.max());
+        assertEquals(MAX_NOTES_LENGTH, size.max());
     }
 }
