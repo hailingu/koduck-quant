@@ -1,27 +1,72 @@
 package com.koduck.dto.common;
 
-import com.koduck.util.CollectionCopyUtils;
+import java.util.List;
+
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.util.List;
+import com.koduck.util.CollectionCopyUtils;
 
 /**
- *  DTO
+ * Generic page response DTO for paginated results.
+ *
+ * @param <T> the type of elements in the page
+ * @author Koduck Team
  */
 @Data
 @NoArgsConstructor
-public class PageResponse<T> {
+public class PageResponse<T>
+{
 
+    /**
+     * Content list of the current page.
+     */
     private List<T> content;
+
+    /**
+     * Current page number (0-indexed).
+     */
     private int page;
+
+    /**
+     * Number of elements per page.
+     */
     private int size;
+
+    /**
+     * Total number of elements across all pages.
+     */
     private long totalElements;
+
+    /**
+     * Total number of pages.
+     */
     private int totalPages;
+
+    /**
+     * Whether this is the first page.
+     */
     private boolean first;
+
+    /**
+     * Whether this is the last page.
+     */
     private boolean last;
 
-    public PageResponse(List<T> content, int page, int size, long totalElements, int totalPages, boolean first, boolean last) {
+    /**
+     * Constructs a PageResponse with all fields.
+     *
+     * @param content       the content list
+     * @param page          the page number
+     * @param size          the page size
+     * @param totalElements the total elements
+     * @param totalPages    the total pages
+     * @param first         whether first page
+     * @param last          whether last page
+     */
+    public PageResponse(List<T> content, int page, int size, long totalElements,
+                        int totalPages, boolean first, boolean last)
+    {
         this.content = CollectionCopyUtils.copyList(content);
         this.page = page;
         this.size = size;
@@ -31,11 +76,24 @@ public class PageResponse<T> {
         this.last = last;
     }
 
-    public static <T> Builder<T> builder() {
+    /**
+     * Creates a new Builder instance.
+     *
+     * @param <T> the element type
+     * @return a new Builder
+     */
+    public static <T> Builder<T> builder()
+    {
         return new Builder<>();
     }
 
-    public static final class Builder<T> {
+    /**
+     * Builder class for PageResponse.
+     *
+     * @param <T> the element type
+     */
+    public static final class Builder<T>
+    {
 
         private List<T> content;
         private int page;
@@ -45,51 +103,118 @@ public class PageResponse<T> {
         private boolean first;
         private boolean last;
 
-        public Builder<T> content(List<T> content) {
+        /**
+         * Sets the content list.
+         *
+         * @param content the content
+         * @return this builder
+         */
+        public Builder<T> content(List<T> content)
+        {
             this.content = CollectionCopyUtils.copyList(content);
             return this;
         }
 
-        public Builder<T> page(int page) {
+        /**
+         * Sets the page number.
+         *
+         * @param page the page number
+         * @return this builder
+         */
+        public Builder<T> page(int page)
+        {
             this.page = page;
             return this;
         }
 
-        public Builder<T> size(int size) {
+        /**
+         * Sets the page size.
+         *
+         * @param size the page size
+         * @return this builder
+         */
+        public Builder<T> size(int size)
+        {
             this.size = size;
             return this;
         }
 
-        public Builder<T> totalElements(long totalElements) {
+        /**
+         * Sets the total elements count.
+         *
+         * @param totalElements the total elements
+         * @return this builder
+         */
+        public Builder<T> totalElements(long totalElements)
+        {
             this.totalElements = totalElements;
             return this;
         }
 
-        public Builder<T> totalPages(int totalPages) {
+        /**
+         * Sets the total pages count.
+         *
+         * @param totalPages the total pages
+         * @return this builder
+         */
+        public Builder<T> totalPages(int totalPages)
+        {
             this.totalPages = totalPages;
             return this;
         }
 
-        public Builder<T> first(boolean first) {
+        /**
+         * Sets whether this is the first page.
+         *
+         * @param first whether first page
+         * @return this builder
+         */
+        public Builder<T> first(boolean first)
+        {
             this.first = first;
             return this;
         }
 
-        public Builder<T> last(boolean last) {
+        /**
+         * Sets whether this is the last page.
+         *
+         * @param last whether last page
+         * @return this builder
+         */
+        public Builder<T> last(boolean last)
+        {
             this.last = last;
             return this;
         }
 
-        public PageResponse<T> build() {
+        /**
+         * Builds the PageResponse instance.
+         *
+         * @return the PageResponse
+         */
+        public PageResponse<T> build()
+        {
             return new PageResponse<>(content, page, size, totalElements, totalPages, first, last);
         }
     }
 
-    public List<T> getContent() {
+    /**
+     * Returns a defensive copy of the content list.
+     *
+     * @return the content list copy
+     */
+    public List<T> getContent()
+    {
         return CollectionCopyUtils.copyList(content);
     }
 
-    public void setContent(List<T> content) {
+    /**
+     * Sets the content list (defensive copy).
+     *
+     * @param content the content list
+     */
+    public void setContent(List<T> content)
+    {
         this.content = CollectionCopyUtils.copyList(content);
     }
 }
