@@ -1,5 +1,4 @@
 package com.koduck.exception;
-
 import java.io.Serial;
 
 /**

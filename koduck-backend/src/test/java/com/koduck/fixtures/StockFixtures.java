@@ -1,14 +1,13 @@
 package com.koduck.fixtures;
-
-import com.koduck.entity.StockBasic;
-import com.koduck.entity.StockRealtime;
-
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+
+import com.koduck.entity.StockBasic;
+import com.koduck.entity.StockRealtime;
 
 /**
  * 股票相关测试数据工厂。

@@ -1,13 +1,4 @@
 package com.koduck.market.application;
-
-import com.koduck.common.constants.MarketConstants;
-import com.koduck.config.CacheConfig;
-import com.koduck.dto.market.KlineDataDto;
-import com.koduck.entity.KlineData;
-import com.koduck.entity.StockRealtime;
-import com.koduck.repository.KlineDataRepository;
-import com.koduck.repository.StockRealtimeRepository;
-import com.koduck.service.KlineService;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDateTime;
@@ -18,13 +9,24 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
 import java.util.Optional;
-import lombok.extern.slf4j.Slf4j;
+
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.cache.annotation.Caching;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
+
+import com.koduck.common.constants.MarketConstants;
+import com.koduck.config.CacheConfig;
+import com.koduck.dto.market.KlineDataDto;
+import com.koduck.entity.KlineData;
+import com.koduck.entity.StockRealtime;
+import com.koduck.repository.KlineDataRepository;
+import com.koduck.repository.StockRealtimeRepository;
+import com.koduck.service.KlineService;
+
+import lombok.extern.slf4j.Slf4j;
 
 /**
  * Implementation of K-line data service.

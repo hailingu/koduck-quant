@@ -1,8 +1,8 @@
 package com.koduck.dto.strategy;
-
-import com.koduck.util.CollectionCopyUtils;
 import java.time.LocalDateTime;
 import java.util.List;
+
+import com.koduck.util.CollectionCopyUtils;
 
 /**
  * Strategy DTO.

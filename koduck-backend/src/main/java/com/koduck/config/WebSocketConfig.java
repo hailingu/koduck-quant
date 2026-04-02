@@ -1,9 +1,7 @@
 package com.koduck.config;
-
-import com.koduck.config.properties.WebSocketProperties;
 import java.util.Arrays;
-import com.koduck.security.websocket.WebSocketChannelInterceptor;
 import java.util.Objects;
+
 import org.springframework.context.annotation.Configuration;
 import org.springframework.lang.NonNull;
 import org.springframework.messaging.simp.config.ChannelRegistration;
@@ -11,6 +9,10 @@ import org.springframework.messaging.simp.config.MessageBrokerRegistry;
 import org.springframework.web.socket.config.annotation.EnableWebSocketMessageBroker;
 import org.springframework.web.socket.config.annotation.StompEndpointRegistry;
 import org.springframework.web.socket.config.annotation.WebSocketMessageBrokerConfigurer;
+
+import com.koduck.config.properties.WebSocketProperties;
+import com.koduck.security.websocket.WebSocketChannelInterceptor;
+
 /**
  * WebSocket 
  * <p> STOMP  WebSocket Broker，：</p>

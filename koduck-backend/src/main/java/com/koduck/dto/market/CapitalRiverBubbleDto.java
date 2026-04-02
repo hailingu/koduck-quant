@@ -1,9 +1,8 @@
 package com.koduck.dto.market;
+import java.math.BigDecimal;
 
 import com.fasterxml.jackson.databind.PropertyNamingStrategies;
 import com.fasterxml.jackson.databind.annotation.JsonNaming;
-
-import java.math.BigDecimal;
 
 /**
  * Bubble node for Capital River.

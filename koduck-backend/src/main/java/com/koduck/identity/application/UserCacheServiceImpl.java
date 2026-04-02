@@ -1,15 +1,16 @@
 package com.koduck.identity.application;
-
-import com.koduck.common.constants.RedisKeyConstants;
-import com.koduck.service.cache.CacheLayer;
-import com.koduck.service.UserCacheService;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.stereotype.Service;
-import org.springframework.lang.NonNull;
-
 import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
+
+import org.springframework.lang.NonNull;
+import org.springframework.stereotype.Service;
+
+import com.koduck.common.constants.RedisKeyConstants;
+import com.koduck.service.UserCacheService;
+import com.koduck.service.cache.CacheLayer;
+
+import lombok.extern.slf4j.Slf4j;
 
 /**
  * User watchlist caching service implementation using Redis.

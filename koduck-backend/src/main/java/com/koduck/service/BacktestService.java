@@ -1,10 +1,9 @@
 package com.koduck.service;
+import java.util.List;
 
 import com.koduck.dto.backtest.BacktestResultDto;
 import com.koduck.dto.backtest.BacktestTradeDto;
 import com.koduck.dto.backtest.RunBacktestRequest;
-
-import java.util.List;
 
 /**
  * Service interface for backtest operations.

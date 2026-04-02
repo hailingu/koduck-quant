@@ -1,7 +1,5 @@
 package com.koduck.dto.user;
-
 import jakarta.validation.constraints.Size;
-
 import lombok.Data;
 
 /**

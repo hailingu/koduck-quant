@@ -1,9 +1,8 @@
 package com.koduck.dto.market;
+import java.util.List;
 
 import com.fasterxml.jackson.databind.PropertyNamingStrategies;
 import com.fasterxml.jackson.databind.annotation.JsonNaming;
-
-import java.util.List;
 
 /**
  * Bottom breadth labels and distribution values for Capital River.

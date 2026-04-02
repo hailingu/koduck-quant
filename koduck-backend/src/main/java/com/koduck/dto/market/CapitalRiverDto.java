@@ -1,11 +1,10 @@
 package com.koduck.dto.market;
-
-import com.fasterxml.jackson.databind.PropertyNamingStrategies;
-import com.fasterxml.jackson.databind.annotation.JsonNaming;
-
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
+
+import com.fasterxml.jackson.databind.PropertyNamingStrategies;
+import com.fasterxml.jackson.databind.annotation.JsonNaming;
 
 /**
  * Capital River response DTO.

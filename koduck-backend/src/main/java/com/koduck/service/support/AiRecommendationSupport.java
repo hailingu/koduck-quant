@@ -1,4 +1,12 @@
 package com.koduck.service.support;
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Locale;
+import java.util.Random;
+
+import org.springframework.stereotype.Component;
 
 import com.koduck.dto.ai.BacktestInterpretResponse;
 import com.koduck.dto.ai.RiskAssessmentResponse;
@@ -7,13 +15,6 @@ import com.koduck.dto.ai.StrategyRecommendResponse;
 import com.koduck.entity.BacktestResult;
 import com.koduck.entity.PortfolioPosition;
 import com.koduck.entity.Strategy;
-import java.math.BigDecimal;
-import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Locale;
-import java.util.Random;
-import org.springframework.stereotype.Component;
 
 /**
  * AI推荐和解释载荷生成的支持组件。

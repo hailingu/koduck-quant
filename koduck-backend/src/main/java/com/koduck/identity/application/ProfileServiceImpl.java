@@ -1,9 +1,9 @@
 package com.koduck.identity.application;
+import org.springframework.stereotype.Service;
 
 import com.koduck.dto.profile.ProfileDTO;
 import com.koduck.dto.profile.UpdateProfileDTO;
 import com.koduck.service.ProfileService;
-import org.springframework.stereotype.Service;
 
 /**
  * Profile management service implementation.

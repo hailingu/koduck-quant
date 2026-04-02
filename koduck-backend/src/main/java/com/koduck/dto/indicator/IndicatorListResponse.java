@@ -1,5 +1,4 @@
 package com.koduck.dto.indicator;
-
 import java.util.List;
 
 import com.koduck.util.CollectionCopyUtils;

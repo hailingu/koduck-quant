@@ -1,5 +1,4 @@
 package com.koduck.dto.community;
-
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 import lombok.AllArgsConstructor;

@@ -1,5 +1,4 @@
 package com.koduck.dto.indicator;
-
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.Map;

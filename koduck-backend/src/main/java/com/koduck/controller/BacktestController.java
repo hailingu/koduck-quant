@@ -1,23 +1,6 @@
 package com.koduck.controller;
-
-import com.koduck.controller.support.AuthenticatedUserResolver;
-import com.koduck.dto.ApiResponse;
-import com.koduck.dto.backtest.BacktestResultDto;
-import com.koduck.dto.backtest.BacktestTradeDto;
-import com.koduck.dto.backtest.RunBacktestRequest;
-import com.koduck.security.UserPrincipal;
-import com.koduck.service.BacktestService;
-import io.swagger.v3.oas.annotations.Operation;
-import io.swagger.v3.oas.annotations.Parameter;
-import io.swagger.v3.oas.annotations.media.Content;
-import io.swagger.v3.oas.annotations.media.Schema;
-import io.swagger.v3.oas.annotations.responses.ApiResponses;
-import io.swagger.v3.oas.annotations.security.SecurityRequirement;
-import io.swagger.v3.oas.annotations.tags.Tag;
-import jakarta.validation.Valid;
 import java.util.List;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
+
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -27,6 +10,25 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+
+import com.koduck.controller.support.AuthenticatedUserResolver;
+import com.koduck.dto.ApiResponse;
+import com.koduck.dto.backtest.BacktestResultDto;
+import com.koduck.dto.backtest.BacktestTradeDto;
+import com.koduck.dto.backtest.RunBacktestRequest;
+import com.koduck.security.UserPrincipal;
+import com.koduck.service.BacktestService;
+
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 /**
  * REST API controller for backtest operations.

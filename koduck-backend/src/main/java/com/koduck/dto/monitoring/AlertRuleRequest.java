@@ -1,5 +1,4 @@
 package com.koduck.dto.monitoring;
-
 import java.math.BigDecimal;
 
 /**

@@ -1,4 +1,9 @@
 package com.koduck.service.market.support;
+import java.time.Instant;
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 
 import com.koduck.dto.market.PriceQuoteDto;
 import com.koduck.dto.market.StockIndustryDto;
@@ -8,11 +13,6 @@ import com.koduck.market.MarketType;
 import com.koduck.market.model.KlineData;
 import com.koduck.market.provider.MarketDataProvider;
 import com.koduck.market.util.DataConverter;
-import java.time.Instant;
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
 
 /**
  * Mapping helpers for AKShare payload conversion.

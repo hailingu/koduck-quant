@@ -1,5 +1,4 @@
 package com.koduck.dto.market;
-
 import lombok.Data;
 import lombok.NoArgsConstructor;
 

@@ -1,4 +1,11 @@
 package com.koduck.service.support;
+import java.util.List;
+import java.util.Locale;
+import java.util.Optional;
+import java.util.Set;
+
+import org.springframework.core.env.Environment;
+import org.springframework.stereotype.Component;
 
 import com.koduck.dto.settings.UpdateSettingsRequest;
 import com.koduck.dto.settings.UserSettingsDto;
@@ -6,14 +13,9 @@ import com.koduck.entity.UserCredential;
 import com.koduck.entity.UserSettings;
 import com.koduck.repository.CredentialRepository;
 import com.koduck.util.CredentialEncryptionUtil;
-import java.util.List;
-import java.util.Locale;
-import java.util.Optional;
-import java.util.Set;
+
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.core.env.Environment;
-import org.springframework.stereotype.Component;
 
 /**
  * 封装用户设置中的 LLM 配置合并与解析逻辑。

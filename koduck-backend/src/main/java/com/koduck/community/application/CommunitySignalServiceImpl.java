@@ -1,13 +1,4 @@
 package com.koduck.community.application;
-
-import com.koduck.dto.community.*;
-import com.koduck.entity.*;
-import com.koduck.exception.BusinessException;
-import com.koduck.exception.ErrorCode;
-import com.koduck.exception.ResourceNotFoundException;
-import com.koduck.repository.*;
-import com.koduck.service.CommunitySignalService;
-import com.koduck.service.support.CommunitySignalResponseAssembler;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
@@ -19,8 +10,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
+
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -28,6 +18,17 @@ import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.koduck.dto.community.*;
+import com.koduck.entity.*;
+import com.koduck.exception.BusinessException;
+import com.koduck.exception.ErrorCode;
+import com.koduck.exception.ResourceNotFoundException;
+import com.koduck.repository.*;
+import com.koduck.service.CommunitySignalService;
+import com.koduck.service.support.CommunitySignalResponseAssembler;
+
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import static com.koduck.util.ServiceValidationUtils.assertOwner;
 import static com.koduck.util.ServiceValidationUtils.requireFound;
 

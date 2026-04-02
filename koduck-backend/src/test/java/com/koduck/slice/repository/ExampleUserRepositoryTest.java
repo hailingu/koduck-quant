@@ -1,14 +1,15 @@
 package com.koduck.slice.repository;
-
-import static org.assertj.core.api.Assertions.assertThat;
-
-import com.koduck.config.TestDataFactory;
 import java.util.HashMap;
 import java.util.Map;
+
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+
+import com.koduck.config.TestDataFactory;
+
+import static org.assertj.core.api.Assertions.assertThat;
 
 /**
  * Repository 切片测试示例（纯示例，不纳入默认 CI）

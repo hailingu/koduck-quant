@@ -1,13 +1,4 @@
 package com.koduck.service.support;
-
-import com.koduck.common.constants.MarketConstants;
-import com.koduck.dto.ai.ChatMessageRequest;
-import com.koduck.dto.ai.ChatStreamRequest;
-import com.koduck.dto.indicator.IndicatorResponse;
-import com.koduck.entity.MemoryChatMessage;
-import com.koduck.entity.UserMemoryProfile;
-import com.koduck.service.MemoryService;
-import com.koduck.service.TechnicalIndicatorService;
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
@@ -18,9 +9,20 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+
+import org.springframework.stereotype.Component;
+
+import com.koduck.common.constants.MarketConstants;
+import com.koduck.dto.ai.ChatMessageRequest;
+import com.koduck.dto.ai.ChatStreamRequest;
+import com.koduck.dto.indicator.IndicatorResponse;
+import com.koduck.entity.MemoryChatMessage;
+import com.koduck.entity.UserMemoryProfile;
+import com.koduck.service.MemoryService;
+import com.koduck.service.TechnicalIndicatorService;
+
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.stereotype.Component;
 
 /**
  * Support component for chat memory/context enrichment.

@@ -1,4 +1,6 @@
 package com.koduck.service;
+import java.math.BigDecimal;
+import java.util.List;
 
 import com.koduck.dto.community.CommentResponse;
 import com.koduck.dto.community.CreateCommentRequest;
@@ -8,8 +10,6 @@ import com.koduck.dto.community.SignalResponse;
 import com.koduck.dto.community.SignalSubscriptionResponse;
 import com.koduck.dto.community.UpdateSignalRequest;
 import com.koduck.dto.community.UserSignalStatsResponse;
-import java.math.BigDecimal;
-import java.util.List;
 
 /**
  * 社区信号服务接口。

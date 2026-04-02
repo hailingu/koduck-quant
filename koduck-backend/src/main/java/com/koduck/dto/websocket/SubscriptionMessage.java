@@ -1,14 +1,13 @@
 package com.koduck.dto.websocket;
+import java.util.List;
+import java.util.Map;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 
-import lombok.Data;
-import lombok.NoArgsConstructor;
-
 import com.koduck.util.CollectionCopyUtils;
 
-import java.util.List;
-import java.util.Map;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 
 /**
  * WebSocket 订阅消息 DTO。

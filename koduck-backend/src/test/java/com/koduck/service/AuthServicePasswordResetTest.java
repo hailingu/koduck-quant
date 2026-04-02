@@ -1,20 +1,11 @@
 package com.koduck.service;
-
-import com.koduck.config.properties.MailProperties;
-import com.koduck.dto.auth.ForgotPasswordRequest;
-import com.koduck.dto.auth.ResetPasswordRequest;
-import com.koduck.entity.PasswordResetToken;
-import com.koduck.entity.User;
-import com.koduck.exception.BusinessException;
-import com.koduck.exception.ErrorCode;
-import com.koduck.repository.*;
-import com.koduck.identity.application.AuthServiceImpl;
-import com.koduck.service.support.DefaultUserRoleResolver;
-import com.koduck.service.support.UserRolesTableChecker;
-import com.koduck.util.JwtUtil;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.time.LocalDateTime;
+import java.util.Base64;
+import java.util.Optional;
+
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -23,9 +14,18 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
-import java.time.LocalDateTime;
-import java.util.Base64;
-import java.util.Optional;
+import com.koduck.config.properties.MailProperties;
+import com.koduck.dto.auth.ForgotPasswordRequest;
+import com.koduck.dto.auth.ResetPasswordRequest;
+import com.koduck.entity.PasswordResetToken;
+import com.koduck.entity.User;
+import com.koduck.exception.BusinessException;
+import com.koduck.exception.ErrorCode;
+import com.koduck.identity.application.AuthServiceImpl;
+import com.koduck.repository.*;
+import com.koduck.service.support.DefaultUserRoleResolver;
+import com.koduck.service.support.UserRolesTableChecker;
+import com.koduck.util.JwtUtil;
 
 import static org.assertj.core.api.Assertions.*;
 import static org.mockito.Mockito.*;

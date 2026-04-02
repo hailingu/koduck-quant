@@ -1,7 +1,15 @@
 package com.koduck.controller;
+import java.math.BigDecimal;
+import java.util.List;
 
-import com.koduck.common.constants.ApiStatusCodeConstants;
+import org.springframework.validation.annotation.Validated;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
+
 import com.koduck.common.constants.ApiMessageConstants;
+import com.koduck.common.constants.ApiStatusCodeConstants;
 import com.koduck.common.constants.MarketConstants;
 import com.koduck.common.constants.PaginationConstants;
 import com.koduck.dto.ApiResponse;
@@ -9,6 +17,7 @@ import com.koduck.dto.market.KlineDataDto;
 import com.koduck.dto.market.SymbolInfoDto;
 import com.koduck.service.KlineService;
 import com.koduck.service.MarketService;
+
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -19,15 +28,8 @@ import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
-import java.math.BigDecimal;
-import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.validation.annotation.Validated;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
 
 /**
  * A-Share market data controller.

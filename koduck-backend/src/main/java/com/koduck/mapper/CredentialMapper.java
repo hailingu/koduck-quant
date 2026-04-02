@@ -1,12 +1,12 @@
 package com.koduck.mapper;
+import org.mapstruct.Mapper;
+import org.mapstruct.Mapping;
 
 import com.koduck.dto.credential.CredentialAuditLogResponse;
 import com.koduck.dto.credential.CredentialDetailResponse;
 import com.koduck.dto.credential.CredentialResponse;
 import com.koduck.entity.CredentialAuditLog;
 import com.koduck.entity.UserCredential;
-import org.mapstruct.Mapper;
-import org.mapstruct.Mapping;
 
 /**
  * Mapper for credential-related response objects.

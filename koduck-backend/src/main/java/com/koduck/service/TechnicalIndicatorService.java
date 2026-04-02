@@ -1,5 +1,4 @@
 package com.koduck.service;
-
 import com.koduck.dto.indicator.IndicatorListResponse;
 import com.koduck.dto.indicator.IndicatorResponse;
 

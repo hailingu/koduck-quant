@@ -1,5 +1,4 @@
 package com.koduck.dto.market;
-
 import java.math.BigDecimal;
 import java.time.Instant;
 

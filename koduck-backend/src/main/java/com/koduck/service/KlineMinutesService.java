@@ -1,8 +1,7 @@
 package com.koduck.service;
+import java.util.List;
 
 import com.koduck.dto.market.KlineDataDto;
-
-import java.util.List;
 
 /**
  * Service interface for minute-level K-line data.

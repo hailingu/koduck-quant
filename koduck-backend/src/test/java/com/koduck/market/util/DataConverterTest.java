@@ -1,13 +1,13 @@
 package com.koduck.market.util;
-
-import com.koduck.market.model.KlineData;
-import com.koduck.market.model.TickData;
-import org.junit.jupiter.api.Test;
-
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.Arrays;
 import java.util.List;
+
+import org.junit.jupiter.api.Test;
+
+import com.koduck.market.model.KlineData;
+import com.koduck.market.model.TickData;
 
 import static org.junit.jupiter.api.Assertions.*;
 

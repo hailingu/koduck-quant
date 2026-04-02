@@ -1,15 +1,13 @@
 package com.koduck.dto.ai;
-
-import jakarta.validation.Valid;
-import jakarta.validation.constraints.NotEmpty;
-
 import java.util.List;
 import java.util.Map;
 
+import com.koduck.util.CollectionCopyUtils;
+
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotEmpty;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-
-import com.koduck.util.CollectionCopyUtils;
 
 /**
  * AI 对话流请求 DTO。

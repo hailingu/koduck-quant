@@ -1,12 +1,12 @@
 package com.koduck.entity;
+import java.time.LocalDateTime;
+
+import org.hibernate.annotations.CreationTimestamp;
 
 import jakarta.persistence.*;
 import lombok.*;
-import lombok.Setter;
 import lombok.AccessLevel;
-import org.hibernate.annotations.CreationTimestamp;
-
-import java.time.LocalDateTime;
+import lombok.Setter;
 
 /**
  * （，userId ）

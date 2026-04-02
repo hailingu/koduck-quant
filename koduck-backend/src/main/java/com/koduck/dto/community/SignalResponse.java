@@ -1,12 +1,14 @@
 package com.koduck.dto.community;
-
-import com.fasterxml.jackson.annotation.JsonFormat;
-import com.fasterxml.jackson.annotation.JsonProperty;
-import com.koduck.common.constants.DateTimePatternConstants;
-import com.koduck.util.CollectionCopyUtils;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
+
+import com.fasterxml.jackson.annotation.JsonFormat;
+import com.fasterxml.jackson.annotation.JsonProperty;
+
+import com.koduck.common.constants.DateTimePatternConstants;
+import com.koduck.util.CollectionCopyUtils;
+
 import lombok.Data;
 import lombok.NoArgsConstructor;
 

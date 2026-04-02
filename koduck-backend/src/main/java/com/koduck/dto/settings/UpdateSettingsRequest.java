@@ -1,11 +1,9 @@
 package com.koduck.dto.settings;
-
 import java.util.List;
 
 import jakarta.validation.Valid;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-
 
 /**
  * 用户设置更新请求 DTO。

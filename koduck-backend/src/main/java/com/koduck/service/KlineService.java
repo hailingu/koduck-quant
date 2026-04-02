@@ -1,11 +1,10 @@
 package com.koduck.service;
-
-import com.koduck.dto.market.KlineDataDto;
-import com.koduck.entity.KlineData;
-
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.Optional;
+
+import com.koduck.dto.market.KlineDataDto;
+import com.koduck.entity.KlineData;
 
 /**
  * Service interface for K-line data operations.

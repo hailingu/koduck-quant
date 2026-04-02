@@ -1,5 +1,4 @@
 package com.koduck.common.constants;
-
 import org.springframework.lang.NonNull;
 
 /**

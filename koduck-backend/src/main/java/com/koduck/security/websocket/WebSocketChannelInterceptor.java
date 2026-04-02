@@ -1,14 +1,10 @@
 package com.koduck.security.websocket;
-
-import com.koduck.common.constants.HttpHeaderConstants;
-import com.koduck.config.JwtConfig;
-import com.koduck.util.JwtUtil;
 import java.io.Serial;
 import java.security.Principal;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Objects;
-import lombok.extern.slf4j.Slf4j;
+
 import org.springframework.lang.NonNull;
 import org.springframework.messaging.Message;
 import org.springframework.messaging.MessageChannel;
@@ -22,6 +18,12 @@ import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
+
+import com.koduck.common.constants.HttpHeaderConstants;
+import com.koduck.config.JwtConfig;
+import com.koduck.util.JwtUtil;
+
+import lombok.extern.slf4j.Slf4j;
 
 /**
  * Intercepts STOMP channel traffic and performs JWT authentication on CONNECT.

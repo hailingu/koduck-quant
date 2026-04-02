@@ -1,4 +1,16 @@
 package com.koduck.config;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Optional;
+
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.CommandLineRunner;
+import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
 
 import com.koduck.common.constants.RoleConstants;
 import com.koduck.entity.Role;
@@ -10,21 +22,11 @@ import com.koduck.repository.UserRepository;
 import com.koduck.repository.UserRoleRepository;
 import com.koduck.service.support.UserRolesTableChecker;
 import com.koduck.util.CredentialEncryptionUtil;
+import com.koduck.util.ReservedUsernameValidator;
+
 import jakarta.annotation.PostConstruct;
-import java.util.Locale;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.boot.CommandLineRunner;
-import org.springframework.dao.DataIntegrityViolationException;
-import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.stereotype.Component;
-import org.springframework.transaction.annotation.Transactional;
-import org.springframework.util.StringUtils;
-import com.koduck.util.ReservedUsernameValidator;
 
 /**
  * Data initializer - creates a demo user when the application starts.

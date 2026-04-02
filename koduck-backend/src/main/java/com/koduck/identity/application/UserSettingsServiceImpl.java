@@ -1,4 +1,9 @@
 package com.koduck.identity.application;
+import java.util.List;
+import java.util.Objects;
+
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import com.koduck.dto.settings.UpdateNotificationRequest;
 import com.koduck.dto.settings.UpdateSettingsRequest;
@@ -8,12 +13,9 @@ import com.koduck.mapper.UserSettingsMapper;
 import com.koduck.repository.UserSettingsRepository;
 import com.koduck.service.UserSettingsService;
 import com.koduck.service.support.UserSettingsLlmConfigSupport;
-import java.util.List;
-import java.util.Objects;
+
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 /**
  * 用户设置服务实现类。

@@ -1,11 +1,11 @@
 package com.koduck.mapper;
+import java.util.Map;
 
-import com.koduck.dto.market.KlineDataDto;
-import com.koduck.market.util.MarketFieldParser;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 
-import java.util.Map;
+import com.koduck.dto.market.KlineDataDto;
+import com.koduck.market.util.MarketFieldParser;
 
 /**
  * Mapper for converting map payloads to KlineDataDto.

@@ -1,11 +1,10 @@
 package com.koduck.service;
+import java.util.List;
+import java.util.Map;
 
 import com.koduck.entity.MemoryChatMessage;
 import com.koduck.entity.MemoryChatSession;
 import com.koduck.entity.UserMemoryProfile;
-
-import java.util.List;
-import java.util.Map;
 
 public interface MemoryService {
 

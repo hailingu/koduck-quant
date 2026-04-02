@@ -1,4 +1,9 @@
 package com.koduck.market.application;
+import java.util.Objects;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+
+import org.springframework.stereotype.Service;
 
 import com.koduck.dto.market.RealtimePriceEventMessage;
 import com.koduck.dto.market.TickDto;
@@ -7,12 +12,9 @@ import com.koduck.service.PricePushService;
 import com.koduck.service.StockSubscriptionService;
 import com.koduck.service.SyntheticTickService;
 import com.koduck.service.TickStreamService;
-import java.util.Objects;
-import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
 import com.koduck.util.SymbolUtils;
+
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.stereotype.Service;
 
 /**
  * Pushes subscribed stock price updates to websocket subscribers.

@@ -1,12 +1,11 @@
 package com.koduck.market.provider;
+import java.time.Instant;
+import java.util.List;
+import java.util.Optional;
 
 import com.koduck.market.MarketType;
 import com.koduck.market.model.KlineData;
 import com.koduck.market.model.TickData;
-
-import java.time.Instant;
-import java.util.List;
-import java.util.Optional;
 
 /**
  * Interface for market data providers.

@@ -1,17 +1,17 @@
 package com.koduck.entity;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
 
-import jakarta.persistence.*;
-import lombok.AllArgsConstructor;
-import lombok.Setter;
-import lombok.AccessLevel;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 
-import java.time.LocalDate;
-import java.time.LocalDateTime;
+import jakarta.persistence.*;
+import lombok.AccessLevel;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 
 /**
  * Daily market breadth aggregate entity.

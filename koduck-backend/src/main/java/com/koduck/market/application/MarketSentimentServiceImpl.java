@@ -1,4 +1,9 @@
 package com.koduck.market.application;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
+import java.util.List;
+
+import org.springframework.stereotype.Service;
 
 import com.koduck.common.constants.MarketConstants;
 import com.koduck.dto.market.MarketSentimentDto;
@@ -7,11 +12,8 @@ import com.koduck.market.model.KlineData;
 import com.koduck.market.provider.MarketDataProvider;
 import com.koduck.market.provider.ProviderFactory;
 import com.koduck.service.MarketSentimentService;
-import java.time.Instant;
-import java.time.temporal.ChronoUnit;
-import java.util.List;
+
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.stereotype.Service;
 
 /**
  * Market sentiment analysis service implementation.

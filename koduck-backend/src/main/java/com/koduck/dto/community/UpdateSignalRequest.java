@@ -1,12 +1,12 @@
 package com.koduck.dto.community;
+import java.math.BigDecimal;
+import java.util.List;
 
 import com.koduck.util.CollectionCopyUtils;
+
 import jakarta.validation.constraints.*;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-
-import java.math.BigDecimal;
-import java.util.List;
 
 /**
  *  DTO

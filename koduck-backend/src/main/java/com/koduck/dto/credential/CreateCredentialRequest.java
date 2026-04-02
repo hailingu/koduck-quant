@@ -1,12 +1,10 @@
 package com.koduck.dto.credential;
-
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-
 
 /**
  * 创建凭证请求 DTO。
