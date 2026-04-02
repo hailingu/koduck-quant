@@ -4,6 +4,15 @@ import java.math.BigDecimal;
 
 /**
  * K-line (candlestick) data DTO.
+ *
+ * @param timestamp the timestamp
+ * @param open the open price
+ * @param high the high price
+ * @param low the low price
+ * @param close the close price
+ * @param volume the volume
+ * @param amount the amount
+ * @author Koduck Team
  */
 public record KlineDataDto(
     Long timestamp,
@@ -20,12 +29,19 @@ public record KlineDataDto(
     }
     
     public static class Builder {
+        /** Timestamp. */
         private Long timestamp;
+        /** Open price. */
         private BigDecimal open;
+        /** High price. */
         private BigDecimal high;
+        /** Low price. */
         private BigDecimal low;
+        /** Close price. */
         private BigDecimal close;
+        /** Volume. */
         private Long volume;
+        /** Amount. */
         private BigDecimal amount;
         
         public Builder timestamp(Long timestamp) {

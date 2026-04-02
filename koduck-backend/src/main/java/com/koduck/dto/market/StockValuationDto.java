@@ -1,11 +1,25 @@
 package com.koduck.dto.market;
 
+import java.math.BigDecimal;
+
 import com.fasterxml.jackson.databind.PropertyNamingStrategies;
 import com.fasterxml.jackson.databind.annotation.JsonNaming;
-import java.math.BigDecimal;
 
 /**
  * Stock valuation metrics DTO.
+ *
+ * @param symbol the symbol
+ * @param name the name
+ * @param peTtm the PE TTM
+ * @param pb the PB
+ * @param psTtm the PS TTM
+ * @param marketCap the market cap
+ * @param floatMarketCap the float market cap
+ * @param totalShares the total shares
+ * @param floatShares the float shares
+ * @param floatRatio the float ratio
+ * @param turnoverRate the turnover rate
+ * @author koduck
  */
 @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
 public record StockValuationDto(
@@ -32,16 +46,27 @@ public record StockValuationDto(
     }
 
     public static class Builder {
+        /** Symbol. */
         private String symbol;
+        /** Name. */
         private String name;
+        /** PE TTM. */
         private BigDecimal peTtm;
+        /** PB. */
         private BigDecimal pb;
+        /** PS TTM. */
         private BigDecimal psTtm;
+        /** Market cap. */
         private BigDecimal marketCap;
+        /** Float market cap. */
         private BigDecimal floatMarketCap;
+        /** Total shares. */
         private BigDecimal totalShares;
+        /** Float shares. */
         private BigDecimal floatShares;
+        /** Float ratio. */
         private BigDecimal floatRatio;
+        /** Turnover rate. */
         private BigDecimal turnoverRate;
 
         public Builder symbol(String symbol) {

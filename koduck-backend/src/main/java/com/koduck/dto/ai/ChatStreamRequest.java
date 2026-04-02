@@ -1,15 +1,14 @@
 package com.koduck.dto.ai;
 
-import jakarta.validation.Valid;
-import jakarta.validation.constraints.NotEmpty;
-
 import java.util.List;
 import java.util.Map;
 
+import com.koduck.util.CollectionCopyUtils;
+
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotEmpty;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-
-import com.koduck.util.CollectionCopyUtils;
 
 /**
  * AI 对话流请求 DTO。
@@ -117,14 +116,23 @@ public class ChatStreamRequest {
      */
     public static final class Builder {
 
+        /** 提供商，默认 minimax。 */
         private String provider = "minimax";
+        /** 可选模型名称，为空时使用提供商默认模型。 */
         private String model;
+        /** API密钥。 */
         private String apiKey;
+        /** API基础地址。 */
         private String apiBase;
+        /** 会话ID，用于记忆检索和写回。 */
         private String sessionId;
+        /** 运行时角色ID（如 general/architect/coder/reviewer/analyst）。 */
         private String role = "general";
+        /** 可选运行时选项，传递给 koduck-agent。 */
         private Map<String, Object> runtime;
+        /** 保持向后兼容：为true时后端注入无工具守护提示词。 */
         private Boolean disableToolCalls = false;
+        /** 消息列表。 */
         private List<ChatMessageRequest> messages;
 
         /**

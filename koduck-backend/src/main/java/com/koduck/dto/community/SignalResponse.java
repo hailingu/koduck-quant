@@ -1,12 +1,15 @@
 package com.koduck.dto.community;
 
-import com.fasterxml.jackson.annotation.JsonFormat;
-import com.fasterxml.jackson.annotation.JsonProperty;
-import com.koduck.common.constants.DateTimePatternConstants;
-import com.koduck.util.CollectionCopyUtils;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
+
+import com.fasterxml.jackson.annotation.JsonFormat;
+import com.fasterxml.jackson.annotation.JsonProperty;
+
+import com.koduck.common.constants.DateTimePatternConstants;
+import com.koduck.util.CollectionCopyUtils;
+
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
@@ -182,34 +185,63 @@ public class SignalResponse {
      */
     public static final class Builder {
 
+        /** Signal ID. */
         private Long id;
+        /** User ID. */
         private Long userId;
+        /** Username. */
         private String username;
+        /** Avatar URL. */
         private String avatarUrl;
+        /** Strategy ID. */
         private Long strategyId;
+        /** Strategy name. */
         private String strategyName;
+        /** Stock symbol. */
         private String symbol;
+        /** Signal type. */
         private String signalType;
+        /** Signal reason. */
         private String reason;
+        /** Target price. */
         private BigDecimal targetPrice;
+        /** Stop loss price. */
         private BigDecimal stopLoss;
+        /** Time frame for the signal. */
         private String signalTimeFrame;
+        /** Confidence level (0-100). */
         private Integer confidence;
+        /** Signal status. */
         private String status;
+        /** Result status. */
         private String resultStatus;
+        /** Result profit. */
         private BigDecimal resultProfit;
+        /** Expiration time. */
         private LocalDateTime expiresAt;
+        /** Like count. */
         private Integer likeCount;
+        /** Favorite count. */
         private Integer favoriteCount;
+        /** Subscribe count. */
         private Integer subscribeCount;
+        /** Comment count. */
         private Integer commentCount;
+        /** View count. */
         private Integer viewCount;
+        /** Whether the signal is featured. */
         private Boolean isFeatured;
+        /** List of tags. */
         private List<String> tags;
+        /** Whether the current user has liked this signal. */
         private Boolean isLiked;
+        /** Whether the current user has favorited this signal. */
         private Boolean isFavorited;
+        /** Whether the current user has subscribed to this signal. */
         private Boolean isSubscribed;
+        /** Creation time. */
         private LocalDateTime createdAt;
+        /** Last update time. */
         private LocalDateTime updatedAt;
 
         /**

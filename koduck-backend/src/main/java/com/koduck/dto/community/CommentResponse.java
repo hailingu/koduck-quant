@@ -1,37 +1,53 @@
 package com.koduck.dto.community;
 
-import com.fasterxml.jackson.annotation.JsonFormat;
-import com.koduck.common.constants.DateTimePatternConstants;
-import com.koduck.util.CollectionCopyUtils;
-import lombok.Data;
-import lombok.NoArgsConstructor;
-
 import java.time.LocalDateTime;
 import java.util.List;
 
+import com.fasterxml.jackson.annotation.JsonFormat;
+
+import com.koduck.common.constants.DateTimePatternConstants;
+import com.koduck.util.CollectionCopyUtils;
+
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
 /**
- *  DTO
+ * Comment response DTO.
+ *
+ * @author Koduck Team
  */
 @Data
 @NoArgsConstructor
 public class CommentResponse {
 
+    /** Comment ID. */
     private Long id;
+    /** Signal ID. */
     private Long signalId;
+    /** User ID. */
     private Long userId;
+    /** Username. */
     private String username;
+    /** Avatar URL. */
     private String avatarUrl;
+    /** Parent comment ID. */
     private Long parentId;
 
+    /** Comment content. */
     private String content;
+    /** Like count. */
     private Integer likeCount;
+    /** Deleted flag. */
     private Boolean isDeleted;
 
+    /** Reply comments list. */
     private List<CommentResponse> replies;
 
+    /** Created time. */
     @JsonFormat(pattern = DateTimePatternConstants.STANDARD_DATE_TIME_PATTERN)
     private LocalDateTime createdAt;
 
+    /** Updated time. */
     @JsonFormat(pattern = DateTimePatternConstants.STANDARD_DATE_TIME_PATTERN)
     private LocalDateTime updatedAt;
 
@@ -49,17 +65,29 @@ public class CommentResponse {
 
     public static final class Builder {
 
+        /** Comment ID. */
         private Long id;
+        /** Signal ID. */
         private Long signalId;
+        /** User ID. */
         private Long userId;
+        /** Username. */
         private String username;
+        /** Avatar URL. */
         private String avatarUrl;
+        /** Parent comment ID. */
         private Long parentId;
+        /** Comment content. */
         private String content;
+        /** Like count. */
         private Integer likeCount;
+        /** Deleted flag. */
         private Boolean isDeleted;
+        /** Reply comments list. */
         private List<CommentResponse> replies;
+        /** Created time. */
         private LocalDateTime createdAt;
+        /** Updated time. */
         private LocalDateTime updatedAt;
 
         public Builder id(Long id) {
