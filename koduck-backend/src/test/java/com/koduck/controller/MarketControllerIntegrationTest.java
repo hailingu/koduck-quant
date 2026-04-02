@@ -1,17 +1,13 @@
 package com.koduck.controller;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.koduck.AbstractIntegrationTest;
-import com.koduck.dto.ApiResponse;
-import com.koduck.dto.market.KlineDataDto;
-import com.koduck.dto.market.MarketIndexDto;
-import com.koduck.dto.market.PriceQuoteDto;
-import com.koduck.dto.market.StockIndustryDto;
-import com.koduck.dto.market.SymbolInfoDto;
-import com.koduck.entity.StockBasic;
-import com.koduck.entity.StockRealtime;
-import com.koduck.repository.StockBasicRepository;
-import com.koduck.repository.StockRealtimeRepository;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
+import java.math.BigDecimal;
+import java.util.List;
+
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -20,34 +16,77 @@ import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMock
 import org.springframework.http.MediaType;
 import org.springframework.test.context.TestConstructor;
 import org.springframework.test.web.servlet.MockMvc;
-import org.springframework.test.web.servlet.MvcResult;
 
-import java.math.BigDecimal;
-import java.time.LocalDateTime;
-import java.util.List;
-import java.util.Map;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import com.koduck.AbstractIntegrationTest;
+import com.koduck.entity.StockBasic;
+import com.koduck.entity.StockRealtime;
+import com.koduck.repository.StockBasicRepository;
+import com.koduck.repository.StockRealtimeRepository;
+
+
 
 /**
  * Integration tests for {@link MarketController}.
- * <p>Tests market data endpoints including symbol search, stock details, 
+ * <p>Tests market data endpoints including symbol search, stock details,
  * market indices, and batch operations.</p>
  *
- * @author GitHub Copilot
- * @date 2026-04-01
+ * @author Koduck Team
  */
 @AutoConfigureMockMvc
 @TestConstructor(autowireMode = TestConstructor.AutowireMode.ALL)
 class MarketControllerIntegrationTest extends AbstractIntegrationTest {
 
+    /** HTTP status code: Bad Request (400). */
+    private static final int HTTP_BAD_REQUEST = 400;
+
+    /** HTTP status code: Not Found (404). */
+    private static final int HTTP_NOT_FOUND = 404;
+
+    /** HTTP status code: Created (201). */
+    private static final int HTTP_CREATED = 201;
+
+    /** Maximum keyword length for search validation. */
+    private static final int MAX_KEYWORD_LENGTH = 51;
+
+    /** Maximum batch size for industry request. */
+    private static final int MAX_BATCH_SIZE = 201;
+
+    /** Test stock price for 平安银行. */
+    private static final BigDecimal PRICE_PINGAN = new BigDecimal("12.50");
+
+    /** Test stock change percent for 平安银行. */
+    private static final BigDecimal CHANGE_PERCENT_PINGAN = new BigDecimal("0.81");
+
+    /** Test stock volume for 平安银行. */
+    private static final long VOLUME_PINGAN = 1000000L;
+
+    /** Test stock price for 万科A. */
+    private static final BigDecimal PRICE_VANKE = new BigDecimal("15.60");
+
+    /** Test stock open price for 万科A. */
+    private static final BigDecimal OPEN_PRICE_VANKE = new BigDecimal("15.40");
+
+    /** Test stock high price for 万科A. */
+    private static final BigDecimal HIGH_PRICE_VANKE = new BigDecimal("15.80");
+
+    /** Test stock low price for 万科A. */
+    private static final BigDecimal LOW_PRICE_VANKE = new BigDecimal("15.30");
+
+    /** Test stock volume for 万科A. */
+    private static final long VOLUME_VANKE = 500000L;
+
+    /** MockMvc for performing HTTP requests. */
     private final MockMvc mockMvc;
+
+    /** ObjectMapper for JSON serialization/deserialization. */
     private final ObjectMapper objectMapper;
+
+    /** Repository for StockBasic entities. */
     private final StockBasicRepository stockBasicRepository;
+
+    /** Repository for StockRealtime entities. */
     private final StockRealtimeRepository stockRealtimeRepository;
 
     @Autowired
@@ -115,19 +154,19 @@ class MarketControllerIntegrationTest extends AbstractIntegrationTest {
                         .param("page", "1")
                         .param("size", "20"))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.code").value(400));
+                .andExpect(jsonPath("$.code").value(HTTP_BAD_REQUEST));
     }
 
     @Test
     @DisplayName("搜索股票-参数验证失败-关键词过长")
     void searchSymbolsValidationLongKeyword() throws Exception {
-        String longKeyword = "a".repeat(51);
+        String longKeyword = "a".repeat(MAX_KEYWORD_LENGTH);
         mockMvc.perform(get("/api/v1/market/search")
                         .param("keyword", longKeyword)
                         .param("page", "1")
                         .param("size", "20"))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.code").value(400));
+                .andExpect(jsonPath("$.code").value(HTTP_BAD_REQUEST));
     }
 
     // ==================== Stock Detail Tests ====================
@@ -140,15 +179,15 @@ class MarketControllerIntegrationTest extends AbstractIntegrationTest {
                 .symbol("000001")
                 .name("平安银行")
                 .type("STOCK")
-                .price(new BigDecimal("12.50"))
+                .price(PRICE_PINGAN)
                 .openPrice(new BigDecimal("12.30"))
                 .high(new BigDecimal("12.80"))
                 .low(new BigDecimal("12.20"))
                 .prevClose(new BigDecimal("12.40"))
-                .volume(1000000L)
+                .volume(VOLUME_PINGAN)
                 .amount(new BigDecimal("12500000"))
                 .changeAmount(new BigDecimal("0.10"))
-                .changePercent(new BigDecimal("0.81"))
+                .changePercent(CHANGE_PERCENT_PINGAN)
                 .build();
         stockRealtimeRepository.save(stockRealtime);
 
@@ -157,8 +196,8 @@ class MarketControllerIntegrationTest extends AbstractIntegrationTest {
                 .andExpect(jsonPath("$.code").value(0))
                 .andExpect(jsonPath("$.data.symbol").value("000001"))
                 .andExpect(jsonPath("$.data.name").value("平安银行"))
-                .andExpect(jsonPath("$.data.price").value(12.50))
-                .andExpect(jsonPath("$.data.changePercent").value(0.81));
+                .andExpect(jsonPath("$.data.price").value(PRICE_PINGAN.doubleValue()))
+                .andExpect(jsonPath("$.data.changePercent").value(CHANGE_PERCENT_PINGAN.doubleValue()));
     }
 
     @Test
@@ -166,7 +205,7 @@ class MarketControllerIntegrationTest extends AbstractIntegrationTest {
     void getStockDetailNotFound() throws Exception {
         mockMvc.perform(get("/api/v1/market/stocks/{symbol}", "999999"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.code").value(404))
+                .andExpect(jsonPath("$.code").value(HTTP_NOT_FOUND))
                 .andExpect(jsonPath("$.message").exists());
     }
 
@@ -175,7 +214,7 @@ class MarketControllerIntegrationTest extends AbstractIntegrationTest {
     void getStockDetailValidationEmptySymbol() throws Exception {
         mockMvc.perform(get("/api/v1/market/stocks/{symbol}", "  "))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.code").value(400));
+                .andExpect(jsonPath("$.code").value(HTTP_BAD_REQUEST));
     }
 
     // ==================== Market Indices Tests ====================
@@ -219,12 +258,12 @@ class MarketControllerIntegrationTest extends AbstractIntegrationTest {
                 .symbol("000002")
                 .name("万科A")
                 .type("STOCK")
-                .price(new BigDecimal("15.60"))
-                .openPrice(new BigDecimal("15.40"))
-                .high(new BigDecimal("15.80"))
-                .low(new BigDecimal("15.30"))
+                .price(PRICE_VANKE)
+                .openPrice(OPEN_PRICE_VANKE)
+                .high(HIGH_PRICE_VANKE)
+                .low(LOW_PRICE_VANKE)
                 .prevClose(new BigDecimal("15.50"))
-                .volume(500000L)
+                .volume(VOLUME_VANKE)
                 .amount(new BigDecimal("7800000"))
                 .build();
         stockRealtimeRepository.save(stockRealtime);
@@ -234,10 +273,10 @@ class MarketControllerIntegrationTest extends AbstractIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(0))
                 .andExpect(jsonPath("$.data.symbol").value("000002"))
-                .andExpect(jsonPath("$.data.open").value(15.40))
-                .andExpect(jsonPath("$.data.high").value(15.80))
-                .andExpect(jsonPath("$.data.low").value(15.30))
-                .andExpect(jsonPath("$.data.current").value(15.60));
+                .andExpect(jsonPath("$.data.open").value(OPEN_PRICE_VANKE.doubleValue()))
+                .andExpect(jsonPath("$.data.high").value(HIGH_PRICE_VANKE.doubleValue()))
+                .andExpect(jsonPath("$.data.low").value(LOW_PRICE_VANKE.doubleValue()))
+                .andExpect(jsonPath("$.data.current").value(PRICE_VANKE.doubleValue()));
     }
 
     @Test
@@ -246,7 +285,7 @@ class MarketControllerIntegrationTest extends AbstractIntegrationTest {
         mockMvc.perform(get("/api/v1/market/stocks/{symbol}/stats", "999998")
                         .param("market", "AShare"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.code").value(404));
+                .andExpect(jsonPath("$.code").value(HTTP_NOT_FOUND));
     }
 
     // ==================== Stock Industry Tests ====================
@@ -258,7 +297,7 @@ class MarketControllerIntegrationTest extends AbstractIntegrationTest {
         // Since external service is not available in test, it should return 404
         mockMvc.perform(get("/api/v1/market/stocks/{symbol}/industry", "600519"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.code").value(404));
+                .andExpect(jsonPath("$.code").value(HTTP_NOT_FOUND));
     }
 
     @Test
@@ -268,18 +307,18 @@ class MarketControllerIntegrationTest extends AbstractIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("[]"))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.code").value(400));
+                .andExpect(jsonPath("$.code").value(HTTP_BAD_REQUEST));
     }
 
     @Test
     @DisplayName("批量获取股票行业信息-列表过大")
     void getStockIndustriesListTooLarge() throws Exception {
-        List<String> symbols = java.util.Collections.nCopies(201, "600519");
+        List<String> symbols = java.util.Collections.nCopies(MAX_BATCH_SIZE, "600519");
         mockMvc.perform(post("/api/v1/market/stocks/industry/batch")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(symbols)))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.code").value(400));
+                .andExpect(jsonPath("$.code").value(HTTP_BAD_REQUEST));
     }
 
     // ==================== Kline Tests ====================
@@ -303,7 +342,7 @@ class MarketControllerIntegrationTest extends AbstractIntegrationTest {
                         .param("market", "AShare")
                         .param("limit", "1001"))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.code").value(400));
+                .andExpect(jsonPath("$.code").value(HTTP_BAD_REQUEST));
     }
 
     // ==================== Batch Prices Tests ====================
@@ -316,13 +355,13 @@ class MarketControllerIntegrationTest extends AbstractIntegrationTest {
                 .symbol("000001")
                 .name("平安银行")
                 .type("STOCK")
-                .price(new BigDecimal("12.50"))
+                .price(PRICE_PINGAN)
                 .build();
         StockRealtime stock2 = StockRealtime.builder()
                 .symbol("000002")
                 .name("万科A")
                 .type("STOCK")
-                .price(new BigDecimal("15.60"))
+                .price(PRICE_VANKE)
                 .build();
         stockRealtimeRepository.saveAll(List.of(stock1, stock2));
 
@@ -342,7 +381,7 @@ class MarketControllerIntegrationTest extends AbstractIntegrationTest {
                         .param("market", "AShare")
                         .param("flowType", "total"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.code").value(404));
+                .andExpect(jsonPath("$.code").value(HTTP_NOT_FOUND));
     }
 
     @Test
@@ -354,7 +393,7 @@ class MarketControllerIntegrationTest extends AbstractIntegrationTest {
                         .param("from", "2024-03-01")
                         .param("to", "2024-02-01"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.code").value(400))
+                .andExpect(jsonPath("$.code").value(HTTP_BAD_REQUEST))
                 .andExpect(jsonPath("$.message").exists());
     }
 
@@ -367,7 +406,7 @@ class MarketControllerIntegrationTest extends AbstractIntegrationTest {
                         .param("market", "AShare")
                         .param("breadthType", "all"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.code").value(404));
+                .andExpect(jsonPath("$.code").value(HTTP_NOT_FOUND));
     }
 
     @Test
@@ -379,7 +418,7 @@ class MarketControllerIntegrationTest extends AbstractIntegrationTest {
                         .param("from", "2024-03-01")
                         .param("to", "2024-02-01"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.code").value(400))
+                .andExpect(jsonPath("$.code").value(HTTP_BAD_REQUEST))
                 .andExpect(jsonPath("$.message").exists());
     }
 }
