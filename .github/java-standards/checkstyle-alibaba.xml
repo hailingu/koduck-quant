@@ -169,19 +169,16 @@
 
         <!-- Javadoc checks for methods -->
         <module name="JavadocMethod">
-            <property name="scope" value="public"/>
+            <property name="accessModifiers" value="public"/>
             <property name="allowMissingParamTags" value="false"/>
             <property name="allowMissingReturnTag" value="false"/>
         </module>
 
         <module name="JavadocType">
-            <property name="scope" value="public"/>
             <property name="authorFormat" value="\S"/>
         </module>
 
-        <module name="JavadocVariable">
-            <property name="scope" value="public"/>
-        </module>
+        <module name="JavadocVariable"/>
 
         <module name="JavadocStyle">
             <property name="checkFirstSentence" value="false"/>
