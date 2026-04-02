@@ -1,5 +1,7 @@
 package com.koduck.dto.credential;
 
+import java.util.Map;
+
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
@@ -36,4 +38,13 @@ public class UpdateCredentialRequest {
     /** 额外配置（JSON格式）. */
     @Pattern(regexp = "^$|^\\{.*\\}$", message = "额外配置必须是JSON格式")
     private String extraConfig;
+
+    /** 环境（PRODUCTION/SANDBOX）. */
+    private String environment;
+
+    /** 额外配置（Map格式）. */
+    private Map<String, Object> additionalConfig;
+
+    /** 是否启用. */
+    private Boolean isActive;
 }

@@ -58,6 +58,7 @@ public class MarketServiceSupport {
     private static final BigDecimal MARKET_CAP_5200 = new BigDecimal("5200");
     private static final BigDecimal MARKET_CAP_5800 = new BigDecimal("5800");
     private static final BigDecimal MARKET_CAP_3600 = new BigDecimal("3600");
+    private static final BigDecimal MARKET_CAP_3400 = new BigDecimal("3400");
     private static final BigDecimal MARKET_CAP_2800 = new BigDecimal("2800");
     private static final BigDecimal FLOW_67_3 = new BigDecimal("67.3");
     private static final BigDecimal FLOW_34_2 = new BigDecimal("34.2");

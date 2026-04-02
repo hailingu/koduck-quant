@@ -37,6 +37,7 @@ public final class FuturesMockDataSupport
     private static final long ORDER_BOOK_VOLUME_MAX_EXCLUSIVE = 1_000L;
     private static final double VOLATILITY_GOLD = 0.008;
     private static final double VOLATILITY_DEFAULT = 0.015;
+    private static final double PRICE_CHANGE_MULTIPLIER = 0.5;
     private static final double CHANGE_PERCENT_RANGE = 0.02;
     private static final double HIGH_LOW_RANGE = 0.02;
     private static final int DIVIDE_SCALE = 4;

@@ -1,5 +1,7 @@
 package com.koduck.dto.credential;
 
+import java.util.Map;
+
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
@@ -51,4 +53,13 @@ public class CreateCredentialRequest {
     /** 是否启用. */
     @NotNull(message = "是否启用不能为空")
     private Boolean enabled;
+
+    /** 提供商. */
+    private String provider;
+
+    /** 环境（PRODUCTION/SANDBOX）. */
+    private String environment;
+
+    /** 额外配置（Map格式）. */
+    private Map<String, Object> additionalConfig;
 }
