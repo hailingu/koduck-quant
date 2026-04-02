@@ -1,13 +1,5 @@
 package com.koduck.service.support;
 
-import com.koduck.common.constants.MarketConstants;
-import com.koduck.dto.ai.ChatMessageRequest;
-import com.koduck.dto.ai.ChatStreamRequest;
-import com.koduck.dto.indicator.IndicatorResponse;
-import com.koduck.entity.MemoryChatMessage;
-import com.koduck.entity.UserMemoryProfile;
-import com.koduck.service.MemoryService;
-import com.koduck.service.TechnicalIndicatorService;
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
@@ -18,22 +10,47 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+
+import org.springframework.stereotype.Component;
+
+import com.koduck.common.constants.MarketConstants;
+import com.koduck.dto.ai.ChatMessageRequest;
+import com.koduck.dto.ai.ChatStreamRequest;
+import com.koduck.dto.indicator.IndicatorResponse;
+import com.koduck.entity.MemoryChatMessage;
+import com.koduck.entity.UserMemoryProfile;
+import com.koduck.service.MemoryService;
+import com.koduck.service.TechnicalIndicatorService;
+
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.stereotype.Component;
 
 /**
  * Support component for chat memory/context enrichment.
  *
  * @author GitHub Copilot
- * @date 2026-03-31
  */
 @Component
 @Slf4j
 @RequiredArgsConstructor
 public class AiConversationSupport {
 
+    /** Max lines for recent messages. */
+    private static final int MAX_RECENT_MESSAGE_LINES = 8;
+    /** Content truncation length. */
+    private static final int CONTENT_TRUNCATION_LENGTH = 180;
+    /** EMA short period. */
+    private static final int EMA_SHORT_PERIOD = 20;
+    /** EMA long period. */
+    private static final int EMA_LONG_PERIOD = 60;
+    /** MACD period. */
+    private static final int MACD_PERIOD = 12;
+    /** Max watch symbols. */
+    private static final int MAX_WATCH_SYMBOLS = 30;
+
+    /** Memory service. */
     private final MemoryService memoryService;
+    /** Technical indicator service. */
     private final TechnicalIndicatorService technicalIndicatorService;
 
     public String resolveSessionId(String sessionId) {
@@ -59,7 +76,8 @@ public class AiConversationSupport {
             log.debug("Injected memory context: user={}, session={}, recentMessages={}", userId, sessionId,
                 recentMessages.size());
             return appendInstructionToSystem(request, memoryContext);
-        } catch (Exception e) {
+        }
+        catch (Exception e) {
             log.warn("Failed to inject memory context, fallback to original request: {}", e.getMessage());
             return request;
         }
@@ -91,7 +109,8 @@ public class AiConversationSupport {
             }
             log.info("Attached quant signal context for symbol={}", symbol);
             return appendInstructionToLatestUser(request, quantContext);
-        } catch (Exception e) {
+        }
+        catch (Exception e) {
             log.warn("Failed to enrich chat with quant signal, fallback to original request: {}", e.getMessage());
             return request;
         }
@@ -130,7 +149,8 @@ public class AiConversationSupport {
             return;
         }
         ChatMessageRequest latestUserMessage = findLatestUserMessage(request.getMessages());
-        if (latestUserMessage == null || latestUserMessage.getContent() == null || latestUserMessage.getContent().isBlank()) {
+        if (latestUserMessage == null || latestUserMessage.getContent() == null
+            || latestUserMessage.getContent().isBlank()) {
             return;
         }
         String sessionId = memoryService.resolveSessionId(request.getSessionId());
@@ -140,7 +160,8 @@ public class AiConversationSupport {
                 memoryService.appendMessage(userId, sessionId, "user", content, null, Map.of("source", "chat-stream"));
                 updateUserProfileFromConversation(userId, content, symbolPattern, riskAggressive, riskConservative,
                     riskBalanced);
-            } catch (Exception e) {
+            }
+            catch (Exception e) {
                 log.warn("Skip user memory writeback due to error: {}", e.getMessage());
             }
         });
@@ -156,13 +177,16 @@ public class AiConversationSupport {
             try {
                 memoryService.appendMessage(userId, sessionId, "assistant", content, tokenCount,
                     Map.of("source", "chat-stream"));
-            } catch (Exception e) {
+            }
+            catch (Exception e) {
                 log.warn("Skip assistant memory writeback due to error: {}", e.getMessage());
             }
         });
     }
 
-    private String buildMemoryContext(String sessionId, List<MemoryChatMessage> recentMessages, UserMemoryProfile profile) {
+    private String buildMemoryContext(String sessionId,
+                                      List<MemoryChatMessage> recentMessages,
+                                      UserMemoryProfile profile) {
         StringBuilder builder = new StringBuilder();
         builder.append("【Memory Context】\n");
         builder.append("session_id: ").append(sessionId).append("\n");
@@ -206,7 +230,7 @@ public class AiConversationSupport {
             return false;
         }
         builder.append("最近会话片段:\n");
-        int maxLines = Math.min(recentMessages.size(), 8);
+        int maxLines = Math.min(recentMessages.size(), MAX_RECENT_MESSAGE_LINES);
         int startIndex = Math.max(0, recentMessages.size() - maxLines);
         for (int i = startIndex; i < recentMessages.size(); i++) {
             MemoryChatMessage item = recentMessages.get(i);
@@ -219,13 +243,14 @@ public class AiConversationSupport {
 
     private String normalizeContent(String content) {
         String safeContent = content == null ? "" : content.trim();
-        if (safeContent.length() > 180) {
-            return safeContent.substring(0, 180) + "...";
+        if (safeContent.length() > CONTENT_TRUNCATION_LENGTH) {
+            return safeContent.substring(0, CONTENT_TRUNCATION_LENGTH) + "...";
         }
         return safeContent;
     }
 
-    private List<ChatMessageRequest> mergeSystemInstruction(List<ChatMessageRequest> originalMessages, String instruction) {
+    private List<ChatMessageRequest> mergeSystemInstruction(List<ChatMessageRequest> originalMessages,
+                                                            String instruction) {
         List<ChatMessageRequest> updatedMessages = new ArrayList<>(originalMessages.size() + 1);
         boolean merged = false;
         for (int i = 0; i < originalMessages.size(); i++) {
@@ -235,7 +260,8 @@ public class AiConversationSupport {
                 String mergedContent = existing.isBlank() ? instruction : existing + "\n\n" + instruction;
                 updatedMessages.add(ChatMessageRequest.builder().role(msg.getRole()).content(mergedContent).build());
                 merged = true;
-            } else {
+            }
+            else {
                 updatedMessages.add(msg);
             }
         }
@@ -277,7 +303,8 @@ public class AiConversationSupport {
                     + "\n\n请优先基于上述量化信号给出结论（方向、入场/观望、风险位），不要再说\"没有实时数据\"。";
                 updatedMessages.add(0, ChatMessageRequest.builder().role(msg.getRole()).content(mergedContent).build());
                 merged = true;
-            } else {
+            }
+            else {
                 updatedMessages.add(0, msg);
             }
         }
@@ -316,9 +343,9 @@ public class AiConversationSupport {
     }
 
     private String buildQuantSignalContext(String symbol, String market) {
-        IndicatorResponse ema20 = technicalIndicatorService.calculateIndicator(market, symbol, "EMA", 20);
-        IndicatorResponse ema60 = technicalIndicatorService.calculateIndicator(market, symbol, "EMA", 60);
-        IndicatorResponse macd = technicalIndicatorService.calculateIndicator(market, symbol, "MACD", 12);
+        IndicatorResponse ema20 = technicalIndicatorService.calculateIndicator(market, symbol, "EMA", EMA_SHORT_PERIOD);
+        IndicatorResponse ema60 = technicalIndicatorService.calculateIndicator(market, symbol, "EMA", EMA_LONG_PERIOD);
+        IndicatorResponse macd = technicalIndicatorService.calculateIndicator(market, symbol, "MACD", MACD_PERIOD);
         BigDecimal ema20Value = getIndicatorValue(ema20, "ema");
         BigDecimal ema60Value = getIndicatorValue(ema60, "ema");
         BigDecimal hist = getIndicatorValue(macd, "histogram");
@@ -333,16 +360,20 @@ public class AiConversationSupport {
         String action;
         if ("LONG_BIAS".equals(direction) && "MOMENTUM_UP".equals(momentum)) {
             action = "BUY_OR_HOLD";
-        } else if ("SHORT_BIAS".equals(direction) && "MOMENTUM_DOWN".equals(momentum)) {
+        }
+        else if ("SHORT_BIAS".equals(direction) && "MOMENTUM_DOWN".equals(momentum)) {
             action = "REDUCE_OR_WAIT";
-        } else {
+        }
+        else {
             action = "NEUTRAL_WAIT_CONFIRM";
         }
         return String.format(Locale.ROOT,
-            "量化信号上下文(自动注入): symbol=%s, market=%s, EMA20=%s, EMA60=%s, MACD=%s, SIGNAL=%s, HIST=%s, direction=%s, momentum=%s, action=%s。"
+            "量化信号上下文(自动注入): symbol=%s, market=%s, EMA20=%s, EMA60=%s, MACD=%s,"
+                + " SIGNAL=%s, HIST=%s, direction=%s, momentum=%s, action=%s。"
                 + "请把这个信号作为参考之一，明确提示风险，不要给出确定性收益承诺。",
-            symbol, market, ema20Value.toPlainString(), ema60Value.toPlainString(), macdValue.toPlainString(),
-            signalValue.toPlainString(), hist.toPlainString(), direction, momentum, action);
+            symbol, market, ema20Value.toPlainString(), ema60Value.toPlainString(),
+            macdValue.toPlainString(), signalValue.toPlainString(),
+            hist.toPlainString(), direction, momentum, action);
     }
 
     private BigDecimal getIndicatorValue(IndicatorResponse response, String key) {
@@ -362,9 +393,11 @@ public class AiConversationSupport {
         String riskPreference = existing.getRiskPreference();
         if (latestUserMessage.contains("激进")) {
             riskPreference = riskAggressive;
-        } else if (latestUserMessage.contains("保守")) {
+        }
+        else if (latestUserMessage.contains("保守")) {
             riskPreference = riskConservative;
-        } else if (latestUserMessage.contains("稳健")) {
+        }
+        else if (latestUserMessage.contains("稳健")) {
             riskPreference = riskBalanced;
         }
         Set<String> watchSymbols = new LinkedHashSet<>(
@@ -372,7 +405,7 @@ public class AiConversationSupport {
         Matcher matcher = symbolPattern.matcher(latestUserMessage);
         while (matcher.find()) {
             watchSymbols.add(matcher.group());
-            if (watchSymbols.size() >= 30) {
+            if (watchSymbols.size() >= MAX_WATCH_SYMBOLS) {
                 break;
             }
         }

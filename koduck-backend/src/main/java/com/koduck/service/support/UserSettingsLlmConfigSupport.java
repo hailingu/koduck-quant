@@ -1,53 +1,74 @@
 package com.koduck.service.support;
 
+import java.util.List;
+import java.util.Locale;
+import java.util.Optional;
+import java.util.Set;
+
+import org.springframework.core.env.Environment;
+import org.springframework.stereotype.Component;
+
 import com.koduck.dto.settings.UpdateSettingsRequest;
 import com.koduck.dto.settings.UserSettingsDto;
 import com.koduck.entity.UserCredential;
 import com.koduck.entity.UserSettings;
 import com.koduck.repository.CredentialRepository;
 import com.koduck.util.CredentialEncryptionUtil;
-import java.util.List;
-import java.util.Locale;
-import java.util.Optional;
-import java.util.Set;
+
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.core.env.Environment;
-import org.springframework.stereotype.Component;
 
 /**
  * 封装用户设置中的 LLM 配置合并与解析逻辑。
  *
  * @author GitHub Copilot
- * @date 2026-03-31
  */
 @Component
 @Slf4j
 @RequiredArgsConstructor
 public class UserSettingsLlmConfigSupport {
 
+    /** Provider: minimax. */
     private static final String PROVIDER_MINIMAX = "minimax";
+    /** Provider: deepseek. */
     private static final String PROVIDER_DEEPSEEK = "deepseek";
+    /** Provider: openai. */
     private static final String PROVIDER_OPENAI = "openai";
+    /** Source: credentials. */
     private static final String SOURCE_CREDENTIALS = "credentials";
+    /** Source: user settings. */
     private static final String SOURCE_USER_SETTINGS = "user_settings";
+    /** Source: default. */
     private static final String SOURCE_DEFAULT = "default";
+    /** Source env: LLM_API_KEY. */
     private static final String SOURCE_ENV_LLM_API_KEY = "env:LLM_API_KEY";
+    /** Source env: LLM_API_BASE. */
     private static final String SOURCE_ENV_LLM_API_BASE = "env:LLM_API_BASE";
+    /** Env key: LLM_API_KEY. */
     private static final String ENV_LLM_API_KEY = "LLM_API_KEY";
+    /** Env key: LLM_API_BASE. */
     private static final String ENV_LLM_API_BASE = "LLM_API_BASE";
+    /** Default API base for minimax. */
     private static final String DEFAULT_API_BASE_MINIMAX = "https://api.minimax.chat/v1";
+    /** Default memory mode. */
     private static final String DEFAULT_MEMORY_MODE = "L0";
+    /** OpenAI API base. */
     private static final String OPENAI_API_BASE = "https://api.openai.com/v1";
+    /** Deepseek API base. */
     private static final String DEEPSEEK_API_BASE = "https://api.deepseek.com/v1";
+    /** Supported LLM providers. */
     private static final Set<String> SUPPORTED_LLM_PROVIDERS =
         Set.of(PROVIDER_MINIMAX, PROVIDER_DEEPSEEK, PROVIDER_OPENAI);
+    /** Supported memory modes. */
     private static final Set<String> SUPPORTED_MEMORY_MODES = Set.of("L0", "L1", "L2", "L3");
 
+    /** Credential repository. */
     private final CredentialRepository credentialRepository;
 
+    /** Environment. */
     private final Environment environment;
 
+    /** Credential encryption utility. */
     private final CredentialEncryptionUtil credentialEncryptionUtil;
 
     public void applyLlmConfig(UserSettings settings, UpdateSettingsRequest.LlmConfigDto requestConfig) {
@@ -100,7 +121,8 @@ public class UserSettingsLlmConfigSupport {
         ResolvedValue apiBaseResolved = resolveApiBase(activeProvider, credentialsApiBase, settingsApiBase);
 
         log.info(
-            "Resolved LLM config: userId={}, provider={}, apiKeySource={}, apiKeyMasked={}, apiBaseSource={}, apiBase={}",
+            "Resolved LLM config: userId={}, provider={}, apiKeySource={}, "
+                + "apiKeyMasked={}, apiBaseSource={}, apiBase={}",
             userId,
             activeProvider,
             apiKeyResolved.source(),
@@ -212,8 +234,12 @@ public class UserSettingsLlmConfigSupport {
             return base;
         }
         return UserSettings.ProviderConfig.builder()
-            .apiKey(incoming.getApiKey() != null ? normalizeBlank(incoming.getApiKey()) : normalizeBlank(base.getApiKey()))
-            .apiBase(incoming.getApiBase() != null ? normalizeBlank(incoming.getApiBase()) : normalizeBlank(base.getApiBase()))
+            .apiKey(incoming.getApiKey() != null
+                ? normalizeBlank(incoming.getApiKey())
+                : normalizeBlank(base.getApiKey()))
+            .apiBase(incoming.getApiBase() != null
+                ? normalizeBlank(incoming.getApiBase())
+                : normalizeBlank(base.getApiBase()))
             .build();
     }
 
@@ -243,7 +269,9 @@ public class UserSettingsLlmConfigSupport {
         if (incoming == null) {
             return base;
         }
-        String mode = incoming.getMode() != null ? normalizeMemoryMode(incoming.getMode()) : normalizeMemoryMode(base.getMode());
+        String mode = incoming.getMode() != null
+            ? normalizeMemoryMode(incoming.getMode())
+            : normalizeMemoryMode(base.getMode());
         Boolean modeEnableL1 = base.getEnableL1();
         Boolean modeEnableL2 = base.getEnableL2();
         Boolean modeEnableL3 = base.getEnableL3();
@@ -266,8 +294,12 @@ public class UserSettingsLlmConfigSupport {
         String legacyProvider = normalizeLlmProvider(config != null ? config.getProvider() : null);
         String legacyApiKey = resolveLegacyValue(config, legacyProvider.equals(provider), true);
         String legacyApiBase = resolveLegacyValue(config, legacyProvider.equals(provider), false);
-        String settingsApiKey = normalizeBlank(settingsProviderConfig != null ? settingsProviderConfig.getApiKey() : null);
-        String settingsApiBase = normalizeBlank(settingsProviderConfig != null ? settingsProviderConfig.getApiBase() : null);
+        String settingsApiKey = normalizeBlank(
+            settingsProviderConfig != null ? settingsProviderConfig.getApiKey() : null
+        );
+        String settingsApiBase = normalizeBlank(
+            settingsProviderConfig != null ? settingsProviderConfig.getApiBase() : null
+        );
         String apiKey = switch (provider) {
             case PROVIDER_OPENAI -> firstNonBlank(
                 settingsApiKey,
@@ -464,7 +496,8 @@ public class UserSettingsLlmConfigSupport {
                 log.debug("Loaded LLM API key from user_credentials: userId={}, provider={}", userId, provider);
                 return decryptedKey;
             }
-        } catch (Exception exception) {
+        }
+        catch (Exception exception) {
             log.warn("Failed to get LLM API key from credentials for user {}: {}", userId, exception.getMessage());
         }
         return null;
@@ -489,7 +522,8 @@ public class UserSettingsLlmConfigSupport {
                     }
                 }
             }
-        } catch (Exception exception) {
+        }
+        catch (Exception exception) {
             log.warn("Failed to get LLM API base from credentials for user {}: {}", userId, exception.getMessage());
         }
         return null;

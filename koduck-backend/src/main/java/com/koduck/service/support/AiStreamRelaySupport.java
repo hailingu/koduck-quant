@@ -1,36 +1,45 @@
 package com.koduck.service.support;
 
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.koduck.dto.ai.ChatStreamRequest;
 import java.io.IOException;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicReference;
-import lombok.RequiredArgsConstructor;
+
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
+
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
+
+import com.koduck.dto.ai.ChatStreamRequest;
+
+import lombok.RequiredArgsConstructor;
 import reactor.core.publisher.Mono;
 
 /**
  * Support component for relaying SSE stream from AI agent.
  *
  * @author GitHub Copilot
- * @date 2026-03-31
  */
 @Component
 @RequiredArgsConstructor
 public class AiStreamRelaySupport {
 
+    /** Event name for message. */
     private static final String EVENT_MESSAGE = "message";
+    /** Event name for done. */
     private static final String EVENT_DONE = "done";
+    /** Key for content. */
     private static final String KEY_CONTENT = "content";
+    /** Type reference for Map<String, Object>. */
     private static final TypeReference<Map<String, Object>> MAP_TYPE_REFERENCE = new TypeReference<>() {
     };
 
+    /** Web client. */
     private final WebClient webClient;
+    /** Object mapper. */
     private final ObjectMapper objectMapper;
 
     public StreamRelayResult relayStreamEvents(String agentUrl,
@@ -41,8 +50,10 @@ public class AiStreamRelaySupport {
 
         StreamRelayResult relayResult = webClient.post()
             .uri(Objects.requireNonNull(agentUrl, "agentUrl must not be null"))
-            .contentType(Objects.requireNonNull(MediaType.APPLICATION_JSON, "application/json media type must not be null"))
-            .accept(Objects.requireNonNull(MediaType.TEXT_EVENT_STREAM, "text/event-stream media type must not be null"))
+            .contentType(Objects.requireNonNull(MediaType.APPLICATION_JSON,
+                "application/json media type must not be null"))
+            .accept(Objects.requireNonNull(MediaType.TEXT_EVENT_STREAM,
+                "text/event-stream media type must not be null"))
             .bodyValue(Objects.requireNonNull(normalizedRequest, "normalizedRequest must not be null"))
             .exchangeToMono(response -> {
                 if (response.statusCode().isError()) {
@@ -60,7 +71,8 @@ public class AiStreamRelaySupport {
                         }
                         try {
                             processSseChunk(rawChunk, emitter, finalAssistantContent, finalTokenCount);
-                        } catch (IOException exception) {
+                        }
+                        catch (IOException exception) {
                             throw new IllegalStateException("Failed to forward SSE chunk", exception);
                         }
                     })
@@ -96,7 +108,8 @@ public class AiStreamRelaySupport {
         for (String line : lines) {
             if (line.startsWith("event:")) {
                 eventName = line.substring("event:".length()).trim();
-            } else if (line.startsWith("data:")) {
+            }
+            else if (line.startsWith("data:")) {
                 appendSseData(dataBuilder, line);
             }
         }
@@ -136,7 +149,8 @@ public class AiStreamRelaySupport {
             Map<String, Object> data = objectMapper.readValue(donePayload, MAP_TYPE_REFERENCE);
             Object content = data.get(KEY_CONTENT);
             return content == null ? "" : String.valueOf(content);
-        } catch (IOException | RuntimeException _) {
+        }
+        catch (IOException | RuntimeException _) {
             return "";
         }
     }
@@ -159,7 +173,8 @@ public class AiStreamRelaySupport {
                 }
             }
             return null;
-        } catch (IOException | RuntimeException _) {
+        }
+        catch (IOException | RuntimeException _) {
             return null;
         }
     }
@@ -168,7 +183,9 @@ public class AiStreamRelaySupport {
     }
 
     public static final class StreamRelayException extends RuntimeException {
+        /** HTTP status code. */
         private final int statusCode;
+        /** Error detail. */
         private final String detail;
 
         public StreamRelayException(int statusCode, String detail) {
