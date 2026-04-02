@@ -19,19 +19,19 @@ import com.koduck.util.CollectionCopyUtils;
  * @author Koduck Team
  */
 public record IndicatorResponse(
-    /** Stock symbol. */
+    // Stock symbol.
     String symbol,
-    /** Market identifier. */
+    // Market identifier.
     String market,
-    /** Indicator name. */
+    // Indicator name.
     String indicator,
-    /** Indicator period. */
+    // Indicator period.
     Integer period,
-    /** Indicator values map. */
+    // Indicator values map.
     Map<String, BigDecimal> values,
-    /** Trend direction. */
+    // Trend direction.
     String trend,
-    /** Timestamp of the indicator data. */
+    // Timestamp of the indicator data.
     LocalDateTime timestamp
 ) {
 
