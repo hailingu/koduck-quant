@@ -92,10 +92,13 @@ public class User {
 
     /** Enumeration of possible user account statuses. */
     public enum UserStatus {
+
         /** Account is disabled/inactive. */
         DISABLED,
+
         /** Account is active and functional. */
         ACTIVE,
+
         /** Account is pending activation. */
         PENDING
     }
