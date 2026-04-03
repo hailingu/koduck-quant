@@ -1,17 +1,21 @@
 package com.koduck.mapper;
 
+import java.util.List;
+
+import org.mapstruct.Mapper;
+import org.mapstruct.Mapping;
+
 import com.koduck.dto.strategy.StrategyDto;
 import com.koduck.dto.strategy.StrategyParameterDto;
 import com.koduck.dto.strategy.StrategyVersionDto;
 import com.koduck.entity.Strategy;
 import com.koduck.entity.StrategyParameter;
 import com.koduck.entity.StrategyVersion;
-import java.util.List;
-import org.mapstruct.Mapper;
-import org.mapstruct.Mapping;
 
 /**
  * Mapper for strategy domain objects and DTOs.
+ *
+ * @author Koduck Team
  */
 @Mapper(componentModel = "spring")
 public interface StrategyMapper {
