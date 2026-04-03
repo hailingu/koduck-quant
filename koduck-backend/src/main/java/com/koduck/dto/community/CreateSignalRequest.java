@@ -3,10 +3,6 @@ package com.koduck.dto.community;
 import java.math.BigDecimal;
 import java.util.List;
 
-import com.fasterxml.jackson.annotation.JsonProperty;
-
-import com.koduck.util.CollectionCopyUtils;
-
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Digits;
 import jakarta.validation.constraints.Max;
@@ -15,6 +11,11 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
+
+import com.fasterxml.jackson.annotation.JsonProperty;
+
+import com.koduck.util.CollectionCopyUtils;
+
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
