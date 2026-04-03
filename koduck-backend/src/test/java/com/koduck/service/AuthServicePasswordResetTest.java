@@ -22,7 +22,7 @@ import com.koduck.entity.PasswordResetToken;
 import com.koduck.entity.User;
 import com.koduck.exception.BusinessException;
 import com.koduck.exception.ErrorCode;
-import com.koduck.identity.application.AuthServiceImpl;
+import com.koduck.service.impl.AuthServiceImpl;
 import com.koduck.repository.PasswordResetTokenRepository;
 import com.koduck.repository.RefreshTokenRepository;
 import com.koduck.repository.RoleRepository;

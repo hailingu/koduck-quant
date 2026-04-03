@@ -15,7 +15,7 @@ import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.ValueOperations;
 
 import com.koduck.config.properties.RateLimitProperties;
-import com.koduck.shared.application.RateLimiterServiceImpl;
+import com.koduck.service.impl.RateLimiterServiceImpl;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.anyString;

@@ -18,7 +18,7 @@ import com.koduck.entity.UserMemoryProfile;
 import com.koduck.repository.MemoryChatMessageRepository;
 import com.koduck.repository.MemoryChatSessionRepository;
 import com.koduck.repository.UserMemoryProfileRepository;
-import com.koduck.shared.application.MemoryServiceImpl;
+import com.koduck.service.impl.MemoryServiceImpl;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;

@@ -194,10 +194,20 @@ public interface StockSubscriptionService {
         /**
          * Get the price data.
          *
-         * @return the price data
+         * @return the price data (defensive copy)
          */
         public PriceUpdateDto getData() {
-            return data;
+            if (data == null) {
+                return null;
+            }
+            return PriceUpdateDto.builder()
+                    .symbol(data.getSymbol())
+                    .name(data.getName())
+                    .price(data.getPrice())
+                    .change(data.getChange())
+                    .changePercent(data.getChangePercent())
+                    .volume(data.getVolume())
+                    .build();
         }
 
         /**
