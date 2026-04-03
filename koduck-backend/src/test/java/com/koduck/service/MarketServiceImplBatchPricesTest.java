@@ -1,8 +1,5 @@
 package com.koduck.service;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.Mockito.when;
-
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -20,6 +17,9 @@ import com.koduck.repository.StockBasicRepository;
 import com.koduck.repository.StockRealtimeRepository;
 import com.koduck.service.support.MarketFallbackSupport;
 import com.koduck.service.support.MarketServiceSupport;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.when;
 
 /**
  * Unit tests focused on the {@link MarketServiceImpl#getBatchPrices(List)}

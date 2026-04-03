@@ -1,12 +1,5 @@
 package com.koduck.service;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
-
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
@@ -26,6 +19,13 @@ import com.koduck.repository.MemoryChatMessageRepository;
 import com.koduck.repository.MemoryChatSessionRepository;
 import com.koduck.repository.UserMemoryProfileRepository;
 import com.koduck.shared.application.MemoryServiceImpl;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 /**
  * Unit tests for MemoryServiceImpl.

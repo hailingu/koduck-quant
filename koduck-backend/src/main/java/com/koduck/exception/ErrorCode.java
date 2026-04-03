@@ -1,7 +1,8 @@
 package com.koduck.exception;
 
-import lombok.Getter;
 import org.springframework.http.HttpStatus;
+
+import lombok.Getter;
 
 /**
  * Error codes for the application.

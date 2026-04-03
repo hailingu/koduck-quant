@@ -1,7 +1,5 @@
 package com.koduck.config;
 
-import static org.assertj.core.api.Assertions.assertThat;
-
 import java.lang.reflect.Field;
 import java.util.List;
 
@@ -11,6 +9,8 @@ import org.junit.jupiter.api.Test;
 import io.swagger.v3.oas.models.OpenAPI;
 import io.swagger.v3.oas.models.security.SecurityScheme;
 import io.swagger.v3.oas.models.servers.Server;
+
+import static org.assertj.core.api.Assertions.assertThat;
 
 /**
  * Lightweight tests for {@link OpenApiConfig}.

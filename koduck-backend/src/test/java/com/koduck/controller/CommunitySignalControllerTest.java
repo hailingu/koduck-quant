@@ -1,10 +1,5 @@
 package com.koduck.controller;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
-
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.Objects;
@@ -28,6 +23,11 @@ import com.koduck.dto.community.SignalResponse;
 import com.koduck.entity.User;
 import com.koduck.security.UserPrincipal;
 import com.koduck.service.CommunitySignalService;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 /**
  * Unit tests for {@link CommunitySignalController}.

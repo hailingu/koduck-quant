@@ -1,29 +1,37 @@
 package com.koduck.controller;
 
+import jakarta.validation.Valid;
+
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.validation.annotation.Validated;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+import com.koduck.controller.support.AuthenticatedUserResolver;
+import com.koduck.dto.ApiResponse;
+import com.koduck.dto.settings.UpdateNotificationRequest;
+import com.koduck.dto.settings.UpdateSettingsRequest;
+import com.koduck.dto.settings.UpdateThemeRequest;
+import com.koduck.dto.settings.UserSettingsDto;
+import com.koduck.security.UserPrincipal;
+import com.koduck.service.UserSettingsService;
+
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
-import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
-import com.koduck.controller.support.AuthenticatedUserResolver;
-import com.koduck.dto.ApiResponse;
-import com.koduck.dto.settings.*;
-import com.koduck.security.UserPrincipal;
-import com.koduck.service.UserSettingsService;
-import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.validation.annotation.Validated;
-import org.springframework.web.bind.annotation.*;
 
 /**
  * REST API controller for system and user settings.
  *
  * @author koduck
- * @date 2026-03-05
  */
 @RestController
 @RequestMapping("/api/v1/settings")
@@ -33,7 +41,10 @@ import org.springframework.web.bind.annotation.*;
 @SecurityRequirement(name = "bearerAuth")
 @Slf4j
 public class SettingsController {
+    /** Resolver for extracting authenticated user information. */
     private final AuthenticatedUserResolver authenticatedUserResolver;
+
+    /** Service for managing user settings. */
     private final UserSettingsService settingsService;
 
     /**
@@ -51,7 +62,7 @@ public class SettingsController {
             responseCode = "200",
             description = "获取成功",
             content = @Content(schema = @Schema(implementation = UserSettingsDto.class))
-        ),
+            ),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "未登录或Token无效"),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "500", description = "服务器内部错误")
     })
@@ -81,7 +92,7 @@ public class SettingsController {
             responseCode = "200",
             description = "更新成功",
             content = @Content(schema = @Schema(implementation = UserSettingsDto.class))
-        ),
+            ),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "请求参数错误"),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "未登录或Token无效"),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "500", description = "服务器内部错误")
@@ -113,7 +124,7 @@ public class SettingsController {
             responseCode = "200",
             description = "更新成功",
             content = @Content(schema = @Schema(implementation = UserSettingsDto.class))
-        ),
+            ),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "主题值无效"),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "未登录或Token无效"),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "500", description = "服务器内部错误")
@@ -145,7 +156,7 @@ public class SettingsController {
             responseCode = "200",
             description = "更新成功",
             content = @Content(schema = @Schema(implementation = UserSettingsDto.class))
-        ),
+            ),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "请求参数错误"),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "未登录或Token无效"),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "500", description = "服务器内部错误")

@@ -1,10 +1,5 @@
 package com.koduck.market.util;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.Arrays;
@@ -14,6 +9,11 @@ import org.junit.jupiter.api.Test;
 
 import com.koduck.market.model.KlineData;
 import com.koduck.market.model.TickData;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Unit tests for DataConverter.

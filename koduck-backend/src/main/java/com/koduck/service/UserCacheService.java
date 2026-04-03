@@ -1,8 +1,8 @@
 package com.koduck.service;
 
-import org.springframework.lang.NonNull;
-
 import java.util.Set;
+
+import org.springframework.lang.NonNull;
 
 /**
  * User watchlist caching service interface.

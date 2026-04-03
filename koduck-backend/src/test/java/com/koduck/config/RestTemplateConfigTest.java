@@ -1,8 +1,5 @@
 package com.koduck.config;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-
 import java.lang.reflect.Field;
 
 import org.junit.jupiter.api.DisplayName;
@@ -14,6 +11,9 @@ import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.web.client.RestTemplate;
 
 import com.koduck.config.properties.DataServiceProperties;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
  * Unit tests for {@link RestTemplateConfig}.

@@ -1,8 +1,8 @@
 package com.koduck.service;
 
-import com.koduck.dto.market.PriceQuoteDto;
-
 import java.util.List;
+
+import com.koduck.dto.market.PriceQuoteDto;
 
 /**
  * Stock data caching service interface.

@@ -1,8 +1,8 @@
 package com.koduck.exception;
 
-import lombok.Getter;
-
 import java.io.Serial;
+
+import lombok.Getter;
 
 /**
  * Exception for missing resources.

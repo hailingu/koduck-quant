@@ -1,10 +1,5 @@
 package com.koduck.controller;
 
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
-
 import java.util.Objects;
 
 import org.junit.jupiter.api.DisplayName;
@@ -26,6 +21,11 @@ import com.koduck.dto.auth.RefreshTokenRequest;
 import com.koduck.dto.auth.RegisterRequest;
 import com.koduck.dto.auth.ResetPasswordRequest;
 import com.koduck.dto.auth.TokenResponse;
+
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
  * Integration tests for {@link AuthController}.

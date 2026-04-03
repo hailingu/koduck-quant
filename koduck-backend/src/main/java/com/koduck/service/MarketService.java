@@ -1,5 +1,8 @@
 package com.koduck.service;
 
+import java.util.List;
+import java.util.Map;
+
 import com.koduck.dto.market.MarketIndexDto;
 import com.koduck.dto.market.PriceQuoteDto;
 import com.koduck.dto.market.SectorNetworkDto;
@@ -7,9 +10,6 @@ import com.koduck.dto.market.StockIndustryDto;
 import com.koduck.dto.market.StockStatsDto;
 import com.koduck.dto.market.StockValuationDto;
 import com.koduck.dto.market.SymbolInfoDto;
-
-import java.util.List;
-import java.util.Map;
 
 /**
  * Market data service interface for stock search, quotes, indices, sectors, and related operations.
