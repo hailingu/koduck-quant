@@ -23,11 +23,20 @@ import com.koduck.security.websocket.WebSocketChannelInterceptor;
  *   <li>SockJS fallback </li>
  *   <li>CORS </li>
  * </ul>
+ *
+ * @author Koduck Team
  */
 @Configuration
 @EnableWebSocketMessageBroker
 public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
+    /**
+     * WebSocket properties.
+     */
     private final WebSocketProperties webSocketProperties;
+
+    /**
+     * WebSocket channel interceptor.
+     */
     private final WebSocketChannelInterceptor webSocketChannelInterceptor;
 
     public WebSocketConfig(WebSocketProperties webSocketProperties,
