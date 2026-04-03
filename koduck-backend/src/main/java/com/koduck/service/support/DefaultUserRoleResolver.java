@@ -1,17 +1,19 @@
 package com.koduck.service.support;
 
+import java.util.Objects;
+
+import org.springframework.stereotype.Component;
+
 import com.koduck.common.constants.RoleConstants;
 import com.koduck.entity.Role;
 import com.koduck.repository.RoleRepository;
-import java.util.Objects;
+
 import lombok.RequiredArgsConstructor;
-import org.springframework.stereotype.Component;
 
 /**
  * Resolves default USER role ID from database and caches the value.
  *
  * @author GitHub Copilot
- * @date 2026-03-31
  */
 @Component
 @RequiredArgsConstructor
@@ -37,7 +39,8 @@ public class DefaultUserRoleResolver {
         int resolvedRoleId;
         if (cached != null) {
             resolvedRoleId = cached;
-        } else {
+        }
+        else {
             final Role role = roleRepository.findByName(RoleConstants.DEFAULT_USER_ROLE_NAME)
                     .orElseThrow(() -> new IllegalStateException(
                             "Default role not found in database: " + RoleConstants.DEFAULT_USER_ROLE_NAME));
