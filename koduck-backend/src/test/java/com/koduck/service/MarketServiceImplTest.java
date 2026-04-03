@@ -644,8 +644,8 @@ class MarketServiceImplTest {
                 .industry("白酒")
                 .build();
 
-        when(marketFallbackSupport.fetchProviderIndustry("600519"))
-                .thenReturn(industry);
+        when(marketFallbackSupport.fetchProviderIndustries(List.of("600519")))
+                .thenReturn(Map.of("600519", industry));
 
         List<String> symbols = new ArrayList<>();
         symbols.add(null);
@@ -656,6 +656,59 @@ class MarketServiceImplTest {
 
         assertThat(results).hasSize(SINGLE_RESULT);
         assertThat(results.get("600519")).isNotNull();
+    }
+
+    @Test
+    @DisplayName("shouldReturnBatchIndustriesFromDataService")
+    void shouldReturnBatchIndustriesFromDataService() {
+        StockIndustryDto industry1 = StockIndustryDto.builder()
+                .symbol("601012")
+                .name("隆基绿能")
+                .industry("电力设备")
+                .build();
+        StockIndustryDto industry2 = StockIndustryDto.builder()
+                .symbol("600519")
+                .name("贵州茅台")
+                .industry("白酒")
+                .build();
+
+        when(marketFallbackSupport.fetchProviderIndustries(List.of("601012", "600519")))
+                .thenReturn(Map.of("601012", industry1, "600519", industry2));
+
+        Map<String, StockIndustryDto> results = marketService.getStockIndustries(List.of("601012", "600519"));
+
+        assertThat(results).hasSize(DOUBLE_RESULT);
+        assertThat(results.get("601012").industry()).isEqualTo("电力设备");
+        assertThat(results.get("600519").industry()).isEqualTo("白酒");
+    }
+
+    @Test
+    @DisplayName("shouldReturnEmptyMapWhenBatchIndustryFetchFails")
+    void shouldReturnEmptyMapWhenBatchIndustryFetchFails() {
+        when(marketFallbackSupport.fetchProviderIndustries(List.of("600519")))
+                .thenThrow(new RuntimeException("Service error"));
+
+        Map<String, StockIndustryDto> results = marketService.getStockIndustries(List.of("600519"));
+
+        assertThat(results).isEmpty();
+    }
+
+    @Test
+    @DisplayName("shouldDeduplicateSymbolsInBatchIndustryLookup")
+    void shouldDeduplicateSymbolsInBatchIndustryLookup() {
+        StockIndustryDto industry = StockIndustryDto.builder()
+                .symbol("600519")
+                .name("贵州茅台")
+                .industry("白酒")
+                .build();
+
+        when(marketFallbackSupport.fetchProviderIndustries(List.of("600519")))
+                .thenReturn(Map.of("600519", industry));
+
+        Map<String, StockIndustryDto> results = marketService.getStockIndustries(List.of("600519", "600519", "600519"));
+
+        assertThat(results).hasSize(SINGLE_RESULT);
+        verify(marketFallbackSupport).fetchProviderIndustries(List.of("600519"));
     }
 
     @Test

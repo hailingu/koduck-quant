@@ -8,6 +8,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.stream.Collectors;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -483,6 +484,59 @@ public class AKShareDataProvider implements MarketDataProvider {
         catch (RestClientException e) {
             throw new ExternalServiceException("DataService",
                 "Failed to get industry for " + symbol, e);
+        }
+    }
+
+    /**
+     * 批量获取股票行业信息。
+     *
+     * @param symbols 股票代码列表
+     * @return 代码到行业信息的映射
+     */
+    public Map<String, StockIndustryDto> getStockIndustries(List<String> symbols) {
+        if (!isAvailable()) {
+            LOG.warn(DATA_SERVICE_DISABLED_MESSAGE);
+            return Collections.emptyMap();
+        }
+
+        if (symbols == null || symbols.isEmpty()) {
+            return Collections.emptyMap();
+        }
+
+        try {
+            String url = properties.getBaseUrl() + "/market/stocks/industries";
+
+            Map<String, List<String>> request = Map.of("symbols", symbols);
+
+            LOG.debug("Getting batch industries for {} symbols", symbols.size());
+
+            // 使用LIST_DATA_RESPONSE_TYPE批量获取，然后通过symbol字段映射
+            ResponseEntity<DataServiceResponse<List<Map<String, Object>>>> response =
+                restTemplate.exchange(url, getHttpPost(),
+                    new org.springframework.http.HttpEntity<>(
+                        Objects.requireNonNull(request, "request must not be null")),
+                    getListDataResponseType());
+
+            DataServiceResponse<List<Map<String, Object>>> body = response.getBody();
+            if (body == null || body.data() == null) {
+                return Collections.emptyMap();
+            }
+
+            return body.data().stream()
+                .map(AKShareDataMapperSupport::parseStockIndustryResponse)
+                .filter(Objects::nonNull)
+                .filter(dto -> dto.symbol() != null)
+                .collect(Collectors.toMap(
+                    StockIndustryDto::symbol,
+                    dto -> dto,
+                    (existing, replacement) -> replacement,
+                    java.util.LinkedHashMap::new
+                ));
+
+        }
+        catch (RestClientException e) {
+            LOG.error("Failed to get batch industries: {}", e.getMessage());
+            return Collections.emptyMap();
         }
     }
 

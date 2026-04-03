@@ -137,6 +137,19 @@ public class MarketFallbackSupport {
     }
 
     /**
+     * Fetches industries for multiple symbols from provider.
+     *
+     * @param symbols the list of stock symbols
+     * @return map of symbol to stock industry DTO
+     */
+    public Map<String, StockIndustryDto> fetchProviderIndustries(List<String> symbols) {
+        return getAShareProvider()
+            .flatMap(this::toAkShareProvider)
+            .map(provider -> provider.getStockIndustries(symbols))
+            .orElse(Collections.emptyMap());
+    }
+
+    /**
      * Tries to build quote from latest kline.
      *
      * @param symbol the stock symbol
