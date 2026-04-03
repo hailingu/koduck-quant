@@ -10,7 +10,6 @@ import jakarta.validation.constraints.Size;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-
 /**
  * 创建凭证请求 DTO。
  *

@@ -469,8 +469,6 @@ public class USStockProvider implements MarketDataProvider {
             || (day == CHRISTMAS_AFTER && dow == DayOfWeek.MONDAY));
     }
 
-
-
     /**
      * 获取已订阅的股票代码。
      *

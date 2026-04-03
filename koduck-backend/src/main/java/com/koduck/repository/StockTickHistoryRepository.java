@@ -15,4 +15,3 @@ public interface StockTickHistoryRepository extends JpaRepository<StockTickHisto
 
     List<StockTickHistory> findBySymbolAndIdGreaterThanOrderByIdAsc(String symbol, Long lastId);
 }
-

@@ -39,4 +39,3 @@ public record CapitalRiverDto(
         bubbles = bubbles == null ? null : List.copyOf(bubbles);
     }
 }
-

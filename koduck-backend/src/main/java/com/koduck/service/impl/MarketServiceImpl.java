@@ -1,5 +1,18 @@
 package com.koduck.service.impl;
 
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.function.Function;
+import java.util.stream.Collectors;
+
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.stereotype.Service;
+
 import com.koduck.config.CacheConfig;
 import com.koduck.dto.market.MarketIndexDto;
 import com.koduck.dto.market.PriceQuoteDto;
@@ -16,19 +29,8 @@ import com.koduck.service.MarketService;
 import com.koduck.service.StockCacheService;
 import com.koduck.service.support.MarketFallbackSupport;
 import com.koduck.service.support.MarketServiceSupport;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.cache.annotation.Cacheable;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.stereotype.Service;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.function.Function;
-import java.util.stream.Collectors;
+import lombok.extern.slf4j.Slf4j;
 
 /**
  * Market data service implementation.

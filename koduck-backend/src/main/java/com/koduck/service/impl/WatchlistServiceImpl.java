@@ -1,8 +1,5 @@
 package com.koduck.service.impl;
 
-import static com.koduck.util.ServiceValidationUtils.assertOwner;
-import static com.koduck.util.ServiceValidationUtils.requireFound;
-
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -34,6 +31,9 @@ import com.koduck.util.SymbolUtils;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+
+import static com.koduck.util.ServiceValidationUtils.assertOwner;
+import static com.koduck.util.ServiceValidationUtils.requireFound;
 
 /**
  * Implementation of {@link WatchlistService} for watchlist operations.

@@ -83,7 +83,6 @@ public class CacheConfig {
      */
     private static final Duration TTL_1_HOUR = Duration.ofHours(1);
 
-
     /**
      * Construct a JSON serializer that understands Java time types.
      *

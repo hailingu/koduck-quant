@@ -1,11 +1,11 @@
 package com.koduck.service.impl;
 
-import static com.koduck.util.ServiceValidationUtils.requireFound;
-
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
+
+import jakarta.servlet.http.HttpServletRequest;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -33,8 +33,9 @@ import com.koduck.repository.CredentialRepository;
 import com.koduck.service.CredentialService;
 import com.koduck.util.CredentialEncryptionUtil;
 
-import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
+
+import static com.koduck.util.ServiceValidationUtils.requireFound;
 
 /**
  * User credential service implementation.

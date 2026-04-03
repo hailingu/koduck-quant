@@ -1,8 +1,5 @@
 package com.koduck.service.impl;
 
-import static com.koduck.util.ServiceValidationUtils.assertOwner;
-import static com.koduck.util.ServiceValidationUtils.requireFound;
-
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDateTime;
@@ -32,6 +29,9 @@ import com.koduck.service.KlineService;
 import com.koduck.service.PortfolioService;
 
 import lombok.extern.slf4j.Slf4j;
+
+import static com.koduck.util.ServiceValidationUtils.assertOwner;
+import static com.koduck.util.ServiceValidationUtils.requireFound;
 
 /**
  * Implementation of portfolio service operations.

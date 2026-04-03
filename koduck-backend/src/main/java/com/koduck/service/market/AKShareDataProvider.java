@@ -484,25 +484,21 @@ public class AKShareDataProvider implements MarketDataProvider {
         }
     }
 
-
     @NonNull
     private static HttpMethod getHttpGet() {
         return Objects.requireNonNull(HttpMethod.GET, HTTP_GET_MESSAGE);
     }
-
 
     @NonNull
     private static HttpMethod getHttpPost() {
         return Objects.requireNonNull(HttpMethod.POST, HTTP_POST_MESSAGE);
     }
 
-
     @NonNull
     private static ParameterizedTypeReference<DataServiceResponse<List<Map<String, Object>>>>
         getListDataResponseType() {
         return Objects.requireNonNull(LIST_DATA_RESPONSE_TYPE, RESPONSE_TYPE_MESSAGE);
     }
-
 
     @NonNull
     private static ParameterizedTypeReference<DataServiceResponse<Map<String, Object>>>

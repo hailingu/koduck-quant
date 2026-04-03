@@ -124,7 +124,6 @@ public final class DataConverter {
             // Ignore and return null when all known formats fail.
         }
     
-
         return null;
     }
 

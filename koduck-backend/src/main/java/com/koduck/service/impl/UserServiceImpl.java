@@ -1,5 +1,17 @@
 package com.koduck.service.impl;
 
+import java.util.List;
+import java.util.Objects;
+
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
+
 import com.koduck.dto.common.PageResponse;
 import com.koduck.dto.user.ChangePasswordRequest;
 import com.koduck.dto.user.CreateUserRequest;
@@ -18,18 +30,9 @@ import com.koduck.repository.UserRepository;
 import com.koduck.repository.UserRoleRepository;
 import com.koduck.service.UserService;
 import com.koduck.service.support.DefaultUserRoleResolver;
-import java.util.List;
-import java.util.Objects;
+
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.Sort;
-import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-import org.springframework.util.StringUtils;
 
 import static com.koduck.util.ServiceValidationUtils.requireFound;
 

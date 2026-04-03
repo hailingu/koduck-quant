@@ -3,6 +3,9 @@ package com.koduck.service.impl;
 import java.util.List;
 import java.util.Objects;
 
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
 import com.koduck.dto.settings.DisplayConfigDto;
 import com.koduck.dto.settings.LlmConfigDto;
 import com.koduck.dto.settings.NotificationConfigDto;
@@ -19,9 +22,6 @@ import com.koduck.service.support.UserSettingsLlmConfigSupport;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 /**
  * 用户设置服务实现类。

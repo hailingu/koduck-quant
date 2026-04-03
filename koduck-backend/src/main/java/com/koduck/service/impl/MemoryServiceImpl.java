@@ -1,13 +1,5 @@
 package com.koduck.service.impl;
 
-import com.koduck.entity.MemoryChatMessage;
-import com.koduck.entity.MemoryChatSession;
-import com.koduck.entity.UserMemoryProfile;
-import com.koduck.exception.StateException;
-import com.koduck.repository.MemoryChatMessageRepository;
-import com.koduck.repository.MemoryChatSessionRepository;
-import com.koduck.repository.UserMemoryProfileRepository;
-import com.koduck.service.MemoryService;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -16,11 +8,22 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
-import lombok.extern.slf4j.Slf4j;
+
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import com.koduck.entity.MemoryChatMessage;
+import com.koduck.entity.MemoryChatSession;
+import com.koduck.entity.UserMemoryProfile;
+import com.koduck.exception.StateException;
+import com.koduck.repository.MemoryChatMessageRepository;
+import com.koduck.repository.MemoryChatSessionRepository;
+import com.koduck.repository.UserMemoryProfileRepository;
+import com.koduck.service.MemoryService;
+
+import lombok.extern.slf4j.Slf4j;
 
 /**
  * Implementation of memory session and profile service.

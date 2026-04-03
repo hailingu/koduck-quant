@@ -1,8 +1,5 @@
 package com.koduck.service.impl;
 
-import static com.koduck.util.ServiceValidationUtils.assertOwner;
-import static com.koduck.util.ServiceValidationUtils.requireFound;
-
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
@@ -52,6 +49,9 @@ import com.koduck.service.support.CommunitySignalResponseAssembler;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+
+import static com.koduck.util.ServiceValidationUtils.assertOwner;
+import static com.koduck.util.ServiceValidationUtils.requireFound;
 
 /**
  * Community signal service implementation.
