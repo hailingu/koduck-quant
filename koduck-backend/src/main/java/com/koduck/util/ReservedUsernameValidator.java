@@ -6,7 +6,6 @@ import java.util.Locale;
  * Utility class for validating reserved usernames.
  *
  * @author GitHub Copilot
- * @date 2026-03-31
  */
 public final class ReservedUsernameValidator {
 
