@@ -233,7 +233,8 @@ public class USStockProvider implements MarketDataProvider {
                 symbol, resolution);
 
             ResponseEntity<CandleResponse> response = restTemplate.exchange(url,
-                getHttpGet(), null, CandleResponse.class);
+                java.util.Objects.requireNonNull(HttpMethod.GET), null,
+                CandleResponse.class);
 
             CandleResponse body = response.getBody();
             if (body == null || body.getS() == null
@@ -269,7 +270,8 @@ public class USStockProvider implements MarketDataProvider {
             LOG.debug("Fetching quote from Finnhub: symbol={}", symbol);
 
             ResponseEntity<QuoteResponse> response = restTemplate.exchange(url,
-                getHttpGet(), null, QuoteResponse.class);
+                java.util.Objects.requireNonNull(HttpMethod.GET), null,
+                QuoteResponse.class);
 
             QuoteResponse quote = response.getBody();
             if (quote == null) {
@@ -371,7 +373,8 @@ public class USStockProvider implements MarketDataProvider {
                 .toUriString();
 
             ResponseEntity<SearchResponse> response = restTemplate.exchange(url,
-                getHttpGet(), null, SearchResponse.class);
+                java.util.Objects.requireNonNull(HttpMethod.GET), null,
+                SearchResponse.class);
 
             SearchResponse body = response.getBody();
             if (body == null || body.result() == null) {
@@ -467,9 +470,6 @@ public class USStockProvider implements MarketDataProvider {
     }
 
 
-    private static HttpMethod getHttpGet() {
-        return java.util.Objects.requireNonNull(HttpMethod.GET, "HTTP GET must not be null");
-    }
 
     /**
      * 获取已订阅的股票代码。
