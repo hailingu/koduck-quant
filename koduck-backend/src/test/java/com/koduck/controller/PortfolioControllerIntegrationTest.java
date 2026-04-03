@@ -3,6 +3,7 @@ package com.koduck.controller;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Objects;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -123,8 +124,8 @@ class PortfolioControllerIntegrationTest extends AbstractIntegrationTest {
         registerRequest.setNickname(nickname);
 
         MvcResult result = mockMvc.perform(post("/api/v1/auth/register")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(registerRequest)))
+                        .contentType(Objects.requireNonNull(MediaType.APPLICATION_JSON))
+                        .content(Objects.requireNonNull(objectMapper.writeValueAsString(registerRequest))))
                 .andExpect(status().isOk())
                 .andReturn();
 
@@ -148,8 +149,8 @@ class PortfolioControllerIntegrationTest extends AbstractIntegrationTest {
 
         mockMvc.perform(post("/api/v1/portfolio/trades")
                         .header(AUTHORIZATION_HEADER, bearerToken(accessToken))
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(tradeRequest)))
+                        .contentType(Objects.requireNonNull(MediaType.APPLICATION_JSON))
+                        .content(Objects.requireNonNull(objectMapper.writeValueAsString(tradeRequest))))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(0));
     }
@@ -179,7 +180,7 @@ class PortfolioControllerIntegrationTest extends AbstractIntegrationTest {
                 .quantity(new BigDecimal(TEST_QUANTITY_100))
                 .avgCost(new BigDecimal(String.valueOf(TEST_PRICE_1500)))
                 .build();
-        positionRepository.save(position);
+        positionRepository.save(Objects.requireNonNull(position));
 
         mockMvc.perform(get("/api/v1/portfolio")
                         .header(AUTHORIZATION_HEADER, bearerToken(accessToken)))
@@ -225,7 +226,7 @@ class PortfolioControllerIntegrationTest extends AbstractIntegrationTest {
                 .quantity(new BigDecimal(TEST_QUANTITY_1000))
                 .avgCost(new BigDecimal("12.50"))
                 .build();
-        positionRepository.save(position);
+        positionRepository.save(Objects.requireNonNull(position));
 
         mockMvc.perform(get("/api/v1/portfolio/summary")
                         .header(AUTHORIZATION_HEADER, bearerToken(accessToken)))
@@ -248,8 +249,8 @@ class PortfolioControllerIntegrationTest extends AbstractIntegrationTest {
 
         mockMvc.perform(post("/api/v1/portfolio")
                         .header(AUTHORIZATION_HEADER, bearerToken(accessToken))
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(request)))
+                        .contentType(Objects.requireNonNull(MediaType.APPLICATION_JSON))
+                        .content(Objects.requireNonNull(objectMapper.writeValueAsString(request))))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(0))
                 .andExpect(jsonPath("$.data.symbol").value("600519"))
@@ -280,8 +281,8 @@ class PortfolioControllerIntegrationTest extends AbstractIntegrationTest {
 
         mockMvc.perform(post("/api/v1/portfolio")
                         .header(AUTHORIZATION_HEADER, bearerToken(accessToken))
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(request)))
+                        .contentType(Objects.requireNonNull(MediaType.APPLICATION_JSON))
+                        .content(Objects.requireNonNull(objectMapper.writeValueAsString(request))))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(0))
                 .andExpect(jsonPath("$.data.quantity").value(TEST_QUANTITY_1000)); // 500 + 500
@@ -297,8 +298,8 @@ class PortfolioControllerIntegrationTest extends AbstractIntegrationTest {
 
         mockMvc.perform(post("/api/v1/portfolio")
                         .header(AUTHORIZATION_HEADER, bearerToken(accessToken))
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(request)))
+                        .contentType(Objects.requireNonNull(MediaType.APPLICATION_JSON))
+                        .content(Objects.requireNonNull(objectMapper.writeValueAsString(request))))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value(BAD_REQUEST_CODE));
     }
@@ -313,8 +314,8 @@ class PortfolioControllerIntegrationTest extends AbstractIntegrationTest {
 
         mockMvc.perform(post("/api/v1/portfolio")
                         .header(AUTHORIZATION_HEADER, bearerToken(accessToken))
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(request)))
+                        .contentType(Objects.requireNonNull(MediaType.APPLICATION_JSON))
+                        .content(Objects.requireNonNull(objectMapper.writeValueAsString(request))))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value(BAD_REQUEST_CODE));
     }
@@ -333,16 +334,16 @@ class PortfolioControllerIntegrationTest extends AbstractIntegrationTest {
                 .quantity(new BigDecimal(TEST_QUANTITY_1000))
                 .avgCost(new BigDecimal("12.50"))
                 .build();
-        PortfolioPosition saved = positionRepository.save(position);
+        PortfolioPosition saved = positionRepository.save(Objects.requireNonNull(position));
 
         UpdatePositionRequest request = new UpdatePositionRequest(
                 new BigDecimal(TEST_QUANTITY_2000), new BigDecimal(String.valueOf(TEST_PRICE_13))
         );
 
-        mockMvc.perform(put("/api/v1/portfolio/{id}", saved.getId())
+        mockMvc.perform(put("/api/v1/portfolio/{id}", Objects.requireNonNull(saved.getId()))
                         .header(AUTHORIZATION_HEADER, bearerToken(accessToken))
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(request)))
+                        .contentType(Objects.requireNonNull(MediaType.APPLICATION_JSON))
+                        .content(Objects.requireNonNull(objectMapper.writeValueAsString(request))))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(0))
                 .andExpect(jsonPath("$.data.quantity").value(TEST_QUANTITY_2000))
@@ -393,7 +394,7 @@ class PortfolioControllerIntegrationTest extends AbstractIntegrationTest {
                 .quantity(new BigDecimal(TEST_QUANTITY_1000))
                 .avgCost(new BigDecimal("12.50"))
                 .build();
-        PortfolioPosition saved = positionRepository.save(position);
+        PortfolioPosition saved = positionRepository.save(Objects.requireNonNull(position));
 
         mockMvc.perform(delete("/api/v1/portfolio/{id}", saved.getId())
                         .header(AUTHORIZATION_HEADER, bearerToken(accessToken)))
@@ -441,7 +442,7 @@ class PortfolioControllerIntegrationTest extends AbstractIntegrationTest {
                 .amount(new BigDecimal("150000.00"))
                 .tradeTime(LocalDateTime.now())
                 .build();
-        tradeRepository.save(trade);
+        tradeRepository.save(Objects.requireNonNull(trade));
 
         mockMvc.perform(get("/api/v1/portfolio/trades")
                         .header(AUTHORIZATION_HEADER, bearerToken(accessToken)))
@@ -493,7 +494,7 @@ class PortfolioControllerIntegrationTest extends AbstractIntegrationTest {
                 .quantity(new BigDecimal(TEST_QUANTITY_1000))
                 .avgCost(new BigDecimal("12.00"))
                 .build();
-        positionRepository.save(position);
+        positionRepository.save(Objects.requireNonNull(position));
 
         AddTradeRequest request = new AddTradeRequest(
                 "AShare", "000001", "平安银行", "BUY",
@@ -526,7 +527,7 @@ class PortfolioControllerIntegrationTest extends AbstractIntegrationTest {
                 .quantity(new BigDecimal(TEST_QUANTITY_1000))
                 .avgCost(new BigDecimal("12.00"))
                 .build();
-        positionRepository.save(position);
+        positionRepository.save(Objects.requireNonNull(position));
 
         AddTradeRequest request = new AddTradeRequest(
                 "AShare", "000001", "平安银行", "SELL",
@@ -559,7 +560,7 @@ class PortfolioControllerIntegrationTest extends AbstractIntegrationTest {
                 .quantity(new BigDecimal(TEST_QUANTITY_1000))
                 .avgCost(new BigDecimal("12.00"))
                 .build();
-        positionRepository.save(position);
+        positionRepository.save(Objects.requireNonNull(position));
 
         AddTradeRequest request = new AddTradeRequest(
                 "AShare", "000001", "平安银行", "SELL",
@@ -651,7 +652,7 @@ class PortfolioControllerIntegrationTest extends AbstractIntegrationTest {
         ApiResponse<PortfolioPositionDto> addResponse = objectMapper.readValue(
                 addResult.getResponse().getContentAsString(),
                 objectMapper.getTypeFactory().constructParametricType(ApiResponse.class, PortfolioPositionDto.class));
-        Long positionId = addResponse.getData().id();
+        Long positionId = Objects.requireNonNull(addResponse.getData().id());
 
         // Step 2: Get positions and verify
         mockMvc.perform(get("/api/v1/portfolio")

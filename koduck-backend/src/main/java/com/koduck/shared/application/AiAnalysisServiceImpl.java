@@ -304,7 +304,7 @@ public class AiAnalysisServiceImpl implements AiAnalysisService {
             agentUrl,
             Objects.requireNonNull(HttpMethod.POST),
             entity,
-            MAP_RESPONSE_TYPE
+            Objects.requireNonNull(MAP_RESPONSE_TYPE)
         );
 
         String content = extractAgentContent(response.getBody());
