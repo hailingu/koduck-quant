@@ -2,6 +2,7 @@ package com.koduck.config.properties;
 
 import java.util.ArrayList;
 import java.util.List;
+
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.context.annotation.Configuration;
 
@@ -11,11 +12,16 @@ import org.springframework.context.annotation.Configuration;
  * <p>Defines endpoint patterns that can bypass authentication. The
  * configuration is externalized under {@code koduck.security} so endpoint
  * maintenance does not require Java code changes.</p>
+ *
+ * @author GitHub Copilot
  */
 @Configuration
 @ConfigurationProperties(prefix = "koduck.security")
 public class SecurityEndpointProperties {
 
+    /**
+     * Default patterns that permit all HTTP methods.
+     */
     private static final List<String> DEFAULT_PERMIT_ALL_PATTERNS = List.of(
             "/api/v1/auth/**",
             "/actuator/health",
@@ -25,10 +31,19 @@ public class SecurityEndpointProperties {
             "/api/v1/a-share/**"
     );
 
+    /**
+     * Default patterns that permit only GET requests.
+     */
     private static final List<String> DEFAULT_PERMIT_ALL_GET_PATTERNS = List.of("/api/v1/market/**");
 
+    /**
+     * Patterns that permit all HTTP methods without authentication.
+     */
     private List<String> permitAllPatterns = new ArrayList<>(DEFAULT_PERMIT_ALL_PATTERNS);
 
+    /**
+     * Patterns that permit only GET requests without authentication.
+     */
     private List<String> permitAllGetPatterns = new ArrayList<>(DEFAULT_PERMIT_ALL_GET_PATTERNS);
 
     /**
