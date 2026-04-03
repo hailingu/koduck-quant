@@ -1,5 +1,8 @@
 package com.koduck.entity;
 
+import java.time.LocalDateTime;
+import java.util.Map;
+
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -9,20 +12,17 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 
-import java.time.LocalDateTime;
-import java.util.Map;
-
-import lombok.AccessLevel;
-import lombok.Data;
-import lombok.NoArgsConstructor;
-import lombok.Setter;
-
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.annotations.UpdateTimestamp;
 import org.hibernate.type.SqlTypes;
 
 import com.koduck.util.CollectionCopyUtils;
+
+import lombok.AccessLevel;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 
 /**
  * User credential entity for API Key and Secret.
@@ -160,19 +160,46 @@ public class UserCredential {
      */
     public static final class Builder {
 
+        /** Builder field for id. */
         private Long id;
+
+        /** Builder field for userId. */
         private Long userId;
+
+        /** Builder field for name. */
         private String name;
+
+        /** Builder field for type. */
         private CredentialType type;
+
+        /** Builder field for provider. */
         private String provider;
+
+        /** Builder field for apiKeyEncrypted. */
         private String apiKeyEncrypted;
+
+        /** Builder field for apiSecretEncrypted. */
         private String apiSecretEncrypted;
+
+        /** Builder field for environment. */
         private Environment environment;
+
+        /** Builder field for additionalConfig. */
         private Map<String, Object> additionalConfig;
+
+        /** Builder field for isActive. */
         private Boolean isActive;
+
+        /** Builder field for lastVerifiedAt. */
         private LocalDateTime lastVerifiedAt;
+
+        /** Builder field for lastVerifiedStatus. */
         private VerificationStatus lastVerifiedStatus;
+
+        /** Builder field for createdAt. */
         private LocalDateTime createdAt;
+
+        /** Builder field for updatedAt. */
         private LocalDateTime updatedAt;
 
         /**
