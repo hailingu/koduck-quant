@@ -468,7 +468,7 @@ public class USStockProvider implements MarketDataProvider {
 
 
     private static HttpMethod getHttpGet() {
-        return Objects.requireNonNull(HttpMethod.GET, "HTTP GET must not be null");
+        return java.util.Objects.requireNonNull(HttpMethod.GET, "HTTP GET must not be null");
     }
 
     /**

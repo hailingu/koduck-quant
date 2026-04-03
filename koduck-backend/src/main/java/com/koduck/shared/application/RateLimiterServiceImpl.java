@@ -7,7 +7,6 @@ import java.util.Locale;
 import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.lang.NonNull;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
@@ -163,7 +162,7 @@ public class RateLimiterServiceImpl implements RateLimiterService {
         String nonNullKey = requireNonNullKey(key);
         Long newCount = redisTemplate.opsForValue().increment(nonNullKey);
         if (newCount == null) {
-            log.warn("Rate limiter increment returned null, key={}", key);
+            log.warn("Rate limiter increment returned null, key={}", nonNullKey);
             return true;
         }
         // 首次设置过期时间
@@ -174,7 +173,8 @@ public class RateLimiterServiceImpl implements RateLimiterService {
     }
 
     private long getCounterValue(String key) {
-        String counter = redisTemplate.opsForValue().get(requireNonNullKey(key));
+        String nonNullKey = requireNonNullKey(key);
+        String counter = redisTemplate.opsForValue().get(nonNullKey);
         if (counter == null) {
             return 0L;
         }
@@ -184,7 +184,7 @@ public class RateLimiterServiceImpl implements RateLimiterService {
     private void incrementCounter(String key, Duration window) {
         String nonNullKey = requireNonNullKey(key);
         Long newCount = redisTemplate.opsForValue().increment(nonNullKey);
-        if (newCount != null && newCount == 1L) {
+        if (newCount != null && newCount.longValue() == 1L) {
             redisTemplate.expire(nonNullKey, window.getSeconds(), TimeUnit.SECONDS);
         }
     }

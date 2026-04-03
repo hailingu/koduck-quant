@@ -29,16 +29,12 @@ public class AiRecommendationSupport {
     private static final String RISK_AGGRESSIVE = "aggressive";
     /** 保守型风险偏好。 */
     private static final String RISK_CONSERVATIVE = "conservative";
-    /** 稳健型风险偏好。 */
-    private static final String RISK_MODERATE = "moderate";
     /** 策略类型：均线交叉。 */
     private static final String STRATEGY_TYPE_MA_CROSS = "MA_CROSS";
     /** 美国市场。 */
     private static final String MARKET_US = "US";
     /** 中国市场。 */
     private static final String MARKET_CN = "CN";
-    /** 适用市场：美国、中国。 */
-    private static final String SUITABLE_MARKETS_US_CN = "US, CN";
     /** 最大推荐数量。 */
     private static final int MAX_RECOMMENDATIONS = 3;
     /** 匹配分数基数。 */
@@ -65,8 +61,6 @@ public class AiRecommendationSupport {
     private static final int RISK_SCORE_LOW_THRESHOLD = 60;
     /** 胜率阈值。 */
     private static final int WIN_RATE_THRESHOLD = 55;
-    /** 最大回撤阈值。 */
-    private static final int MAX_DRAWDOWN_THRESHOLD = 15;
     /** 绩效阈值。 */
     private static final BigDecimal PERFORMANCE_THRESHOLD = new BigDecimal("0.1");
     /** 夏普比率阈值。 */
@@ -115,8 +109,6 @@ public class AiRecommendationSupport {
     private static final int RISK_CURRENCY_RANGE = 21;
     /** 持仓数量阈值。 */
     private static final int POSITION_COUNT_THRESHOLD = 5;
-    /** 单只股票占比阈值。 */
-    private static final double SINGLE_STOCK_RATIO_THRESHOLD = 0.15;
     /** 推荐建议：买入。 */
     private static final String RECOMMENDATION_BUY = "建议买入";
     /** 推荐建议：持有。 */

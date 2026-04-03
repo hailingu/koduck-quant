@@ -44,9 +44,6 @@ class MarketControllerIntegrationTest extends AbstractIntegrationTest {
     /** HTTP status code: Not Found (404). */
     private static final int HTTP_NOT_FOUND = 404;
 
-    /** HTTP status code: Created (201). */
-    private static final int HTTP_CREATED = 201;
-
     /** Maximum keyword length for search validation. */
     private static final int MAX_KEYWORD_LENGTH = 51;
 

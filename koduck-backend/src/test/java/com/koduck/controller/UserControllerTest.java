@@ -17,9 +17,6 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
  */
 class UserControllerTest {
 
-    /** The default page size. */
-    private static final int DEFAULT_PAGE_SIZE = 20;
-
     @Test
     @DisplayName("Controller should declare @Validated for method parameter validation")
     void controllerShouldDeclareValidatedAnnotation() {

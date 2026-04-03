@@ -242,7 +242,7 @@ public final class StockFixtures {
      */
     public static BigDecimal randomPrice(double min, double max) {
         double price = min + Math.random() * (max - min);
-        return BigDecimal.valueOf(price).setScale(2, BigDecimal.ROUND_HALF_UP);
+        return BigDecimal.valueOf(price).setScale(2, java.math.RoundingMode.HALF_UP);
     }
 
     /**
@@ -252,6 +252,6 @@ public final class StockFixtures {
      */
     public static BigDecimal randomChangePercent() {
         double change = (Math.random() - RANDOM_PRICE_OFFSET) * RANDOM_CHANGE_MULTIPLIER;
-        return BigDecimal.valueOf(change).setScale(CHANGE_PERCENT_SCALE, BigDecimal.ROUND_HALF_UP);
+        return BigDecimal.valueOf(change).setScale(CHANGE_PERCENT_SCALE, java.math.RoundingMode.HALF_UP);
     }
 }

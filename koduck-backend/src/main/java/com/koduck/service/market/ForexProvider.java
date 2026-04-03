@@ -90,9 +90,6 @@ public class ForexProvider extends AbstractDataServiceMarketProvider {
     /** Multiplier for price change calculation (0.5 for centering random value). */
     private static final double PRICE_CHANGE_MULTIPLIER = 0.5;
 
-    /** Multiplier for high/low price calculation. */
-    private static final double HIGH_LOW_MULTIPLIER = 1.0;
-
     /** Multiplier for day high price calculation (101%). */
     private static final double DAY_HIGH_MULTIPLIER = 1.01;
 

@@ -27,6 +27,7 @@ public interface CredentialMapper {
      */
     @Mapping(target = "apiKeyMasked", source = "apiKeyMasked")
     @Mapping(target = "apiSecretMasked", source = "apiSecretMasked")
+    @Mapping(target = "enabled", source = "credential.isActive")
     CredentialResponse toCredentialResponse(
             UserCredential credential,
             String apiKeyMasked,
@@ -42,6 +43,8 @@ public interface CredentialMapper {
      */
     @Mapping(target = "apiKey", source = "apiKey")
     @Mapping(target = "apiSecret", source = "apiSecret")
+    @Mapping(target = "enabled", source = "credential.isActive")
+    @Mapping(target = "extraConfig", source = "credential.additionalConfig")
     CredentialDetailResponse toCredentialDetailResponse(
             UserCredential credential,
             String apiKey,
