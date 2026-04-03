@@ -1,13 +1,13 @@
 package com.koduck.controller.admin;
-import com.koduck.common.constants.MarketConstants;
-import com.koduck.dto.ApiResponse;
-import com.koduck.service.KlineSyncService;
+
+import java.util.List;
+import java.util.Objects;
+
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotEmpty;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
+
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -15,14 +15,19 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
-import java.util.List;
-import java.util.Objects;
+
+import com.koduck.common.constants.MarketConstants;
+import com.koduck.dto.ApiResponse;
+import com.koduck.service.KlineSyncService;
+
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+
 /**
  * Admin controller for K-line data management.
  * Requires ADMIN role.
  *
  * @author GitHub Copilot
- * @date 2026-03-05
  */
 @RestController
 @RequestMapping("/api/v1/admin/kline")
@@ -31,14 +36,30 @@ import java.util.Objects;
 @PreAuthorize("hasRole('ADMIN')")
 @Validated
 public class KlineAdminController {
+    /** Default number of days to backfill historical data. */
     private static final String DEFAULT_BACKFILL_DAYS = "365";
+
+    /** Prefix for sync triggered message. */
     private static final String MESSAGE_SYNC_TRIGGERED_PREFIX = "Sync triggered for ";
+
+    /** Prefix for backfill triggered message. */
     private static final String MESSAGE_BACKFILL_TRIGGERED_PREFIX = "Backfill triggered for ";
+
+    /** Prefix for batch sync triggered message. */
     private static final String MESSAGE_BATCH_SYNC_TRIGGERED_PREFIX = "Batch sync triggered for ";
+
+    /** Suffix for batch sync triggered message. */
     private static final String MESSAGE_BATCH_SYNC_TRIGGERED_SUFFIX = " symbols";
+
+    /** Error message when symbols list is empty. */
     private static final String ERROR_SYMBOLS_REQUIRED = "symbols must not be empty";
+
+    /** Error message when symbols list contains blank values. */
     private static final String ERROR_SYMBOLS_CONTAINS_BLANK = "symbols must not contain blank values";
+
+    /** Service for K-line data synchronization operations. */
     private final KlineSyncService klineSyncService;
+
     /**
      * Manually triggers K-line data synchronization for a symbol.
      *
@@ -56,6 +77,7 @@ public class KlineAdminController {
         klineSyncService.syncSymbolKline(market, symbol, timeframe);
         return ApiResponse.success(MESSAGE_SYNC_TRIGGERED_PREFIX + symbol);
     }
+
     /**
      * Triggers historical data backfill for a symbol.
      *
@@ -75,6 +97,7 @@ public class KlineAdminController {
         klineSyncService.backfillHistoricalData(market, symbol, timeframe, days);
         return ApiResponse.success(MESSAGE_BACKFILL_TRIGGERED_PREFIX + symbol);
     }
+
     /**
      * Triggers asynchronous batch synchronization for multiple symbols.
      *
