@@ -1,28 +1,22 @@
 package com.koduck.entity;
 
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
-import jakarta.persistence.EnumType;
-import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Index;
 import jakarta.persistence.Table;
 
-import org.hibernate.annotations.CreationTimestamp;
-
-import com.koduck.entity.enums.TradeType;
-
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
-import lombok.Builder;
 import lombok.Data;
+import lombok.EqualsAndHashCode;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import lombok.experimental.SuperBuilder;
 
 /**
  * Backtest trade entity representing individual trades in a backtest.
@@ -37,10 +31,11 @@ import lombok.Setter;
        }
 )
 @Data
-@Builder
+@SuperBuilder
 @NoArgsConstructor
 @AllArgsConstructor
-public class BacktestTrade {
+@EqualsAndHashCode(callSuper = true)
+public class BacktestTrade extends BaseTrade {
 
     /** Unique identifier for the trade. */
     @Id
@@ -51,31 +46,6 @@ public class BacktestTrade {
     /** ID of the associated backtest result. */
     @Column(name = "backtest_result_id", nullable = false)
     private Long backtestResultId;
-
-    /** Type of trade (BUY or SELL). */
-    @Column(name = "trade_type", nullable = false, length = 10)
-    @Enumerated(EnumType.STRING)
-    private TradeType tradeType;
-
-    /** Timestamp when the trade occurred. */
-    @Column(name = "trade_time", nullable = false)
-    private LocalDateTime tradeTime;
-
-    /** Stock symbol traded. */
-    @Column(name = "symbol", nullable = false, length = 20)
-    private String symbol;
-
-    /** Trade price per share. */
-    @Column(name = "price", nullable = false, precision = 19, scale = 4)
-    private BigDecimal price;
-
-    /** Number of shares traded. */
-    @Column(name = "quantity", nullable = false, precision = 19, scale = 4)
-    private BigDecimal quantity;
-
-    /** Total trade amount (price * quantity). */
-    @Column(name = "amount", nullable = false, precision = 19, scale = 4)
-    private BigDecimal amount;
 
     /** Commission paid for the trade. */
     @Column(name = "commission", nullable = false, precision = 19, scale = 4)
@@ -108,10 +78,4 @@ public class BacktestTrade {
     /** Reason for the trade signal. */
     @Column(name = "signal_reason", length = 255)
     private String signalReason;
-
-    /** Timestamp when the record was created. */
-    @CreationTimestamp
-    @Column(name = "created_at", updatable = false)
-    @Setter(AccessLevel.NONE)
-    private LocalDateTime createdAt;
 }
