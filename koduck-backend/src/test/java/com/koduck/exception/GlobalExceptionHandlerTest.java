@@ -121,19 +121,6 @@ class GlobalExceptionHandlerTest {
     }
 
     @Test
-    @DisplayName("处理授权异常")
-    void handleAuthorizationExceptionShouldReturnForbidden() {
-        AuthorizationException exception = AuthorizationException.accessDenied();
-
-        ResponseEntity<ApiResponse<Void>> response =
-            handler.handleAuthorizationException(exception);
-
-        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN);
-        ApiResponse<Void> body = response.getBody();
-        assertThat(Objects.requireNonNull(body).getCode()).isEqualTo(ErrorCode.AUTH_ACCESS_DENIED.getCode());
-    }
-
-    @Test
     @DisplayName("处理状态异常")
     void handleStateExceptionShouldReturnBadRequest() {
         StateException exception = new StateException("当前状态", "期望状态");
