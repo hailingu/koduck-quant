@@ -1,7 +1,8 @@
 package com.koduck.config;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import java.time.Duration;
+import java.util.Objects;
+
 import org.springframework.cache.annotation.EnableCaching;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -12,8 +13,8 @@ import org.springframework.data.redis.serializer.GenericJackson2JsonRedisSeriali
 import org.springframework.data.redis.serializer.RedisSerializationContext;
 import org.springframework.data.redis.serializer.StringRedisSerializer;
 
-import java.time.Duration;
-import java.util.Objects;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 
 /**
  * Configuration for Redis-backed caching.
@@ -22,6 +23,8 @@ import java.util.Objects;
  * and JSON serialization support.  Null-safety guards are applied to
  * durations, serializers, and the connection factory to satisfy
  * {@code @NonNull} contracts and suppress static analysis warnings.
+ *
+ * @author Koduck
  */
 @Configuration
 @EnableCaching
@@ -95,7 +98,7 @@ public class CacheConfig {
         objectMapper.registerModule(new JavaTimeModule());
         return new GenericJackson2JsonRedisSerializer(objectMapper);
     }
- 
+
     /**
      * Utility factory for {@link RedisCacheConfiguration}.
      *
@@ -107,21 +110,21 @@ public class CacheConfig {
      * @return configured cache configuration instance
      */
     private static RedisCacheConfiguration buildCacheConfiguration(
-                        Duration ttl,
-                        GenericJackson2JsonRedisSerializer jsonSerializer,
-                        boolean disableCachingNullValues) {
-                RedisCacheConfiguration configuration = RedisCacheConfiguration.defaultCacheConfig()
-                                .entryTtl(Objects.requireNonNull(ttl))
-                                .serializeKeysWith(RedisSerializationContext.SerializationPair
-                                                .fromSerializer(new StringRedisSerializer()))
-                                .serializeValuesWith(RedisSerializationContext.SerializationPair
-                                                .fromSerializer(Objects.requireNonNull(jsonSerializer)));
+                    Duration ttl,
+                    GenericJackson2JsonRedisSerializer jsonSerializer,
+                    boolean disableCachingNullValues) {
+        RedisCacheConfiguration configuration = RedisCacheConfiguration.defaultCacheConfig()
+                        .entryTtl(Objects.requireNonNull(ttl))
+                        .serializeKeysWith(RedisSerializationContext.SerializationPair
+                                        .fromSerializer(new StringRedisSerializer()))
+                        .serializeValuesWith(RedisSerializationContext.SerializationPair
+                                        .fromSerializer(Objects.requireNonNull(jsonSerializer)));
 
-                if (disableCachingNullValues) {
-                        return configuration.disableCachingNullValues();
-                }
-                return configuration;
+        if (disableCachingNullValues) {
+            return configuration.disableCachingNullValues();
         }
+        return configuration;
+    }
 
     /**
      * Spring bean that constructs the {@link RedisCacheManager} used by the
