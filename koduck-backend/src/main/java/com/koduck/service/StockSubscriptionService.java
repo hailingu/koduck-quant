@@ -201,12 +201,12 @@ public interface StockSubscriptionService {
                 return null;
             }
             return PriceUpdateDto.builder()
-                    .symbol(data.getSymbol())
-                    .name(data.getName())
-                    .price(data.getPrice())
-                    .change(data.getChange())
-                    .changePercent(data.getChangePercent())
-                    .volume(data.getVolume())
+                    .symbol(data.symbol())
+                    .name(data.name())
+                    .price(data.price())
+                    .change(data.change())
+                    .changePercent(data.changePercent())
+                    .volume(data.volume())
                     .build();
         }
 

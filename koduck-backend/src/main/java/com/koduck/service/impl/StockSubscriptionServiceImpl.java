@@ -243,13 +243,13 @@ public class StockSubscriptionServiceImpl implements StockSubscriptionService {
      */
     @Override
     public void onPriceUpdate(PriceUpdateDto priceUpdate) {
-        if (priceUpdate == null || priceUpdate.getSymbol() == null) {
+        if (priceUpdate == null || priceUpdate.symbol() == null) {
             log.warn("Invalid price update: {}", priceUpdate);
             return;
         }
-        String symbol = normalizeSymbol(priceUpdate.getSymbol());
+        String symbol = normalizeSymbol(priceUpdate.symbol());
         if (symbol == null) {
-            log.warn("Invalid symbol in price update: {}", priceUpdate.getSymbol());
+            log.warn("Invalid symbol in price update: {}", priceUpdate.symbol());
             return;
         }
         Set<Long> subscribers = getSubscribers(symbol);
@@ -290,12 +290,12 @@ public class StockSubscriptionServiceImpl implements StockSubscriptionService {
      */
     private PriceUpdateDto createPriceData(PriceUpdateDto priceUpdate) {
         return PriceUpdateDto.builder()
-            .symbol(priceUpdate.getSymbol())
-            .name(priceUpdate.getName())
-            .price(priceUpdate.getPrice())
-            .change(priceUpdate.getChange())
-            .changePercent(priceUpdate.getChangePercent())
-            .volume(priceUpdate.getVolume())
+            .symbol(priceUpdate.symbol())
+            .name(priceUpdate.name())
+            .price(priceUpdate.price())
+            .change(priceUpdate.change())
+            .changePercent(priceUpdate.changePercent())
+            .volume(priceUpdate.volume())
             .build();
     }
 
