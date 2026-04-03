@@ -6,6 +6,8 @@ import java.util.function.Supplier;
 
 /**
  * Shared validation helpers for service-layer operations.
+ *
+ * @author Koduck Team
  */
 public final class ServiceValidationUtils {
 
