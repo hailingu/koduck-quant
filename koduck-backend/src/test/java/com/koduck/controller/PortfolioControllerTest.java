@@ -1,18 +1,11 @@
 package com.koduck.controller;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.lenient;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
-
-import java.lang.reflect.Method;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.List;
+
+import jakarta.validation.constraints.Positive;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -35,7 +28,13 @@ import com.koduck.entity.User;
 import com.koduck.security.UserPrincipal;
 import com.koduck.service.PortfolioService;
 
-import jakarta.validation.constraints.Positive;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 /**
  * Unit tests for {@link PortfolioController}.
@@ -272,13 +271,13 @@ class PortfolioControllerTest {
     @Test
     @DisplayName("Update and delete methods should declare positive id constraint")
     void idParametersShouldDeclarePositiveConstraint() throws NoSuchMethodException {
-        Method updateMethod = PortfolioController.class.getMethod(
+        java.lang.reflect.Method updateMethod = PortfolioController.class.getMethod(
                 "updatePosition",
                 UserPrincipal.class,
                 Long.class,
                 UpdatePositionRequest.class
         );
-        Method deleteMethod = PortfolioController.class.getMethod(
+        java.lang.reflect.Method deleteMethod = PortfolioController.class.getMethod(
                 "deletePosition",
                 UserPrincipal.class,
                 Long.class
