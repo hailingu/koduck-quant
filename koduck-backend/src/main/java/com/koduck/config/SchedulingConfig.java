@@ -6,6 +6,8 @@ import org.springframework.scheduling.annotation.EnableScheduling;
 
 /**
  * Enable scheduling and async support.
+ *
+ * @author Koduck Team
  */
 @Configuration
 @EnableScheduling
