@@ -18,6 +18,7 @@ import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.util.UriComponentsBuilder;
 
+import com.koduck.common.constants.DataServicePathConstants;
 import com.koduck.common.constants.MarketConstants;
 import com.koduck.config.properties.DataServiceProperties;
 import com.koduck.dto.market.DataServiceResponse;
@@ -49,14 +50,7 @@ public class KlineSyncServiceImpl implements KlineSyncService {
     /** Mapper for K-line data DTO conversion. */
     private final KlineDataDtoMapper klineDataDtoMapper;
 
-    /** Base path for A-share API. */
-    private static final String A_SHARE_BASE_PATH = "/a-share";
-
-    /** Default market. */
-    private static final String DEFAULT_MARKET = MarketConstants.DEFAULT_MARKET;
-
-    /** Default timeframe. */
-    private static final String DEFAULT_TIMEFRAME = MarketConstants.DEFAULT_TIMEFRAME;
+    // Using constants from MarketConstants and DataServicePathConstants directly
 
     /** Default interval between batch operations (milliseconds). */
     private static final long DEFAULT_BATCH_INTERVAL_MILLIS = 500L;
@@ -102,7 +96,7 @@ public class KlineSyncServiceImpl implements KlineSyncService {
         log.info("Starting daily K-line data sync");
         // Popular A-share stocks to sync
         List<String> popularSymbols = List.of(
-            "000001",
+            MarketConstants.A_SHARE_INDEX_SYMBOL,
             "000002",
             "000858",
             "002326",
@@ -113,7 +107,7 @@ public class KlineSyncServiceImpl implements KlineSyncService {
         );
         for (String symbol : popularSymbols) {
             try {
-                syncSymbolKlineInternal(DEFAULT_MARKET, symbol, DEFAULT_TIMEFRAME);
+                syncSymbolKlineInternal(MarketConstants.DEFAULT_MARKET, symbol, MarketConstants.DEFAULT_TIMEFRAME);
                 // Avoid rate limiting
                 Thread.sleep(SYNC_SLEEP_MILLIS);
             }
@@ -205,7 +199,7 @@ public class KlineSyncServiceImpl implements KlineSyncService {
         try {
             log.debug("Syncing K-line data for {}/{}/{}", market, symbol, timeframe);
             java.net.URI requestUri = UriComponentsBuilder
-                    .fromUriString(properties.getBaseUrl() + A_SHARE_BASE_PATH + "/kline")
+                    .fromUriString(properties.getBaseUrl() + DataServicePathConstants.A_SHARE_BASE_PATH + "/kline")
                     .queryParam("symbol", symbol)
                     .queryParam("timeframe", timeframe)
                     .queryParam("limit", DEFAULT_KLINE_QUERY_LIMIT)

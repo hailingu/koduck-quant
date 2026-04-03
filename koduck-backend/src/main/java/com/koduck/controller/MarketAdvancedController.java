@@ -34,6 +34,7 @@ import org.springframework.web.util.UriComponentsBuilder;
 
 import com.koduck.common.constants.ApiMessageConstants;
 import com.koduck.common.constants.ApiStatusCodeConstants;
+import com.koduck.common.constants.DateTimePatternConstants;
 import com.koduck.common.constants.MarketConstants;
 import com.koduck.common.constants.PaginationConstants;
 import com.koduck.config.properties.DataServiceProperties;
@@ -80,7 +81,7 @@ import lombok.extern.slf4j.Slf4j;
 public class MarketAdvancedController {
 
     /** Market timezone (Asia/Shanghai). */
-    private static final ZoneId MARKET_ZONE = ZoneId.of("Asia/Shanghai");
+    private static final ZoneId MARKET_ZONE = DateTimePatternConstants.MARKET_ZONE_ID;
 
     /** Fear greed index API path. */
     private static final String FEAR_GREED_INDEX_PATH = System.getProperty(

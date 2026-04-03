@@ -21,6 +21,8 @@ import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.util.UriComponentsBuilder;
 
+import com.koduck.common.constants.DataServicePathConstants;
+import com.koduck.common.constants.MapKeyConstants;
 import com.koduck.config.properties.DataServiceProperties;
 import com.koduck.dto.market.DataServiceResponse;
 import com.koduck.dto.market.PriceQuoteDto;
@@ -49,9 +51,9 @@ public class AKShareDataProvider implements MarketDataProvider {
     /** Data service disabled message. */
     private static final String DATA_SERVICE_DISABLED_MESSAGE = "Data service is disabled";
     /** A-share base path. */
-    private static final String A_SHARE_BASE_PATH = "/a-share";
+    private static final String A_SHARE_BASE_PATH = DataServicePathConstants.A_SHARE_BASE_PATH;
     /** Key symbol. */
-    private static final String KEY_SYMBOL = "symbol";
+    private static final String KEY_SYMBOL = MapKeyConstants.KEY_SYMBOL;
     /** Key limit. */
     private static final String KEY_LIMIT = "limit";
     /** Response type message. */

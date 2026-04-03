@@ -38,14 +38,8 @@ import lombok.extern.slf4j.Slf4j;
 @RequiredArgsConstructor
 public class MarketFallbackSupport {
 
-    /** Default market code. */
-    private static final String DEFAULT_MARKET = MarketConstants.DEFAULT_MARKET;
-
-    /** Daily timeframe constant. */
-    private static final String DAILY_TIMEFRAME = MarketConstants.DEFAULT_TIMEFRAME;
-
     /** Stock type identifier. */
-    private static final String STOCK_TYPE = "STOCK";
+    private static final String STOCK_TYPE = MarketConstants.STOCK_TYPE;
 
     /** Repository for stock basic information. */
     private final StockBasicRepository stockBasicRepository;
@@ -95,7 +89,7 @@ public class MarketFallbackSupport {
             }
             String normalizedSymbol = SymbolUtils.normalize(symbolInfo.symbol());
             String market = symbolInfo.market() == null || symbolInfo.market().isBlank()
-                ? DEFAULT_MARKET
+                ? MarketConstants.DEFAULT_MARKET
                 : symbolInfo.market();
             String name = symbolInfo.name() == null || symbolInfo.name().isBlank()
                 ? normalizedSymbol
@@ -181,13 +175,13 @@ public class MarketFallbackSupport {
                     actualMarket = basicMarket;
                 }
                 else {
-                    actualMarket = DEFAULT_MARKET;
+                    actualMarket = MarketConstants.DEFAULT_MARKET;
                 }
             }
 
             List<com.koduck.dto.market.KlineDataDto> recent =
                 klineService.getKlineData(actualMarket, symbol,
-                        DAILY_TIMEFRAME, 2, null);
+                        MarketConstants.DEFAULT_TIMEFRAME, 2, null);
             recent = marketServiceSupport.normalizeKlineData(recent);
             if (recent.isEmpty()) {
                 return null;
@@ -248,13 +242,13 @@ public class MarketFallbackSupport {
         }
 
         String market = basic.getMarket() != null && !basic.getMarket().isBlank()
-                ? basic.getMarket() : DEFAULT_MARKET;
+                ? basic.getMarket() : MarketConstants.DEFAULT_MARKET;
         PriceQuoteDto quote = buildQuoteFromKline(symbol, basic, market);
         if (quote != null) {
             return quote;
         }
-        if (!DEFAULT_MARKET.equals(market)) {
-            return buildQuoteFromKline(symbol, basic, DEFAULT_MARKET);
+        if (!MarketConstants.DEFAULT_MARKET.equals(market)) {
+            return buildQuoteFromKline(symbol, basic, MarketConstants.DEFAULT_MARKET);
         }
         return null;
     }
@@ -262,7 +256,7 @@ public class MarketFallbackSupport {
     private PriceQuoteDto buildQuoteFromKline(String symbol, StockBasic basic,
             String market) {
         List<com.koduck.dto.market.KlineDataDto> recent =
-            klineService.getKlineData(market, symbol, DAILY_TIMEFRAME, 2, null);
+            klineService.getKlineData(market, symbol, MarketConstants.DEFAULT_TIMEFRAME, 2, null);
         recent = marketServiceSupport.normalizeKlineData(recent);
         if (recent.isEmpty()) {
             return null;

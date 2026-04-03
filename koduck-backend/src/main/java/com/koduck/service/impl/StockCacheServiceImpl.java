@@ -10,6 +10,7 @@ import java.util.function.Consumer;
 
 import org.springframework.stereotype.Service;
 
+import com.koduck.common.constants.MapKeyConstants;
 import com.koduck.common.constants.RedisKeyConstants;
 import com.koduck.dto.market.PriceQuoteDto;
 import com.koduck.service.StockCacheService;
@@ -31,10 +32,10 @@ public class StockCacheServiceImpl implements StockCacheService {
     private static final String KEY_NULL_MESSAGE = "key must not be null";
 
     /** Key for symbol field in map. */
-    private static final String KEY_SYMBOL = "symbol";
+    private static final String KEY_SYMBOL = MapKeyConstants.KEY_SYMBOL;
 
     /** Key for name field in map. */
-    private static final String KEY_NAME = "name";
+    private static final String KEY_NAME = MapKeyConstants.KEY_NAME;
 
     /** Key for type field in map. */
     private static final String KEY_TYPE = "type";

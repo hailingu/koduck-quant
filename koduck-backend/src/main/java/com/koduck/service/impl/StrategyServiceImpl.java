@@ -43,7 +43,7 @@ import static com.koduck.util.ServiceValidationUtils.requireFound;
 @RequiredArgsConstructor
 public class StrategyServiceImpl implements StrategyService {
 
-    private static final String DEFAULT_TEMPLATE_SYMBOL = "000001";
+    private static final String DEFAULT_TEMPLATE_SYMBOL = MarketConstants.A_SHARE_INDEX_SYMBOL;
     private static final String TEMPLATE_SYMBOL_PLACEHOLDER = "__DEFAULT_SYMBOL__";
     private static final String TEMPLATE_MARKET_PLACEHOLDER = "__DEFAULT_MARKET__";
 

@@ -5,6 +5,8 @@ import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.ArrayList;
+
+import com.koduck.common.constants.DateTimePatternConstants;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
@@ -39,11 +41,7 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class KlineServiceImpl implements KlineService {
 
-    private static final ZoneId MARKET_ZONE = ZoneId.of("Asia/Shanghai");
-    private static final String DEFAULT_MARKET = MarketConstants.DEFAULT_MARKET;
-    private static final String DEFAULT_TIMEFRAME = MarketConstants.DEFAULT_TIMEFRAME;
-    private static final String WEEKLY_TIMEFRAME = MarketConstants.WEEKLY_TIMEFRAME;
-    private static final String MONTHLY_TIMEFRAME = MarketConstants.MONTHLY_TIMEFRAME;
+    private static final ZoneId MARKET_ZONE = DateTimePatternConstants.MARKET_ZONE_ID;
 
     private final KlineDataRepository klineDataRepository;
     private final StockRealtimeRepository stockRealtimeRepository;
@@ -177,14 +175,14 @@ public class KlineServiceImpl implements KlineService {
     private List<String> buildMarketCandidates(String market) {
         // Strict match only - avoid cross-market data mixing
         if (market == null || market.isBlank()) {
-            return List.of(DEFAULT_MARKET);
+            return List.of(MarketConstants.DEFAULT_MARKET);
         }
         return List.of(market.trim());
     }
     private List<String> buildTimeframeCandidates(String timeframe) {
         LinkedHashSet<String> candidates = new LinkedHashSet<>();
         if (timeframe == null || timeframe.isBlank()) {
-            candidates.add(DEFAULT_TIMEFRAME);
+            candidates.add(MarketConstants.DEFAULT_TIMEFRAME);
             return new ArrayList<>(candidates);
         }
         String normalized = timeframe.trim();
@@ -215,9 +213,9 @@ public class KlineServiceImpl implements KlineService {
     private String normalizeTimeframeAlias(String timeframe) {
         String lower = timeframe.toLowerCase(Locale.ROOT);
         return switch (lower) {
-            case "1d", "day", "daily" -> DEFAULT_TIMEFRAME;
-            case "1w", "week", "weekly" -> WEEKLY_TIMEFRAME;
-            case "month", "monthly", "1mo", "1mth" -> MONTHLY_TIMEFRAME;
+            case "1d", "day", "daily" -> MarketConstants.DEFAULT_TIMEFRAME;
+            case "1w", "week", "weekly" -> MarketConstants.WEEKLY_TIMEFRAME;
+            case "month", "monthly", "1mo", "1mth" -> MarketConstants.MONTHLY_TIMEFRAME;
             default -> timeframe;
         };
     }
@@ -279,9 +277,9 @@ public class KlineServiceImpl implements KlineService {
             return data;
         }
         boolean isDailyOrHigher = timeframe != null && 
-            (timeframe.equalsIgnoreCase(DEFAULT_TIMEFRAME) || 
-             timeframe.equalsIgnoreCase(WEEKLY_TIMEFRAME) || 
-             timeframe.equalsIgnoreCase(MONTHLY_TIMEFRAME) ||
+            (timeframe.equalsIgnoreCase(MarketConstants.DEFAULT_TIMEFRAME) || 
+             timeframe.equalsIgnoreCase(MarketConstants.WEEKLY_TIMEFRAME) || 
+             timeframe.equalsIgnoreCase(MarketConstants.MONTHLY_TIMEFRAME) ||
              timeframe.toLowerCase(Locale.ROOT).matches("^(day|daily|week|weekly|month|monthly|1mth|1mo)$"));
         java.util.LinkedHashMap<Long, KlineDataDto> uniqueMap = new java.util.LinkedHashMap<>();
         for (KlineDataDto item : data) {

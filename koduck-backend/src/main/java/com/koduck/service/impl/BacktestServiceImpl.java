@@ -67,8 +67,6 @@ public class BacktestServiceImpl implements BacktestService {
 
     /** The decimal scale. */
     private static final int SCALE = 4;
-    /** The default timeframe. */
-    private static final String DEFAULT_TIMEFRAME = MarketConstants.DEFAULT_TIMEFRAME;
     /** The kline data limit. */
     private static final int KLINE_DATA_LIMIT = 1000;
     /** The seconds per day. */
@@ -133,7 +131,7 @@ public class BacktestServiceImpl implements BacktestService {
             .symbol(request.symbol())
             .startDate(request.startDate())
             .endDate(request.endDate())
-            .timeframe(request.timeframe() != null ? request.timeframe() : DEFAULT_TIMEFRAME)
+            .timeframe(request.timeframe() != null ? request.timeframe() : MarketConstants.DEFAULT_TIMEFRAME)
             .initialCapital(request.initialCapital())
             .commissionRate(request.commissionRate() != null ? request.commissionRate() : new BigDecimal("0.001"))
             .slippage(request.slippage() != null ? request.slippage() : new BigDecimal("0.001"))
@@ -192,7 +190,7 @@ public class BacktestServiceImpl implements BacktestService {
      */
     private void executeBacktest(BacktestResult result) {
         // Get historical data
-        String timeframe = result.getTimeframe() != null ? result.getTimeframe() : DEFAULT_TIMEFRAME;
+        String timeframe = result.getTimeframe() != null ? result.getTimeframe() : MarketConstants.DEFAULT_TIMEFRAME;
         List<KlineDataDto> klineData = klineService.getKlineData(
             result.getMarket(), result.getSymbol(), timeframe, KLINE_DATA_LIMIT, null);
         if (klineData.isEmpty()) {

@@ -18,6 +18,7 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestTemplate;
 
+import com.koduck.common.constants.DateTimePatternConstants;
 import com.koduck.config.properties.DataServiceProperties;
 import com.koduck.market.MarketType;
 import com.koduck.market.model.KlineData;
@@ -45,7 +46,7 @@ public class FuturesProvider extends AbstractDataServiceMarketProvider {
     /**
      * Beijing timezone for market hours calculation.
      */
-    private static final ZoneId BEIJING_ZONE = ZoneId.of("Asia/Shanghai");
+    private static final ZoneId BEIJING_ZONE = DateTimePatternConstants.MARKET_ZONE_ID;
 
     /**
      * Base path for futures data service endpoints.

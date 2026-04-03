@@ -6,6 +6,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import com.koduck.common.constants.MapKeyConstants;
 import com.koduck.dto.market.PriceQuoteDto;
 import com.koduck.dto.market.StockIndustryDto;
 import com.koduck.dto.market.StockValuationDto;
@@ -23,10 +24,10 @@ import com.koduck.market.util.DataConverter;
 public final class AKShareDataMapperSupport {
 
     /** The key for symbol field. */
-    private static final String KEY_SYMBOL = "symbol";
+    private static final String KEY_SYMBOL = MapKeyConstants.KEY_SYMBOL;
 
     /** The key for name field. */
-    private static final String KEY_NAME = "name";
+    private static final String KEY_NAME = MapKeyConstants.KEY_NAME;
 
     /** The key for volume field. */
     private static final String KEY_VOLUME = "volume";

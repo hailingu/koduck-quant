@@ -157,7 +157,7 @@ public class MarketSentimentServiceImpl implements MarketSentimentService {
     /**
      * Shanghai Composite Index as representative for A-share market.
      */
-    private static final String A_SHARE_INDEX = "000001";
+    private static final String A_SHARE_INDEX = MarketConstants.A_SHARE_INDEX_SYMBOL;
 
     /**
      * Tencent (00700) as proxy for HK market.

@@ -14,6 +14,7 @@ import java.util.stream.Collectors;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Component;
 
+import com.koduck.common.constants.MarketConstants;
 import com.koduck.dto.market.MarketIndexDto;
 import com.koduck.dto.market.PriceQuoteDto;
 import com.koduck.dto.market.SectorNetworkDto;
@@ -39,7 +40,7 @@ import lombok.extern.slf4j.Slf4j;
 public class MarketServiceSupport {
 
     /** 股票类型。 */
-    private static final String STOCK_TYPE = "STOCK";
+    private static final String STOCK_TYPE = MarketConstants.STOCK_TYPE;
     /** 除法精度。 */
     private static final int DIVIDE_SCALE = 4;
     /** 板块节点分组1。 */

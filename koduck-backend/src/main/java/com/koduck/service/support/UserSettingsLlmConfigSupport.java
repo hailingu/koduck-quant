@@ -8,6 +8,7 @@ import java.util.Set;
 import org.springframework.core.env.Environment;
 import org.springframework.stereotype.Component;
 
+import com.koduck.common.constants.LlmConstants;
 import com.koduck.dto.settings.LlmConfigDto;
 import com.koduck.dto.settings.MemoryConfigDto;
 import com.koduck.dto.settings.ProviderConfigDto;
@@ -30,11 +31,11 @@ import lombok.extern.slf4j.Slf4j;
 public class UserSettingsLlmConfigSupport {
 
     /** Provider: minimax. */
-    private static final String PROVIDER_MINIMAX = "minimax";
+    private static final String PROVIDER_MINIMAX = LlmConstants.PROVIDER_MINIMAX;
     /** Provider: deepseek. */
-    private static final String PROVIDER_DEEPSEEK = "deepseek";
+    private static final String PROVIDER_DEEPSEEK = LlmConstants.PROVIDER_DEEPSEEK;
     /** Provider: openai. */
-    private static final String PROVIDER_OPENAI = "openai";
+    private static final String PROVIDER_OPENAI = LlmConstants.PROVIDER_OPENAI;
     /** Source: credentials. */
     private static final String SOURCE_CREDENTIALS = "credentials";
     /** Source: user settings. */
@@ -46,9 +47,9 @@ public class UserSettingsLlmConfigSupport {
     /** Source env: LLM_API_BASE. */
     private static final String SOURCE_ENV_LLM_API_BASE = "env:LLM_API_BASE";
     /** Env key: LLM_API_KEY. */
-    private static final String ENV_LLM_API_KEY = "LLM_API_KEY";
+    private static final String ENV_LLM_API_KEY = LlmConstants.ENV_LLM_API_KEY;
     /** Env key: LLM_API_BASE. */
-    private static final String ENV_LLM_API_BASE = "LLM_API_BASE";
+    private static final String ENV_LLM_API_BASE = LlmConstants.ENV_LLM_API_BASE;
     /** Default API base for minimax. */
     private static final String DEFAULT_API_BASE_MINIMAX = "https://api.minimax.chat/v1";
     /** Default memory mode. */
