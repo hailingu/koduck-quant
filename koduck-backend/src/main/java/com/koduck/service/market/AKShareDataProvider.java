@@ -15,6 +15,7 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.ResponseEntity;
+import org.springframework.lang.NonNull;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
@@ -32,8 +33,6 @@ import com.koduck.market.model.KlineData;
 import com.koduck.market.model.TickData;
 import com.koduck.market.provider.MarketDataProvider;
 import com.koduck.service.market.support.AKShareDataMapperSupport;
-
-import org.springframework.lang.NonNull;
 
 /**
  * AKShare A股数据提供者实现。

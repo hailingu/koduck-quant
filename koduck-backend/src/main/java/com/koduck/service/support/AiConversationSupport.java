@@ -45,8 +45,6 @@ public class AiConversationSupport {
     private static final int EMA_LONG_PERIOD = 60;
     /** MACD period. */
     private static final int MACD_PERIOD = 12;
-    /** Max watch symbols. */
-
 
     /** Memory service. */
     private final MemoryService memoryService;

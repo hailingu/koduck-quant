@@ -1,5 +1,8 @@
 package com.koduck.security;
 
+import java.io.IOException;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
 import java.io.Serial;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -51,6 +54,7 @@ public class UserPrincipal implements UserDetails {
     /**
      * User authorities (roles and permissions).
      */
+    @SuppressWarnings("serial")
     private final Collection<? extends GrantedAuthority> authorities;
 
     public UserPrincipal(User user, Collection<? extends GrantedAuthority> authorities) {
@@ -118,5 +122,28 @@ public class UserPrincipal implements UserDetails {
                 .passwordHash(passwordHash)
                 .status(status)
                 .build();
+    }
+
+    /**
+     * Custom serialization to handle authorities field.
+     *
+     * @param out the output stream
+     * @throws IOException if I/O error occurs
+     */
+    @Serial
+    private void writeObject(ObjectOutputStream out) throws IOException {
+        out.defaultWriteObject();
+    }
+
+    /**
+     * Custom deserialization to handle authorities field.
+     *
+     * @param in the input stream
+     * @throws IOException if I/O error occurs
+     * @throws ClassNotFoundException if class not found
+     */
+    @Serial
+    private void readObject(ObjectInputStream in) throws IOException, ClassNotFoundException {
+        in.defaultReadObject();
     }
 }

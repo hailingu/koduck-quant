@@ -27,9 +27,9 @@ import com.koduck.dto.market.StockValuationDto;
 import com.koduck.dto.market.SymbolInfoDto;
 import com.koduck.entity.StockBasic;
 import com.koduck.entity.StockRealtime;
-import com.koduck.service.impl.MarketServiceImpl;
 import com.koduck.repository.StockBasicRepository;
 import com.koduck.repository.StockRealtimeRepository;
+import com.koduck.service.impl.MarketServiceImpl;
 import com.koduck.service.support.MarketFallbackSupport;
 import com.koduck.service.support.MarketServiceSupport;
 
