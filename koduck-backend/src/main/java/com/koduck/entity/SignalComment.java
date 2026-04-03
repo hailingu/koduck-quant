@@ -136,18 +136,69 @@ public class SignalComment {
      */
     public static final class Builder {
 
+        /**
+         * The ID.
+         */
         private Long id;
+
+        /**
+         * The signal ID.
+         */
         private Long signalId;
+
+        /**
+         * The user ID.
+         */
         private Long userId;
+
+        /**
+         * The parent comment ID.
+         */
         private Long parentId;
+
+        /**
+         * The comment content.
+         */
         private String content;
+
+        /**
+         * The like count.
+         */
         private Integer likeCount;
+
+        /**
+         * The deleted flag.
+         */
         private Boolean isDeleted;
+
+        /**
+         * The created at timestamp.
+         */
         private LocalDateTime createdAt;
+
+        /**
+         * The updated at timestamp.
+         */
         private LocalDateTime updatedAt;
+
+        /**
+         * The signal entity.
+         */
         private CommunitySignal signal;
+
+        /**
+         * The user entity.
+         */
         private User user;
+
+        /**
+         * The parent comment.
+         */
         private SignalComment parent;
+
+        /**
+         * The reply comments.
+         */
         private List<SignalComment> replies;
 
         /**
