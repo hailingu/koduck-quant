@@ -1,5 +1,8 @@
 package com.koduck.exception;
 
+import java.io.IOException;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
 import java.io.Serial;
 import java.util.Collections;
 import java.util.HashMap;
@@ -20,6 +23,7 @@ public class ValidationException extends BusinessException {
     /**
      * Field-level validation errors. Key is field name, value is error message.
      */
+    @SuppressWarnings("serial")
     private final Map<String, String> fieldErrors;
 
     /**
@@ -73,5 +77,28 @@ public class ValidationException extends BusinessException {
      */
     public static ValidationException forField(String field, String message) {
         return new ValidationException(message, Map.of(field, message));
+    }
+
+    /**
+     * Custom serialization.
+     *
+     * @param out the output stream
+     * @throws IOException if I/O error occurs
+     */
+    @Serial
+    private void writeObject(ObjectOutputStream out) throws IOException {
+        out.defaultWriteObject();
+    }
+
+    /**
+     * Custom deserialization.
+     *
+     * @param in the input stream
+     * @throws IOException if I/O error occurs
+     * @throws ClassNotFoundException if class not found
+     */
+    @Serial
+    private void readObject(ObjectInputStream in) throws IOException, ClassNotFoundException {
+        in.defaultReadObject();
     }
 }

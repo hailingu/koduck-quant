@@ -13,7 +13,11 @@ import org.springframework.scheduling.annotation.EnableAsync;
 @SpringBootApplication
 @ConfigurationPropertiesScan
 @EnableAsync
-public class KoduckApplication {
+public final class KoduckApplication {
+
+    private KoduckApplication() {
+        // utility class
+    }
 
     /**
      * Starts the Spring Boot application.

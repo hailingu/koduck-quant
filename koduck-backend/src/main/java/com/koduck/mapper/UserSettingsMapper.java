@@ -9,10 +9,10 @@ import org.mapstruct.MappingTarget;
 import org.mapstruct.NullValuePropertyMappingStrategy;
 import org.mapstruct.ReportingPolicy;
 
+import com.koduck.dto.settings.DisplayConfigDto;
 import com.koduck.dto.settings.NotificationConfigDto;
 import com.koduck.dto.settings.QuickLinkDto;
 import com.koduck.dto.settings.TradingConfigDto;
-import com.koduck.dto.settings.DisplayConfigDto;
 import com.koduck.dto.settings.UpdateNotificationRequest;
 import com.koduck.dto.settings.UpdateSettingsRequest;
 import com.koduck.dto.settings.UserSettingsDto;

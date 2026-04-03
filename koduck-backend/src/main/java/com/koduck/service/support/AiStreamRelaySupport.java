@@ -1,6 +1,7 @@
 package com.koduck.service.support;
 
 import java.io.IOException;
+import java.io.Serial;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicReference;
@@ -183,6 +184,9 @@ public class AiStreamRelaySupport {
     }
 
     public static final class StreamRelayException extends RuntimeException {
+        @Serial
+        private static final long serialVersionUID = 1L;
+
         /** HTTP status code. */
         private final int statusCode;
         /** Error detail. */

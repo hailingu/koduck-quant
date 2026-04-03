@@ -40,10 +40,10 @@ import com.koduck.exception.ResourceNotFoundException;
 import com.koduck.repository.BacktestResultRepository;
 import com.koduck.repository.PortfolioPositionRepository;
 import com.koduck.repository.StrategyRepository;
+import com.koduck.service.impl.AiAnalysisServiceImpl;
 import com.koduck.service.support.AiConversationSupport;
 import com.koduck.service.support.AiRecommendationSupport;
 import com.koduck.service.support.AiStreamRelaySupport;
-import com.koduck.service.impl.AiAnalysisServiceImpl;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
