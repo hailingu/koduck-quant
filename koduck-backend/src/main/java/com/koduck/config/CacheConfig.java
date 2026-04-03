@@ -1,6 +1,5 @@
 package com.koduck.config;
 
-import java.time.Duration;
 import java.util.Objects;
 
 import org.springframework.cache.annotation.EnableCaching;
@@ -15,13 +14,14 @@ import org.springframework.data.redis.serializer.StringRedisSerializer;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import com.koduck.config.properties.CacheProperties;
 
 /**
  * Configuration for Redis-backed caching.
  * <p>
  * Defines multiple named caches with tailored time-to-live settings
  * and JSON serialization support.  Null-safety guards are applied to
- * durations, serializers, and the connection factory to satisfy
+ * serializers and the connection factory to satisfy
  * {@code @NonNull} contracts and suppress static analysis warnings.
  *
  * @author Koduck
@@ -63,25 +63,16 @@ public class CacheConfig {
      */
     public static final String CACHE_PORTFOLIO_SUMMARY = "portfolioSummary";
 
-    /**
-     * Default time-to-live for short-lived caches (30 seconds).
-     */
-    private static final Duration TTL_30_SECONDS = Duration.ofSeconds(30);
+    private final CacheProperties cacheProperties;
 
     /**
-     * Time-to-live representing one minute; used for hot-stock and kline caches.
+     * Constructs {@link CacheConfig} with injected cache properties.
+     *
+     * @param cacheProperties cache TTL configuration properties
      */
-    private static final Duration TTL_1_MINUTE = Duration.ofMinutes(1);
-
-    /**
-     * Time-to-live representing five minutes; used for market search caches.
-     */
-    private static final Duration TTL_5_MINUTES = Duration.ofMinutes(5);
-
-    /**
-     * Time-to-live representing one hour; used for portfolio summary cache.
-     */
-    private static final Duration TTL_1_HOUR = Duration.ofHours(1);
+    public CacheConfig(CacheProperties cacheProperties) {
+        this.cacheProperties = Objects.requireNonNull(cacheProperties);
+    }
 
     /**
      * Construct a JSON serializer that understands Java time types.
@@ -109,7 +100,7 @@ public class CacheConfig {
      * @return configured cache configuration instance
      */
     private static RedisCacheConfiguration buildCacheConfiguration(
-                    Duration ttl,
+                    java.time.Duration ttl,
                     GenericJackson2JsonRedisSerializer jsonSerializer,
                     boolean disableCachingNullValues) {
         RedisCacheConfiguration configuration = RedisCacheConfiguration.defaultCacheConfig()
@@ -128,7 +119,7 @@ public class CacheConfig {
     /**
      * Spring bean that constructs the {@link RedisCacheManager} used by the
      * application for caching.  Several named cache configurations are
-     * registered with different TTLs.
+     * registered with different TTLs driven by {@link CacheProperties}.
      *
      * @param connectionFactory Redis connection factory (injected by Spring,
      *                          must not be {@code null})
@@ -138,15 +129,24 @@ public class CacheConfig {
     public RedisCacheManager cacheManager(RedisConnectionFactory connectionFactory) {
         GenericJackson2JsonRedisSerializer jsonSerializer = createJsonSerializer();
 
-        RedisCacheConfiguration defaultConfig = buildCacheConfiguration(TTL_5_MINUTES, jsonSerializer, true);
-        RedisCacheConfiguration klineConfig = buildCacheConfiguration(TTL_1_MINUTE, jsonSerializer, false);
-        RedisCacheConfiguration priceConfig = buildCacheConfiguration(TTL_30_SECONDS, jsonSerializer, false);
-        RedisCacheConfiguration marketSearchConfig = buildCacheConfiguration(TTL_5_MINUTES, jsonSerializer, false);
-        RedisCacheConfiguration stockDetailConfig = buildCacheConfiguration(TTL_30_SECONDS, jsonSerializer, false);
-        RedisCacheConfiguration marketIndicesConfig = buildCacheConfiguration(TTL_30_SECONDS, jsonSerializer, false);
-        RedisCacheConfiguration stockIndustryConfig = buildCacheConfiguration(TTL_5_MINUTES, jsonSerializer, false);
-        RedisCacheConfiguration hotStocksConfig = buildCacheConfiguration(TTL_1_MINUTE, jsonSerializer, false);
-        RedisCacheConfiguration portfolioSummaryConfig = buildCacheConfiguration(TTL_1_HOUR, jsonSerializer, false);
+        RedisCacheConfiguration defaultConfig = buildCacheConfiguration(
+                cacheProperties.getDefaultTtl(), jsonSerializer, true);
+        RedisCacheConfiguration klineConfig = buildCacheConfiguration(
+                cacheProperties.getKlineTtl(), jsonSerializer, false);
+        RedisCacheConfiguration priceConfig = buildCacheConfiguration(
+                cacheProperties.getPriceTtl(), jsonSerializer, false);
+        RedisCacheConfiguration marketSearchConfig = buildCacheConfiguration(
+                cacheProperties.getMarketSearchTtl(), jsonSerializer, false);
+        RedisCacheConfiguration stockDetailConfig = buildCacheConfiguration(
+                cacheProperties.getStockDetailTtl(), jsonSerializer, false);
+        RedisCacheConfiguration marketIndicesConfig = buildCacheConfiguration(
+                cacheProperties.getMarketIndicesTtl(), jsonSerializer, false);
+        RedisCacheConfiguration stockIndustryConfig = buildCacheConfiguration(
+                cacheProperties.getStockIndustryTtl(), jsonSerializer, false);
+        RedisCacheConfiguration hotStocksConfig = buildCacheConfiguration(
+                cacheProperties.getHotStocksTtl(), jsonSerializer, false);
+        RedisCacheConfiguration portfolioSummaryConfig = buildCacheConfiguration(
+                cacheProperties.getPortfolioSummaryTtl(), jsonSerializer, false);
 
         return RedisCacheManager.builder(Objects.requireNonNull(connectionFactory))
             .cacheDefaults(Objects.requireNonNull(defaultConfig))

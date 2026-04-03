@@ -10,6 +10,8 @@ import org.springframework.data.redis.cache.RedisCacheManager;
 import org.springframework.data.redis.cache.RedisCacheWriter;
 import org.springframework.data.redis.connection.RedisConnectionFactory;
 
+import com.koduck.config.properties.CacheProperties;
+
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
 
@@ -55,7 +57,8 @@ class CacheConfigTest {
     @Test
     @DisplayName("shouldRegisterExpectedCacheNamesAndTtlSettings")
     void shouldRegisterExpectedCacheNamesAndTtlSettings() {
-        CacheConfig cacheConfig = new CacheConfig();
+        CacheProperties cacheProperties = new CacheProperties();
+        CacheConfig cacheConfig = new CacheConfig(cacheProperties);
         RedisConnectionFactory connectionFactory = mock(RedisConnectionFactory.class);
 
         RedisCacheManager cacheManager = cacheConfig.cacheManager(connectionFactory);

@@ -111,6 +111,16 @@ spring:
 
 # Koduck 自定义配置
 koduck:
+  cache:
+    default-ttl: 5m
+    kline-ttl: 1m
+    price-ttl: 30s
+    market-search-ttl: 5m
+    stock-detail-ttl: 30s
+    market-indices-ttl: 30s
+    stock-industry-ttl: 5m
+    hot-stocks-ttl: 1m
+    portfolio-summary-ttl: 1h
   pagination:
     default-page-size: 20
     max-page-size: 100
