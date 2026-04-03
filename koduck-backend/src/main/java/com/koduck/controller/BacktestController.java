@@ -1,23 +1,9 @@
 package com.koduck.controller;
 
-import com.koduck.controller.support.AuthenticatedUserResolver;
-import com.koduck.dto.ApiResponse;
-import com.koduck.dto.backtest.BacktestResultDto;
-import com.koduck.dto.backtest.BacktestTradeDto;
-import com.koduck.dto.backtest.RunBacktestRequest;
-import com.koduck.security.UserPrincipal;
-import com.koduck.service.BacktestService;
-import io.swagger.v3.oas.annotations.Operation;
-import io.swagger.v3.oas.annotations.Parameter;
-import io.swagger.v3.oas.annotations.media.Content;
-import io.swagger.v3.oas.annotations.media.Schema;
-import io.swagger.v3.oas.annotations.responses.ApiResponses;
-import io.swagger.v3.oas.annotations.security.SecurityRequirement;
-import io.swagger.v3.oas.annotations.tags.Tag;
-import jakarta.validation.Valid;
 import java.util.List;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
+
+import jakarta.validation.Valid;
+
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -28,6 +14,23 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.koduck.controller.support.AuthenticatedUserResolver;
+import com.koduck.dto.ApiResponse;
+import com.koduck.dto.backtest.BacktestResultDto;
+import com.koduck.dto.backtest.BacktestTradeDto;
+import com.koduck.dto.backtest.RunBacktestRequest;
+import com.koduck.security.UserPrincipal;
+import com.koduck.service.BacktestService;
+
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+
 /**
  * REST API controller for backtest operations.
  *
@@ -35,7 +38,6 @@ import org.springframework.web.bind.annotation.RestController;
  * Business logic is delegated to {@link com.koduck.service.BacktestService}.
  *
  * @author GitHub Copilot
- * @date 2026-03-31
  */
 @RestController
 @RequestMapping("/api/v1/backtest")
@@ -46,7 +48,14 @@ import org.springframework.web.bind.annotation.RestController;
 @RequiredArgsConstructor
 public class BacktestController {
 
+    /**
+     * Authenticated user resolver.
+     */
     private final AuthenticatedUserResolver authenticatedUserResolver;
+
+    /**
+     * Backtest service.
+     */
     private final BacktestService backtestService;
 
     /**
@@ -66,7 +75,7 @@ public class BacktestController {
             responseCode = "200",
             description = "获取成功",
             content = @Content(schema = @Schema(implementation = BacktestResultDto.class))
-        ),
+            ),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "未登录或Token无效"),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "500", description = "服务器内部错误")
     })
@@ -96,7 +105,7 @@ public class BacktestController {
             responseCode = "200",
             description = "获取成功",
             content = @Content(schema = @Schema(implementation = BacktestResultDto.class))
-        ),
+            ),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "未登录或Token无效"),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "无权访问该回测结果"),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "回测结果不存在"),
@@ -132,7 +141,7 @@ public class BacktestController {
             responseCode = "200",
             description = "回测执行成功",
             content = @Content(schema = @Schema(implementation = BacktestResultDto.class))
-        ),
+            ),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "请求参数错误或策略无效"),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "未登录或Token无效"),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "策略不存在"),
@@ -167,7 +176,7 @@ public class BacktestController {
             responseCode = "200",
             description = "获取成功",
             content = @Content(schema = @Schema(implementation = BacktestTradeDto.class))
-        ),
+            ),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "未登录或Token无效"),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "无权访问该回测结果"),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "回测结果不存在"),
