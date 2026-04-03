@@ -1,17 +1,10 @@
 package com.koduck.controller;
 
-import io.swagger.v3.oas.annotations.Operation;
-import io.swagger.v3.oas.annotations.Parameter;
-import io.swagger.v3.oas.annotations.media.Content;
-import io.swagger.v3.oas.annotations.media.Schema;
-import io.swagger.v3.oas.annotations.responses.ApiResponses;
-import io.swagger.v3.oas.annotations.security.SecurityRequirement;
-import io.swagger.v3.oas.annotations.tags.Tag;
-import jakarta.validation.Valid;
 import java.util.List;
 import java.util.Map;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
+
+import jakarta.validation.Valid;
+
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
@@ -22,6 +15,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+
 import com.koduck.common.constants.PaginationConstants;
 import com.koduck.dto.ApiResponse;
 import com.koduck.dto.monitoring.AlertRuleRequest;
@@ -30,6 +24,15 @@ import com.koduck.entity.AlertRule;
 import com.koduck.entity.DataSourceStatus;
 import com.koduck.entity.StockRealtime;
 import com.koduck.service.MonitoringService;
+
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 /**
  * Monitoring and alerting API controller.
@@ -44,6 +47,7 @@ import com.koduck.service.MonitoringService;
 @RequiredArgsConstructor
 public class MonitoringController {
 
+    /** Service for monitoring operations. */
     private final MonitoringService monitoringService;
 
     // ==================== Data Freshness ====================
@@ -80,10 +84,10 @@ public class MonitoringController {
     )
     @io.swagger.v3.oas.annotations.responses.ApiResponses(value = {
         @io.swagger.v3.oas.annotations.responses.ApiResponse(
-            responseCode = "200",
-            description = "获取成功",
-            content = @Content(schema = @Schema(implementation = StockRealtime.class))
-        ),
+                responseCode = "200",
+                description = "获取成功",
+                content = @Content(schema = @Schema(implementation = StockRealtime.class))
+            ),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "未登录或Token无效"),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "500", description = "服务器内部错误")
     })
@@ -134,10 +138,10 @@ public class MonitoringController {
     )
     @io.swagger.v3.oas.annotations.responses.ApiResponses(value = {
         @io.swagger.v3.oas.annotations.responses.ApiResponse(
-            responseCode = "200",
-            description = "获取成功",
-            content = @Content(schema = @Schema(implementation = AlertRule.class))
-        ),
+                responseCode = "200",
+                description = "获取成功",
+                content = @Content(schema = @Schema(implementation = AlertRule.class))
+            ),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "未登录或Token无效"),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "500", description = "服务器内部错误")
     })
@@ -157,10 +161,10 @@ public class MonitoringController {
     )
     @io.swagger.v3.oas.annotations.responses.ApiResponses(value = {
         @io.swagger.v3.oas.annotations.responses.ApiResponse(
-            responseCode = "200",
-            description = "获取成功",
-            content = @Content(schema = @Schema(implementation = AlertRule.class))
-        ),
+                responseCode = "200",
+                description = "获取成功",
+                content = @Content(schema = @Schema(implementation = AlertRule.class))
+            ),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "未登录或Token无效"),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "500", description = "服务器内部错误")
     })
@@ -181,10 +185,10 @@ public class MonitoringController {
     )
     @io.swagger.v3.oas.annotations.responses.ApiResponses(value = {
         @io.swagger.v3.oas.annotations.responses.ApiResponse(
-            responseCode = "200",
-            description = "获取成功",
-            content = @Content(schema = @Schema(implementation = AlertRule.class))
-        ),
+                responseCode = "200",
+                description = "获取成功",
+                content = @Content(schema = @Schema(implementation = AlertRule.class))
+            ),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "未登录或Token无效"),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "告警规则不存在"),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "500", description = "服务器内部错误")
@@ -208,10 +212,10 @@ public class MonitoringController {
     )
     @io.swagger.v3.oas.annotations.responses.ApiResponses(value = {
         @io.swagger.v3.oas.annotations.responses.ApiResponse(
-            responseCode = "200",
-            description = "创建成功",
-            content = @Content(schema = @Schema(implementation = AlertRule.class))
-        ),
+                responseCode = "200",
+                description = "创建成功",
+                content = @Content(schema = @Schema(implementation = AlertRule.class))
+            ),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "请求参数错误"),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "未登录或Token无效"),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "500", description = "服务器内部错误")
@@ -234,10 +238,10 @@ public class MonitoringController {
     )
     @io.swagger.v3.oas.annotations.responses.ApiResponses(value = {
         @io.swagger.v3.oas.annotations.responses.ApiResponse(
-            responseCode = "200",
-            description = "更新成功",
-            content = @Content(schema = @Schema(implementation = AlertRule.class))
-        ),
+                responseCode = "200",
+                description = "更新成功",
+                content = @Content(schema = @Schema(implementation = AlertRule.class))
+            ),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "请求参数错误"),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "未登录或Token无效"),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "告警规则不存在"),
@@ -288,10 +292,10 @@ public class MonitoringController {
     )
     @io.swagger.v3.oas.annotations.responses.ApiResponses(value = {
         @io.swagger.v3.oas.annotations.responses.ApiResponse(
-            responseCode = "200",
-            description = "操作成功",
-            content = @Content(schema = @Schema(implementation = AlertRule.class))
-        ),
+                responseCode = "200",
+                description = "操作成功",
+                content = @Content(schema = @Schema(implementation = AlertRule.class))
+            ),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "未登录或Token无效"),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "告警规则不存在"),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "500", description = "服务器内部错误")
@@ -320,10 +324,10 @@ public class MonitoringController {
     )
     @io.swagger.v3.oas.annotations.responses.ApiResponses(value = {
         @io.swagger.v3.oas.annotations.responses.ApiResponse(
-            responseCode = "200",
-            description = "获取成功",
-            content = @Content(schema = @Schema(implementation = AlertHistory.class))
-        ),
+                responseCode = "200",
+                description = "获取成功",
+                content = @Content(schema = @Schema(implementation = AlertHistory.class))
+            ),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "未登录或Token无效"),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "500", description = "服务器内部错误")
     })
@@ -347,10 +351,10 @@ public class MonitoringController {
     )
     @io.swagger.v3.oas.annotations.responses.ApiResponses(value = {
         @io.swagger.v3.oas.annotations.responses.ApiResponse(
-            responseCode = "200",
-            description = "获取成功",
-            content = @Content(schema = @Schema(implementation = AlertHistory.class))
-        ),
+                responseCode = "200",
+                description = "获取成功",
+                content = @Content(schema = @Schema(implementation = AlertHistory.class))
+            ),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "未登录或Token无效"),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "500", description = "服务器内部错误")
     })
@@ -371,10 +375,10 @@ public class MonitoringController {
     )
     @io.swagger.v3.oas.annotations.responses.ApiResponses(value = {
         @io.swagger.v3.oas.annotations.responses.ApiResponse(
-            responseCode = "200",
-            description = "获取成功",
-            content = @Content(schema = @Schema(implementation = AlertHistory.class))
-        ),
+                responseCode = "200",
+                description = "获取成功",
+                content = @Content(schema = @Schema(implementation = AlertHistory.class))
+            ),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "未登录或Token无效"),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "500", description = "服务器内部错误")
     })
@@ -398,10 +402,10 @@ public class MonitoringController {
     )
     @io.swagger.v3.oas.annotations.responses.ApiResponses(value = {
         @io.swagger.v3.oas.annotations.responses.ApiResponse(
-            responseCode = "200",
-            description = "操作成功",
-            content = @Content(schema = @Schema(implementation = AlertHistory.class))
-        ),
+                responseCode = "200",
+                description = "操作成功",
+                content = @Content(schema = @Schema(implementation = AlertHistory.class))
+            ),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "未登录或Token无效"),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "告警不存在"),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "500", description = "服务器内部错误")
@@ -445,10 +449,10 @@ public class MonitoringController {
     )
     @io.swagger.v3.oas.annotations.responses.ApiResponses(value = {
         @io.swagger.v3.oas.annotations.responses.ApiResponse(
-            responseCode = "200",
-            description = "获取成功",
-            content = @Content(schema = @Schema(implementation = DataSourceStatus.class))
-        ),
+                responseCode = "200",
+                description = "获取成功",
+                content = @Content(schema = @Schema(implementation = DataSourceStatus.class))
+            ),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "未登录或Token无效"),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "500", description = "服务器内部错误")
     })
@@ -469,10 +473,10 @@ public class MonitoringController {
     )
     @io.swagger.v3.oas.annotations.responses.ApiResponses(value = {
         @io.swagger.v3.oas.annotations.responses.ApiResponse(
-            responseCode = "200",
-            description = "获取成功",
-            content = @Content(schema = @Schema(implementation = DataSourceStatus.class))
-        ),
+                responseCode = "200",
+                description = "获取成功",
+                content = @Content(schema = @Schema(implementation = DataSourceStatus.class))
+            ),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "未登录或Token无效"),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "数据源不存在"),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "500", description = "服务器内部错误")
@@ -495,10 +499,10 @@ public class MonitoringController {
     )
     @io.swagger.v3.oas.annotations.responses.ApiResponses(value = {
         @io.swagger.v3.oas.annotations.responses.ApiResponse(
-            responseCode = "200",
-            description = "获取成功",
-            content = @Content(schema = @Schema(implementation = DataSourceStatus.class))
-        ),
+                responseCode = "200",
+                description = "获取成功",
+                content = @Content(schema = @Schema(implementation = DataSourceStatus.class))
+            ),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "未登录或Token无效"),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "500", description = "服务器内部错误")
     })
