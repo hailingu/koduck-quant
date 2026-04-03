@@ -1,11 +1,14 @@
 package com.koduck.mapper;
 
+import org.mapstruct.Mapper;
+
 import com.koduck.dto.backtest.BacktestTradeDto;
 import com.koduck.entity.BacktestTrade;
-import org.mapstruct.Mapper;
 
 /**
  * Mapper for backtest trade responses.
+ *
+ * @author Koduck Team
  */
 @Mapper(componentModel = "spring")
 public interface BacktestTradeMapper {
