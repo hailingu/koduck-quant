@@ -6,20 +6,22 @@ import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
-import org.springframework.test.context.ActiveProfiles;
-import org.springframework.test.context.TestConstructor;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
+import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.TestConstructor;
 import org.springframework.test.web.servlet.MockMvc;
 
-import com.koduck.util.JwtUtil;
 import com.koduck.security.JwtAuthenticationFilter;
+import com.koduck.util.JwtUtil;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
  * Lightweight security configuration tests for endpoint authorization rules.
+ *
+ * @author GitHub Copilot
  */
 @WebMvcTest(controllers = SecurityTestEndpointsController.class)
 @Import({SecurityConfig.class, SecurityConfigTest.SecurityTestBeans.class})
@@ -27,6 +29,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @TestConstructor(autowireMode = TestConstructor.AutowireMode.ALL)
 class SecurityConfigTest {
 
+    /**
+     * MockMvc instance for testing HTTP requests.
+     */
     private final MockMvc mockMvc;
 
     SecurityConfigTest(MockMvc mockMvc) {
