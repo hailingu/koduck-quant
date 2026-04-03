@@ -1,9 +1,11 @@
 package com.koduck.config.properties;
 
 import jakarta.annotation.PostConstruct;
-import lombok.extern.slf4j.Slf4j;
+
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.context.annotation.Configuration;
+
+import lombok.extern.slf4j.Slf4j;
 
 /**
  * Configuration properties for email service and password reset flows.
@@ -14,12 +16,16 @@ import org.springframework.context.annotation.Configuration;
  *
  * @see <a href="https://docs.spring.io/spring-boot/docs/current/reference/htmlsingle/#features.external-config.typesafe-configuration-properties">Spring Boot Configuration Properties</a>
  * @author GitHub Copilot
- * @date 2026-03-31
  */
 @Configuration
 @ConfigurationProperties(prefix = "koduck.mail")
 @Slf4j
 public class MailProperties {
+
+    /**
+     * Default password reset token expiry time in minutes.
+     */
+    private static final int DEFAULT_TOKEN_EXPIRY_MINUTES = 30;
 
     /**
      * Whether email sending is enabled.
@@ -39,7 +45,7 @@ public class MailProperties {
     /**
      * Password reset token expiry time in minutes.
      */
-    private int passwordResetTokenExpiryMinutes = 30;
+    private int passwordResetTokenExpiryMinutes = DEFAULT_TOKEN_EXPIRY_MINUTES;
 
     /**
      * Template for password reset URL. The token placeholder must be {@code {token}}.
