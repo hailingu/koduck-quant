@@ -1,28 +1,57 @@
 package com.koduck.config;
 
-import com.koduck.entity.User;
 import java.time.LocalDateTime;
 
+import com.koduck.entity.User;
+
 /**
- * 测试数据工厂
- * 提供统一的测试数据构造方法
+ * Test data factory for creating test entities.
+ * Provides unified test data construction methods.
+ *
+ * @author GitHub Copilot
  */
-public class TestDataFactory {
-    
+public final class TestDataFactory {
+
+    /**
+     * Counter for generating unique test IDs.
+     */
     private static long idCounter = 1;
-    
+
+    /**
+     * Private constructor to prevent instantiation.
+     */
+    private TestDataFactory() {
+        // Utility class
+    }
+
     // ========== Generic ==========
-    
+
+    /**
+     * Generate next test ID.
+     *
+     * @return next test ID
+     */
     public static long nextTestId() {
         return nextId();
     }
-    
+
+    /**
+     * Generate next name with prefix.
+     *
+     * @param prefix name prefix
+     * @return generated name
+     */
     public static String nextName(String prefix) {
         return prefix + nextId();
     }
 
     // ========== Entity ==========
 
+    /**
+     * Create a test user with default values.
+     *
+     * @return test user
+     */
     public static User createUser() {
         long id = nextId();
         return User.builder()
@@ -35,21 +64,32 @@ public class TestDataFactory {
                 .build();
     }
 
+    /**
+     * Create a test user with specified username.
+     *
+     * @param username username
+     * @return test user
+     */
     public static User createUser(String username) {
         User user = createUser();
         user.setUsername(username);
         user.setEmail(username + "@example.com");
         return user;
     }
-    
+
     // ========== Helper ==========
-    
+
+    /**
+     * Generate next unique ID.
+     *
+     * @return next ID
+     */
     private static synchronized long nextId() {
         return idCounter++;
     }
-    
+
     /**
-     * 重置 ID 计数器（每个测试方法开始时调用）
+     * Reset ID counter (call at the beginning of each test method).
      */
     public static void resetIdCounter() {
         idCounter = 1;
