@@ -1,9 +1,11 @@
 package com.koduck.service.support;
 
+import java.util.Objects;
+
+import org.springframework.stereotype.Component;
+
 import com.koduck.entity.Strategy;
 import com.koduck.repository.StrategyRepository;
-import java.util.Objects;
-import org.springframework.stereotype.Component;
 
 import static com.koduck.util.ServiceValidationUtils.requireFound;
 
@@ -11,7 +13,6 @@ import static com.koduck.util.ServiceValidationUtils.requireFound;
  * Shared support for strategy ownership validation and loading.
  *
  * @author GitHub Copilot
- * @date 2026-03-31
  */
 @Component
 public class StrategyAccessSupport {
