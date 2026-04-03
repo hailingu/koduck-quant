@@ -1,9 +1,11 @@
 package com.koduck.config.properties;
 
-import jakarta.validation.constraints.Min;
-import jakarta.validation.constraints.NotNull;
 import java.time.Duration;
 import java.util.Objects;
+
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotNull;
+
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.boot.context.properties.bind.DefaultValue;
 import org.springframework.validation.annotation.Validated;
@@ -14,8 +16,10 @@ import org.springframework.validation.annotation.Validated;
  * <p>Binds the {@code koduck.rate-limit} namespace and exposes independent
  * settings for login failure throttling and password reset throttling.</p>
  *
+ * @param loginFailure login failure throttling settings
+ * @param passwordReset password reset throttling settings
+ *
  * @author GitHub Copilot
- * @date 2026-03-31
  */
 @ConfigurationProperties(prefix = "koduck.rate-limit")
 @Validated
@@ -59,14 +63,34 @@ public record RateLimitProperties(
      */
     public static final class LoginFailure {
 
+        /**
+         * Default maximum failures per user.
+         */
         private static final int DEFAULT_MAX_FAILURES_PER_USER = 5;
+
+        /**
+         * Default maximum failures per IP.
+         */
         private static final int DEFAULT_MAX_FAILURES_PER_IP = 20;
+
+        /**
+         * Default window duration.
+         */
         private static final Duration DEFAULT_WINDOW_DURATION = Duration.ofMinutes(15);
 
+        /**
+         * Maximum failures per user.
+         */
         private final int maxFailuresPerUser;
 
+        /**
+         * Maximum failures per IP.
+         */
         private final int maxFailuresPerIp;
 
+        /**
+         * Window duration.
+         */
         private final Duration windowDuration;
 
         /**
@@ -128,17 +152,44 @@ public record RateLimitProperties(
      */
     public static final class PasswordReset {
 
+        /**
+         * Default maximum requests per user.
+         */
         private static final int DEFAULT_MAX_REQUESTS_PER_USER = 3;
+
+        /**
+         * Default maximum requests per email.
+         */
         private static final int DEFAULT_MAX_REQUESTS_PER_EMAIL = 5;
+
+        /**
+         * Default maximum requests per IP.
+         */
         private static final int DEFAULT_MAX_REQUESTS_PER_IP = 10;
+
+        /**
+         * Default window duration.
+         */
         private static final Duration DEFAULT_WINDOW_DURATION = Duration.ofHours(1);
 
+        /**
+         * Maximum requests per user.
+         */
         private final int maxRequestsPerUser;
 
+        /**
+         * Maximum requests per email.
+         */
         private final int maxRequestsPerEmail;
 
+        /**
+         * Maximum requests per IP.
+         */
         private final int maxRequestsPerIp;
 
+        /**
+         * Window duration.
+         */
         private final Duration windowDuration;
 
         /**
