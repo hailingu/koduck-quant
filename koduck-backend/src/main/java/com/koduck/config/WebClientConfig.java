@@ -6,6 +6,8 @@ import org.springframework.web.reactive.function.client.WebClient;
 
 /**
  * Shared WebClient bean configuration.
+ *
+ * @author Koduck Team
  */
 @Configuration
 public class WebClientConfig {
