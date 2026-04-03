@@ -2,11 +2,12 @@ package com.koduck.config.properties;
 
 import java.time.Duration;
 
+import jakarta.annotation.PostConstruct;
+
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.validation.annotation.Validated;
 
-import jakarta.annotation.PostConstruct;
 import lombok.extern.slf4j.Slf4j;
 
 /**
@@ -25,9 +26,19 @@ import lombok.extern.slf4j.Slf4j;
 public class CacheProperties {
 
     /**
+     * Default cache TTL value in minutes (5 minutes).
+     */
+    private static final int DEFAULT_TTL_MINUTES = 5;
+
+    /**
+     * Default cache TTL value in seconds (30 seconds).
+     */
+    private static final int DEFAULT_TTL_SECONDS = 30;
+
+    /**
      * Default TTL for caches when no specific value is configured.
      */
-    private Duration defaultTtl = Duration.ofMinutes(5);
+    private Duration defaultTtl = Duration.ofMinutes(DEFAULT_TTL_MINUTES);
 
     /**
      * TTL for K-line data snapshots.
@@ -37,27 +48,27 @@ public class CacheProperties {
     /**
      * TTL for latest price lookups.
      */
-    private Duration priceTtl = Duration.ofSeconds(30);
+    private Duration priceTtl = Duration.ofSeconds(DEFAULT_TTL_SECONDS);
 
     /**
      * TTL for market search results.
      */
-    private Duration marketSearchTtl = Duration.ofMinutes(5);
+    private Duration marketSearchTtl = Duration.ofMinutes(DEFAULT_TTL_MINUTES);
 
     /**
      * TTL for stock detail payloads.
      */
-    private Duration stockDetailTtl = Duration.ofSeconds(30);
+    private Duration stockDetailTtl = Duration.ofSeconds(DEFAULT_TTL_SECONDS);
 
     /**
      * TTL for major market index quotes.
      */
-    private Duration marketIndicesTtl = Duration.ofSeconds(30);
+    private Duration marketIndicesTtl = Duration.ofSeconds(DEFAULT_TTL_SECONDS);
 
     /**
      * TTL for stock industry metadata lookups.
      */
-    private Duration stockIndustryTtl = Duration.ofMinutes(5);
+    private Duration stockIndustryTtl = Duration.ofMinutes(DEFAULT_TTL_MINUTES);
 
     /**
      * TTL for hot stocks list responses.

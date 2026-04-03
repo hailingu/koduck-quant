@@ -1,10 +1,11 @@
 package com.koduck.config;
 
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+
 import com.koduck.config.properties.StompRelayProperties;
 import com.koduck.config.properties.WebSocketProperties;
 import com.koduck.security.websocket.WebSocketChannelInterceptor;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -18,6 +19,11 @@ import static org.mockito.Mockito.mock;
  * @author Koduck Team
  */
 class WebSocketConfigTest {
+
+    /**
+     * Default STOMP broker port for RabbitMQ STOMP plugin.
+     */
+    private static final int DEFAULT_STOMP_PORT = 61613;
 
     /**
      * Tests that WebSocketConfig can be created with valid dependencies
@@ -55,7 +61,7 @@ class WebSocketConfigTest {
         StompRelayProperties stompRelayProperties = new StompRelayProperties();
         stompRelayProperties.setEnabled(true); // Production: use STOMP relay
         stompRelayProperties.setHost("rabbitmq");
-        stompRelayProperties.setPort(61613);
+        stompRelayProperties.setPort(DEFAULT_STOMP_PORT);
         WebSocketChannelInterceptor interceptor = mock(WebSocketChannelInterceptor.class);
 
         // When

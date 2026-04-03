@@ -22,6 +22,16 @@ import lombok.Setter;
 public class StompRelayProperties {
 
     /**
+     * Default STOMP broker port for RabbitMQ STOMP plugin.
+     */
+    private static final int DEFAULT_STOMP_PORT = 61613;
+
+    /**
+     * Default heartbeat interval in milliseconds.
+     */
+    private static final long DEFAULT_HEARTBEAT_INTERVAL = 10000;
+
+    /**
      * Whether to enable STOMP broker relay (external broker).
      * When false, uses in-memory SimpleBroker (development mode).
      */
@@ -36,7 +46,7 @@ public class StompRelayProperties {
      * STOMP broker port (RabbitMQ STOMP plugin port).
      * Default is 61613 for RabbitMQ STOMP plugin.
      */
-    private int port = 61613;
+    private int port = DEFAULT_STOMP_PORT;
 
     /**
      * Username for STOMP broker authentication.
@@ -68,12 +78,12 @@ public class StompRelayProperties {
     /**
      * Heartbeat send interval in milliseconds.
      */
-    private long systemHeartbeatSendInterval = 10000;
+    private long systemHeartbeatSendInterval = DEFAULT_HEARTBEAT_INTERVAL;
 
     /**
      * Heartbeat receive interval in milliseconds.
      */
-    private long systemHeartbeatReceiveInterval = 10000;
+    private long systemHeartbeatReceiveInterval = DEFAULT_HEARTBEAT_INTERVAL;
 
     /**
      * Returns the system login, defaulting to username if not set.

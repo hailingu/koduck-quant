@@ -15,6 +15,26 @@ import static org.assertj.core.api.Assertions.assertThat;
 class StompRelayPropertiesTest {
 
     /**
+     * Default STOMP broker port for RabbitMQ STOMP plugin.
+     */
+    private static final int DEFAULT_STOMP_PORT = 61613;
+
+    /**
+     * Custom STOMP broker port for testing.
+     */
+    private static final int CUSTOM_STOMP_PORT = 61614;
+
+    /**
+     * Default heartbeat interval in milliseconds.
+     */
+    private static final long DEFAULT_HEARTBEAT_INTERVAL = 10000L;
+
+    /**
+     * Custom heartbeat interval in milliseconds for testing.
+     */
+    private static final long CUSTOM_HEARTBEAT_INTERVAL = 5000L;
+
+    /**
      * Tests that default values are set correctly.
      */
     @Test
@@ -26,13 +46,13 @@ class StompRelayPropertiesTest {
         // Then
         assertThat(properties.isEnabled()).isFalse();
         assertThat(properties.getHost()).isEqualTo("localhost");
-        assertThat(properties.getPort()).isEqualTo(61613);
+        assertThat(properties.getPort()).isEqualTo(DEFAULT_STOMP_PORT);
         assertThat(properties.getUsername()).isEqualTo("guest");
         assertThat(properties.getPassword()).isEqualTo("guest");
         assertThat(properties.getVirtualHost()).isEqualTo("/");
 
-        assertThat(properties.getSystemHeartbeatSendInterval()).isEqualTo(10000L);
-        assertThat(properties.getSystemHeartbeatReceiveInterval()).isEqualTo(10000L);
+        assertThat(properties.getSystemHeartbeatSendInterval()).isEqualTo(DEFAULT_HEARTBEAT_INTERVAL);
+        assertThat(properties.getSystemHeartbeatReceiveInterval()).isEqualTo(DEFAULT_HEARTBEAT_INTERVAL);
     }
 
     /**
@@ -105,28 +125,28 @@ class StompRelayPropertiesTest {
         // When
         properties.setEnabled(true);
         properties.setHost("rabbitmq-prod");
-        properties.setPort(61614);
+        properties.setPort(CUSTOM_STOMP_PORT);
         properties.setUsername("admin");
         properties.setPassword("secret");
         properties.setVirtualHost("/vhost");
         properties.setSystemLogin("system");
         properties.setSystemPasscode("system-secret");
 
-        properties.setSystemHeartbeatSendInterval(5000L);
-        properties.setSystemHeartbeatReceiveInterval(5000L);
+        properties.setSystemHeartbeatSendInterval(CUSTOM_HEARTBEAT_INTERVAL);
+        properties.setSystemHeartbeatReceiveInterval(CUSTOM_HEARTBEAT_INTERVAL);
 
         // Then
         assertThat(properties.isEnabled()).isTrue();
         assertThat(properties.getHost()).isEqualTo("rabbitmq-prod");
-        assertThat(properties.getPort()).isEqualTo(61614);
+        assertThat(properties.getPort()).isEqualTo(CUSTOM_STOMP_PORT);
         assertThat(properties.getUsername()).isEqualTo("admin");
         assertThat(properties.getPassword()).isEqualTo("secret");
         assertThat(properties.getVirtualHost()).isEqualTo("/vhost");
         assertThat(properties.getSystemLogin()).isEqualTo("system");
         assertThat(properties.getSystemPasscode()).isEqualTo("system-secret");
 
-        assertThat(properties.getSystemHeartbeatSendInterval()).isEqualTo(5000L);
-        assertThat(properties.getSystemHeartbeatReceiveInterval()).isEqualTo(5000L);
+        assertThat(properties.getSystemHeartbeatSendInterval()).isEqualTo(CUSTOM_HEARTBEAT_INTERVAL);
+        assertThat(properties.getSystemHeartbeatReceiveInterval()).isEqualTo(CUSTOM_HEARTBEAT_INTERVAL);
     }
 
     /**

@@ -62,7 +62,8 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
                            StompRelayProperties stompRelayProperties,
                            WebSocketChannelInterceptor webSocketChannelInterceptor) {
         this.webSocketProperties = Objects.requireNonNull(webSocketProperties, "webSocketProperties must not be null");
-        this.stompRelayProperties = Objects.requireNonNull(stompRelayProperties, "stompRelayProperties must not be null");
+        this.stompRelayProperties = Objects.requireNonNull(stompRelayProperties,
+            "stompRelayProperties must not be null");
         this.webSocketChannelInterceptor = Objects.requireNonNull(webSocketChannelInterceptor,
             "webSocketChannelInterceptor must not be null");
     }
@@ -82,7 +83,8 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
         if (stompRelayProperties.isEnabled()) {
             // 生产环境：使用外部 STOMP Broker（RabbitMQ），支持多实例共享订阅状态
             configureStompBrokerRelay(config);
-        } else {
+        }
+        else {
             // 开发环境：使用内存 SimpleBroker
             configureSimpleBroker(config);
         }

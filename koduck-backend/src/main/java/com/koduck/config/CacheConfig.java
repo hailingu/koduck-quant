@@ -14,6 +14,7 @@ import org.springframework.data.redis.serializer.StringRedisSerializer;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+
 import com.koduck.config.properties.CacheProperties;
 
 /**
@@ -63,6 +64,9 @@ public class CacheConfig {
      */
     public static final String CACHE_PORTFOLIO_SUMMARY = "portfolioSummary";
 
+    /**
+     * Cache properties for TTL configuration.
+     */
     private final CacheProperties cacheProperties;
 
     /**
