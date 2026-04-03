@@ -1,35 +1,70 @@
 package com.koduck.service;
 
-import com.koduck.dto.ai.*;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
+import com.koduck.dto.ai.BacktestInterpretResponse;
+import com.koduck.dto.ai.ChatStreamRequest;
+import com.koduck.dto.ai.RiskAssessmentResponse;
+import com.koduck.dto.ai.StockAnalysisRequest;
+import com.koduck.dto.ai.StockAnalysisResponse;
+import com.koduck.dto.ai.StrategyRecommendRequest;
+import com.koduck.dto.ai.StrategyRecommendResponse;
+
 /**
- * AI 分析服务接口
+ * AI analysis service interface for stock analysis,
+ * chat streaming, strategy recommendation, backtest interpretation,
+ * and risk assessment.
+ *
+ * @author Koduck Team
  */
 public interface AiAnalysisService {
 
     /**
-     * 分析股票 - 调用 koduck-agent AI 服务
+     * Analyzes a stock using AI service.
+     *
+     * @param userId  the user ID
+     * @param request the stock analysis request
+     * @return the stock analysis response
      */
     StockAnalysisResponse analyzeStock(Long userId, StockAnalysisRequest request);
 
     /**
-     * 流式聊天，调用 koduck-agent
+     * Streams chat response using AI service.
+     *
+     * @param userId  the user ID
+     * @param request the chat stream request
+     * @return the SSE emitter for streaming response
      */
     SseEmitter streamChat(Long userId, ChatStreamRequest request);
 
     /**
-     * 推荐策略
+     * Recommends strategies based on user request.
+     *
+     * @param userId  the user ID
+     * @param request the strategy recommendation request
+     * @return the strategy recommendation response
      */
-    StrategyRecommendResponse recommendStrategies(Long userId, StrategyRecommendRequest request);
+    StrategyRecommendResponse recommendStrategies(
+            Long userId,
+            StrategyRecommendRequest request);
 
     /**
-     * 解读回测结果
+     * Interprets backtest results using AI.
+     *
+     * @param userId         the user ID
+     * @param backtestResultId the backtest result ID
+     * @return the backtest interpretation response
      */
-    BacktestInterpretResponse interpretBacktest(Long userId, Long backtestResultId);
+    BacktestInterpretResponse interpretBacktest(
+            Long userId,
+            Long backtestResultId);
 
     /**
-     * 风险评估
+     * Assesses portfolio risk using AI.
+     *
+     * @param userId      the user ID
+     * @param portfolioId the portfolio ID
+     * @return the risk assessment response
      */
     RiskAssessmentResponse assessRisk(Long userId, Long portfolioId);
 }
