@@ -12,7 +12,7 @@ import org.springframework.web.multipart.MultipartFile;
 import com.koduck.dto.ApiResponse;
 import com.koduck.dto.profile.AvatarResponse;
 import com.koduck.dto.profile.PreferencesResponse;
-import com.koduck.dto.profile.ProfileResponse;
+import com.koduck.dto.profile.ProfileDTO;
 import com.koduck.dto.profile.UpdatePreferencesRequest;
 import com.koduck.dto.profile.UpdateProfileRequest;
 
@@ -47,14 +47,14 @@ public class ProfileController {
         @io.swagger.v3.oas.annotations.responses.ApiResponse(
             responseCode = "200",
             description = "获取成功",
-            content = @Content(schema = @Schema(implementation = ProfileResponse.class))
+            content = @Content(schema = @Schema(implementation = ProfileDTO.class))
             ),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "未登录或Token无效"),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "500", description = "服务器内部错误")
     })
     @GetMapping
-    public ApiResponse<ProfileResponse> getProfile() {
-        return ApiResponse.success(ProfileResponse.builder().build());
+    public ApiResponse<ProfileDTO> getProfile() {
+        return ApiResponse.success(ProfileDTO.builder().build());
     }
 
     /**
@@ -71,15 +71,15 @@ public class ProfileController {
         @io.swagger.v3.oas.annotations.responses.ApiResponse(
             responseCode = "200",
             description = "更新成功",
-            content = @Content(schema = @Schema(implementation = ProfileResponse.class))
+            content = @Content(schema = @Schema(implementation = ProfileDTO.class))
             ),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "请求参数错误"),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "未登录或Token无效"),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "500", description = "服务器内部错误")
     })
     @PutMapping
-    public ApiResponse<ProfileResponse> updateProfile(@RequestBody UpdateProfileRequest request) {
-        return ApiResponse.success(ProfileResponse.builder().build());
+    public ApiResponse<ProfileDTO> updateProfile(@RequestBody UpdateProfileRequest request) {
+        return ApiResponse.success(ProfileDTO.builder().build());
     }
 
     /**

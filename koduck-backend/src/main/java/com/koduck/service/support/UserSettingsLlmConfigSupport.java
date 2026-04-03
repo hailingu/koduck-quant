@@ -8,8 +8,9 @@ import java.util.Set;
 import org.springframework.core.env.Environment;
 import org.springframework.stereotype.Component;
 
-import com.koduck.dto.settings.UpdateSettingsRequest;
-import com.koduck.dto.settings.UserSettingsDto;
+import com.koduck.dto.settings.LlmConfigDto;
+import com.koduck.dto.settings.MemoryConfigDto;
+import com.koduck.dto.settings.ProviderConfigDto;
 import com.koduck.entity.UserCredential;
 import com.koduck.entity.UserSettings;
 import com.koduck.repository.CredentialRepository;
@@ -71,7 +72,13 @@ public class UserSettingsLlmConfigSupport {
     /** Credential encryption utility. */
     private final CredentialEncryptionUtil credentialEncryptionUtil;
 
-    public void applyLlmConfig(UserSettings settings, UpdateSettingsRequest.LlmConfigDto requestConfig) {
+    /**
+     * Applies LLM configuration from request to user settings.
+     *
+     * @param settings the user settings entity
+     * @param requestConfig the LLM config from request
+     */
+    public void applyLlmConfig(UserSettings settings, LlmConfigDto requestConfig) {
         if (requestConfig == null) {
             return;
         }
@@ -94,7 +101,15 @@ public class UserSettingsLlmConfigSupport {
         settings.setLlmConfig(current);
     }
 
-    public UserSettingsDto.LlmConfigDto getEffectiveLlmConfig(
+    /**
+     * Gets effective LLM configuration for user and provider.
+     *
+     * @param userId the user ID
+     * @param provider the LLM provider
+     * @param llmConfig the stored LLM config
+     * @return the effective LLM config DTO
+     */
+    public LlmConfigDto getEffectiveLlmConfig(
             Long userId,
             String provider,
             UserSettings.LlmConfig llmConfig) {
@@ -131,7 +146,7 @@ public class UserSettingsLlmConfigSupport {
             apiBaseResolved.value() == null ? "" : apiBaseResolved.value()
         );
 
-        return UserSettingsDto.LlmConfigDto.builder()
+        return LlmConfigDto.builder()
             .provider(activeProvider)
             .apiKey(apiKeyResolved.value())
             .apiBase(apiBaseResolved.value())
@@ -142,19 +157,25 @@ public class UserSettingsLlmConfigSupport {
             .build();
     }
 
-    public UserSettingsDto.LlmConfigDto resolveLlmConfig(UserSettings.LlmConfig config) {
+    /**
+     * Resolves LLM configuration from stored entity.
+     *
+     * @param config the stored LLM config
+     * @return the resolved LLM config DTO
+     */
+    public LlmConfigDto resolveLlmConfig(UserSettings.LlmConfig config) {
         UserSettings.LlmConfig source = config == null ? new UserSettings.LlmConfig() : config;
         String provider = normalizeLlmProvider(source.getProvider());
-        UserSettingsDto.ProviderConfigDto minimax = resolveProviderConfig(PROVIDER_MINIMAX, source);
-        UserSettingsDto.ProviderConfigDto deepseek = resolveProviderConfig(PROVIDER_DEEPSEEK, source);
-        UserSettingsDto.ProviderConfigDto openai = resolveProviderConfig(PROVIDER_OPENAI, source);
-        UserSettingsDto.ProviderConfigDto active = switch (provider) {
+        ProviderConfigDto minimax = resolveProviderConfig(PROVIDER_MINIMAX, source);
+        ProviderConfigDto deepseek = resolveProviderConfig(PROVIDER_DEEPSEEK, source);
+        ProviderConfigDto openai = resolveProviderConfig(PROVIDER_OPENAI, source);
+        ProviderConfigDto active = switch (provider) {
             case PROVIDER_DEEPSEEK -> deepseek;
             case PROVIDER_OPENAI -> openai;
             case PROVIDER_MINIMAX -> minimax;
             default -> minimax;
         };
-        return UserSettingsDto.LlmConfigDto.builder()
+        return LlmConfigDto.builder()
             .provider(provider)
             .apiKey(active.getApiKey())
             .apiBase(active.getApiBase())
@@ -228,7 +249,7 @@ public class UserSettingsLlmConfigSupport {
 
     private UserSettings.ProviderConfig mergeProviderConfig(
             UserSettings.ProviderConfig existing,
-            UpdateSettingsRequest.ProviderConfigDto incoming) {
+            ProviderConfigDto incoming) {
         UserSettings.ProviderConfig base = existing != null ? existing : new UserSettings.ProviderConfig();
         if (incoming == null) {
             return base;
@@ -244,7 +265,7 @@ public class UserSettingsLlmConfigSupport {
     }
 
     private UserSettings.ProviderConfig mergeLegacyProviderConfig(
-            UpdateSettingsRequest.LlmConfigDto requestConfig,
+            LlmConfigDto requestConfig,
             UserSettings.ProviderConfig existingConfig) {
         String existingApiKey = normalizeBlank(existingConfig == null ? null : existingConfig.getApiKey());
         String existingApiBase = normalizeBlank(existingConfig == null ? null : existingConfig.getApiBase());
@@ -256,7 +277,7 @@ public class UserSettingsLlmConfigSupport {
 
     private UserSettings.MemoryConfig mergeMemoryConfig(
             UserSettings.MemoryConfig existing,
-            UpdateSettingsRequest.MemoryConfigDto incoming) {
+            MemoryConfigDto incoming) {
         UserSettings.MemoryConfig base = existing != null
             ? existing
             : UserSettings.MemoryConfig.builder()
@@ -281,7 +302,7 @@ public class UserSettingsLlmConfigSupport {
             modeEnableL3 = DEFAULT_MEMORY_MODE.equals(mode) || "L3".equals(mode);
         }
         return UserSettings.MemoryConfig.builder()
-            .enabled(incoming.getEnabled() != null ? incoming.getEnabled() : defaultBoolean(base.getEnabled(), true))
+            .enabled(incoming.getEnabled() != null ? incoming.getEnabled() : defaultBoolean(modeEnableL1, true))
             .mode(mode)
             .enableL1(incoming.getEnableL1() != null ? incoming.getEnableL1() : defaultBoolean(modeEnableL1, true))
             .enableL2(incoming.getEnableL2() != null ? incoming.getEnableL2() : defaultBoolean(modeEnableL2, true))
@@ -289,7 +310,7 @@ public class UserSettingsLlmConfigSupport {
             .build();
     }
 
-    private UserSettingsDto.ProviderConfigDto resolveProviderConfig(String provider, UserSettings.LlmConfig config) {
+    private ProviderConfigDto resolveProviderConfig(String provider, UserSettings.LlmConfig config) {
         UserSettings.ProviderConfig settingsProviderConfig = getProviderConfig(config, provider);
         String legacyProvider = normalizeLlmProvider(config != null ? config.getProvider() : null);
         String legacyApiKey = resolveLegacyValue(config, legacyProvider.equals(provider), true);
@@ -351,13 +372,13 @@ public class UserSettingsLlmConfigSupport {
                 defaultApiBaseForProvider(provider)
             );
         };
-        return UserSettingsDto.ProviderConfigDto.builder()
+        return ProviderConfigDto.builder()
             .apiKey(apiKey)
             .apiBase(apiBase)
             .build();
     }
 
-    private UserSettingsDto.MemoryConfigDto resolveMemoryConfig(UserSettings.MemoryConfig config) {
+    private MemoryConfigDto resolveMemoryConfig(UserSettings.MemoryConfig config) {
         UserSettings.MemoryConfig source = config != null
             ? config
             : UserSettings.MemoryConfig.builder()
@@ -367,7 +388,7 @@ public class UserSettingsLlmConfigSupport {
                 .enableL2(true)
                 .enableL3(true)
                 .build();
-        return UserSettingsDto.MemoryConfigDto.builder()
+        return MemoryConfigDto.builder()
             .enabled(defaultBoolean(source.getEnabled(), true))
             .mode(normalizeMemoryMode(source.getMode()))
             .enableL1(defaultBoolean(source.getEnableL1(), true))

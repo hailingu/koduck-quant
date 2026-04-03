@@ -1,5 +1,6 @@
 package com.koduck.service;
 
+import com.koduck.dto.settings.LlmConfigDto;
 import com.koduck.dto.settings.UpdateNotificationRequest;
 import com.koduck.dto.settings.UpdateSettingsRequest;
 import com.koduck.dto.settings.UserSettingsDto;
@@ -53,5 +54,5 @@ public interface UserSettingsService {
      * @param provider the LLM provider name
      * @return the effective LLM configuration DTO
      */
-    UserSettingsDto.LlmConfigDto getEffectiveLlmConfig(Long userId, String provider);
+    LlmConfigDto getEffectiveLlmConfig(Long userId, String provider);
 }

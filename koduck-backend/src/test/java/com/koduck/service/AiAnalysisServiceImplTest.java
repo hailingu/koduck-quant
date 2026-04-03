@@ -31,7 +31,7 @@ import com.koduck.dto.ai.StockAnalysisRequest;
 import com.koduck.dto.ai.StockAnalysisResponse;
 import com.koduck.dto.ai.StrategyRecommendRequest;
 import com.koduck.dto.ai.StrategyRecommendResponse;
-import com.koduck.dto.settings.UserSettingsDto;
+import com.koduck.dto.settings.LlmConfigDto;
 import com.koduck.entity.BacktestResult;
 import com.koduck.entity.PortfolioPosition;
 import com.koduck.entity.Strategy;
@@ -243,7 +243,7 @@ class AiAnalysisServiceImplTest {
                 .question("分析这只股票")
                 .build();
 
-        UserSettingsDto.LlmConfigDto llmConfig = UserSettingsDto.LlmConfigDto.builder()
+        LlmConfigDto llmConfig = LlmConfigDto.builder()
                 .apiKey(TEST_API_KEY)
                 .apiBase(TEST_API_BASE)
                 .build();
@@ -287,7 +287,7 @@ class AiAnalysisServiceImplTest {
                 .provider(null)
                 .build();
 
-        UserSettingsDto.LlmConfigDto llmConfig = UserSettingsDto.LlmConfigDto.builder()
+        LlmConfigDto llmConfig = LlmConfigDto.builder()
                 .apiKey(TEST_API_KEY)
                 .build();
 
@@ -326,7 +326,7 @@ class AiAnalysisServiceImplTest {
                 .provider(PROVIDER_DEEPSEEK)
                 .build();
 
-        UserSettingsDto.LlmConfigDto llmConfig = UserSettingsDto.LlmConfigDto.builder()
+        LlmConfigDto llmConfig = LlmConfigDto.builder()
                 .apiKey(TEST_API_KEY)
                 .build();
 
@@ -365,7 +365,7 @@ class AiAnalysisServiceImplTest {
                 .provider("unsupported")
                 .build();
 
-        UserSettingsDto.LlmConfigDto llmConfig = UserSettingsDto.LlmConfigDto.builder()
+        LlmConfigDto llmConfig = LlmConfigDto.builder()
                 .apiKey(TEST_API_KEY)
                 .build();
 
@@ -403,7 +403,7 @@ class AiAnalysisServiceImplTest {
                 .question("分析")
                 .build();
 
-        UserSettingsDto.LlmConfigDto llmConfig = UserSettingsDto.LlmConfigDto.builder()
+        LlmConfigDto llmConfig = LlmConfigDto.builder()
                 .apiKey(TEST_API_KEY)
                 .build();
 
@@ -432,7 +432,7 @@ class AiAnalysisServiceImplTest {
                 .question("分析")
                 .build();
 
-        UserSettingsDto.LlmConfigDto llmConfig = UserSettingsDto.LlmConfigDto.builder()
+        LlmConfigDto llmConfig = LlmConfigDto.builder()
                 .apiKey(TEST_API_KEY)
                 .build();
 
@@ -471,7 +471,7 @@ class AiAnalysisServiceImplTest {
                 .question("这只股票怎么样？")
                 .build();
 
-        UserSettingsDto.LlmConfigDto llmConfig = UserSettingsDto.LlmConfigDto.builder()
+        LlmConfigDto llmConfig = LlmConfigDto.builder()
                 .apiKey(TEST_API_KEY)
                 .build();
 
@@ -515,7 +515,7 @@ class AiAnalysisServiceImplTest {
                 .disableToolCalls(false)
                 .build();
 
-        UserSettingsDto.LlmConfigDto llmConfig = UserSettingsDto.LlmConfigDto.builder()
+        LlmConfigDto llmConfig = LlmConfigDto.builder()
                 .apiKey(TEST_API_KEY)
                 .build();
 
@@ -546,7 +546,7 @@ class AiAnalysisServiceImplTest {
                 .disableToolCalls(true)
                 .build();
 
-        UserSettingsDto.LlmConfigDto llmConfig = UserSettingsDto.LlmConfigDto.builder()
+        LlmConfigDto llmConfig = LlmConfigDto.builder()
                 .apiKey(TEST_API_KEY)
                 .build();
 
@@ -776,7 +776,7 @@ class AiAnalysisServiceImplTest {
                 .provider(PROVIDER_OPENAI)
                 .build();
 
-        UserSettingsDto.LlmConfigDto llmConfig = UserSettingsDto.LlmConfigDto.builder()
+        LlmConfigDto llmConfig = LlmConfigDto.builder()
                 .apiKey(TEST_API_KEY)
                 .build();
 
@@ -815,7 +815,7 @@ class AiAnalysisServiceImplTest {
                 .provider("DeepSeek")
                 .build();
 
-        UserSettingsDto.LlmConfigDto llmConfig = UserSettingsDto.LlmConfigDto.builder()
+        LlmConfigDto llmConfig = LlmConfigDto.builder()
                 .apiKey(TEST_API_KEY)
                 .build();
 
@@ -853,7 +853,7 @@ class AiAnalysisServiceImplTest {
                 .question("分析")
                 .build();
 
-        UserSettingsDto.LlmConfigDto llmConfig = UserSettingsDto.LlmConfigDto.builder()
+        LlmConfigDto llmConfig = LlmConfigDto.builder()
                 .apiKey(TEST_API_KEY)
                 .build();
 
@@ -882,7 +882,7 @@ class AiAnalysisServiceImplTest {
                 .question("分析")
                 .build();
 
-        UserSettingsDto.LlmConfigDto llmConfig = UserSettingsDto.LlmConfigDto.builder()
+        LlmConfigDto llmConfig = LlmConfigDto.builder()
                 .apiKey(null)
                 .apiBase(null)
                 .build();

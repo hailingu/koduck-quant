@@ -33,7 +33,7 @@ import com.koduck.dto.ai.StockAnalysisRequest;
 import com.koduck.dto.ai.StockAnalysisResponse;
 import com.koduck.dto.ai.StrategyRecommendRequest;
 import com.koduck.dto.ai.StrategyRecommendResponse;
-import com.koduck.dto.settings.UserSettingsDto;
+import com.koduck.dto.settings.LlmConfigDto;
 import com.koduck.entity.BacktestResult;
 import com.koduck.entity.PortfolioPosition;
 import com.koduck.entity.Strategy;
@@ -179,7 +179,7 @@ public class AiAnalysisServiceImpl implements AiAnalysisService {
     @Override
     public StockAnalysisResponse analyzeStock(Long userId, StockAnalysisRequest request) {
         String provider = resolveProvider(request.getProvider());
-        UserSettingsDto.LlmConfigDto effectiveConfig =
+        LlmConfigDto effectiveConfig =
             userSettingsService.getEffectiveLlmConfig(userId, provider);
         try {
             String userQuestion = buildStockAnalysisPrompt(request);
@@ -207,7 +207,7 @@ public class AiAnalysisServiceImpl implements AiAnalysisService {
         SseEmitter emitter = new SseEmitter(0L);
         String provider = resolveProvider(request.getProvider());
         String sessionId = aiConversationSupport.resolveSessionId(request.getSessionId());
-        UserSettingsDto.LlmConfigDto effectiveConfig =
+        LlmConfigDto effectiveConfig =
             userSettingsService.getEffectiveLlmConfig(userId, provider);
 
         ChatStreamRequest configuredRequest = ChatStreamRequest.builder()
@@ -285,7 +285,7 @@ public class AiAnalysisServiceImpl implements AiAnalysisService {
         }
     }
 
-    private String callAgentChat(String provider, String userMessage, UserSettingsDto.LlmConfigDto config) {
+    private String callAgentChat(String provider, String userMessage, LlmConfigDto config) {
         String agentUrl = agentConfig.getUrl() + "/v1/chat/completions";
         Map<String, Object> requestBody = new HashMap<>();
         requestBody.put("provider", resolveProvider(provider));

@@ -13,7 +13,7 @@ import org.springframework.scheduling.annotation.EnableAsync;
 @SpringBootApplication
 @ConfigurationPropertiesScan
 @EnableAsync
-public final class KoduckApplication {
+public class KoduckApplication {
 
     /**
      * Private constructor to prevent instantiation.

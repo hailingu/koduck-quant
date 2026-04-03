@@ -1,5 +1,13 @@
 package com.koduck.identity.application;
 
+import java.util.List;
+import java.util.Objects;
+
+import com.koduck.dto.settings.DisplayConfigDto;
+import com.koduck.dto.settings.LlmConfigDto;
+import com.koduck.dto.settings.NotificationConfigDto;
+import com.koduck.dto.settings.QuickLinkDto;
+import com.koduck.dto.settings.TradingConfigDto;
 import com.koduck.dto.settings.UpdateNotificationRequest;
 import com.koduck.dto.settings.UpdateSettingsRequest;
 import com.koduck.dto.settings.UserSettingsDto;
@@ -8,10 +16,10 @@ import com.koduck.mapper.UserSettingsMapper;
 import com.koduck.repository.UserSettingsRepository;
 import com.koduck.service.UserSettingsService;
 import com.koduck.service.support.UserSettingsLlmConfigSupport;
-import java.util.List;
-import java.util.Objects;
+
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -19,7 +27,6 @@ import org.springframework.transaction.annotation.Transactional;
  * 用户设置服务实现类。
  *
  * @author GitHub Copilot
- * @date 2026-03-31
  */
 @Service
 @Slf4j
@@ -85,32 +92,36 @@ public class UserSettingsServiceImpl implements UserSettingsService {
 
     @Override
     @Transactional
-    public UserSettingsDto.LlmConfigDto getEffectiveLlmConfig(Long userId, String provider) {
+    public LlmConfigDto getEffectiveLlmConfig(Long userId, String provider) {
         UserSettings settings = findOrCreateSettings(userId);
         return llmConfigSupport.getEffectiveLlmConfig(userId, provider, settings.getLlmConfig());
     }
 
     private void applyNotificationConfig(UserSettings settings, UpdateSettingsRequest request) {
-        if (request.getNotification() != null) {
-            settings.setNotificationConfig(userSettingsMapper.toNotificationConfig(request.getNotification()));
+        NotificationConfigDto notification = request.getNotification();
+        if (notification != null) {
+            settings.setNotificationConfig(userSettingsMapper.toNotificationConfig(notification));
         }
     }
 
     private void applyTradingConfig(UserSettings settings, UpdateSettingsRequest request) {
-        if (request.getTrading() != null) {
-            settings.setTradingConfig(userSettingsMapper.toTradingConfig(request.getTrading()));
+        TradingConfigDto trading = request.getTrading();
+        if (trading != null) {
+            settings.setTradingConfig(userSettingsMapper.toTradingConfig(trading));
         }
     }
 
     private void applyDisplayConfig(UserSettings settings, UpdateSettingsRequest request) {
-        if (request.getDisplay() != null) {
-            settings.setDisplayConfig(userSettingsMapper.toDisplayConfig(request.getDisplay()));
+        DisplayConfigDto display = request.getDisplay();
+        if (display != null) {
+            settings.setDisplayConfig(userSettingsMapper.toDisplayConfig(display));
         }
     }
 
     private void applyQuickLinks(UserSettings settings, UpdateSettingsRequest request) {
-        if (request.getQuickLinks() != null) {
-            settings.setQuickLinks(userSettingsMapper.toQuickLinks(request.getQuickLinks()));
+        List<QuickLinkDto> quickLinks = request.getQuickLinks();
+        if (quickLinks != null) {
+            settings.setQuickLinks(userSettingsMapper.toQuickLinks(quickLinks));
         }
     }
 
