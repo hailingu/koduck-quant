@@ -1,9 +1,5 @@
 package com.koduck.market.util;
 
-import com.koduck.common.constants.DateTimePatternConstants;
-import com.koduck.market.model.KlineData;
-import com.koduck.market.model.TickData;
-
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.Instant;
@@ -13,13 +9,43 @@ import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Locale;
 
+import com.koduck.common.constants.DateTimePatternConstants;
+import com.koduck.market.model.KlineData;
+import com.koduck.market.model.TickData;
+
 /**
  * Utility class for converting data between different formats.
  * Provides standardized conversion methods for market data.
+ *
+ * @author GitHub Copilot
  */
 public final class DataConverter {
 
-    private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern(DateTimePatternConstants.STANDARD_DATE_TIME_PATTERN);
+    /**
+     * Formatter for standard date time pattern.
+     */
+    private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern(
+            DateTimePatternConstants.STANDARD_DATE_TIME_PATTERN);
+
+    /**
+     * Typical price divisor for VWAP calculation.
+     */
+    private static final int TYPICAL_PRICE_DIVISOR = 3;
+
+    /**
+     * Scale for typical price calculation.
+     */
+    private static final int TYPICAL_PRICE_SCALE = 8;
+
+    /**
+     * Scale for VWAP result.
+     */
+    private static final int VWAP_SCALE = 4;
+
+    /**
+     * Length of A-share symbol code.
+     */
+    private static final int A_SHARE_SYMBOL_LENGTH = 6;
 
     private DataConverter() {
         // Utility class, prevent instantiation
@@ -37,7 +63,8 @@ public final class DataConverter {
         }
         try {
             return new BigDecimal(priceStr.trim());
-        } catch (NumberFormatException _) {
+        }
+        catch (NumberFormatException _) {
             return BigDecimal.ZERO;
         }
     }
@@ -54,7 +81,8 @@ public final class DataConverter {
         }
         try {
             return Long.parseLong(volumeStr.trim());
-        } catch (NumberFormatException _) {
+        }
+        catch (NumberFormatException _) {
             return 0L;
         }
     }
@@ -74,14 +102,16 @@ public final class DataConverter {
         try {
             long epochMillis = Long.parseLong(timestamp.trim());
             return Instant.ofEpochMilli(epochMillis);
-        } catch (NumberFormatException _) {
+        }
+        catch (NumberFormatException _) {
             // Ignore and continue with the next timestamp format.
         }
 
         // Try ISO format
         try {
             return Instant.parse(timestamp.trim());
-        } catch (Exception _) {
+        }
+        catch (Exception _) {
             // Ignore and continue with the next timestamp format.
         }
 
@@ -89,9 +119,11 @@ public final class DataConverter {
         try {
             LocalDateTime dateTime = LocalDateTime.parse(timestamp.trim(), DATE_FORMATTER);
             return dateTime.atZone(ZoneId.systemDefault()).toInstant();
-        } catch (Exception _) {
+        }
+        catch (Exception _) {
             // Ignore and return null when all known formats fail.
         }
+    
 
         return null;
     }
@@ -144,12 +176,14 @@ public final class DataConverter {
         String normalized = symbol.trim().toUpperCase(Locale.ROOT);
 
         // Add market suffix if not present
-        if ("a_share".equals(market) && !normalized.contains(".") && normalized.length() == 6) {
+        if ("a_share".equals(market) && !normalized.contains(".")
+                && normalized.length() == A_SHARE_SYMBOL_LENGTH) {
             // A-Share: add exchange suffix based on first digit
             char firstDigit = normalized.charAt(0);
             if (firstDigit == '6') {
                 normalized += ".SH";
-            } else {
+            }
+            else {
                 normalized += ".SZ";
             }
         }
@@ -168,7 +202,19 @@ public final class DataConverter {
             return null;
         }
 
-        return TickData.builder().symbol(kline.symbol()).market(kline.market()).timestamp(kline.timestamp()).price(kline.close()).open(kline.open()).dayHigh(kline.high()).dayLow(kline.low()).volume(kline.volume()).amount(kline.amount()).change(kline.getPriceChange()).changePercent(kline.getPriceChangePercent()).build();
+        return TickData.builder()
+                .symbol(kline.symbol())
+                .market(kline.market())
+                .timestamp(kline.timestamp())
+                .price(kline.close())
+                .open(kline.open())
+                .dayHigh(kline.high())
+                .dayLow(kline.low())
+                .volume(kline.volume())
+                .amount(kline.amount())
+                .change(kline.getPriceChange())
+                .changePercent(kline.getPriceChangePercent())
+                .build();
     }
 
     /**
@@ -187,7 +233,8 @@ public final class DataConverter {
 
         for (KlineData kline : klines) {
             // Typical Price = (High + Low + Close) / 3
-            BigDecimal typicalPrice = kline.high().add(kline.low()).add(kline.close()).divide(BigDecimal.valueOf(3), 8, RoundingMode.HALF_UP);
+            BigDecimal typicalPrice = kline.high().add(kline.low()).add(kline.close())
+                    .divide(BigDecimal.valueOf(TYPICAL_PRICE_DIVISOR), TYPICAL_PRICE_SCALE, RoundingMode.HALF_UP);
 
             totalTPV = totalTPV.add(typicalPrice.multiply(BigDecimal.valueOf(kline.volume())));
             totalVolume += kline.volume();
@@ -197,6 +244,6 @@ public final class DataConverter {
             return BigDecimal.ZERO;
         }
 
-        return totalTPV.divide(BigDecimal.valueOf(totalVolume), 4, RoundingMode.HALF_UP);
+        return totalTPV.divide(BigDecimal.valueOf(totalVolume), VWAP_SCALE, RoundingMode.HALF_UP);
     }
 }
