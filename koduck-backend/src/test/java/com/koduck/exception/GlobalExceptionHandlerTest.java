@@ -1,5 +1,7 @@
 package com.koduck.exception;
 
+import java.util.Objects;
+
 import jakarta.servlet.http.HttpServletRequest;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -62,8 +64,7 @@ class GlobalExceptionHandlerTest {
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
         ApiResponse<Void> body = response.getBody();
-        assertThat(body).isNotNull();
-        assertThat(body.getCode()).isEqualTo(ErrorCode.USER_NOT_FOUND.getCode());
+        assertThat(Objects.requireNonNull(body).getCode()).isEqualTo(ErrorCode.USER_NOT_FOUND.getCode());
     }
 
     @Test
@@ -77,8 +78,7 @@ class GlobalExceptionHandlerTest {
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
         ApiResponse<Void> body = response.getBody();
-        assertThat(body).isNotNull();
-        assertThat(body.getCode()).isEqualTo(ErrorCode.RESOURCE_NOT_FOUND.getCode());
+        assertThat(Objects.requireNonNull(body).getCode()).isEqualTo(ErrorCode.RESOURCE_NOT_FOUND.getCode());
     }
 
     @Test
@@ -91,8 +91,7 @@ class GlobalExceptionHandlerTest {
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
         ApiResponse<Void> body = response.getBody();
-        assertThat(body).isNotNull();
-        assertThat(body.getCode()).isEqualTo(ErrorCode.VALIDATION_ERROR.getCode());
+        assertThat(Objects.requireNonNull(body).getCode()).isEqualTo(ErrorCode.VALIDATION_ERROR.getCode());
     }
 
     @Test
@@ -104,8 +103,7 @@ class GlobalExceptionHandlerTest {
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CONFLICT);
         ApiResponse<Void> body = response.getBody();
-        assertThat(body).isNotNull();
-        assertThat(body.getCode()).isEqualTo(ErrorCode.DUPLICATE_ERROR.getCode());
+        assertThat(Objects.requireNonNull(body).getCode()).isEqualTo(ErrorCode.DUPLICATE_ERROR.getCode());
     }
 
     @Test
@@ -119,8 +117,7 @@ class GlobalExceptionHandlerTest {
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
         ApiResponse<Void> body = response.getBody();
-        assertThat(body).isNotNull();
-        assertThat(body.getCode()).isEqualTo(ErrorCode.AUTH_INVALID_CREDENTIALS.getCode());
+        assertThat(Objects.requireNonNull(body).getCode()).isEqualTo(ErrorCode.AUTH_INVALID_CREDENTIALS.getCode());
     }
 
     @Test
@@ -133,8 +130,7 @@ class GlobalExceptionHandlerTest {
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN);
         ApiResponse<Void> body = response.getBody();
-        assertThat(body).isNotNull();
-        assertThat(body.getCode()).isEqualTo(ErrorCode.AUTH_ACCESS_DENIED.getCode());
+        assertThat(Objects.requireNonNull(body).getCode()).isEqualTo(ErrorCode.AUTH_ACCESS_DENIED.getCode());
     }
 
     @Test
@@ -146,8 +142,7 @@ class GlobalExceptionHandlerTest {
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
         ApiResponse<Void> body = response.getBody();
-        assertThat(body).isNotNull();
-        assertThat(body.getCode()).isEqualTo(ErrorCode.INVALID_STATE.getCode());
+        assertThat(Objects.requireNonNull(body).getCode()).isEqualTo(ErrorCode.INVALID_STATE.getCode());
     }
 
     @Test
@@ -161,8 +156,7 @@ class GlobalExceptionHandlerTest {
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_GATEWAY);
         ApiResponse<Void> body = response.getBody();
-        assertThat(body).isNotNull();
-        assertThat(body.getCode()).isEqualTo(ErrorCode.EXTERNAL_SERVICE_ERROR.getCode());
+        assertThat(Objects.requireNonNull(body).getCode()).isEqualTo(ErrorCode.EXTERNAL_SERVICE_ERROR.getCode());
     }
 
     @Test
@@ -175,8 +169,7 @@ class GlobalExceptionHandlerTest {
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
         ApiResponse<Void> body = response.getBody();
-        assertThat(body).isNotNull();
-        assertThat(body.getCode()).isEqualTo(ErrorCode.BAD_REQUEST.getCode());
+        assertThat(Objects.requireNonNull(body).getCode()).isEqualTo(ErrorCode.BAD_REQUEST.getCode());
     }
 
     @Test
@@ -189,8 +182,7 @@ class GlobalExceptionHandlerTest {
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
         ApiResponse<Void> body = response.getBody();
-        assertThat(body).isNotNull();
-        assertThat(body.getCode()).isEqualTo(ErrorCode.AUTH_INVALID_CREDENTIALS.getCode());
+        assertThat(Objects.requireNonNull(body).getCode()).isEqualTo(ErrorCode.AUTH_INVALID_CREDENTIALS.getCode());
     }
 
     @Test
@@ -202,8 +194,7 @@ class GlobalExceptionHandlerTest {
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN);
         ApiResponse<Void> body = response.getBody();
-        assertThat(body).isNotNull();
-        assertThat(body.getCode()).isEqualTo(ErrorCode.AUTH_ACCOUNT_DISABLED.getCode());
+        assertThat(Objects.requireNonNull(body).getCode()).isEqualTo(ErrorCode.AUTH_ACCOUNT_DISABLED.getCode());
     }
 
     @Test
@@ -216,8 +207,7 @@ class GlobalExceptionHandlerTest {
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN);
         ApiResponse<Void> body = response.getBody();
-        assertThat(body).isNotNull();
-        assertThat(body.getCode()).isEqualTo(ErrorCode.FORBIDDEN.getCode());
+        assertThat(Objects.requireNonNull(body).getCode()).isEqualTo(ErrorCode.FORBIDDEN.getCode());
     }
 
     @Test

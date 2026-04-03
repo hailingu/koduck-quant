@@ -74,12 +74,6 @@ public class AiAnalysisServiceImpl implements AiAnalysisService {
     /** Key for content in response. */
     private static final String KEY_CONTENT = "content";
 
-    /** Error message for null response type. */
-    private static final String RESPONSE_TYPE_NULL_MESSAGE = "responseType must not be null";
-
-    /** Error message for null HTTP method. */
-    private static final String HTTP_METHOD_NULL_MESSAGE = "httpMethod must not be null";
-
     /** Risk level: aggressive. */
     private static final String RISK_AGGRESSIVE = "aggressive";
 
@@ -266,14 +260,6 @@ public class AiAnalysisServiceImpl implements AiAnalysisService {
         return aiRecommendationSupport.buildRiskAssessment(portfolioId, positions);
     }
 
-    private static ParameterizedTypeReference<Map<String, Object>> getMapResponseType() {
-        return Objects.requireNonNull(MAP_RESPONSE_TYPE, RESPONSE_TYPE_NULL_MESSAGE);
-    }
-
-    private static HttpMethod getHttpPostMethod() {
-        return Objects.requireNonNull(HttpMethod.POST, HTTP_METHOD_NULL_MESSAGE);
-    }
-
     private String buildStockAnalysisPrompt(StockAnalysisRequest request) {
         StringBuilder prompt = new StringBuilder();
         prompt.append("请分析股票 ").append(request.getSymbol());
@@ -316,9 +302,9 @@ public class AiAnalysisServiceImpl implements AiAnalysisService {
 
         ResponseEntity<Map<String, Object>> response = restTemplate.exchange(
             agentUrl,
-            getHttpPostMethod(),
+            Objects.requireNonNull(HttpMethod.POST),
             entity,
-            getMapResponseType()
+            MAP_RESPONSE_TYPE
         );
 
         String content = extractAgentContent(response.getBody());

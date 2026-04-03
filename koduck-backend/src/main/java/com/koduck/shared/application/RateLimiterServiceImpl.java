@@ -8,6 +8,7 @@ import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.lang.NonNull;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
@@ -236,6 +237,7 @@ public class RateLimiterServiceImpl implements RateLimiterService {
     }
 
     
+    @NonNull
     private static String requireNonNullKey(String key) {
         return Objects.requireNonNull(key, "key must not be null");
     }

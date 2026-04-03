@@ -2,6 +2,7 @@ package com.koduck.controller;
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.Objects;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -117,7 +118,7 @@ class MarketControllerIntegrationTest extends AbstractIntegrationTest {
                 .type("STOCK")
                 .market("AShare")
                 .build();
-        stockBasicRepository.save(stock);
+        stockBasicRepository.save(Objects.requireNonNull(stock));
 
         mockMvc.perform(get("/api/v1/market/search")
                         .param("keyword", "茅台")
@@ -186,7 +187,7 @@ class MarketControllerIntegrationTest extends AbstractIntegrationTest {
                 .changeAmount(new BigDecimal("0.10"))
                 .changePercent(CHANGE_PERCENT_PINGAN)
                 .build();
-        stockRealtimeRepository.save(stockRealtime);
+        stockRealtimeRepository.save(Objects.requireNonNull(stockRealtime));
 
         mockMvc.perform(get("/api/v1/market/stocks/{symbol}", "000001"))
                 .andExpect(status().isOk())
@@ -228,7 +229,7 @@ class MarketControllerIntegrationTest extends AbstractIntegrationTest {
                 .changeAmount(new BigDecimal("15.30"))
                 .changePercent(new BigDecimal("0.50"))
                 .build();
-        stockRealtimeRepository.save(shIndex);
+        stockRealtimeRepository.save(Objects.requireNonNull(shIndex));
 
         mockMvc.perform(get("/api/v1/market/indices"))
                 .andExpect(status().isOk())
@@ -263,7 +264,7 @@ class MarketControllerIntegrationTest extends AbstractIntegrationTest {
                 .volume(VOLUME_VANKE)
                 .amount(new BigDecimal("7800000"))
                 .build();
-        stockRealtimeRepository.save(stockRealtime);
+        stockRealtimeRepository.save(Objects.requireNonNull(stockRealtime));
 
         mockMvc.perform(get("/api/v1/market/stocks/{symbol}/stats", "000002")
                         .param("market", "AShare"))
@@ -301,7 +302,7 @@ class MarketControllerIntegrationTest extends AbstractIntegrationTest {
     @DisplayName("批量获取股票行业信息-空列表")
     void getStockIndustriesEmptyList() throws Exception {
         mockMvc.perform(post("/api/v1/market/stocks/industry/batch")
-                        .contentType(MediaType.APPLICATION_JSON)
+                        .contentType(Objects.requireNonNull(MediaType.APPLICATION_JSON))
                         .content("[]"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value(HTTP_BAD_REQUEST));
@@ -312,8 +313,8 @@ class MarketControllerIntegrationTest extends AbstractIntegrationTest {
     void getStockIndustriesListTooLarge() throws Exception {
         List<String> symbols = java.util.Collections.nCopies(MAX_BATCH_SIZE, "600519");
         mockMvc.perform(post("/api/v1/market/stocks/industry/batch")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(symbols)))
+                        .contentType(Objects.requireNonNull(MediaType.APPLICATION_JSON))
+                        .content(Objects.requireNonNull(objectMapper.writeValueAsString(symbols))))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value(HTTP_BAD_REQUEST));
     }
@@ -360,7 +361,7 @@ class MarketControllerIntegrationTest extends AbstractIntegrationTest {
                 .type("STOCK")
                 .price(PRICE_VANKE)
                 .build();
-        stockRealtimeRepository.saveAll(List.of(stock1, stock2));
+        stockRealtimeRepository.saveAll(Objects.requireNonNull(List.of(stock1, stock2)));
 
         mockMvc.perform(get("/api/v1/market/batch-prices")
                         .param("symbols", "000001,000002"))
