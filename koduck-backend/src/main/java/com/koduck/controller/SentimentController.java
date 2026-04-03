@@ -1,32 +1,33 @@
 package com.koduck.controller;
 
+import java.util.Arrays;
+import java.util.List;
+import java.util.Locale;
+
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
+
 import com.koduck.common.constants.MarketConstants;
 import com.koduck.dto.ApiResponse;
 import com.koduck.dto.market.MarketSentimentDto;
 import com.koduck.market.MarketType;
 import com.koduck.service.MarketSentimentService;
+
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
-import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Locale;
 
 /**
  * Market sentiment analysis controller.
  * <p>Provides six-dimensional sentiment indicators for market analysis.</p>
  *
  * @author GitHub Copilot
- * @date 2026-03-31
  */
 @Slf4j
 @RestController
@@ -34,6 +35,10 @@ import java.util.Locale;
 @RequiredArgsConstructor
 @Tag(name = "市场情绪", description = "市场情绪分析接口，提供六维情绪指标")
 public class SentimentController {
+
+    /**
+     * Market sentiment service.
+     */
     private final MarketSentimentService sentimentService;
 
     /**
@@ -51,7 +56,7 @@ public class SentimentController {
             responseCode = "200",
             description = "获取成功",
             content = @Content(schema = @Schema(implementation = MarketSentimentDto.class))
-        ),
+            ),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "市场类型无效"),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "500", description = "服务器内部错误")
     })
@@ -80,7 +85,7 @@ public class SentimentController {
             responseCode = "200",
             description = "获取成功",
             content = @Content(schema = @Schema(implementation = MarketSentimentDto.class))
-        ),
+            ),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "500", description = "服务器内部错误")
     })
     @GetMapping("/all")
