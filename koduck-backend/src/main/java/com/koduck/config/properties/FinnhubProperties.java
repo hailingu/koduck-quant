@@ -1,10 +1,12 @@
 package com.koduck.config.properties;
 
 import jakarta.annotation.PostConstruct;
-import lombok.extern.slf4j.Slf4j;
+
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.util.StringUtils;
+
+import lombok.extern.slf4j.Slf4j;
 
 /**
  * Configuration properties for Finnhub API integration.
@@ -16,16 +18,22 @@ import org.springframework.util.StringUtils;
  *
  * @see <a href="https://finnhub.io/docs/api">Finnhub API Docs</a>
  * @author GitHub Copilot
- * @date 2026-03-31
  */
 @Configuration
 @ConfigurationProperties(prefix = "koduck.finnhub")
 @Slf4j
 public class FinnhubProperties {
 
+    /** Environment variable name for Finnhub API key. */
     private static final String ENV_FINNHUB_API_KEY = "FINNHUB_API_KEY";
+
+    /** Default base URL for Finnhub API. */
     private static final String DEFAULT_BASE_URL = "https://finnhub.io/api/v1";
+
+    /** Default HTTP connection timeout in milliseconds. */
     private static final int DEFAULT_CONNECT_TIMEOUT_MS = 10000;
+
+    /** Default HTTP read timeout in milliseconds. */
     private static final int DEFAULT_READ_TIMEOUT_MS = 30000;
 
     /**
@@ -69,10 +77,10 @@ public class FinnhubProperties {
         if (StringUtils.hasText(envApiKey)) {
             this.apiKey = envApiKey;
         }
-        
-        log.info("[FinnhubProperties] enabled={}, baseUrl={}, hasApiKey={}", 
+
+        log.info("[FinnhubProperties] enabled={}, baseUrl={}, hasApiKey={}",
                 enabled, baseUrl, StringUtils.hasText(apiKey));
-        
+
         if (enabled && !StringUtils.hasText(apiKey)) {
             log.warn("[FinnhubProperties] Finnhub is enabled but API key is not set! " +
                     "Set FINNHUB_API_KEY environment variable or koduck.finnhub.api-key property.");
@@ -168,7 +176,7 @@ public class FinnhubProperties {
     public void setEnabled(boolean enabled) {
         this.enabled = enabled;
     }
-    
+
     /**
      * Check whether Finnhub integration is enabled and has a non-empty API key.
      *
