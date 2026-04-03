@@ -6,6 +6,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import com.koduck.dto.market.PriceUpdateDto;
+
 /**
  * Service interface for managing user stock subscriptions.
  * Provides functionality to subscribe/unsubscribe to stock price updates.
@@ -67,7 +69,7 @@ public interface StockSubscriptionService {
      *
      * @param priceUpdate the price update data
      */
-    void onPriceUpdate(PriceUpdate priceUpdate);
+    void onPriceUpdate(PriceUpdateDto priceUpdate);
 
     /**
      * Handle user disconnection event.
@@ -141,7 +143,7 @@ public interface StockSubscriptionService {
     }
 
     /**
-     * Message containing price update data.
+     * Message containing price update data for WebSocket transmission.
      */
     class PriceUpdateMessage {
         /** The message type. */
@@ -151,154 +153,7 @@ public interface StockSubscriptionService {
         private String timestamp;
 
         /** The price data. */
-        private PriceData data;
-
-        /**
-         * Price data in the message.
-         */
-        public static class PriceData {
-            /** The stock symbol. */
-            private String symbol;
-
-            /** The stock name. */
-            private String name;
-
-            /** The current price. */
-            private Double price;
-
-            /** The price change. */
-            private Double change;
-
-            /** The price change percentage. */
-            private Double changePercent;
-
-            /** The trading volume. */
-            private Long volume;
-
-            /**
-             * Get the symbol.
-             *
-             * @return the symbol
-             */
-            public String getSymbol() {
-                return symbol;
-            }
-
-            /**
-             * Set the symbol.
-             *
-             * @param symbol the symbol
-             */
-            public void setSymbol(String symbol) {
-                this.symbol = symbol;
-            }
-
-            /**
-             * Get the name.
-             *
-             * @return the name
-             */
-            public String getName() {
-                return name;
-            }
-
-            /**
-             * Set the name.
-             *
-             * @param name the name
-             */
-            public void setName(String name) {
-                this.name = name;
-            }
-
-            /**
-             * Get the price.
-             *
-             * @return the price
-             */
-            public Double getPrice() {
-                return price;
-            }
-
-            /**
-             * Set the price.
-             *
-             * @param price the price
-             */
-            public void setPrice(Double price) {
-                this.price = price;
-            }
-
-            /**
-             * Get the change.
-             *
-             * @return the change
-             */
-            public Double getChange() {
-                return change;
-            }
-
-            /**
-             * Set the change.
-             *
-             * @param change the change
-             */
-            public void setChange(Double change) {
-                this.change = change;
-            }
-
-            /**
-             * Get the change percentage.
-             *
-             * @return the change percentage
-             */
-            public Double getChangePercent() {
-                return changePercent;
-            }
-
-            /**
-             * Set the change percentage.
-             *
-             * @param changePercent the change percentage
-             */
-            public void setChangePercent(Double changePercent) {
-                this.changePercent = changePercent;
-            }
-
-            /**
-             * Get the volume.
-             *
-             * @return the volume
-             */
-            public Long getVolume() {
-                return volume;
-            }
-
-            /**
-             * Set the volume.
-             *
-             * @param volume the volume
-             */
-            public void setVolume(Long volume) {
-                this.volume = volume;
-            }
-
-            /**
-             * Create a copy of this PriceData.
-             *
-             * @return a deep copy
-             */
-            private PriceData copy() {
-                PriceData copy = new PriceData();
-                copy.setSymbol(symbol);
-                copy.setName(name);
-                copy.setPrice(price);
-                copy.setChange(change);
-                copy.setChangePercent(changePercent);
-                copy.setVolume(volume);
-                return copy;
-            }
-        }
+        private PriceUpdateDto data;
 
         /**
          * Get the message type.
@@ -341,8 +196,8 @@ public interface StockSubscriptionService {
          *
          * @return the price data
          */
-        public PriceData getData() {
-            return data == null ? null : data.copy();
+        public PriceUpdateDto getData() {
+            return data;
         }
 
         /**
@@ -350,271 +205,8 @@ public interface StockSubscriptionService {
          *
          * @param data the price data
          */
-        public void setData(PriceData data) {
-            this.data = data == null ? null : data.copy();
-        }
-    }
-
-    /**
-     * Price update event data (used for internal processing).
-     */
-    class PriceUpdate {
-        /** The stock symbol. */
-        private String symbol;
-
-        /** The stock name. */
-        private String name;
-
-        /** The current price. */
-        private Double price;
-
-        /** The price change. */
-        private Double change;
-
-        /** The price change percentage. */
-        private Double changePercent;
-
-        /** The trading volume. */
-        private Long volume;
-
-        /**
-         * Default constructor.
-         */
-        public PriceUpdate() {
-        }
-
-        /**
-         * Constructs a PriceUpdate with all fields.
-         *
-         * @param symbol        the stock symbol
-         * @param name          the stock name
-         * @param price         the current price
-         * @param change        the price change
-         * @param changePercent the price change percentage
-         * @param volume        the trading volume
-         */
-        public PriceUpdate(String symbol, String name, Double price, Double change, Double changePercent, Long volume) {
-            this.symbol = symbol;
-            this.name = name;
-            this.price = price;
-            this.change = change;
-            this.changePercent = changePercent;
-            this.volume = volume;
-        }
-
-        /**
-         * Get the symbol.
-         *
-         * @return the symbol
-         */
-        public String getSymbol() {
-            return symbol;
-        }
-
-        /**
-         * Set the symbol.
-         *
-         * @param symbol the symbol
-         */
-        public void setSymbol(String symbol) {
-            this.symbol = symbol;
-        }
-
-        /**
-         * Get the name.
-         *
-         * @return the name
-         */
-        public String getName() {
-            return name;
-        }
-
-        /**
-         * Set the name.
-         *
-         * @param name the name
-         */
-        public void setName(String name) {
-            this.name = name;
-        }
-
-        /**
-         * Get the price.
-         *
-         * @return the price
-         */
-        public Double getPrice() {
-            return price;
-        }
-
-        /**
-         * Set the price.
-         *
-         * @param price the price
-         */
-        public void setPrice(Double price) {
-            this.price = price;
-        }
-
-        /**
-         * Get the change.
-         *
-         * @return the change
-         */
-        public Double getChange() {
-            return change;
-        }
-
-        /**
-         * Set the change.
-         *
-         * @param change the change
-         */
-        public void setChange(Double change) {
-            this.change = change;
-        }
-
-        /**
-         * Get the change percentage.
-         *
-         * @return the change percentage
-         */
-        public Double getChangePercent() {
-            return changePercent;
-        }
-
-        /**
-         * Set the change percentage.
-         *
-         * @param changePercent the change percentage
-         */
-        public void setChangePercent(Double changePercent) {
-            this.changePercent = changePercent;
-        }
-
-        /**
-         * Get the volume.
-         *
-         * @return the volume
-         */
-        public Long getVolume() {
-            return volume;
-        }
-
-        /**
-         * Set the volume.
-         *
-         * @param volume the volume
-         */
-        public void setVolume(Long volume) {
-            this.volume = volume;
-        }
-
-        /**
-         * Create a new builder.
-         *
-         * @return a new PriceUpdateBuilder
-         */
-        public static PriceUpdateBuilder builder() {
-            return new PriceUpdateBuilder();
-        }
-
-        /**
-         * Builder for PriceUpdate.
-         */
-        public static class PriceUpdateBuilder {
-            /** The stock symbol. */
-            private String symbol;
-
-            /** The stock name. */
-            private String name;
-
-            /** The current price. */
-            private Double price;
-
-            /** The price change. */
-            private Double change;
-
-            /** The price change percentage. */
-            private Double changePercent;
-
-            /** The trading volume. */
-            private Long volume;
-
-            /**
-             * Set the symbol.
-             *
-             * @param symbol the symbol
-             * @return this builder
-             */
-            public PriceUpdateBuilder symbol(String symbol) {
-                this.symbol = symbol;
-                return this;
-            }
-
-            /**
-             * Set the name.
-             *
-             * @param name the name
-             * @return this builder
-             */
-            public PriceUpdateBuilder name(String name) {
-                this.name = name;
-                return this;
-            }
-
-            /**
-             * Set the price.
-             *
-             * @param price the price
-             * @return this builder
-             */
-            public PriceUpdateBuilder price(Double price) {
-                this.price = price;
-                return this;
-            }
-
-            /**
-             * Set the change.
-             *
-             * @param change the change
-             * @return this builder
-             */
-            public PriceUpdateBuilder change(Double change) {
-                this.change = change;
-                return this;
-            }
-
-            /**
-             * Set the change percentage.
-             *
-             * @param changePercent the change percentage
-             * @return this builder
-             */
-            public PriceUpdateBuilder changePercent(Double changePercent) {
-                this.changePercent = changePercent;
-                return this;
-            }
-
-            /**
-             * Set the volume.
-             *
-             * @param volume the volume
-             * @return this builder
-             */
-            public PriceUpdateBuilder volume(Long volume) {
-                this.volume = volume;
-                return this;
-            }
-
-            /**
-             * Build the PriceUpdate.
-             *
-             * @return a new PriceUpdate instance
-             */
-            public PriceUpdate build() {
-                return new PriceUpdate(symbol, name, price, change, changePercent, volume);
-            }
+        public void setData(PriceUpdateDto data) {
+            this.data = data;
         }
     }
 }

@@ -14,6 +14,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 
+import com.koduck.dto.market.PriceUpdateDto;
 import com.koduck.service.StockSubscriptionService;
 import com.koduck.util.SymbolUtils;
 
@@ -241,7 +242,7 @@ public class StockSubscriptionServiceImpl implements StockSubscriptionService {
      * @param priceUpdate the price update
      */
     @Override
-    public void onPriceUpdate(PriceUpdate priceUpdate) {
+    public void onPriceUpdate(PriceUpdateDto priceUpdate) {
         if (priceUpdate == null || priceUpdate.getSymbol() == null) {
             log.warn("Invalid price update: {}", priceUpdate);
             return;
@@ -287,15 +288,15 @@ public class StockSubscriptionServiceImpl implements StockSubscriptionService {
      * @param priceUpdate the price update
      * @return the price data
      */
-    private PriceUpdateMessage.PriceData createPriceData(PriceUpdate priceUpdate) {
-        PriceUpdateMessage.PriceData data = new PriceUpdateMessage.PriceData();
-        data.setSymbol(priceUpdate.getSymbol());
-        data.setName(priceUpdate.getName());
-        data.setPrice(priceUpdate.getPrice());
-        data.setChange(priceUpdate.getChange());
-        data.setChangePercent(priceUpdate.getChangePercent());
-        data.setVolume(priceUpdate.getVolume());
-        return data;
+    private PriceUpdateDto createPriceData(PriceUpdateDto priceUpdate) {
+        return PriceUpdateDto.builder()
+            .symbol(priceUpdate.getSymbol())
+            .name(priceUpdate.getName())
+            .price(priceUpdate.getPrice())
+            .change(priceUpdate.getChange())
+            .changePercent(priceUpdate.getChangePercent())
+            .volume(priceUpdate.getVolume())
+            .build();
     }
 
     /**

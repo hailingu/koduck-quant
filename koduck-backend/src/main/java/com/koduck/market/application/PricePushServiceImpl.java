@@ -1,5 +1,6 @@
 package com.koduck.market.application;
 
+import com.koduck.dto.market.PriceUpdateDto;
 import com.koduck.dto.market.RealtimePriceEventMessage;
 import com.koduck.dto.market.TickDto;
 import com.koduck.entity.StockRealtime;
@@ -126,8 +127,8 @@ public class PricePushServiceImpl implements PricePushService {
         return priceChanged || syntheticTick != null;
     }
 
-    private StockSubscriptionService.PriceUpdate buildPriceUpdate(StockRealtime realtime, Double currentPrice) {
-        return StockSubscriptionService.PriceUpdate.builder()
+    private PriceUpdateDto buildPriceUpdate(StockRealtime realtime, Double currentPrice) {
+        return PriceUpdateDto.builder()
                 .symbol(realtime.getSymbol())
                 .name(realtime.getName())
                 .price(currentPrice)
