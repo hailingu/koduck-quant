@@ -24,16 +24,30 @@ import lombok.extern.slf4j.Slf4j;
  * UserDetailsService implementation for loading users and authorities.
  *
  * @author GitHub Copilot
- * @date 2026-03-31
  */
 @Service
 @Slf4j
 @RequiredArgsConstructor
 public class CustomUserDetailsService implements UserDetailsService {
 
+    /**
+     * Repository for user data access.
+     */
     private final UserRepository userRepository;
+
+    /**
+     * Repository for role data access.
+     */
     private final RoleRepository roleRepository;
+
+    /**
+     * Repository for permission data access.
+     */
     private final PermissionRepository permissionRepository;
+
+    /**
+     * Checker for user roles table existence.
+     */
     private final UserRolesTableChecker userRolesTableChecker;
 
     @Override
@@ -44,7 +58,8 @@ public class CustomUserDetailsService implements UserDetailsService {
             Long userId = Long.parseLong(username);
             user = userRepository.findById(userId)
                 .orElseThrow(() -> new UsernameNotFoundException("User not found: " + username));
-        } catch (NumberFormatException ex) {
+        }
+        catch (NumberFormatException ex) {
             log.trace("Username '{}' is not numeric id: {}", username, ex.getMessage());
             // Fallback to email and username lookup for regular login flow.
             user = userRepository.findByEmail(username)
@@ -56,11 +71,13 @@ public class CustomUserDetailsService implements UserDetailsService {
         if (!userRolesTableChecker.hasUserRolesTable()) {
             roleNames = List.of(RoleConstants.DEFAULT_USER_ROLE_NAME);
             permissionCodes = List.of();
-        } else {
+        }
+        else {
             try {
                 roleNames = roleRepository.findRoleNamesByUserId(user.getId());
                 permissionCodes = permissionRepository.findPermissionCodesByUserId(user.getId());
-            } catch (DataAccessException ex) {
+            }
+            catch (DataAccessException ex) {
                 log.warn("Failed to load authorities for userId={}, fallback to ROLE_USER: {}",
                     user.getId(), ex.getMessage());
                 roleNames = List.of(RoleConstants.DEFAULT_USER_ROLE_NAME);
