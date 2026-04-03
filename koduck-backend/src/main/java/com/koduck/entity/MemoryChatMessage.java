@@ -1,5 +1,8 @@
 package com.koduck.entity;
 
+import java.time.LocalDateTime;
+import java.util.Map;
+
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
@@ -7,19 +10,16 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 
-import java.time.LocalDateTime;
-import java.util.Map;
-
-import lombok.AccessLevel;
-import lombok.Data;
-import lombok.NoArgsConstructor;
-import lombok.Setter;
-
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
 import com.koduck.util.CollectionCopyUtils;
+
+import lombok.AccessLevel;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 
 /**
  * Memory chat message entity.
@@ -99,13 +99,44 @@ public class MemoryChatMessage {
      */
     public static final class Builder {
 
+        /**
+         * Message ID.
+         */
         private Long id;
+
+        /**
+         * User ID.
+         */
         private Long userId;
+
+        /**
+         * Session ID.
+         */
         private String sessionId;
+
+        /**
+         * Message role.
+         */
         private String role;
+
+        /**
+         * Message content.
+         */
         private String content;
+
+        /**
+         * Token count.
+         */
         private Integer tokenCount;
+
+        /**
+         * Metadata map.
+         */
         private Map<String, Object> metadata;
+
+        /**
+         * Creation timestamp.
+         */
         private LocalDateTime createdAt;
 
         /**
