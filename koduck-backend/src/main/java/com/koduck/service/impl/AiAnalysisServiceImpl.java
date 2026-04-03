@@ -26,6 +26,8 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 
+import com.koduck.common.constants.AiConstants;
+import com.koduck.common.constants.MapKeyConstants;
 import com.koduck.config.AgentConfig;
 import com.koduck.dto.ai.BacktestInterpretResponse;
 import com.koduck.dto.ai.ChatStreamRequest;
@@ -73,13 +75,13 @@ public class AiAnalysisServiceImpl implements AiAnalysisService {
     private static final String KEY_MESSAGE = "message";
 
     /** Key for content in response. */
-    private static final String KEY_CONTENT = "content";
+    private static final String KEY_CONTENT = MapKeyConstants.KEY_CONTENT;
 
     /** Risk level: aggressive. */
-    private static final String RISK_AGGRESSIVE = "aggressive";
+    private static final String RISK_AGGRESSIVE = AiConstants.RISK_AGGRESSIVE;
 
     /** Risk level: conservative. */
-    private static final String RISK_CONSERVATIVE = "conservative";
+    private static final String RISK_CONSERVATIVE = AiConstants.RISK_CONSERVATIVE;
 
     /** Risk level: balanced. */
     private static final String RISK_BALANCED = "balanced";

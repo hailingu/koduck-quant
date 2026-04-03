@@ -18,6 +18,7 @@ import com.koduck.entity.UserSettings;
 import com.koduck.mapper.UserSettingsMapper;
 import com.koduck.repository.UserSettingsRepository;
 import com.koduck.service.UserSettingsService;
+import com.koduck.common.constants.LlmConstants;
 import com.koduck.service.support.UserSettingsLlmConfigSupport;
 
 import lombok.RequiredArgsConstructor;
@@ -33,7 +34,7 @@ import lombok.extern.slf4j.Slf4j;
 @RequiredArgsConstructor
 public class UserSettingsServiceImpl implements UserSettingsService {
 
-    private static final String PROVIDER_MINIMAX = "minimax";
+    private static final String PROVIDER_MINIMAX = LlmConstants.PROVIDER_MINIMAX;
 
     private final UserSettingsRepository settingsRepository;
 

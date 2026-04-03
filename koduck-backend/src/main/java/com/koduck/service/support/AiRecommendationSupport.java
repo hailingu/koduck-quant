@@ -9,6 +9,7 @@ import java.util.Random;
 
 import org.springframework.stereotype.Component;
 
+import com.koduck.common.constants.AiConstants;
 import com.koduck.dto.ai.BacktestInterpretResponse;
 import com.koduck.dto.ai.RiskAssessmentResponse;
 import com.koduck.dto.ai.StrategyRecommendRequest;
@@ -26,9 +27,9 @@ import com.koduck.entity.Strategy;
 public class AiRecommendationSupport {
 
     /** 激进型风险偏好。 */
-    private static final String RISK_AGGRESSIVE = "aggressive";
+    private static final String RISK_AGGRESSIVE = AiConstants.RISK_AGGRESSIVE;
     /** 保守型风险偏好。 */
-    private static final String RISK_CONSERVATIVE = "conservative";
+    private static final String RISK_CONSERVATIVE = AiConstants.RISK_CONSERVATIVE;
     /** 策略类型：均线交叉。 */
     private static final String STRATEGY_TYPE_MA_CROSS = "MA_CROSS";
     /** 美国市场。 */

@@ -51,8 +51,7 @@ public class PortfolioServiceImpl implements PortfolioService {
     /** Service for K-line data. */
     private final KlineService klineService;
 
-    /** Default timeframe for price queries. */
-    private static final String DEFAULT_TIMEFRAME = MarketConstants.DEFAULT_TIMEFRAME;
+    // Use MarketConstants.MarketConstants.DEFAULT_TIMEFRAME directly
 
     /** Error message for null position. */
     private static final String POSITION_NULL_MESSAGE = "position must not be null";
@@ -103,7 +102,7 @@ public class PortfolioServiceImpl implements PortfolioService {
         BigDecimal totalDailyPnl = BigDecimal.ZERO;
         for (PortfolioPosition position : positions) {
             Optional<BigDecimal> currentPriceOpt = klineService.getLatestPrice(
-                position.getMarket(), position.getSymbol(), DEFAULT_TIMEFRAME);
+                position.getMarket(), position.getSymbol(), MarketConstants.DEFAULT_TIMEFRAME);
             BigDecimal currentPrice = currentPriceOpt.orElse(position.getAvgCost());
             BigDecimal cost = position.getAvgCost().multiply(position.getQuantity());
             BigDecimal marketValue = currentPrice.multiply(position.getQuantity());
@@ -142,7 +141,7 @@ public class PortfolioServiceImpl implements PortfolioService {
     private Optional<BigDecimal> calculatePositionDailyPnl(
             PortfolioPosition position, BigDecimal currentPrice) {
         Optional<BigDecimal> prevCloseOpt = klineService.getPreviousClosePrice(
-            position.getMarket(), position.getSymbol(), DEFAULT_TIMEFRAME);
+            position.getMarket(), position.getSymbol(), MarketConstants.DEFAULT_TIMEFRAME);
         if (prevCloseOpt.isEmpty()) {
             log.warn("Previous close price not available for {}/{}, skipping daily PnL calculation",
                 position.getMarket(), position.getSymbol());
@@ -364,7 +363,7 @@ public class PortfolioServiceImpl implements PortfolioService {
     private PortfolioPositionDto convertToDtoWithCalculations(PortfolioPosition position) {
         // Get real-time price
         Optional<BigDecimal> currentPriceOpt = klineService.getLatestPrice(
-            position.getMarket(), position.getSymbol(), DEFAULT_TIMEFRAME);
+            position.getMarket(), position.getSymbol(), MarketConstants.DEFAULT_TIMEFRAME);
         BigDecimal currentPrice = currentPriceOpt.orElse(position.getAvgCost());
         BigDecimal marketValue = currentPrice.multiply(position.getQuantity());
         BigDecimal cost = position.getAvgCost().multiply(position.getQuantity());

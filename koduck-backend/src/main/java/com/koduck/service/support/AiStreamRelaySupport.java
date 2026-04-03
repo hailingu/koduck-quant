@@ -14,6 +14,7 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
+import com.koduck.common.constants.MapKeyConstants;
 import com.koduck.dto.ai.ChatStreamRequest;
 
 import lombok.RequiredArgsConstructor;
@@ -33,7 +34,7 @@ public class AiStreamRelaySupport {
     /** Event name for done. */
     private static final String EVENT_DONE = "done";
     /** Key for content. */
-    private static final String KEY_CONTENT = "content";
+    private static final String KEY_CONTENT = MapKeyConstants.KEY_CONTENT;
     /** Type reference for Map<String, Object>. */
     private static final TypeReference<Map<String, Object>> MAP_TYPE_REFERENCE = new TypeReference<>() {
     };

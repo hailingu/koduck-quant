@@ -4,6 +4,8 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
+
+import com.koduck.common.constants.DateTimePatternConstants;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -34,7 +36,7 @@ import lombok.extern.slf4j.Slf4j;
 public class SyntheticTickServiceImpl implements SyntheticTickService {
 
     /** The market timezone (Asia/Shanghai). */
-    private static final ZoneId MARKET_ZONE = ZoneId.of("Asia/Shanghai");
+    private static final ZoneId MARKET_ZONE = DateTimePatternConstants.MARKET_ZONE_ID;
 
     /** Time formatter for tick timestamps (HH:mm:ss). */
     private static final DateTimeFormatter TIME_FORMATTER = DateTimeFormatter.ofPattern("HH:mm:ss");

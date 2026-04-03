@@ -13,6 +13,7 @@ import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 
+import com.koduck.common.constants.MarketConstants;
 import com.koduck.config.CacheConfig;
 import com.koduck.dto.market.MarketIndexDto;
 import com.koduck.dto.market.PriceQuoteDto;
@@ -45,9 +46,9 @@ public class MarketServiceImpl implements MarketService {
     
     // Main index symbols
     private static final List<String> MAIN_INDICES = List.of(
-            "000001",  // 
-            "399001",  // 
-            "399006"   // 
+            MarketConstants.A_SHARE_INDEX_SYMBOL,  // 上证指数
+            "399001",     // 深证成指
+            "399006"      // 创业板指
     );
     
     private final StockRealtimeRepository stockRealtimeRepository;
