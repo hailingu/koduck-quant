@@ -33,7 +33,7 @@ public class MonitoringServiceImpl implements MonitoringService {
     public Map<String, Object> getDataFreshnessMetrics() {
         Map<String, Object> metrics = new HashMap<>();
         try {
-            long totalStocks = stockRealtimeRepository.countAll();
+            long totalStocks = stockRealtimeRepository.count();
             metrics.put("totalStocks", totalStocks);
             // Get delayed stocks (more than 30 seconds)
             long delayedCount = stockRealtimeRepository.countDelayedStocks(30);
@@ -370,7 +370,7 @@ public class MonitoringServiceImpl implements MonitoringService {
         return BigDecimal.valueOf(seconds);
     }
     private BigDecimal getStockDelayPercentage() {
-        long total = stockRealtimeRepository.countAll();
+        long total = stockRealtimeRepository.count();
         if (total == 0) {
             return BigDecimal.ZERO;
         }

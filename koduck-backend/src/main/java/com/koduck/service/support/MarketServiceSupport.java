@@ -11,6 +11,7 @@ import java.util.Objects;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Component;
 
 import com.koduck.dto.market.MarketIndexDto;
@@ -209,7 +210,7 @@ public class MarketServiceSupport {
     public List<SymbolInfoDto> getHotStocks(String market, int limit) {
         log.debug("Getting hot stocks: market={}, limit={}", market, limit);
         try {
-            List<StockRealtime> hotStocks = stockRealtimeRepository.findTopByVolume(limit);
+            List<StockRealtime> hotStocks = stockRealtimeRepository.findTopByVolume(PageRequest.of(0, limit));
             if (hotStocks.isEmpty()) {
                 log.warn("No hot stocks found in database");
                 return Collections.emptyList();
