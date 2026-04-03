@@ -1,12 +1,27 @@
 package com.koduck.controller;
 
-import io.swagger.v3.oas.annotations.Operation;
-import io.swagger.v3.oas.annotations.Parameter;
-import io.swagger.v3.oas.annotations.media.Content;
-import io.swagger.v3.oas.annotations.media.Schema;
-import io.swagger.v3.oas.annotations.responses.ApiResponses;
-import io.swagger.v3.oas.annotations.security.SecurityRequirement;
-import io.swagger.v3.oas.annotations.tags.Tag;
+import java.math.BigDecimal;
+import java.util.List;
+
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.Pattern;
+import jakarta.validation.constraints.Positive;
+import jakarta.validation.constraints.Size;
+
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.validation.annotation.Validated;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
+
 import com.koduck.common.constants.PaginationConstants;
 import com.koduck.controller.support.AuthenticatedUserResolver;
 import com.koduck.dto.ApiResponse;
@@ -20,27 +35,15 @@ import com.koduck.dto.community.UpdateSignalRequest;
 import com.koduck.dto.community.UserSignalStatsResponse;
 import com.koduck.security.UserPrincipal;
 import com.koduck.service.CommunitySignalService;
-import jakarta.validation.Valid;
-import jakarta.validation.constraints.Max;
-import jakarta.validation.constraints.Min;
-import jakarta.validation.constraints.Pattern;
-import jakarta.validation.constraints.Positive;
-import jakarta.validation.constraints.Size;
-import java.math.BigDecimal;
-import java.util.List;
+
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.validation.annotation.Validated;
-import org.springframework.web.bind.annotation.DeleteMapping;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.PutMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
 
 /**
  * REST controller for community trading signals.
@@ -49,7 +52,6 @@ import org.springframework.web.bind.annotation.RestController;
  * comments, and user statistics.</p>
  *
  * @author GitHub Copilot
- * @date 2026-03-05
  */
 @RestController
 @RequestMapping("/api/v1/community")
@@ -59,15 +61,29 @@ import org.springframework.web.bind.annotation.RestController;
 @Slf4j
 @RequiredArgsConstructor
 public class CommunitySignalController {
+
+    /** Message for successful deletion. */
     private static final String MESSAGE_DELETED_SUCCESSFULLY = "Deleted successfully";
+
+    /** Message for successful unsubscription. */
     private static final String MESSAGE_UNSUBSCRIBED_SUCCESSFULLY = "Unsubscribed successfully";
+
+    /** Message for successful like. */
     private static final String MESSAGE_LIKED_SUCCESSFULLY = "Liked successfully";
+
+    /** Message for successful unlike. */
     private static final String MESSAGE_UNLIKED_SUCCESSFULLY = "Unliked successfully";
+
+    /** Message for successful favorite. */
     private static final String MESSAGE_FAVORITED_SUCCESSFULLY = "Favorited successfully";
+
+    /** Message for successful unfavorite. */
     private static final String MESSAGE_UNFAVORITED_SUCCESSFULLY = "Unfavorited successfully";
 
+    /** Service for community signal operations. */
     private final CommunitySignalService signalService;
 
+    /** Resolver for authenticated user information. */
     private final AuthenticatedUserResolver authenticatedUserResolver;
 
     /**
@@ -87,10 +103,10 @@ public class CommunitySignalController {
     )
     @io.swagger.v3.oas.annotations.responses.ApiResponses(value = {
         @io.swagger.v3.oas.annotations.responses.ApiResponse(
-            responseCode = "200",
-            description = "获取成功",
-            content = @Content(schema = @Schema(implementation = SignalListResponse.class))
-        ),
+                responseCode = "200",
+                description = "获取成功",
+                content = @Content(schema = @Schema(implementation = SignalListResponse.class))
+            ),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "请求参数错误"),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "500", description = "服务器内部错误")
     })
@@ -133,10 +149,10 @@ public class CommunitySignalController {
     )
     @io.swagger.v3.oas.annotations.responses.ApiResponses(value = {
         @io.swagger.v3.oas.annotations.responses.ApiResponse(
-            responseCode = "200",
-            description = "获取成功",
-            content = @Content(schema = @Schema(implementation = SignalResponse.class))
-        ),
+                responseCode = "200",
+                description = "获取成功",
+                content = @Content(schema = @Schema(implementation = SignalResponse.class))
+            ),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "500", description = "服务器内部错误")
     })
     @GetMapping("/signals/featured")
@@ -162,10 +178,10 @@ public class CommunitySignalController {
     )
     @io.swagger.v3.oas.annotations.responses.ApiResponses(value = {
         @io.swagger.v3.oas.annotations.responses.ApiResponse(
-            responseCode = "200",
-            description = "获取成功",
-            content = @Content(schema = @Schema(implementation = SignalResponse.class))
-        ),
+                responseCode = "200",
+                description = "获取成功",
+                content = @Content(schema = @Schema(implementation = SignalResponse.class))
+            ),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "信号不存在"),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "500", description = "服务器内部错误")
     })
@@ -194,10 +210,10 @@ public class CommunitySignalController {
     )
     @io.swagger.v3.oas.annotations.responses.ApiResponses(value = {
         @io.swagger.v3.oas.annotations.responses.ApiResponse(
-            responseCode = "200",
-            description = "获取成功",
-            content = @Content(schema = @Schema(implementation = SignalResponse.class))
-        ),
+                responseCode = "200",
+                description = "获取成功",
+                content = @Content(schema = @Schema(implementation = SignalResponse.class))
+            ),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "用户不存在"),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "500", description = "服务器内部错误")
     })
@@ -226,10 +242,10 @@ public class CommunitySignalController {
     )
     @io.swagger.v3.oas.annotations.responses.ApiResponses(value = {
         @io.swagger.v3.oas.annotations.responses.ApiResponse(
-            responseCode = "200",
-            description = "创建成功",
-            content = @Content(schema = @Schema(implementation = SignalResponse.class))
-        ),
+                responseCode = "200",
+                description = "创建成功",
+                content = @Content(schema = @Schema(implementation = SignalResponse.class))
+            ),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "请求参数错误"),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "未登录或Token无效"),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "500", description = "服务器内部错误")
@@ -259,10 +275,10 @@ public class CommunitySignalController {
     )
     @io.swagger.v3.oas.annotations.responses.ApiResponses(value = {
         @io.swagger.v3.oas.annotations.responses.ApiResponse(
-            responseCode = "200",
-            description = "更新成功",
-            content = @Content(schema = @Schema(implementation = SignalResponse.class))
-        ),
+                responseCode = "200",
+                description = "更新成功",
+                content = @Content(schema = @Schema(implementation = SignalResponse.class))
+            ),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "请求参数错误"),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "未登录或Token无效"),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "无权更新该信号"),
@@ -297,10 +313,10 @@ public class CommunitySignalController {
     )
     @io.swagger.v3.oas.annotations.responses.ApiResponses(value = {
         @io.swagger.v3.oas.annotations.responses.ApiResponse(
-            responseCode = "200",
-            description = "关闭成功",
-            content = @Content(schema = @Schema(implementation = SignalResponse.class))
-        ),
+                responseCode = "200",
+                description = "关闭成功",
+                content = @Content(schema = @Schema(implementation = SignalResponse.class))
+            ),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "请求参数错误"),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "未登录或Token无效"),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "无权关闭该信号"),
@@ -369,10 +385,10 @@ public class CommunitySignalController {
     )
     @io.swagger.v3.oas.annotations.responses.ApiResponses(value = {
         @io.swagger.v3.oas.annotations.responses.ApiResponse(
-            responseCode = "200",
-            description = "订阅成功",
-            content = @Content(schema = @Schema(implementation = SignalSubscriptionResponse.class))
-        ),
+                responseCode = "200",
+                description = "订阅成功",
+                content = @Content(schema = @Schema(implementation = SignalSubscriptionResponse.class))
+            ),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "未登录或Token无效"),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "信号不存在"),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "409", description = "已经订阅该信号"),
@@ -431,10 +447,10 @@ public class CommunitySignalController {
     )
     @io.swagger.v3.oas.annotations.responses.ApiResponses(value = {
         @io.swagger.v3.oas.annotations.responses.ApiResponse(
-            responseCode = "200",
-            description = "获取成功",
-            content = @Content(schema = @Schema(implementation = SignalSubscriptionResponse.class))
-        ),
+                responseCode = "200",
+                description = "获取成功",
+                content = @Content(schema = @Schema(implementation = SignalSubscriptionResponse.class))
+            ),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "未登录或Token无效"),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "500", description = "服务器内部错误")
     })
@@ -583,10 +599,10 @@ public class CommunitySignalController {
     )
     @io.swagger.v3.oas.annotations.responses.ApiResponses(value = {
         @io.swagger.v3.oas.annotations.responses.ApiResponse(
-            responseCode = "200",
-            description = "获取成功",
-            content = @Content(schema = @Schema(implementation = CommentResponse.class))
-        ),
+                responseCode = "200",
+                description = "获取成功",
+                content = @Content(schema = @Schema(implementation = CommentResponse.class))
+            ),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "信号不存在"),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "500", description = "服务器内部错误")
     })
@@ -620,10 +636,10 @@ public class CommunitySignalController {
     )
     @io.swagger.v3.oas.annotations.responses.ApiResponses(value = {
         @io.swagger.v3.oas.annotations.responses.ApiResponse(
-            responseCode = "200",
-            description = "创建成功",
-            content = @Content(schema = @Schema(implementation = CommentResponse.class))
-        ),
+                responseCode = "200",
+                description = "创建成功",
+                content = @Content(schema = @Schema(implementation = CommentResponse.class))
+            ),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "请求参数错误"),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "未登录或Token无效"),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "信号不存在"),
@@ -684,10 +700,10 @@ public class CommunitySignalController {
     )
     @io.swagger.v3.oas.annotations.responses.ApiResponses(value = {
         @io.swagger.v3.oas.annotations.responses.ApiResponse(
-            responseCode = "200",
-            description = "获取成功",
-            content = @Content(schema = @Schema(implementation = UserSignalStatsResponse.class))
-        ),
+                responseCode = "200",
+                description = "获取成功",
+                content = @Content(schema = @Schema(implementation = UserSignalStatsResponse.class))
+            ),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "用户不存在"),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "500", description = "服务器内部错误")
     })
