@@ -1,6 +1,7 @@
 package com.koduck.service;
 
 import java.time.Duration;
+import java.util.Objects;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -105,8 +106,8 @@ class RateLimiterServiceTest {
     @DisplayName("shouldAllowRequestWhenUnderLimit")
     void shouldAllowRequestWhenUnderLimit() {
         // Given
-        when(valueOperations.get(anyString())).thenReturn(null);
-        when(valueOperations.increment(anyString())).thenReturn(COUNT_ONE);
+        when(valueOperations.get(Objects.requireNonNull(anyString()))).thenReturn(null);
+        when(valueOperations.increment(Objects.requireNonNull(anyString()))).thenReturn(COUNT_ONE);
 
         // When
         boolean result = rateLimiterService.allowPasswordResetRequest(USER_ID, EMAIL, IP_ADDRESS);
@@ -119,7 +120,7 @@ class RateLimiterServiceTest {
     @DisplayName("shouldBlockRequestWhenIpLimitExceeded")
     void shouldBlockRequestWhenIpLimitExceeded() {
         // Given
-        when(valueOperations.increment(contains("ip:"))).thenReturn(COUNT_ELEVEN);
+        when(valueOperations.increment(Objects.requireNonNull(contains("ip:")))).thenReturn(COUNT_ELEVEN);
 
         // When
         boolean result = rateLimiterService.allowPasswordResetRequest(USER_ID, EMAIL, IP_ADDRESS);
@@ -132,8 +133,8 @@ class RateLimiterServiceTest {
     @DisplayName("shouldBlockRequestWhenEmailLimitExceeded")
     void shouldBlockRequestWhenEmailLimitExceeded() {
         // Given
-        when(valueOperations.increment(contains("ip:"))).thenReturn(COUNT_ONE);
-        when(valueOperations.increment(contains("email:"))).thenReturn(COUNT_SIX);
+        when(valueOperations.increment(Objects.requireNonNull(contains("ip:")))).thenReturn(COUNT_ONE);
+        when(valueOperations.increment(Objects.requireNonNull(contains("email:")))).thenReturn(COUNT_SIX);
 
         // When
         boolean result = rateLimiterService.allowPasswordResetRequest(USER_ID, EMAIL, IP_ADDRESS);
@@ -146,9 +147,9 @@ class RateLimiterServiceTest {
     @DisplayName("shouldBlockRequestWhenUserLimitExceeded")
     void shouldBlockRequestWhenUserLimitExceeded() {
         // Given
-        when(valueOperations.increment(contains("ip:"))).thenReturn(COUNT_ONE);
-        when(valueOperations.increment(contains("email:"))).thenReturn(COUNT_ONE);
-        when(valueOperations.increment(contains("user:"))).thenReturn(COUNT_FOUR);
+        when(valueOperations.increment(Objects.requireNonNull(contains("ip:")))).thenReturn(COUNT_ONE);
+        when(valueOperations.increment(Objects.requireNonNull(contains("email:")))).thenReturn(COUNT_ONE);
+        when(valueOperations.increment(Objects.requireNonNull(contains("user:")))).thenReturn(COUNT_FOUR);
 
         // When
         boolean result = rateLimiterService.allowPasswordResetRequest(USER_ID, EMAIL, IP_ADDRESS);
@@ -161,7 +162,7 @@ class RateLimiterServiceTest {
     @DisplayName("shouldAllowRequestWhenRedisFails")
     void shouldAllowRequestWhenRedisFails() {
         // Given
-        when(valueOperations.increment(anyString())).thenThrow(
+        when(valueOperations.increment(Objects.requireNonNull(anyString()))).thenThrow(
             new RuntimeException("Redis connection failed"));
 
         // When
@@ -175,7 +176,7 @@ class RateLimiterServiceTest {
     @DisplayName("shouldAllowRequestWhenNoUserIdProvided")
     void shouldAllowRequestWhenNoUserId() {
         // Given
-        when(valueOperations.increment(anyString())).thenReturn(COUNT_ONE);
+        when(valueOperations.increment(Objects.requireNonNull(anyString()))).thenReturn(COUNT_ONE);
 
         // When
         boolean result = rateLimiterService.allowPasswordResetRequest(null, EMAIL, IP_ADDRESS);
@@ -183,7 +184,7 @@ class RateLimiterServiceTest {
         // Then
         assertThat(result).isTrue();
         // Should only check IP and email, not user
-        verify(valueOperations, never()).increment(contains("user:"));
+        verify(valueOperations, never()).increment(Objects.requireNonNull(contains("user:")));
     }
 
     @Test
@@ -193,7 +194,7 @@ class RateLimiterServiceTest {
         rateLimiterService.resetRateLimit(USER_ID, EMAIL, IP_ADDRESS);
 
         // Then
-        verify(redisTemplate, times(EXPECTED_DELETE_COUNT)).delete(anyString());
+        verify(redisTemplate, times(EXPECTED_DELETE_COUNT)).delete(Objects.requireNonNull(anyString()));
     }
 
     @Test
@@ -238,7 +239,7 @@ class RateLimiterServiceTest {
                 Duration.ofHours(PASSWORD_RESET_WINDOW_HOURS)));
         RateLimiterServiceImpl customRateLimiterService = new RateLimiterServiceImpl(redisTemplate, properties);
 
-        when(valueOperations.get(contains("login_failure:"))).thenReturn(COUNT_TWO.toString());
+        when(valueOperations.get(Objects.requireNonNull(contains("login_failure:")))).thenReturn(COUNT_TWO.toString());
 
         // When
         boolean allowed = customRateLimiterService.allowLoginAttempt(loginIdentifier, IP_ADDRESS);
