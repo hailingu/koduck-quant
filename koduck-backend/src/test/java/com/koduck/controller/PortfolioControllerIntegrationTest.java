@@ -271,7 +271,7 @@ class PortfolioControllerIntegrationTest extends AbstractIntegrationTest {
                 .quantity(new BigDecimal("500"))
                 .avgCost(new BigDecimal("12.00"))
                 .build();
-        positionRepository.save(existing);
+        positionRepository.save(Objects.requireNonNull(existing));
 
         // Add more of the same stock
         AddPositionRequest request = new AddPositionRequest(
@@ -359,8 +359,8 @@ class PortfolioControllerIntegrationTest extends AbstractIntegrationTest {
 
         mockMvc.perform(put("/api/v1/portfolio/{id}", NON_EXISTENT_ID)
                         .header(AUTHORIZATION_HEADER, bearerToken(accessToken))
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(request)))
+                        .contentType(Objects.requireNonNull(MediaType.APPLICATION_JSON))
+                        .content(Objects.requireNonNull(objectMapper.writeValueAsString(request))))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value(-1));
     }
@@ -374,8 +374,8 @@ class PortfolioControllerIntegrationTest extends AbstractIntegrationTest {
 
         mockMvc.perform(put("/api/v1/portfolio/{id}", -1)
                         .header(AUTHORIZATION_HEADER, bearerToken(accessToken))
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(request)))
+                        .contentType(Objects.requireNonNull(MediaType.APPLICATION_JSON))
+                        .content(Objects.requireNonNull(objectMapper.writeValueAsString(request))))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value(BAD_REQUEST_CODE));
     }
@@ -402,7 +402,7 @@ class PortfolioControllerIntegrationTest extends AbstractIntegrationTest {
                 .andExpect(jsonPath("$.code").value(0));
 
         // Verify deletion
-        assertThat(positionRepository.findById(saved.getId())).isEmpty();
+        assertThat(positionRepository.findById(Objects.requireNonNull(saved.getId()))).isEmpty();
     }
 
     @Test
@@ -466,8 +466,8 @@ class PortfolioControllerIntegrationTest extends AbstractIntegrationTest {
 
         mockMvc.perform(post("/api/v1/portfolio/trades")
                         .header(AUTHORIZATION_HEADER, bearerToken(accessToken))
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(request)))
+                        .contentType(Objects.requireNonNull(MediaType.APPLICATION_JSON))
+                        .content(Objects.requireNonNull(objectMapper.writeValueAsString(request))))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(0))
                 .andExpect(jsonPath("$.data.symbol").value("600519"))
@@ -504,8 +504,8 @@ class PortfolioControllerIntegrationTest extends AbstractIntegrationTest {
 
         mockMvc.perform(post("/api/v1/portfolio/trades")
                         .header(AUTHORIZATION_HEADER, bearerToken(accessToken))
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(request)))
+                        .contentType(Objects.requireNonNull(MediaType.APPLICATION_JSON))
+                        .content(Objects.requireNonNull(objectMapper.writeValueAsString(request))))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(0));
 
@@ -537,8 +537,8 @@ class PortfolioControllerIntegrationTest extends AbstractIntegrationTest {
 
         mockMvc.perform(post("/api/v1/portfolio/trades")
                         .header(AUTHORIZATION_HEADER, bearerToken(accessToken))
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(request)))
+                        .contentType(Objects.requireNonNull(MediaType.APPLICATION_JSON))
+                        .content(Objects.requireNonNull(objectMapper.writeValueAsString(request))))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(0));
 
@@ -570,8 +570,8 @@ class PortfolioControllerIntegrationTest extends AbstractIntegrationTest {
 
         mockMvc.perform(post("/api/v1/portfolio/trades")
                         .header(AUTHORIZATION_HEADER, bearerToken(accessToken))
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(request)))
+                        .contentType(Objects.requireNonNull(MediaType.APPLICATION_JSON))
+                        .content(Objects.requireNonNull(objectMapper.writeValueAsString(request))))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(0));
 
@@ -591,8 +591,8 @@ class PortfolioControllerIntegrationTest extends AbstractIntegrationTest {
 
         mockMvc.perform(post("/api/v1/portfolio/trades")
                         .header(AUTHORIZATION_HEADER, bearerToken(accessToken))
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(request)))
+                        .contentType(Objects.requireNonNull(MediaType.APPLICATION_JSON))
+                        .content(Objects.requireNonNull(objectMapper.writeValueAsString(request))))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value(BAD_REQUEST_CODE));
     }
@@ -608,8 +608,8 @@ class PortfolioControllerIntegrationTest extends AbstractIntegrationTest {
 
         mockMvc.perform(post("/api/v1/portfolio/trades")
                         .header(AUTHORIZATION_HEADER, bearerToken(accessToken))
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(request)))
+                        .contentType(Objects.requireNonNull(MediaType.APPLICATION_JSON))
+                        .content(Objects.requireNonNull(objectMapper.writeValueAsString(request))))
                 .andExpect(status().isBadRequest());
     }
 
@@ -624,8 +624,8 @@ class PortfolioControllerIntegrationTest extends AbstractIntegrationTest {
 
         mockMvc.perform(post("/api/v1/portfolio/trades")
                         .header(AUTHORIZATION_HEADER, bearerToken(accessToken))
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(request)))
+                        .contentType(Objects.requireNonNull(MediaType.APPLICATION_JSON))
+                        .content(Objects.requireNonNull(objectMapper.writeValueAsString(request))))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value(BAD_REQUEST_CODE));
     }
@@ -643,8 +643,8 @@ class PortfolioControllerIntegrationTest extends AbstractIntegrationTest {
 
         MvcResult addResult = mockMvc.perform(post("/api/v1/portfolio")
                         .header(AUTHORIZATION_HEADER, bearerToken(accessToken))
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(addRequest)))
+                        .contentType(Objects.requireNonNull(MediaType.APPLICATION_JSON))
+                        .content(Objects.requireNonNull(objectMapper.writeValueAsString(addRequest))))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(0))
                 .andReturn();
@@ -669,8 +669,8 @@ class PortfolioControllerIntegrationTest extends AbstractIntegrationTest {
 
         mockMvc.perform(put("/api/v1/portfolio/{id}", positionId)
                         .header(AUTHORIZATION_HEADER, bearerToken(accessToken))
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(updateRequest)))
+                        .contentType(Objects.requireNonNull(MediaType.APPLICATION_JSON))
+                        .content(Objects.requireNonNull(objectMapper.writeValueAsString(updateRequest))))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(0))
                 .andExpect(jsonPath("$.data.quantity").value(TEST_QUANTITY_200));
