@@ -27,6 +27,7 @@ import com.koduck.dto.portfolio.PortfolioPositionDto;
 import com.koduck.dto.portfolio.UpdatePositionRequest;
 import com.koduck.entity.PortfolioPosition;
 import com.koduck.entity.Trade;
+import com.koduck.entity.enums.TradeType;
 import com.koduck.repository.PortfolioPositionRepository;
 import com.koduck.repository.TradeRepository;
 
@@ -436,7 +437,7 @@ class PortfolioControllerIntegrationTest extends AbstractIntegrationTest {
                 .market("AShare")
                 .symbol("600519")
                 .name("贵州茅台")
-                .tradeType(Trade.TradeType.BUY)
+                .tradeType(TradeType.BUY)
                 .quantity(new BigDecimal(TEST_QUANTITY_100))
                 .price(new BigDecimal(String.valueOf(TEST_PRICE_1500)))
                 .amount(new BigDecimal("150000.00"))

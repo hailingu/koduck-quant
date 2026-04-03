@@ -25,6 +25,7 @@ import com.koduck.dto.portfolio.TradeDto;
 import com.koduck.dto.portfolio.UpdatePositionRequest;
 import com.koduck.entity.PortfolioPosition;
 import com.koduck.entity.Trade;
+import com.koduck.entity.enums.TradeType;
 import com.koduck.repository.PortfolioPositionRepository;
 import com.koduck.repository.TradeRepository;
 import com.koduck.service.KlineService;
@@ -288,7 +289,7 @@ public class PortfolioServiceImpl implements PortfolioService {
             .market(request.market())
             .symbol(request.symbol())
             .name(request.name())
-            .tradeType(Trade.TradeType.valueOf(request.tradeType()))
+            .tradeType(TradeType.valueOf(request.tradeType()))
             .quantity(request.quantity())
             .price(request.price())
             .amount(amount)
@@ -310,8 +311,8 @@ public class PortfolioServiceImpl implements PortfolioService {
     private void updatePositionFromTrade(Long userId, AddTradeRequest request) {
         Optional<PortfolioPosition> positionOpt = positionRepository
             .findByUserIdAndMarketAndSymbol(userId, request.market(), request.symbol());
-        Trade.TradeType tradeType = Trade.TradeType.valueOf(request.tradeType());
-        if (tradeType == Trade.TradeType.BUY) {
+        TradeType tradeType = TradeType.valueOf(request.tradeType());
+        if (tradeType == TradeType.BUY) {
             // For buy trades, add to position or create new
             if (positionOpt.isPresent()) {
                 PortfolioPosition position = positionOpt.get();
@@ -337,7 +338,7 @@ public class PortfolioServiceImpl implements PortfolioService {
                     "newPosition must not be null"));
             }
         }
-        else if (tradeType == Trade.TradeType.SELL && positionOpt.isPresent()) {
+        else if (tradeType == TradeType.SELL && positionOpt.isPresent()) {
             // For sell trades, reduce position
             PortfolioPosition position = positionOpt.get();
             BigDecimal remainingQuantity = position.getQuantity().subtract(request.quantity());

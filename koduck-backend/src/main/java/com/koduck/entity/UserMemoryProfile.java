@@ -1,7 +1,6 @@
 package com.koduck.entity;
 
 import java.time.LocalDateTime;
-import java.util.List;
 import java.util.Map;
 
 import jakarta.persistence.Column;
@@ -38,15 +37,10 @@ public class UserMemoryProfile {
     @Column(name = "risk_preference", length = 64)
     private String riskPreference;
 
-    /** The watch symbols list. */
-    @Column(name = "watch_symbols", nullable = false, columnDefinition = "jsonb")
-    @JdbcTypeCode(SqlTypes.JSON)
-    private List<String> watchSymbols = List.of();
-
     /** The preferred sources list. */
     @Column(name = "preferred_sources", nullable = false, columnDefinition = "jsonb")
     @JdbcTypeCode(SqlTypes.JSON)
-    private List<String> preferredSources = List.of();
+    private java.util.List<String> preferredSources = java.util.List.of();
 
     /** The profile facts map. */
     @Column(name = "profile_facts", nullable = false, columnDefinition = "jsonb")
@@ -78,11 +72,8 @@ public class UserMemoryProfile {
         /** The risk preference. */
         private String riskPreference;
 
-        /** The watch symbols list. */
-        private List<String> watchSymbols;
-
         /** The preferred sources list. */
-        private List<String> preferredSources;
+        private java.util.List<String> preferredSources;
 
         /** The profile facts map. */
         private Map<String, Object> profileFacts;
@@ -113,23 +104,12 @@ public class UserMemoryProfile {
         }
 
         /**
-         * Set the watch symbols.
-         *
-         * @param watchSymbols the watch symbols list
-         * @return the builder
-         */
-        public Builder watchSymbols(List<String> watchSymbols) {
-            this.watchSymbols = CollectionCopyUtils.copyList(watchSymbols);
-            return this;
-        }
-
-        /**
          * Set the preferred sources.
          *
          * @param preferredSources the preferred sources list
          * @return the builder
          */
-        public Builder preferredSources(List<String> preferredSources) {
+        public Builder preferredSources(java.util.List<String> preferredSources) {
             this.preferredSources = CollectionCopyUtils.copyList(preferredSources);
             return this;
         }
@@ -165,7 +145,6 @@ public class UserMemoryProfile {
             UserMemoryProfile profile = new UserMemoryProfile();
             profile.setUserId(userId);
             profile.setRiskPreference(riskPreference);
-            profile.setWatchSymbols(watchSymbols);
             profile.setPreferredSources(preferredSources);
             profile.setProfileFacts(profileFacts);
             profile.setUpdatedAt(updatedAt);
@@ -174,29 +153,11 @@ public class UserMemoryProfile {
     }
 
     /**
-     * Get the watch symbols with defensive copy.
-     *
-     * @return the watch symbols list
-     */
-    public List<String> getWatchSymbols() {
-        return CollectionCopyUtils.copyList(watchSymbols);
-    }
-
-    /**
-     * Set the watch symbols with defensive copy.
-     *
-     * @param watchSymbols the watch symbols list
-     */
-    public void setWatchSymbols(List<String> watchSymbols) {
-        this.watchSymbols = CollectionCopyUtils.copyList(watchSymbols);
-    }
-
-    /**
      * Get the preferred sources with defensive copy.
      *
      * @return the preferred sources list
      */
-    public List<String> getPreferredSources() {
+    public java.util.List<String> getPreferredSources() {
         return CollectionCopyUtils.copyList(preferredSources);
     }
 
@@ -205,7 +166,7 @@ public class UserMemoryProfile {
      *
      * @param preferredSources the preferred sources list
      */
-    public void setPreferredSources(List<String> preferredSources) {
+    public void setPreferredSources(java.util.List<String> preferredSources) {
         this.preferredSources = CollectionCopyUtils.copyList(preferredSources);
     }
 

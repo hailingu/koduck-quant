@@ -21,6 +21,7 @@ import com.koduck.entity.BacktestResult;
 import com.koduck.entity.BacktestTrade;
 import com.koduck.entity.Strategy;
 import com.koduck.entity.StrategyVersion;
+import com.koduck.entity.enums.TradeType;
 import com.koduck.exception.BusinessException;
 import com.koduck.exception.ErrorCode;
 import com.koduck.exception.ResourceNotFoundException;
@@ -309,7 +310,7 @@ public class BacktestServiceImpl implements BacktestService {
         context.setEntryPrice(price);
         return BacktestTrade.builder()
             .backtestResultId(backtestResultId)
-            .tradeType(BacktestTrade.TradeType.BUY)
+            .tradeType(TradeType.BUY)
             .tradeTime(LocalDateTime.ofEpochSecond(current.timestamp(), 0, java.time.ZoneOffset.UTC))
             .symbol("SYMBOL")
             .price(price)
@@ -345,7 +346,7 @@ public class BacktestServiceImpl implements BacktestService {
         context.setPosition(BigDecimal.ZERO);
         return BacktestTrade.builder()
             .backtestResultId(backtestResultId)
-            .tradeType(BacktestTrade.TradeType.SELL)
+            .tradeType(TradeType.SELL)
             .tradeTime(LocalDateTime.ofEpochSecond(current.timestamp(), 0, java.time.ZoneOffset.UTC))
             .symbol("SYMBOL")
             .price(price)
@@ -390,7 +391,7 @@ public class BacktestServiceImpl implements BacktestService {
         result.setMaxDrawdown(maxDrawdown);
         // Trade statistics
         List<BacktestTrade> sellTrades = trades.stream()
-            .filter(t -> t.getTradeType() == BacktestTrade.TradeType.SELL)
+            .filter(t -> t.getTradeType() == TradeType.SELL)
             .toList();
         int totalTrades = sellTrades.size();
         int winningTrades = (int) sellTrades.stream()

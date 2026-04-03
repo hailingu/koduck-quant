@@ -227,14 +227,12 @@ class MemoryServiceTest {
         UserMemoryProfile result = memoryService.upsertProfile(
             TEST_USER_ID,
             "balanced",
-            List.of("600519"),
             List.of("cls"),
             Map.of("likes", "value")
         );
 
         assertThat(result.getUserId()).isEqualTo(TEST_USER_ID);
         assertThat(result.getRiskPreference()).isEqualTo("balanced");
-        assertThat(result.getWatchSymbols()).containsExactly("600519");
         assertThat(result.getPreferredSources()).containsExactly("cls");
     }
 }

@@ -15,6 +15,8 @@ import jakarta.persistence.Table;
 
 import org.hibernate.annotations.CreationTimestamp;
 
+import com.koduck.entity.enums.TradeType;
+
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -99,18 +101,6 @@ public class Trade {
     /** The notes. */
     @Column(name = "notes", length = 500)
     private String notes;
-
-    /**
-     * Trade type enum.
-     */
-    public enum TradeType {
-
-        /** Buy trade. */
-        BUY,
-
-        /** Sell trade. */
-        SELL
-    }
 
     /**
      * Trade status enum.

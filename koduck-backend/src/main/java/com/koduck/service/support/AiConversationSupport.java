@@ -46,7 +46,7 @@ public class AiConversationSupport {
     /** MACD period. */
     private static final int MACD_PERIOD = 12;
     /** Max watch symbols. */
-    private static final int MAX_WATCH_SYMBOLS = 30;
+
 
     /** Memory service. */
     private final MemoryService memoryService;
@@ -158,7 +158,7 @@ public class AiConversationSupport {
         CompletableFuture.runAsync(() -> {
             try {
                 memoryService.appendMessage(userId, sessionId, "user", content, null, Map.of("source", "chat-stream"));
-                updateUserProfileFromConversation(userId, content, symbolPattern, riskAggressive, riskConservative,
+                updateUserProfileFromConversation(userId, content, riskAggressive, riskConservative,
                     riskBalanced);
             }
             catch (Exception e) {
@@ -204,20 +204,15 @@ public class AiConversationSupport {
             return false;
         }
         String riskPreference = profile.getRiskPreference();
-        List<String> watchSymbols = profile.getWatchSymbols();
         List<String> preferredSources = profile.getPreferredSources();
         boolean hasRiskPreference = riskPreference != null && !riskPreference.isBlank();
-        boolean hasWatchSymbols = watchSymbols != null && !watchSymbols.isEmpty();
         boolean hasPreferredSources = preferredSources != null && !preferredSources.isEmpty();
-        if (!hasRiskPreference && !hasWatchSymbols && !hasPreferredSources) {
+        if (!hasRiskPreference && !hasPreferredSources) {
             return false;
         }
         builder.append("用户偏好:\n");
         if (hasRiskPreference) {
             builder.append("- risk_preference: ").append(riskPreference).append("\n");
-        }
-        if (hasWatchSymbols) {
-            builder.append("- watch_symbols: ").append(String.join(", ", watchSymbols)).append("\n");
         }
         if (hasPreferredSources) {
             builder.append("- preferred_sources: ").append(String.join(", ", preferredSources)).append("\n");
@@ -383,7 +378,7 @@ public class AiConversationSupport {
         return response.values().get(key);
     }
 
-    private void updateUserProfileFromConversation(Long userId, String latestUserMessage, Pattern symbolPattern,
+    private void updateUserProfileFromConversation(Long userId, String latestUserMessage,
                                                    String riskAggressive, String riskConservative,
                                                    String riskBalanced) {
         if (latestUserMessage == null || latestUserMessage.isBlank()) {
@@ -400,15 +395,6 @@ public class AiConversationSupport {
         else if (latestUserMessage.contains("稳健")) {
             riskPreference = riskBalanced;
         }
-        Set<String> watchSymbols = new LinkedHashSet<>(
-            existing.getWatchSymbols() != null ? existing.getWatchSymbols() : List.of());
-        Matcher matcher = symbolPattern.matcher(latestUserMessage);
-        while (matcher.find()) {
-            watchSymbols.add(matcher.group());
-            if (watchSymbols.size() >= MAX_WATCH_SYMBOLS) {
-                break;
-            }
-        }
         Set<String> preferredSources = new LinkedHashSet<>(
             existing.getPreferredSources() != null ? existing.getPreferredSources() : List.of());
         if (latestUserMessage.contains("财联社")) {
@@ -417,7 +403,7 @@ public class AiConversationSupport {
         if (latestUserMessage.contains("第一财经")) {
             preferredSources.add("yicai");
         }
-        memoryService.upsertProfile(userId, riskPreference, new ArrayList<>(watchSymbols),
+        memoryService.upsertProfile(userId, riskPreference,
             new ArrayList<>(preferredSources), existing.getProfileFacts());
     }
 }

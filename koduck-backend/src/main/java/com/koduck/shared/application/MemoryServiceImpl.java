@@ -162,7 +162,6 @@ public class MemoryServiceImpl implements MemoryService {
         Long nonNullUserId = Objects.requireNonNull(userId, USER_ID_NULL_MESSAGE);
         return memoryProfileRepository.findById(nonNullUserId).orElseGet(() -> UserMemoryProfile.builder()
             .userId(nonNullUserId)
-            .watchSymbols(List.of())
             .preferredSources(List.of())
             .profileFacts(Map.of())
             .build());
@@ -172,7 +171,6 @@ public class MemoryServiceImpl implements MemoryService {
     public UserMemoryProfile upsertProfile(
         Long userId,
         String riskPreference,
-        List<String> watchSymbols,
         List<String> preferredSources,
         Map<String, Object> profileFacts
     ) {
@@ -182,9 +180,6 @@ public class MemoryServiceImpl implements MemoryService {
             .build());
         if (riskPreference != null) {
             profile.setRiskPreference(riskPreference);
-        }
-        if (watchSymbols != null) {
-            profile.setWatchSymbols(watchSymbols);
         }
         if (preferredSources != null) {
             profile.setPreferredSources(preferredSources);

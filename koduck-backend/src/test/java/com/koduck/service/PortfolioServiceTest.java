@@ -21,6 +21,7 @@ import com.koduck.dto.portfolio.TradeDto;
 import com.koduck.dto.portfolio.UpdatePositionRequest;
 import com.koduck.entity.PortfolioPosition;
 import com.koduck.entity.Trade;
+import com.koduck.entity.enums.TradeType;
 import com.koduck.repository.PortfolioPositionRepository;
 import com.koduck.repository.TradeRepository;
 import com.koduck.trading.application.PortfolioServiceImpl;
@@ -488,7 +489,7 @@ class PortfolioServiceTest {
                 .market("AShare")
                 .symbol("600519")
                 .name("贵州茅台")
-                .tradeType(Trade.TradeType.BUY)
+                .tradeType(TradeType.BUY)
                 .quantity(new BigDecimal("50"))
                 .price(new BigDecimal("1600.00"))
                 .amount(new BigDecimal("80000.00"))
@@ -531,7 +532,7 @@ class PortfolioServiceTest {
                 .market("AShare")
                 .symbol("600519")
                 .name("贵州茅台")
-                .tradeType(Trade.TradeType.SELL)
+                .tradeType(TradeType.SELL)
                 .quantity(new BigDecimal("30"))
                 .price(new BigDecimal("1650.00"))
                 .amount(new BigDecimal("49500.00"))
@@ -574,7 +575,7 @@ class PortfolioServiceTest {
                 .market("AShare")
                 .symbol("600519")
                 .name("贵州茅台")
-                .tradeType(Trade.TradeType.SELL)
+                .tradeType(TradeType.SELL)
                 .quantity(new BigDecimal("100"))
                 .price(new BigDecimal("1650.00"))
                 .amount(new BigDecimal("165000.00"))

@@ -15,6 +15,8 @@ import jakarta.persistence.Table;
 
 import org.hibernate.annotations.CreationTimestamp;
 
+import com.koduck.entity.enums.TradeType;
+
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -112,12 +114,4 @@ public class BacktestTrade {
     @Column(name = "created_at", updatable = false)
     @Setter(AccessLevel.NONE)
     private LocalDateTime createdAt;
-
-    /** Enumeration of trade types. */
-    public enum TradeType {
-        /** Buy trade type. */
-        BUY,
-        /** Sell trade type. */
-        SELL
-    }
 }
