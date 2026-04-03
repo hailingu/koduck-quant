@@ -120,15 +120,18 @@ public class ProviderFactory {
      *
      * @param marketType   the market type
      * @param providerName the provider name
-     * @return true if successful
+     * @throws IllegalArgumentException if provider not found or wrong market type
      */
-    public boolean setPrimaryProvider(MarketType marketType, String providerName) {
+    public void setPrimaryProvider(MarketType marketType, String providerName) {
         MarketDataProvider provider = providersByName.get(providerName);
-        if (provider != null && provider.getMarketType() == marketType) {
-            primaryProviders.put(marketType, provider);
-            return true;
+        if (provider == null) {
+            throw new IllegalArgumentException("Provider not found: " + providerName);
         }
-        return false;
+        if (provider.getMarketType() != marketType) {
+            throw new IllegalArgumentException(
+                "Provider " + providerName + " is not for market type " + marketType);
+        }
+        primaryProviders.put(marketType, provider);
     }
 
     /**
@@ -187,12 +190,48 @@ public class ProviderFactory {
     }
 
     /**
+     * Check if a market type is supported.
+     *
+     * @param marketType the market type
+     * @return true if supported
+     */
+    public boolean isMarketSupported(MarketType marketType) {
+        return providersByMarket.containsKey(marketType);
+    }
+
+    /**
      * Get all supported market types.
      *
      * @return set of market types
      */
     public Set<MarketType> getSupportedMarkets() {
         return new HashSet<>(providersByMarket.keySet());
+    }
+
+    /**
+     * Get provider health summary for all providers.
+     *
+     * @return map of provider name to health info
+     */
+    public Map<String, ProviderHealthInfo> getProviderHealthSummary() {
+        Map<String, ProviderHealthInfo> healthMap = new ConcurrentHashMap<>();
+
+        for (Map.Entry<String, MarketDataProvider> entry : providersByName.entrySet()) {
+            String providerName = entry.getKey();
+            MarketDataProvider provider = entry.getValue();
+            MarketType marketType = provider.getMarketType();
+            MarketDataProvider primary = primaryProviders.get(marketType);
+
+            healthMap.put(providerName, new ProviderHealthInfo(
+                providerName,
+                marketType,
+                provider.isAvailable(),
+                provider.getHealthScore(),
+                provider == primary
+            ));
+        }
+
+        return healthMap;
     }
 
     /**
