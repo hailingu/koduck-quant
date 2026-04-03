@@ -1,5 +1,9 @@
 package com.koduck.entity;
 
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
+import java.util.List;
+
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -12,15 +16,6 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 
-import java.math.BigDecimal;
-import java.time.LocalDateTime;
-import java.util.List;
-
-import lombok.AccessLevel;
-import lombok.Data;
-import lombok.NoArgsConstructor;
-import lombok.Setter;
-
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.annotations.UpdateTimestamp;
@@ -28,6 +23,11 @@ import org.hibernate.type.SqlTypes;
 
 import com.koduck.util.CollectionCopyUtils;
 import com.koduck.util.EntityCopyUtils;
+
+import lombok.AccessLevel;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 
 /**
  * Community signal entity.
@@ -207,29 +207,124 @@ public class CommunitySignal {
      */
     public static final class Builder {
 
+        /**
+         * The ID.
+         */
         private Long id;
+
+        /**
+         * The user ID.
+         */
         private Long userId;
+
+        /**
+         * The strategy ID.
+         */
         private Long strategyId;
+
+        /**
+         * The stock symbol.
+         */
         private String symbol;
+
+        /**
+         * The signal type.
+         */
         private SignalType signalType;
+
+        /**
+         * The signal reason.
+         */
         private String reason;
+
+        /**
+         * The target price.
+         */
         private BigDecimal targetPrice;
+
+        /**
+         * The stop loss price.
+         */
         private BigDecimal stopLoss;
+
+        /**
+         * The time frame.
+         */
         private String timeFrame;
+
+        /**
+         * The confidence level.
+         */
         private Integer confidence;
+
+        /**
+         * The signal status.
+         */
         private Status status;
+
+        /**
+         * The result status.
+         */
         private ResultStatus resultStatus;
+
+        /**
+         * The result profit.
+         */
         private BigDecimal resultProfit;
+
+        /**
+         * The expiration time.
+         */
         private LocalDateTime expiresAt;
+
+        /**
+         * The like count.
+         */
         private Integer likeCount;
+
+        /**
+         * The favorite count.
+         */
         private Integer favoriteCount;
+
+        /**
+         * The subscribe count.
+         */
         private Integer subscribeCount;
+
+        /**
+         * The comment count.
+         */
         private Integer commentCount;
+
+        /**
+         * The view count.
+         */
         private Integer viewCount;
+
+        /**
+         * The featured flag.
+         */
         private Boolean isFeatured;
+
+        /**
+         * The tags list.
+         */
         private List<String> tags;
+
+        /**
+         * The created at timestamp.
+         */
         private LocalDateTime createdAt;
+
+        /**
+         * The updated at timestamp.
+         */
         private LocalDateTime updatedAt;
+
+        /**
+         * The user entity.
+         */
         private User user;
 
         /**
