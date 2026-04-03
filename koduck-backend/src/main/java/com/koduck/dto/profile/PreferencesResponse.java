@@ -14,8 +14,7 @@ import lombok.NoArgsConstructor;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class PreferencesResponse
-{
+public class PreferencesResponse {
 
     /**
      * Theme preference.

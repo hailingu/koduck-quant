@@ -14,8 +14,7 @@ import lombok.NoArgsConstructor;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class UpdateProfileDTO
-{
+public class UpdateProfileDTO {
 
     /**
      * User's nickname.

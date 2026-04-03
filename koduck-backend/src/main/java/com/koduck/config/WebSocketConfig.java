@@ -1,9 +1,8 @@
 package com.koduck.config;
 
-import com.koduck.config.properties.WebSocketProperties;
 import java.util.Arrays;
-import com.koduck.security.websocket.WebSocketChannelInterceptor;
 import java.util.Objects;
+
 import org.springframework.context.annotation.Configuration;
 import org.springframework.lang.NonNull;
 import org.springframework.messaging.simp.config.ChannelRegistration;
@@ -11,6 +10,10 @@ import org.springframework.messaging.simp.config.MessageBrokerRegistry;
 import org.springframework.web.socket.config.annotation.EnableWebSocketMessageBroker;
 import org.springframework.web.socket.config.annotation.StompEndpointRegistry;
 import org.springframework.web.socket.config.annotation.WebSocketMessageBrokerConfigurer;
+
+import com.koduck.config.properties.WebSocketProperties;
+import com.koduck.security.websocket.WebSocketChannelInterceptor;
+
 /**
  * WebSocket 
  * <p> STOMP  WebSocket Broker，：</p>
@@ -31,12 +34,13 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
                            WebSocketChannelInterceptor webSocketChannelInterceptor) {
         this.webSocketProperties = Objects.requireNonNull(webSocketProperties, "webSocketProperties must not be null");
         this.webSocketChannelInterceptor = Objects.requireNonNull(webSocketChannelInterceptor,
-                "webSocketChannelInterceptor must not be null");
+            "webSocketChannelInterceptor must not be null");
     }
+
     /**
-     * 
      *
-     * @param config 
+     *
+     * @param config
      */
     @Override
     public void configureMessageBroker(@NonNull MessageBrokerRegistry config) {
@@ -44,16 +48,18 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
         // /topic - （）
         // /queue - （）
         config.enableSimpleBroker(
-                webSocketProperties.getBroker().getTopicPrefix(),
-                webSocketProperties.getBroker().getQueuePrefix()
+            webSocketProperties.getBroker().getTopicPrefix(),
+            webSocketProperties.getBroker().getQueuePrefix()
         );
         //  -  /app/*  @MessageMapping 
         config.setApplicationDestinationPrefixes(webSocketProperties.getApplicationDestinationPrefix());
     }
+
     @Override
     public void configureClientInboundChannel(@NonNull ChannelRegistration registration) {
         registration.interceptors(webSocketChannelInterceptor);
     }
+
     /**
      *  STOMP 
      *
@@ -72,7 +78,7 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
 
         registry.addEndpoint(webSocketProperties.getEndpoint())
             .setAllowedOrigins(allowedOrigins)
-                //  SockJS fallback
-                .withSockJS();
+            //  SockJS fallback
+            .withSockJS();
     }
 }

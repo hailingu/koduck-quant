@@ -14,8 +14,7 @@ import lombok.NoArgsConstructor;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class AvatarResponse
-{
+public class AvatarResponse {
 
     /**
      * URL of the uploaded avatar.

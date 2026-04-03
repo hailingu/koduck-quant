@@ -33,7 +33,6 @@ import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
-
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -72,7 +71,7 @@ public class UserController {
             responseCode = "200",
             description = "获取成功",
             content = @Content(schema = @Schema(implementation = UserDetailResponse.class))
-        ),
+            ),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "未登录或Token无效"),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "500", description = "服务器内部错误")
     })
@@ -102,7 +101,7 @@ public class UserController {
             responseCode = "200",
             description = "更新成功",
             content = @Content(schema = @Schema(implementation = UserDetailResponse.class))
-        ),
+            ),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "请求参数错误"),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "未登录或Token无效"),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "500", description = "服务器内部错误")
@@ -161,7 +160,7 @@ public class UserController {
             responseCode = "200",
             description = "查询成功",
             content = @Content(schema = @Schema(implementation = PageResponse.class))
-        ),
+            ),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "未登录或Token无效"),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "权限不足，需要管理员角色"),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "500", description = "服务器内部错误")
@@ -190,7 +189,7 @@ public class UserController {
             responseCode = "200",
             description = "获取成功",
             content = @Content(schema = @Schema(implementation = UserDetailResponse.class))
-        ),
+            ),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "未登录或Token无效"),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "权限不足，需要管理员角色"),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "用户不存在"),
@@ -221,7 +220,7 @@ public class UserController {
             responseCode = "200",
             description = "创建成功",
             content = @Content(schema = @Schema(implementation = UserDetailResponse.class))
-        ),
+            ),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "请求参数错误"),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "未登录或Token无效"),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "权限不足，需要管理员角色"),
@@ -253,7 +252,7 @@ public class UserController {
             responseCode = "200",
             description = "更新成功",
             content = @Content(schema = @Schema(implementation = UserDetailResponse.class))
-        ),
+            ),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "请求参数错误"),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "未登录或Token无效"),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "权限不足，需要管理员角色"),

@@ -1,21 +1,24 @@
 package com.koduck.security;
 
-import com.koduck.common.constants.RoleConstants;
-import com.koduck.entity.User;
-import com.koduck.repository.PermissionRepository;
-import com.koduck.repository.RoleRepository;
-import com.koduck.repository.UserRepository;
-import com.koduck.service.support.UserRolesTableChecker;
 import java.util.ArrayList;
 import java.util.List;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
+
 import org.springframework.dao.DataAccessException;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
+
+import com.koduck.common.constants.RoleConstants;
+import com.koduck.entity.User;
+import com.koduck.repository.PermissionRepository;
+import com.koduck.repository.RoleRepository;
+import com.koduck.repository.UserRepository;
+import com.koduck.service.support.UserRolesTableChecker;
+
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 /**
  * UserDetailsService implementation for loading users and authorities.
@@ -40,13 +43,13 @@ public class CustomUserDetailsService implements UserDetailsService {
         try {
             Long userId = Long.parseLong(username);
             user = userRepository.findById(userId)
-                    .orElseThrow(() -> new UsernameNotFoundException("User not found: " + username));
+                .orElseThrow(() -> new UsernameNotFoundException("User not found: " + username));
         } catch (NumberFormatException ex) {
             log.trace("Username '{}' is not numeric id: {}", username, ex.getMessage());
             // Fallback to email and username lookup for regular login flow.
             user = userRepository.findByEmail(username)
-                    .orElseGet(() -> userRepository.findByUsername(username)
-                            .orElseThrow(() -> new UsernameNotFoundException("User not found: " + username)));
+                .orElseGet(() -> userRepository.findByUsername(username)
+                    .orElseThrow(() -> new UsernameNotFoundException("User not found: " + username)));
         }
         List<String> roleNames;
         List<String> permissionCodes;
@@ -59,16 +62,16 @@ public class CustomUserDetailsService implements UserDetailsService {
                 permissionCodes = permissionRepository.findPermissionCodesByUserId(user.getId());
             } catch (DataAccessException ex) {
                 log.warn("Failed to load authorities for userId={}, fallback to ROLE_USER: {}",
-                        user.getId(), ex.getMessage());
+                    user.getId(), ex.getMessage());
                 roleNames = List.of(RoleConstants.DEFAULT_USER_ROLE_NAME);
                 permissionCodes = List.of();
             }
         }
         List<SimpleGrantedAuthority> authorities = new ArrayList<>(roleNames.stream()
-                .map(role -> new SimpleGrantedAuthority("ROLE_" + role))
+            .map(role -> new SimpleGrantedAuthority("ROLE_" + role))
             .toList());
         authorities.addAll(permissionCodes.stream()
-                .map(SimpleGrantedAuthority::new)
+            .map(SimpleGrantedAuthority::new)
             .toList());
         // Build security principal with domain user and granted authorities.
         return new UserPrincipal(user, authorities);

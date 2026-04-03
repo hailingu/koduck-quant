@@ -2,6 +2,7 @@ package com.koduck.util;
 
 import java.util.Locale;
 import java.util.Objects;
+
 import lombok.extern.slf4j.Slf4j;
 
 /**
@@ -28,15 +29,7 @@ public final class SymbolUtils {
             return normalizedSymbol;
         }
 
-        normalizedSymbol = symbol.toUpperCase(Locale.ROOT)
-                .replace(".SH", "")
-                .replace(".SZ", "")
-                .replace(".BJ", "")
-                .replace("SH", "")
-                .replace("SZ", "")
-                .replace("BJ", "")
-            .replaceAll("\\D", "")
-                .trim();
+        normalizedSymbol = symbol.toUpperCase(Locale.ROOT).replace(".SH", "").replace(".SZ", "").replace(".BJ", "").replace("SH", "").replace("SZ", "").replace("BJ", "").replaceAll("\\D", "").trim();
 
         if (normalizedSymbol.matches("\\d{1,6}")) {
             normalizedSymbol = String.format("%06d", Integer.parseInt(normalizedSymbol));

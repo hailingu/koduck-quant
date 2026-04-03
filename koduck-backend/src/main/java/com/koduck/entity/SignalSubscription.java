@@ -1,17 +1,20 @@
 package com.koduck.entity;
 
-import com.koduck.util.EntityCopyUtils;
+import java.time.LocalDateTime;
+
 import jakarta.persistence.*;
+
+import org.hibernate.annotations.CreationTimestamp;
+
+import com.koduck.util.EntityCopyUtils;
+
 import lombok.Data;
 import lombok.Setter;
 import lombok.AccessLevel;
 import lombok.NoArgsConstructor;
-import org.hibernate.annotations.CreationTimestamp;
-
-import java.time.LocalDateTime;
 
 /**
- * 
+ *
  */
 @Entity
 @Table(name = "signal_subscriptions")
@@ -62,13 +65,40 @@ public class SignalSubscription {
         private CommunitySignal signal;
         private User user;
 
-        public Builder id(Long id) { this.id = id; return this; }
-        public Builder signalId(Long signalId) { this.signalId = signalId; return this; }
-        public Builder userId(Long userId) { this.userId = userId; return this; }
-        public Builder notifyEnabled(Boolean notifyEnabled) { this.notifyEnabled = notifyEnabled; return this; }
-        public Builder createdAt(LocalDateTime createdAt) { this.createdAt = createdAt; return this; }
-        public Builder signal(CommunitySignal signal) { this.signal = EntityCopyUtils.copyCommunitySignal(signal); return this; }
-        public Builder user(User user) { this.user = EntityCopyUtils.copyUser(user); return this; }
+        public Builder id(Long id) {
+            this.id = id;
+            return this;
+        }
+
+        public Builder signalId(Long signalId) {
+            this.signalId = signalId;
+            return this;
+        }
+
+        public Builder userId(Long userId) {
+            this.userId = userId;
+            return this;
+        }
+
+        public Builder notifyEnabled(Boolean notifyEnabled) {
+            this.notifyEnabled = notifyEnabled;
+            return this;
+        }
+
+        public Builder createdAt(LocalDateTime createdAt) {
+            this.createdAt = createdAt;
+            return this;
+        }
+
+        public Builder signal(CommunitySignal signal) {
+            this.signal = EntityCopyUtils.copyCommunitySignal(signal);
+            return this;
+        }
+
+        public Builder user(User user) {
+            this.user = EntityCopyUtils.copyUser(user);
+            return this;
+        }
 
         public SignalSubscription build() {
             SignalSubscription subscription = new SignalSubscription();

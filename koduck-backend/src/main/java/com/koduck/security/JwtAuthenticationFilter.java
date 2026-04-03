@@ -1,14 +1,13 @@
 package com.koduck.security;
 
-import com.koduck.config.JwtConfig;
-import com.koduck.util.JwtUtil;
+import java.io.IOException;
+import java.util.Objects;
+
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import java.io.IOException;
-import java.util.Objects;
-import lombok.extern.slf4j.Slf4j;
+
 import org.springframework.lang.NonNull;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -18,6 +17,11 @@ import org.springframework.security.web.authentication.WebAuthenticationDetailsS
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 import org.springframework.web.filter.OncePerRequestFilter;
+
+import com.koduck.config.JwtConfig;
+import com.koduck.util.JwtUtil;
+
+import lombok.extern.slf4j.Slf4j;
 
 /**
  * JWT 
@@ -41,7 +45,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         this.jwtUtil = Objects.requireNonNull(jwtUtil, "jwtUtil must not be null");
         this.jwtConfig = Objects.requireNonNull(jwtConfig, "jwtConfig must not be null");
         this.userDetailsService = Objects.requireNonNull(userDetailsService,
-                "userDetailsService must not be null");
+            "userDetailsService must not be null");
     }
 
     @Override
@@ -54,11 +58,11 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 Long userId = jwtUtil.getUserIdFromToken(jwt);
                 UserDetails userDetails = userDetailsService.loadUserByUsername(String.valueOf(userId));
                 UsernamePasswordAuthenticationToken authentication =
-                        new UsernamePasswordAuthenticationToken(
-                                userDetails,
-                                null,
-                                userDetails.getAuthorities()
-                        );
+                    new UsernamePasswordAuthenticationToken(
+                        userDetails,
+                        null,
+                        userDetails.getAuthorities()
+                    );
                 authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
                 SecurityContextHolder.getContext().setAuthentication(authentication);
             }

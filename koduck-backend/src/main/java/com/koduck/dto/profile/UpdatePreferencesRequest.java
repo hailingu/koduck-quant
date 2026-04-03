@@ -17,8 +17,7 @@ import lombok.NoArgsConstructor;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class UpdatePreferencesRequest
-{
+public class UpdatePreferencesRequest {
 
     /**
      * Theme preference: light, dark, or auto.

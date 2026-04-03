@@ -18,17 +18,16 @@ import java.util.Locale;
  * Provides standardized conversion methods for market data.
  */
 public final class DataConverter {
-    
-    private static final DateTimeFormatter DATE_FORMATTER = 
-        DateTimeFormatter.ofPattern(DateTimePatternConstants.STANDARD_DATE_TIME_PATTERN);
-    
+
+    private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern(DateTimePatternConstants.STANDARD_DATE_TIME_PATTERN);
+
     private DataConverter() {
         // Utility class, prevent instantiation
     }
-    
+
     /**
      * Convert string price to BigDecimal
-     * 
+     *
      * @param priceStr price string
      * @return BigDecimal or ZERO if invalid
      */
@@ -42,10 +41,10 @@ public final class DataConverter {
             return BigDecimal.ZERO;
         }
     }
-    
+
     /**
      * Convert string volume to Long
-     * 
+     *
      * @param volumeStr volume string
      * @return Long or 0 if invalid
      */
@@ -59,10 +58,10 @@ public final class DataConverter {
             return 0L;
         }
     }
-    
+
     /**
      * Convert timestamp string to Instant
-     * 
+     *
      * @param timestamp timestamp string (supports various formats)
      * @return Instant or null if invalid
      */
@@ -70,7 +69,7 @@ public final class DataConverter {
         if (timestamp == null || timestamp.trim().isEmpty()) {
             return null;
         }
-        
+
         // Try epoch milliseconds
         try {
             long epochMillis = Long.parseLong(timestamp.trim());
@@ -78,14 +77,14 @@ public final class DataConverter {
         } catch (NumberFormatException _) {
             // Ignore and continue with the next timestamp format.
         }
-        
+
         // Try ISO format
         try {
             return Instant.parse(timestamp.trim());
         } catch (Exception _) {
             // Ignore and continue with the next timestamp format.
         }
-        
+
         // Try custom format
         try {
             LocalDateTime dateTime = LocalDateTime.parse(timestamp.trim(), DATE_FORMATTER);
@@ -93,33 +92,33 @@ public final class DataConverter {
         } catch (Exception _) {
             // Ignore and return null when all known formats fail.
         }
-        
+
         return null;
     }
-    
+
     /**
      * Convert seconds timestamp to Instant
-     * 
+     *
      * @param seconds seconds since epoch
      * @return Instant
      */
     public static Instant toInstant(long seconds) {
         return Instant.ofEpochSecond(seconds);
     }
-    
+
     /**
      * Convert milliseconds timestamp to Instant
-     * 
+     *
      * @param millis milliseconds since epoch
      * @return Instant
      */
     public static Instant toInstantFromMillis(long millis) {
         return Instant.ofEpochMilli(millis);
     }
-    
+
     /**
      * Format Instant to string
-     * 
+     *
      * @param instant the instant
      * @return formatted string
      */
@@ -127,13 +126,12 @@ public final class DataConverter {
         if (instant == null) {
             return "";
         }
-        return LocalDateTime.ofInstant(instant, ZoneId.systemDefault())
-                           .format(DATE_FORMATTER);
+        return LocalDateTime.ofInstant(instant, ZoneId.systemDefault()).format(DATE_FORMATTER);
     }
-    
+
     /**
      * Normalize symbol code
-     * 
+     *
      * @param symbol raw symbol
      * @param market market type
      * @return normalized symbol
@@ -142,9 +140,9 @@ public final class DataConverter {
         if (symbol == null || symbol.trim().isEmpty()) {
             return "";
         }
-        
+
         String normalized = symbol.trim().toUpperCase(Locale.ROOT);
-        
+
         // Add market suffix if not present
         if ("a_share".equals(market) && !normalized.contains(".") && normalized.length() == 6) {
             // A-Share: add exchange suffix based on first digit
@@ -155,13 +153,13 @@ public final class DataConverter {
                 normalized += ".SZ";
             }
         }
-        
+
         return normalized;
     }
-    
+
     /**
      * Convert k-line data to tick data (using close price)
-     * 
+     *
      * @param kline the k-line data
      * @return tick data
      */
@@ -169,25 +167,13 @@ public final class DataConverter {
         if (kline == null) {
             return null;
         }
-        
-        return TickData.builder()
-            .symbol(kline.symbol())
-            .market(kline.market())
-            .timestamp(kline.timestamp())
-            .price(kline.close())
-            .open(kline.open())
-            .dayHigh(kline.high())
-            .dayLow(kline.low())
-            .volume(kline.volume())
-            .amount(kline.amount())
-            .change(kline.getPriceChange())
-            .changePercent(kline.getPriceChangePercent())
-            .build();
+
+        return TickData.builder().symbol(kline.symbol()).market(kline.market()).timestamp(kline.timestamp()).price(kline.close()).open(kline.open()).dayHigh(kline.high()).dayLow(kline.low()).volume(kline.volume()).amount(kline.amount()).change(kline.getPriceChange()).changePercent(kline.getPriceChangePercent()).build();
     }
-    
+
     /**
      * Calculate VWAP (Volume Weighted Average Price)
-     * 
+     *
      * @param klines list of k-line data
      * @return VWAP or ZERO if no data
      */
@@ -195,25 +181,22 @@ public final class DataConverter {
         if (klines == null || klines.isEmpty()) {
             return BigDecimal.ZERO;
         }
-        
+
         BigDecimal totalTPV = BigDecimal.ZERO; // Typical Price * Volume
         long totalVolume = 0;
-        
+
         for (KlineData kline : klines) {
             // Typical Price = (High + Low + Close) / 3
-            BigDecimal typicalPrice = kline.high()
-                .add(kline.low())
-                .add(kline.close())
-                .divide(BigDecimal.valueOf(3), 8, RoundingMode.HALF_UP);
-            
+            BigDecimal typicalPrice = kline.high().add(kline.low()).add(kline.close()).divide(BigDecimal.valueOf(3), 8, RoundingMode.HALF_UP);
+
             totalTPV = totalTPV.add(typicalPrice.multiply(BigDecimal.valueOf(kline.volume())));
             totalVolume += kline.volume();
         }
-        
+
         if (totalVolume == 0) {
             return BigDecimal.ZERO;
         }
-        
+
         return totalTPV.divide(BigDecimal.valueOf(totalVolume), 4, RoundingMode.HALF_UP);
     }
 }
