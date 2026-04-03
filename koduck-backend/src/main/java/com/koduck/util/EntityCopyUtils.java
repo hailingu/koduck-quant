@@ -1,15 +1,15 @@
 package com.koduck.util;
 
+import java.util.List;
+
 import com.koduck.entity.CommunitySignal;
 import com.koduck.entity.SignalComment;
 import com.koduck.entity.User;
-import java.util.List;
 
 /**
  * Entity defensive copy helpers.
  *
  * @author GitHub Copilot
- * @date 2026-03-31
  */
 public final class EntityCopyUtils {
 
