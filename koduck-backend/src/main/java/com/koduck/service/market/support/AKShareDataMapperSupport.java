@@ -1,5 +1,11 @@
 package com.koduck.service.market.support;
 
+import java.time.Instant;
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+
 import com.koduck.dto.market.PriceQuoteDto;
 import com.koduck.dto.market.StockIndustryDto;
 import com.koduck.dto.market.StockValuationDto;
@@ -8,23 +14,24 @@ import com.koduck.market.MarketType;
 import com.koduck.market.model.KlineData;
 import com.koduck.market.provider.MarketDataProvider;
 import com.koduck.market.util.DataConverter;
-import java.time.Instant;
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
 
 /**
  * Mapping helpers for AKShare payload conversion.
  *
- * @author GitHub Copilot
- * @date 2026-03-31
+ * @author Koduck Team
  */
 public final class AKShareDataMapperSupport {
 
+    /** The key for symbol field. */
     private static final String KEY_SYMBOL = "symbol";
+
+    /** The key for name field. */
     private static final String KEY_NAME = "name";
+
+    /** The key for volume field. */
     private static final String KEY_VOLUME = "volume";
+
+    /** The key for amount field. */
     private static final String KEY_AMOUNT = "amount";
 
     private AKShareDataMapperSupport() {
@@ -170,7 +177,8 @@ public final class AKShareDataMapperSupport {
         if (value instanceof String timestamp) {
             try {
                 return Instant.parse(timestamp);
-            } catch (Exception _) {
+            }
+            catch (Exception _) {
                 return null;
             }
         }
