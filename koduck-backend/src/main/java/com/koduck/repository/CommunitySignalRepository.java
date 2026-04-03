@@ -2,6 +2,7 @@ package com.koduck.repository;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -10,6 +11,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
+import org.springframework.lang.NonNull;
 import org.springframework.stereotype.Repository;
 
 import com.koduck.entity.CommunitySignal;
@@ -110,7 +112,8 @@ public interface CommunitySignalRepository extends JpaRepository<CommunitySignal
      */
     @Override
     @EntityGraph(attributePaths = "user")
-    java.util.Optional<CommunitySignal> findById(Long id);
+    @NonNull
+    Optional<CommunitySignal> findById(@NonNull Long id);
 
     /**
      * Find expired signals that are still active.

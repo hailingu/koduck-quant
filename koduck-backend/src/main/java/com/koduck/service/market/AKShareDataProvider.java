@@ -33,6 +33,8 @@ import com.koduck.market.model.TickData;
 import com.koduck.market.provider.MarketDataProvider;
 import com.koduck.service.market.support.AKShareDataMapperSupport;
 
+import org.springframework.lang.NonNull;
+
 /**
  * AKShare A股数据提供者实现。
  * 从 Python 数据服务获取市场数据。
@@ -65,8 +67,6 @@ public class AKShareDataProvider implements MarketDataProvider {
     private static final int HEALTH_SCORE_DISABLED = 0;
     /** Full health score. */
     private static final int HEALTH_SCORE_FULL = 100;
-    /** Asia/Shanghai hour offset. */
-    private static final int ASIA_SHANGHAI_HOUR_OFFSET = 8;
     /** Morning open hour. */
     private static final int OPEN_MORNING_HOUR = 9;
     /** Morning open minute. */
@@ -486,22 +486,26 @@ public class AKShareDataProvider implements MarketDataProvider {
     }
 
 
+    @NonNull
     private static HttpMethod getHttpGet() {
         return Objects.requireNonNull(HttpMethod.GET, HTTP_GET_MESSAGE);
     }
 
 
+    @NonNull
     private static HttpMethod getHttpPost() {
         return Objects.requireNonNull(HttpMethod.POST, HTTP_POST_MESSAGE);
     }
 
 
+    @NonNull
     private static ParameterizedTypeReference<DataServiceResponse<List<Map<String, Object>>>>
         getListDataResponseType() {
         return Objects.requireNonNull(LIST_DATA_RESPONSE_TYPE, RESPONSE_TYPE_MESSAGE);
     }
 
 
+    @NonNull
     private static ParameterizedTypeReference<DataServiceResponse<Map<String, Object>>>
         getMapDataResponseType() {
         return Objects.requireNonNull(MAP_DATA_RESPONSE_TYPE, RESPONSE_TYPE_MESSAGE);
