@@ -52,9 +52,8 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.doReturn;
-import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.when;
+import static org.mockito.BDDMockito.given;
 
 /**
  * Unit tests for {@link AiAnalysisServiceImpl}.
@@ -255,14 +254,12 @@ class AiAnalysisServiceImplTest {
         );
 
         when(userSettingsService.getEffectiveLlmConfig(userId, DEFAULT_PROVIDER)).thenReturn(llmConfig);
-        doReturn(ResponseEntity.ok(agentResponse))
-            .when(restTemplate)
-            .exchange(
-                anyString(),
-                eq(HttpMethod.POST),
-                any(HttpEntity.class),
-                any(org.springframework.core.ParameterizedTypeReference.class)
-            );
+        given(restTemplate.exchange(
+            anyString(),
+            eq(HttpMethod.POST),
+            any(HttpEntity.class),
+            any(org.springframework.core.ParameterizedTypeReference.class)
+        )).willReturn(ResponseEntity.ok(agentResponse));
         when(aiRecommendationSupport.generateRecommendationFromResponse("这是一个买入信号"))
                 .thenReturn("建议买入");
 
@@ -300,14 +297,12 @@ class AiAnalysisServiceImplTest {
         );
 
         when(userSettingsService.getEffectiveLlmConfig(userId, DEFAULT_PROVIDER)).thenReturn(llmConfig);
-        doReturn(ResponseEntity.ok(agentResponse))
-            .when(restTemplate)
-            .exchange(
-                anyString(),
-                any(HttpMethod.class),
-                any(HttpEntity.class),
-                any(org.springframework.core.ParameterizedTypeReference.class)
-            );
+        given(restTemplate.exchange(
+            anyString(),
+            any(HttpMethod.class),
+            any(HttpEntity.class),
+            any(org.springframework.core.ParameterizedTypeReference.class)
+        )).willReturn(ResponseEntity.ok(agentResponse));
         when(aiRecommendationSupport.generateRecommendationFromResponse("分析结果"))
                 .thenReturn("建议观望");
 
@@ -341,14 +336,12 @@ class AiAnalysisServiceImplTest {
         );
 
         when(userSettingsService.getEffectiveLlmConfig(userId, PROVIDER_DEEPSEEK)).thenReturn(llmConfig);
-        doReturn(ResponseEntity.ok(agentResponse))
-            .when(restTemplate)
-            .exchange(
-                anyString(),
-                any(HttpMethod.class),
-                any(HttpEntity.class),
-                any(org.springframework.core.ParameterizedTypeReference.class)
-            );
+        given(restTemplate.exchange(
+            anyString(),
+            any(HttpMethod.class),
+            any(HttpEntity.class),
+            any(org.springframework.core.ParameterizedTypeReference.class)
+        )).willReturn(ResponseEntity.ok(agentResponse));
         when(aiRecommendationSupport.generateRecommendationFromResponse("Deepseek分析结果"))
                 .thenReturn("建议买入");
 
@@ -382,14 +375,12 @@ class AiAnalysisServiceImplTest {
         );
 
         when(userSettingsService.getEffectiveLlmConfig(userId, DEFAULT_PROVIDER)).thenReturn(llmConfig);
-        doReturn(ResponseEntity.ok(agentResponse))
-            .when(restTemplate)
-            .exchange(
-                anyString(),
-                any(HttpMethod.class),
-                any(HttpEntity.class),
-                any(org.springframework.core.ParameterizedTypeReference.class)
-            );
+        given(restTemplate.exchange(
+            anyString(),
+            any(HttpMethod.class),
+            any(HttpEntity.class),
+            any(org.springframework.core.ParameterizedTypeReference.class)
+        )).willReturn(ResponseEntity.ok(agentResponse));
         when(aiRecommendationSupport.generateRecommendationFromResponse("分析结果"))
                 .thenReturn("建议观望");
 
@@ -416,14 +407,12 @@ class AiAnalysisServiceImplTest {
                 .build();
 
         when(userSettingsService.getEffectiveLlmConfig(userId, DEFAULT_PROVIDER)).thenReturn(llmConfig);
-        doThrow(new RuntimeException("Connection refused"))
-            .when(restTemplate)
-            .exchange(
-                anyString(),
-                any(HttpMethod.class),
-                any(HttpEntity.class),
-                any(org.springframework.core.ParameterizedTypeReference.class)
-            );
+        given(restTemplate.exchange(
+            anyString(),
+            any(HttpMethod.class),
+            any(HttpEntity.class),
+            any(org.springframework.core.ParameterizedTypeReference.class)
+        )).willThrow(new RuntimeException("Connection refused"));
 
         // When & Then
         assertThatThrownBy(() -> aiAnalysisService.analyzeStock(userId, request))
@@ -449,14 +438,12 @@ class AiAnalysisServiceImplTest {
         Map<String, Object> agentResponse = Map.of("choices", Collections.emptyList());
 
         when(userSettingsService.getEffectiveLlmConfig(userId, DEFAULT_PROVIDER)).thenReturn(llmConfig);
-        doReturn(ResponseEntity.ok(agentResponse))
-            .when(restTemplate)
-            .exchange(
-                anyString(),
-                any(HttpMethod.class),
-                any(HttpEntity.class),
-                any(org.springframework.core.ParameterizedTypeReference.class)
-            );
+        given(restTemplate.exchange(
+            anyString(),
+            any(HttpMethod.class),
+            any(HttpEntity.class),
+            any(org.springframework.core.ParameterizedTypeReference.class)
+        )).willReturn(ResponseEntity.ok(agentResponse));
 
         // When & Then
         assertThatThrownBy(() -> aiAnalysisService.analyzeStock(userId, request))
@@ -494,14 +481,12 @@ class AiAnalysisServiceImplTest {
         );
 
         when(userSettingsService.getEffectiveLlmConfig(userId, DEFAULT_PROVIDER)).thenReturn(llmConfig);
-        doReturn(ResponseEntity.ok(agentResponse))
-            .when(restTemplate)
-            .exchange(
-                anyString(),
-                any(HttpMethod.class),
-                any(HttpEntity.class),
-                any(org.springframework.core.ParameterizedTypeReference.class)
-            );
+        given(restTemplate.exchange(
+            anyString(),
+            any(HttpMethod.class),
+            any(HttpEntity.class),
+            any(org.springframework.core.ParameterizedTypeReference.class)
+        )).willReturn(ResponseEntity.ok(agentResponse));
         when(aiRecommendationSupport.generateRecommendationFromResponse("分析完成"))
                 .thenReturn("建议买入");
 
@@ -801,14 +786,12 @@ class AiAnalysisServiceImplTest {
         );
 
         when(userSettingsService.getEffectiveLlmConfig(userId, PROVIDER_OPENAI)).thenReturn(llmConfig);
-        doReturn(ResponseEntity.ok(agentResponse))
-            .when(restTemplate)
-            .exchange(
-                anyString(),
-                any(HttpMethod.class),
-                any(HttpEntity.class),
-                any(org.springframework.core.ParameterizedTypeReference.class)
-            );
+        given(restTemplate.exchange(
+            anyString(),
+            any(HttpMethod.class),
+            any(HttpEntity.class),
+            any(org.springframework.core.ParameterizedTypeReference.class)
+        )).willReturn(ResponseEntity.ok(agentResponse));
         when(aiRecommendationSupport.generateRecommendationFromResponse("OpenAI分析结果"))
                 .thenReturn("建议买入");
 
@@ -842,14 +825,12 @@ class AiAnalysisServiceImplTest {
         );
 
         when(userSettingsService.getEffectiveLlmConfig(userId, PROVIDER_DEEPSEEK)).thenReturn(llmConfig);
-        doReturn(ResponseEntity.ok(agentResponse))
-            .when(restTemplate)
-            .exchange(
-                anyString(),
-                any(HttpMethod.class),
-                any(HttpEntity.class),
-                any(org.springframework.core.ParameterizedTypeReference.class)
-            );
+        given(restTemplate.exchange(
+            anyString(),
+            any(HttpMethod.class),
+            any(HttpEntity.class),
+            any(org.springframework.core.ParameterizedTypeReference.class)
+        )).willReturn(ResponseEntity.ok(agentResponse));
         when(aiRecommendationSupport.generateRecommendationFromResponse("分析结果"))
                 .thenReturn("建议观望");
 
@@ -912,14 +893,12 @@ class AiAnalysisServiceImplTest {
         );
 
         when(userSettingsService.getEffectiveLlmConfig(userId, DEFAULT_PROVIDER)).thenReturn(llmConfig);
-        doReturn(ResponseEntity.ok(agentResponse))
-            .when(restTemplate)
-            .exchange(
-                anyString(),
-                any(HttpMethod.class),
-                any(HttpEntity.class),
-                any(org.springframework.core.ParameterizedTypeReference.class)
-            );
+        given(restTemplate.exchange(
+            anyString(),
+            any(HttpMethod.class),
+            any(HttpEntity.class),
+            any(org.springframework.core.ParameterizedTypeReference.class)
+        )).willReturn(ResponseEntity.ok(agentResponse));
         when(aiRecommendationSupport.generateRecommendationFromResponse("分析结果"))
                 .thenReturn("建议观望");
 
