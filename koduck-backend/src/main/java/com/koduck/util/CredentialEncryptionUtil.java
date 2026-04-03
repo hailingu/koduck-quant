@@ -1,7 +1,5 @@
 package com.koduck.util;
 
-import com.koduck.exception.CredentialEncryptionException;
-import jakarta.annotation.PostConstruct;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.security.GeneralSecurityException;
@@ -9,33 +7,74 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
 import java.util.Base64;
+
 import javax.crypto.Cipher;
 import javax.crypto.SecretKey;
 import javax.crypto.spec.GCMParameterSpec;
 import javax.crypto.spec.SecretKeySpec;
-import lombok.extern.slf4j.Slf4j;
+
+import jakarta.annotation.PostConstruct;
+
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
+
+import com.koduck.exception.CredentialEncryptionException;
+
+import lombok.extern.slf4j.Slf4j;
 
 /**
  * Encrypts and decrypts credential secrets with AES-256-GCM.
  *
  * @author GitHub Copilot
- * @date 2026-03-31
  */
 @Component
 @Slf4j
 public class CredentialEncryptionUtil {
 
+    /**
+     * AES algorithm name.
+     */
     private static final String ALGORITHM = "AES";
+
+    /**
+     * Environment variable name for credential encryption key.
+     */
     private static final String ENV_CREDENTIAL_ENCRYPTION_KEY = "CREDENTIAL_ENCRYPTION_KEY";
+
+    /**
+     * Masked value placeholder.
+     */
     private static final String MASKED_VALUE = "***";
+
+    /**
+     * AES/GCM/NoPadding transformation string.
+     */
     private static final String TRANSFORMATION = "AES/GCM/NoPadding";
+
+    /**
+     * Minimum length for API key masking.
+     */
     private static final int API_KEY_MIN_MASK_LENGTH = 8;
+
+    /**
+     * Number of visible characters at each edge of masked API key.
+     */
     private static final int API_KEY_VISIBLE_EDGE_LENGTH = 4;
+
+    /**
+     * GCM IV length in bytes.
+     */
     private static final int GCM_IV_LENGTH = 12;
+
+    /**
+     * GCM tag length in bytes.
+     */
     private static final int GCM_TAG_LENGTH = 16;
+
+    /**
+     * AES key length in bytes (256 bits).
+     */
     private static final int KEY_LENGTH = 32;
 
     /**
@@ -72,7 +111,8 @@ public class CredentialEncryptionUtil {
             final byte[] keyBytes = deriveKey(keyToUse);
             secretKey = new SecretKeySpec(keyBytes, ALGORITHM);
             log.info("Credential encryption key initialized successfully.");
-        } catch (NoSuchAlgorithmException ex) {
+        }
+        catch (NoSuchAlgorithmException ex) {
             log.error("Failed to initialize credential encryption key.", ex);
             throw new IllegalStateException("Unable to initialize credential encryption utility", ex);
         }
@@ -83,9 +123,11 @@ public class CredentialEncryptionUtil {
         final String envKey = getEncryptionKeyFromEnvironment();
         if (StringUtils.hasText(envKey)) {
             resolvedKey = envKey;
-        } else if (!StringUtils.hasText(encryptionKeyFromConfig)) {
+        }
+        else if (!StringUtils.hasText(encryptionKeyFromConfig)) {
             throw new IllegalStateException(
-                    "Missing credential encryption key: configure CREDENTIAL_ENCRYPTION_KEY or credential.encryption.key"
+                "Missing credential encryption key: configure CREDENTIAL_ENCRYPTION_KEY " +
+                "or credential.encryption.key"
             );
         }
         return resolvedKey;
@@ -137,7 +179,8 @@ public class CredentialEncryptionUtil {
             byteBuffer.put(initVector);
             byteBuffer.put(cipherText);
             encrypted = Base64.getEncoder().encodeToString(byteBuffer.array());
-        } catch (GeneralSecurityException ex) {
+        }
+        catch (GeneralSecurityException ex) {
             log.error("Failed to encrypt credential.", ex);
             throw new CredentialEncryptionException("加密失败", ex);
         }
@@ -171,7 +214,8 @@ public class CredentialEncryptionUtil {
 
             final byte[] plainText = cipher.doFinal(cipherText);
             decrypted = new String(plainText, StandardCharsets.UTF_8);
-        } catch (GeneralSecurityException | IllegalArgumentException ex) {
+        }
+        catch (GeneralSecurityException | IllegalArgumentException ex) {
             log.error("Failed to decrypt credential.", ex);
             throw new CredentialEncryptionException("解密失败，可能是密钥不正确或数据已损坏", ex);
         }
