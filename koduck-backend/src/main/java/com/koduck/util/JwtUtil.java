@@ -1,6 +1,19 @@
 package com.koduck.util;
 
+import java.nio.charset.StandardCharsets;
+import java.time.Instant;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Objects;
+import java.util.UUID;
+
+import javax.crypto.SecretKey;
+
+import org.springframework.stereotype.Component;
+
 import com.koduck.config.JwtConfig;
+
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.ExpiredJwtException;
 import io.jsonwebtoken.JwtException;
@@ -9,22 +22,12 @@ import io.jsonwebtoken.MalformedJwtException;
 import io.jsonwebtoken.UnsupportedJwtException;
 import io.jsonwebtoken.security.Keys;
 import io.jsonwebtoken.security.SignatureException;
-import java.nio.charset.StandardCharsets;
-import java.time.Instant;
-import java.util.Date;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Objects;
-import java.util.UUID;
-import javax.crypto.SecretKey;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.stereotype.Component;
 
 /**
  * JWT utility for token generation, parsing, and validation.
  *
  * @author GitHub Copilot
- * @date 2026-03-31
  */
 @Slf4j
 @Component
@@ -124,15 +127,20 @@ public class JwtUtil {
         try {
             parseToken(token);
             valid = true;
-        } catch (ExpiredJwtException ex) {
+        }
+        catch (ExpiredJwtException ex) {
             warnIfEnabled("JWT token is expired: {}", ex.getMessage());
-        } catch (UnsupportedJwtException ex) {
+        }
+        catch (UnsupportedJwtException ex) {
             warnIfEnabled("JWT token is unsupported: {}", ex.getMessage());
-        } catch (MalformedJwtException ex) {
+        }
+        catch (MalformedJwtException ex) {
             warnIfEnabled("JWT token is malformed: {}", ex.getMessage());
-        } catch (SignatureException ex) {
+        }
+        catch (SignatureException ex) {
             warnIfEnabled("JWT signature validation failed: {}", ex.getMessage());
-        } catch (IllegalArgumentException ex) {
+        }
+        catch (IllegalArgumentException ex) {
             warnIfEnabled("JWT token is empty or null: {}", ex.getMessage());
         }
         return valid;
@@ -160,7 +168,8 @@ public class JwtUtil {
         try {
             final Claims claims = parseToken(token);
             expired = claims.getExpiration().toInstant().isBefore(Instant.now());
-        } catch (ExpiredJwtException _) {
+        }
+        catch (ExpiredJwtException ex) {
             expired = true;
         }
         return expired;
@@ -187,7 +196,8 @@ public class JwtUtil {
         try {
             final Claims claims = parseToken(token);
             refreshToken = "refresh".equals(claims.get("type"));
-        } catch (JwtException | IllegalArgumentException _) {
+        }
+        catch (JwtException | IllegalArgumentException ex) {
             refreshToken = false;
         }
         return refreshToken;
