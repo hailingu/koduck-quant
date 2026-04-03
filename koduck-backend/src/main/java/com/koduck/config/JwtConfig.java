@@ -1,11 +1,14 @@
 package com.koduck.config;
 
-import com.koduck.common.constants.HttpHeaderConstants;
 import jakarta.validation.constraints.NotBlank;
-import lombok.Data;
+
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.validation.annotation.Validated;
+
+import com.koduck.common.constants.HttpHeaderConstants;
+
+import lombok.Data;
 
 /**
  * Configuration properties for JSON Web Token (JWT) handling.
@@ -16,7 +19,6 @@ import org.springframework.validation.annotation.Validated;
  * </p>
  *
  * @author GitHub Copilot
- * @date 2026-03-31
  */
 @Data
 @Configuration
@@ -24,9 +26,24 @@ import org.springframework.validation.annotation.Validated;
 @Validated
 public class JwtConfig {
 
+    /**
+     * Default access token expiration: 24 hours in milliseconds.
+     */
     private static final long DEFAULT_ACCESS_TOKEN_EXPIRATION_MS = 86_400_000L;
+
+    /**
+     * Default refresh token expiration: 7 days in milliseconds.
+     */
     private static final long DEFAULT_REFRESH_TOKEN_EXPIRATION_MS = 604_800_000L;
+
+    /**
+     * Default token prefix (Bearer).
+     */
     private static final String DEFAULT_TOKEN_PREFIX = HttpHeaderConstants.BEARER_PREFIX;
+
+    /**
+     * Default header name for authorization.
+     */
     private static final String DEFAULT_HEADER_NAME = HttpHeaderConstants.AUTHORIZATION;
 
     /**
