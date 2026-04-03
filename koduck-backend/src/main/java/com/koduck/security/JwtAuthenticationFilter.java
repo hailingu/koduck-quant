@@ -24,19 +24,27 @@ import com.koduck.util.JwtUtil;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * JWT 
+ * JWT authentication filter for validating tokens in incoming requests.
  *
  * @author GitHub Copilot
- * @date 2026-03-31
  */
 @Slf4j
 @Component
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
+    /**
+     * Utility for JWT operations.
+     */
     private final JwtUtil jwtUtil;
 
+    /**
+     * Configuration for JWT settings.
+     */
     private final JwtConfig jwtConfig;
 
+    /**
+     * Service for loading user details.
+     */
     private final UserDetailsService userDetailsService;
 
     public JwtAuthenticationFilter(JwtUtil jwtUtil,
@@ -66,7 +74,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
                 SecurityContextHolder.getContext().setAuthentication(authentication);
             }
-        } catch (RuntimeException e) {
+        }
+        catch (RuntimeException e) {
             log.error("Cannot set user authentication", e);
         }
         filterChain.doFilter(request, response);
