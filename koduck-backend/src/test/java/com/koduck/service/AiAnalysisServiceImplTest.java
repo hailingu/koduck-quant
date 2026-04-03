@@ -61,6 +61,7 @@ import static org.mockito.BDDMockito.given;
  * @author GitHub Copilot
  */
 @ExtendWith(MockitoExtension.class)
+@SuppressWarnings({"unchecked", "null"})
 class AiAnalysisServiceImplTest {
 
     /** Test user ID constant. */
