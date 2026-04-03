@@ -8,9 +8,7 @@ import org.slf4j.MDC;
 import com.koduck.exception.ErrorCode;
 
 import io.swagger.v3.oas.annotations.media.Schema;
-import lombok.AllArgsConstructor;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+import lombok.Getter;
 
 /**
  * 统一 API 响应包装类
@@ -20,9 +18,7 @@ import lombok.NoArgsConstructor;
  * @param <T> 响应数据类型
  * @author Koduck Team
  */
-@Data
-@NoArgsConstructor
-@AllArgsConstructor
+@Getter
 @Schema(description = "统一API响应结构")
 public class ApiResponse<T> {
 
@@ -35,31 +31,31 @@ public class ApiResponse<T> {
      * 响应码，0 表示成功.
      */
     @Schema(description = "响应码，0表示成功", example = "0")
-    private int code;
+    private final int code;
 
     /**
      * 响应消息.
      */
     @Schema(description = "响应消息", example = "success")
-    private String message;
+    private final String message;
 
     /**
      * 响应数据.
      */
     @Schema(description = "响应数据")
-    private T data;
+    private final T data;
 
     /**
      * 响应时间戳.
      */
     @Schema(description = "响应时间戳(毫秒)", example = "1704067200000")
-    private long timestamp;
+    private final long timestamp;
 
     /**
      * 请求追踪 ID.
      */
     @Schema(description = "请求追踪ID", example = "abc123def456")
-    private String traceId;
+    private final String traceId;
 
     /**
      * 完整构造函数.

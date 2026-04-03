@@ -160,12 +160,12 @@ public class MarketServiceImpl implements MarketService {
                 log.warn("Stock not found in realtime or kline data: {}", symbol);
                 return null;
             }
-            
-            log.debug("Found stock: symbol={}, name={}, price={}", 
+
+            log.debug("Found stock: symbol={}, name={}, price={}",
                     entity.getSymbol(), entity.getName(), entity.getPrice());
-            
+
             return marketServiceSupport.mapToPriceQuoteDto(entity);
-        } catch (Exception e) {
+        } catch (RuntimeException e) {
             log.error("Error getting stock detail: symbol={}, error={}", symbol, e.getMessage(), e);
             PriceQuoteDto fallbackQuote = marketFallbackSupport.tryBuildQuoteFromLatestKline(symbol);
             if (fallbackQuote != null) {
@@ -198,12 +198,7 @@ public class MarketServiceImpl implements MarketService {
             return null;
         }
 
-        try {
-            return marketFallbackSupport.fetchProviderValuation(symbol);
-        } catch (Exception e) {
-            log.error("Error getting stock valuation: symbol={}, error={}", symbol, e.getMessage(), e);
-            throw e;
-        }
+        return marketFallbackSupport.fetchProviderValuation(symbol);
     }
 
     /**
@@ -223,7 +218,7 @@ public class MarketServiceImpl implements MarketService {
 
         try {
             return marketFallbackSupport.fetchProviderIndustry(symbol);
-        } catch (Exception e) {
+        } catch (RuntimeException e) {
             log.error("Error getting stock industry: symbol={}, error={}", symbol, e.getMessage(), e);
             return null;
         }
@@ -261,7 +256,7 @@ public class MarketServiceImpl implements MarketService {
             }
 
             return results;
-        } catch (Exception e) {
+        } catch (RuntimeException e) {
             log.error("Batch stock industry query failed: symbols={}, error={}", validSymbols, e.getMessage(), e);
             // 降级：返回空map，避免抛出异常影响主流程
             return Collections.emptyMap();
@@ -378,20 +373,20 @@ public class MarketServiceImpl implements MarketService {
             log.warn("Stock stats not found for symbol={}", symbol);
             return null;
             
-        } catch (Exception e) {
+        } catch (RuntimeException e) {
             log.error("Error getting stock stats: symbol={}, error={}", symbol, e.getMessage(), e);
-            
+
             // Try fallback on exception
             StockStatsDto klineStats = marketFallbackSupport.tryBuildStatsFromKline(symbol, market);
             if (klineStats != null) {
                 return klineStats;
             }
-            
+
             PriceQuoteDto providerQuote = marketFallbackSupport.fetchProviderPrice(symbol);
             if (providerQuote != null) {
                 return marketServiceSupport.mapPriceQuoteToStats(providerQuote, market);
             }
-            
+
             return null;
         }
     }
