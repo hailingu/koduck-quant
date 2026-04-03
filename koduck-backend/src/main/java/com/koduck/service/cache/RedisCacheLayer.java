@@ -5,15 +5,21 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
+
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Component;
 
 /**
  * Redis-backed implementation of {@link CacheLayer}.
+ *
+ * @author GitHub Copilot
  */
 @Component
 public class RedisCacheLayer implements CacheLayer {
 
+    /**
+     * Redis template for cache operations.
+     */
     private final RedisTemplate<String, Object> redisTemplate;
 
     public RedisCacheLayer(RedisTemplate<String, Object> redisTemplate) {
