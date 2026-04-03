@@ -9,7 +9,6 @@ import lombok.extern.slf4j.Slf4j;
  * Utility helpers for stock symbol normalization and comparison.
  *
  * @author GitHub Copilot
- * @date 2026-03-31
  */
 @Slf4j
 public final class SymbolUtils {
@@ -29,11 +28,20 @@ public final class SymbolUtils {
             return normalizedSymbol;
         }
 
-        normalizedSymbol = symbol.toUpperCase(Locale.ROOT).replace(".SH", "").replace(".SZ", "").replace(".BJ", "").replace("SH", "").replace("SZ", "").replace("BJ", "").replaceAll("\\D", "").trim();
+        normalizedSymbol = symbol.toUpperCase(Locale.ROOT)
+                .replace(".SH", "")
+                .replace(".SZ", "")
+                .replace(".BJ", "")
+                .replace("SH", "")
+                .replace("SZ", "")
+                .replace("BJ", "")
+                .replaceAll("\\D", "")
+                .trim();
 
         if (normalizedSymbol.matches("\\d{1,6}")) {
             normalizedSymbol = String.format("%06d", Integer.parseInt(normalizedSymbol));
-        } else {
+        }
+        else {
             if (log.isWarnEnabled()) {
                 log.warn("Invalid symbol format: {} (original: {})", normalizedSymbol, symbol);
             }
@@ -53,7 +61,8 @@ public final class SymbolUtils {
         boolean matched;
         if (symbol1 == null || symbol2 == null) {
             matched = Objects.equals(symbol1, symbol2);
-        } else {
+        }
+        else {
             matched = normalize(symbol1).equals(normalize(symbol2));
         }
         return matched;
@@ -74,9 +83,11 @@ public final class SymbolUtils {
         final String upper = symbol.toUpperCase(Locale.ROOT);
         if (upper.startsWith("SH")) {
             marketPrefix = "SH";
-        } else if (upper.startsWith("SZ")) {
+        }
+        else if (upper.startsWith("SZ")) {
             marketPrefix = "SZ";
-        } else if (upper.startsWith("BJ")) {
+        }
+        else if (upper.startsWith("BJ")) {
             marketPrefix = "BJ";
         }
         return marketPrefix;
