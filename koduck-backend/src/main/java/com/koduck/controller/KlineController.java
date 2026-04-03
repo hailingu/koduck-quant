@@ -1,6 +1,5 @@
 package com.koduck.controller;
 
-import java.math.BigDecimal;
 import java.util.List;
 
 import jakarta.validation.constraints.Max;
@@ -19,6 +18,7 @@ import com.koduck.common.constants.MarketConstants;
 import com.koduck.common.constants.PaginationConstants;
 import com.koduck.dto.ApiResponse;
 import com.koduck.dto.market.KlineDataDto;
+import com.koduck.dto.market.LatestPriceResponse;
 import com.koduck.service.KlineService;
 
 import io.swagger.v3.oas.annotations.Operation;
@@ -33,7 +33,7 @@ import lombok.extern.slf4j.Slf4j;
  * K-line data REST API controller.
  * <p>Provides endpoints for retrieving historical K-line (candlestick) data.</p>
  *
- * @author GitHub Copilot
+ * @author Koduck Team
  */
 @RestController
 @RequestMapping("/api/v1/kline")
@@ -130,18 +130,4 @@ public class KlineController {
             .map(price -> ApiResponse.success(new LatestPriceResponse(symbol, price)))
             .orElse(ApiResponse.error(ApiStatusCodeConstants.NOT_FOUND, ApiMessageConstants.NO_PRICE_DATA_FOUND));
     }
-
-    /**
-     * Response for latest price endpoint.
-     *
-     * @param symbol the stock symbol
-     * @param price the latest price
-     */
-    @Schema(description = "最新价格响应")
-    public record LatestPriceResponse(
-        @Schema(description = "股票代码", example = "600519")
-        String symbol,
-        @Schema(description = "最新价格", example = "1688.88")
-        BigDecimal price
-    ) {}
 }
