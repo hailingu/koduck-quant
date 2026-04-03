@@ -235,23 +235,37 @@ public class MarketServiceImpl implements MarketService {
             return Collections.emptyMap();
         }
 
-        Map<String, StockIndustryDto> results = new LinkedHashMap<>();
-        for (String symbol : symbols) {
-            if (symbol == null || symbol.isBlank()) {
-                continue;
-            }
+        // 过滤掉无效的symbol
+        List<String> validSymbols = symbols.stream()
+                .filter(s -> s != null && !s.isBlank())
+                .distinct()
+                .toList();
 
-            try {
-                StockIndustryDto industry = getStockIndustry(symbol);
-                if (industry != null) {
-                    results.put(symbol, industry);
-                }
-            } catch (Exception e) {
-                log.warn("Batch stock industry lookup failed for symbol={}: {}", symbol, e.getMessage());
-            }
+        if (validSymbols.isEmpty()) {
+            return Collections.emptyMap();
         }
 
-        return results;
+        try {
+            // 使用批量查询替代N+1串行调用
+            Map<String, StockIndustryDto> results = marketFallbackSupport.fetchProviderIndustries(validSymbols);
+
+            // 记录实际获取到的数量和缺失的symbol
+            if (results.size() < validSymbols.size()) {
+                List<String> missingSymbols = validSymbols.stream()
+                        .filter(s -> !results.containsKey(s))
+                        .toList();
+                log.debug("Batch industry query partial miss: got {}/{}, missing: {}",
+                        results.size(), validSymbols.size(), missingSymbols);
+            } else {
+                log.debug("Batch industry query success: got {}/{}", results.size(), validSymbols.size());
+            }
+
+            return results;
+        } catch (Exception e) {
+            log.error("Batch stock industry query failed: symbols={}, error={}", validSymbols, e.getMessage(), e);
+            // 降级：返回空map，避免抛出异常影响主流程
+            return Collections.emptyMap();
+        }
     }
     
     /**
