@@ -1,10 +1,17 @@
 package com.koduck.service;
 
 import com.koduck.dto.common.PageResponse;
-import com.koduck.dto.user.*;
+import com.koduck.dto.user.ChangePasswordRequest;
+import com.koduck.dto.user.CreateUserRequest;
+import com.koduck.dto.user.UpdateProfileRequest;
+import com.koduck.dto.user.UpdateUserRequest;
+import com.koduck.dto.user.UserDetailResponse;
+import com.koduck.dto.user.UserPageRequest;
 
 /**
  * 用户服务接口。
+ *
+ * @author GitHub Copilot
  */
 public interface UserService {
 

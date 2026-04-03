@@ -7,6 +7,8 @@ import org.springframework.lang.NonNull;
 /**
  * User watchlist caching service interface.
  * Provides Redis-based caching for user tracking and watch lists.
+ *
+ * @author GitHub Copilot
  */
 public interface UserCacheService {
 

@@ -15,7 +15,6 @@ import com.koduck.dto.market.SymbolInfoDto;
  * Market data service interface for stock search, quotes, indices, sectors, and related operations.
  *
  * @author GitHub Copilot
- * @date 2026-03-31
  */
 public interface MarketService {
 

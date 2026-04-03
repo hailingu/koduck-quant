@@ -6,11 +6,11 @@ import java.util.Map;
  * Utility methods for reading loosely-typed map payloads from market data-service responses.
  *
  * @author GitHub Copilot
- * @date 2026-03-31
  */
 public final class MarketDataMapReader {
 
     private MarketDataMapReader() {
+        // Prevent instantiation
     }
 
     public static String getString(Map<String, Object> data, String key) {
@@ -28,7 +28,8 @@ public final class MarketDataMapReader {
         }
         try {
             return Long.parseLong(value.toString());
-        } catch (NumberFormatException _) {
+        }
+        catch (NumberFormatException e) {
             return null;
         }
     }

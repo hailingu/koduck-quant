@@ -7,6 +7,8 @@ import com.koduck.dto.market.KlineDataDto;
 /**
  * Service interface for minute-level K-line data.
  * Fetches real-time minute data from Python Data Service.
+ *
+ * @author GitHub Copilot
  */
 public interface KlineMinutesService {
 

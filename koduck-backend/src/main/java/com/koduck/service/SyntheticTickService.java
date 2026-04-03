@@ -9,6 +9,8 @@ import com.koduck.entity.StockRealtime;
 /**
  * 合成Tick服务接口。
  * 提供股票实时数据追踪和合成Tick生成功能。
+ *
+ * @author GitHub Copilot
  */
 public interface SyntheticTickService {
 

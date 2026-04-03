@@ -1,6 +1,12 @@
 package com.koduck.service;
 
-import com.koduck.dto.auth.*;
+import com.koduck.dto.auth.ForgotPasswordRequest;
+import com.koduck.dto.auth.LoginRequest;
+import com.koduck.dto.auth.RefreshTokenRequest;
+import com.koduck.dto.auth.RegisterRequest;
+import com.koduck.dto.auth.ResetPasswordRequest;
+import com.koduck.dto.auth.SecurityConfigResponse;
+import com.koduck.dto.auth.TokenResponse;
 
 /**
  * 认证服务接口

@@ -14,6 +14,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 @Disabled("示例测试，默认不纳入 CI 执行")
 class ExampleApplicationIntegrationTest {
 
+    /** Spring application context. */
     @Autowired
     private ApplicationContext applicationContext;
 

@@ -6,6 +6,8 @@ import java.util.Set;
 
 /**
  * Unified cache abstraction for low-level key/value and collection operations.
+ *
+ * @author GitHub Copilot
  */
 public interface CacheLayer {
 

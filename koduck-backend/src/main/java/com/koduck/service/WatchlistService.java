@@ -8,6 +8,8 @@ import com.koduck.dto.watchlist.WatchlistItemDto;
 
 /**
  * Service interface for watchlist operations.
+ *
+ * @author GitHub Copilot
  */
 public interface WatchlistService {
 

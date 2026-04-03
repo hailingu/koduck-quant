@@ -9,7 +9,6 @@ import com.koduck.dto.market.RealtimePriceEventMessage;
  * price updates, and in-memory cache management.</p>
  *
  * @author koduck
- * @date 2026-03-31
  */
 public interface PricePushService {
 

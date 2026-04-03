@@ -6,6 +6,8 @@ import com.koduck.market.MarketType;
 /**
  * Market sentiment analysis service interface.
  * Calculates six-dimensional sentiment indicators for market analysis.
+ *
+ * @author GitHub Copilot
  */
 public interface MarketSentimentService {
 
