@@ -1,13 +1,15 @@
 package com.koduck.service;
 
+import java.util.List;
+
 import com.koduck.dto.watchlist.AddWatchlistRequest;
 import com.koduck.dto.watchlist.SortWatchlistRequest;
 import com.koduck.dto.watchlist.WatchlistItemDto;
 
-import java.util.List;
-
 /**
  * Service interface for watchlist operations.
+ *
+ * @author GitHub Copilot
  */
 public interface WatchlistService {
 

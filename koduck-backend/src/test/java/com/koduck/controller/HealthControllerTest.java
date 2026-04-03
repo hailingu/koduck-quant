@@ -15,15 +15,20 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * Integration tests for {@link HealthController}.
  *
  * @author GitHub Copilot
- * @date 2026-03-31
  */
 @SpringBootTest(properties = "app.demo.enabled=false")
 @AutoConfigureMockMvc
 @TestConstructor(autowireMode = TestConstructor.AutowireMode.ALL)
 class HealthControllerTest {
 
+    /** MockMvc for HTTP request testing. */
     private final MockMvc mockMvc;
 
+    /**
+     * Constructs test with MockMvc.
+     *
+     * @param mockMvc the mock MVC
+     */
     HealthControllerTest(MockMvc mockMvc) {
         this.mockMvc = mockMvc;
     }

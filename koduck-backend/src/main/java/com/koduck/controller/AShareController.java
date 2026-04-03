@@ -1,7 +1,21 @@
 package com.koduck.controller;
 
-import com.koduck.common.constants.ApiStatusCodeConstants;
+import java.math.BigDecimal;
+import java.util.List;
+
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
+
+import org.springframework.validation.annotation.Validated;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
+
 import com.koduck.common.constants.ApiMessageConstants;
+import com.koduck.common.constants.ApiStatusCodeConstants;
 import com.koduck.common.constants.MarketConstants;
 import com.koduck.common.constants.PaginationConstants;
 import com.koduck.dto.ApiResponse;
@@ -9,32 +23,20 @@ import com.koduck.dto.market.KlineDataDto;
 import com.koduck.dto.market.SymbolInfoDto;
 import com.koduck.service.KlineService;
 import com.koduck.service.MarketService;
+
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
-import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
-import jakarta.validation.constraints.Max;
-import jakarta.validation.constraints.Min;
-import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.Size;
-import java.math.BigDecimal;
-import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.validation.annotation.Validated;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
 
 /**
  * A-Share market data controller.
  * <p>Provides search endpoints for A-share stocks. Routes requests to MarketService.</p>
  *
  * @author GitHub Copilot
- * @date 2026-03-31
  */
 @RestController
 @RequestMapping("/api/v1/a-share")
@@ -43,7 +45,10 @@ import org.springframework.web.bind.annotation.RestController;
 @Validated
 @Slf4j
 public class AShareController {
+    /** Service for market data operations. */
     private final MarketService marketService;
+
+    /** Service for K-line data operations. */
     private final KlineService klineService;
 
     /**
@@ -64,7 +69,7 @@ public class AShareController {
             responseCode = "200",
             description = "搜索成功",
             content = @Content(schema = @Schema(implementation = SymbolInfoDto.class))
-        ),
+            ),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "关键词为空或长度超过50字符"),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "500", description = "服务器内部错误")
     })
@@ -108,7 +113,7 @@ public class AShareController {
             responseCode = "200",
             description = "获取成功",
             content = @Content(schema = @Schema(implementation = KlineDataDto.class))
-        ),
+            ),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "股票代码为空或参数错误"),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "500", description = "服务器内部错误")
     })
@@ -147,7 +152,7 @@ public class AShareController {
             responseCode = "200",
             description = "获取成功",
             content = @Content(schema = @Schema(implementation = LatestPriceResponse.class))
-        ),
+            ),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "股票代码为空"),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "价格数据不存在"),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "500", description = "服务器内部错误")

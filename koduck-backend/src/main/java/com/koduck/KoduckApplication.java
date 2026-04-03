@@ -9,12 +9,18 @@ import org.springframework.scheduling.annotation.EnableAsync;
  * Koduck backend application entry point.
  *
  * @author Koduck Team
- * @date 2026-03-31
  */
 @SpringBootApplication
 @ConfigurationPropertiesScan
 @EnableAsync
-public class KoduckApplication {
+public final class KoduckApplication {
+
+    /**
+     * Private constructor to prevent instantiation.
+     */
+    private KoduckApplication() {
+        // Utility class
+    }
 
     /**
      * Starts the Spring Boot application.

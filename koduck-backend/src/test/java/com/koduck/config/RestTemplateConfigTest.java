@@ -1,7 +1,7 @@
 package com.koduck.config;
 
-import com.koduck.config.properties.DataServiceProperties;
 import java.lang.reflect.Field;
+
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.web.client.RestTemplateBuilder;
@@ -10,13 +10,23 @@ import org.springframework.http.client.ClientHttpRequestFactory;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.web.client.RestTemplate;
 
+import com.koduck.config.properties.DataServiceProperties;
+
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
  * Unit tests for {@link RestTemplateConfig}.
+ *
+ * @author Koduck Team
  */
 class RestTemplateConfigTest {
+
+    /** Connect timeout in milliseconds for testing. */
+    private static final int CONNECT_TIMEOUT_MS = 1500;
+
+    /** Read timeout in milliseconds for testing. */
+    private static final int READ_TIMEOUT_MS = 4500;
 
     /**
      * Verifies that the RestTemplate produced by the configuration uses a
@@ -29,8 +39,8 @@ class RestTemplateConfigTest {
         RestTemplateBuilder builder = new RestTemplateBuilder();
 
         DataServiceProperties properties = new DataServiceProperties();
-        properties.setConnectTimeoutMs(1500);
-        properties.setReadTimeoutMs(4500);
+        properties.setConnectTimeoutMs(CONNECT_TIMEOUT_MS);
+        properties.setReadTimeoutMs(READ_TIMEOUT_MS);
 
         RestTemplate restTemplate = config.dataServiceRestTemplate(builder, properties);
 
@@ -40,8 +50,8 @@ class RestTemplateConfigTest {
         Object delegate = getFieldValue(requestFactory, "requestFactory");
         assertThat(delegate).isInstanceOf(SimpleClientHttpRequestFactory.class);
 
-        assertThat(getIntFieldValue(delegate, "connectTimeout")).isEqualTo(1500);
-        assertThat(getIntFieldValue(delegate, "readTimeout")).isEqualTo(4500);
+        assertThat(getIntFieldValue(delegate, "connectTimeout")).isEqualTo(CONNECT_TIMEOUT_MS);
+        assertThat(getIntFieldValue(delegate, "readTimeout")).isEqualTo(READ_TIMEOUT_MS);
     }
 
     /**
@@ -64,6 +74,13 @@ class RestTemplateConfigTest {
                 .hasMessage("properties must not be null");
     }
 
+    /**
+     * Get field value using reflection.
+     *
+     * @param target the target object
+     * @param fieldName the field name
+     * @return the field value
+     */
     private Object getFieldValue(Object target, String fieldName) {
         Class<?> current = target.getClass();
         while (current != null) {
@@ -71,15 +88,24 @@ class RestTemplateConfigTest {
                 Field field = current.getDeclaredField(fieldName);
                 field.setAccessible(true);
                 return field.get(target);
-            } catch (NoSuchFieldException _) {
+            }
+            catch (NoSuchFieldException e) {
                 current = current.getSuperclass();
-            } catch (IllegalAccessException ex) {
+            }
+            catch (IllegalAccessException ex) {
                 throw new IllegalStateException("Failed to read field: " + fieldName, ex);
             }
         }
         throw new IllegalStateException("Field not found: " + fieldName);
     }
 
+    /**
+     * Get integer field value.
+     *
+     * @param target the target object
+     * @param fieldName the field name
+     * @return the integer value
+     */
     private int getIntFieldValue(Object target, String fieldName) {
         Object value = getFieldValue(target, fieldName);
         assertThat(value).isInstanceOf(Integer.class);

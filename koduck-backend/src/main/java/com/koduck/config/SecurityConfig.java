@@ -1,9 +1,8 @@
 package com.koduck.config;
 
-import com.koduck.config.properties.SecurityEndpointProperties;
-import com.koduck.security.JwtAuthenticationFilter;
 import jakarta.servlet.DispatcherType;
 import jakarta.servlet.http.HttpServletResponse;
+
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -11,8 +10,8 @@ import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.AuthenticationProvider;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
-import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
+import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
@@ -22,11 +21,16 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 
+import com.koduck.config.properties.SecurityEndpointProperties;
+import com.koduck.security.JwtAuthenticationFilter;
+
 /**
  * Spring Security configuration.
  *
  * <p>Defines stateless JWT-based authentication, public endpoint rules, and
  * authentication-related beans used across the application.</p>
+ *
+ * @author GitHub Copilot
  */
 @Configuration
 @EnableWebSecurity
@@ -38,6 +42,8 @@ public class SecurityConfig {
      *
      * @param http Spring Security HTTP configuration builder
      * @param jwtAuthenticationFilter JWT filter used to authenticate incoming requests
+     * @param userDetailsService user details service for authentication
+     * @param securityEndpointProperties properties for security endpoint configuration
      * @return configured security filter chain
      * @throws Exception when the security configuration cannot be built
      */

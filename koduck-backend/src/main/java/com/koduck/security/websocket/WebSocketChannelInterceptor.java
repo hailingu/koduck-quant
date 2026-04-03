@@ -1,14 +1,11 @@
 package com.koduck.security.websocket;
 
-import com.koduck.common.constants.HttpHeaderConstants;
-import com.koduck.config.JwtConfig;
-import com.koduck.util.JwtUtil;
 import java.io.Serial;
 import java.security.Principal;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Objects;
-import lombok.extern.slf4j.Slf4j;
+
 import org.springframework.lang.NonNull;
 import org.springframework.messaging.Message;
 import org.springframework.messaging.MessageChannel;
@@ -23,6 +20,12 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 
+import com.koduck.common.constants.HttpHeaderConstants;
+import com.koduck.config.JwtConfig;
+import com.koduck.util.JwtUtil;
+
+import lombok.extern.slf4j.Slf4j;
+
 /**
  * Intercepts STOMP channel traffic and performs JWT authentication on CONNECT.
  *
@@ -32,20 +35,50 @@ import org.springframework.util.StringUtils;
  *   <li>Validate token and attach authenticated principal to STOMP session.</li>
  *   <li>Clear security context and log disconnect information on DISCONNECT.</li>
  * </ul>
+ *
+ * @author GitHub Copilot
  */
 @Slf4j
 @Component
 public class WebSocketChannelInterceptor implements ChannelInterceptor {
 
+    /**
+     * Bearer token prefix.
+     */
     private static final String BEARER_PREFIX = HttpHeaderConstants.BEARER_PREFIX;
+
+    /**
+     * Default authorization header name.
+     */
     private static final String DEFAULT_AUTHORIZATION_HEADER = HttpHeaderConstants.AUTHORIZATION;
+
+    /**
+     * Role user authority.
+     */
     private static final String ROLE_USER = "ROLE_USER";
+
+    /**
+     * User authorities collection.
+     */
     private static final Collection<? extends GrantedAuthority> USER_AUTHORITIES =
             Collections.singletonList(new SimpleGrantedAuthority(ROLE_USER));
 
+    /**
+     * JWT utility for token validation.
+     */
     private final JwtUtil jwtUtil;
+
+    /**
+     * JWT configuration properties.
+     */
     private final JwtConfig jwtConfig;
 
+    /**
+     * Creates the WebSocket channel interceptor.
+     *
+     * @param jwtUtil JWT utility
+     * @param jwtConfig JWT configuration
+     */
     public WebSocketChannelInterceptor(JwtUtil jwtUtil, JwtConfig jwtConfig) {
         this.jwtUtil = Objects.requireNonNull(jwtUtil, "jwtUtil must not be null");
         this.jwtConfig = Objects.requireNonNull(jwtConfig, "jwtConfig must not be null");
@@ -68,7 +101,8 @@ public class WebSocketChannelInterceptor implements ChannelInterceptor {
 
         if (StompCommand.CONNECT.equals(accessor.getCommand())) {
             handleConnect(accessor);
-        } else if (StompCommand.DISCONNECT.equals(accessor.getCommand())) {
+        }
+        else if (StompCommand.DISCONNECT.equals(accessor.getCommand())) {
             handleDisconnect(accessor);
         }
 
@@ -111,7 +145,8 @@ public class WebSocketChannelInterceptor implements ChannelInterceptor {
             accessor.setUser(principal);
 
             log.info("WebSocket CONNECT authenticated: userId={}", userId);
-        } catch (RuntimeException ex) {
+        }
+        catch (RuntimeException ex) {
             log.error("WebSocket CONNECT authentication failed", ex);
         }
     }
@@ -159,8 +194,16 @@ public class WebSocketChannelInterceptor implements ChannelInterceptor {
         @Serial
         private static final long serialVersionUID = 1L;
 
+        /**
+         * User ID.
+         */
         private final Long userId;
 
+        /**
+         * Creates the WebSocket user principal.
+         *
+         * @param userId user ID
+         */
         public WebSocketUserPrincipal(Long userId) {
             this.userId = Objects.requireNonNull(userId, "userId must not be null");
         }

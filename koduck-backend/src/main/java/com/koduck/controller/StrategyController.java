@@ -1,25 +1,10 @@
 package com.koduck.controller;
 
-import io.swagger.v3.oas.annotations.Operation;
-import io.swagger.v3.oas.annotations.Parameter;
-import io.swagger.v3.oas.annotations.media.Content;
-import io.swagger.v3.oas.annotations.media.Schema;
-import io.swagger.v3.oas.annotations.responses.ApiResponses;
-import io.swagger.v3.oas.annotations.security.SecurityRequirement;
-import io.swagger.v3.oas.annotations.tags.Tag;
-import com.koduck.controller.support.AuthenticatedUserResolver;
-import com.koduck.dto.ApiResponse;
-import com.koduck.dto.strategy.CreateStrategyRequest;
-import com.koduck.dto.strategy.StrategyDto;
-import com.koduck.dto.strategy.StrategyVersionDto;
-import com.koduck.dto.strategy.UpdateStrategyRequest;
-import com.koduck.security.UserPrincipal;
-import com.koduck.service.StrategyService;
+import java.util.List;
+
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Positive;
-import java.util.List;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
+
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -31,6 +16,24 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.koduck.controller.support.AuthenticatedUserResolver;
+import com.koduck.dto.ApiResponse;
+import com.koduck.dto.strategy.CreateStrategyRequest;
+import com.koduck.dto.strategy.StrategyDto;
+import com.koduck.dto.strategy.StrategyVersionDto;
+import com.koduck.dto.strategy.UpdateStrategyRequest;
+import com.koduck.security.UserPrincipal;
+import com.koduck.service.StrategyService;
+
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+
 /**
  * REST API controller for trading strategies.
  * <p>
@@ -38,7 +41,6 @@ import org.springframework.web.bind.annotation.RestController;
  * and publication controls.
  *
  * @author GitHub Copilot
- * @date 2026-03-31
  */
 @RestController
 @RequestMapping("/api/v1/strategies")
@@ -49,7 +51,14 @@ import org.springframework.web.bind.annotation.RestController;
 @RequiredArgsConstructor
 public class StrategyController {
 
+    /**
+     * Resolver for authenticated user information.
+     */
     private final AuthenticatedUserResolver authenticatedUserResolver;
+
+    /**
+     * Service for strategy operations.
+     */
     private final StrategyService strategyService;
 
     /**
@@ -67,7 +76,7 @@ public class StrategyController {
             responseCode = "200",
             description = "获取成功",
             content = @Content(schema = @Schema(implementation = StrategyDto.class))
-        ),
+            ),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "未登录或Token无效"),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "500", description = "服务器内部错误")
     })
@@ -97,7 +106,7 @@ public class StrategyController {
             responseCode = "200",
             description = "获取成功",
             content = @Content(schema = @Schema(implementation = StrategyDto.class))
-        ),
+            ),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "未登录或Token无效"),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "无权访问该策略"),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "策略不存在"),
@@ -131,7 +140,7 @@ public class StrategyController {
             responseCode = "200",
             description = "创建成功",
             content = @Content(schema = @Schema(implementation = StrategyDto.class))
-        ),
+            ),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "请求参数错误"),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "未登录或Token无效"),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "500", description = "服务器内部错误")
@@ -164,7 +173,7 @@ public class StrategyController {
             responseCode = "200",
             description = "更新成功",
             content = @Content(schema = @Schema(implementation = StrategyDto.class))
-        ),
+            ),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "请求参数错误"),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "未登录或Token无效"),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "无权更新该策略"),
@@ -230,7 +239,7 @@ public class StrategyController {
             responseCode = "200",
             description = "发布成功",
             content = @Content(schema = @Schema(implementation = StrategyDto.class))
-        ),
+            ),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "策略状态不允许发布"),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "未登录或Token无效"),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "无权发布该策略"),
@@ -265,7 +274,7 @@ public class StrategyController {
             responseCode = "200",
             description = "停用成功",
             content = @Content(schema = @Schema(implementation = StrategyDto.class))
-        ),
+            ),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "策略状态不允许停用"),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "未登录或Token无效"),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "无权停用该策略"),
@@ -300,7 +309,7 @@ public class StrategyController {
             responseCode = "200",
             description = "获取成功",
             content = @Content(schema = @Schema(implementation = StrategyVersionDto.class))
-        ),
+            ),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "未登录或Token无效"),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "无权访问该策略"),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "策略不存在"),
@@ -335,7 +344,7 @@ public class StrategyController {
             responseCode = "200",
             description = "获取成功",
             content = @Content(schema = @Schema(implementation = StrategyVersionDto.class))
-        ),
+            ),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "未登录或Token无效"),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "无权访问该策略"),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "策略或版本不存在"),
@@ -372,7 +381,7 @@ public class StrategyController {
             responseCode = "200",
             description = "激活成功",
             content = @Content(schema = @Schema(implementation = StrategyVersionDto.class))
-        ),
+            ),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "版本状态不允许激活"),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "未登录或Token无效"),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "无权操作该策略"),

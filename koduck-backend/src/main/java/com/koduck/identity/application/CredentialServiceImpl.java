@@ -1,18 +1,12 @@
 package com.koduck.identity.application;
 
-import com.koduck.common.constants.HttpHeaderConstants;
-import com.koduck.dto.credential.*;
-import com.koduck.entity.CredentialAuditLog;
-import com.koduck.entity.UserCredential;
-import com.koduck.exception.DuplicateException;
-import com.koduck.mapper.CredentialMapper;
-import com.koduck.exception.ResourceNotFoundException;
-import com.koduck.repository.CredentialAuditLogRepository;
-import com.koduck.repository.CredentialRepository;
-import com.koduck.service.CredentialService;
-import com.koduck.util.CredentialEncryptionUtil;
-import jakarta.servlet.http.HttpServletRequest;
-import lombok.extern.slf4j.Slf4j;
+import static com.koduck.util.ServiceValidationUtils.requireFound;
+
+import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Locale;
+import java.util.Objects;
+
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -20,26 +14,47 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
-import java.time.LocalDateTime;
-import java.util.List;
-import java.util.Locale;
-import java.util.Objects;
 
-import static com.koduck.util.ServiceValidationUtils.requireFound;
+import com.koduck.common.constants.HttpHeaderConstants;
+import com.koduck.dto.credential.CreateCredentialRequest;
+import com.koduck.dto.credential.CredentialAuditLogResponse;
+import com.koduck.dto.credential.CredentialDetailResponse;
+import com.koduck.dto.credential.CredentialListResponse;
+import com.koduck.dto.credential.CredentialResponse;
+import com.koduck.dto.credential.UpdateCredentialRequest;
+import com.koduck.dto.credential.VerifyCredentialResponse;
+import com.koduck.entity.CredentialAuditLog;
+import com.koduck.entity.UserCredential;
+import com.koduck.exception.DuplicateException;
+import com.koduck.exception.ResourceNotFoundException;
+import com.koduck.mapper.CredentialMapper;
+import com.koduck.repository.CredentialAuditLogRepository;
+import com.koduck.repository.CredentialRepository;
+import com.koduck.service.CredentialService;
+import com.koduck.util.CredentialEncryptionUtil;
+
+import jakarta.servlet.http.HttpServletRequest;
+import lombok.extern.slf4j.Slf4j;
 
 /**
- * 用户凭证服务实现
+ * User credential service implementation.
  *
  * @author GitHub Copilot
- * @date 2026-03-31
  */
 @Service
 @Slf4j
 public class CredentialServiceImpl implements CredentialService {
 
+    /** Repository for credential operations. */
     private final CredentialRepository credentialRepository;
+
+    /** Repository for audit log operations. */
     private final CredentialAuditLogRepository auditLogRepository;
+
+    /** Utility for credential encryption/decryption. */
     private final CredentialEncryptionUtil credentialEncryptionUtil;
+
+    /** Mapper for converting between entities and DTOs. */
     private final CredentialMapper credentialMapper;
 
     public CredentialServiceImpl(CredentialRepository credentialRepository,
@@ -53,7 +68,7 @@ public class CredentialServiceImpl implements CredentialService {
     }
 
     /**
-     * 获取凭证列表（分页）
+     * Gets credentials with pagination.
      */
     @Override
     public CredentialListResponse getCredentials(Long userId, int page, int size) {
@@ -79,7 +94,7 @@ public class CredentialServiceImpl implements CredentialService {
                 .build();
     }
     /**
-     * 获取所有凭证（不分页）
+     * Gets all credentials without pagination.
      */
     @Override
     public List<CredentialResponse> getAllCredentials(Long userId) {
@@ -91,7 +106,7 @@ public class CredentialServiceImpl implements CredentialService {
             .toList();
     }
     /**
-     * 获取单个凭证（摘要信息）
+     * Gets a single credential summary.
      */
     @Override
     public CredentialResponse getCredential(Long userId, Long credentialId) {
@@ -101,7 +116,7 @@ public class CredentialServiceImpl implements CredentialService {
         return toResponse(credential);
     }
     /**
-     * 获取凭证详情（包含敏感信息）
+     * Gets credential detail with sensitive information.
      */
     @Override
     public CredentialDetailResponse getCredentialDetail(Long userId, Long credentialId) {
@@ -111,7 +126,7 @@ public class CredentialServiceImpl implements CredentialService {
         return toDetailResponse(credential);
     }
     /**
-     * 创建凭证
+     * Creates a new credential.
      */
     @Override
     @Transactional
@@ -148,7 +163,7 @@ public class CredentialServiceImpl implements CredentialService {
         return toResponse(saved);
     }
     /**
-     * 更新凭证
+     * Updates an existing credential.
      */
     @Override
     @Transactional
@@ -184,7 +199,7 @@ public class CredentialServiceImpl implements CredentialService {
         return toResponse(saved);
     }
     /**
-     * 删除凭证
+     * Deletes a credential.
      */
     @Override
     @Transactional
@@ -196,7 +211,7 @@ public class CredentialServiceImpl implements CredentialService {
         log.info("凭证删除成功: id={}", credentialId);
     }
     /**
-     * 验证凭证
+     * Verifies a credential.
      */
     @Override
     public VerifyCredentialResponse verifyCredential(Long userId, Long credentialId) {
@@ -227,7 +242,7 @@ public class CredentialServiceImpl implements CredentialService {
                 .build();
     }
     /**
-     * 获取审计日志
+     * Gets audit logs.
      */
     @Override
     public List<CredentialAuditLogResponse> getAuditLogs(Long userId, int page, int size) {
@@ -238,14 +253,14 @@ public class CredentialServiceImpl implements CredentialService {
             .toList();
     }
 
-    // ===== 私有方法 =====
+    // ===== Private methods =====
     private UserCredential loadCredentialOrThrow(Long userId, Long credentialId) {
         return requireFound(credentialRepository.findByIdAndUserId(credentialId, userId),
                 () -> new ResourceNotFoundException("凭证不存在: " + credentialId));
     }
 
     /**
-     * 执行凭证验证（模拟实现）
+     * Performs credential verification (mock implementation).
      */
     private VerificationResult performVerification(UserCredential credential, String apiKey, String apiSecret) {
         if (apiKey == null || apiKey.isEmpty()) {
@@ -276,7 +291,7 @@ public class CredentialServiceImpl implements CredentialService {
     }
 
     /**
-     * 记录审计日志
+     * Records audit log.
      */
     private void auditLog(Long userId, Long credentialId, CredentialAuditLog.ActionType action,
                           boolean success, String errorMessage) {
@@ -302,13 +317,14 @@ public class CredentialServiceImpl implements CredentialService {
                     .errorMessage(errorMessage)
                     .build();
             auditLogRepository.save(Objects.requireNonNull(log, "audit log must not be null"));
-        } catch (Exception e) {
+        }
+        catch (Exception e) {
             log.error("记录审计日志失败", e);
         }
     }
 
     /**
-     * 获取客户端 IP 地址
+     * Gets client IP address.
      */
     private String getClientIpAddress(HttpServletRequest request) {
         String[] headerNames = {
@@ -326,7 +342,7 @@ public class CredentialServiceImpl implements CredentialService {
         return request.getRemoteAddr();
     }
     /**
-     * 转换为响应对象
+     * Converts to response object.
      */
     private CredentialResponse toResponse(UserCredential credential) {
         // 解密并脱敏显示
@@ -340,7 +356,7 @@ public class CredentialServiceImpl implements CredentialService {
             CredentialEncryptionUtil.maskApiSecret(apiSecret));
     }
     /**
-     * 转换为详情响应对象
+     * Converts to detail response object.
      */
     private CredentialDetailResponse toDetailResponse(UserCredential credential) {
         String apiKey = credentialEncryptionUtil.decrypt(credential.getApiKeyEncrypted());
@@ -350,18 +366,23 @@ public class CredentialServiceImpl implements CredentialService {
         return credentialMapper.toCredentialDetailResponse(credential, apiKey, apiSecret);
     }
     /**
-     * 转换为审计日志响应对象
+     * Converts to audit log response object.
      */
     private CredentialAuditLogResponse toAuditLogResponse(CredentialAuditLog log) {
         return credentialMapper.toCredentialAuditLogResponse(log);
     }
     /**
-     * 验证结果内部类
+     * Verification result inner class.
      */
     private static final class VerificationResult {
 
+        /** Whether the verification was successful. */
         private final boolean valid;
+
+        /** Verification message. */
         private final String message;
+
+        /** Additional verification details. */
         private final String details;
 
         private VerificationResult(boolean valid, String message, String details) {

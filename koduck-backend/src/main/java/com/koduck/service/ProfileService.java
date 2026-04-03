@@ -5,6 +5,8 @@ import com.koduck.dto.profile.UpdateProfileDTO;
 
 /**
  * Profile management service.
+ *
+ * @author GitHub Copilot
  */
 public interface ProfileService {
     

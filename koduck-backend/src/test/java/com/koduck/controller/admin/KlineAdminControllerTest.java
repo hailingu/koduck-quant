@@ -1,7 +1,7 @@
 package com.koduck.controller.admin;
 
-import com.koduck.dto.ApiResponse;
-import com.koduck.service.KlineSyncService;
+import java.util.List;
+
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -9,7 +9,8 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import java.util.List;
+import com.koduck.dto.ApiResponse;
+import com.koduck.service.KlineSyncService;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -19,21 +20,26 @@ import static org.mockito.Mockito.verify;
  * Unit tests for {@link KlineAdminController}.
  *
  * @author GitHub Copilot
- * @date 2026-03-05
  */
 @ExtendWith(MockitoExtension.class)
 class KlineAdminControllerTest {
 
+    /** Default backfill days. */
+    private static final int DEFAULT_BACKFILL_DAYS = 365;
+
+    /** The klineSyncService. */
     @Mock
     private KlineSyncService klineSyncService;
 
+    /** The klineAdminController. */
     @InjectMocks
     private KlineAdminController klineAdminController;
 
     @Test
     @DisplayName("shouldTriggerSyncWhenInputIsValid")
     void shouldTriggerSyncWhenInputIsValid() {
-        ApiResponse<String> response = klineAdminController.syncSymbol("AShare", "600519", "1D");
+        ApiResponse<String> response = klineAdminController.syncSymbol(
+                "AShare", "600519", "1D");
 
         verify(klineSyncService).syncSymbolKline("AShare", "600519", "1D");
         assertEquals("Sync triggered for 600519", response.getData());
@@ -42,9 +48,11 @@ class KlineAdminControllerTest {
     @Test
     @DisplayName("shouldTriggerBackfillWhenInputIsValid")
     void shouldTriggerBackfillWhenInputIsValid() {
-        ApiResponse<String> response = klineAdminController.backfillSymbol("AShare", "600519", "1D", 365);
+        ApiResponse<String> response = klineAdminController.backfillSymbol(
+                "AShare", "600519", "1D", DEFAULT_BACKFILL_DAYS);
 
-        verify(klineSyncService).backfillHistoricalData("AShare", "600519", "1D", 365);
+        verify(klineSyncService).backfillHistoricalData(
+                "AShare", "600519", "1D", DEFAULT_BACKFILL_DAYS);
         assertEquals("Backfill triggered for 600519", response.getData());
     }
 
@@ -56,7 +64,8 @@ class KlineAdminControllerTest {
         ApiResponse<String> response = klineAdminController.syncBatch(symbols, "AShare", "1D");
 
         verify(klineSyncService).syncBatchSymbols("AShare", symbols, "1D");
-        assertEquals("Batch sync triggered for 2 symbols", response.getData());
+        assertEquals("Batch sync triggered for 2 symbols",
+                response.getData());
     }
 
     @Test

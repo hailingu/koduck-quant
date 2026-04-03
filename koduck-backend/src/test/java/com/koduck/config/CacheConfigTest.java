@@ -1,14 +1,14 @@
 package com.koduck.config;
 
+import java.time.Duration;
+import java.util.Map;
+
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.data.redis.cache.RedisCacheConfiguration;
 import org.springframework.data.redis.cache.RedisCacheManager;
 import org.springframework.data.redis.cache.RedisCacheWriter;
 import org.springframework.data.redis.connection.RedisConnectionFactory;
-
-import java.time.Duration;
-import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
@@ -18,8 +18,22 @@ import static org.mockito.Mockito.mock;
  *
  * <p>Verifies cache name registration and per-cache TTL settings configured in
  * {@link CacheConfig#cacheManager(RedisConnectionFactory)}.</p>
+ *
+ * @author Koduck Team
  */
 class CacheConfigTest {
+
+    /** TTL for 30 seconds. */
+    private static final Duration TTL_30_SECONDS = Duration.ofSeconds(30);
+
+    /** TTL for 1 minute. */
+    private static final Duration TTL_1_MINUTE = Duration.ofMinutes(1);
+
+    /** TTL for 5 minutes. */
+    private static final Duration TTL_5_MINUTES = Duration.ofMinutes(5);
+
+    /** TTL for 1 hour. */
+    private static final Duration TTL_1_HOUR = Duration.ofHours(1);
 
     /**
      * Extracts the TTL from a cache configuration by invoking the
@@ -57,14 +71,14 @@ class CacheConfigTest {
                         CacheConfig.CACHE_MARKET_INDICES,
                         CacheConfig.CACHE_HOT_STOCKS,
                         CacheConfig.CACHE_PORTFOLIO_SUMMARY
-                );
+            );
 
-        assertThat(resolveTtl(configurations.get(CacheConfig.CACHE_KLINE))).isEqualTo(Duration.ofMinutes(1));
-        assertThat(resolveTtl(configurations.get(CacheConfig.CACHE_PRICE))).isEqualTo(Duration.ofSeconds(30));
-        assertThat(resolveTtl(configurations.get(CacheConfig.CACHE_MARKET_SEARCH))).isEqualTo(Duration.ofMinutes(5));
-        assertThat(resolveTtl(configurations.get(CacheConfig.CACHE_STOCK_DETAIL))).isEqualTo(Duration.ofSeconds(30));
-        assertThat(resolveTtl(configurations.get(CacheConfig.CACHE_MARKET_INDICES))).isEqualTo(Duration.ofSeconds(30));
-        assertThat(resolveTtl(configurations.get(CacheConfig.CACHE_HOT_STOCKS))).isEqualTo(Duration.ofMinutes(1));
-        assertThat(resolveTtl(configurations.get(CacheConfig.CACHE_PORTFOLIO_SUMMARY))).isEqualTo(Duration.ofHours(1));
+        assertThat(resolveTtl(configurations.get(CacheConfig.CACHE_KLINE))).isEqualTo(TTL_1_MINUTE);
+        assertThat(resolveTtl(configurations.get(CacheConfig.CACHE_PRICE))).isEqualTo(TTL_30_SECONDS);
+        assertThat(resolveTtl(configurations.get(CacheConfig.CACHE_MARKET_SEARCH))).isEqualTo(TTL_5_MINUTES);
+        assertThat(resolveTtl(configurations.get(CacheConfig.CACHE_STOCK_DETAIL))).isEqualTo(TTL_30_SECONDS);
+        assertThat(resolveTtl(configurations.get(CacheConfig.CACHE_MARKET_INDICES))).isEqualTo(TTL_30_SECONDS);
+        assertThat(resolveTtl(configurations.get(CacheConfig.CACHE_HOT_STOCKS))).isEqualTo(TTL_1_MINUTE);
+        assertThat(resolveTtl(configurations.get(CacheConfig.CACHE_PORTFOLIO_SUMMARY))).isEqualTo(TTL_1_HOUR);
     }
 }

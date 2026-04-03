@@ -6,7 +6,6 @@ import java.io.Serial;
  * Exception thrown when credential encryption or decryption fails.
  *
  * @author GitHub Copilot
- * @date 2026-03-31
  */
 public class CredentialEncryptionException extends BusinessException {
 

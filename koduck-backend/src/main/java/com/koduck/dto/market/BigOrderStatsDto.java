@@ -1,8 +1,8 @@
 package com.koduck.dto.market;
 
-import com.fasterxml.jackson.annotation.JsonProperty;
-
 import java.util.List;
+
+import com.fasterxml.jackson.annotation.JsonProperty;
 
 public record BigOrderStatsDto(
         @JsonProperty("total_count_24h")

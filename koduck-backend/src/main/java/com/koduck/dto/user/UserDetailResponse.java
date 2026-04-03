@@ -3,11 +3,11 @@ package com.koduck.dto.user;
 import java.time.LocalDateTime;
 import java.util.List;
 
-import lombok.Data;
-import lombok.NoArgsConstructor;
-
 import com.koduck.entity.User;
 import com.koduck.util.CollectionCopyUtils;
+
+import lombok.Data;
+import lombok.NoArgsConstructor;
 
 /**
  * 用户详情响应 DTO。

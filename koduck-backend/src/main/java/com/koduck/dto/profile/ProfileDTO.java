@@ -16,8 +16,7 @@ import lombok.NoArgsConstructor;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class ProfileDTO
-{
+public class ProfileDTO {
 
     /**
      * User ID.

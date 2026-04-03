@@ -1,5 +1,21 @@
 package com.koduck.controller;
 
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
+import java.util.Collections;
+import java.util.List;
+
+import jakarta.validation.constraints.Positive;
+
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.validation.annotation.Validated;
+
 import com.koduck.controller.support.AuthenticatedUserResolver;
 import com.koduck.dto.ApiResponse;
 import com.koduck.dto.portfolio.AddPositionRequest;
@@ -11,21 +27,6 @@ import com.koduck.dto.portfolio.UpdatePositionRequest;
 import com.koduck.entity.User;
 import com.koduck.security.UserPrincipal;
 import com.koduck.service.PortfolioService;
-import jakarta.validation.constraints.Positive;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
-import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.validation.annotation.Validated;
-
-import java.lang.reflect.Method;
-import java.math.BigDecimal;
-import java.time.LocalDateTime;
-import java.util.Collections;
-import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -35,20 +36,42 @@ import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+/**
+ * Unit tests for {@link PortfolioController}.
+ *
+ * @author Koduck Team
+ */
 @ExtendWith(MockitoExtension.class)
 class PortfolioControllerTest {
 
+    /** Test user ID constant. */
     private static final Long USER_ID = 1001L;
 
+    /** Test position ID constant. */
+    private static final Long TEST_POSITION_ID = 10L;
+
+    /** Test position ID for delete operation. */
+    private static final Long DELETE_POSITION_ID = 11L;
+
+    /** Test trade ID constant. */
+    private static final Long TEST_TRADE_ID = 5L;
+
+    /** Test trade ID for add operation. */
+    private static final Long ADD_TRADE_ID = 8L;
+
+    /** Mock portfolio service. */
     @Mock
     private PortfolioService portfolioService;
 
-        @Mock
-        private AuthenticatedUserResolver authenticatedUserResolver;
+    /** Mock authenticated user resolver. */
+    @Mock
+    private AuthenticatedUserResolver authenticatedUserResolver;
 
+    /** Controller under test. */
     @InjectMocks
     private PortfolioController portfolioController;
 
+    /** Test user principal. */
     private UserPrincipal userPrincipal;
 
     @BeforeEach
@@ -66,7 +89,7 @@ class PortfolioControllerTest {
 
     @Test
     @DisplayName("Get positions should return data from service")
-    void getPositions_shouldReturnPositions() {
+    void getPositionsShouldReturnPositions() {
         PortfolioPositionDto position = PortfolioPositionDto.builder()
                 .id(1L)
                 .market("AShare")
@@ -88,7 +111,7 @@ class PortfolioControllerTest {
 
     @Test
     @DisplayName("Get summary should return summary from service")
-    void getPortfolioSummary_shouldReturnSummary() {
+    void getPortfolioSummaryShouldReturnSummary() {
         PortfolioSummaryDto summary = PortfolioSummaryDto.builder()
                 .totalCost(new BigDecimal("10000"))
                 .totalMarketValue(new BigDecimal("11250"))
@@ -109,7 +132,7 @@ class PortfolioControllerTest {
 
     @Test
     @DisplayName("Add position should delegate to service")
-    void addPosition_shouldReturnPosition() {
+    void addPositionShouldReturnPosition() {
         AddPositionRequest request = new AddPositionRequest(
                 "AShare",
                 "600000",
@@ -137,8 +160,8 @@ class PortfolioControllerTest {
 
     @Test
     @DisplayName("Update position should delegate to service")
-    void updatePosition_shouldReturnUpdatedPosition() {
-        Long positionId = 10L;
+    void updatePositionShouldReturnUpdatedPosition() {
+        Long positionId = TEST_POSITION_ID;
         UpdatePositionRequest request = new UpdatePositionRequest(
                 new BigDecimal("350"),
                 new BigDecimal("11.25")
@@ -167,8 +190,8 @@ class PortfolioControllerTest {
 
     @Test
     @DisplayName("Delete position should return empty success response")
-    void deletePosition_shouldReturnSuccess() {
-        Long positionId = 11L;
+    void deletePositionShouldReturnSuccess() {
+        Long positionId = DELETE_POSITION_ID;
 
         ApiResponse<Void> response = portfolioController.deletePosition(userPrincipal, positionId);
 
@@ -179,9 +202,9 @@ class PortfolioControllerTest {
 
     @Test
     @DisplayName("Get trades should return trade list")
-    void getTrades_shouldReturnTrades() {
+    void getTradesShouldReturnTrades() {
         TradeDto trade = TradeDto.builder()
-                .id(5L)
+                .id(TEST_TRADE_ID)
                 .market("AShare")
                 .symbol("000001")
                 .name("Ping An Bank")
@@ -205,7 +228,7 @@ class PortfolioControllerTest {
 
     @Test
     @DisplayName("Add trade should delegate to service")
-    void addTrade_shouldReturnTrade() {
+    void addTradeShouldReturnTrade() {
         AddTradeRequest request = new AddTradeRequest(
                 "AShare",
                 "002594",
@@ -216,7 +239,7 @@ class PortfolioControllerTest {
                 LocalDateTime.now()
         );
         TradeDto trade = TradeDto.builder()
-                .id(8L)
+                .id(ADD_TRADE_ID)
                 .market("AShare")
                 .symbol("002594")
                 .name("BYD")
@@ -233,13 +256,13 @@ class PortfolioControllerTest {
 
         assertEquals(0, response.getCode());
         assertNotNull(response.getData());
-        assertEquals(8L, response.getData().id());
+        assertEquals(ADD_TRADE_ID, response.getData().id());
         verify(portfolioService).addTrade(USER_ID, request);
     }
 
     @Test
     @DisplayName("Controller should declare @Validated for method parameter validation")
-    void controller_shouldDeclareValidatedAnnotation() {
+    void controllerShouldDeclareValidatedAnnotation() {
         Validated validated = PortfolioController.class.getAnnotation(Validated.class);
 
         assertNotNull(validated);
@@ -247,14 +270,14 @@ class PortfolioControllerTest {
 
     @Test
     @DisplayName("Update and delete methods should declare positive id constraint")
-    void idParameters_shouldDeclarePositiveConstraint() throws NoSuchMethodException {
-        Method updateMethod = PortfolioController.class.getMethod(
+    void idParametersShouldDeclarePositiveConstraint() throws NoSuchMethodException {
+        java.lang.reflect.Method updateMethod = PortfolioController.class.getMethod(
                 "updatePosition",
                 UserPrincipal.class,
                 Long.class,
                 UpdatePositionRequest.class
         );
-        Method deleteMethod = PortfolioController.class.getMethod(
+        java.lang.reflect.Method deleteMethod = PortfolioController.class.getMethod(
                 "deletePosition",
                 UserPrincipal.class,
                 Long.class

@@ -1,8 +1,6 @@
 package com.koduck.market.config;
 
-import com.koduck.market.provider.ProviderFactory;
-import com.koduck.service.market.AKShareDataProvider;
-import com.koduck.service.market.USStockProvider;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.ApplicationArguments;
@@ -10,13 +8,22 @@ import org.springframework.boot.ApplicationRunner;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
+import com.koduck.market.provider.ProviderFactory;
+import com.koduck.service.market.AKShareDataProvider;
+import com.koduck.service.market.USStockProvider;
+
 /**
  * Configuration for market data providers.
  * Registers all provider implementations on application startup.
+ *
+ * @author Koduck Team
  */
 @Configuration
 public class MarketProviderConfig {
-    
+
+    /**
+     * Logger for this class.
+     */
     private static final Logger LOG = LoggerFactory.getLogger(MarketProviderConfig.class);
     
     @Bean

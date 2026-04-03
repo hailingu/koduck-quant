@@ -8,7 +8,6 @@ import java.util.Map;
  * Collection defensive copy helpers.
  *
  * @author GitHub Copilot
- * @date 2026-03-31
  */
 public final class CollectionCopyUtils {
 

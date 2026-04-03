@@ -1,5 +1,8 @@
 package com.koduck.entity;
 
+import java.time.LocalDateTime;
+import java.util.Map;
+
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
@@ -7,20 +10,17 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 
-import java.time.LocalDateTime;
-import java.util.Map;
-
-import lombok.AccessLevel;
-import lombok.Data;
-import lombok.NoArgsConstructor;
-import lombok.Setter;
-
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.annotations.UpdateTimestamp;
 import org.hibernate.type.SqlTypes;
 
 import com.koduck.util.CollectionCopyUtils;
+
+import lombok.AccessLevel;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 
 /**
  * Data source status entity.
@@ -125,17 +125,64 @@ public class DataSourceStatus {
      */
     public static final class Builder {
 
+        /**
+         * Builder field for id.
+         */
         private Long id;
+
+        /**
+         * Builder field for sourceName.
+         */
         private String sourceName;
+
+        /**
+         * Builder field for sourceType.
+         */
         private String sourceType;
+
+        /**
+         * Builder field for status.
+         */
         private String status;
+
+        /**
+         * Builder field for lastSuccessAt.
+         */
         private LocalDateTime lastSuccessAt;
+
+        /**
+         * Builder field for lastFailureAt.
+         */
         private LocalDateTime lastFailureAt;
+
+        /**
+         * Builder field for failureCount.
+         */
         private Integer failureCount;
+
+        /**
+         * Builder field for consecutiveFailures.
+         */
         private Integer consecutiveFailures;
+
+        /**
+         * Builder field for responseTimeMs.
+         */
         private Integer responseTimeMs;
+
+        /**
+         * Builder field for metadata.
+         */
         private Map<String, Object> metadata;
+
+        /**
+         * Builder field for createdAt.
+         */
         private LocalDateTime createdAt;
+
+        /**
+         * Builder field for updatedAt.
+         */
         private LocalDateTime updatedAt;
 
         /**

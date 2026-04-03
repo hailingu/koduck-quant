@@ -1,26 +1,10 @@
 package com.koduck.controller;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.verifyNoInteractions;
-import static org.mockito.Mockito.when;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
-
-import com.koduck.common.constants.ApiMessageConstants;
-import com.koduck.dto.market.KlineDataDto;
-import com.koduck.dto.market.MarketIndexDto;
-import com.koduck.dto.market.PriceQuoteDto;
-import com.koduck.dto.market.StockIndustryDto;
-import com.koduck.dto.market.StockValuationDto;
-import com.koduck.dto.market.SymbolInfoDto;
-import com.koduck.service.KlineService;
-import com.koduck.service.KlineSyncService;
-import com.koduck.service.MarketBreadthService;
-import com.koduck.service.MarketFlowService;
-import com.koduck.service.MarketService;
+import java.lang.reflect.Method;
+import java.math.BigDecimal;
+import java.time.Instant;
+import java.util.List;
+import java.util.Objects;
 
 import jakarta.validation.constraints.Size;
 
@@ -36,14 +20,32 @@ import org.springframework.lang.NonNull;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
-import java.lang.reflect.Method;
-import java.math.BigDecimal;
-import java.time.Instant;
-import java.util.List;
-import java.util.Objects;
+import com.koduck.common.constants.ApiMessageConstants;
+import com.koduck.dto.market.KlineDataDto;
+import com.koduck.dto.market.MarketIndexDto;
+import com.koduck.dto.market.PriceQuoteDto;
+import com.koduck.dto.market.StockIndustryDto;
+import com.koduck.dto.market.StockValuationDto;
+import com.koduck.dto.market.SymbolInfoDto;
+import com.koduck.service.KlineService;
+import com.koduck.service.KlineSyncService;
+import com.koduck.service.MarketBreadthService;
+import com.koduck.service.MarketFlowService;
+import com.koduck.service.MarketService;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
  * MarketController 单元测试类。
+ *
+ * @author Koduck Team
  */
 @ExtendWith(MockitoExtension.class)
 class MarketControllerTest {
@@ -324,8 +326,8 @@ class MarketControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(HTTP_OK))
                 .andExpect(jsonPath("$.data.symbol").value(SYMBOL_LONGJI))
-                .andExpect(jsonPath("$.data.pe_ttm").value(18.39))
-                .andExpect(jsonPath("$.data.pb").value(2.17));
+                .andExpect(jsonPath("$.data.pe_ttm").value(PE_TTM_18_39))
+                .andExpect(jsonPath("$.data.pb").value(PB_2_17));
 
         verify(marketService).getStockValuation(SYMBOL_LONGJI);
     }
@@ -420,7 +422,7 @@ class MarketControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(HTTP_OK))
                 .andExpect(jsonPath("$.data").isArray())
-                .andExpect(jsonPath("$.data[0].close").value(12.50));
+                .andExpect(jsonPath("$.data[0].close").value(KLINE_CLOSE_12_50));
 
         verify(klineService).getKlineData(
                 MARKET_A_SHARE, SYMBOL_SH_INDEX, TIMEFRAME_1D, KLINE_LIMIT, null

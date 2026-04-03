@@ -1,20 +1,26 @@
 package com.koduck.config;
 
-import io.swagger.v3.oas.models.OpenAPI;
-import io.swagger.v3.oas.models.security.SecurityScheme;
-import io.swagger.v3.oas.models.servers.Server;
+import java.lang.reflect.Field;
+import java.util.List;
+
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
-import java.lang.reflect.Field;
-import java.util.List;
+import io.swagger.v3.oas.models.OpenAPI;
+import io.swagger.v3.oas.models.security.SecurityScheme;
+import io.swagger.v3.oas.models.servers.Server;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
  * Lightweight tests for {@link OpenApiConfig}.
+ *
+ * @author GitHub Copilot
  */
 class OpenApiConfigTest {
+
+    /** Test server port for OpenAPI configuration. */
+    private static final int TEST_SERVER_PORT = 9090;
 
     /**
      * Verifies generated server entries and bearer security scheme details.
@@ -27,7 +33,7 @@ class OpenApiConfigTest {
     @DisplayName("shouldGenerateExpectedServersAndSecurityScheme")
     void shouldGenerateExpectedServersAndSecurityScheme() {
         OpenApiConfig config = new OpenApiConfig();
-        setField(config, "serverPort", 9090);
+        setField(config, "serverPort", TEST_SERVER_PORT);
 
         OpenAPI openApi = config.customOpenAPI();
 
@@ -45,7 +51,8 @@ class OpenApiConfigTest {
         assertThat(securityScheme.getType()).isEqualTo(SecurityScheme.Type.HTTP);
         assertThat(securityScheme.getScheme()).isEqualTo("bearer");
         assertThat(securityScheme.getBearerFormat()).isEqualTo("JWT");
-        assertThat(securityScheme.getDescription()).isEqualTo("Enter JWT token in the format: Bearer {token}");
+        assertThat(securityScheme.getDescription())
+            .isEqualTo("Enter JWT token in the format: Bearer {token}");
 
         assertThat(openApi.getSecurity())
             .isNotNull()
@@ -66,7 +73,8 @@ class OpenApiConfigTest {
             Field field = target.getClass().getDeclaredField(fieldName);
             field.setAccessible(true);
             field.set(target, value);
-        } catch (ReflectiveOperationException ex) {
+        }
+        catch (ReflectiveOperationException ex) {
             throw new IllegalStateException("Failed to set field: " + fieldName, ex);
         }
     }

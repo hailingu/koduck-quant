@@ -1,12 +1,5 @@
 package com.koduck.service.market;
 
-import com.koduck.config.properties.DataServiceProperties;
-import com.koduck.market.MarketType;
-import com.koduck.market.model.KlineData;
-import com.koduck.market.model.TickData;
-import com.koduck.market.util.DataConverter;
-import com.koduck.service.market.support.MarketDataMapReader;
-import com.koduck.service.market.support.MarketTimeframeParser;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.DayOfWeek;
@@ -23,106 +16,185 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ThreadLocalRandom;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestTemplate;
 
+import com.koduck.config.properties.DataServiceProperties;
+import com.koduck.market.MarketType;
+import com.koduck.market.model.KlineData;
+import com.koduck.market.model.TickData;
+import com.koduck.market.util.DataConverter;
+import com.koduck.service.market.support.MarketDataMapReader;
+import com.koduck.service.market.support.MarketTimeframeParser;
+
 /**
- * 外汇（Forex）市场数据提供者。
+ * Forex market data provider.
  *
- * <p>基于数据服务的实现，继承自 {@link AbstractDataServiceMarketProvider}
- * 的统一检索和错误处理。</p>
+ * <p>Data-service based implementation with unified retrieval and error handling
+ * inherited from {@link AbstractDataServiceMarketProvider}.</p>
  *
  * @author Koduck Team
  */
 @Component
-public class ForexProvider extends AbstractDataServiceMarketProvider
-{
+public class ForexProvider extends AbstractDataServiceMarketProvider {
 
+    /** Logger instance for this class. */
     private static final Logger LOG = LoggerFactory.getLogger(ForexProvider.class);
+
+    /** New York timezone for market hours calculation. */
     private static final ZoneId NEW_YORK_ZONE = ZoneId.of("America/New_York");
+
+    /** Base path for forex data service endpoints. */
     private static final String FOREX_BASE_PATH = "/forex";
+
+    /** Provider name identifier. */
     private static final String PROVIDER_NAME = "akshare-forex";
+
+    /** Forex market opening hour (Sunday 17:00 ET). */
     private static final int FOREX_MARKET_OPEN_HOUR = 17;
+
+    /** Forex market closing hour (Friday 17:00 ET). */
     private static final int FOREX_MARKET_CLOSE_HOUR = 17;
+
+    /** Standard number of decimal digits for pips (4 digits). */
     private static final int PIP_DIGITS_STANDARD = 4;
+
+    /** Number of decimal digits for gold pips (2 digits). */
     private static final int PIP_DIGITS_GOLD = 2;
+
+    /** Number of decimal digits for JPY and silver pips (3 digits). */
     private static final int PIP_DIGITS_JPY_SILVER = 3;
+
+    /** Standard forex symbol length (6 characters). */
     private static final int SYMBOL_LENGTH_STANDARD = 6;
+
+    /** Length of symbol prefix (3 characters). */
     private static final int SYMBOL_PREFIX_LENGTH = 3;
+
+    /** Volatility for precious metals (0.8%). */
     private static final double VOLATILITY_PRECIOUS_METALS = 0.008;
+
+    /** Volatility for forex pairs (0.15%). */
     private static final double VOLATILITY_FOREX_PAIRS = 0.0015;
+
+    /** Volatility for tick data of precious metals (0.5%). */
     private static final double VOLATILITY_TICK_PRECIOUS_METALS = 0.005;
+
+    /** Volatility for tick data of forex pairs (0.1%). */
     private static final double VOLATILITY_TICK_FOREX = 0.001;
+
+    /** Multiplier for price change calculation (0.5 for centering random value). */
     private static final double PRICE_CHANGE_MULTIPLIER = 0.5;
+
+    /** Multiplier for high/low price calculation. */
     private static final double HIGH_LOW_MULTIPLIER = 1.0;
+
+    /** Multiplier for day high price calculation (101%). */
     private static final double DAY_HIGH_MULTIPLIER = 1.01;
+
+    /** Multiplier for day low price calculation (99%). */
     private static final double DAY_LOW_MULTIPLIER = 0.99;
+
+    /** Minimum volume for kline data generation. */
     private static final long VOLUME_MIN = 10_000L;
+
+    /** Maximum exclusive volume for kline data generation. */
     private static final long VOLUME_MAX_EXCLUSIVE = 1_000_000L;
+
+    /** Minimum volume for tick data generation. */
     private static final long TICK_VOLUME_MIN = 100_000L;
+
+    /** Maximum exclusive volume for tick data generation. */
     private static final long TICK_VOLUME_MAX_EXCLUSIVE = 5_000_000L;
+
+    /** Minimum volume for order book data generation. */
     private static final long ORDER_BOOK_VOLUME_MIN = 100L;
+
+    /** Maximum exclusive volume for order book data generation. */
     private static final long ORDER_BOOK_VOLUME_MAX_EXCLUSIVE = 10_000L;
+
+    /** Multiplier for bid/ask spread calculation. */
     private static final int BID_ASK_SPREAD_MULTIPLIER = 2;
+
+    /** Decimal scale for division operations. */
     private static final int DIVIDE_SCALE = 4;
+
+    /** Multiplier for percentage calculations (100%). */
     private static final double PERCENT_MULTIPLIER = 100.0;
+
+    /** XAU (Gold) symbol prefix. */
     private static final String XAU_PREFIX = "XAU";
+
+    /** XAG (Silver) symbol prefix. */
     private static final String XAG_PREFIX = "XAG";
+
+    /** JPY (Japanese Yen) symbol suffix. */
     private static final String JPY_SUFFIX = "JPY";
+
+    /** Symbol separator: forward slash (/). */
     private static final String SYMBOL_SEPARATOR_SLASH = "/";
+
+    /** Symbol separator: dash (-). */
     private static final String SYMBOL_SEPARATOR_DASH = "-";
+
+    /** Symbol separator: underscore (_). */
     private static final String SYMBOL_SEPARATOR_UNDERSCORE = "_";
+
+    /** Exchange name for forex. */
     private static final String EXCHANGE_FOREX = "FOREX";
+
+    /** Symbol type identifier for forex. */
     private static final String SYMBOL_TYPE_FOREX = "forex";
+
+    /** Initial capacity for maps (14 forex pairs). */
     private static final int INITIAL_CAPACITY = 14;
 
-    // 主要货币对的基准汇率（模拟数据回退）
+    /** Base for pip size calculation (10). */
+    private static final int PIP_SIZE_BASE = 10;
+
+    /** Base rates for major forex pairs (fallback mock data). */
     private final Map<String, BigDecimal> baseRates = new LinkedHashMap<>(INITIAL_CAPACITY);
 
     /**
-     * 构造函数。
+     * Constructs a new ForexProvider.
      *
-     * @param properties 配置属性
-     * @param restTemplate REST模板
+     * @param properties the data service properties
+     * @param restTemplate the REST template for data service calls
      */
     public ForexProvider(DataServiceProperties properties,
-        @Qualifier("dataServiceRestTemplate") RestTemplate restTemplate)
-    {
+        @Qualifier("dataServiceRestTemplate") RestTemplate restTemplate) {
         super(properties, restTemplate);
         initBaseRates();
     }
 
     @Override
-    public String getProviderName()
-    {
+    public String getProviderName() {
         return PROVIDER_NAME;
     }
 
     @Override
-    public MarketType getMarketType()
-    {
+    public MarketType getMarketType() {
         return MarketType.FOREX;
     }
 
     @Override
-    public MarketStatus getMarketStatus()
-    {
+    public MarketStatus getMarketStatus() {
         ZonedDateTime now = ZonedDateTime.now(NEW_YORK_ZONE);
         DayOfWeek dayOfWeek = now.getDayOfWeek();
         LocalTime time = now.toLocalTime();
 
-        // 外汇从周日 17:00 ET 到周五 17:00 ET 交易 24 小时
+        // Forex trades 24 hours from Sunday 17:00 ET to Friday 17:00 ET
         boolean isWeekend = dayOfWeek == DayOfWeek.SATURDAY
             || (dayOfWeek == DayOfWeek.SUNDAY
             && time.isBefore(LocalTime.of(FOREX_MARKET_OPEN_HOUR, 0)))
             || (dayOfWeek == DayOfWeek.FRIDAY
             && time.isAfter(LocalTime.of(FOREX_MARKET_CLOSE_HOUR, 0)));
 
-        if (isWeekend)
-        {
+        if (isWeekend) {
             return MarketStatus.CLOSED;
         }
 
@@ -130,58 +202,50 @@ public class ForexProvider extends AbstractDataServiceMarketProvider
     }
 
     @Override
-    protected Logger logger()
-    {
+    protected Logger logger() {
         return LOG;
     }
 
     @Override
-    protected String getDataServiceBasePath()
-    {
+    protected String getDataServiceBasePath() {
         return FOREX_BASE_PATH;
     }
 
     @Override
-    protected String getLogMarketName()
-    {
+    protected String getLogMarketName() {
         return "forex";
     }
 
     @Override
-    protected String getSubscriptionLabel()
-    {
+    protected String getSubscriptionLabel() {
         return "forex pairs";
     }
 
     @Override
-    protected String normalizeSymbol(String symbol)
-    {
-        if (symbol == null || symbol.trim().isEmpty())
-        {
+    protected String normalizeSymbol(String symbol) {
+        if (symbol == null || symbol.trim().isEmpty()) {
             return "";
         }
 
         String normalized = symbol.trim().toUpperCase(Locale.ROOT);
 
-        // 处理不同格式：EURUSD, EUR-USD, EUR_USD -> EUR/USD
+        // Handle different formats: EURUSD, EUR-USD, EUR_USD -> EUR/USD
         normalized = normalized.replace(SYMBOL_SEPARATOR_DASH, SYMBOL_SEPARATOR_SLASH)
             .replace(SYMBOL_SEPARATOR_UNDERSCORE, SYMBOL_SEPARATOR_SLASH);
 
-        // 如果没有分隔符且长度为6，在中间插入 /（如 EURUSD -> EUR/USD）
+        // If no separator and length is 6, insert / in the middle (e.g., EURUSD -> EUR/USD)
         if (!normalized.contains(SYMBOL_SEPARATOR_SLASH)
             && normalized.length() == SYMBOL_LENGTH_STANDARD
-            && normalized.matches("[A-Z]{6}"))
-        {
+            && normalized.matches("[A-Z]{6}")) {
             normalized = normalized.substring(0, SYMBOL_PREFIX_LENGTH)
                 + SYMBOL_SEPARATOR_SLASH
                 + normalized.substring(SYMBOL_PREFIX_LENGTH);
         }
 
-        // 处理 XAUUSD/XAGUSD 格式
+        // Handle XAUUSD/XAGUSD format
         if (!normalized.contains(SYMBOL_SEPARATOR_SLASH)
             && normalized.length() == SYMBOL_LENGTH_STANDARD
-            && (normalized.startsWith(XAU_PREFIX) || normalized.startsWith(XAG_PREFIX)))
-        {
+            && (normalized.startsWith(XAU_PREFIX) || normalized.startsWith(XAG_PREFIX))) {
             normalized = normalized.substring(0, SYMBOL_PREFIX_LENGTH)
                 + SYMBOL_SEPARATOR_SLASH
                 + normalized.substring(SYMBOL_PREFIX_LENGTH);
@@ -192,27 +256,24 @@ public class ForexProvider extends AbstractDataServiceMarketProvider
 
     @Override
     protected List<KlineData> generateMockKlineData(String symbol, String timeframe, int limit,
-        Instant startTime, Instant endTime)
-    {
+        Instant startTime, Instant endTime) {
         List<KlineData> klines = new ArrayList<>();
         String normalizedSymbol = normalizeSymbol(symbol);
         BigDecimal baseRate = baseRates.getOrDefault(normalizedSymbol, BigDecimal.ONE);
 
         Instant currentTime = endTime != null ? endTime : Instant.now();
-        if (endTime == null && startTime != null)
-        {
+        if (endTime == null && startTime != null) {
             currentTime = startTime;
         }
         Duration interval = MarketTimeframeParser.parseWithFourHour(timeframe);
 
-        // 贵金属比主要外汇对更波动
+        // Precious metals are more volatile than major forex pairs
         double volatility = normalizedSymbol.startsWith(XAU_PREFIX)
             || normalizedSymbol.startsWith(XAG_PREFIX)
             ? VOLATILITY_PRECIOUS_METALS : VOLATILITY_FOREX_PAIRS;
 
         BigDecimal currentRate = baseRate;
-        for (int i = 0; i < limit; i++)
-        {
+        for (int i = 0; i < limit; i++) {
             double changePercent = (ThreadLocalRandom.current().nextDouble() - PRICE_CHANGE_MULTIPLIER)
                 * volatility * 2;
             BigDecimal change = currentRate.multiply(BigDecimal.valueOf(changePercent));
@@ -248,8 +309,7 @@ public class ForexProvider extends AbstractDataServiceMarketProvider
     }
 
     @Override
-    protected Optional<TickData> generateMockTickData(String symbol)
-    {
+    protected Optional<TickData> generateMockTickData(String symbol) {
         String normalizedSymbol = normalizeSymbol(symbol);
         BigDecimal baseRate = baseRates.getOrDefault(normalizedSymbol, BigDecimal.ONE);
 
@@ -268,16 +328,14 @@ public class ForexProvider extends AbstractDataServiceMarketProvider
             TICK_VOLUME_MAX_EXCLUSIVE);
 
         int pipDigits = PIP_DIGITS_STANDARD;
-        if (normalizedSymbol.startsWith(XAU_PREFIX))
-        {
+        if (normalizedSymbol.startsWith(XAU_PREFIX)) {
             pipDigits = PIP_DIGITS_GOLD;
         }
         else if (normalizedSymbol.contains(JPY_SUFFIX)
-            || normalizedSymbol.startsWith(XAG_PREFIX))
-        {
+            || normalizedSymbol.startsWith(XAG_PREFIX)) {
             pipDigits = PIP_DIGITS_JPY_SILVER;
         }
-        BigDecimal pipSize = BigDecimal.valueOf(Math.pow(10, -pipDigits));
+        BigDecimal pipSize = BigDecimal.valueOf(Math.pow(PIP_SIZE_BASE, -pipDigits));
 
         TickData tickData = TickData.builder()
             .symbol(normalizedSymbol)
@@ -306,8 +364,7 @@ public class ForexProvider extends AbstractDataServiceMarketProvider
     }
 
     @Override
-    protected List<SymbolInfo> generateMockSearchResults(String keyword, int limit)
-    {
+    protected List<SymbolInfo> generateMockSearchResults(String keyword, int limit) {
         List<SymbolInfo> results = new ArrayList<>();
         String upperKeyword = keyword.toUpperCase(Locale.ROOT);
 
@@ -339,12 +396,10 @@ public class ForexProvider extends AbstractDataServiceMarketProvider
 
     @Override
     protected List<KlineData> convertToKlineData(List<Map<String, Object>> data, String symbol,
-        String timeframe)
-    {
+        String timeframe) {
         List<KlineData> klines = new ArrayList<>();
 
-        for (Map<String, Object> item : data)
-        {
+        for (Map<String, Object> item : data) {
             klines.add(KlineData.builder()
                 .symbol(symbol)
                 .market(MarketType.FOREX.getCode())
@@ -369,8 +424,7 @@ public class ForexProvider extends AbstractDataServiceMarketProvider
     }
 
     @Override
-    protected TickData convertToTickData(Map<String, Object> data, String symbol)
-    {
+    protected TickData convertToTickData(Map<String, Object> data, String symbol) {
         return TickData.builder()
             .symbol(symbol)
             .market(MarketType.FOREX.getCode())
@@ -403,8 +457,7 @@ public class ForexProvider extends AbstractDataServiceMarketProvider
     }
 
     @Override
-    protected SymbolInfo convertToSymbolInfo(Map<String, Object> data)
-    {
+    protected SymbolInfo convertToSymbolInfo(Map<String, Object> data) {
         return new SymbolInfo(
             MarketDataMapReader.getString(data, "symbol"),
             MarketDataMapReader.getString(data, "name"),
@@ -414,8 +467,7 @@ public class ForexProvider extends AbstractDataServiceMarketProvider
         );
     }
 
-    private void initBaseRates()
-    {
+    private void initBaseRates() {
         baseRates.put("EUR/USD", new BigDecimal("1.0850"));
         baseRates.put("USD/JPY", new BigDecimal("149.50"));
         baseRates.put("GBP/USD", new BigDecimal("1.2650"));

@@ -1,9 +1,5 @@
 package com.koduck.security;
 
-import com.koduck.entity.User;
-import org.springframework.security.core.GrantedAuthority;
-import org.springframework.security.core.userdetails.UserDetails;
-
 import java.io.Serial;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -11,19 +7,50 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 
+import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.userdetails.UserDetails;
+
+import com.koduck.entity.User;
+
 /**
- *  UserDetails ， User 
+ * Spring Security UserDetails implementation that wraps the domain User entity.
+ * Provides user information and authorities for authentication and authorization.
+ *
+ * @author GitHub Copilot
  */
 public class UserPrincipal implements UserDetails {
 
     @Serial
     private static final long serialVersionUID = 1L;
 
+    /**
+     * User ID.
+     */
     private final Long id;
+
+    /**
+     * User email address.
+     */
     private final String email;
+
+    /**
+     * User nickname.
+     */
     private final String nickname;
+
+    /**
+     * User password hash.
+     */
     private final String passwordHash;
+
+    /**
+     * User account status.
+     */
     private final User.UserStatus status;
+
+    /**
+     * User authorities (roles and permissions).
+     */
     private final Collection<? extends GrantedAuthority> authorities;
 
     public UserPrincipal(User user, Collection<? extends GrantedAuthority> authorities) {

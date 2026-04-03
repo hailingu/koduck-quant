@@ -17,9 +17,12 @@ import static org.assertj.core.api.Assertions.assertThat;
  * Unit tests for {@link RedisConfig}. Uses an
  * {@link ApplicationContextRunner} to spin up a minimal context containing the
  * configuration under test and a dummy connection factory.
+ *
+ * @author GitHub Copilot
  */
 class RedisConfigTest {
 
+    /** Context runner for testing Redis configuration. */
     private final ApplicationContextRunner contextRunner = new ApplicationContextRunner()
             .withUserConfiguration(TestConfiguration.class, RedisConfig.class);
 

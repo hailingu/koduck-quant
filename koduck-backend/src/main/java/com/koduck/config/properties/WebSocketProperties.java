@@ -1,10 +1,12 @@
 package com.koduck.config.properties;
 
-import com.koduck.util.CollectionCopyUtils;
-import lombok.Getter;
-import lombok.Setter;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.stereotype.Component;
+
+import com.koduck.util.CollectionCopyUtils;
+
+import lombok.Getter;
+import lombok.Setter;
 
 /**
  * Properties for WebSocket messaging configuration.
@@ -14,13 +16,17 @@ import org.springframework.stereotype.Component;
  * </p>
  *
  * @author GitHub Copilot
- * @date 2026-03-31
  */
 @Getter
 @Setter
 @Component
 @ConfigurationProperties(prefix = "koduck.websocket")
 public class WebSocketProperties {
+
+    /**
+     * Default heartbeat interval in seconds.
+     */
+    private static final int DEFAULT_HEARTBEAT_INTERVAL = 25;
 
     /**
      * WebSocket endpoint path.
@@ -40,7 +46,7 @@ public class WebSocketProperties {
     /**
      * Heartbeat interval in seconds.
      */
-    private int heartbeatInterval = 25;
+    private int heartbeatInterval = DEFAULT_HEARTBEAT_INTERVAL;
 
     /**
      * Broker settings for destination prefix mapping.

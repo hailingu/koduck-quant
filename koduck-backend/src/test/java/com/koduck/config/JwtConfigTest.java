@@ -13,9 +13,26 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 /**
  * Unit tests for {@link JwtConfig} property binding and validation.
+ *
+ * @author GitHub Copilot
  */
 class JwtConfigTest {
 
+    /** Access token expiration for testing: 2 minutes in milliseconds. */
+    private static final long TEST_ACCESS_TOKEN_EXPIRATION = 120_000L;
+
+    /** Refresh token expiration for testing: 1 hour in milliseconds. */
+    private static final long TEST_REFRESH_TOKEN_EXPIRATION = 3_600_000L;
+
+    /** Default access token expiration: 1 day in milliseconds. */
+    private static final long DEFAULT_ACCESS_TOKEN_EXPIRATION = 86_400_000L;
+
+    /** Default refresh token expiration: 7 days in milliseconds. */
+    private static final long DEFAULT_REFRESH_TOKEN_EXPIRATION = 604_800_000L;
+
+    /**
+     * Runner for testing application context with JWT configuration.
+     */
     private final ApplicationContextRunner contextRunner = new ApplicationContextRunner()
             .withConfiguration(AutoConfigurations.of(
                     ConfigurationPropertiesAutoConfiguration.class,
@@ -42,8 +59,8 @@ class JwtConfigTest {
 
                     JwtConfig jwtConfig = context.getBean(JwtConfig.class);
                     assertThat(jwtConfig.getSecret()).isEqualTo("test-secret-value");
-                    assertThat(jwtConfig.getAccessTokenExpiration()).isEqualTo(120000L);
-                    assertThat(jwtConfig.getRefreshTokenExpiration()).isEqualTo(3600000L);
+                    assertThat(jwtConfig.getAccessTokenExpiration()).isEqualTo(TEST_ACCESS_TOKEN_EXPIRATION);
+                    assertThat(jwtConfig.getRefreshTokenExpiration()).isEqualTo(TEST_REFRESH_TOKEN_EXPIRATION);
                     assertThat(jwtConfig.getTokenPrefix()).isEqualTo("Token-");
                     assertThat(jwtConfig.getHeaderName()).isEqualTo("X-Auth");
                 });
@@ -62,8 +79,8 @@ class JwtConfigTest {
 
                     JwtConfig jwtConfig = context.getBean(JwtConfig.class);
                     assertThat(jwtConfig.getSecret()).isEqualTo("test-secret-value");
-                    assertThat(jwtConfig.getAccessTokenExpiration()).isEqualTo(86_400_000L);
-                    assertThat(jwtConfig.getRefreshTokenExpiration()).isEqualTo(604_800_000L);
+                    assertThat(jwtConfig.getAccessTokenExpiration()).isEqualTo(DEFAULT_ACCESS_TOKEN_EXPIRATION);
+                    assertThat(jwtConfig.getRefreshTokenExpiration()).isEqualTo(DEFAULT_REFRESH_TOKEN_EXPIRATION);
                     assertThat(jwtConfig.getTokenPrefix()).isEqualTo("Bearer ");
                     assertThat(jwtConfig.getHeaderName()).isEqualTo("Authorization");
                 });

@@ -1,7 +1,5 @@
 package com.koduck.market.application;
 
-import com.koduck.service.StockSubscriptionService;
-import com.koduck.util.SymbolUtils;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -12,9 +10,14 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
-import lombok.extern.slf4j.Slf4j;
+
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
+
+import com.koduck.service.StockSubscriptionService;
+import com.koduck.util.SymbolUtils;
+
+import lombok.extern.slf4j.Slf4j;
 
 /**
  * In-memory subscription registry and websocket push service.
@@ -22,36 +25,46 @@ import org.springframework.stereotype.Service;
  * <p>Maintains user-symbol subscriptions and fan-outs price updates to subscribed users.</p>
  *
  * @author GitHub Copilot
- * @date 2026-03-31
  */
 @Slf4j
 @Service
 public class StockSubscriptionServiceImpl implements StockSubscriptionService {
 
+    /** WebSocket destination for price updates. */
     private static final String PRICE_QUEUE_DESTINATION = "/queue/price";
+
+    /** Message type for price updates. */
     private static final String PRICE_UPDATE_TYPE = "PRICE_UPDATE";
 
+    /** Messaging template for WebSocket communication. */
     private final SimpMessagingTemplate messagingTemplate;
 
+    /**
+     * Constructs a new StockSubscriptionServiceImpl.
+     *
+     * @param messagingTemplate the messaging template
+     */
     public StockSubscriptionServiceImpl(SimpMessagingTemplate messagingTemplate) {
         this.messagingTemplate = Objects.requireNonNull(messagingTemplate,
                 "messagingTemplate must not be null");
     }
 
     /**
-     * : userId -> Set<symbol>
+     * User subscriptions map: userId -> Set<symbol>.
      */
     private final ConcurrentHashMap<Long, Set<String>> userSubscriptions = new ConcurrentHashMap<>();
+
     /**
-     * : symbol -> Set<userId>
+     * Symbol subscribers map: symbol -> Set<userId>.
      */
     private final ConcurrentHashMap<String, Set<Long>> symbolSubscribers = new ConcurrentHashMap<>();
+
     /**
-     * 
+     * Subscribe user to stock symbols.
      *
-     * @param userId  ID
-     * @param symbols 
-     * @return ，
+     * @param userId the user ID
+     * @param symbols the list of symbols to subscribe
+     * @return the subscription result
      */
     @Override
     public SubscribeResult subscribe(Long userId, List<String> symbols) {
@@ -68,27 +81,30 @@ public class StockSubscriptionServiceImpl implements StockSubscriptionService {
                     failedMap.put(symbol, "Invalid symbol format");
                     continue;
                 }
-                // 
+                // Add to user subscriptions
                 userSubList.add(normalizedSymbol);
-                // 
+                // Add to symbol subscribers
                 symbolSubscribers.computeIfAbsent(normalizedSymbol, k -> ConcurrentHashMap.newKeySet())
                         .add(userId);
                 successList.add(normalizedSymbol);
                 log.debug("User {} subscribed to stock {}", userId, normalizedSymbol);
-            } catch (Exception e) {
+            }
+            catch (Exception e) {
                 failedMap.put(symbol, e.getMessage());
                 log.warn("Failed to subscribe user {} to stock {}: {}", userId, symbol, e.getMessage());
             }
         }
-        log.info("User {} subscription result: success={}, failed={}", userId, successList.size(), failedMap.size());
+        log.info("User {} subscription result: success={}, failed={}",
+            userId, successList.size(), failedMap.size());
         return new SubscribeResult(successList, failedMap);
     }
+
     /**
-     * 
+     * Unsubscribe user from stock symbols.
      *
-     * @param userId  ID
-     * @param symbols 
-     * @return 
+     * @param userId the user ID
+     * @param symbols the list of symbols to unsubscribe
+     * @return the unsubscription result
      */
     @Override
     public SubscribeResult unsubscribe(Long userId, List<String> symbols) {
@@ -100,6 +116,13 @@ public class StockSubscriptionServiceImpl implements StockSubscriptionService {
         }
         return unsubscribeSymbols(userId, symbols);
     }
+
+    /**
+     * Unsubscribe user from all stocks.
+     *
+     * @param userId the user ID
+     * @return the unsubscription result
+     */
     private SubscribeResult unsubscribeAll(Long userId) {
         Set<String> userSubList = userSubscriptions.remove(userId);
         if (userSubList != null) {
@@ -111,6 +134,14 @@ public class StockSubscriptionServiceImpl implements StockSubscriptionService {
         log.info("User {} unsubscribed from all stocks", userId);
         return new SubscribeResult(successList, Collections.emptyMap());
     }
+
+    /**
+     * Unsubscribe user from specific symbols.
+     *
+     * @param userId the user ID
+     * @param symbols the list of symbols to unsubscribe
+     * @return the unsubscription result
+     */
     private SubscribeResult unsubscribeSymbols(Long userId, List<String> symbols) {
         Set<String> userSubList = userSubscriptions.get(userId);
         if (userSubList == null || userSubList.isEmpty()) {
@@ -129,7 +160,8 @@ public class StockSubscriptionServiceImpl implements StockSubscriptionService {
                 removeSubscriberFromSymbol(userId, normalizedSymbol);
                 successList.add(normalizedSymbol);
                 log.debug("User {} unsubscribed from stock {}", userId, normalizedSymbol);
-            } catch (Exception e) {
+            }
+            catch (Exception e) {
                 failedMap.put(symbol, e.getMessage());
                 log.warn("Failed to unsubscribe user {} from stock {}: {}", userId, symbol, e.getMessage());
             }
@@ -137,9 +169,17 @@ public class StockSubscriptionServiceImpl implements StockSubscriptionService {
         if (userSubList.isEmpty()) {
             userSubscriptions.remove(userId);
         }
-        log.info("User {} unsubscription result: success={}, failed={}", userId, successList.size(), failedMap.size());
+        log.info("User {} unsubscription result: success={}, failed={}",
+            userId, successList.size(), failedMap.size());
         return new SubscribeResult(successList, failedMap);
     }
+
+    /**
+     * Remove subscriber from symbol.
+     *
+     * @param userId the user ID
+     * @param symbol the symbol
+     */
     private void removeSubscriberFromSymbol(Long userId, String symbol) {
         Set<Long> subscribers = symbolSubscribers.get(symbol);
         if (subscribers == null) {
@@ -150,11 +190,12 @@ public class StockSubscriptionServiceImpl implements StockSubscriptionService {
             symbolSubscribers.remove(symbol);
         }
     }
+
     /**
-     * ID
+     * Get subscribers for a symbol.
      *
-     * @param symbol 
-     * @return ID
+     * @param symbol the symbol
+     * @return set of subscriber user IDs
      */
     @Override
     public Set<Long> getSubscribers(String symbol) {
@@ -168,11 +209,12 @@ public class StockSubscriptionServiceImpl implements StockSubscriptionService {
         Set<Long> subscribers = symbolSubscribers.get(normalizedSymbol);
         return subscribers == null ? Collections.emptySet() : new HashSet<>(subscribers);
     }
+
     /**
-     * 
+     * Get user subscriptions.
      *
-     * @param userId ID
-     * @return 
+     * @param userId the user ID
+     * @return set of subscribed symbols
      */
     @Override
     public Set<String> getUserSubscriptions(Long userId) {
@@ -182,19 +224,21 @@ public class StockSubscriptionServiceImpl implements StockSubscriptionService {
         Set<String> subscriptions = userSubscriptions.get(userId);
         return subscriptions != null ? new HashSet<>(subscriptions) : Collections.emptySet();
     }
+
     /**
-     * 
+     * Get all subscribed symbols.
      *
-     * @return 
+     * @return set of all subscribed symbols
      */
     @Override
     public Set<String> getAllSubscribedSymbols() {
         return new HashSet<>(symbolSubscribers.keySet());
     }
+
     /**
-     * ，
+     * Handle price update and send to subscribers.
      *
-     * @param priceUpdate 
+     * @param priceUpdate the price update
      */
     @Override
     public void onPriceUpdate(PriceUpdate priceUpdate) {
@@ -212,31 +256,36 @@ public class StockSubscriptionServiceImpl implements StockSubscriptionService {
             log.debug("No subscribers for symbol {}", symbol);
             return;
         }
-        // 
+        // Build price update message
         PriceUpdateMessage message = new PriceUpdateMessage();
         message.setType(PRICE_UPDATE_TYPE);
         message.setTimestamp(Instant.now().toString());
         message.setData(createPriceData(priceUpdate));
-        // 
+        // Send to all subscribers
         for (Long userId : subscribers) {
             try {
-                //  /queue/user/<userId>/price 
-            String principal = Objects.requireNonNull(String.valueOf(userId),
-                "user principal must not be null");
+                // Send to /queue/user/<userId>/price
+                String principal = Objects.requireNonNull(String.valueOf(userId),
+                    "user principal must not be null");
                 messagingTemplate.convertAndSendToUser(
-                principal,
-                        PRICE_QUEUE_DESTINATION,
-                        message
+                    principal,
+                    PRICE_QUEUE_DESTINATION,
+                    message
                 );
                 log.debug("Sent price update for {} to user {}", symbol, userId);
-            } catch (Exception e) {
+            }
+            catch (Exception e) {
                 log.error("Failed to send price update to user {}: {}", userId, e.getMessage());
             }
         }
         log.info("Price update for {} sent to {} subscribers", symbol, subscribers.size());
     }
+
     /**
-     * Helper method to create PriceData from PriceUpdate
+     * Helper method to create PriceData from PriceUpdate.
+     *
+     * @param priceUpdate the price update
+     * @return the price data
      */
     private PriceUpdateMessage.PriceData createPriceData(PriceUpdate priceUpdate) {
         PriceUpdateMessage.PriceData data = new PriceUpdateMessage.PriceData();
@@ -248,10 +297,11 @@ public class StockSubscriptionServiceImpl implements StockSubscriptionService {
         data.setVolume(priceUpdate.getVolume());
         return data;
     }
+
     /**
-     * 
+     * Handle user disconnect.
      *
-     * @param userId ID
+     * @param userId the user ID
      */
     @Override
     public void onUserDisconnect(Long userId) {
@@ -261,11 +311,12 @@ public class StockSubscriptionServiceImpl implements StockSubscriptionService {
         unsubscribe(userId, Collections.emptyList());
         log.info("Cleaned up subscriptions for disconnected user {}", userId);
     }
+
     /**
-     * 
+     * Normalize symbol.
      *
-     * @param symbol 
-     * @return 
+     * @param symbol the symbol to normalize
+     * @return the normalized symbol
      */
     private String normalizeSymbol(String symbol) {
         if (symbol == null || symbol.isBlank()) {

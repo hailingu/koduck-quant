@@ -7,7 +7,6 @@ import org.springframework.lang.NonNull;
  * Defines all key patterns used for caching stock data and user watchlists.
  *
  * @author GitHub Copilot
- * @date 2026-03-31
  */
 public final class RedisKeyConstants {
 

@@ -1,14 +1,14 @@
 package com.koduck.fixtures;
 
-import com.koduck.entity.StockBasic;
-import com.koduck.entity.StockRealtime;
-
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+
+import com.koduck.entity.StockBasic;
+import com.koduck.entity.StockRealtime;
 
 /**
  * 股票相关测试数据工厂。
@@ -19,6 +19,27 @@ import java.util.stream.IntStream;
  * @since 1.0.0
  */
 public final class StockFixtures {
+
+    /** 默认成交量（股）。 */
+    private static final long DEFAULT_VOLUME = 1000000L;
+
+    /** 涨停股票成交量（股）。 */
+    private static final long LIMIT_UP_VOLUME = 5000000L;
+
+    /** 跌停股票成交量（股）。 */
+    private static final long LIMIT_DOWN_VOLUME = 8000000L;
+
+    /** 默认上市年份。 */
+    private static final int DEFAULT_LIST_YEAR = 2020;
+
+    /** 随机价格范围偏移量。 */
+    private static final double RANDOM_PRICE_OFFSET = 0.5;
+
+    /** 随机涨跌幅范围乘数。 */
+    private static final double RANDOM_CHANGE_MULTIPLIER = 0.2;
+
+    /** 涨跌幅小数位数。 */
+    private static final int CHANGE_PERCENT_SCALE = 4;
 
     private StockFixtures() {
         // 工具类，禁止实例化
@@ -44,7 +65,7 @@ public final class StockFixtures {
                 .high(new BigDecimal("10.80"))
                 .low(new BigDecimal("10.20"))
                 .prevClose(new BigDecimal("10.25"))
-                .volume(1000000L)
+                .volume(DEFAULT_VOLUME)
                 .amount(new BigDecimal("10500000"))
                 .updatedAt(LocalDateTime.now())
                 .build();
@@ -68,7 +89,7 @@ public final class StockFixtures {
                 .high(new BigDecimal("10.80"))
                 .low(new BigDecimal("10.20"))
                 .prevClose(new BigDecimal("10.25"))
-                .volume(1000000L)
+                .volume(DEFAULT_VOLUME)
                 .amount(new BigDecimal("10500000"))
                 .updatedAt(LocalDateTime.now())
                 .build();
@@ -103,7 +124,7 @@ public final class StockFixtures {
                 .high(new BigDecimal("11.00"))
                 .low(new BigDecimal("10.10"))
                 .prevClose(new BigDecimal("10.00"))
-                .volume(5000000L)
+                .volume(LIMIT_UP_VOLUME)
                 .amount(new BigDecimal("55000000"))
                 .updatedAt(LocalDateTime.now())
                 .build();
@@ -126,7 +147,7 @@ public final class StockFixtures {
                 .high(new BigDecimal("9.90"))
                 .low(new BigDecimal("9.00"))
                 .prevClose(new BigDecimal("10.00"))
-                .volume(8000000L)
+                .volume(LIMIT_DOWN_VOLUME)
                 .amount(new BigDecimal("72000000"))
                 .updatedAt(LocalDateTime.now())
                 .build();
@@ -149,7 +170,7 @@ public final class StockFixtures {
                 .high(new BigDecimal("10.10"))
                 .low(new BigDecimal("9.90"))
                 .prevClose(new BigDecimal("10.00"))
-                .volume(1000000L)
+                .volume(DEFAULT_VOLUME)
                 .amount(new BigDecimal("10000000"))
                 .updatedAt(LocalDateTime.now())
                 .build();
@@ -170,7 +191,7 @@ public final class StockFixtures {
                 .market("SZSE")
                 .industry("其他")
                 .city("深圳")
-                .listDate(LocalDate.of(2020, 1, 1))
+                .listDate(LocalDate.of(DEFAULT_LIST_YEAR, 1, 1))
                 .status("Active")
                 .build();
     }
@@ -190,7 +211,7 @@ public final class StockFixtures {
                 .market(symbol.endsWith(".SZ") ? "SZSE" : "SSE")
                 .industry(industry)
                 .city("深圳")
-                .listDate(LocalDate.of(2020, 1, 1))
+                .listDate(LocalDate.of(DEFAULT_LIST_YEAR, 1, 1))
                 .status("Active")
                 .build();
     }
@@ -230,7 +251,7 @@ public final class StockFixtures {
      * @return 随机涨跌幅
      */
     public static BigDecimal randomChangePercent() {
-        double change = (Math.random() - 0.5) * 0.2; // -0.1 到 0.1
-        return BigDecimal.valueOf(change).setScale(4, BigDecimal.ROUND_HALF_UP);
+        double change = (Math.random() - RANDOM_PRICE_OFFSET) * RANDOM_CHANGE_MULTIPLIER;
+        return BigDecimal.valueOf(change).setScale(CHANGE_PERCENT_SCALE, BigDecimal.ROUND_HALF_UP);
     }
 }

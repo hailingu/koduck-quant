@@ -5,6 +5,8 @@ import java.util.Map;
 
 /**
  * Helper methods for parsing typed values from map-based payloads.
+ *
+ * @author Koduck Team
  */
 public final class MarketFieldParser {
 
@@ -41,7 +43,8 @@ public final class MarketFieldParser {
         }
         try {
             return Long.parseLong(value.toString());
-        } catch (NumberFormatException _) {
+        }
+        catch (NumberFormatException _) {
             return null;
         }
     }
@@ -63,7 +66,8 @@ public final class MarketFieldParser {
         }
         try {
             return new BigDecimal(value.toString());
-        } catch (NumberFormatException _) {
+        }
+        catch (NumberFormatException _) {
             return null;
         }
     }

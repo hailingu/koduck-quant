@@ -1,5 +1,8 @@
 package com.koduck.entity;
 
+import java.time.LocalDateTime;
+import java.util.List;
+
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
@@ -7,8 +10,12 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 
-import java.time.LocalDateTime;
-import java.util.List;
+import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.annotations.UpdateTimestamp;
+import org.hibernate.type.SqlTypes;
+
+import com.koduck.util.CollectionCopyUtils;
 
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
@@ -16,13 +23,6 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
-
-import org.hibernate.annotations.CreationTimestamp;
-import org.hibernate.annotations.JdbcTypeCode;
-import org.hibernate.annotations.UpdateTimestamp;
-import org.hibernate.type.SqlTypes;
-
-import com.koduck.util.CollectionCopyUtils;
 
 /**
  * User settings entity.
@@ -307,17 +307,64 @@ public class UserSettings {
      */
     public static final class BuilderWrapper {
 
+        /**
+         * The ID.
+         */
         private Long id;
+
+        /**
+         * The user ID.
+         */
         private Long userId;
+
+        /**
+         * The theme.
+         */
         private String theme;
+
+        /**
+         * The language.
+         */
         private String language;
+
+        /**
+         * The timezone.
+         */
         private String timezone;
+
+        /**
+         * The notification config.
+         */
         private NotificationConfig notificationConfig;
+
+        /**
+         * The trading config.
+         */
         private TradingConfig tradingConfig;
+
+        /**
+         * The display config.
+         */
         private DisplayConfig displayConfig;
+
+        /**
+         * The quick links.
+         */
         private List<QuickLink> quickLinks;
+
+        /**
+         * The LLM config.
+         */
         private LlmConfig llmConfig;
+
+        /**
+         * The created at timestamp.
+         */
         private LocalDateTime createdAt;
+
+        /**
+         * The updated at timestamp.
+         */
         private LocalDateTime updatedAt;
 
         /**
@@ -531,10 +578,15 @@ public class UserSettings {
         private String defaultMarket = "US";
 
         /**
+         * Commission rate constant (0.1%).
+         */
+        private static final Double DEFAULT_COMMISSION_RATE = 0.001;
+
+        /**
          * Commission rate.
          */
         @Builder.Default
-        private Double commissionRate = 0.001;
+        private Double commissionRate = DEFAULT_COMMISSION_RATE;
 
         /**
          * Minimum commission.

@@ -1,27 +1,10 @@
 package com.koduck.controller;
 
-import io.swagger.v3.oas.annotations.Operation;
-import io.swagger.v3.oas.annotations.Parameter;
-import io.swagger.v3.oas.annotations.media.Content;
-import io.swagger.v3.oas.annotations.media.Schema;
-import io.swagger.v3.oas.annotations.responses.ApiResponses;
-import io.swagger.v3.oas.annotations.security.SecurityRequirement;
-import io.swagger.v3.oas.annotations.tags.Tag;
-import com.koduck.controller.support.AuthenticatedUserResolver;
-import com.koduck.dto.ApiResponse;
-import com.koduck.dto.portfolio.AddPositionRequest;
-import com.koduck.dto.portfolio.AddTradeRequest;
-import com.koduck.dto.portfolio.PortfolioPositionDto;
-import com.koduck.dto.portfolio.PortfolioSummaryDto;
-import com.koduck.dto.portfolio.TradeDto;
-import com.koduck.dto.portfolio.UpdatePositionRequest;
-import com.koduck.security.UserPrincipal;
-import com.koduck.service.PortfolioService;
+import java.util.List;
+
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Positive;
-import java.util.List;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
+
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -33,12 +16,31 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.koduck.controller.support.AuthenticatedUserResolver;
+import com.koduck.dto.ApiResponse;
+import com.koduck.dto.portfolio.AddPositionRequest;
+import com.koduck.dto.portfolio.AddTradeRequest;
+import com.koduck.dto.portfolio.PortfolioPositionDto;
+import com.koduck.dto.portfolio.PortfolioSummaryDto;
+import com.koduck.dto.portfolio.TradeDto;
+import com.koduck.dto.portfolio.UpdatePositionRequest;
+import com.koduck.security.UserPrincipal;
+import com.koduck.service.PortfolioService;
+
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+
 /**
  * REST API controller for user portfolios.
  * <p>Provides endpoints to manage positions, trades and summary statistics.</p>
  *
  * @author GitHub Copilot
- * @date 2026-03-31
  */
 @RestController
 @RequestMapping("/api/v1/portfolio")
@@ -49,7 +51,14 @@ import org.springframework.web.bind.annotation.RestController;
 @RequiredArgsConstructor
 public class PortfolioController {
 
+    /**
+     * Resolver for authenticated user information.
+     */
     private final AuthenticatedUserResolver authenticatedUserResolver;
+
+    /**
+     * Service for portfolio operations.
+     */
     private final PortfolioService portfolioService;
 
     /**
@@ -67,7 +76,7 @@ public class PortfolioController {
             responseCode = "200",
             description = "获取成功",
             content = @Content(schema = @Schema(implementation = PortfolioPositionDto.class))
-        ),
+            ),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "未登录或Token无效"),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "500", description = "服务器内部错误")
     })
@@ -96,7 +105,7 @@ public class PortfolioController {
             responseCode = "200",
             description = "获取成功",
             content = @Content(schema = @Schema(implementation = PortfolioSummaryDto.class))
-        ),
+            ),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "未登录或Token无效"),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "500", description = "服务器内部错误")
     })
@@ -126,7 +135,7 @@ public class PortfolioController {
             responseCode = "200",
             description = "添加成功",
             content = @Content(schema = @Schema(implementation = PortfolioPositionDto.class))
-        ),
+            ),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "请求参数错误"),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "未登录或Token无效"),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "股票不存在"),
@@ -161,7 +170,7 @@ public class PortfolioController {
             responseCode = "200",
             description = "更新成功",
             content = @Content(schema = @Schema(implementation = PortfolioPositionDto.class))
-        ),
+            ),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "请求参数错误"),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "未登录或Token无效"),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "无权更新该持仓"),
@@ -226,7 +235,7 @@ public class PortfolioController {
             responseCode = "200",
             description = "获取成功",
             content = @Content(schema = @Schema(implementation = TradeDto.class))
-        ),
+            ),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "未登录或Token无效"),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "500", description = "服务器内部错误")
     })
@@ -256,7 +265,7 @@ public class PortfolioController {
             responseCode = "200",
             description = "添加成功",
             content = @Content(schema = @Schema(implementation = TradeDto.class))
-        ),
+            ),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "请求参数错误"),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "未登录或Token无效"),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "500", description = "服务器内部错误")

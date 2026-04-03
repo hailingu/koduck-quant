@@ -10,10 +10,15 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 /**
  * Unit tests for {@link CredentialEncryptionUtil} initialization behavior.
+ *
+ * @author GitHub Copilot
  */
 class CredentialEncryptionUtilTest {
 
+    /** Test encryption key for testing purposes. */
     private static final String ENCRYPTION_KEY = "configured-encryption-key";
+
+    /** Sample plain text for encryption/decryption tests. */
     private static final String SAMPLE_PLAIN_TEXT = "plain-text";
 
     @Test
@@ -45,6 +50,7 @@ class CredentialEncryptionUtilTest {
 
     private static final class TestableCredentialEncryptionUtil extends CredentialEncryptionUtil {
 
+        /** Encryption key from environment for testing. */
         private final String encryptionKeyFromEnvironment;
 
         private TestableCredentialEncryptionUtil(String encryptionKeyFromEnvironment) {

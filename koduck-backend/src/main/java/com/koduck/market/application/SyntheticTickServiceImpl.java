@@ -1,15 +1,5 @@
 package com.koduck.market.application;
 
-import com.koduck.dto.market.TickDto;
-import com.koduck.entity.StockRealtime;
-import com.koduck.entity.StockTickHistory;
-import com.koduck.repository.StockTickHistoryRepository;
-import com.koduck.service.SyntheticTickService;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.stereotype.Service;
-
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
@@ -21,22 +11,65 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
+import org.springframework.data.domain.PageRequest;
+import org.springframework.stereotype.Service;
+
+import com.koduck.dto.market.TickDto;
+import com.koduck.entity.StockRealtime;
+import com.koduck.entity.StockTickHistory;
+import com.koduck.repository.StockTickHistoryRepository;
+import com.koduck.service.SyntheticTickService;
+
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+
+/**
+ * Service implementation for generating synthetic tick data from real-time market data.
+ *
+ * @author Koduck Team
+ */
 @Service
 @RequiredArgsConstructor
 @Slf4j
 public class SyntheticTickServiceImpl implements SyntheticTickService {
+
+    /** The market timezone (Asia/Shanghai). */
     private static final ZoneId MARKET_ZONE = ZoneId.of("Asia/Shanghai");
+
+    /** Time formatter for tick timestamps (HH:mm:ss). */
     private static final DateTimeFormatter TIME_FORMATTER = DateTimeFormatter.ofPattern("HH:mm:ss");
+
+    /** Volume threshold for block orders (100,000). */
     private static final long BLOCK_ORDER_VOLUME_THRESHOLD = 100_000L;
+
+    /** Flag indicating a block order. */
     private static final String FLAG_BLOCK_ORDER = "BLOCK_ORDER";
+
+    /** Flag indicating a normal order. */
     private static final String FLAG_NORMAL = "NORMAL";
+
+    /** Side indicator for buy orders. */
     private static final String SIDE_BUY = "buy";
+
+    /** Side indicator for sell orders. */
     private static final String SIDE_SELL = "sell";
 
+    /** Padding width for symbol formatting (6 digits). */
+    private static final int SYMBOL_PADDING_WIDTH = 6;
+
+    /** Repository for stock tick history data. */
     private final StockTickHistoryRepository stockTickHistoryRepository;
+
+    /** Map tracking last cumulative volume per symbol. */
     private final Map<String, Long> lastCumulativeVolume = new ConcurrentHashMap<>();
+
+    /** Map tracking last cumulative amount per symbol. */
     private final Map<String, BigDecimal> lastCumulativeAmount = new ConcurrentHashMap<>();
+
+    /** Map tracking last price per symbol. */
     private final Map<String, BigDecimal> lastPrice = new ConcurrentHashMap<>();
+
+    /** Set of symbols currently being tracked. */
     private final Set<String> trackedSymbols = ConcurrentHashMap.newKeySet();
 
     @Override
@@ -206,13 +239,14 @@ public class SyntheticTickServiceImpl implements SyntheticTickService {
                 variants.add(noZeros);
             }
             // Add 6-digit padded version
-            if (normalized.length() <= 6) {
+            if (normalized.length() <= SYMBOL_PADDING_WIDTH) {
                 try {
-                    String padded = String.format("%06d", Integer.parseInt(normalized));
+                    String padded = String.format("%0" + SYMBOL_PADDING_WIDTH + "d", Integer.parseInt(normalized));
                     if (!padded.equals(normalized)) {
                         variants.add(padded);
                     }
-                } catch (NumberFormatException _) {
+                }
+                catch (NumberFormatException _) {
                     // Ignore if number is too large
                 }
             }

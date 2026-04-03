@@ -1,13 +1,5 @@
 package com.koduck.service;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.ArgumentMatchers.contains;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
-
 import java.time.Duration;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -23,6 +15,14 @@ import org.springframework.data.redis.core.ValueOperations;
 
 import com.koduck.config.properties.RateLimitProperties;
 import com.koduck.shared.application.RateLimiterServiceImpl;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.contains;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 /**
  * Unit tests for {@link RateLimiterService}.

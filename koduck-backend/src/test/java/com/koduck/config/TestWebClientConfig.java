@@ -8,6 +8,8 @@ import org.springframework.web.reactive.function.client.WebClient;
 /**
  * Test configuration providing WebClient bean for integration tests.
  * Required by components like {@link com.koduck.service.support.AiStreamRelaySupport}.
+ *
+ * @author GitHub Copilot
  */
 @TestConfiguration
 public class TestWebClientConfig {

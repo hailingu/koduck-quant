@@ -9,6 +9,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 /**
  * Unit tests for SymbolUtils.
  * Tests the symbol normalization functionality used to fix Issue #132.
+ *
+ * @author GitHub Copilot
  */
 @DisplayName("SymbolUtils")
 class SymbolUtilsTest {

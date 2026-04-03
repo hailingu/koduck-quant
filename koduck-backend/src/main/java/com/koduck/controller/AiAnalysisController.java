@@ -1,5 +1,21 @@
 package com.koduck.controller;
 
+import java.util.List;
+import java.util.Map;
+
+import jakarta.validation.Valid;
+
+import org.springframework.http.MediaType;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
+
 import com.koduck.controller.support.AuthenticatedUserResolver;
 import com.koduck.dto.ApiResponse;
 import com.koduck.dto.ai.BacktestInterpretRequest;
@@ -15,28 +31,15 @@ import com.koduck.entity.MemoryChatMessage;
 import com.koduck.security.UserPrincipal;
 import com.koduck.service.AiAnalysisService;
 import com.koduck.service.MemoryService;
+
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
-import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
-import jakarta.validation.Valid;
-import java.util.List;
-import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.http.MediaType;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.web.bind.annotation.DeleteMapping;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
-import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 /**
  * REST API controller exposing AI analysis endpoints.
@@ -46,7 +49,6 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
  * All endpoints require authenticated credentials.</p>
  *
  * @author GitHub Copilot
- * @date 2026-03-05
  */
 @RestController
 @RequestMapping("/api/v1/ai")
@@ -56,10 +58,16 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 @RequiredArgsConstructor
 public class AiAnalysisController {
 
+    /** Key for session ID in response maps. */
     private static final String KEY_SESSION_ID = "sessionId";
 
+    /** Service for AI analysis operations. */
     private final AiAnalysisService aiAnalysisService;
+
+    /** Service for memory operations. */
     private final MemoryService memoryService;
+
+    /** Resolver for extracting authenticated user information. */
     private final AuthenticatedUserResolver authenticatedUserResolver;
 
     /**
@@ -79,10 +87,10 @@ public class AiAnalysisController {
     )
     @io.swagger.v3.oas.annotations.responses.ApiResponses(value = {
         @io.swagger.v3.oas.annotations.responses.ApiResponse(
-            responseCode = "200",
-            description = "分析成功",
-            content = @Content(schema = @Schema(implementation = StockAnalysisResponse.class))
-        ),
+                responseCode = "200",
+                description = "分析成功",
+                content = @Content(schema = @Schema(implementation = StockAnalysisResponse.class))
+            ),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "请求参数错误"),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "未登录或Token无效"),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "429", description = "AI分析请求过于频繁"),
@@ -102,6 +110,10 @@ public class AiAnalysisController {
 
     /**
      * Proxy chat stream request through backend for unified AI access.
+     *
+     * @param userPrincipal the authenticated user principal
+     * @param request the chat stream request
+     * @return SSE emitter for streaming response
      */
     @Operation(
         summary = "AI流式对话",
@@ -145,10 +157,10 @@ public class AiAnalysisController {
     )
     @io.swagger.v3.oas.annotations.responses.ApiResponses(value = {
         @io.swagger.v3.oas.annotations.responses.ApiResponse(
-            responseCode = "200",
-            description = "推荐成功",
-            content = @Content(schema = @Schema(implementation = StrategyRecommendResponse.class))
-        ),
+                responseCode = "200",
+                description = "推荐成功",
+                content = @Content(schema = @Schema(implementation = StrategyRecommendResponse.class))
+            ),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "请求参数错误"),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "未登录或Token无效"),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "500", description = "服务器内部错误")
@@ -180,10 +192,10 @@ public class AiAnalysisController {
     )
     @io.swagger.v3.oas.annotations.responses.ApiResponses(value = {
         @io.swagger.v3.oas.annotations.responses.ApiResponse(
-            responseCode = "200",
-            description = "解读成功",
-            content = @Content(schema = @Schema(implementation = BacktestInterpretResponse.class))
-        ),
+                responseCode = "200",
+                description = "解读成功",
+                content = @Content(schema = @Schema(implementation = BacktestInterpretResponse.class))
+            ),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "请求参数错误"),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "未登录或Token无效"),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "无权访问该回测结果"),
@@ -218,10 +230,10 @@ public class AiAnalysisController {
     )
     @io.swagger.v3.oas.annotations.responses.ApiResponses(value = {
         @io.swagger.v3.oas.annotations.responses.ApiResponse(
-            responseCode = "200",
-            description = "评估成功",
-            content = @Content(schema = @Schema(implementation = RiskAssessmentResponse.class))
-        ),
+                responseCode = "200",
+                description = "评估成功",
+                content = @Content(schema = @Schema(implementation = RiskAssessmentResponse.class))
+            ),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "请求参数错误"),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "未登录或Token无效"),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "无权访问该投资组合"),
@@ -243,6 +255,13 @@ public class AiAnalysisController {
         return ApiResponse.success(response);
     }
 
+    /**
+     * Delete session memory.
+     *
+     * @param userPrincipal the authenticated user principal
+     * @param sessionId the session ID to delete
+     * @return response indicating deletion success
+     */
     @Operation(
         summary = "删除会话记忆",
         description = "删除指定AI对话会话的记忆"
@@ -268,6 +287,12 @@ public class AiAnalysisController {
         ));
     }
 
+    /**
+     * Clear user memory.
+     *
+     * @param userPrincipal the authenticated user principal
+     * @return response indicating clear success
+     */
     @Operation(
         summary = "清除用户记忆",
         description = "清除当前用户的所有AI对话记忆"
@@ -287,6 +312,12 @@ public class AiAnalysisController {
         return ApiResponse.success(Map.of("cleared", true));
     }
 
+    /**
+     * Get user sessions.
+     *
+     * @param userPrincipal the authenticated user principal
+     * @return response containing list of user sessions
+     */
     @Operation(
         summary = "获取用户会话列表",
         description = "获取当前用户的所有AI对话会话"
@@ -313,6 +344,13 @@ public class AiAnalysisController {
         return ApiResponse.success(Map.of("sessions", sessionList));
     }
 
+    /**
+     * Get session memory summary.
+     *
+     * @param userPrincipal the authenticated user principal
+     * @param sessionId the session ID to query
+     * @return response containing session memory summary
+     */
     @Operation(
         summary = "获取会话记忆详情",
         description = "获取指定AI对话会话的详细记忆内容"

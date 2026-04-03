@@ -1,4 +1,19 @@
 package com.koduck.controller;
+
+import java.util.Arrays;
+import java.util.Objects;
+import java.util.Set;
+
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.validation.Valid;
+
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
 import com.koduck.common.constants.HttpHeaderConstants;
 import com.koduck.dto.ApiResponse;
 import com.koduck.dto.auth.ForgotPasswordRequest;
@@ -9,25 +24,15 @@ import com.koduck.dto.auth.ResetPasswordRequest;
 import com.koduck.dto.auth.SecurityConfigResponse;
 import com.koduck.dto.auth.TokenResponse;
 import com.koduck.service.AuthService;
+
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.ExampleObject;
 import io.swagger.v3.oas.annotations.media.Schema;
-import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
-import jakarta.servlet.http.HttpServletRequest;
-import jakarta.validation.Valid;
-import java.util.Arrays;
-import java.util.Set;
 import lombok.RequiredArgsConstructor;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
-import java.util.Objects;
+
 /**
  * Authentication REST controller.
  *
@@ -35,17 +40,19 @@ import java.util.Objects;
  * password management related operations.</p>
  *
  * @author GitHub Copilot
- * @date 2026-03-05
  */
 @RestController
 @RequestMapping("/api/v1/auth")
 @RequiredArgsConstructor
 @Tag(name = "认证管理", description = "用户登录、注册、Token刷新等认证相关接口")
 public class AuthController {
+    /** Default trusted proxy addresses. */
     private static final String DEFAULT_TRUSTED_PROXIES = "127.0.0.1,::1,0:0:0:0:0:0:0:1";
 
+    /** Service for authentication operations. */
     private final AuthService authService;
 
+    /** Comma-separated list of trusted proxy IP addresses. */
     @Value("${security.trusted-proxies:" + DEFAULT_TRUSTED_PROXIES + "}")
     private String trustedProxies = DEFAULT_TRUSTED_PROXIES;
 
@@ -91,7 +98,7 @@ public class AuthController {
                         """
                 )
             )
-        ),
+            ),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "请求参数错误，用户名或密码为空"),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "用户名或密码错误"),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "账号已被锁定或禁用"),
@@ -124,8 +131,11 @@ public class AuthController {
             responseCode = "200",
             description = "注册成功",
             content = @Content(schema = @Schema(implementation = TokenResponse.class))
-        ),
-        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "请求参数错误，用户名或密码不符合要求"),
+            ),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                responseCode = "400",
+                description = "请求参数错误，用户名或密码不符合要求"
+            ),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "409", description = "用户名或邮箱已被注册"),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "500", description = "服务器内部错误")
     })
@@ -151,9 +161,15 @@ public class AuthController {
             responseCode = "200",
             description = "刷新成功",
             content = @Content(schema = @Schema(implementation = TokenResponse.class))
-        ),
-        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "Refresh Token 为空"),
-        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "Refresh Token 无效或已过期"),
+            ),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                responseCode = "400",
+                description = "Refresh Token 为空"
+            ),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                responseCode = "401",
+                description = "Refresh Token 无效或已过期"
+            ),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "500", description = "服务器内部错误")
     })
     public ApiResponse<TokenResponse> refreshToken(@Valid @RequestBody RefreshTokenRequest request) {
@@ -197,7 +213,7 @@ public class AuthController {
             responseCode = "200",
             description = "获取成功",
             content = @Content(schema = @Schema(implementation = SecurityConfigResponse.class))
-        ),
+            ),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "500", description = "服务器内部错误")
     })
     public ApiResponse<SecurityConfigResponse> getSecurityConfig() {
@@ -283,6 +299,12 @@ public class AuthController {
         return remoteAddr;
     }
 
+    /**
+     * Check if the given address is a trusted proxy.
+     *
+     * @param remoteAddr the remote address to check
+     * @return true if the address is a trusted proxy
+     */
     private boolean isTrustedProxy(String remoteAddr) {
         if (remoteAddr == null || remoteAddr.isBlank()) {
             return false;
@@ -294,6 +316,12 @@ public class AuthController {
         return trustedProxySet.contains(remoteAddr.trim());
     }
 
+    /**
+     * Normalize refresh token by trimming whitespace.
+     *
+     * @param request the refresh token request
+     * @return normalized token or null
+     */
     private String normalizeRefreshToken(RefreshTokenRequest request) {
         if (request == null) {
             return null;

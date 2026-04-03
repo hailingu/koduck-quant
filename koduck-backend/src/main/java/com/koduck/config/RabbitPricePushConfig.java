@@ -1,9 +1,8 @@
 package com.koduck.config;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.koduck.config.properties.PricePushRabbitProperties;
 import java.util.Map;
 import java.util.Objects;
+
 import org.springframework.amqp.core.Binding;
 import org.springframework.amqp.core.BindingBuilder;
 import org.springframework.amqp.core.DirectExchange;
@@ -13,13 +12,19 @@ import org.springframework.amqp.rabbit.config.SimpleRabbitListenerContainerFacto
 import org.springframework.amqp.rabbit.connection.ConnectionFactory;
 import org.springframework.amqp.support.converter.Jackson2JsonMessageConverter;
 import org.springframework.amqp.support.converter.MessageConverter;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.beans.factory.annotation.Qualifier;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+
+import com.koduck.config.properties.PricePushRabbitProperties;
 
 /**
  * RabbitMQ topology and listener config for price push events.
+ *
+ * @author Koduck Team
  */
 @Configuration
 @EnableRabbit
@@ -39,14 +44,14 @@ public class RabbitPricePushConfig {
     @Bean
     public Queue pricePushQueue(PricePushRabbitProperties properties) {
         return new Queue(
-                properties.getQueue(),
-                true,
-                false,
-                false,
-                Map.of(
-                        "x-dead-letter-exchange", properties.getDeadLetterExchange(),
-                        "x-dead-letter-routing-key", properties.getDeadLetterRoutingKey()
-                )
+            properties.getQueue(),
+            true,
+            false,
+            false,
+            Map.of(
+                "x-dead-letter-exchange", properties.getDeadLetterExchange(),
+                "x-dead-letter-routing-key", properties.getDeadLetterRoutingKey()
+            )
         );
     }
 
@@ -60,8 +65,8 @@ public class RabbitPricePushConfig {
                                     DirectExchange pricePushExchange,
                                     PricePushRabbitProperties properties) {
         return BindingBuilder.bind(pricePushQueue)
-                .to(pricePushExchange)
-                .with(properties.getRoutingKey());
+            .to(pricePushExchange)
+            .with(properties.getRoutingKey());
     }
 
     @Bean
@@ -69,8 +74,8 @@ public class RabbitPricePushConfig {
                                               DirectExchange pricePushDeadLetterExchange,
                                               PricePushRabbitProperties properties) {
         return BindingBuilder.bind(pricePushDeadLetterQueue)
-                .to(pricePushDeadLetterExchange)
-                .with(properties.getDeadLetterRoutingKey());
+            .to(pricePushDeadLetterExchange)
+            .with(properties.getDeadLetterRoutingKey());
     }
 
     @Bean
@@ -80,8 +85,8 @@ public class RabbitPricePushConfig {
 
     @Bean(name = "pricePushRabbitListenerContainerFactory")
     public SimpleRabbitListenerContainerFactory pricePushRabbitListenerContainerFactory(
-            ConnectionFactory connectionFactory,
-            MessageConverter rabbitMessageConverter) {
+        ConnectionFactory connectionFactory,
+        MessageConverter rabbitMessageConverter) {
         SimpleRabbitListenerContainerFactory factory = new SimpleRabbitListenerContainerFactory();
         factory.setConnectionFactory(connectionFactory);
         factory.setMessageConverter(rabbitMessageConverter);

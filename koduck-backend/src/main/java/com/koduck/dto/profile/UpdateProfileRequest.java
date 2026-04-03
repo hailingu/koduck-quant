@@ -16,8 +16,7 @@ import lombok.NoArgsConstructor;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class UpdateProfileRequest
-{
+public class UpdateProfileRequest {
 
     /**
      * Nickname (max 50 characters).

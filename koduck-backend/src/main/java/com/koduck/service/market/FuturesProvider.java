@@ -1,12 +1,5 @@
 package com.koduck.service.market;
 
-import com.koduck.config.properties.DataServiceProperties;
-import com.koduck.market.MarketType;
-import com.koduck.market.model.KlineData;
-import com.koduck.market.model.TickData;
-import com.koduck.market.util.DataConverter;
-import com.koduck.service.market.support.FuturesMockDataSupport;
-import com.koduck.service.market.support.MarketDataMapReader;
 import java.math.BigDecimal;
 import java.time.DayOfWeek;
 import java.time.Instant;
@@ -18,27 +11,55 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestTemplate;
 
+import com.koduck.config.properties.DataServiceProperties;
+import com.koduck.market.MarketType;
+import com.koduck.market.model.KlineData;
+import com.koduck.market.model.TickData;
+import com.koduck.market.util.DataConverter;
+import com.koduck.service.market.support.FuturesMockDataSupport;
+import com.koduck.service.market.support.MarketDataMapReader;
+
 /**
  * Futures market data provider.
  *
  * <p>Data-service based implementation with unified retrieval and error handling inherited from
  * {@link AbstractDataServiceMarketProvider}.</p>
+ *
+ * @author GitHub Copilot
  */
 @Component
 public class FuturesProvider extends AbstractDataServiceMarketProvider {
 
+    /**
+     * Logger for this provider.
+     */
     private static final Logger LOG = LoggerFactory.getLogger(FuturesProvider.class);
+
+    /**
+     * Beijing timezone for market hours calculation.
+     */
     private static final ZoneId BEIJING_ZONE = ZoneId.of("Asia/Shanghai");
+
+    /**
+     * Base path for futures data service endpoints.
+     */
     private static final String FUTURES_BASE_PATH = "/futures";
+
+    /**
+     * Provider name identifier.
+     */
     private static final String PROVIDER_NAME = "akshare-futures";
 
-    // Base prices for popular futures (mock data fallback)
+    /**
+     * Base prices for popular futures (mock data fallback).
+     */
     private final Map<String, BigDecimal> basePrices;
 
     public FuturesProvider(

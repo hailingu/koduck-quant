@@ -8,9 +8,9 @@ import com.koduck.util.CollectionCopyUtils;
  * Available indicators list response.
  *
  * @author Koduck Team
+ * @param indicators the list of indicator information
  */
 public record IndicatorListResponse(
-    /** List of indicator information. */
     List<IndicatorInfo> indicators
 ) {
 
@@ -38,15 +38,10 @@ public record IndicatorListResponse(
      * @param category the indicator category
      */
     public record IndicatorInfo(
-        /** Indicator code. */
         String code,
-        /** Indicator name. */
         String name,
-        /** Indicator description. */
         String description,
-        /** Default periods for this indicator. */
         List<Integer> defaultPeriods,
-        /** Indicator category. */
         String category
     ) {
 

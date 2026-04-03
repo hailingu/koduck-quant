@@ -1,5 +1,8 @@
 package com.koduck.entity;
 
+import java.time.LocalDateTime;
+import java.util.List;
+
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
@@ -11,19 +14,16 @@ import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
 
-import java.time.LocalDateTime;
-import java.util.List;
-
-import lombok.AccessLevel;
-import lombok.Data;
-import lombok.NoArgsConstructor;
-import lombok.Setter;
-
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 
 import com.koduck.util.CollectionCopyUtils;
 import com.koduck.util.EntityCopyUtils;
+
+import lombok.AccessLevel;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 
 /**
  * Signal comment entity.
@@ -136,18 +136,69 @@ public class SignalComment {
      */
     public static final class Builder {
 
+        /**
+         * The ID.
+         */
         private Long id;
+
+        /**
+         * The signal ID.
+         */
         private Long signalId;
+
+        /**
+         * The user ID.
+         */
         private Long userId;
+
+        /**
+         * The parent comment ID.
+         */
         private Long parentId;
+
+        /**
+         * The comment content.
+         */
         private String content;
+
+        /**
+         * The like count.
+         */
         private Integer likeCount;
+
+        /**
+         * The deleted flag.
+         */
         private Boolean isDeleted;
+
+        /**
+         * The created at timestamp.
+         */
         private LocalDateTime createdAt;
+
+        /**
+         * The updated at timestamp.
+         */
         private LocalDateTime updatedAt;
+
+        /**
+         * The signal entity.
+         */
         private CommunitySignal signal;
+
+        /**
+         * The user entity.
+         */
         private User user;
+
+        /**
+         * The parent comment.
+         */
         private SignalComment parent;
+
+        /**
+         * The reply comments.
+         */
         private List<SignalComment> replies;
 
         /**

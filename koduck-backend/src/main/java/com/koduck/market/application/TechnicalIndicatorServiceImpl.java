@@ -1,14 +1,5 @@
 package com.koduck.market.application;
 
-import com.koduck.common.constants.MarketConstants;
-import com.koduck.dto.indicator.IndicatorListResponse;
-import com.koduck.dto.indicator.IndicatorResponse;
-import com.koduck.dto.market.KlineDataDto;
-import com.koduck.exception.BusinessException;
-import com.koduck.exception.ErrorCode;
-import com.koduck.exception.ValidationException;
-import com.koduck.service.KlineService;
-import com.koduck.service.TechnicalIndicatorService;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDateTime;
@@ -21,8 +12,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
+
 import org.springframework.stereotype.Service;
 import org.ta4j.core.Bar;
 import org.ta4j.core.BarSeries;
@@ -40,6 +30,19 @@ import org.ta4j.core.indicators.helpers.VolumeIndicator;
 import org.ta4j.core.indicators.statistics.StandardDeviationIndicator;
 import org.ta4j.core.num.DecimalNum;
 import org.ta4j.core.num.Num;
+
+import com.koduck.common.constants.MarketConstants;
+import com.koduck.dto.indicator.IndicatorListResponse;
+import com.koduck.dto.indicator.IndicatorResponse;
+import com.koduck.dto.market.KlineDataDto;
+import com.koduck.exception.BusinessException;
+import com.koduck.exception.ErrorCode;
+import com.koduck.exception.ValidationException;
+import com.koduck.service.KlineService;
+import com.koduck.service.TechnicalIndicatorService;
+
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 /**
  * Implementation of TechnicalIndicatorService.
@@ -66,27 +69,72 @@ public class TechnicalIndicatorServiceImpl implements TechnicalIndicatorService 
      */
     private static final int SCALE = 4;
 
+    /** MA period - 5. */
+    private static final int MA_PERIOD_5 = 5;
+
+    /** MA period - 10. */
+    private static final int MA_PERIOD_10 = 10;
+
+    /** MA period - 20. */
+    private static final int MA_PERIOD_20 = 20;
+
+    /** MA period - 60. */
+    private static final int MA_PERIOD_60 = 60;
+
+    /** MACD fast period. */
+    private static final int MACD_FAST_PERIOD = 12;
+
+    /** MACD slow period. */
+    private static final int MACD_SLOW_PERIOD = 26;
+
+    /** MACD signal period. */
+    private static final int MACD_SIGNAL_PERIOD = 9;
+
+    /** RSI period - 6. */
+    private static final int RSI_PERIOD_6 = 6;
+
+    /** RSI period - 12. */
+    private static final int RSI_PERIOD_12 = 12;
+
+    /** RSI period - 24. */
+    private static final int RSI_PERIOD_24 = 24;
+
+    /** RSI overbought threshold. */
+    private static final int RSI_OVERBOUGHT = 70;
+
+    /** RSI oversold threshold. */
+    private static final int RSI_OVERSOLD = 30;
+
+    /** Bollinger Bands standard deviation multiplier. */
+    private static final int BOLLINGER_MULTIPLIER = 2;
+
+    /** RSI default period. */
+    private static final int RSI_DEFAULT_PERIOD = 14;
+
+    /** VOL default period. */
+    private static final int VOL_DEFAULT_PERIOD = 5;
+
     @Override
     public IndicatorListResponse getAvailableIndicators() {
         List<IndicatorListResponse.IndicatorInfo> indicators = Arrays.asList(
             new IndicatorListResponse.IndicatorInfo(
                 "MA", "Moving Average", "Simple Moving Average",
-                Arrays.asList(5, 10, 20, 60), "TREND"),
+                Arrays.asList(MA_PERIOD_5, MA_PERIOD_10, MA_PERIOD_20, MA_PERIOD_60), "TREND"),
             new IndicatorListResponse.IndicatorInfo(
                 "EMA", "Exponential Moving Average", "Exponential Moving Average",
-                Arrays.asList(5, 10, 20, 60), "TREND"),
+                Arrays.asList(MA_PERIOD_5, MA_PERIOD_10, MA_PERIOD_20, MA_PERIOD_60), "TREND"),
             new IndicatorListResponse.IndicatorInfo(
                 "MACD", "MACD", "Moving Average Convergence Divergence",
-                Arrays.asList(12, 26, 9), "MOMENTUM"),
+                Arrays.asList(MACD_FAST_PERIOD, MACD_SLOW_PERIOD, MACD_SIGNAL_PERIOD), "MOMENTUM"),
             new IndicatorListResponse.IndicatorInfo(
                 "RSI", "RSI", "Relative Strength Index",
-                Arrays.asList(6, 12, 24), "MOMENTUM"),
+                Arrays.asList(RSI_PERIOD_6, RSI_PERIOD_12, RSI_PERIOD_24), "MOMENTUM"),
             new IndicatorListResponse.IndicatorInfo(
                 "BOLL", "Bollinger Bands", "Bollinger Bands",
-                Arrays.asList(20), "VOLATILITY"),
+                Arrays.asList(MA_PERIOD_20), "VOLATILITY"),
             new IndicatorListResponse.IndicatorInfo(
                 "VOL", "Volume", "Trading Volume",
-                Arrays.asList(5, 10), "VOLUME")
+                Arrays.asList(MA_PERIOD_5, MA_PERIOD_10), "VOLUME")
         );
         return IndicatorListResponse.builder()
             .indicators(indicators)
@@ -110,12 +158,17 @@ public class TechnicalIndicatorServiceImpl implements TechnicalIndicatorService 
         BarSeries series = convertToBarSeries(klineData);
         // Calculate indicator
         return switch (indicator.toUpperCase(Locale.ROOT)) {
-            case "MA", "SMA" -> calculateMA(series, market, symbol, period != null ? period : 20);
-            case "EMA" -> calculateEMA(series, market, symbol, period != null ? period : 20);
+            case "MA", "SMA" -> calculateMA(series, market, symbol,
+                period != null ? period : MA_PERIOD_20);
+            case "EMA" -> calculateEMA(series, market, symbol,
+                period != null ? period : MA_PERIOD_20);
             case "MACD" -> calculateMACD(series, market, symbol);
-            case "RSI" -> calculateRSI(series, market, symbol, period != null ? period : 14);
-            case "BOLL" -> calculateBOLL(series, market, symbol, period != null ? period : 20);
-            case "VOL" -> calculateVOL(series, market, symbol, period != null ? period : 5);
+            case "RSI" -> calculateRSI(series, market, symbol,
+                period != null ? period : RSI_DEFAULT_PERIOD);
+            case "BOLL" -> calculateBOLL(series, market, symbol,
+                period != null ? period : MA_PERIOD_20);
+            case "VOL" -> calculateVOL(series, market, symbol,
+                period != null ? period : VOL_DEFAULT_PERIOD);
             default -> throw new ValidationException("Unsupported indicator: " + indicator);
         };
     }
@@ -190,11 +243,11 @@ public class TechnicalIndicatorServiceImpl implements TechnicalIndicatorService 
      */
     private IndicatorResponse calculateMACD(BarSeries series, String market, String symbol) {
         ClosePriceIndicator closePrice = new ClosePriceIndicator(series);
-        MACDIndicator macd = new MACDIndicator(closePrice, 12, 26);
+        MACDIndicator macd = new MACDIndicator(closePrice, MACD_FAST_PERIOD, MACD_SLOW_PERIOD);
         int lastIndex = series.getEndIndex();
         BigDecimal macdValue = toBigDecimal(macd.getValue(lastIndex));
         // Calculate signal line (9-day EMA of MACD)
-        EMAIndicator signalLine = new EMAIndicator(macd, 9);
+        EMAIndicator signalLine = new EMAIndicator(macd, MACD_SIGNAL_PERIOD);
         BigDecimal signalValue = toBigDecimal(signalLine.getValue(lastIndex));
         // Calculate histogram
         BigDecimal histogram = macdValue.subtract(signalValue);
@@ -207,7 +260,7 @@ public class TechnicalIndicatorServiceImpl implements TechnicalIndicatorService 
             .symbol(symbol)
             .market(market)
             .indicator("MACD")
-            .period(12)
+            .period(MACD_FAST_PERIOD)
             .values(values)
             .trend(trend)
             .timestamp(LocalDateTime.now())
@@ -231,11 +284,13 @@ public class TechnicalIndicatorServiceImpl implements TechnicalIndicatorService 
         BigDecimal value = toBigDecimal(rsi.getValue(lastIndex));
         // Determine trend based on RSI levels
         String trend;
-        if (value.compareTo(new BigDecimal("70")) > 0) {
+        if (value.compareTo(new BigDecimal(String.valueOf(RSI_OVERBOUGHT))) > 0) {
             trend = "OVERBOUGHT";
-        } else if (value.compareTo(new BigDecimal("30")) < 0) {
+        }
+        else if (value.compareTo(new BigDecimal(String.valueOf(RSI_OVERSOLD))) < 0) {
             trend = "OVERSOLD";
-        } else {
+        }
+        else {
             trend = "NEUTRAL";
         }
         Map<String, BigDecimal> values = new HashMap<>();
@@ -267,9 +322,9 @@ public class TechnicalIndicatorServiceImpl implements TechnicalIndicatorService 
         StandardDeviationIndicator stdDev = new StandardDeviationIndicator(sma, period);
         BollingerBandsMiddleIndicator middle = new BollingerBandsMiddleIndicator(sma);
         BollingerBandsUpperIndicator upper = new BollingerBandsUpperIndicator(
-            middle, stdDev, DecimalNum.valueOf(2));
+            middle, stdDev, DecimalNum.valueOf(BOLLINGER_MULTIPLIER));
         BollingerBandsLowerIndicator lower = new BollingerBandsLowerIndicator(
-            middle, stdDev, DecimalNum.valueOf(2));
+            middle, stdDev, DecimalNum.valueOf(BOLLINGER_MULTIPLIER));
         int lastIndex = series.getEndIndex();
         BigDecimal middleValue = toBigDecimal(middle.getValue(lastIndex));
         BigDecimal upperValue = toBigDecimal(upper.getValue(lastIndex));
@@ -279,9 +334,11 @@ public class TechnicalIndicatorServiceImpl implements TechnicalIndicatorService 
         String trend;
         if (currentPrice.compareTo(upperValue) > 0) {
             trend = "ABOVE_UPPER";
-        } else if (currentPrice.compareTo(lowerValue) < 0) {
+        }
+        else if (currentPrice.compareTo(lowerValue) < 0) {
             trend = "BELOW_LOWER";
-        } else {
+        }
+        else {
             trend = "WITHIN_BANDS";
         }
         Map<String, BigDecimal> values = new HashMap<>();
@@ -378,9 +435,11 @@ public class TechnicalIndicatorServiceImpl implements TechnicalIndicatorService 
     private String determineTrend(BigDecimal current, BigDecimal previous) {
         if (current.compareTo(previous) > 0) {
             return "UP";
-        } else if (current.compareTo(previous) < 0) {
+        }
+        else if (current.compareTo(previous) < 0) {
             return "DOWN";
-        } else {
+        }
+        else {
             return "FLAT";
         }
     }

@@ -1,5 +1,18 @@
 package com.koduck.config;
 
+import java.lang.reflect.Field;
+import java.util.Optional;
+
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.lang.NonNull;
+import org.springframework.security.crypto.password.PasswordEncoder;
+
 import com.koduck.entity.Role;
 import com.koduck.entity.User;
 import com.koduck.repository.CredentialRepository;
@@ -7,19 +20,7 @@ import com.koduck.repository.RoleRepository;
 import com.koduck.repository.UserRepository;
 import com.koduck.repository.UserRoleRepository;
 import com.koduck.service.support.UserRolesTableChecker;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.lang.NonNull;
-import org.springframework.dao.DataIntegrityViolationException;
-import org.springframework.security.crypto.password.PasswordEncoder;
 import com.koduck.util.CredentialEncryptionUtil;
-
-import java.lang.reflect.Field;
-import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -36,31 +37,41 @@ import static org.mockito.Mockito.when;
  * <p>The tests focus on startup control-flow branches for demo user creation,
  * including disabled mode, configuration validation, idempotent behavior when
  * the demo user already exists, and concurrent creation conflicts.</p>
+ *
+ * @author GitHub Copilot
  */
 @ExtendWith(MockitoExtension.class)
 class DataInitializerTest {
 
+    /** Mock repository for users. */
     @Mock
     private UserRepository userRepository;
 
+    /** Mock repository for roles. */
     @Mock
     private RoleRepository roleRepository;
 
+    /** Mock repository for user roles. */
     @Mock
     private UserRoleRepository userRoleRepository;
 
+    /** Mock repository for credentials. */
     @Mock
     private CredentialRepository credentialRepository;
 
+    /** Mock password encoder. */
     @Mock
     private PasswordEncoder passwordEncoder;
 
+    /** Mock utility for credential encryption. */
     @Mock
     private CredentialEncryptionUtil credentialEncryptionUtil;
 
+    /** Mock checker for user roles table. */
     @Mock
     private UserRolesTableChecker userRolesTableChecker;
 
+    /** Service under test. */
     private DataInitializer dataInitializer;
 
     @BeforeEach
@@ -86,7 +97,8 @@ class DataInitializerTest {
 
         dataInitializer.run();
 
-        verifyNoInteractions(userRepository, roleRepository, userRoleRepository, credentialRepository, passwordEncoder);
+        verifyNoInteractions(userRepository, roleRepository,
+            userRoleRepository, credentialRepository, passwordEncoder);
     }
 
     /**
@@ -112,15 +124,19 @@ class DataInitializerTest {
         setField("demoUsername", "demoUser");
         setField("demoPassword", "secure-password");
 
-        when(userRepository.findByUsername("demoUser")).thenReturn(Optional.of(new User()));
+        when(userRepository.findByUsername("demoUser"))
+            .thenReturn(Optional.of(new User()));
 
         dataInitializer.run();
 
         verify(userRepository, times(2)).findByUsername("demoUser");
         verify(roleRepository, never()).findByName("USER");
-        verify(userRoleRepository, never()).insertUserRole(org.mockito.ArgumentMatchers.anyLong(), org.mockito.ArgumentMatchers.anyInt());
+        verify(userRoleRepository, never()).insertUserRole(
+            org.mockito.ArgumentMatchers.anyLong(),
+            org.mockito.ArgumentMatchers.anyInt());
         verifyNoInteractions(credentialRepository);
-        verifyNoMoreInteractions(userRepository, roleRepository, userRoleRepository, credentialRepository);
+        verifyNoMoreInteractions(userRepository, roleRepository,
+            userRoleRepository, credentialRepository);
     }
 
     /**
@@ -138,9 +154,12 @@ class DataInitializerTest {
                 .name("USER")
                 .build();
 
-        when(userRepository.findByUsername("demoUser")).thenReturn(Optional.empty());
-        when(roleRepository.findByName("USER")).thenReturn(Optional.of(role));
-        when(passwordEncoder.encode("secure-password")).thenReturn("encoded-password");
+        when(userRepository.findByUsername("demoUser"))
+            .thenReturn(Optional.empty());
+        when(roleRepository.findByName("USER"))
+            .thenReturn(Optional.of(role));
+        when(passwordEncoder.encode("secure-password"))
+            .thenReturn("encoded-password");
         when(userRepository.save(anyNonNullUser()))
                 .thenThrow(new DataIntegrityViolationException("duplicate key"));
 
@@ -149,7 +168,9 @@ class DataInitializerTest {
         verify(userRepository, times(2)).findByUsername("demoUser");
         verify(roleRepository).findByName("USER");
         verify(userRepository).save(anyNonNullUser());
-        verify(userRoleRepository, never()).insertUserRole(org.mockito.ArgumentMatchers.anyLong(), org.mockito.ArgumentMatchers.anyInt());
+        verify(userRoleRepository, never()).insertUserRole(
+            org.mockito.ArgumentMatchers.anyLong(),
+            org.mockito.ArgumentMatchers.anyInt());
         verifyNoInteractions(credentialRepository);
     }
 
@@ -169,7 +190,8 @@ class DataInitializerTest {
             Field field = DataInitializer.class.getDeclaredField(fieldName);
             field.setAccessible(true);
             field.set(dataInitializer, value);
-        } catch (ReflectiveOperationException ex) {
+        }
+        catch (ReflectiveOperationException ex) {
             throw new IllegalStateException("Failed to set field: " + fieldName, ex);
         }
     }

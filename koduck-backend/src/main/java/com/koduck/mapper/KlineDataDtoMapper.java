@@ -1,14 +1,17 @@
 package com.koduck.mapper;
 
-import com.koduck.dto.market.KlineDataDto;
-import com.koduck.market.util.MarketFieldParser;
+import java.util.Map;
+
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 
-import java.util.Map;
+import com.koduck.dto.market.KlineDataDto;
+import com.koduck.market.util.MarketFieldParser;
 
 /**
  * Mapper for converting map payloads to KlineDataDto.
+ *
+ * @author GitHub Copilot
  */
 @Mapper(componentModel = "spring", imports = {MarketFieldParser.class})
 public interface KlineDataDtoMapper {

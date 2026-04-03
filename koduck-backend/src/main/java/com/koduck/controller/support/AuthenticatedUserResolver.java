@@ -1,14 +1,15 @@
 package com.koduck.controller.support;
 
-import com.koduck.security.UserPrincipal;
 import java.util.Objects;
+
 import org.springframework.stereotype.Component;
+
+import com.koduck.security.UserPrincipal;
 
 /**
  * Resolver for extracting authenticated user information from security principal.
  *
  * @author Koduck Team
- * @date 2026-03-30
  */
 @Component
 public class AuthenticatedUserResolver {

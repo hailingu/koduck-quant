@@ -1,9 +1,9 @@
 package com.koduck.service;
 
-import com.koduck.dto.market.DailyNetFlowDto;
-
 import java.time.LocalDate;
 import java.util.List;
+
+import com.koduck.dto.market.DailyNetFlowDto;
 
 public interface MarketFlowService {
 

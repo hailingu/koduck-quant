@@ -103,10 +103,10 @@
 
         <!-- Import order -->
         <module name="ImportOrder">
-            <property name="groups" value="java,javax,org,com.fasterxml,com"/>
+            <property name="groups" value="java,javax,jakarta,org,com.fasterxml,com"/>
             <property name="ordered" value="true"/>
             <property name="separated" value="true"/>
-            <property name="option" value="top"/>
+            <property name="option" value="bottom"/>
         </module>
 
         <!-- Modifier order -->

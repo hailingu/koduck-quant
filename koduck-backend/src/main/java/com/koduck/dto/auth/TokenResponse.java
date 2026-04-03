@@ -1,10 +1,10 @@
 package com.koduck.dto.auth;
 
-import lombok.Data;
-import lombok.NoArgsConstructor;
-
 import com.koduck.dto.UserInfo;
 import com.koduck.util.CollectionCopyUtils;
+
+import lombok.Data;
+import lombok.NoArgsConstructor;
 
 /**
  * Token 响应 DTO。

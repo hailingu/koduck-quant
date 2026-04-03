@@ -1,5 +1,14 @@
 package com.koduck.controller;
 
+import jakarta.servlet.http.HttpServletRequest;
+
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+
 import com.koduck.dto.ApiResponse;
 import com.koduck.dto.auth.ForgotPasswordRequest;
 import com.koduck.dto.auth.LoginRequest;
@@ -9,13 +18,6 @@ import com.koduck.dto.auth.ResetPasswordRequest;
 import com.koduck.dto.auth.SecurityConfigResponse;
 import com.koduck.dto.auth.TokenResponse;
 import com.koduck.service.AuthService;
-import jakarta.servlet.http.HttpServletRequest;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
-import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoExtension;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
@@ -27,17 +29,19 @@ import static org.mockito.Mockito.when;
  * Unit tests for {@link AuthController}.
  *
  * @author GitHub Copilot
- * @date 2026-03-05
  */
 @ExtendWith(MockitoExtension.class)
 class AuthControllerTest {
 
+    /** The authService. */
     @Mock
     private AuthService authService;
 
+    /** The httpServletRequest. */
     @Mock
     private HttpServletRequest httpServletRequest;
 
+    /** The authController. */
     @InjectMocks
     private AuthController authController;
 

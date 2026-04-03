@@ -1,9 +1,9 @@
 package com.koduck.service;
 
-import com.koduck.dto.market.DailyBreadthDto;
-
 import java.time.LocalDate;
 import java.util.List;
+
+import com.koduck.dto.market.DailyBreadthDto;
 
 public interface MarketBreadthService {
 

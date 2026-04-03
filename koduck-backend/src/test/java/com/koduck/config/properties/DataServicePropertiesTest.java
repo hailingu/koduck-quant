@@ -17,9 +17,21 @@ import static org.assertj.core.api.Assertions.assertThat;
  * <p>Exercises property binding rules as well as Bean Validation constraints
  * declared in the class. Each test runs in a fresh minimal Spring context
  * using {@link ApplicationContextRunner}.</p>
+ *
+ * @author Koduck Team
  */
 class DataServicePropertiesTest {
 
+    /** Connect timeout in milliseconds for testing. */
+    private static final int CONNECT_TIMEOUT_MS = 1500;
+
+    /** Read timeout in milliseconds for testing. */
+    private static final int READ_TIMEOUT_MS = 45000;
+
+    /** Max retries for testing. */
+    private static final int MAX_RETRIES = 5;
+
+    /** Context runner for testing. */
     private final ApplicationContextRunner contextRunner = new ApplicationContextRunner()
             .withConfiguration(AutoConfigurations.of(
                     ConfigurationPropertiesAutoConfiguration.class,
@@ -37,19 +49,20 @@ class DataServicePropertiesTest {
         contextRunner
                 .withPropertyValues(
                         "koduck.data-service.base-url=https://data-service.example.com/api/v1",
-                        "koduck.data-service.connect-timeout-ms=1500",
-                        "koduck.data-service.read-timeout-ms=45000",
-                        "koduck.data-service.max-retries=5",
+                        "koduck.data-service.connect-timeout-ms=" + CONNECT_TIMEOUT_MS,
+                        "koduck.data-service.read-timeout-ms=" + READ_TIMEOUT_MS,
+                        "koduck.data-service.max-retries=" + MAX_RETRIES,
                         "koduck.data-service.enabled=false"
                 )
                 .run(context -> {
                     assertThat(context.getStartupFailure()).isNull();
 
                     DataServiceProperties properties = context.getBean(DataServiceProperties.class);
-                    assertThat(properties.getBaseUrl()).isEqualTo("https://data-service.example.com/api/v1");
-                    assertThat(properties.getConnectTimeoutMs()).isEqualTo(1500);
-                    assertThat(properties.getReadTimeoutMs()).isEqualTo(45000);
-                    assertThat(properties.getMaxRetries()).isEqualTo(5);
+                    assertThat(properties.getBaseUrl())
+                        .isEqualTo("https://data-service.example.com/api/v1");
+                    assertThat(properties.getConnectTimeoutMs()).isEqualTo(CONNECT_TIMEOUT_MS);
+                    assertThat(properties.getReadTimeoutMs()).isEqualTo(READ_TIMEOUT_MS);
+                    assertThat(properties.getMaxRetries()).isEqualTo(MAX_RETRIES);
                     assertThat(properties.isEnabled()).isFalse();
                 });
     }
@@ -85,6 +98,9 @@ class DataServicePropertiesTest {
                 });
     }
 
+    /**
+     * Test configuration for properties.
+     */
     @Configuration
     @EnableConfigurationProperties(DataServiceProperties.class)
     static class TestConfiguration {

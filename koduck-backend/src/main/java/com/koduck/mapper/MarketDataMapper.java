@@ -1,13 +1,16 @@
 package com.koduck.mapper;
 
+import org.mapstruct.Mapper;
+
 import com.koduck.dto.market.DailyBreadthDto;
 import com.koduck.dto.market.DailyNetFlowDto;
 import com.koduck.entity.MarketDailyBreadth;
 import com.koduck.entity.MarketDailyNetFlow;
-import org.mapstruct.Mapper;
 
 /**
  * Consolidated mapper for market data DTO conversions.
+ *
+ * @author Koduck Team
  */
 @Mapper(componentModel = "spring")
 public interface MarketDataMapper {

@@ -1,5 +1,12 @@
 package com.koduck.config;
 
+import java.util.List;
+
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Profile;
+
 import io.swagger.v3.oas.models.Components;
 import io.swagger.v3.oas.models.OpenAPI;
 import io.swagger.v3.oas.models.info.Contact;
@@ -8,12 +15,6 @@ import io.swagger.v3.oas.models.info.License;
 import io.swagger.v3.oas.models.security.SecurityRequirement;
 import io.swagger.v3.oas.models.security.SecurityScheme;
 import io.swagger.v3.oas.models.servers.Server;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration;
-import org.springframework.context.annotation.Profile;
-
-import java.util.List;
 
 /**
  * OpenAPI (Swagger) configuration for non-production environments.
@@ -21,24 +22,40 @@ import java.util.List;
  * <p>Defines API metadata, server endpoints, and JWT Bearer authentication
  * settings used by the interactive API documentation.</p>
  *
- * @author GitHub Copilot
- * @date 2026-03-31
+ * @author Koduck Team
  */
 @Configuration
 @Profile("!prod")
 public class OpenApiConfig {
 
+    /** Security scheme name for bearer authentication. */
     private static final String SECURITY_SCHEME_NAME = "bearerAuth";
+
+    /** URL prefix for local development server. */
     private static final String LOCAL_SERVER_URL_PREFIX = "http://localhost:";
+
+    /** Current server URL indicator. */
     private static final String CURRENT_SERVER_URL = "/";
 
+    /** OpenAPI documentation title. */
     private static final String OPENAPI_TITLE = "Koduck Quant API";
+
+    /** OpenAPI version. */
     private static final String OPENAPI_VERSION = "v1.0.0";
+
+    /** Team name for contact information. */
     private static final String TEAM_NAME = "Koduck Team";
+
+    /** Team URL for contact information. */
     private static final String TEAM_URL = "https://github.com/hailingu/koduck-quant";
+
+    /** Support email for contact information. */
     private static final String TEAM_EMAIL = "support@koduck.com";
 
+    /** License name. */
     private static final String LICENSE_NAME = "MIT License";
+
+    /** License URL. */
     private static final String LICENSE_URL = "https://opensource.org/licenses/MIT";
 
     /**
@@ -50,13 +67,17 @@ public class OpenApiConfig {
     /**
      * Creates a customized OpenAPI bean including server info,
      * metadata, and security schemes. Disabled in production profile.
+     *
+     * @return the configured OpenAPI instance
      */
     @Bean
     public OpenAPI customOpenAPI() {
         return new OpenAPI()
                 .servers(List.of(
-                        new Server().url(LOCAL_SERVER_URL_PREFIX + serverPort).description("Local development server"),
-                        new Server().url(CURRENT_SERVER_URL).description("Current service endpoint")
+                        new Server().url(LOCAL_SERVER_URL_PREFIX + serverPort)
+                                .description("Local development server"),
+                        new Server().url(CURRENT_SERVER_URL)
+                                .description("Current service endpoint")
                 ))
                 .info(buildInfo())
                 .addSecurityItem(new SecurityRequirement()
@@ -67,6 +88,11 @@ public class OpenApiConfig {
                 );
     }
 
+    /**
+     * Builds the OpenAPI info section.
+     *
+     * @return the API info
+     */
     private Info buildInfo() {
         return new Info()
                 .title(OPENAPI_TITLE)
@@ -99,6 +125,11 @@ public class OpenApiConfig {
                         .url(LICENSE_URL));
     }
 
+    /**
+     * Builds the security scheme configuration.
+     *
+     * @return the JWT bearer security scheme
+     */
     private SecurityScheme buildSecurityScheme() {
         return new SecurityScheme()
                 .name(SECURITY_SCHEME_NAME)

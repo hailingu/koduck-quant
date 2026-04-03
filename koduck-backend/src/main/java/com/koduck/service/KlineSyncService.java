@@ -4,6 +4,8 @@ import java.util.List;
 
 /**
  * Service for syncing K-line data from Python Data Service.
+ *
+ * @author GitHub Copilot
  */
 public interface KlineSyncService {
 

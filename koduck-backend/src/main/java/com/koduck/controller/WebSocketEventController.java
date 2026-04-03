@@ -1,12 +1,5 @@
 package com.koduck.controller;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.koduck.dto.websocket.SubscriptionMessage;
-import com.koduck.dto.websocket.WebSocketMessage;
-import com.koduck.security.websocket.WebSocketChannelInterceptor;
-import com.koduck.service.StockSubscriptionService;
-import io.swagger.v3.oas.annotations.Operation;
-import io.swagger.v3.oas.annotations.tags.Tag;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
@@ -14,7 +7,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
-import lombok.extern.slf4j.Slf4j;
+
 import org.springframework.context.event.EventListener;
 import org.springframework.messaging.handler.annotation.MessageMapping;
 import org.springframework.messaging.handler.annotation.Payload;
@@ -25,25 +18,51 @@ import org.springframework.web.socket.messaging.SessionConnectEvent;
 import org.springframework.web.socket.messaging.SessionDisconnectEvent;
 import org.springframework.web.socket.messaging.SessionSubscribeEvent;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+
+import com.koduck.dto.websocket.SubscriptionMessage;
+import com.koduck.dto.websocket.WebSocketMessage;
+import com.koduck.security.websocket.WebSocketChannelInterceptor;
+import com.koduck.service.StockSubscriptionService;
+
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import lombok.extern.slf4j.Slf4j;
+
 /**
- * WebSocket 事件控制器
- * <p>处理 WebSocket 实时订阅相关的事件：</p>
+ * WebSocket event controller.
+ * <p>Handles WebSocket real-time subscription related events:</p>
  * <ul>
- *   <li>股票行情订阅/取消订阅</li>
- *   <li>心跳检测</li>
- *   <li>会话管理</li>
+ *   <li>Stock quote subscription/unsubscription</li>
+ *   <li>Heartbeat detection</li>
+ *   <li>Session management</li>
  * </ul>
  *
  * @author GitHub Copilot
- * @date 2026-03-31
  */
 @Slf4j
 @Controller
-@Tag(name = "WebSocket", description = "WebSocket实时行情订阅接口（通过STOMP协议）")
+@Tag(name = "WebSocket", description = "WebSocket real-time quote subscription interface (via STOMP protocol)")
 public class WebSocketEventController {
+
+    /**
+     * Subscribe result type.
+     */
     private static final String SUBSCRIBE_RESULT = "SUBSCRIBE_RESULT";
+
+    /**
+     * Unsubscribe result type.
+     */
     private static final String UNSUBSCRIBE_RESULT = "UNSUBSCRIBE_RESULT";
+
+    /**
+     * Stock subscription service.
+     */
     private final StockSubscriptionService stockSubscriptionService;
+
+    /**
+     * Object mapper.
+     */
     private final ObjectMapper objectMapper;
 
     public WebSocketEventController(StockSubscriptionService stockSubscriptionService, ObjectMapper objectMapper) {
@@ -53,22 +72,22 @@ public class WebSocketEventController {
     }
 
     /**
-     * 用户ID到会话ID的映射
+     * Mapping from user ID to session ID.
      */
     private final Map<Long, String> activeConnections = new ConcurrentHashMap<>();
 
     /**
-     * 处理订阅请求
+     * Handles subscription requests.
      *
-     * @param payload 订阅请求体
-     * @param headerAccessor 消息头访问器
-     * @return 订阅结果
+     * @param payload subscription request body
+     * @param headerAccessor message header accessor
+     * @return subscription result
      */
     @Operation(
-        summary = "订阅股票行情",
-        description = "订阅指定股票的实时行情推送\n\n" +
-                      "STOMP目的地: /app/subscribe\n" +
-                      "订阅成功后通过 /user/queue/subscribe-result 接收结果"
+        summary = "Subscribe stock quotes",
+        description = "Subscribe to real-time quotes for specified stocks\n\n" +
+                      "STOMP destination: /app/subscribe\n" +
+                      "Results received via /user/queue/subscribe-result"
     )
     @MessageMapping("/subscribe")
     @SendToUser("/queue/subscribe-result")
@@ -77,7 +96,7 @@ public class WebSocketEventController {
             SimpMessageHeaderAccessor headerAccessor) {
         log.info("websocket_subscribe_request sessionId={}", headerAccessor.getSessionId());
         SubscriptionMessage request = parseSubscriptionMessage(payload);
-        // 获取用户Principal
+        // Get user Principal
         WebSocketChannelInterceptor.WebSocketUserPrincipal principal = getUserPrincipal(headerAccessor);
         if (principal == null) {
             return SubscriptionMessage.builder()
@@ -105,7 +124,7 @@ public class WebSocketEventController {
                 .build();
         }
         if (symbols.isEmpty()) {
-            // 查询当前订阅
+            // Query current subscriptions
             Set<String> subscriptions = stockSubscriptionService.getUserSubscriptions(userId);
             return SubscriptionMessage.builder()
                     .type(SUBSCRIBE_RESULT)
@@ -113,9 +132,9 @@ public class WebSocketEventController {
                     .timestamp(System.currentTimeMillis())
                     .build();
         }
-        // 执行订阅
+        // Execute subscription
         StockSubscriptionService.SubscribeResult result = stockSubscriptionService.subscribe(userId, symbols);
-        // 返回当前所有订阅
+        // Return all current subscriptions
         Set<String> allSubscriptions = stockSubscriptionService.getUserSubscriptions(userId);
         return SubscriptionMessage.builder()
             .type(SUBSCRIBE_RESULT)
@@ -128,17 +147,17 @@ public class WebSocketEventController {
     }
 
     /**
-     * 处理取消订阅请求
+     * Handles unsubscribe requests.
      *
-     * @param payload 取消订阅请求体
-     * @param headerAccessor 消息头访问器
-     * @return 取消订阅结果
+     * @param payload unsubscribe request body
+     * @param headerAccessor message header accessor
+     * @return unsubscribe result
      */
     @Operation(
-        summary = "取消订阅股票行情",
-        description = "取消指定股票的实时行情推送\n\n" +
-                      "STOMP目的地: /app/unsubscribe\n" +
-                      "结果通过 /user/queue/unsubscribe-result 接收"
+        summary = "Unsubscribe stock quotes",
+        description = "Cancel real-time quote subscription for specified stocks\n\n" +
+                      "STOMP destination: /app/unsubscribe\n" +
+                      "Results received via /user/queue/unsubscribe-result"
     )
     @MessageMapping("/unsubscribe")
     @SendToUser("/queue/unsubscribe-result")
@@ -147,7 +166,7 @@ public class WebSocketEventController {
             SimpMessageHeaderAccessor headerAccessor) {
         log.info("websocket_unsubscribe_request sessionId={}", headerAccessor.getSessionId());
         SubscriptionMessage request = parseSubscriptionMessage(payload);
-        // 获取用户Principal
+        // Get user Principal
         WebSocketChannelInterceptor.WebSocketUserPrincipal principal = getUserPrincipal(headerAccessor);
         if (principal == null) {
             return SubscriptionMessage.builder()
@@ -160,9 +179,9 @@ public class WebSocketEventController {
         List<String> symbols = request != null && request.getSymbols() != null
             ? request.getSymbols()
             : new ArrayList<>();
-        // 执行取消订阅
+        // Execute unsubscription
         StockSubscriptionService.SubscribeResult result = stockSubscriptionService.unsubscribe(userId, symbols);
-        // 返回当前所有订阅
+        // Return all current subscriptions
         Set<String> allSubscriptions = stockSubscriptionService.getUserSubscriptions(userId);
         return SubscriptionMessage.builder()
             .type(UNSUBSCRIBE_RESULT)
@@ -175,16 +194,16 @@ public class WebSocketEventController {
     }
 
     /**
-     * 处理心跳 ping 消息
+     * Handles heartbeat ping messages.
      *
-     * @param headerAccessor 消息头访问器
-     * @return pong 响应
+     * @param headerAccessor message header accessor
+     * @return pong response
      */
     @Operation(
-        summary = "WebSocket心跳检测",
-        description = "发送心跳包检测连接状态\n\n" +
-                      "STOMP目的地: /app/ping\n" +
-                      "响应通过 /user/queue/pong 接收"
+        summary = "WebSocket heartbeat detection",
+        description = "Send heartbeat packet to detect connection status\n\n" +
+                      "STOMP destination: /app/ping\n" +
+                      "Response received via /user/queue/pong"
     )
     @MessageMapping("/ping")
     @SendToUser("/queue/pong")
@@ -194,7 +213,9 @@ public class WebSocketEventController {
     }
 
     /**
-     * 处理会话连接事件
+     * Handles session connect event.
+     *
+     * @param event session connect event
      */
     @EventListener
     public void handleSessionConnect(SessionConnectEvent event) {
@@ -202,13 +223,15 @@ public class WebSocketEventController {
     }
 
     /**
-     * 处理会话断开事件 - 清理订阅
+     * Handles session disconnect event - cleanup subscriptions.
+     *
+     * @param event session disconnect event
      */
     @EventListener
     public void handleSessionDisconnect(SessionDisconnectEvent event) {
         String sessionId = event.getSessionId();
         log.info("websocket_session_disconnect sessionId={}", sessionId);
-        // 查找并清理该会话对应的用户订阅
+        // Find and clean up subscriptions for this session's user
         Long disconnectedUserId = null;
         for (Map.Entry<Long, String> entry : activeConnections.entrySet()) {
             if (entry.getValue().equals(sessionId)) {
@@ -218,14 +241,16 @@ public class WebSocketEventController {
         }
         if (disconnectedUserId != null) {
             activeConnections.remove(disconnectedUserId);
-            // 清理用户订阅
+            // Clean up user subscriptions
             stockSubscriptionService.onUserDisconnect(disconnectedUserId);
             log.info("websocket_user_subscriptions_cleared userId={}", disconnectedUserId);
         }
     }
 
     /**
-     * 处理订阅事件
+     * Handles subscription event.
+     *
+     * @param event session subscribe event
      */
     @EventListener
     public void handleSessionSubscribe(SessionSubscribeEvent event) {
@@ -233,9 +258,13 @@ public class WebSocketEventController {
     }
 
     /**
-     * 获取 Principal
+     * Gets Principal.
+     *
+     * @param headerAccessor message header accessor
+     * @return WebSocket user principal
      */
-    private WebSocketChannelInterceptor.WebSocketUserPrincipal getUserPrincipal(SimpMessageHeaderAccessor headerAccessor) {
+    private WebSocketChannelInterceptor.WebSocketUserPrincipal getUserPrincipal(
+            SimpMessageHeaderAccessor headerAccessor) {
         if (headerAccessor.getUser() instanceof WebSocketChannelInterceptor.WebSocketUserPrincipal principal) {
             return principal;
         }
@@ -261,7 +290,8 @@ public class WebSocketEventController {
                 return objectMapper.readValue(text, SubscriptionMessage.class);
             }
             return objectMapper.convertValue(payload, SubscriptionMessage.class);
-        } catch (Exception ex) {
+        }
+        catch (Exception ex) {
             log.warn("websocket_subscription_message_parse_failed payloadType={} payload={} error={}",
                     payload == null ? null : payload.getClass().getName(),
                     payload,
@@ -271,7 +301,9 @@ public class WebSocketEventController {
     }
 
     /**
-     * 获取活跃连接数
+     * Gets active connection count.
+     *
+     * @return number of active connections
      */
     public int getActiveConnectionCount() {
         return activeConnections.size();

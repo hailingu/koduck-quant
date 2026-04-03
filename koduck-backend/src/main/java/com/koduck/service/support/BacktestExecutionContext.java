@@ -6,18 +6,32 @@ import java.math.BigDecimal;
  * Mutable execution context for a running backtest simulation.
  *
  * @author GitHub Copilot
- * @date 2026-03-31
  */
 public class BacktestExecutionContext {
 
+    /**
+     * Available cash for trading.
+     */
     private BigDecimal cash;
 
+    /**
+     * Current position size.
+     */
     private BigDecimal position;
 
+    /**
+     * Entry price of current position.
+     */
     private BigDecimal entryPrice;
 
+    /**
+     * Commission rate for trades.
+     */
     private final BigDecimal commissionRate;
 
+    /**
+     * Slippage factor for trade execution.
+     */
     private final BigDecimal slippage;
 
     public BacktestExecutionContext(BigDecimal initialCapital, BigDecimal commissionRate, BigDecimal slippage) {
