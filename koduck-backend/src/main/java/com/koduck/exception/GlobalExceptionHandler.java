@@ -104,18 +104,6 @@ public class GlobalExceptionHandler {
     }
 
     /**
-     * Handles {@link AuthorizationException}.
-     *
-     * @param e authorization exception
-     * @return 403 error response
-     */
-    @ExceptionHandler(AuthorizationException.class)
-    public ResponseEntity<ApiResponse<Void>> handleAuthorizationException(AuthorizationException e) {
-        log.warn("Authorization failed: {}", e.getMessage());
-        return buildErrorResponse(HttpStatus.FORBIDDEN, e.getCode(), e.getMessage());
-    }
-
-    /**
      * Handles {@link StateException}.
      *
      * @param e invalid-state exception
