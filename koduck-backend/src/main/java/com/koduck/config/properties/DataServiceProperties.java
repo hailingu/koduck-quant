@@ -3,12 +3,14 @@ package com.koduck.config.properties;
 import jakarta.annotation.PostConstruct;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
-import lombok.extern.slf4j.Slf4j;
+
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.util.StringUtils;
 import org.springframework.validation.annotation.Validated;
+
+import lombok.extern.slf4j.Slf4j;
 
 /**
  * Configuration properties for the external data service used by the
@@ -18,7 +20,6 @@ import org.springframework.validation.annotation.Validated;
  * <p>Includes timeouts, retry settings and base URL for HTTP calls.</p>
  *
  * @author GitHub Copilot
- * @date 2026-03-04
  */
 @Configuration
 @ConfigurationProperties(prefix = "koduck.data-service")
@@ -26,28 +27,65 @@ import org.springframework.validation.annotation.Validated;
 @Slf4j
 public class DataServiceProperties {
 
+    /**
+     * Environment variable name for data service URL.
+     */
     private static final String ENV_DATA_SERVICE_URL = "DATA_SERVICE_URL";
+
+    /**
+     * Default base URL for data service.
+     */
     private static final String DEFAULT_BASE_URL = "http://localhost:8000/api/v1";
+
+    /**
+     * Default connection timeout in milliseconds.
+     */
     private static final int DEFAULT_CONNECT_TIMEOUT_MS = 10000;
+
+    /**
+     * Default read timeout in milliseconds.
+     */
     private static final int DEFAULT_READ_TIMEOUT_MS = 60000;
+
+    /**
+     * Default maximum number of retries.
+     */
     private static final int DEFAULT_MAX_RETRIES = 3;
 
+    /**
+     * Base URL for the external data service.
+     */
     @NotBlank
     private String baseUrl = DEFAULT_BASE_URL;
 
+    /**
+     * HTTP connection timeout in milliseconds.
+     */
     @Min(1)
     private int connectTimeoutMs = DEFAULT_CONNECT_TIMEOUT_MS;
 
+    /**
+     * HTTP read timeout in milliseconds.
+     */
     @Min(1)
     private int readTimeoutMs = DEFAULT_READ_TIMEOUT_MS;
 
+    /**
+     * Maximum retry attempts for downstream data service calls.
+     */
     @Min(0)
     private int maxRetries = DEFAULT_MAX_RETRIES;
 
+    /**
+     * Path used by the data service to trigger realtime updates.
+     */
     @Value("${koduck.data-service.realtime-update-path:/market/realtime/update}")
     @NotBlank
     private String realtimeUpdatePath;
 
+    /**
+     * Flag to enable or disable data service integration.
+     */
     private boolean enabled = true;
 
     /**
