@@ -12,16 +12,19 @@ import org.springframework.amqp.rabbit.config.SimpleRabbitListenerContainerFacto
 import org.springframework.amqp.rabbit.connection.ConnectionFactory;
 import org.springframework.amqp.support.converter.Jackson2JsonMessageConverter;
 import org.springframework.amqp.support.converter.MessageConverter;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.beans.factory.annotation.Qualifier;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+
 import com.koduck.config.properties.PricePushRabbitProperties;
 
 /**
  * RabbitMQ topology and listener config for price push events.
+ *
+ * @author Koduck Team
  */
 @Configuration
 @EnableRabbit
