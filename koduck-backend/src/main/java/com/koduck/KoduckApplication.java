@@ -9,7 +9,6 @@ import org.springframework.scheduling.annotation.EnableAsync;
  * Koduck backend application entry point.
  *
  * @author Koduck Team
- * @date 2026-03-31
  */
 @SpringBootApplication
 @ConfigurationPropertiesScan

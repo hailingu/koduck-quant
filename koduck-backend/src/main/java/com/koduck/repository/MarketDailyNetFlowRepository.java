@@ -14,7 +14,11 @@ public interface MarketDailyNetFlowRepository extends JpaRepository<MarketDailyN
 
     Optional<MarketDailyNetFlow> findFirstByMarketAndFlowTypeOrderByTradeDateDesc(String market, String flowType);
 
-    Optional<MarketDailyNetFlow> findByMarketAndFlowTypeAndTradeDate(String market, String flowType, LocalDate tradeDate);
+    Optional<MarketDailyNetFlow> findByMarketAndFlowTypeAndTradeDate(
+        String market,
+        String flowType,
+        LocalDate tradeDate
+    );
 
     List<MarketDailyNetFlow> findByMarketAndFlowTypeAndTradeDateBetweenOrderByTradeDateAsc(
         String market,
