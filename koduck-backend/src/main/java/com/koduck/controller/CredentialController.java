@@ -1,30 +1,11 @@
 package com.koduck.controller;
 
-import com.koduck.common.constants.PaginationConstants;
-import com.koduck.controller.support.AuthenticatedUserResolver;
-import com.koduck.dto.ApiResponse;
-import com.koduck.dto.credential.CreateCredentialRequest;
-import com.koduck.dto.credential.CredentialAuditLogResponse;
-import com.koduck.dto.credential.CredentialDetailResponse;
-import com.koduck.dto.credential.CredentialListResponse;
-import com.koduck.dto.credential.CredentialResponse;
-import com.koduck.dto.credential.UpdateCredentialRequest;
-import com.koduck.dto.credential.VerifyCredentialResponse;
-import com.koduck.security.UserPrincipal;
-import com.koduck.service.CredentialService;
-import io.swagger.v3.oas.annotations.Operation;
-import io.swagger.v3.oas.annotations.Parameter;
-import io.swagger.v3.oas.annotations.media.Content;
-import io.swagger.v3.oas.annotations.media.Schema;
-import io.swagger.v3.oas.annotations.responses.ApiResponses;
-import io.swagger.v3.oas.annotations.security.SecurityRequirement;
-import io.swagger.v3.oas.annotations.tags.Tag;
+import java.util.List;
+
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
-import java.util.List;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
+
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -37,6 +18,28 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.koduck.common.constants.PaginationConstants;
+import com.koduck.controller.support.AuthenticatedUserResolver;
+import com.koduck.dto.ApiResponse;
+import com.koduck.dto.credential.CreateCredentialRequest;
+import com.koduck.dto.credential.CredentialAuditLogResponse;
+import com.koduck.dto.credential.CredentialDetailResponse;
+import com.koduck.dto.credential.CredentialListResponse;
+import com.koduck.dto.credential.CredentialResponse;
+import com.koduck.dto.credential.UpdateCredentialRequest;
+import com.koduck.dto.credential.VerifyCredentialResponse;
+import com.koduck.security.UserPrincipal;
+import com.koduck.service.CredentialService;
+
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+
 /**
  * REST controller for credential management.
  *
@@ -44,7 +47,6 @@ import org.springframework.web.bind.annotation.RestController;
  * operations, verification, and audit querying.</p>
  *
  * @author GitHub Copilot
- * @date 2026-03-31
  */
 @RestController
 @RequestMapping("/api/v1/credentials")
@@ -55,7 +57,10 @@ import org.springframework.web.bind.annotation.RestController;
 @RequiredArgsConstructor
 public class CredentialController {
 
+    /** Service for credential operations. */
     private final CredentialService credentialService;
+
+    /** Resolver for extracting authenticated user information. */
     private final AuthenticatedUserResolver authenticatedUserResolver;
 
     /**
@@ -72,10 +77,10 @@ public class CredentialController {
     )
     @io.swagger.v3.oas.annotations.responses.ApiResponses(value = {
         @io.swagger.v3.oas.annotations.responses.ApiResponse(
-            responseCode = "200",
-            description = "获取成功",
-            content = @Content(schema = @Schema(implementation = CredentialListResponse.class))
-        ),
+                responseCode = "200",
+                description = "获取成功",
+                content = @Content(schema = @Schema(implementation = CredentialListResponse.class))
+            ),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "未登录或Token无效"),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "500", description = "服务器内部错误")
     })
@@ -107,10 +112,10 @@ public class CredentialController {
     )
     @io.swagger.v3.oas.annotations.responses.ApiResponses(value = {
         @io.swagger.v3.oas.annotations.responses.ApiResponse(
-            responseCode = "200",
-            description = "获取成功",
-            content = @Content(schema = @Schema(implementation = CredentialResponse.class))
-        ),
+                responseCode = "200",
+                description = "获取成功",
+                content = @Content(schema = @Schema(implementation = CredentialResponse.class))
+            ),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "未登录或Token无效"),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "500", description = "服务器内部错误")
     })
@@ -137,10 +142,10 @@ public class CredentialController {
     )
     @io.swagger.v3.oas.annotations.responses.ApiResponses(value = {
         @io.swagger.v3.oas.annotations.responses.ApiResponse(
-            responseCode = "200",
-            description = "获取成功",
-            content = @Content(schema = @Schema(implementation = CredentialResponse.class))
-        ),
+                responseCode = "200",
+                description = "获取成功",
+                content = @Content(schema = @Schema(implementation = CredentialResponse.class))
+            ),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "未登录或Token无效"),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "无权访问该凭证"),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "凭证不存在"),
@@ -172,10 +177,10 @@ public class CredentialController {
     )
     @io.swagger.v3.oas.annotations.responses.ApiResponses(value = {
         @io.swagger.v3.oas.annotations.responses.ApiResponse(
-            responseCode = "200",
-            description = "获取成功",
-            content = @Content(schema = @Schema(implementation = CredentialDetailResponse.class))
-        ),
+                responseCode = "200",
+                description = "获取成功",
+                content = @Content(schema = @Schema(implementation = CredentialDetailResponse.class))
+            ),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "未登录或Token无效"),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "无权访问该凭证"),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "凭证不存在"),
@@ -207,10 +212,10 @@ public class CredentialController {
     )
     @io.swagger.v3.oas.annotations.responses.ApiResponses(value = {
         @io.swagger.v3.oas.annotations.responses.ApiResponse(
-            responseCode = "200",
-            description = "创建成功",
-            content = @Content(schema = @Schema(implementation = CredentialResponse.class))
-        ),
+                responseCode = "200",
+                description = "创建成功",
+                content = @Content(schema = @Schema(implementation = CredentialResponse.class))
+            ),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "请求参数错误"),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "未登录或Token无效"),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "409", description = "凭证名称已存在"),
@@ -241,10 +246,10 @@ public class CredentialController {
     )
     @io.swagger.v3.oas.annotations.responses.ApiResponses(value = {
         @io.swagger.v3.oas.annotations.responses.ApiResponse(
-            responseCode = "200",
-            description = "更新成功",
-            content = @Content(schema = @Schema(implementation = CredentialResponse.class))
-        ),
+                responseCode = "200",
+                description = "更新成功",
+                content = @Content(schema = @Schema(implementation = CredentialResponse.class))
+            ),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "请求参数错误"),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "未登录或Token无效"),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "无权更新该凭证"),
@@ -308,10 +313,10 @@ public class CredentialController {
     )
     @io.swagger.v3.oas.annotations.responses.ApiResponses(value = {
         @io.swagger.v3.oas.annotations.responses.ApiResponse(
-            responseCode = "200",
-            description = "验证完成",
-            content = @Content(schema = @Schema(implementation = VerifyCredentialResponse.class))
-        ),
+                responseCode = "200",
+                description = "验证完成",
+                content = @Content(schema = @Schema(implementation = VerifyCredentialResponse.class))
+            ),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "未登录或Token无效"),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "无权访问该凭证"),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "凭证不存在"),
@@ -343,10 +348,10 @@ public class CredentialController {
     )
     @io.swagger.v3.oas.annotations.responses.ApiResponses(value = {
         @io.swagger.v3.oas.annotations.responses.ApiResponse(
-            responseCode = "200",
-            description = "获取成功",
-            content = @Content(schema = @Schema(implementation = CredentialAuditLogResponse.class))
-        ),
+                responseCode = "200",
+                description = "获取成功",
+                content = @Content(schema = @Schema(implementation = CredentialAuditLogResponse.class))
+            ),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "未登录或Token无效"),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "500", description = "服务器内部错误")
     })
