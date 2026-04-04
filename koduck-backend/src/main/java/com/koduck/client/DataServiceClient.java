@@ -1,5 +1,6 @@
 package com.koduck.client;
 
+import java.time.Duration;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -34,6 +35,11 @@ public class DataServiceClient {
      * Circuit breaker name for data service client.
      */
     private static final String CB_DATA_SERVICE_CLIENT = "dataServiceClient";
+
+    /**
+     * Timeout for realtime update HTTP calls in seconds.
+     */
+    private static final int REALTIME_UPDATE_TIMEOUT_SECONDS = 5;
 
     /**
      * Data-service feature flags and endpoint settings.
@@ -120,12 +126,16 @@ public class DataServiceClient {
                 .bodyValue(requestBody)
                 .retrieve()
                 .toBodilessEntity()
-                .block();
-
-        if (log.isInfoEnabled()) {
-            log.info("realtime_update_triggered symbolsCount={} symbols={}",
-                    requestedSymbols.size(), requestedSymbols);
-        }
+                .timeout(Duration.ofSeconds(REALTIME_UPDATE_TIMEOUT_SECONDS))
+                .doOnSuccess(response -> {
+                    if (log.isInfoEnabled()) {
+                        log.info("realtime_update_triggered symbolsCount={} symbols={}",
+                                requestedSymbols.size(), requestedSymbols);
+                    }
+                })
+                .doOnError(error -> log.warn("realtime_update_trigger_failed symbols={} error={}",
+                        requestedSymbols, error.getMessage()))
+                .subscribe();
     }
 
     /**
