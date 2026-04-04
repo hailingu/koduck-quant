@@ -54,6 +54,7 @@
 | [ADR-0082](ADR-0082-maven-multi-module-refactoring.md) | Maven 多模块重构（拆分单一模块） | 模块化架构 |
 | [ADR-0083](ADR-0083-cleanup-empty-packages.md) | 清理 koduck-backend 空包 | 代码清理 |
 | [ADR-0084](ADR-0084-cleanup-src-empty-dirs.md) | 清理 koduck-backend/src 残留空目录 | 代码清理 |
+| [ADR-0085](ADR-0085-local-src-cleanup.md) | 本地 koduck-backend/src 残留空目录清理 | 代码清理 |
 
 ---
 
