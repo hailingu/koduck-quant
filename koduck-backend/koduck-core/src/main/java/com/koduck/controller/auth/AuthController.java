@@ -22,6 +22,7 @@ import com.koduck.dto.auth.RefreshTokenRequest;
 import com.koduck.dto.auth.RegisterRequest;
 import com.koduck.dto.auth.ResetPasswordRequest;
 import com.koduck.dto.auth.SecurityConfigResponse;
+import com.koduck.dto.UserInfo;
 import com.koduck.dto.auth.TokenResponse;
 import com.koduck.service.AuthService;
 
@@ -105,13 +106,13 @@ public class AuthController {
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "429", description = "登录请求过于频繁，触发限流"),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "500", description = "服务器内部错误")
     })
-    public ApiResponse<TokenResponse> login(
+    public ApiResponse<TokenResponse<UserInfo>> login(
             @Valid @RequestBody LoginRequest request,
             @Parameter(description = "HTTP请求对象，用于获取客户端IP", hidden = true)
             HttpServletRequest httpRequest) {
         String ipAddress = getClientIpAddress(httpRequest);
         String userAgent = httpRequest.getHeader(HttpHeaderConstants.USER_AGENT);
-        TokenResponse response = authService.login(request, ipAddress, userAgent);
+        TokenResponse<UserInfo> response = authService.login(request, ipAddress, userAgent);
         return ApiResponse.success(response);
     }
 
@@ -139,8 +140,8 @@ public class AuthController {
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "409", description = "用户名或邮箱已被注册"),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "500", description = "服务器内部错误")
     })
-    public ApiResponse<TokenResponse> register(@Valid @RequestBody RegisterRequest request) {
-        TokenResponse response = authService.register(request);
+    public ApiResponse<TokenResponse<UserInfo>> register(@Valid @RequestBody RegisterRequest request) {
+        TokenResponse<UserInfo> response = authService.register(request);
         return ApiResponse.success(response);
     }
 
@@ -172,8 +173,8 @@ public class AuthController {
             ),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "500", description = "服务器内部错误")
     })
-    public ApiResponse<TokenResponse> refreshToken(@Valid @RequestBody RefreshTokenRequest request) {
-        TokenResponse response = authService.refreshToken(request);
+    public ApiResponse<TokenResponse<UserInfo>> refreshToken(@Valid @RequestBody RefreshTokenRequest request) {
+        TokenResponse<UserInfo> response = authService.refreshToken(request);
         return ApiResponse.success(response);
     }
 

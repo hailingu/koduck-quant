@@ -5,6 +5,8 @@ import java.util.Collection;
 import java.util.List;
 import java.util.stream.Collectors;
 
+import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 
 import com.koduck.entity.auth.User;
@@ -28,7 +30,7 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 public class AuthUserPrincipal implements
-        UserPrincipal<org.springframework.security.core.GrantedAuthority>,
+        UserPrincipal<GrantedAuthority>,
         UserDetails {
 
     private static final long serialVersionUID = 1L;
@@ -76,7 +78,7 @@ public class AuthUserPrincipal implements
     /**
      * 权限列表（Spring Security 类型）。
      */
-    private List<org.springframework.security.core.GrantedAuthority> authorities;
+    private List<GrantedAuthority> authorities;
 
     /**
      * 账户是否启用。
@@ -108,7 +110,7 @@ public class AuthUserPrincipal implements
      * @return 权限集合
      */
     @Override
-    public Collection<org.springframework.security.core.GrantedAuthority> getAuthorities() {
+    public Collection<GrantedAuthority> getAuthorities() {
         if (authorities == null) {
             return List.of();
         }
@@ -161,7 +163,7 @@ public class AuthUserPrincipal implements
                 .emailVerifiedAt(user.getEmailVerifiedAt())
                 .lastLoginAt(user.getLastLoginAt())
                 .authorities(roles.stream()
-                        .map(org.springframework.security.core.authority.SimpleGrantedAuthority::new)
+                        .map(SimpleGrantedAuthority::new)
                         .collect(Collectors.toList()))
                 .enabled(user.getStatus() == User.UserStatus.ACTIVE)
                 .build();

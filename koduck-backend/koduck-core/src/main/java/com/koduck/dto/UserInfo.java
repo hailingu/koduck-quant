@@ -29,7 +29,7 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 @Deprecated
-public class UserInfo implements UserPrincipal {
+public class UserInfo implements UserPrincipal<GrantedAuthority> {
 
     private static final long serialVersionUID = SERIAL_VERSION_UID;
 
@@ -53,7 +53,7 @@ public class UserInfo implements UserPrincipal {
     private List<String> roles;
 
     @Override
-    public Collection<? extends GrantedAuthority> getAuthorities() {
+    public Collection<GrantedAuthority> getAuthorities() {
         if (roles == null) {
             return List.of();
         }

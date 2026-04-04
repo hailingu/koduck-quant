@@ -24,7 +24,7 @@ import com.koduck.dto.user.UpdateProfileRequest;
 import com.koduck.dto.user.UpdateUserRequest;
 import com.koduck.dto.user.UserDetailResponse;
 import com.koduck.dto.user.UserPageRequest;
-import com.koduck.security.UserPrincipal;
+import com.koduck.security.AuthUserPrincipal;
 import com.koduck.service.UserService;
 
 import io.swagger.v3.oas.annotations.Operation;
@@ -78,7 +78,7 @@ public class UserController {
     @GetMapping("/me")
     public ApiResponse<UserDetailResponse> getCurrentUser(
             @Parameter(description = "当前用户认证信息", hidden = true)
-            @AuthenticationPrincipal UserPrincipal userPrincipal) {
+            @AuthenticationPrincipal AuthUserPrincipal userPrincipal) {
         Long userId = requireUserId(userPrincipal);
         log.debug("GET /api/v1/users/me, userId={}", userId);
         UserDetailResponse response = userService.getCurrentUser(userId);
@@ -109,7 +109,7 @@ public class UserController {
     @PutMapping("/me")
     public ApiResponse<UserDetailResponse> updateProfile(
             @Parameter(description = "当前用户认证信息", hidden = true)
-            @AuthenticationPrincipal UserPrincipal userPrincipal,
+            @AuthenticationPrincipal AuthUserPrincipal userPrincipal,
             @Valid @RequestBody UpdateProfileRequest request) {
         Long userId = requireUserId(userPrincipal);
         log.debug("PUT /api/v1/users/me, userId={}", userId);
@@ -137,7 +137,7 @@ public class UserController {
     @PutMapping("/me/password")
     public ApiResponse<Void> changePassword(
             @Parameter(description = "当前用户认证信息", hidden = true)
-            @AuthenticationPrincipal UserPrincipal userPrincipal,
+            @AuthenticationPrincipal AuthUserPrincipal userPrincipal,
             @Valid @RequestBody ChangePasswordRequest request) {
         Long userId = requireUserId(userPrincipal);
         log.debug("PUT /api/v1/users/me/password, userId={}", userId);
@@ -296,14 +296,14 @@ public class UserController {
             @Parameter(description = "用户ID", example = "1")
             @PathVariable @Positive(message = "User ID must be positive") Long id,
             @Parameter(description = "当前用户认证信息", hidden = true)
-            @AuthenticationPrincipal UserPrincipal userPrincipal) {
+            @AuthenticationPrincipal AuthUserPrincipal userPrincipal) {
         Long currentUserId = requireUserId(userPrincipal);
         log.debug("DELETE /api/v1/users/{}, operatorUserId={}", id, currentUserId);
         userService.deleteUser(id, currentUserId);
         return ApiResponse.successNoContent();
     }
 
-    private Long requireUserId(UserPrincipal userPrincipal) {
+    private Long requireUserId(AuthUserPrincipal userPrincipal) {
         return authenticatedUserResolver.requireUserId(userPrincipal);
     }
 }

@@ -23,7 +23,7 @@ import com.koduck.dto.ApiResponse;
 import com.koduck.dto.watchlist.AddWatchlistRequest;
 import com.koduck.dto.watchlist.SortWatchlistRequest;
 import com.koduck.dto.watchlist.WatchlistItemDto;
-import com.koduck.security.UserPrincipal;
+import com.koduck.security.AuthUserPrincipal;
 import com.koduck.service.WatchlistService;
 
 import io.swagger.v3.oas.annotations.Operation;
@@ -81,7 +81,7 @@ public class WatchlistController {
     @GetMapping
     public ApiResponse<List<WatchlistItemDto>> getWatchlist(
             @Parameter(description = "当前用户认证信息", hidden = true)
-            @AuthenticationPrincipal UserPrincipal userPrincipal) {
+            @AuthenticationPrincipal AuthUserPrincipal userPrincipal) {
         Long userId = requireUserId(userPrincipal);
         log.debug("GET /api/v1/watchlist: user={}", userId);
         List<WatchlistItemDto> watchlist = watchlistService.getWatchlist(userId);
@@ -113,7 +113,7 @@ public class WatchlistController {
     @PostMapping
     public ApiResponse<WatchlistItemDto> addToWatchlist(
             @Parameter(description = "当前用户认证信息", hidden = true)
-            @AuthenticationPrincipal UserPrincipal userPrincipal,
+            @AuthenticationPrincipal AuthUserPrincipal userPrincipal,
             @Valid @RequestBody AddWatchlistRequest request) {
         Long userId = requireUserId(userPrincipal);
         log.debug("POST /api/v1/watchlist: user={}, market={}, symbol={}",
@@ -143,7 +143,7 @@ public class WatchlistController {
     @DeleteMapping("/{id}")
     public ApiResponse<Void> removeFromWatchlist(
             @Parameter(description = "当前用户认证信息", hidden = true)
-            @AuthenticationPrincipal UserPrincipal userPrincipal,
+            @AuthenticationPrincipal AuthUserPrincipal userPrincipal,
             @Parameter(description = "自选股ID", example = "1")
             @PathVariable @Positive Long id) {
         Long userId = requireUserId(userPrincipal);
@@ -172,7 +172,7 @@ public class WatchlistController {
     @PutMapping("/sort")
     public ApiResponse<Void> sortWatchlist(
             @Parameter(description = "当前用户认证信息", hidden = true)
-            @AuthenticationPrincipal UserPrincipal userPrincipal,
+            @AuthenticationPrincipal AuthUserPrincipal userPrincipal,
             @Valid @RequestBody SortWatchlistRequest request) {
         Long userId = requireUserId(userPrincipal);
         log.debug("PUT /api/v1/watchlist/sort: user={}, items={}", userId, request.items().size());
@@ -207,7 +207,7 @@ public class WatchlistController {
     @PutMapping("/{id}/notes")
     public ApiResponse<WatchlistItemDto> updateNotes(
             @Parameter(description = "当前用户认证信息", hidden = true)
-            @AuthenticationPrincipal UserPrincipal userPrincipal,
+            @AuthenticationPrincipal AuthUserPrincipal userPrincipal,
             @Parameter(description = "自选股ID", example = "1")
             @PathVariable @Positive Long id,
             @Parameter(description = "备注内容，最多500字符", example = "看好长期发展")
@@ -218,7 +218,7 @@ public class WatchlistController {
         return ApiResponse.success(item);
     }
 
-    private Long requireUserId(UserPrincipal userPrincipal) {
+    private Long requireUserId(AuthUserPrincipal userPrincipal) {
         return authenticatedUserResolver.requireUserId(userPrincipal);
     }
 }

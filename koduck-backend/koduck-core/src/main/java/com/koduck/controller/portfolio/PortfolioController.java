@@ -24,7 +24,7 @@ import com.koduck.dto.portfolio.PortfolioPositionDto;
 import com.koduck.dto.portfolio.PortfolioSummaryDto;
 import com.koduck.dto.portfolio.TradeDto;
 import com.koduck.dto.portfolio.UpdatePositionRequest;
-import com.koduck.security.UserPrincipal;
+import com.koduck.security.AuthUserPrincipal;
 import com.koduck.service.PortfolioService;
 
 import io.swagger.v3.oas.annotations.Operation;
@@ -83,7 +83,7 @@ public class PortfolioController {
     @GetMapping
     public ApiResponse<List<PortfolioPositionDto>> getPositions(
             @Parameter(description = "当前用户认证信息", hidden = true)
-            @AuthenticationPrincipal UserPrincipal userPrincipal) {
+            @AuthenticationPrincipal AuthUserPrincipal userPrincipal) {
         Long userId = requireUserId(userPrincipal);
         log.debug("GET /api/v1/portfolio: user={}", userId);
         List<PortfolioPositionDto> positions = portfolioService.getPositions(userId);
@@ -112,7 +112,7 @@ public class PortfolioController {
     @GetMapping("/summary")
     public ApiResponse<PortfolioSummaryDto> getPortfolioSummary(
             @Parameter(description = "当前用户认证信息", hidden = true)
-            @AuthenticationPrincipal UserPrincipal userPrincipal) {
+            @AuthenticationPrincipal AuthUserPrincipal userPrincipal) {
         Long userId = requireUserId(userPrincipal);
         log.debug("GET /api/v1/portfolio/summary: user={}", userId);
         PortfolioSummaryDto summary = portfolioService.getPortfolioSummary(userId);
@@ -144,7 +144,7 @@ public class PortfolioController {
     @PostMapping
     public ApiResponse<PortfolioPositionDto> addPosition(
             @Parameter(description = "当前用户认证信息", hidden = true)
-            @AuthenticationPrincipal UserPrincipal userPrincipal,
+            @AuthenticationPrincipal AuthUserPrincipal userPrincipal,
             @Valid @RequestBody AddPositionRequest request) {
         Long userId = requireUserId(userPrincipal);
         log.debug("POST /api/v1/portfolio: user={}, market={}, symbol={}",
@@ -180,7 +180,7 @@ public class PortfolioController {
     @PutMapping("/{id}")
     public ApiResponse<PortfolioPositionDto> updatePosition(
             @Parameter(description = "当前用户认证信息", hidden = true)
-            @AuthenticationPrincipal UserPrincipal userPrincipal,
+            @AuthenticationPrincipal AuthUserPrincipal userPrincipal,
             @Parameter(description = "持仓ID", example = "1")
             @PathVariable @Positive(message = "Position ID must be positive") Long id,
             @Valid @RequestBody UpdatePositionRequest request) {
@@ -211,7 +211,7 @@ public class PortfolioController {
     @DeleteMapping("/{id}")
     public ApiResponse<Void> deletePosition(
             @Parameter(description = "当前用户认证信息", hidden = true)
-            @AuthenticationPrincipal UserPrincipal userPrincipal,
+            @AuthenticationPrincipal AuthUserPrincipal userPrincipal,
             @Parameter(description = "持仓ID", example = "1")
             @PathVariable @Positive(message = "Position ID must be positive") Long id) {
         Long userId = requireUserId(userPrincipal);
@@ -242,7 +242,7 @@ public class PortfolioController {
     @GetMapping("/trades")
     public ApiResponse<List<TradeDto>> getTrades(
             @Parameter(description = "当前用户认证信息", hidden = true)
-            @AuthenticationPrincipal UserPrincipal userPrincipal) {
+            @AuthenticationPrincipal AuthUserPrincipal userPrincipal) {
         Long userId = requireUserId(userPrincipal);
         log.debug("GET /api/v1/portfolio/trades: user={}", userId);
         List<TradeDto> trades = portfolioService.getTrades(userId);
@@ -273,7 +273,7 @@ public class PortfolioController {
     @PostMapping("/trades")
     public ApiResponse<TradeDto> addTrade(
             @Parameter(description = "当前用户认证信息", hidden = true)
-            @AuthenticationPrincipal UserPrincipal userPrincipal,
+            @AuthenticationPrincipal AuthUserPrincipal userPrincipal,
             @Valid @RequestBody AddTradeRequest request) {
         Long userId = requireUserId(userPrincipal);
         log.debug("POST /api/v1/portfolio/trades: user={}, market={}, symbol={}, type={}",
@@ -282,7 +282,7 @@ public class PortfolioController {
         return ApiResponse.success(trade);
     }
 
-    private Long requireUserId(UserPrincipal userPrincipal) {
+    private Long requireUserId(AuthUserPrincipal userPrincipal) {
         return authenticatedUserResolver.requireUserId(userPrincipal);
     }
 }

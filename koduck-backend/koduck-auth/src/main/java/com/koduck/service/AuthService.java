@@ -17,7 +17,7 @@ import com.koduck.security.UserPrincipal;
  * @param <U> 用户类型，必须实现 UserPrincipal
  * @author Koduck Team
  */
-public interface AuthService<U extends UserPrincipal> {
+public interface AuthService<U extends UserPrincipal<?>> {
 
     /**
      * 用户登录（支持用户名或邮箱登录）。

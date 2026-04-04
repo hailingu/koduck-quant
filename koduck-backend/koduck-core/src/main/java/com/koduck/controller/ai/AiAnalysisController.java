@@ -28,7 +28,7 @@ import com.koduck.dto.ai.StockAnalysisResponse;
 import com.koduck.dto.ai.StrategyRecommendRequest;
 import com.koduck.dto.ai.StrategyRecommendResponse;
 import com.koduck.entity.ai.MemoryChatMessage;
-import com.koduck.security.UserPrincipal;
+import com.koduck.security.AuthUserPrincipal;
 import com.koduck.service.AiAnalysisService;
 import com.koduck.service.MemoryService;
 
@@ -99,7 +99,7 @@ public class AiAnalysisController {
     @PostMapping("/analyze")
     public ApiResponse<StockAnalysisResponse> analyzeStock(
             @Parameter(description = "当前用户认证信息", hidden = true)
-            @AuthenticationPrincipal UserPrincipal userPrincipal,
+            @AuthenticationPrincipal AuthUserPrincipal userPrincipal,
             @Valid @RequestBody StockAnalysisRequest request) {
         Long userId = requireUserId(userPrincipal);
         log.debug("POST /api/v1/ai/analyze: user={}, symbol={}, question={}",
@@ -128,7 +128,7 @@ public class AiAnalysisController {
     @PostMapping(value = "/chat/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public SseEmitter chatStream(
             @Parameter(description = "当前用户认证信息", hidden = true)
-            @AuthenticationPrincipal UserPrincipal userPrincipal,
+            @AuthenticationPrincipal AuthUserPrincipal userPrincipal,
             @Valid @RequestBody ChatStreamRequest request) {
         Long userId = requireUserId(userPrincipal);
         log.debug(
@@ -168,7 +168,7 @@ public class AiAnalysisController {
     @PostMapping("/strategy-recommend")
     public ApiResponse<StrategyRecommendResponse> recommendStrategies(
             @Parameter(description = "当前用户认证信息", hidden = true)
-            @AuthenticationPrincipal UserPrincipal userPrincipal,
+            @AuthenticationPrincipal AuthUserPrincipal userPrincipal,
             @Valid @RequestBody StrategyRecommendRequest request) {
         Long userId = requireUserId(userPrincipal);
         log.debug("POST /api/v1/ai/strategy-recommend: user={}, risk={}",
@@ -205,7 +205,7 @@ public class AiAnalysisController {
     @PostMapping("/interpret-backtest")
     public ApiResponse<BacktestInterpretResponse> interpretBacktest(
             @Parameter(description = "当前用户认证信息", hidden = true)
-            @AuthenticationPrincipal UserPrincipal userPrincipal,
+            @AuthenticationPrincipal AuthUserPrincipal userPrincipal,
             @Valid @RequestBody BacktestInterpretRequest request) {
         Long userId = requireUserId(userPrincipal);
         log.debug("POST /api/v1/ai/interpret-backtest: user={}, backtestId={}",
@@ -243,7 +243,7 @@ public class AiAnalysisController {
     @PostMapping("/risk-assessment")
     public ApiResponse<RiskAssessmentResponse> assessRisk(
             @Parameter(description = "当前用户认证信息", hidden = true)
-            @AuthenticationPrincipal UserPrincipal userPrincipal,
+            @AuthenticationPrincipal AuthUserPrincipal userPrincipal,
             @Valid @RequestBody RiskAssessmentRequest request) {
         Long userId = requireUserId(userPrincipal);
         log.debug("POST /api/v1/ai/risk-assessment: user={}, portfolioId={}",
@@ -274,7 +274,7 @@ public class AiAnalysisController {
     @DeleteMapping("/memory/session/{sessionId}")
     public ApiResponse<Map<String, Object>> deleteSession(
             @Parameter(description = "当前用户认证信息", hidden = true)
-            @AuthenticationPrincipal UserPrincipal userPrincipal,
+            @AuthenticationPrincipal AuthUserPrincipal userPrincipal,
             @Parameter(description = "会话ID", example = "session_123")
             @PathVariable String sessionId
     ) {
@@ -305,7 +305,7 @@ public class AiAnalysisController {
     @DeleteMapping("/memory/profile")
     public ApiResponse<Map<String, Object>> clearProfileMemory(
             @Parameter(description = "当前用户认证信息", hidden = true)
-            @AuthenticationPrincipal UserPrincipal userPrincipal
+            @AuthenticationPrincipal AuthUserPrincipal userPrincipal
     ) {
         Long userId = requireUserId(userPrincipal);
         memoryService.clearProfile(userId);
@@ -330,7 +330,7 @@ public class AiAnalysisController {
     @GetMapping("/memory/sessions")
     public ApiResponse<Map<String, Object>> listUserSessions(
             @Parameter(description = "当前用户认证信息", hidden = true)
-            @AuthenticationPrincipal UserPrincipal userPrincipal
+            @AuthenticationPrincipal AuthUserPrincipal userPrincipal
     ) {
         Long userId = requireUserId(userPrincipal);
         var sessions = memoryService.getUserSessions(userId);
@@ -363,7 +363,7 @@ public class AiAnalysisController {
     @GetMapping("/memory/session/{sessionId}")
     public ApiResponse<Map<String, Object>> getSessionMemorySummary(
             @Parameter(description = "当前用户认证信息", hidden = true)
-            @AuthenticationPrincipal UserPrincipal userPrincipal,
+            @AuthenticationPrincipal AuthUserPrincipal userPrincipal,
             @Parameter(description = "会话ID", example = "session_123")
             @PathVariable String sessionId
     ) {
@@ -386,7 +386,7 @@ public class AiAnalysisController {
         ));
     }
 
-    private Long requireUserId(UserPrincipal userPrincipal) {
+    private Long requireUserId(AuthUserPrincipal userPrincipal) {
         return authenticatedUserResolver.requireUserId(userPrincipal);
     }
 }
