@@ -25,7 +25,7 @@ import com.koduck.dto.portfolio.PortfolioPositionDto;
 import com.koduck.dto.portfolio.PortfolioSummaryDto;
 import com.koduck.dto.portfolio.TradeDto;
 import com.koduck.dto.portfolio.UpdatePositionRequest;
-import com.koduck.entity.User;
+import com.koduck.entity.auth.User;
 import com.koduck.security.UserPrincipal;
 import com.koduck.service.PortfolioService;
 

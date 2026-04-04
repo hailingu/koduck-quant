@@ -13,8 +13,8 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.lang.NonNull;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
-import com.koduck.entity.Role;
-import com.koduck.entity.User;
+import com.koduck.entity.auth.Role;
+import com.koduck.entity.auth.User;
 import com.koduck.repository.credential.CredentialRepository;
 import com.koduck.repository.auth.RoleRepository;
 import com.koduck.repository.auth.UserRepository;

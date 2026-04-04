@@ -7,7 +7,7 @@ import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
-import com.koduck.entity.MarketDailyNetFlow;
+import com.koduck.entity.market.MarketDailyNetFlow;
 
 @Repository
 public interface MarketDailyNetFlowRepository extends JpaRepository<MarketDailyNetFlow, Long> {

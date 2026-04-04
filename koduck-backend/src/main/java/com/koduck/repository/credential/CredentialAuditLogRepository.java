@@ -10,7 +10,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
-import com.koduck.entity.CredentialAuditLog;
+import com.koduck.entity.credential.CredentialAuditLog;
 
 /**
  * Repository for credential audit log operations.

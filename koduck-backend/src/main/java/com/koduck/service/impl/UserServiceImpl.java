@@ -19,7 +19,7 @@ import com.koduck.dto.user.UpdateProfileRequest;
 import com.koduck.dto.user.UpdateUserRequest;
 import com.koduck.dto.user.UserDetailResponse;
 import com.koduck.dto.user.UserPageRequest;
-import com.koduck.entity.User;
+import com.koduck.entity.auth.User;
 import com.koduck.exception.BusinessException;
 import com.koduck.exception.DuplicateException;
 import com.koduck.exception.ErrorCode;

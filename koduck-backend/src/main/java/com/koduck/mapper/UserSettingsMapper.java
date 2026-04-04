@@ -16,7 +16,7 @@ import com.koduck.dto.settings.TradingConfigDto;
 import com.koduck.dto.settings.UpdateNotificationRequest;
 import com.koduck.dto.settings.UpdateSettingsRequest;
 import com.koduck.dto.settings.UserSettingsDto;
-import com.koduck.entity.UserSettings;
+import com.koduck.entity.user.UserSettings;
 
 /**
  * Mapper for user settings update/request and DTO conversions.

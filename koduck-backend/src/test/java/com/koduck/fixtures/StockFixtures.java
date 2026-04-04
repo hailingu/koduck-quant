@@ -7,8 +7,8 @@ import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
-import com.koduck.entity.StockBasic;
-import com.koduck.entity.StockRealtime;
+import com.koduck.entity.market.StockBasic;
+import com.koduck.entity.market.StockRealtime;
 
 /**
  * 股票相关测试数据工厂。

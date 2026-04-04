@@ -17,7 +17,7 @@ import com.koduck.dto.settings.UpdateNotificationRequest;
 import com.koduck.dto.settings.UpdateSettingsRequest;
 import com.koduck.dto.settings.UpdateThemeRequest;
 import com.koduck.dto.settings.UserSettingsDto;
-import com.koduck.entity.User;
+import com.koduck.entity.auth.User;
 import com.koduck.security.UserPrincipal;
 import com.koduck.service.UserSettingsService;
 

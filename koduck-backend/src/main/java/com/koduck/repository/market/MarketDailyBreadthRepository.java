@@ -7,7 +7,7 @@ import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
-import com.koduck.entity.MarketDailyBreadth;
+import com.koduck.entity.market.MarketDailyBreadth;
 
 /**
  * Repository for market daily breadth data.

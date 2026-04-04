@@ -7,7 +7,7 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 
-import com.koduck.entity.User;
+import com.koduck.entity.auth.User;
 import com.koduck.util.CollectionCopyUtils;
 
 import lombok.Data;

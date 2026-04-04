@@ -9,7 +9,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
-import com.koduck.entity.PortfolioPosition;
+import com.koduck.entity.portfolio.PortfolioPosition;
 
 /**
  * Repository for portfolio position operations.

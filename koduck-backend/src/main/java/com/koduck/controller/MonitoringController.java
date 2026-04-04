@@ -19,10 +19,10 @@ import org.springframework.web.bind.annotation.RestController;
 import com.koduck.common.constants.PaginationConstants;
 import com.koduck.dto.ApiResponse;
 import com.koduck.dto.monitoring.AlertRuleRequest;
-import com.koduck.entity.AlertHistory;
-import com.koduck.entity.AlertRule;
-import com.koduck.entity.DataSourceStatus;
-import com.koduck.entity.StockRealtime;
+import com.koduck.entity.strategy.AlertHistory;
+import com.koduck.entity.strategy.AlertRule;
+import com.koduck.entity.market.DataSourceStatus;
+import com.koduck.entity.market.StockRealtime;
 import com.koduck.service.MonitoringService;
 
 import io.swagger.v3.oas.annotations.Operation;

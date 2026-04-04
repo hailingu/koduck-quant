@@ -14,9 +14,9 @@ import com.koduck.dto.ai.BacktestInterpretResponse;
 import com.koduck.dto.ai.RiskAssessmentResponse;
 import com.koduck.dto.ai.StrategyRecommendRequest;
 import com.koduck.dto.ai.StrategyRecommendResponse;
-import com.koduck.entity.BacktestResult;
-import com.koduck.entity.PortfolioPosition;
-import com.koduck.entity.Strategy;
+import com.koduck.entity.backtest.BacktestResult;
+import com.koduck.entity.portfolio.PortfolioPosition;
+import com.koduck.entity.strategy.Strategy;
 
 /**
  * AI推荐和解释载荷生成的支持组件。

@@ -16,9 +16,9 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
 import com.koduck.common.constants.RoleConstants;
-import com.koduck.entity.Role;
-import com.koduck.entity.User;
-import com.koduck.entity.UserCredential;
+import com.koduck.entity.auth.Role;
+import com.koduck.entity.auth.User;
+import com.koduck.entity.auth.UserCredential;
 import com.koduck.repository.credential.CredentialRepository;
 import com.koduck.repository.auth.RoleRepository;
 import com.koduck.repository.auth.UserRepository;

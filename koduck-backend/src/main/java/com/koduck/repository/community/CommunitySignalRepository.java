@@ -14,7 +14,7 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.lang.NonNull;
 import org.springframework.stereotype.Repository;
 
-import com.koduck.entity.CommunitySignal;
+import com.koduck.entity.community.CommunitySignal;
 
 /**
  * Repository for CommunitySignal entity.

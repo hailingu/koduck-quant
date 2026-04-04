@@ -13,7 +13,7 @@ import java.util.Objects;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 
-import com.koduck.entity.User;
+import com.koduck.entity.auth.User;
 
 /**
  * Spring Security UserDetails implementation that wraps the domain User entity.

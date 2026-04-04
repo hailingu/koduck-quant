@@ -3,10 +3,10 @@ package com.koduck.service;
 import java.util.List;
 import java.util.Map;
 
-import com.koduck.entity.AlertHistory;
-import com.koduck.entity.AlertRule;
-import com.koduck.entity.DataSourceStatus;
-import com.koduck.entity.StockRealtime;
+import com.koduck.entity.strategy.AlertHistory;
+import com.koduck.entity.strategy.AlertRule;
+import com.koduck.entity.market.DataSourceStatus;
+import com.koduck.entity.market.StockRealtime;
 
 /**
  * 监控和告警服务接口。

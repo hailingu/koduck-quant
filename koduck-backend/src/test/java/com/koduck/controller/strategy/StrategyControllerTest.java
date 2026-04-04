@@ -22,7 +22,7 @@ import com.koduck.dto.strategy.CreateStrategyRequest;
 import com.koduck.dto.strategy.StrategyDto;
 import com.koduck.dto.strategy.StrategyVersionDto;
 import com.koduck.dto.strategy.UpdateStrategyRequest;
-import com.koduck.entity.User;
+import com.koduck.entity.auth.User;
 import com.koduck.security.UserPrincipal;
 import com.koduck.service.StrategyService;
 

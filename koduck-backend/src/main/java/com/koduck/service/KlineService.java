@@ -5,7 +5,7 @@ import java.util.List;
 import java.util.Optional;
 
 import com.koduck.dto.market.KlineDataDto;
-import com.koduck.entity.KlineData;
+import com.koduck.entity.market.KlineData;
 
 /**
  * Service interface for K-line data operations.

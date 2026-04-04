@@ -3,7 +3,7 @@ package com.koduck.dto.user;
 import java.time.LocalDateTime;
 import java.util.List;
 
-import com.koduck.entity.User;
+import com.koduck.entity.auth.User;
 import com.koduck.util.CollectionCopyUtils;
 
 import lombok.Data;

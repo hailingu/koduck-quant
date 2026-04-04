@@ -5,7 +5,7 @@ import java.util.Objects;
 import org.springframework.stereotype.Component;
 
 import com.koduck.common.constants.RoleConstants;
-import com.koduck.entity.Role;
+import com.koduck.entity.auth.Role;
 import com.koduck.repository.auth.RoleRepository;
 
 import lombok.RequiredArgsConstructor;
