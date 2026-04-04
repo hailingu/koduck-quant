@@ -147,7 +147,7 @@ public class BacktestServiceImpl implements BacktestService {
             resultRepository.save(savedResult);
             log.info("Backtest completed: id={}, user={}", savedResult.getId(), userId);
         }
-        catch (Exception e) {
+        catch (RuntimeException e) {
             log.error("Backtest failed: id={}, error={}", savedResult.getId(), e.getMessage(), e);
             savedResult.setStatus(BacktestResult.BacktestStatus.FAILED);
             savedResult.setErrorMessage(e.getMessage());

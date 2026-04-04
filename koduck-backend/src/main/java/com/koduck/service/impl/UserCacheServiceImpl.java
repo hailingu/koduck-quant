@@ -34,7 +34,7 @@ public class UserCacheServiceImpl implements UserCacheService {
         try {
             cacheLayer.addSetMember(key, symbol);
             log.debug("Added to user track list: userId={}, symbol={}", userId, symbol);
-        } catch (Exception e) {
+        } catch (RuntimeException e) {
             log.warn("Failed to add to user track list: userId={}, symbol={}, error={}", 
                     userId, symbol, e.getMessage());
         }
@@ -46,7 +46,7 @@ public class UserCacheServiceImpl implements UserCacheService {
         try {
             cacheLayer.removeSetMember(key, symbol);
             log.debug("Removed from user track list: userId={}, symbol={}", userId, symbol);
-        } catch (Exception e) {
+        } catch (RuntimeException e) {
             log.warn("Failed to remove from user track list: userId={}, symbol={}, error={}", 
                     userId, symbol, e.getMessage());
         }
@@ -63,7 +63,7 @@ public class UserCacheServiceImpl implements UserCacheService {
                         .map(Object::toString)
                         .collect(Collectors.toSet());
             }
-        } catch (Exception e) {
+        } catch (RuntimeException e) {
             log.warn("Failed to get user track list: userId={}, error={}", userId, e.getMessage());
         }
         return Set.of();
@@ -75,7 +75,7 @@ public class UserCacheServiceImpl implements UserCacheService {
         try {
             Set<Object> members = cacheLayer.getSetMembers(key);
             return members != null && members.contains(symbol);
-        } catch (Exception e) {
+        } catch (RuntimeException e) {
             log.warn("Failed to check user track list: userId={}, symbol={}, error={}", 
                     userId, symbol, e.getMessage());
             return false;
@@ -90,7 +90,7 @@ public class UserCacheServiceImpl implements UserCacheService {
         try {
             cacheLayer.addSetMember(key, symbol);
             log.debug("Added to user watch list: userId={}, symbol={}", userId, symbol);
-        } catch (Exception e) {
+        } catch (RuntimeException e) {
             log.warn("Failed to add to user watch list: userId={}, symbol={}, error={}", 
                     userId, symbol, e.getMessage());
         }
@@ -102,7 +102,7 @@ public class UserCacheServiceImpl implements UserCacheService {
         try {
             cacheLayer.removeSetMember(key, symbol);
             log.debug("Removed from user watch list: userId={}, symbol={}", userId, symbol);
-        } catch (Exception e) {
+        } catch (RuntimeException e) {
             log.warn("Failed to remove from user watch list: userId={}, symbol={}, error={}", 
                     userId, symbol, e.getMessage());
         }
@@ -119,7 +119,7 @@ public class UserCacheServiceImpl implements UserCacheService {
                         .map(Object::toString)
                         .collect(Collectors.toSet());
             }
-        } catch (Exception e) {
+        } catch (RuntimeException e) {
             log.warn("Failed to get user watch list: userId={}, error={}", userId, e.getMessage());
         }
         return Set.of();
@@ -133,7 +133,7 @@ public class UserCacheServiceImpl implements UserCacheService {
         try {
             cacheLayer.replaceSet(key, symbols);
             log.debug("Cached user track list: userId={}, count={}", userId, symbols != null ? symbols.size() : 0);
-        } catch (Exception e) {
+        } catch (RuntimeException e) {
             log.warn("Failed to cache user track list: userId={}, error={}", userId, e.getMessage());
         }
     }
@@ -144,7 +144,7 @@ public class UserCacheServiceImpl implements UserCacheService {
         try {
             cacheLayer.replaceSet(key, symbols);
             log.debug("Cached user watch list: userId={}, count={}", userId, symbols != null ? symbols.size() : 0);
-        } catch (Exception e) {
+        } catch (RuntimeException e) {
             log.warn("Failed to cache user watch list: userId={}, error={}", userId, e.getMessage());
         }
     }
@@ -157,7 +157,7 @@ public class UserCacheServiceImpl implements UserCacheService {
             cacheLayer.delete(trackKey);
             cacheLayer.delete(watchKey);
             log.debug("Invalidated user cache: userId={}", userId);
-        } catch (Exception e) {
+        } catch (RuntimeException e) {
             log.warn("Failed to invalidate user cache: userId={}, error={}", userId, e.getMessage());
         }
     }

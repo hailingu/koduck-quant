@@ -74,7 +74,7 @@ public class StockCacheServiceImpl implements StockCacheService {
             );
             log.debug("Cached stock track: symbol={}", symbol);
         }
-        catch (Exception e) {
+        catch (RuntimeException e) {
             log.warn("Failed to cache stock track: symbol={}, error={}", symbol, e.getMessage());
         }
     }
@@ -94,7 +94,7 @@ public class StockCacheServiceImpl implements StockCacheService {
                 return convertToPriceQuoteDto(cached);
             }
         }
-        catch (Exception e) {
+        catch (RuntimeException e) {
             log.warn("Failed to get cached stock track: symbol={}, error={}", symbol, e.getMessage());
         }
         return null;
@@ -124,7 +124,7 @@ public class StockCacheServiceImpl implements StockCacheService {
             cacheLayer.replaceList(nonNullKey, symbols, RedisKeyConstants.TTL_HOT_STOCKS);
             log.debug("Cached hot stocks: type={}, count={}", type, symbols != null ? symbols.size() : 0);
         }
-        catch (Exception e) {
+        catch (RuntimeException e) {
             log.warn("Failed to cache hot stocks: type={}, error={}", type, e.getMessage());
         }
     }
@@ -141,7 +141,7 @@ public class StockCacheServiceImpl implements StockCacheService {
                         .toList();
             }
         }
-        catch (Exception e) {
+        catch (RuntimeException e) {
             log.warn("Failed to get cached hot stocks: type={}, error={}", type, e.getMessage());
         }
         return List.of();
@@ -169,7 +169,7 @@ public class StockCacheServiceImpl implements StockCacheService {
         try {
             return cacheLayer.hasKey(requireNonNullString(key, KEY_NULL_MESSAGE));
         }
-        catch (Exception e) {
+        catch (RuntimeException e) {
             log.warn("Failed to check stock track cache: symbol={}, error={}", symbol, e.getMessage());
             return false;
         }
@@ -195,7 +195,7 @@ public class StockCacheServiceImpl implements StockCacheService {
             try {
                 return buildPriceQuoteFromMap(map);
             }
-            catch (Exception e) {
+            catch (RuntimeException e) {
                 log.warn("Failed to convert cached object: error={}", e.getMessage());
             }
         }

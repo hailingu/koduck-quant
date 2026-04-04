@@ -90,7 +90,7 @@ public class StockSubscriptionServiceImpl implements StockSubscriptionService {
                 successList.add(normalizedSymbol);
                 log.debug("User {} subscribed to stock {}", userId, normalizedSymbol);
             }
-            catch (Exception e) {
+            catch (RuntimeException e) {
                 failedMap.put(symbol, e.getMessage());
                 log.warn("Failed to subscribe user {} to stock {}: {}", userId, symbol, e.getMessage());
             }
@@ -162,7 +162,7 @@ public class StockSubscriptionServiceImpl implements StockSubscriptionService {
                 successList.add(normalizedSymbol);
                 log.debug("User {} unsubscribed from stock {}", userId, normalizedSymbol);
             }
-            catch (Exception e) {
+            catch (RuntimeException e) {
                 failedMap.put(symbol, e.getMessage());
                 log.warn("Failed to unsubscribe user {} from stock {}: {}", userId, symbol, e.getMessage());
             }
@@ -275,7 +275,7 @@ public class StockSubscriptionServiceImpl implements StockSubscriptionService {
                 );
                 log.debug("Sent price update for {} to user {}", symbol, userId);
             }
-            catch (Exception e) {
+            catch (RuntimeException e) {
                 log.error("Failed to send price update to user {}: {}", userId, e.getMessage());
             }
         }
