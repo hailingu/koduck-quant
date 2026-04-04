@@ -21,7 +21,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Component;
-import org.springframework.web.client.RestTemplate;
+import org.springframework.web.reactive.function.client.WebClient;
 
 import com.koduck.config.properties.DataServiceProperties;
 import com.koduck.market.MarketType;
@@ -50,7 +50,7 @@ public class HKStockProvider extends AbstractDataServiceMarketProvider {
     private static final ZoneId HONG_KONG_ZONE = ZoneId.of("Asia/Hong_Kong");
 
     /** Base path for HK stock data service endpoints. */
-    private static final String HK_STOCK_BASE_PATH = "/hk-stock";
+    private static final String HK_STOCK_BASE_PATH = "/hk";
 
     /** Provider name identifier. */
     private static final String PROVIDER_NAME = "akshare-hk-stock";
@@ -113,12 +113,12 @@ public class HKStockProvider extends AbstractDataServiceMarketProvider {
      * Constructs a new HKStockProvider.
      *
      * @param properties the data service properties
-     * @param restTemplate the REST template for data service calls
+     * @param webClient the WebClient for data service calls
      */
     public HKStockProvider(
             DataServiceProperties properties,
-            @Qualifier("dataServiceRestTemplate") RestTemplate restTemplate) {
-        super(properties, restTemplate);
+            @Qualifier("dataServiceWebClient") WebClient webClient) {
+        super(properties, webClient);
         initBasePrices();
     }
 

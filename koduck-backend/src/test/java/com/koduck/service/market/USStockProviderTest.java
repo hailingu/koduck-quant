@@ -5,7 +5,7 @@ import java.util.Optional;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.springframework.web.client.RestTemplate;
+import org.springframework.web.reactive.function.client.WebClient;
 
 import com.koduck.config.properties.FinnhubProperties;
 import com.koduck.market.MarketType;
@@ -49,8 +49,8 @@ class USStockProviderTest {
     /** Finnhub configuration properties. */
     private FinnhubProperties properties;
 
-    /** REST template for HTTP requests. */
-    private RestTemplate restTemplate;
+    /** WebClient for HTTP requests. */
+    private WebClient webClient;
 
     /**
      * Set up test fixtures.
@@ -59,8 +59,8 @@ class USStockProviderTest {
     void setUp() {
         properties = new FinnhubProperties();
         properties.setEnabled(false); // Use mock data for tests
-        restTemplate = new RestTemplate();
-        provider = new USStockProvider(properties, restTemplate);
+        webClient = WebClient.builder().build();
+        provider = new USStockProvider(properties, webClient);
     }
 
     @Test

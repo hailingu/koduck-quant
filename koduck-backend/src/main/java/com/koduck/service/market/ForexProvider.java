@@ -21,7 +21,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Component;
-import org.springframework.web.client.RestTemplate;
+import org.springframework.web.reactive.function.client.WebClient;
 
 import com.koduck.config.properties.DataServiceProperties;
 import com.koduck.market.MarketType;
@@ -160,11 +160,11 @@ public class ForexProvider extends AbstractDataServiceMarketProvider {
      * Constructs a new ForexProvider.
      *
      * @param properties the data service properties
-     * @param restTemplate the REST template for data service calls
+     * @param webClient the WebClient for data service calls
      */
     public ForexProvider(DataServiceProperties properties,
-        @Qualifier("dataServiceRestTemplate") RestTemplate restTemplate) {
-        super(properties, restTemplate);
+        @Qualifier("dataServiceWebClient") WebClient webClient) {
+        super(properties, webClient);
         initBaseRates();
     }
 

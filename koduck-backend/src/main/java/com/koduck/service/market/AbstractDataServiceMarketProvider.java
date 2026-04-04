@@ -11,9 +11,8 @@ import java.util.concurrent.ConcurrentHashMap;
 import org.slf4j.Logger;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.HttpMethod;
-import org.springframework.http.ResponseEntity;
-import org.springframework.web.client.RestClientException;
-import org.springframework.web.client.RestTemplate;
+import org.springframework.web.reactive.function.client.WebClient;
+import org.springframework.web.reactive.function.client.WebClientResponseException;
 import org.springframework.web.util.UriComponentsBuilder;
 
 import com.koduck.config.properties.DataServiceProperties;
@@ -58,8 +57,8 @@ public abstract class AbstractDataServiceMarketProvider implements MarketDataPro
     /** Configuration properties. */
     private final DataServiceProperties properties;
 
-    /** REST template for HTTP calls. */
-    private final RestTemplate restTemplate;
+    /** WebClient for HTTP calls. */
+    private final WebClient webClient;
 
     /** Set of subscribed symbols. */
     private final Set<String> subscribedSymbols = ConcurrentHashMap.newKeySet();
@@ -68,13 +67,13 @@ public abstract class AbstractDataServiceMarketProvider implements MarketDataPro
      * Constructs a new AbstractDataServiceMarketProvider.
      *
      * @param properties the data service properties
-     * @param dataServiceRestTemplate the REST template
+     * @param dataServiceWebClient the WebClient
      */
     protected AbstractDataServiceMarketProvider(
             DataServiceProperties properties,
-            RestTemplate dataServiceRestTemplate) {
+            WebClient dataServiceWebClient) {
         this.properties = properties;
-        this.restTemplate = dataServiceRestTemplate;
+        this.webClient = dataServiceWebClient;
     }
 
     /**
@@ -141,21 +140,19 @@ public abstract class AbstractDataServiceMarketProvider implements MarketDataPro
             logger().debug("Fetching {} kline from data service: symbol={}, timeframe={}",
                     getLogMarketName(), normalizedSymbol, timeframe);
 
-            ResponseEntity<List<Map<String, Object>>> response = restTemplate.exchange(
-                    url,
-                    Objects.requireNonNull(HttpMethod.GET),
-                    null,
-                    Objects.requireNonNull(LIST_MAP_RESPONSE_TYPE)
-            );
+            List<Map<String, Object>> data = webClient.method(Objects.requireNonNull(HttpMethod.GET))
+                    .uri(url)
+                    .retrieve()
+                    .bodyToMono(LIST_MAP_RESPONSE_TYPE)
+                    .block();
 
-            List<Map<String, Object>> data = response.getBody();
             if (data == null || data.isEmpty()) {
                 return generateMockKlineData(symbol, timeframe, limit, startTime, endTime);
             }
 
             return convertToKlineData(data, normalizedSymbol, timeframe);
         }
-        catch (RestClientException exception) {
+        catch (WebClientResponseException exception) {
             logger().error("Failed to fetch {} kline from data service: {}",
                     getLogMarketName(), exception.getMessage());
             return generateMockKlineData(symbol, timeframe, limit, startTime, endTime);
@@ -188,21 +185,19 @@ public abstract class AbstractDataServiceMarketProvider implements MarketDataPro
             logger().debug("Fetching {} price from data service: symbol={}",
                 getLogMarketName(), normalizedSymbol);
 
-            ResponseEntity<Map<String, Object>> response = restTemplate.exchange(
-                    url,
-                    Objects.requireNonNull(HttpMethod.GET),
-                    null,
-                    Objects.requireNonNull(MAP_RESPONSE_TYPE)
-            );
+            Map<String, Object> data = webClient.method(Objects.requireNonNull(HttpMethod.GET))
+                    .uri(url)
+                    .retrieve()
+                    .bodyToMono(MAP_RESPONSE_TYPE)
+                    .block();
 
-            Map<String, Object> data = response.getBody();
             if (data == null || data.isEmpty()) {
                 return generateMockTickData(symbol);
             }
 
             return Optional.of(convertToTickData(data, normalizedSymbol));
         }
-        catch (RestClientException exception) {
+        catch (WebClientResponseException exception) {
             logger().error("Failed to fetch {} price from data service: {}",
                     getLogMarketName(), exception.getMessage());
             return generateMockTickData(symbol);
@@ -268,14 +263,12 @@ public abstract class AbstractDataServiceMarketProvider implements MarketDataPro
                     .queryParam("limit", limit)
                     .toUriString();
 
-            ResponseEntity<List<Map<String, Object>>> response = restTemplate.exchange(
-                    url,
-                    Objects.requireNonNull(HttpMethod.GET),
-                    null,
-                    Objects.requireNonNull(LIST_MAP_RESPONSE_TYPE)
-            );
+            List<Map<String, Object>> data = webClient.method(Objects.requireNonNull(HttpMethod.GET))
+                    .uri(url)
+                    .retrieve()
+                    .bodyToMono(LIST_MAP_RESPONSE_TYPE)
+                    .block();
 
-            List<Map<String, Object>> data = response.getBody();
             if (data == null || data.isEmpty()) {
                 return generateMockSearchResults(keyword, limit);
             }
@@ -285,7 +278,7 @@ public abstract class AbstractDataServiceMarketProvider implements MarketDataPro
                     .limit(limit)
                     .toList();
         }
-        catch (RestClientException exception) {
+        catch (WebClientResponseException exception) {
             logger().error("Failed to search {} symbols: {}",
                 getLogMarketName(), exception.getMessage());
             return generateMockSearchResults(keyword, limit);
