@@ -51,6 +51,7 @@
 | [ADR-0070](ADR-0070-optimize-backtest-ma-calculation.md) | 使用滑动窗口预计算 MA 序列优化回测信号生成 | 回测引擎性能优化 |
 | [ADR-0071](ADR-0071-enable-http-response-compression.md) | 启用 HTTP 响应压缩（Gzip） | 基础设施性能优化 |
 | [ADR-0072](ADR-0072-adr-index-and-classification.md) | 建立 ADR 分类索引页（ADR-INDEX） | 架构文档治理 |
+| [ADR-0082](ADR-0082-maven-multi-module-refactoring.md) | Maven 多模块重构（拆分单一模块） | 模块化架构 |
 
 ---
 
