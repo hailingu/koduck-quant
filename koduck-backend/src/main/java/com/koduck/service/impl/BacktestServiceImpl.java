@@ -217,12 +217,16 @@ public class BacktestServiceImpl implements BacktestService {
         );
         List<BacktestTrade> trades = new ArrayList<>();
         List<BigDecimal> equityCurve = new ArrayList<>();
+        // Precompute MA series for O(1) lookup during simulation
+        List<BigDecimal> ma20Series = calculateMASeries(filteredData, MA_SHORT_PERIOD);
+        List<BigDecimal> ma60Series = calculateMASeries(filteredData, MINIMUM_BARS);
         // Run backtest simulation
         for (int i = MINIMUM_BARS; i < filteredData.size(); i++) {
-            List<KlineDataDto> history = filteredData.subList(0, i + 1);
             KlineDataDto current = filteredData.get(i);
             // Simple MA crossover strategy
-            BacktestSignal signal = generateSignal(history);
+            BacktestSignal signal = generateSignal(
+                ma20Series.get(i), ma60Series.get(i),
+                ma20Series.get(i - 1), ma60Series.get(i - 1));
             if (signal == BacktestSignal.BUY && context.getPosition().compareTo(BigDecimal.ZERO) == 0) {
                 // Execute buy
                 BacktestTrade trade = executeBuy(context, current, result.getId(), result.getSymbol());
@@ -250,17 +254,8 @@ public class BacktestServiceImpl implements BacktestService {
     /**
      * Generate trading signal based on MA crossover.
      */
-    private BacktestSignal generateSignal(List<KlineDataDto> history) {
-        if (history.size() < MINIMUM_BARS) {
-            return BacktestSignal.HOLD;
-        }
-        // Calculate MA20 and MA60
-        BigDecimal ma20 = calculateMA(history, MA_SHORT_PERIOD);
-        BigDecimal ma60 = calculateMA(history, MINIMUM_BARS);
-        // Calculate previous MA
-        List<KlineDataDto> prevHistory = history.subList(0, history.size() - 1);
-        BigDecimal prevMa20 = calculateMA(prevHistory, MA_SHORT_PERIOD);
-        BigDecimal prevMa60 = calculateMA(prevHistory, MINIMUM_BARS);
+    private BacktestSignal generateSignal(BigDecimal ma20, BigDecimal ma60,
+                                          BigDecimal prevMa20, BigDecimal prevMa60) {
         // Golden cross: MA20 crosses above MA60
         if (ma20.compareTo(ma60) > 0 && prevMa20.compareTo(prevMa60) <= 0) {
             return BacktestSignal.BUY;
@@ -273,18 +268,23 @@ public class BacktestServiceImpl implements BacktestService {
     }
 
     /**
-     * Calculate Moving Average.
+     * Calculate Moving Average series using sliding window for O(n) performance.
      */
-    private BigDecimal calculateMA(List<KlineDataDto> data, int period) {
-        if (data.size() < period) {
-            return data.get(data.size() - 1).close();
-        }
-        List<KlineDataDto> subList = data.subList(data.size() - period, data.size());
+    private List<BigDecimal> calculateMASeries(List<KlineDataDto> data, int period) {
+        List<BigDecimal> series = new ArrayList<>(data.size());
         BigDecimal sum = BigDecimal.ZERO;
-        for (KlineDataDto k : subList) {
-            sum = sum.add(k.close());
+        for (int i = 0; i < data.size(); i++) {
+            sum = sum.add(data.get(i).close());
+            if (i >= period) {
+                sum = sum.subtract(data.get(i - period).close());
+            }
+            if (i >= period - 1) {
+                series.add(sum.divide(BigDecimal.valueOf(period), SCALE, RoundingMode.HALF_UP));
+            } else {
+                series.add(data.get(i).close());
+            }
         }
-        return sum.divide(BigDecimal.valueOf(period), SCALE, RoundingMode.HALF_UP);
+        return series;
     }
 
     /**
