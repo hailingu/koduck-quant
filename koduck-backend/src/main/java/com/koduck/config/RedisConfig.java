@@ -23,6 +23,20 @@ import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 public class RedisConfig {
 
     /**
+     * Global ObjectMapper injected by Spring Boot auto-configuration.
+     */
+    private final ObjectMapper objectMapper;
+
+    /**
+     * Constructs {@link RedisConfig} with injected ObjectMapper.
+     *
+     * @param objectMapper global Jackson object mapper (must not be {@code null})
+     */
+    public RedisConfig(ObjectMapper objectMapper) {
+        this.objectMapper = Objects.requireNonNull(objectMapper);
+    }
+
+    /**
      * Creates a Redis template with String key serializers and JSON value serializers.
      *
      * @param connectionFactory Redis connection factory
@@ -33,9 +47,9 @@ public class RedisConfig {
         RedisTemplate<String, Object> template = new RedisTemplate<>();
         template.setConnectionFactory(connectionFactory);
 
-        ObjectMapper objectMapper = Objects.requireNonNull(createObjectMapper(), "objectMapper must not be null");
+        ObjectMapper copy = objectMapper.copy().registerModule(new JavaTimeModule());
         StringRedisSerializer stringRedisSerializer = new StringRedisSerializer();
-        GenericJackson2JsonRedisSerializer jsonSerializer = new GenericJackson2JsonRedisSerializer(objectMapper);
+        GenericJackson2JsonRedisSerializer jsonSerializer = new GenericJackson2JsonRedisSerializer(copy);
 
         template.setKeySerializer(stringRedisSerializer);
         template.setHashKeySerializer(stringRedisSerializer);
@@ -57,16 +71,5 @@ public class RedisConfig {
         StringRedisTemplate template = new StringRedisTemplate();
         template.setConnectionFactory(connectionFactory);
         return template;
-    }
-
-    /**
-     * Creates an ObjectMapper configured for Java time types.
-     *
-     * @return ObjectMapper for Redis JSON serialization
-     */
-    private static ObjectMapper createObjectMapper() {
-        ObjectMapper mapper = new ObjectMapper();
-        mapper.registerModule(new JavaTimeModule());
-        return mapper;
     }
 }

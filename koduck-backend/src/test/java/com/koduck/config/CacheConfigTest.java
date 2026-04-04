@@ -10,6 +10,8 @@ import org.springframework.data.redis.cache.RedisCacheManager;
 import org.springframework.data.redis.cache.RedisCacheWriter;
 import org.springframework.data.redis.connection.RedisConnectionFactory;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+
 import com.koduck.config.properties.CacheProperties;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -58,7 +60,8 @@ class CacheConfigTest {
     @DisplayName("shouldRegisterExpectedCacheNamesAndTtlSettings")
     void shouldRegisterExpectedCacheNamesAndTtlSettings() {
         CacheProperties cacheProperties = new CacheProperties();
-        CacheConfig cacheConfig = new CacheConfig(cacheProperties);
+        ObjectMapper objectMapper = new ObjectMapper();
+        CacheConfig cacheConfig = new CacheConfig(objectMapper, cacheProperties);
         RedisConnectionFactory connectionFactory = mock(RedisConnectionFactory.class);
 
         RedisCacheManager cacheManager = cacheConfig.cacheManager(connectionFactory);
