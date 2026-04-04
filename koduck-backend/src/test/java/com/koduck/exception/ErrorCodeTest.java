@@ -83,4 +83,13 @@ class ErrorCodeTest {
         long uniqueCount = java.util.Arrays.stream(codes).distinct().count();
         assertThat(uniqueCount).isEqualTo(ErrorCode.values().length);
     }
+
+    @Test
+    @DisplayName("fromCode 应该对所有枚举值返回正确的结果")
+    void fromCodeShouldMapAllEnumsCorrectly() {
+        for (ErrorCode errorCode : ErrorCode.values()) {
+            assertThat(ErrorCode.fromCode(errorCode.getCode()))
+                    .isEqualTo(errorCode);
+        }
+    }
 }

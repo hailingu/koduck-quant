@@ -1,5 +1,9 @@
 package com.koduck.exception;
 
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.Map;
+
 import org.springframework.http.HttpStatus;
 
 import lombok.Getter;
@@ -338,6 +342,19 @@ public enum ErrorCode {
     private final HttpStatus httpStatus;
 
     /**
+     * Static cache mapping error code to ErrorCode enum for O(1) lookup.
+     */
+    private static final Map<Integer, ErrorCode> CODE_MAP;
+
+    static {
+        Map<Integer, ErrorCode> map = new HashMap<>();
+        for (ErrorCode errorCode : values()) {
+            map.put(errorCode.code, errorCode);
+        }
+        CODE_MAP = Collections.unmodifiableMap(map);
+    }
+
+    /**
      * Constructs a new ErrorCode.
      *
      * @param code the error code
@@ -357,11 +374,6 @@ public enum ErrorCode {
      * @return the matching ErrorCode, or UNKNOWN_ERROR if not found
      */
     public static ErrorCode fromCode(int code) {
-        for (ErrorCode errorCode : values()) {
-            if (errorCode.code == code) {
-                return errorCode;
-            }
-        }
-        return UNKNOWN_ERROR;
+        return CODE_MAP.getOrDefault(code, UNKNOWN_ERROR);
     }
 }
