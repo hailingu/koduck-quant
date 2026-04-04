@@ -34,6 +34,9 @@ public final class MarketConstants {
     /** Stock type identifier. */
     public static final String STOCK_TYPE = "STOCK";
 
+    /** Index type identifier. */
+    public static final String INDEX_TYPE = "INDEX";
+
     /** A-Share index symbol (上证指数). */
     public static final String A_SHARE_INDEX_SYMBOL = "000001";
 

@@ -403,7 +403,7 @@ public class MarketServiceImpl implements MarketService {
         
         // Get index data from stock_realtime, filtering by type='INDEX'
         // to avoid conflicts with stocks having same symbol codes (e.g., 000001 = 上证指数 vs 平安银行)
-        List<StockRealtime> indices = stockRealtimeRepository.findBySymbolInAndType(MAIN_INDICES, "INDEX");
+        List<StockRealtime> indices = stockRealtimeRepository.findBySymbolInAndType(MAIN_INDICES, MarketConstants.INDEX_TYPE);
         
         if (!indices.isEmpty()) {
             log.debug("Found {} indices in stock_realtime", indices.size());
@@ -414,7 +414,7 @@ public class MarketServiceImpl implements MarketService {
         
         // Fallback: try to get from stock_basic with type='INDEX'
         log.warn("No index data found in stock_realtime with type='INDEX', checking stock_basic");
-        List<StockBasic> basicIndices = stockBasicRepository.findBySymbolInAndType(MAIN_INDICES, "INDEX");
+        List<StockBasic> basicIndices = stockBasicRepository.findBySymbolInAndType(MAIN_INDICES, MarketConstants.INDEX_TYPE);
         
         if (basicIndices.isEmpty()) {
             log.warn("No index data found in stock_basic with type='INDEX'. " +
