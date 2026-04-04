@@ -19,6 +19,8 @@ import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.lang.NonNull;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+
 import com.koduck.common.constants.MarketConstants;
 import com.koduck.dto.market.KlineDataDto;
 import com.koduck.dto.market.MarketIndexDto;
@@ -34,7 +36,6 @@ import com.koduck.service.impl.market.MarketServiceImpl;
 import com.koduck.service.support.MarketFallbackSupport;
 import com.koduck.service.support.market.MarketDtoMapper;
 import com.koduck.service.support.market.MockSectorNetworkGenerator;
-import com.fasterxml.jackson.databind.ObjectMapper;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;

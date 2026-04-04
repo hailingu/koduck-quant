@@ -10,6 +10,7 @@ import org.springframework.stereotype.Component;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.ObjectMapper;
+
 import com.koduck.dto.market.SectorNetworkDto;
 
 /**
@@ -22,6 +23,7 @@ import com.koduck.dto.market.SectorNetworkDto;
 @ConditionalOnProperty(prefix = "mock.sector-network", name = "enabled", havingValue = "true", matchIfMissing = true)
 public class MockSectorNetworkGenerator {
 
+    /** 用于JSON反序列化的对象映射器。 */
     private final ObjectMapper objectMapper;
 
     /**
@@ -59,7 +61,8 @@ public class MockSectorNetworkGenerator {
         try {
             ClassPathResource resource = new ClassPathResource("mock/sector-network.json");
             return objectMapper.readValue(resource.getInputStream(), SectorNetworkData.class);
-        } catch (IOException e) {
+        }
+        catch (IOException e) {
             throw new IllegalStateException("Failed to load mock sector network data", e);
         }
     }
@@ -88,6 +91,9 @@ public class MockSectorNetworkGenerator {
 
     /**
      * JSON反序列化的根数据结构。
+     *
+     * @param nodes 板块节点列表
+     * @param links 板块链接列表
      */
     private record SectorNetworkData(
             List<SectorNodeData> nodes,
@@ -97,6 +103,13 @@ public class MockSectorNetworkGenerator {
 
     /**
      * JSON反序列化的节点数据结构。
+     *
+     * @param id 节点ID
+     * @param name 节点名称
+     * @param marketCap 市值
+     * @param flow 资金流向
+     * @param change 涨跌幅
+     * @param group 分组
      */
     private record SectorNodeData(
             String id,
@@ -110,6 +123,10 @@ public class MockSectorNetworkGenerator {
 
     /**
      * JSON反序列化的链接数据结构。
+     *
+     * @param source 源节点ID
+     * @param target 目标节点ID
+     * @param value 链接值
      */
     private record SectorLinkData(
             String source,
