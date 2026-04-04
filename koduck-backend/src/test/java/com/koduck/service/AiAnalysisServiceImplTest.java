@@ -1,7 +1,6 @@
 package com.koduck.service;
 
 import java.math.BigDecimal;
-import java.time.Duration;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -13,11 +12,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.boot.web.client.RestTemplateBuilder;
-import org.springframework.http.HttpEntity;
-import org.springframework.http.HttpMethod;
-import org.springframework.http.ResponseEntity;
-import org.springframework.web.client.RestTemplate;
+import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -45,11 +40,12 @@ import com.koduck.service.support.AiConversationSupport;
 import com.koduck.service.support.AiRecommendationSupport;
 import com.koduck.service.support.AiStreamRelaySupport;
 
+import reactor.core.publisher.Mono;
+
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.verify;
@@ -177,13 +173,22 @@ class AiAnalysisServiceImplTest {
     @Mock
     private AgentConfig agentConfig;
 
-    /** Mock builder for REST template. */
+    /** Mock builder for WebClient. */
     @Mock
-    private RestTemplateBuilder restTemplateBuilder;
+    private WebClient.Builder webClientBuilder;
 
-    /** Mock REST template. */
+    /** Mock WebClient. */
     @Mock
-    private RestTemplate restTemplate;
+    private WebClient webClient;
+
+    /** Mock WebClient request spec (using raw type to avoid generic issues). */
+    @Mock
+    @SuppressWarnings("rawtypes")
+    private WebClient.RequestBodyUriSpec requestBodyUriSpec;
+
+    /** Mock WebClient response spec. */
+    @Mock
+    private WebClient.ResponseSpec responseSpec;
 
     /** Mock support for AI conversation. */
     @Mock
@@ -206,12 +211,19 @@ class AiAnalysisServiceImplTest {
     @BeforeEach
     void setUp() {
         objectMapper = new ObjectMapper();
-        lenient().when(restTemplateBuilder.connectTimeout(any(Duration.class)))
-                .thenReturn(restTemplateBuilder);
-        lenient().when(restTemplateBuilder.readTimeout(any(Duration.class)))
-                .thenReturn(restTemplateBuilder);
-        lenient().when(restTemplateBuilder.build()).thenReturn(restTemplate);
+        
+        // Setup WebClient builder chain
+        lenient().when(webClientBuilder.baseUrl(anyString())).thenReturn(webClientBuilder);
+        lenient().when(webClientBuilder.build()).thenReturn(webClient);
         lenient().when(agentConfig.getUrl()).thenReturn(TEST_AGENT_URL);
+        
+        // Setup WebClient request chain using lenient stubbing with thenAnswer
+        // to avoid complex generic type issues with WebClient fluent API
+        lenient().when(webClient.post()).thenReturn(requestBodyUriSpec);
+        lenient().when(requestBodyUriSpec.uri(anyString())).thenAnswer(inv -> requestBodyUriSpec);
+        lenient().when(requestBodyUriSpec.contentType(any())).thenAnswer(inv -> requestBodyUriSpec);
+        lenient().when(requestBodyUriSpec.bodyValue(any())).thenAnswer(inv -> requestBodyUriSpec);
+        lenient().when(requestBodyUriSpec.retrieve()).thenReturn(responseSpec);
 
         aiAnalysisService = new AiAnalysisServiceImpl(
                 positionRepository,
@@ -220,11 +232,26 @@ class AiAnalysisServiceImplTest {
                 userSettingsService,
                 agentConfig,
                 objectMapper,
-                restTemplateBuilder,
+                webClientBuilder,
                 aiConversationSupport,
                 aiStreamRelaySupport,
                 aiRecommendationSupport
         );
+    }
+
+    private void mockWebClientResponse(Map<String, Object> response) {
+        if (response == null) {
+            when(responseSpec.bodyToMono(any(org.springframework.core.ParameterizedTypeReference.class)))
+                    .thenReturn(Mono.empty());
+        } else {
+            when(responseSpec.bodyToMono(any(org.springframework.core.ParameterizedTypeReference.class)))
+                    .thenReturn(Mono.just(response));
+        }
+    }
+
+    private void mockWebClientError(RuntimeException exception) {
+        when(responseSpec.bodyToMono(any(org.springframework.core.ParameterizedTypeReference.class)))
+                .thenReturn(Mono.error(exception));
     }
 
     // ==================== analyzeStock Tests ====================
@@ -255,12 +282,7 @@ class AiAnalysisServiceImplTest {
         );
 
         when(userSettingsService.getEffectiveLlmConfig(userId, DEFAULT_PROVIDER)).thenReturn(llmConfig);
-        given(restTemplate.exchange(
-            anyString(),
-            eq(HttpMethod.POST),
-            any(HttpEntity.class),
-            any(org.springframework.core.ParameterizedTypeReference.class)
-        )).willReturn(ResponseEntity.ok(agentResponse));
+        mockWebClientResponse(agentResponse);
         when(aiRecommendationSupport.generateRecommendationFromResponse("这是一个买入信号"))
                 .thenReturn("建议买入");
 
@@ -298,12 +320,7 @@ class AiAnalysisServiceImplTest {
         );
 
         when(userSettingsService.getEffectiveLlmConfig(userId, DEFAULT_PROVIDER)).thenReturn(llmConfig);
-        given(restTemplate.exchange(
-            anyString(),
-            any(HttpMethod.class),
-            any(HttpEntity.class),
-            any(org.springframework.core.ParameterizedTypeReference.class)
-        )).willReturn(ResponseEntity.ok(agentResponse));
+        mockWebClientResponse(agentResponse);
         when(aiRecommendationSupport.generateRecommendationFromResponse("分析结果"))
                 .thenReturn("建议观望");
 
@@ -337,12 +354,7 @@ class AiAnalysisServiceImplTest {
         );
 
         when(userSettingsService.getEffectiveLlmConfig(userId, PROVIDER_DEEPSEEK)).thenReturn(llmConfig);
-        given(restTemplate.exchange(
-            anyString(),
-            any(HttpMethod.class),
-            any(HttpEntity.class),
-            any(org.springframework.core.ParameterizedTypeReference.class)
-        )).willReturn(ResponseEntity.ok(agentResponse));
+        mockWebClientResponse(agentResponse);
         when(aiRecommendationSupport.generateRecommendationFromResponse("Deepseek分析结果"))
                 .thenReturn("建议买入");
 
@@ -376,12 +388,7 @@ class AiAnalysisServiceImplTest {
         );
 
         when(userSettingsService.getEffectiveLlmConfig(userId, DEFAULT_PROVIDER)).thenReturn(llmConfig);
-        given(restTemplate.exchange(
-            anyString(),
-            any(HttpMethod.class),
-            any(HttpEntity.class),
-            any(org.springframework.core.ParameterizedTypeReference.class)
-        )).willReturn(ResponseEntity.ok(agentResponse));
+        mockWebClientResponse(agentResponse);
         when(aiRecommendationSupport.generateRecommendationFromResponse("分析结果"))
                 .thenReturn("建议观望");
 
@@ -408,12 +415,7 @@ class AiAnalysisServiceImplTest {
                 .build();
 
         when(userSettingsService.getEffectiveLlmConfig(userId, DEFAULT_PROVIDER)).thenReturn(llmConfig);
-        given(restTemplate.exchange(
-            anyString(),
-            any(HttpMethod.class),
-            any(HttpEntity.class),
-            any(org.springframework.core.ParameterizedTypeReference.class)
-        )).willThrow(new RuntimeException("Connection refused"));
+        mockWebClientError(new RuntimeException("Connection refused"));
 
         // When & Then
         assertThatThrownBy(() -> aiAnalysisService.analyzeStock(userId, request))
@@ -439,12 +441,7 @@ class AiAnalysisServiceImplTest {
         Map<String, Object> agentResponse = Map.of("choices", Collections.emptyList());
 
         when(userSettingsService.getEffectiveLlmConfig(userId, DEFAULT_PROVIDER)).thenReturn(llmConfig);
-        given(restTemplate.exchange(
-            anyString(),
-            any(HttpMethod.class),
-            any(HttpEntity.class),
-            any(org.springframework.core.ParameterizedTypeReference.class)
-        )).willReturn(ResponseEntity.ok(agentResponse));
+        mockWebClientResponse(agentResponse);
 
         // When & Then
         assertThatThrownBy(() -> aiAnalysisService.analyzeStock(userId, request))
@@ -482,12 +479,7 @@ class AiAnalysisServiceImplTest {
         );
 
         when(userSettingsService.getEffectiveLlmConfig(userId, DEFAULT_PROVIDER)).thenReturn(llmConfig);
-        given(restTemplate.exchange(
-            anyString(),
-            any(HttpMethod.class),
-            any(HttpEntity.class),
-            any(org.springframework.core.ParameterizedTypeReference.class)
-        )).willReturn(ResponseEntity.ok(agentResponse));
+        mockWebClientResponse(agentResponse);
         when(aiRecommendationSupport.generateRecommendationFromResponse("分析完成"))
                 .thenReturn("建议买入");
 
@@ -521,7 +513,7 @@ class AiAnalysisServiceImplTest {
 
         when(userSettingsService.getEffectiveLlmConfig(userId, DEFAULT_PROVIDER)).thenReturn(llmConfig);
         when(aiConversationSupport.resolveSessionId(any())).thenReturn(TEST_SESSION_ID);
-        when(aiConversationSupport.enrichWithMemoryContext(eq(userId), any())).thenReturn(request);
+        when(aiConversationSupport.enrichWithMemoryContext(any(), any())).thenReturn(request);
         when(aiConversationSupport.enrichWithQuantSignalIfNeeded(any(), any())).thenReturn(request);
 
         // When
@@ -552,7 +544,7 @@ class AiAnalysisServiceImplTest {
 
         when(userSettingsService.getEffectiveLlmConfig(userId, DEFAULT_PROVIDER)).thenReturn(llmConfig);
         when(aiConversationSupport.resolveSessionId(any())).thenReturn(TEST_SESSION_ID);
-        when(aiConversationSupport.enrichWithMemoryContext(eq(userId), any())).thenReturn(request);
+        when(aiConversationSupport.enrichWithMemoryContext(any(), any())).thenReturn(request);
         when(aiConversationSupport.appendInstructionToSystem(any(), anyString())).thenReturn(request);
         when(aiConversationSupport.enrichWithQuantSignalIfNeeded(any(), any())).thenReturn(request);
 
@@ -580,7 +572,7 @@ class AiAnalysisServiceImplTest {
 
         when(userSettingsService.getEffectiveLlmConfig(userId, DEFAULT_PROVIDER)).thenReturn(null);
         when(aiConversationSupport.resolveSessionId(any())).thenReturn(TEST_SESSION_ID);
-        when(aiConversationSupport.enrichWithMemoryContext(eq(userId), any())).thenReturn(request);
+        when(aiConversationSupport.enrichWithMemoryContext(any(), any())).thenReturn(request);
         when(aiConversationSupport.enrichWithQuantSignalIfNeeded(any(), any())).thenReturn(request);
 
         // When
@@ -787,12 +779,7 @@ class AiAnalysisServiceImplTest {
         );
 
         when(userSettingsService.getEffectiveLlmConfig(userId, PROVIDER_OPENAI)).thenReturn(llmConfig);
-        given(restTemplate.exchange(
-            anyString(),
-            any(HttpMethod.class),
-            any(HttpEntity.class),
-            any(org.springframework.core.ParameterizedTypeReference.class)
-        )).willReturn(ResponseEntity.ok(agentResponse));
+        mockWebClientResponse(agentResponse);
         when(aiRecommendationSupport.generateRecommendationFromResponse("OpenAI分析结果"))
                 .thenReturn("建议买入");
 
@@ -826,12 +813,7 @@ class AiAnalysisServiceImplTest {
         );
 
         when(userSettingsService.getEffectiveLlmConfig(userId, PROVIDER_DEEPSEEK)).thenReturn(llmConfig);
-        given(restTemplate.exchange(
-            anyString(),
-            any(HttpMethod.class),
-            any(HttpEntity.class),
-            any(org.springframework.core.ParameterizedTypeReference.class)
-        )).willReturn(ResponseEntity.ok(agentResponse));
+        mockWebClientResponse(agentResponse);
         when(aiRecommendationSupport.generateRecommendationFromResponse("分析结果"))
                 .thenReturn("建议观望");
 
@@ -858,12 +840,7 @@ class AiAnalysisServiceImplTest {
                 .build();
 
         when(userSettingsService.getEffectiveLlmConfig(userId, DEFAULT_PROVIDER)).thenReturn(llmConfig);
-        when(restTemplate.exchange(
-                anyString(),
-                any(HttpMethod.class),
-                any(HttpEntity.class),
-                any(org.springframework.core.ParameterizedTypeReference.class)
-        )).thenReturn(ResponseEntity.ok(null));
+        mockWebClientResponse(null);
 
         // When & Then
         assertThatThrownBy(() -> aiAnalysisService.analyzeStock(userId, request))
@@ -894,12 +871,7 @@ class AiAnalysisServiceImplTest {
         );
 
         when(userSettingsService.getEffectiveLlmConfig(userId, DEFAULT_PROVIDER)).thenReturn(llmConfig);
-        given(restTemplate.exchange(
-            anyString(),
-            any(HttpMethod.class),
-            any(HttpEntity.class),
-            any(org.springframework.core.ParameterizedTypeReference.class)
-        )).willReturn(ResponseEntity.ok(agentResponse));
+        mockWebClientResponse(agentResponse);
         when(aiRecommendationSupport.generateRecommendationFromResponse("分析结果"))
                 .thenReturn("建议观望");
 
