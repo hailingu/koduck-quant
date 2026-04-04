@@ -46,7 +46,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -242,10 +241,11 @@ class AiAnalysisServiceImplTest {
     private void mockWebClientResponse(Map<String, Object> response) {
         if (response == null) {
             when(responseSpec.bodyToMono(any(org.springframework.core.ParameterizedTypeReference.class)))
-                    .thenReturn(Mono.empty());
-        } else {
+                .thenReturn(Mono.empty());
+        }
+        else {
             when(responseSpec.bodyToMono(any(org.springframework.core.ParameterizedTypeReference.class)))
-                    .thenReturn(Mono.just(response));
+                .thenReturn(Mono.just(response));
         }
     }
 
