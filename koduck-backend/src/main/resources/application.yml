@@ -202,7 +202,7 @@ resilience4j:
         permittedNumberOfCallsInHalfOpenState: ${DATA_SERVICE_CB_HALF_OPEN_CALLS:3}
         automaticTransitionFromOpenToHalfOpenEnabled: true
         recordExceptions:
-          - org.springframework.web.client.RestClientException
+          - org.springframework.web.reactive.function.client.WebClientResponseException
           - java.lang.RuntimeException
 
 # SpringDoc OpenAPI 配置
