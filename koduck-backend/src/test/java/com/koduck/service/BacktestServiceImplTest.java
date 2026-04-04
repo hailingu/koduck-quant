@@ -75,6 +75,26 @@ class BacktestServiceImplTest {
     private static final long TEST_VOLUME = 100L;
 
     /**
+     * Data size for MA calculation test.
+     */
+    private static final int MA_TEST_DATA_SIZE = 10;
+
+    /**
+     * MA period for calculation test.
+     */
+    private static final int MA_TEST_PERIOD = 5;
+
+    /**
+     * Volume multiplier for MA test data.
+     */
+    private static final long MA_VOLUME_MULTIPLIER = 100L;
+
+    /**
+     * Decimal scale for MA calculation.
+     */
+    private static final int MA_CALC_SCALE = 4;
+
+    /**
      * Test trade amount for buy.
      */
     private static final BigDecimal TEST_AMOUNT_BUY = new BigDecimal("1000");
@@ -215,9 +235,9 @@ class BacktestServiceImplTest {
     @Test
     @DisplayName("calculateMASeries 滑动窗口计算结果应正确")
     void calculateMASeriesShouldComputeCorrectly() {
-        int dataSize = 10;
-        int maPeriod = 5;
-        long volumeMultiplier = 100L;
+        int dataSize = MA_TEST_DATA_SIZE;
+        int maPeriod = MA_TEST_PERIOD;
+        long volumeMultiplier = MA_VOLUME_MULTIPLIER;
         List<KlineDataDto> data = new ArrayList<>();
         for (int i = 1; i <= dataSize; i++) {
             data.add(KlineDataDto.builder()
@@ -247,7 +267,7 @@ class BacktestServiceImplTest {
                 expectedSum = expectedSum.add(BigDecimal.valueOf(j + 1));
             }
             BigDecimal expected = expectedSum.divide(
-                    BigDecimal.valueOf(maPeriod), 4, java.math.RoundingMode.HALF_UP);
+                    BigDecimal.valueOf(maPeriod), MA_CALC_SCALE, java.math.RoundingMode.HALF_UP);
             assertThat(series.get(i)).isEqualTo(expected);
         }
     }
