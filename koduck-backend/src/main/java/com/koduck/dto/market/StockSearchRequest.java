@@ -23,7 +23,7 @@ public record StockSearchRequest(
     @Max(value = 100, message = "每页数量最大为 100")
     Integer size
 ) {
-    /** Default page size. */
+    /** 默认每页大小。 */
     private static final int DEFAULT_PAGE_SIZE = 20;
 
     public StockSearchRequest {

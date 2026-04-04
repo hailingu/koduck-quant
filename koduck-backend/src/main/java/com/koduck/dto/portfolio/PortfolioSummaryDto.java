@@ -3,7 +3,7 @@ package com.koduck.dto.portfolio;
 import java.math.BigDecimal;
 
 /**
- * Portfolio summary DTO.
+ * 投资组合汇总数据传输对象。
  *
  * @param totalCost the total cost
  * @param totalMarketValue the total market value

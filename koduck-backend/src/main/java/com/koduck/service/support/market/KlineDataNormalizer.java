@@ -11,7 +11,7 @@ import org.springframework.stereotype.Component;
 import com.koduck.dto.market.KlineDataDto;
 
 /**
- * Normaliser for raw K-line data coming from external sources.
+ * 外部源原始K线数据的规范化器。
  *
  * @author Koduck Team
  */
@@ -19,11 +19,10 @@ import com.koduck.dto.market.KlineDataDto;
 public class KlineDataNormalizer {
 
     /**
-     * Normalises a list of raw K-line items into properly typed
-     * {@link KlineDataDto} instances.
+     * 将原始K线数据列表规范化为正确类型的{@link KlineDataDto}实例。
      *
-     * @param rawData the raw data list (may contain DTOs or untyped maps)
-     * @return a list of normalised K-line DTOs
+     * @param rawData 原始数据列表（可能包含DTO或未类型化的Map）
+     * @return 规范化后的K线DTO列表
      */
     public List<KlineDataDto> normalizeKlineData(List<KlineDataDto> rawData) {
         if (rawData == null || rawData.isEmpty()) {

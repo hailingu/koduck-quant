@@ -12,7 +12,7 @@ import org.springframework.stereotype.Repository;
 import com.koduck.entity.backtest.Trade;
 
 /**
- * Repository for trade record operations.
+ * 交易记录操作仓库，提供交易数据的数据库访问。
  *
  * @author Koduck Team
  */
@@ -20,31 +20,31 @@ import com.koduck.entity.backtest.Trade;
 public interface TradeRepository extends JpaRepository<Trade, Long> {
 
     /**
-     * Find all trades for a user, ordered by trade time descending.
+     * 查询用户的所有交易，按交易时间降序排列。
      *
-     * @param userId the user ID
-     * @return the list of trades
+     * @param userId 用户 ID
+     * @return 交易列表
      */
     List<Trade> findByUserIdOrderByTradeTimeDesc(Long userId);
 
     /**
-     * Find trades for a user and symbol.
+     * 查询用户指定股票的交易。
      *
-     * @param userId the user ID
-     * @param market the market
-     * @param symbol the symbol
-     * @return the list of trades
+     * @param userId 用户 ID
+     * @param market 市场
+     * @param symbol 股票代码
+     * @return 交易列表
      */
     List<Trade> findByUserIdAndMarketAndSymbolOrderByTradeTimeDesc(
             Long userId, String market, String symbol);
 
     /**
-     * Find trades within a time range.
+     * 查询指定时间范围内的交易。
      *
-     * @param userId the user ID
-     * @param startTime the start time
-     * @param endTime the end time
-     * @return the list of trades
+     * @param userId 用户 ID
+     * @param startTime 开始时间
+     * @param endTime 结束时间
+     * @return 交易列表
      */
     @Query("SELECT t FROM Trade t WHERE t.userId = :userId "
             + "AND t.tradeTime BETWEEN :startTime AND :endTime "
@@ -55,12 +55,12 @@ public interface TradeRepository extends JpaRepository<Trade, Long> {
             @Param("endTime") LocalDateTime endTime);
 
     /**
-     * Calculate total buy quantity for a symbol.
+     * 计算指定股票的累计买入数量。
      *
-     * @param userId the user ID
-     * @param market the market
-     * @param symbol the symbol
-     * @return the total buy quantity
+     * @param userId 用户 ID
+     * @param market 市场
+     * @param symbol 股票代码
+     * @return 累计买入数量
      */
     @Query("SELECT COALESCE(SUM(t.quantity), 0) FROM Trade t "
             + "WHERE t.userId = :userId AND t.market = :market "
@@ -71,12 +71,12 @@ public interface TradeRepository extends JpaRepository<Trade, Long> {
             @Param("symbol") String symbol);
 
     /**
-     * Calculate total sell quantity for a symbol.
+     * 计算指定股票的累计卖出数量。
      *
-     * @param userId the user ID
-     * @param market the market
-     * @param symbol the symbol
-     * @return the total sell quantity
+     * @param userId 用户 ID
+     * @param market 市场
+     * @param symbol 股票代码
+     * @return 累计卖出数量
      */
     @Query("SELECT COALESCE(SUM(t.quantity), 0) FROM Trade t "
             + "WHERE t.userId = :userId AND t.market = :market "

@@ -13,7 +13,7 @@ import lombok.Data;
 @Data
 public class UserPageRequest {
 
-    /** Default page size. */
+    /** 默认每页大小。 */
     private static final int DEFAULT_PAGE_SIZE = 20;
 
     /** 页码. */

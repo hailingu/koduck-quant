@@ -9,7 +9,7 @@ import org.springframework.stereotype.Repository;
 import com.koduck.entity.strategy.AlertRule;
 
 /**
- * Repository for alert rule configuration.
+ * 告警规则配置仓库，提供告警规则数据的数据库访问。
  *
  * @author Koduck Team
  */
@@ -17,33 +17,33 @@ import com.koduck.entity.strategy.AlertRule;
 public interface AlertRuleRepository extends JpaRepository<AlertRule, Long> {
 
     /**
-     * Find all enabled rules.
+     * 查询所有启用的规则。
      *
-     * @return the list of enabled alert rules
+     * @return 启用的告警规则列表
      */
     List<AlertRule> findByEnabledTrue();
 
     /**
-     * Find rule by name.
+     * 根据规则名称查询规则。
      *
-     * @param ruleName the rule name
-     * @return the optional alert rule
+     * @param ruleName 规则名称
+     * @return 告警规则
      */
     Optional<AlertRule> findByRuleName(String ruleName);
 
     /**
-     * Find rules by type.
+     * 根据规则类型查询规则。
      *
-     * @param ruleType the rule type
-     * @return the list of alert rules
+     * @param ruleType 规则类型
+     * @return 告警规则列表
      */
     List<AlertRule> findByRuleType(String ruleType);
 
     /**
-     * Find rules by severity.
+     * 根据严重级别查询规则。
      *
-     * @param severity the severity level
-     * @return the list of alert rules
+     * @param severity 严重级别
+     * @return 告警规则列表
      */
     List<AlertRule> findBySeverity(String severity);
 }

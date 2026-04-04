@@ -11,15 +11,15 @@ import jakarta.validation.constraints.Size;
 /**
  * Request to run a backtest.
  *
- * @param strategyId Strategy ID
+ * @param strategyId 策略ID
  * @param market Market
  * @param symbol Symbol
- * @param startDate Start date
- * @param endDate End date
- * @param timeframe Timeframe
- * @param initialCapital Initial capital
- * @param commissionRate Commission rate
- * @param slippage Slippage
+ * @param startDate 开始日期
+ * @param endDate 结束日期
+ * @param timeframe 时间周期
+ * @param initialCapital 初始资金
+ * @param commissionRate 佣金费率
+ * @param slippage 滑点
  * @author Koduck Team
  */
 public record RunBacktestRequest(

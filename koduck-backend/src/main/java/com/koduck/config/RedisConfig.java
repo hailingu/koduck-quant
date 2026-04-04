@@ -14,7 +14,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 
 /**
- * Redis configuration for low-level Redis operations.
+ * 底层 Redis 操作的配置。
  * Provides {@link RedisTemplate} and {@link StringRedisTemplate} beans.
  *
  * @author GitHub Copilot
@@ -23,24 +23,24 @@ import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 public class RedisConfig {
 
     /**
-     * Global ObjectMapper injected by Spring Boot auto-configuration.
+     * Spring Boot 自动配置注入的全局 ObjectMapper。
      */
     private final ObjectMapper objectMapper;
 
     /**
-     * Constructs {@link RedisConfig} with injected ObjectMapper.
+     * 使用注入的 ObjectMapper 构造 {RedisConfig}。
      *
-     * @param objectMapper global Jackson object mapper (must not be {@code null})
+     * @param objectMapper 全局 Jackson 对象映射器 (must not be {@code null})
      */
     public RedisConfig(ObjectMapper objectMapper) {
         this.objectMapper = Objects.requireNonNull(objectMapper);
     }
 
     /**
-     * Creates a Redis template with String key serializers and JSON value serializers.
+     * 创建使用 String 键序列化和 JSON 值序列化的 Redis 模板。
      *
-     * @param connectionFactory Redis connection factory
-     * @return configured RedisTemplate instance
+     * @param connectionFactory Redis 连接工厂
+     * @return 配置的 RedisTemplate 实例
      */
     @Bean
     public RedisTemplate<String, Object> redisTemplate(RedisConnectionFactory connectionFactory) {
@@ -61,10 +61,10 @@ public class RedisConfig {
     }
 
     /**
-     * Creates a String-based Redis template for simple key-value operations.
+     * 创建用于简单键值操作的基于 String 的 Redis 模板。
      *
-     * @param connectionFactory Redis connection factory
-     * @return configured StringRedisTemplate instance
+     * @param connectionFactory Redis 连接工厂
+     * @return 配置的 StringRedisTemplate 实例
      */
     @Bean
     public StringRedisTemplate stringRedisTemplate(RedisConnectionFactory connectionFactory) {

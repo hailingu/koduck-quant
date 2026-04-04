@@ -4,27 +4,27 @@ import com.koduck.dto.indicator.IndicatorListResponse;
 import com.koduck.dto.indicator.IndicatorResponse;
 
 /**
- * Service interface for technical indicator calculations.
+ * 技术指标计算服务接口。
  *
  * @author koduck
  */
 public interface TechnicalIndicatorService {
 
     /**
-     * Get available indicators.
+     * 获取可用指标。
      *
-     * @return list of available technical indicators
+     * @return 可用技术指标列表
      */
     IndicatorListResponse getAvailableIndicators();
 
     /**
-     * Calculate indicator for a symbol.
+     * 计算指定股票的技术指标。
      *
-     * @param market the market identifier
-     * @param symbol the stock symbol
-     * @param indicator the indicator name
-     * @param period the calculation period
-     * @return calculated indicator response
+     * @param market    市场标识
+     * @param symbol    股票代码
+     * @param indicator 指标名称
+     * @param period    计算周期
+     * @return 计算后的指标响应
      */
     IndicatorResponse calculateIndicator(
             String market, String symbol, String indicator, Integer period);

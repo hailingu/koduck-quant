@@ -25,7 +25,7 @@ import com.koduck.config.properties.SecurityEndpointProperties;
 import com.koduck.security.JwtAuthenticationFilter;
 
 /**
- * Spring Security configuration.
+ * Spring Security 安全配置。
  *
  * <p>Defines stateless JWT-based authentication, public endpoint rules, and
  * authentication-related beans used across the application.</p>
@@ -38,13 +38,13 @@ import com.koduck.security.JwtAuthenticationFilter;
 public class SecurityConfig {
 
     /**
-     * Builds the security filter chain and configures endpoint authorization.
+     * 构建安全过滤器链并配置端点授权。
      *
-     * @param http Spring Security HTTP configuration builder
-     * @param jwtAuthenticationFilter JWT filter used to authenticate incoming requests
-     * @param userDetailsService user details service for authentication
-     * @param securityEndpointProperties properties for security endpoint configuration
-     * @return configured security filter chain
+     * @param http Spring Security HTTP 配置构建器
+     * @param jwtAuthenticationFilter 用于认证传入请求的 JWT 过滤器
+     * @param userDetailsService 认证用的用户详情服务
+     * @param securityEndpointProperties 安全端点配置属性
+     * @return 配置的安全过滤器链
      * @throws Exception when the security configuration cannot be built
      */
     @Bean
@@ -85,10 +85,10 @@ public class SecurityConfig {
     }
 
     /**
-     * Creates the authentication provider backed by {@link UserDetailsService}.
+     * 创建由 {UserDetailsService} 支持的认证提供者。
      *
      * @param userDetailsService user details service used for authentication
-     * @return configured authentication provider
+     * @return 配置的认证提供者
      */
     @Bean
     public AuthenticationProvider authenticationProvider(UserDetailsService userDetailsService) {
@@ -99,10 +99,10 @@ public class SecurityConfig {
     }
 
     /**
-     * Exposes the application {@link AuthenticationManager}.
+     * 暴露应用的 {AuthenticationManager}。
      *
-     * @param config authentication configuration provided by Spring
-     * @return authentication manager instance
+     * @param config Spring 提供的认证配置
+     * @return 认证管理器实例
      * @throws Exception when the authentication manager cannot be obtained
      */
     @Bean
@@ -111,9 +111,9 @@ public class SecurityConfig {
     }
 
     /**
-     * Creates the password encoder used for credential hashing.
+     * 创建用于凭证哈希的密码编码器。
      *
-     * @return BCrypt password encoder
+     * @return BCrypt 密码编码器
      */
     @Bean
     public PasswordEncoder passwordEncoder() {

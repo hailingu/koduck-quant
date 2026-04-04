@@ -13,7 +13,7 @@ import org.springframework.stereotype.Repository;
 import com.koduck.entity.credential.CredentialAuditLog;
 
 /**
- * Repository for credential audit log operations.
+ * 凭证审计日志操作仓库，提供凭证审计日志数据的数据库访问。
  *
  * @author Koduck Team
  */
@@ -21,40 +21,40 @@ import com.koduck.entity.credential.CredentialAuditLog;
 public interface CredentialAuditLogRepository extends JpaRepository<CredentialAuditLog, Long> {
 
     /**
-     * Find audit logs by user ID with pagination.
+     * 根据用户 ID 分页查询审计日志。
      *
-     * @param userId   the user ID
-     * @param pageable the pagination information
-     * @return a page of credential audit logs
+     * @param userId 用户 ID
+     * @param pageable 分页信息
+     * @return 凭证审计日志分页结果
      */
     Page<CredentialAuditLog> findByUserId(Long userId, Pageable pageable);
 
     /**
-     * Find audit logs by credential ID.
+     * 根据凭证 ID 查询审计日志。
      *
-     * @param credentialId the credential ID
-     * @return a list of credential audit logs
+     * @param credentialId 凭证 ID
+     * @return 凭证审计日志列表
      */
     List<CredentialAuditLog> findByCredentialId(Long credentialId);
 
     /**
-     * Find audit logs by user ID and action type.
+     * 根据用户 ID 和操作类型查询审计日志。
      *
-     * @param userId the user ID
-     * @param action the action type
-     * @return a list of credential audit logs
+     * @param userId 用户 ID
+     * @param action 操作类型
+     * @return 凭证审计日志列表
      */
     List<CredentialAuditLog> findByUserIdAndAction(
             Long userId,
             CredentialAuditLog.ActionType action);
 
     /**
-     * Find audit logs by user ID within a time range.
+     * 根据用户 ID 查询指定时间范围内的审计日志。
      *
-     * @param userId    the user ID
-     * @param startTime the start time
-     * @param endTime   the end time
-     * @return a list of credential audit logs
+     * @param userId 用户 ID
+     * @param startTime 开始时间
+     * @param endTime 结束时间
+     * @return 凭证审计日志列表
      */
     @Query("SELECT l FROM CredentialAuditLog l WHERE l.userId = :userId "
             + "AND l.createdAt BETWEEN :startTime AND :endTime "
@@ -65,12 +65,12 @@ public interface CredentialAuditLogRepository extends JpaRepository<CredentialAu
             @Param("endTime") LocalDateTime endTime);
 
     /**
-     * Count audit logs by user ID and action type after a specific time.
+     * 统计用户指定操作类型在指定时间之后的审计日志数量。
      *
-     * @param userId the user ID
-     * @param action the action type
-     * @param since  the start time
-     * @return the count of matching audit logs
+     * @param userId 用户 ID
+     * @param action 操作类型
+     * @param since 起始时间
+     * @return 匹配的审计日志数量
      */
     @Query("SELECT COUNT(l) FROM CredentialAuditLog l WHERE l.userId = :userId "
             + "AND l.action = :action AND l.createdAt >= :since")
@@ -80,11 +80,11 @@ public interface CredentialAuditLogRepository extends JpaRepository<CredentialAu
             @Param("since") LocalDateTime since);
 
     /**
-     * Find recent audit logs by user ID.
+     * 查询用户最近的审计日志。
      *
-     * @param userId   the user ID
-     * @param pageable the pagination information
-     * @return a list of credential audit logs
+     * @param userId 用户 ID
+     * @param pageable 分页信息
+     * @return 凭证审计日志列表
      */
     @Query("SELECT l FROM CredentialAuditLog l WHERE l.userId = :userId "
             + "ORDER BY l.createdAt DESC")

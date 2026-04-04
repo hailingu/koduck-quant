@@ -27,9 +27,9 @@ public record PriceUpdateDto(
     }
 
     /**
-     * Creates a new Builder instance.
+     * 创建新的 Builder 实例。
      *
-     * @return the builder
+     * @return 构建器
      */
     public static Builder builder() {
         return new Builder();
@@ -58,10 +58,10 @@ public record PriceUpdateDto(
         private Long volume;
 
         /**
-         * Sets the symbol.
+         * 设置品种代码。
          *
-         * @param symbol the symbol
-         * @return the builder
+         * @param symbol 品种代码
+         * @return 构建器
          */
         public Builder symbol(String symbol) {
             this.symbol = symbol;
@@ -69,10 +69,10 @@ public record PriceUpdateDto(
         }
 
         /**
-         * Sets the name.
+         * 设置名称。
          *
-         * @param name the name
-         * @return the builder
+         * @param name 名称
+         * @return 构建器
          */
         public Builder name(String name) {
             this.name = name;
@@ -80,10 +80,10 @@ public record PriceUpdateDto(
         }
 
         /**
-         * Sets the price.
+         * 设置价格。
          *
-         * @param price the price
-         * @return the builder
+         * @param price 价格
+         * @return 构建器
          */
         public Builder price(Double price) {
             this.price = price;
@@ -91,10 +91,10 @@ public record PriceUpdateDto(
         }
 
         /**
-         * Sets the change.
+         * 设置涨跌额。
          *
-         * @param change the change
-         * @return the builder
+         * @param change 涨跌额
+         * @return 构建器
          */
         public Builder change(Double change) {
             this.change = change;
@@ -102,10 +102,10 @@ public record PriceUpdateDto(
         }
 
         /**
-         * Sets the change percent.
+         * 设置涨跌幅。
          *
-         * @param changePercent the change percent
-         * @return the builder
+         * @param changePercent 涨跌幅
+         * @return 构建器
          */
         public Builder changePercent(Double changePercent) {
             this.changePercent = changePercent;
@@ -113,10 +113,10 @@ public record PriceUpdateDto(
         }
 
         /**
-         * Sets the volume.
+         * 设置成交量。
          *
-         * @param volume the volume
-         * @return the builder
+         * @param volume 成交量
+         * @return 构建器
          */
         public Builder volume(Long volume) {
             this.volume = volume;

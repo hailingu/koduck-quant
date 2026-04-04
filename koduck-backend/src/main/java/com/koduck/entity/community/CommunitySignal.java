@@ -31,7 +31,7 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 /**
- * Community signal entity.
+ * 社区信号实体。
  *
  * @author Koduck Team
  */
@@ -42,7 +42,7 @@ import lombok.Setter;
 public class CommunitySignal {
 
     /**
-     * Primary key.
+     * 主键。
      */
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -50,130 +50,130 @@ public class CommunitySignal {
     private Long id;
 
     /**
-     * User ID.
+     * 用户 ID。
      */
     @Column(name = "user_id", nullable = false)
     private Long userId;
 
     /**
-     * Strategy ID.
+     * 策略 ID。
      */
     @Column(name = "strategy_id")
     private Long strategyId;
 
     /**
-     * Stock symbol.
+     * 股票代码。
      */
     @Column(nullable = false, length = 20)
     private String symbol;
 
     /**
-     * Signal type.
+     * 信号类型。
      */
     @Column(name = "signal_type", nullable = false, length = 10)
     @Enumerated(EnumType.STRING)
     private SignalType signalType;
 
     /**
-     * Signal reason.
+     * 信号原因。
      */
     @Column(nullable = false, columnDefinition = "TEXT")
     private String reason;
 
     /**
-     * Target price.
+     * 目标价格。
      */
     @Column(name = "target_price", precision = 19, scale = 4)
     private BigDecimal targetPrice;
 
     /**
-     * Stop loss price.
+     * 止损价格。
      */
     @Column(name = "stop_loss", precision = 19, scale = 4)
     private BigDecimal stopLoss;
 
     /**
-     * Time frame.
+     * 时间框架。
      */
     @Column(name = "time_frame", length = 20)
     private String timeframe;
 
     /**
-     * Confidence level.
+     * 置信度。
      */
     private Integer confidence;
 
     /**
-     * Signal status.
+     * 信号状态。
      */
     @Column(length = 20)
     @Enumerated(EnumType.STRING)
     private Status status;
 
     /**
-     * Result status.
+     * 结果状态。
      */
     @Column(name = "result_status", length = 20)
     @Enumerated(EnumType.STRING)
     private ResultStatus resultStatus;
 
     /**
-     * Result profit.
+     * 结果收益。
      */
     @Column(name = "result_profit", precision = 19, scale = 4)
     private BigDecimal resultProfit;
 
     /**
-     * Expiration time.
+     * 过期时间。
      */
     @Column(name = "expires_at")
     private LocalDateTime expiresAt;
 
     /**
-     * Like count.
+     * 点赞数。
      */
     @Column(name = "like_count")
     private Integer likeCount = 0;
 
     /**
-     * Favorite count.
+     * 收藏数。
      */
     @Column(name = "favorite_count")
     private Integer favoriteCount = 0;
 
     /**
-     * Subscribe count.
+     * 订阅数。
      */
     @Column(name = "subscribe_count")
     private Integer subscribeCount = 0;
 
     /**
-     * Comment count.
+     * 评论数。
      */
     @Column(name = "comment_count")
     private Integer commentCount = 0;
 
     /**
-     * View count.
+     * 浏览数。
      */
     @Column(name = "view_count")
     private Integer viewCount = 0;
 
     /**
-     * Featured flag.
+     * 精选标志。
      */
     @Column(name = "is_featured")
     private Boolean isFeatured = false;
 
     /**
-     * Tags list.
+     * 标签列表。
      */
     @Column(columnDefinition = "JSONB")
     @JdbcTypeCode(SqlTypes.JSON)
     private List<String> tags;
 
     /**
-     * Created at.
+     * 创建时间。
      */
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
@@ -181,158 +181,158 @@ public class CommunitySignal {
     private LocalDateTime createdAt;
 
     /**
-     * Updated at.
+     * 更新时间。
      */
     @UpdateTimestamp
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
 
     /**
-     * User entity.
+     * 用户实体。
      */
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", insertable = false, updatable = false)
     private User user;
 
     /**
-     * Creates a new builder.
+     * 创建新的构建器。
      *
-     * @return Builder instance
+     * @return 构建器实例
      */
     public static Builder builder() {
         return new Builder();
     }
 
     /**
-     * Builder class for CommunitySignal.
+     * CommunitySignal 的构建器类。
      */
     public static final class Builder {
 
         /**
-         * The ID.
+         * ID。
          */
         private Long id;
 
         /**
-         * The user ID.
+         * 用户 ID。
          */
         private Long userId;
 
         /**
-         * The strategy ID.
+         * 策略 ID。
          */
         private Long strategyId;
 
         /**
-         * The stock symbol.
+         * 股票代码。
          */
         private String symbol;
 
         /**
-         * The signal type.
+         * 信号类型。
          */
         private SignalType signalType;
 
         /**
-         * The signal reason.
+         * 信号原因。
          */
         private String reason;
 
         /**
-         * The target price.
+         * 目标价格。
          */
         private BigDecimal targetPrice;
 
         /**
-         * The stop loss price.
+         * 止损价格。
          */
         private BigDecimal stopLoss;
 
         /**
-         * The time frame.
+         * 时间框架。
          */
         private String timeFrame;
 
         /**
-         * The confidence level.
+         * 置信度。
          */
         private Integer confidence;
 
         /**
-         * The signal status.
+         * 信号状态。
          */
         private Status status;
 
         /**
-         * The result status.
+         * 结果状态。
          */
         private ResultStatus resultStatus;
 
         /**
-         * The result profit.
+         * 结果收益。
          */
         private BigDecimal resultProfit;
 
         /**
-         * The expiration time.
+         * 过期时间。
          */
         private LocalDateTime expiresAt;
 
         /**
-         * The like count.
+         * 点赞数。
          */
         private Integer likeCount;
 
         /**
-         * The favorite count.
+         * 收藏数。
          */
         private Integer favoriteCount;
 
         /**
-         * The subscribe count.
+         * 订阅数。
          */
         private Integer subscribeCount;
 
         /**
-         * The comment count.
+         * 评论数。
          */
         private Integer commentCount;
 
         /**
-         * The view count.
+         * 浏览数。
          */
         private Integer viewCount;
 
         /**
-         * The featured flag.
+         * 精选标志。
          */
         private Boolean isFeatured;
 
         /**
-         * The tags list.
+         * 标签列表。
          */
         private List<String> tags;
 
         /**
-         * The created at timestamp.
+         * 创建时间戳。
          */
         private LocalDateTime createdAt;
 
         /**
-         * The updated at timestamp.
+         * 更新时间戳。
          */
         private LocalDateTime updatedAt;
 
         /**
-         * The user entity.
+         * 用户实体。
          */
         private User user;
 
         /**
-         * Sets the ID.
+         * 设置 ID。
          *
-         * @param id the ID
-         * @return this builder
+         * @param id ID
+         * @return 此构建器
          */
         public Builder id(Long id) {
             this.id = id;
@@ -340,10 +340,10 @@ public class CommunitySignal {
         }
 
         /**
-         * Sets the user ID.
+         * 设置用户 ID。
          *
-         * @param userId the user ID
-         * @return this builder
+         * @param userId 用户 ID
+         * @return 此构建器
          */
         public Builder userId(Long userId) {
             this.userId = userId;
@@ -351,10 +351,10 @@ public class CommunitySignal {
         }
 
         /**
-         * Sets the strategy ID.
+         * 设置策略 ID。
          *
-         * @param strategyId the strategy ID
-         * @return this builder
+         * @param strategyId 策略 ID
+         * @return 此构建器
          */
         public Builder strategyId(Long strategyId) {
             this.strategyId = strategyId;
@@ -362,10 +362,10 @@ public class CommunitySignal {
         }
 
         /**
-         * Sets the symbol.
+         * 设置股票代码。
          *
-         * @param symbol the symbol
-         * @return this builder
+         * @param symbol 股票代码
+         * @return 此构建器
          */
         public Builder symbol(String symbol) {
             this.symbol = symbol;
@@ -373,10 +373,10 @@ public class CommunitySignal {
         }
 
         /**
-         * Sets the signal type.
+         * 设置信号类型。
          *
-         * @param signalType the signal type
-         * @return this builder
+         * @param signalType 信号类型
+         * @return 此构建器
          */
         public Builder signalType(SignalType signalType) {
             this.signalType = signalType;
@@ -384,10 +384,10 @@ public class CommunitySignal {
         }
 
         /**
-         * Sets the reason.
+         * 设置原因。
          *
-         * @param reason the reason
-         * @return this builder
+         * @param reason 原因
+         * @return 此构建器
          */
         public Builder reason(String reason) {
             this.reason = reason;
@@ -395,10 +395,10 @@ public class CommunitySignal {
         }
 
         /**
-         * Sets the target price.
+         * 设置目标价格。
          *
-         * @param targetPrice the target price
-         * @return this builder
+         * @param targetPrice 目标价格
+         * @return 此构建器
          */
         public Builder targetPrice(BigDecimal targetPrice) {
             this.targetPrice = targetPrice;
@@ -406,10 +406,10 @@ public class CommunitySignal {
         }
 
         /**
-         * Sets the stop loss.
+         * 设置止损。
          *
-         * @param stopLoss the stop loss
-         * @return this builder
+         * @param stopLoss 止损
+         * @return 此构建器
          */
         public Builder stopLoss(BigDecimal stopLoss) {
             this.stopLoss = stopLoss;
@@ -417,10 +417,10 @@ public class CommunitySignal {
         }
 
         /**
-         * Sets the time frame.
+         * 设置时间框架。
          *
-         * @param timeFrame the time frame
-         * @return this builder
+         * @param timeFrame 时间框架
+         * @return 此构建器
          */
         public Builder timeFrame(String timeFrame) {
             this.timeFrame = timeFrame;
@@ -428,10 +428,10 @@ public class CommunitySignal {
         }
 
         /**
-         * Sets the confidence.
+         * 设置置信度。
          *
-         * @param confidence the confidence
-         * @return this builder
+         * @param confidence 置信度
+         * @return 此构建器
          */
         public Builder confidence(Integer confidence) {
             this.confidence = confidence;
@@ -439,10 +439,10 @@ public class CommunitySignal {
         }
 
         /**
-         * Sets the status.
+         * 设置状态。
          *
-         * @param status the status
-         * @return this builder
+         * @param status 状态
+         * @return 此构建器
          */
         public Builder status(Status status) {
             this.status = status;
@@ -450,10 +450,10 @@ public class CommunitySignal {
         }
 
         /**
-         * Sets the result status.
+         * 设置结果状态。
          *
-         * @param resultStatus the result status
-         * @return this builder
+         * @param resultStatus 结果状态
+         * @return 此构建器
          */
         public Builder resultStatus(ResultStatus resultStatus) {
             this.resultStatus = resultStatus;
@@ -461,10 +461,10 @@ public class CommunitySignal {
         }
 
         /**
-         * Sets the result profit.
+         * 设置结果收益。
          *
-         * @param resultProfit the result profit
-         * @return this builder
+         * @param resultProfit 结果收益
+         * @return 此构建器
          */
         public Builder resultProfit(BigDecimal resultProfit) {
             this.resultProfit = resultProfit;
@@ -472,10 +472,10 @@ public class CommunitySignal {
         }
 
         /**
-         * Sets the expires at.
+         * 设置过期时间。
          *
-         * @param expiresAt the expires at
-         * @return this builder
+         * @param expiresAt 过期时间
+         * @return 此构建器
          */
         public Builder expiresAt(LocalDateTime expiresAt) {
             this.expiresAt = expiresAt;
@@ -483,10 +483,10 @@ public class CommunitySignal {
         }
 
         /**
-         * Sets the like count.
+         * 设置点赞数。
          *
-         * @param likeCount the like count
-         * @return this builder
+         * @param likeCount 点赞数
+         * @return 此构建器
          */
         public Builder likeCount(Integer likeCount) {
             this.likeCount = likeCount;
@@ -494,10 +494,10 @@ public class CommunitySignal {
         }
 
         /**
-         * Sets the favorite count.
+         * 设置收藏数。
          *
-         * @param favoriteCount the favorite count
-         * @return this builder
+         * @param favoriteCount 收藏数
+         * @return 此构建器
          */
         public Builder favoriteCount(Integer favoriteCount) {
             this.favoriteCount = favoriteCount;
@@ -505,10 +505,10 @@ public class CommunitySignal {
         }
 
         /**
-         * Sets the subscribe count.
+         * 设置订阅数。
          *
-         * @param subscribeCount the subscribe count
-         * @return this builder
+         * @param subscribeCount 订阅数
+         * @return 此构建器
          */
         public Builder subscribeCount(Integer subscribeCount) {
             this.subscribeCount = subscribeCount;
@@ -516,10 +516,10 @@ public class CommunitySignal {
         }
 
         /**
-         * Sets the comment count.
+         * 设置评论数。
          *
-         * @param commentCount the comment count
-         * @return this builder
+         * @param commentCount 评论数
+         * @return 此构建器
          */
         public Builder commentCount(Integer commentCount) {
             this.commentCount = commentCount;
@@ -527,10 +527,10 @@ public class CommunitySignal {
         }
 
         /**
-         * Sets the view count.
+         * 设置浏览数。
          *
-         * @param viewCount the view count
-         * @return this builder
+         * @param viewCount 浏览数
+         * @return 此构建器
          */
         public Builder viewCount(Integer viewCount) {
             this.viewCount = viewCount;
@@ -538,10 +538,10 @@ public class CommunitySignal {
         }
 
         /**
-         * Sets the featured flag.
+         * 设置精选标志。
          *
-         * @param isFeatured the featured flag
-         * @return this builder
+         * @param isFeatured 精选标志
+         * @return 此构建器
          */
         public Builder isFeatured(Boolean isFeatured) {
             this.isFeatured = isFeatured;
@@ -549,10 +549,10 @@ public class CommunitySignal {
         }
 
         /**
-         * Sets the tags.
+         * 设置标签。
          *
-         * @param tags the tags
-         * @return this builder
+         * @param tags 标签
+         * @return 此构建器
          */
         public Builder tags(List<String> tags) {
             this.tags = CollectionCopyUtils.copyList(tags);
@@ -560,10 +560,10 @@ public class CommunitySignal {
         }
 
         /**
-         * Sets the created at.
+         * 设置创建时间。
          *
-         * @param createdAt the created at
-         * @return this builder
+         * @param createdAt 创建时间
+         * @return 此构建器
          */
         public Builder createdAt(LocalDateTime createdAt) {
             this.createdAt = createdAt;
@@ -571,10 +571,10 @@ public class CommunitySignal {
         }
 
         /**
-         * Sets the updated at.
+         * 设置更新时间。
          *
-         * @param updatedAt the updated at
-         * @return this builder
+         * @param updatedAt 更新时间
+         * @return 此构建器
          */
         public Builder updatedAt(LocalDateTime updatedAt) {
             this.updatedAt = updatedAt;
@@ -582,10 +582,10 @@ public class CommunitySignal {
         }
 
         /**
-         * Sets the user.
+         * 设置用户。
          *
-         * @param user the user
-         * @return this builder
+         * @param user 用户
+         * @return 此构建器
          */
         public Builder user(User user) {
             this.user = EntityCopyUtils.copyUser(user);
@@ -593,9 +593,9 @@ public class CommunitySignal {
         }
 
         /**
-         * Builds the CommunitySignal.
+         * 构建 CommunitySignal。
          *
-         * @return the CommunitySignal
+         * @return CommunitySignal
          */
         public CommunitySignal build() {
             CommunitySignal signal = new CommunitySignal();
@@ -628,110 +628,110 @@ public class CommunitySignal {
     }
 
     /**
-     * Gets tags copy.
+     * 获取标签副本。
      *
-     * @return tags copy
+     * @return 标签副本
      */
     public List<String> getTags() {
         return CollectionCopyUtils.copyList(tags);
     }
 
     /**
-     * Sets tags with copy.
+     * 使用副本设置标签。
      *
-     * @param tags the tags
+     * @param tags 标签
      */
     public void setTags(List<String> tags) {
         this.tags = CollectionCopyUtils.copyList(tags);
     }
 
     /**
-     * Gets user copy.
+     * 获取用户副本。
      *
-     * @return user copy
+     * @return 用户副本
      */
     public User getUser() {
         return EntityCopyUtils.copyUser(user);
     }
 
     /**
-     * Sets user with copy.
+     * 使用副本设置用户。
      *
-     * @param user the user
+     * @param user 用户
      */
     public void setUser(User user) {
         this.user = EntityCopyUtils.copyUser(user);
     }
 
     /**
-     * Signal type enum.
+     * 信号类型枚举。
      */
     public enum SignalType {
 
         /**
-         * Buy signal.
+         * 买入信号。
          */
         BUY,
 
         /**
-         * Sell signal.
+         * 卖出信号。
          */
         SELL,
 
         /**
-         * Hold signal.
+         * 持有信号。
          */
         HOLD
     }
 
     /**
-     * Status enum.
+     * 状态枚举。
      */
     public enum Status {
 
         /**
-         * Active status.
+         * 活跃状态。
          */
         ACTIVE,
 
         /**
-         * Closed status.
+         * 已关闭状态。
          */
         CLOSED,
 
         /**
-         * Expired status.
+         * 已过期状态。
          */
         EXPIRED,
 
         /**
-         * Cancelled status.
+         * 已取消状态。
          */
         CANCELLED
     }
 
     /**
-     * Result status enum.
+     * 结果状态枚举。
      */
     public enum ResultStatus {
 
         /**
-         * Pending result.
+         * 结果待处理。
          */
         PENDING,
 
         /**
-         * Hit target.
+         * 达到目标。
          */
         HIT_TARGET,
 
         /**
-         * Hit stop.
+         * 达到止损。
          */
         HIT_STOP,
 
         /**
-         * Timeout.
+         * 超时。
          */
         TIMEOUT
     }

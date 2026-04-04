@@ -11,91 +11,91 @@ import com.koduck.dto.credential.UpdateCredentialRequest;
 import com.koduck.dto.credential.VerifyCredentialResponse;
 
 /**
- * User credential service interface.
+ * 用户凭证服务接口。
  *
  * @author Koduck Team
  */
 public interface CredentialService {
 
     /**
-     * Get credential list (paginated).
+     * 获取凭证列表（分页）。
      *
-     * @param userId the user ID
-     * @param page   the page number
-     * @param size   the page size
-     * @return the credential list response
+     * @param userId 用户ID
+     * @param page   页码
+     * @param size   每页大小
+     * @return 凭证列表响应
      */
     CredentialListResponse getCredentials(Long userId, int page, int size);
 
     /**
-     * Get all credentials (not paginated).
+     * 获取所有凭证（不分页）。
      *
-     * @param userId the user ID
-     * @return the list of credential responses
+     * @param userId 用户ID
+     * @return 凭证响应列表
      */
     List<CredentialResponse> getAllCredentials(Long userId);
 
     /**
-     * Get a single credential (summary info).
+     * 获取单个凭证（摘要信息）。
      *
-     * @param userId       the user ID
-     * @param credentialId the credential ID
-     * @return the credential response
+     * @param userId       用户ID
+     * @param credentialId 凭证ID
+     * @return 凭证响应
      */
     CredentialResponse getCredential(Long userId, Long credentialId);
 
     /**
-     * Get credential detail (includes sensitive information).
+     * 获取凭证详情（包含敏感信息）。
      *
-     * @param userId       the user ID
-     * @param credentialId the credential ID
-     * @return the credential detail response
+     * @param userId       用户ID
+     * @param credentialId 凭证ID
+     * @return 凭证详情响应
      */
     CredentialDetailResponse getCredentialDetail(Long userId, Long credentialId);
 
     /**
-     * Create a new credential.
+     * 创建新凭证。
      *
-     * @param userId  the user ID
-     * @param request the create request
-     * @return the created credential response
+     * @param userId  用户ID
+     * @param request 创建请求
+     * @return 创建的凭证响应
      */
     CredentialResponse createCredential(Long userId, CreateCredentialRequest request);
 
     /**
-     * Update an existing credential.
+     * 更新现有凭证。
      *
-     * @param userId       the user ID
-     * @param credentialId the credential ID
-     * @param request      the update request
-     * @return the updated credential response
+     * @param userId       用户ID
+     * @param credentialId 凭证ID
+     * @param request      更新请求
+     * @return 更新后的凭证响应
      */
     CredentialResponse updateCredential(Long userId, Long credentialId, UpdateCredentialRequest request);
 
     /**
-     * Delete a credential.
+     * 删除凭证。
      *
-     * @param userId       the user ID
-     * @param credentialId the credential ID
+     * @param userId       用户ID
+     * @param credentialId 凭证ID
      */
     void deleteCredential(Long userId, Long credentialId);
 
     /**
-     * Verify a credential.
+     * 验证凭证。
      *
-     * @param userId       the user ID
-     * @param credentialId the credential ID
-     * @return the verification response
+     * @param userId       用户ID
+     * @param credentialId 凭证ID
+     * @return 验证响应
      */
     VerifyCredentialResponse verifyCredential(Long userId, Long credentialId);
 
     /**
-     * Get audit logs.
+     * 获取审计日志。
      *
-     * @param userId the user ID
-     * @param page   the page number
-     * @param size   the page size
-     * @return the list of audit log responses
+     * @param userId 用户ID
+     * @param page   页码
+     * @param size   每页大小
+     * @return 审计日志响应列表
      */
     List<CredentialAuditLogResponse> getAuditLogs(Long userId, int page, int size);
 }

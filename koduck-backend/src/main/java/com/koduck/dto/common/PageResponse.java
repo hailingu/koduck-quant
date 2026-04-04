@@ -8,7 +8,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 /**
- * Generic page response DTO for paginated results.
+ * 通用分页响应数据传输对象。
  *
  * @param <T> the type of elements in the page
  * @author Koduck Team
@@ -18,37 +18,37 @@ import lombok.NoArgsConstructor;
 public class PageResponse<T> {
 
     /**
-     * Content list of the current page.
+     * 当前页的内容列表。
      */
     private List<T> content;
 
     /**
-     * Current page number (0-indexed).
+     * 当前页码（从0开始）。
      */
     private int page;
 
     /**
-     * Number of elements per page.
+     * 每页元素数量。
      */
     private int size;
 
     /**
-     * Total number of elements across all pages.
+     * 所有页面的元素总数。
      */
     private long totalElements;
 
     /**
-     * Total number of pages.
+     * 总页数。
      */
     private int totalPages;
 
     /**
-     * Whether this is the first page.
+     * 是否是第一页。
      */
     private boolean first;
 
     /**
-     * Whether this is the last page.
+     * 是否是最后一页。
      */
     private boolean last;
 
@@ -58,7 +58,7 @@ public class PageResponse<T> {
      * @param content       the content list
      * @param page          the page number
      * @param size          the page size
-     * @param totalElements the total elements
+     * @param totalElements 元素总数
      * @param totalPages    the total pages
      * @param first         whether first page
      * @param last          whether last page
@@ -75,62 +75,62 @@ public class PageResponse<T> {
     }
 
     /**
-     * Creates a new Builder instance.
+     * 创建新的 Builder 实例。
      *
-     * @param <T> the element type
-     * @return a new Builder
+     * @param <T> 元素类型
+     * @return 新的 Builder
      */
     public static <T> Builder<T> builder() {
         return new Builder<>();
     }
 
     /**
-     * Builder class for PageResponse.
+     * PageResponse 的构建器类。
      *
-     * @param <T> the element type
+     * @param <T> 元素类型
      */
     public static final class Builder<T> {
 
         /**
-         * Content list of the current page.
+         * 当前页的内容列表。
          */
         private List<T> content;
 
         /**
-         * Current page number (0-indexed).
+         * 当前页码（从0开始）。
          */
         private int page;
 
         /**
-         * Number of elements per page.
+         * 每页元素数量。
          */
         private int size;
 
         /**
-         * Total number of elements across all pages.
+         * 所有页面的元素总数。
          */
         private long totalElements;
 
         /**
-         * Total number of pages.
+         * 总页数。
          */
         private int totalPages;
 
         /**
-         * Whether this is the first page.
+         * 是否是第一页。
          */
         private boolean first;
 
         /**
-         * Whether this is the last page.
+         * 是否是最后一页。
          */
         private boolean last;
 
         /**
-         * Sets the content list.
+         * 设置内容列表。
          *
-         * @param content the content
-         * @return this builder
+         * @param content 内容
+         * @return 此构建器
          */
         public Builder<T> content(List<T> content) {
             this.content = CollectionCopyUtils.copyList(content);
@@ -138,10 +138,10 @@ public class PageResponse<T> {
         }
 
         /**
-         * Sets the page number.
+         * 设置页码。
          *
-         * @param page the page number
-         * @return this builder
+         * @param page 页码
+         * @return 此构建器
          */
         public Builder<T> page(int page) {
             this.page = page;
@@ -149,10 +149,10 @@ public class PageResponse<T> {
         }
 
         /**
-         * Sets the page size.
+         * 设置每页大小。
          *
-         * @param size the page size
-         * @return this builder
+         * @param size 每页大小
+         * @return 此构建器
          */
         public Builder<T> size(int size) {
             this.size = size;
@@ -160,10 +160,10 @@ public class PageResponse<T> {
         }
 
         /**
-         * Sets the total elements count.
+         * 设置元素总数。
          *
-         * @param totalElements the total elements
-         * @return this builder
+         * @param totalElements 元素总数
+         * @return 此构建器
          */
         public Builder<T> totalElements(long totalElements) {
             this.totalElements = totalElements;
@@ -171,10 +171,10 @@ public class PageResponse<T> {
         }
 
         /**
-         * Sets the total pages count.
+         * 设置总页数。
          *
-         * @param totalPages the total pages
-         * @return this builder
+         * @param totalPages 总页数
+         * @return 此构建器
          */
         public Builder<T> totalPages(int totalPages) {
             this.totalPages = totalPages;
@@ -182,10 +182,10 @@ public class PageResponse<T> {
         }
 
         /**
-         * Sets whether this is the first page.
+         * 设置是否是第一页。
          *
-         * @param first whether first page
-         * @return this builder
+         * @param first 是否是第一页
+         * @return 此构建器
          */
         public Builder<T> first(boolean first) {
             this.first = first;
@@ -193,10 +193,10 @@ public class PageResponse<T> {
         }
 
         /**
-         * Sets whether this is the last page.
+         * 设置是否是最后一页。
          *
-         * @param last whether last page
-         * @return this builder
+         * @param last 是否是最后一页
+         * @return 此构建器
          */
         public Builder<T> last(boolean last) {
             this.last = last;
@@ -204,9 +204,9 @@ public class PageResponse<T> {
         }
 
         /**
-         * Builds the PageResponse instance.
+         * 构建 PageResponse 实例。
          *
-         * @return the PageResponse
+         * @return PageResponse 实例
          */
         public PageResponse<T> build() {
             return new PageResponse<>(content, page, size, totalElements, totalPages, first, last);
@@ -214,7 +214,7 @@ public class PageResponse<T> {
     }
 
     /**
-     * Returns a defensive copy of the content list.
+     * 返回内容列表的防御性拷贝。
      *
      * @return the content list copy
      */
@@ -223,9 +223,9 @@ public class PageResponse<T> {
     }
 
     /**
-     * Sets the content list (defensive copy).
+     * 设置内容列表（防御性拷贝）。
      *
-     * @param content the content list
+     * @param content 内容 list
      */
     public void setContent(List<T> content) {
         this.content = CollectionCopyUtils.copyList(content);

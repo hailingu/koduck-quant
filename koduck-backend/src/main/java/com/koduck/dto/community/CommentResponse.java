@@ -12,7 +12,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 /**
- * Comment response DTO.
+ * 评论响应数据传输对象。
  *
  * @author Koduck Team
  */
@@ -24,11 +24,11 @@ public class CommentResponse {
     private Long id;
     /** Signal ID. */
     private Long signalId;
-    /** User ID. */
+    /** 用户ID。 */
     private Long userId;
-    /** Username. */
+    /** 用户名。 */
     private String username;
-    /** Avatar URL. */
+    /** 头像URL。 */
     private String avatarUrl;
     /** Parent comment ID. */
     private Long parentId;
@@ -69,11 +69,11 @@ public class CommentResponse {
         private Long id;
         /** Signal ID. */
         private Long signalId;
-        /** User ID. */
+        /** 用户ID。 */
         private Long userId;
-        /** Username. */
+        /** 用户名。 */
         private String username;
-        /** Avatar URL. */
+        /** 头像URL。 */
         private String avatarUrl;
         /** Parent comment ID. */
         private Long parentId;

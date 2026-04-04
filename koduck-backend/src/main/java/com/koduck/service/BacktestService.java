@@ -7,52 +7,52 @@ import com.koduck.dto.backtest.BacktestTradeDto;
 import com.koduck.dto.backtest.RunBacktestRequest;
 
 /**
- * Service interface for backtest operations.
+ * 回测操作服务接口。
  *
  * @author Koduck Team
  */
 public interface BacktestService {
 
     /**
-     * Gets all backtest results for a user.
+     * 获取用户的所有回测结果。
      *
-     * @param userId the user ID
-     * @return a list of backtest results
+     * @param userId 用户ID
+     * @return 回测结果列表
      */
     List<BacktestResultDto> getBacktestResults(Long userId);
 
     /**
-     * Gets a backtest result by id.
+     * 根据ID获取回测结果。
      *
-     * @param userId the user ID
-     * @param id the backtest result ID
-     * @return the backtest result
+     * @param userId 用户ID
+     * @param id     回测结果ID
+     * @return 回测结果
      */
     BacktestResultDto getBacktestResult(Long userId, Long id);
 
     /**
-     * Runs a backtest.
+     * 运行回测。
      *
-     * @param userId the user ID
-     * @param request the backtest request
-     * @return the backtest result
+     * @param userId  用户ID
+     * @param request 回测请求
+     * @return 回测结果
      */
     BacktestResultDto runBacktest(Long userId, RunBacktestRequest request);
 
     /**
-     * Gets trades for a backtest result.
+     * 获取回测结果的交易记录。
      *
-     * @param userId the user ID
-     * @param backtestId the backtest ID
-     * @return a list of backtest trades
+     * @param userId     用户ID
+     * @param backtestId 回测ID
+     * @return 回测交易列表
      */
     List<BacktestTradeDto> getBacktestTrades(Long userId, Long backtestId);
 
     /**
-     * Deletes a backtest result.
+     * 删除回测结果。
      *
-     * @param userId the user ID
-     * @param id the backtest result ID
+     * @param userId 用户ID
+     * @param id     回测结果ID
      */
     void deleteBacktestResult(Long userId, Long id);
 }

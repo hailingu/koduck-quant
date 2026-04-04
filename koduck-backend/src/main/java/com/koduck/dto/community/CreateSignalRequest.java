@@ -71,9 +71,9 @@ public class CreateSignalRequest {
     private List<String> tags;
 
     /**
-     * Creates a new Builder instance.
+     * 创建新的 Builder 实例。
      *
-     * @return the builder
+     * @return 构建器
      */
     public static Builder builder() {
         return new Builder();
@@ -91,7 +91,7 @@ public class CreateSignalRequest {
          * Sets the strategy ID.
          *
          * @param strategyId the strategy ID
-         * @return the builder
+         * @return 构建器
          */
         public Builder strategyId(Long strategyId) {
             request.setStrategyId(strategyId);
@@ -99,10 +99,10 @@ public class CreateSignalRequest {
         }
 
         /**
-         * Sets the symbol.
+         * 设置品种代码。
          *
-         * @param symbol the symbol
-         * @return the builder
+         * @param symbol 品种代码
+         * @return 构建器
          */
         public Builder symbol(String symbol) {
             request.setSymbol(symbol);
@@ -110,10 +110,10 @@ public class CreateSignalRequest {
         }
 
         /**
-         * Sets the signal type.
+         * 设置信号类型。
          *
-         * @param signalType the signal type
-         * @return the builder
+         * @param signalType 信号类型
+         * @return 构建器
          */
         public Builder signalType(String signalType) {
             request.setSignalType(signalType);
@@ -124,7 +124,7 @@ public class CreateSignalRequest {
          * Sets the reason.
          *
          * @param reason the reason
-         * @return the builder
+         * @return 构建器
          */
         public Builder reason(String reason) {
             request.setReason(reason);
@@ -135,7 +135,7 @@ public class CreateSignalRequest {
          * Sets the target price.
          *
          * @param targetPrice the target price
-         * @return the builder
+         * @return 构建器
          */
         public Builder targetPrice(BigDecimal targetPrice) {
             request.setTargetPrice(targetPrice);
@@ -145,8 +145,8 @@ public class CreateSignalRequest {
         /**
          * Sets the stop loss price.
          *
-         * @param stopLoss the stop loss price
-         * @return the builder
+         * @param stopLoss 止损价 price
+         * @return 构建器
          */
         public Builder stopLoss(BigDecimal stopLoss) {
             request.setStopLoss(stopLoss);
@@ -157,7 +157,7 @@ public class CreateSignalRequest {
          * Sets the time frame.
          *
          * @param timeFrame the time frame
-         * @return the builder
+         * @return 构建器
          */
         public Builder timeFrame(String timeFrame) {
             request.setSignalTimeFrame(timeFrame);
@@ -168,7 +168,7 @@ public class CreateSignalRequest {
          * Sets the confidence level.
          *
          * @param confidence the confidence level
-         * @return the builder
+         * @return 构建器
          */
         public Builder confidence(Integer confidence) {
             request.setConfidence(confidence);
@@ -179,7 +179,7 @@ public class CreateSignalRequest {
          * Sets the tags.
          *
          * @param tags the tags
-         * @return the builder
+         * @return 构建器
          */
         public Builder tags(List<String> tags) {
             request.setTags(tags);

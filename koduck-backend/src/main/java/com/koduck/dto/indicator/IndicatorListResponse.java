@@ -5,7 +5,7 @@ import java.util.List;
 import com.koduck.util.CollectionCopyUtils;
 
 /**
- * Available indicators list response.
+ * 可用指标列表响应。
  *
  * @author Koduck Team
  * @param indicators the list of indicator information
@@ -15,7 +15,7 @@ public record IndicatorListResponse(
 ) {
 
     /**
-     * Compact constructor to make defensive copy of indicators.
+ * 紧凑构造函数，用于创建指标的防御性拷贝。
      *
      * @param indicators the indicators list
      */
@@ -29,7 +29,7 @@ public record IndicatorListResponse(
     }
 
     /**
-     * Information about a single indicator.
+     * 单个指标的信息。
      *
      * @param code the indicator code
      * @param name the indicator name
@@ -46,7 +46,7 @@ public record IndicatorListResponse(
     ) {
 
         /**
-         * Compact constructor to make defensive copy of defaultPeriods.
+ * 紧凑构造函数，用于创建默认周期的防御性拷贝。
          *
          * @param defaultPeriods the default periods list
          */
@@ -70,14 +70,14 @@ public record IndicatorListResponse(
     }
 
     /**
-     * Builder class for IndicatorListResponse.
+     * IndicatorListResponse 的构建器类。
      */
     public static class Builder {
-        /** List of indicator information. */
+        /** 指标信息列表。 */
         private List<IndicatorInfo> indicators;
 
         /**
-         * Sets the indicators list.
+ * 设置指标列表。
          *
          * @param indicators the indicators
          * @return this builder
@@ -88,9 +88,9 @@ public record IndicatorListResponse(
         }
 
         /**
-         * Builds the IndicatorListResponse instance.
+ * 构建 IndicatorListResponse 实例。
          *
-         * @return the built IndicatorListResponse
+         * @return 构建的 IndicatorListResponse
          */
         public IndicatorListResponse build() {
             return new IndicatorListResponse(indicators);

@@ -25,7 +25,7 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 /**
- * User credential entity for API Key and Secret.
+ * 用户凭证实体，用于存储 API Key 和 Secret。
  *
  * @author Koduck Team
  */
@@ -36,7 +36,7 @@ import lombok.Setter;
 public class UserCredential {
 
     /**
-     * Primary key.
+     * 主键。
      */
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -44,77 +44,77 @@ public class UserCredential {
     private Long id;
 
     /**
-     * User ID.
+     * 用户 ID。
      */
     @Column(name = "user_id", nullable = false)
     private Long userId;
 
     /**
-     * Credential name.
+     * 凭证名称。
      */
     @Column(nullable = false, length = 100)
     private String name;
 
     /**
-     * Credential type.
+     * 凭证类型。
      */
     @Column(nullable = false, length = 20)
     @Enumerated(EnumType.STRING)
     private CredentialType type;
 
     /**
-     * Provider name.
+     * 提供商名称。
      */
     @Column(nullable = false, length = 50)
     private String provider;
 
     /**
-     * Encrypted API key.
+     * 加密的 API Key。
      */
     @Column(name = "api_key_encrypted", nullable = false, columnDefinition = "TEXT")
     private String apiKeyEncrypted;
 
     /**
-     * Encrypted API secret.
+     * 加密的 API Secret。
      */
     @Column(name = "api_secret_encrypted", columnDefinition = "TEXT")
     private String apiSecretEncrypted;
 
     /**
-     * Environment type.
+     * 环境类型。
      */
     @Column(length = 20)
     @Enumerated(EnumType.STRING)
     private Environment environment;
 
     /**
-     * Additional configuration.
+     * 附加配置。
      */
     @Column(name = "additional_config", columnDefinition = "JSONB")
     @JdbcTypeCode(SqlTypes.JSON)
     private Map<String, Object> additionalConfig;
 
     /**
-     * Active flag.
+     * 激活标志。
      */
     @Column(name = "is_active")
     private Boolean isActive = true;
 
     /**
-     * Last verified at.
+     * 最后验证时间。
      */
     @Column(name = "last_verified_at")
     private LocalDateTime lastVerifiedAt;
 
     /**
-     * Last verified status.
+     * 最后验证状态。
      */
     @Column(name = "last_verified_status", length = 20)
     @Enumerated(EnumType.STRING)
     private VerificationStatus lastVerifiedStatus;
 
     /**
-     * Created at.
+     * 创建时间。
      */
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
@@ -122,91 +122,91 @@ public class UserCredential {
     private LocalDateTime createdAt;
 
     /**
-     * Updated at.
+     * 更新时间。
      */
     @UpdateTimestamp
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
 
     /**
-     * Creates a new builder.
+     * 创建新的构建器。
      *
-     * @return Builder instance
+     * @return 构建器实例
      */
     public static Builder builder() {
         return new Builder();
     }
 
     /**
-     * Gets additional config copy.
+     * 获取附加配置副本。
      *
-     * @return additional config copy
+     * @return 附加配置副本
      */
     public Map<String, Object> getAdditionalConfig() {
         return CollectionCopyUtils.copyMap(additionalConfig);
     }
 
     /**
-     * Sets additional config with copy.
+     * 使用副本设置附加配置。
      *
-     * @param additionalConfig the additional config
+     * @param additionalConfig 附加配置
      */
     public void setAdditionalConfig(Map<String, Object> additionalConfig) {
         this.additionalConfig = CollectionCopyUtils.copyMap(additionalConfig);
     }
 
     /**
-     * Builder class for UserCredential.
+     * UserCredential 的构建器类。
      */
     public static final class Builder {
 
-        /** Builder field for id. */
+        /** 构建器 id 字段。 */
         private Long id;
 
-        /** Builder field for userId. */
+        /** 构建器 userId 字段。 */
         private Long userId;
 
-        /** Builder field for name. */
+        /** 构建器 name 字段。 */
         private String name;
 
-        /** Builder field for type. */
+        /** 构建器 type 字段。 */
         private CredentialType type;
 
-        /** Builder field for provider. */
+        /** 构建器 provider 字段。 */
         private String provider;
 
-        /** Builder field for apiKeyEncrypted. */
+        /** 构建器 apiKeyEncrypted 字段。 */
         private String apiKeyEncrypted;
 
-        /** Builder field for apiSecretEncrypted. */
+        /** 构建器 apiSecretEncrypted 字段。 */
         private String apiSecretEncrypted;
 
-        /** Builder field for environment. */
+        /** 构建器 environment 字段。 */
         private Environment environment;
 
-        /** Builder field for additionalConfig. */
+        /** 构建器 additionalConfig 字段。 */
         private Map<String, Object> additionalConfig;
 
-        /** Builder field for isActive. */
+        /** 构建器 isActive 字段。 */
         private Boolean isActive;
 
-        /** Builder field for lastVerifiedAt. */
+        /** 构建器 lastVerifiedAt 字段。 */
         private LocalDateTime lastVerifiedAt;
 
-        /** Builder field for lastVerifiedStatus. */
+        /** 构建器 lastVerifiedStatus 字段。 */
         private VerificationStatus lastVerifiedStatus;
 
-        /** Builder field for createdAt. */
+        /** 构建器 createdAt 字段。 */
         private LocalDateTime createdAt;
 
-        /** Builder field for updatedAt. */
+        /** 构建器 updatedAt 字段。 */
         private LocalDateTime updatedAt;
 
         /**
-         * Sets the ID.
+         * 设置 ID。
          *
-         * @param id the ID
-         * @return this builder
+         * @param id ID
+         * @return 此构建器
          */
         public Builder id(Long id) {
             this.id = id;
@@ -214,10 +214,10 @@ public class UserCredential {
         }
 
         /**
-         * Sets the user ID.
+         * 设置用户 ID。
          *
-         * @param userId the user ID
-         * @return this builder
+         * @param userId 用户 ID
+         * @return 此构建器
          */
         public Builder userId(Long userId) {
             this.userId = userId;
@@ -225,10 +225,10 @@ public class UserCredential {
         }
 
         /**
-         * Sets the name.
+         * 设置名称。
          *
-         * @param name the name
-         * @return this builder
+         * @param name 名称
+         * @return 此构建器
          */
         public Builder name(String name) {
             this.name = name;
@@ -236,10 +236,10 @@ public class UserCredential {
         }
 
         /**
-         * Sets the type.
+         * 设置类型。
          *
-         * @param type the type
-         * @return this builder
+         * @param type 类型
+         * @return 此构建器
          */
         public Builder type(CredentialType type) {
             this.type = type;
@@ -247,10 +247,10 @@ public class UserCredential {
         }
 
         /**
-         * Sets the provider.
+         * 设置提供商。
          *
-         * @param provider the provider
-         * @return this builder
+         * @param provider 提供商
+         * @return 此构建器
          */
         public Builder provider(String provider) {
             this.provider = provider;
@@ -258,10 +258,10 @@ public class UserCredential {
         }
 
         /**
-         * Sets the API key encrypted.
+         * 设置加密的 API Key。
          *
-         * @param apiKeyEncrypted the API key encrypted
-         * @return this builder
+         * @param apiKeyEncrypted 加密的 API Key
+         * @return 此构建器
          */
         public Builder apiKeyEncrypted(String apiKeyEncrypted) {
             this.apiKeyEncrypted = apiKeyEncrypted;
@@ -269,10 +269,10 @@ public class UserCredential {
         }
 
         /**
-         * Sets the API secret encrypted.
+         * 设置加密的 API Secret。
          *
-         * @param apiSecretEncrypted the API secret encrypted
-         * @return this builder
+         * @param apiSecretEncrypted 加密的 API Secret
+         * @return 此构建器
          */
         public Builder apiSecretEncrypted(String apiSecretEncrypted) {
             this.apiSecretEncrypted = apiSecretEncrypted;
@@ -280,10 +280,10 @@ public class UserCredential {
         }
 
         /**
-         * Sets the environment.
+         * 设置环境。
          *
-         * @param environment the environment
-         * @return this builder
+         * @param environment 环境
+         * @return 此构建器
          */
         public Builder environment(Environment environment) {
             this.environment = environment;
@@ -291,10 +291,10 @@ public class UserCredential {
         }
 
         /**
-         * Sets the additional config.
+         * 设置附加配置。
          *
-         * @param additionalConfig the additional config
-         * @return this builder
+         * @param additionalConfig 附加配置
+         * @return 此构建器
          */
         public Builder additionalConfig(Map<String, Object> additionalConfig) {
             this.additionalConfig = CollectionCopyUtils.copyMap(additionalConfig);
@@ -302,10 +302,10 @@ public class UserCredential {
         }
 
         /**
-         * Sets the active flag.
+         * 设置激活标志。
          *
-         * @param isActive the active flag
-         * @return this builder
+         * @param isActive 激活标志
+         * @return 此构建器
          */
         public Builder isActive(Boolean isActive) {
             this.isActive = isActive;
@@ -313,10 +313,10 @@ public class UserCredential {
         }
 
         /**
-         * Sets the last verified at.
+         * 设置最后验证时间。
          *
-         * @param lastVerifiedAt the last verified at
-         * @return this builder
+         * @param lastVerifiedAt 最后验证时间
+         * @return 此构建器
          */
         public Builder lastVerifiedAt(LocalDateTime lastVerifiedAt) {
             this.lastVerifiedAt = lastVerifiedAt;
@@ -324,10 +324,10 @@ public class UserCredential {
         }
 
         /**
-         * Sets the last verified status.
+         * 设置最后验证状态。
          *
-         * @param lastVerifiedStatus the last verified status
-         * @return this builder
+         * @param lastVerifiedStatus 最后验证状态
+         * @return 此构建器
          */
         public Builder lastVerifiedStatus(VerificationStatus lastVerifiedStatus) {
             this.lastVerifiedStatus = lastVerifiedStatus;
@@ -335,10 +335,10 @@ public class UserCredential {
         }
 
         /**
-         * Sets the created at.
+         * 设置创建时间。
          *
-         * @param createdAt the created at
-         * @return this builder
+         * @param createdAt 创建时间
+         * @return 此构建器
          */
         public Builder createdAt(LocalDateTime createdAt) {
             this.createdAt = createdAt;
@@ -346,10 +346,10 @@ public class UserCredential {
         }
 
         /**
-         * Sets the updated at.
+         * 设置更新时间。
          *
-         * @param updatedAt the updated at
-         * @return this builder
+         * @param updatedAt 更新时间
+         * @return 此构建器
          */
         public Builder updatedAt(LocalDateTime updatedAt) {
             this.updatedAt = updatedAt;
@@ -357,9 +357,9 @@ public class UserCredential {
         }
 
         /**
-         * Builds the UserCredential.
+         * 构建 UserCredential。
          *
-         * @return the UserCredential
+         * @return UserCredential
          */
         public UserCredential build() {
             UserCredential credential = new UserCredential();
@@ -384,69 +384,69 @@ public class UserCredential {
     }
 
     /**
-     * Credential type enum.
+     * 凭证类型枚举。
      */
     public enum CredentialType {
 
         /**
-         * Broker API.
+         * 券商 API。
          */
         BROKER,
 
         /**
-         * Data source API.
+         * 数据源 API。
          */
         DATA_SOURCE,
 
         /**
-         * Exchange API.
+         * 交易所 API。
          */
         EXCHANGE,
 
         /**
-         * AI provider API.
+         * AI 提供商 API。
          */
         AI_PROVIDER
     }
 
     /**
-     * Environment enum.
+     * 环境枚举。
      */
     public enum Environment {
 
         /**
-         * Paper trading.
+         * 模拟交易。
          */
         PAPER,
 
         /**
-         * Live trading.
+         * 实盘交易。
          */
         LIVE,
 
         /**
-         * Sandbox environment.
+         * 沙盒环境。
          */
         SANDBOX
     }
 
     /**
-     * Verification status enum.
+     * 验证状态枚举。
      */
     public enum VerificationStatus {
 
         /**
-         * Verification success.
+         * 验证成功。
          */
         SUCCESS,
 
         /**
-         * Verification failed.
+         * 验证失败。
          */
         FAILED,
 
         /**
-         * Verification pending.
+         * 验证待处理。
          */
         PENDING
     }

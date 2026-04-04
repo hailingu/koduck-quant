@@ -22,7 +22,7 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 /**
- * Memory chat message entity.
+ * 记忆聊天消息实体。
  *
  * @author Koduck Team
  */
@@ -33,7 +33,7 @@ import lombok.Setter;
 public class MemoryChatMessage {
 
     /**
-     * Primary key.
+     * 主键。
      */
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -41,44 +41,44 @@ public class MemoryChatMessage {
     private Long id;
 
     /**
-     * User ID.
+     * 用户 ID。
      */
     @Column(name = "user_id", nullable = false)
     private Long userId;
 
     /**
-     * Session ID.
+     * 会话 ID。
      */
     @Column(name = "session_id", nullable = false, length = 64)
     private String sessionId;
 
     /**
-     * Message role.
+     * 消息角色。
      */
     @Column(name = "role", nullable = false, length = 32)
     private String role;
 
     /**
-     * Message content.
+     * 消息内容。
      */
     @Column(name = "content", nullable = false, columnDefinition = "text")
     private String content;
 
     /**
-     * Token count.
+     * Token 数量。
      */
     @Column(name = "token_count")
     private Integer tokenCount;
 
     /**
-     * Metadata.
+     * 元数据。
      */
     @Column(name = "metadata", nullable = false, columnDefinition = "jsonb")
     @JdbcTypeCode(SqlTypes.JSON)
     private Map<String, Object> metadata = Map.of();
 
     /**
-     * Created at.
+     * 创建时间。
      */
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
@@ -86,64 +86,64 @@ public class MemoryChatMessage {
     private LocalDateTime createdAt;
 
     /**
-     * Creates a new builder.
+     * 创建新的构建器。
      *
-     * @return Builder instance
+     * @return 构建器实例
      */
     public static Builder builder() {
         return new Builder();
     }
 
     /**
-     * Builder class for MemoryChatMessage.
+     * MemoryChatMessage 的构建器类。
      */
     public static final class Builder {
 
         /**
-         * Message ID.
+         * 消息 ID。
          */
         private Long id;
 
         /**
-         * User ID.
+         * 用户 ID。
          */
         private Long userId;
 
         /**
-         * Session ID.
+         * 会话 ID。
          */
         private String sessionId;
 
         /**
-         * Message role.
+         * 消息角色。
          */
         private String role;
 
         /**
-         * Message content.
+         * 消息内容。
          */
         private String content;
 
         /**
-         * Token count.
+         * Token 数量。
          */
         private Integer tokenCount;
 
         /**
-         * Metadata map.
+         * 元数据映射。
          */
         private Map<String, Object> metadata;
 
         /**
-         * Creation timestamp.
+         * 创建时间戳。
          */
         private LocalDateTime createdAt;
 
         /**
-         * Sets the ID.
+         * 设置 ID。
          *
-         * @param id the ID
-         * @return this builder
+         * @param id ID
+         * @return 此构建器
          */
         public Builder id(Long id) {
             this.id = id;
@@ -151,10 +151,10 @@ public class MemoryChatMessage {
         }
 
         /**
-         * Sets the user ID.
+         * 设置用户 ID。
          *
-         * @param userId the user ID
-         * @return this builder
+         * @param userId 用户 ID
+         * @return 此构建器
          */
         public Builder userId(Long userId) {
             this.userId = userId;
@@ -162,10 +162,10 @@ public class MemoryChatMessage {
         }
 
         /**
-         * Sets the session ID.
+         * 设置会话 ID。
          *
-         * @param sessionId the session ID
-         * @return this builder
+         * @param sessionId 会话 ID
+         * @return 此构建器
          */
         public Builder sessionId(String sessionId) {
             this.sessionId = sessionId;
@@ -173,10 +173,10 @@ public class MemoryChatMessage {
         }
 
         /**
-         * Sets the role.
+         * 设置角色。
          *
-         * @param role the role
-         * @return this builder
+         * @param role 角色
+         * @return 此构建器
          */
         public Builder role(String role) {
             this.role = role;
@@ -184,10 +184,10 @@ public class MemoryChatMessage {
         }
 
         /**
-         * Sets the content.
+         * 设置内容。
          *
-         * @param content the content
-         * @return this builder
+         * @param content 内容
+         * @return 此构建器
          */
         public Builder content(String content) {
             this.content = content;
@@ -195,10 +195,10 @@ public class MemoryChatMessage {
         }
 
         /**
-         * Sets the token count.
+         * 设置 Token 数量。
          *
-         * @param tokenCount the token count
-         * @return this builder
+         * @param tokenCount Token 数量
+         * @return 此构建器
          */
         public Builder tokenCount(Integer tokenCount) {
             this.tokenCount = tokenCount;
@@ -206,10 +206,10 @@ public class MemoryChatMessage {
         }
 
         /**
-         * Sets the metadata.
+         * 设置元数据。
          *
-         * @param metadata the metadata
-         * @return this builder
+         * @param metadata 元数据
+         * @return 此构建器
          */
         public Builder metadata(Map<String, Object> metadata) {
             this.metadata = CollectionCopyUtils.copyMap(metadata);
@@ -217,10 +217,10 @@ public class MemoryChatMessage {
         }
 
         /**
-         * Sets the created at.
+         * 设置创建时间。
          *
-         * @param createdAt the created at
-         * @return this builder
+         * @param createdAt 创建时间
+         * @return 此构建器
          */
         public Builder createdAt(LocalDateTime createdAt) {
             this.createdAt = createdAt;
@@ -228,9 +228,9 @@ public class MemoryChatMessage {
         }
 
         /**
-         * Builds the MemoryChatMessage.
+         * 构建 MemoryChatMessage。
          *
-         * @return the MemoryChatMessage
+         * @return MemoryChatMessage
          */
         public MemoryChatMessage build() {
             MemoryChatMessage message = new MemoryChatMessage();
@@ -247,18 +247,18 @@ public class MemoryChatMessage {
     }
 
     /**
-     * Gets metadata copy.
+     * 获取元数据副本。
      *
-     * @return metadata copy
+     * @return 元数据副本
      */
     public Map<String, Object> getMetadata() {
         return CollectionCopyUtils.copyMap(metadata);
     }
 
     /**
-     * Sets metadata with copy.
+     * 使用副本设置元数据。
      *
-     * @param metadata the metadata
+     * @param metadata 元数据
      */
     public void setMetadata(Map<String, Object> metadata) {
         this.metadata = CollectionCopyUtils.copyMap(metadata);

@@ -19,7 +19,7 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 /**
- * Entity for recording login attempts.
+ * 登录尝试记录实体。
  *
  * @author Koduck Team
  */
@@ -33,7 +33,7 @@ import lombok.Setter;
 public class LoginAttempt {
 
     /**
-     * Unique identifier for the login attempt.
+     * 登录尝试的唯一标识符。
      */
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -41,37 +41,37 @@ public class LoginAttempt {
     private Long id;
 
     /**
-     * Login identifier (username or IP address).
+     * 登录标识符（用户名或 IP 地址）。
      */
     @Column(nullable = false, length = 100)
     private String identifier;
 
     /**
-     * Type of login attempt (account or ip).
+     * 登录尝试类型（账户或 IP）。
      */
     @Column(nullable = false, length = 20)
     private String type;
 
     /**
-     * IP address of the login attempt.
+     * 登录尝试的 IP 地址。
      */
     @Column(name = "ip_address", length = 45)
     private String ipAddress;
 
     /**
-     * User agent string of the client.
+     * 客户端的用户代理字符串。
      */
     @Column(name = "user_agent", length = 500)
     private String userAgent;
 
     /**
-     * Whether the login attempt was successful.
+     * 登录尝试是否成功。
      */
     @Column(nullable = false)
     private Boolean success;
 
     /**
-     * Timestamp when the login attempt was created.
+     * 登录尝试创建时间戳。
      */
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)

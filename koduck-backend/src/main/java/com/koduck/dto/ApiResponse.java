@@ -107,7 +107,7 @@ public class ApiResponse<T> {
     }
 
     /**
-     * Returns a success response with message and no payload.
+     * 返回带消息且无负载的成功响应。
      *
      * @param message success message
      * @return success response without data
@@ -117,7 +117,7 @@ public class ApiResponse<T> {
     }
 
     /**
-     * Returns a success response with no payload.
+     * 返回无负载的成功响应。
      *
      * @return success response without data
      */

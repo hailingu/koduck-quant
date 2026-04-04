@@ -1,18 +1,18 @@
 package com.koduck.service.support;
 
 /**
- * Trading signals generated during backtest simulation.
+ * 回测模拟期间生成的交易信号。
  *
  * @author GitHub Copilot
  */
 public enum BacktestSignal {
 
-    /** Buy signal. */
+    /** 买入信号。 */
     BUY,
 
-    /** Sell signal. */
+    /** 卖出信号。 */
     SELL,
 
-    /** Hold signal. */
+    /** 持有信号。 */
     HOLD
 }

@@ -26,7 +26,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * Support component for chat memory/context enrichment.
+ * 聊天记忆/上下文增强的支持组件。
  *
  * @author GitHub Copilot
  */
@@ -35,20 +35,20 @@ import lombok.extern.slf4j.Slf4j;
 @RequiredArgsConstructor
 public class AiConversationSupport {
 
-    /** Max lines for recent messages. */
+    /** 最近消息的最大行数。 */
     private static final int MAX_RECENT_MESSAGE_LINES = 8;
-    /** Content truncation length. */
+    /** 内容截断长度。 */
     private static final int CONTENT_TRUNCATION_LENGTH = 180;
-    /** EMA short period. */
+    /** EMA短周期。 */
     private static final int EMA_SHORT_PERIOD = 20;
-    /** EMA long period. */
+    /** EMA长周期。 */
     private static final int EMA_LONG_PERIOD = 60;
-    /** MACD period. */
+    /** MACD周期。 */
     private static final int MACD_PERIOD = 12;
 
-    /** Memory service. */
+    /** 记忆服务。 */
     private final MemoryService memoryService;
-    /** Technical indicator service. */
+    /** 技术指标服务。 */
     private final TechnicalIndicatorService technicalIndicatorService;
 
     public String resolveSessionId(String sessionId) {

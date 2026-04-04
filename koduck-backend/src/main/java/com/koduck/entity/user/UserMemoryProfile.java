@@ -18,7 +18,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 /**
- * Entity for user memory profile.
+ * 用户记忆档案实体。
  *
  * @author Koduck Team
  */
@@ -28,64 +28,64 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 public class UserMemoryProfile {
 
-    /** The user ID. */
+    /** 用户 ID。 */
     @Id
     @Column(name = "user_id")
     private Long userId;
 
-    /** The risk preference. */
+    /** 风险偏好。 */
     @Column(name = "risk_preference", length = 64)
     private String riskPreference;
 
-    /** The preferred sources list. */
+    /** 首选来源列表。 */
     @Column(name = "preferred_sources", nullable = false, columnDefinition = "jsonb")
     @JdbcTypeCode(SqlTypes.JSON)
     private java.util.List<String> preferredSources = java.util.List.of();
 
-    /** The profile facts map. */
+    /** 档案事实映射。 */
     @Column(name = "profile_facts", nullable = false, columnDefinition = "jsonb")
     @JdbcTypeCode(SqlTypes.JSON)
     private Map<String, Object> profileFacts = Map.of();
 
-    /** The last update timestamp. */
+    /** 最后更新时间戳。 */
     @UpdateTimestamp
     @Column(name = "updated_at", nullable = false)
     private LocalDateTime updatedAt;
 
     /**
-     * Get a builder for UserMemoryProfile.
+     * 获取 UserMemoryProfile 的构建器。
      *
-     * @return the builder
+     * @return 构建器
      */
     public static Builder builder() {
         return new Builder();
     }
 
     /**
-     * Builder for UserMemoryProfile.
+     * UserMemoryProfile 的构建器。
      */
     public static final class Builder {
 
-        /** The user ID. */
+        /** 用户 ID。 */
         private Long userId;
 
-        /** The risk preference. */
+        /** 风险偏好。 */
         private String riskPreference;
 
-        /** The preferred sources list. */
+        /** 首选来源列表。 */
         private java.util.List<String> preferredSources;
 
-        /** The profile facts map. */
+        /** 档案事实映射。 */
         private Map<String, Object> profileFacts;
 
-        /** The last update timestamp. */
+        /** 最后更新时间戳。 */
         private LocalDateTime updatedAt;
 
         /**
-         * Set the user ID.
+         * 设置用户 ID。
          *
-         * @param userId the user ID
-         * @return the builder
+         * @param userId 用户 ID
+         * @return 构建器
          */
         public Builder userId(Long userId) {
             this.userId = userId;
@@ -93,10 +93,10 @@ public class UserMemoryProfile {
         }
 
         /**
-         * Set the risk preference.
+         * 设置风险偏好。
          *
-         * @param riskPreference the risk preference
-         * @return the builder
+         * @param riskPreference 风险偏好
+         * @return 构建器
          */
         public Builder riskPreference(String riskPreference) {
             this.riskPreference = riskPreference;
@@ -104,10 +104,10 @@ public class UserMemoryProfile {
         }
 
         /**
-         * Set the preferred sources.
+         * 设置首选来源。
          *
-         * @param preferredSources the preferred sources list
-         * @return the builder
+         * @param preferredSources 首选来源列表
+         * @return 构建器
          */
         public Builder preferredSources(java.util.List<String> preferredSources) {
             this.preferredSources = CollectionCopyUtils.copyList(preferredSources);
@@ -115,10 +115,10 @@ public class UserMemoryProfile {
         }
 
         /**
-         * Set the profile facts.
+         * 设置档案事实。
          *
-         * @param profileFacts the profile facts map
-         * @return the builder
+         * @param profileFacts 档案事实映射
+         * @return 构建器
          */
         public Builder profileFacts(Map<String, Object> profileFacts) {
             this.profileFacts = CollectionCopyUtils.copyMap(profileFacts);
@@ -126,10 +126,10 @@ public class UserMemoryProfile {
         }
 
         /**
-         * Set the updated at timestamp.
+         * 设置更新时间戳。
          *
-         * @param updatedAt the updated at timestamp
-         * @return the builder
+         * @param updatedAt 更新时间戳
+         * @return 构建器
          */
         public Builder updatedAt(LocalDateTime updatedAt) {
             this.updatedAt = updatedAt;
@@ -137,9 +137,9 @@ public class UserMemoryProfile {
         }
 
         /**
-         * Build the UserMemoryProfile.
+         * 构建 UserMemoryProfile。
          *
-         * @return the UserMemoryProfile
+         * @return UserMemoryProfile
          */
         public UserMemoryProfile build() {
             UserMemoryProfile profile = new UserMemoryProfile();
@@ -153,36 +153,36 @@ public class UserMemoryProfile {
     }
 
     /**
-     * Get the preferred sources with defensive copy.
+     * 获取首选来源的防御性副本。
      *
-     * @return the preferred sources list
+     * @return 首选来源列表
      */
     public java.util.List<String> getPreferredSources() {
         return CollectionCopyUtils.copyList(preferredSources);
     }
 
     /**
-     * Set the preferred sources with defensive copy.
+     * 使用防御性副本设置首选来源。
      *
-     * @param preferredSources the preferred sources list
+     * @param preferredSources 首选来源列表
      */
     public void setPreferredSources(java.util.List<String> preferredSources) {
         this.preferredSources = CollectionCopyUtils.copyList(preferredSources);
     }
 
     /**
-     * Get the profile facts with defensive copy.
+     * 获取档案事实的防御性副本。
      *
-     * @return the profile facts map
+     * @return 档案事实映射
      */
     public Map<String, Object> getProfileFacts() {
         return CollectionCopyUtils.copyMap(profileFacts);
     }
 
     /**
-     * Set the profile facts with defensive copy.
+     * 使用防御性副本设置档案事实。
      *
-     * @param profileFacts the profile facts map
+     * @param profileFacts 档案事实映射
      */
     public void setProfileFacts(Map<String, Object> profileFacts) {
         this.profileFacts = CollectionCopyUtils.copyMap(profileFacts);

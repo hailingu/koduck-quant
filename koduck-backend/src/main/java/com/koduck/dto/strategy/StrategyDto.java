@@ -6,16 +6,16 @@ import java.util.List;
 import com.koduck.util.CollectionCopyUtils;
 
 /**
- * Strategy DTO.
+ * 策略数据传输对象。
  *
  * @author Koduck Team
  * @param id the ID
- * @param name the name
+ * @param name 名称
  * @param description the description
- * @param status the status
+ * @param status 状态
  * @param currentVersion the current version
- * @param createdAt the created at timestamp
- * @param updatedAt the updated at timestamp
+ * @param createdAt 创建时间 timestamp
+ * @param updatedAt 更新时间 timestamp
  * @param parameters the parameters
  */
 public record StrategyDto(
@@ -38,29 +38,27 @@ public record StrategyDto(
     }
 
     /**
-     * Creates a new Builder instance.
+     * 创建新的 Builder 实例。
      *
-     * @return the builder
+     * @return 构建器
      */
     public static Builder builder() {
         return new Builder();
     }
 
     /**
-     * Builder for StrategyDto.
+     * StrategyDto 的构建器。
      */
     public static class Builder {
 
         /** The ID. */
         private Long id;
-
-        /** The name. */
+        /** 名称。 */
         private String name;
 
         /** The description. */
         private String description;
-
-        /** The status. */
+        /** 状态。 */
         private String status;
 
         /** The current version. */
@@ -79,7 +77,7 @@ public record StrategyDto(
          * Sets the ID.
          *
          * @param id the ID
-         * @return the builder
+         * @return 构建器
          */
         public Builder id(Long id) {
             this.id = id;
@@ -87,10 +85,10 @@ public record StrategyDto(
         }
 
         /**
-         * Sets the name.
+         * 设置名称。
          *
-         * @param name the name
-         * @return the builder
+         * @param name 名称
+         * @return 构建器
          */
         public Builder name(String name) {
             this.name = name;
@@ -101,7 +99,7 @@ public record StrategyDto(
          * Sets the description.
          *
          * @param description the description
-         * @return the builder
+         * @return 构建器
          */
         public Builder description(String description) {
             this.description = description;
@@ -109,10 +107,10 @@ public record StrategyDto(
         }
 
         /**
-         * Sets the status.
+         * 设置状态。
          *
-         * @param status the status
-         * @return the builder
+         * @param status 状态
+         * @return 构建器
          */
         public Builder status(String status) {
             this.status = status;
@@ -123,7 +121,7 @@ public record StrategyDto(
          * Sets the current version.
          *
          * @param currentVersion the current version
-         * @return the builder
+         * @return 构建器
          */
         public Builder currentVersion(Integer currentVersion) {
             this.currentVersion = currentVersion;
@@ -133,8 +131,8 @@ public record StrategyDto(
         /**
          * Sets the created at timestamp.
          *
-         * @param createdAt the created at timestamp
-         * @return the builder
+         * @param createdAt 创建时间 timestamp
+         * @return 构建器
          */
         public Builder createdAt(LocalDateTime createdAt) {
             this.createdAt = createdAt;
@@ -144,8 +142,8 @@ public record StrategyDto(
         /**
          * Sets the updated at timestamp.
          *
-         * @param updatedAt the updated at timestamp
-         * @return the builder
+         * @param updatedAt 更新时间 timestamp
+         * @return 构建器
          */
         public Builder updatedAt(LocalDateTime updatedAt) {
             this.updatedAt = updatedAt;
@@ -156,7 +154,7 @@ public record StrategyDto(
          * Sets the parameters.
          *
          * @param parameters the parameters
-         * @return the builder
+         * @return 构建器
          */
         public Builder parameters(List<StrategyParameterDto> parameters) {
             this.parameters = CollectionCopyUtils.copyList(parameters);

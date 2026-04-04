@@ -110,7 +110,7 @@ public class UpdateSignalRequest {
         /**
          * Set stop loss.
          *
-         * @param stopLoss the stop loss
+         * @param stopLoss 止损价
          * @return this builder
          */
         public Builder stopLoss(BigDecimal stopLoss) {
@@ -130,9 +130,9 @@ public class UpdateSignalRequest {
         }
 
         /**
-         * Set status.
+ * 设置状态。
          *
-         * @param status the status
+         * @param status 状态
          * @return this builder
          */
         public Builder status(String status) {

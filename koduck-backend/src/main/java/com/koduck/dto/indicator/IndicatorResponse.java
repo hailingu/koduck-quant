@@ -7,38 +7,38 @@ import java.util.Map;
 import com.koduck.util.CollectionCopyUtils;
 
 /**
- * Technical indicator response DTO.
+ * 技术指标响应数据传输对象。
  *
- * @param symbol the stock symbol
- * @param market the market identifier
- * @param indicator the indicator name
- * @param period the indicator period
- * @param values the indicator values map
- * @param trend the trend direction
- * @param timestamp the timestamp of the indicator data
+ * @param symbol 股票代码
+ * @param market 市场标识符
+ * @param indicator 指标名称
+ * @param period 指标周期
+ * @param values 指标值映射
+ * @param trend 趋势方向
+ * @param timestamp 指标数据的时间戳
  * @author Koduck Team
  */
 public record IndicatorResponse(
-    // Stock symbol.
+    // 股票代码。
     String symbol,
-    // Market identifier.
+    // 市场标识符。
     String market,
-    // Indicator name.
+    // 指标名称。
     String indicator,
-    // Indicator period.
+    // 指标周期。
     Integer period,
-    // Indicator values map.
+    // 指标值映射。
     Map<String, BigDecimal> values,
-    // Trend direction.
+    // 趋势方向。
     String trend,
-    // Timestamp of the indicator data.
+    // 指标数据的时间戳。
     LocalDateTime timestamp
 ) {
 
     /**
-     * Compact constructor to make defensive copy of values.
+ * 紧凑构造函数，用于创建值的防御性拷贝。
      *
-     * @param values the values map
+     * @param values 值映射
      */
     public IndicatorResponse {
         values = CollectionCopyUtils.copyMap(values);
@@ -59,28 +59,28 @@ public record IndicatorResponse(
     }
 
     /**
-     * Builder class for IndicatorResponse.
+     * IndicatorResponse 的构建器类。
      */
     public static class Builder {
-        /** Stock symbol. */
+        /** 股票代码。 */
         private String symbol;
-        /** Market identifier. */
+        /** 市场标识符。 */
         private String market;
-        /** Indicator name. */
+        /** 指标名称。 */
         private String indicator;
-        /** Indicator period. */
+        /** 指标周期。 */
         private Integer period;
-        /** Indicator values map. */
+        /** 指标值映射。 */
         private Map<String, BigDecimal> values;
-        /** Trend direction. */
+        /** 趋势方向。 */
         private String trend;
-        /** Timestamp of the indicator data. */
+        /** 指标数据的时间戳。 */
         private LocalDateTime timestamp;
 
         /**
-         * Sets the stock symbol.
+ * 设置股票代码。
          *
-         * @param symbol the symbol
+         * @param symbol 品种代码
          * @return this builder
          */
         public Builder symbol(String symbol) {
@@ -89,7 +89,7 @@ public record IndicatorResponse(
         }
 
         /**
-         * Sets the market identifier.
+ * 设置市场标识符。
          *
          * @param market the market
          * @return this builder
@@ -100,7 +100,7 @@ public record IndicatorResponse(
         }
 
         /**
-         * Sets the indicator name.
+ * 设置指标名称。
          *
          * @param indicator the indicator
          * @return this builder
@@ -111,7 +111,7 @@ public record IndicatorResponse(
         }
 
         /**
-         * Sets the indicator period.
+ * 设置指标周期。
          *
          * @param period the period
          * @return this builder
@@ -122,9 +122,9 @@ public record IndicatorResponse(
         }
 
         /**
-         * Sets the indicator values.
+ * 设置指标值。
          *
-         * @param values the values map
+         * @param values 值映射
          * @return this builder
          */
         public Builder values(Map<String, BigDecimal> values) {
@@ -133,7 +133,7 @@ public record IndicatorResponse(
         }
 
         /**
-         * Sets the trend direction.
+ * 设置趋势方向。
          *
          * @param trend the trend
          * @return this builder
@@ -144,9 +144,9 @@ public record IndicatorResponse(
         }
 
         /**
-         * Sets the timestamp.
+ * 设置时间戳。
          *
-         * @param timestamp the timestamp
+         * @param timestamp 时间戳
          * @return this builder
          */
         public Builder timestamp(LocalDateTime timestamp) {
@@ -155,9 +155,9 @@ public record IndicatorResponse(
         }
 
         /**
-         * Builds the IndicatorResponse instance.
+ * 构建 IndicatorResponse 实例。
          *
-         * @return the built IndicatorResponse
+         * @return 构建的 IndicatorResponse
          */
         public IndicatorResponse build() {
             return new IndicatorResponse(

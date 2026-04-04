@@ -12,7 +12,7 @@ import org.springframework.stereotype.Repository;
 import com.koduck.entity.strategy.Strategy;
 
 /**
- * Repository for strategy operations.
+ * 策略操作仓库，提供策略数据的数据库访问。
  *
  * @author Koduck Team
  */
@@ -20,64 +20,64 @@ import com.koduck.entity.strategy.Strategy;
 public interface StrategyRepository extends JpaRepository<Strategy, Long> {
 
     /**
-     * Find all strategies for a user.
+     * 查询用户的所有策略。
      *
-     * @param userId the user ID
-     * @return list of strategies
+     * @param userId 用户 ID
+     * @return 策略列表
      */
     List<Strategy> findByUserId(Long userId);
 
     /**
-     * Find strategies for a user by status.
+     * 根据用户和状态查询策略。
      *
-     * @param userId the user ID
-     * @param status the strategy status
-     * @return list of strategies
+     * @param userId 用户 ID
+     * @param status 策略状态
+     * @return 策略列表
      */
     List<Strategy> findByUserIdAndStatus(Long userId, Strategy.StrategyStatus status);
 
     /**
-     * Find a strategy by id and user.
+     * 根据 ID 和用户查询策略。
      *
-     * @param id the strategy ID
-     * @param userId the user ID
-     * @return the strategy
+     * @param id 策略 ID
+     * @param userId 用户 ID
+     * @return 策略
      */
     Optional<Strategy> findByIdAndUserId(Long id, Long userId);
 
     /**
-     * Check if a strategy exists by id and user.
+     * 根据 ID 和用户检查策略是否存在。
      *
-     * @param id the strategy ID
-     * @param userId the user ID
-     * @return true if exists
+     * @param id 策略 ID
+     * @param userId 用户 ID
+     * @return 如果存在返回 true
      */
     boolean existsByIdAndUserId(Long id, Long userId);
 
     /**
-     * Delete a strategy by id and user.
+     * 根据 ID 和用户删除策略。
      *
-     * @param id the strategy ID
-     * @param userId the user ID
+     * @param id 策略 ID
+     * @param userId 用户 ID
      */
     @Modifying
     @Query("DELETE FROM Strategy s WHERE s.id = :id AND s.userId = :userId")
     void deleteByIdAndUserId(@Param("id") Long id, @Param("userId") Long userId);
 
     /**
-     * Count strategies for a user.
+     * 统计用户的策略数量。
      *
-     * @param userId the user ID
-     * @return the count
+     * @param userId 用户 ID
+     * @return 数量
      */
     long countByUserId(Long userId);
 
     /**
-     * Update strategy status.
+     * 更新策略状态。
      *
-     * @param id the strategy ID
-     * @param userId the user ID
-     * @param status the strategy status
+     * @param id 策略 ID
+     * @param userId 用户 ID
+     * @param status 策略状态
      */
     @Modifying
     @Query("UPDATE Strategy s SET s.status = :status "
@@ -86,9 +86,9 @@ public interface StrategyRepository extends JpaRepository<Strategy, Long> {
                       @Param("status") Strategy.StrategyStatus status);
 
     /**
-     * Increment current version.
+     * 增加当前版本号。
      *
-     * @param id the strategy ID
+     * @param id 策略 ID
      */
     @Modifying
     @Query("UPDATE Strategy s SET s.currentVersion = s.currentVersion + 1 WHERE s.id = :id")

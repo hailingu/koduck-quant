@@ -23,7 +23,7 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 /**
- * Entity for signal likes.
+ * 信号点赞实体。
  *
  * @author Koduck Team
  */
@@ -33,73 +33,73 @@ import lombok.Setter;
 @NoArgsConstructor
 public class SignalLike {
 
-    /** The like ID. */
+    /** 点赞 ID。 */
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Setter(AccessLevel.NONE)
     private Long id;
 
-    /** The signal ID. */
+    /** 信号 ID。 */
     @Column(name = "signal_id", nullable = false)
     private Long signalId;
 
-    /** The user ID. */
+    /** 用户 ID。 */
     @Column(name = "user_id", nullable = false)
     private Long userId;
 
-    /** The creation timestamp. */
+    /** 创建时间戳。 */
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     @Setter(AccessLevel.NONE)
     private LocalDateTime createdAt;
 
-    /** The associated signal. */
+    /** 关联的信号。 */
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "signal_id", insertable = false, updatable = false)
     private CommunitySignal signal;
 
-    /** The associated user. */
+    /** 关联的用户。 */
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", insertable = false, updatable = false)
     private User user;
 
     /**
-     * Get a builder for SignalLike.
+     * 获取 SignalLike 的构建器。
      *
-     * @return the builder
+     * @return 构建器
      */
     public static Builder builder() {
         return new Builder();
     }
 
     /**
-     * Builder for SignalLike.
+     * SignalLike 的构建器。
      */
     public static final class Builder {
 
-        /** The like ID. */
+        /** 点赞 ID。 */
         private Long id;
 
-        /** The signal ID. */
+        /** 信号 ID。 */
         private Long signalId;
 
-        /** The user ID. */
+        /** 用户 ID。 */
         private Long userId;
 
-        /** The creation timestamp. */
+        /** 创建时间戳。 */
         private LocalDateTime createdAt;
 
-        /** The associated signal. */
+        /** 关联的信号。 */
         private CommunitySignal signal;
 
-        /** The associated user. */
+        /** 关联的用户。 */
         private User user;
 
         /**
-         * Set the ID.
+         * 设置 ID。
          *
-         * @param id the like ID
-         * @return the builder
+         * @param id 点赞 ID
+         * @return 构建器
          */
         public Builder id(Long id) {
             this.id = id;
@@ -107,10 +107,10 @@ public class SignalLike {
         }
 
         /**
-         * Set the signal ID.
+         * 设置信号 ID。
          *
-         * @param signalId the signal ID
-         * @return the builder
+         * @param signalId 信号 ID
+         * @return 构建器
          */
         public Builder signalId(Long signalId) {
             this.signalId = signalId;
@@ -118,10 +118,10 @@ public class SignalLike {
         }
 
         /**
-         * Set the user ID.
+         * 设置用户 ID。
          *
-         * @param userId the user ID
-         * @return the builder
+         * @param userId 用户 ID
+         * @return 构建器
          */
         public Builder userId(Long userId) {
             this.userId = userId;
@@ -129,10 +129,10 @@ public class SignalLike {
         }
 
         /**
-         * Set the creation timestamp.
+         * 设置创建时间戳。
          *
-         * @param createdAt the creation timestamp
-         * @return the builder
+         * @param createdAt 创建时间戳
+         * @return 构建器
          */
         public Builder createdAt(LocalDateTime createdAt) {
             this.createdAt = createdAt;
@@ -140,10 +140,10 @@ public class SignalLike {
         }
 
         /**
-         * Set the signal.
+         * 设置信号。
          *
-         * @param signal the signal
-         * @return the builder
+         * @param signal 信号
+         * @return 构建器
          */
         public Builder signal(CommunitySignal signal) {
             this.signal = EntityCopyUtils.copyCommunitySignal(signal);
@@ -151,10 +151,10 @@ public class SignalLike {
         }
 
         /**
-         * Set the user.
+         * 设置用户。
          *
-         * @param user the user
-         * @return the builder
+         * @param user 用户
+         * @return 构建器
          */
         public Builder user(User user) {
             this.user = EntityCopyUtils.copyUser(user);
@@ -162,9 +162,9 @@ public class SignalLike {
         }
 
         /**
-         * Build the SignalLike.
+         * 构建 SignalLike。
          *
-         * @return the SignalLike
+         * @return SignalLike
          */
         public SignalLike build() {
             SignalLike like = new SignalLike();
@@ -179,36 +179,36 @@ public class SignalLike {
     }
 
     /**
-     * Get the signal with defensive copy.
+     * 获取带有防御性副本的信号。
      *
-     * @return the signal
+     * @return 信号
      */
     public CommunitySignal getSignal() {
         return EntityCopyUtils.copyCommunitySignal(signal);
     }
 
     /**
-     * Set the signal with defensive copy.
+     * 使用防御性副本设置信号。
      *
-     * @param signal the signal
+     * @param signal 信号
      */
     public void setSignal(CommunitySignal signal) {
         this.signal = EntityCopyUtils.copyCommunitySignal(signal);
     }
 
     /**
-     * Get the user with defensive copy.
+     * 获取带有防御性副本的用户。
      *
-     * @return the user
+     * @return 用户
      */
     public User getUser() {
         return EntityCopyUtils.copyUser(user);
     }
 
     /**
-     * Set the user with defensive copy.
+     * 使用防御性副本设置用户。
      *
-     * @param user the user
+     * @param user 用户
      */
     public void setUser(User user) {
         this.user = EntityCopyUtils.copyUser(user);

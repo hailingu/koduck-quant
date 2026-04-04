@@ -49,7 +49,7 @@ import com.koduck.service.support.AiStreamRelaySupport;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * AI analysis service implementation - calls koduck-agent.
+ * AI分析服务实现类 - 调用koduck-agent.
  *
  * @author GitHub Copilot
  */
@@ -57,7 +57,7 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class AiAnalysisServiceImpl implements AiAnalysisService {
 
-    /** Pattern for matching stock symbols (6 digits). */
+    /** 匹配股票代码的模式（6位数字）. */
     private static final Pattern SYMBOL_PATTERN = Pattern.compile("\\b\\d{6}\\b");
 
     /** Default LLM provider. */

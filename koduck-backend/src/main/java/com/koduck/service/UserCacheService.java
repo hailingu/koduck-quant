@@ -5,98 +5,98 @@ import java.util.Set;
 import org.springframework.lang.NonNull;
 
 /**
- * User watchlist caching service interface.
- * Provides Redis-based caching for user tracking and watch lists.
+ * 用户自选股缓存服务接口。
+ * 提供基于Redis的用户追踪列表和自选股列表缓存。
  *
  * @author GitHub Copilot
  */
 public interface UserCacheService {
 
-    // ==================== User Tracking List () ====================
+    // ==================== 用户追踪列表 ====================
 
     /**
-     * Add stock to user's tracking list.
-     * Key: user:track:{userId}
+     * 添加股票到用户的追踪列表。
+     * 键：user:track:{userId}
      *
-     * @param userId  user ID
-     * @param symbol  stock symbol to add
+     * @param userId 用户ID
+     * @param symbol 要添加的股票代码
      */
     void addToUserTrackList(@NonNull Long userId, @NonNull String symbol);
 
     /**
-     * Remove stock from user's tracking list.
+     * 从用户的追踪列表中移除股票。
      *
-     * @param userId  user ID
-     * @param symbol  stock symbol to remove
+     * @param userId 用户ID
+     * @param symbol 要移除的股票代码
      */
     void removeFromUserTrackList(@NonNull Long userId, @NonNull String symbol);
 
     /**
-     * Get user's tracking list from cache.
+     * 从缓存中获取用户的追踪列表。
      *
-     * @param userId user ID
-     * @return set of stock symbols
+     * @param userId 用户ID
+     * @return 股票代码集合
      */
     Set<String> getUserTrackList(@NonNull Long userId);
 
     /**
-     * Check if stock is in user's tracking list.
+     * 检查股票是否在用户的追踪列表中。
      *
-     * @param userId  user ID
-     * @param symbol  stock symbol
-     * @return true if exists
+     * @param userId 用户ID
+     * @param symbol 股票代码
+     * @return 如果存在则返回true
      */
     boolean isInUserTrackList(@NonNull Long userId, @NonNull String symbol);
 
-    // ==================== User Watchlist () ====================
+    // ==================== 用户自选股 ====================
 
     /**
-     * Add stock to user's watchlist.
-     * Key: user:watch:{userId}
+     * 添加股票到用户的自选股。
+     * 键：user:watch:{userId}
      *
-     * @param userId  user ID
-     * @param symbol  stock symbol to add
+     * @param userId 用户ID
+     * @param symbol 要添加的股票代码
      */
     void addToUserWatchList(@NonNull Long userId, @NonNull String symbol);
 
     /**
-     * Remove stock from user's watchlist.
+     * 从用户的自选股中移除股票。
      *
-     * @param userId  user ID
-     * @param symbol  stock symbol to remove
+     * @param userId 用户ID
+     * @param symbol 要移除的股票代码
      */
     void removeFromUserWatchList(@NonNull Long userId, @NonNull String symbol);
 
     /**
-     * Get user's watchlist from cache.
+     * 从缓存中获取用户的自选股列表。
      *
-     * @param userId user ID
-     * @return set of stock symbols
+     * @param userId 用户ID
+     * @return 股票代码集合
      */
     Set<String> getUserWatchList(@NonNull Long userId);
 
-    // ==================== Bulk Operations ====================
+    // ==================== 批量操作 ====================
 
     /**
-     * Cache user's tracking list (full replacement).
+     * 缓存用户的追踪列表（全量替换）。
      *
-     * @param userId   user ID
-     * @param symbols  list of stock symbols
+     * @param userId  用户ID
+     * @param symbols 股票代码列表
      */
     void cacheUserTrackList(@NonNull Long userId, Set<String> symbols);
 
     /**
-     * Cache user's watchlist (full replacement).
+     * 缓存用户的自选股列表（全量替换）。
      *
-     * @param userId   user ID
-     * @param symbols  list of stock symbols
+     * @param userId  用户ID
+     * @param symbols 股票代码列表
      */
     void cacheUserWatchList(@NonNull Long userId, Set<String> symbols);
 
     /**
-     * Invalidate user's all cached data.
+     * 使用户的所有缓存数据失效。
      *
-     * @param userId user ID
+     * @param userId 用户ID
      */
     void invalidateUserCache(@NonNull Long userId);
 }

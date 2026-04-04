@@ -11,60 +11,59 @@ import com.koduck.dto.ai.StrategyRecommendRequest;
 import com.koduck.dto.ai.StrategyRecommendResponse;
 
 /**
- * AI analysis service interface for stock analysis,
- * chat streaming, strategy recommendation, backtest interpretation,
- * and risk assessment.
+ * AI分析服务接口，提供股票分析、聊天流、策略推荐、
+ * 回测解读和风险评估功能。
  *
  * @author Koduck Team
  */
 public interface AiAnalysisService {
 
     /**
-     * Analyzes a stock using AI service.
+     * 使用AI服务分析股票。
      *
-     * @param userId  the user ID
-     * @param request the stock analysis request
-     * @return the stock analysis response
+     * @param userId  用户ID
+     * @param request 股票分析请求
+     * @return 股票分析响应
      */
     StockAnalysisResponse analyzeStock(Long userId, StockAnalysisRequest request);
 
     /**
-     * Streams chat response using AI service.
+     * 使用AI服务流式聊天响应。
      *
-     * @param userId  the user ID
-     * @param request the chat stream request
-     * @return the SSE emitter for streaming response
+     * @param userId  用户ID
+     * @param request 聊天流请求
+     * @return 用于流式响应的SSE发射器
      */
     SseEmitter streamChat(Long userId, ChatStreamRequest request);
 
     /**
-     * Recommends strategies based on user request.
+     * 根据用户请求推荐策略。
      *
-     * @param userId  the user ID
-     * @param request the strategy recommendation request
-     * @return the strategy recommendation response
+     * @param userId  用户ID
+     * @param request 策略推荐请求
+     * @return 策略推荐响应
      */
     StrategyRecommendResponse recommendStrategies(
             Long userId,
             StrategyRecommendRequest request);
 
     /**
-     * Interprets backtest results using AI.
+     * 使用AI解读回测结果。
      *
-     * @param userId         the user ID
-     * @param backtestResultId the backtest result ID
-     * @return the backtest interpretation response
+     * @param userId           用户ID
+     * @param backtestResultId 回测结果ID
+     * @return 回测解读响应
      */
     BacktestInterpretResponse interpretBacktest(
             Long userId,
             Long backtestResultId);
 
     /**
-     * Assesses portfolio risk using AI.
+     * 使用AI评估投资组合风险。
      *
-     * @param userId      the user ID
-     * @param portfolioId the portfolio ID
-     * @return the risk assessment response
+     * @param userId      用户ID
+     * @param portfolioId 投资组合ID
+     * @return 风险评估响应
      */
     RiskAssessmentResponse assessRisk(Long userId, Long portfolioId);
 }

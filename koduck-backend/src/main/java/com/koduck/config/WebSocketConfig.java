@@ -37,22 +37,22 @@ import com.koduck.security.websocket.WebSocketChannelInterceptor;
 public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
 
     /**
-     * WebSocket properties.
+     * WebSocket 配置属性。
      */
     private final WebSocketProperties webSocketProperties;
 
     /**
-     * STOMP relay properties.
+     * STOMP 中继配置属性。
      */
     private final StompRelayProperties stompRelayProperties;
 
     /**
-     * WebSocket channel interceptor.
+     * WebSocket 通道拦截器。
      */
     private final WebSocketChannelInterceptor webSocketChannelInterceptor;
 
     /**
-     * Constructor with required dependencies.
+     * 带必需依赖项的构造函数。
      *
      * @param webSocketProperties         WebSocket properties
      * @param stompRelayProperties        STOMP relay properties

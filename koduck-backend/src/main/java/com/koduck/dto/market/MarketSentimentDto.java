@@ -41,26 +41,24 @@ public class MarketSentimentDto {
     private SentimentDimensions dimensions;
 
     /**
-     * Creates a new Builder instance.
+     * 创建新的 Builder 实例。
      *
-     * @return the builder
+     * @return 构建器
      */
     public static Builder builder() {
         return new Builder();
     }
 
     /**
-     * Builder for MarketSentimentDto.
+     * MarketSentimentDto 的构建器。
      */
     public static final class Builder {
-
-        /** The timestamp. */
+        /** 时间戳。 */
         private String timestamp;
 
         /** The overall score. */
         private Integer overall;
-
-        /** The status. */
+        /** 状态。 */
         private String status;
 
         /** The market. */
@@ -70,10 +68,10 @@ public class MarketSentimentDto {
         private SentimentDimensions dimensions;
 
         /**
-         * Sets the timestamp.
+ * 设置时间戳。
          *
-         * @param timestamp the timestamp
-         * @return the builder
+         * @param timestamp 时间戳
+         * @return 构建器
          */
         public Builder timestamp(String timestamp) {
             this.timestamp = timestamp;
@@ -84,7 +82,7 @@ public class MarketSentimentDto {
          * Sets the overall score.
          *
          * @param overall the overall score
-         * @return the builder
+         * @return 构建器
          */
         public Builder overall(Integer overall) {
             this.overall = overall;
@@ -92,10 +90,10 @@ public class MarketSentimentDto {
         }
 
         /**
-         * Sets the status.
+         * 设置状态。
          *
-         * @param status the status
-         * @return the builder
+         * @param status 状态
+         * @return 构建器
          */
         public Builder status(String status) {
             this.status = status;
@@ -106,7 +104,7 @@ public class MarketSentimentDto {
          * Sets the market.
          *
          * @param market the market
-         * @return the builder
+         * @return 构建器
          */
         public Builder market(String market) {
             this.market = market;
@@ -117,7 +115,7 @@ public class MarketSentimentDto {
          * Sets the dimensions.
          *
          * @param dimensions the dimensions
-         * @return the builder
+         * @return 构建器
          */
         public Builder dimensions(SentimentDimensions dimensions) {
             this.dimensions = copyDimensions(dimensions);
@@ -213,9 +211,9 @@ public class MarketSentimentDto {
         private String trend;
 
         /**
-         * Creates a new Builder instance.
+         * 创建新的 Builder 实例。
          *
-         * @return the builder
+         * @return 构建器
          */
         public static Builder builder() {
             return new Builder();
@@ -236,7 +234,7 @@ public class MarketSentimentDto {
              * Sets the value.
              *
              * @param value the value
-             * @return the builder
+             * @return 构建器
              */
             public Builder value(Integer value) {
                 this.value = value;
@@ -247,7 +245,7 @@ public class MarketSentimentDto {
              * Sets the trend.
              *
              * @param trend the trend
-             * @return the builder
+             * @return 构建器
              */
             public Builder trend(String trend) {
                 this.trend = trend;
@@ -314,9 +312,9 @@ public class MarketSentimentDto {
         private SentimentDimension fundFlow;
 
         /**
-         * Creates a new Builder instance.
+         * 创建新的 Builder 实例。
          *
-         * @return the builder
+         * @return 构建器
          */
         public static Builder builder() {
             return new Builder();
@@ -349,7 +347,7 @@ public class MarketSentimentDto {
              * Sets the activity dimension.
              *
              * @param activity the activity
-             * @return the builder
+             * @return 构建器
              */
             public Builder activity(SentimentDimension activity) {
                 this.activity = copyDimension(activity);
@@ -360,7 +358,7 @@ public class MarketSentimentDto {
              * Sets the volatility dimension.
              *
              * @param volatility the volatility
-             * @return the builder
+             * @return 构建器
              */
             public Builder volatility(SentimentDimension volatility) {
                 this.volatility = copyDimension(volatility);
@@ -371,7 +369,7 @@ public class MarketSentimentDto {
              * Sets the trend strength dimension.
              *
              * @param trendStrength the trend strength
-             * @return the builder
+             * @return 构建器
              */
             public Builder trendStrength(SentimentDimension trendStrength) {
                 this.trendStrength = copyDimension(trendStrength);
@@ -382,7 +380,7 @@ public class MarketSentimentDto {
              * Sets the fear/greed dimension.
              *
              * @param fearGreed the fear/greed
-             * @return the builder
+             * @return 构建器
              */
             public Builder fearGreed(SentimentDimension fearGreed) {
                 this.fearGreed = copyDimension(fearGreed);
@@ -393,7 +391,7 @@ public class MarketSentimentDto {
              * Sets the valuation dimension.
              *
              * @param valuation the valuation
-             * @return the builder
+             * @return 构建器
              */
             public Builder valuation(SentimentDimension valuation) {
                 this.valuation = copyDimension(valuation);
@@ -404,7 +402,7 @@ public class MarketSentimentDto {
              * Sets the fund flow dimension.
              *
              * @param fundFlow the fund flow
-             * @return the builder
+             * @return 构建器
              */
             public Builder fundFlow(SentimentDimension fundFlow) {
                 this.fundFlow = copyDimension(fundFlow);

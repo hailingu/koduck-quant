@@ -27,7 +27,7 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 /**
- * Signal comment entity.
+ * 信号评论实体。
  *
  * @author Koduck Team
  */
@@ -38,7 +38,7 @@ import lombok.Setter;
 public class SignalComment {
 
     /**
-     * Primary key.
+     * 主键。
      */
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -46,43 +46,43 @@ public class SignalComment {
     private Long id;
 
     /**
-     * Signal ID.
+     * 信号 ID。
      */
     @Column(name = "signal_id", nullable = false)
     private Long signalId;
 
     /**
-     * User ID.
+     * 用户 ID。
      */
     @Column(name = "user_id", nullable = false)
     private Long userId;
 
     /**
-     * Parent comment ID.
+     * 父评论 ID。
      */
     @Column(name = "parent_id")
     private Long parentId;
 
     /**
-     * Comment content.
+     * 评论内容。
      */
     @Column(nullable = false, columnDefinition = "TEXT")
     private String content;
 
     /**
-     * Like count.
+     * 点赞数。
      */
     @Column(name = "like_count")
     private Integer likeCount = 0;
 
     /**
-     * Deleted flag.
+     * 删除标志。
      */
     @Column(name = "is_deleted")
     private Boolean isDeleted = false;
 
     /**
-     * Created at.
+     * 创建时间。
      */
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
@@ -90,123 +90,123 @@ public class SignalComment {
     private LocalDateTime createdAt;
 
     /**
-     * Updated at.
+     * 更新时间。
      */
     @UpdateTimestamp
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
 
     /**
-     * Signal entity.
+     * 信号实体。
      */
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "signal_id", insertable = false, updatable = false)
     private CommunitySignal signal;
 
     /**
-     * User entity.
+     * 用户实体。
      */
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", insertable = false, updatable = false)
     private User user;
 
     /**
-     * Parent comment.
+     * 父评论。
      */
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "parent_id", insertable = false, updatable = false)
     private SignalComment parent;
 
     /**
-     * Reply comments.
+     * 回复评论。
      */
     @OneToMany(mappedBy = "parent", fetch = FetchType.LAZY)
     private List<SignalComment> replies;
 
     /**
-     * Creates a new builder.
+     * 创建新的构建器。
      *
-     * @return Builder instance
+     * @return 构建器实例
      */
     public static Builder builder() {
         return new Builder();
     }
 
     /**
-     * Builder class for SignalComment.
+     * SignalComment 的构建器类。
      */
     public static final class Builder {
 
         /**
-         * The ID.
+         * ID。
          */
         private Long id;
 
         /**
-         * The signal ID.
+         * 信号 ID。
          */
         private Long signalId;
 
         /**
-         * The user ID.
+         * 用户 ID。
          */
         private Long userId;
 
         /**
-         * The parent comment ID.
+         * 父评论 ID。
          */
         private Long parentId;
 
         /**
-         * The comment content.
+         * 评论内容。
          */
         private String content;
 
         /**
-         * The like count.
+         * 点赞数。
          */
         private Integer likeCount;
 
         /**
-         * The deleted flag.
+         * 删除标志。
          */
         private Boolean isDeleted;
 
         /**
-         * The created at timestamp.
+         * 创建时间戳。
          */
         private LocalDateTime createdAt;
 
         /**
-         * The updated at timestamp.
+         * 更新时间戳。
          */
         private LocalDateTime updatedAt;
 
         /**
-         * The signal entity.
+         * 信号实体。
          */
         private CommunitySignal signal;
 
         /**
-         * The user entity.
+         * 用户实体。
          */
         private User user;
 
         /**
-         * The parent comment.
+         * 父评论。
          */
         private SignalComment parent;
 
         /**
-         * The reply comments.
+         * 回复评论。
          */
         private List<SignalComment> replies;
 
         /**
-         * Sets the ID.
+         * 设置 ID。
          *
-         * @param id the ID
-         * @return this builder
+         * @param id ID
+         * @return 此构建器
          */
         public Builder id(Long id) {
             this.id = id;
@@ -214,10 +214,10 @@ public class SignalComment {
         }
 
         /**
-         * Sets the signal ID.
+         * 设置信号 ID。
          *
-         * @param signalId the signal ID
-         * @return this builder
+         * @param signalId 信号 ID
+         * @return 此构建器
          */
         public Builder signalId(Long signalId) {
             this.signalId = signalId;
@@ -225,10 +225,10 @@ public class SignalComment {
         }
 
         /**
-         * Sets the user ID.
+         * 设置用户 ID。
          *
-         * @param userId the user ID
-         * @return this builder
+         * @param userId 用户 ID
+         * @return 此构建器
          */
         public Builder userId(Long userId) {
             this.userId = userId;
@@ -236,10 +236,10 @@ public class SignalComment {
         }
 
         /**
-         * Sets the parent ID.
+         * 设置父 ID。
          *
-         * @param parentId the parent ID
-         * @return this builder
+         * @param parentId 父 ID
+         * @return 此构建器
          */
         public Builder parentId(Long parentId) {
             this.parentId = parentId;
@@ -247,10 +247,10 @@ public class SignalComment {
         }
 
         /**
-         * Sets the content.
+         * 设置内容。
          *
-         * @param content the content
-         * @return this builder
+         * @param content 内容
+         * @return 此构建器
          */
         public Builder content(String content) {
             this.content = content;
@@ -258,10 +258,10 @@ public class SignalComment {
         }
 
         /**
-         * Sets the like count.
+         * 设置点赞数。
          *
-         * @param likeCount the like count
-         * @return this builder
+         * @param likeCount 点赞数
+         * @return 此构建器
          */
         public Builder likeCount(Integer likeCount) {
             this.likeCount = likeCount;
@@ -269,10 +269,10 @@ public class SignalComment {
         }
 
         /**
-         * Sets the deleted flag.
+         * 设置删除标志。
          *
-         * @param isDeleted the deleted flag
-         * @return this builder
+         * @param isDeleted 删除标志
+         * @return 此构建器
          */
         public Builder isDeleted(Boolean isDeleted) {
             this.isDeleted = isDeleted;
@@ -280,10 +280,10 @@ public class SignalComment {
         }
 
         /**
-         * Sets the created at.
+         * 设置创建时间。
          *
-         * @param createdAt the created at
-         * @return this builder
+         * @param createdAt 创建时间
+         * @return 此构建器
          */
         public Builder createdAt(LocalDateTime createdAt) {
             this.createdAt = createdAt;
@@ -291,10 +291,10 @@ public class SignalComment {
         }
 
         /**
-         * Sets the updated at.
+         * 设置更新时间。
          *
-         * @param updatedAt the updated at
-         * @return this builder
+         * @param updatedAt 更新时间
+         * @return 此构建器
          */
         public Builder updatedAt(LocalDateTime updatedAt) {
             this.updatedAt = updatedAt;
@@ -302,10 +302,10 @@ public class SignalComment {
         }
 
         /**
-         * Sets the signal.
+         * 设置信号。
          *
-         * @param signal the signal
-         * @return this builder
+         * @param signal 信号
+         * @return 此构建器
          */
         public Builder signal(CommunitySignal signal) {
             this.signal = EntityCopyUtils.copyCommunitySignal(signal);
@@ -313,10 +313,10 @@ public class SignalComment {
         }
 
         /**
-         * Sets the user.
+         * 设置用户。
          *
-         * @param user the user
-         * @return this builder
+         * @param user 用户
+         * @return 此构建器
          */
         public Builder user(User user) {
             this.user = EntityCopyUtils.copyUser(user);
@@ -324,10 +324,10 @@ public class SignalComment {
         }
 
         /**
-         * Sets the parent.
+         * 设置父评论。
          *
-         * @param parent the parent
-         * @return this builder
+         * @param parent 父评论
+         * @return 此构建器
          */
         public Builder parent(SignalComment parent) {
             this.parent = EntityCopyUtils.copySignalCommentShallow(parent);
@@ -335,10 +335,10 @@ public class SignalComment {
         }
 
         /**
-         * Sets the replies.
+         * 设置回复。
          *
-         * @param replies the replies
-         * @return this builder
+         * @param replies 回复
+         * @return 此构建器
          */
         public Builder replies(List<SignalComment> replies) {
             this.replies = EntityCopyUtils.copySignalCommentShallowList(replies);
@@ -346,9 +346,9 @@ public class SignalComment {
         }
 
         /**
-         * Builds the SignalComment.
+         * 构建 SignalComment。
          *
-         * @return the SignalComment
+         * @return SignalComment
          */
         public SignalComment build() {
             SignalComment comment = new SignalComment();
@@ -370,72 +370,72 @@ public class SignalComment {
     }
 
     /**
-     * Gets signal copy.
+     * 获取信号副本。
      *
-     * @return signal copy
+     * @return 信号副本
      */
     public CommunitySignal getSignal() {
         return EntityCopyUtils.copyCommunitySignal(signal);
     }
 
     /**
-     * Sets signal with copy.
+     * 使用副本设置信号。
      *
-     * @param signal the signal
+     * @param signal 信号
      */
     public void setSignal(CommunitySignal signal) {
         this.signal = EntityCopyUtils.copyCommunitySignal(signal);
     }
 
     /**
-     * Gets user copy.
+     * 获取用户副本。
      *
-     * @return user copy
+     * @return 用户副本
      */
     public User getUser() {
         return EntityCopyUtils.copyUser(user);
     }
 
     /**
-     * Sets user with copy.
+     * 使用副本设置用户。
      *
-     * @param user the user
+     * @param user 用户
      */
     public void setUser(User user) {
         this.user = EntityCopyUtils.copyUser(user);
     }
 
     /**
-     * Gets parent copy.
+     * 获取父评论副本。
      *
-     * @return parent copy
+     * @return 父评论副本
      */
     public SignalComment getParent() {
         return EntityCopyUtils.copySignalCommentShallow(parent);
     }
 
     /**
-     * Sets parent with copy.
+     * 使用副本设置父评论。
      *
-     * @param parent the parent
+     * @param parent 父评论
      */
     public void setParent(SignalComment parent) {
         this.parent = EntityCopyUtils.copySignalCommentShallow(parent);
     }
 
     /**
-     * Gets replies copy.
+     * 获取回复副本。
      *
-     * @return replies copy
+     * @return 回复副本
      */
     public List<SignalComment> getReplies() {
         return CollectionCopyUtils.copyList(replies);
     }
 
     /**
-     * Sets replies with copy.
+     * 使用副本设置回复。
      *
-     * @param replies the replies
+     * @param replies 回复
      */
     public void setReplies(List<SignalComment> replies) {
         this.replies = CollectionCopyUtils.copyList(replies);

@@ -7,7 +7,7 @@ import lombok.Getter;
 import lombok.Setter;
 
 /**
- * Configuration properties for agent service.
+ * Agent 服务的配置属性。
  *
  * @author GitHub Copilot
  */

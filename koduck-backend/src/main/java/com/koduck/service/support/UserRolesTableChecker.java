@@ -8,7 +8,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * Checks whether {@code user_roles} join table exists and caches the result.
+ * 检查{@code user_roles}关联表是否存在并缓存结果。
  *
  * @author GitHub Copilot
  */
@@ -18,26 +18,26 @@ import lombok.extern.slf4j.Slf4j;
 public class UserRolesTableChecker {
 
     /**
-     * Query used to check the presence of the user_roles join table.
+     * 用于检查user_roles关联表是否存在的查询语句。
      */
     private static final String HAS_USER_ROLES_SQL =
             "SELECT COUNT(*) FROM information_schema.tables "
                     + "WHERE table_schema = 'public' AND table_name = 'user_roles'";
 
     /**
-     * JDBC client used for metadata lookup.
+     * 用于元数据查找的JDBC客户端。
      */
     private final JdbcTemplate jdbcTemplate;
 
     /**
-     * Cached existence flag for the join table.
+     * 关联表存在性的缓存标志。
      */
     private volatile Boolean userRolesTablePresent;
 
     /**
-     * Returns whether the user_roles join table exists.
+     * 返回user_roles关联表是否存在。
      *
-     * @return true when the table exists
+     * @return 表存在时返回true
      */
     public boolean hasUserRolesTable() {
         final Boolean cached = userRolesTablePresent;

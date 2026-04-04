@@ -10,7 +10,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 /**
- * User information DTO.
+ * 用户信息数据传输对象。
  *
  * @author Koduck Team
  */
@@ -19,114 +19,114 @@ import lombok.NoArgsConstructor;
 public class UserInfo {
 
     /**
-     * User ID.
+     * 用户ID。
      */
     private Long id;
 
     /**
-     * Username.
+     * 用户名。
      */
     private String username;
 
     /**
-     * Email address.
+     * 邮箱地址。
      */
     private String email;
 
     /**
-     * Nickname.
+     * 昵称。
      */
     private String nickname;
 
     /**
-     * Avatar URL.
+     * 头像URL。
      */
     private String avatarUrl;
 
     /**
-     * User status.
+     * 用户状态。
      */
     private User.UserStatus status;
 
     /**
-     * Email verification time.
+     * 邮箱验证时间。
      */
     private LocalDateTime emailVerifiedAt;
 
     /**
-     * Last login time.
+     * 最后登录时间。
      */
     private LocalDateTime lastLoginAt;
 
     /**
-     * List of user roles.
+     * 用户角色列表。
      */
     private List<String> roles;
 
     /**
-     * Creates a new Builder instance.
+     * 创建新的 Builder 实例。
      *
-     * @return a new Builder
+     * @return 新的 Builder
      */
     public static Builder builder() {
         return new Builder();
     }
 
     /**
-     * Builder class for UserInfo.
+     * UserInfo 的构建器类。
      */
     public static final class Builder {
 
         /**
-         * User ID.
+         * 用户ID。
          */
         private Long id;
 
         /**
-         * Username.
+         * 用户名。
          */
         private String username;
 
         /**
-         * Email address.
+         * 邮箱地址。
          */
         private String email;
 
         /**
-         * Nickname.
+         * 昵称。
          */
         private String nickname;
 
         /**
-         * Avatar URL.
+         * 头像URL。
          */
         private String avatarUrl;
 
         /**
-         * User status.
+         * 用户状态。
          */
         private User.UserStatus status;
 
         /**
-         * Email verification time.
+         * 邮箱验证时间。
          */
         private LocalDateTime emailVerifiedAt;
 
         /**
-         * Last login time.
+         * 最后登录时间。
          */
         private LocalDateTime lastLoginAt;
 
         /**
-         * List of user roles.
+         * 用户角色列表。
          */
         private List<String> roles;
 
         /**
-         * Sets the user ID.
+         * 设置用户ID。
          *
-         * @param id the user ID
-         * @return this builder
+         * @param id 用户ID
+         * @return 此构建器
          */
         public Builder id(Long id) {
             this.id = id;
@@ -134,10 +134,10 @@ public class UserInfo {
         }
 
         /**
-         * Sets the username.
+         * 设置用户名。
          *
-         * @param username the username
-         * @return this builder
+         * @param username 用户名
+         * @return 此构建器
          */
         public Builder username(String username) {
             this.username = username;
@@ -145,10 +145,10 @@ public class UserInfo {
         }
 
         /**
-         * Sets the email.
+         * 设置邮箱。
          *
-         * @param email the email
-         * @return this builder
+         * @param email 邮箱
+         * @return 此构建器
          */
         public Builder email(String email) {
             this.email = email;
@@ -156,10 +156,10 @@ public class UserInfo {
         }
 
         /**
-         * Sets the nickname.
+         * 设置昵称。
          *
-         * @param nickname the nickname
-         * @return this builder
+         * @param nickname 昵称
+         * @return 此构建器
          */
         public Builder nickname(String nickname) {
             this.nickname = nickname;
@@ -167,10 +167,10 @@ public class UserInfo {
         }
 
         /**
-         * Sets the avatar URL.
+         * 设置头像URL。
          *
-         * @param avatarUrl the avatar URL
-         * @return this builder
+         * @param avatarUrl 头像URL
+         * @return 此构建器
          */
         public Builder avatarUrl(String avatarUrl) {
             this.avatarUrl = avatarUrl;
@@ -178,10 +178,10 @@ public class UserInfo {
         }
 
         /**
-         * Sets the user status.
+         * 设置用户状态。
          *
-         * @param status the status
-         * @return this builder
+         * @param status 状态
+         * @return 此构建器
          */
         public Builder status(User.UserStatus status) {
             this.status = status;
@@ -189,10 +189,10 @@ public class UserInfo {
         }
 
         /**
-         * Sets the email verification time.
+         * 设置邮箱验证时间。
          *
-         * @param emailVerifiedAt the verification time
-         * @return this builder
+         * @param emailVerifiedAt 验证时间
+         * @return 此构建器
          */
         public Builder emailVerifiedAt(LocalDateTime emailVerifiedAt) {
             this.emailVerifiedAt = emailVerifiedAt;
@@ -200,10 +200,10 @@ public class UserInfo {
         }
 
         /**
-         * Sets the last login time.
+         * 设置最后登录时间。
          *
-         * @param lastLoginAt the last login time
-         * @return this builder
+         * @param lastLoginAt 最后登录时间
+         * @return 此构建器
          */
         public Builder lastLoginAt(LocalDateTime lastLoginAt) {
             this.lastLoginAt = lastLoginAt;
@@ -211,10 +211,10 @@ public class UserInfo {
         }
 
         /**
-         * Sets the roles list.
+         * 设置角色列表。
          *
-         * @param roles the roles
-         * @return this builder
+         * @param roles 角色列表
+         * @return 此构建器
          */
         public Builder roles(List<String> roles) {
             this.roles = CollectionCopyUtils.copyList(roles);
@@ -222,9 +222,9 @@ public class UserInfo {
         }
 
         /**
-         * Builds the UserInfo instance.
+         * 构建 UserInfo 实例。
          *
-         * @return the UserInfo
+         * @return UserInfo 实例
          */
         public UserInfo build() {
             UserInfo userInfo = new UserInfo();
@@ -242,18 +242,18 @@ public class UserInfo {
     }
 
     /**
-     * Returns a defensive copy of the roles list.
+     * 返回角色列表的防御性拷贝。
      *
-     * @return the roles list copy
+     * @return 角色列表拷贝
      */
     public List<String> getRoles() {
         return CollectionCopyUtils.copyList(roles);
     }
 
     /**
-     * Sets the roles list (defensive copy).
+     * 设置角色列表（防御性拷贝）。
      *
-     * @param roles the roles list
+     * @param roles 角色列表 list
      */
     public void setRoles(List<String> roles) {
         this.roles = CollectionCopyUtils.copyList(roles);

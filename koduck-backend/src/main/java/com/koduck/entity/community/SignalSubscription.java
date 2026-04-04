@@ -23,12 +23,12 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 /**
- * Entity representing a user's subscription to a trading signal.
+ * 表示用户对交易信号的订阅实体。
  * <p>
- * Stores the relationship between users and the signals they subscribe to,
- * along with notification preferences.
+ * 存储用户与他们订阅的信号之间的关系，
+ * 以及通知偏好设置。
  *
- * @author Koduck
+ * @author Koduck Team
  */
 @Entity
 @Table(name = "signal_subscriptions")
@@ -37,7 +37,7 @@ import lombok.Setter;
 public class SignalSubscription {
 
     /**
-     * Unique identifier for the subscription.
+     * 订阅的唯一标识符。
      */
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -45,25 +45,25 @@ public class SignalSubscription {
     private Long id;
 
     /**
-     * Identifier of the signal being subscribed to.
+     * 被订阅信号的标识符。
      */
     @Column(name = "signal_id", nullable = false)
     private Long signalId;
 
     /**
-     * Identifier of the user who subscribed.
+     * 订阅用户的标识符。
      */
     @Column(name = "user_id", nullable = false)
     private Long userId;
 
     /**
-     * Flag indicating whether notifications are enabled for this subscription.
+     * 指示此订阅是否启用通知的标志。
      */
     @Column(name = "notify_enabled")
     private Boolean notifyEnabled = true;
 
     /**
-     * Timestamp when the subscription was created.
+     * 订阅创建时间戳。
      */
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
@@ -71,65 +71,65 @@ public class SignalSubscription {
     private LocalDateTime createdAt;
 
     /**
-     * The signal being subscribed to.
+     * 被订阅的信号。
      */
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "signal_id", insertable = false, updatable = false)
     private CommunitySignal signal;
 
     /**
-     * The user who subscribed.
+     * 订阅用户。
      */
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", insertable = false, updatable = false)
     private User user;
 
     /**
-     * Creates a new builder instance for SignalSubscription.
+     * 创建 SignalSubscription 的新构建器实例。
      *
-     * @return a new Builder instance
+     * @return 新的构建器实例
      */
     public static Builder builder() {
         return new Builder();
     }
 
     /**
-     * Builder class for constructing SignalSubscription instances.
+     * 构建 SignalSubscription 实例的构建器类。
      */
     public static final class Builder {
 
         /**
-         * The subscription id.
+         * 订阅 ID。
          */
         private Long id;
 
         /**
-         * The signal id.
+         * 信号 ID。
          */
         private Long signalId;
 
         /**
-         * The user id.
+         * 用户 ID。
          */
         private Long userId;
 
         /**
-         * Notification enabled flag.
+         * 通知启用标志。
          */
         private Boolean notifyEnabled;
 
         /**
-         * Creation timestamp.
+         * 创建时间戳。
          */
         private LocalDateTime createdAt;
 
         /**
-         * The associated signal.
+         * 关联的信号。
          */
         private CommunitySignal signal;
 
         /**
-         * The associated user.
+         * 关联的用户。
          */
         private User user;
 
@@ -169,9 +169,9 @@ public class SignalSubscription {
         }
 
         /**
-         * Builds a new SignalSubscription instance.
+         * 构建新的 SignalSubscription 实例。
          *
-         * @return the constructed SignalSubscription
+         * @return 构建的 SignalSubscription
          */
         public SignalSubscription build() {
             SignalSubscription subscription = new SignalSubscription();

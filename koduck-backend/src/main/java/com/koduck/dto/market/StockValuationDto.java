@@ -8,8 +8,8 @@ import com.fasterxml.jackson.databind.annotation.JsonNaming;
 /**
  * Stock valuation metrics DTO.
  *
- * @param symbol the symbol
- * @param name the name
+ * @param symbol 品种代码
+ * @param name 名称
  * @param peTtm the PE TTM
  * @param pb the PB
  * @param psTtm the PS TTM

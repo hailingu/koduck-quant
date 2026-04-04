@@ -23,9 +23,9 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 /**
- * Daily market breadth aggregate entity.
+ * 每日市场涨跌宽度聚合实体。
  *
- * @author Koduck
+ * @author Koduck Team
  */
 @Entity
 @Table(
@@ -48,7 +48,7 @@ import lombok.Setter;
 public class MarketDailyBreadth {
 
     /**
-     * Unique identifier.
+     * 唯一标识符。
      */
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -56,86 +56,86 @@ public class MarketDailyBreadth {
     private Long id;
 
     /**
-     * Market identifier (e.g., US, CN).
+     * 市场标识符（例如：US、CN）。
      */
     @Column(name = "market", nullable = false, length = 20)
     private String market;
 
     /**
-     * Type of breadth metric.
+     * 宽度指标类型。
      */
     @Column(name = "breadth_type", nullable = false, length = 20)
     private String breadthType;
 
     /**
-     * Trading date.
+     * 交易日。
      */
     @Column(name = "trade_date", nullable = false)
     private LocalDate tradeDate;
 
     /**
-     * Number of gaining stocks.
+     * 上涨股票数量。
      */
     @Column(name = "gainers", nullable = false)
     private Integer gainers;
 
     /**
-     * Number of declining stocks.
+     * 下跌股票数量。
      */
     @Column(name = "losers", nullable = false)
     private Integer losers;
 
     /**
-     * Number of unchanged stocks.
+     * 平盘股票数量。
      */
     @Column(name = "unchanged", nullable = false)
     private Integer unchanged;
 
     /**
-     * Number of suspended stocks.
+     * 停牌股票数量。
      */
     @Column(name = "suspended")
     private Integer suspended;
 
     /**
-     * Total number of stocks.
+     * 股票总数。
      */
     @Column(name = "total_stocks", nullable = false)
     private Integer totalStocks;
 
     /**
-     * Advance-decline line value.
+     * 涨跌线值。
      */
     @Column(name = "advance_decline_line", nullable = false)
     private Integer advanceDeclineLine;
 
     /**
-     * Data source.
+     * 数据源。
      */
     @Column(name = "source", nullable = false, length = 50)
     private String source;
 
     /**
-     * Data quality indicator.
+     * 数据质量指示器。
      */
     @Column(name = "quality", nullable = false, length = 20)
     private String quality;
 
     /**
-     * Snapshot timestamp.
+     * 快照时间戳。
      */
     @Column(name = "snapshot_time", nullable = false)
     private LocalDateTime snapshotTime;
 
     /**
-     * Last update timestamp.
+     * 最后更新时间戳。
      */
     @UpdateTimestamp
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
 
     /**
-     * Creation timestamp.
+     * 创建时间戳。
      */
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)

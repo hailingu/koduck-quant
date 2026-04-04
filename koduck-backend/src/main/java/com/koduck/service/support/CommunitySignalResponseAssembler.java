@@ -18,7 +18,7 @@ import com.koduck.repository.auth.UserRepository;
 import lombok.RequiredArgsConstructor;
 
 /**
- * Assembles community signal-related response DTOs.
+ * 组装社区信号相关响应DTO。
  *
  * @author Koduck Team
  */
@@ -26,17 +26,17 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class CommunitySignalResponseAssembler {
 
-    /** Repository for user data access. */
+    /** 用户数据访问仓库。 */
     private final UserRepository userRepository;
 
     /**
-     * Converts a CommunitySignal entity to SignalResponse DTO.
+     * 将CommunitySignal实体转换为SignalResponse DTO。
      *
-     * @param signal               the community signal entity
-     * @param likedSignalIds       set of liked signal IDs
-     * @param favoritedSignalIds   set of favorited signal IDs
-     * @param subscribedSignalIds  set of subscribed signal IDs
-     * @return the signal response DTO
+     * @param signal              社区信号实体
+     * @param likedSignalIds      已点赞信号ID集合
+     * @param favoritedSignalIds  已收藏信号ID集合
+     * @param subscribedSignalIds 已订阅信号ID集合
+     * @return 信号响应DTO
      */
     public SignalResponse toSignalResponse(
             CommunitySignal signal,
@@ -79,10 +79,10 @@ public class CommunitySignalResponseAssembler {
     }
 
     /**
-     * Resolves the user for a given signal.
+     * 解析给定信号的用户。
      *
-     * @param signal the community signal
-     * @return the user entity, or null if not found
+     * @param signal 社区信号
+     * @return 用户实体，如未找到则返回null
      */
     private User resolveSignalUser(CommunitySignal signal) {
         Objects.requireNonNull(signal, "signal must not be null");
@@ -96,11 +96,11 @@ public class CommunitySignalResponseAssembler {
     }
 
     /**
-     * Converts a SignalSubscription entity to SignalSubscriptionResponse DTO.
+     * 将SignalSubscription实体转换为SignalSubscriptionResponse DTO。
      *
-     * @param subscription the signal subscription entity
-     * @param signal       the community signal entity
-     * @return the subscription response DTO
+     * @param subscription 信号订阅实体
+     * @param signal       社区信号实体
+     * @return 订阅响应DTO
      */
     public SignalSubscriptionResponse toSubscriptionResponse(
             SignalSubscription subscription,
@@ -125,11 +125,11 @@ public class CommunitySignalResponseAssembler {
     }
 
     /**
-     * Converts a SignalComment entity to CommentResponse DTO.
+     * 将SignalComment实体转换为CommentResponse DTO。
      *
-     * @param comment the signal comment entity
-     * @param replies list of reply comments
-     * @return the comment response DTO
+     * @param comment 信号评论实体
+     * @param replies 回复评论列表
+     * @return 评论响应DTO
      */
     public CommentResponse toCommentResponse(
             SignalComment comment,

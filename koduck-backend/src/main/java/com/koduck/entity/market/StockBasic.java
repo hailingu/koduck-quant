@@ -25,8 +25,7 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 /**
- * Stock basic information entity.
- * Maps to stock_basic table in PostgreSQL.
+ * 股票基本信息实体，映射到 PostgreSQL 的 stock_basic 表。
  *
  * @author Koduck Team
  */
@@ -40,7 +39,7 @@ import lombok.Setter;
 public class StockBasic {
 
     /**
-     * Primary key.
+     * 主键。
      */
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -48,169 +47,169 @@ public class StockBasic {
     private Long id;
 
     /**
-     * Stock symbol.
+     * 股票代码。
      */
     @Column(name = "symbol", nullable = false, length = 20)
     private String symbol;
 
     /**
-     * Stock type (STOCK or INDEX).
+     * 股票类型（STOCK 或 INDEX）。
      */
     @Column(name = "type", nullable = false, length = 10)
     @Builder.Default
     private String type = MarketConstants.STOCK_TYPE;
 
     /**
-     * Stock name.
+     * 股票名称。
      */
     @Column(name = "name", nullable = false, length = 100)
     private String name;
 
     /**
-     * Market code.
+     * 市场代码。
      */
     @Column(name = "market", nullable = false, length = 20)
     private String market;
 
     /**
-     * Board type.
+     * 板块类型。
      */
     @Column(name = "board", length = 20)
     private String board;
 
     /**
-     * Industry classification.
+     * 行业分类。
      */
     @Column(name = "industry", length = 100)
     private String industry;
 
     /**
-     * Sector classification.
+     * 板块分类。
      */
     @Column(name = "sector", length = 100)
     private String sector;
 
     /**
-     * Sub-industry classification.
+     * 子行业分类。
      */
     @Column(name = "sub_industry", length = 100)
     private String subIndustry;
 
     /**
-     * Province.
+     * 省份。
      */
     @Column(name = "province", length = 50)
     private String province;
 
     /**
-     * City.
+     * 城市。
      */
     @Column(name = "city", length = 50)
     private String city;
 
     /**
-     * Total shares.
+     * 总股本。
      */
     @Column(name = "total_shares")
     private Long totalShares;
 
     /**
-     * Float shares.
+     * 流通股本。
      */
     @Column(name = "float_shares")
     private Long floatShares;
 
     /**
-     * Float ratio.
+     * 流通比例。
      */
     @Column(name = "float_ratio", precision = 5, scale = 4)
     private BigDecimal floatRatio;
 
     /**
-     * Stock status.
+     * 股票状态。
      */
     @Column(name = "status", length = 20)
     @Builder.Default
     private String status = "Active";
 
     /**
-     * Whether the stock is in Shanghai-Hong Kong Stock Connect.
+     * 是否为沪港通标的。
      */
     @Column(name = "is_shanghai_hongkong")
     @Builder.Default
     private Boolean isShanghaiHongkong = false;
 
     /**
-     * Whether the stock is in Shenzhen-Hong Kong Stock Connect.
+     * 是否为深港通标的。
      */
     @Column(name = "is_shenzhen_hongkong")
     @Builder.Default
     private Boolean isShenzhenHongkong = false;
 
     /**
-     * Stock type (A, B, etc.).
+     * 股票类型（A、B 等）。
      */
     @Column(name = "stock_type", length = 20)
     @Builder.Default
     private String stockType = "A";
 
     /**
-     * Listing date.
+     * 上市日期。
      */
     @Column(name = "list_date")
     private LocalDate listDate;
 
     /**
-     * Delisting date.
+     * 退市日期。
      */
     @Column(name = "delist_date")
     private LocalDate delistDate;
 
     /**
-     * Whether the stock is a constituent of HS300.
+     * 是否为沪深 300 成分股。
      */
     @Column(name = "is_hs")
     @Builder.Default
     private Boolean isHs = false;
 
     /**
-     * Price-to-earnings ratio (TTM).
+     * 市盈率（TTM）。
      */
     @Column(name = "pe_ttm", precision = 12, scale = 4)
     private BigDecimal peTtm;
 
     /**
-     * Price-to-book ratio.
+     * 市净率。
      */
     @Column(name = "pb", precision = 12, scale = 4)
     private BigDecimal pb;
 
     /**
-     * Price-to-sales ratio (TTM).
+     * 市销率（TTM）。
      */
     @Column(name = "ps_ttm", precision = 12, scale = 4)
     private BigDecimal psTtm;
 
     /**
-     * Market capitalization.
+     * 市值。
      */
     @Column(name = "market_cap", precision = 18, scale = 2)
     private BigDecimal marketCap;
 
     /**
-     * Float market capitalization.
+     * 流通市值。
      */
     @Column(name = "float_market_cap", precision = 18, scale = 2)
     private BigDecimal floatMarketCap;
 
     /**
-     * Turnover rate.
+     * 换手率。
      */
     @Column(name = "turnover_rate", precision = 10, scale = 4)
     private BigDecimal turnoverRate;
 
     /**
-     * Creation timestamp.
+     * 创建时间戳。
      */
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
@@ -218,7 +217,7 @@ public class StockBasic {
     private LocalDateTime createdAt;
 
     /**
-     * Last update timestamp.
+     * 最后更新时间戳。
      */
     @UpdateTimestamp
     @Column(name = "updated_at")

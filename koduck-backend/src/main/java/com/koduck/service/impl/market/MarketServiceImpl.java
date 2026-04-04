@@ -39,8 +39,8 @@ import com.koduck.service.support.market.MockSectorNetworkGenerator;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * Market data service implementation.
- * Reads data from PostgreSQL database with Redis caching.
+ * 市场数据服务实现类。
+ * 从PostgreSQL数据库读取数据，使用Redis缓存。
  */
 @Service
 @Slf4j
@@ -49,7 +49,7 @@ public class MarketServiceImpl implements MarketService {
     private static final String POSITIVE_LINK_TYPE = "positive";
     private static final String NEGATIVE_LINK_TYPE = "negative";
     
-    // Main index symbols
+    // 主要指数代码
     private static final List<String> MAIN_INDICES = List.of(
             MarketConstants.A_SHARE_INDEX_SYMBOL,  // 上证指数
             "399001",     // 深证成指
@@ -79,12 +79,12 @@ public class MarketServiceImpl implements MarketService {
     }
     
     /**
-     * Search stock symbols by keyword and return enriched realtime fields.
+     * 根据关键词搜索股票代码，并返回丰富的实时字段。
      *
-     * @param keyword symbol/name keyword
-     * @param page 1-based page number
-     * @param size page size
-     * @return matching symbols or empty list
+     * @param keyword 代码/名称关键词
+     * @param page    1开始的页码
+     * @param size    每页大小
+     * @return 匹配的代码列表或空列表
      */
     @Override
     @Cacheable(value = CacheConfig.CACHE_MARKET_SEARCH, key = "#keyword + '_' + #page + '_' + #size", 
@@ -97,7 +97,7 @@ public class MarketServiceImpl implements MarketService {
             return Collections.emptyList();
         }
 
-        // Search in stock_basic table
+        // 在stock_basic表中搜索
         var pageResult = stockBasicRepository.searchByKeyword(keyword, PageRequest.of(page - 1, size));
         List<StockBasic> basics = pageResult.getContent();
         
@@ -106,16 +106,16 @@ public class MarketServiceImpl implements MarketService {
             return searchSymbolsFromProvider(keyword, size);
         }
         
-        // Get symbols for batch lookup
+        // 获取代码用于批量查询
         List<String> symbols = basics.stream().map(StockBasic::getSymbol).toList();
         
-        // Batch get realtime prices
+        // 批量获取实时价格
         Map<String, StockRealtime> realtimeMap = stockRealtimeRepository.findBySymbolIn(symbols)
                 .stream()
                 .collect(Collectors.toMap(StockRealtime::getSymbol, Function.identity()));
         
-        // Combine info and de-duplicate by canonical market+symbol to avoid
-        // duplicate rows such as "002885" and "2885".
+        // 合并信息并按规范市场+代码去重，避免
+        // 重复行如 "002885" 和 "2885"。
         Map<String, SymbolInfoDto> deduplicated = new LinkedHashMap<>();
         for (StockBasic basic : basics) {
             SymbolInfoDto dto = marketDtoMapper.mapToSymbolInfoDto(basic, realtimeMap.get(basic.getSymbol()));
@@ -134,10 +134,10 @@ public class MarketServiceImpl implements MarketService {
     }
     
     /**
-     * Get realtime quote details for a symbol.
+     * 获取股票的实时行情详情。
      *
-     * @param symbol stock symbol
-     * @return quote when found, otherwise {@code null}
+     * @param symbol 股票代码
+     * @return 找到时的行情，否则返回{@code null}
      */
     @Override
     public PriceQuoteDto getStockDetail(String symbol) {
@@ -162,16 +162,16 @@ public class MarketServiceImpl implements MarketService {
     }
 
     /**
-     * Execute quote fetcher with fallback chain:
-     * 1. Primary fetcher (database)
-     * 2. Kline data fallback
-     * 3. Provider data fallback
-     * 4. Throw ResourceNotFoundException
+     * 执行行情获取，带降级链：
+     * 1. 主获取器（数据库）
+     * 2. K线数据降级
+     * 3. 提供商数据降级
+     * 4. 抛出ResourceNotFoundException
      *
-     * @param symbol stock symbol
-     * @param primaryFetcher primary data fetcher
-     * @return price quote
-     * @throws ResourceNotFoundException when all fallback sources fail
+     * @param symbol         股票代码
+     * @param primaryFetcher 主数据获取器
+     * @return 行情报价
+     * @throws ResourceNotFoundException 当所有降级源都失败时抛出
      */
     private PriceQuoteDto withQuoteFallback(String symbol, Supplier<PriceQuoteDto> primaryFetcher) {
         try {
@@ -179,18 +179,19 @@ public class MarketServiceImpl implements MarketService {
             if (result != null) {
                 return result;
             }
-        } catch (RuntimeException e) {
+        }
+        catch (RuntimeException e) {
             log.error("Error fetching stock detail: symbol={}, error={}", symbol, e.getMessage(), e);
         }
 
-        // Fallback 1: try kline data
+        // 降级1：尝试K线数据
         PriceQuoteDto fallbackQuote = marketFallbackSupport.tryBuildQuoteFromLatestKline(symbol);
         if (fallbackQuote != null) {
             log.info("Recovered stock detail from kline data: symbol={}", symbol);
             return fallbackQuote;
         }
 
-        // Fallback 2: try provider
+        // 降级2：尝试提供商
         PriceQuoteDto providerQuote = marketFallbackSupport.fetchProviderPrice(symbol);
         if (providerQuote != null) {
             log.info("Recovered stock detail from data service: symbol={}", symbol);
@@ -202,10 +203,10 @@ public class MarketServiceImpl implements MarketService {
     }
 
     /**
-     * Get valuation metrics for a symbol from data-service.
+     * 从数据服务获取股票的估值指标。
      *
-     * @param symbol stock symbol
-     * @return valuation when found, otherwise {@code null}
+     * @param symbol 股票代码
+     * @return 找到时的估值，否则返回{@code null}
      */
     @Override
     public StockValuationDto getStockValuation(String symbol) {
@@ -224,10 +225,10 @@ public class MarketServiceImpl implements MarketService {
     }
 
     /**
-     * Get industry metadata for a symbol from data-service.
+     * 从数据服务获取股票的行业元数据。
      *
-     * @param symbol stock symbol
-     * @return industry metadata when found, otherwise {@code null}
+     * @param symbol 股票代码
+     * @return 找到时的行业元数据，否则返回{@code null}
      */
     @Override
     public StockIndustryDto getStockIndustry(String symbol) {
@@ -244,7 +245,8 @@ public class MarketServiceImpl implements MarketService {
                 throw new ResourceNotFoundException(ErrorCode.MARKET_DATA_NOT_FOUND, "stock industry", symbol);
             }
             return industry;
-        } catch (RuntimeException e) {
+        }
+        catch (RuntimeException e) {
             log.error("Error getting stock industry: symbol={}, error={}", symbol, e.getMessage(), e);
             throw new ResourceNotFoundException(ErrorCode.MARKET_DATA_NOT_FOUND, "stock industry", symbol);
         }
@@ -277,12 +279,14 @@ public class MarketServiceImpl implements MarketService {
                         .toList();
                 log.debug("Batch industry query partial miss: got {}/{}, missing: {}",
                         results.size(), validSymbols.size(), missingSymbols);
-            } else {
+            }
+            else {
                 log.debug("Batch industry query success: got {}/{}", results.size(), validSymbols.size());
             }
 
             return results;
-        } catch (RuntimeException e) {
+        }
+        catch (RuntimeException e) {
             log.error("Batch stock industry query failed: symbols={}, error={}", validSymbols, e.getMessage(), e);
             // 降级：返回空map，避免抛出异常影响主流程
             return Collections.emptyMap();
@@ -290,10 +294,10 @@ public class MarketServiceImpl implements MarketService {
     }
     
     /**
-     * Fetch realtime quotes for multiple symbols with cache-first strategy.
+     * 使用缓存优先策略批量获取实时行情。
      *
-     * @param symbols input symbols preserving output order
-     * @return merged quote list from cache and database
+     * @param symbols 保持输出顺序的输入代码
+     * @return 从缓存和数据库合并的行情列表
      */
     @Override
     public List<PriceQuoteDto> getBatchPrices(List<String> symbols) {
@@ -301,10 +305,10 @@ public class MarketServiceImpl implements MarketService {
             return Collections.emptyList();
         }
         
-        // Try to get from cache first
+        // 优先从缓存获取
         List<PriceQuoteDto> cachedQuotes = stockCacheService.getCachedStockTracks(symbols);
         
-        // Find symbols not in cache
+        // 找出不在缓存中的代码
         List<String> uncachedSymbols = new ArrayList<>();
         if (cachedQuotes != null && !cachedQuotes.isEmpty()) {
             Set<String> cachedSymbolSet = cachedQuotes.stream()
@@ -316,37 +320,38 @@ public class MarketServiceImpl implements MarketService {
                 }
             }
             log.debug("Batch prices cache hit: {}/{}", cachedQuotes.size(), symbols.size());
-        } else {
+        }
+        else {
             uncachedSymbols = new ArrayList<>(symbols);
         }
         
-        // If all from cache, return directly
+        // 如果全部来自缓存，直接返回
         if (uncachedSymbols.isEmpty()) {
             return cachedQuotes;
         }
         
-        // Get from database for uncached symbols
+        // 从数据库获取未缓存的代码
         log.debug("Getting batch prices from database: count={}", uncachedSymbols.size());
         List<StockRealtime> entities = stockRealtimeRepository.findBySymbolIn(uncachedSymbols);
         
-        // Convert to DTOs
+        // 转换为DTO
         List<PriceQuoteDto> dbQuotes = entities.stream()
             .map(marketDtoMapper::mapToPriceQuoteDto)
                 .toList();
         
-        // Cache the database results
+        // 缓存数据库结果
         if (!dbQuotes.isEmpty()) {
             stockCacheService.cacheBatchStockTracks(dbQuotes);
         }
         
-        // Merge results (cache first, then db results)
+        // 合并结果（缓存优先，然后数据库结果）
         List<PriceQuoteDto> result = new ArrayList<>();
         if (cachedQuotes != null) {
             result.addAll(cachedQuotes);
         }
         result.addAll(dbQuotes);
         
-        // Sort by original order
+        // 按原始顺序排序
         Map<String, PriceQuoteDto> quoteMap = result.stream()
                 .collect(Collectors.toMap(PriceQuoteDto::symbol, Function.identity()));
         return symbols.stream()
@@ -356,12 +361,12 @@ public class MarketServiceImpl implements MarketService {
     }
 
     /**
-     * Get daily trading statistics for a stock.
-     * <p>Returns open/high/low/current prices, change metrics, volume and amount.</p>
+     * 获取股票的每日交易统计信息。
+     * <p>返回开盘/最高/最低/当前价格、变动指标、成交量和成交额。</p>
      *
-     * @param symbol stock symbol
-     * @param market market code
-     * @return stock stats when found, otherwise {@code null}
+     * @param symbol 股票代码
+     * @param market 市场代码
+     * @return 找到时的股票统计，否则返回{@code null}
      */
     @Override
     @Cacheable(value = "stock:stats", key = "#symbol + '_' + #market", unless = "#result == null")
@@ -385,17 +390,17 @@ public class MarketServiceImpl implements MarketService {
     }
 
     /**
-     * Execute stats fetcher with fallback chain:
-     * 1. Primary fetcher (database)
-     * 2. Kline data fallback
-     * 3. Provider data fallback (converted to stats)
-     * 4. Throw ResourceNotFoundException
+     * 执行统计信息获取，带降级链：
+     * 1. 主获取器（数据库）
+     * 2. K线数据降级
+     * 3. 提供商数据降级（转换为统计信息）
+     * 4. 抛出ResourceNotFoundException
      *
-     * @param symbol stock symbol
-     * @param market market code
-     * @param primaryFetcher primary data fetcher
-     * @return stock stats
-     * @throws ResourceNotFoundException when all fallback sources fail
+     * @param symbol         股票代码
+     * @param market         市场代码
+     * @param primaryFetcher 主数据获取器
+     * @return 股票统计
+     * @throws ResourceNotFoundException 当所有降级源都失败时抛出
      */
     private StockStatsDto withStatsFallback(String symbol, String market,
                                            Supplier<StockStatsDto> primaryFetcher) {
@@ -404,18 +409,19 @@ public class MarketServiceImpl implements MarketService {
             if (result != null) {
                 return result;
             }
-        } catch (RuntimeException e) {
+        }
+        catch (RuntimeException e) {
             log.error("Error fetching stock stats: symbol={}, error={}", symbol, e.getMessage(), e);
         }
 
-        // Fallback 1: try kline data
+        // 降级1：尝试K线数据
         StockStatsDto klineStats = marketFallbackSupport.tryBuildStatsFromKline(symbol, market);
         if (klineStats != null) {
             log.info("Recovered stock stats from kline data: symbol={}", symbol);
             return klineStats;
         }
 
-        // Fallback 2: try provider
+        // 降级2：尝试提供商
         PriceQuoteDto providerQuote = marketFallbackSupport.fetchProviderPrice(symbol);
         if (providerQuote != null) {
             log.info("Recovered stock stats from data service: symbol={}", symbol);
@@ -427,17 +433,17 @@ public class MarketServiceImpl implements MarketService {
     }
     
     /**
-     * Get major market index quotes.
+     * 获取主要市场指数行情。
      *
-     * @return index list from realtime data with stock-basic fallback
+     * @return 来自实时数据的指数列表，使用stock-basic降级
      */
     @Override
     @Cacheable(value = CacheConfig.CACHE_MARKET_INDICES, key = "'main'", unless = "#result == null || #result.isEmpty()")
     public List<MarketIndexDto> getMarketIndices() {
         log.debug("Getting market indices from database");
         
-        // Get index data from stock_realtime, filtering by type='INDEX'
-        // to avoid conflicts with stocks having same symbol codes (e.g., 000001 = 上证指数 vs 平安银行)
+        // 从stock_realtime获取指数数据，按type='INDEX'过滤
+        // 避免与具有相同代码的股票冲突（例如，000001 = 上证指数 vs 平安银行）
         List<StockRealtime> indices = stockRealtimeRepository.findBySymbolInAndType(MAIN_INDICES, MarketConstants.INDEX_TYPE);
         
         if (!indices.isEmpty()) {
@@ -447,7 +453,7 @@ public class MarketServiceImpl implements MarketService {
                     .toList();
         }
         
-        // Fallback: try to get from stock_basic with type='INDEX'
+        // 降级：尝试从stock_basic获取type='INDEX'的数据
         log.warn("No index data found in stock_realtime with type='INDEX', checking stock_basic");
         List<StockBasic> basicIndices = stockBasicRepository.findBySymbolInAndType(MAIN_INDICES, MarketConstants.INDEX_TYPE);
         
@@ -458,19 +464,19 @@ public class MarketServiceImpl implements MarketService {
         }
         
         log.debug("Found {} indices in stock_basic", basicIndices.size());
-        // Map from StockBasic to MarketIndexDto (without price data)
+        // 从StockBasic映射为MarketIndexDto（不含价格数据）
         return basicIndices.stream()
             .map(marketDtoMapper::mapBasicToMarketIndexDto)
                 .toList();
     }
     
     /**
-     * Get hot stocks by trading volume.
-     * Returns stocks ordered by trading volume descending.
+     * 按交易量获取热门股票。
+     * 返回按交易量降序排列的股票。
      *
-     * @param market market code (e.g., "AShare")
-     * @param limit number of stocks to return
-     * @return list of hot stocks
+     * @param market 市场代码（例如 "AShare"）
+     * @param limit  返回的股票数量
+     * @return 热门股票列表
      */
     @Override
     public List<SymbolInfoDto> getHotStocks(String market, int limit) {
@@ -501,7 +507,7 @@ public class MarketServiceImpl implements MarketService {
         }
     }
     
-    // ============ Sector Network Methods ============
+    // ============ 板块网络方法 ============
 
     @Override
     public SectorNetworkDto getSectorNetwork(String market) {

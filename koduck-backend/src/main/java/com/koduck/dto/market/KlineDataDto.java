@@ -5,13 +5,13 @@ import java.math.BigDecimal;
 /**
  * K-line (candlestick) data DTO.
  *
- * @param timestamp the timestamp
- * @param open the open price
- * @param high the high price
- * @param low the low price
+ * @param timestamp 时间戳
+ * @param open 开盘价
+ * @param high 最高价
+ * @param low 最低价
  * @param close the close price
- * @param volume the volume
- * @param amount the amount
+ * @param volume 成交量
+ * @param amount 成交额
  * @author Koduck Team
  */
 public record KlineDataDto(

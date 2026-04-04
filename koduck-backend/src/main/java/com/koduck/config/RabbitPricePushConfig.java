@@ -22,7 +22,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.koduck.config.properties.PricePushRabbitProperties;
 
 /**
- * RabbitMQ topology and listener config for price push events.
+ * 价格推送事件的 RabbitMQ 拓扑和监听器配置。
  *
  * @author Koduck Team
  */

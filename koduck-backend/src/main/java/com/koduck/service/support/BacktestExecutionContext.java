@@ -3,34 +3,34 @@ package com.koduck.service.support;
 import java.math.BigDecimal;
 
 /**
- * Mutable execution context for a running backtest simulation.
+ * 运行中回测模拟的可变执行上下文。
  *
  * @author GitHub Copilot
  */
 public class BacktestExecutionContext {
 
     /**
-     * Available cash for trading.
+     * 可用交易现金。
      */
     private BigDecimal cash;
 
     /**
-     * Current position size.
+     * 当前持仓数量。
      */
     private BigDecimal position;
 
     /**
-     * Entry price of current position.
+     * 当前持仓的入场价格。
      */
     private BigDecimal entryPrice;
 
     /**
-     * Commission rate for trades.
+     * 交易佣金率。
      */
     private final BigDecimal commissionRate;
 
     /**
-     * Slippage factor for trade execution.
+     * 交易执行的滑点因子。
      */
     private final BigDecimal slippage;
 

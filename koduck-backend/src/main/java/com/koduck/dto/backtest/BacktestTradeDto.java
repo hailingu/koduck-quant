@@ -51,20 +51,20 @@ public record BacktestTradeDto(
     }
 
     /**
-     * Builder for BacktestTradeDto.
+     * BacktestTradeDto 的构建器。
      */
     public static class Builder {
-        /** ID. */
+        /** ID。 */
         private Long id;
-        /** Trade type. */
+        /** 交易类型。 */
         private String tradeType;
-        /** Trade time. */
+        /** 交易时间。 */
         private LocalDateTime tradeTime;
-        /** Symbol. */
+        /** 品种代码。 */
         private String symbol;
-        /** Price. */
+        /** 价格。 */
         private BigDecimal price;
-        /** Quantity. */
+        /** 数量。 */
         private BigDecimal quantity;
         /** Amount. */
         private BigDecimal amount;
@@ -86,7 +86,7 @@ public record BacktestTradeDto(
         private String signalReason;
 
         /**
-         * Set ID.
+ * 设置ID。
          *
          * @param id ID
          * @return Builder
@@ -119,7 +119,7 @@ public record BacktestTradeDto(
         }
 
         /**
-         * Set symbol.
+ * 设置品种代码。
          *
          * @param symbol Symbol
          * @return Builder
@@ -253,7 +253,7 @@ public record BacktestTradeDto(
         /**
          * Build BacktestTradeDto.
          *
-         * @return BacktestTradeDto instance
+         * @return BacktestTradeDto 实例
          */
         public BacktestTradeDto build() {
             return new BacktestTradeDto(

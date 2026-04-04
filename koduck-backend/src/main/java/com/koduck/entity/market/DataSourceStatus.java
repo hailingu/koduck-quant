@@ -23,7 +23,7 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 /**
- * Data source status entity.
+ * 数据源状态实体。
  *
  * @author Koduck Team
  */
@@ -34,7 +34,7 @@ import lombok.Setter;
 public class DataSourceStatus {
 
     /**
-     * Primary key.
+     * 主键。
      */
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -42,62 +42,62 @@ public class DataSourceStatus {
     private Long id;
 
     /**
-     * Source name.
+     * 数据源名称。
      */
     @Column(name = "source_name", nullable = false, unique = true, length = 100)
     private String sourceName;
 
     /**
-     * Source type.
+     * 数据源类型。
      */
     @Column(name = "source_type", nullable = false, length = 50)
     private String sourceType;
 
     /**
-     * Status.
+     * 状态。
      */
     @Column(name = "status", length = 20)
     private String status;
 
     /**
-     * Last success time.
+     * 最后成功时间。
      */
     @Column(name = "last_success_at")
     private LocalDateTime lastSuccessAt;
 
     /**
-     * Last failure time.
+     * 最后失败时间。
      */
     @Column(name = "last_failure_at")
     private LocalDateTime lastFailureAt;
 
     /**
-     * Failure count.
+     * 失败次数。
      */
     @Column(name = "failure_count")
     private Integer failureCount;
 
     /**
-     * Consecutive failures.
+     * 连续失败次数。
      */
     @Column(name = "consecutive_failures")
     private Integer consecutiveFailures;
 
     /**
-     * Response time in milliseconds.
+     * 响应时间（毫秒）。
      */
     @Column(name = "response_time_ms")
     private Integer responseTimeMs;
 
     /**
-     * Metadata.
+     * 元数据。
      */
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "metadata", columnDefinition = "jsonb")
     private Map<String, Object> metadata;
 
     /**
-     * Created at.
+     * 创建时间。
      */
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
@@ -105,91 +105,91 @@ public class DataSourceStatus {
     private LocalDateTime createdAt;
 
     /**
-     * Updated at.
+     * 更新时间。
      */
     @UpdateTimestamp
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
 
     /**
-     * Creates a new builder.
+     * 创建新的构建器。
      *
-     * @return Builder instance
+     * @return 构建器实例
      */
     public static Builder builder() {
         return new Builder();
     }
 
     /**
-     * Builder class for DataSourceStatus.
+     * DataSourceStatus 的构建器类。
      */
     public static final class Builder {
 
         /**
-         * Builder field for id.
+         * 构建器 id 字段。
          */
         private Long id;
 
         /**
-         * Builder field for sourceName.
+         * 构建器 sourceName 字段。
          */
         private String sourceName;
 
         /**
-         * Builder field for sourceType.
+         * 构建器 sourceType 字段。
          */
         private String sourceType;
 
         /**
-         * Builder field for status.
+         * 构建器 status 字段。
          */
         private String status;
 
         /**
-         * Builder field for lastSuccessAt.
+         * 构建器 lastSuccessAt 字段。
          */
         private LocalDateTime lastSuccessAt;
 
         /**
-         * Builder field for lastFailureAt.
+         * 构建器 lastFailureAt 字段。
          */
         private LocalDateTime lastFailureAt;
 
         /**
-         * Builder field for failureCount.
+         * 构建器 failureCount 字段。
          */
         private Integer failureCount;
 
         /**
-         * Builder field for consecutiveFailures.
+         * 构建器 consecutiveFailures 字段。
          */
         private Integer consecutiveFailures;
 
         /**
-         * Builder field for responseTimeMs.
+         * 构建器 responseTimeMs 字段。
          */
         private Integer responseTimeMs;
 
         /**
-         * Builder field for metadata.
+         * 构建器 metadata 字段。
          */
         private Map<String, Object> metadata;
 
         /**
-         * Builder field for createdAt.
+         * 构建器 createdAt 字段。
          */
         private LocalDateTime createdAt;
 
         /**
-         * Builder field for updatedAt.
+         * 构建器 updatedAt 字段。
          */
         private LocalDateTime updatedAt;
 
         /**
-         * Sets the ID.
+         * 设置 ID。
          *
-         * @param id the ID
-         * @return this builder
+         * @param id ID
+         * @return 此构建器
          */
         public Builder id(Long id) {
             this.id = id;
@@ -197,10 +197,10 @@ public class DataSourceStatus {
         }
 
         /**
-         * Sets the source name.
+         * 设置数据源名称。
          *
-         * @param sourceName the source name
-         * @return this builder
+         * @param sourceName 数据源名称
+         * @return 此构建器
          */
         public Builder sourceName(String sourceName) {
             this.sourceName = sourceName;
@@ -208,10 +208,10 @@ public class DataSourceStatus {
         }
 
         /**
-         * Sets the source type.
+         * 设置数据源类型。
          *
-         * @param sourceType the source type
-         * @return this builder
+         * @param sourceType 数据源类型
+         * @return 此构建器
          */
         public Builder sourceType(String sourceType) {
             this.sourceType = sourceType;
@@ -219,10 +219,10 @@ public class DataSourceStatus {
         }
 
         /**
-         * Sets the status.
+         * 设置状态。
          *
-         * @param status the status
-         * @return this builder
+         * @param status 状态
+         * @return 此构建器
          */
         public Builder status(String status) {
             this.status = status;
@@ -230,10 +230,10 @@ public class DataSourceStatus {
         }
 
         /**
-         * Sets the last success at.
+         * 设置最后成功时间。
          *
-         * @param lastSuccessAt the last success at
-         * @return this builder
+         * @param lastSuccessAt 最后成功时间
+         * @return 此构建器
          */
         public Builder lastSuccessAt(LocalDateTime lastSuccessAt) {
             this.lastSuccessAt = lastSuccessAt;
@@ -241,10 +241,10 @@ public class DataSourceStatus {
         }
 
         /**
-         * Sets the last failure at.
+         * 设置最后失败时间。
          *
-         * @param lastFailureAt the last failure at
-         * @return this builder
+         * @param lastFailureAt 最后失败时间
+         * @return 此构建器
          */
         public Builder lastFailureAt(LocalDateTime lastFailureAt) {
             this.lastFailureAt = lastFailureAt;
@@ -252,10 +252,10 @@ public class DataSourceStatus {
         }
 
         /**
-         * Sets the failure count.
+         * 设置失败次数。
          *
-         * @param failureCount the failure count
-         * @return this builder
+         * @param failureCount 失败次数
+         * @return 此构建器
          */
         public Builder failureCount(Integer failureCount) {
             this.failureCount = failureCount;
@@ -263,10 +263,10 @@ public class DataSourceStatus {
         }
 
         /**
-         * Sets the consecutive failures.
+         * 设置连续失败次数。
          *
-         * @param consecutiveFailures the consecutive failures
-         * @return this builder
+         * @param consecutiveFailures 连续失败次数
+         * @return 此构建器
          */
         public Builder consecutiveFailures(Integer consecutiveFailures) {
             this.consecutiveFailures = consecutiveFailures;
@@ -274,10 +274,10 @@ public class DataSourceStatus {
         }
 
         /**
-         * Sets the response time.
+         * 设置响应时间。
          *
-         * @param responseTimeMs the response time in milliseconds
-         * @return this builder
+         * @param responseTimeMs 响应时间（毫秒）
+         * @return 此构建器
          */
         public Builder responseTimeMs(Integer responseTimeMs) {
             this.responseTimeMs = responseTimeMs;
@@ -285,10 +285,10 @@ public class DataSourceStatus {
         }
 
         /**
-         * Sets the metadata.
+         * 设置元数据。
          *
-         * @param metadata the metadata
-         * @return this builder
+         * @param metadata 元数据
+         * @return 此构建器
          */
         public Builder metadata(Map<String, Object> metadata) {
             this.metadata = CollectionCopyUtils.copyMap(metadata);
@@ -296,10 +296,10 @@ public class DataSourceStatus {
         }
 
         /**
-         * Sets the created at.
+         * 设置创建时间。
          *
-         * @param createdAt the created at
-         * @return this builder
+         * @param createdAt 创建时间
+         * @return 此构建器
          */
         public Builder createdAt(LocalDateTime createdAt) {
             this.createdAt = createdAt;
@@ -307,10 +307,10 @@ public class DataSourceStatus {
         }
 
         /**
-         * Sets the updated at.
+         * 设置更新时间。
          *
-         * @param updatedAt the updated at
-         * @return this builder
+         * @param updatedAt 更新时间
+         * @return 此构建器
          */
         public Builder updatedAt(LocalDateTime updatedAt) {
             this.updatedAt = updatedAt;
@@ -318,9 +318,9 @@ public class DataSourceStatus {
         }
 
         /**
-         * Builds the DataSourceStatus.
+         * 构建 DataSourceStatus。
          *
-         * @return the DataSourceStatus
+         * @return DataSourceStatus
          */
         public DataSourceStatus build() {
             DataSourceStatus statusEntity = new DataSourceStatus();
@@ -341,18 +341,18 @@ public class DataSourceStatus {
     }
 
     /**
-     * Gets metadata copy.
+     * 获取元数据副本。
      *
-     * @return metadata copy
+     * @return 元数据副本
      */
     public Map<String, Object> getMetadata() {
         return CollectionCopyUtils.copyMap(metadata);
     }
 
     /**
-     * Sets metadata with copy.
+     * 使用副本设置元数据。
      *
-     * @param metadata the metadata
+     * @param metadata 元数据
      */
     public void setMetadata(Map<String, Object> metadata) {
         this.metadata = CollectionCopyUtils.copyMap(metadata);

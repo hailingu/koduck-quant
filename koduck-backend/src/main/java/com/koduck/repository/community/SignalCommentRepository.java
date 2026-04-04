@@ -13,7 +13,7 @@ import org.springframework.stereotype.Repository;
 import com.koduck.entity.community.SignalComment;
 
 /**
- * Repository for signal comments.
+ * 信号评论仓库，提供信号评论数据的数据库访问。
  *
  * @author Koduck Team
  */
@@ -21,59 +21,59 @@ import com.koduck.entity.community.SignalComment;
 public interface SignalCommentRepository extends JpaRepository<SignalComment, Long> {
 
     /**
-     * Find top-level comments by signal ID (paginated).
+     * 根据信号 ID 查询顶级评论（分页）。
      *
-     * @param signalId the signal ID
-     * @param pageable the pagination information
-     * @return the page of comments
+     * @param signalId 信号 ID
+     * @param pageable 分页信息
+     * @return 评论分页结果
      */
     Page<SignalComment> findBySignalIdAndParentIdIsNullAndIsDeletedFalseOrderByCreatedAtDesc(
             Long signalId, Pageable pageable);
 
     /**
-     * Find all comments by signal ID (including replies).
+     * 根据信号 ID 查询所有评论（包括回复）。
      *
-     * @param signalId the signal ID
-     * @return the list of comments
+     * @param signalId 信号 ID
+     * @return 评论列表
      */
     List<SignalComment> findBySignalIdAndIsDeletedFalseOrderByCreatedAtDesc(Long signalId);
 
     /**
-     * Find replies by parent comment ID.
+     * 根据父评论 ID 查询回复。
      *
-     * @param parentId the parent comment ID
-     * @return the list of replies
+     * @param parentId 父评论 ID
+     * @return 回复列表
      */
     List<SignalComment> findByParentIdAndIsDeletedFalseOrderByCreatedAtAsc(Long parentId);
 
     /**
-     * Find comments by user ID.
+     * 根据用户 ID 查询评论。
      *
-     * @param userId the user ID
-     * @return the list of comments
+     * @param userId 用户 ID
+     * @return 评论列表
      */
     List<SignalComment> findByUserIdOrderByCreatedAtDesc(Long userId);
 
     /**
-     * Count comments by signal ID.
+     * 根据信号 ID 统计评论数量。
      *
-     * @param signalId the signal ID
-     * @return the count of comments
+     * @param signalId 信号 ID
+     * @return 评论数量
      */
     long countBySignalIdAndIsDeletedFalse(Long signalId);
 
     /**
-     * Count comments by user ID.
+     * 根据用户 ID 统计评论数量。
      *
-     * @param userId the user ID
-     * @return the count of comments
+     * @param userId 用户 ID
+     * @return 评论数量
      */
     long countByUserId(Long userId);
 
     /**
-     * Soft delete a comment.
+     * 软删除评论。
      *
-     * @param id the comment ID
+     * @param id 评论 ID
      */
     @Modifying
     @Query("UPDATE SignalComment c SET c.isDeleted = true, c.content = '[已删除]' "
@@ -81,18 +81,18 @@ public interface SignalCommentRepository extends JpaRepository<SignalComment, Lo
     void softDelete(@Param("id") Long id);
 
     /**
-     * Increment like count.
+     * 增加点赞次数。
      *
-     * @param id the comment ID
+     * @param id 评论 ID
      */
     @Modifying
     @Query("UPDATE SignalComment c SET c.likeCount = c.likeCount + 1 WHERE c.id = :id")
     void incrementLikeCount(@Param("id") Long id);
 
     /**
-     * Decrement like count.
+     * 减少点赞次数。
      *
-     * @param id the comment ID
+     * @param id 评论 ID
      */
     @Modifying
     @Query("UPDATE SignalComment c SET c.likeCount = c.likeCount - 1 "

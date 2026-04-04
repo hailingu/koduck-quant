@@ -10,7 +10,7 @@ import org.springframework.stereotype.Repository;
 import com.koduck.entity.auth.LoginAttempt;
 
 /**
- * Repository for login attempt tracking.
+ * 登录尝试记录仓库，提供登录尝试数据的数据库访问。
  *
  * @author Koduck Team
  */
@@ -18,12 +18,12 @@ import com.koduck.entity.auth.LoginAttempt;
 public interface LoginAttemptRepository extends JpaRepository<LoginAttempt, Long> {
 
     /**
-     * Count failed login attempts for an identifier.
+     * 统计指定标识符的失败登录尝试次数。
      *
-     * @param identifier the user identifier
-     * @param type       the login type
-     * @param since      the time threshold
-     * @return the count of failed attempts
+     * @param identifier 用户标识符
+     * @param type 登录类型
+     * @param since 时间阈值
+     * @return 失败尝试次数
      */
     @Query("SELECT COUNT(la) FROM LoginAttempt la "
             + "WHERE la.identifier = :identifier "
@@ -34,11 +34,11 @@ public interface LoginAttemptRepository extends JpaRepository<LoginAttempt, Long
                              @Param("since") LocalDateTime since);
 
     /**
-     * Count failed login attempts by IP address.
+     * 根据 IP 地址统计失败登录尝试次数。
      *
-     * @param ipAddress the IP address
-     * @param since     the time threshold
-     * @return the count of failed attempts
+     * @param ipAddress IP 地址
+     * @param since 时间阈值
+     * @return 失败尝试次数
      */
     @Query("SELECT COUNT(la) FROM LoginAttempt la "
             + "WHERE la.ipAddress = :ipAddress "

@@ -24,20 +24,17 @@ public class SignalSubscriptionResponse {
 
     /** The subscription ID. */
     private Long id;
-
-    /** The signal ID. */
+        /** 信号ID。 */
     private Long signalId;
 
     /** The stock symbol. */
     private String symbol;
-
-    /** The signal type. */
+        /** 信号类型。 */
     private String signalType;
 
     /** The subscription reason. */
     private String reason;
-
-    /** The user ID. */
+        /** 用户ID。 */
     private Long userId;
 
     /** The username. */

@@ -5,7 +5,7 @@ import java.util.List;
 import java.util.Set;
 
 /**
- * Unified cache abstraction for low-level key/value and collection operations.
+ * 底层键/值和集合操作的统一缓存抽象。
  *
  * @author GitHub Copilot
  */

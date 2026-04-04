@@ -21,7 +21,7 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 /**
- * Memory chat session entity for AI conversation sessions.
+ * AI 对话会话的记忆聊天会话实体。
  *
  * @author Koduck Team
  */
@@ -39,41 +39,41 @@ import lombok.Setter;
 @AllArgsConstructor
 public class MemoryChatSession {
 
-    /** Unique identifier for the session. */
+    /** 会话的唯一标识符。 */
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Setter(AccessLevel.NONE)
     private Long id;
 
-    /** User ID who owns this session. */
+    /** 拥有此会话的用户 ID。 */
     @Column(name = "user_id", nullable = false)
     private Long userId;
 
-    /** Session ID for external reference. */
+    /** 外部引用的会话 ID。 */
     @Column(name = "session_id", nullable = false, length = 64)
     private String sessionId;
 
-    /** Session title or subject. */
+    /** 会话标题或主题。 */
     @Column(name = "title", length = 255)
     private String title;
 
-    /** Session status (e.g., active, closed). */
+    /** 会话状态（例如：活跃、已关闭）。 */
     @Column(name = "status", nullable = false, length = 32)
     @Builder.Default
     private String status = "active";
 
-    /** Timestamp of the last message in the session. */
+    /** 会话中最后一条消息的时间戳。 */
     @Column(name = "last_message_at", nullable = false)
     @Builder.Default
     private LocalDateTime lastMessageAt = LocalDateTime.now();
 
-    /** Timestamp when the session was created. */
+    /** 会话创建时间戳。 */
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     @Setter(AccessLevel.NONE)
     private LocalDateTime createdAt;
 
-    /** Timestamp of last update. */
+    /** 最后更新时间戳。 */
     @UpdateTimestamp
     @Column(name = "updated_at", nullable = false)
     private LocalDateTime updatedAt;

@@ -25,7 +25,7 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 /**
- * User settings entity.
+ * 用户设置实体。
  *
  * @author Koduck Team
  */
@@ -36,7 +36,7 @@ import lombok.Setter;
 public class UserSettings {
 
     /**
-     * Primary key.
+     * 主键。
      */
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -44,66 +44,66 @@ public class UserSettings {
     private Long id;
 
     /**
-     * User ID.
+     * 用户 ID。
      */
     @Column(name = "user_id", nullable = false, unique = true)
     private Long userId;
 
     /**
-     * Theme setting.
+     * 主题设置。
      */
     @Column(name = "theme", nullable = false, length = 20)
     private String theme = "light";
 
     /**
-     * Language setting.
+     * 语言设置。
      */
     @Column(name = "language", nullable = false, length = 10)
     private String language = "zh-CN";
 
     /**
-     * Timezone setting.
+     * 时区设置。
      */
     @Column(name = "timezone", nullable = false, length = 50)
     private String timezone = "Asia/Shanghai";
 
     /**
-     * Notification configuration.
+     * 通知配置。
      */
     @Column(name = "notification_config", columnDefinition = "jsonb")
     @JdbcTypeCode(SqlTypes.JSON)
     private NotificationConfig notificationConfig = new NotificationConfig();
 
     /**
-     * Trading configuration.
+     * 交易配置。
      */
     @Column(name = "trading_config", columnDefinition = "jsonb")
     @JdbcTypeCode(SqlTypes.JSON)
     private TradingConfig tradingConfig = new TradingConfig();
 
     /**
-     * Display configuration.
+     * 显示配置。
      */
     @Column(name = "display_config", columnDefinition = "jsonb")
     @JdbcTypeCode(SqlTypes.JSON)
     private DisplayConfig displayConfig = new DisplayConfig();
 
     /**
-     * Quick links list.
+     * 快速链接列表。
      */
     @Column(name = "quick_links", columnDefinition = "jsonb")
     @JdbcTypeCode(SqlTypes.JSON)
     private List<QuickLink> quickLinks = List.of();
 
     /**
-     * LLM configuration.
+     * LLM 配置。
      */
     @Column(name = "llm_config", columnDefinition = "jsonb")
     @JdbcTypeCode(SqlTypes.JSON)
     private LlmConfig llmConfig = new LlmConfig();
 
     /**
-     * Created at.
+     * 创建时间。
      */
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
@@ -111,116 +111,116 @@ public class UserSettings {
     private LocalDateTime createdAt;
 
     /**
-     * Updated at.
+     * 更新时间。
      */
     @UpdateTimestamp
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
 
     /**
-     * Creates a new builder.
+     * 创建新的构建器。
      *
-     * @return BuilderWrapper instance
+     * @return BuilderWrapper 实例
      */
     public static BuilderWrapper builder() {
         return new BuilderWrapper();
     }
 
     /**
-     * Gets notification config copy.
+     * 获取通知配置副本。
      *
-     * @return notification config copy
+     * @return 通知配置副本
      */
     public NotificationConfig getNotificationConfig() {
         return copyNotificationConfig(notificationConfig);
     }
 
     /**
-     * Sets notification config with copy.
+     * 使用副本设置通知配置。
      *
-     * @param notificationConfig the notification config
+     * @param notificationConfig 通知配置
      */
     public void setNotificationConfig(NotificationConfig notificationConfig) {
         this.notificationConfig = copyNotificationConfig(notificationConfig);
     }
 
     /**
-     * Gets trading config copy.
+     * 获取交易配置副本。
      *
-     * @return trading config copy
+     * @return 交易配置副本
      */
     public TradingConfig getTradingConfig() {
         return copyTradingConfig(tradingConfig);
     }
 
     /**
-     * Sets trading config with copy.
+     * 使用副本设置交易配置。
      *
-     * @param tradingConfig the trading config
+     * @param tradingConfig 交易配置
      */
     public void setTradingConfig(TradingConfig tradingConfig) {
         this.tradingConfig = copyTradingConfig(tradingConfig);
     }
 
     /**
-     * Gets display config copy.
+     * 获取显示配置副本。
      *
-     * @return display config copy
+     * @return 显示配置副本
      */
     public DisplayConfig getDisplayConfig() {
         return copyDisplayConfig(displayConfig);
     }
 
     /**
-     * Sets display config with copy.
+     * 使用副本设置显示配置。
      *
-     * @param displayConfig the display config
+     * @param displayConfig 显示配置
      */
     public void setDisplayConfig(DisplayConfig displayConfig) {
         this.displayConfig = copyDisplayConfig(displayConfig);
     }
 
     /**
-     * Gets quick links copy.
+     * 获取快速链接副本。
      *
-     * @return quick links copy
+     * @return 快速链接副本
      */
     public List<QuickLink> getQuickLinks() {
         return CollectionCopyUtils.copyList(quickLinks);
     }
 
     /**
-     * Sets quick links with copy.
+     * 使用副本设置快速链接。
      *
-     * @param quickLinks the quick links
+     * @param quickLinks 快速链接
      */
     public void setQuickLinks(List<QuickLink> quickLinks) {
         this.quickLinks = CollectionCopyUtils.copyList(quickLinks);
     }
 
     /**
-     * Gets LLM config copy.
+     * 获取 LLM 配置副本。
      *
-     * @return LLM config copy
+     * @return LLM 配置副本
      */
     public LlmConfig getLlmConfig() {
         return copyLlmConfig(llmConfig);
     }
 
     /**
-     * Sets LLM config with copy.
+     * 使用副本设置 LLM 配置。
      *
-     * @param llmConfig the LLM config
+     * @param llmConfig LLM 配置
      */
     public void setLlmConfig(LlmConfig llmConfig) {
         this.llmConfig = copyLlmConfig(llmConfig);
     }
 
     /**
-     * Copies notification config.
+     * 复制通知配置。
      *
-     * @param source the source
-     * @return copied config
+     * @param source 源配置
+     * @return 复制的配置
      */
     private static NotificationConfig copyNotificationConfig(NotificationConfig source) {
         if (source == null) {
@@ -230,10 +230,10 @@ public class UserSettings {
     }
 
     /**
-     * Copies trading config.
+     * 复制交易配置。
      *
-     * @param source the source
-     * @return copied config
+     * @param source 源配置
+     * @return 复制的配置
      */
     private static TradingConfig copyTradingConfig(TradingConfig source) {
         if (source == null) {
@@ -243,10 +243,10 @@ public class UserSettings {
     }
 
     /**
-     * Copies display config.
+     * 复制显示配置。
      *
-     * @param source the source
-     * @return copied config
+     * @param source 源配置
+     * @return 复制的配置
      */
     private static DisplayConfig copyDisplayConfig(DisplayConfig source) {
         if (source == null) {
@@ -256,10 +256,10 @@ public class UserSettings {
     }
 
     /**
-     * Copies LLM config.
+     * 复制 LLM 配置。
      *
-     * @param source the source
-     * @return copied config
+     * @param source 源配置
+     * @return 复制的配置
      */
     private static LlmConfig copyLlmConfig(LlmConfig source) {
         if (source == null) {
@@ -277,10 +277,10 @@ public class UserSettings {
     }
 
     /**
-     * Copies provider config.
+     * 复制提供商配置。
      *
-     * @param source the source
-     * @return copied config
+     * @param source 源配置
+     * @return 复制的配置
      */
     private static ProviderConfig copyProviderConfig(ProviderConfig source) {
         if (source == null) {
@@ -290,10 +290,10 @@ public class UserSettings {
     }
 
     /**
-     * Copies memory config.
+     * 复制记忆配置。
      *
-     * @param source the source
-     * @return copied config
+     * @param source 源配置
+     * @return 复制的配置
      */
     private static MemoryConfig copyMemoryConfig(MemoryConfig source) {
         if (source == null) {
@@ -303,75 +303,75 @@ public class UserSettings {
     }
 
     /**
-     * Builder wrapper class for UserSettings.
+     * UserSettings 的构建器包装类。
      */
     public static final class BuilderWrapper {
 
         /**
-         * The ID.
+         * ID。
          */
         private Long id;
 
         /**
-         * The user ID.
+         * 用户 ID。
          */
         private Long userId;
 
         /**
-         * The theme.
+         * 主题。
          */
         private String theme;
 
         /**
-         * The language.
+         * 语言。
          */
         private String language;
 
         /**
-         * The timezone.
+         * 时区。
          */
         private String timezone;
 
         /**
-         * The notification config.
+         * 通知配置。
          */
         private NotificationConfig notificationConfig;
 
         /**
-         * The trading config.
+         * 交易配置。
          */
         private TradingConfig tradingConfig;
 
         /**
-         * The display config.
+         * 显示配置。
          */
         private DisplayConfig displayConfig;
 
         /**
-         * The quick links.
+         * 快速链接。
          */
         private List<QuickLink> quickLinks;
 
         /**
-         * The LLM config.
+         * LLM 配置。
          */
         private LlmConfig llmConfig;
 
         /**
-         * The created at timestamp.
+         * 创建时间戳。
          */
         private LocalDateTime createdAt;
 
         /**
-         * The updated at timestamp.
+         * 更新时间戳。
          */
         private LocalDateTime updatedAt;
 
         /**
-         * Sets the ID.
+         * 设置 ID。
          *
-         * @param id the ID
-         * @return this builder
+         * @param id ID
+         * @return 此构建器
          */
         public BuilderWrapper id(Long id) {
             this.id = id;
@@ -379,10 +379,10 @@ public class UserSettings {
         }
 
         /**
-         * Sets the user ID.
+         * 设置用户 ID。
          *
-         * @param userId the user ID
-         * @return this builder
+         * @param userId 用户 ID
+         * @return 此构建器
          */
         public BuilderWrapper userId(Long userId) {
             this.userId = userId;
@@ -390,10 +390,10 @@ public class UserSettings {
         }
 
         /**
-         * Sets the theme.
+         * 设置主题。
          *
-         * @param theme the theme
-         * @return this builder
+         * @param theme 主题
+         * @return 此构建器
          */
         public BuilderWrapper theme(String theme) {
             this.theme = theme;
@@ -401,10 +401,10 @@ public class UserSettings {
         }
 
         /**
-         * Sets the language.
+         * 设置语言。
          *
-         * @param language the language
-         * @return this builder
+         * @param language 语言
+         * @return 此构建器
          */
         public BuilderWrapper language(String language) {
             this.language = language;
@@ -412,10 +412,10 @@ public class UserSettings {
         }
 
         /**
-         * Sets the timezone.
+         * 设置时区。
          *
-         * @param timezone the timezone
-         * @return this builder
+         * @param timezone 时区
+         * @return 此构建器
          */
         public BuilderWrapper timezone(String timezone) {
             this.timezone = timezone;
@@ -423,10 +423,10 @@ public class UserSettings {
         }
 
         /**
-         * Sets the notification config.
+         * 设置通知配置。
          *
-         * @param notificationConfig the notification config
-         * @return this builder
+         * @param notificationConfig 通知配置
+         * @return 此构建器
          */
         public BuilderWrapper notificationConfig(NotificationConfig notificationConfig) {
             this.notificationConfig = copyNotificationConfig(notificationConfig);
@@ -434,10 +434,10 @@ public class UserSettings {
         }
 
         /**
-         * Sets the trading config.
+         * 设置交易配置。
          *
-         * @param tradingConfig the trading config
-         * @return this builder
+         * @param tradingConfig 交易配置
+         * @return 此构建器
          */
         public BuilderWrapper tradingConfig(TradingConfig tradingConfig) {
             this.tradingConfig = copyTradingConfig(tradingConfig);
@@ -445,10 +445,10 @@ public class UserSettings {
         }
 
         /**
-         * Sets the display config.
+         * 设置显示配置。
          *
-         * @param displayConfig the display config
-         * @return this builder
+         * @param displayConfig 显示配置
+         * @return 此构建器
          */
         public BuilderWrapper displayConfig(DisplayConfig displayConfig) {
             this.displayConfig = copyDisplayConfig(displayConfig);
@@ -456,10 +456,10 @@ public class UserSettings {
         }
 
         /**
-         * Sets the quick links.
+         * 设置快速链接。
          *
-         * @param quickLinks the quick links
-         * @return this builder
+         * @param quickLinks 快速链接
+         * @return 此构建器
          */
         public BuilderWrapper quickLinks(List<QuickLink> quickLinks) {
             this.quickLinks = CollectionCopyUtils.copyList(quickLinks);
@@ -467,10 +467,10 @@ public class UserSettings {
         }
 
         /**
-         * Sets the LLM config.
+         * 设置 LLM 配置。
          *
-         * @param llmConfig the LLM config
-         * @return this builder
+         * @param llmConfig LLM 配置
+         * @return 此构建器
          */
         public BuilderWrapper llmConfig(LlmConfig llmConfig) {
             this.llmConfig = copyLlmConfig(llmConfig);
@@ -478,10 +478,10 @@ public class UserSettings {
         }
 
         /**
-         * Sets the created at.
+         * 设置创建时间。
          *
-         * @param createdAt the created at
-         * @return this builder
+         * @param createdAt 创建时间
+         * @return 此构建器
          */
         public BuilderWrapper createdAt(LocalDateTime createdAt) {
             this.createdAt = createdAt;
@@ -489,10 +489,10 @@ public class UserSettings {
         }
 
         /**
-         * Sets the updated at.
+         * 设置更新时间。
          *
-         * @param updatedAt the updated at
-         * @return this builder
+         * @param updatedAt 更新时间
+         * @return 此构建器
          */
         public BuilderWrapper updatedAt(LocalDateTime updatedAt) {
             this.updatedAt = updatedAt;
@@ -500,9 +500,9 @@ public class UserSettings {
         }
 
         /**
-         * Builds the UserSettings.
+         * 构建 UserSettings。
          *
-         * @return the UserSettings
+         * @return UserSettings
          */
         public UserSettings build() {
             UserSettings settings = new UserSettings();
@@ -523,7 +523,7 @@ public class UserSettings {
     }
 
     /**
-     * Notification configuration.
+     * 通知配置。
      */
     @Data
     @NoArgsConstructor
@@ -532,38 +532,38 @@ public class UserSettings {
     public static class NotificationConfig {
 
         /**
-         * Email notification enabled.
+         * 邮件通知启用。
          */
         @Builder.Default
         private Boolean email = true;
 
         /**
-         * Browser notification enabled.
+         * 浏览器通知启用。
          */
         @Builder.Default
         private Boolean browser = true;
 
         /**
-         * Price alert enabled.
+         * 价格提醒启用。
          */
         @Builder.Default
         private Boolean priceAlert = true;
 
         /**
-         * Trade alert enabled.
+         * 交易提醒启用。
          */
         @Builder.Default
         private Boolean tradeAlert = true;
 
         /**
-         * Strategy alert enabled.
+         * 策略提醒启用。
          */
         @Builder.Default
         private Boolean strategyAlert = true;
     }
 
     /**
-     * Trading configuration.
+     * 交易配置。
      */
     @Data
     @NoArgsConstructor
@@ -572,37 +572,37 @@ public class UserSettings {
     public static class TradingConfig {
 
         /**
-         * Default market.
+         * 默认市场。
          */
         @Builder.Default
         private String defaultMarket = "US";
 
         /**
-         * Commission rate constant (0.1%).
+         * 手续费率常量（0.1%）。
          */
         private static final Double DEFAULT_COMMISSION_RATE = 0.001;
 
         /**
-         * Commission rate.
+         * 手续费率。
          */
         @Builder.Default
         private Double commissionRate = DEFAULT_COMMISSION_RATE;
 
         /**
-         * Minimum commission.
+         * 最低手续费。
          */
         @Builder.Default
         private Double minCommission = 0.0;
 
         /**
-         * Enable confirmation.
+         * 启用确认。
          */
         @Builder.Default
         private Boolean enableConfirmation = true;
     }
 
     /**
-     * Display configuration.
+     * 显示配置。
      */
     @Data
     @NoArgsConstructor
@@ -611,32 +611,32 @@ public class UserSettings {
     public static class DisplayConfig {
 
         /**
-         * Currency.
+         * 货币。
          */
         @Builder.Default
         private String currency = "USD";
 
         /**
-         * Date format.
+         * 日期格式。
          */
         @Builder.Default
         private String dateFormat = "YYYY-MM-DD";
 
         /**
-         * Number format.
+         * 数字格式。
          */
         @Builder.Default
         private String numberFormat = "comma";
 
         /**
-         * Compact mode.
+         * 紧凑模式。
          */
         @Builder.Default
         private Boolean compactMode = false;
     }
 
     /**
-     * Quick link.
+     * 快速链接。
      */
     @Data
     @NoArgsConstructor
@@ -645,33 +645,33 @@ public class UserSettings {
     public static class QuickLink {
 
         /**
-         * Link ID.
+         * 链接 ID。
          */
         private Long id;
 
         /**
-         * Link name.
+         * 链接名称。
          */
         private String name;
 
         /**
-         * Link icon.
+         * 链接图标。
          */
         private String icon;
 
         /**
-         * Link path.
+         * 链接路径。
          */
         private String path;
 
         /**
-         * Sort order.
+         * 排序顺序。
          */
         private Integer sortOrder;
     }
 
     /**
-     * LLM configuration.
+     * LLM 配置。
      */
     @Data
     @NoArgsConstructor
@@ -680,108 +680,108 @@ public class UserSettings {
     public static class LlmConfig {
 
         /**
-         * Provider name.
+         * 提供商名称。
          */
         private String provider;
 
         /**
-         * API key.
+         * API Key。
          */
         private String apiKey;
 
         /**
-         * API base URL.
+         * API 基础 URL。
          */
         private String apiBase;
 
         /**
-         * Minimax config.
+         * Minimax 配置。
          */
         private ProviderConfig minimax;
 
         /**
-         * Deepseek config.
+         * Deepseek 配置。
          */
         private ProviderConfig deepseek;
 
         /**
-         * OpenAI config.
+         * OpenAI 配置。
          */
         private ProviderConfig openai;
 
         /**
-         * Memory config.
+         * 记忆配置。
          */
         @Builder.Default
         private MemoryConfig memory = new MemoryConfig();
 
         /**
-         * Gets minimax config copy.
+         * 获取 Minimax 配置副本。
          *
-         * @return minimax config copy
+         * @return Minimax 配置副本
          */
         public ProviderConfig getMinimax() {
             return copyProviderConfig(minimax);
         }
 
         /**
-         * Sets minimax config with copy.
+         * 使用副本设置 Minimax 配置。
          *
-         * @param minimax the minimax config
+         * @param minimax Minimax 配置
          */
         public void setMinimax(ProviderConfig minimax) {
             this.minimax = copyProviderConfig(minimax);
         }
 
         /**
-         * Gets deepseek config copy.
+         * 获取 Deepseek 配置副本。
          *
-         * @return deepseek config copy
+         * @return Deepseek 配置副本
          */
         public ProviderConfig getDeepseek() {
             return copyProviderConfig(deepseek);
         }
 
         /**
-         * Sets deepseek config with copy.
+         * 使用副本设置 Deepseek 配置。
          *
-         * @param deepseek the deepseek config
+         * @param deepseek Deepseek 配置
          */
         public void setDeepseek(ProviderConfig deepseek) {
             this.deepseek = copyProviderConfig(deepseek);
         }
 
         /**
-         * Gets openai config copy.
+         * 获取 OpenAI 配置副本。
          *
-         * @return openai config copy
+         * @return OpenAI 配置副本
          */
         public ProviderConfig getOpenai() {
             return copyProviderConfig(openai);
         }
 
         /**
-         * Sets openai config with copy.
+         * 使用副本设置 OpenAI 配置。
          *
-         * @param openai the openai config
+         * @param openai OpenAI 配置
          */
         public void setOpenai(ProviderConfig openai) {
             this.openai = copyProviderConfig(openai);
         }
 
         /**
-         * Gets memory config copy.
+         * 获取记忆配置副本。
          *
-         * @return memory config copy
+         * @return 记忆配置副本
          */
         public MemoryConfig getMemory() {
             return copyMemoryConfig(memory);
         }
 
         /**
-         * Sets memory config with copy.
+         * 使用副本设置记忆配置。
          *
-         * @param memory the memory config
+         * @param memory 记忆配置
          */
         public void setMemory(MemoryConfig memory) {
             this.memory = copyMemoryConfig(memory);
@@ -789,7 +789,7 @@ public class UserSettings {
     }
 
     /**
-     * Provider configuration.
+     * 提供商配置。
      */
     @Data
     @NoArgsConstructor
@@ -798,18 +798,18 @@ public class UserSettings {
     public static class ProviderConfig {
 
         /**
-         * API key.
+         * API Key。
          */
         private String apiKey;
 
         /**
-         * API base URL.
+         * API 基础 URL。
          */
         private String apiBase;
     }
 
     /**
-     * Memory configuration.
+     * 记忆配置。
      */
     @Data
     @NoArgsConstructor
@@ -818,31 +818,31 @@ public class UserSettings {
     public static class MemoryConfig {
 
         /**
-         * Memory enabled.
+         * 记忆启用。
          */
         @Builder.Default
         private Boolean enabled = true;
 
         /**
-         * Memory mode.
+         * 记忆模式。
          */
         @Builder.Default
         private String mode = "L0";
 
         /**
-         * Enable L1.
+         * 启用 L1。
          */
         @Builder.Default
         private Boolean enableL1 = true;
 
         /**
-         * Enable L2.
+         * 启用 L2。
          */
         @Builder.Default
         private Boolean enableL2 = true;
 
         /**
-         * Enable L3.
+         * 启用 L3。
          */
         @Builder.Default
         private Boolean enableL3 = true;

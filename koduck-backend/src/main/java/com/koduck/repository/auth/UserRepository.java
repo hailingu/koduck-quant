@@ -14,7 +14,7 @@ import org.springframework.stereotype.Repository;
 import com.koduck.entity.auth.User;
 
 /**
- * Repository for User operations.
+ * 用户操作仓库，提供用户数据的数据库访问。
  *
  * @author Koduck Team
  */
@@ -40,12 +40,12 @@ public interface UserRepository extends JpaRepository<User, Long> {
     void updatePassword(@Param("userId") Long userId, @Param("passwordHash") String passwordHash);
 
     /**
-     * Find users by username or email containing the given strings.
+     * 根据用户名或邮箱模糊搜索用户。
      *
-     * @param username the username to search for
-     * @param email the email to search for
-     * @param pageable the pageable
-     * @return page of users
+     * @param username 要搜索的用户名
+     * @param email 要搜索的邮箱
+     * @param pageable 分页对象
+     * @return 用户分页结果
      */
     Page<User> findByUsernameContainingOrEmailContaining(
             String username, String email, Pageable pageable);

@@ -9,14 +9,14 @@ import java.util.Set;
 import com.koduck.dto.market.PriceUpdateDto;
 
 /**
- * Service interface for managing user stock subscriptions.
- * Provides functionality to subscribe/unsubscribe to stock price updates.
+ * 用户股票订阅管理服务接口。
+ * 提供订阅/取消订阅股票价格更新的功能。
  *
- * <p>Manages bidirectional mappings using thread-safe collections (ConcurrentHashMap):</p>
+ * <p>使用线程安全的集合（ConcurrentHashMap）管理双向映射：</p>
  * <ul>
- *   <li>User subscriptions (userId -> Set&lt;symbol&gt;)</li>
- *   <li>Symbol subscribers (symbol -> Set&lt;userId&gt;)</li>
- *   <li>Real-time price distribution</li>
+ *   <li>用户订阅（userId -> Set&lt;symbol&gt;）</li>
+ *   <li>股票订阅者（symbol -> Set&lt;userId&gt;）</li>
+ *   <li>实时价格分发</li>
  * </ul>
  *
  * @author Koduck Team
@@ -24,75 +24,75 @@ import com.koduck.dto.market.PriceUpdateDto;
 public interface StockSubscriptionService {
 
     /**
-     * Subscribe a user to stock symbols.
+     * 订阅用户到股票代码。
      *
-     * @param userId  the user ID
-     * @param symbols the list of stock symbols to subscribe
-     * @return the subscription result containing success and failed symbols
+     * @param userId  用户ID
+     * @param symbols 要订阅的股票代码列表
+     * @return 订阅结果，包含成功和失败的股票代码
      */
     SubscribeResult subscribe(Long userId, List<String> symbols);
 
     /**
-     * Unsubscribe a user from stock symbols.
+     * 取消订阅用户从股票代码。
      *
-     * @param userId  the user ID
-     * @param symbols the list of stock symbols to unsubscribe
-     * @return the subscription result containing success and failed symbols
+     * @param userId  用户ID
+     * @param symbols 要取消订阅的股票代码列表
+     * @return 订阅结果，包含成功和失败的股票代码
      */
     SubscribeResult unsubscribe(Long userId, List<String> symbols);
 
     /**
-     * Get all subscribers for a symbol.
+     * 获取某只股票的所有订阅者。
      *
-     * @param symbol the stock symbol
-     * @return the set of subscriber user IDs
+     * @param symbol 股票代码
+     * @return 订阅者用户ID集合
      */
     Set<Long> getSubscribers(String symbol);
 
     /**
-     * Get all subscriptions for a user.
+     * 获取用户的所有订阅。
      *
-     * @param userId the user ID
-     * @return the set of subscribed symbols
+     * @param userId 用户ID
+     * @return 已订阅的股票代码集合
      */
     Set<String> getUserSubscriptions(Long userId);
 
     /**
-     * Get all subscribed symbols across all users.
+     * 获取所有用户订阅的股票代码。
      *
-     * @return the set of all subscribed symbols
+     * @return 所有已订阅的股票代码集合
      */
     Set<String> getAllSubscribedSymbols();
 
     /**
-     * Handle price update event.
+     * 处理价格更新事件。
      *
-     * @param priceUpdate the price update data
+     * @param priceUpdate 价格更新数据
      */
     void onPriceUpdate(PriceUpdateDto priceUpdate);
 
     /**
-     * Handle user disconnection event.
+     * 处理用户断开连接事件。
      *
-     * @param userId the user ID
+     * @param userId 用户ID
      */
     void onUserDisconnect(Long userId);
 
     /**
-     * Result of a subscribe/unsubscribe operation.
+     * 订阅/取消订阅操作的结果。
      */
     class SubscribeResult {
-        /** List of successfully processed symbols. */
+        /** 成功处理的股票代码列表。 */
         private final List<String> success;
 
-        /** Map of failed symbols to error reasons. */
+        /** 失败的股票代码到错误原因的映射。 */
         private final Map<String, String> failed;
 
         /**
-         * Constructs a SubscribeResult.
+         * 构造SubscribeResult。
          *
-         * @param success the list of successful symbols
-         * @param failed  the map of failed symbols to reasons
+         * @param success 成功的股票代码列表
+         * @param failed  失败的股票代码到原因的映射
          */
         public SubscribeResult(List<String> success, Map<String, String> failed) {
             this.success = success == null ? List.of() : List.copyOf(success);
@@ -100,29 +100,29 @@ public interface StockSubscriptionService {
         }
 
         /**
-         * Get the list of successful symbols.
+         * 获取成功的股票代码列表。
          *
-         * @return the list of successful symbols
+         * @return 成功的股票代码列表
          */
         public List<String> getSuccess() {
             return List.copyOf(success);
         }
 
         /**
-         * Get the map of failed symbols.
+         * 获取失败的股票代码映射。
          *
-         * @return the map of failed symbols to reasons
+         * @return 失败的股票代码到原因的映射
          */
         public Map<String, String> getFailed() {
             return Map.copyOf(failed);
         }
 
         /**
-         * Create a failure result for the given symbols.
+         * 为给定的股票代码创建失败结果。
          *
-         * @param symbols the symbols that failed
-         * @param reason  the failure reason
-         * @return a SubscribeResult with all symbols marked as failed
+         * @param symbols 失败的股票代码
+         * @param reason  失败原因
+         * @return 所有股票代码都标记为失败的SubscribeResult
          */
         public static SubscribeResult failure(List<String> symbols, String reason) {
             Map<String, String> failed = new HashMap<>();
@@ -133,9 +133,9 @@ public interface StockSubscriptionService {
         }
 
         /**
-         * Check if there are any failures.
+         * 检查是否有失败。
          *
-         * @return true if there are failed symbols
+         * @return 如果有失败的股票代码则返回true
          */
         public boolean hasFailures() {
             return !failed.isEmpty();
@@ -143,58 +143,58 @@ public interface StockSubscriptionService {
     }
 
     /**
-     * Message containing price update data for WebSocket transmission.
+     * 包含用于WebSocket传输的价格更新数据的消息。
      */
     class PriceUpdateMessage {
-        /** The message type. */
+        /** 消息类型。 */
         private String type;
 
-        /** The message timestamp. */
+        /** 消息时间戳。 */
         private String timestamp;
 
-        /** The price data. */
+        /** 价格数据。 */
         private PriceUpdateDto data;
 
         /**
-         * Get the message type.
+         * 获取消息类型。
          *
-         * @return the type
+         * @return 类型
          */
         public String getType() {
             return type;
         }
 
         /**
-         * Set the message type.
+         * 设置消息类型。
          *
-         * @param type the type
+         * @param type 类型
          */
         public void setType(String type) {
             this.type = type;
         }
 
         /**
-         * Get the timestamp.
+         * 获取时间戳。
          *
-         * @return the timestamp
+         * @return 时间戳
          */
         public String getTimestamp() {
             return timestamp;
         }
 
         /**
-         * Set the timestamp.
+         * 设置时间戳。
          *
-         * @param timestamp the timestamp
+         * @param timestamp 时间戳
          */
         public void setTimestamp(String timestamp) {
             this.timestamp = timestamp;
         }
 
         /**
-         * Get the price data.
+         * 获取价格数据。
          *
-         * @return the price data (defensive copy)
+         * @return 价格数据（防御性拷贝）
          */
         public PriceUpdateDto getData() {
             if (data == null) {
@@ -211,9 +211,9 @@ public interface StockSubscriptionService {
         }
 
         /**
-         * Set the price data.
+         * 设置价格数据。
          *
-         * @param data the price data
+         * @param data 价格数据
          */
         public void setData(PriceUpdateDto data) {
             this.data = data;

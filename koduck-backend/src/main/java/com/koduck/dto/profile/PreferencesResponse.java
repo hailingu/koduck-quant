@@ -6,7 +6,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 /**
- * Response DTO for user preferences.
+ * Response 用户偏好设置数据传输对象。
  *
  * @author Koduck Team
  */

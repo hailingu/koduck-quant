@@ -10,7 +10,7 @@ import org.springframework.stereotype.Repository;
 import com.koduck.entity.market.MarketDailyBreadth;
 
 /**
- * Repository for market daily breadth data.
+ * 市场每日涨跌宽度数据仓库，提供市场涨跌宽度数据的数据库访问。
  *
  * @author Koduck Team
  */
@@ -19,23 +19,23 @@ public interface MarketDailyBreadthRepository
         extends JpaRepository<MarketDailyBreadth, Long> {
 
     /**
-     * Find the first record by market and breadth type, ordered by trade date.
+     * 根据市场和宽度类型查询最新记录，按交易日排序。
      *
-     * @param market      the market code
-     * @param breadthType the breadth type
-     * @return optional of market daily breadth
+     * @param market 市场代码
+     * @param breadthType 宽度类型
+     * @return 市场每日涨跌宽度
      */
     Optional<MarketDailyBreadth> findFirstByMarketAndBreadthTypeOrderByTradeDateDesc(
             String market,
             String breadthType);
 
     /**
-     * Find record by market, breadth type and trade date.
+     * 根据市场、宽度类型和交易日查询记录。
      *
-     * @param market      the market code
-     * @param breadthType the breadth type
-     * @param tradeDate   the trade date
-     * @return optional of market daily breadth
+     * @param market 市场代码
+     * @param breadthType 宽度类型
+     * @param tradeDate 交易日
+     * @return 市场每日涨跌宽度
      */
     Optional<MarketDailyBreadth> findByMarketAndBreadthTypeAndTradeDate(
             String market,
@@ -43,13 +43,13 @@ public interface MarketDailyBreadthRepository
             LocalDate tradeDate);
 
     /**
-     * Find records by market, breadth type and date range.
+     * 根据市场、宽度类型和日期范围查询记录。
      *
-     * @param market      the market code
-     * @param breadthType the breadth type
-     * @param from        the start date
-     * @param to          the end date
-     * @return list of market daily breadth records
+     * @param market 市场代码
+     * @param breadthType 宽度类型
+     * @param from 开始日期
+     * @param to 结束日期
+     * @return 市场每日涨跌宽度记录列表
      */
     List<MarketDailyBreadth> findByMarketAndBreadthTypeAndTradeDateBetweenOrderByTradeDateAsc(
             String market,

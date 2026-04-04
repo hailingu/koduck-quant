@@ -22,9 +22,9 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 /**
- * User entity representing application users.
+ * 用户实体，表示应用用户。
  *
- * @author koduck
+ * @author Koduck Team
  */
 @Entity
 @Table(name = "users")
@@ -35,71 +35,71 @@ import lombok.Setter;
 @Builder
 public class User {
 
-    /** Unique identifier for the user. */
+    /** 用户的唯一标识符。 */
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Setter(AccessLevel.NONE)
     private Long id;
 
-    /** Username for login, must be unique. */
+    /** 登录用户名，必须唯一。 */
     @Column(nullable = false, unique = true, length = 50)
     private String username;
 
-    /** Email address, must be unique. */
+    /** 邮箱地址，必须唯一。 */
     @Column(nullable = false, unique = true, length = 100)
     private String email;
 
-    /** Hashed password for authentication. */
+    /** 认证用的哈希密码。 */
     @Column(name = "password_hash", nullable = false)
     private String passwordHash;
 
-    /** Display name or nickname. */
+    /** 显示名称或昵称。 */
     @Column(length = 50)
     private String nickname;
 
-    /** URL to user's avatar image. */
+    /** 用户头像图片 URL。 */
     @Column(name = "avatar_url", length = 255)
     private String avatarUrl;
 
-    /** User account status. */
+    /** 用户账户状态。 */
     @Column(nullable = false)
     @Enumerated(EnumType.ORDINAL)
     @Builder.Default
     private UserStatus status = UserStatus.ACTIVE;
 
-    /** Timestamp when email was verified. */
+    /** 邮箱验证时间戳。 */
     @Column(name = "email_verified_at")
     private LocalDateTime emailVerifiedAt;
 
-    /** Timestamp of last login. */
+    /** 上次登录时间戳。 */
     @Column(name = "last_login_at")
     private LocalDateTime lastLoginAt;
 
-    /** IP address of last login. */
+    /** 上次登录 IP 地址。 */
     @Column(name = "last_login_ip", length = 45)
     private String lastLoginIp;
 
-    /** Timestamp when user was created. */
+    /** 用户创建时间戳。 */
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     @Setter(AccessLevel.NONE)
     private LocalDateTime createdAt;
 
-    /** Timestamp of last update. */
+    /** 最后更新时间戳。 */
     @UpdateTimestamp
     @Column(name = "updated_at", nullable = false)
     private LocalDateTime updatedAt;
 
-    /** Enumeration of possible user account statuses. */
+    /** 可能的用户账户状态枚举。 */
     public enum UserStatus {
 
-        /** Account is disabled/inactive. */
+        /** 账户已禁用/非活跃。 */
         DISABLED,
 
-        /** Account is active and functional. */
+        /** 账户处于活跃状态。 */
         ACTIVE,
 
-        /** Account is pending activation. */
+        /** 账户待激活。 */
         PENDING
     }
 }

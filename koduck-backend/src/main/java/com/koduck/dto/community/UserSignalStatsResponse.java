@@ -17,8 +17,7 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 public class UserSignalStatsResponse {
-
-    /** The user ID. */
+        /** 用户ID。 */
     private Long userId;
 
     /** The username. */

@@ -28,32 +28,32 @@ public class SignalResponse {
     private Long id;
 
     /**
-     * User ID.
+     * 用户ID。
      */
     private Long userId;
 
     /**
-     * Username.
+     * 用户名。
      */
     private String username;
 
     /**
-     * Avatar URL.
+     * 头像URL。
      */
     private String avatarUrl;
 
     /**
-     * Strategy ID.
+ * 策略ID。
      */
     private Long strategyId;
 
     /**
-     * Strategy name.
+ * 策略名称。
      */
     private String strategyName;
 
     /**
-     * Stock symbol.
+ * 股票代码。
      */
     private String symbol;
 
@@ -181,17 +181,17 @@ public class SignalResponse {
     }
 
     /**
-     * Builder for SignalResponse.
+     * SignalResponse 的构建器。
      */
     public static final class Builder {
 
         /** Signal ID. */
         private Long id;
-        /** User ID. */
+        /** 用户ID。 */
         private Long userId;
-        /** Username. */
+        /** 用户名。 */
         private String username;
-        /** Avatar URL. */
+        /** 头像URL。 */
         private String avatarUrl;
         /** Strategy ID. */
         private Long strategyId;
@@ -248,7 +248,7 @@ public class SignalResponse {
          * Set the ID.
          *
          * @param id the ID
-         * @return the builder
+         * @return 构建器
          */
         public Builder id(Long id) {
             this.id = id;
@@ -258,8 +258,8 @@ public class SignalResponse {
         /**
          * Set the user ID.
          *
-         * @param userId the user ID
-         * @return the builder
+         * @param userId 用户ID
+         * @return 构建器
          */
         public Builder userId(Long userId) {
             this.userId = userId;
@@ -270,7 +270,7 @@ public class SignalResponse {
          * Set the username.
          *
          * @param username the username
-         * @return the builder
+         * @return 构建器
          */
         public Builder username(String username) {
             this.username = username;
@@ -281,7 +281,7 @@ public class SignalResponse {
          * Set the avatar URL.
          *
          * @param avatarUrl the avatar URL
-         * @return the builder
+         * @return 构建器
          */
         public Builder avatarUrl(String avatarUrl) {
             this.avatarUrl = avatarUrl;
@@ -292,7 +292,7 @@ public class SignalResponse {
          * Set the strategy ID.
          *
          * @param strategyId the strategy ID
-         * @return the builder
+         * @return 构建器
          */
         public Builder strategyId(Long strategyId) {
             this.strategyId = strategyId;
@@ -303,7 +303,7 @@ public class SignalResponse {
          * Set the strategy name.
          *
          * @param strategyName the strategy name
-         * @return the builder
+         * @return 构建器
          */
         public Builder strategyName(String strategyName) {
             this.strategyName = strategyName;
@@ -313,8 +313,8 @@ public class SignalResponse {
         /**
          * Set the symbol.
          *
-         * @param symbol the symbol
-         * @return the builder
+         * @param symbol 品种代码
+         * @return 构建器
          */
         public Builder symbol(String symbol) {
             this.symbol = symbol;
@@ -324,8 +324,8 @@ public class SignalResponse {
         /**
          * Set the signal type.
          *
-         * @param signalType the signal type
-         * @return the builder
+         * @param signalType 信号类型
+         * @return 构建器
          */
         public Builder signalType(String signalType) {
             this.signalType = signalType;
@@ -336,7 +336,7 @@ public class SignalResponse {
          * Set the reason.
          *
          * @param reason the reason
-         * @return the builder
+         * @return 构建器
          */
         public Builder reason(String reason) {
             this.reason = reason;
@@ -347,7 +347,7 @@ public class SignalResponse {
          * Set the target price.
          *
          * @param targetPrice the target price
-         * @return the builder
+         * @return 构建器
          */
         public Builder targetPrice(BigDecimal targetPrice) {
             this.targetPrice = targetPrice;
@@ -357,8 +357,8 @@ public class SignalResponse {
         /**
          * Set the stop loss.
          *
-         * @param stopLoss the stop loss
-         * @return the builder
+         * @param stopLoss 止损价
+         * @return 构建器
          */
         public Builder stopLoss(BigDecimal stopLoss) {
             this.stopLoss = stopLoss;
@@ -369,7 +369,7 @@ public class SignalResponse {
          * Set the time frame.
          *
          * @param timeFrame the time frame
-         * @return the builder
+         * @return 构建器
          */
         public Builder timeFrame(String timeFrame) {
             this.signalTimeFrame = timeFrame;
@@ -380,7 +380,7 @@ public class SignalResponse {
          * Set the confidence.
          *
          * @param confidence the confidence
-         * @return the builder
+         * @return 构建器
          */
         public Builder confidence(Integer confidence) {
             this.confidence = confidence;
@@ -390,8 +390,8 @@ public class SignalResponse {
         /**
          * Set the status.
          *
-         * @param status the status
-         * @return the builder
+         * @param status 状态
+         * @return 构建器
          */
         public Builder status(String status) {
             this.status = status;
@@ -402,7 +402,7 @@ public class SignalResponse {
          * Set the result status.
          *
          * @param resultStatus the result status
-         * @return the builder
+         * @return 构建器
          */
         public Builder resultStatus(String resultStatus) {
             this.resultStatus = resultStatus;
@@ -413,7 +413,7 @@ public class SignalResponse {
          * Set the result profit.
          *
          * @param resultProfit the result profit
-         * @return the builder
+         * @return 构建器
          */
         public Builder resultProfit(BigDecimal resultProfit) {
             this.resultProfit = resultProfit;
@@ -424,7 +424,7 @@ public class SignalResponse {
          * Set the expiration time.
          *
          * @param expiresAt the expiration time
-         * @return the builder
+         * @return 构建器
          */
         public Builder expiresAt(LocalDateTime expiresAt) {
             this.expiresAt = expiresAt;
@@ -435,7 +435,7 @@ public class SignalResponse {
          * Set the like count.
          *
          * @param likeCount the like count
-         * @return the builder
+         * @return 构建器
          */
         public Builder likeCount(Integer likeCount) {
             this.likeCount = likeCount;
@@ -446,7 +446,7 @@ public class SignalResponse {
          * Set the favorite count.
          *
          * @param favoriteCount the favorite count
-         * @return the builder
+         * @return 构建器
          */
         public Builder favoriteCount(Integer favoriteCount) {
             this.favoriteCount = favoriteCount;
@@ -457,7 +457,7 @@ public class SignalResponse {
          * Set the subscribe count.
          *
          * @param subscribeCount the subscribe count
-         * @return the builder
+         * @return 构建器
          */
         public Builder subscribeCount(Integer subscribeCount) {
             this.subscribeCount = subscribeCount;
@@ -468,7 +468,7 @@ public class SignalResponse {
          * Set the comment count.
          *
          * @param commentCount the comment count
-         * @return the builder
+         * @return 构建器
          */
         public Builder commentCount(Integer commentCount) {
             this.commentCount = commentCount;
@@ -479,7 +479,7 @@ public class SignalResponse {
          * Set the view count.
          *
          * @param viewCount the view count
-         * @return the builder
+         * @return 构建器
          */
         public Builder viewCount(Integer viewCount) {
             this.viewCount = viewCount;
@@ -490,7 +490,7 @@ public class SignalResponse {
          * Set whether the signal is featured.
          *
          * @param isFeatured whether featured
-         * @return the builder
+         * @return 构建器
          */
         public Builder isFeatured(Boolean isFeatured) {
             this.isFeatured = isFeatured;
@@ -501,7 +501,7 @@ public class SignalResponse {
          * Set the tags.
          *
          * @param tags the tags
-         * @return the builder
+         * @return 构建器
          */
         public Builder tags(List<String> tags) {
             this.tags = CollectionCopyUtils.copyList(tags);
@@ -512,7 +512,7 @@ public class SignalResponse {
          * Set whether the signal is liked.
          *
          * @param isLiked whether liked
-         * @return the builder
+         * @return 构建器
          */
         public Builder isLiked(Boolean isLiked) {
             this.isLiked = isLiked;
@@ -523,7 +523,7 @@ public class SignalResponse {
          * Set whether the signal is favorited.
          *
          * @param isFavorited whether favorited
-         * @return the builder
+         * @return 构建器
          */
         public Builder isFavorited(Boolean isFavorited) {
             this.isFavorited = isFavorited;
@@ -534,7 +534,7 @@ public class SignalResponse {
          * Set whether the signal is subscribed.
          *
          * @param isSubscribed whether subscribed
-         * @return the builder
+         * @return 构建器
          */
         public Builder isSubscribed(Boolean isSubscribed) {
             this.isSubscribed = isSubscribed;
@@ -545,7 +545,7 @@ public class SignalResponse {
          * Set the creation time.
          *
          * @param createdAt the creation time
-         * @return the builder
+         * @return 构建器
          */
         public Builder createdAt(LocalDateTime createdAt) {
             this.createdAt = createdAt;
@@ -556,7 +556,7 @@ public class SignalResponse {
          * Set the update time.
          *
          * @param updatedAt the update time
-         * @return the builder
+         * @return 构建器
          */
         public Builder updatedAt(LocalDateTime updatedAt) {
             this.updatedAt = updatedAt;

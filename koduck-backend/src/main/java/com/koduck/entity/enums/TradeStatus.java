@@ -1,22 +1,22 @@
 package com.koduck.entity.enums;
 
 /**
- * Trade status enumeration.
- * Extracted from Trade.TradeStatus to eliminate inner enum redundancy.
+ * 交易状态枚举。
+ * 从 Trade.TradeStatus 中提取以消除内部枚举冗余。
  *
  * @author Koduck Team
  */
 public enum TradeStatus {
 
-    /** Pending status. */
+    /** 待处理状态。 */
     PENDING,
 
-    /** Success status. */
+    /** 成功状态。 */
     SUCCESS,
 
-    /** Failed status. */
+    /** 失败状态。 */
     FAILED,
 
-    /** Cancelled status. */
+    /** 已取消状态。 */
     CANCELLED
 }

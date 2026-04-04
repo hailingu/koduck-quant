@@ -12,7 +12,7 @@ import org.springframework.stereotype.Repository;
 import com.koduck.entity.strategy.AlertHistory;
 
 /**
- * Repository for alert history operations.
+ * 告警历史操作仓库，提供告警历史数据的数据库访问。
  *
  * @author Koduck Team
  */
@@ -20,61 +20,61 @@ import com.koduck.entity.strategy.AlertHistory;
 public interface AlertHistoryRepository extends JpaRepository<AlertHistory, Long> {
 
     /**
-     * Find alerts by status.
+     * 根据状态查询告警。
      *
-     * @param status the alert status
-     * @return list of alert history
+     * @param status 告警状态
+     * @return 告警历史列表
      */
     List<AlertHistory> findByStatus(String status);
 
     /**
-     * Find pending alerts.
+     * 查询待处理的告警。
      *
-     * @return list of pending alerts
+     * @return 待处理告警列表
      */
     @Query("SELECT a FROM AlertHistory a WHERE a.status = 'PENDING' "
             + "ORDER BY a.createdAt DESC")
     List<AlertHistory> findPendingAlerts();
 
     /**
-     * Find alerts by severity.
+     * 根据严重级别查询告警。
      *
-     * @param severity the alert severity
-     * @return list of alert history
+     * @param severity 告警严重级别
+     * @return 告警历史列表
      */
     List<AlertHistory> findBySeverity(String severity);
 
     /**
-     * Find recent alerts with pagination.
+     * 分页查询最近的告警。
      *
-     * @param pageable the pagination information
-     * @return page of alert history
+     * @param pageable 分页信息
+     * @return 告警历史分页结果
      */
     Page<AlertHistory> findAllByOrderByCreatedAtDesc(Pageable pageable);
 
     /**
-     * Find alerts created after a specific time.
+     * 查询指定时间之后创建的告警。
      *
-     * @param time the time threshold
-     * @return list of alert history
+     * @param time 时间阈值
+     * @return 告警历史列表
      */
     List<AlertHistory> findByCreatedAtAfter(LocalDateTime time);
 
     /**
-     * Find unresolved alerts for a specific rule.
+     * 查询指定规则的未解决告警。
      *
-     * @param ruleId the alert rule ID
-     * @return list of alert history
+     * @param ruleId 告警规则 ID
+     * @return 告警历史列表
      */
     @Query("SELECT a FROM AlertHistory a WHERE a.alertRuleId = :ruleId "
             + "AND a.status = 'PENDING'")
     List<AlertHistory> findPendingByRuleId(Long ruleId);
 
     /**
-     * Count alerts by severity.
+     * 按严重级别统计告警数量。
      *
-     * @param since the time threshold
-     * @return list of severity counts
+     * @param since 时间阈值
+     * @return 严重级别统计列表
      */
     @Query("SELECT a.severity, COUNT(a) FROM AlertHistory a "
             + "WHERE a.createdAt >= :since GROUP BY a.severity")

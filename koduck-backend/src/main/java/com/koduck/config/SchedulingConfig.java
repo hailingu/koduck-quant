@@ -5,7 +5,7 @@ import org.springframework.scheduling.annotation.EnableAsync;
 import org.springframework.scheduling.annotation.EnableScheduling;
 
 /**
- * Enable scheduling and async support.
+ * 启用调度和异步支持。
  *
  * @author Koduck Team
  */

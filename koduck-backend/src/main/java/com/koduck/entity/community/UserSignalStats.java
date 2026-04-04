@@ -25,9 +25,9 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 /**
- * User signal statistics entity.
+ * 用户信号统计实体。
  *
- * @author koduck
+ * @author Koduck Team
  */
 @Entity
 @Table(name = "user_signal_stats")
@@ -36,7 +36,7 @@ import lombok.Setter;
 public class UserSignalStats {
 
     /**
-     * Primary key ID.
+     * 主键 ID。
      */
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -44,92 +44,92 @@ public class UserSignalStats {
     private Long id;
 
     /**
-     * User ID.
+     * 用户 ID。
      */
     @Column(name = "user_id", nullable = false, unique = true)
     private Long userId;
 
     /**
-     * Total number of signals.
+     * 信号总数。
      */
     @Column(name = "total_signals")
     private Integer totalSignals = 0;
 
     /**
-     * Number of winning signals.
+     * 盈利信号数。
      */
     @Column(name = "win_signals")
     private Integer winSignals = 0;
 
     /**
-     * Number of losing signals.
+     * 亏损信号数。
      */
     @Column(name = "loss_signals")
     private Integer lossSignals = 0;
 
     /**
-     * Win rate percentage.
+     * 胜率百分比。
      */
     @Column(name = "win_rate", precision = 5, scale = 2)
     private BigDecimal winRate;
 
     /**
-     * Average profit.
+     * 平均盈利。
      */
     @Column(name = "avg_profit", precision = 19, scale = 4)
     private BigDecimal avgProfit;
 
     /**
-     * Number of followers.
+     * 关注者数量。
      */
     @Column(name = "follower_count")
     private Integer followerCount = 0;
 
     /**
-     * Reputation score.
+     * 声誉评分。
      */
     @Column(name = "reputation_score")
     private Integer reputationScore = 0;
 
     /**
-     * Last update timestamp.
+     * 最后更新时间戳。
      */
     @UpdateTimestamp
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
 
     /**
-     * Associated user entity.
+     * 关联的用户实体。
      */
     @OneToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", insertable = false, updatable = false)
     private User user;
 
     /**
-     * Maximum win rate constant.
+     * 最大胜率常量。
      */
     private static final int MAX_WIN_RATE = 100;
 
     /**
-     * Get the associated user.
+     * 获取关联的用户。
      *
-     * @return the user
+     * @return 用户
      */
     public User getUser() {
         return EntityCopyUtils.copyUser(user);
     }
 
     /**
-     * Set the associated user.
+     * 设置关联的用户。
      *
-     * @param user the user to set
+     * @param user 要设置的用户
      */
     public void setUser(User user) {
         this.user = EntityCopyUtils.copyUser(user);
     }
 
     /**
-     * Calculate the win rate.
+     * 计算胜率。
      */
     public void calculateWinRate() {
         if (totalSignals != null && totalSignals > 0) {

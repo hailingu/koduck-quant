@@ -47,7 +47,7 @@ public record SymbolInfoDto(
     /**
      * Get a builder for SymbolInfoDto.
      *
-     * @return the builder
+     * @return 构建器
      */
     public static Builder builder() {
         return new Builder();
@@ -85,7 +85,7 @@ public record SymbolInfoDto(
          * Set the symbol.
          *
          * @param symbol the stock symbol
-         * @return the builder
+         * @return 构建器
          */
         public Builder symbol(String symbol) {
             this.symbol = symbol;
@@ -96,7 +96,7 @@ public record SymbolInfoDto(
          * Set the name.
          *
          * @param name the stock name
-         * @return the builder
+         * @return 构建器
          */
         public Builder name(String name) {
             this.name = name;
@@ -107,7 +107,7 @@ public record SymbolInfoDto(
          * Set the type.
          *
          * @param type the stock type
-         * @return the builder
+         * @return 构建器
          */
         public Builder type(String type) {
             this.type = type;
@@ -118,7 +118,7 @@ public record SymbolInfoDto(
          * Set the market.
          *
          * @param market the market code
-         * @return the builder
+         * @return 构建器
          */
         public Builder market(String market) {
             this.market = market;
@@ -129,7 +129,7 @@ public record SymbolInfoDto(
          * Set the price.
          *
          * @param price the current price
-         * @return the builder
+         * @return 构建器
          */
         public Builder price(BigDecimal price) {
             this.price = price;
@@ -140,7 +140,7 @@ public record SymbolInfoDto(
          * Set the change percent.
          *
          * @param changePercent the price change percentage
-         * @return the builder
+         * @return 构建器
          */
         public Builder changePercent(BigDecimal changePercent) {
             this.changePercent = changePercent;
@@ -151,7 +151,7 @@ public record SymbolInfoDto(
          * Set the volume.
          *
          * @param volume the trading volume
-         * @return the builder
+         * @return 构建器
          */
         public Builder volume(Long volume) {
             this.volume = volume;
@@ -162,7 +162,7 @@ public record SymbolInfoDto(
          * Set the amount.
          *
          * @param amount the trading amount
-         * @return the builder
+         * @return 构建器
          */
         public Builder amount(BigDecimal amount) {
             this.amount = amount;

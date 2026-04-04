@@ -30,12 +30,12 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * WebSocket event controller.
- * <p>Handles WebSocket real-time subscription related events:</p>
+ * WebSocket 事件控制器。
+ * <p>处理 WebSocket 实时订阅相关事件：</p>
  * <ul>
- *   <li>Stock quote subscription/unsubscription</li>
- *   <li>Heartbeat detection</li>
- *   <li>Session management</li>
+ *   <li>股票行情订阅/取消订阅</li>
+ *   <li>心跳检测</li>
+ *   <li>会话管理</li>
  * </ul>
  *
  * @author GitHub Copilot
@@ -46,22 +46,22 @@ import lombok.extern.slf4j.Slf4j;
 public class WebSocketEventController {
 
     /**
-     * Subscribe result type.
+     * 订阅结果类型。
      */
     private static final String SUBSCRIBE_RESULT = "SUBSCRIBE_RESULT";
 
     /**
-     * Unsubscribe result type.
+     * 取消订阅结果类型。
      */
     private static final String UNSUBSCRIBE_RESULT = "UNSUBSCRIBE_RESULT";
 
     /**
-     * Stock subscription service.
+     * 股票订阅服务。
      */
     private final StockSubscriptionService stockSubscriptionService;
 
     /**
-     * Object mapper.
+     * 对象映射器。
      */
     private final ObjectMapper objectMapper;
 
@@ -72,16 +72,16 @@ public class WebSocketEventController {
     }
 
     /**
-     * Mapping from user ID to session ID.
+     * 用户 ID 到会话 ID 的映射。
      */
     private final Map<Long, String> activeConnections = new ConcurrentHashMap<>();
 
     /**
-     * Handles subscription requests.
+     * 处理订阅请求。
      *
-     * @param payload subscription request body
-     * @param headerAccessor message header accessor
-     * @return subscription result
+     * @param payload 订阅请求体
+     * @param headerAccessor 消息头访问器
+     * @return 订阅结果
      */
     @Operation(
         summary = "Subscribe stock quotes",
@@ -147,11 +147,11 @@ public class WebSocketEventController {
     }
 
     /**
-     * Handles unsubscribe requests.
+     * 处理取消订阅请求。
      *
-     * @param payload unsubscribe request body
-     * @param headerAccessor message header accessor
-     * @return unsubscribe result
+     * @param payload 取消订阅请求体
+     * @param headerAccessor 消息头访问器
+     * @return 取消订阅结果
      */
     @Operation(
         summary = "Unsubscribe stock quotes",
@@ -194,10 +194,10 @@ public class WebSocketEventController {
     }
 
     /**
-     * Handles heartbeat ping messages.
+     * 处理心跳 ping 消息。
      *
-     * @param headerAccessor message header accessor
-     * @return pong response
+     * @param headerAccessor 消息头访问器
+     * @return pong 响应
      */
     @Operation(
         summary = "WebSocket heartbeat detection",
@@ -213,9 +213,9 @@ public class WebSocketEventController {
     }
 
     /**
-     * Handles session connect event.
+     * 处理会话连接事件。
      *
-     * @param event session connect event
+     * @param event 会话连接事件
      */
     @EventListener
     public void handleSessionConnect(SessionConnectEvent event) {
@@ -223,9 +223,9 @@ public class WebSocketEventController {
     }
 
     /**
-     * Handles session disconnect event - cleanup subscriptions.
+     * 处理会话断开事件 - 清理订阅。
      *
-     * @param event session disconnect event
+     * @param event 会话断开事件
      */
     @EventListener
     public void handleSessionDisconnect(SessionDisconnectEvent event) {
@@ -248,9 +248,9 @@ public class WebSocketEventController {
     }
 
     /**
-     * Handles subscription event.
+     * 处理订阅事件。
      *
-     * @param event session subscribe event
+     * @param event 会话订阅事件
      */
     @EventListener
     public void handleSessionSubscribe(SessionSubscribeEvent event) {
@@ -258,10 +258,10 @@ public class WebSocketEventController {
     }
 
     /**
-     * Gets Principal.
+     * 获取 Principal。
      *
-     * @param headerAccessor message header accessor
-     * @return WebSocket user principal
+     * @param headerAccessor 消息头访问器
+     * @return WebSocket 用户 principal
      */
     private WebSocketChannelInterceptor.WebSocketUserPrincipal getUserPrincipal(
             SimpMessageHeaderAccessor headerAccessor) {
@@ -301,9 +301,9 @@ public class WebSocketEventController {
     }
 
     /**
-     * Gets active connection count.
+     * 获取活跃连接数。
      *
-     * @return number of active connections
+     * @return 活跃连接数量
      */
     public int getActiveConnectionCount() {
         return activeConnections.size();

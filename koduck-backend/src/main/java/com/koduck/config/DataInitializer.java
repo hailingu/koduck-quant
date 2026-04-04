@@ -31,7 +31,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * Data initializer - creates a demo user when the application starts.
+ * 数据初始化器 - 应用启动时创建演示用户。
  * <p>
  * Demo user credentials are fully controlled via environment variables:
  * - APP_DEMO_ENABLED: Enable/disable demo user creation (default: false)
@@ -45,74 +45,74 @@ import lombok.extern.slf4j.Slf4j;
 @RequiredArgsConstructor
 public class DataInitializer implements CommandLineRunner {
     /**
-     * Default email address for the demo account.
+     * 演示账户的默认邮箱地址。
      */
     private static final String DEMO_EMAIL = "demo@koduck.local";
     /**
-     * Default nickname stored on the demo user record.
+     * 存储在演示用户记录上的默认昵称。
      */
     private static final String DEMO_NICKNAME = "Demo User";
 
     /**
-     * Environment variable name for LLM API base URL.
+     * LLM API 基础 URL 的环境变量名。
      */
     private static final String ENV_LLM_API_BASE = "LLM_API_BASE";
 
     /**
-     * Repository for user operations.
+     * 用户操作仓库。
      */
     private final UserRepository userRepository;
 
     /**
-     * Repository for role operations.
+     * 角色操作仓库。
      */
     private final RoleRepository roleRepository;
 
     /**
-     * Repository for user role operations.
+     * 用户角色操作仓库。
      */
     private final UserRoleRepository userRoleRepository;
 
     /**
-     * Repository for credential operations.
+     * 凭证操作仓库。
      */
     private final CredentialRepository credentialRepository;
 
     /**
-     * Password encoder for hashing passwords.
+     * 用于哈希密码的密码编码器。
      */
     private final PasswordEncoder passwordEncoder;
 
     /**
-     * Utility for credential encryption.
+     * 凭证加密工具。
      */
     private final CredentialEncryptionUtil credentialEncryptionUtil;
 
     /**
-     * Checker for user roles table existence.
+     * 用户角色表存在性检查器。
      */
     private final UserRolesTableChecker userRolesTableChecker;
 
     /**
-     * Flag to enable/disable demo mode.
+     * 启用/禁用演示模式的标志。
      */
     @Value("${app.demo.enabled:false}")
     private boolean demoEnabled;
 
     /**
-     * Demo username configuration.
+     * 演示用户名配置。
      */
     @Value("${app.demo.username:demo}")
     private String demoUsername;
 
     /**
-     * Demo password configuration.
+     * 演示密码配置。
      */
     @Value("${app.demo.password:}")
     private String demoPassword;
 
     /**
-     * Validates configuration on startup. Fails fast if demo is enabled but password is not set.
+     * 启动时验证配置。 Fails fast if demo is enabled but password is not set.
      */
     @PostConstruct
     public void validate() {
@@ -133,7 +133,7 @@ public class DataInitializer implements CommandLineRunner {
     }
 
     /**
-     * Callback executed during application startup.
+     * 应用启动期间执行的回调。
      * <p>
      * When demo mode is enabled, attempts to create the demo user and initialize
      * LLM credentials from environment variables.

@@ -6,9 +6,9 @@ import org.springframework.stereotype.Repository;
 import com.koduck.entity.user.UserMemoryProfile;
 
 /**
- * Repository for UserMemoryProfile entity operations.
+ * 用户记忆档案实体操作仓库。
  *
- * @author GitHub Copilot
+ * @author Koduck Team
  */
 @Repository
 public interface UserMemoryProfileRepository extends JpaRepository<UserMemoryProfile, Long> {

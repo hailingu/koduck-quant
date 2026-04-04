@@ -14,26 +14,26 @@ import com.koduck.entity.market.StockRealtime;
 import com.koduck.util.SymbolUtils;
 
 /**
- * Mapper for converting market-related entities into DTOs.
+ * 将市场相关实体转换为DTO的映射器。
  *
  * @author Koduck Team
  */
 @Component
 public class MarketDtoMapper {
 
-    /** Stock type identifier. */
+    /** 股票类型标识。 */
     private static final String STOCK_TYPE = MarketConstants.STOCK_TYPE;
 
-    /** UTC offset in hours for China timezone. */
+    /** 中国时区的UTC偏移小时数。 */
     private static final int UTC_OFFSET_HOURS = 8;
 
     /**
-     * Maps a realtime stock entity to a {@link SymbolInfoDto}.
+     * 将实时股票实体映射为{@link SymbolInfoDto}。
      *
-     * @param realtime      the realtime data entity
-     * @param basic         the basic stock information
-     * @param defaultMarket the default market code
-     * @return the mapped DTO, or {@code null} if {@code realtime} is null
+     * @param realtime      实时数据实体
+     * @param basic         股票基本信息
+     * @param defaultMarket 默认市场代码
+     * @return 映射后的DTO，如果{@code realtime}为null则返回{@code null}
      */
     public SymbolInfoDto mapRealtimeToSymbolInfoDto(StockRealtime realtime,
             StockBasic basic, String defaultMarket) {
@@ -66,12 +66,11 @@ public class MarketDtoMapper {
     }
 
     /**
-     * Maps a basic stock entity and optional realtime data to a
-     * {@link SymbolInfoDto}.
+     * 将股票基本实体和可选的实时数据映射为{@link SymbolInfoDto}。
      *
-     * @param basic    the basic stock information
-     * @param realtime the realtime data (may be null)
-     * @return the mapped DTO
+     * @param basic    股票基本信息
+     * @param realtime 实时数据（可能为null）
+     * @return 映射后的DTO
      */
     public SymbolInfoDto mapToSymbolInfoDto(StockBasic basic, StockRealtime realtime) {
         String normalizedSymbol = SymbolUtils.normalize(basic.getSymbol());
@@ -97,12 +96,11 @@ public class MarketDtoMapper {
     }
 
     /**
-     * Determines whether a candidate DTO should replace an existing one
-     * based on the presence of richer fields.
+     * 根据是否存在更丰富字段，决定是否用候选DTO替换现有DTO。
      *
-     * @param existing  the currently stored DTO
-     * @param candidate the new candidate DTO
-     * @return {@code true} if the candidate should replace the existing entry
+     * @param existing  当前存储的DTO
+     * @param candidate 新的候选DTO
+     * @return 如果候选应替换现有条目则返回{@code true}
      */
     public boolean shouldReplaceSymbol(SymbolInfoDto existing, SymbolInfoDto candidate) {
         if (existing.price() == null && candidate.price() != null) {
@@ -118,10 +116,10 @@ public class MarketDtoMapper {
     }
 
     /**
-     * Maps a realtime stock entity to a {@link PriceQuoteDto}.
+     * 将实时股票实体映射为{@link PriceQuoteDto}。
      *
-     * @param entity the realtime data entity
-     * @return the mapped price quote DTO
+     * @param entity 实时数据实体
+     * @return 映射后的行情报价DTO
      */
     public PriceQuoteDto mapToPriceQuoteDto(StockRealtime entity) {
         return PriceQuoteDto.builder()
@@ -147,10 +145,10 @@ public class MarketDtoMapper {
     }
 
     /**
-     * Maps a realtime stock entity to a {@link MarketIndexDto}.
+     * 将实时股票实体映射为{@link MarketIndexDto}。
      *
-     * @param entity the realtime data entity
-     * @return the mapped market index DTO
+     * @param entity 实时数据实体
+     * @return 映射后的市场指数DTO
      */
     public MarketIndexDto mapToMarketIndexDto(StockRealtime entity) {
         return MarketIndexDto.builder()
@@ -173,10 +171,10 @@ public class MarketDtoMapper {
     }
 
     /**
-     * Maps a basic stock entity to a {@link MarketIndexDto} without price data.
+     * 将股票基本实体映射为不含价格数据的{@link MarketIndexDto}。
      *
-     * @param basic the basic stock information
-     * @return the mapped market index DTO
+     * @param basic 股票基本信息
+     * @return 映射后的市场指数DTO
      */
     public MarketIndexDto mapBasicToMarketIndexDto(StockBasic basic) {
         return MarketIndexDto.builder()
@@ -187,11 +185,11 @@ public class MarketDtoMapper {
     }
 
     /**
-     * Maps a realtime stock entity to a {@link StockStatsDto}.
+     * 将实时股票实体映射为{@link StockStatsDto}。
      *
-     * @param entity the realtime data entity
-     * @param market the market code
-     * @return the mapped stock stats DTO
+     * @param entity 实时数据实体
+     * @param market 市场代码
+     * @return 映射后的股票统计DTO
      */
     public StockStatsDto mapToStockStatsDto(StockRealtime entity, String market) {
         return StockStatsDto.builder()
@@ -212,11 +210,11 @@ public class MarketDtoMapper {
     }
 
     /**
-     * Maps a price quote DTO to a stock stats DTO.
+     * 将行情报价DTO映射为股票统计DTO。
      *
-     * @param quote  the price quote DTO
-     * @param market the market code
-     * @return the mapped stock stats DTO
+     * @param quote  行情报价DTO
+     * @param market 市场代码
+     * @return 映射后的股票统计DTO
      */
     public StockStatsDto mapPriceQuoteToStats(PriceQuoteDto quote, String market) {
         return StockStatsDto.builder()

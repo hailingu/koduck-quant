@@ -11,35 +11,34 @@ import org.springframework.stereotype.Repository;
 import com.koduck.entity.auth.Role;
 
 /**
- * Repository interface for Role entity operations.
- * Provides methods for querying roles and user-role associations.
+ * 角色实体操作仓库接口，提供角色查询和用户-角色关联查询方法。
  *
- * @author GitHub Copilot
+ * @author Koduck Team
  */
 @Repository
 public interface RoleRepository extends JpaRepository<Role, Integer> {
 
     /**
-     * Find role by name.
+     * 根据角色名称查询角色。
      *
-     * @param name role name
-     * @return optional containing the role if found
+     * @param name 角色名称
+     * @return 角色
      */
     Optional<Role> findByName(String name);
 
     /**
-     * Check if role exists by name.
+     * 根据角色名称检查角色是否存在。
      *
-     * @param name role name
-     * @return true if exists, false otherwise
+     * @param name 角色名称
+     * @return 如果存在返回 true，否则返回 false
      */
     boolean existsByName(String name);
 
     /**
-     * Find roles assigned to a user.
+     * 查询指定用户的角色列表。
      *
-     * @param userId user ID
-     * @return list of roles
+     * @param userId 用户 ID
+     * @return 角色列表
      */
     @Query(value = "SELECT r.* FROM roles r " +
            "INNER JOIN user_roles ur ON r.id = ur.role_id " +
@@ -47,10 +46,10 @@ public interface RoleRepository extends JpaRepository<Role, Integer> {
     List<Role> findRolesByUserId(@Param("userId") Long userId);
 
     /**
-     * Find role names assigned to a user.
+     * 查询指定用户的角色名称列表。
      *
-     * @param userId user ID
-     * @return list of role names
+     * @param userId 用户 ID
+     * @return 角色名称列表
      */
     @Query(value = "SELECT r.name FROM roles r " +
            "INNER JOIN user_roles ur ON r.id = ur.role_id " +

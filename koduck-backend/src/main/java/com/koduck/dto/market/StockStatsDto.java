@@ -9,16 +9,16 @@ import java.time.Instant;
  *
  * @param symbol the stock symbol
  * @param market the market code
- * @param open the opening price
- * @param high the highest price
- * @param low the lowest price
+ * @param open 开盘价ing price
+ * @param high 最高价est price
+ * @param low 最低价est price
  * @param current the current price
  * @param prevClose the previous closing price
  * @param change the price change
  * @param changePercent the price change percentage
  * @param volume the trading volume
  * @param amount the trading amount
- * @param timestamp the timestamp
+ * @param timestamp 时间戳
  * @author Koduck Team
  */
 public record StockStatsDto(

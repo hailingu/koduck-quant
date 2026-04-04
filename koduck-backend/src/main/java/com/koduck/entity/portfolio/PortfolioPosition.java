@@ -23,9 +23,9 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 /**
- * Portfolio position entity representing user's stock holdings.
+ * 投资组合持仓实体，表示用户的股票持仓。
  *
- * @author koduck
+ * @author Koduck Team
  */
 @Entity
 @Table(name = "portfolio_positions",
@@ -44,43 +44,43 @@ import lombok.Setter;
 @AllArgsConstructor
 public class PortfolioPosition {
 
-    /** Unique identifier for the position. */
+    /** 持仓的唯一标识符。 */
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Setter(AccessLevel.NONE)
     private Long id;
 
-    /** User ID who owns this position. */
+    /** 持仓所有者的用户 ID。 */
     @Column(name = "user_id", nullable = false)
     private Long userId;
 
-    /** Market identifier (e.g., AShare, US). */
+    /** 市场标识符（例如：AShare、US）。 */
     @Column(name = "market", nullable = false, length = 20)
     private String market;
 
-    /** Stock symbol code. */
+    /** 股票代码。 */
     @Column(name = "symbol", nullable = false, length = 20)
     private String symbol;
 
-    /** Stock name. */
+    /** 股票名称。 */
     @Column(name = "name", length = 100)
     private String name;
 
-    /** Quantity of shares held. */
+    /** 持有股数。 */
     @Column(name = "quantity", nullable = false, precision = 19, scale = 4)
     private BigDecimal quantity;
 
-    /** Average cost per share. */
+    /** 每股平均成本。 */
     @Column(name = "avg_cost", nullable = false, precision = 19, scale = 4)
     private BigDecimal avgCost;
 
-    /** Timestamp when position was created. */
+    /** 持仓创建时间戳。 */
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     @Setter(AccessLevel.NONE)
     private LocalDateTime createdAt;
 
-    /** Timestamp of last update. */
+    /** 最后更新时间戳。 */
     @UpdateTimestamp
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;

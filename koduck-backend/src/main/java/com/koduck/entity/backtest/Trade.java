@@ -21,7 +21,7 @@ import lombok.Setter;
 import lombok.experimental.SuperBuilder;
 
 /**
- * Trade entity.
+ * 交易实体。
  *
  * @author Koduck Team
  */
@@ -40,30 +40,30 @@ import lombok.experimental.SuperBuilder;
 @EqualsAndHashCode(callSuper = true)
 public class Trade extends BaseTrade {
 
-    /** The ID. */
+    /** 交易 ID。 */
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Setter(AccessLevel.NONE)
     private Long id;
 
-    /** The user ID. */
+    /** 用户 ID。 */
     @Column(name = "user_id", nullable = false)
     private Long userId;
 
-    /** The market. */
+    /** 市场。 */
     @Column(name = "market", nullable = false, length = 20)
     private String market;
 
-    /** The name. */
+    /** 股票名称。 */
     @Column(name = "name", length = 100)
     private String name;
 
-    /** The status. */
+    /** 交易状态。 */
     @Column(name = "status", length = 20)
     @Enumerated(EnumType.STRING)
     private TradeStatus status;
 
-    /** The notes. */
+    /** 备注。 */
     @Column(name = "notes", length = 500)
     private String notes;
 }

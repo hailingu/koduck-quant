@@ -17,7 +17,7 @@ import io.swagger.v3.oas.models.security.SecurityScheme;
 import io.swagger.v3.oas.models.servers.Server;
 
 /**
- * OpenAPI (Swagger) configuration for non-production environments.
+ * 非生产环境的 OpenAPI (Swagger) 配置。
  *
  * <p>Defines API metadata, server endpoints, and JWT Bearer authentication
  * settings used by the interactive API documentation.</p>
@@ -65,10 +65,10 @@ public class OpenApiConfig {
     private int serverPort;
 
     /**
-     * Creates a customized OpenAPI bean including server info,
+     * 创建包含服务器信息的自定义 OpenAPI Bean，
      * metadata, and security schemes. Disabled in production profile.
      *
-     * @return the configured OpenAPI instance
+     * @return 配置的 OpenAPI 实例
      */
     @Bean
     public OpenAPI customOpenAPI() {
@@ -89,9 +89,9 @@ public class OpenApiConfig {
     }
 
     /**
-     * Builds the OpenAPI info section.
+     * 构建 OpenAPI 信息部分。
      *
-     * @return the API info
+     * @return API 信息
      */
     private Info buildInfo() {
         return new Info()
@@ -126,9 +126,9 @@ public class OpenApiConfig {
     }
 
     /**
-     * Builds the security scheme configuration.
+     * 构建安全方案配置。
      *
-     * @return the JWT bearer security scheme
+     * @return JWT Bearer 安全方案
      */
     private SecurityScheme buildSecurityScheme() {
         return new SecurityScheme()
