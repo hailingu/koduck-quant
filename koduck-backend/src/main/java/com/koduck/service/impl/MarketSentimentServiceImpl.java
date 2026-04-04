@@ -213,7 +213,7 @@ public class MarketSentimentServiceImpl implements MarketSentimentService {
                             .build())
                     .build();
         }
-        catch (Exception e) {
+        catch (RuntimeException e) {
             log.error("Failed to calculate market sentiment for {}", marketType, e);
             // Return fallback data
             return createFallbackSentiment(marketType);
@@ -249,7 +249,7 @@ public class MarketSentimentServiceImpl implements MarketSentimentService {
             }
             return score;
         }
-        catch (Exception e) {
+        catch (RuntimeException e) {
             log.warn("Failed to calculate activity score", e);
             return DEFAULT_NEUTRAL_SCORE;
         }
@@ -291,7 +291,7 @@ public class MarketSentimentServiceImpl implements MarketSentimentService {
             int score = (int) Math.min(SCORE_SCALE, Math.max(0, volatilityPct * VOLATILITY_SCALE));
             return score;
         }
-        catch (Exception e) {
+        catch (RuntimeException e) {
             log.warn("Failed to calculate volatility score", e);
             return DEFAULT_LOW_SCORE;
         }
