@@ -10,7 +10,6 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
@@ -19,16 +18,14 @@ import jakarta.validation.constraints.NotEmpty;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.format.annotation.DateTimeFormat;
-import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
-import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
-import org.springframework.web.client.RestClientException;
-import org.springframework.web.client.RestTemplate;
+import org.springframework.web.reactive.function.client.WebClient;
+import org.springframework.web.reactive.function.client.WebClientResponseException;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 import org.springframework.web.util.UriComponentsBuilder;
 
@@ -142,9 +139,9 @@ public class MarketAdvancedController {
     /** Data service properties. */
     private final DataServiceProperties dataServiceProperties;
 
-    /** Data service REST template. */
-    @Qualifier("dataServiceRestTemplate")
-    private final RestTemplate dataServiceRestTemplate;
+    /** Data service WebClient. */
+    @Qualifier("dataServiceWebClient")
+    private final WebClient dataServiceWebClient;
 
     /**
      * Get fear and greed index.
@@ -169,20 +166,19 @@ public class MarketAdvancedController {
                     ApiMessageConstants.DATA_SERVICE_DISABLED);
         }
         try {
-            ResponseEntity<DataServiceResponse<Map<String, Object>>> response =
-                    dataServiceRestTemplate.exchange(
-                            dataServiceProperties.getBaseUrl() + FEAR_GREED_INDEX_PATH,
-                            Objects.requireNonNull(HttpMethod.GET),
-                            null,
-                            Objects.requireNonNull(DATA_SERVICE_MAP_RESPONSE_TYPE));
-            DataServiceResponse<Map<String, Object>> body = response.getBody();
+            DataServiceResponse<Map<String, Object>> body =
+                    dataServiceWebClient.get()
+                            .uri(dataServiceProperties.getBaseUrl() + FEAR_GREED_INDEX_PATH)
+                            .retrieve()
+                            .bodyToMono(DATA_SERVICE_MAP_RESPONSE_TYPE)
+                            .block();
             if (body == null || !body.isSuccess() || body.data() == null) {
                 return ApiResponse.error(ApiStatusCodeConstants.BAD_GATEWAY,
                         ApiMessageConstants.FEAR_GREED_FETCH_FAILED);
             }
             return ApiResponse.success(body.data());
         }
-        catch (RestClientException e) {
+        catch (WebClientResponseException e) {
             log.warn("fear_greed_proxy_failed: {}", e.getMessage());
             return ApiResponse.error(ApiStatusCodeConstants.BAD_GATEWAY,
                     ApiMessageConstants.FEAR_GREED_FETCH_FAILED);
@@ -326,20 +322,19 @@ public class MarketAdvancedController {
                     ApiMessageConstants.DATA_SERVICE_DISABLED);
         }
         try {
-            ResponseEntity<DataServiceResponse<Map<String, Object>>> response =
-                    dataServiceRestTemplate.exchange(
-                            dataServiceProperties.getBaseUrl() + BREADTH_PATH,
-                            Objects.requireNonNull(HttpMethod.GET),
-                            null,
-                            Objects.requireNonNull(DATA_SERVICE_MAP_RESPONSE_TYPE));
-            DataServiceResponse<Map<String, Object>> body = response.getBody();
+            DataServiceResponse<Map<String, Object>> body =
+                    dataServiceWebClient.get()
+                            .uri(dataServiceProperties.getBaseUrl() + BREADTH_PATH)
+                            .retrieve()
+                            .bodyToMono(DATA_SERVICE_MAP_RESPONSE_TYPE)
+                            .block();
             if (body == null || !body.isSuccess() || body.data() == null) {
                 return ApiResponse.error(ApiStatusCodeConstants.BAD_GATEWAY,
                         ApiMessageConstants.BREADTH_FETCH_FAILED);
             }
             return ApiResponse.success(body.data());
         }
-        catch (RestClientException e) {
+        catch (WebClientResponseException e) {
             log.warn("breadth_proxy_failed: {}", e.getMessage());
             return ApiResponse.error(ApiStatusCodeConstants.BAD_GATEWAY,
                     ApiMessageConstants.BREADTH_FETCH_FAILED);
@@ -379,20 +374,19 @@ public class MarketAdvancedController {
             return ApiResponse.success(List.of());
         }
         try {
-            UriComponentsBuilder builder = UriComponentsBuilder
+            String uri = UriComponentsBuilder
                     .fromUriString(dataServiceProperties.getBaseUrl() + BIG_ORDERS_PATH)
                     .queryParam("limit", limit)
-                    .queryParam("min_amount", minAmount);
-            if (orderType != null && !orderType.isBlank()) {
-                builder.queryParam("order_type", orderType);
-            }
-            ResponseEntity<DataServiceResponse<List<BigOrderAlertDto>>> response =
-                    dataServiceRestTemplate.exchange(
-                            builder.toUriString(),
-                            Objects.requireNonNull(HttpMethod.GET),
-                            null,
-                            Objects.requireNonNull(BIG_ORDER_LIST_RESPONSE_TYPE));
-            DataServiceResponse<List<BigOrderAlertDto>> body = response.getBody();
+                    .queryParam("min_amount", minAmount)
+                    .queryParamIfPresent("order_type", orderType != null && !orderType.isBlank()
+                            ? java.util.Optional.of(orderType) : java.util.Optional.empty())
+                    .toUriString();
+            DataServiceResponse<List<BigOrderAlertDto>> body =
+                    dataServiceWebClient.get()
+                            .uri(uri)
+                            .retrieve()
+                            .bodyToMono(BIG_ORDER_LIST_RESPONSE_TYPE)
+                            .block();
             if (body == null || !body.isSuccess() || body.data() == null) {
                 log.warn("big_orders_proxy_empty code={} message={}",
                         body == null ? null : body.code(),
@@ -401,7 +395,7 @@ public class MarketAdvancedController {
             }
             return ApiResponse.success(body.data());
         }
-        catch (RestClientException e) {
+        catch (WebClientResponseException e) {
             log.warn("big_orders_proxy_failed: {}", e.getMessage());
             return ApiResponse.success(List.of());
         }
@@ -427,13 +421,12 @@ public class MarketAdvancedController {
             return ApiResponse.success(BigOrderStatsDto.empty());
         }
         try {
-            ResponseEntity<DataServiceResponse<BigOrderStatsDto>> response =
-                    dataServiceRestTemplate.exchange(
-                            dataServiceProperties.getBaseUrl() + BIG_ORDERS_STATS_PATH,
-                            Objects.requireNonNull(HttpMethod.GET),
-                            null,
-                            Objects.requireNonNull(BIG_ORDER_STATS_RESPONSE_TYPE));
-            DataServiceResponse<BigOrderStatsDto> body = response.getBody();
+            DataServiceResponse<BigOrderStatsDto> body =
+                    dataServiceWebClient.get()
+                            .uri(dataServiceProperties.getBaseUrl() + BIG_ORDERS_STATS_PATH)
+                            .retrieve()
+                            .bodyToMono(BIG_ORDER_STATS_RESPONSE_TYPE)
+                            .block();
             if (body == null || !body.isSuccess() || body.data() == null) {
                 log.warn("big_order_stats_proxy_empty code={} message={}",
                         body == null ? null : body.code(),
@@ -442,7 +435,7 @@ public class MarketAdvancedController {
             }
             return ApiResponse.success(body.data());
         }
-        catch (RestClientException e) {
+        catch (WebClientResponseException e) {
             log.warn("big_order_stats_proxy_failed: {}", e.getMessage());
             return ApiResponse.success(BigOrderStatsDto.empty());
         }

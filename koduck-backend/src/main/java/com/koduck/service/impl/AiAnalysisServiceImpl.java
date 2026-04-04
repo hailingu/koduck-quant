@@ -13,15 +13,10 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.regex.Pattern;
 
-import org.springframework.boot.web.client.RestTemplateBuilder;
 import org.springframework.core.ParameterizedTypeReference;
-import org.springframework.http.HttpEntity;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
-import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
-import org.springframework.web.client.RestTemplate;
+import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -100,12 +95,6 @@ public class AiAnalysisServiceImpl implements AiAnalysisService {
         new ParameterizedTypeReference<>() {
         };
 
-    /** Timeout duration for connection (seconds). */
-    private static final int CONNECTION_TIMEOUT_SECONDS = 30;
-
-    /** Timeout duration for read (seconds). */
-    private static final int READ_TIMEOUT_SECONDS = 60;
-
     /** HTTP status code for internal server error. */
     private static final int HTTP_STATUS_INTERNAL_ERROR = 500;
 
@@ -127,8 +116,8 @@ public class AiAnalysisServiceImpl implements AiAnalysisService {
     /** Object mapper for JSON serialization. */
     private final ObjectMapper objectMapper;
 
-    /** REST template for HTTP calls. */
-    private final RestTemplate restTemplate;
+    /** WebClient for HTTP calls. */
+    private final WebClient webClient;
 
     /** Support for AI conversations. */
     private final AiConversationSupport aiConversationSupport;
@@ -148,7 +137,7 @@ public class AiAnalysisServiceImpl implements AiAnalysisService {
      * @param userSettingsService the user settings service
      * @param agentConfig the agent configuration
      * @param objectMapper the object mapper
-     * @param restTemplateBuilder the REST template builder
+     * @param webClientBuilder the WebClient builder
      * @param aiConversationSupport the AI conversation support
      * @param aiStreamRelaySupport the AI stream relay support
      * @param aiRecommendationSupport the AI recommendation support
@@ -160,7 +149,7 @@ public class AiAnalysisServiceImpl implements AiAnalysisService {
             UserSettingsService userSettingsService,
             AgentConfig agentConfig,
             ObjectMapper objectMapper,
-            RestTemplateBuilder restTemplateBuilder,
+            WebClient.Builder webClientBuilder,
             AiConversationSupport aiConversationSupport,
             AiStreamRelaySupport aiStreamRelaySupport,
             AiRecommendationSupport aiRecommendationSupport) {
@@ -170,9 +159,8 @@ public class AiAnalysisServiceImpl implements AiAnalysisService {
         this.userSettingsService = userSettingsService;
         this.agentConfig = agentConfig;
         this.objectMapper = objectMapper;
-        this.restTemplate = restTemplateBuilder
-            .connectTimeout(Duration.ofSeconds(CONNECTION_TIMEOUT_SECONDS))
-            .readTimeout(Duration.ofSeconds(READ_TIMEOUT_SECONDS))
+        this.webClient = webClientBuilder
+            .baseUrl(agentConfig.getUrl())
             .build();
         this.aiConversationSupport = aiConversationSupport;
         this.aiStreamRelaySupport = aiStreamRelaySupport;
@@ -289,7 +277,6 @@ public class AiAnalysisServiceImpl implements AiAnalysisService {
     }
 
     private String callAgentChat(String provider, String userMessage, LlmConfigDto config) {
-        String agentUrl = agentConfig.getUrl() + "/v1/chat/completions";
         Map<String, Object> requestBody = new HashMap<>();
         requestBody.put("provider", resolveProvider(provider));
         requestBody.put("apiKey", blankToNull(config != null ? config.getApiKey() : null));
@@ -299,18 +286,15 @@ public class AiAnalysisServiceImpl implements AiAnalysisService {
         requestBody.put("messages", messages);
         requestBody.put("stream", false);
 
-        HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.APPLICATION_JSON);
-        HttpEntity<Map<String, Object>> entity = new HttpEntity<>(requestBody, headers);
+        Map<String, Object> response = webClient.post()
+            .uri("/v1/chat/completions")
+            .contentType(MediaType.APPLICATION_JSON)
+            .bodyValue(requestBody)
+            .retrieve()
+            .bodyToMono(MAP_RESPONSE_TYPE)
+            .block();
 
-        ResponseEntity<Map<String, Object>> response = restTemplate.exchange(
-            agentUrl,
-            Objects.requireNonNull(HttpMethod.POST),
-            entity,
-            Objects.requireNonNull(MAP_RESPONSE_TYPE)
-        );
-
-        String content = extractAgentContent(response.getBody());
+        String content = extractAgentContent(response);
         if (content != null) {
             return content;
         }
