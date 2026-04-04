@@ -5,4 +5,5 @@ koduck:
     connect-timeout-ms: 5000
     read-timeout-ms: 10000
     max-retries: 3
+    realtime-update-path: /market/realtime/update
     enabled: true

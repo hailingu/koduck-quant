@@ -99,6 +99,40 @@ class DataServicePropertiesTest {
     }
 
     /**
+     * Realtime update path should have a default value and can be bound from
+     * configuration properties.
+     */
+    @Test
+    @DisplayName("shouldBindRealtimeUpdatePathWithDefaultValue")
+    void shouldBindRealtimeUpdatePathWithDefaultValue() {
+        contextRunner
+                .run(context -> {
+                    assertThat(context.getStartupFailure()).isNull();
+
+                    DataServiceProperties properties = context.getBean(DataServiceProperties.class);
+                    assertThat(properties.getRealtimeUpdatePath())
+                        .isEqualTo("/market/realtime/update");
+                });
+    }
+
+    /**
+     * Realtime update path should be bound correctly when custom value is provided.
+     */
+    @Test
+    @DisplayName("shouldBindRealtimeUpdatePathWhenCustomValueProvided")
+    void shouldBindRealtimeUpdatePathWhenCustomValueProvided() {
+        contextRunner
+                .withPropertyValues("koduck.data-service.realtime-update-path=/custom/path")
+                .run(context -> {
+                    assertThat(context.getStartupFailure()).isNull();
+
+                    DataServiceProperties properties = context.getBean(DataServiceProperties.class);
+                    assertThat(properties.getRealtimeUpdatePath())
+                        .isEqualTo("/custom/path");
+                });
+    }
+
+    /**
      * Test configuration for properties.
      */
     @Configuration
