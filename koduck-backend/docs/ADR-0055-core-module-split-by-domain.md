@@ -36,27 +36,39 @@ koduck-core 模块当前承载了所有业务逻辑，已成为一个"大泥球"
 | `koduck-community` | 社区信号 | 信号发布、评论、点赞、收藏、订阅、用户信号统计 |
 | `koduck-ai` | AI 分析 | AI 对话、记忆会话、股票分析、风险评估、策略推荐 |
 
-### 模块依赖关系
+### 模块依赖关系（调整后）
 
 ```
 koduck-bootstrap (启动入口)
-    ├── koduck-market
-    ├── koduck-portfolio
-    ├── koduck-strategy
-    ├── koduck-community
-    ├── koduck-ai
-    └── koduck-core (保留通用功能，逐步瘦身)
+    ├── koduck-ai → koduck-core
+    ├── koduck-market → koduck-core
+    ├── koduck-portfolio → koduck-core
+    ├── koduck-strategy → koduck-core
+    ├── koduck-community → koduck-core
+    └── koduck-core (核心业务)
         ├── koduck-auth
         └── koduck-common
             └── koduck-bom
 ```
 
+### 调整说明
+
+经过深入分析，发现 koduck-core 中的代码高度耦合：
+- 工具类（CredentialEncryptionUtil, EntityCopyUtils）依赖 koduck-core 的实体和异常
+- Service support 类依赖 koduck-core 的 Service 和 Repository
+- 各业务域之间存在交叉引用
+
+因此调整策略：
+1. **新模块依赖 koduck-core**：新模块可以访问 koduck-core 的所有功能
+2. **逐步迁移**：将特定业务代码从 koduck-core 逐步迁移到新模块
+3. **koduck-core 瘦身**：最终 koduck-core 只保留跨域通用功能
+
 ### 拆分原则
 
-1. **单向依赖**：业务模块只依赖下层模块（common/auth），模块间不直接依赖
-2. **API 契约**：模块间通过 Service 接口契约通信，避免直接引用实现类
-3. **数据库隔离**：每个模块拥有独立的 Repository 和 Entity，不共享表（除用户基础表外）
-4. **独立演进**：各模块可独立版本化、独立部署（未来支持微服务拆分）
+1. **分层依赖**：新模块依赖 koduck-core，koduck-core 依赖 auth/common
+2. **代码复用**：新模块复用 koduck-core 的工具类、实体、异常等
+3. **逐步迁移**：按业务域逐步将代码从 koduck-core 迁移到新模块
+4. **独立演进**：各模块可独立版本化、独立部署
 
 ## Consequences
 
@@ -101,12 +113,14 @@ koduck-bootstrap (启动入口)
 3. 更新 koduck-bom 版本管理
 
 ### Phase 2: 逐个迁移业务域
-按依赖复杂度从低到高迁移：
-1. `koduck-ai`（依赖最少）
-2. `koduck-community`
-3. `koduck-portfolio`
-4. `koduck-strategy`
-5. `koduck-market`（依赖最多，最后迁移）
+按业务域逐步迁移代码：
+1. `koduck-ai` - 迁移 AI 相关 Service、Controller、DTO
+2. `koduck-community` - 迁移社区信号相关代码
+3. `koduck-portfolio` - 迁移持仓交易相关代码
+4. `koduck-strategy` - 迁移策略回测相关代码
+5. `koduck-market` - 迁移行情数据相关代码
+
+**注意**：每个新模块需要依赖 koduck-core，复用其工具类和通用功能。
 
 ### Phase 3: 清理 koduck-core
 1. 移除已迁移代码
