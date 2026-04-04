@@ -24,6 +24,11 @@
         <module>koduck-common</module>
         <module>koduck-auth</module>
         <module>koduck-core</module>
+        <module>koduck-market</module>
+        <module>koduck-portfolio</module>
+        <module>koduck-strategy</module>
+        <module>koduck-community</module>
+        <module>koduck-ai</module>
         <module>koduck-bootstrap</module>
     </modules>
 
@@ -86,6 +91,31 @@
             <dependency>
                 <groupId>com.koduck</groupId>
                 <artifactId>koduck-bootstrap</artifactId>
+                <version>${koduck.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.koduck</groupId>
+                <artifactId>koduck-market</artifactId>
+                <version>${koduck.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.koduck</groupId>
+                <artifactId>koduck-portfolio</artifactId>
+                <version>${koduck.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.koduck</groupId>
+                <artifactId>koduck-strategy</artifactId>
+                <version>${koduck.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.koduck</groupId>
+                <artifactId>koduck-community</artifactId>
+                <version>${koduck.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.koduck</groupId>
+                <artifactId>koduck-ai</artifactId>
                 <version>${koduck.version}</version>
             </dependency>
             <!-- MapStruct -->
