@@ -33,14 +33,23 @@ public class UserInfo implements UserPrincipal {
 
     private static final long serialVersionUID = SERIAL_VERSION_UID;
 
+    /** 用户ID. */
     private Long id;
+    /** 用户名. */
     private String username;
+    /** 邮箱. */
     private String email;
+    /** 昵称. */
     private String nickname;
+    /** 头像URL. */
     private String avatarUrl;
+    /** 用户状态. */
     private User.UserStatus status;
+    /** 邮箱验证时间. */
     private LocalDateTime emailVerifiedAt;
+    /** 最后登录时间. */
     private LocalDateTime lastLoginAt;
+    /** 角色列表. */
     private List<String> roles;
 
     @Override
