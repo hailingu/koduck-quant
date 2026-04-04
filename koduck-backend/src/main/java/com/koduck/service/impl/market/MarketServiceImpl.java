@@ -5,6 +5,7 @@ import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.function.Supplier;
@@ -32,7 +33,8 @@ import com.koduck.exception.ErrorCode;
 import com.koduck.exception.ResourceNotFoundException;
 import com.koduck.service.StockCacheService;
 import com.koduck.service.support.MarketFallbackSupport;
-import com.koduck.service.support.MarketServiceSupport;
+import com.koduck.service.support.market.MarketDtoMapper;
+import com.koduck.service.support.market.MockSectorNetworkGenerator;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -57,19 +59,22 @@ public class MarketServiceImpl implements MarketService {
     private final StockRealtimeRepository stockRealtimeRepository;
     private final StockBasicRepository stockBasicRepository;
     private final StockCacheService stockCacheService;
-    private final MarketServiceSupport marketServiceSupport;
+    private final MarketDtoMapper marketDtoMapper;
+    private final MockSectorNetworkGenerator mockSectorNetworkGenerator;
     private final MarketFallbackSupport marketFallbackSupport;
-    
+
     public MarketServiceImpl(
             StockRealtimeRepository stockRealtimeRepository,
             StockBasicRepository stockBasicRepository,
             StockCacheService stockCacheService,
-            MarketServiceSupport marketServiceSupport,
+            MarketDtoMapper marketDtoMapper,
+            MockSectorNetworkGenerator mockSectorNetworkGenerator,
             MarketFallbackSupport marketFallbackSupport) {
         this.stockRealtimeRepository = stockRealtimeRepository;
         this.stockBasicRepository = stockBasicRepository;
         this.stockCacheService = stockCacheService;
-        this.marketServiceSupport = marketServiceSupport;
+        this.marketDtoMapper = marketDtoMapper;
+        this.mockSectorNetworkGenerator = mockSectorNetworkGenerator;
         this.marketFallbackSupport = marketFallbackSupport;
     }
     
@@ -113,10 +118,10 @@ public class MarketServiceImpl implements MarketService {
         // duplicate rows such as "002885" and "2885".
         Map<String, SymbolInfoDto> deduplicated = new LinkedHashMap<>();
         for (StockBasic basic : basics) {
-            SymbolInfoDto dto = marketServiceSupport.mapToSymbolInfoDto(basic, realtimeMap.get(basic.getSymbol()));
+            SymbolInfoDto dto = marketDtoMapper.mapToSymbolInfoDto(basic, realtimeMap.get(basic.getSymbol()));
             String key = dto.market() + ":" + dto.symbol();
             SymbolInfoDto existing = deduplicated.get(key);
-            if (existing == null || marketServiceSupport.shouldReplaceSymbol(existing, dto)) {
+            if (existing == null || marketDtoMapper.shouldReplaceSymbol(existing, dto)) {
                 deduplicated.put(key, dto);
             }
         }
@@ -152,7 +157,7 @@ public class MarketServiceImpl implements MarketService {
             }
             log.debug("Found stock: symbol={}, name={}, price={}",
                     entity.getSymbol(), entity.getName(), entity.getPrice());
-            return marketServiceSupport.mapToPriceQuoteDto(entity);
+            return marketDtoMapper.mapToPriceQuoteDto(entity);
         });
     }
 
@@ -326,7 +331,7 @@ public class MarketServiceImpl implements MarketService {
         
         // Convert to DTOs
         List<PriceQuoteDto> dbQuotes = entities.stream()
-            .map(marketServiceSupport::mapToPriceQuoteDto)
+            .map(marketDtoMapper::mapToPriceQuoteDto)
                 .toList();
         
         // Cache the database results
@@ -373,7 +378,7 @@ public class MarketServiceImpl implements MarketService {
                     .findFirstBySymbolOrderByUpdatedAtDesc(symbol)
                     .orElse(null);
             if (entity != null) {
-                return marketServiceSupport.mapToStockStatsDto(entity, market);
+                return marketDtoMapper.mapToStockStatsDto(entity, market);
             }
             return null;
         });
@@ -414,7 +419,7 @@ public class MarketServiceImpl implements MarketService {
         PriceQuoteDto providerQuote = marketFallbackSupport.fetchProviderPrice(symbol);
         if (providerQuote != null) {
             log.info("Recovered stock stats from data service: symbol={}", symbol);
-            return marketServiceSupport.mapPriceQuoteToStats(providerQuote, market);
+            return marketDtoMapper.mapPriceQuoteToStats(providerQuote, market);
         }
 
         log.warn("Stock stats not found in any data source: symbol={}", symbol);
@@ -438,7 +443,7 @@ public class MarketServiceImpl implements MarketService {
         if (!indices.isEmpty()) {
             log.debug("Found {} indices in stock_realtime", indices.size());
             return indices.stream()
-                    .map(marketServiceSupport::mapToMarketIndexDto)
+                    .map(marketDtoMapper::mapToMarketIndexDto)
                     .toList();
         }
         
@@ -455,7 +460,7 @@ public class MarketServiceImpl implements MarketService {
         log.debug("Found {} indices in stock_basic", basicIndices.size());
         // Map from StockBasic to MarketIndexDto (without price data)
         return basicIndices.stream()
-            .map(marketServiceSupport::mapBasicToMarketIndexDto)
+            .map(marketDtoMapper::mapBasicToMarketIndexDto)
                 .toList();
     }
     
@@ -469,7 +474,31 @@ public class MarketServiceImpl implements MarketService {
      */
     @Override
     public List<SymbolInfoDto> getHotStocks(String market, int limit) {
-        return marketServiceSupport.getHotStocks(market, limit);
+        log.debug("Getting hot stocks: market={}, limit={}", market, limit);
+        try {
+            List<StockRealtime> hotStocks = stockRealtimeRepository.findTopByVolume(PageRequest.of(0, limit));
+            if (hotStocks.isEmpty()) {
+                log.warn("No hot stocks found in database");
+                return Collections.emptyList();
+            }
+
+            List<String> symbols = hotStocks.stream().map(StockRealtime::getSymbol).toList();
+            List<StockBasic> basics = stockBasicRepository.findBySymbolIn(symbols);
+            Map<String, StockBasic> basicMap = basics.stream()
+                    .collect(Collectors.toMap(StockBasic::getSymbol, Function.identity(), (a, b) -> a));
+
+            return hotStocks.stream()
+                    .map(realtime -> marketDtoMapper.mapRealtimeToSymbolInfoDto(realtime,
+                            basicMap.get(realtime.getSymbol()), market))
+                    .filter(Objects::nonNull)
+                    .limit(limit)
+                    .toList();
+        }
+        catch (RuntimeException e) {
+            log.error("Error getting hot stocks: market={}, limit={}, error={}",
+                    market, limit, e.getMessage(), e);
+            return Collections.emptyList();
+        }
     }
     
     // ============ Sector Network Methods ============
@@ -477,7 +506,7 @@ public class MarketServiceImpl implements MarketService {
     @Override
     public SectorNetworkDto getSectorNetwork(String market) {
         log.debug("Getting sector network data for market: {}", market);
-        return marketServiceSupport.generateMockSectorNetwork(POSITIVE_LINK_TYPE, NEGATIVE_LINK_TYPE);
+        return mockSectorNetworkGenerator.generate(POSITIVE_LINK_TYPE, NEGATIVE_LINK_TYPE);
     }
     
 }

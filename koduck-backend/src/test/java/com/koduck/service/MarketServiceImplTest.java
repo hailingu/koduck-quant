@@ -32,7 +32,8 @@ import com.koduck.repository.market.StockBasicRepository;
 import com.koduck.repository.market.StockRealtimeRepository;
 import com.koduck.service.impl.market.MarketServiceImpl;
 import com.koduck.service.support.MarketFallbackSupport;
-import com.koduck.service.support.MarketServiceSupport;
+import com.koduck.service.support.market.MarketDtoMapper;
+import com.koduck.service.support.market.MockSectorNetworkGenerator;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -150,13 +151,14 @@ class MarketServiceImplTest {
 
     @BeforeEach
     void setUp() {
-        MarketServiceSupport marketServiceSupport =
-                new MarketServiceSupport(stockRealtimeRepository, stockBasicRepository);
+        MarketDtoMapper marketDtoMapper = new MarketDtoMapper();
+        MockSectorNetworkGenerator mockSectorNetworkGenerator = new MockSectorNetworkGenerator();
         marketService = new MarketServiceImpl(
                 stockRealtimeRepository,
                 stockBasicRepository,
                 stockCacheService,
-                marketServiceSupport,
+                marketDtoMapper,
+                mockSectorNetworkGenerator,
                 marketFallbackSupport);
     }
 
