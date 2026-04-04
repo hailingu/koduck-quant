@@ -16,7 +16,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Component;
-import org.springframework.web.client.RestTemplate;
+import org.springframework.web.reactive.function.client.WebClient;
 
 import com.koduck.common.constants.DateTimePatternConstants;
 import com.koduck.config.properties.DataServiceProperties;
@@ -63,10 +63,16 @@ public class FuturesProvider extends AbstractDataServiceMarketProvider {
      */
     private final Map<String, BigDecimal> basePrices;
 
+    /**
+     * Constructs a new FuturesProvider.
+     *
+     * @param properties the data service properties
+     * @param webClient the WebClient for data service calls
+     */
     public FuturesProvider(
             DataServiceProperties properties,
-            @Qualifier("dataServiceRestTemplate") RestTemplate restTemplate) {
-        super(properties, restTemplate);
+            @Qualifier("dataServiceWebClient") WebClient webClient) {
+        super(properties, webClient);
         this.basePrices = FuturesMockDataSupport.defaultBasePrices();
     }
 

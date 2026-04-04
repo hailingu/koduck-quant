@@ -9,13 +9,12 @@ import java.util.concurrent.ConcurrentHashMap;
 
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.core.ParameterizedTypeReference;
-import org.springframework.http.RequestEntity;
-import org.springframework.http.ResponseEntity;
+import org.springframework.http.MediaType;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
-import org.springframework.web.client.RestClientException;
-import org.springframework.web.client.RestTemplate;
+import org.springframework.web.reactive.function.client.WebClient;
+import org.springframework.web.reactive.function.client.WebClientResponseException;
 import org.springframework.web.util.UriComponentsBuilder;
 
 import com.koduck.common.constants.DataServicePathConstants;
@@ -38,8 +37,8 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class KlineSyncServiceImpl implements KlineSyncService {
 
-    /** REST template for data service. */
-    private final RestTemplate dataServiceRestTemplate;
+    /** WebClient for data service. */
+    private final WebClient dataServiceWebClient;
 
     /** Configuration properties for data service. */
     private final DataServiceProperties properties;
@@ -72,16 +71,16 @@ public class KlineSyncServiceImpl implements KlineSyncService {
     /**
      * Constructs a new KlineSyncServiceImpl.
      *
-     * @param dataServiceRestTemplate the REST template for data service
+     * @param dataServiceWebClient the WebClient for data service
      * @param properties the data service properties
      * @param klineService the K-line service
      * @param klineDataDtoMapper the K-line data DTO mapper
      */
-    public KlineSyncServiceImpl(@Qualifier("dataServiceRestTemplate") RestTemplate dataServiceRestTemplate,
+    public KlineSyncServiceImpl(@Qualifier("dataServiceWebClient") WebClient dataServiceWebClient,
                                 DataServiceProperties properties,
                                 KlineService klineService,
                                 KlineDataDtoMapper klineDataDtoMapper) {
-        this.dataServiceRestTemplate = dataServiceRestTemplate;
+        this.dataServiceWebClient = dataServiceWebClient;
         this.properties = properties;
         this.klineService = klineService;
         this.klineDataDtoMapper = klineDataDtoMapper;
@@ -198,22 +197,21 @@ public class KlineSyncServiceImpl implements KlineSyncService {
         }
         try {
             log.debug("Syncing K-line data for {}/{}/{}", market, symbol, timeframe);
-            java.net.URI requestUri = UriComponentsBuilder
+            String url = UriComponentsBuilder
                     .fromUriString(properties.getBaseUrl() + DataServicePathConstants.A_SHARE_BASE_PATH + "/kline")
                     .queryParam("symbol", symbol)
                     .queryParam("timeframe", timeframe)
                     .queryParam("limit", DEFAULT_KLINE_QUERY_LIMIT)
-                    .build(true)
-                    .toUri();
-            RequestEntity<Void> requestEntity = RequestEntity.get(requestUri).build();
-            ResponseEntity<DataServiceResponse<List<Map<String, Object>>>> response =
-                    dataServiceRestTemplate.exchange(
-                        requestEntity,
-                        Objects.requireNonNull(
-                            KLINE_LIST_RESPONSE_TYPE,
-                            "KLINE_LIST_RESPONSE_TYPE must not be null")
-                    );
-            DataServiceResponse<List<Map<String, Object>>> body = response.getBody();
+                    .toUriString();
+
+            DataServiceResponse<List<Map<String, Object>>> body =
+                    dataServiceWebClient.get()
+                        .uri(url)
+                        .accept(MediaType.APPLICATION_JSON)
+                        .retrieve()
+                        .bodyToMono(KLINE_LIST_RESPONSE_TYPE)
+                        .block();
+
             if (body == null || body.data() == null) {
                 log.warn("Empty response for {}/{}/{}", market, symbol, timeframe);
                 return;
@@ -224,7 +222,7 @@ public class KlineSyncServiceImpl implements KlineSyncService {
             klineService.saveKlineData(klineData, market, symbol, timeframe);
             log.info("Synced {} records for {}/{}/{}", klineData.size(), market, symbol, timeframe);
         }
-        catch (RestClientException e) {
+        catch (WebClientResponseException e) {
             log.error("Failed to sync K-line data for {}: {}", symbol, e.getMessage());
         }
     }

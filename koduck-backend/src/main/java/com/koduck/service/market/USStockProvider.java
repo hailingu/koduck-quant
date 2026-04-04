@@ -20,10 +20,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.http.HttpMethod;
-import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Component;
-import org.springframework.web.client.RestClientException;
-import org.springframework.web.client.RestTemplate;
+import org.springframework.web.reactive.function.client.WebClient;
+import org.springframework.web.reactive.function.client.WebClientResponseException;
 import org.springframework.web.util.UriComponentsBuilder;
 
 import com.koduck.config.properties.FinnhubProperties;
@@ -154,8 +153,8 @@ public class USStockProvider implements MarketDataProvider {
 
     /** Finnhub properties. */
     private final FinnhubProperties properties;
-    /** REST template. */
-    private final RestTemplate restTemplate;
+    /** WebClient. */
+    private final WebClient webClient;
     /** Subscribed symbols. */
     private final Set<String> subscribedSymbols = ConcurrentHashMap.newKeySet();
 
@@ -167,13 +166,13 @@ public class USStockProvider implements MarketDataProvider {
      * 构造函数。
      *
      * @param properties 配置属性
-     * @param restTemplate REST模板
+     * @param webClient WebClient
      */
     public USStockProvider(FinnhubProperties properties,
-        @Qualifier("finnhubRestTemplate") RestTemplate restTemplate) {
+        @Qualifier("finnhubWebClient") WebClient webClient) {
         this.properties = Objects.requireNonNull(properties, "properties must not be null");
-        this.restTemplate = Objects.requireNonNull(restTemplate,
-            "restTemplate must not be null");
+        this.webClient = Objects.requireNonNull(webClient,
+            "webClient must not be null");
     }
 
     @Override
@@ -232,11 +231,13 @@ public class USStockProvider implements MarketDataProvider {
             LOG.debug("Fetching kline from Finnhub: symbol={}, resolution={}",
                 symbol, resolution);
 
-            ResponseEntity<CandleResponse> response = restTemplate.exchange(url,
-                java.util.Objects.requireNonNull(HttpMethod.GET), null,
-                CandleResponse.class);
+            CandleResponse body = webClient
+                .method(Objects.requireNonNull(HttpMethod.GET))
+                .uri(url)
+                .retrieve()
+                .bodyToMono(CandleResponse.class)
+                .block();
 
-            CandleResponse body = response.getBody();
             if (body == null || body.getS() == null
                 || !body.getS().equals(RESPONSE_STATUS_OK)) {
                 throw new MarketDataException("Invalid response from Finnhub: "
@@ -246,7 +247,7 @@ public class USStockProvider implements MarketDataProvider {
             return convertToKlineData(body, symbol.toUpperCase(Locale.ROOT), timeframe, limit);
 
         }
-        catch (RestClientException e) {
+        catch (WebClientResponseException e) {
             LOG.error("Failed to fetch kline from Finnhub: {}", e.getMessage());
             // 回退到模拟数据
             return mockProvider.getKlineData(symbol, timeframe, limit, startTime, endTime);
@@ -269,11 +270,13 @@ public class USStockProvider implements MarketDataProvider {
 
             LOG.debug("Fetching quote from Finnhub: symbol={}", symbol);
 
-            ResponseEntity<QuoteResponse> response = restTemplate.exchange(url,
-                java.util.Objects.requireNonNull(HttpMethod.GET), null,
-                QuoteResponse.class);
+            QuoteResponse quote = webClient
+                .method(Objects.requireNonNull(HttpMethod.GET))
+                .uri(url)
+                .retrieve()
+                .bodyToMono(QuoteResponse.class)
+                .block();
 
-            QuoteResponse quote = response.getBody();
             if (quote == null) {
                 return Optional.empty();
             }
@@ -295,7 +298,7 @@ public class USStockProvider implements MarketDataProvider {
             return Optional.of(tickData);
 
         }
-        catch (RestClientException e) {
+        catch (WebClientResponseException e) {
             LOG.error("Failed to fetch quote from Finnhub: {}", e.getMessage());
             // 回退到模拟数据
             return mockProvider.getRealTimeTick(symbol);
@@ -372,11 +375,13 @@ public class USStockProvider implements MarketDataProvider {
                 .queryParam(QUERY_PARAM_TOKEN, properties.getApiKey())
                 .toUriString();
 
-            ResponseEntity<SearchResponse> response = restTemplate.exchange(url,
-                java.util.Objects.requireNonNull(HttpMethod.GET), null,
-                SearchResponse.class);
+            SearchResponse body = webClient
+                .method(Objects.requireNonNull(HttpMethod.GET))
+                .uri(url)
+                .retrieve()
+                .bodyToMono(SearchResponse.class)
+                .block();
 
-            SearchResponse body = response.getBody();
             if (body == null || body.result() == null) {
                 return Collections.emptyList();
             }
@@ -390,7 +395,7 @@ public class USStockProvider implements MarketDataProvider {
                 .toList();
 
         }
-        catch (RestClientException e) {
+        catch (WebClientResponseException e) {
             LOG.error("Failed to search symbols from Finnhub: {}", e.getMessage());
             return mockProvider.searchSymbols(keyword, limit);
         }

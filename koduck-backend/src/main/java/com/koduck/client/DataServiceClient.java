@@ -5,12 +5,10 @@ import java.util.List;
 import java.util.Map;
 
 import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.http.HttpEntity;
-import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
-import org.springframework.web.client.RestClientException;
-import org.springframework.web.client.RestTemplate;
+import org.springframework.web.reactive.function.client.WebClient;
+import org.springframework.web.reactive.function.client.WebClientResponseException;
 
 import com.koduck.config.properties.DataServiceProperties;
 
@@ -45,20 +43,20 @@ public class DataServiceClient {
     /**
      * Dedicated HTTP client for data-service requests.
      */
-    @Qualifier("dataServiceRestTemplate")
-    private final RestTemplate dataSvcRestTemplate;
+    @Qualifier("dataServiceWebClient")
+    private final WebClient dataServiceWebClient;
 
     /**
      * Creates a client for interacting with the data-service.
      *
      * @param dataSvcProps data-service properties
-     * @param dataSvcRestTemplate RestTemplate qualified for data-service access
+     * @param dataServiceWebClient WebClient qualified for data-service access
      */
     public DataServiceClient(
             final DataServiceProperties dataSvcProps,
-            @Qualifier("dataServiceRestTemplate") final RestTemplate dataSvcRestTemplate) {
+            @Qualifier("dataServiceWebClient") final WebClient dataServiceWebClient) {
         this.dataSvcProps = dataSvcProps;
-        this.dataSvcRestTemplate = dataSvcRestTemplate;
+        this.dataServiceWebClient = dataServiceWebClient;
     }
 
     /**
@@ -114,12 +112,15 @@ public class DataServiceClient {
      */
     void invokeRealtimeUpdate(final List<String> requestedSymbols) {
         final String url = dataSvcProps.getBaseUrl() + dataSvcProps.getRealtimeUpdatePath();
-        final HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.APPLICATION_JSON);
-
         final Map<String, Object> requestBody = Map.of(KEY_SYMBOLS, requestedSymbols);
-        final HttpEntity<Map<String, Object>> request = new HttpEntity<>(requestBody, headers);
-        dataSvcRestTemplate.postForObject(url, request, Void.class);
+
+        dataServiceWebClient.post()
+                .uri(url)
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue(requestBody)
+                .retrieve()
+                .toBodilessEntity()
+                .block();
 
         if (log.isInfoEnabled()) {
             log.info("realtime_update_triggered symbolsCount={} symbols={}",
@@ -134,9 +135,9 @@ public class DataServiceClient {
      * @param throwable root cause
      */
     void triggerRealtimeUpdateFallback(final List<String> requestedSymbols, final Throwable throwable) {
-        if (throwable instanceof RestClientException restClientException) {
+        if (throwable instanceof WebClientResponseException webClientException) {
             log.warn("realtime_update_trigger_failed symbols={} error={}",
-                    requestedSymbols, restClientException.getMessage());
+                    requestedSymbols, webClientException.getMessage());
             return;
         }
         log.warn("realtime_update_trigger_failed symbols={} errorType={} error={}",

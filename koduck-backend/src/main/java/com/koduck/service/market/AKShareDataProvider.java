@@ -15,11 +15,11 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.HttpMethod;
-import org.springframework.http.ResponseEntity;
+import org.springframework.http.MediaType;
 import org.springframework.lang.NonNull;
 import org.springframework.stereotype.Component;
-import org.springframework.web.client.RestClientException;
-import org.springframework.web.client.RestTemplate;
+import org.springframework.web.reactive.function.client.WebClient;
+import org.springframework.web.reactive.function.client.WebClientResponseException;
 import org.springframework.web.util.UriComponentsBuilder;
 
 import com.koduck.common.constants.DataServicePathConstants;
@@ -98,8 +98,8 @@ public class AKShareDataProvider implements MarketDataProvider {
         new ParameterizedTypeReference<DataServiceResponse<Map<String, Object>>>() {
         };
 
-    /** The REST template. */
-    private final RestTemplate restTemplate;
+    /** The WebClient. */
+    private final WebClient webClient;
     /** The data service properties. */
     private final DataServiceProperties properties;
     /** Subscribed symbols set. */
@@ -112,14 +112,14 @@ public class AKShareDataProvider implements MarketDataProvider {
     /**
      * 构造函数。
      *
-     * @param restTemplate REST模板
+     * @param webClient WebClient
      * @param properties 配置属性
      */
     public AKShareDataProvider(
-        @Qualifier("dataServiceRestTemplate") RestTemplate restTemplate,
+        @Qualifier("dataServiceWebClient") WebClient webClient,
         DataServiceProperties properties) {
-        this.restTemplate = Objects.requireNonNull(restTemplate,
-            "restTemplate must not be null");
+        this.webClient = Objects.requireNonNull(webClient,
+            "webClient must not be null");
         this.properties = Objects.requireNonNull(properties,
             "properties must not be null");
     }
@@ -174,15 +174,18 @@ public class AKShareDataProvider implements MarketDataProvider {
             LOG.debug("Getting kline data: symbol={}, timeframe={}, limit={}",
                 symbol, timeframe, limit);
 
-            ResponseEntity<DataServiceResponse<List<Map<String, Object>>>> response =
-                restTemplate.exchange(url, getHttpGet(), null, getListDataResponseType());
+            DataServiceResponse<List<Map<String, Object>>> body = webClient
+                .method(getHttpGet())
+                .uri(url)
+                .retrieve()
+                .bodyToMono(getListDataResponseType())
+                .block();
 
-            DataServiceResponse<List<Map<String, Object>>> body = response.getBody();
             return AKShareDataMapperSupport.parseKlineResponse(
                 body == null ? null : body.data());
 
         }
-        catch (RestClientException e) {
+        catch (WebClientResponseException e) {
             throw new MarketDataException("Failed to get kline data", e);
         }
     }
@@ -288,15 +291,18 @@ public class AKShareDataProvider implements MarketDataProvider {
 
             LOG.debug("Searching symbols: keyword={}, limit={}", keyword, limit);
 
-            ResponseEntity<DataServiceResponse<List<Map<String, Object>>>> response =
-                restTemplate.exchange(url, getHttpGet(), null, getListDataResponseType());
+            DataServiceResponse<List<Map<String, Object>>> body = webClient
+                .method(getHttpGet())
+                .uri(url)
+                .retrieve()
+                .bodyToMono(getListDataResponseType())
+                .block();
 
-            DataServiceResponse<List<Map<String, Object>>> body = response.getBody();
             return AKShareDataMapperSupport.parseSymbolInfoResponse(
                 body == null ? null : body.data());
 
         }
-        catch (RestClientException e) {
+        catch (WebClientResponseException e) {
             LOG.error("Failed to search symbols: {}", e.getMessage());
             return Collections.emptyList();
         }
@@ -325,15 +331,18 @@ public class AKShareDataProvider implements MarketDataProvider {
 
             LOG.debug("Getting price for symbol: {}", symbol);
 
-            ResponseEntity<DataServiceResponse<Map<String, Object>>> response =
-                restTemplate.exchange(url, getHttpGet(), null, getMapDataResponseType());
+            DataServiceResponse<Map<String, Object>> body = webClient
+                .method(getHttpGet())
+                .uri(url)
+                .retrieve()
+                .bodyToMono(getMapDataResponseType())
+                .block();
 
-            DataServiceResponse<Map<String, Object>> body = response.getBody();
             return AKShareDataMapperSupport.parsePriceQuoteResponse(
                 body == null ? null : body.data());
 
         }
-        catch (RestClientException e) {
+        catch (WebClientResponseException e) {
             throw new ExternalServiceException("DataService",
                 "Failed to get price for " + symbol, e);
         }
@@ -362,13 +371,15 @@ public class AKShareDataProvider implements MarketDataProvider {
 
             LOG.debug("Getting batch prices for {} symbols", symbols.size());
 
-            ResponseEntity<DataServiceResponse<List<Map<String, Object>>>> response =
-                restTemplate.exchange(url, getHttpPost(),
-                    new org.springframework.http.HttpEntity<>(
-                        Objects.requireNonNull(request, "request must not be null")),
-                    getListDataResponseType());
+            DataServiceResponse<List<Map<String, Object>>> body = webClient
+                .method(getHttpPost())
+                .uri(url)
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue(request)
+                .retrieve()
+                .bodyToMono(getListDataResponseType())
+                .block();
 
-            DataServiceResponse<List<Map<String, Object>>> body = response.getBody();
             if (body == null || body.data() == null) {
                 return Collections.emptyList();
             }
@@ -378,7 +389,7 @@ public class AKShareDataProvider implements MarketDataProvider {
                 .toList();
 
         }
-        catch (RestClientException e) {
+        catch (WebClientResponseException e) {
             LOG.error("Failed to get batch prices: {}", e.getMessage());
             return Collections.emptyList();
         }
@@ -404,15 +415,18 @@ public class AKShareDataProvider implements MarketDataProvider {
 
             LOG.debug("Getting hot symbols with limit={}", limit);
 
-            ResponseEntity<DataServiceResponse<List<Map<String, Object>>>> response =
-                restTemplate.exchange(url, getHttpGet(), null, getListDataResponseType());
+            DataServiceResponse<List<Map<String, Object>>> body = webClient
+                .method(getHttpGet())
+                .uri(url)
+                .retrieve()
+                .bodyToMono(getListDataResponseType())
+                .block();
 
-            DataServiceResponse<List<Map<String, Object>>> body = response.getBody();
             return AKShareDataMapperSupport.parseSymbolListResponse(
                 body == null ? null : body.data());
 
         }
-        catch (RestClientException e) {
+        catch (WebClientResponseException e) {
             LOG.error("Failed to get hot symbols: {}", e.getMessage());
             return Collections.emptyList();
         }
@@ -439,15 +453,18 @@ public class AKShareDataProvider implements MarketDataProvider {
 
             LOG.debug("Getting valuation for symbol: {}", symbol);
 
-            ResponseEntity<DataServiceResponse<Map<String, Object>>> response =
-                restTemplate.exchange(url, getHttpGet(), null, getMapDataResponseType());
+            DataServiceResponse<Map<String, Object>> body = webClient
+                .method(getHttpGet())
+                .uri(url)
+                .retrieve()
+                .bodyToMono(getMapDataResponseType())
+                .block();
 
-            DataServiceResponse<Map<String, Object>> body = response.getBody();
             return AKShareDataMapperSupport.parseStockValuationResponse(
                 body == null ? null : body.data());
 
         }
-        catch (RestClientException e) {
+        catch (WebClientResponseException e) {
             throw new ExternalServiceException("DataService",
                 "Failed to get valuation for " + symbol, e);
         }
@@ -473,15 +490,18 @@ public class AKShareDataProvider implements MarketDataProvider {
 
             LOG.debug("Getting industry for symbol: {}", symbol);
 
-            ResponseEntity<DataServiceResponse<Map<String, Object>>> response =
-                restTemplate.exchange(url, getHttpGet(), null, getMapDataResponseType());
+            DataServiceResponse<Map<String, Object>> body = webClient
+                .method(getHttpGet())
+                .uri(url)
+                .retrieve()
+                .bodyToMono(getMapDataResponseType())
+                .block();
 
-            DataServiceResponse<Map<String, Object>> body = response.getBody();
             return AKShareDataMapperSupport.parseStockIndustryResponse(
                 body == null ? null : body.data());
 
         }
-        catch (RestClientException e) {
+        catch (WebClientResponseException e) {
             throw new ExternalServiceException("DataService",
                 "Failed to get industry for " + symbol, e);
         }
@@ -511,13 +531,15 @@ public class AKShareDataProvider implements MarketDataProvider {
             LOG.debug("Getting batch industries for {} symbols", symbols.size());
 
             // 使用LIST_DATA_RESPONSE_TYPE批量获取，然后通过symbol字段映射
-            ResponseEntity<DataServiceResponse<List<Map<String, Object>>>> response =
-                restTemplate.exchange(url, getHttpPost(),
-                    new org.springframework.http.HttpEntity<>(
-                        Objects.requireNonNull(request, "request must not be null")),
-                    getListDataResponseType());
+            DataServiceResponse<List<Map<String, Object>>> body = webClient
+                .method(getHttpPost())
+                .uri(url)
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue(request)
+                .retrieve()
+                .bodyToMono(getListDataResponseType())
+                .block();
 
-            DataServiceResponse<List<Map<String, Object>>> body = response.getBody();
             if (body == null || body.data() == null) {
                 return Collections.emptyMap();
             }
@@ -534,7 +556,7 @@ public class AKShareDataProvider implements MarketDataProvider {
                 ));
 
         }
-        catch (RestClientException e) {
+        catch (WebClientResponseException e) {
             LOG.error("Failed to get batch industries: {}", e.getMessage());
             return Collections.emptyMap();
         }
