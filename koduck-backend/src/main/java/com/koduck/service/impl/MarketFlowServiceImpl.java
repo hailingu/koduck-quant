@@ -7,6 +7,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.koduck.dto.market.DailyNetFlowDto;
+import com.koduck.exception.ErrorCode;
+import com.koduck.exception.ResourceNotFoundException;
+import com.koduck.exception.ValidationException;
 import com.koduck.mapper.MarketDataMapper;
 import com.koduck.repository.MarketDailyNetFlowRepository;
 import com.koduck.service.MarketFlowService;
@@ -23,24 +26,29 @@ public class MarketFlowServiceImpl implements MarketFlowService {
     public DailyNetFlowDto getLatestDailyNetFlow(String market, String flowType) {
         return marketDailyNetFlowRepository
                 .findFirstByMarketAndFlowTypeOrderByTradeDateDesc(market, flowType)
-            .map(marketDataMapper::toDto)
-                .orElse(null);
+                .map(marketDataMapper::toDto)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        ErrorCode.MARKET_DATA_NOT_FOUND, "latest daily net flow", market + "/" + flowType));
     }
     @Override
     @Transactional(readOnly = true)
     public DailyNetFlowDto getDailyNetFlow(String market, String flowType, LocalDate tradeDate) {
         return marketDailyNetFlowRepository
                 .findByMarketAndFlowTypeAndTradeDate(market, flowType, tradeDate)
-            .map(marketDataMapper::toDto)
-                .orElse(null);
+                .map(marketDataMapper::toDto)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        ErrorCode.MARKET_DATA_NOT_FOUND, "daily net flow", market + "/" + flowType + "/" + tradeDate));
     }
     @Override
     @Transactional(readOnly = true)
     public List<DailyNetFlowDto> getDailyNetFlowHistory(String market, String flowType, LocalDate from, LocalDate to) {
+        if (to.isBefore(from)) {
+            throw new ValidationException("结束日期不能早于开始日期");
+        }
         return marketDailyNetFlowRepository
                 .findByMarketAndFlowTypeAndTradeDateBetweenOrderByTradeDateAsc(market, flowType, from, to)
                 .stream()
-            .map(marketDataMapper::toDto)
+                .map(marketDataMapper::toDto)
                 .toList();
     }
 }

@@ -7,6 +7,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.koduck.dto.market.DailyBreadthDto;
+import com.koduck.exception.ErrorCode;
+import com.koduck.exception.ResourceNotFoundException;
+import com.koduck.exception.ValidationException;
 import com.koduck.mapper.MarketDataMapper;
 import com.koduck.repository.MarketDailyBreadthRepository;
 import com.koduck.service.MarketBreadthService;
@@ -23,9 +26,10 @@ public class MarketBreadthServiceImpl implements MarketBreadthService {
     @Transactional(readOnly = true)
     public DailyBreadthDto getLatestDailyBreadth(String market, String breadthType) {
         return marketDailyBreadthRepository
-            .findFirstByMarketAndBreadthTypeOrderByTradeDateDesc(market, breadthType)
-            .map(marketDataMapper::toDto)
-            .orElse(null);
+                .findFirstByMarketAndBreadthTypeOrderByTradeDateDesc(market, breadthType)
+                .map(marketDataMapper::toDto)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        ErrorCode.MARKET_DATA_NOT_FOUND, "latest daily breadth", market + "/" + breadthType));
     }
 
     @Override
@@ -40,6 +44,9 @@ public class MarketBreadthServiceImpl implements MarketBreadthService {
     @Override
     @Transactional(readOnly = true)
     public List<DailyBreadthDto> getDailyBreadthHistory(String market, String breadthType, LocalDate from, LocalDate to) {
+        if (to.isBefore(from)) {
+            throw new ValidationException("结束日期不能早于开始日期");
+        }
         return marketDailyBreadthRepository
             .findByMarketAndBreadthTypeAndTradeDateBetweenOrderByTradeDateAsc(market, breadthType, from, to)
             .stream()

@@ -24,7 +24,6 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.koduck.common.constants.ApiMessageConstants;
-import com.koduck.common.constants.ApiStatusCodeConstants;
 import com.koduck.common.constants.MarketConstants;
 import com.koduck.common.constants.PaginationConstants;
 import com.koduck.dto.ApiResponse;
@@ -172,10 +171,6 @@ public class MarketController {
             String symbol) {
         log.info("GET /api/v1/market/stocks/{}", symbol);
         PriceQuoteDto quote = marketService.getStockDetail(symbol);
-        if (quote == null) {
-            return ApiResponse.error(ApiStatusCodeConstants.NOT_FOUND,
-                    ApiMessageConstants.STOCK_NOT_FOUND_PREFIX + symbol);
-        }
         return ApiResponse.success(quote);
     }
 
@@ -218,10 +213,6 @@ public class MarketController {
             @RequestParam(defaultValue = MarketConstants.DEFAULT_MARKET) String market) {
         log.info("GET /api/v1/market/stocks/{}/stats?market={}", symbol, market);
         StockStatsDto stats = marketService.getStockStats(symbol, market);
-        if (stats == null) {
-            return ApiResponse.error(ApiStatusCodeConstants.NOT_FOUND,
-                    ApiMessageConstants.STOCK_STATS_NOT_FOUND_PREFIX + symbol);
-        }
         return ApiResponse.success(stats);
     }
 
@@ -260,10 +251,6 @@ public class MarketController {
             String symbol) {
         log.info("GET /api/v1/market/stocks/{}/valuation", symbol);
         StockValuationDto valuation = marketService.getStockValuation(symbol);
-        if (valuation == null) {
-            return ApiResponse.error(ApiStatusCodeConstants.NOT_FOUND,
-                    ApiMessageConstants.STOCK_VALUATION_NOT_FOUND_PREFIX + symbol);
-        }
         return ApiResponse.success(valuation);
     }
 
@@ -302,10 +289,6 @@ public class MarketController {
             String symbol) {
         log.info("GET /api/v1/market/stocks/{}/industry", symbol);
         StockIndustryDto industry = marketService.getStockIndustry(symbol);
-        if (industry == null) {
-            return ApiResponse.error(ApiStatusCodeConstants.NOT_FOUND,
-                    ApiMessageConstants.STOCK_INDUSTRY_NOT_FOUND_PREFIX + symbol);
-        }
         return ApiResponse.success(industry);
     }
 
@@ -396,7 +379,7 @@ public class MarketController {
             @Min(1) @Max(1000) Integer limit,
             @Parameter(description = "时间戳游标，获取早于该时间的数据", example = "1704067200000")
             @RequestParam(required = false) Long beforeTime) {
-        String normalizedTimeframe = normalizeTimeframe(period, timeframe);
+        String normalizedTimeframe = klineService.normalizeTimeframe(period, timeframe);
         log.info("GET /api/v1/market/stocks/{}/kline: market={}, period={}, timeframe={}, "
                 + "normalizedTimeframe={}, limit={}, beforeTime={}",
                 symbol, market, period, timeframe, normalizedTimeframe, limit, beforeTime);
@@ -483,10 +466,6 @@ public class MarketController {
         DailyNetFlowDto result = tradeDate == null
                 ? marketFlowService.getLatestDailyNetFlow(market, flowType)
                 : marketFlowService.getDailyNetFlow(market, flowType, tradeDate);
-        if (result == null) {
-            return ApiResponse.error(ApiStatusCodeConstants.NOT_FOUND,
-                ApiMessageConstants.MARKET_NET_FLOW_NOT_FOUND);
-        }
         return ApiResponse.success(result);
     }
 
@@ -532,10 +511,6 @@ public class MarketController {
             LocalDate to) {
         log.info("GET /api/v1/market/net-flow/daily/history: market={}, flowType={}, from={}, to={}",
                 market, flowType, from, to);
-        if (to.isBefore(from)) {
-            return ApiResponse.error(ApiStatusCodeConstants.BAD_REQUEST,
-                ApiMessageConstants.INVALID_DATE_RANGE);
-        }
         List<DailyNetFlowDto> result = marketFlowService.getDailyNetFlowHistory(market, flowType,
             from, to);
         return ApiResponse.success(result);
@@ -582,10 +557,6 @@ public class MarketController {
         DailyBreadthDto result = tradeDate == null
                 ? marketBreadthService.getLatestDailyBreadth(market, breadthType)
                 : marketBreadthService.getDailyBreadth(market, breadthType, tradeDate);
-        if (result == null) {
-            return ApiResponse.error(ApiStatusCodeConstants.NOT_FOUND,
-                ApiMessageConstants.MARKET_BREADTH_NOT_FOUND);
-        }
         return ApiResponse.success(result);
     }
 
@@ -631,27 +602,9 @@ public class MarketController {
             LocalDate to) {
         log.info("GET /api/v1/market/breadth/daily/history: market={}, breadthType={}, from={}, to={}",
                 market, breadthType, from, to);
-        if (to.isBefore(from)) {
-            return ApiResponse.error(ApiStatusCodeConstants.BAD_REQUEST,
-                ApiMessageConstants.INVALID_DATE_RANGE);
-        }
         List<DailyBreadthDto> result = marketBreadthService.getDailyBreadthHistory(market,
             breadthType, from, to);
         return ApiResponse.success(result);
     }
 
-    private String normalizeTimeframe(String period, String timeframe) {
-        if (timeframe != null && !timeframe.isBlank()) {
-            return timeframe;
-        }
-        if (period == null || period.isBlank()) {
-            return MarketConstants.DEFAULT_TIMEFRAME;
-        }
-        return switch (period.toLowerCase(Locale.ROOT)) {
-            case "daily", "day", "1d" -> MarketConstants.DEFAULT_TIMEFRAME;
-            case "weekly", "week", "1w" -> MarketConstants.WEEKLY_TIMEFRAME;
-            case "monthly", "month", "1mth", "1mo", "1m" -> MarketConstants.MONTHLY_TIMEFRAME;
-            default -> period;
-        };
-    }
 }
