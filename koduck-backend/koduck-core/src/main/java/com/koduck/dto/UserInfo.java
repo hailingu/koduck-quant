@@ -16,19 +16,16 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 /**
- * 用户信息数据传输对象（兼容层）。
+ * 用户信息数据传输对象。
  *
- * <p><strong>已弃用</strong>：请使用 {@link com.koduck.security.AuthUserPrincipal}</p>
- * <p>此类作为临时兼容层保留，将在后续版本中删除。</p>
+ * <p>用于认证响应中的用户信息。</p>
  *
- * @deprecated 使用 {@link com.koduck.security.AuthUserPrincipal}
  * @author Koduck Team
  */
 @Data
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-@Deprecated
 public class UserInfo implements UserPrincipal<GrantedAuthority> {
 
     private static final long serialVersionUID = SERIAL_VERSION_UID;

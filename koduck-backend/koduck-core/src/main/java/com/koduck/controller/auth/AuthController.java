@@ -16,13 +16,13 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.koduck.common.constants.HttpHeaderConstants;
 import com.koduck.dto.ApiResponse;
+import com.koduck.dto.UserInfo;
 import com.koduck.dto.auth.ForgotPasswordRequest;
 import com.koduck.dto.auth.LoginRequest;
 import com.koduck.dto.auth.RefreshTokenRequest;
 import com.koduck.dto.auth.RegisterRequest;
 import com.koduck.dto.auth.ResetPasswordRequest;
 import com.koduck.dto.auth.SecurityConfigResponse;
-import com.koduck.dto.UserInfo;
 import com.koduck.dto.auth.TokenResponse;
 import com.koduck.service.AuthService;
 
