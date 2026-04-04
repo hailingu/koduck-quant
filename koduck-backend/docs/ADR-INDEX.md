@@ -53,6 +53,7 @@
 | [ADR-0072](ADR-0072-adr-index-and-classification.md) | 建立 ADR 分类索引页（ADR-INDEX） | 架构文档治理 |
 | [ADR-0082](ADR-0082-maven-multi-module-refactoring.md) | Maven 多模块重构（拆分单一模块） | 模块化架构 |
 | [ADR-0083](ADR-0083-cleanup-empty-packages.md) | 清理 koduck-backend 空包 | 代码清理 |
+| [ADR-0084](ADR-0084-cleanup-src-empty-dirs.md) | 清理 koduck-backend/src 残留空目录 | 代码清理 |
 
 ---
 
