@@ -28,8 +28,8 @@ import com.koduck.entity.UserCredential;
 import com.koduck.exception.DuplicateException;
 import com.koduck.exception.ResourceNotFoundException;
 import com.koduck.mapper.CredentialMapper;
-import com.koduck.repository.CredentialAuditLogRepository;
-import com.koduck.repository.CredentialRepository;
+import com.koduck.repository.credential.CredentialAuditLogRepository;
+import com.koduck.repository.credential.CredentialRepository;
 import com.koduck.service.CredentialService;
 import com.koduck.util.CredentialEncryptionUtil;
 

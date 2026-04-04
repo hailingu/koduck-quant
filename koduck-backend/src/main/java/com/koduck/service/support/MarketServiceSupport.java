@@ -22,8 +22,8 @@ import com.koduck.dto.market.StockStatsDto;
 import com.koduck.dto.market.SymbolInfoDto;
 import com.koduck.entity.StockBasic;
 import com.koduck.entity.StockRealtime;
-import com.koduck.repository.StockBasicRepository;
-import com.koduck.repository.StockRealtimeRepository;
+import com.koduck.repository.market.StockBasicRepository;
+import com.koduck.repository.market.StockRealtimeRepository;
 import com.koduck.util.SymbolUtils;
 
 import lombok.RequiredArgsConstructor;

@@ -16,7 +16,7 @@ import com.koduck.dto.settings.UpdateSettingsRequest;
 import com.koduck.dto.settings.UserSettingsDto;
 import com.koduck.entity.UserSettings;
 import com.koduck.mapper.UserSettingsMapper;
-import com.koduck.repository.UserSettingsRepository;
+import com.koduck.repository.user.UserSettingsRepository;
 import com.koduck.service.UserSettingsService;
 import com.koduck.common.constants.LlmConstants;
 import com.koduck.service.support.UserSettingsLlmConfigSupport;

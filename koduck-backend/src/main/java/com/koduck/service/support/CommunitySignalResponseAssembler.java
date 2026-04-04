@@ -13,7 +13,7 @@ import com.koduck.entity.CommunitySignal;
 import com.koduck.entity.SignalComment;
 import com.koduck.entity.SignalSubscription;
 import com.koduck.entity.User;
-import com.koduck.repository.UserRepository;
+import com.koduck.repository.auth.UserRepository;
 
 import lombok.RequiredArgsConstructor;
 

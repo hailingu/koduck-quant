@@ -14,7 +14,7 @@ import org.springframework.transaction.annotation.Transactional;
 import com.koduck.dto.market.SectorNetFlowDto;
 import com.koduck.dto.market.SectorNetFlowItemDto;
 import com.koduck.entity.MarketSectorNetFlow;
-import com.koduck.repository.MarketSectorNetFlowRepository;
+import com.koduck.repository.market.MarketSectorNetFlowRepository;
 import com.koduck.service.MarketSectorNetFlowService;
 
 import lombok.RequiredArgsConstructor;

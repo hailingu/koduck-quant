@@ -25,8 +25,8 @@ import com.koduck.config.CacheConfig;
 import com.koduck.dto.market.KlineDataDto;
 import com.koduck.entity.KlineData;
 import com.koduck.entity.StockRealtime;
-import com.koduck.repository.KlineDataRepository;
-import com.koduck.repository.StockRealtimeRepository;
+import com.koduck.repository.market.KlineDataRepository;
+import com.koduck.repository.market.StockRealtimeRepository;
 import com.koduck.service.KlineService;
 
 import lombok.extern.slf4j.Slf4j;

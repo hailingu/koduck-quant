@@ -20,7 +20,7 @@ import com.koduck.entity.StockBasic;
 import com.koduck.market.MarketType;
 import com.koduck.market.provider.MarketDataProvider;
 import com.koduck.market.provider.ProviderFactory;
-import com.koduck.repository.StockBasicRepository;
+import com.koduck.repository.market.StockBasicRepository;
 import com.koduck.service.KlineService;
 import com.koduck.service.market.AKShareDataProvider;
 import com.koduck.util.SymbolUtils;

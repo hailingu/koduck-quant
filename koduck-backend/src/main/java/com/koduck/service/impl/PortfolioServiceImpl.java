@@ -23,8 +23,8 @@ import com.koduck.dto.portfolio.UpdatePositionRequest;
 import com.koduck.entity.PortfolioPosition;
 import com.koduck.entity.Trade;
 import com.koduck.entity.enums.TradeType;
-import com.koduck.repository.PortfolioPositionRepository;
-import com.koduck.repository.TradeRepository;
+import com.koduck.repository.portfolio.PortfolioPositionRepository;
+import com.koduck.repository.backtest.TradeRepository;
 import com.koduck.service.KlineService;
 import com.koduck.service.PortfolioService;
 

@@ -18,8 +18,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.koduck.AbstractIntegrationTest;
 import com.koduck.entity.StockBasic;
 import com.koduck.entity.StockRealtime;
-import com.koduck.repository.StockBasicRepository;
-import com.koduck.repository.StockRealtimeRepository;
+import com.koduck.repository.market.StockBasicRepository;
+import com.koduck.repository.market.StockRealtimeRepository;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
