@@ -3,9 +3,9 @@ package com.koduck.service;
 import java.util.List;
 import java.util.Map;
 
-import com.koduck.entity.MemoryChatMessage;
-import com.koduck.entity.MemoryChatSession;
-import com.koduck.entity.UserMemoryProfile;
+import com.koduck.entity.ai.MemoryChatMessage;
+import com.koduck.entity.ai.MemoryChatSession;
+import com.koduck.entity.user.UserMemoryProfile;
 
 /**
  * Service interface for memory operations.

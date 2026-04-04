@@ -9,7 +9,7 @@ import org.springframework.stereotype.Service;
 import com.koduck.dto.market.PriceUpdateDto;
 import com.koduck.dto.market.RealtimePriceEventMessage;
 import com.koduck.dto.market.TickDto;
-import com.koduck.entity.StockRealtime;
+import com.koduck.entity.market.StockRealtime;
 import com.koduck.service.PricePushService;
 import com.koduck.service.StockSubscriptionService;
 import com.koduck.service.SyntheticTickService;

@@ -23,7 +23,7 @@ import com.koduck.dto.ApiResponse;
 import com.koduck.dto.watchlist.AddWatchlistRequest;
 import com.koduck.dto.watchlist.SortWatchlistRequest;
 import com.koduck.dto.watchlist.WatchlistItemDto;
-import com.koduck.entity.User;
+import com.koduck.entity.auth.User;
 import com.koduck.security.UserPrincipal;
 import com.koduck.service.WatchlistService;
 

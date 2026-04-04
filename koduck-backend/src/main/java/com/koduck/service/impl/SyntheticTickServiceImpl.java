@@ -17,8 +17,8 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 
 import com.koduck.dto.market.TickDto;
-import com.koduck.entity.StockRealtime;
-import com.koduck.entity.StockTickHistory;
+import com.koduck.entity.market.StockRealtime;
+import com.koduck.entity.market.StockTickHistory;
 import com.koduck.repository.market.StockTickHistoryRepository;
 import com.koduck.service.SyntheticTickService;
 

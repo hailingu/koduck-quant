@@ -12,8 +12,8 @@ import com.koduck.common.constants.LlmConstants;
 import com.koduck.dto.settings.LlmConfigDto;
 import com.koduck.dto.settings.MemoryConfigDto;
 import com.koduck.dto.settings.ProviderConfigDto;
-import com.koduck.entity.UserCredential;
-import com.koduck.entity.UserSettings;
+import com.koduck.entity.auth.UserCredential;
+import com.koduck.entity.user.UserSettings;
 import com.koduck.repository.credential.CredentialRepository;
 import com.koduck.util.CredentialEncryptionUtil;
 

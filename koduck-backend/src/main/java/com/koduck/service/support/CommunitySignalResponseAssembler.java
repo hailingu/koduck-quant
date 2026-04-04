@@ -9,10 +9,10 @@ import org.springframework.stereotype.Component;
 import com.koduck.dto.community.CommentResponse;
 import com.koduck.dto.community.SignalResponse;
 import com.koduck.dto.community.SignalSubscriptionResponse;
-import com.koduck.entity.CommunitySignal;
-import com.koduck.entity.SignalComment;
-import com.koduck.entity.SignalSubscription;
-import com.koduck.entity.User;
+import com.koduck.entity.community.CommunitySignal;
+import com.koduck.entity.community.SignalComment;
+import com.koduck.entity.community.SignalSubscription;
+import com.koduck.entity.auth.User;
 import com.koduck.repository.auth.UserRepository;
 
 import lombok.RequiredArgsConstructor;

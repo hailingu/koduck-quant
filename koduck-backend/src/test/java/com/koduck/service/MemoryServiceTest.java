@@ -12,9 +12,9 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.Pageable;
 
-import com.koduck.entity.MemoryChatMessage;
-import com.koduck.entity.MemoryChatSession;
-import com.koduck.entity.UserMemoryProfile;
+import com.koduck.entity.ai.MemoryChatMessage;
+import com.koduck.entity.ai.MemoryChatSession;
+import com.koduck.entity.user.UserMemoryProfile;
 import com.koduck.repository.ai.MemoryChatMessageRepository;
 import com.koduck.repository.ai.MemoryChatSessionRepository;
 import com.koduck.repository.user.UserMemoryProfileRepository;

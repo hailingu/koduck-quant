@@ -3,7 +3,7 @@ package com.koduck.mapper;
 import org.mapstruct.Mapper;
 
 import com.koduck.dto.backtest.BacktestTradeDto;
-import com.koduck.entity.BacktestTrade;
+import com.koduck.entity.backtest.BacktestTrade;
 
 /**
  * Mapper for backtest trade responses.

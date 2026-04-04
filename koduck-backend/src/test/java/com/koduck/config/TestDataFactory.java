@@ -2,7 +2,7 @@ package com.koduck.config;
 
 import java.time.LocalDateTime;
 
-import com.koduck.entity.User;
+import com.koduck.entity.auth.User;
 
 /**
  * Test data factory for creating test entities.

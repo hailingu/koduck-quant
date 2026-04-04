@@ -16,7 +16,7 @@ import com.koduck.dto.market.StockIndustryDto;
 import com.koduck.dto.market.StockStatsDto;
 import com.koduck.dto.market.StockValuationDto;
 import com.koduck.dto.market.SymbolInfoDto;
-import com.koduck.entity.StockBasic;
+import com.koduck.entity.market.StockBasic;
 import com.koduck.market.MarketType;
 import com.koduck.market.provider.MarketDataProvider;
 import com.koduck.market.provider.ProviderFactory;

@@ -8,7 +8,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
 
-import com.koduck.entity.StockRealtime;
+import com.koduck.entity.market.StockRealtime;
 
 /**
  * Repository for stock real-time price data.

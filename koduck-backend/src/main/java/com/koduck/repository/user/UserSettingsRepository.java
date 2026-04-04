@@ -5,7 +5,7 @@ import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
-import com.koduck.entity.UserSettings;
+import com.koduck.entity.user.UserSettings;
 
 /**
  * Repository for UserSettings operations.

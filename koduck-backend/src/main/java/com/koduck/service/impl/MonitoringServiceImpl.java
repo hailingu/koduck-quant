@@ -10,10 +10,10 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.koduck.entity.AlertHistory;
-import com.koduck.entity.AlertRule;
-import com.koduck.entity.DataSourceStatus;
-import com.koduck.entity.StockRealtime;
+import com.koduck.entity.strategy.AlertHistory;
+import com.koduck.entity.strategy.AlertRule;
+import com.koduck.entity.market.DataSourceStatus;
+import com.koduck.entity.market.StockRealtime;
 import com.koduck.repository.market.StockRealtimeRepository;
 import com.koduck.repository.market.DataSourceStatusRepository;
 import com.koduck.repository.strategy.AlertRuleRepository;

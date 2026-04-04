@@ -3,7 +3,7 @@ package com.koduck.repository.user;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
-import com.koduck.entity.UserMemoryProfile;
+import com.koduck.entity.user.UserMemoryProfile;
 
 /**
  * Repository for UserMemoryProfile entity operations.

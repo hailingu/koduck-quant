@@ -9,7 +9,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
-import com.koduck.entity.BacktestResult;
+import com.koduck.entity.backtest.BacktestResult;
 
 /**
  * Repository for backtest result operations.

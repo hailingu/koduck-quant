@@ -4,7 +4,7 @@ import java.util.Objects;
 
 import org.springframework.stereotype.Component;
 
-import com.koduck.entity.Strategy;
+import com.koduck.entity.strategy.Strategy;
 import com.koduck.repository.strategy.StrategyRepository;
 
 import static com.koduck.util.ServiceValidationUtils.requireFound;

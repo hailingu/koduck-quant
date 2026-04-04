@@ -5,7 +5,7 @@ import java.util.List;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
-import com.koduck.entity.BacktestTrade;
+import com.koduck.entity.backtest.BacktestTrade;
 
 /**
  * Repository for backtest trade operations.

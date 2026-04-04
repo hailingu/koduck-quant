@@ -7,7 +7,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
 
-import com.koduck.entity.DataSourceStatus;
+import com.koduck.entity.market.DataSourceStatus;
 
 /**
  * Repository for data source status.

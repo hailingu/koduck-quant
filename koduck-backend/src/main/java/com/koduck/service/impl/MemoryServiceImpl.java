@@ -14,9 +14,9 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.koduck.entity.MemoryChatMessage;
-import com.koduck.entity.MemoryChatSession;
-import com.koduck.entity.UserMemoryProfile;
+import com.koduck.entity.ai.MemoryChatMessage;
+import com.koduck.entity.ai.MemoryChatSession;
+import com.koduck.entity.user.UserMemoryProfile;
 import com.koduck.exception.StateException;
 import com.koduck.repository.ai.MemoryChatMessageRepository;
 import com.koduck.repository.ai.MemoryChatSessionRepository;

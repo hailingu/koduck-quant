@@ -21,7 +21,7 @@ import com.koduck.dto.community.CommentResponse;
 import com.koduck.dto.community.CreateSignalRequest;
 import com.koduck.dto.community.SignalListResponse;
 import com.koduck.dto.community.SignalResponse;
-import com.koduck.entity.User;
+import com.koduck.entity.auth.User;
 import com.koduck.security.UserPrincipal;
 import com.koduck.service.CommunitySignalService;
 

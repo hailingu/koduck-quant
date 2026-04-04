@@ -11,7 +11,7 @@ import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 
 import com.koduck.common.constants.RoleConstants;
-import com.koduck.entity.User;
+import com.koduck.entity.auth.User;
 import com.koduck.repository.auth.PermissionRepository;
 import com.koduck.repository.auth.RoleRepository;
 import com.koduck.repository.auth.UserRepository;

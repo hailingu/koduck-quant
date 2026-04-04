@@ -7,7 +7,7 @@ import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
-import com.koduck.entity.MarketSectorNetFlow;
+import com.koduck.entity.market.MarketSectorNetFlow;
 
 /**
  * Repository for Market Sector Net Flow operations.

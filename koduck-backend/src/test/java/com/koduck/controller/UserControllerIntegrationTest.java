@@ -24,7 +24,7 @@ import com.koduck.dto.user.CreateUserRequest;
 import com.koduck.dto.user.UpdateProfileRequest;
 import com.koduck.dto.user.UpdateUserRequest;
 import com.koduck.dto.user.UserDetailResponse;
-import com.koduck.entity.User;
+import com.koduck.entity.auth.User;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
