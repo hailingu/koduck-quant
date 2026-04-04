@@ -11,7 +11,7 @@ import com.koduck.repository.auth.RoleRepository;
 import lombok.RequiredArgsConstructor;
 
 /**
- * Resolves default USER role ID from database and caches the value.
+ * 从数据库解析默认USER角色ID并缓存值。
  *
  * @author GitHub Copilot
  */
@@ -20,19 +20,19 @@ import lombok.RequiredArgsConstructor;
 public class DefaultUserRoleResolver {
 
     /**
-     * Repository used to load the default role definition.
+     * 用于加载默认角色定义的仓库。
      */
     private final RoleRepository roleRepository;
 
     /**
-     * Cached default role id.
+     * 缓存的默认角色ID。
      */
     private volatile Integer defaultUserRoleId;
 
     /**
-     * Resolves and caches the default user role id.
+     * 解析并缓存默认用户角色ID。
      *
-     * @return default role id
+     * @return 默认角色ID
      */
     public int resolveRoleId() {
         final Integer cached = defaultUserRoleId;

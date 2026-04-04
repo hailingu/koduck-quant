@@ -24,9 +24,9 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 /**
- * Strategy parameter entity for storing strategy configuration parameters.
+ * 策略参数实体，用于存储策略配置参数。
  *
- * @author Koduck
+ * @author Koduck Team
  */
 @Entity
 @Table(name = "strategy_parameters",
@@ -41,7 +41,7 @@ import lombok.Setter;
 public class StrategyParameter {
 
     /**
-     * Unique identifier.
+     * 唯一标识符。
      */
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -49,63 +49,63 @@ public class StrategyParameter {
     private Long id;
 
     /**
-     * Strategy ID.
+     * 策略 ID。
      */
     @Column(name = "strategy_id", nullable = false)
     private Long strategyId;
 
     /**
-     * Parameter name.
+     * 参数名称。
      */
     @Column(name = "param_name", nullable = false, length = 50)
     private String paramName;
 
     /**
-     * Parameter type.
+     * 参数类型。
      */
     @Column(name = "param_type", nullable = false, length = 20)
     @Enumerated(EnumType.STRING)
     private ParameterType paramType;
 
     /**
-     * Default value.
+     * 默认值。
      */
     @Column(name = "default_value", length = 100)
     private String defaultValue;
 
     /**
-     * Minimum value.
+     * 最小值。
      */
     @Column(name = "min_value", precision = 19, scale = 4)
     private BigDecimal minValue;
 
     /**
-     * Maximum value.
+     * 最大值。
      */
     @Column(name = "max_value", precision = 19, scale = 4)
     private BigDecimal maxValue;
 
     /**
-     * Parameter description.
+     * 参数描述。
      */
     @Column(name = "description", columnDefinition = "TEXT")
     private String description;
 
     /**
-     * Flag indicating if parameter is required.
+     * 指示参数是否必需的标志。
      */
     @Column(name = "is_required", nullable = false)
     @Builder.Default
     private Boolean isRequired = true;
 
     /**
-     * Sort order.
+     * 排序顺序。
      */
     @Column(name = "sort_order")
     private Integer sortOrder;
 
     /**
-     * Creation timestamp.
+     * 创建时间戳。
      */
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
@@ -113,39 +113,39 @@ public class StrategyParameter {
     private LocalDateTime createdAt;
 
     /**
-     * Last update timestamp.
+     * 最后更新时间戳。
      */
     @UpdateTimestamp
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
 
     /**
-     * Parameter type enumeration.
+     * 参数类型枚举。
      */
     public enum ParameterType {
 
         /**
-         * String type parameter.
+         * 字符串类型参数。
          */
         STRING,
 
         /**
-         * Integer type parameter.
+         * 整数类型参数。
          */
         INTEGER,
 
         /**
-         * Decimal type parameter.
+         * 小数类型参数。
          */
         DECIMAL,
 
         /**
-         * Boolean type parameter.
+         * 布尔类型参数。
          */
         BOOLEAN,
 
         /**
-         * Enumeration type parameter.
+         * 枚举类型参数。
          */
         ENUM
     }

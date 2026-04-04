@@ -23,10 +23,10 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 /**
- * Entity representing a trading strategy.
- * Stores strategy metadata, status, and versioning information.
+ * 表示交易策略的实体。
+ * 存储策略元数据、状态和版本信息。
  *
- * @author GitHub Copilot
+ * @author Koduck Team
  */
 @Entity
 @Table(name = "strategies",
@@ -43,7 +43,7 @@ import lombok.Setter;
 public class Strategy {
 
     /**
-     * Unique identifier for the strategy.
+     * 策略的唯一标识符。
      */
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -51,25 +51,25 @@ public class Strategy {
     private Long id;
 
     /**
-     * ID of the user who owns this strategy.
+     * 策略所有者的用户 ID。
      */
     @Column(name = "user_id", nullable = false)
     private Long userId;
 
     /**
-     * Name of the strategy.
+     * 策略名称。
      */
     @Column(name = "name", nullable = false, length = 100)
     private String name;
 
     /**
-     * Description of the strategy.
+     * 策略描述。
      */
     @Column(name = "description", columnDefinition = "TEXT")
     private String description;
 
     /**
-     * Current status of the strategy.
+     * 策略当前状态。
      */
     @Column(name = "status", nullable = false, length = 20)
     @Enumerated(EnumType.STRING)
@@ -77,14 +77,14 @@ public class Strategy {
     private StrategyStatus status = StrategyStatus.DRAFT;
 
     /**
-     * Current version number of the strategy.
+     * 策略当前版本号。
      */
     @Column(name = "current_version", nullable = false)
     @Builder.Default
     private Integer currentVersion = 1;
 
     /**
-     * Timestamp when the strategy was created.
+     * 策略创建时间戳。
      */
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
@@ -92,21 +92,21 @@ public class Strategy {
     private LocalDateTime createdAt;
 
     /**
-     * Timestamp when the strategy was last updated.
+     * 策略最后更新时间戳。
      */
     @UpdateTimestamp
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
 
     /**
-     * Enum representing the possible statuses of a strategy.
+     * 表示策略可能状态的枚举。
      */
     public enum StrategyStatus {
-        /** Draft status - strategy is being edited. */
+        /** 草稿状态 - 策略正在编辑中。 */
         DRAFT,
-        /** Published status - strategy is active and visible. */
+        /** 已发布状态 - 策略活跃且可见。 */
         PUBLISHED,
-        /** Disabled status - strategy is inactive. */
+        /** 已禁用状态 - 策略非活跃。 */
         DISABLED
     }
 }

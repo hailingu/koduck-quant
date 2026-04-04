@@ -4,26 +4,26 @@ import java.math.BigDecimal;
 import java.time.Instant;
 
 /**
- * Real-time price quote DTO.
+ * 实时价格行情数据传输对象。
  *
  * @author Koduck Team
- * @param symbol the symbol
- * @param name the name
- * @param type the type
- * @param price the price
- * @param open the open
- * @param high the high
- * @param low the low
- * @param prevClose the prev close
- * @param volume the volume
- * @param amount the amount
- * @param change the change
- * @param changePercent the change percent
- * @param bidPrice the bid price
- * @param bidVolume the bid volume
- * @param askPrice the ask price
- * @param askVolume the ask volume
- * @param timestamp the timestamp
+ * @param symbol 品种代码
+ * @param name 名称
+ * @param type 类型
+ * @param price 价格
+ * @param open 开盘价
+ * @param high 最高价
+ * @param low 最低价
+ * @param prevClose 前收盘价
+ * @param volume 成交量
+ * @param amount 成交额
+ * @param change 涨跌额
+ * @param changePercent 涨跌幅
+ * @param bidPrice 买入价
+ * @param bidVolume 买入量
+ * @param askPrice 卖出价
+ * @param askVolume 卖出量
+ * @param timestamp 时间戳
  */
 public record PriceQuoteDto(
     String symbol,
@@ -56,65 +56,49 @@ public record PriceQuoteDto(
     }
 
     /**
-     * Builder for PriceQuoteDto.
+     * PriceQuoteDto 的构建器。
      */
     public static class Builder {
-        /** The symbol. */
+        /** 品种代码。 */
         private String symbol;
-
-        /** The name. */
+        /** 名称。 */
         private String name;
-
-        /** The type. */
+        /** 类型。 */
         private String type;
-
-        /** The price. */
+        /** 价格。 */
         private BigDecimal price;
-
-        /** The open price. */
+        /** 开盘价。 */
         private BigDecimal open;
-
-        /** The high price. */
+        /** 最高价。 */
         private BigDecimal high;
-
-        /** The low price. */
+        /** 最低价。 */
         private BigDecimal low;
-
-        /** The previous close price. */
+        /** 前收盘价。 */
         private BigDecimal prevClose;
-
-        /** The volume. */
+        /** 成交量。 */
         private Long volume;
-
-        /** The amount. */
+        /** 成交额。 */
         private BigDecimal amount;
-
-        /** The change. */
+        /** 涨跌额。 */
         private BigDecimal change;
-
-        /** The change percent. */
+        /** 涨跌幅。 */
         private BigDecimal changePercent;
-
-        /** The bid price. */
+        /** 买入价。 */
         private BigDecimal bidPrice;
-
-        /** The bid volume. */
+        /** 买入量。 */
         private Long bidVolume;
-
-        /** The ask price. */
+        /** 卖出价。 */
         private BigDecimal askPrice;
-
-        /** The ask volume. */
+        /** 卖出量。 */
         private Long askVolume;
-
-        /** The timestamp. */
+        /** 时间戳。 */
         private Instant timestamp;
 
         /**
-         * Sets the symbol.
+         * 设置品种代码。
          *
-         * @param symbol the symbol
-         * @return the builder
+         * @param symbol 品种代码
+         * @return 构建器
          */
         public Builder symbol(String symbol) {
             this.symbol = symbol;
@@ -122,10 +106,10 @@ public record PriceQuoteDto(
         }
 
         /**
-         * Sets the name.
+         * 设置名称。
          *
-         * @param name the name
-         * @return the builder
+         * @param name 名称
+         * @return 构建器
          */
         public Builder name(String name) {
             this.name = name;
@@ -133,10 +117,10 @@ public record PriceQuoteDto(
         }
 
         /**
-         * Sets the type.
+         * 设置类型。
          *
-         * @param type the type
-         * @return the builder
+         * @param type 类型
+         * @return 构建器
          */
         public Builder type(String type) {
             this.type = type;
@@ -144,10 +128,10 @@ public record PriceQuoteDto(
         }
 
         /**
-         * Sets the price.
+         * 设置价格。
          *
-         * @param price the price
-         * @return the builder
+         * @param price 价格
+         * @return 构建器
          */
         public Builder price(BigDecimal price) {
             this.price = price;
@@ -155,10 +139,10 @@ public record PriceQuoteDto(
         }
 
         /**
-         * Sets the open price.
+         * 设置开盘价。
          *
-         * @param open the open price
-         * @return the builder
+         * @param open 开盘价
+         * @return 构建器
          */
         public Builder open(BigDecimal open) {
             this.open = open;
@@ -166,10 +150,10 @@ public record PriceQuoteDto(
         }
 
         /**
-         * Sets the high price.
+         * 设置最高价。
          *
-         * @param high the high price
-         * @return the builder
+         * @param high 最高价
+         * @return 构建器
          */
         public Builder high(BigDecimal high) {
             this.high = high;
@@ -177,10 +161,10 @@ public record PriceQuoteDto(
         }
 
         /**
-         * Sets the low price.
+         * 设置最低价。
          *
-         * @param low the low price
-         * @return the builder
+         * @param low 最低价
+         * @return 构建器
          */
         public Builder low(BigDecimal low) {
             this.low = low;
@@ -188,10 +172,10 @@ public record PriceQuoteDto(
         }
 
         /**
-         * Sets the previous close price.
+         * 设置前收盘价。
          *
-         * @param prevClose the previous close price
-         * @return the builder
+         * @param prevClose 前收盘价
+         * @return 构建器
          */
         public Builder prevClose(BigDecimal prevClose) {
             this.prevClose = prevClose;
@@ -199,10 +183,10 @@ public record PriceQuoteDto(
         }
 
         /**
-         * Sets the volume.
+         * 设置成交量。
          *
-         * @param volume the volume
-         * @return the builder
+         * @param volume 成交量
+         * @return 构建器
          */
         public Builder volume(Long volume) {
             this.volume = volume;
@@ -210,10 +194,10 @@ public record PriceQuoteDto(
         }
 
         /**
-         * Sets the amount.
+         * 设置成交额。
          *
-         * @param amount the amount
-         * @return the builder
+         * @param amount 成交额
+         * @return 构建器
          */
         public Builder amount(BigDecimal amount) {
             this.amount = amount;
@@ -221,10 +205,10 @@ public record PriceQuoteDto(
         }
 
         /**
-         * Sets the change.
+         * 设置涨跌额。
          *
-         * @param change the change
-         * @return the builder
+         * @param change 涨跌额
+         * @return 构建器
          */
         public Builder change(BigDecimal change) {
             this.change = change;
@@ -232,10 +216,10 @@ public record PriceQuoteDto(
         }
 
         /**
-         * Sets the change percent.
+         * 设置涨跌幅。
          *
-         * @param changePercent the change percent
-         * @return the builder
+         * @param changePercent 涨跌幅
+         * @return 构建器
          */
         public Builder changePercent(BigDecimal changePercent) {
             this.changePercent = changePercent;
@@ -243,10 +227,10 @@ public record PriceQuoteDto(
         }
 
         /**
-         * Sets the bid price.
+         * 设置买入价。
          *
-         * @param bidPrice the bid price
-         * @return the builder
+         * @param bidPrice 买入价
+         * @return 构建器
          */
         public Builder bidPrice(BigDecimal bidPrice) {
             this.bidPrice = bidPrice;
@@ -254,10 +238,10 @@ public record PriceQuoteDto(
         }
 
         /**
-         * Sets the bid volume.
+         * 设置买入量。
          *
-         * @param bidVolume the bid volume
-         * @return the builder
+         * @param bidVolume 买入量
+         * @return 构建器
          */
         public Builder bidVolume(Long bidVolume) {
             this.bidVolume = bidVolume;
@@ -265,10 +249,10 @@ public record PriceQuoteDto(
         }
 
         /**
-         * Sets the ask price.
+         * 设置卖出价。
          *
-         * @param askPrice the ask price
-         * @return the builder
+         * @param askPrice 卖出价
+         * @return 构建器
          */
         public Builder askPrice(BigDecimal askPrice) {
             this.askPrice = askPrice;
@@ -276,10 +260,10 @@ public record PriceQuoteDto(
         }
 
         /**
-         * Sets the ask volume.
+         * 设置卖出量。
          *
-         * @param askVolume the ask volume
-         * @return the builder
+         * @param askVolume 卖出量
+         * @return 构建器
          */
         public Builder askVolume(Long askVolume) {
             this.askVolume = askVolume;
@@ -287,10 +271,10 @@ public record PriceQuoteDto(
         }
 
         /**
-         * Sets the timestamp.
+ * 设置时间戳。
          *
-         * @param timestamp the timestamp
-         * @return the builder
+         * @param timestamp 时间戳
+         * @return 构建器
          */
         public Builder timestamp(Instant timestamp) {
             this.timestamp = timestamp;
@@ -298,9 +282,9 @@ public record PriceQuoteDto(
         }
 
         /**
-         * Builds the PriceQuoteDto.
+         * 构建 PriceQuoteDto。
          *
-         * @return the PriceQuoteDto
+         * @return PriceQuoteDto 实例
          */
         public PriceQuoteDto build() {
             return new PriceQuoteDto(

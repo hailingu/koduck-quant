@@ -10,69 +10,69 @@ import com.koduck.dto.portfolio.TradeDto;
 import com.koduck.dto.portfolio.UpdatePositionRequest;
 
 /**
- * Service for portfolio operations.
+ * 投资组合操作服务。
  *
  * @author Koduck Team
  */
 public interface PortfolioService {
 
     /**
-     * Get user's portfolio positions with calculated values.
+     * 获取用户的投资组合持仓（含计算后的市值）。
      *
-     * @param userId the user ID
-     * @return the list of portfolio positions
+     * @param userId 用户ID
+     * @return 投资组合持仓列表
      */
     List<PortfolioPositionDto> getPositions(Long userId);
 
     /**
-     * Get portfolio summary with daily PnL calculation.
+     * 获取投资组合摘要（含日盈亏计算）。
      *
-     * @param userId the user ID
-     * @return the portfolio summary
+     * @param userId 用户ID
+     * @return 投资组合摘要
      */
     PortfolioSummaryDto getPortfolioSummary(Long userId);
 
     /**
-     * Add a position to portfolio.
+     * 向投资组合中添加持仓。
      *
-     * @param userId  the user ID
-     * @param request the add position request
-     * @return the added position
+     * @param userId  用户ID
+     * @param request 添加持仓请求
+     * @return 添加的持仓
      */
     PortfolioPositionDto addPosition(Long userId, AddPositionRequest request);
 
     /**
-     * Update a position.
+     * 更新持仓。
      *
-     * @param userId     the user ID
-     * @param positionId the position ID
-     * @param request    the update request
-     * @return the updated position
+     * @param userId     用户ID
+     * @param positionId 持仓ID
+     * @param request    更新请求
+     * @return 更新后的持仓
      */
     PortfolioPositionDto updatePosition(Long userId, Long positionId, UpdatePositionRequest request);
 
     /**
-     * Delete a position.
+     * 删除持仓。
      *
-     * @param userId     the user ID
-     * @param positionId the position ID
+     * @param userId     用户ID
+     * @param positionId 持仓ID
      */
     void deletePosition(Long userId, Long positionId);
 
     /**
-     * Get trade records for a user.
+     * 获取用户的交易记录。
      *
-     * @param userId the user ID
-     * @return the list of trade records
+     * @param userId 用户ID
+     * @return 交易记录列表
      */
     List<TradeDto> getTrades(Long userId);
 
     /**
-     * Add a trade record and update position.
+     * 添加交易记录并更新持仓。
      *
-     * @param userId  the user ID
-     * @param request the add trade request
-     * @return the added trade
+     * @param userId  用户ID
+     * @param request 添加交易请求
+     * @return 添加的交易
      */
     TradeDto addTrade(Long userId, AddTradeRequest request);
 }

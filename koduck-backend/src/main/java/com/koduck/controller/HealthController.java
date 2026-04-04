@@ -15,7 +15,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.Data;
 
 /**
- * Health check controller for service status monitoring.
+ * 健康检查控制器，用于服务状态监控。
  *
  * @author Koduck Team
  */
@@ -24,13 +24,13 @@ import lombok.Data;
 @Tag(name = "健康检查", description = "服务健康状态检查接口")
 public class HealthController {
 
-    /** Service start timestamp. */
+    /** 服务启动时间戳。 */
     private final long startTime = Instant.now().toEpochMilli();
 
     /**
-     * Get service health status.
+     * 获取服务健康状态。
      *
-     * @return health information including status, version, uptime
+     * @return 包含状态、版本、运行时长的健康信息
      */
     @Operation(
         summary = "健康检查",
@@ -55,9 +55,9 @@ public class HealthController {
     }
 
     /**
-     * Simple ping endpoint for connectivity check.
+     * 简单的连通性检查端点。
      *
-     * @return pong
+     * @return pong 响应
      */
     @Operation(
         summary = "Ping测试",
@@ -76,28 +76,28 @@ public class HealthController {
     }
 
     /**
-     * Health information DTO.
+     * 健康信息 DTO。
      */
     @Data
     @Schema(description = "健康状态信息")
     public static class HealthInfo {
-        /** Service status. */
+        /** 服务状态。 */
         @Schema(description = "服务状态", example = "UP", allowableValues = {"UP", "DOWN"})
         private String status;
 
-        /** Service name. */
+        /** 服务名称。 */
         @Schema(description = "服务名称", example = "koduck-backend")
         private String service;
 
-        /** Version number. */
+        /** 版本号。 */
         @Schema(description = "版本号", example = "0.1.0")
         private String version;
 
-        /** Uptime in milliseconds. */
+        /** 运行时长（毫秒）。 */
         @Schema(description = "运行时长(毫秒)", example = "3600000")
         private long uptime;
 
-        /** Current timestamp. */
+        /** 当前时间戳。 */
         @Schema(description = "当前时间戳", example = "2024-01-15T09:30:00Z")
         private String timestamp;
     }

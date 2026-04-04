@@ -20,10 +20,10 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 /**
- * Entity representing a version of a trading strategy.
- * Stores version-specific code, changelog, and activation status.
+ * 表示交易策略版本的实体。
+ * 存储版本特定的代码、变更日志和激活状态。
  *
- * @author GitHub Copilot
+ * @author Koduck Team
  */
 @Entity
 @Table(name = "strategy_versions",
@@ -39,7 +39,7 @@ import lombok.Setter;
 public class StrategyVersion {
 
     /**
-     * Unique identifier for the strategy version.
+     * 策略版本的唯一标识符。
      */
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -47,38 +47,38 @@ public class StrategyVersion {
     private Long id;
 
     /**
-     * ID of the parent strategy.
+     * 父策略的 ID。
      */
     @Column(name = "strategy_id", nullable = false)
     private Long strategyId;
 
     /**
-     * Version number within the strategy.
+     * 策略内的版本号。
      */
     @Column(name = "version_number", nullable = false)
     private Integer versionNumber;
 
     /**
-     * Strategy code content.
+     * 策略代码内容。
      */
     @Column(name = "code", columnDefinition = "TEXT")
     private String code;
 
     /**
-     * Changelog describing changes in this version.
+     * 描述此版本变更的变更日志。
      */
     @Column(name = "changelog", columnDefinition = "TEXT")
     private String changelog;
 
     /**
-     * Flag indicating if this version is currently active.
+     * 指示此版本是否当前激活的标志。
      */
     @Column(name = "is_active", nullable = false)
     @Builder.Default
     private Boolean isActive = true;
 
     /**
-     * Timestamp when this version was created.
+     * 此版本创建时间戳。
      */
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)

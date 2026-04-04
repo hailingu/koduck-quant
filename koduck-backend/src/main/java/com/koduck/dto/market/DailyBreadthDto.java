@@ -22,7 +22,7 @@ import com.fasterxml.jackson.databind.annotation.JsonNaming;
  * @param source the source
  * @param quality the quality
  * @param snapshotTime the snapshot time
- * @param updatedAt the updated at
+ * @param updatedAt 更新时间
  */
 @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
 public record DailyBreadthDto(

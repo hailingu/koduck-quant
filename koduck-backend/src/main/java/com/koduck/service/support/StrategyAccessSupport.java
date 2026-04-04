@@ -10,7 +10,7 @@ import com.koduck.repository.strategy.StrategyRepository;
 import static com.koduck.util.ServiceValidationUtils.requireFound;
 
 /**
- * Shared support for strategy ownership validation and loading.
+ * 策略所有权验证和加载的共享支持。
  *
  * @author GitHub Copilot
  */
@@ -18,25 +18,25 @@ import static com.koduck.util.ServiceValidationUtils.requireFound;
 public class StrategyAccessSupport {
 
     /**
-     * Repository used to resolve strategies for the current user.
+     * 用于解析当前用户策略的仓库。
      */
     private final StrategyRepository strategyRepo;
 
     /**
-     * Creates a strategy access helper.
+     * 创建策略访问辅助类。
      *
-     * @param strategyRepo repository used for strategy ownership checks
+     * @param strategyRepo 用于策略所有权检查的仓库
      */
     public StrategyAccessSupport(final StrategyRepository strategyRepo) {
         this.strategyRepo = Objects.requireNonNull(strategyRepo, "strategyRepo must not be null");
     }
 
     /**
-     * Loads a strategy owned by the specified user or throws when absent.
+     * 加载指定用户拥有的策略，不存在时抛出异常。
      *
-     * @param userId owner user id
-     * @param strategyId target strategy id
-     * @return owned strategy entity
+     * @param userId     所有者用户ID
+     * @param strategyId 目标策略ID
+     * @return 拥有的策略实体
      */
     public Strategy loadStrategyOrThrow(final Long userId, final Long strategyId) {
         return requireFound(strategyRepo.findByIdAndUserId(strategyId, userId),

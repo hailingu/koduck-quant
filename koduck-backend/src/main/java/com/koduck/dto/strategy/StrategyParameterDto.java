@@ -31,7 +31,7 @@ public record StrategyParameterDto(
     /**
      * Get a builder for StrategyParameterDto.
      *
-     * @return the builder
+     * @return 构建器
      */
     public static Builder builder() {
         return new Builder();
@@ -72,7 +72,7 @@ public record StrategyParameterDto(
          * Set the ID.
          *
          * @param id the parameter ID
-         * @return the builder
+         * @return 构建器
          */
         public Builder id(Long id) {
             this.id = id;
@@ -83,7 +83,7 @@ public record StrategyParameterDto(
          * Set the parameter name.
          *
          * @param paramName the parameter name
-         * @return the builder
+         * @return 构建器
          */
         public Builder paramName(String paramName) {
             this.paramName = paramName;
@@ -94,7 +94,7 @@ public record StrategyParameterDto(
          * Set the parameter type.
          *
          * @param paramType the parameter type
-         * @return the builder
+         * @return 构建器
          */
         public Builder paramType(String paramType) {
             this.paramType = paramType;
@@ -105,7 +105,7 @@ public record StrategyParameterDto(
          * Set the default value.
          *
          * @param defaultValue the default value
-         * @return the builder
+         * @return 构建器
          */
         public Builder defaultValue(String defaultValue) {
             this.defaultValue = defaultValue;
@@ -116,7 +116,7 @@ public record StrategyParameterDto(
          * Set the minimum value.
          *
          * @param minValue the minimum value
-         * @return the builder
+         * @return 构建器
          */
         public Builder minValue(BigDecimal minValue) {
             this.minValue = minValue;
@@ -127,7 +127,7 @@ public record StrategyParameterDto(
          * Set the maximum value.
          *
          * @param maxValue the maximum value
-         * @return the builder
+         * @return 构建器
          */
         public Builder maxValue(BigDecimal maxValue) {
             this.maxValue = maxValue;
@@ -138,7 +138,7 @@ public record StrategyParameterDto(
          * Set the description.
          *
          * @param description the parameter description
-         * @return the builder
+         * @return 构建器
          */
         public Builder description(String description) {
             this.description = description;
@@ -149,7 +149,7 @@ public record StrategyParameterDto(
          * Set the required flag.
          *
          * @param isRequired whether the parameter is required
-         * @return the builder
+         * @return 构建器
          */
         public Builder isRequired(Boolean isRequired) {
             this.isRequired = isRequired;
@@ -160,7 +160,7 @@ public record StrategyParameterDto(
          * Set the sort order.
          *
          * @param sortOrder the sort order
-         * @return the builder
+         * @return 构建器
          */
         public Builder sortOrder(Integer sortOrder) {
             this.sortOrder = sortOrder;

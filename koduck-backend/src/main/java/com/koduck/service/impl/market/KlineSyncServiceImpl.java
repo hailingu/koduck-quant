@@ -29,7 +29,7 @@ import com.koduck.service.KlineSyncService;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * Implementation of KlineSyncService for syncing K-line data from Python Data Service.
+ * K线同步服务实现类，用于从Python数据服务同步K线数据.
  *
  * @author GitHub Copilot
  */
@@ -37,27 +37,27 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class KlineSyncServiceImpl implements KlineSyncService {
 
-    /** WebClient for data service. */
+    /** 数据服务的WebClient. */
     private final WebClient dataServiceWebClient;
 
-    /** Configuration properties for data service. */
+    /** 数据服务的配置属性. */
     private final DataServiceProperties properties;
 
-    /** Service for K-line data operations. */
+    /** K线数据操作服务. */
     private final KlineService klineService;
 
-    /** Mapper for K-line data DTO conversion. */
+    /** K线数据DTO转换映射器. */
     private final KlineDataDtoMapper klineDataDtoMapper;
 
     // Using constants from MarketConstants and DataServicePathConstants directly
 
-    /** Default interval between batch operations (milliseconds). */
+    /** 批量操作间的默认间隔（毫秒）. */
     private static final long DEFAULT_BATCH_INTERVAL_MILLIS = 500L;
 
-    /** Default limit for K-line query. */
+    /** K线查询的默认限制. */
     private static final int DEFAULT_KLINE_QUERY_LIMIT = 1000;
 
-    /** Sleep duration between sync operations (milliseconds). */
+    /** 同步操作间的休眠时长（毫秒）. */
     private static final long SYNC_SLEEP_MILLIS = 1000L;
 
     /** Response type reference for K-line list. */
@@ -71,7 +71,7 @@ public class KlineSyncServiceImpl implements KlineSyncService {
     /**
      * Constructs a new KlineSyncServiceImpl.
      *
-     * @param dataServiceWebClient the WebClient for data service
+     * @param dataServiceWebClient the 数据服务的WebClient
      * @param properties the data service properties
      * @param klineService the K-line service
      * @param klineDataDtoMapper the K-line data DTO mapper

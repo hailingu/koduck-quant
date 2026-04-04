@@ -9,14 +9,14 @@ import java.time.LocalDateTime;
  * @author Koduck Team
  * @param id the ID
  * @param market the market
- * @param symbol the symbol
- * @param name the name
+ * @param symbol 品种代码
+ * @param name 名称
  * @param sortOrder the sort order
  * @param notes the notes
- * @param price the price
- * @param change the change
- * @param changePercent the change percent
- * @param createdAt the created at timestamp
+ * @param price 价格
+ * @param change 涨跌额
+ * @param changePercent 涨跌幅
+ * @param createdAt 创建时间 timestamp
  */
 public record WatchlistItemDto(
     Long id,
@@ -32,16 +32,16 @@ public record WatchlistItemDto(
 ) {
 
     /**
-     * Creates a new Builder instance.
+     * 创建新的 Builder 实例。
      *
-     * @return the builder
+     * @return 构建器
      */
     public static Builder builder() {
         return new Builder();
     }
 
     /**
-     * Builder for WatchlistItemDto.
+     * WatchlistItemDto 的构建器。
      */
     public static class Builder {
 
@@ -50,11 +50,9 @@ public record WatchlistItemDto(
 
         /** The market. */
         private String market;
-
-        /** The symbol. */
+        /** 品种代码。 */
         private String symbol;
-
-        /** The name. */
+        /** 名称。 */
         private String name;
 
         /** The sort order. */
@@ -62,14 +60,11 @@ public record WatchlistItemDto(
 
         /** The notes. */
         private String notes;
-
-        /** The price. */
+        /** 价格。 */
         private BigDecimal price;
-
-        /** The change. */
+        /** 涨跌额。 */
         private BigDecimal change;
-
-        /** The change percent. */
+        /** 涨跌幅。 */
         private BigDecimal changePercent;
 
         /** The created at timestamp. */
@@ -79,7 +74,7 @@ public record WatchlistItemDto(
          * Sets the ID.
          *
          * @param id the ID
-         * @return the builder
+         * @return 构建器
          */
         public Builder id(Long id) {
             this.id = id;
@@ -90,7 +85,7 @@ public record WatchlistItemDto(
          * Sets the market.
          *
          * @param market the market
-         * @return the builder
+         * @return 构建器
          */
         public Builder market(String market) {
             this.market = market;
@@ -98,10 +93,10 @@ public record WatchlistItemDto(
         }
 
         /**
-         * Sets the symbol.
+         * 设置品种代码。
          *
-         * @param symbol the symbol
-         * @return the builder
+         * @param symbol 品种代码
+         * @return 构建器
          */
         public Builder symbol(String symbol) {
             this.symbol = symbol;
@@ -109,10 +104,10 @@ public record WatchlistItemDto(
         }
 
         /**
-         * Sets the name.
+         * 设置名称。
          *
-         * @param name the name
-         * @return the builder
+         * @param name 名称
+         * @return 构建器
          */
         public Builder name(String name) {
             this.name = name;
@@ -123,7 +118,7 @@ public record WatchlistItemDto(
          * Sets the sort order.
          *
          * @param sortOrder the sort order
-         * @return the builder
+         * @return 构建器
          */
         public Builder sortOrder(Integer sortOrder) {
             this.sortOrder = sortOrder;
@@ -134,7 +129,7 @@ public record WatchlistItemDto(
          * Sets the notes.
          *
          * @param notes the notes
-         * @return the builder
+         * @return 构建器
          */
         public Builder notes(String notes) {
             this.notes = notes;
@@ -142,10 +137,10 @@ public record WatchlistItemDto(
         }
 
         /**
-         * Sets the price.
+         * 设置价格。
          *
-         * @param price the price
-         * @return the builder
+         * @param price 价格
+         * @return 构建器
          */
         public Builder price(BigDecimal price) {
             this.price = price;
@@ -153,10 +148,10 @@ public record WatchlistItemDto(
         }
 
         /**
-         * Sets the change.
+         * 设置涨跌额。
          *
-         * @param change the change
-         * @return the builder
+         * @param change 涨跌额
+         * @return 构建器
          */
         public Builder change(BigDecimal change) {
             this.change = change;
@@ -164,10 +159,10 @@ public record WatchlistItemDto(
         }
 
         /**
-         * Sets the change percent.
+         * 设置涨跌幅。
          *
-         * @param changePercent the change percent
-         * @return the builder
+         * @param changePercent 涨跌幅
+         * @return 构建器
          */
         public Builder changePercent(BigDecimal changePercent) {
             this.changePercent = changePercent;
@@ -177,8 +172,8 @@ public record WatchlistItemDto(
         /**
          * Sets the created at timestamp.
          *
-         * @param createdAt the created at timestamp
-         * @return the builder
+         * @param createdAt 创建时间 timestamp
+         * @return 构建器
          */
         public Builder createdAt(LocalDateTime createdAt) {
             this.createdAt = createdAt;

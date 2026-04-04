@@ -21,10 +21,10 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 /**
- * Credential audit log entity.
- * Records credential-related actions for audit purposes.
+ * 凭证审计日志实体。
+ * 记录凭证相关操作以供审计。
  *
- * @author Koduck
+ * @author Koduck Team
  */
 @Entity
 @Table(name = "credential_audit_logs")
@@ -35,7 +35,7 @@ import lombok.Setter;
 public class CredentialAuditLog {
 
     /**
-     * Unique identifier for the audit log entry.
+     * 审计日志条目的唯一标识符。
      */
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -43,50 +43,50 @@ public class CredentialAuditLog {
     private Long id;
 
     /**
-     * ID of the credential being audited.
+     * 被审计凭证的 ID。
      */
     @Column(name = "credential_id")
     private Long credentialId;
 
     /**
-     * ID of the user who performed the action.
+     * 执行操作的用户 ID。
      */
     @Column(name = "user_id", nullable = false)
     private Long userId;
 
     /**
-     * Type of action performed.
+     * 执行的操作类型。
      */
     @Column(nullable = false, length = 20)
     @Enumerated(EnumType.STRING)
     private ActionType action;
 
     /**
-     * IP address of the user who performed the action.
+     * 执行操作的用户的 IP 地址。
      */
     @Column(name = "ip_address", length = 45)
     private String ipAddress;
 
     /**
-     * User agent string of the client.
+     * 客户端的用户代理字符串。
      */
     @Column(name = "user_agent", columnDefinition = "TEXT")
     private String userAgent;
 
     /**
-     * Whether the action was successful.
+     * 操作是否成功。
      */
     @Column(nullable = false)
     private Boolean success;
 
     /**
-     * Error message if the action failed.
+     * 操作失败时的错误信息。
      */
     @Column(name = "error_message", columnDefinition = "TEXT")
     private String errorMessage;
 
     /**
-     * Timestamp when the audit log entry was created.
+     * 审计日志条目创建时间戳。
      */
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
@@ -94,32 +94,32 @@ public class CredentialAuditLog {
     private LocalDateTime createdAt;
 
     /**
-     * Enumeration of possible action types for credential audit logs.
+     * 凭证审计日志可能的操作类型枚举。
      */
     public enum ActionType {
 
         /**
-         * Create a new credential.
+         * 创建新凭证。
          */
         CREATE,
 
         /**
-         * Update an existing credential.
+         * 更新现有凭证。
          */
         UPDATE,
 
         /**
-         * Delete a credential.
+         * 删除凭证。
          */
         DELETE,
 
         /**
-         * Verify a credential.
+         * 验证凭证。
          */
         VERIFY,
 
         /**
-         * View a credential.
+         * 查看凭证。
          */
         VIEW
     }

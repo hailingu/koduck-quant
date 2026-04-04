@@ -18,9 +18,9 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 /**
- * Synthetic tick history generated from realtime snapshots.
+ * 从实时快照生成的合成分时成交历史。
  *
- * @author Koduck
+ * @author Koduck Team
  */
 @Entity
 @Table(name = "stock_tick_history")
@@ -31,7 +31,7 @@ import lombok.Setter;
 public class StockTickHistory {
 
     /**
-     * Unique identifier.
+     * 唯一标识符。
      */
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -39,37 +39,37 @@ public class StockTickHistory {
     private Long id;
 
     /**
-     * Stock symbol.
+     * 股票代码。
      */
     @Column(name = "symbol", nullable = false, length = 20)
     private String symbol;
 
     /**
-     * Tick timestamp.
+     * 分时时间戳。
      */
     @Column(name = "tick_time", nullable = false)
     private LocalDateTime tickTime;
 
     /**
-     * Stock price.
+     * 股票价格。
      */
     @Column(name = "price", precision = 18, scale = 4, nullable = false)
     private BigDecimal price;
 
     /**
-     * Trading volume.
+     * 交易量。
      */
     @Column(name = "volume")
     private Long volume;
 
     /**
-     * Trading amount.
+     * 交易额。
      */
     @Column(name = "amount", precision = 24, scale = 2)
     private BigDecimal amount;
 
     /**
-     * Creation timestamp.
+     * 创建时间戳。
      */
     @Column(name = "created_at")
     @Setter(AccessLevel.NONE)

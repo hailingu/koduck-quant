@@ -13,8 +13,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.koduck.dto.market.SectorNetworkDto;
 
 /**
- * Generator for mock sector-network data used when real data is unavailable.
- * Data is loaded from JSON resource file instead of hardcoded constants.
+ * 真实数据不可用时使用的模拟板块网络数据生成器。
+ * 数据从JSON资源文件加载，而不是硬编码常量。
  *
  * @author Koduck Team
  */
@@ -25,21 +25,21 @@ public class MockSectorNetworkGenerator {
     private final ObjectMapper objectMapper;
 
     /**
-     * Constructs a new MockSectorNetworkGenerator.
+     * 构造新的MockSectorNetworkGenerator。
      *
-     * @param objectMapper the object mapper for JSON deserialization
+     * @param objectMapper 用于JSON反序列化的对象映射器
      */
     public MockSectorNetworkGenerator(ObjectMapper objectMapper) {
         this.objectMapper = objectMapper;
     }
 
     /**
-     * Generates a mock sector network DTO.
+     * 生成模拟板块网络DTO。
      *
-     * @param positiveLinkType the link type for positive correlations
-     * @param negativeLinkType the link type for negative correlations
-     * @return the sector network DTO
-     * @throws IllegalStateException if failed to load mock data
+     * @param positiveLinkType 正向相关性的链接类型
+     * @param negativeLinkType 负向相关性的链接类型
+     * @return 板块网络DTO
+     * @throws IllegalStateException 如果加载模拟数据失败
      */
     public SectorNetworkDto generate(String positiveLinkType, String negativeLinkType) {
         SectorNetworkData data = loadMockData();
@@ -87,7 +87,7 @@ public class MockSectorNetworkGenerator {
     }
 
     /**
-     * Root data structure for JSON deserialization.
+     * JSON反序列化的根数据结构。
      */
     private record SectorNetworkData(
             List<SectorNodeData> nodes,
@@ -96,7 +96,7 @@ public class MockSectorNetworkGenerator {
     }
 
     /**
-     * Node data structure for JSON deserialization.
+     * JSON反序列化的节点数据结构。
      */
     private record SectorNodeData(
             String id,
@@ -109,7 +109,7 @@ public class MockSectorNetworkGenerator {
     }
 
     /**
-     * Link data structure for JSON deserialization.
+     * JSON反序列化的链接数据结构。
      */
     private record SectorLinkData(
             String source,

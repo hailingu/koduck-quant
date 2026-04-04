@@ -19,16 +19,16 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 /**
- * Password reset token entity for user password reset functionality.
+ * 用户密码重置功能的密码重置令牌实体。
  *
- * <p>Features:</p>
+ * <p>功能特性：</p>
  * <ul>
- *   <li>Token generation and validation</li>
- *   <li>Expiration time tracking</li>
- *   <li>One-time use enforcement</li>
+ *   <li>令牌生成和验证</li>
+ *   <li>过期时间跟踪</li>
+ *   <li>一次性使用强制</li>
  * </ul>
  *
- * @author Koduck
+ * @author Koduck Team
  */
 @Entity
 @Table(name = "password_reset_tokens")
@@ -40,7 +40,7 @@ import lombok.Setter;
 public class PasswordResetToken {
 
     /**
-     * Unique identifier for the token.
+     * 令牌的唯一标识符。
      */
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -48,38 +48,38 @@ public class PasswordResetToken {
     private Long id;
 
     /**
-     * ID of the user who requested the password reset.
+     * 请求密码重置的用户 ID。
      */
     @Column(name = "user_id", nullable = false)
     private Long userId;
 
     /**
-     * Hashed value of the reset token.
+     * 重置令牌的哈希值。
      */
     @Column(name = "token_hash", nullable = false, unique = true, length = 255)
     private String tokenHash;
 
     /**
-     * Token expiration timestamp.
+     * 令牌过期时间戳。
      */
     @Column(name = "expires_at", nullable = false)
     private LocalDateTime expiresAt;
 
     /**
-     * Flag indicating whether the token has been used.
+     * 指示令牌是否已使用的标志。
      */
     @Column(nullable = false)
     @Builder.Default
     private Boolean used = false;
 
     /**
-     * Timestamp when the token was used.
+     * 令牌使用时间戳。
      */
     @Column(name = "used_at")
     private LocalDateTime usedAt;
 
     /**
-     * Token creation timestamp.
+     * 令牌创建时间戳。
      */
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
@@ -87,25 +87,25 @@ public class PasswordResetToken {
     private LocalDateTime createdAt;
 
     /**
-     * Checks if the token has expired.
+     * 检查令牌是否已过期。
      *
-     * @return true if the token has expired
+     * @return 如果令牌已过期返回 true
      */
     public boolean isExpired() {
         return LocalDateTime.now().isAfter(expiresAt);
     }
 
     /**
-     * Checks if the token is valid (not used and not expired).
+     * 检查令牌是否有效（未使用且未过期）。
      *
-     * @return true if the token is valid
+     * @return 如果令牌有效返回 true
      */
     public boolean isValid() {
         return !used && !isExpired();
     }
 
     /**
-     * Marks the token as used.
+     * 将令牌标记为已使用。
      */
     public void markAsUsed() {
         this.used = true;

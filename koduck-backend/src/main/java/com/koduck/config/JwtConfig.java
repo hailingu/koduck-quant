@@ -11,7 +11,7 @@ import com.koduck.common.constants.HttpHeaderConstants;
 import lombok.Data;
 
 /**
- * Configuration properties for JSON Web Token (JWT) handling.
+ * JSON Web Token (JWT) 处理的配置属性。
  * <p>
  * Bound from application properties with prefix {@code jwt}. Contains
  * secret key, expiration settings, and header/token prefix values used by

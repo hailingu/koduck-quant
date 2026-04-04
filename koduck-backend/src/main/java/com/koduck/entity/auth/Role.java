@@ -19,10 +19,10 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 /**
- * Entity representing a role in the system.
- * Roles are used for access control and permission management.
+ * 表示系统中角色的实体。
+ * 角色用于访问控制和权限管理。
  *
- * @author GitHub Copilot
+ * @author Koduck Team
  */
 @Entity
 @Table(name = "roles")
@@ -34,7 +34,7 @@ import lombok.Setter;
 public class Role {
 
     /**
-     * Unique identifier for the role.
+     * 角色的唯一标识符。
      */
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -42,19 +42,19 @@ public class Role {
     private Integer id;
 
     /**
-     * Name of the role (unique).
+     * 角色名称（唯一）。
      */
     @Column(nullable = false, unique = true, length = 50)
     private String name;
 
     /**
-     * Description of the role.
+     * 角色描述。
      */
     @Column(length = 255)
     private String description;
 
     /**
-     * Timestamp when the role was created.
+     * 角色创建时间戳。
      */
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)

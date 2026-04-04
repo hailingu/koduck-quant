@@ -8,7 +8,7 @@ import org.springframework.stereotype.Repository;
 import com.koduck.entity.backtest.BacktestTrade;
 
 /**
- * Repository for backtest trade operations.
+ * 回测交易操作仓库，提供回测交易数据的数据库访问。
  *
  * @author Koduck Team
  */
@@ -16,17 +16,17 @@ import com.koduck.entity.backtest.BacktestTrade;
 public interface BacktestTradeRepository extends JpaRepository<BacktestTrade, Long> {
 
     /**
-     * Find all trades for a backtest result.
+     * 查询回测结果的所有交易。
      *
-     * @param backtestResultId the backtest result ID
-     * @return list of backtest trades
+     * @param backtestResultId 回测结果 ID
+     * @return 回测交易列表
      */
     List<BacktestTrade> findByBacktestResultIdOrderByTradeTimeAsc(Long backtestResultId);
 
     /**
-     * Delete all trades for a backtest result.
+     * 删除回测结果的所有交易。
      *
-     * @param backtestResultId the backtest result ID
+     * @param backtestResultId 回测结果 ID
      */
     void deleteByBacktestResultId(Long backtestResultId);
 }

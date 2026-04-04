@@ -23,7 +23,7 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 /**
- * Entity representing a user's favorite signal.
+ * 表示用户收藏信号的实体。
  *
  * @author Koduck Team
  */
@@ -33,78 +33,78 @@ import lombok.Setter;
 @NoArgsConstructor
 public class SignalFavorite {
 
-    /** Primary key ID. */
+    /** 主键 ID。 */
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Setter(AccessLevel.NONE)
     private Long id;
 
-    /** Signal ID. */
+    /** 信号 ID。 */
     @Column(name = "signal_id", nullable = false)
     private Long signalId;
 
-    /** User ID. */
+    /** 用户 ID。 */
     @Column(name = "user_id", nullable = false)
     private Long userId;
 
-    /** User note for the favorite. */
+    /** 收藏的备注。 */
     @Column(columnDefinition = "TEXT")
     private String note;
 
-    /** Creation timestamp. */
+    /** 创建时间戳。 */
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     @Setter(AccessLevel.NONE)
     private LocalDateTime createdAt;
 
-    /** Associated community signal. */
+    /** 关联的社区信号。 */
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "signal_id", insertable = false, updatable = false)
     private CommunitySignal signal;
 
-    /** Associated user. */
+    /** 关联的用户。 */
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", insertable = false, updatable = false)
     private User user;
 
     /**
-     * Creates a new builder instance.
+     * 创建新的构建器实例。
      *
-     * @return the builder
+     * @return 构建器
      */
     public static Builder builder() {
         return new Builder();
     }
 
-    /** Builder class for SignalFavorite. */
+    /** SignalFavorite 的构建器类。 */
     public static final class Builder {
 
-        /** Builder ID field. */
+        /** 构建器 ID 字段。 */
         private Long id;
 
-        /** Builder signalId field. */
+        /** 构建器 signalId 字段。 */
         private Long signalId;
 
-        /** Builder userId field. */
+        /** 构建器 userId 字段。 */
         private Long userId;
 
-        /** Builder note field. */
+        /** 构建器 note 字段。 */
         private String note;
 
-        /** Builder createdAt field. */
+        /** 构建器 createdAt 字段。 */
         private LocalDateTime createdAt;
 
-        /** Builder signal field. */
+        /** 构建器 signal 字段。 */
         private CommunitySignal signal;
 
-        /** Builder user field. */
+        /** 构建器 user 字段。 */
         private User user;
 
         /**
-         * Sets the ID.
+         * 设置 ID。
          *
-         * @param idValue the ID
-         * @return the builder
+         * @param idValue ID
+         * @return 构建器
          */
         public Builder id(Long idValue) {
             this.id = idValue;
@@ -112,10 +112,10 @@ public class SignalFavorite {
         }
 
         /**
-         * Sets the signal ID.
+         * 设置信号 ID。
          *
-         * @param signalIdValue the signal ID
-         * @return the builder
+         * @param signalIdValue 信号 ID
+         * @return 构建器
          */
         public Builder signalId(Long signalIdValue) {
             this.signalId = signalIdValue;
@@ -123,10 +123,10 @@ public class SignalFavorite {
         }
 
         /**
-         * Sets the user ID.
+         * 设置用户 ID。
          *
-         * @param userIdValue the user ID
-         * @return the builder
+         * @param userIdValue 用户 ID
+         * @return 构建器
          */
         public Builder userId(Long userIdValue) {
             this.userId = userIdValue;
@@ -134,10 +134,10 @@ public class SignalFavorite {
         }
 
         /**
-         * Sets the note.
+         * 设置备注。
          *
-         * @param noteValue the note
-         * @return the builder
+         * @param noteValue 备注
+         * @return 构建器
          */
         public Builder note(String noteValue) {
             this.note = noteValue;
@@ -145,10 +145,10 @@ public class SignalFavorite {
         }
 
         /**
-         * Sets the created at timestamp.
+         * 设置创建时间戳。
          *
-         * @param createdAtValue the created at timestamp
-         * @return the builder
+         * @param createdAtValue 创建时间戳
+         * @return 构建器
          */
         public Builder createdAt(LocalDateTime createdAtValue) {
             this.createdAt = createdAtValue;
@@ -156,10 +156,10 @@ public class SignalFavorite {
         }
 
         /**
-         * Sets the signal.
+         * 设置信号。
          *
-         * @param signalValue the signal
-         * @return the builder
+         * @param signalValue 信号
+         * @return 构建器
          */
         public Builder signal(CommunitySignal signalValue) {
             this.signal = EntityCopyUtils.copyCommunitySignal(signalValue);
@@ -167,10 +167,10 @@ public class SignalFavorite {
         }
 
         /**
-         * Sets the user.
+         * 设置用户。
          *
-         * @param userValue the user
-         * @return the builder
+         * @param userValue 用户
+         * @return 构建器
          */
         public Builder user(User userValue) {
             this.user = EntityCopyUtils.copyUser(userValue);
@@ -178,9 +178,9 @@ public class SignalFavorite {
         }
 
         /**
-         * Builds the SignalFavorite instance.
+         * 构建 SignalFavorite 实例。
          *
-         * @return the SignalFavorite
+         * @return SignalFavorite
          */
         public SignalFavorite build() {
             SignalFavorite favorite = new SignalFavorite();
@@ -196,36 +196,36 @@ public class SignalFavorite {
     }
 
     /**
-     * Gets the signal with defensive copy.
+     * 获取带有防御性副本的信号。
      *
-     * @return the signal
+     * @return 信号
      */
     public CommunitySignal getSignal() {
         return EntityCopyUtils.copyCommunitySignal(signal);
     }
 
     /**
-     * Sets the signal with defensive copy.
+     * 使用防御性副本设置信号。
      *
-     * @param signalValue the signal to set
+     * @param signalValue 要设置的信号
      */
     public void setSignal(CommunitySignal signalValue) {
         this.signal = EntityCopyUtils.copyCommunitySignal(signalValue);
     }
 
     /**
-     * Gets the user with defensive copy.
+     * 获取带有防御性副本的用户。
      *
-     * @return the user
+     * @return 用户
      */
     public User getUser() {
         return EntityCopyUtils.copyUser(user);
     }
 
     /**
-     * Sets the user with defensive copy.
+     * 使用防御性副本设置用户。
      *
-     * @param userValue the user to set
+     * @param userValue 要设置的用户
      */
     public void setUser(User userValue) {
         this.user = EntityCopyUtils.copyUser(userValue);

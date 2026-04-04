@@ -13,7 +13,7 @@ import org.springframework.stereotype.Repository;
 import com.koduck.entity.auth.RefreshToken;
 
 /**
- * Repository for refresh token operations.
+ * 刷新令牌操作仓库，提供刷新令牌数据的数据库访问。
  *
  * @author Koduck Team
  */
@@ -21,69 +21,69 @@ import com.koduck.entity.auth.RefreshToken;
 public interface RefreshTokenRepository extends JpaRepository<RefreshToken, Long> {
 
     /**
-     * Find refresh token by token hash.
+     * 根据令牌哈希查询刷新令牌。
      *
-     * @param tokenHash the token hash
-     * @return optional of refresh token
+     * @param tokenHash 令牌哈希
+     * @return 刷新令牌
      */
     Optional<RefreshToken> findByTokenHash(String tokenHash);
 
     /**
-     * Find all refresh tokens by user ID.
+     * 根据用户 ID 查询所有刷新令牌。
      *
-     * @param userId the user ID
-     * @return list of refresh tokens
+     * @param userId 用户 ID
+     * @return 刷新令牌列表
      */
     List<RefreshToken> findByUserId(Long userId);
 
     /**
-     * Find refresh tokens by user ID, ordered by creation time.
+     * 根据用户 ID 查询刷新令牌列表，按创建时间排序。
      *
-     * @param userId the user ID
-     * @return list of refresh tokens
+     * @param userId 用户 ID
+     * @return 刷新令牌列表
      */
     List<RefreshToken> findByUserIdOrderByCreatedAtAsc(Long userId);
 
     /**
-     * Delete refresh token by token hash.
+     * 根据令牌哈希删除刷新令牌。
      *
-     * @param tokenHash the token hash
+     * @param tokenHash 令牌哈希
      */
     @Modifying
     @Query("DELETE FROM RefreshToken rt WHERE rt.tokenHash = :tokenHash")
     void deleteByTokenHash(@Param("tokenHash") String tokenHash);
 
     /**
-     * Delete all refresh tokens by user ID.
+     * 根据用户 ID 删除所有刷新令牌。
      *
-     * @param userId the user ID
+     * @param userId 用户 ID
      */
     @Modifying
     @Query("DELETE FROM RefreshToken rt WHERE rt.userId = :userId")
     void deleteByUserId(@Param("userId") Long userId);
 
     /**
-     * Delete all expired refresh tokens before given time.
+     * 删除指定时间之前的所有过期刷新令牌。
      *
-     * @param now the current time
+     * @param now 当前时间
      */
     @Modifying
     @Query("DELETE FROM RefreshToken rt WHERE rt.expiresAt < :now")
     void deleteAllExpiredBefore(@Param("now") LocalDateTime now);
 
     /**
-     * Check if refresh token exists by token hash.
+     * 根据令牌哈希检查刷新令牌是否存在。
      *
-     * @param tokenHash the token hash
-     * @return true if exists
+     * @param tokenHash 令牌哈希
+     * @return 如果存在返回 true
      */
     boolean existsByTokenHash(String tokenHash);
 
     /**
-     * Count refresh tokens by user ID.
+     * 根据用户 ID 统计刷新令牌数量。
      *
-     * @param userId the user ID
-     * @return the count
+     * @param userId 用户 ID
+     * @return 令牌数量
      */
     long countByUserId(Long userId);
 }

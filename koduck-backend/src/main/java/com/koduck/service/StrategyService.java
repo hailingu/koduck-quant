@@ -8,100 +8,100 @@ import com.koduck.dto.strategy.StrategyVersionDto;
 import com.koduck.dto.strategy.UpdateStrategyRequest;
 
 /**
- * Service interface for strategy operations.
+ * 策略操作服务接口。
  *
  * @author Koduck Team
  */
 public interface StrategyService {
 
     /**
-     * Get all strategies for a user.
+     * 获取用户的所有策略。
      *
-     * @param userId the user ID
-     * @return the list of strategies
+     * @param userId 用户ID
+     * @return 策略列表
      */
     List<StrategyDto> getStrategies(Long userId);
 
     /**
-     * Get a strategy by id.
+     * 根据ID获取策略。
      *
-     * @param userId     the user ID
-     * @param strategyId the strategy ID
-     * @return the strategy
+     * @param userId     用户ID
+     * @param strategyId 策略ID
+     * @return 策略
      */
     StrategyDto getStrategy(Long userId, Long strategyId);
 
     /**
-     * Create a new strategy.
+     * 创建新策略。
      *
-     * @param userId  the user ID
-     * @param request the create request
-     * @return the created strategy
+     * @param userId  用户ID
+     * @param request 创建请求
+     * @return 创建的策略
      */
     StrategyDto createStrategy(Long userId, CreateStrategyRequest request);
 
     /**
-     * Update a strategy.
+     * 更新策略。
      *
-     * @param userId     the user ID
-     * @param strategyId the strategy ID
-     * @param request    the update request
-     * @return the updated strategy
+     * @param userId     用户ID
+     * @param strategyId 策略ID
+     * @param request    更新请求
+     * @return 更新后的策略
      */
     StrategyDto updateStrategy(Long userId, Long strategyId, UpdateStrategyRequest request);
 
     /**
-     * Delete a strategy.
+     * 删除策略。
      *
-     * @param userId     the user ID
-     * @param strategyId the strategy ID
+     * @param userId     用户ID
+     * @param strategyId 策略ID
      */
     void deleteStrategy(Long userId, Long strategyId);
 
     /**
-     * Publish a strategy.
+     * 发布策略。
      *
-     * @param userId     the user ID
-     * @param strategyId the strategy ID
-     * @return the published strategy
+     * @param userId     用户ID
+     * @param strategyId 策略ID
+     * @return 发布后的策略
      */
     StrategyDto publishStrategy(Long userId, Long strategyId);
 
     /**
-     * Disable a strategy.
+     * 禁用策略。
      *
-     * @param userId     the user ID
-     * @param strategyId the strategy ID
-     * @return the disabled strategy
+     * @param userId     用户ID
+     * @param strategyId 策略ID
+     * @return 禁用后的策略
      */
     StrategyDto disableStrategy(Long userId, Long strategyId);
 
     /**
-     * Get versions for a strategy.
+     * 获取策略的版本列表。
      *
-     * @param userId     the user ID
-     * @param strategyId the strategy ID
-     * @return the list of strategy versions
+     * @param userId     用户ID
+     * @param strategyId 策略ID
+     * @return 策略版本列表
      */
     List<StrategyVersionDto> getVersions(Long userId, Long strategyId);
 
     /**
-     * Get a specific version.
+     * 获取特定版本。
      *
-     * @param userId        the user ID
-     * @param strategyId    the strategy ID
-     * @param versionNumber the version number
-     * @return the strategy version
+     * @param userId        用户ID
+     * @param strategyId    策略ID
+     * @param versionNumber 版本号
+     * @return 策略版本
      */
     StrategyVersionDto getVersion(Long userId, Long strategyId, Integer versionNumber);
 
     /**
-     * Activate a specific version.
+     * 激活特定版本。
      *
-     * @param userId     the user ID
-     * @param strategyId the strategy ID
-     * @param versionId  the version ID
-     * @return the activated strategy version
+     * @param userId     用户ID
+     * @param strategyId 策略ID
+     * @param versionId  版本ID
+     * @return 激活的策略版本
      */
     StrategyVersionDto activateVersion(Long userId, Long strategyId, Long versionId);
 }

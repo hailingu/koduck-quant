@@ -38,7 +38,7 @@ import lombok.extern.slf4j.Slf4j;
 import static com.koduck.util.ServiceValidationUtils.requireFound;
 
 /**
- * User credential service implementation.
+ * 用户凭证服务实现类.
  *
  * @author GitHub Copilot
  */
@@ -46,16 +46,16 @@ import static com.koduck.util.ServiceValidationUtils.requireFound;
 @Slf4j
 public class CredentialServiceImpl implements CredentialService {
 
-    /** Repository for credential operations. */
+    /** 凭证操作仓库. */
     private final CredentialRepository credentialRepository;
 
-    /** Repository for audit log operations. */
+    /** 审计日志操作仓库. */
     private final CredentialAuditLogRepository auditLogRepository;
 
-    /** Utility for credential encryption/decryption. */
+    /** 凭证加密/解密工具. */
     private final CredentialEncryptionUtil credentialEncryptionUtil;
 
-    /** Mapper for converting between entities and DTOs. */
+    /** 实体和DTO之间的转换映射器. */
     private final CredentialMapper credentialMapper;
 
     public CredentialServiceImpl(CredentialRepository credentialRepository,

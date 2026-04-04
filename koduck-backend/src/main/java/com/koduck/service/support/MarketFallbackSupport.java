@@ -31,7 +31,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * Fallback helper for provider and kline based market query recovery.
+ * 基于数据提供商和K线查询的市场查询降级辅助类。
  *
  * @author Koduck Team
  */
@@ -40,29 +40,29 @@ import lombok.extern.slf4j.Slf4j;
 @RequiredArgsConstructor
 public class MarketFallbackSupport {
 
-    /** Stock type identifier. */
+    /** 股票类型标识。 */
     private static final String STOCK_TYPE = MarketConstants.STOCK_TYPE;
 
-    /** Repository for stock basic information. */
+    /** 股票基本信息仓库。 */
     private final StockBasicRepository stockBasicRepository;
 
-    /** Service for kline data operations. */
+    /** K线数据操作服务。 */
     private final KlineService klineService;
 
-    /** Factory for market data providers. */
+    /** 市场数据提供商工厂。 */
     private final ProviderFactory providerFactory;
 
-    /** Normaliser for K-line data. */
+    /** K线数据规范化器。 */
     private final KlineDataNormalizer klineDataNormalizer;
 
-    /** Calculator for price changes. */
+    /** 价格变动计算器。 */
     private final MarketPriceCalculator marketPriceCalculator;
 
     /**
-     * Fetches price from provider.
+     * 从提供商获取价格。
      *
-     * @param symbol the stock symbol
-     * @return the price quote DTO, or null if not available
+     * @param symbol 股票代码
+     * @return 行情报价DTO，如不可用则返回null
      */
     public PriceQuoteDto fetchProviderPrice(String symbol) {
         return getAShareProvider()
@@ -72,11 +72,11 @@ public class MarketFallbackSupport {
     }
 
     /**
-     * Searches symbols from provider.
+     * 从提供商搜索股票代码。
      *
-     * @param keyword the search keyword
-     * @param size    the maximum number of results
-     * @return list of symbol info DTOs
+     * @param keyword 搜索关键词
+     * @param size    最大结果数
+     * @return 股票信息DTO列表
      */
     public List<SymbolInfoDto> searchSymbolsFromProvider(String keyword, int size) {
         List<MarketDataProvider.SymbolInfo> providerResults = getAShareProvider()
@@ -116,10 +116,10 @@ public class MarketFallbackSupport {
     }
 
     /**
-     * Fetches valuation from provider.
+     * 从提供商获取估值。
      *
-     * @param symbol the stock symbol
-     * @return the stock valuation DTO, or null if not available
+     * @param symbol 股票代码
+     * @return 股票估值DTO，如不可用则返回null
      */
     public StockValuationDto fetchProviderValuation(String symbol) {
         return getAShareProvider()
@@ -129,10 +129,10 @@ public class MarketFallbackSupport {
     }
 
     /**
-     * Fetches industry from provider.
+     * 从提供商获取行业信息。
      *
-     * @param symbol the stock symbol
-     * @return the stock industry DTO, or null if not available
+     * @param symbol 股票代码
+     * @return 股票行业DTO，如不可用则返回null
      */
     public StockIndustryDto fetchProviderIndustry(String symbol) {
         return getAShareProvider()
@@ -142,10 +142,10 @@ public class MarketFallbackSupport {
     }
 
     /**
-     * Fetches industries for multiple symbols from provider.
+     * 从提供商批量获取多只股票的行业信息。
      *
-     * @param symbols the list of stock symbols
-     * @return map of symbol to stock industry DTO
+     * @param symbols 股票代码列表
+     * @return 股票代码到行业DTO的映射
      */
     public Map<String, StockIndustryDto> fetchProviderIndustries(List<String> symbols) {
         return getAShareProvider()
@@ -155,10 +155,10 @@ public class MarketFallbackSupport {
     }
 
     /**
-     * Tries to build quote from latest kline.
+     * 尝试从最新K线构建行情。
      *
-     * @param symbol the stock symbol
-     * @return the price quote DTO, or null if not available
+     * @param symbol 股票代码
+     * @return 行情报价DTO，如不可用则返回null
      */
     public PriceQuoteDto tryBuildQuoteFromLatestKline(String symbol) {
         try {
@@ -172,11 +172,11 @@ public class MarketFallbackSupport {
     }
 
     /**
-     * Tries to build stats from kline.
+     * 尝试从K线构建统计信息。
      *
-     * @param symbol the stock symbol
-     * @param market the market code
-     * @return the stock stats DTO, or null if not available
+     * @param symbol 股票代码
+     * @param market 市场代码
+     * @return 股票统计DTO，如不可用则返回null
      */
     public StockStatsDto tryBuildStatsFromKline(String symbol, String market) {
         try {

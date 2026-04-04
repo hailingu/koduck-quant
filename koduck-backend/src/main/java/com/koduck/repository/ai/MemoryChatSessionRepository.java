@@ -9,7 +9,7 @@ import org.springframework.stereotype.Repository;
 import com.koduck.entity.ai.MemoryChatSession;
 
 /**
- * Repository for MemoryChatSession entity.
+ * AI 聊天会话仓库，提供会话数据的数据库访问。
  *
  * @author Koduck Team
  */
@@ -18,28 +18,28 @@ public interface MemoryChatSessionRepository
         extends JpaRepository<MemoryChatSession, Long> {
 
     /**
-     * Find session by user ID and session ID.
+     * 根据用户 ID 和会话 ID 查询会话。
      *
-     * @param userId    the user ID
-     * @param sessionId the session ID
-     * @return optional of memory chat session
+     * @param userId 用户 ID
+     * @param sessionId 会话 ID
+     * @return 聊天会话
      */
     Optional<MemoryChatSession> findByUserIdAndSessionId(
             Long userId, String sessionId);
 
     /**
-     * Find sessions by user ID, ordered by last message time.
+     * 根据用户 ID 查询会话列表，按最后消息时间降序排列。
      *
-     * @param userId the user ID
-     * @return list of memory chat sessions
+     * @param userId 用户 ID
+     * @return 聊天会话列表
      */
     List<MemoryChatSession> findByUserIdOrderByLastMessageAtDesc(Long userId);
 
     /**
-     * Delete session by user ID and session ID.
+     * 根据用户 ID 和会话 ID 删除会话。
      *
-     * @param userId    the user ID
-     * @param sessionId the session ID
+     * @param userId 用户 ID
+     * @param sessionId 会话 ID
      */
     void deleteByUserIdAndSessionId(Long userId, String sessionId);
 }

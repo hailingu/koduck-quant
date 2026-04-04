@@ -22,10 +22,10 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 /**
- * Watchlist item entity for user stock tracking.
- * Represents a stock symbol that a user is tracking in their watchlist.
+ * 自选股项目实体，用于用户股票跟踪。
+ * 表示用户在自选股中跟踪的股票代码。
  *
- * @author GitHub Copilot
+ * @author Koduck Team
  */
 @Entity
 @Table(name = "watchlist_items",
@@ -46,7 +46,7 @@ import lombok.Setter;
 public class WatchlistItem {
 
     /**
-     * Unique identifier for the watchlist item.
+     * 自选股项目的唯一标识符。
      */
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -54,43 +54,43 @@ public class WatchlistItem {
     private Long id;
 
     /**
-     * ID of the user who owns this watchlist item.
+     * 此自选股项目所有者的用户 ID。
      */
     @Column(name = "user_id", nullable = false)
     private Long userId;
 
     /**
-     * Market code (e.g., "AShare").
+     * 市场代码（例如："AShare"）。
      */
     @Column(name = "market", nullable = false, length = 20)
     private String market;
 
     /**
-     * Stock symbol code.
+     * 股票代码。
      */
     @Column(name = "symbol", nullable = false, length = 20)
     private String symbol;
 
     /**
-     * Display name of the stock.
+     * 股票显示名称。
      */
     @Column(name = "name", length = 100)
     private String name;
 
     /**
-     * Sort order for displaying items in the watchlist.
+     * 自选股中项目显示排序顺序。
      */
     @Column(name = "sort_order")
     private Integer sortOrder;
 
     /**
-     * User notes for this watchlist item.
+     * 此自选股项目的用户备注。
      */
     @Column(name = "notes", columnDefinition = "TEXT")
     private String notes;
 
     /**
-     * Timestamp when the item was created.
+     * 项目创建时间戳。
      */
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
@@ -98,7 +98,7 @@ public class WatchlistItem {
     private LocalDateTime createdAt;
 
     /**
-     * Timestamp when the item was last updated.
+     * 项目最后更新时间戳。
      */
     @UpdateTimestamp
     @Column(name = "updated_at")

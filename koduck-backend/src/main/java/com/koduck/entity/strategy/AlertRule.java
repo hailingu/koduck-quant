@@ -21,9 +21,9 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 /**
- * Alert rule configuration entity.
+ * 告警规则配置实体。
  *
- * @author koduck
+ * @author Koduck Team
  */
 @Entity
 @Table(name = "alert_rule")
@@ -33,55 +33,55 @@ import lombok.Setter;
 @AllArgsConstructor
 public class AlertRule {
 
-    /** Unique identifier for the alert rule. */
+    /** 告警规则的唯一标识符。 */
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Setter(AccessLevel.NONE)
     private Long id;
 
-    /** Name of the alert rule, must be unique. */
+    /** 告警规则名称，必须唯一。 */
     @Column(name = "rule_name", nullable = false, unique = true, length = 100)
     private String ruleName;
 
-    /** Type of the alert rule (e.g., PRICE, VOLUME). */
+    /** 告警规则类型（例如：PRICE、VOLUME）。 */
     @Column(name = "rule_type", nullable = false, length = 50)
     private String ruleType;
 
-    /** Name of the metric being monitored. */
+    /** 被监控的指标名称。 */
     @Column(name = "metric_name", nullable = false, length = 100)
     private String metricName;
 
-    /** Threshold value for triggering the alert. */
+    /** 触发告警的阈值。 */
     @Column(name = "threshold", nullable = false, precision = 18, scale = 4)
     private BigDecimal threshold;
 
-    /** Comparison operator (e.g., GREATER_THAN, LESS_THAN). */
+    /** 比较运算符（例如：GREATER_THAN、LESS_THAN）。 */
     @Column(name = "operator", nullable = false, length = 20)
     private String operator;
 
-    /** Severity level of the alert (e.g., LOW, MEDIUM, HIGH). */
+    /** 告警严重级别（例如：LOW、MEDIUM、HIGH）。 */
     @Column(name = "severity", nullable = false, length = 20)
     private String severity;
 
-    /** Whether the rule is currently active. */
+    /** 规则是否当前启用。 */
     @Column(name = "enabled")
     private Boolean enabled;
 
-    /** Cooldown period in minutes between alerts. */
+    /** 告警之间的冷却期（分钟）。 */
     @Column(name = "cooldown_minutes")
     private Integer cooldownMinutes;
 
-    /** Description of the alert rule. */
+    /** 告警规则描述。 */
     @Column(name = "description", columnDefinition = "TEXT")
     private String description;
 
-    /** Timestamp when the rule was created. */
+    /** 规则创建时间戳。 */
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     @Setter(AccessLevel.NONE)
     private LocalDateTime createdAt;
 
-    /** Timestamp of last update. */
+    /** 最后更新时间戳。 */
     @UpdateTimestamp
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;

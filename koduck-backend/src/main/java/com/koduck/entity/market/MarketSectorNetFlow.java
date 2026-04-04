@@ -24,7 +24,7 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 /**
- * Sector-level market net-flow snapshot entity.
+ * 板块级市场资金流向快照实体。
  *
  * @author Koduck Team
  */
@@ -49,80 +49,80 @@ import lombok.Setter;
 @AllArgsConstructor
 public class MarketSectorNetFlow {
 
-    /** Primary key ID. */
+    /** 主键 ID。 */
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Setter(AccessLevel.NONE)
     private Long id;
 
-    /** Market code (e.g., AShare). */
+    /** 市场代码（例如：AShare）。 */
     @Column(name = "market", nullable = false, length = 20)
     private String market;
 
-    /** Indicator type (e.g., main). */
+    /** 指标类型（例如：main）。 */
     @Column(name = "indicator", nullable = false, length = 20)
     private String indicator;
 
-    /** Trade date. */
+    /** 交易日。 */
     @Column(name = "trade_date", nullable = false)
     private LocalDate tradeDate;
 
-    /** Sector type (industry/concept/region). */
+    /** 板块类型（行业/概念/地区）。 */
     @Column(name = "sector_type", nullable = false, length = 20)
     private String sectorType;
 
-    /** Sector name. */
+    /** 板块名称。 */
     @Column(name = "sector_name", nullable = false, length = 100)
     private String sectorName;
 
-    /** Main force net inflow (in 10k CNY). */
+    /** 主力资金净流入（单位：万元）。 */
     @Column(name = "main_force_net", nullable = false,
             precision = 20, scale = 2)
     private BigDecimal mainForceNet;
 
-    /** Retail net inflow (in 10k CNY). */
+    /** 散户净流入（单位：万元）。 */
     @Column(name = "retail_net", nullable = false,
             precision = 20, scale = 2)
     private BigDecimal retailNet;
 
-    /** Super big order net inflow. */
+    /** 超大单净流入。 */
     @Column(name = "super_big_net", precision = 20, scale = 2)
     private BigDecimal superBigNet;
 
-    /** Big order net inflow. */
+    /** 大单净流入。 */
     @Column(name = "big_net", precision = 20, scale = 2)
     private BigDecimal bigNet;
 
-    /** Medium order net inflow. */
+    /** 中单净流入。 */
     @Column(name = "medium_net", precision = 20, scale = 2)
     private BigDecimal mediumNet;
 
-    /** Small order net inflow. */
+    /** 小单净流入。 */
     @Column(name = "small_net", precision = 20, scale = 2)
     private BigDecimal smallNet;
 
-    /** Change percentage. */
+    /** 涨跌幅。 */
     @Column(name = "change_pct", precision = 10, scale = 4)
     private BigDecimal changePct;
 
-    /** Data source. */
+    /** 数据源。 */
     @Column(name = "source", nullable = false, length = 50)
     private String source;
 
-    /** Data quality indicator. */
+    /** 数据质量指示器。 */
     @Column(name = "quality", nullable = false, length = 20)
     private String quality;
 
-    /** Snapshot timestamp. */
+    /** 快照时间戳。 */
     @Column(name = "snapshot_time", nullable = false)
     private LocalDateTime snapshotTime;
 
-    /** Last update timestamp. */
+    /** 最后更新时间戳。 */
     @UpdateTimestamp
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
 
-    /** Creation timestamp. */
+    /** 创建时间戳。 */
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     @Setter(AccessLevel.NONE)

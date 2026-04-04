@@ -3,53 +3,53 @@ package com.koduck.service;
 import java.util.List;
 
 /**
- * Service for syncing K-line data from Python Data Service.
+ * 从Python数据服务同步K线数据的服务。
  *
  * @author GitHub Copilot
  */
 public interface KlineSyncService {
 
     /**
-     * Sync daily K-line data for popular stocks.
-     * Runs at market close (15:05) on weekdays.
+     * 同步热门股票的日K线数据。
+     * 在工作日收盘后（15:05）运行。
      */
     void syncDailyKlineData();
 
     /**
-     * Sync K-line data for a specific symbol.
+     * 同步指定股票的K线数据。
      *
-     * @param market market identifier
-     * @param symbol stock symbol
-     * @param timeframe K-line timeframe
+     * @param market    市场标识
+     * @param symbol    股票代码
+     * @param timeframe K线时间周期
      */
     void syncSymbolKline(String market, String symbol, String timeframe);
 
     /**
-     * Asynchronously syncs a batch of symbols with a fixed interval to avoid upstream rate limiting.
+     * 异步批量同步股票数据，使用固定间隔以避免上游限流。
      *
-     * @param market market identifier
-     * @param symbols symbol list to sync
-     * @param timeframe K-line timeframe
+     * @param market    市场标识
+     * @param symbols   要同步的股票代码列表
+     * @param timeframe K线时间周期
      */
     void syncBatchSymbols(String market, List<String> symbols, String timeframe);
 
     /**
-     * Request an async K-line sync with in-flight de-duplication.
+     * 请求异步K线同步，带飞行中去重。
      *
-     * @param market market identifier
-     * @param symbol stock symbol
-     * @param timeframe K-line timeframe
-     * @return true if a new sync task is started; false if skipped or already running
+     * @param market    市场标识
+     * @param symbol    股票代码
+     * @param timeframe K线时间周期
+     * @return 如果启动新同步任务则返回true；如果跳过或已在运行则返回false
      */
     boolean requestSyncSymbolKline(String market, String symbol, String timeframe);
 
     /**
-     * Backfill historical data for a new symbol.
+     * 回填新股票的历史数据。
      *
-     * @param market market identifier
-     * @param symbol stock symbol
-     * @param timeframe K-line timeframe
-     * @param days number of days to backfill
+     * @param market    市场标识
+     * @param symbol    股票代码
+     * @param timeframe K线时间周期
+     * @param days      要回填的天数
      */
     void backfillHistoricalData(String market, String symbol, String timeframe, int days);
 }

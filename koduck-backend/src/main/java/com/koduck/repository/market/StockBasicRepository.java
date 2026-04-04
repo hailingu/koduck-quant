@@ -13,7 +13,7 @@ import org.springframework.stereotype.Repository;
 import com.koduck.entity.market.StockBasic;
 
 /**
- * Repository for stock basic information.
+ * 股票基本信息仓库，提供股票基本信息数据的数据库访问。
  *
  * @author Koduck Team
  */
@@ -21,28 +21,28 @@ import com.koduck.entity.market.StockBasic;
 public interface StockBasicRepository extends JpaRepository<StockBasic, Long> {
 
     /**
-     * Find stock by symbol.
+     * 根据股票代码查询股票。
      *
-     * @param symbol the symbol
-     * @return the optional of stock basic
+     * @param symbol 股票代码
+     * @return 股票基本信息
      */
     Optional<StockBasic> findBySymbol(String symbol);
 
     /**
-     * Find stocks by symbol in list.
+     * 根据股票代码列表查询股票。
      *
-     * @param symbols the symbol list
-     * @return the list of stock basics
+     * @param symbols 股票代码列表
+     * @return 股票基本信息列表
      */
     List<StockBasic> findBySymbolIn(List<String> symbols);
 
     /**
-     * Search stocks by keyword (symbol or name).
-     * Uses case-insensitive matching.
+     * 根据关键词搜索股票（股票代码或名称）。
+     * 使用不区分大小写的匹配。
      *
-     * @param keyword the keyword
-     * @param pageable the pageable
-     * @return the page of stock basics
+     * @param keyword 关键词
+     * @param pageable 分页对象
+     * @return 股票基本信息分页结果
      */
     @Query("SELECT s FROM StockBasic s WHERE LOWER(s.symbol) LIKE LOWER(CONCAT('%', :keyword, '%')) " +
            "OR LOWER(s.name) LIKE LOWER(CONCAT('%', :keyword, '%')) " +
@@ -55,30 +55,30 @@ public interface StockBasicRepository extends JpaRepository<StockBasic, Long> {
     Page<StockBasic> searchByKeyword(@Param("keyword") String keyword, Pageable pageable);
 
     /**
-     * Find stocks by market.
+     * 根据市场查询股票。
      *
-     * @param market the market
-     * @return the list of stock basics
+     * @param market 市场
+     * @return 股票基本信息列表
      */
     List<StockBasic> findByMarket(String market);
 
     /**
-     * Find stock by symbol and type.
-     * Used to distinguish between stocks and indices with same symbol code.
+     * 根据股票代码和类型查询股票。
+     * 用于区分具有相同代码的股票和指数。
      *
-     * @param symbol the symbol
-     * @param type the type
-     * @return the optional of stock basic
+     * @param symbol 股票代码
+     * @param type 类型
+     * @return 股票基本信息
      */
     Optional<StockBasic> findBySymbolAndType(String symbol, String type);
 
     /**
-     * Find stocks by symbol list and type.
-     * Used to query indices (type='INDEX') or stocks (type='STOCK').
+     * 根据股票代码列表和类型查询股票。
+     * 用于查询指数（type='INDEX'）或股票（type='STOCK'）。
      *
-     * @param symbols the symbol list
-     * @param type the type
-     * @return the list of stock basics
+     * @param symbols 股票代码列表
+     * @param type 类型
+     * @return 股票基本信息列表
      */
     List<StockBasic> findBySymbolInAndType(List<String> symbols, String type);
 }

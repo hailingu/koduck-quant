@@ -11,7 +11,7 @@ import org.springframework.stereotype.Repository;
 import com.koduck.entity.auth.Role;
 
 /**
- * Repository for user-role relationship operations.
+ * 用户-角色关系操作仓库，提供用户角色关联数据的数据库访问。
  *
  * @author Koduck Team
  */
@@ -19,10 +19,10 @@ import com.koduck.entity.auth.Role;
 public interface UserRoleRepository extends JpaRepository<Role, Integer> {
 
     /**
-     * Insert a user-role association.
+     * 插入用户-角色关联。
      *
-     * @param userId the user ID
-     * @param roleId the role ID
+     * @param userId 用户 ID
+     * @param roleId 角色 ID
      */
     @Modifying
     @Query(value = "INSERT INTO user_roles (user_id, role_id) "
@@ -33,10 +33,10 @@ public interface UserRoleRepository extends JpaRepository<Role, Integer> {
                         @Param("roleId") Integer roleId);
 
     /**
-     * Delete a user-role association.
+     * 删除用户-角色关联。
      *
-     * @param userId the user ID
-     * @param roleId the role ID
+     * @param userId 用户 ID
+     * @param roleId 角色 ID
      */
     @Modifying
     @Query(value = "DELETE FROM user_roles "
@@ -46,9 +46,9 @@ public interface UserRoleRepository extends JpaRepository<Role, Integer> {
                         @Param("roleId") Integer roleId);
 
     /**
-     * Delete all roles for a user.
+     * 删除用户的所有角色。
      *
-     * @param userId the user ID
+     * @param userId 用户 ID
      */
     @Modifying
     @Query(value = "DELETE FROM user_roles WHERE user_id = :userId",
@@ -56,21 +56,21 @@ public interface UserRoleRepository extends JpaRepository<Role, Integer> {
     void deleteAllByUserId(@Param("userId") Long userId);
 
     /**
-     * Find role IDs by user ID.
+     * 根据用户 ID 查询角色 ID 列表。
      *
-     * @param userId the user ID
-     * @return list of role IDs
+     * @param userId 用户 ID
+     * @return 角色 ID 列表
      */
     @Query(value = "SELECT role_id FROM user_roles WHERE user_id = :userId",
             nativeQuery = true)
     List<Integer> findRoleIdsByUserId(@Param("userId") Long userId);
 
     /**
-     * Check if a user-role association exists.
+     * 检查用户-角色关联是否存在。
      *
-     * @param userId the user ID
-     * @param roleId the role ID
-     * @return true if exists, false otherwise
+     * @param userId 用户 ID
+     * @param roleId 角色 ID
+     * @return 如果存在返回 true，否则返回 false
      */
     @Query(value = "SELECT CASE WHEN EXISTS "
             + "(SELECT 1 FROM user_roles "

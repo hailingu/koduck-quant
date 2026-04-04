@@ -8,62 +8,62 @@ import com.koduck.entity.ai.MemoryChatSession;
 import com.koduck.entity.user.UserMemoryProfile;
 
 /**
- * Service interface for memory operations.
+ * 记忆操作服务接口。
  *
  * @author Koduck Team
  */
 public interface MemoryService {
 
     /**
-     * Check if memory service is enabled.
+     * 检查记忆服务是否启用。
      *
-     * @return true if enabled
+     * @return 如果启用则返回true
      */
     boolean isEnabled();
 
     /**
-     * Get max L1 turns.
+     * 获取最大L1轮数。
      *
-     * @return max turns
+     * @return 最大轮数
      */
     int getL1MaxTurns();
 
     /**
-     * Resolve session ID.
+     * 解析会话ID。
      *
-     * @param input the input
-     * @return the resolved session ID
+     * @param input 输入
+     * @return 解析后的会话ID
      */
     String resolveSessionId(String input);
 
     /**
-     * Get user sessions.
+     * 获取用户的会话列表。
      *
-     * @param userId the user ID
-     * @return list of sessions
+     * @param userId 用户ID
+     * @return 会话列表
      */
     List<MemoryChatSession> getUserSessions(Long userId);
 
     /**
-     * Ensure session exists.
+     * 确保会话存在。
      *
-     * @param userId  the user ID
-     * @param sessionId the session ID
-     * @param title   the title
-     * @return the session
+     * @param userId    用户ID
+     * @param sessionId 会话ID
+     * @param title     标题
+     * @return 会话
      */
     MemoryChatSession ensureSession(Long userId, String sessionId, String title);
 
     /**
-     * Append message to session.
+     * 向会话追加消息。
      *
-     * @param userId    the user ID
-     * @param sessionId the session ID
-     * @param role      the role
-     * @param content   the content
-     * @param tokenCount the token count
-     * @param metadata  the metadata
-     * @return the saved message
+     * @param userId     用户ID
+     * @param sessionId  会话ID
+     * @param role       角色
+     * @param content    内容
+     * @param tokenCount Token数量
+     * @param metadata   元数据
+     * @return 保存的消息
      */
     MemoryChatMessage appendMessage(
         Long userId,
@@ -75,31 +75,31 @@ public interface MemoryService {
     );
 
     /**
-     * Get recent messages.
+     * 获取最近的消息。
      *
-     * @param userId    the user ID
-     * @param sessionId the session ID
-     * @param maxTurns  the max turns
-     * @return list of messages
+     * @param userId    用户ID
+     * @param sessionId 会话ID
+     * @param maxTurns  最大轮数
+     * @return 消息列表
      */
     List<MemoryChatMessage> getRecentMessages(Long userId, String sessionId, Integer maxTurns);
 
     /**
-     * Get or create user profile.
+     * 获取或创建用户画像。
      *
-     * @param userId the user ID
-     * @return the profile
+     * @param userId 用户ID
+     * @return 用户画像
      */
     UserMemoryProfile getOrCreateProfile(Long userId);
 
     /**
-     * Upsert user profile.
+     * 更新用户画像。
      *
-     * @param userId          the user ID
-     * @param riskPreference  the risk preference
-     * @param preferredSources the preferred sources
-     * @param profileFacts    the profile facts
-     * @return the updated profile
+     * @param userId           用户ID
+     * @param riskPreference   风险偏好
+     * @param preferredSources 偏好数据源
+     * @param profileFacts     画像事实
+     * @return 更新后的用户画像
      */
     UserMemoryProfile upsertProfile(
         Long userId,
@@ -109,26 +109,26 @@ public interface MemoryService {
     );
 
     /**
-     * Clear session messages.
+     * 清除会话消息。
      *
-     * @param userId    the user ID
-     * @param sessionId the session ID
-     * @return number of cleared messages
+     * @param userId    用户ID
+     * @param sessionId 会话ID
+     * @return 清除的消息数量
      */
     int clearSessionMessages(Long userId, String sessionId);
 
     /**
-     * Delete session.
+     * 删除会话。
      *
-     * @param userId    the user ID
-     * @param sessionId the session ID
+     * @param userId    用户ID
+     * @param sessionId 会话ID
      */
     void deleteSession(Long userId, String sessionId);
 
     /**
-     * Clear profile.
+     * 清除画像。
      *
-     * @param userId the user ID
+     * @param userId 用户ID
      */
     void clearProfile(Long userId);
 }

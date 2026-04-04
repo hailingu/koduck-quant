@@ -19,27 +19,27 @@ import lombok.NoArgsConstructor;
 public class ProfileDTO {
 
     /**
-     * User ID.
+     * 用户ID。
      */
     private Long id;
 
     /**
-     * Username.
+     * 用户名。
      */
     private String username;
 
     /**
-     * Email address.
+     * 邮箱地址。
      */
     private String email;
 
     /**
-     * Nickname.
+     * 昵称。
      */
     private String nickname;
 
     /**
-     * Avatar URL.
+     * 头像URL。
      */
     private String avatarUrl;
 

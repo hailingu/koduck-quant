@@ -29,7 +29,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * REST API controller for system and user settings.
+ * 系统和用户设置的 REST API 控制器。
  *
  * @author koduck
  */
@@ -41,17 +41,17 @@ import lombok.extern.slf4j.Slf4j;
 @SecurityRequirement(name = "bearerAuth")
 @Slf4j
 public class SettingsController {
-    /** Resolver for extracting authenticated user information. */
+    /** 用于提取认证用户信息的解析器。 */
     private final AuthenticatedUserResolver authenticatedUserResolver;
 
-    /** Service for managing user settings. */
+    /** 用户设置管理服务。 */
     private final UserSettingsService settingsService;
 
     /**
-     * Retrieve settings for the authenticated user.
+     * 获取认证用户的设置。
      *
-     * @param userPrincipal authenticated user principal
-     * @return wrapped user settings payload
+     * @param userPrincipal 认证用户 principal
+     * @return 包装的用户设置数据
      */
     @Operation(
         summary = "获取用户设置",
@@ -77,11 +77,11 @@ public class SettingsController {
     }
 
     /**
-     * Update settings for the authenticated user.
+     * 更新认证用户的设置。
      *
-     * @param userPrincipal authenticated user principal
-     * @param request request payload for updating settings
-     * @return wrapped updated settings payload
+     * @param userPrincipal 认证用户 principal
+     * @param request 更新设置的请求体
+     * @return 包装后的更新设置数据
      */
     @Operation(
         summary = "更新用户设置",
@@ -109,11 +109,11 @@ public class SettingsController {
     }
 
     /**
-     * Update theme preference for the authenticated user.
+     * 更新认证用户的主题偏好。
      *
-     * @param userPrincipal authenticated user principal
-     * @param request request payload containing target theme
-     * @return wrapped updated settings payload
+     * @param userPrincipal 认证用户 principal
+     * @param request 包含目标主题的请求体
+     * @return 包装后的更新设置数据
      */
     @Operation(
         summary = "更新主题设置",
@@ -141,11 +141,11 @@ public class SettingsController {
     }
 
     /**
-     * Update notification settings for the authenticated user.
+     * 更新认证用户的通知设置。
      *
-     * @param userPrincipal authenticated user principal
-     * @param request request payload containing notification preferences
-     * @return wrapped updated settings payload
+     * @param userPrincipal 认证用户 principal
+     * @param request 包含通知偏好的请求体
+     * @return 包装后的更新设置数据
      */
     @Operation(
         summary = "更新通知设置",

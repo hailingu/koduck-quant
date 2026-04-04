@@ -33,8 +33,7 @@ public class RealtimePriceEventMessage {
 
     /** The trading amount. */
     private BigDecimal amount;
-
-    /** The timestamp. */
+        /** 时间戳。 */
     private Instant timestamp;
 
     /**
@@ -49,7 +48,7 @@ public class RealtimePriceEventMessage {
     /**
      * Set the symbol.
      *
-     * @param symbol the symbol to set
+     * @param symbol 品种代码 to set
      */
     public void setSymbol(String symbol) {
         this.symbol = symbol;
@@ -67,7 +66,7 @@ public class RealtimePriceEventMessage {
     /**
      * Set the name.
      *
-     * @param name the name to set
+     * @param name 名称 to set
      */
     public void setName(String name) {
         this.name = name;
@@ -85,7 +84,7 @@ public class RealtimePriceEventMessage {
     /**
      * Set the type.
      *
-     * @param type the type to set
+     * @param type 类型 to set
      */
     public void setType(String type) {
         this.type = type;
@@ -103,7 +102,7 @@ public class RealtimePriceEventMessage {
     /**
      * Set the price.
      *
-     * @param price the price to set
+     * @param price 价格 to set
      */
     public void setPrice(BigDecimal price) {
         this.price = price;
@@ -139,7 +138,7 @@ public class RealtimePriceEventMessage {
     /**
      * Set the change percent.
      *
-     * @param changePercent the change percent to set
+     * @param changePercent 涨跌幅 to set
      */
     public void setChangePercent(BigDecimal changePercent) {
         this.changePercent = changePercent;
@@ -157,7 +156,7 @@ public class RealtimePriceEventMessage {
     /**
      * Set the volume.
      *
-     * @param volume the volume to set
+     * @param volume 成交量 to set
      */
     public void setVolume(Long volume) {
         this.volume = volume;
@@ -175,7 +174,7 @@ public class RealtimePriceEventMessage {
     /**
      * Set the amount.
      *
-     * @param amount the amount to set
+     * @param amount 成交额 to set
      */
     public void setAmount(BigDecimal amount) {
         this.amount = amount;
@@ -193,7 +192,7 @@ public class RealtimePriceEventMessage {
     /**
      * Set the timestamp.
      *
-     * @param timestamp the timestamp to set
+     * @param timestamp 时间戳 to set
      */
     public void setTimestamp(Instant timestamp) {
         this.timestamp = timestamp;

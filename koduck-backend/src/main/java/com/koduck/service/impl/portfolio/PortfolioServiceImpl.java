@@ -34,7 +34,7 @@ import static com.koduck.util.ServiceValidationUtils.assertOwner;
 import static com.koduck.util.ServiceValidationUtils.requireFound;
 
 /**
- * Implementation of portfolio service operations.
+ * 投资组合服务操作实现类.
  *
  * @author GitHub Copilot
  */
@@ -42,21 +42,21 @@ import static com.koduck.util.ServiceValidationUtils.requireFound;
 @Slf4j
 public class PortfolioServiceImpl implements PortfolioService {
 
-    /** Repository for portfolio positions. */
+    /** 投资组合持仓仓库. */
     private final PortfolioPositionRepository positionRepository;
 
-    /** Repository for trades. */
+    /** 交易记录仓库. */
     private final TradeRepository tradeRepository;
 
-    /** Service for K-line data. */
+    /** K线数据服务. */
     private final KlineService klineService;
 
     // Use MarketConstants.MarketConstants.DEFAULT_TIMEFRAME directly
 
-    /** Error message for null position. */
+    /** 空持仓错误消息. */
     private static final String POSITION_NULL_MESSAGE = "position must not be null";
 
-    /** Scale for BigDecimal calculations. */
+    /** BigDecimal计算精度. */
     private static final int SCALE = 4;
 
     /** Percentage multiplier (100). */

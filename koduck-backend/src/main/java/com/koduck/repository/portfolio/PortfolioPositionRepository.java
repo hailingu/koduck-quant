@@ -12,7 +12,7 @@ import org.springframework.stereotype.Repository;
 import com.koduck.entity.portfolio.PortfolioPosition;
 
 /**
- * Repository for portfolio position operations.
+ * 投资组合持仓操作仓库，提供投资组合持仓数据的数据库访问。
  *
  * @author Koduck Team
  */
@@ -20,38 +20,38 @@ import com.koduck.entity.portfolio.PortfolioPosition;
 public interface PortfolioPositionRepository extends JpaRepository<PortfolioPosition, Long> {
 
     /**
-     * Find all positions for a user.
+     * 查询用户的所有持仓。
      *
-     * @param userId the user id
-     * @return the list of portfolio positions
+     * @param userId 用户 ID
+     * @return 投资组合持仓列表
      */
     List<PortfolioPosition> findByUserId(Long userId);
 
     /**
-     * Find a specific position by user and symbol.
+     * 根据用户和股票代码查询特定持仓。
      *
-     * @param userId the user id
-     * @param market the market
-     * @param symbol the symbol
-     * @return the optional of portfolio position
+     * @param userId 用户 ID
+     * @param market 市场
+     * @param symbol 股票代码
+     * @return 投资组合持仓
      */
     Optional<PortfolioPosition> findByUserIdAndMarketAndSymbol(Long userId, String market, String symbol);
 
     /**
-     * Check if a position exists for user and symbol.
+     * 检查用户是否持有指定股票。
      *
-     * @param userId the user id
-     * @param market the market
-     * @param symbol the symbol
-     * @return true if exists, false otherwise
+     * @param userId 用户 ID
+     * @param market 市场
+     * @param symbol 股票代码
+     * @return 如果存在返回 true，否则返回 false
      */
     boolean existsByUserIdAndMarketAndSymbol(Long userId, String market, String symbol);
 
     /**
-     * Delete a position by user and id.
+     * 根据用户和持仓 ID 删除持仓。
      *
-     * @param userId the user id
-     * @param id the position id
+     * @param userId 用户 ID
+     * @param id 持仓 ID
      */
     @Modifying
     @Query("DELETE FROM PortfolioPosition p WHERE p.userId = :userId AND p.id = :id")

@@ -21,7 +21,7 @@ import lombok.RequiredArgsConstructor;
 import reactor.core.publisher.Mono;
 
 /**
- * Support component for relaying SSE stream from AI agent.
+ * 用于从AI Agent转发SSE流的支持组件。
  *
  * @author GitHub Copilot
  */
@@ -29,19 +29,19 @@ import reactor.core.publisher.Mono;
 @RequiredArgsConstructor
 public class AiStreamRelaySupport {
 
-    /** Event name for message. */
+    /** 消息事件名称。 */
     private static final String EVENT_MESSAGE = "message";
-    /** Event name for done. */
+    /** 完成事件名称。 */
     private static final String EVENT_DONE = "done";
-    /** Key for content. */
+    /** 内容键。 */
     private static final String KEY_CONTENT = MapKeyConstants.KEY_CONTENT;
-    /** Type reference for Map<String, Object>. */
+    /** Map<String, Object>的类型引用。 */
     private static final TypeReference<Map<String, Object>> MAP_TYPE_REFERENCE = new TypeReference<>() {
     };
 
-    /** Web client. */
+    /** Web客户端。 */
     private final WebClient webClient;
-    /** Object mapper. */
+    /** 对象映射器。 */
     private final ObjectMapper objectMapper;
 
     public StreamRelayResult relayStreamEvents(String agentUrl,
@@ -188,9 +188,9 @@ public class AiStreamRelaySupport {
         @Serial
         private static final long serialVersionUID = 1L;
 
-        /** HTTP status code. */
+        /** HTTP状态码。 */
         private final int statusCode;
-        /** Error detail. */
+        /** 错误详情。 */
         private final String detail;
 
         public StreamRelayException(int statusCode, String detail) {

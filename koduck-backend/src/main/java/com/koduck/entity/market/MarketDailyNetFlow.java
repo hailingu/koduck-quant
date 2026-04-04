@@ -24,9 +24,9 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 /**
- * Daily market net flow aggregate entity.
+ * 每日市场资金流向聚合实体。
  *
- * @author Koduck
+ * @author Koduck Team
  */
 @Entity
 @Table(
@@ -49,7 +49,7 @@ import lombok.Setter;
 public class MarketDailyNetFlow {
 
     /**
-     * Unique identifier.
+     * 唯一标识符。
      */
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -57,74 +57,74 @@ public class MarketDailyNetFlow {
     private Long id;
 
     /**
-     * Market identifier (e.g., US, CN).
+     * 市场标识符（例如：US、CN）。
      */
     @Column(name = "market", nullable = false, length = 20)
     private String market;
 
     /**
-     * Flow type.
+     * 资金流向类型。
      */
     @Column(name = "flow_type", nullable = false, length = 20)
     private String flowType;
 
     /**
-     * Trading date.
+     * 交易日。
      */
     @Column(name = "trade_date", nullable = false)
     private LocalDate tradeDate;
 
     /**
-     * Net inflow amount.
+     * 净流入金额。
      */
     @Column(name = "net_inflow", nullable = false, precision = 20, scale = 2)
     private BigDecimal netInflow;
 
     /**
-     * Total inflow amount.
+     * 总流入金额。
      */
     @Column(name = "total_inflow", precision = 20, scale = 2)
     private BigDecimal totalInflow;
 
     /**
-     * Total outflow amount.
+     * 总流出金额。
      */
     @Column(name = "total_outflow", precision = 20, scale = 2)
     private BigDecimal totalOutflow;
 
     /**
-     * Currency code.
+     * 货币代码。
      */
     @Column(name = "currency", nullable = false, length = 10)
     private String currency;
 
     /**
-     * Data source.
+     * 数据源。
      */
     @Column(name = "source", nullable = false, length = 50)
     private String source;
 
     /**
-     * Data quality indicator.
+     * 数据质量指示器。
      */
     @Column(name = "quality", nullable = false, length = 20)
     private String quality;
 
     /**
-     * Snapshot timestamp.
+     * 快照时间戳。
      */
     @Column(name = "snapshot_time", nullable = false)
     private LocalDateTime snapshotTime;
 
     /**
-     * Last update timestamp.
+     * 最后更新时间戳。
      */
     @UpdateTimestamp
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
 
     /**
-     * Creation timestamp.
+     * 创建时间戳。
      */
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)

@@ -11,7 +11,7 @@ import org.springframework.stereotype.Repository;
 import com.koduck.entity.auth.Permission;
 
 /**
- * Repository for Permission operations.
+ * 权限操作仓库，提供权限数据的数据库访问。
  *
  * @author Koduck Team
  */

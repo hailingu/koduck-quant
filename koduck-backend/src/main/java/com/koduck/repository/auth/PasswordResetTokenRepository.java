@@ -13,35 +13,35 @@ import org.springframework.stereotype.Repository;
 import com.koduck.entity.auth.PasswordResetToken;
 
 /**
- * Repository for password reset token operations.
+ * 密码重置令牌操作仓库，提供密码重置令牌数据的数据库访问。
  *
- * @author Koduck Team
- */
-@Repository
-public interface PasswordResetTokenRepository extends JpaRepository<PasswordResetToken, Long> {
+     * @author Koduck Team
+     */
+    @Repository
+    public interface PasswordResetTokenRepository extends JpaRepository<PasswordResetToken, Long> {
 
     /**
-     * Find token by token hash.
+     * 根据令牌哈希查询令牌。
      *
-     * @param tokenHash the token hash
-     * @return the optional password reset token
+     * @param tokenHash 令牌哈希
+     * @return 密码重置令牌
      */
     Optional<PasswordResetToken> findByTokenHash(String tokenHash);
 
     /**
-     * Find tokens by user ID.
+     * 根据用户 ID 查询令牌列表。
      *
-     * @param userId the user ID
-     * @return the list of password reset tokens
+     * @param userId 用户 ID
+     * @return 密码重置令牌列表
      */
     List<PasswordResetToken> findByUserId(Long userId);
 
     /**
-     * Find the latest valid token by user ID.
+     * 根据用户 ID 查询最新有效令牌。
      *
-     * @param userId the user ID
-     * @param now    the current time
-     * @return the optional password reset token
+     * @param userId 用户 ID
+     * @param now 当前时间
+     * @return 密码重置令牌
      */
     @Query("SELECT t FROM PasswordResetToken t WHERE t.userId = :userId "
            + "AND t.used = false AND t.expiresAt > :now ORDER BY t.createdAt DESC")
@@ -51,29 +51,29 @@ public interface PasswordResetTokenRepository extends JpaRepository<PasswordRese
     );
 
     /**
-     * Delete all tokens by user ID.
+     * 根据用户 ID 删除所有令牌。
      *
-     * @param userId the user ID
+     * @param userId 用户 ID
      */
     @Modifying
     @Query("DELETE FROM PasswordResetToken t WHERE t.userId = :userId")
     void deleteByUserId(@Param("userId") Long userId);
 
     /**
-     * Delete all expired tokens before the given time.
+     * 删除指定时间之前的所有过期令牌。
      *
-     * @param now the current time
+     * @param now 当前时间
      */
     @Modifying
     @Query("DELETE FROM PasswordResetToken t WHERE t.expiresAt < :now")
     void deleteAllExpiredBefore(@Param("now") LocalDateTime now);
 
     /**
-     * Check if a valid token exists for the user.
+     * 检查用户是否存在有效令牌。
      *
-     * @param userId the user ID
-     * @param now    the current time
-     * @return true if a valid token exists
+     * @param userId 用户 ID
+     * @param now 当前时间
+     * @return 如果存在有效令牌返回 true
      */
     @Query("SELECT COUNT(t) > 0 FROM PasswordResetToken t WHERE t.userId = :userId "
            + "AND t.used = false AND t.expiresAt > :now")
@@ -83,11 +83,11 @@ public interface PasswordResetTokenRepository extends JpaRepository<PasswordRese
     );
 
     /**
-     * Count tokens by user ID created after a given time.
+     * 统计用户指定时间之后创建的令牌数量。
      *
-     * @param userId the user ID
-     * @param since  the time since
-     * @return the count of tokens
+     * @param userId 用户 ID
+     * @param since 起始时间
+     * @return 令牌数量
      */
     @Query("SELECT COUNT(t) FROM PasswordResetToken t "
            + "WHERE t.userId = :userId AND t.createdAt > :since")

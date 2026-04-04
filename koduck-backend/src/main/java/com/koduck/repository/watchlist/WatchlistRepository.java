@@ -12,7 +12,7 @@ import org.springframework.stereotype.Repository;
 import com.koduck.entity.portfolio.WatchlistItem;
 
 /**
- * Repository for watchlist operations.
+ * 自选股操作仓库，提供自选股数据的数据库访问。
  *
  * @author Koduck Team
  */
@@ -20,48 +20,48 @@ import com.koduck.entity.portfolio.WatchlistItem;
 public interface WatchlistRepository extends JpaRepository<WatchlistItem, Long> {
 
     /**
-     * Find all watchlist items for a user, ordered by sort_order.
+     * 查询用户的所有自选股，按排序顺序排列。
      *
-     * @param userId the user ID
-     * @return list of watchlist items
+     * @param userId 用户 ID
+     * @return 自选股列表
      */
     List<WatchlistItem> findByUserIdOrderBySortOrderAsc(Long userId);
 
     /**
-     * Find a specific watchlist item by user and symbol.
+     * 根据用户和股票代码查询特定自选股。
      *
-     * @param userId the user ID
-     * @param market the market code
-     * @param symbol the symbol
-     * @return optional of watchlist item
+     * @param userId 用户 ID
+     * @param market 市场代码
+     * @param symbol 股票代码
+     * @return 自选股
      */
     Optional<WatchlistItem> findByUserIdAndMarketAndSymbol(
             Long userId, String market, String symbol);
 
     /**
-     * Check if a symbol exists in user's watchlist.
+     * 检查用户的自选股中是否包含指定股票。
      *
-     * @param userId the user ID
-     * @param market the market code
-     * @param symbol the symbol
-     * @return true if exists
+     * @param userId 用户 ID
+     * @param market 市场代码
+     * @param symbol 股票代码
+     * @return 如果存在返回 true
      */
     boolean existsByUserIdAndMarketAndSymbol(
             Long userId, String market, String symbol);
 
     /**
-     * Count items in user's watchlist.
+     * 统计用户的自选股数量。
      *
-     * @param userId the user ID
-     * @return the count
+     * @param userId 用户 ID
+     * @return 数量
      */
     long countByUserId(Long userId);
 
     /**
-     * Delete a watchlist item by user and symbol.
+     * 根据用户和股票代码删除自选股。
      *
-     * @param userId the user ID
-     * @param id     the item ID
+     * @param userId 用户 ID
+     * @param id 项目 ID
      */
     @Modifying
     @Query("DELETE FROM WatchlistItem w WHERE w.userId = :userId AND w.id = :id")
@@ -69,20 +69,20 @@ public interface WatchlistRepository extends JpaRepository<WatchlistItem, Long> 
             @Param("userId") Long userId, @Param("id") Long id);
 
     /**
-     * Find the maximum sort_order for a user (for appending new items).
+     * 查询用户的最大排序顺序（用于添加新项目）。
      *
-     * @param userId the user ID
-     * @return optional of max sort order
+     * @param userId 用户 ID
+     * @return 最大排序顺序
      */
     @Query("SELECT MAX(w.sortOrder) FROM WatchlistItem w WHERE w.userId = :userId")
     Optional<Integer> findMaxSortOrderByUserId(@Param("userId") Long userId);
 
     /**
-     * Update sort order for a batch of items.
+     * 批量更新排序顺序。
      *
-     * @param id        the item ID
-     * @param userId    the user ID
-     * @param sortOrder the sort order
+     * @param id 项目 ID
+     * @param userId 用户 ID
+     * @param sortOrder 排序顺序
      */
     @Modifying
     @Query("UPDATE WatchlistItem w SET w.sortOrder = :sortOrder "

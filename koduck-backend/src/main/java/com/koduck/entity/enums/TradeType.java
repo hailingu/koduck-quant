@@ -1,15 +1,15 @@
 package com.koduck.entity.enums;
 
 /**
- * Enumeration of trade types.
+ * 交易类型枚举。
  *
  * @author Koduck Team
  */
 public enum TradeType {
 
-    /** Buy trade. */
+    /** 买入交易。 */
     BUY,
 
-    /** Sell trade. */
+    /** 卖出交易。 */
     SELL
 }

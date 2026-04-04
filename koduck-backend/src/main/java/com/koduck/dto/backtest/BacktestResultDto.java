@@ -5,7 +5,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 /**
- * Backtest result DTO.
+ * 回测结果数据传输对象。
  *
  * @param id ID
  * @param strategyId Strategy ID
@@ -78,68 +78,68 @@ public record BacktestResultDto(
     }
 
     /**
-     * Builder for BacktestResultDto.
+     * BacktestResultDto 的构建器。
      */
     public static class Builder {
-        /** ID. */
+        /** ID。 */
         private Long id;
-        /** Strategy ID. */
+        /** 策略ID。 */
         private Long strategyId;
-        /** Strategy name. */
+        /** 策略名称。 */
         private String strategyName;
-        /** Strategy version. */
+        /** 策略版本。 */
         private Integer strategyVersion;
-        /** Market. */
+        /** 市场。 */
         private String market;
-        /** Symbol. */
+        /** 品种代码。 */
         private String symbol;
-        /** Start date. */
+        /** 开始日期。 */
         private LocalDate startDate;
-        /** End date. */
+        /** 结束日期。 */
         private LocalDate endDate;
-        /** Timeframe. */
+        /** 时间周期。 */
         private String timeframe;
-        /** Initial capital. */
+        /** 初始资金。 */
         private BigDecimal initialCapital;
-        /** Commission rate. */
+        /** 佣金费率。 */
         private BigDecimal commissionRate;
-        /** Slippage. */
+        /** 滑点。 */
         private BigDecimal slippage;
-        /** Final capital. */
+        /** 最终资金。 */
         private BigDecimal finalCapital;
-        /** Total return. */
+        /** 总收益。 */
         private BigDecimal totalReturn;
-        /** Annualized return. */
+        /** 年化收益。 */
         private BigDecimal annualizedReturn;
-        /** Max drawdown. */
+        /** 最大回撤。 */
         private BigDecimal maxDrawdown;
-        /** Sharpe ratio. */
+        /** 夏普比率。 */
         private BigDecimal sharpeRatio;
-        /** Total trades. */
+        /** 总交易次数。 */
         private Integer totalTrades;
-        /** Winning trades. */
+        /** 盈利交易次数。 */
         private Integer winningTrades;
-        /** Losing trades. */
+        /** 亏损交易次数。 */
         private Integer losingTrades;
-        /** Win rate. */
+        /** 胜率。 */
         private BigDecimal winRate;
-        /** Average profit. */
+        /** 平均盈利。 */
         private BigDecimal avgProfit;
-        /** Average loss. */
+        /** 平均亏损。 */
         private BigDecimal avgLoss;
-        /** Profit factor. */
+        /** 盈利因子。 */
         private BigDecimal profitFactor;
-        /** Status. */
+        /** 状态。 */
         private String status;
-        /** Error message. */
+        /** 错误消息。 */
         private String errorMessage;
-        /** Created at. */
+        /** 创建时间。 */
         private LocalDateTime createdAt;
-        /** Completed at. */
+        /** 完成时间。 */
         private LocalDateTime completedAt;
 
         /**
-         * Set ID.
+ * 设置ID。
          *
          * @param id ID
          * @return Builder
@@ -150,7 +150,7 @@ public record BacktestResultDto(
         }
 
         /**
-         * Set strategy ID.
+ * 设置策略ID。
          *
          * @param strategyId Strategy ID
          * @return Builder
@@ -161,7 +161,7 @@ public record BacktestResultDto(
         }
 
         /**
-         * Set strategy name.
+ * 设置策略名称。
          *
          * @param strategyName Strategy name
          * @return Builder
@@ -172,7 +172,7 @@ public record BacktestResultDto(
         }
 
         /**
-         * Set strategy version.
+ * 设置策略版本。
          *
          * @param strategyVersion Strategy version
          * @return Builder
@@ -183,7 +183,7 @@ public record BacktestResultDto(
         }
 
         /**
-         * Set market.
+ * 设置市场。
          *
          * @param market Market
          * @return Builder
@@ -194,7 +194,7 @@ public record BacktestResultDto(
         }
 
         /**
-         * Set symbol.
+ * 设置品种代码。
          *
          * @param symbol Symbol
          * @return Builder
@@ -205,7 +205,7 @@ public record BacktestResultDto(
         }
 
         /**
-         * Set start date.
+ * 设置开始日期。
          *
          * @param startDate Start date
          * @return Builder
@@ -216,7 +216,7 @@ public record BacktestResultDto(
         }
 
         /**
-         * Set end date.
+ * 设置结束日期。
          *
          * @param endDate End date
          * @return Builder
@@ -227,7 +227,7 @@ public record BacktestResultDto(
         }
 
         /**
-         * Set timeframe.
+ * 设置时间周期。
          *
          * @param timeframe Timeframe
          * @return Builder
@@ -238,7 +238,7 @@ public record BacktestResultDto(
         }
 
         /**
-         * Set initial capital.
+ * 设置初始资金。
          *
          * @param initialCapital Initial capital
          * @return Builder
@@ -249,7 +249,7 @@ public record BacktestResultDto(
         }
 
         /**
-         * Set commission rate.
+ * 设置佣金费率。
          *
          * @param commissionRate Commission rate
          * @return Builder
@@ -260,7 +260,7 @@ public record BacktestResultDto(
         }
 
         /**
-         * Set slippage.
+ * 设置滑点。
          *
          * @param slippage Slippage
          * @return Builder
@@ -271,7 +271,7 @@ public record BacktestResultDto(
         }
 
         /**
-         * Set final capital.
+ * 设置最终资金。
          *
          * @param finalCapital Final capital
          * @return Builder
@@ -282,7 +282,7 @@ public record BacktestResultDto(
         }
 
         /**
-         * Set total return.
+ * 设置总收益。
          *
          * @param totalReturn Total return
          * @return Builder
@@ -293,7 +293,7 @@ public record BacktestResultDto(
         }
 
         /**
-         * Set annualized return.
+ * 设置年化收益。
          *
          * @param annualizedReturn Annualized return
          * @return Builder
@@ -304,7 +304,7 @@ public record BacktestResultDto(
         }
 
         /**
-         * Set max drawdown.
+ * 设置最大回撤。
          *
          * @param maxDrawdown Max drawdown
          * @return Builder
@@ -315,7 +315,7 @@ public record BacktestResultDto(
         }
 
         /**
-         * Set sharpe ratio.
+ * 设置夏普比率。
          *
          * @param sharpeRatio Sharpe ratio
          * @return Builder
@@ -326,7 +326,7 @@ public record BacktestResultDto(
         }
 
         /**
-         * Set total trades.
+ * 设置总交易次数。
          *
          * @param totalTrades Total trades
          * @return Builder
@@ -337,7 +337,7 @@ public record BacktestResultDto(
         }
 
         /**
-         * Set winning trades.
+ * 设置盈利交易次数。
          *
          * @param winningTrades Winning trades
          * @return Builder
@@ -348,7 +348,7 @@ public record BacktestResultDto(
         }
 
         /**
-         * Set losing trades.
+ * 设置亏损交易次数。
          *
          * @param losingTrades Losing trades
          * @return Builder
@@ -359,7 +359,7 @@ public record BacktestResultDto(
         }
 
         /**
-         * Set win rate.
+ * 设置胜率。
          *
          * @param winRate Win rate
          * @return Builder
@@ -370,7 +370,7 @@ public record BacktestResultDto(
         }
 
         /**
-         * Set average profit.
+ * 设置平均盈利。
          *
          * @param avgProfit Average profit
          * @return Builder
@@ -381,7 +381,7 @@ public record BacktestResultDto(
         }
 
         /**
-         * Set average loss.
+ * 设置平均亏损。
          *
          * @param avgLoss Average loss
          * @return Builder
@@ -392,7 +392,7 @@ public record BacktestResultDto(
         }
 
         /**
-         * Set profit factor.
+ * 设置盈利因子。
          *
          * @param profitFactor Profit factor
          * @return Builder
@@ -403,7 +403,7 @@ public record BacktestResultDto(
         }
 
         /**
-         * Set status.
+ * 设置状态。
          *
          * @param status Status
          * @return Builder
@@ -414,7 +414,7 @@ public record BacktestResultDto(
         }
 
         /**
-         * Set error message.
+ * 设置错误消息。
          *
          * @param errorMessage Error message
          * @return Builder
@@ -425,7 +425,7 @@ public record BacktestResultDto(
         }
 
         /**
-         * Set created at.
+ * 设置创建时间。
          *
          * @param createdAt Created at
          * @return Builder
@@ -436,7 +436,7 @@ public record BacktestResultDto(
         }
 
         /**
-         * Set completed at.
+ * 设置完成时间。
          *
          * @param completedAt Completed at
          * @return Builder
@@ -447,7 +447,7 @@ public record BacktestResultDto(
         }
 
         /**
-         * Build BacktestResultDto.
+ * 构建 BacktestResultDto。
          *
          * @return BacktestResultDto instance
          */

@@ -17,7 +17,7 @@ import org.springframework.stereotype.Repository;
 import com.koduck.entity.community.CommunitySignal;
 
 /**
- * Repository for CommunitySignal entity.
+ * 社区信号仓库，提供社区信号数据的数据库访问。
  *
  * @author Koduck Team
  */
@@ -25,43 +25,43 @@ import com.koduck.entity.community.CommunitySignal;
 public interface CommunitySignalRepository extends JpaRepository<CommunitySignal, Long> {
 
     /**
-     * Find signals by user ID with pagination.
+     * 根据用户 ID 分页查询信号。
      *
-     * @param userId the user ID
-     * @param pageable the pagination information
-     * @return a page of community signals
+     * @param userId 用户 ID
+     * @param pageable 分页信息
+     * @return 社区信号分页结果
      */
     @EntityGraph(attributePaths = "user")
     Page<CommunitySignal> findByUserId(Long userId, Pageable pageable);
 
     /**
-     * Find signals by status with pagination.
+     * 根据状态分页查询信号。
      *
-     * @param status the signal status
-     * @param pageable the pagination information
-     * @return a page of community signals
+     * @param status 信号状态
+     * @param pageable 分页信息
+     * @return 社区信号分页结果
      */
     @EntityGraph(attributePaths = "user")
     Page<CommunitySignal> findByStatus(CommunitySignal.Status status, Pageable pageable);
 
     /**
-     * Find featured signals by status with pagination.
+     * 根据状态分页查询精选信号。
      *
-     * @param pageable the pagination information
-     * @param status the signal status
-     * @return a page of featured community signals
+     * @param pageable 分页信息
+     * @param status 信号状态
+     * @return 精选社区信号分页结果
      */
     @EntityGraph(attributePaths = "user")
     Page<CommunitySignal> findByIsFeaturedTrueAndStatus(Pageable pageable,
                                                         CommunitySignal.Status status);
 
     /**
-     * Find signals by symbol containing and status with pagination.
+     * 根据股票代码模糊搜索和状态分页查询信号。
      *
-     * @param symbol the symbol to search
-     * @param status the signal status
-     * @param pageable the pagination information
-     * @return a page of community signals
+     * @param symbol 股票代码
+     * @param status 信号状态
+     * @param pageable 分页信息
+     * @return 社区信号分页结果
      */
     @EntityGraph(attributePaths = "user")
     Page<CommunitySignal> findBySymbolContainingAndStatus(String symbol,
@@ -69,12 +69,12 @@ public interface CommunitySignalRepository extends JpaRepository<CommunitySignal
                                                           Pageable pageable);
 
     /**
-     * Find signals by signal type and status with pagination.
+     * 根据信号类型和状态分页查询信号。
      *
-     * @param signalType the signal type
-     * @param status the signal status
-     * @param pageable the pagination information
-     * @return a page of community signals
+     * @param signalType 信号类型
+     * @param status 信号状态
+     * @param pageable 分页信息
+     * @return 社区信号分页结果
      */
     @EntityGraph(attributePaths = "user")
     Page<CommunitySignal> findBySignalTypeAndStatus(CommunitySignal.SignalType signalType,
@@ -82,12 +82,12 @@ public interface CommunitySignalRepository extends JpaRepository<CommunitySignal
                                                     Pageable pageable);
 
     /**
-     * Find hot signals ordered by engagement score.
-     * Engagement score = likes + subscriptions * 2 + comments * 3
+     * 按热度排序查询信号。
+     * 热度评分 = 点赞数 + 订阅数 * 2 + 评论数 * 3
      *
-     * @param status the signal status
-     * @param pageable the pagination information
-     * @return a page of hot community signals
+     * @param status 信号状态
+     * @param pageable 分页信息
+     * @return 热门社区信号分页结果
      */
     @EntityGraph(attributePaths = "user")
     @Query("SELECT s FROM CommunitySignal s WHERE s.status = :status "
@@ -96,19 +96,19 @@ public interface CommunitySignalRepository extends JpaRepository<CommunitySignal
                                          Pageable pageable);
 
     /**
-     * Find signals by user ID ordered by creation time descending.
+     * 根据用户 ID 按创建时间降序查询信号。
      *
-     * @param userId the user ID
-     * @return a list of community signals
+     * @param userId 用户 ID
+     * @return 社区信号列表
      */
     @EntityGraph(attributePaths = "user")
     List<CommunitySignal> findByUserIdOrderByCreatedAtDesc(Long userId);
 
     /**
-     * Find signal by ID with user details preloaded to avoid N+1 query issues.
+     * 根据 ID 查询信号并预加载用户详情，避免 N+1 查询问题。
      *
-     * @param id the signal ID
-     * @return an optional containing the community signal
+     * @param id 信号 ID
+     * @return 社区信号
      */
     @Override
     @EntityGraph(attributePaths = "user")
@@ -116,46 +116,46 @@ public interface CommunitySignalRepository extends JpaRepository<CommunitySignal
     Optional<CommunitySignal> findById(@NonNull Long id);
 
     /**
-     * Find expired signals that are still active.
+     * 查询过期但仍处于活跃状态的信号。
      *
-     * @param now the current time
-     * @return a list of expired community signals
+     * @param now 当前时间
+     * @return 过期社区信号列表
      */
     @Query("SELECT s FROM CommunitySignal s WHERE s.status = 'ACTIVE' AND s.expiresAt < :now")
     List<CommunitySignal> findExpiredSignals(@Param("now") LocalDateTime now);
 
     /**
-     * Update signal status by ID.
+     * 根据 ID 更新信号状态。
      *
-     * @param id the signal ID
-     * @param status the new status
+     * @param id 信号 ID
+     * @param status 新状态
      */
     @Modifying
     @Query("UPDATE CommunitySignal s SET s.status = :status WHERE s.id = :id")
     void updateStatus(@Param("id") Long id, @Param("status") CommunitySignal.Status status);
 
     /**
-     * Increment view count by ID.
+     * 根据 ID 增加浏览次数。
      *
-     * @param id the signal ID
+     * @param id 信号 ID
      */
     @Modifying
     @Query("UPDATE CommunitySignal s SET s.viewCount = s.viewCount + 1 WHERE s.id = :id")
     void incrementViewCount(@Param("id") Long id);
 
     /**
-     * Increment like count by ID.
+     * 根据 ID 增加点赞次数。
      *
-     * @param id the signal ID
+     * @param id 信号 ID
      */
     @Modifying
     @Query("UPDATE CommunitySignal s SET s.likeCount = s.likeCount + 1 WHERE s.id = :id")
     void incrementLikeCount(@Param("id") Long id);
 
     /**
-     * Decrement like count by ID.
+     * 根据 ID 减少点赞次数。
      *
-     * @param id the signal ID
+     * @param id 信号 ID
      */
     @Modifying
     @Query("UPDATE CommunitySignal s SET s.likeCount = s.likeCount - 1 "
@@ -163,18 +163,18 @@ public interface CommunitySignalRepository extends JpaRepository<CommunitySignal
     void decrementLikeCount(@Param("id") Long id);
 
     /**
-     * Increment subscribe count by ID.
+     * 根据 ID 增加订阅次数。
      *
-     * @param id the signal ID
+     * @param id 信号 ID
      */
     @Modifying
     @Query("UPDATE CommunitySignal s SET s.subscribeCount = s.subscribeCount + 1 WHERE s.id = :id")
     void incrementSubscribeCount(@Param("id") Long id);
 
     /**
-     * Decrement subscribe count by ID.
+     * 根据 ID 减少订阅次数。
      *
-     * @param id the signal ID
+     * @param id 信号 ID
      */
     @Modifying
     @Query("UPDATE CommunitySignal s SET s.subscribeCount = s.subscribeCount - 1 "
@@ -182,18 +182,18 @@ public interface CommunitySignalRepository extends JpaRepository<CommunitySignal
     void decrementSubscribeCount(@Param("id") Long id);
 
     /**
-     * Increment favorite count by ID.
+     * 根据 ID 增加收藏次数。
      *
-     * @param id the signal ID
+     * @param id 信号 ID
      */
     @Modifying
     @Query("UPDATE CommunitySignal s SET s.favoriteCount = s.favoriteCount + 1 WHERE s.id = :id")
     void incrementFavoriteCount(@Param("id") Long id);
 
     /**
-     * Decrement favorite count by ID.
+     * 根据 ID 减少收藏次数。
      *
-     * @param id the signal ID
+     * @param id 信号 ID
      */
     @Modifying
     @Query("UPDATE CommunitySignal s SET s.favoriteCount = s.favoriteCount - 1 "
@@ -201,18 +201,18 @@ public interface CommunitySignalRepository extends JpaRepository<CommunitySignal
     void decrementFavoriteCount(@Param("id") Long id);
 
     /**
-     * Increment comment count by ID.
+     * 根据 ID 增加评论次数。
      *
-     * @param id the signal ID
+     * @param id 信号 ID
      */
     @Modifying
     @Query("UPDATE CommunitySignal s SET s.commentCount = s.commentCount + 1 WHERE s.id = :id")
     void incrementCommentCount(@Param("id") Long id);
 
     /**
-     * Decrement comment count by ID.
+     * 根据 ID 减少评论次数。
      *
-     * @param id the signal ID
+     * @param id 信号 ID
      */
     @Modifying
     @Query("UPDATE CommunitySignal s SET s.commentCount = s.commentCount - 1 "
@@ -220,19 +220,19 @@ public interface CommunitySignalRepository extends JpaRepository<CommunitySignal
     void decrementCommentCount(@Param("id") Long id);
 
     /**
-     * Count signals by user ID.
+     * 根据用户 ID 统计信号数量。
      *
-     * @param userId the user ID
-     * @return the count of signals
+     * @param userId 用户 ID
+     * @return 信号数量
      */
     long countByUserId(Long userId);
 
     /**
-     * Count signals by user ID and status.
+     * 根据用户 ID 和状态统计信号数量。
      *
-     * @param userId the user ID
-     * @param status the signal status
-     * @return the count of signals
+     * @param userId 用户 ID
+     * @param status 信号状态
+     * @return 信号数量
      */
     long countByUserIdAndStatus(Long userId, CommunitySignal.Status status);
 }

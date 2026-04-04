@@ -10,7 +10,7 @@ import org.springframework.stereotype.Repository;
 import com.koduck.entity.community.SignalLike;
 
 /**
- * Repository for signal like operations.
+ * 信号点赞操作仓库，提供信号点赞数据的数据库访问。
  *
  * @author Koduck Team
  */
@@ -18,27 +18,27 @@ import com.koduck.entity.community.SignalLike;
 public interface SignalLikeRepository extends JpaRepository<SignalLike, Long> {
 
     /**
-     * Check if like exists by signal ID and user ID.
+     * 根据信号 ID 和用户 ID 检查点赞是否存在。
      *
-     * @param signalId the signal ID
-     * @param userId   the user ID
-     * @return true if exists
+     * @param signalId 信号 ID
+     * @param userId 用户 ID
+     * @return 如果存在返回 true
      */
     boolean existsBySignalIdAndUserId(Long signalId, Long userId);
 
     /**
-     * Delete like by signal ID and user ID.
+     * 根据信号 ID 和用户 ID 删除点赞。
      *
-     * @param signalId the signal ID
-     * @param userId   the user ID
+     * @param signalId 信号 ID
+     * @param userId 用户 ID
      */
     void deleteBySignalIdAndUserId(Long signalId, Long userId);
 
     /**
-     * Find signal IDs liked by user.
+     * 查询用户点赞的信号 ID 列表。
      *
-     * @param userId the user ID
-     * @return list of signal IDs
+     * @param userId 用户 ID
+     * @return 信号 ID 列表
      */
     @Query("SELECT l.signalId FROM SignalLike l WHERE l.userId = :userId")
     List<Long> findSignalIdsByUserId(@Param("userId") Long userId);

@@ -20,9 +20,9 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 /**
- * Alert history entity.
+ * 告警历史实体。
  *
- * @author Koduck
+ * @author Koduck Team
  */
 @Entity
 @Table(name = "alert_history")
@@ -33,7 +33,7 @@ import lombok.Setter;
 public class AlertHistory {
 
     /**
-     * Unique identifier.
+     * 唯一标识符。
      */
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -41,67 +41,67 @@ public class AlertHistory {
     private Long id;
 
     /**
-     * Alert rule ID.
+     * 告警规则 ID。
      */
     @Column(name = "alert_rule_id", nullable = false)
     private Long alertRuleId;
 
     /**
-     * Rule name.
+     * 规则名称。
      */
     @Column(name = "rule_name", nullable = false, length = 100)
     private String ruleName;
 
     /**
-     * Severity level.
+     * 严重级别。
      */
     @Column(name = "severity", nullable = false, length = 20)
     private String severity;
 
     /**
-     * Metric name.
+     * 指标名称。
      */
     @Column(name = "metric_name", nullable = false, length = 100)
     private String metricName;
 
     /**
-     * Metric value.
+     * 指标值。
      */
     @Column(name = "metric_value", precision = 18, scale = 4)
     private BigDecimal metricValue;
 
     /**
-     * Threshold value.
+     * 阈值。
      */
     @Column(name = "threshold", precision = 18, scale = 4)
     private BigDecimal threshold;
 
     /**
-     * Alert message.
+     * 告警消息。
      */
     @Column(name = "message", nullable = false, columnDefinition = "TEXT")
     private String message;
 
     /**
-     * Alert status.
+     * 告警状态。
      */
     @Column(name = "status", length = 20)
     private String status;
 
     /**
-     * Notification flag.
+     * 通知标志。
      */
     @Column(name = "notified")
     private Boolean notified;
 
     /**
-     * Resolution timestamp.
+     * 解决时间戳。
      */
     @Column(name = "resolved_at")
     private LocalDateTime resolvedAt;
 
     /**
-     * Creation timestamp.
+     * 创建时间戳。
      */
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)

@@ -10,7 +10,7 @@ import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Component;
 
 /**
- * Redis-backed implementation of {@link CacheLayer}.
+ * {@link CacheLayer}的Redis实现。
  *
  * @author GitHub Copilot
  */
@@ -18,7 +18,7 @@ import org.springframework.stereotype.Component;
 public class RedisCacheLayer implements CacheLayer {
 
     /**
-     * Redis template for cache operations.
+     * 缓存操作的Redis模板。
      */
     private final RedisTemplate<String, Object> redisTemplate;
 

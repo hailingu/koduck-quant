@@ -12,7 +12,7 @@ import org.springframework.stereotype.Repository;
 import com.koduck.entity.backtest.BacktestResult;
 
 /**
- * Repository for backtest result operations.
+ * 回测结果操作仓库，提供回测结果数据的数据库访问。
  *
  * @author Koduck Team
  */
@@ -20,47 +20,47 @@ import com.koduck.entity.backtest.BacktestResult;
 public interface BacktestResultRepository extends JpaRepository<BacktestResult, Long> {
 
     /**
-     * Find all backtest results for a user.
+     * 查询用户的所有回测结果。
      *
-     * @param userId the user ID
-     * @return list of backtest results
+     * @param userId 用户 ID
+     * @return 回测结果列表
      */
     List<BacktestResult> findByUserIdOrderByCreatedAtDesc(Long userId);
 
     /**
-     * Find backtest results by user and strategy.
+     * 根据用户和策略查询回测结果。
      *
-     * @param userId the user ID
-     * @param strategyId the strategy ID
-     * @return list of backtest results
+     * @param userId 用户 ID
+     * @param strategyId 策略 ID
+     * @return 回测结果列表
      */
     List<BacktestResult> findByUserIdAndStrategyIdOrderByCreatedAtDesc(Long userId, Long strategyId);
 
     /**
-     * Find a backtest result by id and user.
+     * 根据 ID 和用户查询回测结果。
      *
-     * @param id the backtest result ID
-     * @param userId the user ID
-     * @return the backtest result
+     * @param id 回测结果 ID
+     * @param userId 用户 ID
+     * @return 回测结果
      */
     Optional<BacktestResult> findByIdAndUserId(Long id, Long userId);
 
     /**
-     * Update status.
+     * 更新状态。
      *
-     * @param id the backtest result ID
-     * @param status the backtest status
+     * @param id 回测结果 ID
+     * @param status 回测状态
      */
     @Modifying
     @Query("UPDATE BacktestResult br SET br.status = :status WHERE br.id = :id")
     void updateStatus(@Param("id") Long id, @Param("status") BacktestResult.BacktestStatus status);
 
     /**
-     * Update status and error message.
+     * 更新状态和错误信息。
      *
-     * @param id the backtest result ID
-     * @param status the backtest status
-     * @param errorMessage the error message
+     * @param id 回测结果 ID
+     * @param status 回测状态
+     * @param errorMessage 错误信息
      */
     @Modifying
     @Query("UPDATE BacktestResult br SET br.status = :status, "

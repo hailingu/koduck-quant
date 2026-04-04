@@ -35,7 +35,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * Monitoring and alerting API controller.
+ * 监控告警 API 控制器。
  *
  * @author Koduck Team
  */
@@ -47,15 +47,15 @@ import lombok.extern.slf4j.Slf4j;
 @RequiredArgsConstructor
 public class MonitoringController {
 
-    /** Service for monitoring operations. */
+    /** 监控操作服务。 */
     private final MonitoringService monitoringService;
 
     // ==================== Data Freshness ====================
 
     /**
-     * Get data freshness metrics.
+     * 获取数据新鲜度指标。
      *
-     * @return data freshness information
+     * @return 数据新鲜度信息
      */
     @Operation(
         summary = "获取数据新鲜度",
@@ -72,11 +72,11 @@ public class MonitoringController {
     }
 
     /**
-     * Get delayed stocks.
+     * 获取延迟股票。
      *
-     * @param thresholdSeconds delay threshold in seconds
-     * @param limit max number of stocks to return
-     * @return list of delayed stocks
+     * @param thresholdSeconds 延迟阈值（秒）
+     * @param limit 返回股票数量上限
+     * @return 延迟股票列表
      */
     @Operation(
         summary = "获取延迟股票",
@@ -101,11 +101,11 @@ public class MonitoringController {
     }
 
     /**
-     * Check single stock delay.
+     * 检查单只股票延迟。
      *
-     * @param symbol stock symbol
-     * @param thresholdSeconds delay threshold in seconds
-     * @return delay information for the stock
+     * @param symbol 股票代码
+     * @param thresholdSeconds 延迟阈值（秒）
+     * @return 该股票的延迟信息
      */
     @Operation(
         summary = "检查单只股票延迟",
@@ -128,9 +128,9 @@ public class MonitoringController {
     // ==================== Alert Rules ====================
 
     /**
-     * Get all alert rules.
+     * 获取所有告警规则。
      *
-     * @return list of all alert rules
+     * @return 所有告警规则列表
      */
     @Operation(
         summary = "获取告警规则列表",
@@ -151,9 +151,9 @@ public class MonitoringController {
     }
 
     /**
-     * Get enabled alert rules.
+     * 获取已启用的告警规则。
      *
-     * @return list of enabled alert rules
+     * @return 已启用的告警规则列表
      */
     @Operation(
         summary = "获取启用的告警规则",
@@ -174,10 +174,10 @@ public class MonitoringController {
     }
 
     /**
-     * Get alert rule by ID.
+     * 根据 ID 获取告警规则。
      *
-     * @param id rule ID
-     * @return alert rule details
+     * @param id 规则 ID
+     * @return 告警规则详情
      */
     @Operation(
         summary = "获取告警规则详情",
@@ -201,10 +201,10 @@ public class MonitoringController {
     }
 
     /**
-     * Create a new alert rule.
+     * 创建新告警规则。
      *
-     * @param request alert rule request
-     * @return created alert rule
+     * @param request 告警规则请求
+     * @return 创建的告警规则
      */
     @Operation(
         summary = "创建告警规则",
@@ -226,11 +226,11 @@ public class MonitoringController {
     }
 
     /**
-     * Update an alert rule.
+     * 更新告警规则。
      *
-     * @param id rule ID
-     * @param request alert rule request
-     * @return updated alert rule
+     * @param id 规则 ID
+     * @param request 告警规则请求
+     * @return 更新后的告警规则
      */
     @Operation(
         summary = "更新告警规则",
@@ -256,10 +256,10 @@ public class MonitoringController {
     }
 
     /**
-     * Delete an alert rule.
+     * 删除告警规则。
      *
-     * @param id rule ID
-     * @return empty response
+     * @param id 规则 ID
+     * @return 空响应
      */
     @Operation(
         summary = "删除告警规则",
@@ -280,11 +280,11 @@ public class MonitoringController {
     }
 
     /**
-     * Enable or disable a rule.
+     * 启用或禁用规则。
      *
-     * @param id rule ID
-     * @param enabled whether to enable the rule
-     * @return updated alert rule
+     * @param id 规则 ID
+     * @param enabled 是否启用该规则
+     * @return 更新后的告警规则
      */
     @Operation(
         summary = "启用/禁用告警规则",
@@ -312,11 +312,11 @@ public class MonitoringController {
     // ==================== Alert History ====================
 
     /**
-     * Get alert history.
+     * 获取告警历史。
      *
-     * @param page page number
-     * @param size page size
-     * @return list of alert history
+     * @param page 页码
+     * @param size 每页大小
+     * @return 告警历史列表
      */
     @Operation(
         summary = "获取告警历史",
@@ -341,9 +341,9 @@ public class MonitoringController {
     }
 
     /**
-     * Get pending alerts.
+     * 获取待处理告警。
      *
-     * @return list of pending alerts
+     * @return 待处理告警列表
      */
     @Operation(
         summary = "获取待处理告警",
@@ -364,10 +364,10 @@ public class MonitoringController {
     }
 
     /**
-     * Get alerts by severity.
+     * 按严重级别获取告警。
      *
-     * @param severity alert severity level
-     * @return list of alerts with specified severity
+     * @param severity 告警严重级别
+     * @return 指定严重级别的告警列表
      */
     @Operation(
         summary = "按严重级别获取告警",
@@ -391,10 +391,10 @@ public class MonitoringController {
     }
 
     /**
-     * Resolve an alert.
+     * 解决告警。
      *
-     * @param id alert ID
-     * @return resolved alert
+     * @param id 告警 ID
+     * @return 已解决的告警
      */
     @Operation(
         summary = "解决告警",
@@ -418,9 +418,9 @@ public class MonitoringController {
     }
 
     /**
-     * Get alert statistics.
+     * 获取告警统计。
      *
-     * @return alert statistics
+     * @return 告警统计数据
      */
     @Operation(
         summary = "获取告警统计",
@@ -439,9 +439,9 @@ public class MonitoringController {
     // ==================== Data Sources ====================
 
     /**
-     * Get all data source status.
+     * 获取所有数据源状态。
      *
-     * @return list of data source status
+     * @return 数据源状态列表
      */
     @Operation(
         summary = "获取数据源状态",
@@ -462,10 +462,10 @@ public class MonitoringController {
     }
 
     /**
-     * Get data source by name.
+     * 根据名称获取数据源。
      *
-     * @param sourceName data source name
-     * @return data source status
+     * @param sourceName 数据源名称
+     * @return 数据源状态
      */
     @Operation(
         summary = "获取指定数据源",
@@ -489,9 +489,9 @@ public class MonitoringController {
     }
 
     /**
-     * Get unhealthy data sources.
+     * 获取异常数据源。
      *
-     * @return list of unhealthy data sources
+     * @return 异常数据源列表
      */
     @Operation(
         summary = "获取异常数据源",
@@ -514,9 +514,9 @@ public class MonitoringController {
     // ==================== Dashboard ====================
 
     /**
-     * Get monitoring dashboard summary.
+     * 获取监控仪表盘汇总。
      *
-     * @return dashboard summary data
+     * @return 仪表盘汇总数据
      */
     @Operation(
         summary = "获取监控仪表盘",
@@ -533,9 +533,9 @@ public class MonitoringController {
     }
 
     /**
-     * Run monitoring check manually.
+     * 手动执行监控检查。
      *
-     * @return empty response
+     * @return 空响应
      */
     @Operation(
         summary = "手动执行监控检查",

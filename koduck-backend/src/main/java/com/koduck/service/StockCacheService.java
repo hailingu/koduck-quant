@@ -5,73 +5,73 @@ import java.util.List;
 import com.koduck.dto.market.PriceQuoteDto;
 
 /**
- * Stock data caching service interface.
- * Provides Redis-based caching for stock real-time data and K-line data.
+ * 股票数据缓存服务接口。
+ * 提供基于Redis的股票实时数据和K线数据缓存。
  *
  * @author GitHub Copilot
  */
 public interface StockCacheService {
 
-    // ==================== Stock Tracking () ====================
+    // ==================== 股票追踪 ====================
 
     /**
-     * Cache stock real-time quote data.
-     * Key: stock:track:{symbol}, TTL: 10 seconds
+     * 缓存股票实时行情数据。
+     * 键：stock:track:{symbol}，TTL：10秒
      *
-     * @param symbol stock symbol
-     * @param quote  price quote data
+     * @param symbol 股票代码
+     * @param quote  行情报价数据
      */
     void cacheStockTrack(String symbol, PriceQuoteDto quote);
 
     /**
-     * Get cached stock real-time quote.
+     * 获取缓存的股票实时行情。
      *
-     * @param symbol stock symbol
-     * @return cached price quote or null if not found
+     * @param symbol 股票代码
+     * @return 缓存的行情报价，如未找到则返回null
      */
     PriceQuoteDto getCachedStockTrack(String symbol);
 
     /**
-     * Get multiple cached stock quotes.
+     * 获取多只股票缓存的行情。
      *
-     * @param symbols list of stock symbols
-     * @return map of symbol to price quote
+     * @param symbols 股票代码列表
+     * @return 行情报价列表
      */
     List<PriceQuoteDto> getCachedStockTracks(List<String> symbols);
 
-    // ==================== Hot Stocks ====================
+    // ==================== 热门股票 ====================
 
     /**
-     * Cache hot stocks list.
-     * Key: hot:stocks:{type}, TTL: 60 seconds
+     * 缓存热门股票列表。
+     * 键：hot:stocks:{type}，TTL：60秒
      *
-     * @param type    hot stock type (volume, gain, loss)
-     * @param symbols list of stock symbols
+     * @param type    热门股票类型（volume, gain, loss）
+     * @param symbols 股票代码列表
      */
     void cacheHotStocks(String type, List<String> symbols);
 
     /**
-     * Get cached hot stocks list.
+     * 获取缓存的热门股票列表。
      *
-     * @param type hot stock type (volume, gain, loss)
-     * @return list of stock symbols or null if not found
+     * @param type 热门股票类型（volume, gain, loss）
+     * @return 股票代码列表，如未找到则返回null
      */
     List<String> getCachedHotStocks(String type);
 
-    // ==================== Batch Operations ====================
+    // ==================== 批量操作 ====================
 
     /**
-     * Cache batch of stock quotes.
+     * 批量缓存股票行情。
      *
-     * @param quotes list of price quotes
+     * @param quotes 行情报价列表
      */
     void cacheBatchStockTracks(List<PriceQuoteDto> quotes);
 
     /**
-     * Check if stock data exists in cache.
+     * 检查股票数据是否已缓存。
      *
-     * @param symbol stock symbol
-     * @return true if cached
+     * @param symbol 股票代码
+     * @return 如果已缓存则返回true
      */
     boolean isStockTrackCached(String symbol);
 }

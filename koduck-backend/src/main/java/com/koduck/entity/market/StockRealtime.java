@@ -21,10 +21,9 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 /**
- * Stock real-time price quote entity.
- * Maps to stock_realtime table in PostgreSQL.
+ * 股票实时行情实体，映射到 PostgreSQL 的 stock_realtime 表。
  *
- * @author Koduck
+ * @author Koduck Team
  */
 @Entity
 @Table(name = "stock_realtime")
@@ -35,112 +34,112 @@ import lombok.Setter;
 public class StockRealtime {
 
     /**
-     * Stock symbol (ticker).
+     * 股票代码（股票代码）。
      */
     @Id
     @Column(name = "symbol", length = 20)
     private String symbol;
 
     /**
-     * Stock name.
+     * 股票名称。
      */
     @Column(name = "name", nullable = false, length = 100)
     private String name;
 
     /**
-     * Stock type: STOCK or INDEX.
+     * 股票类型：STOCK 或 INDEX。
      */
     @Column(name = "type", nullable = false, length = 10)
     @Builder.Default
     private String type = MarketConstants.STOCK_TYPE;
 
     /**
-     * Current price.
+     * 当前价格。
      */
     @Column(name = "price", precision = 18, scale = 4)
     private BigDecimal price;
 
     /**
-     * Opening price.
+     * 开盘价。
      */
     @Column(name = "open_price", precision = 18, scale = 4)
     private BigDecimal openPrice;
 
     /**
-     * High price of the day.
+     * 当日最高价。
      */
     @Column(name = "high", precision = 18, scale = 4)
     private BigDecimal high;
 
     /**
-     * Low price of the day.
+     * 当日最低价。
      */
     @Column(name = "low", precision = 18, scale = 4)
     private BigDecimal low;
 
     /**
-     * Previous closing price.
+     * 昨日收盘价。
      */
     @Column(name = "prev_close", precision = 18, scale = 4)
     private BigDecimal prevClose;
 
     /**
-     * Trading volume.
+     * 成交量。
      */
     @Column(name = "volume")
     private Long volume;
 
     /**
-     * Trading amount.
+     * 成交金额。
      */
     @Column(name = "amount", precision = 24, scale = 2)
     private BigDecimal amount;
 
     /**
-     * Price change amount.
+     * 价格变动金额。
      */
     @Column(name = "change_amount", precision = 18, scale = 4)
     private BigDecimal changeAmount;
 
     /**
-     * Price change percentage.
+     * 价格变动百分比。
      */
     @Column(name = "change_percent", precision = 10, scale = 4)
     private BigDecimal changePercent;
 
     /**
-     * Bid price.
+     * 买入价格。
      */
     @Column(name = "bid_price", precision = 18, scale = 4)
     private BigDecimal bidPrice;
 
     /**
-     * Bid volume.
+     * 买入量。
      */
     @Column(name = "bid_volume")
     private Long bidVolume;
 
     /**
-     * Ask price.
+     * 卖出价格。
      */
     @Column(name = "ask_price", precision = 18, scale = 4)
     private BigDecimal askPrice;
 
     /**
-     * Ask volume.
+     * 卖出量。
      */
     @Column(name = "ask_volume")
     private Long askVolume;
 
     /**
-     * Last update timestamp.
+     * 最后更新时间戳。
      */
     @UpdateTimestamp
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
 
     /**
-     * Creation timestamp.
+     * 创建时间戳。
      */
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)

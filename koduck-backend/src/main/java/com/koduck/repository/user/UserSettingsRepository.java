@@ -8,7 +8,7 @@ import org.springframework.stereotype.Repository;
 import com.koduck.entity.user.UserSettings;
 
 /**
- * Repository for UserSettings operations.
+ * 用户设置操作仓库，提供用户设置数据的数据库访问。
  *
  * @author Koduck Team
  */
@@ -16,25 +16,25 @@ import com.koduck.entity.user.UserSettings;
 public interface UserSettingsRepository extends JpaRepository<UserSettings, Long> {
 
     /**
-     * Find user settings by user ID.
+     * 根据用户 ID 查询用户设置。
      *
-     * @param userId the user id
-     * @return optional of user settings
+     * @param userId 用户 ID
+     * @return 用户设置
      */
     Optional<UserSettings> findByUserId(Long userId);
 
     /**
-     * Check if user settings exists by user ID.
+     * 根据用户 ID 检查用户设置是否存在。
      *
-     * @param userId the user id
-     * @return true if exists, false otherwise
+     * @param userId 用户 ID
+     * @return 如果存在返回 true，否则返回 false
      */
     boolean existsByUserId(Long userId);
 
     /**
-     * Delete user settings by user ID.
+     * 根据用户 ID 删除用户设置。
      *
-     * @param userId the user id
+     * @param userId 用户 ID
      */
     void deleteByUserId(Long userId);
 }

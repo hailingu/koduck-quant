@@ -23,7 +23,7 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 /**
- * K-line (candlestick) data entity for storing historical price data.
+ * K 线（蜡烛图）数据实体，用于存储历史价格数据。
  *
  * @author Koduck Team
  */
@@ -47,7 +47,7 @@ import lombok.Setter;
 public class KlineData {
 
     /**
-     * The unique identifier for the kline data.
+     * K 线数据的唯一标识符。
      */
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -55,80 +55,80 @@ public class KlineData {
     private Long id;
 
     /**
-     * The market code (e.g., US, HK, CN).
+     * 市场代码（例如：US、HK、CN）。
      */
     @Column(name = "market", nullable = false, length = 20)
     private String market;
 
     /**
-     * The stock symbol.
+     * 股票代码。
      */
     @Column(name = "symbol", nullable = false, length = 20)
     private String symbol;
 
     /**
-     * The timeframe of the kline data (e.g., 1d, 1w, 1m).
+     * K 线数据的时间框架（例如：1d、1w、1m）。
      */
     @Column(name = "timeframe", nullable = false, length = 10)
     private String timeframe;
 
     /**
-     * The timestamp of the kline data.
+     * K 线数据的时间戳。
      */
     @Column(name = "kline_time", nullable = false)
     private LocalDateTime klineTime;
 
     /**
-     * The opening price.
+     * 开盘价。
      */
     @Column(name = "open_price", nullable = false, precision = 18, scale = 8)
     private BigDecimal openPrice;
 
     /**
-     * The highest price.
+     * 最高价。
      */
     @Column(name = "high_price", nullable = false, precision = 18, scale = 8)
     private BigDecimal highPrice;
 
     /**
-     * The lowest price.
+     * 最低价。
      */
     @Column(name = "low_price", nullable = false, precision = 18, scale = 8)
     private BigDecimal lowPrice;
 
     /**
-     * The closing price.
+     * 收盘价。
      */
     @Column(name = "close_price", nullable = false, precision = 18, scale = 8)
     private BigDecimal closePrice;
 
     /**
-     * The trading volume.
+     * 交易量。
      */
     @Column(name = "volume")
     private Long volume;
 
     /**
-     * The trading amount.
+     * 交易额。
      */
     @Column(name = "amount", precision = 24, scale = 8)
     private BigDecimal amount;
 
     /**
-     * The previous closing price.
+     * 昨日收盘价。
      */
     @Column(name = "pre_close_price", precision = 18, scale = 8)
     private BigDecimal preClosePrice;
 
     /**
-     * Flag indicating if trading is suspended.
+     * 指示是否停牌。
      */
     @Column(name = "is_suspended", nullable = false)
     @Builder.Default
     private Boolean isSuspended = false;
 
     /**
-     * The creation timestamp.
+     * 创建时间戳。
      */
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
@@ -136,7 +136,7 @@ public class KlineData {
     private LocalDateTime createdAt;
 
     /**
-     * The last update timestamp.
+     * 最后更新时间戳。
      */
     @UpdateTimestamp
     @Column(name = "updated_at")

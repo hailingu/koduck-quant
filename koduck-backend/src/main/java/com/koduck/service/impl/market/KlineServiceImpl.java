@@ -32,7 +32,7 @@ import com.koduck.service.KlineService;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * Implementation of K-line data service.
+ * K线数据服务实现类.
  *
  * @author GitHub Copilot
  * @date 2026-03-31

@@ -26,7 +26,7 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 /**
- * Backtest result entity.
+ * 回测结果实体。
  *
  * @author Koduck Team
  */
@@ -46,7 +46,7 @@ import lombok.Setter;
 public class BacktestResult {
 
     /**
-     * Primary key.
+     * 主键。
      */
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -54,148 +54,148 @@ public class BacktestResult {
     private Long id;
 
     /**
-     * User ID.
+     * 用户 ID。
      */
     @Column(name = "user_id", nullable = false)
     private Long userId;
 
     /**
-     * Strategy ID.
+     * 策略 ID。
      */
     @Column(name = "strategy_id", nullable = false)
     private Long strategyId;
 
     /**
-     * Strategy version.
+     * 策略版本。
      */
     @Column(name = "strategy_version")
     private Integer strategyVersion;
 
     /**
-     * Market.
+     * 市场。
      */
     @Column(name = "market", nullable = false, length = 20)
     private String market;
 
     /**
-     * Symbol.
+     * 股票代码。
      */
     @Column(name = "symbol", nullable = false, length = 20)
     private String symbol;
 
     /**
-     * Start date.
+     * 开始日期。
      */
     @Column(name = "start_date", nullable = false)
     private LocalDate startDate;
 
     /**
-     * End date.
+     * 结束日期。
      */
     @Column(name = "end_date", nullable = false)
     private LocalDate endDate;
 
     /**
-     * Timeframe.
+     * 时间框架。
      */
     @Column(name = "timeframe", length = 10)
     @Builder.Default
     private String timeframe = MarketConstants.DEFAULT_TIMEFRAME;
 
     /**
-     * Initial capital.
+     * 初始资金。
      */
     @Column(name = "initial_capital", nullable = false, precision = 19, scale = 4)
     private BigDecimal initialCapital;
 
     /**
-     * Commission rate.
+     * 手续费率。
      */
     @Column(name = "commission_rate", precision = 10, scale = 6)
     @Builder.Default
     private BigDecimal commissionRate = new BigDecimal("0.001");
 
     /**
-     * Slippage.
+     * 滑点。
      */
     @Column(name = "slippage", precision = 10, scale = 6)
     @Builder.Default
     private BigDecimal slippage = new BigDecimal("0.001");
 
     /**
-     * Final capital.
+     * 最终资金。
      */
     @Column(name = "final_capital", precision = 19, scale = 4)
     private BigDecimal finalCapital;
 
     /**
-     * Total return.
+     * 总收益率。
      */
     @Column(name = "total_return", precision = 10, scale = 4)
     private BigDecimal totalReturn;
 
     /**
-     * Annualized return.
+     * 年化收益率。
      */
     @Column(name = "annualized_return", precision = 10, scale = 4)
     private BigDecimal annualizedReturn;
 
     /**
-     * Maximum drawdown.
+     * 最大回撤。
      */
     @Column(name = "max_drawdown", precision = 10, scale = 4)
     private BigDecimal maxDrawdown;
 
     /**
-     * Sharpe ratio.
+     * 夏普比率。
      */
     @Column(name = "sharpe_ratio", precision = 10, scale = 4)
     private BigDecimal sharpeRatio;
 
     /**
-     * Total trades count.
+     * 总交易次数。
      */
     @Column(name = "total_trades")
     private Integer totalTrades;
 
     /**
-     * Winning trades count.
+     * 盈利交易次数。
      */
     @Column(name = "winning_trades")
     private Integer winningTrades;
 
     /**
-     * Losing trades count.
+     * 亏损交易次数。
      */
     @Column(name = "losing_trades")
     private Integer losingTrades;
 
     /**
-     * Win rate.
+     * 胜率。
      */
     @Column(name = "win_rate", precision = 10, scale = 4)
     private BigDecimal winRate;
 
     /**
-     * Average profit.
+     * 平均盈利。
      */
     @Column(name = "avg_profit", precision = 19, scale = 4)
     private BigDecimal avgProfit;
 
     /**
-     * Average loss.
+     * 平均亏损。
      */
     @Column(name = "avg_loss", precision = 19, scale = 4)
     private BigDecimal avgLoss;
 
     /**
-     * Profit factor.
+     * 盈亏比。
      */
     @Column(name = "profit_factor", precision = 10, scale = 4)
     private BigDecimal profitFactor;
 
     /**
-     * Backtest status.
+     * 回测状态。
      */
     @Column(name = "status", nullable = false, length = 20)
     @Enumerated(EnumType.STRING)
@@ -203,13 +203,13 @@ public class BacktestResult {
     private BacktestStatus status = BacktestStatus.PENDING;
 
     /**
-     * Error message.
+     * 错误信息。
      */
     @Column(name = "error_message", columnDefinition = "TEXT")
     private String errorMessage;
 
     /**
-     * Created at.
+     * 创建时间。
      */
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
@@ -217,33 +217,33 @@ public class BacktestResult {
     private LocalDateTime createdAt;
 
     /**
-     * Completed at.
+     * 完成时间。
      */
     @Column(name = "completed_at")
     private LocalDateTime completedAt;
 
     /**
-     * Backtest status enum.
+     * 回测状态枚举。
      */
     public enum BacktestStatus {
 
         /**
-         * Pending status.
+         * 待处理状态。
          */
         PENDING,
 
         /**
-         * Running status.
+         * 运行中状态。
          */
         RUNNING,
 
         /**
-         * Completed status.
+         * 已完成状态。
          */
         COMPLETED,
 
         /**
-         * Failed status.
+         * 失败状态。
          */
         FAILED
     }

@@ -18,7 +18,7 @@ import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.koduck.config.properties.CacheProperties;
 
 /**
- * Configuration for Redis-backed caching.
+ * 基于 Redis 的缓存配置。
  * <p>
  * Defines multiple named caches with tailored time-to-live settings
  * and JSON serialization support.  Null-safety guards are applied to
@@ -32,53 +32,53 @@ import com.koduck.config.properties.CacheProperties;
 public class CacheConfig {
 
     /**
-     * Cache name for K-line data snapshots.
+     * K线数据快照的缓存名称。
      */
     public static final String CACHE_KLINE = "kline";
     /**
-     * Cache name for latest price lookups.
+     * 最新价格查询的缓存名称。
      */
     public static final String CACHE_PRICE = "price";
     /**
-     * Cache name for market search results.
+     * 市场搜索结果的缓存名称。
      */
     public static final String CACHE_MARKET_SEARCH = "marketSearch";
     /**
-     * Cache name for stock detail payloads.
+     * 股票详情数据的缓存名称。
      */
     public static final String CACHE_STOCK_DETAIL = "stockDetail";
     /**
-     * Cache name for major market index quotes.
+     * 主要市场指数行情的缓存名称。
      */
     public static final String CACHE_MARKET_INDICES = "marketIndices";
     /**
-     * Cache name for stock industry metadata lookups.
+     * 股票行业元数据查询的缓存名称。
      */
     public static final String CACHE_STOCK_INDUSTRY = "stockIndustry";
     /**
-     * Cache name for hot stocks list responses.
+     * 热门股票列表响应的缓存名称。
      */
     public static final String CACHE_HOT_STOCKS = "hotStocks";
     /**
-     * Cache name for portfolio summary.
+     * 投资组合汇总的缓存名称。
      */
     public static final String CACHE_PORTFOLIO_SUMMARY = "portfolioSummary";
 
     /**
-     * Global ObjectMapper injected by Spring Boot auto-configuration.
+     * Spring Boot 自动配置注入的全局 ObjectMapper。
      */
     private final ObjectMapper objectMapper;
 
     /**
-     * Cache properties for TTL configuration.
+     * TTL 配置的缓存属性。
      */
     private final CacheProperties cacheProperties;
 
     /**
-     * Constructs {@link CacheConfig} with injected dependencies.
+     * 使用注入的依赖构造 {CacheConfig}。
      *
      * @param objectMapper    global Jackson object mapper (must not be {@code null})
-     * @param cacheProperties cache TTL configuration properties
+     * @param cacheProperties 缓存 TTL 配置属性
      */
     public CacheConfig(ObjectMapper objectMapper, CacheProperties cacheProperties) {
         this.objectMapper = Objects.requireNonNull(objectMapper);
@@ -86,14 +86,14 @@ public class CacheConfig {
     }
 
     /**
-     * Construct a JSON serializer that understands Java time types.
+     * 构造一个理解 Java 时间类型的 JSON 序列化器。
      *
      * <p>The serializer is backed by a copy of the global {@link ObjectMapper}
      * which registers the {@link JavaTimeModule} so that {@code java.time} objects
      * are handled correctly when caching.  Copying prevents mutation of the
      * shared Spring-managed instance.</p>
      *
-     * @return a non-null JSON serializer instance
+     * @return 非空 JSON 序列化器实例
      */
     private GenericJackson2JsonRedisSerializer createJsonSerializer() {
         ObjectMapper copy = objectMapper.copy().registerModule(new JavaTimeModule());
@@ -101,14 +101,14 @@ public class CacheConfig {
     }
 
     /**
-     * Utility factory for {@link RedisCacheConfiguration}.
+     * {RedisCacheConfiguration} 的实用工厂。
      *
      * @param ttl                 desired entry time-to-live (must be non-null)
      * @param jsonSerializer      serializer for cache values (must be non-null)
      * @param disableCachingNullValues when {@code true} calls
      *                                  {@code disableCachingNullValues()} on the
      *                                  configuration
-     * @return configured cache configuration instance
+     * @return 配置的缓存配置实例
      */
     private static RedisCacheConfiguration buildCacheConfiguration(
                     java.time.Duration ttl,
@@ -128,13 +128,13 @@ public class CacheConfig {
     }
 
     /**
-     * Spring bean that constructs the {@link RedisCacheManager} used by the
-     * application for caching.  Several named cache configurations are
-     * registered with different TTLs driven by {@link CacheProperties}.
+     * 构造应用使用的 {RedisCacheManager} 的 Spring Bean，
+     * 注册了多个具有不同 TTL 的命名缓存配置，
+     * 由 {CacheProperties} 驱动。
      *
-     * @param connectionFactory Redis connection factory (injected by Spring,
+     * @param connectionFactory Redis 连接工厂 (injected by Spring,
      *                          must not be {@code null})
-     * @return cache manager instance
+     * @return 缓存管理器实例
      */
     @Bean
     public RedisCacheManager cacheManager(RedisConnectionFactory connectionFactory) {

@@ -25,7 +25,7 @@ public record StrategyVersionDto(
     /**
      * Get a builder for StrategyVersionDto.
      *
-     * @return the builder
+     * @return 构建器
      */
     public static Builder builder() {
         return new Builder();
@@ -57,7 +57,7 @@ public record StrategyVersionDto(
          * Set the ID.
          *
          * @param id the version ID
-         * @return the builder
+         * @return 构建器
          */
         public Builder id(Long id) {
             this.id = id;
@@ -68,7 +68,7 @@ public record StrategyVersionDto(
          * Set the version number.
          *
          * @param versionNumber the version number
-         * @return the builder
+         * @return 构建器
          */
         public Builder versionNumber(Integer versionNumber) {
             this.versionNumber = versionNumber;
@@ -79,7 +79,7 @@ public record StrategyVersionDto(
          * Set the code.
          *
          * @param code the strategy code
-         * @return the builder
+         * @return 构建器
          */
         public Builder code(String code) {
             this.code = code;
@@ -90,7 +90,7 @@ public record StrategyVersionDto(
          * Set the changelog.
          *
          * @param changelog the changelog
-         * @return the builder
+         * @return 构建器
          */
         public Builder changelog(String changelog) {
             this.changelog = changelog;
@@ -101,7 +101,7 @@ public record StrategyVersionDto(
          * Set the active status.
          *
          * @param isActive whether this version is active
-         * @return the builder
+         * @return 构建器
          */
         public Builder isActive(Boolean isActive) {
             this.isActive = isActive;
@@ -112,7 +112,7 @@ public record StrategyVersionDto(
          * Set the creation timestamp.
          *
          * @param createdAt the creation timestamp
-         * @return the builder
+         * @return 构建器
          */
         public Builder createdAt(LocalDateTime createdAt) {
             this.createdAt = createdAt;

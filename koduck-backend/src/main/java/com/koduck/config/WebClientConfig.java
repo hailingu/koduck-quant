@@ -14,7 +14,7 @@ import io.netty.channel.ChannelOption;
 import reactor.netty.http.client.HttpClient;
 
 /**
- * Shared WebClient bean configuration.
+ * 共享 WebClient Bean 配置。
  *
  * @author Koduck Team
  */
@@ -22,9 +22,9 @@ import reactor.netty.http.client.HttpClient;
 public class WebClientConfig {
 
     /**
-     * Default WebClient builder.
+     * 默认 WebClient 构建器。
      *
-     * @return WebClient.Builder instance
+     * @return WebClient.Builder 实例
      */
     @Bean
     WebClient.Builder webClientBuilder() {
@@ -32,10 +32,10 @@ public class WebClientConfig {
     }
 
     /**
-     * Default WebClient bean.
+     * 默认 WebClient Bean。
      *
-     * @param builder WebClient builder
-     * @return default WebClient instance
+     * @param builder WebClient 构建器
+     * @return 默认 WebClient 实例
      */
     @Bean
     WebClient webClient(WebClient.Builder builder) {
@@ -43,11 +43,11 @@ public class WebClientConfig {
     }
 
     /**
-     * WebClient for data-service HTTP calls with configured timeouts.
+     * 用于数据服务 HTTP 调用的 WebClient，配置了超时。
      *
-     * @param builder WebClient builder
-     * @param properties data-service timeout properties
-     * @return configured WebClient instance for data service
+     * @param builder WebClient 构建器
+     * @param properties 数据服务超时属性
+     * @return 用于数据服务的配置 WebClient 实例
      */
     @Bean
     public WebClient dataServiceWebClient(WebClient.Builder builder, DataServiceProperties properties) {
@@ -61,11 +61,11 @@ public class WebClientConfig {
     }
 
     /**
-     * WebClient for Finnhub API calls with configured timeouts.
+     * 用于 Finnhub API 调用的 WebClient，配置了超时。
      *
-     * @param builder WebClient builder
+     * @param builder WebClient 构建器
      * @param properties Finnhub timeout properties
-     * @return configured WebClient instance for Finnhub API
+     * @return 用于 Finnhub API 的配置 WebClient 实例
      */
     @Bean
     public WebClient finnhubWebClient(WebClient.Builder builder, FinnhubProperties properties) {

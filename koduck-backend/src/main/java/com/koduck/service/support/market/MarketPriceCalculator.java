@@ -6,25 +6,25 @@ import java.math.RoundingMode;
 import org.springframework.stereotype.Component;
 
 /**
- * Calculator for market price changes and percentage changes.
+ * 市场价格变动和百分比变动计算器。
  *
  * @author Koduck Team
  */
 @Component
 public class MarketPriceCalculator {
 
-    /** Scale used for division operations. */
+    /** 除法操作使用的小数位数。 */
     private static final int DIVIDE_SCALE = 4;
 
-    /** Multiplier to convert a ratio to a percentage. */
+    /** 将比率转换为百分比的乘数。 */
     private static final int PERCENTAGE_MULTIPLIER = 100;
 
     /**
-     * Calculates the absolute price change.
+     * 计算绝对价格变动。
      *
-     * @param price     the current price
-     * @param prevClose the previous closing price
-     * @return the change amount, or {@code null} if either input is null
+     * @param price     当前价格
+     * @param prevClose 前收盘价
+     * @return 变动金额，如果任一输入为null则返回{@code null}
      */
     public BigDecimal calculateChange(BigDecimal price, BigDecimal prevClose) {
         if (price == null || prevClose == null) {
@@ -34,13 +34,11 @@ public class MarketPriceCalculator {
     }
 
     /**
-     * Calculates the percentage change given the absolute change and previous
-     * closing price.
+     * 给定绝对变动和前收盘价，计算百分比变动。
      *
-     * @param change    the absolute change
-     * @param prevClose the previous closing price
-     * @return the percentage change, or {@code null} if inputs are invalid or
-     *         {@code prevClose} is zero
+     * @param change    绝对变动
+     * @param prevClose 前收盘价
+     * @return 百分比变动，如果输入无效或{@code prevClose}为零则返回{@code null}
      */
     public BigDecimal calculateChangePercent(BigDecimal change, BigDecimal prevClose) {
         if (change == null || prevClose == null

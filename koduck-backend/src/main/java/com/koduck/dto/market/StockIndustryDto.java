@@ -6,8 +6,8 @@ import com.fasterxml.jackson.databind.annotation.JsonNaming;
 /**
  * Stock industry metadata DTO.
  *
- * @param symbol the symbol
- * @param name the name
+ * @param symbol 品种代码
+ * @param name 名称
  * @param industry the industry
  * @param sector the sector
  * @param subIndustry the sub industry

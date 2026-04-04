@@ -13,7 +13,7 @@ import org.springframework.stereotype.Repository;
 import com.koduck.entity.market.KlineData;
 
 /**
- * Repository for K-line data operations.
+ * K 线数据操作仓库，提供 K 线数据的数据库访问。
  *
  * @author Koduck Team
  */
@@ -21,40 +21,40 @@ import com.koduck.entity.market.KlineData;
 public interface KlineDataRepository extends JpaRepository<KlineData, Long> {
 
     /**
-     * Find K-line data by market, symbol, timeframe and time range.
+     * 根据市场、股票代码、时间框架和时间范围查询 K 线数据。
      *
-     * @param market the market
-     * @param symbol the symbol
-     * @param timeframe the timeframe
-     * @param startTime the start time
-     * @param endTime the end time
-     * @return list of K-line data
+     * @param market 市场
+     * @param symbol 股票代码
+     * @param timeframe 时间框架
+     * @param startTime 开始时间
+     * @param endTime 结束时间
+     * @return K 线数据列表
      */
     List<KlineData> findByMarketAndSymbolAndTimeframeAndKlineTimeBetweenOrderByKlineTimeDesc(
             String market, String symbol, String timeframe,
             LocalDateTime startTime, LocalDateTime endTime);
 
     /**
-     * Find K-line data with pagination.
+     * 分页查询 K 线数据。
      *
-     * @param market the market
-     * @param symbol the symbol
-     * @param timeframe the timeframe
-     * @param pageable the pageable
-     * @return list of K-line data
+     * @param market 市场
+     * @param symbol 股票代码
+     * @param timeframe 时间框架
+     * @param pageable 分页对象
+     * @return K 线数据列表
      */
     List<KlineData> findByMarketAndSymbolAndTimeframeOrderByKlineTimeDesc(
             String market, String symbol, String timeframe, Pageable pageable);
 
     /**
-     * Find K-line data before a specific time.
+     * 查询指定时间之前的 K 线数据。
      *
-     * @param market the market
-     * @param symbol the symbol
-     * @param timeframe the timeframe
-     * @param beforeTime the before time
-     * @param pageable the pageable
-     * @return list of K-line data
+     * @param market 市场
+     * @param symbol 股票代码
+     * @param timeframe 时间框架
+     * @param beforeTime 截止时间
+     * @param pageable 分页对象
+     * @return K 线数据列表
      */
     @Query("SELECT k FROM KlineData k WHERE k.market = :market AND k.symbol = :symbol " +
            "AND k.timeframe = :timeframe AND k.klineTime < :beforeTime " +
@@ -66,42 +66,42 @@ public interface KlineDataRepository extends JpaRepository<KlineData, Long> {
                                    Pageable pageable);
 
     /**
-     * Find the latest K-line data for a symbol.
+     * 查询指定股票的最新 K 线数据。
      *
-     * @param market the market
-     * @param symbol the symbol
-     * @param timeframe the timeframe
-     * @return optional of K-line data
+     * @param market 市场
+     * @param symbol 股票代码
+     * @param timeframe 时间框架
+     * @return K 线数据
      */
     Optional<KlineData> findFirstByMarketAndSymbolAndTimeframeOrderByKlineTimeDesc(
             String market, String symbol, String timeframe);
 
     /**
-     * Check if data exists for a specific time.
+     * 检查指定时间的数据是否存在。
      *
-     * @param market the market
-     * @param symbol the symbol
-     * @param timeframe the timeframe
-     * @param klineTime the kline time
-     * @return true if exists, false otherwise
+     * @param market 市场
+     * @param symbol 股票代码
+     * @param timeframe 时间框架
+     * @param klineTime K 线时间
+     * @return 如果存在返回 true，否则返回 false
      */
     boolean existsByMarketAndSymbolAndTimeframeAndKlineTime(
             String market, String symbol, String timeframe, LocalDateTime klineTime);
 
     /**
-     * Count data points for a symbol.
+     * 统计指定股票的数据点数量。
      *
-     * @param market the market
-     * @param symbol the symbol
-     * @param timeframe the timeframe
-     * @return count of data points
+     * @param market 市场
+     * @param symbol 股票代码
+     * @param timeframe 时间框架
+     * @return 数据点数量
      */
     long countByMarketAndSymbolAndTimeframe(String market, String symbol, String timeframe);
 
     /**
-     * Delete old data (for data retention).
+     * 删除旧数据（用于数据保留策略）。
      *
-     * @param cutoffTime the cutoff time
+     * @param cutoffTime 截止时间
      */
     void deleteByKlineTimeBefore(LocalDateTime cutoffTime);
 }

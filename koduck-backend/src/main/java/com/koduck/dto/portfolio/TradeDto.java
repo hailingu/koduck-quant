@@ -14,8 +14,8 @@ import java.time.LocalDateTime;
  * @param status the trade status
  * @param notes the trade notes
  * @param quantity the quantity
- * @param price the price
- * @param amount the amount
+ * @param price 价格
+ * @param amount 成交额
  * @param tradeTime the trade time
  * @param createdAt the creation time
  * @author Koduck Team
@@ -59,9 +59,9 @@ public record TradeDto(
         private String notes;
         /** The quantity. */
         private BigDecimal quantity;
-        /** The price. */
+        /** 价格。 */
         private BigDecimal price;
-        /** The amount. */
+        /** 成交额。 */
         private BigDecimal amount;
         /** The trade time. */
         private LocalDateTime tradeTime;
@@ -91,7 +91,7 @@ public record TradeDto(
         }
 
         /**
-         * Sets the stock symbol.
+ * 设置股票代码。
          *
          * @param symbol the stock symbol
          * @return this Builder instance
@@ -157,9 +157,9 @@ public record TradeDto(
         }
 
         /**
-         * Sets the price.
+         * 设置价格。
          *
-         * @param price the price
+         * @param price 价格
          * @return this Builder instance
          */
         public Builder price(BigDecimal price) {
@@ -168,9 +168,9 @@ public record TradeDto(
         }
 
         /**
-         * Sets the amount.
+         * 设置成交额。
          *
-         * @param amount the amount
+         * @param amount 成交额
          * @return this Builder instance
          */
         public Builder amount(BigDecimal amount) {

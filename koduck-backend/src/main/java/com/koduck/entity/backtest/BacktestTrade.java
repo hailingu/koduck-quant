@@ -19,9 +19,9 @@ import lombok.Setter;
 import lombok.experimental.SuperBuilder;
 
 /**
- * Backtest trade entity representing individual trades in a backtest.
+ * 回测交易实体，表示回测中的单笔交易。
  *
- * @author koduck
+ * @author Koduck Team
  */
 @Entity
 @Table(name = "backtest_trades",
@@ -37,45 +37,45 @@ import lombok.experimental.SuperBuilder;
 @EqualsAndHashCode(callSuper = true)
 public class BacktestTrade extends BaseTrade {
 
-    /** Unique identifier for the trade. */
+    /** 交易的唯一标识符。 */
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Setter(AccessLevel.NONE)
     private Long id;
 
-    /** ID of the associated backtest result. */
+    /** 关联的回测结果 ID。 */
     @Column(name = "backtest_result_id", nullable = false)
     private Long backtestResultId;
 
-    /** Commission paid for the trade. */
+    /** 交易手续费。 */
     @Column(name = "commission", nullable = false, precision = 19, scale = 4)
     private BigDecimal commission;
 
-    /** Slippage cost for the trade. */
+    /** 交易滑点成本。 */
     @Column(name = "slippage_cost", nullable = false, precision = 19, scale = 4)
     private BigDecimal slippageCost;
 
-    /** Total cost including commission and slippage. */
+    /** 总成本（包含手续费和滑点）。 */
     @Column(name = "total_cost", nullable = false, precision = 19, scale = 4)
     private BigDecimal totalCost;
 
-    /** Cash balance after the trade. */
+    /** 交易后的现金余额。 */
     @Column(name = "cash_after", nullable = false, precision = 19, scale = 4)
     private BigDecimal cashAfter;
 
-    /** Position size after the trade. */
+    /** 交易后的持仓数量。 */
     @Column(name = "position_after", nullable = false, precision = 19, scale = 4)
     private BigDecimal positionAfter;
 
-    /** Profit/loss amount for the trade. */
+    /** 交易盈亏金额。 */
     @Column(name = "pnl", precision = 19, scale = 4)
     private BigDecimal pnl;
 
-    /** Profit/loss percentage for the trade. */
+    /** 交易盈亏百分比。 */
     @Column(name = "pnl_percent", precision = 10, scale = 4)
     private BigDecimal pnlPercent;
 
-    /** Reason for the trade signal. */
+    /** 交易信号原因。 */
     @Column(name = "signal_reason", length = 255)
     private String signalReason;
 }

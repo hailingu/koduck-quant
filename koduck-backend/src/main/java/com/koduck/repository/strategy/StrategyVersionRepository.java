@@ -12,7 +12,7 @@ import org.springframework.stereotype.Repository;
 import com.koduck.entity.strategy.StrategyVersion;
 
 /**
- * Repository for strategy version operations.
+ * 策略版本操作仓库，提供策略版本数据的数据库访问。
  *
  * @author Koduck Team
  */
@@ -20,61 +20,61 @@ import com.koduck.entity.strategy.StrategyVersion;
 public interface StrategyVersionRepository extends JpaRepository<StrategyVersion, Long> {
 
     /**
-     * Find all versions for a strategy.
+     * 查询策略的所有版本，按版本号降序排列。
      *
-     * @param strategyId the strategy ID
-     * @return list of strategy versions
+     * @param strategyId 策略 ID
+     * @return 策略版本列表
      */
     List<StrategyVersion> findByStrategyIdOrderByVersionNumberDesc(Long strategyId);
 
     /**
-     * Find a specific version by strategy and version number.
+     * 根据策略和版本号查询特定版本。
      *
-     * @param strategyId the strategy ID
-     * @param versionNumber the version number
-     * @return the strategy version
+     * @param strategyId 策略 ID
+     * @param versionNumber 版本号
+     * @return 策略版本
      */
     Optional<StrategyVersion> findByStrategyIdAndVersionNumber(Long strategyId, Integer versionNumber);
 
     /**
-     * Find the latest version for a strategy.
+     * 查询策略的最新版本。
      *
-     * @param strategyId the strategy ID
-     * @return the latest strategy version
+     * @param strategyId 策略 ID
+     * @return 最新策略版本
      */
     Optional<StrategyVersion> findFirstByStrategyIdOrderByVersionNumberDesc(Long strategyId);
 
     /**
-     * Find the active version for a strategy.
+     * 查询策略的活跃版本。
      *
-     * @param strategyId the strategy ID
-     * @return the active strategy version
+     * @param strategyId 策略 ID
+     * @return 活跃策略版本
      */
     Optional<StrategyVersion> findByStrategyIdAndIsActiveTrue(Long strategyId);
 
     /**
-     * Deactivate all versions for a strategy.
+     * 停用策略的所有版本。
      *
-     * @param strategyId the strategy ID
+     * @param strategyId 策略 ID
      */
     @Modifying
     @Query("UPDATE StrategyVersion sv SET sv.isActive = false WHERE sv.strategyId = :strategyId")
     void deactivateAllVersions(@Param("strategyId") Long strategyId);
 
     /**
-     * Activate a specific version.
+     * 激活指定版本。
      *
-     * @param id the version ID
+     * @param id 版本 ID
      */
     @Modifying
     @Query("UPDATE StrategyVersion sv SET sv.isActive = true WHERE sv.id = :id")
     void activateVersion(@Param("id") Long id);
 
     /**
-     * Count versions for a strategy.
+     * 统计策略的版本数量。
      *
-     * @param strategyId the strategy ID
-     * @return the count
+     * @param strategyId 策略 ID
+     * @return 数量
      */
     long countByStrategyId(Long strategyId);
 }

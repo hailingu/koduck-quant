@@ -19,10 +19,10 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 /**
- * Entity representing a permission in the system.
- * Defines access control rules for resources and actions.
+ * 表示系统中权限的实体。
+ * 定义资源和操作的访问控制规则。
  *
- * @author GitHub Copilot
+ * @author Koduck Team
  */
 @Entity
 @Table(name = "permissions")
@@ -34,7 +34,7 @@ import lombok.Setter;
 public class Permission {
 
     /**
-     * Unique identifier for the permission.
+     * 权限的唯一标识符。
      */
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -42,31 +42,31 @@ public class Permission {
     private Integer id;
 
     /**
-     * Unique code for the permission.
+     * 权限的唯一代码。
      */
     @Column(nullable = false, unique = true, length = 100)
     private String code;
 
     /**
-     * Human-readable name of the permission.
+     * 权限的人类可读名称。
      */
     @Column(nullable = false, length = 100)
     private String name;
 
     /**
-     * Resource this permission applies to.
+     * 此权限适用的资源。
      */
     @Column(length = 50)
     private String resource;
 
     /**
-     * Action allowed on the resource.
+     * 资源上允许的操作。
      */
     @Column(length = 50)
     private String action;
 
     /**
-     * Timestamp when the permission was created.
+     * 权限创建时间戳。
      */
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)

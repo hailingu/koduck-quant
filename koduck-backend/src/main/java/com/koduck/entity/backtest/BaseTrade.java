@@ -19,8 +19,8 @@ import lombok.Setter;
 import lombok.experimental.SuperBuilder;
 
 /**
- * Base trade entity defining common fields for all trade types.
- * Extracted to eliminate redundancy between Trade and BacktestTrade.
+ * 基础交易实体，定义所有交易类型的公共字段。
+ * 提取以消除 Trade 和 BacktestTrade 之间的冗余。
  *
  * @author Koduck Team
  */
@@ -31,32 +31,32 @@ import lombok.experimental.SuperBuilder;
 @NoArgsConstructor
 public abstract class BaseTrade {
 
-    /** Type of trade (BUY or SELL). */
+    /** 交易类型（买入或卖出）。 */
     @Column(name = "trade_type", nullable = false, length = 10)
     @Enumerated(EnumType.STRING)
     private TradeType tradeType;
 
-    /** Stock symbol traded. */
+    /** 交易的股票代码。 */
     @Column(name = "symbol", nullable = false, length = 20)
     private String symbol;
 
-    /** Trade price per share. */
+    /** 每股交易价格。 */
     @Column(name = "price", nullable = false, precision = 19, scale = 4)
     private BigDecimal price;
 
-    /** Number of shares traded. */
+    /** 交易股数。 */
     @Column(name = "quantity", nullable = false, precision = 19, scale = 4)
     private BigDecimal quantity;
 
-    /** Total trade amount (price * quantity). */
+    /** 交易总金额（价格 * 数量）。 */
     @Column(name = "amount", nullable = false, precision = 19, scale = 4)
     private BigDecimal amount;
 
-    /** Timestamp when the trade occurred. */
+    /** 交易发生时间戳。 */
     @Column(name = "trade_time", nullable = false)
     private LocalDateTime tradeTime;
 
-    /** Timestamp when the record was created. */
+    /** 记录创建时间戳。 */
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     @Setter(AccessLevel.NONE)
