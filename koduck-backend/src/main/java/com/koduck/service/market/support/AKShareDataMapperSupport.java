@@ -7,6 +7,7 @@ import java.util.Map;
 import java.util.Optional;
 
 import com.koduck.common.constants.MapKeyConstants;
+import com.koduck.common.constants.MarketConstants;
 import com.koduck.dto.market.PriceQuoteDto;
 import com.koduck.dto.market.StockIndustryDto;
 import com.koduck.dto.market.StockValuationDto;
@@ -84,7 +85,8 @@ public final class AKShareDataMapperSupport {
         return PriceQuoteDto.builder()
             .symbol(MarketDataMapReader.getString(data, KEY_SYMBOL))
             .name(MarketDataMapReader.getString(data, KEY_NAME))
-            .type(Optional.ofNullable(MarketDataMapReader.getString(data, "type")).orElse("STOCK"))
+            .type(Optional.ofNullable(MarketDataMapReader.getString(data, "type"))
+                .orElse(MarketConstants.STOCK_TYPE))
             .price(DataConverter.toBigDecimal(MarketDataMapReader.getString(data, "price")))
             .open(DataConverter.toBigDecimal(MarketDataMapReader.getString(data, "open")))
             .high(DataConverter.toBigDecimal(MarketDataMapReader.getString(data, "high")))
@@ -134,7 +136,8 @@ public final class AKShareDataMapperSupport {
         return SymbolInfoDto.builder()
             .symbol(MarketDataMapReader.getString(data, KEY_SYMBOL))
             .name(MarketDataMapReader.getString(data, KEY_NAME))
-            .type(Optional.ofNullable(MarketDataMapReader.getString(data, "type")).orElse("STOCK"))
+            .type(Optional.ofNullable(MarketDataMapReader.getString(data, "type"))
+                .orElse(MarketConstants.STOCK_TYPE))
             .market(MarketDataMapReader.getString(data, "market"))
             .price(DataConverter.toBigDecimal(MarketDataMapReader.getString(data, "price")))
             .changePercent(DataConverter.toBigDecimal(MarketDataMapReader.getString(data, "change_percent")))

@@ -11,6 +11,8 @@ import jakarta.persistence.Table;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 
+import com.koduck.common.constants.MarketConstants;
+
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -50,7 +52,7 @@ public class StockRealtime {
      */
     @Column(name = "type", nullable = false, length = 10)
     @Builder.Default
-    private String type = "STOCK";
+    private String type = MarketConstants.STOCK_TYPE;
 
     /**
      * Current price.

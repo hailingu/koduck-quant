@@ -19,6 +19,7 @@ import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.lang.NonNull;
 
+import com.koduck.common.constants.MarketConstants;
 import com.koduck.dto.market.KlineDataDto;
 import com.koduck.dto.market.MarketIndexDto;
 import com.koduck.dto.market.PriceQuoteDto;
@@ -239,13 +240,13 @@ class MarketServiceImplTest {
                                 .symbol("601012")
                                 .name("隆基绿能")
                                 .market("AShare")
-                                .type("STOCK")
+                                .type(MarketConstants.STOCK_TYPE)
                                 .build(),
                         SymbolInfoDto.builder()
                                 .symbol("002363")
                                 .name("隆基机械")
                                 .market("AShare")
-                                .type("STOCK")
+                                .type(MarketConstants.STOCK_TYPE)
                                 .build()
                 ));
 
@@ -478,7 +479,8 @@ class MarketServiceImplTest {
                 .updatedAt(LocalDateTime.now())
                 .build();
 
-        when(stockRealtimeRepository.findBySymbolInAndType(List.of("000001", "399001", "399006"), "INDEX"))
+        when(stockRealtimeRepository.findBySymbolInAndType(
+                List.of("000001", "399001", "399006"), MarketConstants.INDEX_TYPE))
                 .thenReturn(List.of(index));
 
         List<MarketIndexDto> indices = marketService.getMarketIndices();
@@ -715,10 +717,10 @@ class MarketServiceImplTest {
     @DisplayName("shouldReturnEmptyListWhenNoIndicesFoundInRealtimeOrBasic")
     void shouldReturnEmptyListWhenNoIndicesFoundInRealtimeOrBasic() {
         when(stockRealtimeRepository.findBySymbolInAndType(
-                List.of("000001", "399001", "399006"), "INDEX"))
+                List.of("000001", "399001", "399006"), MarketConstants.INDEX_TYPE))
                 .thenReturn(List.of());
         when(stockBasicRepository.findBySymbolInAndType(
-                List.of("000001", "399001", "399006"), "INDEX"))
+                List.of("000001", "399001", "399006"), MarketConstants.INDEX_TYPE))
                 .thenReturn(List.of());
 
         List<MarketIndexDto> indices = marketService.getMarketIndices();
