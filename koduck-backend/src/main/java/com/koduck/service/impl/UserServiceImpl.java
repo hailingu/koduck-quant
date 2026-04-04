@@ -24,10 +24,10 @@ import com.koduck.exception.BusinessException;
 import com.koduck.exception.DuplicateException;
 import com.koduck.exception.ErrorCode;
 import com.koduck.exception.ResourceNotFoundException;
-import com.koduck.repository.PermissionRepository;
-import com.koduck.repository.RoleRepository;
-import com.koduck.repository.UserRepository;
-import com.koduck.repository.UserRoleRepository;
+import com.koduck.repository.auth.PermissionRepository;
+import com.koduck.repository.auth.RoleRepository;
+import com.koduck.repository.auth.UserRepository;
+import com.koduck.repository.auth.UserRoleRepository;
 import com.koduck.service.UserService;
 import com.koduck.service.support.DefaultUserRoleResolver;
 

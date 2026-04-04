@@ -11,7 +11,7 @@ import com.koduck.exception.ErrorCode;
 import com.koduck.exception.ResourceNotFoundException;
 import com.koduck.exception.ValidationException;
 import com.koduck.mapper.MarketDataMapper;
-import com.koduck.repository.MarketDailyNetFlowRepository;
+import com.koduck.repository.market.MarketDailyNetFlowRepository;
 import com.koduck.service.MarketFlowService;
 
 import lombok.RequiredArgsConstructor;

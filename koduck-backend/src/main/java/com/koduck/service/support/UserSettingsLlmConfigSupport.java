@@ -14,7 +14,7 @@ import com.koduck.dto.settings.MemoryConfigDto;
 import com.koduck.dto.settings.ProviderConfigDto;
 import com.koduck.entity.UserCredential;
 import com.koduck.entity.UserSettings;
-import com.koduck.repository.CredentialRepository;
+import com.koduck.repository.credential.CredentialRepository;
 import com.koduck.util.CredentialEncryptionUtil;
 
 import lombok.RequiredArgsConstructor;

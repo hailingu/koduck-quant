@@ -21,9 +21,9 @@ import com.koduck.exception.BusinessException;
 import com.koduck.exception.ErrorCode;
 import com.koduck.exception.ResourceNotFoundException;
 import com.koduck.mapper.StrategyMapper;
-import com.koduck.repository.StrategyParameterRepository;
-import com.koduck.repository.StrategyRepository;
-import com.koduck.repository.StrategyVersionRepository;
+import com.koduck.repository.strategy.StrategyParameterRepository;
+import com.koduck.repository.strategy.StrategyRepository;
+import com.koduck.repository.strategy.StrategyVersionRepository;
 import com.koduck.service.StrategyService;
 import com.koduck.service.support.StrategyAccessSupport;
 

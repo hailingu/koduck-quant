@@ -14,7 +14,10 @@ import com.koduck.entity.AlertHistory;
 import com.koduck.entity.AlertRule;
 import com.koduck.entity.DataSourceStatus;
 import com.koduck.entity.StockRealtime;
-import com.koduck.repository.*;
+import com.koduck.repository.market.StockRealtimeRepository;
+import com.koduck.repository.market.DataSourceStatusRepository;
+import com.koduck.repository.strategy.AlertRuleRepository;
+import com.koduck.repository.strategy.AlertHistoryRepository;
 import com.koduck.service.MonitoringService;
 
 import lombok.RequiredArgsConstructor;

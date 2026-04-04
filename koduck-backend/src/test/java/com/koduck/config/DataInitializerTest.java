@@ -15,10 +15,10 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 
 import com.koduck.entity.Role;
 import com.koduck.entity.User;
-import com.koduck.repository.CredentialRepository;
-import com.koduck.repository.RoleRepository;
-import com.koduck.repository.UserRepository;
-import com.koduck.repository.UserRoleRepository;
+import com.koduck.repository.credential.CredentialRepository;
+import com.koduck.repository.auth.RoleRepository;
+import com.koduck.repository.auth.UserRepository;
+import com.koduck.repository.auth.UserRoleRepository;
 import com.koduck.service.support.UserRolesTableChecker;
 import com.koduck.util.CredentialEncryptionUtil;
 

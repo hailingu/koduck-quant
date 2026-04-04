@@ -12,9 +12,9 @@ import org.springframework.stereotype.Service;
 
 import com.koduck.common.constants.RoleConstants;
 import com.koduck.entity.User;
-import com.koduck.repository.PermissionRepository;
-import com.koduck.repository.RoleRepository;
-import com.koduck.repository.UserRepository;
+import com.koduck.repository.auth.PermissionRepository;
+import com.koduck.repository.auth.RoleRepository;
+import com.koduck.repository.auth.UserRepository;
 import com.koduck.service.support.UserRolesTableChecker;
 
 import lombok.RequiredArgsConstructor;

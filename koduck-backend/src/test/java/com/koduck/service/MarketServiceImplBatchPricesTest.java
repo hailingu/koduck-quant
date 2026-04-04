@@ -12,8 +12,8 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import com.koduck.dto.market.PriceQuoteDto;
 import com.koduck.entity.StockRealtime;
-import com.koduck.repository.StockBasicRepository;
-import com.koduck.repository.StockRealtimeRepository;
+import com.koduck.repository.market.StockBasicRepository;
+import com.koduck.repository.market.StockRealtimeRepository;
 import com.koduck.service.impl.MarketServiceImpl;
 import com.koduck.service.support.MarketFallbackSupport;
 import com.koduck.service.support.MarketServiceSupport;

@@ -18,9 +18,9 @@ import com.koduck.entity.MemoryChatMessage;
 import com.koduck.entity.MemoryChatSession;
 import com.koduck.entity.UserMemoryProfile;
 import com.koduck.exception.StateException;
-import com.koduck.repository.MemoryChatMessageRepository;
-import com.koduck.repository.MemoryChatSessionRepository;
-import com.koduck.repository.UserMemoryProfileRepository;
+import com.koduck.repository.ai.MemoryChatMessageRepository;
+import com.koduck.repository.ai.MemoryChatSessionRepository;
+import com.koduck.repository.user.UserMemoryProfileRepository;
 import com.koduck.service.MemoryService;
 
 import lombok.extern.slf4j.Slf4j;

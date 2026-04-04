@@ -24,8 +24,8 @@ import com.koduck.entity.WatchlistItem;
 import com.koduck.exception.DuplicateException;
 import com.koduck.exception.ResourceNotFoundException;
 import com.koduck.exception.StateException;
-import com.koduck.repository.StockRealtimeRepository;
-import com.koduck.repository.WatchlistRepository;
+import com.koduck.repository.market.StockRealtimeRepository;
+import com.koduck.repository.watchlist.WatchlistRepository;
 import com.koduck.service.WatchlistService;
 import com.koduck.util.SymbolUtils;
 
