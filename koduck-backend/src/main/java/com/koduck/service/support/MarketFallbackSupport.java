@@ -23,6 +23,8 @@ import com.koduck.market.provider.ProviderFactory;
 import com.koduck.repository.market.StockBasicRepository;
 import com.koduck.service.KlineService;
 import com.koduck.service.market.AKShareDataProvider;
+import com.koduck.service.support.market.KlineDataNormalizer;
+import com.koduck.service.support.market.MarketPriceCalculator;
 import com.koduck.util.SymbolUtils;
 
 import lombok.RequiredArgsConstructor;
@@ -50,8 +52,11 @@ public class MarketFallbackSupport {
     /** Factory for market data providers. */
     private final ProviderFactory providerFactory;
 
-    /** Support service for market operations. */
-    private final MarketServiceSupport marketServiceSupport;
+    /** Normaliser for K-line data. */
+    private final KlineDataNormalizer klineDataNormalizer;
+
+    /** Calculator for price changes. */
+    private final MarketPriceCalculator marketPriceCalculator;
 
     /**
      * Fetches price from provider.
@@ -195,7 +200,7 @@ public class MarketFallbackSupport {
             List<com.koduck.dto.market.KlineDataDto> recent =
                 klineService.getKlineData(actualMarket, symbol,
                         MarketConstants.DEFAULT_TIMEFRAME, 2, null);
-            recent = marketServiceSupport.normalizeKlineData(recent);
+            recent = klineDataNormalizer.normalizeKlineData(recent);
             if (recent.isEmpty()) {
                 return null;
             }
@@ -205,9 +210,9 @@ public class MarketFallbackSupport {
             BigDecimal prevClose = recent.size() >= 2
                     ? recent.get(recent.size() - 2).close() : null;
             BigDecimal current = latest.close();
-            BigDecimal change = marketServiceSupport
+            BigDecimal change = marketPriceCalculator
                     .calculateChange(current, prevClose);
-            BigDecimal changePercent = marketServiceSupport
+            BigDecimal changePercent = marketPriceCalculator
                     .calculateChangePercent(change, prevClose);
 
             return StockStatsDto.builder()
@@ -270,7 +275,7 @@ public class MarketFallbackSupport {
             String market) {
         List<com.koduck.dto.market.KlineDataDto> recent =
             klineService.getKlineData(market, symbol, MarketConstants.DEFAULT_TIMEFRAME, 2, null);
-        recent = marketServiceSupport.normalizeKlineData(recent);
+        recent = klineDataNormalizer.normalizeKlineData(recent);
         if (recent.isEmpty()) {
             return null;
         }
@@ -280,8 +285,8 @@ public class MarketFallbackSupport {
         BigDecimal prevClose = recent.size() >= 2
                 ? recent.get(recent.size() - 2).close() : null;
         BigDecimal price = latest.close();
-        BigDecimal change = marketServiceSupport.calculateChange(price, prevClose);
-        BigDecimal changePercent = marketServiceSupport
+        BigDecimal change = marketPriceCalculator.calculateChange(price, prevClose);
+        BigDecimal changePercent = marketPriceCalculator
                 .calculateChangePercent(change, prevClose);
 
         return PriceQuoteDto.builder()

@@ -16,7 +16,8 @@ import com.koduck.repository.market.StockBasicRepository;
 import com.koduck.repository.market.StockRealtimeRepository;
 import com.koduck.service.impl.market.MarketServiceImpl;
 import com.koduck.service.support.MarketFallbackSupport;
-import com.koduck.service.support.MarketServiceSupport;
+import com.koduck.service.support.market.MarketDtoMapper;
+import com.koduck.service.support.market.MockSectorNetworkGenerator;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.when;
@@ -47,10 +48,6 @@ class MarketServiceImplBatchPricesTest {
     @Mock
     StockCacheService stockCacheService;
 
-    /** The market service support. */
-    @Mock
-    MarketServiceSupport marketServiceSupport;
-
     /** The market fallback support. */
     @Mock
     MarketFallbackSupport marketFallbackSupport;
@@ -60,13 +57,14 @@ class MarketServiceImplBatchPricesTest {
 
     @BeforeEach
     void setUp() {
-        MarketServiceSupport realMarketServiceSupport =
-            new MarketServiceSupport(stockRealtimeRepository, stockBasicRepository);
+        MarketDtoMapper marketDtoMapper = new MarketDtoMapper();
+        MockSectorNetworkGenerator mockSectorNetworkGenerator = new MockSectorNetworkGenerator();
         marketService = new MarketServiceImpl(
             stockRealtimeRepository,
             stockBasicRepository,
             stockCacheService,
-            realMarketServiceSupport,
+            marketDtoMapper,
+            mockSectorNetworkGenerator,
             marketFallbackSupport);
     }
 
