@@ -24,7 +24,7 @@ import com.koduck.entity.enums.TradeType;
 import com.koduck.entity.portfolio.PortfolioPosition;
 import com.koduck.repository.backtest.TradeRepository;
 import com.koduck.repository.portfolio.PortfolioPositionRepository;
-import com.koduck.service.impl.PortfolioServiceImpl;
+import com.koduck.service.impl.portfolio.PortfolioServiceImpl;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;

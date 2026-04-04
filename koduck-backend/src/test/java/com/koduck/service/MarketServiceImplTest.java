@@ -30,7 +30,7 @@ import com.koduck.entity.market.StockBasic;
 import com.koduck.entity.market.StockRealtime;
 import com.koduck.repository.market.StockBasicRepository;
 import com.koduck.repository.market.StockRealtimeRepository;
-import com.koduck.service.impl.MarketServiceImpl;
+import com.koduck.service.impl.market.MarketServiceImpl;
 import com.koduck.service.support.MarketFallbackSupport;
 import com.koduck.service.support.MarketServiceSupport;
 

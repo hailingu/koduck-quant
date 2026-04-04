@@ -27,7 +27,7 @@ import com.koduck.repository.auth.RefreshTokenRepository;
 import com.koduck.repository.auth.RoleRepository;
 import com.koduck.repository.auth.UserRepository;
 import com.koduck.repository.auth.UserRoleRepository;
-import com.koduck.service.impl.AuthServiceImpl;
+import com.koduck.service.impl.auth.AuthServiceImpl;
 import com.koduck.service.support.DefaultUserRoleResolver;
 import com.koduck.service.support.UserRolesTableChecker;
 import com.koduck.util.JwtUtil;

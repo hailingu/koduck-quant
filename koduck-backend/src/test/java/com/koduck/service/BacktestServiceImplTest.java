@@ -19,7 +19,7 @@ import com.koduck.repository.backtest.BacktestResultRepository;
 import com.koduck.repository.backtest.BacktestTradeRepository;
 import com.koduck.repository.strategy.StrategyRepository;
 import com.koduck.repository.strategy.StrategyVersionRepository;
-import com.koduck.service.impl.BacktestServiceImpl;
+import com.koduck.service.impl.backtest.BacktestServiceImpl;
 import com.koduck.service.support.BacktestExecutionContext;
 import com.koduck.service.support.BacktestSignal;
 import com.koduck.service.support.StrategyAccessSupport;

@@ -35,7 +35,7 @@ import com.koduck.exception.ResourceNotFoundException;
 import com.koduck.repository.backtest.BacktestResultRepository;
 import com.koduck.repository.portfolio.PortfolioPositionRepository;
 import com.koduck.repository.strategy.StrategyRepository;
-import com.koduck.service.impl.AiAnalysisServiceImpl;
+import com.koduck.service.impl.ai.AiAnalysisServiceImpl;
 import com.koduck.service.support.AiConversationSupport;
 import com.koduck.service.support.AiRecommendationSupport;
 import com.koduck.service.support.AiStreamRelaySupport;
