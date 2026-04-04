@@ -6,9 +6,29 @@ Koduck Quant 后端服务，基于 Spring Boot 3.x 和 Java 23 构建。
 
 - **Java**: 23
 - **Spring Boot**: 3.4.2
-- **构建工具**: Maven
+- **构建工具**: Maven（多模块）
 - **数据库**: PostgreSQL
 - **ORM**: Spring Data JPA
+
+## 项目结构
+
+本项目采用 Maven 多模块架构：
+
+```
+koduck-backend/
+├── pom.xml                          # 父 POM（依赖管理）
+├── koduck-bom/                      # BOM 模块（统一版本）
+├── koduck-core/                     # 核心模块（业务逻辑、数据访问）
+└── koduck-bootstrap/                # 启动模块（应用入口）
+```
+
+### 模块说明
+
+| 模块 | 职责 | 依赖 |
+|------|------|------|
+| `koduck-bom` | 统一管理依赖版本 | 无 |
+| `koduck-core` | 业务逻辑、数据访问、领域模型 | koduck-bom |
+| `koduck-bootstrap` | Spring Boot 启动入口 | koduck-core |
 
 ## 快速开始
 
@@ -21,17 +41,22 @@ Koduck Quant 后端服务，基于 Spring Boot 3.x 和 Java 23 构建。
 ### 构建项目
 
 ```bash
-mvn clean package
+# 构建所有模块
+mvn clean install
+
+# 仅编译
+mvn clean compile
 ```
 
 ### 运行项目
 
 ```bash
-# 使用 Maven
+# 使用 Maven（在 koduck-bootstrap 目录下）
+cd koduck-bootstrap
 mvn spring-boot:run
 
 # 或使用构建好的 JAR
-java -jar target/koduck-backend-0.1.0-SNAPSHOT.jar
+java -jar koduck-bootstrap/target/koduck-bootstrap-0.1.0-SNAPSHOT.jar
 ```
 
 ### 验证服务

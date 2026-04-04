@@ -10,6 +10,8 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+
 import com.koduck.dto.market.PriceQuoteDto;
 import com.koduck.entity.market.StockRealtime;
 import com.koduck.repository.market.StockBasicRepository;
@@ -18,7 +20,6 @@ import com.koduck.service.impl.market.MarketServiceImpl;
 import com.koduck.service.support.MarketFallbackSupport;
 import com.koduck.service.support.market.MarketDtoMapper;
 import com.koduck.service.support.market.MockSectorNetworkGenerator;
-import com.fasterxml.jackson.databind.ObjectMapper;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.when;

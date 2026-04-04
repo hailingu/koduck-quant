@@ -15,10 +15,10 @@ import com.koduck.entity.auth.PasswordResetToken;
 /**
  * 密码重置令牌操作仓库，提供密码重置令牌数据的数据库访问。
  *
-     * @author Koduck Team
-     */
-    @Repository
-    public interface PasswordResetTokenRepository extends JpaRepository<PasswordResetToken, Long> {
+ * @author Koduck Team
+ */
+@Repository
+public interface PasswordResetTokenRepository extends JpaRepository<PasswordResetToken, Long> {
 
     /**
      * 根据令牌哈希查询令牌。
