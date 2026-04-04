@@ -47,7 +47,7 @@ public class UserInfo implements UserPrincipal<GrantedAuthority> {
     /** 最后登录时间. */
     private LocalDateTime lastLoginAt;
     /** 角色列表. */
-    private List<String> roles;
+    private transient List<String> roles;
 
     @Override
     public Collection<GrantedAuthority> getAuthorities() {

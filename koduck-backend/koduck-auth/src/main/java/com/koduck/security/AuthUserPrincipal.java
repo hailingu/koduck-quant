@@ -77,8 +77,9 @@ public class AuthUserPrincipal implements
 
     /**
      * 权限列表（Spring Security 类型）。
+     * 标记为 transient，因为 GrantedAuthority 可能不可序列化。
      */
-    private List<GrantedAuthority> authorities;
+    private transient List<GrantedAuthority> authorities;
 
     /**
      * 账户是否启用。
