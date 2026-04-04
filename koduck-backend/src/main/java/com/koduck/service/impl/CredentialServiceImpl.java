@@ -319,7 +319,7 @@ public class CredentialServiceImpl implements CredentialService {
                     .build();
             auditLogRepository.save(Objects.requireNonNull(log, "audit log must not be null"));
         }
-        catch (Exception e) {
+        catch (RuntimeException e) {
             log.error("记录审计日志失败", e);
         }
     }

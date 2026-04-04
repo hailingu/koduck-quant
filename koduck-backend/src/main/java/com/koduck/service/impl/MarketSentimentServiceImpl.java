@@ -327,7 +327,7 @@ public class MarketSentimentServiceImpl implements MarketSentimentService {
             }
             return Math.max(0, Math.min(SCORE_SCALE, score));
         }
-        catch (Exception e) {
+        catch (RuntimeException e) {
             log.warn("Failed to calculate trend strength score", e);
             return DEFAULT_NEUTRAL_SCORE;
         }
@@ -360,7 +360,7 @@ public class MarketSentimentServiceImpl implements MarketSentimentService {
                 + volumeTrend * DAYS_MEDIUM_TERM;
             return Math.max(0, Math.min(SCORE_SCALE, (int) greedScore));
         }
-        catch (Exception e) {
+        catch (RuntimeException e) {
             log.warn("Failed to calculate fear/greed score", e);
             return DEFAULT_NEUTRAL_SCORE;
         }
@@ -398,7 +398,7 @@ public class MarketSentimentServiceImpl implements MarketSentimentService {
             int score = (int) (position * SCORE_SCALE);
             return Math.max(0, Math.min(SCORE_SCALE, score));
         }
-        catch (Exception e) {
+        catch (RuntimeException e) {
             log.warn("Failed to calculate valuation score", e);
             return DEFAULT_NEUTRAL_SCORE;
         }
@@ -449,7 +449,7 @@ public class MarketSentimentServiceImpl implements MarketSentimentService {
             }
             return score;
         }
-        catch (Exception e) {
+        catch (RuntimeException e) {
             log.warn("Failed to calculate fund flow score", e);
             return DEFAULT_NEUTRAL_SCORE;
         }
@@ -550,7 +550,7 @@ public class MarketSentimentServiceImpl implements MarketSentimentService {
                 )
                     .orElse(List.of());
         }
-        catch (Exception e) {
+        catch (RuntimeException e) {
             log.warn("Failed to get recent klines for {}: {}", symbol, e.getMessage());
             return List.of();
         }

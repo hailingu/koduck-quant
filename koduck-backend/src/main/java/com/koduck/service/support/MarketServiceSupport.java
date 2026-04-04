@@ -229,7 +229,7 @@ public class MarketServiceSupport {
                 .limit(limit)
                 .toList();
         }
-        catch (Exception e) {
+        catch (RuntimeException e) {
             log.error("Error getting hot stocks: market={}, limit={}, error={}",
                 market, limit, e.getMessage(), e);
             return Collections.emptyList();

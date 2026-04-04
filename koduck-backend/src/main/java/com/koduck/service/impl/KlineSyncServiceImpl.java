@@ -115,7 +115,7 @@ public class KlineSyncServiceImpl implements KlineSyncService {
                 log.error("Sync interrupted", exception);
                 break;
             }
-            catch (Exception e) {
+            catch (RuntimeException e) {
                 log.error("Failed to sync {}: {}", symbol, e.getMessage());
             }
         }
