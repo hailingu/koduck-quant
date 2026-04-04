@@ -71,4 +71,14 @@ public interface KlineService {
      * @param timeframe the timeframe
      */
     void saveKlineData(List<KlineDataDto> dtos, String market, String symbol, String timeframe);
+
+    /**
+     * Normalize timeframe from period alias or explicit timeframe.
+     * <p>Handles legacy period aliases (daily/weekly/monthly) and explicit timeframe values.</p>
+     *
+     * @param period    the period alias (daily/weekly/monthly), may be null
+     * @param timeframe the explicit timeframe (1D/1W/1M), may be null
+     * @return the normalized timeframe
+     */
+    String normalizeTimeframe(String period, String timeframe);
 }

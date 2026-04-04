@@ -27,6 +27,8 @@ import com.koduck.entity.StockRealtime;
 import com.koduck.repository.StockBasicRepository;
 import com.koduck.repository.StockRealtimeRepository;
 import com.koduck.service.MarketService;
+import com.koduck.exception.ErrorCode;
+import com.koduck.exception.ResourceNotFoundException;
 import com.koduck.service.StockCacheService;
 import com.koduck.service.support.MarketFallbackSupport;
 import com.koduck.service.support.MarketServiceSupport;
@@ -134,12 +136,12 @@ public class MarketServiceImpl implements MarketService {
     @Override
     public PriceQuoteDto getStockDetail(String symbol) {
         log.debug("Getting stock detail from database: symbol={}", symbol);
-        
+
         if (symbol == null || symbol.isBlank()) {
             log.warn("Invalid symbol: null or blank");
-            return null;
+            throw new ResourceNotFoundException(ErrorCode.MARKET_SYMBOL_NOT_FOUND, "stock", symbol);
         }
-        
+
         try {
             StockRealtime entity = stockRealtimeRepository
                     .findFirstBySymbolOrderByUpdatedAtDesc(symbol)
@@ -158,7 +160,7 @@ public class MarketServiceImpl implements MarketService {
                 }
 
                 log.warn("Stock not found in realtime or kline data: {}", symbol);
-                return null;
+                throw new ResourceNotFoundException(ErrorCode.MARKET_SYMBOL_NOT_FOUND, "stock", symbol);
             }
 
             log.debug("Found stock: symbol={}, name={}, price={}",
@@ -179,7 +181,7 @@ public class MarketServiceImpl implements MarketService {
                 return providerQuote;
             }
 
-            return null;
+            throw new ResourceNotFoundException(ErrorCode.MARKET_SYMBOL_NOT_FOUND, "stock", symbol);
         }
     }
 
@@ -195,10 +197,14 @@ public class MarketServiceImpl implements MarketService {
 
         if (symbol == null || symbol.isBlank()) {
             log.warn("Invalid symbol for valuation: null or blank");
-            return null;
+            throw new ResourceNotFoundException(ErrorCode.MARKET_SYMBOL_NOT_FOUND, "stock", symbol);
         }
 
-        return marketFallbackSupport.fetchProviderValuation(symbol);
+        StockValuationDto valuation = marketFallbackSupport.fetchProviderValuation(symbol);
+        if (valuation == null) {
+            throw new ResourceNotFoundException(ErrorCode.MARKET_DATA_NOT_FOUND, "stock valuation", symbol);
+        }
+        return valuation;
     }
 
     /**
@@ -213,14 +219,18 @@ public class MarketServiceImpl implements MarketService {
 
         if (symbol == null || symbol.isBlank()) {
             log.warn("Invalid symbol for industry: null or blank");
-            return null;
+            throw new ResourceNotFoundException(ErrorCode.MARKET_SYMBOL_NOT_FOUND, "stock", symbol);
         }
 
         try {
-            return marketFallbackSupport.fetchProviderIndustry(symbol);
+            StockIndustryDto industry = marketFallbackSupport.fetchProviderIndustry(symbol);
+            if (industry == null) {
+                throw new ResourceNotFoundException(ErrorCode.MARKET_DATA_NOT_FOUND, "stock industry", symbol);
+            }
+            return industry;
         } catch (RuntimeException e) {
             log.error("Error getting stock industry: symbol={}, error={}", symbol, e.getMessage(), e);
-            return null;
+            throw new ResourceNotFoundException(ErrorCode.MARKET_DATA_NOT_FOUND, "stock industry", symbol);
         }
     }
 
@@ -341,38 +351,38 @@ public class MarketServiceImpl implements MarketService {
     @Cacheable(value = "stock:stats", key = "#symbol + '_' + #market", unless = "#result == null")
     public StockStatsDto getStockStats(String symbol, String market) {
         log.debug("Getting stock stats from database: symbol={}, market={}", symbol, market);
-        
+
         if (symbol == null || symbol.isBlank()) {
             log.warn("Invalid symbol for stats: null or blank");
-            return null;
+            throw new ResourceNotFoundException(ErrorCode.MARKET_SYMBOL_NOT_FOUND, "stock", symbol);
         }
-        
+
         try {
             // Try to get from stock_realtime first
             StockRealtime entity = stockRealtimeRepository
                     .findFirstBySymbolOrderByUpdatedAtDesc(symbol)
                     .orElse(null);
-            
+
             if (entity != null) {
                 return marketServiceSupport.mapToStockStatsDto(entity, market);
             }
-            
+
             // Fallback: try to build from kline data
             StockStatsDto klineStats = marketFallbackSupport.tryBuildStatsFromKline(symbol, market);
             if (klineStats != null) {
                 log.info("Built stock stats from kline data: symbol={}", symbol);
                 return klineStats;
             }
-            
+
             // Final fallback: try data provider
             PriceQuoteDto providerQuote = marketFallbackSupport.fetchProviderPrice(symbol);
             if (providerQuote != null) {
                 return marketServiceSupport.mapPriceQuoteToStats(providerQuote, market);
             }
-            
+
             log.warn("Stock stats not found for symbol={}", symbol);
-            return null;
-            
+            throw new ResourceNotFoundException(ErrorCode.MARKET_DATA_NOT_FOUND, "stock stats", symbol);
+
         } catch (RuntimeException e) {
             log.error("Error getting stock stats: symbol={}, error={}", symbol, e.getMessage(), e);
 
@@ -387,7 +397,7 @@ public class MarketServiceImpl implements MarketService {
                 return marketServiceSupport.mapPriceQuoteToStats(providerQuote, market);
             }
 
-            return null;
+            throw new ResourceNotFoundException(ErrorCode.MARKET_DATA_NOT_FOUND, "stock stats", symbol);
         }
     }
     

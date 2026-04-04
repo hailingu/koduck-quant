@@ -300,4 +300,20 @@ public class KlineServiceImpl implements KlineService {
         }
         return result;
     }
+
+    @Override
+    public String normalizeTimeframe(String period, String timeframe) {
+        if (timeframe != null && !timeframe.isBlank()) {
+            return timeframe;
+        }
+        if (period == null || period.isBlank()) {
+            return MarketConstants.DEFAULT_TIMEFRAME;
+        }
+        return switch (period.toLowerCase(Locale.ROOT)) {
+            case "daily", "day", "1d" -> MarketConstants.DEFAULT_TIMEFRAME;
+            case "weekly", "week", "1w" -> MarketConstants.WEEKLY_TIMEFRAME;
+            case "monthly", "month", "1mth", "1mo", "1m" -> MarketConstants.MONTHLY_TIMEFRAME;
+            default -> period;
+        };
+    }
 }
