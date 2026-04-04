@@ -22,6 +22,10 @@
             <groupId>com.koduck</groupId>
             <artifactId>koduck-common</artifactId>
         </dependency>
+        <dependency>
+            <groupId>com.koduck</groupId>
+            <artifactId>koduck-auth</artifactId>
+        </dependency>
 
         <!-- Web -->
         <dependency>
