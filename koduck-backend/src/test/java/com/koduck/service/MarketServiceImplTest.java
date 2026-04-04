@@ -34,6 +34,7 @@ import com.koduck.service.impl.market.MarketServiceImpl;
 import com.koduck.service.support.MarketFallbackSupport;
 import com.koduck.service.support.market.MarketDtoMapper;
 import com.koduck.service.support.market.MockSectorNetworkGenerator;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -152,7 +153,8 @@ class MarketServiceImplTest {
     @BeforeEach
     void setUp() {
         MarketDtoMapper marketDtoMapper = new MarketDtoMapper();
-        MockSectorNetworkGenerator mockSectorNetworkGenerator = new MockSectorNetworkGenerator();
+        ObjectMapper objectMapper = new ObjectMapper();
+        MockSectorNetworkGenerator mockSectorNetworkGenerator = new MockSectorNetworkGenerator(objectMapper);
         marketService = new MarketServiceImpl(
                 stockRealtimeRepository,
                 stockBasicRepository,
