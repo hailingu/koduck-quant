@@ -5,6 +5,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.stream.Collectors;
 
+import com.koduck.entity.auth.User;
 import com.koduck.security.GrantedAuthority;
 import com.koduck.security.SimpleGrantedAuthority;
 import com.koduck.security.UserPrincipal;
@@ -15,35 +16,41 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 /**
- * 用户信息数据传输对象（兼容层）。
+ * 用户信息数据传输对象。
  *
- * <p><strong>已弃用</strong>：请使用 {@link com.koduck.security.AuthUserPrincipal}</p>
- * <p>此类作为临时兼容层保留，将在后续版本中删除。</p>
+ * <p>用于认证响应中的用户信息。</p>
  *
- * @deprecated 使用 {@link com.koduck.security.AuthUserPrincipal}
  * @author Koduck Team
  */
 @Data
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-@Deprecated
-public class UserInfo implements UserPrincipal {
+public class UserInfo implements UserPrincipal<GrantedAuthority> {
 
     private static final long serialVersionUID = SERIAL_VERSION_UID;
 
+    /** 用户ID. */
     private Long id;
+    /** 用户名. */
     private String username;
+    /** 邮箱. */
     private String email;
+    /** 昵称. */
     private String nickname;
+    /** 头像URL. */
     private String avatarUrl;
-    private UserStatus status;
+    /** 用户状态. */
+    private User.UserStatus status;
+    /** 邮箱验证时间. */
     private LocalDateTime emailVerifiedAt;
+    /** 最后登录时间. */
     private LocalDateTime lastLoginAt;
-    private List<String> roles;
+    /** 角色列表. */
+    private transient List<String> roles;
 
     @Override
-    public Collection<? extends GrantedAuthority> getAuthorities() {
+    public Collection<GrantedAuthority> getAuthorities() {
         if (roles == null) {
             return List.of();
         }
@@ -54,10 +61,6 @@ public class UserInfo implements UserPrincipal {
 
     @Override
     public boolean isEnabled() {
-        return status == UserStatus.ACTIVE;
-    }
-
-    public enum UserStatus {
-        ACTIVE, INACTIVE, SUSPENDED
+        return status == User.UserStatus.ACTIVE;
     }
 }

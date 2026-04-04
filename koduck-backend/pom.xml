@@ -24,6 +24,11 @@
         <module>koduck-common</module>
         <module>koduck-auth</module>
         <module>koduck-core</module>
+        <module>koduck-market</module>
+        <module>koduck-portfolio</module>
+        <module>koduck-strategy</module>
+        <module>koduck-community</module>
+        <module>koduck-ai</module>
         <module>koduck-bootstrap</module>
     </modules>
 
@@ -88,6 +93,31 @@
                 <artifactId>koduck-bootstrap</artifactId>
                 <version>${koduck.version}</version>
             </dependency>
+            <dependency>
+                <groupId>com.koduck</groupId>
+                <artifactId>koduck-market</artifactId>
+                <version>${koduck.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.koduck</groupId>
+                <artifactId>koduck-portfolio</artifactId>
+                <version>${koduck.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.koduck</groupId>
+                <artifactId>koduck-strategy</artifactId>
+                <version>${koduck.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.koduck</groupId>
+                <artifactId>koduck-community</artifactId>
+                <version>${koduck.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.koduck</groupId>
+                <artifactId>koduck-ai</artifactId>
+                <version>${koduck.version}</version>
+            </dependency>
             <!-- MapStruct -->
             <dependency>
                 <groupId>org.mapstruct</groupId>
@@ -142,30 +172,6 @@
         <pluginManagement>
             <plugins>
                 <plugin>
-                    <groupId>org.eclipse.m2e</groupId>
-                    <artifactId>lifecycle-mapping</artifactId>
-                    <version>1.0.0</version>
-                    <configuration>
-                        <lifecycleMappingMetadata>
-                            <pluginExecutions>
-                                <pluginExecution>
-                                    <pluginExecutionFilter>
-                                        <groupId>org.apache.maven.plugins</groupId>
-                                        <artifactId>maven-checkstyle-plugin</artifactId>
-                                        <versionRange>[3.0,)</versionRange>
-                                        <goals>
-                                            <goal>check</goal>
-                                        </goals>
-                                    </pluginExecutionFilter>
-                                    <action>
-                                        <ignore />
-                                    </action>
-                                </pluginExecution>
-                            </pluginExecutions>
-                        </lifecycleMappingMetadata>
-                    </configuration>
-                </plugin>
-                <plugin>
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-compiler-plugin</artifactId>
                     <version>${maven-compiler-plugin.version}</version>
@@ -175,8 +181,6 @@
                         <compilerArgs>
                             <arg>-Xlint:all</arg>
                             <arg>-Xlint:-processing</arg>
-                            <arg>-Amapstruct.suppressGeneratorTimestamp=true</arg>
-                            <arg>-Amapstruct.suppressGeneratorVersionInfoComment=true</arg>
                         </compilerArgs>
                         <showWarnings>true</showWarnings>
                         <showDeprecation>true</showDeprecation>
@@ -249,17 +253,6 @@
                         <targetJdk>23</targetJdk>
                         <minimumPriority>1</minimumPriority>
                         <printFailingErrors>true</printFailingErrors>
-                    </configuration>
-                </plugin>
-                <plugin>
-                    <groupId>com.github.spotbugs</groupId>
-                    <artifactId>spotbugs-maven-plugin</artifactId>
-                    <version>${spotbugs-maven-plugin.version}</version>
-                    <configuration>
-                        <effort>Max</effort>
-                        <threshold>Low</threshold>
-                        <xmlOutput>true</xmlOutput>
-                        <failOnError>true</failOnError>
                     </configuration>
                 </plugin>
                 <plugin>

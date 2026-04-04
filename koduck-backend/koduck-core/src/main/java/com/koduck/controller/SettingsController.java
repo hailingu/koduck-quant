@@ -16,7 +16,7 @@ import com.koduck.dto.settings.UpdateNotificationRequest;
 import com.koduck.dto.settings.UpdateSettingsRequest;
 import com.koduck.dto.settings.UpdateThemeRequest;
 import com.koduck.dto.settings.UserSettingsDto;
-import com.koduck.security.UserPrincipal;
+import com.koduck.security.AuthUserPrincipal;
 import com.koduck.service.UserSettingsService;
 
 import io.swagger.v3.oas.annotations.Operation;
@@ -69,7 +69,7 @@ public class SettingsController {
     @GetMapping
     public ApiResponse<UserSettingsDto> getSettings(
             @Parameter(description = "当前用户认证信息", hidden = true)
-            @AuthenticationPrincipal UserPrincipal userPrincipal) {
+            @AuthenticationPrincipal AuthUserPrincipal userPrincipal) {
         Long userId = authenticatedUserResolver.requireUserId(userPrincipal);
         log.debug("GET /api/v1/settings: user={}", userId);
         UserSettingsDto settings = settingsService.getSettings(userId);
@@ -100,7 +100,7 @@ public class SettingsController {
     @PutMapping
     public ApiResponse<UserSettingsDto> updateSettings(
             @Parameter(description = "当前用户认证信息", hidden = true)
-            @AuthenticationPrincipal UserPrincipal userPrincipal,
+            @AuthenticationPrincipal AuthUserPrincipal userPrincipal,
             @Valid @RequestBody UpdateSettingsRequest request) {
         Long userId = authenticatedUserResolver.requireUserId(userPrincipal);
         log.debug("PUT /api/v1/settings: user={}", userId);
@@ -132,7 +132,7 @@ public class SettingsController {
     @PutMapping("/theme")
     public ApiResponse<UserSettingsDto> updateTheme(
             @Parameter(description = "当前用户认证信息", hidden = true)
-            @AuthenticationPrincipal UserPrincipal userPrincipal,
+            @AuthenticationPrincipal AuthUserPrincipal userPrincipal,
             @Valid @RequestBody UpdateThemeRequest request) {
         Long userId = authenticatedUserResolver.requireUserId(userPrincipal);
         log.debug("PUT /api/v1/settings/theme: user={}, theme={}", userId, request.getTheme());
@@ -164,7 +164,7 @@ public class SettingsController {
     @PutMapping("/notification")
     public ApiResponse<UserSettingsDto> updateNotification(
             @Parameter(description = "当前用户认证信息", hidden = true)
-            @AuthenticationPrincipal UserPrincipal userPrincipal,
+            @AuthenticationPrincipal AuthUserPrincipal userPrincipal,
             @Valid @RequestBody UpdateNotificationRequest request) {
         Long userId = authenticatedUserResolver.requireUserId(userPrincipal);
         log.debug("PUT /api/v1/settings/notification: user={}", userId);

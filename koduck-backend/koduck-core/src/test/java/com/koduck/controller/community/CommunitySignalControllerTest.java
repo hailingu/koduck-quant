@@ -21,7 +21,7 @@ import com.koduck.dto.community.CreateSignalRequest;
 import com.koduck.dto.community.SignalListResponse;
 import com.koduck.dto.community.SignalResponse;
 import com.koduck.entity.auth.User;
-import com.koduck.security.UserPrincipal;
+import com.koduck.security.AuthUserPrincipal;
 import com.koduck.service.CommunitySignalService;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -92,7 +92,7 @@ class CommunitySignalControllerTest {
     @Test
     @DisplayName("shouldCreateSignalWhenUserIsAuthenticated")
     void shouldCreateSignalWhenUserIsAuthenticated() {
-        UserPrincipal principal = buildUserPrincipal(TEST_USER_ID_1);
+        AuthUserPrincipal principal = buildUserPrincipal(TEST_USER_ID_1);
         CreateSignalRequest request = new CreateSignalRequest();
         request.setSymbol("AAPL");
 
@@ -123,7 +123,7 @@ class CommunitySignalControllerTest {
     @Test
     @DisplayName("shouldCloseSignalWhenUserIsAuthenticated")
     void shouldCloseSignalWhenUserIsAuthenticated() {
-        UserPrincipal principal = buildUserPrincipal(TEST_USER_ID_2);
+        AuthUserPrincipal principal = buildUserPrincipal(TEST_USER_ID_2);
         SignalResponse signalResponse = SignalResponse.builder().id(TEST_SIGNAL_ID_1).build();
         when(signalService.closeSignal(TEST_USER_ID_2, TEST_SIGNAL_ID_1, "HIT_TARGET", TEST_CLOSE_PRICE))
                 .thenReturn(signalResponse);
@@ -142,7 +142,7 @@ class CommunitySignalControllerTest {
     @Test
     @DisplayName("shouldDeleteSignalWithEnglishSuccessMessage")
     void shouldDeleteSignalWithEnglishSuccessMessage() {
-        UserPrincipal principal = buildUserPrincipal(TEST_USER_ID_3);
+        AuthUserPrincipal principal = buildUserPrincipal(TEST_USER_ID_3);
 
         ApiResponse<Void> result = controller.deleteSignal(principal, TEST_SIGNAL_ID_2);
 
@@ -165,7 +165,7 @@ class CommunitySignalControllerTest {
         verify(signalService).getComments(TEST_SIGNAL_ID_FOR_COMMENTS, 0, DEFAULT_PAGE_SIZE);
     }
 
-    private UserPrincipal buildUserPrincipal(Long userId) {
+    private AuthUserPrincipal buildUserPrincipal(Long userId) {
         User user = User.builder()
                 .id(userId)
                 .username("community-user")
@@ -173,6 +173,12 @@ class CommunitySignalControllerTest {
                 .passwordHash("$2a$10$abcdefghijklmnopqrstuv")
                 .status(User.UserStatus.ACTIVE)
                 .build();
-        return new UserPrincipal(user, List.of(new SimpleGrantedAuthority("ROLE_USER")));
+        return AuthUserPrincipal.builder()
+                .id(user.getId())
+                .username(user.getUsername())
+                .email(user.getEmail())
+                .nickname(user.getNickname())
+                .authorities(List.of(new SimpleGrantedAuthority("ROLE_USER")))
+                .build();
     }
 }

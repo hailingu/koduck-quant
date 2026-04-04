@@ -23,7 +23,7 @@ import com.koduck.dto.watchlist.AddWatchlistRequest;
 import com.koduck.dto.watchlist.SortWatchlistRequest;
 import com.koduck.dto.watchlist.WatchlistItemDto;
 import com.koduck.entity.auth.User;
-import com.koduck.security.UserPrincipal;
+import com.koduck.security.AuthUserPrincipal;
 import com.koduck.service.WatchlistService;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -70,7 +70,7 @@ class WatchlistControllerTest {
     private WatchlistController watchlistController;
 
     /** Test user principal. */
-    private UserPrincipal userPrincipal;
+    private AuthUserPrincipal userPrincipal;
 
     @BeforeEach
     void setUp() {
@@ -81,8 +81,14 @@ class WatchlistControllerTest {
                 .passwordHash("hashed")
                 .status(User.UserStatus.ACTIVE)
                 .build();
-        userPrincipal = new UserPrincipal(user, Collections.emptyList());
-        lenient().when(authenticatedUserResolver.requireUserId(any(UserPrincipal.class))).thenReturn(USER_ID);
+        userPrincipal = AuthUserPrincipal.builder()
+                .id(1L)
+                .username("test")
+                .email("test@test.com")
+                .nickname("Test")
+                .authorities(Collections.emptyList())
+                .build();
+        lenient().when(authenticatedUserResolver.requireUserId(any(AuthUserPrincipal.class))).thenReturn(USER_ID);
     }
 
     @Test
@@ -203,12 +209,12 @@ class WatchlistControllerTest {
     void idParametersShouldDeclarePositiveConstraint() throws NoSuchMethodException {
         Method removeMethod = WatchlistController.class.getMethod(
                 "removeFromWatchlist",
-                UserPrincipal.class,
+                AuthUserPrincipal.class,
                 Long.class
         );
         Method updateMethod = WatchlistController.class.getMethod(
                 "updateNotes",
-                UserPrincipal.class,
+                AuthUserPrincipal.class,
                 Long.class,
                 String.class
         );
@@ -225,7 +231,7 @@ class WatchlistControllerTest {
     void notesParameterShouldDeclareValidationConstraints() throws NoSuchMethodException {
         Method updateMethod = WatchlistController.class.getMethod(
                 "updateNotes",
-                UserPrincipal.class,
+                AuthUserPrincipal.class,
                 Long.class,
                 String.class
         );

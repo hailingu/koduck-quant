@@ -22,7 +22,7 @@ import com.koduck.dto.strategy.CreateStrategyRequest;
 import com.koduck.dto.strategy.StrategyDto;
 import com.koduck.dto.strategy.StrategyVersionDto;
 import com.koduck.dto.strategy.UpdateStrategyRequest;
-import com.koduck.security.UserPrincipal;
+import com.koduck.security.AuthUserPrincipal;
 import com.koduck.service.StrategyService;
 
 import io.swagger.v3.oas.annotations.Operation;
@@ -83,7 +83,7 @@ public class StrategyController {
     @GetMapping
     public ApiResponse<List<StrategyDto>> getStrategies(
             @Parameter(description = "当前用户认证信息", hidden = true)
-            @AuthenticationPrincipal UserPrincipal userPrincipal) {
+            @AuthenticationPrincipal AuthUserPrincipal userPrincipal) {
         Long userId = requireUserId(userPrincipal);
         log.debug("GET /api/v1/strategies: user={}", userId);
         List<StrategyDto> strategies = strategyService.getStrategies(userId);
@@ -115,7 +115,7 @@ public class StrategyController {
     @GetMapping("/{id}")
     public ApiResponse<StrategyDto> getStrategy(
             @Parameter(description = "当前用户认证信息", hidden = true)
-            @AuthenticationPrincipal UserPrincipal userPrincipal,
+            @AuthenticationPrincipal AuthUserPrincipal userPrincipal,
             @Parameter(description = "策略ID", example = "1")
             @PathVariable @Positive(message = "Strategy ID must be positive") Long id) {
         Long userId = requireUserId(userPrincipal);
@@ -148,7 +148,7 @@ public class StrategyController {
     @PostMapping
     public ApiResponse<StrategyDto> createStrategy(
             @Parameter(description = "当前用户认证信息", hidden = true)
-            @AuthenticationPrincipal UserPrincipal userPrincipal,
+            @AuthenticationPrincipal AuthUserPrincipal userPrincipal,
             @Valid @RequestBody CreateStrategyRequest request) {
         Long userId = requireUserId(userPrincipal);
         log.debug("POST /api/v1/strategies: user={}, name={}", userId, request.name());
@@ -183,7 +183,7 @@ public class StrategyController {
     @PutMapping("/{id}")
     public ApiResponse<StrategyDto> updateStrategy(
             @Parameter(description = "当前用户认证信息", hidden = true)
-            @AuthenticationPrincipal UserPrincipal userPrincipal,
+            @AuthenticationPrincipal AuthUserPrincipal userPrincipal,
             @Parameter(description = "策略ID", example = "1")
             @PathVariable @Positive(message = "Strategy ID must be positive") Long id,
             @Valid @RequestBody UpdateStrategyRequest request) {
@@ -214,7 +214,7 @@ public class StrategyController {
     @DeleteMapping("/{id}")
     public ApiResponse<Void> deleteStrategy(
             @Parameter(description = "当前用户认证信息", hidden = true)
-            @AuthenticationPrincipal UserPrincipal userPrincipal,
+            @AuthenticationPrincipal AuthUserPrincipal userPrincipal,
             @Parameter(description = "策略ID", example = "1")
             @PathVariable @Positive(message = "Strategy ID must be positive") Long id) {
         Long userId = requireUserId(userPrincipal);
@@ -249,7 +249,7 @@ public class StrategyController {
     @PostMapping("/{id}/publish")
     public ApiResponse<StrategyDto> publishStrategy(
             @Parameter(description = "当前用户认证信息", hidden = true)
-            @AuthenticationPrincipal UserPrincipal userPrincipal,
+            @AuthenticationPrincipal AuthUserPrincipal userPrincipal,
             @Parameter(description = "策略ID", example = "1")
             @PathVariable @Positive(message = "Strategy ID must be positive") Long id) {
         Long userId = requireUserId(userPrincipal);
@@ -284,7 +284,7 @@ public class StrategyController {
     @PostMapping("/{id}/disable")
     public ApiResponse<StrategyDto> disableStrategy(
             @Parameter(description = "当前用户认证信息", hidden = true)
-            @AuthenticationPrincipal UserPrincipal userPrincipal,
+            @AuthenticationPrincipal AuthUserPrincipal userPrincipal,
             @Parameter(description = "策略ID", example = "1")
             @PathVariable @Positive(message = "Strategy ID must be positive") Long id) {
         Long userId = requireUserId(userPrincipal);
@@ -318,7 +318,7 @@ public class StrategyController {
     @GetMapping("/{id}/versions")
     public ApiResponse<List<StrategyVersionDto>> getVersions(
             @Parameter(description = "当前用户认证信息", hidden = true)
-            @AuthenticationPrincipal UserPrincipal userPrincipal,
+            @AuthenticationPrincipal AuthUserPrincipal userPrincipal,
             @Parameter(description = "策略ID", example = "1")
             @PathVariable @Positive(message = "Strategy ID must be positive") Long id) {
         Long userId = requireUserId(userPrincipal);
@@ -353,7 +353,7 @@ public class StrategyController {
     @GetMapping("/{id}/versions/{versionNumber}")
     public ApiResponse<StrategyVersionDto> getVersion(
             @Parameter(description = "当前用户认证信息", hidden = true)
-            @AuthenticationPrincipal UserPrincipal userPrincipal,
+            @AuthenticationPrincipal AuthUserPrincipal userPrincipal,
             @Parameter(description = "策略ID", example = "1")
             @PathVariable @Positive(message = "Strategy ID must be positive") Long id,
             @Parameter(description = "版本号", example = "1")
@@ -391,7 +391,7 @@ public class StrategyController {
     @PostMapping("/{id}/versions/{versionId}/activate")
     public ApiResponse<StrategyVersionDto> activateVersion(
             @Parameter(description = "当前用户认证信息", hidden = true)
-            @AuthenticationPrincipal UserPrincipal userPrincipal,
+            @AuthenticationPrincipal AuthUserPrincipal userPrincipal,
             @Parameter(description = "策略ID", example = "1")
             @PathVariable @Positive(message = "Strategy ID must be positive") Long id,
             @Parameter(description = "版本ID", example = "1")
@@ -402,7 +402,7 @@ public class StrategyController {
         return ApiResponse.success(version);
     }
 
-    private Long requireUserId(UserPrincipal userPrincipal) {
+    private Long requireUserId(AuthUserPrincipal userPrincipal) {
         return authenticatedUserResolver.requireUserId(userPrincipal);
     }
 }

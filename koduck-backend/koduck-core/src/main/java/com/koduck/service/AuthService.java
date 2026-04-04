@@ -1,5 +1,6 @@
 package com.koduck.service;
 
+import com.koduck.dto.UserInfo;
 import com.koduck.dto.auth.ForgotPasswordRequest;
 import com.koduck.dto.auth.LoginRequest;
 import com.koduck.dto.auth.RefreshTokenRequest;
@@ -25,7 +26,7 @@ public interface AuthService {
      * @param userAgent 用户代理
      * @return Token 响应
      */
-    TokenResponse login(LoginRequest request, String ipAddress, String userAgent);
+    TokenResponse<UserInfo> login(LoginRequest request, String ipAddress, String userAgent);
 
     /**
      * 用户注册
@@ -33,7 +34,7 @@ public interface AuthService {
      * @param request 注册请求
      * @return Token 响应
      */
-    TokenResponse register(RegisterRequest request);
+    TokenResponse<UserInfo> register(RegisterRequest request);
 
     /**
      * 刷新 Token
@@ -41,7 +42,7 @@ public interface AuthService {
      * @param request 刷新 Token 请求
      * @return Token 响应
      */
-    TokenResponse refreshToken(RefreshTokenRequest request);
+    TokenResponse<UserInfo> refreshToken(RefreshTokenRequest request);
 
     /**
      * 用户登出

@@ -13,7 +13,7 @@ import lombok.Data;
  */
 @Data
 @Builder
-public class TokenResponse<U extends UserPrincipal> {
+public class TokenResponse<U extends UserPrincipal<?>> {
 
     /**
      * 访问令牌。

@@ -28,7 +28,7 @@ import com.koduck.dto.credential.CredentialListResponse;
 import com.koduck.dto.credential.CredentialResponse;
 import com.koduck.dto.credential.UpdateCredentialRequest;
 import com.koduck.dto.credential.VerifyCredentialResponse;
-import com.koduck.security.UserPrincipal;
+import com.koduck.security.AuthUserPrincipal;
 import com.koduck.service.CredentialService;
 
 import io.swagger.v3.oas.annotations.Operation;
@@ -87,7 +87,7 @@ public class CredentialController {
     @GetMapping
     public ApiResponse<CredentialListResponse> getCredentials(
             @Parameter(description = "当前用户认证信息", hidden = true)
-            @AuthenticationPrincipal UserPrincipal userPrincipal,
+            @AuthenticationPrincipal AuthUserPrincipal userPrincipal,
             @Parameter(description = "页码，从0开始", example = "0")
             @RequestParam(defaultValue = PaginationConstants.DEFAULT_PAGE_ZERO_STR)
             @Min(PaginationConstants.DEFAULT_PAGE_ZERO) int page,
@@ -122,7 +122,7 @@ public class CredentialController {
     @GetMapping("/all")
     public ApiResponse<List<CredentialResponse>> getAllCredentials(
             @Parameter(description = "当前用户认证信息", hidden = true)
-            @AuthenticationPrincipal UserPrincipal userPrincipal) {
+            @AuthenticationPrincipal AuthUserPrincipal userPrincipal) {
         Long userId = requireUserId(userPrincipal);
         log.info("List all credentials: userId={}", userId);
         List<CredentialResponse> credentials = credentialService.getAllCredentials(userId);
@@ -154,7 +154,7 @@ public class CredentialController {
     @GetMapping("/{id}")
     public ApiResponse<CredentialResponse> getCredential(
             @Parameter(description = "当前用户认证信息", hidden = true)
-            @AuthenticationPrincipal UserPrincipal userPrincipal,
+            @AuthenticationPrincipal AuthUserPrincipal userPrincipal,
             @Parameter(description = "凭证ID", example = "1")
             @PathVariable Long id) {
         Long userId = requireUserId(userPrincipal);
@@ -189,7 +189,7 @@ public class CredentialController {
     @GetMapping("/{id}/detail")
     public ApiResponse<CredentialDetailResponse> getCredentialDetail(
             @Parameter(description = "当前用户认证信息", hidden = true)
-            @AuthenticationPrincipal UserPrincipal userPrincipal,
+            @AuthenticationPrincipal AuthUserPrincipal userPrincipal,
             @Parameter(description = "凭证ID", example = "1")
             @PathVariable Long id) {
         Long userId = requireUserId(userPrincipal);
@@ -224,7 +224,7 @@ public class CredentialController {
     @PostMapping
     public ApiResponse<CredentialResponse> createCredential(
             @Parameter(description = "当前用户认证信息", hidden = true)
-            @AuthenticationPrincipal UserPrincipal userPrincipal,
+            @AuthenticationPrincipal AuthUserPrincipal userPrincipal,
             @Valid @RequestBody CreateCredentialRequest request) {
         Long userId = requireUserId(userPrincipal);
         log.info("Create credential: userId={}, name={}", userId, request.getName());
@@ -259,7 +259,7 @@ public class CredentialController {
     @PutMapping("/{id}")
     public ApiResponse<CredentialResponse> updateCredential(
             @Parameter(description = "当前用户认证信息", hidden = true)
-            @AuthenticationPrincipal UserPrincipal userPrincipal,
+            @AuthenticationPrincipal AuthUserPrincipal userPrincipal,
             @Parameter(description = "凭证ID", example = "1")
             @PathVariable Long id,
             @Valid @RequestBody UpdateCredentialRequest request) {
@@ -291,7 +291,7 @@ public class CredentialController {
     @DeleteMapping("/{id}")
     public ApiResponse<Void> deleteCredential(
             @Parameter(description = "当前用户认证信息", hidden = true)
-            @AuthenticationPrincipal UserPrincipal userPrincipal,
+            @AuthenticationPrincipal AuthUserPrincipal userPrincipal,
             @Parameter(description = "凭证ID", example = "1")
             @PathVariable Long id) {
         Long userId = requireUserId(userPrincipal);
@@ -325,7 +325,7 @@ public class CredentialController {
     @PostMapping("/{id}/verify")
     public ApiResponse<VerifyCredentialResponse> verifyCredential(
             @Parameter(description = "当前用户认证信息", hidden = true)
-            @AuthenticationPrincipal UserPrincipal userPrincipal,
+            @AuthenticationPrincipal AuthUserPrincipal userPrincipal,
             @Parameter(description = "凭证ID", example = "1")
             @PathVariable Long id) {
         Long userId = requireUserId(userPrincipal);
@@ -358,7 +358,7 @@ public class CredentialController {
     @GetMapping("/audit-logs")
     public ApiResponse<List<CredentialAuditLogResponse>> getAuditLogs(
             @Parameter(description = "当前用户认证信息", hidden = true)
-            @AuthenticationPrincipal UserPrincipal userPrincipal,
+            @AuthenticationPrincipal AuthUserPrincipal userPrincipal,
             @Parameter(description = "页码，从0开始", example = "0")
             @RequestParam(defaultValue = PaginationConstants.DEFAULT_PAGE_ZERO_STR)
             @Min(PaginationConstants.DEFAULT_PAGE_ZERO) int page,
@@ -371,7 +371,7 @@ public class CredentialController {
         return ApiResponse.success(logs);
     }
 
-    private Long requireUserId(UserPrincipal userPrincipal) {
+    private Long requireUserId(AuthUserPrincipal userPrincipal) {
         return authenticatedUserResolver.requireUserId(userPrincipal);
     }
 }

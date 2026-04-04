@@ -84,13 +84,19 @@ public class CustomUserDetailsService implements UserDetailsService {
                 permissionCodes = List.of();
             }
         }
-        List<SimpleGrantedAuthority> authorities = new ArrayList<>(roleNames.stream()
+        List<org.springframework.security.core.GrantedAuthority> authorities = new ArrayList<>(roleNames.stream()
             .map(role -> new SimpleGrantedAuthority("ROLE_" + role))
             .toList());
         authorities.addAll(permissionCodes.stream()
             .map(SimpleGrantedAuthority::new)
             .toList());
         // Build security principal with domain user and granted authorities.
-        return new UserPrincipal(user, authorities);
+        return AuthUserPrincipal.builder()
+                .id(user.getId())
+                .username(user.getUsername())
+                .email(user.getEmail())
+                .nickname(user.getNickname())
+                .authorities(authorities)
+                .build();
     }
 }

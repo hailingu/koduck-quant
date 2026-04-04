@@ -4,7 +4,7 @@ import java.util.Objects;
 
 import org.springframework.stereotype.Component;
 
-import com.koduck.security.UserPrincipal;
+import com.koduck.security.AuthUserPrincipal;
 
 /**
  * Resolver for extracting authenticated user information from security principal.
@@ -20,9 +20,9 @@ public class AuthenticatedUserResolver {
      * @param userPrincipal authenticated principal
      * @return authenticated user id
      */
-    public Long requireUserId(UserPrincipal userPrincipal) {
+    public Long requireUserId(AuthUserPrincipal userPrincipal) {
         Objects.requireNonNull(userPrincipal, "userPrincipal must not be null");
-        return Objects.requireNonNull(userPrincipal.getUser().getId(), "authenticated user id must not be null");
+        return Objects.requireNonNull(userPrincipal.getId(), "authenticated user id must not be null");
     }
 
     /**
@@ -31,10 +31,10 @@ public class AuthenticatedUserResolver {
      * @param userPrincipal optional principal
      * @return user id when present, otherwise null
      */
-    public Long getOptionalUserId(UserPrincipal userPrincipal) {
+    public Long getOptionalUserId(AuthUserPrincipal userPrincipal) {
         if (userPrincipal == null) {
             return null;
         }
-        return userPrincipal.getUser().getId();
+        return userPrincipal.getId();
     }
 }

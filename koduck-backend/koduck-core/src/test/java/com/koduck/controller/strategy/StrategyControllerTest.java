@@ -22,7 +22,7 @@ import com.koduck.dto.strategy.StrategyDto;
 import com.koduck.dto.strategy.StrategyVersionDto;
 import com.koduck.dto.strategy.UpdateStrategyRequest;
 import com.koduck.entity.auth.User;
-import com.koduck.security.UserPrincipal;
+import com.koduck.security.AuthUserPrincipal;
 import com.koduck.service.StrategyService;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -63,7 +63,7 @@ class StrategyControllerTest {
     private StrategyController strategyController;
 
     /** Test user principal. */
-    private UserPrincipal userPrincipal;
+    private AuthUserPrincipal userPrincipal;
 
     @BeforeEach
     void setUp() {
@@ -74,8 +74,14 @@ class StrategyControllerTest {
                 .passwordHash("hashed")
                 .status(User.UserStatus.ACTIVE)
                 .build();
-        userPrincipal = new UserPrincipal(user, Collections.emptyList());
-        lenient().when(authenticatedUserResolver.requireUserId(any(UserPrincipal.class))).thenReturn(USER_ID);
+        userPrincipal = AuthUserPrincipal.builder()
+                .id(1L)
+                .username("test")
+                .email("test@test.com")
+                .nickname("Test")
+                .authorities(Collections.emptyList())
+                .build();
+        lenient().when(authenticatedUserResolver.requireUserId(any(AuthUserPrincipal.class))).thenReturn(USER_ID);
     }
 
     @Test
@@ -185,7 +191,7 @@ class StrategyControllerTest {
 
     @Test
     @DisplayName("Get strategies should throw when user principal is null")
-    void getStrategiesShouldThrowWhenUserPrincipalIsNull() {
+    void getStrategiesShouldThrowWhenAuthUserPrincipalIsNull() {
         when(authenticatedUserResolver.requireUserId(null)).thenThrow(new NullPointerException());
         assertThrows(NullPointerException.class, () -> strategyController.getStrategies(null));
     }
@@ -195,44 +201,44 @@ class StrategyControllerTest {
     void pathVariablesShouldDeclarePositiveConstraints() throws NoSuchMethodException {
         Method getStrategyMethod = StrategyController.class.getMethod(
             "getStrategy",
-            UserPrincipal.class,
+            AuthUserPrincipal.class,
             Long.class
         );
         Method updateStrategyMethod = StrategyController.class.getMethod(
             "updateStrategy",
-            UserPrincipal.class,
+            AuthUserPrincipal.class,
             Long.class,
             UpdateStrategyRequest.class
         );
         Method deleteStrategyMethod = StrategyController.class.getMethod(
             "deleteStrategy",
-            UserPrincipal.class,
+            AuthUserPrincipal.class,
             Long.class
         );
         Method publishStrategyMethod = StrategyController.class.getMethod(
             "publishStrategy",
-            UserPrincipal.class,
+            AuthUserPrincipal.class,
             Long.class
         );
         Method disableStrategyMethod = StrategyController.class.getMethod(
             "disableStrategy",
-            UserPrincipal.class,
+            AuthUserPrincipal.class,
             Long.class
         );
         Method getVersionsMethod = StrategyController.class.getMethod(
             "getVersions",
-            UserPrincipal.class,
+            AuthUserPrincipal.class,
             Long.class
         );
         Method getVersionMethod = StrategyController.class.getMethod(
             "getVersion",
-            UserPrincipal.class,
+            AuthUserPrincipal.class,
             Long.class,
             Integer.class
         );
         Method activateVersionMethod = StrategyController.class.getMethod(
             "activateVersion",
-            UserPrincipal.class,
+            AuthUserPrincipal.class,
             Long.class,
             Long.class
         );

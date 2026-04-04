@@ -33,7 +33,7 @@ import com.koduck.dto.community.SignalResponse;
 import com.koduck.dto.community.SignalSubscriptionResponse;
 import com.koduck.dto.community.UpdateSignalRequest;
 import com.koduck.dto.community.UserSignalStatsResponse;
-import com.koduck.security.UserPrincipal;
+import com.koduck.security.AuthUserPrincipal;
 import com.koduck.service.CommunitySignalService;
 
 import io.swagger.v3.oas.annotations.Operation;
@@ -113,7 +113,7 @@ public class CommunitySignalController {
     @GetMapping("/signals")
     public ApiResponse<SignalListResponse> getSignals(
             @Parameter(description = "当前用户认证信息（可选）", hidden = true)
-            @AuthenticationPrincipal UserPrincipal userPrincipal,
+            @AuthenticationPrincipal AuthUserPrincipal userPrincipal,
             @Parameter(description = "排序方式", example = "new",
                 schema = @Schema(allowableValues = {"new", "hot"}))
             @RequestParam(defaultValue = "new")
@@ -158,7 +158,7 @@ public class CommunitySignalController {
     @GetMapping("/signals/featured")
     public ApiResponse<List<SignalResponse>> getFeaturedSignals(
             @Parameter(description = "当前用户认证信息（可选）", hidden = true)
-            @AuthenticationPrincipal UserPrincipal userPrincipal) {
+            @AuthenticationPrincipal AuthUserPrincipal userPrincipal) {
         Long currentUserId = authenticatedUserResolver.getOptionalUserId(userPrincipal);
         log.info("Get featured signals");
         List<SignalResponse> signals = signalService.getFeaturedSignals(currentUserId);
@@ -188,7 +188,7 @@ public class CommunitySignalController {
     @GetMapping("/signals/{id}")
     public ApiResponse<SignalResponse> getSignal(
             @Parameter(description = "当前用户认证信息（可选）", hidden = true)
-            @AuthenticationPrincipal UserPrincipal userPrincipal,
+            @AuthenticationPrincipal AuthUserPrincipal userPrincipal,
             @Parameter(description = "信号ID", example = "1")
             @PathVariable @Positive(message = "id must be positive") Long id) {
         Long currentUserId = authenticatedUserResolver.getOptionalUserId(userPrincipal);
@@ -220,7 +220,7 @@ public class CommunitySignalController {
     @GetMapping("/users/{userId}/signals")
     public ApiResponse<List<SignalResponse>> getUserSignals(
             @Parameter(description = "当前用户认证信息（可选）", hidden = true)
-            @AuthenticationPrincipal UserPrincipal userPrincipal,
+            @AuthenticationPrincipal AuthUserPrincipal userPrincipal,
             @Parameter(description = "用户ID", example = "1")
             @PathVariable @Positive(message = "userId must be positive") Long userId) {
         Long currentUserId = authenticatedUserResolver.getOptionalUserId(userPrincipal);
@@ -253,7 +253,7 @@ public class CommunitySignalController {
     @PostMapping("/signals")
     public ApiResponse<SignalResponse> createSignal(
             @Parameter(description = "当前用户认证信息", hidden = true)
-            @AuthenticationPrincipal UserPrincipal userPrincipal,
+            @AuthenticationPrincipal AuthUserPrincipal userPrincipal,
             @Valid @RequestBody CreateSignalRequest request) {
         Long userId = requireUserId(userPrincipal);
         log.info("Create signal: userId={}, symbol={}", userId, request.getSymbol());
@@ -288,7 +288,7 @@ public class CommunitySignalController {
     @PutMapping("/signals/{id}")
     public ApiResponse<SignalResponse> updateSignal(
             @Parameter(description = "当前用户认证信息", hidden = true)
-            @AuthenticationPrincipal UserPrincipal userPrincipal,
+            @AuthenticationPrincipal AuthUserPrincipal userPrincipal,
             @Parameter(description = "信号ID", example = "1")
             @PathVariable @Positive(message = "id must be positive") Long id,
             @Valid @RequestBody UpdateSignalRequest request) {
@@ -326,7 +326,7 @@ public class CommunitySignalController {
     @PostMapping("/signals/{id}/close")
     public ApiResponse<SignalResponse> closeSignal(
             @Parameter(description = "当前用户认证信息", hidden = true)
-            @AuthenticationPrincipal UserPrincipal userPrincipal,
+            @AuthenticationPrincipal AuthUserPrincipal userPrincipal,
             @Parameter(description = "信号ID", example = "1")
             @PathVariable @Positive(message = "id must be positive") Long id,
             @Parameter(description = "结果状态", example = "HIT_TARGET",
@@ -363,7 +363,7 @@ public class CommunitySignalController {
     @DeleteMapping("/signals/{id}")
     public ApiResponse<Void> deleteSignal(
             @Parameter(description = "当前用户认证信息", hidden = true)
-            @AuthenticationPrincipal UserPrincipal userPrincipal,
+            @AuthenticationPrincipal AuthUserPrincipal userPrincipal,
             @Parameter(description = "信号ID", example = "1")
             @PathVariable @Positive(message = "id must be positive") Long id) {
         Long userId = requireUserId(userPrincipal);
@@ -397,7 +397,7 @@ public class CommunitySignalController {
     @PostMapping("/signals/{id}/subscribe")
     public ApiResponse<SignalSubscriptionResponse> subscribeSignal(
             @Parameter(description = "当前用户认证信息", hidden = true)
-            @AuthenticationPrincipal UserPrincipal userPrincipal,
+            @AuthenticationPrincipal AuthUserPrincipal userPrincipal,
             @Parameter(description = "信号ID", example = "1")
             @PathVariable @Positive(message = "id must be positive") Long id) {
         Long userId = requireUserId(userPrincipal);
@@ -426,7 +426,7 @@ public class CommunitySignalController {
     @DeleteMapping("/signals/{id}/subscribe")
     public ApiResponse<Void> unsubscribeSignal(
             @Parameter(description = "当前用户认证信息", hidden = true)
-            @AuthenticationPrincipal UserPrincipal userPrincipal,
+            @AuthenticationPrincipal AuthUserPrincipal userPrincipal,
             @Parameter(description = "信号ID", example = "1")
             @PathVariable @Positive(message = "id must be positive") Long id) {
         Long userId = requireUserId(userPrincipal);
@@ -457,7 +457,7 @@ public class CommunitySignalController {
     @GetMapping("/subscriptions")
     public ApiResponse<List<SignalSubscriptionResponse>> getMySubscriptions(
             @Parameter(description = "当前用户认证信息", hidden = true)
-            @AuthenticationPrincipal UserPrincipal userPrincipal) {
+            @AuthenticationPrincipal AuthUserPrincipal userPrincipal) {
         Long userId = requireUserId(userPrincipal);
         log.info("Get my subscriptions: userId={}", userId);
         List<SignalSubscriptionResponse> subscriptions = signalService.getMySubscriptions(userId);
@@ -485,7 +485,7 @@ public class CommunitySignalController {
     @PostMapping("/signals/{id}/like")
     public ApiResponse<Void> likeSignal(
             @Parameter(description = "当前用户认证信息", hidden = true)
-            @AuthenticationPrincipal UserPrincipal userPrincipal,
+            @AuthenticationPrincipal AuthUserPrincipal userPrincipal,
             @Parameter(description = "信号ID", example = "1")
             @PathVariable @Positive(message = "id must be positive") Long id) {
         Long userId = requireUserId(userPrincipal);
@@ -514,7 +514,7 @@ public class CommunitySignalController {
     @DeleteMapping("/signals/{id}/like")
     public ApiResponse<Void> unlikeSignal(
             @Parameter(description = "当前用户认证信息", hidden = true)
-            @AuthenticationPrincipal UserPrincipal userPrincipal,
+            @AuthenticationPrincipal AuthUserPrincipal userPrincipal,
             @Parameter(description = "信号ID", example = "1")
             @PathVariable @Positive(message = "id must be positive") Long id) {
         Long userId = requireUserId(userPrincipal);
@@ -545,7 +545,7 @@ public class CommunitySignalController {
     @PostMapping("/signals/{id}/favorite")
     public ApiResponse<Void> favoriteSignal(
             @Parameter(description = "当前用户认证信息", hidden = true)
-            @AuthenticationPrincipal UserPrincipal userPrincipal,
+            @AuthenticationPrincipal AuthUserPrincipal userPrincipal,
             @Parameter(description = "信号ID", example = "1")
             @PathVariable @Positive(message = "id must be positive") Long id,
             @Parameter(description = "收藏备注，最多200字符", example = "重点关注")
@@ -576,7 +576,7 @@ public class CommunitySignalController {
     @DeleteMapping("/signals/{id}/favorite")
     public ApiResponse<Void> unfavoriteSignal(
             @Parameter(description = "当前用户认证信息", hidden = true)
-            @AuthenticationPrincipal UserPrincipal userPrincipal,
+            @AuthenticationPrincipal AuthUserPrincipal userPrincipal,
             @Parameter(description = "信号ID", example = "1")
             @PathVariable @Positive(message = "id must be positive") Long id) {
         Long userId = requireUserId(userPrincipal);
@@ -648,7 +648,7 @@ public class CommunitySignalController {
     @PostMapping("/signals/{id}/comments")
     public ApiResponse<CommentResponse> createComment(
             @Parameter(description = "当前用户认证信息", hidden = true)
-            @AuthenticationPrincipal UserPrincipal userPrincipal,
+            @AuthenticationPrincipal AuthUserPrincipal userPrincipal,
             @Parameter(description = "信号ID", example = "1")
             @PathVariable @Positive(message = "id must be positive") Long id,
             @Valid @RequestBody CreateCommentRequest request) {
@@ -679,7 +679,7 @@ public class CommunitySignalController {
     @DeleteMapping("/comments/{commentId}")
     public ApiResponse<Void> deleteComment(
             @Parameter(description = "当前用户认证信息", hidden = true)
-            @AuthenticationPrincipal UserPrincipal userPrincipal,
+            @AuthenticationPrincipal AuthUserPrincipal userPrincipal,
             @Parameter(description = "评论ID", example = "1")
             @PathVariable @Positive(message = "commentId must be positive") Long commentId) {
         Long userId = requireUserId(userPrincipal);
@@ -716,7 +716,7 @@ public class CommunitySignalController {
         return ApiResponse.success(stats);
     }
 
-    private Long requireUserId(UserPrincipal userPrincipal) {
+    private Long requireUserId(AuthUserPrincipal userPrincipal) {
         return authenticatedUserResolver.requireUserId(userPrincipal);
     }
 }

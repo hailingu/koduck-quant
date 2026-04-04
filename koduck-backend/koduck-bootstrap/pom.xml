@@ -22,6 +22,27 @@
             <groupId>com.koduck</groupId>
             <artifactId>koduck-core</artifactId>
         </dependency>
+        <!-- Koduck Domain Modules -->
+        <dependency>
+            <groupId>com.koduck</groupId>
+            <artifactId>koduck-market</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.koduck</groupId>
+            <artifactId>koduck-portfolio</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.koduck</groupId>
+            <artifactId>koduck-strategy</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.koduck</groupId>
+            <artifactId>koduck-community</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.koduck</groupId>
+            <artifactId>koduck-ai</artifactId>
+        </dependency>
 
         <!-- Spring Boot Starter -->
         <dependency>

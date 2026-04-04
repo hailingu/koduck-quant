@@ -19,7 +19,7 @@ import com.koduck.dto.ApiResponse;
 import com.koduck.dto.backtest.BacktestResultDto;
 import com.koduck.dto.backtest.BacktestTradeDto;
 import com.koduck.dto.backtest.RunBacktestRequest;
-import com.koduck.security.UserPrincipal;
+import com.koduck.security.AuthUserPrincipal;
 import com.koduck.service.BacktestService;
 
 import io.swagger.v3.oas.annotations.Operation;
@@ -82,7 +82,7 @@ public class BacktestController {
     @GetMapping
     public ApiResponse<List<BacktestResultDto>> getBacktestResults(
             @Parameter(description = "当前用户认证信息", hidden = true)
-            @AuthenticationPrincipal UserPrincipal userPrincipal) {
+            @AuthenticationPrincipal AuthUserPrincipal userPrincipal) {
         Long userId = requireUserId(userPrincipal);
         log.debug("GET /api/v1/backtest: user={}", userId);
         List<BacktestResultDto> results = backtestService.getBacktestResults(userId);
@@ -114,7 +114,7 @@ public class BacktestController {
     @GetMapping("/{id}")
     public ApiResponse<BacktestResultDto> getBacktestResult(
             @Parameter(description = "当前用户认证信息", hidden = true)
-            @AuthenticationPrincipal UserPrincipal userPrincipal,
+            @AuthenticationPrincipal AuthUserPrincipal userPrincipal,
             @Parameter(description = "回测结果ID", example = "1")
             @PathVariable Long id) {
         Long userId = requireUserId(userPrincipal);
@@ -151,7 +151,7 @@ public class BacktestController {
     @PostMapping("/run")
     public ApiResponse<BacktestResultDto> runBacktest(
             @Parameter(description = "当前用户认证信息", hidden = true)
-            @AuthenticationPrincipal UserPrincipal userPrincipal,
+            @AuthenticationPrincipal AuthUserPrincipal userPrincipal,
             @Valid @RequestBody RunBacktestRequest request) {
         Long userId = requireUserId(userPrincipal);
         log.debug("POST /api/v1/backtest/run: user={}, strategyId={}, symbol={}",
@@ -185,7 +185,7 @@ public class BacktestController {
     @GetMapping("/{id}/trades")
     public ApiResponse<List<BacktestTradeDto>> getBacktestTrades(
             @Parameter(description = "当前用户认证信息", hidden = true)
-            @AuthenticationPrincipal UserPrincipal userPrincipal,
+            @AuthenticationPrincipal AuthUserPrincipal userPrincipal,
             @Parameter(description = "回测结果ID", example = "1")
             @PathVariable Long id) {
         Long userId = requireUserId(userPrincipal);
@@ -215,7 +215,7 @@ public class BacktestController {
     @DeleteMapping("/{id}")
     public ApiResponse<Void> deleteBacktestResult(
             @Parameter(description = "当前用户认证信息", hidden = true)
-            @AuthenticationPrincipal UserPrincipal userPrincipal,
+            @AuthenticationPrincipal AuthUserPrincipal userPrincipal,
             @Parameter(description = "回测结果ID", example = "1")
             @PathVariable Long id) {
         Long userId = requireUserId(userPrincipal);
@@ -224,7 +224,7 @@ public class BacktestController {
         return ApiResponse.successNoContent();
     }
 
-    private Long requireUserId(UserPrincipal userPrincipal) {
+    private Long requireUserId(AuthUserPrincipal userPrincipal) {
         return authenticatedUserResolver.requireUserId(userPrincipal);
     }
 }

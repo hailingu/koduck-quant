@@ -24,7 +24,14 @@ import org.springframework.scheduling.annotation.EnableScheduling;
 @EnableJpaAuditing
 @EnableAsync
 @EnableScheduling
-public class KoduckBootstrapApplication {
+public final class KoduckBootstrapApplication {
+
+    /**
+     * 私有构造函数，防止实例化。
+     */
+    private KoduckBootstrapApplication() {
+        // 工具类，禁止实例化
+    }
 
     /**
      * 应用程序入口点。

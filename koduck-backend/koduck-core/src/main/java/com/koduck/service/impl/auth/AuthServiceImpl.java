@@ -18,7 +18,13 @@ import org.springframework.transaction.annotation.Transactional;
 import com.koduck.common.constants.RoleConstants;
 import com.koduck.config.properties.MailProperties;
 import com.koduck.dto.UserInfo;
-import com.koduck.dto.auth.*;
+import com.koduck.dto.auth.ForgotPasswordRequest;
+import com.koduck.dto.auth.LoginRequest;
+import com.koduck.dto.auth.RefreshTokenRequest;
+import com.koduck.dto.auth.RegisterRequest;
+import com.koduck.dto.auth.ResetPasswordRequest;
+import com.koduck.dto.auth.SecurityConfigResponse;
+import com.koduck.dto.auth.TokenResponse;
 import com.koduck.entity.auth.PasswordResetToken;
 import com.koduck.entity.auth.RefreshToken;
 import com.koduck.entity.auth.User;
@@ -26,11 +32,11 @@ import com.koduck.exception.AuthenticationException;
 import com.koduck.exception.BusinessException;
 import com.koduck.exception.DuplicateException;
 import com.koduck.exception.ErrorCode;
-import com.koduck.repository.auth.UserRepository;
-import com.koduck.repository.auth.RoleRepository;
-import com.koduck.repository.auth.RefreshTokenRepository;
-import com.koduck.repository.auth.UserRoleRepository;
 import com.koduck.repository.auth.PasswordResetTokenRepository;
+import com.koduck.repository.auth.RefreshTokenRepository;
+import com.koduck.repository.auth.RoleRepository;
+import com.koduck.repository.auth.UserRepository;
+import com.koduck.repository.auth.UserRoleRepository;
 import com.koduck.service.AuthService;
 import com.koduck.service.EmailService;
 import com.koduck.service.RateLimiterService;
@@ -87,7 +93,7 @@ public class AuthServiceImpl implements AuthService {
     private static final int MAX_REFRESH_TOKENS_PER_USER = 2;
     @Override
     @Transactional
-    public TokenResponse login(LoginRequest request, String ipAddress, String userAgent) {
+    public TokenResponse<UserInfo> login(LoginRequest request, String ipAddress, String userAgent) {
         String loginIdentifier = normalizeLoginIdentifier(request.getUsername());
         if (!rateLimiterService.allowLoginAttempt(loginIdentifier, ipAddress)) {
             throw AuthenticationException.accountLocked();
@@ -118,7 +124,7 @@ public class AuthServiceImpl implements AuthService {
     }
     @Override
     @Transactional
-    public TokenResponse register(RegisterRequest request) {
+    public TokenResponse<UserInfo> register(RegisterRequest request) {
         // 检查保留用户名（大小写不敏感）
         if (ReservedUsernameValidator.isReserved(request.getUsername())) {
             throw new BusinessException(ErrorCode.USER_RESERVED_USERNAME);
@@ -153,7 +159,7 @@ public class AuthServiceImpl implements AuthService {
     }
     @Override
     @Transactional
-    public TokenResponse refreshToken(RefreshTokenRequest request) {
+    public TokenResponse<UserInfo> refreshToken(RefreshTokenRequest request) {
         String refreshTokenValue = request.getRefreshToken();
         // 验证 Refresh Token 格式
         if (!jwtUtil.validateToken(refreshTokenValue) || !jwtUtil.isRefreshToken(refreshTokenValue)) {
@@ -282,7 +288,7 @@ public class AuthServiceImpl implements AuthService {
      * @param user 用户
      * @return Token 响应
      */
-    private TokenResponse generateTokenResponse(User user) {
+    private TokenResponse<UserInfo> generateTokenResponse(User user) {
         List<String> roleNames;
         if (!userRolesTableChecker.hasUserRolesTable()) {
             roleNames = List.of(RoleConstants.DEFAULT_USER_ROLE_NAME);
@@ -317,7 +323,7 @@ public class AuthServiceImpl implements AuthService {
                 .status(user.getStatus())
                 .roles(roleNames)
                 .build();
-        return TokenResponse.builder()
+        return TokenResponse.<UserInfo>builder()
                 .accessToken(accessToken)
                 .refreshToken(refreshToken)
                 .expiresIn(86400L) // 24 小时
