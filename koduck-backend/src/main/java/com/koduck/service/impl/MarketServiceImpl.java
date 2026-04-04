@@ -7,6 +7,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.Function;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
 import org.springframework.cache.annotation.Cacheable;
@@ -142,47 +143,57 @@ public class MarketServiceImpl implements MarketService {
             throw new ResourceNotFoundException(ErrorCode.MARKET_SYMBOL_NOT_FOUND, "stock", symbol);
         }
 
-        try {
+        return withQuoteFallback(symbol, () -> {
             StockRealtime entity = stockRealtimeRepository
                     .findFirstBySymbolOrderByUpdatedAtDesc(symbol)
                     .orElse(null);
             if (entity == null) {
-                PriceQuoteDto fallbackQuote = marketFallbackSupport.tryBuildQuoteFromLatestKline(symbol);
-                if (fallbackQuote != null) {
-                    log.info("Built stock detail from latest kline data: symbol={}", symbol);
-                    return fallbackQuote;
-                }
-
-                PriceQuoteDto providerQuote = marketFallbackSupport.fetchProviderPrice(symbol);
-                if (providerQuote != null) {
-                    log.info("Fetched stock detail from data service: symbol={}", symbol);
-                    return providerQuote;
-                }
-
-                log.warn("Stock not found in realtime or kline data: {}", symbol);
-                throw new ResourceNotFoundException(ErrorCode.MARKET_SYMBOL_NOT_FOUND, "stock", symbol);
+                return null;
             }
-
             log.debug("Found stock: symbol={}, name={}, price={}",
                     entity.getSymbol(), entity.getName(), entity.getPrice());
-
             return marketServiceSupport.mapToPriceQuoteDto(entity);
+        });
+    }
+
+    /**
+     * Execute quote fetcher with fallback chain:
+     * 1. Primary fetcher (database)
+     * 2. Kline data fallback
+     * 3. Provider data fallback
+     * 4. Throw ResourceNotFoundException
+     *
+     * @param symbol stock symbol
+     * @param primaryFetcher primary data fetcher
+     * @return price quote
+     * @throws ResourceNotFoundException when all fallback sources fail
+     */
+    private PriceQuoteDto withQuoteFallback(String symbol, Supplier<PriceQuoteDto> primaryFetcher) {
+        try {
+            PriceQuoteDto result = primaryFetcher.get();
+            if (result != null) {
+                return result;
+            }
         } catch (RuntimeException e) {
-            log.error("Error getting stock detail: symbol={}, error={}", symbol, e.getMessage(), e);
-            PriceQuoteDto fallbackQuote = marketFallbackSupport.tryBuildQuoteFromLatestKline(symbol);
-            if (fallbackQuote != null) {
-                log.info("Recovered stock detail from latest kline after exception: symbol={}", symbol);
-                return fallbackQuote;
-            }
-
-            PriceQuoteDto providerQuote = marketFallbackSupport.fetchProviderPrice(symbol);
-            if (providerQuote != null) {
-                log.info("Recovered stock detail from data service after exception: symbol={}", symbol);
-                return providerQuote;
-            }
-
-            throw new ResourceNotFoundException(ErrorCode.MARKET_SYMBOL_NOT_FOUND, "stock", symbol);
+            log.error("Error fetching stock detail: symbol={}, error={}", symbol, e.getMessage(), e);
         }
+
+        // Fallback 1: try kline data
+        PriceQuoteDto fallbackQuote = marketFallbackSupport.tryBuildQuoteFromLatestKline(symbol);
+        if (fallbackQuote != null) {
+            log.info("Recovered stock detail from kline data: symbol={}", symbol);
+            return fallbackQuote;
+        }
+
+        // Fallback 2: try provider
+        PriceQuoteDto providerQuote = marketFallbackSupport.fetchProviderPrice(symbol);
+        if (providerQuote != null) {
+            log.info("Recovered stock detail from data service: symbol={}", symbol);
+            return providerQuote;
+        }
+
+        log.warn("Stock not found in any data source: {}", symbol);
+        throw new ResourceNotFoundException(ErrorCode.MARKET_SYMBOL_NOT_FOUND, "stock", symbol);
     }
 
     /**
@@ -357,48 +368,57 @@ public class MarketServiceImpl implements MarketService {
             throw new ResourceNotFoundException(ErrorCode.MARKET_SYMBOL_NOT_FOUND, "stock", symbol);
         }
 
-        try {
-            // Try to get from stock_realtime first
+        return withStatsFallback(symbol, market, () -> {
             StockRealtime entity = stockRealtimeRepository
                     .findFirstBySymbolOrderByUpdatedAtDesc(symbol)
                     .orElse(null);
-
             if (entity != null) {
                 return marketServiceSupport.mapToStockStatsDto(entity, market);
             }
+            return null;
+        });
+    }
 
-            // Fallback: try to build from kline data
-            StockStatsDto klineStats = marketFallbackSupport.tryBuildStatsFromKline(symbol, market);
-            if (klineStats != null) {
-                log.info("Built stock stats from kline data: symbol={}", symbol);
-                return klineStats;
+    /**
+     * Execute stats fetcher with fallback chain:
+     * 1. Primary fetcher (database)
+     * 2. Kline data fallback
+     * 3. Provider data fallback (converted to stats)
+     * 4. Throw ResourceNotFoundException
+     *
+     * @param symbol stock symbol
+     * @param market market code
+     * @param primaryFetcher primary data fetcher
+     * @return stock stats
+     * @throws ResourceNotFoundException when all fallback sources fail
+     */
+    private StockStatsDto withStatsFallback(String symbol, String market,
+                                           Supplier<StockStatsDto> primaryFetcher) {
+        try {
+            StockStatsDto result = primaryFetcher.get();
+            if (result != null) {
+                return result;
             }
-
-            // Final fallback: try data provider
-            PriceQuoteDto providerQuote = marketFallbackSupport.fetchProviderPrice(symbol);
-            if (providerQuote != null) {
-                return marketServiceSupport.mapPriceQuoteToStats(providerQuote, market);
-            }
-
-            log.warn("Stock stats not found for symbol={}", symbol);
-            throw new ResourceNotFoundException(ErrorCode.MARKET_DATA_NOT_FOUND, "stock stats", symbol);
-
         } catch (RuntimeException e) {
-            log.error("Error getting stock stats: symbol={}, error={}", symbol, e.getMessage(), e);
-
-            // Try fallback on exception
-            StockStatsDto klineStats = marketFallbackSupport.tryBuildStatsFromKline(symbol, market);
-            if (klineStats != null) {
-                return klineStats;
-            }
-
-            PriceQuoteDto providerQuote = marketFallbackSupport.fetchProviderPrice(symbol);
-            if (providerQuote != null) {
-                return marketServiceSupport.mapPriceQuoteToStats(providerQuote, market);
-            }
-
-            throw new ResourceNotFoundException(ErrorCode.MARKET_DATA_NOT_FOUND, "stock stats", symbol);
+            log.error("Error fetching stock stats: symbol={}, error={}", symbol, e.getMessage(), e);
         }
+
+        // Fallback 1: try kline data
+        StockStatsDto klineStats = marketFallbackSupport.tryBuildStatsFromKline(symbol, market);
+        if (klineStats != null) {
+            log.info("Recovered stock stats from kline data: symbol={}", symbol);
+            return klineStats;
+        }
+
+        // Fallback 2: try provider
+        PriceQuoteDto providerQuote = marketFallbackSupport.fetchProviderPrice(symbol);
+        if (providerQuote != null) {
+            log.info("Recovered stock stats from data service: symbol={}", symbol);
+            return marketServiceSupport.mapPriceQuoteToStats(providerQuote, market);
+        }
+
+        log.warn("Stock stats not found in any data source: symbol={}", symbol);
+        throw new ResourceNotFoundException(ErrorCode.MARKET_DATA_NOT_FOUND, "stock stats", symbol);
     }
     
     /**
