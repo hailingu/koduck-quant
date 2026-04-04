@@ -1,5 +1,4 @@
 package com.koduck.entity.community;
-import com.koduck.entity.auth.User;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -22,6 +21,7 @@ import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.annotations.UpdateTimestamp;
 import org.hibernate.type.SqlTypes;
 
+import com.koduck.entity.auth.User;
 import com.koduck.util.CollectionCopyUtils;
 import com.koduck.util.EntityCopyUtils;
 

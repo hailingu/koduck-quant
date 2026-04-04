@@ -1,5 +1,4 @@
 package com.koduck.entity.credential;
-import com.koduck.entity.auth.User;
 
 import java.time.LocalDateTime;
 

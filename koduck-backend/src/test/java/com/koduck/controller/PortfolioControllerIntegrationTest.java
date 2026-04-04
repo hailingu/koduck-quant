@@ -25,11 +25,11 @@ import com.koduck.dto.portfolio.AddPositionRequest;
 import com.koduck.dto.portfolio.AddTradeRequest;
 import com.koduck.dto.portfolio.PortfolioPositionDto;
 import com.koduck.dto.portfolio.UpdatePositionRequest;
-import com.koduck.entity.portfolio.PortfolioPosition;
 import com.koduck.entity.backtest.Trade;
 import com.koduck.entity.enums.TradeType;
-import com.koduck.repository.portfolio.PortfolioPositionRepository;
+import com.koduck.entity.portfolio.PortfolioPosition;
 import com.koduck.repository.backtest.TradeRepository;
+import com.koduck.repository.portfolio.PortfolioPositionRepository;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;

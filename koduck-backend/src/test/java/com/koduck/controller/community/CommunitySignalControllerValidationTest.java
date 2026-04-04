@@ -1,5 +1,4 @@
 package com.koduck.controller.community;
-import com.koduck.controller.community.CommunitySignalController;
 
 import java.math.BigDecimal;
 import java.util.List;

@@ -6,8 +6,8 @@ import org.mapstruct.Mapping;
 import com.koduck.dto.credential.CredentialAuditLogResponse;
 import com.koduck.dto.credential.CredentialDetailResponse;
 import com.koduck.dto.credential.CredentialResponse;
-import com.koduck.entity.credential.CredentialAuditLog;
 import com.koduck.entity.auth.UserCredential;
+import com.koduck.entity.credential.CredentialAuditLog;
 
 /**
  * Mapper for credential-related response objects.

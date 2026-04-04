@@ -1,5 +1,4 @@
 package com.koduck.entity.community;
-import com.koduck.entity.auth.User;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -18,6 +17,7 @@ import jakarta.persistence.Table;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 
+import com.koduck.entity.auth.User;
 import com.koduck.util.CollectionCopyUtils;
 import com.koduck.util.EntityCopyUtils;
 

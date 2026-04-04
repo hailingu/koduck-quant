@@ -1,5 +1,4 @@
 package com.koduck.controller.watchlist;
-import com.koduck.controller.watchlist.WatchlistController;
 
 import java.lang.reflect.Method;
 import java.util.Collections;

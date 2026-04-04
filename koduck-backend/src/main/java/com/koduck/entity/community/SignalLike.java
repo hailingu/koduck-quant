@@ -1,5 +1,4 @@
 package com.koduck.entity.community;
-import com.koduck.entity.auth.User;
 
 import java.time.LocalDateTime;
 
@@ -15,6 +14,7 @@ import jakarta.persistence.Table;
 
 import org.hibernate.annotations.CreationTimestamp;
 
+import com.koduck.entity.auth.User;
 import com.koduck.util.EntityCopyUtils;
 
 import lombok.AccessLevel;

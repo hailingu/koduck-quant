@@ -1,5 +1,4 @@
 package com.koduck.entity.community;
-import com.koduck.entity.auth.User;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -17,6 +16,7 @@ import jakarta.persistence.Table;
 
 import org.hibernate.annotations.UpdateTimestamp;
 
+import com.koduck.entity.auth.User;
 import com.koduck.util.EntityCopyUtils;
 
 import lombok.AccessLevel;

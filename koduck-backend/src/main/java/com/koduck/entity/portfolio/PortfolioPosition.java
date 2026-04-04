@@ -1,5 +1,4 @@
 package com.koduck.entity.portfolio;
-import com.koduck.entity.auth.User;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;

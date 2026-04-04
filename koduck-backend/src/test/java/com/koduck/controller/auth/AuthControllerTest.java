@@ -1,5 +1,4 @@
 package com.koduck.controller.auth;
-import com.koduck.controller.auth.AuthController;
 
 import jakarta.servlet.http.HttpServletRequest;
 

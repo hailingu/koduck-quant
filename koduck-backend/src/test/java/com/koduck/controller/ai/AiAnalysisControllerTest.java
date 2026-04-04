@@ -1,5 +1,4 @@
 package com.koduck.controller.ai;
-import com.koduck.controller.ai.AiAnalysisController;
 
 import java.util.List;
 import java.util.Objects;
