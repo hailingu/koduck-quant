@@ -519,7 +519,7 @@ public class UserSettingsLlmConfigSupport {
                 return decryptedKey;
             }
         }
-        catch (Exception exception) {
+        catch (RuntimeException exception) {
             log.warn("Failed to get LLM API key from credentials for user {}: {}", userId, exception.getMessage());
         }
         return null;
@@ -545,7 +545,7 @@ public class UserSettingsLlmConfigSupport {
                 }
             }
         }
-        catch (Exception exception) {
+        catch (RuntimeException exception) {
             log.warn("Failed to get LLM API base from credentials for user {}: {}", userId, exception.getMessage());
         }
         return null;

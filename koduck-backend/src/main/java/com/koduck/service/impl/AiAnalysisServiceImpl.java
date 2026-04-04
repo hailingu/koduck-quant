@@ -187,7 +187,7 @@ public class AiAnalysisServiceImpl implements AiAnalysisService {
                 .generatedAt(LocalDateTime.now())
                 .build();
         }
-        catch (Exception e) {
+        catch (RuntimeException e) {
             log.error("Failed to call koduck-agent: {}", e.getMessage(), e);
             throw ExternalServiceException.of("koduck-agent", "AI 分析服务调用失败: " + e.getMessage(), e);
         }
