@@ -225,14 +225,14 @@ public class BacktestServiceImpl implements BacktestService {
             BacktestSignal signal = generateSignal(history);
             if (signal == BacktestSignal.BUY && context.getPosition().compareTo(BigDecimal.ZERO) == 0) {
                 // Execute buy
-                BacktestTrade trade = executeBuy(context, current, result.getId());
+                BacktestTrade trade = executeBuy(context, current, result.getId(), result.getSymbol());
                 if (trade != null) {
                     trades.add(trade);
                 }
             }
             else if (signal == BacktestSignal.SELL && context.getPosition().compareTo(BigDecimal.ZERO) > 0) {
                 // Execute sell
-                BacktestTrade trade = executeSell(context, current, result.getId());
+                BacktestTrade trade = executeSell(context, current, result.getId(), result.getSymbol());
                 trades.add(trade);
             }
             // Record equity
@@ -291,7 +291,7 @@ public class BacktestServiceImpl implements BacktestService {
      * Execute buy order.
      */
     private BacktestTrade executeBuy(BacktestExecutionContext context, KlineDataDto current,
-                                     Long backtestResultId) {
+                                     Long backtestResultId, String symbol) {
         BigDecimal price = current.close().multiply(
             BigDecimal.ONE.add(context.getSlippage())).setScale(SCALE, RoundingMode.HALF_UP);
         // Use 90% of cash for position
@@ -310,7 +310,7 @@ public class BacktestServiceImpl implements BacktestService {
             .backtestResultId(backtestResultId)
             .tradeType(TradeType.BUY)
             .tradeTime(LocalDateTime.ofEpochSecond(current.timestamp(), 0, java.time.ZoneOffset.UTC))
-            .symbol("SYMBOL")
+            .symbol(symbol)
             .price(price)
             .quantity(quantity)
             .amount(amount)
@@ -327,7 +327,7 @@ public class BacktestServiceImpl implements BacktestService {
      * Execute sell order.
      */
     private BacktestTrade executeSell(BacktestExecutionContext context, KlineDataDto current,
-                                      Long backtestResultId) {
+                                      Long backtestResultId, String symbol) {
         BigDecimal price = current.close().multiply(
             BigDecimal.ONE.subtract(context.getSlippage())).setScale(SCALE, RoundingMode.HALF_UP);
         BigDecimal quantity = context.getPosition();
@@ -346,7 +346,7 @@ public class BacktestServiceImpl implements BacktestService {
             .backtestResultId(backtestResultId)
             .tradeType(TradeType.SELL)
             .tradeTime(LocalDateTime.ofEpochSecond(current.timestamp(), 0, java.time.ZoneOffset.UTC))
-            .symbol("SYMBOL")
+            .symbol(symbol)
             .price(price)
             .quantity(quantity)
             .amount(amount)
