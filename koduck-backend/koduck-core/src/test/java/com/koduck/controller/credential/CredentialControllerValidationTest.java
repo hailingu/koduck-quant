@@ -18,8 +18,8 @@ import com.koduck.controller.support.AuthenticatedUserResolver;
 import com.koduck.dto.credential.CredentialAuditLogResponse;
 import com.koduck.dto.credential.CredentialListResponse;
 import com.koduck.entity.auth.User;
+import com.koduck.security.AuthUserPrincipal;
 import com.koduck.security.JwtAuthenticationFilter;
-import com.koduck.security.UserPrincipal;
 import com.koduck.service.CredentialService;
 
 import static org.mockito.ArgumentMatchers.any;
@@ -176,10 +176,13 @@ class CredentialControllerValidationTest {
                 .nickname("user")
                 .status(User.UserStatus.ACTIVE)
                 .build();
-        UserPrincipal principal = new UserPrincipal(
-                user,
-                List.of(new SimpleGrantedAuthority("ROLE_USER"))
-        );
+        AuthUserPrincipal principal = AuthUserPrincipal.builder()
+                .id(user.getId())
+                .username(user.getUsername())
+                .email(user.getEmail())
+                .nickname(user.getNickname())
+                .authorities(List.of(new SimpleGrantedAuthority("ROLE_USER")))
+                .build();
         return new UsernamePasswordAuthenticationToken(
             principal, null, principal.getAuthorities());
     }

@@ -25,7 +25,7 @@ import com.koduck.dto.portfolio.PortfolioSummaryDto;
 import com.koduck.dto.portfolio.TradeDto;
 import com.koduck.dto.portfolio.UpdatePositionRequest;
 import com.koduck.entity.auth.User;
-import com.koduck.security.UserPrincipal;
+import com.koduck.security.AuthUserPrincipal;
 import com.koduck.service.PortfolioService;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -72,7 +72,7 @@ class PortfolioControllerTest {
     private PortfolioController portfolioController;
 
     /** Test user principal. */
-    private UserPrincipal userPrincipal;
+    private AuthUserPrincipal userPrincipal;
 
     @BeforeEach
     void setUp() {
@@ -83,8 +83,14 @@ class PortfolioControllerTest {
                 .passwordHash("hashed")
                 .status(User.UserStatus.ACTIVE)
                 .build();
-        userPrincipal = new UserPrincipal(user, Collections.emptyList());
-        lenient().when(authenticatedUserResolver.requireUserId(any(UserPrincipal.class))).thenReturn(USER_ID);
+        userPrincipal = AuthUserPrincipal.builder()
+                .id(1L)
+                .username("test")
+                .email("test@test.com")
+                .nickname("Test")
+                .authorities(Collections.emptyList())
+                .build();
+        lenient().when(authenticatedUserResolver.requireUserId(any(AuthUserPrincipal.class))).thenReturn(USER_ID);
     }
 
     @Test
@@ -273,13 +279,13 @@ class PortfolioControllerTest {
     void idParametersShouldDeclarePositiveConstraint() throws NoSuchMethodException {
         java.lang.reflect.Method updateMethod = PortfolioController.class.getMethod(
                 "updatePosition",
-                UserPrincipal.class,
+                AuthUserPrincipal.class,
                 Long.class,
                 UpdatePositionRequest.class
         );
         java.lang.reflect.Method deleteMethod = PortfolioController.class.getMethod(
                 "deletePosition",
-                UserPrincipal.class,
+                AuthUserPrincipal.class,
                 Long.class
         );
 

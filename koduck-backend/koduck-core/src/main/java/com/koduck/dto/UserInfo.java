@@ -5,6 +5,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.stream.Collectors;
 
+import com.koduck.entity.auth.User;
 import com.koduck.security.GrantedAuthority;
 import com.koduck.security.SimpleGrantedAuthority;
 import com.koduck.security.UserPrincipal;
@@ -37,7 +38,7 @@ public class UserInfo implements UserPrincipal {
     private String email;
     private String nickname;
     private String avatarUrl;
-    private UserStatus status;
+    private User.UserStatus status;
     private LocalDateTime emailVerifiedAt;
     private LocalDateTime lastLoginAt;
     private List<String> roles;
@@ -54,10 +55,6 @@ public class UserInfo implements UserPrincipal {
 
     @Override
     public boolean isEnabled() {
-        return status == UserStatus.ACTIVE;
-    }
-
-    public enum UserStatus {
-        ACTIVE, INACTIVE, SUSPENDED
+        return status == User.UserStatus.ACTIVE;
     }
 }

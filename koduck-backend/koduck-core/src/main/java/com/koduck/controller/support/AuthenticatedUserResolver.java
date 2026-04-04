@@ -22,7 +22,7 @@ public class AuthenticatedUserResolver {
      */
     public Long requireUserId(UserPrincipal userPrincipal) {
         Objects.requireNonNull(userPrincipal, "userPrincipal must not be null");
-        return Objects.requireNonNull(userPrincipal.getUser().getId(), "authenticated user id must not be null");
+        return Objects.requireNonNull(userPrincipal.getId(), "authenticated user id must not be null");
     }
 
     /**
@@ -35,6 +35,6 @@ public class AuthenticatedUserResolver {
         if (userPrincipal == null) {
             return null;
         }
-        return userPrincipal.getUser().getId();
+        return userPrincipal.getId();
     }
 }

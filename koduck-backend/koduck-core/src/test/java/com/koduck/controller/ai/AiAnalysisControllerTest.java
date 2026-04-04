@@ -31,7 +31,7 @@ import com.koduck.dto.ai.StockAnalysisResponse;
 import com.koduck.dto.ai.StrategyRecommendRequest;
 import com.koduck.dto.ai.StrategyRecommendResponse;
 import com.koduck.entity.auth.User;
-import com.koduck.security.UserPrincipal;
+import com.koduck.security.AuthUserPrincipal;
 import com.koduck.service.AiAnalysisService;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -193,7 +193,7 @@ class AiAnalysisControllerTest {
     @Test
     @DisplayName("shouldAnalyzeStockWhenRequestIsValid")
     void shouldAnalyzeStockWhenRequestIsValid() {
-        UserPrincipal userPrincipal = buildUserPrincipal(TEST_USER_ID_1);
+        AuthUserPrincipal userPrincipal = buildUserPrincipal(TEST_USER_ID_1);
         StockAnalysisRequest request = StockAnalysisRequest.builder()
                 .symbol(TEST_SYMBOL)
                 .market(TEST_MARKET)
@@ -219,8 +219,8 @@ class AiAnalysisControllerTest {
      * Verifies null authenticated principal is rejected.
      */
     @Test
-    @DisplayName("shouldThrowExceptionWhenUserPrincipalIsNull")
-    void shouldThrowExceptionWhenUserPrincipalIsNull() {
+    @DisplayName("shouldThrowExceptionWhenAuthUserPrincipalIsNull")
+    void shouldThrowExceptionWhenAuthUserPrincipalIsNull() {
         StockAnalysisRequest request = StockAnalysisRequest.builder()
                 .symbol(TEST_SYMBOL)
                 .market(TEST_MARKET)
@@ -241,7 +241,7 @@ class AiAnalysisControllerTest {
     @Test
     @DisplayName("shouldRecommendStrategiesWhenRequestIsValid")
     void shouldRecommendStrategiesWhenRequestIsValid() {
-        UserPrincipal userPrincipal = buildUserPrincipal(TEST_USER_ID_2);
+        AuthUserPrincipal userPrincipal = buildUserPrincipal(TEST_USER_ID_2);
         StrategyRecommendRequest request = StrategyRecommendRequest.builder()
                 .riskPreference(TEST_RISK_PREFERENCE)
                 .investmentHorizon(TEST_INVESTMENT_HORIZON)
@@ -268,7 +268,7 @@ class AiAnalysisControllerTest {
     @Test
     @DisplayName("shouldInterpretBacktestWhenRequestIsValid")
     void shouldInterpretBacktestWhenRequestIsValid() {
-        UserPrincipal userPrincipal = buildUserPrincipal(TEST_USER_ID_3);
+        AuthUserPrincipal userPrincipal = buildUserPrincipal(TEST_USER_ID_3);
         BacktestInterpretRequest request = BacktestInterpretRequest.builder()
                 .backtestResultId(TEST_BACKTEST_RESULT_ID)
                 .build();
@@ -297,7 +297,7 @@ class AiAnalysisControllerTest {
     @Test
     @DisplayName("shouldAssessRiskWhenRequestIsValid")
     void shouldAssessRiskWhenRequestIsValid() {
-        UserPrincipal userPrincipal = buildUserPrincipal(TEST_USER_ID_4);
+        AuthUserPrincipal userPrincipal = buildUserPrincipal(TEST_USER_ID_4);
         RiskAssessmentRequest request = RiskAssessmentRequest.builder()
                 .portfolioId(TEST_PORTFOLIO_ID)
                 .build();
@@ -336,7 +336,7 @@ class AiAnalysisControllerTest {
                         violation.getMessage())));
     }
 
-    private UserPrincipal buildUserPrincipal(Long userId) {
+    private AuthUserPrincipal buildUserPrincipal(Long userId) {
         User user = User.builder()
                 .id(userId)
                 .username(TEST_USERNAME)
@@ -344,7 +344,12 @@ class AiAnalysisControllerTest {
                 .passwordHash(TEST_PASSWORD_HASH)
                 .status(User.UserStatus.ACTIVE)
                 .build();
-        return new UserPrincipal(user, List.of(
-                new SimpleGrantedAuthority(USER_AUTHORITY_ROLE)));
+        return AuthUserPrincipal.builder()
+                .id(user.getId())
+                .username(user.getUsername())
+                .email(user.getEmail())
+                .nickname(user.getNickname())
+                .authorities(List.of(new SimpleGrantedAuthority(USER_AUTHORITY_ROLE)))
+                .build();
     }
 }

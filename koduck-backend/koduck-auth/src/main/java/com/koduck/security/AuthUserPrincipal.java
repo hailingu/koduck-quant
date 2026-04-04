@@ -5,6 +5,8 @@ import java.util.Collection;
 import java.util.List;
 import java.util.stream.Collectors;
 
+import org.springframework.security.core.userdetails.UserDetails;
+
 import com.koduck.entity.auth.User;
 
 import lombok.AllArgsConstructor;
@@ -25,9 +27,11 @@ import lombok.NoArgsConstructor;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class AuthUserPrincipal implements UserPrincipal {
+public class AuthUserPrincipal implements
+        UserPrincipal<org.springframework.security.core.GrantedAuthority>,
+        UserDetails {
 
-    private static final long serialVersionUID = SERIAL_VERSION_UID;
+    private static final long serialVersionUID = 1L;
 
     /**
      * 用户ID。
@@ -70,9 +74,9 @@ public class AuthUserPrincipal implements UserPrincipal {
     private LocalDateTime lastLoginAt;
 
     /**
-     * 权限列表。
+     * 权限列表（Spring Security 类型）。
      */
-    private List<SimpleGrantedAuthority> authorities;
+    private List<org.springframework.security.core.GrantedAuthority> authorities;
 
     /**
      * 账户是否启用。
@@ -98,13 +102,20 @@ public class AuthUserPrincipal implements UserPrincipal {
     @Builder.Default
     private boolean credentialsNonExpired = true;
 
+    /**
+     * 获取 Spring Security 权限列表。
+     *
+     * @return 权限集合
+     */
     @Override
-    public Collection<SimpleGrantedAuthority> getAuthorities() {
+    public Collection<org.springframework.security.core.GrantedAuthority> getAuthorities() {
         if (authorities == null) {
             return List.of();
         }
         return List.copyOf(authorities);
     }
+
+
 
     @Override
     public boolean isEnabled() {
@@ -126,6 +137,12 @@ public class AuthUserPrincipal implements UserPrincipal {
         return credentialsNonExpired;
     }
 
+    @Override
+    public String getPassword() {
+        // AuthUserPrincipal 不包含密码，由调用方处理凭证验证
+        return null;
+    }
+
     /**
      * 从 User 实体和角色列表构建。
      *
@@ -144,7 +161,7 @@ public class AuthUserPrincipal implements UserPrincipal {
                 .emailVerifiedAt(user.getEmailVerifiedAt())
                 .lastLoginAt(user.getLastLoginAt())
                 .authorities(roles.stream()
-                        .map(SimpleGrantedAuthority::new)
+                        .map(org.springframework.security.core.authority.SimpleGrantedAuthority::new)
                         .collect(Collectors.toList()))
                 .enabled(user.getStatus() == User.UserStatus.ACTIVE)
                 .build();
@@ -154,8 +171,11 @@ public class AuthUserPrincipal implements UserPrincipal {
      * 用户状态枚举。
      */
     public enum UserStatus {
+        /** 活跃状态. */
         ACTIVE,
+        /** 非活跃状态. */
         INACTIVE,
+        /** 暂停状态. */
         SUSPENDED
     }
 }

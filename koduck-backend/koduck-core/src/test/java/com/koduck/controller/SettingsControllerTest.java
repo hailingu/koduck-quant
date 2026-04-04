@@ -18,7 +18,7 @@ import com.koduck.dto.settings.UpdateSettingsRequest;
 import com.koduck.dto.settings.UpdateThemeRequest;
 import com.koduck.dto.settings.UserSettingsDto;
 import com.koduck.entity.auth.User;
-import com.koduck.security.UserPrincipal;
+import com.koduck.security.AuthUserPrincipal;
 import com.koduck.service.UserSettingsService;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -53,7 +53,7 @@ class SettingsControllerTest {
     private SettingsController settingsController;
 
     /** Test user principal. */
-    private UserPrincipal userPrincipal;
+    private AuthUserPrincipal userPrincipal;
 
     @BeforeEach
     void setUp() {
@@ -64,9 +64,15 @@ class SettingsControllerTest {
                 .passwordHash("hashed")
                 .status(User.UserStatus.ACTIVE)
                 .build();
-        userPrincipal = new UserPrincipal(user, Collections.emptyList());
+        userPrincipal = AuthUserPrincipal.builder()
+                .id(1L)
+                .username("test")
+                .email("test@test.com")
+                .nickname("Test")
+                .authorities(Collections.emptyList())
+                .build();
         lenient().when(authenticatedUserResolver.requireUserId(
-            any(UserPrincipal.class))).thenReturn(USER_ID);
+            any(AuthUserPrincipal.class))).thenReturn(USER_ID);
     }
 
     @Test
@@ -163,7 +169,7 @@ class SettingsControllerTest {
 
     @Test
     @DisplayName("Get settings should throw when user principal is null")
-    void getSettingsShouldThrowWhenUserPrincipalIsNull() {
+    void getSettingsShouldThrowWhenAuthUserPrincipalIsNull() {
         when(authenticatedUserResolver.requireUserId(null))
             .thenThrow(new NullPointerException());
         assertThrows(NullPointerException.class,

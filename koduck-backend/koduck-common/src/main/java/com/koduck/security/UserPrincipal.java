@@ -23,10 +23,11 @@ import java.util.Collection;
  * }
  * }</pre>
  *
+ * @param <A> 权限类型参数
  * @author Koduck Team
  * @see GrantedAuthority
  */
-public interface UserPrincipal extends Serializable {
+public interface UserPrincipal<A extends java.io.Serializable> extends Serializable {
 
     /**
      * Serial version UID.
@@ -52,7 +53,7 @@ public interface UserPrincipal extends Serializable {
      *
      * @return 权限集合
      */
-    Collection<? extends GrantedAuthority> getAuthorities();
+    Collection<A> getAuthorities();
 
     /**
      * 判断账户是否启用。
