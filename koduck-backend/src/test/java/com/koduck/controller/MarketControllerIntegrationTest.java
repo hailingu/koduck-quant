@@ -16,6 +16,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import com.koduck.AbstractIntegrationTest;
+import com.koduck.common.constants.MarketConstants;
 import com.koduck.entity.market.StockBasic;
 import com.koduck.entity.market.StockRealtime;
 import com.koduck.repository.market.StockBasicRepository;
@@ -113,7 +114,7 @@ class MarketControllerIntegrationTest extends AbstractIntegrationTest {
         StockBasic stock = StockBasic.builder()
                 .symbol("600519")
                 .name("贵州茅台")
-                .type("STOCK")
+                .type(MarketConstants.STOCK_TYPE)
                 .market("AShare")
                 .build();
         stockBasicRepository.save(Objects.requireNonNull(stock));
@@ -174,7 +175,7 @@ class MarketControllerIntegrationTest extends AbstractIntegrationTest {
         StockRealtime stockRealtime = StockRealtime.builder()
                 .symbol("000001")
                 .name("平安银行")
-                .type("STOCK")
+                .type(MarketConstants.STOCK_TYPE)
                 .price(PRICE_PINGAN)
                 .openPrice(new BigDecimal("12.30"))
                 .high(new BigDecimal("12.80"))
@@ -222,7 +223,7 @@ class MarketControllerIntegrationTest extends AbstractIntegrationTest {
         StockRealtime shIndex = StockRealtime.builder()
                 .symbol("000001")
                 .name("上证指数")
-                .type("INDEX")
+                .type(MarketConstants.INDEX_TYPE)
                 .price(new BigDecimal("3050.50"))
                 .changeAmount(new BigDecimal("15.30"))
                 .changePercent(new BigDecimal("0.50"))
@@ -253,7 +254,7 @@ class MarketControllerIntegrationTest extends AbstractIntegrationTest {
         StockRealtime stockRealtime = StockRealtime.builder()
                 .symbol("000002")
                 .name("万科A")
-                .type("STOCK")
+                .type(MarketConstants.STOCK_TYPE)
                 .price(PRICE_VANKE)
                 .openPrice(OPEN_PRICE_VANKE)
                 .high(HIGH_PRICE_VANKE)
@@ -350,13 +351,13 @@ class MarketControllerIntegrationTest extends AbstractIntegrationTest {
         StockRealtime stock1 = StockRealtime.builder()
                 .symbol("000001")
                 .name("平安银行")
-                .type("STOCK")
+                .type(MarketConstants.STOCK_TYPE)
                 .price(PRICE_PINGAN)
                 .build();
         StockRealtime stock2 = StockRealtime.builder()
                 .symbol("000002")
                 .name("万科A")
-                .type("STOCK")
+                .type(MarketConstants.STOCK_TYPE)
                 .price(PRICE_VANKE)
                 .build();
         stockRealtimeRepository.saveAll(Objects.requireNonNull(List.of(stock1, stock2)));

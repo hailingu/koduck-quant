@@ -6,6 +6,7 @@ import java.util.concurrent.ConcurrentHashMap;
 
 import org.springframework.stereotype.Service;
 
+import com.koduck.common.constants.MarketConstants;
 import com.koduck.dto.market.PriceUpdateDto;
 import com.koduck.dto.market.RealtimePriceEventMessage;
 import com.koduck.dto.market.TickDto;
@@ -156,7 +157,7 @@ public class PricePushServiceImpl implements PricePushService {
         return StockRealtime.builder()
                 .symbol(normalizedSymbol)
                 .name(event.getName() != null && !event.getName().isBlank() ? event.getName() : normalizedSymbol)
-                .type(event.getType() != null ? event.getType() : "STOCK")
+                .type(event.getType() != null ? event.getType() : MarketConstants.STOCK_TYPE)
                 .price(event.getPrice())
                 .changeAmount(event.getChangeAmount())
                 .changePercent(event.getChangePercent())

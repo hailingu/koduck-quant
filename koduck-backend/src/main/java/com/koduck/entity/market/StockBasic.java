@@ -15,6 +15,8 @@ import jakarta.persistence.UniqueConstraint;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 
+import com.koduck.common.constants.MarketConstants;
+
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -56,7 +58,7 @@ public class StockBasic {
      */
     @Column(name = "type", nullable = false, length = 10)
     @Builder.Default
-    private String type = "STOCK";
+    private String type = MarketConstants.STOCK_TYPE;
 
     /**
      * Stock name.
