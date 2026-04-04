@@ -65,32 +65,39 @@ public class CacheConfig {
     public static final String CACHE_PORTFOLIO_SUMMARY = "portfolioSummary";
 
     /**
+     * Global ObjectMapper injected by Spring Boot auto-configuration.
+     */
+    private final ObjectMapper objectMapper;
+
+    /**
      * Cache properties for TTL configuration.
      */
     private final CacheProperties cacheProperties;
 
     /**
-     * Constructs {@link CacheConfig} with injected cache properties.
+     * Constructs {@link CacheConfig} with injected dependencies.
      *
+     * @param objectMapper    global Jackson object mapper (must not be {@code null})
      * @param cacheProperties cache TTL configuration properties
      */
-    public CacheConfig(CacheProperties cacheProperties) {
+    public CacheConfig(ObjectMapper objectMapper, CacheProperties cacheProperties) {
+        this.objectMapper = Objects.requireNonNull(objectMapper);
         this.cacheProperties = Objects.requireNonNull(cacheProperties);
     }
 
     /**
      * Construct a JSON serializer that understands Java time types.
      *
-     * <p>The serializer is backed by a custom {@link ObjectMapper} which
-     * registers the {@link JavaTimeModule} so that {@code java.time} objects
-     * are handled correctly when caching.</p>
+     * <p>The serializer is backed by a copy of the global {@link ObjectMapper}
+     * which registers the {@link JavaTimeModule} so that {@code java.time} objects
+     * are handled correctly when caching.  Copying prevents mutation of the
+     * shared Spring-managed instance.</p>
      *
      * @return a non-null JSON serializer instance
      */
-    private static GenericJackson2JsonRedisSerializer createJsonSerializer() {
-        ObjectMapper objectMapper = new ObjectMapper();
-        objectMapper.registerModule(new JavaTimeModule());
-        return new GenericJackson2JsonRedisSerializer(objectMapper);
+    private GenericJackson2JsonRedisSerializer createJsonSerializer() {
+        ObjectMapper copy = objectMapper.copy().registerModule(new JavaTimeModule());
+        return new GenericJackson2JsonRedisSerializer(copy);
     }
 
     /**

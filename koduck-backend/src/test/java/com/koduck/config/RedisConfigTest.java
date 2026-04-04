@@ -11,6 +11,8 @@ import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.serializer.GenericJackson2JsonRedisSerializer;
 import org.springframework.data.redis.serializer.StringRedisSerializer;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
@@ -39,7 +41,8 @@ class RedisConfigTest {
             RedisConnectionFactory factory = context.getBean(RedisConnectionFactory.class);
             assertThat(factory).isNotNull();
 
-            RedisConfig config = new RedisConfig();
+            ObjectMapper objectMapper = context.getBean(ObjectMapper.class);
+            RedisConfig config = new RedisConfig(objectMapper);
             RedisTemplate<String, Object> redisTemplate = config.redisTemplate(factory);
             assertThat(redisTemplate.getConnectionFactory()).isSameAs(factory);
 
@@ -58,6 +61,11 @@ class RedisConfigTest {
         @Bean
         RedisConnectionFactory connectionFactory() {
             return org.mockito.Mockito.mock(RedisConnectionFactory.class);
+        }
+
+        @Bean
+        ObjectMapper objectMapper() {
+            return new ObjectMapper();
         }
     }
 }
