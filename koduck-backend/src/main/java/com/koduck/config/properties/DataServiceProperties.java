@@ -4,7 +4,6 @@ import jakarta.annotation.PostConstruct;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.util.StringUtils;
@@ -53,6 +52,11 @@ public class DataServiceProperties {
     private static final int DEFAULT_MAX_RETRIES = 3;
 
     /**
+     * Default realtime update path.
+     */
+    private static final String DEFAULT_REALTIME_UPDATE_PATH = "/market/realtime/update";
+
+    /**
      * Base URL for the external data service.
      */
     @NotBlank
@@ -79,9 +83,8 @@ public class DataServiceProperties {
     /**
      * Path used by the data service to trigger realtime updates.
      */
-    @Value("${koduck.data-service.realtime-update-path:/market/realtime/update}")
     @NotBlank
-    private String realtimeUpdatePath;
+    private String realtimeUpdatePath = DEFAULT_REALTIME_UPDATE_PATH;
 
     /**
      * Flag to enable or disable data service integration.
