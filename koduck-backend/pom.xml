@@ -21,6 +21,7 @@
 
     <modules>
         <module>koduck-bom</module>
+        <module>koduck-common</module>
         <module>koduck-core</module>
         <module>koduck-bootstrap</module>
     </modules>
@@ -66,6 +67,11 @@
                 <scope>import</scope>
             </dependency>
             <!-- Koduck Internal Modules -->
+            <dependency>
+                <groupId>com.koduck</groupId>
+                <artifactId>koduck-common</artifactId>
+                <version>${koduck.version}</version>
+            </dependency>
             <dependency>
                 <groupId>com.koduck</groupId>
                 <artifactId>koduck-core</artifactId>
