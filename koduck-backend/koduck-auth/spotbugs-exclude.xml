@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<FindBugsFilter>
+    <!-- AuthUserPrincipal uses Lombok for builder/setter, authorities is immutable in practice -->
+    <Match>
+        <Class name="com.koduck.security.AuthUserPrincipal"/>
+        <Bug pattern="EI_EXPOSE_REP,EI_EXPOSE_REP2"/>
+    </Match>
+    <Match>
+        <Class name="com.koduck.security.AuthUserPrincipal$AuthUserPrincipalBuilder"/>
+        <Bug pattern="EI_EXPOSE_REP2"/>
+    </Match>
+</FindBugsFilter>
