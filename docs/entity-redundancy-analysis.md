@@ -1,183 +1,490 @@
 # Entity 层冗余分析报告
 
-> 分析范围：`koduck-backend/src/main/java/com/koduck/entity/` 下全部 36 个实体类  
-> 日期：2026-04-03
+> **分析日期**: 2026-04-03
+> **分析范围**: `koduck-backend/src/main/java/com/koduck/entity/` 下全部 35 个 Entity + 1 个 enums 子包
+> **分析目的**: 识别 entity 包下的冗余问题（字段重复、结构重叠、模式冗余、枚举分散等），为后续重构提供依据
 
 ---
 
-## 一、完全冗余（建议立即消除）
+## 1. 概述
 
-### 1.1 `TradeType` 枚举重复定义
+Entity 包当前包含 **35 个实体类** + **1 个枚举类**，按业务领域分布如下：
 
-| 实体 | 枚举位置 |
-|------|----------|
-| `Trade.java` | `public enum TradeType { BUY, SELL }` |
-| `BacktestTrade.java` | `public enum TradeType { BUY, SELL }` |
+| 领域 | 实体 | 数量 |
+|------|------|------|
+| 用户/认证 | `User`, `UserCredential`, `UserSettings`, `UserMemoryProfile`, `UserSignalStats`, `RefreshToken`, `PasswordResetToken`, `LoginAttempt`, `CredentialAuditLog` | 9 |
+| RBAC | `Role`, `Permission` | 2 |
+| 市场数据 | `StockBasic`, `StockRealtime`, `StockTickHistory`, `KlineData`, `MarketDailyBreadth`, `MarketDailyNetFlow`, `MarketSectorNetFlow` | 7 |
+| 社区/信号 | `CommunitySignal`, `SignalComment`, `SignalFavorite`, `SignalLike`, `SignalSubscription` | 5 |
+| 策略/回测 | `Strategy`, `StrategyParameter`, `StrategyVersion`, `BacktestResult`, `BacktestTrade` | 5 |
+| 交易/持仓 | `Trade`, `PortfolioPosition` | 2 |
+| AI/记忆 | `MemoryChatSession`, `MemoryChatMessage` | 2 |
+| 监控 | `AlertRule`, `AlertHistory`, `DataSourceStatus` | 3 |
+| 其他 | `WatchlistItem` | 1 |
 
-**问题**：两个实体各自定义了完全相同的 `TradeType` 枚举（`BUY`, `SELL`），属于 **代码级完全冗余**。
+经过逐一比对字段结构、关联关系和设计模式，发现以下冗余问题：
 
-**建议**：提取为顶层共享枚举类 `com.koduck.entity.enums.TradeType`（或放在 `com.koduck.common.enums`），两个实体统一引用。
+| 严重程度 | 冗余类型 | 问题 | 数量 |
+|---------|---------|------|------|
+| 🔴 完全冗余 | 手写 Builder 模式 | 10 个实体手写了 100-300 行 Builder，完全可用 Lombok `@Builder` 替代 | 10 |
+| 🔴 结构冗余 | 交易记录重叠 | `Trade` 与 `BacktestTrade` 字段高度重叠 | 1 对 |
+| 🟡 模式冗余 | Market 指标实体同构 | 3 个 Market 实体共享相同的元数据字段模式 | 3 |
+| 🟡 模式冗余 | 信号交互实体同构 | `SignalLike`/`SignalFavorite`/`SignalSubscription` 结构几乎一致 | 3 |
+| 🟡 设计问题 | 枚举分散定义 | 12 个内部枚举散落在各 Entity 中，应移至 `enums/` 包 | 12 |
+| 🟡 职责模糊 | 用户偏好数据分散 | `UserSettings` 与 `UserMemoryProfile` 存在关注点交叉 | 1 对 |
+| ⚪ 有意设计 | 持仓 vs 自选股 | `PortfolioPosition` 与 `WatchlistItem` 共享用户-股票关联模式 | 1 对 |
 
 ---
 
-### 1.2 `UserMemoryProfile.watchSymbols` 与 `WatchlistItem` 功能重叠
+## 2. 🔴 完全冗余：手写 Builder 模式（建议立即消除）
 
-| 实体 | 字段 | 存储方式 |
-|------|------|----------|
-| `UserMemoryProfile` | `watchSymbols: List<String>` | JSONB 列 |
-| `WatchlistItem` | `symbol, market, name, sortOrder, notes` | 独立表，支持排序/备注 |
+### 2.1 问题描述
 
-**问题**：两者记录的是同一业务概念——用户关注的股票列表。`WatchlistItem` 是功能完备的实现（支持排序、备注、市场区分），而 `UserMemoryProfile.watchSymbols` 只是一个 JSONB 字符串数组，功能完全被前者覆盖。
+以下 **10 个实体**放弃了 Lombok `@Builder`，改为手写 Builder + 防御性拷贝（defensive copy），导致每个实体额外膨胀 **100-300 行**：
 
-**建议**：
-- 删除 `UserMemoryProfile.watchSymbols` 字段
-- 如果 AI 需要快速读取关注列表，通过 JOIN 查询或缓存层解决，而非在另一个表中冗余存储
+| 实体 | 手写 Builder 行数（估） | 手写原因 |
+|------|:---:|------|
+| `CommunitySignal` | ~300 行 | `tags` 字段需要 `CollectionCopyUtils.copyList`；`user` 字段需要 `EntityCopyUtils.copyUser` |
+| `DataSourceStatus` | ~180 行 | `metadata` 字段需要 `CollectionCopyUtils.copyMap` |
+| `MemoryChatMessage` | ~150 行 | `metadata` 字段需要 `CollectionCopyUtils.copyMap` |
+| `SignalComment` | ~250 行 | 多个关联实体需要 `EntityCopyUtils` 拷贝 |
+| `SignalFavorite` | ~170 行 | `signal` 和 `user` 需要防御性拷贝 |
+| `SignalLike` | ~150 行 | `signal` 和 `user` 需要防御性拷贝 |
+| `SignalSubscription` | ~160 行 | `signal` 和 `user` 需要防御性拷贝 |
+| `UserCredential` | ~280 行 | `additionalConfig` 需要防御性拷贝 |
+| `UserMemoryProfile` | ~130 行 | `preferredSources` 和 `profileFacts` 需要防御性拷贝 |
+| `UserSettings` | ~350 行 | 多个内嵌 JSONB 配置对象需要拷贝 |
+| **合计** | **~2,100 行** | |
+
+### 2.2 根本原因
+
+手写 Builder 的唯一理由是：对 `List<String>`、`Map<String, Object>` 和关联实体字段执行防御性拷贝。但这个逻辑完全可以通过 **自定义 Lombok `@Builder.Default`** 或 **AOP/AttributeConverter** 统一实现。
+
+### 2.3 建议
+
+1. **恢复使用 Lombok `@Builder` + `@Data`**
+2. 将防御性拷贝逻辑下沉到：
+   - JPA `AttributeConverter`（针对 JSONB 字段，序列化/反序列化时自动拷贝）
+   - 或自定义 Jackson `@JsonDeserialize` / `@JsonSerialize`
+3. 对关联实体（`@ManyToOne` LAZY），直接使用 Lombok 生成的 getter/setter，防御性拷贝改为在 Service 层处理
+
+**预期收益**：消除约 **2,100 行** 手写样板代码，同时保留防御性拷贝的语义。
 
 ---
 
-## 二、结构高度相似（可考虑合并或抽象）
+## 3. 🔴 结构冗余：`Trade` vs `BacktestTrade`（建议合并或抽象）
 
-### 2.1 `SignalLike` / `SignalFavorite` / `SignalSubscription` — 三表同构
+### 3.1 字段对比
 
-| 特征 | `SignalLike` | `SignalFavorite` | `SignalSubscription` |
-|------|-------------|-----------------|---------------------|
-| signal_id | ✅ | ✅ | ✅ |
-| user_id | ✅ | ✅ | ✅ |
-| created_at | ✅ | ✅ | ✅ |
-| ManyToOne → CommunitySignal | ✅ | ✅ | ✅ |
-| ManyToOne → User | ✅ | ✅ | ✅ |
-| 额外字段 | 无 | `note` | `notifyEnabled` |
-| Hand-written Builder | ✅ | ✅ | ✅ |
-| EntityCopyUtils 模式 | ✅ | ✅ | ✅ |
+| 字段 | `Trade` | `BacktestTrade` |
+|------|:---:|:---:|
+| `id` | ✅ | ✅ |
+| `userId` / `backtestResultId` | ✅ userId | ✅ backtestResultId |
+| `market` | ✅ | ❌ |
+| `symbol` | ✅ | ✅ |
+| `name` | ✅ | ❌ |
+| `tradeType` | ✅ `TradeType` (BUY/SELL) | ✅ `TradeType` (BUY/SELL) |
+| `quantity` | ✅ | ✅ |
+| `price` | ✅ | ✅ |
+| `amount` | ✅ | ✅ |
+| `commission` | ❌ | ✅ |
+| `slippageCost` | ❌ | ✅ |
+| `totalCost` | ❌ | ✅ |
+| `cashAfter` | ❌ | ✅ |
+| `positionAfter` | ❌ | ✅ |
+| `pnl` | ❌ | ✅ |
+| `pnlPercent` | ❌ | ✅ |
+| `signalReason` | ❌ | ✅ |
+| `tradeTime` | ✅ | ✅ |
+| `status` | ✅ `TradeStatus` | ❌ |
+| `notes` | ✅ | ❌ |
+| `createdAt` | ✅ | ✅ |
 
-**问题**：三个实体结构几乎完全一致，代码模式完全相同（手写 Builder、copy-on-read getter/setter）。
+**重叠字段**: `id`, `symbol`, `tradeType`, `quantity`, `price`, `amount`, `tradeTime`, `createdAt` — 共 8 个字段完全一致。
 
-**建议方案 A（推荐）**：合并为单一 `SignalInteraction` 表，用 `interaction_type` 枚举区分 `LIKE`/`FAVORITE`/`SUBSCRIBE`：
+### 3.2 分析
 
-```sql
-CREATE TABLE signal_interactions (
-    id BIGSERIAL PRIMARY KEY,
-    signal_id BIGINT NOT NULL,
-    user_id BIGINT NOT NULL,
-    interaction_type VARCHAR(20) NOT NULL,  -- LIKE, FAVORITE, SUBSCRIBE
-    note TEXT,                               -- 仅 FAVORITE 使用
-    notify_enabled BOOLEAN DEFAULT TRUE,     -- 仅 SUBSCRIBE 使用
-    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
-    UNIQUE(signal_id, user_id, interaction_type)
-);
+- `Trade` 记录**真实交易**（用户手动记录或实盘执行）
+- `BacktestTrade` 记录**回测模拟交易**（策略回测产生）
+- 两者共享核心交易数据（买卖方向、价格、数量、金额），但 `BacktestTrade` 额外记录了模拟环境特有的上下文（滑点、现金余额、持仓变化、PnL）
+
+### 3.3 建议
+
+**方案 A（推荐）：提取 `BaseTrade` 抽象类或 `@MappedSuperclass`**
+
+```java
+@MappedSuperclass
+public abstract class BaseTrade {
+    private TradeType tradeType;
+    private String symbol;
+    private BigDecimal quantity;
+    private BigDecimal price;
+    private BigDecimal amount;
+    private LocalDateTime tradeTime;
+}
+
+@Entity
+public class Trade extends BaseTrade {
+    private Long userId;
+    private String market;
+    private String name;
+    private TradeStatus status;
+    // ...
+}
+
+@Entity
+public class BacktestTrade extends BaseTrade {
+    private Long backtestResultId;
+    private BigDecimal commission;
+    private BigDecimal slippageCost;
+    private BigDecimal cashAfter;
+    // ...
+}
 ```
 
-**建议方案 B**：保留三表但抽取公共基类 `BaseSignalInteraction`（`@MappedSuperclass`），消除重复字段和 Builder 代码。
+**方案 B（轻量）**：保持独立，但在代码注释或文档中明确两者关系，避免后续开发者重复添加字段。
 
 ---
 
-### 2.2 手写 Builder 模式的大规模冗余
+## 4. 🟡 模式冗余：Market 指标实体同构
 
-以下实体未使用 Lombok `@Builder`，而是手写了完整的 Builder 类：
+### 4.1 共享元数据字段
 
-| 实体 | Builder 行数（估算） | 手写原因 |
-|------|---------------------|----------|
-| `CommunitySignal` | ~200 行 | copy-on-read |
-| `DataSourceStatus` | ~130 行 | copy-on-read |
-| `MemoryChatMessage` | ~100 行 | copy-on-read |
-| `SignalComment` | ~180 行 | copy-on-read |
-| `SignalFavorite` | ~50 行 | copy-on-read |
-| `SignalLike` | ~50 行 | copy-on-read |
-| `SignalSubscription` | ~50 行 | copy-on-read |
-| `UserCredential` | ~150 行 | copy-on-read |
-| `UserMemoryProfile` | ~30 行 | copy-on-read |
-| `UserSettings` | ~200 行 | 嵌套配置 copy |
-| `UserSignalStats` | 无 Builder | 但有 copy-on-read |
+| 字段 | `MarketDailyBreadth` | `MarketDailyNetFlow` | `MarketSectorNetFlow` |
+|------|:---:|:---:|:---:|
+| `id` | ✅ | ✅ | ✅ |
+| `market` | ✅ | ✅ | ✅ |
+| `breadthType` / `flowType` / `indicator` | ✅ | ✅ | ✅ |
+| `tradeDate` | ✅ | ✅ | ✅ |
+| `source` | ✅ | ✅ | ✅ |
+| `quality` | ✅ | ✅ | ✅ |
+| `snapshotTime` | ✅ | ✅ | ✅ |
+| `updatedAt` | ✅ | ✅ | ✅ |
+| `createdAt` | ✅ | ✅ | ✅ |
 
-**问题**：手写 Builder 的唯一目的是在 setter 和 getter 中注入 `CollectionCopyUtils` / `EntityCopyUtils` 的深拷贝逻辑。这导致约 **1,100+ 行** 重复性代码。
+三个实体的**元数据骨架完全一致**：`market` + 类型标识 + `tradeDate` + `source` + `quality` + `snapshotTime` + 时间戳。唯一不同的是核心指标字段。
 
-**建议**：
-1. 短期：保留现状但添加注释说明原因（防御性拷贝是 JPA 实体的合理考量）
-2. 中期：考虑使用 `@Builder` + 自定义 `@Build` 方法 + AOP/ByteBuddy 自动注入拷贝逻辑
-3. 或改用 Java `record` 作为 DTO 层，Entity 层去掉 copy-on-read 模式
+### 4.2 建议
 
----
+**方案 A**：提取 `@MappedSuperclass`
 
-## 三、领域边界模糊（存在职责重叠但各有独立用途）
+```java
+@MappedSuperclass
+public abstract class MarketDailyIndicator {
+    private Long id;
+    private String market;
+    private String indicatorType; // breadth_type / flow_type / indicator
+    private LocalDate tradeDate;
+    private String source;
+    private String quality;
+    private LocalDateTime snapshotTime;
+    private LocalDateTime updatedAt;
+    private LocalDateTime createdAt;
+}
+```
 
-### 3.1 `PortfolioPosition` vs `Trade`
-
-| 维度 | `PortfolioPosition` | `Trade` |
-|------|--------------------| -------|
-| 记录粒度 | 当前持仓汇总 | 每笔交易流水 |
-| 核心字段 | user_id, symbol, quantity, avg_cost | user_id, symbol, price, quantity, trade_type |
-| 可推导性 | **可从 Trade 聚合推导** | 原始数据 |
-| 典型用途 | 展示"我的持仓" | 交易记录、审计 |
-
-**结论**：`PortfolioPosition` 是 `Trade` 的**物化视图/快照**，属于**有意去规范化（denormalization）**，并非冗余。保留两者是合理的设计。
-
----
-
-### 3.2 `BacktestTrade` vs `Trade`
-
-| 维度 | `BacktestTrade` | `Trade` |
-|------|----------------|---------|
-| 所属域 | 回测模拟 | 实盘交易 |
-| 关联 | → `BacktestResult` | → `User` |
-| 额外字段 | cashAfter, positionAfter, pnl, pnlPercent, slippageCost, signalReason | status, notes, name |
-| TradeType | 自定义枚举（重复） | 自定义枚举（重复） |
-
-**结论**：两个实体分属不同业务域（回测 vs 实盘），不应合并。但 `TradeType` 枚举应共享（见 1.1）。
+**方案 B（保持现状）**：各实体语义不同（广度/资金流/板块），保持独立可读性更好。仅需确保 Repository 查询模式一致。
 
 ---
 
-### 3.3 `StockTickHistory` vs `KlineData`
+## 5. 🟡 模式冗余：信号交互实体同构
 
-| 维度 | `StockTickHistory` | `KlineData` |
-|------|--------------------| ----|
-| 数据粒度 | 逐笔（synthetic tick） | K 线（1m/5m/1d 等） |
-| 字段 | symbol, tickTime, price, volume, amount | symbol, klineTime, OHLCV, timeframe |
-| 来源 | 实时快照合成 | 历史数据同步 + 聚合 |
-| 用途 | 实时 tick 级推送 | 技术分析、回测 |
+### 5.1 结构对比
 
-**结论**：不同数据粒度，均有独立存在价值。不属于冗余。
+| 字段 | `SignalLike` | `SignalFavorite` | `SignalSubscription` |
+|------|:---:|:---:|:---:|
+| `id` | ✅ | ✅ | ✅ |
+| `signalId` | ✅ | ✅ | ✅ |
+| `userId` | ✅ | ✅ | ✅ |
+| `createdAt` | ✅ | ✅ | ✅ |
+| `signal` (ManyToOne) | ✅ | ✅ | ✅ |
+| `user` (ManyToOne) | ✅ | ✅ | ✅ |
+| `note` | ❌ | ✅ | ❌ |
+| `notifyEnabled` | ❌ | ❌ | ✅ |
+
+**核心字段完全一致**：`id` + `signalId` + `userId` + `createdAt` + `signal` + `user`。每个实体仅多 0-1 个扩展字段。
+
+### 5.2 分析
+
+- `SignalLike`：点赞，无额外字段
+- `SignalFavorite`：收藏，多一个 `note` 备注
+- `SignalSubscription`：订阅，多一个 `notifyEnabled` 通知开关
+
+这三个本质上是**用户-信号交互关系**的不同类型，结构高度同质化。
+
+### 5.3 建议
+
+**方案 A（统一表）**：合并为 `SignalInteraction` 单表，用类型枚举区分
+
+```java
+@Entity
+@Table(name = "signal_interactions",
+       uniqueConstraints = @UniqueConstraint(
+           columnNames = {"signal_id", "user_id", "interaction_type"}))
+public class SignalInteraction {
+    private Long id;
+    private Long signalId;
+    private Long userId;
+    @Enumerated(EnumType.STRING)
+    private InteractionType interactionType; // LIKE, FAVORITE, SUBSCRIBE
+    private String note;          // FAVORITE 专用
+    private Boolean notifyEnabled; // SUBSCRIBE 专用
+    private LocalDateTime createdAt;
+}
+```
+
+**方案 B（保持现状 + 共享基类）**：保留三张表，但提取 `@MappedSuperclass` 减少字段重复。
+
+**方案 C（保持现状）**：三张表各有明确语义，独立演进。当前结构可接受。
+
+> 推荐方案 B 或 C。方案 A 过度统一会失去类型安全性，且需要修改大量 Repository/Service 代码。
 
 ---
 
-### 3.4 `CredentialAuditLog` vs `LoginAttempt`
+## 6. 🟡 设计问题：枚举分散定义
 
-| 维度 | `CredentialAuditLog` | `LoginAttempt` |
-|------|--------------------| ----|
-| 范围 | 凭证生命周期（CREATE/UPDATE/DELETE/VERIFY/VIEW） | 登录尝试（成功/失败） |
-| 关联 | → `UserCredential` | 独立（按 identifier + IP） |
-| 安全用途 | 凭证操作审计 | 暴力破解防护 |
+### 6.1 当前分布
 
-**结论**：两者都是审计日志但关注不同安全维度。可以考虑统一为 `SecurityAuditLog`，但当前分离也是合理的设计。
+| 枚举 | 定义位置 | 值 |
+|------|---------|-----|
+| `TradeType` | `enums/TradeType.java` | BUY, SELL |
+| `User.UserStatus` | `User` 内部 | DISABLED, ACTIVE, PENDING |
+| `BacktestResult.BacktestStatus` | `BacktestResult` 内部 | PENDING, RUNNING, COMPLETED, FAILED |
+| `Trade.TradeStatus` | `Trade` 内部 | PENDING, SUCCESS, FAILED, CANCELLED |
+| `Strategy.StrategyStatus` | `Strategy` 内部 | DRAFT, PUBLISHED, DISABLED |
+| `StrategyParameter.ParameterType` | `StrategyParameter` 内部 | STRING, INTEGER, DECIMAL, BOOLEAN, ENUM |
+| `CommunitySignal.SignalType` | `CommunitySignal` 内部 | BUY, SELL, HOLD |
+| `CommunitySignal.Status` | `CommunitySignal` 内部 | ACTIVE, CLOSED, EXPIRED, CANCELLED |
+| `CommunitySignal.ResultStatus` | `CommunitySignal` 内部 | PENDING, HIT_TARGET, HIT_STOP, TIMEOUT |
+| `UserCredential.CredentialType` | `UserCredential` 内部 | BROKER, DATA_SOURCE, EXCHANGE, AI_PROVIDER |
+| `UserCredential.Environment` | `UserCredential` 内部 | PAPER, LIVE, SANDBOX |
+| `UserCredential.VerificationStatus` | `UserCredential` 内部 | SUCCESS, FAILED, PENDING |
+| `CredentialAuditLog.ActionType` | `CredentialAuditLog` 内部 | CREATE, UPDATE, DELETE, VERIFY, VIEW |
+
+### 6.2 问题
+
+1. **`CommunitySignal.SignalType`（BUY, SELL, HOLD）与 `TradeType`（BUY, SELL）语义重叠**：都表示交易方向。`SignalType` 多了一个 `HOLD`，但 BUY/SELL 完全一致。
+2. **枚举分散在内部类中**：不便于跨模块引用（如 DTO 层、Service 层需要引用时，必须依赖 Entity 类）。
+3. **状态枚举命名冲突风险**：`BacktestStatus`、`TradeStatus`、`StrategyStatus` 均含 `PENDING`/`FAILED` 等相似值，容易混淆。
+
+### 6.3 建议
+
+1. **将 `TradeType` 和 `SignalType` 合并**为统一的 `TradeDirection` 枚举（BUY, SELL, HOLD），放在 `enums/` 包
+2. **将所有内部枚举提取到 `enums/` 包**，按以下命名规范：
+
+   | 提取后类名 | 来源 |
+   |-----------|------|
+   | `UserStatus` | `User.UserStatus` |
+   | `BacktestStatus` | `BacktestResult.BacktestStatus` |
+   | `TradeStatus` | `Trade.TradeStatus` |
+   | `StrategyStatus` | `Strategy.StrategyStatus` |
+   | `ParameterType` | `StrategyParameter.ParameterType` |
+   | `SignalType` | `CommunitySignal.SignalType`（或合并为 `TradeDirection`） |
+   | `SignalStatus` | `CommunitySignal.Status` |
+   | `SignalResultStatus` | `CommunitySignal.ResultStatus` |
+   | `CredentialType` | `UserCredential.CredentialType` |
+   | `CredentialEnvironment` | `UserCredential.Environment` |
+   | `VerificationStatus` | `UserCredential.VerificationStatus` |
+   | `AuditActionType` | `CredentialAuditLog.ActionType` |
 
 ---
 
-## 四、无冗余的实体（确认独立）
+## 7. 🟡 职责模糊：`UserSettings` vs `UserMemoryProfile`
 
-以下实体各司其职，无功能重叠：
+### 7.1 字段对比
 
-| 分类 | 实体 |
-|------|------|
-| **用户认证** | `User`, `UserCredential`, `RefreshToken`, `PasswordResetToken`, `LoginAttempt`, `CredentialAuditLog` |
-| **权限** | `Role`, `Permission` |
-| **股票数据** | `StockBasic`, `StockRealtime`, `KlineData`, `StockTickHistory` |
-| **市场统计** | `MarketDailyBreadth`, `MarketDailyNetFlow`, `MarketSectorNetFlow` |
-| **策略** | `Strategy`, `StrategyParameter`, `StrategyVersion` |
-| **回测** | `BacktestResult`, `BacktestTrade` |
-| **交易** | `Trade`, `PortfolioPosition` |
-| **社区信号** | `CommunitySignal`, `SignalComment` |
-| **监控** | `AlertRule`, `AlertHistory`, `DataSourceStatus` |
-| **AI/记忆** | `MemoryChatSession`, `MemoryChatMessage`, `UserMemoryProfile` |
-| **用户偏好** | `UserSettings`, `WatchlistItem`, `UserSignalStats` |
+| 关注点 | `UserSettings` | `UserMemoryProfile` |
+|--------|:---:|:---:|
+| 主题/语言/时区 | ✅ theme, language, timezone | ❌ |
+| 通知配置 | ✅ notificationConfig | ❌ |
+| 交易配置 | ✅ tradingConfig | ❌ |
+| 显示配置 | ✅ displayConfig | ❌ |
+| 快捷链接 | ✅ quickLinks | ❌ |
+| LLM 配置 | ✅ llmConfig（含 memory.enabled, mode, L1-L3 开关） | ❌ |
+| 风险偏好 | ❌ | ✅ riskPreference |
+| 偏好数据源 | ❌ | ✅ preferredSources |
+| 用户画像事实 | ❌ | ✅ profileFacts |
+
+### 7.2 问题
+
+- `UserSettings.llmConfig.memory` 中包含 `enabled`、`mode`、`enableL1`、`enableL2`、`enableL3` — 这与 AI 记忆系统直接相关，但放在了 UI 设置实体中
+- `UserMemoryProfile` 的 `riskPreference` 和 `preferredSources` 本质上也是用户偏好，与 `UserSettings` 中的交易/显示配置属于同一范畴
+- 两张表都以 `userId` 为唯一标识，形成 **1:1:1 三表关联**（`User` ↔ `UserSettings` ↔ `UserMemoryProfile`）
+
+### 7.3 建议
+
+1. **将 LLM/Memory 配置从 `UserSettings` 移至 `UserMemoryProfile`**：AI 相关配置应集中管理
+2. 或者：将 `UserMemoryProfile` 合并到 `UserSettings` 中（作为一个 JSONB 字段 `memoryProfile`）
+3. 当前方案可接受，但需要明确边界：`UserSettings` = 前端 UI 配置，`UserMemoryProfile` = AI 后端配置
 
 ---
 
-## 五、总结与优先级建议
+## 8. ⚪ 有意设计：`PortfolioPosition` vs `WatchlistItem`
 
-| 优先级 | 类型 | 问题 | 影响 | 建议 |
-|--------|------|------|------|------|
-| 🔴 **P0** | 代码冗余 | `TradeType` 枚举重复定义 | 维护负担，改一处漏一处 | 提取为共享枚举 |
-| 🔴 **P0** | 数据冗余 | `UserMemoryProfile.watchSymbols` 与 `WatchlistItem` | 数据不一致风险 | 删除 JSONB 字段 |
-| 🟡 **P1** | 结构冗余 | `SignalLike/Favorite/Subscription` 三表同构 | 表数量膨胀，维护成本高 | 合并或抽基类 |
-| 🟢 **P2** | 代码模式 | 手写 Builder 重复 ~1100 行 | 代码膨胀，但不影响功能 | 中期优化 |
-| ⚪ **保留** | 有意设计 | `PortfolioPosition` 是 Trade 快照 | 性能优化 | 保持现状 |
-| ⚪ **保留** | 有意设计 | `BacktestTrade` vs `Trade` 不同域 | 领域隔离 | 保持现状 |
+### 8.1 共享模式
+
+| 字段 | `PortfolioPosition` | `WatchlistItem` |
+|------|:---:|:---:|
+| `userId` | ✅ | ✅ |
+| `market` | ✅ | ✅ |
+| `symbol` | ✅ | ✅ |
+| `name` | ✅ | ✅ |
+| 唯一约束 | `(user_id, market, symbol)` | `(user_id, market, symbol)` |
+
+两者都建立 **用户-市场-股票** 的关联关系，且共享完全相同的唯一约束。
+
+### 8.2 分析
+
+- `PortfolioPosition`：记录**实际持仓**（含数量、成本），是交易子系统的一部分
+- `WatchlistItem`：记录**关注/自选**（含排序、备注），是用户行为子系统的一部分
+- 两者生命周期不同：持仓随交易自动增减，自选由用户手动管理
+
+### 8.3 结论
+
+**保持现状**。虽然共享关联模式，但业务语义完全不同。可以考虑让两者都通过 `StockBasic` 表做 JOIN 校验 symbol 有效性，但不建议合并。
+
+---
+
+## 9. 防御性拷贝模式分析
+
+### 9.1 当前实现方式
+
+以下实体对 JSONB 字段或关联实体字段采用了**手写 getter/setter + 防御性拷贝**模式：
+
+| 实体 | 拷贝字段 | 拷贝方式 |
+|------|---------|---------|
+| `CommunitySignal` | `tags` (List), `user` (Entity) | `CollectionCopyUtils.copyList`, `EntityCopyUtils.copyUser` |
+| `DataSourceStatus` | `metadata` (Map) | `CollectionCopyUtils.copyMap` |
+| `MemoryChatMessage` | `metadata` (Map) | `CollectionCopyUtils.copyMap` |
+| `SignalComment` | `signal`, `user`, `parent`, `replies` | `EntityCopyUtils.*` |
+| `SignalFavorite` | `signal`, `user` | `EntityCopyUtils.*` |
+| `SignalLike` | `signal`, `user` | `EntityCopyUtils.*` |
+| `SignalSubscription` | `signal`, `user` | `EntityCopyUtils.*` |
+| `UserCredential` | `additionalConfig` (Map) | `CollectionCopyUtils.copyMap` |
+| `UserMemoryProfile` | `preferredSources` (List), `profileFacts` (Map) | `CollectionCopyUtils.*` |
+| `UserSettings` | `notificationConfig`, `tradingConfig`, `displayConfig`, `quickLinks`, `llmConfig` | 自定义 copy 方法 + `CollectionCopyUtils` |
+| `UserSignalStats` | `user` (Entity) | `EntityCopyUtils.copyUser` |
+
+### 9.2 问题
+
+1. **防御性拷贝在 Entity 层是不必要的**：JPA Entity 本身是数据库映射层，不应该承载业务逻辑。防御性拷贝应在 Service/DTO 转换层完成。
+2. **手写 Builder 与防御性拷贝结合导致代码膨胀**：`CommunitySignal` 一个类就有 ~500 行（含 Builder），`UserSettings` 更是 ~600 行。
+3. **对 `@ManyToOne LAZY` 关联做防御性拷贝会触发懒加载**：在 Entity 层调用 `getSignal()`/`getUser()` 时，即使只是拷贝，也可能触发 SQL 查询。
+
+### 9.3 建议
+
+1. **Entity 层使用纯 Lombok**（`@Data` + `@Builder` + `@NoArgsConstructor` + `@AllArgsConstructor`），不做防御性拷贝
+2. **防御性拷贝移至 DTO 转换层**（Mapper/Converter）
+3. 或者：为 JSONB 字段自定义 Hibernate `AttributeConverter`，在序列化/反序列化时自动实现不可变性
+
+---
+
+## 10. 总结与优先级建议
+
+| 优先级 | 类型 | 问题 | 影响范围 | 建议操作 |
+|--------|------|------|---------|---------|
+| 🔴 **P0** | 代码膨胀 | 10 个实体手写 Builder（~2,100 行） | 10 个文件 | 恢复 Lombok `@Builder`，防御性拷贝下沉 |
+| 🔴 **P0** | 结构冗余 | `Trade` vs `BacktestTrade` 字段重叠 | 2 个文件 | 提取 `BaseTrade` @MappedSuperclass |
+| 🟡 **P1** | 枚举分散 | 12 个内部枚举未归入 `enums/` 包 | 8 个文件 | 提取至 `enums/` 包，合并 `SignalType`/`TradeType` |
+| 🟡 **P1** | 模式冗余 | `SignalLike`/`SignalFavorite`/`SignalSubscription` 同构 | 3 个文件 | 提取 `@MappedSuperclass` 或保持现状 |
+| 🟡 **P1** | 模式冗余 | Market 指标三实体同构 | 3 个文件 | 提取 `@MappedSuperclass` 或保持现状 |
+| 🟡 **P2** | 职责模糊 | `UserSettings` LLM 配置与 `UserMemoryProfile` 交叉 | 2 个文件 | 重新划界，AI 配置集中至 `UserMemoryProfile` |
+| ⚪ **保留** | 有意设计 | `PortfolioPosition` vs `WatchlistItem` | — | 保持现状 |
+| ⚪ **保留** | 有意设计 | `AlertRule` / `AlertHistory` 父子关系 | — | 保持现状 |
+| ⚪ **保留** | 有意设计 | `Strategy` / `StrategyVersion` / `StrategyParameter` 版本体系 | — | 保持现状 |
+
+---
+
+## 11. 冗余影响量化
+
+| 冗余类型 | 涉及实体数 | 可消除代码（估算） |
+|----------|:---------:|:----------------:|
+| 手写 Builder + 防御性拷贝 | 10 个 | ~2,100 行 |
+| Trade/BacktestTrade 公共字段 | 2 个 | ~40 行（如提取基类） |
+| 内部枚举提取 | 8 个 | 0（纯位置移动，提高可维护性） |
+| 信号交互实体同构 | 3 个 | ~50 行（如提取基类） |
+| Market 指标同构 | 3 个 | ~60 行（如提取基类） |
+| **合计** | **~18 个** | **~2,250 行可消除/简化** |
+
+---
+
+## 附录 A：Entity 目录结构
+
+```
+entity/
+├── enums/
+│   └── TradeType.java                  # 🔡 唯一独立枚举
+├── AlertHistory.java                   # 监控 - 告警历史
+├── AlertRule.java                      # 监控 - 告警规则
+├── BacktestResult.java                 # 策略 - 回测结果（含内部枚举 BacktestStatus）
+├── BacktestTrade.java                  # 策略 - 回测交易（🔴 与 Trade 重叠）
+├── CommunitySignal.java                # 社区 - 信号（含 3 个内部枚举，🔴 手写 Builder）
+├── CredentialAuditLog.java             # 认证 - 凭证审计日志（含内部枚举 ActionType）
+├── DataSourceStatus.java               # 监控 - 数据源状态（🔴 手写 Builder）
+├── KlineData.java                      # 行情 - K线数据
+├── LoginAttempt.java                   # 认证 - 登录尝试记录
+├── MarketDailyBreadth.java             # 市场 - 日广度指标（🟡 与其他 Market 实体同构）
+├── MarketDailyNetFlow.java             # 市场 - 日资金流（🟡 与其他 Market 实体同构）
+├── MarketSectorNetFlow.java            # 市场 - 板块资金流（🟡 与其他 Market 实体同构）
+├── MemoryChatMessage.java              # AI - 聊天消息（🔴 手写 Builder）
+├── MemoryChatSession.java              # AI - 聊天会话
+├── PasswordResetToken.java             # 认证 - 密码重置令牌
+├── Permission.java                     # RBAC - 权限
+├── PortfolioPosition.java              # 交易 - 持仓
+├── RefreshToken.java                   # 认证 - 刷新令牌
+├── Role.java                           # RBAC - 角色
+├── SignalComment.java                  # 社区 - 信号评论（🔴 手写 Builder）
+├── SignalFavorite.java                 # 社区 - 信号收藏（🟡 与 Like/Subscription 同构，🔴 手写 Builder）
+├── SignalLike.java                     # 社区 - 信号点赞（🟡 与 Favorite/Subscription 同构，🔴 手写 Builder）
+├── SignalSubscription.java             # 社区 - 信号订阅（🟡 与 Like/Favorite 同构，🔴 手写 Builder）
+├── StockBasic.java                     # 行情 - 股票基本信息
+├── StockRealtime.java                  # 行情 - 股票实时行情
+├── StockTickHistory.java               # 行情 - 逐笔历史
+├── Strategy.java                       # 策略 - 策略（含内部枚举 StrategyStatus）
+├── StrategyParameter.java              # 策略 - 策略参数（含内部枚举 ParameterType）
+├── StrategyVersion.java                # 策略 - 策略版本
+├── Trade.java                          # 交易 - 交易记录（🔴 与 BacktestTrade 重叠）
+├── User.java                           # 用户 - 用户（含内部枚举 UserStatus）
+├── UserCredential.java                 # 认证 - API凭证（含 3 个内部枚举，🔴 手写 Builder）
+├── UserMemoryProfile.java              # AI - 用户记忆画像（🟡 与 UserSettings 职责交叉，🔴 手写 Builder）
+├── UserSettings.java                   # 用户 - 用户设置（🟡 与 UserMemoryProfile 职责交叉，🔴 手写 Builder）
+├── UserSignalStats.java                # 社区 - 用户信号统计（🔴 手写 Builder）
+└── WatchlistItem.java                  # 用户 - 自选股
+```
+
+---
+
+## 附录 B：实体关系概览
+
+```
+User ─┬── UserSettings (1:1)
+      ├── UserMemoryProfile (1:1)
+      ├── UserSignalStats (1:1)
+      ├── UserCredential (1:N)
+      ├── RefreshToken (1:N)
+      ├── PasswordResetToken (1:N)
+      ├── LoginAttempt (via identifier)
+      ├── CredentialAuditLog (1:N)
+      ├── Strategy (1:N) ─── StrategyVersion (1:N)
+      │                  └── StrategyParameter (1:N)
+      ├── BacktestResult (1:N) ─── BacktestTrade (1:N)
+      ├── Trade (1:N)
+      ├── PortfolioPosition (1:N)
+      ├── WatchlistItem (1:N)
+      ├── CommunitySignal (1:N) ──┬── SignalLike (1:N)
+      │                           ├── SignalFavorite (1:N)
+      │                           ├── SignalSubscription (1:N)
+      │                           └── SignalComment (1:N, self-ref)
+      ├── MemoryChatSession (1:N) ─── MemoryChatMessage (1:N)
+      └── Role/Permission (RBAC)
+
+StockBasic ─┬── StockRealtime (1:1, via symbol)
+            ├── KlineData (1:N)
+            ├── StockTickHistory (1:N)
+            ├── PortfolioPosition (via market+symbol)
+            ├── WatchlistItem (via market+symbol)
+            └── Trade (via market+symbol)
+
+AlertRule ─── AlertHistory (1:N)
+
+DataSourceStatus (独立)
