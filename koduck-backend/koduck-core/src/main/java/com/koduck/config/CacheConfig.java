@@ -59,10 +59,6 @@ public class CacheConfig {
      * 热门股票列表响应的缓存名称。
      */
     public static final String CACHE_HOT_STOCKS = "hotStocks";
-    /**
-     * 投资组合汇总的缓存名称。
-     */
-    public static final String CACHE_PORTFOLIO_SUMMARY = "portfolioSummary";
 
     /**
      * Spring Boot 自动配置注入的全局 ObjectMapper。
@@ -156,8 +152,6 @@ public class CacheConfig {
                 cacheProperties.getStockIndustryTtl(), jsonSerializer, false);
         RedisCacheConfiguration hotStocksConfig = buildCacheConfiguration(
                 cacheProperties.getHotStocksTtl(), jsonSerializer, false);
-        RedisCacheConfiguration portfolioSummaryConfig = buildCacheConfiguration(
-                cacheProperties.getPortfolioSummaryTtl(), jsonSerializer, false);
 
         return RedisCacheManager.builder(Objects.requireNonNull(connectionFactory))
             .cacheDefaults(Objects.requireNonNull(defaultConfig))
@@ -168,7 +162,6 @@ public class CacheConfig {
             .withCacheConfiguration(CACHE_MARKET_INDICES, Objects.requireNonNull(marketIndicesConfig))
             .withCacheConfiguration(CACHE_STOCK_INDUSTRY, Objects.requireNonNull(stockIndustryConfig))
             .withCacheConfiguration(CACHE_HOT_STOCKS, Objects.requireNonNull(hotStocksConfig))
-            .withCacheConfiguration(CACHE_PORTFOLIO_SUMMARY, Objects.requireNonNull(portfolioSummaryConfig))
                 .build();
     }
 }
