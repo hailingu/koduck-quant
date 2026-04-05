@@ -16,7 +16,7 @@ import com.koduck.dto.auth.RefreshTokenRequest;
 import com.koduck.dto.auth.RegisterRequest;
 import com.koduck.dto.auth.ResetPasswordRequest;
 import com.koduck.dto.auth.SecurityConfigResponse;
-import com.koduck.dto.UserInfo;
+import com.koduck.security.AuthUserPrincipal;
 import com.koduck.dto.auth.TokenResponse;
 import com.koduck.service.AuthService;
 
@@ -57,7 +57,7 @@ class AuthControllerTest {
         request.setUsername("demo");
         request.setPassword("password123");
 
-        TokenResponse<UserInfo> tokenResponse = TokenResponse.<UserInfo>builder()
+        TokenResponse<AuthUserPrincipal> tokenResponse = TokenResponse.<AuthUserPrincipal>builder()
                 .accessToken("access-token")
                 .refreshToken("refresh-token")
                 .build();
@@ -67,7 +67,7 @@ class AuthControllerTest {
         when(httpServletRequest.getHeader("User-Agent")).thenReturn("JUnit-Agent");
         when(authService.login(request, "10.0.0.1", "JUnit-Agent")).thenReturn(tokenResponse);
 
-        ApiResponse<TokenResponse<UserInfo>> response = authController.login(request, httpServletRequest);
+        ApiResponse<TokenResponse<AuthUserPrincipal>> response = authController.login(request, httpServletRequest);
 
         assertEquals(0, response.getCode());
         assertEquals("access-token", response.getData().getAccessToken());
@@ -86,10 +86,10 @@ class AuthControllerTest {
         request.setPassword("password123");
         request.setConfirmPassword("password123");
 
-        TokenResponse<UserInfo> tokenResponse = TokenResponse.<UserInfo>builder().accessToken("token").build();
+        TokenResponse<AuthUserPrincipal> tokenResponse = TokenResponse.<AuthUserPrincipal>builder().accessToken("token").build();
         when(authService.register(request)).thenReturn(tokenResponse);
 
-        ApiResponse<TokenResponse<UserInfo>> response = authController.register(request);
+        ApiResponse<TokenResponse<AuthUserPrincipal>> response = authController.register(request);
 
         assertEquals(0, response.getCode());
         assertEquals("token", response.getData().getAccessToken());
@@ -105,10 +105,10 @@ class AuthControllerTest {
         RefreshTokenRequest request = new RefreshTokenRequest();
         request.setRefreshToken("refresh-token");
 
-        TokenResponse<UserInfo> tokenResponse = TokenResponse.<UserInfo>builder().accessToken("new-access").build();
+        TokenResponse<AuthUserPrincipal> tokenResponse = TokenResponse.<AuthUserPrincipal>builder().accessToken("new-access").build();
         when(authService.refreshToken(request)).thenReturn(tokenResponse);
 
-        ApiResponse<TokenResponse<UserInfo>> response = authController.refreshToken(request);
+        ApiResponse<TokenResponse<AuthUserPrincipal>> response = authController.refreshToken(request);
 
         assertEquals(0, response.getCode());
         assertEquals("new-access", response.getData().getAccessToken());

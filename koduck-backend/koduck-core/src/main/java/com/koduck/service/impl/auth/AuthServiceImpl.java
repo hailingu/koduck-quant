@@ -17,7 +17,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.koduck.common.constants.RoleConstants;
 import com.koduck.config.properties.MailProperties;
-import com.koduck.dto.UserInfo;
+import com.koduck.security.AuthUserPrincipal;
 import com.koduck.dto.auth.ForgotPasswordRequest;
 import com.koduck.dto.auth.LoginRequest;
 import com.koduck.dto.auth.RefreshTokenRequest;
@@ -93,7 +93,7 @@ public class AuthServiceImpl implements AuthService {
     private static final int MAX_REFRESH_TOKENS_PER_USER = 2;
     @Override
     @Transactional
-    public TokenResponse<UserInfo> login(LoginRequest request, String ipAddress, String userAgent) {
+    public TokenResponse<AuthUserPrincipal> login(LoginRequest request, String ipAddress, String userAgent) {
         String loginIdentifier = normalizeLoginIdentifier(request.getUsername());
         if (!rateLimiterService.allowLoginAttempt(loginIdentifier, ipAddress)) {
             throw AuthenticationException.accountLocked();
@@ -124,7 +124,7 @@ public class AuthServiceImpl implements AuthService {
     }
     @Override
     @Transactional
-    public TokenResponse<UserInfo> register(RegisterRequest request) {
+    public TokenResponse<AuthUserPrincipal> register(RegisterRequest request) {
         // 检查保留用户名（大小写不敏感）
         if (ReservedUsernameValidator.isReserved(request.getUsername())) {
             throw new BusinessException(ErrorCode.USER_RESERVED_USERNAME);
@@ -159,7 +159,7 @@ public class AuthServiceImpl implements AuthService {
     }
     @Override
     @Transactional
-    public TokenResponse<UserInfo> refreshToken(RefreshTokenRequest request) {
+    public TokenResponse<AuthUserPrincipal> refreshToken(RefreshTokenRequest request) {
         String refreshTokenValue = request.getRefreshToken();
         // 验证 Refresh Token 格式
         if (!jwtUtil.validateToken(refreshTokenValue) || !jwtUtil.isRefreshToken(refreshTokenValue)) {
@@ -288,7 +288,7 @@ public class AuthServiceImpl implements AuthService {
      * @param user 用户
      * @return Token 响应
      */
-    private TokenResponse<UserInfo> generateTokenResponse(User user) {
+    private TokenResponse<AuthUserPrincipal> generateTokenResponse(User user) {
         List<String> roleNames;
         if (!userRolesTableChecker.hasUserRolesTable()) {
             roleNames = List.of(RoleConstants.DEFAULT_USER_ROLE_NAME);
@@ -313,22 +313,14 @@ public class AuthServiceImpl implements AuthService {
         String refreshToken = jwtUtil.generateRefreshToken(user.getId());
         // 保存 Refresh Token（每个用户最多保留 MAX_REFRESH_TOKENS_PER_USER 条）
         upsertRefreshTokenWithLimit(user.getId(), hashToken(refreshToken));
-        // 构建 UserInfo
-        UserInfo userInfo = UserInfo.builder()
-                .id(user.getId())
-                .username(user.getUsername())
-                .email(user.getEmail())
-                .nickname(user.getNickname())
-                .avatarUrl(user.getAvatarUrl())
-                .status(user.getStatus())
-                .roles(roleNames)
-                .build();
-        return TokenResponse.<UserInfo>builder()
+        // 构建 AuthUserPrincipal
+        AuthUserPrincipal authUserPrincipal = AuthUserPrincipal.from(user, roleNames);
+        return TokenResponse.<AuthUserPrincipal>builder()
                 .accessToken(accessToken)
                 .refreshToken(refreshToken)
                 .expiresIn(86400L) // 24 小时
                 .tokenType("Bearer")
-                .user(userInfo)
+                .user(authUserPrincipal)
                 .build();
     }
     /**
