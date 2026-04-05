@@ -49,7 +49,7 @@
         </dependency>
         <dependency>
             <groupId>com.koduck</groupId>
-            <artifactId>koduck-ai</artifactId>
+            <artifactId>koduck-ai-impl</artifactId>
         </dependency>
 
         <!-- Spring Boot Starter -->

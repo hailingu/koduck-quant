@@ -161,6 +161,17 @@
                 <groupId>com.koduck</groupId>
                 <artifactId>koduck-ai</artifactId>
                 <version>${koduck.version}</version>
+                <type>pom</type>
+            </dependency>
+            <dependency>
+                <groupId>com.koduck</groupId>
+                <artifactId>koduck-ai-api</artifactId>
+                <version>${koduck.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.koduck</groupId>
+                <artifactId>koduck-ai-impl</artifactId>
+                <version>${koduck.version}</version>
             </dependency>
         </dependencies>
     </dependencyManagement>
