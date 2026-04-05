@@ -145,6 +145,17 @@
                 <groupId>com.koduck</groupId>
                 <artifactId>koduck-community</artifactId>
                 <version>${koduck.version}</version>
+                <type>pom</type>
+            </dependency>
+            <dependency>
+                <groupId>com.koduck</groupId>
+                <artifactId>koduck-community-api</artifactId>
+                <version>${koduck.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.koduck</groupId>
+                <artifactId>koduck-community-impl</artifactId>
+                <version>${koduck.version}</version>
             </dependency>
             <dependency>
                 <groupId>com.koduck</groupId>
