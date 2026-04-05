@@ -3,8 +3,8 @@ package com.koduck.config;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
-import com.koduck.config.properties.StompRelayProperties;
-import com.koduck.config.properties.WebSocketProperties;
+import com.koduck.infrastructure.config.properties.StompRelayProperties;
+import com.koduck.infrastructure.config.properties.WebSocketProperties;
 import com.koduck.security.websocket.WebSocketChannelInterceptor;
 
 import static org.assertj.core.api.Assertions.assertThat;

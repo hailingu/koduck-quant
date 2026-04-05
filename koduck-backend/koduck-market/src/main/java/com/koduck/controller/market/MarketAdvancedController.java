@@ -34,7 +34,7 @@ import com.koduck.common.constants.ApiStatusCodeConstants;
 import com.koduck.common.constants.DateTimePatternConstants;
 import com.koduck.common.constants.MarketConstants;
 import com.koduck.common.constants.PaginationConstants;
-import com.koduck.config.properties.DataServiceProperties;
+import com.koduck.infrastructure.config.properties.DataServiceProperties;
 import com.koduck.dto.ApiResponse;
 import com.koduck.dto.market.BigOrderAlertDto;
 import com.koduck.dto.market.BigOrderStatsDto;

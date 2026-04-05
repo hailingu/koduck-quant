@@ -24,7 +24,7 @@ import org.springframework.web.util.UriComponentsBuilder;
 
 import com.koduck.common.constants.DataServicePathConstants;
 import com.koduck.common.constants.MapKeyConstants;
-import com.koduck.config.properties.DataServiceProperties;
+import com.koduck.infrastructure.config.properties.DataServiceProperties;
 import com.koduck.dto.market.DataServiceResponse;
 import com.koduck.dto.market.PriceQuoteDto;
 import com.koduck.dto.market.StockIndustryDto;

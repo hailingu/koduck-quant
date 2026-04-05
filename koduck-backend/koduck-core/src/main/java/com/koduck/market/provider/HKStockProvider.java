@@ -23,7 +23,7 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClient;
 
-import com.koduck.config.properties.DataServiceProperties;
+import com.koduck.infrastructure.config.properties.DataServiceProperties;
 import com.koduck.market.MarketType;
 import com.koduck.market.model.KlineData;
 import com.koduck.market.model.TickData;

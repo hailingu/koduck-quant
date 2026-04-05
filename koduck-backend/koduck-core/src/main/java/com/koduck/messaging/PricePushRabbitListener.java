@@ -6,7 +6,7 @@ import org.springframework.amqp.rabbit.annotation.RabbitListener;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 
-import com.koduck.config.properties.PricePushRabbitProperties;
+import com.koduck.infrastructure.config.properties.PricePushRabbitProperties;
 import com.koduck.dto.market.RealtimePriceEventMessage;
 import com.koduck.service.PricePushService;
 

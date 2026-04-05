@@ -25,7 +25,7 @@ import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.reactive.function.client.WebClientResponseException;
 import org.springframework.web.util.UriComponentsBuilder;
 
-import com.koduck.config.properties.FinnhubProperties;
+import com.koduck.infrastructure.config.properties.FinnhubProperties;
 import com.koduck.market.MarketType;
 import com.koduck.market.model.KlineData;
 import com.koduck.market.model.TickData;

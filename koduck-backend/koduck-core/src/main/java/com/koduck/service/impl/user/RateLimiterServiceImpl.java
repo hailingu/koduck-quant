@@ -10,7 +10,7 @@ import org.springframework.lang.NonNull;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
-import com.koduck.config.properties.RateLimitProperties;
+import com.koduck.infrastructure.config.properties.RateLimitProperties;
 import com.koduck.service.RateLimiterService;
 
 import lombok.extern.slf4j.Slf4j;

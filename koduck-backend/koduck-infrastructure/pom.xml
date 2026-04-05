@@ -11,9 +11,9 @@
         <version>0.1.0-SNAPSHOT</version>
     </parent>
 
-    <artifactId>koduck-market</artifactId>
-    <name>Koduck Market</name>
-    <description>Koduck Market Data Module - K-line, real-time prices, market flow, technical indicators</description>
+    <artifactId>koduck-infrastructure</artifactId>
+    <name>Koduck Infrastructure</name>
+    <description>Koduck Backend Infrastructure Module - Security, Cache, Redis, WebSocket, RabbitMQ, WebClient configurations</description>
     <packaging>jar</packaging>
 
     <dependencies>
@@ -21,18 +21,6 @@
         <dependency>
             <groupId>com.koduck</groupId>
             <artifactId>koduck-common</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>com.koduck</groupId>
-            <artifactId>koduck-infrastructure</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>com.koduck</groupId>
-            <artifactId>koduck-auth</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>com.koduck</groupId>
-            <artifactId>koduck-core</artifactId>
         </dependency>
 
         <!-- Web -->
@@ -46,6 +34,8 @@
                 </exclusion>
             </exclusions>
         </dependency>
+
+        <!-- WebFlux for WebClient -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-webflux</artifactId>
@@ -93,17 +83,68 @@
             <artifactId>spring-boot-starter-amqp</artifactId>
         </dependency>
 
-        <!-- PostgreSQL Driver -->
+        <!-- Mail -->
         <dependency>
-            <groupId>org.postgresql</groupId>
-            <artifactId>postgresql</artifactId>
-            <scope>runtime</scope>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-mail</artifactId>
         </dependency>
 
-        <!-- Flyway -->
+        <!-- WebSocket -->
         <dependency>
-            <groupId>org.flywaydb</groupId>
-            <artifactId>flyway-core</artifactId>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-websocket</artifactId>
+            <exclusions>
+                <exclusion>
+                    <groupId>org.springframework.boot</groupId>
+                    <artifactId>spring-boot-starter-logging</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+
+        <!-- STOMP -->
+        <dependency>
+            <groupId>org.springframework</groupId>
+            <artifactId>spring-messaging</artifactId>
+        </dependency>
+
+        <!-- SpringDoc OpenAPI -->
+        <dependency>
+            <groupId>org.springdoc</groupId>
+            <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
+        </dependency>
+
+        <!-- Resilience4j Circuit Breaker -->
+        <dependency>
+            <groupId>io.github.resilience4j</groupId>
+            <artifactId>resilience4j-spring-boot3</artifactId>
+        </dependency>
+
+        <!-- Spring Vault -->
+        <dependency>
+            <groupId>org.springframework.cloud</groupId>
+            <artifactId>spring-cloud-starter-vault-config</artifactId>
+        </dependency>
+
+        <!-- Log4j2 logging backend -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-log4j2</artifactId>
+        </dependency>
+
+        <!-- JWT -->
+        <dependency>
+            <groupId>io.jsonwebtoken</groupId>
+            <artifactId>jjwt-api</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>io.jsonwebtoken</groupId>
+            <artifactId>jjwt-impl</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+        <dependency>
+            <groupId>io.jsonwebtoken</groupId>
+            <artifactId>jjwt-jackson</artifactId>
+            <scope>runtime</scope>
         </dependency>
 
         <!-- Lombok -->
@@ -126,40 +167,10 @@
             <optional>true</optional>
         </dependency>
 
-        <!-- Ta4j - Technical Analysis Library -->
+        <!-- Jackson JSR310 -->
         <dependency>
-            <groupId>org.ta4j</groupId>
-            <artifactId>ta4j-core</artifactId>
-        </dependency>
-
-        <!-- SpringDoc OpenAPI -->
-        <dependency>
-            <groupId>org.springdoc</groupId>
-            <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
-        </dependency>
-
-        <!-- Resilience4j Circuit Breaker -->
-        <dependency>
-            <groupId>io.github.resilience4j</groupId>
-            <artifactId>resilience4j-spring-boot3</artifactId>
-        </dependency>
-
-        <!-- WebSocket -->
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-websocket</artifactId>
-            <exclusions>
-                <exclusion>
-                    <groupId>org.springframework.boot</groupId>
-                    <artifactId>spring-boot-starter-logging</artifactId>
-                </exclusion>
-            </exclusions>
-        </dependency>
-
-        <!-- Log4j2 logging backend -->
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-log4j2</artifactId>
+            <groupId>com.fasterxml.jackson.datatype</groupId>
+            <artifactId>jackson-datatype-jsr310</artifactId>
         </dependency>
 
         <!-- Test -->
@@ -179,26 +190,6 @@
             <artifactId>spring-security-test</artifactId>
             <scope>test</scope>
         </dependency>
-        <dependency>
-            <groupId>org.testcontainers</groupId>
-            <artifactId>junit-jupiter</artifactId>
-            <scope>test</scope>
-        </dependency>
-        <dependency>
-            <groupId>org.testcontainers</groupId>
-            <artifactId>postgresql</artifactId>
-            <scope>test</scope>
-        </dependency>
-        <dependency>
-            <groupId>com.h2database</groupId>
-            <artifactId>h2</artifactId>
-            <scope>test</scope>
-        </dependency>
-        <dependency>
-            <groupId>org.awaitility</groupId>
-            <artifactId>awaitility</artifactId>
-            <scope>test</scope>
-        </dependency>
     </dependencies>
 
     <build>
@@ -207,16 +198,11 @@
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
             </plugin>
-            
             <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-surefire-plugin</artifactId>
+                <groupId>com.github.spotbugs</groupId>
+                <artifactId>spotbugs-maven-plugin</artifactId>
                 <configuration>
-                    <systemPropertyVariables>
-                        <spring.profiles.active>test</spring.profiles.active>
-                    </systemPropertyVariables>
-                    <rerunFailingTestsCount>2</rerunFailingTestsCount>
-                    <trimStackTrace>false</trimStackTrace>
+                    <excludeFilterFile>${project.basedir}/spotbugs-exclude.xml</excludeFilterFile>
                 </configuration>
             </plugin>
         </plugins>

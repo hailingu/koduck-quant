@@ -16,7 +16,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.koduck.common.constants.RoleConstants;
-import com.koduck.config.properties.MailProperties;
+import com.koduck.infrastructure.config.properties.MailProperties;
 import com.koduck.security.AuthUserPrincipal;
 import com.koduck.dto.auth.ForgotPasswordRequest;
 import com.koduck.dto.auth.LoginRequest;
