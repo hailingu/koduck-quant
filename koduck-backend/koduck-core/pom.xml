@@ -26,6 +26,10 @@
             <groupId>com.koduck</groupId>
             <artifactId>koduck-auth</artifactId>
         </dependency>
+        <dependency>
+            <groupId>com.koduck</groupId>
+            <artifactId>koduck-portfolio</artifactId>
+        </dependency>
 
         <!-- Web -->
         <dependency>

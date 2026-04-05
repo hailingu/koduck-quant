@@ -13,7 +13,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.koduck.common.constants.MarketConstants;
-import com.koduck.config.CacheConfig;
+import com.koduck.config.PortfolioCacheConfig;
 import com.koduck.dto.portfolio.AddPositionRequest;
 import com.koduck.dto.portfolio.AddTradeRequest;
 import com.koduck.dto.portfolio.PortfolioPositionDto;
@@ -21,11 +21,11 @@ import com.koduck.dto.portfolio.PortfolioSummaryDto;
 import com.koduck.dto.portfolio.TradeDto;
 import com.koduck.dto.portfolio.UpdatePositionRequest;
 import com.koduck.entity.portfolio.PortfolioPosition;
-import com.koduck.entity.backtest.Trade;
-import com.koduck.entity.enums.TradeType;
+import com.koduck.entity.portfolio.Trade;
+import com.koduck.entity.portfolio.TradeType;
 import com.koduck.repository.portfolio.PortfolioPositionRepository;
-import com.koduck.repository.backtest.TradeRepository;
-import com.koduck.service.KlineService;
+import com.koduck.repository.portfolio.TradeRepository;
+import com.koduck.service.PortfolioPriceService;
 import com.koduck.service.PortfolioService;
 
 import lombok.extern.slf4j.Slf4j;
@@ -48,8 +48,8 @@ public class PortfolioServiceImpl implements PortfolioService {
     /** 交易记录仓库. */
     private final TradeRepository tradeRepository;
 
-    /** K线数据服务. */
-    private final KlineService klineService;
+    /** 价格数据服务. */
+    private final PortfolioPriceService priceService;
 
     // Use MarketConstants.MarketConstants.DEFAULT_TIMEFRAME directly
 
@@ -71,10 +71,10 @@ public class PortfolioServiceImpl implements PortfolioService {
      */
     public PortfolioServiceImpl(PortfolioPositionRepository positionRepository,
                                 TradeRepository tradeRepository,
-                                KlineService klineService) {
+                                PortfolioPriceService priceService) {
         this.positionRepository = positionRepository;
         this.tradeRepository = tradeRepository;
-        this.klineService = klineService;
+        this.priceService = priceService;
     }
 
     /**
@@ -93,7 +93,7 @@ public class PortfolioServiceImpl implements PortfolioService {
      * {@inheritDoc}
      */
     @Override
-    @Cacheable(value = CacheConfig.CACHE_PORTFOLIO_SUMMARY, key = "#userId")
+    @Cacheable(value = PortfolioCacheConfig.CACHE_PORTFOLIO_SUMMARY, key = "#userId")
     public PortfolioSummaryDto getPortfolioSummary(Long userId) {
         log.debug("Getting portfolio summary for user: {}", userId);
         List<PortfolioPosition> positions = positionRepository.findByUserId(userId);
@@ -101,7 +101,7 @@ public class PortfolioServiceImpl implements PortfolioService {
         BigDecimal totalMarketValue = BigDecimal.ZERO;
         BigDecimal totalDailyPnl = BigDecimal.ZERO;
         for (PortfolioPosition position : positions) {
-            Optional<BigDecimal> currentPriceOpt = klineService.getLatestPrice(
+            Optional<BigDecimal> currentPriceOpt = priceService.getLatestPrice(
                 position.getMarket(), position.getSymbol(), MarketConstants.DEFAULT_TIMEFRAME);
             BigDecimal currentPrice = currentPriceOpt.orElse(position.getAvgCost());
             BigDecimal cost = position.getAvgCost().multiply(position.getQuantity());
@@ -140,7 +140,7 @@ public class PortfolioServiceImpl implements PortfolioService {
      */
     private Optional<BigDecimal> calculatePositionDailyPnl(
             PortfolioPosition position, BigDecimal currentPrice) {
-        Optional<BigDecimal> prevCloseOpt = klineService.getPreviousClosePrice(
+        Optional<BigDecimal> prevCloseOpt = priceService.getPreviousClosePrice(
             position.getMarket(), position.getSymbol(), MarketConstants.DEFAULT_TIMEFRAME);
         if (prevCloseOpt.isEmpty()) {
             log.warn("Previous close price not available for {}/{}, skipping daily PnL calculation",
@@ -184,7 +184,7 @@ public class PortfolioServiceImpl implements PortfolioService {
      */
     @Override
     @Transactional
-    @CacheEvict(value = CacheConfig.CACHE_PORTFOLIO_SUMMARY, key = "#userId")
+    @CacheEvict(value = PortfolioCacheConfig.CACHE_PORTFOLIO_SUMMARY, key = "#userId")
     public PortfolioPositionDto addPosition(Long userId, AddPositionRequest request) {
         log.debug("Adding position: user={}, market={}, symbol={}, quantity={}",
                  userId, request.market(), request.symbol(), request.quantity());
@@ -228,7 +228,7 @@ public class PortfolioServiceImpl implements PortfolioService {
      */
     @Override
     @Transactional
-    @CacheEvict(value = CacheConfig.CACHE_PORTFOLIO_SUMMARY, key = "#userId")
+    @CacheEvict(value = PortfolioCacheConfig.CACHE_PORTFOLIO_SUMMARY, key = "#userId")
     public PortfolioPositionDto updatePosition(Long userId, Long positionId,
                                                UpdatePositionRequest request) {
         log.debug("Updating position: user={}, positionId={}", userId, positionId);
@@ -251,7 +251,7 @@ public class PortfolioServiceImpl implements PortfolioService {
      */
     @Override
     @Transactional
-    @CacheEvict(value = CacheConfig.CACHE_PORTFOLIO_SUMMARY, key = "#userId")
+    @CacheEvict(value = PortfolioCacheConfig.CACHE_PORTFOLIO_SUMMARY, key = "#userId")
     public void deletePosition(Long userId, Long positionId) {
         log.debug("Deleting position: user={}, positionId={}", userId, positionId);
         positionRepository.deleteByUserIdAndId(userId, positionId);
@@ -275,7 +275,7 @@ public class PortfolioServiceImpl implements PortfolioService {
      */
     @Override
     @Transactional
-    @CacheEvict(value = CacheConfig.CACHE_PORTFOLIO_SUMMARY, key = "#userId")
+    @CacheEvict(value = PortfolioCacheConfig.CACHE_PORTFOLIO_SUMMARY, key = "#userId")
     public TradeDto addTrade(Long userId, AddTradeRequest request) {
         log.debug("Adding trade: user={}, market={}, symbol={}, type={}, quantity={}",
                  userId, request.market(), request.symbol(),
@@ -362,7 +362,7 @@ public class PortfolioServiceImpl implements PortfolioService {
      */
     private PortfolioPositionDto convertToDtoWithCalculations(PortfolioPosition position) {
         // Get real-time price
-        Optional<BigDecimal> currentPriceOpt = klineService.getLatestPrice(
+        Optional<BigDecimal> currentPriceOpt = priceService.getLatestPrice(
             position.getMarket(), position.getSymbol(), MarketConstants.DEFAULT_TIMEFRAME);
         BigDecimal currentPrice = currentPriceOpt.orElse(position.getAvgCost());
         BigDecimal marketValue = currentPrice.multiply(position.getQuantity());
