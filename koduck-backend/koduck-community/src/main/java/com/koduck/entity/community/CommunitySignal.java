@@ -24,6 +24,7 @@ import org.hibernate.type.SqlTypes;
 import com.koduck.entity.auth.User;
 import com.koduck.util.CollectionCopyUtils;
 import com.koduck.util.EntityCopyUtils;
+import com.koduck.util.CommunityEntityCopyUtils;
 
 import lombok.AccessLevel;
 import lombok.Data;

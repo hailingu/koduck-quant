@@ -16,6 +16,7 @@ import org.hibernate.annotations.CreationTimestamp;
 
 import com.koduck.entity.auth.User;
 import com.koduck.util.EntityCopyUtils;
+import com.koduck.util.CommunityEntityCopyUtils;
 
 import lombok.AccessLevel;
 import lombok.Data;
@@ -162,7 +163,7 @@ public class SignalFavorite {
          * @return 构建器
          */
         public Builder signal(CommunitySignal signalValue) {
-            this.signal = EntityCopyUtils.copyCommunitySignal(signalValue);
+            this.signal = CommunityEntityCopyUtils.copyCommunitySignal(signalValue);
             return this;
         }
 
@@ -201,7 +202,7 @@ public class SignalFavorite {
      * @return 信号
      */
     public CommunitySignal getSignal() {
-        return EntityCopyUtils.copyCommunitySignal(signal);
+        return CommunityEntityCopyUtils.copyCommunitySignal(signal);
     }
 
     /**
@@ -210,7 +211,7 @@ public class SignalFavorite {
      * @param signalValue 要设置的信号
      */
     public void setSignal(CommunitySignal signalValue) {
-        this.signal = EntityCopyUtils.copyCommunitySignal(signalValue);
+        this.signal = CommunityEntityCopyUtils.copyCommunitySignal(signalValue);
     }
 
     /**

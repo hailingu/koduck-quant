@@ -20,6 +20,7 @@ import org.hibernate.annotations.UpdateTimestamp;
 import com.koduck.entity.auth.User;
 import com.koduck.util.CollectionCopyUtils;
 import com.koduck.util.EntityCopyUtils;
+import com.koduck.util.CommunityEntityCopyUtils;
 
 import lombok.AccessLevel;
 import lombok.Data;
@@ -308,7 +309,7 @@ public class SignalComment {
          * @return 此构建器
          */
         public Builder signal(CommunitySignal signal) {
-            this.signal = EntityCopyUtils.copyCommunitySignal(signal);
+            this.signal = CommunityEntityCopyUtils.copyCommunitySignal(signal);
             return this;
         }
 
@@ -330,7 +331,7 @@ public class SignalComment {
          * @return 此构建器
          */
         public Builder parent(SignalComment parent) {
-            this.parent = EntityCopyUtils.copySignalCommentShallow(parent);
+            this.parent = CommunityEntityCopyUtils.copySignalCommentShallow(parent);
             return this;
         }
 
@@ -341,7 +342,7 @@ public class SignalComment {
          * @return 此构建器
          */
         public Builder replies(List<SignalComment> replies) {
-            this.replies = EntityCopyUtils.copySignalCommentShallowList(replies);
+            this.replies = CommunityEntityCopyUtils.copySignalCommentShallowList(replies);
             return this;
         }
 
@@ -375,7 +376,7 @@ public class SignalComment {
      * @return 信号副本
      */
     public CommunitySignal getSignal() {
-        return EntityCopyUtils.copyCommunitySignal(signal);
+        return CommunityEntityCopyUtils.copyCommunitySignal(signal);
     }
 
     /**
@@ -384,7 +385,7 @@ public class SignalComment {
      * @param signal 信号
      */
     public void setSignal(CommunitySignal signal) {
-        this.signal = EntityCopyUtils.copyCommunitySignal(signal);
+        this.signal = CommunityEntityCopyUtils.copyCommunitySignal(signal);
     }
 
     /**
@@ -411,7 +412,7 @@ public class SignalComment {
      * @return 父评论副本
      */
     public SignalComment getParent() {
-        return EntityCopyUtils.copySignalCommentShallow(parent);
+        return CommunityEntityCopyUtils.copySignalCommentShallow(parent);
     }
 
     /**
@@ -420,7 +421,7 @@ public class SignalComment {
      * @param parent 父评论
      */
     public void setParent(SignalComment parent) {
-        this.parent = EntityCopyUtils.copySignalCommentShallow(parent);
+        this.parent = CommunityEntityCopyUtils.copySignalCommentShallow(parent);
     }
 
     /**
