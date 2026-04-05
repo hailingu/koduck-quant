@@ -1,6 +1,6 @@
 # ADR-0100: 迁移 koduck-ai 代码到独立模块 (Phase 3.2)
 
-- Status: Accepted
+- Status: Completed
 - Date: 2026-04-05
 - Issue: #495
 

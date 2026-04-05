@@ -1,6 +1,6 @@
 # ADR-0101: AiAnalysisServiceImpl 和 MemoryServiceImpl 使用防腐层接口
 
-- Status: Accepted
+- Status: Completed
 - Date: 2026-04-05
 - Issue: #500
 
