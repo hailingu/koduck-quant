@@ -9,47 +9,43 @@
         <groupId>com.koduck</groupId>
         <artifactId>koduck-backend-parent</artifactId>
         <version>0.1.0-SNAPSHOT</version>
+        <relativePath>../../pom.xml</relativePath>
     </parent>
 
-    <artifactId>koduck-bootstrap</artifactId>
-    <name>Koduck Bootstrap</name>
-    <description>Koduck Backend Bootstrap Module - Application Entry Point</description>
+    <artifactId>koduck-portfolio-impl</artifactId>
+    <name>Koduck Portfolio Implementation</name>
+    <description>Portfolio domain implementation module - services, repositories, entities</description>
     <packaging>jar</packaging>
 
     <dependencies>
-        <!-- Koduck Core Module -->
-        <dependency>
-            <groupId>com.koduck</groupId>
-            <artifactId>koduck-core</artifactId>
-        </dependency>
-        <!-- Koduck Domain Modules -->
-        <dependency>
-            <groupId>com.koduck</groupId>
-            <artifactId>koduck-market-api</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>com.koduck</groupId>
-            <artifactId>koduck-market-impl</artifactId>
-        </dependency>
+        <!-- Internal: API module -->
         <dependency>
             <groupId>com.koduck</groupId>
             <artifactId>koduck-portfolio-api</artifactId>
         </dependency>
+
+        <!-- Internal: Infrastructure -->
         <dependency>
             <groupId>com.koduck</groupId>
-            <artifactId>koduck-portfolio-impl</artifactId>
+            <artifactId>koduck-infrastructure</artifactId>
         </dependency>
+
+        <!-- Internal: Common -->
         <dependency>
             <groupId>com.koduck</groupId>
-            <artifactId>koduck-strategy</artifactId>
+            <artifactId>koduck-common</artifactId>
         </dependency>
+
+        <!-- Internal: Auth -->
         <dependency>
             <groupId>com.koduck</groupId>
-            <artifactId>koduck-community</artifactId>
+            <artifactId>koduck-auth</artifactId>
         </dependency>
+
+        <!-- Internal: Market API (for price data) -->
         <dependency>
             <groupId>com.koduck</groupId>
-            <artifactId>koduck-ai</artifactId>
+            <artifactId>koduck-market-api</artifactId>
         </dependency>
 
         <!-- Spring Boot Starter -->
@@ -64,21 +60,44 @@
             </exclusions>
         </dependency>
 
-        <!-- Log4j2 -->
+        <!-- Spring Data JPA -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-log4j2</artifactId>
+            <artifactId>spring-boot-starter-data-jpa</artifactId>
         </dependency>
 
-        <!-- ArchUnit for architecture testing -->
+        <!-- Validation -->
         <dependency>
-            <groupId>com.tngtech.archunit</groupId>
-            <artifactId>archunit-junit5</artifactId>
-            <version>1.2.1</version>
-            <scope>test</scope>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-validation</artifactId>
         </dependency>
 
-        <!-- Spring Boot Test -->
+        <!-- Cache -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-cache</artifactId>
+        </dependency>
+
+        <!-- Redis -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-data-redis</artifactId>
+        </dependency>
+
+        <!-- Lombok -->
+        <dependency>
+            <groupId>org.projectlombok</groupId>
+            <artifactId>lombok</artifactId>
+            <optional>true</optional>
+        </dependency>
+
+        <!-- MapStruct -->
+        <dependency>
+            <groupId>org.mapstruct</groupId>
+            <artifactId>mapstruct</artifactId>
+        </dependency>
+
+        <!-- Test -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-test</artifactId>
@@ -95,30 +114,9 @@
     <build>
         <plugins>
             <plugin>
-                <groupId>org.springframework.boot</groupId>
-                <artifactId>spring-boot-maven-plugin</artifactId>
-                <configuration>
-                    <mainClass>com.koduck.KoduckBootstrapApplication</mainClass>
-                    <excludes>
-                        <exclude>
-                            <groupId>org.projectlombok</groupId>
-                            <artifactId>lombok</artifactId>
-                        </exclude>
-                    </excludes>
-                </configuration>
-                <executions>
-                    <execution>
-                        <goals>
-                            <goal>repackage</goal>
-                        </goals>
-                    </execution>
-                </executions>
-            </plugin>
-            <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
             </plugin>
-            
         </plugins>
     </build>
 </project>
