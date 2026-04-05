@@ -17,8 +17,8 @@ import com.koduck.common.constants.ApiStatusCodeConstants;
 import com.koduck.common.constants.MarketConstants;
 import com.koduck.common.constants.PaginationConstants;
 import com.koduck.dto.ApiResponse;
-import com.koduck.dto.market.KlineDataDto;
-import com.koduck.dto.market.LatestPriceResponse;
+import com.koduck.market.dto.KlineDataDto;
+import com.koduck.market.dto.LatestPriceResponse;
 import com.koduck.service.KlineService;
 
 import io.swagger.v3.oas.annotations.Operation;
