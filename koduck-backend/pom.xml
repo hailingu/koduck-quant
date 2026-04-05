@@ -174,7 +174,7 @@
                         </dependency>
                     </dependencies>
                     <configuration>
-                        <configLocation>${project.basedir}/../.github/java-standards/checkstyle-alibaba.xml</configLocation>
+                        <configLocation>${maven.multiModuleProjectDirectory}/../.github/java-standards/checkstyle-alibaba.xml</configLocation>
                         <consoleOutput>true</consoleOutput>
                         <includeTestSourceDirectory>true</includeTestSourceDirectory>
                         <failsOnError>true</failsOnError>
@@ -232,6 +232,21 @@
                 </plugin>
             </plugins>
         </pluginManagement>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-checkstyle-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>checkstyle-validate</id>
+                        <phase>validate</phase>
+                        <goals>
+                            <goal>check</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
     </build>
 
     <repositories>
