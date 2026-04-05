@@ -17,10 +17,32 @@
     <packaging>jar</packaging>
 
     <dependencies>
-        <!-- Internal -->
+        <!-- Internal: Common -->
         <dependency>
             <groupId>com.koduck</groupId>
             <artifactId>koduck-common</artifactId>
+        </dependency>
+
+        <!-- Internal: API Modules (Phase 3.1 - Infrastructure depends on all *-api modules) -->
+        <dependency>
+            <groupId>com.koduck</groupId>
+            <artifactId>koduck-market-api</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.koduck</groupId>
+            <artifactId>koduck-portfolio-api</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.koduck</groupId>
+            <artifactId>koduck-strategy-api</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.koduck</groupId>
+            <artifactId>koduck-community-api</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.koduck</groupId>
+            <artifactId>koduck-ai-api</artifactId>
         </dependency>
 
         <!-- Web -->

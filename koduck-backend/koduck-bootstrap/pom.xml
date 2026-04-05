@@ -42,6 +42,7 @@
         <dependency>
             <groupId>com.koduck</groupId>
             <artifactId>koduck-strategy</artifactId>
+            <type>pom</type>
         </dependency>
         <dependency>
             <groupId>com.koduck</groupId>
