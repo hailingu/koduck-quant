@@ -21,6 +21,13 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 
+import com.koduck.acl.BacktestQueryService;
+import com.koduck.acl.BacktestQueryService.BacktestResultSummary;
+import com.koduck.acl.PortfolioQueryService;
+import com.koduck.acl.PortfolioQueryService.PortfolioPositionSummary;
+import com.koduck.acl.StrategyQueryService;
+import com.koduck.acl.StrategyQueryService.StrategySummary;
+import com.koduck.acl.UserSettingsQueryService;
 import com.koduck.common.constants.AiConstants;
 import com.koduck.common.constants.MapKeyConstants;
 import com.koduck.config.AgentConfig;
@@ -32,16 +39,9 @@ import com.koduck.dto.ai.StockAnalysisResponse;
 import com.koduck.dto.ai.StrategyRecommendRequest;
 import com.koduck.dto.ai.StrategyRecommendResponse;
 import com.koduck.dto.settings.LlmConfigDto;
-import com.koduck.entity.backtest.BacktestResult;
-import com.koduck.entity.portfolio.PortfolioPosition;
-import com.koduck.entity.strategy.Strategy;
 import com.koduck.exception.ExternalServiceException;
 import com.koduck.exception.ResourceNotFoundException;
-import com.koduck.repository.backtest.BacktestResultRepository;
-import com.koduck.repository.portfolio.PortfolioPositionRepository;
-import com.koduck.repository.strategy.StrategyRepository;
 import com.koduck.service.AiAnalysisService;
-import com.koduck.service.UserSettingsService;
 import com.koduck.service.support.AiConversationSupport;
 import com.koduck.service.support.AiRecommendationSupport;
 import com.koduck.service.support.AiStreamRelaySupport;
@@ -98,17 +98,17 @@ public class AiAnalysisServiceImpl implements AiAnalysisService {
     /** HTTP status code for internal server error. */
     private static final int HTTP_STATUS_INTERNAL_ERROR = 500;
 
-    /** Repository for portfolio positions. */
-    private final PortfolioPositionRepository positionRepository;
+    /** ACL service for portfolio queries. */
+    private final PortfolioQueryService portfolioQueryService;
 
-    /** Repository for strategies. */
-    private final StrategyRepository strategyRepository;
+    /** ACL service for strategy queries. */
+    private final StrategyQueryService strategyQueryService;
 
-    /** Repository for backtest results. */
-    private final BacktestResultRepository backtestResultRepository;
+    /** ACL service for backtest queries. */
+    private final BacktestQueryService backtestQueryService;
 
-    /** Service for user settings. */
-    private final UserSettingsService userSettingsService;
+    /** ACL service for user settings queries. */
+    private final UserSettingsQueryService userSettingsQueryService;
 
     /** Configuration for agent. */
     private final AgentConfig agentConfig;
@@ -131,10 +131,10 @@ public class AiAnalysisServiceImpl implements AiAnalysisService {
     /**
      * Constructs a new AiAnalysisServiceImpl.
      *
-     * @param positionRepository the portfolio position repository
-     * @param strategyRepository the strategy repository
-     * @param backtestResultRepository the backtest result repository
-     * @param userSettingsService the user settings service
+     * @param portfolioQueryService the portfolio query service
+     * @param strategyQueryService the strategy query service
+     * @param backtestQueryService the backtest query service
+     * @param userSettingsQueryService the user settings query service
      * @param agentConfig the agent configuration
      * @param objectMapper the object mapper
      * @param webClientBuilder the WebClient builder
@@ -143,20 +143,20 @@ public class AiAnalysisServiceImpl implements AiAnalysisService {
      * @param aiRecommendationSupport the AI recommendation support
      */
     public AiAnalysisServiceImpl(
-            PortfolioPositionRepository positionRepository,
-            StrategyRepository strategyRepository,
-            BacktestResultRepository backtestResultRepository,
-            UserSettingsService userSettingsService,
+            PortfolioQueryService portfolioQueryService,
+            StrategyQueryService strategyQueryService,
+            BacktestQueryService backtestQueryService,
+            UserSettingsQueryService userSettingsQueryService,
             AgentConfig agentConfig,
             ObjectMapper objectMapper,
             WebClient.Builder webClientBuilder,
             AiConversationSupport aiConversationSupport,
             AiStreamRelaySupport aiStreamRelaySupport,
             AiRecommendationSupport aiRecommendationSupport) {
-        this.positionRepository = positionRepository;
-        this.strategyRepository = strategyRepository;
-        this.backtestResultRepository = backtestResultRepository;
-        this.userSettingsService = userSettingsService;
+        this.portfolioQueryService = portfolioQueryService;
+        this.strategyQueryService = strategyQueryService;
+        this.backtestQueryService = backtestQueryService;
+        this.userSettingsQueryService = userSettingsQueryService;
         this.agentConfig = agentConfig;
         this.objectMapper = objectMapper;
         this.webClient = webClientBuilder
@@ -171,7 +171,7 @@ public class AiAnalysisServiceImpl implements AiAnalysisService {
     public StockAnalysisResponse analyzeStock(Long userId, StockAnalysisRequest request) {
         String provider = resolveProvider(request.getProvider());
         LlmConfigDto effectiveConfig =
-            userSettingsService.getEffectiveLlmConfig(userId, provider);
+            userSettingsQueryService.getEffectiveLlmConfig(userId, provider);
         try {
             String userQuestion = buildStockAnalysisPrompt(request);
             String aiResponse = callAgentChat(provider, userQuestion, effectiveConfig);
@@ -199,7 +199,7 @@ public class AiAnalysisServiceImpl implements AiAnalysisService {
         String provider = resolveProvider(request.getProvider());
         String sessionId = aiConversationSupport.resolveSessionId(request.getSessionId());
         LlmConfigDto effectiveConfig =
-            userSettingsService.getEffectiveLlmConfig(userId, provider);
+            userSettingsQueryService.getEffectiveLlmConfig(userId, provider);
 
         ChatStreamRequest configuredRequest = ChatStreamRequest.builder()
             .provider(provider)
@@ -232,14 +232,14 @@ public class AiAnalysisServiceImpl implements AiAnalysisService {
     @Override
     public StrategyRecommendResponse recommendStrategies(Long userId, StrategyRecommendRequest request) {
         log.debug("Recommending strategies for user: {}, risk: {}", userId, request.getRiskPreference());
-        List<Strategy> userStrategies = strategyRepository.findByUserId(userId);
+        List<StrategySummary> userStrategies = strategyQueryService.findStrategiesByUserId(userId);
         return aiRecommendationSupport.buildStrategyRecommendations(userStrategies, request);
     }
 
     @Override
     public BacktestInterpretResponse interpretBacktest(Long userId, Long backtestResultId) {
         log.debug("Interpreting backtest: {} for user: {}", backtestResultId, userId);
-        BacktestResult result = backtestResultRepository.findByIdAndUserId(backtestResultId, userId)
+        BacktestResultSummary result = backtestQueryService.findResultById(backtestResultId)
             .orElseThrow(() -> ResourceNotFoundException.of("Backtest result", backtestResultId));
         return aiRecommendationSupport.buildBacktestInterpretation(backtestResultId, result);
     }
@@ -247,7 +247,7 @@ public class AiAnalysisServiceImpl implements AiAnalysisService {
     @Override
     public RiskAssessmentResponse assessRisk(Long userId, Long portfolioId) {
         log.debug("Assessing risk for portfolio: {} of user: {}", portfolioId, userId);
-        List<PortfolioPosition> positions = positionRepository.findByUserId(userId);
+        List<PortfolioPositionSummary> positions = portfolioQueryService.findPositionsByUserId(userId);
         return aiRecommendationSupport.buildRiskAssessment(portfolioId, positions);
     }
 
