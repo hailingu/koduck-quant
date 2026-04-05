@@ -17,13 +17,13 @@
 ### 剩余待迁移的基础设施
 
 **DTO 类：**
-- UserInfo: 用户信息 DTO，被多个模块使用
-- PageResponse: 分页响应封装
+- ~~UserInfo~~: 已在 Issue #521 / PR #522 中删除，使用 AuthUserPrincipal 替代
+- PageResponse: 分页响应封装（文件不存在）
 
 **异常类：**
-- BusinessException: 业务异常基类
-- ResourceNotFoundException: 资源不存在异常
-- ValidationException: 验证异常
+- BusinessException: 业务异常基类 ✅ 已迁移
+- ResourceNotFoundException: 资源不存在异常 ✅ 已迁移
+- ValidationException: 验证异常 ✅ 已迁移
 
 ## Decision
 
@@ -32,11 +32,11 @@
 **提取范围：**
 
 1. **DTO 类**
-   - UserInfo: 用户信息传输对象
-   - PageResponse<T>: 通用分页响应封装
+   - ~~UserInfo~~: 已删除，使用 AuthUserPrincipal 替代（ADR-0091 第5步）
+   - PageResponse<T>: 通用分页响应封装（文件不存在）
 
-2. **异常类**
-   - BusinessException: 业务异常基类，所有业务异常的父类
+2. **异常类** ✅ 已完成
+   - BusinessException: 业务异常基类
    - ResourceNotFoundException: 资源不存在异常
    - ValidationException: 参数验证异常
 
@@ -84,21 +84,30 @@
 
 ### 变更清单
 
-1. **koduck-common 模块**
+1. **koduck-common 模块** ✅ 已完成
    - [x] 迁移 BusinessException.java
    - [x] 迁移 ResourceNotFoundException.java
    - [x] 迁移 ValidationException.java
-   - [ ] ~~迁移 UserInfo.java~~（依赖 koduck-core 的 User 实体，无法迁移）
-   - [ ] ~~迁移 PageResponse.java~~（文件不存在）
+   - [x] ~~迁移 UserInfo.java~~ → 已删除，使用 AuthUserPrincipal
 
-2. **koduck-core 模块**
+2. **koduck-core 模块** ✅ 已完成
    - [x] 删除已迁移的异常类
+   - [x] 删除 UserInfo.java（使用 AuthUserPrincipal）
 
 ### 验证步骤
 
 - [x] `mvn clean compile` 编译通过
 - [x] `mvn checkstyle:check` 无异常
 - [x] 所有模块可以正常访问迁移的类
+
+### 相关任务完成情况
+
+| 任务 | 状态 | 说明 |
+|------|------|------|
+| 迁移 BusinessException | ✅ 完成 | PR #520 |
+| 迁移 ResourceNotFoundException | ✅ 完成 | PR #520 |
+| 迁移 ValidationException | ✅ 完成 | PR #520 |
+| 删除 UserInfo | ✅ 完成 | Issue #521 / PR #522 |
 
 ### 后续工作
 
