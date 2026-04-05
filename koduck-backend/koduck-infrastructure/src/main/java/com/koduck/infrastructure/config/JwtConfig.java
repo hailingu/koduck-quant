@@ -1,4 +1,4 @@
-package com.koduck.config;
+package com.koduck.infrastructure.config;
 
 import jakarta.validation.constraints.NotBlank;
 

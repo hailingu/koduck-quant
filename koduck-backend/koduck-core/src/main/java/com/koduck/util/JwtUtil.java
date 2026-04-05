@@ -12,7 +12,7 @@ import javax.crypto.SecretKey;
 
 import org.springframework.stereotype.Component;
 
-import com.koduck.config.JwtConfig;
+import com.koduck.infrastructure.config.JwtConfig;
 
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.ExpiredJwtException;

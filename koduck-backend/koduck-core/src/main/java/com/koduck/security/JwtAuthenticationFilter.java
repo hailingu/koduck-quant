@@ -18,7 +18,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 import org.springframework.web.filter.OncePerRequestFilter;
 
-import com.koduck.config.JwtConfig;
+import com.koduck.infrastructure.config.JwtConfig;
 import com.koduck.util.JwtUtil;
 
 import lombok.extern.slf4j.Slf4j;

@@ -21,7 +21,7 @@ import com.koduck.acl.BacktestQueryService;
 import com.koduck.acl.PortfolioQueryService;
 import com.koduck.acl.StrategyQueryService;
 import com.koduck.acl.UserSettingsQueryService;
-import com.koduck.config.AgentConfig;
+import com.koduck.infrastructure.config.AgentConfig;
 import com.koduck.dto.ai.BacktestInterpretResponse;
 import com.koduck.dto.ai.ChatMessageRequest;
 import com.koduck.dto.ai.ChatStreamRequest;

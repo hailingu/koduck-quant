@@ -30,7 +30,7 @@ import com.koduck.acl.StrategyQueryService.StrategySummary;
 import com.koduck.acl.UserSettingsQueryService;
 import com.koduck.common.constants.AiConstants;
 import com.koduck.common.constants.MapKeyConstants;
-import com.koduck.config.AgentConfig;
+import com.koduck.infrastructure.config.AgentConfig;
 import com.koduck.dto.ai.BacktestInterpretResponse;
 import com.koduck.dto.ai.ChatStreamRequest;
 import com.koduck.dto.ai.RiskAssessmentResponse;
