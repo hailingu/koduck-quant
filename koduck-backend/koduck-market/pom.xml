@@ -9,6 +9,7 @@
         <groupId>com.koduck</groupId>
         <artifactId>koduck-backend-parent</artifactId>
         <version>0.1.0-SNAPSHOT</version>
+        <relativePath>../pom.xml</relativePath>
     </parent>
 
     <artifactId>koduck-market</artifactId>
@@ -18,6 +19,6 @@
 
     <modules>
         <module>koduck-market-api</module>
-        <!-- koduck-market-impl will be added in Phase 2 -->
+        <module>koduck-market-impl</module>
     </modules>
 </project>

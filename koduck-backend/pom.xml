@@ -112,6 +112,16 @@
             </dependency>
             <dependency>
                 <groupId>com.koduck</groupId>
+                <artifactId>koduck-market-api</artifactId>
+                <version>${koduck.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.koduck</groupId>
+                <artifactId>koduck-market-impl</artifactId>
+                <version>${koduck.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.koduck</groupId>
                 <artifactId>koduck-portfolio</artifactId>
                 <version>${koduck.version}</version>
             </dependency>
