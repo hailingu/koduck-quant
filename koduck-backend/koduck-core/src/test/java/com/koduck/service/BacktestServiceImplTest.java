@@ -12,7 +12,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
 
-import com.koduck.dto.market.KlineDataDto;
+import com.koduck.market.dto.KlineDataDto;
 import com.koduck.entity.backtest.BacktestTrade;
 import com.koduck.mapper.BacktestTradeMapper;
 import com.koduck.repository.backtest.BacktestResultRepository;
