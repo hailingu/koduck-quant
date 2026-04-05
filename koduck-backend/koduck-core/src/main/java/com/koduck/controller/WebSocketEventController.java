@@ -23,7 +23,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.koduck.dto.websocket.SubscriptionMessage;
 import com.koduck.dto.websocket.WebSocketMessage;
 import com.koduck.security.websocket.WebSocketChannelInterceptor;
-import com.koduck.service.StockSubscriptionService;
+import com.koduck.market.service.StockSubscriptionService;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
