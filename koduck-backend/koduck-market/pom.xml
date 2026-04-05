@@ -18,6 +18,6 @@
 
     <modules>
         <module>koduck-market-api</module>
-        <!-- koduck-market-impl will be added in Phase 2 -->
+        <module>koduck-market-impl</module>
     </modules>
 </project>
