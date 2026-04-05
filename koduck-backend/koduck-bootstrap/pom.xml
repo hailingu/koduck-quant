@@ -45,7 +45,7 @@
         </dependency>
         <dependency>
             <groupId>com.koduck</groupId>
-            <artifactId>koduck-community</artifactId>
+            <artifactId>koduck-community-impl</artifactId>
         </dependency>
         <dependency>
             <groupId>com.koduck</groupId>

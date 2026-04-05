@@ -19,6 +19,6 @@
 
     <modules>
         <module>koduck-community-api</module>
-        <!-- koduck-community-impl will be added in next phase -->
+        <module>koduck-community-impl</module>
     </modules>
 </project>
