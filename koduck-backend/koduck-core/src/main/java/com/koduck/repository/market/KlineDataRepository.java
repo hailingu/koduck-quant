@@ -10,7 +10,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
-import com.koduck.entity.market.KlineData;
+import com.koduck.market.entity.KlineData;
 
 /**
  * K 线数据操作仓库，提供 K 线数据的数据库访问。

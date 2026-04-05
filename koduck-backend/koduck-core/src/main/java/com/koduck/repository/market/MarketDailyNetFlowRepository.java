@@ -7,7 +7,7 @@ import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
-import com.koduck.entity.market.MarketDailyNetFlow;
+import com.koduck.market.entity.MarketDailyNetFlow;
 
 /**
  * 市场每日资金流向数据仓库，提供市场资金流向数据的数据库访问。

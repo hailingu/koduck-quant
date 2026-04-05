@@ -16,7 +16,7 @@ import com.koduck.common.constants.MarketConstants;
 import com.koduck.dto.backtest.BacktestResultDto;
 import com.koduck.dto.backtest.BacktestTradeDto;
 import com.koduck.dto.backtest.RunBacktestRequest;
-import com.koduck.dto.market.KlineDataDto;
+import com.koduck.market.dto.KlineDataDto;
 import com.koduck.entity.backtest.BacktestResult;
 import com.koduck.entity.backtest.BacktestTrade;
 import com.koduck.entity.strategy.Strategy;

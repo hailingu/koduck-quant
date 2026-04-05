@@ -104,7 +104,7 @@ public class MarketServiceImpl implements MarketQueryService, MarketCommandServi
     public SectorNetworkDto getSectorNetwork(String market) {
         log.debug("获取板块网络: market={}", market);
         // TODO: 实现板块网络查询逻辑
-        return new SectorNetworkDto(market, Collections.emptyList(), Collections.emptyList());
+        return SectorNetworkDto.builder().nodes(Collections.emptyList()).links(Collections.emptyList()).build();
     }
 
     @Override

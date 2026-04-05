@@ -3,13 +3,13 @@ package com.koduck.service;
 import java.util.List;
 import java.util.Map;
 
-import com.koduck.dto.market.MarketIndexDto;
-import com.koduck.dto.market.PriceQuoteDto;
-import com.koduck.dto.market.SectorNetworkDto;
-import com.koduck.dto.market.StockIndustryDto;
-import com.koduck.dto.market.StockStatsDto;
-import com.koduck.dto.market.StockValuationDto;
-import com.koduck.dto.market.SymbolInfoDto;
+import com.koduck.market.dto.MarketIndexDto;
+import com.koduck.market.dto.PriceQuoteDto;
+import com.koduck.market.dto.SectorNetworkDto;
+import com.koduck.market.dto.StockIndustryDto;
+import com.koduck.market.dto.StockStatsDto;
+import com.koduck.market.dto.StockValuationDto;
+import com.koduck.market.dto.SymbolInfoDto;
 
 /**
  * 市场数据服务接口，提供股票搜索、行情报价、市场指数、板块行业及相关操作。

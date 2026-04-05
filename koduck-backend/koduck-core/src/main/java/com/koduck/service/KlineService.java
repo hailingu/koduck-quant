@@ -4,8 +4,8 @@ import java.math.BigDecimal;
 import java.util.List;
 import java.util.Optional;
 
-import com.koduck.dto.market.KlineDataDto;
-import com.koduck.entity.market.KlineData;
+import com.koduck.market.dto.KlineDataDto;
+import com.koduck.market.entity.KlineData;
 
 /**
  * K线数据操作服务接口。

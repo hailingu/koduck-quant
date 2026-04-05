@@ -3,8 +3,8 @@ package com.koduck.service;
 import java.util.List;
 import java.util.Map;
 
-import com.koduck.entity.market.DataSourceStatus;
-import com.koduck.entity.market.StockRealtime;
+import com.koduck.market.entity.DataSourceStatus;
+import com.koduck.market.entity.StockRealtime;
 import com.koduck.entity.strategy.AlertHistory;
 import com.koduck.entity.strategy.AlertRule;
 

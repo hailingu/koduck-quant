@@ -34,6 +34,14 @@
             <groupId>com.koduck</groupId>
             <artifactId>koduck-portfolio-api</artifactId>
         </dependency>
+        <dependency>
+            <groupId>com.koduck</groupId>
+            <artifactId>koduck-market-api</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.koduck</groupId>
+            <artifactId>koduck-market-impl</artifactId>
+        </dependency>
 
         <!-- Web -->
         <dependency>

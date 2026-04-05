@@ -5,12 +5,12 @@ import java.time.ZoneOffset;
 import org.springframework.stereotype.Component;
 
 import com.koduck.common.constants.MarketConstants;
-import com.koduck.dto.market.MarketIndexDto;
-import com.koduck.dto.market.PriceQuoteDto;
-import com.koduck.dto.market.StockStatsDto;
-import com.koduck.dto.market.SymbolInfoDto;
-import com.koduck.entity.market.StockBasic;
-import com.koduck.entity.market.StockRealtime;
+import com.koduck.market.dto.MarketIndexDto;
+import com.koduck.market.dto.PriceQuoteDto;
+import com.koduck.market.dto.StockStatsDto;
+import com.koduck.market.dto.SymbolInfoDto;
+import com.koduck.market.entity.StockBasic;
+import com.koduck.market.entity.StockRealtime;
 import com.koduck.util.SymbolUtils;
 
 /**

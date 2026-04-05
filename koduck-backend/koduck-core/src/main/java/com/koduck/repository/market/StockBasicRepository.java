@@ -10,7 +10,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
-import com.koduck.entity.market.StockBasic;
+import com.koduck.market.entity.StockBasic;
 
 /**
  * 股票基本信息仓库，提供股票基本信息数据的数据库访问。

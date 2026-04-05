@@ -11,12 +11,12 @@ import java.util.Optional;
 import org.springframework.stereotype.Component;
 
 import com.koduck.common.constants.MarketConstants;
-import com.koduck.dto.market.PriceQuoteDto;
-import com.koduck.dto.market.StockIndustryDto;
-import com.koduck.dto.market.StockStatsDto;
-import com.koduck.dto.market.StockValuationDto;
-import com.koduck.dto.market.SymbolInfoDto;
-import com.koduck.entity.market.StockBasic;
+import com.koduck.market.dto.PriceQuoteDto;
+import com.koduck.market.dto.StockIndustryDto;
+import com.koduck.market.dto.StockStatsDto;
+import com.koduck.market.dto.StockValuationDto;
+import com.koduck.market.dto.SymbolInfoDto;
+import com.koduck.market.entity.StockBasic;
 import com.koduck.market.MarketType;
 import com.koduck.market.provider.MarketDataProvider;
 import com.koduck.market.provider.ProviderFactory;
@@ -197,7 +197,7 @@ public class MarketFallbackSupport {
                 }
             }
 
-            List<com.koduck.dto.market.KlineDataDto> recent =
+            List<com.koduck.market.dto.KlineDataDto> recent =
                 klineService.getKlineData(actualMarket, symbol,
                         MarketConstants.DEFAULT_TIMEFRAME, 2, null);
             recent = klineDataNormalizer.normalizeKlineData(recent);
@@ -205,7 +205,7 @@ public class MarketFallbackSupport {
                 return null;
             }
 
-            com.koduck.dto.market.KlineDataDto latest =
+            com.koduck.market.dto.KlineDataDto latest =
                     recent.get(recent.size() - 1);
             BigDecimal prevClose = recent.size() >= 2
                     ? recent.get(recent.size() - 2).close() : null;
@@ -273,14 +273,14 @@ public class MarketFallbackSupport {
 
     private PriceQuoteDto buildQuoteFromKline(String symbol, StockBasic basic,
             String market) {
-        List<com.koduck.dto.market.KlineDataDto> recent =
+        List<com.koduck.market.dto.KlineDataDto> recent =
             klineService.getKlineData(market, symbol, MarketConstants.DEFAULT_TIMEFRAME, 2, null);
         recent = klineDataNormalizer.normalizeKlineData(recent);
         if (recent.isEmpty()) {
             return null;
         }
 
-        com.koduck.dto.market.KlineDataDto latest =
+        com.koduck.market.dto.KlineDataDto latest =
                 recent.get(recent.size() - 1);
         BigDecimal prevClose = recent.size() >= 2
                 ? recent.get(recent.size() - 2).close() : null;

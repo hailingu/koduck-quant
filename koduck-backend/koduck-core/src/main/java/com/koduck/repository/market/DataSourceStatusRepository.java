@@ -7,7 +7,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
 
-import com.koduck.entity.market.DataSourceStatus;
+import com.koduck.market.entity.DataSourceStatus;
 
 /**
  * 数据源状态仓库，提供数据源状态数据的数据库访问。

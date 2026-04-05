@@ -1,50 +1,115 @@
 package com.koduck.market.dto;
 
+import java.math.BigDecimal;
 import java.util.List;
 
+import com.koduck.util.CollectionCopyUtils;
+
+import lombok.Builder;
+import lombok.Data;
+import lombok.Singular;
+
 /**
- * 板块网络关系数据传输对象。
+ * Sector network data DTO for force-directed graph visualization.
+ * Represents sector correlations and capital flows.
  *
- * <p>不可变对象，使用 Java Record 实现。</p>
- *
- * @param market      市场代码
- * @param sectors     板块列表
- * @param relationships 板块间关系
  * @author Koduck Team
  */
-public record SectorNetworkDto(
-        String market,
-        List<SectorNode> sectors,
-        List<SectorEdge> relationships
-) {
+@Data
+@Builder
+public class SectorNetworkDto {
+
+    /** The list of sector nodes. */
+    @Singular
+    private List<SectorNode> nodes;
+
+    /** The list of sector links. */
+    @Singular
+    private List<SectorLink> links;
 
     /**
-     * 板块节点。
+     * Get the nodes.
      *
-     * @param id    板块ID
-     * @param name  板块名称
-     * @param size  板块大小（股票数量）
-     * @param value 板块值（如涨跌幅）
+     * @return the nodes list
      */
-    public record SectorNode(
-            String id,
-            String name,
-            int size,
-            double value
-    ) {
+    public List<SectorNode> getNodes() {
+        return CollectionCopyUtils.copyList(nodes);
     }
 
     /**
-     * 板块关系边。
+     * Set the nodes.
      *
-     * @param source 源板块ID
-     * @param target 目标板块ID
-     * @param weight 关联权重
+     * @param nodes the nodes to set
      */
-    public record SectorEdge(
-            String source,
-            String target,
-            double weight
-    ) {
+    public void setNodes(List<SectorNode> nodes) {
+        this.nodes = CollectionCopyUtils.copyList(nodes);
+    }
+
+    /**
+     * Get the links.
+     *
+     * @return the links list
+     */
+    public List<SectorLink> getLinks() {
+        return CollectionCopyUtils.copyList(links);
+    }
+
+    /**
+     * Set the links.
+     *
+     * @param links the links to set
+     */
+    public void setLinks(List<SectorLink> links) {
+        this.links = CollectionCopyUtils.copyList(links);
+    }
+
+    /**
+     * Sector node representing a market sector.
+     */
+    @Data
+    @Builder
+    public static class SectorNode {
+        /** The node ID. */
+        private String id;
+
+        /** The node name. */
+        private String name;
+
+        /** The market capitalization. */
+        private BigDecimal marketCap;
+
+        /** The capital flow. */
+        private BigDecimal flow;
+
+        /** The price change. */
+        private BigDecimal change;
+
+        /** The group ID. */
+        private Integer group;
+
+        /** The X coordinate. */
+        private Double x;
+
+        /** The Y coordinate. */
+        private Double y;
+    }
+
+    /**
+     * Sector link representing correlation between two sectors.
+     */
+    @Data
+    @Builder
+    public static class SectorLink {
+        /** The source node ID. */
+        private String source;
+
+        /** The target node ID. */
+        private String target;
+
+        /** The link value. */
+        private BigDecimal value;
+
+        /** The link type. */
+        private String type;
     }
 }

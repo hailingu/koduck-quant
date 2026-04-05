@@ -8,10 +8,10 @@ import java.util.Optional;
 
 import com.koduck.common.constants.MapKeyConstants;
 import com.koduck.common.constants.MarketConstants;
-import com.koduck.dto.market.PriceQuoteDto;
-import com.koduck.dto.market.StockIndustryDto;
-import com.koduck.dto.market.StockValuationDto;
-import com.koduck.dto.market.SymbolInfoDto;
+import com.koduck.market.dto.PriceQuoteDto;
+import com.koduck.market.dto.StockIndustryDto;
+import com.koduck.market.dto.StockValuationDto;
+import com.koduck.market.dto.SymbolInfoDto;
 import com.koduck.market.MarketType;
 import com.koduck.market.model.KlineData;
 import com.koduck.market.provider.MarketDataProvider;

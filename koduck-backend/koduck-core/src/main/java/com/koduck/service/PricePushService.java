@@ -1,6 +1,6 @@
 package com.koduck.service;
 
-import com.koduck.dto.market.RealtimePriceEventMessage;
+import com.koduck.market.dto.RealtimePriceEventMessage;
 
 /**
  * 实时市场价格推送和缓存服务。

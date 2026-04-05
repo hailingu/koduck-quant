@@ -8,7 +8,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
 
-import com.koduck.entity.market.StockRealtime;
+import com.koduck.market.entity.StockRealtime;
 
 /**
  * 股票实时价格数据仓库，提供行情数据的数据库访问。
