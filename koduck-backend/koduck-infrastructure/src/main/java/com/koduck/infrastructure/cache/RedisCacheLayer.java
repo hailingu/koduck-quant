@@ -1,4 +1,4 @@
-package com.koduck.service.cache;
+package com.koduck.infrastructure.cache;
 
 import java.util.Collection;
 import java.util.List;
@@ -12,7 +12,7 @@ import org.springframework.stereotype.Component;
 /**
  * {@link CacheLayer}的Redis实现。
  *
- * @author GitHub Copilot
+ * @author Koduck Team
  */
 @Component
 public class RedisCacheLayer implements CacheLayer {
@@ -22,6 +22,11 @@ public class RedisCacheLayer implements CacheLayer {
      */
     private final RedisTemplate<String, Object> redisTemplate;
 
+    /**
+     * 构造函数。
+     *
+     * @param redisTemplate Redis模板
+     */
     public RedisCacheLayer(RedisTemplate<String, Object> redisTemplate) {
         this.redisTemplate = Objects.requireNonNull(redisTemplate, "redisTemplate must not be null");
     }

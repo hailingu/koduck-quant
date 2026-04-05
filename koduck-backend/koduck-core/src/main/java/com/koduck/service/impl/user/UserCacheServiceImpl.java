@@ -9,7 +9,7 @@ import org.springframework.stereotype.Service;
 
 import com.koduck.common.constants.RedisKeyConstants;
 import com.koduck.service.UserCacheService;
-import com.koduck.service.cache.CacheLayer;
+import com.koduck.infrastructure.cache.CacheLayer;
 
 import lombok.extern.slf4j.Slf4j;
 
