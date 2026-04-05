@@ -3,7 +3,7 @@ package com.koduck.service;
 import java.time.LocalDate;
 import java.util.List;
 
-import com.koduck.dto.market.DailyBreadthDto;
+import com.koduck.market.dto.DailyBreadthDto;
 
 public interface MarketBreadthService {
 

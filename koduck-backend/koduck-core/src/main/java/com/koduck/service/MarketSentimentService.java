@@ -1,6 +1,6 @@
 package com.koduck.service;
 
-import com.koduck.dto.market.MarketSentimentDto;
+import com.koduck.market.dto.MarketSentimentDto;
 import com.koduck.market.MarketType;
 
 /**

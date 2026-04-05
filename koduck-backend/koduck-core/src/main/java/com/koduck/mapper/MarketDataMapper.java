@@ -2,10 +2,10 @@ package com.koduck.mapper;
 
 import org.mapstruct.Mapper;
 
-import com.koduck.dto.market.DailyBreadthDto;
-import com.koduck.dto.market.DailyNetFlowDto;
-import com.koduck.entity.market.MarketDailyBreadth;
-import com.koduck.entity.market.MarketDailyNetFlow;
+import com.koduck.market.dto.DailyBreadthDto;
+import com.koduck.market.dto.DailyNetFlowDto;
+import com.koduck.market.entity.MarketDailyBreadth;
+import com.koduck.market.entity.MarketDailyNetFlow;
 
 /**
  * Consolidated mapper for market data DTO conversions.

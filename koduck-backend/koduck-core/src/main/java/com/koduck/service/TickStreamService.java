@@ -2,7 +2,7 @@ package com.koduck.service;
 
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
-import com.koduck.dto.market.TickDto;
+import com.koduck.market.dto.TickDto;
 
 public interface TickStreamService {
 

@@ -5,7 +5,7 @@ import java.util.Map;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 
-import com.koduck.dto.market.KlineDataDto;
+import com.koduck.market.dto.KlineDataDto;
 import com.koduck.market.util.MarketFieldParser;
 
 /**
