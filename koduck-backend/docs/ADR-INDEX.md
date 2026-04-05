@@ -55,6 +55,11 @@
 | [ADR-0083](ADR-0083-cleanup-empty-packages.md) | 清理 koduck-backend 空包 | 代码清理 |
 | [ADR-0084](ADR-0084-cleanup-src-empty-dirs.md) | 清理 koduck-backend/src 残留空目录 | 代码清理 |
 | [ADR-0085](ADR-0085-local-src-cleanup.md) | 本地 koduck-backend/src 残留空目录清理 | 代码清理 |
+| [ADR-0098](ADR-0098-ai-module-split-reassessment.md) | Koduck-AI 模块拆分重新评估与决策 | 模块拆分架构 |
+| [ADR-0099](ADR-0099-introduce-acl-layer-phase3-1.md) | 引入防腐层解耦 koduck-ai 依赖 (Phase 3.1) | 模块拆分架构 |
+| [ADR-0100](ADR-0100-migrate-ai-module-phase3-2.md) | 迁移 koduck-ai 代码到独立模块 (Phase 3.2) | 模块拆分架构 |
+| [ADR-0101](ADR-0101-ai-service-acl-refactor.md) | AiAnalysisServiceImpl 使用防腐层接口 | 模块拆分架构 |
+| [ADR-0102](ADR-0102-ai-module-phase3-3-cleanup.md) | Phase 3.3 - 优化和清理 | 模块拆分架构 |
 
 ---
 
@@ -102,9 +107,9 @@
 
 ## 快速统计
 
-- **架构决策 (A)**：35 个
+- **架构决策 (A)**：41 个
 - **代码规范 (C)**：36 个
-- **总计**：71 个（截至 ADR-0072）
+- **总计**：77 个（截至 ADR-0102）
 
 ## 使用建议
 
