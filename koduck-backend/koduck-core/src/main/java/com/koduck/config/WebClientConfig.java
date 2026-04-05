@@ -7,8 +7,8 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.http.client.reactive.ReactorClientHttpConnector;
 import org.springframework.web.reactive.function.client.WebClient;
 
-import com.koduck.config.properties.DataServiceProperties;
-import com.koduck.config.properties.FinnhubProperties;
+import com.koduck.infrastructure.config.properties.DataServiceProperties;
+import com.koduck.infrastructure.config.properties.FinnhubProperties;
 
 import io.netty.channel.ChannelOption;
 import reactor.netty.http.client.HttpClient;

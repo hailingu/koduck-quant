@@ -15,7 +15,7 @@ import org.springframework.web.reactive.function.client.ClientResponse;
 import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.reactive.function.client.WebClientResponseException;
 
-import com.koduck.config.properties.DataServiceProperties;
+import com.koduck.infrastructure.config.properties.DataServiceProperties;
 
 import reactor.core.publisher.Mono;
 

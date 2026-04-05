@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<FindBugsFilter>
+    <!-- RedisConfig stores ObjectMapper which is expected behavior -->
+    <Match>
+        <Class name="com.koduck.infrastructure.config.RedisConfig"/>
+        <Bug pattern="EI_EXPOSE_REP2"/>
+    </Match>
+</FindBugsFilter>

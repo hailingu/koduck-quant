@@ -11,7 +11,7 @@ import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
-import com.koduck.config.properties.MailProperties;
+import com.koduck.infrastructure.config.properties.MailProperties;
 import com.koduck.service.EmailService;
 
 import lombok.extern.slf4j.Slf4j;

@@ -15,7 +15,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
-import com.koduck.config.properties.MailProperties;
+import com.koduck.infrastructure.config.properties.MailProperties;
 import com.koduck.dto.auth.ForgotPasswordRequest;
 import com.koduck.dto.auth.ResetPasswordRequest;
 import com.koduck.entity.auth.PasswordResetToken;

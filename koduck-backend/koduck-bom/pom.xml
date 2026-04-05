@@ -48,6 +48,13 @@
                 <scope>import</scope>
             </dependency>
 
+            <!-- Koduck Infrastructure Module -->
+            <dependency>
+                <groupId>com.koduck</groupId>
+                <artifactId>koduck-infrastructure</artifactId>
+                <version>${koduck.version}</version>
+            </dependency>
+
             <!-- Koduck Core Module -->
             <dependency>
                 <groupId>com.koduck</groupId>

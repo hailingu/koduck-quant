@@ -19,7 +19,7 @@ import org.springframework.context.annotation.Configuration;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 
-import com.koduck.config.properties.PricePushRabbitProperties;
+import com.koduck.infrastructure.config.properties.PricePushRabbitProperties;
 
 /**
  * 价格推送事件的 RabbitMQ 拓扑和监听器配置。

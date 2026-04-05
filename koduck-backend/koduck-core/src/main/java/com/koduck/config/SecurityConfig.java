@@ -21,7 +21,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 
-import com.koduck.config.properties.SecurityEndpointProperties;
+import com.koduck.infrastructure.config.properties.SecurityEndpointProperties;
 import com.koduck.security.JwtAuthenticationFilter;
 
 /**

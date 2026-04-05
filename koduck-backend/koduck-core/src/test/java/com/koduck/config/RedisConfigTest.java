@@ -1,4 +1,4 @@
-package com.koduck.config;
+package com.koduck.infrastructure.config;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;

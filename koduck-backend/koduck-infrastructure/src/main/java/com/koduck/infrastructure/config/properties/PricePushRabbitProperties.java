@@ -1,4 +1,4 @@
-package com.koduck.config.properties;
+package com.koduck.infrastructure.config.properties;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.context.annotation.Configuration;
