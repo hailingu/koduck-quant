@@ -124,6 +124,17 @@
                 <groupId>com.koduck</groupId>
                 <artifactId>koduck-portfolio</artifactId>
                 <version>${koduck.version}</version>
+                <type>pom</type>
+            </dependency>
+            <dependency>
+                <groupId>com.koduck</groupId>
+                <artifactId>koduck-portfolio-api</artifactId>
+                <version>${koduck.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.koduck</groupId>
+                <artifactId>koduck-portfolio-impl</artifactId>
+                <version>${koduck.version}</version>
             </dependency>
             <dependency>
                 <groupId>com.koduck</groupId>
