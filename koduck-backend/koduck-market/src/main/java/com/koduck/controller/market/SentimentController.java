@@ -11,7 +11,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.koduck.common.constants.MarketConstants;
 import com.koduck.dto.ApiResponse;
-import com.koduck.dto.market.MarketSentimentDto;
+import com.koduck.market.dto.MarketSentimentDto;
 import com.koduck.market.MarketType;
 import com.koduck.service.MarketSentimentService;
 
