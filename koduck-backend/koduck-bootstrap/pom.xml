@@ -25,7 +25,11 @@
         <!-- Koduck Domain Modules -->
         <dependency>
             <groupId>com.koduck</groupId>
-            <artifactId>koduck-market</artifactId>
+            <artifactId>koduck-market-api</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.koduck</groupId>
+            <artifactId>koduck-market-impl</artifactId>
         </dependency>
         <dependency>
             <groupId>com.koduck</groupId>
