@@ -31,7 +31,7 @@ import com.koduck.repository.backtest.BacktestTradeRepository;
 import com.koduck.repository.strategy.StrategyRepository;
 import com.koduck.repository.strategy.StrategyVersionRepository;
 import com.koduck.service.BacktestService;
-import com.koduck.service.KlineService;
+import com.koduck.market.service.KlineService;
 import com.koduck.service.support.BacktestExecutionContext;
 import com.koduck.service.support.BacktestSignal;
 import com.koduck.service.support.StrategyAccessSupport;
