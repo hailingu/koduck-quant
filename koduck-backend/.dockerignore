@@ -25,6 +25,7 @@ mvnw.cmd
 # Documentation
 docs/
 *.md
+!README.md
 
 # Test files
 src/test/
@@ -36,3 +37,35 @@ logs/
 # OS
 .DS_Store
 Thumbs.db
+
+# Docker
+Dockerfile*
+docker-compose*
+.dockerignore
+
+# CI/CD
+.github/
+.gitlab-ci.yml
+
+# Local development
+.env
+.env.local
+application-local.yml
+application-dev.yml
+
+# Temporary files
+*.tmp
+*.temp
+tmp/
+temp/
+
+# Coverage reports
+coverage/
+.jacoco/
+
+# PMD/Checkstyle reports
+pmd.xml
+checkstyle-result.xml
+
+# SpotBugs reports
+spotbugs.xml
