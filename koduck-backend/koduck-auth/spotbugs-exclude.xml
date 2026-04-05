@@ -9,4 +9,9 @@
         <Class name="com.koduck.security.AuthUserPrincipal$AuthUserPrincipalBuilder"/>
         <Bug pattern="EI_EXPOSE_REP2"/>
     </Match>
+    <!-- AuthUserPrincipal.authorities is transient but set by Lombok builder, not deserialization -->
+    <Match>
+        <Class name="com.koduck.security.AuthUserPrincipal"/>
+        <Bug pattern="SE_TRANSIENT_FIELD_NOT_RESTORED"/>
+    </Match>
 </FindBugsFilter>

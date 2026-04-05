@@ -43,4 +43,14 @@
         <Class name="~com\.koduck\.dto\..*\$.*"/>
         <Bug pattern="NM_CONFUSING"/>
     </Match>
+
+    <!--
+      SE_TRANSIENT_FIELD_NOT_RESTORED: DTO classes use Lombok @Data with transient fields.
+      These fields are set by Lombok builder/setter, not serialization/deserialization.
+      This is acceptable for DTOs used in JSON serialization.
+    -->
+    <Match>
+        <Class name="~com\.koduck\.dto\..*"/>
+        <Bug pattern="SE_TRANSIENT_FIELD_NOT_RESTORED"/>
+    </Match>
 </FindBugsFilter>
