@@ -34,6 +34,11 @@
             <groupId>com.koduck</groupId>
             <artifactId>koduck-core</artifactId>
         </dependency>
+        <!-- Portfolio API - ACL for portfolio data access -->
+        <dependency>
+            <groupId>com.koduck</groupId>
+            <artifactId>koduck-portfolio-api</artifactId>
+        </dependency>
 
         <!-- Web -->
         <dependency>
