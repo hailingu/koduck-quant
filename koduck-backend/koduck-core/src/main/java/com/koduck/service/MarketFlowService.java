@@ -3,7 +3,7 @@ package com.koduck.service;
 import java.time.LocalDate;
 import java.util.List;
 
-import com.koduck.dto.market.DailyNetFlowDto;
+import com.koduck.market.dto.DailyNetFlowDto;
 
 public interface MarketFlowService {
 

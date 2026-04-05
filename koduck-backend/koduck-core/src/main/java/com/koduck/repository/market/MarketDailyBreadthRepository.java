@@ -7,7 +7,7 @@ import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
-import com.koduck.entity.market.MarketDailyBreadth;
+import com.koduck.market.entity.MarketDailyBreadth;
 
 /**
  * 市场每日涨跌宽度数据仓库，提供市场涨跌宽度数据的数据库访问。

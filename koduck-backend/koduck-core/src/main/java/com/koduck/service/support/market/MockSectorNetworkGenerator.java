@@ -11,7 +11,7 @@ import org.springframework.stereotype.Component;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
-import com.koduck.dto.market.SectorNetworkDto;
+import com.koduck.market.dto.SectorNetworkDto;
 
 /**
  * 真实数据不可用时使用的模拟板块网络数据生成器。

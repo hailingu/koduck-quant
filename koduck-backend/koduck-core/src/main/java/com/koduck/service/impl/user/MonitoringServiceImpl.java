@@ -12,8 +12,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.koduck.entity.strategy.AlertHistory;
 import com.koduck.entity.strategy.AlertRule;
-import com.koduck.entity.market.DataSourceStatus;
-import com.koduck.entity.market.StockRealtime;
+import com.koduck.market.entity.DataSourceStatus;
+import com.koduck.market.entity.StockRealtime;
 import com.koduck.repository.market.StockRealtimeRepository;
 import com.koduck.repository.market.DataSourceStatusRepository;
 import com.koduck.repository.strategy.AlertRuleRepository;

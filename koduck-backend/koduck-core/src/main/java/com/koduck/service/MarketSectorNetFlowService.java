@@ -2,7 +2,7 @@ package com.koduck.service;
 
 import java.time.LocalDate;
 
-import com.koduck.dto.market.SectorNetFlowDto;
+import com.koduck.market.dto.SectorNetFlowDto;
 
 public interface MarketSectorNetFlowService {
 

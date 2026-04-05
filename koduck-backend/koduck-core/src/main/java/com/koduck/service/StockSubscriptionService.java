@@ -6,7 +6,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import com.koduck.dto.market.PriceUpdateDto;
+import com.koduck.market.dto.PriceUpdateDto;
 
 /**
  * 用户股票订阅管理服务接口。

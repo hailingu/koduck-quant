@@ -6,7 +6,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
-import com.koduck.entity.market.StockTickHistory;
+import com.koduck.market.entity.StockTickHistory;
 
 /**
  * 股票分笔成交历史仓库，提供分笔成交数据的数据库访问。

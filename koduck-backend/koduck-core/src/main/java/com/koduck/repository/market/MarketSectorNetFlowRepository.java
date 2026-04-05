@@ -7,7 +7,7 @@ import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
-import com.koduck.entity.market.MarketSectorNetFlow;
+import com.koduck.market.entity.MarketSectorNetFlow;
 
 /**
  * 市场板块资金流向操作仓库，提供市场板块资金流向数据的数据库访问。

@@ -8,7 +8,7 @@ import java.util.Map;
 
 import org.springframework.stereotype.Component;
 
-import com.koduck.dto.market.KlineDataDto;
+import com.koduck.market.dto.KlineDataDto;
 
 /**
  * 外部源原始K线数据的规范化器。

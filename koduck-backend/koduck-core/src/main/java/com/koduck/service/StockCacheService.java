@@ -2,7 +2,7 @@ package com.koduck.service;
 
 import java.util.List;
 
-import com.koduck.dto.market.PriceQuoteDto;
+import com.koduck.market.dto.PriceQuoteDto;
 
 /**
  * 股票数据缓存服务接口。
