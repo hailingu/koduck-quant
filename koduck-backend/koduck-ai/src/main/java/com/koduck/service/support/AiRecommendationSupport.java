@@ -9,14 +9,14 @@ import java.util.Random;
 
 import org.springframework.stereotype.Component;
 
+import com.koduck.acl.BacktestQueryService.BacktestResultSummary;
+import com.koduck.acl.PortfolioQueryService.PortfolioPositionSummary;
+import com.koduck.acl.StrategyQueryService.StrategySummary;
 import com.koduck.common.constants.AiConstants;
 import com.koduck.dto.ai.BacktestInterpretResponse;
 import com.koduck.dto.ai.RiskAssessmentResponse;
 import com.koduck.dto.ai.StrategyRecommendRequest;
 import com.koduck.dto.ai.StrategyRecommendResponse;
-import com.koduck.entity.backtest.BacktestResult;
-import com.koduck.entity.portfolio.PortfolioPosition;
-import com.koduck.entity.strategy.Strategy;
 
 /**
  * AI推荐和解释载荷生成的支持组件。
@@ -163,11 +163,11 @@ public class AiRecommendationSupport {
      * @return 策略推荐响应
      */
     public StrategyRecommendResponse buildStrategyRecommendations(
-        List<Strategy> userStrategies, StrategyRecommendRequest request) {
+        List<StrategySummary> userStrategies, StrategyRecommendRequest request) {
         List<StrategyRecommendResponse.StrategyRecommendation> recommendations = new ArrayList<>();
         int limit = Math.min(MAX_RECOMMENDATIONS, userStrategies.size());
         for (int i = 0; i < limit; i++) {
-            Strategy strategy = userStrategies.get(i);
+            StrategySummary strategy = userStrategies.get(i);
             int matchScore = MATCH_SCORE_BASE + random.nextInt(MATCH_SCORE_RANGE);
             recommendations.add(StrategyRecommendResponse.StrategyRecommendation.builder()
                 .strategyId(strategy.getId())
@@ -199,12 +199,12 @@ public class AiRecommendationSupport {
      * @return 回测解释响应
      */
     public BacktestInterpretResponse buildBacktestInterpretation(Long backtestResultId,
-        BacktestResult result) {
+        BacktestResultSummary result) {
         boolean isGoodPerformance = result.getTotalReturn()
             .compareTo(PERFORMANCE_THRESHOLD) > 0;
         return BacktestInterpretResponse.builder()
             .backtestResultId(backtestResultId)
-            .strategyName("策略 " + result.getStrategyId())
+            .strategyName(result.getStrategyName())
             .performance(generatePerformanceInterpretation(isGoodPerformance))
             .risk(generateRiskInterpretation(result))
             .tradingBehavior(generateTradingBehaviorAnalysis(result))
@@ -224,7 +224,7 @@ public class AiRecommendationSupport {
      * @return 风险评估响应
      */
     public RiskAssessmentResponse buildRiskAssessment(Long portfolioId,
-        List<PortfolioPosition> positions) {
+        List<PortfolioPositionSummary> positions) {
         int overallScore = OVERALL_SCORE_BASE + random.nextInt(OVERALL_SCORE_RANGE);
         String riskLevel = resolveRiskLevel(overallScore);
         return RiskAssessmentResponse.builder()
@@ -322,7 +322,7 @@ public class AiRecommendationSupport {
     }
 
     private BacktestInterpretResponse.RiskInterpretation generateRiskInterpretation(
-        BacktestResult result) {
+        BacktestResultSummary result) {
         return BacktestInterpretResponse.RiskInterpretation.builder()
             .maxDrawdownAssessment(result.getMaxDrawdown() != null
                 && result.getMaxDrawdown().compareTo(MAX_DRAWDOWN_DECIMAL) < 0 ? "可控" : "较高")
@@ -335,7 +335,7 @@ public class AiRecommendationSupport {
     }
 
     private BacktestInterpretResponse.TradingBehaviorAnalysis generateTradingBehaviorAnalysis(
-        BacktestResult result) {
+        BacktestResultSummary result) {
         return BacktestInterpretResponse.TradingBehaviorAnalysis.builder()
             .winRateAnalysis("胜率" + result.getWinRate() + "%，"
                 + (result.getWinRate().compareTo(WIN_RATE_DECIMAL) > 0 ? "正向优势" : "需优化"))
@@ -346,7 +346,7 @@ public class AiRecommendationSupport {
     }
 
     private List<BacktestInterpretResponse.ImprovementSuggestion> generateImprovementSuggestions(
-        BacktestResult result) {
+        BacktestResultSummary result) {
         List<BacktestInterpretResponse.ImprovementSuggestion> suggestions = new ArrayList<>();
         if (result.getWinRate() != null
             && result.getWinRate().compareTo(BigDecimal.valueOf(WIN_RATE_THRESHOLD)) < 0) {

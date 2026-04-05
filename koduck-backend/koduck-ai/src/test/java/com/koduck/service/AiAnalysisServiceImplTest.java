@@ -17,6 +17,10 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 
+import com.koduck.acl.BacktestQueryService;
+import com.koduck.acl.PortfolioQueryService;
+import com.koduck.acl.StrategyQueryService;
+import com.koduck.acl.UserSettingsQueryService;
 import com.koduck.config.AgentConfig;
 import com.koduck.dto.ai.BacktestInterpretResponse;
 import com.koduck.dto.ai.ChatMessageRequest;
@@ -27,14 +31,8 @@ import com.koduck.dto.ai.StockAnalysisResponse;
 import com.koduck.dto.ai.StrategyRecommendRequest;
 import com.koduck.dto.ai.StrategyRecommendResponse;
 import com.koduck.dto.settings.LlmConfigDto;
-import com.koduck.entity.backtest.BacktestResult;
-import com.koduck.entity.portfolio.PortfolioPosition;
-import com.koduck.entity.strategy.Strategy;
 import com.koduck.exception.ExternalServiceException;
 import com.koduck.exception.ResourceNotFoundException;
-import com.koduck.repository.backtest.BacktestResultRepository;
-import com.koduck.repository.portfolio.PortfolioPositionRepository;
-import com.koduck.repository.strategy.StrategyRepository;
 import com.koduck.service.impl.ai.AiAnalysisServiceImpl;
 import com.koduck.service.support.AiConversationSupport;
 import com.koduck.service.support.AiRecommendationSupport;
@@ -152,21 +150,21 @@ class AiAnalysisServiceImplTest {
     /** Test risk score - medium. */
     private static final int TEST_RISK_SCORE_MEDIUM = 50;
 
-    /** Mock repository for portfolio positions. */
+    /** Mock query service for portfolio positions. */
     @Mock
-    private PortfolioPositionRepository positionRepository;
+    private PortfolioQueryService portfolioQueryService;
 
-    /** Mock repository for strategies. */
+    /** Mock query service for strategies. */
     @Mock
-    private StrategyRepository strategyRepository;
+    private StrategyQueryService strategyQueryService;
 
-    /** Mock repository for backtest results. */
+    /** Mock query service for backtest results. */
     @Mock
-    private BacktestResultRepository backtestResultRepository;
+    private BacktestQueryService backtestQueryService;
 
-    /** Mock service for user settings. */
+    /** Mock query service for user settings. */
     @Mock
-    private UserSettingsService userSettingsService;
+    private UserSettingsQueryService userSettingsQueryService;
 
     /** Mock configuration for agent. */
     @Mock
@@ -225,10 +223,10 @@ class AiAnalysisServiceImplTest {
         lenient().when(requestBodyUriSpec.retrieve()).thenReturn(responseSpec);
 
         aiAnalysisService = new AiAnalysisServiceImpl(
-                positionRepository,
-                strategyRepository,
-                backtestResultRepository,
-                userSettingsService,
+                portfolioQueryService,
+                strategyQueryService,
+                backtestQueryService,
+                userSettingsQueryService,
                 agentConfig,
                 objectMapper,
                 webClientBuilder,
@@ -281,7 +279,7 @@ class AiAnalysisServiceImplTest {
                 ))
         );
 
-        when(userSettingsService.getEffectiveLlmConfig(userId, DEFAULT_PROVIDER)).thenReturn(llmConfig);
+        when(userSettingsQueryService.getEffectiveLlmConfig(userId, DEFAULT_PROVIDER)).thenReturn(llmConfig);
         mockWebClientResponse(agentResponse);
         when(aiRecommendationSupport.generateRecommendationFromResponse("这是一个买入信号"))
                 .thenReturn("建议买入");
@@ -319,7 +317,7 @@ class AiAnalysisServiceImplTest {
                 ))
         );
 
-        when(userSettingsService.getEffectiveLlmConfig(userId, DEFAULT_PROVIDER)).thenReturn(llmConfig);
+        when(userSettingsQueryService.getEffectiveLlmConfig(userId, DEFAULT_PROVIDER)).thenReturn(llmConfig);
         mockWebClientResponse(agentResponse);
         when(aiRecommendationSupport.generateRecommendationFromResponse("分析结果"))
                 .thenReturn("建议观望");
@@ -353,7 +351,7 @@ class AiAnalysisServiceImplTest {
                 ))
         );
 
-        when(userSettingsService.getEffectiveLlmConfig(userId, PROVIDER_DEEPSEEK)).thenReturn(llmConfig);
+        when(userSettingsQueryService.getEffectiveLlmConfig(userId, PROVIDER_DEEPSEEK)).thenReturn(llmConfig);
         mockWebClientResponse(agentResponse);
         when(aiRecommendationSupport.generateRecommendationFromResponse("Deepseek分析结果"))
                 .thenReturn("建议买入");
@@ -387,7 +385,7 @@ class AiAnalysisServiceImplTest {
                 ))
         );
 
-        when(userSettingsService.getEffectiveLlmConfig(userId, DEFAULT_PROVIDER)).thenReturn(llmConfig);
+        when(userSettingsQueryService.getEffectiveLlmConfig(userId, DEFAULT_PROVIDER)).thenReturn(llmConfig);
         mockWebClientResponse(agentResponse);
         when(aiRecommendationSupport.generateRecommendationFromResponse("分析结果"))
                 .thenReturn("建议观望");
@@ -414,7 +412,7 @@ class AiAnalysisServiceImplTest {
                 .apiKey(TEST_API_KEY)
                 .build();
 
-        when(userSettingsService.getEffectiveLlmConfig(userId, DEFAULT_PROVIDER)).thenReturn(llmConfig);
+        when(userSettingsQueryService.getEffectiveLlmConfig(userId, DEFAULT_PROVIDER)).thenReturn(llmConfig);
         mockWebClientError(new RuntimeException("Connection refused"));
 
         // When & Then
@@ -440,7 +438,7 @@ class AiAnalysisServiceImplTest {
 
         Map<String, Object> agentResponse = Map.of("choices", Collections.emptyList());
 
-        when(userSettingsService.getEffectiveLlmConfig(userId, DEFAULT_PROVIDER)).thenReturn(llmConfig);
+        when(userSettingsQueryService.getEffectiveLlmConfig(userId, DEFAULT_PROVIDER)).thenReturn(llmConfig);
         mockWebClientResponse(agentResponse);
 
         // When & Then
@@ -478,7 +476,7 @@ class AiAnalysisServiceImplTest {
                 ))
         );
 
-        when(userSettingsService.getEffectiveLlmConfig(userId, DEFAULT_PROVIDER)).thenReturn(llmConfig);
+        when(userSettingsQueryService.getEffectiveLlmConfig(userId, DEFAULT_PROVIDER)).thenReturn(llmConfig);
         mockWebClientResponse(agentResponse);
         when(aiRecommendationSupport.generateRecommendationFromResponse("分析完成"))
                 .thenReturn("建议买入");
@@ -511,7 +509,7 @@ class AiAnalysisServiceImplTest {
                 .apiKey(TEST_API_KEY)
                 .build();
 
-        when(userSettingsService.getEffectiveLlmConfig(userId, DEFAULT_PROVIDER)).thenReturn(llmConfig);
+        when(userSettingsQueryService.getEffectiveLlmConfig(userId, DEFAULT_PROVIDER)).thenReturn(llmConfig);
         when(aiConversationSupport.resolveSessionId(any())).thenReturn(TEST_SESSION_ID);
         when(aiConversationSupport.enrichWithMemoryContext(any(), any())).thenReturn(request);
         when(aiConversationSupport.enrichWithQuantSignalIfNeeded(any(), any())).thenReturn(request);
@@ -542,7 +540,7 @@ class AiAnalysisServiceImplTest {
                 .apiKey(TEST_API_KEY)
                 .build();
 
-        when(userSettingsService.getEffectiveLlmConfig(userId, DEFAULT_PROVIDER)).thenReturn(llmConfig);
+        when(userSettingsQueryService.getEffectiveLlmConfig(userId, DEFAULT_PROVIDER)).thenReturn(llmConfig);
         when(aiConversationSupport.resolveSessionId(any())).thenReturn(TEST_SESSION_ID);
         when(aiConversationSupport.enrichWithMemoryContext(any(), any())).thenReturn(request);
         when(aiConversationSupport.appendInstructionToSystem(any(), anyString())).thenReturn(request);
@@ -570,7 +568,7 @@ class AiAnalysisServiceImplTest {
                 .messages(List.of(message))
                 .build();
 
-        when(userSettingsService.getEffectiveLlmConfig(userId, DEFAULT_PROVIDER)).thenReturn(null);
+        when(userSettingsQueryService.getEffectiveLlmConfig(userId, DEFAULT_PROVIDER)).thenReturn(null);
         when(aiConversationSupport.resolveSessionId(any())).thenReturn(TEST_SESSION_ID);
         when(aiConversationSupport.enrichWithMemoryContext(any(), any())).thenReturn(request);
         when(aiConversationSupport.enrichWithQuantSignalIfNeeded(any(), any())).thenReturn(request);
@@ -594,16 +592,16 @@ class AiAnalysisServiceImplTest {
                 .investmentHorizon("medium")
                 .build();
 
-        List<Strategy> userStrategies = List.of(
-                Strategy.builder().id(TEST_STRATEGY_ID_1).name("MA Cross").build(),
-                Strategy.builder().id(TEST_STRATEGY_ID_2).name("RSI Strategy").build()
+        List<StrategyQueryService.StrategySummary> userStrategies = List.of(
+                new StrategyQueryService.StrategySummary(TEST_STRATEGY_ID_1, "MA Cross", "trend", "Moving average crossover strategy"),
+                new StrategyQueryService.StrategySummary(TEST_STRATEGY_ID_2, "RSI Strategy", "momentum", "RSI based strategy")
         );
 
         StrategyRecommendResponse expectedResponse = StrategyRecommendResponse.builder()
                 .riskProfile("conservative")
                 .build();
 
-        when(strategyRepository.findByUserId(userId)).thenReturn(userStrategies);
+        when(strategyQueryService.findStrategiesByUserId(userId)).thenReturn(userStrategies);
         when(aiRecommendationSupport.buildStrategyRecommendations(userStrategies, request))
                 .thenReturn(expectedResponse);
 
@@ -629,7 +627,7 @@ class AiAnalysisServiceImplTest {
                 .recommendations(Collections.emptyList())
                 .build();
 
-        when(strategyRepository.findByUserId(userId)).thenReturn(Collections.emptyList());
+        when(strategyQueryService.findStrategiesByUserId(userId)).thenReturn(Collections.emptyList());
         when(aiRecommendationSupport.buildStrategyRecommendations(Collections.emptyList(), request))
                 .thenReturn(expectedResponse);
 
@@ -650,19 +648,23 @@ class AiAnalysisServiceImplTest {
         Long userId = TEST_USER_ID;
         Long backtestResultId = TEST_BACKTEST_RESULT_ID;
 
-        BacktestResult result = BacktestResult.builder()
-                .id(backtestResultId)
-                .userId(userId)
-                .strategyId(TEST_STRATEGY_ID_1)
-                .totalReturn(new BigDecimal(TEST_TOTAL_RETURN))
-                .build();
+        BacktestQueryService.BacktestResultSummary result = new BacktestQueryService.BacktestResultSummary(
+                backtestResultId,
+                TEST_SYMBOL_MOUTAI,
+                "MA Cross",
+                new BigDecimal(TEST_TOTAL_RETURN),
+                new BigDecimal("0.05"),
+                10,
+                new BigDecimal("1.2"),
+                new BigDecimal("0.6")
+        );
 
         BacktestInterpretResponse expectedResponse = BacktestInterpretResponse.builder()
                 .backtestResultId(backtestResultId)
                 .strategyName("策略 1")
                 .build();
 
-        when(backtestResultRepository.findByIdAndUserId(backtestResultId, userId))
+        when(backtestQueryService.findResultById(backtestResultId))
                 .thenReturn(Optional.of(result));
         when(aiRecommendationSupport.buildBacktestInterpretation(backtestResultId, result))
                 .thenReturn(expectedResponse);
@@ -682,7 +684,7 @@ class AiAnalysisServiceImplTest {
         Long userId = TEST_USER_ID;
         Long backtestResultId = TEST_BACKTEST_RESULT_ID_NONEXISTENT;
 
-        when(backtestResultRepository.findByIdAndUserId(backtestResultId, userId))
+        when(backtestQueryService.findResultById(backtestResultId))
                 .thenReturn(Optional.empty());
 
         // When & Then
@@ -700,17 +702,23 @@ class AiAnalysisServiceImplTest {
         Long userId = TEST_USER_ID;
         Long portfolioId = TEST_PORTFOLIO_ID;
 
-        List<PortfolioPosition> positions = List.of(
-                PortfolioPosition.builder()
-                        .id(TEST_POSITION_ID_1)
-                        .symbol(TEST_SYMBOL_MOUTAI)
-                        .quantity(new BigDecimal(TEST_QUANTITY_1))
-                        .build(),
-                PortfolioPosition.builder()
-                        .id(TEST_POSITION_ID_2)
-                        .symbol(TEST_SYMBOL_POSITION_2)
-                        .quantity(new BigDecimal(TEST_QUANTITY_2))
-                        .build()
+        List<PortfolioQueryService.PortfolioPositionSummary> positions = List.of(
+                new PortfolioQueryService.PortfolioPositionSummary(
+                        TEST_POSITION_ID_1,
+                        TEST_SYMBOL_MOUTAI,
+                        TEST_MARKET_ASHARE,
+                        new BigDecimal(TEST_QUANTITY_1),
+                        new BigDecimal("1000.0"),
+                        new BigDecimal(TEST_PRICE_MOUTAI)
+                ),
+                new PortfolioQueryService.PortfolioPositionSummary(
+                        TEST_POSITION_ID_2,
+                        TEST_SYMBOL_POSITION_2,
+                        TEST_MARKET_ASHARE,
+                        new BigDecimal(TEST_QUANTITY_2),
+                        new BigDecimal("10.0"),
+                        new BigDecimal("12.0")
+                )
         );
 
         RiskAssessmentResponse expectedResponse = RiskAssessmentResponse.builder()
@@ -718,7 +726,7 @@ class AiAnalysisServiceImplTest {
                 .overallRiskScore(TEST_RISK_SCORE_HIGH)
                 .build();
 
-        when(positionRepository.findByUserId(userId)).thenReturn(positions);
+        when(portfolioQueryService.findPositionsByUserId(userId)).thenReturn(positions);
         when(aiRecommendationSupport.buildRiskAssessment(portfolioId, positions))
                 .thenReturn(expectedResponse);
 
@@ -743,7 +751,7 @@ class AiAnalysisServiceImplTest {
                 .overallRiskScore(TEST_RISK_SCORE_MEDIUM)
                 .build();
 
-        when(positionRepository.findByUserId(userId)).thenReturn(Collections.emptyList());
+        when(portfolioQueryService.findPositionsByUserId(userId)).thenReturn(Collections.emptyList());
         when(aiRecommendationSupport.buildRiskAssessment(portfolioId, Collections.emptyList()))
                 .thenReturn(expectedResponse);
 
@@ -778,7 +786,7 @@ class AiAnalysisServiceImplTest {
                 ))
         );
 
-        when(userSettingsService.getEffectiveLlmConfig(userId, PROVIDER_OPENAI)).thenReturn(llmConfig);
+        when(userSettingsQueryService.getEffectiveLlmConfig(userId, PROVIDER_OPENAI)).thenReturn(llmConfig);
         mockWebClientResponse(agentResponse);
         when(aiRecommendationSupport.generateRecommendationFromResponse("OpenAI分析结果"))
                 .thenReturn("建议买入");
@@ -812,7 +820,7 @@ class AiAnalysisServiceImplTest {
                 ))
         );
 
-        when(userSettingsService.getEffectiveLlmConfig(userId, PROVIDER_DEEPSEEK)).thenReturn(llmConfig);
+        when(userSettingsQueryService.getEffectiveLlmConfig(userId, PROVIDER_DEEPSEEK)).thenReturn(llmConfig);
         mockWebClientResponse(agentResponse);
         when(aiRecommendationSupport.generateRecommendationFromResponse("分析结果"))
                 .thenReturn("建议观望");
@@ -839,7 +847,7 @@ class AiAnalysisServiceImplTest {
                 .apiKey(TEST_API_KEY)
                 .build();
 
-        when(userSettingsService.getEffectiveLlmConfig(userId, DEFAULT_PROVIDER)).thenReturn(llmConfig);
+        when(userSettingsQueryService.getEffectiveLlmConfig(userId, DEFAULT_PROVIDER)).thenReturn(llmConfig);
         mockWebClientResponse(null);
 
         // When & Then
@@ -870,7 +878,7 @@ class AiAnalysisServiceImplTest {
                 ))
         );
 
-        when(userSettingsService.getEffectiveLlmConfig(userId, DEFAULT_PROVIDER)).thenReturn(llmConfig);
+        when(userSettingsQueryService.getEffectiveLlmConfig(userId, DEFAULT_PROVIDER)).thenReturn(llmConfig);
         mockWebClientResponse(agentResponse);
         when(aiRecommendationSupport.generateRecommendationFromResponse("分析结果"))
                 .thenReturn("建议观望");

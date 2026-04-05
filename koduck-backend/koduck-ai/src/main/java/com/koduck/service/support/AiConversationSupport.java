@@ -18,7 +18,7 @@ import com.koduck.dto.ai.ChatMessageRequest;
 import com.koduck.dto.ai.ChatStreamRequest;
 import com.koduck.dto.indicator.IndicatorResponse;
 import com.koduck.entity.ai.MemoryChatMessage;
-import com.koduck.entity.user.UserMemoryProfile;
+import com.koduck.acl.UserMemoryProfileQueryService.UserMemoryProfileDto;
 import com.koduck.service.MemoryService;
 import com.koduck.service.TechnicalIndicatorService;
 
@@ -66,7 +66,7 @@ public class AiConversationSupport {
                 sessionId,
                 memoryService.getL1MaxTurns()
             );
-            UserMemoryProfile profile = memoryService.getOrCreateProfile(userId);
+            UserMemoryProfileDto profile = memoryService.getOrCreateProfile(userId);
             String memoryContext = buildMemoryContext(sessionId, recentMessages, profile);
             if (memoryContext.isBlank()) {
                 return request;
@@ -184,7 +184,7 @@ public class AiConversationSupport {
 
     private String buildMemoryContext(String sessionId,
                                       List<MemoryChatMessage> recentMessages,
-                                      UserMemoryProfile profile) {
+                                      UserMemoryProfileDto profile) {
         StringBuilder builder = new StringBuilder();
         builder.append("【Memory Context】\n");
         builder.append("session_id: ").append(sessionId).append("\n");
@@ -197,12 +197,13 @@ public class AiConversationSupport {
         return result + "\n请把以上内容视为会话记忆，仅用于提升连续性，不要编造不存在的事实。";
     }
 
-    private boolean appendProfileMemoryContext(StringBuilder builder, UserMemoryProfile profile) {
+    private boolean appendProfileMemoryContext(StringBuilder builder, UserMemoryProfileDto profile) {
         if (profile == null) {
             return false;
         }
-        String riskPreference = profile.getRiskPreference();
-        List<String> preferredSources = profile.getPreferredSources();
+        String riskPreference = profile.getRiskTolerance();
+        String preferredStyle = profile.getPreferredStyle();
+        List<String> preferredSources = preferredStyle != null ? List.of(preferredStyle) : List.of();
         boolean hasRiskPreference = riskPreference != null && !riskPreference.isBlank();
         boolean hasPreferredSources = preferredSources != null && !preferredSources.isEmpty();
         if (!hasRiskPreference && !hasPreferredSources) {
@@ -382,8 +383,8 @@ public class AiConversationSupport {
         if (latestUserMessage == null || latestUserMessage.isBlank()) {
             return;
         }
-        UserMemoryProfile existing = memoryService.getOrCreateProfile(userId);
-        String riskPreference = existing.getRiskPreference();
+        UserMemoryProfileDto existing = memoryService.getOrCreateProfile(userId);
+        String riskPreference = existing.getRiskTolerance();
         if (latestUserMessage.contains("激进")) {
             riskPreference = riskAggressive;
         }
@@ -393,8 +394,10 @@ public class AiConversationSupport {
         else if (latestUserMessage.contains("稳健")) {
             riskPreference = riskBalanced;
         }
-        Set<String> preferredSources = new LinkedHashSet<>(
-            existing.getPreferredSources() != null ? existing.getPreferredSources() : List.of());
+        Set<String> preferredSources = new LinkedHashSet<>();
+        if (existing.getPreferredStyle() != null) {
+            preferredSources.add(existing.getPreferredStyle());
+        }
         if (latestUserMessage.contains("财联社")) {
             preferredSources.add("cls");
         }
@@ -402,6 +405,6 @@ public class AiConversationSupport {
             preferredSources.add("yicai");
         }
         memoryService.upsertProfile(userId, riskPreference,
-            new ArrayList<>(preferredSources), existing.getProfileFacts());
+            new ArrayList<>(preferredSources), existing.getPreferences());
     }
 }

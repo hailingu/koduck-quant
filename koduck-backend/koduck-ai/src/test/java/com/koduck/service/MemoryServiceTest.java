@@ -12,17 +12,18 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.Pageable;
 
+import com.koduck.acl.UserMemoryProfileQueryService;
+import com.koduck.acl.UserMemoryProfileQueryService.UserMemoryProfileDto;
 import com.koduck.entity.ai.MemoryChatMessage;
 import com.koduck.entity.ai.MemoryChatSession;
-import com.koduck.entity.user.UserMemoryProfile;
 import com.koduck.repository.ai.MemoryChatMessageRepository;
 import com.koduck.repository.ai.MemoryChatSessionRepository;
-import com.koduck.repository.user.UserMemoryProfileRepository;
 import com.koduck.service.impl.ai.MemoryServiceImpl;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -83,9 +84,9 @@ class MemoryServiceTest {
     @Mock
     private MemoryChatMessageRepository chatMessageRepository;
 
-    /** Mock repository for user memory profiles. */
+    /** Mock service for user memory profiles. */
     @Mock
-    private UserMemoryProfileRepository memoryProfileRepository;
+    private UserMemoryProfileQueryService userMemoryProfileQueryService;
 
     /** Service under test. */
     private MemoryServiceImpl memoryService;
@@ -98,7 +99,7 @@ class MemoryServiceTest {
         memoryService = new MemoryServiceImpl(
             chatSessionRepository,
             chatMessageRepository,
-            memoryProfileRepository,
+            userMemoryProfileQueryService,
             true,
             DEFAULT_CONTEXT_LIMIT
         );
@@ -220,19 +221,26 @@ class MemoryServiceTest {
      */
     @Test
     void shouldUpsertProfile() {
-        when(memoryProfileRepository.findById(TEST_USER_ID)).thenReturn(Optional.empty());
-        when(memoryProfileRepository.save(any(UserMemoryProfile.class)))
-            .thenAnswer(invocation -> invocation.getArgument(0));
-
-        UserMemoryProfile result = memoryService.upsertProfile(
+        UserMemoryProfileDto profile = new UserMemoryProfileDto(
             TEST_USER_ID,
             "balanced",
-            List.of("cls"),
+            "medium",
+            Map.of("likes", "value")
+        );
+
+        when(userMemoryProfileQueryService.findByUserId(TEST_USER_ID)).thenReturn(Optional.empty());
+        doNothing().when(userMemoryProfileQueryService).updateProfile(eq(TEST_USER_ID), any(UserMemoryProfileDto.class));
+
+        UserMemoryProfileDto result = memoryService.upsertProfile(
+            TEST_USER_ID,
+            "medium",
+            List.of("balanced"),
             Map.of("likes", "value")
         );
 
         assertThat(result.getUserId()).isEqualTo(TEST_USER_ID);
-        assertThat(result.getRiskPreference()).isEqualTo("balanced");
-        assertThat(result.getPreferredSources()).containsExactly("cls");
+        assertThat(result.getRiskTolerance()).isEqualTo("medium");
+        assertThat(result.getPreferredStyle()).isEqualTo("balanced");
+        assertThat(result.getPreferences()).containsEntry("likes", "value");
     }
 }

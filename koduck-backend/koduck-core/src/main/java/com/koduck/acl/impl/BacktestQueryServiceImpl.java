@@ -31,10 +31,12 @@ public class BacktestQueryServiceImpl implements BacktestQueryService {
         return new BacktestResultSummary(
                 result.getId(),
                 result.getSymbol(),
-                null,  // strategyName field does not exist
+                "Strategy " + result.getStrategyId(),  // strategyName derived from strategyId
                 result.getTotalReturn(),
                 result.getMaxDrawdown(),
-                result.getTotalTrades()  // Field name is totalTrades, not tradeCount
+                result.getTotalTrades(),  // Field name is totalTrades, not tradeCount
+                result.getSharpeRatio(),
+                result.getWinRate()
         );
     }
 }

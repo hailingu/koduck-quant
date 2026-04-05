@@ -14,13 +14,13 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.koduck.acl.UserMemoryProfileQueryService;
+import com.koduck.acl.UserMemoryProfileQueryService.UserMemoryProfileDto;
 import com.koduck.entity.ai.MemoryChatMessage;
 import com.koduck.entity.ai.MemoryChatSession;
-import com.koduck.entity.user.UserMemoryProfile;
 import com.koduck.exception.StateException;
 import com.koduck.repository.ai.MemoryChatMessageRepository;
 import com.koduck.repository.ai.MemoryChatSessionRepository;
-import com.koduck.repository.user.UserMemoryProfileRepository;
 import com.koduck.service.MemoryService;
 
 import lombok.extern.slf4j.Slf4j;
@@ -40,21 +40,21 @@ public class MemoryServiceImpl implements MemoryService {
 
     private final MemoryChatSessionRepository chatSessionRepository;
     private final MemoryChatMessageRepository chatMessageRepository;
-    private final UserMemoryProfileRepository memoryProfileRepository;
+    private final UserMemoryProfileQueryService userMemoryProfileQueryService;
     private final boolean memoryEnabled;
     private final int l1MaxTurns;
 
     public MemoryServiceImpl(MemoryChatSessionRepository chatSessionRepository,
                              MemoryChatMessageRepository chatMessageRepository,
-                             UserMemoryProfileRepository memoryProfileRepository,
+                             UserMemoryProfileQueryService userMemoryProfileQueryService,
                              @Value("${memory.enabled:true}") boolean memoryEnabled,
                              @Value("${memory.l1.max-turns:20}") int l1MaxTurns) {
         this.chatSessionRepository = Objects.requireNonNull(chatSessionRepository,
             "chatSessionRepository must not be null");
         this.chatMessageRepository = Objects.requireNonNull(chatMessageRepository,
             "chatMessageRepository must not be null");
-        this.memoryProfileRepository = Objects.requireNonNull(memoryProfileRepository,
-            "memoryProfileRepository must not be null");
+        this.userMemoryProfileQueryService = Objects.requireNonNull(userMemoryProfileQueryService,
+            "userMemoryProfileQueryService must not be null");
         this.memoryEnabled = memoryEnabled;
         this.l1MaxTurns = l1MaxTurns;
     }
@@ -161,39 +161,39 @@ public class MemoryServiceImpl implements MemoryService {
     }
     @Override
     @Transactional(readOnly = true)
-    public UserMemoryProfile getOrCreateProfile(Long userId) {
+    public UserMemoryProfileDto getOrCreateProfile(Long userId) {
         Long nonNullUserId = Objects.requireNonNull(userId, USER_ID_NULL_MESSAGE);
-        return memoryProfileRepository.findById(nonNullUserId).orElseGet(() -> UserMemoryProfile.builder()
-            .userId(nonNullUserId)
-            .preferredSources(List.of())
-            .profileFacts(Map.of())
-            .build());
+        return userMemoryProfileQueryService.findByUserId(nonNullUserId).orElseGet(() -> new UserMemoryProfileDto(
+            nonNullUserId,
+            null,
+            null,
+            Map.of()
+        ));
     }
     @Override
     @Transactional
-    public UserMemoryProfile upsertProfile(
+    public UserMemoryProfileDto upsertProfile(
         Long userId,
         String riskPreference,
         List<String> preferredSources,
         Map<String, Object> profileFacts
     ) {
         Long nonNullUserId = Objects.requireNonNull(userId, USER_ID_NULL_MESSAGE);
-        UserMemoryProfile profile = memoryProfileRepository.findById(nonNullUserId).orElseGet(() -> UserMemoryProfile.builder()
-            .userId(nonNullUserId)
-            .build());
-        if (riskPreference != null) {
-            profile.setRiskPreference(riskPreference);
-        }
-        if (preferredSources != null) {
-            profile.setPreferredSources(preferredSources);
-        }
-        if (profileFacts != null) {
-            profile.setProfileFacts(profileFacts);
-        }
-        UserMemoryProfile saved = memoryProfileRepository.save(
-            Objects.requireNonNull(profile, "profile must not be null"));
+        // Build new profile with updated values (UserMemoryProfileDto is immutable record)
+        UserMemoryProfileDto existingProfile = userMemoryProfileQueryService.findByUserId(nonNullUserId).orElse(null);
+        String finalRiskTolerance = riskPreference != null ? riskPreference : existingProfile != null ? existingProfile.getRiskTolerance() : null;
+        String finalPreferredStyle = preferredSources != null && !preferredSources.isEmpty() ? preferredSources.get(0) : existingProfile != null ? existingProfile.getPreferredStyle() : null;
+        Map<String, Object> finalPreferences = profileFacts != null ? profileFacts : existingProfile != null ? existingProfile.getPreferences() : Map.of();
+        
+        UserMemoryProfileDto profile = new UserMemoryProfileDto(
+            nonNullUserId,
+            finalPreferredStyle,
+            finalRiskTolerance,
+            finalPreferences
+        );
+        userMemoryProfileQueryService.updateProfile(nonNullUserId, profile);
         log.debug("Upserted user memory profile: user={}", nonNullUserId);
-        return saved;
+        return profile;
     }
     @Override
     @Transactional
@@ -222,6 +222,7 @@ public class MemoryServiceImpl implements MemoryService {
     @Transactional
     public void clearProfile(Long userId) {
         Long nonNullUserId = Objects.requireNonNull(userId, USER_ID_NULL_MESSAGE);
-        memoryProfileRepository.deleteById(nonNullUserId);
+        log.warn("Delete profile operation is not supported via ACL interface for userId={}", nonNullUserId);
+        throw new UnsupportedOperationException("Delete profile operation is not supported via ACL interface");
     }
 }

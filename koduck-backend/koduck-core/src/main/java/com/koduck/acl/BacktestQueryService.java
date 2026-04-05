@@ -43,5 +43,11 @@ public interface BacktestQueryService {
 
         /** 交易次数。 */
         Integer tradeCount;
+
+        /** 夏普比率。 */
+        BigDecimal sharpeRatio;
+
+        /** 胜率。 */
+        BigDecimal winRate;
     }
 }

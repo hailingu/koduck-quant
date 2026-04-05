@@ -3,9 +3,9 @@ package com.koduck.service;
 import java.util.List;
 import java.util.Map;
 
+import com.koduck.acl.UserMemoryProfileQueryService.UserMemoryProfileDto;
 import com.koduck.entity.ai.MemoryChatMessage;
 import com.koduck.entity.ai.MemoryChatSession;
-import com.koduck.entity.user.UserMemoryProfile;
 
 /**
  * 记忆操作服务接口。
@@ -90,7 +90,7 @@ public interface MemoryService {
      * @param userId 用户ID
      * @return 用户画像
      */
-    UserMemoryProfile getOrCreateProfile(Long userId);
+    UserMemoryProfileDto getOrCreateProfile(Long userId);
 
     /**
      * 更新用户画像。
@@ -101,7 +101,7 @@ public interface MemoryService {
      * @param profileFacts     画像事实
      * @return 更新后的用户画像
      */
-    UserMemoryProfile upsertProfile(
+    UserMemoryProfileDto upsertProfile(
         Long userId,
         String riskPreference,
         List<String> preferredSources,
