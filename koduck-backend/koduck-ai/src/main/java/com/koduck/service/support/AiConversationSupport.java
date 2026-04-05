@@ -13,12 +13,12 @@ import java.util.regex.Pattern;
 
 import org.springframework.stereotype.Component;
 
+import com.koduck.acl.UserMemoryProfileQueryService.UserMemoryProfileDto;
 import com.koduck.common.constants.MarketConstants;
 import com.koduck.dto.ai.ChatMessageRequest;
 import com.koduck.dto.ai.ChatStreamRequest;
 import com.koduck.dto.indicator.IndicatorResponse;
 import com.koduck.entity.ai.MemoryChatMessage;
-import com.koduck.acl.UserMemoryProfileQueryService.UserMemoryProfileDto;
 import com.koduck.service.MemoryService;
 import com.koduck.service.TechnicalIndicatorService;
 

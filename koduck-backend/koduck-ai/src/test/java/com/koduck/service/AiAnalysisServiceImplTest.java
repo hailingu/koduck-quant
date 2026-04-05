@@ -144,6 +144,9 @@ class AiAnalysisServiceImplTest {
     /** Test total return value. */
     private static final String TEST_TOTAL_RETURN = "0.15";
 
+    /** Test trade count for backtest. */
+    private static final int TEST_TRADE_COUNT = 10;
+
     /** Test risk score - medium high. */
     private static final int TEST_RISK_SCORE_HIGH = 65;
 
@@ -593,8 +596,10 @@ class AiAnalysisServiceImplTest {
                 .build();
 
         List<StrategyQueryService.StrategySummary> userStrategies = List.of(
-                new StrategyQueryService.StrategySummary(TEST_STRATEGY_ID_1, "MA Cross", "trend", "Moving average crossover strategy"),
-                new StrategyQueryService.StrategySummary(TEST_STRATEGY_ID_2, "RSI Strategy", "momentum", "RSI based strategy")
+                new StrategyQueryService.StrategySummary(
+                    TEST_STRATEGY_ID_1, "MA Cross", "trend", "Moving average crossover strategy"),
+                new StrategyQueryService.StrategySummary(
+                    TEST_STRATEGY_ID_2, "RSI Strategy", "momentum", "RSI based strategy")
         );
 
         StrategyRecommendResponse expectedResponse = StrategyRecommendResponse.builder()
@@ -654,7 +659,7 @@ class AiAnalysisServiceImplTest {
                 "MA Cross",
                 new BigDecimal(TEST_TOTAL_RETURN),
                 new BigDecimal("0.05"),
-                10,
+                TEST_TRADE_COUNT,
                 new BigDecimal("1.2"),
                 new BigDecimal("0.6")
         );

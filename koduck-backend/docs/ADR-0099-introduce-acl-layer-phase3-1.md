@@ -1,6 +1,6 @@
 # ADR-0099: 引入防腐层解耦 koduck-ai 依赖 (Phase 3.1)
 
-- Status: Accepted
+- Status: Completed
 - Date: 2026-04-05
 - Issue: #493
 

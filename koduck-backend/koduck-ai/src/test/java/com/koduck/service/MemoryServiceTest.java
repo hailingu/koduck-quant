@@ -229,7 +229,8 @@ class MemoryServiceTest {
         );
 
         when(userMemoryProfileQueryService.findByUserId(TEST_USER_ID)).thenReturn(Optional.empty());
-        doNothing().when(userMemoryProfileQueryService).updateProfile(eq(TEST_USER_ID), any(UserMemoryProfileDto.class));
+        doNothing().when(userMemoryProfileQueryService)
+            .updateProfile(eq(TEST_USER_ID), any(UserMemoryProfileDto.class));
 
         UserMemoryProfileDto result = memoryService.upsertProfile(
             TEST_USER_ID,
