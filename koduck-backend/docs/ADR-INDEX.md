@@ -60,6 +60,12 @@
 | [ADR-0100](ADR-0100-migrate-ai-module-phase3-2.md) | 迁移 koduck-ai 代码到独立模块 (Phase 3.2) | 模块拆分架构 |
 | [ADR-0101](ADR-0101-ai-service-acl-refactor.md) | AiAnalysisServiceImpl 使用防腐层接口 | 模块拆分架构 |
 | [ADR-0102](ADR-0102-ai-module-phase3-3-cleanup.md) | Phase 3.3 - 优化和清理 | 模块拆分架构 |
+| [ADR-0141](ADR-0141-api-module-guidelines.md) | API 模块编码规范 | 架构规范 |
+| [ADR-0142](ADR-0142-module-independent-testing.md) | 模块独立测试策略 | 测试架构 |
+| [ADR-0143](ADR-0143-domain-event-mechanism.md) | 领域事件机制 | 事件驱动架构 |
+| [ADR-0144](ADR-0144-unified-config-management.md) | 统一配置管理 | 配置架构 |
+| [ADR-0145](ADR-0145-module-test-coverage.md) | 模块测试覆盖率提升 | 测试架构 |
+| [ADR-0146](ADR-0146-phase-completion-checklist.md) | Phase 完成检查项验证 | 架构改进验收 |
 
 ---
 
@@ -107,9 +113,9 @@
 
 ## 快速统计
 
-- **架构决策 (A)**：41 个
+- **架构决策 (A)**：49 个
 - **代码规范 (C)**：36 个
-- **总计**：77 个（截至 ADR-0102）
+- **总计**：85 个（截至 ADR-0146）
 
 ## 使用建议
 
