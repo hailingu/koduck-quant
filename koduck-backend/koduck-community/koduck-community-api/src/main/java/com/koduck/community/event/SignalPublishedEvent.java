@@ -1,48 +1,56 @@
 package com.koduck.community.event;
 
+import com.koduck.common.event.DomainEvent;
 import lombok.Getter;
-import org.springframework.context.ApplicationEvent;
-
-import java.time.Instant;
 
 /**
  * 信号发布事件。
  *
- * <p>当新信号被发布时发布。</p>
+ * <p>当用户发布新的交易信号时发布。订阅者可以监听此事件执行后续操作，如：</p>
+ * <ul>
+ *   <li>AI 自动分析</li>
+ *   <li>发送通知给订阅者</li>
+ *   <li>更新热门信号排行</li>
+ * </ul>
  *
  * @author Koduck Team
  * @since 0.1.0
  */
 @Getter
-public class SignalPublishedEvent extends ApplicationEvent {
+public class SignalPublishedEvent extends DomainEvent {
 
-    private static final long serialVersionUID = 1L;
-
+    /** 信号ID。 */
     private final Long signalId;
-    private final Long userId;
-    private final String signalTitle;
+
+    /** 股票代码。 */
     private final String symbol;
-    private final String direction;
-    private final Instant occurredOn;
+
+    /** 信号类型：BUY, SELL。 */
+    private final String signalType;
+
+    /** 发布者ID。 */
+    private final Long publisherId;
 
     /**
-     * 创建信号发布事件。
+     * 构造信号发布事件。
      *
-     * @param source 事件源
      * @param signalId 信号ID
-     * @param userId 用户ID
-     * @param signalTitle 信号标题
      * @param symbol 股票代码
-     * @param direction 交易方向
+     * @param signalType 信号类型
+     * @param publisherId 发布者ID
      */
-    public SignalPublishedEvent(Object source, Long signalId, Long userId,
-                                String signalTitle, String symbol, String direction) {
-        super(source);
+    public SignalPublishedEvent(Long signalId, String symbol,
+                                 String signalType, Long publisherId) {
+        super();
         this.signalId = signalId;
-        this.userId = userId;
-        this.signalTitle = signalTitle;
         this.symbol = symbol;
-        this.direction = direction;
-        this.occurredOn = Instant.now();
+        this.signalType = signalType;
+        this.publisherId = publisherId;
+    }
+
+    @Override
+    public String toString() {
+        return String.format("SignalPublishedEvent[signalId=%d, symbol=%s, type=%s, %s]",
+            signalId, symbol, signalType, super.toString());
     }
 }
