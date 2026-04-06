@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<FindBugsFilter>
+    <!--
+      Constructor injection on Spring-managed classes can trigger EI_EXPOSE_REP2
+      false positives because dependencies are framework-managed collaborators.
+      Annotation-level suppression is intentionally banned in this project;
+      use centralized SpotBugs filter rules instead.
+    -->
+    <Match>
+        <Bug pattern="EI_EXPOSE_REP2"/>
+    </Match>
+
+    <!--
+      DTO classes use Lombok @Data which generates getters/setters.
+      For collection/map fields in DTOs, EI_EXPOSE_REP is acceptable
+      because DTOs are primarily for JSON serialization/deserialization.
+      Manual defensive copying would add unnecessary boilerplate.
+    -->
+    <Match>
+        <Class name="~com\.koduck\.dto\..*"/>
+        <Bug pattern="EI_EXPOSE_REP"/>
+    </Match>
+
+    <!--
+      DTO inner classes also follow the same pattern as DTOs.
+      These are simple data holders for API requests/responses.
+    -->
+    <Match>
+        <Class name="~com\.koduck\.dto\..*\$.*"/>
+        <Bug pattern="EI_EXPOSE_REP"/>
+    </Match>
+
+    <!--
+      NM_CONFUSING: Method name confusion between DTOs and entities.
+      This is acceptable because DTOs and entities represent similar concepts
+      but in different layers (API vs persistence).
+    -->
+    <Match>
+        <Class name="~com\.koduck\.dto\..*"/>
+        <Bug pattern="NM_CONFUSING"/>
+    </Match>
+    <Match>
+        <Class name="~com\.koduck\.dto\..*\$.*"/>
+        <Bug pattern="NM_CONFUSING"/>
+    </Match>
+
+    <!--
+      SE_TRANSIENT_FIELD_NOT_RESTORED: DTO classes use Lombok @Data with transient fields.
+      These fields are set by Lombok builder/setter, not serialization/deserialization.
+      This is acceptable for DTOs used in JSON serialization.
+    -->
+    <Match>
+        <Class name="~com\.koduck\.dto\..*"/>
+        <Bug pattern="SE_TRANSIENT_FIELD_NOT_RESTORED"/>
+    </Match>
+</FindBugsFilter>

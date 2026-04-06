@@ -1,0 +1,118 @@
+# CODEOWNERS for koduck-quant
+# 
+# 规则说明：
+# - 每行格式：<pattern> <owner1> <owner2> ...
+# - 后面的规则会覆盖前面的规则
+# - 支持 GitHub 用户名、团队名或邮箱
+# - 团队格式：@org/team-name
+
+# ============================================================
+# 默认所有者（所有文件）
+# ============================================================
+* @hailingu
+
+# ============================================================
+# 核心配置与基础设施
+# ============================================================
+# CI/CD 工作流
+/.github/workflows/ @hailingu
+/.github/CODEOWNERS @hailingu
+/.github/PULL_REQUEST_TEMPLATE.md @hailingu
+
+# Docker 与部署配置
+Dockerfile* @hailingu
+docker-compose*.yml @hailingu
+
+# ============================================================
+# Java 后端 (koduck-backend)
+# ============================================================
+/koduck-backend/pom.xml @hailingu
+/koduck-backend/src/main/java/com/koduck/config/ @hailingu
+/koduck-backend/src/main/java/com/koduck/security/ @hailingu
+
+# API 层
+/koduck-backend/src/main/java/com/koduck/controller/ @hailingu
+/koduck-backend/src/main/java/com/koduck/dto/ @hailingu
+
+# 业务层
+/koduck-backend/src/main/java/com/koduck/service/ @hailingu
+/koduck-backend/src/main/java/com/koduck/service/impl/ @hailingu
+
+# 数据层
+/koduck-backend/src/main/java/com/koduck/entity/ @hailingu
+/koduck-backend/src/main/java/com/koduck/repository/ @hailingu
+/koduck-backend/src/main/java/com/koduck/mapper/ @hailingu
+
+# 基础设施
+/koduck-backend/src/main/java/com/koduck/client/ @hailingu
+/koduck-backend/src/main/java/com/koduck/market/ @hailingu
+/koduck-backend/src/main/java/com/koduck/messaging/ @hailingu
+/koduck-backend/src/main/java/com/koduck/common/ @hailingu
+/koduck-backend/src/main/java/com/koduck/exception/ @hailingu
+/koduck-backend/src/main/java/com/koduck/util/ @hailingu
+
+# ============================================================
+# 前端 (koduck-frontend)
+# ============================================================
+/koduck-frontend/package*.json @hailingu
+/koduck-frontend/vite.config.* @hailingu
+
+# 核心代码
+/koduck-frontend/src/api/ @hailingu
+/koduck-frontend/src/components/ @hailingu
+/koduck-frontend/src/pages/ @hailingu
+/koduck-frontend/src/stores/ @hailingu
+/koduck-frontend/src/router/ @hailingu
+/koduck-frontend/src/hooks/ @hailingu
+/koduck-frontend/src/types/ @hailingu
+/koduck-frontend/src/utils/ @hailingu
+/koduck-frontend/src/layouts/ @hailingu
+
+# ============================================================
+# Agent (koduck-agent)
+# ============================================================
+/koduck-agent/pyproject.toml @hailingu
+/koduck-agent/koduck/ @hailingu
+/koduck-agent/scripts/ @hailingu
+
+# ============================================================
+# 数据服务 (koduck-data-service)
+# ============================================================
+/koduck-data-service/pyproject.toml @hailingu
+/koduck-data-service/app/ @hailingu
+/koduck-data-service/data/ @hailingu
+
+# ============================================================
+# 全局配置与文档
+# ============================================================
+# 根目录配置文件
+/*.md @hailingu
+/Makefile @hailingu
+/.env* @hailingu
+
+# 文档
+/docs/ @hailingu
+
+# 脚本
+/scripts/ @hailingu
+
+# 初始化与工具
+/init-db/ @hailingu
+/tools/ @hailingu
+
+# ============================================================
+# 代码规范与规范文件
+# ============================================================
+/.github/java-standards/ @hailingu
+/.github/python-standards/ @hailingu
+/.github/agents/ @hailingu
+/.github/skills/ @hailingu
+
+# ============================================================
+# 测试文件
+# ============================================================
+/koduck-backend/src/test/ @hailingu
+/koduck-frontend/src/**/*.test.* @hailingu
+/koduck-frontend/src/**/*.spec.* @hailingu
+/koduck-agent/tests/ @hailingu
+/koduck-data-service/tests/ @hailingu

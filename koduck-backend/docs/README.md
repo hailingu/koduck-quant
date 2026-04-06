@@ -6,9 +6,29 @@ Koduck Quant 后端服务，基于 Spring Boot 3.x 和 Java 23 构建。
 
 - **Java**: 23
 - **Spring Boot**: 3.4.2
-- **构建工具**: Maven
+- **构建工具**: Maven（多模块）
 - **数据库**: PostgreSQL
 - **ORM**: Spring Data JPA
+
+## 项目结构
+
+本项目采用 Maven 多模块架构：
+
+```
+koduck-backend/
+├── pom.xml                          # 父 POM（依赖管理）
+├── koduck-bom/                      # BOM 模块（统一版本）
+├── koduck-core/                     # 核心模块（业务逻辑、数据访问）
+└── koduck-bootstrap/                # 启动模块（应用入口）
+```
+
+### 模块说明
+
+| 模块 | 职责 | 依赖 |
+|------|------|------|
+| `koduck-bom` | 统一管理依赖版本 | 无 |
+| `koduck-core` | 业务逻辑、数据访问、领域模型 | koduck-bom |
+| `koduck-bootstrap` | Spring Boot 启动入口 | koduck-core |
 
 ## 快速开始
 
@@ -21,17 +41,22 @@ Koduck Quant 后端服务，基于 Spring Boot 3.x 和 Java 23 构建。
 ### 构建项目
 
 ```bash
-mvn clean package
+# 构建所有模块
+mvn clean install
+
+# 仅编译
+mvn clean compile
 ```
 
 ### 运行项目
 
 ```bash
-# 使用 Maven
+# 使用 Maven（在 koduck-bootstrap 目录下）
+cd koduck-bootstrap
 mvn spring-boot:run
 
 # 或使用构建好的 JAR
-java -jar target/koduck-backend-0.1.0-SNAPSHOT.jar
+java -jar koduck-bootstrap/target/koduck-bootstrap-0.1.0-SNAPSHOT.jar
 ```
 
 ### 验证服务
@@ -123,6 +148,62 @@ mvn spring-boot:run
 - `message`: 响应消息
 - `data`: 响应数据
 - `timestamp`: 时间戳（毫秒）
+
+## API 版本管理
+
+- API 版本策略文档：[`API-VERSIONING.md`](API-VERSIONING.md)
+- API 变更历史文档：[`API-CHANGELOG.md`](API-CHANGELOG.md)
+- 版本治理 ADR：`ADR-0012-api-versioning-strategy.md`
+- Changelog 治理 ADR：`ADR-0020-api-changelog-governance.md`
+
+## 密钥与敏感信息管理
+
+- 密钥管理文档：[`SECRET-MANAGEMENT.md`](SECRET-MANAGEMENT.md)
+- 密钥治理 ADR：`ADR-0013-spring-vault-secret-management-baseline.md`
+- 生产 JWT 强制 Vault ADR：`ADR-0015-prod-jwt-secret-vault-enforcement.md`
+
+## Security 策略配置
+
+- 公开端点配置文档：[`SECURITY-ENDPOINTS.md`](SECURITY-ENDPOINTS.md)
+- 配置化治理 ADR：`ADR-0014-security-permitall-endpoint-externalization.md`
+
+## Market Provider 抽象治理
+
+- Provider 抽象统一 ADR：`ADR-0016-market-provider-abstraction-unification.md`
+
+## 持久化性能治理
+
+- JDBC Batch 优化 ADR：`ADR-0017-jdbc-batch-for-bulk-persistence.md`
+
+## Service 异常治理
+
+- 异常抛出规范统一 ADR：`ADR-0018-service-layer-exception-standardization.md`
+
+## 架构可视化治理
+
+- 架构决策树与关键流程图：[`ARCHITECTURE-FLOWS.md`](ARCHITECTURE-FLOWS.md)
+- 可视化文档治理 ADR：`ADR-0019-architecture-decision-tree-and-key-flow-visualization.md`
+
+## DDD 领域建模治理
+
+- 领域模型与模块划分文档：[`DOMAIN-MODEL-DESIGN.md`](DOMAIN-MODEL-DESIGN.md)
+- DDD 边界治理 ADR：`ADR-0021-ddd-bounded-context-module-partitioning.md`
+- DDD Phase 1 实施 ADR：`ADR-0022-ddd-phase1-code-implementation.md`
+- DDD Phase 2 实施 ADR：`ADR-0023-ddd-phase2-complete-service-impl-migration.md`
+
+## 静态分析债务治理
+
+- PMD 存量治理计划：[`../../docs/phase3/pmd-backlog-governance.md`](../../docs/phase3/pmd-backlog-governance.md)
+- PMD 存量 Ratchet ADR：`ADR-0024-pmd-debt-ratchet-governance.md`
+- PMD 第一轮治理 ADR：`ADR-0025-pmd-batch1-method-argument-finalization.md`
+- pre-commit 本地门禁 ADR：`ADR-0026-pre-commit-local-quality-gate.md`
+- 覆盖率门禁 60% ADR：`ADR-0027-coverage-gate-60-and-jacoco-scope-alignment.md`
+- 核心服务覆盖率 60/40 ADR：`ADR-0028-core-service-coverage-gate-6040.md`
+
+## 代码风格与测试分层治理
+
+- 测试分类规范：[`TEST-CLASSIFICATION.md`](TEST-CLASSIFICATION.md)
+- Checkstyle 与测试分类治理 ADR：`ADR-0029-checkstyle-alibaba-and-test-classification-governance.md`
 
 ## 测试
 

@@ -334,7 +334,7 @@ redis-cli: ## 进入 Redis CLI
 # Quality Check Commands (Phase 2)
 # ==========================================
 
-.PHONY: quality quality-backend quality-pmd quality-spotbugs quality-test quality-coverage quality-arch
+.PHONY: quality quality-backend quality-pmd quality-pmd-debt quality-spotbugs quality-test quality-coverage quality-arch hooks-install hooks-uninstall
 
 quality: ## 一键质量检查（全部）
 	@echo "$(BLUE)🔍 执行一键质量检查...$(NC)"
@@ -345,6 +345,10 @@ quality-backend: quality ## 后端质量检查（同 quality）
 quality-pmd: ## PMD 静态分析检查
 	@echo "$(BLUE)🔍 执行 PMD 检查...$(NC)"
 	@cd koduck-backend && mvn pmd:check
+
+quality-pmd-debt: ## PMD 存量非回退检查（ratchet）
+	@echo "$(BLUE)🔍 执行 PMD 存量非回退检查...$(NC)"
+	@cd koduck-backend && ./scripts/pmd-debt-guard.sh
 
 quality-spotbugs: ## SpotBugs 安全漏洞检查
 	@echo "$(BLUE)🔍 执行 SpotBugs 检查...$(NC)"
@@ -379,3 +383,38 @@ quality-report: ## 生成质量报告
 	@cd koduck-backend && mvn site -DskipTests 2>/dev/null || echo "$(YELLOW)⚠️ Maven Site 未配置，跳过$(NC)"
 	@echo "$(GREEN)✅ 质量报告生成完成$(NC)"
 	@echo "$(YELLOW)报告位置: koduck-backend/target/site/$(NC)"
+
+hooks-install: ## 安装仓库 git hooks（启用 pre-commit 质量门禁）
+	@echo "$(BLUE)🔧 安装 Git hooks...$(NC)"
+	@./scripts/install-git-hooks.sh
+
+hooks-uninstall: ## 卸载仓库 hooksPath 配置（恢复默认 .git/hooks）
+	@echo "$(BLUE)🔧 卸载 Git hooks...$(NC)"
+	@git config --unset core.hooksPath || true
+	@echo "$(GREEN)✅ 已取消 core.hooksPath 配置$(NC)"
+
+# ==========================================
+# Release & Rollback
+# ==========================================
+
+rollback: ## 回滚到指定版本 (用法: make rollback VERSION=v1.2.2)
+	@if [ -z "$(VERSION)" ]; then \
+		echo "$(RED)❌ 错误: 请指定 VERSION 参数$(NC)"; \
+		echo "$(YELLOW)用法: make rollback VERSION=v1.2.2$(NC)"; \
+		exit 1; \
+	fi
+	@echo "$(RED)🚨 启动回滚流程...$(NC)"
+	@echo "$(YELLOW)目标版本: $(VERSION)$(NC)"
+	@read -p "确定要回滚到 $(VERSION) 吗? [y/N] " confirm && [ $$confirm = "y" ] || exit 0
+	@echo "$(BLUE)🛑 停止当前服务...$(NC)"
+	@docker-compose down
+	@echo "$(BLUE)📥 拉取目标版本镜像...$(NC)"
+	@docker-compose pull backend:$(VERSION) 2>/dev/null || echo "$(YELLOW)⚠️ 使用本地镜像$(NC)"
+	@echo "$(BLUE)🚀 启动 $(VERSION) 版本...$(NC)"
+	@VERSION=$(VERSION) docker-compose up -d
+	@echo "$(GREEN)✅ 回滚完成，开始验证...$(NC)"
+	@sleep 5
+	@curl -s http://localhost:8080/actuator/health | jq -r '.status' | grep -q "UP" && \
+		echo "$(GREEN)✅ 健康检查通过$(NC)" || \
+		echo "$(RED)❌ 健康检查失败，请查看日志$(NC)"
+	@echo "$(YELLOW)请执行完整的回滚验证: docs/rollback-runbook.md$(NC)"

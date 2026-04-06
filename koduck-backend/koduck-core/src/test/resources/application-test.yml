@@ -1,0 +1,107 @@
+# 测试环境配置
+# 用于性能测试和集成测试
+
+spring:
+  application:
+    name: koduck-backend-test
+  datasource:
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:koduck_test}
+    username: ${DB_USERNAME:koduck}
+    password: ${DB_PASSWORD:koduck}
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 2
+      connection-timeout: 30000
+      idle-timeout: 600000
+      max-lifetime: 1800000
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    show-sql: false
+  flyway:
+    enabled: true
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      timeout: 2000ms
+      lettuce:
+        pool:
+          max-active: 8
+          max-idle: 8
+
+server:
+  port: ${SERVER_PORT:8080}
+  compression:
+    enabled: true
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  endpoint:
+    health:
+      show-details: always
+      probes:
+        enabled: true
+    prometheus:
+      enabled: true
+  metrics:
+    export:
+      prometheus:
+        enabled: true
+    distribution:
+      slo:
+        http.server.requests: 50ms,100ms,200ms,500ms,1s,2s
+      percentiles:
+        http.server.requests: 0.5,0.95,0.99
+
+logging:
+  level:
+    root: WARN
+    com.koduck: INFO
+    org.springframework.web: WARN
+
+# JWT 配置（测试专用）
+jwt:
+  secret: ${JWT_SECRET:test-secret-key-for-testing-only-do-not-use-in-production}
+  access-token-expiration: 86400000
+  refresh-token-expiration: 604800000
+  token-prefix: "Bearer "
+  header-name: "Authorization"
+
+# Koduck 配置
+koduck:
+  cache:
+    default-ttl: 1m
+    kline-ttl: 30s
+    price-ttl: 10s
+    market-search-ttl: 1m
+    stock-detail-ttl: 10s
+    market-indices-ttl: 10s
+    stock-industry-ttl: 1m
+    hot-stocks-ttl: 30s
+    portfolio-summary-ttl: 5m
+  pagination:
+    default-page-size: 20
+    max-page-size: 100
+  security:
+    permit-all-patterns:
+      - /api/v1/auth/**
+      - /actuator/**
+      - /api/v1/health/**
+      - /api/v1/monitoring/**
+      - /ws/**
+      - /api/v1/a-share/**
+      - /api/v1/market/**
+    permit-all-get-patterns:
+      - /api/v1/market/**
+  agent:
+    url: ${AGENT_URL:http://localhost:8000}
+  websocket:
+    enabled: false
+  messaging:
+    price-push:
+      enabled: false

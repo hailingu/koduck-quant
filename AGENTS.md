@@ -141,6 +141,57 @@ git branch -d feature/<name>
 # 7. 发起 PR 合并到 main（如果需要）
 ```
 
+### 轻量 Issue 处理流程
+
+适用于影响范围较小、边界清晰、可在单个 `feature/*` 分支内完成的修复或小功能。
+
+1. 创建 Issue
+    - 优先使用 `.github/ISSUE_TEMPLATE/` 下的现有模板，如 `bug_report.md`、`feature_request.md`、`question.md`、`market_data_refactor.md`。
+    - GitHub 相关操作统一优先使用 `gh` 命令，例如：
+
+    ```bash
+    gh issue create --template bug_report.md --title "fix(scope): short summary"
+    ```
+
+2. 从 `dev` 创建 `feature/*` worktree 分支
+
+    ```bash
+    git checkout dev && git pull origin dev
+    git worktree add ../worktree-feature -b feature/<name>
+    cd ../worktree-feature
+    ```
+
+3. 创建轻量 ADR
+    - ADR 文件放在 `koduck-backend/docs/`。
+    - 文件名延续现有编号风格：`ADR-XXXX-short-title.md`。
+    - 内容至少覆盖：决策、权衡、兼容性影响。
+    - 结构可参考 `koduck-backend/docs/` 下已有 ADR。
+
+4. 实现修复
+    - 在对应 `feature/*` worktree 中完成代码修改，避免直接在主工作目录堆叠变更。
+
+5. 更新文档与测试
+    - 同步更新受影响文档与测试用例。
+    - 至少执行以下校验，并确保 CI 全绿：
+
+    ```bash
+    mvn -f koduck-backend/pom.xml clean compile
+    ./scripts/quality-check.sh
+    ```
+
+6. 提交并发起到 `dev` 的 PR
+    - commit message 必须遵循 Conventional Commits。
+    - PR 目标分支必须是 `dev`。
+    - PR 描述必须关联 Issue，使用：`Closes #<issue-number>`。
+    - 合并后删除对应 `feature/*` 分支与 worktree。
+
+    ```bash
+    git add .
+    git commit -m "fix(scope): short summary"
+    git push -u origin feature/<name>
+    gh pr create --base dev --head feature/<name> --body "Closes #<issue-number>"
+    ```
+
 ### Commit Message 规范
 
 遵循 Conventional Commits：
@@ -505,12 +556,17 @@ class TestMomentumFactor:
 - 所有 commit message 必须通过格式校验
 - 变更目标明确且范围聚焦
 - 文档同步更新（如流程、约定、设计）
+- 轻量 issue 场景下，PR 应合并到 `dev`，并在描述中写明 `Closes #<issue-number>`
+- PR 合并后应删除对应 `feature/*` 分支与 worktree
 
 ## 快速参考
 
 ### 常用命令
 
 ```bash
+# 创建 Issue（优先使用模板 + gh）
+gh issue create --template bug_report.md --title "fix(scope): short summary"
+
 # 创建功能分支（使用 git worktree）
 git checkout dev && git pull origin dev
 git worktree add ../worktree-feature -b feature/my-feature
@@ -520,6 +576,13 @@ cd ../worktree-feature
 git add .
 git commit -m "feat(module): add new feature"
 git push -u origin feature/my-feature
+
+# 后端最小质量校验
+mvn -f koduck-backend/pom.xml clean compile
+./scripts/quality-check.sh
+
+# 创建指向 dev 的 PR，并在描述中关联 Issue
+gh pr create --base dev --head feature/my-feature --body "Closes #<issue-number>"
 
 # 回到主仓库并合并
 cd ../koduck-quant

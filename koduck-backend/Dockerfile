@@ -1,5 +1,5 @@
 # ==========================================
-# Koduck Backend Dockerfile
+# Koduck Backend Dockerfile - Multi-Module
 # Spring Boot 3.4.2 + Java 23
 # ==========================================
 
@@ -9,17 +9,48 @@ FROM maven:3.9.9-eclipse-temurin-23-alpine AS builder
 # Set working directory
 WORKDIR /build
 
-# Copy pom.xml first for better layer caching
+# Copy root pom.xml first for better layer caching
 COPY pom.xml .
 
-# Download dependencies (this layer will be cached if pom.xml doesn't change)
+# Copy all module pom.xml files to leverage dependency caching
+# This layer will be cached if pom.xml files don't change
+COPY koduck-bom/pom.xml koduck-bom/
+COPY koduck-common/pom.xml koduck-common/
+COPY koduck-infrastructure/pom.xml koduck-infrastructure/
+COPY koduck-auth/pom.xml koduck-auth/
+COPY koduck-core/pom.xml koduck-core/
+COPY koduck-bootstrap/pom.xml koduck-bootstrap/
+
+# Copy aggregator module pom.xml files (parent poms for sub-modules)
+COPY koduck-market/pom.xml koduck-market/
+COPY koduck-portfolio/pom.xml koduck-portfolio/
+COPY koduck-strategy/pom.xml koduck-strategy/
+COPY koduck-community/pom.xml koduck-community/
+COPY koduck-ai/pom.xml koduck-ai/
+
+# Copy API module pom.xml files
+COPY koduck-market/koduck-market-api/pom.xml koduck-market/koduck-market-api/
+COPY koduck-portfolio/koduck-portfolio-api/pom.xml koduck-portfolio/koduck-portfolio-api/
+COPY koduck-strategy/koduck-strategy-api/pom.xml koduck-strategy/koduck-strategy-api/
+COPY koduck-community/koduck-community-api/pom.xml koduck-community/koduck-community-api/
+COPY koduck-ai/koduck-ai-api/pom.xml koduck-ai/koduck-ai-api/
+
+# Copy Impl module pom.xml files
+COPY koduck-market/koduck-market-impl/pom.xml koduck-market/koduck-market-impl/
+COPY koduck-portfolio/koduck-portfolio-impl/pom.xml koduck-portfolio/koduck-portfolio-impl/
+COPY koduck-strategy/koduck-strategy-impl/pom.xml koduck-strategy/koduck-strategy-impl/
+COPY koduck-community/koduck-community-impl/pom.xml koduck-community/koduck-community-impl/
+COPY koduck-ai/koduck-ai-impl/pom.xml koduck-ai/koduck-ai-impl/
+
+# Download dependencies (this layer will be cached if pom.xml files don't change)
 RUN mvn dependency:go-offline -B
 
 # Copy source code
-COPY src ./src
+COPY . .
 
 # Build the application (skip tests for faster build)
-RUN mvn clean package -DskipTests -B
+# Only build the bootstrap module and its dependencies
+RUN mvn clean package -pl koduck-bootstrap -am -DskipTests -B
 
 # Stage 2: Create the runtime image
 FROM eclipse-temurin:23-jre-alpine
@@ -34,7 +65,8 @@ RUN addgroup -S koduck && adduser -S koduck -G koduck
 WORKDIR /app
 
 # Copy the built JAR from builder stage
-COPY --from=builder /build/target/*.jar app.jar
+# The bootstrap module contains the executable JAR
+COPY --from=builder /build/koduck-bootstrap/target/*.jar app.jar
 
 # Change ownership to non-root user
 RUN chown -R koduck:koduck /app

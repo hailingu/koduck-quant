@@ -295,6 +295,9 @@ k6 run \
 - [x] CI 集成配置
 - [x] 实际压测执行 (2026-04-01)
 - [x] 基线数据验证
+- [x] Micrometer + Prometheus 集成
+- [x] GitHub Actions 性能测试 Workflow
+- [x] API 响应时间自动监控
 
 ## 附录
 

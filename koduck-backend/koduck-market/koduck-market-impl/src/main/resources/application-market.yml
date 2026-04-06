@@ -1,0 +1,31 @@
+# Market 模块配置
+# 配置前缀: koduck.market
+
+koduck:
+  market:
+    # 缓存配置
+    cache:
+      # 价格缓存 TTL
+      price-ttl: 30s
+      # K线数据缓存 TTL
+      kline-ttl: 60s
+      # 热门股票缓存 TTL
+      hot-stocks-ttl: 60s
+      # 股票追踪缓存 TTL
+      track-ttl: 10s
+    
+    # 数据提供商配置
+    provider:
+      # 默认提供商
+      default: akshare
+      # 请求超时（毫秒）
+      timeout: 10000
+      # 重试次数
+      max-retries: 3
+    
+    # 技术指标配置
+    indicators:
+      # 默认计算周期
+      default-period: 14
+      # 支持的指标列表
+      supported: SMA,EMA,MACD,RSI,KDJ,BOLL

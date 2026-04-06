@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT_DIR="$(git rev-parse --show-toplevel)"
+cd "${ROOT_DIR}"
+
+echo "[pre-commit] Running local quality gate..."
+
+# If no backend changes are staged, skip heavy backend checks.
+if ! git diff --cached --name-only | grep -q '^koduck-backend/'; then
+  echo "[pre-commit] No staged backend changes. Skip backend quality checks."
+  exit 0
+fi
+
+(
+  cd koduck-backend
+  ./scripts/quality-check.sh
+)
+
+echo "[pre-commit] Quality gate passed."

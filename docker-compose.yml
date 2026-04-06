@@ -40,13 +40,16 @@ services:
       retries: 3
     command: redis-server --appendonly yes
 
-  # RabbitMQ
+  # RabbitMQ with STOMP plugin enabled
   rabbitmq:
-    image: rabbitmq:3.13-management-alpine
+    build:
+      context: ./docker/rabbitmq
+      dockerfile: Dockerfile
     container_name: koduck-rabbitmq
     ports:
       - "5672:5672"
       - "15672:15672"
+      - "61613:61613"  # STOMP protocol port
     environment:
       RABBITMQ_DEFAULT_USER: ${RABBITMQ_USERNAME:-guest}
       RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-guest}
@@ -85,6 +88,8 @@ services:
       - RABBITMQ_USERNAME=${RABBITMQ_USERNAME:-guest}
       - RABBITMQ_PASSWORD=${RABBITMQ_PASSWORD:-guest}
       - RABBITMQ_VHOST=${RABBITMQ_VHOST:-/}
+      # STOMP Relay for WebSocket horizontal scaling
+      - STOMP_RELAY_ENABLED=${STOMP_RELAY_ENABLED:-false}
       - LOG_LEVEL=INFO
       - DEBUG=false
       # Eastmoney Client Settings

@@ -1,0 +1,29 @@
+# Portfolio 模块配置
+# 配置前缀: koduck.portfolio
+
+koduck:
+  portfolio:
+    # 缓存配置
+    cache:
+      # 价格缓存 TTL
+      price-ttl: 30s
+      # 组合快照缓存 TTL
+      snapshot-ttl: 300s
+      # 持仓缓存 TTL
+      position-ttl: 60s
+    
+    # 计算配置
+    calculation:
+      # 最大持仓数量
+      max-positions: 100
+      # 价格精度（小数位）
+      price-precision: 4
+      # 数量精度（小数位）
+      quantity-precision: 2
+    
+    # 价格服务配置
+    price:
+      # 批量查询大小
+      batch-size: 50
+      # 缓存刷新间隔（秒）
+      refresh-interval: 30

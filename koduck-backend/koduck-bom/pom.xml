@@ -1,0 +1,132 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 
+         http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <groupId>com.koduck</groupId>
+    <artifactId>koduck-bom</artifactId>
+    <version>0.1.0-SNAPSHOT</version>
+    <name>Koduck BOM</name>
+    <description>Bill of Materials for Koduck Backend Modules</description>
+    <packaging>pom</packaging>
+
+    <properties>
+        <java.version>23</java.version>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+
+        <!-- Internal Module Version -->
+        <koduck.version>0.1.0-SNAPSHOT</koduck.version>
+
+        <!-- Dependency Versions -->
+        <jwt.version>0.12.6</jwt.version>
+        <mapstruct.version>1.6.3</mapstruct.version>
+        <ta4j.version>0.17</ta4j.version>
+        <springdoc.version>2.8.5</springdoc.version>
+        <resilience4j.version>2.2.0</resilience4j.version>
+        <spring-cloud.version>2024.0.1</spring-cloud.version>
+        <spring-boot.version>3.4.2</spring-boot.version>
+    </properties>
+
+    <dependencyManagement>
+        <dependencies>
+            <!-- Import Spring Boot BOM -->
+            <dependency>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-dependencies</artifactId>
+                <version>${spring-boot.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+            <!-- Import Spring Cloud BOM -->
+            <dependency>
+                <groupId>org.springframework.cloud</groupId>
+                <artifactId>spring-cloud-dependencies</artifactId>
+                <version>${spring-cloud.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+
+            <!-- Koduck Infrastructure Module -->
+            <dependency>
+                <groupId>com.koduck</groupId>
+                <artifactId>koduck-infrastructure</artifactId>
+                <version>${koduck.version}</version>
+            </dependency>
+
+            <!-- Koduck Core Module -->
+            <dependency>
+                <groupId>com.koduck</groupId>
+                <artifactId>koduck-core</artifactId>
+                <version>${koduck.version}</version>
+            </dependency>
+
+            <!-- Koduck Bootstrap Module -->
+            <dependency>
+                <groupId>com.koduck</groupId>
+                <artifactId>koduck-bootstrap</artifactId>
+                <version>${koduck.version}</version>
+            </dependency>
+
+            <!-- External Dependencies -->
+            <!-- JWT -->
+            <dependency>
+                <groupId>io.jsonwebtoken</groupId>
+                <artifactId>jjwt-api</artifactId>
+                <version>${jwt.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>io.jsonwebtoken</groupId>
+                <artifactId>jjwt-impl</artifactId>
+                <version>${jwt.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>io.jsonwebtoken</groupId>
+                <artifactId>jjwt-jackson</artifactId>
+                <version>${jwt.version}</version>
+            </dependency>
+
+            <!-- MapStruct -->
+            <dependency>
+                <groupId>org.mapstruct</groupId>
+                <artifactId>mapstruct</artifactId>
+                <version>${mapstruct.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.mapstruct</groupId>
+                <artifactId>mapstruct-processor</artifactId>
+                <version>${mapstruct.version}</version>
+            </dependency>
+
+            <!-- Ta4j - Technical Analysis Library -->
+            <dependency>
+                <groupId>org.ta4j</groupId>
+                <artifactId>ta4j-core</artifactId>
+                <version>${ta4j.version}</version>
+            </dependency>
+
+            <!-- SpringDoc OpenAPI -->
+            <dependency>
+                <groupId>org.springdoc</groupId>
+                <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
+                <version>${springdoc.version}</version>
+            </dependency>
+
+            <!-- Resilience4j Circuit Breaker -->
+            <dependency>
+                <groupId>io.github.resilience4j</groupId>
+                <artifactId>resilience4j-spring-boot3</artifactId>
+                <version>${resilience4j.version}</version>
+            </dependency>
+
+            <!-- Awaitility - 异步测试工具 -->
+            <dependency>
+                <groupId>org.awaitility</groupId>
+                <artifactId>awaitility</artifactId>
+                <version>4.2.2</version>
+                <scope>test</scope>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
+</project>
