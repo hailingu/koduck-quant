@@ -149,6 +149,11 @@
             </dependency>
             <dependency>
                 <groupId>com.koduck</groupId>
+                <artifactId>koduck-strategy-impl</artifactId>
+                <version>${koduck.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.koduck</groupId>
                 <artifactId>koduck-community</artifactId>
                 <version>${koduck.version}</version>
                 <type>pom</type>

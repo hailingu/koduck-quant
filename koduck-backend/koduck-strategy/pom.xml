@@ -19,6 +19,6 @@
 
     <modules>
         <module>koduck-strategy-api</module>
-        <!-- koduck-strategy-impl will be added in next phase -->
+        <module>koduck-strategy-impl</module>
     </modules>
 </project>
