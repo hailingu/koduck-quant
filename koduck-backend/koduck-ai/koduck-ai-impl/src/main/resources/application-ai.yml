@@ -1,0 +1,39 @@
+# AI 模块配置
+# 配置前缀: koduck.ai
+
+koduck:
+  ai:
+    # LLM 配置
+    llm:
+      # 默认提供商: openai, anthropic, local
+      default-provider: openai
+      # 请求超时（毫秒）
+      timeout: 30000
+      # 最大重试次数
+      max-retries: 3
+      # 温度参数（创造性 vs 确定性）
+      temperature: 0.7
+      # 最大 token 数
+      max-tokens: 2000
+    
+    # 分析配置
+    analysis:
+      # 启用自动分析
+      enabled: true
+      # 新组合自动分析
+      auto-analyze-new-portfolio: true
+      # 信号自动分析
+      auto-analyze-signal: true
+      # 分析线程池大小
+      thread-pool-size: 4
+    
+    # 风险阈值配置
+    risk:
+      # 高集中度阈值（持仓占比）
+      high-concentration-threshold: 0.30
+      # 中等集中度阈值
+      medium-concentration-threshold: 0.20
+      # 高波动率阈值
+      high-volatility-threshold: 0.25
+      # 中等波动率阈值
+      medium-volatility-threshold: 0.15
