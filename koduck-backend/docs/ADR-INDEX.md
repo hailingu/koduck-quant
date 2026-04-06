@@ -67,6 +67,7 @@
 | [ADR-0145](ADR-0145-module-test-coverage.md) | 模块测试覆盖率提升 | 测试架构 |
 | [ADR-0146](ADR-0146-phase-completion-checklist.md) | Phase 完成检查项验证 | 架构改进验收 |
 | [ADR-0148](ADR-0148-cleanup-dual-source-code.md) | 清理领域模块双重源码，完成领域迁移最后一公里 | 模块化架构 |
+| [ADR-0149](ADR-0149-split-core-god-module.md) | 拆分 koduck-core 上帝模块，迁移业务逻辑到对应领域模块 | 模块化架构 |
 
 ---
 
@@ -114,9 +115,9 @@
 
 ## 快速统计
 
-- **架构决策 (A)**：50 个
+- **架构决策 (A)**：51 个
 - **代码规范 (C)**：36 个
-- **总计**：86 个（截至 ADR-0148）
+- **总计**：87 个（截至 ADR-0149）
 
 ## 使用建议
 
