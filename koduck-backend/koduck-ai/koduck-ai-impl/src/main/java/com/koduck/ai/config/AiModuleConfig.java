@@ -1,21 +1,18 @@
 package com.koduck.ai.config;
 
-import org.springframework.context.annotation.ComponentScan;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Configuration;
 
 /**
  * AI 模块配置类。
  *
- * <p>本配置类启用 AI 模块的组件扫描，使 Spring 能够发现和注册 AI 服务。</p>
+ * <p>启用 AI 模块的配置属性绑定。</p>
  *
- * @author Koduck AI Team
+ * @author Koduck Team
  * @since 0.1.0
  */
 @Configuration
-@ComponentScan(basePackages = {
-        "com.koduck.service",
-        "com.koduck.repository.ai"
-})
+@EnableConfigurationProperties(AiProperties.class)
 public class AiModuleConfig {
-    // 组件扫描配置
+    // 配置类，通过 @EnableConfigurationProperties 启用 AiProperties
 }
