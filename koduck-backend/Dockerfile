@@ -21,6 +21,13 @@ COPY koduck-auth/pom.xml koduck-auth/
 COPY koduck-core/pom.xml koduck-core/
 COPY koduck-bootstrap/pom.xml koduck-bootstrap/
 
+# Copy aggregator module pom.xml files (parent poms for sub-modules)
+COPY koduck-market/pom.xml koduck-market/
+COPY koduck-portfolio/pom.xml koduck-portfolio/
+COPY koduck-strategy/pom.xml koduck-strategy/
+COPY koduck-community/pom.xml koduck-community/
+COPY koduck-ai/pom.xml koduck-ai/
+
 # Copy API module pom.xml files
 COPY koduck-market/koduck-market-api/pom.xml koduck-market/koduck-market-api/
 COPY koduck-portfolio/koduck-portfolio-api/pom.xml koduck-portfolio/koduck-portfolio-api/
