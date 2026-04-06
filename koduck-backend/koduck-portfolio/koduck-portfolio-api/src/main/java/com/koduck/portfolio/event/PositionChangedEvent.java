@@ -1,70 +1,63 @@
 package com.koduck.portfolio.event;
 
+import com.koduck.common.event.DomainEvent;
+import lombok.Getter;
+
 import java.math.BigDecimal;
-import java.time.Instant;
-import java.util.UUID;
 
 /**
- * 持仓变更领域事件。
+ * 持仓变更事件。
  *
- * @param eventId      事件唯一标识
- * @param timestamp    事件发生时间
- * @param userId       用户ID
- * @param positionId   持仓ID
- * @param symbol       股票代码
- * @param changeType   变更类型（ADD/UPDATE/DELETE）
- * @param oldQuantity  原数量
- * @param newQuantity  新数量
- * @param oldAvgCost   原平均成本
- * @param newAvgCost   新平均成本
+ * <p>当投资组合的持仓发生变化时发布，包括：</p>
+ * <ul>
+ *   <li>新增持仓</li>
+ *   <li>减持持仓</li>
+ *   <li>清仓</li>
+ * </ul>
+ *
  * @author Koduck Team
+ * @since 0.1.0
  */
-public record PositionChangedEvent(
-        String eventId,
-        Instant timestamp,
-        Long userId,
-        Long positionId,
-        String symbol,
-        String changeType,
-        BigDecimal oldQuantity,
-        BigDecimal newQuantity,
-        BigDecimal oldAvgCost,
-        BigDecimal newAvgCost
-) {
+@Getter
+public class PositionChangedEvent extends DomainEvent {
+
+    /** 投资组合ID。 */
+    private final Long portfolioId;
+
+    /** 股票代码。 */
+    private final String symbol;
+
+    /** 变更类型：BUY, SELL, CLOSE。 */
+    private final String changeType;
+
+    /** 变更数量。 */
+    private final BigDecimal quantity;
+
+    /** 变更金额。 */
+    private final BigDecimal amount;
 
     /**
-     * 变更类型枚举。
+     * 构造持仓变更事件。
+     *
+     * @param portfolioId 投资组合ID
+     * @param symbol 股票代码
+     * @param changeType 变更类型
+     * @param quantity 变更数量
+     * @param amount 变更金额
      */
-    /** 添加类型。 */
-    public static final String TYPE_ADD = "ADD";
-    /** 更新类型。 */
-    public static final String TYPE_UPDATE = "UPDATE";
-    /** 删除类型。 */
-    public static final String TYPE_DELETE = "DELETE";
+    public PositionChangedEvent(Long portfolioId, String symbol, String changeType,
+                                 BigDecimal quantity, BigDecimal amount) {
+        super();
+        this.portfolioId = portfolioId;
+        this.symbol = symbol;
+        this.changeType = changeType;
+        this.quantity = quantity;
+        this.amount = amount;
+    }
 
-    /**
-     * 创建新的事件实例，自动生成事件ID和时间戳。
-     */
-    public PositionChangedEvent(
-            Long userId,
-            Long positionId,
-            String symbol,
-            String changeType,
-            BigDecimal oldQuantity,
-            BigDecimal newQuantity,
-            BigDecimal oldAvgCost,
-            BigDecimal newAvgCost) {
-        this(
-                UUID.randomUUID().toString(),
-                Instant.now(),
-                userId,
-                positionId,
-                symbol,
-                changeType,
-                oldQuantity,
-                newQuantity,
-                oldAvgCost,
-                newAvgCost
-        );
+    @Override
+    public String toString() {
+        return String.format("PositionChangedEvent[portfolioId=%d, symbol=%s, type=%s, %s]",
+            portfolioId, symbol, changeType, super.toString());
     }
 }

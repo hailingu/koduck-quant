@@ -1,40 +1,58 @@
 package com.koduck.market.event;
 
-import java.time.Instant;
-import java.util.List;
+import com.koduck.common.event.DomainEvent;
+import lombok.Getter;
+
+import java.math.BigDecimal;
 
 /**
- * 行情数据更新领域事件。
+ * 行情数据更新事件。
  *
- * <p>当股票行情数据发生变化时发布此事件。</p>
+ * <p>当股票行情数据发生变化时发布。订阅者可以监听此事件执行后续操作，如：</p>
+ * <ul>
+ *   <li>更新投资组合市值</li>
+ *   <li>触发价格预警</li>
+ *   <li>更新缓存</li>
+ * </ul>
  *
- * <p>其他领域模块可以订阅此事件以获取实时行情更新。</p>
- *
- * @param eventId   事件唯一标识
- * @param timestamp 事件发生时间
- * @param symbols   更新的股票代码列表
- * @param source    数据来源
  * @author Koduck Team
+ * @since 0.1.0
  */
-public record MarketDataUpdatedEvent(
-        String eventId,
-        Instant timestamp,
-        List<String> symbols,
-        String source
-) {
+@Getter
+public class MarketDataUpdatedEvent extends DomainEvent {
+
+    /** 股票代码。 */
+    private final String symbol;
+
+    /** 当前价格。 */
+    private final BigDecimal currentPrice;
+
+    /** 涨跌幅（百分比）。 */
+    private final BigDecimal changePercent;
+
+    /** 市场代码。 */
+    private final String market;
 
     /**
-     * 创建新的事件实例，自动生成事件ID和时间戳。
+     * 构造行情数据更新事件。
      *
-     * @param symbols 更新的股票代码列表
-     * @param source  数据来源
+     * @param symbol 股票代码
+     * @param currentPrice 当前价格
+     * @param changePercent 涨跌幅
+     * @param market 市场代码
      */
-    public MarketDataUpdatedEvent(List<String> symbols, String source) {
-        this(
-                java.util.UUID.randomUUID().toString(),
-                Instant.now(),
-                symbols,
-                source
-        );
+    public MarketDataUpdatedEvent(String symbol, BigDecimal currentPrice,
+                                   BigDecimal changePercent, String market) {
+        super();
+        this.symbol = symbol;
+        this.currentPrice = currentPrice;
+        this.changePercent = changePercent;
+        this.market = market;
+    }
+
+    @Override
+    public String toString() {
+        return String.format("MarketDataUpdatedEvent[symbol=%s, price=%s, change=%s%%, %s]",
+            symbol, currentPrice, changePercent, super.toString());
     }
 }
