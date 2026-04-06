@@ -318,42 +318,42 @@ static final ArchRule infrastructure_should_implement_api_interfaces =
 
 ### Phase 1: 基础设施准备
 
-- [ ] 1.1 创建 `koduck-market-api` 模块
-- [ ] 1.2 创建 `koduck-portfolio-api` 模块
-- [ ] 1.3 创建 `koduck-strategy-api` 模块
-- [ ] 1.4 创建 `koduck-community-api` 模块
-- [ ] 1.5 创建 `koduck-ai-api` 模块
-- [ ] 1.6 引入 ArchUnit 依赖和基础规则
-- [ ] 1.7 更新父 POM 依赖管理
-- [ ] 1.8 编写 API 模块编码规范文档
+- [x] 1.1 创建 `koduck-market-api` 模块
+- [x] 1.2 创建 `koduck-portfolio-api` 模块
+- [x] 1.3 创建 `koduck-strategy-api` 模块
+- [x] 1.4 创建 `koduck-community-api` 模块
+- [x] 1.5 创建 `koduck-ai-api` 模块
+- [x] 1.6 引入 ArchUnit 依赖和基础规则
+- [x] 1.7 更新父 POM 依赖管理
+- [x] 1.8 编写 API 模块编码规范文档
 
 ### Phase 2: Core 模块迁移
 
-- [ ] 2.1 Market 领域接口提取
-- [ ] 2.2 Market 领域实现迁移
-- [ ] 2.3 Portfolio 领域接口提取
-- [ ] 2.4 Portfolio 领域实现迁移
-- [ ] 2.5 Strategy 领域接口提取
-- [ ] 2.6 Strategy 领域实现迁移
-- [ ] 2.7 Community 领域接口提取
-- [ ] 2.8 Community 领域实现迁移
-- [ ] 2.9 AI 领域接口提取
-- [ ] 2.10 AI 领域实现迁移
+- [x] 2.1 Market 领域接口提取
+- [x] 2.2 Market 领域实现迁移
+- [x] 2.3 Portfolio 领域接口提取
+- [x] 2.4 Portfolio 领域实现迁移
+- [x] 2.5 Strategy 领域接口提取
+- [x] 2.6 Strategy 领域实现迁移
+- [x] 2.7 Community 领域接口提取
+- [x] 2.8 Community 领域实现迁移
+- [x] 2.9 AI 领域接口提取
+- [x] 2.10 AI 领域实现迁移
 
 ### Phase 3: 基础设施重构
 
-- [ ] 3.1 重构 `koduck-infrastructure` 实现层
-- [ ] 3.2 瘦身 `koduck-core`
-- [ ] 3.3 建立领域事件机制
-- [ ] 3.4 统一配置管理
+- [x] 3.1 重构 `koduck-infrastructure` 实现层
+- [x] 3.2 瘦身 `koduck-core`
+- [x] 3.3 建立领域事件机制
+- [x] 3.4 统一配置管理
 
 ### Phase 4: 质量加固
 
-- [ ] 4.1 完善 ArchUnit 架构守护测试
-- [ ] 4.2 补充各模块独立测试
-- [ ] 4.3 建立性能基准测试
-- [ ] 4.4 优化 N+1 查询问题
-- [ ] 4.5 更新 Dockerfile
+- [x] 4.1 完善 ArchUnit 架构守护测试
+- [x] 4.2 补充各模块独立测试
+- [x] 4.3 建立性能基准测试
+- [x] 4.4 优化 N+1 查询问题
+- [x] 4.5 更新 Dockerfile
 
 ---
 
