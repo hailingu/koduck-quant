@@ -12,7 +12,7 @@ import org.springframework.data.redis.connection.RedisConnectionFactory;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 
-import com.koduck.infrastructure.config.properties.CacheProperties;
+import com.koduck.config.properties.CacheProperties;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;

@@ -45,10 +45,11 @@ COPY koduck-ai/koduck-ai-impl/pom.xml koduck-ai/koduck-ai-impl/
 # Copy source code
 COPY . .
 
-# Build the application (skip tests for faster build)
-# Only build the bootstrap module and its dependencies
-# Dependencies will be downloaded during this step and cached
-RUN mvn clean package -pl koduck-bootstrap -am -DskipTests -Dcheckstyle.skip=true -Dmaven.test.skip=true -B
+# Build the application with Maven cache
+# Use BuildKit cache mount to persist downloaded dependencies
+RUN --mount=type=cache,target=/root/.m2 \
+    mvn clean package -pl koduck-bootstrap -am \
+    -DskipTests -Dcheckstyle.skip=true -Dmaven.test.skip=true -B
 
 # Stage 2: Create the runtime image
 FROM eclipse-temurin:23-jre-alpine
