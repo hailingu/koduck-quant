@@ -1,381 +1,377 @@
 # Koduck Backend 架构评估报告
 
 > **评估日期**: 2026-04-05
-> **评估版本**: 0.1.0-SNAPSHOT (commit b9da87c)
-> **评估范围**: `koduck-backend/` 全部模块
-> **评估原则**: 基于代码事实客观评价，忽略因改动带来的模块变化，不考虑 DDD，不考虑代码行数
+> **评估版本**: 0.1.0-SNAPSHOT
+> **评估范围**: `koduck-backend` 全部模块
+> **评估方法**: 基于代码事实的静态分析 + 架构模式审查
 
 ---
 
-## 一、项目概况
+## 一、综合评价表
 
-### 技术栈
+| 维度 | 分数 | 评级 | 权重 | 加权分 | 评价摘要 |
+|------|------|------|------|--------|----------|
+| **技术领先性** | 82 | B+ | 10% | 8.20 | Java 23 + Spring Boot 3.4.2 + 虚拟线程，技术栈前沿；缺乏 GraalVM Native Image、Service Mesh 等更深层次创新 |
+| **工程可行性** | 78 | B | 8% | 6.24 | Maven 多模块 + Docker 多阶段构建 + 完善的质量门禁脚本；存在模块依赖冗余和构建配置重复 |
+| **商业可行性** | 65 | C+ | 3% | 1.95 | 仍处于 0.1.0-SNAPSHOT 阶段，Demo 用户默认禁用，尚无生产部署证据；架构具备业务扩展潜力 |
+| **模块化** | 62 | C+ | 12% | 7.44 | 11 个 Maven 模块存在但边界模糊；koduck-core 为"上帝模块"，承载全部业务逻辑；模块间存在依赖冗余 |
+| **可维护性** | 72 | B- | 10% | 7.20 | 77 份 ADR 文档体系完善；异常层次结构清晰；但上帝模块和跨模块代码重复降低长期可维护性 |
+| **可扩展性** | 75 | B | 10% | 7.50 | STOMP Broker Relay 支持多实例横向扩展；Redis 缓存 + RabbitMQ 消息解耦；单体架构限制独立模块扩展 |
+| **性能表现** | 76 | B | 10% | 7.60 | 虚拟线程 + HikariCP + JDBC Batch + HTTP 压缩 + 多级缓存 TTL；缺少性能基准测试和负载验证数据 |
+| **开发体验** | 80 | B+ | 5% | 4.00 | 一键质量检查脚本、SpringDoc/Swagger、TestContainers、测试夹具；CI/CD 和本地开发脚本齐全 |
+| **代码质量** | 78 | B | 12% | 9.36 | PMD + SpotBugs + Alibaba Checkstyle + JaCoCo 60% 覆盖率门禁；Javadoc 覆盖充分；ACL 层应用不一致 |
+| **架构合理性** | 68 | C+ | 15% | 10.20 | 多模块概念正确但落地有缺陷；防腐层（ACL）设计优秀但覆盖不完整；ProviderFactory 存在过度工程 |
+| **团队协作** | 82 | B+ | 5% | 4.10 | 完善的 Git Flow + Worktree 工作流、Conventional Commits 规范、77 份 ADR 知识库、GitHub Actions 自动化 |
 
-| 项目 | 版本 | 说明 |
-|------|------|------|
-| Java | 23 | 最新 LTS 之后的版本 |
-| Spring Boot | 3.4.2 | 最新稳定版 |
-| Spring Cloud | 2024.0.1 | 最新版本 |
-| PostgreSQL | - | 主数据库 |
-| Redis | - | 缓存层 |
-| RabbitMQ | - | 消息队列 / STOMP Broker |
-| Maven | 多模块 | 10 个子模块 |
-| Flyway | - | 数据库迁移 |
-| JaCoCo | 0.8.12 | 覆盖率门禁 |
+### 综合得分
 
-### 模块结构
-
-```
-koduck-backend/
-├── koduck-bom/          # BOM 依赖管理
-├── koduck-common/       # 共享工具与常量
-├── koduck-auth/         # 认证授权模块
-├── koduck-core/         # 核心业务模块（体积最大）
-├── koduck-market/       # 行情数据模块（已有实现）
-├── koduck-portfolio/    # 投资组合模块（空壳）
-├── koduck-strategy/     # 策略模块（仅有 1 个 Controller + 1 个 ServiceImpl）
-├── koduck-community/    # 社区模块（空壳）
-├── koduck-ai/           # AI 分析模块（已有实现）
-└── koduck-bootstrap/    # 启动入口
-```
-
-### 关键数据
-
-| 指标 | 数值 |
+| 指标 | 值 |
 |------|------|
-| Maven 模块数 | 10 |
-| ADR 文档数 | 102 |
-| 架构决策 ADR | 41 |
-| 代码规范 ADR | 36 |
-| 质量工具 | Checkstyle + PMD + SpotBugs + JaCoCo |
-| 测试分层 | Unit / Slice / Integration |
-| 性能测试 | K6（5 个测试脚本） |
-
----
-
-## 二、综合评价表
-
-| 维度 | 分数 | 评级 | 评价 |
-|------|------|------|------|
-| **技术领先性** | 82 | B+ | 技术栈选型非常新颖（Java 23 + Spring Boot 3.4.2），引入虚拟线程、Resilience4j 熔断、Spring Vault 密钥管理等前沿技术；但部分技术尚未充分落地 |
-| **工程可行性** | 78 | B | Maven 多模块结构合理，Docker 多阶段构建完善，质量门禁覆盖面广；但依赖配置存在重复、BOM 版本不一致等工程瑕疵 |
-| **商业可行性** | 55 | C- | 项目处于 0.1.0-SNAPSHOT 阶段，核心业务功能（行情、回测、AI）已有雏形但多个业务模块（portfolio、community）仍为空壳，距离可交付尚有较大差距 |
-| **模块化** | 62 | C | 已完成 Maven 多模块拆分，ACL 防腐层设计合理；但 koduck-core 仍是"上帝模块"，承载了绝大部分业务逻辑，且 portfolio、community 为空壳模块，模块拆分不完整 |
-| **可维护性** | 72 | B- | 102 篇 ADR 文档体系极为完善，Javadoc 覆盖度高，质量工具链齐全；但核心模块体量过大、依赖关系复杂，降低了实际可维护性 |
-| **可扩展性** | 58 | C- | 单 JAR 部署模式限制了水平扩展能力；RabbitMQ STOMP Broker Relay 为多实例扩展提供了基础，但缺乏数据库读写分离、分库分表等扩展方案 |
-| **性能表现** | 75 | B | HikariCP 连接池、JDBC Batch、HTTP 压缩、Redis 多级缓存、虚拟线程等性能优化已就位；K6 性能测试框架完整且有明确阈值基线 |
-| **开发体验** | 70 | B- | SpringDoc OpenAPI 文档、质量检查脚本、Docker 一键部署、测试夹具工厂等工具完善；但多模块间 Checkstyle 配置重复、核心模块过于庞大影响开发效率 |
-| **代码质量** | 78 | B | Checkstyle（Alibaba 规范）、PMD 债务棘轮、SpotBugs 安全扫描、JaCoCo 60/40 覆盖率门禁等形成完整质量闭环；ErrorCode 体系规范、统一 ApiResponse 设计优雅 |
-| **架构合理性** | 65 | C+ | 分层架构（Controller → Service → Repository）清晰，Provider 工厂模式设计精巧，ACL 防腐层理念先进；但核心模块内部边界模糊、跨模块依赖方向不够清晰 |
-| **团队协作** | 74 | B- | ADR 决策记录、API Changelog 治理、GitHub Issue 驱动开发、Agent 协作体系等协作机制完善；但模块间代码耦合使得并行开发受限 |
-
-### 综合评分
-
-| 项目 | 结果 |
-|------|------|
-| **综合分数** | **70** |
+| **综合加权分数** | **73.79** |
 | **综合评级** | **B-** |
-| **评价** | 项目展现了出色的工程治理意识（ADR 体系、质量门禁、技术前沿性），但处于早期阶段，核心模块过度膨胀、多个业务模块空壳化、扩展能力受限是当前最主要的问题 |
+| **综合评价** | **架构基础设施与工程规范优秀（ADR 体系、质量门禁、CI/CD），但模块边界划分和依赖治理存在显著短板。核心技术栈选型先进，团队协作流程成熟，适合在当前阶段集中解决模块化缺陷后向生产推进。** |
 
 ---
 
-## 三、各维度详细分析
+## 二、各维度详细分析
 
-### 1. 技术领先性（82 / B+）
+### 1. 技术领先性（82 分 / B+）
 
 **优点**：
-- 采用 Java 23 + Spring Boot 3.4.2 组合，处于 Java 生态最前沿
-- 启用虚拟线程（`spring.threads.virtual.enabled: true`），具备高并发处理能力
-- 引入 Resilience4j 熔断器保护外部服务调用，具备容错能力
-- Spring Vault 集成进行密钥管理，安全架构成熟
-- 使用 WebClient（响应式）替代 RestTemplate 进行 HTTP 调用
-- WebSocket + STOMP + RabbitMQ Broker Relay 支持多实例实时推送
-- Ta4j 技术分析库集成，体现量化领域专业选型
 
-**缺点**：
-- 虚拟线程虽已启用，但未见针对虚拟线程的专项优化（如避免 pinning 的 synchronized → ReentrantLock 迁移）
-- WebClient 与传统 MVC 混合使用，架构风格不完全一致
-- 缺少 GraalVM native-image 支持的考量
+| 项目 | 技术 | 评价 |
+|------|------|------|
+| 语言版本 | Java 23 | 业界领先，支持最新语言特性（Record Pattern、String Templates 等） |
+| 框架版本 | Spring Boot 3.4.2 | 最新稳定版，完整支持 Jakarta EE 10 |
+| 并发模型 | Virtual Threads (`spring.threads.virtual.enabled: true`) | 前瞻性采用，显著提升 I/O 密集型场景吞吐 |
+| 响应式 | WebFlux + WebClient | 非阻塞 HTTP 客户端用于外部服务调用 |
+| 弹性设计 | Resilience4j Circuit Breaker | 熔断降级保护外部服务依赖 |
+| 密钥管理 | Spring Cloud Vault | 生产级密钥管理方案 |
+| 实时通信 | WebSocket + STOMP + RabbitMQ Relay | 支持多实例横向扩展的实时推送 |
+| 可观测性 | Micrometer + Prometheus + Actuator | 完整的指标采集和健康监控 |
+| 数据库迁移 | Flyway + Baseline Rebase | 规范的 Schema 版本管理 |
+| 测试基础设施 | TestContainers + Awaitility | 集成测试使用真实容器 |
 
-**评级说明**：技术选型非常先进，但部分技术尚未深度落地，实际效果有待验证。
+**缺陷**：
+
+- 未采用 GraalVM Native Image 以优化冷启动（容器化场景）
+- 缺少 API Gateway 层（前端直连后端，无统一入口）
+- 未引入 Service Mesh（Istio/Linkerd）概念
+- 缺少分布式链路追踪（OpenTelemetry / Jaeger）
 
 ---
 
-### 2. 工程可行性（78 / B）
+### 2. 工程可行性（78 分 / B）
 
 **优点**：
-- Maven 多模块结构层次清晰：BOM → Common → Auth → Core → Domain → Bootstrap
-- Docker 多阶段构建，使用非 root 用户、健康检查、容器感知 JVM 参数
-- 完善的质量工具链：Checkstyle + PMD + SpotBugs + JaCoCo，且均配置为构建失败
-- `quality-check.sh` 脚本提供一键式 6 阶段质量检查
-- Flyway 数据库迁移管理规范
-- H2 + TestContainers 双测试数据库支持
 
-**缺点**：
-- `koduck-bom` 的 ta4j 版本为 `0.16`，父 POM 为 `0.17`，存在版本不一致
-- 各子模块的 Checkstyle 配置完全相同且逐个重复定义（应通过父 POM 统一）
-- `bootstrap` 模块的 `pom.xml` 指定 `mainClass=com.koduck.KoduckApplication`，但实际类名为 `KoduckBootstrapApplication`
-- BOM 模块与父 POM 的 `dependencyManagement` 存在重复定义
+- Maven 多模块结构清晰分离了关注点（BOM、通用、基础设施、认证、业务、引导）
+- Docker 多阶段构建：`maven:3.9.9-eclipse-temurin-23-alpine` → `eclipse-temurin:23-jre-alpine`
+- 非 root 用户运行容器（安全最佳实践）
+- 容器感知 JVM 参数（`UseContainerSupport`、`MaxRAMPercentage`）
+- 健康检查配置（`HEALTHCHECK` + Actuator probes）
+- 一键质量检查脚本（`quality-check.sh`）覆盖 6 个阶段
 
-**评级说明**：工程基础扎实，但配置重复和版本不一致等问题影响工程严谨性。
+**缺陷**：
+
+- **Dockerfile 与多模块不匹配**：`COPY src ./src` 假设单模块结构，未适配 11 模块项目
+- **依赖声明重复**：各模块 `pom.xml` 重复声明相同的 Spring Boot Starter（web、webflux、JPA、security、cache、Redis、AMQP），未充分使用父 POM 的 `dependencyManagement`
+- **构建配置重复**：Surefire/Failsafe 插件配置在多模块中重复，未抽取到父 POM `pluginManagement`
 
 ---
 
-### 3. 商业可行性（55 / C-）
+### 3. 商业可行性（65 分 / C+）
 
 **优点**：
-- 核心量化功能（行情数据、技术指标、回测引擎）已有初步实现
-- AI 分析模块已对接外部大模型，支持对话记忆与策略推荐
-- 社区信号模块提供社交化量化思路
 
-**缺点**：
-- 版本号 `0.1.0-SNAPSHOT` 表明项目仍处于非常早期阶段
-- `koduck-portfolio`（投资组合）和 `koduck-community`（社区）模块为空壳，仅有 `pom.xml` 和编译缓存
-- `koduck-strategy` 模块仅有 1 个 Controller 和 1 个 ServiceImpl，功能极不完整
-- 缺少用户交易执行、风控模块、实盘对接等关键商业能力
-- 单 JAR 部署模式难以满足不同客户的差异化部署需求
+- 已实现完整的量化交易核心功能链路：行情数据 → 策略管理 → 回测引擎 → 投资组合 → AI 分析
+- 社区信号系统支持交易信号发布、订阅、点赞、评论等社交功能
+- 用户凭证管理支持多券商、多数据源接入
+- 分层自选股（盯盘 100 + 观察 1500）体现业务精细化设计
 
-**评级说明**：核心功能有雏形但远未形成完整产品，商业交付能力不足。
+**缺陷**：
+
+- 版本号为 `0.1.0-SNAPSHOT`，尚无正式 Release
+- Demo 用户默认禁用（`APP_DEMO_ENABLED: false`），缺少产品化展示能力
+- 无灰度发布、Feature Flag 等渐进式上线机制
+- 缺少多租户架构设计（SaaS 化能力）
+- 邮件服务未就绪（`MAIL_ENABLED: false`），密码重置等功能无法使用
 
 ---
 
-### 4. 模块化（62 / C）
+### 4. 模块化（62 分 / C+）
 
 **优点**：
-- 已从单一模块成功拆分为 10 个 Maven 模块
-- `koduck-auth` 模块独立完整，包含实体、Repository、DTO、Service、JWT 配置
-- `koduck-ai` 模块通过 ACL 防腐层（`BacktestQueryService`、`PortfolioQueryService` 等）解耦对核心模块的依赖
-- `koduck-market` 模块包含完整的行情领域实现（Provider、Service、Controller）
-- Provider 工厂模式支持多市场数据源（A股、港股、美股、期货、外汇）
 
-**缺点**：
-- `koduck-core` 仍是"上帝模块"，包含所有 Controller、Service、Entity、DTO、Repository、Config、Security、Exception 等
-- `koduck-market` 依赖 `koduck-core`，而 `koduck-core` 内部也有 market 相关代码，存在职责重叠
-- `koduck-portfolio` 和 `koduck-community` 为空壳模块（仅有 `pom.xml`），实际业务逻辑仍在 `koduck-core` 中
-- 模块依赖方向不够清晰：`market` → `core` + `auth` + `common`，`ai` → `core` + `auth` + `common`，形成以 core 为中心的星型依赖
-- 各业务模块（market、ai、community）重复引入大量相同的 Spring 依赖
+- 11 个 Maven 模块覆盖了 BOM、通用工具、基础设施、认证、核心业务、行情、投资组合、策略、社区、AI、引导启动
+- 防腐层（ACL）设计：`PortfolioQueryService`、`BacktestQueryService`、`StrategyQueryService`、`UserSettingsQueryService` 为 AI 模块提供只读接口
+- BOM 模块（`koduck-bom`）统一依赖版本管理
 
-**评级说明**：模块化方向正确但执行不完整，核心模块过度膨胀是最大问题。
+**缺陷**：
+
+| 问题 | 严重性 | 说明 |
+|------|--------|------|
+| **上帝模块** | 🔴 严重 | `koduck-core` 描述为 "All business logic and data access"，同时依赖 `koduck-auth`、`koduck-portfolio`、`koduck-infrastructure`，承载了过多职责 |
+| **模块边界模糊** | 🔴 严重 | `koduck-market` 依赖 `koduck-core`，但 `koduck-core` 内部也包含市场相关逻辑（`MarketServiceImpl`），职责重叠 |
+| **依赖方向混乱** | 🟡 中等 | 理想分层为 `bootstrap → domain → infrastructure → common`，但实际 `koduck-core` 同时依赖 `koduck-auth` 和 `koduck-portfolio`，形成对等依赖 |
+| **测试集中** | 🟡 中等 | 测试代码集中在 `koduck-core`，其他模块（`koduck-market`、`koduck-portfolio`、`koduck-ai`）缺少独立测试套件 |
+| **配置分散** | 🟡 中等 | 每个 `application.yml` 配置项散布在 bootstrap 模块，各模块无法独立配置和启动 |
 
 ---
 
-### 5. 可维护性（72 / B-）
+### 5. 可维护性（72 分 / B-）
 
 **优点**：
-- 102 篇 ADR 文档形成完整的架构决策记录体系，且有分类索引（ADR-A 架构 / ADR-C 规范）
-- Javadoc 覆盖度高，关键类均有完整的中文/英文文档注释
-- 测试分层清晰：Unit → Slice → Integration，且通过 Maven Surefire/Failsafe 插件物理隔离
-- ErrorCode 枚举按业务域分段编号（1000 系统码、2000 业务码、3000+ 领域码），便于定位
-- `TestDataFactory`、`StockFixtures` 等测试夹具类减少测试数据维护成本
 
-**缺点**：
-- `koduck-core` 包含 20+ Controller、25+ Service、大量 Entity/DTO/Repository，单模块维护成本高
-- Service 接口与实现均在 `koduck-core` 中，其他模块无法独立引用 Service 接口
-- 部分工具类（如 `JwtUtil`）在 `koduck-core` 和 `koduck-auth` 中各有一份，存在维护同步风险
-- 缺少模块级别的架构测试（如 ArchUnit）来约束依赖方向
+- **ADR 体系**：77 份架构决策记录（41 个架构决策 + 36 个代码规范），索引分类清晰
+- **异常层次**：`BusinessException` → `ResourceNotFoundException`、`ValidationException`、`DuplicateException`、`StateException`、`ExternalServiceException`、`AuthenticationException`，覆盖全面
+- **全局异常处理**：`GlobalExceptionHandler` 统一处理 20+ 种异常类型，包括 Spring Validation、Security、Framework 异常
+- **Javadoc 覆盖**：关键类和方法均有完整的 Javadoc，包括 `@param`、`@return`、`@throws`
+- **工具类抽取**：`ServiceValidationUtils`（`assertOwner`、`requireFound`）减少重复校验代码
 
-**评级说明**：文档和工具链支撑可维护性，但核心模块过大是根本性障碍。
+**缺陷**：
+
+- `koduck-core` 过大导致修改影响范围难以评估
+- `PortfolioServiceImpl`（424 行）和 `AiAnalysisServiceImpl`（397 行）职责偏多，可进一步拆分
+- 部分 DTO 转换逻辑内嵌在 Service 中（如 `convertToDtoWithCalculations`），未统一使用 MapStruct
+- 缺少架构守护测试（ArchUnit）来防止模块边界违反
 
 ---
 
-### 6. 可扩展性（58 / C-）
+### 6. 可扩展性（75 分 / B）
 
 **优点**：
-- RabbitMQ STOMP Broker Relay 支持多实例 WebSocket 推送
-- Redis 缓存层支持水平扩展
-- Resilience4j 熔断器参数全部外部化配置
-- HikariCP 连接池大小可配置
 
-**缺点**：
-- 单 JAR 部署模式（通过 bootstrap 模块打包）无法按业务域独立扩缩容
-- 缺乏数据库读写分离、分库分表方案
-- 无分布式追踪（OpenTelemetry / Zipkin / Jaeger）支持
-- 缺少异步处理框架（如消息驱动的异步任务）
-- 缓存仅使用 Redis 单层，缺少本地缓存（Caffeine）+ Redis 的多级缓存策略（虽然引入了 `spring-boot-starter-cache`，但配置仅为 Redis）
-- 缺少 API 网关层来支持未来的微服务拆分
+- **水平扩展**：STOMP Broker Relay 支持多实例 WebSocket 横向扩展
+- **缓存架构**：Redis + Spring Cache + 可配置 TTL（行情 30s、搜索 5m、组合 1h）
+- **消息解耦**：RabbitMQ 用于实时行情推送（含 DLX/DLQ 死信处理）
+- **Provider 插件化**：`MarketDataProvider` 接口 + `ProviderFactory` 注册机制，支持多数据源热切换和故障转移
+- **虚拟线程**：`spring.threads.virtual.enabled: true` 提升并发处理能力
 
-**评级说明**：扩展性基础设施有基础但不够完善，单 JAR 部署是最大瓶颈。
+**缺陷**：
+
+- 单体架构：所有模块打包为单一 JAR，无法独立扩展高频模块（如行情推送）
+- `ProviderFactory` 使用 `ReentrantReadWriteLock` 保护 3 个 `ConcurrentHashMap`，过度工程化（`ConcurrentHashMap` 本身已保证线程安全）
+- 缺少读写分离和分库分表策略（数据库单点）
+- 缺少异步事件驱动架构（SAGA / Event Sourcing）用于跨模块协调
 
 ---
 
-### 7. 性能表现（75 / B）
+### 7. 性能表现（76 分 / B）
 
 **优点**：
-- HikariCP 连接池配置合理（最大 20、最小空闲 5、泄漏检测 60s）
-- JDBC Batch 启用（`batch_size: 50`、`order_inserts/updates: true`）
-- HTTP 响应压缩已启用（Gzip，最小 2KB）
-- Redis 缓存 TTL 按业务差异化配置（30s ~ 1h）
-- Prometheus 指标 + 百分位直方图配置完整
-- K6 性能测试框架完善，包含健康检查、行情、组合、用户、混合负载 5 类测试
-- 虚拟线程已启用，可提升 I/O 密集型场景吞吐量
-- Provider 工厂模式支持故障降级（主 Provider 不可用时切换备用）
 
-**缺点**：
-- 缺少本地缓存（如 Caffeine），所有缓存请求均需访问 Redis，增加网络开销
-- 未见数据库查询优化策略的系统性设计（如索引优化、慢 SQL 监控）
-- 缺少连接池监控和告警机制
-- 性能测试仅覆盖 API 层面，缺少数据库、缓存等中间件的性能基线
+| 优化项 | 实现 | 影响 |
+|--------|------|------|
+| 连接池 | HikariCP（max=20, leak detection 60s） | 高效数据库连接复用 |
+| JDBC Batch | `batch_size: 50` + `order_inserts/updates: true` | 批量操作性能提升 |
+| HTTP 压缩 | Gzip（min-response-size: 2048） | 减少网络传输量 |
+| 缓存 | Redis + 分级 TTL（30s ~ 1h） | 减少数据库查询 |
+| 虚拟线程 | `spring.threads.virtual.enabled: true` | 提升 I/O 密集型场景吞吐 |
+| 索引优化 | kline_data 复合索引、stock_basic GIN 索引、分层查询索引 | 加速常见查询模式 |
+| MA 滑动窗口 | ADR-0070 预计算 MA 序列 | 优化回测信号生成 |
+| 响应式 HTTP | WebClient 非阻塞调用外部服务 | 避免线程阻塞 |
 
-**评级说明**：性能优化意识强，基础配置到位，但缺少深度的性能工程实践。
+**缺陷**：
+
+- 缺少性能基准测试和负载测试报告（`perf-tests/` 目录存在但未验证内容）
+- `PortfolioServiceImpl.getPortfolioSummary()` 在循环中逐个查询实时价格（N+1 问题）
+- `getPositions()` 对每个持仓都调用 `priceService.getLatestPrice()`，无批量接口
+- 缺少 Redis 连接池调优配置（Lettuce 默认配置）
+- 缺少慢查询监控和告警机制
+- Prometheus SLO 配置了分位数值（50/95/99），但缺少对应的 SLI 告警规则
 
 ---
 
-### 8. 开发体验（70 / B-）
+### 8. 开发体验（80 分 / B+）
 
 **优点**：
-- SpringDoc OpenAPI + Swagger UI 提供交互式 API 文档
-- `quality-check.sh` 提供一键式质量检查，降低质量门禁使用门槛
-- Docker Compose 一键启动所有依赖服务
-- 测试夹具工厂（`TestDataFactory`、`StockFixtures`）简化测试编写
-- `application.yml` 配置项均有合理默认值和环境变量覆盖
 
-**缺点**：
-- Checkstyle 配置在每个模块中完全重复定义（应提取到父 POM）
-- `koduck-core` 模块体量过大，IDE 加载和索引慢
-- 新增一个业务功能需要在多个包（controller/service/entity/dto/repository）间跳转，且均在同一模块内
-- 缺少开发环境快速启动指南（如 `DEV-SETUP.md`）
-- 各模块的 `pom.xml` 依赖声明高度重复
+- **质量检查脚本**：6 阶段一键检查（PMD → SpotBugs → 编译 → 单元测试 → 切片测试 → 覆盖率 → 架构检查）
+- **API 文档**：SpringDoc OpenAPI + Swagger UI，配置完善
+- **测试分类**：Unit / Slice / Integration 三级测试，Surefire/Failsafe 分离执行
+- **测试工具**：TestContainers（PostgreSQL）、Awaitility（异步测试）、H2（快速测试）、测试夹具（`TestDataFactory`、`StockFixtures`）
+- **配置外部化**：所有敏感配置使用环境变量占位符（`${JWT_SECRET}`、`${DB_PASSWORD}` 等）
+- **开发脚本**：`start-dev.sh`、`start-parallel-dev.sh`、`stop-dev.sh` 简化本地环境启动
 
-**评级说明**：工具链较为完善，但模块结构带来的开发体验摩擦不容忽视。
+**缺陷**：
+
+- 多模块项目缺少统一的 `Makefile` 或 `Taskfile` 封装常用命令
+- 缺少 Development Container（DevContainer）配置
+- 缺少数据库连接的本地开发工具（如 DBeaver 配置或 pgAdmin docker）
+- 各模块无法独立运行和调试（仅 `koduck-bootstrap` 可启动）
 
 ---
 
-### 9. 代码质量（78 / B）
+### 9. 代码质量（78 分 / B）
 
 **优点**：
-- Checkstyle 采用 Alibaba 编码规范，且在 `validate` 阶段强制执行
-- PMD 引入债务棘轮机制（`debt-baseline.txt`），防止技术债增长
-- SpotBugs 安全扫描配置为 `threshold=Low`，捕获所有级别问题
-- JaCoCo 覆盖率门禁（LINE 60%、BRANCH 40%）对核心服务强制执行
-- `ErrorCode` 枚举使用静态 Map 缓存实现 O(1) 查找，代码高效
-- `ApiResponse` 不可变设计，包含 traceId 支持链路追踪
-- `ProviderFactory` 使用 `ReentrantReadWriteLock` 保证跨 Map 操作原子性
-- MapStruct 替代手工映射，减少运行时错误
 
-**缺点**：
-- PMD 和 SpotBugs 仅在 `koduck-core` 模块中配置，其他模块缺少同类配置
-- 测试覆盖率门禁仅覆盖 3 个核心服务类（`MarketServiceImpl`、`PortfolioServiceImpl`、`AiAnalysisServiceImpl`），范围过窄
-- 部分异常处理过于宽泛（如 `GlobalExceptionHandler` 捕获 `Exception.class` 作为兜底）
-- 部分工具类（如 `EntityCopyUtils`）可能隐藏不安全的反射操作
+- **静态分析三件套**：PMD（自定义规则集 + Ratchet 守门）+ SpotBugs + Alibaba Checkstyle
+- **覆盖率门禁**：JaCoCo 核心服务 LINE ≥ 60%、BRANCH ≥ 40%
+- **异常规范化**：`ErrorCode` 枚举统一定义业务错误码 + HTTP 状态映射 + 默认消息
+- **不可变性**：`ApiResponse` 不可变改造（ADR-0057），Entity 核心字段不可变约定（ADR-0004）
+- **常量治理**：魔法字符串提取为 `MarketConstants`、`AiConstants`、`MapKeyConstants`
+- **Javadoc 标准**：Exception 类 Javadoc 规范化（ADR-0008）、GlobalExceptionHandler Javadoc 补全（ADR-0009）
 
-**评级说明**：质量工具链完善且执行严格，但覆盖范围不够均匀。
+**缺陷**：
+
+- **ACL 应用不一致**：AI 模块使用防腐层接口（`PortfolioQueryService`），但市场模块直接访问其他模块的 Repository
+- **Service 中存在转换逻辑**：`PortfolioServiceImpl.convertToDtoWithCalculations()` 手工转换，未使用 MapStruct
+- **硬编码字符串残留**：`AiAnalysisServiceImpl` 中 `DEFAULT_LLM_PROVIDER = "minimax"` 等常量未外部化配置
+- **缺少契约测试**：外部服务（koduck-agent、data-service）缺少 Consumer-Driven Contract Test
+- **异常捕获精细化不完整**：部分 Service 方法仍捕获宽泛的 `RuntimeException`
 
 ---
 
-### 10. 架构合理性（65 / C+）
+### 10. 架构合理性（68 分 / C+）
 
 **优点**：
-- 分层架构（Controller → Service → Repository）职责清晰
-- Provider 工厂模式设计精巧：支持注册/注销、主备切换、健康评分、降级策略
-- ACL 防腐层设计理念先进（`BacktestQueryService`、`PortfolioQueryService` 等接口定义在 core，实现也在 core，但为 ai 模块提供只读视图）
-- 统一响应格式（`ApiResponse<T>`）包含 code、message、data、timestamp、traceId
-- 安全配置外部化（`SecurityEndpointProperties`），支持配置化白名单
-- 缓存抽象层设计（`CacheLayer`）统一缓存访问接口
 
-**缺点**：
-- `koduck-core` 同时包含所有领域的代码（market/portfolio/community/strategy/backtest/user），违背单一职责原则
-- 模块间依赖方向不清晰：`koduck-market` 依赖 `koduck-core`，但 `koduck-core` 内部也有 market 领域代码
-- Service 接口定义在 `koduck-core` 而非对应领域模块，导致领域模块无法独立使用
-- 缺少领域事件机制，模块间通信依赖直接方法调用
-- `koduck-core` 内部包结构按技术层（controller/service/repository/entity/dto）组织而非按业务域组织
-- 缺少架构守护测试（ArchUnit）来约束模块依赖规则
+- **多模块概念**：模块划分覆盖了量化交易核心领域（行情、策略、回测、组合、社区、AI）
+- **防腐层设计**：ACL 接口（`PortfolioQueryService` 等）使用 `@Value` 不可变值对象，有效隔离模块间数据模型
+- **Provider 模式**：`MarketDataProvider` 接口 + `ProviderFactory` 注册中心 + 健康评分 + 故障转移
+- **缓存抽象层**：`CacheLayer` 统一缓存访问（ADR-0007），支持分级 TTL 配置
+- **API 版本管理**：ADR-0012 建立了 API 版本策略（`/api/v1/`）
+- **WebSocket 迁移**：从内存 Broker 到 RabbitMQ STOMP Relay（ADR-0055），支持生产级扩展
 
-**评级说明**：架构理念先进但落地执行不完整，核心模块成为架构瓶颈。
+**缺陷**：
+
+| 架构问题 | 严重性 | 详情 |
+|----------|--------|------|
+| **上帝模块** | 🔴 严重 | `koduck-core` 同时包含 Market/Portfolio/Strategy/Community/AI 全部 Service 实现，职责严重越界 |
+| **依赖方向违规** | 🔴 严重 | `koduck-core` 依赖 `koduck-portfolio`，`koduck-market` 又依赖 `koduck-core`，形成链式耦合 |
+| **模块无法独立** | 🟡 中等 | 仅 `koduck-bootstrap` 可启动，其余模块无法独立运行或测试 |
+| **ProviderFactory 过度工程** | 🟡 中等 | `ReentrantReadWriteLock` + 3 个 `ConcurrentHashMap` + `CopyOnWriteArrayList` 的组合冗余（ADR-0069） |
+| **缺少架构守护** | 🟡 中等 | 无 ArchUnit 等架构守护测试防止层级违规 |
+| **配置集中化瓶颈** | 🟡 中等 | 所有配置集中在 bootstrap 模块的 `application.yml`，模块级配置无法独立管理 |
+| **缺少事件驱动** | 🟠 低 | 跨模块通信主要依赖直接方法调用，缺少 Domain Event 解耦 |
 
 ---
 
-### 11. 团队协作（74 / B-）
+### 11. 团队协作（82 分 / B+）
 
 **优点**：
-- 102 篇 ADR 文档为团队决策提供了完整的可追溯记录
-- API Changelog 治理机制确保 API 变更透明可控
-- GitHub Issue 驱动开发流程规范（Issue → Branch → PR → Review → Merge）
-- Agent 协作体系（java-architect、java-coder-specialist 等）定义了清晰的协作角色
-- 分支保护策略完善（`main` ← `dev` ← `feature/*`）
-- `.gitmessage.txt` 统一 Commit Message 规范
 
-**缺点**：
-- `koduck-core` 作为"上帝模块"使得多人同时修改时容易产生合并冲突
-- 模块间无法独立开发、独立测试，限制了并行开发效率
-- 缺少模块所有者（Module Owner）机制
-- 缺少代码评审检查清单的自动化执行
+- **Git Flow 完整**：`main → dev → feature/*` 三分支模型 + Worktree 隔离开发
+- **Conventional Commits**：严格遵循 `<type>(<scope>): <subject>` 格式，CI 校验
+- **GitHub Actions 自动化**：Branch Flow Guard + Commit Flow Guard + 自动删除合并分支
+- **ADR 知识库**：77 份 ADR 分类索引，新成员可快速理解架构决策历史
+- **Issue 模板**：Bug Report、Feature Request、Question、Security 等标准化模板
+- **代码审查**：PR Review Guide（`docs/pr-review-guide.md`）统一审查标准
+- **Agent 角色分工**：9 个专业 AI Agent 角色（架构师、API 设计师、编码专家、审查员等）
 
-**评级说明**：协作流程和文档体系优秀，但代码组织限制了实际协作效率。
+**缺陷**：
 
----
-
-## 四、缺陷与优化建议汇总
-
-### 🔴 关键缺陷（需优先解决）
-
-| # | 缺陷 | 影响范围 | 优化建议 |
-|---|------|----------|----------|
-| 1 | **koduck-core 上帝模块** | 模块化、可维护性、团队协作 | 将 core 中的各领域代码（portfolio/community/strategy/backtest/user）迁移到对应的领域模块中，core 仅保留真正的共享基础设施（config、exception、security） |
-| 2 | **空壳业务模块** | 模块化、商业可行性 | 完成 portfolio、community 模块的代码迁移，消除"有壳无肉"的状态 |
-| 3 | **模块依赖方向混乱** | 架构合理性 | 确立清晰的依赖规则：domain 模块 → common，domain 模块之间通过接口（而非实现）通信；core 不应包含特定领域逻辑 |
-
-### 🟡 重要缺陷（影响工程质量）
-
-| # | 缺陷 | 影响范围 | 优化建议 |
-|---|------|----------|----------|
-| 4 | **BOM 与父 POM 版本不一致** | 工程可行性 | 统一 ta4j 版本，将所有依赖版本管理集中到 BOM 模块，父 POM 仅引用 BOM |
-| 5 | **Checkstyle 配置全量重复** | 开发体验、工程可行性 | 将 Checkstyle 配置提升到父 POM 的 `pluginManagement` 中统一管理，子模块仅做差异化覆盖 |
-| 6 | **bootstrap mainClass 不匹配** | 工程可行性 | 将 `pom.xml` 中的 `mainClass` 修正为 `com.koduck.KoduckBootstrapApplication` |
-| 7 | **质量工具覆盖不均** | 代码质量 | 将 PMD、SpotBugs、JaCoCo 配置统一到父 POM，确保所有模块均受质量门禁保护 |
-| 8 | **缺少架构守护测试** | 架构合理性、可维护性 | 引入 ArchUnit 编写架构测试，守护模块依赖方向、包结构规则、分层约束 |
-| 9 | **缺少本地缓存层** | 性能表现 | 引入 Caffeine 作为 L1 本地缓存 + Redis 作为 L2 分布式缓存，减少网络开销 |
-| 10 | **缺少分布式追踪** | 可扩展性、可维护性 | 集成 OpenTelemetry + Zipkin/Jaeger，支持跨服务调用链追踪 |
-
-### 🟢 改进建议（提升架构成熟度）
-
-| # | 建议 | 影响范围 | 说明 |
-|---|------|----------|------|
-| 11 | 引入领域事件机制 | 架构合理性 | 使用 Spring Event 或 RabbitMQ 实现模块间异步通信，降低模块间耦合 |
-| 12 | 按业务域组织 core 内部包结构 | 可维护性 | 将 `controller/service/entity/dto` 按业务域重组为 `market/controller/portfolio/controller/...` |
-| 13 | 提取 Service 接口到领域模块 | 模块化 | Service 接口应定义在对应领域模块中，而非全部放在 core |
-| 14 | 补充数据库查询性能监控 | 性能表现 | 集成 P6Spy 或启用 Hibernate statistics 监控慢 SQL |
-| 15 | 添加模块所有者（CODEOWNERS） | 团队协作 | 为每个模块指定负责团队/个人，提升代码评审效率 |
-| 16 | 统一各模块的 pom.xml 依赖声明 | 工程可行性 | 将 spring-boot-starter-web/security/jpa/redis 等公共依赖提取到父 POM 的 dependencyManagement |
-| 17 | 考虑 GraalVM Native Image 支持 | 技术领先性 | 为启动性能敏感场景预留 Native Image 兼容性 |
-| 18 | 补充中间件性能基线 | 性能表现 | 为 Redis、PostgreSQL、RabbitMQ 建立独立的性能基线文档 |
+- 缺少 Pair Programming 或 Mob Programming 的实践指南
+- 缺少 On-Call 和 Incident Response 流程文档
+- 缺少代码审查 SLA 约定
 
 ---
 
-## 五、评级标准说明
+## 三、缺陷与优化建议汇总
 
-| 分数区间 | 评级 | 含义 |
-|----------|------|------|
-| 95-100 | A+ | 卓越，行业标杆 |
-| 90-94 | A | 优秀，极高标准 |
-| 85-89 | A- | 良好，超出预期 |
-| 80-84 | B+ | 较好，有明显优势 |
-| 75-79 | B | 合格，达到预期 |
-| 70-74 | B- | 基本合格，有改进空间 |
-| 65-69 | C+ | 尚可，部分不达标 |
-| 60-64 | C | 一般，需要改进 |
-| 55-59 | C- | 偏弱，问题较多 |
-| 50-54 | D+ | 不达标，需重点关注 |
-| 45-49 | D | 较差，需较大改进 |
-| 40-44 | D- | 差，存在严重问题 |
-| 35-39 | E+ | 很差，基础缺失 |
-| 30-34 | E | 极差，需重构 |
-| <30 | E- | 不可接受 |
+### 🔴 严重缺陷（建议优先处理）
+
+| 编号 | 缺陷 | 影响范围 | 优化建议 |
+|------|------|----------|----------|
+| S-01 | **上帝模块 `koduck-core`** | 架构合理性、模块化、可维护性 | 按领域边界将 `koduck-core` 拆分为独立领域模块：Market、Portfolio、Strategy、Community、AI。每个模块拥有独立的 Service/Repository/Entity。`koduck-core` 仅保留跨领域协调逻辑和共享基础设施 |
+| S-02 | **模块依赖方向混乱** | 架构合理性、模块化 | 建立严格的依赖层级：`bootstrap → domain modules → infrastructure → common`。禁止领域模块之间的横向依赖，通过接口（ACL）解耦 |
+| S-03 | **Dockerfile 与多模块不匹配** | 工程可行性、部署 | 重写 Dockerfile：先 `COPY pom.xml` 和子模块 pom.xml，再 `mvn install -pl koduck-bom,koduck-common,koduck-infrastructure`，最后构建完整项目 |
+
+### 🟡 中等缺陷（建议近期处理）
+
+| 编号 | 缺陷 | 影响范围 | 优化建议 |
+|------|------|----------|----------|
+| M-01 | **依赖声明重复** | 工程可行性、可维护性 | 将公共 Spring Boot Starter 依赖提升到父 POM 的 `<dependencies>` 或 `<dependencyManagement>`，减少子模块冗余声明 |
+| M-02 | **构建插件配置重复** | 工程可行性 | 将 Surefire/Failsafe/PMD/SpotBugs/JaCoCo 插件配置抽取到父 POM `<pluginManagement>`，子模块仅声明使用 |
+| M-03 | **测试集中在 core 模块** | 模块化、可维护性 | 各领域模块（`koduck-market`、`koduck-portfolio`、`koduck-ai`）补充独立的单元测试和集成测试套件 |
+| M-04 | **缺少架构守护测试** | 架构合理性、可维护性 | 引入 ArchUnit 编写包依赖规则和分层规则测试，防止模块边界违反 |
+| M-05 | **Portfolio N+1 查询** | 性能表现 | 为 `PortfolioPriceService` 增加批量查询接口 `getLatestPrices(Map<String, String> marketSymbolMap)`，一次查询所有持仓价格 |
+| M-06 | **ACL 覆盖不完整** | 代码质量、架构合理性 | 将防腐层模式扩展到所有跨模块调用，统一使用接口 + 不可变值对象隔离数据模型 |
+| M-07 | **缺少性能基准** | 性能表现、工程可行性 | 使用 JMH 或 Gatling 建立关键路径（行情查询、回测执行、组合计算）的性能基线，纳入 CI 回归检测 |
+
+### 🟠 轻微缺陷（建议后续迭代处理）
+
+| 编号 | 缺陷 | 影响范围 | 优化建议 |
+|------|------|----------|----------|
+| L-01 | **ProviderFactory 过度工程** | 可扩展性、代码质量 | 简化 `ProviderFactory`，移除 `ReentrantReadWriteLock`，仅依赖 `ConcurrentHashMap` 的原子操作 |
+| L-02 | **Service 内嵌 DTO 转换** | 代码质量 | 将 `convertToDtoWithCalculations` 等 DTO 转换逻辑迁移到 MapStruct Mapper |
+| L-03 | **硬编码配置值** | 代码质量、可维护性 | 将 `DEFAULT_LLM_PROVIDER`、`SUPPORTED_LLM_PROVIDERS` 等常量外部化到 `application.yml` |
+| L-04 | **缺少分布式追踪** | 技术领先性、可维护性 | 引入 OpenTelemetry + Jaeger/Zipkin 实现跨服务请求追踪 |
+| L-05 | **缺少契约测试** | 代码质量 | 对 koduck-agent 和 data-service 的 HTTP 接口引入 Pact 或 Spring Cloud Contract 测试 |
+| L-06 | **邮件服务未就绪** | 商业可行性 | 配置 SMTP 服务或接入第三方邮件服务（如 SendGrid），启用密码重置和通知功能 |
+| L-07 | **缺少灰度发布机制** | 商业可行性、可扩展性 | 引入 Feature Flag（如 Togglz、FF4j）支持渐进式功能发布 |
+| L-08 | **缺少 DevContainer** | 开发体验 | 添加 `.devcontainer/devcontainer.json` 统一团队开发环境 |
 
 ---
 
-## 六、总结
+## 四、评分标准说明
 
-koduck-backend 项目展现了出色的 **工程治理意识** 和 **技术前瞻性**：
+| 评级 | 分数范围 | 含义 |
+|------|----------|------|
+| **A+** | 95 ~ 100 | 卓越，行业标杆级 |
+| **A** | 90 ~ 94 | 优秀，超出预期 |
+| **A-** | 85 ~ 89 | 良好，少数改进空间 |
+| **B+** | 80 ~ 84 | 中上，整体不错 |
+| **B** | 75 ~ 79 | 中等偏上，有明确改进方向 |
+| **B-** | 70 ~ 74 | 中等，需要系统性优化 |
+| **C+** | 65 ~ 69 | 中下，存在结构性问题 |
+| **C** | 60 ~ 64 | 及格，需重点改善 |
+| **C-** | 55 ~ 59 | 勉强及格，风险较高 |
+| **D+** | 50 ~ 54 | 不及格，严重不足 |
+| **D** | 45 ~ 49 | 较差，需要重构 |
+| **D-** | 40 ~ 44 | 很差，架构缺陷严重 |
+| **E** | 0 ~ 39 | 极差，建议重新设计 |
 
-- **ADR 体系**（102 篇）为中小型项目树立了文档化决策的标杆
-- **质量门禁链**（Checkstyle → PMD → SpotBugs → JaCoCo → Quality Check Script）形成了完整的质量闭环
-- **技术选型**（Java 23、Spring Boot 3.4.2、虚拟线程、Resilience4j）紧跟行业前沿
-- **安全设计**（JWT、Spring Vault、Rate Limiter、Security 端点外部化）考虑全面
+---
 
-但项目也面临 **早期阶段的典型挑战**：
+## 五、关键架构事实
 
-- **核心模块膨胀**：koduck-core 承载了过多职责，是当前架构最大的结构性问题
-- **模块拆分不完整**：portfolio、community 仍为空壳，与 core 形成割裂
-- **商业成熟度不足**：距离可交付的量化平台尚有较大差距
+### 模块依赖关系（当前）
 
-**核心建议**：优先完成从 core 到各领域模块的代码迁移，将 core 瘦身为纯基础设施模块，同时引入 ArchUnit 守护模块边界。这是解决模块化、可维护性、团队协作等多个维度问题的杠杆点。
+```
+koduck-bootstrap
+  └── koduck-core ←──┐
+        ├── koduck-common        ← koduck-market
+        ├── koduck-infrastructure ← koduck-portfolio
+        ├── koduck-auth           ← koduck-strategy
+        └── koduck-portfolio      ← koduck-community
+                                  ← koduck-ai
+```
+
+### 模块依赖关系（理想）
+
+```
+koduck-bootstrap
+  └── koduck-core (仅跨域协调)
+        ├── koduck-market
+        ├── koduck-portfolio
+        ├── koduck-strategy
+        ├── koduck-community
+        ├── koduck-ai
+        ├── koduck-auth
+        ├── koduck-infrastructure
+        └── koduck-common
+```
+
+### 技术栈全景
+
+| 层次 | 技术选型 |
+|------|----------|
+| 运行时 | Java 23 + Virtual Threads |
+| 框架 | Spring Boot 3.4.2 (Web + WebFlux + Security + Data JPA + Cache + AMQP + WebSocket) |
+| 数据库 | PostgreSQL + HikariCP + Flyway |
+| 缓存 | Redis + Spring Cache |
+| 消息 | RabbitMQ + STOMP |
+| 安全 | Spring Security + JWT (jjwt) + Spring Vault |
+| 弹性 | Resilience4j Circuit Breaker |
+| 监控 | Actuator + Micrometer + Prometheus |
+| API 文档 | SpringDoc OpenAPI + Swagger UI |
+| 代码质量 | PMD + SpotBugs + Alibaba Checkstyle + JaCoCo |
+| 测试 | JUnit 5 + Mockito + TestContainers + Awaitility |
+| 容器化 | Docker 多阶段构建 (Alpine) |
+
+---
+
+> **声明**：本评估基于 2026-04-05 的代码快照，仅评价当前存在的架构状态，不考虑未来可能的模块变化带来的提升或降低。
