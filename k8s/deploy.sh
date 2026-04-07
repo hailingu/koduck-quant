@@ -221,6 +221,9 @@ install() {
     echo -e "${YELLOW}等待 Frontend 启动...${NC}"
     wait_pods_ready "app=koduck-frontend" "180s" "frontend"
 
+    echo -e "${YELLOW}等待 Koduck-Auth 启动...${NC}"
+    wait_pods_ready "app=koduck-auth" "180s" "koduck-auth"
+
     # 阶段二：APISIX 就绪后注册路由和 Consumer
     echo -e "${YELLOW}注册路由和 Consumer...${NC}"
     kubectl apply -f "${SCRIPT_DIR}/overlays/${ENV}/apisix-route-init.yaml"
@@ -297,6 +300,11 @@ show_access_info() {
     echo -e "\n${BLUE}Frontend:${NC}"
     echo "  kubectl port-forward svc/${ENV}-koduck-frontend 8080:80 -n ${NAMESPACE}"
     echo "  http://localhost:8080"
+    
+    echo -e "\n${BLUE}Auth Service:${NC}"
+    echo "  kubectl port-forward svc/${ENV}-koduck-auth 8081:8081 -n ${NAMESPACE}"
+    echo "  http://localhost:8081"
+    echo "  gRPC: localhost:50051"
     
     if [ "$ENV" == "prod" ]; then
         echo -e "\n${BLUE}Admin API:${NC}"
