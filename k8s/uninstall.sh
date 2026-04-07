@@ -60,12 +60,13 @@ uninstall_env() {
     kubectl delete deployment,statefulset,service,configmap -n "${namespace}" --ignore-not-found=true --all 2>/dev/null || true
     
     # 删除命名空间
-    read -p "是否删除命名空间 ${namespace}? (y/N) " -n 1 -r
-    echo
-    if [[ $REPLY =~ ^[Yy]$ ]]; then
-        echo -e "${YELLOW}删除命名空间 ${namespace}...${NC}"
-        kubectl delete namespace "${namespace}" --ignore-not-found=true --force --grace-period=0 2>/dev/null || true
-    fi
+    echo -e "${YELLOW}删除命名空间 ${namespace}...${NC}"
+    kubectl delete namespace "${namespace}" --ignore-not-found=true --force --grace-period=0 2>/dev/null || true
+    
+    # 如果命名空间卡住，清除 finalizers
+    kubectl get namespace "${namespace}" -o json 2>/dev/null | \
+        jq '.spec.finalizers = []' 2>/dev/null | \
+        kubectl replace --raw "/api/v1/namespaces/${namespace}/finalize" -f - 2>/dev/null || true
     
     echo -e "${GREEN}✓ ${env} 环境已卸载${NC}"
 }
