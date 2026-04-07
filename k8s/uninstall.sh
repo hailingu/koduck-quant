@@ -44,18 +44,15 @@ uninstall_env() {
     
     echo -e "\n${YELLOW}卸载 ${env} 环境...${NC}"
     
-    # 删除资源
-    if command -v kustomize &> /dev/null; then
-        kustomize build "${SCRIPT_DIR}/overlays/${env}" 2>/dev/null | kubectl delete -f - --ignore-not-found=true
-    else
-        kubectl delete -k "${SCRIPT_DIR}/overlays/${env}" --ignore-not-found=true 2>/dev/null || true
-    fi
-    
-    # 删除 PVC
+    # 先删除 PVC（保留数据需要单独确认）
     echo -e "${YELLOW}删除 PVC...${NC}"
     kubectl delete pvc -n "${namespace}" --ignore-not-found=true --all
     
-    # 删除命名空间
+    # 删除其他资源（不包括 namespace）
+    echo -e "${YELLOW}删除其他资源...${NC}"
+    kubectl delete deployment,statefulset,service,configmap -n "${namespace}" -l environment="${env}" --ignore-not-found=true
+    
+    # 删除命名空间（会级联删除所有剩余资源）
     read -p "是否删除命名空间 ${namespace}? (y/N) " -n 1 -r
     echo
     if [[ $REPLY =~ ^[Yy]$ ]]; then
