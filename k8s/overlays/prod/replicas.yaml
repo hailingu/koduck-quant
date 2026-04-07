@@ -1,0 +1,8 @@
+---
+# 生产环境：增加副本数
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: apisix-gateway
+spec:
+  replicas: 2

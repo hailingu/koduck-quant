@@ -1,0 +1,45 @@
+---
+# 生产环境：增加资源限制
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: apisix-gateway
+spec:
+  template:
+    spec:
+      containers:
+        - name: apisix
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "100m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: apisix-etcd
+spec:
+  template:
+    spec:
+      containers:
+        - name: etcd
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "100m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+---
+# 生产环境：增加 PVC
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: apisix-etcd-data
+spec:
+  resources:
+    requests:
+      storage: 10Gi
