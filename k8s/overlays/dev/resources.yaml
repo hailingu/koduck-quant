@@ -13,9 +13,11 @@ spec:
             requests:
               memory: "64Mi"
               cpu: "25m"
+              ephemeral-storage: "50Mi"
             limits:
               memory: "128Mi"
               cpu: "100m"
+              ephemeral-storage: "200Mi"
 ---
 apiVersion: apps/v1
 kind: StatefulSet
@@ -30,9 +32,11 @@ spec:
             requests:
               memory: "64Mi"
               cpu: "25m"
+              ephemeral-storage: "50Mi"
             limits:
               memory: "128Mi"
               cpu: "100m"
+              ephemeral-storage: "500Mi"
 ---
 # 开发环境：减小 PVC
 apiVersion: v1
