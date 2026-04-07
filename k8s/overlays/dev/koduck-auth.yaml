@@ -9,6 +9,7 @@ spec:
     spec:
       containers:
         - name: koduck-auth
+          image: koduck/koduck-auth:dev
           imagePullPolicy: Never
           env:
             - name: RUST_LOG
