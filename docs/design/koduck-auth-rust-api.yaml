@@ -1,0 +1,643 @@
+openapi: 3.0.3
+info:
+  title: Koduck Auth API (Rust Implementation)
+  description: |
+    Koduck 认证中心 API 文档 - Rust 实现版本。
+    
+    本 API 与 Java 版本完全兼容，对外接口保持一致。
+    内部使用 gRPC 进行服务间通信。
+    
+    ## 认证方式
+    
+    公开接口无需认证，受保护接口使用 JWT Bearer Token 认证。
+    
+    ## 与 Java 版本差异
+    
+    - 性能提升：启动时间从 3-5 秒降至 100ms
+    - 内存占用：从 200-400MB 降至 20-30MB
+    - 内部通信：新增 gRPC 接口用于服务间调用
+    
+  version: 1.0.0
+  contact:
+    name: Koduck Team
+    email: dev@koduck.com
+
+servers:
+  - url: http://localhost:8081
+    description: Rust 本地开发环境
+  - url: http://koduck-auth:8081
+    description: K8s 集群内部
+  - url: https://api.koduck.com
+    description: 生产环境（通过 APISIX 网关）
+
+tags:
+  - name: Authentication
+    description: 认证相关接口
+  - name: Token Management
+    description: Token 管理接口
+  - name: Password
+    description: 密码管理接口
+  - name: Configuration
+    description: 配置接口
+  - name: JWKS
+    description: JWKS 公钥端点
+  - name: Health
+    description: 健康检查接口
+
+paths:
+  /api/v1/auth/login:
+    post:
+      tags:
+        - Authentication
+      summary: 用户登录
+      description: |
+        用户登录接口，支持用户名或邮箱登录。
+        成功返回访问令牌和刷新令牌。
+      operationId: login
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+            examples:
+              usernameLogin:
+                summary: 用户名登录
+                value:
+                  username: johndoe
+                  password: securePassword123
+              emailLogin:
+                summary: 邮箱登录
+                value:
+                  username: john@example.com
+                  password: securePassword123
+      responses:
+        '200':
+          description: 登录成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseTokenResponse'
+        '400':
+          description: 请求参数错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseError'
+        '401':
+          description: 用户名或密码错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseError'
+        '423':
+          description: 账户被锁定
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseError'
+        '429':
+          description: 登录次数过多，请稍后再试
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseError'
+
+  /api/v1/auth/register:
+    post:
+      tags:
+        - Authentication
+      summary: 用户注册
+      description: |
+        新用户注册接口。
+        注册成功后自动登录，返回访问令牌。
+      operationId: register
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterRequest'
+      responses:
+        '200':
+          description: 注册成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseTokenResponse'
+        '400':
+          description: 请求参数错误或用户名/邮箱已存在
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseError'
+
+  /api/v1/auth/refresh:
+    post:
+      tags:
+        - Token Management
+      summary: 刷新 Token
+      description: |
+        使用刷新令牌获取新的访问令牌。
+        刷新后旧的刷新令牌将失效，返回新的令牌对。
+      operationId: refreshToken
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RefreshTokenRequest'
+      responses:
+        '200':
+          description: 刷新成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseTokenResponse'
+        '401':
+          description: 刷新令牌无效或已过期
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseError'
+
+  /api/v1/auth/logout:
+    post:
+      tags:
+        - Authentication
+      summary: 用户登出
+      description: |
+        用户登出接口，吊销刷新令牌。
+        访问令牌在过期前仍然有效，但无法刷新。
+      operationId: logout
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LogoutRequest'
+      responses:
+        '200':
+          description: 登出成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseVoid'
+
+  /api/v1/auth/security-config:
+    get:
+      tags:
+        - Configuration
+      summary: 获取安全配置
+      description: |
+        获取系统安全配置信息，用于前端动态配置。
+        包括验证码、OAuth、注册开关等配置。
+      operationId: getSecurityConfig
+      responses:
+        '200':
+          description: 获取成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseSecurityConfigResponse'
+
+  /api/v1/auth/forgot-password:
+    post:
+      tags:
+        - Password
+      summary: 忘记密码
+      description: |
+        请求密码重置链接。
+        无论邮箱是否存在，都返回成功响应（防止枚举攻击）。
+      operationId: forgotPassword
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ForgotPasswordRequest'
+      responses:
+        '200':
+          description: 请求已处理
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseVoid'
+        '429':
+          description: 请求过于频繁
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseError'
+
+  /api/v1/auth/reset-password:
+    post:
+      tags:
+        - Password
+      summary: 重置密码
+      description: 使用重置令牌设置新密码
+      operationId: resetPassword
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ResetPasswordRequest'
+      responses:
+        '200':
+          description: 密码重置成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseVoid'
+        '400':
+          description: 令牌无效或密码不符合要求
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseError'
+
+  /.well-known/jwks.json:
+    get:
+      tags:
+        - JWKS
+      summary: 获取 JWKS 公钥
+      description: |
+        获取 JWT 签名公钥集合（JWKS）。
+        用于其他服务和 APISIX 验证 JWT 签名。
+      operationId: getJwks
+      responses:
+        '200':
+          description: 获取成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JWKSResponse'
+
+  /health:
+    get:
+      tags:
+        - Health
+      summary: 健康检查
+      description: 简单健康检查端点
+      operationId: healthCheck
+      responses:
+        '200':
+          description: 服务正常运行
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "ok"
+
+  /actuator/health:
+    get:
+      tags:
+        - Health
+      summary: Spring Boot 兼容健康检查
+      description: Spring Boot Actuator 兼容的健康检查端点
+      operationId: actuatorHealth
+      responses:
+        '200':
+          description: 服务正常
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    enum: [UP, DOWN]
+
+  /actuator/health/liveness:
+    get:
+      tags:
+        - Health
+      summary: K8s 存活探针
+      description: Kubernetes 存活探针端点
+      operationId: liveness
+      responses:
+        '200':
+          description: 服务存活
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "UP"
+
+  /actuator/health/readiness:
+    get:
+      tags:
+        - Health
+      summary: K8s 就绪探针
+      description: Kubernetes 就绪探针端点
+      operationId: readiness
+      responses:
+        '200':
+          description: 服务就绪
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "UP"
+
+  /metrics:
+    get:
+      tags:
+        - Health
+      summary: Prometheus 指标
+      description: Prometheus 格式指标端点
+      operationId: metrics
+      responses:
+        '200':
+          description: 指标数据
+          content:
+            text/plain:
+              schema:
+                type: string
+
+components:
+  schemas:
+    # 请求 DTO
+    LoginRequest:
+      type: object
+      required:
+        - username
+        - password
+      properties:
+        username:
+          type: string
+          minLength: 3
+          maxLength: 50
+          description: 用户名或邮箱
+          example: johndoe
+        password:
+          type: string
+          minLength: 6
+          maxLength: 100
+          description: 密码
+          format: password
+          example: securePassword123
+        turnstileToken:
+          type: string
+          description: Turnstile 验证码令牌（如启用）
+
+    RegisterRequest:
+      type: object
+      required:
+        - username
+        - email
+        - password
+        - confirmPassword
+      properties:
+        username:
+          type: string
+          minLength: 3
+          maxLength: 50
+          pattern: '^[a-zA-Z0-9_]+$'
+          description: 用户名（只能包含字母、数字、下划线）
+          example: johndoe
+        email:
+          type: string
+          maxLength: 100
+          format: email
+          description: 邮箱地址
+          example: john@example.com
+        password:
+          type: string
+          minLength: 6
+          maxLength: 100
+          format: password
+          description: 密码
+          example: securePassword123
+        confirmPassword:
+          type: string
+          format: password
+          description: 确认密码
+          example: securePassword123
+        nickname:
+          type: string
+          maxLength: 50
+          description: 昵称
+          example: John Doe
+        turnstileToken:
+          type: string
+          description: Turnstile 验证码令牌
+
+    RefreshTokenRequest:
+      type: object
+      required:
+        - refreshToken
+      properties:
+        refreshToken:
+          type: string
+          description: 刷新令牌
+
+    LogoutRequest:
+      type: object
+      properties:
+        refreshToken:
+          type: string
+          description: 要吊销的刷新令牌（可选）
+
+    ForgotPasswordRequest:
+      type: object
+      required:
+        - email
+      properties:
+        email:
+          type: string
+          format: email
+          description: 注册邮箱
+          example: john@example.com
+
+    ResetPasswordRequest:
+      type: object
+      required:
+        - token
+        - newPassword
+        - confirmPassword
+      properties:
+        token:
+          type: string
+          description: 重置令牌（从邮件链接获取）
+        newPassword:
+          type: string
+          minLength: 6
+          maxLength: 100
+          format: password
+          description: 新密码
+        confirmPassword:
+          type: string
+          format: password
+          description: 确认密码
+
+    # 响应 DTO
+    TokenResponse:
+      type: object
+      properties:
+        accessToken:
+          type: string
+          description: 访问令牌
+        refreshToken:
+          type: string
+          description: 刷新令牌
+        tokenType:
+          type: string
+          default: Bearer
+          description: 令牌类型
+        expiresIn:
+          type: integer
+          format: int64
+          description: 访问令牌过期时间（秒）
+        user:
+          $ref: '#/components/schemas/UserInfo'
+
+    UserInfo:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+          description: 用户ID
+        username:
+          type: string
+          description: 用户名
+        email:
+          type: string
+          description: 邮箱
+        nickname:
+          type: string
+          description: 昵称
+        avatarUrl:
+          type: string
+          description: 头像URL
+        roles:
+          type: array
+          items:
+            type: string
+          description: 角色列表
+
+    SecurityConfigResponse:
+      type: object
+      properties:
+        turnstileEnabled:
+          type: boolean
+          description: 是否启用 Turnstile 验证
+        turnstileSiteKey:
+          type: string
+          description: Turnstile 站点密钥
+        registrationEnabled:
+          type: boolean
+          description: 是否启用注册功能
+        oauthGoogleEnabled:
+          type: boolean
+          description: 是否启用 Google OAuth
+        oauthGithubEnabled:
+          type: boolean
+          description: 是否启用 GitHub OAuth
+
+    JWKSResponse:
+      type: object
+      properties:
+        keys:
+          type: array
+          items:
+            type: object
+            properties:
+              kty:
+                type: string
+                example: RSA
+              kid:
+                type: string
+                example: koduck-key-001
+              use:
+                type: string
+                example: sig
+              n:
+                type: string
+                description: RSA 模数（Base64URL 编码）
+              e:
+                type: string
+                description: RSA 指数（Base64URL 编码）
+              alg:
+                type: string
+                example: RS256
+
+    # 通用响应包装
+    ApiResponseTokenResponse:
+      type: object
+      properties:
+        code:
+          type: integer
+          example: 200
+        message:
+          type: string
+          example: success
+        data:
+          $ref: '#/components/schemas/TokenResponse'
+        timestamp:
+          type: string
+          format: date-time
+
+    ApiResponseSecurityConfigResponse:
+      type: object
+      properties:
+        code:
+          type: integer
+          example: 200
+        message:
+          type: string
+          example: success
+        data:
+          $ref: '#/components/schemas/SecurityConfigResponse'
+        timestamp:
+          type: string
+          format: date-time
+
+    ApiResponseVoid:
+      type: object
+      properties:
+        code:
+          type: integer
+          example: 200
+        message:
+          type: string
+          example: success
+        data:
+          type: 'null'
+        timestamp:
+          type: string
+          format: date-time
+
+    ApiResponseError:
+      type: object
+      properties:
+        code:
+          type: integer
+          example: 400
+        message:
+          type: string
+          example: 用户名或密码错误
+        data:
+          type: 'null'
+        timestamp:
+          type: string
+          format: date-time
+
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JWT 访问令牌
+
+security: []

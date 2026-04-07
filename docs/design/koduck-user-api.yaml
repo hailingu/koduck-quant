@@ -1,0 +1,1277 @@
+openapi: 3.0.3
+info:
+  title: Koduck User API
+  description: |
+    Koduck 用户管理服务 API 文档。
+    
+    提供用户信息管理、角色权限管理等功能。
+    
+    ## 认证方式
+    
+    所有接口都需要 JWT Bearer Token 认证，由 APISIX 网关统一处理。
+    认证通过后，用户信息通过 Header 透传给后端服务：
+    - `X-User-Id`: 用户ID
+    - `X-Username`: 用户名
+    - `X-Roles`: 角色列表（逗号分隔）
+  version: 1.0.0
+  contact:
+    name: Koduck Team
+    email: dev@koduck.com
+
+servers:
+  - url: http://localhost:8082
+    description: 本地开发环境
+  - url: http://koduck-user:8082
+    description: K8s 集群内部
+  - url: https://api.koduck.com
+    description: 生产环境（通过 APISIX 网关）
+
+tags:
+  - name: Current User
+    description: 当前登录用户相关接口
+  - name: User Management
+    description: 用户管理接口（管理员）
+  - name: Role Management
+    description: 角色管理接口
+  - name: Permission Management
+    description: 权限管理接口
+  - name: Internal
+    description: 内部服务调用接口
+
+paths:
+  # 当前用户接口
+  /api/v1/users/me:
+    get:
+      tags:
+        - Current User
+      summary: 获取当前用户信息
+      description: 获取当前登录用户的详细信息
+      operationId: getCurrentUser
+      responses:
+        '200':
+          description: 获取成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseUserProfileResponse'
+        '401':
+          description: 未认证
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseError'
+
+    put:
+      tags:
+        - Current User
+      summary: 更新当前用户信息
+      description: |
+        更新当前登录用户的个人信息。
+        
+        修改邮箱后需要重新验证。
+      operationId: updateCurrentUser
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateProfileRequest'
+      responses:
+        '200':
+          description: 更新成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseUserProfileResponse'
+        '400':
+          description: 参数错误或邮箱已被使用
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseError'
+
+    delete:
+      tags:
+        - Current User
+      summary: 注销账户
+      description: |
+        注销当前登录用户的账户。
+        
+        **警告：此操作不可逆，账户数据将被标记为删除。**
+      operationId: deleteCurrentUser
+      responses:
+        '200':
+          description: 注销成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseVoid'
+        '401':
+          description: 未认证
+
+  /api/v1/users/me/password:
+    put:
+      tags:
+        - Current User
+      summary: 修改密码
+      description: 修改当前登录用户的密码
+      operationId: changePassword
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChangePasswordRequest'
+      responses:
+        '200':
+          description: 修改成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseVoid'
+        '400':
+          description: 原密码错误或新密码不符合要求
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseError'
+
+  /api/v1/users/me/avatar:
+    put:
+      tags:
+        - Current User
+      summary: 上传头像
+      description: 上传当前用户的头像图片
+      operationId: uploadAvatar
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file:
+                  type: string
+                  format: binary
+                  description: 头像图片文件（支持 jpg, png, gif，最大 2MB）
+      responses:
+        '200':
+          description: 上传成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseAvatarUploadResponse'
+        '400':
+          description: 文件格式错误或大小超限
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseError'
+
+  /api/v1/users/me/permissions:
+    get:
+      tags:
+        - Current User
+      summary: 获取当前用户权限
+      description: 获取当前登录用户的所有权限列表
+      operationId: getCurrentUserPermissions
+      responses:
+        '200':
+          description: 获取成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponsePermissionListResponse'
+
+  # 用户管理接口
+  /api/v1/users:
+    get:
+      tags:
+        - User Management
+      summary: 查询用户列表
+      description: |
+        查询用户列表，支持分页和搜索。
+        
+        需要 `user:read` 权限。
+      operationId: listUsers
+      parameters:
+        - name: keyword
+          in: query
+          description: 搜索关键词（用户名或邮箱）
+          schema:
+            type: string
+        - name: status
+          in: query
+          description: 用户状态过滤
+          schema:
+            type: string
+            enum: [ACTIVE, DISABLED, PENDING]
+        - name: page
+          in: query
+          description: 页码（从0开始）
+          schema:
+            type: integer
+            default: 0
+        - name: size
+          in: query
+          description: 每页大小
+          schema:
+            type: integer
+            default: 20
+            maximum: 100
+        - name: sort
+          in: query
+          description: 排序字段（如 createdAt,desc）
+          schema:
+            type: string
+            default: createdAt,desc
+      responses:
+        '200':
+          description: 查询成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponsePageUserSummaryResponse'
+        '403':
+          description: 无权限
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseError'
+
+  /api/v1/users/{userId}:
+    get:
+      tags:
+        - User Management
+      summary: 获取指定用户信息
+      description: |
+        根据用户ID获取用户信息。
+        
+        需要 `user:read` 权限。
+      operationId: getUserById
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: 获取成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseUserProfileResponse'
+        '404':
+          description: 用户不存在
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseError'
+        '403':
+          description: 无权限
+
+    put:
+      tags:
+        - User Management
+      summary: 更新用户信息
+      description: |
+        更新指定用户的信息。
+        
+        需要 `user:write` 权限。
+      operationId: updateUser
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateUserRequest'
+      responses:
+        '200':
+          description: 更新成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseUserProfileResponse'
+        '403':
+          description: 无权限
+        '404':
+          description: 用户不存在
+
+    delete:
+      tags:
+        - User Management
+      summary: 删除用户
+      description: |
+        删除指定用户。
+        
+        需要 `user:delete` 权限。
+      operationId: deleteUser
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: 删除成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseVoid'
+        '403':
+          description: 无权限
+        '404':
+          description: 用户不存在
+
+  /api/v1/users/{userId}/status:
+    put:
+      tags:
+        - User Management
+      summary: 更新用户状态
+      description: |
+        启用/禁用用户账户。
+        
+        需要 `user:write` 权限。
+      operationId: updateUserStatus
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateUserStatusRequest'
+      responses:
+        '200':
+          description: 更新成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseUserProfileResponse'
+
+  /api/v1/users/{userId}/roles:
+    get:
+      tags:
+        - User Management
+      summary: 获取用户角色
+      description: 获取指定用户的角色列表
+      operationId: getUserRoles
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: 获取成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseRoleListResponse'
+
+    post:
+      tags:
+        - User Management
+      summary: 分配角色
+      description: |
+        为指定用户分配角色。
+        
+        需要 `role:write` 权限。
+      operationId: assignRoleToUser
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AssignRoleRequest'
+      responses:
+        '200':
+          description: 分配成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseVoid'
+        '403':
+          description: 无权限
+        '404':
+          description: 用户或角色不存在
+
+  /api/v1/users/{userId}/roles/{roleId}:
+    delete:
+      tags:
+        - User Management
+      summary: 移除角色
+      description: |
+        从指定用户移除角色。
+        
+        需要 `role:write` 权限。
+      operationId: removeRoleFromUser
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+        - name: roleId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: 移除成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseVoid'
+
+  # 角色管理接口
+  /api/v1/roles:
+    get:
+      tags:
+        - Role Management
+      summary: 获取角色列表
+      description: |
+        获取所有角色列表。
+        
+        需要 `role:read` 权限。
+      operationId: listRoles
+      responses:
+        '200':
+          description: 获取成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseRoleListResponse'
+        '403':
+          description: 无权限
+
+    post:
+      tags:
+        - Role Management
+      summary: 创建角色
+      description: |
+        创建新角色。
+        
+        需要 `role:write` 权限。
+      operationId: createRole
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateRoleRequest'
+      responses:
+        '200':
+          description: 创建成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseRoleResponse'
+        '400':
+          description: 角色名已存在
+        '403':
+          description: 无权限
+
+  /api/v1/roles/{roleId}:
+    get:
+      tags:
+        - Role Management
+      summary: 获取角色详情
+      description: 获取指定角色的详细信息和权限列表
+      operationId: getRoleById
+      parameters:
+        - name: roleId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: 获取成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseRoleDetailResponse'
+        '404':
+          description: 角色不存在
+
+    put:
+      tags:
+        - Role Management
+      summary: 更新角色
+      description: |
+        更新角色信息。
+        
+        需要 `role:write` 权限。
+      operationId: updateRole
+      parameters:
+        - name: roleId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateRoleRequest'
+      responses:
+        '200':
+          description: 更新成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseRoleResponse'
+        '403':
+          description: 无权限
+        '404':
+          description: 角色不存在
+
+    delete:
+      tags:
+        - Role Management
+      summary: 删除角色
+      description: |
+        删除指定角色。
+        
+        需要 `role:delete` 权限。
+        
+        **注意：删除角色前需要确保没有用户关联此角色。**
+      operationId: deleteRole
+      parameters:
+        - name: roleId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: 删除成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseVoid'
+        '400':
+          description: 角色仍有用户关联
+        '403':
+          description: 无权限
+        '404':
+          description: 角色不存在
+
+  /api/v1/roles/{roleId}/permissions:
+    get:
+      tags:
+        - Role Management
+      summary: 获取角色权限
+      description: 获取指定角色的权限列表
+      operationId: getRolePermissions
+      parameters:
+        - name: roleId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: 获取成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponsePermissionListResponse'
+
+    put:
+      tags:
+        - Role Management
+      summary: 设置角色权限
+      description: |
+        为角色设置权限列表（全量替换）。
+        
+        需要 `role:write` 权限。
+      operationId: setRolePermissions
+      parameters:
+        - name: roleId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SetRolePermissionsRequest'
+      responses:
+        '200':
+          description: 设置成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseVoid'
+        '403':
+          description: 无权限
+
+  # 权限管理接口
+  /api/v1/permissions:
+    get:
+      tags:
+        - Permission Management
+      summary: 获取权限列表
+      description: 获取所有权限列表
+      operationId: listPermissions
+      responses:
+        '200':
+          description: 获取成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponsePermissionListResponse'
+
+  # 内部 API（服务间调用）
+  /internal/users/by-username/{username}:
+    get:
+      tags:
+        - Internal
+      summary: 根据用户名查询用户（内部）
+      description: 供 koduck-auth 等内部服务调用
+      operationId: internalFindByUsername
+      parameters:
+        - name: username
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: X-Consumer-Username
+          in: header
+          description: 调用方服务名（由 APISIX 注入）
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 查询成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserDetailsResponse'
+        '404':
+          description: 用户不存在
+
+  /internal/users/by-email/{email}:
+    get:
+      tags:
+        - Internal
+      summary: 根据邮箱查询用户（内部）
+      description: 供 koduck-auth 等内部服务调用
+      operationId: internalFindByEmail
+      parameters:
+        - name: email
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: X-Consumer-Username
+          in: header
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 查询成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserDetailsResponse'
+        '404':
+          description: 用户不存在
+
+  /internal/users:
+    post:
+      tags:
+        - Internal
+      summary: 创建用户（内部）
+      description: 供 koduck-auth 注册用户时调用
+      operationId: internalCreateUser
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateUserRequest'
+      responses:
+        '200':
+          description: 创建成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserDetailsResponse'
+        '400':
+          description: 用户名或邮箱已存在
+
+  /internal/users/{userId}/last-login:
+    put:
+      tags:
+        - Internal
+      summary: 更新最后登录时间（内部）
+      description: 供 koduck-auth 登录成功后调用
+      operationId: internalUpdateLastLogin
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LastLoginUpdateRequest'
+      responses:
+        '200':
+          description: 更新成功
+        '404':
+          description: 用户不存在
+
+  /internal/users/{userId}/roles:
+    get:
+      tags:
+        - Internal
+      summary: 获取用户角色（内部）
+      description: 供 koduck-auth 等服务调用
+      operationId: internalGetUserRoles
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: 获取成功
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: string
+
+  /internal/users/{userId}/permissions:
+    get:
+      tags:
+        - Internal
+      summary: 获取用户权限（内部）
+      description: 供其他服务调用进行权限校验
+      operationId: internalGetUserPermissions
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: 获取成功
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: string
+
+components:
+  schemas:
+    # 请求 DTO
+    UpdateProfileRequest:
+      type: object
+      properties:
+        nickname:
+          type: string
+          maxLength: 50
+          description: 昵称
+        email:
+          type: string
+          format: email
+          maxLength: 100
+          description: 邮箱（修改后需要重新验证）
+
+    ChangePasswordRequest:
+      type: object
+      required:
+        - currentPassword
+        - newPassword
+        - confirmPassword
+      properties:
+        currentPassword:
+          type: string
+          format: password
+          description: 当前密码
+        newPassword:
+          type: string
+          minLength: 6
+          maxLength: 100
+          format: password
+          description: 新密码
+        confirmPassword:
+          type: string
+          format: password
+          description: 确认密码
+
+    UpdateUserRequest:
+      type: object
+      properties:
+        nickname:
+          type: string
+          maxLength: 50
+        email:
+          type: string
+          format: email
+        status:
+          type: string
+          enum: [ACTIVE, DISABLED, PENDING]
+
+    UpdateUserStatusRequest:
+      type: object
+      required:
+        - status
+      properties:
+        status:
+          type: string
+          enum: [ACTIVE, DISABLED, PENDING]
+          description: 用户状态
+        reason:
+          type: string
+          description: 状态变更原因
+
+    AssignRoleRequest:
+      type: object
+      required:
+        - roleId
+      properties:
+        roleId:
+          type: integer
+          description: 角色ID
+
+    CreateRoleRequest:
+      type: object
+      required:
+        - name
+      properties:
+        name:
+          type: string
+          maxLength: 50
+          description: 角色名称
+        description:
+          type: string
+          maxLength: 255
+          description: 角色描述
+
+    UpdateRoleRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          maxLength: 50
+        description:
+          type: string
+          maxLength: 255
+
+    SetRolePermissionsRequest:
+      type: object
+      required:
+        - permissionIds
+      properties:
+        permissionIds:
+          type: array
+          items:
+            type: integer
+          description: 权限ID列表
+
+    CreateUserRequest:
+      type: object
+      required:
+        - username
+        - email
+        - passwordHash
+      properties:
+        username:
+          type: string
+        email:
+          type: string
+        passwordHash:
+          type: string
+          description: BCrypt 加密后的密码
+        nickname:
+          type: string
+        status:
+          type: string
+          enum: [ACTIVE, DISABLED, PENDING]
+
+    LastLoginUpdateRequest:
+      type: object
+      required:
+        - loginTime
+      properties:
+        loginTime:
+          type: string
+          format: date-time
+          description: 登录时间
+        ipAddress:
+          type: string
+          description: IP 地址
+
+    # 响应 DTO
+    UserProfileResponse:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        username:
+          type: string
+        email:
+          type: string
+        nickname:
+          type: string
+        avatarUrl:
+          type: string
+        status:
+          type: string
+          enum: [ACTIVE, DISABLED, PENDING]
+        emailVerifiedAt:
+          type: string
+          format: date-time
+        lastLoginAt:
+          type: string
+          format: date-time
+        roles:
+          type: array
+          items:
+            $ref: '#/components/schemas/RoleInfo'
+        createdAt:
+          type: string
+          format: date-time
+
+    UserSummaryResponse:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        username:
+          type: string
+        email:
+          type: string
+        nickname:
+          type: string
+        status:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+
+    UserDetailsResponse:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        username:
+          type: string
+        email:
+          type: string
+        passwordHash:
+          type: string
+          description: BCrypt 加密后的密码
+        nickname:
+          type: string
+        status:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+
+    RoleInfo:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        description:
+          type: string
+
+    RoleResponse:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        description:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+
+    RoleDetailResponse:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        description:
+          type: string
+        permissions:
+          type: array
+          items:
+            $ref: '#/components/schemas/PermissionInfo'
+        createdAt:
+          type: string
+          format: date-time
+
+    PermissionInfo:
+      type: object
+      properties:
+        id:
+          type: integer
+        code:
+          type: string
+          description: 权限代码，如 user:read
+        name:
+          type: string
+          description: 权限名称
+        resource:
+          type: string
+          description: 资源类型
+        action:
+          type: string
+          description: 操作类型
+
+    AvatarUploadResponse:
+      type: object
+      properties:
+        avatarUrl:
+          type: string
+          description: 头像URL
+
+    # 分页响应
+    PageResponse:
+      type: object
+      properties:
+        content:
+          type: array
+          items:
+            type: object
+        pageable:
+          type: object
+        totalElements:
+          type: integer
+          format: int64
+        totalPages:
+          type: integer
+        last:
+          type: boolean
+        first:
+          type: boolean
+        size:
+          type: integer
+        number:
+          type: integer
+        sort:
+          type: object
+        numberOfElements:
+          type: integer
+        empty:
+          type: boolean
+
+    # 通用响应包装
+    ApiResponseUserProfileResponse:
+      type: object
+      properties:
+        code:
+          type: integer
+          example: 200
+        message:
+          type: string
+          example: success
+        data:
+          $ref: '#/components/schemas/UserProfileResponse'
+        timestamp:
+          type: string
+          format: date-time
+
+    ApiResponsePageUserSummaryResponse:
+      type: object
+      properties:
+        code:
+          type: integer
+          example: 200
+        message:
+          type: string
+          example: success
+        data:
+          allOf:
+            - $ref: '#/components/schemas/PageResponse'
+            - properties:
+                content:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/UserSummaryResponse'
+        timestamp:
+          type: string
+          format: date-time
+
+    ApiResponseRoleResponse:
+      type: object
+      properties:
+        code:
+          type: integer
+          example: 200
+        message:
+          type: string
+          example: success
+        data:
+          $ref: '#/components/schemas/RoleResponse'
+        timestamp:
+          type: string
+          format: date-time
+
+    ApiResponseRoleDetailResponse:
+      type: object
+      properties:
+        code:
+          type: integer
+          example: 200
+        message:
+          type: string
+          example: success
+        data:
+          $ref: '#/components/schemas/RoleDetailResponse'
+        timestamp:
+          type: string
+          format: date-time
+
+    ApiResponseRoleListResponse:
+      type: object
+      properties:
+        code:
+          type: integer
+          example: 200
+        message:
+          type: string
+          example: success
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/RoleInfo'
+        timestamp:
+          type: string
+          format: date-time
+
+    ApiResponsePermissionListResponse:
+      type: object
+      properties:
+        code:
+          type: integer
+          example: 200
+        message:
+          type: string
+          example: success
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/PermissionInfo'
+        timestamp:
+          type: string
+          format: date-time
+
+    ApiResponseAvatarUploadResponse:
+      type: object
+      properties:
+        code:
+          type: integer
+          example: 200
+        message:
+          type: string
+          example: success
+        data:
+          $ref: '#/components/schemas/AvatarUploadResponse'
+        timestamp:
+          type: string
+          format: date-time
+
+    ApiResponseVoid:
+      type: object
+      properties:
+        code:
+          type: integer
+          example: 200
+        message:
+          type: string
+          example: success
+        data:
+          type: 'null'
+        timestamp:
+          type: string
+          format: date-time
+
+    ApiResponseError:
+      type: object
+      properties:
+        code:
+          type: integer
+          example: 400
+        message:
+          type: string
+          example: 用户不存在
+        data:
+          type: 'null'
+        timestamp:
+          type: string
+          format: date-time
+
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JWT 访问令牌（由 APISIX 统一验证）
+
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: apikey
+      description: 内部服务调用 API Key（仅内部 API）
+
+security:
+  - BearerAuth: []
