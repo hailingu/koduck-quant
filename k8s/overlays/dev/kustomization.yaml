@@ -7,11 +7,13 @@ resources:
   - ./namespace.yaml
   - ../../base/frontend.yaml
   - ../../base/koduck-auth.yaml
+  - ../../base/postgres.yaml
   - ./apisix.yaml
 
 patchesStrategicMerge:
   - ./frontend.yaml
   - ./koduck-auth.yaml
+  - ./postgres.yaml
 
 namePrefix: dev-
 
