@@ -134,7 +134,7 @@ metadata:
   namespace: koduck
 type: Opaque
 stringData:
-  database-url: "postgresql://postgres:postgres@postgres:5432/koduck_auth"
+  database-url: "postgresql://koduck:koduck_secret@postgres:5432/koduck_auth"
   redis-url: "redis://redis:6379"
 ---
 apiVersion: v1
