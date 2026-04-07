@@ -42,6 +42,8 @@ uninstall_env() {
     local env=$1
     local namespace="koduck-${env}"
     local pvs=""
+    local max_wait_seconds=30
+    local pod_wait_seconds=20
     
     echo -e "\n${YELLOW}卸载 ${env} 环境...${NC}"
 
@@ -71,7 +73,7 @@ uninstall_env() {
     
     # 删除其他资源
     echo -e "${YELLOW}删除其他资源...${NC}"
-    kubectl delete deployment,statefulset,service,configmap -n "${namespace}" --ignore-not-found=true --all --wait=false 2>/dev/null || true
+    kubectl delete deployment,statefulset,service -n "${namespace}" --ignore-not-found=true --all --wait=false 2>/dev/null || true
 
     # 清理 PV（防止 PVC 删除后 PV 卡住）
     if [ -n "${pvs}" ]; then
@@ -100,10 +102,50 @@ uninstall_env() {
         done
     fi
 
+    # 等待命名空间真正消失，避免“显示成功但仍有 Terminating 资源”
+    for ((i=1; i<=max_wait_seconds; i++)); do
+        if ! kubectl get namespace "${namespace}" >/dev/null 2>&1; then
+            break
+        fi
+        if command -v jq &> /dev/null; then
+            kubectl get namespace "${namespace}" -o json 2>/dev/null | \
+                jq '.spec.finalizers = []' 2>/dev/null | \
+                kubectl replace --raw "/api/v1/namespaces/${namespace}/finalize" -f - 2>/dev/null || true
+        fi
+        sleep 1
+    done
+
     # 最终确认
     if kubectl get namespace "${namespace}" >/dev/null 2>&1; then
-        echo -e "${RED}✗ ${namespace} 仍存在（可能正在 Terminating）${NC}"
-        echo -e "${YELLOW}建议稍后重试，或手动执行 finalize${NC}"
+        echo -e "${RED}✗ ${namespace} 仍存在（可能仍在 Terminating）${NC}"
+        echo -e "${YELLOW}请重试卸载，或手动 finalize 该 namespace${NC}"
+        return 1
+    fi
+
+    # 某些情况下 namespace 删除后，kubectl get pods -A 仍短暂出现“幽灵 Terminating Pod”。
+    # 这里做一次兜底清理与等待，避免误报成功。
+    for ((i=1; i<=pod_wait_seconds; i++)); do
+        local leaked_pods
+        leaked_pods=$(kubectl get pods -A --no-headers 2>/dev/null | awk -v ns="${namespace}" '$1 == ns {print $2}' || true)
+        if [ -z "${leaked_pods}" ]; then
+            break
+        fi
+
+        echo "${leaked_pods}" | while read pod; do
+            [ -z "${pod}" ] && continue
+            kubectl -n "${namespace}" delete pod "${pod}" --force --grace-period=0 --wait=false 2>/dev/null || true
+            kubectl delete --raw "/api/v1/namespaces/${namespace}/pods/${pod}" 2>/dev/null || true
+        done
+        sleep 1
+    done
+
+    local leaked_after
+    leaked_after=$(kubectl get pods -A --no-headers 2>/dev/null | awk -v ns="${namespace}" '$1 == ns {print $2}' || true)
+    if [ -n "${leaked_after}" ]; then
+        echo -e "${RED}✗ ${namespace} 仍有残留 Pod（API 可能存在短暂不一致）${NC}"
+        echo -e "${YELLOW}残留 Pod:${NC}"
+        echo "${leaked_after}" | sed 's/^/  - /'
+        echo -e "${YELLOW}建议等待 10~30 秒后重试；若仍存在，重启本地 Kubernetes 控制面（Docker Desktop Kubernetes）${NC}"
         return 1
     fi
     

@@ -58,9 +58,51 @@ check_kubectl() {
     echo -e "${GREEN}✓ Kubernetes 集群连接正常${NC}"
 }
 
+# 确保命名空间可用（避免卸载后 Terminating 导致安装失败）
+ensure_namespace_ready() {
+    local max_wait_seconds=45
+    local phase=""
+
+    if kubectl get namespace "${NAMESPACE}" >/dev/null 2>&1; then
+        phase=$(kubectl get namespace "${NAMESPACE}" -o jsonpath='{.status.phase}' 2>/dev/null || echo "")
+        if [ "${phase}" = "Terminating" ]; then
+            echo -e "${YELLOW}命名空间 ${NAMESPACE} 正在 Terminating，等待清理...${NC}"
+            for ((i=1; i<=max_wait_seconds; i++)); do
+                if ! kubectl get namespace "${NAMESPACE}" >/dev/null 2>&1; then
+                    break
+                fi
+
+                if command -v jq &> /dev/null; then
+                    kubectl get namespace "${NAMESPACE}" -o json 2>/dev/null | \
+                        jq '.spec.finalizers = []' 2>/dev/null | \
+                        kubectl replace --raw "/api/v1/namespaces/${NAMESPACE}/finalize" -f - 2>/dev/null || true
+                fi
+                sleep 1
+            done
+        fi
+    fi
+
+    if ! kubectl get namespace "${NAMESPACE}" >/dev/null 2>&1; then
+        kubectl create namespace "${NAMESPACE}" >/dev/null
+    fi
+
+    for ((i=1; i<=max_wait_seconds; i++)); do
+        phase=$(kubectl get namespace "${NAMESPACE}" -o jsonpath='{.status.phase}' 2>/dev/null || echo "")
+        if [ "${phase}" = "Active" ]; then
+            return 0
+        fi
+        sleep 1
+    done
+
+    echo -e "${RED}错误: 命名空间 ${NAMESPACE} 未能在 ${max_wait_seconds}s 内进入 Active 状态${NC}"
+    exit 1
+}
+
 # 安装
 install() {
     echo -e "${YELLOW}部署 APISIX (${ENV} 环境)...${NC}"
+
+    ensure_namespace_ready
     
     # 使用 kustomize 部署
     if command -v kustomize &> /dev/null; then
