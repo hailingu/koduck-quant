@@ -10,7 +10,7 @@ use crate::{
 };
 use std::net::SocketAddr;
 use tonic::transport::Server;
-use tracing::{error, info};
+use tracing::info;
 
 /// gRPC server configuration
 pub struct GrpcServer {

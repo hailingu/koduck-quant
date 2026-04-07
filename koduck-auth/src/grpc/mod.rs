@@ -1,7 +1,6 @@
 //! gRPC service layer
 
 pub mod auth_service;
-pub mod converter;
 pub mod server;
 pub mod token_service;
 

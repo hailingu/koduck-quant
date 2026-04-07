@@ -56,17 +56,17 @@ impl TokenService for GrpcTokenService {
                 // TODO: Extract claims and populate response fields
                 let response = IntrospectTokenResponse {
                     active: true,
-                    scope: Some("read write".to_string()),
-                    client_id: None,
-                    username: Some("user".to_string()),
-                    token_type: Some("Bearer".to_string()),
+                    scope: "read write".to_string(),
+                    client_id: 0,
+                    username: "user".to_string(),
+                    token_type: "Bearer".to_string(),
                     exp: None,
                     iat: None,
                     nbf: None,
-                    sub: Some("user_id".to_string()),
+                    sub: "user_id".to_string(),
                     aud: vec![],
-                    iss: Some("koduck-auth".to_string()),
-                    jti: Some("token_id".to_string()),
+                    iss: "koduck-auth".to_string(),
+                    jti: "token_id".to_string(),
                 };
                 Ok(Response::new(response))
             }
@@ -74,17 +74,17 @@ impl TokenService for GrpcTokenService {
                 // Token is invalid or expired - return active=false per RFC 7662
                 let response = IntrospectTokenResponse {
                     active: false,
-                    scope: None,
-                    client_id: None,
-                    username: None,
-                    token_type: None,
+                    scope: String::new(),
+                    client_id: 0,
+                    username: String::new(),
+                    token_type: String::new(),
                     exp: None,
                     iat: None,
                     nbf: None,
-                    sub: None,
+                    sub: String::new(),
                     aud: vec![],
-                    iss: None,
-                    jti: None,
+                    iss: String::new(),
+                    jti: String::new(),
                 };
                 Ok(Response::new(response))
             }

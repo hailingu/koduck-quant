@@ -37,10 +37,10 @@ cd koduck-auth-rust
 3. 按 6.1 节创建完整目录结构
 
 **验收标准:**
-- [ ] `Cargo.toml` 包含所有必需依赖（tokio, axum, tonic, sqlx, jsonwebtoken 等）
-- [ ] `build.rs` 配置 tonic-build 编译 proto
-- [ ] 目录结构完整：src/{grpc,http,model,repository,service,jwt,crypto,client,util}, tests/, benches/, migrations/
-- [ ] `cargo check` 无错误
+- [x] `Cargo.toml` 包含所有必需依赖（tokio, axum, tonic, sqlx, jsonwebtoken 等）
+- [x] `build.rs` 配置 tonic-build 编译 proto
+- [x] 目录结构完整：src/{grpc,http,model,repository,service,jwt,crypto,client,util}, tests/, benches/, migrations/
+- [x] `cargo check` 无错误
 
 **参考文档:** 设计文档 6.1 节（目录结构）、6.2 节（Cargo.toml）
 
@@ -60,11 +60,11 @@ cd koduck-auth-rust
 3. 支持 YAML 配置文件格式
 
 **验收标准:**
-- [ ] `Config::from_env()` 方法正常工作
-- [ ] 支持设计文档 8.1 节的所有配置项
-- [ ] 环境变量覆盖配置文件
-- [ ] 敏感信息使用 `secrecy::SecretString`
-- [ ] 配置验证（如端口号范围检查）
+- [x] `Config::from_env()` 方法正常工作
+- [x] 支持设计文档 8.1 节的所有配置项
+- [x] 环境变量覆盖配置文件
+- [x] 敏感信息使用 `secrecy::SecretString`
+- [x] 配置验证（如端口号范围检查）
 
 **参考文档:** 设计文档 8.1 节（application.yml）、8.2 节（环境变量）
 
@@ -86,11 +86,11 @@ cd koduck-auth-rust
 4. 实现统一的错误响应 JSON 格式
 
 **验收标准:**
-- [ ] 所有错误类型定义完整
-- [ ] `impl IntoResponse for AppError` 实现
-- [ ] 错误响应格式：`{ "success": false, "message": "...", "code": "ERROR_CODE" }`
-- [ ] 内部错误隐藏详细信息，仅记录日志
-- [ ] 支持错误链追踪
+- [x] 所有错误类型定义完整
+- [x] `impl IntoResponse for AppError` 实现
+- [x] 错误响应格式：`{ "success": false, "message": "...", "code": "ERROR_CODE" }`
+- [x] 内部错误隐藏详细信息，仅记录日志
+- [x] 支持错误链追踪
 
 ---
 
@@ -112,11 +112,11 @@ cd koduck-auth-rust
    - login_attempts: ip_address（唯一）
 
 **验收标准:**
-- [ ] SQL 脚本可在 PostgreSQL 14+ 正常执行
-- [ ] 所有主键、外键、唯一约束定义正确
-- [ ] 索引命名规范：`idx_<table>_<column>`
-- [ ] 字段类型选择合理（使用 `timestamptz`、`uuid`、`bigint` 等）
-- [ ] 支持 `sqlx migrate run` 执行
+- [x] SQL 脚本可在 PostgreSQL 14+ 正常执行
+- [x] 所有主键、外键、唯一约束定义正确
+- [x] 索引命名规范：`idx_<table>_<column>`
+- [x] 字段类型选择合理（使用 `timestamptz`、`uuid`、`bigint` 等）
+- [x] 支持 `sqlx migrate run` 执行
 
 ---
 

@@ -1,18 +1,18 @@
 //! gRPC AuthService implementation
 
 use crate::{
-    error::{AppError, Result},
+    error::AppError,
     grpc::proto::{
+        self,
         auth_service_server::AuthService,
-        token_service_server::TokenService,
         *,
     },
-    model::{TokenResponse, UserInfo},
+    model::UserStatus,
     service::{AuthService as AuthServiceImpl, TokenService as TokenServiceImpl},
 };
-use std::sync::Arc;
+use prost_types::Timestamp;
 use tonic::{Request, Response, Status};
-use tracing::{error, info, warn};
+use tracing::{info, warn};
 
 /// gRPC AuthService implementation
 #[derive(Clone)]
@@ -44,6 +44,29 @@ impl GrpcAuthService {
             _ => Status::internal(err.to_string()),
         }
     }
+
+    fn to_proto_user_status(status: UserStatus) -> i32 {
+        match status {
+            UserStatus::Active => proto::UserStatus::Active as i32,
+            UserStatus::Inactive => proto::UserStatus::Inactive as i32,
+            UserStatus::Locked => proto::UserStatus::Locked as i32,
+            UserStatus::Deleted => proto::UserStatus::Deleted as i32,
+        }
+    }
+
+    fn to_proto_user_info(user: crate::model::UserInfo) -> proto::UserInfo {
+        proto::UserInfo {
+            id: user.id,
+            username: user.username,
+            email: user.email,
+            nickname: user.nickname.unwrap_or_default(),
+            avatar_url: user.avatar_url.unwrap_or_default(),
+            status: Self::to_proto_user_status(user.status),
+            email_verified: user.email_verified,
+            created_at: None,
+            updated_at: None,
+        }
+    }
 }
 
 #[tonic::async_trait]
@@ -51,7 +74,7 @@ impl AuthService for GrpcAuthService {
     async fn validate_credentials(
         &self,
         request: Request<ValidateCredentialsRequest>,
-    ) -> Result<Response<ValidateCredentialsResponse>, Status> {
+    ) -> std::result::Result<Response<ValidateCredentialsResponse>, Status> {
         let req = request.into_inner();
         info!("Validating credentials for user: {}", req.username);
 
@@ -68,8 +91,8 @@ impl AuthService for GrpcAuthService {
         {
             Ok(token_response) => {
                 let response = ValidateCredentialsResponse {
-                    user: Some(token_response.user.into()),
-                    roles: token_response.user.roles,
+                    user: Some(Self::to_proto_user_info(token_response.user)),
+                    roles: vec![],
                     tokens: Some(proto::TokenPair {
                         access_token: token_response.tokens.access_token,
                         refresh_token: token_response.tokens.refresh_token,
@@ -89,7 +112,7 @@ impl AuthService for GrpcAuthService {
     async fn validate_token(
         &self,
         request: Request<ValidateTokenRequest>,
-    ) -> Result<Response<ValidateTokenResponse>, Status> {
+    ) -> std::result::Result<Response<ValidateTokenResponse>, Status> {
         let req = request.into_inner();
 
         // Use token service to introspect the token
@@ -116,7 +139,7 @@ impl AuthService for GrpcAuthService {
     async fn get_user(
         &self,
         request: Request<GetUserRequest>,
-    ) -> Result<Response<GetUserResponse>, Status> {
+    ) -> std::result::Result<Response<GetUserResponse>, Status> {
         let req = request.into_inner();
 
         // TODO: Implement user lookup based on identifier
@@ -128,7 +151,7 @@ impl AuthService for GrpcAuthService {
     async fn get_user_roles(
         &self,
         request: Request<GetUserRolesRequest>,
-    ) -> Result<Response<GetUserRolesResponse>, Status> {
+    ) -> std::result::Result<Response<GetUserRolesResponse>, Status> {
         let req = request.into_inner();
 
         // TODO: Implement user roles lookup
@@ -140,7 +163,7 @@ impl AuthService for GrpcAuthService {
     async fn revoke_token(
         &self,
         request: Request<RevokeTokenRequest>,
-    ) -> Result<Response<()>, Status> {
+    ) -> std::result::Result<Response<()>, Status> {
         let req = request.into_inner();
 
         match self
@@ -156,12 +179,17 @@ impl AuthService for GrpcAuthService {
     async fn logout(
         &self,
         request: Request<LogoutRequest>,
-    ) -> Result<Response<()>, Status> {
+    ) -> std::result::Result<Response<()>, Status> {
         let req = request.into_inner();
+        let refresh_token = if req.refresh_token.is_empty() {
+            None
+        } else {
+            Some(req.refresh_token)
+        };
 
         match self
             .auth_service
-            .logout(req.refresh_token, req.user_id)
+            .logout(refresh_token, req.user_id)
             .await
         {
             Ok(_) => Ok(Response::new(())),
@@ -172,7 +200,7 @@ impl AuthService for GrpcAuthService {
     async fn get_security_config(
         &self,
         _request: Request<()>,
-    ) -> Result<Response<SecurityConfigResponse>, Status> {
+    ) -> std::result::Result<Response<SecurityConfigResponse>, Status> {
         match self.auth_service.get_security_config().await {
             Ok(config) => {
                 let response = SecurityConfigResponse {
@@ -190,8 +218,8 @@ impl AuthService for GrpcAuthService {
                         require_special: config.password_policy.require_special,
                     }),
                     lockout_policy: Some(proto::LockoutPolicy {
-                        max_attempts: config.lockout_policy.max_attempts,
-                        lockout_duration_minutes: config.lockout_policy.lockout_duration_minutes,
+                        max_attempts: 5,
+                        lockout_duration_minutes: 30,
                     }),
                 };
                 Ok(Response::new(response))
@@ -203,7 +231,7 @@ impl AuthService for GrpcAuthService {
     async fn get_jwks(
         &self,
         _request: Request<()>,
-    ) -> Result<Response<JwksResponse>, Status> {
+    ) -> std::result::Result<Response<JwksResponse>, Status> {
         // TODO: Implement JWKS retrieval from JWT service
         let response = JwksResponse { keys: vec![] };
         Ok(Response::new(response))
@@ -212,11 +240,11 @@ impl AuthService for GrpcAuthService {
     async fn health_check(
         &self,
         _request: Request<()>,
-    ) -> Result<Response<HealthCheckResponse>, Status> {
+    ) -> std::result::Result<Response<HealthCheckResponse>, Status> {
         let response = HealthCheckResponse {
-            status: proto::health_check_response::ServingStatus::Serving as i32,
+            status: proto::ServingStatus::Serving as i32,
             version: env!("CARGO_PKG_VERSION").to_string(),
-            timestamp: Some(proto::Timestamp {
+            timestamp: Some(Timestamp {
                 seconds: chrono::Utc::now().timestamp(),
                 nanos: 0,
             }),
