@@ -44,20 +44,24 @@ uninstall_env() {
     
     echo -e "\n${YELLOW}卸载 ${env} 环境...${NC}"
     
-    # 先删除 PVC（保留数据需要单独确认）
+    # 先删除 Pod（避免 PVC 被占用）
+    echo -e "${YELLOW}删除 Pod...${NC}"
+    kubectl delete pod -n "${namespace}" --all --force --grace-period=0 2>/dev/null || true
+    
+    # 删除 PVC
     echo -e "${YELLOW}删除 PVC...${NC}"
     kubectl delete pvc -n "${namespace}" --ignore-not-found=true --all
     
-    # 删除其他资源（不包括 namespace）
+    # 删除其他资源
     echo -e "${YELLOW}删除其他资源...${NC}"
-    kubectl delete deployment,statefulset,service,configmap -n "${namespace}" -l environment="${env}" --ignore-not-found=true
+    kubectl delete deployment,statefulset,service,configmap -n "${namespace}" --ignore-not-found=true --all 2>/dev/null || true
     
-    # 删除命名空间（会级联删除所有剩余资源）
+    # 删除命名空间
     read -p "是否删除命名空间 ${namespace}? (y/N) " -n 1 -r
     echo
     if [[ $REPLY =~ ^[Yy]$ ]]; then
         echo -e "${YELLOW}删除命名空间 ${namespace}...${NC}"
-        kubectl delete namespace "${namespace}" --ignore-not-found=true
+        kubectl delete namespace "${namespace}" --ignore-not-found=true --force --grace-period=0 2>/dev/null || true
     fi
     
     echo -e "${GREEN}✓ ${env} 环境已卸载${NC}"
