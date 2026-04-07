@@ -38,6 +38,8 @@ spec:
               value: "dev-apisix-gateway"
             - name: BACKEND_SERVICE
               value: "backend:8080"
+            - name: AUTH_SERVICE
+              value: "dev-koduck-auth:8081"
             - name: FRONTEND_SERVICE
               value: "dev-koduck-frontend:80"
           command:
@@ -59,6 +61,11 @@ spec:
               curl -fsS -X PUT "${ADMIN}/consumers/koduck_user" \
                 -H "$KEY" -H 'Content-Type: application/json' \
                 -d "$(printf '{"username":"koduck_user","plugins":{"jwt-auth":{"key":"koduck_user","secret":"%s","algorithm":"HS256"}}}' "$JWT_SECRET")"
+
+              echo "Registering JWKS route: /.well-known/jwks.json -> koduck-auth"
+              curl -fsS -X PUT "${ADMIN}/routes/jwks" \
+                -H "$KEY" -H 'Content-Type: application/json' \
+                -d "$(printf '{"uri":"/.well-known/jwks.json","upstream":{"type":"roundrobin","nodes":{"%s":1}}}' "$AUTH_SERVICE")"
 
               echo "Registering public auth route: /api/v1/auth/* -> backend"
               curl -fsS -X PUT "${ADMIN}/routes/api-auth-public" \
