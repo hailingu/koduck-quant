@@ -154,6 +154,8 @@ spec:
           env:
             - name: APISIX_STAND_ALONE
               value: "false"
+            - name: ETCD_HOST
+              value: "http://dev-apisix-etcd:2379"
           resources:
             requests:
               memory: "64Mi"
