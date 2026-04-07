@@ -9,9 +9,11 @@ use crate::{
         SecurityConfigResponse, TokenPair, TokenResponse, User, UserInfo,
     },
     repository::{RedisCache, RefreshTokenRepository, UserRepository},
+    service::JwtServiceWrapper,
 };
 use secrecy::ExposeSecret;
 use std::sync::Arc;
+use tracing::{info, warn};
 
 /// Authentication service
 #[derive(Clone)]
@@ -19,6 +21,7 @@ pub struct AuthService {
     user_repo: UserRepository,
     token_repo: RefreshTokenRepository,
     redis: RedisCache,
+    jwt_service: JwtServiceWrapper,
     config: Arc<Config>,
 }
 
@@ -28,12 +31,14 @@ impl AuthService {
         user_repo: UserRepository,
         token_repo: RefreshTokenRepository,
         redis: RedisCache,
+        jwt_service: JwtServiceWrapper,
         config: Arc<Config>,
     ) -> Self {
         Self {
             user_repo,
             token_repo,
             redis,
+            jwt_service,
             config,
         }
     }
@@ -212,12 +217,32 @@ impl AuthService {
     }
 
     /// Generate token pair for user
-    async fn generate_token_pair(&self, _user: &User, _roles: &[String]) -> Result<TokenPair> {
-        // For now, return a placeholder
-        // TODO: Implement JWT token generation
+    async fn generate_token_pair(&self, user: &User, roles: &[String]) -> Result<TokenPair> {
+        // Generate JWT access token
+        let access_token = self.jwt_service.generate_access_token(
+            user.id,
+            &user.username,
+            &user.email,
+            roles,
+        )?;
+
+        // Generate JWT refresh token
+        let refresh_token = self.jwt_service.generate_refresh_token(user.id)?;
+
+        // Save refresh token hash to database
+        use sha2::{Digest, Sha256};
+        let mut hasher = Sha256::new();
+        hasher.update(&refresh_token);
+        let refresh_token_hash = format!("{:x}", hasher.finalize());
+        let expires_at = chrono::Utc::now() + chrono::Duration::seconds(self.config.jwt.refresh_token_expiration_secs);
+        
+        self.token_repo.save(user.id, &refresh_token_hash, expires_at).await?;
+
+        info!("Generated token pair for user: {}", user.id);
+
         Ok(TokenPair::new(
-            "placeholder_access_token".to_string(),
-            "placeholder_refresh_token".to_string(),
+            access_token,
+            refresh_token,
             self.config.jwt.access_token_expiration_secs,
         ))
     }

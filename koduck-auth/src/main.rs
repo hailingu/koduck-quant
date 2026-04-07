@@ -10,7 +10,7 @@ use koduck_auth::{
     http::create_router,
     init_state,
     repository::{RedisCache, RefreshTokenRepository, UserRepository},
-    service::{AuthService as AuthServiceImpl, TokenService as TokenServiceImpl},
+    service::{AuthService as AuthServiceImpl, JwtServiceWrapper, TokenService as TokenServiceImpl},
 };
 
 #[tokio::main]
@@ -29,14 +29,23 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Create application state
     let state = init_state((*config).clone()).await?;
 
+    // Initialize JWT service
+    let jwt_service = JwtServiceWrapper::new(&config).await?;
+
     // Create repositories
     let user_repo = UserRepository::new(state.db_pool().clone());
     let token_repo = RefreshTokenRepository::new(state.db_pool().clone());
     let redis = RedisCache::new(state.redis_pool().clone());
 
     // Create services
-    let auth_service_impl = AuthServiceImpl::new(user_repo.clone(), token_repo.clone(), redis.clone(), config.clone());
-    let token_service_impl = TokenServiceImpl::new(token_repo, redis);
+    let auth_service_impl = AuthServiceImpl::new(
+        user_repo.clone(),
+        token_repo.clone(),
+        redis.clone(),
+        jwt_service.clone(),
+        config.clone(),
+    );
+    let token_service_impl = TokenServiceImpl::new(token_repo, redis, jwt_service);
 
     // Create HTTP service
     let http_addr: SocketAddr = config.server.http_addr.parse()?;
