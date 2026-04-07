@@ -48,9 +48,12 @@ uninstall_env() {
     echo -e "${YELLOW}删除 Pod...${NC}"
     kubectl delete pod -n "${namespace}" --all --force --grace-period=0 2>/dev/null || true
     
-    # 删除 PVC
+    # 删除 PVC（强制删除，清除 finalizers）
     echo -e "${YELLOW}删除 PVC...${NC}"
-    kubectl delete pvc -n "${namespace}" --ignore-not-found=true --all
+    kubectl get pvc -n "${namespace}" -o name 2>/dev/null | while read pvc; do
+        kubectl patch "${pvc}" -n "${namespace}" -p '{"metadata":{"finalizers":[]}}' --type=merge 2>/dev/null || true
+        kubectl delete "${pvc}" -n "${namespace}" --force --grace-period=0 2>/dev/null || true
+    done
     
     # 删除其他资源
     echo -e "${YELLOW}删除其他资源...${NC}"
