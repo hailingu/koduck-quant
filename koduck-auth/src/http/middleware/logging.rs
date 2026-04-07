@@ -1,11 +1,11 @@
 //! Logging middleware
 
-use axum::http::Request;
+use axum::extract::Request;
 use std::time::Instant;
 use tracing::info;
 
 /// Log request middleware
-pub async fn log_request<B>(req: Request<B>, next: axum::middleware::Next<B>) -> axum::response::Response {
+pub async fn log_request(req: Request, next: axum::middleware::Next) -> axum::response::Response {
     let start = Instant::now();
     let method = req.method().clone();
     let uri = req.uri().clone();

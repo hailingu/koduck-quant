@@ -11,7 +11,10 @@ use tower_http::{
     trace::TraceLayer,
 };
 
-use crate::{handler::*, state::AppState};
+use crate::{
+    http::handler::{auth, health, jwks, metrics as metrics_handler},
+    state::AppState,
+};
 
 /// Create HTTP router
 pub fn create_router(state: Arc<AppState>) -> Router {
@@ -32,7 +35,7 @@ pub fn create_router(state: Arc<AppState>) -> Router {
         .route("/actuator/health/liveness", get(health::liveness))
         .route("/actuator/health/readiness", get(health::readiness))
         // Metrics endpoint
-        .route("/metrics", get(metrics::handler))
+        .route("/metrics", get(metrics_handler::handler))
         // Middleware
         .layer(TraceLayer::new_for_http())
         .layer(CompressionLayer::new())

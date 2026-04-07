@@ -9,5 +9,4 @@ keys/
 Dockerfile*
 docker-compose*
 /tests/
-/benches/
 /docs/

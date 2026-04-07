@@ -2,7 +2,7 @@
 
 use crate::error::{AppError, Result};
 use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine};
-use rsa::{RsaPublicKey, pkcs8::DecodePublicKey};
+use rsa::{traits::PublicKeyParts, RsaPublicKey, pkcs8::DecodePublicKey};
 
 /// JWKS service
 #[derive(Debug)]

@@ -6,10 +6,12 @@ namespace: koduck-dev
 resources:
   - ./namespace.yaml
   - ../../base/frontend.yaml
+  - ../../base/koduck-auth.yaml
   - ./apisix.yaml
 
 patchesStrategicMerge:
   - ./frontend.yaml
+  - ./koduck-auth.yaml
 
 namePrefix: dev-
 

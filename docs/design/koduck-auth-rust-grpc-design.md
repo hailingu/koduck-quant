@@ -100,199 +100,57 @@
 
 ### 3.1 Proto 文件
 
+> 完整 proto 定义见 [`proto/koduck/auth/v1/auth.proto`](../proto/koduck/auth/v1/auth.proto)。
+> 以下为关键接口摘要。
+
+**错误处理策略**：错误通过 gRPC Status 返回，不在 Response body 中携带。
+唯一例外是 `IntrospectTokenResponse.active`（遵循 OIDC RFC 7662）。
+
+| gRPC Status Code | 使用场景 |
+|-----------------|---------|
+| `UNAUTHENTICATED` | 凭证无效、Token 过期/无效 |
+| `NOT_FOUND` | 用户或资源不存在 |
+| `INVALID_ARGUMENT` | 请求参数校验失败 |
+| `FAILED_PRECONDITION` | 账户被锁定/禁用 |
+| `INTERNAL` | 服务端内部错误 |
+
 ```protobuf
-// proto/koduck/auth/v1/auth.proto
-syntax = "proto3";
-
-package koduck.auth.v1;
-
-option go_package = "github.com/koduck/api/go/koduck/auth/v1";
-option java_package = "com.koduck.grpc.auth.v1";
-option rust_package = "koduck_auth::grpc";
-
-import "google/protobuf/timestamp.proto";
-import "google/protobuf/empty.proto";
-
-// 认证服务
+// AuthService — 认证服务（服务间调用）
 service AuthService {
-  // 登录验证（供内部服务验证用户凭证）
-  rpc ValidateCredentials(ValidateCredentialsRequest) 
-      returns (ValidateCredentialsResponse);
-  
-  // Token 验证
-  rpc ValidateToken(ValidateTokenRequest) 
-      returns (ValidateTokenResponse);
-  
-  // 获取用户信息
-  rpc GetUser(GetUserRequest) 
-      returns (GetUserResponse);
-  
-  // 获取用户角色权限
-  rpc GetUserRoles(GetUserRolesRequest) 
-      returns (GetUserRolesResponse);
-  
-  // 吊销 Token
-  rpc RevokeToken(RevokeTokenRequest) 
-      returns (google.protobuf.Empty);
-  
-  // 获取 JWKS
-  rpc GetJwks(google.protobuf.Empty) 
-      returns (JwksResponse);
-  
-  // 健康检查
-  rpc HealthCheck(google.protobuf.Empty) 
-      returns (HealthCheckResponse);
+  rpc ValidateCredentials(ValidateCredentialsRequest) returns (ValidateCredentialsResponse);
+  rpc ValidateToken(ValidateTokenRequest) returns (ValidateTokenResponse);
+  rpc GetUser(GetUserRequest) returns (GetUserResponse);
+  rpc GetUserRoles(GetUserRolesRequest) returns (GetUserRolesResponse);
+  rpc RevokeToken(RevokeTokenRequest) returns (google.protobuf.Empty);
+  rpc Logout(LogoutRequest) returns (google.protobuf.Empty);
+  rpc GetSecurityConfig(google.protobuf.Empty) returns (SecurityConfigResponse);
+  rpc GetJwks(google.protobuf.Empty) returns (JwksResponse);
+  rpc HealthCheck(google.protobuf.Empty) returns (HealthCheckResponse);
 }
 
-// Token 服务（用于 Token 自省）
+// TokenService — Token 自省与刷新
 service TokenService {
-  // 验证访问令牌
-  rpc IntrospectAccessToken(IntrospectTokenRequest) 
-      returns (IntrospectTokenResponse);
-  
-  // 刷新令牌
-  rpc RefreshToken(RefreshTokenRequest) 
-      returns (RefreshTokenResponse);
-}
-
-// 请求/响应消息
-message ValidateCredentialsRequest {
-  string username = 1;  // 用户名或邮箱
-  string password = 2;
-  string ip_address = 3;
-  string user_agent = 4;
-}
-
-message ValidateCredentialsResponse {
-  bool valid = 1;
-  UserInfo user = 2;
-  repeated string roles = 3;
-  string error_message = 4;  // 验证失败时返回
-}
-
-message ValidateTokenRequest {
-  string token = 1;
-  TokenType token_type = 2;
-}
-
-message ValidateTokenResponse {
-  bool valid = 1;
-  int64 user_id = 2;
-  string username = 3;
-  string email = 4;
-  repeated string roles = 5;
-  google.protobuf.Timestamp expires_at = 6;
-  string error_message = 7;
-}
-
-message GetUserRequest {
-  oneof identifier {
-    int64 user_id = 1;
-    string username = 2;
-    string email = 3;
-  }
-}
-
-message GetUserResponse {
-  UserInfo user = 1;
-  repeated string roles = 2;
-}
-
-message GetUserRolesRequest {
-  int64 user_id = 1;
-}
-
-message GetUserRolesResponse {
-  int64 user_id = 1;
-  repeated string roles = 2;
-  repeated Permission permissions = 3;
-}
-
-message RevokeTokenRequest {
-  string token = 1;
-  TokenType token_type = 2;
-  int64 user_id = 3;
-}
-
-message IntrospectTokenRequest {
-  string token = 1;
-}
-
-message IntrospectTokenResponse {
-  bool active = 1;
-  string scope = 2;
-  int64 user_id = 3;
-  string username = 4;
-  google.protobuf.Timestamp exp = 5;
-}
-
-message RefreshTokenRequest {
-  string refresh_token = 1;
-}
-
-message RefreshTokenResponse {
-  bool success = 1;
-  string access_token = 2;
-  string refresh_token = 3;
-  int64 expires_in = 4;  // 秒
-  string error_message = 5;
-}
-
-message JwksResponse {
-  repeated Jwk keys = 1;
-}
-
-message HealthCheckResponse {
-  enum ServingStatus {
-    UNKNOWN = 0;
-    SERVING = 1;
-    NOT_SERVING = 2;
-  }
-  ServingStatus status = 1;
-}
-
-// 数据类型
-message UserInfo {
-  int64 id = 1;
-  string username = 2;
-  string email = 3;
-  string nickname = 4;
-  string avatar_url = 5;
-  UserStatus status = 6;
-  bool email_verified = 7;
-  google.protobuf.Timestamp last_login_at = 8;
-}
-
-message Permission {
-  int32 id = 1;
-  string code = 2;  // 如 "user:read"
-  string name = 3;
-  string resource = 4;
-  string action = 5;
-}
-
-message Jwk {
-  string kty = 1;  // RSA
-  string kid = 2;  // Key ID
-  string use = 3;  // sig
-  string n = 4;    // 模数 (Base64URL)
-  string e = 5;    // 指数 (Base64URL)
-  string alg = 6;  // RS256
-}
-
-enum TokenType {
-  TOKEN_TYPE_UNSPECIFIED = 0;
-  ACCESS_TOKEN = 1;
-  REFRESH_TOKEN = 2;
-}
-
-enum UserStatus {
-  USER_STATUS_UNSPECIFIED = 0;
-  ACTIVE = 1;
-  DISABLED = 2;
-  PENDING = 3;
+  // OIDC RFC 7662 兼容，active=false 通过 Response 返回
+  rpc IntrospectAccessToken(IntrospectTokenRequest) returns (IntrospectTokenResponse);
+  // 错误通过 gRPC Status 返回
+  rpc RefreshToken(RefreshTokenRequest) returns (RefreshTokenResponse);
+  // 内部使用
+  rpc GenerateTokenPair(GenerateTokenPairRequest) returns (GenerateTokenPairResponse);
 }
 ```
+
+**REST API 与 gRPC 对照**：
+
+| REST API 端点 | gRPC RPC | 说明 |
+|---------------|----------|------|
+| `POST /api/v1/auth/login` | `ValidateCredentials` | 凭证验证，登录逻辑在 HTTP 层组装 |
+| `POST /api/v1/auth/register` | — | 仅 REST，注册由用户直接调用 |
+| `POST /api/v1/auth/refresh` | `TokenService.RefreshToken` | 双协议支持 |
+| `POST /api/v1/auth/logout` | `AuthService.Logout` | 双协议支持 |
+| `GET /api/v1/auth/security-config` | `AuthService.GetSecurityConfig` | 双协议支持 |
+| `POST /api/v1/auth/forgot-password` | — | 仅 REST，用户直接调用 |
+| `POST /api/v1/auth/reset-password` | — | 仅 REST，用户直接调用 |
+| `GET /.well-known/jwks.json` | `AuthService.GetJwks` | 双协议支持 |
 
 ### 3.2 生成的代码结构
 
@@ -943,10 +801,10 @@ impl AuthService for GrpcAuthService {
         request: Request<ValidateCredentialsRequest>,
     ) -> Result<Response<ValidateCredentialsResponse>, Status> {
         let req = request.into_inner();
-        
+
         info!("Validating credentials for user: {}", req.username);
-        
-        // 调用业务逻辑
+
+        // 调用业务逻辑，错误通过 gRPC Status 返回
         match self
             .auth_service
             .validate_credentials(&req.username, &req.password)
@@ -954,22 +812,14 @@ impl AuthService for GrpcAuthService {
         {
             Ok((user, roles)) => {
                 let response = ValidateCredentialsResponse {
-                    valid: true,
                     user: Some(user.into()),
                     roles,
-                    error_message: "".to_string(),
                 };
                 Ok(Response::new(response))
             }
             Err(e) => {
                 warn!("Credential validation failed: {}", e);
-                let response = ValidateCredentialsResponse {
-                    valid: false,
-                    user: None,
-                    roles: vec![],
-                    error_message: e.to_string(),
-                };
-                Ok(Response::new(response))
+                Err(Status::unauthenticated(e.to_string()))
             }
         }
     }
@@ -979,11 +829,10 @@ impl AuthService for GrpcAuthService {
         request: Request<ValidateTokenRequest>,
     ) -> Result<Response<ValidateTokenResponse>, Status> {
         let req = request.into_inner();
-        
+
         match self.auth_service.validate_token(&req.token).await {
             Ok(claims) => {
                 let response = ValidateTokenResponse {
-                    valid: true,
                     user_id: claims.sub.parse().unwrap_or_default(),
                     username: claims.username,
                     email: claims.email,
@@ -992,22 +841,15 @@ impl AuthService for GrpcAuthService {
                         seconds: claims.exp as i64,
                         nanos: 0,
                     }),
-                    error_message: "".to_string(),
+                    token_id: claims.jti,
+                    issued_at: Some(prost_types::Timestamp {
+                        seconds: claims.iat as i64,
+                        nanos: 0,
+                    }),
                 };
                 Ok(Response::new(response))
             }
-            Err(e) => {
-                let response = ValidateTokenResponse {
-                    valid: false,
-                    user_id: 0,
-                    username: "".to_string(),
-                    email: "".to_string(),
-                    roles: vec![],
-                    expires_at: None,
-                    error_message: e.to_string(),
-                };
-                Ok(Response::new(response))
-            }
+            Err(e) => Err(Status::unauthenticated(e.to_string())),
         }
     }
 
@@ -1094,6 +936,9 @@ impl AuthService for GrpcAuthService {
     ) -> Result<Response<HealthCheckResponse>, Status> {
         let response = HealthCheckResponse {
             status: health_check_response::ServingStatus::Serving as i32,
+            version: env!("CARGO_PKG_VERSION").to_string(),
+            timestamp: Some(prost_types::Timestamp::now()),
+            details: Default::default(),
         };
         Ok(Response::new(response))
     }

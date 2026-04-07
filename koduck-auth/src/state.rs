@@ -7,10 +7,9 @@ use crate::{
 use deadpool_redis::{Config as RedisConfig, Pool as RedisPool, Runtime};
 use sqlx::postgres::PgPoolOptions;
 use sqlx::PgPool;
-use std::sync::Arc;
+use tracing::warn;
 
 /// Shared application state
-#[derive(Debug)]
 pub struct AppState {
     config: Config,
     db_pool: PgPool,
@@ -20,23 +19,42 @@ pub struct AppState {
 impl AppState {
     /// Create new application state
     pub async fn new(config: Config) -> Result<Self> {
-        // Create database connection pool
-        let db_pool = PgPoolOptions::new()
-            .max_connections(config.database.max_connections)
-            .min_connections(config.database.min_connections)
-            .acquire_timeout(std::time::Duration::from_secs(
-                config.database.acquire_timeout_secs,
-            ))
-            .idle_timeout(std::time::Duration::from_secs(config.database.idle_timeout_secs))
-            .connect(config.database_url())
-            .await
-            .map_err(|e| AppError::Database(e))?;
+        let skip_db_on_boot = std::env::var("KODUCK_AUTH_SKIP_DB_ON_BOOT")
+            .ok()
+            .map(|v| matches!(v.to_ascii_lowercase().as_str(), "1" | "true" | "yes" | "on"))
+            .unwrap_or(false);
 
-        // Run migrations
-        sqlx::migrate!("./migrations")
-            .run(&db_pool)
-            .await
-            .map_err(|e| AppError::Internal(format!("Migration failed: {}", e)))?;
+        let db_pool = if skip_db_on_boot {
+            warn!("KODUCK_AUTH_SKIP_DB_ON_BOOT=true, skip database connectivity check and migrations at startup");
+            PgPoolOptions::new()
+                .max_connections(config.database.max_connections)
+                .min_connections(config.database.min_connections)
+                .acquire_timeout(std::time::Duration::from_secs(
+                    config.database.acquire_timeout_secs,
+                ))
+                .idle_timeout(std::time::Duration::from_secs(config.database.idle_timeout_secs))
+                .connect_lazy(config.database_url())
+                .map_err(AppError::Database)?
+        } else {
+            // Create database connection pool
+            let pool = PgPoolOptions::new()
+                .max_connections(config.database.max_connections)
+                .min_connections(config.database.min_connections)
+                .acquire_timeout(std::time::Duration::from_secs(
+                    config.database.acquire_timeout_secs,
+                ))
+                .idle_timeout(std::time::Duration::from_secs(config.database.idle_timeout_secs))
+                .connect(config.database_url())
+                .await
+                .map_err(AppError::Database)?;
+
+            // Run migrations
+            sqlx::migrate!("./migrations")
+                .run(&pool)
+                .await
+                .map_err(|e| AppError::Internal(format!("Migration failed: {}", e)))?;
+            pool
+        };
 
         // Create Redis connection pool
         let redis_config = RedisConfig::from_url(config.redis_url());

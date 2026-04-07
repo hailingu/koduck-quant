@@ -1,9 +1,20 @@
 // Koduck Auth Service Protocol Definition
-// 
+//
 // This proto defines the gRPC interface for koduck-auth service.
 // HTTP REST API is kept compatible with existing Java implementation.
 //
-// Version: 1.0.0
+// Error handling strategy:
+//   Errors are returned via gRPC Status codes, NOT in response body.
+//   - UNAUTHENTICATED: Invalid credentials, expired/invalid token
+//   - NOT_FOUND:       User/resource not found
+//   - INVALID_ARGUMENT: Request validation failed
+//   - FAILED_PRECONDITION: Account locked/disabled
+//   - PERMISSION_DENIED:  Insufficient permissions
+//   - INTERNAL:        Server-side error
+//
+//   Exception: IntrospectTokenResponse uses `active: false` per OIDC RFC 7662.
+//
+// Version: 1.1.0
 
 syntax = "proto3";
 
@@ -13,7 +24,6 @@ option go_package = "github.com/koduck/api/go/koduck/auth/v1";
 option java_package = "com.koduck.grpc.auth.v1";
 option java_multiple_files = true;
 option java_outer_classname = "AuthProto";
-option rust_package = "koduck_auth::grpc::proto";
 
 import "google/protobuf/timestamp.proto";
 import "google/protobuf/empty.proto";
@@ -23,35 +33,54 @@ import "google/protobuf/empty.proto";
 // ============================================================================
 
 // Main authentication service for token management and user authentication.
+// This service handles internal service-to-service calls.
+// External clients use the HTTP REST API via APISIX.
 service AuthService {
+
   // Validates user credentials (username/email + password).
   // Used internally by login and other services requiring credential verification.
-  rpc ValidateCredentials(ValidateCredentialsRequest) 
+  // Returns user info on success.
+  // Errors: UNAUTHENTICATED (invalid credentials), FAILED_PRECONDITION (account locked/disabled)
+  rpc ValidateCredentials(ValidateCredentialsRequest)
       returns (ValidateCredentialsResponse);
-  
+
   // Validates a JWT token (access or refresh).
-  // Returns parsed claims if valid.
-  rpc ValidateToken(ValidateTokenRequest) 
+  // Returns parsed claims on success.
+  // Errors: UNAUTHENTICATED (invalid/expired token)
+  rpc ValidateToken(ValidateTokenRequest)
       returns (ValidateTokenResponse);
-  
+
   // Gets user information by various identifiers.
-  rpc GetUser(GetUserRequest) 
+  // Errors: NOT_FOUND (user not found)
+  rpc GetUser(GetUserRequest)
       returns (GetUserResponse);
-  
+
   // Gets user roles and permissions.
-  rpc GetUserRoles(GetUserRolesRequest) 
+  // Errors: NOT_FOUND (user not found)
+  rpc GetUserRoles(GetUserRolesRequest)
       returns (GetUserRolesResponse);
-  
+
   // Revokes a token (adds to blacklist).
-  rpc RevokeToken(RevokeTokenRequest) 
+  // Errors: NOT_FOUND (token not found)
+  rpc RevokeToken(RevokeTokenRequest)
       returns (google.protobuf.Empty);
-  
+
+  // Logs out a user by revoking their refresh token.
+  // Matches REST POST /api/v1/auth/logout semantics.
+  rpc Logout(LogoutRequest)
+      returns (google.protobuf.Empty);
+
+  // Gets security configuration (captcha, OAuth, registration settings).
+  // Used by frontend and other services to dynamically configure security features.
+  rpc GetSecurityConfig(google.protobuf.Empty)
+      returns (SecurityConfigResponse);
+
   // Gets JWKS (JSON Web Key Set) for token verification.
-  rpc GetJwks(google.protobuf.Empty) 
+  rpc GetJwks(google.protobuf.Empty)
       returns (JwksResponse);
-  
+
   // Health check for service status.
-  rpc HealthCheck(google.protobuf.Empty) 
+  rpc HealthCheck(google.protobuf.Empty)
       returns (HealthCheckResponse);
 }
 
@@ -61,16 +90,22 @@ service AuthService {
 
 // Token introspection and refresh service.
 service TokenService {
-  // Introspects an access token (OIDC compatible).
-  rpc IntrospectAccessToken(IntrospectTokenRequest) 
+
+  // Introspects an access token (OIDC RFC 7662 compatible).
+  // Returns active=true with claims, or active=false per OIDC spec.
+  // Note: This RPC does NOT use gRPC Status for "token inactive" —
+  // it returns active=false in the response body per RFC 7662.
+  rpc IntrospectAccessToken(IntrospectTokenRequest)
       returns (IntrospectTokenResponse);
-  
+
   // Refreshes an access token using a refresh token.
-  rpc RefreshToken(RefreshTokenRequest) 
+  // Returns new token pair on success.
+  // Errors: UNAUTHENTICATED (invalid/expired refresh token)
+  rpc RefreshToken(RefreshTokenRequest)
       returns (RefreshTokenResponse);
-  
-  // Generates a new token pair (internal use).
-  rpc GenerateTokenPair(GenerateTokenPairRequest) 
+
+  // Generates a new token pair (internal use only).
+  rpc GenerateTokenPair(GenerateTokenPairRequest)
       returns (GenerateTokenPairResponse);
 }
 
@@ -81,13 +116,13 @@ service TokenService {
 message ValidateCredentialsRequest {
   // Username or email address
   string username = 1;
-  
+
   // Plain text password (will be hashed and compared)
   string password = 2;
-  
+
   // Client IP address for audit logging
   string ip_address = 3;
-  
+
   // User agent string
   string user_agent = 4;
 }
@@ -95,7 +130,7 @@ message ValidateCredentialsRequest {
 message ValidateTokenRequest {
   // The JWT token to validate
   string token = 1;
-  
+
   // Expected token type (optional validation)
   TokenType token_type = 2;
 }
@@ -116,33 +151,41 @@ message GetUserRolesRequest {
 message RevokeTokenRequest {
   // The token to revoke
   string token = 1;
-  
+
   // Token type determines which blacklist to use
   TokenType token_type = 2;
-  
+
   // User ID for audit logging
   int64 user_id = 3;
-  
+
   // Reason for revocation
   string reason = 4;
+}
+
+message LogoutRequest {
+  // Refresh token to revoke (optional; if omitted, all sessions for the user are revoked)
+  string refresh_token = 1;
+
+  // User ID for audit logging
+  int64 user_id = 2;
 }
 
 message IntrospectTokenRequest {
   // The token to introspect
   string token = 1;
-  
-  // Optional: token type hint
+
+  // Optional: token type hint ("access_token" or "refresh_token")
   string token_type_hint = 2;
 }
 
 message RefreshTokenRequest {
   // The refresh token
   string refresh_token = 1;
-  
+
   // Optional: IP address for audit
   string ip_address = 2;
-  
-  // Optional: device info
+
+  // Optional: device info for audit
   string device_info = 3;
 }
 
@@ -151,10 +194,10 @@ message GenerateTokenPairRequest {
   string username = 2;
   string email = 3;
   repeated string roles = 4;
-  
+
   // Optional: custom claims
   map<string, string> custom_claims = 5;
-  
+
   // Token lifetime override (seconds)
   optional int64 access_token_ttl = 6;
   optional int64 refresh_token_ttl = 7;
@@ -165,32 +208,20 @@ message GenerateTokenPairRequest {
 // ============================================================================
 
 message ValidateCredentialsResponse {
-  bool valid = 1;
-  UserInfo user = 2;
-  repeated string roles = 3;
-  
-  // Error message if validation failed
-  string error_message = 4;
-  
-  // Error code for programmatic handling
-  ErrorCode error_code = 5;
+  UserInfo user = 1;
+  repeated string roles = 2;
 }
 
 message ValidateTokenResponse {
-  bool valid = 1;
-  int64 user_id = 2;
-  string username = 3;
-  string email = 4;
-  repeated string roles = 5;
-  google.protobuf.Timestamp expires_at = 6;
-  
+  int64 user_id = 1;
+  string username = 2;
+  string email = 3;
+  repeated string roles = 4;
+  google.protobuf.Timestamp expires_at = 5;
+
   // Token metadata
-  string token_id = 7;
-  google.protobuf.Timestamp issued_at = 8;
-  
-  // Error information
-  string error_message = 9;
-  ErrorCode error_code = 10;
+  string token_id = 6;
+  google.protobuf.Timestamp issued_at = 7;
 }
 
 message GetUserResponse {
@@ -205,62 +236,58 @@ message GetUserRolesResponse {
 }
 
 message IntrospectTokenResponse {
-  // Whether the token is active
+  // Whether the token is active (OIDC RFC 7662 compliant).
+  // When false, only this field is meaningful; other fields may be omitted.
   bool active = 1;
-  
+
   // Scope of the token (space-separated)
   string scope = 2;
-  
+
   // Client ID (if applicable)
   string client_id = 3;
-  
+
   // Token owner
   string username = 4;
   int64 user_id = 5;
   string email = 6;
-  
-  // Token type
+
+  // Token type (e.g., "Bearer")
   string token_type = 7;
-  
+
   // Expiration time
   google.protobuf.Timestamp exp = 8;
-  
+
   // Issue time
   google.protobuf.Timestamp iat = 9;
-  
+
   // Not before time
   google.protobuf.Timestamp nbf = 10;
-  
+
   // Subject
   string sub = 11;
-  
+
   // Audience
   repeated string aud = 12;
-  
+
   // Issuer
   string iss = 13;
-  
+
   // JWT ID
   string jti = 14;
 }
 
 message RefreshTokenResponse {
-  bool success = 1;
-  
   // New token pair
-  string access_token = 2;
-  string refresh_token = 3;
-  
+  string access_token = 1;
+  string refresh_token = 2;
+
   // Token metadata
-  string token_type = 4;
-  int64 expires_in = 5;  // seconds
-  
+  string token_type = 3;
+  int64 expires_in = 4;  // seconds
+  google.protobuf.Timestamp expires_at = 5;
+
   // User info
   UserInfo user = 6;
-  
-  // Error information (if failed)
-  string error_message = 7;
-  ErrorCode error_code = 8;
 }
 
 message GenerateTokenPairResponse {
@@ -283,11 +310,28 @@ message HealthCheckResponse {
     SERVICE_UNKNOWN = 3;  // Used only by the Watch method.
   }
   ServingStatus status = 1;
-  
+
   // Additional health details
   string version = 2;
   google.protobuf.Timestamp timestamp = 3;
   map<string, string> details = 4;
+}
+
+message SecurityConfigResponse {
+  // Whether Turnstile captcha is enabled
+  bool turnstile_enabled = 1;
+
+  // Turnstile site key (public)
+  string turnstile_site_key = 2;
+
+  // Whether user registration is enabled
+  bool registration_enabled = 3;
+
+  // Whether Google OAuth is enabled
+  bool oauth_google_enabled = 4;
+
+  // Whether GitHub OAuth is enabled
+  bool oauth_github_enabled = 5;
 }
 
 // ============================================================================
@@ -315,33 +359,38 @@ message Permission {
   string description = 6;
 }
 
+// JWK (JSON Web Key) per RFC 7517.
+// Note: The `x5t_s256` field uses underscore naming in proto. The application
+// layer must map it to `x5t#S256` when serving the HTTP JWKS endpoint
+// (/.well-known/jwks.json), as the JWK spec requires the `#` character.
 message Jwk {
   // Key type ("RSA")
   string kty = 1;
-  
+
   // Key ID
   string kid = 2;
-  
+
   // Key usage ("sig" for signing)
   string use = 3;
-  
+
   // RSA modulus (Base64URL encoded)
   string n = 4;
-  
+
   // RSA exponent (Base64URL encoded)
   string e = 5;
-  
+
   // Algorithm ("RS256")
   string alg = 6;
-  
+
   // Key operations
   repeated string key_ops = 7;
-  
-  // X.509 Certificate SHA-1 thumbprint
+
+  // X.509 Certificate SHA-1 thumbprint (Base64URL encoded)
   string x5t = 8;
-  
-  // X.509 Certificate SHA-256 thumbprint
-  string x5t_s256 = 9 [json_name = "x5t#S256"];
+
+  // X.509 Certificate SHA-256 thumbprint (Base64URL encoded).
+  // Maps to JWK field name "x5t#S256" in JSON output.
+  string x5t_s256 = 9;
 }
 
 // ============================================================================
@@ -360,35 +409,4 @@ enum UserStatus {
   DISABLED = 2;
   PENDING = 3;
   SUSPENDED = 4;
-}
-
-enum ErrorCode {
-  ERROR_CODE_UNSPECIFIED = 0;
-  
-  // Authentication errors
-  INVALID_CREDENTIALS = 1;
-  USER_NOT_FOUND = 2;
-  USER_DISABLED = 3;
-  USER_PENDING = 4;
-  ACCOUNT_LOCKED = 5;
-  
-  // Token errors
-  INVALID_TOKEN = 10;
-  TOKEN_EXPIRED = 11;
-  TOKEN_REVOKED = 12;
-  TOKEN_BLACKLISTED = 13;
-  INVALID_TOKEN_TYPE = 14;
-  
-  // Validation errors
-  INVALID_REQUEST = 20;
-  MISSING_FIELD = 21;
-  INVALID_FORMAT = 22;
-  
-  // Server errors
-  INTERNAL_ERROR = 30;
-  DATABASE_ERROR = 31;
-  CACHE_ERROR = 32;
-  
-  // Rate limiting
-  TOO_MANY_REQUESTS = 40;
 }

@@ -199,6 +199,13 @@ install() {
         -n "${NAMESPACE}" \
         --dry-run=client -o yaml | kubectl apply -f -
 
+    # 提示: Koduck-Auth 使用 kustomize patch 中的默认 JWT 密钥
+    # 如需自定义密钥，请运行: ./scripts/generate-jwt-keys.sh
+    # 然后更新 Secret: kubectl create secret generic koduck-auth-jwt-keys \
+    #   --from-file=private.pem=koduck-auth/keys/private.pem \
+    #   --from-file=public.pem=koduck-auth/keys/public.pem \
+    #   -n ${NAMESPACE} --dry-run=client -o yaml | kubectl apply -f -
+
     ensure_etcd_pvc_ready
 
     # 清理已完成的旧 init Job，确保重新注册路由
@@ -212,6 +219,17 @@ install() {
         kubectl kustomize --load-restrictor=LoadRestrictionsNone "${SCRIPT_DIR}/overlays/${ENV}" | kubectl apply -f -
     fi
 
+    # Dev 兜底：当数据库服务不存在时，允许 koduck-auth 以无数据库模式启动
+    if [ "${ENV}" = "dev" ]; then
+        if ! kubectl -n "${NAMESPACE}" get svc postgres >/dev/null 2>&1; then
+            echo -e "${YELLOW}未检测到 postgres Service，启用 koduck-auth 无数据库启动模式...${NC}"
+            kubectl -n "${NAMESPACE}" set env deploy/"${ENV}-koduck-auth" KODUCK_AUTH_SKIP_DB_ON_BOOT=true >/dev/null 2>&1 || true
+            kubectl -n "${NAMESPACE}" rollout restart deploy/"${ENV}-koduck-auth" >/dev/null 2>&1 || true
+        else
+            kubectl -n "${NAMESPACE}" set env deploy/"${ENV}-koduck-auth" KODUCK_AUTH_SKIP_DB_ON_BOOT- >/dev/null 2>&1 || true
+        fi
+    fi
+
     echo -e "${YELLOW}等待 etcd 启动...${NC}"
     wait_pods_ready "app=apisix-etcd" "180s" "etcd"
 
@@ -220,6 +238,12 @@ install() {
 
     echo -e "${YELLOW}等待 Frontend 启动...${NC}"
     wait_pods_ready "app=koduck-frontend" "180s" "frontend"
+
+    echo -e "${YELLOW}等待 koduck-auth 启动...${NC}"
+    wait_pods_ready "app=koduck-auth" "180s" "koduck-auth"
+
+    echo -e "${YELLOW}等待 Koduck-Auth 启动...${NC}"
+    wait_pods_ready "app=koduck-auth" "180s" "koduck-auth"
 
     # 阶段二：APISIX 就绪后注册路由和 Consumer
     echo -e "${YELLOW}注册路由和 Consumer...${NC}"
@@ -297,6 +321,11 @@ show_access_info() {
     echo -e "\n${BLUE}Frontend:${NC}"
     echo "  kubectl port-forward svc/${ENV}-koduck-frontend 8080:80 -n ${NAMESPACE}"
     echo "  http://localhost:8080"
+    
+    echo -e "\n${BLUE}Auth Service:${NC}"
+    echo "  kubectl port-forward svc/${ENV}-koduck-auth 8081:8081 -n ${NAMESPACE}"
+    echo "  http://localhost:8081"
+    echo "  gRPC: localhost:50051"
     
     if [ "$ENV" == "prod" ]; then
         echo -e "\n${BLUE}Admin API:${NC}"

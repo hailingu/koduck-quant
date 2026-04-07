@@ -1,91 +1,75 @@
 //! gRPC server setup
 
-use std::sync::Arc;
+use crate::{
+    grpc::{
+        auth_service::GrpcAuthService,
+        proto::{auth_service_server::AuthServiceServer, token_service_server::TokenServiceServer},
+        token_service::GrpcTokenService,
+    },
+    service::{AuthService as AuthServiceImpl, TokenService as TokenServiceImpl},
+};
+use std::net::SocketAddr;
 use tonic::transport::Server;
+use tracing::{error, info};
 
-use crate::state::AppState;
-
-use super::proto::auth_service_server::AuthServiceServer;
-
-/// Create gRPC server
-pub fn create_server(state: Arc<AppState>) -> AuthServiceServer<super::auth_service::AuthServiceImpl> {
-    // TODO: Implement auth service
-    let _ = state;
-    unimplemented!("gRPC server not yet implemented")
+/// gRPC server configuration
+pub struct GrpcServer {
+    addr: SocketAddr,
+    auth_service: GrpcAuthService,
+    token_service: GrpcTokenService,
 }
 
-/// gRPC service implementations placeholder
-pub mod auth_service_impl {
-    use tonic::{Request, Response, Status};
-    
-    use crate::grpc::proto::{auth_service_server::AuthService, *};
+impl GrpcServer {
+    /// Create new gRPC server
+    pub fn new(
+        addr: SocketAddr,
+        auth_service_impl: AuthServiceImpl,
+        token_service_impl: TokenServiceImpl,
+    ) -> Self {
+        let auth_service = GrpcAuthService::new(auth_service_impl, token_service_impl.clone());
+        let token_service = GrpcTokenService::new(token_service_impl);
 
-    #[derive(Debug)]
-    pub struct AuthServiceImpl;
-
-    #[tonic::async_trait]
-    impl AuthService for AuthServiceImpl {
-        async fn validate_credentials(
-            &self,
-            _request: Request<ValidateCredentialsRequest>,
-        ) -> Result<Response<ValidateCredentialsResponse>, Status> {
-            Err(Status::unimplemented("Not implemented"))
-        }
-
-        async fn validate_token(
-            &self,
-            _request: Request<ValidateTokenRequest>,
-        ) -> Result<Response<ValidateTokenResponse>, Status> {
-            Err(Status::unimplemented("Not implemented"))
-        }
-
-        async fn get_user(
-            &self,
-            _request: Request<GetUserRequest>,
-        ) -> Result<Response<GetUserResponse>, Status> {
-            Err(Status::unimplemented("Not implemented"))
-        }
-
-        async fn get_user_roles(
-            &self,
-            _request: Request<GetUserRolesRequest>,
-        ) -> Result<Response<GetUserRolesResponse>, Status> {
-            Err(Status::unimplemented("Not implemented"))
-        }
-
-        async fn revoke_token(
-            &self,
-            _request: Request<RevokeTokenRequest>,
-        ) -> Result<Response<()>, Status> {
-            Err(Status::unimplemented("Not implemented"))
-        }
-
-        async fn logout(
-            &self,
-            _request: Request<LogoutRequest>,
-        ) -> Result<Response<()>, Status> {
-            Err(Status::unimplemented("Not implemented"))
-        }
-
-        async fn get_security_config(
-            &self,
-            _request: Request<()>,
-        ) -> Result<Response<SecurityConfigResponse>, Status> {
-            Err(Status::unimplemented("Not implemented"))
-        }
-
-        async fn get_jwks(
-            &self,
-            _request: Request<()>,
-        ) -> Result<Response<JwksResponse>, Status> {
-            Err(Status::unimplemented("Not implemented"))
-        }
-
-        async fn health_check(
-            &self,
-            _request: Request<()>,
-        ) -> Result<Response<HealthCheckResponse>, Status> {
-            Err(Status::unimplemented("Not implemented"))
+        Self {
+            addr,
+            auth_service,
+            token_service,
         }
     }
+
+    /// Run the gRPC server
+    pub async fn run(self) -> Result<(), Box<dyn std::error::Error>> {
+        info!("Starting gRPC server on {}", self.addr);
+
+        Server::builder()
+            .add_service(AuthServiceServer::new(self.auth_service))
+            .add_service(TokenServiceServer::new(self.token_service))
+            .serve(self.addr)
+            .await?;
+
+        Ok(())
+    }
+}
+
+/// Create and run gRPC server
+pub async fn create_and_run_grpc_server(
+    addr: SocketAddr,
+    auth_service: AuthServiceImpl,
+    token_service: TokenServiceImpl,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let server = GrpcServer::new(addr, auth_service, token_service);
+    server.run().await
+}
+
+/// Create gRPC services for composition into main server
+pub fn create_grpc_services(
+    auth_service_impl: AuthServiceImpl,
+    token_service_impl: TokenServiceImpl,
+) -> (AuthServiceServer<GrpcAuthService>, TokenServiceServer<GrpcTokenService>) {
+    let auth_service = GrpcAuthService::new(auth_service_impl, token_service_impl.clone());
+    let token_service = GrpcTokenService::new(token_service_impl);
+
+    (
+        AuthServiceServer::new(auth_service),
+        TokenServiceServer::new(token_service),
+    )
 }

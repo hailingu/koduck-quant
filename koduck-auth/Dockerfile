@@ -1,7 +1,8 @@
 # Multi-stage build for koduck-auth
 
 # Stage 1: Builder
-FROM rust:1.75-slim-bookworm as builder
+# Use a recent stable toolchain so Cargo can parse edition2024 crates.
+FROM rust:bookworm AS builder
 
 WORKDIR /app
 
@@ -13,12 +14,15 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy manifests
-COPY Cargo.toml Cargo.lock ./
+# Cargo.lock is intentionally not committed in this repo, so copy Cargo.toml only.
+COPY Cargo.toml ./
 COPY build.rs ./
 COPY proto ./proto
+COPY benches ./benches
 
-# Create dummy main.rs to cache dependencies
-RUN mkdir -p src && echo "fn main() {}" > src/main.rs
+# Create minimal source tree for dependency caching build.
+# build.rs writes generated proto files into src/grpc/proto.
+RUN mkdir -p src/grpc/proto && echo "fn main() {}" > src/main.rs
 
 # Build dependencies (cached layer)
 RUN cargo build --release && rm -rf src
@@ -39,6 +43,7 @@ WORKDIR /app
 RUN apt-get update && apt-get install -y \
     ca-certificates \
     libssl3 \
+    wget \
     && rm -rf /var/lib/apt/lists/*
 
 # Create non-root user

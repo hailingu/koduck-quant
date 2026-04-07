@@ -7,7 +7,6 @@ use axum::{
 };
 use serde::Serialize;
 use serde_json::json;
-use std::fmt;
 use thiserror::Error;
 use tonic::Status;
 
@@ -180,8 +179,8 @@ impl From<deadpool_redis::PoolError> for AppError {
     }
 }
 
-impl From<redis::RedisError> for AppError {
-    fn from(err: redis::RedisError) -> Self {
+impl From<deadpool_redis::redis::RedisError> for AppError {
+    fn from(err: deadpool_redis::redis::RedisError) -> Self {
         AppError::Internal(format!("Redis error: {}", err))
     }
 }
