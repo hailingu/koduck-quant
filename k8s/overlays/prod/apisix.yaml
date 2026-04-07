@@ -1,0 +1,215 @@
+---
+# APISIX 生产环境配置
+# 从 base 复制并修改
+
+# PVC
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: apisix-etcd-data
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi
+  storageClassName: standard
+---
+# etcd Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: apisix-etcd
+  labels:
+    app: apisix-etcd
+spec:
+  type: ClusterIP
+  ports:
+    - port: 2379
+      targetPort: 2379
+      name: client
+    - port: 2380
+      targetPort: 2380
+      name: peer
+  selector:
+    app: apisix-etcd
+---
+# etcd StatefulSet
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: apisix-etcd
+  labels:
+    app: apisix-etcd
+spec:
+  serviceName: apisix-etcd
+  replicas: 1
+  selector:
+    matchLabels:
+      app: apisix-etcd
+  template:
+    metadata:
+      labels:
+        app: apisix-etcd
+    spec:
+      containers:
+        - name: etcd
+          image: bitnami/etcd:3.5
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 2379
+              name: client
+            - containerPort: 2380
+              name: peer
+          env:
+            - name: ETCD_ENABLE_V2
+              value: "true"
+            - name: ALLOW_NONE_AUTHENTICATION
+              value: "yes"
+            - name: ETCD_ADVERTISE_CLIENT_URLS
+              value: "http://apisix-etcd:2379"
+            - name: ETCD_LISTEN_CLIENT_URLS
+              value: "http://0.0.0.0:2379"
+            - name: ETCD_LISTEN_PEER_URLS
+              value: "http://0.0.0.0:2380"
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "100m"
+              ephemeral-storage: "100Mi"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+              ephemeral-storage: "2Gi"
+          volumeMounts:
+            - name: data
+              mountPath: /bitnami/etcd
+          livenessProbe:
+            exec:
+              command:
+                - etcdctl
+                - endpoint
+                - health
+            initialDelaySeconds: 10
+            periodSeconds: 5
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: apisix-etcd-data
+---
+# APISIX Gateway Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: apisix-gateway
+  labels:
+    app: apisix-gateway
+spec:
+  type: NodePort
+  ports:
+    - port: 9080
+      targetPort: 9080
+      nodePort: 30080
+      name: http
+    - port: 9180
+      targetPort: 9180
+      nodePort: 30180
+      name: admin
+    - port: 9091
+      targetPort: 9091
+      name: metrics
+  selector:
+    app: apisix-gateway
+---
+# APISIX Gateway Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: apisix-gateway
+  labels:
+    app: apisix-gateway
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: apisix-gateway
+  template:
+    metadata:
+      labels:
+        app: apisix-gateway
+    spec:
+      containers:
+        - name: apisix
+          image: apache/apisix:3.9.0-debian
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 9080
+              name: http
+            - containerPort: 9180
+              name: admin
+            - containerPort: 9091
+              name: metrics
+          env:
+            - name: APISIX_STAND_ALONE
+              value: "false"
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "100m"
+              ephemeral-storage: "100Mi"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+              ephemeral-storage: "1Gi"
+          volumeMounts:
+            - name: config
+              mountPath: /usr/local/apisix/conf/config.yaml
+              subPath: config.yaml
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 9080
+            initialDelaySeconds: 10
+            periodSeconds: 5
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: 9080
+            initialDelaySeconds: 5
+            periodSeconds: 3
+      volumes:
+        - name: config
+          configMap:
+            name: apisix-config
+---
+# APISIX ConfigMap
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: apisix-config
+data:
+  config.yaml: |
+    apisix:
+      node_listen: 9080
+      enable_ipv6: false
+      
+      enable_admin: true
+      admin_key:
+        - name: "admin"
+          key: "edd1c9f034335f136f87ad84b625c8f1"
+          role: admin
+      
+      config_center: etcd
+      etcd:
+        host:
+          - "http://apisix-etcd:2379"
+        prefix: "/apisix"
+        timeout: 30
+      
+      plugins:
+        - cors
+        - jwt-auth
+        - limit-count
+        - limit-req
+        - prometheus
+        - proxy-rewrite

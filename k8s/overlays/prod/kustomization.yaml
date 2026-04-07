@@ -4,14 +4,12 @@ kind: Kustomization
 namespace: koduck-prod
 
 resources:
-  - ../../base/namespace.yaml
-  - ../../base/apisix.yaml
+  - ./namespace.yaml
+  - ./apisix.yaml
 
 namePrefix: prod-
 
-commonLabels:
-  environment: prod
-
-patchesStrategicMerge:
-  - resources.yaml
-  - replicas.yaml
+labels:
+  - pairs:
+      environment: prod
+    includeSelectors: true

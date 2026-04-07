@@ -4,13 +4,12 @@ kind: Kustomization
 namespace: koduck-dev
 
 resources:
-  - ../../base/namespace.yaml
-  - ../../base/apisix.yaml
+  - ./namespace.yaml
+  - ./apisix.yaml
 
 namePrefix: dev-
 
-commonLabels:
-  environment: dev
-
-patchesStrategicMerge:
-  - resources.yaml
+labels:
+  - pairs:
+      environment: dev
+    includeSelectors: true

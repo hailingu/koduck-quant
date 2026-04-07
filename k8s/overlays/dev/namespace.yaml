@@ -1,0 +1,8 @@
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: koduck
+  labels:
+    app.kubernetes.io/name: koduck
+    app.kubernetes.io/part-of: koduck-quant
