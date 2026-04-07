@@ -10,10 +10,11 @@ use crate::{
     },
     repository::{RedisCache, RefreshTokenRepository, UserRepository},
 };
+use secrecy::ExposeSecret;
 use std::sync::Arc;
 
 /// Authentication service
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct AuthService {
     user_repo: UserRepository,
     token_repo: RefreshTokenRepository,
@@ -171,7 +172,7 @@ impl AuthService {
     }
 
     /// Logout user
-    pub async fn logout(&self, refresh_token: Option<String>, user_id: i64) -> Result<()> {
+    pub async fn logout(&self, refresh_token: Option<String>, _user_id: i64) -> Result<()> {
         // Revoke refresh token if provided
         if let Some(token) = refresh_token {
             self.token_repo.revoke(&token).await?;
@@ -206,7 +207,7 @@ impl AuthService {
     }
 
     /// Generate token pair for user
-    async fn generate_token_pair(&self, user: &User, roles: &[String]) -> Result<TokenPair> {
+    async fn generate_token_pair(&self, _user: &User, _roles: &[String]) -> Result<TokenPair> {
         // For now, return a placeholder
         // TODO: Implement JWT token generation
         Ok(TokenPair::new(

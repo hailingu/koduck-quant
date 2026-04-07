@@ -1,11 +1,11 @@
 //! Redis cache wrapper
 
-use crate::error::{AppError, Result};
+use crate::error::Result;
 use deadpool_redis::Pool;
-use redis::AsyncCommands;
+use deadpool_redis::redis::AsyncCommands;
 
 /// Redis cache wrapper
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct RedisCache {
     pool: Pool,
 }
@@ -28,7 +28,7 @@ impl RedisCache {
         );
         
         if ttl > 0 {
-            conn.set_ex(&key, 1, ttl).await?;
+            let _: () = conn.set_ex(&key, 1, ttl as u64).await?;
         }
         
         Ok(())
@@ -76,7 +76,7 @@ impl RedisCache {
     pub async fn lock_ip(&self, ip: &str, duration_secs: u64) -> Result<()> {
         let mut conn = self.pool.get().await?;
         let key = format!("login:locked:{}", ip);
-        let _: () = conn.set_ex(&key, 1, duration_secs as usize).await?;
+        let _: () = conn.set_ex(&key, 1, duration_secs).await?;
         Ok(())
     }
 

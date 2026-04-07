@@ -90,7 +90,7 @@ impl Default for ServerConfig {
 impl Default for DatabaseConfig {
     fn default() -> Self {
         Self {
-            url: SecretString::from("postgres://postgres:postgres@localhost:5432/koduck_auth"),
+            url: SecretString::from("postgres://postgres:postgres@localhost:5432/koduck_auth".to_string()),
             max_connections: 10,
             min_connections: 2,
             acquire_timeout_secs: 10,
@@ -102,7 +102,7 @@ impl Default for DatabaseConfig {
 impl Default for RedisConfig {
     fn default() -> Self {
         Self {
-            url: SecretString::from("redis://localhost:6379"),
+            url: SecretString::from("redis://localhost:6379".to_string()),
             pool_size: 10,
             connection_timeout_secs: 5,
         }
@@ -134,7 +134,7 @@ impl Default for SecurityConfig {
             password_min_length: 6,
             password_max_length: 100,
             turnstile_enabled: false,
-            turnstile_secret_key: SecretString::from(""),
+            turnstile_secret_key: SecretString::from("".to_string()),
         }
     }
 }
@@ -156,12 +156,36 @@ impl Config {
 
         let config = ConfigBuilder::builder()
             // Default configuration
-            .set_default("server", ServerConfig::default())?
-            .set_default("database", DatabaseConfig::default())?
-            .set_default("redis", RedisConfig::default())?
-            .set_default("jwt", JwtConfig::default())?
-            .set_default("security", SecurityConfig::default())?
-            .set_default("client", ClientConfig::default())?
+            .set_default("server.http_addr", "0.0.0.0:8081")?
+            .set_default("server.grpc_addr", "0.0.0.0:50051")?
+            .set_default("server.metrics_addr", "0.0.0.0:9090")?
+            .set_default("server.request_timeout_secs", 30)?
+            .set_default("database.url", "postgres://postgres:postgres@localhost:5432/koduck_auth")?
+            .set_default("database.max_connections", 10)?
+            .set_default("database.min_connections", 2)?
+            .set_default("database.acquire_timeout_secs", 10)?
+            .set_default("database.idle_timeout_secs", 600)?
+            .set_default("redis.url", "redis://localhost:6379")?
+            .set_default("redis.pool_size", 10)?
+            .set_default("redis.connection_timeout_secs", 5)?
+            .set_default("jwt.private_key_path", "./keys/private.pem")?
+            .set_default("jwt.public_key_path", "./keys/public.pem")?
+            .set_default("jwt.key_id", "koduck-key-001")?
+            .set_default("jwt.access_token_expiration_secs", 3600)?
+            .set_default("jwt.refresh_token_expiration_secs", 604800)?
+            .set_default("jwt.issuer", "koduck-auth")?
+            .set_default("jwt.audience", "koduck")?
+            .set_default("security.argon2_memory_cost", 65536)?
+            .set_default("security.argon2_time_cost", 3)?
+            .set_default("security.argon2_parallelism", 4)?
+            .set_default("security.max_login_attempts", 5)?
+            .set_default("security.lockout_duration_minutes", 30)?
+            .set_default("security.password_min_length", 6)?
+            .set_default("security.password_max_length", 100)?
+            .set_default("security.turnstile_enabled", false)?
+            .set_default("security.turnstile_secret_key", "")?
+            .set_default("client.user_service_url", "http://koduck-user:8082")?
+            .set_default("client.user_service_timeout_secs", 10)?
             // Config file (optional)
             .add_source(File::with_name("config/default").required(false))
             .add_source(File::with_name("config/local").required(false))

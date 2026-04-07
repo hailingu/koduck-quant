@@ -219,6 +219,17 @@ install() {
         kubectl kustomize --load-restrictor=LoadRestrictionsNone "${SCRIPT_DIR}/overlays/${ENV}" | kubectl apply -f -
     fi
 
+    # Dev 兜底：当数据库服务不存在时，允许 koduck-auth 以无数据库模式启动
+    if [ "${ENV}" = "dev" ]; then
+        if ! kubectl -n "${NAMESPACE}" get svc postgres >/dev/null 2>&1; then
+            echo -e "${YELLOW}未检测到 postgres Service，启用 koduck-auth 无数据库启动模式...${NC}"
+            kubectl -n "${NAMESPACE}" set env deploy/"${ENV}-koduck-auth" KODUCK_AUTH_SKIP_DB_ON_BOOT=true >/dev/null 2>&1 || true
+            kubectl -n "${NAMESPACE}" rollout restart deploy/"${ENV}-koduck-auth" >/dev/null 2>&1 || true
+        else
+            kubectl -n "${NAMESPACE}" set env deploy/"${ENV}-koduck-auth" KODUCK_AUTH_SKIP_DB_ON_BOOT- >/dev/null 2>&1 || true
+        fi
+    fi
+
     echo -e "${YELLOW}等待 etcd 启动...${NC}"
     wait_pods_ready "app=apisix-etcd" "180s" "etcd"
 
@@ -227,6 +238,9 @@ install() {
 
     echo -e "${YELLOW}等待 Frontend 启动...${NC}"
     wait_pods_ready "app=koduck-frontend" "180s" "frontend"
+
+    echo -e "${YELLOW}等待 koduck-auth 启动...${NC}"
+    wait_pods_ready "app=koduck-auth" "180s" "koduck-auth"
 
     echo -e "${YELLOW}等待 Koduck-Auth 启动...${NC}"
     wait_pods_ready "app=koduck-auth" "180s" "koduck-auth"

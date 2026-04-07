@@ -1,5 +1,4 @@
 use std::net::SocketAddr;
-use std::sync::Arc;
 
 use tokio::net::TcpListener;
 use tonic::transport::Server as TonicServer;

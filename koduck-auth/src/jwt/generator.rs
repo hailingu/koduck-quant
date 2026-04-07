@@ -9,7 +9,6 @@ use jsonwebtoken::{encode, Algorithm, EncodingKey, Header};
 use uuid::Uuid;
 
 /// JWT service for token generation and validation
-#[derive(Debug)]
 pub struct JwtService {
     encoding_key: EncodingKey,
     key_id: String,

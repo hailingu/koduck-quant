@@ -6,16 +6,19 @@ use crate::{
 };
 
 /// Token management service
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct TokenService {
     token_repo: RefreshTokenRepository,
-    redis: RedisCache,
+    _redis: RedisCache,
 }
 
 impl TokenService {
     /// Create new token service
     pub fn new(token_repo: RefreshTokenRepository, redis: RedisCache) -> Self {
-        Self { token_repo, redis }
+        Self {
+            token_repo,
+            _redis: redis,
+        }
     }
 
     /// Introspect access token

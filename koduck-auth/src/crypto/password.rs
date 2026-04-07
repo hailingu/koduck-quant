@@ -8,6 +8,7 @@ use argon2::{
 
 /// Hash a password using Argon2id
 pub async fn hash_password(password: &str) -> Result<String> {
+    let password = password.to_string();
     tokio::task::spawn_blocking(move || {
         let salt = SaltString::generate(&mut OsRng);
         let argon2 = Argon2::default();
@@ -23,6 +24,7 @@ pub async fn hash_password(password: &str) -> Result<String> {
 
 /// Verify a password against a hash
 pub async fn verify_password(password: &str, hash: &str) -> Result<bool> {
+    let password = password.to_string();
     let hash = hash.to_string();
     
     tokio::task::spawn_blocking(move || {
