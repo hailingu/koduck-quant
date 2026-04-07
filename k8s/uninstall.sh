@@ -73,9 +73,8 @@ uninstall_env() {
     
     # 删除其他资源
     echo -e "${YELLOW}删除其他资源...${NC}"
-    kubectl delete deployment,statefulset,service -n "${namespace}" --ignore-not-found=true --all --wait=false 2>/dev/null || true
-    kubectl delete deployment -l app=koduck-frontend -n "${namespace}" --ignore-not-found=true --wait=false 2>/dev/null || true
-    kubectl delete service -l app=koduck-frontend -n "${namespace}" --ignore-not-found=true --wait=false 2>/dev/null || true
+    kubectl delete job -n "${namespace}" --all --ignore-not-found=true --wait=false 2>/dev/null || true
+    kubectl delete deployment,statefulset,service,configmap,secret -n "${namespace}" --ignore-not-found=true --all --wait=false 2>/dev/null || true
 
     # 清理 PV（防止 PVC 删除后 PV 卡住）
     if [ -n "${pvs}" ]; then

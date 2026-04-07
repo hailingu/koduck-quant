@@ -1,0 +1,13 @@
+target/
+.idea/
+.vscode/
+.git/
+.gitignore
+.env*
+keys/
+*.md
+Dockerfile*
+docker-compose*
+/tests/
+/benches/
+/docs/

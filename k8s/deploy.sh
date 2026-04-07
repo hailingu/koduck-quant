@@ -36,6 +36,19 @@ fi
 
 NAMESPACE="koduck-${ENV}"
 
+# 加载环境变量文件
+ENV_FILE="${SCRIPT_DIR}/.env.${ENV}"
+if [ -f "$ENV_FILE" ]; then
+    set -a
+    source "$ENV_FILE"
+    set +a
+    echo -e "${GREEN}✓ 已加载 ${ENV_FILE}${NC}"
+else
+    echo -e "${RED}错误: 环境变量文件不存在: ${ENV_FILE}${NC}"
+    echo -e "${YELLOW}请从模板创建: cp ${SCRIPT_DIR}/.env.template ${ENV_FILE}${NC}"
+    exit 1
+fi
+
 echo -e "${BLUE}========================================${NC}"
 echo -e "${BLUE}  Koduck APISIX 部署工具${NC}"
 echo -e "${BLUE}  环境: ${ENV}${NC}"
@@ -56,6 +69,76 @@ check_kubectl() {
     fi
     
     echo -e "${GREEN}✓ Kubernetes 集群连接正常${NC}"
+}
+
+# 确保 etcd PVC 可用（避免 PVC Terminating 导致 etcd Pending）
+ensure_etcd_pvc_ready() {
+    local pvc_name="${ENV}-apisix-etcd-data"
+    local storage_size="1Gi"
+    local storage_class="hostpath"
+
+    if [ "${ENV}" = "prod" ]; then
+        storage_size="10Gi"
+    fi
+
+    # 如果 PVC 正在删除，先清理掉
+    if kubectl -n "${NAMESPACE}" get pvc "${pvc_name}" >/dev/null 2>&1; then
+        local deleting
+        deleting=$(kubectl -n "${NAMESPACE}" get pvc "${pvc_name}" -o jsonpath='{.metadata.deletionTimestamp}' 2>/dev/null || echo "")
+        if [ -n "${deleting}" ]; then
+            echo -e "${YELLOW}检测到 PVC ${pvc_name} 正在删除，执行清理...${NC}"
+            kubectl -n "${NAMESPACE}" patch pvc "${pvc_name}" -p '{"metadata":{"finalizers":[]}}' --type=merge 2>/dev/null || true
+            kubectl -n "${NAMESPACE}" delete pvc "${pvc_name}" --force --grace-period=0 --wait=false 2>/dev/null || true
+            sleep 2
+        fi
+    fi
+
+    # 若 PVC 不存在，主动创建
+    if ! kubectl -n "${NAMESPACE}" get pvc "${pvc_name}" >/dev/null 2>&1; then
+        echo -e "${YELLOW}创建 PVC ${pvc_name}...${NC}"
+        cat <<EOF | kubectl apply -f -
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: ${pvc_name}
+  namespace: ${NAMESPACE}
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: ${storage_size}
+  storageClassName: ${storage_class}
+EOF
+    fi
+
+    # 等待 PVC 进入可调度状态（Bound 最佳，Pending 可继续等待调度）
+    for i in $(seq 1 30); do
+        local phase
+        phase=$(kubectl -n "${NAMESPACE}" get pvc "${pvc_name}" -o jsonpath='{.status.phase}' 2>/dev/null || echo "")
+        if [ "${phase}" = "Bound" ] || [ "${phase}" = "Pending" ]; then
+            return 0
+        fi
+        sleep 1
+    done
+
+    echo -e "${RED}错误: PVC ${pvc_name} 未进入可用状态${NC}"
+    kubectl -n "${NAMESPACE}" get pvc "${pvc_name}" -o wide || true
+    exit 1
+}
+
+# 等待指定 label 的 Pod Ready，失败时输出诊断
+wait_pods_ready() {
+    local label_selector="$1"
+    local timeout="$2"
+    local name_hint="$3"
+
+    if ! kubectl wait --for=condition=ready pod -l "${label_selector}" -n "${NAMESPACE}" --timeout="${timeout}"; then
+        echo -e "${RED}错误: ${name_hint} 未在 ${timeout} 内就绪${NC}"
+        kubectl -n "${NAMESPACE}" get pod -l "${label_selector}" -o wide || true
+        kubectl -n "${NAMESPACE}" describe pod -l "${label_selector}" | sed -n '1,220p' || true
+        exit 1
+    fi
 }
 
 # 确保命名空间可用（避免卸载后 Terminating 导致安装失败）
@@ -103,20 +186,51 @@ install() {
     echo -e "${YELLOW}部署 APISIX (${ENV} 环境)...${NC}"
 
     ensure_namespace_ready
-    
-    # 使用 kustomize 部署
+
+    # 检查必要的环境变量
+    if [ -z "$JWT_SECRET" ]; then
+        echo -e "${RED}错误: JWT_SECRET 未设置，请在 ${ENV_FILE} 中配置${NC}"
+        exit 1
+    fi
+
+    # 创建 JWT Secret（动态注入，不在 YAML 中硬编码）
+    kubectl create secret generic jwt-secret \
+        --from-literal=jwt-secret="$JWT_SECRET" \
+        -n "${NAMESPACE}" \
+        --dry-run=client -o yaml | kubectl apply -f -
+
+    ensure_etcd_pvc_ready
+
+    # 清理已完成的旧 init Job，确保重新注册路由
+    kubectl delete job "${ENV}-apisix-route-init" -n "${NAMESPACE}" --ignore-not-found=true --wait=false 2>/dev/null || true
+
+    # 阶段一：部署基础设施（etcd + APISIX + Frontend）
+    echo -e "${YELLOW}部署基础设施...${NC}"
     if command -v kustomize &> /dev/null; then
         kustomize build --load-restrictor=LoadRestrictionsNone "${SCRIPT_DIR}/overlays/${ENV}" | kubectl apply -f -
     else
         kubectl kustomize --load-restrictor=LoadRestrictionsNone "${SCRIPT_DIR}/overlays/${ENV}" | kubectl apply -f -
     fi
-    
+
+    echo -e "${YELLOW}等待 etcd 启动...${NC}"
+    wait_pods_ready "app=apisix-etcd" "180s" "etcd"
+
     echo -e "${YELLOW}等待 APISIX 启动...${NC}"
-    kubectl wait --for=condition=ready pod -l app=apisix-gateway -n "${NAMESPACE}" --timeout=120s || true
-    
+    wait_pods_ready "app=apisix-gateway" "180s" "APISIX gateway"
+
     echo -e "${YELLOW}等待 Frontend 启动...${NC}"
-    kubectl wait --for=condition=ready pod -l app=koduck-frontend -n "${NAMESPACE}" --timeout=120s || true
-    
+    wait_pods_ready "app=koduck-frontend" "180s" "frontend"
+
+    # 阶段二：APISIX 就绪后注册路由和 Consumer
+    echo -e "${YELLOW}注册路由和 Consumer...${NC}"
+    kubectl apply -f "${SCRIPT_DIR}/overlays/${ENV}/apisix-route-init.yaml"
+    if ! kubectl wait --for=condition=complete job/"${ENV}-apisix-route-init" -n "${NAMESPACE}" --timeout=180s; then
+        echo -e "${RED}错误: 路由初始化 Job 执行失败${NC}"
+        kubectl -n "${NAMESPACE}" get job "${ENV}-apisix-route-init" -o wide || true
+        kubectl -n "${NAMESPACE}" logs job/"${ENV}-apisix-route-init" || true
+        exit 1
+    fi
+
     echo -e "${GREEN}✓ Koduck 部署完成${NC}"
     show_access_info
 }

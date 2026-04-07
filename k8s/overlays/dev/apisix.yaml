@@ -97,7 +97,7 @@ spec:
       volumes:
         - name: data
           persistentVolumeClaim:
-            claimName: apisix-etcd-data
+            claimName: dev-apisix-etcd-data
 ---
 # APISIX Gateway Service
 apiVersion: v1
@@ -218,41 +218,3 @@ data:
       - limit-req
       - prometheus
       - proxy-rewrite
----
-# APISIX Route Init Job (dev)
-# 为前端注册默认路由：/* -> dev-koduck-frontend:80
-apiVersion: batch/v1
-kind: Job
-metadata:
-  name: apisix-route-init
-spec:
-  backoffLimit: 3
-  template:
-    spec:
-      restartPolicy: OnFailure
-      containers:
-        - name: init-route
-          image: curlimages/curl:8.7.1
-          imagePullPolicy: IfNotPresent
-          command:
-            - /bin/sh
-            - -ec
-            - |
-              echo "Waiting for APISIX Admin API..."
-              for i in $(seq 1 60); do
-                if curl -fsS \
-                  -H 'X-API-KEY: edd1c9f034335f136f87ad84b625c8f1' \
-                  "http://dev-apisix-gateway:9180/apisix/admin/routes" >/dev/null; then
-                  break
-                fi
-                sleep 2
-              done
-
-              echo "Registering frontend default route..."
-              curl -fsS -X PUT \
-                "http://dev-apisix-gateway:9180/apisix/admin/routes/frontend-root" \
-                -H 'X-API-KEY: edd1c9f034335f136f87ad84b625c8f1' \
-                -H 'Content-Type: application/json' \
-                -d '{"uri":"/*","upstream":{"type":"roundrobin","nodes":{"dev-koduck-frontend:80":1}}}'
-
-              echo "Route registration done."
