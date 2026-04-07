@@ -1,7 +1,9 @@
 #!/bin/bash
 #
 # Koduck APISIX 部署脚本
-# 使用方法: ./deploy.sh [dev|prod] [install|status|port-forward|logs]
+# 使用方法: 
+#   从项目根目录: ./k8s/deploy.sh [dev|prod] [install|status|port-forward|logs]
+#   从 k8s 目录:  ./deploy.sh [dev|prod] [install|status|port-forward|logs]
 #
 
 set -e
@@ -12,6 +14,9 @@ GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m'
+
+# 获取脚本所在目录
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # 参数
 ENV="${1:-dev}"
@@ -59,9 +64,9 @@ install() {
     
     # 使用 kustomize 部署
     if command -v kustomize &> /dev/null; then
-        kustomize build "overlays/${ENV}" | kubectl apply -f -
+        kustomize build "${SCRIPT_DIR}/overlays/${ENV}" | kubectl apply -f -
     else
-        kubectl apply -k "overlays/${ENV}"
+        kubectl apply -k "${SCRIPT_DIR}/overlays/${ENV}"
     fi
     
     echo -e "${YELLOW}等待 APISIX 启动...${NC}"
@@ -124,7 +129,7 @@ show_access_info() {
     fi
     
     echo -e "\n${BLUE}Port-Forward:${NC}"
-    echo "  ./deploy.sh ${ENV} port-forward"
+    echo "  ./k8s/deploy.sh ${ENV} port-forward"
     echo "  http://localhost:9080"
     
     if [ "$ENV" == "prod" ]; then
@@ -144,7 +149,7 @@ main() {
             ;;
         uninstall)
             echo -e "${YELLOW}请使用 uninstall.sh 脚本${NC}"
-            echo "  ./uninstall.sh ${ENV}"
+            echo "  ./k8s/uninstall.sh ${ENV}"
             exit 0
             ;;
         status)

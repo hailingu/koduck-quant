@@ -1,7 +1,9 @@
 #!/bin/bash
 #
 # Koduck APISIX 卸载脚本
-# 使用方法: ./uninstall.sh [dev|prod|all]
+# 使用方法: 
+#   从项目根目录: ./k8s/uninstall.sh [dev|prod|all]
+#   从 k8s 目录:  ./uninstall.sh [dev|prod|all]
 #
 
 set -e
@@ -12,6 +14,9 @@ GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m'
+
+# 获取脚本所在目录
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 ENV="${1:-dev}"
 
@@ -41,9 +46,9 @@ uninstall_env() {
     
     # 删除资源
     if command -v kustomize &> /dev/null; then
-        kustomize build "overlays/${env}" 2>/dev/null | kubectl delete -f - --ignore-not-found=true
+        kustomize build "${SCRIPT_DIR}/overlays/${env}" 2>/dev/null | kubectl delete -f - --ignore-not-found=true
     else
-        kubectl delete -k "overlays/${env}" --ignore-not-found=true 2>/dev/null || true
+        kubectl delete -k "${SCRIPT_DIR}/overlays/${env}" --ignore-not-found=true 2>/dev/null || true
     fi
     
     # 删除 PVC
