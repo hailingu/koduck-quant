@@ -3,8 +3,6 @@ package com.koduck.ai.dto;
 import lombok.Builder;
 import lombok.Value;
 
-import java.math.BigDecimal;
-
 /**
  * 投资组合优化建议。
  *
@@ -26,10 +24,15 @@ public class PortfolioOptimizationSuggestion {
     String relatedSymbol;
 
     public enum SuggestionType {
-        DIVERSIFICATION,    // 分散化建议
-        REBALANCING,        // 再平衡建议
-        RISK_REDUCTION,     // 风险降低建议
-        OPPORTUNITY,        // 机会捕捉建议
-        COST_OPTIMIZATION   // 成本优化建议
+        // 分散化建议
+        DIVERSIFICATION,
+        // 再平衡建议
+        REBALANCING,
+        // 风险降低建议
+        RISK_REDUCTION,
+        // 机会捕捉建议
+        OPPORTUNITY,
+        // 成本优化建议
+        COST_OPTIMIZATION
     }
 }
