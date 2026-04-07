@@ -199,6 +199,13 @@ install() {
         -n "${NAMESPACE}" \
         --dry-run=client -o yaml | kubectl apply -f -
 
+    # 提示: Koduck-Auth 使用 kustomize patch 中的默认 JWT 密钥
+    # 如需自定义密钥，请运行: ./scripts/generate-jwt-keys.sh
+    # 然后更新 Secret: kubectl create secret generic koduck-auth-jwt-keys \
+    #   --from-file=private.pem=koduck-auth/keys/private.pem \
+    #   --from-file=public.pem=koduck-auth/keys/public.pem \
+    #   -n ${NAMESPACE} --dry-run=client -o yaml | kubectl apply -f -
+
     ensure_etcd_pvc_ready
 
     # 清理已完成的旧 init Job，确保重新注册路由
