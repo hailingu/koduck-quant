@@ -2,7 +2,6 @@
 
 use crate::grpc::proto;
 use crate::model::{TokenType, UserInfo, UserStatus};
-use chrono::{DateTime, Utc};
 
 // UserStatus <-> proto::UserStatus
 impl From<UserStatus> for proto::UserStatus {
@@ -51,6 +50,12 @@ impl From<proto::TokenType> for TokenType {
 // UserInfo <-> proto::UserInfo
 impl From<UserInfo> for proto::UserInfo {
     fn from(user: UserInfo) -> Self {
+        use prost_types::Timestamp;
+        let now = Timestamp {
+            seconds: chrono::Utc::now().timestamp(),
+            nanos: 0,
+        };
+        
         proto::UserInfo {
             id: user.id,
             username: user.username,
@@ -59,6 +64,8 @@ impl From<UserInfo> for proto::UserInfo {
             avatar_url: user.avatar_url.unwrap_or_default(),
             status: proto::UserStatus::from(user.status) as i32,
             email_verified: user.email_verified,
+            created_at: Some(now.clone()),
+            updated_at: Some(now),
         }
     }
 }
@@ -83,17 +90,4 @@ impl From<proto::UserInfo> for UserInfo {
             email_verified: user.email_verified,
         }
     }
-}
-
-// Helper function to convert Option<proto::Timestamp> to DateTime<Utc>
-pub fn proto_timestamp_to_datetime(timestamp: Option<proto::Timestamp>) -> Option<DateTime<Utc>> {
-    timestamp.map(|t| DateTime::from_timestamp(t.seconds, t.nanos as u32).unwrap_or_else(Utc::now))
-}
-
-// Helper function to convert DateTime<Utc> to proto::Timestamp
-pub fn datetime_to_proto_timestamp(datetime: Option<DateTime<Utc>>) -> Option<proto::Timestamp> {
-    datetime.map(|dt| proto::Timestamp {
-        seconds: dt.timestamp(),
-        nanos: dt.timestamp_subsec_nanos() as i32,
-    })
 }

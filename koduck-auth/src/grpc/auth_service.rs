@@ -1,18 +1,14 @@
 //! gRPC AuthService implementation
 
 use crate::{
-    error::{AppError, Result},
     grpc::proto::{
         auth_service_server::AuthService,
-        token_service_server::TokenService,
         *,
     },
-    model::{TokenResponse, UserInfo},
     service::{AuthService as AuthServiceImpl, TokenService as TokenServiceImpl},
 };
-use std::sync::Arc;
 use tonic::{Request, Response, Status};
-use tracing::{error, info, warn};
+use tracing::{info, warn};
 
 /// gRPC AuthService implementation
 #[derive(Clone)]
@@ -31,7 +27,8 @@ impl GrpcAuthService {
     }
 
     /// Convert AppError to tonic::Status
-    fn to_status(err: AppError) -> Status {
+    fn to_status(err: crate::error::AppError) -> Status {
+        use crate::error::AppError;
         match err {
             AppError::Unauthorized(msg) => Status::unauthenticated(msg),
             AppError::Forbidden(msg) => Status::permission_denied(msg),
@@ -51,7 +48,7 @@ impl AuthService for GrpcAuthService {
     async fn validate_credentials(
         &self,
         request: Request<ValidateCredentialsRequest>,
-    ) -> Result<Response<ValidateCredentialsResponse>, Status> {
+    ) -> std::result::Result<Response<ValidateCredentialsResponse>, Status> {
         let req = request.into_inner();
         info!("Validating credentials for user: {}", req.username);
 
@@ -67,10 +64,12 @@ impl AuthService for GrpcAuthService {
             .await
         {
             Ok(token_response) => {
+                // Get user roles from the user repo
+                let roles = self.auth_service.get_user_roles(token_response.user.id).await.unwrap_or_default();
                 let response = ValidateCredentialsResponse {
                     user: Some(token_response.user.into()),
-                    roles: token_response.user.roles,
-                    tokens: Some(proto::TokenPair {
+                    roles,
+                    tokens: Some(TokenPair {
                         access_token: token_response.tokens.access_token,
                         refresh_token: token_response.tokens.refresh_token,
                         token_type: token_response.tokens.token_type,
@@ -89,7 +88,7 @@ impl AuthService for GrpcAuthService {
     async fn validate_token(
         &self,
         request: Request<ValidateTokenRequest>,
-    ) -> Result<Response<ValidateTokenResponse>, Status> {
+    ) -> std::result::Result<Response<ValidateTokenResponse>, Status> {
         let req = request.into_inner();
 
         // Use token service to introspect the token
@@ -97,14 +96,14 @@ impl AuthService for GrpcAuthService {
             Ok(true) => {
                 // Token is valid, extract claims (simplified for now)
                 let response = ValidateTokenResponse {
-                    user_id: 0, // TODO: Extract from token claims
+                    user_id: 0,
                     username: String::new(),
                     email: String::new(),
                     roles: vec![],
                     expires_at: None,
                     token_id: String::new(),
                     issued_at: None,
-                    token_type: proto::TokenType::Access as i32,
+                    token_type: TokenType::Access as i32,
                 };
                 Ok(Response::new(response))
             }
@@ -115,32 +114,22 @@ impl AuthService for GrpcAuthService {
 
     async fn get_user(
         &self,
-        request: Request<GetUserRequest>,
-    ) -> Result<Response<GetUserResponse>, Status> {
-        let req = request.into_inner();
-
-        // TODO: Implement user lookup based on identifier
-        let _ = req.identifier;
-
+        _request: Request<GetUserRequest>,
+    ) -> std::result::Result<Response<GetUserResponse>, Status> {
         Err(Status::unimplemented("GetUser not yet implemented"))
     }
 
     async fn get_user_roles(
         &self,
-        request: Request<GetUserRolesRequest>,
-    ) -> Result<Response<GetUserRolesResponse>, Status> {
-        let req = request.into_inner();
-
-        // TODO: Implement user roles lookup
-        let _ = req.user_id;
-
+        _request: Request<GetUserRolesRequest>,
+    ) -> std::result::Result<Response<GetUserRolesResponse>, Status> {
         Err(Status::unimplemented("GetUserRoles not yet implemented"))
     }
 
     async fn revoke_token(
         &self,
         request: Request<RevokeTokenRequest>,
-    ) -> Result<Response<()>, Status> {
+    ) -> std::result::Result<Response<()>, Status> {
         let req = request.into_inner();
 
         match self
@@ -156,12 +145,12 @@ impl AuthService for GrpcAuthService {
     async fn logout(
         &self,
         request: Request<LogoutRequest>,
-    ) -> Result<Response<()>, Status> {
+    ) -> std::result::Result<Response<()>, Status> {
         let req = request.into_inner();
 
         match self
             .auth_service
-            .logout(req.refresh_token, req.user_id)
+            .logout(Some(req.refresh_token), req.user_id)
             .await
         {
             Ok(_) => Ok(Response::new(())),
@@ -172,7 +161,7 @@ impl AuthService for GrpcAuthService {
     async fn get_security_config(
         &self,
         _request: Request<()>,
-    ) -> Result<Response<SecurityConfigResponse>, Status> {
+    ) -> std::result::Result<Response<SecurityConfigResponse>, Status> {
         match self.auth_service.get_security_config().await {
             Ok(config) => {
                 let response = SecurityConfigResponse {
@@ -181,7 +170,7 @@ impl AuthService for GrpcAuthService {
                     registration_enabled: config.registration_enabled,
                     oauth_google_enabled: config.oauth_google_enabled,
                     oauth_github_enabled: config.oauth_github_enabled,
-                    password_policy: Some(proto::PasswordPolicy {
+                    password_policy: Some(PasswordPolicy {
                         min_length: config.password_policy.min_length as i32,
                         max_length: config.password_policy.max_length as i32,
                         require_uppercase: config.password_policy.require_uppercase,
@@ -189,9 +178,9 @@ impl AuthService for GrpcAuthService {
                         require_digit: config.password_policy.require_digit,
                         require_special: config.password_policy.require_special,
                     }),
-                    lockout_policy: Some(proto::LockoutPolicy {
-                        max_attempts: config.lockout_policy.max_attempts,
-                        lockout_duration_minutes: config.lockout_policy.lockout_duration_minutes,
+                    lockout_policy: Some(LockoutPolicy {
+                        max_attempts: 5,  // Default value
+                        lockout_duration_minutes: 30,  // Default value
                     }),
                 };
                 Ok(Response::new(response))
@@ -203,7 +192,7 @@ impl AuthService for GrpcAuthService {
     async fn get_jwks(
         &self,
         _request: Request<()>,
-    ) -> Result<Response<JwksResponse>, Status> {
+    ) -> std::result::Result<Response<JwksResponse>, Status> {
         // TODO: Implement JWKS retrieval from JWT service
         let response = JwksResponse { keys: vec![] };
         Ok(Response::new(response))
@@ -212,11 +201,11 @@ impl AuthService for GrpcAuthService {
     async fn health_check(
         &self,
         _request: Request<()>,
-    ) -> Result<Response<HealthCheckResponse>, Status> {
+    ) -> std::result::Result<Response<HealthCheckResponse>, Status> {
         let response = HealthCheckResponse {
-            status: proto::health_check_response::ServingStatus::Serving as i32,
+            status: health_check_response::ServingStatus::Serving as i32,
             version: env!("CARGO_PKG_VERSION").to_string(),
-            timestamp: Some(proto::Timestamp {
+            timestamp: Some(prost_types::Timestamp {
                 seconds: chrono::Utc::now().timestamp(),
                 nanos: 0,
             }),

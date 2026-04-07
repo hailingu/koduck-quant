@@ -206,6 +206,11 @@ impl AuthService {
         })
     }
 
+    /// Get user roles
+    pub async fn get_user_roles(&self, user_id: i64) -> Result<Vec<String>> {
+        self.user_repo.get_user_roles(user_id).await
+    }
+
     /// Generate token pair for user
     async fn generate_token_pair(&self, _user: &User, _roles: &[String]) -> Result<TokenPair> {
         // For now, return a placeholder
