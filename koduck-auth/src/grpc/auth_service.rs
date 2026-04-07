@@ -203,7 +203,7 @@ impl AuthService for GrpcAuthService {
         _request: Request<()>,
     ) -> std::result::Result<Response<HealthCheckResponse>, Status> {
         let response = HealthCheckResponse {
-            status: health_check_response::ServingStatus::Serving as i32,
+            status: ServingStatus::Serving as i32,
             version: env!("CARGO_PKG_VERSION").to_string(),
             timestamp: Some(prost_types::Timestamp {
                 seconds: chrono::Utc::now().timestamp(),
