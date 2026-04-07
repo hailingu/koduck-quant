@@ -1,6 +1,6 @@
-# Koduck APISIX Kubernetes 部署
+# Koduck Kubernetes 部署
 
-使用 Kustomize 管理多环境配置。
+使用 Kustomize 管理多环境配置，包含 APISIX Gateway 和 Koduck Frontend。
 
 ## 目录结构
 
@@ -8,15 +8,17 @@
 k8s/
 ├── base/
 │   ├── namespace.yaml          # 命名空间
+│   ├── frontend.yaml           # Koduck Frontend 基础配置
 │   └── apisix.yaml             # APISIX + etcd 基础配置
 ├── overlays/
 │   ├── dev/
 │   │   ├── kustomization.yaml  # 开发环境配置
-│   │   └── resources.yaml      # 开发环境资源覆盖
+│   │   ├── frontend.yaml       # 开发环境 Frontend 覆盖
+│   │   └── apisix.yaml         # 开发环境 APISIX 覆盖
 │   └── prod/
 │       ├── kustomization.yaml  # 生产环境配置
-│       ├── resources.yaml      # 生产环境资源覆盖
-│       └── replicas.yaml       # 生产环境副本数
+│       ├── frontend.yaml       # 生产环境 Frontend 覆盖
+│       └── apisix.yaml         # 生产环境 APISIX 覆盖
 ├── deploy.sh                   # 部署脚本
 ├── uninstall.sh                # 卸载脚本
 └── README.md
@@ -74,6 +76,8 @@ k8s/
 | Gateway 副本 | 1 | 2 |
 | Gateway 内存 | 64Mi/128Mi | 256Mi/512Mi |
 | etcd 内存 | 64Mi/128Mi | 256Mi/512Mi |
+| Frontend 副本 | 1 | 2 |
+| Frontend 内存 | 32Mi/64Mi | 64Mi/128Mi |
 | PVC 存储 | 1Gi | 10Gi |
 | 命名空间 | koduck-dev | koduck-prod |
 
@@ -96,8 +100,11 @@ kubectl apply -k overlays/dev
 # NodePort
 kubectl get svc -n koduck-dev
 
-# Port-Forward
+# APISIX Gateway Port-Forward
 kubectl port-forward svc/dev-apisix-gateway 9080:9080 -n koduck-dev
+
+# Frontend Port-Forward
+kubectl port-forward svc/dev-koduck-frontend 8080:80 -n koduck-dev
 
 # Admin API (prod)
 kubectl port-forward svc/prod-apisix-gateway 9180:9180 -n koduck-prod

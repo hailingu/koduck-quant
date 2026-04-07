@@ -5,7 +5,11 @@ namespace: koduck-prod
 
 resources:
   - ./namespace.yaml
+  - ../../base/frontend.yaml
   - ./apisix.yaml
+
+patchesStrategicMerge:
+  - ./frontend.yaml
 
 namePrefix: prod-
 

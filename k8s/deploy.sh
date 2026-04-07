@@ -106,15 +106,18 @@ install() {
     
     # 使用 kustomize 部署
     if command -v kustomize &> /dev/null; then
-        kustomize build "${SCRIPT_DIR}/overlays/${ENV}" | kubectl apply -f -
+        kustomize build --load-restrictor=LoadRestrictionsNone "${SCRIPT_DIR}/overlays/${ENV}" | kubectl apply -f -
     else
-        kubectl apply -k "${SCRIPT_DIR}/overlays/${ENV}"
+        kubectl kustomize --load-restrictor=LoadRestrictionsNone "${SCRIPT_DIR}/overlays/${ENV}" | kubectl apply -f -
     fi
     
     echo -e "${YELLOW}等待 APISIX 启动...${NC}"
     kubectl wait --for=condition=ready pod -l app=apisix-gateway -n "${NAMESPACE}" --timeout=120s || true
     
-    echo -e "${GREEN}✓ APISIX 部署完成${NC}"
+    echo -e "${YELLOW}等待 Frontend 启动...${NC}"
+    kubectl wait --for=condition=ready pod -l app=koduck-frontend -n "${NAMESPACE}" --timeout=120s || true
+    
+    echo -e "${GREEN}✓ Koduck 部署完成${NC}"
     show_access_info
 }
 
@@ -129,6 +132,9 @@ status() {
     
     echo -e "\n${YELLOW}Services:${NC}"
     kubectl get svc -n "${NAMESPACE}"
+    
+    echo -e "\n${YELLOW}Deployments:${NC}"
+    kubectl get deployment -n "${NAMESPACE}"
     
     if [ "$ENV" == "prod" ]; then
         echo -e "\n${YELLOW}PVC:${NC}"
@@ -173,6 +179,10 @@ show_access_info() {
     echo -e "\n${BLUE}Port-Forward:${NC}"
     echo "  ./k8s/deploy.sh ${ENV} port-forward"
     echo "  http://localhost:9080"
+    
+    echo -e "\n${BLUE}Frontend:${NC}"
+    echo "  kubectl port-forward svc/${ENV}-koduck-frontend 8080:80 -n ${NAMESPACE}"
+    echo "  http://localhost:8080"
     
     if [ "$ENV" == "prod" ]; then
         echo -e "\n${BLUE}Admin API:${NC}"
