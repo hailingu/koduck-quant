@@ -1,6 +1,6 @@
 ---
 # APISIX 开发环境配置
-# 从 base 复制并修改
+# 使用 quay.io/coreos/etcd:v3.5.15
 
 # PVC
 apiVersion: v1
@@ -34,7 +34,7 @@ spec:
   selector:
     app: apisix-etcd
 ---
-# etcd StatefulSet
+# etcd StatefulSet (coreos/etcd 版本)
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
@@ -54,24 +54,25 @@ spec:
     spec:
       containers:
         - name: etcd
-          image: bitnami/etcd:3.5
+          image: quay.io/coreos/etcd:v3.5.15
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 2379
               name: client
             - containerPort: 2380
               name: peer
-          env:
-            - name: ETCD_ENABLE_V2
-              value: "true"
-            - name: ALLOW_NONE_AUTHENTICATION
-              value: "yes"
-            - name: ETCD_ADVERTISE_CLIENT_URLS
-              value: "http://dev-apisix-etcd:2379"
-            - name: ETCD_LISTEN_CLIENT_URLS
-              value: "http://0.0.0.0:2379"
-            - name: ETCD_LISTEN_PEER_URLS
-              value: "http://0.0.0.0:2380"
+          command:
+            - /usr/local/bin/etcd
+          args:
+            - --name=etcd-0
+            - --data-dir=/etcd-data
+            - --listen-client-urls=http://0.0.0.0:2379
+            - --advertise-client-urls=http://dev-apisix-etcd:2379
+            - --listen-peer-urls=http://0.0.0.0:2380
+            - --initial-advertise-peer-urls=http://dev-apisix-etcd:2380
+            - --initial-cluster=etcd-0=http://dev-apisix-etcd:2380
+            - --initial-cluster-token=etcd-cluster
+            - --initial-cluster-state=new
           resources:
             requests:
               memory: "64Mi"
@@ -83,11 +84,12 @@ spec:
               ephemeral-storage: "500Mi"
           volumeMounts:
             - name: data
-              mountPath: /bitnami/etcd
+              mountPath: /etcd-data
           livenessProbe:
             exec:
               command:
-                - etcdctl
+                - /usr/local/bin/etcdctl
+                - --endpoints=http://localhost:2379
                 - endpoint
                 - health
             initialDelaySeconds: 10
