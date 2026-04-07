@@ -158,11 +158,11 @@ spec:
               value: "http://dev-apisix-etcd:2379"
           resources:
             requests:
-              memory: "64Mi"
+              memory: "256Mi"
               cpu: "25m"
               ephemeral-storage: "50Mi"
             limits:
-              memory: "128Mi"
+              memory: "512Mi"
               cpu: "100m"
               ephemeral-storage: "200Mi"
           volumeMounts:
@@ -170,14 +170,12 @@ spec:
               mountPath: /usr/local/apisix/conf/config.yaml
               subPath: config.yaml
           livenessProbe:
-            httpGet:
-              path: /healthz
+            tcpSocket:
               port: 9080
             initialDelaySeconds: 10
             periodSeconds: 5
           readinessProbe:
-            httpGet:
-              path: /healthz
+            tcpSocket:
               port: 9080
             initialDelaySeconds: 5
             periodSeconds: 3

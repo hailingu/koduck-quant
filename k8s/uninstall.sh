@@ -41,32 +41,71 @@ fi
 uninstall_env() {
     local env=$1
     local namespace="koduck-${env}"
+    local pvs=""
     
     echo -e "\n${YELLOW}卸载 ${env} 环境...${NC}"
+
+    if ! kubectl get namespace "${namespace}" >/dev/null 2>&1; then
+        echo -e "${YELLOW}命名空间 ${namespace} 不存在，跳过${NC}"
+        return 0
+    fi
+
+    # 先记录该命名空间下关联的 PV（cluster 级资源）
+    pvs=$(kubectl get pv --no-headers 2>/dev/null | awk -v ns="${namespace}" '$6 ~ "^"ns"/" {print $1}' || true)
     
     # 先删除 Pod（避免 PVC 被占用）
     echo -e "${YELLOW}删除 Pod...${NC}"
-    kubectl delete pod -n "${namespace}" --all --force --grace-period=0 2>/dev/null || true
+    kubectl delete pod -n "${namespace}" --all --force --grace-period=0 --wait=false 2>/dev/null || true
+    kubectl get pod -n "${namespace}" -o name 2>/dev/null | while read pod; do
+        [ -z "${pod}" ] && continue
+        kubectl patch "${pod}" -n "${namespace}" -p '{"metadata":{"finalizers":[]}}' --type=merge 2>/dev/null || true
+    done
     
     # 删除 PVC（强制删除，清除 finalizers）
     echo -e "${YELLOW}删除 PVC...${NC}"
     kubectl get pvc -n "${namespace}" -o name 2>/dev/null | while read pvc; do
+        [ -z "${pvc}" ] && continue
         kubectl patch "${pvc}" -n "${namespace}" -p '{"metadata":{"finalizers":[]}}' --type=merge 2>/dev/null || true
-        kubectl delete "${pvc}" -n "${namespace}" --force --grace-period=0 2>/dev/null || true
+        kubectl delete "${pvc}" -n "${namespace}" --force --grace-period=0 --wait=false 2>/dev/null || true
     done
     
     # 删除其他资源
     echo -e "${YELLOW}删除其他资源...${NC}"
-    kubectl delete deployment,statefulset,service,configmap -n "${namespace}" --ignore-not-found=true --all 2>/dev/null || true
+    kubectl delete deployment,statefulset,service,configmap -n "${namespace}" --ignore-not-found=true --all --wait=false 2>/dev/null || true
+
+    # 清理 PV（防止 PVC 删除后 PV 卡住）
+    if [ -n "${pvs}" ]; then
+        echo -e "${YELLOW}删除关联 PV...${NC}"
+        echo "${pvs}" | while read pv; do
+            [ -z "${pv}" ] && continue
+            kubectl patch pv "${pv}" -p '{"metadata":{"finalizers":[]}}' --type=merge 2>/dev/null || true
+            kubectl delete pv "${pv}" --force --grace-period=0 --wait=false 2>/dev/null || true
+        done
+    fi
     
     # 删除命名空间
     echo -e "${YELLOW}删除命名空间 ${namespace}...${NC}"
-    kubectl delete namespace "${namespace}" --ignore-not-found=true --force --grace-period=0 2>/dev/null || true
+    kubectl delete namespace "${namespace}" --ignore-not-found=true --force --grace-period=0 --wait=false 2>/dev/null || true
     
     # 如果命名空间卡住，清除 finalizers
-    kubectl get namespace "${namespace}" -o json 2>/dev/null | \
-        jq '.spec.finalizers = []' 2>/dev/null | \
-        kubectl replace --raw "/api/v1/namespaces/${namespace}/finalize" -f - 2>/dev/null || true
+    if command -v jq &> /dev/null; then
+        for _ in {1..10}; do
+            if ! kubectl get namespace "${namespace}" >/dev/null 2>&1; then
+                break
+            fi
+            kubectl get namespace "${namespace}" -o json 2>/dev/null | \
+                jq '.spec.finalizers = []' 2>/dev/null | \
+                kubectl replace --raw "/api/v1/namespaces/${namespace}/finalize" -f - 2>/dev/null || true
+            sleep 1
+        done
+    fi
+
+    # 最终确认
+    if kubectl get namespace "${namespace}" >/dev/null 2>&1; then
+        echo -e "${RED}✗ ${namespace} 仍存在（可能正在 Terminating）${NC}"
+        echo -e "${YELLOW}建议稍后重试，或手动执行 finalize${NC}"
+        return 1
+    fi
     
     echo -e "${GREEN}✓ ${env} 环境已卸载${NC}"
 }

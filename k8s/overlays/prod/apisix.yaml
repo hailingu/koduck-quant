@@ -168,14 +168,12 @@ spec:
               mountPath: /usr/local/apisix/conf/config.yaml
               subPath: config.yaml
           livenessProbe:
-            httpGet:
-              path: /healthz
+            tcpSocket:
               port: 9080
             initialDelaySeconds: 10
             periodSeconds: 5
           readinessProbe:
-            httpGet:
-              path: /healthz
+            tcpSocket:
               port: 9080
             initialDelaySeconds: 5
             periodSeconds: 3
