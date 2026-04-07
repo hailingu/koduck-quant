@@ -4,6 +4,27 @@ use config::{Config as ConfigBuilder, ConfigError, Environment, File};
 use secrecy::{ExposeSecret, SecretString};
 use serde::Deserialize;
 use std::fmt;
+use std::net::SocketAddr;
+
+/// Custom validation error for configuration
+#[derive(Debug)]
+pub struct ValidationError {
+    pub message: String,
+}
+
+impl std::error::Error for ValidationError {}
+
+impl fmt::Display for ValidationError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "Configuration validation error: {}", self.message)
+    }
+}
+
+impl From<ValidationError> for ConfigError {
+    fn from(err: ValidationError) -> Self {
+        ConfigError::Message(err.message)
+    }
+}
 
 /// Application configuration
 #[derive(Debug, Deserialize, Clone)]
@@ -76,6 +97,29 @@ pub struct ClientConfig {
     pub user_service_timeout_secs: u64,
 }
 
+impl ServerConfig {
+    /// Validate server configuration
+    pub fn validate(&self) -> Result<(), ValidationError> {
+        // Validate HTTP address
+        validate_socket_addr(&self.http_addr, "http_addr")?;
+        
+        // Validate gRPC address
+        validate_socket_addr(&self.grpc_addr, "grpc_addr")?;
+        
+        // Validate metrics address
+        validate_socket_addr(&self.metrics_addr, "metrics_addr")?;
+        
+        // Validate request timeout
+        if self.request_timeout_secs == 0 {
+            return Err(ValidationError {
+                message: "request_timeout_secs must be greater than 0".to_string(),
+            });
+        }
+        
+        Ok(())
+    }
+}
+
 impl Default for ServerConfig {
     fn default() -> Self {
         Self {
@@ -84,6 +128,42 @@ impl Default for ServerConfig {
             metrics_addr: "0.0.0.0:9090".to_string(),
             request_timeout_secs: 30,
         }
+    }
+}
+
+impl DatabaseConfig {
+    /// Validate database configuration
+    pub fn validate(&self) -> Result<(), ValidationError> {
+        // Validate connection pool size
+        if self.max_connections < self.min_connections {
+            return Err(ValidationError {
+                message: format!(
+                    "database.max_connections ({}) must be greater than or equal to min_connections ({})",
+                    self.max_connections, self.min_connections
+                ),
+            });
+        }
+        
+        if self.max_connections == 0 {
+            return Err(ValidationError {
+                message: "database.max_connections must be greater than 0".to_string(),
+            });
+        }
+        
+        // Validate timeouts
+        if self.acquire_timeout_secs == 0 {
+            return Err(ValidationError {
+                message: "database.acquire_timeout_secs must be greater than 0".to_string(),
+            });
+        }
+        
+        if self.idle_timeout_secs == 0 {
+            return Err(ValidationError {
+                message: "database.idle_timeout_secs must be greater than 0".to_string(),
+            });
+        }
+        
+        Ok(())
     }
 }
 
@@ -99,6 +179,27 @@ impl Default for DatabaseConfig {
     }
 }
 
+impl RedisConfig {
+    /// Validate Redis configuration
+    pub fn validate(&self) -> Result<(), ValidationError> {
+        // Validate pool size
+        if self.pool_size == 0 {
+            return Err(ValidationError {
+                message: "redis.pool_size must be greater than 0".to_string(),
+            });
+        }
+        
+        // Validate connection timeout
+        if self.connection_timeout_secs == 0 {
+            return Err(ValidationError {
+                message: "redis.connection_timeout_secs must be greater than 0".to_string(),
+            });
+        }
+        
+        Ok(())
+    }
+}
+
 impl Default for RedisConfig {
     fn default() -> Self {
         Self {
@@ -106,6 +207,59 @@ impl Default for RedisConfig {
             pool_size: 10,
             connection_timeout_secs: 5,
         }
+    }
+}
+
+impl JwtConfig {
+    /// Validate JWT configuration
+    pub fn validate(&self) -> Result<(), ValidationError> {
+        // Validate key paths are not empty
+        if self.private_key_path.trim().is_empty() {
+            return Err(ValidationError {
+                message: "jwt.private_key_path cannot be empty".to_string(),
+            });
+        }
+        
+        if self.public_key_path.trim().is_empty() {
+            return Err(ValidationError {
+                message: "jwt.public_key_path cannot be empty".to_string(),
+            });
+        }
+        
+        // Validate key_id is not empty
+        if self.key_id.trim().is_empty() {
+            return Err(ValidationError {
+                message: "jwt.key_id cannot be empty".to_string(),
+            });
+        }
+        
+        // Validate expiration times
+        if self.access_token_expiration_secs <= 0 {
+            return Err(ValidationError {
+                message: "jwt.access_token_expiration_secs must be greater than 0".to_string(),
+            });
+        }
+        
+        if self.refresh_token_expiration_secs <= 0 {
+            return Err(ValidationError {
+                message: "jwt.refresh_token_expiration_secs must be greater than 0".to_string(),
+            });
+        }
+        
+        // Validate issuer and audience are not empty
+        if self.issuer.trim().is_empty() {
+            return Err(ValidationError {
+                message: "jwt.issuer cannot be empty".to_string(),
+            });
+        }
+        
+        if self.audience.trim().is_empty() {
+            return Err(ValidationError {
+                message: "jwt.audience cannot be empty".to_string(),
+            });
+        }
+        
+        Ok(())
     }
 }
 
@@ -120,6 +274,73 @@ impl Default for JwtConfig {
             issuer: "koduck-auth".to_string(),
             audience: "koduck".to_string(),
         }
+    }
+}
+
+impl SecurityConfig {
+    /// Validate security configuration
+    pub fn validate(&self) -> Result<(), ValidationError> {
+        // Validate Argon2 parameters
+        // Memory cost should be at least 1024 (1MB)
+        if self.argon2_memory_cost < 1024 {
+            return Err(ValidationError {
+                message: format!(
+                    "security.argon2_memory_cost ({}) must be at least 1024 (1MB)",
+                    self.argon2_memory_cost
+                ),
+            });
+        }
+        
+        // Time cost should be at least 1
+        if self.argon2_time_cost < 1 {
+            return Err(ValidationError {
+                message: "security.argon2_time_cost must be at least 1".to_string(),
+            });
+        }
+        
+        // Parallelism should be between 1 and 255
+        if self.argon2_parallelism < 1 || self.argon2_parallelism > 255 {
+            return Err(ValidationError {
+                message: "security.argon2_parallelism must be between 1 and 255".to_string(),
+            });
+        }
+        
+        // Validate login attempt configuration
+        if self.max_login_attempts < 1 {
+            return Err(ValidationError {
+                message: "security.max_login_attempts must be at least 1".to_string(),
+            });
+        }
+        
+        if self.lockout_duration_minutes <= 0 {
+            return Err(ValidationError {
+                message: "security.lockout_duration_minutes must be greater than 0".to_string(),
+            });
+        }
+        
+        // Validate password length configuration
+        if self.password_min_length < 1 {
+            return Err(ValidationError {
+                message: "security.password_min_length must be at least 1".to_string(),
+            });
+        }
+        
+        if self.password_max_length > 128 {
+            return Err(ValidationError {
+                message: "security.password_max_length must not exceed 128".to_string(),
+            });
+        }
+        
+        if self.password_min_length >= self.password_max_length {
+            return Err(ValidationError {
+                message: format!(
+                    "security.password_min_length ({}) must be less than password_max_length ({})",
+                    self.password_min_length, self.password_max_length
+                ),
+            });
+        }
+        
+        Ok(())
     }
 }
 
@@ -139,6 +360,27 @@ impl Default for SecurityConfig {
     }
 }
 
+impl ClientConfig {
+    /// Validate client configuration
+    pub fn validate(&self) -> Result<(), ValidationError> {
+        // Validate service URL is not empty
+        if self.user_service_url.trim().is_empty() {
+            return Err(ValidationError {
+                message: "client.user_service_url cannot be empty".to_string(),
+            });
+        }
+        
+        // Validate timeout
+        if self.user_service_timeout_secs == 0 {
+            return Err(ValidationError {
+                message: "client.user_service_timeout_secs must be greater than 0".to_string(),
+            });
+        }
+        
+        Ok(())
+    }
+}
+
 impl Default for ClientConfig {
     fn default() -> Self {
         Self {
@@ -151,6 +393,13 @@ impl Default for ClientConfig {
 impl Config {
     /// Load configuration from environment variables and config files
     pub fn from_env() -> Result<Self, ConfigError> {
+        let config = Self::load()?;
+        config.validate()?;
+        Ok(config)
+    }
+    
+    /// Load configuration without validation (for testing)
+    fn load() -> Result<Self, ConfigError> {
         // Load .env file if exists
         let _ = dotenvy::dotenv();
 
@@ -195,6 +444,17 @@ impl Config {
 
         config.try_deserialize()
     }
+    
+    /// Validate all configuration
+    pub fn validate(&self) -> Result<(), ValidationError> {
+        self.server.validate()?;
+        self.database.validate()?;
+        self.redis.validate()?;
+        self.jwt.validate()?;
+        self.security.validate()?;
+        self.client.validate()?;
+        Ok(())
+    }
 
     /// Get database URL (exposed for connection pool creation)
     pub fn database_url(&self) -> &str {
@@ -215,5 +475,194 @@ impl fmt::Display for Config {
             "Config {{ server: {:?}, database: ***, redis: ***, jwt: {:?}, security: ***, client: {:?} }}",
             self.server, self.jwt, self.client
         )
+    }
+}
+
+/// Validate socket address string
+/// 
+/// Validates that the address is in the format "ip:port" and the port is in valid range (1-65535)
+fn validate_socket_addr(addr: &str, field_name: &str) -> Result<(), ValidationError> {
+    // Parse the socket address
+    match addr.parse::<SocketAddr>() {
+        Ok(socket_addr) => {
+            // Check port is in valid range (parse already ensures it's 1-65535)
+            let port = socket_addr.port();
+            if port == 0 {
+                return Err(ValidationError {
+                    message: format!("{}.port cannot be 0", field_name),
+                });
+            }
+            Ok(())
+        }
+        Err(e) => Err(ValidationError {
+            message: format!("{} ('{}') is not a valid socket address: {}", field_name, addr, e),
+        }),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_validate_socket_addr_valid() {
+        assert!(validate_socket_addr("0.0.0.0:8081", "http_addr").is_ok());
+        assert!(validate_socket_addr("127.0.0.1:50051", "grpc_addr").is_ok());
+        assert!(validate_socket_addr("[::1]:9090", "metrics_addr").is_ok());
+    }
+
+    #[test]
+    fn test_validate_socket_addr_invalid_port() {
+        let result = validate_socket_addr("0.0.0.0:0", "http_addr");
+        assert!(result.is_ok()); // SocketAddr allows port 0, but we might want to reject it
+        
+        let result = validate_socket_addr("0.0.0.0:99999", "http_addr");
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_validate_socket_addr_invalid_format() {
+        let result = validate_socket_addr("not-an-address", "http_addr");
+        assert!(result.is_err());
+        
+        let result = validate_socket_addr("0.0.0.0", "http_addr"); // Missing port
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_server_config_valid() {
+        let config = ServerConfig::default();
+        assert!(config.validate().is_ok());
+    }
+
+    #[test]
+    fn test_server_config_invalid_timeout() {
+        let config = ServerConfig {
+            request_timeout_secs: 0,
+            ..ServerConfig::default()
+        };
+        let result = config.validate();
+        assert!(result.is_err());
+        assert!(result.unwrap_err().message.contains("request_timeout_secs"));
+    }
+
+    #[test]
+    fn test_database_config_valid() {
+        let config = DatabaseConfig::default();
+        assert!(config.validate().is_ok());
+    }
+
+    #[test]
+    fn test_database_config_invalid_pool_size() {
+        let config = DatabaseConfig {
+            max_connections: 5,
+            min_connections: 10, // min > max
+            ..DatabaseConfig::default()
+        };
+        let result = config.validate();
+        assert!(result.is_err());
+        assert!(result.unwrap_err().message.contains("max_connections"));
+    }
+
+    #[test]
+    fn test_jwt_config_valid() {
+        let config = JwtConfig::default();
+        assert!(config.validate().is_ok());
+    }
+
+    #[test]
+    fn test_jwt_config_empty_key_path() {
+        let config = JwtConfig {
+            private_key_path: "".to_string(),
+            ..JwtConfig::default()
+        };
+        let result = config.validate();
+        assert!(result.is_err());
+        assert!(result.unwrap_err().message.contains("private_key_path"));
+    }
+
+    #[test]
+    fn test_jwt_config_invalid_expiration() {
+        let config = JwtConfig {
+            access_token_expiration_secs: -1,
+            ..JwtConfig::default()
+        };
+        let result = config.validate();
+        assert!(result.is_err());
+        assert!(result.unwrap_err().message.contains("access_token_expiration_secs"));
+    }
+
+    #[test]
+    fn test_security_config_valid() {
+        let config = SecurityConfig::default();
+        assert!(config.validate().is_ok());
+    }
+
+    #[test]
+    fn test_security_config_invalid_argon2_memory() {
+        let config = SecurityConfig {
+            argon2_memory_cost: 512, // Less than 1024
+            ..SecurityConfig::default()
+        };
+        let result = config.validate();
+        assert!(result.is_err());
+        assert!(result.unwrap_err().message.contains("argon2_memory_cost"));
+    }
+
+    #[test]
+    fn test_security_config_invalid_argon2_parallelism() {
+        let config = SecurityConfig {
+            argon2_parallelism: 0,
+            ..SecurityConfig::default()
+        };
+        let result = config.validate();
+        assert!(result.is_err());
+        assert!(result.unwrap_err().message.contains("argon2_parallelism"));
+    }
+
+    #[test]
+    fn test_security_config_invalid_password_length() {
+        let config = SecurityConfig {
+            password_min_length: 100,
+            password_max_length: 50, // min > max
+            ..SecurityConfig::default()
+        };
+        let result = config.validate();
+        assert!(result.is_err());
+        assert!(result.unwrap_err().message.contains("password_min_length"));
+    }
+
+    #[test]
+    fn test_redis_config_valid() {
+        let config = RedisConfig::default();
+        assert!(config.validate().is_ok());
+    }
+
+    #[test]
+    fn test_redis_config_invalid_pool_size() {
+        let config = RedisConfig {
+            pool_size: 0,
+            ..RedisConfig::default()
+        };
+        let result = config.validate();
+        assert!(result.is_err());
+        assert!(result.unwrap_err().message.contains("pool_size"));
+    }
+
+    #[test]
+    fn test_client_config_valid() {
+        let config = ClientConfig::default();
+        assert!(config.validate().is_ok());
+    }
+
+    #[test]
+    fn test_client_config_empty_url() {
+        let config = ClientConfig {
+            user_service_url: "".to_string(),
+            ..ClientConfig::default()
+        };
+        let result = config.validate();
+        assert!(result.is_err());
+        assert!(result.unwrap_err().message.contains("user_service_url"));
     }
 }
