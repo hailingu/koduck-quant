@@ -1,6 +1,5 @@
-import { createBrowserRouter } from "react-router";
+import { createBrowserRouter, Navigate } from "react-router";
 import { Layout } from "./components/Layout";
-import { KoduckAi } from "./components/KoduckAi";
 import { PortfolioPage } from "./components/PortfolioPage";
 import { KLinePage } from "./components/KLinePage";
 import { LoginPage } from "./components/LoginPage";
@@ -12,7 +11,7 @@ export const router = createBrowserRouter([
   },
   {
     path: "/",
-    element: <Layout><KoduckAi /></Layout>,
+    element: <Navigate to="/login" replace />,
   },
   {
     path: "/portfolio",
