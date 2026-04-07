@@ -6,7 +6,7 @@ use tracing::{error, info};
 
 use koduck_auth::{
     config::Config,
-    grpc::{create_grpc_services, proto::auth_service_server::AuthServiceServer},
+    grpc::create_grpc_services,
     http::create_router,
     init_state,
     repository::{RedisCache, RefreshTokenRepository, UserRepository},
@@ -41,7 +41,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Create HTTP service
     let http_addr: SocketAddr = config.server.http_addr.parse()?;
     let http_listener = TcpListener::bind(http_addr).await?;
-    let http_app = create_router(Arc::new(state));
+    let http_app = create_router(state);
 
     // Create gRPC services
     let grpc_addr: SocketAddr = config.server.grpc_addr.parse()?;
