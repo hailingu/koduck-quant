@@ -31,6 +31,9 @@ TestResults.xml
 # Environment files
 .env
 .env.*
+!.env.example
+!.env.*.template
+!k8s/.env.template
 
 # Python cache
 __pycache__/

@@ -36,6 +36,19 @@ fi
 
 NAMESPACE="koduck-${ENV}"
 
+# 加载环境变量文件
+ENV_FILE="${SCRIPT_DIR}/.env.${ENV}"
+if [ -f "$ENV_FILE" ]; then
+    set -a
+    source "$ENV_FILE"
+    set +a
+    echo -e "${GREEN}✓ 已加载 ${ENV_FILE}${NC}"
+else
+    echo -e "${RED}错误: 环境变量文件不存在: ${ENV_FILE}${NC}"
+    echo -e "${YELLOW}请从模板创建: cp ${SCRIPT_DIR}/.env.template ${ENV_FILE}${NC}"
+    exit 1
+fi
+
 echo -e "${BLUE}========================================${NC}"
 echo -e "${BLUE}  Koduck APISIX 部署工具${NC}"
 echo -e "${BLUE}  环境: ${ENV}${NC}"
@@ -103,7 +116,19 @@ install() {
     echo -e "${YELLOW}部署 APISIX (${ENV} 环境)...${NC}"
 
     ensure_namespace_ready
-    
+
+    # 检查必要的环境变量
+    if [ -z "$JWT_SECRET" ]; then
+        echo -e "${RED}错误: JWT_SECRET 未设置，请在 ${ENV_FILE} 中配置${NC}"
+        exit 1
+    fi
+
+    # 创建 JWT Secret（动态注入，不在 YAML 中硬编码）
+    kubectl create secret generic jwt-secret \
+        --from-literal=jwt-secret="$JWT_SECRET" \
+        -n "${NAMESPACE}" \
+        --dry-run=client -o yaml | kubectl apply -f -
+
     # 使用 kustomize 部署
     if command -v kustomize &> /dev/null; then
         kustomize build --load-restrictor=LoadRestrictionsNone "${SCRIPT_DIR}/overlays/${ENV}" | kubectl apply -f -
