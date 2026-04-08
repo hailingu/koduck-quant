@@ -13,5 +13,5 @@ pub mod proto {
 }
 
 pub use auth_service::GrpcAuthService;
-pub use server::{create_grpc_services, create_and_run_grpc_server, GrpcServer};
+pub use server::{create_and_run_grpc_server, create_and_run_grpc_server_with_shutdown, GrpcServer};
 pub use token_service::GrpcTokenService;

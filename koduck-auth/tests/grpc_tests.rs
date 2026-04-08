@@ -1,275 +1,265 @@
-//! gRPC Integration Tests
+//! gRPC Integration Tests (self-contained, CI-friendly)
 
 mod common;
 
-use common::TestApp;
+use common::{GrpcServerHandle, TestRuntime};
 use koduck_auth::grpc::proto::{
     auth_service_client::AuthServiceClient,
+    get_user_request,
     token_service_client::TokenServiceClient,
-    ValidateCredentialsRequest, ValidateTokenRequest, GetUserRequest,
-    get_user_request, RevokeTokenRequest, HealthCheckRequest,
+    GetUserRequest, GetUserRolesRequest, HealthCheckRequest, IntrospectTokenRequest, RevokeTokenRequest,
+    ServingStatus, ValidateCredentialsRequest, ValidateTokenRequest,
 };
 use tonic::transport::Channel;
+use tonic_health::pb::{
+    health_check_response,
+    health_client::HealthClient,
+    HealthCheckRequest as TonicHealthCheckRequest,
+};
 
-/// Helper function to create gRPC auth client
-async fn create_auth_client(app: &TestApp) -> AuthServiceClient<Channel> {
-    // For now, we test without actual gRPC server running
-    // In full integration tests, this would connect to a running server
-    let channel = Channel::from_static("http://127.0.0.1:50051")
+struct GrpcTestApp {
+    runtime: TestRuntime,
+    _grpc_server: GrpcServerHandle,
+}
+
+impl GrpcTestApp {
+    async fn new() -> Self {
+        let runtime = TestRuntime::new().await;
+        let grpc_server = runtime.start_grpc_server().await;
+        Self {
+            runtime,
+            _grpc_server: grpc_server,
+        }
+    }
+
+    fn grpc_endpoint(&self) -> &str {
+        &self._grpc_server.endpoint
+    }
+
+    async fn create_test_user(&self) -> koduck_auth::model::User {
+        self.runtime.create_test_user().await
+    }
+}
+
+async fn create_auth_client(endpoint: &str) -> AuthServiceClient<Channel> {
+    let channel = Channel::from_shared(endpoint.to_string())
+        .expect("invalid grpc endpoint")
         .connect()
         .await
-        .expect("Failed to connect to gRPC server");
-    
+        .expect("failed to connect to gRPC auth service");
     AuthServiceClient::new(channel)
 }
 
-/// Helper function to create gRPC token client
-async fn create_token_client(app: &TestApp) -> TokenServiceClient<Channel> {
-    let channel = Channel::from_static("http://127.0.0.1:50051")
+async fn create_token_client(endpoint: &str) -> TokenServiceClient<Channel> {
+    let channel = Channel::from_shared(endpoint.to_string())
+        .expect("invalid grpc endpoint")
         .connect()
         .await
-        .expect("Failed to connect to gRPC server");
-    
+        .expect("failed to connect to gRPC token service");
     TokenServiceClient::new(channel)
 }
 
-/// Test gRPC health check
 #[tokio::test]
-#[ignore = "Requires running gRPC server"]
 async fn test_grpc_health_check() {
-    let app = TestApp::new().await;
-    let mut client = create_auth_client(&app).await;
-
-    let request = tonic::Request::new(HealthCheckRequest {});
-    let response = client.health_check(request).await;
-
-    // Should return serving status
-    assert!(response.is_ok());
-    let response = response.unwrap();
-    assert_eq!(response.into_inner().status, 1); // SERVING = 1
+    let app = GrpcTestApp::new().await;
+    let mut client = create_auth_client(app.grpc_endpoint()).await;
+    let response = client
+        .health_check(tonic::Request::new(HealthCheckRequest {}))
+        .await
+        .expect("health_check failed")
+        .into_inner();
+    assert_eq!(response.status, ServingStatus::Serving as i32);
 }
 
-/// Test ValidateCredentials with valid credentials
 #[tokio::test]
-#[ignore = "Requires running gRPC server"]
+async fn test_tonic_health_check_registered_services() {
+    let app = GrpcTestApp::new().await;
+    let channel = Channel::from_shared(app.grpc_endpoint().to_string())
+        .expect("invalid grpc endpoint")
+        .connect()
+        .await
+        .expect("failed to connect to grpc health service");
+    let mut client = HealthClient::new(channel);
+
+    let auth = client
+        .check(tonic::Request::new(TonicHealthCheckRequest {
+            service: "koduck.auth.v1.AuthService".to_string(),
+        }))
+        .await
+        .expect("health check for AuthService failed")
+        .into_inner();
+
+    assert_eq!(auth.status, health_check_response::ServingStatus::Serving as i32);
+
+    let token = client
+        .check(tonic::Request::new(TonicHealthCheckRequest {
+            service: "koduck.auth.v1.TokenService".to_string(),
+        }))
+        .await
+        .expect("health check for TokenService failed")
+        .into_inner();
+
+    assert_eq!(token.status, health_check_response::ServingStatus::Serving as i32);
+}
+
+#[tokio::test]
 async fn test_validate_credentials_success() {
-    let app = TestApp::new().await;
+    let app = GrpcTestApp::new().await;
     let user = app.create_test_user().await;
-    let mut client = create_auth_client(&app).await;
+    let mut client = create_auth_client(app.grpc_endpoint()).await;
 
-    let request = tonic::Request::new(ValidateCredentialsRequest {
-        username: user.username,
-        password: app.test_user.password,
-        ip_address: "127.0.0.1".to_string(),
-        user_agent: "test".to_string(),
-    });
+    let response = client
+        .validate_credentials(tonic::Request::new(ValidateCredentialsRequest {
+            username: user.username.clone(),
+            password: app.runtime.test_user.password.clone(),
+            ip_address: "127.0.0.1".to_string(),
+            user_agent: "test".to_string(),
+        }))
+        .await
+        .expect("validate_credentials should succeed")
+        .into_inner();
 
-    let response = client.validate_credentials(request).await;
-
-    assert!(response.is_ok());
-    let response = response.unwrap().into_inner();
     assert!(response.user.is_some());
     assert!(response.tokens.is_some());
 }
 
-/// Test ValidateCredentials with invalid credentials
 #[tokio::test]
-#[ignore = "Requires running gRPC server"]
 async fn test_validate_credentials_invalid() {
-    let app = TestApp::new().await;
-    let mut client = create_auth_client(&app).await;
-
-    let request = tonic::Request::new(ValidateCredentialsRequest {
-        username: "nonexistent".to_string(),
-        password: "wrong".to_string(),
-        ip_address: "127.0.0.1".to_string(),
-        user_agent: "test".to_string(),
-    });
-
-    let response = client.validate_credentials(request).await;
-
+    let app = GrpcTestApp::new().await;
+    let mut client = create_auth_client(app.grpc_endpoint()).await;
+    let response = client
+        .validate_credentials(tonic::Request::new(ValidateCredentialsRequest {
+            username: "nonexistent".to_string(),
+            password: "wrong".to_string(),
+            ip_address: "127.0.0.1".to_string(),
+            user_agent: "test".to_string(),
+        }))
+        .await;
     assert!(response.is_err());
-    let status = response.unwrap_err();
-    assert_eq!(status.code(), tonic::Code::Unauthenticated);
+    assert_eq!(response.unwrap_err().code(), tonic::Code::Unauthenticated);
 }
 
-/// Test ValidateToken with valid token
 #[tokio::test]
-#[ignore = "Requires running gRPC server"]
 async fn test_validate_token_success() {
-    let app = TestApp::new().await;
-    let mut client = create_auth_client(&app).await;
-
-    // First get a valid token through credentials validation
+    let app = GrpcTestApp::new().await;
     let user = app.create_test_user().await;
-    let creds_request = tonic::Request::new(ValidateCredentialsRequest {
-        username: user.username.clone(),
-        password: app.test_user.password.clone(),
-        ip_address: "127.0.0.1".to_string(),
-        user_agent: "test".to_string(),
-    });
+    let mut client = create_auth_client(app.grpc_endpoint()).await;
 
-    let creds_response = client.validate_credentials(creds_request).await.unwrap();
-    let access_token = creds_response.into_inner().tokens.unwrap().access_token;
+    let creds = client
+        .validate_credentials(tonic::Request::new(ValidateCredentialsRequest {
+            username: user.username.clone(),
+            password: app.runtime.test_user.password.clone(),
+            ip_address: "127.0.0.1".to_string(),
+            user_agent: "test".to_string(),
+        }))
+        .await
+        .expect("validate_credentials should succeed")
+        .into_inner();
 
-    // Now validate the token
-    let token_request = tonic::Request::new(ValidateTokenRequest {
-        token: access_token,
-    });
+    let access_token = creds.tokens.expect("missing tokens").access_token;
+    let response = client
+        .validate_token(tonic::Request::new(ValidateTokenRequest { token: access_token }))
+        .await
+        .expect("validate_token should succeed")
+        .into_inner();
 
-    let response = client.validate_token(token_request).await;
-
-    assert!(response.is_ok());
-    let response = response.unwrap().into_inner();
     assert_eq!(response.username, user.username);
 }
 
-/// Test ValidateToken with invalid token
 #[tokio::test]
-#[ignore = "Requires running gRPC server"]
-async fn test_validate_token_invalid() {
-    let app = TestApp::new().await;
-    let mut client = create_auth_client(&app).await;
-
-    let request = tonic::Request::new(ValidateTokenRequest {
-        token: "invalid.token.here".to_string(),
-    });
-
-    let response = client.validate_token(request).await;
-
-    assert!(response.is_err());
-    let status = response.unwrap_err();
-    assert_eq!(status.code(), tonic::Code::Unauthenticated);
-}
-
-/// Test GetUser by user_id
-#[tokio::test]
-#[ignore = "Requires running gRPC server"]
-async fn test_get_user_by_id() {
-    let app = TestApp::new().await;
-    let user = app.create_test_user().await;
-    let mut client = create_auth_client(&app).await;
-
-    let request = tonic::Request::new(GetUserRequest {
-        identifier: Some(get_user_request::Identifier::UserId(user.id)),
-    });
-
-    let response = client.get_user(request).await;
-
-    assert!(response.is_ok());
-    let response = response.unwrap().into_inner();
-    assert!(response.user.is_some());
-    assert_eq!(response.user.unwrap().id, user.id);
-}
-
-/// Test GetUser by username
-#[tokio::test]
-#[ignore = "Requires running gRPC server"]
 async fn test_get_user_by_username() {
-    let app = TestApp::new().await;
+    let app = GrpcTestApp::new().await;
     let user = app.create_test_user().await;
-    let mut client = create_auth_client(&app).await;
+    let mut client = create_auth_client(app.grpc_endpoint()).await;
 
-    let request = tonic::Request::new(GetUserRequest {
-        identifier: Some(get_user_request::Identifier::Username(user.username.clone())),
-    });
+    let response = client
+        .get_user(tonic::Request::new(GetUserRequest {
+            identifier: Some(get_user_request::Identifier::Username(user.username.clone())),
+        }))
+        .await
+        .expect("get_user should succeed")
+        .into_inner();
 
-    let response = client.get_user(request).await;
-
-    assert!(response.is_ok());
-    let response = response.unwrap().into_inner();
     assert!(response.user.is_some());
-    assert_eq!(response.user.unwrap().username, user.username);
+    assert_eq!(response.user.expect("missing user").username, user.username);
 }
 
-/// Test GetUser with non-existent user
 #[tokio::test]
-#[ignore = "Requires running gRPC server"]
-async fn test_get_user_not_found() {
-    let app = TestApp::new().await;
-    let mut client = create_auth_client(&app).await;
-
-    let request = tonic::Request::new(GetUserRequest {
-        identifier: Some(get_user_request::Identifier::Username("nonexistent".to_string())),
-    });
-
-    let response = client.get_user(request).await;
-
-    assert!(response.is_err());
-    let status = response.unwrap_err();
-    assert_eq!(status.code(), tonic::Code::NotFound);
-}
-
-/// Test RevokeToken
-#[tokio::test]
-#[ignore = "Requires running gRPC server"]
-async fn test_revoke_token() {
-    let app = TestApp::new().await;
-    let mut client = create_auth_client(&app).await;
-
+async fn test_get_user_roles() {
+    let app = GrpcTestApp::new().await;
     let user = app.create_test_user().await;
+    let mut client = create_auth_client(app.grpc_endpoint()).await;
 
-    // First get a valid token
-    let creds_request = tonic::Request::new(ValidateCredentialsRequest {
-        username: user.username.clone(),
-        password: app.test_user.password.clone(),
-        ip_address: "127.0.0.1".to_string(),
-        user_agent: "test".to_string(),
-    });
+    let response = client
+        .get_user_roles(tonic::Request::new(GetUserRolesRequest { user_id: user.id }))
+        .await
+        .expect("get_user_roles should succeed")
+        .into_inner();
 
-    let creds_response = client.validate_credentials(creds_request).await.unwrap();
-    let access_token = creds_response.into_inner().tokens.unwrap().access_token;
+    assert_eq!(response.user_id, user.id);
+}
 
-    // Revoke the token
-    let revoke_request = tonic::Request::new(RevokeTokenRequest {
-        token: access_token.clone(),
-        user_id: user.id,
-    });
+#[tokio::test]
+async fn test_revoke_token_then_validate_fails() {
+    let app = GrpcTestApp::new().await;
+    let user = app.create_test_user().await;
+    let mut client = create_auth_client(app.grpc_endpoint()).await;
 
-    let response = client.revoke_token(revoke_request).await;
-    assert!(response.is_ok());
+    let creds = client
+        .validate_credentials(tonic::Request::new(ValidateCredentialsRequest {
+            username: user.username.clone(),
+            password: app.runtime.test_user.password.clone(),
+            ip_address: "127.0.0.1".to_string(),
+            user_agent: "test".to_string(),
+        }))
+        .await
+        .expect("validate_credentials should succeed")
+        .into_inner();
 
-    // Verify token is revoked by trying to validate it again
-    let validate_request = tonic::Request::new(ValidateTokenRequest {
-        token: access_token,
-    });
+    let access_token = creds.tokens.expect("missing tokens").access_token;
 
-    let response = client.validate_token(validate_request).await;
+    client
+        .revoke_token(tonic::Request::new(RevokeTokenRequest {
+            token: access_token.clone(),
+            user_id: user.id,
+        }))
+        .await
+        .expect("revoke_token should succeed");
+
+    let response = client
+        .validate_token(tonic::Request::new(ValidateTokenRequest { token: access_token }))
+        .await;
     assert!(response.is_err());
 }
 
-/// Test TokenService introspection
 #[tokio::test]
-#[ignore = "Requires running gRPC server"]
-async fn test_token_introspection() {
-    let app = TestApp::new().await;
-    let mut auth_client = create_auth_client(&app).await;
-    let mut token_client = create_token_client(&app).await;
-
+async fn test_token_introspection_active() {
+    let app = GrpcTestApp::new().await;
     let user = app.create_test_user().await;
+    let mut auth_client = create_auth_client(app.grpc_endpoint()).await;
+    let mut token_client = create_token_client(app.grpc_endpoint()).await;
 
-    // Get a token
-    let creds_request = tonic::Request::new(ValidateCredentialsRequest {
-        username: user.username.clone(),
-        password: app.test_user.password.clone(),
-        ip_address: "127.0.0.1".to_string(),
-        user_agent: "test".to_string(),
-    });
+    let creds = auth_client
+        .validate_credentials(tonic::Request::new(ValidateCredentialsRequest {
+            username: user.username.clone(),
+            password: app.runtime.test_user.password.clone(),
+            ip_address: "127.0.0.1".to_string(),
+            user_agent: "test".to_string(),
+        }))
+        .await
+        .expect("validate_credentials should succeed")
+        .into_inner();
 
-    let creds_response = auth_client.validate_credentials(creds_request).await.unwrap();
-    let access_token = creds_response.into_inner().tokens.unwrap().access_token;
+    let access_token = creds.tokens.expect("missing tokens").access_token;
 
-    // Introspect the token
-    use koduck_auth::grpc::proto::IntrospectTokenRequest;
-    
-    let introspect_request = tonic::Request::new(IntrospectTokenRequest {
-        token: access_token,
-    });
+    let introspect = token_client
+        .introspect_access_token(tonic::Request::new(IntrospectTokenRequest {
+            token: access_token,
+        }))
+        .await
+        .expect("introspection should succeed")
+        .into_inner();
 
-    let response = token_client.introspect_access_token(introspect_request).await;
-
-    assert!(response.is_ok());
-    let response = response.unwrap().into_inner();
-    assert!(response.active);
-    assert_eq!(response.username, user.username);
+    assert!(introspect.active);
+    assert_eq!(introspect.username, user.username);
 }

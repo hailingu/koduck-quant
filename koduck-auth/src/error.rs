@@ -6,7 +6,6 @@ use axum::{
     Json,
 };
 use serde::Serialize;
-use serde_json::json;
 use thiserror::Error;
 use tonic::Status;
 use tracing::error;
@@ -63,8 +62,13 @@ pub struct ErrorResponse {
     pub success: bool,
     pub code: String,
     pub message: String,
+    pub timestamp: String,
+    pub error_id: String,
+    pub retryable: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub timestamp: Option<String>,
+    pub request_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub path: Option<String>,
 }
 
 impl AppError {
@@ -121,6 +125,14 @@ impl AppError {
             _ => self.to_string(),
         }
     }
+
+    /// Whether client may safely retry this error.
+    pub fn is_retryable(&self) -> bool {
+        matches!(
+            self,
+            AppError::ServiceUnavailable(_) | AppError::TooManyRequests(_) | AppError::Io(_)
+        )
+    }
 }
 
 impl IntoResponse for AppError {
@@ -154,12 +166,16 @@ impl IntoResponse for AppError {
             }
         }
 
-        let body = Json(json!({
-            "success": false,
-            "code": code,
-            "message": message,
-            "timestamp": chrono::Utc::now().to_rfc3339(),
-        }));
+        let body = Json(ErrorResponse {
+            success: false,
+            code,
+            message,
+            timestamp: chrono::Utc::now().to_rfc3339(),
+            error_id: uuid::Uuid::new_v4().to_string(),
+            retryable: self.is_retryable(),
+            request_id: None,
+            path: None,
+        });
 
         (status, body).into_response()
     }

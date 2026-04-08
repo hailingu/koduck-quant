@@ -7,12 +7,17 @@ use axum::{
 use serde_json::Value;
 use std::sync::Arc;
 
-use crate::{error::Result, state::AppState};
+use crate::{
+    crypto::load_public_key,
+    error::Result,
+    jwt::JwksService,
+    state::AppState,
+};
 
 /// Get JWKS endpoint
-pub async fn get_jwks(State(_state): State<Arc<AppState>>) -> Result<Json<Value>> {
-    // TODO: Return JWKS from service
-    Ok(Json(serde_json::json!({
-        "keys": []
-    })))
+pub async fn get_jwks(State(state): State<Arc<AppState>>) -> Result<Json<Value>> {
+    let public_key = load_public_key(&state.config().jwt.public_key_path).await?;
+    let jwks_service = JwksService::new(&public_key, state.config().jwt.key_id.clone())?;
+    let jwks = jwks_service.get_jwks()?;
+    Ok(Json(jwks))
 }

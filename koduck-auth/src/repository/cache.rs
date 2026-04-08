@@ -103,18 +103,3 @@ impl RedisCache {
         }
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    // Note: These tests require a running Redis instance
-    // Use #[ignore] to skip by default in CI
-
-    #[tokio::test]
-    #[ignore = "Requires Redis server"]
-    async fn test_ping() {
-        // This test would need a real Redis pool to work
-        // For integration tests, consider using testcontainers-redis
-    }
-}
