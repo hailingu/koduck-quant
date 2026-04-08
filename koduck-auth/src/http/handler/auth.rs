@@ -2,6 +2,7 @@
 
 use axum::{
     extract::{ConnectInfo, State},
+    http::{header::USER_AGENT, HeaderMap},
     Json,
 };
 use std::net::SocketAddr;
@@ -21,14 +22,19 @@ use crate::{
 pub async fn login(
     State(state): State<Arc<AppState>>,
     ConnectInfo(addr): ConnectInfo<SocketAddr>,
+    headers: HeaderMap,
     Json(req): Json<LoginRequest>,
 ) -> Result<Json<ApiResponse<TokenResponse>>> {
     let ip = addr.ip().to_string();
-    let user_agent = ""; // TODO: Extract from headers
+    let user_agent = headers
+        .get(USER_AGENT)
+        .and_then(|h| h.to_str().ok())
+        .unwrap_or("")
+        .to_string();
 
     // TODO: Implement login logic using auth service
     let _ = (state, req, ip, user_agent);
-    
+
     Err(AppError::Internal("Not implemented".to_string()))
 }
 
