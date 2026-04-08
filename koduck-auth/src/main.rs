@@ -42,7 +42,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         state.jwt_service().clone(),
         state.db_pool().clone(),
         config.clone(),
-    );
+    )?;
     let token_service_impl = TokenServiceImpl::new(token_repo, redis);
 
     // Create HTTP service

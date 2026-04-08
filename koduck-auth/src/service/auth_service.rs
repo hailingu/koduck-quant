@@ -2,7 +2,7 @@
 
 use crate::{
     config::Config,
-    crypto::password,
+    crypto::PasswordHasher,
     error::{AppError, Result},
     jwt::JwtService,
     model::{
@@ -24,6 +24,7 @@ pub struct AuthService {
     token_repo: RefreshTokenRepository,
     redis: RedisCache,
     jwt_service: JwtService,
+    password_hasher: PasswordHasher,
     db_pool: PgPool,
     config: Arc<Config>,
 }
@@ -37,15 +38,19 @@ impl AuthService {
         jwt_service: JwtService,
         db_pool: PgPool,
         config: Arc<Config>,
-    ) -> Self {
-        Self {
+    ) -> Result<Self> {
+        // Create password hasher with configured Argon2 parameters
+        let password_hasher = PasswordHasher::with_config(&config.security)?;
+
+        Ok(Self {
             user_repo,
             token_repo,
             redis,
             jwt_service,
+            password_hasher,
             db_pool,
             config,
-        }
+        })
     }
 
     /// Login user
@@ -67,7 +72,7 @@ impl AuthService {
             })?;
 
         // Verify password
-        if !password::verify_password(&req.password, &user.password_hash).await? {
+        if !self.password_hasher.verify_password(&req.password, &user.password_hash).await? {
             // Increment failed attempts
             let attempts = self.redis.incr_login_attempt(&ip).await?;
             
@@ -115,8 +120,8 @@ impl AuthService {
     /// Register new user
     /// Uses transaction to ensure atomicity of user creation and role assignment
     pub async fn register(&self, req: RegisterRequest) -> Result<TokenResponse> {
-        // Hash password
-        let password_hash = password::hash_password(&req.password).await?;
+        // Hash password with configured Argon2 parameters
+        let password_hash = self.password_hasher.hash_password(&req.password).await?;
 
         // Start transaction for atomic user creation and role assignment
         let mut tx = self.db_pool.begin().await.map_err(|e| {
