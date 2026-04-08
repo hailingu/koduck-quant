@@ -72,7 +72,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Create gRPC services
     let grpc_addr: SocketAddr = config.server.grpc_addr.parse()?;
-    let (auth_grpc_service, token_grpc_service) = create_grpc_services(
+    let (reflection_service, auth_grpc_service, token_grpc_service) = create_grpc_services(
         auth_service_impl,
         token_service_impl,
         user_repo,
@@ -91,6 +91,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
         }
         result = tonic::transport::Server::builder()
+            .add_service(reflection_service)
             .add_service(auth_grpc_service)
             .add_service(token_grpc_service)
             .serve(grpc_addr) => {
