@@ -2,7 +2,7 @@
 
 > 本文档基于 `docs/design/koduck-auth-user-service-design.md` 拆分，提供 step-by-step 可执行任务。
 >
-> **状态**: 待执行  
+> **状态**: 执行中
 > **创建日期**: 2026-04-08  
 > **对应设计文档**: [koduck-auth-user-service-design.md](../design/koduck-auth-user-service-design.md)
 
@@ -40,9 +40,9 @@
    - `dto/user`
 
 **验收标准:**
-- [ ] `koduck-user` 模块可被父工程识别并参与构建
-- [ ] 目录结构与设计文档 2.2 节一致
-- [ ] 模块启动类与基础配置可正常加载
+- [x] `koduck-user` 模块可被父工程识别并参与构建
+- [x] 目录结构与设计文档 2.2 节一致
+- [x] 模块启动类与基础配置可正常加载
 
 **参考文档:** 设计文档 2.2 节
 

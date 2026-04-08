@@ -31,6 +31,7 @@
         <module>koduck-community</module>
         <module>koduck-ai</module>
         <module>koduck-bootstrap</module>
+        <module>koduck-user</module>
     </modules>
 
     <properties>
@@ -182,6 +183,11 @@
             <dependency>
                 <groupId>com.koduck</groupId>
                 <artifactId>koduck-ai-impl</artifactId>
+                <version>${koduck.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.koduck</groupId>
+                <artifactId>koduck-user</artifactId>
                 <version>${koduck.version}</version>
             </dependency>
         </dependencies>
