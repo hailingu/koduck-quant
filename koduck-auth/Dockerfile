@@ -48,7 +48,8 @@ RUN --mount=type=cache,target=/usr/local/cargo/registry \
     --mount=type=cache,target=/app/target \
     touch src/main.rs && \
     cargo build --release --locked && \
-    cp /app/target/release/koduck-auth /app/koduck-auth
+    cp /app/target/release/koduck-auth /app/koduck-auth && \
+    strip --strip-all /app/koduck-auth
 
 # Stage 2: Runtime
 # Use Alpine for minimal image size (~7MB base vs ~30MB for debian-slim)
