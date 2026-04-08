@@ -7,6 +7,8 @@ use axum::{
 };
 use serde::Serialize;
 use std::sync::Arc;
+use tokio::time::{timeout, Duration};
+use tracing::{debug, warn};
 
 use crate::state::AppState;
 
@@ -34,7 +36,21 @@ pub async fn liveness() -> StatusCode {
 }
 
 /// Kubernetes readiness probe
-pub async fn readiness(State(_state): State<Arc<AppState>>) -> StatusCode {
-    // TODO: Check database and Redis connectivity
-    StatusCode::OK
+/// Checks Redis connectivity to ensure service can handle requests
+pub async fn readiness(State(state): State<Arc<AppState>>) -> StatusCode {
+    // Check Redis connectivity with timeout
+    match timeout(Duration::from_secs(2), state.redis_cache().ping()).await {
+        Ok(Ok(())) => {
+            debug!("Redis health check passed");
+            StatusCode::OK
+        }
+        Ok(Err(e)) => {
+            warn!("Redis health check failed: {}", e);
+            StatusCode::SERVICE_UNAVAILABLE
+        }
+        Err(_) => {
+            warn!("Redis health check timed out");
+            StatusCode::SERVICE_UNAVAILABLE
+        }
+    }
 }

@@ -87,4 +87,33 @@ impl RedisCache {
         let locked: bool = conn.exists(&key).await?;
         Ok(locked)
     }
+
+    /// Health check - ping Redis server
+    /// Returns Ok(()) if Redis is reachable and responsive
+    pub async fn ping(&self) -> Result<()> {
+        let mut conn = self.pool.get().await?;
+        let pong: String = redis::cmd("PING").query_async(&mut conn).await?;
+        if pong == "PONG" {
+            Ok(())
+        } else {
+            Err(crate::error::AppError::Internal(
+                format!("Unexpected Redis PING response: {}", pong)
+            ))
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // Note: These tests require a running Redis instance
+    // Use #[ignore] to skip by default in CI
+
+    #[tokio::test]
+    #[ignore = "Requires Redis server"]
+    async fn test_ping() {
+        // This test would need a real Redis pool to work
+        // For integration tests, consider using testcontainers-redis
+    }
 }

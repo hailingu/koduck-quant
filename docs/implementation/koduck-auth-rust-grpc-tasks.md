@@ -292,11 +292,11 @@ cargo build
    - `is_ip_locked(ip: &str) -> Result<bool, AppError>`
 
 **验收标准:**
-- [ ] Redis 连接池配置正确
-- [ ] 所有缓存操作封装完善
-- [ ] TTL 设置正确
-- [ ] 错误处理转换为 AppError
-- [ ] 支持连接池健康检查
+- [x] Redis 连接池配置正确
+- [x] 所有缓存操作封装完善
+- [x] TTL 设置正确
+- [x] 错误处理转换为 AppError
+- [x] 支持连接池健康检查
 
 ---
 
