@@ -6,11 +6,13 @@ use crate::{
 };
 use chrono::{Duration, Utc};
 use jsonwebtoken::{encode, Algorithm, EncodingKey, Header};
+use std::sync::Arc;
 use uuid::Uuid;
 
 /// JWT service for token generation and validation
+#[derive(Clone)]
 pub struct JwtService {
-    encoding_key: EncodingKey,
+    encoding_key: Arc<EncodingKey>,
     key_id: String,
     access_expiration: i64,
     refresh_expiration: i64,
@@ -32,7 +34,7 @@ impl JwtService {
             .map_err(|e| AppError::Jwt(e.to_string()))?;
 
         Ok(Self {
-            encoding_key,
+            encoding_key: Arc::new(encoding_key),
             key_id,
             access_expiration,
             refresh_expiration,

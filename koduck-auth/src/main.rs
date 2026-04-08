@@ -39,6 +39,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         user_repo.clone(),
         token_repo.clone(),
         redis.clone(),
+        state.jwt_service().clone(),
         state.db_pool().clone(),
         config.clone(),
     );
