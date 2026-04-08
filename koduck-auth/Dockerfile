@@ -2,7 +2,7 @@
 
 # Stage 1: Builder
 # Use a recent stable toolchain so Cargo can parse edition2024 crates.
-FROM rust:bookworm AS builder
+FROM rust:1.86-slim-bookworm AS builder
 
 WORKDIR /app
 ENV CARGO_HOME=/usr/local/cargo
