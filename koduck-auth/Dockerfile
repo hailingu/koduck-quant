@@ -51,19 +51,20 @@ RUN --mount=type=cache,target=/usr/local/cargo/registry \
     cp /app/target/release/koduck-auth /app/koduck-auth
 
 # Stage 2: Runtime
-FROM debian:bookworm-slim
+# Use Alpine for minimal image size (~7MB base vs ~30MB for debian-slim)
+FROM alpine:3.19
 
 WORKDIR /app
 
-# Install runtime dependencies
-RUN apt-get update && apt-get install -y \
-    ca-certificates \
-    libssl3 \
-    wget \
-    && rm -rf /var/lib/apt/lists/*
+# Install minimal runtime dependencies
+# ca-certificates: Required for TLS/HTTPS connections
+# libgcc: Required for Rust binaries built with glibc
+RUN apk add --no-cache ca-certificates libgcc
 
 # Create non-root user
-RUN groupadd -r koduck && useradd -r -g koduck koduck
+# Alpine uses addgroup/adduser instead of groupadd/useradd
+RUN addgroup -g 1000 -S koduck && \
+    adduser -u 1000 -S koduck -G koduck
 
 # Copy binary from builder
 COPY --from=builder /app/koduck-auth /usr/local/bin/koduck-auth
@@ -80,6 +81,7 @@ USER koduck
 EXPOSE 8081 50051 9090
 
 # Health check
+# Alpine's busybox wget supports the required options
 HEALTHCHECK --interval=30s --timeout=5s --start-period=5s --retries=3 \
     CMD wget --quiet --tries=1 --spider http://localhost:8081/health || exit 1
 
