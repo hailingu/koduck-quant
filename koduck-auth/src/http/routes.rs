@@ -5,10 +5,13 @@ use axum::{
     Router,
 };
 use std::sync::Arc;
+use tower::ServiceBuilder;
 use tower_http::{
     compression::CompressionLayer,
     cors::CorsLayer,
+    request_id::{MakeRequestUuid, PropagateRequestIdLayer, SetRequestIdLayer},
     trace::TraceLayer,
+    ServiceBuilderExt,
 };
 
 use crate::{
@@ -36,9 +39,16 @@ pub fn create_router(state: Arc<AppState>) -> Router {
         .route("/actuator/health/readiness", get(health::readiness))
         // Metrics endpoint
         .route("/metrics", get(metrics_handler::handler))
-        // Middleware
-        .layer(TraceLayer::new_for_http())
-        .layer(CompressionLayer::new())
-        .layer(CorsLayer::permissive())
+        // Middleware (applied in reverse order - last added is first executed)
+        .layer(
+            ServiceBuilder::new()
+                // Generate UUID request_id for each request
+                .set_x_request_id(MakeRequestUuid)
+                // Propagate request_id to X-Request-Id response header
+                .layer(PropagateRequestIdLayer::x_request_id())
+                .layer(TraceLayer::new_for_http())
+                .layer(CompressionLayer::new())
+                .layer(CorsLayer::permissive()),
+        )
         .with_state(state)
 }
