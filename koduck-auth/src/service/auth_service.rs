@@ -6,10 +6,11 @@ use crate::{
     error::{AppError, Result},
     jwt::JwtService,
     model::{
-        CreateUserDto, LoginRequest, RegisterRequest, RefreshTokenRequest,
-        SecurityConfigResponse, TokenPair, TokenResponse, User, UserInfo,
+        CreateUserDto, ForgotPasswordRequest, LoginRequest, RegisterRequest,
+        RefreshTokenRequest, ResetPasswordRequest, SecurityConfigResponse,
+        TokenPair, TokenResponse, User, UserInfo,
     },
-    repository::{RedisCache, RefreshTokenRepository, UserRepository},
+    repository::{PasswordResetRepository, RedisCache, RefreshTokenRepository, UserRepository},
 };
 use secrecy::ExposeSecret;
 use sha2::{Digest, Sha256};
@@ -22,6 +23,7 @@ use tracing::{error, info};
 pub struct AuthService {
     user_repo: UserRepository,
     token_repo: RefreshTokenRepository,
+    password_reset_repo: PasswordResetRepository,
     redis: RedisCache,
     jwt_service: JwtService,
     password_hasher: PasswordHasher,
@@ -34,6 +36,7 @@ impl AuthService {
     pub fn new(
         user_repo: UserRepository,
         token_repo: RefreshTokenRepository,
+        password_reset_repo: PasswordResetRepository,
         redis: RedisCache,
         jwt_service: JwtService,
         db_pool: PgPool,
@@ -45,6 +48,7 @@ impl AuthService {
         Ok(Self {
             user_repo,
             token_repo,
+            password_reset_repo,
             redis,
             jwt_service,
             password_hasher,
@@ -279,5 +283,213 @@ impl AuthService {
             refresh_token,
             self.config.jwt.access_token_expiration_secs,
         ))
+    }
+
+    /// Request password reset
+    /// Generates a reset token and sends email (async)
+    /// Returns success even if email not found (security: don't expose user existence)
+    pub async fn forgot_password(&self, req: ForgotPasswordRequest, _ip: String) -> Result<()> {
+        // Check rate limit
+        if self.is_password_reset_rate_limited(&req.email, &_ip).await? {
+            return Err(AppError::TooManyRequests(
+                "Too many password reset attempts. Please try again later.".to_string(),
+            ));
+        }
+
+        // Find user by email
+        let user = match self.user_repo.find_by_email(&req.email).await? {
+            Some(user) => user,
+            None => {
+                // Don't expose whether email exists
+                // Still return success to prevent user enumeration
+                info!("Password reset requested for non-existent email: {}", req.email);
+                return Ok(());
+            }
+        };
+
+        // Generate secure random token
+        let token = self.generate_secure_token();
+
+        // Calculate token hash for storage
+        let mut hasher = Sha256::new();
+        hasher.update(&token);
+        let token_hash = format!("{:x}", hasher.finalize());
+
+        // Save token to database
+        let expires_at = chrono::Utc::now() + chrono::Duration::hours(1);
+        self.password_reset_repo
+            .save(user.id, &token_hash, expires_at)
+            .await?;
+
+        // Send password reset email (async, don't wait)
+        let email = req.email.clone();
+        let user_id = user.id;
+        tokio::spawn(async move {
+            // TODO: Integrate with koduck-user or message queue for email sending
+            // For now, just log the token (in production, send actual email)
+            info!(
+                "Password reset email should be sent to: {}, token: {} (user_id: {})",
+                email, token, user_id
+            );
+        });
+
+        info!("Password reset token generated for user: {}", user.id);
+        Ok(())
+    }
+
+    /// Reset password using token
+    /// Validates token, updates password, and revokes all user sessions
+    pub async fn reset_password(&self, req: ResetPasswordRequest) -> Result<()> {
+        // Calculate token hash
+        let mut hasher = Sha256::new();
+        hasher.update(&req.token);
+        let token_hash = format!("{:x}", hasher.finalize());
+
+        // Find token in database
+        let token_record = self
+            .password_reset_repo
+            .find_by_token(&token_hash)
+            .await?
+            .ok_or_else(|| AppError::Unauthorized("Invalid or expired reset token".to_string()))?;
+
+        // Check if token is already used
+        if token_record.used_at.is_some() {
+            return Err(AppError::Unauthorized(
+                "Reset token has already been used".to_string(),
+            ));
+        }
+
+        // Check if token is expired
+        if token_record.expires_at < chrono::Utc::now() {
+            return Err(AppError::Unauthorized(
+                "Reset token has expired".to_string(),
+            ));
+        }
+
+        // Get user
+        let user = self
+            .user_repo
+            .find_by_id(token_record.user_id)
+            .await?
+            .ok_or_else(|| AppError::NotFound("User not found".to_string()))?;
+
+        // Start transaction
+        let mut tx = self.db_pool.begin().await.map_err(|e| {
+            error!("Failed to start transaction: {}", e);
+            AppError::Database(e)
+        })?;
+
+        // Hash new password
+        let password_hash = self.password_hasher.hash_password(&req.new_password).await?;
+
+        // Update password within transaction
+        if let Err(e) = self
+            .user_repo
+            .update_password_with_tx(&mut tx, user.id, &password_hash)
+            .await
+        {
+            error!("Failed to update password: {:?}", e);
+            return Err(e);
+        }
+
+        // Mark token as used within transaction
+        if let Err(e) = self
+            .password_reset_repo
+            .mark_as_used_with_tx(&mut tx, &token_hash)
+            .await
+        {
+            error!("Failed to mark token as used: {:?}", e);
+            return Err(e);
+        }
+
+        // Commit transaction
+        if let Err(e) = tx.commit().await {
+            error!("Failed to commit transaction: {}", e);
+            return Err(AppError::Database(e));
+        }
+
+        // Revoke all user refresh tokens (outside transaction as it's not critical)
+        let revoked_count = self
+            .token_repo
+            .revoke_all_user_tokens(user.id)
+            .await?;
+        info!(
+            "Password reset completed for user: {}, revoked {} tokens",
+            user.id, revoked_count
+        );
+
+        Ok(())
+    }
+
+    /// Check if password reset is rate limited
+    async fn is_password_reset_rate_limited(
+        &self,
+        email: &str,
+        ip: &str,
+    ) -> Result<bool> {
+        // Check email-based limit (3 per hour)
+        let email_key = format!("password_reset:email:{}", email);
+        let email_count: i32 = self
+            .redis
+            .get_login_attempts(&email_key) // Reusing this method for counting
+            .await?;
+
+        if email_count >= 3 {
+            return Ok(true);
+        }
+
+        // Check IP-based limit (10 per hour)
+        let ip_key = format!("password_reset:ip:{}", ip);
+        let ip_count: i32 = self.redis.get_login_attempts(&ip_key).await?;
+
+        if ip_count >= 10 {
+            return Ok(true);
+        }
+
+        // Increment counters
+        self.redis.incr_login_attempt(&email_key).await?;
+        self.redis.incr_login_attempt(&ip_key).await?;
+
+        Ok(false)
+    }
+
+    /// Generate cryptographically secure random token
+    fn generate_secure_token(&self) -> String {
+        use rand::Rng;
+        rand::thread_rng()
+            .sample_iter(&rand::distributions::Alphanumeric)
+            .take(32)
+            .map(char::from)
+            .collect()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_generate_secure_token() {
+        let config = Arc::new(Config::default());
+        let service = create_test_service(config).unwrap();
+
+        let token1 = service.generate_secure_token();
+        let token2 = service.generate_secure_token();
+
+        // Token should be 32 characters
+        assert_eq!(token1.len(), 32);
+        assert_eq!(token2.len(), 32);
+
+        // Tokens should be unique
+        assert_ne!(token1, token2);
+
+        // Tokens should be alphanumeric
+        assert!(token1.chars().all(|c| c.is_alphanumeric()));
+    }
+
+    fn create_test_service(config: Arc<Config>) -> Result<AuthService> {
+        // This is a simplified test helper
+        // In real tests, you would use mock repositories
+        todo!("Implement test helper with mock repositories")
     }
 }

@@ -9,7 +9,7 @@ use koduck_auth::{
     grpc::create_grpc_services,
     http::create_router,
     init_state,
-    repository::{RedisCache, RefreshTokenRepository, UserRepository},
+    repository::{PasswordResetRepository, RedisCache, RefreshTokenRepository, UserRepository},
     service::{AuthService as AuthServiceImpl, TokenService as TokenServiceImpl},
 };
 
@@ -32,12 +32,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Create repositories
     let user_repo = UserRepository::new(state.db_pool().clone());
     let token_repo = RefreshTokenRepository::new(state.db_pool().clone());
+    let password_reset_repo = PasswordResetRepository::new(state.db_pool().clone());
     let redis = RedisCache::new(state.redis_pool().clone());
 
     // Create services
     let auth_service_impl = AuthServiceImpl::new(
         user_repo.clone(),
         token_repo.clone(),
+        password_reset_repo,
         redis.clone(),
         state.jwt_service().clone(),
         state.db_pool().clone(),
