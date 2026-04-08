@@ -113,6 +113,10 @@ criterion = { version = "0.5", features = ["async_tokio"] }
 name = "jwt_bench"
 harness = false
 
+[[bench]]
+name = "password_hash"
+harness = false
+
 [profile.release]
 opt-level = 3
 lto = true
