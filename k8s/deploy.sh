@@ -228,7 +228,7 @@ install() {
     # 清理已完成的旧 init Job，确保重新注册路由
     kubectl delete job "${ENV}-apisix-route-init" -n "${NAMESPACE}" --ignore-not-found=true --wait=false 2>/dev/null || true
 
-    # 阶段一：部署基础设施（PostgreSQL + etcd + APISIX + Frontend + koduck-auth）
+    # 阶段一：部署基础设施（PostgreSQL + Redis + etcd + APISIX + Frontend + koduck-auth）
     echo -e "${YELLOW}部署基础设施...${NC}"
     if command -v kustomize &> /dev/null; then
         kustomize build --load-restrictor=LoadRestrictionsNone "${SCRIPT_DIR}/overlays/${ENV}" | kubectl apply -f -
@@ -241,6 +241,9 @@ install() {
 
     echo -e "${YELLOW}等待 PostgreSQL 启动...${NC}"
     wait_pods_ready "app=postgres" "180s" "postgres"
+
+    echo -e "${YELLOW}等待 Redis 启动...${NC}"
+    wait_pods_ready "app=redis" "180s" "redis"
 
     echo -e "${YELLOW}等待 etcd 启动...${NC}"
     wait_pods_ready "app=apisix-etcd" "180s" "etcd"

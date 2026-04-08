@@ -8,6 +8,7 @@ resources:
   - ../../base/frontend.yaml
   - ../../base/koduck-auth.yaml
   - ../../base/postgres.yaml
+  - ../../base/redis.yaml
   - ./apisix.yaml
 
 patchesStrategicMerge:

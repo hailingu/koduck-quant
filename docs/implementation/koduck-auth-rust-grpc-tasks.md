@@ -296,7 +296,7 @@ cargo build
 - [x] 所有缓存操作封装完善
 - [x] TTL 设置正确
 - [x] 错误处理转换为 AppError
-- [ ] 支持连接池健康检查
+- [x] 支持连接池健康检查
 
 ---
 
@@ -330,12 +330,12 @@ cargo build
    - 生成 JWK 结构
 
 **验收标准:**
-- [ ] 使用 `jsonwebtoken` crate，RS256 算法
-- [ ] Access Token 包含完整用户信息
-- [ ] Refresh Token 仅包含 user_id
-- [ ] Token 过期时间配置化
-- [ ] JWKS 生成正确，可被其他服务验证
-- [ ] 密钥加载支持从文件读取 PEM
+- [x] 使用 `jsonwebtoken` crate，RS256 算法
+- [x] Access Token 包含完整用户信息
+- [x] Refresh Token 仅包含 user_id
+- [x] Token 过期时间配置化
+- [x] JWKS 生成正确，可被其他服务验证
+- [ ] 密钥加载支持从文件读取 PEM（注：JwtService/JwtValidator/JwksService 已实现但未在 main.rs/state.rs 中初始化集成，auth_service 的 generate_token_pair 仍为 placeholder）
 
 ---
 
