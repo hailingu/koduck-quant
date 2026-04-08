@@ -9,7 +9,7 @@ use crate::{
     service::TokenService as TokenServiceImpl,
 };
 use tonic::{Request, Response, Status};
-use tracing::{info, warn};
+use tracing::info;
 
 /// gRPC TokenService implementation
 #[derive(Clone)]
@@ -41,8 +41,8 @@ impl GrpcTokenService {
 
 #[tonic::async_trait]
 impl TokenService for GrpcTokenService {
-    /// Introspect access token - OIDC RFC 7662 compatible
-    /// Returns active=false in response rather than error for invalid tokens
+    /// Introspect access token - OAuth 2.0 RFC 7662 compatible
+    /// Returns active=false in response for invalid tokens
     async fn introspect_access_token(
         &self,
         request: Request<IntrospectTokenRequest>,
@@ -51,45 +51,28 @@ impl TokenService for GrpcTokenService {
         info!("Introspecting access token");
 
         match self.token_service.introspect_token(&req.token).await {
-            Ok(true) => {
-                // Token is valid
-                // TODO: Extract claims and populate response fields
+            Ok(result) => {
                 let response = IntrospectTokenResponse {
-                    active: true,
-                    scope: "read write".to_string(),
-                    client_id: 0,
-                    username: "user".to_string(),
-                    token_type: "Bearer".to_string(),
-                    exp: None,
-                    iat: None,
-                    nbf: None,
-                    sub: "user_id".to_string(),
-                    aud: vec![],
-                    iss: "koduck-auth".to_string(),
-                    jti: "token_id".to_string(),
-                };
-                Ok(Response::new(response))
-            }
-            Ok(false) => {
-                // Token is invalid or expired - return active=false per RFC 7662
-                let response = IntrospectTokenResponse {
-                    active: false,
-                    scope: String::new(),
-                    client_id: 0,
-                    username: String::new(),
-                    token_type: String::new(),
-                    exp: None,
-                    iat: None,
-                    nbf: None,
-                    sub: String::new(),
-                    aud: vec![],
-                    iss: String::new(),
-                    jti: String::new(),
+                    active: result.active,
+                    scope: if result.roles.is_empty() {
+                        String::new()
+                    } else {
+                        result.roles.join(" ")
+                    },
+                    client_id: 0, // Not implemented
+                    username: result.username.unwrap_or_default(),
+                    token_type: result.token_type.unwrap_or_else(|| "Bearer".to_string()),
+                    exp: result.exp,
+                    iat: result.iat,
+                    nbf: None, // Not in our Claims
+                    sub: result.sub.unwrap_or_default(),
+                    aud: vec![], // Not in our Claims format
+                    iss: String::new(), // Not in Claims
+                    jti: result.jti.unwrap_or_default(),
                 };
                 Ok(Response::new(response))
             }
             Err(e) => {
-                warn!("Token introspection failed: {}", e);
                 Err(Self::to_status(e))
             }
         }

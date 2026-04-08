@@ -7,6 +7,7 @@ use crate::{
 use jsonwebtoken::{decode, Algorithm, DecodingKey, Validation};
 
 /// JWT validator
+#[derive(Clone)]
 pub struct JwtValidator {
     decoding_key: DecodingKey,
     audience: String,

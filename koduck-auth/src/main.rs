@@ -6,9 +6,11 @@ use tracing::{error, info};
 
 use koduck_auth::{
     config::Config,
+    crypto::load_public_key,
     grpc::create_grpc_services,
     http::create_router,
     init_state,
+    jwt::JwtValidator,
     repository::{PasswordResetRepository, RedisCache, RefreshTokenRepository, UserRepository},
     service::{AuthService as AuthServiceImpl, TokenService as TokenServiceImpl},
 };
@@ -35,6 +37,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let password_reset_repo = PasswordResetRepository::new(state.db_pool().clone());
     let redis = RedisCache::new(state.redis_pool().clone());
 
+    // Load public key for JWT validation
+    let public_key = load_public_key(&config.jwt.public_key_path).await?;
+
+    // Create JWT validator for token introspection
+    let jwt_validator = JwtValidator::new(
+        &public_key,
+        config.jwt.audience.clone(),
+        config.jwt.issuer.clone(),
+    )?;
+
     // Create services
     let auth_service_impl = AuthServiceImpl::new(
         user_repo.clone(),
@@ -45,7 +57,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         state.db_pool().clone(),
         config.clone(),
     )?;
-    let token_service_impl = TokenServiceImpl::new(token_repo, redis);
+    let token_service_impl = TokenServiceImpl::new(token_repo, redis, jwt_validator);
 
     // Create HTTP service
     let http_addr: SocketAddr = config.server.http_addr.parse()?;

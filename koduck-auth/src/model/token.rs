@@ -68,3 +68,57 @@ impl TokenPair {
         }
     }
 }
+
+/// Token introspection result (RFC 7662)
+#[derive(Debug, Serialize, Deserialize)]
+pub struct TokenIntrospectionResult {
+    pub active: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub sub: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub username: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub email: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub jti: Option<String>,
+    #[serde(skip_serializing_if = "Vec::is_empty", default)]
+    pub roles: Vec<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub exp: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub iat: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub token_type: Option<String>,
+}
+
+impl TokenIntrospectionResult {
+    /// Create inactive introspection result
+    pub fn inactive() -> Self {
+        Self {
+            active: false,
+            sub: None,
+            username: None,
+            email: None,
+            jti: None,
+            roles: Vec::new(),
+            exp: None,
+            iat: None,
+            token_type: None,
+        }
+    }
+
+    /// Create active introspection result from claims
+    pub fn from_claims(claims: &Claims) -> Self {
+        Self {
+            active: true,
+            sub: Some(claims.sub.clone()),
+            username: Some(claims.username.clone()),
+            email: Some(claims.email.clone()),
+            jti: Some(claims.jti.clone()),
+            roles: claims.roles.clone(),
+            exp: Some(claims.exp as i64),
+            iat: Some(claims.iat as i64),
+            token_type: Some(format!("{:?}", claims.token_type)),
+        }
+    }
+}
