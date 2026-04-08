@@ -1,4 +1,3 @@
-# syntax=docker/dockerfile:1.7
 # Multi-stage build for koduck-auth
 
 # Stage 1: Builder
