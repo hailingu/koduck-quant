@@ -78,3 +78,12 @@ pub struct UpdateUserDto {
     pub nickname: Option<String>,
     pub avatar_url: Option<String>,
 }
+
+/// Permission entity
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+pub struct Permission {
+    pub id: i64,
+    pub name: String,
+    pub resource: String,
+    pub action: String,
+}

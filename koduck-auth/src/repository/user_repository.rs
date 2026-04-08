@@ -216,6 +216,25 @@ impl UserRepository {
         Ok(roles)
     }
 
+    /// Get user permissions
+    pub async fn get_user_permissions(&self, user_id: i64) -> Result<Vec<crate::model::Permission>> {
+        let permissions = sqlx::query_as::<_, crate::model::Permission>(
+            r#"
+            SELECT DISTINCT p.id, p.name, p.resource, p.action
+            FROM permissions p
+            JOIN role_permissions rp ON p.id = rp.permission_id
+            JOIN user_roles ur ON rp.role_id = ur.role_id
+            WHERE ur.user_id = $1
+            "#,
+        )
+        .bind(user_id)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(AppError::Database)?;
+
+        Ok(permissions)
+    }
+
     /// Assign role to user
     pub async fn assign_role(&self, user_id: i64, role_name: &str) -> Result<()> {
         sqlx::query(

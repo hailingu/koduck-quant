@@ -7,7 +7,9 @@ use crate::{
         auth_service_server::AuthService,
         *,
     },
-    model::UserStatus,
+    jwt::JwksService,
+    model::{Permission, UserStatus, UserInfo},
+    repository::UserRepository,
     service::{AuthService as AuthServiceImpl, TokenService as TokenServiceImpl},
 };
 use prost_types::Timestamp;
@@ -19,14 +21,23 @@ use tracing::{info, warn};
 pub struct GrpcAuthService {
     auth_service: AuthServiceImpl,
     token_service: TokenServiceImpl,
+    user_repo: UserRepository,
+    jwks_service: JwksService,
 }
 
 impl GrpcAuthService {
     /// Create new gRPC auth service
-    pub fn new(auth_service: AuthServiceImpl, token_service: TokenServiceImpl) -> Self {
+    pub fn new(
+        auth_service: AuthServiceImpl,
+        token_service: TokenServiceImpl,
+        user_repo: UserRepository,
+        jwks_service: JwksService,
+    ) -> Self {
         Self {
             auth_service,
             token_service,
+            user_repo,
+            jwks_service,
         }
     }
 
@@ -54,7 +65,7 @@ impl GrpcAuthService {
         }
     }
 
-    fn to_proto_user_info(user: crate::model::UserInfo) -> proto::UserInfo {
+    fn to_proto_user_info(user: UserInfo) -> proto::UserInfo {
         proto::UserInfo {
             id: user.id,
             username: user.username,
@@ -66,6 +77,23 @@ impl GrpcAuthService {
             created_at: None,
             updated_at: None,
         }
+    }
+
+    fn to_proto_permission(perm: Permission) -> proto::Permission {
+        proto::Permission {
+            id: perm.id,
+            name: perm.name,
+            resource: perm.resource,
+            action: perm.action,
+        }
+    }
+
+    /// Convert i64 timestamp seconds to prost Timestamp
+    fn to_timestamp(seconds: i64) -> Option<Timestamp> {
+        Some(Timestamp {
+            seconds,
+            nanos: 0,
+        })
     }
 }
 
@@ -117,21 +145,27 @@ impl AuthService for GrpcAuthService {
 
         // Use token service to introspect the token
         match self.token_service.introspect_token(&req.token).await {
-            Ok(true) => {
-                // Token is valid, extract claims (simplified for now)
+            Ok(result) if result.active => {
+                // Extract user_id from sub claim
+                let user_id = result
+                    .sub
+                    .as_ref()
+                    .and_then(|s| s.parse::<i64>().ok())
+                    .unwrap_or(0);
+
                 let response = ValidateTokenResponse {
-                    user_id: 0, // TODO: Extract from token claims
-                    username: String::new(),
-                    email: String::new(),
-                    roles: vec![],
-                    expires_at: None,
-                    token_id: String::new(),
-                    issued_at: None,
+                    user_id,
+                    username: result.username.unwrap_or_default(),
+                    email: result.email.unwrap_or_default(),
+                    roles: result.roles,
+                    expires_at: result.exp.and_then(|exp| Self::to_timestamp(exp)),
+                    issued_at: result.iat.and_then(|iat| Self::to_timestamp(iat)),
+                    token_id: result.jti.unwrap_or_default(),
                     token_type: proto::TokenType::Access as i32,
                 };
                 Ok(Response::new(response))
             }
-            Ok(false) => Err(Status::unauthenticated("Invalid or expired token")),
+            Ok(_) => Err(Status::unauthenticated("Invalid or expired token")),
             Err(e) => Err(Self::to_status(e)),
         }
     }
@@ -142,10 +176,37 @@ impl AuthService for GrpcAuthService {
     ) -> std::result::Result<Response<GetUserResponse>, Status> {
         let req = request.into_inner();
 
-        // TODO: Implement user lookup based on identifier
-        let _ = req.identifier;
+        // Find user based on identifier type
+        let user_result = match req.identifier {
+            Some(get_user_request::Identifier::UserId(id)) => {
+                self.user_repo.find_by_id(id).await
+            }
+            Some(get_user_request::Identifier::Username(username)) => {
+                self.user_repo.find_by_username(&username).await
+            }
+            Some(get_user_request::Identifier::Email(email)) => {
+                self.user_repo.find_by_email(&email).await
+            }
+            None => {
+                return Err(Status::invalid_argument("Identifier required"));
+            }
+        };
 
-        Err(Status::unimplemented("GetUser not yet implemented"))
+        match user_result {
+            Ok(Some(user)) => {
+                // Get user roles
+                let roles = self.user_repo.get_user_roles(user.id).await
+                    .map_err(Self::to_status)?;
+
+                let response = GetUserResponse {
+                    user: Some(Self::to_proto_user_info(UserInfo::from(user))),
+                    roles,
+                };
+                Ok(Response::new(response))
+            }
+            Ok(None) => Err(Status::not_found("User not found")),
+            Err(e) => Err(Self::to_status(e)),
+        }
     }
 
     async fn get_user_roles(
@@ -154,10 +215,20 @@ impl AuthService for GrpcAuthService {
     ) -> std::result::Result<Response<GetUserRolesResponse>, Status> {
         let req = request.into_inner();
 
-        // TODO: Implement user roles lookup
-        let _ = req.user_id;
+        // Get user roles
+        let roles = self.user_repo.get_user_roles(req.user_id).await
+            .map_err(Self::to_status)?;
 
-        Err(Status::unimplemented("GetUserRoles not yet implemented"))
+        // Get user permissions
+        let permissions = self.user_repo.get_user_permissions(req.user_id).await
+            .map_err(Self::to_status)?;
+
+        let response = GetUserRolesResponse {
+            user_id: req.user_id,
+            roles,
+            permissions: permissions.into_iter().map(Self::to_proto_permission).collect(),
+        };
+        Ok(Response::new(response))
     }
 
     async fn revoke_token(
@@ -232,8 +303,30 @@ impl AuthService for GrpcAuthService {
         &self,
         _request: Request<()>,
     ) -> std::result::Result<Response<JwksResponse>, Status> {
-        // TODO: Implement JWKS retrieval from JWT service
-        let response = JwksResponse { keys: vec![] };
+        // Get JWKS from JwksService
+        let jwks_json = self.jwks_service.get_jwks()
+            .map_err(|e| Status::internal(format!("Failed to get JWKS: {}", e)))?;
+
+        // Parse the JWKS JSON and convert to proto messages
+        let keys = if let Some(keys_array) = jwks_json.get("keys").and_then(|k| k.as_array()) {
+            keys_array
+                .iter()
+                .filter_map(|key| {
+                    Some(proto::Jwk {
+                        kty: key.get("kty")?.as_str()?.to_string(),
+                        kid: key.get("kid")?.as_str()?.to_string(),
+                        r#use: key.get("use")?.as_str()?.to_string(),
+                        n: key.get("n")?.as_str()?.to_string(),
+                        e: key.get("e")?.as_str()?.to_string(),
+                        alg: key.get("alg")?.as_str()?.to_string(),
+                    })
+                })
+                .collect()
+        } else {
+            vec![]
+        };
+
+        let response = JwksResponse { keys };
         Ok(Response::new(response))
     }
 

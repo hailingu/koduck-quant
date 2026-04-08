@@ -10,7 +10,7 @@ use koduck_auth::{
     grpc::create_grpc_services,
     http::create_router,
     init_state,
-    jwt::JwtValidator,
+    jwt::{JwksService, JwtValidator},
     repository::{PasswordResetRepository, RedisCache, RefreshTokenRepository, UserRepository},
     service::{AuthService as AuthServiceImpl, TokenService as TokenServiceImpl},
 };
@@ -37,7 +37,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let password_reset_repo = PasswordResetRepository::new(state.db_pool().clone());
     let redis = RedisCache::new(state.redis_pool().clone());
 
-    // Load public key for JWT validation
+    // Load public key for JWT validation and JWKS
     let public_key = load_public_key(&config.jwt.public_key_path).await?;
 
     // Create JWT validator for token introspection
@@ -46,6 +46,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         config.jwt.audience.clone(),
         config.jwt.issuer.clone(),
     )?;
+
+    // Create JWKS service
+    let jwks_service = JwksService::new(&public_key, config.jwt.key_id.clone())?;
 
     // Create services
     let auth_service_impl = AuthServiceImpl::new(
@@ -66,7 +69,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Create gRPC services
     let grpc_addr: SocketAddr = config.server.grpc_addr.parse()?;
-    let (auth_grpc_service, token_grpc_service) = create_grpc_services(auth_service_impl, token_service_impl);
+    let (auth_grpc_service, token_grpc_service) = create_grpc_services(
+        auth_service_impl,
+        token_service_impl,
+        user_repo,
+        jwks_service,
+    );
 
     info!("HTTP server listening on {}", http_addr);
     info!("gRPC server listening on {}", grpc_addr);

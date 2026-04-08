@@ -3,11 +3,12 @@
 use crate::error::{AppError, Result};
 use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine};
 use rsa::{traits::PublicKeyParts, RsaPublicKey, pkcs8::DecodePublicKey};
+use std::sync::Arc;
 
 /// JWKS service
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct JwksService {
-    public_key: RsaPublicKey,
+    public_key: Arc<RsaPublicKey>,
     key_id: String,
 }
 
@@ -18,7 +19,7 @@ impl JwksService {
             .map_err(|e| AppError::Jwt(format!("Failed to parse public key: {}", e)))?;
 
         Ok(Self {
-            public_key,
+            public_key: Arc::new(public_key),
             key_id,
         })
     }

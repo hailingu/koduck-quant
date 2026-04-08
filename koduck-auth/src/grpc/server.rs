@@ -6,6 +6,8 @@ use crate::{
         proto::{auth_service_server::AuthServiceServer, token_service_server::TokenServiceServer},
         token_service::GrpcTokenService,
     },
+    jwt::JwksService,
+    repository::UserRepository,
     service::{AuthService as AuthServiceImpl, TokenService as TokenServiceImpl},
 };
 use std::net::SocketAddr;
@@ -25,8 +27,15 @@ impl GrpcServer {
         addr: SocketAddr,
         auth_service_impl: AuthServiceImpl,
         token_service_impl: TokenServiceImpl,
+        user_repo: UserRepository,
+        jwks_service: JwksService,
     ) -> Self {
-        let auth_service = GrpcAuthService::new(auth_service_impl, token_service_impl.clone());
+        let auth_service = GrpcAuthService::new(
+            auth_service_impl,
+            token_service_impl.clone(),
+            user_repo,
+            jwks_service,
+        );
         let token_service = GrpcTokenService::new(token_service_impl);
 
         Self {
@@ -55,8 +64,10 @@ pub async fn create_and_run_grpc_server(
     addr: SocketAddr,
     auth_service: AuthServiceImpl,
     token_service: TokenServiceImpl,
+    user_repo: UserRepository,
+    jwks_service: JwksService,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    let server = GrpcServer::new(addr, auth_service, token_service);
+    let server = GrpcServer::new(addr, auth_service, token_service, user_repo, jwks_service);
     server.run().await
 }
 
@@ -64,8 +75,15 @@ pub async fn create_and_run_grpc_server(
 pub fn create_grpc_services(
     auth_service_impl: AuthServiceImpl,
     token_service_impl: TokenServiceImpl,
+    user_repo: UserRepository,
+    jwks_service: JwksService,
 ) -> (AuthServiceServer<GrpcAuthService>, TokenServiceServer<GrpcTokenService>) {
-    let auth_service = GrpcAuthService::new(auth_service_impl, token_service_impl.clone());
+    let auth_service = GrpcAuthService::new(
+        auth_service_impl,
+        token_service_impl.clone(),
+        user_repo,
+        jwks_service,
+    );
     let token_service = GrpcTokenService::new(token_service_impl);
 
     (
