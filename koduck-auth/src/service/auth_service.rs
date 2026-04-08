@@ -4,6 +4,7 @@ use crate::{
     config::Config,
     crypto::password,
     error::{AppError, Result},
+    jwt::JwtService,
     model::{
         CreateUserDto, LoginRequest, RegisterRequest, RefreshTokenRequest,
         SecurityConfigResponse, TokenPair, TokenResponse, User, UserInfo,
@@ -11,6 +12,7 @@ use crate::{
     repository::{RedisCache, RefreshTokenRepository, UserRepository},
 };
 use secrecy::ExposeSecret;
+use sha2::{Digest, Sha256};
 use sqlx::PgPool;
 use std::sync::Arc;
 use tracing::{error, info};
@@ -21,6 +23,7 @@ pub struct AuthService {
     user_repo: UserRepository,
     token_repo: RefreshTokenRepository,
     redis: RedisCache,
+    jwt_service: JwtService,
     db_pool: PgPool,
     config: Arc<Config>,
 }
@@ -31,6 +34,7 @@ impl AuthService {
         user_repo: UserRepository,
         token_repo: RefreshTokenRepository,
         redis: RedisCache,
+        jwt_service: JwtService,
         db_pool: PgPool,
         config: Arc<Config>,
     ) -> Self {
@@ -38,6 +42,7 @@ impl AuthService {
             user_repo,
             token_repo,
             redis,
+            jwt_service,
             db_pool,
             config,
         }
@@ -238,12 +243,35 @@ impl AuthService {
     }
 
     /// Generate token pair for user
-    async fn generate_token_pair(&self, _user: &User, _roles: &[String]) -> Result<TokenPair> {
-        // For now, return a placeholder
-        // TODO: Implement JWT token generation
+    /// Uses JWT service to generate real tokens
+    async fn generate_token_pair(&self, user: &User, roles: &[String]) -> Result<TokenPair> {
+        // Generate JWT access token
+        let access_token = self.jwt_service.generate_access_token(
+            user.id,
+            &user.username,
+            &user.email,
+            roles,
+        )?;
+
+        // Generate JWT refresh token
+        let refresh_token = self.jwt_service.generate_refresh_token(user.id)?;
+
+        // Save refresh token hash to database
+        let mut hasher = Sha256::new();
+        hasher.update(&refresh_token);
+        let refresh_token_hash = format!("{:x}", hasher.finalize());
+        let expires_at = chrono::Utc::now()
+            + chrono::Duration::seconds(self.config.jwt.refresh_token_expiration_secs);
+
+        self.token_repo
+            .save(user.id, &refresh_token_hash, expires_at)
+            .await?;
+
+        info!("Generated token pair for user: {}", user.id);
+
         Ok(TokenPair::new(
-            "placeholder_access_token".to_string(),
-            "placeholder_refresh_token".to_string(),
+            access_token,
+            refresh_token,
             self.config.jwt.access_token_expiration_secs,
         ))
     }

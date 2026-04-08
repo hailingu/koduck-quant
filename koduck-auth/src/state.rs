@@ -2,13 +2,15 @@
 
 use crate::{
     config::Config,
+    crypto::load_or_generate_keys,
     error::{AppError, Result},
+    jwt::JwtService,
     repository::RedisCache,
 };
 use deadpool_redis::{Config as RedisConfig, Pool as RedisPool, Runtime};
 use sqlx::postgres::PgPoolOptions;
 use sqlx::PgPool;
-use tracing::warn;
+use tracing::{info, warn};
 
 /// Shared application state
 pub struct AppState {
@@ -16,6 +18,7 @@ pub struct AppState {
     db_pool: PgPool,
     redis_pool: RedisPool,
     redis_cache: RedisCache,
+    jwt_service: JwtService,
 }
 
 impl AppState {
@@ -67,11 +70,39 @@ impl AppState {
         // Create Redis cache wrapper
         let redis_cache = RedisCache::new(redis_pool.clone());
 
+        // Load or generate JWT keys
+        let auto_generate_keys = std::env::var("KODUCK_AUTH_DEV_MODE")
+            .ok()
+            .map(|v| matches!(v.to_ascii_lowercase().as_str(), "1" | "true" | "yes" | "on"))
+            .unwrap_or(false);
+
+        let (private_key, _public_key) = load_or_generate_keys(
+            &config.jwt.private_key_path,
+            &config.jwt.public_key_path,
+            auto_generate_keys,
+        )
+        .await?;
+
+        info!("JWT keys loaded successfully");
+
+        // Create JWT service
+        let jwt_service = JwtService::new(
+            &private_key,
+            config.jwt.key_id.clone(),
+            config.jwt.access_token_expiration_secs,
+            config.jwt.refresh_token_expiration_secs,
+            config.jwt.issuer.clone(),
+            config.jwt.audience.clone(),
+        )?;
+
+        info!("JWT service initialized successfully");
+
         Ok(Self {
             config,
             db_pool,
             redis_pool,
             redis_cache,
+            jwt_service,
         })
     }
 
@@ -94,6 +125,11 @@ impl AppState {
     pub fn redis_cache(&self) -> &RedisCache {
         &self.redis_cache
     }
+
+    /// Get JWT service
+    pub fn jwt_service(&self) -> &JwtService {
+        &self.jwt_service
+    }
 }
 
 impl Clone for AppState {
@@ -103,6 +139,7 @@ impl Clone for AppState {
             db_pool: self.db_pool.clone(),
             redis_pool: self.redis_pool.clone(),
             redis_cache: self.redis_cache.clone(),
+            jwt_service: self.jwt_service.clone(),
         }
     }
 }
