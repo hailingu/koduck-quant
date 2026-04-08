@@ -2,13 +2,14 @@ use std::net::SocketAddr;
 use std::sync::Arc;
 
 use tokio::net::TcpListener;
+use tokio::sync::broadcast;
 use tracing::{error, info};
 
 use koduck_auth::{
     config::Config,
     crypto::load_public_key,
-    grpc::create_grpc_services,
-    http::create_router,
+    grpc::create_and_run_grpc_server_with_shutdown,
+    http::{create_metrics_router, create_router},
     init_state,
     jwt::{JwksService, JwtValidator},
     repository::{PasswordResetRepository, RedisCache, RefreshTokenRepository, UserRepository},
@@ -69,38 +70,65 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let http_addr: SocketAddr = config.server.http_addr.parse()?;
     let http_listener = TcpListener::bind(http_addr).await?;
     let http_app = create_router(state);
+    let metrics_addr: SocketAddr = config.server.metrics_addr.parse()?;
+    let metrics_listener = TcpListener::bind(metrics_addr).await?;
+    let metrics_app = create_metrics_router();
 
-    // Create gRPC services
+    // Parse gRPC address
     let grpc_addr: SocketAddr = config.server.grpc_addr.parse()?;
-    let (reflection_service, auth_grpc_service, token_grpc_service) = create_grpc_services(
-        auth_service_impl,
-        token_service_impl,
-        user_repo,
-        jwks_service,
-        jwt_service_for_token,
-    );
 
     info!("HTTP server listening on {}", http_addr);
+    info!("Metrics server listening on {}", metrics_addr);
     info!("gRPC server listening on {}", grpc_addr);
 
-    // Run both HTTP and gRPC services concurrently
+    let (shutdown_tx, _) = broadcast::channel::<()>(1);
+    let mut http_shutdown_rx = shutdown_tx.subscribe();
+    let mut metrics_shutdown_rx = shutdown_tx.subscribe();
+    let mut grpc_shutdown_rx = shutdown_tx.subscribe();
+
+    // Run HTTP + metrics + gRPC services concurrently
     tokio::select! {
-        result = axum::serve(http_listener, http_app) => {
+        result = axum::serve(
+            http_listener,
+            http_app.into_make_service_with_connect_info::<SocketAddr>(),
+        ).with_graceful_shutdown(async move {
+            let _ = http_shutdown_rx.recv().await;
+        }) => {
             if let Err(e) = result {
                 error!("HTTP server error: {}", e);
             }
         }
-        result = tonic::transport::Server::builder()
-            .add_service(reflection_service)
-            .add_service(auth_grpc_service)
-            .add_service(token_grpc_service)
-            .serve(grpc_addr) => {
+        result = axum::serve(metrics_listener, metrics_app).with_graceful_shutdown(async move {
+            let _ = metrics_shutdown_rx.recv().await;
+        }) => {
+            if let Err(e) = result {
+                error!("Metrics server error: {}", e);
+            }
+        }
+        result = create_and_run_grpc_server_with_shutdown(
+            grpc_addr,
+            auth_service_impl,
+            token_service_impl,
+            user_repo,
+            jwks_service,
+            jwt_service_for_token,
+            async move {
+                let _ = grpc_shutdown_rx.recv().await;
+            },
+        ) => {
             if let Err(e) = result {
                 error!("gRPC server error: {}", e);
             }
         }
+        result = tokio::signal::ctrl_c() => {
+            match result {
+                Ok(()) => info!("Received Ctrl+C, shutting down all services..."),
+                Err(e) => error!("Failed to listen for Ctrl+C: {}", e),
+            }
+        }
     }
 
+    let _ = shutdown_tx.send(());
     info!("Shutting down koduck-auth service...");
     Ok(())
 }

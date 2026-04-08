@@ -172,13 +172,21 @@ spec:
           livenessProbe:
             tcpSocket:
               port: 9080
-            initialDelaySeconds: 10
+            initialDelaySeconds: 20
             periodSeconds: 5
+            failureThreshold: 6
           readinessProbe:
             tcpSocket:
               port: 9080
             initialDelaySeconds: 5
             periodSeconds: 3
+          startupProbe:
+            tcpSocket:
+              port: 9080
+            # 给 APISIX 足够时间等待 etcd 与自身初始化完成，避免冷启动抖动触发重启
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            failureThreshold: 30
       volumes:
         - name: config
           configMap:

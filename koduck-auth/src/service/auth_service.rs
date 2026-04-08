@@ -6,16 +6,19 @@ use crate::{
     error::{AppError, Result},
     jwt::JwtService,
     model::{
+        Claims, TokenType,
         CreateUserDto, ForgotPasswordRequest, LoginRequest, RegisterRequest,
         RefreshTokenRequest, ResetPasswordRequest, SecurityConfigResponse,
         TokenPair, TokenResponse, User, UserInfo,
     },
     repository::{PasswordResetRepository, RedisCache, RefreshTokenRepository, UserRepository},
 };
+use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine};
 use secrecy::ExposeSecret;
 use sha2::{Digest, Sha256};
 use sqlx::PgPool;
 use std::sync::Arc;
+use std::time::Duration;
 use tracing::{error, info};
 
 /// Authentication service
@@ -177,10 +180,12 @@ impl AuthService {
 
     /// Refresh access token
     pub async fn refresh_token(&self, req: RefreshTokenRequest) -> Result<TokenResponse> {
+        let refresh_token_hash = Self::hash_token(&req.refresh_token);
+
         // Find refresh token
         let token_record = self
             .token_repo
-            .find_by_token(&req.refresh_token)
+            .find_by_token(&refresh_token_hash)
             .await?
             .ok_or_else(|| AppError::Unauthorized("Invalid refresh token".to_string()))?;
 
@@ -202,7 +207,7 @@ impl AuthService {
             .ok_or_else(|| AppError::NotFound("User not found".to_string()))?;
 
         // Revoke old token
-        self.token_repo.revoke(&req.refresh_token).await?;
+        self.token_repo.revoke(&refresh_token_hash).await?;
 
         // Get roles
         let roles = self.user_repo.get_user_roles(user.id).await?;
@@ -220,10 +225,19 @@ impl AuthService {
     pub async fn logout(&self, refresh_token: Option<String>, _user_id: i64) -> Result<()> {
         // Revoke refresh token if provided
         if let Some(token) = refresh_token {
-            self.token_repo.revoke(&token).await?;
-        }
+            let token_hash = Self::hash_token(&token);
+            self.token_repo.revoke(&token_hash).await?;
 
-        // TODO: Add access token to blacklist
+            // Best-effort JWT claim parsing to support access-token blacklist on logout.
+            if let Some(claims) = Self::try_extract_claims_without_verification(&token) {
+                if matches!(claims.token_type, TokenType::Access) {
+                    self.redis
+                        .add_to_token_blacklist(&claims.jti, claims.exp)
+                        .await?;
+                    info!("Access token blacklisted on logout: jti={}", claims.jti);
+                }
+            }
+        };
 
         Ok(())
     }
@@ -308,7 +322,7 @@ impl AuthService {
         };
 
         // Generate secure random token
-        let token = self.generate_secure_token();
+        let token = Self::generate_secure_token();
 
         // Calculate token hash for storage
         let mut hasher = Sha256::new();
@@ -321,16 +335,52 @@ impl AuthService {
             .save(user.id, &token_hash, expires_at)
             .await?;
 
-        // Send password reset email (async, don't wait)
+        // Send password reset notification (async, don't block request)
         let email = req.email.clone();
         let user_id = user.id;
+        let user_service_url = self.config.client.user_service_url.clone();
+        let timeout_secs = self.config.client.user_service_timeout_secs;
         tokio::spawn(async move {
-            // TODO: Integrate with koduck-user or message queue for email sending
-            // For now, just log the token (in production, send actual email)
-            info!(
-                "Password reset email should be sent to: {}, token: {} (user_id: {})",
-                email, token, user_id
+            let endpoint = format!(
+                "{}/internal/notifications/password-reset",
+                user_service_url.trim_end_matches('/'),
             );
+            let payload = serde_json::json!({
+                "user_id": user_id,
+                "email": email,
+                "reset_token": token,
+            });
+
+            let client = reqwest::Client::new();
+            match tokio::time::timeout(
+                Duration::from_secs(timeout_secs),
+                client.post(endpoint).json(&payload).send(),
+            )
+            .await
+            {
+                Ok(Ok(resp)) if resp.status().is_success() => {
+                    info!("Password reset notification dispatched for user_id={}", user_id);
+                }
+                Ok(Ok(resp)) => {
+                    error!(
+                        "Password reset notification failed for user_id={} with status={}",
+                        user_id,
+                        resp.status()
+                    );
+                }
+                Ok(Err(e)) => {
+                    error!(
+                        "Password reset notification request error for user_id={}: {}",
+                        user_id, e
+                    );
+                }
+                Err(_) => {
+                    error!(
+                        "Password reset notification timed out for user_id={}",
+                        user_id
+                    );
+                }
+            }
         });
 
         info!("Password reset token generated for user: {}", user.id);
@@ -454,13 +504,25 @@ impl AuthService {
     }
 
     /// Generate cryptographically secure random token
-    fn generate_secure_token(&self) -> String {
+    fn generate_secure_token() -> String {
         use rand::Rng;
         rand::thread_rng()
             .sample_iter(&rand::distributions::Alphanumeric)
             .take(32)
             .map(char::from)
             .collect()
+    }
+
+    fn hash_token(token: &str) -> String {
+        let mut hasher = Sha256::new();
+        hasher.update(token.as_bytes());
+        format!("{:x}", hasher.finalize())
+    }
+
+    fn try_extract_claims_without_verification(token: &str) -> Option<Claims> {
+        let payload = token.split('.').nth(1)?;
+        let decoded = URL_SAFE_NO_PAD.decode(payload).ok()?;
+        serde_json::from_slice::<Claims>(&decoded).ok()
     }
 }
 
@@ -470,11 +532,8 @@ mod tests {
 
     #[test]
     fn test_generate_secure_token() {
-        let config = Arc::new(Config::default());
-        let service = create_test_service(config).unwrap();
-
-        let token1 = service.generate_secure_token();
-        let token2 = service.generate_secure_token();
+        let token1 = AuthService::generate_secure_token();
+        let token2 = AuthService::generate_secure_token();
 
         // Token should be 32 characters
         assert_eq!(token1.len(), 32);
@@ -487,9 +546,9 @@ mod tests {
         assert!(token1.chars().all(|c| c.is_alphanumeric()));
     }
 
-    fn create_test_service(config: Arc<Config>) -> Result<AuthService> {
-        // This is a simplified test helper
-        // In real tests, you would use mock repositories
-        todo!("Implement test helper with mock repositories")
+    #[test]
+    fn test_try_extract_claims_without_verification_invalid_token() {
+        let claims = AuthService::try_extract_claims_without_verification("invalid.token");
+        assert!(claims.is_none());
     }
 }

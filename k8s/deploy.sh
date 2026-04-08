@@ -132,13 +132,50 @@ wait_pods_ready() {
     local label_selector="$1"
     local timeout="$2"
     local name_hint="$3"
+    local timeout_seconds="${timeout%s}"
+    local elapsed=0
+    local ready_count=0
+    local total_count=0
+    local pod_list=""
 
-    if ! kubectl wait --for=condition=ready pod -l "${label_selector}" -n "${NAMESPACE}" --timeout="${timeout}"; then
-        echo -e "${RED}错误: ${name_hint} 未在 ${timeout} 内就绪${NC}"
-        kubectl -n "${NAMESPACE}" get pod -l "${label_selector}" -o wide || true
-        kubectl -n "${NAMESPACE}" describe pod -l "${label_selector}" | sed -n '1,220p' || true
-        exit 1
-    fi
+    # 使用主动轮询，避免 kubectl wait 在资源短暂抖动时出现 "no matching resources found"
+    while true; do
+        pod_list="$(kubectl -n "${NAMESPACE}" get pod -l "${label_selector}" \
+            -o jsonpath='{range .items[*]}{.metadata.name}{"\n"}{end}' 2>/dev/null || true)"
+
+        if [ -n "${pod_list}" ]; then
+            ready_count=0
+            total_count=0
+
+            while IFS= read -r pod_name; do
+                [ -z "${pod_name}" ] && continue
+                total_count=$((total_count + 1))
+
+                local phase
+                local ready_status
+                phase="$(kubectl -n "${NAMESPACE}" get pod "${pod_name}" -o jsonpath='{.status.phase}' 2>/dev/null || true)"
+                ready_status="$(kubectl -n "${NAMESPACE}" get pod "${pod_name}" -o jsonpath='{.status.conditions[?(@.type=="Ready")].status}' 2>/dev/null || true)"
+
+                if [ "${phase}" = "Running" ] && [ "${ready_status}" = "True" ]; then
+                    ready_count=$((ready_count + 1))
+                fi
+            done <<< "${pod_list}"
+
+            if [ "${total_count}" -gt 0 ] && [ "${ready_count}" -eq "${total_count}" ]; then
+                return 0
+            fi
+        fi
+
+        if [ "${elapsed}" -ge "${timeout_seconds}" ]; then
+            echo -e "${RED}错误: ${name_hint} 未在 ${timeout} 内就绪（selector: ${label_selector}）${NC}"
+            kubectl -n "${NAMESPACE}" get pod -l "${label_selector}" -o wide || true
+            kubectl -n "${NAMESPACE}" get deploy,statefulset -o wide || true
+            exit 1
+        fi
+
+        sleep 2
+        elapsed=$((elapsed + 2))
+    done
 }
 
 # 修正 koduck-auth Secret 中的服务地址（避免主机名与 namePrefix 不一致）
@@ -156,6 +193,76 @@ ensure_koduck_auth_secret_endpoints() {
             -n "${NAMESPACE}" \
             --dry-run=client -o yaml | kubectl apply -f -
     fi
+}
+
+# 校验 private/public 是否为一对可用 RSA 密钥
+validate_rsa_keypair() {
+    local private_key="$1"
+    local public_key="$2"
+    local derived_pub=""
+
+    if ! openssl rsa -in "${private_key}" -check -noout >/dev/null 2>&1; then
+        return 1
+    fi
+
+    derived_pub="$(openssl rsa -in "${private_key}" -pubout 2>/dev/null || true)"
+    [ -z "${derived_pub}" ] && return 1
+
+    if ! diff -q <(printf "%s\n" "${derived_pub}") "${public_key}" >/dev/null 2>&1; then
+        return 1
+    fi
+
+    return 0
+}
+
+# 确保 koduck-auth JWT RSA 密钥 secret 可用
+# - secret 已存在：直接复用（避免 rollout/重复 install 导致 key 漂移）
+# - secret 不存在：生成新密钥（典型于 uninstall -> install）
+ensure_koduck_auth_jwt_keys_secret() {
+    local jwt_secret_name="${ENV}-koduck-auth-jwt-keys"
+    local tmp_dir=""
+    local private_key=""
+    local public_key=""
+
+    if ! command -v openssl &> /dev/null; then
+        echo -e "${RED}错误: 未找到 openssl，无法生成 JWT RSA 密钥${NC}"
+        exit 1
+    fi
+
+    tmp_dir="$(mktemp -d)"
+    private_key="${tmp_dir}/private.pem"
+    public_key="${tmp_dir}/public.pem"
+
+    if kubectl -n "${NAMESPACE}" get secret "${jwt_secret_name}" >/dev/null 2>&1; then
+        if kubectl -n "${NAMESPACE}" get secret "${jwt_secret_name}" -o jsonpath='{.data.private\.pem}' | base64 -d > "${private_key}" 2>/dev/null \
+            && kubectl -n "${NAMESPACE}" get secret "${jwt_secret_name}" -o jsonpath='{.data.public\.pem}' | base64 -d > "${public_key}" 2>/dev/null \
+            && validate_rsa_keypair "${private_key}" "${public_key}"; then
+            rm -rf "${tmp_dir}"
+            echo -e "${GREEN}✓ 复用已有 ${jwt_secret_name}${NC}"
+            return 0
+        fi
+
+        echo -e "${YELLOW}检测到已有 ${jwt_secret_name} 但格式无效，自动重建...${NC}"
+    fi
+
+    # 使用未加密 PKCS#1 私钥，兼容 jsonwebtoken::EncodingKey::from_rsa_pem
+    openssl genrsa -traditional -out "${private_key}" 2048 >/dev/null 2>&1
+    openssl rsa -in "${private_key}" -pubout -out "${public_key}" >/dev/null 2>&1
+
+    if ! validate_rsa_keypair "${private_key}" "${public_key}"; then
+        rm -rf "${tmp_dir}"
+        echo -e "${RED}错误: 生成的 JWT RSA 密钥校验失败${NC}"
+        exit 1
+    fi
+
+    kubectl create secret generic "${jwt_secret_name}" \
+        --from-file=private.pem="${private_key}" \
+        --from-file=public.pem="${public_key}" \
+        -n "${NAMESPACE}" \
+        --dry-run=client -o yaml | kubectl apply -f -
+
+    rm -rf "${tmp_dir}"
+    echo -e "${GREEN}✓ 已创建 ${jwt_secret_name}${NC}"
 }
 
 # 确保命名空间可用（避免卸载后 Terminating 导致安装失败）
@@ -216,12 +323,8 @@ install() {
         -n "${NAMESPACE}" \
         --dry-run=client -o yaml | kubectl apply -f -
 
-    # 提示: Koduck-Auth 使用 kustomize patch 中的默认 JWT 密钥
-    # 如需自定义密钥，请运行: ./scripts/generate-jwt-keys.sh
-    # 然后更新 Secret: kubectl create secret generic koduck-auth-jwt-keys \
-    #   --from-file=private.pem=koduck-auth/keys/private.pem \
-    #   --from-file=public.pem=koduck-auth/keys/public.pem \
-    #   -n ${NAMESPACE} --dry-run=client -o yaml | kubectl apply -f -
+    # 先确保 koduck-auth JWT key secret 可用，再部署工作负载，减少首次启动抖动
+    ensure_koduck_auth_jwt_keys_secret
 
     ensure_etcd_pvc_ready
 

@@ -2,17 +2,26 @@
 
 # Stage 1: Builder
 # Use a recent stable toolchain so Cargo can parse edition2024 crates.
-FROM rust:bookworm AS builder
+
+FROM docker.m.daocloud.io/library/rust:1.88-slim-bookworm AS builder
 
 WORKDIR /app
 ENV CARGO_HOME=/usr/local/cargo
 
-# Install dependencies
-RUN apt-get update && apt-get install -y \
+# Configure Cargo to use rsproxy.cn (China mirror) for crates index/downloads
+RUN mkdir -p /usr/local/cargo && \
+    printf '[source.crates-io]\nreplace-with = "rsproxy"\n\n[source.rsproxy]\nregistry = "sparse+https://rsproxy.cn/index/"\n' > /usr/local/cargo/config.toml
+
+# Install dependencies (use Tsinghua mirror for Debian repositories)
+RUN sed -i 's|http://deb.debian.org/debian|https://mirrors.tuna.tsinghua.edu.cn/debian|g' /etc/apt/sources.list.d/debian.sources \
+ && sed -i 's|http://deb.debian.org/debian-security|https://mirrors.tuna.tsinghua.edu.cn/debian-security|g' /etc/apt/sources.list.d/debian.sources \
+ && apt-get update \
+ && apt-get install -y --no-install-recommends \
     pkg-config \
     libssl-dev \
     protobuf-compiler \
-    && rm -rf /var/lib/apt/lists/*
+    libprotobuf-dev \
+ && rm -rf /var/lib/apt/lists/*
 
 # Copy manifests
 # Cargo.lock is intentionally not committed in this repo, so copy Cargo.toml only.
@@ -42,20 +51,24 @@ RUN cargo build --release --locked && \
     strip --strip-all /app/koduck-auth
 
 # Stage 2: Runtime
-# Use Alpine for minimal image size (~7MB base vs ~30MB for debian-slim)
-FROM alpine:3.19
+# Use Debian runtime to match glibc-linked binary from builder.
+FROM docker.m.daocloud.io/library/debian:bookworm-slim
 
 WORKDIR /app
 
 # Install minimal runtime dependencies
-# ca-certificates: Required for TLS/HTTPS connections
-# libgcc: Required for Rust binaries built with glibc
-RUN apk add --no-cache ca-certificates libgcc
+RUN sed -i 's|http://deb.debian.org/debian|http://mirrors.tuna.tsinghua.edu.cn/debian|g' /etc/apt/sources.list.d/debian.sources \
+ && sed -i 's|http://deb.debian.org/debian-security|http://mirrors.tuna.tsinghua.edu.cn/debian-security|g' /etc/apt/sources.list.d/debian.sources \
+ && apt-get update \
+ && apt-get install -y --no-install-recommends \
+    ca-certificates \
+    libssl3 \
+    wget \
+ && rm -rf /var/lib/apt/lists/*
 
 # Create non-root user
-# Alpine uses addgroup/adduser instead of groupadd/useradd
-RUN addgroup -g 1000 -S koduck && \
-    adduser -u 1000 -S koduck -G koduck
+RUN groupadd -g 1000 koduck && \
+    useradd -u 1000 -g 1000 -m -s /usr/sbin/nologin koduck
 
 # Copy binary from builder
 COPY --from=builder /app/koduck-auth /usr/local/bin/koduck-auth
@@ -72,7 +85,6 @@ USER koduck
 EXPOSE 8081 50051 9090
 
 # Health check
-# Alpine's busybox wget supports the required options
 HEALTHCHECK --interval=30s --timeout=5s --start-period=5s --retries=3 \
     CMD wget --quiet --tries=1 --spider http://localhost:8081/health || exit 1
 

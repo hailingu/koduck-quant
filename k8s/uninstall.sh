@@ -46,6 +46,7 @@ uninstall_env() {
     local pod_wait_seconds=20
     
     echo -e "\n${YELLOW}卸载 ${env} 环境...${NC}"
+    echo -e "${YELLOW}说明: 将删除命名空间内 Secret（含 ${env}-koduck-auth-jwt-keys），下次 install 会自动生成新 RSA key${NC}"
 
     if ! kubectl get namespace "${namespace}" >/dev/null 2>&1; then
         echo -e "${YELLOW}命名空间 ${namespace} 不存在，跳过${NC}"

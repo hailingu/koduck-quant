@@ -1,6 +1,7 @@
 //! HTTP routes configuration
 
 use axum::{
+    middleware,
     routing::{get, post},
     Router,
 };
@@ -9,13 +10,14 @@ use tower::ServiceBuilder;
 use tower_http::{
     compression::CompressionLayer,
     cors::CorsLayer,
-    request_id::{MakeRequestUuid, PropagateRequestIdLayer, SetRequestIdLayer},
+    request_id::{MakeRequestUuid, PropagateRequestIdLayer},
     trace::TraceLayer,
     ServiceBuilderExt,
 };
 
 use crate::{
     http::handler::{auth, health, jwks, metrics as metrics_handler},
+    http::middleware::{error_handler, log_request},
     state::AppState,
 };
 
@@ -50,5 +52,12 @@ pub fn create_router(state: Arc<AppState>) -> Router {
                 .layer(CompressionLayer::new())
                 .layer(CorsLayer::permissive()),
         )
+        .layer(middleware::from_fn(error_handler))
+        .layer(middleware::from_fn(log_request))
         .with_state(state)
+}
+
+/// Create dedicated metrics router for metrics_addr (e.g. 0.0.0.0:9090).
+pub fn create_metrics_router() -> Router {
+    Router::new().route("/metrics", get(metrics_handler::handler))
 }

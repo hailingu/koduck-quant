@@ -14,16 +14,19 @@ spec:
           env:
             - name: RUST_LOG
               value: "debug"
+      volumes:
+        - name: jwt-keys
+          secret:
+            secretName: dev-koduck-auth-jwt-keys
+            items:
+              - key: private.pem
+                path: private.pem
+              - key: public.pem
+                path: public.pem
 ---
 apiVersion: v1
 kind: Secret
 metadata:
   name: koduck-auth-jwt-keys
   namespace: koduck
-type: Opaque
-data:
-  # Dev keys - replace with real keys in production
-  # Generated: openssl genrsa -out private.pem 2048
-  #           openssl rsa -in private.pem -pubout -out public.pem
-  private.pem: "LS0tLS1CRUdJTiBSU0EgUFJJVkFURSBLRVktLS0tLQpNSUlFcEFJQkFBS0NBUUVBMUd1eEZSVUdvRnY0Nkx6M2NwdzVndW5QNzZnTzVWaUlmNDR5Y2lPNnpHeExXRnBsCkh6UHBCS25Rb2hLekR0UlBJN2dEeHpmRUt3V1NYVlRqVE5URUxuZXV0bjlNQWdrTUtPdU10b3F1eXhSMVZrOUsKUE1iZDJJa0t3eEtLYWJ1VzFyRXR1eTFHdW1UQmFGY01JQklHR0lRZ0JHWm9jbHRXYi90a1g0VkNxS2dlbkxYaQpVd0lEQVFBQkFvR0JBSGZ5MGJqN2NjczBybGhGTlZLYzJFTUM2elBxRVNKL2c2bkVXYzVaOG9JazNxNEhvUnVDCk1jUEpuSUFlNXB5aUx5RjVQc0pJZVNrNXNTaDNrNGwzTHJ3bkZ5VHpKQXczMlREdEhNMzhWWTY2QWZaK3dzaUMKZ2d3L2tLVlZEN0FRRXVKY2NEdkh2Qlp4d0loQU9PWHQvT1d0ZVJxL1NUQVdxb2dyN3gwQWtLVkJRNGJHclhKMQpqMkp5VHdBZ0VNNEtJQ0FJZ1EyWUxqcTVXUElRYkhCblNOVXJnVlVrQ0FRQT0KLS0tLS1FTkQgUlNBIFBSSVZBVEUgS0VZLS0tLS0K"
-  public.pem: "LS0tLS1CRUdJTiBQVUJMSUMgS0VZLS0tLS0KTUlHZk1BMEdDU3FHU0liM0RRRUJBUVVBQTRHTkFEQ0JpUUtCZ1FBMUd1eEZSVUdvRnY0Nkx6M2NwdzVndW5QNwo2Z081VmlJZjQ0eWNpTTZ6R3hMV0ZwbEh6UHRCS25Rb2hLekR0UlBJN2dEeHpmRUt3V1NYVlRqVE5URUxuZXV0Cm45TUFna01LT3VNdG9xdXl4UjFWazlLUE1iZDJJa0t3eEtLYWJ1VzFyRXR1eTFHdW1UQmFGY01JQklHR0lRZ0IKR1pvY2x0V2IvdGtYNFZDcUtnZW5MWGlRd0lEQVFBQgotLS0tLUVORCBQVUJMSUMgS0VZLS0tLS0K"
+$patch: delete

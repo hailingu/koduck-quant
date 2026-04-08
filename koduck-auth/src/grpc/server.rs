@@ -12,7 +12,9 @@ use crate::{
     service::{AuthService as AuthServiceImpl, TokenService as TokenServiceImpl},
 };
 use std::net::SocketAddr;
+use std::future::Future;
 use tonic::transport::Server;
+use tonic_health::server::health_reporter;
 use tracing::info;
 
 /// gRPC server configuration
@@ -55,16 +57,55 @@ impl GrpcServer {
     pub async fn run(self) -> Result<(), Box<dyn std::error::Error>> {
         info!("Starting gRPC server on {}", self.addr);
 
+        let (mut health_reporter, health_service) = health_reporter();
+        health_reporter
+            .set_serving::<AuthServiceServer<GrpcAuthService>>()
+            .await;
+        health_reporter
+            .set_serving::<TokenServiceServer<GrpcTokenService>>()
+            .await;
+
         // Create gRPC reflection service
         let reflection_service = tonic_reflection::server::Builder::configure()
             .register_encoded_file_descriptor_set(FILE_DESCRIPTOR_SET)
             .build()?;
 
         Server::builder()
+            .add_service(health_service)
             .add_service(reflection_service)
             .add_service(AuthServiceServer::new(self.auth_service))
             .add_service(TokenServiceServer::new(self.token_service))
             .serve(self.addr)
+            .await?;
+
+        Ok(())
+    }
+
+    /// Run the gRPC server with graceful shutdown signal
+    pub async fn run_with_shutdown<F>(self, shutdown: F) -> Result<(), Box<dyn std::error::Error>>
+    where
+        F: Future<Output = ()> + Send + 'static,
+    {
+        info!("Starting gRPC server on {} (with graceful shutdown)", self.addr);
+
+        let (mut health_reporter, health_service) = health_reporter();
+        health_reporter
+            .set_serving::<AuthServiceServer<GrpcAuthService>>()
+            .await;
+        health_reporter
+            .set_serving::<TokenServiceServer<GrpcTokenService>>()
+            .await;
+
+        let reflection_service = tonic_reflection::server::Builder::configure()
+            .register_encoded_file_descriptor_set(FILE_DESCRIPTOR_SET)
+            .build()?;
+
+        Server::builder()
+            .add_service(health_service)
+            .add_service(reflection_service)
+            .add_service(AuthServiceServer::new(self.auth_service))
+            .add_service(TokenServiceServer::new(self.token_service))
+            .serve_with_shutdown(self.addr, shutdown)
             .await?;
 
         Ok(())
@@ -84,39 +125,19 @@ pub async fn create_and_run_grpc_server(
     server.run().await
 }
 
-/// Create gRPC services for composition into main server
-pub fn create_grpc_services(
-    auth_service_impl: AuthServiceImpl,
-    token_service_impl: TokenServiceImpl,
+/// Create and run gRPC server with graceful shutdown signal.
+pub async fn create_and_run_grpc_server_with_shutdown<F>(
+    addr: SocketAddr,
+    auth_service: AuthServiceImpl,
+    token_service: TokenServiceImpl,
     user_repo: UserRepository,
     jwks_service: JwksService,
     jwt_service: JwtService,
-) -> (
-    tonic_reflection::server::ServerReflectionServer<tonic_reflection::server::ServerReflection>,
-    AuthServiceServer<GrpcAuthService>,
-    TokenServiceServer<GrpcTokenService>,
-) {
-    // Create gRPC reflection service
-    let reflection_service = tonic_reflection::server::Builder::configure()
-        .register_encoded_file_descriptor_set(FILE_DESCRIPTOR_SET)
-        .build()
-        .expect("Failed to create reflection service");
-
-    let auth_service = GrpcAuthService::new(
-        auth_service_impl.clone(),
-        token_service_impl.clone(),
-        user_repo,
-        jwks_service,
-    );
-    let token_service = GrpcTokenService::new(
-        token_service_impl,
-        auth_service_impl,
-        jwt_service,
-    );
-
-    (
-        reflection_service,
-        AuthServiceServer::new(auth_service),
-        TokenServiceServer::new(token_service),
-    )
+    shutdown: F,
+) -> Result<(), Box<dyn std::error::Error>>
+where
+    F: Future<Output = ()> + Send + 'static,
+{
+    let server = GrpcServer::new(addr, auth_service, token_service, user_repo, jwks_service, jwt_service);
+    server.run_with_shutdown(shutdown).await
 }
