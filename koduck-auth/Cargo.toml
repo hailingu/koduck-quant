@@ -21,6 +21,7 @@ tower-http = { version = "0.5", features = [
     "compression-full",
     "request-id",
     "sensitive-headers",
+    "util",
 ] }
 hyper = { version = "1.0", features = ["full"] }
 
@@ -100,6 +101,8 @@ regex = "1.10"
 # 安全
 secrecy = { version = "0.8", features = ["serde"] }
 zeroize = { version = "1.7", features = ["derive"] }
+sha2 = "0.10"
+rand = "0.8"
 
 [build-dependencies]
 tonic-build = "0.11"

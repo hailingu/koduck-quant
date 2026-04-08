@@ -5,7 +5,10 @@ use crate::{
     error::{AppError, Result},
 };
 use argon2::{
-    password_hash::{rand_core::OsRng, PasswordHash, PasswordHasher, PasswordVerifier, SaltString},
+    password_hash::{
+        rand_core::OsRng, PasswordHash, PasswordHasher as ArgonPasswordHasher, PasswordVerifier,
+        SaltString,
+    },
     Algorithm, Argon2, Params, Version,
 };
 use std::sync::Arc;
@@ -46,7 +49,7 @@ impl PasswordHasher {
         let password = password.to_string();
         let argon2 = self.argon2.clone();
 
-        tokio::task::spawn_blocking(move || {
+        tokio::task::spawn_blocking(move || -> Result<String> {
             let salt = SaltString::generate(&mut OsRng);
 
             argon2
@@ -64,15 +67,13 @@ impl PasswordHasher {
         let hash = hash.to_string();
         let argon2 = self.argon2.clone();
 
-        tokio::task::spawn_blocking(move || {
+        tokio::task::spawn_blocking(move || -> Result<bool> {
             let parsed_hash = PasswordHash::new(&hash)
                 .map_err(|e| AppError::PasswordHash(e.to_string()))?;
 
-            Ok::<bool, AppError>(
-                argon2
-                    .verify_password(password.as_bytes(), &parsed_hash)
-                    .is_ok(),
-            )
+            Ok(argon2
+                .verify_password(password.as_bytes(), &parsed_hash)
+                .is_ok())
         })
         .await
         .map_err(|e| AppError::Internal(e.to_string()))?

@@ -3,12 +3,14 @@
 use crate::{
     error::AppError,
     grpc::proto::{
+        self,
         token_service_server::TokenService,
         *,
     },
     jwt::JwtService,
     service::{AuthService as AuthServiceImpl, TokenService as TokenServiceImpl},
 };
+use prost_types::Timestamp;
 use tonic::{Request, Response, Status};
 use tracing::info;
 
@@ -48,6 +50,10 @@ impl GrpcTokenService {
             _ => Status::internal(err.to_string()),
         }
     }
+
+    fn to_timestamp(seconds: i64) -> Option<Timestamp> {
+        Some(Timestamp { seconds, nanos: 0 })
+    }
 }
 
 #[tonic::async_trait]
@@ -73,8 +79,8 @@ impl TokenService for GrpcTokenService {
                     client_id: 0, // Not implemented
                     username: result.username.unwrap_or_default(),
                     token_type: result.token_type.unwrap_or_else(|| "Bearer".to_string()),
-                    exp: result.exp,
-                    iat: result.iat,
+                    exp: result.exp.and_then(Self::to_timestamp),
+                    iat: result.iat.and_then(Self::to_timestamp),
                     nbf: None, // Not in our Claims
                     sub: result.sub.unwrap_or_default(),
                     aud: vec![], // Not in our Claims format

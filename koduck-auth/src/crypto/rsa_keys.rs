@@ -1,6 +1,7 @@
 //! RSA key loading utilities
 
 use crate::error::{AppError, Result};
+use rsa::pkcs1::LineEnding;
 use rsa::pkcs1::{EncodeRsaPrivateKey, EncodeRsaPublicKey};
 use rsa::{RsaPrivateKey, RsaPublicKey};
 use tracing::{info, warn};
@@ -50,11 +51,11 @@ pub async fn generate_dev_keys(private_path: &str, public_path: &str) -> Result<
 
     // Encode to PEM
     let private_pem = private_key
-        .to_pkcs1_pem()
+        .to_pkcs1_pem(LineEnding::LF)
         .map_err(|e| AppError::Internal(format!("Failed to encode private key: {}", e)))?;
 
     let public_pem = public_key
-        .to_pkcs1_pem()
+        .to_pkcs1_pem(LineEnding::LF)
         .map_err(|e| AppError::Internal(format!("Failed to encode public key: {}", e)))?;
 
     // Save to files

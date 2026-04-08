@@ -3,6 +3,7 @@
 use crate::error::Result;
 use deadpool_redis::Pool;
 use deadpool_redis::redis::AsyncCommands;
+use deadpool_redis::redis;
 
 /// Redis cache wrapper
 #[derive(Clone)]

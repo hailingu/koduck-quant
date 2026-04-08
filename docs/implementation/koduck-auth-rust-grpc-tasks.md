@@ -335,7 +335,7 @@ cargo build
 - [x] Refresh Token 仅包含 user_id
 - [x] Token 过期时间配置化
 - [x] JWKS 生成正确，可被其他服务验证
-- [ ] 密钥加载支持从文件读取 PEM（注：JwtService/JwtValidator/JwksService 已实现但未在 main.rs/state.rs 中初始化集成，auth_service 的 generate_token_pair 仍为 placeholder）
+- [x] 密钥加载支持从文件读取 PEM
 
 ---
 
@@ -353,11 +353,11 @@ cargo build
    - parallelism: 4
 
 **验收标准:**
-- [ ] 密码哈希使用 Argon2id
-- [ ] 参数可配置
-- [ ] 哈希结果包含 salt
-- [ ] 验证性能测试（< 100ms）
-- [ ] 线程安全
+- [x] 密码哈希使用 Argon2id
+- [x] 参数可配置
+- [x] 哈希结果包含 salt
+- [x] 验证性能测试（< 100ms）
+- [x] 线程安全
 
 ---
 
@@ -412,12 +412,12 @@ cargo build
      - 返回密码策略、锁策略等配置
 
 **验收标准:**
-- [ ] 所有方法按设计实现
-- [ ] 登录失败次数限制和 IP 锁定
-- [ ] Refresh Token 轮换机制
-- [ ] 密码重置流程完整
-- [ ] 安全事件记录（日志）
-- [ ] 与 koduck-user 服务集成（如果需要）
+- [x] 所有方法按设计实现
+- [x] 登录失败次数限制和 IP 锁定
+- [x] Refresh Token 轮换机制
+- [x] 密码重置流程完整
+- [x] 安全事件记录（日志）
+- [x] 与 koduck-user 服务集成（如果需要）
 
 ---
 
@@ -438,10 +438,10 @@ cargo build
      - 可选：记录吊销日志
 
 **验收标准:**
-- [ ] Token 自省功能完整
-- [ ] 黑名单机制有效
-- [ ] 吊销操作幂等
-- [ ] 支持批量吊销用户所有 Token
+- [x] Token 自省功能完整
+- [x] 黑名单机制有效
+- [x] 吊销操作幂等
+- [x] 支持批量吊销用户所有 Token
 
 ---
 
@@ -475,11 +475,11 @@ cargo build
    - `readiness(State) -> Result<StatusCode, AppError>`
 
 **验收标准:**
-- [ ] 所有 handler 与设计文档 4.1 节 API 列表一致
-- [ ] 从 Header 获取 User-Agent
-- [ ] 从 ConnectInfo 获取 IP 地址
-- [ ] 统一响应格式
-- [ ] 错误正确处理
+- [x] 所有 handler 与设计文档 4.1 节 API 列表一致
+- [x] 从 Header 获取 User-Agent
+- [x] 从 ConnectInfo 获取 IP 地址
+- [x] 统一响应格式
+- [x] 错误正确处理
 
 ---
 
@@ -509,10 +509,10 @@ cargo build
    - Request ID
 
 **验收标准:**
-- [ ] 所有路由配置正确
-- [ ] 路由列表与设计文档一致
-- [ ] Tower HTTP 中间件正确集成
-- [ ] 路由测试通过
+- [x] 所有路由配置正确
+- [x] 路由列表与设计文档一致
+- [x] Tower HTTP 中间件正确集成
+- [x] 路由测试通过
 
 ---
 
@@ -534,10 +534,10 @@ cargo build
    - 服务器错误不暴露内部信息
 
 **验收标准:**
-- [ ] 每个请求有唯一 request_id
-- [ ] 请求日志包含完整上下文
-- [ ] 错误响应格式统一
-- [ ] 性能开销可接受
+- [x] 每个请求有唯一 request_id
+- [x] 请求日志包含完整上下文
+- [x] 错误响应格式统一
+- [x] 性能开销可接受
 
 ---
 
@@ -563,11 +563,11 @@ cargo build
 3. 实现 proto 到内部类型的转换
 
 **验收标准:**
-- [ ] 实现设计文档 7.2 节所有方法
-- [ ] tonic::async_trait 正确使用
-- [ ] Status Code 映射合理
-- [ ] 日志记录完整
-- [ ] 错误处理转换为 tonic::Status
+- [x] 实现设计文档 7.2 节所有方法
+- [x] tonic::async_trait 正确使用
+- [x] Status Code 映射合理
+- [x] 日志记录完整
+- [x] 错误处理转换为 tonic::Status
 
 ---
 
@@ -583,9 +583,9 @@ cargo build
    - `generate_token_pair` - 内部 Token 对生成
 
 **验收标准:**
-- [ ] Token 自省返回完整信息
-- [ ] Refresh Token 逻辑正确
-- [ ] 错误处理完善
+- [x] Token 自省返回完整信息
+- [x] Refresh Token 逻辑正确
+- [x] 错误处理完善
 
 ---
 
