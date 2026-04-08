@@ -141,6 +141,23 @@ wait_pods_ready() {
     fi
 }
 
+# 修正 koduck-auth Secret 中的服务地址（避免主机名与 namePrefix 不一致）
+ensure_koduck_auth_secret_endpoints() {
+    local auth_secret_name="${ENV}-koduck-auth-secrets"
+    local db_host_default="${ENV}-postgres"
+    local redis_host_default="${ENV}-redis"
+    local db_url="${KODUCK_AUTH_DATABASE_URL:-postgresql://koduck:koduck_secret@${db_host_default}:5432/koduck_auth}"
+    local redis_url="${KODUCK_AUTH_REDIS_URL:-redis://${redis_host_default}:6379}"
+
+    if kubectl -n "${NAMESPACE}" get secret "${auth_secret_name}" >/dev/null 2>&1; then
+        kubectl create secret generic "${auth_secret_name}" \
+            --from-literal=database-url="${db_url}" \
+            --from-literal=redis-url="${redis_url}" \
+            -n "${NAMESPACE}" \
+            --dry-run=client -o yaml | kubectl apply -f -
+    fi
+}
+
 # 确保命名空间可用（避免卸载后 Terminating 导致安装失败）
 ensure_namespace_ready() {
     local max_wait_seconds=45
@@ -218,6 +235,9 @@ install() {
     else
         kubectl kustomize --load-restrictor=LoadRestrictionsNone "${SCRIPT_DIR}/overlays/${ENV}" | kubectl apply -f -
     fi
+
+    # 覆盖 auth 连接地址，确保与环境前缀服务名一致（如 dev-postgres）
+    ensure_koduck_auth_secret_endpoints
 
     echo -e "${YELLOW}等待 PostgreSQL 启动...${NC}"
     wait_pods_ready "app=postgres" "180s" "postgres"

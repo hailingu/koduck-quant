@@ -86,6 +86,8 @@ spec:
                 - pg_isready
                 - -U
                 - koduck
+                - -d
+                - koduck_auth
             initialDelaySeconds: 30
             periodSeconds: 10
             failureThreshold: 3
@@ -95,6 +97,8 @@ spec:
                 - pg_isready
                 - -U
                 - koduck
+                - -d
+                - koduck_auth
             initialDelaySeconds: 5
             periodSeconds: 5
             failureThreshold: 3

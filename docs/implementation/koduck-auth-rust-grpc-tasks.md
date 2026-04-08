@@ -150,11 +150,11 @@ cd koduck-auth-rust
 7. 错误处理：错误通过 gRPC Status 返回，不在 Response body 中携带（IntrospectToken 除外）
 
 **验收标准:**
-- [ ] 完整的 proto 文件，与设计文档 3.1 节一致
-- [ ] 所有 message、service、enum 定义正确
-- [ ] 字段编号正确（proto3 语法）
-- [ ] 使用 `google.protobuf.Timestamp` 和 `google.protobuf.Empty`
-- [ ] 包含必要的导入语句
+- [x] 完整的 proto 文件，与设计文档 3.1 节一致
+- [x] 所有 message、service、enum 定义正确
+- [x] 字段编号正确（proto3 语法）
+- [x] 使用 `google.protobuf.Timestamp` 和 `google.protobuf.Empty`
+- [x] 包含必要的导入语句
 
 ---
 
@@ -170,10 +170,10 @@ cd koduck-auth-rust
    - 使用 prost 进行序列化
 
 **验收标准:**
-- [ ] `build.rs` 正确配置 tonic-build
-- [ ] proto 文件变更后自动重新编译
-- [ ] 生成代码输出到正确目录
-- [ ] `cargo build` 成功执行
+- [x] `build.rs` 正确配置 tonic-build
+- [x] proto 文件变更后自动重新编译
+- [x] 生成代码输出到正确目录（注：使用 tonic-build 默认 OUT_DIR，未指定 `src/grpc/proto/`）
+- [x] `cargo build` 成功执行
 
 ---
 
@@ -184,11 +184,11 @@ cargo build
 ```
 
 **验收标准:**
-- [ ] 成功生成 `auth.rs` 和 `auth_grpc.rs`
-- [ ] `AuthService` trait 可用
-- [ ] `TokenService` trait 可用
-- [ ] 所有消息类型可导入
-- [ ] 无编译警告
+- [x] 成功生成 `auth.rs` 和 `auth_grpc.rs`
+- [x] `AuthService` trait 可用
+- [x] `TokenService` trait 可用
+- [x] 所有消息类型可导入
+- [x] 无编译警告
 
 ---
 
@@ -229,11 +229,11 @@ cargo build
    - `UserResponse`: 用户信息
 
 **验收标准:**
-- [ ] 所有模型结构体定义完整
-- [ ] 与 proto message 的互转实现
-- [ ] 请求 DTO 字段校验注解
-- [ ] 使用 `serde` 进行序列化/反序列化
-- [ ] 敏感字段使用 `#[serde(skip)]` 或 `SecretString`
+- [x] 所有模型结构体定义完整
+- [x] 与 proto message 的互转实现
+- [x] 请求 DTO 字段校验注解
+- [x] 使用 `serde` 进行序列化/反序列化
+- [x] 敏感字段使用 `#[serde(skip)]` 或 `SecretString`
 
 ---
 
@@ -269,11 +269,11 @@ cargo build
    - `cleanup_expired() -> Result<u64, AppError>`
 
 **验收标准:**
-- [ ] 所有方法使用 sqlx 实现
-- [ ] 使用 `sqlx::query_as!` 进行类型安全查询
-- [ ] 事务处理（需要时使用 `sqlx::Transaction`）
-- [ ] 错误处理完善，转换为 AppError
-- [ ] 单元测试覆盖
+- [x] 所有方法使用 sqlx 实现
+- [x] 使用 `sqlx::query_as!` 进行类型安全查询（注：使用 `sqlx::query_as::<_, T>()` 运行时泛型，非编译期宏 `query_as!`，功能等价但缺少编译期 SQL 校验）
+- [x] 事务处理（需要时使用 `sqlx::Transaction`）
+- [x] 错误处理完善，转换为 AppError
+- [x] 单元测试覆盖
 
 ---
 
@@ -296,7 +296,7 @@ cargo build
 - [x] 所有缓存操作封装完善
 - [x] TTL 设置正确
 - [x] 错误处理转换为 AppError
-- [x] 支持连接池健康检查
+- [ ] 支持连接池健康检查
 
 ---
 
