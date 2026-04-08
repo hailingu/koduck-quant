@@ -69,13 +69,6 @@
                 <version>${koduck.version}</version>
             </dependency>
 
-            <!-- Koduck User Module -->
-            <dependency>
-                <groupId>com.koduck</groupId>
-                <artifactId>koduck-user</artifactId>
-                <version>${koduck.version}</version>
-            </dependency>
-
             <!-- External Dependencies -->
             <!-- JWT -->
             <dependency>
