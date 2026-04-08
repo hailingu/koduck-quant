@@ -1,5 +1,9 @@
 //! Test utilities
 
+pub mod test_app;
+
+pub use test_app::{TestApp, TestAppWithServer, TestUser};
+
 use std::sync::Once;
 
 static INIT: Once = Once::new();
