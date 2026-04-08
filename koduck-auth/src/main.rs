@@ -62,6 +62,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     )?;
     let token_service_impl = TokenServiceImpl::new(token_repo, redis, jwt_validator);
 
+    // Clone jwt_service for token service
+    let jwt_service_for_token = state.jwt_service().clone();
+
     // Create HTTP service
     let http_addr: SocketAddr = config.server.http_addr.parse()?;
     let http_listener = TcpListener::bind(http_addr).await?;
@@ -74,6 +77,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         token_service_impl,
         user_repo,
         jwks_service,
+        jwt_service_for_token,
     );
 
     info!("HTTP server listening on {}", http_addr);

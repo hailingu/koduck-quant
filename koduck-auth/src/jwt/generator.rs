@@ -103,4 +103,14 @@ impl JwtService {
     pub fn key_id(&self) -> &str {
         &self.key_id
     }
+
+    /// Get access token expiration in seconds
+    pub fn access_expiration(&self) -> i64 {
+        self.access_expiration
+    }
+
+    /// Get refresh token expiration in seconds
+    pub fn refresh_expiration(&self) -> i64 {
+        self.refresh_expiration
+    }
 }

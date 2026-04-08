@@ -7,6 +7,7 @@ use crate::{
         token_service::GrpcTokenService,
     },
     jwt::JwksService,
+    jwt::JwtService,
     repository::UserRepository,
     service::{AuthService as AuthServiceImpl, TokenService as TokenServiceImpl},
 };
@@ -29,14 +30,19 @@ impl GrpcServer {
         token_service_impl: TokenServiceImpl,
         user_repo: UserRepository,
         jwks_service: JwksService,
+        jwt_service: JwtService,
     ) -> Self {
         let auth_service = GrpcAuthService::new(
-            auth_service_impl,
+            auth_service_impl.clone(),
             token_service_impl.clone(),
             user_repo,
             jwks_service,
         );
-        let token_service = GrpcTokenService::new(token_service_impl);
+        let token_service = GrpcTokenService::new(
+            token_service_impl,
+            auth_service_impl,
+            jwt_service,
+        );
 
         Self {
             addr,
@@ -66,8 +72,9 @@ pub async fn create_and_run_grpc_server(
     token_service: TokenServiceImpl,
     user_repo: UserRepository,
     jwks_service: JwksService,
+    jwt_service: JwtService,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    let server = GrpcServer::new(addr, auth_service, token_service, user_repo, jwks_service);
+    let server = GrpcServer::new(addr, auth_service, token_service, user_repo, jwks_service, jwt_service);
     server.run().await
 }
 
@@ -77,14 +84,19 @@ pub fn create_grpc_services(
     token_service_impl: TokenServiceImpl,
     user_repo: UserRepository,
     jwks_service: JwksService,
+    jwt_service: JwtService,
 ) -> (AuthServiceServer<GrpcAuthService>, TokenServiceServer<GrpcTokenService>) {
     let auth_service = GrpcAuthService::new(
-        auth_service_impl,
+        auth_service_impl.clone(),
         token_service_impl.clone(),
         user_repo,
         jwks_service,
     );
-    let token_service = GrpcTokenService::new(token_service_impl);
+    let token_service = GrpcTokenService::new(
+        token_service_impl,
+        auth_service_impl,
+        jwt_service,
+    );
 
     (
         AuthServiceServer::new(auth_service),

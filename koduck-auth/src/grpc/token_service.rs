@@ -6,7 +6,8 @@ use crate::{
         token_service_server::TokenService,
         *,
     },
-    service::TokenService as TokenServiceImpl,
+    jwt::JwtService,
+    service::{AuthService as AuthServiceImpl, TokenService as TokenServiceImpl},
 };
 use tonic::{Request, Response, Status};
 use tracing::info;
@@ -15,12 +16,22 @@ use tracing::info;
 #[derive(Clone)]
 pub struct GrpcTokenService {
     token_service: TokenServiceImpl,
+    auth_service: AuthServiceImpl,
+    jwt_service: JwtService,
 }
 
 impl GrpcTokenService {
     /// Create new gRPC token service
-    pub fn new(token_service: TokenServiceImpl) -> Self {
-        Self { token_service }
+    pub fn new(
+        token_service: TokenServiceImpl,
+        auth_service: AuthServiceImpl,
+        jwt_service: JwtService,
+    ) -> Self {
+        Self {
+            token_service,
+            auth_service,
+            jwt_service,
+        }
     }
 
     /// Convert AppError to tonic::Status
@@ -89,12 +100,21 @@ impl TokenService for GrpcTokenService {
             refresh_token: req.refresh_token,
         };
 
-        // Note: This should use auth_service.refresh_token, not token_service
-        // For now, return unimplemented
-        let _ = refresh_req;
-        Err(Status::unimplemented(
-            "RefreshToken not yet fully implemented",
-        ))
+        // Call auth_service to refresh token
+        match self.auth_service.refresh_token(refresh_req).await {
+            Ok(token_response) => {
+                let response = RefreshTokenResponse {
+                    tokens: Some(proto::TokenPair {
+                        access_token: token_response.tokens.access_token,
+                        refresh_token: token_response.tokens.refresh_token,
+                        token_type: token_response.tokens.token_type,
+                        expires_in: token_response.tokens.expires_in,
+                    }),
+                };
+                Ok(Response::new(response))
+            }
+            Err(e) => Err(Self::to_status(e)),
+        }
     }
 
     async fn generate_token_pair(
@@ -104,11 +124,31 @@ impl TokenService for GrpcTokenService {
         let req = request.into_inner();
         info!("Generating token pair for user: {}", req.user_id);
 
-        // TODO: Implement token pair generation using JWT service
-        let _ = (req.user_id, req.username, req.email, req.roles);
+        // Generate access token using jwt_service
+        let access_token = self
+            .jwt_service
+            .generate_access_token(
+                req.user_id,
+                &req.username,
+                &req.email,
+                &req.roles,
+            )
+            .map_err(Self::to_status)?;
 
-        Err(Status::unimplemented(
-            "GenerateTokenPair not yet fully implemented",
-        ))
+        // Generate refresh token using jwt_service
+        let refresh_token = self
+            .jwt_service
+            .generate_refresh_token(req.user_id)
+            .map_err(Self::to_status)?;
+
+        let response = GenerateTokenPairResponse {
+            tokens: Some(proto::TokenPair {
+                access_token,
+                refresh_token,
+                token_type: "Bearer".to_string(),
+                expires_in: self.jwt_service.access_expiration(),
+            }),
+        };
+        Ok(Response::new(response))
     }
 }
