@@ -11,7 +11,9 @@ use crate::{
     repository::{RedisCache, RefreshTokenRepository, UserRepository},
 };
 use secrecy::ExposeSecret;
+use sqlx::PgPool;
 use std::sync::Arc;
+use tracing::{error, info};
 
 /// Authentication service
 #[derive(Clone)]
@@ -19,6 +21,7 @@ pub struct AuthService {
     user_repo: UserRepository,
     token_repo: RefreshTokenRepository,
     redis: RedisCache,
+    db_pool: PgPool,
     config: Arc<Config>,
 }
 
@@ -28,12 +31,14 @@ impl AuthService {
         user_repo: UserRepository,
         token_repo: RefreshTokenRepository,
         redis: RedisCache,
+        db_pool: PgPool,
         config: Arc<Config>,
     ) -> Self {
         Self {
             user_repo,
             token_repo,
             redis,
+            db_pool,
             config,
         }
     }
@@ -103,11 +108,18 @@ impl AuthService {
     }
 
     /// Register new user
+    /// Uses transaction to ensure atomicity of user creation and role assignment
     pub async fn register(&self, req: RegisterRequest) -> Result<TokenResponse> {
         // Hash password
         let password_hash = password::hash_password(&req.password).await?;
 
-        // Create user
+        // Start transaction for atomic user creation and role assignment
+        let mut tx = self.db_pool.begin().await.map_err(|e| {
+            error!("Failed to start transaction: {}", e);
+            AppError::Database(e)
+        })?;
+
+        // Create user within transaction
         let dto = CreateUserDto {
             username: req.username,
             email: req.email,
@@ -115,12 +127,31 @@ impl AuthService {
             nickname: req.nickname,
         };
 
-        let user = self.user_repo.create(&dto).await?;
+        let user = match self.user_repo.create_with_tx(&mut tx, &dto).await {
+            Ok(user) => user,
+            Err(e) => {
+                error!("Failed to create user in transaction: {:?}", e);
+                // Transaction will be rolled back when dropped
+                return Err(e);
+            }
+        };
 
-        // Assign default role
-        self.user_repo.assign_role(user.id, "USER").await?;
+        // Assign default role within same transaction
+        if let Err(e) = self.user_repo.assign_role_with_tx(&mut tx, user.id, "USER").await {
+            error!("Failed to assign role in transaction: {:?}", e);
+            // Transaction will be rolled back when dropped
+            return Err(e);
+        }
 
-        // Generate tokens
+        // Commit transaction
+        if let Err(e) = tx.commit().await {
+            error!("Failed to commit transaction: {}", e);
+            return Err(AppError::Database(e));
+        }
+
+        info!("User registered successfully: {}", user.id);
+
+        // Generate tokens (outside transaction as it's not DB-related)
         let roles = vec!["USER".to_string()];
         let tokens = self.generate_token_pair(&user, &roles).await?;
 

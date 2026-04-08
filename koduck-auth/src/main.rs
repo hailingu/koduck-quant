@@ -35,7 +35,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let redis = RedisCache::new(state.redis_pool().clone());
 
     // Create services
-    let auth_service_impl = AuthServiceImpl::new(user_repo.clone(), token_repo.clone(), redis.clone(), config.clone());
+    let auth_service_impl = AuthServiceImpl::new(
+        user_repo.clone(),
+        token_repo.clone(),
+        redis.clone(),
+        state.db_pool().clone(),
+        config.clone(),
+    );
     let token_service_impl = TokenServiceImpl::new(token_repo, redis);
 
     // Create HTTP service
