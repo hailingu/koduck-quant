@@ -28,25 +28,16 @@ RUN mkdir -p src/grpc/proto && echo "fn main() {}" > src/main.rs
 # Resolve and fetch deps with persistent cache (only new deps will download).
 RUN --mount=type=cache,target=/usr/local/cargo/registry \
     --mount=type=cache,target=/usr/local/cargo/git \
-    --mount=type=cache,target=/app/target \
     cargo generate-lockfile && cargo fetch --locked
-
-# Build dependencies (cached layer)
-RUN --mount=type=cache,target=/usr/local/cargo/registry \
-    --mount=type=cache,target=/usr/local/cargo/git \
-    --mount=type=cache,target=/app/target \
-    cargo build --release --locked && rm -rf src
 
 # Copy source code
 COPY src ./src
 COPY migrations ./migrations
 
 # Build application
-RUN --mount=type=cache,target=/usr/local/cargo/registry \
-    --mount=type=cache,target=/usr/local/cargo/git \
-    --mount=type=cache,target=/app/target \
-    touch src/main.rs && \
-    cargo build --release --locked && \
+# Note: We don't cache target directory because build.rs generates koduck.bin
+# which needs to be included in the binary
+RUN cargo build --release --locked && \
     cp /app/target/release/koduck-auth /app/koduck-auth && \
     strip --strip-all /app/koduck-auth
 

@@ -7,6 +7,9 @@ pub mod token_service;
 // Include generated proto code
 pub mod proto {
     tonic::include_proto!("koduck.auth.v1");
+    
+    /// File descriptor set for gRPC reflection
+    pub const FILE_DESCRIPTOR_SET: &[u8] = tonic::include_file_descriptor_set!("koduck");
 }
 
 pub use auth_service::GrpcAuthService;
