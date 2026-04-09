@@ -380,9 +380,9 @@
 3. 与现有命名空间/overlay 结构兼容
 
 **验收标准:**
-- [ ] K8s 清单覆盖设计文档 8.1、8.2
-- [ ] liveness/readiness 探针可用
-- [ ] Secret 引用正确且可在 dev 环境启动
+- [x] K8s 清单覆盖设计文档 8.1、8.2
+- [x] liveness/readiness 探针可用
+- [x] Secret 引用正确且可在 dev 环境启动
 
 **参考文档:** 设计文档 8.1 节、8.2 节
 
