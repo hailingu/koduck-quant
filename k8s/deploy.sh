@@ -199,13 +199,15 @@ ensure_koduck_auth_secret_endpoints() {
 ensure_koduck_user_secret_endpoints() {
     local user_secret_name="${ENV}-koduck-user-secrets"
     local db_host_default="${ENV}-postgres"
-    local db_url="${KODUCK_USER_DATABASE_URL:-jdbc:postgresql://koduck:koduck_secret@${db_host_default}:5432/user_db}"
+    local db_url="${KODUCK_USER_DATABASE_URL:-jdbc:postgresql://${db_host_default}:5432/user_db}"
+    local db_username="${KODUCK_USER_DB_USERNAME:-koduck}"
+    local db_password="${KODUCK_USER_DB_PASSWORD:-koduck_secret}"
 
     if kubectl -n "${NAMESPACE}" get secret "${user_secret_name}" >/dev/null 2>&1; then
         kubectl create secret generic "${user_secret_name}" \
             --from-literal=database-url="${db_url}" \
-            --from-literal=db-username="koduck" \
-            --from-literal=db-password="koduck_secret" \
+            --from-literal=db-username="${db_username}" \
+            --from-literal=db-password="${db_password}" \
             -n "${NAMESPACE}" \
             --dry-run=client -o yaml | kubectl apply -f -
     fi
@@ -362,30 +364,30 @@ install() {
     ensure_koduck_user_secret_endpoints
 
     echo -e "${YELLOW}等待 PostgreSQL 启动...${NC}"
-    wait_pods_ready "app=postgres" "180s" "postgres"
+    wait_pods_ready "app=postgres" "30s" "postgres"
 
     echo -e "${YELLOW}等待 Redis 启动...${NC}"
-    wait_pods_ready "app=redis" "180s" "redis"
+    wait_pods_ready "app=redis" "30s" "redis"
 
     echo -e "${YELLOW}等待 etcd 启动...${NC}"
-    wait_pods_ready "app=apisix-etcd" "180s" "etcd"
+    wait_pods_ready "app=apisix-etcd" "30s" "etcd"
 
     echo -e "${YELLOW}等待 APISIX 启动...${NC}"
-    wait_pods_ready "app=apisix-gateway" "180s" "APISIX gateway"
+    wait_pods_ready "app=apisix-gateway" "30s" "APISIX gateway"
 
     echo -e "${YELLOW}等待 Frontend 启动...${NC}"
-    wait_pods_ready "app=koduck-frontend" "180s" "frontend"
+    wait_pods_ready "app=koduck-frontend" "30s" "frontend"
 
     echo -e "${YELLOW}等待 koduck-auth 启动...${NC}"
-    wait_pods_ready "app=koduck-auth" "180s" "koduck-auth"
+    wait_pods_ready "app=koduck-auth" "30s" "koduck-auth"
 
     echo -e "${YELLOW}等待 koduck-user 启动...${NC}"
-    wait_pods_ready "app=koduck-user" "180s" "koduck-user"
+    wait_pods_ready "app=koduck-user" "30s" "koduck-user"
 
     # 阶段二：APISIX 就绪后注册路由和 Consumer
     echo -e "${YELLOW}注册路由和 Consumer...${NC}"
     kubectl apply -f "${SCRIPT_DIR}/overlays/${ENV}/apisix-route-init.yaml"
-    if ! kubectl wait --for=condition=complete job/"${ENV}-apisix-route-init" -n "${NAMESPACE}" --timeout=180s; then
+    if ! kubectl wait --for=condition=complete job/"${ENV}-apisix-route-init" -n "${NAMESPACE}" --timeout=30s; then
         echo -e "${RED}错误: 路由初始化 Job 执行失败${NC}"
         kubectl -n "${NAMESPACE}" get job "${ENV}-apisix-route-init" -o wide || true
         kubectl -n "${NAMESPACE}" logs job/"${ENV}-apisix-route-init" || true

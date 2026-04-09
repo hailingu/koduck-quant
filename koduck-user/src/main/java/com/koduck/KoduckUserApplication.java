@@ -3,7 +3,6 @@ package com.koduck;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.context.properties.ConfigurationPropertiesScan;
-import org.springframework.data.jpa.repository.config.EnableJpaAuditing;
 
 /**
  * Koduck User Service Application.
@@ -16,7 +15,6 @@ import org.springframework.data.jpa.repository.config.EnableJpaAuditing;
  */
 @SpringBootApplication(scanBasePackages = "com.koduck")
 @ConfigurationPropertiesScan
-@EnableJpaAuditing
 public class KoduckUserApplication {
 
     /**

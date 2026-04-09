@@ -59,10 +59,10 @@ spec:
           resources:
             requests:
               cpu: 100m
-              memory: 64Mi
+              memory: 32Mi
             limits:
               cpu: 500m
-              memory: 256Mi
+              memory: 64Mi
           livenessProbe:
             httpGet:
               path: /actuator/health/liveness
