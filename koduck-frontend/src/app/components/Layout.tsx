@@ -1,88 +1,44 @@
 import { useState } from "react";
-import { Link, useLocation } from "react-router";
-import { 
-  Settings, 
-  Terminal, 
-  Activity,
-  Edit,
-  Menu,
-  User,
-  MoreHorizontal
-} from "lucide-react";
+import { useNavigate } from "react-router";
+import { Settings, User, Activity, LogOut, HelpCircle } from "lucide-react";
+import { clearAuth } from "../auth";
 
 export function Layout({ children }: { children: React.ReactNode }) {
   const [showUserMenu, setShowUserMenu] = useState(false);
-  const location = useLocation();
+  const navigate = useNavigate();
 
-  const isActive = (path: string) => location.pathname === path;
+  const handleLogout = (e: React.MouseEvent<HTMLAnchorElement>) => {
+    e.preventDefault();
+    clearAuth();
+    setShowUserMenu(false);
+    navigate("/login", { replace: true });
+  };
 
   return (
-    <div className="min-h-screen bg-white flex">
-      {/* Sidebar */}
-      <aside className="w-64 bg-gray-50 border-r border-gray-200 flex flex-col">
-        {/* Sidebar Header */}
-        <div className="p-3 flex items-center justify-between border-b border-gray-200">
-          <button className="flex items-center gap-2 hover:bg-gray-100 px-3 py-2 rounded-lg transition-colors flex-1 text-gray-900">
-            <Menu className="w-5 h-5" />
+    <div className="min-h-screen bg-white flex flex-col">
+      <header className="h-14 bg-white flex items-center justify-end px-4 flex-shrink-0">
+        <div className="relative">
+          <button
+            onClick={() => setShowUserMenu(!showUserMenu)}
+            className="w-8 h-8 bg-[#10a37f] rounded-full flex items-center justify-center hover:bg-[#0d8b6d] transition-colors"
+          >
+            <User className="w-4 h-4 text-white" />
           </button>
-          <button className="p-2 hover:bg-gray-100 rounded-lg transition-colors text-gray-900">
-            <Edit className="w-5 h-5" />
-          </button>
-        </div>
 
-        {/* Navigation */}
-        <div className="flex-1 overflow-y-auto p-3">
-          <nav className="space-y-1">
-            <Link
-              to="/koduck-ai"
-              className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all ${
-                isActive("/koduck-ai")
-                  ? "text-gray-900 bg-white"
-                  : "text-gray-600 hover:bg-white hover:text-gray-900"
-              }`}
-            >
-              <Terminal className="w-4 h-4" />
-              <span>Koduck AI</span>
-            </Link>
-          </nav>
-
-
-        </div>
-
-        {/* Sidebar Footer */}
-        <div className="p-3">
-          {/* User Profile */}
-          <div className="relative">
-            <div 
-              onClick={() => setShowUserMenu(!showUserMenu)}
-              className="flex items-center gap-2 px-3 py-2 hover:bg-white rounded-lg cursor-pointer"
-            >
-              <div className="w-7 h-7 bg-[#10a37f] rounded-full flex items-center justify-center">
-                <User className="w-4 h-4 text-white" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="text-sm font-medium truncate text-gray-900">User</div>
-              </div>
-              <MoreHorizontal className="w-4 h-4 text-gray-400" />
-            </div>
-            
-            {/* Dropdown Menu */}
-            {showUserMenu && (
-              <div className="absolute bottom-full left-0 right-0 mb-2 bg-white border border-gray-200 rounded-lg shadow-lg py-1">
+          {showUserMenu && (
+            <>
+              <div
+                className="fixed inset-0 z-10"
+                onClick={() => setShowUserMenu(false)}
+              />
+              <div className="absolute top-full right-0 mt-2 w-56 bg-white border border-gray-200 rounded-lg shadow-lg py-1 z-20">
+                <div className="px-3 py-2 border-b border-gray-100">
+                  <div className="text-sm font-medium text-gray-900">User</div>
+                  <div className="text-xs text-gray-500">user@koduckquant.com</div>
+                </div>
                 <a
                   href="#"
-                  className="flex items-center gap-3 text-gray-600 hover:bg-gray-50 px-3 py-2 text-sm"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    setShowUserMenu(false);
-                  }}
-                >
-                  <Activity className="w-4 h-4" />
-                  <span>Status</span>
-                </a>
-                <a
-                  href="#"
-                  className="flex items-center gap-3 text-gray-600 hover:bg-gray-50 px-3 py-2 text-sm"
+                  className="flex items-center gap-3 text-gray-700 hover:bg-gray-50 px-3 py-2 text-sm"
                   onClick={(e) => {
                     e.preventDefault();
                     setShowUserMenu(false);
@@ -91,14 +47,47 @@ export function Layout({ children }: { children: React.ReactNode }) {
                   <Settings className="w-4 h-4" />
                   <span>Settings</span>
                 </a>
+                <a
+                  href="#"
+                  className="flex items-center gap-3 text-gray-700 hover:bg-gray-50 px-3 py-2 text-sm"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    setShowUserMenu(false);
+                  }}
+                >
+                  <Activity className="w-4 h-4" />
+                  <span>Activity</span>
+                </a>
+                <a
+                  href="#"
+                  className="flex items-center gap-3 text-gray-700 hover:bg-gray-50 px-3 py-2 text-sm"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    setShowUserMenu(false);
+                  }}
+                >
+                  <HelpCircle className="w-4 h-4" />
+                  <span>Help</span>
+                </a>
+                <div className="border-t border-gray-100 mt-1 pt-1">
+                  <a
+                    href="#"
+                    className="flex items-center gap-3 text-gray-700 hover:bg-gray-50 px-3 py-2 text-sm"
+                    onClick={handleLogout}
+                  >
+                    <LogOut className="w-4 h-4" />
+                    <span>Log out</span>
+                  </a>
+                </div>
               </div>
-            )}
-          </div>
+            </>
+          )}
         </div>
-      </aside>
+      </header>
 
-      {/* Main Content */}
-      {children}
+      <div className="flex-1 flex flex-col min-h-0">
+        {children}
+      </div>
     </div>
   );
 }

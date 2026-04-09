@@ -99,9 +99,6 @@ export function LoginPage() {
             </Button>
           </form>
 
-          <div className="text-center text-sm text-gray-500 py-2">
-            Demo account: <span className="font-medium text-gray-700">demo / demo123</span>
-          </div>
         </div>
       </div>
     </div>
