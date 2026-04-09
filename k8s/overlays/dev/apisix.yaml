@@ -222,6 +222,7 @@ data:
     plugins:
       - cors
       - jwt-auth
+      - key-auth
       - limit-count
       - limit-req
       - prometheus
