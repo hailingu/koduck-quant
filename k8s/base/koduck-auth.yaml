@@ -1,0 +1,150 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: koduck-auth
+  namespace: koduck
+  labels:
+    app: koduck-auth
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: koduck-auth
+  template:
+    metadata:
+      labels:
+        app: koduck-auth
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "9090"
+        prometheus.io/path: "/metrics"
+    spec:
+      containers:
+        - name: koduck-auth
+          image: koduck/koduck-auth:latest
+          imagePullPolicy: Never
+          ports:
+            - name: http
+              containerPort: 8081
+              protocol: TCP
+            - name: grpc
+              containerPort: 50051
+              protocol: TCP
+            - name: metrics
+              containerPort: 9090
+              protocol: TCP
+          env:
+            - name: KODUCK_AUTH__SERVER__HTTP_ADDR
+              value: "0.0.0.0:8081"
+            - name: KODUCK_AUTH__SERVER__GRPC_ADDR
+              value: "0.0.0.0:50051"
+            - name: KODUCK_AUTH__DATABASE__URL
+              valueFrom:
+                secretKeyRef:
+                  name: koduck-auth-secrets
+                  key: database-url
+            - name: KODUCK_AUTH__REDIS__URL
+              valueFrom:
+                secretKeyRef:
+                  name: koduck-auth-secrets
+                  key: redis-url
+            - name: KODUCK_AUTH__JWT__PRIVATE_KEY_PATH
+              value: "/app/keys/private.pem"
+            - name: KODUCK_AUTH__JWT__PUBLIC_KEY_PATH
+              value: "/app/keys/public.pem"
+          volumeMounts:
+            - name: jwt-keys
+              mountPath: /app/keys
+              readOnly: true
+          resources:
+            requests:
+              cpu: 100m
+              memory: 64Mi
+            limits:
+              cpu: 500m
+              memory: 256Mi
+          livenessProbe:
+            httpGet:
+              path: /actuator/health/liveness
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 30
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /actuator/health/readiness
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            failureThreshold: 3
+      volumes:
+        - name: jwt-keys
+          secret:
+            secretName: koduck-auth-jwt-keys
+            items:
+              - key: private.pem
+                path: private.pem
+              - key: public.pem
+                path: public.pem
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: koduck-auth
+  namespace: koduck
+  labels:
+    app: koduck-auth
+spec:
+  type: ClusterIP
+  selector:
+    app: koduck-auth
+  ports:
+    - name: http
+      port: 8081
+      targetPort: http
+      protocol: TCP
+    - name: grpc
+      port: 50051
+      targetPort: grpc
+      protocol: TCP
+---
+# Headless service for gRPC client load balancing
+apiVersion: v1
+kind: Service
+metadata:
+  name: koduck-auth-grpc
+  namespace: koduck
+  labels:
+    app: koduck-auth
+spec:
+  type: ClusterIP
+  clusterIP: None
+  selector:
+    app: koduck-auth
+  ports:
+    - name: grpc
+      port: 50051
+      targetPort: grpc
+      protocol: TCP
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: koduck-auth-secrets
+  namespace: koduck
+type: Opaque
+stringData:
+  database-url: "postgresql://koduck:koduck_secret@postgres:5432/koduck_auth"
+  redis-url: "redis://redis:6379"
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: koduck-auth-jwt-keys
+  namespace: koduck
+type: Opaque
+data:
+  # Base64 encoded RSA keys - placeholder
+  # Generate with: base64 -w 0 < private.pem
+  private.pem: ""
+  public.pem: ""

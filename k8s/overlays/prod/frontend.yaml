@@ -1,0 +1,25 @@
+---
+# Koduck Frontend - Prod 环境覆盖
+# 生产环境使用更高资源限制和多副本
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: koduck-frontend
+spec:
+  replicas: 2
+  template:
+    spec:
+      containers:
+        - name: frontend
+          image: koduck-frontend:latest
+          imagePullPolicy: IfNotPresent
+          resources:
+            requests:
+              memory: "64Mi"
+              cpu: "50m"
+              ephemeral-storage: "100Mi"
+            limits:
+              memory: "128Mi"
+              cpu: "200m"
+              ephemeral-storage: "500Mi"

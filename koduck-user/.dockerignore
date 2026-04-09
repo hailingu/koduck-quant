@@ -1,0 +1,23 @@
+# Build output
+target/
+
+# IDE
+.idea/
+*.iml
+.vscode/
+
+# OS
+.DS_Store
+
+# Git
+.git/
+.gitignore
+
+# Docs and scripts (not needed in image)
+docs/
+scripts/
+
+# Environment files
+.env
+.env.*
+!.env.example

@@ -1,0 +1,32 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: koduck-auth
+  namespace: koduck
+spec:
+  replicas: 1
+  template:
+    spec:
+      containers:
+        - name: koduck-auth
+          image: koduck-auth:dev
+          imagePullPolicy: Never
+          env:
+            - name: RUST_LOG
+              value: "debug"
+      volumes:
+        - name: jwt-keys
+          secret:
+            secretName: dev-koduck-auth-jwt-keys
+            items:
+              - key: private.pem
+                path: private.pem
+              - key: public.pem
+                path: public.pem
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: koduck-auth-jwt-keys
+  namespace: koduck
+$patch: delete
