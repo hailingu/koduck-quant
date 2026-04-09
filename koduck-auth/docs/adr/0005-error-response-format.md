@@ -123,6 +123,6 @@ impl IntoResponse for AppError {
 
 ## References
 
-- 任务文档: `docs/implementation/koduck-auth-rust-grpc-tasks.md` Task 1.3
-- 设计文档: `docs/design/koduck-auth-rust-grpc-design.md`
+- 任务文档: `koduck-auth/docs/implementation/koduck-auth-rust-grpc-tasks.md` Task 1.3
+- 设计文档: `koduck-auth/docs/design/koduck-auth-rust-grpc-design.md`
 - tracing crate: https://docs.rs/tracing/

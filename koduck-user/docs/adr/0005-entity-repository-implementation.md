@@ -5,7 +5,7 @@
 - **状态**: 已接受
 - **日期**: 2026-04-09
 - **作者**: @hailingu
-- **相关**: #683, docs/design/koduck-auth-user-service-design.md 2.2/3.1/6.1 节, ADR-0003
+- **相关**: #683, koduck-user/docs/design/koduck-auth-user-service-design.md 2.2/3.1/6.1 节, ADR-0003
 
 ---
 
@@ -153,9 +153,9 @@ public enum UserStatus {
 
 ## 相关文档
 
-- [koduck-auth-user-service-design.md](../../../docs/design/koduck-auth-user-service-design.md) 2.2/3.1/6.1 节
-- [koduck-user-api.yaml](../../../docs/design/koduck-user-api.yaml)
-- [koduck-user-service-tasks.md](../../../docs/implementation/koduck-user-service-tasks.md) Task 2.2/3.1
+- [koduck-auth-user-service-design.md](../design/koduck-auth-user-service-design.md) 2.2/3.1/6.1 节
+- [koduck-user-api.yaml](../design/koduck-user-api.yaml)
+- [koduck-user-service-tasks.md](../implementation/koduck-user-service-tasks.md) Task 2.2/3.1
 - [ADR-0003](./ADR-0003-user-db-schema-migration.md) - 数据库 Schema 参考
 - [ADR-0004](./ADR-0004-dto-structure-definition.md) - DTO 结构参考
 

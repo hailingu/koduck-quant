@@ -140,6 +140,6 @@ async fn test_user_repository_crud(pool: PgPool) {
 
 ## References
 
-- 任务文档: `docs/implementation/koduck-auth-rust-grpc-tasks.md` Task 3.2
+- 任务文档: `koduck-auth/docs/implementation/koduck-auth-rust-grpc-tasks.md` Task 3.2
 - sqlx test: https://docs.rs/sqlx/latest/sqlx/attr.test.html
 - PostgreSQL 事务: https://www.postgresql.org/docs/current/tutorial-transactions.html

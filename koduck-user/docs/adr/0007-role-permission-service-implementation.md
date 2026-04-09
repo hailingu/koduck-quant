@@ -5,7 +5,7 @@
 - **状态**: 已接受
 - **日期**: 2026-04-09
 - **作者**: @hailingu
-- **相关**: #687, docs/design/koduck-auth-user-service-design.md 4.1.2/4.1.3 节, ADR-0006
+- **相关**: #687, koduck-user/docs/design/koduck-auth-user-service-design.md 4.1.2/4.1.3 节, ADR-0006
 
 ---
 
@@ -147,9 +147,9 @@ public interface PermissionService {
 
 ## 相关文档
 
-- [koduck-auth-user-service-design.md](../../../docs/design/koduck-auth-user-service-design.md) 4.1.2/4.1.3 节
-- [koduck-user-api.yaml](../../../docs/design/koduck-user-api.yaml)
-- [koduck-user-service-tasks.md](../../../docs/implementation/koduck-user-service-tasks.md) Task 3.3
+- [koduck-auth-user-service-design.md](../design/koduck-auth-user-service-design.md) 4.1.2/4.1.3 节
+- [koduck-user-api.yaml](../design/koduck-user-api.yaml)
+- [koduck-user-service-tasks.md](../implementation/koduck-user-service-tasks.md) Task 3.3
 - [ADR-0006](./ADR-0006-user-service-implementation.md) - UserService 实现参考
 
 ---

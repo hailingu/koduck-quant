@@ -5,7 +5,7 @@
 - **状态**: 已接受
 - **日期**: 2026-04-09
 - **作者**: @hailingu
-- **相关**: #697, docs/implementation/koduck-user-service-tasks.md Task 5.3, ADR-0008
+- **相关**: #697, koduck-user/docs/implementation/koduck-user-service-tasks.md Task 5.3, ADR-0008
 
 ---
 
@@ -158,9 +158,9 @@ auth:
 
 ## 相关文档
 
-- [koduck-user-jwt-design.md](../../../docs/design/koduck-user-jwt-design.md) 5.2~5.5 节
-- [koduck-auth-user-service-design.md](../../../docs/design/koduck-auth-user-service-design.md)
-- [koduck-user-api.yaml](../../../docs/design/koduck-user-api.yaml)
+- [koduck-user-jwt-design.md](../design/koduck-user-jwt-design.md) 5.2~5.5 节
+- [koduck-auth-user-service-design.md](../design/koduck-auth-user-service-design.md)
+- [koduck-user-api.yaml](../design/koduck-user-api.yaml)
 - [ADR-0008](./0008-internal-user-controller-implementation.md)
 
 ---

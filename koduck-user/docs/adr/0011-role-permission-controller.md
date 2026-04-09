@@ -141,8 +141,8 @@ Task 4.2 需要实现角色管理 Controller（RoleController）和权限管理 
 
 ## 相关文档
 
-- [koduck-auth-user-service-design.md](../../../docs/design/koduck-auth-user-service-design.md) 4.1.2/4.1.3
-- [koduck-user-api.yaml](../../../docs/design/koduck-user-api.yaml)
+- [koduck-auth-user-service-design.md](../design/koduck-auth-user-service-design.md) 4.1.2/4.1.3
+- [koduck-user-api.yaml](../design/koduck-user-api.yaml)
 - [ADR-0001](./0001-user-controller-header-context-and-error-handling.md)
 
 ---

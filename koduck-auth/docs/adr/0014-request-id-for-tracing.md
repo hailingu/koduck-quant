@@ -97,6 +97,6 @@ Router::new()
 
 ## References
 
-- 任务文档: `docs/implementation/koduck-auth-rust-grpc-tasks.md` Task 5.3
+- 任务文档: `koduck-auth/docs/implementation/koduck-auth-rust-grpc-tasks.md` Task 5.3
 - tower_http request_id: https://docs.rs/tower-http/latest/tower_http/request_id/index.html
 - UUID v4: https://www.rfc-editor.org/rfc/rfc4122

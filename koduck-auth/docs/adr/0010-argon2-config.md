@@ -114,7 +114,7 @@ fn bench_password_hash(c: &mut Criterion) {
 
 ## References
 
-- 任务文档: `docs/implementation/koduck-auth-rust-grpc-tasks.md` Task 4.2
+- 任务文档: `koduck-auth/docs/implementation/koduck-auth-rust-grpc-tasks.md` Task 4.2
 - Argon2 规范: https://github.com/P-H-C/phc-winner-argon2
 - OWASP 密码存储: https://cheatsheetseries.owasp.org/cheatsheets/Password_Storage_Cheat_Sheet.html
 - Criterion: https://docs.rs/criterion/

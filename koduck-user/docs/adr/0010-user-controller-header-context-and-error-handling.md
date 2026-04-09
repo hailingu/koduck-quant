@@ -120,9 +120,9 @@ koduck-user 服务需要实现对外 HTTP API Controller 层，将已完成的 S
 
 ## 相关文档
 
-- [koduck-auth-user-service-design.md](../../../docs/design/koduck-auth-user-service-design.md) 4.1.1
-- [koduck-user-api.yaml](../../../docs/design/koduck-user-api.yaml)
-- [koduck-user-jwt-design.md](../../../docs/design/koduck-user-jwt-design.md)
+- [koduck-auth-user-service-design.md](../design/koduck-auth-user-service-design.md) 4.1.1
+- [koduck-user-api.yaml](../design/koduck-user-api.yaml)
+- [koduck-user-jwt-design.md](../design/koduck-user-jwt-design.md)
 
 ---
 

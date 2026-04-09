@@ -153,7 +153,7 @@ impl From<model::UserInfo> for proto::UserInfo { ... }
 
 ## References
 
-- 设计文档: `docs/design/koduck-auth-rust-grpc-design.md`
-- 任务清单: `docs/implementation/koduck-auth-rust-grpc-tasks.md` Phase 6
+- 设计文档: `koduck-auth/docs/design/koduck-auth-rust-grpc-design.md`
+- 任务清单: `koduck-auth/docs/implementation/koduck-auth-rust-grpc-tasks.md` Phase 6
 - Issue: #632
 - tonic 文档: https://docs.rs/tonic/

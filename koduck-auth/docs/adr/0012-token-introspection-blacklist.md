@@ -110,5 +110,5 @@ TokenService 需要以下依赖：
 
 ## References
 
-- 任务文档: `docs/implementation/koduck-auth-rust-grpc-tasks.md` Task 4.4
+- 任务文档: `koduck-auth/docs/implementation/koduck-auth-rust-grpc-tasks.md` Task 4.4
 - RFC 7662: https://tools.ietf.org/html/rfc7662

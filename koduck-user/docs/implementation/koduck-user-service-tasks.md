@@ -1,6 +1,6 @@
 # Koduck-User 独立服务实施任务清单
 
-> 本文档基于 `docs/design/koduck-auth-user-service-design.md` 拆分，提供 step-by-step 可执行任务。
+> 本文档基于 `koduck-user/docs/design/koduck-auth-user-service-design.md` 拆分，提供 step-by-step 可执行任务。
 >
 > **状态**: 执行中
 > **创建日期**: 2026-04-08  
@@ -496,7 +496,7 @@
 
 > 使用方式：
 > 1. 联调前逐行确认“路径/方法/请求头/状态码”。
-> 2. 任一项变更都必须同步更新本表和 `docs/design/koduck-user-api.yaml`。
+> 2. 任一项变更都必须同步更新本表和 `koduck-user/docs/design/koduck-user-api.yaml`。
 > 3. PR 验收时需附上契约测试结果（建议以自动化测试报告为准）。
 
 ---

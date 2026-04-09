@@ -5,7 +5,7 @@
 - **状态**: 已接受
 - **日期**: 2026-04-09
 - **作者**: @hailingu
-- **相关**: #703, docs/implementation/koduck-user-service-tasks.md Task 7.2, ADR-0014
+- **相关**: #703, koduck-user/docs/implementation/koduck-user-service-tasks.md Task 7.2, ADR-0014
 
 ---
 
@@ -131,9 +131,9 @@ Task 7.2 要求落地 `scripts/apisix-route-init-user.sh`，用于将 `koduck-us
 
 ## 相关文档
 
-- [koduck-auth-user-service-design.md](../../../docs/design/koduck-auth-user-service-design.md) 8.3 节
-- [koduck-user-jwt-design.md](../../../docs/design/koduck-user-jwt-design.md) 7.2 节
-- [koduck-user-service-tasks.md](../../../docs/implementation/koduck-user-service-tasks.md)
+- [koduck-auth-user-service-design.md](../design/koduck-auth-user-service-design.md) 8.3 节
+- [koduck-user-jwt-design.md](../design/koduck-user-jwt-design.md) 7.2 节
+- [koduck-user-service-tasks.md](../implementation/koduck-user-service-tasks.md)
 - [ADR-0014](./0014-auth-and-permission-boundaries.md)
 
 ---

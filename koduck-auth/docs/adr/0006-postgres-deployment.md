@@ -130,6 +130,6 @@ postgresql://koduck:koduck_secret@postgres:5432/koduck_auth
 
 ## References
 
-- 任务文档: `docs/implementation/koduck-auth-rust-grpc-tasks.md` Task 2.2
+- 任务文档: `koduck-auth/docs/implementation/koduck-auth-rust-grpc-tasks.md` Task 2.2
 - PostgreSQL Docker: https://hub.docker.com/_/postgres
 - K8s StatefulSet: https://kubernetes.io/docs/concepts/workloads/controllers/statefulset/

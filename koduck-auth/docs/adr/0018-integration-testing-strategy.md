@@ -116,5 +116,5 @@ async fn setup_database(pool: &PgPool) -> Result<()> {
 
 ## References
 
-- 任务文档: `docs/implementation/koduck-auth-rust-grpc-tasks.md` Task 7.2
+- 任务文档: `koduck-auth/docs/implementation/koduck-auth-rust-grpc-tasks.md` Task 7.2
 - testcontainers-rs: https://github.com/testcontainers/testcontainers-rs

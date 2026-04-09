@@ -1,6 +1,6 @@
 # Koduck-Auth Rust + gRPC 实施任务清单
 
-> 本文档基于 `docs/design/koduck-auth-rust-grpc-design.md` 拆分，提供 step-by-step 可执行任务。
+> 本文档基于 `koduck-auth/docs/design/koduck-auth-rust-grpc-design.md` 拆分，提供 step-by-step 可执行任务。
 > 
 > **状态**: 待执行  
 > **创建日期**: 2026-04-07  
@@ -832,7 +832,7 @@ deadpool-redis = "0.14"
 |------|------|------|
 | 设计文档 | [../design/koduck-auth-rust-grpc-design.md](../design/koduck-auth-rust-grpc-design.md) | 完整设计方案 |
 | 原服务设计 | [../design/koduck-auth-user-service-design.md](../design/koduck-auth-user-service-design.md) | 原服务参考 |
-| JWT 架构 | [../design/koduck-user-jwt-design.md](../design/koduck-user-jwt-design.md) | JWT 设计细节 |
+| JWT 架构 | [../../../koduck-user/docs/design/koduck-user-jwt-design.md](../../../koduck-user/docs/design/koduck-user-jwt-design.md) | JWT 设计细节 |
 
 ### D. 任务追踪模板
 

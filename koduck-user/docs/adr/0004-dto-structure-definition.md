@@ -5,7 +5,7 @@
 - **状态**: 已接受
 - **日期**: 2026-04-09
 - **作者**: @hailingu
-- **相关**: #681, docs/design/koduck-auth-user-service-design.md 4.1.4/4.2 节, docs/design/koduck-user-api.yaml
+- **相关**: #681, koduck-user/docs/design/koduck-auth-user-service-design.md 4.1.4/4.2 节, koduck-user/docs/design/koduck-user-api.yaml
 
 ---
 
@@ -185,9 +185,9 @@ dto/user/
 
 ## 相关文档
 
-- [koduck-auth-user-service-design.md](../../../docs/design/koduck-auth-user-service-design.md) 4.1.4/4.2 节
-- [koduck-user-api.yaml](../../../docs/design/koduck-user-api.yaml) components/schemas
-- [koduck-user-service-tasks.md](../../../docs/implementation/koduck-user-service-tasks.md) Task 2.3
+- [koduck-auth-user-service-design.md](../design/koduck-auth-user-service-design.md) 4.1.4/4.2 节
+- [koduck-user-api.yaml](../design/koduck-user-api.yaml) components/schemas
+- [koduck-user-service-tasks.md](../implementation/koduck-user-service-tasks.md) Task 2.3
 - [ADR-0003](./ADR-0003-user-db-schema-migration.md) - Entity 字段参考
 
 ---

@@ -5,7 +5,7 @@
 - **状态**: 已接受
 - **日期**: 2026-04-09
 - **作者**: @hailingu
-- **相关**: #693, docs/design/koduck-auth-user-service-design.md 4.2/5.1 节, docs/design/koduck-user-api.yaml, ADR-0006
+- **相关**: #693, koduck-user/docs/design/koduck-auth-user-service-design.md 4.2/5.1 节, koduck-user/docs/design/koduck-user-api.yaml, ADR-0006
 
 ---
 
@@ -132,9 +132,9 @@ Phase 5 Task 5.1 需要在 `koduck-user` 实现供 `koduck-auth` 调用的内部
 
 ## 相关文档
 
-- [koduck-auth-user-service-design.md](../../../docs/design/koduck-auth-user-service-design.md)
-- [koduck-user-api.yaml](../../../docs/design/koduck-user-api.yaml)
-- [koduck-user-service-tasks.md](../../../docs/implementation/koduck-user-service-tasks.md) Task 5.1
+- [koduck-auth-user-service-design.md](../design/koduck-auth-user-service-design.md)
+- [koduck-user-api.yaml](../design/koduck-user-api.yaml)
+- [koduck-user-service-tasks.md](../implementation/koduck-user-service-tasks.md) Task 5.1
 - [ADR-0006](./ADR-0006-user-service-implementation.md)
 
 ---

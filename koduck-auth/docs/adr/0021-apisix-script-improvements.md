@@ -130,5 +130,5 @@ Add Route 4 for gRPC reflection:
 
 ## References
 
-- Task: docs/implementation/koduck-auth-rust-grpc-tasks.md Task 7.5
+- Task: koduck-auth/docs/implementation/koduck-auth-rust-grpc-tasks.md Task 7.5
 - APISIX Admin API: https://apisix.apache.org/docs/apisix/admin-api/

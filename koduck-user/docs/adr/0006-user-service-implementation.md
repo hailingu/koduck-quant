@@ -5,7 +5,7 @@
 - **状态**: 已接受
 - **日期**: 2026-04-09
 - **作者**: @hailingu
-- **相关**: #685, docs/design/koduck-auth-user-service-design.md 6.1 节, ADR-0005
+- **相关**: #685, koduck-user/docs/design/koduck-auth-user-service-design.md 6.1 节, ADR-0005
 
 ---
 
@@ -171,9 +171,9 @@ public interface UserService {
 
 ## 相关文档
 
-- [koduck-auth-user-service-design.md](../../../docs/design/koduck-auth-user-service-design.md) 6.1 节
-- [koduck-user-api.yaml](../../../docs/design/koduck-user-api.yaml)
-- [koduck-user-service-tasks.md](../../../docs/implementation/koduck-user-service-tasks.md) Task 3.2
+- [koduck-auth-user-service-design.md](../design/koduck-auth-user-service-design.md) 6.1 节
+- [koduck-user-api.yaml](../design/koduck-user-api.yaml)
+- [koduck-user-service-tasks.md](../implementation/koduck-user-service-tasks.md) Task 3.2
 - [ADR-0005](./ADR-0005-entity-repository-implementation.md) - Entity/Repository 层参考
 
 ---

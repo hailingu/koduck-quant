@@ -125,5 +125,5 @@ match self.token_service.introspect_token(&req.token).await {
 
 ## References
 
-- 任务文档: `docs/implementation/koduck-auth-rust-grpc-tasks.md` Task 6.1
+- 任务文档: `koduck-auth/docs/implementation/koduck-auth-rust-grpc-tasks.md` Task 6.1
 - gRPC AuthService 设计: `docs/koduck-auth-rust-grpc-design.md`

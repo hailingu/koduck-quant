@@ -102,6 +102,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 ## References
 
-- 任务文档: `docs/implementation/koduck-auth-rust-grpc-tasks.md` Task 6.3
+- 任务文档: `koduck-auth/docs/implementation/koduck-auth-rust-grpc-tasks.md` Task 6.3
 - tonic-reflection: https://docs.rs/tonic-reflection/latest/tonic_reflection/
 - gRPC Reflection Protocol: https://github.com/grpc/grpc/blob/master/doc/server-reflection.md

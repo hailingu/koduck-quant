@@ -5,7 +5,7 @@
 - **状态**: 已接受
 - **日期**: 2026-04-09
 - **作者**: @hailingu
-- **相关**: #677, docs/design/koduck-auth-user-service-design.md 3.1 节
+- **相关**: #677, koduck-user/docs/design/koduck-auth-user-service-design.md 3.1 节
 
 ---
 
@@ -150,9 +150,9 @@ koduck-user 作为独立服务，需要拥有独立的数据库 `user_db` 来管
 
 ## 相关文档
 
-- [koduck-auth-user-service-design.md](../../../docs/design/koduck-auth-user-service-design.md) 3.1 节
-- [koduck-user-service-tasks.md](../../../docs/implementation/koduck-user-service-tasks.md) Task 2.1
-- [koduck-user-api.yaml](../../../docs/design/koduck-user-api.yaml)
+- [koduck-auth-user-service-design.md](../design/koduck-auth-user-service-design.md) 3.1 节
+- [koduck-user-service-tasks.md](../implementation/koduck-user-service-tasks.md) Task 2.1
+- [koduck-user-api.yaml](../design/koduck-user-api.yaml)
 
 ---
 

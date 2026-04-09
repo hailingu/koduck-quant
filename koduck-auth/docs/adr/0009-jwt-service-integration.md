@@ -130,6 +130,6 @@ async fn generate_token_pair(&self, user: &User, roles: &[String]) -> Result<Tok
 
 ## References
 
-- 任务文档: `docs/implementation/koduck-auth-rust-grpc-tasks.md` Task 4.1
+- 任务文档: `koduck-auth/docs/implementation/koduck-auth-rust-grpc-tasks.md` Task 4.1
 - JWT RFC: https://tools.ietf.org/html/rfc7519
 - RSA 密钥生成: https://docs.rs/rsa/

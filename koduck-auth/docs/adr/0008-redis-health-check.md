@@ -116,6 +116,6 @@ match timeout(Duration::from_secs(2), redis_cache.ping()).await {
 
 ## References
 
-- 任务文档: `docs/implementation/koduck-auth-rust-grpc-tasks.md` Task 3.3
+- 任务文档: `koduck-auth/docs/implementation/koduck-auth-rust-grpc-tasks.md` Task 3.3
 - Redis PING: https://redis.io/commands/ping/
 - K8s Probes: https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-startup-probes/

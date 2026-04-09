@@ -5,7 +5,7 @@
 - **状态**: 已接受
 - **日期**: 2026-04-09
 - **作者**: @hailingu
-- **相关**: #675, docs/implementation/koduck-user-service-tasks.md Task 1.2
+- **相关**: #675, koduck-user/docs/implementation/koduck-user-service-tasks.md Task 1.2
 
 ---
 
@@ -154,8 +154,8 @@ Lombok + MapStruct 联合使用需注意处理顺序：
 ## 相关文档
 
 - [ADR-0001: koduck-user 模块骨架设计](ADR-0001-module-skeleton.md)
-- [koduck-auth-user-service-design.md](../../docs/design/koduck-auth-user-service-design.md) 7.1 节
-- [koduck-user-service-tasks.md](../../docs/implementation/koduck-user-service-tasks.md) Task 1.2
+- [koduck-auth-user-service-design.md](../design/koduck-auth-user-service-design.md) 7.1 节
+- [koduck-user-service-tasks.md](../implementation/koduck-user-service-tasks.md) Task 1.2
 
 ---
 

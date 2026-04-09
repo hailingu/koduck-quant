@@ -105,6 +105,6 @@ USER koduck
 
 ## References
 
-- 任务文档: `docs/implementation/koduck-auth-rust-grpc-tasks.md` Task 7.3
+- 任务文档: `koduck-auth/docs/implementation/koduck-auth-rust-grpc-tasks.md` Task 7.3
 - Alpine Linux: https://alpinelinux.org/
 - Docker Best Practices: https://docs.docker.com/develop/dev-best-practices/

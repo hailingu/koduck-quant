@@ -5,7 +5,7 @@
 - **状态**: 已接受
 - **日期**: 2026-04-08
 - **作者**: @hailingu
-- **相关**: #671, #673, docs/design/koduck-auth-user-service-design.md
+- **相关**: #671, #673, koduck-user/docs/design/koduck-auth-user-service-design.md
 
 ---
 
@@ -155,9 +155,9 @@ koduck-user/
 
 ## 相关文档
 
-- [koduck-auth-user-service-design.md](../../docs/design/koduck-auth-user-service-design.md)
-- [koduck-user-service-tasks.md](../../docs/implementation/koduck-user-service-tasks.md)
-- [koduck-user-jwt-design.md](../../docs/design/koduck-user-jwt-design.md)
+- [koduck-auth-user-service-design.md](../design/koduck-auth-user-service-design.md)
+- [koduck-user-service-tasks.md](../implementation/koduck-user-service-tasks.md)
+- [koduck-user-jwt-design.md](../design/koduck-user-jwt-design.md)
 
 ---
 

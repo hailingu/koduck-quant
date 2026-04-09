@@ -128,5 +128,5 @@ impl JwtService {
 
 ## References
 
-- 任务文档: `docs/implementation/koduck-auth-rust-grpc-tasks.md` Task 6.2
+- 任务文档: `koduck-auth/docs/implementation/koduck-auth-rust-grpc-tasks.md` Task 6.2
 - gRPC TokenService 设计: `docs/koduck-auth-rust-grpc-design.md`

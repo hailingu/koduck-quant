@@ -104,6 +104,6 @@ impl Config {
 
 ## References
 
-- 任务文档: `docs/implementation/koduck-auth-rust-grpc-tasks.md` Task 1.2
-- 设计文档: `docs/design/koduck-auth-rust-grpc-design.md` 8.1 节
+- 任务文档: `koduck-auth/docs/implementation/koduck-auth-rust-grpc-tasks.md` Task 1.2
+- 设计文档: `koduck-auth/docs/design/koduck-auth-rust-grpc-design.md` 8.1 节
 - config crate: https://docs.rs/config/

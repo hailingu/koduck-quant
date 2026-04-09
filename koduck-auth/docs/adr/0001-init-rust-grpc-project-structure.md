@@ -6,7 +6,7 @@
 
 ## Context
 
-随着系统架构演进，我们需要将 koduck-auth 认证服务从 Java 迁移到 Rust 实现，以获得更好的性能和资源利用率。根据设计文档 `docs/design/koduck-auth-rust-grpc-design.md`，新的认证服务需要：
+随着系统架构演进，我们需要将 koduck-auth 认证服务从 Java 迁移到 Rust 实现，以获得更好的性能和资源利用率。根据设计文档 `koduck-auth/docs/design/koduck-auth-rust-grpc-design.md`，新的认证服务需要：
 
 1. **双协议支持**：同时提供 HTTP REST API（对外）和 gRPC（服务间通信）
 2. **与现有 API 兼容**：对外接口与现有 Java 版本完全一致
@@ -178,7 +178,7 @@ koduck-auth/
 
 ### Phase 2-7: 后续任务
 
-详见 `docs/implementation/koduck-auth-rust-grpc-tasks.md`
+详见 `koduck-auth/docs/implementation/koduck-auth-rust-grpc-tasks.md`
 
 ## Verification
 
@@ -189,7 +189,7 @@ koduck-auth/
 
 ## References
 
-- 设计文档: [docs/design/koduck-auth-rust-grpc-design.md](../../design/koduck-auth-rust-grpc-design.md)
-- 任务清单: [docs/implementation/koduck-auth-rust-grpc-tasks.md](../../implementation/koduck-auth-rust-grpc-tasks.md)
-- API 定义: [docs/design/koduck-auth-rust-api.yaml](../../design/koduck-auth-rust-api.yaml)
+- 设计文档: [koduck-auth/docs/design/koduck-auth-rust-grpc-design.md](../design/koduck-auth-rust-grpc-design.md)
+- 任务清单: [koduck-auth/docs/implementation/koduck-auth-rust-grpc-tasks.md](../implementation/koduck-auth-rust-grpc-tasks.md)
+- API 定义: [koduck-auth/docs/design/koduck-auth-rust-api.yaml](../design/koduck-auth-rust-api.yaml)
 - Issue: [#630](https://github.com/hailingu/koduck-quant/issues/630)

@@ -5,7 +5,7 @@
 - **状态**: 已接受
 - **日期**: 2026-04-09
 - **作者**: @hailingu
-- **相关**: #705, docs/implementation/koduck-user-service-tasks.md Task 7.3, ADR-0015
+- **相关**: #705, koduck-user/docs/implementation/koduck-user-service-tasks.md Task 7.3, ADR-0015
 
 ---
 
@@ -124,10 +124,10 @@ Task 7.3 要求 `koduck-user` 在进入上线阶段前，完成三层测试与�
 
 ## 相关文档
 
-- [koduck-user-service-tasks.md](../../../docs/implementation/koduck-user-service-tasks.md)
-- [koduck-user-jwt-design.md](../../../docs/design/koduck-user-jwt-design.md)
-- [koduck-user-api.yaml](../../../docs/design/koduck-user-api.yaml)
-- [koduck-auth-user-service-design.md](../../../docs/design/koduck-auth-user-service-design.md)
+- [koduck-user-service-tasks.md](../implementation/koduck-user-service-tasks.md)
+- [koduck-user-jwt-design.md](../design/koduck-user-jwt-design.md)
+- [koduck-user-api.yaml](../design/koduck-user-api.yaml)
+- [koduck-auth-user-service-design.md](../design/koduck-auth-user-service-design.md)
 - [ADR-0015](./0015-apisix-user-route-init-script.md)
 
 ---
