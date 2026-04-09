@@ -57,9 +57,10 @@
 3. 统一代码风格插件与质量插件（沿用仓库规范）
 
 **验收标准:**
-- [ ] `mvn -pl koduck-user -DskipTests compile` 成功
-- [ ] Flyway、JPA、Actuator 依赖完整
-- [ ] 代码质量插件与仓库基线一致
+
+- [x] `mvn -f koduck-user/pom.xml -DskipTests compile` 成功
+- [x] Flyway、JPA、Actuator 依赖完整
+- [x] 依赖声明不包含 `koduck-common` 与 `koduck-bom`（当前阶段）
 
 **参考文档:** 设计文档 7.1 节、仓库 `CONTRIBUTING.md`
 
