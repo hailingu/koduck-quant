@@ -2,9 +2,9 @@ spring:
   application:
     name: koduck-user
   datasource:
-    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:user_db}
-    username: ${DB_USERNAME:koduck}
-    password: ${DB_PASSWORD:koduck}
+    url: jdbc:postgresql://${USER_DB_HOST:${DB_HOST:localhost}}:${USER_DB_PORT:${DB_PORT:5432}}/${USER_DB_NAME:${DB_NAME:koduck_user}}
+    username: ${USER_DB_USER:${DB_USERNAME:koduck}}
+    password: ${USER_DB_PASSWORD:${DB_PASSWORD:}}
     driver-class-name: org.postgresql.Driver
     hikari:
       maximum-pool-size: 10
@@ -95,3 +95,16 @@ koduck:
   pagination:
     default-page-size: 20
     max-page-size: 100
+
+# 头像存储配置（Task 6.1：对齐设计文档 7.1，保留旧键兼容）
+storage:
+  avatar:
+    provider: ${STORAGE_PROVIDER:${AVATAR_STORAGE_TYPE:local}} # local, s3
+    local:
+      path: ${AVATAR_STORAGE_PATH:${AVATAR_LOCAL_PATH:/data/avatars}}
+      base-url: ${AVATAR_BASE_URL:http://localhost:${SERVER_PORT:8082}/avatars}
+    s3:
+      bucket: ${S3_BUCKET:}
+      region: ${S3_REGION:}
+      access-key: ${S3_ACCESS_KEY:}
+      secret-key: ${S3_SECRET_KEY:}

@@ -32,6 +32,8 @@ spec:
                 secretKeyRef:
                   name: jwt-secret
                   key: jwt-secret
+            - name: INTERNAL_API_KEY_USER
+              value: "uk_test_key_12345678"
             - name: ADMIN_KEY
               value: "edd1c9f034335f136f87ad84b625c8f1"
             - name: APISIX_GATEWAY
@@ -62,10 +64,20 @@ spec:
                 -H "$KEY" -H 'Content-Type: application/json' \
                 -d "$(printf '{"username":"koduck_user","plugins":{"jwt-auth":{"key":"koduck_user","secret":"%s","algorithm":"HS256"}}}' "$JWT_SECRET")"
 
+              echo "Registering key-auth consumer: koduck_user_consumer"
+              curl -fsS -X PUT "${ADMIN}/consumers/koduck_user_consumer" \
+                -H "$KEY" -H 'Content-Type: application/json' \
+                -d "$(printf '{"username":"koduck_user_consumer","plugins":{"key-auth":{"key":"%s"}}}' "$INTERNAL_API_KEY_USER")"
+
               echo "Registering JWKS route: /.well-known/jwks.json -> koduck-auth"
               curl -fsS -X PUT "${ADMIN}/routes/jwks" \
                 -H "$KEY" -H 'Content-Type: application/json' \
                 -d "$(printf '{"uri":"/.well-known/jwks.json","upstream":{"type":"roundrobin","nodes":{"%s":1}}}' "$AUTH_SERVICE")"
+
+              echo "Registering internal token route: /internal/tokens/* -> koduck-auth (key-auth)"
+              curl -fsS -X PUT "${ADMIN}/routes/auth-internal-tokens" \
+                -H "$KEY" -H 'Content-Type: application/json' \
+                -d "$(printf '{"uri":"/internal/tokens/*","priority":100,"plugins":{"key-auth":{},"proxy-rewrite":{"headers":{"X-Consumer-Username":"$consumer_name","apikey":""}}},"upstream":{"type":"roundrobin","nodes":{"%s":1}}}' "$AUTH_SERVICE")"
 
               echo "Registering public auth route: /api/v1/auth/* -> koduck-auth"
               curl -fsS -X PUT "${ADMIN}/routes/api-auth-public" \
