@@ -34,9 +34,9 @@ export function Layout({ children }: { children: React.ReactNode }) {
         <div className="flex-1 overflow-y-auto p-3">
           <nav className="space-y-1">
             <Link
-              to="/"
+              to="/koduck-ai"
               className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all ${
-                isActive("/")
+                isActive("/koduck-ai")
                   ? "text-gray-900 bg-white"
                   : "text-gray-600 hover:bg-white hover:text-gray-900"
               }`}
