@@ -403,12 +403,12 @@
    - 内部路由启用 `key-auth` 并通过 `proxy-rewrite` 透传 `X-Consumer-Username`，同时清理 `apikey`
 
 **验收标准:**
-- [ ] 路由规则与设计文档 8.3 一致
-- [ ] 可重复执行且结果一致
-- [ ] 失败时可快速回滚或重放
-- [ ] 缺失/错误 apikey 的内部请求由 APISIX 返回 401
-- [ ] 权限不足的业务请求返回 403（由后端权限模型决定）
-- [ ] 路由脚本执行后，Admin API 可读到上述 `uri/priority/plugins/proxy-rewrite` 配置
+- [x] 路由规则与设计文档 8.3 一致
+- [x] 可重复执行且结果一致
+- [x] 失败时可快速回滚或重放
+- [x] 缺失/错误 apikey 的内部请求由 APISIX 返回 401
+- [x] 权限不足的业务请求返回 403（由后端权限模型决定）
+- [x] 路由脚本执行后，Admin API 可读到上述 `uri/priority/plugins/proxy-rewrite` 配置
 
 **参考文档:** 设计文档 8.3 节
 
