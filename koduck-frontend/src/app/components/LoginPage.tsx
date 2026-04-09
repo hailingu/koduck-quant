@@ -21,7 +21,7 @@ export function LoginPage() {
 
     try {
       await login({ username, password });
-      navigate(from || "/portfolio", { replace: true });
+      navigate(from || "/koduck-ai", { replace: true });
     } catch (err) {
       const message = err instanceof Error ? err.message : "登录失败，请稍后重试";
       setError(message);

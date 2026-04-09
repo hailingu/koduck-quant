@@ -5,15 +5,32 @@ import { KLinePage } from "./components/KLinePage";
 import { LoginPage } from "./components/LoginPage";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import { isAuthenticated } from "./auth";
+import { KoduckAi } from "./components/KoduckAi";
+
+function LoginRoute() {
+  return isAuthenticated() ? <Navigate to="/koduck-ai" replace /> : <LoginPage />;
+}
+
+function HomeRoute() {
+  return <Navigate to={isAuthenticated() ? "/koduck-ai" : "/login"} replace />;
+}
 
 export const router = createBrowserRouter([
   {
     path: "/login",
-    element: isAuthenticated() ? <Navigate to="/portfolio" replace /> : <LoginPage />,
+    element: <LoginRoute />,
   },
   {
     path: "/",
-    element: <Navigate to={isAuthenticated() ? "/portfolio" : "/login"} replace />,
+    element: <HomeRoute />,
+  },
+  {
+    path: "/koduck-ai",
+    element: (
+      <ProtectedRoute>
+        <Layout><KoduckAi /></Layout>
+      </ProtectedRoute>
+    ),
   },
   {
     path: "/portfolio",
