@@ -248,12 +248,14 @@ public class UserServiceImpl implements UserService {
     @Override
     @Transactional
     public void updateLastLogin(Long userId, LastLoginUpdateRequest request) {
+        findUserOrThrow(userId);
         userRepository.updateLastLogin(userId, request.getLoginTime(), request.getIpAddress());
     }
 
     @Override
     @Transactional(readOnly = true)
     public List<String> getUserRoles(Long userId) {
+        findUserOrThrow(userId);
         List<Integer> roleIds = userRoleRepository.findRoleIdsByUserId(userId);
         return roleIds.stream()
                 .map(roleId -> roleRepository.findById(roleId))
@@ -266,6 +268,7 @@ public class UserServiceImpl implements UserService {
     @Override
     @Transactional(readOnly = true)
     public List<String> getUserPermissions(Long userId) {
+        findUserOrThrow(userId);
         return userRoleRepository.findPermissionsByUserId(userId);
     }
 
