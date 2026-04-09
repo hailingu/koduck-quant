@@ -72,6 +72,18 @@ logging:
     root: INFO
     com.koduck: DEBUG
 
+# Auth 服务调用配置（可选链路，默认关闭）
+auth:
+  base-url: ${AUTH_BASE_URL:http://apisix:9080}
+  api-key: ${AUTH_API_KEY:}
+  connect-timeout: 3000
+  read-timeout: 5000
+  retry:
+    max-attempts: 2
+    backoff-millis: 500
+  introspection:
+    enabled: ${AUTH_INTROSPECTION_ENABLED:false}
+
 # Koduck User 自定义配置
 koduck:
   user:
