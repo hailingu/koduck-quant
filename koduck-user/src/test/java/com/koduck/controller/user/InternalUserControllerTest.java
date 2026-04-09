@@ -78,6 +78,14 @@ class InternalUserControllerTest {
     }
 
     @Test
+    void shouldReturn401WhenConsumerHeaderMissing() throws Exception {
+        mockMvc.perform(get("/internal/users/by-username/alice"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value(401))
+                .andExpect(jsonPath("$.message").value("缺少内部调用身份信息: X-Consumer-Username"));
+    }
+
+    @Test
     void shouldFindUserByEmail() throws Exception {
         userService.userByEmail = Optional.of(UserDetailsResponse.builder()
                 .id(1002L)

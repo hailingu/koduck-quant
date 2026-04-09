@@ -44,6 +44,9 @@ public final class AccessControl {
      * @throws AccessDeniedException 权限不足时抛出
      */
     public static void requirePermission(HttpServletRequest request, String permission) {
+        // 权限校验前必须具备已认证用户上下文（X-User-Id）。
+        UserContext.getUserId(request);
+
         if (UserContext.hasRole(request, ROLE_SUPER_ADMIN)) {
             return;
         }
