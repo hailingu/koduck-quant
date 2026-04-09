@@ -26,7 +26,7 @@
 
 ### Task 1.1: 创建 koduck-user 模块与目录结构
 **详细要求:**
-1. 在后端多模块工程中创建 `koduck-user` 模块（遵循现有 Maven 聚合结构）
+1. 在仓库顶级创建独立服务目录 `koduck-user`（不作为 `koduck-backend` 聚合子模块）
 2. 建立标准目录：
    - `src/main/java/com/koduck/...`
    - `src/main/resources/application.yml`
@@ -40,7 +40,7 @@
    - `dto/user`
 
 **验收标准:**
-- [x] `koduck-user` 模块可被父工程识别并参与构建
+- [x] `koduck-user` 可独立构建，不依赖 `koduck-backend` 聚合构建
 - [x] 目录结构与设计文档 2.2 节一致
 - [x] 模块启动类与基础配置可正常加载
 
@@ -54,7 +54,7 @@
 **详细要求:**
 1. 引入 Spring Boot Web、Validation、Data JPA、Flyway、Actuator、PostgreSQL 驱动
 2. 配置基础测试依赖（JUnit5、Mockito、Spring Boot Test）
-3. 统一代码风格插件与质量插件（沿用仓库规范）
+3. 保持依赖最小化：当前阶段不强依赖 `koduck-common` 与 `koduck-bom`，按需再引入
 
 **验收标准:**
 
@@ -420,8 +420,8 @@
 2. 集成测试：Controller + Repository + DB（Testcontainers）
 3. 端到端测试：通过 APISIX 验证公开/内部 API
 4. 最小质量校验：
-   - `mvn -pl koduck-user -DskipTests compile`
-   - `mvn -pl koduck-user test`
+   - `mvn -f koduck-user/pom.xml -DskipTests compile`
+   - `mvn -f koduck-user/pom.xml test`
 
 **验收标准:**
 - [ ] 核心业务路径测试覆盖完整
@@ -469,6 +469,11 @@
 | API 规范 | [../design/koduck-user-api.yaml](../design/koduck-user-api.yaml) | 详细 REST API 契约 |
 
 ---
+
+## 附录 D: 构建说明（当前阶段）
+
+- Docker 构建命令：`docker build -t koduck-user:dev ./koduck-user`
+- 当前阶段不要求预先 `mvn install koduck-common` 或安装 `koduck-bom`
 
 ## 附录 C: 契约冻结表（联调前必须确认）
 

@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(echo \"scale=1; $\\(docker image inspect koduck-auth:dev --format '{{.Size}}'\\) / 1048576\")",
+      "Bash(git commit -m ':*)",
+      "Bash(gh issue create --title 'feat\\(user\\): init koduck-user module skeleton and directory structure' --body ':*)"
+    ]
+  }
+}

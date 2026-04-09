@@ -195,6 +195,22 @@ ensure_koduck_auth_secret_endpoints() {
     fi
 }
 
+# 修正 koduck-user Secret 中的服务地址（避免主机名与 namePrefix 不一致）
+ensure_koduck_user_secret_endpoints() {
+    local user_secret_name="${ENV}-koduck-user-secrets"
+    local db_host_default="${ENV}-postgres"
+    local db_url="${KODUCK_USER_DATABASE_URL:-jdbc:postgresql://koduck:koduck_secret@${db_host_default}:5432/user_db}"
+
+    if kubectl -n "${NAMESPACE}" get secret "${user_secret_name}" >/dev/null 2>&1; then
+        kubectl create secret generic "${user_secret_name}" \
+            --from-literal=database-url="${db_url}" \
+            --from-literal=db-username="koduck" \
+            --from-literal=db-password="koduck_secret" \
+            -n "${NAMESPACE}" \
+            --dry-run=client -o yaml | kubectl apply -f -
+    fi
+}
+
 # 校验 private/public 是否为一对可用 RSA 密钥
 validate_rsa_keypair() {
     local private_key="$1"
@@ -342,6 +358,9 @@ install() {
     # 覆盖 auth 连接地址，确保与环境前缀服务名一致（如 dev-postgres）
     ensure_koduck_auth_secret_endpoints
 
+    # 覆盖 user 连接地址
+    ensure_koduck_user_secret_endpoints
+
     echo -e "${YELLOW}等待 PostgreSQL 启动...${NC}"
     wait_pods_ready "app=postgres" "180s" "postgres"
 
@@ -359,6 +378,9 @@ install() {
 
     echo -e "${YELLOW}等待 koduck-auth 启动...${NC}"
     wait_pods_ready "app=koduck-auth" "180s" "koduck-auth"
+
+    echo -e "${YELLOW}等待 koduck-user 启动...${NC}"
+    wait_pods_ready "app=koduck-user" "180s" "koduck-user"
 
     # 阶段二：APISIX 就绪后注册路由和 Consumer
     echo -e "${YELLOW}注册路由和 Consumer...${NC}"
@@ -441,6 +463,10 @@ show_access_info() {
     echo "  kubectl port-forward svc/${ENV}-koduck-auth 8081:8081 -n ${NAMESPACE}"
     echo "  http://localhost:8081"
     echo "  gRPC: localhost:50051"
+
+    echo -e "\n${BLUE}User Service:${NC}"
+    echo "  kubectl port-forward svc/${ENV}-koduck-user 8082:8082 -n ${NAMESPACE}"
+    echo "  http://localhost:8082"
     
     if [ "$ENV" == "prod" ]; then
         echo -e "\n${BLUE}Admin API:${NC}"

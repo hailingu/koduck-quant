@@ -1,0 +1,13 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: koduck-user
+  namespace: koduck
+spec:
+  replicas: 1
+  template:
+    spec:
+      containers:
+        - name: koduck-user
+          image: koduck-user:dev
+          imagePullPolicy: Never
