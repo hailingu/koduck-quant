@@ -11,7 +11,10 @@ import com.koduck.dto.user.user.UpdateUserRequest;
 import com.koduck.dto.user.user.UserDetailsResponse;
 import com.koduck.dto.user.user.UserProfileResponse;
 import com.koduck.dto.user.user.UserSummaryResponse;
+import com.koduck.exception.EmailAlreadyExistsException;
 import com.koduck.exception.GlobalExceptionHandler;
+import com.koduck.exception.UserNotFoundException;
+import com.koduck.exception.UsernameAlreadyExistsException;
 import com.koduck.service.UserService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -23,6 +26,7 @@ import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -91,6 +95,15 @@ class InternalUserControllerTest {
     }
 
     @Test
+    void shouldReturn404WhenUserByEmailNotFound() throws Exception {
+        userService.userByEmail = Optional.empty();
+
+        mockMvc.perform(get("/internal/users/by-email/missing@koduck.com")
+                        .header("X-Consumer-Username", "koduck-auth"))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
     void shouldCreateUser() throws Exception {
         CreateUserRequest request = CreateUserRequest.builder()
                 .username("carol")
@@ -133,6 +146,44 @@ class InternalUserControllerTest {
     }
 
     @Test
+    void shouldReturn409WhenCreateUserUsernameConflict() throws Exception {
+        CreateUserRequest request = CreateUserRequest.builder()
+                .username("duplicated")
+                .email("new@koduck.com")
+                .passwordHash("hash")
+                .build();
+        userService.conflictUsername = "duplicated";
+
+        mockMvc.perform(post("/internal/users")
+                        .header("X-Consumer-Username", "koduck-auth")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value(409))
+                .andExpect(jsonPath("$.message").value("用户名已存在: duplicated"))
+                .andExpect(jsonPath("$.timestamp").exists());
+    }
+
+    @Test
+    void shouldReturn409WhenCreateUserEmailConflict() throws Exception {
+        CreateUserRequest request = CreateUserRequest.builder()
+                .username("new-user")
+                .email("duplicated@koduck.com")
+                .passwordHash("hash")
+                .build();
+        userService.conflictEmail = "duplicated@koduck.com";
+
+        mockMvc.perform(post("/internal/users")
+                        .header("X-Consumer-Username", "koduck-auth")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value(409))
+                .andExpect(jsonPath("$.message").value("邮箱已被使用: duplicated@koduck.com"))
+                .andExpect(jsonPath("$.timestamp").exists());
+    }
+
+    @Test
     void shouldUpdateLastLogin() throws Exception {
         LastLoginUpdateRequest request = LastLoginUpdateRequest.builder()
                 .loginTime(LocalDateTime.of(2026, 4, 9, 10, 30, 0))
@@ -147,6 +198,24 @@ class InternalUserControllerTest {
     }
 
     @Test
+    void shouldReturn404WhenUpdateLastLoginUserNotFound() throws Exception {
+        LastLoginUpdateRequest request = LastLoginUpdateRequest.builder()
+                .loginTime(LocalDateTime.of(2026, 4, 9, 10, 30, 0))
+                .ipAddress("127.0.0.1")
+                .build();
+        userService.notFoundUserIds = Set.of(9999L);
+
+        mockMvc.perform(put("/internal/users/9999/last-login")
+                        .header("X-Consumer-Username", "koduck-auth")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value(404))
+                .andExpect(jsonPath("$.message").value("用户不存在: id=9999"))
+                .andExpect(jsonPath("$.timestamp").exists());
+    }
+
+    @Test
     void shouldGetUserRoles() throws Exception {
         userService.roles = List.of("ROLE_USER", "ROLE_ADMIN");
 
@@ -155,6 +224,18 @@ class InternalUserControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0]").value("ROLE_USER"))
                 .andExpect(jsonPath("$[1]").value("ROLE_ADMIN"));
+    }
+
+    @Test
+    void shouldReturn404WhenGetUserRolesUserNotFound() throws Exception {
+        userService.notFoundUserIds = Set.of(9999L);
+
+        mockMvc.perform(get("/internal/users/9999/roles")
+                        .header("X-Consumer-Username", "koduck-auth"))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value(404))
+                .andExpect(jsonPath("$.message").value("用户不存在: id=9999"))
+                .andExpect(jsonPath("$.timestamp").exists());
     }
 
     @Test
@@ -168,6 +249,18 @@ class InternalUserControllerTest {
                 .andExpect(jsonPath("$[1]").value("user:write"));
     }
 
+    @Test
+    void shouldReturn404WhenGetUserPermissionsUserNotFound() throws Exception {
+        userService.notFoundUserIds = Set.of(9999L);
+
+        mockMvc.perform(get("/internal/users/9999/permissions")
+                        .header("X-Consumer-Username", "koduck-auth"))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value(404))
+                .andExpect(jsonPath("$.message").value("用户不存在: id=9999"))
+                .andExpect(jsonPath("$.timestamp").exists());
+    }
+
     static class StubUserService implements UserService {
 
         private Optional<UserDetailsResponse> userByUsername = Optional.empty();
@@ -175,6 +268,9 @@ class InternalUserControllerTest {
         private UserDetailsResponse createdUser;
         private List<String> roles = List.of();
         private List<String> permissions = List.of();
+        private String conflictUsername;
+        private String conflictEmail;
+        private Set<Long> notFoundUserIds = Set.of();
 
         @Override
         public UserProfileResponse getCurrentUser(Long currentUserId) {
@@ -238,21 +334,35 @@ class InternalUserControllerTest {
 
         @Override
         public UserDetailsResponse createUser(CreateUserRequest request) {
+            if (request.getUsername() != null && request.getUsername().equals(conflictUsername)) {
+                throw new UsernameAlreadyExistsException(request.getUsername());
+            }
+            if (request.getEmail() != null && request.getEmail().equals(conflictEmail)) {
+                throw new EmailAlreadyExistsException(request.getEmail());
+            }
             return createdUser;
         }
 
         @Override
         public void updateLastLogin(Long userId, LastLoginUpdateRequest request) {
-            // no-op
+            if (notFoundUserIds.contains(userId)) {
+                throw new UserNotFoundException(userId);
+            }
         }
 
         @Override
         public List<String> getUserRoles(Long userId) {
+            if (notFoundUserIds.contains(userId)) {
+                throw new UserNotFoundException(userId);
+            }
             return roles;
         }
 
         @Override
         public List<String> getUserPermissions(Long userId) {
+            if (notFoundUserIds.contains(userId)) {
+                throw new UserNotFoundException(userId);
+            }
             return permissions;
         }
     }
