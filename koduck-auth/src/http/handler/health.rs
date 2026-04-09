@@ -8,7 +8,7 @@ use axum::{
 use serde::Serialize;
 use std::sync::Arc;
 use tokio::time::{timeout, Duration};
-use tracing::{debug, warn};
+use tracing::{trace, warn};
 
 use crate::state::AppState;
 
@@ -41,7 +41,7 @@ pub async fn readiness(State(state): State<Arc<AppState>>) -> StatusCode {
     // Check Redis connectivity with timeout
     match timeout(Duration::from_secs(2), state.redis_cache().ping()).await {
         Ok(Ok(())) => {
-            debug!("Redis health check passed");
+            trace!("Redis health check passed");
             StatusCode::OK
         }
         Ok(Err(e)) => {

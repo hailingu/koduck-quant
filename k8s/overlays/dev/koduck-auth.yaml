@@ -13,7 +13,7 @@ spec:
           imagePullPolicy: Never
           env:
             - name: RUST_LOG
-              value: "debug"
+              value: "info,koduck_auth=info,tower_http=warn"
       volumes:
         - name: jwt-keys
           secret:

@@ -4,6 +4,7 @@ use std::sync::Arc;
 use tokio::net::TcpListener;
 use tokio::sync::broadcast;
 use tracing::{error, info};
+use tracing_subscriber::EnvFilter;
 
 use koduck_auth::{
     config::Config,
@@ -18,9 +19,15 @@ use koduck_auth::{
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    // Initialize logging
+    // Initialize structured JSON logging for container/k8s environments.
+    let env_filter = EnvFilter::try_from_default_env()
+        .unwrap_or_else(|_| EnvFilter::new("info,koduck_auth=info,tower_http=warn"));
     tracing_subscriber::fmt()
-        .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
+        .json()
+        .with_ansi(false)
+        .with_current_span(false)
+        .with_span_list(false)
+        .with_env_filter(env_filter)
         .init();
 
     info!("Starting koduck-auth service...");
