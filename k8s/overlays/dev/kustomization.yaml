@@ -1,0 +1,26 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: koduck-dev
+
+resources:
+  - ./namespace.yaml
+  - ../../base/frontend.yaml
+  - ../../base/koduck-auth.yaml
+  - ../../base/koduck-user.yaml
+  - ../../base/postgres.yaml
+  - ../../base/redis.yaml
+  - ./apisix.yaml
+
+patchesStrategicMerge:
+  - ./frontend.yaml
+  - ./koduck-auth.yaml
+  - ./koduck-user.yaml
+  - ./postgres.yaml
+
+namePrefix: dev-
+
+labels:
+  - pairs:
+      environment: dev
+    includeSelectors: true

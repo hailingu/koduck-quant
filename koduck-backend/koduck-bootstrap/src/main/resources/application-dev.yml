@@ -12,11 +12,12 @@ spring:
     driver-class-name: org.postgresql.Driver
   jpa:
     hibernate:
-      ddl-auto: validate
+      ddl-auto: update
     show-sql: false
   flyway:
     enabled: true
     validate-on-migrate: false
+    baseline-on-migrate: true
   data:
     redis:
       host: ${REDIS_HOST:localhost}
@@ -27,6 +28,10 @@ spring:
           max-active: 8
           max-idle: 8
           min-idle: 0
+
+credential:
+  encryption:
+    key: ${CREDENTIAL_ENCRYPTION_KEY:dev-only-credential-encryption-key-change-me}
 
 # Data Service 配置
 koduck:

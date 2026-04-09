@@ -1,0 +1,66 @@
+---
+# Koduck Frontend - Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: koduck-frontend
+  labels:
+    app: koduck-frontend
+spec:
+  type: ClusterIP
+  ports:
+    - port: 80
+      targetPort: 80
+      name: http
+  selector:
+    app: koduck-frontend
+---
+# Koduck Frontend - Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: koduck-frontend
+  labels:
+    app: koduck-frontend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: koduck-frontend
+  template:
+    metadata:
+      labels:
+        app: koduck-frontend
+    spec:
+      containers:
+        - name: frontend
+          image: koduck-frontend:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 80
+              name: http
+          resources:
+            requests:
+              memory: "64Mi"
+              cpu: "50m"
+              ephemeral-storage: "50Mi"
+            limits:
+              memory: "128Mi"
+              cpu: "100m"
+              ephemeral-storage: "200Mi"
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 80
+            initialDelaySeconds: 10
+            periodSeconds: 30
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 80
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3

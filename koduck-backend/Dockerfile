@@ -42,15 +42,14 @@ COPY koduck-strategy/koduck-strategy-impl/pom.xml koduck-strategy/koduck-strateg
 COPY koduck-community/koduck-community-impl/pom.xml koduck-community/koduck-community-impl/
 COPY koduck-ai/koduck-ai-impl/pom.xml koduck-ai/koduck-ai-impl/
 
-# Download dependencies (this layer will be cached if pom.xml files don't change)
-RUN mvn dependency:go-offline -B
-
 # Copy source code
 COPY . .
 
-# Build the application (skip tests for faster build)
-# Only build the bootstrap module and its dependencies
-RUN mvn clean package -pl koduck-bootstrap -am -DskipTests -B
+# Build the application with Maven cache
+# Use BuildKit cache mount to persist downloaded dependencies
+RUN --mount=type=cache,target=/root/.m2 \
+    mvn clean package -pl koduck-bootstrap -am \
+    -DskipTests -Dcheckstyle.skip=true -Dmaven.test.skip=true -B
 
 # Stage 2: Create the runtime image
 FROM eclipse-temurin:23-jre-alpine

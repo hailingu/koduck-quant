@@ -1,0 +1,249 @@
+syntax = "proto3";
+
+package koduck.auth.v1;
+
+import "google/protobuf/empty.proto";
+import "google/protobuf/timestamp.proto";
+
+option go_package = "github.com/koduck/koduck-auth/proto/koduck/auth/v1;authv1";
+option java_package = "com.koduck.auth.proto.v1";
+
+// AuthService — 认证服务（服务间调用）
+service AuthService {
+  // 验证用户凭证
+  rpc ValidateCredentials(ValidateCredentialsRequest) returns (ValidateCredentialsResponse);
+  
+  // 验证 Token 有效性
+  rpc ValidateToken(ValidateTokenRequest) returns (ValidateTokenResponse);
+  
+  // 获取用户信息
+  rpc GetUser(GetUserRequest) returns (GetUserResponse);
+  
+  // 获取用户角色和权限
+  rpc GetUserRoles(GetUserRolesRequest) returns (GetUserRolesResponse);
+  
+  // 吊销 Token
+  rpc RevokeToken(RevokeTokenRequest) returns (google.protobuf.Empty);
+  
+  // 用户登出
+  rpc Logout(LogoutRequest) returns (google.protobuf.Empty);
+  
+  // 获取安全配置
+  rpc GetSecurityConfig(google.protobuf.Empty) returns (SecurityConfigResponse);
+  
+  // 获取 JWKS 公钥
+  rpc GetJwks(google.protobuf.Empty) returns (JwksResponse);
+  
+  // 健康检查
+  rpc HealthCheck(google.protobuf.Empty) returns (HealthCheckResponse);
+}
+
+// TokenService — Token 自省与刷新
+service TokenService {
+  // OIDC RFC 7662 兼容 Token 自省
+  // active=false 通过 Response 返回，不是错误
+  rpc IntrospectAccessToken(IntrospectTokenRequest) returns (IntrospectTokenResponse);
+  
+  // 刷新 Token
+  rpc RefreshToken(RefreshTokenRequest) returns (RefreshTokenResponse);
+  
+  // 内部使用：生成 Token 对
+  rpc GenerateTokenPair(GenerateTokenPairRequest) returns (GenerateTokenPairResponse);
+}
+
+// ==================== AuthService Messages ====================
+
+message ValidateCredentialsRequest {
+  string username = 1;
+  string password = 2;
+  string ip_address = 3;
+  string user_agent = 4;
+}
+
+message ValidateCredentialsResponse {
+  UserInfo user = 1;
+  repeated string roles = 2;
+  TokenPair tokens = 3;
+}
+
+message ValidateTokenRequest {
+  string token = 1;
+}
+
+message ValidateTokenResponse {
+  int64 user_id = 1;
+  string username = 2;
+  string email = 3;
+  repeated string roles = 4;
+  google.protobuf.Timestamp expires_at = 5;
+  string token_id = 6;
+  google.protobuf.Timestamp issued_at = 7;
+  TokenType token_type = 8;
+}
+
+message GetUserRequest {
+  oneof identifier {
+    int64 user_id = 1;
+    string username = 2;
+    string email = 3;
+  }
+}
+
+message GetUserResponse {
+  UserInfo user = 1;
+  repeated string roles = 2;
+}
+
+message GetUserRolesRequest {
+  int64 user_id = 1;
+}
+
+message GetUserRolesResponse {
+  int64 user_id = 1;
+  repeated string roles = 2;
+  repeated Permission permissions = 3;
+}
+
+message RevokeTokenRequest {
+  string token = 1;
+  int64 user_id = 2;
+}
+
+message LogoutRequest {
+  string refresh_token = 1;
+  int64 user_id = 2;
+}
+
+message SecurityConfigResponse {
+  bool turnstile_enabled = 1;
+  string turnstile_site_key = 2;
+  bool registration_enabled = 3;
+  bool oauth_google_enabled = 4;
+  bool oauth_github_enabled = 5;
+  PasswordPolicy password_policy = 6;
+  LockoutPolicy lockout_policy = 7;
+}
+
+message PasswordPolicy {
+  int32 min_length = 1;
+  int32 max_length = 2;
+  bool require_uppercase = 3;
+  bool require_lowercase = 4;
+  bool require_digit = 5;
+  bool require_special = 6;
+}
+
+message LockoutPolicy {
+  int32 max_attempts = 1;
+  int32 lockout_duration_minutes = 2;
+}
+
+message JwksResponse {
+  repeated Jwk keys = 1;
+}
+
+message Jwk {
+  string kty = 1;  // Key Type, e.g., "RSA"
+  string kid = 2;  // Key ID
+  string use = 3;  // Key Use, e.g., "sig"
+  string n = 4;    // RSA modulus (Base64URL)
+  string e = 5;    // RSA exponent (Base64URL)
+  string alg = 6;  // Algorithm, e.g., "RS256"
+}
+
+message HealthCheckResponse {
+  ServingStatus status = 1;
+  string version = 2;
+  google.protobuf.Timestamp timestamp = 3;
+  map<string, string> details = 4;
+}
+
+// ==================== TokenService Messages ====================
+
+message IntrospectTokenRequest {
+  string token = 1;
+}
+
+message IntrospectTokenResponse {
+  bool active = 1;
+  string scope = 2;
+  int64 client_id = 3;
+  string username = 4;
+  string token_type = 5;
+  google.protobuf.Timestamp exp = 6;
+  google.protobuf.Timestamp iat = 7;
+  google.protobuf.Timestamp nbf = 8;
+  string sub = 9;
+  repeated string aud = 10;
+  string iss = 11;
+  string jti = 12;
+}
+
+message RefreshTokenRequest {
+  string refresh_token = 1;
+}
+
+message RefreshTokenResponse {
+  TokenPair tokens = 1;
+}
+
+message GenerateTokenPairRequest {
+  int64 user_id = 1;
+  string username = 2;
+  string email = 3;
+  repeated string roles = 4;
+}
+
+message GenerateTokenPairResponse {
+  TokenPair tokens = 1;
+}
+
+// ==================== Common Messages ====================
+
+message UserInfo {
+  int64 id = 1;
+  string username = 2;
+  string email = 3;
+  string nickname = 4;
+  string avatar_url = 5;
+  UserStatus status = 6;
+  bool email_verified = 7;
+  google.protobuf.Timestamp created_at = 8;
+  google.protobuf.Timestamp updated_at = 9;
+}
+
+message TokenPair {
+  string access_token = 1;
+  string refresh_token = 2;
+  string token_type = 3;
+  int64 expires_in = 4;
+}
+
+message Permission {
+  int64 id = 1;
+  string name = 2;
+  string resource = 3;
+  string action = 4;
+}
+
+// ==================== Enums ====================
+
+enum TokenType {
+  TOKEN_TYPE_UNSPECIFIED = 0;
+  TOKEN_TYPE_ACCESS = 1;
+  TOKEN_TYPE_REFRESH = 2;
+}
+
+enum UserStatus {
+  USER_STATUS_UNSPECIFIED = 0;
+  USER_STATUS_ACTIVE = 1;
+  USER_STATUS_INACTIVE = 2;
+  USER_STATUS_LOCKED = 3;
+  USER_STATUS_DELETED = 4;
+}
+
+enum ServingStatus {
+  SERVING_STATUS_UNSPECIFIED = 0;
+  SERVING_STATUS_SERVING = 1;
+  SERVING_STATUS_NOT_SERVING = 2;
+}

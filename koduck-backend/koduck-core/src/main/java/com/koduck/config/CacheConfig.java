@@ -15,7 +15,7 @@ import org.springframework.data.redis.serializer.StringRedisSerializer;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 
-import com.koduck.infrastructure.config.properties.CacheProperties;
+import com.koduck.config.properties.CacheProperties;
 
 /**
  * 基于 Redis 的缓存配置。
