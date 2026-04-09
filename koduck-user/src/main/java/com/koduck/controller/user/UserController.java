@@ -1,5 +1,6 @@
 package com.koduck.controller.user;
 
+import com.koduck.context.AccessControl;
 import com.koduck.context.UserContext;
 import com.koduck.dto.user.common.ApiResponse;
 import com.koduck.dto.user.permission.PermissionInfo;
@@ -108,18 +109,23 @@ public class UserController {
     // === 管理员用户管理接口 ===
 
     @GetMapping("/users/{userId}")
-    public ApiResponse<UserProfileResponse> getUserById(@PathVariable Long userId) {
+    public ApiResponse<UserProfileResponse> getUserById(
+            HttpServletRequest request,
+            @PathVariable Long userId) {
+        AccessControl.requirePermission(request, "user:read");
         UserProfileResponse profile = userService.getUserById(userId);
         return ApiResponse.ok(profile);
     }
 
     @GetMapping("/users")
     public ApiResponse<com.koduck.dto.user.common.PageResponse<UserSummaryResponse>> listUsers(
+            HttpServletRequest request,
             @RequestParam(required = false) String keyword,
             @RequestParam(required = false) String status,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size,
             @RequestParam(defaultValue = "createdAt,desc") String sort) {
+        AccessControl.requirePermission(request, "user:read");
         Sort sortObj = parseSort(sort);
         PageRequest pageable = PageRequest.of(page, size, sortObj);
         com.koduck.dto.user.common.PageResponse<UserSummaryResponse> result =
@@ -129,22 +135,29 @@ public class UserController {
 
     @PutMapping("/users/{userId}")
     public ApiResponse<UserProfileResponse> updateUser(
+            HttpServletRequest request,
             @PathVariable Long userId,
             @RequestBody @Valid UpdateUserRequest updateRequest) {
+        AccessControl.requirePermission(request, "user:write");
         UserProfileResponse profile = userService.updateUser(userId, updateRequest);
         return ApiResponse.ok(profile);
     }
 
     @DeleteMapping("/users/{userId}")
-    public ApiResponse<Void> deleteUser(@PathVariable Long userId) {
+    public ApiResponse<Void> deleteUser(
+            HttpServletRequest request,
+            @PathVariable Long userId) {
+        AccessControl.requirePermission(request, "user:delete");
         userService.deleteUser(userId);
         return ApiResponse.ok();
     }
 
     @PutMapping("/users/{userId}/status")
     public ApiResponse<UserProfileResponse> updateUserStatus(
+            HttpServletRequest request,
             @PathVariable Long userId,
             @RequestBody @Valid UpdateUserStatusRequest statusRequest) {
+        AccessControl.requirePermission(request, "user:write");
         UpdateUserRequest updateRequest = UpdateUserRequest.builder()
                 .status(statusRequest.getStatus())
                 .build();
@@ -155,23 +168,30 @@ public class UserController {
     // === 用户角色管理 ===
 
     @GetMapping("/users/{userId}/roles")
-    public ApiResponse<List<RoleInfo>> getUserRoles(@PathVariable Long userId) {
+    public ApiResponse<List<RoleInfo>> getUserRoles(
+            HttpServletRequest request,
+            @PathVariable Long userId) {
+        AccessControl.requirePermission(request, "role:read");
         List<RoleInfo> roles = userService.getUserRolesInfo(userId);
         return ApiResponse.ok(roles);
     }
 
     @PostMapping("/users/{userId}/roles")
     public ApiResponse<Void> assignRole(
+            HttpServletRequest request,
             @PathVariable Long userId,
             @RequestBody @Valid AssignRoleRequest assignRequest) {
+        AccessControl.requirePermission(request, "role:write");
         userService.assignRole(userId, assignRequest.getRoleId());
         return ApiResponse.ok();
     }
 
     @DeleteMapping("/users/{userId}/roles/{roleId}")
     public ApiResponse<Void> removeRole(
+            HttpServletRequest request,
             @PathVariable Long userId,
             @PathVariable Integer roleId) {
+        AccessControl.requirePermission(request, "role:write");
         userService.removeRole(userId, roleId);
         return ApiResponse.ok();
     }

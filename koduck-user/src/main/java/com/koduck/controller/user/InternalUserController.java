@@ -38,7 +38,8 @@ public class InternalUserController {
     public ResponseEntity<UserDetailsResponse> findByUsername(
             @PathVariable String username,
             @RequestHeader(value = "X-Consumer-Username", required = false) String consumer) {
-        logAudit(consumer, "findByUsername", username);
+        String consumerName = requireConsumer(consumer);
+        logAudit(consumerName, "findByUsername", username);
         return userService.findByUsername(username)
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
@@ -48,7 +49,8 @@ public class InternalUserController {
     public ResponseEntity<UserDetailsResponse> findByEmail(
             @PathVariable String email,
             @RequestHeader(value = "X-Consumer-Username", required = false) String consumer) {
-        logAudit(consumer, "findByEmail", email);
+        String consumerName = requireConsumer(consumer);
+        logAudit(consumerName, "findByEmail", email);
         return userService.findByEmail(email)
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
@@ -58,7 +60,8 @@ public class InternalUserController {
     public ResponseEntity<UserDetailsResponse> createUser(
             @RequestBody @Valid CreateUserRequest request,
             @RequestHeader(value = "X-Consumer-Username", required = false) String consumer) {
-        logAudit(consumer, "createUser", request.getUsername());
+        String consumerName = requireConsumer(consumer);
+        logAudit(consumerName, "createUser", request.getUsername());
         return ResponseEntity.ok(userService.createUser(request));
     }
 
@@ -67,7 +70,8 @@ public class InternalUserController {
             @PathVariable Long userId,
             @RequestBody @Valid LastLoginUpdateRequest request,
             @RequestHeader(value = "X-Consumer-Username", required = false) String consumer) {
-        logAudit(consumer, "updateLastLogin", String.valueOf(userId));
+        String consumerName = requireConsumer(consumer);
+        logAudit(consumerName, "updateLastLogin", String.valueOf(userId));
         userService.updateLastLogin(userId, request);
         return ResponseEntity.ok().build();
     }
@@ -76,7 +80,8 @@ public class InternalUserController {
     public ResponseEntity<List<String>> getUserRoles(
             @PathVariable Long userId,
             @RequestHeader(value = "X-Consumer-Username", required = false) String consumer) {
-        logAudit(consumer, "getUserRoles", String.valueOf(userId));
+        String consumerName = requireConsumer(consumer);
+        logAudit(consumerName, "getUserRoles", String.valueOf(userId));
         return ResponseEntity.ok(userService.getUserRoles(userId));
     }
 
@@ -84,8 +89,16 @@ public class InternalUserController {
     public ResponseEntity<List<String>> getUserPermissions(
             @PathVariable Long userId,
             @RequestHeader(value = "X-Consumer-Username", required = false) String consumer) {
-        logAudit(consumer, "getUserPermissions", String.valueOf(userId));
+        String consumerName = requireConsumer(consumer);
+        logAudit(consumerName, "getUserPermissions", String.valueOf(userId));
         return ResponseEntity.ok(userService.getUserPermissions(userId));
+    }
+
+    private String requireConsumer(String consumer) {
+        if (consumer == null || consumer.isBlank()) {
+            throw new IllegalStateException("缺少内部调用身份信息: X-Consumer-Username");
+        }
+        return consumer;
     }
 
     private void logAudit(String consumer, String action, String target) {
