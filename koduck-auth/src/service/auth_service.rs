@@ -7,7 +7,7 @@ use crate::{
     jwt::JwtService,
     model::{
         Claims, TokenType,
-        CreateUserDto, ForgotPasswordRequest, LoginRequest, RegisterRequest,
+        ForgotPasswordRequest, LoginRequest, RegisterRequest,
         RefreshTokenRequest, ResetPasswordRequest, SecurityConfigResponse,
         TokenPair, TokenResponse, User, UserInfo,
     },
@@ -15,6 +15,7 @@ use crate::{
 };
 use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine};
 use secrecy::ExposeSecret;
+use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use sqlx::PgPool;
 use std::sync::Arc;
@@ -32,6 +33,35 @@ pub struct AuthService {
     password_hasher: PasswordHasher,
     db_pool: PgPool,
     config: Arc<Config>,
+}
+
+#[derive(Debug, Deserialize)]
+struct InternalUserDetails {
+    id: i64,
+    username: String,
+    email: String,
+    #[serde(rename = "passwordHash")]
+    password_hash: String,
+    nickname: Option<String>,
+    status: String,
+}
+
+#[derive(Debug, Serialize)]
+struct LastLoginUpdatePayload {
+    #[serde(rename = "loginTime")]
+    login_time: chrono::DateTime<chrono::Utc>,
+    #[serde(rename = "ipAddress")]
+    ip_address: String,
+}
+
+#[derive(Debug, Serialize)]
+struct InternalCreateUserRequest {
+    username: String,
+    email: String,
+    #[serde(rename = "passwordHash")]
+    password_hash: String,
+    nickname: Option<String>,
+    status: String,
 }
 
 impl AuthService {
@@ -69,17 +99,18 @@ impl AuthService {
             ));
         }
 
-        // Find user
+        // Fetch user from koduck-user internal API instead of local auth DB.
         let user = self
-            .user_repo
-            .find_by_username_or_email(&req.username)
+            .fetch_user_from_user_service(&req.username)
             .await?
-            .ok_or_else(|| {
-                AppError::Unauthorized("Invalid username or password".to_string())
-            })?;
+            .ok_or_else(|| AppError::Unauthorized("Invalid username or password".to_string()))?;
 
         // Verify password
-        if !self.password_hasher.verify_password(&req.password, &user.password_hash).await? {
+        if !self
+            .password_hasher
+            .verify_password(&req.password, &user.password_hash)
+            .await?
+        {
             // Increment failed attempts
             let attempts = self.redis.incr_login_attempt(&ip).await?;
             
@@ -96,7 +127,7 @@ impl AuthService {
         }
 
         // Check account status
-        match user.status {
+        match Self::parse_user_status(&user.status) {
             crate::model::UserStatus::Locked => {
                 return Err(AppError::Locked("Account is locked".to_string()));
             }
@@ -109,67 +140,64 @@ impl AuthService {
         // Reset login attempts
         self.redis.reset_login_attempts(&ip).await?;
 
-        // Update last login
-        self.user_repo.update_last_login(user.id).await?;
-
         // Get user roles
-        let roles = self.user_repo.get_user_roles(user.id).await?;
+        let roles = self.fetch_user_roles_from_user_service(user.id).await?;
+
+        // Update last login in koduck-user
+        self.update_last_login_in_user_service(user.id, &ip).await?;
+
+        let auth_user = User {
+            id: user.id,
+            username: user.username,
+            email: user.email,
+            password_hash: user.password_hash,
+            nickname: user.nickname,
+            avatar_url: None,
+            status: Self::parse_user_status(&user.status),
+            email_verified: false,
+            last_login_at: None,
+            created_at: chrono::Utc::now(),
+            updated_at: chrono::Utc::now(),
+        };
 
         // Generate tokens
-        let tokens = self.generate_token_pair(&user, &roles).await?;
+        let tokens = self.generate_token_pair(&auth_user, &roles).await?;
 
-        Ok(TokenResponse::new(
-            tokens,
-            UserInfo::from(user),
-        ))
+        Ok(TokenResponse::new(tokens, UserInfo::from(auth_user)))
     }
 
     /// Register new user
-    /// Uses transaction to ensure atomicity of user creation and role assignment
+    /// Canonical flow: APISIX -> koduck-auth -> koduck-user
     pub async fn register(&self, req: RegisterRequest) -> Result<TokenResponse> {
         // Hash password with configured Argon2 parameters
         let password_hash = self.password_hasher.hash_password(&req.password).await?;
 
-        // Start transaction for atomic user creation and role assignment
-        let mut tx = self.db_pool.begin().await.map_err(|e| {
-            error!("Failed to start transaction: {}", e);
-            AppError::Database(e)
-        })?;
+        let created = self
+            .create_user_in_user_service(
+                req.username,
+                req.email,
+                password_hash,
+                req.nickname,
+            )
+            .await?;
+        info!("User registered successfully via user-service: {}", created.id);
 
-        // Create user within transaction
-        let dto = CreateUserDto {
-            username: req.username,
-            email: req.email,
-            password_hash,
-            nickname: req.nickname,
+        let roles = self.fetch_user_roles_from_user_service(created.id).await?;
+
+        let user = User {
+            id: created.id,
+            username: created.username,
+            email: created.email,
+            password_hash: created.password_hash,
+            nickname: created.nickname,
+            avatar_url: None,
+            status: Self::parse_user_status(&created.status),
+            email_verified: false,
+            last_login_at: None,
+            created_at: chrono::Utc::now(),
+            updated_at: chrono::Utc::now(),
         };
 
-        let user = match self.user_repo.create_with_tx(&mut tx, &dto).await {
-            Ok(user) => user,
-            Err(e) => {
-                error!("Failed to create user in transaction: {:?}", e);
-                // Transaction will be rolled back when dropped
-                return Err(e);
-            }
-        };
-
-        // Assign default role within same transaction
-        if let Err(e) = self.user_repo.assign_role_with_tx(&mut tx, user.id, "USER").await {
-            error!("Failed to assign role in transaction: {:?}", e);
-            // Transaction will be rolled back when dropped
-            return Err(e);
-        }
-
-        // Commit transaction
-        if let Err(e) = tx.commit().await {
-            error!("Failed to commit transaction: {}", e);
-            return Err(AppError::Database(e));
-        }
-
-        info!("User registered successfully: {}", user.id);
-
-        // Generate tokens (outside transaction as it's not DB-related)
-        let roles = vec!["USER".to_string()];
         let tokens = self.generate_token_pair(&user, &roles).await?;
 
         Ok(TokenResponse::new(
@@ -517,6 +545,190 @@ impl AuthService {
         let mut hasher = Sha256::new();
         hasher.update(token.as_bytes());
         format!("{:x}", hasher.finalize())
+    }
+
+    async fn fetch_user_from_user_service(
+        &self,
+        username_or_email: &str,
+    ) -> Result<Option<InternalUserDetails>> {
+        let endpoint = if username_or_email.contains('@') {
+            format!(
+                "{}/internal/users/by-email/{}",
+                self.config.client.user_service_url.trim_end_matches('/'),
+                username_or_email
+            )
+        } else {
+            format!(
+                "{}/internal/users/by-username/{}",
+                self.config.client.user_service_url.trim_end_matches('/'),
+                username_or_email
+            )
+        };
+
+        let client = reqwest::Client::new();
+        let request = client
+            .get(endpoint)
+            .header("X-Consumer-Username", "koduck-auth");
+
+        let response = tokio::time::timeout(
+            Duration::from_secs(self.config.client.user_service_timeout_secs),
+            request.send(),
+        )
+        .await
+        .map_err(|_| AppError::ServiceUnavailable("User service request timed out".to_string()))?
+        .map_err(|e| AppError::ServiceUnavailable(format!("User service request failed: {}", e)))?;
+
+        if response.status() == reqwest::StatusCode::NOT_FOUND {
+            return Ok(None);
+        }
+
+        if !response.status().is_success() {
+            return Err(AppError::ServiceUnavailable(format!(
+                "User service returned status {}",
+                response.status()
+            )));
+        }
+
+        let user = response
+            .json::<InternalUserDetails>()
+            .await
+            .map_err(|e| AppError::Internal(format!("Failed to decode user response: {}", e)))?;
+        Ok(Some(user))
+    }
+
+    async fn fetch_user_roles_from_user_service(&self, user_id: i64) -> Result<Vec<String>> {
+        let endpoint = format!(
+            "{}/internal/users/{}/roles",
+            self.config.client.user_service_url.trim_end_matches('/'),
+            user_id
+        );
+
+        let client = reqwest::Client::new();
+        let request = client
+            .get(endpoint)
+            .header("X-Consumer-Username", "koduck-auth");
+
+        let response = tokio::time::timeout(
+            Duration::from_secs(self.config.client.user_service_timeout_secs),
+            request.send(),
+        )
+        .await
+        .map_err(|_| AppError::ServiceUnavailable("User roles request timed out".to_string()))?
+        .map_err(|e| AppError::ServiceUnavailable(format!("User roles request failed: {}", e)))?;
+
+        if !response.status().is_success() {
+            return Err(AppError::ServiceUnavailable(format!(
+                "User roles request failed with status {}",
+                response.status()
+            )));
+        }
+
+        response
+            .json::<Vec<String>>()
+            .await
+            .map_err(|e| AppError::Internal(format!("Failed to decode roles response: {}", e)))
+    }
+
+    async fn create_user_in_user_service(
+        &self,
+        username: String,
+        email: String,
+        password_hash: String,
+        nickname: Option<String>,
+    ) -> Result<InternalUserDetails> {
+        let endpoint = format!(
+            "{}/internal/users",
+            self.config.client.user_service_url.trim_end_matches('/'),
+        );
+
+        let payload = InternalCreateUserRequest {
+            username,
+            email,
+            password_hash,
+            nickname,
+            status: "ACTIVE".to_string(),
+        };
+
+        let client = reqwest::Client::new();
+        let request = client
+            .post(endpoint)
+            .header("X-Consumer-Username", "koduck-auth")
+            .json(&payload);
+
+        let response = tokio::time::timeout(
+            Duration::from_secs(self.config.client.user_service_timeout_secs),
+            request.send(),
+        )
+        .await
+        .map_err(|_| AppError::ServiceUnavailable("User create request timed out".to_string()))?
+        .map_err(|e| AppError::ServiceUnavailable(format!("User create request failed: {}", e)))?;
+
+        let status = response.status();
+        if status.is_success() {
+            return response
+                .json::<InternalUserDetails>()
+                .await
+                .map_err(|e| AppError::Internal(format!("Failed to decode create-user response: {}", e)));
+        }
+
+        let body = response
+            .text()
+            .await
+            .unwrap_or_else(|_| String::new());
+        let message = serde_json::from_str::<serde_json::Value>(&body)
+            .ok()
+            .and_then(|v| v.get("message").and_then(|m| m.as_str()).map(ToString::to_string))
+            .unwrap_or_else(|| format!("User create failed with status {}", status));
+
+        match status {
+            reqwest::StatusCode::CONFLICT => Err(AppError::Conflict(message)),
+            reqwest::StatusCode::BAD_REQUEST => Err(AppError::Validation(message)),
+            _ => Err(AppError::ServiceUnavailable(message)),
+        }
+    }
+
+    async fn update_last_login_in_user_service(&self, user_id: i64, ip: &str) -> Result<()> {
+        let endpoint = format!(
+            "{}/internal/users/{}/last-login",
+            self.config.client.user_service_url.trim_end_matches('/'),
+            user_id
+        );
+        let payload = LastLoginUpdatePayload {
+            login_time: chrono::Utc::now(),
+            ip_address: ip.to_string(),
+        };
+
+        let client = reqwest::Client::new();
+        let request = client
+            .put(endpoint)
+            .header("X-Consumer-Username", "koduck-auth")
+            .json(&payload);
+
+        let response = tokio::time::timeout(
+            Duration::from_secs(self.config.client.user_service_timeout_secs),
+            request.send(),
+        )
+        .await
+        .map_err(|_| AppError::ServiceUnavailable("Update last-login request timed out".to_string()))?
+        .map_err(|e| AppError::ServiceUnavailable(format!("Update last-login request failed: {}", e)))?;
+
+        if !response.status().is_success() {
+            return Err(AppError::ServiceUnavailable(format!(
+                "Update last-login failed with status {}",
+                response.status()
+            )));
+        }
+
+        Ok(())
+    }
+
+    fn parse_user_status(status: &str) -> crate::model::UserStatus {
+        match status {
+            "LOCKED" => crate::model::UserStatus::Locked,
+            "INACTIVE" => crate::model::UserStatus::Inactive,
+            "DELETED" => crate::model::UserStatus::Deleted,
+            _ => crate::model::UserStatus::Active,
+        }
     }
 
     fn try_extract_claims_without_verification(token: &str) -> Option<Claims> {

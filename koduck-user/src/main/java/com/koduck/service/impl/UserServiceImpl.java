@@ -242,6 +242,14 @@ public class UserServiceImpl implements UserService {
                 .build();
 
         User saved = userRepository.save(user);
+        Role defaultRole = roleRepository.findByName("ROLE_USER")
+                .orElseThrow(() -> new RoleNotFoundException("ROLE_USER"));
+        if (!userRoleRepository.existsByUserIdAndRoleId(saved.getId(), defaultRole.getId())) {
+            userRoleRepository.save(UserRole.builder()
+                    .userId(saved.getId())
+                    .roleId(defaultRole.getId())
+                    .build());
+        }
         return buildUserDetailsResponse(saved);
     }
 

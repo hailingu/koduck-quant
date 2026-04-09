@@ -14,6 +14,8 @@ spec:
           env:
             - name: RUST_LOG
               value: "info,koduck_auth=info,tower_http=warn"
+            - name: KODUCK_AUTH__CLIENT__USER_SERVICE_URL
+              value: "http://dev-koduck-user:8082"
       volumes:
         - name: jwt-keys
           secret:

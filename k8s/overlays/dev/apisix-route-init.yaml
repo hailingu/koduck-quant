@@ -67,10 +67,10 @@ spec:
                 -H "$KEY" -H 'Content-Type: application/json' \
                 -d "$(printf '{"uri":"/.well-known/jwks.json","upstream":{"type":"roundrobin","nodes":{"%s":1}}}' "$AUTH_SERVICE")"
 
-              echo "Registering public auth route: /api/v1/auth/* -> backend"
+              echo "Registering public auth route: /api/v1/auth/* -> koduck-auth"
               curl -fsS -X PUT "${ADMIN}/routes/api-auth-public" \
                 -H "$KEY" -H 'Content-Type: application/json' \
-                -d "$(printf '{"uri":"/api/v1/auth/*","upstream":{"type":"roundrobin","nodes":{"%s":1}}}' "$BACKEND_SERVICE")"
+                -d "$(printf '{"uri":"/api/v1/auth/*","upstream":{"type":"roundrobin","nodes":{"%s":1}}}' "$AUTH_SERVICE")"
 
               echo "Registering protected API route: /api/* -> backend (jwt-auth)"
               curl -fsS -X PUT "${ADMIN}/routes/api-protected" \

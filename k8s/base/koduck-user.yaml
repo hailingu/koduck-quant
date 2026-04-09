@@ -30,12 +30,6 @@ spec:
           env:
             - name: SPRING_PROFILES_ACTIVE
               value: "k8s"
-            # Task 2.3 and earlier: DB integration is not ready yet.
-            # Disable DataSource/JPA/Flyway auto-configuration to allow service bootstrap.
-            - name: SPRING_AUTOCONFIGURE_EXCLUDE
-              value: "org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration,org.springframework.boot.autoconfigure.orm.jpa.HibernateJpaAutoConfiguration,org.springframework.boot.autoconfigure.flyway.FlywayAutoConfiguration"
-            - name: MANAGEMENT_HEALTH_DB_ENABLED
-              value: "false"
             - name: SPRING_DATASOURCE_URL
               valueFrom:
                 secretKeyRef:

@@ -48,6 +48,48 @@ uninstall_env() {
     echo -e "\n${YELLOW}卸载 ${env} 环境...${NC}"
     echo -e "${YELLOW}说明: 将删除命名空间内 Secret（含 ${env}-koduck-auth-jwt-keys），下次 install 会自动生成新 RSA key${NC}"
 
+    # 清理 deploy.sh 托管的本机端口转发（仅 dev）
+    if [ "${env}" = "dev" ]; then
+        local pf_pid_file="${SCRIPT_DIR}/.port-forward-dev.pid"
+        if [ -f "${pf_pid_file}" ]; then
+            local pf_pid
+            pf_pid="$(cat "${pf_pid_file}" 2>/dev/null || true)"
+            if [ -n "${pf_pid}" ] && kill -0 "${pf_pid}" 2>/dev/null; then
+                echo -e "${YELLOW}清理本机 dev 端口转发进程(pid=${pf_pid})...${NC}"
+                kill "${pf_pid}" 2>/dev/null || true
+                sleep 1
+                if kill -0 "${pf_pid}" 2>/dev/null; then
+                    kill -9 "${pf_pid}" 2>/dev/null || true
+                fi
+            fi
+            rm -f "${pf_pid_file}"
+            rm -f "${SCRIPT_DIR}/.port-forward-dev.log"
+            echo -e "${GREEN}✓ 已清理本机 dev 端口转发${NC}"
+        fi
+
+        # 兜底清理：即使 pid 文件缺失，也尝试释放本机 19080 监听
+        local stray_pids
+        stray_pids="$(lsof -tiTCP:19080 -sTCP:LISTEN 2>/dev/null || true)"
+        if [ -n "${stray_pids}" ]; then
+            echo -e "${YELLOW}兜底清理本机 19080 监听进程...${NC}"
+            echo "${stray_pids}" | while read -r spid; do
+                [ -z "${spid}" ] && continue
+                kill "${spid}" 2>/dev/null || true
+            done
+            sleep 1
+
+            # 二次兜底：仍存活则强制结束
+            stray_pids="$(lsof -tiTCP:19080 -sTCP:LISTEN 2>/dev/null || true)"
+            if [ -n "${stray_pids}" ]; then
+                echo "${stray_pids}" | while read -r spid; do
+                    [ -z "${spid}" ] && continue
+                    kill -9 "${spid}" 2>/dev/null || true
+                done
+            fi
+            echo -e "${GREEN}✓ 已完成本机 19080 兜底清理${NC}"
+        fi
+    fi
+
     if ! kubectl get namespace "${namespace}" >/dev/null 2>&1; then
         echo -e "${YELLOW}命名空间 ${namespace} 不存在，跳过${NC}"
         return 0

@@ -35,6 +35,8 @@ if [[ ! "$ACTION" =~ ^(install|status|port-forward|logs)$ ]]; then
 fi
 
 NAMESPACE="koduck-${ENV}"
+PORT_FORWARD_PID_FILE="${SCRIPT_DIR}/.port-forward-${ENV}.pid"
+PORT_FORWARD_LOG_FILE="${SCRIPT_DIR}/.port-forward-${ENV}.log"
 
 # 加载环境变量文件
 ENV_FILE="${SCRIPT_DIR}/.env.${ENV}"
@@ -178,6 +180,96 @@ wait_pods_ready() {
     done
 }
 
+# 判断 pid 是否仍在运行
+is_pid_running() {
+    local pid="$1"
+    [ -n "${pid}" ] && kill -0 "${pid}" 2>/dev/null
+}
+
+# 清理托管的本机端口转发（幂等）
+cleanup_managed_port_forward() {
+    if [ ! -f "${PORT_FORWARD_PID_FILE}" ]; then
+        return 0
+    fi
+
+    local pid
+    pid="$(cat "${PORT_FORWARD_PID_FILE}" 2>/dev/null || true)"
+    if is_pid_running "${pid}"; then
+        kill "${pid}" 2>/dev/null || true
+        sleep 1
+        if is_pid_running "${pid}"; then
+            kill -9 "${pid}" 2>/dev/null || true
+        fi
+    fi
+
+    rm -f "${PORT_FORWARD_PID_FILE}"
+}
+
+# 仅 dev install 时托管本机 19080 -> apisix:9080（后台常驻）
+ensure_dev_local_gateway_port_forward() {
+    if [ "${ENV}" != "dev" ]; then
+        return 0
+    fi
+
+    echo -e "${YELLOW}配置本机网关入口: 127.0.0.1:19080 -> ${ENV}-apisix-gateway:9080${NC}"
+
+    # 若本机入口已可用，直接复用，避免重复拉起
+    if curl --noproxy '*' -s -o /dev/null --max-time 1 "http://127.0.0.1:19080"; then
+        echo -e "${GREEN}✓ 本机入口已可用: http://127.0.0.1:19080（复用现有转发）${NC}"
+        return 0
+    fi
+
+    # 先清理脚本托管的旧进程，避免端口冲突/指向旧会话
+    cleanup_managed_port_forward
+
+    # 清理未被 pid 文件托管但仍占用 19080 的旧监听进程（常见为遗留 kubectl port-forward）
+    local stray_pids
+    stray_pids="$(lsof -tiTCP:19080 -sTCP:LISTEN 2>/dev/null || true)"
+    if [ -n "${stray_pids}" ]; then
+        echo "${stray_pids}" | while read -r spid; do
+            [ -z "${spid}" ] && continue
+            kill "${spid}" 2>/dev/null || true
+        done
+        sleep 1
+    fi
+
+    # 使用 nohup + disown；若存在 setsid 则额外脱离会话，避免父 shell 退出时被回收
+    if command -v setsid >/dev/null 2>&1; then
+        nohup setsid kubectl port-forward "svc/${ENV}-apisix-gateway" 19080:9080 -n "${NAMESPACE}" \
+            < /dev/null > "${PORT_FORWARD_LOG_FILE}" 2>&1 &
+    else
+        nohup kubectl port-forward "svc/${ENV}-apisix-gateway" 19080:9080 -n "${NAMESPACE}" \
+            < /dev/null > "${PORT_FORWARD_LOG_FILE}" 2>&1 &
+    fi
+    local pf_pid=$!
+    disown "${pf_pid}" 2>/dev/null || true
+    echo "${pf_pid}" > "${PORT_FORWARD_PID_FILE}"
+
+    # 等待端口可达（不要求 2xx，404 也表示链路已通）
+    local ok=0
+    for _ in $(seq 1 20); do
+        if curl --noproxy '*' -s -o /dev/null --max-time 1 "http://127.0.0.1:19080"; then
+            ok=1
+            break
+        fi
+
+        if ! is_pid_running "${pf_pid}"; then
+            break
+        fi
+        sleep 1
+    done
+
+    if [ "${ok}" -ne 1 ]; then
+        echo -e "${RED}错误: 本机入口 127.0.0.1:19080 未就绪${NC}"
+        echo -e "${YELLOW}port-forward 日志:${NC}"
+        tail -n 40 "${PORT_FORWARD_LOG_FILE}" || true
+        cleanup_managed_port_forward
+        exit 1
+    fi
+
+    echo -e "${GREEN}✓ 本机入口已就绪: http://127.0.0.1:19080${NC}"
+}
+
 # 修正 koduck-auth Secret 中的服务地址（避免主机名与 namePrefix 不一致）
 ensure_koduck_auth_secret_endpoints() {
     local auth_secret_name="${ENV}-koduck-auth-secrets"
@@ -210,6 +302,32 @@ ensure_koduck_user_secret_endpoints() {
             --from-literal=db-password="${db_password}" \
             -n "${NAMESPACE}" \
             --dry-run=client -o yaml | kubectl apply -f -
+    fi
+}
+
+# 确保 user_db 存在（幂等）
+ensure_user_db_exists() {
+    local postgres_pod
+    local db_user="${KODUCK_USER_DB_USERNAME:-koduck}"
+    local db_name="user_db"
+
+    postgres_pod=$(kubectl -n "${NAMESPACE}" get pod -l app=postgres -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || true)
+    if [ -z "${postgres_pod}" ]; then
+        echo -e "${RED}错误: 未找到 postgres Pod，无法创建 ${db_name}${NC}"
+        exit 1
+    fi
+
+    local exists
+    exists=$(kubectl exec -n "${NAMESPACE}" "${postgres_pod}" -- \
+        psql -U "${db_user}" -d postgres -At -c "SELECT 1 FROM pg_database WHERE datname='${db_name}';" 2>/dev/null || true)
+
+    if [ "${exists}" != "1" ]; then
+        echo -e "${YELLOW}创建数据库 ${db_name}...${NC}"
+        kubectl exec -n "${NAMESPACE}" "${postgres_pod}" -- \
+            psql -U "${db_user}" -d postgres -c "CREATE DATABASE ${db_name};" >/dev/null
+        echo -e "${GREEN}✓ 已创建数据库 ${db_name}${NC}"
+    else
+        echo -e "${GREEN}✓ 数据库 ${db_name} 已存在${NC}"
     fi
 }
 
@@ -365,6 +483,7 @@ install() {
 
     echo -e "${YELLOW}等待 PostgreSQL 启动...${NC}"
     wait_pods_ready "app=postgres" "30s" "postgres"
+    ensure_user_db_exists
 
     echo -e "${YELLOW}等待 Redis 启动...${NC}"
     wait_pods_ready "app=redis" "30s" "redis"
@@ -394,6 +513,8 @@ install() {
         exit 1
     fi
 
+    ensure_dev_local_gateway_port_forward
+
     echo -e "${GREEN}✓ Koduck 部署完成${NC}"
     show_access_info
 }
@@ -422,11 +543,18 @@ status() {
 # 端口转发
 port_forward() {
     echo -e "${YELLOW}启动端口转发 (${ENV})...${NC}"
+    if [ "${ENV}" = "dev" ]; then
+        echo -e "${BLUE}Gateway: http://127.0.0.1:19080${NC}"
+        echo -e "${YELLOW}提示: 将占用本机 19080${NC}"
+        echo -e "${YELLOW}按 Ctrl+C 停止${NC}\n"
+        kubectl port-forward "svc/${ENV}-apisix-gateway" 19080:9080 -n "${NAMESPACE}"
+        return 0
+    fi
+
     echo -e "${BLUE}Gateway: http://localhost:9080${NC}"
     echo -e "${YELLOW}按 Ctrl+C 停止${NC}\n"
-    
-    kubectl port-forward svc/dev-apisix-gateway 9080:9080 -n "${NAMESPACE}" 2>/dev/null || \
-    kubectl port-forward svc/prod-apisix-gateway 9080:9080 -n "${NAMESPACE}"
+
+    kubectl port-forward "svc/${ENV}-apisix-gateway" 9080:9080 -n "${NAMESPACE}"
 }
 
 # 查看日志
@@ -454,8 +582,13 @@ show_access_info() {
     fi
     
     echo -e "\n${BLUE}Port-Forward:${NC}"
-    echo "  ./k8s/deploy.sh ${ENV} port-forward"
-    echo "  http://localhost:9080"
+    if [ "${ENV}" = "dev" ]; then
+        echo "  dev install 已自动托管: http://127.0.0.1:19080"
+        echo "  手工模式(前台): ./k8s/deploy.sh ${ENV} port-forward"
+    else
+        echo "  ./k8s/deploy.sh ${ENV} port-forward"
+        echo "  http://localhost:9080"
+    fi
     
     echo -e "\n${BLUE}Frontend:${NC}"
     echo "  kubectl port-forward svc/${ENV}-koduck-frontend 8080:80 -n ${NAMESPACE}"
