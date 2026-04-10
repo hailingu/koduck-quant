@@ -21,6 +21,7 @@ interface Message {
 export function KoduckAi() {
   const [chatMessage, setChatMessage] = useState("");
   const [messages, setMessages] = useState<Message[]>([]);
+  const [sending, setSending] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => {
@@ -31,32 +32,67 @@ export function KoduckAi() {
     scrollToBottom();
   }, [messages]);
 
-  const handleSendMessage = () => {
-    if (chatMessage.trim()) {
-      const userMessage: Message = {
-        id: Date.now().toString(),
-        role: "user",
-        content: chatMessage,
-        type: "text",
+  const handleSendMessage = async () => {
+    const content = chatMessage.trim();
+    if (!content || sending) {
+      return;
+    }
+
+    const userMessage: Message = {
+      id: Date.now().toString(),
+      role: "user",
+      content,
+      type: "text",
+      timestamp: Date.now(),
+    };
+    setMessages((prev) => [...prev, userMessage]);
+    setChatMessage("");
+    setSending(true);
+
+    try {
+      const token = localStorage.getItem("koduck.auth.token");
+      const response = await fetch("/api/v1/ai/chat", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({
+          message: content,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`chat api failed: ${response.status}`);
+      }
+
+      const payload = (await response.json().catch(() => null)) as
+        | { data?: { answer?: string } }
+        | null;
+      const answer = payload?.data?.answer ?? getAIResponse(content);
+
+      const aiResponse: Message = {
+        id: (Date.now() + 1).toString(),
+        role: "assistant",
+        content: answer,
+        type: shouldReturnCard(content) ? "card" : "text",
         timestamp: Date.now(),
+        cardData: shouldReturnCard(content) ? generateCardData(content) : undefined,
       };
-
-      setMessages((prev) => [...prev, userMessage]);
-      setChatMessage("");
-
-      setTimeout(() => {
-        const aiResponse: Message = {
-          id: (Date.now() + 1).toString(),
-          role: "assistant",
-          content: getAIResponse(chatMessage),
-          type: shouldReturnCard(chatMessage) ? "card" : "text",
-          timestamp: Date.now(),
-          cardData: shouldReturnCard(chatMessage)
-            ? generateCardData(chatMessage)
-            : undefined,
-        };
-        setMessages((prev) => [...prev, aiResponse]);
-      }, 500);
+      setMessages((prev) => [...prev, aiResponse]);
+    } catch (error) {
+      console.error("koduck-ai chat api failed, fallback to local mock:", error);
+      const aiResponse: Message = {
+        id: (Date.now() + 1).toString(),
+        role: "assistant",
+        content: `后端接口调用失败，当前为本地兜底回复。\n${getAIResponse(content)}`,
+        type: shouldReturnCard(content) ? "card" : "text",
+        timestamp: Date.now(),
+        cardData: shouldReturnCard(content) ? generateCardData(content) : undefined,
+      };
+      setMessages((prev) => [...prev, aiResponse]);
+    } finally {
+      setSending(false);
     }
   };
 
@@ -156,9 +192,9 @@ export function KoduckAi() {
         </button>
         <button
           onClick={handleSendMessage}
-          disabled={!chatMessage.trim()}
+          disabled={!chatMessage.trim() || sending}
           className={`m-1.5 w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${
-            chatMessage.trim()
+            chatMessage.trim() && !sending
               ? "bg-[#10a37f] text-white hover:bg-[#0d8b6d]"
               : "bg-gray-200 text-gray-400 cursor-not-allowed"
           }`}

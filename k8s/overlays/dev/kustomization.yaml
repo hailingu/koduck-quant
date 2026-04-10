@@ -9,6 +9,7 @@ resources:
   - ../../base/koduck-auth.yaml
   - ../../base/koduck-user.yaml
   - ../../base/koduck-ai.yaml
+  - ./koduck-agent.yaml
   - ../../base/postgres.yaml
   - ../../base/redis.yaml
   - ./apisix.yaml

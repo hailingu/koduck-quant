@@ -1,0 +1,48 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: koduck-agent
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: koduck-agent
+      environment: dev
+  template:
+    metadata:
+      labels:
+        app: koduck-agent
+        environment: dev
+    spec:
+      containers:
+        - name: koduck-agent
+          image: koduck-agent:dev
+          imagePullPolicy: Never
+          command: ["python", "-m", "koduck.grpc_llm_adapter"]
+          args: ["--host", "0.0.0.0", "--port", "50054", "--provider", "openai", "--model", "stub-model-v1"]
+          ports:
+            - name: grpc
+              containerPort: 50054
+              protocol: TCP
+          resources:
+            requests:
+              memory: "64Mi"
+              cpu: "50m"
+            limits:
+              memory: "128Mi"
+              cpu: "200m"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: koduck-agent
+spec:
+  type: ClusterIP
+  selector:
+    app: koduck-agent
+    environment: dev
+  ports:
+    - name: grpc
+      port: 50054
+      targetPort: grpc
+      protocol: TCP

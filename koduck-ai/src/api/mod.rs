@@ -18,6 +18,8 @@ use uuid::Uuid;
 
 use crate::{
     app::AppState,
+    auth::AuthContext,
+    clients::proto::{ChatMessage as LlmChatMessage, GenerateRequest as LlmGenerateRequest, LlmServiceClient, RequestMeta},
     reliability::error::{AppError, ErrorCode, UpstreamService},
 };
 
@@ -95,11 +97,16 @@ pub async fn chat(
     headers: HeaderMap,
     Json(request): Json<ChatRequest>,
 ) -> Response {
+    let request_id = extract_or_create_request_id(&headers);
+    let auth_ctx = match crate::auth::authenticate_bearer(&headers, &state).await {
+        Ok(ctx) => ctx,
+        Err(err) => return api_error_response(err.with_request_id(request_id.clone()), request_id),
+    };
+
     if let Err(err) = validate_chat_request(&request) {
         return api_error_response(err, extract_or_create_request_id(&headers));
     }
 
-    let request_id = extract_or_create_request_id(&headers);
     let session_id = resolve_session_id(request.session_id.clone());
 
     info!(
@@ -109,36 +116,30 @@ pub async fn chat(
         "chat request received"
     );
 
-    if !state.config.llm.stub_enabled {
-        return api_error_response(
-            AppError::new(
-            ErrorCode::UpstreamUnavailable,
-            "llm adapter not ready; enable KODUCK_AI__LLM__STUB_ENABLED for local integration",
-        )
-        .with_request_id(request_id.clone())
-        .with_upstream(UpstreamService::Llm)
-        .with_degraded(),
-            request_id,
-        );
-    }
-
-    let model = request
-        .model
-        .unwrap_or_else(|| state.config.llm.default_provider.clone());
-    let answer = build_stub_answer(&request.message);
-    let prompt_tokens = estimate_tokens(&request.message);
-    let completion_tokens = estimate_tokens(&answer);
-    let response = ChatResponse {
-        request_id: request_id.clone(),
-        session_id: session_id.clone(),
-        answer,
-        model,
-        usage: TokenUsage {
-            prompt_tokens,
-            completion_tokens,
-            total_tokens: prompt_tokens + completion_tokens,
-        },
-        degraded: true,
+    let response = if state.config.llm.stub_enabled {
+        let model = request
+            .model
+            .unwrap_or_else(|| state.config.llm.default_provider.clone());
+        let answer = build_stub_answer(&request.message);
+        let prompt_tokens = estimate_tokens(&request.message);
+        let completion_tokens = estimate_tokens(&answer);
+        ChatResponse {
+            request_id: request_id.clone(),
+            session_id: session_id.clone(),
+            answer,
+            model,
+            usage: TokenUsage {
+                prompt_tokens,
+                completion_tokens,
+                total_tokens: prompt_tokens + completion_tokens,
+            },
+            degraded: true,
+        }
+    } else {
+        match call_llm_generate(&state, &request, &request_id, &session_id, &auth_ctx).await {
+            Ok(ok) => ok,
+            Err(err) => return api_error_response(err, request_id),
+        }
     };
 
     let mut res_headers = HeaderMap::new();
@@ -164,11 +165,16 @@ pub async fn chat_stream(
     headers: HeaderMap,
     Json(request): Json<ChatStreamRequest>,
 ) -> Response {
+    let request_id = extract_or_create_request_id(&headers);
+    let auth_ctx = match crate::auth::authenticate_bearer(&headers, &state).await {
+        Ok(ctx) => ctx,
+        Err(err) => return api_error_response(err.with_request_id(request_id.clone()), request_id),
+    };
+
     if let Err(err) = validate_chat_request(&request.chat) {
         return api_error_response(err, extract_or_create_request_id(&headers));
     }
 
-    let request_id = extract_or_create_request_id(&headers);
     let session_id = resolve_session_id(request.chat.session_id.clone());
     let trace_id = extract_trace_id(&headers);
 
@@ -179,69 +185,64 @@ pub async fn chat_stream(
         "stream request received"
     );
 
-    if !state.config.llm.stub_enabled {
-        let err = AppError::new(
-            ErrorCode::UpstreamUnavailable,
-            "llm adapter not ready; enable KODUCK_AI__LLM__STUB_ENABLED for local integration",
-        )
-        .with_request_id(request_id.clone())
-        .with_upstream(UpstreamService::Llm)
-        .with_degraded();
-        return api_error_response(err, request_id);
-    }
+    let combined = if state.config.llm.stub_enabled {
+        let stream_request_id = request_id.clone();
+        let stream_session_id = session_id.clone();
+        let chunks = build_stream_chunks(&request.chat.message);
+        let delta_stream = stream::iter(chunks.into_iter().enumerate()).then(
+            move |(idx, chunk)| {
+                let request_id = stream_request_id.clone();
+                let session_id = stream_session_id.clone();
+                async move {
+                    tokio::time::sleep(Duration::from_millis(120)).await;
+                    let data = StreamEventData {
+                        event_id: format!("evt_{:05}", idx + 1),
+                        sequence_num: (idx + 1) as u32,
+                        event_type: "delta".to_string(),
+                        payload: StreamEventPayload {
+                            text: Some(chunk),
+                            finish_reason: None,
+                        },
+                        request_id,
+                        session_id,
+                    };
+                    let payload = serde_json::to_string(&data).unwrap_or_else(|_| "{}".to_string());
+                    Ok::<Event, Infallible>(
+                        Event::default()
+                            .event("message")
+                            .id(data.event_id)
+                            .data(payload),
+                    )
+                }
+            },
+        );
 
-    let stream_request_id = request_id.clone();
-    let stream_session_id = session_id.clone();
-    let chunks = build_stream_chunks(&request.chat.message);
-    let stream = stream::iter(chunks.into_iter().enumerate()).then(
-        move |(idx, chunk)| {
-            let request_id = stream_request_id.clone();
-            let session_id = stream_session_id.clone();
-            async move {
-                tokio::time::sleep(Duration::from_millis(120)).await;
+        let done_event = {
+            let request_id = request_id.clone();
+            let session_id = session_id.clone();
+            stream::once(async move {
                 let data = StreamEventData {
-                    event_id: format!("evt_{:05}", idx + 1),
-                    sequence_num: (idx + 1) as u32,
-                    event_type: "delta".to_string(),
+                    event_id: "evt_done".to_string(),
+                    sequence_num: 99_999,
+                    event_type: "done".to_string(),
                     payload: StreamEventPayload {
-                        text: Some(chunk),
-                        finish_reason: None,
+                        text: None,
+                        finish_reason: Some("stop".to_string()),
                     },
                     request_id,
                     session_id,
                 };
                 let payload = serde_json::to_string(&data).unwrap_or_else(|_| "{}".to_string());
-                Ok::<Event, Infallible>(
-                    Event::default()
-                        .event("message")
-                        .id(data.event_id)
-                        .data(payload),
-                )
-            }
-        },
-    );
-
-    let done_event = {
-        let request_id = request_id.clone();
-        let session_id = session_id.clone();
-        stream::once(async move {
-            let data = StreamEventData {
-                event_id: "evt_done".to_string(),
-                sequence_num: 99_999,
-                event_type: "done".to_string(),
-                payload: StreamEventPayload {
-                    text: None,
-                    finish_reason: Some("stop".to_string()),
-                },
-                request_id,
-                session_id,
-            };
-            let payload = serde_json::to_string(&data).unwrap_or_else(|_| "{}".to_string());
-            Ok::<Event, Infallible>(Event::default().event("done").id(data.event_id).data(payload))
-        })
+                Ok::<Event, Infallible>(Event::default().event("done").id(data.event_id).data(payload))
+            })
+        };
+        delta_stream.chain(done_event).boxed()
+    } else {
+        match call_llm_stream_events(&state, &request.chat, &request_id, &session_id, &auth_ctx).await {
+            Ok(events) => stream::iter(events).boxed(),
+            Err(err) => return api_error_response(err, request_id),
+        }
     };
-
-    let combined = stream.chain(done_event);
 
     let mut headers = HeaderMap::new();
     if let Ok(v) = HeaderValue::from_str(&request_id) {
@@ -338,6 +339,227 @@ fn build_stream_chunks(user_message: &str) -> Vec<String> {
         "当前下游 LLM adapter 尚未就绪，先返回可验证的 SSE 事件格式。".to_string(),
         format!("收到你的问题：{}", user_message.trim()),
     ]
+}
+
+async fn call_llm_generate(
+    state: &Arc<AppState>,
+    request: &ChatRequest,
+    request_id: &str,
+    session_id: &str,
+    auth_ctx: &AuthContext,
+) -> Result<ChatResponse, AppError> {
+    let target = grpc_target_with_scheme(&state.config.llm.adapter_grpc_target);
+    let channel = tonic::transport::Channel::from_shared(target.clone())
+        .map_err(|e| {
+            AppError::new(
+                ErrorCode::UpstreamUnavailable,
+                format!("invalid llm grpc target: {e}"),
+            )
+            .with_request_id(request_id.to_string())
+            .with_upstream(UpstreamService::Llm)
+        })?
+        .connect()
+        .await
+        .map_err(|e| {
+            AppError::new(
+                ErrorCode::UpstreamUnavailable,
+                format!("failed to connect llm adapter: {e}"),
+            )
+            .with_request_id(request_id.to_string())
+            .with_upstream(UpstreamService::Llm)
+        })?;
+
+    let mut client = LlmServiceClient::new(channel);
+    let req = tonic::Request::new(LlmGenerateRequest {
+        meta: Some(RequestMeta {
+            request_id: request_id.to_string(),
+            session_id: session_id.to_string(),
+            user_id: auth_ctx.user_id.clone(),
+            tenant_id: String::new(),
+            trace_id: String::new(),
+            idempotency_key: String::new(),
+            deadline_ms: 0,
+            api_version: "v1".to_string(),
+        }),
+        model: request
+            .model
+            .clone()
+            .unwrap_or_else(|| state.config.llm.default_provider.clone()),
+        messages: vec![LlmChatMessage {
+            role: "user".to_string(),
+            content: request.message.clone(),
+            name: String::new(),
+            metadata: std::collections::HashMap::new(),
+        }],
+        temperature: request.temperature.unwrap_or(0.2),
+        top_p: 1.0,
+        max_tokens: request.max_tokens.unwrap_or(2048) as i32,
+        tools: vec![],
+        response_format: String::new(),
+        provider: state.config.llm.default_provider.clone(),
+    });
+
+    let resp = client.generate(req).await.map_err(|e| {
+        AppError::new(
+            ErrorCode::UpstreamUnavailable,
+            format!("llm generate failed: {e}"),
+        )
+        .with_request_id(request_id.to_string())
+        .with_upstream(UpstreamService::Llm)
+    })?;
+    let body = resp.into_inner();
+    if !body.ok {
+        return Err(AppError::new(
+            ErrorCode::DependencyFailed,
+            body.error
+                .as_ref()
+                .map(|v| v.message.clone())
+                .unwrap_or_else(|| "llm adapter returned not ok".to_string()),
+        )
+        .with_request_id(request_id.to_string())
+        .with_upstream(UpstreamService::Llm));
+    }
+
+    let answer = body
+        .message
+        .as_ref()
+        .map(|m| m.content.clone())
+        .unwrap_or_default();
+    let usage = body.usage.as_ref();
+    Ok(ChatResponse {
+        request_id: request_id.to_string(),
+        session_id: session_id.to_string(),
+        answer,
+        model: request
+            .model
+            .clone()
+            .unwrap_or_else(|| state.config.llm.default_provider.clone()),
+        usage: TokenUsage {
+            prompt_tokens: usage.map(|u| u.prompt_tokens as u32).unwrap_or(0),
+            completion_tokens: usage.map(|u| u.completion_tokens as u32).unwrap_or(0),
+            total_tokens: usage.map(|u| u.total_tokens as u32).unwrap_or(0),
+        },
+        degraded: false,
+    })
+}
+
+async fn call_llm_stream_events(
+    state: &Arc<AppState>,
+    request: &ChatRequest,
+    request_id: &str,
+    session_id: &str,
+    auth_ctx: &AuthContext,
+) -> Result<Vec<Result<Event, Infallible>>, AppError> {
+    let target = grpc_target_with_scheme(&state.config.llm.adapter_grpc_target);
+    let channel = tonic::transport::Channel::from_shared(target.clone())
+        .map_err(|e| {
+            AppError::new(
+                ErrorCode::UpstreamUnavailable,
+                format!("invalid llm grpc target: {e}"),
+            )
+            .with_request_id(request_id.to_string())
+            .with_upstream(UpstreamService::Llm)
+        })?
+        .connect()
+        .await
+        .map_err(|e| {
+            AppError::new(
+                ErrorCode::UpstreamUnavailable,
+                format!("failed to connect llm adapter: {e}"),
+            )
+            .with_request_id(request_id.to_string())
+            .with_upstream(UpstreamService::Llm)
+        })?;
+    let mut client = LlmServiceClient::new(channel);
+    let req = tonic::Request::new(LlmGenerateRequest {
+        meta: Some(RequestMeta {
+            request_id: request_id.to_string(),
+            session_id: session_id.to_string(),
+            user_id: auth_ctx.user_id.clone(),
+            tenant_id: String::new(),
+            trace_id: String::new(),
+            idempotency_key: String::new(),
+            deadline_ms: 0,
+            api_version: "v1".to_string(),
+        }),
+        model: request
+            .model
+            .clone()
+            .unwrap_or_else(|| state.config.llm.default_provider.clone()),
+        messages: vec![LlmChatMessage {
+            role: "user".to_string(),
+            content: request.message.clone(),
+            name: String::new(),
+            metadata: std::collections::HashMap::new(),
+        }],
+        temperature: request.temperature.unwrap_or(0.2),
+        top_p: 1.0,
+        max_tokens: request.max_tokens.unwrap_or(2048) as i32,
+        tools: vec![],
+        response_format: String::new(),
+        provider: state.config.llm.default_provider.clone(),
+    });
+    let mut stream = client
+        .stream_generate(req)
+        .await
+        .map_err(|e| {
+            AppError::new(
+                ErrorCode::UpstreamUnavailable,
+                format!("llm stream_generate failed: {e}"),
+            )
+            .with_request_id(request_id.to_string())
+            .with_upstream(UpstreamService::Llm)
+        })?
+        .into_inner();
+
+    let mut events = Vec::new();
+    while let Some(item) = stream.next().await {
+        let ev = item.map_err(|e| {
+            AppError::new(
+                ErrorCode::UpstreamUnavailable,
+                format!("llm stream event failed: {e}"),
+            )
+            .with_request_id(request_id.to_string())
+            .with_upstream(UpstreamService::Llm)
+        })?;
+        let event_type = if ev.finish_reason.is_empty() { "delta" } else { "done" };
+        let payload_struct = StreamEventData {
+            event_id: ev.event_id.clone(),
+            sequence_num: ev.sequence_num as u32,
+            event_type: event_type.to_string(),
+            payload: StreamEventPayload {
+                text: if ev.delta.is_empty() {
+                    None
+                } else {
+                    Some(ev.delta.clone())
+                },
+                finish_reason: if ev.finish_reason.is_empty() {
+                    None
+                } else {
+                    Some(ev.finish_reason.clone())
+                },
+            },
+            request_id: request_id.to_string(),
+            session_id: session_id.to_string(),
+        };
+        let payload = serde_json::to_string(&payload_struct).unwrap_or_else(|_| "{}".to_string());
+        let event_name = if event_type == "done" { "done" } else { "message" };
+        events.push(Ok::<Event, Infallible>(
+            Event::default()
+                .event(event_name)
+                .id(ev.event_id.clone())
+                .data(payload),
+        ));
+    }
+    Ok(events)
+}
+
+fn grpc_target_with_scheme(raw: &str) -> String {
+    if raw.starts_with("http://") || raw.starts_with("https://") {
+        raw.to_string()
+    } else {
+        format!("http://{raw}")
+    }
 }
 
 fn api_error_response(err: AppError, request_id: String) -> Response {
