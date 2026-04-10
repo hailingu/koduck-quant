@@ -13,6 +13,7 @@ use axum::{
 use chrono::Utc;
 use futures::{stream, StreamExt};
 use serde::{Deserialize, Serialize};
+use serde_json::json;
 use tracing::info;
 use uuid::Uuid;
 
@@ -24,6 +25,7 @@ use crate::{
         RequestMeta, StreamGenerateEvent as LlmStreamGenerateEvent,
     },
     reliability::error::{AppError, ErrorCode, UpstreamService},
+    stream::sse::{PendingStreamEvent, ResumeCursor, StreamEventData},
 };
 
 const MAX_ALLOWED_TOKENS: u32 = 32_768;
@@ -64,24 +66,6 @@ pub struct ChatResponse {
     pub model: String,
     pub usage: TokenUsage,
     pub degraded: bool,
-}
-
-#[derive(Debug, Serialize)]
-pub struct StreamEventPayload {
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub text: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub finish_reason: Option<String>,
-}
-
-#[derive(Debug, Serialize)]
-pub struct StreamEventData {
-    pub event_id: String,
-    pub sequence_num: u32,
-    pub event_type: String,
-    pub payload: StreamEventPayload,
-    pub request_id: String,
-    pub session_id: String,
 }
 
 #[derive(Debug, Serialize)]
@@ -180,97 +164,147 @@ pub async fn chat_stream(
 
     let session_id = resolve_session_id(request.chat.session_id.clone());
     let trace_id = extract_trace_id(&headers);
+    let resume_cursor = ResumeCursor {
+        last_event_id: headers
+            .get("last-event-id")
+            .and_then(|value| value.to_str().ok())
+            .map(ToOwned::to_owned),
+        from_sequence_num: request.from_sequence_num,
+    };
 
     info!(
         request_id = %request_id,
         session_id = %session_id,
         trace_id = %trace_id,
+        last_event_id = ?resume_cursor.last_event_id,
+        from_sequence_num = ?resume_cursor.from_sequence_num,
         "stream request received"
     );
 
-    let combined = if state.config.llm.stub_enabled {
-        let stream_request_id = request_id.clone();
-        let stream_session_id = session_id.clone();
-        let chunks = build_stream_chunks(&request.chat.message);
-        let delta_stream = stream::iter(chunks.into_iter().enumerate()).then(
-            move |(idx, chunk)| {
-                let request_id = stream_request_id.clone();
-                let session_id = stream_session_id.clone();
-                async move {
-                    tokio::time::sleep(Duration::from_millis(120)).await;
-                    let data = StreamEventData {
-                        event_id: format!("evt_{:05}", idx + 1),
-                        sequence_num: (idx + 1) as u32,
-                        event_type: "delta".to_string(),
-                        payload: StreamEventPayload {
-                            text: Some(chunk),
-                            finish_reason: None,
-                        },
-                        request_id,
-                        session_id,
-                    };
-                    let payload = serde_json::to_string(&data).unwrap_or_else(|_| "{}".to_string());
-                    Ok::<Event, Infallible>(
-                        Event::default()
-                            .event("message")
-                            .id(data.event_id)
-                            .data(payload),
+    let session = if resume_cursor.is_resume() {
+        match state.stream_registry.get(&session_id).await {
+            Some(existing) => existing,
+            None => {
+                return api_error_response(
+                    AppError::new(
+                        ErrorCode::StreamInterrupted,
+                        "resume target not found for session",
                     )
-                }
-            },
-        );
-
-        let done_event = {
-            let request_id = request_id.clone();
-            let session_id = session_id.clone();
-            stream::once(async move {
-                let data = StreamEventData {
-                    event_id: "evt_done".to_string(),
-                    sequence_num: 99_999,
-                    event_type: "done".to_string(),
-                    payload: StreamEventPayload {
-                        text: None,
-                        finish_reason: Some("stop".to_string()),
-                    },
+                    .with_request_id(request_id.clone()),
                     request_id,
-                    session_id,
-                };
-                let payload = serde_json::to_string(&data).unwrap_or_else(|_| "{}".to_string());
-                Ok::<Event, Infallible>(Event::default().event("done").id(data.event_id).data(payload))
-            })
-        };
-        delta_stream.chain(done_event).boxed()
-    } else {
-        match call_llm_stream(&state, &request.chat, &request_id, &session_id, &auth_ctx).await {
-            Ok(upstream) => {
-                let request_id = request_id.clone();
-                let session_id = session_id.clone();
-                stream::unfold(
-                    (upstream, request_id, session_id),
-                    |(mut upstream, request_id, session_id)| async move {
-                        match upstream.next().await {
-                            Some(Ok(ev)) => {
-                                let event = build_stream_event(&ev, &request_id, &session_id);
-                                Some((Ok::<Event, Infallible>(event), (upstream, request_id, session_id)))
-                            }
-                            Some(Err(err)) => {
-                                info!(
-                                    request_id = %request_id,
-                                    session_id = %session_id,
-                                    error = %err,
-                                    "llm stream item failed"
-                                );
-                                None
-                            }
-                            None => None,
-                        }
-                    },
-                )
-                .boxed()
+                );
             }
-            Err(err) => return api_error_response(err, request_id),
         }
+    } else {
+        state
+            .stream_registry
+            .create_or_replace(session_id.clone(), request_id.clone())
+            .await
     };
+
+    if !resume_cursor.is_resume() {
+        if state.config.llm.stub_enabled {
+            let stream_session = Arc::clone(&session);
+            let chunks = build_stream_chunks(&request.chat.message);
+            tokio::spawn(async move {
+                for chunk in chunks {
+                    tokio::time::sleep(Duration::from_millis(120)).await;
+                    stream_session
+                        .append_event(StreamEventData::delta(
+                            stream_session.request_id().to_string(),
+                            stream_session.session_id().to_string(),
+                            chunk,
+                        ))
+                        .await;
+                }
+                stream_session
+                    .append_event(StreamEventData::done(
+                        stream_session.request_id().to_string(),
+                        stream_session.session_id().to_string(),
+                        "stop",
+                    ))
+                    .await;
+            });
+        } else {
+            let upstream = match call_llm_stream(&state, &request.chat, &request_id, &session_id, &auth_ctx).await {
+                Ok(stream) => stream,
+                Err(err) => return api_error_response(err, request_id),
+            };
+            let stream_session = Arc::clone(&session);
+            tokio::spawn(async move {
+                let mut upstream = upstream;
+                while let Some(next) = upstream.next().await {
+                    match next {
+                        Ok(ev) => {
+                            stream_session
+                                .append_event(build_stream_event(
+                                    &ev,
+                                    stream_session.request_id(),
+                                    stream_session.session_id(),
+                                ))
+                                .await;
+                        }
+                        Err(err) => {
+                            info!(
+                                request_id = %stream_session.request_id(),
+                                session_id = %stream_session.session_id(),
+                                error = %err,
+                                "llm stream item failed"
+                            );
+                            stream_session
+                                .append_event(StreamEventData::error(
+                                    stream_session.request_id().to_string(),
+                                    stream_session.session_id().to_string(),
+                                    ErrorCode::StreamInterrupted.to_string(),
+                                    "llm stream interrupted",
+                                ))
+                                .await;
+                            break;
+                        }
+                    }
+                }
+
+                let replay = stream_session.open_replay(0).await;
+                let has_terminal_event = replay
+                    .replay_events
+                    .iter()
+                    .any(|event| matches!(event.event_type.as_str(), "done" | "error"));
+
+                if !has_terminal_event {
+                    stream_session
+                        .append_event(StreamEventData::done(
+                            stream_session.request_id().to_string(),
+                            stream_session.session_id().to_string(),
+                            "stop",
+                        ))
+                        .await;
+                }
+            });
+        }
+    }
+
+    let high_watermark = resume_cursor.high_watermark(Some(&session));
+    let replay = session.open_replay(high_watermark).await;
+    let replay_high_watermark = replay
+        .replay_events
+        .last()
+        .map(|event| event.sequence_num)
+        .unwrap_or(high_watermark);
+    let replay_stream = stream::iter(
+        replay
+            .replay_events
+            .into_iter()
+            .map(|event| Ok::<Event, Infallible>(event.to_sse_event())),
+    );
+    let live_stream = if replay.completed {
+        stream::empty().boxed()
+    } else {
+        session
+            .live_stream(replay.receiver, replay_high_watermark)
+            .map(|event| Ok::<Event, Infallible>(event.to_sse_event()))
+            .boxed()
+    };
+    let combined = replay_stream.chain(live_stream).boxed();
 
     let mut headers = HeaderMap::new();
     if let Ok(v) = HeaderValue::from_str(&request_id) {
@@ -542,33 +576,26 @@ async fn call_llm_stream(
     Ok(stream)
 }
 
-fn build_stream_event(ev: &LlmStreamGenerateEvent, request_id: &str, session_id: &str) -> Event {
+fn build_stream_event(
+    ev: &LlmStreamGenerateEvent,
+    request_id: &str,
+    session_id: &str,
+) -> PendingStreamEvent {
     let event_type = if ev.finish_reason.is_empty() { "delta" } else { "done" };
-    let payload_struct = StreamEventData {
-        event_id: ev.event_id.clone(),
-        sequence_num: ev.sequence_num as u32,
+    let payload = if event_type == "done" {
+        json!({ "finish_reason": &ev.finish_reason })
+    } else {
+        json!({ "text": &ev.delta })
+    };
+
+    PendingStreamEvent {
         event_type: event_type.to_string(),
-        payload: StreamEventPayload {
-            text: if ev.delta.is_empty() {
-                None
-            } else {
-                Some(ev.delta.clone())
-            },
-            finish_reason: if ev.finish_reason.is_empty() {
-                None
-            } else {
-                Some(ev.finish_reason.clone())
-            },
-        },
+        payload,
+        event_id: Some(ev.event_id.clone()),
+        sequence_num: Some(ev.sequence_num as u32),
         request_id: request_id.to_string(),
         session_id: session_id.to_string(),
-    };
-    let payload = serde_json::to_string(&payload_struct).unwrap_or_else(|_| "{}".to_string());
-    let event_name = if event_type == "done" { "done" } else { "message" };
-    Event::default()
-        .event(event_name)
-        .id(ev.event_id.clone())
-        .data(payload)
+    }
 }
 
 fn grpc_target_with_scheme(raw: &str) -> String {
