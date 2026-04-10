@@ -112,4 +112,9 @@ spec:
                 -H "$KEY" -H 'Content-Type: application/json' \
                 -d "$(printf '{"uri":"/api/v1/ai/stream","plugins":{"jwt-auth":{}},"upstream":{"type":"roundrobin","nodes":{"%s":1}}}' "$AI_SERVICE")"
 
+              echo "Registering AI chat stream route: /api/v1/ai/chat/stream -> koduck-ai (jwt-auth)"
+              curl -fsS -X PUT "${ADMIN}/routes/api-ai-chat-stream" \
+                -H "$KEY" -H 'Content-Type: application/json' \
+                -d "$(printf '{"uri":"/api/v1/ai/chat/stream","plugins":{"jwt-auth":{}},"upstream":{"type":"roundrobin","nodes":{"%s":1}}}' "$AI_SERVICE")"
+
               echo "All registrations done."

@@ -76,8 +76,41 @@ export function getAccessToken(): string | null {
   return localStorage.getItem(AUTH_STORAGE_KEY);
 }
 
+function decodeJwtPayload(token: string): Record<string, unknown> | null {
+  const parts = token.split(".");
+  if (parts.length < 2) {
+    return null;
+  }
+
+  try {
+    const base64 = parts[1].replace(/-/g, "+").replace(/_/g, "/");
+    const padded = base64.padEnd(base64.length + ((4 - (base64.length % 4)) % 4), "=");
+    const json = atob(padded);
+    return JSON.parse(json) as Record<string, unknown>;
+  } catch {
+    return null;
+  }
+}
+
+function isTokenExpired(token: string): boolean {
+  const payload = decodeJwtPayload(token);
+  if (!payload) {
+    return true;
+  }
+  const exp = payload.exp;
+  if (typeof exp !== "number") {
+    return true;
+  }
+  const nowSeconds = Math.floor(Date.now() / 1000);
+  return exp <= nowSeconds;
+}
+
 export function isAuthenticated(): boolean {
-  return Boolean(getAccessToken());
+  const token = getAccessToken();
+  if (!token) {
+    return false;
+  }
+  return !isTokenExpired(token);
 }
 
 export function clearAuth(): void {
@@ -118,6 +151,17 @@ export async function fetchCurrentUserProfile(): Promise<UserInfo | null> {
         Authorization: `Bearer ${token}`,
       },
     });
+    if (response.status === 401) {
+      // Only force logout when token itself is actually expired.
+      // Some environments may have /users/me auth mismatch while login token is still valid.
+      if (isTokenExpired(token)) {
+        clearAuth();
+        if (window.location.pathname !== "/login") {
+          window.location.replace("/login");
+        }
+      }
+      return null;
+    }
     if (!response.ok) {
       return null;
     }

@@ -165,7 +165,7 @@ pub struct AppError {
 /// JSON-serializable error response body.
 ///
 /// This is what clients receive. Internal details (`source`) are excluded.
-#[derive(Serialize)]
+#[derive(Debug, Serialize)]
 pub struct ErrorResponse {
     pub code: String,
     pub message: String,

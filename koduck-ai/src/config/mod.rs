@@ -66,6 +66,8 @@ pub struct LlmConfig {
     pub adapter_grpc_target: String,
     pub default_provider: String,
     pub timeout_ms: u64,
+    /// Enable local stub response when downstream LLM adapter is not ready.
+    pub stub_enabled: bool,
     /// API keys per provider — wrapped in SecretString to prevent log leakage.
     #[serde(default)]
     pub openai_api_key: Option<SecretString>,
@@ -235,6 +237,7 @@ impl Default for LlmConfig {
             adapter_grpc_target: "http://localhost:50054".to_string(),
             default_provider: "openai".to_string(),
             timeout_ms: 30_000,
+            stub_enabled: false,
             openai_api_key: None,
             deepseek_api_key: None,
             anthropic_api_key: None,
@@ -302,6 +305,7 @@ impl Config {
             .set_default("llm.adapter_grpc_target", "http://localhost:50054")?
             .set_default("llm.default_provider", "openai")?
             .set_default("llm.timeout_ms", 30_000)?
+            .set_default("llm.stub_enabled", false)?
             // Defaults — StreamConfig
             .set_default("stream.max_duration_ms", 300_000)?
             // Defaults — AuthConfig
@@ -356,13 +360,14 @@ impl fmt::Display for Config {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
-            "Config {{ server: {:?}, memory: {:?}, tools: {:?}, llm: LlmConfig {{ adapter_grpc_target: {:?}, default_provider: {:?}, timeout_ms: {}, api_keys: ***, ... }}, stream: {:?}, auth: {:?}, capabilities: {:?} }}",
+            "Config {{ server: {:?}, memory: {:?}, tools: {:?}, llm: LlmConfig {{ adapter_grpc_target: {:?}, default_provider: {:?}, timeout_ms: {}, stub_enabled: {}, api_keys: ***, ... }}, stream: {:?}, auth: {:?}, capabilities: {:?} }}",
             self.server,
             self.memory,
             self.tools,
             self.llm.adapter_grpc_target,
             self.llm.default_provider,
             self.llm.timeout_ms,
+            self.llm.stub_enabled,
             self.stream,
             self.auth,
             self.capabilities,

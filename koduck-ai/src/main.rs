@@ -38,7 +38,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Create HTTP server
     let http_addr: SocketAddr = config.server.http_addr.parse()?;
     let http_listener = TcpListener::bind(http_addr).await?;
-    let http_app = app::create_router();
+    let http_app = app::create_router(config.clone());
 
     // Create metrics server
     let metrics_addr: SocketAddr = config.server.metrics_addr.parse()?;

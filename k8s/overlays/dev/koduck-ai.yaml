@@ -21,3 +21,5 @@ spec:
               value: "dev-tool-service:50051"
             - name: KODUCK_AI__LLM__ADAPTER_GRPC_TARGET
               value: "dev-llm-adapter:50051"
+            - name: KODUCK_AI__LLM__STUB_ENABLED
+              value: "true"

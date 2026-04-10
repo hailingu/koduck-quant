@@ -1,6 +1,18 @@
 //! Application startup and lifecycle management
 
-use axum::{routing::get, Router};
+use std::sync::Arc;
+
+use axum::{routing::{get, post}, Router};
+use tower_http::request_id::{MakeRequestUuid, PropagateRequestIdLayer, SetRequestIdLayer};
+use tower_http::trace::TraceLayer;
+
+use crate::api;
+use crate::config::Config;
+
+#[derive(Clone)]
+pub struct AppState {
+    pub config: Config,
+}
 
 /// Health check response
 #[derive(serde::Serialize)]
@@ -11,9 +23,17 @@ pub struct HealthResponse {
 }
 
 /// Create the main HTTP router
-pub fn create_router() -> Router {
+pub fn create_router(config: Config) -> Router {
+    let state = Arc::new(AppState { config });
     Router::new()
+        .route("/api/v1/ai/chat", post(api::chat))
+        .route("/api/v1/ai/stream", post(api::chat_stream))
+        .route("/api/v1/ai/chat/stream", post(api::chat_stream))
         .route("/healthz", get(health_handler))
+        .with_state(state)
+        .layer(PropagateRequestIdLayer::x_request_id())
+        .layer(SetRequestIdLayer::x_request_id(MakeRequestUuid))
+        .layer(TraceLayer::new_for_http())
 }
 
 /// Create the metrics router
