@@ -31,6 +31,9 @@ TestResults.xml
 # Environment files
 .env
 .env.*
+
+# k8s port-forward pid files
+k8s/.port-forward-*.pid
 !.env.example
 !.env.*.template
 !k8s/.env.template
