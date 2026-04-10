@@ -19,7 +19,10 @@ use uuid::Uuid;
 use crate::{
     app::AppState,
     auth::AuthContext,
-    clients::proto::{ChatMessage as LlmChatMessage, GenerateRequest as LlmGenerateRequest, LlmServiceClient, RequestMeta},
+    clients::proto::{
+        ChatMessage as LlmChatMessage, GenerateRequest as LlmGenerateRequest, LlmServiceClient,
+        RequestMeta, StreamGenerateEvent as LlmStreamGenerateEvent,
+    },
     reliability::error::{AppError, ErrorCode, UpstreamService},
 };
 
@@ -238,8 +241,33 @@ pub async fn chat_stream(
         };
         delta_stream.chain(done_event).boxed()
     } else {
-        match call_llm_stream_events(&state, &request.chat, &request_id, &session_id, &auth_ctx).await {
-            Ok(events) => stream::iter(events).boxed(),
+        match call_llm_stream(&state, &request.chat, &request_id, &session_id, &auth_ctx).await {
+            Ok(upstream) => {
+                let request_id = request_id.clone();
+                let session_id = session_id.clone();
+                stream::unfold(
+                    (upstream, request_id, session_id),
+                    |(mut upstream, request_id, session_id)| async move {
+                        match upstream.next().await {
+                            Some(Ok(ev)) => {
+                                let event = build_stream_event(&ev, &request_id, &session_id);
+                                Some((Ok::<Event, Infallible>(event), (upstream, request_id, session_id)))
+                            }
+                            Some(Err(err)) => {
+                                info!(
+                                    request_id = %request_id,
+                                    session_id = %session_id,
+                                    error = %err,
+                                    "llm stream item failed"
+                                );
+                                None
+                            }
+                            None => None,
+                        }
+                    },
+                )
+                .boxed()
+            }
             Err(err) => return api_error_response(err, request_id),
         }
     };
@@ -443,13 +471,13 @@ async fn call_llm_generate(
     })
 }
 
-async fn call_llm_stream_events(
+async fn call_llm_stream(
     state: &Arc<AppState>,
     request: &ChatRequest,
     request_id: &str,
     session_id: &str,
     auth_ctx: &AuthContext,
-) -> Result<Vec<Result<Event, Infallible>>, AppError> {
+) -> Result<tonic::Streaming<LlmStreamGenerateEvent>, AppError> {
     let target = grpc_target_with_scheme(&state.config.llm.adapter_grpc_target);
     let channel = tonic::transport::Channel::from_shared(target.clone())
         .map_err(|e| {
@@ -499,7 +527,7 @@ async fn call_llm_stream_events(
         response_format: String::new(),
         provider: state.config.llm.default_provider.clone(),
     });
-    let mut stream = client
+    let stream = client
         .stream_generate(req)
         .await
         .map_err(|e| {
@@ -511,47 +539,36 @@ async fn call_llm_stream_events(
             .with_upstream(UpstreamService::Llm)
         })?
         .into_inner();
+    Ok(stream)
+}
 
-    let mut events = Vec::new();
-    while let Some(item) = stream.next().await {
-        let ev = item.map_err(|e| {
-            AppError::new(
-                ErrorCode::UpstreamUnavailable,
-                format!("llm stream event failed: {e}"),
-            )
-            .with_request_id(request_id.to_string())
-            .with_upstream(UpstreamService::Llm)
-        })?;
-        let event_type = if ev.finish_reason.is_empty() { "delta" } else { "done" };
-        let payload_struct = StreamEventData {
-            event_id: ev.event_id.clone(),
-            sequence_num: ev.sequence_num as u32,
-            event_type: event_type.to_string(),
-            payload: StreamEventPayload {
-                text: if ev.delta.is_empty() {
-                    None
-                } else {
-                    Some(ev.delta.clone())
-                },
-                finish_reason: if ev.finish_reason.is_empty() {
-                    None
-                } else {
-                    Some(ev.finish_reason.clone())
-                },
+fn build_stream_event(ev: &LlmStreamGenerateEvent, request_id: &str, session_id: &str) -> Event {
+    let event_type = if ev.finish_reason.is_empty() { "delta" } else { "done" };
+    let payload_struct = StreamEventData {
+        event_id: ev.event_id.clone(),
+        sequence_num: ev.sequence_num as u32,
+        event_type: event_type.to_string(),
+        payload: StreamEventPayload {
+            text: if ev.delta.is_empty() {
+                None
+            } else {
+                Some(ev.delta.clone())
             },
-            request_id: request_id.to_string(),
-            session_id: session_id.to_string(),
-        };
-        let payload = serde_json::to_string(&payload_struct).unwrap_or_else(|_| "{}".to_string());
-        let event_name = if event_type == "done" { "done" } else { "message" };
-        events.push(Ok::<Event, Infallible>(
-            Event::default()
-                .event(event_name)
-                .id(ev.event_id.clone())
-                .data(payload),
-        ));
-    }
-    Ok(events)
+            finish_reason: if ev.finish_reason.is_empty() {
+                None
+            } else {
+                Some(ev.finish_reason.clone())
+            },
+        },
+        request_id: request_id.to_string(),
+        session_id: session_id.to_string(),
+    };
+    let payload = serde_json::to_string(&payload_struct).unwrap_or_else(|_| "{}".to_string());
+    let event_name = if event_type == "done" { "done" } else { "message" };
+    Event::default()
+        .event(event_name)
+        .id(ev.event_id.clone())
+        .data(payload)
 }
 
 fn grpc_target_with_scheme(raw: &str) -> String {

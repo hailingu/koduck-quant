@@ -12,12 +12,17 @@ import asyncio
 import importlib
 import importlib.util
 import logging
+import os
 import tempfile
 from pathlib import Path
 from typing import Any
 
 import grpc
 from grpc_tools import protoc
+
+from koduck.client_factory import create_client
+from koduck.config import load_config
+from koduck.schema import Message
 
 LOGGER = logging.getLogger(__name__)
 
@@ -172,6 +177,8 @@ def _compile_proto_to_temp() -> tuple[Any, Any]:
 
 _PROTO_TEMP_DIR_HOLDER: list[tempfile.TemporaryDirectory[str]] = []
 
+KNOWN_PROVIDERS = {"openai", "minimax", "deepseek"}
+
 
 def _load_generated_module(fullname: str, path: Path) -> Any:
     _ensure_parent_packages(fullname)
@@ -208,9 +215,10 @@ def _estimate_tokens(text: str) -> int:
 
 
 class LlmServiceStub(LLM_PB2_GRPC.LlmServiceServicer):
-    def __init__(self, default_provider: str = "openai", default_model: str = "stub-model-v1") -> None:
+    def __init__(self, default_provider: str = "minimax", default_model: str = "MiniMax-M2.7") -> None:
         self.default_provider = default_provider
         self.default_model = default_model
+        self._config = load_config()
 
     async def GetCapabilities(self, request: Any, context: grpc.aio.ServicerContext) -> Any:
         return SHARED_PB2.Capability(
@@ -253,16 +261,76 @@ class LlmServiceStub(LLM_PB2_GRPC.LlmServiceServicer):
 
     async def Generate(self, request: Any, context: grpc.aio.ServicerContext) -> Any:
         question = request.messages[-1].content if request.messages else ""
-        content = (
-            "这是来自 koduck-agent gRPC LLM adapter 的联调 stub 回答。"
-            f"provider={request.provider or self.default_provider}, "
-            f"model={request.model or self.default_model}, question={question}"
-        )
+        provider = request.provider or self.default_provider
+        model = request.model or self.default_model
+
+        try:
+            response = await self._generate_with_client(provider, model, request.messages)
+            usage = response.usage
+            return LLM_PB2.GenerateResponse(
+                ok=True,
+                message=LLM_PB2.ChatMessage(role="assistant", content=response.content or ""),
+                finish_reason=response.finish_reason or "stop",
+                usage=LLM_PB2.TokenUsage(
+                    prompt_tokens=usage.prompt_tokens if usage else _estimate_tokens(question),
+                    completion_tokens=usage.completion_tokens if usage else _estimate_tokens(response.content or ""),
+                    total_tokens=usage.total_tokens if usage else _estimate_tokens(question) + _estimate_tokens(response.content or ""),
+                ),
+            )
+        except Exception as exc:
+            LOGGER.exception("koduck-agent llm generate failed")
+            context.set_code(grpc.StatusCode.INTERNAL)
+            context.set_details(f"llm generate failed: {exc}")
+            return LLM_PB2.GenerateResponse(
+                ok=False,
+                error=SHARED_PB2.ErrorDetail(
+                    code="INTERNAL_ERROR",
+                    message=f"llm generate failed: {exc}",
+                    retryable=False,
+                    degraded=False,
+                    upstream="llm",
+                    retry_after_ms=0,
+                ),
+            )
+
+    async def StreamGenerate(self, request: Any, context: grpc.aio.ServicerContext):
+        question = request.messages[-1].content if request.messages else ""
+        provider = request.provider or self.default_provider
+        model = request.model or self.default_model
+
+        try:
+            client, internal_messages = self._build_client_and_messages(provider, model, request.messages)
+        except Exception as exc:
+            LOGGER.exception("koduck-agent llm stream_generate failed")
+            context.set_code(grpc.StatusCode.INTERNAL)
+            context.set_details(f"llm stream_generate failed: {exc}")
+            return
+
+        sequence_num = 0
+        completion_text_parts: list[str] = []
+        try:
+            async for delta in client.generate_stream(internal_messages):
+                if not delta:
+                    continue
+                sequence_num += 1
+                completion_text_parts.append(delta)
+                yield LLM_PB2.StreamGenerateEvent(
+                    event_id=f"evt_{sequence_num:05d}",
+                    sequence_num=sequence_num,
+                    delta=delta,
+                )
+        except Exception as exc:
+            LOGGER.exception("koduck-agent llm stream_generate failed during upstream stream")
+            context.set_code(grpc.StatusCode.INTERNAL)
+            context.set_details(f"llm stream_generate failed: {exc}")
+            return
+
+        content = "".join(completion_text_parts)
         prompt_tokens = _estimate_tokens(question)
         completion_tokens = _estimate_tokens(content)
-        return LLM_PB2.GenerateResponse(
-            ok=True,
-            message=LLM_PB2.ChatMessage(role="assistant", content=content),
+        yield LLM_PB2.StreamGenerateEvent(
+            event_id="evt_done",
+            sequence_num=max(sequence_num + 1, 99999),
             finish_reason="stop",
             usage=LLM_PB2.TokenUsage(
                 prompt_tokens=prompt_tokens,
@@ -271,30 +339,52 @@ class LlmServiceStub(LLM_PB2_GRPC.LlmServiceServicer):
             ),
         )
 
-    async def StreamGenerate(self, request: Any, context: grpc.aio.ServicerContext):
-        question = request.messages[-1].content if request.messages else ""
-        parts = [
-            "这是来自 koduck-agent gRPC stream stub。",
-            f"provider={request.provider or self.default_provider}",
-            f"question={question}",
-        ]
-        for i, delta in enumerate(parts, start=1):
-            yield LLM_PB2.StreamGenerateEvent(
-                event_id=f"evt_{i:05d}",
-                sequence_num=i,
-                delta=delta,
-            )
-            await asyncio.sleep(0.1)
-        yield LLM_PB2.StreamGenerateEvent(
-            event_id="evt_done",
-            sequence_num=99999,
-            finish_reason="stop",
-            usage=LLM_PB2.TokenUsage(
-                prompt_tokens=_estimate_tokens(question),
-                completion_tokens=_estimate_tokens(" ".join(parts)),
-                total_tokens=_estimate_tokens(question) + _estimate_tokens(" ".join(parts)),
-            ),
+    async def _generate_with_client(self, provider: str, model: str, messages: Any) -> Any:
+        client, internal_messages = self._build_client_and_messages(provider, model, messages)
+        return await client.generate(internal_messages)
+
+    def _build_client_and_messages(self, provider: str, model: str, messages: Any):
+        config = self._config
+        configured_provider = os.getenv("LLM_PROVIDER") or config.provider.value or self.default_provider
+        configured_model = os.getenv("LLM_MODEL") or config.model or self.default_model
+        inbound_provider = (provider or "").strip().lower()
+        inbound_model = (model or "").strip()
+
+        # koduck-ai 当前会把 default_provider 同时塞进 provider/model。
+        # 当它们只是占位值时，优先使用 deployment 中显式配置的真实 provider/model。
+        resolved_provider = configured_provider
+        if inbound_provider and inbound_provider not in KNOWN_PROVIDERS:
+            resolved_provider = inbound_provider
+
+        resolved_model = configured_model
+        if inbound_model and inbound_model.lower() not in KNOWN_PROVIDERS:
+            resolved_model = inbound_model
+
+        resolved_api_key = os.getenv("LLM_API_KEY") or config.api_key
+        resolved_api_base = os.getenv("LLM_API_BASE") or config.api_base
+
+        if not resolved_api_key:
+            raise RuntimeError("LLM_API_KEY is not configured")
+
+        LOGGER.info(
+            "using llm client provider=%s model=%s api_base=%s",
+            resolved_provider,
+            resolved_model,
+            resolved_api_base,
         )
+
+        client = create_client(
+            api_key=resolved_api_key,
+            provider=resolved_provider,
+            api_base=resolved_api_base,
+            model=resolved_model,
+            retry_config=config.retry,
+        )
+        internal_messages = [
+            Message(role=msg.role or "user", content=msg.content or "")
+            for msg in messages
+        ]
+        return client, internal_messages
 
 
 async def serve(host: str, port: int, provider: str, model: str) -> None:
@@ -306,16 +396,16 @@ async def serve(host: str, port: int, provider: str, model: str) -> None:
     listen_addr = f"{host}:{port}"
     server.add_insecure_port(listen_addr)
     await server.start()
-    LOGGER.info("koduck-agent llm grpc stub started at %s", listen_addr)
+    LOGGER.info("koduck-agent llm grpc adapter started at %s", listen_addr)
     await server.wait_for_termination()
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Run koduck-agent gRPC LLM adapter stub server.")
+    parser = argparse.ArgumentParser(description="Run koduck-agent gRPC LLM adapter server.")
     parser.add_argument("--host", default="0.0.0.0")
     parser.add_argument("--port", type=int, default=50054)
-    parser.add_argument("--provider", default="openai")
-    parser.add_argument("--model", default="stub-model-v1")
+    parser.add_argument("--provider", default="minimax")
+    parser.add_argument("--model", default="MiniMax-M2.7")
     args = parser.parse_args()
 
     logging.basicConfig(

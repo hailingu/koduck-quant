@@ -19,7 +19,10 @@ spec:
           image: koduck-agent:dev
           imagePullPolicy: Never
           command: ["python", "-m", "koduck.grpc_llm_adapter"]
-          args: ["--host", "0.0.0.0", "--port", "50054", "--provider", "openai", "--model", "stub-model-v1"]
+          args: ["--host", "0.0.0.0", "--port", "50054", "--provider", "minimax", "--model", "MiniMax-M2.7"]
+          envFrom:
+            - secretRef:
+                name: dev-koduck-agent-secrets
           ports:
             - name: grpc
               containerPort: 50054

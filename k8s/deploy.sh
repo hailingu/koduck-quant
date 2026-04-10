@@ -441,6 +441,22 @@ ensure_namespace_ready() {
     exit 1
 }
 
+ensure_koduck_agent_secret() {
+    local agent_secret_name="${ENV}-koduck-agent-secrets"
+    local llm_provider="${LLM_PROVIDER:-minimax}"
+    local llm_api_key="${LLM_API_KEY:-}"
+    local llm_api_base="${LLM_API_BASE:-}"
+    local llm_model="${LLM_MODEL:-MiniMax-M2.7}"
+
+    kubectl create secret generic "${agent_secret_name}" \
+        --from-literal=LLM_PROVIDER="${llm_provider}" \
+        --from-literal=LLM_API_KEY="${llm_api_key}" \
+        --from-literal=LLM_API_BASE="${llm_api_base}" \
+        --from-literal=LLM_MODEL="${llm_model}" \
+        -n "${NAMESPACE}" \
+        --dry-run=client -o yaml | kubectl apply -f -
+}
+
 # 安装
 install() {
     echo -e "${YELLOW}部署 APISIX (${ENV} 环境)...${NC}"
@@ -458,6 +474,8 @@ install() {
         --from-literal=jwt-secret="$JWT_SECRET" \
         -n "${NAMESPACE}" \
         --dry-run=client -o yaml | kubectl apply -f -
+
+    ensure_koduck_agent_secret
 
     # 先确保 koduck-auth JWT key secret 可用，再部署工作负载，减少首次启动抖动
     ensure_koduck_auth_jwt_keys_secret

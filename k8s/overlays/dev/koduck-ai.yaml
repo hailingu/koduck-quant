@@ -21,6 +21,8 @@ spec:
               value: "dev-tool-service:50051"
             - name: KODUCK_AI__LLM__ADAPTER_GRPC_TARGET
               value: "http://dev-koduck-agent:50054"
+            - name: KODUCK_AI__LLM__DEFAULT_PROVIDER
+              value: "minimax"
             - name: KODUCK_AI__LLM__STUB_ENABLED
               value: "false"
             - name: KODUCK_AI__AUTH__JWKS_URL

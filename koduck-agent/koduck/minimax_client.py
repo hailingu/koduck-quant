@@ -329,20 +329,92 @@ class MiniMaxClient(LLMClientBase):
         
         params = self._prepare_request(messages, tools)
         params["stream"] = True
+
+        extra_body = dict(params.get("extra_body") or {})
+        if extra_body.get("reasoning_split"):
+            extra_body["reasoning_split"] = False
+            params["extra_body"] = extra_body
+            logger.info("[MiniMax] stream request disables reasoning_split to prioritize answer deltas")
         
         try:
             logger.info(f"[MiniMax]  API : model={params.get('model')}")
             stream = await self.client.chat.completions.create(**params)
-            
+
+            chunk_index = 0
+            in_think_block = False
             async for chunk in stream:
+                chunk_index += 1
                 delta = chunk.choices[0].delta if chunk.choices else None
+                finish_reason = chunk.choices[0].finish_reason if chunk.choices else None
+
+                if chunk_index <= 5:
+                    content_preview = None
+                    if delta and getattr(delta, "content", None):
+                        content_preview = delta.content[:80]
+
+                    delta_attrs = None
+                    delta_repr = None
+                    if delta:
+                        try:
+                            delta_attrs = sorted(
+                                attr for attr in vars(delta).keys()
+                                if not attr.startswith("_")
+                            )
+                        except TypeError:
+                            delta_attrs = None
+
+                        delta_repr = repr(delta)
+                        if len(delta_repr) > 240:
+                            delta_repr = delta_repr[:240] + "..."
+
+                    logger.info(
+                        "[MiniMax] stream chunk[%s]: has_choices=%s has_delta=%s "
+                        "has_content=%s finish_reason=%s content_preview=%r "
+                        "delta_attrs=%r delta_repr=%s",
+                        chunk_index,
+                        bool(chunk.choices),
+                        bool(delta),
+                        bool(delta and getattr(delta, "content", None)),
+                        finish_reason,
+                        content_preview,
+                        delta_attrs,
+                        delta_repr,
+                    )
+
                 if delta and delta.content:
-                    logger.debug(f"[MiniMax] : {delta.content[:50]}..." if len(delta.content) > 50 else f"[MiniMax] : {delta.content}")
-                    yield delta.content
+                    text = delta.content
+                    filtered_parts: list[str] = []
+
+                    while text:
+                        if in_think_block:
+                            think_end = text.find("</think>")
+                            if think_end == -1:
+                                text = ""
+                            else:
+                                text = text[think_end + len("</think>"):]
+                                in_think_block = False
+                        else:
+                            think_start = text.find("<think>")
+                            if think_start == -1:
+                                filtered_parts.append(text)
+                                text = ""
+                            else:
+                                filtered_parts.append(text[:think_start])
+                                text = text[think_start + len("<think>"):]
+                                in_think_block = True
+
+                    filtered_text = "".join(filtered_parts)
+                    if filtered_text:
+                        logger.debug(
+                            f"[MiniMax] : {filtered_text[:50]}..."
+                            if len(filtered_text) > 50
+                            else f"[MiniMax] : {filtered_text}"
+                        )
+                        yield filtered_text
                 
                 # 
-                if chunk.choices and chunk.choices[0].finish_reason:
-                    logger.info(f"[MiniMax] : finish_reason={chunk.choices[0].finish_reason}")
+                if finish_reason:
+                    logger.info(f"[MiniMax] : finish_reason={finish_reason}")
                     break
                     
         except Exception as e:
