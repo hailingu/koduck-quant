@@ -92,6 +92,28 @@ function decodeJwtPayload(token: string): Record<string, unknown> | null {
   }
 }
 
+function userFromJwtPayload(payload: Record<string, unknown>): UserInfo | null {
+  const username = typeof payload.username === "string" ? payload.username : undefined;
+  const email = typeof payload.email === "string" ? payload.email : undefined;
+  const sub = payload.sub;
+  const id =
+    typeof sub === "string" && /^\d+$/.test(sub)
+      ? Number(sub)
+      : typeof sub === "number"
+        ? sub
+        : undefined;
+
+  if (!username && !email && typeof id === "undefined") {
+    return null;
+  }
+
+  return {
+    id,
+    username,
+    email,
+  };
+}
+
 function isTokenExpired(token: string): boolean {
   const payload = decodeJwtPayload(token);
   if (!payload) {
@@ -207,6 +229,10 @@ export async function login(request: LoginRequest): Promise<void> {
   if (loginUser) {
     setCurrentUser(loginUser);
   } else {
-    await fetchCurrentUserProfile();
+    const tokenPayload = decodeJwtPayload(accessToken);
+    const fallbackUser = tokenPayload ? userFromJwtPayload(tokenPayload) : null;
+    if (fallbackUser) {
+      setCurrentUser(fallbackUser);
+    }
   }
 }

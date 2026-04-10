@@ -9,6 +9,9 @@ export function Layout({ children }: { children: React.ReactNode }) {
   const navigate = useNavigate();
 
   useEffect(() => {
+    if (currentUser) {
+      return;
+    }
     let mounted = true;
     void fetchCurrentUserProfile().then((user) => {
       if (mounted && user) {
