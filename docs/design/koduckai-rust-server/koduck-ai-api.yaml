@@ -1,0 +1,441 @@
+openapi: 3.0.3
+info:
+  title: Koduck AI API
+  description: |
+    Koduck AI（`koduck-ai`）北向 API 文档。
+
+    该服务是 AI 编排网关：
+    - 北向对前端提供 chat/stream 接口
+    - 南向通过 gRPC 调用 memory/tool/llm 能力
+    - 对外统一错误码与 request_id 追踪语义
+
+    ## 鉴权
+
+    所有接口使用 JWT Bearer Token（由 APISIX + koduck-auth 协同处理）。
+
+    ## 流式响应
+
+    `/api/v1/ai/chat/stream` 使用 SSE（`text/event-stream`）。
+    事件 payload 包含 `event_id`、`sequence_num`、`event_type`、`payload`。
+
+  version: 1.0.0
+  contact:
+    name: Koduck Team
+    email: dev@koduck.com
+
+servers:
+  - url: http://localhost:8083
+    description: 本地开发环境
+  - url: http://koduck-ai:8083
+    description: K8s 集群内部
+  - url: https://api.koduck.com
+    description: 生产环境（通过 APISIX 网关）
+
+tags:
+  - name: Chat
+    description: AI 对话接口
+  - name: Stream
+    description: AI 流式对话接口（SSE）
+  - name: Health
+    description: 健康检查接口
+
+paths:
+  /api/v1/ai/chat:
+    post:
+      tags:
+        - Chat
+      summary: 非流式对话
+      description: |
+        发起一次非流式 AI 对话请求。
+
+        网关会按编排策略调用 memory/tool/llm 并聚合结果。
+      operationId: chat
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: header
+          name: X-Request-Id
+          required: false
+          schema:
+            type: string
+          description: 客户端可传入请求ID；若不传由网关生成
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChatRequest'
+            examples:
+              basic:
+                summary: 基础对话
+                value:
+                  session_id: "sess_20260410_001"
+                  message: "帮我总结一下今天的市场异动"
+                  model: "gpt-5.4-mini"
+                  temperature: 0.2
+                  max_tokens: 1024
+                  retrieve_policy: keyword_first
+      responses:
+        '200':
+          description: 请求成功
+          headers:
+            X-Request-Id:
+              schema:
+                type: string
+              description: 请求追踪ID
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseChatResponse'
+        '400':
+          description: 参数错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseError'
+        '401':
+          description: 未认证
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseError'
+        '403':
+          description: 无权限
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseError'
+        '429':
+          description: 限流
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseError'
+        '503':
+          description: 服务繁忙或下游不可用
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseError'
+
+  /api/v1/ai/chat/stream:
+    post:
+      tags:
+        - Stream
+      summary: 流式对话（SSE）
+      description: |
+        发起一次流式 AI 对话请求，服务端通过 SSE 持续推送事件。
+
+        客户端可通过 `Last-Event-ID` 或请求体中的 `from_sequence_num` 实现断点续流。
+      operationId: chatStream
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: header
+          name: X-Request-Id
+          required: false
+          schema:
+            type: string
+          description: 客户端可传入请求ID；若不传由网关生成
+        - in: header
+          name: Last-Event-ID
+          required: false
+          schema:
+            type: string
+          description: SSE 断点续流事件ID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChatStreamRequest'
+            examples:
+              streamBasic:
+                summary: 流式对话
+                value:
+                  session_id: "sess_20260410_001"
+                  message: "给我一个分步骤的交易复盘框架"
+                  model: "gpt-5.4"
+                  temperature: 0.3
+                  max_tokens: 2048
+                  from_sequence_num: 0
+      responses:
+        '200':
+          description: SSE 事件流
+          headers:
+            X-Request-Id:
+              schema:
+                type: string
+              description: 请求追踪ID
+            Cache-Control:
+              schema:
+                type: string
+                example: no-cache
+            Connection:
+              schema:
+                type: string
+                example: keep-alive
+          content:
+            text/event-stream:
+              schema:
+                type: string
+                example: |
+                  event: message
+                  id: evt_00001
+                  data: {"event_id":"evt_00001","sequence_num":1,"event_type":"delta","payload":{"text":"你好"},"request_id":"req_123","session_id":"sess_20260410_001"}
+
+                  event: done
+                  id: evt_00099
+                  data: {"event_id":"evt_00099","sequence_num":99,"event_type":"done","payload":{"finish_reason":"stop"},"request_id":"req_123","session_id":"sess_20260410_001"}
+        '400':
+          description: 参数错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseError'
+        '401':
+          description: 未认证
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseError'
+        '403':
+          description: 无权限
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseError'
+        '429':
+          description: 限流
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseError'
+        '503':
+          description: 服务繁忙或下游不可用
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseError'
+
+  /healthz:
+    get:
+      tags:
+        - Health
+      summary: 健康检查
+      operationId: healthz
+      responses:
+        '200':
+          description: 服务健康
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    ChatRequest:
+      type: object
+      required:
+        - message
+      properties:
+        session_id:
+          type: string
+          description: 会话ID；不传时由服务端创建
+        message:
+          type: string
+          description: 用户输入消息
+        model:
+          type: string
+          description: 模型标识，不传使用默认模型
+        temperature:
+          type: number
+          format: float
+          minimum: 0
+          maximum: 2
+          default: 0.2
+        max_tokens:
+          type: integer
+          minimum: 1
+          maximum: 32768
+          default: 2048
+        retrieve_policy:
+          type: string
+          enum: [keyword_first, summary_first, hybrid]
+          default: keyword_first
+          description: memory 检索策略偏好
+        metadata:
+          type: object
+          additionalProperties: true
+          description: 扩展元信息（透传给编排层）
+
+    ChatStreamRequest:
+      allOf:
+        - $ref: '#/components/schemas/ChatRequest'
+        - type: object
+          properties:
+            from_sequence_num:
+              type: integer
+              minimum: 0
+              description: 从指定序号开始续流
+
+    ChatResponse:
+      type: object
+      required:
+        - request_id
+        - session_id
+        - answer
+      properties:
+        request_id:
+          type: string
+        session_id:
+          type: string
+        answer:
+          type: string
+        model:
+          type: string
+        usage:
+          $ref: '#/components/schemas/TokenUsage'
+        degraded:
+          type: boolean
+          default: false
+          description: 是否降级输出
+
+    TokenUsage:
+      type: object
+      properties:
+        prompt_tokens:
+          type: integer
+        completion_tokens:
+          type: integer
+        total_tokens:
+          type: integer
+
+    StreamEventPayload:
+      type: object
+      additionalProperties: true
+
+    StreamEvent:
+      type: object
+      required:
+        - event_id
+        - sequence_num
+        - event_type
+        - payload
+        - request_id
+        - session_id
+      properties:
+        event_id:
+          type: string
+        sequence_num:
+          type: integer
+          minimum: 0
+        event_type:
+          type: string
+          enum: [delta, tool_call, tool_result, done, error, heartbeat]
+        payload:
+          $ref: '#/components/schemas/StreamEventPayload'
+        request_id:
+          type: string
+        session_id:
+          type: string
+
+    ErrorDetail:
+      type: object
+      required:
+        - code
+        - message
+        - request_id
+        - retryable
+        - degraded
+      properties:
+        code:
+          type: string
+          enum:
+            - INVALID_ARGUMENT
+            - AUTH_FAILED
+            - RESOURCE_NOT_FOUND
+            - CONFLICT
+            - TOKEN_BUDGET_EXCEEDED
+            - RATE_LIMITED
+            - SERVER_BUSY
+            - UPSTREAM_UNAVAILABLE
+            - DEPENDENCY_FAILED
+            - INTERNAL_ERROR
+            - STREAM_TIMEOUT
+            - STREAM_INTERRUPTED
+        message:
+          type: string
+        request_id:
+          type: string
+        retryable:
+          type: boolean
+        degraded:
+          type: boolean
+        upstream:
+          type: string
+          enum: [memory, tool, llm, ai_gateway]
+        retry_after_ms:
+          type: integer
+          format: int64
+          minimum: 0
+
+    ApiResponseChatResponse:
+      type: object
+      required:
+        - success
+        - code
+        - message
+        - data
+      properties:
+        success:
+          type: boolean
+          example: true
+        code:
+          type: string
+          example: OK
+        message:
+          type: string
+          example: success
+        data:
+          $ref: '#/components/schemas/ChatResponse'
+
+    ApiResponseError:
+      type: object
+      required:
+        - success
+        - code
+        - message
+        - error
+      properties:
+        success:
+          type: boolean
+          example: false
+        code:
+          type: string
+          description: 顶层错误码
+        message:
+          type: string
+        error:
+          $ref: '#/components/schemas/ErrorDetail'
+
+    HealthResponse:
+      type: object
+      required:
+        - status
+      properties:
+        status:
+          type: string
+          example: ok
+        service:
+          type: string
+          example: koduck-ai
+        version:
+          type: string
+          example: 1.0.0

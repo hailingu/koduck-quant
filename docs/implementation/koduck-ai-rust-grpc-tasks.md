@@ -1,10 +1,10 @@
-# Koduck AI Gateway Rust + gRPC 实施任务清单
+# Koduck AI Rust + gRPC 实施任务清单
 
-> 本文档基于 `docs/design/koduckai-rust-server/ai-gateway-decoupled-architecture.md` 拆分，提供 step-by-step 可执行任务。
+> 本文档基于 `docs/design/koduckai-rust-server/ai-decoupled-architecture.md` 拆分，提供 step-by-step 可执行任务。
 >
 > **状态**: 待执行
 > **创建日期**: 2026-04-10
-> **对应设计文档**: [ai-gateway-decoupled-architecture.md](../design/koduckai-rust-server/ai-gateway-decoupled-architecture.md)
+> **对应设计文档**: [ai-decoupled-architecture.md](../design/koduckai-rust-server/ai-decoupled-architecture.md)
 
 ---
 
@@ -25,11 +25,11 @@
 
 ## Phase 1: 项目骨架与基础设施
 
-### Task 1.1: 建立 `koduck-ai-server` Rust 项目骨架
+### Task 1.1: 建立 `koduck-ai` Rust 项目骨架
 **执行命令:**
 ```bash
-cargo new --bin koduck-ai-server
-cd koduck-ai-server
+cargo new --bin koduck-ai
+cd koduck-ai
 ```
 
 **详细要求:**

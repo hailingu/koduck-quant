@@ -1,8 +1,8 @@
-# Koduck AI Gateway 解耦架构设计（V2）
+# Koduck AI 解耦架构设计（V2）
 
 ## 1. 文档目的与范围
 
-本文档定义 `koduck-ai-server` 的 V2 解耦架构，目标是把其从“内聚过多能力的 AI 服务”收敛为“AI Gateway / Orchestrator”。
+本文档定义 `koduck-ai` 的 V2 解耦架构，目标是把其从“内聚过多能力的 AI 服务”收敛为“AI Gateway / Orchestrator”。
 
 本文档覆盖：
 
@@ -24,11 +24,11 @@
 
 V2 的核心结论如下：
 
-1. `koduck-ai-server` 只做 AI 网关与编排，不内置 Memory/Tool 业务实现。
+1. `koduck-ai` 只做 AI 网关与编排，不内置 Memory/Tool 业务实现。
 2. `koduck-memory-service` 与 `koduck-tool-service` 均为独立服务。
 3. 前端到 AI、AI 到下游服务的调用，默认统一经过 APISIX（内部 east-west 统一 gRPC）。
-4. `koduck-ai-server` 内部治理保持最小闭环：`auth`、`logging`、`trace`。
-5. 限流优先由 APISIX 承担；`koduck-ai-server` 负责自身重试预算、错误映射、降级语义与 SLO。
+4. `koduck-ai` 内部治理保持最小闭环：`auth`、`logging`、`trace`。
+5. 限流优先由 APISIX 承担；`koduck-ai` 负责自身重试预算、错误映射、降级语义与 SLO。
 6. LLM URL/API Key 作为 Secret 管理，不再作为独立“组件”设计。
 
 ---
@@ -45,7 +45,7 @@ V2 的核心结论如下：
 
 ## 4. 边界定义（强约束）
 
-### 4.1 `koduck-ai-server` 负责
+### 4.1 `koduck-ai` 负责
 
 - 对话编排（chat / stream / 上下文拼装）
 - 模型路由与多提供商调用适配
@@ -53,7 +53,7 @@ V2 的核心结论如下：
 - 对外统一错误语义、降级语义、重试预算
 - SLO 目标定义与容量保护策略
 
-### 4.2 `koduck-ai-server` 不负责
+### 4.2 `koduck-ai` 不负责
 
 - 记忆数据持久化、记忆索引构建与检索实现
 - 工具注册、执行引擎、工具权限策略实现
@@ -70,7 +70,7 @@ V2 的核心结论如下：
 
 ### 4.4 会话元数据归属
 
-会话元数据（如 `session_id`、`title`、`status`、`last_message_at`）统一归 `koduck-memory-service` 管理；`koduck-ai-server` 仅在编排链路中读取/写入必要元数据，不持有其最终真值。
+会话元数据（如 `session_id`、`title`、`status`、`last_message_at`）统一归 `koduck-memory-service` 管理；`koduck-ai` 仅在编排链路中读取/写入必要元数据，不持有其最终真值。
 
 ---
 
@@ -91,7 +91,7 @@ V2 的核心结论如下：
                                     │
                                     ▼
 ┌─────────────────────────────────────────────────────────────────────────┐
-│                      koduck-ai-server (AI Gateway)                      │
+│                      koduck-ai (AI Gateway)                      │
 │   Orchestrator / Stream Engine / LLM Router / Error-SLO Guard          │
 └─────────────────────────────────────────────────────────────────────────┘
             │                       │                       │
@@ -107,9 +107,9 @@ V2 的核心结论如下：
 
 ### 5.2 关键调用路径
 
-- 北向：`Frontend -> APISIX -> koduck-ai-server`
-- 南向：`koduck-ai-server -> APISIX(gRPC route) -> {koduck-auth / koduck-memory-service / koduck-tool-service}`
-- 外部模型：`koduck-ai-server -> LLM Provider`
+- 北向：`Frontend -> APISIX -> koduck-ai`
+- 南向：`koduck-ai -> APISIX(gRPC route) -> {koduck-auth / koduck-memory-service / koduck-tool-service}`
+- 外部模型：`koduck-ai -> LLM Provider`
 
 ### 5.3 旁路策略
 
@@ -155,7 +155,7 @@ V2 的核心结论如下：
 
 ### 6.4 可插拔交互协议（memory/tool）
 
-本节定义 `koduck-ai-server` 与下游能力服务的统一交互协议，用于支持“实现可插拔、语义不混淆”。
+本节定义 `koduck-ai` 与下游能力服务的统一交互协议，用于支持“实现可插拔、语义不混淆”。
 
 原则：
 
@@ -198,7 +198,7 @@ V2 的核心结论如下：
 - `features`：能力开关（如 `keyword_search`、`summary_similarity`、`tool_streaming`）
 - `limits`：能力上限（QPS、payload、timeout 建议值）
 
-`koduck-ai-server` 启动时拉取并缓存能力，运行时按 TTL 刷新；版本不兼容时快速失败并给出可观测告警。
+`koduck-ai` 启动时拉取并缓存能力，运行时按 TTL 刷新；版本不兼容时快速失败并给出可观测告警。
 
 #### 6.4.3 Memory Contract（first-class, gRPC）
 
@@ -269,7 +269,7 @@ V2 的核心结论如下：
 
 ### 6.5 LLM Contract（provider-agnostic）
 
-`koduck-ai-server` 对模型调用采用统一 LLM 契约，屏蔽厂商差异。对内以 gRPC 契约表达；对外由适配层转换为各厂商原生 HTTP API。
+`koduck-ai` 对模型调用采用统一 LLM 契约，屏蔽厂商差异。对内以 gRPC 契约表达；对外由适配层转换为各厂商原生 HTTP API。
 
 推荐最小 RPC 集合：
 
@@ -308,11 +308,11 @@ V2 的核心结论如下：
 
 ---
 
-## 7. 运行时能力（koduck-ai-server）
+## 7. 运行时能力（koduck-ai）
 
 ### 7.1 最小治理能力
 
-`koduck-ai-server` 内只保留：
+`koduck-ai` 内只保留：
 
 - `auth`：对接 `koduck-auth` 的 token 校验能力
 - `logging`：结构化日志
@@ -352,14 +352,14 @@ V2 的核心结论如下：
 
 #### 7.3.3 降级规则
 
-- 是否允许降级由 `koduck-ai-server` 配置开关控制
+- 是否允许降级由 `koduck-ai` 配置开关控制
 - 触发条件：上游超时、重试预算耗尽、关键依赖熔断打开
 - 降级响应必须显式标记 `degraded=true`
 - 禁止把降级结果伪装为完整成功
 
 #### 7.3.4 重试预算归属
 
-`koduck-ai-server` 统一维护：
+`koduck-ai` 统一维护：
 
 - 最大重试次数
 - 单请求总超时预算
@@ -397,7 +397,7 @@ APISIX 的限流与网关重试不替代服务内业务语义重试预算。
 
 ## 8. 记忆架构对接约定（与 Memory Contract 一致）
 
-`koduck-ai-server` 仅依赖第 6.4 节定义的契约，不绑定 memory 内部实现。当前约定能力层次：
+`koduck-ai` 仅依赖第 6.4 节定义的契约，不绑定 memory 内部实现。当前约定能力层次：
 
 - L0：原始会话 `.jsonl`（存储于 S3/MinIO）
 - L1：索引层（`session_id`、L0 路径、summary、tags、keywords）
@@ -441,7 +441,7 @@ APISIX 的限流与网关重试不替代服务内业务语义重试预算。
 ## 10. 目录建议
 
 ```text
-koduck-ai-server/
+koduck-ai/
   proto/              # memory/tool/llm contract proto 定义
   src/
     app/              # 启动与生命周期管理
@@ -466,14 +466,14 @@ koduck-ai-server/
 ### Phase A：边界冻结
 
 - 冻结本文档为 V2 目标边界
-- 停止在 `koduck-ai-server` 新增 memory/tool 内部实现
+- 停止在 `koduck-ai` 新增 memory/tool 内部实现
 
 验收：新增需求评审中，不再接受“把 memory/tool 写回 ai-server”方案。
 
 ### Phase B：契约先行
 
 - 冻结 `memory/tool/llm` 的 proto 契约并生成多语言 stub
-- 在 `koduck-ai-server` 建立 gRPC `memory_client` / `tool_client` / `llm_client`
+- 在 `koduck-ai` 建立 gRPC `memory_client` / `tool_client` / `llm_client`
 - 通过 APISIX gRPC 路由接入下游
 
 验收：AI 主链路不再依赖本地 memory/tool 实现，且不再新增内部 HTTP 契约。
@@ -512,7 +512,7 @@ koduck-ai-server/
 - 从“单进程内聚 Memory/Tool”改为“AI Gateway + 独立服务”。
 - 从“中间件叠加设计”改为“最小治理 + APISIX 承担统一网关能力”。
 - 从“LLM API 组件化描述”改为“Secret 注入 + 提供商适配”。
-- 新增“错误归一、降级责任、SLO 与容量责任”作为 `koduck-ai-server` 明确边界。
+- 新增“错误归一、降级责任、SLO 与容量责任”作为 `koduck-ai` 明确边界。
 
 ---
 
@@ -552,7 +552,7 @@ koduck-ai-server/
 
 ### 14.3 归一规则
 
-- `koduck-ai-server` 是唯一对外错误码出口，下游原始错误不得透传。
+- `koduck-ai` 是唯一对外错误码出口，下游原始错误不得透传。
 - gRPC 到 HTTP 的映射在边缘层保持稳定，不随下游厂商变化。
 - 只有 `retryable=true` 的错误允许进入重试预算计算。
 
