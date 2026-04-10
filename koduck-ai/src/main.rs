@@ -30,8 +30,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         "Starting koduck-ai service"
     );
 
-    // Load configuration
+    // Load configuration (fails fast on validation errors)
     let config = koduck_ai::config::Config::from_env()?;
+
+    info!(config = %config, "Configuration loaded");
 
     // Create HTTP server
     let http_addr: SocketAddr = config.server.http_addr.parse()?;

@@ -1,0 +1,1 @@
+//! Memory service gRPC client
