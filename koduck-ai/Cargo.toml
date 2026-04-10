@@ -1,0 +1,80 @@
+[package]
+name = "koduck-ai"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.75"
+authors = ["Koduck Team <dev@koduck.com>"]
+description = "Koduck AI Gateway / Orchestrator - Rust + gRPC implementation"
+license = "MIT"
+
+[dependencies]
+# 异步运行时
+tokio = { version = "1.35", features = ["full"] }
+
+# HTTP 框架
+axum = { version = "0.7", features = ["http2", "macros"] }
+tower = { version = "0.4", features = ["full"] }
+tower-http = { version = "0.5", features = [
+    "cors",
+    "trace",
+    "compression-full",
+    "request-id",
+    "sensitive-headers",
+    "util",
+] }
+hyper = { version = "1.0", features = ["full"] }
+
+# gRPC
+tonic = { version = "0.11", features = ["tls", "gzip"] }
+tonic-health = "0.11"
+tonic-reflection = "0.11"
+prost = "0.12"
+prost-types = "0.12"
+
+# 序列化
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+# 配置
+config = "0.14"
+dotenvy = "0.15"
+
+# 日志和监控
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = [
+    "env-filter",
+    "json",
+    "time",
+] }
+
+# 错误处理
+thiserror = "1.0"
+anyhow = "1.0"
+
+# 时间和 UUID
+chrono = { version = "0.4", features = ["serde"] }
+uuid = { version = "1.6", features = ["v4", "serde"] }
+
+# 安全
+secrecy = { version = "0.8", features = ["serde"] }
+
+# 工具
+once_cell = "1.19"
+async-trait = "0.1"
+futures = "0.3"
+
+[build-dependencies]
+tonic-build = "0.11"
+
+[dev-dependencies]
+tokio-test = "0.4"
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+strip = true
+
+[profile.dev]
+opt-level = 0
+debug = true
