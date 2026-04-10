@@ -8,10 +8,12 @@ use tower_http::trace::TraceLayer;
 
 use crate::api;
 use crate::config::Config;
+use crate::stream::sse::StreamRegistry;
 
 #[derive(Clone)]
 pub struct AppState {
     pub config: Config,
+    pub stream_registry: Arc<StreamRegistry>,
 }
 
 /// Health check response
@@ -24,7 +26,10 @@ pub struct HealthResponse {
 
 /// Create the main HTTP router
 pub fn create_router(config: Config) -> Router {
-    let state = Arc::new(AppState { config });
+    let state = Arc::new(AppState {
+        config,
+        stream_registry: Arc::new(StreamRegistry::default()),
+    });
     Router::new()
         .route("/api/v1/ai/chat", post(api::chat))
         .route("/api/v1/ai/stream", post(api::chat_stream))

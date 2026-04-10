@@ -1,1 +1,3 @@
-//! SSE/WS transport and queue management
+//! SSE transport and resume management.
+
+pub mod sse;
