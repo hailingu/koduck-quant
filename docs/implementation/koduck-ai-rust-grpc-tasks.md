@@ -124,9 +124,9 @@ cd koduck-ai
 3. 不兼容时 fail-fast 并输出结构化告警
 
 **验收标准:**
-- [ ] 能打印已协商的 `contract_versions`
-- [ ] 版本不兼容时服务拒绝启动
-- [ ] capability 刷新不会阻塞主请求线程
+- [x] 能打印已协商的 `contract_versions`
+- [x] 版本不兼容时服务拒绝启动
+- [x] capability 刷新不会阻塞主请求线程
 
 ---
 

@@ -37,6 +37,7 @@ pub struct Config {
     pub llm: LlmConfig,
     pub stream: StreamConfig,
     pub auth: AuthConfig,
+    pub capabilities: CapabilitiesConfig,
 }
 
 /// Server configuration (HTTP, gRPC, metrics)
@@ -84,6 +85,19 @@ pub struct StreamConfig {
 #[derive(Debug, Deserialize, Clone)]
 pub struct AuthConfig {
     pub jwks_url: String,
+}
+
+/// Capabilities negotiation configuration
+#[derive(Debug, Deserialize, Clone)]
+pub struct CapabilitiesConfig {
+    /// TTL for cached capabilities in seconds (default: 60).
+    pub ttl_secs: u64,
+    /// Timeout for startup capabilities negotiation in ms (default: 5000).
+    pub startup_timeout_ms: u64,
+    /// Required contract version string (default: "v1").
+    pub required_version: String,
+    /// If true, version mismatch causes startup failure (default: true).
+    pub strict_mode: bool,
 }
 
 // ---------------------------------------------------------------------------
@@ -164,6 +178,27 @@ impl AuthConfig {
     }
 }
 
+impl CapabilitiesConfig {
+    pub fn validate(&self) -> Result<(), ValidationError> {
+        if self.ttl_secs == 0 {
+            return Err(ValidationError {
+                message: "capabilities.ttl_secs must be greater than 0".to_string(),
+            });
+        }
+        if self.startup_timeout_ms == 0 {
+            return Err(ValidationError {
+                message: "capabilities.startup_timeout_ms must be greater than 0".to_string(),
+            });
+        }
+        if self.required_version.trim().is_empty() {
+            return Err(ValidationError {
+                message: "capabilities.required_version cannot be empty".to_string(),
+            });
+        }
+        Ok(())
+    }
+}
+
 // ---------------------------------------------------------------------------
 // Defaults
 // ---------------------------------------------------------------------------
@@ -223,6 +258,17 @@ impl Default for AuthConfig {
     }
 }
 
+impl Default for CapabilitiesConfig {
+    fn default() -> Self {
+        Self {
+            ttl_secs: 60,
+            startup_timeout_ms: 5_000,
+            required_version: "v1".to_string(),
+            strict_mode: true,
+        }
+    }
+}
+
 // ---------------------------------------------------------------------------
 // Config loading
 // ---------------------------------------------------------------------------
@@ -260,6 +306,11 @@ impl Config {
             .set_default("stream.max_duration_ms", 300_000)?
             // Defaults — AuthConfig
             .set_default("auth.jwks_url", "http://localhost:8081/.well-known/jwks.json")?
+            // Defaults — CapabilitiesConfig
+            .set_default("capabilities.ttl_secs", 60)?
+            .set_default("capabilities.startup_timeout_ms", 5_000)?
+            .set_default("capabilities.required_version", "v1")?
+            .set_default("capabilities.strict_mode", true)?
             // Optional config files
             .add_source(File::with_name("config/default").required(false))
             .add_source(File::with_name("config/local").required(false))
@@ -278,6 +329,7 @@ impl Config {
         self.llm.validate()?;
         self.stream.validate()?;
         self.auth.validate()?;
+        self.capabilities.validate()?;
         Ok(())
     }
 
@@ -304,7 +356,7 @@ impl fmt::Display for Config {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
-            "Config {{ server: {:?}, memory: {:?}, tools: {:?}, llm: LlmConfig {{ adapter_grpc_target: {:?}, default_provider: {:?}, timeout_ms: {}, api_keys: ***, ... }}, stream: {:?}, auth: {:?} }}",
+            "Config {{ server: {:?}, memory: {:?}, tools: {:?}, llm: LlmConfig {{ adapter_grpc_target: {:?}, default_provider: {:?}, timeout_ms: {}, api_keys: ***, ... }}, stream: {:?}, auth: {:?}, capabilities: {:?} }}",
             self.server,
             self.memory,
             self.tools,
@@ -313,6 +365,7 @@ impl fmt::Display for Config {
             self.llm.timeout_ms,
             self.stream,
             self.auth,
+            self.capabilities,
         )
     }
 }
@@ -478,6 +531,7 @@ mod tests {
             },
             stream: StreamConfig::default(),
             auth: AuthConfig::default(),
+            capabilities: CapabilitiesConfig::default(),
         };
         let display = format!("{}", config);
         assert!(!display.contains("sk-super-secret-key"));
@@ -499,9 +553,49 @@ mod tests {
             },
             stream: StreamConfig::default(),
             auth: AuthConfig::default(),
+            capabilities: CapabilitiesConfig::default(),
         };
         assert_eq!(config.openai_api_key(), Some("sk-test"));
         assert_eq!(config.deepseek_api_key(), None);
         assert_eq!(config.anthropic_api_key(), Some("sk-anthropic"));
+    }
+
+    #[test]
+    fn test_capabilities_config_default_valid() {
+        let config = CapabilitiesConfig::default();
+        assert!(config.validate().is_ok());
+    }
+
+    #[test]
+    fn test_capabilities_config_zero_ttl() {
+        let config = CapabilitiesConfig {
+            ttl_secs: 0,
+            ..CapabilitiesConfig::default()
+        };
+        let result = config.validate();
+        assert!(result.is_err());
+        assert!(result.unwrap_err().message.contains("ttl_secs"));
+    }
+
+    #[test]
+    fn test_capabilities_config_zero_startup_timeout() {
+        let config = CapabilitiesConfig {
+            startup_timeout_ms: 0,
+            ..CapabilitiesConfig::default()
+        };
+        let result = config.validate();
+        assert!(result.is_err());
+        assert!(result.unwrap_err().message.contains("startup_timeout_ms"));
+    }
+
+    #[test]
+    fn test_capabilities_config_empty_required_version() {
+        let config = CapabilitiesConfig {
+            required_version: "".to_string(),
+            ..CapabilitiesConfig::default()
+        };
+        let result = config.validate();
+        assert!(result.is_err());
+        assert!(result.unwrap_err().message.contains("required_version"));
     }
 }
