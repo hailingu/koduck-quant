@@ -46,7 +46,9 @@ __pycache__/
 .github/skills/
 
 memory/
+!koduck-ai/proto/koduck/memory/
 tools/
+!koduck-ai/proto/koduck/tool/
 
 # Track workflow configs and shared tool wrapper
 !.github/

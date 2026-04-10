@@ -1,0 +1,111 @@
+syntax = "proto3";
+
+package koduck.tool.v1;
+
+import "koduck/contract/v1/shared.proto";
+
+option go_package = "github.com/hailingu/koduck-quant/proto/koduck/tool/v1;toolv1";
+
+// ToolService — 工具注册与执行服务（plugin-style service contract）
+service ToolService {
+  // 能力发现与版本协商
+  rpc GetCapabilities(koduck.contract.v1.RequestMeta) returns (koduck.contract.v1.Capability);
+
+  // 列出可用工具及其 schema
+  rpc ListTools(ListToolsRequest) returns (ListToolsResponse);
+
+  // 校验工具输入
+  rpc ValidateToolInput(ValidateToolInputRequest) returns (ValidateToolInputResponse);
+
+  // 同步执行工具
+  rpc ExecuteTool(ExecuteToolRequest) returns (ExecuteToolResponse);
+
+  // 流式执行工具
+  rpc ExecuteToolStream(ExecuteToolRequest) returns (stream ExecuteToolStreamEvent);
+}
+
+// ==================== ListTools ====================
+
+message ListToolsRequest {
+  koduck.contract.v1.RequestMeta meta = 1;
+  string permission_scope = 2;
+}
+
+message ListToolsResponse {
+  bool ok = 1;
+  repeated ToolInfo tools = 2;
+  koduck.contract.v1.ErrorDetail error = 3;
+}
+
+// ==================== ValidateToolInput ====================
+
+message ValidateToolInputRequest {
+  koduck.contract.v1.RequestMeta meta = 1;
+  string tool_name = 2;
+  string arguments_json = 3;
+}
+
+message ValidateToolInputResponse {
+  bool ok = 1;
+  bool valid = 2;
+  string validation_message = 3;
+  koduck.contract.v1.ErrorDetail error = 4;
+}
+
+// ==================== ExecuteTool ====================
+
+message ExecuteToolRequest {
+  koduck.contract.v1.RequestMeta meta = 1;
+  string tool_name = 2;
+  string tool_version = 3;
+  string arguments_json = 4;
+  ExecutionMode execution_mode = 5;
+}
+
+message ExecuteToolResponse {
+  bool ok = 1;
+  string result_json = 2;
+  int32 duration_ms = 3;
+  koduck.contract.v1.ErrorDetail error = 4;
+}
+
+// ==================== ExecuteToolStream ====================
+
+message ExecuteToolStreamEvent {
+  string event_id = 1;
+  int32 sequence_num = 2;
+  StreamEventType event_type = 3;
+  string payload = 4;
+  koduck.contract.v1.ErrorDetail error = 5;
+}
+
+// ==================== Common Messages ====================
+
+// 工具信息
+message ToolInfo {
+  string name = 1;
+  string version = 2;
+  string description = 3;
+  string input_schema = 4;
+  string output_schema = 5;
+  int32 timeout_ms = 6;
+  string permission_scope = 7;
+  bool streaming_supported = 8;
+}
+
+// ==================== Enums ====================
+
+// 执行模式
+enum ExecutionMode {
+  EXECUTION_MODE_UNSPECIFIED = 0;
+  EXECUTION_MODE_SYNC = 1;
+  EXECUTION_MODE_ASYNC = 2;
+}
+
+// 流式事件类型
+enum StreamEventType {
+  STREAM_EVENT_TYPE_UNSPECIFIED = 0;
+  STREAM_EVENT_TYPE_DATA = 1;
+  STREAM_EVENT_TYPE_ERROR = 2;
+  STREAM_EVENT_TYPE_COMPLETE = 3;
+}

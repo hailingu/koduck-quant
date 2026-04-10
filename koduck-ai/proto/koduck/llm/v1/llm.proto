@@ -1,0 +1,121 @@
+syntax = "proto3";
+
+package koduck.llm.v1;
+
+import "koduck/contract/v1/shared.proto";
+
+option go_package = "github.com/hailingu/koduck-quant/proto/koduck/llm/v1;llmv1";
+
+// LlmService — LLM 适配服务（provider-agnostic contract）
+service LlmService {
+  // 能力发现与版本协商
+  rpc GetCapabilities(koduck.contract.v1.RequestMeta) returns (koduck.contract.v1.Capability);
+
+  // 列出可用模型
+  rpc ListModels(ListModelsRequest) returns (ListModelsResponse);
+
+  // Token 计数
+  rpc CountTokens(CountTokensRequest) returns (CountTokensResponse);
+
+  // 非流式生成
+  rpc Generate(GenerateRequest) returns (GenerateResponse);
+
+  // 流式生成
+  rpc StreamGenerate(GenerateRequest) returns (stream StreamGenerateEvent);
+}
+
+// ==================== ListModels ====================
+
+message ListModelsRequest {
+  koduck.contract.v1.RequestMeta meta = 1;
+  string provider = 2;
+}
+
+message ListModelsResponse {
+  bool ok = 1;
+  repeated ModelInfo models = 2;
+  koduck.contract.v1.ErrorDetail error = 3;
+}
+
+// ==================== CountTokens ====================
+
+message CountTokensRequest {
+  koduck.contract.v1.RequestMeta meta = 1;
+  string model = 2;
+  repeated ChatMessage messages = 3;
+}
+
+message CountTokensResponse {
+  bool ok = 1;
+  int32 total_tokens = 2;
+  koduck.contract.v1.ErrorDetail error = 3;
+}
+
+// ==================== Generate ====================
+
+message GenerateRequest {
+  koduck.contract.v1.RequestMeta meta = 1;
+  string model = 2;
+  repeated ChatMessage messages = 3;
+  float temperature = 4;
+  float top_p = 5;
+  int32 max_tokens = 6;
+  repeated ToolDefinition tools = 7;
+  string response_format = 8;
+  string provider = 9;
+}
+
+message GenerateResponse {
+  bool ok = 1;
+  ChatMessage message = 2;
+  string finish_reason = 3;
+  TokenUsage usage = 4;
+  koduck.contract.v1.ErrorDetail error = 5;
+}
+
+// ==================== StreamGenerate ====================
+
+message StreamGenerateEvent {
+  string event_id = 1;
+  int32 sequence_num = 2;
+  string delta = 3;
+  string finish_reason = 4;
+  TokenUsage usage = 5;
+  koduck.contract.v1.ErrorDetail error = 6;
+}
+
+// ==================== Common Messages ====================
+
+// 聊天消息
+message ChatMessage {
+  string role = 1;
+  string content = 2;
+  string name = 3;
+  map<string, string> metadata = 4;
+}
+
+// 工具定义（传递给 LLM 的工具描述）
+message ToolDefinition {
+  string name = 1;
+  string description = 2;
+  string input_schema = 3;
+}
+
+// Token 使用统计
+message TokenUsage {
+  int32 prompt_tokens = 1;
+  int32 completion_tokens = 2;
+  int32 total_tokens = 3;
+}
+
+// 模型信息
+message ModelInfo {
+  string id = 1;
+  string provider = 2;
+  string display_name = 3;
+  int32 max_context_tokens = 4;
+  int32 max_output_tokens = 5;
+  bool supports_streaming = 6;
+  bool supports_tools = 7;
+  repeated string supported_features = 8;
+}
