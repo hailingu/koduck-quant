@@ -16,7 +16,7 @@ use tower_http::{
 };
 
 use crate::{
-    http::handler::{auth, health, jwks, metrics as metrics_handler},
+    http::handler::{auth, health, jwks, metrics as metrics_handler, oidc},
     http::middleware::{error_handler, log_request},
     state::AppState,
 };
@@ -34,6 +34,10 @@ pub fn create_router(state: Arc<AppState>) -> Router {
         .route("/api/v1/auth/reset-password", post(auth::reset_password))
         // JWKS endpoint
         .route("/.well-known/jwks.json", get(jwks::get_jwks))
+        // OIDC discovery
+        .route("/.well-known/openid-configuration", get(oidc::openid_configuration))
+        // Token introspection (RFC 7662)
+        .route("/oauth/introspect", post(oidc::introspect_token))
         // Health endpoints
         .route("/health", get(health::health_check))
         .route("/actuator/health", get(health::actuator_health))

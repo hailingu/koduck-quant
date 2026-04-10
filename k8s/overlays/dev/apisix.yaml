@@ -225,5 +225,6 @@ data:
       - key-auth
       - limit-count
       - limit-req
+      - openid-connect
       - prometheus
       - proxy-rewrite
