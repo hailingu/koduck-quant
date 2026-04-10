@@ -148,8 +148,8 @@ Refs: #相关issue"
 | 编号 | 标题 | 状态 | 日期 |
 |------|------|------|------|
 | 0000 | [模板](0000-template.md) | 工具 | - |
-| 1001 | [WebSocket 实时数据推送架构](1001-websocket-realtime-architecture.md) | 已接受 | 2026-04-01 |
-| 9001 | [测试覆盖率门禁机制](9001-test-coverage-gate.md) | 已接受 | 2026-03-31 |
+| 0001 | [WebSocket 实时数据推送架构](0001-websocket-realtime-architecture.md) | 已接受 | 2026-04-01 |
+| 0002 | [测试覆盖率门禁机制](0002-test-coverage-gate.md) | 已接受 | 2026-03-31 |
 
 ---
 

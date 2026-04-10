@@ -1,4 +1,4 @@
-# ADR-1001: WebSocket 实时数据推送架构
+# ADR-0001: WebSocket 实时数据推送架构
 
 ## 元数据
 
