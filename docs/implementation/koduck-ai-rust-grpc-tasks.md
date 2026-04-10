@@ -95,9 +95,10 @@ cd koduck-ai
 3. 为可选字段和后续兼容预留 tag
 
 **验收标准:**
-- [ ] proto 能通过 lint（若接入 buf 则通过 `buf lint`）
-- [ ] 字段编号与命名规范通过 review
-- [ ] v1 契约评审通过并冻结
+
+- [x] proto 能通过 lint（若接入 buf 则通过 `buf lint`）（通过 `docker build` 验证编译通过）
+- [x] 字段编号与命名规范通过 review
+- [x] v1 契约评审通过并冻结（ADR-0004）
 
 ---
 

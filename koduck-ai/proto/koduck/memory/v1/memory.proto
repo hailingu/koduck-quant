@@ -1,0 +1,144 @@
+syntax = "proto3";
+
+package koduck.memory.v1;
+
+import "koduck/contract/v1/shared.proto";
+
+option go_package = "github.com/hailingu/koduck-quant/proto/koduck/memory/v1;memoryv1";
+
+// MemoryService — 会话记忆管理服务（first-class service contract）
+service MemoryService {
+  // 能力发现与版本协商
+  rpc GetCapabilities(koduck.contract.v1.RequestMeta) returns (koduck.contract.v1.Capability);
+
+  // 创建或更新会话元数据
+  rpc UpsertSessionMeta(UpsertSessionMetaRequest) returns (UpsertSessionMetaResponse);
+
+  // 获取会话信息
+  rpc GetSession(GetSessionRequest) returns (GetSessionResponse);
+
+  // 记忆检索（支持多种检索策略）
+  rpc QueryMemory(QueryMemoryRequest) returns (QueryMemoryResponse);
+
+  // 追加记忆
+  rpc AppendMemory(AppendMemoryRequest) returns (AppendMemoryResponse);
+
+  // 生成记忆摘要（可异步）
+  rpc SummarizeMemory(SummarizeMemoryRequest) returns (SummarizeMemoryResponse);
+}
+
+// ==================== UpsertSessionMeta ====================
+
+message UpsertSessionMetaRequest {
+  koduck.contract.v1.RequestMeta meta = 1;
+  string session_id = 2;
+  string title = 3;
+  string status = 4;
+  map<string, string> extra = 5;
+}
+
+message UpsertSessionMetaResponse {
+  bool ok = 1;
+  koduck.contract.v1.ErrorDetail error = 2;
+}
+
+// ==================== GetSession ====================
+
+message GetSessionRequest {
+  koduck.contract.v1.RequestMeta meta = 1;
+  string session_id = 2;
+}
+
+message GetSessionResponse {
+  bool ok = 1;
+  SessionInfo session = 2;
+  koduck.contract.v1.ErrorDetail error = 3;
+}
+
+// ==================== QueryMemory ====================
+
+message QueryMemoryRequest {
+  koduck.contract.v1.RequestMeta meta = 1;
+  string query_text = 2;
+  string session_id = 3;
+  repeated string tags = 4;
+  int32 top_k = 5;
+  RetrievePolicy retrieve_policy = 6;
+  string page_token = 7;
+  int32 page_size = 8;
+}
+
+message QueryMemoryResponse {
+  bool ok = 1;
+  repeated MemoryHit hits = 2;
+  string next_page_token = 3;
+  koduck.contract.v1.ErrorDetail error = 4;
+}
+
+// ==================== AppendMemory ====================
+
+message AppendMemoryRequest {
+  koduck.contract.v1.RequestMeta meta = 1;
+  string session_id = 2;
+  repeated MemoryEntry entries = 3;
+}
+
+message AppendMemoryResponse {
+  bool ok = 1;
+  int32 appended_count = 2;
+  koduck.contract.v1.ErrorDetail error = 3;
+}
+
+// ==================== SummarizeMemory ====================
+
+message SummarizeMemoryRequest {
+  koduck.contract.v1.RequestMeta meta = 1;
+  string session_id = 2;
+  string strategy = 3;
+}
+
+message SummarizeMemoryResponse {
+  bool ok = 1;
+  string summary = 2;
+  koduck.contract.v1.ErrorDetail error = 3;
+}
+
+// ==================== Common Messages ====================
+
+// 会话信息
+message SessionInfo {
+  string session_id = 1;
+  string title = 2;
+  string status = 3;
+  int64 created_at = 4;
+  int64 updated_at = 5;
+  int64 last_message_at = 6;
+  map<string, string> extra = 7;
+}
+
+// 记忆检索命中结果
+message MemoryHit {
+  string session_id = 1;
+  string l0_uri = 2;
+  float score = 3;
+  repeated string match_reasons = 4;
+  string snippet = 5;
+}
+
+// 记忆条目
+message MemoryEntry {
+  string role = 1;
+  string content = 2;
+  int64 timestamp = 3;
+  map<string, string> metadata = 4;
+}
+
+// ==================== Enums ====================
+
+// 记忆检索策略
+enum RetrievePolicy {
+  RETRIEVE_POLICY_UNSPECIFIED = 0;
+  RETRIEVE_POLICY_KEYWORD_FIRST = 1;
+  RETRIEVE_POLICY_SUMMARY_FIRST = 2;
+  RETRIEVE_POLICY_HYBRID = 3;
+}
