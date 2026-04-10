@@ -44,6 +44,8 @@ spec:
               value: "dev-koduck-auth:8081"
             - name: FRONTEND_SERVICE
               value: "dev-koduck-frontend:80"
+            - name: AI_SERVICE
+              value: "dev-koduck-ai:8083"
           command:
             - /bin/sh
             - -ec
@@ -98,5 +100,16 @@ spec:
               curl -fsS -X PUT "${ADMIN}/routes/frontend-root" \
                 -H "$KEY" -H 'Content-Type: application/json' \
                 -d "$(printf '{"uri":"/*","upstream":{"type":"roundrobin","nodes":{"%s":1}}}' "$FRONTEND_SERVICE")"
+
+              # AI Service routes (downstream memory/tool/llm not ready yet)
+              echo "Registering AI chat route: /api/v1/ai/chat -> koduck-ai (jwt-auth)"
+              curl -fsS -X PUT "${ADMIN}/routes/api-ai-chat" \
+                -H "$KEY" -H 'Content-Type: application/json' \
+                -d "$(printf '{"uri":"/api/v1/ai/chat","plugins":{"jwt-auth":{}},"upstream":{"type":"roundrobin","nodes":{"%s":1}}}' "$AI_SERVICE")"
+
+              echo "Registering AI stream route: /api/v1/ai/stream -> koduck-ai (jwt-auth)"
+              curl -fsS -X PUT "${ADMIN}/routes/api-ai-stream" \
+                -H "$KEY" -H 'Content-Type: application/json' \
+                -d "$(printf '{"uri":"/api/v1/ai/stream","plugins":{"jwt-auth":{}},"upstream":{"type":"roundrobin","nodes":{"%s":1}}}' "$AI_SERVICE")"
 
               echo "All registrations done."

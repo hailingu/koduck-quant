@@ -1,0 +1,23 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: koduck-ai
+  namespace: koduck
+spec:
+  replicas: 1
+  template:
+    spec:
+      containers:
+        - name: koduck-ai
+          image: koduck-ai:dev
+          imagePullPolicy: Never
+          env:
+            - name: RUST_LOG
+              value: "info,koduck_ai=info,tower_http=warn"
+            # Downstream services (memory/tool/llm) not ready yet - use placeholder
+            - name: KODUCK_AI__MEMORY__GRPC_TARGET
+              value: "dev-memory-service:50051"
+            - name: KODUCK_AI__TOOLS__GRPC_TARGET
+              value: "dev-tool-service:50051"
+            - name: KODUCK_AI__LLM__ADAPTER_GRPC_TARGET
+              value: "dev-llm-adapter:50051"

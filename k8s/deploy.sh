@@ -503,6 +503,9 @@ install() {
     echo -e "${YELLOW}等待 koduck-user 启动...${NC}"
     wait_pods_ready "app=koduck-user" "30s" "koduck-user"
 
+    echo -e "${YELLOW}等待 koduck-ai 启动...${NC}"
+    wait_pods_ready "app=koduck-ai" "60s" "koduck-ai"
+
     # 阶段二：APISIX 就绪后注册路由和 Consumer
     echo -e "${YELLOW}注册路由和 Consumer...${NC}"
     kubectl apply -f "${SCRIPT_DIR}/overlays/${ENV}/apisix-route-init.yaml"
@@ -602,6 +605,11 @@ show_access_info() {
     echo -e "\n${BLUE}User Service:${NC}"
     echo "  kubectl port-forward svc/${ENV}-koduck-user 8082:8082 -n ${NAMESPACE}"
     echo "  http://localhost:8082"
+
+    echo -e "\n${BLUE}AI Service (koduck-ai):${NC}"
+    echo "  kubectl port-forward svc/${ENV}-koduck-ai 8083:8083 -n ${NAMESPACE}"
+    echo "  http://localhost:8083"
+    echo "  gRPC: localhost:50051"
     
     if [ "$ENV" == "prod" ]; then
         echo -e "\n${BLUE}Admin API:${NC}"

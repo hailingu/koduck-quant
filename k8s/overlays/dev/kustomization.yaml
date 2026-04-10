@@ -8,6 +8,7 @@ resources:
   - ../../base/frontend.yaml
   - ../../base/koduck-auth.yaml
   - ../../base/koduck-user.yaml
+  - ../../base/koduck-ai.yaml
   - ../../base/postgres.yaml
   - ../../base/redis.yaml
   - ./apisix.yaml
@@ -16,6 +17,7 @@ patchesStrategicMerge:
   - ./frontend.yaml
   - ./koduck-auth.yaml
   - ./koduck-user.yaml
+  - ./koduck-ai.yaml
   - ./postgres.yaml
 
 namePrefix: dev-
