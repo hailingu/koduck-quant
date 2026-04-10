@@ -111,9 +111,9 @@ cd koduck-ai
 3. 打通 CI 中 proto 变更自动触发编译
 
 **验收标准:**
-- [ ] `cargo build` 能生成全部 stub
-- [ ] memory/tool/llm 的 client trait 可直接注入 orchestrator
-- [ ] proto 变更可被编译器检测
+- [x] `cargo build` 能生成全部 stub（通过 `docker build` 验证）
+- [x] memory/tool/llm 的 client trait 可直接注入 orchestrator（通过 `clients::proto::MemoryServiceClient` 等 re-export）
+- [x] proto 变更可被编译器检测（`cargo:rerun-if-changed` 已配置）
 
 ---
 
