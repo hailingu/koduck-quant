@@ -1,11 +1,37 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router";
 import { Settings, User, Activity, LogOut, HelpCircle } from "lucide-react";
-import { clearAuth } from "../auth";
+import { clearAuth, fetchCurrentUserProfile, getCurrentUser, type UserInfo } from "../auth";
 
 export function Layout({ children }: { children: React.ReactNode }) {
   const [showUserMenu, setShowUserMenu] = useState(false);
+  const [currentUser, setCurrentUser] = useState<UserInfo | null>(getCurrentUser());
   const navigate = useNavigate();
+
+  useEffect(() => {
+    let mounted = true;
+    void fetchCurrentUserProfile().then((user) => {
+      if (mounted && user) {
+        setCurrentUser(user);
+      }
+    });
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  const displayName = useMemo(
+    () => currentUser?.nickname || currentUser?.username || "User",
+    [currentUser],
+  );
+  const displayEmail = useMemo(
+    () => currentUser?.email || "user@koduckquant.com",
+    [currentUser],
+  );
+  const avatarUrl = useMemo(
+    () => currentUser?.avatarUrl || currentUser?.avatar_url || "",
+    [currentUser],
+  );
 
   const handleLogout = (e: React.MouseEvent<HTMLAnchorElement>) => {
     e.preventDefault();
@@ -22,7 +48,11 @@ export function Layout({ children }: { children: React.ReactNode }) {
             onClick={() => setShowUserMenu(!showUserMenu)}
             className="w-8 h-8 bg-[#10a37f] rounded-full flex items-center justify-center hover:bg-[#0d8b6d] transition-colors"
           >
-            <User className="w-4 h-4 text-white" />
+            {avatarUrl ? (
+              <img src={avatarUrl} alt={displayName} className="w-8 h-8 rounded-full object-cover" />
+            ) : (
+              <User className="w-4 h-4 text-white" />
+            )}
           </button>
 
           {showUserMenu && (
@@ -33,8 +63,8 @@ export function Layout({ children }: { children: React.ReactNode }) {
               />
               <div className="absolute top-full right-0 mt-2 w-56 bg-white border border-gray-200 rounded-lg shadow-lg py-1 z-20">
                 <div className="px-3 py-2 border-b border-gray-100">
-                  <div className="text-sm font-medium text-gray-900">User</div>
-                  <div className="text-xs text-gray-500">user@koduckquant.com</div>
+                  <div className="text-sm font-medium text-gray-900">{displayName}</div>
+                  <div className="text-xs text-gray-500">{displayEmail}</div>
                 </div>
                 <a
                   href="#"
