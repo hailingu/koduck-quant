@@ -614,7 +614,7 @@ export function KoduckAi() {
                     }`}
                   >
                     {Boolean(message.timestamp) && (
-                      <div className="bg-gray-100 text-gray-600 text-xs px-3 py-1 rounded-full">
+                      <div className="px-1 text-sm text-[#667085]">
                         {formatTimestamp(message.timestamp)}
                       </div>
                     )}
