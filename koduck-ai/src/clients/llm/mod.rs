@@ -1,0 +1,1 @@
+//! LLM adapter gRPC client
