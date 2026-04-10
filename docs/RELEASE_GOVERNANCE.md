@@ -239,7 +239,7 @@ curl -s http://localhost:8080/actuator/health | jq .
 
 - [发布检查清单](./release-checklist.md)
 - [回滚 Runbook](./rollback-runbook.md)
-- [ADR-9001: 测试覆盖率门禁机制](./adr/9001-test-coverage-gate.md)
+- [ADR-0002: 测试覆盖率门禁机制](./adr/0002-test-coverage-gate.md)
 - [开发指南](../DEVELOPMENT.md)
 - [Docker 部署指南](../DOCKER.md)
 
