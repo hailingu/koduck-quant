@@ -50,6 +50,7 @@ tracing-subscriber = { version = "0.3", features = [
 # 错误处理
 thiserror = "1.0"
 anyhow = "1.0"
+strum = { version = "0.26", features = ["derive"] }
 
 # 时间和 UUID
 chrono = { version = "0.4", features = ["serde"] }
