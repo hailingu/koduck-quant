@@ -81,6 +81,10 @@ pub struct LlmConfig {
 #[derive(Debug, Deserialize, Clone)]
 pub struct StreamConfig {
     pub max_duration_ms: u64,
+    pub queue_capacity: usize,
+    pub enqueue_timeout_ms: u64,
+    pub shutdown_drain_timeout_ms: u64,
+    pub shutdown_cleanup_timeout_ms: u64,
 }
 
 /// Auth configuration (JWKS endpoint)
@@ -163,6 +167,26 @@ impl StreamConfig {
         if self.max_duration_ms == 0 {
             return Err(ValidationError {
                 message: "stream.max_duration_ms must be greater than 0".to_string(),
+            });
+        }
+        if self.queue_capacity == 0 {
+            return Err(ValidationError {
+                message: "stream.queue_capacity must be greater than 0".to_string(),
+            });
+        }
+        if self.enqueue_timeout_ms == 0 {
+            return Err(ValidationError {
+                message: "stream.enqueue_timeout_ms must be greater than 0".to_string(),
+            });
+        }
+        if self.shutdown_drain_timeout_ms == 0 {
+            return Err(ValidationError {
+                message: "stream.shutdown_drain_timeout_ms must be greater than 0".to_string(),
+            });
+        }
+        if self.shutdown_cleanup_timeout_ms == 0 {
+            return Err(ValidationError {
+                message: "stream.shutdown_cleanup_timeout_ms must be greater than 0".to_string(),
             });
         }
         Ok(())
@@ -249,6 +273,10 @@ impl Default for StreamConfig {
     fn default() -> Self {
         Self {
             max_duration_ms: 300_000, // 5 minutes
+            queue_capacity: 64,
+            enqueue_timeout_ms: 1_000,
+            shutdown_drain_timeout_ms: 10_000,
+            shutdown_cleanup_timeout_ms: 2_000,
         }
     }
 }
@@ -308,6 +336,10 @@ impl Config {
             .set_default("llm.stub_enabled", false)?
             // Defaults — StreamConfig
             .set_default("stream.max_duration_ms", 300_000)?
+            .set_default("stream.queue_capacity", 64)?
+            .set_default("stream.enqueue_timeout_ms", 1_000)?
+            .set_default("stream.shutdown_drain_timeout_ms", 10_000)?
+            .set_default("stream.shutdown_cleanup_timeout_ms", 2_000)?
             // Defaults — AuthConfig
             .set_default("auth.jwks_url", "http://localhost:8081/.well-known/jwks.json")?
             // Defaults — CapabilitiesConfig

@@ -5,7 +5,7 @@ use tokio::sync::broadcast;
 use tracing::{error, info};
 use tracing_subscriber::EnvFilter;
 
-use koduck_ai::app;
+use koduck_ai::app::{self, build_state};
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 
@@ -38,7 +38,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Create HTTP server
     let http_addr: SocketAddr = config.server.http_addr.parse()?;
     let http_listener = TcpListener::bind(http_addr).await?;
-    let http_app = app::create_router(config.clone());
+    let state = build_state(config.clone());
+    let http_app = app::create_router(state.clone());
 
     // Create metrics server
     let metrics_addr: SocketAddr = config.server.metrics_addr.parse()?;
@@ -56,34 +57,48 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut http_shutdown_rx = shutdown_tx.subscribe();
     let mut metrics_shutdown_rx = shutdown_tx.subscribe();
 
-    // Run HTTP + metrics services concurrently
-    tokio::select! {
-        result = axum::serve(
+    let http_server = tokio::spawn(async move {
+        axum::serve(
             http_listener,
             http_app.into_make_service_with_connect_info::<SocketAddr>(),
-        ).with_graceful_shutdown(async move {
+        )
+        .with_graceful_shutdown(async move {
             let _ = http_shutdown_rx.recv().await;
-        }) => {
-            if let Err(e) = result {
-                error!("HTTP server error: {}", e);
-            }
-        }
-        result = axum::serve(metrics_listener, metrics_app).with_graceful_shutdown(async move {
+        })
+        .await
+    });
+    let metrics_server = tokio::spawn(async move {
+        axum::serve(metrics_listener, metrics_app)
+            .with_graceful_shutdown(async move {
             let _ = metrics_shutdown_rx.recv().await;
-        }) => {
-            if let Err(e) = result {
-                error!("Metrics server error: {}", e);
-            }
-        }
-        result = tokio::signal::ctrl_c() => {
-            match result {
-                Ok(()) => info!("Received Ctrl+C, shutting down all services..."),
-                Err(e) => error!("Failed to listen for Ctrl+C: {}", e),
-            }
-        }
+            })
+            .await
+    });
+
+    match tokio::signal::ctrl_c().await {
+        Ok(()) => info!("Received Ctrl+C, starting graceful shutdown..."),
+        Err(e) => error!("Failed to listen for Ctrl+C: {}", e),
     }
 
+    state
+        .lifecycle
+        .execute_shutdown(&state.stream_registry)
+        .await;
+
     let _ = shutdown_tx.send(());
+
+    match http_server.await {
+        Ok(Ok(())) => {}
+        Ok(Err(e)) => error!("HTTP server error: {}", e),
+        Err(e) => error!("HTTP server join error: {}", e),
+    }
+
+    match metrics_server.await {
+        Ok(Ok(())) => {}
+        Ok(Err(e)) => error!("Metrics server error: {}", e),
+        Err(e) => error!("Metrics server join error: {}", e),
+    }
+
     info!("Shutting down koduck-ai service...");
     Ok(())
 }

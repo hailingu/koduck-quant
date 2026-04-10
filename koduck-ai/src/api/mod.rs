@@ -85,6 +85,13 @@ pub async fn chat(
     Json(request): Json<ChatRequest>,
 ) -> Response {
     let request_id = extract_or_create_request_id(&headers);
+    if !state.lifecycle.is_accepting_requests() {
+        return api_error_response(
+            AppError::new(ErrorCode::ServerBusy, "service is draining new requests")
+                .with_request_id(request_id.clone()),
+            request_id,
+        );
+    }
     let auth_ctx = match crate::auth::authenticate_bearer(&headers, &state).await {
         Ok(ctx) => ctx,
         Err(err) => return api_error_response(err.with_request_id(request_id.clone()), request_id),
@@ -153,6 +160,13 @@ pub async fn chat_stream(
     Json(request): Json<ChatStreamRequest>,
 ) -> Response {
     let request_id = extract_or_create_request_id(&headers);
+    if !state.lifecycle.is_accepting_requests() {
+        return api_error_response(
+            AppError::new(ErrorCode::ServerBusy, "service is draining new requests")
+                .with_request_id(request_id.clone()),
+            request_id,
+        );
+    }
     let auth_ctx = match crate::auth::authenticate_bearer(&headers, &state).await {
         Ok(ctx) => ctx,
         Err(err) => return api_error_response(err.with_request_id(request_id.clone()), request_id),
@@ -198,7 +212,13 @@ pub async fn chat_stream(
     } else {
         state
             .stream_registry
-            .create_or_replace(session_id.clone(), request_id.clone())
+            .create_or_replace(
+                session_id.clone(),
+                request_id.clone(),
+                state.config.stream.queue_capacity,
+                Duration::from_millis(state.config.stream.enqueue_timeout_ms),
+                state.lifecycle.clone(),
+            )
             .await
     };
 
@@ -209,16 +229,31 @@ pub async fn chat_stream(
             tokio::spawn(async move {
                 for chunk in chunks {
                     tokio::time::sleep(Duration::from_millis(120)).await;
-                    stream_session
-                        .append_event(StreamEventData::delta(
+                    if let Err(err) = stream_session
+                        .enqueue_event(StreamEventData::delta(
                             stream_session.request_id().to_string(),
                             stream_session.session_id().to_string(),
                             chunk,
                         ))
-                        .await;
+                        .await
+                    {
+                        info!(
+                            request_id = %stream_session.request_id(),
+                            session_id = %stream_session.session_id(),
+                            error = %err,
+                            "stream queue rejected stub event"
+                        );
+                        stream_session
+                            .force_shutdown(
+                                ErrorCode::StreamTimeout.to_string(),
+                                "stream queue backpressure timeout",
+                            )
+                            .await;
+                        return;
+                    }
                 }
-                stream_session
-                    .append_event(StreamEventData::done(
+                let _ = stream_session
+                    .enqueue_event(StreamEventData::done(
                         stream_session.request_id().to_string(),
                         stream_session.session_id().to_string(),
                         "stop",
@@ -236,13 +271,28 @@ pub async fn chat_stream(
                 while let Some(next) = upstream.next().await {
                     match next {
                         Ok(ev) => {
-                            stream_session
-                                .append_event(build_stream_event(
+                            if let Err(err) = stream_session
+                                .enqueue_event(build_stream_event(
                                     &ev,
                                     stream_session.request_id(),
                                     stream_session.session_id(),
                                 ))
-                                .await;
+                                .await
+                            {
+                                info!(
+                                    request_id = %stream_session.request_id(),
+                                    session_id = %stream_session.session_id(),
+                                    error = %err,
+                                    "stream queue rejected upstream event"
+                                );
+                                stream_session
+                                    .force_shutdown(
+                                        ErrorCode::StreamTimeout.to_string(),
+                                        "stream queue backpressure timeout",
+                                    )
+                                    .await;
+                                break;
+                            }
                         }
                         Err(err) => {
                             info!(
@@ -251,8 +301,8 @@ pub async fn chat_stream(
                                 error = %err,
                                 "llm stream item failed"
                             );
-                            stream_session
-                                .append_event(StreamEventData::error(
+                            let _ = stream_session
+                                .enqueue_event(StreamEventData::error(
                                     stream_session.request_id().to_string(),
                                     stream_session.session_id().to_string(),
                                     ErrorCode::StreamInterrupted.to_string(),
@@ -271,8 +321,8 @@ pub async fn chat_stream(
                     .any(|event| matches!(event.event_type.as_str(), "done" | "error"));
 
                 if !has_terminal_event {
-                    stream_session
-                        .append_event(StreamEventData::done(
+                    let _ = stream_session
+                        .enqueue_event(StreamEventData::done(
                             stream_session.request_id().to_string(),
                             stream_session.session_id().to_string(),
                             "stop",
