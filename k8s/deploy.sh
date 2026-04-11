@@ -496,6 +496,11 @@ install() {
         kubectl kustomize --load-restrictor=LoadRestrictionsNone "${SCRIPT_DIR}/overlays/${ENV}" | kubectl apply -f -
     fi
 
+    # APISIX 通过 ConfigMap 挂载配置。仅 apply ConfigMap 不会自动重启 Pod，
+    # 所以在路由初始化前强制滚动网关，确保新插件清单与日志格式已实际生效。
+    kubectl rollout restart deployment/"${ENV}"-apisix-gateway -n "${NAMESPACE}" >/dev/null
+    kubectl rollout status deployment/"${ENV}"-apisix-gateway -n "${NAMESPACE}" --timeout=60s
+
     # 覆盖 auth 连接地址，确保与环境前缀服务名一致（如 dev-postgres）
     ensure_koduck_auth_secret_endpoints
 

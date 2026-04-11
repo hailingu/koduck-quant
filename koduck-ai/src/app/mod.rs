@@ -10,11 +10,12 @@ use axum::{
 use tower_http::request_id::{MakeRequestUuid, PropagateRequestIdLayer, SetRequestIdLayer};
 use tower_http::trace::TraceLayer;
 use tokio::sync::broadcast;
+use tracing::warn;
 
 use crate::api;
 use crate::clients::capability::CapabilityCache;
-use crate::config::Config;
-use crate::reliability::error::AppError;
+use crate::config::{Config, LlmMode};
+use crate::reliability::error::{AppError, UpstreamService};
 use crate::llm::{build_provider_router, LlmProvider};
 use crate::reliability::degrade::DegradePolicy;
 use crate::reliability::retry_budget::RetryBudgetPolicy;
@@ -69,7 +70,7 @@ pub async fn initialize_runtime(
     state: &Arc<AppState>,
     shutdown_rx: broadcast::Receiver<()>,
 ) -> Result<(), AppError> {
-    state
+    if let Err(error) = state
         .capability_cache
         .initial_negotiation_mode_aware(
             &state.config.memory.grpc_target,
@@ -79,7 +80,19 @@ pub async fn initialize_runtime(
             &state.config.llm,
             Arc::clone(&state.llm_provider),
         )
-        .await?;
+        .await
+    {
+        if should_tolerate_startup_capability_error(state, &error) {
+            warn!(
+                error = %error,
+                memory_target = %state.config.memory.grpc_target,
+                tool_target = %state.config.tools.grpc_target,
+                "memory/tool capability negotiation failed during startup; continuing in direct llm mode and relying on background refresh"
+            );
+        } else {
+            return Err(error);
+        }
+    }
 
     state.capability_cache.spawn_refresh_task_mode_aware(
         state.config.memory.grpc_target.clone(),
@@ -92,6 +105,17 @@ pub async fn initialize_runtime(
     );
 
     Ok(())
+}
+
+fn should_tolerate_startup_capability_error(state: &AppState, error: &AppError) -> bool {
+    if state.config.llm.mode != LlmMode::Direct {
+        return false;
+    }
+
+    matches!(
+        error.upstream,
+        Some(UpstreamService::Memory) | Some(UpstreamService::Tool)
+    )
 }
 
 /// Create the main HTTP router
