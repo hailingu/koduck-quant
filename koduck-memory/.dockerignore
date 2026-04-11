@@ -1,0 +1,11 @@
+target/
+.git/
+.gitignore
+*.md
+!README.md
+tests/
+benches/
+k8s/
+scripts/
+.env
+.env.*

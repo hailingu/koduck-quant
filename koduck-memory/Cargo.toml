@@ -1,0 +1,38 @@
+[package]
+name = "koduck-memory"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.75"
+authors = ["Koduck Team <dev@koduck.com>"]
+description = "Koduck memory service - Rust + gRPC implementation"
+license = "MIT"
+
+[dependencies]
+tokio = { version = "1.35", features = ["full"] }
+axum = { version = "0.7", features = ["http1", "http2", "macros"] }
+tonic = { version = "0.11", features = ["gzip"] }
+tonic-health = "0.11"
+tonic-reflection = "0.11"
+prost = "0.12"
+prost-types = "0.12"
+dotenvy = "0.15"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+toml = "0.8"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "json", "time"] }
+thiserror = "1.0"
+anyhow = "1.0"
+
+[build-dependencies]
+tonic-build = "0.11"
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+strip = true
+
+[profile.dev]
+opt-level = 0
+debug = true

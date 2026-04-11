@@ -1,0 +1,8 @@
+[app]
+name = "koduck-memory"
+env = "dev"
+version = ""
+
+[server]
+grpc_addr = "0.0.0.0:50051"
+metrics_addr = "0.0.0.0:9090"

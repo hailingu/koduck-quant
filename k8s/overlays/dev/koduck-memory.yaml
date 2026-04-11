@@ -1,0 +1,16 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: koduck-memory
+  namespace: koduck
+spec:
+  replicas: 1
+  template:
+    spec:
+      containers:
+        - name: koduck-memory
+          image: koduck-memory:dev
+          imagePullPolicy: Never
+          env:
+            - name: RUST_LOG
+              value: "info,koduck_memory=info,tower_http=warn"

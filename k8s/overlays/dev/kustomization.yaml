@@ -9,6 +9,7 @@ resources:
   - ../../base/koduck-auth.yaml
   - ../../base/koduck-user.yaml
   - ../../base/koduck-ai.yaml
+  - ../../base/koduck-memory.yaml
   - ../../base/postgres.yaml
   - ../../base/redis.yaml
   - ./apisix.yaml
@@ -18,6 +19,7 @@ patchesStrategicMerge:
   - ./koduck-auth.yaml
   - ./koduck-user.yaml
   - ./koduck-ai.yaml
+  - ./koduck-memory.yaml
   - ./postgres.yaml
 
 namePrefix: dev-
