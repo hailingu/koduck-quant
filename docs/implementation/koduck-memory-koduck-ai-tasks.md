@@ -94,8 +94,8 @@
 3. 预留可扩展 protobuf tag
 
 **验收标准:**
-- [ ] `memory.v1` 明确为长期 southbound contract
-- [ ] proto 编号与语义评审通过
+- [x] `memory.v1` 明确为长期 southbound contract
+- [x] proto 编号与语义评审通过
 
 ### Task 2.2: 生成 server/client stub
 **详细要求:**

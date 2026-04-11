@@ -66,8 +66,31 @@ impl MemoryGrpcService {
         if meta.request_id.trim().is_empty() {
             return Err(Status::invalid_argument("request_id is required"));
         }
+        if meta.session_id.trim().is_empty() {
+            return Err(Status::invalid_argument("session_id is required"));
+        }
+        if meta.user_id.trim().is_empty() {
+            return Err(Status::invalid_argument("user_id is required"));
+        }
+        if meta.tenant_id.trim().is_empty() {
+            return Err(Status::invalid_argument("tenant_id is required"));
+        }
         if meta.trace_id.trim().is_empty() {
             return Err(Status::invalid_argument("trace_id is required"));
+        }
+        if meta.deadline_ms <= 0 {
+            return Err(Status::invalid_argument("deadline_ms must be greater than 0"));
+        }
+        if meta.api_version.trim().is_empty() {
+            return Err(Status::invalid_argument("api_version is required"));
+        }
+        Ok(())
+    }
+
+    fn validate_write_meta(meta: &RequestMeta) -> Result<(), Status> {
+        Self::validate_meta(meta)?;
+        if meta.idempotency_key.trim().is_empty() {
+            return Err(Status::invalid_argument("idempotency_key is required"));
         }
         Ok(())
     }
@@ -87,7 +110,7 @@ impl MemoryService for MemoryGrpcService {
         &self,
         request: Request<UpsertSessionMetaRequest>,
     ) -> Result<Response<UpsertSessionMetaResponse>, Status> {
-        Self::validate_meta(request.get_ref().meta.as_ref().ok_or_else(|| {
+        Self::validate_write_meta(request.get_ref().meta.as_ref().ok_or_else(|| {
             Status::invalid_argument("meta is required")
         })?)?;
         Ok(Response::new(UpsertSessionMetaResponse {
@@ -129,7 +152,7 @@ impl MemoryService for MemoryGrpcService {
         &self,
         request: Request<AppendMemoryRequest>,
     ) -> Result<Response<AppendMemoryResponse>, Status> {
-        Self::validate_meta(request.get_ref().meta.as_ref().ok_or_else(|| {
+        Self::validate_write_meta(request.get_ref().meta.as_ref().ok_or_else(|| {
             Status::invalid_argument("meta is required")
         })?)?;
         Ok(Response::new(AppendMemoryResponse {
@@ -143,7 +166,7 @@ impl MemoryService for MemoryGrpcService {
         &self,
         request: Request<SummarizeMemoryRequest>,
     ) -> Result<Response<SummarizeMemoryResponse>, Status> {
-        Self::validate_meta(request.get_ref().meta.as_ref().ok_or_else(|| {
+        Self::validate_write_meta(request.get_ref().meta.as_ref().ok_or_else(|| {
             Status::invalid_argument("meta is required")
         })?)?;
         Ok(Response::new(SummarizeMemoryResponse {
@@ -154,5 +177,46 @@ impl MemoryService for MemoryGrpcService {
             ),
             error: Self::not_implemented_error("SummarizeMemory"),
         }))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::MemoryGrpcService;
+    use crate::api::proto::contract::RequestMeta;
+
+    fn valid_meta() -> RequestMeta {
+        RequestMeta {
+            request_id: "req-1".to_string(),
+            session_id: "session-1".to_string(),
+            user_id: "user-1".to_string(),
+            tenant_id: "tenant-1".to_string(),
+            trace_id: "trace-1".to_string(),
+            idempotency_key: "idem-1".to_string(),
+            deadline_ms: 5000,
+            api_version: "memory.v1".to_string(),
+        }
+    }
+
+    #[test]
+    fn validate_meta_rejects_missing_tenant_id() {
+        let mut meta = valid_meta();
+        meta.tenant_id.clear();
+
+        let error = MemoryGrpcService::validate_meta(&meta).unwrap_err();
+
+        assert_eq!(error.code(), tonic::Code::InvalidArgument);
+        assert_eq!(error.message(), "tenant_id is required");
+    }
+
+    #[test]
+    fn validate_write_meta_requires_idempotency_key() {
+        let mut meta = valid_meta();
+        meta.idempotency_key.clear();
+
+        let error = MemoryGrpcService::validate_write_meta(&meta).unwrap_err();
+
+        assert_eq!(error.code(), tonic::Code::InvalidArgument);
+        assert_eq!(error.message(), "idempotency_key is required");
     }
 }

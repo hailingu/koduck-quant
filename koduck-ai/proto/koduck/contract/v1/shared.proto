@@ -4,14 +4,21 @@ package koduck.contract.v1;
 option go_package = "github.com/hailingu/koduck-quant/proto/koduck/contract/v1;contractv1";
 
 message RequestMeta {
+  // Required for every memory.v1 RPC in the long-lived southbound contract.
   string request_id = 1;
   string session_id = 2;
   string user_id = 3;
   string tenant_id = 4;
   string trace_id = 5;
+  // Required for write-like operations such as UpsertSessionMeta, AppendMemory,
+  // and SummarizeMemory task submission.
   string idempotency_key = 6;
   int64 deadline_ms = 7;
   string api_version = 8;
+
+  // Reserve a small block so future metadata can evolve without destabilizing
+  // the first frozen tag layout.
+  reserved 9 to 19;
 }
 
 message ErrorDetail {
