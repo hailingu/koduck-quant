@@ -139,14 +139,16 @@ V1 契约基于 `memory.v1`，入口包括：
 - `request_id`
 - `session_id`
 - `user_id`
+- `tenant_id`
 - `trace_id`
 - `deadline_ms`
 - `api_version`
-- `idempotency_key`（写操作建议必填）
+- `idempotency_key`（`UpsertSessionMeta` / `AppendMemory` / `SummarizeMemory` 必填）
 
 语义要求：
 
 - `request_id` 用于日志、错误回传与幂等追踪
+- `session_id` / `tenant_id` / `user_id` 共同限定会话与租户上下文
 - `trace_id` 用于链路观测
 - `deadline_ms` 必须向内部存储和异步任务调度传播
 - `idempotency_key` 用于抵御上游 retry 导致的重复写入

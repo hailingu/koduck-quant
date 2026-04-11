@@ -6,6 +6,8 @@ import "koduck/contract/v1/shared.proto";
 
 option go_package = "github.com/hailingu/koduck-quant/proto/koduck/memory/v1;memoryv1";
 
+// This proto is the frozen long-lived southbound contract between koduck-ai
+// and koduck-memory for V1. Existing tag numbers must remain stable.
 service MemoryService {
   rpc GetCapabilities(koduck.contract.v1.RequestMeta) returns (koduck.contract.v1.Capability);
   rpc UpsertSessionMeta(UpsertSessionMetaRequest) returns (UpsertSessionMetaResponse);
@@ -21,6 +23,11 @@ message UpsertSessionMetaRequest {
   string title = 3;
   string status = 4;
   map<string, string> extra = 5;
+  string parent_session_id = 6;
+  string forked_from_session_id = 7;
+  int64 last_message_at = 8;
+
+  reserved 9 to 19;
 }
 
 message UpsertSessionMetaResponse {
@@ -31,6 +38,8 @@ message UpsertSessionMetaResponse {
 message GetSessionRequest {
   koduck.contract.v1.RequestMeta meta = 1;
   string session_id = 2;
+
+  reserved 3 to 19;
 }
 
 message GetSessionResponse {
@@ -43,11 +52,13 @@ message QueryMemoryRequest {
   koduck.contract.v1.RequestMeta meta = 1;
   string query_text = 2;
   string session_id = 3;
-  repeated string tags = 4;
+  string domain_class = 4;
   int32 top_k = 5;
   RetrievePolicy retrieve_policy = 6;
   string page_token = 7;
   int32 page_size = 8;
+
+  reserved 9 to 19;
 }
 
 message QueryMemoryResponse {
@@ -61,6 +72,8 @@ message AppendMemoryRequest {
   koduck.contract.v1.RequestMeta meta = 1;
   string session_id = 2;
   repeated MemoryEntry entries = 3;
+
+  reserved 4 to 19;
 }
 
 message AppendMemoryResponse {
@@ -73,6 +86,8 @@ message SummarizeMemoryRequest {
   koduck.contract.v1.RequestMeta meta = 1;
   string session_id = 2;
   string strategy = 3;
+
+  reserved 4 to 19;
 }
 
 message SummarizeMemoryResponse {
@@ -83,12 +98,18 @@ message SummarizeMemoryResponse {
 
 message SessionInfo {
   string session_id = 1;
-  string title = 2;
-  string status = 3;
-  int64 created_at = 4;
-  int64 updated_at = 5;
-  int64 last_message_at = 6;
-  map<string, string> extra = 7;
+  string tenant_id = 2;
+  string user_id = 3;
+  string parent_session_id = 4;
+  string forked_from_session_id = 5;
+  string title = 6;
+  string status = 7;
+  int64 created_at = 8;
+  int64 updated_at = 9;
+  int64 last_message_at = 10;
+  map<string, string> extra = 11;
+
+  reserved 12 to 19;
 }
 
 message MemoryHit {
@@ -97,6 +118,8 @@ message MemoryHit {
   float score = 3;
   repeated string match_reasons = 4;
   string snippet = 5;
+
+  reserved 6 to 19;
 }
 
 message MemoryEntry {
@@ -104,11 +127,15 @@ message MemoryEntry {
   string content = 2;
   int64 timestamp = 3;
   map<string, string> metadata = 4;
+
+  reserved 5 to 19;
 }
 
 enum RetrievePolicy {
   RETRIEVE_POLICY_UNSPECIFIED = 0;
-  RETRIEVE_POLICY_KEYWORD_FIRST = 1;
+  RETRIEVE_POLICY_DOMAIN_FIRST = 1;
   RETRIEVE_POLICY_SUMMARY_FIRST = 2;
   RETRIEVE_POLICY_HYBRID = 3;
+
+  reserved 4 to 19;
 }
