@@ -65,9 +65,16 @@
 2. 评估并为 `user_roles`、`role_permissions`、`user_credentials` 增加租户语义
 3. 新增 `tenants` 表或最小租户真值
 
+**执行结果（2026-04-11）:**
+- `koduck-user` 新增 Flyway `V2__add_tenant_columns.sql`，为 `users`、`roles`、`user_roles`、`role_permissions`、`user_credentials` 增加 `tenant_id`
+- 新增 `tenants` 表并写入最小租户真值 `default`
+- 对现有数据执行 `default` tenant 回填，并为新增列设置 `NOT NULL DEFAULT 'default'`
+- 增加基础 tenant 索引，唯一约束切换保留到 Task 2.3
+- 新增 Testcontainers 迁移验证测试，确认 schema 迁移可执行
+
 **验收标准:**
-- [ ] 主表具备 `tenant_id`
-- [ ] 迁移脚本可执行
+- [x] 主表具备 `tenant_id`
+- [x] 迁移脚本可执行
 
 ### Task 2.2: `koduck-auth` 安全域表增加 `tenant_id`
 **详细要求:**
