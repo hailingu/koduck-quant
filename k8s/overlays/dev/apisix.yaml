@@ -202,6 +202,12 @@ data:
     apisix:
       node_listen: 9080
       enable_ipv6: false
+    nginx_config:
+      http:
+        enable_access_log: true
+        access_log: /dev/stdout
+        access_log_format: '{"time":"$time_iso8601","route_id":"$route_id","service_id":"$service_id","upstream_addr":"$upstream_addr","status":"$status","request_id":"$request_id","session_id":"$http_x_session_id","user_id":"$consumer_name","trace_id":"$opentelemetry_trace_id","traceparent":"$opentelemetry_context_traceparent","uri":"$uri","method":"$request_method"}'
+        access_log_format_escape: json
     deployment:
       role: traditional
       role_traditional:
@@ -219,6 +225,9 @@ data:
           - "http://dev-apisix-etcd:2379"
         prefix: "/apisix"
         timeout: 30
+    plugin_attr:
+      opentelemetry:
+        set_ngx_var: true
     plugins:
       - cors
       - jwt-auth
@@ -226,5 +235,7 @@ data:
       - limit-count
       - limit-req
       - openid-connect
+      - opentelemetry
       - prometheus
       - proxy-rewrite
+      - grpc-transcode
