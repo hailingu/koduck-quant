@@ -13,6 +13,8 @@ pub struct RefreshTokenRepository {
     pool: PgPool,
 }
 
+const DEFAULT_TENANT_ID: &str = "default";
+
 impl RefreshTokenRepository {
     /// Create new refresh token repository
     pub fn new(pool: PgPool) -> Self {
@@ -26,13 +28,26 @@ impl RefreshTokenRepository {
         token_hash: &str,
         expires_at: DateTime<Utc>,
     ) -> Result<RefreshTokenRecord> {
+        self.save_for_tenant(DEFAULT_TENANT_ID, user_id, token_hash, expires_at)
+            .await
+    }
+
+    /// Save refresh token in a tenant scope
+    pub async fn save_for_tenant(
+        &self,
+        tenant_id: &str,
+        user_id: i64,
+        token_hash: &str,
+        expires_at: DateTime<Utc>,
+    ) -> Result<RefreshTokenRecord> {
         let token = sqlx::query_as::<_, RefreshTokenRecord>(
             r#"
-            INSERT INTO refresh_tokens (user_id, token_hash, expires_at)
-            VALUES ($1, $2, $3)
-            RETURNING id, user_id, token_hash, expires_at, created_at, revoked_at
+            INSERT INTO refresh_tokens (tenant_id, user_id, token_hash, expires_at)
+            VALUES ($1, $2, $3, $4)
+            RETURNING id, tenant_id, user_id, token_hash, expires_at, created_at, revoked_at
             "#,
         )
+        .bind(tenant_id)
         .bind(user_id)
         .bind(token_hash)
         .bind(expires_at)
@@ -45,13 +60,23 @@ impl RefreshTokenRepository {
 
     /// Find token by hash
     pub async fn find_by_token(&self, token_hash: &str) -> Result<Option<RefreshTokenRecord>> {
+        self.find_by_token_in_tenant(DEFAULT_TENANT_ID, token_hash).await
+    }
+
+    /// Find token by hash in a tenant scope
+    pub async fn find_by_token_in_tenant(
+        &self,
+        tenant_id: &str,
+        token_hash: &str,
+    ) -> Result<Option<RefreshTokenRecord>> {
         let token = sqlx::query_as::<_, RefreshTokenRecord>(
             r#"
-            SELECT id, user_id, token_hash, expires_at, created_at, revoked_at
+            SELECT id, tenant_id, user_id, token_hash, expires_at, created_at, revoked_at
             FROM refresh_tokens
-            WHERE token_hash = $1
+            WHERE tenant_id = $1 AND token_hash = $2
             "#,
         )
+        .bind(tenant_id)
         .bind(token_hash)
         .fetch_optional(&self.pool)
         .await
@@ -62,13 +87,19 @@ impl RefreshTokenRepository {
 
     /// Revoke token
     pub async fn revoke(&self, token_hash: &str) -> Result<()> {
+        self.revoke_in_tenant(DEFAULT_TENANT_ID, token_hash).await
+    }
+
+    /// Revoke token in a tenant scope
+    pub async fn revoke_in_tenant(&self, tenant_id: &str, token_hash: &str) -> Result<()> {
         sqlx::query(
             r#"
             UPDATE refresh_tokens
             SET revoked_at = NOW()
-            WHERE token_hash = $1 AND revoked_at IS NULL
+            WHERE tenant_id = $1 AND token_hash = $2 AND revoked_at IS NULL
             "#,
         )
+        .bind(tenant_id)
         .bind(token_hash)
         .execute(&self.pool)
         .await
@@ -79,13 +110,24 @@ impl RefreshTokenRepository {
 
     /// Revoke all user tokens
     pub async fn revoke_all_user_tokens(&self, user_id: i64) -> Result<u64> {
+        self.revoke_all_user_tokens_in_tenant(DEFAULT_TENANT_ID, user_id)
+            .await
+    }
+
+    /// Revoke all user tokens in a tenant scope
+    pub async fn revoke_all_user_tokens_in_tenant(
+        &self,
+        tenant_id: &str,
+        user_id: i64,
+    ) -> Result<u64> {
         let result = sqlx::query(
             r#"
             UPDATE refresh_tokens
             SET revoked_at = NOW()
-            WHERE user_id = $1 AND revoked_at IS NULL
+            WHERE tenant_id = $1 AND user_id = $2 AND revoked_at IS NULL
             "#,
         )
+        .bind(tenant_id)
         .bind(user_id)
         .execute(&self.pool)
         .await
@@ -119,13 +161,27 @@ impl RefreshTokenRepository {
         token_hash: &str,
         expires_at: DateTime<Utc>,
     ) -> Result<RefreshTokenRecord> {
+        self.save_with_tx_for_tenant(tx, DEFAULT_TENANT_ID, user_id, token_hash, expires_at)
+            .await
+    }
+
+    /// Save refresh token within a transaction and tenant scope
+    pub async fn save_with_tx_for_tenant(
+        &self,
+        tx: &mut Transaction<'_, Postgres>,
+        tenant_id: &str,
+        user_id: i64,
+        token_hash: &str,
+        expires_at: DateTime<Utc>,
+    ) -> Result<RefreshTokenRecord> {
         let token = sqlx::query_as::<_, RefreshTokenRecord>(
             r#"
-            INSERT INTO refresh_tokens (user_id, token_hash, expires_at)
-            VALUES ($1, $2, $3)
-            RETURNING id, user_id, token_hash, expires_at, created_at, revoked_at
+            INSERT INTO refresh_tokens (tenant_id, user_id, token_hash, expires_at)
+            VALUES ($1, $2, $3, $4)
+            RETURNING id, tenant_id, user_id, token_hash, expires_at, created_at, revoked_at
             "#,
         )
+        .bind(tenant_id)
         .bind(user_id)
         .bind(token_hash)
         .bind(expires_at)
@@ -142,13 +198,25 @@ impl RefreshTokenRepository {
         tx: &mut Transaction<'_, Postgres>,
         token_hash: &str,
     ) -> Result<()> {
+        self.revoke_with_tx_in_tenant(tx, DEFAULT_TENANT_ID, token_hash)
+            .await
+    }
+
+    /// Revoke token within a transaction and tenant scope
+    pub async fn revoke_with_tx_in_tenant(
+        &self,
+        tx: &mut Transaction<'_, Postgres>,
+        tenant_id: &str,
+        token_hash: &str,
+    ) -> Result<()> {
         sqlx::query(
             r#"
             UPDATE refresh_tokens
             SET revoked_at = NOW()
-            WHERE token_hash = $1 AND revoked_at IS NULL
+            WHERE tenant_id = $1 AND token_hash = $2 AND revoked_at IS NULL
             "#,
         )
+        .bind(tenant_id)
         .bind(token_hash)
         .execute(&mut **tx)
         .await
@@ -163,13 +231,25 @@ impl RefreshTokenRepository {
         tx: &mut Transaction<'_, Postgres>,
         user_id: i64,
     ) -> Result<u64> {
+        self.revoke_all_user_tokens_with_tx_in_tenant(tx, DEFAULT_TENANT_ID, user_id)
+            .await
+    }
+
+    /// Revoke all user tokens within a transaction and tenant scope
+    pub async fn revoke_all_user_tokens_with_tx_in_tenant(
+        &self,
+        tx: &mut Transaction<'_, Postgres>,
+        tenant_id: &str,
+        user_id: i64,
+    ) -> Result<u64> {
         let result = sqlx::query(
             r#"
             UPDATE refresh_tokens
             SET revoked_at = NOW()
-            WHERE user_id = $1 AND revoked_at IS NULL
+            WHERE tenant_id = $1 AND user_id = $2 AND revoked_at IS NULL
             "#,
         )
+        .bind(tenant_id)
         .bind(user_id)
         .execute(&mut **tx)
         .await
