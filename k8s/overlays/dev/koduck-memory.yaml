@@ -14,3 +14,20 @@ spec:
           env:
             - name: RUST_LOG
               value: "info,koduck_memory=info,tower_http=warn"
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: koduck-memory-secrets
+  namespace: koduck
+type: Opaque
+stringData:
+  POSTGRES__DSN: "postgresql://koduck:koduck_secret@dev-postgres:5432/koduck_memory"
+  OBJECT_STORE__ENDPOINT: "http://dev-minio:9000"
+  OBJECT_STORE__BUCKET: "koduck-memory-dev"
+  OBJECT_STORE__ACCESS_KEY: "minioadmin"
+  OBJECT_STORE__SECRET_KEY: "minioadmin"
+  OBJECT_STORE__REGION: "ap-east-1"
+  INDEX__MODE: "domain-first"
+  CAPABILITIES__TTL_SECS: "60"
+  SUMMARY__ASYNC_ENABLED: "false"

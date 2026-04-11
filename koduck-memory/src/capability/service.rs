@@ -27,11 +27,21 @@ impl MemoryGrpcService {
         let mut features = HashMap::new();
         features.insert("session_truth".to_string(), "planned".to_string());
         features.insert("append_mode".to_string(), "object_per_append".to_string());
-        features.insert("retrieve_policy.default".to_string(), "domain_first".to_string());
+        features.insert(
+            "retrieve_policy.default".to_string(),
+            self.config.index.mode.clone(),
+        );
+        features.insert(
+            "summary_async".to_string(),
+            self.config.summary.async_enabled.to_string(),
+        );
 
         let mut limits = HashMap::new();
         limits.insert("max_batch_entries".to_string(), "planned".to_string());
-        limits.insert("summary_async".to_string(), "false".to_string());
+        limits.insert(
+            "capabilities_ttl_secs".to_string(),
+            self.config.capabilities.ttl_secs.to_string(),
+        );
 
         Capability {
             service: "memory".to_string(),

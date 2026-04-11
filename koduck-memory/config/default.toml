@@ -6,3 +6,22 @@ version = ""
 [server]
 grpc_addr = "0.0.0.0:50051"
 metrics_addr = "0.0.0.0:9090"
+
+[postgres]
+dsn = ""
+
+[object_store]
+endpoint = ""
+bucket = ""
+access_key = ""
+secret_key = ""
+region = ""
+
+[index]
+mode = "domain-first"
+
+[capabilities]
+ttl_secs = 60
+
+[summary]
+async_enabled = false

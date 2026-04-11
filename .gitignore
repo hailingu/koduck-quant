@@ -50,6 +50,8 @@ __pycache__/
 
 memory/
 !koduck-ai/proto/koduck/memory/
+!koduck-memory/proto/koduck/memory/
+!koduck-memory/src/memory/
 tools/
 !koduck-ai/proto/koduck/tool/
 
