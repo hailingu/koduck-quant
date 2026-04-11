@@ -20,15 +20,14 @@ use uuid::Uuid;
 use crate::{
     app::AppState,
     auth::AuthContext,
-    clients::proto::{
-        ChatMessage as LlmChatMessage, GenerateRequest as LlmGenerateRequest, LlmServiceClient,
-        RequestMeta, StreamGenerateEvent as LlmStreamGenerateEvent,
+    llm::{
+        ChatMessage as ProviderChatMessage, GenerateRequest as ProviderGenerateRequest,
+        RequestContext, StreamEvent as ProviderStreamEvent,
     },
     orchestrator::cancel::{run_abortable_with_cleanup, AbortReason, RequestGenerationGuard},
     reliability::{
         degrade::{DegradeDecision, DegradeRoute},
         error::{AppError, ErrorCode, UpstreamService},
-        error_mapper::{map_contract_error_detail, map_grpc_status, map_transport_error},
         retry_budget::RetryDirective,
     },
     stream::sse::{PendingStreamEvent, ResumeCursor, StreamEventData},
@@ -109,11 +108,12 @@ pub async fn chat(
     }
 
     let session_id = resolve_session_id(request.session_id.clone());
+    let trace_id = extract_trace_id(&headers);
 
     info!(
         request_id = %request_id,
         session_id = %session_id,
-        trace_id = %extract_trace_id(&headers),
+        trace_id = %trace_id,
         "chat request received"
     );
 
@@ -127,7 +127,16 @@ pub async fn chat(
             "stub_enabled",
         )
     } else {
-        match call_llm_generate(&state, &request, &request_id, &session_id, &auth_ctx).await {
+        match call_llm_generate(
+            &state,
+            &request,
+            &request_id,
+            &session_id,
+            &auth_ctx,
+            &trace_id,
+        )
+        .await
+        {
             Ok(ok) => ok,
             Err(err) => {
                 if let Some(decision) = state
@@ -257,8 +266,15 @@ pub async fn chat_stream(
             );
         } else {
             let upstream =
-                match call_llm_stream(&state, &request.chat, &request_id, &session_id, &auth_ctx)
-                    .await
+                match call_llm_stream(
+                    &state,
+                    &request.chat,
+                    &request_id,
+                    &session_id,
+                    &auth_ctx,
+                    &trace_id,
+                )
+                .await
                 {
                     Ok(stream) => stream,
                     Err(err) => {
@@ -324,12 +340,7 @@ pub async fn chat_stream(
                                     break;
                                 }
                             }
-                            Err(err) => {
-                                let mapped_error = map_grpc_status(
-                                    UpstreamService::Llm,
-                                    stream_session.request_id().to_string(),
-                                    &err,
-                                );
+                            Err(mapped_error) => {
                                 info!(
                                     request_id = %stream_session.request_id(),
                                     session_id = %stream_session.session_id(),
@@ -587,12 +598,14 @@ async fn call_llm_generate(
     request_id: &str,
     session_id: &str,
     auth_ctx: &AuthContext,
+    trace_id: &str,
 ) -> Result<ChatResponse, AppError> {
     let policy = Arc::clone(&state.retry_budget_policy);
     let session = policy.begin_session();
     let mut attempt_index = 0;
     let body = loop {
-        let deadline_ms = match policy.next_attempt_deadline_ms(&session, state.config.llm.timeout_ms) {
+        let deadline_ms =
+            match policy.next_attempt_deadline_ms(&session, state.config.llm.timeout_ms) {
             Some(deadline_ms) => deadline_ms,
             None => {
                 return Err(
@@ -603,7 +616,16 @@ async fn call_llm_generate(
                 )
             }
         };
-        match llm_generate_once(state, request, request_id, session_id, auth_ctx, deadline_ms).await {
+        let llm_request = build_provider_generate_request(
+            state,
+            request,
+            request_id,
+            session_id,
+            auth_ctx,
+            trace_id,
+            deadline_ms,
+        );
+        match state.llm_provider.generate(llm_request).await {
             Ok(body) => break body,
             Err(err) => match policy.should_retry(&session, attempt_index, err) {
                 RetryDirective::RetryAfter { delay, err } => {
@@ -620,22 +642,18 @@ async fn call_llm_generate(
 
     let answer = body
         .message
-        .as_ref()
-        .map(|m| m.content.clone())
-        .unwrap_or_default();
+        .content
+        .clone();
     let usage = body.usage.as_ref();
     Ok(ChatResponse {
         request_id: request_id.to_string(),
         session_id: session_id.to_string(),
         answer,
-        model: request
-            .model
-            .clone()
-            .unwrap_or_else(|| state.config.llm.default_provider.clone()),
+        model: body.model,
         usage: TokenUsage {
-            prompt_tokens: usage.map(|u| u.prompt_tokens as u32).unwrap_or(0),
-            completion_tokens: usage.map(|u| u.completion_tokens as u32).unwrap_or(0),
-            total_tokens: usage.map(|u| u.total_tokens as u32).unwrap_or(0),
+            prompt_tokens: usage.map(|u| u.prompt_tokens).unwrap_or(0),
+            completion_tokens: usage.map(|u| u.completion_tokens).unwrap_or(0),
+            total_tokens: usage.map(|u| u.total_tokens).unwrap_or(0),
         },
         degraded: false,
     })
@@ -647,13 +665,15 @@ async fn call_llm_stream(
     request_id: &str,
     session_id: &str,
     auth_ctx: &AuthContext,
-) -> Result<tonic::Streaming<LlmStreamGenerateEvent>, AppError> {
+    trace_id: &str,
+) -> Result<crate::llm::ProviderEventStream, AppError> {
     let policy = Arc::clone(&state.retry_budget_policy);
     let session = policy.begin_session();
     let mut attempt_index = 0;
 
     loop {
-        let deadline_ms = match policy.next_attempt_deadline_ms(&session, state.config.llm.timeout_ms) {
+        let deadline_ms =
+            match policy.next_attempt_deadline_ms(&session, state.config.llm.timeout_ms) {
             Some(deadline_ms) => deadline_ms,
             None => {
                 return Err(
@@ -664,7 +684,16 @@ async fn call_llm_stream(
                 )
             }
         };
-        match llm_stream_once(state, request, request_id, session_id, auth_ctx, deadline_ms).await {
+        let llm_request = build_provider_generate_request(
+            state,
+            request,
+            request_id,
+            session_id,
+            auth_ctx,
+            trace_id,
+            deadline_ms,
+        );
+        match state.llm_provider.stream_generate(llm_request).await {
             Ok(stream) => return Ok(stream),
             Err(err) => match policy.should_retry(&session, attempt_index, err) {
                 RetryDirective::RetryAfter { delay, err } => {
@@ -680,182 +709,52 @@ async fn call_llm_stream(
     }
 }
 
-async fn llm_generate_once(
+fn build_provider_generate_request(
     state: &Arc<AppState>,
     request: &ChatRequest,
     request_id: &str,
     session_id: &str,
     auth_ctx: &AuthContext,
+    trace_id: &str,
     deadline_ms: u64,
-) -> Result<crate::clients::proto::GenerateResponse, AppError> {
-    let target = grpc_target_with_scheme(&state.config.llm.adapter_grpc_target);
-    let stream = tokio::time::timeout(Duration::from_millis(deadline_ms), async {
-        let channel = tonic::transport::Channel::from_shared(target.clone())
-            .map_err(|e| {
-                map_transport_error(
-                    UpstreamService::Llm,
-                    request_id.to_string(),
-                    "invalid llm grpc target",
-                    e,
-                )
-            })?
-            .connect()
-            .await
-            .map_err(|e| {
-                map_transport_error(
-                    UpstreamService::Llm,
-                    request_id.to_string(),
-                    "failed to connect llm adapter",
-                    e,
-                )
-            })?;
-        let mut client = LlmServiceClient::new(channel);
-        let req = tonic::Request::new(LlmGenerateRequest {
-            meta: Some(RequestMeta {
-                request_id: request_id.to_string(),
-                session_id: session_id.to_string(),
-                user_id: auth_ctx.user_id.clone(),
-                tenant_id: String::new(),
-                trace_id: String::new(),
-                idempotency_key: String::new(),
-                deadline_ms: deadline_ms as i64,
-                api_version: "v1".to_string(),
-            }),
-            model: request
-                .model
-                .clone()
-                .unwrap_or_else(|| state.config.llm.default_provider.clone()),
-            messages: vec![LlmChatMessage {
-                role: "user".to_string(),
-                content: request.message.clone(),
-                name: String::new(),
-                metadata: std::collections::HashMap::new(),
-            }],
-            temperature: request.temperature.unwrap_or(0.2),
-            top_p: 1.0,
-            max_tokens: request.max_tokens.unwrap_or(2048) as i32,
-            tools: vec![],
-            response_format: String::new(),
-            provider: state.config.llm.default_provider.clone(),
-        });
-        client
-            .generate(req)
-            .await
-            .map_err(|e| map_grpc_status(UpstreamService::Llm, request_id.to_string(), &e))
-            .map(|resp| resp.into_inner())
-    })
-    .await
-    .map_err(|_| {
-        AppError::new(ErrorCode::UpstreamUnavailable, "llm request exceeded local timeout budget")
-            .with_request_id(request_id.to_string())
-            .with_upstream(UpstreamService::Llm)
-    })??;
-
-    if !stream.ok {
-        return Err(map_contract_error_detail(
-            UpstreamService::Llm,
-            request_id.to_string(),
-            stream.error.as_ref(),
-            ErrorCode::DependencyFailed,
-            "llm adapter returned not ok",
-        ));
+) -> ProviderGenerateRequest {
+    ProviderGenerateRequest {
+        meta: RequestContext {
+            request_id: request_id.to_string(),
+            session_id: session_id.to_string(),
+            user_id: auth_ctx.user_id.clone(),
+            trace_id: trace_id.to_string(),
+            deadline_ms,
+        },
+        provider: state.config.llm.default_provider.clone(),
+        model: request
+            .model
+            .clone()
+            .unwrap_or_else(|| state.config.llm.default_provider.clone()),
+        messages: vec![ProviderChatMessage {
+            role: "user".to_string(),
+            content: request.message.clone(),
+            name: String::new(),
+            metadata: HashMap::new(),
+        }],
+        temperature: request.temperature.unwrap_or(0.2),
+        top_p: 1.0,
+        max_tokens: request.max_tokens.unwrap_or(2048),
+        tools: vec![],
+        response_format: String::new(),
     }
-
-    Ok(stream)
-}
-
-async fn llm_stream_once(
-    state: &Arc<AppState>,
-    request: &ChatRequest,
-    request_id: &str,
-    session_id: &str,
-    auth_ctx: &AuthContext,
-    deadline_ms: u64,
-) -> Result<tonic::Streaming<LlmStreamGenerateEvent>, AppError> {
-    let target = grpc_target_with_scheme(&state.config.llm.adapter_grpc_target);
-    tokio::time::timeout(Duration::from_millis(deadline_ms), async {
-        let channel = tonic::transport::Channel::from_shared(target.clone())
-            .map_err(|e| {
-                map_transport_error(
-                    UpstreamService::Llm,
-                    request_id.to_string(),
-                    "invalid llm grpc target",
-                    e,
-                )
-            })?
-            .connect()
-            .await
-            .map_err(|e| {
-                map_transport_error(
-                    UpstreamService::Llm,
-                    request_id.to_string(),
-                    "failed to connect llm adapter",
-                    e,
-                )
-            })?;
-        let mut client = LlmServiceClient::new(channel);
-        let req = tonic::Request::new(LlmGenerateRequest {
-            meta: Some(RequestMeta {
-                request_id: request_id.to_string(),
-                session_id: session_id.to_string(),
-                user_id: auth_ctx.user_id.clone(),
-                tenant_id: String::new(),
-                trace_id: String::new(),
-                idempotency_key: String::new(),
-                deadline_ms: deadline_ms as i64,
-                api_version: "v1".to_string(),
-            }),
-            model: request
-                .model
-                .clone()
-                .unwrap_or_else(|| state.config.llm.default_provider.clone()),
-            messages: vec![LlmChatMessage {
-                role: "user".to_string(),
-                content: request.message.clone(),
-                name: String::new(),
-                metadata: std::collections::HashMap::new(),
-            }],
-            temperature: request.temperature.unwrap_or(0.2),
-            top_p: 1.0,
-            max_tokens: request.max_tokens.unwrap_or(2048) as i32,
-            tools: vec![],
-            response_format: String::new(),
-            provider: state.config.llm.default_provider.clone(),
-        });
-        client
-            .stream_generate(req)
-            .await
-            .map_err(|e| map_grpc_status(UpstreamService::Llm, request_id.to_string(), &e))
-            .map(|resp| resp.into_inner())
-    })
-    .await
-    .map_err(|_| {
-        AppError::new(
-            ErrorCode::UpstreamUnavailable,
-            "llm stream setup exceeded local timeout budget",
-        )
-        .with_request_id(request_id.to_string())
-        .with_upstream(UpstreamService::Llm)
-    })?
 }
 
 fn build_stream_event(
-    ev: &LlmStreamGenerateEvent,
+    ev: &ProviderStreamEvent,
     request_id: &str,
     session_id: &str,
 ) -> PendingStreamEvent {
-    if ev.error.is_some() {
-        let mapped_error = map_contract_error_detail(
-            UpstreamService::Llm,
-            request_id.to_string(),
-            ev.error.as_ref(),
-            ErrorCode::DependencyFailed,
-            "llm stream returned error event",
-        );
-        return build_stream_error_event(&mapped_error, request_id, session_id);
-    }
-
-    let event_type = if ev.finish_reason.is_empty() { "delta" } else { "done" };
+    let event_type = if ev.finish_reason.is_empty() {
+        "delta"
+    } else {
+        "done"
+    };
     let payload = if event_type == "done" {
         json!({ "finish_reason": &ev.finish_reason })
     } else {
@@ -866,7 +765,7 @@ fn build_stream_event(
         event_type: event_type.to_string(),
         payload,
         event_id: Some(ev.event_id.clone()),
-        sequence_num: Some(ev.sequence_num as u32),
+        sequence_num: Some(ev.sequence_num),
         request_id: request_id.to_string(),
         session_id: session_id.to_string(),
     }
@@ -1017,14 +916,6 @@ fn spawn_stub_stream(
             );
         }
     });
-}
-
-fn grpc_target_with_scheme(raw: &str) -> String {
-    if raw.starts_with("http://") || raw.starts_with("https://") {
-        raw.to_string()
-    } else {
-        format!("http://{raw}")
-    }
 }
 
 fn api_error_response(err: AppError, request_id: String) -> Response {
