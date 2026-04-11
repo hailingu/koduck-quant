@@ -47,14 +47,14 @@ spec:
               memory: 256Mi
           livenessProbe:
             httpGet:
-              path: /healthz
+              path: /livez
               port: metrics
             initialDelaySeconds: 10
             periodSeconds: 30
             failureThreshold: 3
           readinessProbe:
             httpGet:
-              path: /healthz
+              path: /readyz
               port: metrics
             initialDelaySeconds: 5
             periodSeconds: 10
@@ -106,7 +106,7 @@ metadata:
   namespace: koduck
 type: Opaque
 stringData:
-  POSTGRES__DSN: "postgresql://koduck:koduck_secret@postgres:5432/koduck_memory"
+  POSTGRES__DSN: "postgresql://koduck:koduck_secret@postgres:5432/postgres"
   OBJECT_STORE__ENDPOINT: "http://minio:9000"
   OBJECT_STORE__BUCKET: "koduck-memory-dev"
   OBJECT_STORE__ACCESS_KEY: "minioadmin"
