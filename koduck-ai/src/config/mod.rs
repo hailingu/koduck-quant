@@ -533,7 +533,10 @@ mod tests {
 
     #[test]
     fn test_stream_config_zero_duration() {
-        let config = StreamConfig { max_duration_ms: 0 };
+        let config = StreamConfig {
+            max_duration_ms: 0,
+            ..StreamConfig::default()
+        };
         let result = config.validate();
         assert!(result.is_err());
         assert!(result.unwrap_err().message.contains("max_duration_ms"));
@@ -562,8 +565,8 @@ mod tests {
             memory: MemoryConfig::default(),
             tools: ToolConfig::default(),
             llm: LlmConfig {
-                openai_api_key: Some(SecretString::from("sk-super-secret-key")),
-                deepseek_api_key: Some(SecretString::from("sk-another-secret")),
+                openai_api_key: Some(SecretString::from("sk-super-secret-key".to_string())),
+                deepseek_api_key: Some(SecretString::from("sk-another-secret".to_string())),
                 ..LlmConfig::default()
             },
             stream: StreamConfig::default(),
@@ -583,9 +586,9 @@ mod tests {
             memory: MemoryConfig::default(),
             tools: ToolConfig::default(),
             llm: LlmConfig {
-                openai_api_key: Some(SecretString::from("sk-test")),
+                openai_api_key: Some(SecretString::from("sk-test".to_string())),
                 deepseek_api_key: None,
-                anthropic_api_key: Some(SecretString::from("sk-anthropic")),
+                anthropic_api_key: Some(SecretString::from("sk-anthropic".to_string())),
                 ..LlmConfig::default()
             },
             stream: StreamConfig::default(),

@@ -71,6 +71,7 @@ issues/
 # K-line data (local CSV files)
 koduck-data-service/data/
 *.png
+koduck-ai/target/
 
 docker-compose.local.yml
 .github/

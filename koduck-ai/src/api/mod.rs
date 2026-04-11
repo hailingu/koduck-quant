@@ -24,6 +24,7 @@ use crate::{
         ChatMessage as LlmChatMessage, GenerateRequest as LlmGenerateRequest, LlmServiceClient,
         RequestMeta, StreamGenerateEvent as LlmStreamGenerateEvent,
     },
+    orchestrator::cancel::{run_abortable_with_cleanup, AbortReason, RequestGenerationGuard},
     reliability::error::{AppError, ErrorCode, UpstreamService},
     stream::sse::{PendingStreamEvent, ResumeCursor, StreamEventData},
 };
@@ -223,111 +224,191 @@ pub async fn chat_stream(
     };
 
     if !resume_cursor.is_resume() {
+        let generation_guard = session.request_guard().await;
+        let stream_timeout = Duration::from_millis(state.config.stream.max_duration_ms);
         if state.config.llm.stub_enabled {
             let stream_session = Arc::clone(&session);
             let chunks = build_stream_chunks(&request.chat.message);
+            let guard = generation_guard.clone();
             tokio::spawn(async move {
-                for chunk in chunks {
-                    tokio::time::sleep(Duration::from_millis(120)).await;
-                    if let Err(err) = stream_session
-                        .enqueue_event(StreamEventData::delta(
-                            stream_session.request_id().to_string(),
-                            stream_session.session_id().to_string(),
-                            chunk,
-                        ))
-                        .await
-                    {
-                        info!(
-                            request_id = %stream_session.request_id(),
-                            session_id = %stream_session.session_id(),
-                            error = %err,
-                            "stream queue rejected stub event"
-                        );
-                        stream_session
-                            .force_shutdown(
-                                ErrorCode::StreamTimeout.to_string(),
-                                "stream queue backpressure timeout",
+                let producer_guard = guard.clone();
+                let producer = async {
+                    for chunk in chunks {
+                        tokio::time::sleep(Duration::from_millis(120)).await;
+                        if let Err(err) = stream_session
+                            .enqueue_event_if_current(
+                                &producer_guard,
+                                StreamEventData::delta(
+                                    stream_session.request_id().to_string(),
+                                    stream_session.session_id().to_string(),
+                                    chunk,
+                                ),
                             )
-                            .await;
-                        return;
+                            .await
+                        {
+                            info!(
+                                request_id = %stream_session.request_id(),
+                                session_id = %stream_session.session_id(),
+                                error = %err,
+                                generation = producer_guard.generation(),
+                                "stream queue rejected stub event"
+                            );
+                            stream_session
+                                .force_shutdown_if_current(
+                                    &producer_guard,
+                                    ErrorCode::StreamTimeout.to_string(),
+                                    "stream queue backpressure timeout",
+                                )
+                                .await;
+                            return;
+                        }
                     }
+
+                    let _ = stream_session
+                        .enqueue_event_if_current(
+                            &producer_guard,
+                            StreamEventData::done(
+                                stream_session.request_id().to_string(),
+                                stream_session.session_id().to_string(),
+                                "stop",
+                            ),
+                        )
+                        .await;
+                };
+
+                let cleanup_session = Arc::clone(&stream_session);
+                let cleanup_guard = guard.clone();
+                let cleanup_guard_for_log = cleanup_guard.clone();
+                let result = run_abortable_with_cleanup(
+                    guard,
+                    stream_timeout,
+                    producer,
+                    move |reason| async move {
+                        handle_stream_abort(&cleanup_session, &cleanup_guard, reason).await;
+                    },
+                )
+                .await;
+
+                if let Err(reason) = result {
+                    info!(
+                        request_id = %stream_session.request_id(),
+                        session_id = %stream_session.session_id(),
+                        generation = cleanup_guard_for_log.generation(),
+                        abort_reason = ?reason,
+                        "stub stream producer terminated early"
+                    );
                 }
-                let _ = stream_session
-                    .enqueue_event(StreamEventData::done(
-                        stream_session.request_id().to_string(),
-                        stream_session.session_id().to_string(),
-                        "stop",
-                    ))
-                    .await;
             });
         } else {
-            let upstream = match call_llm_stream(&state, &request.chat, &request_id, &session_id, &auth_ctx).await {
-                Ok(stream) => stream,
-                Err(err) => return api_error_response(err, request_id),
-            };
+            let upstream =
+                match call_llm_stream(&state, &request.chat, &request_id, &session_id, &auth_ctx)
+                    .await
+                {
+                    Ok(stream) => stream,
+                    Err(err) => return api_error_response(err, request_id),
+                };
             let stream_session = Arc::clone(&session);
+            let guard = generation_guard.clone();
             tokio::spawn(async move {
-                let mut upstream = upstream;
-                while let Some(next) = upstream.next().await {
-                    match next {
-                        Ok(ev) => {
-                            if let Err(err) = stream_session
-                                .enqueue_event(build_stream_event(
-                                    &ev,
-                                    stream_session.request_id(),
-                                    stream_session.session_id(),
-                                ))
-                                .await
-                            {
+                let producer_guard = guard.clone();
+                let producer = async {
+                    let mut upstream = upstream;
+                    while let Some(next) = upstream.next().await {
+                        match next {
+                            Ok(ev) => {
+                                if let Err(err) = stream_session
+                                    .enqueue_event_if_current(
+                                        &producer_guard,
+                                        build_stream_event(
+                                            &ev,
+                                            stream_session.request_id(),
+                                            stream_session.session_id(),
+                                        ),
+                                    )
+                                    .await
+                                {
+                                    info!(
+                                        request_id = %stream_session.request_id(),
+                                        session_id = %stream_session.session_id(),
+                                        error = %err,
+                                        generation = producer_guard.generation(),
+                                        "stream queue rejected upstream event"
+                                    );
+                                    stream_session
+                                        .force_shutdown_if_current(
+                                            &producer_guard,
+                                            ErrorCode::StreamTimeout.to_string(),
+                                            "stream queue backpressure timeout",
+                                        )
+                                        .await;
+                                    break;
+                                }
+                            }
+                            Err(err) => {
                                 info!(
                                     request_id = %stream_session.request_id(),
                                     session_id = %stream_session.session_id(),
                                     error = %err,
-                                    "stream queue rejected upstream event"
+                                    generation = producer_guard.generation(),
+                                    "llm stream item failed"
                                 );
-                                stream_session
-                                    .force_shutdown(
-                                        ErrorCode::StreamTimeout.to_string(),
-                                        "stream queue backpressure timeout",
+                                let _ = stream_session
+                                    .enqueue_event_if_current(
+                                        &producer_guard,
+                                        StreamEventData::error(
+                                            stream_session.request_id().to_string(),
+                                            stream_session.session_id().to_string(),
+                                            ErrorCode::StreamInterrupted.to_string(),
+                                            "llm stream interrupted",
+                                        ),
                                     )
                                     .await;
                                 break;
                             }
                         }
-                        Err(err) => {
-                            info!(
-                                request_id = %stream_session.request_id(),
-                                session_id = %stream_session.session_id(),
-                                error = %err,
-                                "llm stream item failed"
-                            );
-                            let _ = stream_session
-                                .enqueue_event(StreamEventData::error(
+                    }
+
+                    let replay = stream_session.open_replay(0).await;
+                    let has_terminal_event = replay
+                        .replay_events
+                        .iter()
+                        .any(|event| matches!(event.event_type.as_str(), "done" | "error"));
+
+                    if !has_terminal_event {
+                        let _ = stream_session
+                            .enqueue_event_if_current(
+                                &producer_guard,
+                                StreamEventData::done(
                                     stream_session.request_id().to_string(),
                                     stream_session.session_id().to_string(),
-                                    ErrorCode::StreamInterrupted.to_string(),
-                                    "llm stream interrupted",
-                                ))
-                                .await;
-                            break;
-                        }
+                                    "stop",
+                                ),
+                            )
+                            .await;
                     }
-                }
+                };
 
-                let replay = stream_session.open_replay(0).await;
-                let has_terminal_event = replay
-                    .replay_events
-                    .iter()
-                    .any(|event| matches!(event.event_type.as_str(), "done" | "error"));
+                let cleanup_session = Arc::clone(&stream_session);
+                let cleanup_guard = guard.clone();
+                let cleanup_guard_for_log = cleanup_guard.clone();
+                let result = run_abortable_with_cleanup(
+                    guard,
+                    stream_timeout,
+                    producer,
+                    move |reason| async move {
+                        handle_stream_abort(&cleanup_session, &cleanup_guard, reason).await;
+                    },
+                )
+                .await;
 
-                if !has_terminal_event {
-                    let _ = stream_session
-                        .enqueue_event(StreamEventData::done(
-                            stream_session.request_id().to_string(),
-                            stream_session.session_id().to_string(),
-                            "stop",
-                        ))
-                        .await;
+                if let Err(reason) = result {
+                    info!(
+                        request_id = %stream_session.request_id(),
+                        session_id = %stream_session.session_id(),
+                        generation = cleanup_guard_for_log.generation(),
+                        abort_reason = ?reason,
+                        "upstream stream producer terminated early"
+                    );
                 }
             });
         }
@@ -451,6 +532,27 @@ fn build_stream_chunks(user_message: &str) -> Vec<String> {
         "当前下游 LLM adapter 尚未就绪，先返回可验证的 SSE 事件格式。".to_string(),
         format!("收到你的问题：{}", user_message.trim()),
     ]
+}
+
+async fn handle_stream_abort(
+    stream_session: &Arc<crate::stream::sse::StreamSession>,
+    guard: &RequestGenerationGuard,
+    reason: AbortReason,
+) {
+    let (code, message) = match reason {
+        AbortReason::Superseded => (
+            ErrorCode::StreamInterrupted.to_string(),
+            "stream interrupted by newer request".to_string(),
+        ),
+        AbortReason::TimedOut => (
+            ErrorCode::StreamTimeout.to_string(),
+            "stream exceeded max duration".to_string(),
+        ),
+    };
+
+    let _ = stream_session
+        .force_shutdown_if_current(guard, code, message)
+        .await;
 }
 
 async fn call_llm_generate(

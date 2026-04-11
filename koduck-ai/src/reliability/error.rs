@@ -266,7 +266,7 @@ impl AppError {
     pub fn to_error_response(&self) -> ErrorResponse {
         ErrorResponse {
             code: self.code.to_string(),
-            message: self.message.clone(),
+            message: client_safe_message(&self.code, &self.message),
             request_id: self.request_id.clone(),
             retryable: self.retryable,
             degraded: self.degraded,
@@ -378,6 +378,7 @@ impl std::error::Error for StatusError {}
 mod tests {
     use super::*;
     use axum::http::StatusCode;
+    use axum::response::IntoResponse;
 
     // ----- ErrorCode metadata tests -----
 
