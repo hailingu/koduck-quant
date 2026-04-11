@@ -149,8 +149,14 @@
 1. 新增 `X-Tenant-Id`
 2. 增加 `getTenantId()`
 
+**执行结果（2026-04-11）:**
+- `UserContext` 已新增 `X-Tenant-Id` 支持和 `getTenantId()`，缺失 header 时兼容回退到 `default`
+- `UserController`、`RoleController`、`PermissionController` 均已通过 `UserContext` 读取 tenantId，并显式传入 service 层
+- `UserService`、`RoleService`、`PermissionService` 的公开 API 相关方法均增加 tenantId 参数，服务层不再只能依赖内置默认租户
+- 新增 ADR `0022-extend-user-context-with-tenant-id.md`，明确上下文统一入口和兼容策略
+
 **验收标准:**
-- [ ] 控制器和服务层可读取租户上下文
+- [x] 控制器和服务层可读取租户上下文
 
 ---
 

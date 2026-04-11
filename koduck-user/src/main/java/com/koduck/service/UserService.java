@@ -23,27 +23,27 @@ public interface UserService {
 
     // === 公开 API: 当前用户 ===
 
-    UserProfileResponse getCurrentUser(Long currentUserId);
+    UserProfileResponse getCurrentUser(String tenantId, Long currentUserId);
 
-    UserProfileResponse updateProfile(Long currentUserId, UpdateProfileRequest request);
+    UserProfileResponse updateProfile(String tenantId, Long currentUserId, UpdateProfileRequest request);
 
-    List<String> getCurrentUserPermissions(Long currentUserId);
+    List<String> getCurrentUserPermissions(String tenantId, Long currentUserId);
 
     // === 公开 API: 管理员 ===
 
-    PageResponse<UserSummaryResponse> searchUsers(String keyword, String status, Pageable pageable);
+    PageResponse<UserSummaryResponse> searchUsers(String tenantId, String keyword, String status, Pageable pageable);
 
-    UserProfileResponse getUserById(Long userId);
+    UserProfileResponse getUserById(String tenantId, Long userId);
 
-    UserProfileResponse updateUser(Long userId, UpdateUserRequest request);
+    UserProfileResponse updateUser(String tenantId, Long userId, UpdateUserRequest request);
 
-    void deleteUser(Long userId);
+    void deleteUser(String tenantId, Long userId);
 
-    void assignRole(Long userId, Integer roleId);
+    void assignRole(String tenantId, Long userId, Integer roleId);
 
-    void removeRole(Long userId, Integer roleId);
+    void removeRole(String tenantId, Long userId, Integer roleId);
 
-    List<RoleInfo> getUserRolesInfo(Long userId);
+    List<RoleInfo> getUserRolesInfo(String tenantId, Long userId);
 
     // === 内部 API ===
 

@@ -17,17 +17,17 @@ import java.util.List;
  */
 public interface RoleService {
 
-    List<RoleInfo> listRoles();
+    List<RoleInfo> listRoles(String tenantId);
 
-    RoleDetailResponse getRoleById(Integer roleId);
+    RoleDetailResponse getRoleById(String tenantId, Integer roleId);
 
-    RoleResponse createRole(CreateRoleRequest request);
+    RoleResponse createRole(String tenantId, CreateRoleRequest request);
 
-    RoleResponse updateRole(Integer roleId, UpdateRoleRequest request);
+    RoleResponse updateRole(String tenantId, Integer roleId, UpdateRoleRequest request);
 
-    void deleteRole(Integer roleId);
+    void deleteRole(String tenantId, Integer roleId);
 
-    void setRolePermissions(Integer roleId, SetRolePermissionsRequest request);
+    void setRolePermissions(String tenantId, Integer roleId, SetRolePermissionsRequest request);
 
-    List<PermissionInfo> getRolePermissions(Integer roleId);
+    List<PermissionInfo> getRolePermissions(String tenantId, Integer roleId);
 }
