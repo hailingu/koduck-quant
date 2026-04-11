@@ -134,9 +134,15 @@
 1. internal API 支持 `X-Tenant-Id`
 2. `findByUsername / findByEmail / getUserRoles / getUserPermissions` 默认按租户作用域执行
 
+**执行结果（2026-04-11）:**
+- `InternalUserController` 现已支持读取 `X-Tenant-Id`，并在缺失时兼容回退到 `default` tenant
+- `UserService` / `UserServiceImpl` 的 internal API 相关方法均增加 `tenantId` 参数，用户读取、角色读取、权限读取与创建用户路径按租户作用域执行
+- controller 审计日志增加 tenantId 记录，便于后续链路排查
+- 新增 ADR `0021-add-tenant-context-to-internal-user-api.md`，明确“显式支持 header，旧路径回退 default”的兼容策略
+
 **验收标准:**
-- [ ] internal API 不会跨租户串读
-- [ ] 旧路径兼容策略明确
+- [x] internal API 不会跨租户串读
+- [x] 旧路径兼容策略明确
 
 ### Task 3.3: `UserContext` 扩展 `tenant_id`
 **详细要求:**

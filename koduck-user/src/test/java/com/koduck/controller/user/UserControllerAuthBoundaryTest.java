@@ -119,32 +119,32 @@ class UserControllerAuthBoundaryTest {
         }
 
         @Override
-        public Optional<UserDetailsResponse> findByUsername(String username) {
+        public Optional<UserDetailsResponse> findByUsername(String tenantId, String username) {
             throw new UnsupportedOperationException("Not used in this test");
         }
 
         @Override
-        public Optional<UserDetailsResponse> findByEmail(String email) {
+        public Optional<UserDetailsResponse> findByEmail(String tenantId, String email) {
             throw new UnsupportedOperationException("Not used in this test");
         }
 
         @Override
-        public UserDetailsResponse createUser(CreateUserRequest request) {
+        public UserDetailsResponse createUser(String tenantId, CreateUserRequest request) {
             throw new UnsupportedOperationException("Not used in this test");
         }
 
         @Override
-        public void updateLastLogin(Long userId, LastLoginUpdateRequest request) {
+        public void updateLastLogin(String tenantId, Long userId, LastLoginUpdateRequest request) {
             throw new UnsupportedOperationException("Not used in this test");
         }
 
         @Override
-        public List<String> getUserRoles(Long userId) {
+        public List<String> getUserRoles(String tenantId, Long userId) {
             throw new UnsupportedOperationException("Not used in this test");
         }
 
         @Override
-        public List<String> getUserPermissions(Long userId) {
+        public List<String> getUserPermissions(String tenantId, Long userId) {
             throw new UnsupportedOperationException("Not used in this test");
         }
     }
