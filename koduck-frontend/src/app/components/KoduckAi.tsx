@@ -349,8 +349,9 @@ export function KoduckAi() {
       const decoder = new TextDecoder();
       let buffer = "";
       let streamedText = "";
+      let streamCompleted = false;
 
-      while (true) {
+      while (!streamCompleted) {
         const { done, value } = await reader.read();
         if (done) {
           break;
@@ -391,6 +392,9 @@ export function KoduckAi() {
               timestamp: prev.timestamp || Date.now(),
               streaming: false,
             }));
+            streamCompleted = true;
+            await reader.cancel();
+            break;
           }
         }
       }

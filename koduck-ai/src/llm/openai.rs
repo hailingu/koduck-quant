@@ -1,16 +1,12 @@
 //! OpenAI-compatible direct LLM provider adapters.
 
-use std::{
-    collections::VecDeque,
-    pin::Pin,
-};
+use std::collections::VecDeque;
 
 use async_trait::async_trait;
-use futures::{Stream, StreamExt};
-use hyper::body::Bytes;
 use reqwest::Method;
 use serde::Deserialize;
 use serde_json::{json, Value};
+use tracing::info;
 
 use crate::reliability::error::{AppError, ErrorCode, UpstreamService};
 
@@ -197,15 +193,23 @@ impl OpenAiCompatibleProvider {
             ));
         }
 
+        info!(
+            request_id = %req.meta.request_id,
+            provider = self.profile.provider,
+            model = %model,
+            "llm upstream stream request accepted"
+        );
+
         let state = StreamState {
             provider: self.profile.provider.to_string(),
             model,
             request_id: req.meta.request_id,
-            inner: Box::pin(response.bytes_stream()),
+            response,
             parser: SseStreamParser::default(),
             pending: VecDeque::new(),
             sequence_num: 0,
             saw_terminal_event: false,
+            inside_reasoning_block: false,
         };
 
         let stream = futures::stream::try_unfold(state, |mut state| async move {
@@ -214,21 +218,57 @@ impl OpenAiCompatibleProvider {
                     return Ok(Some((event, state)));
                 }
 
-                match state.inner.next().await {
-                    Some(Ok(chunk)) => {
+                match state.response.chunk().await {
+                    Ok(Some(chunk)) => {
+                        let preview = String::from_utf8_lossy(&chunk)
+                            .replace('\n', "\\n")
+                            .replace('\r', "\\r");
+                        info!(
+                            request_id = %state.request_id,
+                            provider = %state.provider,
+                            chunk_bytes = chunk.len(),
+                            chunk_preview = %preview.chars().take(240).collect::<String>(),
+                            "llm upstream stream chunk received"
+                        );
                         let events = state.parser.push(&state.request_id, &chunk)?;
+                        info!(
+                            request_id = %state.request_id,
+                            provider = %state.provider,
+                            parsed_events = events.len(),
+                            "llm upstream chunk parsed"
+                        );
                         for event in events {
                             state.ingest_sse_event(event)?;
                         }
+                        info!(
+                            request_id = %state.request_id,
+                            provider = %state.provider,
+                            pending_events = state.pending.len(),
+                            sequence_num = state.sequence_num,
+                            saw_terminal_event = state.saw_terminal_event,
+                            "llm upstream events ingested"
+                        );
                     }
-                    Some(Err(err)) => {
+                    Err(err) => {
+                        info!(
+                            request_id = %state.request_id,
+                            provider = %state.provider,
+                            error = %err,
+                            "llm upstream stream read failed"
+                        );
                         return Err(map_http_transport_error(
                             UpstreamService::Llm,
                             state.request_id.clone(),
                             &err,
                         ))
                     }
-                    None => {
+                    Ok(None) => {
+                        info!(
+                            request_id = %state.request_id,
+                            provider = %state.provider,
+                            saw_terminal_event = state.saw_terminal_event,
+                            "llm upstream stream closed"
+                        );
                         let final_events = state.parser.finish(&state.request_id)?;
                         for event in final_events {
                             state.ingest_sse_event(event)?;
@@ -373,11 +413,12 @@ struct StreamState {
     provider: String,
     model: String,
     request_id: String,
-    inner: Pin<Box<dyn Stream<Item = Result<Bytes, reqwest::Error>> + Send>>,
+    response: reqwest::Response,
     parser: SseStreamParser,
     pending: VecDeque<StreamEvent>,
     sequence_num: u32,
     saw_terminal_event: bool,
+    inside_reasoning_block: bool,
 }
 
 impl StreamState {
@@ -401,6 +442,7 @@ impl StreamState {
             event.id,
             &mut self.sequence_num,
             &mut self.saw_terminal_event,
+            &mut self.inside_reasoning_block,
             chunk,
         )? {
             self.pending.push_back(unified);
@@ -491,7 +533,7 @@ fn parse_generate_response(
         model: payload.model.unwrap_or_else(|| model.to_string()),
         message: ChatMessage {
             role: choice.message.role.unwrap_or_else(|| "assistant".to_string()),
-            content: value_to_text(&choice.message.content),
+            content: sanitize_assistant_text(&value_to_text(&choice.message.content)),
             name: String::new(),
             metadata: Default::default(),
         },
@@ -506,14 +548,16 @@ fn parse_stream_chunk(
     event_id: Option<String>,
     sequence_num: &mut u32,
     saw_terminal_event: &mut bool,
+    inside_reasoning_block: &mut bool,
     payload: OpenAiStreamChunk,
 ) -> Result<Option<StreamEvent>, AppError> {
     let choice = payload.choices.into_iter().next();
-    let delta = choice
+    let raw_delta = choice
         .as_ref()
         .and_then(|choice| choice.delta.as_ref())
         .map(delta_to_text)
         .unwrap_or_default();
+    let delta = sanitize_stream_delta(&raw_delta, inside_reasoning_block);
     let finish_reason = choice
         .as_ref()
         .and_then(|choice| choice.finish_reason.clone())
@@ -573,6 +617,40 @@ fn value_to_text(value: &Value) -> String {
             .join(""),
         other => other.to_string(),
     }
+}
+
+fn sanitize_assistant_text(raw: &str) -> String {
+    let mut inside_reasoning_block = false;
+    sanitize_stream_delta(raw, &mut inside_reasoning_block)
+        .replace("<think>", "")
+        .replace("</think>", "")
+        .trim()
+        .to_string()
+}
+
+fn sanitize_stream_delta(raw: &str, inside_reasoning_block: &mut bool) -> String {
+    let mut remaining = raw;
+    let mut cleaned = String::new();
+
+    while !remaining.is_empty() {
+        if *inside_reasoning_block {
+            if let Some(end_index) = remaining.find("</think>") {
+                remaining = &remaining[end_index + "</think>".len()..];
+                *inside_reasoning_block = false;
+            } else {
+                return cleaned;
+            }
+        } else if let Some(start_index) = remaining.find("<think>") {
+            cleaned.push_str(&remaining[..start_index]);
+            remaining = &remaining[start_index + "<think>".len()..];
+            *inside_reasoning_block = true;
+        } else {
+            cleaned.push_str(remaining);
+            break;
+        }
+    }
+
+    cleaned.replace("</think>", "")
 }
 
 fn parse_json_or_string(raw: &str) -> Value {
@@ -664,6 +742,7 @@ mod tests {
 
     use super::{
         build_chat_completions_request, parse_generate_response, parse_stream_chunk,
+        sanitize_assistant_text, sanitize_stream_delta,
         OpenAiGenerateResponse, OpenAiGenerateChoice, OpenAiResponseMessage, OpenAiStreamChunk,
         OpenAiStreamChoice, OpenAiChoiceDelta, OpenAiUsage,
     };
@@ -742,6 +821,7 @@ mod tests {
     fn parses_stream_chunks_into_unified_events() {
         let mut sequence_num = 0;
         let mut saw_terminal_event = false;
+        let mut inside_reasoning_block = false;
         let payload = OpenAiStreamChunk {
             id: Some("chunk-1".to_string()),
             model: Some("gpt-4.1-mini".to_string()),
@@ -760,6 +840,7 @@ mod tests {
             Some("evt-1".to_string()),
             &mut sequence_num,
             &mut saw_terminal_event,
+            &mut inside_reasoning_block,
             payload,
         )
         .unwrap()
@@ -774,6 +855,7 @@ mod tests {
     fn parses_terminal_stream_chunk_with_usage() {
         let mut sequence_num = 0;
         let mut saw_terminal_event = false;
+        let mut inside_reasoning_block = false;
         let payload = OpenAiStreamChunk {
             id: Some("chunk-2".to_string()),
             model: None,
@@ -794,6 +876,7 @@ mod tests {
             None,
             &mut sequence_num,
             &mut saw_terminal_event,
+            &mut inside_reasoning_block,
             payload,
         )
         .unwrap()
@@ -803,5 +886,50 @@ mod tests {
         assert_eq!(event.finish_reason, "stop");
         assert_eq!(event.usage.unwrap().total_tokens, 16);
         assert!(saw_terminal_event);
+    }
+
+    #[test]
+    fn strips_think_blocks_from_generate_response() {
+        let payload = OpenAiGenerateResponse {
+            model: Some("gpt-4.1-mini".to_string()),
+            choices: vec![OpenAiGenerateChoice {
+                message: OpenAiResponseMessage {
+                    role: Some("assistant".to_string()),
+                    content: json!("<think>internal</think>最终答案"),
+                },
+                finish_reason: Some("stop".to_string()),
+            }],
+            usage: None,
+        };
+
+        let response =
+            parse_generate_response("openai", "fallback-model", payload, "req-1").unwrap();
+
+        assert_eq!(response.message.content, "最终答案");
+    }
+
+    #[test]
+    fn strips_think_blocks_across_stream_chunks() {
+        let mut inside_reasoning_block = false;
+
+        assert_eq!(
+            sanitize_stream_delta("<think>internal", &mut inside_reasoning_block),
+            ""
+        );
+        assert!(inside_reasoning_block);
+
+        assert_eq!(
+            sanitize_stream_delta(" more</think>你好", &mut inside_reasoning_block),
+            "你好"
+        );
+        assert!(!inside_reasoning_block);
+    }
+
+    #[test]
+    fn strips_inline_think_tags_from_text() {
+        assert_eq!(
+            sanitize_assistant_text("前缀<think>internal</think>后缀"),
+            "前缀后缀"
+        );
     }
 }

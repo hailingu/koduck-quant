@@ -20,6 +20,7 @@ use uuid::Uuid;
 use crate::{
     app::AppState,
     auth::AuthContext,
+    config::LlmMode,
     llm::{
         ChatMessage as ProviderChatMessage, GenerateRequest as ProviderGenerateRequest,
         RequestContext, StreamEvent as ProviderStreamEvent,
@@ -264,6 +265,162 @@ pub async fn chat_stream(
                 build_stream_chunks(&request.chat.message, "stub_enabled"),
                 "stub_enabled",
             );
+        } else if state.config.llm.mode == LlmMode::Direct {
+            let upstream = match call_llm_stream(
+                &state,
+                &request.chat,
+                &request_id,
+                &session_id,
+                &auth_ctx,
+                &trace_id,
+            )
+            .await
+            {
+                Ok(stream) => stream,
+                Err(err) => {
+                    if let Some(decision) = state
+                        .degrade_policy
+                        .evaluate_error(DegradeRoute::ChatStream, &err)
+                    {
+                        state.degrade_policy.log_hit(
+                            &decision,
+                            &request_id,
+                            &session_id,
+                            err.code,
+                        );
+                        spawn_stub_stream(
+                            Arc::clone(&session),
+                            generation_guard.clone(),
+                            stream_timeout,
+                            build_stream_chunks(
+                                &request.chat.message,
+                                degrade_reason_label(&decision),
+                            ),
+                            degrade_reason_label(&decision),
+                        );
+                        return stream_sse_response(session, request_id).await;
+                    }
+                    return api_error_response(err, request_id);
+                }
+            };
+
+            let stream_session = Arc::clone(&session);
+            let guard = generation_guard.clone();
+            tokio::spawn(async move {
+                let producer_guard = guard.clone();
+                let producer = async {
+                    let mut upstream = upstream;
+                    while let Some(next) = upstream.next().await {
+                        match next {
+                            Ok(ev) => {
+                                info!(
+                                    request_id = %stream_session.request_id(),
+                                    session_id = %stream_session.session_id(),
+                                    upstream_event_id = %ev.event_id,
+                                    upstream_sequence_num = ev.sequence_num,
+                                    delta_len = ev.delta.len(),
+                                    finish_reason = %ev.finish_reason,
+                                    "forwarding llm stream event to sse session"
+                                );
+                                for pending in build_stream_events(
+                                    &ev,
+                                    stream_session.request_id(),
+                                    stream_session.session_id(),
+                                ) {
+                                    if let Err(err) = stream_session
+                                        .enqueue_event_if_current(&producer_guard, pending)
+                                        .await
+                                    {
+                                        info!(
+                                            request_id = %stream_session.request_id(),
+                                            session_id = %stream_session.session_id(),
+                                            error = %err,
+                                            generation = producer_guard.generation(),
+                                            "stream queue rejected upstream event"
+                                        );
+                                        stream_session
+                                            .force_shutdown_if_current(
+                                                &producer_guard,
+                                                ErrorCode::StreamTimeout.to_string(),
+                                                "stream queue backpressure timeout",
+                                            )
+                                            .await;
+                                        return;
+                                    }
+                                }
+                                info!(
+                                    request_id = %stream_session.request_id(),
+                                    session_id = %stream_session.session_id(),
+                                    upstream_event_id = %ev.event_id,
+                                    "llm stream event enqueued"
+                                );
+                            }
+                            Err(err) => {
+                                info!(
+                                    request_id = %stream_session.request_id(),
+                                    session_id = %stream_session.session_id(),
+                                    error = %err,
+                                    generation = producer_guard.generation(),
+                                    "llm stream item failed"
+                                );
+                                let _ = stream_session
+                                    .enqueue_event_if_current(
+                                        &producer_guard,
+                                        build_stream_error_event(
+                                            &err,
+                                            stream_session.request_id(),
+                                            stream_session.session_id(),
+                                        ),
+                                    )
+                                    .await;
+                                break;
+                            }
+                        }
+                    }
+
+                    let replay = stream_session.open_replay(0).await;
+                    let has_terminal_event = replay
+                        .replay_events
+                        .iter()
+                        .any(|event| matches!(event.event_type.as_str(), "done" | "error"));
+
+                    if !has_terminal_event {
+                        let _ = stream_session
+                            .enqueue_event_if_current(
+                                &producer_guard,
+                                StreamEventData::done(
+                                    stream_session.request_id().to_string(),
+                                    stream_session.session_id().to_string(),
+                                    "stop",
+                                ),
+                            )
+                            .await;
+                    }
+                };
+
+                let cleanup_session = Arc::clone(&stream_session);
+                let cleanup_guard = guard.clone();
+                let cleanup_guard_for_log = cleanup_guard.clone();
+                let result = run_abortable_with_cleanup(
+                    guard,
+                    stream_timeout,
+                    producer,
+                    move |reason| async move {
+                        handle_stream_abort(&cleanup_session, &cleanup_guard, reason).await;
+                    },
+                )
+                .await;
+
+                if let Err(reason) = result {
+                    info!(
+                        request_id = %stream_session.request_id(),
+                        session_id = %stream_session.session_id(),
+                        generation = cleanup_guard_for_log.generation(),
+                        abort_reason = ?reason,
+                        "upstream stream producer terminated early"
+                    );
+                }
+            });
         } else {
             let upstream =
                 match call_llm_stream(
@@ -312,32 +469,31 @@ pub async fn chat_stream(
                     while let Some(next) = upstream.next().await {
                         match next {
                             Ok(ev) => {
-                                if let Err(err) = stream_session
-                                    .enqueue_event_if_current(
-                                        &producer_guard,
-                                        build_stream_event(
-                                            &ev,
-                                            stream_session.request_id(),
-                                            stream_session.session_id(),
-                                        ),
-                                    )
-                                    .await
-                                {
-                                    info!(
-                                        request_id = %stream_session.request_id(),
-                                        session_id = %stream_session.session_id(),
-                                        error = %err,
-                                        generation = producer_guard.generation(),
-                                        "stream queue rejected upstream event"
-                                    );
-                                    stream_session
-                                        .force_shutdown_if_current(
-                                            &producer_guard,
-                                            ErrorCode::StreamTimeout.to_string(),
-                                            "stream queue backpressure timeout",
-                                        )
-                                        .await;
-                                    break;
+                                for pending in build_stream_events(
+                                    &ev,
+                                    stream_session.request_id(),
+                                    stream_session.session_id(),
+                                ) {
+                                    if let Err(err) = stream_session
+                                        .enqueue_event_if_current(&producer_guard, pending)
+                                        .await
+                                    {
+                                        info!(
+                                            request_id = %stream_session.request_id(),
+                                            session_id = %stream_session.session_id(),
+                                            error = %err,
+                                            generation = producer_guard.generation(),
+                                            "stream queue rejected upstream event"
+                                        );
+                                        stream_session
+                                            .force_shutdown_if_current(
+                                                &producer_guard,
+                                                ErrorCode::StreamTimeout.to_string(),
+                                                "stream queue backpressure timeout",
+                                            )
+                                            .await;
+                                        break;
+                                    }
                                 }
                             }
                             Err(mapped_error) => {
@@ -545,6 +701,19 @@ fn build_stream_chunks(user_message: &str, reason: &str) -> Vec<String> {
     ]
 }
 
+fn chunk_answer(answer: &str) -> Vec<String> {
+    const CHUNK_SIZE: usize = 48;
+    let chars = answer.chars().collect::<Vec<_>>();
+    if chars.is_empty() {
+        return vec!["回答已完成。".to_string()];
+    }
+
+    chars
+        .chunks(CHUNK_SIZE)
+        .map(|chunk| chunk.iter().collect::<String>())
+        .collect()
+}
+
 fn build_stub_chat_response(
     state: &Arc<AppState>,
     request_id: &str,
@@ -728,12 +897,20 @@ fn build_provider_generate_request(
         },
         provider: String::new(),
         model: request.model.clone().unwrap_or_default(),
-        messages: vec![ProviderChatMessage {
-            role: "user".to_string(),
-            content: request.message.clone(),
-            name: String::new(),
-            metadata: HashMap::new(),
-        }],
+        messages: vec![
+            ProviderChatMessage {
+                role: "system".to_string(),
+                content: "你是 koduck-ai 的中文助手。默认使用简体中文直接回答用户问题，保持准确、简洁、自然。不要输出思维链、推理过程、草稿、自我讨论或任何 <think> 标签内容；只输出面向用户的最终答案。如果用户输入过于简短或语义不清，先用一句中文澄清，不要臆测事实。".to_string(),
+                name: String::new(),
+                metadata: HashMap::new(),
+            },
+            ProviderChatMessage {
+                role: "user".to_string(),
+                content: request.message.clone(),
+                name: String::new(),
+                metadata: HashMap::new(),
+            },
+        ],
         temperature: request.temperature.unwrap_or(0.2),
         top_p: 1.0,
         max_tokens: request.max_tokens.unwrap_or(2048),
@@ -742,30 +919,36 @@ fn build_provider_generate_request(
     }
 }
 
-fn build_stream_event(
+fn build_stream_events(
     ev: &ProviderStreamEvent,
     request_id: &str,
     session_id: &str,
-) -> PendingStreamEvent {
-    let event_type = if ev.finish_reason.is_empty() {
-        "delta"
-    } else {
-        "done"
-    };
-    let payload = if event_type == "done" {
-        json!({ "finish_reason": &ev.finish_reason })
-    } else {
-        json!({ "text": &ev.delta })
-    };
+) -> Vec<PendingStreamEvent> {
+    let mut events = Vec::with_capacity(2);
 
-    PendingStreamEvent {
-        event_type: event_type.to_string(),
-        payload,
-        event_id: Some(ev.event_id.clone()),
-        sequence_num: Some(ev.sequence_num),
-        request_id: request_id.to_string(),
-        session_id: session_id.to_string(),
+    if !ev.delta.is_empty() {
+        events.push(PendingStreamEvent {
+            event_type: "message".to_string(),
+            payload: json!({ "text": &ev.delta }),
+            event_id: Some(ev.event_id.clone()),
+            sequence_num: Some(ev.sequence_num),
+            request_id: request_id.to_string(),
+            session_id: session_id.to_string(),
+        });
     }
+
+    if !ev.finish_reason.is_empty() {
+        events.push(PendingStreamEvent {
+            event_type: "done".to_string(),
+            payload: json!({ "finish_reason": &ev.finish_reason }),
+            event_id: None,
+            sequence_num: None,
+            request_id: request_id.to_string(),
+            session_id: session_id.to_string(),
+        });
+    }
+
+    events
 }
 
 fn build_stream_error_event(
@@ -796,7 +979,7 @@ fn build_stub_stream_delta(
     degrade_reason: &str,
 ) -> PendingStreamEvent {
     PendingStreamEvent {
-        event_type: "delta".to_string(),
+        event_type: "message".to_string(),
         payload: json!({
             "text": text.into(),
             "degraded": true,
@@ -821,6 +1004,32 @@ fn build_stub_stream_done(
             "degraded": true,
             "degrade_reason": degrade_reason,
         }),
+        event_id: None,
+        sequence_num: None,
+        request_id: request_id.to_string(),
+        session_id: session_id.to_string(),
+    }
+}
+
+fn build_generated_stream_delta(
+    request_id: &str,
+    session_id: &str,
+    text: impl Into<String>,
+) -> PendingStreamEvent {
+    PendingStreamEvent {
+        event_type: "message".to_string(),
+        payload: json!({ "text": text.into() }),
+        event_id: None,
+        sequence_num: None,
+        request_id: request_id.to_string(),
+        session_id: session_id.to_string(),
+    }
+}
+
+fn build_generated_stream_done(request_id: &str, session_id: &str) -> PendingStreamEvent {
+    PendingStreamEvent {
+        event_type: "done".to_string(),
+        payload: json!({ "finish_reason": "stop" }),
         event_id: None,
         sequence_num: None,
         request_id: request_id.to_string(),
@@ -910,6 +1119,82 @@ fn spawn_stub_stream(
                 generation = cleanup_guard_for_log.generation(),
                 abort_reason = ?reason,
                 "stub stream producer terminated early"
+            );
+        }
+    });
+}
+
+fn spawn_generated_stream(
+    stream_session: Arc<crate::stream::sse::StreamSession>,
+    guard: RequestGenerationGuard,
+    stream_timeout: Duration,
+    answer: String,
+) {
+    tokio::spawn(async move {
+        let producer_guard = guard.clone();
+        let producer = async {
+            for chunk in chunk_answer(&answer) {
+                tokio::time::sleep(Duration::from_millis(40)).await;
+                if let Err(err) = stream_session
+                    .enqueue_event_if_current(
+                        &producer_guard,
+                        build_generated_stream_delta(
+                            stream_session.request_id(),
+                            stream_session.session_id(),
+                            chunk,
+                        ),
+                    )
+                    .await
+                {
+                    info!(
+                        request_id = %stream_session.request_id(),
+                        session_id = %stream_session.session_id(),
+                        error = %err,
+                        generation = producer_guard.generation(),
+                        "stream queue rejected generated event"
+                    );
+                    stream_session
+                        .force_shutdown_if_current(
+                            &producer_guard,
+                            ErrorCode::StreamTimeout.to_string(),
+                            "stream queue backpressure timeout",
+                        )
+                        .await;
+                    return;
+                }
+            }
+
+            let _ = stream_session
+                .enqueue_event_if_current(
+                    &producer_guard,
+                    build_generated_stream_done(
+                        stream_session.request_id(),
+                        stream_session.session_id(),
+                    ),
+                )
+                .await;
+        };
+
+        let cleanup_session = Arc::clone(&stream_session);
+        let cleanup_guard = guard.clone();
+        let cleanup_guard_for_log = cleanup_guard.clone();
+        let result = run_abortable_with_cleanup(
+            guard,
+            stream_timeout,
+            producer,
+            move |reason| async move {
+                handle_stream_abort(&cleanup_session, &cleanup_guard, reason).await;
+            },
+        )
+        .await;
+
+        if let Err(reason) = result {
+            info!(
+                request_id = %stream_session.request_id(),
+                session_id = %stream_session.session_id(),
+                generation = cleanup_guard_for_log.generation(),
+                abort_reason = ?reason,
+                "generated stream producer terminated early"
             );
         }
     });

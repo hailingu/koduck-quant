@@ -15,7 +15,7 @@ pub enum AbortReason {
     TimedOut,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct AbortSignal {
     receiver: watch::Receiver<bool>,
 }
@@ -71,7 +71,7 @@ pub struct RequestGenerationGuard {
     controller: Arc<RequestGenerationController>,
     request_id: String,
     generation: u64,
-    abort_signal: Arc<Mutex<AbortSignal>>,
+    abort_signal: AbortSignal,
 }
 
 impl RequestGenerationController {
@@ -97,7 +97,7 @@ impl RequestGenerationController {
             controller: Arc::clone(self),
             request_id: state.request_id.clone(),
             generation,
-            abort_signal: Arc::new(Mutex::new(abort_signal)),
+            abort_signal,
         }
     }
 
@@ -139,13 +139,12 @@ impl RequestGenerationGuard {
     }
 
     pub async fn cancelled(&self) {
-        let mut signal = self.abort_signal.lock().await;
+        let mut signal = self.abort_signal.clone();
         signal.cancelled().await;
     }
 
     pub async fn is_cancelled(&self) -> bool {
-        let signal = self.abort_signal.lock().await;
-        signal.is_cancelled()
+        self.abort_signal.is_cancelled()
     }
 }
 

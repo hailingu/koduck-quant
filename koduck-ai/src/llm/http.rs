@@ -4,7 +4,8 @@ use std::time::Duration;
 
 use reqwest::{
     header::{
-        HeaderMap, HeaderName, HeaderValue, ACCEPT, AUTHORIZATION, CONTENT_TYPE,
+        HeaderMap, HeaderName, HeaderValue, ACCEPT, ACCEPT_ENCODING, AUTHORIZATION,
+        CONTENT_TYPE,
     },
     Client, Method, Request, Response,
 };
@@ -51,6 +52,13 @@ impl JsonRequestOptions {
 
     pub fn event_stream(mut self) -> Self {
         self.accept = "text/event-stream";
+        // Some providers return compressed SSE bodies when `Accept-Encoding` is present.
+        // Reqwest's transparent decompression can delay chunk delivery enough to break
+        // incremental rendering, so force identity encoding for streaming requests.
+        self.extra_headers.insert(
+            ACCEPT_ENCODING,
+            HeaderValue::from_static("identity"),
+        );
         self
     }
 
@@ -63,7 +71,11 @@ impl JsonRequestOptions {
 impl LlmHttpClient {
     pub fn new() -> Result<Self, AppError> {
         let inner = Client::builder()
-            .use_rustls_tls()
+            .use_native_tls()
+            // MiniMax's SSE endpoint behaves reliably over HTTP/1.1, while the
+            // reqwest/h2 path has shown cases where no incremental chunks are
+            // yielded to the application even though the upstream is streaming.
+            .http1_only()
             .connect_timeout(Duration::from_secs(3))
             .pool_idle_timeout(Duration::from_secs(90))
             .pool_max_idle_per_host(16)
@@ -268,7 +280,7 @@ mod tests {
     use std::time::Duration;
 
     use reqwest::{
-        header::{HeaderValue, ACCEPT, AUTHORIZATION},
+        header::{HeaderValue, ACCEPT, ACCEPT_ENCODING, AUTHORIZATION},
         Method,
     };
     use serde_json::json;
@@ -363,5 +375,9 @@ mod tests {
             .event_stream();
 
         assert_eq!(options.accept, "text/event-stream");
+        assert_eq!(
+            options.extra_headers.get(ACCEPT_ENCODING),
+            Some(&HeaderValue::from_static("identity"))
+        );
     }
 }
