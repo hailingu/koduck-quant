@@ -291,9 +291,9 @@ cd koduck-ai
 3. `grpc-transcode` 仅迁移窗口可选开启
 
 **验收标准:**
-- [ ] 网关侧限流生效
-- [ ] 指标与 trace 可串起全链路
-- [ ] 迁移完成后可关闭 transcode
+- [x] 网关侧限流生效
+- [x] 指标与 trace 可串起全链路
+- [x] 迁移完成后可关闭 transcode
 
 ---
 
