@@ -54,12 +54,23 @@ V1 需要达成以下能力：
 5. 下游业务服务默认只相信网关注入的 `X-Tenant-Id`，不自行猜测租户。
 6. V1 不引入复杂的 tenant hierarchy、tenant admin console 或跨租户共享资源模型。
 
+### 4.1 Task 1.1 冻结结果
+
+为避免后续阶段再次出现跨服务歧义，V1 将 `tenant_id` 语义冻结为以下规则：
+
+1. `tenant_id` 的传输类型统一为字符串，数据库列类型统一为 `VARCHAR(128)`。
+2. `tenant_id` 的真值来源是 `koduck-user` 的租户真值 `tenants.id`，以及绑定在用户记录上的 `users.tenant_id`。
+3. `koduck-auth` 只负责在认证成功后读取并传播 `tenant_id`，不自行生成，也不从邮箱域名、角色名等隐式信号推断。
+4. 跨服务身份语义统一采用 `(tenant_id, user_id)`，单独的 `user_id` 不是完整身份主键。
+5. V1 不支持 tenant hierarchy、父子租户继承、跨租户共享资源或超级租户穿透访问。
+6. `tenant_id` 在 V1 中是扁平、不可推导、不可拆分的 opaque identifier。
+
 ---
 
 ## 5. 术语定义
 
 - `tenant_id`
-  - 租户的稳定唯一标识，建议使用字符串或 UUID
+  - 租户的稳定唯一标识；V1 统一为最长 128 字符的字符串标识
 - `user_id`
   - 用户在系统中的内部主键
 - `tenant-scoped identity`
@@ -170,6 +181,7 @@ CREATE TABLE tenants (
 ```
 
 V1 也可先不做复杂 tenant profile，只保留最小真值。
+`tenants.id` 即系统中 `tenant_id` 的唯一真值来源。
 
 ### 8.2 `users` 表
 
@@ -249,6 +261,8 @@ V1 可选方案：
 
 1. 登录请求显式带 `tenant_id`
 2. 网关或客户端已选定当前 tenant
+
+无论采用哪种交互形式，认证链路最终都必须从用户真值中确认 `tenant_id`，而不是从输入账号文本中推断。
 
 ### 9.2 角色
 
