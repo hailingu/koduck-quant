@@ -669,7 +669,7 @@ curl -fsS -X PUT "${ADMIN}/routes/user-service" \
       "jwt-auth": {},
       "proxy-rewrite": {
         "headers": {
-          "X-User-Id": "$jwt_claim_user_id",
+          "X-User-Id": "$jwt_claim_sub",
           "X-Username": "$jwt_claim_username",
           "X-Roles": "$jwt_claim_roles",
           "X-Tenant-Id": "$jwt_claim_tenant_id"

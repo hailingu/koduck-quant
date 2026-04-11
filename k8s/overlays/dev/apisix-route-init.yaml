@@ -17,6 +17,10 @@ spec:
         environment: dev
     spec:
       restartPolicy: OnFailure
+      volumes:
+        - name: auth-jwt-keys
+          secret:
+            secretName: dev-koduck-auth-jwt-keys
       containers:
         - name: init-route
           image: curlimages/curl:8.7.1
@@ -44,6 +48,8 @@ spec:
               value: "backend:8080"
             - name: AUTH_SERVICE
               value: "dev-koduck-auth:8081"
+            - name: USER_SERVICE
+              value: "dev-koduck-user:8082"
             - name: FRONTEND_SERVICE
               value: "dev-koduck-frontend:80"
             - name: AI_SERVICE
@@ -56,6 +62,10 @@ spec:
               value: "koduck-apisix-dev"
             - name: ENABLE_AI_GRPC_TRANSCODE
               value: "false"
+          volumeMounts:
+            - name: auth-jwt-keys
+              mountPath: /keys
+              readOnly: true
           command:
             - /bin/sh
             - -ec
@@ -178,6 +188,10 @@ spec:
                   -d "$payload" >/dev/null
               }
 
+              json_escape_multiline_file() {
+                awk 'BEGIN { first = 1 } { if (!first) printf "\\n"; gsub(/\\/,"\\\\"); gsub(/"/,"\\\""); printf "%s", $0; first = 0 }' "$1"
+              }
+
               echo "Waiting for APISIX Admin API..."
               for i in $(seq 1 60); do
                 if curl -fsS -H "$KEY" "${ADMIN}/routes" >/dev/null; then
@@ -190,9 +204,11 @@ spec:
               upsert_resource "plugin_metadata" "opentelemetry" "$(printf '{"trace_id_source":"random","set_ngx_var":true,"resource":{"service.name":"%s"},"additional_attributes":["route_id","service_id","upstream_addr","status"],"additional_header_prefix_attributes":["x-request-id","x-session-id","x-user-id"]}' "$APISIX_SERVICE_NAME")"
 
               echo "Registering JWT consumer: koduck_user"
+              JWT_PUBLIC_KEY_JSON="$(json_escape_multiline_file /keys/public.pem)"
+              JWT_PRIVATE_KEY_JSON="$(json_escape_multiline_file /keys/private.pem)"
               curl -fsS -X PUT "${ADMIN}/consumers/koduck_user" \
                 -H "$KEY" -H 'Content-Type: application/json' \
-                -d "$(printf '{"username":"koduck_user","plugins":{"jwt-auth":{"key":"koduck_user","secret":"%s","algorithm":"HS256"}}}' "$JWT_SECRET")"
+                -d "$(printf '{"username":"koduck_user","plugins":{"jwt-auth":{"key":"koduck_user","public_key":"%s","private_key":"%s","algorithm":"RS256"}}}' "$JWT_PUBLIC_KEY_JSON" "$JWT_PRIVATE_KEY_JSON")"
 
               echo "Registering key-auth consumer: koduck_user_consumer"
               curl -fsS -X PUT "${ADMIN}/consumers/koduck_user_consumer" \
@@ -230,10 +246,20 @@ spec:
 
               # ── 受保护 API 路由（jwt-auth） ──
 
+              echo "Registering koduck-user route: /api/v1/users/* -> koduck-user (jwt-auth)"
+              curl -fsS -X PUT "${ADMIN}/routes/user-service" \
+                -H "$KEY" -H 'Content-Type: application/json' \
+                -d "$(printf '{"uri":"/api/v1/users/*","priority":90,"plugins":{"jwt-auth":{},"proxy-rewrite":{"headers":{"set":{"X-User-Id":"$jwt_claim_sub","X-Username":"$jwt_claim_username","X-Roles":"$jwt_claim_roles","X-Tenant-Id":"$jwt_claim_tenant_id"}}}},"upstream":{"type":"roundrobin","nodes":{"%s":1}}}' "$USER_SERVICE")"
+
+              echo "Registering koduck-user internal route: /internal/users/* -> koduck-user (key-auth)"
+              curl -fsS -X PUT "${ADMIN}/routes/user-service-internal" \
+                -H "$KEY" -H 'Content-Type: application/json' \
+                -d "$(printf '{"uri":"/internal/users/*","priority":100,"plugins":{"key-auth":{},"proxy-rewrite":{"headers":{"X-Consumer-Username":"$consumer_name","apikey":""}}},"upstream":{"type":"roundrobin","nodes":{"%s":1}}}' "$USER_SERVICE")"
+
               echo "Registering protected API route: /api/* -> backend (jwt-auth)"
               curl -fsS -X PUT "${ADMIN}/routes/api-protected" \
                 -H "$KEY" -H 'Content-Type: application/json' \
-                -d "$(printf '{"uri":"/api/*","plugins":{"jwt-auth":{},"proxy-rewrite":{"headers":{"X-User-Id":"$jwt_claim_user_id","X-Username":"$jwt_claim_username","X-Roles":"$jwt_claim_roles","X-Tenant-Id":"$jwt_claim_tenant_id"}}},"upstream":{"type":"roundrobin","nodes":{"%s":1}}}' "$BACKEND_SERVICE")"
+                -d "$(printf '{"uri":"/api/*","plugins":{"jwt-auth":{},"proxy-rewrite":{"headers":{"set":{"X-User-Id":"$jwt_claim_sub","X-Username":"$jwt_claim_username","X-Roles":"$jwt_claim_roles","X-Tenant-Id":"$jwt_claim_tenant_id"}}}},"upstream":{"type":"roundrobin","nodes":{"%s":1}}}' "$BACKEND_SERVICE")"
 
               # ── AI 路由（openid-connect 插件做 OIDC 校验） ──
               # APISIX 通过 JWKS 本地验签 Bearer token，校验通过后

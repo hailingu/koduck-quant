@@ -210,8 +210,8 @@
 2. 验证 tenant header 与 JWT claims 一致
 
 **验收标准:**
-- [ ] header 与 claims 不冲突
-- [ ] 服务端能按租户隔离执行
+- [x] header 与 claims 不冲突
+- [x] 服务端能按租户隔离执行
 
 ---
 

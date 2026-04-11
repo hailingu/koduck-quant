@@ -18,7 +18,7 @@
 
 在 APISIX 的 `jwt-auth` 保护路由上，统一通过 `proxy-rewrite` 注入以下身份 header：
 
-- `X-User-Id = $jwt_claim_user_id`
+- `X-User-Id = $jwt_claim_sub`
 - `X-Username = $jwt_claim_username`
 - `X-Roles = $jwt_claim_roles`
 - `X-Tenant-Id = $jwt_claim_tenant_id`

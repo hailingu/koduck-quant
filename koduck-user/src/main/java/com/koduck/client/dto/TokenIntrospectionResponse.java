@@ -29,6 +29,9 @@ public class TokenIntrospectionResponse {
     @JsonProperty("username")
     private String username;
 
+    @JsonProperty("tenant_id")
+    private String tenantId;
+
     @JsonProperty("roles")
     private List<String> roles;
 
