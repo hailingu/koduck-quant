@@ -14,13 +14,13 @@ spec:
           env:
             - name: RUST_LOG
               value: "info,koduck_ai=info,tower_http=warn"
-            # Downstream services (memory/tool/llm) not ready yet - use placeholder
+            # Southbound gRPC traffic must traverse APISIX for timeout/retry governance.
             - name: KODUCK_AI__MEMORY__GRPC_TARGET
-              value: "dev-memory-service:50051"
+              value: "http://dev-apisix-gateway:9080"
             - name: KODUCK_AI__TOOLS__GRPC_TARGET
-              value: "dev-tool-service:50051"
+              value: "http://dev-apisix-gateway:9080"
             - name: KODUCK_AI__LLM__ADAPTER_GRPC_TARGET
-              value: "http://dev-koduck-agent:50054"
+              value: "http://dev-apisix-gateway:9080"
             - name: KODUCK_AI__LLM__DEFAULT_PROVIDER
               value: "minimax"
             - name: KODUCK_AI__LLM__STUB_ENABLED

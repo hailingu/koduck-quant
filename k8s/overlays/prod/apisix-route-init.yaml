@@ -40,12 +40,133 @@ spec:
               value: "backend:8080"
             - name: FRONTEND_SERVICE
               value: "prod-koduck-frontend:80"
+            - name: MEMORY_GRPC_SERVICE
+              value: "prod-memory-service:50051"
+            - name: TOOL_GRPC_SERVICE
+              value: "prod-tool-service:50051"
+            - name: LLM_GRPC_SERVICE
+              value: "prod-koduck-agent:50054"
           command:
             - /bin/sh
             - -ec
             - |
+              set -eu
+
               ADMIN="http://${APISIX_GATEWAY}:9180/apisix/admin"
               KEY="X-API-KEY: ${ADMIN_KEY}"
+              CREATED_RESOURCES_FILE="$(mktemp)"
+              UPDATED_RESOURCES_FILE="$(mktemp)"
+              ENABLE_ROLLBACK=1
+
+              cleanup_temp_files() {
+                rm -f "$CREATED_RESOURCES_FILE" "$UPDATED_RESOURCES_FILE"
+              }
+
+              resource_url() {
+                printf '%s/%s/%s' "$ADMIN" "$1" "$2"
+              }
+
+              record_created_resource() {
+                printf '%s|%s\n' "$1" "$2" >>"$CREATED_RESOURCES_FILE"
+              }
+
+              record_updated_resource() {
+                printf '%s|%s|%s\n' "$1" "$2" "$3" >>"$UPDATED_RESOURCES_FILE"
+              }
+
+              delete_resource() {
+                kind="$1"
+                resource_id="$2"
+                curl -fsS -X DELETE "$(resource_url "$kind" "$resource_id")" -H "$KEY" >/dev/null
+              }
+
+              restore_resource() {
+                kind="$1"
+                resource_id="$2"
+                backup_file="$3"
+                payload="$(tr -d '\n' <"$backup_file" | sed 's/^.*"value"://; s/,"key":.*$//')"
+                if [ -z "$payload" ]; then
+                  echo "Failed to extract backup payload for ${kind}/${resource_id}" >&2
+                  return 1
+                fi
+                curl -fsS -X PUT "$(resource_url "$kind" "$resource_id")" \
+                  -H "$KEY" \
+                  -H 'Content-Type: application/json' \
+                  -d "$payload" >/dev/null
+              }
+
+              rollback_grpc_resources() {
+                if [ "$ENABLE_ROLLBACK" -ne 1 ]; then
+                  cleanup_temp_files
+                  return 0
+                fi
+
+                echo "Rolling back gRPC upstream/route changes..."
+
+                if [ -f "$CREATED_RESOURCES_FILE" ]; then
+                  if grep -q '^routes|' "$CREATED_RESOURCES_FILE"; then
+                    grep '^routes|' "$CREATED_RESOURCES_FILE" | while IFS='|' read -r kind resource_id; do
+                      [ -n "$kind" ] || continue
+                      delete_resource "$kind" "$resource_id" || true
+                    done
+                  fi
+                  if grep -q '^upstreams|' "$CREATED_RESOURCES_FILE"; then
+                    grep '^upstreams|' "$CREATED_RESOURCES_FILE" | while IFS='|' read -r kind resource_id; do
+                      [ -n "$kind" ] || continue
+                      delete_resource "$kind" "$resource_id" || true
+                    done
+                  fi
+                fi
+
+                if [ -f "$UPDATED_RESOURCES_FILE" ]; then
+                  if grep -q '^routes|' "$UPDATED_RESOURCES_FILE"; then
+                    grep '^routes|' "$UPDATED_RESOURCES_FILE" | while IFS='|' read -r kind resource_id backup_file; do
+                      [ -n "$kind" ] || continue
+                      restore_resource "$kind" "$resource_id" "$backup_file" || true
+                      rm -f "$backup_file"
+                    done
+                  fi
+                  if grep -q '^upstreams|' "$UPDATED_RESOURCES_FILE"; then
+                    grep '^upstreams|' "$UPDATED_RESOURCES_FILE" | while IFS='|' read -r kind resource_id backup_file; do
+                      [ -n "$kind" ] || continue
+                      restore_resource "$kind" "$resource_id" "$backup_file" || true
+                      rm -f "$backup_file"
+                    done
+                  fi
+                fi
+
+                cleanup_temp_files
+              }
+
+              trap 'rollback_grpc_resources' EXIT HUP INT TERM
+
+              upsert_resource() {
+                kind="$1"
+                resource_id="$2"
+                payload="$3"
+                backup_file="$(mktemp)"
+                http_code="$(curl -sS -o "$backup_file" -w '%{http_code}' -H "$KEY" "$(resource_url "$kind" "$resource_id")")"
+
+                case "$http_code" in
+                  200)
+                    record_updated_resource "$kind" "$resource_id" "$backup_file"
+                    ;;
+                  404)
+                    rm -f "$backup_file"
+                    record_created_resource "$kind" "$resource_id"
+                    ;;
+                  *)
+                    echo "Unexpected HTTP ${http_code} while reading ${kind}/${resource_id}" >&2
+                    rm -f "$backup_file"
+                    exit 1
+                    ;;
+                esac
+
+                curl -fsS -X PUT "$(resource_url "$kind" "$resource_id")" \
+                  -H "$KEY" \
+                  -H 'Content-Type: application/json' \
+                  -d "$payload" >/dev/null
+              }
 
               echo "Waiting for APISIX Admin API..."
               for i in $(seq 1 60); do
@@ -70,6 +191,18 @@ spec:
                 -H "$KEY" -H 'Content-Type: application/json' \
                 -d "$(printf '{"uri":"/api/*","plugins":{"jwt-auth":{}},"upstream":{"type":"roundrobin","nodes":{"%s":1}}}' "$BACKEND_SERVICE")"
 
+              echo "Registering gRPC upstreams for memory/tool/llm"
+              upsert_resource "upstreams" "ai-memory-grpc" "$(printf '{"name":"ai-memory-grpc","type":"roundrobin","scheme":"grpc","retries":1,"timeout":{"connect":1,"send":5,"read":65},"keepalive_pool":{"size":256,"idle_timeout":60000,"requests":1000},"checks":{"passive":{"type":"tcp","healthy":{"successes":1},"unhealthy":{"tcp_failures":2,"timeouts":2}}},"nodes":{"%s":1}}' "$MEMORY_GRPC_SERVICE")"
+              upsert_resource "upstreams" "ai-tool-grpc" "$(printf '{"name":"ai-tool-grpc","type":"roundrobin","scheme":"grpc","retries":1,"timeout":{"connect":1,"send":5,"read":65},"keepalive_pool":{"size":256,"idle_timeout":60000,"requests":1000},"checks":{"passive":{"type":"tcp","healthy":{"successes":1},"unhealthy":{"tcp_failures":2,"timeouts":2}}},"nodes":{"%s":1}}' "$TOOL_GRPC_SERVICE")"
+              upsert_resource "upstreams" "ai-llm-grpc" "$(printf '{"name":"ai-llm-grpc","type":"roundrobin","scheme":"grpc","retries":1,"timeout":{"connect":1,"send":5,"read":65},"keepalive_pool":{"size":256,"idle_timeout":60000,"requests":1000},"checks":{"passive":{"type":"tcp","healthy":{"successes":1},"unhealthy":{"tcp_failures":2,"timeouts":2}}},"nodes":{"%s":1}}' "$LLM_GRPC_SERVICE")"
+              upsert_resource "upstreams" "ai-llm-stream-grpc" "$(printf '{"name":"ai-llm-stream-grpc","type":"roundrobin","scheme":"grpc","retries":1,"timeout":{"connect":1,"send":5,"read":310},"keepalive_pool":{"size":256,"idle_timeout":60000,"requests":1000},"checks":{"passive":{"type":"tcp","healthy":{"successes":1},"unhealthy":{"tcp_failures":2,"timeouts":2}}},"nodes":{"%s":1}}' "$LLM_GRPC_SERVICE")"
+
+              echo "Registering gRPC routes for memory/tool/llm"
+              upsert_resource "routes" "ai-memory-grpc-route" '{"uri":"/koduck.memory.v1.MemoryService/*","priority":200,"upstream_id":"ai-memory-grpc"}'
+              upsert_resource "routes" "ai-tool-grpc-route" '{"uri":"/koduck.tool.v1.ToolService/*","priority":200,"upstream_id":"ai-tool-grpc"}'
+              upsert_resource "routes" "ai-llm-stream-grpc-route" '{"uri":"/koduck.llm.v1.LlmService/StreamGenerate","priority":210,"upstream_id":"ai-llm-stream-grpc"}'
+              upsert_resource "routes" "ai-llm-grpc-route" '{"uri":"/koduck.llm.v1.LlmService/*","priority":200,"upstream_id":"ai-llm-grpc"}'
+
               echo "Registering WebSocket route: /ws/* -> backend"
               curl -fsS -X PUT "${ADMIN}/routes/ws" \
                 -H "$KEY" -H 'Content-Type: application/json' \
@@ -80,4 +213,6 @@ spec:
                 -H "$KEY" -H 'Content-Type: application/json' \
                 -d "$(printf '{"uri":"/*","upstream":{"type":"roundrobin","nodes":{"%s":1}}}' "$FRONTEND_SERVICE")"
 
+              ENABLE_ROLLBACK=0
+              cleanup_temp_files
               echo "All registrations done."
