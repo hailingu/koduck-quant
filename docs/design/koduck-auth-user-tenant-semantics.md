@@ -307,6 +307,22 @@ V1 更推荐用 header，与网关透传保持一致。
 - `getTenantId()`
 - `HEADER_TENANT_ID = "X-Tenant-Id"`
 
+### 10.4 Task 1.2 契约盘点结果
+
+Task 1.2 已将 `tenant_id` 的契约影响拆分为三类：
+
+1. **JWT / OIDC / introspection**
+   - `Claims`、`TokenIntrospectionResult`、OIDC discovery 的 `claims_supported` 都需要显式补充 `tenant_id`
+   - 与 token 校验相关的对内响应需要返回 `tenant_id`，避免下游只能依赖 `user_id`
+2. **internal HTTP API**
+   - `koduck-auth -> koduck-user` 的内部调用统一通过 `X-Tenant-Id` 传递租户上下文
+   - 请求体 DTO 不重复新增 `tenant_id`，除非该 DTO 本身承担身份回传语义
+3. **gRPC**
+   - 因当前 gRPC 契约没有统一 header 约定，凡是需要唯一标识用户或生成/校验 token 的 message，都要显式增加 `tenant_id` 字段，或通过嵌套 `UserInfo` 回传
+
+完整影响矩阵见：
+- [`docs/design/koduck-auth-user-tenant-contract-inventory.md`](/Users/guhailin/Git/koduck-quant/docs/design/koduck-auth-user-tenant-contract-inventory.md)
+
 ---
 
 ## 11. 迁移策略
