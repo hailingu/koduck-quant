@@ -94,19 +94,15 @@ V2 的核心结论如下：
 │                      koduck-ai (AI Gateway)                      │
 │   Orchestrator / Stream Engine / LLM Router / Error-SLO Guard          │
 └─────────────────────────────────────────────────────────────────────────┘
-            │                       │                       │
-            ▼                       ▼                       ▼
-    APISIX -> koduck-auth   APISIX -> koduck-memory-service   APISIX -> koduck-tool-service
-                                    │
-                                    ▼
-                         L0(.jsonl@S3/MinIO) + L1(index@DB)
-
-                                    │
-                                    ▼
-                    (optional) LLM Adapter Service / Bridge
-                                    │
-                                    ▼
-                        External LLM Providers (provider-native HTTP)
+          │                   │                   │                   │
+          ▼                   ▼                   ▼                   ▼
+  APISIX -> koduck-auth  APISIX -> koduck-memory-service  APISIX -> koduck-tool-service  LLM Egress
+                              │                                                       │
+                              ▼                                                       ▼
+                   L0(.jsonl@S3/MinIO) + L1(index@DB)                (optional) LLM Adapter Service / Bridge
+                                                                                      │
+                                                                                      ▼
+                                                                  External LLM Providers (provider-native HTTP)
 ```
 
 ### 5.2 关键调用路径
