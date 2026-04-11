@@ -80,11 +80,11 @@ impl LlmHttpClient {
         Ok(Self { inner })
     }
 
-    pub fn build_json_request<T: Serialize>(
+    pub fn build_request<T: Serialize>(
         &self,
         method: Method,
         options: &JsonRequestOptions,
-        body: &T,
+        body: Option<&T>,
     ) -> Result<Request, AppError> {
         let timeout = Duration::from_millis(options.deadline_ms.max(1));
         let mut builder = self
@@ -115,12 +115,27 @@ impl LlmHttpClient {
             builder = builder.header(name, value);
         }
 
-        builder.json(body).build().map_err(|err| {
+        let builder = if let Some(body) = body {
+            builder.json(body)
+        } else {
+            builder
+        };
+
+        builder.build().map_err(|err| {
             AppError::new(ErrorCode::InvalidArgument, "failed to build llm http request")
                 .with_request_id(options.request_id.clone())
                 .with_upstream(UpstreamService::Llm)
                 .with_source(err)
         })
+    }
+
+    pub fn build_json_request<T: Serialize>(
+        &self,
+        method: Method,
+        options: &JsonRequestOptions,
+        body: &T,
+    ) -> Result<Request, AppError> {
+        self.build_request(method, options, Some(body))
     }
 
     pub async fn execute(

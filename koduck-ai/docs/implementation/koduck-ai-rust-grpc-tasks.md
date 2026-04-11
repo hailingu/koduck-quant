@@ -210,9 +210,9 @@ cd koduck-ai
 4. 在各自 adapter 内收敛 provider-specific 字段和行为差异
 
 **验收标准:**
-- [ ] 三个 provider 均可完成非流式生成
-- [ ] 三个 provider 均可完成流式增量输出
-- [ ] 厂商差异不泄漏到公共 trait 和 orchestrator
+- [x] 三个 provider 均可完成非流式生成
+- [x] 三个 provider 均可完成流式增量输出
+- [x] 厂商差异不泄漏到公共 trait 和 orchestrator
 
 ### Task 3.3.4: 实现 Router 与模式切换
 **文件:** `src/llm/router.rs`, `src/config/mod.rs`
