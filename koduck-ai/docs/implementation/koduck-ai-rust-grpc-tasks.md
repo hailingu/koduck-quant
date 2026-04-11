@@ -196,9 +196,9 @@ cd koduck-ai
 3. 实现厂商 HTTP 状态码与错误 body 到统一错误语义的映射辅助
 
 **验收标准:**
-- [ ] 统一 client 支持连接复用与 rustls
-- [ ] 429/5xx/timeout/EOF 等异常路径可被标准化处理
-- [ ] stream 解析工具可被三个 provider 复用
+- [x] 统一 client 支持连接复用与 rustls
+- [x] 429/5xx/timeout/EOF 等异常路径可被标准化处理
+- [x] stream 解析工具可被三个 provider 复用
 
 ### Task 3.3.3: 实现首批三个 Provider Adapter
 **文件:** `src/llm/minimax.rs`, `src/llm/openai.rs`, `src/llm/deepseek.rs`
