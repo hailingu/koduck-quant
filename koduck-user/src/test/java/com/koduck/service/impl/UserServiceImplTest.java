@@ -1,10 +1,13 @@
 package com.koduck.service.impl;
 
 import com.koduck.dto.user.user.UpdateProfileRequest;
+import com.koduck.dto.user.user.CreateUserRequest;
 import com.koduck.dto.user.user.UserProfileResponse;
 import com.koduck.entity.user.Role;
 import com.koduck.entity.user.User;
 import com.koduck.entity.user.UserStatus;
+import com.koduck.exception.UserNotFoundException;
+import com.koduck.exception.UsernameAlreadyExistsException;
 import com.koduck.repository.user.RoleRepository;
 import com.koduck.repository.user.UserRepository;
 import com.koduck.repository.user.UserRoleRepository;
@@ -21,6 +24,7 @@ import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
@@ -31,6 +35,7 @@ import static org.mockito.Mockito.when;
 class UserServiceImplTest {
 
     private static final String DEFAULT_TENANT_ID = "default";
+    private static final String TENANT_B = "tenant-b";
 
     @Mock
     private UserRepository userRepository;
@@ -121,5 +126,35 @@ class UserServiceImplTest {
         assertTrue(result.contains("user:read"));
         assertTrue(result.contains("role:write"));
         verify(userRoleRepository).findPermissionsByTenantIdAndUserId(DEFAULT_TENANT_ID, userId);
+    }
+
+    @Test
+    void shouldNotFallbackToAnotherTenantWhenCurrentUserIsMissing() {
+        Long userId = 1004L;
+
+        when(userRepository.findByIdAndTenantId(userId, TENANT_B)).thenReturn(Optional.empty());
+
+        assertThrows(UserNotFoundException.class, () -> userService.getCurrentUser(TENANT_B, userId));
+
+        verify(userRepository).findByIdAndTenantId(userId, TENANT_B);
+        verify(userRepository, never()).findByIdAndTenantId(userId, DEFAULT_TENANT_ID);
+    }
+
+    @Test
+    void shouldCheckUsernameUniquenessWithinRequestedTenantOnly() {
+        CreateUserRequest request = CreateUserRequest.builder()
+                .username("shared-user")
+                .email("shared@example.com")
+                .passwordHash("hash")
+                .status("ACTIVE")
+                .build();
+
+        when(userRepository.existsByTenantIdAndUsername(TENANT_B, request.getUsername())).thenReturn(true);
+
+        assertThrows(UsernameAlreadyExistsException.class, () -> userService.createUser(TENANT_B, request));
+
+        verify(userRepository).existsByTenantIdAndUsername(TENANT_B, request.getUsername());
+        verify(userRepository, never()).existsByTenantIdAndUsername(DEFAULT_TENANT_ID, request.getUsername());
+        verify(userRepository, never()).save(any(User.class));
     }
 }
