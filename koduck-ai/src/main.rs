@@ -44,7 +44,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Create metrics server
     let metrics_addr: SocketAddr = config.server.metrics_addr.parse()?;
     let metrics_listener = TcpListener::bind(metrics_addr).await?;
-    let metrics_app = app::create_metrics_router();
+    let metrics_app = app::create_metrics_router(state.clone());
 
     info!(
         http_addr = %http_addr,

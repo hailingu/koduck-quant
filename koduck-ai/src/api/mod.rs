@@ -26,6 +26,7 @@ use crate::{
     },
     orchestrator::cancel::{run_abortable_with_cleanup, AbortReason, RequestGenerationGuard},
     reliability::{
+        degrade::{DegradeDecision, DegradeRoute},
         error::{AppError, ErrorCode, UpstreamService},
         error_mapper::{map_contract_error_detail, map_grpc_status, map_transport_error},
     },
@@ -89,6 +90,7 @@ pub async fn chat(
     Json(request): Json<ChatRequest>,
 ) -> Response {
     let request_id = extract_or_create_request_id(&headers);
+    state.degrade_policy.record_request(DegradeRoute::Chat);
     if !state.lifecycle.is_accepting_requests() {
         return api_error_response(
             AppError::new(ErrorCode::ServerBusy, "service is draining new requests")
@@ -115,28 +117,40 @@ pub async fn chat(
     );
 
     let response = if state.config.llm.stub_enabled {
-        let model = request
-            .model
-            .unwrap_or_else(|| state.config.llm.default_provider.clone());
-        let answer = build_stub_answer(&request.message);
-        let prompt_tokens = estimate_tokens(&request.message);
-        let completion_tokens = estimate_tokens(&answer);
-        ChatResponse {
-            request_id: request_id.clone(),
-            session_id: session_id.clone(),
-            answer,
-            model,
-            usage: TokenUsage {
-                prompt_tokens,
-                completion_tokens,
-                total_tokens: prompt_tokens + completion_tokens,
-            },
-            degraded: true,
-        }
+        build_stub_chat_response(
+            &state,
+            &request_id,
+            &session_id,
+            &request.message,
+            request.model.clone(),
+            "stub_enabled",
+        )
     } else {
         match call_llm_generate(&state, &request, &request_id, &session_id, &auth_ctx).await {
             Ok(ok) => ok,
-            Err(err) => return api_error_response(err, request_id),
+            Err(err) => {
+                if let Some(decision) = state
+                    .degrade_policy
+                    .evaluate_error(DegradeRoute::Chat, &err)
+                {
+                    state.degrade_policy.log_hit(
+                        &decision,
+                        &request_id,
+                        &session_id,
+                        err.code,
+                    );
+                    build_stub_chat_response(
+                        &state,
+                        &request_id,
+                        &session_id,
+                        &request.message,
+                        request.model.clone(),
+                        degrade_reason_label(&decision),
+                    )
+                } else {
+                    return api_error_response(err, request_id);
+                }
+            }
         }
     };
 
@@ -164,6 +178,9 @@ pub async fn chat_stream(
     Json(request): Json<ChatStreamRequest>,
 ) -> Response {
     let request_id = extract_or_create_request_id(&headers);
+    state
+        .degrade_policy
+        .record_request(DegradeRoute::ChatStream);
     if !state.lifecycle.is_accepting_requests() {
         return api_error_response(
             AppError::new(ErrorCode::ServerBusy, "service is draining new requests")
@@ -230,85 +247,44 @@ pub async fn chat_stream(
         let generation_guard = session.request_guard().await;
         let stream_timeout = Duration::from_millis(state.config.stream.max_duration_ms);
         if state.config.llm.stub_enabled {
-            let stream_session = Arc::clone(&session);
-            let chunks = build_stream_chunks(&request.chat.message);
-            let guard = generation_guard.clone();
-            tokio::spawn(async move {
-                let producer_guard = guard.clone();
-                let producer = async {
-                    for chunk in chunks {
-                        tokio::time::sleep(Duration::from_millis(120)).await;
-                        if let Err(err) = stream_session
-                            .enqueue_event_if_current(
-                                &producer_guard,
-                                StreamEventData::delta(
-                                    stream_session.request_id().to_string(),
-                                    stream_session.session_id().to_string(),
-                                    chunk,
-                                ),
-                            )
-                            .await
-                        {
-                            info!(
-                                request_id = %stream_session.request_id(),
-                                session_id = %stream_session.session_id(),
-                                error = %err,
-                                generation = producer_guard.generation(),
-                                "stream queue rejected stub event"
-                            );
-                            stream_session
-                                .force_shutdown_if_current(
-                                    &producer_guard,
-                                    ErrorCode::StreamTimeout.to_string(),
-                                    "stream queue backpressure timeout",
-                                )
-                                .await;
-                            return;
-                        }
-                    }
-
-                    let _ = stream_session
-                        .enqueue_event_if_current(
-                            &producer_guard,
-                            StreamEventData::done(
-                                stream_session.request_id().to_string(),
-                                stream_session.session_id().to_string(),
-                                "stop",
-                            ),
-                        )
-                        .await;
-                };
-
-                let cleanup_session = Arc::clone(&stream_session);
-                let cleanup_guard = guard.clone();
-                let cleanup_guard_for_log = cleanup_guard.clone();
-                let result = run_abortable_with_cleanup(
-                    guard,
-                    stream_timeout,
-                    producer,
-                    move |reason| async move {
-                        handle_stream_abort(&cleanup_session, &cleanup_guard, reason).await;
-                    },
-                )
-                .await;
-
-                if let Err(reason) = result {
-                    info!(
-                        request_id = %stream_session.request_id(),
-                        session_id = %stream_session.session_id(),
-                        generation = cleanup_guard_for_log.generation(),
-                        abort_reason = ?reason,
-                        "stub stream producer terminated early"
-                    );
-                }
-            });
+            spawn_stub_stream(
+                Arc::clone(&session),
+                generation_guard.clone(),
+                stream_timeout,
+                build_stream_chunks(&request.chat.message, "stub_enabled"),
+                "stub_enabled",
+            );
         } else {
             let upstream =
                 match call_llm_stream(&state, &request.chat, &request_id, &session_id, &auth_ctx)
                     .await
                 {
                     Ok(stream) => stream,
-                    Err(err) => return api_error_response(err, request_id),
+                    Err(err) => {
+                        if let Some(decision) = state
+                            .degrade_policy
+                            .evaluate_error(DegradeRoute::ChatStream, &err)
+                        {
+                            state.degrade_policy.log_hit(
+                                &decision,
+                                &request_id,
+                                &session_id,
+                                err.code,
+                            );
+                            spawn_stub_stream(
+                                Arc::clone(&session),
+                                generation_guard.clone(),
+                                stream_timeout,
+                                build_stream_chunks(
+                                    &request.chat.message,
+                                    degrade_reason_label(&decision),
+                                ),
+                                degrade_reason_label(&decision),
+                            );
+                            return stream_sse_response(session, request_id).await;
+                        }
+                        return api_error_response(err, request_id);
+                    }
                 };
             let stream_session = Arc::clone(&session);
             let guard = generation_guard.clone();
@@ -422,6 +398,21 @@ pub async fn chat_stream(
     }
 
     let high_watermark = resume_cursor.high_watermark(Some(&session));
+    stream_sse_response_with_watermark(session, request_id, high_watermark).await
+}
+
+async fn stream_sse_response(
+    session: Arc<crate::stream::sse::StreamSession>,
+    request_id: String,
+) -> Response {
+    stream_sse_response_with_watermark(session, request_id, 0).await
+}
+
+async fn stream_sse_response_with_watermark(
+    session: Arc<crate::stream::sse::StreamSession>,
+    request_id: String,
+    high_watermark: u32,
+) -> Response {
     let replay = session.open_replay(high_watermark).await;
     let replay_high_watermark = replay
         .replay_events
@@ -525,20 +516,47 @@ fn estimate_tokens(text: &str) -> u32 {
     (text.chars().count() as u32 / 4).max(1)
 }
 
-fn build_stub_answer(user_message: &str) -> String {
+fn build_stub_answer(user_message: &str, reason: &str) -> String {
     format!(
-        "这是 koduck-ai 的联调 stub 回答（{}）。下游 LLM adapter 未就绪时可用于前后端联调。你输入的是：{}",
+        "这是 koduck-ai 的降级 stub 回答（{}）。当前命中降级策略：{}。你输入的是：{}",
         Utc::now().to_rfc3339(),
+        reason,
         user_message.trim()
     )
 }
 
-fn build_stream_chunks(user_message: &str) -> Vec<String> {
+fn build_stream_chunks(user_message: &str, reason: &str) -> Vec<String> {
     vec![
-        "这是 koduck-ai 的流式联调 stub。".to_string(),
-        "当前下游 LLM adapter 尚未就绪，先返回可验证的 SSE 事件格式。".to_string(),
+        "这是 koduck-ai 的流式降级 stub。".to_string(),
+        format!("当前命中降级策略：{}。", reason),
         format!("收到你的问题：{}", user_message.trim()),
     ]
+}
+
+fn build_stub_chat_response(
+    state: &Arc<AppState>,
+    request_id: &str,
+    session_id: &str,
+    user_message: &str,
+    requested_model: Option<String>,
+    reason: &str,
+) -> ChatResponse {
+    let model = requested_model.unwrap_or_else(|| state.config.llm.default_provider.clone());
+    let answer = build_stub_answer(user_message, reason);
+    let prompt_tokens = estimate_tokens(user_message);
+    let completion_tokens = estimate_tokens(&answer);
+    ChatResponse {
+        request_id: request_id.to_string(),
+        session_id: session_id.to_string(),
+        answer,
+        model,
+        usage: TokenUsage {
+            prompt_tokens,
+            completion_tokens,
+            total_tokens: prompt_tokens + completion_tokens,
+        },
+        degraded: true,
+    }
 }
 
 async fn handle_stream_abort(
@@ -774,6 +792,132 @@ fn build_stream_error_event(
         request_id: request_id.to_string(),
         session_id: session_id.to_string(),
     }
+}
+
+fn build_stub_stream_delta(
+    request_id: &str,
+    session_id: &str,
+    text: impl Into<String>,
+    degrade_reason: &str,
+) -> PendingStreamEvent {
+    PendingStreamEvent {
+        event_type: "delta".to_string(),
+        payload: json!({
+            "text": text.into(),
+            "degraded": true,
+            "degrade_reason": degrade_reason,
+        }),
+        event_id: None,
+        sequence_num: None,
+        request_id: request_id.to_string(),
+        session_id: session_id.to_string(),
+    }
+}
+
+fn build_stub_stream_done(
+    request_id: &str,
+    session_id: &str,
+    degrade_reason: &str,
+) -> PendingStreamEvent {
+    PendingStreamEvent {
+        event_type: "done".to_string(),
+        payload: json!({
+            "finish_reason": "degraded_fallback",
+            "degraded": true,
+            "degrade_reason": degrade_reason,
+        }),
+        event_id: None,
+        sequence_num: None,
+        request_id: request_id.to_string(),
+        session_id: session_id.to_string(),
+    }
+}
+
+fn degrade_reason_label(decision: &DegradeDecision) -> &'static str {
+    match decision.reason {
+        crate::reliability::degrade::DegradeReason::UpstreamTimeout => "upstream_timeout",
+        crate::reliability::degrade::DegradeReason::BudgetExhausted => "budget_exhausted",
+        crate::reliability::degrade::DegradeReason::CircuitOpen => "circuit_open",
+    }
+}
+
+fn spawn_stub_stream(
+    stream_session: Arc<crate::stream::sse::StreamSession>,
+    guard: RequestGenerationGuard,
+    stream_timeout: Duration,
+    chunks: Vec<String>,
+    degrade_reason: &'static str,
+) {
+    tokio::spawn(async move {
+        let producer_guard = guard.clone();
+        let producer = async {
+            for chunk in chunks {
+                tokio::time::sleep(Duration::from_millis(120)).await;
+                if let Err(err) = stream_session
+                    .enqueue_event_if_current(
+                        &producer_guard,
+                        build_stub_stream_delta(
+                            stream_session.request_id(),
+                            stream_session.session_id(),
+                            chunk,
+                            degrade_reason,
+                        ),
+                    )
+                    .await
+                {
+                    info!(
+                        request_id = %stream_session.request_id(),
+                        session_id = %stream_session.session_id(),
+                        error = %err,
+                        generation = producer_guard.generation(),
+                        "stream queue rejected stub event"
+                    );
+                    stream_session
+                        .force_shutdown_if_current(
+                            &producer_guard,
+                            ErrorCode::StreamTimeout.to_string(),
+                            "stream queue backpressure timeout",
+                        )
+                        .await;
+                    return;
+                }
+            }
+
+            let _ = stream_session
+                .enqueue_event_if_current(
+                    &producer_guard,
+                    build_stub_stream_done(
+                        stream_session.request_id(),
+                        stream_session.session_id(),
+                        degrade_reason,
+                    ),
+                )
+                .await;
+        };
+
+        let cleanup_session = Arc::clone(&stream_session);
+        let cleanup_guard = guard.clone();
+        let cleanup_guard_for_log = cleanup_guard.clone();
+        let result = run_abortable_with_cleanup(
+            guard,
+            stream_timeout,
+            producer,
+            move |reason| async move {
+                handle_stream_abort(&cleanup_session, &cleanup_guard, reason).await;
+            },
+        )
+        .await;
+
+        if let Err(reason) = result {
+            info!(
+                request_id = %stream_session.request_id(),
+                session_id = %stream_session.session_id(),
+                generation = cleanup_guard_for_log.generation(),
+                abort_reason = ?reason,
+                "stub stream producer terminated early"
+            );
+        }
+    });
 }
 
 fn grpc_target_with_scheme(raw: &str) -> String {
