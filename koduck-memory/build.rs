@@ -9,6 +9,7 @@ fn main() -> Result<()> {
     for proto in &proto_files {
         println!("cargo:rerun-if-changed={proto}");
     }
+    println!("cargo:rerun-if-changed=migrations");
 
     let out_dir = std::env::var("OUT_DIR").expect("OUT_DIR must be set by Cargo");
     let descriptor_path = std::path::Path::new(&out_dir).join("koduck_memory_descriptor.bin");
