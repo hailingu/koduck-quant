@@ -12,7 +12,10 @@ use tracing::{error, info, warn};
 
 use crate::clients::proto;
 use crate::config::CapabilitiesConfig;
-use crate::reliability::error::{AppError, ErrorCode, UpstreamService};
+use crate::reliability::{
+    error::{AppError, ErrorCode, UpstreamService},
+    error_mapper::{map_grpc_status, map_transport_error},
+};
 
 // ---------------------------------------------------------------------------
 // Cached Capability
@@ -121,19 +124,14 @@ impl CapabilityCache {
 
         let memory_cap = memory_result
             .map_err(|_| {
-                AppError::new(
-                    ErrorCode::UpstreamUnavailable,
+                map_transport_error(
+                    UpstreamService::Memory,
+                    "startup-capability-check",
                     "memory service capability check timed out",
+                    "deadline exceeded",
                 )
-                .with_upstream(UpstreamService::Memory)
             })?
-            .map_err(|e| {
-                AppError::new(
-                    ErrorCode::UpstreamUnavailable,
-                    format!("memory service GetCapabilities failed: {}", e),
-                )
-                .with_upstream(UpstreamService::Memory)
-            })?;
+            .map_err(|e| map_grpc_status(UpstreamService::Memory, "startup-capability-check", &e))?;
 
         let tool_cap = tool_handle_result(tool_result)?;
         let llm_cap = llm_handle_result(llm_result)?;
@@ -291,19 +289,14 @@ fn tool_handle_result(
 ) -> Result<proto::Capability, AppError> {
     result
         .map_err(|_| {
-            AppError::new(
-                ErrorCode::UpstreamUnavailable,
+            map_transport_error(
+                UpstreamService::Tool,
+                "startup-capability-check",
                 "tool service capability check timed out",
+                "deadline exceeded",
             )
-            .with_upstream(UpstreamService::Tool)
         })?
-        .map_err(|e| {
-            AppError::new(
-                ErrorCode::UpstreamUnavailable,
-                format!("tool service GetCapabilities failed: {}", e),
-            )
-            .with_upstream(UpstreamService::Tool)
-        })
+        .map_err(|e| map_grpc_status(UpstreamService::Tool, "startup-capability-check", &e))
 }
 
 fn llm_handle_result(
@@ -311,19 +304,14 @@ fn llm_handle_result(
 ) -> Result<proto::Capability, AppError> {
     result
         .map_err(|_| {
-            AppError::new(
-                ErrorCode::UpstreamUnavailable,
+            map_transport_error(
+                UpstreamService::Llm,
+                "startup-capability-check",
                 "llm service capability check timed out",
+                "deadline exceeded",
             )
-            .with_upstream(UpstreamService::Llm)
         })?
-        .map_err(|e| {
-            AppError::new(
-                ErrorCode::UpstreamUnavailable,
-                format!("llm service GetCapabilities failed: {}", e),
-            )
-            .with_upstream(UpstreamService::Llm)
-        })
+        .map_err(|e| map_grpc_status(UpstreamService::Llm, "startup-capability-check", &e))
 }
 
 // ---------------------------------------------------------------------------
@@ -569,8 +557,6 @@ mod tests {
         let memory = make_capability("memory", vec!["v2"]);
         let tool = make_capability("tool", vec!["v2"]);
         let llm = make_capability("llm", vec!["v1"]);
-        let config = CapabilitiesConfig::default();
-
         let mismatches = collect_mismatches(&memory, &tool, &llm, "v1");
         assert_eq!(mismatches.len(), 2);
         assert_eq!(mismatches[0].service, "memory");

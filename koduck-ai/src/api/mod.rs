@@ -25,7 +25,10 @@ use crate::{
         RequestMeta, StreamGenerateEvent as LlmStreamGenerateEvent,
     },
     orchestrator::cancel::{run_abortable_with_cleanup, AbortReason, RequestGenerationGuard},
-    reliability::error::{AppError, ErrorCode, UpstreamService},
+    reliability::{
+        error::{AppError, ErrorCode, UpstreamService},
+        error_mapper::{map_contract_error_detail, map_grpc_status, map_transport_error},
+    },
     stream::sse::{PendingStreamEvent, ResumeCursor, StreamEventData},
 };
 
@@ -345,21 +348,25 @@ pub async fn chat_stream(
                                 }
                             }
                             Err(err) => {
+                                let mapped_error = map_grpc_status(
+                                    UpstreamService::Llm,
+                                    stream_session.request_id().to_string(),
+                                    &err,
+                                );
                                 info!(
                                     request_id = %stream_session.request_id(),
                                     session_id = %stream_session.session_id(),
-                                    error = %err,
+                                    error = %mapped_error,
                                     generation = producer_guard.generation(),
                                     "llm stream item failed"
                                 );
                                 let _ = stream_session
                                     .enqueue_event_if_current(
                                         &producer_guard,
-                                        StreamEventData::error(
-                                            stream_session.request_id().to_string(),
-                                            stream_session.session_id().to_string(),
-                                            ErrorCode::StreamInterrupted.to_string(),
-                                            "llm stream interrupted",
+                                        build_stream_error_event(
+                                            &mapped_error,
+                                            stream_session.request_id(),
+                                            stream_session.session_id(),
                                         ),
                                     )
                                     .await;
@@ -565,22 +572,22 @@ async fn call_llm_generate(
     let target = grpc_target_with_scheme(&state.config.llm.adapter_grpc_target);
     let channel = tonic::transport::Channel::from_shared(target.clone())
         .map_err(|e| {
-            AppError::new(
-                ErrorCode::UpstreamUnavailable,
-                format!("invalid llm grpc target: {e}"),
+            map_transport_error(
+                UpstreamService::Llm,
+                request_id.to_string(),
+                "invalid llm grpc target",
+                e,
             )
-            .with_request_id(request_id.to_string())
-            .with_upstream(UpstreamService::Llm)
         })?
         .connect()
         .await
         .map_err(|e| {
-            AppError::new(
-                ErrorCode::UpstreamUnavailable,
-                format!("failed to connect llm adapter: {e}"),
+            map_transport_error(
+                UpstreamService::Llm,
+                request_id.to_string(),
+                "failed to connect llm adapter",
+                e,
             )
-            .with_request_id(request_id.to_string())
-            .with_upstream(UpstreamService::Llm)
         })?;
 
     let mut client = LlmServiceClient::new(channel);
@@ -613,25 +620,19 @@ async fn call_llm_generate(
         provider: state.config.llm.default_provider.clone(),
     });
 
-    let resp = client.generate(req).await.map_err(|e| {
-        AppError::new(
-            ErrorCode::UpstreamUnavailable,
-            format!("llm generate failed: {e}"),
-        )
-        .with_request_id(request_id.to_string())
-        .with_upstream(UpstreamService::Llm)
-    })?;
+    let resp = client
+        .generate(req)
+        .await
+        .map_err(|e| map_grpc_status(UpstreamService::Llm, request_id.to_string(), &e))?;
     let body = resp.into_inner();
     if !body.ok {
-        return Err(AppError::new(
+        return Err(map_contract_error_detail(
+            UpstreamService::Llm,
+            request_id.to_string(),
+            body.error.as_ref(),
             ErrorCode::DependencyFailed,
-            body.error
-                .as_ref()
-                .map(|v| v.message.clone())
-                .unwrap_or_else(|| "llm adapter returned not ok".to_string()),
-        )
-        .with_request_id(request_id.to_string())
-        .with_upstream(UpstreamService::Llm));
+            "llm adapter returned not ok",
+        ));
     }
 
     let answer = body
@@ -667,22 +668,22 @@ async fn call_llm_stream(
     let target = grpc_target_with_scheme(&state.config.llm.adapter_grpc_target);
     let channel = tonic::transport::Channel::from_shared(target.clone())
         .map_err(|e| {
-            AppError::new(
-                ErrorCode::UpstreamUnavailable,
-                format!("invalid llm grpc target: {e}"),
+            map_transport_error(
+                UpstreamService::Llm,
+                request_id.to_string(),
+                "invalid llm grpc target",
+                e,
             )
-            .with_request_id(request_id.to_string())
-            .with_upstream(UpstreamService::Llm)
         })?
         .connect()
         .await
         .map_err(|e| {
-            AppError::new(
-                ErrorCode::UpstreamUnavailable,
-                format!("failed to connect llm adapter: {e}"),
+            map_transport_error(
+                UpstreamService::Llm,
+                request_id.to_string(),
+                "failed to connect llm adapter",
+                e,
             )
-            .with_request_id(request_id.to_string())
-            .with_upstream(UpstreamService::Llm)
         })?;
     let mut client = LlmServiceClient::new(channel);
     let req = tonic::Request::new(LlmGenerateRequest {
@@ -716,14 +717,7 @@ async fn call_llm_stream(
     let stream = client
         .stream_generate(req)
         .await
-        .map_err(|e| {
-            AppError::new(
-                ErrorCode::UpstreamUnavailable,
-                format!("llm stream_generate failed: {e}"),
-            )
-            .with_request_id(request_id.to_string())
-            .with_upstream(UpstreamService::Llm)
-        })?
+        .map_err(|e| map_grpc_status(UpstreamService::Llm, request_id.to_string(), &e))?
         .into_inner();
     Ok(stream)
 }
@@ -733,6 +727,17 @@ fn build_stream_event(
     request_id: &str,
     session_id: &str,
 ) -> PendingStreamEvent {
+    if ev.error.is_some() {
+        let mapped_error = map_contract_error_detail(
+            UpstreamService::Llm,
+            request_id.to_string(),
+            ev.error.as_ref(),
+            ErrorCode::DependencyFailed,
+            "llm stream returned error event",
+        );
+        return build_stream_error_event(&mapped_error, request_id, session_id);
+    }
+
     let event_type = if ev.finish_reason.is_empty() { "delta" } else { "done" };
     let payload = if event_type == "done" {
         json!({ "finish_reason": &ev.finish_reason })
@@ -745,6 +750,27 @@ fn build_stream_event(
         payload,
         event_id: Some(ev.event_id.clone()),
         sequence_num: Some(ev.sequence_num as u32),
+        request_id: request_id.to_string(),
+        session_id: session_id.to_string(),
+    }
+}
+
+fn build_stream_error_event(
+    err: &AppError,
+    request_id: &str,
+    session_id: &str,
+) -> PendingStreamEvent {
+    PendingStreamEvent {
+        event_type: "error".to_string(),
+        payload: json!({
+            "code": err.code.to_string(),
+            "message": err.to_error_response().message,
+            "retryable": err.retryable,
+            "degraded": err.degraded,
+            "retry_after_ms": err.retry_after_ms,
+        }),
+        event_id: None,
+        sequence_num: None,
         request_id: request_id.to_string(),
         session_id: session_id.to_string(),
     }
