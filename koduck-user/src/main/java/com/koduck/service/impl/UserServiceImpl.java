@@ -216,6 +216,13 @@ public class UserServiceImpl implements UserService {
 
     @Override
     @Transactional(readOnly = true)
+    public Optional<UserDetailsResponse> findById(String tenantId, Long userId) {
+        return userRepository.findByIdAndTenantId(userId, resolveTenantId(tenantId))
+                .map(this::buildUserDetailsResponse);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
     public Optional<UserDetailsResponse> findByUsername(String tenantId, String username) {
         return userRepository.findByTenantIdAndUsername(resolveTenantId(tenantId), username)
                 .map(this::buildUserDetailsResponse);
@@ -342,6 +349,7 @@ public class UserServiceImpl implements UserService {
     private UserDetailsResponse buildUserDetailsResponse(User user) {
         return UserDetailsResponse.builder()
                 .id(user.getId())
+                .tenantId(user.getTenantId())
                 .username(user.getUsername())
                 .email(user.getEmail())
                 .passwordHash(user.getPasswordHash())

@@ -21,6 +21,7 @@ import java.time.LocalDateTime;
 public class UserDetailsResponse {
 
     private Long id;
+    private String tenantId;
     private String username;
     private String email;
     private String passwordHash;

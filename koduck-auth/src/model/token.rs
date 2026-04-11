@@ -15,6 +15,7 @@ pub enum TokenType {
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Claims {
     pub sub: String,        // user_id
+    pub tenant_id: String,
     pub username: String,
     pub email: String,
     pub roles: Vec<String>,

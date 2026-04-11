@@ -122,6 +122,11 @@ class UserControllerAuthBoundaryTest {
         }
 
         @Override
+        public Optional<UserDetailsResponse> findById(String tenantId, Long userId) {
+            throw new UnsupportedOperationException("Not used in this test");
+        }
+
+        @Override
         public Optional<UserDetailsResponse> findByUsername(String tenantId, String username) {
             throw new UnsupportedOperationException("Not used in this test");
         }

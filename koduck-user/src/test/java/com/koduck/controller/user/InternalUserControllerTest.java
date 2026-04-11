@@ -58,6 +58,7 @@ class InternalUserControllerTest {
     void shouldFindUserByUsername() throws Exception {
         userService.userByUsername = Optional.of(UserDetailsResponse.builder()
                 .id(1001L)
+                .tenantId(TENANT_ID)
                 .username("alice")
                 .email("alice@koduck.com")
                 .passwordHash("hash")
@@ -69,7 +70,28 @@ class InternalUserControllerTest {
                         .header("X-Tenant-Id", TENANT_ID))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.id").value(1001))
+                .andExpect(jsonPath("$.tenantId").value(TENANT_ID))
                 .andExpect(jsonPath("$.username").value("alice"));
+        org.junit.jupiter.api.Assertions.assertEquals(TENANT_ID, userService.lastTenantId);
+    }
+
+    @Test
+    void shouldFindUserById() throws Exception {
+        userService.userById = Optional.of(UserDetailsResponse.builder()
+                .id(1001L)
+                .tenantId(TENANT_ID)
+                .username("alice")
+                .email("alice@koduck.com")
+                .passwordHash("hash")
+                .status("ACTIVE")
+                .build());
+
+        mockMvc.perform(get("/internal/users/1001")
+                        .header("X-Consumer-Username", "koduck-auth")
+                        .header("X-Tenant-Id", TENANT_ID))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(1001))
+                .andExpect(jsonPath("$.tenantId").value(TENANT_ID));
         org.junit.jupiter.api.Assertions.assertEquals(TENANT_ID, userService.lastTenantId);
     }
 
@@ -87,6 +109,7 @@ class InternalUserControllerTest {
     void shouldFallbackToDefaultTenantWhenTenantHeaderMissing() throws Exception {
         userService.userByUsername = Optional.of(UserDetailsResponse.builder()
                 .id(1001L)
+                .tenantId(DEFAULT_TENANT_ID)
                 .username("alice")
                 .email("alice@koduck.com")
                 .passwordHash("hash")
@@ -112,6 +135,7 @@ class InternalUserControllerTest {
     void shouldFindUserByEmail() throws Exception {
         userService.userByEmail = Optional.of(UserDetailsResponse.builder()
                 .id(1002L)
+                .tenantId(TENANT_ID)
                 .username("bob")
                 .email("bob@koduck.com")
                 .passwordHash("hash")
@@ -147,6 +171,7 @@ class InternalUserControllerTest {
                 .build();
         userService.createdUser = UserDetailsResponse.builder()
                 .id(1003L)
+                .tenantId(TENANT_ID)
                 .username("carol")
                 .email("carol@koduck.com")
                 .passwordHash("hash")
@@ -306,6 +331,7 @@ class InternalUserControllerTest {
 
     static class StubUserService implements UserService {
 
+        private Optional<UserDetailsResponse> userById = Optional.empty();
         private Optional<UserDetailsResponse> userByUsername = Optional.empty();
         private Optional<UserDetailsResponse> userByEmail = Optional.empty();
         private String lastTenantId;
@@ -364,6 +390,12 @@ class InternalUserControllerTest {
         @Override
         public List<RoleInfo> getUserRolesInfo(String tenantId, Long userId) {
             throw new UnsupportedOperationException("Not used in this test");
+        }
+
+        @Override
+        public Optional<UserDetailsResponse> findById(String tenantId, Long userId) {
+            this.lastTenantId = tenantId;
+            return userById;
         }
 
         @Override

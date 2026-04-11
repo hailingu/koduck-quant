@@ -35,6 +35,19 @@ public class InternalUserController {
         this.userService = userService;
     }
 
+    @GetMapping("/users/{userId}")
+    public ResponseEntity<UserDetailsResponse> findById(
+            @PathVariable Long userId,
+            @RequestHeader(value = "X-Consumer-Username", required = false) String consumer,
+            @RequestHeader(value = "X-Tenant-Id", required = false) String tenantId) {
+        String consumerName = requireConsumer(consumer);
+        String resolvedTenantId = resolveTenantId(tenantId);
+        logAudit(consumerName, resolvedTenantId, "findById", String.valueOf(userId));
+        return userService.findById(resolvedTenantId, userId)
+                .map(ResponseEntity::ok)
+                .orElse(ResponseEntity.notFound().build());
+    }
+
     @GetMapping("/users/by-username/{username}")
     public ResponseEntity<UserDetailsResponse> findByUsername(
             @PathVariable String username,
