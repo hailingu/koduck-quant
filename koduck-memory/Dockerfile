@@ -17,6 +17,7 @@ RUN sed -i 's|http://deb.debian.org/debian|https://mirrors.tuna.tsinghua.edu.cn/
 COPY Cargo.toml ./
 COPY build.rs ./
 COPY proto ./proto
+COPY migrations ./migrations
 
 RUN mkdir -p src && echo "fn main() {}" > src/main.rs
 

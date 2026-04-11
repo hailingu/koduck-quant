@@ -2,12 +2,16 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 
-use sqlx::postgres::{PgPool, PgPoolOptions};
+use sqlx::migrate::Migrator;
+use sqlx::postgres::{PgConnectOptions, PgPool, PgPoolOptions};
+use sqlx::{Connection, Executor, PgConnection};
 use tokio::sync::RwLock;
 use tracing::{info, warn};
 
 use crate::config::AppConfig;
 use crate::Result;
+
+static MIGRATOR: Migrator = sqlx::migrate!("./migrations");
 
 #[derive(Clone)]
 pub struct RuntimeState {
@@ -32,12 +36,16 @@ pub struct DependencySnapshot {
 
 impl RuntimeState {
     pub async fn initialize(config: &AppConfig) -> Result<Self> {
+        ensure_database_exists(&config.postgres.dsn).await?;
+
         let pool = PgPoolOptions::new()
             .max_connections(5)
             .min_connections(1)
             .acquire_timeout(Duration::from_secs(5))
             .connect(&config.postgres.dsn)
             .await?;
+
+        run_migrations(&pool).await?;
 
         let state = Self {
             pool,
@@ -110,5 +118,57 @@ impl RuntimeState {
                 *last_error = Some(error.to_string());
             }
         }
+    }
+}
+
+async fn ensure_database_exists(dsn: &str) -> Result<()> {
+    let target_options: PgConnectOptions = dsn.parse()?;
+    let database_name = target_options
+        .get_database()
+        .filter(|name| !name.trim().is_empty())
+        .ok_or_else(|| anyhow::anyhow!("postgres.dsn must include a target database name"))?
+        .to_string();
+
+    if database_name == "postgres" {
+        info!("koduck-memory target database is postgres; skipping database bootstrap");
+        return Ok(());
+    }
+
+    let admin_options = target_options.clone().database("postgres");
+    let mut connection = PgConnection::connect_with(&admin_options).await?;
+    let exists = sqlx::query_scalar::<_, bool>("SELECT EXISTS (SELECT 1 FROM pg_database WHERE datname = $1)")
+        .bind(&database_name)
+        .fetch_one(&mut connection)
+        .await?;
+
+    if exists {
+        info!(database = %database_name, "koduck-memory target database already exists");
+        return Ok(());
+    }
+
+    let statement = format!("CREATE DATABASE {}", quote_identifier(&database_name));
+    connection.execute(statement.as_str()).await?;
+    info!(database = %database_name, "koduck-memory target database created");
+    Ok(())
+}
+
+async fn run_migrations(pool: &PgPool) -> Result<()> {
+    MIGRATOR.run(pool).await?;
+    info!("koduck-memory postgres migrations applied successfully");
+    Ok(())
+}
+
+fn quote_identifier(identifier: &str) -> String {
+    format!("\"{}\"", identifier.replace('"', "\"\""))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::quote_identifier;
+
+    #[test]
+    fn quote_identifier_escapes_double_quotes() {
+        assert_eq!(quote_identifier("koduck_memory"), "\"koduck_memory\"");
+        assert_eq!(quote_identifier("memory\"prod"), "\"memory\"\"prod\"");
     }
 }
