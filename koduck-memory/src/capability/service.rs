@@ -10,6 +10,10 @@ use crate::api::{
 };
 use crate::config::AppConfig;
 
+const MAX_TOP_K: i32 = 20;
+const MAX_PAGE_SIZE: i32 = 100;
+const RECOMMENDED_TIMEOUT_MS: i64 = 5000;
+
 #[derive(Clone)]
 pub struct MemoryGrpcService {
     config: AppConfig,
@@ -24,7 +28,12 @@ impl MemoryGrpcService {
 
     fn capability_response(&self) -> Capability {
         let mut features = HashMap::new();
-        features.insert("session_truth".to_string(), "planned".to_string());
+        features.insert("session_meta".to_string(), "true".to_string());
+        features.insert("query_memory".to_string(), "true".to_string());
+        features.insert("append_memory".to_string(), "true".to_string());
+        features.insert("summary".to_string(), "true".to_string());
+        features.insert("domain_first_search".to_string(), "true".to_string());
+        features.insert("summary_search".to_string(), "true".to_string());
         features.insert("append_mode".to_string(), "object_per_append".to_string());
         features.insert(
             "retrieve_policy.default".to_string(),
@@ -36,7 +45,12 @@ impl MemoryGrpcService {
         );
 
         let mut limits = HashMap::new();
-        limits.insert("max_batch_entries".to_string(), "planned".to_string());
+        limits.insert("max_top_k".to_string(), MAX_TOP_K.to_string());
+        limits.insert("max_page_size".to_string(), MAX_PAGE_SIZE.to_string());
+        limits.insert(
+            "recommended_timeout_ms".to_string(),
+            RECOMMENDED_TIMEOUT_MS.to_string(),
+        );
         limits.insert(
             "capabilities_ttl_secs".to_string(),
             self.config.capabilities.ttl_secs.to_string(),
@@ -301,9 +315,27 @@ mod tests {
 
         assert_eq!(response.service, "memory");
         assert_eq!(response.contract_versions, vec!["memory.v1".to_string()]);
+        assert_eq!(response.features.get("session_meta"), Some(&"true".to_string()));
+        assert_eq!(response.features.get("query_memory"), Some(&"true".to_string()));
+        assert_eq!(response.features.get("append_memory"), Some(&"true".to_string()));
+        assert_eq!(response.features.get("summary"), Some(&"true".to_string()));
+        assert_eq!(
+            response.features.get("domain_first_search"),
+            Some(&"true".to_string())
+        );
+        assert_eq!(
+            response.features.get("summary_search"),
+            Some(&"true".to_string())
+        );
         assert_eq!(
             response.features.get("retrieve_policy.default"),
             Some(&"domain-first".to_string())
+        );
+        assert_eq!(response.limits.get("max_top_k"), Some(&"20".to_string()));
+        assert_eq!(response.limits.get("max_page_size"), Some(&"100".to_string()));
+        assert_eq!(
+            response.limits.get("recommended_timeout_ms"),
+            Some(&"5000".to_string())
         );
 
         let _ = shutdown_tx.send(());
