@@ -14,21 +14,38 @@ import java.util.Optional;
 
 public interface UserRepository extends JpaRepository<User, Long> {
 
-    Optional<User> findByUsername(String username);
+    Optional<User> findByIdAndTenantId(Long id, String tenantId);
 
-    Optional<User> findByEmail(String email);
+    Optional<User> findByTenantIdAndUsername(String tenantId, String username);
 
-    boolean existsByUsername(String username);
+    Optional<User> findByTenantIdAndEmail(String tenantId, String email);
 
-    boolean existsByEmail(String email);
+    boolean existsByTenantIdAndUsername(String tenantId, String username);
 
-    Page<User> findByUsernameContainingOrEmailContaining(String username, String email, Pageable pageable);
+    boolean existsByTenantIdAndEmail(String tenantId, String email);
 
-    Page<User> findByStatus(UserStatus status, Pageable pageable);
+    @Query("""
+            SELECT u FROM User u
+            WHERE u.tenantId = :tenantId
+              AND (LOWER(u.username) LIKE LOWER(CONCAT('%', :keyword, '%'))
+                OR LOWER(u.email) LIKE LOWER(CONCAT('%', :keyword, '%')))
+            """)
+    Page<User> searchByTenantIdAndKeyword(@Param("tenantId") String tenantId,
+                                          @Param("keyword") String keyword,
+                                          Pageable pageable);
+
+    Page<User> findByTenantIdAndStatus(String tenantId, UserStatus status, Pageable pageable);
+
+    Page<User> findByTenantId(String tenantId, Pageable pageable);
 
     @Modifying
-    @Query("UPDATE User u SET u.lastLoginAt = :loginTime, u.lastLoginIp = :ipAddress WHERE u.id = :userId")
-    int updateLastLogin(@Param("userId") Long userId,
+    @Query("""
+            UPDATE User u
+            SET u.lastLoginAt = :loginTime, u.lastLoginIp = :ipAddress
+            WHERE u.id = :userId AND u.tenantId = :tenantId
+            """)
+    int updateLastLogin(@Param("tenantId") String tenantId,
+                        @Param("userId") Long userId,
                         @Param("loginTime") LocalDateTime loginTime,
                         @Param("ipAddress") String ipAddress);
 }

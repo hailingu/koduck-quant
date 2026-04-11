@@ -7,7 +7,7 @@ import java.util.List;
 
 public interface RolePermissionRepository extends JpaRepository<RolePermission, Long> {
 
-    List<RolePermission> findByRoleId(Integer roleId);
+    List<RolePermission> findByTenantIdAndRoleId(String tenantId, Integer roleId);
 
-    void deleteByRoleId(Integer roleId);
+    void deleteByTenantIdAndRoleId(String tenantId, Integer roleId);
 }

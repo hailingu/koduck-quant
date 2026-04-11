@@ -13,6 +13,8 @@ import java.util.List;
 @Service
 public class PermissionServiceImpl implements PermissionService {
 
+    private static final String DEFAULT_TENANT_ID = "default";
+
     private final PermissionRepository permissionRepository;
     private final UserRoleRepository userRoleRepository;
 
@@ -33,7 +35,7 @@ public class PermissionServiceImpl implements PermissionService {
     @Override
     @Transactional(readOnly = true)
     public List<String> getUserPermissions(Long userId) {
-        return userRoleRepository.findPermissionsByUserId(userId);
+        return userRoleRepository.findPermissionsByTenantIdAndUserId(DEFAULT_TENANT_ID, userId);
     }
 
     private PermissionInfo buildPermissionInfo(Permission permission) {

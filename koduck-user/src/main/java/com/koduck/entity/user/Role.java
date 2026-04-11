@@ -25,15 +25,21 @@ import java.time.LocalDateTime;
 @Table(name = "roles")
 public class Role {
 
+    public static final String DEFAULT_TENANT_ID = "default";
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Integer id;
 
-    @Column(name = "name", nullable = false, length = 50, unique = true)
+    @Column(name = "name", nullable = false, length = 50)
     private String name;
 
     @Column(name = "description", length = 255)
     private String description;
+
+    @Column(name = "tenant_id", nullable = false, length = 128)
+    @Builder.Default
+    private String tenantId = DEFAULT_TENANT_ID;
 
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)

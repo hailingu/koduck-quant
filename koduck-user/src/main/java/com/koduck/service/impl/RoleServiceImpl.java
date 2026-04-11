@@ -32,6 +32,8 @@ import java.util.stream.Collectors;
 @Service
 public class RoleServiceImpl implements RoleService {
 
+    private static final String DEFAULT_TENANT_ID = Role.DEFAULT_TENANT_ID;
+
     private static final Set<String> PROTECTED_ROLES = Set.of(
             "ROLE_USER",
             "ROLE_ADMIN",
@@ -56,7 +58,7 @@ public class RoleServiceImpl implements RoleService {
     @Override
     @Transactional(readOnly = true)
     public List<RoleInfo> listRoles() {
-        return roleRepository.findAll().stream()
+        return roleRepository.findAllByTenantId(DEFAULT_TENANT_ID).stream()
                 .map(this::buildRoleInfo)
                 .toList();
     }
@@ -72,11 +74,12 @@ public class RoleServiceImpl implements RoleService {
     @Override
     @Transactional
     public RoleResponse createRole(CreateRoleRequest request) {
-        if (roleRepository.existsByName(request.getName())) {
+        if (roleRepository.existsByTenantIdAndName(DEFAULT_TENANT_ID, request.getName())) {
             throw new RoleAlreadyExistsException(request.getName());
         }
 
         Role role = Role.builder()
+                .tenantId(DEFAULT_TENANT_ID)
                 .name(request.getName())
                 .description(request.getDescription())
                 .build();
@@ -91,7 +94,7 @@ public class RoleServiceImpl implements RoleService {
         Role role = findRoleOrThrow(roleId);
 
         if (request.getName() != null && !request.getName().equals(role.getName())) {
-            if (roleRepository.existsByName(request.getName())) {
+            if (roleRepository.existsByTenantIdAndName(DEFAULT_TENANT_ID, request.getName())) {
                 throw new RoleAlreadyExistsException(request.getName());
             }
             role.setName(request.getName());
@@ -118,7 +121,7 @@ public class RoleServiceImpl implements RoleService {
             throw new RoleHasUsersException(roleId);
         }
 
-        rolePermissionRepository.deleteByRoleId(roleId);
+        rolePermissionRepository.deleteByTenantIdAndRoleId(DEFAULT_TENANT_ID, roleId);
         roleRepository.delete(role);
     }
 
@@ -139,10 +142,11 @@ public class RoleServiceImpl implements RoleService {
         }
 
         // 全量替换：先删除再插入
-        rolePermissionRepository.deleteByRoleId(roleId);
+        rolePermissionRepository.deleteByTenantIdAndRoleId(DEFAULT_TENANT_ID, roleId);
 
         List<RolePermission> rolePermissions = permissions.stream()
                 .map(p -> RolePermission.builder()
+                        .tenantId(DEFAULT_TENANT_ID)
                         .roleId(roleId)
                         .permissionId(p.getId())
                         .build())
@@ -156,7 +160,7 @@ public class RoleServiceImpl implements RoleService {
     public List<PermissionInfo> getRolePermissions(Integer roleId) {
         findRoleOrThrow(roleId);
 
-        return rolePermissionRepository.findByRoleId(roleId).stream()
+        return rolePermissionRepository.findByTenantIdAndRoleId(DEFAULT_TENANT_ID, roleId).stream()
                 .map(rp -> permissionRepository.findById(rp.getPermissionId()))
                 .filter(java.util.Optional::isPresent)
                 .map(java.util.Optional::get)
@@ -167,12 +171,12 @@ public class RoleServiceImpl implements RoleService {
     // === 私有辅助方法 ===
 
     private Role findRoleOrThrow(Integer roleId) {
-        return roleRepository.findById(roleId)
+        return roleRepository.findByIdAndTenantId(roleId, DEFAULT_TENANT_ID)
                 .orElseThrow(() -> new RoleNotFoundException(roleId));
     }
 
     private boolean hasAssociatedUsers(Integer roleId) {
-        return userRoleRepository.countByRoleId(roleId) > 0;
+        return userRoleRepository.countByTenantIdAndRoleId(DEFAULT_TENANT_ID, roleId) > 0;
     }
 
     private RoleInfo buildRoleInfo(Role role) {

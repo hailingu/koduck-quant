@@ -23,6 +23,8 @@ import java.time.LocalDateTime;
 @Table(name = "role_permissions")
 public class RolePermission {
 
+    public static final String DEFAULT_TENANT_ID = "default";
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -32,6 +34,10 @@ public class RolePermission {
 
     @Column(name = "permission_id", nullable = false)
     private Integer permissionId;
+
+    @Column(name = "tenant_id", nullable = false, length = 128)
+    @Builder.Default
+    private String tenantId = DEFAULT_TENANT_ID;
 
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
