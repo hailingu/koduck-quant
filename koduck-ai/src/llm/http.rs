@@ -265,6 +265,8 @@ fn header_value(value: &str) -> Result<HeaderValue, AppError> {
 
 #[cfg(test)]
 mod tests {
+    use std::time::Duration;
+
     use reqwest::{
         header::{HeaderValue, ACCEPT, AUTHORIZATION},
         Method,

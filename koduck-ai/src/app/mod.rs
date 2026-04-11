@@ -12,7 +12,7 @@ use tower_http::trace::TraceLayer;
 
 use crate::api;
 use crate::config::Config;
-use crate::llm::{AdapterLlmProvider, LlmProvider};
+use crate::llm::{build_provider_router, LlmProvider};
 use crate::reliability::degrade::DegradePolicy;
 use crate::reliability::retry_budget::RetryBudgetPolicy;
 use crate::stream::sse::StreamRegistry;
@@ -51,9 +51,8 @@ pub fn build_state(config: Config) -> Arc<AppState> {
 
     Arc::new(AppState {
         degrade_policy: Arc::new(DegradePolicy::new(config.reliability.degrade.clone())),
-        llm_provider: Arc::new(AdapterLlmProvider::new(
-            config.llm.adapter_grpc_target.clone(),
-        )),
+        llm_provider: build_provider_router(&config)
+            .expect("failed to build llm provider router from config"),
         retry_budget_policy: Arc::new(RetryBudgetPolicy::new(config.reliability.retry.clone())),
         config,
         stream_registry: Arc::new(StreamRegistry::default()),
