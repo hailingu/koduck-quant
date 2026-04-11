@@ -12,11 +12,13 @@ use crate::api::proto::{
 use crate::capability::MemoryGrpcService;
 use crate::config::AppConfig;
 use crate::observe;
+use crate::store::RuntimeState;
 use crate::Result;
 
 pub async fn run(config: AppConfig) -> Result<()> {
     let grpc_addr: SocketAddr = config.server.grpc_addr.parse()?;
     let metrics_addr: SocketAddr = config.server.metrics_addr.parse()?;
+    let runtime = RuntimeState::initialize(&config).await?;
 
     let grpc_service = MemoryGrpcService::from_config(&config);
     let reflection = tonic_reflection::server::Builder::configure()
@@ -28,7 +30,7 @@ pub async fn run(config: AppConfig) -> Result<()> {
         .await;
 
     let metrics_listener = TcpListener::bind(metrics_addr).await?;
-    let metrics_router = observe::build_metrics_router(config.clone());
+    let metrics_router = observe::build_metrics_router(config.clone(), runtime.clone());
 
     let (shutdown_tx, _) = broadcast::channel::<()>(1);
     let mut metrics_shutdown_rx = shutdown_tx.subscribe();
@@ -36,6 +38,11 @@ pub async fn run(config: AppConfig) -> Result<()> {
 
     info!("koduck-memory metrics endpoint listening on {}", metrics_addr);
     info!("koduck-memory gRPC server listening on {}", grpc_addr);
+    info!(
+        pool_size = runtime.pool().size(),
+        pool_idle = runtime.pool().num_idle(),
+        "koduck-memory postgres dependency is ready"
+    );
 
     tokio::select! {
         result = axum::serve(metrics_listener, metrics_router).with_graceful_shutdown(async move {

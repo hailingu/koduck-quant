@@ -22,7 +22,7 @@ metadata:
   namespace: koduck
 type: Opaque
 stringData:
-  POSTGRES__DSN: "postgresql://koduck:koduck_secret@dev-postgres:5432/koduck_memory"
+  POSTGRES__DSN: "postgresql://koduck:koduck_secret@dev-postgres:5432/postgres"
   OBJECT_STORE__ENDPOINT: "http://dev-minio:9000"
   OBJECT_STORE__BUCKET: "koduck-memory-dev"
   OBJECT_STORE__ACCESS_KEY: "minioadmin"

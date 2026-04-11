@@ -1,1 +1,3 @@
-//! Store module placeholder for PostgreSQL and object storage adapters.
+mod postgres;
+
+pub use postgres::{DependencySnapshot, RuntimeState};

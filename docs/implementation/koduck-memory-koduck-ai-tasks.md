@@ -62,9 +62,9 @@
 3. 暴露基础 metrics
 
 **验收标准:**
-- [ ] 数据库连接成功可观测
-- [ ] readiness 仅在依赖就绪后成功
-- [ ] metrics 可被 Prometheus 抓取
+- [x] 数据库连接成功可观测
+- [x] readiness 仅在依赖就绪后成功
+- [x] metrics 可被 Prometheus 抓取
 
 ### Task 1.4: MinIO 对象存储基础设施
 **详细要求:**
