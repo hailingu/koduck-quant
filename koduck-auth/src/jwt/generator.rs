@@ -47,6 +47,7 @@ impl JwtService {
     pub fn generate_access_token(
         &self,
         user_id: i64,
+        tenant_id: &str,
         username: &str,
         email: &str,
         roles: &[String],
@@ -56,6 +57,7 @@ impl JwtService {
 
         let claims = Claims {
             sub: user_id.to_string(),
+            tenant_id: tenant_id.to_string(),
             username: username.to_string(),
             email: email.to_string(),
             roles: roles.to_vec(),
@@ -75,12 +77,13 @@ impl JwtService {
     }
 
     /// Generate refresh token
-    pub fn generate_refresh_token(&self, user_id: i64) -> Result<String> {
+    pub fn generate_refresh_token(&self, user_id: i64, tenant_id: &str) -> Result<String> {
         let now = Utc::now();
         let expiration = now + Duration::seconds(self.refresh_expiration);
 
         let claims = Claims {
             sub: user_id.to_string(),
+            tenant_id: tenant_id.to_string(),
             username: String::new(),
             email: String::new(),
             roles: vec![],

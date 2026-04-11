@@ -14,6 +14,8 @@ use prost_types::Timestamp;
 use tonic::{Request, Response, Status};
 use tracing::info;
 
+const DEFAULT_TENANT_ID: &str = "default";
+
 /// gRPC TokenService implementation
 #[derive(Clone)]
 pub struct GrpcTokenService {
@@ -135,6 +137,7 @@ impl TokenService for GrpcTokenService {
             .jwt_service
             .generate_access_token(
                 req.user_id,
+                DEFAULT_TENANT_ID,
                 &req.username,
                 &req.email,
                 &req.roles,
@@ -144,7 +147,7 @@ impl TokenService for GrpcTokenService {
         // Generate refresh token using jwt_service
         let refresh_token = self
             .jwt_service
-            .generate_refresh_token(req.user_id)
+            .generate_refresh_token(req.user_id, DEFAULT_TENANT_ID)
             .map_err(Self::to_status)?;
 
         let response = GenerateTokenPairResponse {

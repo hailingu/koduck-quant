@@ -140,6 +140,7 @@ mod tests {
 
         let claims = Claims {
             sub: "123".to_string(),
+            tenant_id: "tenant-a".to_string(),
             username: "testuser".to_string(),
             email: "test@example.com".to_string(),
             roles: vec!["user".to_string(), "admin".to_string()],

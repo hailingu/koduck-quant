@@ -169,8 +169,8 @@
 3. token 校验时解析 `tenant_id`
 
 **验收标准:**
-- [ ] access token 带 `tenant_id`
-- [ ] refresh / validate 链路不丢失 tenant
+- [x] access token 带 `tenant_id`
+- [x] refresh / validate 链路不丢失 tenant
 
 ### Task 4.2: gRPC / introspection 增加 `tenant_id`
 **详细要求:**

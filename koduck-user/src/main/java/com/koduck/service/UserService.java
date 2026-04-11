@@ -47,6 +47,8 @@ public interface UserService {
 
     // === 内部 API ===
 
+    Optional<UserDetailsResponse> findById(String tenantId, Long userId);
+
     Optional<UserDetailsResponse> findByUsername(String tenantId, String username);
 
     Optional<UserDetailsResponse> findByEmail(String tenantId, String email);

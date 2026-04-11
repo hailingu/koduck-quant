@@ -22,6 +22,8 @@ use std::sync::Arc;
 use std::time::Duration;
 use tracing::{error, info};
 
+const DEFAULT_TENANT_ID: &str = "default";
+
 /// Authentication service
 #[derive(Clone)]
 pub struct AuthService {
@@ -38,6 +40,8 @@ pub struct AuthService {
 #[derive(Debug, Deserialize)]
 struct InternalUserDetails {
     id: i64,
+    #[serde(rename = "tenantId")]
+    tenant_id: String,
     username: String,
     email: String,
     #[serde(rename = "passwordHash")]
@@ -101,7 +105,7 @@ impl AuthService {
 
         // Fetch user from koduck-user internal API instead of local auth DB.
         let user = self
-            .fetch_user_from_user_service(&req.username)
+            .fetch_user_from_user_service(DEFAULT_TENANT_ID, &req.username)
             .await?
             .ok_or_else(|| AppError::Unauthorized("Invalid username or password".to_string()))?;
 
@@ -141,17 +145,24 @@ impl AuthService {
         self.redis.reset_login_attempts(&ip).await?;
 
         // Get user roles
-        let roles = self.fetch_user_roles_from_user_service(user.id).await?;
+        let roles = self
+            .fetch_user_roles_from_user_service(&user.tenant_id, user.id)
+            .await?;
 
         // Update last login in koduck-user
-        self.update_last_login_in_user_service(user.id, &ip).await?;
+        self.update_last_login_in_user_service(&user.tenant_id, user.id, &ip)
+            .await?;
+
+        let tokens = self
+            .generate_token_pair(user.id, &user.tenant_id, &user.username, &user.email, &roles)
+            .await?;
 
         let auth_user = User {
             id: user.id,
-            username: user.username,
-            email: user.email,
-            password_hash: user.password_hash,
-            nickname: user.nickname,
+            username: user.username.clone(),
+            email: user.email.clone(),
+            password_hash: user.password_hash.clone(),
+            nickname: user.nickname.clone(),
             avatar_url: None,
             status: Self::parse_user_status(&user.status),
             email_verified: false,
@@ -159,9 +170,6 @@ impl AuthService {
             created_at: chrono::Utc::now(),
             updated_at: chrono::Utc::now(),
         };
-
-        // Generate tokens
-        let tokens = self.generate_token_pair(&auth_user, &roles).await?;
 
         Ok(TokenResponse::new(tokens, UserInfo::from(auth_user)))
     }
@@ -174,6 +182,7 @@ impl AuthService {
 
         let created = self
             .create_user_in_user_service(
+                DEFAULT_TENANT_ID,
                 req.username,
                 req.email,
                 password_hash,
@@ -182,14 +191,26 @@ impl AuthService {
             .await?;
         info!("User registered successfully via user-service: {}", created.id);
 
-        let roles = self.fetch_user_roles_from_user_service(created.id).await?;
+        let roles = self
+            .fetch_user_roles_from_user_service(&created.tenant_id, created.id)
+            .await?;
+
+        let tokens = self
+            .generate_token_pair(
+                created.id,
+                &created.tenant_id,
+                &created.username,
+                &created.email,
+                &roles,
+            )
+            .await?;
 
         let user = User {
             id: created.id,
-            username: created.username,
-            email: created.email,
-            password_hash: created.password_hash,
-            nickname: created.nickname,
+            username: created.username.clone(),
+            email: created.email.clone(),
+            password_hash: created.password_hash.clone(),
+            nickname: created.nickname.clone(),
             avatar_url: None,
             status: Self::parse_user_status(&created.status),
             email_verified: false,
@@ -197,8 +218,6 @@ impl AuthService {
             created_at: chrono::Utc::now(),
             updated_at: chrono::Utc::now(),
         };
-
-        let tokens = self.generate_token_pair(&user, &roles).await?;
 
         Ok(TokenResponse::new(
             tokens,
@@ -209,11 +228,17 @@ impl AuthService {
     /// Refresh access token
     pub async fn refresh_token(&self, req: RefreshTokenRequest) -> Result<TokenResponse> {
         let refresh_token_hash = Self::hash_token(&req.refresh_token);
+        let claims = Self::try_extract_claims_without_verification(&req.refresh_token)
+            .ok_or_else(|| AppError::Unauthorized("Invalid refresh token".to_string()))?;
+
+        if !matches!(claims.token_type, TokenType::Refresh) {
+            return Err(AppError::Unauthorized("Invalid refresh token".to_string()));
+        }
 
         // Find refresh token
         let token_record = self
             .token_repo
-            .find_by_token(&refresh_token_hash)
+            .find_by_token_in_tenant(&claims.tenant_id, &refresh_token_hash)
             .await?
             .ok_or_else(|| AppError::Unauthorized("Invalid refresh token".to_string()))?;
 
@@ -229,24 +254,39 @@ impl AuthService {
 
         // Get user
         let user = self
-            .user_repo
-            .find_by_id(token_record.user_id)
+            .fetch_user_by_id_from_user_service(&token_record.tenant_id, token_record.user_id)
             .await?
             .ok_or_else(|| AppError::NotFound("User not found".to_string()))?;
 
         // Revoke old token
-        self.token_repo.revoke(&refresh_token_hash).await?;
+        self.token_repo
+            .revoke_in_tenant(&token_record.tenant_id, &refresh_token_hash)
+            .await?;
 
         // Get roles
-        let roles = self.user_repo.get_user_roles(user.id).await?;
+        let roles = self
+            .fetch_user_roles_from_user_service(&token_record.tenant_id, user.id)
+            .await?;
 
-        // Generate new tokens
-        let tokens = self.generate_token_pair(&user, &roles).await?;
+        let tokens = self
+            .generate_token_pair(user.id, &user.tenant_id, &user.username, &user.email, &roles)
+            .await?;
 
-        Ok(TokenResponse::new(
-            tokens,
-            UserInfo::from(user),
-        ))
+        let response_user = User {
+            id: user.id,
+            username: user.username.clone(),
+            email: user.email.clone(),
+            password_hash: user.password_hash.clone(),
+            nickname: user.nickname.clone(),
+            avatar_url: None,
+            status: Self::parse_user_status(&user.status),
+            email_verified: false,
+            last_login_at: None,
+            created_at: chrono::Utc::now(),
+            updated_at: chrono::Utc::now(),
+        };
+
+        Ok(TokenResponse::new(tokens, UserInfo::from(response_user)))
     }
 
     /// Logout user
@@ -254,16 +294,22 @@ impl AuthService {
         // Revoke refresh token if provided
         if let Some(token) = refresh_token {
             let token_hash = Self::hash_token(&token);
-            self.token_repo.revoke(&token_hash).await?;
-
-            // Best-effort JWT claim parsing to support access-token blacklist on logout.
             if let Some(claims) = Self::try_extract_claims_without_verification(&token) {
-                if matches!(claims.token_type, TokenType::Access) {
-                    self.redis
-                        .add_to_token_blacklist(&claims.jti, claims.exp)
-                        .await?;
-                    info!("Access token blacklisted on logout: jti={}", claims.jti);
+                match claims.token_type {
+                    TokenType::Access => {
+                        self.redis
+                            .add_to_token_blacklist(&claims.jti, claims.exp)
+                            .await?;
+                        info!("Access token blacklisted on logout: jti={}", claims.jti);
+                    }
+                    TokenType::Refresh => {
+                        self.token_repo
+                            .revoke_in_tenant(&claims.tenant_id, &token_hash)
+                            .await?;
+                    }
                 }
+            } else {
+                self.token_repo.revoke(&token_hash).await?;
             }
         };
 
@@ -295,17 +341,25 @@ impl AuthService {
 
     /// Generate token pair for user
     /// Uses JWT service to generate real tokens
-    async fn generate_token_pair(&self, user: &User, roles: &[String]) -> Result<TokenPair> {
+    async fn generate_token_pair(
+        &self,
+        user_id: i64,
+        tenant_id: &str,
+        username: &str,
+        email: &str,
+        roles: &[String],
+    ) -> Result<TokenPair> {
         // Generate JWT access token
         let access_token = self.jwt_service.generate_access_token(
-            user.id,
-            &user.username,
-            &user.email,
+            user_id,
+            tenant_id,
+            username,
+            email,
             roles,
         )?;
 
         // Generate JWT refresh token
-        let refresh_token = self.jwt_service.generate_refresh_token(user.id)?;
+        let refresh_token = self.jwt_service.generate_refresh_token(user_id, tenant_id)?;
 
         // Save refresh token hash to database
         let mut hasher = Sha256::new();
@@ -315,10 +369,10 @@ impl AuthService {
             + chrono::Duration::seconds(self.config.jwt.refresh_token_expiration_secs);
 
         self.token_repo
-            .save(user.id, &refresh_token_hash, expires_at)
+            .save_for_tenant(tenant_id, user_id, &refresh_token_hash, expires_at)
             .await?;
 
-        info!("Generated token pair for user: {}", user.id);
+        info!("Generated token pair for user: {} in tenant {}", user_id, tenant_id);
 
         Ok(TokenPair::new(
             access_token,
@@ -549,6 +603,7 @@ impl AuthService {
 
     async fn fetch_user_from_user_service(
         &self,
+        tenant_id: &str,
         username_or_email: &str,
     ) -> Result<Option<InternalUserDetails>> {
         let endpoint = if username_or_email.contains('@') {
@@ -568,7 +623,8 @@ impl AuthService {
         let client = reqwest::Client::new();
         let request = client
             .get(endpoint)
-            .header("X-Consumer-Username", "koduck-auth");
+            .header("X-Consumer-Username", "koduck-auth")
+            .header("X-Tenant-Id", tenant_id);
 
         let response = tokio::time::timeout(
             Duration::from_secs(self.config.client.user_service_timeout_secs),
@@ -596,7 +652,54 @@ impl AuthService {
         Ok(Some(user))
     }
 
-    async fn fetch_user_roles_from_user_service(&self, user_id: i64) -> Result<Vec<String>> {
+    async fn fetch_user_by_id_from_user_service(
+        &self,
+        tenant_id: &str,
+        user_id: i64,
+    ) -> Result<Option<InternalUserDetails>> {
+        let endpoint = format!(
+            "{}/internal/users/{}",
+            self.config.client.user_service_url.trim_end_matches('/'),
+            user_id
+        );
+
+        let client = reqwest::Client::new();
+        let request = client
+            .get(endpoint)
+            .header("X-Consumer-Username", "koduck-auth")
+            .header("X-Tenant-Id", tenant_id);
+
+        let response = tokio::time::timeout(
+            Duration::from_secs(self.config.client.user_service_timeout_secs),
+            request.send(),
+        )
+        .await
+        .map_err(|_| AppError::ServiceUnavailable("User service request timed out".to_string()))?
+        .map_err(|e| AppError::ServiceUnavailable(format!("User service request failed: {}", e)))?;
+
+        if response.status() == reqwest::StatusCode::NOT_FOUND {
+            return Ok(None);
+        }
+
+        if !response.status().is_success() {
+            return Err(AppError::ServiceUnavailable(format!(
+                "User service returned status {}",
+                response.status()
+            )));
+        }
+
+        let user = response
+            .json::<InternalUserDetails>()
+            .await
+            .map_err(|e| AppError::Internal(format!("Failed to decode user response: {}", e)))?;
+        Ok(Some(user))
+    }
+
+    async fn fetch_user_roles_from_user_service(
+        &self,
+        tenant_id: &str,
+        user_id: i64,
+    ) -> Result<Vec<String>> {
         let endpoint = format!(
             "{}/internal/users/{}/roles",
             self.config.client.user_service_url.trim_end_matches('/'),
@@ -606,7 +709,8 @@ impl AuthService {
         let client = reqwest::Client::new();
         let request = client
             .get(endpoint)
-            .header("X-Consumer-Username", "koduck-auth");
+            .header("X-Consumer-Username", "koduck-auth")
+            .header("X-Tenant-Id", tenant_id);
 
         let response = tokio::time::timeout(
             Duration::from_secs(self.config.client.user_service_timeout_secs),
@@ -631,6 +735,7 @@ impl AuthService {
 
     async fn create_user_in_user_service(
         &self,
+        tenant_id: &str,
         username: String,
         email: String,
         password_hash: String,
@@ -653,6 +758,7 @@ impl AuthService {
         let request = client
             .post(endpoint)
             .header("X-Consumer-Username", "koduck-auth")
+            .header("X-Tenant-Id", tenant_id)
             .json(&payload);
 
         let response = tokio::time::timeout(
@@ -687,7 +793,12 @@ impl AuthService {
         }
     }
 
-    async fn update_last_login_in_user_service(&self, user_id: i64, ip: &str) -> Result<()> {
+    async fn update_last_login_in_user_service(
+        &self,
+        tenant_id: &str,
+        user_id: i64,
+        ip: &str,
+    ) -> Result<()> {
         let endpoint = format!(
             "{}/internal/users/{}/last-login",
             self.config.client.user_service_url.trim_end_matches('/'),
@@ -702,6 +813,7 @@ impl AuthService {
         let request = client
             .put(endpoint)
             .header("X-Consumer-Username", "koduck-auth")
+            .header("X-Tenant-Id", tenant_id)
             .json(&payload);
 
         let response = tokio::time::timeout(
