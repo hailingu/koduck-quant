@@ -179,8 +179,8 @@
 3. 更新 introspection 结果
 
 **验收标准:**
-- [ ] 对内契约可返回 `tenant_id`
-- [ ] 下游服务可消费 `tenant_id`
+- [x] 对内契约可返回 `tenant_id`
+- [x] 下游服务可消费 `tenant_id`
 
 ### Task 4.3: 登录与 refresh 流程租户化
 **详细要求:**

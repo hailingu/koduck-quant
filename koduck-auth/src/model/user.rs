@@ -41,6 +41,7 @@ pub struct User {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct UserInfo {
     pub id: i64,
+    pub tenant_id: String,
     pub username: String,
     pub email: String,
     pub nickname: Option<String>,
@@ -53,6 +54,7 @@ impl From<User> for UserInfo {
     fn from(user: User) -> Self {
         Self {
             id: user.id,
+            tenant_id: "default".to_string(),
             username: user.username,
             email: user.email,
             nickname: user.nickname,

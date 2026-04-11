@@ -126,6 +126,7 @@ mod tests {
         let result = TokenIntrospectionResult::inactive();
         assert!(!result.active);
         assert!(result.sub.is_none());
+        assert!(result.tenant_id.is_none());
         assert!(result.username.is_none());
         assert!(result.email.is_none());
         assert!(result.jti.is_none());
@@ -155,6 +156,7 @@ mod tests {
         let result = TokenIntrospectionResult::from_claims(&claims);
         assert!(result.active);
         assert_eq!(result.sub, Some("123".to_string()));
+        assert_eq!(result.tenant_id, Some("tenant-a".to_string()));
         assert_eq!(result.username, Some("testuser".to_string()));
         assert_eq!(result.email, Some("test@example.com".to_string()));
         assert_eq!(result.jti, Some("jti-123".to_string()));

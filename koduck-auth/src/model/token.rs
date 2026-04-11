@@ -79,6 +79,8 @@ pub struct TokenIntrospectionResult {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub sub: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub tenant_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub username: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub email: Option<String>,
@@ -100,6 +102,7 @@ impl TokenIntrospectionResult {
         Self {
             active: false,
             sub: None,
+            tenant_id: None,
             username: None,
             email: None,
             jti: None,
@@ -115,6 +118,7 @@ impl TokenIntrospectionResult {
         Self {
             active: true,
             sub: Some(claims.sub.clone()),
+            tenant_id: Some(claims.tenant_id.clone()),
             username: Some(claims.username.clone()),
             email: Some(claims.email.clone()),
             jti: Some(claims.jti.clone()),

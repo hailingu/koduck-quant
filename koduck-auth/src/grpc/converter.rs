@@ -59,6 +59,9 @@ impl From<UserInfo> for proto::UserInfo {
             avatar_url: user.avatar_url.unwrap_or_default(),
             status: proto::UserStatus::from(user.status) as i32,
             email_verified: user.email_verified,
+            created_at: None,
+            updated_at: None,
+            tenant_id: user.tenant_id,
         }
     }
 }
@@ -67,6 +70,7 @@ impl From<proto::UserInfo> for UserInfo {
     fn from(user: proto::UserInfo) -> Self {
         UserInfo {
             id: user.id,
+            tenant_id: user.tenant_id,
             username: user.username,
             email: user.email,
             nickname: if user.nickname.is_empty() {

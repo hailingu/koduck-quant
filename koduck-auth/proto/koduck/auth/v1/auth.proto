@@ -79,6 +79,7 @@ message ValidateTokenResponse {
   string token_id = 6;
   google.protobuf.Timestamp issued_at = 7;
   TokenType token_type = 8;
+  string tenant_id = 9;
 }
 
 message GetUserRequest {
@@ -87,6 +88,7 @@ message GetUserRequest {
     string username = 2;
     string email = 3;
   }
+  string tenant_id = 4;
 }
 
 message GetUserResponse {
@@ -177,6 +179,7 @@ message IntrospectTokenResponse {
   repeated string aud = 10;
   string iss = 11;
   string jti = 12;
+  string tenant_id = 13;
 }
 
 message RefreshTokenRequest {
@@ -210,6 +213,7 @@ message UserInfo {
   bool email_verified = 7;
   google.protobuf.Timestamp created_at = 8;
   google.protobuf.Timestamp updated_at = 9;
+  string tenant_id = 10;
 }
 
 message TokenPair {

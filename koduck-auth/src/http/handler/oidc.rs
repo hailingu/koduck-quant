@@ -1,7 +1,7 @@
 //! OIDC discovery and token introspection handlers.
 
 use axum::{
-    extract::{Request, State},
+    extract::State,
     http::HeaderMap,
     response::Json,
 };
@@ -51,7 +51,7 @@ pub async fn openid_configuration(
         "jwks_uri": format!("{}/.well-known/jwks.json", base),
         "introspection_endpoint": format!("{}/oauth/introspect", base),
         "scopes_supported": ["openid", "profile"],
-        "claims_supported": ["sub", "username", "email", "roles", "exp", "iat", "jti"]
+        "claims_supported": ["sub", "tenant_id", "username", "email", "roles", "exp", "iat", "jti"]
     });
     Ok(Json(config))
 }
