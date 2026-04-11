@@ -963,14 +963,15 @@ curl -fsS -X PUT "${ADMIN}/routes/user-service" \
     "priority": 90,
     "plugins": {
       "jwt-auth": {},
-      "proxy-rewrite": {
-        "headers": {
-          "X-User-Id": "$jwt_claim_user_id",
-          "X-Username": "$jwt_claim_username",
-          "X-Roles": "$jwt_claim_roles"
+        "proxy-rewrite": {
+          "headers": {
+            "X-User-Id": "$jwt_claim_user_id",
+            "X-Username": "$jwt_claim_username",
+            "X-Roles": "$jwt_claim_roles",
+            "X-Tenant-Id": "$jwt_claim_tenant_id"
+          }
         }
-      }
-    },
+      },
     "upstream": {
       "type": "roundrobin",
       "nodes": {
@@ -994,7 +995,8 @@ for service in market portfolio strategy community; do
           \"headers\": {
             \"X-User-Id\": \"$jwt_claim_user_id\",
             \"X-Username\": \"$jwt_claim_username\",
-            \"X-Roles\": \"$jwt_claim_roles\"
+            \"X-Roles\": \"$jwt_claim_roles\",
+            \"X-Tenant-Id\": \"$jwt_claim_tenant_id\"
           }
         }
       },

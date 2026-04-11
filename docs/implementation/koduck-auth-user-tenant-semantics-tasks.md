@@ -201,8 +201,8 @@
 2. 将 `tenant_id` 透传为 `X-Tenant-Id`
 
 **验收标准:**
-- [ ] 下游收到 `X-Tenant-Id`
-- [ ] 与 `X-User-Id / X-Username / X-Roles` 一致透传
+- [x] 下游收到 `X-Tenant-Id`
+- [x] 与 `X-User-Id / X-Username / X-Roles` 一致透传
 
 ### Task 5.2: 网关与服务联调
 **详细要求:**

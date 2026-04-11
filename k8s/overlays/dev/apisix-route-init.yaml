@@ -233,7 +233,7 @@ spec:
               echo "Registering protected API route: /api/* -> backend (jwt-auth)"
               curl -fsS -X PUT "${ADMIN}/routes/api-protected" \
                 -H "$KEY" -H 'Content-Type: application/json' \
-                -d "$(printf '{"uri":"/api/*","plugins":{"jwt-auth":{}},"upstream":{"type":"roundrobin","nodes":{"%s":1}}}' "$BACKEND_SERVICE")"
+                -d "$(printf '{"uri":"/api/*","plugins":{"jwt-auth":{},"proxy-rewrite":{"headers":{"X-User-Id":"$jwt_claim_user_id","X-Username":"$jwt_claim_username","X-Roles":"$jwt_claim_roles","X-Tenant-Id":"$jwt_claim_tenant_id"}}},"upstream":{"type":"roundrobin","nodes":{"%s":1}}}' "$BACKEND_SERVICE")"
 
               # ── AI 路由（openid-connect 插件做 OIDC 校验） ──
               # APISIX 通过 JWKS 本地验签 Bearer token，校验通过后
