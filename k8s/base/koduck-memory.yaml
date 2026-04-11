@@ -31,10 +31,13 @@ spec:
               containerPort: 9090
               protocol: TCP
           env:
-            - name: KODUCK_MEMORY__SERVER__GRPC_ADDR
+            - name: SERVER__GRPC_ADDR
               value: "0.0.0.0:50051"
-            - name: KODUCK_MEMORY__SERVER__METRICS_ADDR
+            - name: SERVER__METRICS_ADDR
               value: "0.0.0.0:9090"
+          envFrom:
+            - secretRef:
+                name: koduck-memory-secrets
           resources:
             requests:
               cpu: 100m
@@ -95,3 +98,20 @@ spec:
       port: 50051
       targetPort: grpc
       protocol: TCP
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: koduck-memory-secrets
+  namespace: koduck
+type: Opaque
+stringData:
+  POSTGRES__DSN: "postgresql://koduck:koduck_secret@postgres:5432/koduck_memory"
+  OBJECT_STORE__ENDPOINT: "http://minio:9000"
+  OBJECT_STORE__BUCKET: "koduck-memory-dev"
+  OBJECT_STORE__ACCESS_KEY: "minioadmin"
+  OBJECT_STORE__SECRET_KEY: "minioadmin"
+  OBJECT_STORE__REGION: "ap-east-1"
+  INDEX__MODE: "domain-first"
+  CAPABILITIES__TTL_SECS: "60"
+  SUMMARY__ASYNC_ENABLED: "false"

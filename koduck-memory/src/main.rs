@@ -13,6 +13,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         environment = %config.app.env,
         grpc_addr = %config.server.grpc_addr,
         metrics_addr = %config.server.metrics_addr,
+        config = %config.redacted_summary(),
         "starting koduck-memory service"
     );
 
