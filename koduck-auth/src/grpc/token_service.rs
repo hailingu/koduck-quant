@@ -88,6 +88,7 @@ impl TokenService for GrpcTokenService {
                     aud: vec![], // Not in our Claims format
                     iss: String::new(), // Not in Claims
                     jti: result.jti.unwrap_or_default(),
+                    tenant_id: result.tenant_id.unwrap_or_default(),
                 };
                 Ok(Response::new(response))
             }

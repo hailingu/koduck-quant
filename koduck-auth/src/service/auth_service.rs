@@ -9,7 +9,7 @@ use crate::{
         Claims, TokenType,
         ForgotPasswordRequest, LoginRequest, RegisterRequest,
         RefreshTokenRequest, ResetPasswordRequest, SecurityConfigResponse,
-        TokenPair, TokenResponse, User, UserInfo,
+        TokenPair, TokenResponse, UserInfo,
     },
     repository::{PasswordResetRepository, RedisCache, RefreshTokenRepository, UserRepository},
 };
@@ -157,21 +157,9 @@ impl AuthService {
             .generate_token_pair(user.id, &user.tenant_id, &user.username, &user.email, &roles)
             .await?;
 
-        let auth_user = User {
-            id: user.id,
-            username: user.username.clone(),
-            email: user.email.clone(),
-            password_hash: user.password_hash.clone(),
-            nickname: user.nickname.clone(),
-            avatar_url: None,
-            status: Self::parse_user_status(&user.status),
-            email_verified: false,
-            last_login_at: None,
-            created_at: chrono::Utc::now(),
-            updated_at: chrono::Utc::now(),
-        };
+        let user_info = Self::build_user_info_from_internal(&user);
 
-        Ok(TokenResponse::new(tokens, UserInfo::from(auth_user)))
+        Ok(TokenResponse::new(tokens, user_info))
     }
 
     /// Register new user
@@ -205,24 +193,9 @@ impl AuthService {
             )
             .await?;
 
-        let user = User {
-            id: created.id,
-            username: created.username.clone(),
-            email: created.email.clone(),
-            password_hash: created.password_hash.clone(),
-            nickname: created.nickname.clone(),
-            avatar_url: None,
-            status: Self::parse_user_status(&created.status),
-            email_verified: false,
-            last_login_at: None,
-            created_at: chrono::Utc::now(),
-            updated_at: chrono::Utc::now(),
-        };
+        let user_info = Self::build_user_info_from_internal(&created);
 
-        Ok(TokenResponse::new(
-            tokens,
-            UserInfo::from(user),
-        ))
+        Ok(TokenResponse::new(tokens, user_info))
     }
 
     /// Refresh access token
@@ -272,21 +245,9 @@ impl AuthService {
             .generate_token_pair(user.id, &user.tenant_id, &user.username, &user.email, &roles)
             .await?;
 
-        let response_user = User {
-            id: user.id,
-            username: user.username.clone(),
-            email: user.email.clone(),
-            password_hash: user.password_hash.clone(),
-            nickname: user.nickname.clone(),
-            avatar_url: None,
-            status: Self::parse_user_status(&user.status),
-            email_verified: false,
-            last_login_at: None,
-            created_at: chrono::Utc::now(),
-            updated_at: chrono::Utc::now(),
-        };
+        let user_info = Self::build_user_info_from_internal(&user);
 
-        Ok(TokenResponse::new(tokens, UserInfo::from(response_user)))
+        Ok(TokenResponse::new(tokens, user_info))
     }
 
     /// Logout user
@@ -601,6 +562,37 @@ impl AuthService {
         format!("{:x}", hasher.finalize())
     }
 
+    pub async fn get_user_by_id_for_tenant(
+        &self,
+        tenant_id: &str,
+        user_id: i64,
+    ) -> Result<Option<UserInfo>> {
+        let user = self.fetch_user_by_id_from_user_service(tenant_id, user_id).await?;
+        Ok(user.map(|details| Self::build_user_info_from_internal(&details)))
+    }
+
+    pub async fn get_user_by_username_for_tenant(
+        &self,
+        tenant_id: &str,
+        username: &str,
+    ) -> Result<Option<UserInfo>> {
+        let user = self.fetch_user_from_user_service(tenant_id, username).await?;
+        Ok(user.map(|details| Self::build_user_info_from_internal(&details)))
+    }
+
+    pub async fn get_user_by_email_for_tenant(
+        &self,
+        tenant_id: &str,
+        email: &str,
+    ) -> Result<Option<UserInfo>> {
+        let user = self.fetch_user_from_user_service(tenant_id, email).await?;
+        Ok(user.map(|details| Self::build_user_info_from_internal(&details)))
+    }
+
+    pub async fn get_user_roles_for_tenant(&self, tenant_id: &str, user_id: i64) -> Result<Vec<String>> {
+        self.fetch_user_roles_from_user_service(tenant_id, user_id).await
+    }
+
     async fn fetch_user_from_user_service(
         &self,
         tenant_id: &str,
@@ -840,6 +832,19 @@ impl AuthService {
             "INACTIVE" => crate::model::UserStatus::Inactive,
             "DELETED" => crate::model::UserStatus::Deleted,
             _ => crate::model::UserStatus::Active,
+        }
+    }
+
+    fn build_user_info_from_internal(user: &InternalUserDetails) -> UserInfo {
+        UserInfo {
+            id: user.id,
+            tenant_id: user.tenant_id.clone(),
+            username: user.username.clone(),
+            email: user.email.clone(),
+            nickname: user.nickname.clone(),
+            avatar_url: None,
+            status: Self::parse_user_status(&user.status),
+            email_verified: false,
         }
     }
 

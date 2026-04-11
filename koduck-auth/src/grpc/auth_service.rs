@@ -16,6 +16,8 @@ use prost_types::Timestamp;
 use tonic::{Request, Response, Status};
 use tracing::{info, warn};
 
+const DEFAULT_TENANT_ID: &str = "default";
+
 /// gRPC AuthService implementation
 #[derive(Clone)]
 pub struct GrpcAuthService {
@@ -68,6 +70,7 @@ impl GrpcAuthService {
     fn to_proto_user_info(user: UserInfo) -> proto::UserInfo {
         proto::UserInfo {
             id: user.id,
+            tenant_id: user.tenant_id,
             username: user.username,
             email: user.email,
             nickname: user.nickname.unwrap_or_default(),
@@ -155,6 +158,7 @@ impl AuthService for GrpcAuthService {
 
                 let response = ValidateTokenResponse {
                     user_id,
+                    tenant_id: result.tenant_id.unwrap_or_default(),
                     username: result.username.unwrap_or_default(),
                     email: result.email.unwrap_or_default(),
                     roles: result.roles,
@@ -175,17 +179,26 @@ impl AuthService for GrpcAuthService {
         request: Request<GetUserRequest>,
     ) -> std::result::Result<Response<GetUserResponse>, Status> {
         let req = request.into_inner();
+        let tenant_id = if req.tenant_id.is_empty() {
+            DEFAULT_TENANT_ID.to_string()
+        } else {
+            req.tenant_id.clone()
+        };
 
         // Find user based on identifier type
         let user_result = match req.identifier {
             Some(get_user_request::Identifier::UserId(id)) => {
-                self.user_repo.find_by_id(id).await
+                self.auth_service.get_user_by_id_for_tenant(&tenant_id, id).await
             }
             Some(get_user_request::Identifier::Username(username)) => {
-                self.user_repo.find_by_username(&username).await
+                self.auth_service
+                    .get_user_by_username_for_tenant(&tenant_id, &username)
+                    .await
             }
             Some(get_user_request::Identifier::Email(email)) => {
-                self.user_repo.find_by_email(&email).await
+                self.auth_service
+                    .get_user_by_email_for_tenant(&tenant_id, &email)
+                    .await
             }
             None => {
                 return Err(Status::invalid_argument("Identifier required"));
@@ -195,11 +208,14 @@ impl AuthService for GrpcAuthService {
         match user_result {
             Ok(Some(user)) => {
                 // Get user roles
-                let roles = self.user_repo.get_user_roles(user.id).await
+                let roles = self
+                    .auth_service
+                    .get_user_roles_for_tenant(&user.tenant_id, user.id)
+                    .await
                     .map_err(Self::to_status)?;
 
                 let response = GetUserResponse {
-                    user: Some(Self::to_proto_user_info(UserInfo::from(user))),
+                    user: Some(Self::to_proto_user_info(user)),
                     roles,
                 };
                 Ok(Response::new(response))
