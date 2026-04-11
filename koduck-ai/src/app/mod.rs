@@ -13,6 +13,7 @@ use tower_http::trace::TraceLayer;
 use crate::api;
 use crate::config::Config;
 use crate::reliability::degrade::DegradePolicy;
+use crate::reliability::retry_budget::RetryBudgetPolicy;
 use crate::stream::sse::StreamRegistry;
 
 pub mod lifecycle;
@@ -23,6 +24,7 @@ pub struct AppState {
     pub stream_registry: Arc<StreamRegistry>,
     pub lifecycle: Arc<lifecycle::LifecycleManager>,
     pub degrade_policy: Arc<DegradePolicy>,
+    pub retry_budget_policy: Arc<RetryBudgetPolicy>,
 }
 
 /// Health check response
@@ -47,6 +49,7 @@ pub fn build_state(config: Config) -> Arc<AppState> {
 
     Arc::new(AppState {
         degrade_policy: Arc::new(DegradePolicy::new(config.reliability.degrade.clone())),
+        retry_budget_policy: Arc::new(RetryBudgetPolicy::new(config.reliability.retry.clone())),
         config,
         stream_registry: Arc::new(StreamRegistry::default()),
         lifecycle,
@@ -84,6 +87,9 @@ async fn health_handler() -> axum::Json<HealthResponse> {
 
 async fn degrade_metrics_handler(
     State(state): State<Arc<AppState>>,
-) -> axum::Json<crate::reliability::degrade::DegradeSnapshot> {
-    axum::Json(state.degrade_policy.snapshot())
+) -> axum::Json<serde_json::Value> {
+    axum::Json(serde_json::json!({
+        "degrade": state.degrade_policy.snapshot(),
+        "retry_budget": state.retry_budget_policy.snapshot(),
+    }))
 }

@@ -111,6 +111,7 @@ pub struct CapabilitiesConfig {
 #[derive(Debug, Deserialize, Clone)]
 pub struct ReliabilityConfig {
     pub degrade: DegradeConfig,
+    pub retry: RetryBudgetConfig,
 }
 
 /// Graceful degrade policy configuration.
@@ -122,6 +123,18 @@ pub struct DegradeConfig {
     pub upstream_timeout_enabled: bool,
     pub budget_exhausted_enabled: bool,
     pub circuit_open_enabled: bool,
+}
+
+/// Retry / timeout budget policy configuration.
+#[derive(Debug, Deserialize, Clone)]
+pub struct RetryBudgetConfig {
+    pub enabled: bool,
+    pub max_retries: u32,
+    pub total_timeout_ms: u64,
+    pub base_backoff_ms: u64,
+    pub max_backoff_ms: u64,
+    #[serde(default)]
+    pub retryable_codes: Vec<String>,
 }
 
 // ---------------------------------------------------------------------------
@@ -245,12 +258,40 @@ impl CapabilitiesConfig {
 
 impl ReliabilityConfig {
     pub fn validate(&self) -> Result<(), ValidationError> {
-        self.degrade.validate()
+        self.degrade.validate()?;
+        self.retry.validate()
     }
 }
 
 impl DegradeConfig {
     pub fn validate(&self) -> Result<(), ValidationError> {
+        Ok(())
+    }
+}
+
+impl RetryBudgetConfig {
+    pub fn validate(&self) -> Result<(), ValidationError> {
+        if self.total_timeout_ms == 0 {
+            return Err(ValidationError {
+                message: "reliability.retry.total_timeout_ms must be greater than 0".to_string(),
+            });
+        }
+        if self.base_backoff_ms == 0 {
+            return Err(ValidationError {
+                message: "reliability.retry.base_backoff_ms must be greater than 0".to_string(),
+            });
+        }
+        if self.max_backoff_ms == 0 {
+            return Err(ValidationError {
+                message: "reliability.retry.max_backoff_ms must be greater than 0".to_string(),
+            });
+        }
+        if self.base_backoff_ms > self.max_backoff_ms {
+            return Err(ValidationError {
+                message: "reliability.retry.base_backoff_ms cannot exceed max_backoff_ms"
+                    .to_string(),
+            });
+        }
         Ok(())
     }
 }
@@ -334,6 +375,7 @@ impl Default for ReliabilityConfig {
     fn default() -> Self {
         Self {
             degrade: DegradeConfig::default(),
+            retry: RetryBudgetConfig::default(),
         }
     }
 }
@@ -347,6 +389,25 @@ impl Default for DegradeConfig {
             upstream_timeout_enabled: true,
             budget_exhausted_enabled: true,
             circuit_open_enabled: true,
+        }
+    }
+}
+
+impl Default for RetryBudgetConfig {
+    fn default() -> Self {
+        Self {
+            enabled: true,
+            max_retries: 2,
+            total_timeout_ms: 15_000,
+            base_backoff_ms: 200,
+            max_backoff_ms: 2_000,
+            retryable_codes: vec![
+                "RATE_LIMITED".to_string(),
+                "SERVER_BUSY".to_string(),
+                "UPSTREAM_UNAVAILABLE".to_string(),
+                "STREAM_TIMEOUT".to_string(),
+                "STREAM_INTERRUPTED".to_string(),
+            ],
         }
     }
 }
@@ -405,6 +466,21 @@ impl Config {
             .set_default("reliability.degrade.upstream_timeout_enabled", true)?
             .set_default("reliability.degrade.budget_exhausted_enabled", true)?
             .set_default("reliability.degrade.circuit_open_enabled", true)?
+            .set_default("reliability.retry.enabled", true)?
+            .set_default("reliability.retry.max_retries", 2)?
+            .set_default("reliability.retry.total_timeout_ms", 15_000)?
+            .set_default("reliability.retry.base_backoff_ms", 200)?
+            .set_default("reliability.retry.max_backoff_ms", 2_000)?
+            .set_default(
+                "reliability.retry.retryable_codes",
+                vec![
+                    "RATE_LIMITED",
+                    "SERVER_BUSY",
+                    "UPSTREAM_UNAVAILABLE",
+                    "STREAM_TIMEOUT",
+                    "STREAM_INTERRUPTED",
+                ],
+            )?
             // Optional config files
             .add_source(File::with_name("config/default").required(false))
             .add_source(File::with_name("config/local").required(false))
@@ -716,5 +792,24 @@ mod tests {
         assert!(config.upstream_timeout_enabled);
         assert!(config.budget_exhausted_enabled);
         assert!(config.circuit_open_enabled);
+    }
+
+    #[test]
+    fn test_retry_budget_config_default_valid() {
+        let config = RetryBudgetConfig::default();
+        assert!(config.validate().is_ok());
+    }
+
+    #[test]
+    fn test_retry_budget_config_rejects_invalid_backoff_window() {
+        let config = RetryBudgetConfig {
+            base_backoff_ms: 2_000,
+            max_backoff_ms: 100,
+            ..RetryBudgetConfig::default()
+        };
+
+        let result = config.validate();
+        assert!(result.is_err());
+        assert!(result.unwrap_err().message.contains("cannot exceed"));
     }
 }
