@@ -5,7 +5,7 @@ use tokio::sync::broadcast;
 use tracing::{error, info};
 use tracing_subscriber::EnvFilter;
 
-use koduck_ai::app::{self, build_state};
+use koduck_ai::app::{self, build_state, initialize_runtime};
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 
@@ -35,10 +35,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     info!(config = %config, "Configuration loaded");
 
+    let state = build_state(config.clone());
+    let (shutdown_tx, _) = broadcast::channel::<()>(1);
+    initialize_runtime(&state, shutdown_tx.subscribe()).await?;
+
     // Create HTTP server
     let http_addr: SocketAddr = config.server.http_addr.parse()?;
     let http_listener = TcpListener::bind(http_addr).await?;
-    let state = build_state(config.clone());
     let http_app = app::create_router(state.clone());
 
     // Create metrics server
@@ -53,7 +56,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         "Servers listening"
     );
 
-    let (shutdown_tx, _) = broadcast::channel::<()>(1);
     let mut http_shutdown_rx = shutdown_tx.subscribe();
     let mut metrics_shutdown_rx = shutdown_tx.subscribe();
 
