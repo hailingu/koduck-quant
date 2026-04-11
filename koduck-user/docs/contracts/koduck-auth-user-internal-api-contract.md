@@ -10,12 +10,20 @@
 
 | 场景 | 接口 | 请求 | 成功 | 失败 |
 |------|------|------|------|------|
-| 按用户名查询用户 | `GET /internal/users/by-username/{username}` | Header: `X-Consumer-Username`（可选） | `200` + `UserDetailsResponse` | `404`（无响应体） |
-| 按邮箱查询用户 | `GET /internal/users/by-email/{email}` | Header: `X-Consumer-Username`（可选） | `200` + `UserDetailsResponse` | `404`（无响应体） |
-| 创建用户 | `POST /internal/users` | JSON: `CreateUserRequest` | `200` + `UserDetailsResponse` | `400`（校验失败，`ApiResponse`） / `409`（username/email 冲突，`ApiResponse`） |
-| 更新登录信息 | `PUT /internal/users/{userId}/last-login` | JSON: `LastLoginUpdateRequest` | `200`（空体） | `404`（用户不存在，`ApiResponse`） |
-| 查询角色 | `GET /internal/users/{userId}/roles` | - | `200` + `List<String>` | `404`（用户不存在，`ApiResponse`） |
-| 查询权限 | `GET /internal/users/{userId}/permissions` | - | `200` + `List<String>` | `404`（用户不存在，`ApiResponse`） |
+| 按用户名查询用户 | `GET /internal/users/by-username/{username}` | Header: `X-Tenant-Id`（必需）, `X-Consumer-Username`（可选） | `200` + `UserDetailsResponse` | `404`（无响应体） |
+| 按邮箱查询用户 | `GET /internal/users/by-email/{email}` | Header: `X-Tenant-Id`（必需）, `X-Consumer-Username`（可选） | `200` + `UserDetailsResponse` | `404`（无响应体） |
+| 创建用户 | `POST /internal/users` | Header: `X-Tenant-Id`（必需） + JSON: `CreateUserRequest` | `200` + `UserDetailsResponse` | `400`（校验失败，`ApiResponse`） / `409`（username/email 冲突，`ApiResponse`） |
+| 更新登录信息 | `PUT /internal/users/{userId}/last-login` | Header: `X-Tenant-Id`（必需） + JSON: `LastLoginUpdateRequest` | `200`（空体） | `404`（用户不存在，`ApiResponse`） |
+| 查询角色 | `GET /internal/users/{userId}/roles` | Header: `X-Tenant-Id`（必需） | `200` + `List<String>` | `404`（用户不存在，`ApiResponse`） |
+| 查询权限 | `GET /internal/users/{userId}/permissions` | Header: `X-Tenant-Id`（必需） | `200` + `List<String>` | `404`（用户不存在，`ApiResponse`） |
+
+---
+
+## 租户字段边界
+
+1. `X-Tenant-Id` 是 internal API 的统一租户上下文来源。
+2. `CreateUserRequest` 和 `LastLoginUpdateRequest` **不**在 body 中重复新增 `tenant_id`；租户上下文由 header 传递。
+3. `UserDetailsResponse` 在多租户改造后需要增加 `tenantId`，用于让调用方确认返回身份与请求上下文一致。
 
 ---
 

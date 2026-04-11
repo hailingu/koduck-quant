@@ -44,9 +44,16 @@
 2. 盘点需要增加 `tenant_id` 的 internal API DTO
 3. 盘点需要增加 `tenant_id` 的 gRPC 消息
 
+**盘点结果（2026-04-11）:**
+- JWT / OIDC / introspection 侧，`Claims`、`TokenIntrospectionResult`、OIDC discovery `claims_supported` 与对内 token validate 响应都需要纳入 `tenant_id`
+- internal HTTP 侧，`koduck-auth -> koduck-user` 统一通过 `X-Tenant-Id` 传请求上下文；`UserDetailsResponse` / auth 侧 `InternalUserDetails` 需要回传 `tenant_id`，`CreateUserRequest` / `LastLoginUpdateRequest` 不在 body 中重复新增
+- gRPC 侧，`ValidateCredentialsRequest`、`ValidateTokenResponse`、`GetUserRequest`、`GetUserRolesRequest/Response`、`RevokeTokenRequest`、`LogoutRequest`、`IntrospectTokenResponse`、`GenerateTokenPairRequest`、`UserInfo` 需要显式纳入 `tenant_id` 或通过嵌套 `UserInfo` 回传
+- `RefreshTokenRequest/Response` 与 `GenerateTokenPairResponse` 不额外增加顶层 `tenant_id`，以 JWT claims 作为单一真值
+- 完整清单见 `docs/design/koduck-auth-user-tenant-contract-inventory.md`
+
 **验收标准:**
-- [ ] 影响接口清单完整
-- [ ] 契约改动边界清晰
+- [x] 影响接口清单完整
+- [x] 契约改动边界清晰
 
 ---
 
