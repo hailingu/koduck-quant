@@ -7,7 +7,7 @@
 - [ ] 1.1 执行数据库 migration
 ```bash
 cd /Users/guhailin/Git/koduck-quant
-psql $DATABASE_URL -f init-db/004_memory_v2.sql
+psql $DATABASE_URL -f init-db/03-memory-v2.sql
 ```
 
 - [ ] 1.2 验证表创建
@@ -216,7 +216,7 @@ curl http://localhost:8000/api/v1/memory/stats
 ### 问题1: "表不存在"
 **解决**: 重新执行 migration
 ```bash
-psql $DATABASE_URL -f init-db/004_memory_v2.sql
+psql $DATABASE_URL -f init-db/03-memory-v2.sql
 ```
 
 ### 问题2: "导入错误"

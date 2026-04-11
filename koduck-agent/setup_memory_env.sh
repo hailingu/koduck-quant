@@ -44,7 +44,7 @@ fi
 
 echo ""
 echo "创建 memory 系统表..."
-if psql "${DATABASE_URL}" -f ../init-db/004_memory_v2.sql; then
+if psql "${DATABASE_URL}" -f ../init-db/03-memory-v2.sql; then
     echo "✓ 表创建成功"
 else
     echo "✗ 表创建失败"
