@@ -5,10 +5,7 @@ use tokio::sync::broadcast;
 use tonic::transport::Server;
 use tracing::{error, info};
 
-use crate::api::proto::{
-    memory::memory_service_server::MemoryServiceServer,
-    FILE_DESCRIPTOR_SET,
-};
+use crate::api::{MemoryServiceServer, FILE_DESCRIPTOR_SET};
 use crate::capability::MemoryGrpcService;
 use crate::config::AppConfig;
 use crate::observe;

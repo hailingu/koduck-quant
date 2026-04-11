@@ -24,6 +24,7 @@ tracing-subscriber = { version = "0.3", features = ["env-filter", "json", "time"
 thiserror = "1.0"
 anyhow = "1.0"
 sqlx = { version = "0.7", features = ["runtime-tokio-rustls", "postgres"] }
+tokio-stream = { version = "0.1", features = ["net"] }
 
 [build-dependencies]
 tonic-build = "0.11"

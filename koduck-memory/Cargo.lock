@@ -1029,6 +1029,7 @@ dependencies = [
  "sqlx",
  "thiserror",
  "tokio",
+ "tokio-stream",
  "toml",
  "tonic",
  "tonic-build",
