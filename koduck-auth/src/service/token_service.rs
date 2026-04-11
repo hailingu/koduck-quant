@@ -140,6 +140,7 @@ mod tests {
         use crate::model::token::{Claims, TokenType};
 
         let claims = Claims {
+            key: "koduck_user".to_string(),
             sub: "123".to_string(),
             tenant_id: "tenant-a".to_string(),
             username: "testuser".to_string(),

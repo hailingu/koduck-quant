@@ -1,7 +1,11 @@
 package com.koduck.context;
 
 import jakarta.servlet.http.HttpServletRequest;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
+import java.nio.charset.StandardCharsets;
+import java.util.Base64;
 import java.util.List;
 
 /**
@@ -17,7 +21,9 @@ import java.util.List;
  */
 public final class UserContext {
 
+    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
     private static final String DEFAULT_TENANT_ID = "default";
+    private static final String HEADER_AUTHORIZATION = "Authorization";
     private static final String HEADER_USER_ID = "X-User-Id";
     private static final String HEADER_USERNAME = "X-Username";
     private static final String HEADER_ROLES = "X-Roles";
@@ -29,6 +35,9 @@ public final class UserContext {
     public static Long getUserId(HttpServletRequest request) {
         String userId = request.getHeader(HEADER_USER_ID);
         if (userId == null || userId.isBlank()) {
+            userId = getJwtClaim(request, "sub");
+        }
+        if (userId == null || userId.isBlank()) {
             throw new IllegalStateException("缺少用户身份信息: " + HEADER_USER_ID);
         }
         try {
@@ -39,11 +48,18 @@ public final class UserContext {
     }
 
     public static String getUsername(HttpServletRequest request) {
-        return request.getHeader(HEADER_USERNAME);
+        String username = request.getHeader(HEADER_USERNAME);
+        if (username == null || username.isBlank()) {
+            return getJwtClaim(request, "username");
+        }
+        return username;
     }
 
     public static String getTenantId(HttpServletRequest request) {
         String tenantId = request.getHeader(HEADER_TENANT_ID);
+        if (tenantId == null || tenantId.isBlank()) {
+            tenantId = getJwtClaim(request, "tenant_id");
+        }
         if (tenantId == null || tenantId.isBlank()) {
             return DEFAULT_TENANT_ID;
         }
@@ -52,6 +68,15 @@ public final class UserContext {
 
     public static List<String> getRoles(HttpServletRequest request) {
         String roles = request.getHeader(HEADER_ROLES);
+        if (roles == null || roles.isBlank()) {
+            JsonNode rolesNode = getJwtPayload(request).path("roles");
+            if (rolesNode.isArray()) {
+                return java.util.stream.StreamSupport.stream(rolesNode.spliterator(), false)
+                        .map(JsonNode::asText)
+                        .filter(role -> role != null && !role.isBlank())
+                        .toList();
+            }
+        }
         if (roles == null || roles.isBlank()) {
             return List.of();
         }
@@ -71,5 +96,36 @@ public final class UserContext {
             }
         }
         return false;
+    }
+
+    private static String getJwtClaim(HttpServletRequest request, String claimName) {
+        JsonNode payload = getJwtPayload(request);
+        JsonNode claimNode = payload.path(claimName);
+        if (claimNode.isMissingNode() || claimNode.isNull()) {
+            return "";
+        }
+        if (claimNode.isTextual() || claimNode.isNumber() || claimNode.isBoolean()) {
+            return claimNode.asText();
+        }
+        return "";
+    }
+
+    private static JsonNode getJwtPayload(HttpServletRequest request) {
+        String authorization = request.getHeader(HEADER_AUTHORIZATION);
+        if (authorization == null || !authorization.startsWith("Bearer ")) {
+            return OBJECT_MAPPER.createObjectNode();
+        }
+
+        String[] tokenParts = authorization.substring("Bearer ".length()).split("\\.");
+        if (tokenParts.length < 2) {
+            return OBJECT_MAPPER.createObjectNode();
+        }
+
+        try {
+            byte[] decoded = Base64.getUrlDecoder().decode(tokenParts[1]);
+            return OBJECT_MAPPER.readTree(new String(decoded, StandardCharsets.UTF_8));
+        } catch (Exception ignored) {
+            return OBJECT_MAPPER.createObjectNode();
+        }
     }
 }

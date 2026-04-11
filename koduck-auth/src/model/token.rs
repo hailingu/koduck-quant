@@ -14,6 +14,7 @@ pub enum TokenType {
 /// JWT Claims
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Claims {
+    pub key: String,        // APISIX jwt-auth consumer key
     pub sub: String,        // user_id
     pub tenant_id: String,
     pub username: String,

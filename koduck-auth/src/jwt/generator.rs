@@ -56,6 +56,7 @@ impl JwtService {
         let expiration = now + Duration::seconds(self.access_expiration);
 
         let claims = Claims {
+            key: "koduck_user".to_string(),
             sub: user_id.to_string(),
             tenant_id: tenant_id.to_string(),
             username: username.to_string(),
@@ -82,6 +83,7 @@ impl JwtService {
         let expiration = now + Duration::seconds(self.refresh_expiration);
 
         let claims = Claims {
+            key: "koduck_user".to_string(),
             sub: user_id.to_string(),
             tenant_id: tenant_id.to_string(),
             username: String::new(),

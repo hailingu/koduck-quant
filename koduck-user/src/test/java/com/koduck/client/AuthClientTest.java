@@ -76,6 +76,7 @@ class AuthClientTest {
                 .valid(true)
                 .userId(1001L)
                 .username("demo")
+                .tenantId("default")
                 .roles(List.of("ROLE_USER"))
                 .expiresAt(Instant.now().plusSeconds(900))
                 .build();
@@ -92,6 +93,7 @@ class AuthClientTest {
         assertTrue(result.isValid());
         assertEquals(1001L, result.getUserId());
         assertEquals("demo", result.getUsername());
+        assertEquals("default", result.getTenantId());
 
         // Verify apikey header was set
         @SuppressWarnings("unchecked")
