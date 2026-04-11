@@ -40,6 +40,7 @@ import java.util.List;
  *   <li>{@code X-User-Id} - 用户ID</li>
  *   <li>{@code X-Username} - 用户名</li>
  *   <li>{@code X-Roles} - 角色列表</li>
+ *   <li>{@code X-Tenant-Id} - 租户ID</li>
  * </ul>
  *
  * @see com.koduck.context.UserContext
@@ -60,8 +61,9 @@ public class UserController {
 
     @GetMapping("/users/me")
     public ApiResponse<UserProfileResponse> getCurrentUser(HttpServletRequest request) {
+        String tenantId = UserContext.getTenantId(request);
         Long userId = UserContext.getUserId(request);
-        UserProfileResponse profile = userService.getCurrentUser(userId);
+        UserProfileResponse profile = userService.getCurrentUser(tenantId, userId);
         return ApiResponse.ok(profile);
     }
 
@@ -69,8 +71,9 @@ public class UserController {
     public ApiResponse<UserProfileResponse> updateCurrentUser(
             HttpServletRequest request,
             @RequestBody @Valid UpdateProfileRequest updateRequest) {
+        String tenantId = UserContext.getTenantId(request);
         Long userId = UserContext.getUserId(request);
-        UserProfileResponse profile = userService.updateProfile(userId, updateRequest);
+        UserProfileResponse profile = userService.updateProfile(tenantId, userId, updateRequest);
         return ApiResponse.ok(profile);
     }
 
@@ -90,15 +93,17 @@ public class UserController {
 
     @DeleteMapping("/users/me")
     public ApiResponse<Void> deleteCurrentUser(HttpServletRequest request) {
+        String tenantId = UserContext.getTenantId(request);
         Long userId = UserContext.getUserId(request);
-        userService.deleteUser(userId);
+        userService.deleteUser(tenantId, userId);
         return ApiResponse.ok();
     }
 
     @GetMapping("/users/me/permissions")
     public ApiResponse<List<PermissionInfo>> getCurrentUserPermissions(HttpServletRequest request) {
+        String tenantId = UserContext.getTenantId(request);
         Long userId = UserContext.getUserId(request);
-        List<String> userPermissionCodes = userService.getCurrentUserPermissions(userId);
+        List<String> userPermissionCodes = userService.getCurrentUserPermissions(tenantId, userId);
         List<PermissionInfo> allPermissions = permissionService.listPermissions();
         List<PermissionInfo> userPermissions = allPermissions.stream()
                 .filter(p -> userPermissionCodes.contains(p.getCode()))
@@ -113,7 +118,7 @@ public class UserController {
             HttpServletRequest request,
             @PathVariable Long userId) {
         AccessControl.requirePermission(request, "user:read");
-        UserProfileResponse profile = userService.getUserById(userId);
+        UserProfileResponse profile = userService.getUserById(UserContext.getTenantId(request), userId);
         return ApiResponse.ok(profile);
     }
 
@@ -126,10 +131,11 @@ public class UserController {
             @RequestParam(defaultValue = "20") int size,
             @RequestParam(defaultValue = "createdAt,desc") String sort) {
         AccessControl.requirePermission(request, "user:read");
+        String tenantId = UserContext.getTenantId(request);
         Sort sortObj = parseSort(sort);
         PageRequest pageable = PageRequest.of(page, size, sortObj);
         com.koduck.dto.user.common.PageResponse<UserSummaryResponse> result =
-                userService.searchUsers(keyword, status, pageable);
+                userService.searchUsers(tenantId, keyword, status, pageable);
         return ApiResponse.ok(result);
     }
 
@@ -139,7 +145,7 @@ public class UserController {
             @PathVariable Long userId,
             @RequestBody @Valid UpdateUserRequest updateRequest) {
         AccessControl.requirePermission(request, "user:write");
-        UserProfileResponse profile = userService.updateUser(userId, updateRequest);
+        UserProfileResponse profile = userService.updateUser(UserContext.getTenantId(request), userId, updateRequest);
         return ApiResponse.ok(profile);
     }
 
@@ -148,7 +154,7 @@ public class UserController {
             HttpServletRequest request,
             @PathVariable Long userId) {
         AccessControl.requirePermission(request, "user:delete");
-        userService.deleteUser(userId);
+        userService.deleteUser(UserContext.getTenantId(request), userId);
         return ApiResponse.ok();
     }
 
@@ -161,7 +167,7 @@ public class UserController {
         UpdateUserRequest updateRequest = UpdateUserRequest.builder()
                 .status(statusRequest.getStatus())
                 .build();
-        UserProfileResponse profile = userService.updateUser(userId, updateRequest);
+        UserProfileResponse profile = userService.updateUser(UserContext.getTenantId(request), userId, updateRequest);
         return ApiResponse.ok(profile);
     }
 
@@ -172,7 +178,7 @@ public class UserController {
             HttpServletRequest request,
             @PathVariable Long userId) {
         AccessControl.requirePermission(request, "role:read");
-        List<RoleInfo> roles = userService.getUserRolesInfo(userId);
+        List<RoleInfo> roles = userService.getUserRolesInfo(UserContext.getTenantId(request), userId);
         return ApiResponse.ok(roles);
     }
 
@@ -182,7 +188,7 @@ public class UserController {
             @PathVariable Long userId,
             @RequestBody @Valid AssignRoleRequest assignRequest) {
         AccessControl.requirePermission(request, "role:write");
-        userService.assignRole(userId, assignRequest.getRoleId());
+        userService.assignRole(UserContext.getTenantId(request), userId, assignRequest.getRoleId());
         return ApiResponse.ok();
     }
 
@@ -192,7 +198,7 @@ public class UserController {
             @PathVariable Long userId,
             @PathVariable Integer roleId) {
         AccessControl.requirePermission(request, "role:write");
-        userService.removeRole(userId, roleId);
+        userService.removeRole(UserContext.getTenantId(request), userId, roleId);
         return ApiResponse.ok();
     }
 

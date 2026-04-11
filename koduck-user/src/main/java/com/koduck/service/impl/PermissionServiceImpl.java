@@ -34,8 +34,9 @@ public class PermissionServiceImpl implements PermissionService {
 
     @Override
     @Transactional(readOnly = true)
-    public List<String> getUserPermissions(Long userId) {
-        return userRoleRepository.findPermissionsByTenantIdAndUserId(DEFAULT_TENANT_ID, userId);
+    public List<String> getUserPermissions(String tenantId, Long userId) {
+        String resolvedTenantId = (tenantId == null || tenantId.isBlank()) ? DEFAULT_TENANT_ID : tenantId;
+        return userRoleRepository.findPermissionsByTenantIdAndUserId(resolvedTenantId, userId);
     }
 
     private PermissionInfo buildPermissionInfo(Permission permission) {

@@ -51,19 +51,21 @@ public class UserServiceImpl implements UserService {
 
     @Override
     @Transactional(readOnly = true)
-    public UserProfileResponse getCurrentUser(Long currentUserId) {
-        User user = findUserOrThrow(currentUserId);
-        List<RoleInfo> roles = getUserRolesInfo(currentUserId);
+    public UserProfileResponse getCurrentUser(String tenantId, Long currentUserId) {
+        String resolvedTenantId = resolveTenantId(tenantId);
+        User user = findUserOrThrow(resolvedTenantId, currentUserId);
+        List<RoleInfo> roles = getUserRolesInfo(resolvedTenantId, currentUserId);
         return buildUserProfileResponse(user, roles);
     }
 
     @Override
     @Transactional
-    public UserProfileResponse updateProfile(Long currentUserId, UpdateProfileRequest request) {
-        User user = findUserOrThrow(currentUserId);
+    public UserProfileResponse updateProfile(String tenantId, Long currentUserId, UpdateProfileRequest request) {
+        String resolvedTenantId = resolveTenantId(tenantId);
+        User user = findUserOrThrow(resolvedTenantId, currentUserId);
 
         if (request.getEmail() != null && !request.getEmail().equals(user.getEmail())) {
-            if (userRepository.existsByTenantIdAndEmail(DEFAULT_TENANT_ID, request.getEmail())) {
+            if (userRepository.existsByTenantIdAndEmail(resolvedTenantId, request.getEmail())) {
                 throw new EmailAlreadyExistsException(request.getEmail());
             }
             user.setEmail(request.getEmail());
@@ -75,29 +77,30 @@ public class UserServiceImpl implements UserService {
         }
 
         User saved = userRepository.save(user);
-        List<RoleInfo> roles = getUserRolesInfo(saved.getId());
+        List<RoleInfo> roles = getUserRolesInfo(resolvedTenantId, saved.getId());
         return buildUserProfileResponse(saved, roles);
     }
 
     @Override
     @Transactional(readOnly = true)
-    public List<String> getCurrentUserPermissions(Long currentUserId) {
-        return userRoleRepository.findPermissionsByTenantIdAndUserId(DEFAULT_TENANT_ID, currentUserId);
+    public List<String> getCurrentUserPermissions(String tenantId, Long currentUserId) {
+        return userRoleRepository.findPermissionsByTenantIdAndUserId(resolveTenantId(tenantId), currentUserId);
     }
 
     // === 公开 API: 管理员 ===
 
     @Override
     @Transactional(readOnly = true)
-    public PageResponse<UserSummaryResponse> searchUsers(String keyword, String status, Pageable pageable) {
+    public PageResponse<UserSummaryResponse> searchUsers(String tenantId, String keyword, String status, Pageable pageable) {
+        String resolvedTenantId = resolveTenantId(tenantId);
         Page<User> users;
 
         if (StringUtils.hasText(keyword)) {
-            users = userRepository.searchByTenantIdAndKeyword(DEFAULT_TENANT_ID, keyword, pageable);
+            users = userRepository.searchByTenantIdAndKeyword(resolvedTenantId, keyword, pageable);
         } else if (StringUtils.hasText(status)) {
-            users = userRepository.findByTenantIdAndStatus(DEFAULT_TENANT_ID, UserStatus.valueOf(status), pageable);
+            users = userRepository.findByTenantIdAndStatus(resolvedTenantId, UserStatus.valueOf(status), pageable);
         } else {
-            users = userRepository.findByTenantId(DEFAULT_TENANT_ID, pageable);
+            users = userRepository.findByTenantId(resolvedTenantId, pageable);
         }
 
         Page<UserSummaryResponse> mapped = users.map(this::buildUserSummaryResponse);
@@ -116,19 +119,21 @@ public class UserServiceImpl implements UserService {
 
     @Override
     @Transactional(readOnly = true)
-    public UserProfileResponse getUserById(Long userId) {
-        User user = findUserOrThrow(userId);
-        List<RoleInfo> roles = getUserRolesInfo(userId);
+    public UserProfileResponse getUserById(String tenantId, Long userId) {
+        String resolvedTenantId = resolveTenantId(tenantId);
+        User user = findUserOrThrow(resolvedTenantId, userId);
+        List<RoleInfo> roles = getUserRolesInfo(resolvedTenantId, userId);
         return buildUserProfileResponse(user, roles);
     }
 
     @Override
     @Transactional
-    public UserProfileResponse updateUser(Long userId, UpdateUserRequest request) {
-        User user = findUserOrThrow(userId);
+    public UserProfileResponse updateUser(String tenantId, Long userId, UpdateUserRequest request) {
+        String resolvedTenantId = resolveTenantId(tenantId);
+        User user = findUserOrThrow(resolvedTenantId, userId);
 
         if (request.getEmail() != null && !request.getEmail().equals(user.getEmail())) {
-            if (userRepository.existsByTenantIdAndEmail(DEFAULT_TENANT_ID, request.getEmail())) {
+            if (userRepository.existsByTenantIdAndEmail(resolvedTenantId, request.getEmail())) {
                 throw new EmailAlreadyExistsException(request.getEmail());
             }
             user.setEmail(request.getEmail());
@@ -144,14 +149,15 @@ public class UserServiceImpl implements UserService {
         }
 
         User saved = userRepository.save(user);
-        List<RoleInfo> roles = getUserRolesInfo(saved.getId());
+        List<RoleInfo> roles = getUserRolesInfo(resolvedTenantId, saved.getId());
         return buildUserProfileResponse(saved, roles);
     }
 
     @Override
     @Transactional
-    public void deleteUser(Long userId) {
-        if (userRepository.findByIdAndTenantId(userId, DEFAULT_TENANT_ID).isEmpty()) {
+    public void deleteUser(String tenantId, Long userId) {
+        String resolvedTenantId = resolveTenantId(tenantId);
+        if (userRepository.findByIdAndTenantId(userId, resolvedTenantId).isEmpty()) {
             throw new UserNotFoundException(userId);
         }
         userRepository.deleteById(userId);
@@ -159,19 +165,20 @@ public class UserServiceImpl implements UserService {
 
     @Override
     @Transactional
-    public void assignRole(Long userId, Integer roleId) {
-        findUserOrThrow(userId);
+    public void assignRole(String tenantId, Long userId, Integer roleId) {
+        String resolvedTenantId = resolveTenantId(tenantId);
+        findUserOrThrow(resolvedTenantId, userId);
 
-        if (roleRepository.findByIdAndTenantId(roleId, DEFAULT_TENANT_ID).isEmpty()) {
+        if (roleRepository.findByIdAndTenantId(roleId, resolvedTenantId).isEmpty()) {
             throw new RoleNotFoundException(roleId);
         }
 
-        if (userRoleRepository.existsByTenantIdAndUserIdAndRoleId(DEFAULT_TENANT_ID, userId, roleId)) {
+        if (userRoleRepository.existsByTenantIdAndUserIdAndRoleId(resolvedTenantId, userId, roleId)) {
             return;
         }
 
         UserRole userRole = UserRole.builder()
-                .tenantId(DEFAULT_TENANT_ID)
+                .tenantId(resolvedTenantId)
                 .userId(userId)
                 .roleId(roleId)
                 .build();
@@ -181,22 +188,24 @@ public class UserServiceImpl implements UserService {
 
     @Override
     @Transactional
-    public void removeRole(Long userId, Integer roleId) {
-        findUserOrThrow(userId);
+    public void removeRole(String tenantId, Long userId, Integer roleId) {
+        String resolvedTenantId = resolveTenantId(tenantId);
+        findUserOrThrow(resolvedTenantId, userId);
 
-        if (roleRepository.findByIdAndTenantId(roleId, DEFAULT_TENANT_ID).isEmpty()) {
+        if (roleRepository.findByIdAndTenantId(roleId, resolvedTenantId).isEmpty()) {
             throw new RoleNotFoundException(roleId);
         }
 
-        userRoleRepository.deleteByTenantIdAndUserIdAndRoleId(DEFAULT_TENANT_ID, userId, roleId);
+        userRoleRepository.deleteByTenantIdAndUserIdAndRoleId(resolvedTenantId, userId, roleId);
     }
 
     @Override
     @Transactional(readOnly = true)
-    public List<RoleInfo> getUserRolesInfo(Long userId) {
-        List<Integer> roleIds = userRoleRepository.findRoleIdsByTenantIdAndUserId(DEFAULT_TENANT_ID, userId);
+    public List<RoleInfo> getUserRolesInfo(String tenantId, Long userId) {
+        String resolvedTenantId = resolveTenantId(tenantId);
+        List<Integer> roleIds = userRoleRepository.findRoleIdsByTenantIdAndUserId(resolvedTenantId, userId);
         return roleIds.stream()
-                .map(roleId -> roleRepository.findByIdAndTenantId(roleId, DEFAULT_TENANT_ID))
+                .map(roleId -> roleRepository.findByIdAndTenantId(roleId, resolvedTenantId))
                 .filter(Optional::isPresent)
                 .map(Optional::get)
                 .map(this::buildRoleInfo)

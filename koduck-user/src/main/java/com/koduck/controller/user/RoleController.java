@@ -1,6 +1,7 @@
 package com.koduck.controller.user;
 
 import com.koduck.context.AccessControl;
+import com.koduck.context.UserContext;
 import com.koduck.dto.user.common.ApiResponse;
 import com.koduck.dto.user.permission.PermissionInfo;
 import com.koduck.dto.user.role.CreateRoleRequest;
@@ -48,7 +49,7 @@ public class RoleController {
     @GetMapping
     public ApiResponse<List<RoleInfo>> listRoles(HttpServletRequest request) {
         AccessControl.requirePermission(request, "role:read");
-        return ApiResponse.ok(roleService.listRoles());
+        return ApiResponse.ok(roleService.listRoles(UserContext.getTenantId(request)));
     }
 
     @GetMapping("/{roleId}")
@@ -56,7 +57,7 @@ public class RoleController {
             HttpServletRequest request,
             @PathVariable Integer roleId) {
         AccessControl.requirePermission(request, "role:read");
-        return ApiResponse.ok(roleService.getRoleById(roleId));
+        return ApiResponse.ok(roleService.getRoleById(UserContext.getTenantId(request), roleId));
     }
 
     @PostMapping
@@ -64,7 +65,7 @@ public class RoleController {
             HttpServletRequest request,
             @RequestBody @Valid CreateRoleRequest createRequest) {
         AccessControl.requirePermission(request, "role:write");
-        return ApiResponse.ok(roleService.createRole(createRequest));
+        return ApiResponse.ok(roleService.createRole(UserContext.getTenantId(request), createRequest));
     }
 
     @PutMapping("/{roleId}")
@@ -73,7 +74,7 @@ public class RoleController {
             @PathVariable Integer roleId,
             @RequestBody @Valid UpdateRoleRequest updateRequest) {
         AccessControl.requirePermission(request, "role:write");
-        return ApiResponse.ok(roleService.updateRole(roleId, updateRequest));
+        return ApiResponse.ok(roleService.updateRole(UserContext.getTenantId(request), roleId, updateRequest));
     }
 
     @DeleteMapping("/{roleId}")
@@ -81,7 +82,7 @@ public class RoleController {
             HttpServletRequest request,
             @PathVariable Integer roleId) {
         AccessControl.requirePermission(request, "role:delete");
-        roleService.deleteRole(roleId);
+        roleService.deleteRole(UserContext.getTenantId(request), roleId);
         return ApiResponse.ok();
     }
 
@@ -90,7 +91,7 @@ public class RoleController {
             HttpServletRequest request,
             @PathVariable Integer roleId) {
         AccessControl.requirePermission(request, "role:read");
-        return ApiResponse.ok(roleService.getRolePermissions(roleId));
+        return ApiResponse.ok(roleService.getRolePermissions(UserContext.getTenantId(request), roleId));
     }
 
     @PutMapping("/{roleId}/permissions")
@@ -99,7 +100,7 @@ public class RoleController {
             @PathVariable Integer roleId,
             @RequestBody @Valid SetRolePermissionsRequest permissionsRequest) {
         AccessControl.requirePermission(request, "role:write");
-        roleService.setRolePermissions(roleId, permissionsRequest);
+        roleService.setRolePermissions(UserContext.getTenantId(request), roleId, permissionsRequest);
         return ApiResponse.ok();
     }
 }

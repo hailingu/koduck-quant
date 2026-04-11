@@ -27,6 +27,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 class UserControllerAuthBoundaryTest {
 
+    private static final String TENANT_ID = "tenant-a";
+
     private MockMvc mockMvc;
 
     @BeforeEach
@@ -51,6 +53,7 @@ class UserControllerAuthBoundaryTest {
     void shouldReturn403WhenPermissionInsufficientOnManagedApi() throws Exception {
         mockMvc.perform(get("/api/v1/users")
                         .header("X-User-Id", "1001")
+                        .header("X-Tenant-Id", TENANT_ID)
                         .header("X-Username", "demo")
                         .header("X-Roles", "ROLE_USER"))
                 .andExpect(status().isForbidden())
@@ -61,22 +64,22 @@ class UserControllerAuthBoundaryTest {
     private static class StubUserService implements UserService {
 
         @Override
-        public UserProfileResponse getCurrentUser(Long currentUserId) {
+        public UserProfileResponse getCurrentUser(String tenantId, Long currentUserId) {
             return UserProfileResponse.builder().id(currentUserId).username("demo").build();
         }
 
         @Override
-        public UserProfileResponse updateProfile(Long currentUserId, UpdateProfileRequest request) {
+        public UserProfileResponse updateProfile(String tenantId, Long currentUserId, UpdateProfileRequest request) {
             throw new UnsupportedOperationException("Not used in this test");
         }
 
         @Override
-        public List<String> getCurrentUserPermissions(Long currentUserId) {
+        public List<String> getCurrentUserPermissions(String tenantId, Long currentUserId) {
             return List.of();
         }
 
         @Override
-        public PageResponse<UserSummaryResponse> searchUsers(String keyword, String status, Pageable pageable) {
+        public PageResponse<UserSummaryResponse> searchUsers(String tenantId, String keyword, String status, Pageable pageable) {
             return PageResponse.<UserSummaryResponse>builder()
                     .content(List.of())
                     .pageNumber(0)
@@ -89,32 +92,32 @@ class UserControllerAuthBoundaryTest {
         }
 
         @Override
-        public UserProfileResponse getUserById(Long userId) {
+        public UserProfileResponse getUserById(String tenantId, Long userId) {
             throw new UnsupportedOperationException("Not used in this test");
         }
 
         @Override
-        public UserProfileResponse updateUser(Long userId, UpdateUserRequest request) {
+        public UserProfileResponse updateUser(String tenantId, Long userId, UpdateUserRequest request) {
             throw new UnsupportedOperationException("Not used in this test");
         }
 
         @Override
-        public void deleteUser(Long userId) {
+        public void deleteUser(String tenantId, Long userId) {
             throw new UnsupportedOperationException("Not used in this test");
         }
 
         @Override
-        public void assignRole(Long userId, Integer roleId) {
+        public void assignRole(String tenantId, Long userId, Integer roleId) {
             throw new UnsupportedOperationException("Not used in this test");
         }
 
         @Override
-        public void removeRole(Long userId, Integer roleId) {
+        public void removeRole(String tenantId, Long userId, Integer roleId) {
             throw new UnsupportedOperationException("Not used in this test");
         }
 
         @Override
-        public List<RoleInfo> getUserRolesInfo(Long userId) {
+        public List<RoleInfo> getUserRolesInfo(String tenantId, Long userId) {
             throw new UnsupportedOperationException("Not used in this test");
         }
 
@@ -157,7 +160,7 @@ class UserControllerAuthBoundaryTest {
         }
 
         @Override
-        public List<String> getUserPermissions(Long userId) {
+        public List<String> getUserPermissions(String tenantId, Long userId) {
             return List.of();
         }
     }

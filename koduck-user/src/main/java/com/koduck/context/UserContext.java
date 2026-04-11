@@ -12,13 +12,16 @@ import java.util.List;
  *   <li>{@code X-User-Id} - 用户ID</li>
  *   <li>{@code X-Username} - 用户名</li>
  *   <li>{@code X-Roles} - 角色列表（逗号分隔）</li>
+ *   <li>{@code X-Tenant-Id} - 租户ID</li>
  * </ul>
  */
 public final class UserContext {
 
+    private static final String DEFAULT_TENANT_ID = "default";
     private static final String HEADER_USER_ID = "X-User-Id";
     private static final String HEADER_USERNAME = "X-Username";
     private static final String HEADER_ROLES = "X-Roles";
+    private static final String HEADER_TENANT_ID = "X-Tenant-Id";
 
     private UserContext() {
     }
@@ -37,6 +40,14 @@ public final class UserContext {
 
     public static String getUsername(HttpServletRequest request) {
         return request.getHeader(HEADER_USERNAME);
+    }
+
+    public static String getTenantId(HttpServletRequest request) {
+        String tenantId = request.getHeader(HEADER_TENANT_ID);
+        if (tenantId == null || tenantId.isBlank()) {
+            return DEFAULT_TENANT_ID;
+        }
+        return tenantId;
     }
 
     public static List<String> getRoles(HttpServletRequest request) {

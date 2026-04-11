@@ -40,6 +40,6 @@ public class PermissionController {
             HttpServletRequest request,
             @PathVariable Long userId) {
         UserContext.getUserId(request);
-        return ApiResponse.ok(permissionService.getUserPermissions(userId));
+        return ApiResponse.ok(permissionService.getUserPermissions(UserContext.getTenantId(request), userId));
     }
 }

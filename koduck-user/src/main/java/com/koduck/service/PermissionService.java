@@ -13,5 +13,5 @@ public interface PermissionService {
 
     List<PermissionInfo> listPermissions();
 
-    List<String> getUserPermissions(Long userId);
+    List<String> getUserPermissions(String tenantId, Long userId);
 }

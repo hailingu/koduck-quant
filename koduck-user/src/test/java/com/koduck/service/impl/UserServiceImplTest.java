@@ -74,7 +74,7 @@ class UserServiceImplTest {
                 .description("default")
                 .build()));
 
-        UserProfileResponse response = userService.updateProfile(userId, request);
+        UserProfileResponse response = userService.updateProfile(DEFAULT_TENANT_ID, userId, request);
 
         ArgumentCaptor<User> savedCaptor = ArgumentCaptor.forClass(User.class);
         verify(userRepository).save(savedCaptor.capture());
@@ -103,7 +103,7 @@ class UserServiceImplTest {
                 .thenReturn(Optional.of(Role.builder().id(roleId).tenantId(DEFAULT_TENANT_ID).name("ROLE_ADMIN").build()));
         when(userRoleRepository.existsByTenantIdAndUserIdAndRoleId(DEFAULT_TENANT_ID, userId, roleId)).thenReturn(true);
 
-        userService.assignRole(userId, roleId);
+        userService.assignRole(DEFAULT_TENANT_ID, userId, roleId);
 
         verify(userRoleRepository, never()).save(any());
     }
@@ -115,7 +115,7 @@ class UserServiceImplTest {
 
         when(userRoleRepository.findPermissionsByTenantIdAndUserId(DEFAULT_TENANT_ID, userId)).thenReturn(aggregatedPermissions);
 
-        List<String> result = userService.getCurrentUserPermissions(userId);
+        List<String> result = userService.getCurrentUserPermissions(DEFAULT_TENANT_ID, userId);
 
         assertEquals(2, result.size());
         assertTrue(result.contains("user:read"));

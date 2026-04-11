@@ -57,29 +57,32 @@ public class RoleServiceImpl implements RoleService {
 
     @Override
     @Transactional(readOnly = true)
-    public List<RoleInfo> listRoles() {
-        return roleRepository.findAllByTenantId(DEFAULT_TENANT_ID).stream()
+    public List<RoleInfo> listRoles(String tenantId) {
+        String resolvedTenantId = resolveTenantId(tenantId);
+        return roleRepository.findAllByTenantId(resolvedTenantId).stream()
                 .map(this::buildRoleInfo)
                 .toList();
     }
 
     @Override
     @Transactional(readOnly = true)
-    public RoleDetailResponse getRoleById(Integer roleId) {
-        Role role = findRoleOrThrow(roleId);
-        List<PermissionInfo> permissions = getRolePermissions(roleId);
+    public RoleDetailResponse getRoleById(String tenantId, Integer roleId) {
+        String resolvedTenantId = resolveTenantId(tenantId);
+        Role role = findRoleOrThrow(resolvedTenantId, roleId);
+        List<PermissionInfo> permissions = getRolePermissions(resolvedTenantId, roleId);
         return buildRoleDetailResponse(role, permissions);
     }
 
     @Override
     @Transactional
-    public RoleResponse createRole(CreateRoleRequest request) {
-        if (roleRepository.existsByTenantIdAndName(DEFAULT_TENANT_ID, request.getName())) {
+    public RoleResponse createRole(String tenantId, CreateRoleRequest request) {
+        String resolvedTenantId = resolveTenantId(tenantId);
+        if (roleRepository.existsByTenantIdAndName(resolvedTenantId, request.getName())) {
             throw new RoleAlreadyExistsException(request.getName());
         }
 
         Role role = Role.builder()
-                .tenantId(DEFAULT_TENANT_ID)
+                .tenantId(resolvedTenantId)
                 .name(request.getName())
                 .description(request.getDescription())
                 .build();
@@ -90,11 +93,12 @@ public class RoleServiceImpl implements RoleService {
 
     @Override
     @Transactional
-    public RoleResponse updateRole(Integer roleId, UpdateRoleRequest request) {
-        Role role = findRoleOrThrow(roleId);
+    public RoleResponse updateRole(String tenantId, Integer roleId, UpdateRoleRequest request) {
+        String resolvedTenantId = resolveTenantId(tenantId);
+        Role role = findRoleOrThrow(resolvedTenantId, roleId);
 
         if (request.getName() != null && !request.getName().equals(role.getName())) {
-            if (roleRepository.existsByTenantIdAndName(DEFAULT_TENANT_ID, request.getName())) {
+            if (roleRepository.existsByTenantIdAndName(resolvedTenantId, request.getName())) {
                 throw new RoleAlreadyExistsException(request.getName());
             }
             role.setName(request.getName());
@@ -110,25 +114,27 @@ public class RoleServiceImpl implements RoleService {
 
     @Override
     @Transactional
-    public void deleteRole(Integer roleId) {
-        Role role = findRoleOrThrow(roleId);
+    public void deleteRole(String tenantId, Integer roleId) {
+        String resolvedTenantId = resolveTenantId(tenantId);
+        Role role = findRoleOrThrow(resolvedTenantId, roleId);
 
         if (PROTECTED_ROLES.contains(role.getName())) {
             throw new ProtectedRoleException(role.getName());
         }
 
-        if (hasAssociatedUsers(roleId)) {
+        if (hasAssociatedUsers(resolvedTenantId, roleId)) {
             throw new RoleHasUsersException(roleId);
         }
 
-        rolePermissionRepository.deleteByTenantIdAndRoleId(DEFAULT_TENANT_ID, roleId);
+        rolePermissionRepository.deleteByTenantIdAndRoleId(resolvedTenantId, roleId);
         roleRepository.delete(role);
     }
 
     @Override
     @Transactional
-    public void setRolePermissions(Integer roleId, SetRolePermissionsRequest request) {
-        findRoleOrThrow(roleId);
+    public void setRolePermissions(String tenantId, Integer roleId, SetRolePermissionsRequest request) {
+        String resolvedTenantId = resolveTenantId(tenantId);
+        findRoleOrThrow(resolvedTenantId, roleId);
 
         // 验证所有权限 ID 存在
         List<Permission> permissions = permissionRepository.findAllById(request.getPermissionIds());
@@ -142,11 +148,11 @@ public class RoleServiceImpl implements RoleService {
         }
 
         // 全量替换：先删除再插入
-        rolePermissionRepository.deleteByTenantIdAndRoleId(DEFAULT_TENANT_ID, roleId);
+        rolePermissionRepository.deleteByTenantIdAndRoleId(resolvedTenantId, roleId);
 
         List<RolePermission> rolePermissions = permissions.stream()
                 .map(p -> RolePermission.builder()
-                        .tenantId(DEFAULT_TENANT_ID)
+                        .tenantId(resolvedTenantId)
                         .roleId(roleId)
                         .permissionId(p.getId())
                         .build())
@@ -157,10 +163,11 @@ public class RoleServiceImpl implements RoleService {
 
     @Override
     @Transactional(readOnly = true)
-    public List<PermissionInfo> getRolePermissions(Integer roleId) {
-        findRoleOrThrow(roleId);
+    public List<PermissionInfo> getRolePermissions(String tenantId, Integer roleId) {
+        String resolvedTenantId = resolveTenantId(tenantId);
+        findRoleOrThrow(resolvedTenantId, roleId);
 
-        return rolePermissionRepository.findByTenantIdAndRoleId(DEFAULT_TENANT_ID, roleId).stream()
+        return rolePermissionRepository.findByTenantIdAndRoleId(resolvedTenantId, roleId).stream()
                 .map(rp -> permissionRepository.findById(rp.getPermissionId()))
                 .filter(java.util.Optional::isPresent)
                 .map(java.util.Optional::get)
@@ -170,13 +177,17 @@ public class RoleServiceImpl implements RoleService {
 
     // === 私有辅助方法 ===
 
-    private Role findRoleOrThrow(Integer roleId) {
-        return roleRepository.findByIdAndTenantId(roleId, DEFAULT_TENANT_ID)
+    private Role findRoleOrThrow(String tenantId, Integer roleId) {
+        return roleRepository.findByIdAndTenantId(roleId, tenantId)
                 .orElseThrow(() -> new RoleNotFoundException(roleId));
     }
 
-    private boolean hasAssociatedUsers(Integer roleId) {
-        return userRoleRepository.countByTenantIdAndRoleId(DEFAULT_TENANT_ID, roleId) > 0;
+    private boolean hasAssociatedUsers(String tenantId, Integer roleId) {
+        return userRoleRepository.countByTenantIdAndRoleId(tenantId, roleId) > 0;
+    }
+
+    private String resolveTenantId(String tenantId) {
+        return (tenantId == null || tenantId.isBlank()) ? DEFAULT_TENANT_ID : tenantId;
     }
 
     private RoleInfo buildRoleInfo(Role role) {
