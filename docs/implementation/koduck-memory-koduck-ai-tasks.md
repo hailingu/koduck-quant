@@ -104,8 +104,8 @@
 3. proto 变更可触发重编译
 
 **验收标准:**
-- [ ] server/client stub 生成成功
-- [ ] 空 server 可注册启动
+- [x] server/client stub 生成成功
+- [x] 空 server 可注册启动
 
 ### Task 2.3: 数据库 migration 基线
 **详细要求:**

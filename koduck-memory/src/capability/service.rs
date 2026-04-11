@@ -2,10 +2,9 @@ use std::collections::HashMap;
 
 use tonic::{Request, Response, Status};
 
-use crate::api::proto::contract::{Capability, ErrorDetail, RequestMeta};
-use crate::api::proto::memory::{
-    memory_service_server::MemoryService, AppendMemoryRequest, AppendMemoryResponse,
-    GetSessionRequest, GetSessionResponse, QueryMemoryRequest, QueryMemoryResponse,
+use crate::api::{
+    AppendMemoryRequest, AppendMemoryResponse, Capability, ErrorDetail, GetSessionRequest,
+    GetSessionResponse, MemoryService, QueryMemoryRequest, QueryMemoryResponse, RequestMeta,
     SummarizeMemoryRequest, SummarizeMemoryResponse, UpsertSessionMetaRequest,
     UpsertSessionMetaResponse,
 };
@@ -182,8 +181,17 @@ impl MemoryService for MemoryGrpcService {
 
 #[cfg(test)]
 mod tests {
+    use std::time::Duration;
+
     use super::MemoryGrpcService;
-    use crate::api::proto::contract::RequestMeta;
+    use crate::api::{MemoryServiceClient, MemoryServiceServer, RequestMeta};
+    use crate::config::{
+        AppConfig, AppSection, CapabilitiesSection, IndexSection, ObjectStoreSection,
+        PostgresSection, ServerSection, SummarySection,
+    };
+    use tokio::net::TcpListener;
+    use tokio_stream::wrappers::TcpListenerStream;
+    use tonic::transport::{Channel, Server};
 
     fn valid_meta() -> RequestMeta {
         RequestMeta {
@@ -195,6 +203,35 @@ mod tests {
             idempotency_key: "idem-1".to_string(),
             deadline_ms: 5000,
             api_version: "memory.v1".to_string(),
+        }
+    }
+
+    fn test_config() -> AppConfig {
+        AppConfig {
+            app: AppSection {
+                name: "koduck-memory".to_string(),
+                version: "0.1.0".to_string(),
+                env: "test".to_string(),
+            },
+            server: ServerSection {
+                grpc_addr: "127.0.0.1:50051".to_string(),
+                metrics_addr: "127.0.0.1:9090".to_string(),
+            },
+            postgres: PostgresSection {
+                dsn: "postgresql://ignored:ignored@localhost:5432/postgres".to_string(),
+            },
+            object_store: ObjectStoreSection {
+                endpoint: "http://127.0.0.1:9000".to_string(),
+                bucket: "koduck-memory-test".to_string(),
+                access_key: "minioadmin".to_string(),
+                secret_key: "minioadmin".to_string(),
+                region: "ap-east-1".to_string(),
+            },
+            capabilities: CapabilitiesSection { ttl_secs: 60 },
+            summary: SummarySection { async_enabled: false },
+            index: IndexSection {
+                mode: "domain-first".to_string(),
+            },
         }
     }
 
@@ -218,5 +255,58 @@ mod tests {
 
         assert_eq!(error.code(), tonic::Code::InvalidArgument);
         assert_eq!(error.message(), "idempotency_key is required");
+    }
+
+    #[tokio::test]
+    async fn empty_server_can_register_and_start() {
+        let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let addr = listener.local_addr().unwrap();
+        let incoming = TcpListenerStream::new(listener);
+        let service = MemoryGrpcService::from_config(&test_config());
+        let (shutdown_tx, shutdown_rx) = tokio::sync::oneshot::channel::<()>();
+
+        let server = tokio::spawn(async move {
+            Server::builder()
+                .add_service(MemoryServiceServer::new(service))
+                .serve_with_incoming_shutdown(incoming, async {
+                    let _ = shutdown_rx.await;
+                })
+                .await
+                .unwrap();
+        });
+
+        let endpoint = format!("http://{addr}");
+        let channel = Channel::from_shared(endpoint)
+            .unwrap()
+            .connect_timeout(Duration::from_secs(2))
+            .connect()
+            .await
+            .unwrap();
+        let mut client = MemoryServiceClient::new(channel);
+
+        let response = client
+            .get_capabilities(RequestMeta {
+                request_id: "req-1".to_string(),
+                session_id: "session-1".to_string(),
+                user_id: "user-1".to_string(),
+                tenant_id: "tenant-1".to_string(),
+                trace_id: "trace-1".to_string(),
+                idempotency_key: String::new(),
+                deadline_ms: 1000,
+                api_version: "memory.v1".to_string(),
+            })
+            .await
+            .unwrap()
+            .into_inner();
+
+        assert_eq!(response.service, "memory");
+        assert_eq!(response.contract_versions, vec!["memory.v1".to_string()]);
+        assert_eq!(
+            response.features.get("retrieve_policy.default"),
+            Some(&"domain-first".to_string())
+        );
+
+        let _ = shutdown_tx.send(());
+        server.await.unwrap();
     }
 }
