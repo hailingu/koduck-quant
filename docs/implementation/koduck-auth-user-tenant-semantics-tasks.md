@@ -35,8 +35,8 @@
 - 对外与对内身份语义统一采用 `(tenant_id, user_id)`
 
 **验收标准:**
-- [ ] `tenant_id` 语义在文档中固定
-- [ ] 各服务对 tenant 的解释一致
+- [x] `tenant_id` 语义在文档中固定
+- [x] 各服务对 tenant 的解释一致
 
 ### Task 1.2: 梳理 JWT / internal API / gRPC 契约
 **详细要求:**
