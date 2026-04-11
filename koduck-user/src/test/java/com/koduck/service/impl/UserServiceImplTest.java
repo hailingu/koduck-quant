@@ -30,6 +30,8 @@ import static org.mockito.Mockito.when;
 @ExtendWith(MockitoExtension.class)
 class UserServiceImplTest {
 
+    private static final String DEFAULT_TENANT_ID = "default";
+
     @Mock
     private UserRepository userRepository;
     @Mock
@@ -61,12 +63,13 @@ class UserServiceImplTest {
                 .nickname("New Nick")
                 .build();
 
-        when(userRepository.findById(userId)).thenReturn(Optional.of(existing));
-        when(userRepository.existsByEmail("new@koduck.com")).thenReturn(false);
+        when(userRepository.findByIdAndTenantId(userId, DEFAULT_TENANT_ID)).thenReturn(Optional.of(existing));
+        when(userRepository.existsByTenantIdAndEmail(DEFAULT_TENANT_ID, "new@koduck.com")).thenReturn(false);
         when(userRepository.save(any(User.class))).thenAnswer(invocation -> invocation.getArgument(0));
-        when(userRoleRepository.findRoleIdsByUserId(userId)).thenReturn(List.of(1));
-        when(roleRepository.findById(1)).thenReturn(Optional.of(Role.builder()
+        when(userRoleRepository.findRoleIdsByTenantIdAndUserId(DEFAULT_TENANT_ID, userId)).thenReturn(List.of(1));
+        when(roleRepository.findByIdAndTenantId(1, DEFAULT_TENANT_ID)).thenReturn(Optional.of(Role.builder()
                 .id(1)
+                .tenantId(DEFAULT_TENANT_ID)
                 .name("ROLE_USER")
                 .description("default")
                 .build()));
@@ -88,15 +91,17 @@ class UserServiceImplTest {
         Long userId = 1002L;
         Integer roleId = 2;
 
-        when(userRepository.findById(userId)).thenReturn(Optional.of(User.builder()
+        when(userRepository.findByIdAndTenantId(userId, DEFAULT_TENANT_ID)).thenReturn(Optional.of(User.builder()
                 .id(userId)
+                .tenantId(DEFAULT_TENANT_ID)
                 .username("admin")
                 .email("admin@koduck.com")
                 .passwordHash("hash")
                 .status(UserStatus.ACTIVE)
                 .build()));
-        when(roleRepository.existsById(roleId)).thenReturn(true);
-        when(userRoleRepository.existsByUserIdAndRoleId(userId, roleId)).thenReturn(true);
+        when(roleRepository.findByIdAndTenantId(roleId, DEFAULT_TENANT_ID))
+                .thenReturn(Optional.of(Role.builder().id(roleId).tenantId(DEFAULT_TENANT_ID).name("ROLE_ADMIN").build()));
+        when(userRoleRepository.existsByTenantIdAndUserIdAndRoleId(DEFAULT_TENANT_ID, userId, roleId)).thenReturn(true);
 
         userService.assignRole(userId, roleId);
 
@@ -108,13 +113,13 @@ class UserServiceImplTest {
         Long userId = 1003L;
         List<String> aggregatedPermissions = List.of("user:read", "role:write");
 
-        when(userRoleRepository.findPermissionsByUserId(userId)).thenReturn(aggregatedPermissions);
+        when(userRoleRepository.findPermissionsByTenantIdAndUserId(DEFAULT_TENANT_ID, userId)).thenReturn(aggregatedPermissions);
 
         List<String> result = userService.getCurrentUserPermissions(userId);
 
         assertEquals(2, result.size());
         assertTrue(result.contains("user:read"));
         assertTrue(result.contains("role:write"));
-        verify(userRoleRepository).findPermissionsByUserId(userId);
+        verify(userRoleRepository).findPermissionsByTenantIdAndUserId(DEFAULT_TENANT_ID, userId);
     }
 }

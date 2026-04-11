@@ -35,6 +35,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @Testcontainers(disabledWithoutDocker = true)
 class InternalUserControllerIntegrationTest {
 
+    private static final String DEFAULT_TENANT_ID = "default";
+
     @Container
     static final PostgreSQLContainer<?> POSTGRES = new PostgreSQLContainer<>("postgres:15-alpine")
             .withDatabaseName("koduck_user_test")
@@ -85,9 +87,10 @@ class InternalUserControllerIntegrationTest {
                 .andExpect(jsonPath("$.username").value(request.getUsername()))
                 .andExpect(jsonPath("$.email").value(request.getEmail()));
 
-        User created = userRepository.findByUsername(request.getUsername()).orElseThrow();
+        User created = userRepository.findByTenantIdAndUsername(DEFAULT_TENANT_ID, request.getUsername()).orElseThrow();
         assertNotNull(created.getId());
-        assertEquals(1, userRoleRepository.findByUserId(created.getId()).size(), "new user should have default role");
+        assertEquals(1, userRoleRepository.findByTenantIdAndUserId(DEFAULT_TENANT_ID, created.getId()).size(),
+                "new user should have default role");
 
         mockMvc.perform(get("/internal/users/by-username/{username}", request.getUsername())
                         .header("X-Consumer-Username", "koduck-auth"))
@@ -100,6 +103,7 @@ class InternalUserControllerIntegrationTest {
     void shouldPersistLastLoginUpdateViaInternalController() throws Exception {
         String unique = String.valueOf(System.nanoTime());
         User user = userRepository.save(User.builder()
+                .tenantId(DEFAULT_TENANT_ID)
                 .username("login-user-" + unique)
                 .email("login-" + unique + "@koduck.local")
                 .passwordHash("hash")

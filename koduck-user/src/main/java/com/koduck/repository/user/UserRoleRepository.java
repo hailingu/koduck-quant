@@ -10,21 +10,21 @@ import java.util.List;
 
 public interface UserRoleRepository extends JpaRepository<UserRole, Long> {
 
-    boolean existsByUserIdAndRoleId(Long userId, Integer roleId);
+    boolean existsByTenantIdAndUserIdAndRoleId(String tenantId, Long userId, Integer roleId);
 
-    long countByRoleId(Integer roleId);
+    long countByTenantIdAndRoleId(String tenantId, Integer roleId);
 
-    List<UserRole> findByUserId(Long userId);
+    List<UserRole> findByTenantIdAndUserId(String tenantId, Long userId);
 
     @Modifying
-    void deleteByUserIdAndRoleId(Long userId, Integer roleId);
+    void deleteByTenantIdAndUserIdAndRoleId(String tenantId, Long userId, Integer roleId);
 
-    @Query("SELECT ur.roleId FROM UserRole ur WHERE ur.userId = :userId")
-    List<Integer> findRoleIdsByUserId(@Param("userId") Long userId);
+    @Query("SELECT ur.roleId FROM UserRole ur WHERE ur.tenantId = :tenantId AND ur.userId = :userId")
+    List<Integer> findRoleIdsByTenantIdAndUserId(@Param("tenantId") String tenantId, @Param("userId") Long userId);
 
     @Query("SELECT DISTINCT p.code FROM UserRole ur " +
            "JOIN RolePermission rp ON rp.roleId = ur.roleId " +
            "JOIN Permission p ON p.id = rp.permissionId " +
-           "WHERE ur.userId = :userId")
-    List<String> findPermissionsByUserId(@Param("userId") Long userId);
+           "WHERE ur.tenantId = :tenantId AND rp.tenantId = :tenantId AND ur.userId = :userId")
+    List<String> findPermissionsByTenantIdAndUserId(@Param("tenantId") String tenantId, @Param("userId") Long userId);
 }

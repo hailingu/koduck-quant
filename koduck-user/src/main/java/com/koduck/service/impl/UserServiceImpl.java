@@ -33,6 +33,8 @@ import java.util.Optional;
 @Service
 public class UserServiceImpl implements UserService {
 
+    private static final String DEFAULT_TENANT_ID = User.DEFAULT_TENANT_ID;
+
     private final UserRepository userRepository;
     private final RoleRepository roleRepository;
     private final UserRoleRepository userRoleRepository;
@@ -61,7 +63,7 @@ public class UserServiceImpl implements UserService {
         User user = findUserOrThrow(currentUserId);
 
         if (request.getEmail() != null && !request.getEmail().equals(user.getEmail())) {
-            if (userRepository.existsByEmail(request.getEmail())) {
+            if (userRepository.existsByTenantIdAndEmail(DEFAULT_TENANT_ID, request.getEmail())) {
                 throw new EmailAlreadyExistsException(request.getEmail());
             }
             user.setEmail(request.getEmail());
@@ -80,7 +82,7 @@ public class UserServiceImpl implements UserService {
     @Override
     @Transactional(readOnly = true)
     public List<String> getCurrentUserPermissions(Long currentUserId) {
-        return userRoleRepository.findPermissionsByUserId(currentUserId);
+        return userRoleRepository.findPermissionsByTenantIdAndUserId(DEFAULT_TENANT_ID, currentUserId);
     }
 
     // === 公开 API: 管理员 ===
@@ -91,12 +93,11 @@ public class UserServiceImpl implements UserService {
         Page<User> users;
 
         if (StringUtils.hasText(keyword)) {
-            users = userRepository.findByUsernameContainingOrEmailContaining(
-                    keyword, keyword, pageable);
+            users = userRepository.searchByTenantIdAndKeyword(DEFAULT_TENANT_ID, keyword, pageable);
         } else if (StringUtils.hasText(status)) {
-            users = userRepository.findByStatus(UserStatus.valueOf(status), pageable);
+            users = userRepository.findByTenantIdAndStatus(DEFAULT_TENANT_ID, UserStatus.valueOf(status), pageable);
         } else {
-            users = userRepository.findAll(pageable);
+            users = userRepository.findByTenantId(DEFAULT_TENANT_ID, pageable);
         }
 
         Page<UserSummaryResponse> mapped = users.map(this::buildUserSummaryResponse);
@@ -127,7 +128,7 @@ public class UserServiceImpl implements UserService {
         User user = findUserOrThrow(userId);
 
         if (request.getEmail() != null && !request.getEmail().equals(user.getEmail())) {
-            if (userRepository.existsByEmail(request.getEmail())) {
+            if (userRepository.existsByTenantIdAndEmail(DEFAULT_TENANT_ID, request.getEmail())) {
                 throw new EmailAlreadyExistsException(request.getEmail());
             }
             user.setEmail(request.getEmail());
@@ -150,7 +151,7 @@ public class UserServiceImpl implements UserService {
     @Override
     @Transactional
     public void deleteUser(Long userId) {
-        if (!userRepository.existsById(userId)) {
+        if (userRepository.findByIdAndTenantId(userId, DEFAULT_TENANT_ID).isEmpty()) {
             throw new UserNotFoundException(userId);
         }
         userRepository.deleteById(userId);
@@ -161,15 +162,16 @@ public class UserServiceImpl implements UserService {
     public void assignRole(Long userId, Integer roleId) {
         findUserOrThrow(userId);
 
-        if (!roleRepository.existsById(roleId)) {
+        if (roleRepository.findByIdAndTenantId(roleId, DEFAULT_TENANT_ID).isEmpty()) {
             throw new RoleNotFoundException(roleId);
         }
 
-        if (userRoleRepository.existsByUserIdAndRoleId(userId, roleId)) {
+        if (userRoleRepository.existsByTenantIdAndUserIdAndRoleId(DEFAULT_TENANT_ID, userId, roleId)) {
             return;
         }
 
         UserRole userRole = UserRole.builder()
+                .tenantId(DEFAULT_TENANT_ID)
                 .userId(userId)
                 .roleId(roleId)
                 .build();
@@ -182,19 +184,19 @@ public class UserServiceImpl implements UserService {
     public void removeRole(Long userId, Integer roleId) {
         findUserOrThrow(userId);
 
-        if (!roleRepository.existsById(roleId)) {
+        if (roleRepository.findByIdAndTenantId(roleId, DEFAULT_TENANT_ID).isEmpty()) {
             throw new RoleNotFoundException(roleId);
         }
 
-        userRoleRepository.deleteByUserIdAndRoleId(userId, roleId);
+        userRoleRepository.deleteByTenantIdAndUserIdAndRoleId(DEFAULT_TENANT_ID, userId, roleId);
     }
 
     @Override
     @Transactional(readOnly = true)
     public List<RoleInfo> getUserRolesInfo(Long userId) {
-        List<Integer> roleIds = userRoleRepository.findRoleIdsByUserId(userId);
+        List<Integer> roleIds = userRoleRepository.findRoleIdsByTenantIdAndUserId(DEFAULT_TENANT_ID, userId);
         return roleIds.stream()
-                .map(roleId -> roleRepository.findById(roleId))
+                .map(roleId -> roleRepository.findByIdAndTenantId(roleId, DEFAULT_TENANT_ID))
                 .filter(Optional::isPresent)
                 .map(Optional::get)
                 .map(this::buildRoleInfo)
@@ -206,25 +208,25 @@ public class UserServiceImpl implements UserService {
     @Override
     @Transactional(readOnly = true)
     public Optional<UserDetailsResponse> findByUsername(String username) {
-        return userRepository.findByUsername(username)
+        return userRepository.findByTenantIdAndUsername(DEFAULT_TENANT_ID, username)
                 .map(this::buildUserDetailsResponse);
     }
 
     @Override
     @Transactional(readOnly = true)
     public Optional<UserDetailsResponse> findByEmail(String email) {
-        return userRepository.findByEmail(email)
+        return userRepository.findByTenantIdAndEmail(DEFAULT_TENANT_ID, email)
                 .map(this::buildUserDetailsResponse);
     }
 
     @Override
     @Transactional
     public UserDetailsResponse createUser(CreateUserRequest request) {
-        if (userRepository.existsByUsername(request.getUsername())) {
+        if (userRepository.existsByTenantIdAndUsername(DEFAULT_TENANT_ID, request.getUsername())) {
             throw new UsernameAlreadyExistsException(request.getUsername());
         }
 
-        if (userRepository.existsByEmail(request.getEmail())) {
+        if (userRepository.existsByTenantIdAndEmail(DEFAULT_TENANT_ID, request.getEmail())) {
             throw new EmailAlreadyExistsException(request.getEmail());
         }
 
@@ -234,6 +236,7 @@ public class UserServiceImpl implements UserService {
         }
 
         User user = User.builder()
+                .tenantId(DEFAULT_TENANT_ID)
                 .username(request.getUsername())
                 .email(request.getEmail())
                 .passwordHash(request.getPasswordHash())
@@ -242,10 +245,11 @@ public class UserServiceImpl implements UserService {
                 .build();
 
         User saved = userRepository.save(user);
-        Role defaultRole = roleRepository.findByName("ROLE_USER")
+        Role defaultRole = roleRepository.findByTenantIdAndName(DEFAULT_TENANT_ID, "ROLE_USER")
                 .orElseThrow(() -> new RoleNotFoundException("ROLE_USER"));
-        if (!userRoleRepository.existsByUserIdAndRoleId(saved.getId(), defaultRole.getId())) {
+        if (!userRoleRepository.existsByTenantIdAndUserIdAndRoleId(DEFAULT_TENANT_ID, saved.getId(), defaultRole.getId())) {
             userRoleRepository.save(UserRole.builder()
+                    .tenantId(DEFAULT_TENANT_ID)
                     .userId(saved.getId())
                     .roleId(defaultRole.getId())
                     .build());
@@ -257,16 +261,16 @@ public class UserServiceImpl implements UserService {
     @Transactional
     public void updateLastLogin(Long userId, LastLoginUpdateRequest request) {
         findUserOrThrow(userId);
-        userRepository.updateLastLogin(userId, request.getLoginTime(), request.getIpAddress());
+        userRepository.updateLastLogin(DEFAULT_TENANT_ID, userId, request.getLoginTime(), request.getIpAddress());
     }
 
     @Override
     @Transactional(readOnly = true)
     public List<String> getUserRoles(Long userId) {
         findUserOrThrow(userId);
-        List<Integer> roleIds = userRoleRepository.findRoleIdsByUserId(userId);
+        List<Integer> roleIds = userRoleRepository.findRoleIdsByTenantIdAndUserId(DEFAULT_TENANT_ID, userId);
         return roleIds.stream()
-                .map(roleId -> roleRepository.findById(roleId))
+                .map(roleId -> roleRepository.findByIdAndTenantId(roleId, DEFAULT_TENANT_ID))
                 .filter(Optional::isPresent)
                 .map(Optional::get)
                 .map(Role::getName)
@@ -277,13 +281,13 @@ public class UserServiceImpl implements UserService {
     @Transactional(readOnly = true)
     public List<String> getUserPermissions(Long userId) {
         findUserOrThrow(userId);
-        return userRoleRepository.findPermissionsByUserId(userId);
+        return userRoleRepository.findPermissionsByTenantIdAndUserId(DEFAULT_TENANT_ID, userId);
     }
 
     // === 私有辅助方法 ===
 
     private User findUserOrThrow(Long userId) {
-        return userRepository.findById(userId)
+        return userRepository.findByIdAndTenantId(userId, DEFAULT_TENANT_ID)
                 .orElseThrow(() -> new UserNotFoundException(userId));
     }
 

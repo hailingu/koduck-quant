@@ -119,9 +119,15 @@
 1. 更新 `User`、`Role` 等实体
 2. Repository 查询显式带 `tenant_id`
 
+**执行结果（2026-04-11）:**
+- `koduck-user` 的 `User`、`Role`、`UserRole`、`RolePermission`、`UserCredential` 实体均补充了 `tenantId` 字段，并与当前表结构保持一致
+- `UserRepository`、`RoleRepository`、`UserRoleRepository`、`RolePermissionRepository` 已切换为 tenant-aware 查询方法
+- `UserServiceImpl`、`RoleServiceImpl`、`PermissionServiceImpl` 在 Task 3.2 引入 header 之前，统一通过 `default` tenant 调用 repository，避免继续走全局范围查询
+- 新增 ADR `0020-align-entities-and-repositories-with-tenant-scope.md` 记录本阶段的边界、权衡与兼容策略
+
 **验收标准:**
-- [ ] 查询不再是全局范围
-- [ ] 实体与表结构一致
+- [x] 查询不再是全局范围
+- [x] 实体与表结构一致
 
 ### Task 3.2: Internal API 增加租户上下文
 **详细要求:**

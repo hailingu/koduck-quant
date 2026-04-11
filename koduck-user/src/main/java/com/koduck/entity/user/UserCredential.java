@@ -26,6 +26,8 @@ import java.time.LocalDateTime;
 @Table(name = "user_credentials")
 public class UserCredential {
 
+    public static final String DEFAULT_TENANT_ID = "default";
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -38,6 +40,10 @@ public class UserCredential {
 
     @Column(name = "credential_value", nullable = false, length = 255)
     private String credentialValue;
+
+    @Column(name = "tenant_id", nullable = false, length = 128)
+    @Builder.Default
+    private String tenantId = DEFAULT_TENANT_ID;
 
     @Column(name = "environment", nullable = false, length = 20)
     @Builder.Default

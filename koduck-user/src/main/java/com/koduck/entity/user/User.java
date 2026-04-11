@@ -28,14 +28,16 @@ import java.time.LocalDateTime;
 @Table(name = "users")
 public class User {
 
+    public static final String DEFAULT_TENANT_ID = "default";
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "username", nullable = false, length = 50, unique = true)
+    @Column(name = "username", nullable = false, length = 50)
     private String username;
 
-    @Column(name = "email", nullable = false, length = 100, unique = true)
+    @Column(name = "email", nullable = false, length = 100)
     private String email;
 
     @Column(name = "password_hash", nullable = false, length = 255)
@@ -46,6 +48,10 @@ public class User {
 
     @Column(name = "avatar_url", length = 255)
     private String avatarUrl;
+
+    @Column(name = "tenant_id", nullable = false, length = 128)
+    @Builder.Default
+    private String tenantId = DEFAULT_TENANT_ID;
 
     @Enumerated(EnumType.ORDINAL)
     @Column(name = "status", nullable = false)
