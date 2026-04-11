@@ -81,9 +81,15 @@
 1. 为 `refresh_tokens`、`password_reset_tokens`、`audit_logs` 增加 `tenant_id`
 2. 为查询建立租户维度索引
 
+**执行结果（2026-04-11）:**
+- `koduck-auth` 新增迁移 `202604110001_add_tenant_to_security_tables.sql`，为 `refresh_tokens`、`password_reset_tokens`、`audit_logs` 增加 `tenant_id`
+- 对存量数据统一回填 `default`，并将三张表的 `tenant_id` 设为 `NOT NULL DEFAULT 'default'`
+- 为 token / audit 检索补充租户维度索引
+- `RefreshTokenRepository` 与 `PasswordResetRepository` 新增 tenant-aware 保存、查询、吊销/标记方法，无 tenant 参数的方法默认落到 `default`
+
 **验收标准:**
-- [ ] 安全域表具备 `tenant_id`
-- [ ] 按租户查询可用
+- [x] 安全域表具备 `tenant_id`
+- [x] 按租户查询可用
 
 ### Task 2.3: 唯一约束切换为租户内唯一
 **详细要求:**

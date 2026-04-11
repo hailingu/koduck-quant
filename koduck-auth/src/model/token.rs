@@ -31,6 +31,7 @@ pub struct Claims {
 #[derive(Debug, Clone, sqlx::FromRow)]
 pub struct RefreshTokenRecord {
     pub id: i64,
+    pub tenant_id: String,
     pub user_id: i64,
     pub token_hash: String,
     pub expires_at: DateTime<Utc>,
@@ -42,6 +43,7 @@ pub struct RefreshTokenRecord {
 #[derive(Debug, Clone, sqlx::FromRow)]
 pub struct PasswordResetToken {
     pub id: i64,
+    pub tenant_id: String,
     pub user_id: i64,
     pub token_hash: String,
     pub expires_at: DateTime<Utc>,

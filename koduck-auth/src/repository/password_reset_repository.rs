@@ -13,6 +13,8 @@ pub struct PasswordResetRepository {
     pool: PgPool,
 }
 
+const DEFAULT_TENANT_ID: &str = "default";
+
 impl PasswordResetRepository {
     /// Create new password reset repository
     pub fn new(pool: PgPool) -> Self {
@@ -26,13 +28,26 @@ impl PasswordResetRepository {
         token_hash: &str,
         expires_at: DateTime<Utc>,
     ) -> Result<PasswordResetToken> {
+        self.save_for_tenant(DEFAULT_TENANT_ID, user_id, token_hash, expires_at)
+            .await
+    }
+
+    /// Save password reset token in a tenant scope
+    pub async fn save_for_tenant(
+        &self,
+        tenant_id: &str,
+        user_id: i64,
+        token_hash: &str,
+        expires_at: DateTime<Utc>,
+    ) -> Result<PasswordResetToken> {
         let token = sqlx::query_as::<_, PasswordResetToken>(
             r#"
-            INSERT INTO password_reset_tokens (user_id, token_hash, expires_at)
-            VALUES ($1, $2, $3)
-            RETURNING id, user_id, token_hash, expires_at, created_at, used_at
+            INSERT INTO password_reset_tokens (tenant_id, user_id, token_hash, expires_at)
+            VALUES ($1, $2, $3, $4)
+            RETURNING id, tenant_id, user_id, token_hash, expires_at, created_at, used_at
             "#,
         )
+        .bind(tenant_id)
         .bind(user_id)
         .bind(token_hash)
         .bind(expires_at)
@@ -45,13 +60,23 @@ impl PasswordResetRepository {
 
     /// Find token by hash
     pub async fn find_by_token(&self, token_hash: &str) -> Result<Option<PasswordResetToken>> {
+        self.find_by_token_in_tenant(DEFAULT_TENANT_ID, token_hash).await
+    }
+
+    /// Find token by hash in a tenant scope
+    pub async fn find_by_token_in_tenant(
+        &self,
+        tenant_id: &str,
+        token_hash: &str,
+    ) -> Result<Option<PasswordResetToken>> {
         let token = sqlx::query_as::<_, PasswordResetToken>(
             r#"
-            SELECT id, user_id, token_hash, expires_at, created_at, used_at
+            SELECT id, tenant_id, user_id, token_hash, expires_at, created_at, used_at
             FROM password_reset_tokens
-            WHERE token_hash = $1
+            WHERE tenant_id = $1 AND token_hash = $2
             "#,
         )
+        .bind(tenant_id)
         .bind(token_hash)
         .fetch_optional(&self.pool)
         .await
@@ -62,13 +87,19 @@ impl PasswordResetRepository {
 
     /// Mark token as used
     pub async fn mark_as_used(&self, token_hash: &str) -> Result<()> {
+        self.mark_as_used_in_tenant(DEFAULT_TENANT_ID, token_hash).await
+    }
+
+    /// Mark token as used in a tenant scope
+    pub async fn mark_as_used_in_tenant(&self, tenant_id: &str, token_hash: &str) -> Result<()> {
         sqlx::query(
             r#"
             UPDATE password_reset_tokens
             SET used_at = NOW()
-            WHERE token_hash = $1 AND used_at IS NULL
+            WHERE tenant_id = $1 AND token_hash = $2 AND used_at IS NULL
             "#,
         )
+        .bind(tenant_id)
         .bind(token_hash)
         .execute(&self.pool)
         .await
@@ -102,13 +133,27 @@ impl PasswordResetRepository {
         token_hash: &str,
         expires_at: DateTime<Utc>,
     ) -> Result<PasswordResetToken> {
+        self.save_with_tx_for_tenant(tx, DEFAULT_TENANT_ID, user_id, token_hash, expires_at)
+            .await
+    }
+
+    /// Save password reset token within a transaction and tenant scope
+    pub async fn save_with_tx_for_tenant(
+        &self,
+        tx: &mut Transaction<'_, Postgres>,
+        tenant_id: &str,
+        user_id: i64,
+        token_hash: &str,
+        expires_at: DateTime<Utc>,
+    ) -> Result<PasswordResetToken> {
         let token = sqlx::query_as::<_, PasswordResetToken>(
             r#"
-            INSERT INTO password_reset_tokens (user_id, token_hash, expires_at)
-            VALUES ($1, $2, $3)
-            RETURNING id, user_id, token_hash, expires_at, created_at, used_at
+            INSERT INTO password_reset_tokens (tenant_id, user_id, token_hash, expires_at)
+            VALUES ($1, $2, $3, $4)
+            RETURNING id, tenant_id, user_id, token_hash, expires_at, created_at, used_at
             "#,
         )
+        .bind(tenant_id)
         .bind(user_id)
         .bind(token_hash)
         .bind(expires_at)
@@ -125,13 +170,25 @@ impl PasswordResetRepository {
         tx: &mut Transaction<'_, Postgres>,
         token_hash: &str,
     ) -> Result<()> {
+        self.mark_as_used_with_tx_in_tenant(tx, DEFAULT_TENANT_ID, token_hash)
+            .await
+    }
+
+    /// Mark token as used within a transaction and tenant scope
+    pub async fn mark_as_used_with_tx_in_tenant(
+        &self,
+        tx: &mut Transaction<'_, Postgres>,
+        tenant_id: &str,
+        token_hash: &str,
+    ) -> Result<()> {
         sqlx::query(
             r#"
             UPDATE password_reset_tokens
             SET used_at = NOW()
-            WHERE token_hash = $1 AND used_at IS NULL
+            WHERE tenant_id = $1 AND token_hash = $2 AND used_at IS NULL
             "#,
         )
+        .bind(tenant_id)
         .bind(token_hash)
         .execute(&mut **tx)
         .await
