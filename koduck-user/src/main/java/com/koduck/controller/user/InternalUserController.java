@@ -26,6 +26,7 @@ import java.util.List;
 @RequestMapping("/internal")
 public class InternalUserController {
 
+    private static final String DEFAULT_TENANT_ID = "default";
     private static final Logger log = LoggerFactory.getLogger(InternalUserController.class);
 
     private final UserService userService;
@@ -37,10 +38,12 @@ public class InternalUserController {
     @GetMapping("/users/by-username/{username}")
     public ResponseEntity<UserDetailsResponse> findByUsername(
             @PathVariable String username,
-            @RequestHeader(value = "X-Consumer-Username", required = false) String consumer) {
+            @RequestHeader(value = "X-Consumer-Username", required = false) String consumer,
+            @RequestHeader(value = "X-Tenant-Id", required = false) String tenantId) {
         String consumerName = requireConsumer(consumer);
-        logAudit(consumerName, "findByUsername", username);
-        return userService.findByUsername(username)
+        String resolvedTenantId = resolveTenantId(tenantId);
+        logAudit(consumerName, resolvedTenantId, "findByUsername", username);
+        return userService.findByUsername(resolvedTenantId, username)
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
     }
@@ -48,10 +51,12 @@ public class InternalUserController {
     @GetMapping("/users/by-email/{email}")
     public ResponseEntity<UserDetailsResponse> findByEmail(
             @PathVariable String email,
-            @RequestHeader(value = "X-Consumer-Username", required = false) String consumer) {
+            @RequestHeader(value = "X-Consumer-Username", required = false) String consumer,
+            @RequestHeader(value = "X-Tenant-Id", required = false) String tenantId) {
         String consumerName = requireConsumer(consumer);
-        logAudit(consumerName, "findByEmail", email);
-        return userService.findByEmail(email)
+        String resolvedTenantId = resolveTenantId(tenantId);
+        logAudit(consumerName, resolvedTenantId, "findByEmail", email);
+        return userService.findByEmail(resolvedTenantId, email)
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
     }
@@ -59,39 +64,47 @@ public class InternalUserController {
     @PostMapping("/users")
     public ResponseEntity<UserDetailsResponse> createUser(
             @RequestBody @Valid CreateUserRequest request,
-            @RequestHeader(value = "X-Consumer-Username", required = false) String consumer) {
+            @RequestHeader(value = "X-Consumer-Username", required = false) String consumer,
+            @RequestHeader(value = "X-Tenant-Id", required = false) String tenantId) {
         String consumerName = requireConsumer(consumer);
-        logAudit(consumerName, "createUser", request.getUsername());
-        return ResponseEntity.ok(userService.createUser(request));
+        String resolvedTenantId = resolveTenantId(tenantId);
+        logAudit(consumerName, resolvedTenantId, "createUser", request.getUsername());
+        return ResponseEntity.ok(userService.createUser(resolvedTenantId, request));
     }
 
     @PutMapping("/users/{userId}/last-login")
     public ResponseEntity<Void> updateLastLogin(
             @PathVariable Long userId,
             @RequestBody @Valid LastLoginUpdateRequest request,
-            @RequestHeader(value = "X-Consumer-Username", required = false) String consumer) {
+            @RequestHeader(value = "X-Consumer-Username", required = false) String consumer,
+            @RequestHeader(value = "X-Tenant-Id", required = false) String tenantId) {
         String consumerName = requireConsumer(consumer);
-        logAudit(consumerName, "updateLastLogin", String.valueOf(userId));
-        userService.updateLastLogin(userId, request);
+        String resolvedTenantId = resolveTenantId(tenantId);
+        logAudit(consumerName, resolvedTenantId, "updateLastLogin", String.valueOf(userId));
+        userService.updateLastLogin(resolvedTenantId, userId, request);
         return ResponseEntity.ok().build();
     }
 
     @GetMapping("/users/{userId}/roles")
     public ResponseEntity<List<String>> getUserRoles(
             @PathVariable Long userId,
-            @RequestHeader(value = "X-Consumer-Username", required = false) String consumer) {
+            @RequestHeader(value = "X-Consumer-Username", required = false) String consumer,
+            @RequestHeader(value = "X-Tenant-Id", required = false) String tenantId) {
         String consumerName = requireConsumer(consumer);
-        logAudit(consumerName, "getUserRoles", String.valueOf(userId));
-        return ResponseEntity.ok(userService.getUserRoles(userId));
+        String resolvedTenantId = resolveTenantId(tenantId);
+        logAudit(consumerName, resolvedTenantId, "getUserRoles", String.valueOf(userId));
+        return ResponseEntity.ok(userService.getUserRoles(resolvedTenantId, userId));
     }
 
     @GetMapping("/users/{userId}/permissions")
     public ResponseEntity<List<String>> getUserPermissions(
             @PathVariable Long userId,
-            @RequestHeader(value = "X-Consumer-Username", required = false) String consumer) {
+            @RequestHeader(value = "X-Consumer-Username", required = false) String consumer,
+            @RequestHeader(value = "X-Tenant-Id", required = false) String tenantId) {
         String consumerName = requireConsumer(consumer);
-        logAudit(consumerName, "getUserPermissions", String.valueOf(userId));
-        return ResponseEntity.ok(userService.getUserPermissions(userId));
+        String resolvedTenantId = resolveTenantId(tenantId);
+        logAudit(consumerName, resolvedTenantId, "getUserPermissions", String.valueOf(userId));
+        return ResponseEntity.ok(userService.getUserPermissions(resolvedTenantId, userId));
     }
 
     private String requireConsumer(String consumer) {
@@ -101,8 +114,12 @@ public class InternalUserController {
         return consumer;
     }
 
-    private void logAudit(String consumer, String action, String target) {
+    private String resolveTenantId(String tenantId) {
+        return (tenantId == null || tenantId.isBlank()) ? DEFAULT_TENANT_ID : tenantId;
+    }
+
+    private void logAudit(String consumer, String tenantId, String action, String target) {
         String consumerName = (consumer == null || consumer.isBlank()) ? "unknown" : consumer;
-        log.info("internal-api action={} target={} consumer={}", action, target, consumerName);
+        log.info("internal-api action={} target={} consumer={} tenantId={}", action, target, consumerName, tenantId);
     }
 }

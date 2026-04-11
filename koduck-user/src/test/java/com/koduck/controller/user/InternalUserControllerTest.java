@@ -36,6 +36,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 class InternalUserControllerTest {
 
+    private static final String DEFAULT_TENANT_ID = "default";
+    private static final String TENANT_ID = "tenant-a";
+
     private MockMvc mockMvc;
     private ObjectMapper objectMapper;
     private StubUserService userService;
@@ -62,10 +65,12 @@ class InternalUserControllerTest {
                 .build());
 
         mockMvc.perform(get("/internal/users/by-username/alice")
-                        .header("X-Consumer-Username", "koduck-auth"))
+                        .header("X-Consumer-Username", "koduck-auth")
+                        .header("X-Tenant-Id", TENANT_ID))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.id").value(1001))
                 .andExpect(jsonPath("$.username").value("alice"));
+        org.junit.jupiter.api.Assertions.assertEquals(TENANT_ID, userService.lastTenantId);
     }
 
     @Test
@@ -73,8 +78,26 @@ class InternalUserControllerTest {
         userService.userByUsername = Optional.empty();
 
         mockMvc.perform(get("/internal/users/by-username/missing")
-                        .header("X-Consumer-Username", "koduck-auth"))
+                        .header("X-Consumer-Username", "koduck-auth")
+                        .header("X-Tenant-Id", TENANT_ID))
                 .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void shouldFallbackToDefaultTenantWhenTenantHeaderMissing() throws Exception {
+        userService.userByUsername = Optional.of(UserDetailsResponse.builder()
+                .id(1001L)
+                .username("alice")
+                .email("alice@koduck.com")
+                .passwordHash("hash")
+                .status("ACTIVE")
+                .build());
+
+        mockMvc.perform(get("/internal/users/by-username/alice")
+                        .header("X-Consumer-Username", "koduck-auth"))
+                .andExpect(status().isOk());
+
+        org.junit.jupiter.api.Assertions.assertEquals(DEFAULT_TENANT_ID, userService.lastTenantId);
     }
 
     @Test
@@ -96,7 +119,8 @@ class InternalUserControllerTest {
                 .build());
 
         mockMvc.perform(get("/internal/users/by-email/bob@koduck.com")
-                        .header("X-Consumer-Username", "koduck-auth"))
+                        .header("X-Consumer-Username", "koduck-auth")
+                        .header("X-Tenant-Id", TENANT_ID))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.id").value(1002))
                 .andExpect(jsonPath("$.email").value("bob@koduck.com"));
@@ -107,7 +131,8 @@ class InternalUserControllerTest {
         userService.userByEmail = Optional.empty();
 
         mockMvc.perform(get("/internal/users/by-email/missing@koduck.com")
-                        .header("X-Consumer-Username", "koduck-auth"))
+                        .header("X-Consumer-Username", "koduck-auth")
+                        .header("X-Tenant-Id", TENANT_ID))
                 .andExpect(status().isNotFound());
     }
 
@@ -131,6 +156,7 @@ class InternalUserControllerTest {
 
         mockMvc.perform(post("/internal/users")
                         .header("X-Consumer-Username", "koduck-auth")
+                        .header("X-Tenant-Id", TENANT_ID)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isOk())
@@ -148,6 +174,7 @@ class InternalUserControllerTest {
 
         mockMvc.perform(post("/internal/users")
                         .header("X-Consumer-Username", "koduck-auth")
+                        .header("X-Tenant-Id", TENANT_ID)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isBadRequest());
@@ -164,6 +191,7 @@ class InternalUserControllerTest {
 
         mockMvc.perform(post("/internal/users")
                         .header("X-Consumer-Username", "koduck-auth")
+                        .header("X-Tenant-Id", TENANT_ID)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isConflict())
@@ -183,6 +211,7 @@ class InternalUserControllerTest {
 
         mockMvc.perform(post("/internal/users")
                         .header("X-Consumer-Username", "koduck-auth")
+                        .header("X-Tenant-Id", TENANT_ID)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isConflict())
@@ -200,6 +229,7 @@ class InternalUserControllerTest {
 
         mockMvc.perform(put("/internal/users/1001/last-login")
                         .header("X-Consumer-Username", "koduck-auth")
+                        .header("X-Tenant-Id", TENANT_ID)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isOk());
@@ -215,6 +245,7 @@ class InternalUserControllerTest {
 
         mockMvc.perform(put("/internal/users/9999/last-login")
                         .header("X-Consumer-Username", "koduck-auth")
+                        .header("X-Tenant-Id", TENANT_ID)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isNotFound())
@@ -228,7 +259,8 @@ class InternalUserControllerTest {
         userService.roles = List.of("ROLE_USER", "ROLE_ADMIN");
 
         mockMvc.perform(get("/internal/users/1001/roles")
-                        .header("X-Consumer-Username", "koduck-auth"))
+                        .header("X-Consumer-Username", "koduck-auth")
+                        .header("X-Tenant-Id", TENANT_ID))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0]").value("ROLE_USER"))
                 .andExpect(jsonPath("$[1]").value("ROLE_ADMIN"));
@@ -239,7 +271,8 @@ class InternalUserControllerTest {
         userService.notFoundUserIds = Set.of(9999L);
 
         mockMvc.perform(get("/internal/users/9999/roles")
-                        .header("X-Consumer-Username", "koduck-auth"))
+                        .header("X-Consumer-Username", "koduck-auth")
+                        .header("X-Tenant-Id", TENANT_ID))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.code").value(404))
                 .andExpect(jsonPath("$.message").value("用户不存在: id=9999"))
@@ -251,7 +284,8 @@ class InternalUserControllerTest {
         userService.permissions = List.of("user:read", "user:write");
 
         mockMvc.perform(get("/internal/users/1001/permissions")
-                        .header("X-Consumer-Username", "koduck-auth"))
+                        .header("X-Consumer-Username", "koduck-auth")
+                        .header("X-Tenant-Id", TENANT_ID))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0]").value("user:read"))
                 .andExpect(jsonPath("$[1]").value("user:write"));
@@ -262,7 +296,8 @@ class InternalUserControllerTest {
         userService.notFoundUserIds = Set.of(9999L);
 
         mockMvc.perform(get("/internal/users/9999/permissions")
-                        .header("X-Consumer-Username", "koduck-auth"))
+                        .header("X-Consumer-Username", "koduck-auth")
+                        .header("X-Tenant-Id", TENANT_ID))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.code").value(404))
                 .andExpect(jsonPath("$.message").value("用户不存在: id=9999"))
@@ -273,6 +308,7 @@ class InternalUserControllerTest {
 
         private Optional<UserDetailsResponse> userByUsername = Optional.empty();
         private Optional<UserDetailsResponse> userByEmail = Optional.empty();
+        private String lastTenantId;
         private UserDetailsResponse createdUser;
         private List<String> roles = List.of();
         private List<String> permissions = List.of();
@@ -331,17 +367,20 @@ class InternalUserControllerTest {
         }
 
         @Override
-        public Optional<UserDetailsResponse> findByUsername(String username) {
+        public Optional<UserDetailsResponse> findByUsername(String tenantId, String username) {
+            this.lastTenantId = tenantId;
             return userByUsername;
         }
 
         @Override
-        public Optional<UserDetailsResponse> findByEmail(String email) {
+        public Optional<UserDetailsResponse> findByEmail(String tenantId, String email) {
+            this.lastTenantId = tenantId;
             return userByEmail;
         }
 
         @Override
-        public UserDetailsResponse createUser(CreateUserRequest request) {
+        public UserDetailsResponse createUser(String tenantId, CreateUserRequest request) {
+            this.lastTenantId = tenantId;
             if (request.getUsername() != null && request.getUsername().equals(conflictUsername)) {
                 throw new UsernameAlreadyExistsException(request.getUsername());
             }
@@ -352,14 +391,16 @@ class InternalUserControllerTest {
         }
 
         @Override
-        public void updateLastLogin(Long userId, LastLoginUpdateRequest request) {
+        public void updateLastLogin(String tenantId, Long userId, LastLoginUpdateRequest request) {
+            this.lastTenantId = tenantId;
             if (notFoundUserIds.contains(userId)) {
                 throw new UserNotFoundException(userId);
             }
         }
 
         @Override
-        public List<String> getUserRoles(Long userId) {
+        public List<String> getUserRoles(String tenantId, Long userId) {
+            this.lastTenantId = tenantId;
             if (notFoundUserIds.contains(userId)) {
                 throw new UserNotFoundException(userId);
             }
@@ -367,7 +408,8 @@ class InternalUserControllerTest {
         }
 
         @Override
-        public List<String> getUserPermissions(Long userId) {
+        public List<String> getUserPermissions(String tenantId, Long userId) {
+            this.lastTenantId = tenantId;
             if (notFoundUserIds.contains(userId)) {
                 throw new UserNotFoundException(userId);
             }

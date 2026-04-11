@@ -47,15 +47,15 @@ public interface UserService {
 
     // === 内部 API ===
 
-    Optional<UserDetailsResponse> findByUsername(String username);
+    Optional<UserDetailsResponse> findByUsername(String tenantId, String username);
 
-    Optional<UserDetailsResponse> findByEmail(String email);
+    Optional<UserDetailsResponse> findByEmail(String tenantId, String email);
 
-    UserDetailsResponse createUser(CreateUserRequest request);
+    UserDetailsResponse createUser(String tenantId, CreateUserRequest request);
 
-    void updateLastLogin(Long userId, LastLoginUpdateRequest request);
+    void updateLastLogin(String tenantId, Long userId, LastLoginUpdateRequest request);
 
-    List<String> getUserRoles(Long userId);
+    List<String> getUserRoles(String tenantId, Long userId);
 
-    List<String> getUserPermissions(Long userId);
+    List<String> getUserPermissions(String tenantId, Long userId);
 }

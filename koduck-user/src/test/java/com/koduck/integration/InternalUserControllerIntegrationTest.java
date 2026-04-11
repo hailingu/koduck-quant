@@ -36,6 +36,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 class InternalUserControllerIntegrationTest {
 
     private static final String DEFAULT_TENANT_ID = "default";
+    private static final String TENANT_B = "tenant-b";
 
     @Container
     static final PostgreSQLContainer<?> POSTGRES = new PostgreSQLContainer<>("postgres:15-alpine")
@@ -64,8 +65,20 @@ class InternalUserControllerIntegrationTest {
 
     @BeforeEach
     void setUp() {
+        jdbcTemplate.update("DELETE FROM roles WHERE tenant_id <> ?", DEFAULT_TENANT_ID);
+        jdbcTemplate.update("DELETE FROM tenants WHERE id <> 'default'");
         jdbcTemplate.update("DELETE FROM user_roles");
         jdbcTemplate.update("DELETE FROM users");
+        jdbcTemplate.update(
+                "INSERT INTO tenants (id, name, status) VALUES (?, ?, ?) ON CONFLICT (id) DO NOTHING",
+                TENANT_B,
+                "Tenant B",
+                "ACTIVE");
+        jdbcTemplate.update(
+                "INSERT INTO roles (tenant_id, name, description) VALUES (?, ?, ?) ON CONFLICT DO NOTHING",
+                TENANT_B,
+                "ROLE_USER",
+                "tenant default role");
     }
 
     @Test
@@ -81,19 +94,21 @@ class InternalUserControllerIntegrationTest {
 
         mockMvc.perform(post("/internal/users")
                         .header("X-Consumer-Username", "koduck-auth")
+                        .header("X-Tenant-Id", TENANT_B)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.username").value(request.getUsername()))
                 .andExpect(jsonPath("$.email").value(request.getEmail()));
 
-        User created = userRepository.findByTenantIdAndUsername(DEFAULT_TENANT_ID, request.getUsername()).orElseThrow();
+        User created = userRepository.findByTenantIdAndUsername(TENANT_B, request.getUsername()).orElseThrow();
         assertNotNull(created.getId());
-        assertEquals(1, userRoleRepository.findByTenantIdAndUserId(DEFAULT_TENANT_ID, created.getId()).size(),
+        assertEquals(1, userRoleRepository.findByTenantIdAndUserId(TENANT_B, created.getId()).size(),
                 "new user should have default role");
 
         mockMvc.perform(get("/internal/users/by-username/{username}", request.getUsername())
-                        .header("X-Consumer-Username", "koduck-auth"))
+                        .header("X-Consumer-Username", "koduck-auth")
+                        .header("X-Tenant-Id", TENANT_B))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.id").value(created.getId()))
                 .andExpect(jsonPath("$.username").value(request.getUsername()));
@@ -116,6 +131,7 @@ class InternalUserControllerIntegrationTest {
 
         mockMvc.perform(put("/internal/users/{userId}/last-login", user.getId())
                         .header("X-Consumer-Username", "koduck-auth")
+                        .header("X-Tenant-Id", DEFAULT_TENANT_ID)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isOk());
@@ -123,5 +139,22 @@ class InternalUserControllerIntegrationTest {
         User reloaded = userRepository.findById(user.getId()).orElseThrow();
         assertEquals(request.getLoginTime(), reloaded.getLastLoginAt());
         assertEquals(request.getIpAddress(), reloaded.getLastLoginIp());
+    }
+
+    @Test
+    void shouldFallbackToDefaultTenantWhenTenantHeaderMissing() throws Exception {
+        String unique = String.valueOf(System.nanoTime());
+        User user = userRepository.save(User.builder()
+                .tenantId(DEFAULT_TENANT_ID)
+                .username("fallback-user-" + unique)
+                .email("fallback-" + unique + "@koduck.local")
+                .passwordHash("hash")
+                .build());
+
+        mockMvc.perform(get("/internal/users/by-username/{username}", user.getUsername())
+                        .header("X-Consumer-Username", "koduck-auth"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(user.getId()))
+                .andExpect(jsonPath("$.username").value(user.getUsername()));
     }
 }
