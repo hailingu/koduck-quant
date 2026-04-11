@@ -97,12 +97,16 @@ V2 的核心结论如下：
             │                       │                       │
             ▼                       ▼                       ▼
     APISIX -> koduck-auth   APISIX -> koduck-memory-service   APISIX -> koduck-tool-service
-            │                       │
-            │                       ▼
-            │             L0(.jsonl@S3/MinIO) + L1(index@DB)
-            │
-            ▼
-      External LLM Providers (adapter out, provider-native HTTP)
+                                    │
+                                    ▼
+                         L0(.jsonl@S3/MinIO) + L1(index@DB)
+
+                                    │
+                                    ▼
+                    (optional) LLM Adapter Service / Bridge
+                                    │
+                                    ▼
+                        External LLM Providers (provider-native HTTP)
 ```
 
 ### 5.2 关键调用路径
@@ -110,6 +114,7 @@ V2 的核心结论如下：
 - 北向：`Frontend -> APISIX -> koduck-ai`
 - 南向：`koduck-ai -> APISIX(gRPC route) -> {koduck-auth / koduck-memory-service / koduck-tool-service}`
 - 外部模型：`koduck-ai -> LLM Provider`
+- 迁移期可选：`koduck-ai -> LLM Adapter -> LLM Provider`
 
 ### 5.3 旁路策略
 
@@ -431,7 +436,7 @@ APISIX 的限流与网关重试不替代服务内业务语义重试预算。
 - `KODUCK_AI__AUTH__JWKS_URL`
 - `KODUCK_AI__MEMORY__GRPC_TARGET`（APISIX gRPC 路由）
 - `KODUCK_AI__TOOLS__GRPC_TARGET`（APISIX gRPC 路由）
-- `KODUCK_AI__LLM__ADAPTER_GRPC_TARGET`（可选，使用独立 LLM Adapter 服务时）
+- `KODUCK_AI__LLM__ADAPTER_GRPC_TARGET`（可选，仅迁移期或兼容模式下使用独立 LLM Adapter 服务时）
 - `KODUCK_AI__STREAM__MAX_DURATION_MS`
 - `KODUCK_AI__RETRY__MAX_ATTEMPTS`
 - `KODUCK_AI__RETRY__TOTAL_BUDGET_MS`
@@ -442,7 +447,7 @@ APISIX 的限流与网关重试不替代服务内业务语义重试预算。
 
 ```text
 koduck-ai/
-  proto/              # memory/tool/llm contract proto 定义
+  proto/              # memory/tool 长期 contract proto；llm proto 为迁移期可选契约
   src/
     app/              # 启动与生命周期管理
     api/              # chat/stream handler
@@ -452,7 +457,7 @@ koduck-ai/
     clients/
       memory/         # memory service client
       tool/           # tool service client
-      llm/            # llm adapter client（可选）
+      llm/            # llm adapter client（迁移期可选）
     stream/           # SSE/WS transport 与队列
     reliability/      # retry/circuit/degrade
     observe/          # logging/trace/metrics
@@ -472,9 +477,11 @@ koduck-ai/
 
 ### Phase B：契约先行
 
-- 冻结 `memory/tool/llm` 的 proto 契约并生成多语言 stub
-- 在 `koduck-ai` 建立 gRPC `memory_client` / `tool_client` / `llm_client`
-- 通过 APISIX gRPC 路由接入下游
+- 冻结 `memory/tool` 的长期 proto 契约并生成多语言 stub
+- `llm.proto` 仅作为迁移期可选契约保留，不作为目标态必选依赖
+- 在 `koduck-ai` 建立 gRPC `memory_client` / `tool_client`
+- 迁移期如启用独立 LLM Adapter，再建立可选 `llm_client`
+- `memory/tool` 通过 APISIX gRPC 路由接入下游
 
 验收：AI 主链路不再依赖本地 memory/tool 实现，且不再新增内部 HTTP 契约。
 
@@ -629,7 +636,11 @@ service ToolService {
 }
 ```
 
-### 15.4 LLM 适配服务（llm.proto）
+### 15.4 LLM 适配服务（llm.proto，可选迁移契约）
+
+`llm.proto` 用于迁移期或兼容模式下的独立 LLM Adapter / Bridge。
+它不是 V2 目标态的必选 southbound 契约；目标态默认由 `koduck-ai`
+直接通过 provider-native HTTP 对接外部 LLM Provider。
 
 ```proto
 syntax = "proto3";
@@ -645,6 +656,9 @@ service LlmService {
   rpc StreamGenerate(GenerateRequest) returns (stream StreamGenerateEvent);
 }
 ```
+
+若未来确认不再保留独立 LLM Adapter 服务，可将该契约降级为 deprecated，
+并最终从主链路移除。
 
 ### 15.5 兼容性规则（V1）
 

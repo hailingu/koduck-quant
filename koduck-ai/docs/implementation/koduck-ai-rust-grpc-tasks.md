@@ -87,12 +87,13 @@ cd koduck-ai
 - `proto/shared.proto`
 - `proto/memory/v1/memory.proto`
 - `proto/tool/v1/tool.proto`
-- `proto/llm/v1/llm.proto`
+- `proto/llm/v1/llm.proto`（迁移期可选）
 
 **详细要求:**
 1. 按设计文档第 6.4/6.5 与附录 B 完成 rpc/message 定义
 2. 统一请求元信息：`request_id/session_id/user_id/tenant_id/trace_id/idempotency_key/deadline_ms/api_version`
 3. 为可选字段和后续兼容预留 tag
+4. 明确 `memory/tool` 为长期契约，`llm.proto` 仅用于迁移期独立 Adapter / Bridge
 
 **验收标准:**
 
@@ -112,16 +113,17 @@ cd koduck-ai
 
 **验收标准:**
 - [x] `cargo build` 能生成全部 stub（通过 `docker build` 验证）
-- [x] memory/tool/llm 的 client trait 可直接注入 orchestrator（通过 `clients::proto::MemoryServiceClient` 等 re-export）
+- [x] memory/tool 的 client trait 可直接注入 orchestrator；`llm` stub 仅在兼容模式下启用
 - [x] proto 变更可被编译器检测（`cargo:rerun-if-changed` 已配置）
 
 ---
 
 ### Task 2.3: Capabilities 协商协议实现
 **详细要求:**
-1. 为 memory/tool/llm client 实现 `GetCapabilities` 拉取与 TTL 缓存
-2. 启动阶段做版本兼容校验
-3. 不兼容时 fail-fast 并输出结构化告警
+1. 为 memory/tool client 实现 `GetCapabilities` 拉取与 TTL 缓存
+2. 若启用独立 LLM Adapter，再为 llm client 启用对应协商
+3. 启动阶段做版本兼容校验
+4. 不兼容时 fail-fast 并输出结构化告警
 
 **验收标准:**
 - [x] 能打印已协商的 `contract_versions`
@@ -160,11 +162,12 @@ cd koduck-ai
 
 ---
 
-### Task 3.3: LLM Adapter client 集成
+### Task 3.3: LLM Provider 集成
 **详细要求:**
-1. 接入 `Generate/StreamGenerate/CountTokens/ListModels`
+1. 在 `koduck-ai` 内实现 provider-native `Generate/StreamGenerate/CountTokens/ListModels`
 2. 支持多 provider 配置路由
 3. 将供应商错误归一到统一错误码
+4. 若迁移期保留独立 LLM Adapter，则通过兼容开关选择 `direct` 或 `adapter` 模式
 
 **验收标准:**
 - [ ] 流式 token 正常输出并带 sequence
@@ -227,7 +230,7 @@ cd koduck-ai
 
 **详细要求:**
 1. 落地附录 A 全量错误码映射
-2. 对 memory/tool/llm 分别映射下游错误
+2. 对 memory/tool 以及 provider-native LLM 错误分别映射下游错误
 3. 返回统一错误对象，不泄漏下游内部细节
 
 **验收标准:**
