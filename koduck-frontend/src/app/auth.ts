@@ -4,6 +4,7 @@ const AUTH_USER_STORAGE_KEY = "koduck.auth.user";
 export interface LoginRequest {
   username: string;
   password: string;
+  tenant_id?: string;
 }
 
 export interface UserInfo {

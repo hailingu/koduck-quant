@@ -124,6 +124,8 @@ V1 需要达成以下能力：
 
 - `tenant_id`
 
+dev 联调用的测试账号 `demo/demo123` 固定归属 `tenant_demo`，用于验证“同账号名在不同 tenant 下不能串读”的链路。
+
 目标 claims 形态：
 
 ```json

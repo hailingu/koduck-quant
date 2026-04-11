@@ -22,7 +22,7 @@ fi
 readonly APISIX_BASE_URL="${APISIX_BASE_URL:-http://127.0.0.1:30080}"
 readonly USERNAME="${E2E_USERNAME:-demo}"
 readonly PASSWORD="${E2E_PASSWORD:-demo123}"
-readonly TENANT_ID="${E2E_TENANT_ID:-default}"
+readonly TENANT_ID="${E2E_TENANT_ID:-tenant_demo}"
 readonly INTERNAL_API_KEY_USER="${INTERNAL_API_KEY_USER:-uk_test_key_12345678}"
 
 decode_jwt_payload() {

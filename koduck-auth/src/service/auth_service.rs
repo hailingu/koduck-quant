@@ -105,7 +105,7 @@ impl AuthService {
             .as_deref()
             .map(str::trim)
             .filter(|value| !value.is_empty())
-            .ok_or_else(|| AppError::Validation("tenant_id is required for login".to_string()))?
+            .unwrap_or(DEFAULT_TENANT_ID)
             .to_string();
 
         // Check if IP is locked
