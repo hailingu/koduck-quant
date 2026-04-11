@@ -73,9 +73,9 @@
 3. 为服务配置对象存储 secret 与 endpoint
 
 **验收标准:**
-- [ ] dev 环境存在可用 MinIO
-- [ ] `koduck-memory` 可访问 bucket
-- [ ] L0 对象存储前置基础就绪
+- [x] dev 环境存在可用 MinIO
+- [x] `koduck-memory` 可访问 bucket
+- [x] L0 对象存储前置基础就绪
 
 ---
 

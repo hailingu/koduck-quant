@@ -7,6 +7,26 @@ spec:
   replicas: 1
   template:
     spec:
+      initContainers:
+        - name: wait-for-object-store
+          image: minio/mc:latest
+          imagePullPolicy: IfNotPresent
+          envFrom:
+            - secretRef:
+                name: koduck-memory-secrets
+          command:
+            - /bin/sh
+            - -c
+            - |
+              set -eu
+              until mc alias set objectstore "${OBJECT_STORE__ENDPOINT}" "${OBJECT_STORE__ACCESS_KEY}" "${OBJECT_STORE__SECRET_KEY}"; do
+                echo "waiting for object store endpoint ${OBJECT_STORE__ENDPOINT}"
+                sleep 2
+              done
+              until mc stat "objectstore/${OBJECT_STORE__BUCKET}"; do
+                echo "waiting for bucket ${OBJECT_STORE__BUCKET}"
+                sleep 2
+              done
       containers:
         - name: koduck-memory
           image: koduck-memory:dev
