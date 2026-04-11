@@ -1,0 +1,195 @@
+# Koduck Auth / User Tenant 语义实施任务清单
+
+> 对应设计文档：
+> [`/Users/guhailin/Git/koduck-quant/docs/design/koduck-auth-user-tenant-semantics.md`](/Users/guhailin/Git/koduck-quant/docs/design/koduck-auth-user-tenant-semantics.md)
+>
+> 状态：待执行  
+> 创建日期：2026-04-11
+
+## 执行阶段概览
+
+| 阶段 | 名称 | 依赖 | 优先级 |
+|------|------|------|--------|
+| Phase 1 | 设计冻结与契约梳理 | - | P0 |
+| Phase 2 | 数据库与数据迁移 | Phase 1 | P0 |
+| Phase 3 | `koduck-user` 租户化改造 | Phase 2 | P0 |
+| Phase 4 | `koduck-auth` 租户化改造 | Phase 2 | P0 |
+| Phase 5 | APISIX 与上下文透传 | Phase 3, 4 | P0 |
+| Phase 6 | 联调、回归与灰度 | Phase 3, 4, 5 | P1 |
+
+---
+
+## Phase 1: 设计冻结与契约梳理
+
+### Task 1.1: 冻结 `tenant_id` 语义
+**详细要求:**
+1. 确认 `tenant_id` 的类型、长度与来源
+2. 明确 V1 不支持 tenant hierarchy
+3. 明确 `(tenant_id, user_id)` 为身份主键语义
+
+**验收标准:**
+- [ ] `tenant_id` 语义在文档中固定
+- [ ] 各服务对 tenant 的解释一致
+
+### Task 1.2: 梳理 JWT / internal API / gRPC 契约
+**详细要求:**
+1. 盘点需要增加 `tenant_id` 的 JWT claims
+2. 盘点需要增加 `tenant_id` 的 internal API DTO
+3. 盘点需要增加 `tenant_id` 的 gRPC 消息
+
+**验收标准:**
+- [ ] 影响接口清单完整
+- [ ] 契约改动边界清晰
+
+---
+
+## Phase 2: 数据库与数据迁移
+
+### Task 2.1: `koduck-user` 数据库增加 `tenant_id`
+**详细要求:**
+1. 为 `users`、`roles` 增加 `tenant_id`
+2. 评估并为 `user_roles`、`role_permissions`、`user_credentials` 增加租户语义
+3. 新增 `tenants` 表或最小租户真值
+
+**验收标准:**
+- [ ] 主表具备 `tenant_id`
+- [ ] 迁移脚本可执行
+
+### Task 2.2: `koduck-auth` 安全域表增加 `tenant_id`
+**详细要求:**
+1. 为 `refresh_tokens`、`password_reset_tokens`、`audit_logs` 增加 `tenant_id`
+2. 为查询建立租户维度索引
+
+**验收标准:**
+- [ ] 安全域表具备 `tenant_id`
+- [ ] 按租户查询可用
+
+### Task 2.3: 唯一约束切换为租户内唯一
+**详细要求:**
+1. 将用户唯一性调整为：
+   - `unique (tenant_id, username)`
+   - `unique (tenant_id, email)`
+2. 将角色唯一性调整为：
+   - `unique (tenant_id, name)`
+3. 为存量数据回填默认 tenant
+
+**验收标准:**
+- [ ] 不再使用全局唯一
+- [ ] 存量数据可迁移
+
+---
+
+## Phase 3: `koduck-user` 租户化改造
+
+### Task 3.1: 实体与 Repository 增加 `tenant_id`
+**详细要求:**
+1. 更新 `User`、`Role` 等实体
+2. Repository 查询显式带 `tenant_id`
+
+**验收标准:**
+- [ ] 查询不再是全局范围
+- [ ] 实体与表结构一致
+
+### Task 3.2: Internal API 增加租户上下文
+**详细要求:**
+1. internal API 支持 `X-Tenant-Id`
+2. `findByUsername / findByEmail / getUserRoles / getUserPermissions` 默认按租户作用域执行
+
+**验收标准:**
+- [ ] internal API 不会跨租户串读
+- [ ] 旧路径兼容策略明确
+
+### Task 3.3: `UserContext` 扩展 `tenant_id`
+**详细要求:**
+1. 新增 `X-Tenant-Id`
+2. 增加 `getTenantId()`
+
+**验收标准:**
+- [ ] 控制器和服务层可读取租户上下文
+
+---
+
+## Phase 4: `koduck-auth` 租户化改造
+
+### Task 4.1: JWT claims 增加 `tenant_id`
+**详细要求:**
+1. 更新 claims 模型
+2. token 生成时写入 `tenant_id`
+3. token 校验时解析 `tenant_id`
+
+**验收标准:**
+- [ ] access token 带 `tenant_id`
+- [ ] refresh / validate 链路不丢失 tenant
+
+### Task 4.2: gRPC / introspection 增加 `tenant_id`
+**详细要求:**
+1. 更新 `ValidateTokenResponse`
+2. 更新 `GetUserResponse`
+3. 更新 introspection 结果
+
+**验收标准:**
+- [ ] 对内契约可返回 `tenant_id`
+- [ ] 下游服务可消费 `tenant_id`
+
+### Task 4.3: 登录与 refresh 流程租户化
+**详细要求:**
+1. 登录时确定用户归属 tenant
+2. refresh token 流程保持 tenant 一致
+
+**验收标准:**
+- [ ] 登录和 refresh 不会错租户
+- [ ] 审计日志带 `tenant_id`
+
+---
+
+## Phase 5: APISIX 与上下文透传
+
+### Task 5.1: JWT 验签后注入 `X-Tenant-Id`
+**详细要求:**
+1. 更新 APISIX 插件或 route 配置
+2. 将 `tenant_id` 透传为 `X-Tenant-Id`
+
+**验收标准:**
+- [ ] 下游收到 `X-Tenant-Id`
+- [ ] 与 `X-User-Id / X-Username / X-Roles` 一致透传
+
+### Task 5.2: 网关与服务联调
+**详细要求:**
+1. 验证 `koduck-auth -> APISIX -> koduck-user`
+2. 验证 tenant header 与 JWT claims 一致
+
+**验收标准:**
+- [ ] header 与 claims 不冲突
+- [ ] 服务端能按租户隔离执行
+
+---
+
+## Phase 6: 联调、回归与灰度
+
+### Task 6.1: 单元与集成测试
+**详细要求:**
+1. 增加多租户测试数据
+2. 验证用户名/邮箱租户内唯一
+3. 验证跨租户不可见
+
+**验收标准:**
+- [ ] 多租户场景测试通过
+- [ ] 不存在串租户查询
+
+### Task 6.2: 迁移与灰度方案
+**详细要求:**
+1. 设计 `default tenant` 过渡方案
+2. 明确灰度窗口与回滚路径
+
+**验收标准:**
+- [ ] 存量用户可平滑迁移
+- [ ] 回滚路径可操作
+
+### Task 6.3: 下游服务适配清单
+**详细要求:**
+1. 梳理 `koduck-ai`、`memory` 等下游所需调整
+2. 明确统一读取 `X-Tenant-Id`
+
+**验收标准:**
+- [ ] 下游适配清单完整
+- [ ] 后续服务可直接复用 tenant 语义

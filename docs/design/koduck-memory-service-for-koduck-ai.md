@@ -1,49 +1,58 @@
 # Koduck Memory Service 对接 Koduck AI 设计文档（V1）
 
-## 1. 文档目的与范围
+## 1. 目的与范围
 
-本文档定义 `koduck-memory-service` 作为 `koduck-ai` southbound first-class service 的目标设计，
-用于支撑会话元数据真值、记忆写入、记忆检索与摘要能力。
+本文档定义 `koduck-memory-service` 作为 `koduck-ai` southbound first-class service 的 V1 设计，
+用于承接会话元数据真值、记忆写入、记忆检索、摘要与长期事实提炼。
 
 本文档覆盖：
 
-- `koduck-memory-service` 在 AI 解耦架构中的职责边界
-- 与 `koduck-ai` 的 gRPC 契约与调用关系
-- 内部模块划分、数据模型与检索策略
-- 运行时要求、错误语义、部署与迁移路径
+- 服务职责边界与目标架构
+- 与 `koduck-ai` 的 gRPC 契约
+- 数据模型、对象存储组织与 append 语义
+- 检索策略、摘要策略、多租户隔离与生命周期治理
+- 部署、观测、迁移与验收要求
 
 本文档不覆盖：
 
-- 具体 embedding / rerank 模型选型
-- 对象存储、向量库或全文索引引擎的最终产品选型
-- `koduck-tool-service` 的内部执行引擎实现
+- `koduck-tool-service` 的内部执行引擎
+- 具体全文检索引擎产品选型
+- 向量检索设计
 
 ---
 
-## 2. 设计背景
+## 2. 背景与目标
 
-根据 [`koduck-ai/docs/design/ai-decoupled-architecture.md`](../../koduck-ai/docs/design/ai-decoupled-architecture.md)，
-`koduck-ai` 的 V2 目标是收敛为 AI Gateway / Orchestrator，不再内置 Memory 业务实现。
+根据 [`/Users/guhailin/Git/koduck-quant/koduck-ai/docs/design/ai-decoupled-architecture.md`](/Users/guhailin/Git/koduck-quant/koduck-ai/docs/design/ai-decoupled-architecture.md)，
+`koduck-ai` 的目标是收敛为 AI Gateway / Orchestrator，不再内置 Memory 业务实现。
 
-因此：
+因此需要将以下能力从 `koduck-ai` 中剥离：
 
-1. 会话元数据真值必须从 `koduck-ai` 中剥离。
-2. 记忆存储、检索、摘要生产必须由独立服务承接。
-3. `koduck-ai` 通过统一 southbound gRPC contract 调用 memory 能力。
-4. `koduck-memory-service` 必须成为可独立部署、可治理、可灰度的 first-class service。
+- 会话元数据真值
+- 原始记忆写入
+- 结构化记忆索引
+- 会话摘要与长期事实提炼
+
+V1 的目标是先把 southbound contract、存储模型、append 语义和默认检索路径定稳，
+而不是追求复杂检索能力。
 
 ---
 
-## 3. 结论先行
-
-V1 的核心结论如下：
+## 3. 当前定稿结论
 
 1. `koduck-memory-service` 是 `koduck-ai` 的 southbound gRPC 服务，不直接面向前端。
 2. 会话元数据真值统一归 `koduck-memory-service` 管理。
-3. `koduck-ai` 只声明检索偏好，不固化记忆检索算法。
-4. Memory Southbound Contract 以 [`koduck-ai/proto/koduck/memory/v1/memory.proto`](../../koduck-ai/proto/koduck/memory/v1/memory.proto) 为基础冻结。
-5. 第一阶段优先落地 `GetSession / UpsertSessionMeta / QueryMemory / AppendMemory`，`SummarizeMemory` 可先同步占位、后续异步化。
-6. V1 先实现 keyword / tag / session 范围检索；hybrid / summary-first 先保留契约、逐步增强实现。
+3. Memory contract 以 [`/Users/guhailin/Git/koduck-quant/koduck-ai/proto/koduck/memory/v1/memory.proto`](/Users/guhailin/Git/koduck-quant/koduck-ai/proto/koduck/memory/v1/memory.proto) 为基础冻结。
+4. L0 原始材料存放于 S3 兼容对象存储。dev 使用 MinIO，prod 使用正式 S3 或兼容实现。
+5. L1 结构化索引与 summary 存放于 PostgreSQL。
+6. `session_id` 是稳定的会话根标识；V1 显式支持 `parent_session_id`、`forked_from_session_id`、`sequence_num`。
+7. `AppendMemory` 在对象存储侧采用“新增对象”实现 append，不依赖单对象原地追加。
+8. V1 默认检索策略是：先按 `domain_class` 粗筛，再用 `summary` 做负向排除。
+9. `summary` 只用于排除不合适候选，不作为最终选中条件。
+10. 暂不在 V1 中定义 keyword 召回或 keyword 筛选策略。
+11. `SummarizeMemory`、事实提炼与索引刷新统一采用异步任务化实现。
+12. V1 明确不引入向量检索。
+13. 多租户隔离与数据生命周期治理属于当前设计的一部分，不留作后续开放问题。
 
 ---
 
@@ -52,9 +61,9 @@ V1 的核心结论如下：
 ### 4.1 `koduck-memory-service` 负责
 
 - 会话元数据管理
-- 对话记忆追加与存储
-- 记忆检索与命中排序
-- 会话摘要、标签与长期记忆材料生产
+- 原始记忆写入与顺序控制
+- 结构化索引生成与查询
+- 会话摘要与长期事实提炼
 - capability discovery 与契约版本声明
 
 ### 4.2 `koduck-memory-service` 不负责
@@ -62,23 +71,21 @@ V1 的核心结论如下：
 - LLM 编排
 - Tool 选择与执行
 - 对外 northbound chat / stream API
-- JWT 鉴权中心能力本身
+- JWT/JWKS 认证中心能力
 
-### 4.3 与其他服务边界
+### 4.3 与其他服务关系
 
 | 服务 | 负责 | 不负责 |
 |------|------|--------|
-| `koduck-ai` | 对话编排、SSE、错误映射、模型路由 | 会话元数据真值、记忆检索算法实现 |
-| `koduck-memory-service` | 会话与记忆真值、检索、摘要 | chat orchestration |
-| `koduck-tool-service` | 工具注册、执行、权限策略 | 记忆持久化 |
+| `koduck-ai` | chat orchestration、SSE、错误映射、模型路由 | 会话与记忆真值 |
+| `koduck-memory-service` | 会话与记忆真值、检索、摘要 | 对外 chat |
+| `koduck-tool-service` | 工具执行 | 记忆持久化 |
 | `koduck-auth` | JWT/JWKS | AI / Memory 业务语义 |
-| `APISIX` | gRPC 路由、限流、trace 透传、access log | 业务语义决策 |
+| `APISIX` | southbound gRPC 路由与治理 | 业务语义 |
 
 ---
 
 ## 5. 目标架构
-
-### 5.1 逻辑拓扑
 
 ```text
 Frontend / BFF
@@ -95,32 +102,28 @@ Frontend / BFF
       ▼
 koduck-memory-service
       │
-      ├── Session Metadata Store
-      ├── Memory Entry Store
-      ├── Summary / Fact Store
-      └── Retrieval Engine
+      ├── PostgreSQL
+      │     ├── session truth
+      │     ├── memory index
+      │     ├── summaries
+      │     └── facts
+      └── S3 / MinIO
+            └── L0 raw materials
 ```
 
-### 5.2 调用路径
+架构约束：
 
-- 北向：`Frontend -> APISIX -> koduck-ai`
-- Southbound：`koduck-ai -> APISIX -> koduck-memory-service`
-- 内部持久化：`koduck-memory-service -> PostgreSQL / Object Storage / Index Backend`
-
-### 5.3 旁路原则
-
-默认不允许 `koduck-ai` 直接访问 memory DB 或对象存储。
-所有会话与记忆读写必须经过 `koduck-memory-service` 契约。
+- `koduck-ai` 不直接访问 memory DB 或对象存储。
+- 所有读写必须经过 `koduck-memory-service` 契约。
+- APISIX 是 southbound 的统一治理入口。
 
 ---
 
-## 6. 对接契约设计
+## 6. 对接契约
 
-### 6.1 契约来源
+### 6.1 基础 RPC
 
-V1 直接以 [`koduck-ai/proto/koduck/memory/v1/memory.proto`](../../koduck-ai/proto/koduck/memory/v1/memory.proto) 为正式契约基础。
-
-服务入口：
+V1 契约基于 `memory.v1`，入口包括：
 
 - `GetCapabilities`
 - `UpsertSessionMeta`
@@ -129,30 +132,34 @@ V1 直接以 [`koduck-ai/proto/koduck/memory/v1/memory.proto`](../../koduck-ai/p
 - `AppendMemory`
 - `SummarizeMemory`
 
-### 6.2 RequestMeta 约束
+### 6.2 RequestMeta
 
 所有 RPC 必须要求并校验：
 
 - `request_id`
-- `session_id`（按场景必填）
+- `session_id`
 - `user_id`
 - `trace_id`
 - `deadline_ms`
 - `api_version`
 - `idempotency_key`（写操作建议必填）
 
-约束：
+语义要求：
 
-- `request_id` 用于幂等日志与错误回传
+- `request_id` 用于日志、错误回传与幂等追踪
 - `trace_id` 用于链路观测
-- `deadline_ms` 必须传递到存储与索引层
-- `idempotency_key` 用于抵御 `koduck-ai` retry 带来的重复写入
+- `deadline_ms` 必须向内部存储和异步任务调度传播
+- `idempotency_key` 用于抵御上游 retry 导致的重复写入
 
-### 6.3 会话元数据契约
+### 6.3 会话元数据
 
-`UpsertSessionMeta` 负责维护以下真值字段：
+`UpsertSessionMeta` 维护以下真值字段：
 
 - `session_id`
+- `tenant_id`
+- `user_id`
+- `parent_session_id`
+- `forked_from_session_id`
 - `title`
 - `status`
 - `created_at`
@@ -160,52 +167,59 @@ V1 直接以 [`koduck-ai/proto/koduck/memory/v1/memory.proto`](../../koduck-ai/p
 - `last_message_at`
 - `extra`
 
-设计约束：
+约束：
 
-- `session_id` 由 `koduck-ai` 生成或透传，但最终真值在 memory-service。
-- `title/status/last_message_at` 更新必须幂等。
-- `extra` 用于存储可扩展字段，如 `tenant_id`, `conversation_type`, `client_version`。
+- `session_id` 由 `koduck-ai` 生成或透传，但最终真值在 memory-service
+- `session_id` 不因标题、摘要更新而变化
+- `parent_session_id` 表示 resume / continue 关系
+- `forked_from_session_id` 表示分叉来源
+- `title/status/last_message_at` 更新必须幂等
 
-### 6.4 记忆写入契约
+### 6.4 AppendMemory
 
-`AppendMemory` 的核心职责：
+`AppendMemory` 的职责：
 
-- 追加 user / assistant / system 级别的结构化消息
-- 建立检索材料
-- 为后续 summary / facts 任务准备输入
+- 追加 user / assistant / system 级记忆条目
+- 维护同一 `session_id` 下的顺序写入语义
+- 写入 L0 原始材料
+- 异步触发 L1 索引刷新与摘要/事实提炼
 
-建议约定 `MemoryEntry.metadata` 预留字段：
+建议 `MemoryEntry.metadata` 预留字段：
 
 - `message_id`
 - `turn_id`
-- `source`（如 `chat`, `stream_finalize`, `manual_import`）
+- `sequence_num`
+- `source`
 - `model`
-- `tags`
 - `language`
 - `importance`
+- `memory_kind`
+- `domain_class`
 
 约束：
 
-- `AppendMemory` 成功返回只代表“结构化记忆已接收并落地”。
-- 若存在异步索引构建，不应阻塞主写路径。
+- 同一 `session_id` 下写入必须具备单调顺序
+- 冲突恢复以 `session_id + sequence_num` 或 `idempotency_key` 为基础
+- `AppendMemory` 成功仅代表写入已接收并落地，不代表摘要/索引已完成
 
-### 6.5 记忆检索契约
+### 6.5 QueryMemory
 
 `QueryMemory` 输入：
 
 - `query_text`
+- `tenant_id`
 - `session_id`
-- `tags[]`
+- `domain_class`
 - `top_k`
 - `retrieve_policy`
 - `page_token`
 - `page_size`
 
-`retrieve_policy` 语义：
+V1 `retrieve_policy` 语义：
 
-- `KEYWORD_FIRST`：关键词 / tag / recent-first 优先
-- `SUMMARY_FIRST`：优先检索会话摘要或结构化记忆
-- `HYBRID`：综合候选集后统一排序
+- `DOMAIN_FIRST`：先按 `domain_class` 过滤，再做 summary 排除
+- `SUMMARY_FIRST`：先用 summary 排除，再回退结构化原文索引做正向选取
+- `HYBRID`：保留为后续扩展策略，V1 不作为默认实现范围
 
 `QueryMemoryResponse.hits[]` 最低要求：
 
@@ -217,29 +231,28 @@ V1 直接以 [`koduck-ai/proto/koduck/memory/v1/memory.proto`](../../koduck-ai/p
 
 约束：
 
-- `koduck-ai` 只声明偏好策略，不决定打分算法。
-- `match_reasons` 必须便于调试，例如：`tag_hit`, `keyword_hit`, `summary_hit`, `session_scope_hit`。
+- `match_reasons` 至少支持 `domain_class_hit`、`summary_hit`、`session_scope_hit`
+- `summary` 只承担排除作用，不承担最终选中作用
 
-### 6.6 摘要契约
+### 6.6 SummarizeMemory
 
-`SummarizeMemory` 在 V1 可先提供同步占位实现，用于：
+`SummarizeMemory` 用于：
 
 - 生成会话摘要
-- 归纳主题标签
-- 提炼长期记忆事实
+- 生成粗粒度 `domain_class`
+- 提炼长期事实
 
-后续推荐演进为异步任务化：
+V1 采用异步任务化实现：
 
 - `SummarizeMemory` 只负责投递任务
 - 结果落到 `memory_summaries` / `memory_facts`
+- 不阻塞 `AppendMemory`
 
 ---
 
-## 7. `koduck-ai` 与 `koduck-memory-service` 的协作方式
+## 7. 与 `koduck-ai` 的协作方式
 
-### 7.1 chat / stream 主链路
-
-建议编排顺序：
+主链路建议如下：
 
 1. `koduck-ai` 收到 `chat` / `chat_stream`
 2. 调 `GetSession`
@@ -250,47 +263,23 @@ V1 直接以 [`koduck-ai/proto/koduck/memory/v1/memory.proto`](../../koduck-ai/p
 7. 按策略触发 `SummarizeMemory`
 8. 更新 `last_message_at/status/title`
 
-### 7.2 fail-open / fail-closed 原则
+fail-open 原则：
 
-建议：
+- `GetSession / UpsertSessionMeta` 默认 fail-open，但必须告警
+- `QueryMemory` 默认 fail-open，不阻塞主 chat
+- `AppendMemory` 默认 fail-open，但必须记录补偿任务或结构化错误
+- 摘要/事实任务失败不得阻塞主链路
 
-- `GetSession / UpsertSessionMeta` 默认 fail-open，但需打结构化告警
-- `QueryMemory` 默认 fail-open，`koduck-ai` 可在无记忆情况下继续对话
-- `AppendMemory` 默认 fail-open，但必须记录补偿任务或错误日志
-- `SummarizeMemory` 必须异步，不可阻塞主对话完成
-
-原因：
-
-- memory 是增强能力，不应成为 chat 主链路的单点硬阻塞
-- 但会话元数据真值仍需要最终一致性保障
-
-### 7.3 capabilities 协商
-
-`koduck-memory-service` 必须实现 `GetCapabilities`，至少返回：
+capability 协商：
 
 - `service = memory`
 - `contract_versions = ["memory.v1"]`
-- `features`
-  - `session_meta`
-  - `query_memory`
-  - `append_memory`
-  - `summary`
-  - `keyword_search`
-  - `hybrid_search`
-- `limits`
-  - `max_top_k`
-  - `max_page_size`
-  - `recommended_timeout_ms`
-
-`koduck-ai` 启动时：
-
-- 拉取 capability
-- 校验 `contract_versions`
-- 缓存 capability，并按 TTL 后台刷新
+- `features` 至少包含 `session_meta`、`query_memory`、`append_memory`、`summary`、`domain_first_search`、`summary_search`
+- `limits` 至少包含 `max_top_k`、`max_page_size`、`recommended_timeout_ms`
 
 ---
 
-## 8. 内部模块设计
+## 8. 内部模块
 
 推荐目录结构：
 
@@ -315,101 +304,242 @@ koduck-memory-service/
 模块职责：
 
 - `api/`：gRPC server 与 DTO 转换
-- `capability/`：版本声明、feature flag、limits
-- `session/`：会话元数据管理
-- `memory/`：消息写入、L0/L1 材料生成
-- `retrieve/`：查询、排序、策略分发
-- `summary/`：摘要与长期记忆提炼
-- `store/`：PostgreSQL / Object Storage DAO
-- `index/`：全文索引、tag 索引、后续向量索引
+- `capability/`：版本与 feature 声明
+- `session/`：会话元数据真值
+- `memory/`：写入、顺序控制、L0/L1 生成
+- `retrieve/`：候选过滤、summary 排除、排序
+- `summary/`：摘要与事实任务
+- `store/`：PostgreSQL / S3(MinIO) DAO
+- `index/`：L1 索引材料与全文索引接口
 
 ---
 
-## 9. 数据模型建议
+## 9. 数据模型与存储设计
 
 ### 9.1 核心表
 
-建议至少包含：
+V1 核心表：
 
-1. `memory_sessions`
-   - `session_id`
-   - `user_id`
-   - `title`
-   - `status`
-   - `created_at`
-   - `updated_at`
-   - `last_message_at`
-   - `extra_json`
+- `memory_sessions`
+- `memory_entries`
+- `memory_index_records`
+- `memory_summaries`
+- `memory_facts`
+- `memory_idempotency_keys`
 
-2. `memory_entries`
-   - `id`
-   - `session_id`
-   - `role`
-   - `content`
-   - `message_ts`
-   - `metadata_json`
-   - `l0_uri`
+设计约束：
 
-3. `memory_summaries`
-   - `id`
-   - `session_id`
-   - `summary`
-   - `strategy`
-   - `version`
-   - `created_at`
+- V1 不引入数据库外键
+- 表间关系由应用层维护
+- 用主键、唯一约束、索引和写入校验保证一致性
 
-4. `memory_facts`（可选）
-   - `id`
-   - `session_id`
-   - `fact_type`
-   - `fact_text`
-   - `confidence`
-   - `created_at`
+### 9.2 推荐表结构
 
-5. `memory_idempotency_keys`
-   - `idempotency_key`
-   - `operation`
-   - `request_id`
-   - `created_at`
+#### `memory_sessions`
 
-### 9.2 存储分层
+字段：
 
-建议采用两层：
+- `session_id uuid primary key`
+- `tenant_id varchar(128) not null`
+- `user_id varchar(128) not null`
+- `parent_session_id uuid null`
+- `forked_from_session_id uuid null`
+- `title varchar(256) null`
+- `status varchar(32) not null`
+- `created_at timestamptz not null`
+- `updated_at timestamptz not null`
+- `last_message_at timestamptz null`
+- `extra_json jsonb not null default '{}'::jsonb`
 
-- L0：原始对话或原始片段，保证可追溯
-- L1：结构化索引材料，供高频检索
+索引：
 
-演进方向：
+- `idx_memory_sessions_tenant_user_created_at (tenant_id, user_id, created_at desc)`
+- `idx_memory_sessions_tenant_last_message_at (tenant_id, last_message_at desc)`
+- `idx_memory_sessions_parent_session_id (parent_session_id)`
+- `idx_memory_sessions_forked_from_session_id (forked_from_session_id)`
 
-- V1：L0 / L1 先都落 PostgreSQL，可辅以对象存储 URI
-- V2：L0 放对象存储，L1 放 PostgreSQL / 搜索索引
-- V3：引入向量索引与 hybrid ranking
+#### `memory_entries`
+
+字段：
+
+- `id uuid primary key`
+- `tenant_id varchar(128) not null`
+- `session_id uuid not null`
+- `sequence_num bigint not null`
+- `role varchar(32) not null`
+- `raw_content_ref varchar(512) not null`
+- `message_ts timestamptz not null`
+- `metadata_json jsonb not null default '{}'::jsonb`
+- `l0_uri varchar(1024) not null`
+- `created_at timestamptz not null`
+
+约束与索引：
+
+- `unique (tenant_id, session_id, sequence_num)`
+- `idx_memory_entries_tenant_session_message_ts (tenant_id, session_id, message_ts desc)`
+- `idx_memory_entries_tenant_session_created_at (tenant_id, session_id, created_at desc)`
+
+#### `memory_index_records`
+
+字段：
+
+- `id uuid primary key`
+- `tenant_id varchar(128) not null`
+- `session_id uuid not null`
+- `entry_id uuid null`
+- `memory_kind varchar(64) not null`
+- `domain_class varchar(64) not null`
+- `summary text not null`
+- `snippet text null`
+- `source_uri varchar(1024) not null`
+- `score_hint numeric(10,4) null`
+- `created_at timestamptz not null`
+- `updated_at timestamptz not null`
+
+索引：
+
+- `idx_memory_index_records_tenant_domain_updated (tenant_id, domain_class, updated_at desc)`
+- `idx_memory_index_records_tenant_session_domain (tenant_id, session_id, domain_class, updated_at desc)`
+- `idx_memory_index_records_memory_kind (memory_kind)`
+- `idx_memory_index_records_summary_gin (to_tsvector('simple', coalesce(summary, '')))`
+- `idx_memory_index_records_snippet_gin (to_tsvector('simple', coalesce(snippet, '')))`
+
+#### `memory_summaries`
+
+字段：
+
+- `id uuid primary key`
+- `tenant_id varchar(128) not null`
+- `session_id uuid not null`
+- `domain_class varchar(64) not null`
+- `summary text not null`
+- `strategy varchar(64) not null`
+- `version integer not null`
+- `created_at timestamptz not null`
+
+约束与索引：
+
+- `unique (tenant_id, session_id, version)`
+- `idx_memory_summaries_tenant_session_created_at (tenant_id, session_id, created_at desc)`
+- `idx_memory_summaries_tenant_domain_class (tenant_id, domain_class)`
+
+#### `memory_facts`
+
+字段：
+
+- `id uuid primary key`
+- `tenant_id varchar(128) not null`
+- `session_id uuid not null`
+- `fact_type varchar(64) not null`
+- `domain_class varchar(64) not null`
+- `fact_text text not null`
+- `confidence numeric(5,4) not null`
+- `created_at timestamptz not null`
+
+索引：
+
+- `idx_memory_facts_tenant_session_created_at (tenant_id, session_id, created_at desc)`
+- `idx_memory_facts_tenant_domain_class (tenant_id, domain_class)`
+
+#### `memory_idempotency_keys`
+
+字段：
+
+- `idempotency_key varchar(128) primary key`
+- `tenant_id varchar(128) null`
+- `session_id uuid null`
+- `operation varchar(64) not null`
+- `request_id varchar(128) not null`
+- `created_at timestamptz not null`
+- `expires_at timestamptz null`
+
+索引：
+
+- `idx_memory_idempotency_keys_tenant_session_operation (tenant_id, session_id, operation, created_at desc)`
+- `idx_memory_idempotency_keys_expires_at (expires_at)`
+
+### 9.3 L0 / L1 分层
+
+- L0：原始对话或原始片段，存放于 S3/MinIO
+- L1：结构化索引与 summary，存放于 PostgreSQL
+
+说明：
+
+- 本文中的“对象存储”即指 S3 兼容对象存储
+- dev 使用 MinIO
+- prod 使用正式 S3 或兼容实现
+
+### 9.4 L0 的 JSONL 组织
+
+参考 `claude-code` transcript 设计，L0 建议采用 JSONL event log 或等价事件对象组织，
+但只借鉴“事件流结构”和“按 session 追加”思路，不把 JSONL 作为线上主检索面。
+
+推荐事件字段：
+
+- `session_id`
+- `message_id`
+- `sequence_num`
+- `event_type`
+- `role`
+- `payload`
+- `created_at`
+- `request_id`
+- `trace_id`
+
+推荐事件类型：
+
+- `message_appended`
+- `session_meta_updated`
+- `summary_generated`
+- `fact_extracted`
+
+### 9.5 S3/MinIO 下的 append 语义
+
+由于 S3/MinIO 不支持单对象原地追加，V1 采用“新增对象 + 数据库顺序索引”实现 append：
+
+1. 先为同一 `session_id` 分配单调递增的 `sequence_num`
+2. 将新增 entry 写入新的 L0 对象
+3. 在 PostgreSQL 中写入 `memory_entries`
+4. 异步生成或刷新 `memory_index_records`
+
+推荐对象 key：
+
+- `tenants/{tenant_id}/sessions/{session_id}/entries/{sequence_num}-{message_id}.json`
+- `tenants/{tenant_id}/sessions/{session_id}/segments/{segment_id}.jsonl`
+- `tenants/{tenant_id}/sessions/{session_id}/summaries/{version}.json`
+
+### 9.6 Session Lineage
+
+V1 显式支持：
+
+- `session_id`
+- `parent_session_id`
+- `forked_from_session_id`
+- `sequence_num`
+
+约束：
+
+- `session_id` 用于会话分组、检索分区和对象存储前缀组织
+- lineage 只承载恢复/分叉关系，不改变当前会话真值
+- 同一 `session_id` 的写入必须串行化或具备等价顺序控制
 
 ---
 
 ## 10. 检索与摘要策略
 
-### 10.1 V1 检索策略
+### 10.1 V1 默认检索策略
 
-V1 先实现以下能力：
+V1 默认策略固定为 `DOMAIN_FIRST`：
 
-- session 精确范围过滤
-- tag 过滤
-- 关键词匹配
-- recent-first 时间衰减
-- summary 文本检索占位
+1. 先按 `domain_class` 做粗粒度候选过滤
+2. 再基于 `summary` 做语义排除
+3. `summary` 只用于排除不合适候选，不作为最终选中条件
+4. 命中后返回 `snippet` 与 `source_uri`
+5. 必要时再回对象存储读取原始材料
 
-推荐实现：
+当前不在 V1 中定义 keyword 的召回或筛选策略。`HYBRID` 保留为后续增强能力。
 
-- `KEYWORD_FIRST`
-  - 优先当前 session
-  - title / tags / content keyword 匹配
-- `SUMMARY_FIRST`
-  - 若 summary 存在，先命中 summary，再回退原文
-- `HYBRID`
-  - 合并 keyword 命中与 summary 命中，按统一 score 排序
-
-### 10.2 V1 摘要策略
+### 10.2 摘要与事实策略
 
 摘要触发条件建议：
 
@@ -417,83 +547,110 @@ V1 先实现以下能力：
 - 会话 token 估算超过阈值
 - 会话长时间活跃后进入空闲
 
-摘要输出建议：
+摘要输出：
 
-- summary
-- topic tags
-- candidate facts
+- `summary`
+- `domain_class`
+- `candidate_facts`
+
+实现约束：
+
+- 摘要、事实提炼、索引刷新统一采用异步任务化
+- 不在 `AppendMemory` 主路径中同步等待完成
+- 失败应支持重试与补偿
 
 ---
 
-## 11. 错误语义与超时约束
+## 11. 多租户隔离与生命周期治理
 
-### 11.1 错误类型
+### 11.1 多租户隔离
 
-对 `koduck-ai` 暴露的错误必须统一收敛到 contract `ErrorDetail`，禁止直接暴露：
+- 每条 session、entry、summary、fact 都必须带 `tenant_id`
+- `tenant_id` 参与查询、写入、对象存储 key 组织和指标维度
+- `QueryMemory` 默认只允许在当前 `tenant_id` 内查询
+- 不允许跨租户 fallback 或模糊匹配
 
-- PostgreSQL 错误文本
+### 11.2 生命周期治理
+
+- L0、L1、summary、facts 支持独立 retention 配置
+- 支持按 `tenant_id + session_id` 逻辑删除或归档
+- 对象存储支持按前缀归档与清理
+- 生命周期清理不能破坏保留窗口内的数据一致性
+
+推荐分层：
+
+- 热数据：PostgreSQL + 对象存储在线保留
+- 温数据：保留 summary / facts / 必要索引，原始材料转归档
+- 冷数据：按租户策略定期清理或导出
+
+---
+
+## 12. 运行时与错误语义
+
+### 12.1 超时与重试
+
+- `GetSession / QueryMemory` 可在 transport error 上短重试
+- `AppendMemory / UpsertSessionMeta` 必须依赖 `idempotency_key`
+- 业务语义错误禁止重试
+- 必须尊重 `deadline_ms`
+
+### 12.2 错误映射
+
+禁止对 `koduck-ai` 暴露：
+
+- PostgreSQL 原始错误
 - 存储 SDK 原始异常
-- 搜索引擎原始响应
+- 检索引擎原始响应
 
 建议映射：
 
 - 参数错误 -> `INVALID_ARGUMENT`
 - session 不存在 -> `RESOURCE_NOT_FOUND`
 - 幂等冲突 -> `CONFLICT`
-- budget 超时 -> `UPSTREAM_UNAVAILABLE` 或 `SERVER_BUSY`
-- 索引后台未完成 -> `DEPENDENCY_FAILED`（但尽量 fail-open）
-
-### 11.2 deadline 约束
-
-`koduck-memory-service` 必须尊重 `deadline_ms`：
-
-- 若剩余预算不足以完成检索，快速失败
-- 不在服务内部叠加长超时
-- 内部下游访问也必须透传剩余预算
-
-### 11.3 重试原则
-
-- `GetSession / QueryMemory` 可在 transport error 上短重试
-- `AppendMemory / UpsertSessionMeta` 必须依赖 `idempotency_key`
-- 业务语义错误禁止重试
+- 预算耗尽 -> `UPSTREAM_UNAVAILABLE` 或 `SERVER_BUSY`
+- 后台索引未完成 -> `DEPENDENCY_FAILED`（尽量 fail-open）
 
 ---
 
-## 12. 部署与配置
+## 13. 部署、配置与观测
 
-### 12.1 必要配置
-
-建议至少支持：
+### 13.1 必要配置
 
 - `SERVER__GRPC_ADDR`
 - `SERVER__METRICS_ADDR`
 - `POSTGRES__DSN`
 - `OBJECT_STORE__BUCKET`
 - `OBJECT_STORE__ENDPOINT`
+- `OBJECT_STORE__ACCESS_KEY`
+- `OBJECT_STORE__SECRET_KEY`
+- `OBJECT_STORE__REGION`
 - `INDEX__MODE`
 - `CAPABILITIES__TTL_SECS`
 - `SUMMARY__ASYNC_ENABLED`
 
-### 12.2 APISIX 接入
+### 13.2 APISIX 接入
 
-对 `koduck-ai` southbound 暴露：
+- APISIX upstream：`memory-grpc`
+- route：`ai-memory-grpc`
+- gRPC 治理、超时、重试预算、access log、trace 透传统一由 APISIX 承担
 
-- APISIX upstream: `memory-grpc`
-- route: `ai-memory-grpc`
-- gRPC 协议治理、超时、重试预算、access log、trace 透传
+### 13.3 `k8s/deploy.sh` / `k8s/uninstall.sh`
 
-约束：
+`koduck-memory-service` 与 MinIO 必须纳入现有
+[`/Users/guhailin/Git/koduck-quant/k8s/deploy.sh`](/Users/guhailin/Git/koduck-quant/k8s/deploy.sh)
+与
+[`/Users/guhailin/Git/koduck-quant/k8s/uninstall.sh`](/Users/guhailin/Git/koduck-quant/k8s/uninstall.sh)
+生命周期管理。
 
-- `koduck-ai` 不保存 memory-service 直连地址作为常态主路径
-- APISIX 统一承担治理入口
+要求：
 
----
+- `deploy.sh` 负责 secret、MinIO、memory-service、bucket 初始化
+- `uninstall.sh` 负责 deployment/service/secret/pvc/job 清理
+- dev / prod 使用同一脚本入口，不引入独立 memory 专用脚本
 
-## 13. 可观测性要求
+### 13.4 指标与日志
 
-### 13.1 指标
-
-建议暴露：
+建议指标：
 
 - `memory_rpc_requests_total`
 - `memory_rpc_latency_ms`
@@ -502,15 +659,16 @@ V1 先实现以下能力：
 - `memory_append_entries_total`
 - `memory_summary_jobs_total`
 - `memory_summary_failures_total`
+- `memory_object_store_put_total`
+- `memory_object_store_failures_total`
 
-维度建议：
+建议维度：
 
 - `rpc`
 - `status`
 - `retrieve_policy`
+- `domain_class`
 - `tenant`
-
-### 13.2 日志
 
 日志必须包含：
 
@@ -518,32 +676,26 @@ V1 先实现以下能力：
 - `session_id`
 - `trace_id`
 - `user_id`
+- `tenant_id`
 - `rpc`
 - `latency_ms`
 
-禁止输出：
-
-- 原始敏感对话全文
-- token / secret / 凭证
-
 ---
 
-## 14. 迁移路径
+## 14. 迁移与回滚
 
-### 14.1 阶段化迁移
+阶段化迁移：
 
-1. 冻结 `memory.v1` 契约
-2. 启动 `koduck-memory-service` 骨架与 capability
+1. 冻结 `memory.v1`
+2. 启动服务骨架与 capability
 3. 接通 `GetSession / UpsertSessionMeta`
-4. 接通 `QueryMemory / AppendMemory`
-5. 在 `koduck-ai` 中移除会话元数据真值持有
-6. 接入摘要与长期记忆能力
+4. 接通 `AppendMemory / QueryMemory`
+5. 在 `koduck-ai` 中移除本地会话元数据真值
+6. 接入异步摘要与长期事实能力
 
-### 14.2 回滚策略
+回滚原则：
 
-若 memory-service 新版本异常：
-
-- `koduck-ai` 暂时 fail-open 跳过 memory 查询
+- `koduck-ai` 可 fail-open 跳过 memory 查询
 - `AppendMemory` 落失败补偿日志
 - APISIX route 可回滚到上一个稳定版本
 
@@ -551,23 +703,11 @@ V1 先实现以下能力：
 
 ## 15. 验收标准
 
-满足以下条件可视为 `koduck-memory-service` 完成对接准备：
+满足以下条件可视为对接准备完成：
 
-- `koduck-ai` 能通过 gRPC 成功调用 `GetSession / QueryMemory / AppendMemory`
+- `koduck-ai` 可通过 gRPC 成功调用 `GetSession / QueryMemory / AppendMemory`
 - 会话元数据真值不再由 `koduck-ai` 本地持有
-- `QueryMemory` 能返回可解释的 `match_reasons`
-- `AppendMemory` 幂等可验证
+- `AppendMemory` 幂等可验证，顺序语义可验证
+- `QueryMemory` 可返回可解释的 `match_reasons`
 - capability 协商、trace 透传、错误映射完整可观测
 - memory-service 故障时，`koduck-ai` 主 chat 流程可按 fail-open 策略继续运行
-
----
-
-## 16. 后续 ADR 议题
-
-建议在实现过程中追加 ADR：
-
-- 是否引入向量检索以及何时引入
-- L0 是否迁移到对象存储
-- 摘要/事实提炼是同步实现还是异步任务化
-- keyword / hybrid 的默认检索策略
-- 多租户隔离与数据生命周期策略
