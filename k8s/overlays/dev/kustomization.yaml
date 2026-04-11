@@ -10,9 +10,11 @@ resources:
   - ../../base/koduck-user.yaml
   - ../../base/koduck-ai.yaml
   - ../../base/koduck-memory.yaml
+  - ../../base/minio.yaml
   - ../../base/postgres.yaml
   - ../../base/redis.yaml
   - ./apisix.yaml
+  - ./minio.yaml
 
 patchesStrategicMerge:
   - ./frontend.yaml
