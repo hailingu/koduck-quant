@@ -157,4 +157,103 @@ class InternalUserControllerIntegrationTest {
                 .andExpect(jsonPath("$.id").value(user.getId()))
                 .andExpect(jsonPath("$.username").value(user.getUsername()));
     }
+
+    @Test
+    void shouldKeepUsernameAndEmailLookupTenantScopedAcrossTenants() throws Exception {
+        String unique = String.valueOf(System.nanoTime());
+        String sharedUsername = "shared-user-" + unique;
+        String sharedEmail = "shared-" + unique + "@koduck.local";
+
+        User defaultUser = userRepository.save(User.builder()
+                .tenantId(DEFAULT_TENANT_ID)
+                .username(sharedUsername)
+                .email(sharedEmail)
+                .passwordHash("hash")
+                .build());
+        User tenantBUser = userRepository.save(User.builder()
+                .tenantId(TENANT_B)
+                .username(sharedUsername)
+                .email(sharedEmail)
+                .passwordHash("hash")
+                .build());
+
+        mockMvc.perform(get("/internal/users/by-username/{username}", sharedUsername)
+                        .header("X-Consumer-Username", "koduck-auth")
+                        .header("X-Tenant-Id", DEFAULT_TENANT_ID))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(defaultUser.getId()))
+                .andExpect(jsonPath("$.tenantId").value(DEFAULT_TENANT_ID));
+
+        mockMvc.perform(get("/internal/users/by-username/{username}", sharedUsername)
+                        .header("X-Consumer-Username", "koduck-auth")
+                        .header("X-Tenant-Id", TENANT_B))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(tenantBUser.getId()))
+                .andExpect(jsonPath("$.tenantId").value(TENANT_B));
+
+        mockMvc.perform(get("/internal/users/by-email/{email}", sharedEmail)
+                        .header("X-Consumer-Username", "koduck-auth")
+                        .header("X-Tenant-Id", DEFAULT_TENANT_ID))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(defaultUser.getId()))
+                .andExpect(jsonPath("$.tenantId").value(DEFAULT_TENANT_ID));
+
+        mockMvc.perform(get("/internal/users/by-email/{email}", sharedEmail)
+                        .header("X-Consumer-Username", "koduck-auth")
+                        .header("X-Tenant-Id", TENANT_B))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(tenantBUser.getId()))
+                .andExpect(jsonPath("$.tenantId").value(TENANT_B));
+    }
+
+    @Test
+    void shouldRejectDuplicateUsernameAndEmailWithinSameTenant() throws Exception {
+        String unique = String.valueOf(System.nanoTime());
+        CreateUserRequest first = CreateUserRequest.builder()
+                .username("dup-user-" + unique)
+                .email("dup-" + unique + "@koduck.local")
+                .passwordHash("hash")
+                .nickname("dup")
+                .status("ACTIVE")
+                .build();
+
+        mockMvc.perform(post("/internal/users")
+                        .header("X-Consumer-Username", "koduck-auth")
+                        .header("X-Tenant-Id", TENANT_B)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(first)))
+                .andExpect(status().isOk());
+
+        CreateUserRequest duplicateUsername = CreateUserRequest.builder()
+                .username(first.getUsername())
+                .email("other-" + unique + "@koduck.local")
+                .passwordHash("hash")
+                .nickname("dup2")
+                .status("ACTIVE")
+                .build();
+
+        mockMvc.perform(post("/internal/users")
+                        .header("X-Consumer-Username", "koduck-auth")
+                        .header("X-Tenant-Id", TENANT_B)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(duplicateUsername)))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.message").value("用户名已存在: " + first.getUsername()));
+
+        CreateUserRequest duplicateEmail = CreateUserRequest.builder()
+                .username("other-user-" + unique)
+                .email(first.getEmail())
+                .passwordHash("hash")
+                .nickname("dup3")
+                .status("ACTIVE")
+                .build();
+
+        mockMvc.perform(post("/internal/users")
+                        .header("X-Consumer-Username", "koduck-auth")
+                        .header("X-Tenant-Id", TENANT_B)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(duplicateEmail)))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.message").value("邮箱已被使用: " + first.getEmail()));
+    }
 }
