@@ -1,7 +1,7 @@
-# Koduck Memory Service 对接 Koduck AI 实施任务清单
+# Koduck Memory 对接 Koduck AI 实施任务清单
 
 > 对应设计文档：
-> [`/Users/guhailin/Git/koduck-quant/docs/design/koduck-memory-service-for-koduck-ai.md`](/Users/guhailin/Git/koduck-quant/docs/design/koduck-memory-service-for-koduck-ai.md)
+> [`/Users/guhailin/Git/koduck-quant/docs/design/koduck-memory-for-koduck-ai.md`](/Users/guhailin/Git/koduck-quant/docs/design/koduck-memory-for-koduck-ai.md)
 >
 > 状态：待执行  
 > 创建日期：2026-04-11
@@ -23,7 +23,7 @@
 
 ## Phase 1: 基础设施与项目骨架
 
-### Task 1.1: 建立 `koduck-memory-service` 服务骨架
+### Task 1.1: 建立 `koduck-memory` 服务骨架
 **详细要求:**
 1. 建立目录：`proto/`, `src/{app,api,capability,session,memory,retrieve,summary,store,index,config,reliability,observe}`
 2. 建立启动流程：配置加载、gRPC server、metrics、优雅停机
@@ -74,7 +74,7 @@
 
 **验收标准:**
 - [ ] dev 环境存在可用 MinIO
-- [ ] `koduck-memory-service` 可访问 bucket
+- [ ] `koduck-memory` 可访问 bucket
 - [ ] L0 对象存储前置基础就绪
 
 ---
@@ -169,7 +169,7 @@
 **验收标准:**
 - [ ] create / update 都可成功
 - [ ] 不产生重复 session
-- [ ] 会话真值以 memory-service 为准
+- [ ] 会话真值以 `koduck-memory` 为准
 
 ---
 
@@ -255,7 +255,7 @@
 
 ## Phase 6: Koduck AI 集成与治理
 
-### Task 6.1: 接通 `koduck-ai -> memory-service`
+### Task 6.1: 接通 `koduck-ai -> koduck-memory`
 **详细要求:**
 1. 接入 `GetSession / UpsertSessionMeta / QueryMemory / AppendMemory`
 2. southbound 统一经 APISIX gRPC route
