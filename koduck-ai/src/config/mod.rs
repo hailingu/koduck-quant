@@ -38,6 +38,7 @@ pub struct Config {
     pub stream: StreamConfig,
     pub auth: AuthConfig,
     pub capabilities: CapabilitiesConfig,
+    pub reliability: ReliabilityConfig,
 }
 
 /// Server configuration (HTTP, gRPC, metrics)
@@ -104,6 +105,23 @@ pub struct CapabilitiesConfig {
     pub required_version: String,
     /// If true, version mismatch causes startup failure (default: true).
     pub strict_mode: bool,
+}
+
+/// Reliability configuration (degrade / retry / circuit).
+#[derive(Debug, Deserialize, Clone)]
+pub struct ReliabilityConfig {
+    pub degrade: DegradeConfig,
+}
+
+/// Graceful degrade policy configuration.
+#[derive(Debug, Deserialize, Clone)]
+pub struct DegradeConfig {
+    pub enabled: bool,
+    pub chat_enabled: bool,
+    pub chat_stream_enabled: bool,
+    pub upstream_timeout_enabled: bool,
+    pub budget_exhausted_enabled: bool,
+    pub circuit_open_enabled: bool,
 }
 
 // ---------------------------------------------------------------------------
@@ -225,6 +243,18 @@ impl CapabilitiesConfig {
     }
 }
 
+impl ReliabilityConfig {
+    pub fn validate(&self) -> Result<(), ValidationError> {
+        self.degrade.validate()
+    }
+}
+
+impl DegradeConfig {
+    pub fn validate(&self) -> Result<(), ValidationError> {
+        Ok(())
+    }
+}
+
 // ---------------------------------------------------------------------------
 // Defaults
 // ---------------------------------------------------------------------------
@@ -300,6 +330,27 @@ impl Default for CapabilitiesConfig {
     }
 }
 
+impl Default for ReliabilityConfig {
+    fn default() -> Self {
+        Self {
+            degrade: DegradeConfig::default(),
+        }
+    }
+}
+
+impl Default for DegradeConfig {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            chat_enabled: false,
+            chat_stream_enabled: false,
+            upstream_timeout_enabled: true,
+            budget_exhausted_enabled: true,
+            circuit_open_enabled: true,
+        }
+    }
+}
+
 // ---------------------------------------------------------------------------
 // Config loading
 // ---------------------------------------------------------------------------
@@ -347,6 +398,13 @@ impl Config {
             .set_default("capabilities.startup_timeout_ms", 5_000)?
             .set_default("capabilities.required_version", "v1")?
             .set_default("capabilities.strict_mode", true)?
+            // Defaults — ReliabilityConfig
+            .set_default("reliability.degrade.enabled", false)?
+            .set_default("reliability.degrade.chat_enabled", false)?
+            .set_default("reliability.degrade.chat_stream_enabled", false)?
+            .set_default("reliability.degrade.upstream_timeout_enabled", true)?
+            .set_default("reliability.degrade.budget_exhausted_enabled", true)?
+            .set_default("reliability.degrade.circuit_open_enabled", true)?
             // Optional config files
             .add_source(File::with_name("config/default").required(false))
             .add_source(File::with_name("config/local").required(false))
@@ -366,6 +424,7 @@ impl Config {
         self.stream.validate()?;
         self.auth.validate()?;
         self.capabilities.validate()?;
+        self.reliability.validate()?;
         Ok(())
     }
 
@@ -392,7 +451,7 @@ impl fmt::Display for Config {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
-            "Config {{ server: {:?}, memory: {:?}, tools: {:?}, llm: LlmConfig {{ adapter_grpc_target: {:?}, default_provider: {:?}, timeout_ms: {}, stub_enabled: {}, api_keys: ***, ... }}, stream: {:?}, auth: {:?}, capabilities: {:?} }}",
+            "Config {{ server: {:?}, memory: {:?}, tools: {:?}, llm: LlmConfig {{ adapter_grpc_target: {:?}, default_provider: {:?}, timeout_ms: {}, stub_enabled: {}, api_keys: ***, ... }}, stream: {:?}, auth: {:?}, capabilities: {:?}, reliability: {:?} }}",
             self.server,
             self.memory,
             self.tools,
@@ -403,6 +462,7 @@ impl fmt::Display for Config {
             self.stream,
             self.auth,
             self.capabilities,
+            self.reliability,
         )
     }
 }
@@ -572,6 +632,7 @@ mod tests {
             stream: StreamConfig::default(),
             auth: AuthConfig::default(),
             capabilities: CapabilitiesConfig::default(),
+            reliability: ReliabilityConfig::default(),
         };
         let display = format!("{}", config);
         assert!(!display.contains("sk-super-secret-key"));
@@ -594,6 +655,7 @@ mod tests {
             stream: StreamConfig::default(),
             auth: AuthConfig::default(),
             capabilities: CapabilitiesConfig::default(),
+            reliability: ReliabilityConfig::default(),
         };
         assert_eq!(config.openai_api_key(), Some("sk-test"));
         assert_eq!(config.deepseek_api_key(), None);
@@ -637,5 +699,22 @@ mod tests {
         let result = config.validate();
         assert!(result.is_err());
         assert!(result.unwrap_err().message.contains("required_version"));
+    }
+
+    #[test]
+    fn test_reliability_config_default_valid() {
+        let config = ReliabilityConfig::default();
+        assert!(config.validate().is_ok());
+    }
+
+    #[test]
+    fn test_degrade_config_defaults_to_safe_rollout() {
+        let config = DegradeConfig::default();
+        assert!(!config.enabled);
+        assert!(!config.chat_enabled);
+        assert!(!config.chat_stream_enabled);
+        assert!(config.upstream_timeout_enabled);
+        assert!(config.budget_exhausted_enabled);
+        assert!(config.circuit_open_enabled);
     }
 }

@@ -3,6 +3,7 @@
 use std::sync::Arc;
 
 use axum::{
+    extract::State,
     routing::{get, post},
     Router,
 };
@@ -11,6 +12,7 @@ use tower_http::trace::TraceLayer;
 
 use crate::api;
 use crate::config::Config;
+use crate::reliability::degrade::DegradePolicy;
 use crate::stream::sse::StreamRegistry;
 
 pub mod lifecycle;
@@ -20,6 +22,7 @@ pub struct AppState {
     pub config: Config,
     pub stream_registry: Arc<StreamRegistry>,
     pub lifecycle: Arc<lifecycle::LifecycleManager>,
+    pub degrade_policy: Arc<DegradePolicy>,
 }
 
 /// Health check response
@@ -43,6 +46,7 @@ pub fn build_state(config: Config) -> Arc<AppState> {
     ));
 
     Arc::new(AppState {
+        degrade_policy: Arc::new(DegradePolicy::new(config.reliability.degrade.clone())),
         config,
         stream_registry: Arc::new(StreamRegistry::default()),
         lifecycle,
@@ -63,8 +67,11 @@ pub fn create_router(state: Arc<AppState>) -> Router {
 }
 
 /// Create the metrics router
-pub fn create_metrics_router() -> Router {
+pub fn create_metrics_router(state: Arc<AppState>) -> Router {
     Router::new()
+        .route("/metrics", get(degrade_metrics_handler))
+        .route("/metrics/degrade", get(degrade_metrics_handler))
+        .with_state(state)
 }
 
 async fn health_handler() -> axum::Json<HealthResponse> {
@@ -73,4 +80,10 @@ async fn health_handler() -> axum::Json<HealthResponse> {
         service: "koduck-ai",
         version: env!("CARGO_PKG_VERSION"),
     })
+}
+
+async fn degrade_metrics_handler(
+    State(state): State<Arc<AppState>>,
+) -> axum::Json<crate::reliability::degrade::DegradeSnapshot> {
+    axum::Json(state.degrade_policy.snapshot())
 }
