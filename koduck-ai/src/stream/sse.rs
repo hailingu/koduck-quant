@@ -9,6 +9,7 @@ use tokio_stream::wrappers::BroadcastStream;
 
 use crate::{
     app::lifecycle::{ActiveStreamLease, LifecycleManager},
+    orchestrator::cancel::{RequestGenerationController, RequestGenerationGuard},
     reliability::error::{AppError, ErrorCode},
     stream::queue::{StreamQueue, StreamQueueConfig, StreamQueueError},
 };
@@ -139,8 +140,9 @@ impl StreamRegistry {
         lifecycle: Arc<LifecycleManager>,
     ) -> Arc<StreamSession> {
         let session_id = session_id.into();
+        let request_id = request_id.into();
         let session = Arc::new(StreamSession::new(
-            request_id.into(),
+            request_id.clone(),
             session_id.clone(),
             StreamQueueConfig {
                 capacity: queue_capacity,
@@ -148,7 +150,10 @@ impl StreamRegistry {
             },
             lifecycle.register_stream(),
         ));
-        self.sessions.write().await.insert(session_id, session.clone());
+        let previous = self.sessions.write().await.insert(session_id, session.clone());
+        if let Some(previous) = previous {
+            previous.supersede(request_id).await;
+        }
         session
     }
 
@@ -174,6 +179,7 @@ pub struct StreamSession {
     tx: broadcast::Sender<StreamEventData>,
     queue: StreamQueue<PendingStreamEvent>,
     active_lease: Arc<ActiveStreamLease>,
+    generation: Arc<RequestGenerationController>,
 }
 
 #[derive(Debug, Default)]
@@ -207,6 +213,7 @@ impl StreamSession {
     ) -> Self {
         let (tx, _) = broadcast::channel(BROADCAST_BUFFER);
         let (queue, rx) = StreamQueue::new(queue_config);
+        let generation = RequestGenerationController::new(request_id.clone());
         let session = Self {
             request_id,
             session_id,
@@ -214,6 +221,7 @@ impl StreamSession {
             tx,
             queue,
             active_lease: Arc::new(active_lease),
+            generation,
         };
         session.spawn_queue_worker(rx);
         session
@@ -281,6 +289,10 @@ impl StreamSession {
 
     pub fn request_id(&self) -> &str {
         &self.request_id
+    }
+
+    pub async fn request_guard(&self) -> RequestGenerationGuard {
+        self.generation.guard().await
     }
 
     pub async fn open_replay(&self, after_sequence_num: u32) -> SessionReplay {
@@ -352,6 +364,43 @@ impl StreamSession {
 
     pub fn queue_available_permits(&self) -> usize {
         self.queue.available_permits()
+    }
+
+    pub async fn supersede(&self, next_request_id: impl Into<String>) -> Option<StreamEventData> {
+        self.generation.supersede(next_request_id).await;
+        self.force_shutdown(
+            ErrorCode::StreamInterrupted.to_string(),
+            "stream superseded by newer request",
+        )
+        .await
+    }
+
+    pub async fn enqueue_event_if_current(
+        &self,
+        guard: &RequestGenerationGuard,
+        pending: PendingStreamEvent,
+    ) -> Result<(), AppError> {
+        if !guard.is_current().await || guard.is_cancelled().await {
+            return Err(AppError::new(
+                ErrorCode::StreamInterrupted,
+                "stale stream generation cannot enqueue new events",
+            ));
+        }
+
+        self.enqueue_event(pending).await
+    }
+
+    pub async fn force_shutdown_if_current(
+        &self,
+        guard: &RequestGenerationGuard,
+        code: impl Into<String>,
+        message: impl Into<String>,
+    ) -> Option<StreamEventData> {
+        if !guard.is_current().await || guard.is_cancelled().await {
+            return None;
+        }
+
+        self.force_shutdown(code, message).await
     }
 }
 
@@ -467,7 +516,8 @@ mod tests {
     use crate::app::lifecycle::{LifecycleConfig, LifecycleManager};
 
     use super::{
-        parse_sequence_num, PendingStreamEvent, ResumeCursor, StreamRegistry, StreamSession,
+        parse_sequence_num, PendingStreamEvent, ResumeCursor, StreamQueueConfig, StreamRegistry,
+        StreamSession,
     };
 
     #[tokio::test]
@@ -695,5 +745,162 @@ mod tests {
         assert_eq!(cursor.high_watermark(Some(&session)), 4);
         assert_eq!(parse_sequence_num("req-1:00009"), Some(9));
         assert_eq!(parse_sequence_num("evt_without_digits"), None);
+    }
+
+    #[tokio::test]
+    async fn replacing_session_rejects_stale_generation_events() {
+        let registry = StreamRegistry::default();
+        let lifecycle = Arc::new(LifecycleManager::new(LifecycleConfig {
+            shutdown_drain_timeout: Duration::from_millis(50),
+            shutdown_cleanup_timeout: Duration::from_millis(20),
+        }));
+        let first = registry
+            .create_or_replace(
+                "sess-1",
+                "req-1",
+                8,
+                Duration::from_millis(50),
+                Arc::clone(&lifecycle),
+            )
+            .await;
+        let first_guard = first.request_guard().await;
+        first
+            .enqueue_event_if_current(
+                &first_guard,
+                PendingStreamEvent {
+                    event_type: "delta".to_string(),
+                    payload: json!({ "text": "old" }),
+                    event_id: None,
+                    sequence_num: Some(1),
+                    request_id: "req-1".to_string(),
+                    session_id: "sess-1".to_string(),
+                },
+            )
+            .await
+            .expect("first generation should enqueue");
+
+        let replacement = registry
+            .create_or_replace(
+                "sess-1",
+                "req-2",
+                8,
+                Duration::from_millis(50),
+                lifecycle,
+            )
+            .await;
+        tokio::time::sleep(Duration::from_millis(20)).await;
+
+        let stale = first
+            .enqueue_event_if_current(
+                &first_guard,
+                PendingStreamEvent {
+                    event_type: "done".to_string(),
+                    payload: json!({ "finish_reason": "stale" }),
+                    event_id: None,
+                    sequence_num: Some(2),
+                    request_id: "req-1".to_string(),
+                    session_id: "sess-1".to_string(),
+                },
+            )
+            .await;
+        assert!(stale.is_err());
+
+        let replacement_guard = replacement.request_guard().await;
+        replacement
+            .enqueue_event_if_current(
+                &replacement_guard,
+                PendingStreamEvent {
+                    event_type: "delta".to_string(),
+                    payload: json!({ "text": "new" }),
+                    event_id: None,
+                    sequence_num: Some(1),
+                    request_id: "req-2".to_string(),
+                    session_id: "sess-1".to_string(),
+                },
+            )
+            .await
+            .expect("replacement generation should enqueue");
+        replacement
+            .enqueue_event_if_current(
+                &replacement_guard,
+                PendingStreamEvent {
+                    event_type: "done".to_string(),
+                    payload: json!({ "finish_reason": "stop" }),
+                    event_id: None,
+                    sequence_num: Some(2),
+                    request_id: "req-2".to_string(),
+                    session_id: "sess-1".to_string(),
+                },
+            )
+            .await
+            .expect("replacement done event should enqueue");
+        tokio::time::sleep(Duration::from_millis(20)).await;
+
+        let first_replay = first.open_replay(0).await;
+        let replacement_replay = replacement.open_replay(0).await;
+
+        assert!(first_replay.completed);
+        assert_eq!(
+            first_replay
+                .replay_events
+                .last()
+                .expect("stale session terminal event")
+                .event_type,
+            "error"
+        );
+        assert!(
+            replacement_replay
+                .replay_events
+                .iter()
+                .all(|event| event.request_id == "req-2")
+        );
+        assert_eq!(
+            replacement_replay
+                .replay_events
+                .iter()
+                .filter(|event| event.event_type == "done")
+                .count(),
+            1
+        );
+    }
+
+    #[tokio::test]
+    async fn superseded_session_cleanup_releases_lifecycle_leases() {
+        let registry = StreamRegistry::default();
+        let lifecycle = Arc::new(LifecycleManager::new(LifecycleConfig {
+            shutdown_drain_timeout: Duration::from_millis(50),
+            shutdown_cleanup_timeout: Duration::from_millis(20),
+        }));
+
+        let _first = registry
+            .create_or_replace(
+                "sess-1",
+                "req-1",
+                8,
+                Duration::from_millis(50),
+                Arc::clone(&lifecycle),
+            )
+            .await;
+        assert_eq!(lifecycle.active_streams(), 1);
+
+        let replacement = registry
+            .create_or_replace(
+                "sess-1",
+                "req-2",
+                8,
+                Duration::from_millis(50),
+                Arc::clone(&lifecycle),
+            )
+            .await;
+        tokio::time::sleep(Duration::from_millis(20)).await;
+        assert_eq!(lifecycle.active_streams(), 1);
+
+        replacement
+            .force_shutdown("STREAM_INTERRUPTED", "test cleanup")
+            .await
+            .expect("replacement should terminate cleanly");
+        tokio::time::sleep(Duration::from_millis(20)).await;
+
+        assert_eq!(lifecycle.active_streams(), 0);
     }
 }
