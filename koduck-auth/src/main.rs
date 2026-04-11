@@ -13,7 +13,7 @@ use koduck_auth::{
     http::{create_metrics_router, create_router},
     init_state,
     jwt::{JwksService, JwtValidator},
-    repository::{PasswordResetRepository, RedisCache, RefreshTokenRepository, UserRepository},
+    repository::{AuditLogRepository, PasswordResetRepository, RedisCache, RefreshTokenRepository, UserRepository},
     service::{AuthService as AuthServiceImpl, TokenService as TokenServiceImpl},
 };
 
@@ -43,6 +43,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let user_repo = UserRepository::new(state.db_pool().clone());
     let token_repo = RefreshTokenRepository::new(state.db_pool().clone());
     let password_reset_repo = PasswordResetRepository::new(state.db_pool().clone());
+    let audit_log_repo = AuditLogRepository::new(state.db_pool().clone());
     let redis = RedisCache::new(state.redis_pool().clone());
 
     // Load public key for JWT validation and JWKS
@@ -63,6 +64,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         user_repo.clone(),
         token_repo.clone(),
         password_reset_repo,
+        audit_log_repo,
         redis.clone(),
         state.jwt_service().clone(),
         state.db_pool().clone(),

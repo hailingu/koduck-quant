@@ -188,8 +188,8 @@
 2. refresh token 流程保持 tenant 一致
 
 **验收标准:**
-- [ ] 登录和 refresh 不会错租户
-- [ ] 审计日志带 `tenant_id`
+- [x] 登录和 refresh 不会错租户
+- [x] 审计日志带 `tenant_id`
 
 ---
 
