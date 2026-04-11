@@ -9,9 +9,12 @@ use axum::{
 };
 use tower_http::request_id::{MakeRequestUuid, PropagateRequestIdLayer, SetRequestIdLayer};
 use tower_http::trace::TraceLayer;
+use tokio::sync::broadcast;
 
 use crate::api;
+use crate::clients::capability::CapabilityCache;
 use crate::config::Config;
+use crate::reliability::error::AppError;
 use crate::llm::{build_provider_router, LlmProvider};
 use crate::reliability::degrade::DegradePolicy;
 use crate::reliability::retry_budget::RetryBudgetPolicy;
@@ -27,6 +30,7 @@ pub struct AppState {
     pub degrade_policy: Arc<DegradePolicy>,
     pub retry_budget_policy: Arc<RetryBudgetPolicy>,
     pub llm_provider: Arc<dyn LlmProvider>,
+    pub capability_cache: Arc<CapabilityCache>,
 }
 
 /// Health check response
@@ -54,10 +58,40 @@ pub fn build_state(config: Config) -> Arc<AppState> {
         llm_provider: build_provider_router(&config)
             .expect("failed to build llm provider router from config"),
         retry_budget_policy: Arc::new(RetryBudgetPolicy::new(config.reliability.retry.clone())),
+        capability_cache: Arc::new(CapabilityCache::new(config.capabilities.clone())),
         config,
         stream_registry: Arc::new(StreamRegistry::default()),
         lifecycle,
     })
+}
+
+pub async fn initialize_runtime(
+    state: &Arc<AppState>,
+    shutdown_rx: broadcast::Receiver<()>,
+) -> Result<(), AppError> {
+    state
+        .capability_cache
+        .initial_negotiation_mode_aware(
+            &state.config.memory.grpc_target,
+            &state.config.tools.grpc_target,
+            &state.config.llm.adapter_grpc_target,
+            state.config.llm.mode,
+            &state.config.llm,
+            Arc::clone(&state.llm_provider),
+        )
+        .await?;
+
+    state.capability_cache.spawn_refresh_task_mode_aware(
+        state.config.memory.grpc_target.clone(),
+        state.config.tools.grpc_target.clone(),
+        state.config.llm.adapter_grpc_target.clone(),
+        state.config.llm.mode,
+        state.config.llm.clone(),
+        Arc::clone(&state.llm_provider),
+        shutdown_rx,
+    );
+
+    Ok(())
 }
 
 /// Create the main HTTP router

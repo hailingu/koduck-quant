@@ -237,9 +237,9 @@ cd koduck-ai
 3. `llm.proto` capability 协商仅在 `adapter` 模式启用
 
 **验收标准:**
-- [ ] chat/stream 不再默认依赖 `LlmServiceClient`
-- [ ] `direct` 模式下启动期可校验 provider 配置与可用性
-- [ ] `adapter` 模式下现有兼容链路仍可工作
+- [x] chat/stream 不再默认依赖 `LlmServiceClient`
+- [x] `direct` 模式下启动期可校验 provider 配置与可用性
+- [x] `adapter` 模式下现有兼容链路仍可工作
 
 ---
 

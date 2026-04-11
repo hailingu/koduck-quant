@@ -3,6 +3,7 @@
 //! Implements startup version negotiation, TTL-based capability caching,
 //! and background refresh for memory/tool/llm gRPC clients.
 
+use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
@@ -11,7 +12,8 @@ use tonic::transport::Endpoint;
 use tracing::{error, info, warn};
 
 use crate::clients::proto;
-use crate::config::CapabilitiesConfig;
+use crate::config::{CapabilitiesConfig, LlmConfig, LlmMode};
+use crate::llm::{ListModelsRequest, LlmProvider, RequestContext};
 use crate::reliability::{
     error::{AppError, ErrorCode, UpstreamService},
     error_mapper::{map_grpc_status, map_transport_error},
@@ -183,6 +185,106 @@ impl CapabilityCache {
         })
     }
 
+    pub async fn initial_negotiation_mode_aware(
+        &self,
+        memory_addr: &str,
+        tool_addr: &str,
+        llm_addr: &str,
+        llm_mode: LlmMode,
+        llm_config: &LlmConfig,
+        llm_provider: Arc<dyn LlmProvider>,
+    ) -> Result<NegotiationResult, AppError> {
+        let timeout = Duration::from_millis(self.config.startup_timeout_ms);
+
+        let memory_handle = tokio::time::timeout(timeout, fetch_memory_capability(memory_addr));
+        let tool_handle = tokio::time::timeout(timeout, fetch_tool_capability(tool_addr));
+        let llm_handle = match llm_mode {
+            LlmMode::Adapter => tokio::time::timeout(timeout, fetch_llm_capability(llm_addr))
+                .await
+                .map_err(|_| {
+                    map_transport_error(
+                        UpstreamService::Llm,
+                        "startup-capability-check",
+                        "llm service capability check timed out",
+                        "deadline exceeded",
+                    )
+                })?
+                .map_err(|e| map_grpc_status(UpstreamService::Llm, "startup-capability-check", &e)),
+            LlmMode::Direct => tokio::time::timeout(
+                timeout,
+                fetch_direct_llm_capability(
+                    llm_config,
+                    Arc::clone(&llm_provider),
+                    &self.config.required_version,
+                ),
+            )
+            .await
+            .map_err(|_| {
+                map_transport_error(
+                    UpstreamService::Llm,
+                    "startup-capability-check",
+                    "direct llm provider capability check timed out",
+                    "deadline exceeded",
+                )
+            })?,
+        };
+
+        let (memory_result, tool_result) = tokio::join!(memory_handle, tool_handle);
+
+        let memory_cap = memory_result
+            .map_err(|_| {
+                map_transport_error(
+                    UpstreamService::Memory,
+                    "startup-capability-check",
+                    "memory service capability check timed out",
+                    "deadline exceeded",
+                )
+            })?
+            .map_err(|e| map_grpc_status(UpstreamService::Memory, "startup-capability-check", &e))?;
+
+        let tool_cap = tool_handle_result(tool_result)?;
+        let llm_cap = llm_handle?;
+
+        info!(
+            memory.service = %memory_cap.service,
+            memory.contract_versions = ?memory_cap.contract_versions,
+            "Memory service capabilities negotiated"
+        );
+        info!(
+            tool.service = %tool_cap.service,
+            tool.contract_versions = ?tool_cap.contract_versions,
+            "Tool service capabilities negotiated"
+        );
+        info!(
+            llm.service = %llm_cap.service,
+            llm.contract_versions = ?llm_cap.contract_versions,
+            llm_mode = %llm_mode,
+            "LLM capabilities negotiated"
+        );
+
+        check_version_compatibility(&memory_cap, &tool_cap, &llm_cap, &self.config)?;
+
+        let memory_cached = CachedCapability::new(memory_cap);
+        let tool_cached = CachedCapability::new(tool_cap);
+        let llm_cached = CachedCapability::new(llm_cap);
+
+        *self.memory.write().await = Some(memory_cached.clone());
+        *self.tool.write().await = Some(tool_cached.clone());
+        *self.llm.write().await = Some(llm_cached.clone());
+
+        info!(
+            ttl_secs = self.config.ttl_secs,
+            llm_mode = %llm_mode,
+            "Capability cache populated"
+        );
+
+        Ok(NegotiationResult {
+            memory: memory_cached,
+            tool: tool_cached,
+            llm: llm_cached,
+        })
+    }
+
     /// Spawn a background task that periodically refreshes the capability cache.
     ///
     /// The task sleeps until TTL expires, then refreshes all three services.
@@ -203,6 +305,42 @@ impl CapabilityCache {
                 tokio::select! {
                     _ = tokio::time::sleep(ttl) => {
                         cache.refresh_all(&memory_addr, &tool_addr, &llm_addr).await;
+                    }
+                    _ = shutdown_rx.recv() => {
+                        info!("Capability refresh task shutting down");
+                        break;
+                    }
+                }
+            }
+        })
+    }
+
+    pub fn spawn_refresh_task_mode_aware(
+        self: &Arc<Self>,
+        memory_addr: String,
+        tool_addr: String,
+        llm_addr: String,
+        llm_mode: LlmMode,
+        llm_config: LlmConfig,
+        llm_provider: Arc<dyn LlmProvider>,
+        mut shutdown_rx: broadcast::Receiver<()>,
+    ) -> tokio::task::JoinHandle<()> {
+        let cache = Arc::clone(self);
+        let ttl = Duration::from_secs(self.config.ttl_secs);
+
+        tokio::spawn(async move {
+            loop {
+                tokio::select! {
+                    _ = tokio::time::sleep(ttl) => {
+                        cache.refresh_all_mode_aware(
+                            &memory_addr,
+                            &tool_addr,
+                            &llm_addr,
+                            llm_mode,
+                            &llm_config,
+                            &cache.config.required_version,
+                            Arc::clone(&llm_provider),
+                        ).await;
                     }
                     _ = shutdown_rx.recv() => {
                         info!("Capability refresh task shutting down");
@@ -259,6 +397,74 @@ impl CapabilityCache {
             }
             Err(e) => warn!(
                 error = %e,
+                "Failed to refresh llm capabilities (using cached data)"
+            ),
+        }
+    }
+
+    async fn refresh_all_mode_aware(
+        &self,
+        memory_addr: &str,
+        tool_addr: &str,
+        llm_addr: &str,
+        llm_mode: LlmMode,
+        llm_config: &LlmConfig,
+        required_version: &str,
+        llm_provider: Arc<dyn LlmProvider>,
+    ) {
+        match fetch_memory_capability(memory_addr).await {
+            Ok(cap) => {
+                info!(
+                    service = %cap.service,
+                    contract_versions = ?cap.contract_versions,
+                    "Memory capabilities refreshed"
+                );
+                *self.memory.write().await = Some(CachedCapability::new(cap));
+            }
+            Err(e) => warn!(
+                error = %e,
+                "Failed to refresh memory capabilities (using cached data)"
+            ),
+        }
+
+        match fetch_tool_capability(tool_addr).await {
+            Ok(cap) => {
+                info!(
+                    service = %cap.service,
+                    contract_versions = ?cap.contract_versions,
+                    "Tool capabilities refreshed"
+                );
+                *self.tool.write().await = Some(CachedCapability::new(cap));
+            }
+            Err(e) => warn!(
+                error = %e,
+                "Failed to refresh tool capabilities (using cached data)"
+            ),
+        }
+
+        let llm_result = match llm_mode {
+            LlmMode::Adapter => fetch_llm_capability(llm_addr)
+                .await
+                .map_err(|e| map_grpc_status(UpstreamService::Llm, "capability-refresh", &e)),
+            LlmMode::Direct => {
+                fetch_direct_llm_capability(llm_config, llm_provider, required_version).await
+            }
+                
+        };
+
+        match llm_result {
+            Ok(cap) => {
+                info!(
+                    service = %cap.service,
+                    contract_versions = ?cap.contract_versions,
+                    llm_mode = %llm_mode,
+                    "LLM capabilities refreshed"
+                );
+                *self.llm.write().await = Some(CachedCapability::new(cap));
+            }
+            Err(e) => warn!(
+                error = %e,
+                llm_mode = %llm_mode,
                 "Failed to refresh llm capabilities (using cached data)"
             ),
         }
@@ -364,6 +570,92 @@ async fn fetch_llm_capability(addr: &str) -> Result<proto::Capability, tonic::St
         .get_capabilities(tonic::Request::new(proto::RequestMeta::default()))
         .await?;
     Ok(response.into_inner())
+}
+
+async fn fetch_direct_llm_capability(
+    llm_config: &LlmConfig,
+    llm_provider: Arc<dyn LlmProvider>,
+    required_version: &str,
+) -> Result<proto::Capability, AppError> {
+    let providers = enabled_llm_providers(llm_config);
+    if providers.is_empty() {
+        return Err(AppError::new(
+            ErrorCode::InvalidArgument,
+            "no direct llm providers are enabled",
+        ));
+    }
+
+    let mut features = HashMap::new();
+    features.insert("mode".to_string(), "direct".to_string());
+    features.insert("default_provider".to_string(), llm_config.default_provider.clone());
+    features.insert("available_providers".to_string(), providers.join(","));
+    features.insert("supports_chat".to_string(), "true".to_string());
+    features.insert("supports_stream".to_string(), "true".to_string());
+    features.insert("supports_count_tokens".to_string(), "true".to_string());
+    features.insert("probe".to_string(), "list_models".to_string());
+
+    let mut limits = HashMap::new();
+    limits.insert("provider_count".to_string(), providers.len().to_string());
+    limits.insert("timeout_ms".to_string(), llm_config.timeout_ms.to_string());
+
+    for provider in &providers {
+        if let Some(provider_config) = llm_config.provider_config(provider) {
+            features.insert(
+                format!("provider.{}.configured_default_model", provider),
+                provider_config.default_model.clone(),
+            );
+            features.insert(
+                format!("provider.{}.base_url", provider),
+                provider_config.base_url.clone(),
+            );
+        }
+        let models = llm_provider
+            .list_models(ListModelsRequest {
+                meta: capability_request_context(provider, llm_config.timeout_ms),
+                provider: provider.clone(),
+            })
+            .await?;
+        limits.insert(
+            format!("provider.{}.models", provider),
+            models.len().to_string(),
+        );
+        if let Some(first_model) = models.first() {
+            features.insert(
+                format!("provider.{}.default_model", provider),
+                first_model.id.clone(),
+            );
+        }
+    }
+
+    Ok(proto::Capability {
+        service: "llm".to_string(),
+        contract_versions: vec![required_version.to_string()],
+        features,
+        limits,
+    })
+}
+
+fn enabled_llm_providers(llm_config: &LlmConfig) -> Vec<String> {
+    ["openai", "deepseek", "minimax"]
+        .into_iter()
+        .filter(|provider| {
+            llm_config
+                .provider_config(provider)
+                .map(|cfg| cfg.enabled)
+                .unwrap_or(false)
+        })
+        .map(str::to_string)
+        .collect()
+}
+
+fn capability_request_context(provider: &str, deadline_ms: u64) -> RequestContext {
+    RequestContext {
+        request_id: format!("startup-capability-check-{provider}"),
+        session_id: "capability-probe".to_string(),
+        user_id: "system".to_string(),
+        trace_id: format!("capability-probe-{provider}"),
+        deadline_ms,
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -475,8 +767,18 @@ fn collect_mismatches(
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use std::collections::HashMap;
+    use std::sync::Arc;
+
+    use async_trait::async_trait;
+    use futures::stream;
+
+    use super::*;
+    use crate::config::LlmProviderConfig;
+    use crate::llm::{
+        CountTokensRequest, CountTokensResponse, GenerateRequest, GenerateResponse, ListModelsRequest,
+        LlmProvider, ModelInfo, ProviderEventStream, StreamEvent,
+    };
 
     fn make_capability(service: &str, versions: Vec<&str>) -> proto::Capability {
         proto::Capability {
@@ -484,6 +786,42 @@ mod tests {
             contract_versions: versions.into_iter().map(String::from).collect(),
             features: HashMap::new(),
             limits: HashMap::new(),
+        }
+    }
+
+    struct MockDirectProvider;
+
+    #[async_trait]
+    impl LlmProvider for MockDirectProvider {
+        async fn generate(&self, _req: GenerateRequest) -> Result<GenerateResponse, AppError> {
+            unreachable!("generate is not used in capability tests")
+        }
+
+        async fn stream_generate(
+            &self,
+            _req: GenerateRequest,
+        ) -> Result<ProviderEventStream, AppError> {
+            Ok(Box::pin(stream::empty::<Result<StreamEvent, AppError>>()))
+        }
+
+        async fn list_models(&self, req: ListModelsRequest) -> Result<Vec<ModelInfo>, AppError> {
+            Ok(vec![ModelInfo {
+                id: format!("{}-model", req.provider),
+                provider: req.provider.clone(),
+                display_name: format!("{} model", req.provider),
+                max_context_tokens: 8192,
+                max_output_tokens: 4096,
+                supports_streaming: true,
+                supports_tools: false,
+                supported_features: vec!["chat".to_string(), "stream".to_string()],
+            }])
+        }
+
+        async fn count_tokens(
+            &self,
+            _req: CountTokensRequest,
+        ) -> Result<CountTokensResponse, AppError> {
+            unreachable!("count_tokens is not used in capability tests")
         }
     }
 
@@ -586,5 +924,78 @@ mod tests {
         assert!(json.contains("\"service\":\"memory\""));
         assert!(json.contains("\"expected_version\":\"v1\""));
         assert!(json.contains("\"severity\":\"critical\""));
+    }
+
+    #[test]
+    fn test_enabled_llm_providers_returns_only_enabled_entries() {
+        let llm_config = LlmConfig {
+            openai: LlmProviderConfig {
+                enabled: true,
+                ..LlmProviderConfig::default()
+            },
+            deepseek: LlmProviderConfig {
+                enabled: false,
+                ..LlmProviderConfig::default()
+            },
+            minimax: LlmProviderConfig {
+                enabled: true,
+                ..LlmProviderConfig::default()
+            },
+            ..LlmConfig::default()
+        };
+
+        assert_eq!(
+            enabled_llm_providers(&llm_config),
+            vec!["openai".to_string(), "minimax".to_string()]
+        );
+    }
+
+    #[tokio::test]
+    async fn test_fetch_direct_llm_capability_builds_static_capability_after_probe() {
+        let llm_config = LlmConfig {
+            default_provider: "openai".to_string(),
+            timeout_ms: 3210,
+            openai: LlmProviderConfig {
+                enabled: true,
+                base_url: "https://api.openai.com/v1".to_string(),
+                default_model: "gpt-4.1-mini".to_string(),
+                ..LlmProviderConfig::default()
+            },
+            deepseek: LlmProviderConfig {
+                enabled: true,
+                base_url: "https://api.deepseek.com/v1".to_string(),
+                default_model: "deepseek-chat".to_string(),
+                ..LlmProviderConfig::default()
+            },
+            minimax: LlmProviderConfig {
+                enabled: false,
+                ..LlmProviderConfig::default()
+            },
+            ..LlmConfig::default()
+        };
+
+        let capability = fetch_direct_llm_capability(
+            &llm_config,
+            Arc::new(MockDirectProvider),
+            "v1",
+        )
+        .await
+        .unwrap();
+
+        assert_eq!(capability.service, "llm");
+        assert_eq!(capability.contract_versions, vec!["v1".to_string()]);
+        assert_eq!(capability.features.get("mode"), Some(&"direct".to_string()));
+        assert_eq!(
+            capability.features.get("available_providers"),
+            Some(&"openai,deepseek".to_string())
+        );
+        assert_eq!(
+            capability.limits.get("provider.openai.models"),
+            Some(&"1".to_string())
+        );
+        assert_eq!(
+            capability.limits.get("provider.deepseek.models"),
+            Some(&"1".to_string())
+        );
     }
 }

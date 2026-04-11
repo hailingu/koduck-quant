@@ -303,7 +303,7 @@ mod tests {
             .build_json_request(Method::POST, &options, &json!({"model": "gpt"}))
             .unwrap();
 
-        assert_eq!(request.timeout(), Some(Duration::from_millis(1_500)));
+        assert_eq!(request.timeout(), Some(Duration::from_millis(1_500)).as_ref());
         assert_eq!(
             request.headers().get(ACCEPT),
             Some(&HeaderValue::from_static("application/json"))
