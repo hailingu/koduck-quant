@@ -1,0 +1,97 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: koduck-memory
+  namespace: koduck
+  labels:
+    app: koduck-memory
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: koduck-memory
+  template:
+    metadata:
+      labels:
+        app: koduck-memory
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "9090"
+        prometheus.io/path: "/metrics"
+    spec:
+      containers:
+        - name: koduck-memory
+          image: koduck/koduck-memory:latest
+          imagePullPolicy: Never
+          ports:
+            - name: grpc
+              containerPort: 50051
+              protocol: TCP
+            - name: metrics
+              containerPort: 9090
+              protocol: TCP
+          env:
+            - name: KODUCK_MEMORY__SERVER__GRPC_ADDR
+              value: "0.0.0.0:50051"
+            - name: KODUCK_MEMORY__SERVER__METRICS_ADDR
+              value: "0.0.0.0:9090"
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 256Mi
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: metrics
+            initialDelaySeconds: 10
+            periodSeconds: 30
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: metrics
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            failureThreshold: 3
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: koduck-memory
+  namespace: koduck
+  labels:
+    app: koduck-memory
+spec:
+  type: ClusterIP
+  selector:
+    app: koduck-memory
+  ports:
+    - name: grpc
+      port: 50051
+      targetPort: grpc
+      protocol: TCP
+    - name: metrics
+      port: 9090
+      targetPort: metrics
+      protocol: TCP
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: koduck-memory-grpc
+  namespace: koduck
+  labels:
+    app: koduck-memory
+spec:
+  type: ClusterIP
+  clusterIP: None
+  selector:
+    app: koduck-memory
+  ports:
+    - name: grpc
+      port: 50051
+      targetPort: grpc
+      protocol: TCP
