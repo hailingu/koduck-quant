@@ -131,9 +131,9 @@
 2. 返回 `service/contract_versions/features/limits`
 
 **验收标准:**
-- [ ] `service = memory`
-- [ ] `contract_versions` 至少包含 `memory.v1`
-- [ ] features / limits 可被 `koduck-ai` 正常解析
+- [x] `service = memory`
+- [x] `contract_versions` 至少包含 `memory.v1`
+- [x] features / limits 可被 `koduck-ai` 正常解析
 
 ---
 
