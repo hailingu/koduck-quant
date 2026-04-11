@@ -268,44 +268,221 @@ V2 的核心结论如下：
 - 新实现通过 `capabilities + contract` 兼容性检查。
 - 统一错误与指标字段不变，灰度和回滚路径可用。
 
-### 6.5 LLM Contract（provider-agnostic）
+### 6.5 LLM Provider Adapter（Rust, provider-native HTTP）
 
-`koduck-ai` 对模型调用采用统一 LLM 契约，屏蔽厂商差异。对内以 gRPC 契约表达；对外由适配层转换为各厂商原生 HTTP API。
+`koduck-ai` 对模型调用采用统一的 Rust Provider Adapter 抽象，屏蔽厂商差异，
+并默认通过 provider-native HTTP 直接访问外部 LLM Provider。
 
-推荐最小 RPC 集合：
+目标态：
 
-- `rpc Generate(GenerateRequest) returns (GenerateResponse)`
-- `rpc StreamGenerate(GenerateRequest) returns (stream StreamGenerateEvent)`
-- `rpc CountTokens(CountTokensRequest) returns (CountTokensResponse)`
-- `rpc ListModels(ListModelsRequest) returns (ListModelsResponse)`（可选）
+- `koduck-ai -> provider-native HTTP -> {MiniMax / OpenAI / DeepSeek}`
 
-`GenerateRequest` 关键字段建议：
+迁移期可选：
 
+- `koduck-ai -> LLM Adapter(gRPC) -> provider-native HTTP -> LLM Provider`
+
+结论：
+
+- `memory/tool` 是长期 southbound gRPC 契约。
+- `llm.proto` 仅作为迁移期兼容契约保留，不是目标态主调用面。
+- `koduck-ai` 默认不依赖第三方 OpenAI SDK；统一使用 Rust HTTP 客户端实现 provider adapter。
+
+#### 6.5.1 目录与模块建议
+
+推荐在 `koduck-ai/src/llm/` 下按以下结构组织：
+
+```text
+src/llm/
+  mod.rs
+  provider.rs       # Provider trait 与统一抽象
+  router.rs         # provider 选择、mode 切换、模型路由
+  types.rs          # 统一请求/响应/usage/event 类型
+  http.rs           # reqwest client、公共 header、SSE/stream 解析工具
+  errors.rs         # provider HTTP/body 到统一错误语义的映射辅助
+  openai.rs         # OpenAI provider-native HTTP 适配
+  deepseek.rs       # DeepSeek provider-native HTTP 适配
+  minimax.rs        # MiniMax provider-native HTTP 适配
+  compat.rs         # 迁移期 LLM Adapter gRPC bridge（可选）
+```
+
+原则：
+
+- Provider 差异收敛在 `src/llm/` 内，不向 orchestrator 泄漏厂商细节。
+- 公共重试、header、stream 解析逻辑优先复用，不在各 provider 文件重复实现。
+- 兼容模式与目标态直连模式使用同一套上层抽象。
+
+#### 6.5.2 统一 Provider Trait
+
+推荐最小抽象：
+
+```rust
+#[async_trait]
+pub trait LlmProvider: Send + Sync {
+    async fn generate(&self, req: GenerateRequest) -> Result<GenerateResponse, AppError>;
+    async fn stream_generate(
+        &self,
+        req: GenerateRequest,
+    ) -> Result<ProviderEventStream, AppError>;
+    async fn list_models(&self) -> Result<Vec<ModelInfo>, AppError>;
+    async fn count_tokens(&self, req: CountTokensRequest) -> Result<CountTokensResponse, AppError>;
+}
+```
+
+说明：
+
+- `generate` / `stream_generate` 为主链路必需能力。
+- `list_models` 建议实现，用于能力展示、启动探活和运营排查。
+- `count_tokens` 优先使用厂商原生能力；若厂商未提供，允许返回 `UNIMPLEMENTED` 或采用本地估算。
+- 上层 orchestrator 只依赖 trait，不直接依赖 `reqwest`、HTTP 路径或厂商 JSON 结构。
+
+#### 6.5.3 统一请求与响应语义
+
+`GenerateRequest` 建议字段：
+
+- `provider`
 - `model`
-- `messages[]`（role/content）
-- `temperature`、`top_p`、`max_tokens`
+- `messages[]`（`role/content/name/metadata`）
+- `temperature`
+- `top_p`
+- `max_tokens`
 - `tools[]`（可选）
 - `response_format`（可选）
-- `request_id`、`trace_id`、`deadline_ms`
+- `request_id`
+- `session_id`
+- `trace_id`
+- `deadline_ms`
 
-`StreamGenerateEvent` 关键字段建议：
+`GenerateResponse` 建议字段：
+
+- `message`
+- `finish_reason`
+- `usage`
+- `provider`
+- `model`
+
+`ProviderEventStream` 建议事件：
 
 - `event_id`
 - `sequence_num`
 - `delta`
-- `finish_reason`（结束事件）
-- `usage`（结束事件可选）
+- `finish_reason`
+- `usage`
+- `provider`
+- `model`
+
+要求：
+
+- sequence 由 `koduck-ai` 保证单调递增，不依赖厂商原始分片序号。
+- usage 在结束事件中至少出现一次；中间增量事件可不携带 usage。
+- 上层 SSE 层不感知 provider 原始分片结构，只消费统一事件。
+
+#### 6.5.4 Router 与 Mode 切换
+
+推荐同时支持两种运行模式：
+
+- `direct`：目标态，直接访问 provider-native HTTP
+- `adapter`：迁移期兼容模式，调用 `llm.proto` / `LlmServiceClient`
+
+`router.rs` 负责：
+
+- 按 `request.provider` 或 `default_provider` 选择具体 provider
+- 按 `llm.mode` 决定走 `direct` 还是 `adapter`
+- 处理模型别名、默认模型和 provider fallback
+
+约束：
+
+- `direct` 是默认值。
+- `adapter` 仅作为迁移、回滚和灰度开关，不得继续扩展为目标态主路径。
+- provider fallback 必须显式配置，不允许在错误时静默切换到其他厂商。
+
+#### 6.5.5 HTTP 客户端与协议实现
+
+统一采用 `reqwest` 实现，不依赖第三方 OpenAI SDK。
+
+原因：
+
+- `MiniMax` / `DeepSeek` 提供 OpenAI-compatible HTTP 接口，可直接复用统一请求构造逻辑。
+- `OpenAI` 官方接口同样可由 `reqwest` 覆盖，无需额外 SDK 依赖。
+- 便于统一超时、trace header、重试预算、错误体解析和流式事件处理。
+
+公共 HTTP 基线建议：
+
+- 统一 `reqwest::Client` 复用连接池
+- TLS 使用 `rustls`
+- 统一 Header：
+  - `Authorization: Bearer <api_key>`
+  - `Content-Type: application/json`
+  - `X-Request-Id`（如厂商允许）
+  - `traceparent`（如厂商允许）
+- 统一本地 timeout budget，严格服从 `deadline_ms`
+
+stream 建议：
+
+- 优先按 SSE / chunked 文本流解析
+- provider adapter 负责把原始 chunk 转换成统一 `delta` 事件
+- 对 malformed chunk、提前 EOF、无 finish 事件等异常场景做保护性收敛
+
+#### 6.5.6 Provider 差异处理
+
+首批支持 provider：
+
+- `minimax`
+- `openai`
+- `deepseek`
+
+差异收敛原则：
+
+- 公共字段优先按 OpenAI-compatible schema 组织
+- 厂商特有字段（如 MiniMax extra body）只在各自 adapter 内处理
+- 工具调用、响应格式、reasoning 字段等高级能力按 provider capability 显式声明，不做隐式假设
+
+模型配置建议：
+
+- `minimax.default_model`
+- `openai.default_model`
+- `deepseek.default_model`
+- `base_url` / `api_key` 按 provider 独立配置
+
+#### 6.5.7 错误映射与重试约束
 
 错误语义约束：
 
 - 适配层必须把厂商错误归一到本设计定义的标准错误码集合。
 - 对 `429` 优先传递 `retry_after_ms`。
 - 超时必须区分“上游超时”与“本地预算耗尽”。
+- 厂商原始错误 body 只进入内部日志，不直接透传给北向 API。
 
-说明：
+重试约束：
 
-- “统一使用 gRPC”适用于内部服务契约与平台内部适配层接口。
-- 外部 LLM 厂商接口仍以其原生 HTTP 协议为准，由适配层负责转换。
+- 是否重试由 `koduck-ai` 的 retry budget 决定，而不是由 provider adapter 自行决定。
+- 仅 `429`、网络瞬断、显式可重试 `5xx` 进入重试白名单。
+- stream 已开始输出后，禁止在 provider adapter 层自动重试同一次生成请求。
+
+#### 6.5.8 能力协商与 `llm.proto` 定位
+
+目标态下，provider-native HTTP 不参与内部 `GetCapabilities` gRPC 协商。
+
+建议：
+
+- `memory/tool` 继续使用 `GetCapabilities`
+- `llm` 在 `direct` 模式下改为本地静态 capability + 启动探活
+- `llm.proto` 仅在 `adapter` 模式下参与 capability 协商
+
+启动探活建议：
+
+- 校验 provider 配置完整性（`api_key/base_url/default_model`）
+- 可选执行 `ListModels` 或轻量 health probe
+- 失败时按配置决定 fail-fast 或降级禁用该 provider
+
+#### 6.5.9 验收标准
+
+满足以下条件即视为 Rust provider adapter 落地完成：
+
+- `koduck-ai` 在不依赖 OpenAI SDK 的情况下可直接调用 `MiniMax/OpenAI/DeepSeek`
+- `generate` 与 `stream_generate` 均可输出统一语义结果
+- provider 切换不影响 orchestrator 代码
+- `direct/adapter` 模式可配置切换，且回滚路径可用
+- 429、5xx、timeout、malformed stream 均可映射到统一错误码
 
 ---
 

@@ -174,6 +174,73 @@ cd koduck-ai
 - [ ] 429 能携带 `retry_after_ms`
 - [ ] provider 切换不影响上层编排代码
 
+### Task 3.3.1: 定义 Rust LLM Provider 抽象
+**文件:** `src/llm/provider.rs`, `src/llm/types.rs`
+
+**详细要求:**
+1. 定义统一 `LlmProvider` trait：`generate/stream_generate/list_models/count_tokens`
+2. 定义统一请求/响应/usage/stream event 类型
+3. 约束上层 orchestrator 仅依赖 trait，不感知厂商 HTTP/JSON 差异
+
+**验收标准:**
+- [x] trait 与类型定义能覆盖 chat/stream 主链路
+- [x] 不暴露 provider-specific JSON 结构到 orchestrator
+- [x] 支持 `direct` 与 `adapter` 共用同一套上层抽象
+
+### Task 3.3.2: 构建通用 HTTP 基础设施
+**文件:** `src/llm/http.rs`, `src/llm/errors.rs`
+
+**详细要求:**
+1. 使用 `reqwest` 构建统一 HTTP client，不依赖 OpenAI SDK
+2. 实现公共 header、deadline timeout、body 序列化、stream chunk 解析
+3. 实现厂商 HTTP 状态码与错误 body 到统一错误语义的映射辅助
+
+**验收标准:**
+- [ ] 统一 client 支持连接复用与 rustls
+- [ ] 429/5xx/timeout/EOF 等异常路径可被标准化处理
+- [ ] stream 解析工具可被三个 provider 复用
+
+### Task 3.3.3: 实现首批三个 Provider Adapter
+**文件:** `src/llm/minimax.rs`, `src/llm/openai.rs`, `src/llm/deepseek.rs`
+
+**详细要求:**
+1. 实现 `minimax` provider-native HTTP 适配
+2. 实现 `openai` provider-native HTTP 适配
+3. 实现 `deepseek` provider-native HTTP 适配
+4. 在各自 adapter 内收敛 provider-specific 字段和行为差异
+
+**验收标准:**
+- [ ] 三个 provider 均可完成非流式生成
+- [ ] 三个 provider 均可完成流式增量输出
+- [ ] 厂商差异不泄漏到公共 trait 和 orchestrator
+
+### Task 3.3.4: 实现 Router 与模式切换
+**文件:** `src/llm/router.rs`, `src/config/mod.rs`
+
+**详细要求:**
+1. 引入 `llm.mode = direct | adapter` 配置
+2. 实现按 provider/model/default_provider 选择 adapter 的路由逻辑
+3. `direct` 作为默认模式，`adapter` 仅作迁移兼容与回滚开关
+4. 增加按 provider 独立配置：`api_key/base_url/default_model`
+
+**验收标准:**
+- [ ] `direct` 模式默认可用
+- [ ] `adapter` 模式可回退到现有 `llm.proto` 链路
+- [ ] provider fallback 不会静默发生
+
+### Task 3.3.5: 接入主链路并完成能力探活
+**文件:** `src/api/mod.rs`, `src/llm/router.rs`, `src/clients/capability.rs`
+
+**详细要求:**
+1. 将 chat/stream 主链路改为调用 Rust provider adapter
+2. `memory/tool` 保持 `GetCapabilities` 协商；`llm` 在 `direct` 模式下改为本地静态 capability + 启动探活
+3. `llm.proto` capability 协商仅在 `adapter` 模式启用
+
+**验收标准:**
+- [ ] chat/stream 不再默认依赖 `LlmServiceClient`
+- [ ] `direct` 模式下启动期可校验 provider 配置与可用性
+- [ ] `adapter` 模式下现有兼容链路仍可工作
+
 ---
 
 ## Phase 4: SSE 可靠性与取消语义
@@ -276,12 +343,14 @@ cd koduck-ai
 **交付物:** APISIX route/upstream 配置（IaC）
 
 **详细要求:**
-1. 建立 ai->memory/tool/llm 的 gRPC upstream
-2. 按附录 C 配置 connect/send/read timeout
-3. 配置 keepalive、轻重试、熔断阈值
+1. 建立 ai->memory/tool 的 gRPC upstream
+2. 若启用兼容模式，再建立 ai->llm 的可选 gRPC upstream
+3. 按附录 C 配置 connect/send/read timeout
+4. 配置 keepalive、轻重试、熔断阈值
 
 **验收标准:**
-- [x] gRPC 请求全部经过 APISIX
+- [x] memory/tool 的 gRPC 请求全部经过 APISIX
+- [x] `llm` 的 gRPC 路由仅在兼容模式下保留
 - [x] 超时与重试符合基线值
 - [x] 路由变更可回滚
 
