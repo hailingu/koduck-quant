@@ -11,7 +11,7 @@ use koduck_auth::{
     init_state,
     jwt::{JwksService, JwtValidator},
     model::CreateUserDto,
-    repository::{PasswordResetRepository, RedisCache, RefreshTokenRepository, UserRepository},
+    repository::{AuditLogRepository, PasswordResetRepository, RedisCache, RefreshTokenRepository, UserRepository},
     service::{AuthService as AuthServiceImpl, TokenService as TokenServiceImpl},
     AppState,
 };
@@ -189,6 +189,7 @@ impl TestRuntime {
 
         let token_repo = RefreshTokenRepository::new(self.state.db_pool().clone());
         let password_reset_repo = PasswordResetRepository::new(self.state.db_pool().clone());
+        let audit_log_repo = AuditLogRepository::new(self.state.db_pool().clone());
         let redis = RedisCache::new(self.state.redis_pool().clone());
 
         let public_key = load_public_key(&cfg.jwt.public_key_path)
@@ -203,6 +204,7 @@ impl TestRuntime {
             self.user_repo.clone(),
             token_repo.clone(),
             password_reset_repo,
+            audit_log_repo,
             redis.clone(),
             self.state.jwt_service().clone(),
             self.state.db_pool().clone(),

@@ -112,6 +112,7 @@ impl AuthService for GrpcAuthService {
         let login_req = crate::model::LoginRequest {
             username: req.username,
             password: req.password,
+            tenant_id: Some(req.tenant_id),
             turnstile_token: None,
         };
 

@@ -16,7 +16,7 @@ use crate::{
         RefreshTokenRequest, RegisterRequest, ResetPasswordRequest,
         SecurityConfigResponse, TokenResponse,
     },
-    repository::{PasswordResetRepository, RedisCache, RefreshTokenRepository, UserRepository},
+    repository::{AuditLogRepository, PasswordResetRepository, RedisCache, RefreshTokenRepository, UserRepository},
     service::AuthService as AuthServiceImpl,
     state::AppState,
 };
@@ -25,6 +25,7 @@ fn build_auth_service(state: &AppState) -> Result<AuthServiceImpl> {
     let user_repo = UserRepository::new(state.db_pool().clone());
     let token_repo = RefreshTokenRepository::new(state.db_pool().clone());
     let password_reset_repo = PasswordResetRepository::new(state.db_pool().clone());
+    let audit_log_repo = AuditLogRepository::new(state.db_pool().clone());
     let redis = RedisCache::new(state.redis_pool().clone());
     let config = Arc::new(state.config().clone());
 
@@ -32,6 +33,7 @@ fn build_auth_service(state: &AppState) -> Result<AuthServiceImpl> {
         user_repo,
         token_repo,
         password_reset_repo,
+        audit_log_repo,
         redis,
         state.jwt_service().clone(),
         state.db_pool().clone(),
@@ -46,6 +48,18 @@ pub async fn login(
     headers: HeaderMap,
     Json(req): Json<LoginRequest>,
 ) -> Result<Json<ApiResponse<TokenResponse>>> {
+    let tenant_id = headers
+        .get("X-Tenant-Id")
+        .and_then(|h| h.to_str().ok())
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(ToString::to_string);
+
+    let mut req = req;
+    if req.tenant_id.is_none() {
+        req.tenant_id = tenant_id;
+    }
+
     req.validate()?;
 
     let ip = addr.ip().to_string();

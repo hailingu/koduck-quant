@@ -11,16 +11,17 @@ use crate::{
         RefreshTokenRequest, ResetPasswordRequest, SecurityConfigResponse,
         TokenPair, TokenResponse, UserInfo,
     },
-    repository::{PasswordResetRepository, RedisCache, RefreshTokenRepository, UserRepository},
+    repository::{AuditLogRepository, PasswordResetRepository, RedisCache, RefreshTokenRepository, UserRepository},
 };
 use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine};
 use secrecy::ExposeSecret;
 use serde::{Deserialize, Serialize};
+use serde_json::json;
 use sha2::{Digest, Sha256};
 use sqlx::PgPool;
 use std::sync::Arc;
 use std::time::Duration;
-use tracing::{error, info};
+use tracing::{error, info, warn};
 
 const DEFAULT_TENANT_ID: &str = "default";
 
@@ -30,6 +31,7 @@ pub struct AuthService {
     user_repo: UserRepository,
     token_repo: RefreshTokenRepository,
     password_reset_repo: PasswordResetRepository,
+    audit_log_repo: AuditLogRepository,
     redis: RedisCache,
     jwt_service: JwtService,
     password_hasher: PasswordHasher,
@@ -74,6 +76,7 @@ impl AuthService {
         user_repo: UserRepository,
         token_repo: RefreshTokenRepository,
         password_reset_repo: PasswordResetRepository,
+        audit_log_repo: AuditLogRepository,
         redis: RedisCache,
         jwt_service: JwtService,
         db_pool: PgPool,
@@ -86,6 +89,7 @@ impl AuthService {
             user_repo,
             token_repo,
             password_reset_repo,
+            audit_log_repo,
             redis,
             jwt_service,
             password_hasher,
@@ -95,7 +99,15 @@ impl AuthService {
     }
 
     /// Login user
-    pub async fn login(&self, req: LoginRequest, ip: String, _user_agent: String) -> Result<TokenResponse> {
+    pub async fn login(&self, req: LoginRequest, ip: String, user_agent: String) -> Result<TokenResponse> {
+        let tenant_id = req
+            .tenant_id
+            .as_deref()
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+            .ok_or_else(|| AppError::Validation("tenant_id is required for login".to_string()))?
+            .to_string();
+
         // Check if IP is locked
         if self.redis.is_ip_locked(&ip).await? {
             return Err(AppError::Locked(
@@ -105,9 +117,15 @@ impl AuthService {
 
         // Fetch user from koduck-user internal API instead of local auth DB.
         let user = self
-            .fetch_user_from_user_service(DEFAULT_TENANT_ID, &req.username)
+            .fetch_user_from_user_service(&tenant_id, &req.username)
             .await?
             .ok_or_else(|| AppError::Unauthorized("Invalid username or password".to_string()))?;
+
+        if user.tenant_id != tenant_id {
+            return Err(AppError::Unauthorized(
+                "tenant_id does not match the authenticated user".to_string(),
+            ));
+        }
 
         // Verify password
         if !self
@@ -158,6 +176,21 @@ impl AuthService {
             .await?;
 
         let user_info = Self::build_user_info_from_internal(&user);
+
+        self.record_auth_audit_event(
+            &user.tenant_id,
+            Some(user.id),
+            "LOGIN_SUCCESS",
+            Some(&user.username),
+            Some(&ip),
+            Some(&user_agent),
+            json!({
+                "username": user.username,
+                "login_identifier": req.username,
+                "token_type": "refresh+access"
+            }),
+        )
+        .await;
 
         Ok(TokenResponse::new(tokens, user_info))
     }
@@ -231,6 +264,12 @@ impl AuthService {
             .await?
             .ok_or_else(|| AppError::NotFound("User not found".to_string()))?;
 
+        if user.tenant_id != token_record.tenant_id {
+            return Err(AppError::Unauthorized(
+                "refresh token tenant does not match the user".to_string(),
+            ));
+        }
+
         // Revoke old token
         self.token_repo
             .revoke_in_tenant(&token_record.tenant_id, &refresh_token_hash)
@@ -246,6 +285,21 @@ impl AuthService {
             .await?;
 
         let user_info = Self::build_user_info_from_internal(&user);
+        let user_id_resource = user.id.to_string();
+
+        self.record_auth_audit_event(
+            &user.tenant_id,
+            Some(user.id),
+            "REFRESH_TOKEN_SUCCESS",
+            Some(&user_id_resource),
+            None,
+            None,
+            json!({
+                "refresh_token_id": token_record.id,
+                "previous_token_tenant_id": token_record.tenant_id
+            }),
+        )
+        .await;
 
         Ok(TokenResponse::new(tokens, user_info))
     }
@@ -845,6 +899,39 @@ impl AuthService {
             avatar_url: None,
             status: Self::parse_user_status(&user.status),
             email_verified: false,
+        }
+    }
+
+    async fn record_auth_audit_event(
+        &self,
+        tenant_id: &str,
+        user_id: Option<i64>,
+        action: &str,
+        resource_id: Option<&str>,
+        ip_address: Option<&str>,
+        user_agent: Option<&str>,
+        details: serde_json::Value,
+    ) {
+        if let Err(err) = self
+            .audit_log_repo
+            .create(
+                tenant_id,
+                user_id,
+                action,
+                "AUTH",
+                resource_id,
+                ip_address,
+                user_agent,
+                Some(details),
+            )
+            .await
+        {
+            warn!(
+                tenant_id = tenant_id,
+                action = action,
+                error = %err,
+                "Failed to persist auth audit log"
+            );
         }
     }
 

@@ -58,6 +58,7 @@ async fn test_login() {
     let request = LoginRequest {
         username: user.username.clone(),
         password: app.test_user.password.clone(),
+        tenant_id: Some("default".to_string()),
         turnstile_token: None,
     };
 
@@ -76,6 +77,7 @@ async fn test_login_invalid_credentials() {
     let request = LoginRequest {
         username: "nonexistent_user".to_string(),
         password: "wrong_password".to_string(),
+        tenant_id: Some("default".to_string()),
         turnstile_token: None,
     };
 
@@ -95,6 +97,7 @@ async fn test_refresh_token() {
             LoginRequest {
                 username: user.username.clone(),
                 password: app.test_user.password.clone(),
+                tenant_id: Some("default".to_string()),
                 turnstile_token: None,
             },
         )
@@ -151,6 +154,7 @@ async fn test_logout() {
             LoginRequest {
                 username: user.username.clone(),
                 password: app.test_user.password.clone(),
+                tenant_id: Some("default".to_string()),
                 turnstile_token: None,
             },
         )
