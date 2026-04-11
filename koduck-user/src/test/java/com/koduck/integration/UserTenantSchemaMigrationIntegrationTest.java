@@ -3,6 +3,7 @@ package com.koduck.integration;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
@@ -11,6 +12,7 @@ import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 @SpringBootTest
 @Testcontainers(disabledWithoutDocker = true)
@@ -46,6 +48,86 @@ class UserTenantSchemaMigrationIntegrationTest {
                 "SELECT COUNT(*) FROM tenants WHERE id = 'default'",
                 Integer.class);
         assertEquals(1, tenantCount);
+
+        assertEquals(1, countConstraint("users", "uk_users_tenant_username"));
+        assertEquals(1, countConstraint("users", "uk_users_tenant_email"));
+        assertEquals(1, countConstraint("roles", "uk_roles_tenant_name"));
+        assertEquals(0, countConstraint("users", "uk_users_username"));
+        assertEquals(0, countConstraint("users", "uk_users_email"));
+        assertEquals(0, countConstraint("roles", "uk_roles_name"));
+    }
+
+    @Test
+    void shouldUseTenantScopedUniqueness() {
+        jdbcTemplate.update(
+                "INSERT INTO tenants (id, name, status) VALUES (?, ?, ?) ON CONFLICT (id) DO NOTHING",
+                "tenant-b",
+                "Tenant B",
+                "ACTIVE");
+
+        jdbcTemplate.update(
+                """
+                INSERT INTO users (tenant_id, username, email, password_hash, status)
+                VALUES (?, ?, ?, ?, ?)
+                """,
+                "default",
+                "shared-user",
+                "shared@example.com",
+                "hash-1",
+                1);
+
+        jdbcTemplate.update(
+                """
+                INSERT INTO users (tenant_id, username, email, password_hash, status)
+                VALUES (?, ?, ?, ?, ?)
+                """,
+                "tenant-b",
+                "shared-user",
+                "shared@example.com",
+                "hash-2",
+                1);
+
+        assertThrows(
+                DuplicateKeyException.class,
+                () -> jdbcTemplate.update(
+                        """
+                        INSERT INTO users (tenant_id, username, email, password_hash, status)
+                        VALUES (?, ?, ?, ?, ?)
+                        """,
+                        "default",
+                        "shared-user",
+                        "other@example.com",
+                        "hash-3",
+                        1));
+
+        jdbcTemplate.update(
+                """
+                INSERT INTO roles (tenant_id, name, description)
+                VALUES (?, ?, ?)
+                """,
+                "default",
+                "ROLE_AUDITOR",
+                "first");
+
+        jdbcTemplate.update(
+                """
+                INSERT INTO roles (tenant_id, name, description)
+                VALUES (?, ?, ?)
+                """,
+                "tenant-b",
+                "ROLE_AUDITOR",
+                "second");
+
+        assertThrows(
+                DuplicateKeyException.class,
+                () -> jdbcTemplate.update(
+                        """
+                        INSERT INTO roles (tenant_id, name, description)
+                        VALUES (?, ?, ?)
+                        """,
+                        "tenant-b",
+                        "ROLE_AUDITOR",
+                        "duplicate"));
     }
 
     private int countColumn(String tableName, String columnName) {
@@ -60,6 +142,21 @@ class UserTenantSchemaMigrationIntegrationTest {
                 Integer.class,
                 tableName,
                 columnName);
+        return count == null ? 0 : count;
+    }
+
+    private int countConstraint(String tableName, String constraintName) {
+        Integer count = jdbcTemplate.queryForObject(
+                """
+                SELECT COUNT(*)
+                FROM information_schema.table_constraints
+                WHERE table_schema = 'public'
+                  AND table_name = ?
+                  AND constraint_name = ?
+                """,
+                Integer.class,
+                tableName,
+                constraintName);
         return count == null ? 0 : count;
     }
 }

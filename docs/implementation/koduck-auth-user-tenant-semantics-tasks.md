@@ -100,9 +100,15 @@
    - `unique (tenant_id, name)`
 3. 为存量数据回填默认 tenant
 
+**执行结果（2026-04-11）:**
+- `koduck-user` 新增迁移 `V3__switch_uniqueness_constraints_to_tenant_scope.sql`，将 `users` 和 `roles` 的全局唯一约束切换为租户内唯一
+- 迁移在切约束前再次将 `users.tenant_id` 与 `roles.tenant_id` 的空值收口到 `default`
+- 新增 ADR `0019-switch-uniqueness-constraints-to-tenant-scope.md` 固化该阶段的决策与兼容性影响
+- 扩展 `UserTenantSchemaMigrationIntegrationTest`，验证旧约束已移除，且“跨租户可重复、租户内不可重复”的行为成立
+
 **验收标准:**
-- [ ] 不再使用全局唯一
-- [ ] 存量数据可迁移
+- [x] 不再使用全局唯一
+- [x] 存量数据可迁移
 
 ---
 
