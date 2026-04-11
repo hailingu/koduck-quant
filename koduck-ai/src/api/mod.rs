@@ -710,7 +710,7 @@ async fn call_llm_stream(
 }
 
 fn build_provider_generate_request(
-    state: &Arc<AppState>,
+    _state: &Arc<AppState>,
     request: &ChatRequest,
     request_id: &str,
     session_id: &str,
@@ -726,11 +726,8 @@ fn build_provider_generate_request(
             trace_id: trace_id.to_string(),
             deadline_ms,
         },
-        provider: state.config.llm.default_provider.clone(),
-        model: request
-            .model
-            .clone()
-            .unwrap_or_else(|| state.config.llm.default_provider.clone()),
+        provider: String::new(),
+        model: request.model.clone().unwrap_or_default(),
         messages: vec![ProviderChatMessage {
             role: "user".to_string(),
             content: request.message.clone(),

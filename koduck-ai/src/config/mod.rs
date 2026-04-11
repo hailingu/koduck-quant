@@ -6,6 +6,7 @@
 use config::{Config as ConfigBuilder, ConfigError, Environment, File};
 use secrecy::{ExposeSecret, SecretString};
 use serde::Deserialize;
+use strum::{Display, EnumString};
 use std::fmt;
 
 /// Custom validation error for configuration
@@ -64,18 +65,31 @@ pub struct ToolConfig {
 /// LLM adapter configuration
 #[derive(Debug, Deserialize, Clone)]
 pub struct LlmConfig {
+    pub mode: LlmMode,
     pub adapter_grpc_target: String,
     pub default_provider: String,
     pub timeout_ms: u64,
     /// Enable local stub response when downstream LLM adapter is not ready.
     pub stub_enabled: bool,
-    /// API keys per provider — wrapped in SecretString to prevent log leakage.
-    #[serde(default)]
-    pub openai_api_key: Option<SecretString>,
-    #[serde(default)]
-    pub deepseek_api_key: Option<SecretString>,
-    #[serde(default)]
-    pub anthropic_api_key: Option<SecretString>,
+    pub openai: LlmProviderConfig,
+    pub deepseek: LlmProviderConfig,
+    pub minimax: LlmProviderConfig,
+}
+
+#[derive(Debug, Deserialize, Clone, Copy, PartialEq, Eq, Display, EnumString)]
+#[serde(rename_all = "lowercase")]
+#[strum(serialize_all = "lowercase")]
+pub enum LlmMode {
+    Direct,
+    Adapter,
+}
+
+#[derive(Debug, Deserialize, Clone)]
+pub struct LlmProviderConfig {
+    pub enabled: bool,
+    pub api_key: Option<SecretString>,
+    pub base_url: String,
+    pub default_model: String,
 }
 
 /// Stream / SSE transport configuration
@@ -189,7 +203,69 @@ impl LlmConfig {
                 message: "llm.adapter_grpc_target cannot be empty".to_string(),
             });
         }
+        self.provider_config("openai").unwrap().validate("llm.openai")?;
+        self.provider_config("deepseek").unwrap().validate("llm.deepseek")?;
+        self.provider_config("minimax").unwrap().validate("llm.minimax")?;
+
+        match self.mode {
+            LlmMode::Direct => {
+                let default_provider = self.default_provider.trim();
+                let default_config = self.provider_config(default_provider).ok_or_else(|| {
+                    ValidationError {
+                        message: format!(
+                            "llm.default_provider '{}' is not supported; expected one of openai, deepseek, minimax",
+                            default_provider
+                        ),
+                    }
+                })?;
+                if !default_config.enabled {
+                    return Err(ValidationError {
+                        message: format!(
+                            "llm.default_provider '{}' must reference an enabled provider in direct mode",
+                            default_provider
+                        ),
+                    });
+                }
+            }
+            LlmMode::Adapter => {}
+        }
         Ok(())
+    }
+
+    pub fn provider_config(&self, provider: &str) -> Option<&LlmProviderConfig> {
+        match provider.trim().to_ascii_lowercase().as_str() {
+            "openai" => Some(&self.openai),
+            "deepseek" => Some(&self.deepseek),
+            "minimax" => Some(&self.minimax),
+            _ => None,
+        }
+    }
+}
+
+impl LlmProviderConfig {
+    pub fn validate(&self, field_name: &str) -> Result<(), ValidationError> {
+        if self.default_model.trim().is_empty() {
+            return Err(ValidationError {
+                message: format!("{field_name}.default_model cannot be empty"),
+            });
+        }
+        if self.base_url.trim().is_empty() {
+            return Err(ValidationError {
+                message: format!("{field_name}.base_url cannot be empty"),
+            });
+        }
+        Ok(())
+    }
+}
+
+impl Default for LlmProviderConfig {
+    fn default() -> Self {
+        Self {
+            enabled: true,
+            api_key: None,
+            base_url: String::new(),
+            default_model: String::new(),
+        }
     }
 }
 
@@ -329,13 +405,29 @@ impl Default for ToolConfig {
 impl Default for LlmConfig {
     fn default() -> Self {
         Self {
+            mode: LlmMode::Direct,
             adapter_grpc_target: "http://localhost:50054".to_string(),
             default_provider: "openai".to_string(),
             timeout_ms: 30_000,
             stub_enabled: false,
-            openai_api_key: None,
-            deepseek_api_key: None,
-            anthropic_api_key: None,
+            openai: LlmProviderConfig {
+                enabled: true,
+                api_key: None,
+                base_url: "https://api.openai.com/v1".to_string(),
+                default_model: "gpt-4.1-mini".to_string(),
+            },
+            deepseek: LlmProviderConfig {
+                enabled: false,
+                api_key: None,
+                base_url: "https://api.deepseek.com/v1".to_string(),
+                default_model: "deepseek-chat".to_string(),
+            },
+            minimax: LlmProviderConfig {
+                enabled: false,
+                api_key: None,
+                base_url: "https://api.minimax.chat/v1".to_string(),
+                default_model: "MiniMax-M1".to_string(),
+            },
         }
     }
 }
@@ -442,10 +534,20 @@ impl Config {
             // Defaults — ToolConfig
             .set_default("tools.grpc_target", "http://localhost:50053")?
             // Defaults — LlmConfig
+            .set_default("llm.mode", "direct")?
             .set_default("llm.adapter_grpc_target", "http://localhost:50054")?
             .set_default("llm.default_provider", "openai")?
             .set_default("llm.timeout_ms", 30_000)?
             .set_default("llm.stub_enabled", false)?
+            .set_default("llm.openai.enabled", true)?
+            .set_default("llm.openai.base_url", "https://api.openai.com/v1")?
+            .set_default("llm.openai.default_model", "gpt-4.1-mini")?
+            .set_default("llm.deepseek.enabled", false)?
+            .set_default("llm.deepseek.base_url", "https://api.deepseek.com/v1")?
+            .set_default("llm.deepseek.default_model", "deepseek-chat")?
+            .set_default("llm.minimax.enabled", false)?
+            .set_default("llm.minimax.base_url", "https://api.minimax.chat/v1")?
+            .set_default("llm.minimax.default_model", "MiniMax-M1")?
             // Defaults — StreamConfig
             .set_default("stream.max_duration_ms", 300_000)?
             .set_default("stream.queue_capacity", 64)?
@@ -507,15 +609,15 @@ impl Config {
     /// Expose a provider API key for use in LLM client initialization.
     /// Returns `None` if the key is not configured.
     pub fn openai_api_key(&self) -> Option<&str> {
-        self.llm.openai_api_key.as_ref().map(|k| k.expose_secret().as_str())
+        self.llm.openai.api_key.as_ref().map(|k| k.expose_secret().as_str())
     }
 
     pub fn deepseek_api_key(&self) -> Option<&str> {
-        self.llm.deepseek_api_key.as_ref().map(|k| k.expose_secret().as_str())
+        self.llm.deepseek.api_key.as_ref().map(|k| k.expose_secret().as_str())
     }
 
-    pub fn anthropic_api_key(&self) -> Option<&str> {
-        self.llm.anthropic_api_key.as_ref().map(|k| k.expose_secret().as_str())
+    pub fn minimax_api_key(&self) -> Option<&str> {
+        self.llm.minimax.api_key.as_ref().map(|k| k.expose_secret().as_str())
     }
 }
 
@@ -527,10 +629,11 @@ impl fmt::Display for Config {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
-            "Config {{ server: {:?}, memory: {:?}, tools: {:?}, llm: LlmConfig {{ adapter_grpc_target: {:?}, default_provider: {:?}, timeout_ms: {}, stub_enabled: {}, api_keys: ***, ... }}, stream: {:?}, auth: {:?}, capabilities: {:?}, reliability: {:?} }}",
+            "Config {{ server: {:?}, memory: {:?}, tools: {:?}, llm: LlmConfig {{ mode: {:?}, adapter_grpc_target: {:?}, default_provider: {:?}, timeout_ms: {}, stub_enabled: {}, providers: ***, ... }}, stream: {:?}, auth: {:?}, capabilities: {:?}, reliability: {:?} }}",
             self.server,
             self.memory,
             self.tools,
+            self.llm.mode,
             self.llm.adapter_grpc_target,
             self.llm.default_provider,
             self.llm.timeout_ms,
@@ -701,8 +804,18 @@ mod tests {
             memory: MemoryConfig::default(),
             tools: ToolConfig::default(),
             llm: LlmConfig {
-                openai_api_key: Some(SecretString::from("sk-super-secret-key".to_string())),
-                deepseek_api_key: Some(SecretString::from("sk-another-secret".to_string())),
+                openai: LlmProviderConfig {
+                    api_key: Some(SecretString::from("sk-super-secret-key".to_string())),
+                    enabled: true,
+                    base_url: "https://api.openai.com/v1".to_string(),
+                    default_model: "gpt-4.1-mini".to_string(),
+                },
+                deepseek: LlmProviderConfig {
+                    api_key: Some(SecretString::from("sk-another-secret".to_string())),
+                    enabled: true,
+                    base_url: "https://api.deepseek.com/v1".to_string(),
+                    default_model: "deepseek-chat".to_string(),
+                },
                 ..LlmConfig::default()
             },
             stream: StreamConfig::default(),
@@ -723,9 +836,24 @@ mod tests {
             memory: MemoryConfig::default(),
             tools: ToolConfig::default(),
             llm: LlmConfig {
-                openai_api_key: Some(SecretString::from("sk-test".to_string())),
-                deepseek_api_key: None,
-                anthropic_api_key: Some(SecretString::from("sk-anthropic".to_string())),
+                openai: LlmProviderConfig {
+                    api_key: Some(SecretString::from("sk-test".to_string())),
+                    enabled: true,
+                    base_url: "https://api.openai.com/v1".to_string(),
+                    default_model: "gpt-4.1-mini".to_string(),
+                },
+                deepseek: LlmProviderConfig {
+                    api_key: None,
+                    enabled: true,
+                    base_url: "https://api.deepseek.com/v1".to_string(),
+                    default_model: "deepseek-chat".to_string(),
+                },
+                minimax: LlmProviderConfig {
+                    api_key: Some(SecretString::from("sk-minimax".to_string())),
+                    enabled: true,
+                    base_url: "https://api.minimax.chat/v1".to_string(),
+                    default_model: "MiniMax-M1".to_string(),
+                },
                 ..LlmConfig::default()
             },
             stream: StreamConfig::default(),
@@ -735,7 +863,7 @@ mod tests {
         };
         assert_eq!(config.openai_api_key(), Some("sk-test"));
         assert_eq!(config.deepseek_api_key(), None);
-        assert_eq!(config.anthropic_api_key(), Some("sk-anthropic"));
+        assert_eq!(config.minimax_api_key(), Some("sk-minimax"));
     }
 
     #[test]

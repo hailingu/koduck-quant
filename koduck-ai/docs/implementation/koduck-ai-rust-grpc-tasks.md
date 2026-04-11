@@ -224,9 +224,9 @@ cd koduck-ai
 4. 增加按 provider 独立配置：`api_key/base_url/default_model`
 
 **验收标准:**
-- [ ] `direct` 模式默认可用
-- [ ] `adapter` 模式可回退到现有 `llm.proto` 链路
-- [ ] provider fallback 不会静默发生
+- [x] `direct` 模式默认可用
+- [x] `adapter` 模式可回退到现有 `llm.proto` 链路
+- [x] provider fallback 不会静默发生
 
 ### Task 3.3.5: 接入主链路并完成能力探活
 **文件:** `src/api/mod.rs`, `src/llm/router.rs`, `src/clients/capability.rs`
