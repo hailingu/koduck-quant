@@ -128,7 +128,7 @@ pub struct CapabilitiesConfig {
 
 ## References
 
-- 设计文档: [ai-decoupled-architecture.md](../../../docs/design/koduckai-rust-server/ai-decoupled-architecture.md)
-- 任务清单: [koduck-ai-rust-grpc-tasks.md](../../../docs/implementation/koduck-ai-rust-grpc-tasks.md) Task 2.3
+- 设计文档: [ai-decoupled-architecture.md](../design/ai-decoupled-architecture.md)
+- 任务清单: [koduck-ai-rust-grpc-tasks.md](../implementation/koduck-ai-rust-grpc-tasks.md) Task 2.3
 - 前置 ADR: [ADR-0004](0004-freeze-proto-contract-v1.md), [ADR-0005](0005-build-rs-and-code-generation.md)
 - Issue: [#727](https://github.com/hailingu/koduck-quant/issues/727)

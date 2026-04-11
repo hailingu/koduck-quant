@@ -6,7 +6,7 @@
 
 ## Context
 
-根据 `docs/design/koduckai-rust-server/ai-decoupled-architecture.md` 第 6.4.5、7.3.4 和附录 A：
+根据 `koduck-ai/docs/design/ai-decoupled-architecture.md` 第 6.4.5、7.3.4 和附录 A：
 
 1. `koduck-ai` 需要统一维护最大重试次数、总超时预算和可重试错误白名单。
 2. `429` 场景必须优先遵循 `retry_after_ms`。

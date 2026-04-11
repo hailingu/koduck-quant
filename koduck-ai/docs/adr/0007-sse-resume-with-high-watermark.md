@@ -15,7 +15,7 @@
 
 ### 约束
 
-- 需遵循 `docs/design/koduckai-rust-server/ai-decoupled-architecture.md` 中的事件字段规范
+- 需遵循 `koduck-ai/docs/design/ai-decoupled-architecture.md` 中的事件字段规范
 - 构建验证必须通过容器方式完成，不依赖本地 cargo
 - 当前阶段优先支持单会话单活动流的恢复语义，为后续队列化演进预留接口
 
@@ -117,8 +117,8 @@
 
 ## References
 
-- 设计文档: [ai-decoupled-architecture.md](../../../docs/design/koduckai-rust-server/ai-decoupled-architecture.md)
-- API 定义: [koduck-ai-api.yaml](../../../docs/design/koduckai-rust-server/koduck-ai-api.yaml)
-- 任务清单: [koduck-ai-rust-grpc-tasks.md](../../../docs/implementation/koduck-ai-rust-grpc-tasks.md)
+- 设计文档: [ai-decoupled-architecture.md](../design/ai-decoupled-architecture.md)
+- API 定义: [koduck-ai-api.yaml](../design/koduck-ai-api.yaml)
+- 任务清单: [koduck-ai-rust-grpc-tasks.md](../implementation/koduck-ai-rust-grpc-tasks.md)
 - 前置 ADR: [ADR-0001](0001-init-rust-grpc-project-structure.md)
 - Issue: [#730](https://github.com/hailingu/koduck-quant/issues/730)

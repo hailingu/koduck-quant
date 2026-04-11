@@ -6,7 +6,7 @@
 
 ## Context
 
-根据 `docs/design/koduckai-rust-server/ai-decoupled-architecture.md` 第 7.2 节，`koduck-ai` 的流式可靠性不仅需要 SSE 断点续流和背压控制，还需要满足两项约束：
+根据 `koduck-ai/docs/design/ai-decoupled-architecture.md` 第 7.2 节，`koduck-ai` 的流式可靠性不仅需要 SSE 断点续流和背压控制，还需要满足两项约束：
 
 1. cancel/interrupt 必须能阻止旧请求继续写入流状态。
 2. 生命周期要统一收敛到 `AbortSignal + timeout + cleanup` 封装，避免中断逻辑散落在 handler 中。

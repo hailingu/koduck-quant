@@ -129,8 +129,8 @@ proto/koduck/
 
 ## References
 
-- 设计文档: [ai-decoupled-architecture.md](../../../docs/design/koduckai-rust-server/ai-decoupled-architecture.md) §6.4, §6.5, §15
-- 任务清单: [koduck-ai-rust-grpc-tasks.md](../../../docs/implementation/koduck-ai-rust-grpc-tasks.md) Task 2.1
+- 设计文档: [ai-decoupled-architecture.md](../design/ai-decoupled-architecture.md) §6.4, §6.5, §15
+- 任务清单: [koduck-ai-rust-grpc-tasks.md](../implementation/koduck-ai-rust-grpc-tasks.md) Task 2.1
 - 前置 ADR: [ADR-0001](0001-init-rust-grpc-project-structure.md), [ADR-0002](0002-config-and-secret-management.md), [ADR-0003](0003-unified-error-framework.md)
 - 参考: `koduck-auth/proto/koduck/auth/v1/auth.proto`
 - Issue: [#723](https://github.com/hailingu/koduck-quant/issues/723)

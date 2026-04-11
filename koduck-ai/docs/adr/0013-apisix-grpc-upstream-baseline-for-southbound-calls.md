@@ -6,7 +6,7 @@
 
 ## Context
 
-根据 `docs/design/koduckai-rust-server/ai-decoupled-architecture.md` 第 6.4 节和附录 C：
+根据 `koduck-ai/docs/design/ai-decoupled-architecture.md` 第 6.4 节和附录 C：
 
 1. `koduck-ai` 到 memory/tool/llm 的 southbound gRPC 调用需要统一经过 APISIX。
 2. 网关侧需要提供统一的 connect/send/read timeout、轻重试、keepalive 和熔断阈值。

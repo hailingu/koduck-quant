@@ -113,9 +113,9 @@ KODUCK_AI__AUTH__JWKS_URL
 
 ## References
 
-- 设计文档: [ai-decoupled-architecture.md](../../../docs/design/koduckai-rust-server/ai-decoupled-architecture.md) 第 9 节
-- API 定义: [koduck-ai-api.yaml](../../../docs/design/koduckai-rust-server/koduck-ai-api.yaml)
-- 任务清单: [koduck-ai-rust-grpc-tasks.md](../../../docs/implementation/koduck-ai-rust-grpc-tasks.md) Task 1.2
+- 设计文档: [ai-decoupled-architecture.md](../design/ai-decoupled-architecture.md) 第 9 节
+- API 定义: [koduck-ai-api.yaml](../design/koduck-ai-api.yaml)
+- 任务清单: [koduck-ai-rust-grpc-tasks.md](../implementation/koduck-ai-rust-grpc-tasks.md) Task 1.2
 - 前置 ADR: [ADR-0001](0001-init-rust-grpc-project-structure.md)
 - 参考: `koduck-auth/src/config.rs`
 - Issue: [#719](https://github.com/hailingu/koduck-quant/issues/719)

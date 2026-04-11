@@ -6,7 +6,7 @@
 
 ## Context
 
-根据 `docs/design/koduckai-rust-server/ai-decoupled-architecture.md` 第 7.3 节，`koduck-ai` 需要承担降级决策责任：
+根据 `koduck-ai/docs/design/ai-decoupled-architecture.md` 第 7.3 节，`koduck-ai` 需要承担降级决策责任：
 
 1. 是否允许降级必须由服务配置控制。
 2. 触发条件至少覆盖上游超时、预算耗尽、熔断打开。

@@ -6,7 +6,7 @@
 
 ## Context
 
-根据 `docs/design/koduckai-rust-server/ai-decoupled-architecture.md` 第 7.3 节和附录 A，`koduck-ai` 必须作为唯一的对外错误码出口：
+根据 `koduck-ai/docs/design/ai-decoupled-architecture.md` 第 7.3 节和附录 A，`koduck-ai` 必须作为唯一的对外错误码出口：
 
 1. memory / tool / llm 的下游错误都要归一到标准错误码。
 2. 北向响应不能透传下游内部实现细节。

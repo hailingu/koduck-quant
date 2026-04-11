@@ -6,7 +6,7 @@
 
 ## Context
 
-根据解耦架构设计文档 `docs/design/koduckai-rust-server/ai-decoupled-architecture.md`，`koduck-ai` 需要从"内聚过多能力的 AI 服务"收敛为"AI Gateway / Orchestrator"。其核心职责包括：
+根据解耦架构设计文档 `koduck-ai/docs/design/ai-decoupled-architecture.md`，`koduck-ai` 需要从"内聚过多能力的 AI 服务"收敛为"AI Gateway / Orchestrator"。其核心职责包括：
 
 1. **AI 编排网关**：chat / stream 编排、上下文拼装
 2. **南向 gRPC 客户端**：调用 memory / tool / llm 能力服务
@@ -136,8 +136,8 @@ koduck-ai/
 
 ## References
 
-- 设计文档: [ai-decoupled-architecture.md](../../../docs/design/koduckai-rust-server/ai-decoupled-architecture.md)
-- API 定义: [koduck-ai-api.yaml](../../../docs/design/koduckai-rust-server/koduck-ai-api.yaml)
-- 任务清单: [koduck-ai-rust-grpc-tasks.md](../../../docs/implementation/koduck-ai-rust-grpc-tasks.md)
+- 设计文档: [ai-decoupled-architecture.md](../design/ai-decoupled-architecture.md)
+- API 定义: [koduck-ai-api.yaml](../design/koduck-ai-api.yaml)
+- 任务清单: [koduck-ai-rust-grpc-tasks.md](../implementation/koduck-ai-rust-grpc-tasks.md)
 - 参考: koduck-auth 项目结构
 - Issue: [#717](https://github.com/hailingu/koduck-quant/issues/717)

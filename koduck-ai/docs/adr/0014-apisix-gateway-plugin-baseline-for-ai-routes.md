@@ -6,7 +6,7 @@
 
 ## Context
 
-根据 `docs/design/koduckai-rust-server/ai-decoupled-architecture.md` 第 16.2 节：
+根据 `koduck-ai/docs/design/ai-decoupled-architecture.md` 第 16.2 节：
 
 1. `koduck-ai` 的网关入口需要统一接入 `limit-req / limit-count / prometheus / opentelemetry / access-log`。
 2. 网关日志与 trace 需要至少收敛 `request_id / session_id / user_id / trace_id` 这些统一字段。

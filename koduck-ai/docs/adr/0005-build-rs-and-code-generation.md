@@ -148,8 +148,8 @@ Orchestrator 可通过 `clients::memory::MemoryServiceClient<T>` 或 `clients::p
 
 ## References
 
-- 设计文档: [ai-decoupled-architecture.md](../../../docs/design/koduckai-rust-server/ai-decoupled-architecture.md)
-- 任务清单: [koduck-ai-rust-grpc-tasks.md](../../../docs/implementation/koduck-ai-rust-grpc-tasks.md) Task 2.2
+- 设计文档: [ai-decoupled-architecture.md](../design/ai-decoupled-architecture.md)
+- 任务清单: [koduck-ai-rust-grpc-tasks.md](../implementation/koduck-ai-rust-grpc-tasks.md) Task 2.2
 - 前置 ADR: [ADR-0004](0004-freeze-proto-contract-v1.md)
 - 参考: `koduck-auth/src/grpc/proto/mod.rs`
 - Issue: [#725](https://github.com/hailingu/koduck-quant/issues/725)
