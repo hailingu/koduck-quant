@@ -27,6 +27,13 @@
 2. 明确 V1 不支持 tenant hierarchy
 3. 明确 `(tenant_id, user_id)` 为身份主键语义
 
+**冻结结果（2026-04-11）:**
+- `tenant_id` 统一定义为字符串类型，对应数据库 `VARCHAR(128)`
+- 真值来源为 `koduck-user` 的租户真值（`tenants.id`）及用户记录上的 `users.tenant_id`
+- `koduck-auth` 仅负责读取并传播 `tenant_id`，不做推断或再生成
+- V1 不支持 tenant hierarchy、父子租户继承或跨租户共享身份语义
+- 对外与对内身份语义统一采用 `(tenant_id, user_id)`
+
 **验收标准:**
 - [ ] `tenant_id` 语义在文档中固定
 - [ ] 各服务对 tenant 的解释一致

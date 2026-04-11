@@ -6,6 +6,9 @@
 
 koduck-user 服务负责用户信息管理、角色权限管理，通过内部 API 向 koduck-auth 和其他服务提供用户数据支持。
 
+> 说明：本文档中的用户与角色模型已按 `docs/design/koduck-auth-user-tenant-semantics.md` 的 V1 冻结语义更新。
+> `tenant_id` 为最长 128 字符的字符串标识，跨服务身份语义统一为 `(tenant_id, user_id)`。
+
 ---
 
 ## 2. 服务边界划分
@@ -50,8 +53,9 @@ koduck-user 服务负责用户信息管理、角色权限管理，通过内部 A
 -- 用户表
 CREATE TABLE users (
     id BIGSERIAL PRIMARY KEY,
-    username VARCHAR(50) NOT NULL UNIQUE,
-    email VARCHAR(100) NOT NULL UNIQUE,
+    tenant_id VARCHAR(128) NOT NULL,
+    username VARCHAR(50) NOT NULL,
+    email VARCHAR(100) NOT NULL,
     password_hash VARCHAR(255) NOT NULL,
     nickname VARCHAR(50),
     avatar_url VARCHAR(255),
@@ -60,15 +64,19 @@ CREATE TABLE users (
     last_login_at TIMESTAMP,
     last_login_ip VARCHAR(45),
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE (tenant_id, username),
+    UNIQUE (tenant_id, email)
 );
 
 -- 角色表
 CREATE TABLE roles (
     id SERIAL PRIMARY KEY,
-    name VARCHAR(50) NOT NULL UNIQUE,
+    tenant_id VARCHAR(128) NOT NULL,
+    name VARCHAR(50) NOT NULL,
     description VARCHAR(255),
-    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE (tenant_id, name)
 );
 
 -- 权限表
@@ -84,24 +92,27 @@ CREATE TABLE permissions (
 -- 用户角色关联表
 CREATE TABLE user_roles (
     id BIGSERIAL PRIMARY KEY,
+    tenant_id VARCHAR(128) NOT NULL,
     user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     role_id INTEGER NOT NULL REFERENCES roles(id) ON DELETE CASCADE,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    UNIQUE(user_id, role_id)
+    UNIQUE(tenant_id, user_id, role_id)
 );
 
 -- 角色权限关联表
 CREATE TABLE role_permissions (
     id BIGSERIAL PRIMARY KEY,
+    tenant_id VARCHAR(128) NOT NULL,
     role_id INTEGER NOT NULL REFERENCES roles(id) ON DELETE CASCADE,
     permission_id INTEGER NOT NULL REFERENCES permissions(id) ON DELETE CASCADE,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    UNIQUE(role_id, permission_id)
+    UNIQUE(tenant_id, role_id, permission_id)
 );
 
 -- 用户凭证表（支持多因素认证）
 CREATE TABLE user_credentials (
     id BIGSERIAL PRIMARY KEY,
+    tenant_id VARCHAR(128) NOT NULL,
     user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     credential_type VARCHAR(20) NOT NULL, -- PASSWORD, TOTP, FIDO2, etc.
     credential_value VARCHAR(255) NOT NULL,
@@ -114,20 +125,20 @@ CREATE TABLE user_credentials (
 );
 
 -- 索引
-CREATE INDEX idx_users_username ON users(username);
-CREATE INDEX idx_users_email ON users(email);
+CREATE INDEX idx_users_tenant_username ON users(tenant_id, username);
+CREATE INDEX idx_users_tenant_email ON users(tenant_id, email);
 CREATE INDEX idx_users_status ON users(status);
-CREATE INDEX idx_user_roles_user_id ON user_roles(user_id);
-CREATE INDEX idx_user_roles_role_id ON user_roles(role_id);
-CREATE INDEX idx_role_permissions_role_id ON role_permissions(role_id);
-CREATE INDEX idx_role_permissions_permission_id ON role_permissions(permission_id);
-CREATE INDEX idx_user_credentials_user_id ON user_credentials(user_id);
+CREATE INDEX idx_user_roles_tenant_user_id ON user_roles(tenant_id, user_id);
+CREATE INDEX idx_user_roles_tenant_role_id ON user_roles(tenant_id, role_id);
+CREATE INDEX idx_role_permissions_tenant_role_id ON role_permissions(tenant_id, role_id);
+CREATE INDEX idx_role_permissions_tenant_permission_id ON role_permissions(tenant_id, permission_id);
+CREATE INDEX idx_user_credentials_tenant_user_id ON user_credentials(tenant_id, user_id);
 
 -- 初始化数据
-INSERT INTO roles (name, description) VALUES 
-    ('ROLE_USER', '普通用户'),
-    ('ROLE_ADMIN', '管理员'),
-    ('ROLE_SUPER_ADMIN', '超级管理员');
+INSERT INTO roles (tenant_id, name, description) VALUES
+    ('default', 'ROLE_USER', '普通用户'),
+    ('default', 'ROLE_ADMIN', '管理员'),
+    ('default', 'ROLE_SUPER_ADMIN', '超级管理员');
 
 INSERT INTO permissions (code, name, resource, action) VALUES
     ('user:read', '查看用户', 'user', 'read'),
@@ -250,12 +261,12 @@ public class UserSummaryResponse {
 
 | 方法 | 路径 | 描述 | 调用方 |
 |------|------|------|--------|
-| GET | `/internal/users/by-username/{username}` | 根据用户名查询 | koduck-auth |
-| GET | `/internal/users/by-email/{email}` | 根据邮箱查询 | koduck-auth |
-| POST | `/internal/users` | 创建用户（注册回调） | koduck-auth |
-| PUT | `/internal/users/{userId}/last-login` | 更新最后登录时间 | koduck-auth |
-| GET | `/internal/users/{userId}/roles` | 获取用户角色 | koduck-auth |
-| GET | `/internal/users/{userId}/permissions` | 获取用户权限 | koduck-auth, 其他服务 |
+| GET | `/internal/users/by-username/{username}` | 根据用户名查询（需 `X-Tenant-Id`） | koduck-auth |
+| GET | `/internal/users/by-email/{email}` | 根据邮箱查询（需 `X-Tenant-Id`） | koduck-auth |
+| POST | `/internal/users` | 创建用户（注册回调，需 `X-Tenant-Id`） | koduck-auth |
+| PUT | `/internal/users/{userId}/last-login` | 更新最后登录时间（需 `X-Tenant-Id`） | koduck-auth |
+| GET | `/internal/users/{userId}/roles` | 获取用户角色（需 `X-Tenant-Id`） | koduck-auth |
+| GET | `/internal/users/{userId}/permissions` | 获取用户权限（需 `X-Tenant-Id`） | koduck-auth, 其他服务 |
 
 ---
 
@@ -284,9 +295,10 @@ public class InternalUserController {
      */
     @GetMapping("/users/by-username/{username}")
     public ResponseEntity<UserDetailsResponse> findByUsername(
+            @RequestHeader("X-Tenant-Id") String tenantId,
             @PathVariable String username,
             @RequestHeader(value = "X-Consumer-Username", required = false) String consumer) {
-        return userService.findByUsername(username)
+        return userService.findByUsername(tenantId, username)
             .map(ResponseEntity::ok)
             .orElse(ResponseEntity.notFound().build());
     }
@@ -296,8 +308,9 @@ public class InternalUserController {
      */
     @GetMapping("/users/by-email/{email}")
     public ResponseEntity<UserDetailsResponse> findByEmail(
+            @RequestHeader("X-Tenant-Id") String tenantId,
             @PathVariable String email) {
-        return userService.findByEmail(email)
+        return userService.findByEmail(tenantId, email)
             .map(ResponseEntity::ok)
             .orElse(ResponseEntity.notFound().build());
     }
@@ -307,8 +320,9 @@ public class InternalUserController {
      */
     @PostMapping("/users")
     public ResponseEntity<UserDetailsResponse> createUser(
+            @RequestHeader("X-Tenant-Id") String tenantId,
             @RequestBody @Valid CreateUserRequest request) {
-        UserDetailsResponse user = userService.createUser(request);
+        UserDetailsResponse user = userService.createUser(tenantId, request);
         return ResponseEntity.ok(user);
     }
     
@@ -317,9 +331,10 @@ public class InternalUserController {
      */
     @PutMapping("/users/{userId}/last-login")
     public ResponseEntity<Void> updateLastLogin(
+            @RequestHeader("X-Tenant-Id") String tenantId,
             @PathVariable Long userId,
             @RequestBody LastLoginUpdateRequest request) {
-        userService.updateLastLogin(userId, request);
+        userService.updateLastLogin(tenantId, userId, request);
         return ResponseEntity.ok().build();
     }
     
@@ -327,8 +342,10 @@ public class InternalUserController {
      * 获取用户角色
      */
     @GetMapping("/users/{userId}/roles")
-    public ResponseEntity<List<String>> getUserRoles(@PathVariable Long userId) {
-        List<String> roles = userService.getUserRoles(userId);
+    public ResponseEntity<List<String>> getUserRoles(
+            @RequestHeader("X-Tenant-Id") String tenantId,
+            @PathVariable Long userId) {
+        List<String> roles = userService.getUserRoles(tenantId, userId);
         return ResponseEntity.ok(roles);
     }
     
@@ -336,8 +353,10 @@ public class InternalUserController {
      * 获取用户权限
      */
     @GetMapping("/users/{userId}/permissions")
-    public ResponseEntity<List<String>> getUserPermissions(@PathVariable Long userId) {
-        List<String> permissions = userService.getUserPermissions(userId);
+    public ResponseEntity<List<String>> getUserPermissions(
+            @RequestHeader("X-Tenant-Id") String tenantId,
+            @PathVariable Long userId) {
+        List<String> permissions = userService.getUserPermissions(tenantId, userId);
         return ResponseEntity.ok(permissions);
     }
 }
@@ -443,22 +462,23 @@ public class UserServiceImpl implements UserService {
     // 内部 API 方法
     @Override
     @Transactional(readOnly = true)
-    public Optional<UserDetailsResponse> findByUsername(String username) {
-        return userRepository.findByUsername(username)
+    public Optional<UserDetailsResponse> findByUsername(String tenantId, String username) {
+        return userRepository.findByTenantIdAndUsername(tenantId, username)
             .map(this::buildUserDetailsResponse);
     }
     
     @Override
     @Transactional(readOnly = true)
-    public Optional<UserDetailsResponse> findByEmail(String email) {
-        return userRepository.findByEmail(email)
+    public Optional<UserDetailsResponse> findByEmail(String tenantId, String email) {
+        return userRepository.findByTenantIdAndEmail(tenantId, email)
             .map(this::buildUserDetailsResponse);
     }
     
     @Override
     @Transactional
-    public UserDetailsResponse createUser(CreateUserRequest request) {
+    public UserDetailsResponse createUser(String tenantId, CreateUserRequest request) {
         User user = User.builder()
+            .tenantId(tenantId)
             .username(request.getUsername())
             .email(request.getEmail())
             .passwordHash(request.getPasswordHash())
@@ -472,8 +492,8 @@ public class UserServiceImpl implements UserService {
     
     @Override
     @Transactional
-    public void updateLastLogin(Long userId, LastLoginUpdateRequest request) {
-        userRepository.updateLastLogin(userId, request.getLoginTime(), request.getIpAddress());
+    public void updateLastLogin(String tenantId, Long userId, LastLoginUpdateRequest request) {
+        userRepository.updateLastLogin(tenantId, userId, request.getLoginTime(), request.getIpAddress());
     }
     
     // ... 其他方法实现
@@ -507,6 +527,9 @@ spring:
   flyway:
     enabled: true
     locations: classpath:db/migration
+
+tenant:
+  default-id: ${KODUCK_DEFAULT_TENANT_ID:default}
 
 # 文件存储（头像上传）
 storage:
