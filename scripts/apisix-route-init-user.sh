@@ -198,7 +198,8 @@ create_payloads() {
           headers: {
             "X-User-Id": "$jwt_claim_user_id",
             "X-Username": "$jwt_claim_username",
-            "X-Roles": "$jwt_claim_roles"
+            "X-Roles": "$jwt_claim_roles",
+            "X-Tenant-Id": "$jwt_claim_tenant_id"
           }
         }
       },
@@ -280,7 +281,7 @@ main() {
   verify_entity_with_jq \
     "routes" \
     "${USER_PUBLIC_ROUTE_ID}" \
-    ".value.uri == \"/api/v1/users/*\" and .value.priority == 90 and (.value.plugins | has(\"jwt-auth\")) and .value.plugins[\"proxy-rewrite\"].headers[\"X-User-Id\"] == \"\$jwt_claim_user_id\" and .value.plugins[\"proxy-rewrite\"].headers[\"X-Username\"] == \"\$jwt_claim_username\" and .value.plugins[\"proxy-rewrite\"].headers[\"X-Roles\"] == \"\$jwt_claim_roles\" and .value.upstream.nodes[\"${USER_SERVICE_UPSTREAM}\"] == 1" \
+    ".value.uri == \"/api/v1/users/*\" and .value.priority == 90 and (.value.plugins | has(\"jwt-auth\")) and .value.plugins[\"proxy-rewrite\"].headers[\"X-User-Id\"] == \"\$jwt_claim_user_id\" and .value.plugins[\"proxy-rewrite\"].headers[\"X-Username\"] == \"\$jwt_claim_username\" and .value.plugins[\"proxy-rewrite\"].headers[\"X-Roles\"] == \"\$jwt_claim_roles\" and .value.plugins[\"proxy-rewrite\"].headers[\"X-Tenant-Id\"] == \"\$jwt_claim_tenant_id\" and .value.upstream.nodes[\"${USER_SERVICE_UPSTREAM}\"] == 1" \
     "public route uri/priority/jwt-auth/proxy-rewrite/upstream"
   verify_entity_with_jq \
     "routes" \

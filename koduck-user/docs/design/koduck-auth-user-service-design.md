@@ -671,7 +671,8 @@ curl -fsS -X PUT "${ADMIN}/routes/user-service" \
         "headers": {
           "X-User-Id": "$jwt_claim_user_id",
           "X-Username": "$jwt_claim_username",
-          "X-Roles": "$jwt_claim_roles"
+          "X-Roles": "$jwt_claim_roles",
+          "X-Tenant-Id": "$jwt_claim_tenant_id"
         }
       }
     },
