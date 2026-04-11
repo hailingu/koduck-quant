@@ -441,18 +441,18 @@ ensure_namespace_ready() {
     exit 1
 }
 
-ensure_koduck_agent_secret() {
-    local agent_secret_name="${ENV}-koduck-agent-secrets"
+ensure_koduck_ai_llm_secret() {
+    local llm_secret_name="${ENV}-koduck-ai-llm-secrets"
     local llm_provider="${LLM_PROVIDER:-minimax}"
     local llm_api_key="${LLM_API_KEY:-}"
     local llm_api_base="${LLM_API_BASE:-}"
     local llm_model="${LLM_MODEL:-MiniMax-M2.7}"
 
-    kubectl create secret generic "${agent_secret_name}" \
-        --from-literal=LLM_PROVIDER="${llm_provider}" \
-        --from-literal=LLM_API_KEY="${llm_api_key}" \
-        --from-literal=LLM_API_BASE="${llm_api_base}" \
-        --from-literal=LLM_MODEL="${llm_model}" \
+    kubectl create secret generic "${llm_secret_name}" \
+        --from-literal=KODUCK_AI__LLM__MINIMAX__API_KEY="${llm_api_key}" \
+        --from-literal=KODUCK_AI__LLM__MINIMAX__BASE_URL="${llm_api_base}" \
+        --from-literal=KODUCK_AI__LLM__MINIMAX__DEFAULT_MODEL="${llm_model}" \
+        --from-literal=KODUCK_AI__LLM__DEFAULT_PROVIDER="${llm_provider}" \
         -n "${NAMESPACE}" \
         --dry-run=client -o yaml | kubectl apply -f -
 }
@@ -475,7 +475,10 @@ install() {
         -n "${NAMESPACE}" \
         --dry-run=client -o yaml | kubectl apply -f -
 
-    ensure_koduck_agent_secret
+    ensure_koduck_ai_llm_secret
+
+    # 移除已废弃的 koduck-agent secret，避免 direct mode 切换后留下误导性资源
+    kubectl delete secret "${ENV}-koduck-agent-secrets" -n "${NAMESPACE}" --ignore-not-found=true >/dev/null 2>&1 || true
 
     # 先确保 koduck-auth JWT key secret 可用，再部署工作负载，减少首次启动抖动
     ensure_koduck_auth_jwt_keys_secret
