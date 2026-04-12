@@ -351,8 +351,8 @@
 3. dev / prod 共用同一脚本入口
 
 **验收标准:**
-- [ ] `./k8s/deploy.sh dev install` 可完成安装
-- [ ] `./k8s/uninstall.sh dev` 可完成清理
+- [x] `./k8s/deploy.sh dev install` 可完成安装
+- [x] `./k8s/uninstall.sh dev` 可完成清理
 
 ### Task 8.3: 观测与 SLO
 **详细要求:**

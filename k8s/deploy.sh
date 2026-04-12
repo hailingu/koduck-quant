@@ -485,8 +485,9 @@ install() {
 
     ensure_etcd_pvc_ready
 
-    # 清理已完成的旧 init Job，确保重新注册路由
+    # 清理已完成的旧 init Job，确保重新注册路由与对象存储 bucket 初始化
     kubectl delete job "${ENV}-apisix-route-init" -n "${NAMESPACE}" --ignore-not-found=true --wait=false 2>/dev/null || true
+    kubectl delete job "${ENV}-minio-bucket-init" -n "${NAMESPACE}" --ignore-not-found=true --wait=false 2>/dev/null || true
 
     # 阶段一：部署基础设施（PostgreSQL + Redis + etcd + APISIX + Frontend + koduck-auth）
     echo -e "${YELLOW}部署基础设施...${NC}"
@@ -514,6 +515,9 @@ install() {
     echo -e "${YELLOW}等待 Redis 启动...${NC}"
     wait_pods_ready "app=redis" "30s" "redis"
 
+    echo -e "${YELLOW}等待 MinIO 启动...${NC}"
+    wait_pods_ready "app=minio" "30s" "minio"
+
     echo -e "${YELLOW}等待 etcd 启动...${NC}"
     wait_pods_ready "app=apisix-etcd" "30s" "etcd"
 
@@ -531,6 +535,17 @@ install() {
 
     echo -e "${YELLOW}等待 koduck-ai 启动...${NC}"
     wait_pods_ready "app=koduck-ai" "60s" "koduck-ai"
+
+    echo -e "${YELLOW}等待 MinIO bucket 初始化...${NC}"
+    if ! kubectl wait --for=condition=complete job/"${ENV}-minio-bucket-init" -n "${NAMESPACE}" --timeout=60s; then
+        echo -e "${RED}错误: MinIO bucket 初始化 Job 执行失败${NC}"
+        kubectl -n "${NAMESPACE}" get job "${ENV}-minio-bucket-init" -o wide || true
+        kubectl -n "${NAMESPACE}" logs job/"${ENV}-minio-bucket-init" || true
+        exit 1
+    fi
+
+    echo -e "${YELLOW}等待 koduck-memory 启动...${NC}"
+    wait_pods_ready "app=koduck-memory" "90s" "koduck-memory"
 
     # 阶段二：APISIX 就绪后注册路由和 Consumer
     echo -e "${YELLOW}注册路由和 Consumer...${NC}"
