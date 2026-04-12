@@ -11,7 +11,7 @@ use crate::api::{
 use crate::config::AppConfig;
 use crate::index::MemoryIndexRepository;
 use crate::memory::{IdempotencyRepository, InsertMemoryEntry, MemoryEntryRepository, metadata_to_jsonb};
-use crate::retrieve::{DomainFirstRetriever, RetrieveContext};
+use crate::retrieve::{DomainFirstRetriever, RetrieveContext, SummaryFirstRetriever};
 use crate::session::{SessionRepository, UpsertSession, extra_to_jsonb, parse_optional_uuid, parse_uuid};
 use crate::store::{L0EntryContent, ObjectStoreClient, RuntimeState};
 
@@ -285,9 +285,21 @@ impl MemoryService for MemoryGrpcService {
                     .await
                     .map_err(|e| Status::internal(format!("retrieval failed: {e}")))?
             }
+            2 => {
+                // SUMMARY_FIRST (2)
+                let retriever = SummaryFirstRetriever::new(self.runtime.pool());
+                retriever
+                    .retrieve(&ctx)
+                    .await
+                    .map_err(|e| Status::internal(format!("retrieval failed: {e}")))?
+            }
             _ => {
-                // Other policies not yet implemented, fall back to empty result
-                Vec::new()
+                // Other policies not yet implemented, fall back to DOMAIN_FIRST
+                let retriever = DomainFirstRetriever::new(self.runtime.pool());
+                retriever
+                    .retrieve(&ctx)
+                    .await
+                    .map_err(|e| Status::internal(format!("retrieval failed: {e}")))?
             }
         };
 
