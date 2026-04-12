@@ -167,9 +167,9 @@
 3. 支持 `extra` 扩展字段
 
 **验收标准:**
-- [ ] create / update 都可成功
-- [ ] 不产生重复 session
-- [ ] 会话真值以 `koduck-memory` 为准
+- [x] create / update 都可成功
+- [x] 不产生重复 session
+- [x] 会话真值以 `koduck-memory` 为准
 
 ---
 
