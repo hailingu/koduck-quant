@@ -3,4 +3,5 @@
 pub mod degrade;
 pub mod error;
 pub mod error_mapper;
+pub mod memory_observe;
 pub mod retry_budget;
