@@ -268,15 +268,17 @@ mod tests {
     use std::time::Duration;
 
     use super::MemoryGrpcService;
-    use crate::api::{MemoryServiceClient, MemoryServiceServer, RequestMeta};
+    use crate::api::{GetSessionRequest, MemoryServiceClient, MemoryServiceServer, RequestMeta};
     use crate::config::{
         AppConfig, AppSection, CapabilitiesSection, IndexSection, ObjectStoreSection,
         PostgresSection, ServerSection, SummarySection,
     };
+    use crate::session::{SessionRepository, UpsertSession, extra_to_jsonb};
     use crate::store::RuntimeState;
     use tokio::net::TcpListener;
     use tokio_stream::wrappers::TcpListenerStream;
     use tonic::transport::{Channel, Server};
+    use uuid::Uuid;
 
     fn valid_meta() -> RequestMeta {
         RequestMeta {
@@ -410,6 +412,154 @@ mod tests {
             response.limits.get("recommended_timeout_ms"),
             Some(&"5000".to_string())
         );
+
+        let _ = shutdown_tx.send(());
+        server.await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn get_session_returns_session_for_existing() {
+        let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let addr = listener.local_addr().unwrap();
+        let incoming = TcpListenerStream::new(listener);
+
+        let config = test_config();
+        let runtime = RuntimeState::initialize(&config).await.unwrap();
+
+        // Seed a session via repository
+        let session_id = Uuid::new_v4();
+        let parent_id = Uuid::new_v4();
+        let repo = SessionRepository::new(runtime.pool());
+        let now = chrono::Utc::now();
+        let mut extra_map = std::collections::HashMap::new();
+        extra_map.insert("theme".to_string(), "dark".to_string());
+
+        repo.upsert(&UpsertSession {
+            session_id,
+            tenant_id: "tenant-t32".to_string(),
+            user_id: "user-t32".to_string(),
+            parent_session_id: Some(parent_id),
+            forked_from_session_id: None,
+            title: "GetSession Test".to_string(),
+            status: "active".to_string(),
+            last_message_at: now,
+            extra: extra_to_jsonb(&extra_map),
+        })
+        .await
+        .unwrap();
+
+        let service = MemoryGrpcService::new(config, runtime);
+        let (shutdown_tx, shutdown_rx) = tokio::sync::oneshot::channel::<()>();
+
+        let server = tokio::spawn(async move {
+            Server::builder()
+                .add_service(MemoryServiceServer::new(service))
+                .serve_with_incoming_shutdown(incoming, async {
+                    let _ = shutdown_rx.await;
+                })
+                .await
+                .unwrap();
+        });
+
+        let endpoint = format!("http://{addr}");
+        let channel = Channel::from_shared(endpoint)
+            .unwrap()
+            .connect_timeout(Duration::from_secs(2))
+            .connect()
+            .await
+            .unwrap();
+        let mut client = MemoryServiceClient::new(channel);
+
+        let response = client
+            .get_session(GetSessionRequest {
+                meta: Some(RequestMeta {
+                    request_id: "req-t32-1".to_string(),
+                    session_id: session_id.to_string(),
+                    user_id: "user-t32".to_string(),
+                    tenant_id: "tenant-t32".to_string(),
+                    trace_id: "trace-t32-1".to_string(),
+                    idempotency_key: String::new(),
+                    deadline_ms: 5000,
+                    api_version: "memory.v1".to_string(),
+                }),
+                session_id: session_id.to_string(),
+            })
+            .await
+            .unwrap()
+            .into_inner();
+
+        assert!(response.ok);
+        let session = response.session.unwrap();
+        assert_eq!(session.session_id, session_id.to_string());
+        assert_eq!(session.tenant_id, "tenant-t32");
+        assert_eq!(session.user_id, "user-t32");
+        assert_eq!(session.parent_session_id, parent_id.to_string());
+        assert_eq!(session.forked_from_session_id, "");
+        assert_eq!(session.title, "GetSession Test");
+        assert_eq!(session.status, "active");
+        assert_eq!(session.extra.get("theme"), Some(&"dark".to_string()));
+        assert!(response.error.is_none());
+
+        let _ = shutdown_tx.send(());
+        server.await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn get_session_returns_not_found_for_missing() {
+        let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let addr = listener.local_addr().unwrap();
+        let incoming = TcpListenerStream::new(listener);
+
+        let config = test_config();
+        let runtime = RuntimeState::initialize(&config).await.unwrap();
+        let service = MemoryGrpcService::new(config, runtime);
+        let (shutdown_tx, shutdown_rx) = tokio::sync::oneshot::channel::<()>();
+
+        let server = tokio::spawn(async move {
+            Server::builder()
+                .add_service(MemoryServiceServer::new(service))
+                .serve_with_incoming_shutdown(incoming, async {
+                    let _ = shutdown_rx.await;
+                })
+                .await
+                .unwrap();
+        });
+
+        let endpoint = format!("http://{addr}");
+        let channel = Channel::from_shared(endpoint)
+            .unwrap()
+            .connect_timeout(Duration::from_secs(2))
+            .connect()
+            .await
+            .unwrap();
+        let mut client = MemoryServiceClient::new(channel);
+
+        let missing_id = Uuid::new_v4();
+        let response = client
+            .get_session(GetSessionRequest {
+                meta: Some(RequestMeta {
+                    request_id: "req-t32-2".to_string(),
+                    session_id: missing_id.to_string(),
+                    user_id: "user-t32".to_string(),
+                    tenant_id: "tenant-t32".to_string(),
+                    trace_id: "trace-t32-2".to_string(),
+                    idempotency_key: String::new(),
+                    deadline_ms: 5000,
+                    api_version: "memory.v1".to_string(),
+                }),
+                session_id: missing_id.to_string(),
+            })
+            .await
+            .unwrap()
+            .into_inner();
+
+        assert!(!response.ok);
+        assert!(response.session.is_none());
+        let error = response.error.unwrap();
+        assert_eq!(error.code, "RESOURCE_NOT_FOUND");
+        assert_eq!(error.message, "session not found");
+        assert!(!error.retryable);
+        assert_eq!(error.upstream, "koduck-memory");
 
         let _ = shutdown_tx.send(());
         server.await.unwrap();
