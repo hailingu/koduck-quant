@@ -25,3 +25,7 @@ ttl_secs = 60
 
 [summary]
 async_enabled = true
+
+[retry]
+max_attempts = 3
+initial_delay_ms = 500
