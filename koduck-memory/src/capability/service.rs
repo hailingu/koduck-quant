@@ -1750,6 +1750,7 @@ mod tests {
     }
 
     #[tokio::test]
+<<<<<<< HEAD
     async fn summarize_memory_materializes_summary_and_domain_class() {
         let mut config = test_config();
         config.summary.async_enabled = true;
@@ -1992,5 +1993,99 @@ mod tests {
 
         let _ = shutdown_tx.send(());
         server.await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn query_memory_summary_first_filters_candidates_with_session_scope() {
+        let config = test_config();
+        let runtime = RuntimeState::initialize(&config).await.unwrap();
+        let service = MemoryGrpcService::new(config, runtime, None);
+
+        let session_id = Uuid::new_v4();
+        let sid_str = session_id.to_string();
+        let other_session_id = Uuid::new_v4();
+        let other_sid_str = other_session_id.to_string();
+
+        for (request_id, target_session_id, title) in [
+            ("t53-seed-1", sid_str.clone(), "Summary First Session"),
+            ("t53-seed-2", other_sid_str.clone(), "Other Session"),
+        ] {
+            let resp = service
+                .upsert_session_meta(Request::new(UpsertSessionMetaRequest {
+                    meta: Some(write_meta_with_idempotency(request_id, &target_session_id)),
+                    session_id: target_session_id,
+                    title: title.to_string(),
+                    status: "active".to_string(),
+                    parent_session_id: String::new(),
+                    forked_from_session_id: String::new(),
+                    last_message_at: 1700000000000,
+                    extra: HashMap::new(),
+                }))
+                .await
+                .unwrap()
+                .into_inner();
+            assert!(resp.ok);
+        }
+
+        let append_cases = [
+            (
+                "t53-append-keep",
+                sid_str.clone(),
+                "Need a release checklist for the dev rollout next week",
+            ),
+            (
+                "t53-append-drop",
+                sid_str.clone(),
+                "Discussed lunch options and weekend travel plans",
+            ),
+            (
+                "t53-append-other",
+                other_sid_str.clone(),
+                "Need a release checklist for the production rollout",
+            ),
+        ];
+
+        for (request_id, target_session_id, content) in append_cases {
+            let resp = service
+                .append_memory(Request::new(AppendMemoryRequest {
+                    meta: Some(write_meta_with_idempotency(request_id, &target_session_id)),
+                    session_id: target_session_id,
+                    entries: vec![MemoryEntry {
+                        role: "user".to_string(),
+                        content: content.to_string(),
+                        timestamp: 1700000001000,
+                        metadata: HashMap::new(),
+                    }],
+                }))
+                .await
+                .unwrap()
+                .into_inner();
+            assert!(resp.ok);
+            assert_eq!(resp.appended_count, 1);
+        }
+
+        let response = service
+            .query_memory(Request::new(QueryMemoryRequest {
+                meta: Some(write_meta_with_idempotency("t53-query", &sid_str)),
+                query_text: "release checklist rollout".to_string(),
+                session_id: sid_str,
+                domain_class: "chat".to_string(),
+                top_k: 5,
+                retrieve_policy: RetrievePolicy::RetrievePolicySummaryFirst as i32,
+                page_token: String::new(),
+                page_size: 0,
+            }))
+            .await
+            .unwrap()
+            .into_inner();
+
+        assert!(response.ok);
+        assert_eq!(response.hits.len(), 1);
+
+        let hit = &response.hits[0];
+        assert!(hit.snippet.contains("release checklist"));
+        assert!(hit.match_reasons.contains(&"domain_class_hit".to_string()));
+        assert!(hit.match_reasons.contains(&"summary_hit".to_string()));
+        assert!(hit.match_reasons.contains(&"session_scope_hit".to_string()));
     }
 }

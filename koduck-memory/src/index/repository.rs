@@ -190,6 +190,52 @@ impl MemoryIndexRepository {
         Ok(rows)
     }
 
+    /// Search index records by tenant_id + optional session_id + domain_class + summary text match.
+    ///
+    /// Used for session-scoped SUMMARY_FIRST retrieval strategy so summary filtering
+    /// stays inside the already selected domain/session candidate set.
+    pub async fn search_by_summary_in_scope(
+        &self,
+        tenant_id: &str,
+        session_id: Option<Uuid>,
+        domain_class: &str,
+        query_text: &str,
+        limit: i64,
+    ) -> Result<Vec<MemoryIndexRecord>> {
+        let ts_query = query_text.split_whitespace().collect::<Vec<_>>().join(" & ");
+
+        let rows = if let Some(session_id) = session_id {
+            sqlx::query_as::<_, MemoryIndexRecord>(
+                r#"
+                SELECT
+                    id, tenant_id, session_id, entry_id,
+                    memory_kind, domain_class, summary, snippet,
+                    source_uri, score_hint,
+                    created_at, updated_at
+                FROM memory_index_records
+                WHERE tenant_id = $1
+                  AND session_id = $2
+                  AND domain_class = $3
+                  AND to_tsvector('simple', summary) @@ to_tsquery('simple', $4)
+                ORDER BY updated_at DESC
+                LIMIT $5
+                "#,
+            )
+            .bind(tenant_id)
+            .bind(session_id)
+            .bind(domain_class)
+            .bind(&ts_query)
+            .bind(limit)
+            .fetch_all(&self.pool)
+            .await?
+        } else {
+            self.search_by_summary(tenant_id, domain_class, query_text, limit)
+                .await?
+        };
+
+        Ok(rows)
+    }
+
     /// Get a single record by ID.
     pub async fn get_by_id(&self, id: Uuid) -> Result<Option<MemoryIndexRecord>> {
         let row = sqlx::query_as::<_, MemoryIndexRecord>(

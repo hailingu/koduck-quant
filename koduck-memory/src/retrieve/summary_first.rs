@@ -46,11 +46,38 @@ impl SummaryFirstRetriever {
         }
 
         let limit = ctx.top_k as i64;
+        let session_uuid = ctx
+            .session_id
+            .as_ref()
+            .and_then(|session_id| uuid::Uuid::parse_str(session_id).ok());
+
+        // First collect the structural candidate set. Summary only narrows this set;
+        // it does not decide the final ordering on its own.
+        let domain_records = if let Some(session_id) = session_uuid {
+            self.index_repo
+                .list_by_session(&ctx.tenant_id, session_id, Some(&ctx.domain_class), limit * 2)
+                .await?
+        } else {
+            self.index_repo
+                .list_by_domain(&ctx.tenant_id, &ctx.domain_class, limit * 2)
+                .await?
+        };
+
+        if domain_records.is_empty() {
+            debug!("no domain candidates found for SUMMARY_FIRST");
+            return Ok(Vec::new());
+        }
 
         // Perform summary search
         let summary_records = self
             .index_repo
-            .search_by_summary(&ctx.tenant_id, &ctx.domain_class, &ctx.query_text, limit)
+            .search_by_summary_in_scope(
+                &ctx.tenant_id,
+                session_uuid,
+                &ctx.domain_class,
+                &ctx.query_text,
+                limit * 2,
+            )
             .await?;
 
         debug!(
@@ -68,12 +95,6 @@ impl SummaryFirstRetriever {
             return self.domain_retriever.retrieve(ctx).await;
         }
 
-        // Get all domain candidates for context
-        let domain_records = self
-            .index_repo
-            .list_by_domain(&ctx.tenant_id, &ctx.domain_class, limit * 2)
-            .await?;
-
         info!(
             domain_count = domain_records.len(),
             summary_match_count = summary_records.len(),
@@ -87,17 +108,21 @@ impl SummaryFirstRetriever {
             .map(|r| r.id)
             .collect();
 
-        // Convert domain records to results, marking summary_hit for matches
+        // Summary acts as a negative filter inside the domain candidate set:
+        // only records that survive the summary check are returned.
         let results = domain_records
             .into_iter()
+            .filter(|record| summary_match_ids.contains(&record.id))
             .take(limit as usize)
             .map(|record| {
-                let is_summary_match = summary_match_ids.contains(&record.id);
-
                 let mut result = RetrieveResult::new(
                     record.session_id.to_string(),
                     record.source_uri,
-                    if is_summary_match { 0.8 } else { 0.5 },
+                    record
+                        .score_hint
+                        .as_deref()
+                        .and_then(|score| score.parse().ok())
+                        .unwrap_or(0.5),
                     record.snippet.unwrap_or_else(|| {
                         let summary = record.summary;
                         if summary.len() > 200 {
@@ -111,10 +136,8 @@ impl SummaryFirstRetriever {
                 // Add domain_class_hit reason
                 result = result.with_match_reason(match_reason::DOMAIN_CLASS_HIT);
 
-                // Add summary_hit if this record matched the summary search
-                if is_summary_match {
-                    result = result.with_match_reason(match_reason::SUMMARY_HIT);
-                }
+                // Add summary_hit because the record survived summary filtering.
+                result = result.with_match_reason(match_reason::SUMMARY_HIT);
 
                 // Add session_scope_hit if session filter was applied
                 if ctx.session_id.is_some() {
