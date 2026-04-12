@@ -4,9 +4,11 @@
 //! and background refresh for memory/tool/llm gRPC clients.
 
 use std::collections::HashMap;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
+use serde::Serialize;
 use tokio::sync::{broadcast, RwLock};
 use tonic::transport::Endpoint;
 use tracing::{error, info, warn};
@@ -70,6 +72,121 @@ pub struct VersionMismatchAlert {
 }
 
 // ---------------------------------------------------------------------------
+// Capability Metrics
+// ---------------------------------------------------------------------------
+
+/// Atomic counters for capability negotiation observability.
+pub struct CapabilityMetrics {
+    negotiation_total: AtomicU64,
+    negotiation_success: AtomicU64,
+    negotiation_failure: AtomicU64,
+    refresh_total: AtomicU64,
+    refresh_success: AtomicU64,
+    refresh_failure: AtomicU64,
+    version_mismatch_total: AtomicU64,
+}
+
+#[derive(Debug, Serialize)]
+pub struct CapabilityMetricsSnapshot {
+    pub negotiation_total: u64,
+    pub negotiation_success: u64,
+    pub negotiation_failure: u64,
+    pub refresh_total: u64,
+    pub refresh_success: u64,
+    pub refresh_failure: u64,
+    pub version_mismatch_total: u64,
+}
+
+impl Default for CapabilityMetrics {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl CapabilityMetrics {
+    pub fn new() -> Self {
+        Self {
+            negotiation_total: AtomicU64::new(0),
+            negotiation_success: AtomicU64::new(0),
+            negotiation_failure: AtomicU64::new(0),
+            refresh_total: AtomicU64::new(0),
+            refresh_success: AtomicU64::new(0),
+            refresh_failure: AtomicU64::new(0),
+            version_mismatch_total: AtomicU64::new(0),
+        }
+    }
+
+    pub fn record_negotiation_success(&self) {
+        self.negotiation_total.fetch_add(1, Ordering::Relaxed);
+        self.negotiation_success.fetch_add(1, Ordering::Relaxed);
+    }
+
+    pub fn record_negotiation_failure(&self) {
+        self.negotiation_total.fetch_add(1, Ordering::Relaxed);
+        self.negotiation_failure.fetch_add(1, Ordering::Relaxed);
+    }
+
+    pub fn record_refresh_success(&self) {
+        self.refresh_total.fetch_add(1, Ordering::Relaxed);
+        self.refresh_success.fetch_add(1, Ordering::Relaxed);
+    }
+
+    pub fn record_refresh_failure(&self) {
+        self.refresh_total.fetch_add(1, Ordering::Relaxed);
+        self.refresh_failure.fetch_add(1, Ordering::Relaxed);
+    }
+
+    pub fn record_version_mismatch(&self, count: u64) {
+        self.version_mismatch_total.fetch_add(count, Ordering::Relaxed);
+    }
+
+    pub fn snapshot(&self) -> CapabilityMetricsSnapshot {
+        CapabilityMetricsSnapshot {
+            negotiation_total: self.negotiation_total.load(Ordering::Relaxed),
+            negotiation_success: self.negotiation_success.load(Ordering::Relaxed),
+            negotiation_failure: self.negotiation_failure.load(Ordering::Relaxed),
+            refresh_total: self.refresh_total.load(Ordering::Relaxed),
+            refresh_success: self.refresh_success.load(Ordering::Relaxed),
+            refresh_failure: self.refresh_failure.load(Ordering::Relaxed),
+            version_mismatch_total: self.version_mismatch_total.load(Ordering::Relaxed),
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Negotiation Status
+// ---------------------------------------------------------------------------
+
+/// Per-service negotiation status for health check exposure.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ServiceNegotiationStatus {
+    Ok,
+    Failed,
+    Pending,
+}
+
+/// Aggregated negotiation status across all downstream services.
+#[derive(Debug, Clone, Serialize)]
+pub struct NegotiationStatus {
+    pub memory: ServiceNegotiationStatus,
+    pub tool: ServiceNegotiationStatus,
+    pub llm: ServiceNegotiationStatus,
+    pub negotiated_at: Option<String>,
+}
+
+impl Default for NegotiationStatus {
+    fn default() -> Self {
+        Self {
+            memory: ServiceNegotiationStatus::Pending,
+            tool: ServiceNegotiationStatus::Pending,
+            llm: ServiceNegotiationStatus::Pending,
+            negotiated_at: None,
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
 // Capability Cache
 // ---------------------------------------------------------------------------
 
@@ -82,7 +199,9 @@ pub struct CapabilityCache {
     memory: RwLock<Option<CachedCapability>>,
     tool: RwLock<Option<CachedCapability>>,
     llm: RwLock<Option<CachedCapability>>,
+    negotiation_status: RwLock<NegotiationStatus>,
     config: CapabilitiesConfig,
+    metrics: CapabilityMetrics,
 }
 
 impl CapabilityCache {
@@ -91,7 +210,9 @@ impl CapabilityCache {
             memory: RwLock::new(None),
             tool: RwLock::new(None),
             llm: RwLock::new(None),
+            negotiation_status: RwLock::new(NegotiationStatus::default()),
             config,
+            metrics: CapabilityMetrics::new(),
         }
     }
 
@@ -156,7 +277,7 @@ impl CapabilityCache {
         );
 
         // Version compatibility check
-        check_version_compatibility(&memory_cap, &tool_cap, &llm_cap, &self.config)?;
+        check_version_compatibility(&memory_cap, &tool_cap, &llm_cap, &self.config, &self.metrics)?;
 
         // Populate cache
         let memory_cached = CachedCapability::new(memory_cap);
@@ -172,6 +293,15 @@ impl CapabilityCache {
         {
             *self.llm.write().await = Some(llm_cached.clone());
         }
+
+        *self.negotiation_status.write().await = NegotiationStatus {
+            memory: ServiceNegotiationStatus::Ok,
+            tool: ServiceNegotiationStatus::Ok,
+            llm: ServiceNegotiationStatus::Ok,
+            negotiated_at: Some(chrono::Utc::now().to_rfc3339()),
+        };
+
+        self.metrics.record_negotiation_success();
 
         info!(
             ttl_secs = self.config.ttl_secs,
@@ -262,7 +392,7 @@ impl CapabilityCache {
             "LLM capabilities negotiated"
         );
 
-        check_version_compatibility(&memory_cap, &tool_cap, &llm_cap, &self.config)?;
+        check_version_compatibility(&memory_cap, &tool_cap, &llm_cap, &self.config, &self.metrics)?;
 
         let memory_cached = CachedCapability::new(memory_cap);
         let tool_cached = CachedCapability::new(tool_cap);
@@ -271,6 +401,15 @@ impl CapabilityCache {
         *self.memory.write().await = Some(memory_cached.clone());
         *self.tool.write().await = Some(tool_cached.clone());
         *self.llm.write().await = Some(llm_cached.clone());
+
+        *self.negotiation_status.write().await = NegotiationStatus {
+            memory: ServiceNegotiationStatus::Ok,
+            tool: ServiceNegotiationStatus::Ok,
+            llm: ServiceNegotiationStatus::Ok,
+            negotiated_at: Some(chrono::Utc::now().to_rfc3339()),
+        };
+
+        self.metrics.record_negotiation_success();
 
         info!(
             ttl_secs = self.config.ttl_secs,
@@ -362,11 +501,15 @@ impl CapabilityCache {
                     "Memory capabilities refreshed"
                 );
                 *self.memory.write().await = Some(CachedCapability::new(cap));
+                self.metrics.record_refresh_success();
             }
-            Err(e) => warn!(
-                error = %e,
-                "Failed to refresh memory capabilities (using cached data)"
-            ),
+            Err(e) => {
+                warn!(
+                    error = %e,
+                    "Failed to refresh memory capabilities (using cached data)"
+                );
+                self.metrics.record_refresh_failure();
+            }
         }
 
         // Tool
@@ -378,11 +521,15 @@ impl CapabilityCache {
                     "Tool capabilities refreshed"
                 );
                 *self.tool.write().await = Some(CachedCapability::new(cap));
+                self.metrics.record_refresh_success();
             }
-            Err(e) => warn!(
-                error = %e,
-                "Failed to refresh tool capabilities (using cached data)"
-            ),
+            Err(e) => {
+                warn!(
+                    error = %e,
+                    "Failed to refresh tool capabilities (using cached data)"
+                );
+                self.metrics.record_refresh_failure();
+            }
         }
 
         // LLM
@@ -394,12 +541,24 @@ impl CapabilityCache {
                     "LLM capabilities refreshed"
                 );
                 *self.llm.write().await = Some(CachedCapability::new(cap));
+                self.metrics.record_refresh_success();
             }
-            Err(e) => warn!(
-                error = %e,
-                "Failed to refresh llm capabilities (using cached data)"
-            ),
+            Err(e) => {
+                warn!(
+                    error = %e,
+                    "Failed to refresh llm capabilities (using cached data)"
+                );
+                self.metrics.record_refresh_failure();
+            }
         }
+
+        // Update negotiation timestamp on successful refresh
+        *self.negotiation_status.write().await = NegotiationStatus {
+            memory: if self.memory.read().await.is_some() { ServiceNegotiationStatus::Ok } else { ServiceNegotiationStatus::Failed },
+            tool: if self.tool.read().await.is_some() { ServiceNegotiationStatus::Ok } else { ServiceNegotiationStatus::Failed },
+            llm: if self.llm.read().await.is_some() { ServiceNegotiationStatus::Ok } else { ServiceNegotiationStatus::Failed },
+            negotiated_at: Some(chrono::Utc::now().to_rfc3339()),
+        };
     }
 
     async fn refresh_all_mode_aware(
@@ -420,11 +579,15 @@ impl CapabilityCache {
                     "Memory capabilities refreshed"
                 );
                 *self.memory.write().await = Some(CachedCapability::new(cap));
+                self.metrics.record_refresh_success();
             }
-            Err(e) => warn!(
-                error = %e,
-                "Failed to refresh memory capabilities (using cached data)"
-            ),
+            Err(e) => {
+                warn!(
+                    error = %e,
+                    "Failed to refresh memory capabilities (using cached data)"
+                );
+                self.metrics.record_refresh_failure();
+            }
         }
 
         match fetch_tool_capability(tool_addr).await {
@@ -435,11 +598,15 @@ impl CapabilityCache {
                     "Tool capabilities refreshed"
                 );
                 *self.tool.write().await = Some(CachedCapability::new(cap));
+                self.metrics.record_refresh_success();
             }
-            Err(e) => warn!(
-                error = %e,
-                "Failed to refresh tool capabilities (using cached data)"
-            ),
+            Err(e) => {
+                warn!(
+                    error = %e,
+                    "Failed to refresh tool capabilities (using cached data)"
+                );
+                self.metrics.record_refresh_failure();
+            }
         }
 
         let llm_result = match llm_mode {
@@ -449,7 +616,7 @@ impl CapabilityCache {
             LlmMode::Direct => {
                 fetch_direct_llm_capability(llm_config, llm_provider, required_version).await
             }
-                
+
         };
 
         match llm_result {
@@ -461,13 +628,24 @@ impl CapabilityCache {
                     "LLM capabilities refreshed"
                 );
                 *self.llm.write().await = Some(CachedCapability::new(cap));
+                self.metrics.record_refresh_success();
             }
-            Err(e) => warn!(
-                error = %e,
-                llm_mode = %llm_mode,
-                "Failed to refresh llm capabilities (using cached data)"
-            ),
+            Err(e) => {
+                warn!(
+                    error = %e,
+                    llm_mode = %llm_mode,
+                    "Failed to refresh llm capabilities (using cached data)"
+                );
+                self.metrics.record_refresh_failure();
+            }
         }
+
+        *self.negotiation_status.write().await = NegotiationStatus {
+            memory: if self.memory.read().await.is_some() { ServiceNegotiationStatus::Ok } else { ServiceNegotiationStatus::Failed },
+            tool: if self.tool.read().await.is_some() { ServiceNegotiationStatus::Ok } else { ServiceNegotiationStatus::Failed },
+            llm: if self.llm.read().await.is_some() { ServiceNegotiationStatus::Ok } else { ServiceNegotiationStatus::Failed },
+            negotiated_at: Some(chrono::Utc::now().to_rfc3339()),
+        };
     }
 
     /// Get a snapshot of the currently cached memory capability.
@@ -483,6 +661,16 @@ impl CapabilityCache {
     /// Get a snapshot of the currently cached llm capability.
     pub async fn get_llm(&self) -> Option<CachedCapability> {
         self.llm.read().await.clone()
+    }
+
+    /// Get the current negotiation status for health checks.
+    pub async fn get_negotiation_status(&self) -> NegotiationStatus {
+        self.negotiation_status.read().await.clone()
+    }
+
+    /// Get a snapshot of capability metrics.
+    pub fn get_metrics_snapshot(&self) -> CapabilityMetricsSnapshot {
+        self.metrics.snapshot()
     }
 }
 
@@ -662,6 +850,15 @@ fn capability_request_context(provider: &str, deadline_ms: u64) -> RequestContex
 // Version Compatibility Check
 // ---------------------------------------------------------------------------
 
+/// Check if an actual version string matches the required version.
+///
+/// Uses suffix matching: `"v1"` matches `"v1"`, `"memory.v1"`, `"tool.v1"`, `"llm.v1"`.
+/// This handles the case where downstream services use `"{service}.v1"` format
+/// (e.g., koduck-memory returns `"memory.v1"`) while the required version is `"v1"`.
+fn version_matches(actual: &str, required: &str) -> bool {
+    actual == required || actual.ends_with(&format!(".{required}"))
+}
+
 /// Check version compatibility across all services.
 ///
 /// In strict mode, any service that does not advertise the required version
@@ -672,6 +869,7 @@ fn check_version_compatibility(
     tool: &proto::Capability,
     llm: &proto::Capability,
     config: &CapabilitiesConfig,
+    metrics: &CapabilityMetrics,
 ) -> Result<(), AppError> {
     let required = &config.required_version;
 
@@ -684,6 +882,8 @@ fn check_version_compatibility(
         );
         return Ok(());
     }
+
+    metrics.record_version_mismatch(mismatches.len() as u64);
 
     if config.strict_mode {
         // Output structured alert and fail
@@ -731,7 +931,11 @@ fn collect_mismatches(
 ) -> Vec<VersionMismatchAlert> {
     let mut mismatches = Vec::new();
 
-    if !memory.contract_versions.iter().any(|v| v == required) {
+    if !memory
+        .contract_versions
+        .iter()
+        .any(|v| version_matches(v, required))
+    {
         mismatches.push(VersionMismatchAlert {
             service: memory.service.clone(),
             expected_version: required.to_string(),
@@ -740,7 +944,11 @@ fn collect_mismatches(
         });
     }
 
-    if !tool.contract_versions.iter().any(|v| v == required) {
+    if !tool
+        .contract_versions
+        .iter()
+        .any(|v| version_matches(v, required))
+    {
         mismatches.push(VersionMismatchAlert {
             service: tool.service.clone(),
             expected_version: required.to_string(),
@@ -749,7 +957,11 @@ fn collect_mismatches(
         });
     }
 
-    if !llm.contract_versions.iter().any(|v| v == required) {
+    if !llm
+        .contract_versions
+        .iter()
+        .any(|v| version_matches(v, required))
+    {
         mismatches.push(VersionMismatchAlert {
             service: llm.service.clone(),
             expected_version: required.to_string(),
@@ -844,13 +1056,48 @@ mod tests {
     }
 
     #[test]
+    fn test_version_matches_exact() {
+        assert!(version_matches("v1", "v1"));
+        assert!(version_matches("v2", "v2"));
+    }
+
+    #[test]
+    fn test_version_matches_suffix() {
+        assert!(version_matches("memory.v1", "v1"));
+        assert!(version_matches("tool.v1", "v1"));
+        assert!(version_matches("llm.v1", "v1"));
+        assert!(version_matches("memory.v2", "v2"));
+    }
+
+    #[test]
+    fn test_version_matches_rejects_incompatible() {
+        assert!(!version_matches("v2", "v1"));
+        assert!(!version_matches("memory.v2", "v1"));
+        assert!(!version_matches("foo", "v1"));
+        assert!(!version_matches("", "v1"));
+    }
+
+    #[test]
     fn test_check_version_compatibility_all_match() {
         let memory = make_capability("memory", vec!["v1"]);
         let tool = make_capability("tool", vec!["v1"]);
         let llm = make_capability("llm", vec!["v1"]);
         let config = CapabilitiesConfig::default();
+        let metrics = CapabilityMetrics::new();
 
-        assert!(check_version_compatibility(&memory, &tool, &llm, &config).is_ok());
+        assert!(check_version_compatibility(&memory, &tool, &llm, &config, &metrics).is_ok());
+    }
+
+    #[test]
+    fn test_check_version_compatibility_service_prefixed_versions() {
+        // koduck-memory returns "memory.v1", koduck-tool returns "tool.v1", llm returns "v1"
+        let memory = make_capability("memory", vec!["memory.v1"]);
+        let tool = make_capability("tool", vec!["tool.v1"]);
+        let llm = make_capability("llm", vec!["v1"]);
+        let config = CapabilitiesConfig::default();
+        let metrics = CapabilityMetrics::new();
+
+        assert!(check_version_compatibility(&memory, &tool, &llm, &config, &metrics).is_ok());
     }
 
     #[test]
@@ -859,8 +1106,9 @@ mod tests {
         let tool = make_capability("tool", vec!["v2", "v1"]);
         let llm = make_capability("llm", vec!["v1"]);
         let config = CapabilitiesConfig::default();
+        let metrics = CapabilityMetrics::new();
 
-        assert!(check_version_compatibility(&memory, &tool, &llm, &config).is_ok());
+        assert!(check_version_compatibility(&memory, &tool, &llm, &config, &metrics).is_ok());
     }
 
     #[test]
@@ -869,8 +1117,9 @@ mod tests {
         let tool = make_capability("tool", vec!["v2"]); // mismatch
         let llm = make_capability("llm", vec!["v1"]);
         let config = CapabilitiesConfig::default(); // strict_mode = true
+        let metrics = CapabilityMetrics::new();
 
-        let result = check_version_compatibility(&memory, &tool, &llm, &config);
+        let result = check_version_compatibility(&memory, &tool, &llm, &config, &metrics);
         assert!(result.is_err());
         let err = result.unwrap_err();
         assert_eq!(err.code, ErrorCode::DependencyFailed);
@@ -885,9 +1134,26 @@ mod tests {
             strict_mode: false,
             ..CapabilitiesConfig::default()
         };
+        let metrics = CapabilityMetrics::new();
 
         // Non-strict mode should not error
-        assert!(check_version_compatibility(&memory, &tool, &llm, &config).is_ok());
+        assert!(check_version_compatibility(&memory, &tool, &llm, &config, &metrics).is_ok());
+    }
+
+    #[test]
+    fn test_version_mismatch_records_metrics() {
+        let memory = make_capability("memory", vec!["v2"]);
+        let tool = make_capability("tool", vec!["v2"]);
+        let llm = make_capability("llm", vec!["v1"]);
+        let config = CapabilitiesConfig {
+            strict_mode: false,
+            ..CapabilitiesConfig::default()
+        };
+        let metrics = CapabilityMetrics::new();
+
+        let _ = check_version_compatibility(&memory, &tool, &llm, &config, &metrics);
+        let snapshot = metrics.snapshot();
+        assert_eq!(snapshot.version_mismatch_total, 2);
     }
 
     #[test]
@@ -997,5 +1263,61 @@ mod tests {
             capability.limits.get("provider.deepseek.models"),
             Some(&"1".to_string())
         );
+    }
+
+    #[test]
+    fn test_capability_metrics_counters() {
+        let metrics = CapabilityMetrics::new();
+
+        metrics.record_negotiation_success();
+        metrics.record_negotiation_success();
+        metrics.record_negotiation_failure();
+        metrics.record_refresh_success();
+        metrics.record_refresh_failure();
+        metrics.record_refresh_failure();
+
+        let snapshot = metrics.snapshot();
+        assert_eq!(snapshot.negotiation_total, 3);
+        assert_eq!(snapshot.negotiation_success, 2);
+        assert_eq!(snapshot.negotiation_failure, 1);
+        assert_eq!(snapshot.refresh_total, 3);
+        assert_eq!(snapshot.refresh_success, 1);
+        assert_eq!(snapshot.refresh_failure, 2);
+    }
+
+    #[test]
+    fn test_negotiation_status_default() {
+        let status = NegotiationStatus::default();
+        assert!(matches!(status.memory, ServiceNegotiationStatus::Pending));
+        assert!(matches!(status.tool, ServiceNegotiationStatus::Pending));
+        assert!(matches!(status.llm, ServiceNegotiationStatus::Pending));
+        assert!(status.negotiated_at.is_none());
+    }
+
+    #[test]
+    fn test_negotiation_status_serialization() {
+        let status = NegotiationStatus {
+            memory: ServiceNegotiationStatus::Ok,
+            tool: ServiceNegotiationStatus::Failed,
+            llm: ServiceNegotiationStatus::Ok,
+            negotiated_at: Some("2026-04-12T00:00:00Z".to_string()),
+        };
+
+        let json = serde_json::to_string(&status).unwrap();
+        assert!(json.contains("\"memory\":\"ok\""));
+        assert!(json.contains("\"tool\":\"failed\""));
+        assert!(json.contains("\"llm\":\"ok\""));
+    }
+
+    #[tokio::test]
+    async fn test_capability_cache_negotiation_status_tracking() {
+        let config = CapabilitiesConfig::default();
+        let cache = CapabilityCache::new(config);
+
+        let status = cache.get_negotiation_status().await;
+        assert!(matches!(status.memory, ServiceNegotiationStatus::Pending));
+
+        let metrics = cache.get_metrics_snapshot();
+        assert_eq!(metrics.negotiation_total, 0);
     }
 }

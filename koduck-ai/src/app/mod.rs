@@ -42,6 +42,8 @@ pub struct HealthResponse {
     pub status: &'static str,
     pub service: &'static str,
     pub version: &'static str,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub capabilities: Option<crate::clients::capability::NegotiationStatus>,
 }
 
 pub fn build_state(config: Config) -> Arc<AppState> {
@@ -142,11 +144,15 @@ pub fn create_metrics_router(state: Arc<AppState>) -> Router {
         .with_state(state)
 }
 
-async fn health_handler() -> axum::Json<HealthResponse> {
+async fn health_handler(
+    State(state): State<Arc<AppState>>,
+) -> axum::Json<HealthResponse> {
+    let capabilities = state.capability_cache.get_negotiation_status().await;
     axum::Json(HealthResponse {
         status: "ok",
         service: "koduck-ai",
         version: env!("CARGO_PKG_VERSION"),
+        capabilities: Some(capabilities),
     })
 }
 
@@ -157,5 +163,6 @@ async fn degrade_metrics_handler(
         "degrade": state.degrade_policy.snapshot(),
         "retry_budget": state.retry_budget_policy.snapshot(),
         "memory": state.memory_observe_policy.snapshot(),
+        "capability": state.capability_cache.get_metrics_snapshot(),
     }))
 }
