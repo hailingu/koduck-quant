@@ -33,6 +33,7 @@ use crate::{
     reliability::{
         degrade::{DegradeDecision, DegradeRoute},
         error::{AppError, ErrorCode, UpstreamService},
+        memory_fail_open::MemoryFailOpenOperation,
         retry_budget::RetryDirective,
     },
     stream::sse::{PendingStreamEvent, ResumeCursor, StreamEventData},
@@ -138,10 +139,7 @@ pub async fn chat(
         "chat request received"
     );
 
-    let memory_snapshot = match prepare_memory_context(&state, &request, &memory_ctx).await {
-        Ok(snapshot) => snapshot,
-        Err(err) => return api_error_response(err, request_id),
-    };
+    let memory_snapshot = prepare_memory_context(&state, &request, &memory_ctx).await;
 
     let response = if state.config.llm.stub_enabled {
         build_stub_chat_response(
@@ -200,7 +198,13 @@ pub async fn chat(
     )
     .await
     {
-        return api_error_response(err, request_id);
+        state.memory_fail_open.log_fail_open(
+            MemoryFailOpenOperation::AppendMemory,
+            &request_id,
+            &session_id,
+            &err,
+        );
+        // fail-open: response already generated, return it to user
     }
 
     let mut res_headers = HeaderMap::new();
@@ -276,10 +280,7 @@ pub async fn chat_stream(
     let memory_snapshot = if resume_cursor.is_resume() {
         None
     } else {
-        match prepare_memory_context(&state, &request.chat, &memory_ctx).await {
-            Ok(snapshot) => Some(snapshot),
-            Err(err) => return api_error_response(err, request_id),
-        }
+        Some(prepare_memory_context(&state, &request.chat, &memory_ctx).await)
     };
 
     let session = if resume_cursor.is_resume() {
@@ -326,7 +327,13 @@ pub async fn chat_stream(
             )
             .await
             {
-                return api_error_response(err, request_id);
+                state.memory_fail_open.log_fail_open(
+                    MemoryFailOpenOperation::AppendMemory,
+                    &request_id,
+                    &session_id,
+                    &err,
+                );
+                // fail-open: stub stream will proceed regardless
             }
             spawn_stub_stream(
                 Arc::clone(&session),
@@ -482,11 +489,11 @@ pub async fn chat_stream(
                     )
                     .await
                     {
-                        warn!(
-                            request_id = %append_ctx.request_id,
-                            session_id = %append_ctx.session_id,
-                            error = %err,
-                            "failed to persist streamed conversation into memory"
+                        append_state.memory_fail_open.log_fail_open(
+                            MemoryFailOpenOperation::AppendMemory,
+                            &append_ctx.request_id,
+                            &append_ctx.session_id,
+                            &err,
                         );
                     }
                 };
@@ -646,11 +653,11 @@ pub async fn chat_stream(
                     )
                     .await
                     {
-                        warn!(
-                            request_id = %append_ctx.request_id,
-                            session_id = %append_ctx.session_id,
-                            error = %err,
-                            "failed to persist streamed conversation into memory"
+                        append_state.memory_fail_open.log_fail_open(
+                            MemoryFailOpenOperation::AppendMemory,
+                            &append_ctx.request_id,
+                            &append_ctx.session_id,
+                            &err,
                         );
                     }
                 };
@@ -740,14 +747,22 @@ async fn prepare_memory_context(
     state: &Arc<AppState>,
     request: &ChatRequest,
     ctx: &MemoryRpcContext,
-) -> Result<MemoryContextSnapshot, AppError> {
+) -> MemoryContextSnapshot {
     let session = match memory::get_session(state, ctx).await {
         Ok(session) => Some(session),
         Err(err) if err.code == ErrorCode::ResourceNotFound => None,
-        Err(err) => return Err(err),
+        Err(err) => {
+            state.memory_fail_open.log_fail_open(
+                MemoryFailOpenOperation::GetSession,
+                &ctx.request_id,
+                &ctx.session_id,
+                &err,
+            );
+            None
+        }
     };
 
-    memory::upsert_session_meta(
+    if let Err(err) = memory::upsert_session_meta(
         state,
         ctx,
         SessionUpsertInput {
@@ -759,9 +774,17 @@ async fn prepare_memory_context(
             last_message_at: Utc::now().timestamp_millis(),
         },
     )
-    .await?;
+    .await
+    {
+        state.memory_fail_open.log_fail_open(
+            MemoryFailOpenOperation::UpsertSessionMeta,
+            &ctx.request_id,
+            &ctx.session_id,
+            &err,
+        );
+    }
 
-    let hits = memory::query_memory(
+    let hits = match memory::query_memory(
         state,
         ctx,
         QueryMemoryInput {
@@ -772,9 +795,21 @@ async fn prepare_memory_context(
             page_size: MEMORY_QUERY_PAGE_SIZE,
         },
     )
-    .await?;
+    .await
+    {
+        Ok(hits) => hits,
+        Err(err) => {
+            state.memory_fail_open.log_fail_open(
+                MemoryFailOpenOperation::QueryMemory,
+                &ctx.request_id,
+                &ctx.session_id,
+                &err,
+            );
+            vec![]
+        }
+    };
 
-    Ok(MemoryContextSnapshot { session, hits })
+    MemoryContextSnapshot { session, hits }
 }
 
 async fn append_chat_turn(
