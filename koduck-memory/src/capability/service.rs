@@ -1755,7 +1755,6 @@ mod tests {
     }
 
     #[tokio::test]
-<<<<<<< HEAD
     async fn summarize_memory_materializes_summary_and_domain_class() {
         let mut config = test_config();
         config.summary.async_enabled = true;
