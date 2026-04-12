@@ -9,7 +9,9 @@ use crate::api::{
     UpsertSessionMetaResponse,
 };
 use crate::config::AppConfig;
+use crate::index::MemoryIndexRepository;
 use crate::memory::{IdempotencyRepository, InsertMemoryEntry, MemoryEntryRepository, metadata_to_jsonb};
+use crate::retrieve::{DomainFirstRetriever, RetrieveContext};
 use crate::session::{SessionRepository, UpsertSession, extra_to_jsonb, parse_optional_uuid, parse_uuid};
 use crate::store::{L0EntryContent, ObjectStoreClient, RuntimeState};
 
@@ -40,6 +42,11 @@ impl MemoryGrpcService {
     #[allow(dead_code)]
     fn entry_repo(&self) -> MemoryEntryRepository {
         MemoryEntryRepository::new(self.runtime.pool())
+    }
+
+    #[allow(dead_code)]
+    fn index_repo(&self) -> MemoryIndexRepository {
+        MemoryIndexRepository::new(self.runtime.pool())
     }
 
     fn idempotency_repo(&self) -> IdempotencyRepository {
@@ -243,14 +250,64 @@ impl MemoryService for MemoryGrpcService {
         &self,
         request: Request<QueryMemoryRequest>,
     ) -> Result<Response<QueryMemoryResponse>, Status> {
-        Self::validate_meta(request.get_ref().meta.as_ref().ok_or_else(|| {
-            Status::invalid_argument("meta is required")
-        })?)?;
+        let req = request.get_ref();
+        let meta = req
+            .meta
+            .as_ref()
+            .ok_or_else(|| Status::invalid_argument("meta is required"))?;
+        Self::validate_meta(meta)?;
+
+        // Build retrieve context
+        let domain_class = if req.domain_class.is_empty() {
+            "chat".to_string()
+        } else {
+            req.domain_class.clone()
+        };
+
+        let mut ctx = RetrieveContext::new(
+            &meta.tenant_id,
+            &domain_class,
+            &req.query_text,
+            if req.top_k > 0 { req.top_k } else { MAX_TOP_K },
+        );
+
+        if !req.session_id.is_empty() {
+            ctx = ctx.with_session_id(&req.session_id);
+        }
+
+        // Execute retrieval based on policy
+        let results = match req.retrieve_policy {
+            1 | 0 => {
+                // DOMAIN_FIRST (1) or UNSPECIFIED (0, default to DOMAIN_FIRST)
+                let retriever = DomainFirstRetriever::new(self.runtime.pool());
+                retriever
+                    .retrieve(&ctx)
+                    .await
+                    .map_err(|e| Status::internal(format!("retrieval failed: {e}")))?
+            }
+            _ => {
+                // Other policies not yet implemented, fall back to empty result
+                Vec::new()
+            }
+        };
+
+        // Convert results to MemoryHit
+        let hits: Vec<crate::api::MemoryHit> = results
+            .into_iter()
+            .map(|r| crate::api::MemoryHit {
+                session_id: r.session_id,
+                l0_uri: r.l0_uri,
+                score: r.score,
+                match_reasons: r.match_reasons,
+                snippet: r.snippet,
+            })
+            .collect();
+
         Ok(Response::new(QueryMemoryResponse {
-            ok: false,
-            hits: Vec::new(),
-            next_page_token: String::new(),
-            error: Self::not_implemented_error("QueryMemory"),
+            ok: true,
+            hits,
+            next_page_token: String::new(), // Pagination not implemented yet
+            error: None,
         }))
     }
 
