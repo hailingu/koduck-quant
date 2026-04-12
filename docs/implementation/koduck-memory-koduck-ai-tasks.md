@@ -157,8 +157,8 @@
 2. 不存在时返回 `RESOURCE_NOT_FOUND`
 
 **验收标准:**
-- [ ] 已存在 session 可查询
-- [ ] 不存在返回统一错误语义
+- [x] 已存在 session 可查询
+- [x] 不存在返回统一错误语义
 
 ### Task 3.3: 实现 `UpsertSessionMeta`
 **详细要求:**
