@@ -33,7 +33,7 @@ use crate::{
     reliability::{
         degrade::{DegradeDecision, DegradeRoute},
         error::{AppError, ErrorCode, UpstreamService},
-        memory_fail_open::MemoryFailOpenOperation,
+        memory_observe::MemoryOperation,
         retry_budget::RetryDirective,
     },
     stream::sse::{PendingStreamEvent, ResumeCursor, StreamEventData},
@@ -139,7 +139,8 @@ pub async fn chat(
         "chat request received"
     );
 
-    let memory_snapshot = prepare_memory_context(&state, &request, &memory_ctx).await;
+    let memory_snapshot =
+        prepare_memory_context(&state, DegradeRoute::Chat, &request, &memory_ctx).await;
 
     let response = if state.config.llm.stub_enabled {
         build_stub_chat_response(
@@ -198,13 +199,15 @@ pub async fn chat(
     )
     .await
     {
-        state.memory_fail_open.log_fail_open(
-            MemoryFailOpenOperation::AppendMemory,
-            &request_id,
-            &session_id,
+        log_memory_failure(
+            &state,
+            DegradeRoute::Chat,
+            MemoryOperation::AppendMemory,
+            &memory_ctx,
             &err,
+            true,
+            "append_memory failed after chat response; continuing with successful answer",
         );
-        // fail-open: response already generated, return it to user
     }
 
     let mut res_headers = HeaderMap::new();
@@ -280,7 +283,10 @@ pub async fn chat_stream(
     let memory_snapshot = if resume_cursor.is_resume() {
         None
     } else {
-        Some(prepare_memory_context(&state, &request.chat, &memory_ctx).await)
+        Some(
+            prepare_memory_context(&state, DegradeRoute::ChatStream, &request.chat, &memory_ctx)
+                .await,
+        )
     };
 
     let session = if resume_cursor.is_resume() {
@@ -327,13 +333,15 @@ pub async fn chat_stream(
             )
             .await
             {
-                state.memory_fail_open.log_fail_open(
-                    MemoryFailOpenOperation::AppendMemory,
-                    &request_id,
-                    &session_id,
+                log_memory_failure(
+                    &state,
+                    DegradeRoute::ChatStream,
+                    MemoryOperation::AppendMemory,
+                    &memory_ctx,
                     &err,
+                    true,
+                    "append_memory failed before stub stream; continuing with degraded stream",
                 );
-                // fail-open: stub stream will proceed regardless
             }
             spawn_stub_stream(
                 Arc::clone(&session),
@@ -489,11 +497,14 @@ pub async fn chat_stream(
                     )
                     .await
                     {
-                        append_state.memory_fail_open.log_fail_open(
-                            MemoryFailOpenOperation::AppendMemory,
-                            &append_ctx.request_id,
-                            &append_ctx.session_id,
+                        log_memory_failure(
+                            &append_state,
+                            DegradeRoute::ChatStream,
+                            MemoryOperation::AppendMemory,
+                            &append_ctx,
                             &err,
+                            true,
+                            "failed to persist streamed conversation into memory",
                         );
                     }
                 };
@@ -653,11 +664,14 @@ pub async fn chat_stream(
                     )
                     .await
                     {
-                        append_state.memory_fail_open.log_fail_open(
-                            MemoryFailOpenOperation::AppendMemory,
-                            &append_ctx.request_id,
-                            &append_ctx.session_id,
+                        log_memory_failure(
+                            &append_state,
+                            DegradeRoute::ChatStream,
+                            MemoryOperation::AppendMemory,
+                            &append_ctx,
                             &err,
+                            true,
+                            "failed to persist streamed conversation into memory",
                         );
                     }
                 };
@@ -745,6 +759,7 @@ async fn stream_sse_response_with_watermark(
 
 async fn prepare_memory_context(
     state: &Arc<AppState>,
+    route: DegradeRoute,
     request: &ChatRequest,
     ctx: &MemoryRpcContext,
 ) -> MemoryContextSnapshot {
@@ -752,11 +767,14 @@ async fn prepare_memory_context(
         Ok(session) => Some(session),
         Err(err) if err.code == ErrorCode::ResourceNotFound => None,
         Err(err) => {
-            state.memory_fail_open.log_fail_open(
-                MemoryFailOpenOperation::GetSession,
-                &ctx.request_id,
-                &ctx.session_id,
+            log_memory_failure(
+                state,
+                route,
+                MemoryOperation::GetSession,
+                ctx,
                 &err,
+                true,
+                "get_session failed; continuing with empty session snapshot",
             );
             None
         }
@@ -776,15 +794,18 @@ async fn prepare_memory_context(
     )
     .await
     {
-        state.memory_fail_open.log_fail_open(
-            MemoryFailOpenOperation::UpsertSessionMeta,
-            &ctx.request_id,
-            &ctx.session_id,
+        log_memory_failure(
+            state,
+            route,
+            MemoryOperation::UpsertSessionMeta,
+            ctx,
             &err,
+            true,
+            "upsert_session_meta failed; continuing with request-local session context",
         );
     }
 
-    let hits = match memory::query_memory(
+    let hits = memory::query_memory(
         state,
         ctx,
         QueryMemoryInput {
@@ -796,18 +817,18 @@ async fn prepare_memory_context(
         },
     )
     .await
-    {
-        Ok(hits) => hits,
-        Err(err) => {
-            state.memory_fail_open.log_fail_open(
-                MemoryFailOpenOperation::QueryMemory,
-                &ctx.request_id,
-                &ctx.session_id,
-                &err,
-            );
-            vec![]
-        }
-    };
+    .unwrap_or_else(|err| {
+        log_memory_failure(
+            state,
+            route,
+            MemoryOperation::QueryMemory,
+            ctx,
+            &err,
+            true,
+            "query_memory failed; continuing without retrieved memory hits",
+        );
+        Vec::new()
+    });
 
     MemoryContextSnapshot { session, hits }
 }
@@ -840,6 +861,34 @@ async fn append_chat_turn(
     let _ = memory::append_memory(state, ctx, entries, "append-turn").await?;
 
     Ok(())
+}
+
+fn log_memory_failure(
+    state: &Arc<AppState>,
+    route: DegradeRoute,
+    operation: MemoryOperation,
+    ctx: &MemoryRpcContext,
+    err: &AppError,
+    fallback_applied: bool,
+    message: &'static str,
+) {
+    state
+        .memory_observe_policy
+        .record_failure(route, operation, err.code, fallback_applied);
+
+    warn!(
+        request_id = %ctx.request_id,
+        session_id = %ctx.session_id,
+        tenant_id = %ctx.tenant_id,
+        trace_id = %ctx.trace_id,
+        memory.route = %route,
+        memory.operation = %operation,
+        memory.code = %err.code,
+        memory.retryable = err.retryable,
+        memory.fallback_applied = fallback_applied,
+        error = %err,
+        "{message}"
+    );
 }
 
 fn validate_chat_request(request: &ChatRequest) -> Result<(), AppError> {

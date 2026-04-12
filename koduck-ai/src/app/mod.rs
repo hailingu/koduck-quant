@@ -18,7 +18,7 @@ use crate::config::{Config, LlmMode};
 use crate::reliability::error::{AppError, UpstreamService};
 use crate::llm::{build_provider_router, LlmProvider};
 use crate::reliability::degrade::DegradePolicy;
-use crate::reliability::memory_fail_open::MemoryFailOpenTracker;
+use crate::reliability::memory_observe::MemoryObservePolicy;
 use crate::reliability::retry_budget::RetryBudgetPolicy;
 use crate::stream::sse::StreamRegistry;
 
@@ -31,7 +31,7 @@ pub struct AppState {
     pub lifecycle: Arc<lifecycle::LifecycleManager>,
     pub degrade_policy: Arc<DegradePolicy>,
     pub retry_budget_policy: Arc<RetryBudgetPolicy>,
-    pub memory_fail_open: Arc<MemoryFailOpenTracker>,
+    pub memory_observe_policy: Arc<MemoryObservePolicy>,
     pub llm_provider: Arc<dyn LlmProvider>,
     pub capability_cache: Arc<CapabilityCache>,
 }
@@ -60,8 +60,8 @@ pub fn build_state(config: Config) -> Arc<AppState> {
         degrade_policy: Arc::new(DegradePolicy::new(config.reliability.degrade.clone())),
         llm_provider: build_provider_router(&config)
             .expect("failed to build llm provider router from config"),
-        memory_fail_open: Arc::new(MemoryFailOpenTracker::new()),
         retry_budget_policy: Arc::new(RetryBudgetPolicy::new(config.reliability.retry.clone())),
+        memory_observe_policy: Arc::new(MemoryObservePolicy::new()),
         capability_cache: Arc::new(CapabilityCache::new(config.capabilities.clone())),
         config,
         stream_registry: Arc::new(StreamRegistry::default()),
@@ -156,6 +156,6 @@ async fn degrade_metrics_handler(
     axum::Json(serde_json::json!({
         "degrade": state.degrade_policy.snapshot(),
         "retry_budget": state.retry_budget_policy.snapshot(),
-        "memory_fail_open": state.memory_fail_open.snapshot(),
+        "memory": state.memory_observe_policy.snapshot(),
     }))
 }
