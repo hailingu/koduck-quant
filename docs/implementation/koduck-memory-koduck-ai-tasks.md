@@ -341,8 +341,8 @@
 2. 增加超时、轻重试、trace 透传和 access log
 
 **验收标准:**
-- [ ] `koduck-ai` 通过 APISIX 成功访问 memory-service
-- [ ] route 具备统一治理能力
+- [x] `koduck-ai` 通过 APISIX 成功访问 memory-service
+- [x] route 具备统一治理能力
 
 ### Task 8.2: 集成 `k8s/deploy.sh` / `k8s/uninstall.sh`
 **详细要求:**
