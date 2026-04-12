@@ -24,4 +24,4 @@ mode = "domain-first"
 ttl_secs = 60
 
 [summary]
-async_enabled = false
+async_enabled = true

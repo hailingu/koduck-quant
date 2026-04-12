@@ -128,6 +128,27 @@ impl ObjectStoreClient {
         Ok(uri)
     }
 
+    /// Fetch and deserialize a previously stored L0 entry.
+    pub async fn get_l0_entry(&self, uri: &str) -> Result<L0EntryContent> {
+        let (bucket, key) = parse_l0_uri(uri)?;
+        let response = self
+            .client
+            .get_object()
+            .bucket(bucket)
+            .key(key)
+            .send()
+            .await
+            .map_err(|e| anyhow::anyhow!("Failed to fetch L0 entry: {e}"))?;
+        let bytes = response
+            .body
+            .collect()
+            .await
+            .map_err(|e| anyhow::anyhow!("Failed to read L0 entry body: {e}"))?
+            .into_bytes();
+
+        Ok(serde_json::from_slice::<L0EntryContent>(&bytes)?)
+    }
+
     /// Get the bucket name.
     pub fn bucket(&self) -> &str {
         &self.bucket
@@ -167,10 +188,22 @@ impl ObjectStoreClient {
     }
 }
 
+fn parse_l0_uri(uri: &str) -> Result<(&str, &str)> {
+    let without_scheme = uri
+        .strip_prefix("s3://")
+        .ok_or_else(|| anyhow::anyhow!("invalid L0 uri: {uri}"))?;
+    let (bucket, key) = without_scheme
+        .split_once('/')
+        .ok_or_else(|| anyhow::anyhow!("invalid L0 uri: {uri}"))?;
+    if bucket.trim().is_empty() || key.trim().is_empty() {
+        anyhow::bail!("invalid L0 uri: {uri}");
+    }
+    Ok((bucket, key))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
-    use serde_json::json;
 
     fn test_config() -> ObjectStoreSection {
         ObjectStoreSection {
@@ -204,5 +237,12 @@ mod tests {
     fn l0_uri_format_is_correct() {
         let uri = build_l0_uri("my-bucket", "path/to/object.json");
         assert_eq!(uri, "s3://my-bucket/path/to/object.json");
+    }
+
+    #[test]
+    fn parse_l0_uri_extracts_bucket_and_key() {
+        let (bucket, key) = parse_l0_uri("s3://my-bucket/path/to/object.json").unwrap();
+        assert_eq!(bucket, "my-bucket");
+        assert_eq!(key, "path/to/object.json");
     }
 }
