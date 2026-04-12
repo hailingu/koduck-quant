@@ -283,8 +283,10 @@
 3. `GetSession / UpsertSessionMeta` 错误有告警与 fallback
 
 **验收标准:**
-- [ ] memory 故障不阻塞主 chat
-- [ ] 失败路径可在日志和指标中观测
+- [x] memory 故障不阻塞主 chat
+- [x] 失败路径可在日志和指标中观测
+
+**实现 PR:** #828
 
 ### Task 6.3: capability 协商接入
 **详细要求:**
