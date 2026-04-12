@@ -30,6 +30,7 @@ const OIDC_PROVIDER_VALUE: &str = "apisix-oidc";
 #[derive(Debug, Clone)]
 pub struct AuthContext {
     pub user_id: String,
+    pub tenant_id: String,
     pub username: Option<String>,
     pub roles: Vec<String>,
 }
@@ -37,6 +38,7 @@ pub struct AuthContext {
 #[derive(Debug, Deserialize)]
 struct Claims {
     sub: String,
+    tenant_id: Option<String>,
     username: Option<String>,
     #[serde(default)]
     roles: Vec<String>,
@@ -114,8 +116,11 @@ fn authenticate_via_apisix(headers: &HeaderMap) -> Result<AuthContext, AppError>
         ));
     }
 
+    let tenant_id = extract_tenant_id(headers, claims.tenant_id.as_deref())?;
+
     Ok(AuthContext {
         user_id: claims.sub,
+        tenant_id,
         username: claims.username,
         roles: claims.roles,
     })
@@ -162,8 +167,11 @@ async fn authenticate_via_jwks(
         ));
     }
 
+    let tenant_id = extract_tenant_id(headers, claims.tenant_id.as_deref())?;
+
     Ok(AuthContext {
         user_id: claims.sub,
+        tenant_id,
         username: claims.username,
         roles: claims.roles,
     })
@@ -180,6 +188,25 @@ fn extract_bearer_token(headers: &HeaderMap) -> Result<&str, AppError> {
         .or_else(|| value.strip_prefix("bearer "))
         .filter(|v| !v.trim().is_empty())
         .ok_or_else(|| AppError::new(ErrorCode::AuthFailed, "invalid Authorization header"))
+}
+
+fn extract_tenant_id(
+    headers: &HeaderMap,
+    claims_tenant_id: Option<&str>,
+) -> Result<String, AppError> {
+    headers
+        .get("x-tenant-id")
+        .and_then(|value| value.to_str().ok())
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(ToOwned::to_owned)
+        .or_else(|| {
+            claims_tenant_id
+                .map(str::trim)
+                .filter(|value| !value.is_empty())
+                .map(ToOwned::to_owned)
+        })
+        .ok_or_else(|| AppError::new(ErrorCode::AuthFailed, "missing tenant context"))
 }
 
 async fn get_jwks(url: &str) -> Result<JwksDocument, AppError> {

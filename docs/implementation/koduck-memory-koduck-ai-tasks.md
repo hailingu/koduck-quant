@@ -273,8 +273,8 @@
 4. 透传 `session_id` 与 lineage 字段
 
 **验收标准:**
-- [ ] `koduck-ai` 不再自己持有会话真值
-- [ ] `request_id/session_id/trace_id/tenant_id` 全链路透传
+- [x] `koduck-ai` 不再自己持有会话真值
+- [x] `request_id/session_id/trace_id/tenant_id` 全链路透传
 
 ### Task 6.2: fail-open 策略落地
 **详细要求:**

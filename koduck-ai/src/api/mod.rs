@@ -14,12 +14,16 @@ use chrono::Utc;
 use futures::{stream, StreamExt};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
-use tracing::info;
+use tracing::{info, warn};
 use uuid::Uuid;
 
 use crate::{
     app::AppState,
     auth::AuthContext,
+    clients::memory::{
+        self, MemoryEntry, MemoryHit, MemoryRpcContext, QueryMemoryInput, RetrievePolicy,
+        SessionInfo, SessionUpsertInput,
+    },
     config::LlmMode,
     llm::{
         ChatMessage as ProviderChatMessage, GenerateRequest as ProviderGenerateRequest,
@@ -35,8 +39,10 @@ use crate::{
 };
 
 const MAX_ALLOWED_TOKENS: u32 = 32_768;
+const MEMORY_QUERY_TOP_K: i32 = 5;
+const MEMORY_QUERY_PAGE_SIZE: i32 = 5;
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 pub struct ChatRequest {
     pub session_id: Option<String>,
     pub message: String,
@@ -49,7 +55,7 @@ pub struct ChatRequest {
     pub metadata: Option<HashMap<String, serde_json::Value>>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 pub struct ChatStreamRequest {
     #[serde(flatten)]
     pub chat: ChatRequest,
@@ -85,6 +91,12 @@ pub struct ApiResponse<T> {
     pub error: Option<crate::reliability::error::ErrorResponse>,
 }
 
+#[derive(Debug, Clone, Default)]
+struct MemoryContextSnapshot {
+    session: Option<SessionInfo>,
+    hits: Vec<MemoryHit>,
+}
+
 pub async fn chat(
     State(state): State<Arc<AppState>>,
     headers: HeaderMap,
@@ -110,13 +122,26 @@ pub async fn chat(
 
     let session_id = resolve_session_id(request.session_id.clone());
     let trace_id = extract_trace_id(&headers);
+    let memory_ctx = MemoryRpcContext::from_auth(
+        request_id.clone(),
+        session_id.clone(),
+        trace_id.clone(),
+        state.config.llm.timeout_ms,
+        &auth_ctx,
+    );
 
     info!(
         request_id = %request_id,
         session_id = %session_id,
         trace_id = %trace_id,
+        tenant_id = %auth_ctx.tenant_id,
         "chat request received"
     );
+
+    let memory_snapshot = match prepare_memory_context(&state, &request, &memory_ctx).await {
+        Ok(snapshot) => snapshot,
+        Err(err) => return api_error_response(err, request_id),
+    };
 
     let response = if state.config.llm.stub_enabled {
         build_stub_chat_response(
@@ -131,6 +156,7 @@ pub async fn chat(
         match call_llm_generate(
             &state,
             &request,
+            &memory_snapshot,
             &request_id,
             &session_id,
             &auth_ctx,
@@ -164,6 +190,18 @@ pub async fn chat(
             }
         }
     };
+
+    if let Err(err) = append_chat_turn(
+        &state,
+        &memory_ctx,
+        &request,
+        &response.answer,
+        response.model.as_str(),
+    )
+    .await
+    {
+        return api_error_response(err, request_id);
+    }
 
     let mut res_headers = HeaderMap::new();
     if let Ok(v) = HeaderValue::from_str(&request_id) {
@@ -210,6 +248,13 @@ pub async fn chat_stream(
 
     let session_id = resolve_session_id(request.chat.session_id.clone());
     let trace_id = extract_trace_id(&headers);
+    let memory_ctx = MemoryRpcContext::from_auth(
+        request_id.clone(),
+        session_id.clone(),
+        trace_id.clone(),
+        state.config.llm.timeout_ms,
+        &auth_ctx,
+    );
     let resume_cursor = ResumeCursor {
         last_event_id: headers
             .get("last-event-id")
@@ -222,10 +267,20 @@ pub async fn chat_stream(
         request_id = %request_id,
         session_id = %session_id,
         trace_id = %trace_id,
+        tenant_id = %auth_ctx.tenant_id,
         last_event_id = ?resume_cursor.last_event_id,
         from_sequence_num = ?resume_cursor.from_sequence_num,
         "stream request received"
     );
+
+    let memory_snapshot = if resume_cursor.is_resume() {
+        None
+    } else {
+        match prepare_memory_context(&state, &request.chat, &memory_ctx).await {
+            Ok(snapshot) => Some(snapshot),
+            Err(err) => return api_error_response(err, request_id),
+        }
+    };
 
     let session = if resume_cursor.is_resume() {
         match state.stream_registry.get(&session_id).await {
@@ -258,6 +313,21 @@ pub async fn chat_stream(
         let generation_guard = session.request_guard().await;
         let stream_timeout = Duration::from_millis(state.config.stream.max_duration_ms);
         if state.config.llm.stub_enabled {
+            if let Err(err) = append_chat_turn(
+                &state,
+                &memory_ctx,
+                &request.chat,
+                &build_stub_answer(&request.chat.message, "stub_enabled"),
+                request
+                    .chat
+                    .model
+                    .as_deref()
+                    .unwrap_or(&state.config.llm.default_provider),
+            )
+            .await
+            {
+                return api_error_response(err, request_id);
+            }
             spawn_stub_stream(
                 Arc::clone(&session),
                 generation_guard.clone(),
@@ -269,6 +339,7 @@ pub async fn chat_stream(
             let upstream = match call_llm_stream(
                 &state,
                 &request.chat,
+                memory_snapshot.as_ref(),
                 &request_id,
                 &session_id,
                 &auth_ctx,
@@ -306,13 +377,18 @@ pub async fn chat_stream(
 
             let stream_session = Arc::clone(&session);
             let guard = generation_guard.clone();
+            let append_state = Arc::clone(&state);
+            let append_ctx = memory_ctx.clone();
+            let append_request = request.chat.clone();
             tokio::spawn(async move {
                 let producer_guard = guard.clone();
                 let producer = async {
                     let mut upstream = upstream;
+                    let mut full_answer = String::new();
                     while let Some(next) = upstream.next().await {
                         match next {
                             Ok(ev) => {
+                                full_answer.push_str(&ev.delta);
                                 info!(
                                     request_id = %stream_session.request_id(),
                                     session_id = %stream_session.session_id(),
@@ -396,6 +472,23 @@ pub async fn chat_stream(
                             )
                             .await;
                     }
+
+                    if let Err(err) = append_chat_turn(
+                        &append_state,
+                        &append_ctx,
+                        &append_request,
+                        &full_answer,
+                        append_request.model.as_deref().unwrap_or_default(),
+                    )
+                    .await
+                    {
+                        warn!(
+                            request_id = %append_ctx.request_id,
+                            session_id = %append_ctx.session_id,
+                            error = %err,
+                            "failed to persist streamed conversation into memory"
+                        );
+                    }
                 };
 
                 let cleanup_session = Arc::clone(&stream_session);
@@ -426,6 +519,7 @@ pub async fn chat_stream(
                 match call_llm_stream(
                     &state,
                     &request.chat,
+                    memory_snapshot.as_ref(),
                     &request_id,
                     &session_id,
                     &auth_ctx,
@@ -462,13 +556,18 @@ pub async fn chat_stream(
                 };
             let stream_session = Arc::clone(&session);
             let guard = generation_guard.clone();
+            let append_state = Arc::clone(&state);
+            let append_ctx = memory_ctx.clone();
+            let append_request = request.chat.clone();
             tokio::spawn(async move {
                 let producer_guard = guard.clone();
                 let producer = async {
                     let mut upstream = upstream;
+                    let mut full_answer = String::new();
                     while let Some(next) = upstream.next().await {
                         match next {
                             Ok(ev) => {
+                                full_answer.push_str(&ev.delta);
                                 for pending in build_stream_events(
                                     &ev,
                                     stream_session.request_id(),
@@ -536,6 +635,23 @@ pub async fn chat_stream(
                                 ),
                             )
                             .await;
+                    }
+
+                    if let Err(err) = append_chat_turn(
+                        &append_state,
+                        &append_ctx,
+                        &append_request,
+                        &full_answer,
+                        append_request.model.as_deref().unwrap_or_default(),
+                    )
+                    .await
+                    {
+                        warn!(
+                            request_id = %append_ctx.request_id,
+                            session_id = %append_ctx.session_id,
+                            error = %err,
+                            "failed to persist streamed conversation into memory"
+                        );
                     }
                 };
 
@@ -620,6 +736,77 @@ async fn stream_sse_response_with_watermark(
         .into_response()
 }
 
+async fn prepare_memory_context(
+    state: &Arc<AppState>,
+    request: &ChatRequest,
+    ctx: &MemoryRpcContext,
+) -> Result<MemoryContextSnapshot, AppError> {
+    let session = match memory::get_session(state, ctx).await {
+        Ok(session) => Some(session),
+        Err(err) if err.code == ErrorCode::ResourceNotFound => None,
+        Err(err) => return Err(err),
+    };
+
+    memory::upsert_session_meta(
+        state,
+        ctx,
+        SessionUpsertInput {
+            title: metadata_string(request, "title"),
+            status: metadata_string(request, "status"),
+            extra: request_metadata_extra(request),
+            parent_session_id: metadata_string(request, "parent_session_id"),
+            forked_from_session_id: metadata_string(request, "forked_from_session_id"),
+            last_message_at: Utc::now().timestamp_millis(),
+        },
+    )
+    .await?;
+
+    let hits = memory::query_memory(
+        state,
+        ctx,
+        QueryMemoryInput {
+            query_text: request.message.clone(),
+            domain_class: metadata_string(request, "domain_class"),
+            retrieve_policy: retrieve_policy_from_request(request),
+            top_k: MEMORY_QUERY_TOP_K,
+            page_size: MEMORY_QUERY_PAGE_SIZE,
+        },
+    )
+    .await?;
+
+    Ok(MemoryContextSnapshot { session, hits })
+}
+
+async fn append_chat_turn(
+    state: &Arc<AppState>,
+    ctx: &MemoryRpcContext,
+    request: &ChatRequest,
+    answer: &str,
+    model: &str,
+) -> Result<(), AppError> {
+    let now = Utc::now().timestamp_millis();
+    let user_entry = MemoryEntry {
+        role: "user".to_string(),
+        content: request.message.clone(),
+        timestamp: now,
+        metadata: build_memory_entry_metadata(request, ctx, None),
+    };
+    let mut entries = vec![user_entry];
+
+    if !answer.trim().is_empty() {
+        entries.push(MemoryEntry {
+            role: "assistant".to_string(),
+            content: answer.to_string(),
+            timestamp: now,
+            metadata: build_memory_entry_metadata(request, ctx, Some(model)),
+        });
+    }
+
+    let _ = memory::append_memory(state, ctx, entries, "append-turn").await?;
+
+    Ok(())
+}
+
 fn validate_chat_request(request: &ChatRequest) -> Result<(), AppError> {
     if request.message.trim().is_empty() {
         return Err(AppError::new(
@@ -653,6 +840,145 @@ fn validate_chat_request(request: &ChatRequest) -> Result<(), AppError> {
     }
 
     Ok(())
+}
+
+fn metadata_string(request: &ChatRequest, key: &str) -> String {
+    request
+        .metadata
+        .as_ref()
+        .and_then(|metadata| metadata.get(key))
+        .and_then(json_value_as_string)
+        .unwrap_or_default()
+}
+
+fn request_metadata_extra(request: &ChatRequest) -> HashMap<String, String> {
+    const RESERVED_KEYS: &[&str] = &[
+        "title",
+        "status",
+        "parent_session_id",
+        "forked_from_session_id",
+        "domain_class",
+        "retrieve_policy",
+    ];
+
+    request
+        .metadata
+        .as_ref()
+        .map(|metadata| {
+            metadata
+                .iter()
+                .filter(|(key, _)| !RESERVED_KEYS.contains(&key.as_str()))
+                .map(|(key, value)| {
+                    (
+                        key.clone(),
+                        json_value_as_string(value).unwrap_or_else(|| value.to_string()),
+                    )
+                })
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
+fn json_value_as_string(value: &serde_json::Value) -> Option<String> {
+    match value {
+        serde_json::Value::String(value) => Some(value.clone()),
+        serde_json::Value::Number(value) => Some(value.to_string()),
+        serde_json::Value::Bool(value) => Some(value.to_string()),
+        serde_json::Value::Null => None,
+        _ => Some(value.to_string()),
+    }
+}
+
+fn retrieve_policy_from_request(request: &ChatRequest) -> RetrievePolicy {
+    let raw_policy = request.retrieve_policy.as_deref().or_else(|| {
+        request
+            .metadata
+            .as_ref()
+            .and_then(|metadata| metadata.get("retrieve_policy"))
+            .and_then(|value| value.as_str())
+    });
+
+    match raw_policy
+        .map(|value| value.trim().to_ascii_lowercase())
+        .as_deref()
+    {
+        Some("summary-first") | Some("summary_first") => RetrievePolicy::SummaryFirst,
+        Some("hybrid") => RetrievePolicy::Hybrid,
+        _ => RetrievePolicy::DomainFirst,
+    }
+}
+
+fn build_memory_prompt(snapshot: &MemoryContextSnapshot) -> Option<String> {
+    if snapshot.hits.is_empty() {
+        return None;
+    }
+
+    let session_truth = snapshot
+        .session
+        .as_ref()
+        .map(|session| {
+            format!(
+                "会话真值: session_id={}, parent_session_id={}, forked_from_session_id={}, status={}",
+                session.session_id,
+                session.parent_session_id,
+                session.forked_from_session_id,
+                session.status
+            )
+        })
+        .unwrap_or_else(|| "会话真值: 当前请求尚未在 memory 中形成可读快照。".to_string());
+
+    let snippets = snapshot
+        .hits
+        .iter()
+        .take(MEMORY_QUERY_TOP_K as usize)
+        .enumerate()
+        .map(|(index, hit)| {
+            format!(
+                "{}. reasons=[{}] snippet={}",
+                index + 1,
+                hit.match_reasons.join(","),
+                hit.snippet
+            )
+        })
+        .collect::<Vec<_>>()
+        .join("\n");
+
+    Some(format!(
+        "以下内容来自 koduck-memory 的检索结果，仅在与当前问题相关时使用，不要把它们当作绝对事实重复输出。\n{}\n历史命中:\n{}",
+        session_truth, snippets
+    ))
+}
+
+fn build_memory_entry_metadata(
+    request: &ChatRequest,
+    ctx: &MemoryRpcContext,
+    model: Option<&str>,
+) -> HashMap<String, String> {
+    let mut metadata = HashMap::from([
+        ("request_id".to_string(), ctx.request_id.clone()),
+        ("trace_id".to_string(), ctx.trace_id.clone()),
+        ("tenant_id".to_string(), ctx.tenant_id.clone()),
+        ("source".to_string(), "koduck-ai".to_string()),
+    ]);
+
+    if let Some(model) = model.filter(|value| !value.trim().is_empty()) {
+        metadata.insert("model".to_string(), model.to_string());
+    }
+
+    if let Some(retrieve_policy) = request.retrieve_policy.as_ref() {
+        metadata.insert("retrieve_policy".to_string(), retrieve_policy.clone());
+    }
+
+    if let Some(domain_class) = request
+        .metadata
+        .as_ref()
+        .and_then(|metadata| metadata.get("domain_class"))
+        .and_then(json_value_as_string)
+    {
+        metadata.insert("domain_class".to_string(), domain_class);
+    }
+
+    metadata
 }
 
 fn extract_or_create_request_id(headers: &HeaderMap) -> String {
@@ -764,6 +1090,7 @@ async fn handle_stream_abort(
 async fn call_llm_generate(
     state: &Arc<AppState>,
     request: &ChatRequest,
+    memory_snapshot: &MemoryContextSnapshot,
     request_id: &str,
     session_id: &str,
     auth_ctx: &AuthContext,
@@ -788,6 +1115,7 @@ async fn call_llm_generate(
         let llm_request = build_provider_generate_request(
             state,
             request,
+            Some(memory_snapshot),
             request_id,
             session_id,
             auth_ctx,
@@ -831,6 +1159,7 @@ async fn call_llm_generate(
 async fn call_llm_stream(
     state: &Arc<AppState>,
     request: &ChatRequest,
+    memory_snapshot: Option<&MemoryContextSnapshot>,
     request_id: &str,
     session_id: &str,
     auth_ctx: &AuthContext,
@@ -856,6 +1185,7 @@ async fn call_llm_stream(
         let llm_request = build_provider_generate_request(
             state,
             request,
+            memory_snapshot,
             request_id,
             session_id,
             auth_ctx,
@@ -881,12 +1211,36 @@ async fn call_llm_stream(
 fn build_provider_generate_request(
     _state: &Arc<AppState>,
     request: &ChatRequest,
+    memory_snapshot: Option<&MemoryContextSnapshot>,
     request_id: &str,
     session_id: &str,
     auth_ctx: &AuthContext,
     trace_id: &str,
     deadline_ms: u64,
 ) -> ProviderGenerateRequest {
+    let mut messages = vec![ProviderChatMessage {
+        role: "system".to_string(),
+        content: "你是 koduck-ai 的中文助手。默认使用简体中文直接回答用户问题，保持准确、简洁、自然。不要输出思维链、推理过程、草稿、自我讨论或任何 <think> 标签内容；只输出面向用户的最终答案。如果用户输入过于简短或语义不清，先用一句中文澄清，不要臆测事实。".to_string(),
+        name: String::new(),
+        metadata: HashMap::new(),
+    }];
+
+    if let Some(memory_prompt) = memory_snapshot.and_then(build_memory_prompt) {
+        messages.push(ProviderChatMessage {
+            role: "system".to_string(),
+            content: memory_prompt,
+            name: "memory_context".to_string(),
+            metadata: HashMap::new(),
+        });
+    }
+
+    messages.push(ProviderChatMessage {
+        role: "user".to_string(),
+        content: request.message.clone(),
+        name: String::new(),
+        metadata: HashMap::new(),
+    });
+
     ProviderGenerateRequest {
         meta: RequestContext {
             request_id: request_id.to_string(),
@@ -897,20 +1251,7 @@ fn build_provider_generate_request(
         },
         provider: String::new(),
         model: request.model.clone().unwrap_or_default(),
-        messages: vec![
-            ProviderChatMessage {
-                role: "system".to_string(),
-                content: "你是 koduck-ai 的中文助手。默认使用简体中文直接回答用户问题，保持准确、简洁、自然。不要输出思维链、推理过程、草稿、自我讨论或任何 <think> 标签内容；只输出面向用户的最终答案。如果用户输入过于简短或语义不清，先用一句中文澄清，不要臆测事实。".to_string(),
-                name: String::new(),
-                metadata: HashMap::new(),
-            },
-            ProviderChatMessage {
-                role: "user".to_string(),
-                content: request.message.clone(),
-                name: String::new(),
-                metadata: HashMap::new(),
-            },
-        ],
+        messages,
         temperature: request.temperature.unwrap_or(0.2),
         top_p: 1.0,
         max_tokens: request.max_tokens.unwrap_or(2048),
