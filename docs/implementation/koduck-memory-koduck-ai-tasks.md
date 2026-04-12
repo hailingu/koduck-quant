@@ -182,9 +182,9 @@
 3. 为同一 `session_id` 预留顺序写入约束
 
 **验收标准:**
-- [ ] user / assistant 记忆可保存
-- [ ] 同一 session 的写入顺序可校验
-- [ ] 索引有效
+- [x] user / assistant 记忆可保存
+- [x] 同一 session 的写入顺序可校验
+- [x] 索引有效
 
 ### Task 4.2: 实现 `AppendMemory`
 **详细要求:**
