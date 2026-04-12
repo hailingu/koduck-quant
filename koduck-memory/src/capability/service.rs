@@ -4,11 +4,12 @@ use tonic::{Request, Response, Status};
 
 use crate::api::{
     AppendMemoryRequest, AppendMemoryResponse, Capability, ErrorDetail, GetSessionRequest,
-    GetSessionResponse, MemoryService, QueryMemoryRequest, QueryMemoryResponse, RequestMeta,
-    SummarizeMemoryRequest, SummarizeMemoryResponse, UpsertSessionMetaRequest,
+    GetSessionResponse, MemoryEntry, MemoryService, QueryMemoryRequest, QueryMemoryResponse,
+    RequestMeta, SummarizeMemoryRequest, SummarizeMemoryResponse, UpsertSessionMetaRequest,
     UpsertSessionMetaResponse,
 };
 use crate::config::AppConfig;
+use crate::memory::{IdempotencyRepository, InsertMemoryEntry, MemoryEntryRepository, metadata_to_jsonb};
 use crate::session::{SessionRepository, UpsertSession, extra_to_jsonb, parse_optional_uuid, parse_uuid};
 use crate::store::RuntimeState;
 
@@ -29,6 +30,15 @@ impl MemoryGrpcService {
 
     fn session_repo(&self) -> SessionRepository {
         SessionRepository::new(self.runtime.pool())
+    }
+
+    #[allow(dead_code)]
+    fn entry_repo(&self) -> MemoryEntryRepository {
+        MemoryEntryRepository::new(self.runtime.pool())
+    }
+
+    fn idempotency_repo(&self) -> IdempotencyRepository {
+        IdempotencyRepository::new(self.runtime.pool())
     }
 
     fn capability_response(&self) -> Capability {
@@ -235,13 +245,134 @@ impl MemoryService for MemoryGrpcService {
         &self,
         request: Request<AppendMemoryRequest>,
     ) -> Result<Response<AppendMemoryResponse>, Status> {
-        Self::validate_write_meta(request.get_ref().meta.as_ref().ok_or_else(|| {
-            Status::invalid_argument("meta is required")
-        })?)?;
+        let req = request.get_ref();
+        let meta = req
+            .meta
+            .as_ref()
+            .ok_or_else(|| Status::invalid_argument("meta is required"))?;
+        Self::validate_write_meta(meta)?;
+
+        if req.entries.is_empty() {
+            return Ok(Response::new(AppendMemoryResponse {
+                ok: true,
+                appended_count: 0,
+                error: None,
+            }));
+        }
+
+        let session_id =
+            parse_uuid(&req.session_id).map_err(|e| Status::invalid_argument(format!("invalid session_id: {e}")))?;
+
+        // Step 1: Idempotency check
+        let is_new = self
+            .idempotency_repo()
+            .try_record(
+                &meta.idempotency_key,
+                &meta.tenant_id,
+                session_id,
+                "append_memory",
+                &meta.request_id,
+            )
+            .await
+            .map_err(|e| Status::internal(format!("idempotency check failed: {e}")))?;
+
+        if !is_new {
+            // Duplicate request — nothing new to append
+            return Ok(Response::new(AppendMemoryResponse {
+                ok: true,
+                appended_count: 0,
+                error: None,
+            }));
+        }
+
+        // Step 2: Allocate sequence numbers within a transaction
+        let pool = self.runtime.pool();
+        let tenant_id = meta.tenant_id.clone();
+        let entries_count = req.entries.len() as i64;
+
+        let mut tx = pool
+            .begin()
+            .await
+            .map_err(|e| Status::internal(format!("failed to begin transaction: {e}")))?;
+
+        let max_seq = sqlx::query_scalar::<_, Option<i64>>(
+            r#"
+            SELECT MAX(sequence_num)
+            FROM memory_entries
+            WHERE tenant_id = $1 AND session_id = $2
+            FOR UPDATE
+            "#,
+        )
+        .bind(&tenant_id)
+        .bind(session_id)
+        .fetch_one(&mut *tx)
+        .await
+        .map_err(|e| Status::internal(format!("failed to query max sequence_num: {e}")))?;
+
+        let base_seq = max_seq.unwrap_or(0);
+
+        // Step 3: Insert entries
+        let mut appended = 0i32;
+        for (i, entry) in req.entries.iter().enumerate() {
+            let entry_id = uuid::Uuid::new_v4();
+            let message_ts = chrono::DateTime::from_timestamp_millis(entry.timestamp)
+                .unwrap_or_else(chrono::Utc::now);
+
+            let insert = InsertMemoryEntry {
+                id: entry_id,
+                tenant_id: tenant_id.clone(),
+                session_id,
+                sequence_num: base_seq + (i as i64) + 1,
+                role: entry.role.clone(),
+                raw_content_ref: format!("ref://{}", entry_id),
+                message_ts,
+                metadata_json: metadata_to_jsonb(&entry.metadata),
+                l0_uri: format!("l0://pending/{}", entry_id),
+            };
+
+            let result = sqlx::query(
+                r#"
+                INSERT INTO memory_entries (
+                    id, tenant_id, session_id, sequence_num,
+                    role, raw_content_ref, message_ts, metadata_json,
+                    l0_uri, created_at
+                ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, now())
+                "#,
+            )
+            .bind(insert.id)
+            .bind(&insert.tenant_id)
+            .bind(insert.session_id)
+            .bind(insert.sequence_num)
+            .bind(&insert.role)
+            .bind(&insert.raw_content_ref)
+            .bind(insert.message_ts)
+            .bind(&insert.metadata_json)
+            .bind(&insert.l0_uri)
+            .execute(&mut *tx)
+            .await
+            .map_err(|e| Status::internal(format!("failed to insert memory entry: {e}")))?;
+
+            if result.rows_affected() > 0 {
+                appended += 1;
+            }
+        }
+
+        tx.commit()
+            .await
+            .map_err(|e| Status::internal(format!("failed to commit transaction: {e}")))?;
+
+        tracing::info!(
+            session_id = %session_id,
+            tenant_id = %tenant_id,
+            appended_count = appended,
+            requested_count = entries_count,
+            "append_memory completed"
+        );
+
         Ok(Response::new(AppendMemoryResponse {
-            ok: false,
-            appended_count: 0,
-            error: Self::not_implemented_error("AppendMemory"),
+            ok: true,
+            appended_count: appended,
+            error: None,
         }))
     }
 
@@ -268,7 +399,10 @@ mod tests {
     use std::time::Duration;
 
     use super::MemoryGrpcService;
-    use crate::api::{GetSessionRequest, MemoryServiceClient, MemoryServiceServer, RequestMeta, UpsertSessionMetaRequest};
+    use crate::api::{
+        AppendMemoryRequest, GetSessionRequest, MemoryEntry, MemoryServiceClient,
+        MemoryServiceServer, RequestMeta, UpsertSessionMetaRequest,
+    };
     use crate::config::{
         AppConfig, AppSection, CapabilitiesSection, IndexSection, ObjectStoreSection,
         PostgresSection, ServerSection, SummarySection,
@@ -807,6 +941,249 @@ mod tests {
         assert_eq!(session.extra.get("source"), Some(&"gRPC".to_string()));
         assert_eq!(session.extra.get("version"), Some(&"v2".to_string()));
         assert_eq!(session.last_message_at, 1700000050000);
+
+        let _ = shutdown_tx.send(());
+        server.await.unwrap();
+    }
+
+    // ---- Task 4.2: AppendMemory tests ----
+
+    #[tokio::test]
+    async fn append_memory_inserts_entries_and_returns_count() {
+        let config = test_config();
+        let runtime = RuntimeState::initialize(&config).await.unwrap();
+        let (mut client, shutdown_tx, server) = start_test_server(config, runtime).await;
+
+        let session_id = Uuid::new_v4();
+        let sid_str = session_id.to_string();
+
+        // Seed a session
+        client
+            .upsert_session_meta(UpsertSessionMetaRequest {
+                meta: Some(write_meta_with_idempotency("t42-seed", &sid_str)),
+                session_id: sid_str.clone(),
+                title: "Append Test".to_string(),
+                status: "active".to_string(),
+                parent_session_id: String::new(),
+                forked_from_session_id: String::new(),
+                last_message_at: 1700000000000,
+                extra: [].into(),
+            })
+            .await
+            .unwrap()
+            .into_inner();
+
+        let mut meta1 = HashMap::new();
+        meta1.insert("message_id".to_string(), "msg-001".to_string());
+        let mut meta2 = HashMap::new();
+        meta2.insert("message_id".to_string(), "msg-002".to_string());
+
+        let resp = client
+            .append_memory(AppendMemoryRequest {
+                meta: Some(write_meta_with_idempotency("t42-append-1", &sid_str)),
+                session_id: sid_str.clone(),
+                entries: vec![
+                    MemoryEntry {
+                        role: "user".to_string(),
+                        content: "Hello, world!".to_string(),
+                        timestamp: 1700000000000,
+                        metadata: meta1,
+                    },
+                    MemoryEntry {
+                        role: "assistant".to_string(),
+                        content: "Hi there!".to_string(),
+                        timestamp: 1700000001000,
+                        metadata: meta2,
+                    },
+                ],
+            })
+            .await
+            .unwrap()
+            .into_inner();
+
+        assert!(resp.ok);
+        assert_eq!(resp.appended_count, 2);
+        assert!(resp.error.is_none());
+
+        let _ = shutdown_tx.send(());
+        server.await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn append_memory_idempotent_duplicate_returns_zero() {
+        let config = test_config();
+        let runtime = RuntimeState::initialize(&config).await.unwrap();
+        let (mut client, shutdown_tx, server) = start_test_server(config, runtime).await;
+
+        let session_id = Uuid::new_v4();
+        let sid_str = session_id.to_string();
+
+        // Seed a session
+        client
+            .upsert_session_meta(UpsertSessionMetaRequest {
+                meta: Some(write_meta_with_idempotency("t42-idem-seed", &sid_str)),
+                session_id: sid_str.clone(),
+                title: "Idempotency Test".to_string(),
+                status: "active".to_string(),
+                parent_session_id: String::new(),
+                forked_from_session_id: String::new(),
+                last_message_at: 1700000000000,
+                extra: [].into(),
+            })
+            .await
+            .unwrap()
+            .into_inner();
+
+        let idem_key = "t42-idem-dup";
+        let entries = vec![MemoryEntry {
+            role: "user".to_string(),
+            content: "test".to_string(),
+            timestamp: 1700000000000,
+            metadata: HashMap::new(),
+        }];
+
+        // First request
+        let resp1 = client
+            .append_memory(AppendMemoryRequest {
+                meta: Some(write_meta_with_idempotency(idem_key, &sid_str)),
+                session_id: sid_str.clone(),
+                entries: entries.clone(),
+            })
+            .await
+            .unwrap()
+            .into_inner();
+        assert!(resp1.ok);
+        assert_eq!(resp1.appended_count, 1);
+
+        // Duplicate request (same idempotency_key)
+        let resp2 = client
+            .append_memory(AppendMemoryRequest {
+                meta: Some(write_meta_with_idempotency(idem_key, &sid_str)),
+                session_id: sid_str.clone(),
+                entries,
+            })
+            .await
+            .unwrap()
+            .into_inner();
+        assert!(resp2.ok);
+        assert_eq!(resp2.appended_count, 0);
+        assert!(resp2.error.is_none());
+
+        let _ = shutdown_tx.send(());
+        server.await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn append_memory_sequential_appends_increment_sequence() {
+        let config = test_config();
+        let runtime = RuntimeState::initialize(&config).await.unwrap();
+        let (mut client, shutdown_tx, server) = start_test_server(config, runtime).await;
+
+        let session_id = Uuid::new_v4();
+        let sid_str = session_id.to_string();
+
+        // Seed a session
+        client
+            .upsert_session_meta(UpsertSessionMetaRequest {
+                meta: Some(write_meta_with_idempotency("t42-seq-seed", &sid_str)),
+                session_id: sid_str.clone(),
+                title: "Sequence Test".to_string(),
+                status: "active".to_string(),
+                parent_session_id: String::new(),
+                forked_from_session_id: String::new(),
+                last_message_at: 1700000000000,
+                extra: [].into(),
+            })
+            .await
+            .unwrap()
+            .into_inner();
+
+        // First append: 2 entries → sequence 1, 2
+        let resp1 = client
+            .append_memory(AppendMemoryRequest {
+                meta: Some(write_meta_with_idempotency("t42-seq-1", &sid_str)),
+                session_id: sid_str.clone(),
+                entries: vec![
+                    MemoryEntry {
+                        role: "user".to_string(),
+                        content: "first".to_string(),
+                        timestamp: 1700000000000,
+                        metadata: HashMap::new(),
+                    },
+                    MemoryEntry {
+                        role: "assistant".to_string(),
+                        content: "second".to_string(),
+                        timestamp: 1700000001000,
+                        metadata: HashMap::new(),
+                    },
+                ],
+            })
+            .await
+            .unwrap()
+            .into_inner();
+        assert!(resp1.ok);
+        assert_eq!(resp1.appended_count, 2);
+
+        // Second append: 1 entry → sequence 3
+        let resp2 = client
+            .append_memory(AppendMemoryRequest {
+                meta: Some(write_meta_with_idempotency("t42-seq-2", &sid_str)),
+                session_id: sid_str.clone(),
+                entries: vec![MemoryEntry {
+                    role: "user".to_string(),
+                    content: "third".to_string(),
+                    timestamp: 1700000002000,
+                    metadata: HashMap::new(),
+                }],
+            })
+            .await
+            .unwrap()
+            .into_inner();
+        assert!(resp2.ok);
+        assert_eq!(resp2.appended_count, 1);
+
+        let _ = shutdown_tx.send(());
+        server.await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn append_memory_empty_entries_returns_zero() {
+        let config = test_config();
+        let runtime = RuntimeState::initialize(&config).await.unwrap();
+        let (mut client, shutdown_tx, server) = start_test_server(config, runtime).await;
+
+        let session_id = Uuid::new_v4();
+        let sid_str = session_id.to_string();
+
+        // Seed a session
+        client
+            .upsert_session_meta(UpsertSessionMetaRequest {
+                meta: Some(write_meta_with_idempotency("t42-empty-seed", &sid_str)),
+                session_id: sid_str.clone(),
+                title: "Empty Test".to_string(),
+                status: "active".to_string(),
+                parent_session_id: String::new(),
+                forked_from_session_id: String::new(),
+                last_message_at: 1700000000000,
+                extra: [].into(),
+            })
+            .await
+            .unwrap()
+            .into_inner();
+
+        let resp = client
+            .append_memory(AppendMemoryRequest {
+                meta: Some(write_meta_with_idempotency("t42-empty", &sid_str)),
+                session_id: sid_str.clone(),
+                entries: vec![],
+            })
+            .await
+            .unwrap()
+            .into_inner();
+
+        assert!(resp.ok);
+        assert_eq!(resp.appended_count, 0);
+        assert!(resp.error.is_none());
 
         let _ = shutdown_tx.send(());
         server.await.unwrap();
