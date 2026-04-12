@@ -4,14 +4,14 @@ use tonic::{Request, Response, Status};
 
 use crate::api::{
     AppendMemoryRequest, AppendMemoryResponse, Capability, ErrorDetail, GetSessionRequest,
-    GetSessionResponse, MemoryEntry, MemoryService, QueryMemoryRequest, QueryMemoryResponse,
+    GetSessionResponse, MemoryService, QueryMemoryRequest, QueryMemoryResponse,
     RequestMeta, SummarizeMemoryRequest, SummarizeMemoryResponse, UpsertSessionMetaRequest,
     UpsertSessionMetaResponse,
 };
 use crate::config::AppConfig;
 use crate::memory::{IdempotencyRepository, InsertMemoryEntry, MemoryEntryRepository, metadata_to_jsonb};
 use crate::session::{SessionRepository, UpsertSession, extra_to_jsonb, parse_optional_uuid, parse_uuid};
-use crate::store::RuntimeState;
+use crate::store::{L0EntryContent, ObjectStoreClient, RuntimeState};
 
 const MAX_TOP_K: i32 = 20;
 const MAX_PAGE_SIZE: i32 = 100;
@@ -21,11 +21,16 @@ const RECOMMENDED_TIMEOUT_MS: i64 = 5000;
 pub struct MemoryGrpcService {
     config: AppConfig,
     runtime: RuntimeState,
+    object_store: Option<ObjectStoreClient>,
 }
 
 impl MemoryGrpcService {
-    pub fn new(config: AppConfig, runtime: RuntimeState) -> Self {
-        Self { config, runtime }
+    pub fn new(config: AppConfig, runtime: RuntimeState, object_store: Option<ObjectStoreClient>) -> Self {
+        Self {
+            config,
+            runtime,
+            object_store,
+        }
     }
 
     fn session_repo(&self) -> SessionRepository {
@@ -50,6 +55,14 @@ impl MemoryGrpcService {
         features.insert("domain_first_search".to_string(), "true".to_string());
         features.insert("summary_search".to_string(), "true".to_string());
         features.insert("append_mode".to_string(), "object_per_append".to_string());
+        features.insert(
+            "l0_storage".to_string(),
+            if self.object_store.is_some() {
+                "enabled".to_string()
+            } else {
+                "disabled".to_string()
+            },
+        );
         features.insert(
             "retrieve_policy.default".to_string(),
             self.config.index.mode.clone(),
@@ -311,25 +324,73 @@ impl MemoryService for MemoryGrpcService {
 
         let base_seq = max_seq.unwrap_or(0);
 
-        // Step 3: Insert entries
-        let mut appended = 0i32;
+        // Step 3: Prepare entries with L0 content and write to object storage first
+        let mut entries_to_insert: Vec<(InsertMemoryEntry, String)> = Vec::new();
+
         for (i, entry) in req.entries.iter().enumerate() {
             let entry_id = uuid::Uuid::new_v4();
+            let sequence_num = base_seq + (i as i64) + 1;
             let message_ts = chrono::DateTime::from_timestamp_millis(entry.timestamp)
                 .unwrap_or_else(chrono::Utc::now);
+
+            // Convert metadata HashMap to JSON Value
+            let metadata_json = metadata_to_jsonb(&entry.metadata);
+
+            // Build L0 content
+            let l0_content = L0EntryContent::new(
+                session_id,
+                &tenant_id,
+                entry_id,
+                sequence_num,
+                &entry.role,
+                &entry.content,
+                entry.timestamp,
+                Some(metadata_json.clone()),
+                &meta.request_id,
+                &meta.trace_id,
+            );
+
+            // Write to object storage if available
+            let l0_uri = if let Some(ref object_store) = self.object_store {
+                match object_store.put_l0_entry(&l0_content).await {
+                    Ok(uri) => {
+                        tracing::debug!(entry_id = %entry_id, uri = %uri, "L0 entry stored");
+                        uri
+                    }
+                    Err(e) => {
+                        // Object storage failure is not fatal - fall back to placeholder
+                        // This maintains fail-open behavior for L0 storage
+                        tracing::warn!(
+                            entry_id = %entry_id,
+                            error = %e,
+                            "Failed to store L0 entry, using placeholder"
+                        );
+                        format!("l0://pending/{}", entry_id)
+                    }
+                }
+            } else {
+                // Object store not configured, use placeholder
+                format!("l0://pending/{}", entry_id)
+            };
 
             let insert = InsertMemoryEntry {
                 id: entry_id,
                 tenant_id: tenant_id.clone(),
                 session_id,
-                sequence_num: base_seq + (i as i64) + 1,
+                sequence_num,
                 role: entry.role.clone(),
                 raw_content_ref: format!("ref://{}", entry_id),
                 message_ts,
-                metadata_json: metadata_to_jsonb(&entry.metadata),
-                l0_uri: format!("l0://pending/{}", entry_id),
+                metadata_json,
+                l0_uri,
             };
 
+            entries_to_insert.push((insert, entry_id.to_string()));
+        }
+
+        // Step 4: Insert entries to database
+        let mut appended = 0i32;
+        for (insert, _entry_id) in entries_to_insert {
             let result = sqlx::query(
                 r#"
                 INSERT INTO memory_entries (
@@ -485,7 +546,7 @@ mod tests {
         let incoming = TcpListenerStream::new(listener);
 
         let runtime = RuntimeState::initialize(&test_config()).await.unwrap();
-        let service = MemoryGrpcService::new(test_config(), runtime);
+        let service = MemoryGrpcService::new(test_config(), runtime, None);
         let (shutdown_tx, shutdown_rx) = tokio::sync::oneshot::channel::<()>();
 
         let server = tokio::spawn(async move {
@@ -582,7 +643,7 @@ mod tests {
         .await
         .unwrap();
 
-        let service = MemoryGrpcService::new(config, runtime);
+        let service = MemoryGrpcService::new(config, runtime, None);
         let (shutdown_tx, shutdown_rx) = tokio::sync::oneshot::channel::<()>();
 
         let server = tokio::spawn(async move {
@@ -646,7 +707,7 @@ mod tests {
 
         let config = test_config();
         let runtime = RuntimeState::initialize(&config).await.unwrap();
-        let service = MemoryGrpcService::new(config, runtime);
+        let service = MemoryGrpcService::new(config, runtime, None);
         let (shutdown_tx, shutdown_rx) = tokio::sync::oneshot::channel::<()>();
 
         let server = tokio::spawn(async move {
@@ -711,7 +772,7 @@ mod tests {
         let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
         let addr = listener.local_addr().unwrap();
         let incoming = TcpListenerStream::new(listener);
-        let service = MemoryGrpcService::new(config, runtime);
+        let service = MemoryGrpcService::new(config, runtime, None);
         let (shutdown_tx, shutdown_rx) = tokio::sync::oneshot::channel::<()>();
 
         let server = tokio::spawn(async move {

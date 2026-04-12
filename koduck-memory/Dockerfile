@@ -1,6 +1,6 @@
 # Multi-stage build for koduck-memory
 
-FROM docker.m.daocloud.io/library/rust:1.88-slim-bookworm AS builder
+FROM docker.m.daocloud.io/library/rust:1.91-slim-bookworm AS builder
 
 WORKDIR /app
 ENV CARGO_HOME=/usr/local/cargo

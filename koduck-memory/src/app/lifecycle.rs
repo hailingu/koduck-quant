@@ -3,13 +3,13 @@ use std::net::SocketAddr;
 use tokio::net::TcpListener;
 use tokio::sync::broadcast;
 use tonic::transport::Server;
-use tracing::{error, info};
+use tracing::{error, info, warn};
 
 use crate::api::{MemoryServiceServer, FILE_DESCRIPTOR_SET};
 use crate::capability::MemoryGrpcService;
 use crate::config::AppConfig;
 use crate::observe;
-use crate::store::RuntimeState;
+use crate::store::{ObjectStoreClient, RuntimeState};
 use crate::Result;
 
 pub async fn run(config: AppConfig) -> Result<()> {
@@ -17,7 +17,26 @@ pub async fn run(config: AppConfig) -> Result<()> {
     let metrics_addr: SocketAddr = config.server.metrics_addr.parse()?;
     let runtime = RuntimeState::initialize(&config).await?;
 
-    let grpc_service = MemoryGrpcService::new(config.clone(), runtime.clone());
+    // Initialize object store client (optional - service can work without it)
+    let object_store = match ObjectStoreClient::new(&config.object_store).await {
+        Ok(client) => {
+            info!(
+                bucket = %client.bucket(),
+                endpoint = %client.endpoint(),
+                "Object store client initialized"
+            );
+            Some(client)
+        }
+        Err(e) => {
+            warn!(
+                error = %e,
+                "Failed to initialize object store client, L0 storage will use placeholders"
+            );
+            None
+        }
+    };
+
+    let grpc_service = MemoryGrpcService::new(config.clone(), runtime.clone(), object_store);
     let reflection = tonic_reflection::server::Builder::configure()
         .register_encoded_file_descriptor_set(FILE_DESCRIPTOR_SET)
         .build()?;
