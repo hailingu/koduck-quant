@@ -11,6 +11,7 @@ use crate::api::{
 use crate::config::AppConfig;
 use crate::index::MemoryIndexRepository;
 use crate::memory::{IdempotencyRepository, InsertMemoryEntry, MemoryEntryRepository, metadata_to_jsonb};
+use crate::reliability::{TaskAttemptRepository, with_retry};
 use crate::retrieve::{DomainFirstRetriever, RetrieveContext, SummaryFirstRetriever};
 use crate::summary::{SummaryJob, SummaryTaskRunner};
 use crate::session::{SessionRepository, UpsertSession, extra_to_jsonb, parse_optional_uuid, parse_uuid};
@@ -562,15 +563,33 @@ impl MemoryService for MemoryGrpcService {
         }
 
         let runner = SummaryTaskRunner::new(self.runtime.pool(), self.object_store.clone());
+        let attempt_repo = TaskAttemptRepository::new(self.runtime.pool());
         let job = SummaryJob::new(
             meta.tenant_id.clone(),
             session_id,
             req.strategy.clone(),
             meta.request_id.clone(),
         );
+        let retry_config = self.config.retry.clone();
+        let tenant_id = meta.tenant_id.clone();
+        let request_id = meta.request_id.clone();
         tokio::spawn(async move {
-            if let Err(error) = runner.run(job).await {
-                tracing::warn!(error = %error, "summary task failed");
+            if let Err(error) = with_retry(
+                "summarize",
+                &tenant_id,
+                job.session_id,
+                &request_id,
+                &attempt_repo,
+                &retry_config,
+                || {
+                    let runner = runner.clone();
+                    let job = job.clone();
+                    async move { runner.run(job).await }
+                },
+            )
+            .await
+            {
+                tracing::warn!(error = %error, session_id = %job.session_id, "summary task failed after all retries");
             }
         });
 
@@ -594,7 +613,7 @@ mod tests {
     };
     use crate::config::{
         AppConfig, AppSection, CapabilitiesSection, IndexSection, ObjectStoreSection,
-        PostgresSection, ServerSection, SummarySection,
+        PostgresSection, RetrySection, ServerSection, SummarySection,
     };
     use crate::facts::MemoryFactRepository;
     use crate::summary::MemorySummaryRepository;
@@ -641,6 +660,10 @@ mod tests {
             },
             capabilities: CapabilitiesSection { ttl_secs: 60 },
             summary: SummarySection { async_enabled: false },
+            retry: RetrySection {
+                max_attempts: 3,
+                initial_delay_ms: 500,
+            },
             index: IndexSection {
                 mode: "domain-first".to_string(),
             },

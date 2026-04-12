@@ -13,6 +13,7 @@ pub struct AppConfig {
     pub index: IndexSection,
     pub capabilities: CapabilitiesSection,
     pub summary: SummarySection,
+    pub retry: RetrySection,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -55,6 +56,12 @@ pub struct CapabilitiesSection {
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct SummarySection {
     pub async_enabled: bool,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct RetrySection {
+    pub max_attempts: u32,
+    pub initial_delay_ms: u64,
 }
 
 impl AppConfig {
@@ -119,6 +126,12 @@ impl AppConfig {
             self.capabilities.ttl_secs = other.capabilities.ttl_secs;
         }
         self.summary.async_enabled = other.summary.async_enabled;
+        if other.retry.max_attempts > 0 {
+            self.retry.max_attempts = other.retry.max_attempts;
+        }
+        if other.retry.initial_delay_ms > 0 {
+            self.retry.initial_delay_ms = other.retry.initial_delay_ms;
+        }
     }
 
     fn validate(&self) -> Result<()> {
@@ -136,6 +149,14 @@ impl AppConfig {
 
         if self.capabilities.ttl_secs == 0 {
             anyhow::bail!("capabilities.ttl_secs must be greater than 0");
+        }
+
+        if self.retry.max_attempts == 0 {
+            anyhow::bail!("retry.max_attempts must be greater than 0");
+        }
+
+        if self.retry.initial_delay_ms == 0 {
+            anyhow::bail!("retry.initial_delay_ms must be greater than 0");
         }
 
         Ok(())
@@ -170,6 +191,10 @@ impl AppConfig {
             },
             "summary": {
                 "async_enabled": self.summary.async_enabled,
+            },
+            "retry": {
+                "max_attempts": self.retry.max_attempts,
+                "initial_delay_ms": self.retry.initial_delay_ms,
             }
         })
         .to_string()
@@ -219,6 +244,12 @@ fn apply_env_overrides(config: &mut AppConfig) -> Result<()> {
     if let Some(value) = env_override("SUMMARY__ASYNC_ENABLED") {
         config.summary.async_enabled = parse_bool("SUMMARY__ASYNC_ENABLED", &value)?;
     }
+    if let Some(value) = env_override("RETRY__MAX_ATTEMPTS") {
+        config.retry.max_attempts = parse_u32("RETRY__MAX_ATTEMPTS", &value)?;
+    }
+    if let Some(value) = env_override("RETRY__INITIAL_DELAY_MS") {
+        config.retry.initial_delay_ms = parse_u64("RETRY__INITIAL_DELAY_MS", &value)?;
+    }
     Ok(())
 }
 
@@ -238,6 +269,12 @@ fn validate_non_empty(field: &str, value: &str) -> Result<()> {
 fn parse_u64(key: &str, value: &str) -> Result<u64> {
     value
         .parse::<u64>()
+        .map_err(|_| anyhow::anyhow!("{key} must be a valid unsigned integer"))
+}
+
+fn parse_u32(key: &str, value: &str) -> Result<u32> {
+    value
+        .parse::<u32>()
         .map_err(|_| anyhow::anyhow!("{key} must be a valid unsigned integer"))
 }
 
@@ -308,6 +345,10 @@ mod tests {
 
             [summary]
             async_enabled = true
+
+            [retry]
+            max_attempts = 3
+            initial_delay_ms = 500
             "#,
         )
         .expect("valid test config")

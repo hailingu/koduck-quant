@@ -1,10 +1,25 @@
 use axum::{http::StatusCode, response::IntoResponse, routing::get, Json, Router};
 use serde_json::json;
+use std::sync::atomic::{AtomicU64, Ordering};
 use tracing_subscriber::EnvFilter;
 
 use crate::config::AppConfig;
 use crate::store::RuntimeState;
 use crate::Result;
+
+/// Global counters for retry/failure metrics.
+static TASK_RETRY_TOTAL: AtomicU64 = AtomicU64::new(0);
+static TASK_FAILURE_TOTAL: AtomicU64 = AtomicU64::new(0);
+
+/// Increment the retry counter (called from the reliability module).
+pub fn inc_retry_counter() {
+    TASK_RETRY_TOTAL.fetch_add(1, Ordering::Relaxed);
+}
+
+/// Increment the failure counter (called from the reliability module).
+pub fn inc_failure_counter() {
+    TASK_FAILURE_TOTAL.fetch_add(1, Ordering::Relaxed);
+}
 
 pub fn init_tracing() -> Result<()> {
     let env_filter = EnvFilter::try_from_default_env()
@@ -103,6 +118,8 @@ async fn health_handler(config: AppConfig, runtime: RuntimeState) -> impl IntoRe
 
 async fn metrics_handler(config: AppConfig, runtime: RuntimeState) -> impl IntoResponse {
     let snapshot = runtime.snapshot().await;
+    let retry_total = TASK_RETRY_TOTAL.load(Ordering::Relaxed);
+    let failure_total = TASK_FAILURE_TOTAL.load(Ordering::Relaxed);
     let body = format!(
         "# HELP koduck_memory_build_info Static build information.\n\
          # TYPE koduck_memory_build_info gauge\n\
@@ -121,7 +138,13 @@ async fn metrics_handler(config: AppConfig, runtime: RuntimeState) -> impl IntoR
          koduck_memory_postgres_pool_size {} \n\
          # HELP koduck_memory_postgres_pool_idle Idle connections in the postgres pool.\n\
          # TYPE koduck_memory_postgres_pool_idle gauge\n\
-         koduck_memory_postgres_pool_idle {} \n",
+         koduck_memory_postgres_pool_idle {} \n\
+         # HELP koduck_memory_task_retry_total Total number of task retry attempts.\n\
+         # TYPE koduck_memory_task_retry_total counter\n\
+         koduck_memory_task_retry_total {} \n\
+         # HELP koduck_memory_task_failure_total Total number of tasks that failed after all retries.\n\
+         # TYPE koduck_memory_task_failure_total counter\n\
+         koduck_memory_task_failure_total {} \n",
         config.app.name,
         config.app.version,
         config.app.env,
@@ -129,6 +152,8 @@ async fn metrics_handler(config: AppConfig, runtime: RuntimeState) -> impl IntoR
         if snapshot.postgres_up { 1 } else { 0 },
         snapshot.pool_size,
         snapshot.pool_idle,
+        retry_total,
+        failure_total,
     );
     (StatusCode::OK, body)
 }
