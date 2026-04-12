@@ -371,5 +371,5 @@
 3. 演练 route 回滚与版本回滚
 
 **验收标准:**
-- [ ] 新版本 memory-service 可灰度接入 `koduck-ai`
-- [ ] 故障时 `koduck-ai` 主链路仍可继续
+- [x] 新版本 memory-service 可灰度接入 `koduck-ai`
+- [x] 故障时 `koduck-ai` 主链路仍可继续
