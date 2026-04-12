@@ -1,0 +1,47 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: minio-bucket-init
+  namespace: koduck
+  labels:
+    app: minio-bucket-init
+spec:
+  backoffLimit: 6
+  ttlSecondsAfterFinished: 300
+  template:
+    metadata:
+      labels:
+        app: minio-bucket-init
+    spec:
+      restartPolicy: OnFailure
+      containers:
+        - name: bucket-init
+          image: minio/mc:latest
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: MINIO_ENDPOINT
+              value: "http://prod-minio:9000"
+            - name: MINIO_BUCKET
+              value: "koduck-memory-prod"
+            - name: MINIO_ROOT_USER
+              valueFrom:
+                secretKeyRef:
+                  name: minio-secret
+                  key: root-user
+            - name: MINIO_ROOT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: minio-secret
+                  key: root-password
+          command:
+            - /bin/sh
+            - -c
+            - |
+              set -eu
+              until mc alias set local "${MINIO_ENDPOINT}" "${MINIO_ROOT_USER}" "${MINIO_ROOT_PASSWORD}"; do
+                echo "waiting for minio endpoint ${MINIO_ENDPOINT}"
+                sleep 2
+              done
+              mc mb --ignore-existing "local/${MINIO_BUCKET}"
+              mc anonymous set none "local/${MINIO_BUCKET}" || true
+              mc stat "local/${MINIO_BUCKET}"
