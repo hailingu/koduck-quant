@@ -233,8 +233,10 @@
 3. 支持 session 范围限制
 
 **验收标准:**
-- [ ] domain-first 路径可工作
-- [ ] `match_reasons` 包含 `domain_class_hit/session_scope_hit`
+- [x] domain-first 路径可工作
+- [x] `match_reasons` 包含 `domain_class_hit/session_scope_hit`
+
+**实现 PR:** #820
 
 ### Task 5.3: 实现 `SUMMARY_FIRST`
 **详细要求:**
