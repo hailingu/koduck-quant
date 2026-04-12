@@ -245,8 +245,10 @@
 3. summary 不作为最终选中条件
 
 **验收标准:**
-- [ ] summary 排除路径可工作
-- [ ] `match_reasons` 包含 `summary_hit`
+- [x] summary 排除路径可工作
+- [x] `match_reasons` 包含 `summary_hit`
+
+**实现 PR:** #822
 
 ### Task 5.4: 保留 `HYBRID` 为后续扩展
 **详细要求:**
