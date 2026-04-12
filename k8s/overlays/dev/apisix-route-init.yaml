@@ -281,6 +281,12 @@ spec:
               done
 
               # ── Southbound gRPC 治理路由（供 koduck-ai 访问 memory/tool） ──
+              # 治理策略（Task 8.1 / ADR-0023）：
+              #   超时：connect=1s, send=5s, read=65s（统一 read timeout，后续可按 RPC 拆分 upstream）
+              #   重试：retries=1，仅在 transport error 上重试，业务语义错误不重试
+              #   Trace：opentelemetry always_on + proxy-rewrite 注入 X-Trace-Id / traceparent
+              #   限流：limit-count 600 req/min + limit-req 120 req/s burst 60
+              #   Access log：JSON 格式，含 trace_id / request_time / upstream_response_time
 
               echo "Registering gRPC upstreams for memory/tool"
               upsert_resource "upstreams" "ai-memory-grpc" "$(printf '{"name":"ai-memory-grpc","type":"roundrobin","scheme":"grpc","retries":1,"timeout":{"connect":1,"send":5,"read":65},"nodes":{"%s":1}}' "$MEMORY_GRPC_SERVICE")"
