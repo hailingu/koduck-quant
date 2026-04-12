@@ -17,6 +17,8 @@ resources:
 
 patchesStrategicMerge:
   - ./frontend.yaml
+  - ./koduck-auth-secrets.yaml
+  - ./koduck-user-secrets.yaml
   - ./koduck-memory.yaml
 
 namePrefix: prod-

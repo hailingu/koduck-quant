@@ -19,7 +19,9 @@ resources:
 patchesStrategicMerge:
   - ./frontend.yaml
   - ./koduck-auth.yaml
+  - ./koduck-auth-secrets.yaml
   - ./koduck-user.yaml
+  - ./koduck-user-secrets.yaml
   - ./koduck-ai.yaml
   - ./koduck-memory.yaml
   - ./postgres.yaml
