@@ -1,7 +1,10 @@
+use std::collections::HashSet;
+
 use sqlx::PgPool;
-use tracing::{info, instrument};
+use tracing::{info, instrument, warn};
 use uuid::Uuid;
 
+use crate::facts::{InsertMemoryFact, MemoryFact, MemoryFactRepository};
 use crate::index::{InsertMemoryIndexRecord, MemoryIndexRepository};
 use crate::memory::MemoryEntryRepository;
 use crate::retrieve::domain_class;
@@ -14,6 +17,8 @@ const DEFAULT_STRATEGY: &str = "session-rollup";
 const MAX_SUMMARY_INPUTS: usize = 6;
 const MAX_SNIPPET_CHARS: usize = 220;
 const MAX_SUMMARY_CHARS: usize = 1_200;
+const MAX_FACT_CHARS: usize = 220;
+const MAX_FACTS_PER_RUN: usize = 3;
 
 #[derive(Debug, Clone)]
 pub struct SummaryJob {
@@ -44,6 +49,7 @@ pub struct SummaryTaskRunner {
     entry_repo: MemoryEntryRepository,
     session_repo: SessionRepository,
     summary_repo: MemorySummaryRepository,
+    fact_repo: MemoryFactRepository,
     index_repo: MemoryIndexRepository,
     object_store: Option<ObjectStoreClient>,
 }
@@ -54,6 +60,7 @@ impl SummaryTaskRunner {
             entry_repo: MemoryEntryRepository::new(pool),
             session_repo: SessionRepository::new(pool),
             summary_repo: MemorySummaryRepository::new(pool),
+            fact_repo: MemoryFactRepository::new(pool),
             index_repo: MemoryIndexRepository::new(pool),
             object_store,
         }
@@ -106,14 +113,60 @@ impl SummaryTaskRunner {
         .with_score_hint("0.95");
         self.index_repo.insert(&index_record).await?;
 
+        let fact_candidates = build_fact_candidates(
+            &transcript,
+            session.as_ref().map(|value| value.title.as_str()),
+            &stored.domain_class,
+        );
+        if !fact_candidates.is_empty() {
+            if let Err(error) = self
+                .materialize_facts(
+                    &stored.tenant_id,
+                    stored.session_id,
+                    &stored.domain_class,
+                    &fact_candidates,
+                )
+                .await
+            {
+                warn!(
+                    error = %error,
+                    session_id = %stored.session_id,
+                    "fact extraction failed but summary remained persisted"
+                );
+            }
+        }
+
         info!(
             summary_id = %stored.id,
             version = stored.version,
             domain_class = %stored.domain_class,
+            fact_count = fact_candidates.len(),
             "summary task completed"
         );
 
         Ok(stored)
+    }
+
+    async fn materialize_facts(
+        &self,
+        tenant_id: &str,
+        session_id: Uuid,
+        domain_class: &str,
+        fact_candidates: &[FactCandidate],
+    ) -> Result<Vec<MemoryFact>> {
+        let mut facts = Vec::with_capacity(fact_candidates.len());
+        for candidate in fact_candidates {
+            let insert_fact = InsertMemoryFact::new(
+                tenant_id,
+                session_id,
+                candidate.fact_type.clone(),
+                domain_class,
+                candidate.fact_text.clone(),
+                candidate.confidence,
+            );
+            facts.push(self.fact_repo.insert(&insert_fact).await?);
+        }
+        Ok(facts)
     }
 }
 
@@ -144,6 +197,32 @@ async fn build_transcript_fragments(
     }
 
     fragments
+}
+
+#[derive(Debug, Clone, PartialEq)]
+struct FactCandidate {
+    fact_type: String,
+    fact_text: String,
+    confidence: f64,
+}
+
+impl FactCandidate {
+    fn new(
+        fact_type: impl Into<String>,
+        fact_text: impl Into<String>,
+        confidence: f64,
+    ) -> Option<Self> {
+        let fact_text = truncate_text(&fact_text.into(), MAX_FACT_CHARS);
+        if fact_text.is_empty() {
+            return None;
+        }
+
+        Some(Self {
+            fact_type: fact_type.into(),
+            fact_text,
+            confidence,
+        })
+    }
 }
 
 fn build_summary_text(
@@ -208,6 +287,142 @@ fn infer_domain_class(transcript: &[String], session_title: Option<&str>) -> Str
     domain_class::CHAT.to_string()
 }
 
+fn build_fact_candidates(
+    transcript: &[String],
+    session_title: Option<&str>,
+    inferred_domain_class: &str,
+) -> Vec<FactCandidate> {
+    let mut candidates = Vec::new();
+    let mut seen = HashSet::new();
+
+    if let Some(title) = session_title.filter(|value| !value.trim().is_empty()) {
+        push_fact_candidate(
+            &mut candidates,
+            &mut seen,
+            FactCandidate::new(
+                "session_focus",
+                format!("Session focus is {}.", truncate_text(title, MAX_FACT_CHARS)),
+                0.70,
+            ),
+        );
+    }
+
+    for line in transcript {
+        let trimmed = line.trim();
+        if trimmed.is_empty() {
+            continue;
+        }
+
+        let normalized = trimmed.to_lowercase();
+        if normalized.starts_with("user:")
+            && contains_any(
+                &normalized,
+                &[
+                    "prefer",
+                    "preference",
+                    "like ",
+                    "likes ",
+                    "偏好",
+                    "喜欢",
+                    "习惯",
+                ],
+            )
+        {
+            let fact_text = sentence_fact("User preference", extract_fact_payload(trimmed));
+            push_fact_candidate(
+                &mut candidates,
+                &mut seen,
+                FactCandidate::new("preference", fact_text, 0.91),
+            );
+        } else if contains_any(
+            &normalized,
+            &[
+                "must",
+                "always",
+                "never",
+                "do not",
+                "don't",
+                "不能",
+                "不要",
+                "必须",
+            ],
+        ) {
+            let fact_text = sentence_fact("Persistent constraint", extract_fact_payload(trimmed));
+            push_fact_candidate(
+                &mut candidates,
+                &mut seen,
+                FactCandidate::new("constraint", fact_text, 0.95),
+            );
+        } else if inferred_domain_class == domain_class::TASK
+            || contains_any(
+                &normalized,
+                &[
+                    "task",
+                    "todo",
+                    "follow-up",
+                    "next step",
+                    "deadline",
+                    "待办",
+                    "任务",
+                    "跟进",
+                ],
+            )
+        {
+            let fact_text = sentence_fact("Open task context", extract_fact_payload(trimmed));
+            push_fact_candidate(
+                &mut candidates,
+                &mut seen,
+                FactCandidate::new("task_context", fact_text, 0.82),
+            );
+        }
+
+        if candidates.len() >= MAX_FACTS_PER_RUN {
+            break;
+        }
+    }
+
+    candidates.truncate(MAX_FACTS_PER_RUN);
+    candidates
+}
+
+fn push_fact_candidate(
+    candidates: &mut Vec<FactCandidate>,
+    seen: &mut HashSet<String>,
+    candidate: Option<FactCandidate>,
+) {
+    let Some(candidate) = candidate else {
+        return;
+    };
+
+    let dedupe_key = format!(
+        "{}::{}",
+        candidate.fact_type.to_lowercase(),
+        candidate.fact_text.to_lowercase()
+    );
+    if seen.insert(dedupe_key) {
+        candidates.push(candidate);
+    }
+}
+
+fn contains_any(input: &str, keywords: &[&str]) -> bool {
+    keywords.iter().any(|keyword| input.contains(keyword))
+}
+
+fn extract_fact_payload(line: &str) -> &str {
+    line.split_once(':')
+        .map(|(_, value)| value.trim())
+        .unwrap_or_else(|| line.trim())
+}
+
+fn sentence_fact(prefix: &str, payload: &str) -> String {
+    let payload = payload.trim().trim_end_matches('.');
+    if payload.is_empty() {
+        prefix.to_string()
+    } else {
+        format!("{prefix}: {payload}.")
+    }
+}
+
 fn build_summary_uri(tenant_id: &str, session_id: Uuid, version: i32) -> String {
     format!(
         "memory-summary://tenants/{tenant_id}/sessions/{session_id}/versions/{version}"
@@ -270,5 +485,39 @@ mod tests {
             uri,
             "memory-summary://tenants/tenant-1/sessions/550e8400-e29b-41d4-a716-446655440000/versions/3"
         );
+    }
+
+    #[test]
+    fn build_fact_candidates_extracts_preference_and_constraint() {
+        let transcript = vec![
+            "user: I prefer concise rollout summaries".to_string(),
+            "assistant: noted".to_string(),
+            "user: Please do not post raw secrets in logs".to_string(),
+        ];
+
+        let facts = build_fact_candidates(&transcript, Some("Rollout session"), domain_class::CHAT);
+
+        assert!(facts.iter().any(|fact| fact.fact_type == "session_focus"));
+        assert!(facts.iter().any(|fact| fact.fact_type == "preference"));
+        assert!(facts.iter().any(|fact| fact.fact_type == "constraint"));
+    }
+
+    #[test]
+    fn build_fact_candidates_limits_and_deduplicates() {
+        let transcript = vec![
+            "user: todo deploy to dev".to_string(),
+            "user: todo deploy to dev".to_string(),
+            "assistant: follow-up on deployment task".to_string(),
+            "user: another task follow-up".to_string(),
+        ];
+
+        let facts = build_fact_candidates(&transcript, None, domain_class::TASK);
+
+        assert!(facts.len() <= MAX_FACTS_PER_RUN);
+        let unique: HashSet<_> = facts
+            .iter()
+            .map(|fact| format!("{}::{}", fact.fact_type, fact.fact_text))
+            .collect();
+        assert_eq!(unique.len(), facts.len());
     }
 }

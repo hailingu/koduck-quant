@@ -4,6 +4,7 @@ pub mod api;
 pub mod app;
 pub mod capability;
 pub mod config;
+pub mod facts;
 pub mod index;
 pub mod memory;
 pub mod observe;

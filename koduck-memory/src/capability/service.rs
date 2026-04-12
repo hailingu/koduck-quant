@@ -596,6 +596,7 @@ mod tests {
         AppConfig, AppSection, CapabilitiesSection, IndexSection, ObjectStoreSection,
         PostgresSection, ServerSection, SummarySection,
     };
+    use crate::facts::MemoryFactRepository;
     use crate::summary::MemorySummaryRepository;
     use crate::session::{SessionRepository, UpsertSession, extra_to_jsonb};
     use crate::store::RuntimeState;
@@ -951,6 +952,21 @@ mod tests {
             tokio::time::sleep(Duration::from_millis(50)).await;
         }
         panic!("summary was not materialized in time");
+    }
+
+    async fn wait_for_facts(
+        repo: &MemoryFactRepository,
+        tenant_id: &str,
+        session_id: Uuid,
+    ) -> Vec<crate::facts::MemoryFact> {
+        for _ in 0..20 {
+            let facts = repo.list_by_session(tenant_id, session_id).await.unwrap();
+            if !facts.is_empty() {
+                return facts;
+            }
+            tokio::time::sleep(Duration::from_millis(50)).await;
+        }
+        panic!("facts were not materialized in time");
     }
 
     #[tokio::test]
@@ -1541,6 +1557,98 @@ mod tests {
                 .iter()
                 .any(|hit| hit.match_reasons.contains(&"domain_class_hit".to_string()))
         );
+
+        let _ = shutdown_tx.send(());
+        server.await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn summarize_memory_extracts_candidate_facts_independently() {
+        let mut config = test_config();
+        config.summary.async_enabled = true;
+        let runtime = RuntimeState::initialize(&config).await.unwrap();
+        let summary_repo = MemorySummaryRepository::new(runtime.pool());
+        let fact_repo = MemoryFactRepository::new(runtime.pool());
+        let (mut client, shutdown_tx, server) = start_test_server(config, runtime).await;
+
+        let session_id = Uuid::new_v4();
+        let sid_str = session_id.to_string();
+
+        client
+            .upsert_session_meta(UpsertSessionMetaRequest {
+                meta: Some(write_meta_with_idempotency("t72-session", &sid_str)),
+                session_id: sid_str.clone(),
+                title: "Deployment preferences".to_string(),
+                status: "active".to_string(),
+                parent_session_id: String::new(),
+                forked_from_session_id: String::new(),
+                last_message_at: 1700000000000,
+                extra: [].into(),
+            })
+            .await
+            .unwrap();
+
+        client
+            .append_memory(AppendMemoryRequest {
+                meta: Some(write_meta_with_idempotency("t72-append", &sid_str)),
+                session_id: sid_str.clone(),
+                entries: vec![
+                    MemoryEntry {
+                        role: "user".to_string(),
+                        content: "I prefer concise rollout summaries".to_string(),
+                        timestamp: 1700000000000,
+                        metadata: std::collections::HashMap::new(),
+                    },
+                    MemoryEntry {
+                        role: "user".to_string(),
+                        content: "Please do not include raw secrets in logs".to_string(),
+                        timestamp: 1700000001000,
+                        metadata: std::collections::HashMap::new(),
+                    },
+                ],
+            })
+            .await
+            .unwrap();
+
+        let summarize = client
+            .summarize_memory(SummarizeMemoryRequest {
+                meta: Some(write_meta_with_idempotency("t72-summary", &sid_str)),
+                session_id: sid_str.clone(),
+                strategy: "session-rollup".to_string(),
+            })
+            .await
+            .unwrap()
+            .into_inner();
+
+        assert!(summarize.ok);
+        assert!(summarize.error.is_none());
+        assert!(summarize.summary.contains("accepted"));
+
+        let stored_summary = wait_for_summary(&summary_repo, "tenant-t33", session_id).await;
+        assert!(stored_summary.summary.contains("Deployment preferences"));
+
+        let facts = wait_for_facts(&fact_repo, "tenant-t33", session_id).await;
+        assert!(facts.iter().any(|fact| fact.fact_type == "session_focus"));
+        assert!(facts.iter().any(|fact| fact.fact_type == "preference"));
+        assert!(facts.iter().any(|fact| fact.fact_type == "constraint"));
+        assert!(facts.iter().all(|fact| fact.domain_class == stored_summary.domain_class));
+
+        let response = client
+            .query_memory(QueryMemoryRequest {
+                meta: Some(write_meta_with_idempotency("t72-query-memory", &sid_str)),
+                session_id: sid_str,
+                query_text: "rollout".to_string(),
+                domain_class: stored_summary.domain_class.clone(),
+                top_k: 5,
+                retrieve_policy: 1,
+                page_token: String::new(),
+            })
+            .await
+            .unwrap()
+            .into_inner();
+
+        assert!(response.ok);
+        assert!(response.hits.iter().all(|hit| !hit.l0_uri.starts_with("memory-fact://")));
 
         let _ = shutdown_tx.send(());
         server.await.unwrap();
