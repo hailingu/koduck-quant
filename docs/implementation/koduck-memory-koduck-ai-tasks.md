@@ -147,9 +147,9 @@
 4. 支持 `title/status/last_message_at/extra` 更新
 
 **验收标准:**
-- [ ] session 元数据可落库
-- [ ] 更新操作幂等
-- [ ] session lineage 可被正确记录
+- [x] session 元数据可落库
+- [x] 更新操作幂等
+- [x] session lineage 可被正确记录
 
 ### Task 3.2: 实现 `GetSession`
 **详细要求:**

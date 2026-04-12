@@ -9,6 +9,8 @@ use crate::api::{
     UpsertSessionMetaResponse,
 };
 use crate::config::AppConfig;
+use crate::session::{SessionRepository, UpsertSession, extra_to_jsonb, parse_optional_uuid, parse_uuid};
+use crate::store::RuntimeState;
 
 const MAX_TOP_K: i32 = 20;
 const MAX_PAGE_SIZE: i32 = 100;
@@ -17,13 +19,16 @@ const RECOMMENDED_TIMEOUT_MS: i64 = 5000;
 #[derive(Clone)]
 pub struct MemoryGrpcService {
     config: AppConfig,
+    runtime: RuntimeState,
 }
 
 impl MemoryGrpcService {
-    pub fn from_config(config: &AppConfig) -> Self {
-        Self {
-            config: config.clone(),
-        }
+    pub fn new(config: AppConfig, runtime: RuntimeState) -> Self {
+        Self { config, runtime }
+    }
+
+    fn session_repo(&self) -> SessionRepository {
+        SessionRepository::new(self.runtime.pool())
     }
 
     fn capability_response(&self) -> Capability {
@@ -67,7 +72,7 @@ impl MemoryGrpcService {
     fn not_implemented_error(method: &str) -> Option<ErrorDetail> {
         Some(ErrorDetail {
             code: "NOT_IMPLEMENTED".to_string(),
-            message: format!("{method} is not implemented in Task 1.1 skeleton"),
+            message: format!("{method} is not implemented yet"),
             retryable: false,
             degraded: false,
             upstream: "koduck-memory".to_string(),
@@ -123,12 +128,51 @@ impl MemoryService for MemoryGrpcService {
         &self,
         request: Request<UpsertSessionMetaRequest>,
     ) -> Result<Response<UpsertSessionMetaResponse>, Status> {
-        Self::validate_write_meta(request.get_ref().meta.as_ref().ok_or_else(|| {
-            Status::invalid_argument("meta is required")
-        })?)?;
+        let req = request.get_ref();
+        let meta = req
+            .meta
+            .as_ref()
+            .ok_or_else(|| Status::invalid_argument("meta is required"))?;
+        Self::validate_write_meta(meta)?;
+
+        let session_id =
+            parse_uuid(&req.session_id).map_err(|e| Status::invalid_argument(format!("invalid session_id: {e}")))?;
+
+        let last_message_at = if req.last_message_at > 0 {
+            chrono::DateTime::from_timestamp_millis(req.last_message_at)
+                .ok_or_else(|| Status::invalid_argument("invalid last_message_at"))?
+        } else {
+            chrono::Utc::now()
+        };
+
+        let upsert = UpsertSession {
+            session_id,
+            tenant_id: meta.tenant_id.clone(),
+            user_id: meta.user_id.clone(),
+            parent_session_id: parse_optional_uuid(&req.parent_session_id),
+            forked_from_session_id: parse_optional_uuid(&req.forked_from_session_id),
+            title: if req.title.is_empty() {
+                "untitled".to_string()
+            } else {
+                req.title.clone()
+            },
+            status: if req.status.is_empty() {
+                "active".to_string()
+            } else {
+                req.status.clone()
+            },
+            last_message_at,
+            extra: extra_to_jsonb(&req.extra),
+        };
+
+        self.session_repo()
+            .upsert(&upsert)
+            .await
+            .map_err(|e| Status::internal(format!("failed to upsert session: {e}")))?;
+
         Ok(Response::new(UpsertSessionMetaResponse {
-            ok: false,
-            error: Self::not_implemented_error("UpsertSessionMeta"),
+            ok: true,
+            error: None,
         }))
     }
 
@@ -136,14 +180,40 @@ impl MemoryService for MemoryGrpcService {
         &self,
         request: Request<GetSessionRequest>,
     ) -> Result<Response<GetSessionResponse>, Status> {
-        Self::validate_meta(request.get_ref().meta.as_ref().ok_or_else(|| {
-            Status::invalid_argument("meta is required")
-        })?)?;
-        Ok(Response::new(GetSessionResponse {
-            ok: false,
-            session: None,
-            error: Self::not_implemented_error("GetSession"),
-        }))
+        let req = request.get_ref();
+        let meta = req
+            .meta
+            .as_ref()
+            .ok_or_else(|| Status::invalid_argument("meta is required"))?;
+        Self::validate_meta(meta)?;
+
+        let session_id =
+            parse_uuid(&req.session_id).map_err(|e| Status::invalid_argument(format!("invalid session_id: {e}")))?;
+
+        match self
+            .session_repo()
+            .get_by_id(&meta.tenant_id, session_id)
+            .await
+            .map_err(|e| Status::internal(format!("failed to get session: {e}")))?
+        {
+            Some(session) => Ok(Response::new(GetSessionResponse {
+                ok: true,
+                session: Some(session.to_proto()),
+                error: None,
+            })),
+            None => Ok(Response::new(GetSessionResponse {
+                ok: false,
+                session: None,
+                error: Some(ErrorDetail {
+                    code: "RESOURCE_NOT_FOUND".to_string(),
+                    message: "session not found".to_string(),
+                    retryable: false,
+                    degraded: false,
+                    upstream: "koduck-memory".to_string(),
+                    retry_after_ms: 0,
+                }),
+            })),
+        }
     }
 
     async fn query_memory(
@@ -203,6 +273,7 @@ mod tests {
         AppConfig, AppSection, CapabilitiesSection, IndexSection, ObjectStoreSection,
         PostgresSection, ServerSection, SummarySection,
     };
+    use crate::store::RuntimeState;
     use tokio::net::TcpListener;
     use tokio_stream::wrappers::TcpListenerStream;
     use tonic::transport::{Channel, Server};
@@ -272,11 +343,13 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn empty_server_can_register_and_start() {
+    async fn server_can_register_and_start() {
         let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
         let addr = listener.local_addr().unwrap();
         let incoming = TcpListenerStream::new(listener);
-        let service = MemoryGrpcService::from_config(&test_config());
+
+        let runtime = RuntimeState::initialize(&test_config()).await.unwrap();
+        let service = MemoryGrpcService::new(test_config(), runtime);
         let (shutdown_tx, shutdown_rx) = tokio::sync::oneshot::channel::<()>();
 
         let server = tokio::spawn(async move {

@@ -17,7 +17,7 @@ pub async fn run(config: AppConfig) -> Result<()> {
     let metrics_addr: SocketAddr = config.server.metrics_addr.parse()?;
     let runtime = RuntimeState::initialize(&config).await?;
 
-    let grpc_service = MemoryGrpcService::from_config(&config);
+    let grpc_service = MemoryGrpcService::new(config.clone(), runtime.clone());
     let reflection = tonic_reflection::server::Builder::configure()
         .register_encoded_file_descriptor_set(FILE_DESCRIPTOR_SET)
         .build()?;
