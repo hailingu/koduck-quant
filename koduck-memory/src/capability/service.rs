@@ -268,7 +268,7 @@ mod tests {
     use std::time::Duration;
 
     use super::MemoryGrpcService;
-    use crate::api::{GetSessionRequest, MemoryServiceClient, MemoryServiceServer, RequestMeta};
+    use crate::api::{GetSessionRequest, MemoryServiceClient, MemoryServiceServer, RequestMeta, UpsertSessionMetaRequest};
     use crate::config::{
         AppConfig, AppSection, CapabilitiesSection, IndexSection, ObjectStoreSection,
         PostgresSection, ServerSection, SummarySection,
@@ -560,6 +560,253 @@ mod tests {
         assert_eq!(error.message, "session not found");
         assert!(!error.retryable);
         assert_eq!(error.upstream, "koduck-memory");
+
+        let _ = shutdown_tx.send(());
+        server.await.unwrap();
+    }
+
+    /// Helper: start a gRPC server and return (client, shutdown_sender, server_join_handle).
+    async fn start_test_server(
+        config: AppConfig,
+        runtime: RuntimeState,
+    ) -> (
+        MemoryServiceClient<Channel>,
+        tokio::sync::oneshot::Sender<()>,
+        tokio::task::JoinHandle<()>,
+    ) {
+        let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let addr = listener.local_addr().unwrap();
+        let incoming = TcpListenerStream::new(listener);
+        let service = MemoryGrpcService::new(config, runtime);
+        let (shutdown_tx, shutdown_rx) = tokio::sync::oneshot::channel::<()>();
+
+        let server = tokio::spawn(async move {
+            Server::builder()
+                .add_service(MemoryServiceServer::new(service))
+                .serve_with_incoming_shutdown(incoming, async {
+                    let _ = shutdown_rx.await;
+                })
+                .await
+                .unwrap();
+        });
+
+        let endpoint = format!("http://{addr}");
+        let channel = Channel::from_shared(endpoint)
+            .unwrap()
+            .connect_timeout(Duration::from_secs(2))
+            .connect()
+            .await
+            .unwrap();
+        let client = MemoryServiceClient::new(channel);
+
+        (client, shutdown_tx, server)
+    }
+
+    fn write_meta_with_idempotency(request_id: &str, session_id: &str) -> RequestMeta {
+        RequestMeta {
+            request_id: request_id.to_string(),
+            session_id: session_id.to_string(),
+            user_id: "user-t33".to_string(),
+            tenant_id: "tenant-t33".to_string(),
+            trace_id: format!("trace-{request_id}"),
+            idempotency_key: format!("idem-{request_id}"),
+            deadline_ms: 5000,
+            api_version: "memory.v1".to_string(),
+        }
+    }
+
+    #[tokio::test]
+    async fn upsert_session_meta_creates_then_updates() {
+        let config = test_config();
+        let runtime = RuntimeState::initialize(&config).await.unwrap();
+        let (mut client, shutdown_tx, server) = start_test_server(config, runtime).await;
+
+        let session_id = Uuid::new_v4();
+        let sid_str = session_id.to_string();
+
+        // Create
+        let create_resp = client
+            .upsert_session_meta(UpsertSessionMetaRequest {
+                meta: Some(write_meta_with_idempotency("t33-create", &sid_str)),
+                session_id: sid_str.clone(),
+                title: "Initial Title".to_string(),
+                status: "active".to_string(),
+                parent_session_id: String::new(),
+                forked_from_session_id: String::new(),
+                last_message_at: 1700000000000,
+                extra: [].into(),
+            })
+            .await
+            .unwrap()
+            .into_inner();
+        assert!(create_resp.ok);
+        assert!(create_resp.error.is_none());
+
+        // Update: change title, status, add extra
+        let mut update_extra = std::collections::HashMap::new();
+        update_extra.insert("model".to_string(), "gpt-4".to_string());
+
+        let update_resp = client
+            .upsert_session_meta(UpsertSessionMetaRequest {
+                meta: Some(write_meta_with_idempotency("t33-update", &sid_str)),
+                session_id: sid_str.clone(),
+                title: "Updated Title".to_string(),
+                status: "archived".to_string(),
+                parent_session_id: String::new(),
+                forked_from_session_id: String::new(),
+                last_message_at: 1700000060000,
+                extra: update_extra,
+            })
+            .await
+            .unwrap()
+            .into_inner();
+        assert!(update_resp.ok);
+
+        // Verify: only one session exists, with updated values
+        let get_resp = client
+            .get_session(GetSessionRequest {
+                meta: Some(write_meta_with_idempotency("t33-get", &sid_str)),
+                session_id: sid_str.clone(),
+            })
+            .await
+            .unwrap()
+            .into_inner();
+
+        assert!(get_resp.ok);
+        let session = get_resp.session.unwrap();
+        assert_eq!(session.session_id, sid_str);
+        assert_eq!(session.title, "Updated Title");
+        assert_eq!(session.status, "archived");
+        assert_eq!(session.extra.get("model"), Some(&"gpt-4".to_string()));
+        assert_eq!(session.last_message_at, 1700000060000);
+        // created_at should be from the first insert, updated_at should be later
+        assert!(session.created_at <= session.updated_at);
+
+        let _ = shutdown_tx.send(());
+        server.await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn upsert_session_meta_updates_last_message_at() {
+        let config = test_config();
+        let runtime = RuntimeState::initialize(&config).await.unwrap();
+        let (mut client, shutdown_tx, server) = start_test_server(config, runtime).await;
+
+        let session_id = Uuid::new_v4();
+        let sid_str = session_id.to_string();
+
+        // Create with explicit last_message_at
+        client
+            .upsert_session_meta(UpsertSessionMetaRequest {
+                meta: Some(write_meta_with_idempotency("t33-ts-1", &sid_str)),
+                session_id: sid_str.clone(),
+                title: "TS Test".to_string(),
+                status: "active".to_string(),
+                parent_session_id: String::new(),
+                forked_from_session_id: String::new(),
+                last_message_at: 1700000000000,
+                extra: [].into(),
+            })
+            .await
+            .unwrap()
+            .into_inner();
+
+        // Update with a later last_message_at
+        client
+            .upsert_session_meta(UpsertSessionMetaRequest {
+                meta: Some(write_meta_with_idempotency("t33-ts-2", &sid_str)),
+                session_id: sid_str.clone(),
+                title: "TS Test".to_string(),
+                status: "active".to_string(),
+                parent_session_id: String::new(),
+                forked_from_session_id: String::new(),
+                last_message_at: 1700000099999,
+                extra: [].into(),
+            })
+            .await
+            .unwrap()
+            .into_inner();
+
+        // Verify last_message_at is updated
+        let get_resp = client
+            .get_session(GetSessionRequest {
+                meta: Some(write_meta_with_idempotency("t33-ts-3", &sid_str)),
+                session_id: sid_str.clone(),
+            })
+            .await
+            .unwrap()
+            .into_inner();
+
+        let session = get_resp.session.unwrap();
+        assert_eq!(session.last_message_at, 1700000099999);
+
+        let _ = shutdown_tx.send(());
+        server.await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn upsert_session_meta_truth_owned_by_memory() {
+        let config = test_config();
+        let runtime = RuntimeState::initialize(&config).await.unwrap();
+        let repo = SessionRepository::new(runtime.pool());
+        let session_id = Uuid::new_v4();
+        let sid_str = session_id.to_string();
+
+        // Step 1: Create session directly via repo (simulating legacy write path)
+        let original_ts = chrono::Utc::now();
+        repo.upsert(&UpsertSession {
+            session_id,
+            tenant_id: "tenant-t33".to_string(),
+            user_id: "user-t33".to_string(),
+            parent_session_id: None,
+            forked_from_session_id: None,
+            title: "Legacy Title".to_string(),
+            status: "active".to_string(),
+            last_message_at: original_ts,
+            extra: serde_json::json!({"source": "legacy"}),
+        })
+        .await
+        .unwrap();
+
+        let (mut client, shutdown_tx, server) =
+            start_test_server(test_config(), RuntimeState::initialize(&test_config()).await.unwrap()).await;
+
+        // Step 2: Update via gRPC UpsertSessionMeta (new canonical path)
+        let mut gpc_extra = std::collections::HashMap::new();
+        gpc_extra.insert("source".to_string(), "gRPC".to_string());
+        gpc_extra.insert("version".to_string(), "v2".to_string());
+
+        client
+            .upsert_session_meta(UpsertSessionMetaRequest {
+                meta: Some(write_meta_with_idempotency("t33-truth-1", &sid_str)),
+                session_id: sid_str.clone(),
+                title: "gRPC Title".to_string(),
+                status: "active".to_string(),
+                parent_session_id: String::new(),
+                forked_from_session_id: String::new(),
+                last_message_at: 1700000050000,
+                extra: gpc_extra,
+            })
+            .await
+            .unwrap()
+            .into_inner();
+
+        // Step 3: Verify via GetSession — gRPC values should be the truth
+        let get_resp = client
+            .get_session(GetSessionRequest {
+                meta: Some(write_meta_with_idempotency("t33-truth-2", &sid_str)),
+                session_id: sid_str.clone(),
+            })
+            .await
+            .unwrap()
+            .into_inner();
+
+        assert!(get_resp.ok);
+        let session = get_resp.session.unwrap();
+        assert_eq!(session.title, "gRPC Title");
+        assert_eq!(session.extra.get("source"), Some(&"gRPC".to_string()));
+        assert_eq!(session.extra.get("version"), Some(&"v2".to_string()));
+        assert_eq!(session.last_message_at, 1700000050000);
 
         let _ = shutdown_tx.send(());
         server.await.unwrap();
