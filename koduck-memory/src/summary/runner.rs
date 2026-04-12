@@ -4,9 +4,11 @@ use sqlx::PgPool;
 use tracing::{info, instrument, warn};
 use uuid::Uuid;
 
+use crate::config::RetrySection;
 use crate::facts::{InsertMemoryFact, MemoryFact, MemoryFactRepository};
 use crate::index::{InsertMemoryIndexRecord, MemoryIndexRepository};
 use crate::memory::MemoryEntryRepository;
+use crate::reliability::{TaskAttemptRepository, with_retry};
 use crate::retrieve::domain_class;
 use crate::session::SessionRepository;
 use crate::store::ObjectStoreClient;
@@ -50,24 +52,105 @@ pub struct SummaryTaskRunner {
     session_repo: SessionRepository,
     summary_repo: MemorySummaryRepository,
     fact_repo: MemoryFactRepository,
+    attempt_repo: TaskAttemptRepository,
     index_repo: MemoryIndexRepository,
     object_store: Option<ObjectStoreClient>,
+    retry_config: RetrySection,
 }
 
 impl SummaryTaskRunner {
-    pub fn new(pool: &PgPool, object_store: Option<ObjectStoreClient>) -> Self {
+    pub fn new(
+        pool: &PgPool,
+        object_store: Option<ObjectStoreClient>,
+        retry_config: RetrySection,
+    ) -> Self {
         Self {
             entry_repo: MemoryEntryRepository::new(pool),
             session_repo: SessionRepository::new(pool),
             summary_repo: MemorySummaryRepository::new(pool),
             fact_repo: MemoryFactRepository::new(pool),
+            attempt_repo: TaskAttemptRepository::new(pool),
             index_repo: MemoryIndexRepository::new(pool),
             object_store,
+            retry_config,
         }
     }
 
     #[instrument(skip(self), fields(tenant_id = %job.tenant_id, session_id = %job.session_id, strategy = %job.strategy, request_id = %job.request_id))]
     pub async fn run(&self, job: SummaryJob) -> Result<MemorySummary> {
+        let materialized = with_retry(
+            "summary_materialize",
+            &job.tenant_id,
+            job.session_id,
+            &job.request_id,
+            &self.attempt_repo,
+            &self.retry_config,
+            || {
+                let runner = self.clone();
+                let job = job.clone();
+                async move { runner.materialize_summary(job).await }
+            },
+        )
+        .await?;
+
+        if let Err(error) = with_retry(
+            "summary_index_refresh",
+            &materialized.stored_summary.tenant_id,
+            materialized.stored_summary.session_id,
+            &materialized.request_id,
+            &self.attempt_repo,
+            &self.retry_config,
+            || {
+                let runner = self.clone();
+                let materialized = materialized.clone();
+                async move { runner.refresh_summary_index(&materialized).await }
+            },
+        )
+        .await
+        {
+            warn!(
+                error = %error,
+                session_id = %materialized.stored_summary.session_id,
+                "summary index refresh failed after all retries"
+            );
+        }
+
+        if materialized.has_fact_candidates() {
+            if let Err(error) = with_retry(
+                "summary_facts_extract",
+                &materialized.stored_summary.tenant_id,
+                materialized.stored_summary.session_id,
+                &materialized.request_id,
+                &self.attempt_repo,
+                &self.retry_config,
+                || {
+                    let runner = self.clone();
+                    let materialized = materialized.clone();
+                    async move { runner.materialize_facts(&materialized).await }
+                },
+            )
+            .await
+            {
+                warn!(
+                    error = %error,
+                    session_id = %materialized.stored_summary.session_id,
+                    "fact extraction failed after all retries"
+                );
+            }
+        }
+
+        info!(
+            summary_id = %materialized.stored_summary.id,
+            version = materialized.stored_summary.version,
+            domain_class = %materialized.stored_summary.domain_class,
+            fact_count = materialized.fact_candidates.len(),
+            "summary task completed"
+        );
+
+        Ok(materialized.stored_summary)
+    }
+
+    async fn materialize_summary(&self, job: SummaryJob) -> Result<SummaryMaterialization> {
         let mut entries = self
             .entry_repo
             .list_by_session(&job.tenant_id, job.session_id, None)
@@ -90,16 +173,40 @@ impl SummaryTaskRunner {
         );
         let version = self.summary_repo.next_version(&job.tenant_id, job.session_id).await?;
 
+        maybe_inject_test_failure(&job.strategy, &job.request_id, "summary_materialize")?;
+
         let insert_summary = InsertMemorySummary::new(
             job.tenant_id.clone(),
             job.session_id,
             inferred_domain_class.clone(),
-            summary_text.clone(),
+            summary_text,
             job.strategy.clone(),
             version,
         );
         let stored = self.summary_repo.insert(&insert_summary).await?;
 
+        let fact_candidates = build_fact_candidates(
+            &transcript,
+            session.as_ref().map(|value| value.title.as_str()),
+            &stored.domain_class,
+        );
+
+        Ok(SummaryMaterialization {
+            stored_summary: stored,
+            fact_candidates,
+            request_id: job.request_id,
+            test_strategy: job.strategy,
+        })
+    }
+
+    async fn refresh_summary_index(&self, materialized: &SummaryMaterialization) -> Result<()> {
+        maybe_inject_test_failure(
+            &materialized.test_strategy,
+            &materialized.request_id,
+            "summary_index_refresh",
+        )?;
+
+        let stored = &materialized.stored_summary;
         let summary_uri = build_summary_uri(&stored.tenant_id, stored.session_id, stored.version);
         let index_record = InsertMemoryIndexRecord::new(
             stored.tenant_id.clone(),
@@ -112,55 +219,26 @@ impl SummaryTaskRunner {
         .with_snippet(build_snippet(&stored.summary))
         .with_score_hint("0.95");
         self.index_repo.insert(&index_record).await?;
-
-        let fact_candidates = build_fact_candidates(
-            &transcript,
-            session.as_ref().map(|value| value.title.as_str()),
-            &stored.domain_class,
-        );
-        if !fact_candidates.is_empty() {
-            if let Err(error) = self
-                .materialize_facts(
-                    &stored.tenant_id,
-                    stored.session_id,
-                    &stored.domain_class,
-                    &fact_candidates,
-                )
-                .await
-            {
-                warn!(
-                    error = %error,
-                    session_id = %stored.session_id,
-                    "fact extraction failed but summary remained persisted"
-                );
-            }
-        }
-
-        info!(
-            summary_id = %stored.id,
-            version = stored.version,
-            domain_class = %stored.domain_class,
-            fact_count = fact_candidates.len(),
-            "summary task completed"
-        );
-
-        Ok(stored)
+        Ok(())
     }
 
     async fn materialize_facts(
         &self,
-        tenant_id: &str,
-        session_id: Uuid,
-        domain_class: &str,
-        fact_candidates: &[FactCandidate],
+        materialized: &SummaryMaterialization,
     ) -> Result<Vec<MemoryFact>> {
-        let mut facts = Vec::with_capacity(fact_candidates.len());
-        for candidate in fact_candidates {
+        maybe_inject_test_failure(
+            &materialized.test_strategy,
+            &materialized.request_id,
+            "summary_facts_extract",
+        )?;
+
+        let mut facts = Vec::with_capacity(materialized.fact_candidates.len());
+        for candidate in &materialized.fact_candidates {
             let insert_fact = InsertMemoryFact::new(
-                tenant_id,
-                session_id,
+                &materialized.stored_summary.tenant_id,
+                materialized.stored_summary.session_id,
                 candidate.fact_type.clone(),
-                domain_class,
+                &materialized.stored_summary.domain_class,
                 candidate.fact_text.clone(),
                 candidate.confidence,
             );
@@ -204,6 +282,20 @@ struct FactCandidate {
     fact_type: String,
     fact_text: String,
     confidence: f64,
+}
+
+#[derive(Debug, Clone)]
+struct SummaryMaterialization {
+    stored_summary: MemorySummary,
+    fact_candidates: Vec<FactCandidate>,
+    request_id: String,
+    test_strategy: String,
+}
+
+impl SummaryMaterialization {
+    fn has_fact_candidates(&self) -> bool {
+        !self.fact_candidates.is_empty()
+    }
 }
 
 impl FactCandidate {
@@ -450,6 +542,37 @@ fn normalize_strategy(strategy: String) -> String {
     } else {
         trimmed.to_string()
     }
+}
+
+#[cfg(not(test))]
+fn maybe_inject_test_failure(_strategy: &str, _request_id: &str, _stage: &str) -> Result<()> {
+    Ok(())
+}
+
+#[cfg(test)]
+fn maybe_inject_test_failure(strategy: &str, request_id: &str, stage: &str) -> Result<()> {
+    use std::collections::HashMap;
+    use std::sync::{Mutex, OnceLock};
+
+    static FAIL_ONCE_TRACKER: OnceLock<Mutex<HashMap<String, usize>>> = OnceLock::new();
+
+    let tracker = FAIL_ONCE_TRACKER.get_or_init(|| Mutex::new(HashMap::new()));
+    let key = format!("{request_id}:{stage}");
+
+    if strategy == format!("test-fail-{stage}-always") {
+        anyhow::bail!("injected test failure for {stage}");
+    }
+
+    if strategy == format!("test-fail-{stage}-once") {
+        let mut guard = tracker.lock().expect("test failure tracker lock");
+        let counter = guard.entry(key).or_insert(0);
+        if *counter == 0 {
+            *counter += 1;
+            anyhow::bail!("injected single test failure for {stage}");
+        }
+    }
+
+    Ok(())
 }
 
 #[cfg(test)]

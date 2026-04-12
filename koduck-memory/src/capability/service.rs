@@ -697,33 +697,19 @@ impl MemoryService for MemoryGrpcService {
             }));
         }
 
-        let runner = SummaryTaskRunner::new(self.runtime.pool(), self.object_store.clone());
-        let attempt_repo = TaskAttemptRepository::new(self.runtime.pool());
+        let runner = SummaryTaskRunner::new(
+            self.runtime.pool(),
+            self.object_store.clone(),
+            self.config.retry.clone(),
+        );
         let job = SummaryJob::new(
             meta.tenant_id.clone(),
             session_id,
             req.strategy.clone(),
             meta.request_id.clone(),
         );
-        let retry_config = self.config.retry.clone();
-        let tenant_id = meta.tenant_id.clone();
-        let request_id = meta.request_id.clone();
         tokio::spawn(async move {
-            if let Err(error) = with_retry(
-                "summarize",
-                &tenant_id,
-                job.session_id,
-                &request_id,
-                &attempt_repo,
-                &retry_config,
-                || {
-                    let runner = runner.clone();
-                    let job = job.clone();
-                    async move { runner.run(job).await }
-                },
-            )
-            .await
-            {
+            if let Err(error) = runner.run(job.clone()).await {
                 tracing::warn!(error = %error, session_id = %job.session_id, "summary task failed after all retries");
             }
         });
@@ -753,6 +739,7 @@ mod tests {
     };
     use crate::facts::MemoryFactRepository;
     use crate::index::MemoryIndexRepository;
+    use crate::reliability::TaskAttemptRepository;
     use crate::summary::MemorySummaryRepository;
     use crate::session::{SessionRepository, UpsertSession, extra_to_jsonb};
     use crate::store::RuntimeState;
@@ -1127,6 +1114,24 @@ mod tests {
             tokio::time::sleep(Duration::from_millis(50)).await;
         }
         panic!("facts were not materialized in time");
+    }
+
+    async fn wait_for_failed_task(
+        repo: &TaskAttemptRepository,
+        task_type: &str,
+        request_id: &str,
+    ) -> crate::reliability::TaskAttempt {
+        for _ in 0..20 {
+            let attempts = repo.list_failed(Some(task_type), 20).await.unwrap();
+            if let Some(attempt) = attempts
+                .into_iter()
+                .find(|attempt| attempt.request_id.as_deref() == Some(request_id))
+            {
+                return attempt;
+            }
+            tokio::time::sleep(Duration::from_millis(50)).await;
+        }
+        panic!("failed task record was not persisted in time");
     }
 
     #[tokio::test]
@@ -2087,5 +2092,152 @@ mod tests {
         assert!(hit.match_reasons.contains(&"domain_class_hit".to_string()));
         assert!(hit.match_reasons.contains(&"summary_hit".to_string()));
         assert!(hit.match_reasons.contains(&"session_scope_hit".to_string()));
+    }
+
+    #[tokio::test]
+    async fn summarize_memory_retries_fact_stage_without_blocking_summary() {
+        let mut config = test_config();
+        config.summary.async_enabled = true;
+        config.retry.max_attempts = 3;
+        config.retry.initial_delay_ms = 10;
+        let runtime = RuntimeState::initialize(&config).await.unwrap();
+        let summary_repo = MemorySummaryRepository::new(runtime.pool());
+        let fact_repo = MemoryFactRepository::new(runtime.pool());
+        let attempt_repo = TaskAttemptRepository::new(runtime.pool());
+        let (mut client, shutdown_tx, server) = start_test_server(config, runtime).await;
+
+        let session_id = Uuid::new_v4();
+        let sid_str = session_id.to_string();
+        let request_id = "t73-facts-retry";
+
+        client
+            .upsert_session_meta(UpsertSessionMetaRequest {
+                meta: Some(write_meta_with_idempotency("t73-retry-session", &sid_str)),
+                session_id: sid_str.clone(),
+                title: "Retry facts".to_string(),
+                status: "active".to_string(),
+                parent_session_id: String::new(),
+                forked_from_session_id: String::new(),
+                last_message_at: 1700000000000,
+                extra: [].into(),
+            })
+            .await
+            .unwrap();
+
+        client
+            .append_memory(AppendMemoryRequest {
+                meta: Some(write_meta_with_idempotency("t73-retry-append", &sid_str)),
+                session_id: sid_str.clone(),
+                entries: vec![MemoryEntry {
+                    role: "user".to_string(),
+                    content: "I prefer terse updates".to_string(),
+                    timestamp: 1700000000000,
+                    metadata: std::collections::HashMap::new(),
+                }],
+            })
+            .await
+            .unwrap();
+
+        let summarize = client
+            .summarize_memory(SummarizeMemoryRequest {
+                meta: Some(write_meta_with_idempotency(request_id, &sid_str)),
+                session_id: sid_str.clone(),
+                strategy: "test-fail-summary_facts_extract-once".to_string(),
+            })
+            .await
+            .unwrap()
+            .into_inner();
+
+        assert!(summarize.ok);
+        let _ = wait_for_summary(&summary_repo, "tenant-t33", session_id).await;
+        let facts = wait_for_facts(&fact_repo, "tenant-t33", session_id).await;
+        assert!(!facts.is_empty());
+
+        let attempts = attempt_repo.list_by_request_id(request_id).await.unwrap();
+        let fact_attempts: Vec<_> = attempts
+            .into_iter()
+            .filter(|attempt| attempt.task_type == "summary_facts_extract")
+            .collect();
+        assert_eq!(fact_attempts.len(), 2);
+        assert!(fact_attempts.iter().all(|attempt| attempt.status == "succeeded"));
+        let _ = shutdown_tx.send(());
+        server.await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn summarize_memory_records_failed_stage_for_compensation() {
+        let mut config = test_config();
+        config.summary.async_enabled = true;
+        config.retry.max_attempts = 2;
+        config.retry.initial_delay_ms = 10;
+        let runtime = RuntimeState::initialize(&config).await.unwrap();
+        let summary_repo = MemorySummaryRepository::new(runtime.pool());
+        let fact_repo = MemoryFactRepository::new(runtime.pool());
+        let attempt_repo = TaskAttemptRepository::new(runtime.pool());
+        let (mut client, shutdown_tx, server) = start_test_server(config, runtime).await;
+
+        let session_id = Uuid::new_v4();
+        let sid_str = session_id.to_string();
+        let request_id = "t73-facts-fail";
+
+        client
+            .upsert_session_meta(UpsertSessionMetaRequest {
+                meta: Some(write_meta_with_idempotency("t73-fail-session", &sid_str)),
+                session_id: sid_str.clone(),
+                title: "Compensation facts".to_string(),
+                status: "active".to_string(),
+                parent_session_id: String::new(),
+                forked_from_session_id: String::new(),
+                last_message_at: 1700000000000,
+                extra: [].into(),
+            })
+            .await
+            .unwrap();
+
+        client
+            .append_memory(AppendMemoryRequest {
+                meta: Some(write_meta_with_idempotency("t73-fail-append", &sid_str)),
+                session_id: sid_str.clone(),
+                entries: vec![MemoryEntry {
+                    role: "user".to_string(),
+                    content: "Do not leak secrets into rollout logs".to_string(),
+                    timestamp: 1700000000000,
+                    metadata: std::collections::HashMap::new(),
+                }],
+            })
+            .await
+            .unwrap();
+
+        let summarize = client
+            .summarize_memory(SummarizeMemoryRequest {
+                meta: Some(write_meta_with_idempotency(request_id, &sid_str)),
+                session_id: sid_str.clone(),
+                strategy: "test-fail-summary_facts_extract-always".to_string(),
+            })
+            .await
+            .unwrap()
+            .into_inner();
+
+        assert!(summarize.ok);
+
+        let stored_summary = wait_for_summary(&summary_repo, "tenant-t33", session_id).await;
+        assert!(stored_summary.summary.contains("Compensation facts"));
+
+        let failed = wait_for_failed_task(&attempt_repo, "summary_facts_extract", request_id).await;
+        assert_eq!(failed.status, "failed");
+        assert_eq!(failed.request_id.as_deref(), Some(request_id));
+        assert!(
+            failed
+                .error_message
+                .as_deref()
+                .unwrap_or_default()
+                .contains("injected")
+        );
+
+        let facts = fact_repo.list_by_session("tenant-t33", session_id).await.unwrap();
+        assert!(facts.is_empty());
+
+        let _ = shutdown_tx.send(());
+        server.await.unwrap();
     }
 }

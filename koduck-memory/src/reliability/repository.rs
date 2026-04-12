@@ -128,6 +128,23 @@ impl TaskAttemptRepository {
 
         Ok(rows)
     }
+
+    pub async fn list_by_request_id(&self, request_id: &str) -> Result<Vec<TaskAttempt>> {
+        let rows = sqlx::query_as::<_, TaskAttempt>(
+            r#"
+            SELECT id, tenant_id, session_id, task_type, attempt, status,
+                   error_message, request_id, created_at, updated_at
+            FROM memory_task_attempts
+            WHERE request_id = $1
+            ORDER BY created_at ASC
+            "#,
+        )
+        .bind(request_id)
+        .fetch_all(&self.pool)
+        .await?;
+
+        Ok(rows)
+    }
 }
 
 fn truncate_error(error: &str, max_len: usize) -> String {
