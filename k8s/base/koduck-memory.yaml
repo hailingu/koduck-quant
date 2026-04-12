@@ -114,4 +114,4 @@ stringData:
   OBJECT_STORE__REGION: "ap-east-1"
   INDEX__MODE: "domain-first"
   CAPABILITIES__TTL_SECS: "60"
-  SUMMARY__ASYNC_ENABLED: "false"
+  SUMMARY__ASYNC_ENABLED: "true"

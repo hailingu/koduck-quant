@@ -12,6 +12,7 @@ use crate::config::AppConfig;
 use crate::index::MemoryIndexRepository;
 use crate::memory::{IdempotencyRepository, InsertMemoryEntry, MemoryEntryRepository, metadata_to_jsonb};
 use crate::retrieve::{DomainFirstRetriever, RetrieveContext, SummaryFirstRetriever};
+use crate::summary::{SummaryJob, SummaryTaskRunner};
 use crate::session::{SessionRepository, UpsertSession, extra_to_jsonb, parse_optional_uuid, parse_uuid};
 use crate::store::{L0EntryContent, ObjectStoreClient, RuntimeState};
 
@@ -97,17 +98,6 @@ impl MemoryGrpcService {
             features,
             limits,
         }
-    }
-
-    fn not_implemented_error(method: &str) -> Option<ErrorDetail> {
-        Some(ErrorDetail {
-            code: "NOT_IMPLEMENTED".to_string(),
-            message: format!("{method} is not implemented yet"),
-            retryable: false,
-            degraded: false,
-            upstream: "koduck-memory".to_string(),
-            retry_after_ms: 0,
-        })
     }
 
     fn validate_meta(meta: &RequestMeta) -> Result<(), Status> {
@@ -526,16 +516,68 @@ impl MemoryService for MemoryGrpcService {
         &self,
         request: Request<SummarizeMemoryRequest>,
     ) -> Result<Response<SummarizeMemoryResponse>, Status> {
-        Self::validate_write_meta(request.get_ref().meta.as_ref().ok_or_else(|| {
-            Status::invalid_argument("meta is required")
-        })?)?;
+        let req = request.get_ref();
+        let meta = req
+            .meta
+            .as_ref()
+            .ok_or_else(|| Status::invalid_argument("meta is required"))?;
+        Self::validate_write_meta(meta)?;
+
+        let session_id =
+            parse_uuid(&req.session_id).map_err(|e| Status::invalid_argument(format!("invalid session_id: {e}")))?;
+
+        if !self.config.summary.async_enabled {
+            return Ok(Response::new(SummarizeMemoryResponse {
+                ok: false,
+                summary: String::new(),
+                error: Some(ErrorDetail {
+                    code: "SUMMARY_ASYNC_DISABLED".to_string(),
+                    message: "summary.async_enabled is disabled".to_string(),
+                    retryable: false,
+                    degraded: false,
+                    upstream: "koduck-memory".to_string(),
+                    retry_after_ms: 0,
+                }),
+            }));
+        }
+
+        let accepted = self
+            .idempotency_repo()
+            .try_record(
+                &meta.idempotency_key,
+                &meta.tenant_id,
+                session_id,
+                "summarize_memory",
+                &meta.request_id,
+            )
+            .await
+            .map_err(|e| Status::internal(format!("summary idempotency check failed: {e}")))?;
+
+        if !accepted {
+            return Ok(Response::new(SummarizeMemoryResponse {
+                ok: true,
+                summary: format!("summary task already accepted for session {}", req.session_id),
+                error: None,
+            }));
+        }
+
+        let runner = SummaryTaskRunner::new(self.runtime.pool(), self.object_store.clone());
+        let job = SummaryJob::new(
+            meta.tenant_id.clone(),
+            session_id,
+            req.strategy.clone(),
+            meta.request_id.clone(),
+        );
+        tokio::spawn(async move {
+            if let Err(error) = runner.run(job).await {
+                tracing::warn!(error = %error, "summary task failed");
+            }
+        });
+
         Ok(Response::new(SummarizeMemoryResponse {
-            ok: false,
-            summary: format!(
-                "{} skeleton is ready; summarization will arrive in later phases",
-                self.config.app.name
-            ),
-            error: Self::not_implemented_error("SummarizeMemory"),
+            ok: true,
+            summary: format!("summary task accepted for session {}", req.session_id),
+            error: None,
         }))
     }
 }
@@ -547,12 +589,14 @@ mod tests {
     use super::MemoryGrpcService;
     use crate::api::{
         AppendMemoryRequest, GetSessionRequest, MemoryEntry, MemoryServiceClient,
-        MemoryServiceServer, RequestMeta, UpsertSessionMetaRequest,
+        MemoryServiceServer, QueryMemoryRequest, RequestMeta, SummarizeMemoryRequest,
+        UpsertSessionMetaRequest,
     };
     use crate::config::{
         AppConfig, AppSection, CapabilitiesSection, IndexSection, ObjectStoreSection,
         PostgresSection, ServerSection, SummarySection,
     };
+    use crate::summary::MemorySummaryRepository;
     use crate::session::{SessionRepository, UpsertSession, extra_to_jsonb};
     use crate::store::RuntimeState;
     use tokio::net::TcpListener;
@@ -893,6 +937,20 @@ mod tests {
             deadline_ms: 5000,
             api_version: "memory.v1".to_string(),
         }
+    }
+
+    async fn wait_for_summary(
+        repo: &MemorySummaryRepository,
+        tenant_id: &str,
+        session_id: Uuid,
+    ) -> crate::summary::MemorySummary {
+        for _ in 0..20 {
+            if let Some(summary) = repo.latest_by_session(tenant_id, session_id).await.unwrap() {
+                return summary;
+            }
+            tokio::time::sleep(Duration::from_millis(50)).await;
+        }
+        panic!("summary was not materialized in time");
     }
 
     #[tokio::test]
@@ -1330,6 +1388,159 @@ mod tests {
         assert!(resp.ok);
         assert_eq!(resp.appended_count, 0);
         assert!(resp.error.is_none());
+
+        let _ = shutdown_tx.send(());
+        server.await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn summarize_memory_materializes_summary_and_domain_class() {
+        let mut config = test_config();
+        config.summary.async_enabled = true;
+        let runtime = RuntimeState::initialize(&config).await.unwrap();
+        let summary_repo = MemorySummaryRepository::new(runtime.pool());
+        let (mut client, shutdown_tx, server) = start_test_server(config, runtime).await;
+
+        let session_id = Uuid::new_v4();
+        let sid_str = session_id.to_string();
+
+        client
+            .upsert_session_meta(UpsertSessionMetaRequest {
+                meta: Some(write_meta_with_idempotency("t71-seed-session", &sid_str)),
+                session_id: sid_str.clone(),
+                title: "Task follow-up session".to_string(),
+                status: "active".to_string(),
+                parent_session_id: String::new(),
+                forked_from_session_id: String::new(),
+                last_message_at: 1700000000000,
+                extra: [].into(),
+            })
+            .await
+            .unwrap();
+
+        client
+            .append_memory(AppendMemoryRequest {
+                meta: Some(write_meta_with_idempotency("t71-append", &sid_str)),
+                session_id: sid_str.clone(),
+                entries: vec![
+                    MemoryEntry {
+                        role: "user".to_string(),
+                        content: "Please track the rollout task".to_string(),
+                        timestamp: 1700000000000,
+                        metadata: std::collections::HashMap::new(),
+                    },
+                    MemoryEntry {
+                        role: "assistant".to_string(),
+                        content: "I will prepare the follow-up steps".to_string(),
+                        timestamp: 1700000001000,
+                        metadata: std::collections::HashMap::new(),
+                    },
+                ],
+            })
+            .await
+            .unwrap();
+
+        let summarize = client
+            .summarize_memory(SummarizeMemoryRequest {
+                meta: Some(write_meta_with_idempotency("t71-summary", &sid_str)),
+                session_id: sid_str.clone(),
+                strategy: "session-rollup".to_string(),
+            })
+            .await
+            .unwrap()
+            .into_inner();
+
+        assert!(summarize.ok);
+        assert!(summarize.error.is_none());
+        assert!(summarize.summary.contains("accepted"));
+
+        let stored = wait_for_summary(&summary_repo, "tenant-t33", session_id).await;
+        assert_eq!(stored.domain_class, "task");
+        assert_eq!(stored.strategy, "session-rollup");
+        assert!(stored.summary.contains("Task follow-up session"));
+
+        let _ = shutdown_tx.send(());
+        server.await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn summarize_memory_domain_class_is_queryable_via_domain_first() {
+        let mut config = test_config();
+        config.summary.async_enabled = true;
+        let runtime = RuntimeState::initialize(&config).await.unwrap();
+        let summary_repo = MemorySummaryRepository::new(runtime.pool());
+        let (mut client, shutdown_tx, server) = start_test_server(config, runtime).await;
+
+        let session_id = Uuid::new_v4();
+        let sid_str = session_id.to_string();
+
+        client
+            .upsert_session_meta(UpsertSessionMetaRequest {
+                meta: Some(write_meta_with_idempotency("t71-query-session", &sid_str)),
+                session_id: sid_str.clone(),
+                title: "Task board".to_string(),
+                status: "active".to_string(),
+                parent_session_id: String::new(),
+                forked_from_session_id: String::new(),
+                last_message_at: 1700000000000,
+                extra: [].into(),
+            })
+            .await
+            .unwrap();
+
+        client
+            .append_memory(AppendMemoryRequest {
+                meta: Some(write_meta_with_idempotency("t71-query-append", &sid_str)),
+                session_id: sid_str.clone(),
+                entries: vec![MemoryEntry {
+                    role: "user".to_string(),
+                    content: "Need a task summary".to_string(),
+                    timestamp: 1700000002000,
+                    metadata: std::collections::HashMap::new(),
+                }],
+            })
+            .await
+            .unwrap();
+
+        client
+            .summarize_memory(SummarizeMemoryRequest {
+                meta: Some(write_meta_with_idempotency("t71-query-summary", &sid_str)),
+                session_id: sid_str.clone(),
+                strategy: String::new(),
+            })
+            .await
+            .unwrap();
+
+        let stored = wait_for_summary(&summary_repo, "tenant-t33", session_id).await;
+        assert_eq!(stored.domain_class, "task");
+
+        let response = client
+            .query_memory(QueryMemoryRequest {
+                meta: Some(write_meta_with_idempotency("t71-query-memory", &sid_str)),
+                session_id: sid_str.clone(),
+                query_text: "task".to_string(),
+                domain_class: "task".to_string(),
+                top_k: 5,
+                retrieve_policy: 1,
+                page_token: String::new(),
+            })
+            .await
+            .unwrap()
+            .into_inner();
+
+        assert!(response.ok);
+        assert!(
+            response
+                .hits
+                .iter()
+                .any(|hit| hit.l0_uri.starts_with("memory-summary://"))
+        );
+        assert!(
+            response
+                .hits
+                .iter()
+                .any(|hit| hit.match_reasons.contains(&"domain_class_hit".to_string()))
+        );
 
         let _ = shutdown_tx.send(());
         server.await.unwrap();

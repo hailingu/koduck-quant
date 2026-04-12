@@ -309,8 +309,8 @@
 3. 输出 `summary` 与 `domain_class`
 
 **验收标准:**
-- [ ] summary 可生成并持久化
-- [ ] `domain_class` 可被 `DOMAIN_FIRST` 消费
+- [x] summary 可生成并持久化
+- [x] `domain_class` 可被 `DOMAIN_FIRST` 消费
 
 ### Task 7.2: 实现 facts 提炼
 **详细要求:**
