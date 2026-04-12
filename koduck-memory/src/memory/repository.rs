@@ -18,6 +18,31 @@ impl MemoryEntryRepository {
         }
     }
 
+    /// Get the current max `sequence_num` for a given session.
+    /// Returns 0 if no entries exist for the session.
+    ///
+    /// Uses `FOR UPDATE` to lock the row and prevent concurrent allocations.
+    pub async fn get_max_sequence_num(
+        &self,
+        tenant_id: &str,
+        session_id: Uuid,
+    ) -> Result<i64> {
+        let max_seq = sqlx::query_scalar::<_, Option<i64>>(
+            r#"
+            SELECT MAX(sequence_num)
+            FROM memory_entries
+            WHERE tenant_id = $1 AND session_id = $2
+            FOR UPDATE
+            "#,
+        )
+        .bind(tenant_id)
+        .bind(session_id)
+        .fetch_one(&self.pool)
+        .await?;
+
+        Ok(max_seq.unwrap_or(0))
+    }
+
     /// Insert a single memory entry.
     ///
     /// Relies on DB UNIQUE constraint `(tenant_id, session_id, sequence_num)`
