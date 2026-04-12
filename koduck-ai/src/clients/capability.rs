@@ -723,7 +723,11 @@ async fn fetch_memory_capability(addr: &str) -> Result<proto::Capability, tonic:
     })?;
     let mut client = proto::MemoryServiceClient::new(channel);
     let response = client
-        .get_capabilities(tonic::Request::new(proto::RequestMeta::default()))
+        .get_capabilities(tonic::Request::new(capability_probe_meta(
+            "memory",
+            "memory.v1",
+            5_000,
+        )))
         .await?;
     Ok(response.into_inner())
 }
@@ -739,7 +743,11 @@ async fn fetch_tool_capability(addr: &str) -> Result<proto::Capability, tonic::S
     })?;
     let mut client = proto::ToolServiceClient::new(channel);
     let response = client
-        .get_capabilities(tonic::Request::new(proto::RequestMeta::default()))
+        .get_capabilities(tonic::Request::new(capability_probe_meta(
+            "tool",
+            "tool.v1",
+            5_000,
+        )))
         .await?;
     Ok(response.into_inner())
 }
@@ -755,7 +763,11 @@ async fn fetch_llm_capability(addr: &str) -> Result<proto::Capability, tonic::St
     })?;
     let mut client = proto::LlmServiceClient::new(channel);
     let response = client
-        .get_capabilities(tonic::Request::new(proto::RequestMeta::default()))
+        .get_capabilities(tonic::Request::new(capability_probe_meta(
+            "llm",
+            "llm.v1",
+            5_000,
+        )))
         .await?;
     Ok(response.into_inner())
 }
@@ -843,6 +855,19 @@ fn capability_request_context(provider: &str, deadline_ms: u64) -> RequestContex
         user_id: "system".to_string(),
         trace_id: format!("capability-probe-{provider}"),
         deadline_ms,
+    }
+}
+
+fn capability_probe_meta(service: &str, api_version: &str, deadline_ms: u64) -> proto::RequestMeta {
+    proto::RequestMeta {
+        request_id: format!("capability-probe-{service}"),
+        session_id: "capability-probe".to_string(),
+        user_id: "system".to_string(),
+        tenant_id: "system".to_string(),
+        trace_id: format!("trace-capability-probe-{service}"),
+        idempotency_key: String::new(),
+        deadline_ms: deadline_ms.min(i64::MAX as u64) as i64,
+        api_version: api_version.to_string(),
     }
 }
 
@@ -1214,6 +1239,20 @@ mod tests {
             enabled_llm_providers(&llm_config),
             vec!["openai".to_string(), "minimax".to_string()]
         );
+    }
+
+    #[test]
+    fn test_capability_probe_meta_contains_required_request_fields() {
+        let meta = capability_probe_meta("memory", "memory.v1", 4_321);
+
+        assert_eq!(meta.request_id, "capability-probe-memory");
+        assert_eq!(meta.session_id, "capability-probe");
+        assert_eq!(meta.user_id, "system");
+        assert_eq!(meta.tenant_id, "system");
+        assert_eq!(meta.trace_id, "trace-capability-probe-memory");
+        assert_eq!(meta.idempotency_key, "");
+        assert_eq!(meta.deadline_ms, 4_321);
+        assert_eq!(meta.api_version, "memory.v1");
     }
 
     #[tokio::test]
