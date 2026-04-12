@@ -293,8 +293,24 @@ impl MemoryService for MemoryGrpcService {
                     .await
                     .map_err(|e| Status::internal(format!("retrieval failed: {e}")))?
             }
+            3 => {
+                // HYBRID (3) - reserved for V2, fall back to DOMAIN_FIRST
+                tracing::warn!(
+                    policy = req.retrieve_policy,
+                    "HYBRID retrieval policy requested but not implemented in V1, falling back to DOMAIN_FIRST"
+                );
+                let retriever = DomainFirstRetriever::new(self.runtime.pool());
+                retriever
+                    .retrieve(&ctx)
+                    .await
+                    .map_err(|e| Status::internal(format!("retrieval failed: {e}")))?
+            }
             _ => {
                 // Other policies not yet implemented, fall back to DOMAIN_FIRST
+                tracing::warn!(
+                    policy = req.retrieve_policy,
+                    "Unknown retrieval policy requested, falling back to DOMAIN_FIRST"
+                );
                 let retriever = DomainFirstRetriever::new(self.runtime.pool());
                 retriever
                     .retrieve(&ctx)
