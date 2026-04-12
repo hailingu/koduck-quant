@@ -384,12 +384,22 @@ impl MemoryService for MemoryGrpcService {
             .await
             .map_err(|e| Status::internal(format!("failed to begin transaction: {e}")))?;
 
-        let max_seq = sqlx::query_scalar::<_, Option<i64>>(
+        // Serialize sequence allocation per tenant/session so concurrent appends
+        // cannot observe the same base sequence number.
+        let sequence_lock_key = format!("{tenant_id}:{session_id}");
+        sqlx::query_scalar::<_, i64>(
+            "SELECT pg_advisory_xact_lock(hashtextextended($1, 0))",
+        )
+        .bind(&sequence_lock_key)
+        .fetch_one(&mut *tx)
+        .await
+        .map_err(|e| Status::internal(format!("failed to acquire sequence lock: {e}")))?;
+
+        let base_seq = sqlx::query_scalar::<_, i64>(
             r#"
-            SELECT MAX(sequence_num)
+            SELECT COALESCE(MAX(sequence_num), 0)
             FROM memory_entries
             WHERE tenant_id = $1 AND session_id = $2
-            FOR UPDATE
             "#,
         )
         .bind(&tenant_id)
@@ -397,8 +407,6 @@ impl MemoryService for MemoryGrpcService {
         .fetch_one(&mut *tx)
         .await
         .map_err(|e| Status::internal(format!("failed to query max sequence_num: {e}")))?;
-
-        let base_seq = max_seq.unwrap_or(0);
 
         // Step 3: Prepare entries with L0 content and write to object storage first
         let mut entries_to_insert: Vec<(InsertMemoryEntry, String)> = Vec::new();
@@ -1430,6 +1438,93 @@ mod tests {
 
         let _ = shutdown_tx.send(());
         server.await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn append_memory_concurrent_requests_keep_sequence_order() {
+        let config = test_config();
+        let runtime = RuntimeState::initialize(&config).await.unwrap();
+        let service = MemoryGrpcService::new(config, runtime.clone(), None);
+
+        let session_id = Uuid::new_v4();
+        let sid_str = session_id.to_string();
+
+        let create_response = service
+            .upsert_session_meta(Request::new(UpsertSessionMetaRequest {
+                meta: Some(write_meta_with_idempotency("t42-concurrent-seed", &sid_str)),
+                session_id: sid_str.clone(),
+                title: "Concurrent Sequence Test".to_string(),
+                status: "active".to_string(),
+                parent_session_id: String::new(),
+                forked_from_session_id: String::new(),
+                last_message_at: 1700000000000,
+                extra: HashMap::new(),
+            }))
+            .await
+            .unwrap()
+            .into_inner();
+        assert!(create_response.ok);
+
+        let barrier = std::sync::Arc::new(tokio::sync::Barrier::new(3));
+        let mut handles = Vec::new();
+
+        for idx in 0..2 {
+            let mut metadata = HashMap::new();
+            metadata.insert("message_id".to_string(), format!("concurrent-{idx}"));
+
+            let request = AppendMemoryRequest {
+                meta: Some(write_meta_with_idempotency(
+                    &format!("t42-concurrent-{idx}"),
+                    &sid_str,
+                )),
+                session_id: sid_str.clone(),
+                entries: vec![MemoryEntry {
+                    role: if idx == 0 {
+                        "user".to_string()
+                    } else {
+                        "assistant".to_string()
+                    },
+                    content: format!("concurrent-content-{idx}"),
+                    timestamp: 1700000001000 + idx as i64,
+                    metadata,
+                }],
+            };
+
+            let service = service.clone();
+            let barrier = barrier.clone();
+            handles.push(tokio::spawn(async move {
+                barrier.wait().await;
+                service
+                    .append_memory(Request::new(request))
+                    .await
+                    .unwrap()
+                    .into_inner()
+            }));
+        }
+
+        barrier.wait().await;
+
+        let mut total_appended = 0;
+        for handle in handles {
+            let response = handle.await.unwrap();
+            assert!(response.ok);
+            assert_eq!(response.appended_count, 1);
+            total_appended += response.appended_count;
+        }
+        assert_eq!(total_appended, 2);
+
+        let repo = MemoryEntryRepository::new(runtime.pool());
+        let mut entries = repo
+            .list_by_session("tenant-t33", session_id, None)
+            .await
+            .unwrap();
+
+        assert_eq!(entries.len(), 2);
+        entries.sort_by_key(|entry| entry.sequence_num);
+
+        let sequence_numbers: Vec<i64> = entries.iter().map(|entry| entry.sequence_num).collect();
+        assert_eq!(sequence_numbers, vec![1, 2]);
+        assert_ne!(entries[0].id, entries[1].id);
     }
 
     #[tokio::test]
