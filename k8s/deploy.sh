@@ -331,6 +331,32 @@ ensure_user_db_exists() {
     fi
 }
 
+# 确保 koduck_memory 数据库存在（幂等）
+ensure_koduck_memory_database_exists() {
+    local postgres_pod
+    local db_user="${KODUCK_MEMORY_DB_USERNAME:-koduck}"
+    local db_name="koduck_memory"
+
+    postgres_pod=$(kubectl -n "${NAMESPACE}" get pod -l app=postgres -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || true)
+    if [ -z "${postgres_pod}" ]; then
+        echo -e "${RED}错误: 未找到 postgres Pod，无法创建 ${db_name}${NC}"
+        exit 1
+    fi
+
+    local exists
+    exists=$(kubectl exec -n "${NAMESPACE}" "${postgres_pod}" -- \
+        psql -U "${db_user}" -d postgres -At -c "SELECT 1 FROM pg_database WHERE datname='${db_name}';" 2>/dev/null || true)
+
+    if [ "${exists}" != "1" ]; then
+        echo -e "${YELLOW}创建数据库 ${db_name}...${NC}"
+        kubectl exec -n "${NAMESPACE}" "${postgres_pod}" -- \
+            psql -U "${db_user}" -d postgres -c "CREATE DATABASE ${db_name};" >/dev/null
+        echo -e "${GREEN}✓ 已创建数据库 ${db_name}${NC}"
+    else
+        echo -e "${GREEN}✓ 数据库 ${db_name} 已存在${NC}"
+    fi
+}
+
 # 校验 private/public 是否为一对可用 RSA 密钥
 validate_rsa_keypair() {
     local private_key="$1"
@@ -511,6 +537,25 @@ install() {
     echo -e "${YELLOW}等待 PostgreSQL 启动...${NC}"
     wait_pods_ready "app=postgres" "30s" "postgres"
     ensure_user_db_exists
+    ensure_koduck_memory_database_exists
+
+    echo -e "${YELLOW}等待 MinIO 启动...${NC}"
+    wait_pods_ready "app=minio" "60s" "minio"
+
+    # 清理已完成的旧 bucket 初始化 Job，确保重新执行
+    kubectl delete job "${ENV}-minio-bucket-init" -n "${NAMESPACE}" --ignore-not-found=true --wait=false 2>/dev/null || true
+    echo -e "${YELLOW}初始化 MinIO bucket...${NC}"
+    kubectl apply -f "${SCRIPT_DIR}/overlays/${ENV}/minio.yaml"
+    if ! kubectl wait --for=condition=complete job/"${ENV}-minio-bucket-init" -n "${NAMESPACE}" --timeout=60s; then
+        echo -e "${RED}错误: MinIO bucket 初始化 Job 执行失败${NC}"
+        kubectl -n "${NAMESPACE}" get job "${ENV}-minio-bucket-init" -o wide || true
+        kubectl -n "${NAMESPACE}" logs job/"${ENV}-minio-bucket-init" || true
+        exit 1
+    fi
+    echo -e "${GREEN}✓ MinIO bucket 初始化完成${NC}"
+
+    echo -e "${YELLOW}等待 koduck-memory 启动...${NC}"
+    wait_pods_ready "app=koduck-memory" "120s" "koduck-memory"
 
     echo -e "${YELLOW}等待 Redis 启动...${NC}"
     wait_pods_ready "app=redis" "30s" "redis"
@@ -651,7 +696,14 @@ show_access_info() {
     echo "  kubectl port-forward svc/${ENV}-koduck-ai 8083:8083 -n ${NAMESPACE}"
     echo "  http://localhost:8083"
     echo "  gRPC: localhost:50051"
-    
+
+    echo -e "\n${BLUE}Memory Service (koduck-memory):${NC}"
+    echo "  kubectl port-forward svc/${ENV}-koduck-memory 50051:50051 -n ${NAMESPACE}"
+    echo "  gRPC: localhost:50051"
+    echo -e "\n${BLUE}MinIO Console:${NC}"
+    echo "  kubectl port-forward svc/${ENV}-minio 9001:9001 -n ${NAMESPACE}"
+    echo "  http://localhost:9001"
+
     if [ "$ENV" == "prod" ]; then
         echo -e "\n${BLUE}Admin API:${NC}"
         echo "  http://localhost:9180"

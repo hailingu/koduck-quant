@@ -1,7 +1,9 @@
 #!/bin/bash
 #
-# Koduck APISIX 卸载脚本
-# 使用方法: 
+# Koduck 卸载脚本
+# 清理所有 K8s 资源，包括 APISIX、koduck-ai、koduck-auth、koduck-user、
+# koduck-memory、MinIO、PostgreSQL、Redis、Frontend 等全部工作负载
+# 使用方法:
 #   从项目根目录: ./k8s/uninstall.sh [dev|prod|all]
 #   从 k8s 目录:  ./uninstall.sh [dev|prod|all]
 #
@@ -27,7 +29,7 @@ if [[ ! "$ENV" =~ ^(dev|prod|all)$ ]]; then
 fi
 
 echo -e "${BLUE}========================================${NC}"
-echo -e "${BLUE}  Koduck APISIX 卸载工具${NC}"
+echo -e "${BLUE}  Koduck 卸载工具${NC}"
 echo -e "${BLUE}  目标: ${ENV}${NC}"
 echo -e "${BLUE}========================================${NC}"
 
@@ -46,7 +48,7 @@ uninstall_env() {
     local pod_wait_seconds=20
     
     echo -e "\n${YELLOW}卸载 ${env} 环境...${NC}"
-    echo -e "${YELLOW}说明: 将删除命名空间内 Secret（含 ${env}-koduck-auth-jwt-keys、${env}-koduck-ai-llm-secrets 以及遗留的 ${env}-koduck-agent-secrets）${NC}"
+    echo -e "${YELLOW}说明: 将删除命名空间内全部资源，包括 APISIX、koduck-ai、koduck-auth、koduck-user、koduck-memory、MinIO、PostgreSQL、Redis、Frontend 及其 Secret/PVC/Job${NC}"
 
     # 清理 deploy.sh 托管的本机端口转发（仅 dev）
     if [ "${env}" = "dev" ]; then

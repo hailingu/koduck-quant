@@ -1,0 +1,60 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: koduck-memory
+  namespace: koduck
+spec:
+  replicas: 2
+  template:
+    spec:
+      initContainers:
+        - name: wait-for-object-store
+          image: minio/mc:latest
+          imagePullPolicy: IfNotPresent
+          envFrom:
+            - secretRef:
+                name: koduck-memory-secrets
+          command:
+            - /bin/sh
+            - -c
+            - |
+              set -eu
+              until mc alias set objectstore "${OBJECT_STORE__ENDPOINT}" "${OBJECT_STORE__ACCESS_KEY}" "${OBJECT_STORE__SECRET_KEY}"; do
+                echo "waiting for object store endpoint ${OBJECT_STORE__ENDPOINT}"
+                sleep 2
+              done
+              until mc stat "objectstore/${OBJECT_STORE__BUCKET}"; do
+                echo "waiting for bucket ${OBJECT_STORE__BUCKET}"
+                sleep 2
+              done
+      containers:
+        - name: koduck-memory
+          image: koduck/koduck-memory:latest
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: RUST_LOG
+              value: "info,koduck_memory=warn,tower_http=warn"
+          resources:
+            requests:
+              cpu: 200m
+              memory: 256Mi
+            limits:
+              cpu: "1"
+              memory: 512Mi
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: koduck-memory-secrets
+  namespace: koduck
+type: Opaque
+stringData:
+  POSTGRES__DSN: "postgresql://koduck:koduck_secret@prod-postgres:5432/koduck_memory"
+  OBJECT_STORE__ENDPOINT: "http://prod-minio:9000"
+  OBJECT_STORE__BUCKET: "koduck-memory-prod"
+  OBJECT_STORE__ACCESS_KEY: "minioadmin"
+  OBJECT_STORE__SECRET_KEY: "minioadmin"
+  OBJECT_STORE__REGION: "ap-east-1"
+  INDEX__MODE: "domain-first"
+  CAPABILITIES__TTL_SECS: "60"
+  SUMMARY__ASYNC_ENABLED: "true"
