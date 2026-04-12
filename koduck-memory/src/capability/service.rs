@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 
 use tonic::{Request, Response, Status};
+use uuid::Uuid;
 
 use crate::api::{
     AppendMemoryRequest, AppendMemoryResponse, Capability, ErrorDetail, GetSessionRequest,
@@ -9,12 +10,16 @@ use crate::api::{
     UpsertSessionMetaResponse,
 };
 use crate::config::AppConfig;
-use crate::index::MemoryIndexRepository;
-use crate::memory::{IdempotencyRepository, InsertMemoryEntry, MemoryEntryRepository, metadata_to_jsonb};
-use crate::reliability::{TaskAttemptRepository, with_retry};
-use crate::retrieve::{DomainFirstRetriever, RetrieveContext, SummaryFirstRetriever};
+use crate::index::{InsertMemoryIndexRecord, MemoryIndexRepository};
+use crate::memory::{
+    metadata_to_jsonb, IdempotencyRepository, InsertMemoryEntry, MemoryEntryRepository,
+};
+use crate::retrieve::{domain_class, DomainFirstRetriever, RetrieveContext, SummaryFirstRetriever};
+use crate::reliability::{with_retry, TaskAttemptRepository};
 use crate::summary::{SummaryJob, SummaryTaskRunner};
-use crate::session::{SessionRepository, UpsertSession, extra_to_jsonb, parse_optional_uuid, parse_uuid};
+use crate::session::{
+    extra_to_jsonb, parse_optional_uuid, parse_uuid, SessionRepository, UpsertSession,
+};
 use crate::store::{L0EntryContent, ObjectStoreClient, RuntimeState};
 
 const MAX_TOP_K: i32 = 20;
@@ -29,7 +34,11 @@ pub struct MemoryGrpcService {
 }
 
 impl MemoryGrpcService {
-    pub fn new(config: AppConfig, runtime: RuntimeState, object_store: Option<ObjectStoreClient>) -> Self {
+    pub fn new(
+        config: AppConfig,
+        runtime: RuntimeState,
+        object_store: Option<ObjectStoreClient>,
+    ) -> Self {
         Self {
             config,
             runtime,
@@ -133,6 +142,89 @@ impl MemoryGrpcService {
         }
         Ok(())
     }
+
+    fn normalize_index_text(content: &str) -> String {
+        content.split_whitespace().collect::<Vec<_>>().join(" ")
+    }
+
+    fn truncate_for_index(content: &str, limit: usize) -> String {
+        let normalized = Self::normalize_index_text(content);
+        if normalized.is_empty() {
+            return String::new();
+        }
+
+        let count = normalized.chars().count();
+        if count <= limit {
+            return normalized;
+        }
+
+        normalized.chars().take(limit).collect::<String>() + "..."
+    }
+
+    fn infer_domain_class(role: &str, metadata: &HashMap<String, String>) -> String {
+        if let Some(candidate) = metadata.get("domain_class") {
+            if domain_class::is_valid(candidate) {
+                return candidate.clone();
+            }
+        }
+
+        let role = role.trim().to_ascii_lowercase();
+        if role == "system" {
+            return domain_class::SYSTEM.to_string();
+        }
+        if role == "summary" {
+            return domain_class::SUMMARY.to_string();
+        }
+        if role == "fact" {
+            return domain_class::FACT.to_string();
+        }
+        if metadata.contains_key("task_id")
+            || metadata.contains_key("task_status")
+            || metadata.contains_key("issue_id")
+            || metadata.contains_key("ticket_id")
+        {
+            return domain_class::TASK.to_string();
+        }
+
+        domain_class::CHAT.to_string()
+    }
+
+    fn build_index_record(
+        tenant_id: &str,
+        session_id: Uuid,
+        entry_id: Uuid,
+        role: &str,
+        content: &str,
+        metadata: &HashMap<String, String>,
+        l0_uri: &str,
+    ) -> InsertMemoryIndexRecord {
+        let domain_class = Self::infer_domain_class(role, metadata);
+        let summary = {
+            let summary_text = Self::truncate_for_index(content, 280);
+            if summary_text.is_empty() {
+                format!("{role} entry")
+            } else {
+                format!("{role}: {summary_text}")
+            }
+        };
+        let snippet = Self::truncate_for_index(content, 200);
+
+        let mut record = InsertMemoryIndexRecord::new(
+            tenant_id.to_string(),
+            session_id,
+            role.to_string(),
+            domain_class,
+            summary,
+            l0_uri.to_string(),
+        )
+        .with_entry_id(entry_id);
+
+        if !snippet.is_empty() {
+            record = record.with_snippet(snippet);
+        }
+
+        record
+    }
 }
 
 #[tonic::async_trait]
@@ -157,7 +249,8 @@ impl MemoryService for MemoryGrpcService {
         Self::validate_write_meta(meta)?;
 
         let session_id =
-            parse_uuid(&req.session_id).map_err(|e| Status::invalid_argument(format!("invalid session_id: {e}")))?;
+            parse_uuid(&req.session_id)
+                .map_err(|e| Status::invalid_argument(format!("invalid session_id: {e}")))?;
 
         let last_message_at = if req.last_message_at > 0 {
             chrono::DateTime::from_timestamp_millis(req.last_message_at)
@@ -387,13 +480,11 @@ impl MemoryService for MemoryGrpcService {
         // Serialize sequence allocation per tenant/session so concurrent appends
         // cannot observe the same base sequence number.
         let sequence_lock_key = format!("{tenant_id}:{session_id}");
-        sqlx::query_scalar::<_, i64>(
-            "SELECT pg_advisory_xact_lock(hashtextextended($1, 0))",
-        )
-        .bind(&sequence_lock_key)
-        .fetch_one(&mut *tx)
-        .await
-        .map_err(|e| Status::internal(format!("failed to acquire sequence lock: {e}")))?;
+        sqlx::query_scalar::<_, i64>("SELECT pg_advisory_xact_lock(hashtextextended($1, 0))")
+            .bind(&sequence_lock_key)
+            .fetch_one(&mut *tx)
+            .await
+            .map_err(|e| Status::internal(format!("failed to acquire sequence lock: {e}")))?;
 
         let base_seq = sqlx::query_scalar::<_, i64>(
             r#"
@@ -409,7 +500,8 @@ impl MemoryService for MemoryGrpcService {
         .map_err(|e| Status::internal(format!("failed to query max sequence_num: {e}")))?;
 
         // Step 3: Prepare entries with L0 content and write to object storage first
-        let mut entries_to_insert: Vec<(InsertMemoryEntry, String)> = Vec::new();
+        let mut entries_to_insert: Vec<(InsertMemoryEntry, InsertMemoryIndexRecord)> =
+            Vec::new();
 
         for (i, entry) in req.entries.iter().enumerate() {
             let entry_id = uuid::Uuid::new_v4();
@@ -469,12 +561,22 @@ impl MemoryService for MemoryGrpcService {
                 l0_uri,
             };
 
-            entries_to_insert.push((insert, entry_id.to_string()));
+            let index_record = Self::build_index_record(
+                &tenant_id,
+                session_id,
+                entry_id,
+                &entry.role,
+                &entry.content,
+                &entry.metadata,
+                &insert.l0_uri,
+            );
+
+            entries_to_insert.push((insert, index_record));
         }
 
-        // Step 4: Insert entries to database
+        // Step 4: Insert entries and corresponding L1 records into PostgreSQL
         let mut appended = 0i32;
-        for (insert, _entry_id) in entries_to_insert {
+        for (insert, index_record) in entries_to_insert {
             let result = sqlx::query(
                 r#"
                 INSERT INTO memory_entries (
@@ -500,6 +602,31 @@ impl MemoryService for MemoryGrpcService {
             if result.rows_affected() > 0 {
                 appended += 1;
             }
+
+            sqlx::query(
+                r#"
+                INSERT INTO memory_index_records (
+                    id, tenant_id, session_id, entry_id,
+                    memory_kind, domain_class, summary, snippet,
+                    source_uri, score_hint, created_at, updated_at
+                ) VALUES (
+                    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, now(), now()
+                )
+                "#,
+            )
+            .bind(index_record.id)
+            .bind(&index_record.tenant_id)
+            .bind(index_record.session_id)
+            .bind(index_record.entry_id)
+            .bind(&index_record.memory_kind)
+            .bind(&index_record.domain_class)
+            .bind(&index_record.summary)
+            .bind(&index_record.snippet)
+            .bind(&index_record.source_uri)
+            .bind(&index_record.score_hint)
+            .execute(&mut *tx)
+            .await
+            .map_err(|e| Status::internal(format!("failed to insert memory index record: {e}")))?;
         }
 
         tx.commit()
@@ -616,7 +743,8 @@ mod tests {
     use super::MemoryGrpcService;
     use crate::api::{
         AppendMemoryRequest, GetSessionRequest, MemoryEntry, MemoryServiceClient,
-        MemoryServiceServer, QueryMemoryRequest, RequestMeta, SummarizeMemoryRequest,
+        MemoryServiceServer, QueryMemoryRequest, RequestMeta, RetrievePolicy,
+        SummarizeMemoryRequest,
         UpsertSessionMetaRequest,
     };
     use crate::config::{
@@ -624,6 +752,7 @@ mod tests {
         PostgresSection, RetrySection, ServerSection, SummarySection,
     };
     use crate::facts::MemoryFactRepository;
+    use crate::index::MemoryIndexRepository;
     use crate::summary::MemorySummaryRepository;
     use crate::session::{SessionRepository, UpsertSession, extra_to_jsonb};
     use crate::store::RuntimeState;
@@ -1522,9 +1651,102 @@ mod tests {
         assert_eq!(entries.len(), 2);
         entries.sort_by_key(|entry| entry.sequence_num);
 
-        let sequence_numbers: Vec<i64> = entries.iter().map(|entry| entry.sequence_num).collect();
+        let sequence_numbers: Vec<i64> =
+            entries.iter().map(|entry| entry.sequence_num).collect();
         assert_eq!(sequence_numbers, vec![1, 2]);
         assert_ne!(entries[0].id, entries[1].id);
+    }
+
+    #[tokio::test]
+    async fn append_memory_populates_l1_index_and_query_memory_reads_it() {
+        let config = test_config();
+        let runtime = RuntimeState::initialize(&config).await.unwrap();
+        let service = MemoryGrpcService::new(config, runtime.clone(), None);
+
+        let session_id = Uuid::new_v4();
+        let sid_str = session_id.to_string();
+
+        let session_resp = service
+            .upsert_session_meta(Request::new(UpsertSessionMetaRequest {
+                meta: Some(write_meta_with_idempotency("t51-seed", &sid_str)),
+                session_id: sid_str.clone(),
+                title: "L1 Index Test".to_string(),
+                status: "active".to_string(),
+                parent_session_id: String::new(),
+                forked_from_session_id: String::new(),
+                last_message_at: 1700000000000,
+                extra: HashMap::new(),
+            }))
+            .await
+            .unwrap()
+            .into_inner();
+        assert!(session_resp.ok);
+
+        let mut metadata = HashMap::new();
+        metadata.insert("message_id".to_string(), "msg-t51-1".to_string());
+
+        let append_resp = service
+            .append_memory(Request::new(AppendMemoryRequest {
+                meta: Some(write_meta_with_idempotency("t51-append", &sid_str)),
+                session_id: sid_str.clone(),
+                entries: vec![MemoryEntry {
+                    role: "user".to_string(),
+                    content: "Need a concise quarterly planning checklist for the dev rollout"
+                        .to_string(),
+                    timestamp: 1700000001000,
+                    metadata,
+                }],
+            }))
+            .await
+            .unwrap()
+            .into_inner();
+        assert!(append_resp.ok);
+        assert_eq!(append_resp.appended_count, 1);
+
+        let index_repo = MemoryIndexRepository::new(runtime.pool());
+        let records = index_repo
+            .list_by_session("tenant-t33", session_id, None, 10)
+            .await
+            .unwrap();
+
+        assert_eq!(records.len(), 1);
+        let record = &records[0];
+        assert_eq!(record.tenant_id, "tenant-t33");
+        assert_eq!(record.session_id, session_id);
+        assert_eq!(record.memory_kind, "user");
+        assert_eq!(record.domain_class, "chat");
+        assert!(record.summary.contains("quarterly planning checklist"));
+        assert!(
+            record
+                .snippet
+                .as_ref()
+                .is_some_and(|snippet| snippet.contains("quarterly planning checklist"))
+        );
+        assert!(record.source_uri.starts_with("l0://pending/"));
+        assert!(record.entry_id.is_some());
+
+        let query_resp = service
+            .query_memory(Request::new(QueryMemoryRequest {
+                meta: Some(write_meta_with_idempotency("t51-query", &sid_str)),
+                query_text: String::new(),
+                session_id: sid_str,
+                domain_class: "chat".to_string(),
+                top_k: 5,
+                retrieve_policy: RetrievePolicy::RetrievePolicyDomainFirst as i32,
+                page_token: String::new(),
+                page_size: 0,
+            }))
+            .await
+            .unwrap()
+            .into_inner();
+
+        assert!(query_resp.ok);
+        assert_eq!(query_resp.hits.len(), 1);
+        let hit = &query_resp.hits[0];
+        assert_eq!(hit.l0_uri, record.source_uri);
+        assert!(hit.snippet.contains("quarterly planning checklist"));
+        assert!(hit.match_reasons.contains(&"domain_class_hit".to_string()));
+        assert!(hit.match_reasons.contains(&"session_scope_hit".to_string()));
     }
 
     #[tokio::test]
