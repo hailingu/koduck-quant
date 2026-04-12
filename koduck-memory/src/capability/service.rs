@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::time::Instant;
 
 use tonic::{Request, Response, Status};
 use uuid::Uuid;
@@ -14,8 +15,8 @@ use crate::index::{InsertMemoryIndexRecord, MemoryIndexRepository};
 use crate::memory::{
     metadata_to_jsonb, IdempotencyRepository, InsertMemoryEntry, MemoryEntryRepository,
 };
+use crate::observe::{record_rpc_call, RpcMethod, RpcOutcome};
 use crate::retrieve::{domain_class, DomainFirstRetriever, RetrieveContext, SummaryFirstRetriever};
-use crate::reliability::{with_retry, TaskAttemptRepository};
 use crate::summary::{SummaryJob, SummaryTaskRunner};
 use crate::session::{
     extra_to_jsonb, parse_optional_uuid, parse_uuid, SessionRepository, UpsertSession,
@@ -225,6 +226,52 @@ impl MemoryGrpcService {
 
         record
     }
+
+    fn log_rpc_completion(
+        method: &str,
+        request_id: &str,
+        session_id: &str,
+        tenant_id: &str,
+        trace_id: &str,
+        outcome: &str,
+        duration_ms: u64,
+        detail: &str,
+    ) {
+        tracing::info!(
+            rpc_method = method,
+            request_id,
+            session_id,
+            tenant_id,
+            trace_id,
+            outcome,
+            duration_ms,
+            detail,
+            "memory rpc completed"
+        );
+    }
+
+    fn log_rpc_failure(
+        method: &str,
+        request_id: &str,
+        session_id: &str,
+        tenant_id: &str,
+        trace_id: &str,
+        duration_ms: u64,
+        status: &Status,
+    ) {
+        tracing::warn!(
+            rpc_method = method,
+            request_id,
+            session_id,
+            tenant_id,
+            trace_id,
+            outcome = "error",
+            duration_ms,
+            grpc_code = ?status.code(),
+            error = %status.message(),
+            "memory rpc failed"
+        );
+    }
 }
 
 #[tonic::async_trait]
@@ -294,6 +341,7 @@ impl MemoryService for MemoryGrpcService {
         &self,
         request: Request<GetSessionRequest>,
     ) -> Result<Response<GetSessionResponse>, Status> {
+        let started_at = Instant::now();
         let req = request.get_ref();
         let meta = req
             .meta
@@ -304,7 +352,7 @@ impl MemoryService for MemoryGrpcService {
         let session_id =
             parse_uuid(&req.session_id).map_err(|e| Status::invalid_argument(format!("invalid session_id: {e}")))?;
 
-        match self
+        let result = match self
             .session_repo()
             .get_by_id(&meta.tenant_id, session_id)
             .await
@@ -327,13 +375,59 @@ impl MemoryService for MemoryGrpcService {
                     retry_after_ms: 0,
                 }),
             })),
+        };
+
+        let elapsed = started_at.elapsed();
+        let duration_ms = elapsed.as_millis() as u64;
+        match &result {
+            Ok(response) if response.get_ref().ok => {
+                record_rpc_call(RpcMethod::GetSession, RpcOutcome::Success, elapsed);
+                Self::log_rpc_completion(
+                    "GetSession",
+                    &meta.request_id,
+                    &req.session_id,
+                    &meta.tenant_id,
+                    &meta.trace_id,
+                    "success",
+                    duration_ms,
+                    "session_found=true",
+                );
+            }
+            Ok(_) => {
+                record_rpc_call(RpcMethod::GetSession, RpcOutcome::NotFound, elapsed);
+                Self::log_rpc_completion(
+                    "GetSession",
+                    &meta.request_id,
+                    &req.session_id,
+                    &meta.tenant_id,
+                    &meta.trace_id,
+                    "not_found",
+                    duration_ms,
+                    "session_found=false",
+                );
+            }
+            Err(status) => {
+                record_rpc_call(RpcMethod::GetSession, RpcOutcome::Error, elapsed);
+                Self::log_rpc_failure(
+                    "GetSession",
+                    &meta.request_id,
+                    &req.session_id,
+                    &meta.tenant_id,
+                    &meta.trace_id,
+                    duration_ms,
+                    status,
+                );
+            }
         }
+
+        result
     }
 
     async fn query_memory(
         &self,
         request: Request<QueryMemoryRequest>,
     ) -> Result<Response<QueryMemoryResponse>, Status> {
+        let started_at = Instant::now();
         let req = request.get_ref();
         let meta = req
             .meta
@@ -415,18 +509,57 @@ impl MemoryService for MemoryGrpcService {
             })
             .collect();
 
-        Ok(Response::new(QueryMemoryResponse {
+        let result = Ok(Response::new(QueryMemoryResponse {
             ok: true,
             hits,
             next_page_token: String::new(), // Pagination not implemented yet
             error: None,
-        }))
+        }));
+
+        let elapsed = started_at.elapsed();
+        let duration_ms = elapsed.as_millis() as u64;
+        match &result {
+            Ok(response) => {
+                record_rpc_call(RpcMethod::QueryMemory, RpcOutcome::Success, elapsed);
+                let detail = format!(
+                    "hits_count={},retrieve_policy={},domain_class={}",
+                    response.get_ref().hits.len(),
+                    req.retrieve_policy,
+                    domain_class
+                );
+                Self::log_rpc_completion(
+                    "QueryMemory",
+                    &meta.request_id,
+                    &req.session_id,
+                    &meta.tenant_id,
+                    &meta.trace_id,
+                    "success",
+                    duration_ms,
+                    &detail,
+                );
+            }
+            Err(status) => {
+                record_rpc_call(RpcMethod::QueryMemory, RpcOutcome::Error, elapsed);
+                Self::log_rpc_failure(
+                    "QueryMemory",
+                    &meta.request_id,
+                    &req.session_id,
+                    &meta.tenant_id,
+                    &meta.trace_id,
+                    duration_ms,
+                    status,
+                );
+            }
+        }
+
+        result
     }
 
     async fn append_memory(
         &self,
         request: Request<AppendMemoryRequest>,
     ) -> Result<Response<AppendMemoryResponse>, Status> {
+        let started_at = Instant::now();
         let req = request.get_ref();
         let meta = req
             .meta
@@ -641,11 +774,48 @@ impl MemoryService for MemoryGrpcService {
             "append_memory completed"
         );
 
-        Ok(Response::new(AppendMemoryResponse {
+        let result = Ok(Response::new(AppendMemoryResponse {
             ok: true,
             appended_count: appended,
             error: None,
-        }))
+        }));
+
+        let elapsed = started_at.elapsed();
+        let duration_ms = elapsed.as_millis() as u64;
+        match &result {
+            Ok(response) => {
+                record_rpc_call(RpcMethod::AppendMemory, RpcOutcome::Success, elapsed);
+                let detail = format!(
+                    "appended_count={},requested_count={}",
+                    response.get_ref().appended_count,
+                    entries_count
+                );
+                Self::log_rpc_completion(
+                    "AppendMemory",
+                    &meta.request_id,
+                    &req.session_id,
+                    &meta.tenant_id,
+                    &meta.trace_id,
+                    "success",
+                    duration_ms,
+                    &detail,
+                );
+            }
+            Err(status) => {
+                record_rpc_call(RpcMethod::AppendMemory, RpcOutcome::Error, elapsed);
+                Self::log_rpc_failure(
+                    "AppendMemory",
+                    &meta.request_id,
+                    &req.session_id,
+                    &meta.tenant_id,
+                    &meta.trace_id,
+                    duration_ms,
+                    status,
+                );
+            }
+        }
+
+        result
     }
 
     async fn summarize_memory(

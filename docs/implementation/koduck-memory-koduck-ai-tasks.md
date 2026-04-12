@@ -361,8 +361,8 @@
 3. 定义基础 SLO 与错误预算
 
 **验收标准:**
-- [ ] `GetSession / QueryMemory / AppendMemory` 可观察
-- [ ] latency / error rate 可统计
+- [x] `GetSession / QueryMemory / AppendMemory` 可观察
+- [x] latency / error rate 可统计
 
 ### Task 8.4: 灰度与回滚演练
 **详细要求:**
