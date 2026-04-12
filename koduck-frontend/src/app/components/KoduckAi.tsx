@@ -35,6 +35,14 @@ interface StreamEventData {
   session_id?: string;
 }
 
+interface ChatHistoryItem {
+  role: "user" | "assistant";
+  content: string;
+}
+
+const SESSION_STORAGE_KEY = "koduck.ai.sessionId";
+const MAX_HISTORY_MESSAGES = 12;
+
 function normalizeMarkdownContent(content: string): string {
   const source = content.replace(/\r\n/g, "\n").trim();
   const rawLines = source.split("\n");
@@ -284,6 +292,12 @@ export function KoduckAi() {
   const [chatMessage, setChatMessage] = useState("");
   const [messages, setMessages] = useState<Message[]>([]);
   const [sending, setSending] = useState(false);
+  const [sessionId, setSessionId] = useState<string>(() => {
+    if (typeof window === "undefined") {
+      return "";
+    }
+    return window.sessionStorage.getItem(SESSION_STORAGE_KEY) ?? "";
+  });
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => {
@@ -294,6 +308,19 @@ export function KoduckAi() {
     scrollToBottom();
   }, [messages]);
 
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    if (sessionId) {
+      window.sessionStorage.setItem(SESSION_STORAGE_KEY, sessionId);
+      return;
+    }
+
+    window.sessionStorage.removeItem(SESSION_STORAGE_KEY);
+  }, [sessionId]);
+
   const updateAssistantMessage = (messageId: string, updater: (prev: Message) => Message) => {
     setMessages((prev) =>
       prev.map((message) =>
@@ -301,6 +328,21 @@ export function KoduckAi() {
       ),
     );
   };
+
+  const buildHistoryPayload = (): ChatHistoryItem[] =>
+    messages
+      .filter(
+        (message) =>
+          (message.role === "user" || message.role === "assistant") &&
+          message.type === "text" &&
+          !message.streaming &&
+          message.content.trim().length > 0,
+      )
+      .slice(-MAX_HISTORY_MESSAGES)
+      .map((message) => ({
+        role: message.role,
+        content: message.content.trim(),
+      }));
 
   const handleSendMessage = async () => {
     const content = chatMessage.trim();
@@ -328,6 +370,8 @@ export function KoduckAi() {
     setChatMessage("");
     setSending(true);
 
+    const history = buildHistoryPayload();
+
     try {
       const token = localStorage.getItem("koduck.auth.token");
       const response = await fetch("/api/v1/ai/chat/stream", {
@@ -337,7 +381,9 @@ export function KoduckAi() {
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
         body: JSON.stringify({
+          session_id: sessionId || undefined,
           message: content,
+          history,
         }),
       });
 
@@ -371,6 +417,10 @@ export function KoduckAi() {
             eventData = JSON.parse(block.data) as StreamEventData;
           } catch {
             continue;
+          }
+
+          if (eventData?.session_id) {
+            setSessionId(eventData.session_id);
           }
 
           if (block.event === "message" && eventData.payload?.text) {

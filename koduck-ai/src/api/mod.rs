@@ -42,11 +42,20 @@ use crate::{
 const MAX_ALLOWED_TOKENS: u32 = 32_768;
 const MEMORY_QUERY_TOP_K: i32 = 5;
 const MEMORY_QUERY_PAGE_SIZE: i32 = 5;
+const MAX_HISTORY_MESSAGES: usize = 20;
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct ChatHistoryMessage {
+    pub role: String,
+    pub content: String,
+}
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct ChatRequest {
     pub session_id: Option<String>,
     pub message: String,
+    #[serde(default)]
+    pub history: Option<Vec<ChatHistoryMessage>>,
     pub model: Option<String>,
     pub temperature: Option<f32>,
     pub max_tokens: Option<u32>,
@@ -923,6 +932,35 @@ fn validate_chat_request(request: &ChatRequest) -> Result<(), AppError> {
         }
     }
 
+    if let Some(history) = request.history.as_ref() {
+        if history.len() > MAX_HISTORY_MESSAGES {
+            return Err(AppError::new(
+                ErrorCode::InvalidArgument,
+                format!(
+                    "history exceeds allowed upper bound {}",
+                    MAX_HISTORY_MESSAGES
+                ),
+            ));
+        }
+
+        for item in history {
+            let role = item.role.trim();
+            if !matches!(role, "user" | "assistant") {
+                return Err(AppError::new(
+                    ErrorCode::InvalidArgument,
+                    format!("history role must be user or assistant, got {role}"),
+                ));
+            }
+
+            if item.content.trim().is_empty() {
+                return Err(AppError::new(
+                    ErrorCode::InvalidArgument,
+                    "history content cannot be empty",
+                ));
+            }
+        }
+    }
+
     Ok(())
 }
 
@@ -1316,6 +1354,15 @@ fn build_provider_generate_request(
             name: "memory_context".to_string(),
             metadata: HashMap::new(),
         });
+    }
+
+    if let Some(history) = request.history.as_ref() {
+        messages.extend(history.iter().map(|item| ProviderChatMessage {
+            role: item.role.trim().to_string(),
+            content: item.content.trim().to_string(),
+            name: String::new(),
+            metadata: HashMap::new(),
+        }));
     }
 
     messages.push(ProviderChatMessage {
