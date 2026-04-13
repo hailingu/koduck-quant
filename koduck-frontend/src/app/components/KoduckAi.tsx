@@ -80,6 +80,29 @@ interface ApiErrorEnvelope {
 const STREAM_INITIAL_IDLE_TIMEOUT_MS = 12000;
 const STREAM_POST_CONTENT_IDLE_TIMEOUT_MS = 2000;
 const STREAM_REQUEST_TIMEOUT_MS = 90000;
+const ACTIVE_SESSION_STORAGE_KEY = "koduck.ai.activeSessionId";
+
+function readActiveSessionId(): string | null {
+  if (typeof window === "undefined") {
+    return null;
+  }
+
+  const stored = window.localStorage.getItem(ACTIVE_SESSION_STORAGE_KEY)?.trim();
+  return stored || null;
+}
+
+function persistActiveSessionId(sessionId: string | null) {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  if (sessionId) {
+    window.localStorage.setItem(ACTIVE_SESSION_STORAGE_KEY, sessionId);
+    return;
+  }
+
+  window.localStorage.removeItem(ACTIVE_SESSION_STORAGE_KEY);
+}
 
 function normalizeMarkdownContent(content: string): string {
   const source = content.replace(/\r\n/g, "\n").trim();
@@ -329,7 +352,7 @@ function parseSseBlocks(
 export function KoduckAi() {
   const [chatMessage, setChatMessage] = useState("");
   const [messages, setMessages] = useState<Message[]>([]);
-  const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
+  const [currentSessionId, setCurrentSessionId] = useState<string | null>(() => readActiveSessionId());
   const [selectedProvider] = useState("OpenAI");
   const [selectedModel] = useState("GPT-4");
   const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
@@ -338,6 +361,7 @@ export function KoduckAi() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const dragCounterRef = useRef(0);
+  const currentSessionIdRef = useRef<string | null>(currentSessionId);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -346,6 +370,11 @@ export function KoduckAi() {
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
+
+  useEffect(() => {
+    currentSessionIdRef.current = currentSessionId;
+    persistActiveSessionId(currentSessionId);
+  }, [currentSessionId]);
 
   const updateAssistantMessage = (messageId: string, updater: (prev: Message) => Message) => {
     setMessages((prev) =>
@@ -357,6 +386,11 @@ export function KoduckAi() {
 
   const createSessionId = () => crypto.randomUUID();
 
+  const activateSession = (sessionId: string | null) => {
+    currentSessionIdRef.current = sessionId;
+    setCurrentSessionId(sessionId);
+  };
+
   const buildHistoryMessages = (): ChatHistoryMessage[] =>
     messages
       .filter((message) => !message.streaming && message.content.trim())
@@ -366,7 +400,7 @@ export function KoduckAi() {
       }));
 
   const handleCreateSession = () => {
-    setCurrentSessionId(createSessionId());
+    activateSession(createSessionId());
     setMessages([]);
     setChatMessage("");
     setUploadedFiles([]);
@@ -482,9 +516,9 @@ export function KoduckAi() {
       return;
     }
 
-    const sessionId = currentSessionId ?? createSessionId();
-    if (!currentSessionId) {
-      setCurrentSessionId(sessionId);
+    const sessionId = currentSessionIdRef.current ?? createSessionId();
+    if (!currentSessionIdRef.current) {
+      activateSession(sessionId);
     }
 
     const userMessage: Message = {

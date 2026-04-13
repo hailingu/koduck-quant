@@ -172,8 +172,13 @@ impl SummaryTaskRunner {
             .await?;
 
         let transcript = build_transcript_fragments(&entries, self.object_store.as_ref()).await;
-        let inferred_domain_class =
-            infer_domain_class(&transcript, session.as_ref().map(|s| s.title.as_str()));
+        let inferred_domain_class = classify_domain_class(
+            &transcript,
+            session.as_ref().map(|s| s.title.as_str()),
+            &self.summary_config,
+            self.llm_gate.clone(),
+        )
+        .await;
         let summary_artifact = build_summary_artifact(
             &transcript,
             entries.len(),
@@ -358,6 +363,11 @@ struct SummaryArtifact {
 struct NerArtifact {
     persons: Vec<String>,
     domain_class: Option<String>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+struct DomainClassArtifact {
+    domain_class: String,
 }
 
 impl SummaryMaterialization {
@@ -546,7 +556,33 @@ fn parse_summary_artifact(content: &str) -> Result<SummaryArtifact> {
     )
 }
 
-fn infer_domain_class(transcript: &[String], session_title: Option<&str>) -> String {
+async fn classify_domain_class(
+    transcript: &[String],
+    session_title: Option<&str>,
+    summary_config: &SummarySection,
+    llm_gate: Arc<Semaphore>,
+) -> String {
+    if summary_config.llm_enabled {
+        match generate_domain_class_via_llm(
+            transcript,
+            session_title,
+            summary_config,
+            llm_gate,
+        )
+        .await
+        {
+            Ok(Some(domain_class)) => return domain_class,
+            Ok(None) => {}
+            Err(error) => {
+                warn!(error = %error, "domain class llm generation failed, falling back to heuristic classification");
+            }
+        }
+    }
+
+    infer_domain_class_heuristic(transcript, session_title)
+}
+
+fn infer_domain_class_heuristic(transcript: &[String], session_title: Option<&str>) -> String {
     let mut corpus = transcript.join(" ").to_lowercase();
     if let Some(title) = session_title {
         corpus.push(' ');
@@ -579,7 +615,270 @@ fn infer_domain_class(transcript: &[String], session_title: Option<&str>) -> Str
         return domain_class::SYSTEM.to_string();
     }
 
+    for (class_name, keywords) in [
+        (
+            domain_class::HISTORY,
+            &[
+                "历史", "朝代", "战争史", "古代", "近代史", "人物关系", "dynasty", "empire",
+                "histor", "revolution", "warlord",
+            ][..],
+        ),
+        (
+            domain_class::POLITICS,
+            &[
+                "政治", "政党", "政府", "外交", "政策", "选举", "意识形态", "politic",
+                "government", "election", "diplom",
+            ][..],
+        ),
+        (
+            domain_class::LITERATURE,
+            &[
+                "文学", "小说", "诗", "散文", "作者", "作品", "文学史", "literature",
+                "novel", "poem", "poetry", "writer",
+            ][..],
+        ),
+        (
+            domain_class::PHYSICS,
+            &[
+                "物理", "力学", "量子", "相对论", "电磁", "热力学", "physics", "quantum",
+                "relativity", "mechanics",
+            ][..],
+        ),
+        (
+            domain_class::MATHEMATICS,
+            &[
+                "数学", "代数", "几何", "微积分", "概率", "统计", "mathematics", "math",
+                "algebra", "geometry", "calculus",
+            ][..],
+        ),
+        (
+            domain_class::CHEMISTRY,
+            &[
+                "化学", "分子", "原子", "反应", "有机", "无机", "chemistry", "chemical",
+                "molecule", "compound",
+            ][..],
+        ),
+        (
+            domain_class::BIOLOGY,
+            &[
+                "生物", "细胞", "基因", "进化", "生态", "biology", "cell", "gene",
+                "genetic", "evolution",
+            ][..],
+        ),
+        (
+            domain_class::COMPUTER_SCIENCE,
+            &[
+                "计算机", "算法", "数据结构", "编程", "代码", "软件", "computer science",
+                "algorithm", "programming", "code", "software",
+            ][..],
+        ),
+        (
+            domain_class::TECHNOLOGY,
+            &[
+                "技术", "芯片", "互联网", "人工智能", "模型", "technology", "tech",
+                "semiconductor", "ai", "llm",
+            ][..],
+        ),
+        (
+            domain_class::ENGINEERING,
+            &[
+                "工程", "土木", "机械", "电子工程", "控制", "engineering",
+                "civil engineering", "mechanical", "electrical",
+            ][..],
+        ),
+        (
+            domain_class::FINANCE,
+            &[
+                "金融", "股票", "基金", "投资", "量化", "finance", "stock", "portfolio",
+                "trading", "asset",
+            ][..],
+        ),
+        (
+            domain_class::ECONOMICS,
+            &[
+                "经济", "宏观", "通胀", "货币", "供需", "economics", "gdp", "inflation",
+                "monetary", "microeconomics",
+            ][..],
+        ),
+        (
+            domain_class::BUSINESS,
+            &[
+                "商业", "公司", "市场", "战略", "运营", "business", "company",
+                "marketing", "strategy", "operation",
+            ][..],
+        ),
+        (
+            domain_class::LAW,
+            &[
+                "法律", "法条", "判例", "诉讼", "合规", "law", "legal", "regulation",
+                "court", "compliance",
+            ][..],
+        ),
+        (
+            domain_class::PHILOSOPHY,
+            &[
+                "哲学", "伦理", "形而上", "认识论", "philosophy", "ethics",
+                "metaphysics", "epistemology",
+            ][..],
+        ),
+        (
+            domain_class::PSYCHOLOGY,
+            &[
+                "心理", "认知", "行为", "人格", "心理学", "psychology", "cognitive",
+                "behavior", "personality",
+            ][..],
+        ),
+        (
+            domain_class::EDUCATION,
+            &[
+                "教育", "课程", "教学", "学习", "考试", "education", "teaching",
+                "curriculum", "exam", "learning",
+            ][..],
+        ),
+        (
+            domain_class::MEDICINE,
+            &[
+                "医学", "疾病", "治疗", "药物", "诊断", "medicine", "medical",
+                "disease", "treatment", "diagnosis",
+            ][..],
+        ),
+        (
+            domain_class::GEOGRAPHY,
+            &[
+                "地理", "地图", "气候", "地形", "区域", "geography", "climate",
+                "terrain", "region",
+            ][..],
+        ),
+        (
+            domain_class::ART,
+            &[
+                "艺术", "绘画", "雕塑", "美术", "设计史", "art", "painting",
+                "sculpture", "artist",
+            ][..],
+        ),
+        (
+            domain_class::MUSIC,
+            &[
+                "音乐", "作曲", "乐理", "歌曲", "演奏", "music", "melody",
+                "composition", "harmony",
+            ][..],
+        ),
+        (
+            domain_class::LANGUAGE,
+            &[
+                "语言", "语法", "翻译", "词汇", "修辞", "language", "linguistics",
+                "grammar", "translation", "vocabulary",
+            ][..],
+        ),
+        (
+            domain_class::SPORTS,
+            &[
+                "体育", "足球", "篮球", "比赛", "运动员", "sports", "football",
+                "basketball", "match", "athlete",
+            ][..],
+        ),
+        (
+            domain_class::ENTERTAINMENT,
+            &[
+                "娱乐", "电影", "电视剧", "明星", "综艺", "entertainment",
+                "movie", "film", "television", "celebrity",
+            ][..],
+        ),
+        (
+            domain_class::RELIGION,
+            &[
+                "宗教", "佛教", "基督教", "伊斯兰", "神学", "religion",
+                "buddh", "christian", "islam", "theology",
+            ][..],
+        ),
+        (
+            domain_class::MILITARY,
+            &[
+                "军事", "军队", "战役", "武器", "将领", "military", "army",
+                "campaign", "weapon", "general",
+            ][..],
+        ),
+    ] {
+        if keywords.iter().any(|keyword| corpus.contains(keyword)) {
+            return class_name.to_string();
+        }
+    }
+
     domain_class::CHAT.to_string()
+}
+
+async fn generate_domain_class_via_llm(
+    transcript: &[String],
+    session_title: Option<&str>,
+    summary_config: &SummarySection,
+    llm_gate: Arc<Semaphore>,
+) -> Result<Option<String>> {
+    if transcript.is_empty() || summary_config.llm_api_key.trim().is_empty() {
+        return Ok(None);
+    }
+
+    let _permit = llm_gate.acquire_owned().await?;
+
+    let client = Client::builder()
+        .timeout(Duration::from_millis(summary_config.llm_timeout_ms))
+        .build()?;
+    let url = format!(
+        "{}/chat/completions",
+        summary_config.llm_base_url.trim_end_matches('/')
+    );
+    let session_title = session_title.unwrap_or("untitled");
+    let transcript_text = transcript.join("\n");
+    let allowed_domain_classes = domain_class::ALL.join(", ");
+    let request = ChatCompletionsRequest {
+        model: &summary_config.llm_model,
+        temperature: 0.0,
+        messages: vec![
+            PromptMessage {
+                role: "system",
+                content: format!(
+                    "你是一个会话主题分类助手。请基于整个会话 transcript（包含用户提问和助手回答）做单标签分类。你必须只返回 JSON 格式数据，不要输出任何解释、markdown、代码块或多余文本。返回格式示例：{{\"domain_class\":\"history\"}}。domain_class 只能从以下候选中选择一个：{allowed_domain_classes}。如果最贴近的是任务执行类，返回 task；如果是纯系统消息，返回 system；如果无法判断，返回 chat。"
+                ),
+            },
+            PromptMessage {
+                role: "user",
+                content: format!(
+                    "session_title: {session_title}\n请基于下面完整 transcript 选择最贴切的单个 domain_class。\ntranscript:\n{transcript_text}"
+                ),
+            },
+        ],
+    };
+
+    let response = client
+        .post(url)
+        .bearer_auth(&summary_config.llm_api_key)
+        .json(&request)
+        .send()
+        .await?;
+
+    if !response.status().is_success() {
+        let status = response.status();
+        let body = response.text().await.unwrap_or_default();
+        anyhow::bail!("domain class llm returned {status}: {body}");
+    }
+
+    let payload: ChatCompletionsResponse = response.json().await?;
+    let content = payload
+        .choices
+        .first()
+        .map(|choice| choice.message.content.trim().to_string())
+        .filter(|text| !text.is_empty());
+
+    let Some(content) = content else {
+        return Ok(None);
+    };
+
+    let artifact = parse_domain_class_artifact(&content)?;
+    let normalized = artifact.domain_class.trim().to_lowercase();
+    if !domain_class::is_valid(&normalized) {
+        anyhow::bail!("domain class llm returned unsupported domain_class={normalized}");
+    }
+
+    Ok(Some(normalized))
 }
 
 async fn build_fact_candidates(
@@ -832,7 +1131,10 @@ async fn generate_ner_artifact_via_llm(
         messages: vec![
             PromptMessage {
                 role: "system",
-                content: "你是一个NER识别的 AI 助手。请基于整个会话 transcript（包含用户提问和助手回答）提取去重后的 NER 实体，仅保留人名。你必须只返回 JSON 格式数据，不要输出任何解释、markdown、代码块或多余文本。返回格式示例：{\"persons\":[\"列宁\",\"马克思\"],\"domain_class\":\"chat\"}。persons 只保留 transcript 中真实出现的人名，不要职位、组织、概念、软件名，也不要重复；domain_class 只允许输出 chat、task、system 之一。".to_string(),
+                content: format!(
+                    "你是一个NER识别的 AI 助手。请基于整个会话 transcript（包含用户提问和助手回答）提取去重后的 NER 实体，仅保留人名。你必须只返回 JSON 格式数据，不要输出任何解释、markdown、代码块或多余文本。返回格式示例：{{\"persons\":[\"列宁\",\"马克思\"],\"domain_class\":\"history\"}}。persons 只保留 transcript 中真实出现的人名，不要职位、组织、概念、软件名，也不要重复；domain_class 只能从以下候选中选择一个：{}。",
+                    domain_class::ALL.join(", ")
+                ),
             },
             PromptMessage {
                 role: "user",
@@ -896,6 +1198,25 @@ fn parse_ner_artifact(content: &str) -> Result<NerArtifact> {
 
     anyhow::bail!(
         "summary ner llm did not return valid json; raw_content={}",
+        truncate_text(content, 500)
+    )
+}
+
+fn parse_domain_class_artifact(content: &str) -> Result<DomainClassArtifact> {
+    let sanitized = strip_think_blocks(content);
+
+    if let Ok(artifact) = serde_json::from_str::<DomainClassArtifact>(&sanitized) {
+        return Ok(artifact);
+    }
+
+    if let Some(candidate) = extract_last_json_object(&sanitized) {
+        if let Ok(artifact) = serde_json::from_str::<DomainClassArtifact>(candidate) {
+            return Ok(artifact);
+        }
+    }
+
+    anyhow::bail!(
+        "domain class llm did not return valid json; raw_content={}",
         truncate_text(content, 500)
     )
 }
@@ -1062,17 +1383,44 @@ mod tests {
     #[test]
     fn infer_domain_class_prefers_task_keywords() {
         let transcript = vec!["user: please fix the deployment task".to_string()];
-        assert_eq!(infer_domain_class(&transcript, None), domain_class::TASK);
+        assert_eq!(
+            infer_domain_class_heuristic(&transcript, None),
+            domain_class::TASK
+        );
     }
 
     #[test]
-    fn infer_domain_class_falls_back_to_chat() {
+    fn infer_domain_class_heuristic_detects_history_topics() {
+        let transcript = vec![
+            "user: 蒋介石和胡宗南之间是什么关系".to_string(),
+            "assistant: 这属于民国军事人物关系和历史背景".to_string(),
+        ];
+        assert_eq!(
+            infer_domain_class_heuristic(&transcript, Some("历史人物")),
+            domain_class::HISTORY
+        );
+    }
+
+    #[test]
+    fn infer_domain_class_heuristic_detects_physics_topics() {
+        let transcript = vec![
+            "user: 请解释量子力学和相对论".to_string(),
+            "assistant: 我们可以从物理学基本概念开始".to_string(),
+        ];
+        assert_eq!(
+            infer_domain_class_heuristic(&transcript, None),
+            domain_class::PHYSICS
+        );
+    }
+
+    #[test]
+    fn infer_domain_class_heuristic_falls_back_to_chat() {
         let transcript = vec![
             "user: hello there".to_string(),
             "assistant: happy to help".to_string(),
         ];
         assert_eq!(
-            infer_domain_class(&transcript, Some("General chat")),
+            infer_domain_class_heuristic(&transcript, Some("General chat")),
             domain_class::CHAT
         );
     }

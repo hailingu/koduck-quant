@@ -71,16 +71,74 @@ pub mod domain_class {
     pub const CHAT: &str = "chat";
     pub const TASK: &str = "task";
     pub const SYSTEM: &str = "system";
+    pub const HISTORY: &str = "history";
+    pub const POLITICS: &str = "politics";
+    pub const LITERATURE: &str = "literature";
+    pub const PHYSICS: &str = "physics";
+    pub const MATHEMATICS: &str = "mathematics";
+    pub const CHEMISTRY: &str = "chemistry";
+    pub const BIOLOGY: &str = "biology";
+    pub const COMPUTER_SCIENCE: &str = "computer_science";
+    pub const TECHNOLOGY: &str = "technology";
+    pub const ENGINEERING: &str = "engineering";
+    pub const FINANCE: &str = "finance";
+    pub const ECONOMICS: &str = "economics";
+    pub const BUSINESS: &str = "business";
+    pub const LAW: &str = "law";
+    pub const PHILOSOPHY: &str = "philosophy";
+    pub const PSYCHOLOGY: &str = "psychology";
+    pub const EDUCATION: &str = "education";
+    pub const MEDICINE: &str = "medicine";
+    pub const GEOGRAPHY: &str = "geography";
+    pub const ART: &str = "art";
+    pub const MUSIC: &str = "music";
+    pub const LANGUAGE: &str = "language";
+    pub const SPORTS: &str = "sports";
+    pub const ENTERTAINMENT: &str = "entertainment";
+    pub const RELIGION: &str = "religion";
+    pub const MILITARY: &str = "military";
     pub const SUMMARY: &str = "summary";
     pub const FACT: &str = "fact";
     pub const UNKNOWN: &str = "unknown";
 
+    pub const ALL: [&str; 32] = [
+        CHAT,
+        TASK,
+        SYSTEM,
+        HISTORY,
+        POLITICS,
+        LITERATURE,
+        PHYSICS,
+        MATHEMATICS,
+        CHEMISTRY,
+        BIOLOGY,
+        COMPUTER_SCIENCE,
+        TECHNOLOGY,
+        ENGINEERING,
+        FINANCE,
+        ECONOMICS,
+        BUSINESS,
+        LAW,
+        PHILOSOPHY,
+        PSYCHOLOGY,
+        EDUCATION,
+        MEDICINE,
+        GEOGRAPHY,
+        ART,
+        MUSIC,
+        LANGUAGE,
+        SPORTS,
+        ENTERTAINMENT,
+        RELIGION,
+        MILITARY,
+        SUMMARY,
+        FACT,
+        UNKNOWN,
+    ];
+
     /// Validate if the given domain class is supported.
     pub fn is_valid(domain_class: &str) -> bool {
-        matches!(
-            domain_class,
-            CHAT | TASK | SYSTEM | SUMMARY | FACT | UNKNOWN
-        )
+        ALL.contains(&domain_class)
     }
 
     /// Get default domain class.
@@ -141,6 +199,12 @@ mod tests {
         assert!(domain_class::is_valid("chat"));
         assert!(domain_class::is_valid("task"));
         assert!(domain_class::is_valid("system"));
+        assert!(domain_class::is_valid("history"));
+        assert!(domain_class::is_valid("politics"));
+        assert!(domain_class::is_valid("literature"));
+        assert!(domain_class::is_valid("physics"));
+        assert!(domain_class::is_valid("computer_science"));
+        assert!(domain_class::is_valid("finance"));
         assert!(domain_class::is_valid("summary"));
         assert!(domain_class::is_valid("fact"));
         assert!(domain_class::is_valid("unknown"));
