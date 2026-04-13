@@ -15,7 +15,7 @@ use tracing::{error, info, warn};
 
 use crate::clients::proto;
 use crate::config::{CapabilitiesConfig, LlmConfig, LlmMode};
-use crate::llm::{ListModelsRequest, LlmProvider, RequestContext};
+use crate::llm::LlmProvider;
 use crate::reliability::{
     error::{AppError, ErrorCode, UpstreamService},
     error_mapper::{map_grpc_status, map_transport_error},
@@ -774,7 +774,7 @@ async fn fetch_llm_capability(addr: &str) -> Result<proto::Capability, tonic::St
 
 async fn fetch_direct_llm_capability(
     llm_config: &LlmConfig,
-    llm_provider: Arc<dyn LlmProvider>,
+    _llm_provider: Arc<dyn LlmProvider>,
     required_version: &str,
 ) -> Result<proto::Capability, AppError> {
     let providers = enabled_llm_providers(llm_config);
@@ -809,21 +809,12 @@ async fn fetch_direct_llm_capability(
                 provider_config.base_url.clone(),
             );
         }
-        let models = llm_provider
-            .list_models(ListModelsRequest {
-                meta: capability_request_context(provider, llm_config.timeout_ms),
-                provider: provider.clone(),
-            })
-            .await?;
-        limits.insert(
-            format!("provider.{}.models", provider),
-            models.len().to_string(),
-        );
-        if let Some(first_model) = models.first() {
+        if let Some(provider_config) = llm_config.provider_config(provider) {
             features.insert(
                 format!("provider.{}.default_model", provider),
-                first_model.id.clone(),
+                provider_config.default_model.clone(),
             );
+            limits.insert(format!("provider.{}.models", provider), "1".to_string());
         }
     }
 
@@ -846,16 +837,6 @@ fn enabled_llm_providers(llm_config: &LlmConfig) -> Vec<String> {
         })
         .map(str::to_string)
         .collect()
-}
-
-fn capability_request_context(provider: &str, deadline_ms: u64) -> RequestContext {
-    RequestContext {
-        request_id: format!("startup-capability-check-{provider}"),
-        session_id: "capability-probe".to_string(),
-        user_id: "system".to_string(),
-        trace_id: format!("capability-probe-{provider}"),
-        deadline_ms,
-    }
 }
 
 fn capability_probe_meta(service: &str, api_version: &str, deadline_ms: u64) -> proto::RequestMeta {

@@ -2,10 +2,9 @@
 //!
 //! Uses AWS S3 SDK with custom endpoint for MinIO compatibility.
 
-use aws_config::SdkConfig;
 use aws_credential_types::Credentials;
 use aws_sdk_s3::Client;
-use aws_sdk_s3::config::{Region, SharedCredentialsProvider};
+use aws_sdk_s3::config::{Builder as S3ConfigBuilder, Region, SharedCredentialsProvider};
 use tracing::{debug, error, info, instrument};
 use uuid::Uuid;
 
@@ -34,13 +33,18 @@ impl ObjectStoreClient {
 
         let region = Region::new(config.region.clone());
 
-        let sdk_config = SdkConfig::builder()
+        let sdk_config = aws_config::SdkConfig::builder()
             .credentials_provider(SharedCredentialsProvider::new(credentials))
             .region(region)
             .endpoint_url(&config.endpoint)
             .build();
 
-        let client = Client::new(&sdk_config);
+        // MinIO in-cluster endpoints work reliably with path-style addressing.
+        let s3_config = S3ConfigBuilder::from(&sdk_config)
+            .force_path_style(true)
+            .build();
+
+        let client = Client::from_conf(s3_config);
 
         // Verify bucket exists or create it
         Self::ensure_bucket_exists(&client, &config.bucket).await?;
@@ -65,8 +69,8 @@ impl ObjectStoreClient {
                 debug!(bucket = %bucket, "Bucket exists");
                 Ok(())
             }
-            Err(_) => {
-                info!(bucket = %bucket, "Creating bucket");
+            Err(error) => {
+                info!(bucket = %bucket, error = %error, "Bucket missing or not reachable, creating bucket");
                 client
                     .create_bucket()
                     .bucket(bucket)

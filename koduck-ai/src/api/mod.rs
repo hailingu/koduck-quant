@@ -1114,8 +1114,20 @@ fn extract_or_create_request_id(headers: &HeaderMap) -> String {
 
 fn resolve_session_id(session_id: Option<String>) -> String {
     session_id
-        .filter(|v| !v.trim().is_empty())
-        .unwrap_or_else(|| format!("sess_{}", Uuid::new_v4()))
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .and_then(normalize_session_id)
+        .unwrap_or_else(|| Uuid::new_v4().to_string())
+}
+
+fn normalize_session_id(session_id: &str) -> Option<String> {
+    let candidate = session_id
+        .strip_prefix("sess_")
+        .unwrap_or(session_id)
+        .trim();
+
+    Uuid::parse_str(candidate).ok().map(|uuid| uuid.to_string())
 }
 
 fn extract_trace_id(headers: &HeaderMap) -> String {
@@ -1340,21 +1352,19 @@ fn build_provider_generate_request(
     trace_id: &str,
     deadline_ms: u64,
 ) -> ProviderGenerateRequest {
+    let mut system_content = "你是 koduck-ai 的中文助手。默认使用简体中文直接回答用户问题，保持准确、简洁、自然。不要输出思维链、推理过程、草稿、自我讨论或任何 <think> 标签内容；只输出面向用户的最终答案。如果用户输入过于简短或语义不清，先用一句中文澄清，不要臆测事实。".to_string();
+
+    if let Some(memory_prompt) = memory_snapshot.and_then(build_memory_prompt) {
+        system_content.push_str("\n\n");
+        system_content.push_str(&memory_prompt);
+    }
+
     let mut messages = vec![ProviderChatMessage {
         role: "system".to_string(),
-        content: "你是 koduck-ai 的中文助手。默认使用简体中文直接回答用户问题，保持准确、简洁、自然。不要输出思维链、推理过程、草稿、自我讨论或任何 <think> 标签内容；只输出面向用户的最终答案。如果用户输入过于简短或语义不清，先用一句中文澄清，不要臆测事实。".to_string(),
+        content: system_content,
         name: String::new(),
         metadata: HashMap::new(),
     }];
-
-    if let Some(memory_prompt) = memory_snapshot.and_then(build_memory_prompt) {
-        messages.push(ProviderChatMessage {
-            role: "system".to_string(),
-            content: memory_prompt,
-            name: "memory_context".to_string(),
-            metadata: HashMap::new(),
-        });
-    }
 
     if let Some(history) = request.history.as_ref() {
         messages.extend(history.iter().map(|item| ProviderChatMessage {

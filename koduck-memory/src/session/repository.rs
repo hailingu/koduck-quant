@@ -29,7 +29,7 @@ impl SessionRepository {
             SELECT session_id, tenant_id, user_id,
                    parent_session_id, forked_from_session_id,
                    title, status, created_at, updated_at, last_message_at,
-                   extra AS "extra: _"
+                   extra_json AS extra
             FROM memory_sessions
             WHERE tenant_id = $1 AND session_id = $2
             "#,
@@ -53,7 +53,7 @@ impl SessionRepository {
                 session_id, tenant_id, user_id,
                 parent_session_id, forked_from_session_id,
                 title, status, created_at, updated_at, last_message_at,
-                extra
+                extra_json
             ) VALUES (
                 $1, $2, $3, $4, $5, $6, $7,
                 now(), now(), $8, $9
@@ -67,11 +67,11 @@ impl SessionRepository {
                 status = EXCLUDED.status,
                 updated_at = now(),
                 last_message_at = EXCLUDED.last_message_at,
-                extra = EXCLUDED.extra
+                extra_json = EXCLUDED.extra_json
             RETURNING session_id, tenant_id, user_id,
                       parent_session_id, forked_from_session_id,
                       title, status, created_at, updated_at, last_message_at,
-                      extra AS "extra: _"
+                      extra_json AS extra
             "#,
         )
         .bind(params.session_id)

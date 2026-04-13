@@ -59,7 +59,7 @@ impl MemoryEntryRepository {
             )
             RETURNING id, tenant_id, session_id, sequence_num,
                       role, raw_content_ref, message_ts,
-                      metadata_json AS "metadata_json: _",
+                      metadata_json,
                       l0_uri, created_at
             "#,
         )
@@ -99,7 +99,7 @@ impl MemoryEntryRepository {
                 r#"
                 SELECT id, tenant_id, session_id, sequence_num,
                        role, raw_content_ref, message_ts,
-                       metadata_json AS "metadata_json: _",
+                       metadata_json,
                        l0_uri, created_at
                 FROM memory_entries
                 WHERE tenant_id = $1 AND session_id = $2 AND created_at >= $3
@@ -116,7 +116,7 @@ impl MemoryEntryRepository {
                 r#"
                 SELECT id, tenant_id, session_id, sequence_num,
                        role, raw_content_ref, message_ts,
-                       metadata_json AS "metadata_json: _",
+                       metadata_json,
                        l0_uri, created_at
                 FROM memory_entries
                 WHERE tenant_id = $1 AND session_id = $2

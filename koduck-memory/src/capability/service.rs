@@ -613,9 +613,9 @@ impl MemoryService for MemoryGrpcService {
         // Serialize sequence allocation per tenant/session so concurrent appends
         // cannot observe the same base sequence number.
         let sequence_lock_key = format!("{tenant_id}:{session_id}");
-        sqlx::query_scalar::<_, i64>("SELECT pg_advisory_xact_lock(hashtextextended($1, 0))")
+        sqlx::query("SELECT pg_advisory_xact_lock(hashtextextended($1, 0))")
             .bind(&sequence_lock_key)
-            .fetch_one(&mut *tx)
+            .execute(&mut *tx)
             .await
             .map_err(|e| Status::internal(format!("failed to acquire sequence lock: {e}")))?;
 
@@ -743,7 +743,7 @@ impl MemoryService for MemoryGrpcService {
                     memory_kind, domain_class, summary, snippet,
                     source_uri, score_hint, created_at, updated_at
                 ) VALUES (
-                    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, now(), now()
+                    $1, $2, $3, $4, $5, $6, $7, $8, $9, CAST($10 AS NUMERIC), now(), now()
                 )
                 "#,
             )

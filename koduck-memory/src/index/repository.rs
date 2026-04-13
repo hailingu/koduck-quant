@@ -29,12 +29,12 @@ impl MemoryIndexRepository {
                 memory_kind, domain_class, summary, snippet,
                 source_uri, score_hint, created_at, updated_at
             ) VALUES (
-                $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, now(), now()
+                $1, $2, $3, $4, $5, $6, $7, $8, $9, CAST($10 AS NUMERIC), now(), now()
             )
             RETURNING 
                 id, tenant_id, session_id, entry_id,
                 memory_kind, domain_class, summary, snippet,
-                source_uri, score_hint,
+                source_uri, score_hint::text AS score_hint,
                 created_at, updated_at
             "#,
         )
@@ -77,7 +77,7 @@ impl MemoryIndexRepository {
             SELECT 
                 id, tenant_id, session_id, entry_id,
                 memory_kind, domain_class, summary, snippet,
-                source_uri, score_hint,
+                source_uri, score_hint::text AS score_hint,
                 created_at, updated_at
             FROM memory_index_records
             WHERE tenant_id = $1 AND domain_class = $2
@@ -111,7 +111,7 @@ impl MemoryIndexRepository {
                 SELECT 
                     id, tenant_id, session_id, entry_id,
                     memory_kind, domain_class, summary, snippet,
-                    source_uri, score_hint,
+                    source_uri, score_hint::text AS score_hint,
                     created_at, updated_at
                 FROM memory_index_records
                 WHERE tenant_id = $1 AND session_id = $2 AND domain_class = $3
@@ -131,7 +131,7 @@ impl MemoryIndexRepository {
                 SELECT 
                     id, tenant_id, session_id, entry_id,
                     memory_kind, domain_class, summary, snippet,
-                    source_uri, score_hint,
+                    source_uri, score_hint::text AS score_hint,
                     created_at, updated_at
                 FROM memory_index_records
                 WHERE tenant_id = $1 AND session_id = $2
@@ -170,7 +170,7 @@ impl MemoryIndexRepository {
             SELECT 
                 id, tenant_id, session_id, entry_id,
                 memory_kind, domain_class, summary, snippet,
-                source_uri, score_hint,
+                source_uri, score_hint::text AS score_hint,
                 created_at, updated_at
             FROM memory_index_records
             WHERE tenant_id = $1 
@@ -210,7 +210,7 @@ impl MemoryIndexRepository {
                 SELECT
                     id, tenant_id, session_id, entry_id,
                     memory_kind, domain_class, summary, snippet,
-                    source_uri, score_hint,
+                    source_uri, score_hint::text AS score_hint,
                     created_at, updated_at
                 FROM memory_index_records
                 WHERE tenant_id = $1
@@ -240,12 +240,12 @@ impl MemoryIndexRepository {
     pub async fn get_by_id(&self, id: Uuid) -> Result<Option<MemoryIndexRecord>> {
         let row = sqlx::query_as::<_, MemoryIndexRecord>(
             r#"
-            SELECT 
-                id, tenant_id, session_id, entry_id,
-                memory_kind, domain_class, summary, snippet,
-                source_uri, score_hint,
-                created_at, updated_at
-            FROM memory_index_records
+                SELECT
+                    id, tenant_id, session_id, entry_id,
+                    memory_kind, domain_class, summary, snippet,
+                    source_uri, score_hint::text AS score_hint,
+                    created_at, updated_at
+                FROM memory_index_records
             WHERE id = $1
             "#,
         )

@@ -1,8 +1,16 @@
 import { useState, useRef, useEffect } from "react";
-import { Send } from "lucide-react";
+import {
+  ArrowUp,
+  ChevronDown,
+  FileText,
+  Mic,
+  Paperclip,
+  Plus,
+  Upload,
+  X,
+} from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { Input } from "./ui/input";
 
 type MessageType = "text" | "card";
 
@@ -21,9 +29,21 @@ interface Message {
   };
 }
 
+interface UploadedFile {
+  id: string;
+  name: string;
+  type: string;
+  preview?: string;
+}
+
 interface StreamEventPayload {
   text?: string;
   finish_reason?: string;
+  code?: string;
+  message?: string;
+  retryable?: boolean;
+  degraded?: boolean;
+  retry_after_ms?: number;
 }
 
 interface StreamEventData {
@@ -32,16 +52,7 @@ interface StreamEventData {
   event_type?: string;
   payload?: StreamEventPayload;
   request_id?: string;
-  session_id?: string;
 }
-
-interface ChatHistoryItem {
-  role: "user" | "assistant";
-  content: string;
-}
-
-const SESSION_STORAGE_KEY = "koduck.ai.sessionId";
-const MAX_HISTORY_MESSAGES = 12;
 
 function normalizeMarkdownContent(content: string): string {
   const source = content.replace(/\r\n/g, "\n").trim();
@@ -291,14 +302,14 @@ function parseSseBlocks(
 export function KoduckAi() {
   const [chatMessage, setChatMessage] = useState("");
   const [messages, setMessages] = useState<Message[]>([]);
+  const [selectedProvider] = useState("OpenAI");
+  const [selectedModel] = useState("GPT-4");
+  const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
+  const [isDragging, setIsDragging] = useState(false);
   const [sending, setSending] = useState(false);
-  const [sessionId, setSessionId] = useState<string>(() => {
-    if (typeof window === "undefined") {
-      return "";
-    }
-    return window.sessionStorage.getItem(SESSION_STORAGE_KEY) ?? "";
-  });
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const dragCounterRef = useRef(0);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -308,19 +319,6 @@ export function KoduckAi() {
     scrollToBottom();
   }, [messages]);
 
-  useEffect(() => {
-    if (typeof window === "undefined") {
-      return;
-    }
-
-    if (sessionId) {
-      window.sessionStorage.setItem(SESSION_STORAGE_KEY, sessionId);
-      return;
-    }
-
-    window.sessionStorage.removeItem(SESSION_STORAGE_KEY);
-  }, [sessionId]);
-
   const updateAssistantMessage = (messageId: string, updater: (prev: Message) => Message) => {
     setMessages((prev) =>
       prev.map((message) =>
@@ -329,20 +327,64 @@ export function KoduckAi() {
     );
   };
 
-  const buildHistoryPayload = (): ChatHistoryItem[] =>
-    messages
-      .filter(
-        (message) =>
-          (message.role === "user" || message.role === "assistant") &&
-          message.type === "text" &&
-          !message.streaming &&
-          message.content.trim().length > 0,
-      )
-      .slice(-MAX_HISTORY_MESSAGES)
-      .map((message) => ({
-        role: message.role,
-        content: message.content.trim(),
-      }));
+  const handleFileSelect = (files: FileList | null) => {
+    if (!files) {
+      return;
+    }
+
+    Array.from(files).forEach((file) => {
+      const uploadedFile: UploadedFile = {
+        id: `${Date.now()}-${Math.random()}`,
+        name: file.name,
+        type: file.type,
+      };
+
+      if (file.type.startsWith("image/")) {
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          setUploadedFiles((prev) => [
+            ...prev,
+            { ...uploadedFile, preview: event.target?.result as string },
+          ]);
+        };
+        reader.readAsDataURL(file);
+        return;
+      }
+
+      setUploadedFiles((prev) => [...prev, uploadedFile]);
+    });
+  };
+
+  const handleDragEnter = (e: React.DragEvent) => {
+    e.preventDefault();
+    dragCounterRef.current += 1;
+    if (e.dataTransfer.items && e.dataTransfer.items.length > 0) {
+      setIsDragging(true);
+    }
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    dragCounterRef.current -= 1;
+    if (dragCounterRef.current === 0) {
+      setIsDragging(false);
+    }
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    dragCounterRef.current = 0;
+    setIsDragging(false);
+    handleFileSelect(e.dataTransfer.files);
+  };
+
+  const removeFile = (fileId: string) => {
+    setUploadedFiles((prev) => prev.filter((file) => file.id !== fileId));
+  };
 
   const handleSendMessage = async () => {
     const content = chatMessage.trim();
@@ -370,8 +412,6 @@ export function KoduckAi() {
     setChatMessage("");
     setSending(true);
 
-    const history = buildHistoryPayload();
-
     try {
       const token = localStorage.getItem("koduck.auth.token");
       const response = await fetch("/api/v1/ai/chat/stream", {
@@ -381,9 +421,7 @@ export function KoduckAi() {
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
         body: JSON.stringify({
-          session_id: sessionId || undefined,
           message: content,
-          history,
         }),
       });
 
@@ -396,6 +434,7 @@ export function KoduckAi() {
       let buffer = "";
       let streamedText = "";
       let streamCompleted = false;
+      let streamErrorMessage = "";
 
       while (!streamCompleted) {
         const { done, value } = await reader.read();
@@ -417,10 +456,6 @@ export function KoduckAi() {
             eventData = JSON.parse(block.data) as StreamEventData;
           } catch {
             continue;
-          }
-
-          if (eventData?.session_id) {
-            setSessionId(eventData.session_id);
           }
 
           if (block.event === "message" && eventData.payload?.text) {
@@ -446,7 +481,40 @@ export function KoduckAi() {
             await reader.cancel();
             break;
           }
+
+          if (block.event === "error") {
+            streamErrorMessage =
+              eventData.payload?.message?.trim() || "生成过程中发生异常，请稍后重试。";
+            updateAssistantMessage(assistantMessageId, (prev) => ({
+              ...prev,
+              content:
+                streamedText ||
+                prev.content ||
+                `生成过程中断：${streamErrorMessage}`,
+              timestamp: prev.timestamp || Date.now(),
+              streaming: false,
+              type: "text",
+            }));
+            streamCompleted = true;
+            await reader.cancel();
+            break;
+          }
         }
+      }
+
+      if (!streamCompleted && streamedText.trim()) {
+        updateAssistantMessage(assistantMessageId, (prev) => ({
+          ...prev,
+          content:
+            streamedText +
+            (streamErrorMessage
+              ? `\n\n回答提前结束：${streamErrorMessage}`
+              : ""),
+          timestamp: prev.timestamp || Date.now(),
+          streaming: false,
+          type: "text",
+        }));
+        streamCompleted = true;
       }
 
       if (!streamedText.trim()) {
@@ -525,59 +593,140 @@ export function KoduckAi() {
   };
 
   const renderInputBar = () => (
-    <div className="relative">
-      <div className="flex items-center gap-2 bg-white border border-gray-300 rounded-3xl shadow-sm hover:shadow-md transition-shadow focus-within:shadow-md">
-        <button className="p-2.5 text-gray-400 hover:text-gray-600">
-          <svg
-            width="20"
-            height="20"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-          >
-            <line x1="12" y1="5" x2="12" y2="19" />
-            <line x1="5" y1="12" x2="19" y2="12" />
-          </svg>
-        </button>
-        <Input
-          type="text"
-          placeholder="询问问题，尽管问..."
+    <div className="bg-white border border-gray-200 rounded-[32px] shadow-sm transition-shadow hover:shadow-md">
+      {uploadedFiles.length > 0 && (
+        <div className="flex flex-wrap gap-2 px-5 pt-4 pb-2">
+          {uploadedFiles.map((file) => (
+            <div
+              key={file.id}
+              className="group flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-3 py-2 pr-2 transition-colors hover:bg-gray-50"
+            >
+              {file.preview ? (
+                <img
+                  src={file.preview}
+                  alt={file.name}
+                  className="h-10 w-10 rounded-lg object-cover"
+                />
+              ) : (
+                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-500">
+                  <FileText className="h-5 w-5 text-white" />
+                </div>
+              )}
+              <div className="min-w-0 flex-1">
+                <div className="truncate text-sm font-medium text-gray-900">{file.name}</div>
+                <div className="text-xs text-gray-500">File</div>
+              </div>
+              <button
+                className="flex h-6 w-6 items-center justify-center rounded-full bg-black text-white transition-colors hover:bg-gray-800"
+                onClick={() => removeFile(file.id)}
+                type="button"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <div className="px-5 py-4">
+        <textarea
+          placeholder="询问问题,尽管问..."
           value={chatMessage}
           onChange={(e) => setChatMessage(e.target.value)}
-          onKeyPress={(e) => e.key === "Enter" && handleSendMessage()}
-          className="flex-1 border-0 bg-transparent focus:outline-none focus:ring-0 focus-visible:ring-0 focus-visible:border-0 text-base py-2.5 px-0"
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && !e.shiftKey) {
+              e.preventDefault();
+              void handleSendMessage();
+            }
+          }}
+          rows={1}
+          className="w-full resize-none border-0 bg-transparent text-base text-gray-800 outline-none placeholder:text-gray-400"
         />
-        <button className="p-2.5 text-gray-400 hover:text-gray-600">
-          <svg
-            width="20"
-            height="20"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
+      </div>
+
+      <div className="flex items-center gap-2 px-5 pb-3">
+        <div className="flex flex-1 items-center gap-1.5">
+          <button
+            className="p-1.5 text-gray-400 transition-colors hover:text-gray-600"
+            onClick={() => fileInputRef.current?.click()}
+            type="button"
           >
-            <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
-            <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
-          </svg>
-        </button>
-        <button
-          onClick={handleSendMessage}
-          disabled={!chatMessage.trim() || sending}
-          className={`m-1.5 w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${
-            chatMessage.trim() && !sending
-              ? "bg-[#10a37f] text-white hover:bg-[#0d8b6d]"
-              : "bg-gray-200 text-gray-400 cursor-not-allowed"
-          }`}
-        >
-          <Send className="w-4 h-4" />
-        </button>
+            <Paperclip className="h-4 w-4" />
+          </button>
+          <button
+            className="flex items-center gap-1 rounded-lg px-2.5 py-1 text-xs font-medium text-gray-700 transition-colors hover:bg-gray-50"
+            type="button"
+          >
+            <span>{selectedProvider}</span>
+            <ChevronDown className="h-3.5 w-3.5 text-gray-400" />
+          </button>
+          <button
+            className="flex items-center gap-1 rounded-lg px-2.5 py-1 text-xs font-medium text-gray-700 transition-colors hover:bg-gray-50"
+            type="button"
+          >
+            <span>{selectedModel}</span>
+            <ChevronDown className="h-3.5 w-3.5 text-gray-400" />
+          </button>
+        </div>
+
+        <div className="flex items-center gap-1.5">
+          <button
+            className="p-1.5 text-gray-400 transition-colors hover:text-gray-600"
+            type="button"
+          >
+            <Mic className="h-4 w-4" />
+          </button>
+          <button
+            onClick={() => void handleSendMessage()}
+            disabled={!chatMessage.trim() || sending}
+            type="button"
+            className={`flex h-8 w-8 items-center justify-center rounded-full transition-colors ${
+              chatMessage.trim() && !sending
+                ? "bg-gray-700 text-white hover:bg-gray-800"
+                : "cursor-not-allowed bg-gray-200 text-gray-400"
+            }`}
+          >
+            <ArrowUp className="h-4 w-4" />
+          </button>
+        </div>
       </div>
     </div>
   );
 
   return (
-    <main className="flex-1 flex flex-col bg-white overflow-hidden">
+    <main
+      className="relative flex min-h-0 flex-1 flex-col overflow-hidden bg-white"
+      onDragEnter={handleDragEnter}
+      onDragLeave={handleDragLeave}
+      onDragOver={handleDragOver}
+      onDrop={handleDrop}
+    >
+      {isDragging && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/5 backdrop-blur-md">
+          <div className="text-center">
+            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-blue-500">
+              <Upload className="h-8 w-8 text-white" />
+            </div>
+            <h3 className="mb-2 text-xl font-medium text-gray-800">Add anything</h3>
+            <p className="text-sm text-gray-500">Drop any file here to add it to the conversation</p>
+          </div>
+        </div>
+      )}
+
+      <input
+        ref={fileInputRef}
+        multiple
+        className="hidden"
+        onChange={(e) => handleFileSelect(e.target.files)}
+        type="file"
+      />
+
+      <button
+        className="fixed top-3 left-4 z-10 flex h-8 w-8 items-center justify-center text-gray-500 transition-colors hover:text-gray-700"
+        type="button"
+      >
+        <Plus className="h-6 w-6" strokeWidth={1.5} />
+      </button>
       <div className="flex-1 overflow-y-auto">
         <div
           className={`min-h-full flex flex-col ${
@@ -589,9 +738,9 @@ export function KoduckAi() {
           {messages.length === 0 ? (
             <div className="w-full max-w-3xl mx-auto">
               <h1 className="text-3xl font-normal text-gray-800 text-center mb-8">
-                Hi!
+                开始对话
               </h1>
-              {renderInputBar()}
+              <div className="w-full max-w-4xl px-4">{renderInputBar()}</div>
             </div>
           ) : (
             <div className="w-full max-w-3xl mx-auto space-y-6 mb-32">
@@ -668,7 +817,7 @@ export function KoduckAi() {
                     }`}
                   >
                     {Boolean(message.timestamp) && (
-                      <div className="px-1 text-sm text-[#667085]">
+                      <div className="text-xs text-gray-500">
                         {formatTimestamp(message.timestamp)}
                       </div>
                     )}
@@ -681,9 +830,11 @@ export function KoduckAi() {
         </div>
       </div>
 
-      <div className={`bg-white ${messages.length === 0 ? "hidden" : ""}`}>
-        <div className="w-full max-w-3xl mx-auto px-4 py-4">{renderInputBar()}</div>
-      </div>
+      {messages.length > 0 && (
+        <div className="bg-white">
+          <div className="w-full max-w-4xl mx-auto px-4 py-4">{renderInputBar()}</div>
+        </div>
+      )}
     </main>
   );
 }
