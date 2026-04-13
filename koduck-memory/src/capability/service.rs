@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::sync::Arc;
 use std::time::Instant;
 
 use tonic::{Request, Response, Status};
@@ -16,6 +17,8 @@ use crate::memory::{
     metadata_to_jsonb, IdempotencyRepository, InsertMemoryEntry, MemoryEntryRepository,
 };
 use crate::observe::{record_rpc_call, RpcMethod, RpcOutcome};
+use crate::observe::RpcGuard;
+use crate::observe::RpcMetrics;
 use crate::retrieve::{domain_class, DomainFirstRetriever, RetrieveContext, SummaryFirstRetriever};
 use crate::summary::{SummaryJob, SummaryTaskRunner};
 use crate::session::{
@@ -32,6 +35,7 @@ pub struct MemoryGrpcService {
     config: AppConfig,
     runtime: RuntimeState,
     object_store: Option<ObjectStoreClient>,
+    rpc_metrics: Arc<RpcMetrics>,
 }
 
 impl MemoryGrpcService {
@@ -39,11 +43,13 @@ impl MemoryGrpcService {
         config: AppConfig,
         runtime: RuntimeState,
         object_store: Option<ObjectStoreClient>,
+        rpc_metrics: Arc<RpcMetrics>,
     ) -> Self {
         Self {
             config,
             runtime,
             object_store,
+            rpc_metrics,
         }
     }
 
@@ -342,21 +348,22 @@ impl MemoryService for MemoryGrpcService {
         request: Request<GetSessionRequest>,
     ) -> Result<Response<GetSessionResponse>, Status> {
         let started_at = Instant::now();
+        let mut guard = RpcGuard::new(&self.rpc_metrics, "get_session");
         let req = request.get_ref();
         let meta = req
             .meta
             .as_ref()
-            .ok_or_else(|| Status::invalid_argument("meta is required"))?;
-        Self::validate_meta(meta)?;
+            .ok_or_else(|| { guard.error(); Status::invalid_argument("meta is required") })?;
+        Self::validate_meta(meta).map_err(|e| { guard.error(); e })?;
 
         let session_id =
-            parse_uuid(&req.session_id).map_err(|e| Status::invalid_argument(format!("invalid session_id: {e}")))?;
+            parse_uuid(&req.session_id).map_err(|e| { guard.error(); Status::invalid_argument(format!("invalid session_id: {e}")) })?;
 
         let result = match self
             .session_repo()
             .get_by_id(&meta.tenant_id, session_id)
             .await
-            .map_err(|e| Status::internal(format!("failed to get session: {e}")))?
+            .map_err(|e| { guard.error(); Status::internal(format!("failed to get session: {e}")) })?
         {
             Some(session) => Ok(Response::new(GetSessionResponse {
                 ok: true,
@@ -428,12 +435,13 @@ impl MemoryService for MemoryGrpcService {
         request: Request<QueryMemoryRequest>,
     ) -> Result<Response<QueryMemoryResponse>, Status> {
         let started_at = Instant::now();
+        let mut guard = RpcGuard::new(&self.rpc_metrics, "query_memory");
         let req = request.get_ref();
         let meta = req
             .meta
             .as_ref()
-            .ok_or_else(|| Status::invalid_argument("meta is required"))?;
-        Self::validate_meta(meta)?;
+            .ok_or_else(|| { guard.error(); Status::invalid_argument("meta is required") })?;
+        Self::validate_meta(meta).map_err(|e| { guard.error(); e })?;
 
         // Build retrieve context
         let domain_class = if req.domain_class.is_empty() {
@@ -461,7 +469,7 @@ impl MemoryService for MemoryGrpcService {
                 retriever
                     .retrieve(&ctx)
                     .await
-                    .map_err(|e| Status::internal(format!("retrieval failed: {e}")))?
+                    .map_err(|e| { guard.error(); Status::internal(format!("retrieval failed: {e}")) })?
             }
             2 => {
                 // SUMMARY_FIRST (2)
@@ -469,7 +477,7 @@ impl MemoryService for MemoryGrpcService {
                 retriever
                     .retrieve(&ctx)
                     .await
-                    .map_err(|e| Status::internal(format!("retrieval failed: {e}")))?
+                    .map_err(|e| { guard.error(); Status::internal(format!("retrieval failed: {e}")) })?
             }
             3 => {
                 // HYBRID (3) - reserved for V2, fall back to DOMAIN_FIRST
@@ -481,7 +489,7 @@ impl MemoryService for MemoryGrpcService {
                 retriever
                     .retrieve(&ctx)
                     .await
-                    .map_err(|e| Status::internal(format!("retrieval failed: {e}")))?
+                    .map_err(|e| { guard.error(); Status::internal(format!("retrieval failed: {e}")) })?
             }
             _ => {
                 // Other policies not yet implemented, fall back to DOMAIN_FIRST
@@ -493,7 +501,7 @@ impl MemoryService for MemoryGrpcService {
                 retriever
                     .retrieve(&ctx)
                     .await
-                    .map_err(|e| Status::internal(format!("retrieval failed: {e}")))?
+                    .map_err(|e| { guard.error(); Status::internal(format!("retrieval failed: {e}")) })?
             }
         };
 
@@ -560,12 +568,13 @@ impl MemoryService for MemoryGrpcService {
         request: Request<AppendMemoryRequest>,
     ) -> Result<Response<AppendMemoryResponse>, Status> {
         let started_at = Instant::now();
+        let mut guard = RpcGuard::new(&self.rpc_metrics, "append_memory");
         let req = request.get_ref();
         let meta = req
             .meta
             .as_ref()
-            .ok_or_else(|| Status::invalid_argument("meta is required"))?;
-        Self::validate_write_meta(meta)?;
+            .ok_or_else(|| { guard.error(); Status::invalid_argument("meta is required") })?;
+        Self::validate_write_meta(meta).map_err(|e| { guard.error(); e })?;
 
         if req.entries.is_empty() {
             return Ok(Response::new(AppendMemoryResponse {
@@ -576,7 +585,7 @@ impl MemoryService for MemoryGrpcService {
         }
 
         let session_id =
-            parse_uuid(&req.session_id).map_err(|e| Status::invalid_argument(format!("invalid session_id: {e}")))?;
+            parse_uuid(&req.session_id).map_err(|e| { guard.error(); Status::invalid_argument(format!("invalid session_id: {e}")) })?;
 
         // Step 1: Idempotency check
         let is_new = self
@@ -589,7 +598,7 @@ impl MemoryService for MemoryGrpcService {
                 &meta.request_id,
             )
             .await
-            .map_err(|e| Status::internal(format!("idempotency check failed: {e}")))?;
+            .map_err(|e| { guard.error(); Status::internal(format!("idempotency check failed: {e}")) })?;
 
         if !is_new {
             // Duplicate request — nothing new to append
@@ -608,7 +617,7 @@ impl MemoryService for MemoryGrpcService {
         let mut tx = pool
             .begin()
             .await
-            .map_err(|e| Status::internal(format!("failed to begin transaction: {e}")))?;
+            .map_err(|e| { guard.error(); Status::internal(format!("failed to begin transaction: {e}")) })?;
 
         // Serialize sequence allocation per tenant/session so concurrent appends
         // cannot observe the same base sequence number.
@@ -617,7 +626,7 @@ impl MemoryService for MemoryGrpcService {
             .bind(&sequence_lock_key)
             .execute(&mut *tx)
             .await
-            .map_err(|e| Status::internal(format!("failed to acquire sequence lock: {e}")))?;
+            .map_err(|e| { guard.error(); Status::internal(format!("failed to acquire sequence lock: {e}")) })?;
 
         let base_seq = sqlx::query_scalar::<_, i64>(
             r#"
@@ -630,7 +639,7 @@ impl MemoryService for MemoryGrpcService {
         .bind(session_id)
         .fetch_one(&mut *tx)
         .await
-        .map_err(|e| Status::internal(format!("failed to query max sequence_num: {e}")))?;
+        .map_err(|e| { guard.error(); Status::internal(format!("failed to query max sequence_num: {e}")) })?;
 
         // Step 3: Prepare entries with L0 content and write to object storage first
         let mut entries_to_insert: Vec<(InsertMemoryEntry, InsertMemoryIndexRecord)> =
@@ -730,7 +739,7 @@ impl MemoryService for MemoryGrpcService {
             .bind(&insert.l0_uri)
             .execute(&mut *tx)
             .await
-            .map_err(|e| Status::internal(format!("failed to insert memory entry: {e}")))?;
+            .map_err(|e| { guard.error(); Status::internal(format!("failed to insert memory entry: {e}")) })?;
 
             if result.rows_affected() > 0 {
                 appended += 1;
@@ -759,19 +768,25 @@ impl MemoryService for MemoryGrpcService {
             .bind(&index_record.score_hint)
             .execute(&mut *tx)
             .await
-            .map_err(|e| Status::internal(format!("failed to insert memory index record: {e}")))?;
+            .map_err(|e| { guard.error(); Status::internal(format!("failed to insert memory index record: {e}")) })?;
         }
 
         tx.commit()
             .await
-            .map_err(|e| Status::internal(format!("failed to commit transaction: {e}")))?;
+            .map_err(|e| { guard.error(); Status::internal(format!("failed to commit transaction: {e}")) })?;
 
         tracing::info!(
-            session_id = %session_id,
+            rpc = "append_memory",
+            request_id = %meta.request_id,
+            session_id = %meta.session_id,
             tenant_id = %tenant_id,
+            user_id = %meta.user_id,
+            trace_id = %meta.trace_id,
+            latency_ms = guard.elapsed_ms(),
+            status = "ok",
             appended_count = appended,
             requested_count = entries_count,
-            "append_memory completed"
+            "rpc completed"
         );
 
         let result = Ok(Response::new(AppendMemoryResponse {
@@ -897,6 +912,7 @@ mod tests {
     use std::time::Duration;
 
     use super::MemoryGrpcService;
+    use crate::observe::RpcMetrics;
     use crate::api::{
         AppendMemoryRequest, GetSessionRequest, MemoryEntry, MemoryServiceClient,
         MemoryServiceServer, QueryMemoryRequest, RequestMeta, RetrievePolicy,
@@ -993,7 +1009,7 @@ mod tests {
         let incoming = TcpListenerStream::new(listener);
 
         let runtime = RuntimeState::initialize(&test_config()).await.unwrap();
-        let service = MemoryGrpcService::new(test_config(), runtime, None);
+        let service = MemoryGrpcService::new(test_config(), runtime, None, Arc::new(RpcMetrics::new()));
         let (shutdown_tx, shutdown_rx) = tokio::sync::oneshot::channel::<()>();
 
         let server = tokio::spawn(async move {
@@ -1090,7 +1106,7 @@ mod tests {
         .await
         .unwrap();
 
-        let service = MemoryGrpcService::new(config, runtime, None);
+        let service = MemoryGrpcService::new(config, runtime, None, Arc::new(RpcMetrics::new()));
         let (shutdown_tx, shutdown_rx) = tokio::sync::oneshot::channel::<()>();
 
         let server = tokio::spawn(async move {
@@ -1154,7 +1170,7 @@ mod tests {
 
         let config = test_config();
         let runtime = RuntimeState::initialize(&config).await.unwrap();
-        let service = MemoryGrpcService::new(config, runtime, None);
+        let service = MemoryGrpcService::new(config, runtime, None, Arc::new(RpcMetrics::new()));
         let (shutdown_tx, shutdown_rx) = tokio::sync::oneshot::channel::<()>();
 
         let server = tokio::spawn(async move {
@@ -1219,7 +1235,7 @@ mod tests {
         let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
         let addr = listener.local_addr().unwrap();
         let incoming = TcpListenerStream::new(listener);
-        let service = MemoryGrpcService::new(config, runtime, None);
+        let service = MemoryGrpcService::new(config, runtime, None, Arc::new(RpcMetrics::new()));
         let (shutdown_tx, shutdown_rx) = tokio::sync::oneshot::channel::<()>();
 
         let server = tokio::spawn(async move {
@@ -1748,7 +1764,7 @@ mod tests {
     async fn append_memory_concurrent_requests_keep_sequence_order() {
         let config = test_config();
         let runtime = RuntimeState::initialize(&config).await.unwrap();
-        let service = MemoryGrpcService::new(config, runtime.clone(), None);
+        let service = MemoryGrpcService::new(config, runtime.clone(), None, Arc::new(RpcMetrics::new()));
 
         let session_id = Uuid::new_v4();
         let sid_str = session_id.to_string();
@@ -1836,7 +1852,7 @@ mod tests {
     async fn append_memory_populates_l1_index_and_query_memory_reads_it() {
         let config = test_config();
         let runtime = RuntimeState::initialize(&config).await.unwrap();
-        let service = MemoryGrpcService::new(config, runtime.clone(), None);
+        let service = MemoryGrpcService::new(config, runtime.clone(), None, Arc::new(RpcMetrics::new()));
 
         let session_id = Uuid::new_v4();
         let sid_str = session_id.to_string();
@@ -2173,7 +2189,7 @@ mod tests {
     async fn query_memory_summary_first_filters_candidates_with_session_scope() {
         let config = test_config();
         let runtime = RuntimeState::initialize(&config).await.unwrap();
-        let service = MemoryGrpcService::new(config, runtime, None);
+        let service = MemoryGrpcService::new(config, runtime, None, Arc::new(RpcMetrics::new()));
 
         let session_id = Uuid::new_v4();
         let sid_str = session_id.to_string();

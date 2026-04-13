@@ -1,5 +1,6 @@
 use axum::{http::StatusCode, response::IntoResponse, routing::get, Json, Router};
 use serde_json::json;
+use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::Duration;
 use tracing_subscriber::EnvFilter;
@@ -7,6 +8,9 @@ use tracing_subscriber::EnvFilter;
 use crate::config::AppConfig;
 use crate::store::RuntimeState;
 use crate::Result;
+
+mod rpc_metrics;
+pub use rpc_metrics::{RpcGuard, RpcMetrics};
 
 /// Global counters for retry/failure metrics.
 static TASK_RETRY_TOTAL: AtomicU64 = AtomicU64::new(0);
@@ -174,7 +178,11 @@ pub fn init_tracing() -> Result<()> {
     Ok(())
 }
 
-pub fn build_metrics_router(config: AppConfig, runtime: RuntimeState) -> Router {
+pub fn build_metrics_router(
+    config: AppConfig,
+    runtime: RuntimeState,
+    rpc_metrics: Arc<RpcMetrics>,
+) -> Router {
     let metrics_config = config.clone();
     let ready_config = config.clone();
     let health_config = config.clone();
@@ -212,7 +220,8 @@ pub fn build_metrics_router(config: AppConfig, runtime: RuntimeState) -> Router 
             get(move || {
                 let metrics_config = metrics_config.clone();
                 let metrics_runtime = metrics_runtime.clone();
-                async move { metrics_handler(metrics_config, metrics_runtime).await }
+                let rpc_metrics = rpc_metrics.clone();
+                async move { metrics_handler(metrics_config, metrics_runtime, rpc_metrics).await }
             }),
         )
 }
@@ -253,7 +262,11 @@ async fn health_handler(config: AppConfig, runtime: RuntimeState) -> impl IntoRe
     ready_handler(config, runtime).await
 }
 
-async fn metrics_handler(config: AppConfig, runtime: RuntimeState) -> impl IntoResponse {
+async fn metrics_handler(
+    config: AppConfig,
+    runtime: RuntimeState,
+    _rpc_metrics: Arc<RpcMetrics>,
+) -> impl IntoResponse {
     let snapshot = runtime.snapshot().await;
     let retry_total = TASK_RETRY_TOTAL.load(Ordering::Relaxed);
     let failure_total = TASK_FAILURE_TOTAL.load(Ordering::Relaxed);

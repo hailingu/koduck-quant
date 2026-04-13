@@ -1,4 +1,5 @@
 use std::net::SocketAddr;
+use std::sync::Arc;
 
 use tokio::net::TcpListener;
 use tokio::sync::broadcast;
@@ -8,7 +9,7 @@ use tracing::{error, info, warn};
 use crate::api::{MemoryServiceServer, FILE_DESCRIPTOR_SET};
 use crate::capability::MemoryGrpcService;
 use crate::config::AppConfig;
-use crate::observe;
+use crate::observe::{self, RpcMetrics};
 use crate::store::{ObjectStoreClient, RuntimeState};
 use crate::Result;
 
@@ -36,7 +37,9 @@ pub async fn run(config: AppConfig) -> Result<()> {
         }
     };
 
-    let grpc_service = MemoryGrpcService::new(config.clone(), runtime.clone(), object_store);
+    let rpc_metrics = Arc::new(RpcMetrics::new());
+    let grpc_service =
+        MemoryGrpcService::new(config.clone(), runtime.clone(), object_store, rpc_metrics.clone());
     let reflection = tonic_reflection::server::Builder::configure()
         .register_encoded_file_descriptor_set(FILE_DESCRIPTOR_SET)
         .build()?;
@@ -46,7 +49,8 @@ pub async fn run(config: AppConfig) -> Result<()> {
         .await;
 
     let metrics_listener = TcpListener::bind(metrics_addr).await?;
-    let metrics_router = observe::build_metrics_router(config.clone(), runtime.clone());
+    let metrics_router =
+        observe::build_metrics_router(config.clone(), runtime.clone(), rpc_metrics);
 
     let (shutdown_tx, _) = broadcast::channel::<()>(1);
     let mut metrics_shutdown_rx = shutdown_tx.subscribe();
