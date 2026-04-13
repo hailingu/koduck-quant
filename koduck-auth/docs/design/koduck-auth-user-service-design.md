@@ -6,8 +6,26 @@
 
 koduck-user 服务负责用户信息管理、角色权限管理，通过内部 API 向 koduck-auth 和其他服务提供用户数据支持。
 
-> 说明：本文档中的用户与角色模型已按 `docs/design/koduck-auth-user-tenant-semantics.md` 的 V1 冻结语义更新。
+> 说明：本文档中的用户与角色模型已按本项目与 `koduck-user` 项目文档中的 V1 多租户冻结语义更新。
 > `tenant_id` 为最长 128 字符的字符串标识，跨服务身份语义统一为 `(tenant_id, user_id)`。
+
+## 1.1 Auth 侧多租户身份基线
+
+从 `koduck-auth` 视角，V1 多租户语义固定为以下约束：
+
+1. `tenant_id` 是显式身份字段，不从邮箱域名、角色名、`sub` 或其他 claim 派生。
+2. `koduck-auth` 负责读取并传播 `tenant_id`，不负责生成租户真值；租户真值来自 `koduck-user` 的 `tenants.id` 与 `users.tenant_id`。
+3. JWT access token、refresh token、OIDC discovery、RFC 7662 introspection 与 gRPC validate/get-user 结果都必须能表达 `tenant_id`。
+4. `koduck-auth -> koduck-user` 的 internal HTTP 调用统一通过 `X-Tenant-Id` 传递租户上下文，请求 body 不重复携带 `tenant_id`。
+5. 对于返回身份信息的响应，必须显式返回 `tenant_id` 或通过嵌套身份模型带回，避免下游只拿到裸 `user_id`。
+
+Auth 侧契约与实施入口统一收敛到以下文档：
+
+- 契约影响盘点：`ADR-0022 inventory-tenant-id-contract-impacts`
+- JWT 与 refresh 主链路：`ADR-0024 thread-tenant-through-jwt-refresh-chain`
+- gRPC / introspection 回传：`ADR-0025 expose-tenant-in-grpc-and-introspection`
+- 登录与 refresh 一致性：`ADR-0026 enforce-tenant-consistency-in-login-and-refresh`
+- 与 `koduck-user` 的 internal API 约束：`koduck-user/docs/contracts/koduck-auth-user-internal-api-contract.md`
 
 ---
 

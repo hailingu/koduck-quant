@@ -123,7 +123,7 @@ fn version_matches(actual: &str, required: &str) -> bool {
 
 ## References
 
-- 设计文档: [koduck-memory-for-koduck-ai.md](../../../docs/design/koduck-memory-for-koduck-ai.md)
-- 任务清单: [koduck-memory-koduck-ai-tasks.md](../../../docs/implementation/koduck-memory-koduck-ai-tasks.md) Task 6.3
+- 设计文档: [koduck-memory-service-design.md](../design/koduck-memory-service-design.md)
+- 任务清单: [koduck-memory-service-tasks.md](../implementation/koduck-memory-service-tasks.md) Phase 6
 - 前序 ADR: [ADR-0006](../../../koduck-ai/docs/adr/0006-capabilities-negotiation-protocol.md), [ADR-0008](./0008-memory-capabilities-contract.md), [ADR-0019](./0019-koduck-ai-memory-southbound-integration.md)
 - Issue: [#829](https://github.com/hailingu/koduck-quant/issues/829)

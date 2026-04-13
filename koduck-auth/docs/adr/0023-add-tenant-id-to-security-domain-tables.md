@@ -5,7 +5,7 @@
 - **状态**: 已接受
 - **日期**: 2026-04-11
 - **作者**: @hailingu
-- **相关**: #765, docs/implementation/koduck-auth-user-tenant-semantics-tasks.md Task 2.2, ADR-0022
+- **相关**: #765, `../implementation/koduck-auth-rust-grpc-tasks.md` 多租户身份任务映射, ADR-0022
 
 ---
 
@@ -121,8 +121,8 @@ Task 2.1 已经为 `koduck-user` 建立了租户化 schema 基线，但 `koduck-
 
 ## 相关文档
 
-- [koduck-auth-user-tenant-semantics.md](../../../docs/design/koduck-auth-user-tenant-semantics.md)
-- [koduck-auth-user-tenant-semantics-tasks.md](../../../docs/implementation/koduck-auth-user-tenant-semantics-tasks.md)
+- [koduck-auth-user-service-design.md](../design/koduck-auth-user-service-design.md)
+- [koduck-auth-rust-grpc-tasks.md](../implementation/koduck-auth-rust-grpc-tasks.md)
 - [ADR-0022](./0022-inventory-tenant-id-contract-impacts.md)
 
 ---

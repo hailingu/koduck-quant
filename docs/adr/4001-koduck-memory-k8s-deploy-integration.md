@@ -5,7 +5,7 @@
 - **状态**: 已接受
 - **日期**: 2026-04-12
 - **作者**: @hailingu
-- **相关**: #839, docs/design/koduck-memory-for-koduck-ai.md (13.3), docs/implementation/koduck-memory-koduck-ai-tasks.md (Task 8.2)
+- **相关**: #839, `koduck-memory/docs/design/koduck-memory-service-design.md`, `koduck-memory/docs/implementation/koduck-memory-service-tasks.md` Phase 8
 
 ---
 
@@ -132,8 +132,8 @@
 
 ## 相关文档
 
-- [koduck-memory 设计文档](../design/koduck-memory-for-koduck-ai.md)
-- [Task 8.2 实施清单](../implementation/koduck-memory-koduck-ai-tasks.md)
+- [koduck-memory 设计文档](../../koduck-memory/docs/design/koduck-memory-service-design.md)
+- [koduck-memory 实施清单](../../koduck-memory/docs/implementation/koduck-memory-service-tasks.md)
 
 ---
 

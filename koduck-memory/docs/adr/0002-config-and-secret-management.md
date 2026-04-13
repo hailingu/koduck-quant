@@ -111,7 +111,7 @@ Task 1.2 要求补齐：
 
 ## References
 
-- 设计文档: [koduck-memory-for-koduck-ai.md](../../../docs/design/koduck-memory-for-koduck-ai.md)
-- 任务清单: [koduck-memory-koduck-ai-tasks.md](../../../docs/implementation/koduck-memory-koduck-ai-tasks.md)
+- 设计文档: [koduck-memory-service-design.md](../design/koduck-memory-service-design.md)
+- 任务清单: [koduck-memory-service-tasks.md](../implementation/koduck-memory-service-tasks.md)
 - 前序 ADR: [0001-init-rust-grpc-project-structure.md](./0001-init-rust-grpc-project-structure.md)
 - Issue: [#790](https://github.com/hailingu/koduck-quant/issues/790)

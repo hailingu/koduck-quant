@@ -5,7 +5,7 @@
 - **演练日期**: 2026-04-13
 - **演练类型**: southbound canary + fail-open + route rollback
 - **演练人员**: @hailingu
-- **对应任务**: `docs/implementation/koduck-memory-koduck-ai-tasks.md` Task 8.4
+- **对应任务**: `koduck-memory/docs/implementation/koduck-memory-service-tasks.md` Phase 8
 - **对应 Issue**: #843
 
 ---

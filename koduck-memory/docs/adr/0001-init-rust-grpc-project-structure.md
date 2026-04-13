@@ -6,8 +6,8 @@
 
 ## Context
 
-根据 `docs/design/koduck-memory-for-koduck-ai.md` 与
-`docs/implementation/koduck-memory-koduck-ai-tasks.md`，`koduck-memory` 需要作为
+根据 `../design/koduck-memory-service-design.md` 与
+`../implementation/koduck-memory-service-tasks.md`，`koduck-memory` 需要作为
 `koduck-ai` 的 southbound first-class service，统一承接会话元数据真值、记忆写入、
 检索、摘要与长期事实提炼。
 
@@ -128,7 +128,7 @@ koduck-memory/
 
 ## References
 
-- 设计文档: [koduck-memory-for-koduck-ai.md](../../../docs/design/koduck-memory-for-koduck-ai.md)
-- 任务清单: [koduck-memory-koduck-ai-tasks.md](../../../docs/implementation/koduck-memory-koduck-ai-tasks.md)
+- 设计文档: [koduck-memory-service-design.md](../design/koduck-memory-service-design.md)
+- 任务清单: [koduck-memory-service-tasks.md](../implementation/koduck-memory-service-tasks.md)
 - 参考实现: `koduck-ai/`, `koduck-auth/`
 - Issue: [#788](https://github.com/hailingu/koduck-quant/issues/788)

@@ -84,7 +84,7 @@ Task 5.3 要求实现 `SUMMARY_FIRST` 检索策略。在 Task 5.2 完成后，`r
 
 ## References
 
-- 设计文档: [koduck-memory-for-koduck-ai.md](../../../docs/design/koduck-memory-for-koduck-ai.md)
-- 任务清单: [koduck-memory-koduck-ai-tasks.md](../../../docs/implementation/koduck-memory-koduck-ai-tasks.md)
+- 设计文档: [koduck-memory-service-design.md](../design/koduck-memory-service-design.md)
+- 任务清单: [koduck-memory-service-tasks.md](../implementation/koduck-memory-service-tasks.md)
 - 前序 ADR: [0016-domain-first-implementation.md](./0016-domain-first-implementation.md)
 - Issue: [#821](https://github.com/hailingu/koduck-quant/issues/821)

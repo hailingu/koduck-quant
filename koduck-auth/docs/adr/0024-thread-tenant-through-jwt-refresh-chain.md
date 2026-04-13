@@ -5,7 +5,7 @@
 - **状态**: 已接受
 - **日期**: 2026-04-11
 - **作者**: @hailingu
-- **相关**: #776, docs/implementation/koduck-auth-user-tenant-semantics-tasks.md Task 4.1, ADR-0022, ADR-0023
+- **相关**: #776, `../implementation/koduck-auth-rust-grpc-tasks.md` 多租户身份任务映射, ADR-0022, ADR-0023
 
 ---
 
@@ -138,8 +138,8 @@ Task 2.2 已经让 `koduck-auth` 的安全域表具备 `tenant_id`，但 Task 4.
 
 ## 相关文档
 
-- [koduck-auth-user-tenant-semantics.md](../../../docs/design/koduck-auth-user-tenant-semantics.md)
-- [koduck-auth-user-tenant-semantics-tasks.md](../../../docs/implementation/koduck-auth-user-tenant-semantics-tasks.md)
+- [koduck-auth-user-service-design.md](../design/koduck-auth-user-service-design.md)
+- [koduck-auth-rust-grpc-tasks.md](../implementation/koduck-auth-rust-grpc-tasks.md)
 - [ADR-0022](./0022-inventory-tenant-id-contract-impacts.md)
 - [ADR-0023](./0023-add-tenant-id-to-security-domain-tables.md)
 

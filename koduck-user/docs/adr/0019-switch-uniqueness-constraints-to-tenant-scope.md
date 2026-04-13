@@ -5,7 +5,7 @@
 - **状态**: 已接受
 - **日期**: 2026-04-11
 - **作者**: @hailingu
-- **相关**: #768, docs/implementation/koduck-auth-user-tenant-semantics-tasks.md Task 2.3, ADR-0018
+- **相关**: #768, `../implementation/koduck-user-service-tasks.md` 多租户实施映射, ADR-0018
 
 ---
 
@@ -81,7 +81,7 @@ Task 2.1 已经为 `koduck-user` 引入 `tenant_id` 与最小租户真值，但�
 |------|------|
 | `koduck-user/src/main/resources/db/migration/V3__switch_uniqueness_constraints_to_tenant_scope.sql` | 删除旧的全局唯一约束并添加租户内唯一约束 |
 | `koduck-user/src/test/java/com/koduck/integration/UserTenantSchemaMigrationIntegrationTest.java` | 验证约束名称与跨租户/租户内的唯一性行为 |
-| `docs/implementation/koduck-auth-user-tenant-semantics-tasks.md` | 回填 Task 2.3 的执行结果与 checklist |
+| `koduck-user/docs/implementation/koduck-user-service-tasks.md` | 收敛 Task 2.3 的执行结果与 checklist |
 
 ### 迁移策略
 
@@ -120,8 +120,8 @@ Task 2.1 已经为 `koduck-user` 引入 `tenant_id` 与最小租户真值，但�
 
 ## 相关文档
 
-- [koduck-auth-user-tenant-semantics.md](../../../docs/design/koduck-auth-user-tenant-semantics.md)
-- [koduck-auth-user-tenant-semantics-tasks.md](../../../docs/implementation/koduck-auth-user-tenant-semantics-tasks.md)
+- [koduck-auth-user-service-design.md](../design/koduck-auth-user-service-design.md)
+- [koduck-user-service-tasks.md](../implementation/koduck-user-service-tasks.md)
 - [ADR-0018](./0018-add-tenant-columns-and-minimal-tenant-truth.md)
 
 ---

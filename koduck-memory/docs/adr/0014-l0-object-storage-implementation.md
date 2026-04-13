@@ -187,7 +187,7 @@ OBJECT_STORE__REGION=ap-east-1
 
 ## References
 
-- 设计文档: `docs/design/koduck-memory-for-koduck-ai.md`
-- 任务清单: `docs/implementation/koduck-memory-koduck-ai-tasks.md`
+- 设计文档: `koduck-memory/docs/design/koduck-memory-service-design.md`
+- 任务清单: `koduck-memory/docs/implementation/koduck-memory-service-tasks.md`
 - 前序 ADR: `0013-append-memory-implementation.md`
 - Issue: [#815](https://github.com/hailingu/koduck-quant/issues/815)

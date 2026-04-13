@@ -211,23 +211,34 @@ V2 的核心结论如下：
 - `rpc AppendMemory(AppendMemoryRequest) returns (AppendMemoryResponse)`
 - `rpc SummarizeMemory(SummarizeMemoryRequest) returns (SummarizeMemoryResponse)`（可异步）
 
+Memory V1 基线约束：
+
+- `koduck-memory` 是 southbound first-class service，`session_id`、`title`、`status`、`last_message_at` 的真值统一归 `koduck-memory` 管理。
+- `RequestMeta` 必须至少包含 `request_id`、`session_id`、`user_id`、`tenant_id`、`trace_id`、`deadline_ms`、`api_version`；`UpsertSessionMeta`、`AppendMemory`、`SummarizeMemory` 还必须带 `idempotency_key`。
+- `SessionInfo` / `UpsertSessionMeta` 需要显式支持 `parent_session_id`、`forked_from_session_id`、`sequence_num` 等 lineage 字段。
+- `AppendMemory` 的成功语义是“写入已接收并持久化”，不等于摘要、事实提炼或索引刷新已完成；后者通过异步任务落库。
+- L0 原始材料存放在 S3 兼容对象存储（dev 使用 MinIO），append 通过“新增对象”实现，不依赖单对象原地追加。
+- L1 结构化索引、summary 与 facts 存放在 PostgreSQL；V1 不引入向量检索。
+
 `QueryMemory` 输入建议：
 
 - `query_text`
 - `session_id`（可选）
-- `tags`（可选，多值）
 - `top_k`
-- `retrieve_policy`：`keyword_first` / `summary_first` / `hybrid`
+- `domain_class`
+- `retrieve_policy`：`DOMAIN_FIRST` / `SUMMARY_FIRST` / `HYBRID`
 
 `QueryMemory` 输出建议：
 
-- `hits[]`：`session_id`、`l0_uri`、`score`、`match_reasons`（如 `tag_hit`、`keyword_hit`、`summary_hit`）
+- `hits[]`：`session_id`、`l0_uri`、`score`、`match_reasons`、`snippet`
 - `next_page_token`（可选）
 
 约束：
 
 - 会话元数据真值只在 memory-service。
-- 检索策略由 memory-service 负责演进，ai-server 仅声明偏好策略，不固化算法。
+- V1 默认检索策略是 `DOMAIN_FIRST`；`SUMMARY_FIRST` 用于在候选集内做负向排除，`HYBRID` 只保留为后续扩展，不作为 V1 主链路默认值。
+- `summary` 只承担排除不合适候选的作用，不直接作为最终命中依据。
+- 检索策略由 memory-service 负责演进，`koduck-ai` 仅声明偏好策略，不固化算法。
 
 #### 6.4.4 Tool Contract（plugin-style, gRPC）
 

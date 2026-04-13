@@ -90,7 +90,7 @@ mode = "domain-first"  # 明确使用 DOMAIN_FIRST 作为默认
 
 ## References
 
-- 设计文档: [koduck-memory-for-koduck-ai.md](../../../docs/design/koduck-memory-for-koduck-ai.md)
-- 任务清单: [koduck-memory-koduck-ai-tasks.md](../../../docs/implementation/koduck-memory-koduck-ai-tasks.md)
+- 设计文档: [koduck-memory-service-design.md](../design/koduck-memory-service-design.md)
+- 任务清单: [koduck-memory-service-tasks.md](../implementation/koduck-memory-service-tasks.md)
 - 前序 ADR: [0017-summary-first-implementation.md](./0017-summary-first-implementation.md)
 - Issue: [#823](https://github.com/hailingu/koduck-quant/issues/823)

@@ -11,7 +11,7 @@ Task 4.1 与 Task 4.2 已经把 `tenant_id` 带入 JWT claims、introspection、
 1. 登录请求没有显式提供租户上下文时，`koduck-auth` 仍可能沿用默认租户，无法满足多租户登录的确定性要求。
 2. `audit_logs` 表虽然已经有 `tenant_id` 列，但登录与 refresh 成功链路并没有把租户写入审计记录，排障时缺少租户维度。
 
-根据 `docs/design/koduck-auth-user-tenant-semantics.md`，V1 的约束是：
+根据本项目与 `koduck-user` 项目文档中的 V1 多租户冻结语义，约束是：
 
 - 登录输入如果仍允许 `username` / `email`，则必须同时确定 `tenant_id`
 - refresh token 续签必须保持租户一致

@@ -5,7 +5,7 @@
 - **状态**: 已接受
 - **日期**: 2026-04-11
 - **作者**: @hailingu
-- **相关**: #761, docs/implementation/koduck-auth-user-tenant-semantics-tasks.md Task 1.2, ADR-0021
+- **相关**: #761, `../implementation/koduck-auth-rust-grpc-tasks.md` 多租户身份任务映射, ADR-0021
 
 ---
 
@@ -83,8 +83,8 @@ Task 1.1 已冻结 `tenant_id` 的语义，但还没有明确“哪些现有 JWT
 
 | 文件 | 变更说明 |
 |------|------|
-| `docs/design/koduck-auth-user-tenant-semantics.md` | 增加 Task 1.2 契约盘点摘要与入口链接 |
-| `docs/design/koduck-auth-user-tenant-contract-inventory.md` | 新增完整影响清单 |
+| `koduck-auth/docs/design/koduck-auth-user-service-design.md` | 收敛 Task 1.2 契约盘点摘要与入口链接 |
+| `koduck-auth/docs/adr/0022-inventory-tenant-id-contract-impacts.md` | 固化完整影响清单 |
 | `koduck-user/docs/contracts/koduck-auth-user-internal-api-contract.md` | 固定 `X-Tenant-Id` header 语义与 DTO 边界 |
 
 ### 关键边界
@@ -125,8 +125,8 @@ Task 1.1 已冻结 `tenant_id` 的语义，但还没有明确“哪些现有 JWT
 
 ## 相关文档
 
-- [koduck-auth-user-tenant-semantics.md](../../../docs/design/koduck-auth-user-tenant-semantics.md)
-- [koduck-auth-user-tenant-contract-inventory.md](../../../docs/design/koduck-auth-user-tenant-contract-inventory.md)
+- [koduck-auth-user-service-design.md](../design/koduck-auth-user-service-design.md)
+- [koduck-auth-rust-grpc-tasks.md](../implementation/koduck-auth-rust-grpc-tasks.md)
 - [koduck-auth-user-internal-api-contract.md](../../../koduck-user/docs/contracts/koduck-auth-user-internal-api-contract.md)
 
 ---

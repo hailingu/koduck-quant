@@ -5,7 +5,7 @@
 - **状态**: 已接受
 - **日期**: 2026-04-11
 - **作者**: @hailingu
-- **相关**: #778, docs/implementation/koduck-auth-user-tenant-semantics-tasks.md Task 4.2, ADR-0022, ADR-0024
+- **相关**: #778, `../implementation/koduck-auth-rust-grpc-tasks.md` 多租户身份任务映射, ADR-0022, ADR-0024
 
 ---
 
@@ -130,8 +130,8 @@ Task 4.1 已经让 `koduck-auth` 在 JWT claims 与 refresh 主链路内部保�
 
 ## 相关文档
 
-- [koduck-auth-user-tenant-semantics.md](../../../docs/design/koduck-auth-user-tenant-semantics.md)
-- [koduck-auth-user-tenant-semantics-tasks.md](../../../docs/implementation/koduck-auth-user-tenant-semantics-tasks.md)
+- [koduck-auth-user-service-design.md](../design/koduck-auth-user-service-design.md)
+- [koduck-auth-rust-grpc-tasks.md](../implementation/koduck-auth-rust-grpc-tasks.md)
 - [ADR-0022](./0022-inventory-tenant-id-contract-impacts.md)
 - [ADR-0024](./0024-thread-tenant-through-jwt-refresh-chain.md)
 

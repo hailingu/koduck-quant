@@ -123,7 +123,7 @@ Task 2.2 之后会基于这份契约生成 stub，Task 3/4/5 会继续在这个 
 
 ## References
 
-- 设计文档: [koduck-memory-for-koduck-ai.md](../../../docs/design/koduck-memory-for-koduck-ai.md)
-- 任务清单: [koduck-memory-koduck-ai-tasks.md](../../../docs/implementation/koduck-memory-koduck-ai-tasks.md)
+- 设计文档: [koduck-memory-service-design.md](../design/koduck-memory-service-design.md)
+- 任务清单: [koduck-memory-service-tasks.md](../implementation/koduck-memory-service-tasks.md)
 - 前序 ADR: [0004-minio-bootstrap-and-bucket-init.md](./0004-minio-bootstrap-and-bucket-init.md)
 - Issue: [#796](https://github.com/hailingu/koduck-quant/issues/796)

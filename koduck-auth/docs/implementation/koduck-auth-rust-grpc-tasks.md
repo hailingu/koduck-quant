@@ -6,6 +6,21 @@
 > **创建日期**: 2026-04-07  
 > **对应设计文档**: [koduck-auth-rust-grpc-design.md](../design/koduck-auth-rust-grpc-design.md)
 
+## 多租户身份任务映射
+
+根目录原有的 Auth/User 多租户任务清单中，属于 `koduck-auth` 的部分统一并入本节维护。
+
+| 主题 | 在本项目中的落点 | 现状与入口 |
+|------|------|------|
+| `tenant_id` 契约盘点 | 设计与 ADR | 见 `ADR-0022`，覆盖 JWT / OIDC / introspection / gRPC / internal HTTP 的影响边界 |
+| 安全域表租户化 | 数据层 / 迁移 | 已在 `ADR-0023` 固化，覆盖 `refresh_tokens`、`password_reset_tokens`、`audit_logs` |
+| JWT claims 与 refresh 主链路 | 核心业务逻辑 | 已在 `ADR-0024` 固化，要求 access / refresh token 与 refresh 查询链路保留 `tenant_id` |
+| gRPC / introspection 返回租户 | gRPC 服务层 | 已在 `ADR-0025` 固化，要求 `ValidateTokenResponse`、`IntrospectTokenResponse`、`UserInfo` 显式回传 `tenant_id` |
+| 登录与 refresh 租户一致性 | HTTP / gRPC 编排 | 已在 `ADR-0026` 固化，要求登录确定租户、refresh 不错租户、审计日志可追踪 |
+| APISIX `X-Tenant-Id` 透传 | 与网关联调 | 依赖 `koduck-user` 与网关配置；本项目只消费统一 header，不在 body 中复制租户字段 |
+
+执行时优先以本文件的 Phase 4-7 为实现顺序，以 ADR-0022 到 ADR-0026 为约束来源。
+
 ---
 
 ## 执行阶段概览

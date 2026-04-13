@@ -6,6 +6,21 @@
 > **创建日期**: 2026-04-08  
 > **对应设计文档**: [koduck-auth-user-service-design.md](../design/koduck-auth-user-service-design.md)
 
+## 多租户实施映射
+
+根目录原有的 Auth/User 多租户任务清单中，属于 `koduck-user` 的部分统一并入本节维护。
+
+| 主题 | 在本项目中的落点 | 现状与入口 |
+|------|------|------|
+| `tenant_id` 语义冻结 | 设计基线 | 见 `ADR-0017`，固定 `tenant_id` 类型、真值来源与 `(tenant_id, user_id)` 身份语义 |
+| 主表和关系表增加 `tenant_id` | Phase 2 / Phase 3 | 见 `ADR-0018` 与 `ADR-0020`，覆盖 `users`、`roles`、`user_roles`、`role_permissions`、`user_credentials` |
+| 唯一约束切换为租户内唯一 | Phase 2 | 见 `ADR-0019`，覆盖 username、email、role name 的租户内唯一性 |
+| internal API 统一 `X-Tenant-Id` | Phase 5 | 见 `ADR-0021` 与 `contracts/koduck-auth-user-internal-api-contract.md` |
+| `UserContext` 扩展租户上下文 | Phase 4 / Phase 6 | 见 `ADR-0022`，控制器和服务层统一通过 `UserContext` 读取 tenantId |
+| APISIX 透传与联调回归 | Phase 6 / Phase 7 | 见 `ADR-0023`、`ADR-0024`、`ADR-0025`，验证 claim/header/introspection 的租户一致性 |
+
+执行时以本文件的 Phase 2-7 为主顺序，以以上 ADR 与 internal contract 作为验收依据。
+
 ---
 
 ## 执行阶段概览

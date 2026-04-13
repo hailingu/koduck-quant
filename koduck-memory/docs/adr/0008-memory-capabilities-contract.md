@@ -108,7 +108,7 @@ Task 2.4 要求 `koduck-memory` 正式实现 `GetCapabilities`，并返回稳定
 
 ## References
 
-- 设计文档: [koduck-memory-for-koduck-ai.md](../../../docs/design/koduck-memory-for-koduck-ai.md)
-- 任务清单: [koduck-memory-koduck-ai-tasks.md](../../../docs/implementation/koduck-memory-koduck-ai-tasks.md)
+- 设计文档: [koduck-memory-service-design.md](../design/koduck-memory-service-design.md)
+- 任务清单: [koduck-memory-service-tasks.md](../implementation/koduck-memory-service-tasks.md)
 - 前序 ADR: [0006-generated-stub-exposure-and-startup-verification.md](./0006-generated-stub-exposure-and-startup-verification.md)
 - Issue: [#802](https://github.com/hailingu/koduck-quant/issues/802)

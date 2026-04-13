@@ -5,7 +5,7 @@
 - **状态**: 已接受
 - **日期**: 2026-04-11
 - **作者**: @hailingu
-- **相关**: #774, docs/implementation/koduck-auth-user-tenant-semantics-tasks.md Task 3.3, ADR-0021
+- **相关**: #774, `../implementation/koduck-user-service-tasks.md` 多租户实施映射, ADR-0021
 
 ---
 
@@ -85,7 +85,7 @@ Task 3.2 已经让 internal API 显式支持 `X-Tenant-Id`，但公开 API 与�
 | `koduck-user/src/main/java/com/koduck/controller/user/*.java` | 公开 API 控制器通过 `UserContext` 读取 tenantId |
 | `koduck-user/src/main/java/com/koduck/service/*.java` | 公开 API 相关 service 方法显式增加 tenantId 参数 |
 | `koduck-user/src/test/java/...` | 补充 `UserContext` 行为测试并更新测试桩 |
-| `docs/implementation/koduck-auth-user-tenant-semantics-tasks.md` | 回填 Task 3.3 执行结果与 checklist |
+| `koduck-user/docs/implementation/koduck-user-service-tasks.md` | 收敛 Task 3.3 执行结果与 checklist |
 
 ---
 
@@ -119,8 +119,8 @@ Task 3.2 已经让 internal API 显式支持 `X-Tenant-Id`，但公开 API 与�
 
 ## 相关文档
 
-- [koduck-auth-user-tenant-semantics.md](../../../docs/design/koduck-auth-user-tenant-semantics.md)
-- [koduck-auth-user-tenant-semantics-tasks.md](../../../docs/implementation/koduck-auth-user-tenant-semantics-tasks.md)
+- [koduck-auth-user-service-design.md](../design/koduck-auth-user-service-design.md)
+- [koduck-user-service-tasks.md](../implementation/koduck-user-service-tasks.md)
 - [ADR-0021](./0021-add-tenant-context-to-internal-user-api.md)
 
 ---

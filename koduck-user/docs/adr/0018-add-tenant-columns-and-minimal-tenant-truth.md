@@ -5,7 +5,7 @@
 - **状态**: 已接受
 - **日期**: 2026-04-11
 - **作者**: @hailingu
-- **相关**: #763, docs/implementation/koduck-auth-user-tenant-semantics-tasks.md Task 2.1, ADR-0017
+- **相关**: #763, `../implementation/koduck-user-service-tasks.md` 多租户实施映射, ADR-0017
 
 ---
 
@@ -122,8 +122,8 @@ Task 1.1 和 Task 1.2 已经冻结了 `tenant_id` 的语义与契约边界，但
 
 ## 相关文档
 
-- [koduck-auth-user-tenant-semantics.md](../../../docs/design/koduck-auth-user-tenant-semantics.md)
-- [koduck-auth-user-tenant-semantics-tasks.md](../../../docs/implementation/koduck-auth-user-tenant-semantics-tasks.md)
+- [koduck-auth-user-service-design.md](../design/koduck-auth-user-service-design.md)
+- [koduck-user-service-tasks.md](../implementation/koduck-user-service-tasks.md)
 - [ADR-0017](./0017-freeze-tenant-id-semantics.md)
 
 ---

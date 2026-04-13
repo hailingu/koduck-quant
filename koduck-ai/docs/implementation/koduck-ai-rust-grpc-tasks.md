@@ -6,6 +6,22 @@
 > **创建日期**: 2026-04-10
 > **对应设计文档**: [ai-decoupled-architecture.md](../design/ai-decoupled-architecture.md)
 
+## 与 Koduck Memory 对接任务映射
+
+根目录原有的 `koduck-memory` 对接设计与任务清单中，属于 `koduck-ai` 的职责统一并入本节维护。
+
+| 主题 | 在本项目中的落点 | 当前要求 |
+|------|------|------|
+| southbound 契约协商 | Phase 2 | `memory.v1` 作为长期契约；启动时必须完成 `GetCapabilities` 与版本兼容校验 |
+| session 真值下沉 | Phase 3 | chat / stream 入口先走 `GetSession`、`UpsertSessionMeta`，`koduck-ai` 不再持有 session 真值 |
+| 检索策略对齐 | Phase 3 | 优先支持 `DOMAIN_FIRST` 与 `SUMMARY_FIRST`，`HYBRID` 不作为默认主链路 |
+| prompt 注入与 turn 回写 | Phase 3 | `QueryMemory` 命中作为独立 system message 注入；成功 turn 以 user / assistant entries 调用 `AppendMemory` |
+| `RequestMeta` 全链路透传 | Phase 3 / Phase 6 | 必须透传 `request_id/session_id/user_id/tenant_id/trace_id/deadline_ms/api_version`；写请求必须带 `idempotency_key` |
+| APISIX `X-Tenant-Id` 统一透传 | Phase 6 | northbound AI 路由与 southbound gRPC route 都要纳入统一 header / OTel attributes |
+| fail-open、观测与灰度 | Phase 5 / Phase 7 / Phase 8 | 对齐 `koduck-memory` 侧 ADR-0019、ADR-0020、ADR-0023、ADR-0024 的运行时约束 |
+
+其中 `koduck-memory` 服务内的存储模型、对象存储、索引与摘要任务由 `koduck-memory` 项目文档维护，AI 侧只维护接入与编排责任。
+
 ---
 
 ## 执行阶段概览

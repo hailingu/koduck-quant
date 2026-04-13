@@ -5,7 +5,7 @@
 - **状态**: 已接受
 - **日期**: 2026-04-11
 - **作者**: @hailingu
-- **相关**: #759, docs/implementation/koduck-auth-user-tenant-semantics-tasks.md Task 1.1, ADR-0016
+- **相关**: #759, `../implementation/koduck-user-service-tasks.md` 多租户实施映射, ADR-0016
 
 ---
 
@@ -76,8 +76,8 @@
 
 | 文件 | 变更说明 |
 |------|------|
-| `docs/design/koduck-auth-user-tenant-semantics.md` | 新增 Task 1.1 冻结结果，明确类型、长度、来源与 V1 边界 |
-| `docs/implementation/koduck-auth-user-tenant-semantics-tasks.md` | 回填 Task 1.1 冻结结果 |
+| `koduck-user/docs/design/koduck-auth-user-service-design.md` | 固化类型、长度、来源与 V1 边界 |
+| `koduck-user/docs/implementation/koduck-user-service-tasks.md` | 收敛多租户实施映射 |
 | `koduck-user/docs/design/koduck-auth-user-service-design.md` | 修正为租户化 schema、internal API 与上下文要求 |
 | `koduck-auth/docs/design/koduck-auth-user-service-design.md` | 同步与 `koduck-user` 相同的跨服务设计约束 |
 
@@ -119,8 +119,8 @@
 
 ## 相关文档
 
-- [koduck-auth-user-tenant-semantics.md](../../../docs/design/koduck-auth-user-tenant-semantics.md)
-- [koduck-auth-user-tenant-semantics-tasks.md](../../../docs/implementation/koduck-auth-user-tenant-semantics-tasks.md)
+- [koduck-auth-user-service-design.md](../design/koduck-auth-user-service-design.md)
+- [koduck-user-service-tasks.md](../implementation/koduck-user-service-tasks.md)
 - [koduck-auth-user-service-design.md](../design/koduck-auth-user-service-design.md)
 
 ---

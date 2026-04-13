@@ -5,7 +5,7 @@
 - **状态**: 已接受
 - **日期**: 2026-04-11
 - **作者**: @hailingu
-- **相关**: #772, docs/implementation/koduck-auth-user-tenant-semantics-tasks.md Task 3.2, ADR-0020
+- **相关**: #772, `../implementation/koduck-user-service-tasks.md` 多租户实施映射, ADR-0020
 
 ---
 
@@ -82,7 +82,7 @@ Task 3.1 已经让 `koduck-user` 的实体与 repository 具备 tenant-aware 查
 | `koduck-user/src/main/java/com/koduck/service/UserService.java` | internal API 方法签名增加 tenantId |
 | `koduck-user/src/main/java/com/koduck/service/impl/UserServiceImpl.java` | internal API 查询按传入 tenantId 执行 |
 | `koduck-user/src/test/java/...` | 补充自定义租户与默认租户兼容测试 |
-| `docs/implementation/koduck-auth-user-tenant-semantics-tasks.md` | 回填 Task 3.2 执行结果与 checklist |
+| `koduck-user/docs/implementation/koduck-user-service-tasks.md` | 收敛 Task 3.2 执行结果与 checklist |
 
 ---
 
@@ -116,8 +116,8 @@ Task 3.1 已经让 `koduck-user` 的实体与 repository 具备 tenant-aware 查
 
 ## 相关文档
 
-- [koduck-auth-user-tenant-semantics.md](../../../docs/design/koduck-auth-user-tenant-semantics.md)
-- [koduck-auth-user-tenant-semantics-tasks.md](../../../docs/implementation/koduck-auth-user-tenant-semantics-tasks.md)
+- [koduck-auth-user-service-design.md](../design/koduck-auth-user-service-design.md)
+- [koduck-user-service-tasks.md](../implementation/koduck-user-service-tasks.md)
 - [ADR-0020](./0020-align-entities-and-repositories-with-tenant-scope.md)
 
 ---

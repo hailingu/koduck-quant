@@ -6,8 +6,27 @@
 
 koduck-user 服务负责用户信息管理、角色权限管理，通过内部 API 向 koduck-auth 和其他服务提供用户数据支持。
 
-> 说明：本文档中的用户与角色模型已按 `docs/design/koduck-auth-user-tenant-semantics.md` 的 V1 冻结语义更新。
+> 说明：本文档中的用户与角色模型已按本项目文档中的 V1 多租户冻结语义更新。
 > `tenant_id` 为最长 128 字符的字符串标识，跨服务身份语义统一为 `(tenant_id, user_id)`。
+
+## 1.1 User 侧租户真值与隔离基线
+
+从 `koduck-user` 视角，V1 多租户语义固定为以下约束：
+
+1. `tenant_id` 的存储类型统一为 `VARCHAR(128)`，其真值由 `tenants.id` 与 `users.tenant_id` 承担。
+2. 用户与角色唯一性按租户作用域收敛为 `unique (tenant_id, username)`、`unique (tenant_id, email)` 与 `unique (tenant_id, name)`。
+3. `user_roles`、`role_permissions`、`user_credentials` 等关系表显式持有 `tenant_id`，避免安全与权限链路依赖运行时回表推断。
+4. internal API 的统一租户上下文来源是 `X-Tenant-Id`；`CreateUserRequest`、`LastLoginUpdateRequest` 不在 body 中重复携带租户字段。
+5. `UserDetailsResponse` 必须显式回传 `tenantId`，用于让调用方校验 header 上下文与用户真值一致。
+
+User 侧多租户设计与实施入口统一收敛到以下文档：
+
+- 语义冻结：`ADR-0017 freeze-tenant-id-semantics`
+- 数据库与最小租户真值：`ADR-0018 add-tenant-columns-and-minimal-tenant-truth`
+- 租户内唯一约束：`ADR-0019 switch-uniqueness-constraints-to-tenant-scope`
+- Repository / internal API / UserContext：`ADR-0020`、`ADR-0021`、`ADR-0022`
+- 网关透传与联调闭环：`ADR-0023`、`ADR-0024`、`ADR-0025`
+- internal API 契约：`../contracts/koduck-auth-user-internal-api-contract.md`
 
 ---
 
