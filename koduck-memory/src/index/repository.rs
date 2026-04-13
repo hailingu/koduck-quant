@@ -80,7 +80,9 @@ impl MemoryIndexRepository {
                 source_uri, score_hint::text AS score_hint,
                 created_at, updated_at
             FROM memory_index_records
-            WHERE tenant_id = $1 AND domain_class = $2
+            WHERE tenant_id = $1
+              AND domain_class = $2
+              AND memory_kind = 'summary'
             ORDER BY updated_at DESC
             LIMIT $3
             "#,
@@ -114,7 +116,10 @@ impl MemoryIndexRepository {
                     source_uri, score_hint::text AS score_hint,
                     created_at, updated_at
                 FROM memory_index_records
-                WHERE tenant_id = $1 AND session_id = $2 AND domain_class = $3
+                WHERE tenant_id = $1
+                  AND session_id = $2
+                  AND domain_class = $3
+                  AND memory_kind = 'summary'
                 ORDER BY updated_at DESC
                 LIMIT $4
                 "#,
@@ -134,7 +139,9 @@ impl MemoryIndexRepository {
                     source_uri, score_hint::text AS score_hint,
                     created_at, updated_at
                 FROM memory_index_records
-                WHERE tenant_id = $1 AND session_id = $2
+                WHERE tenant_id = $1
+                  AND session_id = $2
+                  AND memory_kind = 'summary'
                 ORDER BY updated_at DESC
                 LIMIT $3
                 "#,
@@ -161,9 +168,7 @@ impl MemoryIndexRepository {
         query_text: &str,
         limit: i64,
     ) -> Result<Vec<MemoryIndexRecord>> {
-        // Use simple to_tsquery for basic text matching
-        // In production, consider using websearch_to_tsquery or custom parsing
-        let ts_query = query_text.split_whitespace().collect::<Vec<_>>().join(" & ");
+        let like_query = format!("%{}%", query_text.trim());
         
         let rows = sqlx::query_as::<_, MemoryIndexRecord>(
             r#"
@@ -175,14 +180,20 @@ impl MemoryIndexRepository {
             FROM memory_index_records
             WHERE tenant_id = $1 
               AND domain_class = $2
-              AND to_tsvector('simple', summary) @@ to_tsquery('simple', $3)
+              AND memory_kind = 'summary'
+              AND (
+                    to_tsvector('simple', summary) @@ plainto_tsquery('simple', $3)
+                 OR summary ILIKE $4
+                 OR COALESCE(snippet, '') ILIKE $4
+              )
             ORDER BY updated_at DESC
-            LIMIT $4
+            LIMIT $5
             "#,
         )
         .bind(tenant_id)
         .bind(domain_class)
-        .bind(&ts_query)
+        .bind(query_text.trim())
+        .bind(&like_query)
         .bind(limit)
         .fetch_all(&self.pool)
         .await?;
@@ -202,7 +213,7 @@ impl MemoryIndexRepository {
         query_text: &str,
         limit: i64,
     ) -> Result<Vec<MemoryIndexRecord>> {
-        let ts_query = query_text.split_whitespace().collect::<Vec<_>>().join(" & ");
+        let like_query = format!("%{}%", query_text.trim());
 
         let rows = if let Some(session_id) = session_id {
             sqlx::query_as::<_, MemoryIndexRecord>(
@@ -216,15 +227,21 @@ impl MemoryIndexRepository {
                 WHERE tenant_id = $1
                   AND session_id = $2
                   AND domain_class = $3
-                  AND to_tsvector('simple', summary) @@ to_tsquery('simple', $4)
+                  AND memory_kind = 'summary'
+                  AND (
+                        to_tsvector('simple', summary) @@ plainto_tsquery('simple', $4)
+                     OR summary ILIKE $5
+                     OR COALESCE(snippet, '') ILIKE $5
+                  )
                 ORDER BY updated_at DESC
-                LIMIT $5
+                LIMIT $6
                 "#,
             )
             .bind(tenant_id)
             .bind(session_id)
             .bind(domain_class)
-            .bind(&ts_query)
+            .bind(query_text.trim())
+            .bind(&like_query)
             .bind(limit)
             .fetch_all(&self.pool)
             .await?

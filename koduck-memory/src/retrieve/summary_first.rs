@@ -5,7 +5,7 @@
 //! 2. Within candidates, match against summary using full-text search
 
 use sqlx::PgPool;
-use tracing::{debug, info, instrument, warn};
+use tracing::{debug, info, instrument};
 
 use crate::index::MemoryIndexRepository;
 use crate::retrieve::domain_first::DomainFirstRetriever;
@@ -51,15 +51,16 @@ impl SummaryFirstRetriever {
             .as_ref()
             .and_then(|session_id| uuid::Uuid::parse_str(session_id).ok());
 
-        // First collect the structural candidate set. Summary only narrows this set;
-        // it does not decide the final ordering on its own.
+        // First collect the structural candidate set. When no explicit session scope is
+        // provided, SUMMARY_FIRST should search across all historical summaries in the same
+        // domain rather than silently collapsing back to the current session.
         let domain_records = if let Some(session_id) = session_uuid {
             self.index_repo
-                .list_by_session(&ctx.tenant_id, session_id, Some(&ctx.domain_class), limit * 2)
+                .list_by_session(&ctx.tenant_id, session_id, Some(&ctx.domain_class), limit * 4)
                 .await?
         } else {
             self.index_repo
-                .list_by_domain(&ctx.tenant_id, &ctx.domain_class, limit * 2)
+                .list_by_domain(&ctx.tenant_id, &ctx.domain_class, limit * 4)
                 .await?
         };
 
@@ -86,13 +87,14 @@ impl SummaryFirstRetriever {
             "summary search completed"
         );
 
-        // If no summary matches, fall back to DOMAIN_FIRST
+        // If no summary matches, return no hits rather than falling back to unrelated
+        // domain-only candidates. This keeps summary retrieval semantically meaningful.
         if summary_records.is_empty() {
-            warn!(
+            info!(
                 query_text = %ctx.query_text,
-                "no summary matches found, falling back to DOMAIN_FIRST"
+                "no summary matches found for SUMMARY_FIRST"
             );
-            return self.domain_retriever.retrieve(ctx).await;
+            return Ok(Vec::new());
         }
 
         info!(

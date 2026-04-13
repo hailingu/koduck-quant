@@ -87,4 +87,26 @@ impl MemorySummaryRepository {
 
         Ok(row)
     }
+
+    pub async fn list_by_session(
+        &self,
+        tenant_id: &str,
+        session_id: Uuid,
+    ) -> Result<Vec<MemorySummary>> {
+        let rows = sqlx::query_as::<_, MemorySummary>(
+            r#"
+            SELECT
+                id, tenant_id, session_id, domain_class, summary, strategy, version, created_at
+            FROM memory_summaries
+            WHERE tenant_id = $1 AND session_id = $2
+            ORDER BY version DESC
+            "#,
+        )
+        .bind(tenant_id)
+        .bind(session_id)
+        .fetch_all(&self.pool)
+        .await?;
+
+        Ok(rows)
+    }
 }

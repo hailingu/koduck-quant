@@ -34,6 +34,25 @@ spec:
           env:
             - name: RUST_LOG
               value: "info,koduck_memory=info,tower_http=warn"
+            - name: SUMMARY__LLM_ENABLED
+              value: "true"
+            - name: SUMMARY__LLM_PROVIDER
+              valueFrom:
+                secretKeyRef:
+                  name: dev-koduck-ai-llm-secrets
+                  key: KODUCK_AI__LLM__DEFAULT_PROVIDER
+            - name: SUMMARY__LLM_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: dev-koduck-ai-llm-secrets
+                  key: KODUCK_AI__LLM__MINIMAX__API_KEY
+            - name: SUMMARY__LLM_BASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: dev-koduck-ai-llm-secrets
+                  key: KODUCK_AI__LLM__MINIMAX__BASE_URL
+            - name: SUMMARY__LLM_MODEL
+              value: "MiniMax-M2.5"
 ---
 apiVersion: v1
 kind: Secret

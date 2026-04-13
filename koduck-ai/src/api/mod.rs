@@ -377,6 +377,7 @@ pub async fn chat_stream(
                         .degrade_policy
                         .evaluate_error(DegradeRoute::ChatStream, &err)
                     {
+                        let degrade_reason = degrade_reason_label(&decision);
                         state.degrade_policy.log_hit(
                             &decision,
                             &request_id,
@@ -387,11 +388,12 @@ pub async fn chat_stream(
                             Arc::clone(&session),
                             generation_guard.clone(),
                             stream_timeout,
-                            build_stream_chunks(
+                            build_degraded_stream_chunks(
                                 &request.chat.message,
-                                degrade_reason_label(&decision),
+                                memory_snapshot.as_ref(),
+                                degrade_reason,
                             ),
-                            degrade_reason_label(&decision),
+                            degrade_reason,
                         );
                         return stream_sse_response(session, request_id).await;
                     }
@@ -560,6 +562,7 @@ pub async fn chat_stream(
                             .degrade_policy
                             .evaluate_error(DegradeRoute::ChatStream, &err)
                         {
+                            let degrade_reason = degrade_reason_label(&decision);
                             state.degrade_policy.log_hit(
                                 &decision,
                                 &request_id,
@@ -570,11 +573,12 @@ pub async fn chat_stream(
                                 Arc::clone(&session),
                                 generation_guard.clone(),
                                 stream_timeout,
-                                build_stream_chunks(
+                                build_degraded_stream_chunks(
                                     &request.chat.message,
-                                    degrade_reason_label(&decision),
+                                    memory_snapshot.as_ref(),
+                                    degrade_reason,
                                 ),
-                                degrade_reason_label(&decision),
+                                degrade_reason,
                             );
                             return stream_sse_response(session, request_id).await;
                         }
@@ -818,7 +822,8 @@ async fn prepare_memory_context(
         state,
         ctx,
         QueryMemoryInput {
-            query_text: request.message.clone(),
+            query_text: build_memory_query_text(&request.message),
+            session_id: memory_query_session_scope(request, ctx),
             domain_class: metadata_string(request, "domain_class"),
             retrieve_policy: retrieve_policy_from_request(request),
             top_k: MEMORY_QUERY_TOP_K,
@@ -1024,30 +1029,186 @@ fn retrieve_policy_from_request(request: &ChatRequest) -> RetrievePolicy {
         .map(|value| value.trim().to_ascii_lowercase())
         .as_deref()
     {
+        Some("domain-first") | Some("domain_first") => RetrievePolicy::DomainFirst,
         Some("summary-first") | Some("summary_first") => RetrievePolicy::SummaryFirst,
         Some("hybrid") => RetrievePolicy::Hybrid,
-        _ => RetrievePolicy::DomainFirst,
+        _ => RetrievePolicy::SummaryFirst,
     }
+}
+
+fn memory_query_session_scope(
+    request: &ChatRequest,
+    ctx: &MemoryRpcContext,
+) -> Option<String> {
+    let scope = request
+        .metadata
+        .as_ref()
+        .and_then(|metadata| metadata.get("memory_scope"))
+        .and_then(|value| value.as_str())
+        .map(|value| value.trim().to_ascii_lowercase());
+
+    match scope.as_deref() {
+        Some("session") | Some("current_session") | Some("current") => {
+            Some(ctx.session_id.clone())
+        }
+        _ => None,
+    }
+}
+
+fn build_memory_query_text(message: &str) -> String {
+    let mut normalized = message.trim().to_lowercase();
+    let alias_replacements = [
+        ("karl marx", "马克思"),
+        ("marx", "马克思"),
+        ("friedrich engels", "恩格斯"),
+        ("engels", "恩格斯"),
+        ("vladimir lenin", "列宁"),
+        ("lenin", "列宁"),
+        ("max stirner", "施蒂纳"),
+        ("stirner", "施蒂纳"),
+        ("anarchism", "无政府主义"),
+        ("anarchist", "无政府主义"),
+    ];
+    for (alias, canonical) in alias_replacements {
+        normalized = normalized.replace(alias, canonical);
+    }
+
+    let phrase_replacements = [
+        "我们之前有讨论过",
+        "我们之前讨论过",
+        "我们之前聊过",
+        "讨论了什么",
+        "聊了什么",
+        "说了什么",
+        "找出来之前关于",
+        "找出之前关于",
+        "找出来之前",
+        "找出之前",
+        "之前关于",
+        "之前的",
+        "之前",
+        "记忆",
+        "历史记忆",
+        "有没有",
+        "有讨论过",
+        "讨论过",
+        "聊过",
+        "总结一下",
+        "总结",
+    ];
+
+    for phrase in phrase_replacements {
+        normalized = normalized.replace(phrase, " ");
+    }
+
+    normalized = normalized
+        .chars()
+        .map(|ch| match ch {
+            '，' | '。' | '？' | '！' | '：' | '；' | '、' | ',' | '.' | '?' | '!' | ':' | ';'
+            | '(' | ')' | '（' | '）' | '"' | '\'' => ' ',
+            _ => ch,
+        })
+        .collect::<String>();
+
+    let stop_tokens = [
+        "我们", "我", "你", "吗", "呢", "呀", "吧", "啊", "一下", "这个", "那个", "关于",
+        "什么",
+    ];
+
+    let filtered = normalized
+        .split_whitespace()
+        .filter(|token| !stop_tokens.contains(token))
+        .collect::<Vec<_>>()
+        .join(" ");
+
+    if filtered.trim().is_empty() {
+        message.trim().to_string()
+    } else {
+        filtered
+    }
+}
+
+fn is_memory_recall_query(message: &str) -> bool {
+    let normalized = message.trim().to_lowercase();
+    [
+        "之前",
+        "讨论过",
+        "聊过",
+        "记忆",
+        "历史",
+        "总结",
+        "说了什么",
+        "讨论了什么",
+        "聊了什么",
+        "找出来",
+    ]
+    .iter()
+    .any(|phrase| normalized.contains(phrase))
+}
+
+fn build_memory_recall_answer(snapshot: &MemoryContextSnapshot) -> Option<String> {
+    if snapshot.hits.is_empty() {
+        return None;
+    }
+
+    let mut summaries = Vec::new();
+    let mut seen = std::collections::HashSet::new();
+    for hit in snapshot.hits.iter() {
+        let snippet = hit.snippet.trim();
+        if snippet.is_empty() {
+            continue;
+        }
+        let dedupe_key = format!("{}::{}", hit.session_id, snippet);
+        if !seen.insert(dedupe_key) {
+            continue;
+        }
+        summaries.push(format!(
+            "{}. 来自历史会话 {}：{}",
+            summaries.len() + 1,
+            hit.session_id,
+            snippet
+        ));
+        if summaries.len() >= 3 {
+            break;
+        }
+    }
+
+    if summaries.is_empty() {
+        return None;
+    }
+
+    Some(format!(
+        "我从之前的历史记忆里检索到了这些相关内容：\n{}\n如果你愿意，我可以继续基于其中某一条展开说明。",
+        summaries.join("\n")
+    ))
+}
+
+fn build_degraded_answer(
+    user_message: &str,
+    snapshot: Option<&MemoryContextSnapshot>,
+    reason: &str,
+) -> String {
+    if reason == "upstream_timeout" && is_memory_recall_query(user_message) {
+        if let Some(answer) = snapshot.and_then(build_memory_recall_answer) {
+            return answer;
+        }
+    }
+
+    build_stub_answer(user_message, reason)
+}
+
+fn build_degraded_stream_chunks(
+    user_message: &str,
+    snapshot: Option<&MemoryContextSnapshot>,
+    reason: &str,
+) -> Vec<String> {
+    chunk_answer(&build_degraded_answer(user_message, snapshot, reason))
 }
 
 fn build_memory_prompt(snapshot: &MemoryContextSnapshot) -> Option<String> {
     if snapshot.hits.is_empty() {
         return None;
     }
-
-    let session_truth = snapshot
-        .session
-        .as_ref()
-        .map(|session| {
-            format!(
-                "会话真值: session_id={}, parent_session_id={}, forked_from_session_id={}, status={}",
-                session.session_id,
-                session.parent_session_id,
-                session.forked_from_session_id,
-                session.status
-            )
-        })
-        .unwrap_or_else(|| "会话真值: 当前请求尚未在 memory 中形成可读快照。".to_string());
 
     let snippets = snapshot
         .hits
@@ -1056,8 +1217,9 @@ fn build_memory_prompt(snapshot: &MemoryContextSnapshot) -> Option<String> {
         .enumerate()
         .map(|(index, hit)| {
             format!(
-                "{}. reasons=[{}] snippet={}",
+                "{}. source_session={} reasons=[{}] snippet={}",
                 index + 1,
+                hit.session_id,
                 hit.match_reasons.join(","),
                 hit.snippet
             )
@@ -1066,8 +1228,8 @@ fn build_memory_prompt(snapshot: &MemoryContextSnapshot) -> Option<String> {
         .join("\n");
 
     Some(format!(
-        "以下内容来自 koduck-memory 的检索结果，仅在与当前问题相关时使用，不要把它们当作绝对事实重复输出。\n{}\n历史命中:\n{}",
-        session_truth, snippets
+        "以下内容来自 koduck-memory 的历史摘要检索结果，可能跨多个旧会话。请先判断哪些历史记忆与当前问题相关，再基于相关命中进行总结回答；如果命中明显相关，应直接说明我们之前讨论过哪些内容，不要回答成“没有之前记录”。\n历史命中:\n{}",
+        snippets
     ))
 }
 
@@ -1144,21 +1306,42 @@ fn estimate_tokens(text: &str) -> u32 {
     (text.chars().count() as u32 / 4).max(1)
 }
 
-fn build_stub_answer(user_message: &str, reason: &str) -> String {
-    format!(
-        "这是 koduck-ai 的降级 stub 回答（{}）。当前命中降级策略：{}。你输入的是：{}",
-        Utc::now().to_rfc3339(),
-        reason,
-        user_message.trim()
-    )
+fn build_stub_answer(_user_message: &str, reason: &str) -> String {
+    match reason {
+        "stub_enabled" => "当前系统处于演示模式，暂时返回示例回复。".to_string(),
+        "upstream_timeout" => {
+            "刚才回答服务短暂异常，我没能正常生成完整回复。请稍后重试一次。".to_string()
+        }
+        "budget_exhausted" => {
+            "当前回答服务负载较高，暂时无法稳定生成回复。请稍后再试。".to_string()
+        }
+        "circuit_open" => {
+            "当前回答服务正在恢复中，暂时无法稳定处理这条消息。请稍后再试。".to_string()
+        }
+        _ => "当前回答服务暂时不可用，请稍后重试。".to_string(),
+    }
 }
 
-fn build_stream_chunks(user_message: &str, reason: &str) -> Vec<String> {
-    vec![
-        "这是 koduck-ai 的流式降级 stub。".to_string(),
-        format!("当前命中降级策略：{}。", reason),
-        format!("收到你的问题：{}", user_message.trim()),
-    ]
+fn build_stream_chunks(_user_message: &str, reason: &str) -> Vec<String> {
+    match reason {
+        "stub_enabled" => vec!["当前系统处于演示模式，暂时返回示例回复。".to_string()],
+        "upstream_timeout" => vec![
+            "刚才回答服务短暂异常，".to_string(),
+            "这条消息没能正常生成完整回复。".to_string(),
+            "请稍后重试一次。".to_string(),
+        ],
+        "budget_exhausted" => vec![
+            "当前回答服务负载较高，".to_string(),
+            "暂时无法稳定生成回复。".to_string(),
+            "请稍后再试。".to_string(),
+        ],
+        "circuit_open" => vec![
+            "当前回答服务正在恢复中，".to_string(),
+            "这条消息暂时无法稳定处理。".to_string(),
+            "请稍后再试。".to_string(),
+        ],
+        _ => vec!["当前回答服务暂时不可用，请稍后重试。".to_string()],
+    }
 }
 
 fn chunk_answer(answer: &str) -> Vec<String> {

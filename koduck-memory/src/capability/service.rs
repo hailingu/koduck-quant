@@ -3,7 +3,6 @@ use std::sync::Arc;
 use std::time::Instant;
 
 use tonic::{Request, Response, Status};
-use uuid::Uuid;
 
 use crate::api::{
     AppendMemoryRequest, AppendMemoryResponse, Capability, ErrorDetail, GetSessionRequest,
@@ -12,14 +11,14 @@ use crate::api::{
     UpsertSessionMetaResponse,
 };
 use crate::config::AppConfig;
-use crate::index::{InsertMemoryIndexRecord, MemoryIndexRepository};
+use crate::index::MemoryIndexRepository;
 use crate::memory::{
     metadata_to_jsonb, IdempotencyRepository, InsertMemoryEntry, MemoryEntryRepository,
 };
 use crate::observe::{record_rpc_call, RpcMethod, RpcOutcome};
 use crate::observe::RpcGuard;
 use crate::observe::RpcMetrics;
-use crate::retrieve::{domain_class, DomainFirstRetriever, RetrieveContext, SummaryFirstRetriever};
+use crate::retrieve::{DomainFirstRetriever, RetrieveContext, SummaryFirstRetriever};
 use crate::summary::{SummaryJob, SummaryTaskRunner};
 use crate::session::{
     extra_to_jsonb, parse_optional_uuid, parse_uuid, SessionRepository, UpsertSession,
@@ -148,89 +147,6 @@ impl MemoryGrpcService {
             return Err(Status::invalid_argument("idempotency_key is required"));
         }
         Ok(())
-    }
-
-    fn normalize_index_text(content: &str) -> String {
-        content.split_whitespace().collect::<Vec<_>>().join(" ")
-    }
-
-    fn truncate_for_index(content: &str, limit: usize) -> String {
-        let normalized = Self::normalize_index_text(content);
-        if normalized.is_empty() {
-            return String::new();
-        }
-
-        let count = normalized.chars().count();
-        if count <= limit {
-            return normalized;
-        }
-
-        normalized.chars().take(limit).collect::<String>() + "..."
-    }
-
-    fn infer_domain_class(role: &str, metadata: &HashMap<String, String>) -> String {
-        if let Some(candidate) = metadata.get("domain_class") {
-            if domain_class::is_valid(candidate) {
-                return candidate.clone();
-            }
-        }
-
-        let role = role.trim().to_ascii_lowercase();
-        if role == "system" {
-            return domain_class::SYSTEM.to_string();
-        }
-        if role == "summary" {
-            return domain_class::SUMMARY.to_string();
-        }
-        if role == "fact" {
-            return domain_class::FACT.to_string();
-        }
-        if metadata.contains_key("task_id")
-            || metadata.contains_key("task_status")
-            || metadata.contains_key("issue_id")
-            || metadata.contains_key("ticket_id")
-        {
-            return domain_class::TASK.to_string();
-        }
-
-        domain_class::CHAT.to_string()
-    }
-
-    fn build_index_record(
-        tenant_id: &str,
-        session_id: Uuid,
-        entry_id: Uuid,
-        role: &str,
-        content: &str,
-        metadata: &HashMap<String, String>,
-        l0_uri: &str,
-    ) -> InsertMemoryIndexRecord {
-        let domain_class = Self::infer_domain_class(role, metadata);
-        let summary = {
-            let summary_text = Self::truncate_for_index(content, 280);
-            if summary_text.is_empty() {
-                format!("{role} entry")
-            } else {
-                format!("{role}: {summary_text}")
-            }
-        };
-        let snippet = Self::truncate_for_index(content, 200);
-
-        let mut record = InsertMemoryIndexRecord::new(
-            tenant_id.to_string(),
-            session_id,
-            role.to_string(),
-            domain_class,
-            summary,
-            l0_uri.to_string(),
-        )
-        .with_entry_id(entry_id);
-
-        if !snippet.is_empty() {
-            record = record.with_snippet(snippet);
-        }
-
-        record
     }
 
     fn log_rpc_completion(
@@ -641,9 +557,11 @@ impl MemoryService for MemoryGrpcService {
         .await
         .map_err(|e| { guard.error(); Status::internal(format!("failed to query max sequence_num: {e}")) })?;
 
-        // Step 3: Prepare entries with L0 content and write to object storage first
-        let mut entries_to_insert: Vec<(InsertMemoryEntry, InsertMemoryIndexRecord)> =
-            Vec::new();
+        // Step 3: Prepare entries with L0 content and write to object storage first.
+        // Raw user/assistant turns are stored in L0/L1 `memory_entries`; we do not
+        // duplicate them into `memory_index_records`. Session-level retrieval should
+        // happen through asynchronous summaries instead.
+        let mut entries_to_insert: Vec<InsertMemoryEntry> = Vec::new();
 
         for (i, entry) in req.entries.iter().enumerate() {
             let entry_id = uuid::Uuid::new_v4();
@@ -703,22 +621,12 @@ impl MemoryService for MemoryGrpcService {
                 l0_uri,
             };
 
-            let index_record = Self::build_index_record(
-                &tenant_id,
-                session_id,
-                entry_id,
-                &entry.role,
-                &entry.content,
-                &entry.metadata,
-                &insert.l0_uri,
-            );
-
-            entries_to_insert.push((insert, index_record));
+            entries_to_insert.push(insert);
         }
 
-        // Step 4: Insert entries and corresponding L1 records into PostgreSQL
+        // Step 4: Insert entries into PostgreSQL.
         let mut appended = 0i32;
-        for (insert, index_record) in entries_to_insert {
+        for insert in entries_to_insert {
             let result = sqlx::query(
                 r#"
                 INSERT INTO memory_entries (
@@ -744,31 +652,6 @@ impl MemoryService for MemoryGrpcService {
             if result.rows_affected() > 0 {
                 appended += 1;
             }
-
-            sqlx::query(
-                r#"
-                INSERT INTO memory_index_records (
-                    id, tenant_id, session_id, entry_id,
-                    memory_kind, domain_class, summary, snippet,
-                    source_uri, score_hint, created_at, updated_at
-                ) VALUES (
-                    $1, $2, $3, $4, $5, $6, $7, $8, $9, CAST($10 AS NUMERIC), now(), now()
-                )
-                "#,
-            )
-            .bind(index_record.id)
-            .bind(&index_record.tenant_id)
-            .bind(index_record.session_id)
-            .bind(index_record.entry_id)
-            .bind(&index_record.memory_kind)
-            .bind(&index_record.domain_class)
-            .bind(&index_record.summary)
-            .bind(&index_record.snippet)
-            .bind(&index_record.source_uri)
-            .bind(&index_record.score_hint)
-            .execute(&mut *tx)
-            .await
-            .map_err(|e| { guard.error(); Status::internal(format!("failed to insert memory index record: {e}")) })?;
         }
 
         tx.commit()
@@ -788,6 +671,30 @@ impl MemoryService for MemoryGrpcService {
             requested_count = entries_count,
             "rpc completed"
         );
+
+        if appended > 0 && self.config.summary.async_enabled {
+            let runner = SummaryTaskRunner::new(
+                self.runtime.pool(),
+                self.object_store.clone(),
+                self.config.summary.clone(),
+                self.config.retry.clone(),
+            );
+            let job = SummaryJob::new(
+                tenant_id.clone(),
+                session_id,
+                "session-rollup".to_string(),
+                meta.request_id.clone(),
+            );
+            tokio::spawn(async move {
+                if let Err(error) = runner.run(job.clone()).await {
+                    tracing::warn!(
+                        error = %error,
+                        session_id = %job.session_id,
+                        "summary task failed after append_memory"
+                    );
+                }
+            });
+        }
 
         let result = Ok(Response::new(AppendMemoryResponse {
             ok: true,
@@ -885,6 +792,7 @@ impl MemoryService for MemoryGrpcService {
         let runner = SummaryTaskRunner::new(
             self.runtime.pool(),
             self.object_store.clone(),
+            self.config.summary.clone(),
             self.config.retry.clone(),
         );
         let job = SummaryJob::new(
@@ -969,7 +877,15 @@ mod tests {
                 region: "ap-east-1".to_string(),
             },
             capabilities: CapabilitiesSection { ttl_secs: 60 },
-            summary: SummarySection { async_enabled: false },
+            summary: SummarySection {
+                async_enabled: false,
+                llm_enabled: false,
+                llm_provider: "minimax".to_string(),
+                llm_api_key: String::new(),
+                llm_base_url: "https://api.minimax.chat/v1".to_string(),
+                llm_model: "MiniMax-M2.7".to_string(),
+                llm_timeout_ms: 15_000,
+            },
             retry: RetrySection {
                 max_attempts: 3,
                 initial_delay_ms: 500,
@@ -1300,6 +1216,24 @@ mod tests {
             tokio::time::sleep(Duration::from_millis(50)).await;
         }
         panic!("facts were not materialized in time");
+    }
+
+    async fn wait_for_summary_projection(
+        repo: &MemoryIndexRepository,
+        tenant_id: &str,
+        session_id: Uuid,
+    ) -> Vec<crate::index::MemoryIndexRecord> {
+        for _ in 0..20 {
+            let records = repo
+                .list_by_session(tenant_id, session_id, None, 20)
+                .await
+                .unwrap();
+            if !records.is_empty() {
+                return records;
+            }
+            tokio::time::sleep(Duration::from_millis(50)).await;
+        }
+        panic!("summary projection was not materialized in time");
     }
 
     async fn wait_for_failed_task(
@@ -2180,6 +2114,120 @@ mod tests {
 
         assert!(response.ok);
         assert!(response.hits.iter().all(|hit| !hit.l0_uri.starts_with("memory-fact://")));
+
+        let _ = shutdown_tx.send(());
+        server.await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn append_memory_recomputes_session_level_summary_and_facts() {
+        let mut config = test_config();
+        config.summary.async_enabled = true;
+        let runtime = RuntimeState::initialize(&config).await.unwrap();
+        let summary_repo = MemorySummaryRepository::new(runtime.pool());
+        let fact_repo = MemoryFactRepository::new(runtime.pool());
+        let index_repo = MemoryIndexRepository::new(runtime.pool());
+        let (mut client, shutdown_tx, server) = start_test_server(config, runtime).await;
+
+        let session_id = Uuid::new_v4();
+        let sid_str = session_id.to_string();
+
+        client
+            .upsert_session_meta(UpsertSessionMetaRequest {
+                meta: Some(write_meta_with_idempotency("t72b-session", &sid_str)),
+                session_id: sid_str.clone(),
+                title: "People tracking".to_string(),
+                status: "active".to_string(),
+                parent_session_id: String::new(),
+                forked_from_session_id: String::new(),
+                last_message_at: 1700000000000,
+                extra: [].into(),
+            })
+            .await
+            .unwrap();
+
+        client
+            .append_memory(AppendMemoryRequest {
+                meta: Some(write_meta_with_idempotency("t72b-append-1", &sid_str)),
+                session_id: sid_str.clone(),
+                entries: vec![MemoryEntry {
+                    role: "user".to_string(),
+                    content: "First we discussed Karl Marx and Friedrich Engels".to_string(),
+                    timestamp: 1700000000000,
+                    metadata: std::collections::HashMap::new(),
+                }],
+            })
+            .await
+            .unwrap();
+
+        let first_summary = wait_for_summary(&summary_repo, "tenant-t33", session_id).await;
+        let first_projection = wait_for_summary_projection(&index_repo, "tenant-t33", session_id).await;
+        let first_facts = wait_for_facts(&fact_repo, "tenant-t33", session_id).await;
+
+        assert_eq!(first_projection.len(), 1);
+        assert!(
+            first_summary.summary.contains("Karl Marx")
+                || first_summary.summary.contains("Friedrich Engels")
+        );
+        assert!(
+            first_facts.iter().all(|fact| !fact.fact_text.contains("Lenin")),
+            "first session facts should not contain future entities"
+        );
+
+        client
+            .append_memory(AppendMemoryRequest {
+                meta: Some(write_meta_with_idempotency("t72b-append-2", &sid_str)),
+                session_id: sid_str.clone(),
+                entries: vec![MemoryEntry {
+                    role: "user".to_string(),
+                    content: "Then the conversation expanded to Vladimir Lenin".to_string(),
+                    timestamp: 1700000001000,
+                    metadata: std::collections::HashMap::new(),
+                }],
+            })
+            .await
+            .unwrap();
+
+        let mut updated_summary = None;
+        for _ in 0..20 {
+            let candidate = wait_for_summary(&summary_repo, "tenant-t33", session_id).await;
+            if candidate.version > first_summary.version {
+                updated_summary = Some(candidate);
+                break;
+            }
+            tokio::time::sleep(Duration::from_millis(50)).await;
+        }
+        let updated_summary = updated_summary.expect("updated summary was not materialized in time");
+        let updated_projection = wait_for_summary_projection(&index_repo, "tenant-t33", session_id).await;
+        let mut updated_facts = None;
+        for _ in 0..20 {
+            let facts = fact_repo.list_by_session("tenant-t33", session_id).await.unwrap();
+            if facts.iter().any(|fact| fact.fact_text.contains("Vladimir Lenin")) {
+                updated_facts = Some(facts);
+                break;
+            }
+            tokio::time::sleep(Duration::from_millis(50)).await;
+        }
+        let updated_facts = updated_facts.expect("updated facts were not materialized in time");
+
+        assert_eq!(updated_projection.len(), 1);
+        assert_eq!(updated_projection[0].summary, updated_summary.summary);
+        assert!(
+            updated_summary.summary.contains("Karl Marx")
+                || updated_summary.summary.contains("Friedrich Engels")
+        );
+        assert!(
+            updated_summary.summary.contains("Vladimir Lenin")
+                || updated_summary.summary.contains("Lenin")
+        );
+        assert!(
+            updated_facts.iter().all(|fact| fact.session_id == session_id),
+            "recomputed facts must remain session-scoped"
+        );
+        assert!(
+            updated_facts.iter().any(|fact| fact.fact_text.contains("Vladimir Lenin")),
+            "recomputed facts should reflect the latest session transcript"
+        );
 
         let _ = shutdown_tx.send(());
         server.await.unwrap();

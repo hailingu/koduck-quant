@@ -78,6 +78,7 @@ pub struct SessionUpsertInput {
 #[derive(Debug, Clone)]
 pub struct QueryMemoryInput {
     pub query_text: String,
+    pub session_id: Option<String>,
     pub domain_class: String,
     pub retrieve_policy: RetrievePolicy,
     pub top_k: i32,
@@ -133,7 +134,7 @@ pub async fn query_memory(
         .query_memory(Request::new(QueryMemoryRequest {
             meta: Some(ctx.request_meta(String::new())),
             query_text: input.query_text,
-            session_id: ctx.session_id.clone(),
+            session_id: input.session_id.unwrap_or_default(),
             domain_class: input.domain_class,
             top_k: input.top_k,
             retrieve_policy: input.retrieve_policy as i32,

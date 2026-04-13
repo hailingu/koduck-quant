@@ -106,6 +106,7 @@ impl DegradePolicy {
             ErrorCode::UpstreamUnavailable | ErrorCode::StreamTimeout => {
                 Some(DegradeReason::UpstreamTimeout)
             }
+            ErrorCode::DependencyFailed => Some(DegradeReason::UpstreamTimeout),
             ErrorCode::RateLimited => Some(DegradeReason::BudgetExhausted),
             ErrorCode::ServerBusy => Some(DegradeReason::CircuitOpen),
             _ => None,

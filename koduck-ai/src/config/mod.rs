@@ -475,9 +475,9 @@ impl Default for ReliabilityConfig {
 impl Default for DegradeConfig {
     fn default() -> Self {
         Self {
-            enabled: false,
-            chat_enabled: false,
-            chat_stream_enabled: false,
+            enabled: true,
+            chat_enabled: true,
+            chat_stream_enabled: true,
             upstream_timeout_enabled: true,
             budget_exhausted_enabled: true,
             circuit_open_enabled: true,
@@ -562,9 +562,9 @@ impl Config {
             .set_default("capabilities.required_version", "v1")?
             .set_default("capabilities.strict_mode", true)?
             // Defaults — ReliabilityConfig
-            .set_default("reliability.degrade.enabled", false)?
-            .set_default("reliability.degrade.chat_enabled", false)?
-            .set_default("reliability.degrade.chat_stream_enabled", false)?
+            .set_default("reliability.degrade.enabled", true)?
+            .set_default("reliability.degrade.chat_enabled", true)?
+            .set_default("reliability.degrade.chat_stream_enabled", true)?
             .set_default("reliability.degrade.upstream_timeout_enabled", true)?
             .set_default("reliability.degrade.budget_exhausted_enabled", true)?
             .set_default("reliability.degrade.circuit_open_enabled", true)?

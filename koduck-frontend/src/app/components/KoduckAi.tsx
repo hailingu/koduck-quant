@@ -2,10 +2,12 @@ import { useState, useRef, useEffect } from "react";
 import {
   ArrowUp,
   ChevronDown,
+  Copy,
   FileText,
   Mic,
   Paperclip,
   Plus,
+  Trash2,
   Upload,
   X,
 } from "lucide-react";
@@ -36,6 +38,11 @@ interface UploadedFile {
   preview?: string;
 }
 
+interface ChatHistoryMessage {
+  role: "user" | "assistant";
+  content: string;
+}
+
 interface StreamEventPayload {
   text?: string;
   finish_reason?: string;
@@ -53,6 +60,26 @@ interface StreamEventData {
   payload?: StreamEventPayload;
   request_id?: string;
 }
+
+interface ApiErrorBody {
+  code?: string;
+  message?: string;
+  request_id?: string;
+  retryable?: boolean;
+  degraded?: boolean;
+  upstream?: string;
+}
+
+interface ApiErrorEnvelope {
+  success?: boolean;
+  code?: string;
+  message?: string;
+  error?: ApiErrorBody;
+}
+
+const STREAM_INITIAL_IDLE_TIMEOUT_MS = 12000;
+const STREAM_POST_CONTENT_IDLE_TIMEOUT_MS = 2000;
+const STREAM_REQUEST_TIMEOUT_MS = 90000;
 
 function normalizeMarkdownContent(content: string): string {
   const source = content.replace(/\r\n/g, "\n").trim();
@@ -302,6 +329,7 @@ function parseSseBlocks(
 export function KoduckAi() {
   const [chatMessage, setChatMessage] = useState("");
   const [messages, setMessages] = useState<Message[]>([]);
+  const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
   const [selectedProvider] = useState("OpenAI");
   const [selectedModel] = useState("GPT-4");
   const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
@@ -325,6 +353,23 @@ export function KoduckAi() {
         message.id === messageId ? updater(message) : message,
       ),
     );
+  };
+
+  const createSessionId = () => crypto.randomUUID();
+
+  const buildHistoryMessages = (): ChatHistoryMessage[] =>
+    messages
+      .filter((message) => !message.streaming && message.content.trim())
+      .map((message) => ({
+        role: message.role,
+        content: message.content,
+      }));
+
+  const handleCreateSession = () => {
+    setCurrentSessionId(createSessionId());
+    setMessages([]);
+    setChatMessage("");
+    setUploadedFiles([]);
   };
 
   const handleFileSelect = (files: FileList | null) => {
@@ -386,10 +431,60 @@ export function KoduckAi() {
     setUploadedFiles((prev) => prev.filter((file) => file.id !== fileId));
   };
 
+  const extractApiErrorMessage = async (response: Response) => {
+    const fallback = `chat api failed: ${response.status}`;
+
+    try {
+      const data = (await response.json()) as ApiErrorEnvelope;
+      const detail = data.error?.message?.trim() || data.message?.trim() || "";
+      return detail || fallback;
+    } catch {
+      return fallback;
+    }
+  };
+
+  const copyMessage = async (content: string) => {
+    try {
+      await navigator.clipboard.writeText(content);
+    } catch (error) {
+      console.error("failed to copy message:", error);
+    }
+  };
+
+  const deleteMessage = (messageId: string) => {
+    setMessages((prev) => prev.filter((message) => message.id !== messageId));
+  };
+
+  const readStreamChunkWithTimeout = async (
+    reader: ReadableStreamDefaultReader<Uint8Array>,
+    timeoutMs: number,
+  ): Promise<ReadableStreamReadResult<Uint8Array>> =>
+    new Promise((resolve, reject) => {
+      const timeoutId = window.setTimeout(() => {
+        reject(new Error("chat stream idle timeout"));
+      }, timeoutMs);
+
+      reader.read().then(
+        (result) => {
+          window.clearTimeout(timeoutId);
+          resolve(result);
+        },
+        (error) => {
+          window.clearTimeout(timeoutId);
+          reject(error);
+        },
+      );
+    });
+
   const handleSendMessage = async () => {
     const content = chatMessage.trim();
     if (!content || sending) {
       return;
+    }
+
+    const sessionId = currentSessionId ?? createSessionId();
+    if (!currentSessionId) {
+      setCurrentSessionId(sessionId);
     }
 
     const userMessage: Message = {
@@ -411,6 +506,13 @@ export function KoduckAi() {
     setMessages((prev) => [...prev, userMessage, assistantPlaceholder]);
     setChatMessage("");
     setSending(true);
+    const abortController = new AbortController();
+    let shouldAbortRequest = true;
+    const requestTimeoutId = window.setTimeout(() => {
+      abortController.abort("chat stream request timeout");
+    }, STREAM_REQUEST_TIMEOUT_MS);
+    let streamedText = "";
+    let streamErrorMessage = "";
 
     try {
       const token = localStorage.getItem("koduck.auth.token");
@@ -420,24 +522,32 @@ export function KoduckAi() {
           "Content-Type": "application/json",
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
+        signal: abortController.signal,
         body: JSON.stringify({
           message: content,
+          session_id: sessionId,
+          history: buildHistoryMessages(),
         }),
       });
 
       if (!response.ok || !response.body) {
-        throw new Error(`chat api failed: ${response.status}`);
+        window.clearTimeout(requestTimeoutId);
+        throw new Error(await extractApiErrorMessage(response));
       }
 
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
       let buffer = "";
-      let streamedText = "";
       let streamCompleted = false;
-      let streamErrorMessage = "";
 
       while (!streamCompleted) {
-        const { done, value } = await reader.read();
+        const idleTimeoutMs = streamedText.trim()
+          ? STREAM_POST_CONTENT_IDLE_TIMEOUT_MS
+          : STREAM_INITIAL_IDLE_TIMEOUT_MS;
+        const { done, value } = await readStreamChunkWithTimeout(
+          reader,
+          idleTimeoutMs,
+        );
         if (done) {
           break;
         }
@@ -502,6 +612,8 @@ export function KoduckAi() {
         }
       }
 
+      window.clearTimeout(requestTimeoutId);
+
       if (!streamCompleted && streamedText.trim()) {
         updateAssistantMessage(assistantMessageId, (prev) => ({
           ...prev,
@@ -509,7 +621,7 @@ export function KoduckAi() {
             streamedText +
             (streamErrorMessage
               ? `\n\n回答提前结束：${streamErrorMessage}`
-              : ""),
+              : "\n\n回答提前结束：连接中断，请重试一次。"),
           timestamp: prev.timestamp || Date.now(),
           streaming: false,
           type: "text",
@@ -520,17 +632,45 @@ export function KoduckAi() {
       if (!streamedText.trim()) {
         throw new Error("chat stream returned empty content");
       }
+
+      shouldAbortRequest = false;
     } catch (error) {
+      if (streamedText.trim()) {
+        updateAssistantMessage(assistantMessageId, (prev) => ({
+          ...prev,
+          content:
+            streamedText +
+            `\n\n回答提前结束：${
+              error instanceof Error && error.message.trim()
+                ? error.message.trim()
+                : "连接中断，请重试一次。"
+            }`,
+          timestamp: prev.timestamp || Date.now(),
+          streaming: false,
+          type: "text",
+        }));
+        shouldAbortRequest = false;
+        return;
+      }
+
       console.error("koduck-ai chat api failed, fallback to local mock:", error);
+      const fallbackReason =
+        error instanceof Error && error.message.trim()
+          ? error.message.trim()
+          : "后端接口调用失败";
       updateAssistantMessage(assistantMessageId, (prev) => ({
         ...prev,
-        content: `后端接口调用失败，当前为本地兜底回复。\n${getAIResponse(content)}`,
+        content: `后端接口调用失败：${fallbackReason}\n当前为本地兜底回复。\n${getAIResponse(content)}`,
         timestamp: prev.timestamp || Date.now(),
         streaming: false,
         type: shouldReturnCard(content) ? "card" : "text",
         cardData: shouldReturnCard(content) ? generateCardData(content) : undefined,
       }));
     } finally {
+      window.clearTimeout(requestTimeoutId);
+      if (shouldAbortRequest && !abortController.signal.aborted) {
+        abortController.abort("chat stream cleanup");
+      }
       setSending(false);
     }
   };
@@ -722,8 +862,10 @@ export function KoduckAi() {
       />
 
       <button
+        onClick={handleCreateSession}
         className="fixed top-3 left-4 z-10 flex h-8 w-8 items-center justify-center text-gray-500 transition-colors hover:text-gray-700"
         type="button"
+        title="新建会话"
       >
         <Plus className="h-6 w-6" strokeWidth={1.5} />
       </button>
@@ -738,26 +880,25 @@ export function KoduckAi() {
           {messages.length === 0 ? (
             <div className="w-full max-w-3xl mx-auto">
               <h1 className="text-3xl font-normal text-gray-800 text-center mb-8">
-                开始对话
+                {currentSessionId ? "新会话已创建" : "开始对话"}
               </h1>
+              <p className="mb-8 text-center text-sm text-gray-500">
+                {currentSessionId
+                  ? "输入第一条消息后，将在这个 session 中持续对话。"
+                  : "输入第一条消息时会自动创建 session，也可以点击左上角 + 先创建。"}
+              </p>
               <div className="w-full max-w-4xl px-4">{renderInputBar()}</div>
             </div>
           ) : (
             <div className="w-full max-w-3xl mx-auto space-y-6 mb-32">
               {messages.map((message) => (
-                <div key={message.id} className="space-y-2">
+                <div key={message.id} className="group space-y-2">
                   <div
                     className={`flex ${
                       message.role === "user" ? "justify-end" : "justify-start"
                     }`}
                   >
-                    <div
-                      className={`max-w-[80%] ${
-                        message.role === "user"
-                          ? "bg-gray-100 rounded-3xl px-5 py-3"
-                          : ""
-                      }`}
-                    >
+                    <div className="max-w-[80%]">
                       {message.type === "text" ? (
                         message.role === "assistant" ? (
                           !message.content ? (
@@ -809,18 +950,36 @@ export function KoduckAi() {
                           )}
                         </div>
                       )}
-                    </div>
-                  </div>
-                  <div
-                    className={`flex ${
-                      message.role === "user" ? "justify-end" : "justify-start"
-                    }`}
-                  >
-                    {Boolean(message.timestamp) && (
-                      <div className="text-xs text-gray-500">
-                        {formatTimestamp(message.timestamp)}
+                      <div
+                        className={`flex items-center gap-2 mt-2 ${
+                          message.role === "user" ? "justify-end" : "justify-start"
+                        }`}
+                      >
+                        {Boolean(message.timestamp) && (
+                          <div className="text-xs text-gray-500">
+                            {formatTimestamp(message.timestamp)}
+                          </div>
+                        )}
+                        <div className="flex items-center gap-1.5 opacity-0 transition-opacity group-hover:opacity-100">
+                          <button
+                            className="p-1 text-gray-400 transition-colors hover:text-gray-600"
+                            onClick={() => void copyMessage(message.content)}
+                            title="复制"
+                            type="button"
+                          >
+                            <Copy className="h-3.5 w-3.5" />
+                          </button>
+                          <button
+                            className="p-1 text-gray-400 transition-colors hover:text-red-600"
+                            onClick={() => deleteMessage(message.id)}
+                            title="删除"
+                            type="button"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
                       </div>
-                    )}
+                    </div>
                   </div>
                 </div>
               ))}

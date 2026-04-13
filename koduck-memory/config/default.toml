@@ -25,6 +25,13 @@ ttl_secs = 60
 
 [summary]
 async_enabled = true
+llm_enabled = false
+llm_provider = "minimax"
+llm_api_key = ""
+llm_base_url = "https://api.minimax.chat/v1"
+llm_model = "MiniMax-M2.5"
+llm_timeout_ms = 15000
+llm_max_concurrency = 1
 
 [retry]
 max_attempts = 3

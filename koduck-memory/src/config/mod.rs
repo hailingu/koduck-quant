@@ -56,6 +56,13 @@ pub struct CapabilitiesSection {
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct SummarySection {
     pub async_enabled: bool,
+    pub llm_enabled: bool,
+    pub llm_provider: String,
+    pub llm_api_key: String,
+    pub llm_base_url: String,
+    pub llm_model: String,
+    pub llm_timeout_ms: u64,
+    pub llm_max_concurrency: usize,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -126,6 +133,25 @@ impl AppConfig {
             self.capabilities.ttl_secs = other.capabilities.ttl_secs;
         }
         self.summary.async_enabled = other.summary.async_enabled;
+        self.summary.llm_enabled = other.summary.llm_enabled;
+        if !other.summary.llm_provider.trim().is_empty() {
+            self.summary.llm_provider = other.summary.llm_provider;
+        }
+        if !other.summary.llm_api_key.trim().is_empty() {
+            self.summary.llm_api_key = other.summary.llm_api_key;
+        }
+        if !other.summary.llm_base_url.trim().is_empty() {
+            self.summary.llm_base_url = other.summary.llm_base_url;
+        }
+        if !other.summary.llm_model.trim().is_empty() {
+            self.summary.llm_model = other.summary.llm_model;
+        }
+        if other.summary.llm_timeout_ms > 0 {
+            self.summary.llm_timeout_ms = other.summary.llm_timeout_ms;
+        }
+        if other.summary.llm_max_concurrency > 0 {
+            self.summary.llm_max_concurrency = other.summary.llm_max_concurrency;
+        }
         if other.retry.max_attempts > 0 {
             self.retry.max_attempts = other.retry.max_attempts;
         }
@@ -157,6 +183,19 @@ impl AppConfig {
 
         if self.retry.initial_delay_ms == 0 {
             anyhow::bail!("retry.initial_delay_ms must be greater than 0");
+        }
+
+        if self.summary.llm_enabled {
+            validate_non_empty("summary.llm_provider", &self.summary.llm_provider)?;
+            validate_non_empty("summary.llm_api_key", &self.summary.llm_api_key)?;
+            validate_non_empty("summary.llm_base_url", &self.summary.llm_base_url)?;
+            validate_non_empty("summary.llm_model", &self.summary.llm_model)?;
+            if self.summary.llm_timeout_ms == 0 {
+                anyhow::bail!("summary.llm_timeout_ms must be greater than 0");
+            }
+            if self.summary.llm_max_concurrency == 0 {
+                anyhow::bail!("summary.llm_max_concurrency must be greater than 0");
+            }
         }
 
         Ok(())
@@ -191,6 +230,13 @@ impl AppConfig {
             },
             "summary": {
                 "async_enabled": self.summary.async_enabled,
+                "llm_enabled": self.summary.llm_enabled,
+                "llm_provider": self.summary.llm_provider,
+                "llm_api_key": mask_secret(&self.summary.llm_api_key),
+                "llm_base_url": self.summary.llm_base_url,
+                "llm_model": self.summary.llm_model,
+                "llm_timeout_ms": self.summary.llm_timeout_ms,
+                "llm_max_concurrency": self.summary.llm_max_concurrency,
             },
             "retry": {
                 "max_attempts": self.retry.max_attempts,
@@ -243,6 +289,36 @@ fn apply_env_overrides(config: &mut AppConfig) -> Result<()> {
     }
     if let Some(value) = env_override("SUMMARY__ASYNC_ENABLED") {
         config.summary.async_enabled = parse_bool("SUMMARY__ASYNC_ENABLED", &value)?;
+    }
+    if let Some(value) = env_override("SUMMARY__LLM_ENABLED") {
+        config.summary.llm_enabled = parse_bool("SUMMARY__LLM_ENABLED", &value)?;
+    }
+    if let Some(value) = env_override("SUMMARY__LLM_PROVIDER") {
+        config.summary.llm_provider = value;
+    } else if let Some(value) = std::env::var("KODUCK_AI__LLM__DEFAULT_PROVIDER").ok() {
+        config.summary.llm_provider = value;
+    }
+    if let Some(value) = env_override("SUMMARY__LLM_API_KEY") {
+        config.summary.llm_api_key = value;
+    } else if let Some(value) = std::env::var("KODUCK_AI__LLM__MINIMAX__API_KEY").ok() {
+        config.summary.llm_api_key = value;
+    }
+    if let Some(value) = env_override("SUMMARY__LLM_BASE_URL") {
+        config.summary.llm_base_url = value;
+    } else if let Some(value) = std::env::var("KODUCK_AI__LLM__MINIMAX__BASE_URL").ok() {
+        config.summary.llm_base_url = value;
+    }
+    if let Some(value) = env_override("SUMMARY__LLM_MODEL") {
+        config.summary.llm_model = value;
+    } else if let Some(value) = std::env::var("KODUCK_AI__LLM__MINIMAX__DEFAULT_MODEL").ok() {
+        config.summary.llm_model = value;
+    }
+    if let Some(value) = env_override("SUMMARY__LLM_TIMEOUT_MS") {
+        config.summary.llm_timeout_ms = parse_u64("SUMMARY__LLM_TIMEOUT_MS", &value)?;
+    }
+    if let Some(value) = env_override("SUMMARY__LLM_MAX_CONCURRENCY") {
+        config.summary.llm_max_concurrency =
+            parse_u64("SUMMARY__LLM_MAX_CONCURRENCY", &value)? as usize;
     }
     if let Some(value) = env_override("RETRY__MAX_ATTEMPTS") {
         config.retry.max_attempts = parse_u32("RETRY__MAX_ATTEMPTS", &value)?;
@@ -345,6 +421,12 @@ mod tests {
 
             [summary]
             async_enabled = true
+            llm_enabled = false
+            llm_provider = "minimax"
+            llm_api_key = ""
+            llm_base_url = "https://api.minimax.chat/v1"
+            llm_model = "MiniMax-M2.7"
+            llm_timeout_ms = 15000
 
             [retry]
             max_attempts = 3

@@ -85,4 +85,26 @@ impl MemoryFactRepository {
 
         Ok(row)
     }
+
+    pub async fn delete_by_session(&self, tenant_id: &str, session_id: Uuid) -> Result<u64> {
+        let result = sqlx::query(
+            r#"
+            DELETE FROM memory_facts
+            WHERE tenant_id = $1 AND session_id = $2
+            "#,
+        )
+        .bind(tenant_id)
+        .bind(session_id)
+        .execute(&self.pool)
+        .await?;
+
+        let deleted = result.rows_affected();
+        info!(
+            session_id = %session_id,
+            deleted_count = deleted,
+            "memory facts deleted for session"
+        );
+
+        Ok(deleted)
+    }
 }

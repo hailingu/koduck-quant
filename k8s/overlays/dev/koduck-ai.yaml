@@ -35,5 +35,11 @@ spec:
               value: "true"
             - name: KODUCK_AI__LLM__STUB_ENABLED
               value: "false"
+            - name: KODUCK_AI__RELIABILITY__DEGRADE__ENABLED
+              value: "true"
+            - name: KODUCK_AI__RELIABILITY__DEGRADE__CHAT_ENABLED
+              value: "true"
+            - name: KODUCK_AI__RELIABILITY__DEGRADE__CHAT_STREAM_ENABLED
+              value: "true"
             - name: KODUCK_AI__AUTH__JWKS_URL
               value: "http://dev-koduck-auth:8081/.well-known/jwks.json"
