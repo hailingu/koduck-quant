@@ -252,6 +252,7 @@ impl SummaryTaskRunner {
             stored.summary.clone(),
             summary_uri.clone(),
         )
+        .with_memory_unit_id(stored.session_id)
         .with_snippet(materialized.summary_snippet.clone())
         .with_score_hint("0.95");
         self.index_repo.insert(&index_record).await?;

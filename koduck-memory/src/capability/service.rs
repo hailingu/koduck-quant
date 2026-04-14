@@ -2374,6 +2374,7 @@ mod tests {
         let first_facts = wait_for_facts(&fact_repo, "tenant-t33", session_id).await;
 
         assert_eq!(first_projection.len(), 1);
+        assert_eq!(first_projection[0].memory_unit_id, Some(session_id));
         assert!(
             first_summary.summary.contains("Karl Marx")
                 || first_summary.summary.contains("Friedrich Engels")
@@ -2420,6 +2421,7 @@ mod tests {
         let updated_facts = updated_facts.expect("updated facts were not materialized in time");
 
         assert_eq!(updated_projection.len(), 1);
+        assert_eq!(updated_projection[0].memory_unit_id, Some(session_id));
         assert_eq!(updated_projection[0].summary, updated_summary.summary);
         assert!(
             updated_summary.summary.contains("Karl Marx")

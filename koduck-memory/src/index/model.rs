@@ -9,6 +9,8 @@ pub struct MemoryIndexRecord {
     pub id: Uuid,
     pub tenant_id: String,
     pub session_id: Uuid,
+    /// Optional reference to the mapped memory unit for compatibility migration.
+    pub memory_unit_id: Option<Uuid>,
     /// Optional reference to the originating memory entry
     pub entry_id: Option<Uuid>,
     /// Kind of memory: user, assistant, system, summary, fact, etc.
@@ -32,6 +34,7 @@ pub struct InsertMemoryIndexRecord {
     pub id: Uuid,
     pub tenant_id: String,
     pub session_id: Uuid,
+    pub memory_unit_id: Option<Uuid>,
     pub entry_id: Option<Uuid>,
     pub memory_kind: String,
     pub domain_class: String,
@@ -55,6 +58,7 @@ impl InsertMemoryIndexRecord {
             id: Uuid::new_v4(),
             tenant_id: tenant_id.into(),
             session_id,
+            memory_unit_id: None,
             entry_id: None,
             memory_kind: memory_kind.into(),
             domain_class: domain_class.into(),
@@ -68,6 +72,12 @@ impl InsertMemoryIndexRecord {
     /// Set the optional entry_id reference.
     pub fn with_entry_id(mut self, entry_id: Uuid) -> Self {
         self.entry_id = Some(entry_id);
+        self
+    }
+
+    /// Set the optional memory_unit_id compatibility reference.
+    pub fn with_memory_unit_id(mut self, memory_unit_id: Uuid) -> Self {
+        self.memory_unit_id = Some(memory_unit_id);
         self
     }
 
@@ -107,6 +117,7 @@ mod tests {
 
         assert_eq!(params.tenant_id, "tenant-123");
         assert_eq!(params.session_id, session_id);
+        assert!(params.memory_unit_id.is_none());
         assert_eq!(params.entry_id, Some(entry_id));
         assert_eq!(params.memory_kind, "user");
         assert_eq!(params.domain_class, "chat");
@@ -129,6 +140,7 @@ mod tests {
         );
 
         assert_eq!(params.tenant_id, "tenant-456");
+        assert!(params.memory_unit_id.is_none());
         assert!(params.entry_id.is_none());
         assert!(params.snippet.is_none());
         assert!(params.score_hint.is_none());

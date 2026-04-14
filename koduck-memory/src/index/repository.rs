@@ -25,14 +25,14 @@ impl MemoryIndexRepository {
         let row = sqlx::query_as::<_, MemoryIndexRecord>(
             r#"
             INSERT INTO memory_index_records (
-                id, tenant_id, session_id, entry_id,
+                id, tenant_id, session_id, memory_unit_id, entry_id,
                 memory_kind, domain_class, summary, snippet,
                 source_uri, score_hint, created_at, updated_at
             ) VALUES (
-                $1, $2, $3, $4, $5, $6, $7, $8, $9, CAST($10 AS NUMERIC), now(), now()
+                $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, CAST($11 AS NUMERIC), now(), now()
             )
             RETURNING 
-                id, tenant_id, session_id, entry_id,
+                id, tenant_id, session_id, memory_unit_id, entry_id,
                 memory_kind, domain_class, summary, snippet,
                 source_uri, score_hint::text AS score_hint,
                 created_at, updated_at
@@ -41,6 +41,7 @@ impl MemoryIndexRepository {
         .bind(record.id)
         .bind(&record.tenant_id)
         .bind(record.session_id)
+        .bind(record.memory_unit_id)
         .bind(record.entry_id)
         .bind(&record.memory_kind)
         .bind(&record.domain_class)
@@ -75,7 +76,7 @@ impl MemoryIndexRepository {
         let rows = sqlx::query_as::<_, MemoryIndexRecord>(
             r#"
             SELECT 
-                id, tenant_id, session_id, entry_id,
+                id, tenant_id, session_id, memory_unit_id, entry_id,
                 memory_kind, domain_class, summary, snippet,
                 source_uri, score_hint::text AS score_hint,
                 created_at, updated_at
@@ -111,7 +112,7 @@ impl MemoryIndexRepository {
             sqlx::query_as::<_, MemoryIndexRecord>(
                 r#"
                 SELECT 
-                    id, tenant_id, session_id, entry_id,
+                    id, tenant_id, session_id, memory_unit_id, entry_id,
                     memory_kind, domain_class, summary, snippet,
                     source_uri, score_hint::text AS score_hint,
                     created_at, updated_at
@@ -134,7 +135,7 @@ impl MemoryIndexRepository {
             sqlx::query_as::<_, MemoryIndexRecord>(
                 r#"
                 SELECT 
-                    id, tenant_id, session_id, entry_id,
+                    id, tenant_id, session_id, memory_unit_id, entry_id,
                     memory_kind, domain_class, summary, snippet,
                     source_uri, score_hint::text AS score_hint,
                     created_at, updated_at
@@ -173,7 +174,7 @@ impl MemoryIndexRepository {
         let rows = sqlx::query_as::<_, MemoryIndexRecord>(
             r#"
             SELECT 
-                id, tenant_id, session_id, entry_id,
+                id, tenant_id, session_id, memory_unit_id, entry_id,
                 memory_kind, domain_class, summary, snippet,
                 source_uri, score_hint::text AS score_hint,
                 created_at, updated_at
@@ -221,7 +222,7 @@ impl MemoryIndexRepository {
                 sqlx::query_as::<_, MemoryIndexRecord>(
                     r#"
                     SELECT
-                        id, tenant_id, session_id, entry_id,
+                        id, tenant_id, session_id, memory_unit_id, entry_id,
                         memory_kind, domain_class, summary, snippet,
                         source_uri, score_hint::text AS score_hint,
                         created_at, updated_at
@@ -249,7 +250,7 @@ impl MemoryIndexRepository {
                 sqlx::query_as::<_, MemoryIndexRecord>(
                     r#"
                     SELECT
-                        id, tenant_id, session_id, entry_id,
+                        id, tenant_id, session_id, memory_unit_id, entry_id,
                         memory_kind, domain_class, summary, snippet,
                         source_uri, score_hint::text AS score_hint,
                         created_at, updated_at
@@ -293,7 +294,7 @@ impl MemoryIndexRepository {
         let row = sqlx::query_as::<_, MemoryIndexRecord>(
             r#"
                 SELECT
-                    id, tenant_id, session_id, entry_id,
+                    id, tenant_id, session_id, memory_unit_id, entry_id,
                     memory_kind, domain_class, summary, snippet,
                     source_uri, score_hint::text AS score_hint,
                     created_at, updated_at
