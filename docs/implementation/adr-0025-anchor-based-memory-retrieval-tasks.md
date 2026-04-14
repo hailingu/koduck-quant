@@ -114,10 +114,10 @@ kubectl rollout status deployment/dev-koduck-memory -n koduck-dev --timeout=180s
    - `fact_type` 只允许出现在 `memory_kind = fact` 的 unit 上
 
 **验收标准:**
-- [ ] 锚点表可支持按 `tenant + anchor` 高频检索
-- [ ] `fact_type` 约束在 schema 或写入层可被验证
-- [ ] 不包含 `time` 倒排锚点
-- [ ] `docker build -t koduck-memory:dev ./koduck-memory` 成功
+- [x] 锚点表可支持按 `tenant + anchor` 高频检索
+- [x] `fact_type` 约束在 schema 或写入层可被验证
+- [x] 不包含 `time` 倒排锚点
+- [x] `docker build -t koduck-memory:dev ./koduck-memory` 成功
 
 ---
 
