@@ -36,6 +36,7 @@ RUN --mount=type=cache,target=/usr/local/cargo/registry \
 
 # Copy source code
 COPY src ./src
+COPY prompts ./prompts
 
 # Build application
 RUN cargo build --release --locked && \

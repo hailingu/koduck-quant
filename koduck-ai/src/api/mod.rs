@@ -1543,7 +1543,15 @@ fn build_provider_generate_request(
     trace_id: &str,
     deadline_ms: u64,
 ) -> ProviderGenerateRequest {
-    let mut system_content = "你是 koduck-ai 的中文助手。默认使用简体中文直接回答用户问题，保持准确、简洁、自然。不要输出思维链、推理过程、草稿、自我讨论或任何 <think> 标签内容；只输出面向用户的最终答案。如果用户输入过于简短或语义不清，先用一句中文澄清，不要臆测事实。".to_string();
+    const KODUCK_V1_LITE_PROMPT: &str =
+        include_str!("../../prompts/system/koduck-v1-lite.md");
+    const KODUCK_BASE_LANGUAGE_PROMPT: &str = "你是 koduck-ai 的中文助手。默认使用简体中文直接回答用户问题，保持准确、简洁、自然。不要输出思维链、推理过程、草稿、自我讨论或任何 <think> 标签内容；只输出面向用户的最终答案。如果用户输入过于简短或语义不清，先用一句中文澄清，不要臆测事实。";
+
+    let mut system_content = format!(
+        "{}\n\n{}",
+        KODUCK_V1_LITE_PROMPT.trim(),
+        KODUCK_BASE_LANGUAGE_PROMPT
+    );
 
     if let Some(memory_prompt) = memory_snapshot.and_then(build_memory_prompt) {
         system_content.push_str("\n\n");

@@ -77,10 +77,15 @@ interface ApiErrorEnvelope {
   error?: ApiErrorBody;
 }
 
-const STREAM_INITIAL_IDLE_TIMEOUT_MS = 12000;
-const STREAM_POST_CONTENT_IDLE_TIMEOUT_MS = 2000;
+const STREAM_INITIAL_IDLE_TIMEOUT_MS = 20000;
+const STREAM_POST_CONTENT_IDLE_TIMEOUT_MS = 8000;
 const STREAM_REQUEST_TIMEOUT_MS = 90000;
 const ACTIVE_SESSION_STORAGE_KEY = "koduck.ai.activeSessionId";
+const SESSION_MESSAGES_STORAGE_PREFIX = "koduck.ai.sessionMessages";
+
+function buildSessionMessagesStorageKey(sessionId: string): string {
+  return `${SESSION_MESSAGES_STORAGE_PREFIX}.${sessionId}`;
+}
 
 function readActiveSessionId(): string | null {
   if (typeof window === "undefined") {
@@ -102,6 +107,89 @@ function persistActiveSessionId(sessionId: string | null) {
   }
 
   window.localStorage.removeItem(ACTIVE_SESSION_STORAGE_KEY);
+}
+
+function readStoredMessages(sessionId: string | null): Message[] {
+  if (typeof window === "undefined" || !sessionId) {
+    return [];
+  }
+
+  try {
+    const raw = window.localStorage.getItem(buildSessionMessagesStorageKey(sessionId));
+    if (!raw) {
+      return [];
+    }
+
+    const parsed = JSON.parse(raw) as unknown;
+    if (!Array.isArray(parsed)) {
+      return [];
+    }
+
+    return parsed.filter((item): item is Message => {
+      if (!item || typeof item !== "object") {
+        return false;
+      }
+
+      const candidate = item as Partial<Message>;
+      return (
+        typeof candidate.id === "string" &&
+        (candidate.role === "user" || candidate.role === "assistant") &&
+        typeof candidate.content === "string" &&
+        (candidate.type === "text" || candidate.type === "card") &&
+        typeof candidate.timestamp === "number"
+      );
+    });
+  } catch {
+    return [];
+  }
+}
+
+function persistSessionMessages(sessionId: string | null, messages: Message[]) {
+  if (typeof window === "undefined" || !sessionId) {
+    return;
+  }
+
+  const persistedMessages = messages.filter((message) => !message.streaming);
+  window.localStorage.setItem(
+    buildSessionMessagesStorageKey(sessionId),
+    JSON.stringify(persistedMessages),
+  );
+}
+
+function toUserVisibleStreamErrorMessage(rawMessage: string | null | undefined): string {
+  const normalized = rawMessage?.trim().toLowerCase() || "";
+
+  if (!normalized) {
+    return "连接中断，请重试一次。";
+  }
+
+  if (
+    normalized.includes("chat stream idle timeout") ||
+    normalized.includes("request timeout") ||
+    normalized.includes("stream timeout") ||
+    normalized.includes("timed out")
+  ) {
+    return "响应超时，请重试一次。";
+  }
+
+  if (
+    normalized.includes("networkerror") ||
+    normalized.includes("failed to fetch") ||
+    normalized.includes("load failed") ||
+    normalized.includes("network request failed")
+  ) {
+    return "网络连接异常，请重试一次。";
+  }
+
+  if (
+    normalized.includes("aborted") ||
+    normalized.includes("interrupted") ||
+    normalized.includes("ended before any visible content")
+  ) {
+    return "响应中断，请重试一次。";
+  }
+
+  return "连接中断，请重试一次。";
 }
 
 function normalizeMarkdownContent(content: string): string {
@@ -350,9 +438,10 @@ function parseSseBlocks(
 }
 
 export function KoduckAi() {
+  const initialSessionId = readActiveSessionId();
   const [chatMessage, setChatMessage] = useState("");
-  const [messages, setMessages] = useState<Message[]>([]);
-  const [currentSessionId, setCurrentSessionId] = useState<string | null>(() => readActiveSessionId());
+  const [messages, setMessages] = useState<Message[]>(() => readStoredMessages(initialSessionId));
+  const [currentSessionId, setCurrentSessionId] = useState<string | null>(initialSessionId);
   const [selectedProvider] = useState("OpenAI");
   const [selectedModel] = useState("GPT-4");
   const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
@@ -375,6 +464,14 @@ export function KoduckAi() {
     currentSessionIdRef.current = currentSessionId;
     persistActiveSessionId(currentSessionId);
   }, [currentSessionId]);
+
+  useEffect(() => {
+    setMessages(readStoredMessages(currentSessionId));
+  }, [currentSessionId]);
+
+  useEffect(() => {
+    persistSessionMessages(currentSessionId, messages);
+  }, [currentSessionId, messages]);
 
   const updateAssistantMessage = (messageId: string, updater: (prev: Message) => Message) => {
     setMessages((prev) =>
@@ -573,6 +670,7 @@ export function KoduckAi() {
       const decoder = new TextDecoder();
       let buffer = "";
       let streamCompleted = false;
+      let streamEstablished = false;
 
       while (!streamCompleted) {
         const idleTimeoutMs = streamedText.trim()
@@ -591,6 +689,8 @@ export function KoduckAi() {
         buffer = parsed.remainder;
 
         for (const block of parsed.blocks) {
+          streamEstablished = true;
+
           if (block.data === "heartbeat") {
             continue;
           }
@@ -664,21 +764,38 @@ export function KoduckAi() {
       }
 
       if (!streamedText.trim()) {
+        if (streamEstablished) {
+          throw new Error("chat stream ended before any visible content was returned");
+        }
         throw new Error("chat stream returned empty content");
       }
 
       shouldAbortRequest = false;
     } catch (error) {
       if (streamedText.trim()) {
+        const userVisibleMessage = toUserVisibleStreamErrorMessage(
+          error instanceof Error ? error.message : undefined,
+        );
         updateAssistantMessage(assistantMessageId, (prev) => ({
           ...prev,
           content:
-            streamedText +
-            `\n\n回答提前结束：${
-              error instanceof Error && error.message.trim()
-                ? error.message.trim()
-                : "连接中断，请重试一次。"
-            }`,
+            streamedText + `\n\n回答提前结束：${userVisibleMessage}`,
+          timestamp: prev.timestamp || Date.now(),
+          streaming: false,
+          type: "text",
+        }));
+        shouldAbortRequest = false;
+        return;
+      }
+
+      if (streamEstablished) {
+        const message = toUserVisibleStreamErrorMessage(
+          error instanceof Error ? error.message : undefined,
+        );
+        console.error("koduck-ai chat stream interrupted after connection established:", error);
+        updateAssistantMessage(assistantMessageId, (prev) => ({
+          ...prev,
+          content: `回答提前结束：${message}`,
           timestamp: prev.timestamp || Date.now(),
           streaming: false,
           type: "text",
@@ -688,13 +805,9 @@ export function KoduckAi() {
       }
 
       console.error("koduck-ai chat api failed, fallback to local mock:", error);
-      const fallbackReason =
-        error instanceof Error && error.message.trim()
-          ? error.message.trim()
-          : "后端接口调用失败";
       updateAssistantMessage(assistantMessageId, (prev) => ({
         ...prev,
-        content: `后端接口调用失败：${fallbackReason}\n当前为本地兜底回复。\n${getAIResponse(content)}`,
+        content: `后端暂时不可用\n当前为本地兜底回复。\n${getAIResponse(content)}`,
         timestamp: prev.timestamp || Date.now(),
         streaming: false,
         type: shouldReturnCard(content) ? "card" : "text",

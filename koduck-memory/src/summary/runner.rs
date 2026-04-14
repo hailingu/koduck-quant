@@ -890,6 +890,8 @@ async fn build_fact_candidates(
 ) -> Vec<FactCandidate> {
     let mut candidates = Vec::new();
     let mut seen = HashSet::new();
+    let mut ner_succeeded = false;
+    let mut ner_returned_empty = false;
 
     if summary_config.llm_enabled {
         match generate_ner_artifact_via_llm(
@@ -902,7 +904,24 @@ async fn build_fact_candidates(
         .await
         {
             Ok(Some(artifact)) => {
-                for person in artifact.persons.into_iter().take(MAX_PERSONS_PER_RUN) {
+                let ner_domain_class = artifact.domain_class.clone();
+                let ner_persons = artifact.persons;
+                let ner_person_count = ner_persons.len();
+
+                info!(
+                    inferred_domain_class = %inferred_domain_class,
+                    ner_domain_class = ner_domain_class.as_deref().unwrap_or(""),
+                    ner_person_count,
+                    "summary ner generation succeeded"
+                );
+
+                if ner_person_count == 0 {
+                    ner_returned_empty = true;
+                } else {
+                    ner_succeeded = true;
+                }
+
+                for person in ner_persons.into_iter().take(MAX_PERSONS_PER_RUN) {
                     push_fact_candidate(
                         &mut candidates,
                         &mut seen,
@@ -910,15 +929,42 @@ async fn build_fact_candidates(
                     );
                 }
             }
-            Ok(None) => {}
+            Ok(None) => {
+                ner_returned_empty = true;
+                info!(
+                    inferred_domain_class = %inferred_domain_class,
+                    "summary ner returned no entities; skipping fact insertion"
+                );
+            }
             Err(error) => {
                 warn!(error = %error, "summary ner generation failed, falling back to heuristic facts");
             }
         }
+    } else {
+        info!(
+            inferred_domain_class = %inferred_domain_class,
+            "summary ner llm disabled; using heuristic facts"
+        );
     }
 
     if !candidates.is_empty() {
         candidates.truncate(MAX_FACTS_PER_RUN);
+        info!(
+            inferred_domain_class = %inferred_domain_class,
+            fact_count = candidates.len(),
+            fact_source = if ner_succeeded { "ner" } else { "heuristic" },
+            "fact candidates prepared"
+        );
+        return candidates;
+    }
+
+    if ner_returned_empty {
+        info!(
+            inferred_domain_class = %inferred_domain_class,
+            fact_count = 0,
+            fact_source = "ner_empty",
+            "fact candidates prepared"
+        );
         return candidates;
     }
 
@@ -1020,6 +1066,12 @@ async fn build_fact_candidates(
     }
 
     candidates.truncate(MAX_FACTS_PER_RUN);
+    info!(
+        inferred_domain_class = %inferred_domain_class,
+        fact_count = candidates.len(),
+        fact_source = "heuristic",
+        "fact candidates prepared"
+    );
     candidates
 }
 
@@ -1507,4 +1559,5 @@ mod tests {
         assert!(facts.iter().any(|fact| fact.fact_text.contains("Friedrich Engels")));
         assert!(facts.iter().any(|fact| fact.fact_text.contains("Vladimir Lenin")));
     }
+
 }
