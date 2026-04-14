@@ -19,7 +19,14 @@ use crate::memory_unit::{AppendedEntryUnit, MemoryUnitMaterializer};
 use crate::observe::{record_rpc_call, RpcMethod, RpcOutcome};
 use crate::observe::RpcGuard;
 use crate::observe::RpcMetrics;
-use crate::retrieve::{AnchorFirstRetriever, QueryAnalysis, QueryAnalyzer, RetrieveContext, SummaryFirstRetriever};
+use crate::retrieve::{
+    AnchorFirstRetriever,
+    QueryAnalysis,
+    QueryAnalyzer,
+    RetrieveContext,
+    SummaryFirstRetriever,
+    match_reason,
+};
 use crate::summary::{SummaryJob, SummaryTaskRunner};
 use crate::session::{
     extra_to_jsonb, parse_optional_uuid, parse_uuid, SessionRepository, UpsertSession,
@@ -447,7 +454,7 @@ impl MemoryService for MemoryGrpcService {
                 session_id: r.session_id,
                 l0_uri: r.l0_uri,
                 score: r.score,
-                match_reasons: r.match_reasons,
+                match_reasons: match_reason::normalize_output(r.match_reasons),
                 snippet: r.snippet,
             })
             .collect();
@@ -872,6 +879,7 @@ mod tests {
     use crate::memory_anchor::{MemoryUnitAnchorRepository, MemoryUnitAnchorType};
     use crate::memory_unit::{MemoryUnitKind, MemoryUnitRepository};
     use crate::reliability::TaskAttemptRepository;
+    use crate::retrieve::match_reason;
     use crate::summary::MemorySummaryRepository;
     use crate::session::{SessionRepository, UpsertSession, extra_to_jsonb};
     use crate::store::RuntimeState;
@@ -932,6 +940,15 @@ mod tests {
                 mode: "domain-first".to_string(),
             },
         }
+    }
+
+    fn assert_match_reasons_are_closed_set(reasons: &[String]) {
+        assert!(
+            reasons
+                .iter()
+                .all(|reason| match_reason::is_closed_set_value(reason)),
+            "match_reasons must stay within closed set, got: {reasons:?}"
+        );
     }
 
     #[test]
@@ -1924,8 +1941,9 @@ mod tests {
         let hit = &query_resp.hits[0];
         assert_eq!(hit.l0_uri, record.source_uri);
         assert!(hit.snippet.contains("quarterly planning checklist"));
-        assert!(hit.match_reasons.contains(&"domain_class_hit".to_string()));
+        assert!(hit.match_reasons.contains(&"domain_hit".to_string()));
         assert!(hit.match_reasons.contains(&"session_scope_hit".to_string()));
+        assert_match_reasons_are_closed_set(&hit.match_reasons);
     }
 
     #[tokio::test]
@@ -2147,8 +2165,11 @@ mod tests {
             response
                 .hits
                 .iter()
-                .any(|hit| hit.match_reasons.contains(&"domain_class_hit".to_string()))
+                .any(|hit| hit.match_reasons.contains(&"domain_hit".to_string()))
         );
+        for hit in &response.hits {
+            assert_match_reasons_are_closed_set(&hit.match_reasons);
+        }
 
         let _ = shutdown_tx.send(());
         server.await.unwrap();
@@ -2631,9 +2652,10 @@ mod tests {
 
         let hit = &response.hits[0];
         assert!(hit.snippet.contains("release checklist"));
-        assert!(hit.match_reasons.contains(&"domain_class_hit".to_string()));
+        assert!(hit.match_reasons.contains(&"domain_hit".to_string()));
         assert!(hit.match_reasons.contains(&"summary_hit".to_string()));
         assert!(hit.match_reasons.contains(&"session_scope_hit".to_string()));
+        assert_match_reasons_are_closed_set(&hit.match_reasons);
     }
 
     #[tokio::test]

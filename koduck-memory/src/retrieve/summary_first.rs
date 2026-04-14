@@ -112,9 +112,9 @@ impl SummaryFirstRetriever {
                     && !result
                         .match_reasons
                         .iter()
-                        .any(|reason| reason == match_reason::DOMAIN_CLASS_HIT)
+                        .any(|reason| reason == match_reason::DOMAIN_HIT)
                 {
-                    result = result.with_match_reason(match_reason::DOMAIN_CLASS_HIT);
+                    result = result.with_match_reason(match_reason::DOMAIN_HIT);
                 }
                 result.with_match_reason(match_reason::SUMMARY_HIT)
             })

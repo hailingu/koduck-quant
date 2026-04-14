@@ -292,11 +292,11 @@ kubectl rollout status deployment/dev-koduck-memory -n koduck-dev --timeout=180s
 3. `MemoryHit` 主路径不承载 recall 扩展的 batch 中间材料
 
 **验收标准:**
-- [ ] `match_reasons` 不出现开放集漂移
-- [ ] 输出形态与当前 `memory.v1` 主路径兼容
-- [ ] 不将 batch 中间材料塞入 `MemoryHit`
-- [ ] `docker build -t koduck-memory:dev ./koduck-memory` 成功
-- [ ] `kubectl rollout status deployment/dev-koduck-memory -n koduck-dev --timeout=180s` 成功
+- [x] `match_reasons` 不出现开放集漂移
+- [x] 输出形态与当前 `memory.v1` 主路径兼容
+- [x] 不将 batch 中间材料塞入 `MemoryHit`
+- [x] `docker build -t koduck-memory:dev ./koduck-memory` 成功
+- [x] `kubectl rollout status deployment/dev-koduck-memory -n koduck-dev --timeout=180s` 成功
 
 ---
 

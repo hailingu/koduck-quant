@@ -182,12 +182,41 @@ pub mod domain_class {
 
 /// Match reasons for memory hits.
 pub mod match_reason {
-    pub const DOMAIN_CLASS_HIT: &str = "domain_class_hit";
+    use std::collections::BTreeSet;
+
+    pub const DOMAIN_HIT: &str = "domain_hit";
     pub const ENTITY_HIT: &str = "entity_hit";
     pub const RELATION_HIT: &str = "relation_hit";
+    pub const DISCOURSE_ACTION_HIT: &str = "discourse_action_hit";
     pub const SESSION_SCOPE_HIT: &str = "session_scope_hit";
     pub const SUMMARY_HIT: &str = "summary_hit";
-    pub const KEYWORD_HIT: &str = "keyword_hit";
+    pub const FACT_HIT: &str = "fact_hit";
+    pub const RECENCY_BOOST: &str = "recency_boost";
+
+    const CLOSED_SET: [&str; 8] = [
+        DOMAIN_HIT,
+        ENTITY_HIT,
+        RELATION_HIT,
+        DISCOURSE_ACTION_HIT,
+        SESSION_SCOPE_HIT,
+        SUMMARY_HIT,
+        FACT_HIT,
+        RECENCY_BOOST,
+    ];
+
+    pub fn is_closed_set_value(reason: &str) -> bool {
+        CLOSED_SET.contains(&reason)
+    }
+
+    pub fn normalize_output(reasons: Vec<String>) -> Vec<String> {
+        reasons
+            .into_iter()
+            .map(|reason| reason.trim().to_string())
+            .filter(|reason| !reason.is_empty() && is_closed_set_value(reason))
+            .collect::<BTreeSet<_>>()
+            .into_iter()
+            .collect()
+    }
 }
 
 #[cfg(test)]
@@ -244,7 +273,7 @@ mod tests {
     #[test]
     fn retrieve_result_builder_works() {
         let result = RetrieveResult::new("session-1", "s3://bucket/obj", 0.85, "snippet")
-            .with_match_reason("domain_class_hit")
+            .with_match_reason("domain_hit")
             .with_match_reason("session_scope_hit");
 
         assert_eq!(result.session_id, "session-1");
@@ -252,7 +281,22 @@ mod tests {
         assert!((result.score - 0.85).abs() < f32::EPSILON);
         assert_eq!(result.snippet, "snippet");
         assert_eq!(result.match_reasons.len(), 2);
-        assert!(result.match_reasons.contains(&"domain_class_hit".to_string()));
+        assert!(result.match_reasons.contains(&"domain_hit".to_string()));
+    }
+
+    #[test]
+    fn match_reason_normalization_filters_open_set_values() {
+        let normalized = match_reason::normalize_output(vec![
+            "domain_hit".to_string(),
+            "domain_hit".to_string(),
+            "keyword_hit".to_string(),
+            " summary_hit ".to_string(),
+        ]);
+
+        assert_eq!(
+            normalized,
+            vec!["domain_hit".to_string(), "summary_hit".to_string()]
+        );
     }
 
     #[test]
