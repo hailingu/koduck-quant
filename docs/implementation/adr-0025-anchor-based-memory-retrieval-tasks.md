@@ -131,10 +131,10 @@ kubectl rollout status deployment/dev-koduck-memory -n koduck-dev --timeout=180s
    - 多条 entry 的完整回放依赖 `entry range`
 
 **验收标准:**
-- [ ] `domain_class_primary` 的投影规则可复现
-- [ ] 回填、重算、迁移使用同一算法
-- [ ] 单 entry 与多 entry 场景的回溯规则无歧义
-- [ ] `docker build -t koduck-memory:dev ./koduck-memory` 成功
+- [x] `domain_class_primary` 的投影规则可复现
+- [x] 回填、重算、迁移使用同一算法
+- [x] 单 entry 与多 entry 场景的回溯规则无歧义
+- [x] `docker build -t koduck-memory:dev ./koduck-memory` 成功
 
 ---
 
