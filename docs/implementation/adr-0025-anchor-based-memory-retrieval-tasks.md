@@ -247,11 +247,11 @@ kubectl rollout status deployment/dev-koduck-memory -n koduck-dev --timeout=180s
    - 不单独改变主召回路径
 
 **验收标准:**
-- [ ] 查询侧与存储侧语义不再混用
-- [ ] `intent_score` 具备稳定映射基础
-- [ ] `intent_aux[]` 不造成重复加权
-- [ ] `docker build -t koduck-memory:dev ./koduck-memory` 成功
-- [ ] `kubectl rollout status deployment/dev-koduck-memory -n koduck-dev --timeout=180s` 成功
+- [x] 查询侧与存储侧语义不再混用
+- [x] `intent_score` 具备稳定映射基础
+- [x] `intent_aux[]` 不造成重复加权
+- [x] `docker build -t koduck-memory:dev ./koduck-memory` 成功
+- [x] `kubectl rollout status deployment/dev-koduck-memory -n koduck-dev --timeout=180s` 成功
 
 ---
 

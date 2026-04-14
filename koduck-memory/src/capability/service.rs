@@ -869,7 +869,7 @@ mod tests {
     };
     use crate::facts::MemoryFactRepository;
     use crate::index::MemoryIndexRepository;
-    use crate::memory_anchor::MemoryUnitAnchorRepository;
+    use crate::memory_anchor::{MemoryUnitAnchorRepository, MemoryUnitAnchorType};
     use crate::memory_unit::{MemoryUnitKind, MemoryUnitRepository};
     use crate::reliability::TaskAttemptRepository;
     use crate::summary::MemorySummaryRepository;
@@ -1933,6 +1933,7 @@ mod tests {
         let config = test_config();
         let runtime = RuntimeState::initialize(&config).await.unwrap();
         let unit_repo = MemoryUnitRepository::new(runtime.pool());
+        let anchor_repo = MemoryUnitAnchorRepository::new(runtime.pool());
         let (mut client, shutdown_tx, server) = start_test_server(config, runtime).await;
 
         let session_id = Uuid::new_v4();
@@ -1986,6 +1987,15 @@ mod tests {
         assert_eq!(units[1].entry_range_start, 2);
         assert_eq!(units[1].entry_range_end, 2);
         assert!(units[1].snippet.as_deref().is_some_and(|snippet| snippet.contains("concise checklist")));
+
+        let anchors = anchor_repo
+            .list_by_memory_unit("tenant-t33", units[0].memory_unit_id)
+            .await
+            .unwrap();
+        assert!(anchors.iter().any(|anchor| {
+            anchor.anchor_type == MemoryUnitAnchorType::DiscourseAction
+                && anchor.anchor_key == "other"
+        }));
 
         let _ = shutdown_tx.send(());
         server.await.unwrap();
@@ -2336,6 +2346,10 @@ mod tests {
             .await
             .unwrap();
         assert!(summary_anchors.iter().any(|anchor| anchor.anchor_key == stored_summary.domain_class));
+        assert!(summary_anchors.iter().any(|anchor| {
+            anchor.anchor_type == MemoryUnitAnchorType::DiscourseAction
+                && anchor.anchor_key == "other"
+        }));
 
         for fact in &facts {
             let anchors = anchor_repo
@@ -2344,7 +2358,69 @@ mod tests {
                 .unwrap();
             assert!(anchors.iter().any(|anchor| anchor.anchor_key == stored_summary.domain_class));
             assert!(anchors.iter().any(|anchor| anchor.anchor_key == fact.fact_type));
+            assert!(anchors.iter().any(|anchor| {
+                anchor.anchor_type == MemoryUnitAnchorType::DiscourseAction
+                    && anchor.anchor_key == "other"
+            }));
         }
+
+        let _ = shutdown_tx.send(());
+        server.await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn append_memory_materializes_discourse_action_anchor_for_comparison_prompt() {
+        let config = test_config();
+        let runtime = RuntimeState::initialize(&config).await.unwrap();
+        let unit_repo = MemoryUnitRepository::new(runtime.pool());
+        let anchor_repo = MemoryUnitAnchorRepository::new(runtime.pool());
+        let (mut client, shutdown_tx, server) = start_test_server(config, runtime).await;
+
+        let session_id = Uuid::new_v4();
+        let sid_str = session_id.to_string();
+
+        client
+            .upsert_session_meta(UpsertSessionMetaRequest {
+                meta: Some(write_meta_with_idempotency("t53b-session", &sid_str)),
+                session_id: sid_str.clone(),
+                title: "Comparison units".to_string(),
+                status: "active".to_string(),
+                parent_session_id: String::new(),
+                forked_from_session_id: String::new(),
+                last_message_at: 1700000000000,
+                extra: [].into(),
+            })
+            .await
+            .unwrap();
+
+        client
+            .append_memory(AppendMemoryRequest {
+                meta: Some(write_meta_with_idempotency("t53b-append", &sid_str)),
+                session_id: sid_str.clone(),
+                entries: vec![MemoryEntry {
+                    role: "user".to_string(),
+                    content: "Compare Rust vs Go for backend services".to_string(),
+                    timestamp: 1700000000000,
+                    metadata: std::collections::HashMap::new(),
+                }],
+            })
+            .await
+            .unwrap();
+
+        let units = wait_for_memory_units(&unit_repo, "tenant-t33", session_id, 1).await;
+        let anchors = anchor_repo
+            .list_by_memory_unit("tenant-t33", units[0].memory_unit_id)
+            .await
+            .unwrap();
+
+        assert!(anchors.iter().any(|anchor| {
+            anchor.anchor_type == MemoryUnitAnchorType::DiscourseAction
+                && anchor.anchor_key == "comparison"
+        }));
+        assert!(!anchors.iter().any(|anchor| {
+            anchor.anchor_type == MemoryUnitAnchorType::DiscourseAction
+                && anchor.anchor_key == "other"
+        }));
 
         let _ = shutdown_tx.send(());
         server.await.unwrap();
