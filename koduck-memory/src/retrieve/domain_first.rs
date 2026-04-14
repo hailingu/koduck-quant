@@ -93,9 +93,9 @@ impl DomainFirstRetriever {
                     }),
                 );
 
-                // Add domain_class_hit reason
+                // Add domain_hit reason
                 if domain_filter.is_some() {
-                    result = result.with_match_reason(match_reason::DOMAIN_CLASS_HIT);
+                    result = result.with_match_reason(match_reason::DOMAIN_HIT);
                 }
 
                 // Add session_scope_hit if session filter was applied

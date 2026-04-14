@@ -17,7 +17,9 @@ use uuid::Uuid;
 
 use crate::Result;
 use crate::memory_anchor::{MemoryUnitAnchorRepository, MemoryUnitAnchorType};
+use crate::memory_unit::MemoryUnitKind;
 use crate::memory_unit::MemoryUnitRepository;
+use crate::retrieve::semantics::{QueryIntentType, map_intent_to_discourse_action};
 use crate::retrieve::types::{RetrieveContext, RetrieveResult, match_reason};
 
 const CANDIDATE_EXPANSION_FACTOR: i64 = 6;
@@ -77,7 +79,7 @@ impl AnchorFirstRetriever {
                 let candidate = candidates
                     .entry(anchor.memory_unit_id)
                     .or_insert_with(CandidateSignal::new);
-                candidate.reasons.insert(match_reason::DOMAIN_CLASS_HIT.to_string());
+                candidate.reasons.insert(match_reason::DOMAIN_HIT.to_string());
                 candidate.score_hint += 0.35 * anchor.weight as f32;
             }
         }
@@ -112,6 +114,28 @@ impl AnchorFirstRetriever {
                     .or_insert_with(CandidateSignal::new);
                 candidate.reasons.insert(match_reason::RELATION_HIT.to_string());
                 candidate.score_hint += 0.25 * anchor.weight as f32;
+            }
+        }
+
+        if let Some(discourse_action) = parse_intent_type(&ctx.intent_type)
+            .and_then(map_intent_to_discourse_action)
+        {
+            let anchors = self
+                .anchor_repo
+                .list_by_anchor(
+                    &ctx.tenant_id,
+                    MemoryUnitAnchorType::DiscourseAction,
+                    discourse_action.as_str(),
+                    channel_limit,
+                )
+                .await?;
+            for anchor in anchors {
+                if let Some(candidate) = candidates.get_mut(&anchor.memory_unit_id) {
+                    candidate
+                        .reasons
+                        .insert(match_reason::DISCOURSE_ACTION_HIT.to_string());
+                    candidate.score_hint += 0.05 * anchor.weight as f32;
+                }
             }
         }
 
@@ -170,6 +194,12 @@ impl AnchorFirstRetriever {
                 for reason in signal.reasons {
                     result = result.with_match_reason(reason);
                 }
+                if unit.memory_kind == MemoryUnitKind::Fact {
+                    result = result.with_match_reason(match_reason::FACT_HIT);
+                }
+                if recency_boost > 0.0 {
+                    result = result.with_match_reason(match_reason::RECENCY_BOOST);
+                }
                 results.push((result, unit.updated_at));
             }
         }
@@ -198,3 +228,15 @@ impl AnchorFirstRetriever {
     }
 }
 
+fn parse_intent_type(value: &str) -> Option<QueryIntentType> {
+    match value {
+        "recall" => Some(QueryIntentType::Recall),
+        "compare" => Some(QueryIntentType::Compare),
+        "disambiguate" => Some(QueryIntentType::Disambiguate),
+        "correct" => Some(QueryIntentType::Correct),
+        "explain" => Some(QueryIntentType::Explain),
+        "decide" => Some(QueryIntentType::Decide),
+        "none" => Some(QueryIntentType::None),
+        _ => None,
+    }
+}
