@@ -3,18 +3,18 @@
 //! The analyzer converts raw request fields into a structured retrieval context
 //! while keeping a clear fallback path when analysis fails.
 
-use anyhow::{Result, bail};
+use anyhow::Result;
 use std::collections::BTreeSet;
 
+use crate::retrieve::semantics::{
+    QueryIntentType,
+    contains_any,
+    intent_aux_cross_session_scope,
+    intent_aux_decision_context,
+    intent_aux_recent_bias,
+    normalize_intent_aux,
+};
 use crate::retrieve::types::domain_class;
-
-const INTENT_RECALL: &str = "recall";
-const INTENT_COMPARE: &str = "compare";
-const INTENT_DISAMBIGUATE: &str = "disambiguate";
-const INTENT_CORRECT: &str = "correct";
-const INTENT_EXPLAIN: &str = "explain";
-const INTENT_DECIDE: &str = "decide";
-const INTENT_NONE: &str = "none";
 
 const TARGET_GENERAL: &str = "general";
 const TARGET_PREFERENCE: &str = "preference";
@@ -41,7 +41,7 @@ impl QueryAnalysis {
             domain_classes: vec![normalized_domain_class],
             entities: Vec::new(),
             relation_types: Vec::new(),
-            intent_type: INTENT_NONE.to_string(),
+            intent_type: QueryIntentType::None.as_str().to_string(),
             intent_aux: Vec::new(),
             recall_target_type,
         }
@@ -70,11 +70,8 @@ impl QueryAnalyzer {
         let normalized_query = query_text.trim();
         let normalized_domain_class = normalize_domain_class(domain_class_input);
         let intent_type = detect_intent_type(normalized_query);
-        if !is_supported_intent(&intent_type) {
-            bail!("unsupported intent_type: {intent_type}");
-        }
 
-        let recall_target_type = if intent_type == INTENT_RECALL {
+        let recall_target_type = if intent_type == QueryIntentType::Recall {
             detect_recall_target_type(normalized_query).map(str::to_string)
         } else {
             detect_recall_target_type(normalized_query)
@@ -86,14 +83,14 @@ impl QueryAnalyzer {
         domain_classes.insert(normalized_domain_class);
 
         let entities = extract_entities(normalized_query);
-        let relation_types = detect_relation_types(normalized_query, &intent_type);
+        let relation_types = detect_relation_types(normalized_query, intent_type);
         let intent_aux = detect_intent_aux(normalized_query, session_id, &intent_type, &relation_types);
 
         Ok(QueryAnalysis {
             domain_classes: domain_classes.into_iter().collect(),
             entities,
             relation_types,
-            intent_type,
+            intent_type: intent_type.as_str().to_string(),
             intent_aux,
             recall_target_type,
         })
@@ -109,29 +106,29 @@ fn normalize_domain_class(input: &str) -> String {
     }
 }
 
-fn detect_intent_type(query_text: &str) -> String {
+fn detect_intent_type(query_text: &str) -> QueryIntentType {
     let lower = query_text.to_lowercase();
 
     if contains_any(&lower, &["remember", "recall", "previously", "before", "之前", "还记得", "聊过"]) {
-        return INTENT_RECALL.to_string();
+        return QueryIntentType::Recall;
     }
     if contains_any(&lower, &["compare", "difference", "versus", "vs", "区别", "比较"]) {
-        return INTENT_COMPARE.to_string();
+        return QueryIntentType::Compare;
     }
     if contains_any(&lower, &["which one", "还是", "到底是", "弄混", "disambiguate"]) {
-        return INTENT_DISAMBIGUATE.to_string();
+        return QueryIntentType::Disambiguate;
     }
     if contains_any(&lower, &["correct", "wrong", "不对", "纠正", "更正"]) {
-        return INTENT_CORRECT.to_string();
+        return QueryIntentType::Correct;
     }
     if contains_any(&lower, &["explain", "why", "how", "解释", "说明"]) {
-        return INTENT_EXPLAIN.to_string();
+        return QueryIntentType::Explain;
     }
     if contains_any(&lower, &["decide", "choose", "option", "选择", "决定", "方案"]) {
-        return INTENT_DECIDE.to_string();
+        return QueryIntentType::Decide;
     }
 
-    INTENT_NONE.to_string()
+    QueryIntentType::None
 }
 
 fn detect_recall_target_type(query_text: &str) -> Option<&'static str> {
@@ -150,17 +147,23 @@ fn detect_recall_target_type(query_text: &str) -> Option<&'static str> {
     Some(TARGET_GENERAL)
 }
 
-fn detect_relation_types(query_text: &str, intent_type: &str) -> Vec<String> {
+fn detect_relation_types(query_text: &str, intent_type: QueryIntentType) -> Vec<String> {
     let lower = query_text.to_lowercase();
     let mut relation_types = BTreeSet::new();
 
-    if intent_type == INTENT_COMPARE || contains_any(&lower, &["compare", "difference", "versus", "vs", "比较", "区别"]) {
+    if intent_type == QueryIntentType::Compare
+        || contains_any(&lower, &["compare", "difference", "versus", "vs", "比较", "区别"])
+    {
         relation_types.insert("comparison".to_string());
     }
-    if intent_type == INTENT_DISAMBIGUATE || contains_any(&lower, &["还是", "到底是", "弄混", "disambiguate"]) {
+    if intent_type == QueryIntentType::Disambiguate
+        || contains_any(&lower, &["还是", "到底是", "弄混", "disambiguate"])
+    {
         relation_types.insert("disambiguation".to_string());
     }
-    if intent_type == INTENT_CORRECT || contains_any(&lower, &["correct", "wrong", "不对", "纠正", "更正"]) {
+    if intent_type == QueryIntentType::Correct
+        || contains_any(&lower, &["correct", "wrong", "不对", "纠正", "更正"])
+    {
         relation_types.insert("correction".to_string());
     }
 
@@ -170,27 +173,27 @@ fn detect_relation_types(query_text: &str, intent_type: &str) -> Vec<String> {
 fn detect_intent_aux(
     query_text: &str,
     session_id: &str,
-    intent_type: &str,
+    intent_type: &QueryIntentType,
     relation_types: &[String],
 ) -> Vec<String> {
     let lower = query_text.to_lowercase();
     let mut aux = BTreeSet::new();
 
-    if intent_type == INTENT_RECALL && session_id.trim().is_empty() {
-        aux.insert("cross_session_scope".to_string());
+    if *intent_type == QueryIntentType::Recall && session_id.trim().is_empty() {
+        aux.insert(intent_aux_cross_session_scope().to_string());
     }
-    if intent_type == INTENT_RECALL
+    if *intent_type == QueryIntentType::Recall
         && contains_any(&lower, &["latest", "recent", "最近", "刚才"])
     {
-        aux.insert("recent_bias".to_string());
+        aux.insert(intent_aux_recent_bias().to_string());
     }
-    if intent_type == INTENT_DECIDE
+    if *intent_type == QueryIntentType::Decide
         && !relation_types.iter().any(|relation| relation == "comparison")
     {
-        aux.insert("decision_context".to_string());
+        aux.insert(intent_aux_decision_context().to_string());
     }
 
-    aux.into_iter().collect()
+    normalize_intent_aux(aux.into_iter().collect(), relation_types)
 }
 
 fn extract_entities(query_text: &str) -> Vec<String> {
@@ -210,23 +213,6 @@ fn extract_entities(query_text: &str) -> Vec<String> {
     }
 
     entities.into_iter().collect()
-}
-
-fn contains_any(haystack: &str, needles: &[&str]) -> bool {
-    needles.iter().any(|needle| haystack.contains(needle))
-}
-
-fn is_supported_intent(intent_type: &str) -> bool {
-    matches!(
-        intent_type,
-        INTENT_RECALL
-            | INTENT_COMPARE
-            | INTENT_DISAMBIGUATE
-            | INTENT_CORRECT
-            | INTENT_EXPLAIN
-            | INTENT_DECIDE
-            | INTENT_NONE
-    )
 }
 
 #[cfg(test)]

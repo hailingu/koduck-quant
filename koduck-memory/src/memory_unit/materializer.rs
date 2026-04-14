@@ -14,6 +14,7 @@ use crate::memory_unit::{
     MemoryUnitRepository,
     MemoryUnitSummaryState,
 };
+use crate::retrieve::infer_discourse_actions;
 
 const DEFAULT_SNIPPET_LIMIT: usize = 96;
 
@@ -79,7 +80,9 @@ impl MemoryUnitMaterializer {
             .with_snippet(truncate_text(&entry.content, DEFAULT_SNIPPET_LIMIT))
             .with_time_bucket(build_time_bucket(entry.message_ts));
 
-            let _ = self.unit_repo.insert(&insert).await?;
+            let unit = self.unit_repo.insert(&insert).await?;
+            self.insert_discourse_action_anchors(&entry.tenant_id, unit.memory_unit_id, &entry.content)
+                .await?;
         }
 
         Ok(())
@@ -112,6 +115,8 @@ impl MemoryUnitMaterializer {
                     input.domain_class.clone(),
                 )?,
             )
+            .await?;
+        self.insert_discourse_action_anchors(&input.tenant_id, input.session_id, &input.summary)
             .await?;
         self.unit_repo
             .sync_projected_domain_class_primary(&input.tenant_id, input.session_id)
@@ -175,8 +180,36 @@ impl MemoryUnitMaterializer {
                     .with_weight(input.fact.confidence)?,
                 )
                 .await?;
+            self.insert_discourse_action_anchors(
+                &input.tenant_id,
+                unit.memory_unit_id,
+                &input.fact.fact_text,
+            )
+            .await?;
             self.unit_repo
                 .sync_projected_domain_class_primary(&input.tenant_id, unit.memory_unit_id)
+                .await?;
+        }
+
+        Ok(())
+    }
+
+    async fn insert_discourse_action_anchors(
+        &self,
+        tenant_id: &str,
+        memory_unit_id: Uuid,
+        source_text: &str,
+    ) -> Result<()> {
+        for discourse_action in infer_discourse_actions(source_text) {
+            self.anchor_repo
+                .insert(
+                    &InsertMemoryUnitAnchor::new(
+                        tenant_id.to_string(),
+                        memory_unit_id,
+                        MemoryUnitAnchorType::DiscourseAction,
+                        discourse_action.as_str(),
+                    )?,
+                )
                 .await?;
         }
 
