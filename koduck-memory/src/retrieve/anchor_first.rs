@@ -11,6 +11,7 @@
 use std::cmp::Ordering;
 use std::collections::{BTreeSet, HashMap};
 
+use chrono::{DateTime, Datelike, Utc};
 use sqlx::PgPool;
 use tracing::{debug, info, instrument};
 use uuid::Uuid;
@@ -24,6 +25,12 @@ use crate::retrieve::types::{RetrieveContext, RetrieveResult, match_reason};
 
 const CANDIDATE_EXPANSION_FACTOR: i64 = 6;
 const CHANNEL_LIMIT_FLOOR: i64 = 24;
+const WEIGHT_DOMAIN: f32 = 0.30;
+const WEIGHT_ENTITY: f32 = 0.35;
+const WEIGHT_RELATION: f32 = 0.15;
+const WEIGHT_INTENT: f32 = 0.05;
+const WEIGHT_RECENCY: f32 = 0.10;
+const WEIGHT_SALIENCE: f32 = 0.05;
 
 #[derive(Clone)]
 pub struct AnchorFirstRetriever {
@@ -34,14 +41,20 @@ pub struct AnchorFirstRetriever {
 #[derive(Debug, Clone)]
 struct CandidateSignal {
     reasons: BTreeSet<String>,
-    score_hint: f32,
+    domain_score: f32,
+    entity_score: f32,
+    relation_score: f32,
+    intent_score: f32,
 }
 
 impl CandidateSignal {
     fn new() -> Self {
         Self {
             reasons: BTreeSet::new(),
-            score_hint: 0.0,
+            domain_score: 0.0,
+            entity_score: 0.0,
+            relation_score: 0.0,
+            intent_score: 0.0,
         }
     }
 }
@@ -80,7 +93,7 @@ impl AnchorFirstRetriever {
                     .entry(anchor.memory_unit_id)
                     .or_insert_with(CandidateSignal::new);
                 candidate.reasons.insert(match_reason::DOMAIN_HIT.to_string());
-                candidate.score_hint += 0.35 * anchor.weight as f32;
+                candidate.domain_score += anchor.weight as f32;
             }
         }
 
@@ -94,7 +107,7 @@ impl AnchorFirstRetriever {
                     .entry(anchor.memory_unit_id)
                     .or_insert_with(CandidateSignal::new);
                 candidate.reasons.insert(match_reason::ENTITY_HIT.to_string());
-                candidate.score_hint += 0.30 * anchor.weight as f32;
+                candidate.entity_score += anchor.weight as f32;
             }
         }
 
@@ -113,7 +126,7 @@ impl AnchorFirstRetriever {
                     .entry(anchor.memory_unit_id)
                     .or_insert_with(CandidateSignal::new);
                 candidate.reasons.insert(match_reason::RELATION_HIT.to_string());
-                candidate.score_hint += 0.25 * anchor.weight as f32;
+                candidate.relation_score += anchor.weight as f32;
             }
         }
 
@@ -131,10 +144,7 @@ impl AnchorFirstRetriever {
                 .await?;
             for anchor in anchors {
                 if let Some(candidate) = candidates.get_mut(&anchor.memory_unit_id) {
-                    candidate
-                        .reasons
-                        .insert(match_reason::DISCOURSE_ACTION_HIT.to_string());
-                    candidate.score_hint += 0.05 * anchor.weight as f32;
+                    apply_intent_signal(candidate, anchor.weight as f32);
                 }
             }
         }
@@ -155,7 +165,6 @@ impl AnchorFirstRetriever {
                 candidate
                     .reasons
                     .insert(match_reason::SESSION_SCOPE_HIT.to_string());
-                candidate.score_hint += 0.20;
             }
         }
 
@@ -164,6 +173,7 @@ impl AnchorFirstRetriever {
             return Ok(Vec::new());
         }
 
+        let now = chrono::Utc::now();
         let mut results = Vec::new();
         for (memory_unit_id, signal) in candidates {
             if let Some(unit) = self
@@ -171,14 +181,16 @@ impl AnchorFirstRetriever {
                 .get_by_id(&ctx.tenant_id, memory_unit_id)
                 .await?
             {
-                let recency_boost = if unit.updated_at > chrono::Utc::now() - chrono::Duration::days(3)
-                {
-                    0.12
-                } else {
-                    0.0
-                };
-                let salience = unit.salience_score.unwrap_or(0.0) as f32 * 0.08;
-                let final_score = (signal.score_hint + recency_boost + salience).clamp(0.0, 1.0);
+                let recency_score = recency_score(unit.updated_at, unit.time_bucket.as_deref(), now);
+                let salience_score = unit.salience_score.unwrap_or(0.0).clamp(0.0, 1.0) as f32;
+                let final_score = combine_scores(
+                    signal.domain_score,
+                    signal.entity_score,
+                    signal.relation_score,
+                    signal.intent_score,
+                    recency_score,
+                    salience_score,
+                );
                 let snippet = unit
                     .snippet
                     .clone()
@@ -197,7 +209,7 @@ impl AnchorFirstRetriever {
                 if unit.memory_kind == MemoryUnitKind::Fact {
                     result = result.with_match_reason(match_reason::FACT_HIT);
                 }
-                if recency_boost > 0.0 {
+                if recency_score > 0.0 {
                     result = result.with_match_reason(match_reason::RECENCY_BOOST);
                 }
                 results.push((result, unit.updated_at));
@@ -228,6 +240,81 @@ impl AnchorFirstRetriever {
     }
 }
 
+fn apply_intent_signal(candidate: &mut CandidateSignal, intent_anchor_weight: f32) {
+    // intent_score is a weak signal and must not duplicate relation semantics.
+    if candidate
+        .reasons
+        .contains(match_reason::RELATION_HIT)
+    {
+        return;
+    }
+    candidate
+        .reasons
+        .insert(match_reason::DISCOURSE_ACTION_HIT.to_string());
+    candidate.intent_score += intent_anchor_weight;
+}
+
+fn combine_scores(
+    domain_score: f32,
+    entity_score: f32,
+    relation_score: f32,
+    intent_score: f32,
+    recency_score: f32,
+    salience_score: f32,
+) -> f32 {
+    (domain_score.clamp(0.0, 1.0) * WEIGHT_DOMAIN
+        + entity_score.clamp(0.0, 1.0) * WEIGHT_ENTITY
+        + relation_score.clamp(0.0, 1.0) * WEIGHT_RELATION
+        + intent_score.clamp(0.0, 1.0) * WEIGHT_INTENT
+        + recency_score.clamp(0.0, 1.0) * WEIGHT_RECENCY
+        + salience_score.clamp(0.0, 1.0) * WEIGHT_SALIENCE)
+        .clamp(0.0, 1.0)
+}
+
+fn recency_score(updated_at: DateTime<Utc>, time_bucket: Option<&str>, now: DateTime<Utc>) -> f32 {
+    let by_updated_at: f32 = if updated_at > now - chrono::Duration::days(3) {
+        1.0
+    } else if updated_at > now - chrono::Duration::days(14) {
+        0.6
+    } else if updated_at > now - chrono::Duration::days(30) {
+        0.3
+    } else {
+        0.0
+    };
+
+    let by_time_bucket = time_bucket
+        .and_then(|bucket| parse_time_bucket_ym(bucket, now))
+        .unwrap_or(0.0);
+
+    by_updated_at.max(by_time_bucket)
+}
+
+fn parse_time_bucket_ym(value: &str, now: DateTime<Utc>) -> Option<f32> {
+    let mut chunks = value.split('-');
+    let year = chunks.next()?.parse::<i32>().ok()?;
+    let month = chunks.next()?.parse::<u32>().ok()?;
+    if chunks.next().is_some() || !(1..=12).contains(&month) {
+        return None;
+    }
+
+    let current_month_idx = now.year() * 12 + i32::try_from(now.month()).ok()?;
+    let bucket_month_idx = year * 12 + i32::try_from(month).ok()?;
+    let month_gap = current_month_idx - bucket_month_idx;
+
+    let score = if month_gap <= 0 {
+        1.0
+    } else if month_gap == 1 {
+        0.7
+    } else if month_gap == 2 {
+        0.4
+    } else if month_gap <= 6 {
+        0.2
+    } else {
+        0.0
+    };
+    Some(score)
+}
+
 fn parse_intent_type(value: &str) -> Option<QueryIntentType> {
     match value {
         "recall" => Some(QueryIntentType::Recall),
@@ -238,5 +325,47 @@ fn parse_intent_type(value: &str) -> Option<QueryIntentType> {
         "decide" => Some(QueryIntentType::Decide),
         "none" => Some(QueryIntentType::None),
         _ => None,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn combine_scores_uses_frozen_weights() {
+        let score = combine_scores(1.0, 1.0, 1.0, 1.0, 1.0, 1.0);
+        assert!((score - 1.0).abs() < f32::EPSILON);
+    }
+
+    #[test]
+    fn intent_score_does_not_double_count_relation_signal() {
+        let mut signal = CandidateSignal::new();
+        signal
+            .reasons
+            .insert(match_reason::RELATION_HIT.to_string());
+
+        apply_intent_signal(&mut signal, 1.0);
+
+        assert_eq!(signal.intent_score, 0.0);
+        assert!(!signal
+            .reasons
+            .contains(match_reason::DISCOURSE_ACTION_HIT));
+    }
+
+    #[test]
+    fn time_bucket_participates_only_through_recency_score() {
+        let now = chrono::DateTime::parse_from_rfc3339("2026-04-14T00:00:00Z")
+            .unwrap()
+            .with_timezone(&Utc);
+        let stale_updated_at = chrono::DateTime::parse_from_rfc3339("2026-01-01T00:00:00Z")
+            .unwrap()
+            .with_timezone(&Utc);
+
+        let with_bucket = recency_score(stale_updated_at, Some("2026-04"), now);
+        let without_bucket = recency_score(stale_updated_at, None, now);
+
+        assert!(with_bucket > without_bucket);
+        assert_eq!(without_bucket, 0.0);
     }
 }
