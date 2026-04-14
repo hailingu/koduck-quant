@@ -338,11 +338,11 @@ kubectl rollout status deployment/dev-koduck-memory -n koduck-dev --timeout=180s
    - `salience 0.05`
 
 **验收标准:**
-- [ ] 排序实现与 ADR 权重一致
-- [ ] `intent_score` 不与 `relation_score` 双重加权
-- [ ] `time_bucket` 仅通过 `recency_score` 参与排序
-- [ ] `docker build -t koduck-memory:dev ./koduck-memory` 成功
-- [ ] `kubectl rollout status deployment/dev-koduck-memory -n koduck-dev --timeout=180s` 成功
+- [x] 排序实现与 ADR 权重一致
+- [x] `intent_score` 不与 `relation_score` 双重加权
+- [x] `time_bucket` 仅通过 `recency_score` 参与排序
+- [x] `docker build -t koduck-memory:dev ./koduck-memory` 成功
+- [x] `kubectl rollout status deployment/dev-koduck-memory -n koduck-dev --timeout=180s` 成功
 
 ---
 
