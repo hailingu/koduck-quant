@@ -5,10 +5,13 @@
 //! 2. Within candidates, match against summary using full-text search
 
 use sqlx::PgPool;
+use std::collections::HashSet;
 use tracing::{debug, info, instrument};
+use uuid::Uuid;
 
 use crate::index::MemoryIndexRepository;
 use crate::retrieve::anchor_first::AnchorFirstRetriever;
+use crate::memory_unit::{MemoryUnitKind, MemoryUnitRepository};
 use crate::retrieve::types::{
     match_reason, RetrieveContext, RetrieveResult,
 };
@@ -19,6 +22,7 @@ use crate::Result;
 pub struct SummaryFirstRetriever {
     anchor_retriever: AnchorFirstRetriever,
     index_repo: MemoryIndexRepository,
+    unit_repo: MemoryUnitRepository,
 }
 
 impl SummaryFirstRetriever {
@@ -27,6 +31,7 @@ impl SummaryFirstRetriever {
         Self {
             anchor_retriever: AnchorFirstRetriever::new(pool),
             index_repo: MemoryIndexRepository::new(pool),
+            unit_repo: MemoryUnitRepository::new(pool),
         }
     }
 
@@ -47,7 +52,7 @@ impl SummaryFirstRetriever {
             return self.anchor_retriever.retrieve(ctx).await;
         }
 
-        let limit = ctx.top_k as i64;
+        let limit = ctx.top_k.max(1) as usize;
         let session_uuid = ctx
             .session_id
             .as_ref()
@@ -59,6 +64,23 @@ impl SummaryFirstRetriever {
             return Ok(Vec::new());
         }
 
+        let mut gate_eligible_sessions = HashSet::new();
+        for session_id in unique_session_ids(&anchor_candidates) {
+            if self
+                .is_summary_gate_eligible_session(&ctx.tenant_id, session_id)
+                .await?
+            {
+                gate_eligible_sessions.insert(session_id);
+            }
+        }
+        if gate_eligible_sessions.is_empty() {
+            info!(
+                anchor_count = anchor_candidates.len(),
+                "no ready+quality summary found, bypassing summary gate"
+            );
+            return Ok(anchor_candidates.into_iter().take(limit).collect());
+        }
+
         // Perform summary search
         let summary_records = self
             .index_repo
@@ -67,7 +89,7 @@ impl SummaryFirstRetriever {
                 session_uuid,
                 domain_filter.unwrap_or(""),
                 &ctx.query_text,
-                limit * 2,
+                limit as i64 * 2,
             )
             .await?;
 
@@ -77,16 +99,6 @@ impl SummaryFirstRetriever {
             "summary search completed"
         );
 
-        // If no summary matches, return no hits rather than falling back to unrelated
-        // domain-only candidates. This keeps summary retrieval semantically meaningful.
-        if summary_records.is_empty() {
-            info!(
-                query_text = %ctx.query_text,
-                "no summary matches found for SUMMARY_FIRST"
-            );
-            return Ok(Vec::new());
-        }
-
         info!(
             anchor_count = anchor_candidates.len(),
             summary_match_count = summary_records.len(),
@@ -95,18 +107,24 @@ impl SummaryFirstRetriever {
         );
 
         // Build a set of record IDs that matched summary
-        let summary_match_sources: std::collections::HashSet<_> = summary_records
+        let summary_match_sources: HashSet<_> = summary_records
             .iter()
+            .filter(|record| gate_eligible_sessions.contains(&record.session_id))
             .map(|r| r.source_uri.clone())
             .collect();
 
-        // Summary acts as a negative filter inside the domain candidate set:
-        // only records that survive the summary check are returned.
+        // Summary gate applies only to sessions with ready+quality summary.
+        // Sessions without gate eligibility stay on anchor path and are never hidden.
         let results = anchor_candidates
             .into_iter()
-            .filter(|record| summary_match_sources.contains(&record.l0_uri))
-            .take(limit as usize)
-            .map(|record| {
+            .filter_map(|record| {
+                let is_gate_session = Uuid::parse_str(&record.session_id)
+                    .ok()
+                    .is_some_and(|session_id| gate_eligible_sessions.contains(&session_id));
+                if is_gate_session && !summary_match_sources.contains(&record.l0_uri) {
+                    return None;
+                }
+
                 let mut result = record;
                 if domain_filter.is_some()
                     && !result
@@ -116,12 +134,66 @@ impl SummaryFirstRetriever {
                 {
                     result = result.with_match_reason(match_reason::DOMAIN_HIT);
                 }
-                result.with_match_reason(match_reason::SUMMARY_HIT)
+                if is_gate_session {
+                    result = result.with_match_reason(match_reason::SUMMARY_HIT);
+                }
+                Some(result)
             })
+            .take(limit)
             .collect();
 
         Ok(results)
     }
+
+    async fn is_summary_gate_eligible_session(
+        &self,
+        tenant_id: &str,
+        session_id: Uuid,
+    ) -> Result<bool> {
+        let summary_units = self
+            .unit_repo
+            .list_by_session_and_kind(tenant_id, session_id, MemoryUnitKind::Summary)
+            .await?;
+        let Some(latest_summary_unit) = summary_units.first() else {
+            return Ok(false);
+        };
+        if latest_summary_unit.summary_state.summary_status != "ready" {
+            return Ok(false);
+        }
+
+        Ok(latest_summary_unit
+            .summary_state
+            .summary
+            .as_deref()
+            .is_some_and(is_quality_summary))
+    }
+}
+
+fn unique_session_ids(candidates: &[RetrieveResult]) -> Vec<Uuid> {
+    candidates
+        .iter()
+        .filter_map(|candidate| Uuid::parse_str(&candidate.session_id).ok())
+        .collect::<HashSet<_>>()
+        .into_iter()
+        .collect()
+}
+
+fn is_quality_summary(summary: &str) -> bool {
+    let normalized = summary.trim();
+    if normalized.chars().count() < 24 {
+        return false;
+    }
+
+    let lower = normalized.to_lowercase();
+    ![
+        "summary task already accepted",
+        "accepted for session",
+        "pending",
+        "n/a",
+        "todo",
+    ]
+    .iter()
+    .any(|marker| lower.contains(marker))
 }
 
 #[cfg(test)]
@@ -135,5 +207,14 @@ mod tests {
     fn retriever_new_works() {
         // This is a compile-time check
         // Actual functionality requires a database connection
+    }
+
+    #[test]
+    fn quality_summary_heuristic_works() {
+        assert!(!is_quality_summary("summary task already accepted for session 123"));
+        assert!(!is_quality_summary("todo"));
+        assert!(is_quality_summary(
+            "The user asked for rollout checklist details and follow-up milestones."
+        ));
     }
 }
