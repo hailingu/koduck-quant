@@ -221,6 +221,11 @@ impl InsertMemoryUnit {
         self
     }
 
+    pub fn with_memory_unit_id(mut self, memory_unit_id: Uuid) -> Self {
+        self.memory_unit_id = memory_unit_id;
+        self
+    }
+
     pub fn with_domain_class_primary(mut self, domain_class_primary: impl Into<String>) -> Self {
         self.domain_class_primary = Some(domain_class_primary.into());
         self

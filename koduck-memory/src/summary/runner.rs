@@ -13,6 +13,7 @@ use crate::config::{RetrySection, SummarySection};
 use crate::facts::{InsertMemoryFact, MemoryFact, MemoryFactRepository};
 use crate::index::{InsertMemoryIndexRecord, MemoryIndexRepository};
 use crate::memory::MemoryEntryRepository;
+use crate::memory_unit::{FactUnitInput, MemoryUnitMaterializer, SummaryUnitInput};
 use crate::reliability::{TaskAttemptRepository, with_retry};
 use crate::retrieve::domain_class;
 use crate::session::SessionRepository;
@@ -58,6 +59,7 @@ pub struct SummaryTaskRunner {
     fact_repo: MemoryFactRepository,
     attempt_repo: TaskAttemptRepository,
     index_repo: MemoryIndexRepository,
+    unit_materializer: MemoryUnitMaterializer,
     object_store: Option<ObjectStoreClient>,
     retry_config: RetrySection,
     summary_config: SummarySection,
@@ -78,6 +80,7 @@ impl SummaryTaskRunner {
             fact_repo: MemoryFactRepository::new(pool),
             attempt_repo: TaskAttemptRepository::new(pool),
             index_repo: MemoryIndexRepository::new(pool),
+            unit_materializer: MemoryUnitMaterializer::new(pool),
             object_store,
             retry_config,
             llm_gate: Arc::new(Semaphore::new(summary_config.llm_max_concurrency.max(1))),
@@ -217,6 +220,13 @@ impl SummaryTaskRunner {
             stored_summary: stored,
             summary_snippet: summary_artifact.snippet,
             fact_candidates,
+            entry_sequence_range: entries
+                .first()
+                .zip(entries.last())
+                .map(|(first, last)| (first.sequence_num, last.sequence_num)),
+            time_bucket: entries
+                .last()
+                .map(|entry| entry.message_ts.format("%Y-%m").to_string()),
             request_id: job.request_id,
             test_strategy: job.strategy,
         })
@@ -240,11 +250,26 @@ impl SummaryTaskRunner {
             "summary",
             stored.domain_class.clone(),
             stored.summary.clone(),
-            summary_uri,
+            summary_uri.clone(),
         )
         .with_snippet(materialized.summary_snippet.clone())
         .with_score_hint("0.95");
         self.index_repo.insert(&index_record).await?;
+        if let Some((entry_range_start, entry_range_end, time_bucket)) = materialized.entry_range() {
+            self.unit_materializer
+                .upsert_summary_unit(&SummaryUnitInput {
+                    tenant_id: stored.tenant_id.clone(),
+                    session_id: stored.session_id,
+                    domain_class: stored.domain_class.clone(),
+                    summary: stored.summary.clone(),
+                    snippet: materialized.summary_snippet.clone(),
+                    source_uri: summary_uri,
+                    entry_range_start,
+                    entry_range_end,
+                    time_bucket,
+                })
+                .await?;
+        }
         Ok(())
     }
 
@@ -276,6 +301,22 @@ impl SummaryTaskRunner {
                 candidate.confidence,
             );
             facts.push(self.fact_repo.insert(&insert_fact).await?);
+        }
+        if let Some((entry_range_start, entry_range_end, time_bucket)) = materialized.entry_range() {
+            let inputs = facts
+                .iter()
+                .cloned()
+                .map(|fact| FactUnitInput {
+                    tenant_id: materialized.stored_summary.tenant_id.clone(),
+                    session_id: materialized.stored_summary.session_id,
+                    domain_class: materialized.stored_summary.domain_class.clone(),
+                    fact,
+                    entry_range_start,
+                    entry_range_end,
+                    time_bucket: time_bucket.clone(),
+                })
+                .collect::<Vec<_>>();
+            self.unit_materializer.replace_fact_units(&inputs).await?;
         }
         Ok(facts)
     }
@@ -323,6 +364,8 @@ struct SummaryMaterialization {
     stored_summary: MemorySummary,
     summary_snippet: String,
     fact_candidates: Vec<FactCandidate>,
+    entry_sequence_range: Option<(i64, i64)>,
+    time_bucket: Option<String>,
     request_id: String,
     test_strategy: String,
 }
@@ -390,6 +433,12 @@ struct DomainClassArtifact {
 impl SummaryMaterialization {
     fn has_fact_candidates(&self) -> bool {
         !self.fact_candidates.is_empty()
+    }
+
+    fn entry_range(&self) -> Option<(i64, i64, String)> {
+        self.entry_sequence_range
+            .zip(self.time_bucket.clone())
+            .map(|((start, end), time_bucket)| (start, end, time_bucket))
     }
 }
 
