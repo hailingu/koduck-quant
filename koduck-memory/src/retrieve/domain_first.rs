@@ -37,6 +37,7 @@ impl DomainFirstRetriever {
     #[instrument(skip(self, ctx), fields(tenant_id = %ctx.tenant_id, domain_class = %ctx.domain_class))]
     pub async fn retrieve(&self, ctx: &RetrieveContext) -> Result<Vec<RetrieveResult>> {
         let limit = ctx.top_k as i64;
+        let domain_filter = (!ctx.domain_class.trim().is_empty()).then_some(ctx.domain_class.as_str());
         
         // Parse session_id if provided
         let session_uuid = ctx.session_id.as_ref().and_then(|s| {
@@ -53,12 +54,17 @@ impl DomainFirstRetriever {
         // Query based on whether session scope is specified
         let records = if let Some(session_id) = session_uuid {
             self.index_repo
-                .list_by_session(&ctx.tenant_id, session_id, Some(&ctx.domain_class), limit)
+                .list_by_session(&ctx.tenant_id, session_id, domain_filter, limit)
                 .await?
         } else {
-            self.index_repo
-                .list_by_domain(&ctx.tenant_id, &ctx.domain_class, limit)
-                .await?
+            match domain_filter {
+                Some(domain_class) => {
+                    self.index_repo
+                        .list_by_domain(&ctx.tenant_id, domain_class, limit)
+                        .await?
+                }
+                None => Vec::new(),
+            }
         };
 
         info!(
@@ -88,7 +94,9 @@ impl DomainFirstRetriever {
                 );
 
                 // Add domain_class_hit reason
-                result = result.with_match_reason(match_reason::DOMAIN_CLASS_HIT);
+                if domain_filter.is_some() {
+                    result = result.with_match_reason(match_reason::DOMAIN_CLASS_HIT);
+                }
 
                 // Add session_scope_hit if session filter was applied
                 if ctx.session_id.is_some() {

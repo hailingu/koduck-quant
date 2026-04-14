@@ -214,40 +214,75 @@ impl MemoryIndexRepository {
         limit: i64,
     ) -> Result<Vec<MemoryIndexRecord>> {
         let like_query = format!("%{}%", query_text.trim());
+        let normalized_domain_class = domain_class.trim();
 
         let rows = if let Some(session_id) = session_id {
-            sqlx::query_as::<_, MemoryIndexRecord>(
-                r#"
-                SELECT
-                    id, tenant_id, session_id, entry_id,
-                    memory_kind, domain_class, summary, snippet,
-                    source_uri, score_hint::text AS score_hint,
-                    created_at, updated_at
-                FROM memory_index_records
-                WHERE tenant_id = $1
-                  AND session_id = $2
-                  AND domain_class = $3
-                  AND memory_kind = 'summary'
-                  AND (
-                        to_tsvector('simple', summary) @@ plainto_tsquery('simple', $4)
-                     OR summary ILIKE $5
-                     OR COALESCE(snippet, '') ILIKE $5
-                  )
-                ORDER BY updated_at DESC
-                LIMIT $6
-                "#,
-            )
-            .bind(tenant_id)
-            .bind(session_id)
-            .bind(domain_class)
-            .bind(query_text.trim())
-            .bind(&like_query)
-            .bind(limit)
-            .fetch_all(&self.pool)
-            .await?
-        } else {
-            self.search_by_summary(tenant_id, domain_class, query_text, limit)
+            if normalized_domain_class.is_empty() {
+                sqlx::query_as::<_, MemoryIndexRecord>(
+                    r#"
+                    SELECT
+                        id, tenant_id, session_id, entry_id,
+                        memory_kind, domain_class, summary, snippet,
+                        source_uri, score_hint::text AS score_hint,
+                        created_at, updated_at
+                    FROM memory_index_records
+                    WHERE tenant_id = $1
+                      AND session_id = $2
+                      AND memory_kind = 'summary'
+                      AND (
+                            to_tsvector('simple', summary) @@ plainto_tsquery('simple', $3)
+                         OR summary ILIKE $4
+                         OR COALESCE(snippet, '') ILIKE $4
+                      )
+                    ORDER BY updated_at DESC
+                    LIMIT $5
+                    "#,
+                )
+                .bind(tenant_id)
+                .bind(session_id)
+                .bind(query_text.trim())
+                .bind(&like_query)
+                .bind(limit)
+                .fetch_all(&self.pool)
                 .await?
+            } else {
+                sqlx::query_as::<_, MemoryIndexRecord>(
+                    r#"
+                    SELECT
+                        id, tenant_id, session_id, entry_id,
+                        memory_kind, domain_class, summary, snippet,
+                        source_uri, score_hint::text AS score_hint,
+                        created_at, updated_at
+                    FROM memory_index_records
+                    WHERE tenant_id = $1
+                      AND session_id = $2
+                      AND domain_class = $3
+                      AND memory_kind = 'summary'
+                      AND (
+                            to_tsvector('simple', summary) @@ plainto_tsquery('simple', $4)
+                         OR summary ILIKE $5
+                         OR COALESCE(snippet, '') ILIKE $5
+                      )
+                    ORDER BY updated_at DESC
+                    LIMIT $6
+                    "#,
+                )
+                .bind(tenant_id)
+                .bind(session_id)
+                .bind(normalized_domain_class)
+                .bind(query_text.trim())
+                .bind(&like_query)
+                .bind(limit)
+                .fetch_all(&self.pool)
+                .await?
+            }
+        } else {
+            if normalized_domain_class.is_empty() {
+                Vec::new()
+            } else {
+                self.search_by_summary(tenant_id, normalized_domain_class, query_text, limit)
+                    .await?
+            }
         };
 
         Ok(rows)

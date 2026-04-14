@@ -916,11 +916,11 @@ export function KoduckAi() {
               <h1 className="text-3xl font-normal text-gray-800 text-center mb-8">
                 {currentSessionId ? "新会话已创建" : "开始对话"}
               </h1>
-              <p className="mb-8 text-center text-sm text-gray-500">
-                {currentSessionId
-                  ? "输入第一条消息后，将在这个 session 中持续对话。"
-                  : "输入第一条消息时会自动创建 session，也可以点击左上角 + 先创建。"}
-              </p>
+              {!currentSessionId && (
+                <p className="mb-8 text-center text-sm text-gray-500">
+                  输入第一条消息时会自动创建 session，也可以点击左上角 + 先创建。
+                </p>
+              )}
               <div className="w-full max-w-4xl px-4">{renderInputBar()}</div>
             </div>
           ) : (

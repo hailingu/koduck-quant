@@ -360,11 +360,7 @@ impl MemoryService for MemoryGrpcService {
         Self::validate_meta(meta).map_err(|e| { guard.error(); e })?;
 
         // Build retrieve context
-        let domain_class = if req.domain_class.is_empty() {
-            "chat".to_string()
-        } else {
-            req.domain_class.clone()
-        };
+        let domain_class = req.domain_class.trim().to_string();
 
         let mut ctx = RetrieveContext::new(
             &meta.tenant_id,

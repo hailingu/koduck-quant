@@ -1017,6 +1017,10 @@ fn json_value_as_string(value: &serde_json::Value) -> Option<String> {
 }
 
 fn retrieve_policy_from_request(request: &ChatRequest) -> RetrievePolicy {
+    if is_memory_recall_query(&request.message) {
+        return RetrievePolicy::DomainFirst;
+    }
+
     let raw_policy = request.retrieve_policy.as_deref().or_else(|| {
         request
             .metadata
@@ -1040,6 +1044,10 @@ fn memory_query_session_scope(
     request: &ChatRequest,
     ctx: &MemoryRpcContext,
 ) -> Option<String> {
+    if is_memory_recall_query(&request.message) {
+        return Some(ctx.session_id.clone());
+    }
+
     let scope = request
         .metadata
         .as_ref()

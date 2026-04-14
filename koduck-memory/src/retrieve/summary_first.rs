@@ -39,6 +39,8 @@ impl SummaryFirstRetriever {
     /// 4. Return combined results with appropriate match_reasons.
     #[instrument(skip(self, ctx), fields(tenant_id = %ctx.tenant_id, domain_class = %ctx.domain_class))]
     pub async fn retrieve(&self, ctx: &RetrieveContext) -> Result<Vec<RetrieveResult>> {
+        let domain_filter = (!ctx.domain_class.trim().is_empty()).then_some(ctx.domain_class.as_str());
+
         // If no query text, fall back to DOMAIN_FIRST
         if ctx.query_text.trim().is_empty() {
             debug!("empty query_text, falling back to DOMAIN_FIRST");
@@ -56,12 +58,17 @@ impl SummaryFirstRetriever {
         // domain rather than silently collapsing back to the current session.
         let domain_records = if let Some(session_id) = session_uuid {
             self.index_repo
-                .list_by_session(&ctx.tenant_id, session_id, Some(&ctx.domain_class), limit * 4)
+                .list_by_session(&ctx.tenant_id, session_id, domain_filter, limit * 4)
                 .await?
         } else {
-            self.index_repo
-                .list_by_domain(&ctx.tenant_id, &ctx.domain_class, limit * 4)
-                .await?
+            match domain_filter {
+                Some(domain_class) => {
+                    self.index_repo
+                        .list_by_domain(&ctx.tenant_id, domain_class, limit * 4)
+                        .await?
+                }
+                None => Vec::new(),
+            }
         };
 
         if domain_records.is_empty() {
@@ -75,7 +82,7 @@ impl SummaryFirstRetriever {
             .search_by_summary_in_scope(
                 &ctx.tenant_id,
                 session_uuid,
-                &ctx.domain_class,
+                domain_filter.unwrap_or(""),
                 &ctx.query_text,
                 limit * 2,
             )
@@ -136,7 +143,9 @@ impl SummaryFirstRetriever {
                 );
 
                 // Add domain_class_hit reason
-                result = result.with_match_reason(match_reason::DOMAIN_CLASS_HIT);
+                if domain_filter.is_some() {
+                    result = result.with_match_reason(match_reason::DOMAIN_CLASS_HIT);
+                }
 
                 // Add summary_hit because the record survived summary filtering.
                 result = result.with_match_reason(match_reason::SUMMARY_HIT);
