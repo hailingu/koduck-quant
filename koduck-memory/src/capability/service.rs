@@ -2281,6 +2281,10 @@ mod tests {
             .iter()
             .find(|unit| unit.memory_kind == MemoryUnitKind::Summary)
             .expect("summary unit should exist");
+        assert_eq!(
+            summary_unit.domain_class_primary.as_deref(),
+            Some(stored_summary.domain_class.as_str())
+        );
         assert_eq!(summary_unit.entry_range_start, 1);
         assert_eq!(summary_unit.entry_range_end, 2);
         assert_eq!(summary_unit.memory_unit_id, session_id);
@@ -2301,6 +2305,9 @@ mod tests {
         assert_eq!(fact_units.len(), facts.len());
         assert!(fact_units.iter().all(|unit| unit.entry_range_start == 1 && unit.entry_range_end == 2));
         assert!(fact_units.iter().all(|unit| unit.summary_state.summary_status == "pending"));
+        assert!(fact_units.iter().all(|unit| {
+            unit.domain_class_primary.as_deref() == Some(stored_summary.domain_class.as_str())
+        }));
 
         let summary_anchors = anchor_repo
             .list_by_memory_unit("tenant-t33", summary_unit.memory_unit_id)
@@ -2367,6 +2374,7 @@ mod tests {
         let first_facts = wait_for_facts(&fact_repo, "tenant-t33", session_id).await;
 
         assert_eq!(first_projection.len(), 1);
+        assert_eq!(first_projection[0].memory_unit_id, Some(session_id));
         assert!(
             first_summary.summary.contains("Karl Marx")
                 || first_summary.summary.contains("Friedrich Engels")
@@ -2413,6 +2421,7 @@ mod tests {
         let updated_facts = updated_facts.expect("updated facts were not materialized in time");
 
         assert_eq!(updated_projection.len(), 1);
+        assert_eq!(updated_projection[0].memory_unit_id, Some(session_id));
         assert_eq!(updated_projection[0].summary, updated_summary.summary);
         assert!(
             updated_summary.summary.contains("Karl Marx")

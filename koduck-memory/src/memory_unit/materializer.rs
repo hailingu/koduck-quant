@@ -113,6 +113,9 @@ impl MemoryUnitMaterializer {
                 )?,
             )
             .await?;
+        self.unit_repo
+            .sync_projected_domain_class_primary(&input.tenant_id, input.session_id)
+            .await?;
         Ok(())
     }
 
@@ -171,6 +174,9 @@ impl MemoryUnitMaterializer {
                     .with_anchor_value(input.fact.fact_text.clone())
                     .with_weight(input.fact.confidence)?,
                 )
+                .await?;
+            self.unit_repo
+                .sync_projected_domain_class_primary(&input.tenant_id, unit.memory_unit_id)
                 .await?;
         }
 

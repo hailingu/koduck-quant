@@ -187,10 +187,10 @@ kubectl rollout status deployment/dev-koduck-memory -n koduck-dev --timeout=180s
 3. 确保新写入链路不破坏旧读路径
 
 **验收标准:**
-- [ ] 现有 `DOMAIN_FIRST` / `SUMMARY_FIRST` 路径可继续工作
-- [ ] 新老结构之间有稳定映射关系
-- [ ] 不要求一次性切换全部读路径
-- [ ] `docker build -t koduck-memory:dev ./koduck-memory` 成功
+- [x] 现有 `DOMAIN_FIRST` / `SUMMARY_FIRST` 路径可继续工作
+- [x] 新老结构之间有稳定映射关系
+- [x] 不要求一次性切换全部读路径
+- [x] `docker build -t koduck-memory:dev ./koduck-memory` 成功
 
 ---
 
