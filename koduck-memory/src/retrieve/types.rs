@@ -183,6 +183,8 @@ pub mod domain_class {
 /// Match reasons for memory hits.
 pub mod match_reason {
     pub const DOMAIN_CLASS_HIT: &str = "domain_class_hit";
+    pub const ENTITY_HIT: &str = "entity_hit";
+    pub const RELATION_HIT: &str = "relation_hit";
     pub const SESSION_SCOPE_HIT: &str = "session_scope_hit";
     pub const SUMMARY_HIT: &str = "summary_hit";
     pub const KEYWORD_HIT: &str = "keyword_hit";
