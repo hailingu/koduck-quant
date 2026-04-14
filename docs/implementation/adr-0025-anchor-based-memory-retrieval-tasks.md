@@ -87,10 +87,10 @@ kubectl rollout status deployment/dev-koduck-memory -n koduck-dev --timeout=180s
    - `fact`
 
 **验收标准:**
-- [ ] migration 可执行且可回滚
-- [ ] `memory_kind = NULL` 的语义在 schema 注释中明确
-- [ ] `summary_status` 取值约束明确
-- [ ] `docker build -t koduck-memory:dev ./koduck-memory` 成功
+- [x] migration 可执行且可回滚
+- [x] `memory_kind = NULL` 的语义在 schema 注释中明确
+- [x] `summary_status` 取值约束明确
+- [x] `docker build -t koduck-memory:dev ./koduck-memory` 成功
 
 ---
 
