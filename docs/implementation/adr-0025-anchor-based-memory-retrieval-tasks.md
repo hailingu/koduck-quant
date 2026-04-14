@@ -1,113 +1,231 @@
 # ADR-0025 Anchor-based Memory Retrieval 实施任务清单
 
-> 对应 ADR： [0025-anchored-memory-unit-retrieval-architecture.md](../../koduck-memory/docs/adr/0025-anchored-memory-unit-retrieval-architecture.md)
+> 本文档基于 `koduck-memory/docs/adr/0025-anchored-memory-unit-retrieval-architecture.md` 拆分，提供 step-by-step 可执行任务。
 >
-> 状态：规划中
-> 创建日期：2026-04-14
+> **状态**: 待执行
+> **创建日期**: 2026-04-14
+> **对应 ADR**: [0025-anchored-memory-unit-retrieval-architecture.md](../../koduck-memory/docs/adr/0025-anchored-memory-unit-retrieval-architecture.md)
+
+## 与 ADR-0025 任务映射
+
+本任务清单只覆盖已经可以进入实现阶段的部分；`recall` 扩展路径中的 batch 中间材料传递与交互式契约，不纳入当前 P0 范围。
+
+| 主题 | 在本任务清单中的落点 | 当前要求 |
+|------|------|------|
+| `memory_unit` 数据模型 | Phase 1 / Phase 2 | 从 `session` 粒度收紧到 `memory_unit`，保留 `memory_kind` 并冻结字段语义 |
+| 多锚点倒排索引 | Phase 1 / Phase 4 | 支持 `domain/entity/relation/discourse_action/fact_type` |
+| `query analyzer` | Phase 3 | 作为 `QueryMemory` 必需内部组件输出结构化 query context |
+| `SUMMARY_FIRST` 收口 | Phase 5 | 仅当 `summary_status = ready` 时进入 `summary gate` |
+| `DOMAIN_FIRST` 兼容迁移 | Phase 4 / Phase 6 | 对外语义保持不变，内部逐步委托到 anchor path |
+| 时间维度 | Phase 4 / Phase 5 | `time_bucket` 仅参与排序，不进入 V1 候选召回 |
+| `recall` 扩展路径 | Phase 7 | 只冻结检索方向，不冻结 batch 材料传递契约 |
+
+其中 `koduck-memory` 现有的 session 真值、L0 存储、`memory_index_records`、`DOMAIN_FIRST` / `SUMMARY_FIRST` 基线能力，仍以既有实现和文档为准。本清单只维护 ADR-0025 新增或收口的实现责任。
+
+---
 
 ## 执行阶段概览
 
-| 阶段 | 名称 | 依赖 | 优先级 |
-| ---- | ---- | ---- | ------ |
-| Phase 1 | 数据模型与迁移基线 | - | P0 |
-| Phase 2 | Repository 与写入链路扩展 | Phase 1 | P0 |
-| Phase 3 | Query Analyzer 与检索上下文 | Phase 1 | P0 |
-| Phase 4 | Anchor-based 检索主路径 | Phase 2, Phase 3 | P0 |
-| Phase 5 | Summary Gate 与排序收口 | Phase 4 | P1 |
-| Phase 6 | 兼容迁移与灰度切换 | Phase 4, Phase 5 | P1 |
-| Phase 7 | Recall 扩展契约决策 | Phase 4 | P2 |
+| 阶段 | 名称 | 预计工作量 | 依赖 | 优先级 |
+|------|------|------------|------|--------|
+| Phase 1 | 数据模型与 migration 基线 | 1-2 天 | - | P0 |
+| Phase 2 | Repository 与写入链路扩展 | 2-3 天 | Phase 1 | P0 |
+| Phase 3 | Query Analyzer 与检索上下文 | 1-2 天 | Phase 1 | P0 |
+| Phase 4 | Anchor-based 检索主路径 | 2-3 天 | Phase 2, Phase 3 | P0 |
+| Phase 5 | Summary Gate 与排序收口 | 1-2 天 | Phase 4 | P1 |
+| Phase 6 | 兼容迁移、灰度与观测 | 1-2 天 | Phase 4, Phase 5 | P1 |
+| Phase 7 | Recall 扩展契约决策 | 1-2 天 | Phase 4 | P2 |
 
-## 范围边界
+---
 
-本任务清单覆盖：
+## 阶段性构建与部署验证
 
-- `memory_unit` 与 `memory_unit_anchors` 的数据模型落地
-- `domain/entity/relation/discourse_action/fact_type` 的锚点检索主路径
-- `query analyzer` 的服务内实现
-- `SUMMARY_FIRST` 与 `summary_status` 的兼容收口
-- `DOMAIN_FIRST -> anchor path` 的内部迁移
+除纯文档决策阶段外，Phase 1 到 Phase 6 的每个阶段完成后，都应执行一次最小构建验证；在影响运行时行为的阶段完成后，还应执行 `koduck-dev` 环境的 rollout 验证。
 
-本任务清单不直接覆盖：
+**阶段性验证命令:**
+```bash
+docker build -t koduck-memory:dev ./koduck-memory
+kubectl rollout restart deployment/dev-koduck-memory -n koduck-dev
+kubectl rollout status deployment/dev-koduck-memory -n koduck-dev --timeout=180s
+```
 
-- `recall` 扩展路径的交互式 batch 中间材料传递契约
-- 新增 northbound API 或修改现有 `memory.v1` proto
-- 上层 orchestration 如何消费 recall 扩展结果生成最终自然语言回答
+**执行要求:**
+1. Phase 1 到 Phase 6 至少完成 `docker build` 验证，确保 migration、Rust 编译与依赖关系未被破坏。
+2. Phase 3 到 Phase 6 额外完成 `koduck-dev` rollout，验证 QueryMemory 主链路相关改动可在 dev 环境启动。
+3. 若阶段改动只涉及文档或 follow-up ADR，不要求执行 rollout。
 
-## Phase 1：数据模型与迁移基线
+---
 
-目标：建立 `memory_unit` 级别的最小可持久化模型，并冻结字段语义。
+## Phase 1: 数据模型与 migration 基线
 
-任务：
+### Task 1.1: 建立 `memory_units` migration
+**文件:**
+- `koduck-memory/migrations/*.sql`
 
-1. 新增 `memory_units` 表 migration。
-2. 新增 `memory_unit_anchors` 表 migration。
-3. 明确 `memory_kind` 语义：
-   - `NULL` 表示 `generic conversation unit`
-   - 仅允许 `summary`、`fact` 两个已物化类型
-4. 明确 `summary_status` 语义：
-   - `pending`
-   - `ready`
-   - `failed`
-5. 将 `domain_class_primary` 固化为投影字段，选择规则固定为：
-   - `weight DESC, anchor_key ASC`
-6. 为 `memory_unit_anchors` 建立索引：
+**详细要求:**
+1. 新增 `memory_units` 表
+2. 冻结字段语义：
+   - `memory_unit_id`
+   - `tenant_id`
+   - `session_id`
+   - `entry_range_start`
+   - `entry_range_end`
+   - `memory_kind`
+   - `domain_class_primary`
+   - `summary`
+   - `snippet`
+   - `source_uri`
+   - `summary_status`
+   - `salience_score`
+   - `time_bucket`
+   - `created_at`
+   - `updated_at`
+3. 保留 `memory_kind` 字段
+4. 明确 `memory_kind = NULL` 表示 `generic conversation unit`
+5. V1 仅允许已物化类型：
+   - `summary`
+   - `fact`
+
+**验收标准:**
+- [ ] migration 可执行且可回滚
+- [ ] `memory_kind = NULL` 的语义在 schema 注释中明确
+- [ ] `summary_status` 取值约束明确
+- [ ] `docker build -t koduck-memory:dev ./koduck-memory` 成功
+
+---
+
+### Task 1.2: 建立 `memory_unit_anchors` migration
+**文件:**
+- `koduck-memory/migrations/*.sql`
+
+**详细要求:**
+1. 新增 `memory_unit_anchors` 表
+2. 冻结 `anchor_type` 闭集：
+   - `domain`
+   - `entity`
+   - `relation`
+   - `discourse_action`
+   - `fact_type`
+3. 建立索引：
    - `tenant_id + anchor_type + anchor_key`
    - `tenant_id + memory_unit_id`
    - `memory_unit_id + anchor_type`
-7. 明确 `fact_type` 约束：
-   - 仅允许出现在 `memory_kind = fact` 的 unit 上
+4. 明确约束：
+   - `fact_type` 只允许出现在 `memory_kind = fact` 的 unit 上
 
-交付物：
+**验收标准:**
+- [ ] 锚点表可支持按 `tenant + anchor` 高频检索
+- [ ] `fact_type` 约束在 schema 或写入层可被验证
+- [ ] 不包含 `time` 倒排锚点
+- [ ] `docker build -t koduck-memory:dev ./koduck-memory` 成功
 
-- migration SQL
-- 表结构注释
-- 字段语义说明补充到 repository model 注释中
+---
 
-## Phase 2：Repository 与写入链路扩展
+### Task 1.3: 冻结投影与回溯规则
+**详细要求:**
+1. 明确 `domain_class_primary` 为投影字段，不是独立真值
+2. 投影算法固定为：
+   - `weight DESC, anchor_key ASC`
+3. 明确 `source_uri` 与 `entry_range_start/end` 的组合语义：
+   - `source_uri` 始终是主回溯入口
+   - 多条 entry 的完整回放依赖 `entry range`
 
-目标：让现有写入链路能够物化 `memory_unit` 与 anchors，但不破坏现有读路径。
+**验收标准:**
+- [ ] `domain_class_primary` 的投影规则可复现
+- [ ] 回填、重算、迁移使用同一算法
+- [ ] 单 entry 与多 entry 场景的回溯规则无歧义
+- [ ] `docker build -t koduck-memory:dev ./koduck-memory` 成功
 
-任务：
+---
 
-1. 新增 `memory_units` repository。
-2. 新增 `memory_unit_anchors` repository。
-3. 在写入链路中建立 `memory_entry -> memory_unit` 的映射规则：
-   - 单条 entry 形成 unit
-   - 多条连续 entry 聚合形成 unit
-4. 规范 `source_uri` 与 `entry_range_start/end`：
-   - `source_uri` 始终作为主回溯入口
-   - 多 entry unit 通过 `entry range` 回放完整原始材料
-5. 建立 `snippet` 生成规则：
-   - 可由写入链路同步生成
+## Phase 2: Repository 与写入链路扩展
+
+### Task 2.1: 新增 `memory_units` / `memory_unit_anchors` repository
+**文件:**
+- `koduck-memory/src/...`
+
+**详细要求:**
+1. 为 `memory_units` 建立 model / repository
+2. 为 `memory_unit_anchors` 建立 model / repository
+3. 对 repository 层字段约束做静态表达：
+   - `summary_status = pending` 时允许 `summary = NULL`
+   - `summary_status = ready` 时要求 `summary` 非空
+   - `memory_kind = NULL` 统一解释为 `generic conversation unit`
+
+**验收标准:**
+- [ ] repository 层字段语义与 ADR 一致
+- [ ] 不出现额外的 `memory_kind` 枚举漂移
+- [ ] `summary_status` 与 `summary` 的组合约束清晰
+- [ ] `docker build -t koduck-memory:dev ./koduck-memory` 成功
+
+---
+
+### Task 2.2: 建立 `memory_entry -> memory_unit` 物化规则
+**详细要求:**
+1. 支持单条 entry 直接形成 unit
+2. 支持多条连续 entry 聚合形成 unit
+3. 明确普通会话片段与物化类型的关系：
+   - 普通片段可不设置 `memory_kind`
+   - 物化摘要设置 `memory_kind = summary`
+   - 物化事实设置 `memory_kind = fact`
+4. 建立 `snippet` 生成规则：
+   - 可同步生成
    - 或由 L0 / summary 派生
-   - 对外返回时必须稳定可用
-6. 保留 `memory_index_records` 兼容写入，避免一次性切读路径。
 
-交付物：
+**验收标准:**
+- [ ] 单 entry / 多 entry 物化规则可复现
+- [ ] `memory_kind` 的写入时机一致
+- [ ] `snippet` 对外返回稳定可用
+- [ ] `docker build -t koduck-memory:dev ./koduck-memory` 成功
 
-- repository model / repository implementation
-- 写入链路物化逻辑
-- `memory_index_records` 到 `memory_units` 的关联字段设计
+---
 
-## Phase 3：Query Analyzer 与检索上下文
+### Task 2.3: 保持 `memory_index_records` 兼容写入
+**详细要求:**
+1. 现阶段不删除 `memory_index_records`
+2. 建立 `memory_index_records -> memory_units` 的关联字段或映射规则
+3. 确保新写入链路不破坏旧读路径
 
-目标：把 `QueryMemory` 的“解析”从隐含逻辑收口成可维护的内部组件。
+**验收标准:**
+- [ ] 现有 `DOMAIN_FIRST` / `SUMMARY_FIRST` 路径可继续工作
+- [ ] 新老结构之间有稳定映射关系
+- [ ] 不要求一次性切换全部读路径
+- [ ] `docker build -t koduck-memory:dev ./koduck-memory` 成功
 
-任务：
+---
 
-1. 新增 `query analyzer` 内部组件。
+## Phase 3: Query Analyzer 与检索上下文
+
+### Task 3.1: 新增 `query analyzer` 内部组件
+**文件:**
+- `koduck-memory/src/...`
+
+**详细要求:**
+1. 将 `query analyzer` 明确实现为 `QueryMemory` 的内部子组件
 2. 输入固定为：
    - `query_text`
    - `domain_class`
    - `session_id`
-3. 输出冻结为结构化 `RetrieveContext` 扩展字段：
+3. 输出结构化 query context：
    - `domain_classes[]`
    - `entities[]`
    - `relation_types[]`
    - `intent_type`
    - `intent_aux[]`
    - `recall_target_type`
-4. 固化 `intent_type` 主标签闭集：
+
+**验收标准:**
+- [ ] `query analyzer` 不再是隐含步骤
+- [ ] 输出字段与 ADR 定义一致
+- [ ] analyzer 失败时存在明确回退路径
+- [ ] `docker build -t koduck-memory:dev ./koduck-memory` 成功
+- [ ] `kubectl rollout restart deployment/dev-koduck-memory -n koduck-dev` 后可成功完成 rollout
+
+---
+
+### Task 3.2: 冻结查询侧 `intent` 与存储侧 `discourse_action`
+**详细要求:**
+1. 冻结查询侧 `intent_type` 主标签闭集：
    - `recall`
    - `compare`
    - `disambiguate`
@@ -115,33 +233,53 @@
    - `explain`
    - `decide`
    - `none`
-5. 固化 `discourse_action` 闭集与映射规则。
-6. 明确回退策略：
-   - analyzer 无法稳定抽取时，退回 `domain_class + query_text` 路径
-7. 明确 `intent_aux[]` 约束：
+2. 冻结存储侧 `discourse_action` 闭集：
+   - `recall_prompt`
+   - `comparison`
+   - `disambiguation`
+   - `correction`
+   - `explanation`
+   - `decision`
+   - `other`
+3. 固化两者映射关系
+4. 明确 `intent_aux[]` 的边界：
    - 不重复表达 `relation_types[]`
-   - 不改变主召回路径
+   - 不单独改变主召回路径
 
-交付物：
+**验收标准:**
+- [ ] 查询侧与存储侧语义不再混用
+- [ ] `intent_score` 具备稳定映射基础
+- [ ] `intent_aux[]` 不造成重复加权
+- [ ] `docker build -t koduck-memory:dev ./koduck-memory` 成功
+- [ ] `kubectl rollout status deployment/dev-koduck-memory -n koduck-dev --timeout=180s` 成功
 
-- analyzer 模块
-- query context 类型定义
-- 分类与映射规则测试用例设计说明
+---
 
-## Phase 4：Anchor-based 检索主路径
+## Phase 4: Anchor-based 检索主路径
 
-目标：把检索主路径从 `session/domain` 粗粒度升级到 `memory_unit + anchors`。
-
-任务：
-
-1. 实现 `ANCHOR_FIRST` 服务内检索路径。
-2. 并行召回候选：
+### Task 4.1: 实现 `ANCHOR_FIRST` 服务内检索路径
+**详细要求:**
+1. 新增 `ANCHOR_FIRST` 服务内实现
+2. 候选召回通道固定为：
    - `domain`
    - `entity`
    - `relation`
    - `session scope`
-3. 合并候选并生成 `match_reasons`。
-4. 冻结 `match_reasons` 闭集：
+3. `time_bucket` 不进入倒排召回
+4. 候选集合合并、去重并保留来源
+
+**验收标准:**
+- [ ] 支持 `memory_unit` 粒度召回
+- [ ] 时间维度仅参与排序，不作为候选入口
+- [ ] `ANCHOR_FIRST` 不暴露为外部 retrieve policy
+- [ ] `docker build -t koduck-memory:dev ./koduck-memory` 成功
+- [ ] `kubectl rollout status deployment/dev-koduck-memory -n koduck-dev --timeout=180s` 成功
+
+---
+
+### Task 4.2: 冻结 `match_reasons` 与输出行为
+**详细要求:**
+1. 冻结 `match_reasons` 闭集：
    - `domain_hit`
    - `entity_hit`
    - `relation_hit`
@@ -150,111 +288,145 @@
    - `summary_hit`
    - `fact_hit`
    - `recency_boost`
-5. 保留 `DOMAIN_FIRST` 行为语义，但内部允许委托到 anchor 路径。
-6. 明确 `time_bucket` 仅用于排序，不参与独立倒排召回。
+2. `QueryMemory` 主路径继续返回 `MemoryHit`
+3. `MemoryHit` 主路径不承载 recall 扩展的 batch 中间材料
 
-交付物：
+**验收标准:**
+- [ ] `match_reasons` 不出现开放集漂移
+- [ ] 输出形态与当前 `memory.v1` 主路径兼容
+- [ ] 不将 batch 中间材料塞入 `MemoryHit`
+- [ ] `docker build -t koduck-memory:dev ./koduck-memory` 成功
+- [ ] `kubectl rollout status deployment/dev-koduck-memory -n koduck-dev --timeout=180s` 成功
 
-- anchor-based retriever
-- `match_reasons` 生成逻辑
-- 兼容现有 `QueryMemory` handler 的读路径接入
+---
 
-## Phase 5：Summary Gate 与排序收口
+## Phase 5: Summary Gate 与排序收口
 
-目标：在不牺牲 recent memory 可见性的前提下，保留 `SUMMARY_FIRST` 的负向过滤语义。
+### Task 5.1: 收口 `SUMMARY_FIRST` 与 `summary_status`
+**详细要求:**
+1. `summary gate` 仅在 `summary_status = ready` 时生效
+2. 当 `summary_status != ready` 时：
+   - 继续沿 anchor 路径参与排序
+   - 不因摘要未完成而隐藏 recent memory
+3. 低质量 `summary` 不进入 `summary gate`
 
-任务：
+**验收标准:**
+- [ ] recent memory 在 `pending` 状态仍可被命中
+- [ ] `SUMMARY_FIRST` 仍保留负向过滤语义
+- [ ] 低质量 summary 不会污染检索结果
+- [ ] `docker build -t koduck-memory:dev ./koduck-memory` 成功
+- [ ] `kubectl rollout status deployment/dev-koduck-memory -n koduck-dev --timeout=180s` 成功
 
-1. 将 `summary gate` 限制为：
-   - 仅当 `summary_status = ready` 时生效
-2. 明确 `summary_status != ready` 的处理：
-   - 候选继续沿 anchor 路径参与排序
-   - 不能因为摘要未就绪而隐藏
-3. 实现可解释排序：
+---
+
+### Task 5.2: 固化可解释排序
+**详细要求:**
+1. 实现排序信号：
    - `domain_score`
    - `entity_score`
    - `relation_score`
    - `intent_score`
    - `recency_score`
    - `salience_score`
-4. 确保 `intent_score` 不重复吸收 `relation_score` 已表达的信号。
-5. 固化初始排序权重并记录到配置或常量定义中。
+2. 明确 `intent_score` 不重复吸收 `relation_score` 已表达的结构化关系
+3. 冻结初始权重：
+   - `domain 0.30`
+   - `entity 0.35`
+   - `relation 0.15`
+   - `intent 0.05`
+   - `recency 0.10`
+   - `salience 0.05`
 
-交付物：
+**验收标准:**
+- [ ] 排序实现与 ADR 权重一致
+- [ ] `intent_score` 不与 `relation_score` 双重加权
+- [ ] `time_bucket` 仅通过 `recency_score` 参与排序
+- [ ] `docker build -t koduck-memory:dev ./koduck-memory` 成功
+- [ ] `kubectl rollout status deployment/dev-koduck-memory -n koduck-dev --timeout=180s` 成功
 
-- summary gate 实现
-- rerank 实现
-- 排序权重配置入口
+---
 
-## Phase 6：兼容迁移与灰度切换
+## Phase 6: 兼容迁移、灰度与观测
 
-目标：在不破坏现网语义的前提下，把默认读路径迁到 anchors。
+### Task 6.1: 建立 `DOMAIN_FIRST -> anchor path` 内部迁移
+**详细要求:**
+1. 保持对外 `RetrievePolicy` 不变
+2. 内部允许 `DOMAIN_FIRST` 委托到 anchor path
+3. 增加服务内 `ANCHOR_FIRST` feature flag
+4. 支持租户级灰度
 
-任务：
+**验收标准:**
+- [ ] `memory.v1` proto 不新增 retrieve policy 枚举值
+- [ ] `ANCHOR_FIRST` 仅作为服务内 feature flag
+- [ ] 对外 `DOMAIN_FIRST` 语义不回退
+- [ ] `docker build -t koduck-memory:dev ./koduck-memory` 成功
+- [ ] `kubectl rollout status deployment/dev-koduck-memory -n koduck-dev --timeout=180s` 成功
 
-1. 增加服务内 `ANCHOR_FIRST` feature flag。
-2. 支持租户级灰度控制。
-3. 保持 `memory.v1` `RetrievePolicy` 不变，不新增 proto 枚举值。
-4. 建立兼容迁移顺序：
-   - 先写新表
-   - 再双读/灰度读
-   - 最后将 `DOMAIN_FIRST` 内部委托到 anchor path
-5. 增加观测字段：
+---
+
+### Task 6.2: 增加观测与灰度指标
+**详细要求:**
+1. 增加结构化日志字段：
    - `retrieved_anchor_set`
    - `retrieved_scores`
    - `summary_filter_ratio`
-6. 建立基础指标：
+2. 增加基础指标：
    - `anchor_precision@k`
    - `p95_query_latency_ms`
    - `recall_expanded_success_rate`
    - `recall_batch_completion_ratio`
 
-交付物：
+**验收标准:**
+- [ ] 能观测 anchor path 的召回来源与排序结果
+- [ ] 能对比旧路径和新路径的延迟与命中质量
+- [ ] recall 扩展相关指标只作为方向性观测，不作为当前契约验收前提
+- [ ] `docker build -t koduck-memory:dev ./koduck-memory` 成功
+- [ ] `kubectl rollout status deployment/dev-koduck-memory -n koduck-dev --timeout=180s` 成功
 
-- feature flag / rollout 配置
-- 灰度切换说明
-- 观测指标与日志埋点
+---
 
-## Phase 7：Recall 扩展契约决策
+## Phase 7: Recall 扩展契约决策
 
-目标：把当前 ADR 中尚未冻结的 recall 扩展路径，单独收口为后续契约决策。
+### Task 7.1: 单独冻结 recall 扩展 contract
+**详细要求:**
+1. 明确 batch 级中间摘要材料的返回形态
+2. 明确多轮/分批历史回顾交互的 southbound 契约
+3. 决策以下问题：
+   - 扩展现有 `QueryMemoryResponse`
+   - 或新增 RPC
+4. 明确上层 orchestration 如何消费 recall 扩展材料
 
-当前未冻结项：
+**验收标准:**
+- [ ] 新增 follow-up ADR
+- [ ] 当前 ADR-0025 中未冻结部分被单独收口
+- [ ] recall 扩展交互能力不再依赖隐式约定
 
-1. batch 级中间摘要材料的返回形态
-2. 多轮/分批历史回顾交互的 southbound 契约
-3. 是否新增 RPC，还是扩展现有 `QueryMemoryResponse`
-4. 上层 orchestration 如何消费 recall 扩展材料
-
-建议动作：
-
-1. 新建 follow-up ADR，专门收口 recall 扩展 contract。
-2. 在该 ADR 冻结前，不将 recall 扩展交互式能力纳入当前 P0 交付范围。
+---
 
 ## 建议实施顺序
 
-1. 先完成 Phase 1、Phase 2，确保模型和写入链路稳定。
-2. 再完成 Phase 3、Phase 4，建立最小 anchor-based retrieval 主路径。
-3. 然后完成 Phase 5，把 `SUMMARY_FIRST` 与排序行为收口。
-4. 最后进入 Phase 6 灰度切换。
-5. Phase 7 单独走后续 ADR，不阻塞主路径落地。
+1. 先完成 Phase 1、Phase 2，冻结模型与写入链路。
+2. 再完成 Phase 3、Phase 4，打通最小可用 anchor-based retrieval 主路径。
+3. 然后完成 Phase 5，收口 `SUMMARY_FIRST` 与排序语义。
+4. 最后进入 Phase 6 做灰度与观测。
+5. Phase 7 单独推进，不阻塞当前主路径落地。
 
-## 验收标准
+## 总体验收标准
 
-主路径验收：
+### 主路径验收
 
-1. `QueryMemory` 在不改 `memory.v1` proto 的前提下，可通过 anchor path 返回 `MemoryHit`。
-2. recent memory 在 `summary_status = pending` 时仍可被 anchors 命中。
-3. `domain_class_primary` 投影规则在回填、重算、迁移中保持一致。
-4. `match_reasons` 与闭集定义一致，不出现开放集漂移。
+- [ ] `QueryMemory` 在不修改当前 `memory.v1` 主路径契约的前提下，可通过 anchor path 返回 `MemoryHit`
+- [ ] recent memory 在 `summary_status = pending` 时仍可通过 anchors 被命中
+- [ ] `domain_class_primary` 投影规则在回填、重算、迁移中保持一致
+- [ ] `match_reasons` 与闭集定义一致，不出现开放集漂移
 
-兼容性验收：
+### 兼容性验收
 
-1. `DOMAIN_FIRST` 对外语义不回退。
-2. `SUMMARY_FIRST` 仍保持负向过滤特征。
-3. `ANCHOR_FIRST` 仅作为服务内部 feature flag，不暴露到 `memory.v1` 契约。
+- [ ] `DOMAIN_FIRST` 对外语义不回退
+- [ ] `SUMMARY_FIRST` 仍保持负向过滤特征
+- [ ] `ANCHOR_FIRST` 不暴露到 `memory.v1` 契约
 
-范围验收：
+### 范围验收
 
-1. 当前阶段不要求 `QueryMemory` 直接返回 batch 级中间摘要材料。
-2. recall 扩展交互能力必须等待 follow-up contract ADR 冻结。
+- [ ] 当前阶段不要求 `QueryMemory` 直接返回 batch 级中间摘要材料
+- [ ] recall 扩展交互能力必须等待 follow-up contract ADR 冻结
