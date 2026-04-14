@@ -20,6 +20,7 @@
 - 默认检索策略 `DOMAIN_FIRST`：`ADR-0016`
 - `SUMMARY_FIRST` 排除策略：`ADR-0017`
 - `HYBRID` 仅保留为未来扩展：`ADR-0018`
+- `多锚点与 memory_unit 检索架构`：`ADR-0025`
 
 ## Integration
 

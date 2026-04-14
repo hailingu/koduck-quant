@@ -36,12 +36,14 @@ impl MemorySummaryRepository {
         let row = sqlx::query_as::<_, MemorySummary>(
             r#"
             INSERT INTO memory_summaries (
-                id, tenant_id, session_id, domain_class, summary, strategy, version, created_at
+                id, tenant_id, session_id, domain_class, summary, strategy,
+                summary_source, llm_error_class, version, created_at
             ) VALUES (
-                $1, $2, $3, $4, $5, $6, $7, now()
+                $1, $2, $3, $4, $5, $6, $7, $8, $9, now()
             )
             RETURNING
-                id, tenant_id, session_id, domain_class, summary, strategy, version, created_at
+                id, tenant_id, session_id, domain_class, summary, strategy,
+                summary_source, llm_error_class, version, created_at
             "#,
         )
         .bind(params.id)
@@ -50,6 +52,8 @@ impl MemorySummaryRepository {
         .bind(&params.domain_class)
         .bind(&params.summary)
         .bind(&params.strategy)
+        .bind(&params.summary_source)
+        .bind(&params.llm_error_class)
         .bind(params.version)
         .fetch_one(&self.pool)
         .await?;
@@ -59,6 +63,8 @@ impl MemorySummaryRepository {
             session_id = %row.session_id,
             version = row.version,
             domain_class = %row.domain_class,
+            summary_source = %row.summary_source,
+            llm_error_class = %row.llm_error_class,
             "memory summary inserted"
         );
 
@@ -73,7 +79,8 @@ impl MemorySummaryRepository {
         let row = sqlx::query_as::<_, MemorySummary>(
             r#"
             SELECT
-                id, tenant_id, session_id, domain_class, summary, strategy, version, created_at
+                id, tenant_id, session_id, domain_class, summary, strategy,
+                summary_source, llm_error_class, version, created_at
             FROM memory_summaries
             WHERE tenant_id = $1 AND session_id = $2
             ORDER BY version DESC
@@ -96,7 +103,8 @@ impl MemorySummaryRepository {
         let rows = sqlx::query_as::<_, MemorySummary>(
             r#"
             SELECT
-                id, tenant_id, session_id, domain_class, summary, strategy, version, created_at
+                id, tenant_id, session_id, domain_class, summary, strategy,
+                summary_source, llm_error_class, version, created_at
             FROM memory_summaries
             WHERE tenant_id = $1 AND session_id = $2
             ORDER BY version DESC

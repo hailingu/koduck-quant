@@ -1142,8 +1142,8 @@ export function KoduckAi() {
                     }`}
                   >
                     <div
-                      className={`max-w-[80%] ${
-                        message.role === "user" ? "w-fit ml-auto" : "w-fit"
+                      className={`inline-flex max-w-[80%] flex-col ${
+                        message.role === "user" ? "ml-auto items-start" : "items-start"
                       }`}
                     >
                       {message.type === "text" ? (
@@ -1195,11 +1195,7 @@ export function KoduckAi() {
                           )}
                         </div>
                       )}
-                      <div
-                        className={`mt-2 flex items-center gap-2 ${
-                          message.role === "user" ? "justify-end" : "justify-start"
-                        }`}
-                      >
+                      <div className="mt-2 flex w-full items-center justify-start gap-2">
                         {Boolean(message.timestamp) && (
                           <div className="text-xs text-gray-500">
                             {formatTimestamp(message.timestamp)}

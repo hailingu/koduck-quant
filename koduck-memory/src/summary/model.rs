@@ -11,6 +11,8 @@ pub struct MemorySummary {
     pub domain_class: String,
     pub summary: String,
     pub strategy: String,
+    pub summary_source: String,
+    pub llm_error_class: String,
     pub version: i32,
     pub created_at: chrono::DateTime<chrono::Utc>,
 }
@@ -24,6 +26,8 @@ pub struct InsertMemorySummary {
     pub domain_class: String,
     pub summary: String,
     pub strategy: String,
+    pub summary_source: String,
+    pub llm_error_class: String,
     pub version: i32,
 }
 
@@ -34,6 +38,8 @@ impl InsertMemorySummary {
         domain_class: impl Into<String>,
         summary: impl Into<String>,
         strategy: impl Into<String>,
+        summary_source: impl Into<String>,
+        llm_error_class: impl Into<String>,
         version: i32,
     ) -> Self {
         Self {
@@ -43,6 +49,8 @@ impl InsertMemorySummary {
             domain_class: domain_class.into(),
             summary: summary.into(),
             strategy: strategy.into(),
+            summary_source: summary_source.into(),
+            llm_error_class: llm_error_class.into(),
             version,
         }
     }
@@ -61,6 +69,8 @@ mod tests {
             "task",
             "summary text",
             "session-rollup",
+            "llm",
+            "none",
             2,
         );
 
@@ -69,6 +79,8 @@ mod tests {
         assert_eq!(params.domain_class, "task");
         assert_eq!(params.summary, "summary text");
         assert_eq!(params.strategy, "session-rollup");
+        assert_eq!(params.summary_source, "llm");
+        assert_eq!(params.llm_error_class, "none");
         assert_eq!(params.version, 2);
     }
 }

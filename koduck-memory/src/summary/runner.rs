@@ -198,6 +198,8 @@ impl SummaryTaskRunner {
             inferred_domain_class.clone(),
             summary_artifact.summary,
             job.strategy.clone(),
+            summary_artifact.summary_source,
+            summary_artifact.llm_error_class,
             version,
         );
         let stored = self.summary_repo.insert(&insert_summary).await?;
@@ -344,6 +346,7 @@ struct ChatMessage {
 struct ChatCompletionsRequest<'a> {
     model: &'a str,
     temperature: f32,
+    response_format: JsonObjectResponseFormat<'a>,
     messages: Vec<PromptMessage<'a>>,
 }
 
@@ -353,10 +356,24 @@ struct PromptMessage<'a> {
     content: String,
 }
 
+#[derive(Debug, Clone, Serialize)]
+struct JsonObjectResponseFormat<'a> {
+    #[serde(rename = "type")]
+    kind: &'a str,
+}
+
 #[derive(Debug, Clone, Deserialize)]
+struct ParsedSummaryArtifact {
+    summary: String,
+    snippet: String,
+}
+
+#[derive(Debug, Clone)]
 struct SummaryArtifact {
     summary: String,
     snippet: String,
+    summary_source: &'static str,
+    llm_error_class: &'static str,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -418,6 +435,13 @@ async fn build_summary_artifact(
             Ok(None) => {}
             Err(error) => {
                 warn!(error = %error, "summary llm generation failed, falling back to heuristic summary");
+                return build_heuristic_summary_artifact_with_error(
+                    transcript,
+                    entry_count,
+                    session_title,
+                    inferred_domain_class,
+                    classify_summary_llm_error(&error),
+                );
             }
         }
     }
@@ -448,6 +472,8 @@ fn build_heuristic_summary_artifact(
         return SummaryArtifact {
             snippet: truncate_text(&summary, 96),
             summary,
+            summary_source: "heuristic",
+            llm_error_class: "none",
         };
     }
 
@@ -463,7 +489,29 @@ fn build_heuristic_summary_artifact(
         .find(|part| !part.trim().is_empty())
         .map(|part| truncate_text(part, 96))
         .unwrap_or_else(|| truncate_text(&summary, 96));
-    SummaryArtifact { summary, snippet }
+    SummaryArtifact {
+        summary,
+        snippet,
+        summary_source: "heuristic",
+        llm_error_class: "none",
+    }
+}
+
+fn build_heuristic_summary_artifact_with_error(
+    transcript: &[String],
+    entry_count: usize,
+    session_title: Option<&str>,
+    inferred_domain_class: &str,
+    llm_error_class: &'static str,
+) -> SummaryArtifact {
+    let mut artifact = build_heuristic_summary_artifact(
+        transcript,
+        entry_count,
+        session_title,
+        inferred_domain_class,
+    );
+    artifact.llm_error_class = llm_error_class;
+    artifact
 }
 
 async fn generate_summary_via_llm(
@@ -492,6 +540,7 @@ async fn generate_summary_via_llm(
     let request = ChatCompletionsRequest {
         model: &summary_config.llm_model,
         temperature: 0.2,
+        response_format: JsonObjectResponseFormat { kind: "json_object" },
         messages: vec![
             PromptMessage {
                 role: "system",
@@ -534,19 +583,31 @@ async fn generate_summary_via_llm(
     Ok(Some(SummaryArtifact {
         summary: truncate_text(&artifact.summary, MAX_SUMMARY_CHARS),
         snippet: truncate_text(&artifact.snippet, 96),
+        summary_source: "llm",
+        llm_error_class: "none",
     }))
 }
 
 fn parse_summary_artifact(content: &str) -> Result<SummaryArtifact> {
     let sanitized = strip_think_blocks(content);
 
-    if let Ok(artifact) = serde_json::from_str::<SummaryArtifact>(&sanitized) {
-        return Ok(artifact);
+    if let Ok(artifact) = serde_json::from_str::<ParsedSummaryArtifact>(&sanitized) {
+        return Ok(SummaryArtifact {
+            summary: artifact.summary,
+            snippet: artifact.snippet,
+            summary_source: "llm",
+            llm_error_class: "none",
+        });
     }
 
     if let Some(candidate) = extract_last_json_object(&sanitized) {
-        if let Ok(artifact) = serde_json::from_str::<SummaryArtifact>(candidate) {
-            return Ok(artifact);
+        if let Ok(artifact) = serde_json::from_str::<ParsedSummaryArtifact>(candidate) {
+            return Ok(SummaryArtifact {
+                summary: artifact.summary,
+                snippet: artifact.snippet,
+                summary_source: "llm",
+                llm_error_class: "none",
+            });
         }
     }
 
@@ -554,6 +615,15 @@ fn parse_summary_artifact(content: &str) -> Result<SummaryArtifact> {
         "summary llm did not return valid json; raw_content={}",
         truncate_text(content, 500)
     )
+}
+
+fn classify_summary_llm_error(error: &anyhow::Error) -> &'static str {
+    let message = error.to_string().to_ascii_lowercase();
+    if message.contains("did not return valid json") || message.contains("raw_content=") {
+        "malformed_output"
+    } else {
+        "transport_error"
+    }
 }
 
 async fn classify_domain_class(
@@ -832,6 +902,7 @@ async fn generate_domain_class_via_llm(
     let request = ChatCompletionsRequest {
         model: &summary_config.llm_model,
         temperature: 0.0,
+        response_format: JsonObjectResponseFormat { kind: "json_object" },
         messages: vec![
             PromptMessage {
                 role: "system",
@@ -979,7 +1050,10 @@ async fn build_fact_candidates(
         );
     }
 
-    if let Some(title) = session_title.filter(|value| !value.trim().is_empty()) {
+    if let Some(title) = session_title.filter(|value| {
+        let normalized = value.trim();
+        !normalized.is_empty() && !normalized.eq_ignore_ascii_case("untitled")
+    }) {
         push_fact_candidate(
             &mut candidates,
             &mut seen,
@@ -1180,6 +1254,7 @@ async fn generate_ner_artifact_via_llm(
     let request = ChatCompletionsRequest {
         model: &summary_config.llm_model,
         temperature: 0.0,
+        response_format: JsonObjectResponseFormat { kind: "json_object" },
         messages: vec![
             PromptMessage {
                 role: "system",
