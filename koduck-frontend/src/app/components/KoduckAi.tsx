@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   ArrowUp,
   ChevronDown,
@@ -154,6 +154,18 @@ function persistSessionMessages(sessionId: string | null, messages: Message[]) {
     buildSessionMessagesStorageKey(sessionId),
     JSON.stringify(persistedMessages),
   );
+}
+
+function logStreamTrace(
+  localRequestId: string,
+  stage: string,
+  detail: Record<string, unknown> = {},
+) {
+  console.info("[koduck-ai][stream]", {
+    localRequestId,
+    stage,
+    ...detail,
+  });
 }
 
 function toUserVisibleStreamErrorMessage(rawMessage: string | null | undefined): string {
@@ -313,26 +325,26 @@ function normalizeMarkdownContent(content: string): string {
 
 function MarkdownMessage({ content }: { content: string }) {
   return (
-    <div className="max-w-none text-base leading-8 text-gray-800 break-words">
+    <div className="max-w-none break-words text-base leading-8 text-gray-800">
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
         components={{
           h1: ({ children }) => (
-            <h1 className="mt-4 mb-3 text-2xl font-semibold text-gray-900 first:mt-0">
+            <h1 className="mb-3 mt-4 text-2xl font-semibold text-gray-900 first:mt-0">
               {children}
             </h1>
           ),
           h2: ({ children }) => (
-            <h2 className="mt-4 mb-3 text-xl font-semibold text-gray-900 first:mt-0">
+            <h2 className="mb-3 mt-4 text-xl font-semibold text-gray-900 first:mt-0">
               {children}
             </h2>
           ),
           h3: ({ children }) => (
-            <h3 className="mt-4 mb-2 text-lg font-semibold text-gray-900 first:mt-0">
+            <h3 className="mb-2 mt-4 text-lg font-semibold text-gray-900 first:mt-0">
               {children}
             </h3>
           ),
-          p: ({ children }) => <p className="mb-3 last:mb-0 whitespace-pre-wrap">{children}</p>,
+          p: ({ children }) => <p className="mb-3 whitespace-pre-wrap last:mb-0">{children}</p>,
           ul: ({ children }) => <ul className="mb-3 list-disc pl-6">{children}</ul>,
           ol: ({ children }) => <ol className="mb-3 list-decimal pl-6">{children}</ol>,
           li: ({ children }) => <li className="mb-1">{children}</li>,
@@ -475,9 +487,7 @@ export function KoduckAi() {
 
   const updateAssistantMessage = (messageId: string, updater: (prev: Message) => Message) => {
     setMessages((prev) =>
-      prev.map((message) =>
-        message.id === messageId ? updater(message) : message,
-      ),
+      prev.map((message) => (message.id === messageId ? updater(message) : message)),
     );
   };
 
@@ -637,6 +647,7 @@ export function KoduckAi() {
     setMessages((prev) => [...prev, userMessage, assistantPlaceholder]);
     setChatMessage("");
     setSending(true);
+    const localRequestId = `web-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
     const abortController = new AbortController();
     let shouldAbortRequest = true;
     const requestTimeoutId = window.setTimeout(() => {
@@ -644,6 +655,14 @@ export function KoduckAi() {
     }, STREAM_REQUEST_TIMEOUT_MS);
     let streamedText = "";
     let streamErrorMessage = "";
+    let upstreamRequestId: string | null = null;
+    let lastSequenceNum: number | null = null;
+
+    logStreamTrace(localRequestId, "request_start", {
+      sessionId,
+      assistantMessageId,
+      userMessageLength: content.length,
+    });
 
     try {
       const token = localStorage.getItem("koduck.auth.token");
@@ -659,6 +678,13 @@ export function KoduckAi() {
           session_id: sessionId,
           history: buildHistoryMessages(),
         }),
+      });
+
+      logStreamTrace(localRequestId, "response_received", {
+        sessionId,
+        ok: response.ok,
+        status: response.status,
+        hasBody: Boolean(response.body),
       });
 
       if (!response.ok || !response.body) {
@@ -692,6 +718,11 @@ export function KoduckAi() {
           streamEstablished = true;
 
           if (block.data === "heartbeat") {
+            logStreamTrace(localRequestId, "heartbeat", {
+              sessionId,
+              upstreamRequestId,
+              lastSequenceNum,
+            });
             continue;
           }
 
@@ -699,12 +730,29 @@ export function KoduckAi() {
           try {
             eventData = JSON.parse(block.data) as StreamEventData;
           } catch {
+            logStreamTrace(localRequestId, "parse_error", {
+              sessionId,
+              rawEvent: block.event,
+            });
             continue;
           }
+
+          upstreamRequestId = eventData.request_id ?? upstreamRequestId;
+          lastSequenceNum =
+            typeof eventData.sequence_num === "number"
+              ? eventData.sequence_num
+              : lastSequenceNum;
 
           if (block.event === "message" && eventData.payload?.text) {
             streamedText += eventData.payload.text;
             const nextText = streamedText;
+            logStreamTrace(localRequestId, "message", {
+              sessionId,
+              upstreamRequestId,
+              sequenceNum: lastSequenceNum,
+              deltaLength: eventData.payload.text.length,
+              totalLength: nextText.length,
+            });
             updateAssistantMessage(assistantMessageId, (prev) => ({
               ...prev,
               content: nextText,
@@ -715,6 +763,13 @@ export function KoduckAi() {
           }
 
           if (block.event === "done") {
+            logStreamTrace(localRequestId, "done", {
+              sessionId,
+              upstreamRequestId,
+              sequenceNum: lastSequenceNum,
+              finishReason: eventData.payload?.finish_reason ?? "",
+              totalLength: streamedText.length,
+            });
             updateAssistantMessage(assistantMessageId, (prev) => ({
               ...prev,
               content: streamedText || prev.content || "回答已完成。",
@@ -729,6 +784,14 @@ export function KoduckAi() {
           if (block.event === "error") {
             streamErrorMessage =
               eventData.payload?.message?.trim() || "生成过程中发生异常，请稍后重试。";
+            logStreamTrace(localRequestId, "error_event", {
+              sessionId,
+              upstreamRequestId,
+              sequenceNum: lastSequenceNum,
+              code: eventData.payload?.code ?? "",
+              message: streamErrorMessage,
+              totalLength: streamedText.length,
+            });
             updateAssistantMessage(assistantMessageId, (prev) => ({
               ...prev,
               content:
@@ -749,6 +812,13 @@ export function KoduckAi() {
       window.clearTimeout(requestTimeoutId);
 
       if (!streamCompleted && streamedText.trim()) {
+        logStreamTrace(localRequestId, "stream_closed_without_terminal_event", {
+          sessionId,
+          upstreamRequestId,
+          sequenceNum: lastSequenceNum,
+          totalLength: streamedText.length,
+          streamErrorMessage,
+        });
         updateAssistantMessage(assistantMessageId, (prev) => ({
           ...prev,
           content:
@@ -764,22 +834,42 @@ export function KoduckAi() {
       }
 
       if (!streamedText.trim()) {
+        logStreamTrace(localRequestId, "empty_stream", {
+          sessionId,
+          upstreamRequestId,
+          sequenceNum: lastSequenceNum,
+          streamEstablished,
+        });
         if (streamEstablished) {
           throw new Error("chat stream ended before any visible content was returned");
         }
         throw new Error("chat stream returned empty content");
       }
 
+      logStreamTrace(localRequestId, "request_complete", {
+        sessionId,
+        upstreamRequestId,
+        sequenceNum: lastSequenceNum,
+        totalLength: streamedText.length,
+        streamCompleted,
+      });
       shouldAbortRequest = false;
     } catch (error) {
+      logStreamTrace(localRequestId, "request_error", {
+        sessionId,
+        upstreamRequestId,
+        sequenceNum: lastSequenceNum,
+        streamEstablished,
+        totalLength: streamedText.length,
+        message: error instanceof Error ? error.message : String(error),
+      });
       if (streamedText.trim()) {
         const userVisibleMessage = toUserVisibleStreamErrorMessage(
           error instanceof Error ? error.message : undefined,
         );
         updateAssistantMessage(assistantMessageId, (prev) => ({
           ...prev,
-          content:
-            streamedText + `\n\n回答提前结束：${userVisibleMessage}`,
+          content: streamedText + `\n\n回答提前结束：${userVisibleMessage}`,
           timestamp: prev.timestamp || Date.now(),
           streaming: false,
           type: "text",
@@ -814,6 +904,12 @@ export function KoduckAi() {
         cardData: shouldReturnCard(content) ? generateCardData(content) : undefined,
       }));
     } finally {
+      logStreamTrace(localRequestId, "request_finally", {
+        sessionId,
+        upstreamRequestId,
+        sequenceNum: lastSequenceNum,
+        shouldAbortRequest,
+      });
       window.clearTimeout(requestTimeoutId);
       if (shouldAbortRequest && !abortController.signal.aborted) {
         abortController.abort("chat stream cleanup");
@@ -880,9 +976,9 @@ export function KoduckAi() {
   };
 
   const renderInputBar = () => (
-    <div className="bg-white border border-gray-200 rounded-[32px] shadow-sm transition-shadow hover:shadow-md">
+    <div className="rounded-[32px] border border-gray-200 bg-white shadow-sm transition-shadow hover:shadow-md">
       {uploadedFiles.length > 0 && (
-        <div className="flex flex-wrap gap-2 px-5 pt-4 pb-2">
+        <div className="flex flex-wrap gap-2 px-5 pb-2 pt-4">
           {uploadedFiles.map((file) => (
             <div
               key={file.id}
@@ -1010,7 +1106,7 @@ export function KoduckAi() {
 
       <button
         onClick={handleCreateSession}
-        className="fixed top-3 left-4 z-10 flex h-8 w-8 items-center justify-center text-gray-500 transition-colors hover:text-gray-700"
+        className="fixed left-4 top-3 z-10 flex h-8 w-8 items-center justify-center text-gray-500 transition-colors hover:text-gray-700"
         type="button"
         title="新建会话"
       >
@@ -1018,15 +1114,15 @@ export function KoduckAi() {
       </button>
       <div className="flex-1 overflow-y-auto">
         <div
-          className={`min-h-full flex flex-col ${
+          className={`flex min-h-full flex-col px-4 ${
             messages.length === 0
               ? "items-center justify-start pt-[28vh]"
               : "justify-start pt-8"
-          } px-4`}
+          }`}
         >
           {messages.length === 0 ? (
-            <div className="w-full max-w-3xl mx-auto">
-              <h1 className="text-3xl font-normal text-gray-800 text-center mb-8">
+            <div className="mx-auto w-full max-w-3xl">
+              <h1 className="mb-8 text-center text-3xl font-normal text-gray-800">
                 {currentSessionId ? "新会话已创建" : "开始对话"}
               </h1>
               {!currentSessionId && (
@@ -1037,7 +1133,7 @@ export function KoduckAi() {
               <div className="w-full max-w-4xl px-4">{renderInputBar()}</div>
             </div>
           ) : (
-            <div className="w-full max-w-3xl mx-auto space-y-6 mb-32">
+            <div className="mx-auto mb-32 w-full max-w-3xl space-y-6">
               {messages.map((message) => (
                 <div key={message.id} className="group space-y-2">
                   <div
@@ -1045,13 +1141,17 @@ export function KoduckAi() {
                       message.role === "user" ? "justify-end" : "justify-start"
                     }`}
                   >
-                    <div className="max-w-[80%]">
+                    <div
+                      className={`max-w-[80%] ${
+                        message.role === "user" ? "w-fit ml-auto" : "w-fit"
+                      }`}
+                    >
                       {message.type === "text" ? (
                         message.role === "assistant" ? (
                           !message.content ? (
                             <StreamingPlaceholder />
                           ) : message.streaming ? (
-                            <p className="text-base whitespace-pre-wrap text-gray-800">
+                            <p className="whitespace-pre-wrap text-base text-gray-800">
                               {message.content}
                             </p>
                           ) : (
@@ -1064,12 +1164,10 @@ export function KoduckAi() {
                         )
                       ) : (
                         <div>
-                          <p className="text-base text-gray-800 mb-4">
-                            {message.content}
-                          </p>
+                          <p className="mb-4 text-base text-gray-800">{message.content}</p>
                           {message.cardData && (
-                            <div className="bg-white rounded-2xl p-5 hover:bg-gray-50 transition-colors cursor-pointer">
-                              <div className="flex items-start justify-between mb-2">
+                            <div className="cursor-pointer rounded-2xl bg-white p-5 transition-colors hover:bg-gray-50">
+                              <div className="mb-2 flex items-start justify-between">
                                 <div>
                                   <h3 className="text-lg font-medium text-gray-900">
                                     {message.cardData.title}
@@ -1079,7 +1177,7 @@ export function KoduckAi() {
                                   </p>
                                 </div>
                               </div>
-                              <div className="flex items-baseline gap-2 mt-3">
+                              <div className="mt-3 flex items-baseline gap-2">
                                 <span className="text-2xl font-medium text-gray-900">
                                   {message.cardData.value}
                                 </span>
@@ -1098,7 +1196,7 @@ export function KoduckAi() {
                         </div>
                       )}
                       <div
-                        className={`flex items-center gap-2 mt-2 ${
+                        className={`mt-2 flex items-center gap-2 ${
                           message.role === "user" ? "justify-end" : "justify-start"
                         }`}
                       >
@@ -1138,7 +1236,7 @@ export function KoduckAi() {
 
       {messages.length > 0 && (
         <div className="bg-white">
-          <div className="w-full max-w-4xl mx-auto px-4 py-4">{renderInputBar()}</div>
+          <div className="mx-auto w-full max-w-4xl px-4 py-4">{renderInputBar()}</div>
         </div>
       )}
     </main>

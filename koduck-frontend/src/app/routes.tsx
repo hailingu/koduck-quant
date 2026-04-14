@@ -1,11 +1,28 @@
+import { lazy } from "react";
 import { createBrowserRouter, Navigate } from "react-router";
 import { Layout } from "./components/Layout";
-import { PortfolioPage } from "./components/PortfolioPage";
-import { KLinePage } from "./components/KLinePage";
-import { LoginPage } from "./components/LoginPage";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import { isAuthenticated } from "./auth";
-import { KoduckAi } from "./components/KoduckAi";
+
+const KoduckAi = lazy(async () => {
+  const module = await import("./components/KoduckAi");
+  return { default: module.KoduckAi };
+});
+
+const PortfolioPage = lazy(async () => {
+  const module = await import("./components/PortfolioPage");
+  return { default: module.PortfolioPage };
+});
+
+const KLinePage = lazy(async () => {
+  const module = await import("./components/KLinePage");
+  return { default: module.KLinePage };
+});
+
+const LoginPage = lazy(async () => {
+  const module = await import("./components/LoginPage");
+  return { default: module.LoginPage };
+});
 
 function LoginRoute() {
   return isAuthenticated() ? <Navigate to="/koduck-ai" replace /> : <LoginPage />;
@@ -28,7 +45,9 @@ export const router = createBrowserRouter([
     path: "/koduck-ai",
     element: (
       <ProtectedRoute>
-        <Layout><KoduckAi /></Layout>
+        <Layout>
+          <KoduckAi />
+        </Layout>
       </ProtectedRoute>
     ),
   },
@@ -36,7 +55,9 @@ export const router = createBrowserRouter([
     path: "/portfolio",
     element: (
       <ProtectedRoute>
-        <Layout><PortfolioPage /></Layout>
+        <Layout>
+          <PortfolioPage />
+        </Layout>
       </ProtectedRoute>
     ),
   },
@@ -44,7 +65,9 @@ export const router = createBrowserRouter([
     path: "/kline",
     element: (
       <ProtectedRoute>
-        <Layout><KLinePage /></Layout>
+        <Layout>
+          <KLinePage />
+        </Layout>
       </ProtectedRoute>
     ),
   },
@@ -52,7 +75,11 @@ export const router = createBrowserRouter([
     path: "/flows",
     element: (
       <ProtectedRoute>
-        <Layout><div className="flex-1 flex items-center justify-center text-gray-500">Flows page coming soon</div></Layout>
+        <Layout>
+          <div className="flex-1 flex items-center justify-center text-gray-500">
+            Flows page coming soon
+          </div>
+        </Layout>
       </ProtectedRoute>
     ),
   },
@@ -60,7 +87,11 @@ export const router = createBrowserRouter([
     path: "/pools",
     element: (
       <ProtectedRoute>
-        <Layout><div className="flex-1 flex items-center justify-center text-gray-500">Pools page coming soon</div></Layout>
+        <Layout>
+          <div className="flex-1 flex items-center justify-center text-gray-500">
+            Pools page coming soon
+          </div>
+        </Layout>
       </ProtectedRoute>
     ),
   },
@@ -68,7 +99,11 @@ export const router = createBrowserRouter([
     path: "/history",
     element: (
       <ProtectedRoute>
-        <Layout><div className="flex-1 flex items-center justify-center text-gray-500">History page coming soon</div></Layout>
+        <Layout>
+          <div className="flex-1 flex items-center justify-center text-gray-500">
+            History page coming soon
+          </div>
+        </Layout>
       </ProtectedRoute>
     ),
   },

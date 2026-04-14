@@ -490,7 +490,7 @@ impl Default for RetryBudgetConfig {
         Self {
             enabled: true,
             max_retries: 2,
-            total_timeout_ms: 15_000,
+            total_timeout_ms: 45_000,
             base_backoff_ms: 200,
             max_backoff_ms: 2_000,
             retryable_codes: vec![
@@ -570,7 +570,7 @@ impl Config {
             .set_default("reliability.degrade.circuit_open_enabled", true)?
             .set_default("reliability.retry.enabled", true)?
             .set_default("reliability.retry.max_retries", 2)?
-            .set_default("reliability.retry.total_timeout_ms", 15_000)?
+            .set_default("reliability.retry.total_timeout_ms", 45_000)?
             .set_default("reliability.retry.base_backoff_ms", 200)?
             .set_default("reliability.retry.max_backoff_ms", 2_000)?
             .set_default(
