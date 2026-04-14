@@ -311,11 +311,11 @@ kubectl rollout status deployment/dev-koduck-memory -n koduck-dev --timeout=180s
 3. 低质量 `summary` 不进入 `summary gate`
 
 **验收标准:**
-- [ ] recent memory 在 `pending` 状态仍可被命中
-- [ ] `SUMMARY_FIRST` 仍保留负向过滤语义
-- [ ] 低质量 summary 不会污染检索结果
-- [ ] `docker build -t koduck-memory:dev ./koduck-memory` 成功
-- [ ] `kubectl rollout status deployment/dev-koduck-memory -n koduck-dev --timeout=180s` 成功
+- [x] recent memory 在 `pending` 状态仍可被命中
+- [x] `SUMMARY_FIRST` 仍保留负向过滤语义
+- [x] 低质量 summary 不会污染检索结果
+- [x] `docker build -t koduck-memory:dev ./koduck-memory` 成功
+- [x] `kubectl rollout status deployment/dev-koduck-memory -n koduck-dev --timeout=180s` 成功
 
 ---
 

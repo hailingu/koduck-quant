@@ -875,9 +875,9 @@ mod tests {
         PostgresSection, RetrySection, ServerSection, SummarySection,
     };
     use crate::facts::MemoryFactRepository;
-    use crate::index::MemoryIndexRepository;
+    use crate::index::{InsertMemoryIndexRecord, MemoryIndexRepository};
     use crate::memory_anchor::{MemoryUnitAnchorRepository, MemoryUnitAnchorType};
-    use crate::memory_unit::{MemoryUnitKind, MemoryUnitRepository};
+    use crate::memory_unit::{InsertMemoryUnit, MemoryUnitKind, MemoryUnitRepository, MemoryUnitSummaryState};
     use crate::reliability::TaskAttemptRepository;
     use crate::retrieve::match_reason;
     use crate::summary::MemorySummaryRepository;
@@ -2656,6 +2656,173 @@ mod tests {
         assert!(hit.match_reasons.contains(&"summary_hit".to_string()));
         assert!(hit.match_reasons.contains(&"session_scope_hit".to_string()));
         assert_match_reasons_are_closed_set(&hit.match_reasons);
+    }
+
+    #[tokio::test]
+    async fn query_memory_summary_first_keeps_recent_hits_when_summary_pending() {
+        let config = test_config();
+        let runtime = RuntimeState::initialize(&config).await.unwrap();
+        let service = MemoryGrpcService::new(config, runtime, None, Arc::new(RpcMetrics::new()));
+
+        let session_id = Uuid::new_v4();
+        let sid_str = session_id.to_string();
+
+        let session_resp = service
+            .upsert_session_meta(Request::new(UpsertSessionMetaRequest {
+                meta: Some(write_meta_with_idempotency("t55-seed", &sid_str)),
+                session_id: sid_str.clone(),
+                title: "Pending summary session".to_string(),
+                status: "active".to_string(),
+                parent_session_id: String::new(),
+                forked_from_session_id: String::new(),
+                last_message_at: 1700000000000,
+                extra: HashMap::new(),
+            }))
+            .await
+            .unwrap()
+            .into_inner();
+        assert!(session_resp.ok);
+
+        let append_resp = service
+            .append_memory(Request::new(AppendMemoryRequest {
+                meta: Some(write_meta_with_idempotency("t55-append", &sid_str)),
+                session_id: sid_str.clone(),
+                entries: vec![MemoryEntry {
+                    role: "user".to_string(),
+                    content: "Need release checklist for next deployment".to_string(),
+                    timestamp: 1700000001000,
+                    metadata: HashMap::new(),
+                }],
+            }))
+            .await
+            .unwrap()
+            .into_inner();
+        assert!(append_resp.ok);
+        assert_eq!(append_resp.appended_count, 1);
+
+        let response = service
+            .query_memory(Request::new(QueryMemoryRequest {
+                meta: Some(write_meta_with_idempotency("t55-query", &sid_str)),
+                query_text: "release checklist deployment".to_string(),
+                session_id: sid_str,
+                domain_class: "chat".to_string(),
+                top_k: 5,
+                retrieve_policy: RetrievePolicy::RetrievePolicySummaryFirst as i32,
+                page_token: String::new(),
+                page_size: 0,
+            }))
+            .await
+            .unwrap()
+            .into_inner();
+
+        assert!(response.ok);
+        assert!(!response.hits.is_empty());
+        assert!(response
+            .hits
+            .iter()
+            .any(|hit| hit.snippet.contains("release checklist")));
+        assert!(response
+            .hits
+            .iter()
+            .all(|hit| !hit.match_reasons.contains(&"summary_hit".to_string())));
+        for hit in &response.hits {
+            assert_match_reasons_are_closed_set(&hit.match_reasons);
+        }
+    }
+
+    #[tokio::test]
+    async fn query_memory_summary_first_ignores_low_quality_ready_summary() {
+        let config = test_config();
+        let runtime = RuntimeState::initialize(&config).await.unwrap();
+        let service = MemoryGrpcService::new(config, runtime.clone(), None, Arc::new(RpcMetrics::new()));
+        let unit_repo = MemoryUnitRepository::new(runtime.pool());
+        let index_repo = MemoryIndexRepository::new(runtime.pool());
+
+        let session_id = Uuid::new_v4();
+        let sid_str = session_id.to_string();
+        let tenant_id = "tenant-t33";
+
+        service
+            .upsert_session_meta(Request::new(UpsertSessionMetaRequest {
+                meta: Some(write_meta_with_idempotency("t56-seed", &sid_str)),
+                session_id: sid_str.clone(),
+                title: "Low quality summary session".to_string(),
+                status: "active".to_string(),
+                parent_session_id: String::new(),
+                forked_from_session_id: String::new(),
+                last_message_at: 1700000000000,
+                extra: HashMap::new(),
+            }))
+            .await
+            .unwrap();
+
+        service
+            .append_memory(Request::new(AppendMemoryRequest {
+                meta: Some(write_meta_with_idempotency("t56-append", &sid_str)),
+                session_id: sid_str.clone(),
+                entries: vec![MemoryEntry {
+                    role: "user".to_string(),
+                    content: "Need deployment checklist details".to_string(),
+                    timestamp: 1700000001000,
+                    metadata: HashMap::new(),
+                }],
+            }))
+            .await
+            .unwrap();
+
+        let low_quality_summary_uri =
+            format!("memory-summary://tenants/{tenant_id}/sessions/{session_id}/versions/1");
+        let summary_unit = InsertMemoryUnit::new(
+            tenant_id,
+            session_id,
+            1,
+            1,
+            low_quality_summary_uri.clone(),
+        )
+        .unwrap()
+        .with_memory_unit_id(session_id)
+        .with_memory_kind(MemoryUnitKind::Summary)
+        .with_summary_state(MemoryUnitSummaryState::ready("todo: summarize later").unwrap())
+        .with_snippet("todo")
+        .with_time_bucket("2026-04");
+        unit_repo.upsert(&summary_unit).await.unwrap();
+        index_repo
+            .insert(
+                &InsertMemoryIndexRecord::new(
+                    tenant_id,
+                    session_id,
+                    "summary",
+                    "chat",
+                    "deployment checklist summary",
+                    low_quality_summary_uri,
+                )
+                .with_memory_unit_id(session_id)
+                .with_snippet("deployment checklist summary"),
+            )
+            .await
+            .unwrap();
+
+        let response = service
+            .query_memory(Request::new(QueryMemoryRequest {
+                meta: Some(write_meta_with_idempotency("t56-query", &sid_str)),
+                query_text: "deployment checklist".to_string(),
+                session_id: sid_str,
+                domain_class: "chat".to_string(),
+                top_k: 5,
+                retrieve_policy: RetrievePolicy::RetrievePolicySummaryFirst as i32,
+                page_token: String::new(),
+                page_size: 0,
+            }))
+            .await
+            .unwrap()
+            .into_inner();
+
+        assert!(response.ok);
+        assert!(!response.hits.is_empty());
+        assert!(response
+            .hits
+            .iter()
+            .all(|hit| !hit.match_reasons.contains(&"summary_hit".to_string())));
     }
 
     #[tokio::test]
