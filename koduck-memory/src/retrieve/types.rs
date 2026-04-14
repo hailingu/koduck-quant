@@ -8,6 +8,12 @@ pub struct RetrieveContext {
     pub tenant_id: String,
     pub session_id: Option<String>,
     pub domain_class: String,
+    pub domain_classes: Vec<String>,
+    pub entities: Vec<String>,
+    pub relation_types: Vec<String>,
+    pub intent_type: String,
+    pub intent_aux: Vec<String>,
+    pub recall_target_type: Option<String>,
     pub query_text: String,
     pub top_k: i32,
 }
@@ -23,6 +29,12 @@ impl RetrieveContext {
             tenant_id: tenant_id.into(),
             session_id: None,
             domain_class: domain_class.into(),
+            domain_classes: Vec::new(),
+            entities: Vec::new(),
+            relation_types: Vec::new(),
+            intent_type: "none".to_string(),
+            intent_aux: Vec::new(),
+            recall_target_type: None,
             query_text: query_text.into(),
             top_k: top_k.max(1).min(100), // Clamp between 1 and 100
         }
@@ -30,6 +42,27 @@ impl RetrieveContext {
 
     pub fn with_session_id(mut self, session_id: impl Into<String>) -> Self {
         self.session_id = Some(session_id.into());
+        self
+    }
+
+    pub fn with_query_analysis(
+        mut self,
+        domain_classes: Vec<String>,
+        entities: Vec<String>,
+        relation_types: Vec<String>,
+        intent_type: impl Into<String>,
+        intent_aux: Vec<String>,
+        recall_target_type: Option<String>,
+    ) -> Self {
+        if let Some(primary_domain_class) = domain_classes.first() {
+            self.domain_class = primary_domain_class.clone();
+        }
+        self.domain_classes = domain_classes;
+        self.entities = entities;
+        self.relation_types = relation_types;
+        self.intent_type = intent_type.into();
+        self.intent_aux = intent_aux;
+        self.recall_target_type = recall_target_type;
         self
     }
 }
@@ -167,6 +200,12 @@ mod tests {
         assert_eq!(ctx.tenant_id, "tenant-1");
         assert_eq!(ctx.session_id, Some("session-1".to_string()));
         assert_eq!(ctx.domain_class, "chat");
+        assert!(ctx.domain_classes.is_empty());
+        assert!(ctx.entities.is_empty());
+        assert!(ctx.relation_types.is_empty());
+        assert_eq!(ctx.intent_type, "none");
+        assert!(ctx.intent_aux.is_empty());
+        assert!(ctx.recall_target_type.is_none());
         assert_eq!(ctx.query_text, "query");
         assert_eq!(ctx.top_k, 10);
     }
@@ -178,6 +217,26 @@ mod tests {
 
         let ctx_high = RetrieveContext::new("t", "c", "q", 200);
         assert_eq!(ctx_high.top_k, 100);
+    }
+
+    #[test]
+    fn retrieve_context_with_query_analysis_overrides_primary_domain() {
+        let ctx = RetrieveContext::new("tenant-1", "chat", "query", 10).with_query_analysis(
+            vec!["history".to_string()],
+            vec!["Karl".to_string()],
+            vec!["comparison".to_string()],
+            "compare",
+            vec!["recent_bias".to_string()],
+            Some("general".to_string()),
+        );
+
+        assert_eq!(ctx.domain_class, "history");
+        assert_eq!(ctx.domain_classes, vec!["history".to_string()]);
+        assert_eq!(ctx.entities, vec!["Karl".to_string()]);
+        assert_eq!(ctx.relation_types, vec!["comparison".to_string()]);
+        assert_eq!(ctx.intent_type, "compare");
+        assert_eq!(ctx.intent_aux, vec!["recent_bias".to_string()]);
+        assert_eq!(ctx.recall_target_type.as_deref(), Some("general"));
     }
 
     #[test]
