@@ -153,10 +153,10 @@ kubectl rollout status deployment/dev-koduck-memory -n koduck-dev --timeout=180s
    - `memory_kind = NULL` 统一解释为 `generic conversation unit`
 
 **验收标准:**
-- [ ] repository 层字段语义与 ADR 一致
-- [ ] 不出现额外的 `memory_kind` 枚举漂移
-- [ ] `summary_status` 与 `summary` 的组合约束清晰
-- [ ] `docker build -t koduck-memory:dev ./koduck-memory` 成功
+- [x] repository 层字段语义与 ADR 一致
+- [x] 不出现额外的 `memory_kind` 枚举漂移
+- [x] `summary_status` 与 `summary` 的组合约束清晰
+- [x] `docker build -t koduck-memory:dev ./koduck-memory` 成功
 
 ---
 
