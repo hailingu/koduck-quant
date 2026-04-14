@@ -15,6 +15,7 @@ use crate::memory_unit::{
     MemoryUnitSummaryState,
 };
 use crate::retrieve::infer_discourse_actions;
+use crate::retrieve::types::domain_class;
 
 const DEFAULT_SNIPPET_LIMIT: usize = 96;
 
@@ -81,7 +82,20 @@ impl MemoryUnitMaterializer {
             .with_time_bucket(build_time_bucket(entry.message_ts));
 
             let unit = self.unit_repo.insert(&insert).await?;
+            self.anchor_repo
+                .insert(
+                    &InsertMemoryUnitAnchor::new(
+                        entry.tenant_id.clone(),
+                        unit.memory_unit_id,
+                        MemoryUnitAnchorType::Domain,
+                        domain_class::default(),
+                    )?,
+                )
+                .await?;
             self.insert_discourse_action_anchors(&entry.tenant_id, unit.memory_unit_id, &entry.content)
+                .await?;
+            self.unit_repo
+                .sync_projected_domain_class_primary(&entry.tenant_id, unit.memory_unit_id)
                 .await?;
         }
 

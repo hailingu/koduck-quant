@@ -269,11 +269,11 @@ kubectl rollout status deployment/dev-koduck-memory -n koduck-dev --timeout=180s
 4. 候选集合合并、去重并保留来源
 
 **验收标准:**
-- [ ] 支持 `memory_unit` 粒度召回
-- [ ] 时间维度仅参与排序，不作为候选入口
-- [ ] `ANCHOR_FIRST` 不暴露为外部 retrieve policy
-- [ ] `docker build -t koduck-memory:dev ./koduck-memory` 成功
-- [ ] `kubectl rollout status deployment/dev-koduck-memory -n koduck-dev --timeout=180s` 成功
+- [x] 支持 `memory_unit` 粒度召回
+- [x] 时间维度仅参与排序，不作为候选入口
+- [x] `ANCHOR_FIRST` 不暴露为外部 retrieve policy
+- [x] `docker build -t koduck-memory:dev ./koduck-memory` 成功
+- [x] `kubectl rollout status deployment/dev-koduck-memory -n koduck-dev --timeout=180s` 成功
 
 ---
 

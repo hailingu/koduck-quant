@@ -19,7 +19,7 @@ use crate::memory_unit::{AppendedEntryUnit, MemoryUnitMaterializer};
 use crate::observe::{record_rpc_call, RpcMethod, RpcOutcome};
 use crate::observe::RpcGuard;
 use crate::observe::RpcMetrics;
-use crate::retrieve::{DomainFirstRetriever, QueryAnalysis, QueryAnalyzer, RetrieveContext, SummaryFirstRetriever};
+use crate::retrieve::{AnchorFirstRetriever, QueryAnalysis, QueryAnalyzer, RetrieveContext, SummaryFirstRetriever};
 use crate::summary::{SummaryJob, SummaryTaskRunner};
 use crate::session::{
     extra_to_jsonb, parse_optional_uuid, parse_uuid, SessionRepository, UpsertSession,
@@ -399,8 +399,8 @@ impl MemoryService for MemoryGrpcService {
         // Execute retrieval based on policy
         let results = match req.retrieve_policy {
             1 | 0 => {
-                // DOMAIN_FIRST (1) or UNSPECIFIED (0, default to DOMAIN_FIRST)
-                let retriever = DomainFirstRetriever::new(self.runtime.pool());
+                // DOMAIN_FIRST (1) or UNSPECIFIED (0) routes to internal ANCHOR_FIRST.
+                let retriever = AnchorFirstRetriever::new(self.runtime.pool());
                 retriever
                     .retrieve(&ctx)
                     .await
@@ -415,24 +415,24 @@ impl MemoryService for MemoryGrpcService {
                     .map_err(|e| { guard.error(); Status::internal(format!("retrieval failed: {e}")) })?
             }
             3 => {
-                // HYBRID (3) - reserved for V2, fall back to DOMAIN_FIRST
+                // HYBRID (3) - reserved for V2, fall back to internal ANCHOR_FIRST
                 tracing::warn!(
                     policy = req.retrieve_policy,
-                    "HYBRID retrieval policy requested but not implemented in V1, falling back to DOMAIN_FIRST"
+                    "HYBRID retrieval policy requested but not implemented in V1, falling back to ANCHOR_FIRST"
                 );
-                let retriever = DomainFirstRetriever::new(self.runtime.pool());
+                let retriever = AnchorFirstRetriever::new(self.runtime.pool());
                 retriever
                     .retrieve(&ctx)
                     .await
                     .map_err(|e| { guard.error(); Status::internal(format!("retrieval failed: {e}")) })?
             }
             _ => {
-                // Other policies not yet implemented, fall back to DOMAIN_FIRST
+                // Other policies not yet implemented, fall back to internal ANCHOR_FIRST
                 tracing::warn!(
                     policy = req.retrieve_policy,
-                    "Unknown retrieval policy requested, falling back to DOMAIN_FIRST"
+                    "Unknown retrieval policy requested, falling back to ANCHOR_FIRST"
                 );
-                let retriever = DomainFirstRetriever::new(self.runtime.pool());
+                let retriever = AnchorFirstRetriever::new(self.runtime.pool());
                 retriever
                     .retrieve(&ctx)
                     .await

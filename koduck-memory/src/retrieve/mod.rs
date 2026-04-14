@@ -4,12 +4,14 @@
 //! - DOMAIN_FIRST: Filter by domain_class first, then by session scope.
 //! - SUMMARY_FIRST: Use summary for filtering within domain_class candidates.
 
+pub mod anchor_first;
 pub mod domain_first;
 pub mod query_analyzer;
 pub mod semantics;
 pub mod summary_first;
 pub mod types;
 
+pub use anchor_first::AnchorFirstRetriever;
 pub use domain_first::DomainFirstRetriever;
 pub use query_analyzer::{QueryAnalysis, QueryAnalyzer};
 pub use semantics::{
