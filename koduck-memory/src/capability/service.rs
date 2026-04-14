@@ -15,6 +15,7 @@ use crate::index::MemoryIndexRepository;
 use crate::memory::{
     metadata_to_jsonb, IdempotencyRepository, InsertMemoryEntry, MemoryEntryRepository,
 };
+use crate::memory_unit::{AppendedEntryUnit, MemoryUnitMaterializer};
 use crate::observe::{record_rpc_call, RpcMethod, RpcOutcome};
 use crate::observe::RpcGuard;
 use crate::observe::RpcMetrics;
@@ -558,6 +559,7 @@ impl MemoryService for MemoryGrpcService {
         // duplicate them into `memory_index_records`. Session-level retrieval should
         // happen through asynchronous summaries instead.
         let mut entries_to_insert: Vec<InsertMemoryEntry> = Vec::new();
+        let mut appended_units: Vec<AppendedEntryUnit> = Vec::new();
 
         for (i, entry) in req.entries.iter().enumerate() {
             let entry_id = uuid::Uuid::new_v4();
@@ -617,6 +619,15 @@ impl MemoryService for MemoryGrpcService {
                 l0_uri,
             };
 
+            appended_units.push(AppendedEntryUnit {
+                entry_id,
+                tenant_id: tenant_id.clone(),
+                session_id,
+                sequence_num,
+                content: entry.content.clone(),
+                source_uri: insert.l0_uri.clone(),
+                message_ts,
+            });
             entries_to_insert.push(insert);
         }
 
@@ -653,6 +664,13 @@ impl MemoryService for MemoryGrpcService {
         tx.commit()
             .await
             .map_err(|e| { guard.error(); Status::internal(format!("failed to commit transaction: {e}")) })?;
+
+        if appended > 0 {
+            MemoryUnitMaterializer::new(self.runtime.pool())
+                .materialize_appended_entries(&appended_units)
+                .await
+                .map_err(|e| { guard.error(); Status::internal(format!("failed to materialize memory units: {e}")) })?;
+        }
 
         tracing::info!(
             rpc = "append_memory",
@@ -829,6 +847,8 @@ mod tests {
     };
     use crate::facts::MemoryFactRepository;
     use crate::index::MemoryIndexRepository;
+    use crate::memory_anchor::MemoryUnitAnchorRepository;
+    use crate::memory_unit::{MemoryUnitKind, MemoryUnitRepository};
     use crate::reliability::TaskAttemptRepository;
     use crate::summary::MemorySummaryRepository;
     use crate::session::{SessionRepository, UpsertSession, extra_to_jsonb};
@@ -1230,6 +1250,22 @@ mod tests {
             tokio::time::sleep(Duration::from_millis(50)).await;
         }
         panic!("summary projection was not materialized in time");
+    }
+
+    async fn wait_for_memory_units(
+        repo: &MemoryUnitRepository,
+        tenant_id: &str,
+        session_id: Uuid,
+        expected_min: usize,
+    ) -> Vec<crate::memory_unit::MemoryUnit> {
+        for _ in 0..20 {
+            let units = repo.list_by_session(tenant_id, session_id, 50).await.unwrap();
+            if units.len() >= expected_min {
+                return units;
+            }
+            tokio::time::sleep(Duration::from_millis(50)).await;
+        }
+        panic!("memory units were not materialized in time");
     }
 
     async fn wait_for_failed_task(
@@ -1871,6 +1907,69 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn append_memory_materializes_generic_memory_units() {
+        let config = test_config();
+        let runtime = RuntimeState::initialize(&config).await.unwrap();
+        let unit_repo = MemoryUnitRepository::new(runtime.pool());
+        let (mut client, shutdown_tx, server) = start_test_server(config, runtime).await;
+
+        let session_id = Uuid::new_v4();
+        let sid_str = session_id.to_string();
+
+        client
+            .upsert_session_meta(UpsertSessionMetaRequest {
+                meta: Some(write_meta_with_idempotency("t53-session", &sid_str)),
+                session_id: sid_str.clone(),
+                title: "Generic units".to_string(),
+                status: "active".to_string(),
+                parent_session_id: String::new(),
+                forked_from_session_id: String::new(),
+                last_message_at: 1700000000000,
+                extra: [].into(),
+            })
+            .await
+            .unwrap();
+
+        client
+            .append_memory(AppendMemoryRequest {
+                meta: Some(write_meta_with_idempotency("t53-append", &sid_str)),
+                session_id: sid_str.clone(),
+                entries: vec![
+                    MemoryEntry {
+                        role: "user".to_string(),
+                        content: "Need a rollout checklist".to_string(),
+                        timestamp: 1700000000000,
+                        metadata: std::collections::HashMap::new(),
+                    },
+                    MemoryEntry {
+                        role: "assistant".to_string(),
+                        content: "I will prepare a concise checklist".to_string(),
+                        timestamp: 1700000001000,
+                        metadata: std::collections::HashMap::new(),
+                    },
+                ],
+            })
+            .await
+            .unwrap();
+
+        let mut units = wait_for_memory_units(&unit_repo, "tenant-t33", session_id, 2).await;
+        units.sort_by_key(|unit| unit.entry_range_start);
+
+        assert_eq!(units.len(), 2);
+        assert!(units.iter().all(|unit| unit.memory_kind == MemoryUnitKind::GenericConversation));
+        assert!(units.iter().all(|unit| unit.summary_state.summary_status == "pending"));
+        assert_eq!(units[0].entry_range_start, 1);
+        assert_eq!(units[0].entry_range_end, 1);
+        assert!(units[0].snippet.as_deref().is_some_and(|snippet| snippet.contains("rollout checklist")));
+        assert_eq!(units[1].entry_range_start, 2);
+        assert_eq!(units[1].entry_range_end, 2);
+        assert!(units[1].snippet.as_deref().is_some_and(|snippet| snippet.contains("concise checklist")));
+
+        let _ = shutdown_tx.send(());
+        server.await.unwrap();
+    }
+
+    #[tokio::test]
     async fn summarize_memory_materializes_summary_and_domain_class() {
         let mut config = test_config();
         config.summary.async_enabled = true;
@@ -2110,6 +2209,113 @@ mod tests {
 
         assert!(response.ok);
         assert!(response.hits.iter().all(|hit| !hit.l0_uri.starts_with("memory-fact://")));
+
+        let _ = shutdown_tx.send(());
+        server.await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn summarize_memory_materializes_summary_and_fact_units() {
+        let mut config = test_config();
+        config.summary.async_enabled = true;
+        let runtime = RuntimeState::initialize(&config).await.unwrap();
+        let summary_repo = MemorySummaryRepository::new(runtime.pool());
+        let fact_repo = MemoryFactRepository::new(runtime.pool());
+        let unit_repo = MemoryUnitRepository::new(runtime.pool());
+        let anchor_repo = MemoryUnitAnchorRepository::new(runtime.pool());
+        let (mut client, shutdown_tx, server) = start_test_server(config, runtime).await;
+
+        let session_id = Uuid::new_v4();
+        let sid_str = session_id.to_string();
+
+        client
+            .upsert_session_meta(UpsertSessionMetaRequest {
+                meta: Some(write_meta_with_idempotency("t73-session", &sid_str)),
+                session_id: sid_str.clone(),
+                title: "Fact units".to_string(),
+                status: "active".to_string(),
+                parent_session_id: String::new(),
+                forked_from_session_id: String::new(),
+                last_message_at: 1700000000000,
+                extra: [].into(),
+            })
+            .await
+            .unwrap();
+
+        client
+            .append_memory(AppendMemoryRequest {
+                meta: Some(write_meta_with_idempotency("t73-append", &sid_str)),
+                session_id: sid_str.clone(),
+                entries: vec![
+                    MemoryEntry {
+                        role: "user".to_string(),
+                        content: "I prefer concise rollout summaries".to_string(),
+                        timestamp: 1700000000000,
+                        metadata: std::collections::HashMap::new(),
+                    },
+                    MemoryEntry {
+                        role: "user".to_string(),
+                        content: "Do not include raw secrets in logs".to_string(),
+                        timestamp: 1700000001000,
+                        metadata: std::collections::HashMap::new(),
+                    },
+                ],
+            })
+            .await
+            .unwrap();
+
+        client
+            .summarize_memory(SummarizeMemoryRequest {
+                meta: Some(write_meta_with_idempotency("t73-summary", &sid_str)),
+                session_id: sid_str.clone(),
+                strategy: "session-rollup".to_string(),
+            })
+            .await
+            .unwrap();
+
+        let stored_summary = wait_for_summary(&summary_repo, "tenant-t33", session_id).await;
+        let facts = wait_for_facts(&fact_repo, "tenant-t33", session_id).await;
+        let units = wait_for_memory_units(&unit_repo, "tenant-t33", session_id, 3).await;
+
+        let summary_unit = units
+            .iter()
+            .find(|unit| unit.memory_kind == MemoryUnitKind::Summary)
+            .expect("summary unit should exist");
+        assert_eq!(summary_unit.entry_range_start, 1);
+        assert_eq!(summary_unit.entry_range_end, 2);
+        assert_eq!(summary_unit.memory_unit_id, session_id);
+        assert_eq!(summary_unit.summary_state.summary_status, "ready");
+        assert_eq!(
+            summary_unit.summary_state.summary.as_deref(),
+            Some(stored_summary.summary.as_str())
+        );
+        assert!(summary_unit
+            .snippet
+            .as_deref()
+            .is_some_and(|snippet| !snippet.trim().is_empty()));
+
+        let fact_units = units
+            .iter()
+            .filter(|unit| unit.memory_kind == MemoryUnitKind::Fact)
+            .collect::<Vec<_>>();
+        assert_eq!(fact_units.len(), facts.len());
+        assert!(fact_units.iter().all(|unit| unit.entry_range_start == 1 && unit.entry_range_end == 2));
+        assert!(fact_units.iter().all(|unit| unit.summary_state.summary_status == "pending"));
+
+        let summary_anchors = anchor_repo
+            .list_by_memory_unit("tenant-t33", summary_unit.memory_unit_id)
+            .await
+            .unwrap();
+        assert!(summary_anchors.iter().any(|anchor| anchor.anchor_key == stored_summary.domain_class));
+
+        for fact in &facts {
+            let anchors = anchor_repo
+                .list_by_memory_unit("tenant-t33", fact.id)
+                .await
+                .unwrap();
+            assert!(anchors.iter().any(|anchor| anchor.anchor_key == stored_summary.domain_class));
+            assert!(anchors.iter().any(|anchor| anchor.anchor_key == fact.fact_type));
+        }
 
         let _ = shutdown_tx.send(());
         server.await.unwrap();

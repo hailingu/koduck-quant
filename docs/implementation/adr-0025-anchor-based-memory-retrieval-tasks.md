@@ -173,10 +173,10 @@ kubectl rollout status deployment/dev-koduck-memory -n koduck-dev --timeout=180s
    - 或由 L0 / summary 派生
 
 **验收标准:**
-- [ ] 单 entry / 多 entry 物化规则可复现
-- [ ] `memory_kind` 的写入时机一致
-- [ ] `snippet` 对外返回稳定可用
-- [ ] `docker build -t koduck-memory:dev ./koduck-memory` 成功
+- [x] 单 entry / 多 entry 物化规则可复现
+- [x] `memory_kind` 的写入时机一致
+- [x] `snippet` 对外返回稳定可用
+- [x] `docker build -t koduck-memory:dev ./koduck-memory` 成功
 
 ---
 

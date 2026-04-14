@@ -109,4 +109,19 @@ impl MemoryUnitAnchorRepository {
 
         rows.into_iter().map(MemoryUnitAnchor::try_from).collect()
     }
+
+    pub async fn delete_by_memory_unit(&self, tenant_id: &str, memory_unit_id: Uuid) -> Result<u64> {
+        let result = sqlx::query(
+            r#"
+            DELETE FROM memory_unit_anchors
+            WHERE tenant_id = $1 AND memory_unit_id = $2
+            "#,
+        )
+        .bind(tenant_id)
+        .bind(memory_unit_id)
+        .execute(&self.pool)
+        .await?;
+
+        Ok(result.rows_affected())
+    }
 }
