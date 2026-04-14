@@ -215,10 +215,10 @@ kubectl rollout status deployment/dev-koduck-memory -n koduck-dev --timeout=180s
    - `recall_target_type`
 
 **验收标准:**
-- [ ] `query analyzer` 不再是隐含步骤
-- [ ] 输出字段与 ADR 定义一致
-- [ ] analyzer 失败时存在明确回退路径
-- [ ] `docker build -t koduck-memory:dev ./koduck-memory` 成功
+- [x] `query analyzer` 不再是隐含步骤
+- [x] 输出字段与 ADR 定义一致
+- [x] analyzer 失败时存在明确回退路径
+- [x] `docker build -t koduck-memory:dev ./koduck-memory` 成功
 - [ ] `kubectl rollout restart deployment/dev-koduck-memory -n koduck-dev` 后可成功完成 rollout
 
 ---

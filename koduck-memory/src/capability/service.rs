@@ -19,7 +19,7 @@ use crate::memory_unit::{AppendedEntryUnit, MemoryUnitMaterializer};
 use crate::observe::{record_rpc_call, RpcMethod, RpcOutcome};
 use crate::observe::RpcGuard;
 use crate::observe::RpcMetrics;
-use crate::retrieve::{DomainFirstRetriever, RetrieveContext, SummaryFirstRetriever};
+use crate::retrieve::{DomainFirstRetriever, QueryAnalysis, QueryAnalyzer, RetrieveContext, SummaryFirstRetriever};
 use crate::summary::{SummaryJob, SummaryTaskRunner};
 use crate::session::{
     extra_to_jsonb, parse_optional_uuid, parse_uuid, SessionRepository, UpsertSession,
@@ -373,6 +373,28 @@ impl MemoryService for MemoryGrpcService {
         if !req.session_id.is_empty() {
             ctx = ctx.with_session_id(&req.session_id);
         }
+
+        // Explicit internal query analyzer for structured retrieval context.
+        let query_analysis = QueryAnalyzer::new()
+            .analyze(&req.query_text, &domain_class, &req.session_id)
+            .unwrap_or_else(|error| {
+                tracing::warn!(
+                    error = %error,
+                    tenant_id = %meta.tenant_id,
+                    session_id = req.session_id,
+                    domain_class = domain_class,
+                    "query analyzer failed, falling back to raw retrieval context"
+                );
+                QueryAnalysis::fallback(&domain_class, &req.query_text)
+            });
+        ctx = ctx.with_query_analysis(
+            query_analysis.domain_classes,
+            query_analysis.entities,
+            query_analysis.relation_types,
+            query_analysis.intent_type,
+            query_analysis.intent_aux,
+            query_analysis.recall_target_type,
+        );
 
         // Execute retrieval based on policy
         let results = match req.retrieve_policy {
@@ -2536,6 +2558,50 @@ mod tests {
         assert!(hit.match_reasons.contains(&"domain_class_hit".to_string()));
         assert!(hit.match_reasons.contains(&"summary_hit".to_string()));
         assert!(hit.match_reasons.contains(&"session_scope_hit".to_string()));
+    }
+
+    #[tokio::test]
+    async fn query_memory_falls_back_when_query_analyzer_fails() {
+        let config = test_config();
+        let runtime = RuntimeState::initialize(&config).await.unwrap();
+        let service = MemoryGrpcService::new(config, runtime.clone(), None, Arc::new(RpcMetrics::new()));
+
+        let session_id = Uuid::new_v4();
+        let sid_str = session_id.to_string();
+
+        let session_resp = service
+            .upsert_session_meta(Request::new(UpsertSessionMetaRequest {
+                meta: Some(write_meta_with_idempotency("t54-seed", &sid_str)),
+                session_id: sid_str.clone(),
+                title: "Analyzer fallback".to_string(),
+                status: "active".to_string(),
+                parent_session_id: String::new(),
+                forked_from_session_id: String::new(),
+                last_message_at: 1700000000000,
+                extra: HashMap::new(),
+            }))
+            .await
+            .unwrap()
+            .into_inner();
+        assert!(session_resp.ok);
+
+        let query_resp = service
+            .query_memory(Request::new(QueryMemoryRequest {
+                meta: Some(write_meta_with_idempotency("t54-query", &sid_str)),
+                query_text: "remember what we discussed".to_string(),
+                session_id: "not-a-uuid".to_string(),
+                domain_class: "chat".to_string(),
+                top_k: 5,
+                retrieve_policy: RetrievePolicy::RetrievePolicyDomainFirst as i32,
+                page_token: String::new(),
+                page_size: 0,
+            }))
+            .await
+            .unwrap()
+            .into_inner();
+
+        assert!(query_resp.ok);
+        assert!(query_resp.error.is_none());
     }
 
     #[tokio::test]
