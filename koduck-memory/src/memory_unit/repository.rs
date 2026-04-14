@@ -227,4 +227,40 @@ impl MemoryUnitRepository {
 
         Ok(result.rows_affected())
     }
+
+    pub async fn project_domain_class_primary(
+        &self,
+        tenant_id: &str,
+        memory_unit_id: Uuid,
+    ) -> Result<Option<String>> {
+        let projected = sqlx::query_scalar::<_, Option<String>>(
+            r#"
+            SELECT project_domain_class_primary($1, $2)
+            "#,
+        )
+        .bind(tenant_id)
+        .bind(memory_unit_id)
+        .fetch_one(&self.pool)
+        .await?;
+
+        Ok(projected)
+    }
+
+    pub async fn sync_projected_domain_class_primary(
+        &self,
+        tenant_id: &str,
+        memory_unit_id: Uuid,
+    ) -> Result<()> {
+        sqlx::query(
+            r#"
+            SELECT sync_memory_unit_domain_class_primary($1, $2)
+            "#,
+        )
+        .bind(tenant_id)
+        .bind(memory_unit_id)
+        .execute(&self.pool)
+        .await?;
+
+        Ok(())
+    }
 }
