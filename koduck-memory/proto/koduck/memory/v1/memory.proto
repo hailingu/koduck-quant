@@ -21,6 +21,7 @@ service MemoryService {
   rpc QueryMemory(QueryMemoryRequest) returns (QueryMemoryResponse);
   rpc AppendMemory(AppendMemoryRequest) returns (AppendMemoryResponse);
   rpc SummarizeMemory(SummarizeMemoryRequest) returns (SummarizeMemoryResponse);
+  rpc DeleteSession(DeleteSessionRequest) returns (DeleteSessionResponse);
 }
 
 message UpsertSessionMetaRequest {
@@ -162,6 +163,24 @@ message SummarizeMemoryResponse {
   bool ok = 1;
   string summary = 2;
   koduck.contract.v1.ErrorDetail error = 3;
+}
+
+message DeleteSessionRequest {
+  koduck.contract.v1.RequestMeta meta = 1;
+  string session_id = 2;
+
+  reserved 3 to 19;
+}
+
+message DeleteSessionResponse {
+  bool ok = 1;
+  int32 deleted_facts = 2;
+  int32 deleted_units = 3;
+  int32 deleted_anchors = 4;
+  int32 deleted_entries = 5;
+  int32 deleted_summaries = 6;
+  int32 deleted_index_records = 7;
+  koduck.contract.v1.ErrorDetail error = 8;
 }
 
 message SessionInfo {

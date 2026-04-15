@@ -113,4 +113,31 @@ impl SessionRepository {
 
         Ok(rows)
     }
+
+    /// Delete a session by tenant_id + session_id.
+    pub async fn delete_by_id(
+        &self,
+        tenant_id: &str,
+        session_id: Uuid,
+    ) -> Result<u64> {
+        let result = sqlx::query(
+            r#"
+            DELETE FROM memory_sessions
+            WHERE tenant_id = $1 AND session_id = $2
+            "#,
+        )
+        .bind(tenant_id)
+        .bind(session_id)
+        .execute(&self.pool)
+        .await?;
+
+        let deleted = result.rows_affected();
+        info!(
+            session_id = %session_id,
+            deleted_count = deleted,
+            "session deleted"
+        );
+
+        Ok(deleted)
+    }
 }

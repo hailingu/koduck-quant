@@ -697,8 +697,23 @@ export function KoduckAi() {
     setUploadedFiles([]);
   };
 
-  const handleDeleteCurrentSession = () => {
-    clearStoredMessages(currentSessionIdRef.current);
+  const handleDeleteCurrentSession = async () => {
+    const sessionId = currentSessionIdRef.current;
+    if (sessionId) {
+      const token = window.localStorage.getItem("koduck.auth.token");
+      try {
+        await fetch(`/api/v1/ai/sessions/${encodeURIComponent(sessionId)}`, {
+          method: "DELETE",
+          headers: {
+            Accept: "application/json",
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+        });
+      } catch {
+        // Best-effort: still clear local state even if backend delete fails
+      }
+    }
+    clearStoredMessages(sessionId);
     activateSession(null, { skipRestore: true });
     setMessages([]);
     setChatMessage("");

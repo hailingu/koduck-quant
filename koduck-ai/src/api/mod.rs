@@ -275,6 +275,14 @@ pub async fn session_exists(
     session_exists_impl(state, headers, raw_session_id).await
 }
 
+pub async fn delete_session(
+    State(state): State<Arc<AppState>>,
+    headers: HeaderMap,
+    Path(raw_session_id): Path<String>,
+) -> Response {
+    delete_session_impl(state, headers, raw_session_id).await
+}
+
 async fn session_exists_impl(
     state: Arc<AppState>,
     headers: HeaderMap,
@@ -349,6 +357,81 @@ async fn session_exists_impl(
             code: ErrorCode::Ok.to_string(),
             message: "session lookup completed".to_string(),
             data: Some(SessionLookupResponse { exists }),
+            error: None,
+        }),
+    )
+        .into_response()
+}
+
+async fn delete_session_impl(
+    state: Arc<AppState>,
+    headers: HeaderMap,
+    raw_session_id: String,
+) -> Response {
+    let request_id = extract_or_create_request_id(&headers);
+    info!(
+        request_id = %request_id,
+        raw_session_id = %raw_session_id,
+        "session delete request received"
+    );
+    let auth_ctx = match crate::auth::authenticate_bearer(&headers, &state).await {
+        Ok(ctx) => ctx,
+        Err(err) => {
+            warn!(
+                request_id = %request_id,
+                error_code = ?err.code,
+                "session delete authentication failed"
+            );
+            return api_error_response(err.with_request_id(request_id.clone()), request_id);
+        }
+    };
+
+    let Some(session_id) = normalize_session_id(&raw_session_id) else {
+        warn!(
+            request_id = %request_id,
+            raw_session_id = %raw_session_id,
+            "session delete rejected invalid session id"
+        );
+        return api_error_response(
+            AppError::new(ErrorCode::InvalidArgument, "session_id is invalid")
+                .with_request_id(request_id.clone()),
+            request_id,
+        );
+    };
+
+    let trace_id = extract_trace_id(&headers);
+    let memory_ctx = MemoryRpcContext::from_auth(
+        request_id.clone(),
+        session_id,
+        trace_id,
+        state.config.llm.timeout_ms,
+        &auth_ctx,
+    );
+
+    if let Err(err) = memory::delete_session(&state, &memory_ctx).await {
+        warn!(
+            request_id = %request_id,
+            session_id = %memory_ctx.session_id,
+            error_code = ?err.code,
+            "session delete failed"
+        );
+        return api_error_response(err, request_id);
+    }
+
+    info!(
+        request_id = %request_id,
+        session_id = %memory_ctx.session_id,
+        tenant_id = %auth_ctx.tenant_id,
+        "session delete completed"
+    );
+
+    (
+        StatusCode::OK,
+        Json(ApiResponse {
+            success: true,
+            code: ErrorCode::Ok.to_string(),
+            message: "session deleted".to_string(),
+            data: None,
             error: None,
         }),
     )

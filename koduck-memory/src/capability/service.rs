@@ -5,7 +5,8 @@ use std::time::Instant;
 use tonic::{Request, Response, Status};
 
 use crate::api::{
-    AppendMemoryRequest, AppendMemoryResponse, Capability, ErrorDetail, GetAllSessionIdsRequest,
+    AppendMemoryRequest, AppendMemoryResponse, Capability, DeleteSessionRequest,
+    DeleteSessionResponse, ErrorDetail, GetAllSessionIdsRequest,
     GetCategoryCatalogRequest, GetCategoryCatalogResponse, GetSessionRequest,
     GetSessionIdsByDomainClassRequest, GetSessionIdsByIntentTypeRequest,
     GetSessionIdsByNerRequest, GetSessionIdsLookupResponse, GetSessionResponse,
@@ -22,7 +23,8 @@ use crate::memory::{
     metadata_to_jsonb, IdempotencyRepository, InsertMemoryEntry, MemoryEntryRepository,
 };
 use crate::memory_anchor::{MemoryUnitAnchorRepository, MemoryUnitAnchorType};
-use crate::memory_unit::{AppendedEntryUnit, MemoryUnitMaterializer};
+use crate::memory_unit::{AppendedEntryUnit, MemoryUnitMaterializer, MemoryUnitRepository};
+use crate::summary::{SummaryJob, SummaryTaskRunner, MemorySummaryRepository};
 use crate::observe::{record_rpc_call, RpcMethod, RpcOutcome};
 use crate::observe::RpcGuard;
 use crate::observe::RpcMetrics;
@@ -90,6 +92,14 @@ impl MemoryGrpcService {
 
     fn anchor_repo(&self) -> MemoryUnitAnchorRepository {
         MemoryUnitAnchorRepository::new(self.runtime.pool())
+    }
+
+    fn unit_repo(&self) -> MemoryUnitRepository {
+        MemoryUnitRepository::new(self.runtime.pool())
+    }
+
+    fn summary_repo(&self) -> MemorySummaryRepository {
+        MemorySummaryRepository::new(self.runtime.pool())
     }
 
     fn idempotency_repo(&self) -> IdempotencyRepository {
@@ -1364,6 +1374,87 @@ impl MemoryService for MemoryGrpcService {
         Ok(Response::new(SummarizeMemoryResponse {
             ok: true,
             summary: format!("summary task accepted for session {}", req.session_id),
+            error: None,
+        }))
+    }
+
+    async fn delete_session(
+        &self,
+        request: Request<DeleteSessionRequest>,
+    ) -> Result<Response<DeleteSessionResponse>, Status> {
+        let req = request.get_ref();
+        let meta = req
+            .meta
+            .as_ref()
+            .ok_or_else(|| Status::invalid_argument("meta is required"))?;
+        Self::validate_write_meta(meta)?;
+
+        let session_id =
+            parse_uuid(&req.session_id)
+                .map_err(|e| Status::invalid_argument(format!("invalid session_id: {e}")))?;
+
+        // Delete related data in reverse dependency order
+        let deleted_anchors = self
+            .anchor_repo()
+            .delete_by_session(&meta.tenant_id, session_id)
+            .await
+            .map_err(|e| Status::internal(format!("failed to delete anchors: {e}")))?;
+
+        let deleted_units = self
+            .unit_repo()
+            .delete_by_session(&meta.tenant_id, session_id)
+            .await
+            .map_err(|e| Status::internal(format!("failed to delete memory units: {e}")))?;
+
+        let deleted_facts = self
+            .fact_repo()
+            .delete_by_session(&meta.tenant_id, session_id)
+            .await
+            .map_err(|e| Status::internal(format!("failed to delete facts: {e}")))?;
+
+        let deleted_summaries = self
+            .summary_repo()
+            .delete_by_session(&meta.tenant_id, session_id)
+            .await
+            .map_err(|e| Status::internal(format!("failed to delete summaries: {e}")))?;
+
+        let deleted_index_records = self
+            .index_repo()
+            .delete_by_session(&meta.tenant_id, session_id)
+            .await
+            .map_err(|e| Status::internal(format!("failed to delete index records: {e}")))?;
+
+        let deleted_entries = self
+            .entry_repo()
+            .delete_by_session(&meta.tenant_id, session_id)
+            .await
+            .map_err(|e| Status::internal(format!("failed to delete entries: {e}")))?;
+
+        self.session_repo()
+            .delete_by_id(&meta.tenant_id, session_id)
+            .await
+            .map_err(|e| Status::internal(format!("failed to delete session: {e}")))?;
+
+        info!(
+            session_id = %session_id,
+            tenant_id = %meta.tenant_id,
+            deleted_anchors,
+            deleted_units,
+            deleted_facts,
+            deleted_summaries,
+            deleted_index_records,
+            deleted_entries,
+            "session deleted with all related data"
+        );
+
+        Ok(Response::new(DeleteSessionResponse {
+            ok: true,
+            deleted_facts: deleted_facts as i32,
+            deleted_units: deleted_units as i32,
+            deleted_anchors: deleted_anchors as i32,
+            deleted_entries: deleted_entries as i32,
+            deleted_summaries: deleted_summaries as i32,
+            deleted_index_records: deleted_index_records as i32,
             error: None,
         }))
     }

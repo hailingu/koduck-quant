@@ -125,6 +125,33 @@ impl MemoryUnitAnchorRepository {
         Ok(result.rows_affected())
     }
 
+    /// Delete all anchors for a session (via join on memory_units).
+    pub async fn delete_by_session(&self, tenant_id: &str, session_id: Uuid) -> Result<u64> {
+        let result = sqlx::query(
+            r#"
+            DELETE FROM memory_unit_anchors
+            WHERE tenant_id = $1
+              AND memory_unit_id IN (
+                  SELECT memory_unit_id FROM memory_units
+                  WHERE tenant_id = $1 AND session_id = $2
+              )
+            "#,
+        )
+        .bind(tenant_id)
+        .bind(session_id)
+        .execute(&self.pool)
+        .await?;
+
+        let deleted = result.rows_affected();
+        info!(
+            session_id = %session_id,
+            deleted_count = deleted,
+            "memory unit anchors deleted for session"
+        );
+
+        Ok(deleted)
+    }
+
     pub async fn list_session_ids_by_anchor(
         &self,
         tenant_id: &str,
