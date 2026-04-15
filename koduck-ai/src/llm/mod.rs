@@ -19,5 +19,6 @@ pub use provider::{LlmProvider, ProviderEventStream};
 pub use router::{build_provider_router, LlmRouter};
 pub use types::{
     ChatMessage, CountTokensRequest, CountTokensResponse, GenerateRequest, GenerateResponse,
-    ListModelsRequest, ModelInfo, RequestContext, StreamEvent, TokenUsage, ToolDefinition,
+    ListModelsRequest, ModelInfo, RequestContext, StreamEvent, TokenUsage, ToolCall,
+    ToolDefinition,
 };

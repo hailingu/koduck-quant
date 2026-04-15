@@ -267,11 +267,12 @@ spec:
               # koduck-ai 据此跳过 JWKS 重验，直接解码 payload 提取用户身份。
               # priority=10 高于通配 /api/* 的 priority=0。
 
-              for AI_ROUTE in api-ai-chat api-ai-stream api-ai-chat-stream; do
+              for AI_ROUTE in api-ai-chat api-ai-stream api-ai-chat-stream api-ai-sessions; do
                 case "$AI_ROUTE" in
                   api-ai-chat)        URI="/api/v1/ai/chat" ;;
                   api-ai-stream)      URI="/api/v1/ai/stream" ;;
                   api-ai-chat-stream) URI="/api/v1/ai/chat/stream" ;;
+                  api-ai-sessions)    URI="/api/v1/ai/sessions/*" ;;
                 esac
 
                 echo "Registering AI route: ${URI} -> koduck-ai (openid-connect)"

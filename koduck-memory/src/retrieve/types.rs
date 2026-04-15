@@ -127,6 +127,7 @@ pub mod domain_class {
     pub const MUSIC: &str = "music";
     pub const LANGUAGE: &str = "language";
     pub const SPORTS: &str = "sports";
+    pub const FOOD: &str = "food";
     pub const ENTERTAINMENT: &str = "entertainment";
     pub const RELIGION: &str = "religion";
     pub const MILITARY: &str = "military";
@@ -134,7 +135,7 @@ pub mod domain_class {
     pub const FACT: &str = "fact";
     pub const UNKNOWN: &str = "unknown";
 
-    pub const ALL: [&str; 32] = [
+    pub const ALL: [&str; 33] = [
         CHAT,
         TASK,
         SYSTEM,
@@ -161,6 +162,7 @@ pub mod domain_class {
         MUSIC,
         LANGUAGE,
         SPORTS,
+        FOOD,
         ENTERTAINMENT,
         RELIGION,
         MILITARY,
@@ -310,6 +312,7 @@ mod tests {
         assert!(domain_class::is_valid("physics"));
         assert!(domain_class::is_valid("computer_science"));
         assert!(domain_class::is_valid("finance"));
+        assert!(domain_class::is_valid("food"));
         assert!(domain_class::is_valid("summary"));
         assert!(domain_class::is_valid("fact"));
         assert!(domain_class::is_valid("unknown"));

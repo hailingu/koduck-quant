@@ -29,6 +29,13 @@ pub struct ToolDefinition {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct ToolCall {
+    pub id: String,
+    pub name: String,
+    pub arguments: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct TokenUsage {
     pub prompt_tokens: u32,
     pub completion_tokens: u32,
@@ -53,6 +60,7 @@ pub struct GenerateResponse {
     pub provider: String,
     pub model: String,
     pub message: ChatMessage,
+    pub tool_calls: Vec<ToolCall>,
     pub finish_reason: String,
     pub usage: Option<TokenUsage>,
 }

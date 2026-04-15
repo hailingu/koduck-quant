@@ -2,6 +2,7 @@
 //!
 //! Candidate channels are fixed to:
 //! - domain
+//! - fact_type
 //! - entity
 //! - relation
 //! - session scope
@@ -94,6 +95,24 @@ impl AnchorFirstRetriever {
                     .or_insert_with(CandidateSignal::new);
                 candidate.reasons.insert(match_reason::DOMAIN_HIT.to_string());
                 candidate.domain_score += anchor.weight as f32;
+            }
+        }
+
+        for fact_type_key in recall_target_fact_types(ctx.recall_target_type.as_deref()) {
+            let anchors = self
+                .anchor_repo
+                .list_by_anchor(
+                    &ctx.tenant_id,
+                    MemoryUnitAnchorType::FactType,
+                    fact_type_key,
+                    channel_limit,
+                )
+                .await?;
+            for anchor in anchors {
+                let candidate = candidates
+                    .entry(anchor.memory_unit_id)
+                    .or_insert_with(CandidateSignal::new);
+                candidate.reasons.insert(match_reason::FACT_HIT.to_string());
             }
         }
 
@@ -328,6 +347,15 @@ fn parse_intent_type(value: &str) -> Option<QueryIntentType> {
     }
 }
 
+fn recall_target_fact_types(recall_target_type: Option<&str>) -> &'static [&'static str] {
+    match recall_target_type {
+        Some("person") => &["person"],
+        Some("preference") => &["preference"],
+        Some("fact") => &["fact"],
+        _ => &[],
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -367,5 +395,13 @@ mod tests {
 
         assert!(with_bucket > without_bucket);
         assert_eq!(without_bucket, 0.0);
+    }
+
+    #[test]
+    fn recall_target_fact_types_maps_supported_targets() {
+        assert_eq!(recall_target_fact_types(Some("person")), &["person"]);
+        assert_eq!(recall_target_fact_types(Some("preference")), &["preference"]);
+        assert_eq!(recall_target_fact_types(Some("fact")), &["fact"]);
+        assert!(recall_target_fact_types(Some("general")).is_empty());
     }
 }

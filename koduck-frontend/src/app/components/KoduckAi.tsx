@@ -77,9 +77,19 @@ interface ApiErrorEnvelope {
   error?: ApiErrorBody;
 }
 
+interface SessionLookupData {
+  exists?: boolean;
+}
+
+interface SessionLookupEnvelope {
+  success?: boolean;
+  data?: SessionLookupData;
+}
+
 const STREAM_INITIAL_IDLE_TIMEOUT_MS = 20000;
 const STREAM_POST_CONTENT_IDLE_TIMEOUT_MS = 8000;
 const STREAM_REQUEST_TIMEOUT_MS = 90000;
+const SESSION_LOOKUP_RETRY_DELAYS_MS = [150, 400];
 const ACTIVE_SESSION_STORAGE_KEY = "koduck.ai.activeSessionId";
 const SESSION_MESSAGES_STORAGE_PREFIX = "koduck.ai.sessionMessages";
 
@@ -107,6 +117,14 @@ function persistActiveSessionId(sessionId: string | null) {
   }
 
   window.localStorage.removeItem(ACTIVE_SESSION_STORAGE_KEY);
+}
+
+function clearStoredMessages(sessionId: string | null) {
+  if (typeof window === "undefined" || !sessionId) {
+    return;
+  }
+
+  window.localStorage.removeItem(buildSessionMessagesStorageKey(sessionId));
 }
 
 function readStoredMessages(sessionId: string | null): Message[] {
@@ -154,6 +172,69 @@ function persistSessionMessages(sessionId: string | null, messages: Message[]) {
     buildSessionMessagesStorageKey(sessionId),
     JSON.stringify(persistedMessages),
   );
+}
+
+async function fetchSessionExists(
+  sessionId: string,
+  signal: AbortSignal,
+): Promise<boolean | null> {
+  const token = window.localStorage.getItem("koduck.auth.token");
+
+  for (let attempt = 0; attempt <= SESSION_LOOKUP_RETRY_DELAYS_MS.length; attempt += 1) {
+    try {
+      const response = await fetch(`/api/v1/ai/sessions/${encodeURIComponent(sessionId)}`, {
+        method: "GET",
+        headers: {
+          Accept: "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        signal,
+      });
+
+      if (response.ok) {
+        const body = (await response.json()) as SessionLookupEnvelope;
+        if (!body.success) {
+          return null;
+        }
+
+        return body.data?.exists === true;
+      }
+
+      if (
+        response.status !== 502 &&
+        response.status !== 503 &&
+        response.status !== 504
+      ) {
+        return null;
+      }
+    } catch {
+      return null;
+    }
+
+    const delay = SESSION_LOOKUP_RETRY_DELAYS_MS[attempt];
+    if (delay == null) {
+      return null;
+    }
+
+    await new Promise<void>((resolve) => {
+      const timer = window.setTimeout(() => {
+        signal.removeEventListener("abort", onAbort);
+        resolve();
+      }, delay);
+      const onAbort = () => {
+        window.clearTimeout(timer);
+        signal.removeEventListener("abort", onAbort);
+        resolve();
+      };
+      signal.addEventListener("abort", onAbort, { once: true });
+    });
+
+    if (signal.aborted) {
+      return null;
+    }
+  }
+
+  return null;
 }
 
 function logStreamTrace(
@@ -452,17 +533,23 @@ function parseSseBlocks(
 export function KoduckAi() {
   const initialSessionId = readActiveSessionId();
   const [chatMessage, setChatMessage] = useState("");
-  const [messages, setMessages] = useState<Message[]>(() => readStoredMessages(initialSessionId));
+  const [messages, setMessages] = useState<Message[]>([]);
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(initialSessionId);
   const [selectedProvider] = useState("OpenAI");
   const [selectedModel] = useState("GPT-4");
   const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
   const [isDragging, setIsDragging] = useState(false);
   const [sending, setSending] = useState(false);
+  const [sessionHydrated, setSessionHydrated] = useState(initialSessionId === null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const dragCounterRef = useRef(0);
   const currentSessionIdRef = useRef<string | null>(currentSessionId);
+  const createSessionId = () => crypto.randomUUID();
+  const activateSession = (sessionId: string | null) => {
+    currentSessionIdRef.current = sessionId;
+    setCurrentSessionId(sessionId);
+  };
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -478,8 +565,54 @@ export function KoduckAi() {
   }, [currentSessionId]);
 
   useEffect(() => {
+    if (!currentSessionId) {
+      setMessages([]);
+      return;
+    }
+
+    if (currentSessionId === initialSessionId && !sessionHydrated) {
+      return;
+    }
+
     setMessages(readStoredMessages(currentSessionId));
-  }, [currentSessionId]);
+  }, [currentSessionId, initialSessionId, sessionHydrated]);
+
+  useEffect(() => {
+    if (!initialSessionId) {
+      setSessionHydrated(true);
+      return;
+    }
+
+    const controller = new AbortController();
+
+    const hydrateSession = async () => {
+      const exists = await fetchSessionExists(initialSessionId, controller.signal);
+      if (controller.signal.aborted) {
+        return;
+      }
+
+      if (exists === false) {
+        clearStoredMessages(initialSessionId);
+        if (readActiveSessionId() === initialSessionId) {
+          persistActiveSessionId(null);
+        }
+        if (currentSessionIdRef.current === initialSessionId) {
+          activateSession(null);
+          setMessages([]);
+        }
+      } else {
+        setMessages(readStoredMessages(initialSessionId));
+      }
+
+      setSessionHydrated(true);
+    };
+
+    void hydrateSession();
+
+    return () => {
+      controller.abort();
+    };
+  }, [initialSessionId]);
 
   useEffect(() => {
     persistSessionMessages(currentSessionId, messages);
@@ -489,13 +622,6 @@ export function KoduckAi() {
     setMessages((prev) =>
       prev.map((message) => (message.id === messageId ? updater(message) : message)),
     );
-  };
-
-  const createSessionId = () => crypto.randomUUID();
-
-  const activateSession = (sessionId: string | null) => {
-    currentSessionIdRef.current = sessionId;
-    setCurrentSessionId(sessionId);
   };
 
   const buildHistoryMessages = (): ChatHistoryMessage[] =>
@@ -1104,14 +1230,23 @@ export function KoduckAi() {
         type="file"
       />
 
-      <button
-        onClick={handleCreateSession}
-        className="fixed left-4 top-3 z-10 flex h-8 w-8 items-center justify-center text-gray-500 transition-colors hover:text-gray-700"
-        type="button"
-        title="新建会话"
-      >
-        <Plus className="h-6 w-6" strokeWidth={1.5} />
-      </button>
+      <div className="fixed top-3 left-4 z-10 flex items-center gap-2">
+        <button
+          onClick={handleCreateSession}
+          className="flex h-8 w-8 items-center justify-center text-gray-500 transition-colors hover:text-gray-700"
+          type="button"
+          title="新建会话"
+        >
+          <Plus className="h-6 w-6" strokeWidth={1.5} />
+        </button>
+        <button
+          className="flex h-8 w-8 items-center justify-center text-gray-500 transition-colors hover:text-red-600"
+          type="button"
+          title="清除会话"
+        >
+          <Trash2 className="w-5 h-5" strokeWidth={1.5} />
+        </button>
+      </div>
       <div className="flex-1 overflow-y-auto">
         <div
           className={`flex min-h-full flex-col px-4 ${
@@ -1125,11 +1260,6 @@ export function KoduckAi() {
               <h1 className="mb-8 text-center text-3xl font-normal text-gray-800">
                 {currentSessionId ? "新会话已创建" : "开始对话"}
               </h1>
-              {!currentSessionId && (
-                <p className="mb-8 text-center text-sm text-gray-500">
-                  输入第一条消息时会自动创建 session，也可以点击左上角 + 先创建。
-                </p>
-              )}
               <div className="w-full max-w-4xl px-4">{renderInputBar()}</div>
             </div>
           ) : (

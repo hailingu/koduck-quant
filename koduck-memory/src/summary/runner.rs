@@ -18,7 +18,7 @@ use crate::reliability::{TaskAttemptRepository, with_retry};
 use crate::retrieve::domain_class;
 use crate::session::SessionRepository;
 use crate::store::ObjectStoreClient;
-use crate::summary::{InsertMemorySummary, MemorySummary, MemorySummaryRepository};
+use crate::summary::{InsertMemorySummary, MemorySummary, MemorySummaryRepository, is_quality_summary};
 use crate::Result;
 
 const DEFAULT_STRATEGY: &str = "session-rollup";
@@ -240,6 +240,15 @@ impl SummaryTaskRunner {
         )?;
 
         let stored = &materialized.stored_summary;
+        if !should_promote_summary(stored) {
+            info!(
+                summary_id = %stored.id,
+                version = stored.version,
+                summary_source = %stored.summary_source,
+                "skipping summary unit/index refresh for low-quality summary artifact"
+            );
+            return Ok(());
+        }
         self.index_repo
             .delete_by_session(&stored.tenant_id, stored.session_id)
             .await?;
@@ -898,6 +907,14 @@ fn infer_domain_class_heuristic(transcript: &[String], session_title: Option<&st
             ][..],
         ),
         (
+            domain_class::FOOD,
+            &[
+                "美食", "牛排", "菲力", "西冷", "肉眼", "肋眼", "战斧", "熟度", "全熟",
+                "五分熟", "七分熟", "烹饪", "料理", "餐厅", "steak", "sirloin",
+                "ribeye", "filet", "medium rare", "well done",
+            ][..],
+        ),
+        (
             domain_class::ENTERTAINMENT,
             &[
                 "娱乐", "电影", "电视剧", "明星", "综艺", "entertainment",
@@ -1509,6 +1526,14 @@ fn normalize_strategy(strategy: String) -> String {
     }
 }
 
+fn should_promote_summary(summary: &MemorySummary) -> bool {
+    if !is_quality_summary(&summary.summary) {
+        return false;
+    }
+
+    summary.summary_source != "heuristic" || summary.llm_error_class == "none"
+}
+
 #[cfg(not(test))]
 fn maybe_inject_test_failure(_strategy: &str, _request_id: &str, _stage: &str) -> Result<()> {
     Ok(())
@@ -1591,6 +1616,18 @@ mod tests {
     }
 
     #[test]
+    fn infer_domain_class_heuristic_detects_food_topics() {
+        let transcript = vec![
+            "user: 菲力和西冷牛排有什么区别？".to_string(),
+            "assistant: 它们的部位、口感和适合的熟度不一样。".to_string(),
+        ];
+        assert_eq!(
+            infer_domain_class_heuristic(&transcript, Some("牛排熟度")),
+            domain_class::FOOD
+        );
+    }
+
+    #[test]
     fn infer_domain_class_heuristic_falls_back_to_chat() {
         let transcript = vec![
             "user: hello there".to_string(),
@@ -1613,6 +1650,42 @@ mod tests {
             uri,
             "memory-summary://tenants/tenant-1/sessions/550e8400-e29b-41d4-a716-446655440000/versions/3"
         );
+    }
+
+    #[test]
+    fn should_not_promote_low_quality_heuristic_summary() {
+        let summary = MemorySummary {
+            id: Uuid::new_v4(),
+            tenant_id: "tenant-1".to_string(),
+            session_id: Uuid::new_v4(),
+            domain_class: "history".to_string(),
+            summary: "Session 'untitled' summary (history, 8 messages): user: foo".to_string(),
+            strategy: "session-rollup".to_string(),
+            summary_source: "heuristic".to_string(),
+            llm_error_class: "transport_error".to_string(),
+            version: 1,
+            created_at: chrono::Utc::now(),
+        };
+
+        assert!(!should_promote_summary(&summary));
+    }
+
+    #[test]
+    fn should_promote_quality_llm_summary() {
+        let summary = MemorySummary {
+            id: Uuid::new_v4(),
+            tenant_id: "tenant-1".to_string(),
+            session_id: Uuid::new_v4(),
+            domain_class: "history".to_string(),
+            summary: "讨论了沙逊洋行的创始人、代表建筑以及近代上海地产布局。".to_string(),
+            strategy: "session-rollup".to_string(),
+            summary_source: "llm".to_string(),
+            llm_error_class: "none".to_string(),
+            version: 2,
+            created_at: chrono::Utc::now(),
+        };
+
+        assert!(should_promote_summary(&summary));
     }
 
     #[tokio::test]

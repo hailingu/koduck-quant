@@ -12,6 +12,7 @@ use uuid::Uuid;
 use crate::index::MemoryIndexRepository;
 use crate::retrieve::anchor_first::AnchorFirstRetriever;
 use crate::memory_unit::{MemoryUnitKind, MemoryUnitRepository};
+use crate::summary::is_quality_summary;
 use crate::retrieve::types::{
     match_reason, RetrieveContext, RetrieveResult,
 };
@@ -177,25 +178,6 @@ fn unique_session_ids(candidates: &[RetrieveResult]) -> Vec<Uuid> {
         .into_iter()
         .collect()
 }
-
-fn is_quality_summary(summary: &str) -> bool {
-    let normalized = summary.trim();
-    if normalized.chars().count() < 24 {
-        return false;
-    }
-
-    let lower = normalized.to_lowercase();
-    ![
-        "summary task already accepted",
-        "accepted for session",
-        "pending",
-        "n/a",
-        "todo",
-    ]
-    .iter()
-    .any(|marker| lower.contains(marker))
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -213,6 +195,9 @@ mod tests {
     fn quality_summary_heuristic_works() {
         assert!(!is_quality_summary("summary task already accepted for session 123"));
         assert!(!is_quality_summary("todo"));
+        assert!(!is_quality_summary(
+            "Session 'untitled' summary (history, 8 messages): user: foo | assistant: bar"
+        ));
         assert!(is_quality_summary(
             "The user asked for rollout checklist details and follow-up milestones."
         ));

@@ -202,6 +202,16 @@ impl MemoryGrpcService {
             "memory rpc failed"
         );
     }
+
+    fn entry_flag_is_true(entry: &crate::api::MemoryEntry, key: &str) -> bool {
+        entry.metadata
+            .get(key)
+            .map(|value| {
+                let normalized = value.trim().to_ascii_lowercase();
+                normalized == "true" || normalized == "1" || normalized == "yes"
+            })
+            .unwrap_or(false)
+    }
 }
 
 #[tonic::async_trait]
@@ -694,11 +704,23 @@ impl MemoryService for MemoryGrpcService {
             .await
             .map_err(|e| { guard.error(); Status::internal(format!("failed to commit transaction: {e}")) })?;
 
-        if appended > 0 {
+        let skip_retrieval_materialization = req
+            .entries
+            .iter()
+            .all(|entry| Self::entry_flag_is_true(entry, "memory_skip_retrieval"));
+
+        if appended > 0 && !skip_retrieval_materialization {
             MemoryUnitMaterializer::new(self.runtime.pool())
                 .materialize_appended_entries(&appended_units)
                 .await
                 .map_err(|e| { guard.error(); Status::internal(format!("failed to materialize memory units: {e}")) })?;
+        } else if appended > 0 {
+            tracing::info!(
+                request_id = %meta.request_id,
+                session_id = %meta.session_id,
+                tenant_id = %tenant_id,
+                "skipping memory unit materialization for recall-only append"
+            );
         }
 
         tracing::info!(
@@ -715,7 +737,7 @@ impl MemoryService for MemoryGrpcService {
             "rpc completed"
         );
 
-        if appended > 0 && self.config.summary.async_enabled {
+        if appended > 0 && self.config.summary.async_enabled && !skip_retrieval_materialization {
             let runner = SummaryTaskRunner::new(
                 self.runtime.pool(),
                 self.object_store.clone(),
@@ -737,6 +759,13 @@ impl MemoryService for MemoryGrpcService {
                     );
                 }
             });
+        } else if appended > 0 && skip_retrieval_materialization {
+            tracing::info!(
+                request_id = %meta.request_id,
+                session_id = %meta.session_id,
+                tenant_id = %tenant_id,
+                "skipping summary/index refresh for recall-only append"
+            );
         }
 
         let result = Ok(Response::new(AppendMemoryResponse {

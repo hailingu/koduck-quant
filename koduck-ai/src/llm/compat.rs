@@ -90,6 +90,7 @@ impl LlmProvider for AdapterLlmProvider {
             provider,
             model,
             message: proto_chat_message_to_unified(response.message.unwrap_or_default()),
+            tool_calls: vec![],
             finish_reason: response.finish_reason,
             usage: response.usage.map(proto_usage_to_unified),
         })
