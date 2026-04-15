@@ -21,8 +21,8 @@ use crate::{
     app::AppState,
     auth::AuthContext,
     clients::memory::{
-        self, MemoryEntry, MemoryHit, MemoryRpcContext, QueryMemoryInput, RetrievePolicy,
-        SessionInfo, SessionUpsertInput,
+        self, MemoryEntry, MemoryHit, MemoryRpcContext, QueryIntent, QueryMemoryInput,
+        RetrievePolicy, SessionInfo, SessionUpsertInput,
     },
     config::LlmMode,
     llm::{
@@ -135,6 +135,7 @@ enum StreamLlmPlan {
 #[derive(Debug, Deserialize, Default)]
 struct QueryMemoryToolArgs {
     query: Option<String>,
+    intent: Option<String>,
     memory_scope: Option<String>,
     domain_class: Option<String>,
 }
@@ -1557,6 +1558,11 @@ fn build_memory_tool_definition() -> ProviderToolDefinition {
                     "type": "string",
                     "description": "用于检索历史记忆的查询文本，通常直接取当前用户问题或其中的主题/实体。"
                 },
+                "intent": {
+                    "type": "string",
+                    "enum": ["recall", "compare", "disambiguate", "correct", "explain", "decide", "none"],
+                    "description": "本次记忆检索的主意图。必须显式给出，禁止省略。"
+                },
                 "memory_scope": {
                     "type": "string",
                     "enum": ["global", "current_session"],
@@ -1567,7 +1573,7 @@ fn build_memory_tool_definition() -> ProviderToolDefinition {
                     "description": "可选；当你非常确定某个 domain 更适合缩小检索范围时传入，例如 literature、history、food。"
                 }
             },
-            "required": ["query"],
+            "required": ["query", "intent"],
             "additionalProperties": false
         })
         .to_string(),
@@ -1575,11 +1581,27 @@ fn build_memory_tool_definition() -> ProviderToolDefinition {
 }
 
 fn build_memory_tool_instruction() -> &'static str {
-    "当用户询问“之前聊过什么 / 之前有没有聊过某个主题、人物、偏好、事实 / 具体聊到了哪些方面 / 回忆一下之前内容”时，优先调用 query_memory 工具；不要在没有调用工具的情况下臆测历史记录。"
+    "当用户询问“之前聊过什么 / 之前有没有聊过某个主题、人物、偏好、事实 / 具体聊到了哪些方面 / 回忆一下之前内容”时，优先调用 query_memory 工具；并且在工具参数中显式填写 intent。不要在没有调用工具的情况下臆测历史记录。"
 }
 
 fn parse_query_memory_tool_args(raw: &str) -> QueryMemoryToolArgs {
     serde_json::from_str::<QueryMemoryToolArgs>(raw).unwrap_or_default()
+}
+
+fn parse_query_intent(intent: Option<&str>) -> QueryIntent {
+    match intent
+        .map(|value| value.trim().to_ascii_lowercase())
+        .as_deref()
+    {
+        Some("recall") => QueryIntent::Recall,
+        Some("compare") => QueryIntent::Compare,
+        Some("disambiguate") => QueryIntent::Disambiguate,
+        Some("correct") => QueryIntent::Correct,
+        Some("explain") => QueryIntent::Explain,
+        Some("decide") => QueryIntent::Decide,
+        Some("none") => QueryIntent::None,
+        _ => QueryIntent::Unspecified,
+    }
 }
 
 async fn execute_memory_tool_call(
@@ -1615,6 +1637,7 @@ async fn execute_memory_tool_call(
         .filter(|value| !value.trim().is_empty())
         .cloned()
         .unwrap_or_else(|| metadata_string(request, "domain_class"));
+    let query_intent = parse_query_intent(args.intent.as_deref());
 
     let hits = memory::query_memory(
         state,
@@ -1623,6 +1646,7 @@ async fn execute_memory_tool_call(
             query_text,
             session_id: session_scope,
             domain_class,
+            query_intent,
             retrieve_policy: retrieve_policy_from_request(request),
             top_k: MEMORY_QUERY_TOP_K,
             page_size: MEMORY_QUERY_PAGE_SIZE,
@@ -1646,6 +1670,7 @@ async fn execute_memory_tool_call(
         session_id = %ctx.session_id,
         tool_name = %tool_call.name,
         hits_count = snapshot_hits_count(&hits),
+        query_intent = ?query_intent,
         active_scope = %args.memory_scope.as_deref().unwrap_or("global"),
         domain_class = %requested_domain_class.as_deref().unwrap_or(""),
         "memory tool call completed"

@@ -157,6 +157,37 @@ impl MemoryIndexRepository {
         Ok(rows)
     }
 
+    /// List recent summary index records across all sessions for a tenant.
+    ///
+    /// Used by explicit recall-intent queries that should review global session summaries
+    /// instead of running anchor-based retrieval.
+    pub async fn list_recent_summaries(
+        &self,
+        tenant_id: &str,
+        limit: i64,
+    ) -> Result<Vec<MemoryIndexRecord>> {
+        let rows = sqlx::query_as::<_, MemoryIndexRecord>(
+            r#"
+            SELECT
+                id, tenant_id, session_id, memory_unit_id, entry_id,
+                memory_kind, domain_class, summary, snippet,
+                source_uri, score_hint::text AS score_hint,
+                created_at, updated_at
+            FROM memory_index_records
+            WHERE tenant_id = $1
+              AND memory_kind = 'summary'
+            ORDER BY updated_at DESC
+            LIMIT $2
+            "#,
+        )
+        .bind(tenant_id)
+        .bind(limit)
+        .fetch_all(&self.pool)
+        .await?;
+
+        Ok(rows)
+    }
+
     /// Search index records by tenant_id + domain_class + summary text match.
     ///
     /// Used for SUMMARY_FIRST retrieval strategy.
