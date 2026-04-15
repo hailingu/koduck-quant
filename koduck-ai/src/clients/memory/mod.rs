@@ -16,7 +16,7 @@ use crate::{
 pub use super::proto::{
     AppendMemoryRequest, AppendMemoryResponse, GetSessionRequest, GetSessionResponse, MemoryEntry,
     MemoryHit, MemoryService, MemoryServiceClient, MemoryServiceServer, QueryMemoryRequest,
-    QueryMemoryResponse, RetrievePolicy, SessionInfo, UpsertSessionMetaRequest,
+    QueryIntent, QueryMemoryResponse, RetrievePolicy, SessionInfo, UpsertSessionMetaRequest,
     UpsertSessionMetaResponse,
 };
 
@@ -80,6 +80,7 @@ pub struct QueryMemoryInput {
     pub query_text: String,
     pub session_id: Option<String>,
     pub domain_class: String,
+    pub query_intent: QueryIntent,
     pub retrieve_policy: RetrievePolicy,
     pub top_k: i32,
     pub page_size: i32,
@@ -140,6 +141,7 @@ pub async fn query_memory(
             retrieve_policy: input.retrieve_policy as i32,
             page_token: String::new(),
             page_size: input.page_size,
+            query_intent: input.query_intent as i32,
         }))
         .await
         .map_err(|status| map_grpc_status(UpstreamService::Memory, &ctx.request_id, &status))?;

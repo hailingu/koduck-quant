@@ -53,6 +53,7 @@ mod tests {
                 provider: req.provider,
                 model: req.model,
                 message: req.messages.into_iter().next().unwrap(),
+                tool_calls: vec![],
                 finish_reason: "stop".to_string(),
                 usage: Some(TokenUsage {
                     prompt_tokens: 1,

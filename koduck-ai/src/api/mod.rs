@@ -21,13 +21,14 @@ use crate::{
     app::AppState,
     auth::AuthContext,
     clients::memory::{
-        self, MemoryEntry, MemoryHit, MemoryRpcContext, QueryMemoryInput, RetrievePolicy,
-        SessionInfo, SessionUpsertInput,
+        self, MemoryEntry, MemoryHit, MemoryRpcContext, QueryIntent, QueryMemoryInput,
+        RetrievePolicy, SessionInfo, SessionUpsertInput,
     },
     config::LlmMode,
     llm::{
         ChatMessage as ProviderChatMessage, GenerateRequest as ProviderGenerateRequest,
-        RequestContext, StreamEvent as ProviderStreamEvent,
+        RequestContext, StreamEvent as ProviderStreamEvent, ToolCall as ProviderToolCall,
+        ToolDefinition as ProviderToolDefinition,
     },
     orchestrator::cancel::{run_abortable_with_cleanup, AbortReason, RequestGenerationGuard},
     reliability::{
@@ -105,6 +106,25 @@ pub struct ApiResponse<T> {
 struct MemoryContextSnapshot {
     session: Option<SessionInfo>,
     hits: Vec<MemoryHit>,
+}
+
+#[derive(Debug, Default)]
+struct ToolResolutionResult {
+    snapshot: MemoryContextSnapshot,
+    direct_response: Option<crate::llm::GenerateResponse>,
+}
+
+enum StreamLlmPlan {
+    Upstream(crate::llm::ProviderEventStream),
+    ReadyAnswer(String),
+}
+
+#[derive(Debug, Deserialize, Default)]
+struct QueryMemoryToolArgs {
+    query: Option<String>,
+    intent: Option<String>,
+    memory_scope: Option<String>,
+    domain_class: Option<String>,
 }
 
 pub async fn chat(
@@ -360,7 +380,7 @@ pub async fn chat_stream(
                 "stub_enabled",
             );
         } else if state.config.llm.mode == LlmMode::Direct {
-            let upstream = match call_llm_stream(
+            let llm_plan = match call_llm_stream(
                 &state,
                 &request.chat,
                 memory_snapshot.as_ref(),
@@ -371,7 +391,7 @@ pub async fn chat_stream(
             )
             .await
             {
-                Ok(stream) => stream,
+                Ok(plan) => plan,
                 Err(err) => {
                     if let Some(decision) = state
                         .degrade_policy
@@ -400,151 +420,181 @@ pub async fn chat_stream(
                     return api_error_response(err, request_id);
                 }
             };
-
-            let stream_session = Arc::clone(&session);
-            let guard = generation_guard.clone();
-            let append_state = Arc::clone(&state);
-            let append_ctx = memory_ctx.clone();
-            let append_request = request.chat.clone();
-            tokio::spawn(async move {
-                let producer_guard = guard.clone();
-                let producer = async {
-                    let mut upstream = upstream;
-                    let mut full_answer = String::new();
-                    while let Some(next) = upstream.next().await {
-                        match next {
-                            Ok(ev) => {
-                                full_answer.push_str(&ev.delta);
-                                info!(
-                                    request_id = %stream_session.request_id(),
-                                    session_id = %stream_session.session_id(),
-                                    upstream_event_id = %ev.event_id,
-                                    upstream_sequence_num = ev.sequence_num,
-                                    delta_len = ev.delta.len(),
-                                    finish_reason = %ev.finish_reason,
-                                    "forwarding llm stream event to sse session"
-                                );
-                                for pending in build_stream_events(
-                                    &ev,
-                                    stream_session.request_id(),
-                                    stream_session.session_id(),
-                                ) {
-                                    if let Err(err) = stream_session
-                                        .enqueue_event_if_current(&producer_guard, pending)
-                                        .await
-                                    {
+            match llm_plan {
+                StreamLlmPlan::ReadyAnswer(answer) => {
+                    if let Err(err) = append_chat_turn(
+                        &state,
+                        &memory_ctx,
+                        &request.chat,
+                        &answer,
+                        request.chat.model.as_deref().unwrap_or_default(),
+                    )
+                    .await
+                    {
+                        log_memory_failure(
+                            &state,
+                            DegradeRoute::ChatStream,
+                            MemoryOperation::AppendMemory,
+                            &memory_ctx,
+                            &err,
+                            true,
+                            "append_memory failed after direct tool-free response; continuing with generated stream",
+                        );
+                    }
+                    spawn_generated_stream(
+                        Arc::clone(&session),
+                        generation_guard.clone(),
+                        stream_timeout,
+                        answer,
+                    );
+                }
+                StreamLlmPlan::Upstream(upstream) => {
+                    let stream_session = Arc::clone(&session);
+                    let guard = generation_guard.clone();
+                    let append_state = Arc::clone(&state);
+                    let append_ctx = memory_ctx.clone();
+                    let append_request = request.chat.clone();
+                    tokio::spawn(async move {
+                        let producer_guard = guard.clone();
+                        let producer = async {
+                            let mut upstream = upstream;
+                            let mut full_answer = String::new();
+                            while let Some(next) = upstream.next().await {
+                                match next {
+                                    Ok(ev) => {
+                                        full_answer.push_str(&ev.delta);
+                                        info!(
+                                            request_id = %stream_session.request_id(),
+                                            session_id = %stream_session.session_id(),
+                                            upstream_event_id = %ev.event_id,
+                                            upstream_sequence_num = ev.sequence_num,
+                                            delta_len = ev.delta.len(),
+                                            finish_reason = %ev.finish_reason,
+                                            "forwarding llm stream event to sse session"
+                                        );
+                                        for pending in build_stream_events(
+                                            &ev,
+                                            stream_session.request_id(),
+                                            stream_session.session_id(),
+                                        ) {
+                                            if let Err(err) = stream_session
+                                                .enqueue_event_if_current(&producer_guard, pending)
+                                                .await
+                                            {
+                                                info!(
+                                                    request_id = %stream_session.request_id(),
+                                                    session_id = %stream_session.session_id(),
+                                                    error = %err,
+                                                    generation = producer_guard.generation(),
+                                                    "stream queue rejected upstream event"
+                                                );
+                                                stream_session
+                                                    .force_shutdown_if_current(
+                                                        &producer_guard,
+                                                        ErrorCode::StreamTimeout.to_string(),
+                                                        "stream queue backpressure timeout",
+                                                    )
+                                                    .await;
+                                                return;
+                                            }
+                                        }
+                                        info!(
+                                            request_id = %stream_session.request_id(),
+                                            session_id = %stream_session.session_id(),
+                                            upstream_event_id = %ev.event_id,
+                                            "llm stream event enqueued"
+                                        );
+                                    }
+                                    Err(err) => {
                                         info!(
                                             request_id = %stream_session.request_id(),
                                             session_id = %stream_session.session_id(),
                                             error = %err,
                                             generation = producer_guard.generation(),
-                                            "stream queue rejected upstream event"
+                                            "llm stream item failed"
                                         );
-                                        stream_session
-                                            .force_shutdown_if_current(
+                                        let _ = stream_session
+                                            .enqueue_event_if_current(
                                                 &producer_guard,
-                                                ErrorCode::StreamTimeout.to_string(),
-                                                "stream queue backpressure timeout",
+                                                build_stream_error_event(
+                                                    &err,
+                                                    stream_session.request_id(),
+                                                    stream_session.session_id(),
+                                                ),
                                             )
                                             .await;
-                                        return;
+                                        break;
                                     }
                                 }
-                                info!(
-                                    request_id = %stream_session.request_id(),
-                                    session_id = %stream_session.session_id(),
-                                    upstream_event_id = %ev.event_id,
-                                    "llm stream event enqueued"
-                                );
                             }
-                            Err(err) => {
-                                info!(
-                                    request_id = %stream_session.request_id(),
-                                    session_id = %stream_session.session_id(),
-                                    error = %err,
-                                    generation = producer_guard.generation(),
-                                    "llm stream item failed"
-                                );
+
+                            let replay = stream_session.open_replay(0).await;
+                            let has_terminal_event = replay
+                                .replay_events
+                                .iter()
+                                .any(|event| matches!(event.event_type.as_str(), "done" | "error"));
+
+                            if !has_terminal_event {
                                 let _ = stream_session
                                     .enqueue_event_if_current(
                                         &producer_guard,
-                                        build_stream_error_event(
-                                            &err,
-                                            stream_session.request_id(),
-                                            stream_session.session_id(),
+                                        StreamEventData::done(
+                                            stream_session.request_id().to_string(),
+                                            stream_session.session_id().to_string(),
+                                            "stop",
                                         ),
                                     )
                                     .await;
-                                break;
                             }
-                        }
-                    }
 
-                    let replay = stream_session.open_replay(0).await;
-                    let has_terminal_event = replay
-                        .replay_events
-                        .iter()
-                        .any(|event| matches!(event.event_type.as_str(), "done" | "error"));
-
-                    if !has_terminal_event {
-                        let _ = stream_session
-                            .enqueue_event_if_current(
-                                &producer_guard,
-                                StreamEventData::done(
-                                    stream_session.request_id().to_string(),
-                                    stream_session.session_id().to_string(),
-                                    "stop",
-                                ),
+                            if let Err(err) = append_chat_turn(
+                                &append_state,
+                                &append_ctx,
+                                &append_request,
+                                &full_answer,
+                                append_request.model.as_deref().unwrap_or_default(),
                             )
-                            .await;
-                    }
+                            .await
+                            {
+                                log_memory_failure(
+                                    &append_state,
+                                    DegradeRoute::ChatStream,
+                                    MemoryOperation::AppendMemory,
+                                    &append_ctx,
+                                    &err,
+                                    true,
+                                    "failed to persist streamed conversation into memory",
+                                );
+                            }
+                        };
 
-                    if let Err(err) = append_chat_turn(
-                        &append_state,
-                        &append_ctx,
-                        &append_request,
-                        &full_answer,
-                        append_request.model.as_deref().unwrap_or_default(),
-                    )
-                    .await
-                    {
-                        log_memory_failure(
-                            &append_state,
-                            DegradeRoute::ChatStream,
-                            MemoryOperation::AppendMemory,
-                            &append_ctx,
-                            &err,
-                            true,
-                            "failed to persist streamed conversation into memory",
-                        );
-                    }
-                };
+                        let cleanup_session = Arc::clone(&stream_session);
+                        let cleanup_guard = guard.clone();
+                        let cleanup_guard_for_log = cleanup_guard.clone();
+                        let result = run_abortable_with_cleanup(
+                            guard,
+                            stream_timeout,
+                            producer,
+                            move |reason| async move {
+                                handle_stream_abort(&cleanup_session, &cleanup_guard, reason).await;
+                            },
+                        )
+                        .await;
 
-                let cleanup_session = Arc::clone(&stream_session);
-                let cleanup_guard = guard.clone();
-                let cleanup_guard_for_log = cleanup_guard.clone();
-                let result = run_abortable_with_cleanup(
-                    guard,
-                    stream_timeout,
-                    producer,
-                    move |reason| async move {
-                        handle_stream_abort(&cleanup_session, &cleanup_guard, reason).await;
-                    },
-                )
-                .await;
-
-                if let Err(reason) = result {
-                    info!(
-                        request_id = %stream_session.request_id(),
-                        session_id = %stream_session.session_id(),
-                        generation = cleanup_guard_for_log.generation(),
-                        abort_reason = ?reason,
-                        "upstream stream producer terminated early"
-                    );
+                        if let Err(reason) = result {
+                            info!(
+                                request_id = %stream_session.request_id(),
+                                session_id = %stream_session.session_id(),
+                                generation = cleanup_guard_for_log.generation(),
+                                abort_reason = ?reason,
+                                "upstream stream producer terminated early"
+                            );
+                        }
+                    });
                 }
-            });
+            }
         } else {
-            let upstream =
+            let llm_plan =
                 match call_llm_stream(
                     &state,
                     &request.chat,
@@ -556,7 +606,7 @@ pub async fn chat_stream(
                 )
                 .await
                 {
-                    Ok(stream) => stream,
+                    Ok(plan) => plan,
                     Err(err) => {
                         if let Some(decision) = state
                             .degrade_policy
@@ -585,133 +635,164 @@ pub async fn chat_stream(
                         return api_error_response(err, request_id);
                     }
                 };
-            let stream_session = Arc::clone(&session);
-            let guard = generation_guard.clone();
-            let append_state = Arc::clone(&state);
-            let append_ctx = memory_ctx.clone();
-            let append_request = request.chat.clone();
-            tokio::spawn(async move {
-                let producer_guard = guard.clone();
-                let producer = async {
-                    let mut upstream = upstream;
-                    let mut full_answer = String::new();
-                    while let Some(next) = upstream.next().await {
-                        match next {
-                            Ok(ev) => {
-                                full_answer.push_str(&ev.delta);
-                                for pending in build_stream_events(
-                                    &ev,
-                                    stream_session.request_id(),
-                                    stream_session.session_id(),
-                                ) {
-                                    if let Err(err) = stream_session
-                                        .enqueue_event_if_current(&producer_guard, pending)
-                                        .await
-                                    {
+            match llm_plan {
+                StreamLlmPlan::ReadyAnswer(answer) => {
+                    if let Err(err) = append_chat_turn(
+                        &state,
+                        &memory_ctx,
+                        &request.chat,
+                        &answer,
+                        request.chat.model.as_deref().unwrap_or_default(),
+                    )
+                    .await
+                    {
+                        log_memory_failure(
+                            &state,
+                            DegradeRoute::ChatStream,
+                            MemoryOperation::AppendMemory,
+                            &memory_ctx,
+                            &err,
+                            true,
+                            "append_memory failed after direct tool-free response; continuing with generated stream",
+                        );
+                    }
+                    spawn_generated_stream(
+                        Arc::clone(&session),
+                        generation_guard.clone(),
+                        stream_timeout,
+                        answer,
+                    );
+                }
+                StreamLlmPlan::Upstream(upstream) => {
+                    let stream_session = Arc::clone(&session);
+                    let guard = generation_guard.clone();
+                    let append_state = Arc::clone(&state);
+                    let append_ctx = memory_ctx.clone();
+                    let append_request = request.chat.clone();
+                    tokio::spawn(async move {
+                        let producer_guard = guard.clone();
+                        let producer = async {
+                            let mut upstream = upstream;
+                            let mut full_answer = String::new();
+                            while let Some(next) = upstream.next().await {
+                                match next {
+                                    Ok(ev) => {
+                                        full_answer.push_str(&ev.delta);
+                                        for pending in build_stream_events(
+                                            &ev,
+                                            stream_session.request_id(),
+                                            stream_session.session_id(),
+                                        ) {
+                                            if let Err(err) = stream_session
+                                                .enqueue_event_if_current(&producer_guard, pending)
+                                                .await
+                                            {
+                                                info!(
+                                                    request_id = %stream_session.request_id(),
+                                                    session_id = %stream_session.session_id(),
+                                                    error = %err,
+                                                    generation = producer_guard.generation(),
+                                                    "stream queue rejected upstream event"
+                                                );
+                                                stream_session
+                                                    .force_shutdown_if_current(
+                                                        &producer_guard,
+                                                        ErrorCode::StreamTimeout.to_string(),
+                                                        "stream queue backpressure timeout",
+                                                    )
+                                                    .await;
+                                                break;
+                                            }
+                                        }
+                                    }
+                                    Err(mapped_error) => {
                                         info!(
                                             request_id = %stream_session.request_id(),
                                             session_id = %stream_session.session_id(),
-                                            error = %err,
+                                            error = %mapped_error,
                                             generation = producer_guard.generation(),
-                                            "stream queue rejected upstream event"
+                                            "llm stream item failed"
                                         );
-                                        stream_session
-                                            .force_shutdown_if_current(
+                                        let _ = stream_session
+                                            .enqueue_event_if_current(
                                                 &producer_guard,
-                                                ErrorCode::StreamTimeout.to_string(),
-                                                "stream queue backpressure timeout",
+                                                build_stream_error_event(
+                                                    &mapped_error,
+                                                    stream_session.request_id(),
+                                                    stream_session.session_id(),
+                                                ),
                                             )
                                             .await;
                                         break;
                                     }
                                 }
                             }
-                            Err(mapped_error) => {
-                                info!(
-                                    request_id = %stream_session.request_id(),
-                                    session_id = %stream_session.session_id(),
-                                    error = %mapped_error,
-                                    generation = producer_guard.generation(),
-                                    "llm stream item failed"
-                                );
+
+                            let replay = stream_session.open_replay(0).await;
+                            let has_terminal_event = replay
+                                .replay_events
+                                .iter()
+                                .any(|event| matches!(event.event_type.as_str(), "done" | "error"));
+
+                            if !has_terminal_event {
                                 let _ = stream_session
                                     .enqueue_event_if_current(
                                         &producer_guard,
-                                        build_stream_error_event(
-                                            &mapped_error,
-                                            stream_session.request_id(),
-                                            stream_session.session_id(),
+                                        StreamEventData::done(
+                                            stream_session.request_id().to_string(),
+                                            stream_session.session_id().to_string(),
+                                            "stop",
                                         ),
                                     )
                                     .await;
-                                break;
                             }
-                        }
-                    }
 
-                    let replay = stream_session.open_replay(0).await;
-                    let has_terminal_event = replay
-                        .replay_events
-                        .iter()
-                        .any(|event| matches!(event.event_type.as_str(), "done" | "error"));
-
-                    if !has_terminal_event {
-                        let _ = stream_session
-                            .enqueue_event_if_current(
-                                &producer_guard,
-                                StreamEventData::done(
-                                    stream_session.request_id().to_string(),
-                                    stream_session.session_id().to_string(),
-                                    "stop",
-                                ),
+                            if let Err(err) = append_chat_turn(
+                                &append_state,
+                                &append_ctx,
+                                &append_request,
+                                &full_answer,
+                                append_request.model.as_deref().unwrap_or_default(),
                             )
-                            .await;
-                    }
+                            .await
+                            {
+                                log_memory_failure(
+                                    &append_state,
+                                    DegradeRoute::ChatStream,
+                                    MemoryOperation::AppendMemory,
+                                    &append_ctx,
+                                    &err,
+                                    true,
+                                    "failed to persist streamed conversation into memory",
+                                );
+                            }
+                        };
 
-                    if let Err(err) = append_chat_turn(
-                        &append_state,
-                        &append_ctx,
-                        &append_request,
-                        &full_answer,
-                        append_request.model.as_deref().unwrap_or_default(),
-                    )
-                    .await
-                    {
-                        log_memory_failure(
-                            &append_state,
-                            DegradeRoute::ChatStream,
-                            MemoryOperation::AppendMemory,
-                            &append_ctx,
-                            &err,
-                            true,
-                            "failed to persist streamed conversation into memory",
-                        );
-                    }
-                };
+                        let cleanup_session = Arc::clone(&stream_session);
+                        let cleanup_guard = guard.clone();
+                        let cleanup_guard_for_log = cleanup_guard.clone();
+                        let result = run_abortable_with_cleanup(
+                            guard,
+                            stream_timeout,
+                            producer,
+                            move |reason| async move {
+                                handle_stream_abort(&cleanup_session, &cleanup_guard, reason).await;
+                            },
+                        )
+                        .await;
 
-                let cleanup_session = Arc::clone(&stream_session);
-                let cleanup_guard = guard.clone();
-                let cleanup_guard_for_log = cleanup_guard.clone();
-                let result = run_abortable_with_cleanup(
-                    guard,
-                    stream_timeout,
-                    producer,
-                    move |reason| async move {
-                        handle_stream_abort(&cleanup_session, &cleanup_guard, reason).await;
-                    },
-                )
-                .await;
-
-                if let Err(reason) = result {
-                    info!(
-                        request_id = %stream_session.request_id(),
-                        session_id = %stream_session.session_id(),
-                        generation = cleanup_guard_for_log.generation(),
-                        abort_reason = ?reason,
-                        "upstream stream producer terminated early"
-                    );
+                        if let Err(reason) = result {
+                            info!(
+                                request_id = %stream_session.request_id(),
+                                session_id = %stream_session.session_id(),
+                                generation = cleanup_guard_for_log.generation(),
+                                abort_reason = ?reason,
+                                "upstream stream producer terminated early"
+                            );
+                        }
+                    });
                 }
-            });
+            }
         }
     }
 
@@ -818,33 +899,10 @@ async fn prepare_memory_context(
         );
     }
 
-    let hits = memory::query_memory(
-        state,
-        ctx,
-        QueryMemoryInput {
-            query_text: build_memory_query_text(&request.message),
-            session_id: memory_query_session_scope(request, ctx),
-            domain_class: metadata_string(request, "domain_class"),
-            retrieve_policy: retrieve_policy_from_request(request),
-            top_k: MEMORY_QUERY_TOP_K,
-            page_size: MEMORY_QUERY_PAGE_SIZE,
-        },
-    )
-    .await
-    .unwrap_or_else(|err| {
-        log_memory_failure(
-            state,
-            route,
-            MemoryOperation::QueryMemory,
-            ctx,
-            &err,
-            true,
-            "query_memory failed; continuing without retrieved memory hits",
-        );
-        Vec::new()
-    });
-
-    MemoryContextSnapshot { session, hits }
+    MemoryContextSnapshot {
+        session,
+        hits: Vec::new(),
+    }
 }
 
 async fn append_chat_turn(
@@ -1213,7 +1271,10 @@ fn build_degraded_stream_chunks(
     chunk_answer(&build_degraded_answer(user_message, snapshot, reason))
 }
 
-fn build_memory_prompt(snapshot: &MemoryContextSnapshot) -> Option<String> {
+fn build_memory_prompt(
+    snapshot: &MemoryContextSnapshot,
+    user_message: &str,
+) -> Option<String> {
     if snapshot.hits.is_empty() {
         return None;
     }
@@ -1235,10 +1296,209 @@ fn build_memory_prompt(snapshot: &MemoryContextSnapshot) -> Option<String> {
         .collect::<Vec<_>>()
         .join("\n");
 
+    let prompt_tail = if is_memory_recall_query(user_message) {
+        "这是一次“回顾历史/之前聊过什么”的请求。你必须优先做跨 session 汇总，不能只复述单个最近会话；请结合下面所有历史命中与当前问题，自行判断哪些会话相关、哪些不相关，再给出汇总后的最终答案。"
+    } else {
+        "请结合下面历史命中与当前问题，自行判断哪些内容相关，再决定是否在回答中引用这些历史记忆。"
+    };
+
     Some(format!(
-        "以下内容来自 koduck-memory 的历史摘要检索结果，可能跨多个旧会话。请先判断哪些历史记忆与当前问题相关，再基于相关命中进行总结回答；如果命中明显相关，应直接说明我们之前讨论过哪些内容，不要回答成“没有之前记录”。\n历史命中:\n{}",
-        snippets
+        "以下内容来自 koduck-memory 的历史摘要检索结果，可能跨多个旧会话。\n{}\n\n历史命中:\n{}\n\n当前用户问题（请把它作为最终相关性判断依据）:\n{}",
+        prompt_tail,
+        snippets,
+        user_message.trim()
     ))
+}
+
+fn build_memory_tool_definition() -> ProviderToolDefinition {
+    ProviderToolDefinition {
+        name: "query_memory".to_string(),
+        description: "检索当前用户与 koduck 的历史记忆会话，用于回答“之前聊过什么、之前是否聊过某个主题/人物/偏好/事实、具体聊到了哪些方面”等问题。".to_string(),
+        input_schema: json!({
+            "type": "object",
+            "properties": {
+                "query": {
+                    "type": "string",
+                    "description": "用于检索历史记忆的查询文本，通常直接取当前用户问题或其中的主题/实体。"
+                },
+                "intent": {
+                    "type": "string",
+                    "enum": ["recall", "compare", "disambiguate", "correct", "explain", "decide", "none"],
+                    "description": "本次记忆检索的主意图。必须显式给出，禁止省略。"
+                },
+                "memory_scope": {
+                    "type": "string",
+                    "enum": ["global", "current_session"],
+                    "description": "可选；默认 global。仅当需要限制在当前 session 内检索时才传 current_session。"
+                },
+                "domain_class": {
+                    "type": "string",
+                    "description": "可选；当你非常确定某个 domain 更适合缩小检索范围时传入，例如 literature、history、food。"
+                }
+            },
+            "required": ["query", "intent"],
+            "additionalProperties": false
+        })
+        .to_string(),
+    }
+}
+
+fn build_memory_tool_instruction() -> &'static str {
+    "当用户询问“之前聊过什么 / 之前有没有聊过某个主题、人物、偏好、事实 / 具体聊到了哪些方面 / 回忆一下之前内容”时，优先调用 query_memory 工具；并且在工具参数中显式填写 intent。不要在没有调用工具的情况下臆测历史记录。"
+}
+
+fn parse_query_memory_tool_args(raw: &str) -> QueryMemoryToolArgs {
+    serde_json::from_str::<QueryMemoryToolArgs>(raw).unwrap_or_default()
+}
+
+fn parse_query_intent(intent: Option<&str>) -> QueryIntent {
+    match intent
+        .map(|value| value.trim().to_ascii_lowercase())
+        .as_deref()
+    {
+        Some("recall") => QueryIntent::Recall,
+        Some("compare") => QueryIntent::Compare,
+        Some("disambiguate") => QueryIntent::Disambiguate,
+        Some("correct") => QueryIntent::Correct,
+        Some("explain") => QueryIntent::Explain,
+        Some("decide") => QueryIntent::Decide,
+        Some("none") => QueryIntent::None,
+        _ => QueryIntent::Unspecified,
+    }
+}
+
+async fn execute_memory_tool_call(
+    state: &Arc<AppState>,
+    route: DegradeRoute,
+    request: &ChatRequest,
+    ctx: &MemoryRpcContext,
+    base_snapshot: &MemoryContextSnapshot,
+    tool_call: &ProviderToolCall,
+) -> MemoryContextSnapshot {
+    let args = parse_query_memory_tool_args(&tool_call.arguments);
+    info!(
+        request_id = %ctx.request_id,
+        session_id = %ctx.session_id,
+        tool_name = %tool_call.name,
+        tool_call_id = %tool_call.id,
+        tool_arguments = %tool_call.arguments,
+        "llm tool call resolved to memory query"
+    );
+
+    let query_text = args
+        .query
+        .as_deref()
+        .map(build_memory_query_text)
+        .filter(|value| !value.trim().is_empty())
+        .unwrap_or_else(|| build_memory_query_text(&request.message));
+    let session_scope = match args.memory_scope.as_deref() {
+        Some("current_session") => Some(ctx.session_id.clone()),
+        _ => memory_query_session_scope(request, ctx),
+    };
+    let requested_domain_class = args.domain_class.clone();
+    let domain_class = requested_domain_class
+        .as_ref()
+        .filter(|value| !value.trim().is_empty())
+        .cloned()
+        .unwrap_or_else(|| metadata_string(request, "domain_class"));
+    let query_intent = parse_query_intent(args.intent.as_deref());
+
+    let hits = memory::query_memory(
+        state,
+        ctx,
+        QueryMemoryInput {
+            query_text,
+            session_id: session_scope,
+            domain_class,
+            query_intent,
+            retrieve_policy: retrieve_policy_from_request(request),
+            top_k: MEMORY_QUERY_TOP_K,
+            page_size: MEMORY_QUERY_PAGE_SIZE,
+        },
+    )
+    .await
+    .unwrap_or_else(|err| {
+        log_memory_failure(
+            state,
+            route,
+            MemoryOperation::QueryMemory,
+            ctx,
+            &err,
+            true,
+            "query_memory tool call failed; continuing without retrieved memory hits",
+        );
+        Vec::new()
+    });
+
+    info!(
+        request_id = %ctx.request_id,
+        session_id = %ctx.session_id,
+        tool_name = %tool_call.name,
+        hits_count = hits.len(),
+        query_intent = ?query_intent,
+        "memory tool call completed"
+    );
+
+    let mut snapshot = base_snapshot.clone();
+    snapshot.hits = hits;
+    snapshot
+}
+
+async fn resolve_memory_tool_call(
+    state: &Arc<AppState>,
+    route: DegradeRoute,
+    request: &ChatRequest,
+    base_snapshot: &MemoryContextSnapshot,
+    request_id: &str,
+    session_id: &str,
+    auth_ctx: &AuthContext,
+    trace_id: &str,
+) -> Result<ToolResolutionResult, AppError> {
+    let llm_request = build_provider_generate_request(
+        request,
+        Some(base_snapshot),
+        request_id,
+        session_id,
+        auth_ctx,
+        trace_id,
+        state.config.llm.timeout_ms,
+        vec![build_memory_tool_definition()],
+    );
+    let selection = state.llm_provider.generate(llm_request).await?;
+    info!(
+        request_id = %request_id,
+        session_id = %session_id,
+        tool_call_count = selection.tool_calls.len(),
+        finish_reason = %selection.finish_reason,
+        "llm tool-selection phase completed"
+    );
+
+    let maybe_memory_call = selection
+        .tool_calls
+        .iter()
+        .find(|tool_call| tool_call.name == "query_memory")
+        .cloned();
+
+    if let Some(tool_call) = maybe_memory_call {
+        let ctx = MemoryRpcContext::from_auth(
+            request_id.to_string(),
+            session_id.to_string(),
+            trace_id.to_string(),
+            state.config.llm.timeout_ms,
+            auth_ctx,
+        );
+        let snapshot =
+            execute_memory_tool_call(state, route, request, &ctx, base_snapshot, &tool_call).await;
+        return Ok(ToolResolutionResult {
+            snapshot,
+            direct_response: None,
+        });
+    }
+
+    Ok(ToolResolutionResult {
+        snapshot: base_snapshot.clone(),
+        direct_response: Some(selection),
+    })
 }
 
 fn build_memory_entry_metadata(
@@ -1268,6 +1528,11 @@ fn build_memory_entry_metadata(
         .and_then(json_value_as_string)
     {
         metadata.insert("domain_class".to_string(), domain_class);
+    }
+
+    if is_memory_recall_query(&request.message) {
+        metadata.insert("memory_recall_query".to_string(), "true".to_string());
+        metadata.insert("memory_skip_retrieval".to_string(), "true".to_string());
     }
 
     metadata
@@ -1421,6 +1686,35 @@ async fn call_llm_generate(
     auth_ctx: &AuthContext,
     trace_id: &str,
 ) -> Result<ChatResponse, AppError> {
+    let tool_resolution = resolve_memory_tool_call(
+        state,
+        DegradeRoute::Chat,
+        request,
+        memory_snapshot,
+        request_id,
+        session_id,
+        auth_ctx,
+        trace_id,
+    )
+    .await?;
+
+    if let Some(body) = tool_resolution.direct_response {
+        let answer = body.message.content.clone();
+        let usage = body.usage.as_ref();
+        return Ok(ChatResponse {
+            request_id: request_id.to_string(),
+            session_id: session_id.to_string(),
+            answer,
+            model: body.model,
+            usage: TokenUsage {
+                prompt_tokens: usage.map(|u| u.prompt_tokens).unwrap_or(0),
+                completion_tokens: usage.map(|u| u.completion_tokens).unwrap_or(0),
+                total_tokens: usage.map(|u| u.total_tokens).unwrap_or(0),
+            },
+            degraded: false,
+        });
+    }
+
     let policy = Arc::clone(&state.retry_budget_policy);
     let session = policy.begin_session();
     let mut attempt_index = 0;
@@ -1438,14 +1732,14 @@ async fn call_llm_generate(
             }
         };
         let llm_request = build_provider_generate_request(
-            state,
             request,
-            Some(memory_snapshot),
+            Some(&tool_resolution.snapshot),
             request_id,
             session_id,
             auth_ctx,
             trace_id,
             deadline_ms,
+            vec![],
         );
         match state.llm_provider.generate(llm_request).await {
             Ok(body) => break body,
@@ -1489,7 +1783,24 @@ async fn call_llm_stream(
     session_id: &str,
     auth_ctx: &AuthContext,
     trace_id: &str,
-) -> Result<crate::llm::ProviderEventStream, AppError> {
+) -> Result<StreamLlmPlan, AppError> {
+    let base_snapshot = memory_snapshot.cloned().unwrap_or_default();
+    let tool_resolution = resolve_memory_tool_call(
+        state,
+        DegradeRoute::ChatStream,
+        request,
+        &base_snapshot,
+        request_id,
+        session_id,
+        auth_ctx,
+        trace_id,
+    )
+    .await?;
+
+    if let Some(body) = tool_resolution.direct_response {
+        return Ok(StreamLlmPlan::ReadyAnswer(body.message.content));
+    }
+
     let policy = Arc::clone(&state.retry_budget_policy);
     let session = policy.begin_session();
     let mut attempt_index = 0;
@@ -1508,17 +1819,17 @@ async fn call_llm_stream(
             }
         };
         let llm_request = build_provider_generate_request(
-            state,
             request,
-            memory_snapshot,
+            Some(&tool_resolution.snapshot),
             request_id,
             session_id,
             auth_ctx,
             trace_id,
             deadline_ms,
+            vec![],
         );
         match state.llm_provider.stream_generate(llm_request).await {
-            Ok(stream) => return Ok(stream),
+            Ok(stream) => return Ok(StreamLlmPlan::Upstream(stream)),
             Err(err) => match policy.should_retry(&session, attempt_index, err) {
                 RetryDirective::RetryAfter { delay, err } => {
                     policy.log_retry(request_id, attempt_index, delay, &err);
@@ -1534,7 +1845,6 @@ async fn call_llm_stream(
 }
 
 fn build_provider_generate_request(
-    _state: &Arc<AppState>,
     request: &ChatRequest,
     memory_snapshot: Option<&MemoryContextSnapshot>,
     request_id: &str,
@@ -1542,6 +1852,7 @@ fn build_provider_generate_request(
     auth_ctx: &AuthContext,
     trace_id: &str,
     deadline_ms: u64,
+    tools: Vec<ProviderToolDefinition>,
 ) -> ProviderGenerateRequest {
     const KODUCK_V1_LITE_PROMPT: &str =
         include_str!("../../prompts/system/koduck-v1-lite.md");
@@ -1553,9 +1864,16 @@ fn build_provider_generate_request(
         KODUCK_BASE_LANGUAGE_PROMPT
     );
 
-    if let Some(memory_prompt) = memory_snapshot.and_then(build_memory_prompt) {
+    if let Some(memory_prompt) = memory_snapshot.and_then(|snapshot| {
+        build_memory_prompt(snapshot, &request.message)
+    }) {
         system_content.push_str("\n\n");
         system_content.push_str(&memory_prompt);
+    }
+
+    if !tools.is_empty() {
+        system_content.push_str("\n\n");
+        system_content.push_str(build_memory_tool_instruction());
     }
 
     let mut messages = vec![ProviderChatMessage {
@@ -1595,7 +1913,7 @@ fn build_provider_generate_request(
         temperature: request.temperature.unwrap_or(0.2),
         top_p: 1.0,
         max_tokens: request.max_tokens.unwrap_or(2048),
-        tools: vec![],
+        tools,
         response_format: String::new(),
     }
 }

@@ -16,7 +16,7 @@ use super::{
     provider::{LlmProvider, ProviderEventStream},
     types::{
         ChatMessage, CountTokensRequest, CountTokensResponse, GenerateRequest, GenerateResponse,
-        ListModelsRequest, ModelInfo, StreamEvent, TokenUsage, ToolDefinition,
+        ListModelsRequest, ModelInfo, StreamEvent, TokenUsage, ToolCall, ToolDefinition,
     },
 };
 
@@ -537,6 +537,13 @@ fn parse_generate_response(
             name: String::new(),
             metadata: Default::default(),
         },
+        tool_calls: choice
+            .message
+            .tool_calls
+            .unwrap_or_default()
+            .into_iter()
+            .map(tool_call_to_unified)
+            .collect(),
         finish_reason: choice.finish_reason.unwrap_or_default(),
         usage: payload.usage.map(usage_to_unified),
     })
@@ -596,6 +603,14 @@ fn usage_to_unified(usage: OpenAiUsage) -> TokenUsage {
         prompt_tokens: usage.prompt_tokens.max(0) as u32,
         completion_tokens: usage.completion_tokens.max(0) as u32,
         total_tokens: usage.total_tokens.max(0) as u32,
+    }
+}
+
+fn tool_call_to_unified(tool_call: OpenAiToolCall) -> ToolCall {
+    ToolCall {
+        id: tool_call.id.unwrap_or_default(),
+        name: tool_call.function.name,
+        arguments: tool_call.function.arguments,
     }
 }
 
@@ -695,6 +710,20 @@ struct OpenAiResponseMessage {
     role: Option<String>,
     #[serde(default)]
     content: Value,
+    tool_calls: Option<Vec<OpenAiToolCall>>,
+}
+
+#[derive(Debug, Deserialize)]
+struct OpenAiToolCall {
+    id: Option<String>,
+    function: OpenAiFunctionCall,
+}
+
+#[derive(Debug, Deserialize)]
+struct OpenAiFunctionCall {
+    name: String,
+    #[serde(default)]
+    arguments: String,
 }
 
 #[derive(Debug, Deserialize)]

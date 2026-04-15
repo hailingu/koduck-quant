@@ -219,7 +219,7 @@ kubectl rollout status deployment/dev-koduck-memory -n koduck-dev --timeout=180s
 - [x] 输出字段与 ADR 定义一致
 - [x] analyzer 失败时存在明确回退路径
 - [x] `docker build -t koduck-memory:dev ./koduck-memory` 成功
-- [ ] `kubectl rollout restart deployment/dev-koduck-memory -n koduck-dev` 后可成功完成 rollout
+- [x] `kubectl rollout restart deployment/dev-koduck-memory -n koduck-dev` 后可成功完成 rollout
 
 ---
 
