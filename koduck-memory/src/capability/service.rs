@@ -10,6 +10,7 @@ use crate::api::{
     RequestMeta, SummarizeMemoryRequest, SummarizeMemoryResponse, UpsertSessionMetaRequest,
     UpsertSessionMetaResponse,
 };
+use crate::api::proto::memory::QueryIntent;
 use crate::config::AppConfig;
 use crate::index::MemoryIndexRepository;
 use crate::memory::{
@@ -23,6 +24,7 @@ use crate::retrieve::{
     AnchorFirstRetriever,
     QueryAnalysis,
     QueryAnalyzer,
+    QueryIntentType,
     RetrieveContext,
     SummaryFirstRetriever,
     match_reason,
@@ -202,6 +204,48 @@ impl MemoryGrpcService {
             "memory rpc failed"
         );
     }
+
+    fn explicit_query_intent(intent: i32) -> Option<QueryIntentType> {
+        match QueryIntent::try_from(intent).ok()? {
+            QueryIntent::Recall => Some(QueryIntentType::Recall),
+            QueryIntent::Compare => Some(QueryIntentType::Compare),
+            QueryIntent::Disambiguate => Some(QueryIntentType::Disambiguate),
+            QueryIntent::Correct => Some(QueryIntentType::Correct),
+            QueryIntent::Explain => Some(QueryIntentType::Explain),
+            QueryIntent::Decide => Some(QueryIntentType::Decide),
+            QueryIntent::None => Some(QueryIntentType::None),
+            QueryIntent::Unspecified => None,
+        }
+    }
+
+    async fn retrieve_global_session_summaries(
+        &self,
+        tenant_id: &str,
+        top_k: i32,
+    ) -> Result<Vec<crate::api::MemoryHit>, Status> {
+        let records = self
+            .index_repo()
+            .list_recent_summaries(tenant_id, top_k.max(1) as i64)
+            .await
+            .map_err(|e| Status::internal(format!("global summary retrieval failed: {e}")))?;
+
+        Ok(records
+            .into_iter()
+            .map(|record| crate::api::MemoryHit {
+                session_id: record.session_id.to_string(),
+                l0_uri: record.source_uri,
+                score: 1.0,
+                match_reasons: vec![
+                    match_reason::SUMMARY_HIT.to_string(),
+                    match_reason::RECENCY_BOOST.to_string(),
+                ],
+                snippet: record
+                    .snippet
+                    .filter(|snippet| !snippet.trim().is_empty())
+                    .unwrap_or(record.summary),
+            })
+            .collect())
+    }
 }
 
 #[tonic::async_trait]
@@ -367,6 +411,49 @@ impl MemoryService for MemoryGrpcService {
             .ok_or_else(|| { guard.error(); Status::invalid_argument("meta is required") })?;
         Self::validate_meta(meta).map_err(|e| { guard.error(); e })?;
 
+        let explicit_intent = Self::explicit_query_intent(req.query_intent);
+
+        if explicit_intent == Some(QueryIntentType::Recall) && req.session_id.trim().is_empty() {
+            let hits = self
+                .retrieve_global_session_summaries(
+                    &meta.tenant_id,
+                    if req.top_k > 0 { req.top_k } else { MAX_TOP_K },
+                )
+                .await
+                .map_err(|status| {
+                    guard.error();
+                    status
+                })?;
+
+            let result = Ok(Response::new(QueryMemoryResponse {
+                ok: true,
+                hits,
+                next_page_token: String::new(),
+                error: None,
+            }));
+
+            let elapsed = started_at.elapsed();
+            let duration_ms = elapsed.as_millis() as u64;
+            record_rpc_call(RpcMethod::QueryMemory, RpcOutcome::Success, elapsed);
+            let detail = format!(
+                "hits_count={},retrieve_policy={},domain_class={},query_intent=recall_global_summaries",
+                result.as_ref().map(|response| response.get_ref().hits.len()).unwrap_or(0),
+                req.retrieve_policy,
+                req.domain_class.trim()
+            );
+            Self::log_rpc_completion(
+                "QueryMemory",
+                &meta.request_id,
+                &req.session_id,
+                &meta.tenant_id,
+                &meta.trace_id,
+                "success",
+                duration_ms,
+                &detail,
+            );
+            return result;
+        }
+
         // Build retrieve context
         let domain_class = req.domain_class.trim().to_string();
 
@@ -394,11 +481,29 @@ impl MemoryService for MemoryGrpcService {
                 );
                 QueryAnalysis::fallback(&domain_class, &req.query_text)
             });
+        let resolved_intent = explicit_intent.unwrap_or_else(|| match query_analysis.intent_type.as_str() {
+            "recall" => QueryIntentType::Recall,
+            "compare" => QueryIntentType::Compare,
+            "disambiguate" => QueryIntentType::Disambiguate,
+            "correct" => QueryIntentType::Correct,
+            "explain" => QueryIntentType::Explain,
+            "decide" => QueryIntentType::Decide,
+            _ => QueryIntentType::None,
+        });
+        let mut relation_types = query_analysis.relation_types;
+        if relation_types.is_empty() {
+            match resolved_intent {
+                QueryIntentType::Compare => relation_types.push("comparison".to_string()),
+                QueryIntentType::Disambiguate => relation_types.push("disambiguation".to_string()),
+                QueryIntentType::Correct => relation_types.push("correction".to_string()),
+                _ => {}
+            }
+        }
         ctx = ctx.with_query_analysis(
             query_analysis.domain_classes,
             query_analysis.entities,
-            query_analysis.relation_types,
-            query_analysis.intent_type,
+            relation_types,
+            resolved_intent.as_str(),
             query_analysis.intent_aux,
             query_analysis.recall_target_type,
         );
@@ -1928,6 +2033,7 @@ mod tests {
                 session_id: sid_str,
                 domain_class: "chat".to_string(),
                 top_k: 5,
+                query_intent: QueryIntent::Unspecified as i32,
                 retrieve_policy: RetrievePolicy::RetrievePolicyDomainFirst as i32,
                 page_token: String::new(),
                 page_size: 0,
@@ -2147,8 +2253,10 @@ mod tests {
                 query_text: "task".to_string(),
                 domain_class: "task".to_string(),
                 top_k: 5,
+                query_intent: QueryIntent::Unspecified as i32,
                 retrieve_policy: 1,
                 page_token: String::new(),
+                page_size: 0,
             })
             .await
             .unwrap()
@@ -2253,8 +2361,10 @@ mod tests {
                 query_text: "rollout".to_string(),
                 domain_class: stored_summary.domain_class.clone(),
                 top_k: 5,
+                query_intent: QueryIntent::Unspecified as i32,
                 retrieve_policy: 1,
                 page_token: String::new(),
+                page_size: 0,
             })
             .await
             .unwrap()
@@ -2639,6 +2749,7 @@ mod tests {
                 session_id: sid_str,
                 domain_class: "chat".to_string(),
                 top_k: 5,
+                query_intent: QueryIntent::Unspecified as i32,
                 retrieve_policy: RetrievePolicy::RetrievePolicySummaryFirst as i32,
                 page_token: String::new(),
                 page_size: 0,
@@ -2707,6 +2818,7 @@ mod tests {
                 session_id: sid_str,
                 domain_class: "chat".to_string(),
                 top_k: 5,
+                query_intent: QueryIntent::Unspecified as i32,
                 retrieve_policy: RetrievePolicy::RetrievePolicySummaryFirst as i32,
                 page_token: String::new(),
                 page_size: 0,
@@ -2809,6 +2921,7 @@ mod tests {
                 session_id: sid_str,
                 domain_class: "chat".to_string(),
                 top_k: 5,
+                query_intent: QueryIntent::Unspecified as i32,
                 retrieve_policy: RetrievePolicy::RetrievePolicySummaryFirst as i32,
                 page_token: String::new(),
                 page_size: 0,
@@ -2823,6 +2936,100 @@ mod tests {
             .hits
             .iter()
             .all(|hit| !hit.match_reasons.contains(&"summary_hit".to_string())));
+    }
+
+    #[tokio::test]
+    async fn query_memory_explicit_recall_returns_global_session_summaries() {
+        let config = test_config();
+        let runtime = RuntimeState::initialize(&config).await.unwrap();
+        let service = MemoryGrpcService::new(config, runtime.clone(), None, Arc::new(RpcMetrics::new()));
+        let index_repo = MemoryIndexRepository::new(runtime.pool());
+
+        let first_session_id = Uuid::new_v4();
+        let first_sid = first_session_id.to_string();
+        let second_session_id = Uuid::new_v4();
+        let second_sid = second_session_id.to_string();
+
+        for (request_id, session_id, title) in [
+            ("t57-seed-1", first_sid.clone(), "Recall session one"),
+            ("t57-seed-2", second_sid.clone(), "Recall session two"),
+        ] {
+            let response = service
+                .upsert_session_meta(Request::new(UpsertSessionMetaRequest {
+                    meta: Some(write_meta_with_idempotency(request_id, &session_id)),
+                    session_id,
+                    title: title.to_string(),
+                    status: "active".to_string(),
+                    parent_session_id: String::new(),
+                    forked_from_session_id: String::new(),
+                    last_message_at: 1700000000000,
+                    extra: HashMap::new(),
+                }))
+                .await
+                .unwrap()
+                .into_inner();
+            assert!(response.ok);
+        }
+
+        for (request_id, session_id, content) in [
+            ("t57-append-1", first_sid.clone(), "We talked about Lu Xun and his essays."),
+            ("t57-append-2", second_sid.clone(), "We compared Rust rollout plans with Go services."),
+        ] {
+            let response = service
+                .append_memory(Request::new(AppendMemoryRequest {
+                    meta: Some(write_meta_with_idempotency(request_id, &session_id)),
+                    session_id,
+                    entries: vec![MemoryEntry {
+                        role: "user".to_string(),
+                        content: content.to_string(),
+                        timestamp: 1700000001000,
+                        metadata: HashMap::new(),
+                    }],
+                }))
+                .await
+                .unwrap()
+                .into_inner();
+            assert!(response.ok);
+        }
+
+        let first_projection =
+            wait_for_summary_projection(&index_repo, "tenant-t33", first_session_id).await;
+        let second_projection =
+            wait_for_summary_projection(&index_repo, "tenant-t33", second_session_id).await;
+        assert!(!first_projection.is_empty());
+        assert!(!second_projection.is_empty());
+
+        let response = service
+            .query_memory(Request::new(QueryMemoryRequest {
+                meta: Some(write_meta_with_idempotency("t57-query", &first_sid)),
+                query_text: "我们之前聊过什么".to_string(),
+                session_id: String::new(),
+                domain_class: "chat".to_string(),
+                top_k: 10,
+                query_intent: QueryIntent::Recall as i32,
+                retrieve_policy: RetrievePolicy::RetrievePolicyDomainFirst as i32,
+                page_token: String::new(),
+                page_size: 0,
+            }))
+            .await
+            .unwrap()
+            .into_inner();
+
+        assert!(response.ok);
+        assert_eq!(response.hits.len(), 2);
+        assert!(response
+            .hits
+            .iter()
+            .any(|hit| hit.session_id == first_sid && hit.snippet.contains("Lu Xun")));
+        assert!(response
+            .hits
+            .iter()
+            .any(|hit| hit.session_id == second_sid && hit.snippet.contains("Rust")));
+        for hit in &response.hits {
+            assert!(hit.match_reasons.contains(&"summary_hit".to_string()));
+            assert!(hit.match_reasons.contains(&"recency_boost".to_string()));
+            assert_match_reasons_are_closed_set(&hit.match_reasons);
+        }
     }
 
     #[tokio::test]
@@ -2857,6 +3064,7 @@ mod tests {
                 session_id: "not-a-uuid".to_string(),
                 domain_class: "chat".to_string(),
                 top_k: 5,
+                query_intent: QueryIntent::Unspecified as i32,
                 retrieve_policy: RetrievePolicy::RetrievePolicyDomainFirst as i32,
                 page_token: String::new(),
                 page_size: 0,

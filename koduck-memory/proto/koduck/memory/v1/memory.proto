@@ -57,6 +57,7 @@ message QueryMemoryRequest {
   RetrievePolicy retrieve_policy = 6;
   string page_token = 7;
   int32 page_size = 8;
+  QueryIntent query_intent = 20;
 
   reserved 9 to 19;
 }
@@ -138,4 +139,17 @@ enum RetrievePolicy {
   RETRIEVE_POLICY_HYBRID = 3;
 
   reserved 4 to 19;
+}
+
+enum QueryIntent {
+  QUERY_INTENT_UNSPECIFIED = 0;
+  QUERY_INTENT_RECALL = 1;
+  QUERY_INTENT_COMPARE = 2;
+  QUERY_INTENT_DISAMBIGUATE = 3;
+  QUERY_INTENT_CORRECT = 4;
+  QUERY_INTENT_EXPLAIN = 5;
+  QUERY_INTENT_DECIDE = 6;
+  QUERY_INTENT_NONE = 7;
+
+  reserved 8 to 19;
 }
