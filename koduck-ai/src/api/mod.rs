@@ -1627,10 +1627,17 @@ async fn execute_memory_tool_call(
         .map(build_memory_query_text)
         .filter(|value| !value.trim().is_empty())
         .unwrap_or_else(|| build_memory_query_text(&request.message));
+    let request_metadata_memory_scope = request
+        .metadata
+        .as_ref()
+        .and_then(|metadata| metadata.get("memory_scope"))
+        .and_then(|value| value.as_str())
+        .map(|value| value.trim().to_string());
     let session_scope = match args.memory_scope.as_deref() {
         Some("current_session") => Some(ctx.session_id.clone()),
         _ => memory_query_session_scope(request, ctx),
     };
+    let resolved_query_session_scope = session_scope.clone();
     let requested_domain_class = args.domain_class.clone();
     let domain_class = requested_domain_class
         .as_ref()
@@ -1638,6 +1645,16 @@ async fn execute_memory_tool_call(
         .cloned()
         .unwrap_or_else(|| metadata_string(request, "domain_class"));
     let query_intent = parse_query_intent(args.intent.as_deref());
+    info!(
+        request_id = %ctx.request_id,
+        session_id = %ctx.session_id,
+        tool_name = %tool_call.name,
+        query_intent = ?query_intent,
+        tool_memory_scope = %args.memory_scope.as_deref().unwrap_or("global"),
+        request_metadata_memory_scope = %request_metadata_memory_scope.as_deref().unwrap_or(""),
+        resolved_query_session_scope = %resolved_query_session_scope.as_deref().unwrap_or(""),
+        "memory tool call request resolved"
+    );
 
     let hits = memory::query_memory(
         state,
@@ -1671,7 +1688,9 @@ async fn execute_memory_tool_call(
         tool_name = %tool_call.name,
         hits_count = snapshot_hits_count(&hits),
         query_intent = ?query_intent,
-        active_scope = %args.memory_scope.as_deref().unwrap_or("global"),
+        tool_memory_scope = %args.memory_scope.as_deref().unwrap_or("global"),
+        request_metadata_memory_scope = %request_metadata_memory_scope.as_deref().unwrap_or(""),
+        resolved_query_session_scope = %resolved_query_session_scope.as_deref().unwrap_or(""),
         domain_class = %requested_domain_class.as_deref().unwrap_or(""),
         "memory tool call completed"
     );
