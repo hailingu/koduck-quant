@@ -3,6 +3,7 @@
 use std::collections::VecDeque;
 
 use async_trait::async_trait;
+use reqwest::header::{HeaderName, HeaderValue};
 use reqwest::Method;
 use serde::Deserialize;
 use serde_json::{json, Value};
@@ -86,6 +87,7 @@ pub(crate) struct OpenAiCompatibleProvider {
     api_key: String,
     base_url: String,
     default_model: String,
+    extra_headers: &'static [(&'static str, &'static str)],
 }
 
 impl OpenAiCompatibleProvider {
@@ -94,6 +96,16 @@ impl OpenAiCompatibleProvider {
         api_key: String,
         base_url: Option<String>,
         default_model: String,
+    ) -> Result<Self, AppError> {
+        Self::new_with_headers(profile, api_key, base_url, default_model, &[])
+    }
+
+    pub(crate) fn new_with_headers(
+        profile: ProviderProfile,
+        api_key: String,
+        base_url: Option<String>,
+        default_model: String,
+        extra_headers: &'static [(&'static str, &'static str)],
     ) -> Result<Self, AppError> {
         if api_key.trim().is_empty() {
             return Err(AppError::new(
@@ -114,6 +126,7 @@ impl OpenAiCompatibleProvider {
             api_key,
             base_url: sanitize_base_url(base_url.as_deref(), profile.default_base_url),
             default_model,
+            extra_headers,
         })
     }
 
@@ -124,7 +137,11 @@ impl OpenAiCompatibleProvider {
         let model = self.resolve_model(&req.model);
         let body = build_chat_completions_request(&req, &model, false);
         let options =
-            JsonRequestOptions::json(self.chat_completions_url(), &req.meta, Some(self.api_key.clone()));
+            self.with_profile_headers(JsonRequestOptions::json(
+                self.chat_completions_url(),
+                &req.meta,
+                Some(self.api_key.clone()),
+            ))?;
         let response = self
             .http
             .post_json(UpstreamService::Llm, &options, &body)
@@ -166,12 +183,13 @@ impl OpenAiCompatibleProvider {
     ) -> Result<ProviderEventStream, AppError> {
         let model = self.resolve_model(&req.model);
         let body = build_chat_completions_request(&req, &model, true);
-        let options = JsonRequestOptions::json(
-            self.chat_completions_url(),
-            &req.meta,
-            Some(self.api_key.clone()),
-        )
-        .event_stream();
+        let options = self
+            .with_profile_headers(JsonRequestOptions::json(
+                self.chat_completions_url(),
+                &req.meta,
+                Some(self.api_key.clone()),
+            ))?
+            .event_stream();
         let response = self
             .http
             .post_json(UpstreamService::Llm, &options, &body)
@@ -299,11 +317,11 @@ impl OpenAiCompatibleProvider {
         &self,
         req: ListModelsRequest,
     ) -> Result<Vec<ModelInfo>, AppError> {
-        let options = JsonRequestOptions::json(
+        let options = self.with_profile_headers(JsonRequestOptions::json(
             self.models_url(),
             &req.meta,
             Some(self.api_key.clone()),
-        );
+        ))?;
         let request = self
             .http
             .build_request::<Value>(Method::GET, &options, None)?;
@@ -384,6 +402,36 @@ impl OpenAiCompatibleProvider {
 
     fn chat_completions_url(&self) -> String {
         format!("{}{}", self.base_url, self.profile.chat_completions_path)
+    }
+
+    fn with_profile_headers(
+        &self,
+        mut options: JsonRequestOptions,
+    ) -> Result<JsonRequestOptions, AppError> {
+        for (name, value) in self.extra_headers {
+            let header_name = HeaderName::from_bytes(name.as_bytes()).map_err(|err| {
+                AppError::new(
+                    ErrorCode::InvalidArgument,
+                    format!(
+                        "{} provider contains invalid header name: {}",
+                        self.profile.provider, name
+                    ),
+                )
+                .with_source(err)
+            })?;
+            let header_value = HeaderValue::from_str(value).map_err(|err| {
+                AppError::new(
+                    ErrorCode::InvalidArgument,
+                    format!(
+                        "{} provider contains invalid header value for {}",
+                        self.profile.provider, name
+                    ),
+                )
+                .with_source(err)
+            })?;
+            options = options.with_extra_header(header_name, header_value);
+        }
+        Ok(options)
     }
 }
 

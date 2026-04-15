@@ -20,6 +20,7 @@ const RPC_BUCKETS_MS: [u64; 8] = [50, 100, 250, 500, 1000, 2500, 5000, 10000];
 
 pub enum RpcMethod {
     GetSession,
+    GetSessionTranscript,
     QueryMemory,
     AppendMemory,
 }
@@ -140,6 +141,7 @@ struct RpcMetricSnapshot {
 }
 
 static GET_SESSION_RPC: RpcMetricSet = RpcMetricSet::new();
+static GET_SESSION_TRANSCRIPT_RPC: RpcMetricSet = RpcMetricSet::new();
 static QUERY_MEMORY_RPC: RpcMetricSet = RpcMetricSet::new();
 static APPEND_MEMORY_RPC: RpcMetricSet = RpcMetricSet::new();
 
@@ -156,6 +158,7 @@ pub fn inc_failure_counter() {
 pub fn record_rpc_call(method: RpcMethod, outcome: RpcOutcome, duration: Duration) {
     let metrics = match method {
         RpcMethod::GetSession => &GET_SESSION_RPC,
+        RpcMethod::GetSessionTranscript => &GET_SESSION_TRANSCRIPT_RPC,
         RpcMethod::QueryMemory => &QUERY_MEMORY_RPC,
         RpcMethod::AppendMemory => &APPEND_MEMORY_RPC,
     };
@@ -271,6 +274,7 @@ async fn metrics_handler(
     let retry_total = TASK_RETRY_TOTAL.load(Ordering::Relaxed);
     let failure_total = TASK_FAILURE_TOTAL.load(Ordering::Relaxed);
     let get_session = GET_SESSION_RPC.snapshot();
+    let get_session_transcript = GET_SESSION_TRANSCRIPT_RPC.snapshot();
     let query_memory = QUERY_MEMORY_RPC.snapshot();
     let append_memory = APPEND_MEMORY_RPC.snapshot();
     let body = format!(
@@ -303,6 +307,9 @@ async fn metrics_handler(
          koduck_memory_rpc_requests_total{{method=\"GetSession\",outcome=\"success\"}} {}\n\
          koduck_memory_rpc_requests_total{{method=\"GetSession\",outcome=\"error\"}} {}\n\
          koduck_memory_rpc_requests_total{{method=\"GetSession\",outcome=\"not_found\"}} {}\n\
+         koduck_memory_rpc_requests_total{{method=\"GetSessionTranscript\",outcome=\"success\"}} {}\n\
+         koduck_memory_rpc_requests_total{{method=\"GetSessionTranscript\",outcome=\"error\"}} {}\n\
+         koduck_memory_rpc_requests_total{{method=\"GetSessionTranscript\",outcome=\"not_found\"}} {}\n\
          koduck_memory_rpc_requests_total{{method=\"QueryMemory\",outcome=\"success\"}} {}\n\
          koduck_memory_rpc_requests_total{{method=\"QueryMemory\",outcome=\"error\"}} {}\n\
          koduck_memory_rpc_requests_total{{method=\"QueryMemory\",outcome=\"not_found\"}} {}\n\
@@ -312,19 +319,22 @@ async fn metrics_handler(
          # HELP koduck_memory_rpc_errors_total Total RPC errors by method.\n\
          # TYPE koduck_memory_rpc_errors_total counter\n\
          koduck_memory_rpc_errors_total{{method=\"GetSession\"}} {}\n\
+         koduck_memory_rpc_errors_total{{method=\"GetSessionTranscript\"}} {}\n\
          koduck_memory_rpc_errors_total{{method=\"QueryMemory\"}} {}\n\
          koduck_memory_rpc_errors_total{{method=\"AppendMemory\"}} {}\n\
          # HELP koduck_memory_rpc_duration_ms RPC latency histogram in milliseconds.\n\
          # TYPE koduck_memory_rpc_duration_ms histogram\n\
-         {}{}{}\
+         {}{}{}{}\
          # HELP koduck_memory_rpc_latency_slo_ms Target latency SLO in milliseconds.\n\
          # TYPE koduck_memory_rpc_latency_slo_ms gauge\n\
          koduck_memory_rpc_latency_slo_ms{{method=\"GetSession\"}} 200\n\
+         koduck_memory_rpc_latency_slo_ms{{method=\"GetSessionTranscript\"}} 800\n\
          koduck_memory_rpc_latency_slo_ms{{method=\"QueryMemory\"}} 1000\n\
          koduck_memory_rpc_latency_slo_ms{{method=\"AppendMemory\"}} 1500\n\
          # HELP koduck_memory_rpc_error_budget_ratio Target per-method error budget ratio.\n\
          # TYPE koduck_memory_rpc_error_budget_ratio gauge\n\
          koduck_memory_rpc_error_budget_ratio{{method=\"GetSession\"}} 0.005\n\
+         koduck_memory_rpc_error_budget_ratio{{method=\"GetSessionTranscript\"}} 0.01\n\
          koduck_memory_rpc_error_budget_ratio{{method=\"QueryMemory\"}} 0.01\n\
          koduck_memory_rpc_error_budget_ratio{{method=\"AppendMemory\"}} 0.01\n",
         config.app.name,
@@ -339,6 +349,9 @@ async fn metrics_handler(
         get_session.success_total,
         get_session.error_total,
         get_session.not_found_total,
+        get_session_transcript.success_total,
+        get_session_transcript.error_total,
+        get_session_transcript.not_found_total,
         query_memory.success_total,
         query_memory.error_total,
         query_memory.not_found_total,
@@ -346,9 +359,11 @@ async fn metrics_handler(
         append_memory.error_total,
         append_memory.not_found_total,
         get_session.error_total,
+        get_session_transcript.error_total,
         query_memory.error_total,
         append_memory.error_total,
         render_rpc_histogram("GetSession", &get_session),
+        render_rpc_histogram("GetSessionTranscript", &get_session_transcript),
         render_rpc_histogram("QueryMemory", &query_memory),
         render_rpc_histogram("AppendMemory", &append_memory),
     );

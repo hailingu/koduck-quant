@@ -14,10 +14,11 @@ use crate::{
 };
 
 pub use super::proto::{
-    AppendMemoryRequest, AppendMemoryResponse, GetSessionRequest, GetSessionResponse, MemoryEntry,
-    MemoryHit, MemoryService, MemoryServiceClient, MemoryServiceServer, QueryMemoryRequest,
-    QueryIntent, QueryMemoryResponse, RetrievePolicy, SessionInfo, UpsertSessionMetaRequest,
-    UpsertSessionMetaResponse,
+    AppendMemoryRequest, AppendMemoryResponse, GetAllSessionIdsRequest, GetSessionIdsByNerRequest,
+    GetSessionIdsLookupResponse, GetSessionRequest, GetSessionResponse,
+    GetSessionTranscriptRequest, GetSessionTranscriptResponse, MemoryEntry, MemoryHit,
+    MemoryService, MemoryServiceClient, MemoryServiceServer, QueryIntent, RetrievePolicy,
+    SessionInfo, UpsertSessionMetaRequest, UpsertSessionMetaResponse,
 };
 
 const API_VERSION: &str = "v1";
@@ -75,17 +76,6 @@ pub struct SessionUpsertInput {
     pub last_message_at: i64,
 }
 
-#[derive(Debug, Clone)]
-pub struct QueryMemoryInput {
-    pub query_text: String,
-    pub session_id: Option<String>,
-    pub domain_class: String,
-    pub query_intent: QueryIntent,
-    pub retrieve_policy: RetrievePolicy,
-    pub top_k: i32,
-    pub page_size: i32,
-}
-
 pub async fn get_session(
     state: &Arc<AppState>,
     ctx: &MemoryRpcContext,
@@ -125,28 +115,53 @@ pub async fn upsert_session_meta(
     map_upsert_session_response(ctx, response.into_inner())
 }
 
-pub async fn query_memory(
+pub async fn get_all_session_ids(
     state: &Arc<AppState>,
     ctx: &MemoryRpcContext,
-    input: QueryMemoryInput,
-) -> Result<Vec<MemoryHit>, AppError> {
+) -> Result<Vec<String>, AppError> {
     let mut client = connect_client(&state.config.memory.grpc_target, &ctx.request_id).await?;
     let response = client
-        .query_memory(Request::new(QueryMemoryRequest {
+        .get_all_session_ids(Request::new(GetAllSessionIdsRequest {
             meta: Some(ctx.request_meta(String::new())),
-            query_text: input.query_text,
-            session_id: input.session_id.unwrap_or_default(),
-            domain_class: input.domain_class,
-            top_k: input.top_k,
-            retrieve_policy: input.retrieve_policy as i32,
-            page_token: String::new(),
-            page_size: input.page_size,
-            query_intent: input.query_intent as i32,
         }))
         .await
         .map_err(|status| map_grpc_status(UpstreamService::Memory, &ctx.request_id, &status))?;
 
-    map_query_memory_response(ctx, response.into_inner())
+    map_session_ids_lookup_response(ctx, response.into_inner(), "memory get_all_session_ids failed")
+}
+
+pub async fn get_session_ids_by_ner(
+    state: &Arc<AppState>,
+    ctx: &MemoryRpcContext,
+    ner: String,
+) -> Result<Vec<String>, AppError> {
+    let mut client = connect_client(&state.config.memory.grpc_target, &ctx.request_id).await?;
+    let response = client
+        .get_session_ids_by_ner(Request::new(GetSessionIdsByNerRequest {
+            meta: Some(ctx.request_meta(String::new())),
+            ner,
+        }))
+        .await
+        .map_err(|status| map_grpc_status(UpstreamService::Memory, &ctx.request_id, &status))?;
+
+    map_session_ids_lookup_response(ctx, response.into_inner(), "memory get_session_ids_by_ner failed")
+}
+
+pub async fn get_session_transcript(
+    state: &Arc<AppState>,
+    ctx: &MemoryRpcContext,
+    session_id: String,
+) -> Result<String, AppError> {
+    let mut client = connect_client(&state.config.memory.grpc_target, &ctx.request_id).await?;
+    let response = client
+        .get_session_transcript(Request::new(GetSessionTranscriptRequest {
+            meta: Some(ctx.request_meta(String::new())),
+            session_id,
+        }))
+        .await
+        .map_err(|status| map_grpc_status(UpstreamService::Memory, &ctx.request_id, &status))?;
+
+    map_session_transcript_response(ctx, response.into_inner())
 }
 
 pub async fn append_memory(
@@ -238,12 +253,13 @@ fn map_upsert_session_response(
     ))
 }
 
-fn map_query_memory_response(
+fn map_session_ids_lookup_response(
     ctx: &MemoryRpcContext,
-    response: QueryMemoryResponse,
-) -> Result<Vec<MemoryHit>, AppError> {
+    response: GetSessionIdsLookupResponse,
+    default_message: &'static str,
+) -> Result<Vec<String>, AppError> {
     if response.ok {
-        return Ok(response.hits);
+        return Ok(response.session_ids);
     }
 
     Err(map_contract_error_detail(
@@ -251,7 +267,24 @@ fn map_query_memory_response(
         &ctx.request_id,
         response.error.as_ref(),
         ErrorCode::DependencyFailed,
-        "memory query_memory failed",
+        default_message,
+    ))
+}
+
+fn map_session_transcript_response(
+    ctx: &MemoryRpcContext,
+    response: GetSessionTranscriptResponse,
+) -> Result<String, AppError> {
+    if response.ok {
+        return Ok(response.transcript_text);
+    }
+
+    Err(map_contract_error_detail(
+        UpstreamService::Memory,
+        &ctx.request_id,
+        response.error.as_ref(),
+        ErrorCode::DependencyFailed,
+        "memory get_session_transcript failed",
     ))
 }
 

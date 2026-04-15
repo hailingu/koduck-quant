@@ -14,11 +14,23 @@ service MemoryService {
   // 能力发现与版本协商
   rpc GetCapabilities(koduck.contract.v1.RequestMeta) returns (koduck.contract.v1.Capability);
 
+  rpc GetCategoryCatalog(GetCategoryCatalogRequest) returns (GetCategoryCatalogResponse);
+
   // 创建或更新会话元数据
   rpc UpsertSessionMeta(UpsertSessionMetaRequest) returns (UpsertSessionMetaResponse);
 
   // 获取会话信息
   rpc GetSession(GetSessionRequest) returns (GetSessionResponse);
+
+  rpc GetSessionTranscript(GetSessionTranscriptRequest) returns (GetSessionTranscriptResponse);
+
+  rpc GetAllSessionIds(GetAllSessionIdsRequest) returns (GetSessionIdsLookupResponse);
+
+  rpc GetSessionIdsByDomainClass(GetSessionIdsByDomainClassRequest) returns (GetSessionIdsLookupResponse);
+
+  rpc GetSessionIdsByNer(GetSessionIdsByNerRequest) returns (GetSessionIdsLookupResponse);
+
+  rpc GetSessionIdsByIntentType(GetSessionIdsByIntentTypeRequest) returns (GetSessionIdsLookupResponse);
 
   // 记忆检索（支持多种检索策略）
   rpc QueryMemory(QueryMemoryRequest) returns (QueryMemoryResponse);
@@ -45,6 +57,20 @@ message UpsertSessionMetaRequest {
   reserved 9 to 19;
 }
 
+message GetCategoryCatalogRequest {
+  koduck.contract.v1.RequestMeta meta = 1;
+
+  reserved 2 to 19;
+}
+
+message GetCategoryCatalogResponse {
+  bool ok = 1;
+  repeated string domain_categories = 2;
+  repeated string ner_categories = 3;
+  repeated string intent_categories = 4;
+  koduck.contract.v1.ErrorDetail error = 5;
+}
+
 message UpsertSessionMetaResponse {
   bool ok = 1;
   koduck.contract.v1.ErrorDetail error = 2;
@@ -62,6 +88,53 @@ message GetSessionRequest {
 message GetSessionResponse {
   bool ok = 1;
   SessionInfo session = 2;
+  koduck.contract.v1.ErrorDetail error = 3;
+}
+
+message GetSessionTranscriptRequest {
+  koduck.contract.v1.RequestMeta meta = 1;
+  string session_id = 2;
+
+  reserved 3 to 19;
+}
+
+message GetSessionTranscriptResponse {
+  bool ok = 1;
+  repeated SessionTranscriptEntry entries = 2;
+  string transcript_text = 3;
+  koduck.contract.v1.ErrorDetail error = 4;
+}
+
+message GetAllSessionIdsRequest {
+  koduck.contract.v1.RequestMeta meta = 1;
+
+  reserved 2 to 19;
+}
+
+message GetSessionIdsByDomainClassRequest {
+  koduck.contract.v1.RequestMeta meta = 1;
+  string domain_class = 2;
+
+  reserved 3 to 19;
+}
+
+message GetSessionIdsByNerRequest {
+  koduck.contract.v1.RequestMeta meta = 1;
+  string ner = 2;
+
+  reserved 3 to 19;
+}
+
+message GetSessionIdsByIntentTypeRequest {
+  koduck.contract.v1.RequestMeta meta = 1;
+  string intent_type = 2;
+
+  reserved 3 to 19;
+}
+
+message GetSessionIdsLookupResponse {
+  bool ok = 1;
+  repeated string session_ids = 2;
   koduck.contract.v1.ErrorDetail error = 3;
 }
 
@@ -158,6 +231,18 @@ message MemoryEntry {
   map<string, string> metadata = 4;
 
   reserved 5 to 19;
+}
+
+message SessionTranscriptEntry {
+  string entry_id = 1;
+  string role = 2;
+  string content = 3;
+  int64 timestamp = 4;
+  int64 sequence_num = 5;
+  map<string, string> metadata = 6;
+  string l0_uri = 7;
+
+  reserved 8 to 19;
 }
 
 // ==================== Enums ====================

@@ -131,4 +131,29 @@ impl MemoryEntryRepository {
 
         Ok(rows)
     }
+
+    /// List all entries of a session in append order.
+    pub async fn list_by_session_ordered(
+        &self,
+        tenant_id: &str,
+        session_id: Uuid,
+    ) -> Result<Vec<MemoryEntry>> {
+        let rows = sqlx::query_as::<_, MemoryEntry>(
+            r#"
+            SELECT id, tenant_id, session_id, sequence_num,
+                   role, raw_content_ref, message_ts,
+                   metadata_json,
+                   l0_uri, created_at
+            FROM memory_entries
+            WHERE tenant_id = $1 AND session_id = $2
+            ORDER BY sequence_num ASC, created_at ASC
+            "#,
+        )
+        .bind(tenant_id)
+        .bind(session_id)
+        .fetch_all(&self.pool)
+        .await?;
+
+        Ok(rows)
+    }
 }

@@ -79,6 +79,7 @@ pub async fn initialize_runtime(
         .capability_cache
         .initial_negotiation_mode_aware(
             &state.config.memory.grpc_target,
+            state.config.tools.enabled,
             &state.config.tools.grpc_target,
             &state.config.llm.adapter_grpc_target,
             state.config.llm.mode,
@@ -91,6 +92,7 @@ pub async fn initialize_runtime(
             warn!(
                 error = %error,
                 memory_target = %state.config.memory.grpc_target,
+                tools_enabled = state.config.tools.enabled,
                 tool_target = %state.config.tools.grpc_target,
                 "memory/tool capability negotiation failed during startup; continuing in direct llm mode and relying on background refresh"
             );
@@ -101,6 +103,7 @@ pub async fn initialize_runtime(
 
     state.capability_cache.spawn_refresh_task_mode_aware(
         state.config.memory.grpc_target.clone(),
+        state.config.tools.enabled,
         state.config.tools.grpc_target.clone(),
         state.config.llm.adapter_grpc_target.clone(),
         state.config.llm.mode,
@@ -129,7 +132,6 @@ pub fn create_router(state: Arc<AppState>) -> Router {
         .route("/api/v1/ai/chat", post(api::chat))
         .route("/api/v1/ai/debug/{value}", get(api::debug_path_echo))
         .route("/api/v1/ai/sessions/{session_id}", get(api::session_exists))
-        .route("/api/v1/ai/stream", post(api::chat_stream))
         .route("/api/v1/ai/chat/stream", post(api::chat_stream))
         .route("/healthz", get(health_handler))
         .fallback(api::http_fallback)

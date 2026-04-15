@@ -94,4 +94,23 @@ impl SessionRepository {
 
         Ok(row)
     }
+
+    /// List all session ids for a tenant, newest updated first.
+    pub async fn list_all_session_ids(&self, tenant_id: &str, limit: i64) -> Result<Vec<Uuid>> {
+        let rows = sqlx::query_scalar::<_, Uuid>(
+            r#"
+            SELECT session_id
+            FROM memory_sessions
+            WHERE tenant_id = $1
+            ORDER BY updated_at DESC, session_id
+            LIMIT $2
+            "#,
+        )
+        .bind(tenant_id)
+        .bind(limit)
+        .fetch_all(&self.pool)
+        .await?;
+
+        Ok(rows)
+    }
 }

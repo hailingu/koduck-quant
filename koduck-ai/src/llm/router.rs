@@ -15,6 +15,7 @@ use crate::{
 use super::{
     compat::AdapterLlmProvider,
     deepseek::DeepSeekProvider,
+    kimi::KimiProvider,
     minimax::MiniMaxProvider,
     openai::OpenAiProvider,
     provider::{LlmProvider, ProviderEventStream},
@@ -80,6 +81,19 @@ impl LlmRouter {
                         api_key.to_string(),
                         Some(config.llm.minimax.base_url.clone()),
                         config.llm.minimax.default_model.clone(),
+                    )?),
+                );
+            }
+        }
+        if config.llm.kimi.enabled {
+            enabled_providers.insert("kimi".to_string());
+            if let Some(api_key) = config.kimi_api_key().filter(|key| !key.trim().is_empty()) {
+                direct_providers.insert(
+                    "kimi".to_string(),
+                    Arc::new(KimiProvider::new(
+                        api_key.to_string(),
+                        Some(config.llm.kimi.base_url.clone()),
+                        config.llm.kimi.default_model.clone(),
                     )?),
                 );
             }
@@ -188,7 +202,7 @@ fn parse_provider_model(provider: &str, model: &str) -> (Option<String>, Option<
     if let Some((provider, rest)) = model.split_once('/') {
         if matches!(
             provider.trim().to_ascii_lowercase().as_str(),
-            "openai" | "deepseek" | "minimax"
+            "openai" | "deepseek" | "minimax" | "kimi"
         ) {
             return (
                 Some(provider.trim().to_ascii_lowercase()),
@@ -236,6 +250,10 @@ mod tests {
             parse_provider_model("minimax", "MiniMax-M1"),
             (Some("minimax".to_string()), Some("MiniMax-M1".to_string()))
         );
+        assert_eq!(
+            parse_provider_model("", "kimi/kimi-for-coding"),
+            (Some("kimi".to_string()), Some("kimi-for-coding".to_string()))
+        );
     }
 
     #[test]
@@ -264,6 +282,12 @@ mod tests {
                     enabled: false,
                     base_url: "https://api.minimax.chat/v1".to_string(),
                     default_model: "MiniMax-M1".to_string(),
+                },
+                kimi: LlmProviderConfig {
+                    api_key: None,
+                    enabled: false,
+                    base_url: "https://api.kimi.com/coding/v1".to_string(),
+                    default_model: "kimi-for-coding".to_string(),
                 },
                 ..LlmConfig::default()
             },

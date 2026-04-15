@@ -472,12 +472,23 @@ ensure_koduck_ai_llm_secret() {
     local llm_provider="${LLM_PROVIDER:-minimax}"
     local llm_api_key="${LLM_API_KEY:-}"
     local llm_api_base="${LLM_API_BASE:-}"
-    local llm_model="${LLM_MODEL:-MiniMax-M2.7}"
+    local llm_model="${LLM_MODEL:-}"
+
+    local minimax_api_key="${MINIMAX_API_KEY:-${llm_api_key}}"
+    local minimax_api_base="${MINIMAX_API_BASE:-${llm_api_base:-https://api.minimax.chat/v1}}"
+    local minimax_model="${MINIMAX_MODEL:-${llm_model:-MiniMax-M2.7}}"
+
+    local kimi_api_key="${KIMI_API_KEY:-${llm_api_key}}"
+    local kimi_api_base="${KIMI_API_BASE:-${llm_api_base:-https://api.kimi.com/coding/v1}}"
+    local kimi_model="${KIMI_MODEL:-${llm_model:-kimi-for-coding}}"
 
     kubectl create secret generic "${llm_secret_name}" \
-        --from-literal=KODUCK_AI__LLM__MINIMAX__API_KEY="${llm_api_key}" \
-        --from-literal=KODUCK_AI__LLM__MINIMAX__BASE_URL="${llm_api_base}" \
-        --from-literal=KODUCK_AI__LLM__MINIMAX__DEFAULT_MODEL="${llm_model}" \
+        --from-literal=KODUCK_AI__LLM__MINIMAX__API_KEY="${minimax_api_key}" \
+        --from-literal=KODUCK_AI__LLM__MINIMAX__BASE_URL="${minimax_api_base}" \
+        --from-literal=KODUCK_AI__LLM__MINIMAX__DEFAULT_MODEL="${minimax_model}" \
+        --from-literal=KODUCK_AI__LLM__KIMI__API_KEY="${kimi_api_key}" \
+        --from-literal=KODUCK_AI__LLM__KIMI__BASE_URL="${kimi_api_base}" \
+        --from-literal=KODUCK_AI__LLM__KIMI__DEFAULT_MODEL="${kimi_model}" \
         --from-literal=KODUCK_AI__LLM__DEFAULT_PROVIDER="${llm_provider}" \
         -n "${NAMESPACE}" \
         --dry-run=client -o yaml | kubectl apply -f -

@@ -58,6 +58,8 @@ spec:
               value: "dev-koduck-memory-grpc:50051"
             - name: TOOL_GRPC_SERVICE
               value: "dev-tool-service:50051"
+            - name: TOOL_GRPC_ENABLED
+              value: "false"
             - name: APISIX_SERVICE_NAME
               value: "koduck-apisix-dev"
             - name: ENABLE_AI_GRPC_TRANSCODE
@@ -267,18 +269,22 @@ spec:
               # koduck-ai 据此跳过 JWKS 重验，直接解码 payload 提取用户身份。
               # priority=10 高于通配 /api/* 的 priority=0。
 
-              for AI_ROUTE in api-ai-chat api-ai-stream api-ai-chat-stream api-ai-sessions; do
+              for AI_ROUTE in api-ai-chat api-ai-chat-stream api-ai-sessions; do
                 case "$AI_ROUTE" in
                   api-ai-chat)        URI="/api/v1/ai/chat" ;;
-                  api-ai-stream)      URI="/api/v1/ai/stream" ;;
                   api-ai-chat-stream) URI="/api/v1/ai/chat/stream" ;;
                   api-ai-sessions)    URI="/api/v1/ai/sessions/*" ;;
                 esac
 
+                ROUTE_UPSTREAM_PAYLOAD="$(printf '{"type":"roundrobin","nodes":{"%s":1}}' "$AI_SERVICE")"
+                if [ "$AI_ROUTE" = "api-ai-chat-stream" ]; then
+                  ROUTE_UPSTREAM_PAYLOAD="$(printf '{"type":"roundrobin","timeout":{"connect":5,"send":280,"read":280},"nodes":{"%s":1}}' "$AI_SERVICE")"
+                fi
+
                 echo "Registering AI route: ${URI} -> koduck-ai (openid-connect)"
                 curl -fsS -X PUT "${ADMIN}/routes/${AI_ROUTE}" \
                   -H "$KEY" -H 'Content-Type: application/json' \
-                  -d "$(printf '{"uri":"%s","priority":10,"plugins":{"openid-connect":{"client_id":"koduck-ai","client_secret":"%s","discovery":"http://%s/.well-known/openid-configuration","scope":"openid","ssl_verify":false,"timeout":10,"bearer_only":true,"use_jwks":true,"token_signing_alg_values_expected":"RS256","set_access_token_header":true,"access_token_in_authorization_header":true,"set_id_token_header":false,"set_userinfo_header":false,"jwk_expires_in":3600},"limit-count":{"count":120,"time_window":60,"key":"$consumer_name $uri","key_type":"var_combination","rejected_code":429,"rejected_msg":"ai gateway quota exceeded"},"limit-req":{"rate":20,"burst":10,"key":"$consumer_name $uri","key_type":"var_combination","rejected_code":429,"rejected_msg":"ai gateway burst limited","nodelay":true},"opentelemetry":{"sampler":{"name":"always_on"}},"proxy-rewrite":{"headers":{"set":{"X-Auth-Provider":"apisix-oidc","X-Request-Id":"$request_id","X-Trace-Id":"$opentelemetry_trace_id","traceparent":"$opentelemetry_context_traceparent","X-User-Id":"$consumer_name","X-Session-Id":"$http_x_session_id","X-Tenant-Id":"$jwt_claim_tenant_id"}}}},"upstream":{"type":"roundrobin","nodes":{"%s":1}}}' "$URI" "$JWT_SECRET" "$AUTH_SERVICE" "$AI_SERVICE")"
+                  -d "$(printf '{"uri":"%s","priority":10,"plugins":{"openid-connect":{"client_id":"koduck-ai","client_secret":"%s","discovery":"http://%s/.well-known/openid-configuration","scope":"openid","ssl_verify":false,"timeout":10,"bearer_only":true,"use_jwks":true,"token_signing_alg_values_expected":"RS256","set_access_token_header":true,"access_token_in_authorization_header":true,"set_id_token_header":false,"set_userinfo_header":false,"jwk_expires_in":3600},"limit-count":{"count":120,"time_window":60,"key":"$consumer_name $uri","key_type":"var_combination","rejected_code":429,"rejected_msg":"ai gateway quota exceeded"},"limit-req":{"rate":20,"burst":10,"key":"$consumer_name $uri","key_type":"var_combination","rejected_code":429,"rejected_msg":"ai gateway burst limited","nodelay":true},"opentelemetry":{"sampler":{"name":"always_on"}},"proxy-rewrite":{"headers":{"set":{"X-Auth-Provider":"apisix-oidc","X-Request-Id":"$request_id","X-Trace-Id":"$opentelemetry_trace_id","traceparent":"$opentelemetry_context_traceparent","X-User-Id":"$consumer_name","X-Session-Id":"$http_x_session_id","X-Tenant-Id":"$jwt_claim_tenant_id"}}}},"upstream":%s}' "$URI" "$JWT_SECRET" "$AUTH_SERVICE" "$ROUTE_UPSTREAM_PAYLOAD")"
               done
 
               # ── Southbound gRPC 治理路由（供 koduck-ai 访问 memory/tool） ──
@@ -289,13 +295,20 @@ spec:
               #   限流：limit-count 600 req/min + limit-req 120 req/s burst 60
               #   Access log：JSON 格式，含 trace_id / request_time / upstream_response_time
 
-              echo "Registering gRPC upstreams for memory/tool"
+              echo "Registering gRPC upstreams for memory"
               upsert_resource "upstreams" "ai-memory-grpc" "$(printf '{"name":"ai-memory-grpc","type":"roundrobin","scheme":"grpc","retries":1,"timeout":{"connect":1,"send":5,"read":65},"nodes":{"%s":1}}' "$MEMORY_GRPC_SERVICE")"
-              upsert_resource "upstreams" "ai-tool-grpc" "$(printf '{"name":"ai-tool-grpc","type":"roundrobin","scheme":"grpc","retries":1,"timeout":{"connect":1,"send":5,"read":65},"nodes":{"%s":1}}' "$TOOL_GRPC_SERVICE")"
 
-              echo "Registering gRPC routes for memory/tool"
+              echo "Registering gRPC routes for memory"
               upsert_resource "routes" "ai-memory-grpc-route" '{"uri":"/koduck.memory.v1.MemoryService/*","priority":200,"plugins":{"limit-count":{"count":600,"time_window":60,"key":"$uri","key_type":"var","rejected_code":429,"rejected_msg":"ai memory grpc quota exceeded"},"limit-req":{"rate":120,"burst":60,"key":"$uri","key_type":"var","rejected_code":429,"rejected_msg":"ai memory grpc burst limited","nodelay":true},"opentelemetry":{"sampler":{"name":"always_on"}},"proxy-rewrite":{"headers":{"set":{"X-Request-Id":"$http_x_request_id","X-Trace-Id":"$opentelemetry_trace_id","traceparent":"$opentelemetry_context_traceparent","X-Session-Id":"$http_x_session_id","X-User-Id":"$http_x_user_id","X-Tenant-Id":"$http_x_tenant_id"}}}},"upstream_id":"ai-memory-grpc"}'
-              upsert_resource "routes" "ai-tool-grpc-route" '{"uri":"/koduck.tool.v1.ToolService/*","priority":200,"plugins":{"limit-count":{"count":600,"time_window":60,"key":"$uri","key_type":"var","rejected_code":429,"rejected_msg":"ai tool grpc quota exceeded"},"limit-req":{"rate":120,"burst":60,"key":"$uri","key_type":"var","rejected_code":429,"rejected_msg":"ai tool grpc burst limited","nodelay":true},"opentelemetry":{"sampler":{"name":"always_on"}},"proxy-rewrite":{"headers":{"set":{"X-Request-Id":"$http_x_request_id","X-Trace-Id":"$opentelemetry_trace_id","traceparent":"$opentelemetry_context_traceparent","X-Session-Id":"$http_x_session_id","X-User-Id":"$http_x_user_id","X-Tenant-Id":"$http_x_tenant_id"}}}},"upstream_id":"ai-tool-grpc"}'
+              if [ "${TOOL_GRPC_ENABLED}" = "true" ]; then
+                echo "Registering gRPC upstream/route for tool"
+                upsert_resource "upstreams" "ai-tool-grpc" "$(printf '{"name":"ai-tool-grpc","type":"roundrobin","scheme":"grpc","retries":1,"timeout":{"connect":1,"send":5,"read":65},"nodes":{"%s":1}}' "$TOOL_GRPC_SERVICE")"
+                upsert_resource "routes" "ai-tool-grpc-route" '{"uri":"/koduck.tool.v1.ToolService/*","priority":200,"plugins":{"limit-count":{"count":600,"time_window":60,"key":"$uri","key_type":"var","rejected_code":429,"rejected_msg":"ai tool grpc quota exceeded"},"limit-req":{"rate":120,"burst":60,"key":"$uri","key_type":"var","rejected_code":429,"rejected_msg":"ai tool grpc burst limited","nodelay":true},"opentelemetry":{"sampler":{"name":"always_on"}},"proxy-rewrite":{"headers":{"set":{"X-Request-Id":"$http_x_request_id","X-Trace-Id":"$opentelemetry_trace_id","traceparent":"$opentelemetry_context_traceparent","X-Session-Id":"$http_x_session_id","X-User-Id":"$http_x_user_id","X-Tenant-Id":"$http_x_tenant_id"}}}},"upstream_id":"ai-tool-grpc"}'
+              else
+                echo "Tool gRPC route disabled; removing stale ai-tool-grpc resources if present"
+                delete_resource "routes" "ai-tool-grpc-route" || true
+                delete_resource "upstreams" "ai-tool-grpc" || true
+              fi
 
               echo "Removing deprecated llm adapter gRPC routes and upstreams"
               delete_resource "routes" "ai-llm-stream-grpc-route" || true

@@ -19,6 +19,8 @@ spec:
               value: "info,koduck_ai=info,tower_http=warn"
             - name: KODUCK_AI__MEMORY__GRPC_TARGET
               value: "http://dev-apisix-gateway:9080"
+            - name: KODUCK_AI__TOOLS__ENABLED
+              value: "false"
             - name: KODUCK_AI__TOOLS__GRPC_TARGET
               value: "http://dev-apisix-gateway:9080"
             - name: KODUCK_AI__LLM__ADAPTER_GRPC_TARGET
@@ -32,6 +34,8 @@ spec:
             - name: KODUCK_AI__LLM__DEEPSEEK__ENABLED
               value: "false"
             - name: KODUCK_AI__LLM__MINIMAX__ENABLED
+              value: "true"
+            - name: KODUCK_AI__LLM__KIMI__ENABLED
               value: "true"
             - name: KODUCK_AI__LLM__STUB_ENABLED
               value: "false"

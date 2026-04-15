@@ -124,4 +124,39 @@ impl MemoryUnitAnchorRepository {
 
         Ok(result.rows_affected())
     }
+
+    pub async fn list_session_ids_by_anchor(
+        &self,
+        tenant_id: &str,
+        anchor_type: MemoryUnitAnchorType,
+        anchor_key: &str,
+        limit: i64,
+    ) -> Result<Vec<Uuid>> {
+        let rows = sqlx::query_scalar::<_, Uuid>(
+            r#"
+            SELECT session_id
+            FROM (
+                SELECT mu.session_id, MAX(mu.created_at) AS latest_created_at
+                FROM memory_unit_anchors mua
+                JOIN memory_units mu
+                  ON mu.memory_unit_id = mua.memory_unit_id
+                 AND mu.tenant_id = mua.tenant_id
+                WHERE mua.tenant_id = $1
+                  AND mua.anchor_type = $2
+                  AND mua.anchor_key = $3
+                GROUP BY mu.session_id
+            ) anchor_sessions
+            ORDER BY latest_created_at DESC, session_id
+            LIMIT $4
+            "#,
+        )
+        .bind(tenant_id)
+        .bind(anchor_type.as_db_value())
+        .bind(anchor_key)
+        .bind(limit)
+        .fetch_all(&self.pool)
+        .await?;
+
+        Ok(rows)
+    }
 }

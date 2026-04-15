@@ -43,6 +43,13 @@ interface ChatHistoryMessage {
   content: string;
 }
 
+type LlmProvider = "minimax" | "kimi";
+
+const PROVIDER_OPTIONS: Array<{ value: LlmProvider; label: string }> = [
+  { value: "minimax", label: "MiniMax" },
+  { value: "kimi", label: "Kimi" },
+];
+
 interface StreamEventPayload {
   text?: string;
   finish_reason?: string;
@@ -88,10 +95,12 @@ interface SessionLookupEnvelope {
 
 const STREAM_INITIAL_IDLE_TIMEOUT_MS = 20000;
 const STREAM_POST_CONTENT_IDLE_TIMEOUT_MS = 8000;
-const STREAM_REQUEST_TIMEOUT_MS = 90000;
+const STREAM_REQUEST_TIMEOUT_MS = 300000;
 const SESSION_LOOKUP_RETRY_DELAYS_MS = [150, 400];
+const MAX_HISTORY_MESSAGES = 5;
 const ACTIVE_SESSION_STORAGE_KEY = "koduck.ai.activeSessionId";
 const SESSION_MESSAGES_STORAGE_PREFIX = "koduck.ai.sessionMessages";
+const URL_SESSION_PARAM = "session_id";
 
 function buildSessionMessagesStorageKey(sessionId: string): string {
   return `${SESSION_MESSAGES_STORAGE_PREFIX}.${sessionId}`;
@@ -104,6 +113,37 @@ function readActiveSessionId(): string | null {
 
   const stored = window.localStorage.getItem(ACTIVE_SESSION_STORAGE_KEY)?.trim();
   return stored || null;
+}
+
+function readSessionIdFromUrl(): string | null {
+  if (typeof window === "undefined") {
+    return null;
+  }
+
+  const value = new URLSearchParams(window.location.search)
+    .get(URL_SESSION_PARAM)
+    ?.trim();
+  return value || null;
+}
+
+function persistSessionIdToUrl(sessionId: string | null) {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  const url = new URL(window.location.href);
+  if (sessionId) {
+    url.searchParams.set(URL_SESSION_PARAM, sessionId);
+  } else {
+    url.searchParams.delete(URL_SESSION_PARAM);
+  }
+
+  const nextRelativeUrl = `${url.pathname}${url.search}${url.hash}`;
+  const currentRelativeUrl = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+
+  if (nextRelativeUrl !== currentRelativeUrl) {
+    window.history.replaceState(window.history.state, "", nextRelativeUrl);
+  }
 }
 
 function persistActiveSessionId(sessionId: string | null) {
@@ -531,11 +571,12 @@ function parseSseBlocks(
 }
 
 export function KoduckAi() {
-  const initialSessionId = readActiveSessionId();
+  const initialSessionIdRef = useRef<string | null>(readSessionIdFromUrl() ?? readActiveSessionId());
+  const initialSessionId = initialSessionIdRef.current;
   const [chatMessage, setChatMessage] = useState("");
   const [messages, setMessages] = useState<Message[]>([]);
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(initialSessionId);
-  const [selectedProvider] = useState("OpenAI");
+  const [selectedProvider, setSelectedProvider] = useState<LlmProvider>("minimax");
   const [selectedModel] = useState("GPT-4");
   const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
   const [isDragging, setIsDragging] = useState(false);
@@ -545,9 +586,14 @@ export function KoduckAi() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const dragCounterRef = useRef(0);
   const currentSessionIdRef = useRef<string | null>(currentSessionId);
+  const skipNextSessionRestoreRef = useRef(false);
   const createSessionId = () => crypto.randomUUID();
-  const activateSession = (sessionId: string | null) => {
+  const activateSession = (
+    sessionId: string | null,
+    options?: { skipRestore?: boolean },
+  ) => {
     currentSessionIdRef.current = sessionId;
+    skipNextSessionRestoreRef.current = options?.skipRestore === true;
     setCurrentSessionId(sessionId);
   };
 
@@ -562,15 +608,22 @@ export function KoduckAi() {
   useEffect(() => {
     currentSessionIdRef.current = currentSessionId;
     persistActiveSessionId(currentSessionId);
+    persistSessionIdToUrl(currentSessionId);
   }, [currentSessionId]);
 
   useEffect(() => {
     if (!currentSessionId) {
+      skipNextSessionRestoreRef.current = false;
       setMessages([]);
       return;
     }
 
     if (currentSessionId === initialSessionId && !sessionHydrated) {
+      return;
+    }
+
+    if (skipNextSessionRestoreRef.current) {
+      skipNextSessionRestoreRef.current = false;
       return;
     }
 
@@ -615,8 +668,12 @@ export function KoduckAi() {
   }, [initialSessionId]);
 
   useEffect(() => {
+    if (!sessionHydrated && currentSessionId === initialSessionId) {
+      return;
+    }
+
     persistSessionMessages(currentSessionId, messages);
-  }, [currentSessionId, messages]);
+  }, [currentSessionId, initialSessionId, messages, sessionHydrated]);
 
   const updateAssistantMessage = (messageId: string, updater: (prev: Message) => Message) => {
     setMessages((prev) =>
@@ -627,13 +684,22 @@ export function KoduckAi() {
   const buildHistoryMessages = (): ChatHistoryMessage[] =>
     messages
       .filter((message) => !message.streaming && message.content.trim())
+      .slice(-MAX_HISTORY_MESSAGES)
       .map((message) => ({
         role: message.role,
         content: message.content,
       }));
 
   const handleCreateSession = () => {
-    activateSession(createSessionId());
+    activateSession(createSessionId(), { skipRestore: true });
+    setMessages([]);
+    setChatMessage("");
+    setUploadedFiles([]);
+  };
+
+  const handleDeleteCurrentSession = () => {
+    clearStoredMessages(currentSessionIdRef.current);
+    activateSession(null, { skipRestore: true });
     setMessages([]);
     setChatMessage("");
     setUploadedFiles([]);
@@ -751,7 +817,7 @@ export function KoduckAi() {
 
     const sessionId = currentSessionIdRef.current ?? createSessionId();
     if (!currentSessionIdRef.current) {
-      activateSession(sessionId);
+      activateSession(sessionId, { skipRestore: true });
     }
 
     const userMessage: Message = {
@@ -783,10 +849,12 @@ export function KoduckAi() {
     let streamErrorMessage = "";
     let upstreamRequestId: string | null = null;
     let lastSequenceNum: number | null = null;
+    let streamEstablished = false;
 
     logStreamTrace(localRequestId, "request_start", {
       sessionId,
       assistantMessageId,
+      provider: selectedProvider,
       userMessageLength: content.length,
     });
 
@@ -802,6 +870,7 @@ export function KoduckAi() {
         body: JSON.stringify({
           message: content,
           session_id: sessionId,
+          provider: selectedProvider,
           history: buildHistoryMessages(),
         }),
       });
@@ -822,7 +891,6 @@ export function KoduckAi() {
       const decoder = new TextDecoder();
       let buffer = "";
       let streamCompleted = false;
-      let streamEstablished = false;
 
       while (!streamCompleted) {
         const idleTimeoutMs = streamedText.trim()
@@ -1162,13 +1230,20 @@ export function KoduckAi() {
           >
             <Paperclip className="h-4 w-4" />
           </button>
-          <button
-            className="flex items-center gap-1 rounded-lg px-2.5 py-1 text-xs font-medium text-gray-700 transition-colors hover:bg-gray-50"
-            type="button"
-          >
-            <span>{selectedProvider}</span>
-            <ChevronDown className="h-3.5 w-3.5 text-gray-400" />
-          </button>
+          <div className="relative">
+            <select
+              value={selectedProvider}
+              onChange={(e) => setSelectedProvider(e.target.value as LlmProvider)}
+              className="appearance-none rounded-lg px-2.5 py-1 pr-7 text-xs font-medium text-gray-700 transition-colors hover:bg-gray-50 focus:outline-none"
+            >
+              {PROVIDER_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+            <ChevronDown className="pointer-events-none absolute right-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-gray-400" />
+          </div>
           <button
             className="flex items-center gap-1 rounded-lg px-2.5 py-1 text-xs font-medium text-gray-700 transition-colors hover:bg-gray-50"
             type="button"
@@ -1240,6 +1315,7 @@ export function KoduckAi() {
           <Plus className="h-6 w-6" strokeWidth={1.5} />
         </button>
         <button
+          onClick={handleDeleteCurrentSession}
           className="flex h-8 w-8 items-center justify-center text-gray-500 transition-colors hover:text-red-600"
           type="button"
           title="清除会话"

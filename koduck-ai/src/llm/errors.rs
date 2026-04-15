@@ -53,10 +53,15 @@ pub fn map_http_status_error(
 ) -> AppError {
     let request_id = request_id.into();
     let parsed = parse_error_payload(body);
-    let code = classify_error_code(status, parsed.code.as_deref());
+    let code = classify_error_code(
+        status,
+        parsed.code.as_deref(),
+        parsed.error_type.as_deref(),
+        parsed.http_code,
+    );
     let message = parsed
         .message
-        .unwrap_or_else(|| default_message_for_status(status));
+        .unwrap_or_else(|| default_message_for_status(status, code));
 
     let mut err = AppError::new(code, message)
         .with_request_id(request_id)
@@ -102,7 +107,16 @@ pub fn map_malformed_stream_chunk(
     .with_upstream(upstream)
 }
 
-fn classify_error_code(status: StatusCode, body_code: Option<&str>) -> ErrorCode {
+fn classify_error_code(
+    status: StatusCode,
+    body_code: Option<&str>,
+    error_type: Option<&str>,
+    http_code: Option<u16>,
+) -> ErrorCode {
+    if is_server_busy_signal(status, body_code, error_type, http_code) {
+        return ErrorCode::ServerBusy;
+    }
+
     if is_rate_limit_code(body_code) {
         return ErrorCode::RateLimited;
     }
@@ -132,8 +146,12 @@ fn is_rate_limit_code(code: Option<&str>) -> bool {
         .unwrap_or(false)
 }
 
-fn default_message_for_status(status: StatusCode) -> String {
-    match status {
+fn default_message_for_status(status: StatusCode, code: ErrorCode) -> String {
+    match code {
+        ErrorCode::ServerBusy => "llm provider is temporarily busy".to_string(),
+        ErrorCode::RateLimited => "llm provider rate limit exceeded".to_string(),
+        ErrorCode::StreamTimeout => "llm provider request timed out".to_string(),
+        _ => match status {
         StatusCode::TOO_MANY_REQUESTS => "llm provider rate limit exceeded".to_string(),
         StatusCode::SERVICE_UNAVAILABLE => "llm provider is temporarily busy".to_string(),
         StatusCode::REQUEST_TIMEOUT | StatusCode::GATEWAY_TIMEOUT => {
@@ -141,7 +159,20 @@ fn default_message_for_status(status: StatusCode) -> String {
         }
         _ if status.is_server_error() => "llm provider returned a server error".to_string(),
         _ => "llm provider request failed".to_string(),
+        },
     }
+}
+
+fn is_server_busy_signal(
+    status: StatusCode,
+    body_code: Option<&str>,
+    error_type: Option<&str>,
+    http_code: Option<u16>,
+) -> bool {
+    status.as_u16() == 529
+        || http_code == Some(529)
+        || matches_busy_token(body_code)
+        || matches_busy_token(error_type)
 }
 
 fn retry_after_ms_from_headers(headers: &HeaderMap) -> Option<u64> {
@@ -162,6 +193,8 @@ fn retry_after_ms_from_headers(headers: &HeaderMap) -> Option<u64> {
 struct ParsedErrorPayload {
     message: Option<String>,
     code: Option<String>,
+    error_type: Option<String>,
+    http_code: Option<u16>,
     retry_after_ms: Option<u64>,
 }
 
@@ -175,6 +208,11 @@ fn parse_error_payload(body: &str) -> ParsedErrorPayload {
             return ParsedErrorPayload {
                 message: error.message.filter(|value| !value.trim().is_empty()),
                 code: error.code.and_then(json_value_to_string),
+                error_type: error.error_type.filter(|value| !value.trim().is_empty()),
+                http_code: error
+                    .http_code
+                    .as_deref()
+                    .and_then(|value| value.trim().parse::<u16>().ok()),
                 retry_after_ms: error.retry_after_ms,
             };
         }
@@ -187,6 +225,8 @@ fn parse_error_payload(body: &str) -> ParsedErrorPayload {
                 .or(envelope.error_description)
                 .filter(|value| !value.trim().is_empty()),
             code: envelope.code.and_then(json_value_to_string),
+            error_type: None,
+            http_code: None,
             retry_after_ms: envelope.retry_after_ms,
         };
     }
@@ -194,6 +234,8 @@ fn parse_error_payload(body: &str) -> ParsedErrorPayload {
     ParsedErrorPayload {
         message: Some(truncate_message(body)),
         code: None,
+        error_type: None,
+        http_code: None,
         retry_after_ms: None,
     }
 }
@@ -204,6 +246,18 @@ fn json_value_to_string(value: Value) -> Option<String> {
         Value::String(text) => Some(text),
         other => Some(other.to_string()),
     }
+}
+
+fn matches_busy_token(value: Option<&str>) -> bool {
+    value
+        .map(|raw| raw.trim().to_ascii_lowercase())
+        .map(|normalized| {
+            normalized.contains("overloaded")
+                || normalized.contains("overload")
+                || normalized.contains("server_busy")
+                || normalized.contains("busy")
+        })
+        .unwrap_or(false)
 }
 
 fn truncate_message(body: &str) -> String {
@@ -229,6 +283,9 @@ struct OpenAiErrorEnvelope {
 struct OpenAiErrorBody {
     message: Option<String>,
     code: Option<Value>,
+    #[serde(rename = "type")]
+    error_type: Option<String>,
+    http_code: Option<String>,
     #[serde(default)]
     retry_after_ms: Option<u64>,
 }

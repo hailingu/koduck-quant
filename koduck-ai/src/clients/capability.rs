@@ -164,6 +164,7 @@ pub enum ServiceNegotiationStatus {
     Ok,
     Failed,
     Pending,
+    Disabled,
 }
 
 /// Aggregated negotiation status across all downstream services.
@@ -318,6 +319,7 @@ impl CapabilityCache {
     pub async fn initial_negotiation_mode_aware(
         &self,
         memory_addr: &str,
+        tool_enabled: bool,
         tool_addr: &str,
         llm_addr: &str,
         llm_mode: LlmMode,
@@ -327,7 +329,6 @@ impl CapabilityCache {
         let timeout = Duration::from_millis(self.config.startup_timeout_ms);
 
         let memory_handle = tokio::time::timeout(timeout, fetch_memory_capability(memory_addr));
-        let tool_handle = tokio::time::timeout(timeout, fetch_tool_capability(tool_addr));
         let llm_handle = match llm_mode {
             LlmMode::Adapter => tokio::time::timeout(timeout, fetch_llm_capability(llm_addr))
                 .await
@@ -359,7 +360,7 @@ impl CapabilityCache {
             })?,
         };
 
-        let (memory_result, tool_result) = tokio::join!(memory_handle, tool_handle);
+        let memory_result = memory_handle.await;
 
         let memory_cap = memory_result
             .map_err(|_| {
@@ -372,19 +373,29 @@ impl CapabilityCache {
             })?
             .map_err(|e| map_grpc_status(UpstreamService::Memory, "startup-capability-check", &e))?;
 
-        let tool_cap = tool_handle_result(tool_result)?;
         let llm_cap = llm_handle?;
+        let tool_cap = if tool_enabled {
+            Some(
+                tool_handle_result(
+                    tokio::time::timeout(timeout, fetch_tool_capability(tool_addr)).await,
+                )?,
+            )
+        } else {
+            None
+        };
 
         info!(
             memory.service = %memory_cap.service,
             memory.contract_versions = ?memory_cap.contract_versions,
             "Memory service capabilities negotiated"
         );
-        info!(
-            tool.service = %tool_cap.service,
-            tool.contract_versions = ?tool_cap.contract_versions,
-            "Tool service capabilities negotiated"
-        );
+        if let Some(tool_cap) = tool_cap.as_ref() {
+            info!(
+                tool.service = %tool_cap.service,
+                tool.contract_versions = ?tool_cap.contract_versions,
+                "Tool service capabilities negotiated"
+            );
+        }
         info!(
             llm.service = %llm_cap.service,
             llm.contract_versions = ?llm_cap.contract_versions,
@@ -392,19 +403,39 @@ impl CapabilityCache {
             "LLM capabilities negotiated"
         );
 
-        check_version_compatibility(&memory_cap, &tool_cap, &llm_cap, &self.config, &self.metrics)?;
+        if let Some(tool_cap) = tool_cap.as_ref() {
+            check_version_compatibility(
+                &memory_cap,
+                tool_cap,
+                &llm_cap,
+                &self.config,
+                &self.metrics,
+            )?;
+        }
 
         let memory_cached = CachedCapability::new(memory_cap);
-        let tool_cached = CachedCapability::new(tool_cap);
         let llm_cached = CachedCapability::new(llm_cap);
+        let tool_cached = tool_cap.map(CachedCapability::new);
+        let tool_result_cached = tool_cached.clone().unwrap_or_else(|| {
+            CachedCapability::new(proto::Capability {
+                service: "tool".to_string(),
+                contract_versions: vec![self.config.required_version.clone()],
+                features: HashMap::from([("enabled".to_string(), "false".to_string())]),
+                limits: HashMap::new(),
+            })
+        });
 
         *self.memory.write().await = Some(memory_cached.clone());
-        *self.tool.write().await = Some(tool_cached.clone());
+        *self.tool.write().await = tool_cached.clone();
         *self.llm.write().await = Some(llm_cached.clone());
 
         *self.negotiation_status.write().await = NegotiationStatus {
             memory: ServiceNegotiationStatus::Ok,
-            tool: ServiceNegotiationStatus::Ok,
+            tool: if tool_enabled {
+                ServiceNegotiationStatus::Ok
+            } else {
+                ServiceNegotiationStatus::Disabled
+            },
             llm: ServiceNegotiationStatus::Ok,
             negotiated_at: Some(chrono::Utc::now().to_rfc3339()),
         };
@@ -419,7 +450,7 @@ impl CapabilityCache {
 
         Ok(NegotiationResult {
             memory: memory_cached,
-            tool: tool_cached,
+            tool: tool_result_cached,
             llm: llm_cached,
         })
     }
@@ -457,6 +488,7 @@ impl CapabilityCache {
     pub fn spawn_refresh_task_mode_aware(
         self: &Arc<Self>,
         memory_addr: String,
+        tool_enabled: bool,
         tool_addr: String,
         llm_addr: String,
         llm_mode: LlmMode,
@@ -473,6 +505,7 @@ impl CapabilityCache {
                     _ = tokio::time::sleep(ttl) => {
                         cache.refresh_all_mode_aware(
                             &memory_addr,
+                            tool_enabled,
                             &tool_addr,
                             &llm_addr,
                             llm_mode,
@@ -564,6 +597,7 @@ impl CapabilityCache {
     async fn refresh_all_mode_aware(
         &self,
         memory_addr: &str,
+        tool_enabled: bool,
         tool_addr: &str,
         llm_addr: &str,
         llm_mode: LlmMode,
@@ -590,23 +624,27 @@ impl CapabilityCache {
             }
         }
 
-        match fetch_tool_capability(tool_addr).await {
-            Ok(cap) => {
-                info!(
-                    service = %cap.service,
-                    contract_versions = ?cap.contract_versions,
-                    "Tool capabilities refreshed"
-                );
-                *self.tool.write().await = Some(CachedCapability::new(cap));
-                self.metrics.record_refresh_success();
+        if tool_enabled {
+            match fetch_tool_capability(tool_addr).await {
+                Ok(cap) => {
+                    info!(
+                        service = %cap.service,
+                        contract_versions = ?cap.contract_versions,
+                        "Tool capabilities refreshed"
+                    );
+                    *self.tool.write().await = Some(CachedCapability::new(cap));
+                    self.metrics.record_refresh_success();
+                }
+                Err(e) => {
+                    warn!(
+                        error = %e,
+                        "Failed to refresh tool capabilities (using cached data)"
+                    );
+                    self.metrics.record_refresh_failure();
+                }
             }
-            Err(e) => {
-                warn!(
-                    error = %e,
-                    "Failed to refresh tool capabilities (using cached data)"
-                );
-                self.metrics.record_refresh_failure();
-            }
+        } else {
+            *self.tool.write().await = None;
         }
 
         let llm_result = match llm_mode {
@@ -642,7 +680,15 @@ impl CapabilityCache {
 
         *self.negotiation_status.write().await = NegotiationStatus {
             memory: if self.memory.read().await.is_some() { ServiceNegotiationStatus::Ok } else { ServiceNegotiationStatus::Failed },
-            tool: if self.tool.read().await.is_some() { ServiceNegotiationStatus::Ok } else { ServiceNegotiationStatus::Failed },
+            tool: if tool_enabled {
+                if self.tool.read().await.is_some() {
+                    ServiceNegotiationStatus::Ok
+                } else {
+                    ServiceNegotiationStatus::Failed
+                }
+            } else {
+                ServiceNegotiationStatus::Disabled
+            },
             llm: if self.llm.read().await.is_some() { ServiceNegotiationStatus::Ok } else { ServiceNegotiationStatus::Failed },
             negotiated_at: Some(chrono::Utc::now().to_rfc3339()),
         };
@@ -827,7 +873,7 @@ async fn fetch_direct_llm_capability(
 }
 
 fn enabled_llm_providers(llm_config: &LlmConfig) -> Vec<String> {
-    ["openai", "deepseek", "minimax"]
+    ["openai", "deepseek", "minimax", "kimi"]
         .into_iter()
         .filter(|provider| {
             llm_config

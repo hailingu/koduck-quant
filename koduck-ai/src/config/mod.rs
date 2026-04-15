@@ -59,6 +59,7 @@ pub struct MemoryConfig {
 /// Tool service gRPC client configuration
 #[derive(Debug, Deserialize, Clone)]
 pub struct ToolConfig {
+    pub enabled: bool,
     pub grpc_target: String,
 }
 
@@ -74,6 +75,7 @@ pub struct LlmConfig {
     pub openai: LlmProviderConfig,
     pub deepseek: LlmProviderConfig,
     pub minimax: LlmProviderConfig,
+    pub kimi: LlmProviderConfig,
 }
 
 #[derive(Debug, Deserialize, Clone, Copy, PartialEq, Eq, Display, EnumString)]
@@ -177,7 +179,7 @@ impl MemoryConfig {
 
 impl ToolConfig {
     pub fn validate(&self) -> Result<(), ValidationError> {
-        if self.grpc_target.trim().is_empty() {
+        if self.enabled && self.grpc_target.trim().is_empty() {
             return Err(ValidationError {
                 message: "tools.grpc_target cannot be empty".to_string(),
             });
@@ -206,6 +208,7 @@ impl LlmConfig {
         self.provider_config("openai").unwrap().validate("llm.openai")?;
         self.provider_config("deepseek").unwrap().validate("llm.deepseek")?;
         self.provider_config("minimax").unwrap().validate("llm.minimax")?;
+        self.provider_config("kimi").unwrap().validate("llm.kimi")?;
 
         match self.mode {
             LlmMode::Direct => {
@@ -213,7 +216,7 @@ impl LlmConfig {
                 let default_config = self.provider_config(default_provider).ok_or_else(|| {
                     ValidationError {
                         message: format!(
-                            "llm.default_provider '{}' is not supported; expected one of openai, deepseek, minimax",
+                            "llm.default_provider '{}' is not supported; expected one of openai, deepseek, minimax, kimi",
                             default_provider
                         ),
                     }
@@ -237,6 +240,7 @@ impl LlmConfig {
             "openai" => Some(&self.openai),
             "deepseek" => Some(&self.deepseek),
             "minimax" => Some(&self.minimax),
+            "kimi" => Some(&self.kimi),
             _ => None,
         }
     }
@@ -397,6 +401,7 @@ impl Default for MemoryConfig {
 impl Default for ToolConfig {
     fn default() -> Self {
         Self {
+            enabled: false,
             grpc_target: "http://localhost:50053".to_string(),
         }
     }
@@ -427,6 +432,12 @@ impl Default for LlmConfig {
                 api_key: None,
                 base_url: "https://api.minimax.chat/v1".to_string(),
                 default_model: "MiniMax-M1".to_string(),
+            },
+            kimi: LlmProviderConfig {
+                enabled: false,
+                api_key: None,
+                base_url: "https://api.kimi.com/coding/v1".to_string(),
+                default_model: "kimi-for-coding".to_string(),
             },
         }
     }
@@ -532,6 +543,7 @@ impl Config {
             // Defaults — MemoryConfig
             .set_default("memory.grpc_target", "http://localhost:50052")?
             // Defaults — ToolConfig
+            .set_default("tools.enabled", false)?
             .set_default("tools.grpc_target", "http://localhost:50053")?
             // Defaults — LlmConfig
             .set_default("llm.mode", "direct")?
@@ -548,6 +560,9 @@ impl Config {
             .set_default("llm.minimax.enabled", false)?
             .set_default("llm.minimax.base_url", "https://api.minimax.chat/v1")?
             .set_default("llm.minimax.default_model", "MiniMax-M1")?
+            .set_default("llm.kimi.enabled", false)?
+            .set_default("llm.kimi.base_url", "https://api.kimi.com/coding/v1")?
+            .set_default("llm.kimi.default_model", "kimi-for-coding")?
             // Defaults — StreamConfig
             .set_default("stream.max_duration_ms", 300_000)?
             .set_default("stream.queue_capacity", 64)?
@@ -618,6 +633,10 @@ impl Config {
 
     pub fn minimax_api_key(&self) -> Option<&str> {
         self.llm.minimax.api_key.as_ref().map(|k| k.expose_secret().as_str())
+    }
+
+    pub fn kimi_api_key(&self) -> Option<&str> {
+        self.llm.kimi.api_key.as_ref().map(|k| k.expose_secret().as_str())
     }
 }
 
@@ -854,6 +873,12 @@ mod tests {
                     base_url: "https://api.minimax.chat/v1".to_string(),
                     default_model: "MiniMax-M1".to_string(),
                 },
+                kimi: LlmProviderConfig {
+                    api_key: Some(SecretString::from("sk-kimi".to_string())),
+                    enabled: true,
+                    base_url: "https://api.kimi.com/coding/v1".to_string(),
+                    default_model: "kimi-for-coding".to_string(),
+                },
                 ..LlmConfig::default()
             },
             stream: StreamConfig::default(),
@@ -864,6 +889,7 @@ mod tests {
         assert_eq!(config.openai_api_key(), Some("sk-test"));
         assert_eq!(config.deepseek_api_key(), None);
         assert_eq!(config.minimax_api_key(), Some("sk-minimax"));
+        assert_eq!(config.kimi_api_key(), Some("sk-kimi"));
     }
 
     #[test]

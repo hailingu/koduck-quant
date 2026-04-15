@@ -107,4 +107,35 @@ impl MemoryFactRepository {
 
         Ok(deleted)
     }
+
+    pub async fn list_session_ids_by_ner(
+        &self,
+        tenant_id: &str,
+        ner: &str,
+        limit: i64,
+    ) -> Result<Vec<Uuid>> {
+        let like_query = format!("%{}%", ner.trim());
+
+        let rows = sqlx::query_scalar::<_, Uuid>(
+            r#"
+            SELECT session_id
+            FROM (
+                SELECT session_id, MAX(created_at) AS latest_created_at
+                FROM memory_facts
+                WHERE tenant_id = $1
+                  AND fact_text ILIKE $2
+                GROUP BY session_id
+            ) fact_sessions
+            ORDER BY latest_created_at DESC, session_id
+            LIMIT $3
+            "#,
+        )
+        .bind(tenant_id)
+        .bind(&like_query)
+        .bind(limit)
+        .fetch_all(&self.pool)
+        .await?;
+
+        Ok(rows)
+    }
 }

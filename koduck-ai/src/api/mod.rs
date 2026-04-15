@@ -21,8 +21,8 @@ use crate::{
     app::AppState,
     auth::AuthContext,
     clients::memory::{
-        self, MemoryEntry, MemoryHit, MemoryRpcContext, QueryIntent, QueryMemoryInput,
-        RetrievePolicy, SessionInfo, SessionUpsertInput,
+        self, MemoryEntry, MemoryHit, MemoryRpcContext, QueryIntent, SessionInfo,
+        SessionUpsertInput,
     },
     config::LlmMode,
     llm::{
@@ -42,8 +42,8 @@ use crate::{
 
 const MAX_ALLOWED_TOKENS: u32 = 32_768;
 const MEMORY_QUERY_TOP_K: i32 = 5;
-const MEMORY_QUERY_PAGE_SIZE: i32 = 5;
 const MAX_HISTORY_MESSAGES: usize = 20;
+const MEMORY_SESSION_BATCH_SIZE: usize = 2;
 const ACTIVE_MEMORY_CONTEXT_KEY: &str = "active_memory_context";
 const ACTIVE_MEMORY_CONTEXT_KIND_KEY: &str = "active_memory_context_kind";
 
@@ -59,6 +59,7 @@ pub struct ChatRequest {
     pub message: String,
     #[serde(default)]
     pub history: Option<Vec<ChatHistoryMessage>>,
+    pub provider: Option<String>,
     pub model: Option<String>,
     pub temperature: Option<f32>,
     pub max_tokens: Option<u32>,
@@ -136,8 +137,17 @@ enum StreamLlmPlan {
 struct QueryMemoryToolArgs {
     query: Option<String>,
     intent: Option<String>,
+    #[serde(default)]
+    ner: Vec<QueryMemoryToolNer>,
     memory_scope: Option<String>,
     domain_class: Option<String>,
+}
+
+#[derive(Debug, Deserialize, Default, Clone)]
+struct QueryMemoryToolNer {
+    text: Option<String>,
+    #[serde(rename = "type")]
+    entity_type: Option<String>,
 }
 
 impl MemoryContextSnapshot {
@@ -214,29 +224,7 @@ pub async fn chat(
         .await
         {
             Ok(ok) => ok,
-            Err(err) => {
-                if let Some(decision) = state
-                    .degrade_policy
-                    .evaluate_error(DegradeRoute::Chat, &err)
-                {
-                    state.degrade_policy.log_hit(
-                        &decision,
-                        &request_id,
-                        &session_id,
-                        err.code,
-                    );
-                    build_stub_chat_response(
-                        &state,
-                        &request_id,
-                        &session_id,
-                        &request.message,
-                        request.model.clone(),
-                        degrade_reason_label(&decision),
-                    )
-                } else {
-                    return api_error_response(err, request_id);
-                }
-            }
+            Err(err) => return api_error_response(err, request_id),
         }
     };
 
@@ -549,33 +537,7 @@ pub async fn chat_stream(
             .await
             {
                 Ok(plan) => plan,
-                Err(err) => {
-                    if let Some(decision) = state
-                        .degrade_policy
-                        .evaluate_error(DegradeRoute::ChatStream, &err)
-                    {
-                        let degrade_reason = degrade_reason_label(&decision);
-                        state.degrade_policy.log_hit(
-                            &decision,
-                            &request_id,
-                            &session_id,
-                            err.code,
-                        );
-                        spawn_stub_stream(
-                            Arc::clone(&session),
-                            generation_guard.clone(),
-                            stream_timeout,
-                            build_degraded_stream_chunks(
-                                &request.chat.message,
-                                memory_snapshot.as_ref(),
-                                degrade_reason,
-                            ),
-                            degrade_reason,
-                        );
-                        return stream_sse_response(session, request_id).await;
-                    }
-                    return api_error_response(err, request_id);
-                }
+                Err(err) => return api_error_response(err, request_id),
             };
             match llm_plan {
                 StreamLlmPlan::ReadyAnswer(answer) => {
@@ -771,33 +733,7 @@ pub async fn chat_stream(
                 .await
                 {
                     Ok(plan) => plan,
-                    Err(err) => {
-                        if let Some(decision) = state
-                            .degrade_policy
-                            .evaluate_error(DegradeRoute::ChatStream, &err)
-                        {
-                            let degrade_reason = degrade_reason_label(&decision);
-                            state.degrade_policy.log_hit(
-                                &decision,
-                                &request_id,
-                                &session_id,
-                                err.code,
-                            );
-                            spawn_stub_stream(
-                                Arc::clone(&session),
-                                generation_guard.clone(),
-                                stream_timeout,
-                                build_degraded_stream_chunks(
-                                    &request.chat.message,
-                                    memory_snapshot.as_ref(),
-                                    degrade_reason,
-                                ),
-                                degrade_reason,
-                            );
-                            return stream_sse_response(session, request_id).await;
-                        }
-                        return api_error_response(err, request_id);
-                    }
+                    Err(err) => return api_error_response(err, request_id),
                 };
             match llm_plan {
                 StreamLlmPlan::ReadyAnswer(answer) => {
@@ -1275,122 +1211,6 @@ fn active_retrieval_context_from_session(session: Option<&SessionInfo>) -> Optio
         .map(ToOwned::to_owned)
 }
 
-fn retrieve_policy_from_request(request: &ChatRequest) -> RetrievePolicy {
-    if is_memory_recall_query(&request.message) {
-        return RetrievePolicy::DomainFirst;
-    }
-
-    let raw_policy = request.retrieve_policy.as_deref().or_else(|| {
-        request
-            .metadata
-            .as_ref()
-            .and_then(|metadata| metadata.get("retrieve_policy"))
-            .and_then(|value| value.as_str())
-    });
-
-    match raw_policy
-        .map(|value| value.trim().to_ascii_lowercase())
-        .as_deref()
-    {
-        Some("domain-first") | Some("domain_first") => RetrievePolicy::DomainFirst,
-        Some("summary-first") | Some("summary_first") => RetrievePolicy::SummaryFirst,
-        Some("hybrid") => RetrievePolicy::Hybrid,
-        _ => RetrievePolicy::SummaryFirst,
-    }
-}
-
-fn memory_query_session_scope(
-    request: &ChatRequest,
-    ctx: &MemoryRpcContext,
-) -> Option<String> {
-    let scope = request
-        .metadata
-        .as_ref()
-        .and_then(|metadata| metadata.get("memory_scope"))
-        .and_then(|value| value.as_str())
-        .map(|value| value.trim().to_ascii_lowercase());
-
-    match scope.as_deref() {
-        Some("session") | Some("current_session") | Some("current") => {
-            Some(ctx.session_id.clone())
-        }
-        _ => None,
-    }
-}
-
-fn build_memory_query_text(message: &str) -> String {
-    let mut normalized = message.trim().to_lowercase();
-    let alias_replacements = [
-        ("karl marx", "马克思"),
-        ("marx", "马克思"),
-        ("friedrich engels", "恩格斯"),
-        ("engels", "恩格斯"),
-        ("vladimir lenin", "列宁"),
-        ("lenin", "列宁"),
-        ("max stirner", "施蒂纳"),
-        ("stirner", "施蒂纳"),
-        ("anarchism", "无政府主义"),
-        ("anarchist", "无政府主义"),
-    ];
-    for (alias, canonical) in alias_replacements {
-        normalized = normalized.replace(alias, canonical);
-    }
-
-    let phrase_replacements = [
-        "我们之前有讨论过",
-        "我们之前讨论过",
-        "我们之前聊过",
-        "讨论了什么",
-        "聊了什么",
-        "说了什么",
-        "找出来之前关于",
-        "找出之前关于",
-        "找出来之前",
-        "找出之前",
-        "之前关于",
-        "之前的",
-        "之前",
-        "记忆",
-        "历史记忆",
-        "有没有",
-        "有讨论过",
-        "讨论过",
-        "聊过",
-        "总结一下",
-        "总结",
-    ];
-
-    for phrase in phrase_replacements {
-        normalized = normalized.replace(phrase, " ");
-    }
-
-    normalized = normalized
-        .chars()
-        .map(|ch| match ch {
-            '，' | '。' | '？' | '！' | '：' | '；' | '、' | ',' | '.' | '?' | '!' | ':' | ';'
-            | '(' | ')' | '（' | '）' | '"' | '\'' => ' ',
-            _ => ch,
-        })
-        .collect::<String>();
-
-    let stop_tokens = [
-        "我们", "我", "你", "吗", "呢", "呀", "吧", "啊", "一下", "这个", "那个", "关于",
-        "什么",
-    ];
-
-    let filtered = normalized
-        .split_whitespace()
-        .filter(|token| !stop_tokens.contains(token))
-        .collect::<Vec<_>>()
-        .join(" ");
-
-    if filtered.trim().is_empty() {
-        message.trim().to_string()
-    } else {
-        filtered
-    }
-}
-
 fn is_memory_recall_query(message: &str) -> bool {
     let normalized = message.trim().to_lowercase();
     [
@@ -1417,7 +1237,7 @@ fn build_memory_recall_answer(snapshot: &MemoryContextSnapshot) -> Option<String
     let mut summaries = Vec::new();
     let mut seen = std::collections::HashSet::new();
     for hit in snapshot.hits.iter() {
-        let snippet = hit.snippet.trim();
+        let snippet = normalize_memory_snippet(&hit.snippet);
         if snippet.is_empty() {
             continue;
         }
@@ -1426,9 +1246,8 @@ fn build_memory_recall_answer(snapshot: &MemoryContextSnapshot) -> Option<String
             continue;
         }
         summaries.push(format!(
-            "{}. 来自历史会话 {}：{}",
+            "{}. {}",
             summaries.len() + 1,
-            hit.session_id,
             snippet
         ));
         if summaries.len() >= 3 {
@@ -1444,6 +1263,16 @@ fn build_memory_recall_answer(snapshot: &MemoryContextSnapshot) -> Option<String
         "我从之前的历史记忆里检索到了这些相关内容：\n{}\n如果你愿意，我可以继续基于其中某一条展开说明。",
         summaries.join("\n")
     ))
+}
+
+fn normalize_memory_snippet(snippet: &str) -> String {
+    snippet
+        .replace("\\n", " ")
+        .replace("\\r", " ")
+        .replace("\\t", " ")
+        .split_whitespace()
+        .collect::<Vec<_>>()
+        .join(" ")
 }
 
 fn build_degraded_answer(
@@ -1466,6 +1295,99 @@ fn build_degraded_stream_chunks(
     reason: &str,
 ) -> Vec<String> {
     chunk_answer(&build_degraded_answer(user_message, snapshot, reason))
+}
+
+fn memory_hits_grouped_by_session(hits: &[MemoryHit]) -> Vec<(String, Vec<MemoryHit>)> {
+    let mut grouped_hits: Vec<(String, Vec<MemoryHit>)> = Vec::new();
+    for hit in hits.iter() {
+        if let Some((_, items)) = grouped_hits
+            .iter_mut()
+            .find(|(session_id, _)| session_id == &hit.session_id)
+        {
+            items.push(hit.clone());
+            continue;
+        }
+        grouped_hits.push((hit.session_id.clone(), vec![hit.clone()]));
+    }
+    grouped_hits
+}
+
+fn snapshot_for_memory_batch(
+    snapshot: &MemoryContextSnapshot,
+    grouped_hits: &[(String, Vec<MemoryHit>)],
+) -> MemoryContextSnapshot {
+    let hits = grouped_hits
+        .iter()
+        .flat_map(|(_, items)| items.iter().cloned())
+        .collect::<Vec<_>>();
+
+    MemoryContextSnapshot {
+        session: snapshot.session.clone(),
+        active_retrieval_context: render_memory_hit_context(&hits),
+        hits,
+    }
+}
+
+fn build_memory_merge_request(
+    request: &ChatRequest,
+    partial_answers: &[String],
+    request_id: &str,
+    session_id: &str,
+    auth_ctx: &AuthContext,
+    trace_id: &str,
+    deadline_ms: u64,
+) -> ProviderGenerateRequest {
+    const KODUCK_V1_LITE_PROMPT: &str =
+        include_str!("../../prompts/system/koduck-v1-lite.md");
+    const KODUCK_BASE_LANGUAGE_PROMPT: &str = "你是 koduck-ai 的中文助手。默认使用简体中文直接回答用户问题，保持准确、简洁、自然。不要输出思维链、推理过程、草稿、自我讨论或任何 <think> 标签内容；只输出面向用户的最终答案。如果用户输入过于简短或语义不清，先用一句中文澄清，不要臆测事实。";
+
+    let system_content = format!(
+        "{}\n\n{}\n\n你将收到同一用户问题在不同历史 session 批次上的多轮候选答案。请合并这些候选答案，去掉重复内容，保留彼此补充的信息，输出一份自然、简洁、无重复的最终中文回答。",
+        KODUCK_V1_LITE_PROMPT.trim(),
+        KODUCK_BASE_LANGUAGE_PROMPT
+    );
+
+    let partials = partial_answers
+        .iter()
+        .enumerate()
+        .map(|(index, answer)| format!("第{}轮结果:\n{}", index + 1, answer.trim()))
+        .collect::<Vec<_>>()
+        .join("\n\n");
+
+    ProviderGenerateRequest {
+        meta: RequestContext {
+            request_id: request_id.to_string(),
+            session_id: session_id.to_string(),
+            user_id: auth_ctx.user_id.clone(),
+            trace_id: trace_id.to_string(),
+            deadline_ms,
+        },
+        provider: request.provider.clone().unwrap_or_default(),
+        model: request.model.clone().unwrap_or_default(),
+        messages: vec![
+            ProviderChatMessage {
+                role: "system".to_string(),
+                content: system_content,
+                name: String::new(),
+                metadata: HashMap::new(),
+            },
+            ProviderChatMessage {
+                role: "user".to_string(),
+                content: format!(
+                    "原始用户问题：\n{}\n\n以下是基于不同历史 session 批次生成的候选结果，请合并并去重：\n\n{}",
+                    request.message.trim(),
+                    partials
+                ),
+                name: String::new(),
+                metadata: HashMap::new(),
+            },
+        ],
+        temperature: request.temperature.unwrap_or(0.2),
+        top_p: 1.0,
+        max_tokens: request.max_tokens.unwrap_or(2048),
+        tools: vec![],
+        response_format: String::new(),
+    }
 }
 
 fn build_memory_prompt(
@@ -1500,42 +1422,23 @@ fn render_memory_hit_context(hits: &[MemoryHit]) -> Option<String> {
         return None;
     }
 
-    let mut grouped_hits: Vec<(String, Vec<&MemoryHit>)> = Vec::new();
-    for hit in hits.iter().take(MEMORY_QUERY_TOP_K as usize) {
-        if let Some((_, items)) = grouped_hits
-            .iter_mut()
-            .find(|(session_id, _)| session_id == &hit.session_id)
-        {
-            items.push(hit);
-            continue;
-        }
-        grouped_hits.push((hit.session_id.clone(), vec![hit]));
-    }
+    let grouped_hits = memory_hits_grouped_by_session(hits);
 
     let session_blocks = grouped_hits
         .iter()
+        .take(MEMORY_QUERY_TOP_K as usize)
         .enumerate()
-        .map(|(index, (session_id, hits))| {
+        .map(|(index, (_, hits))| {
             let snippets = hits
                 .iter()
                 .enumerate()
                 .map(|(snippet_index, hit)| {
-                    format!(
-                        "  {}. reasons=[{}] snippet={}",
-                        snippet_index + 1,
-                        hit.match_reasons.join(","),
-                        hit.snippet
-                    )
+                    format!("  {}. {}", snippet_index + 1, normalize_memory_snippet(&hit.snippet))
                 })
                 .collect::<Vec<_>>()
                 .join("\n");
 
-            format!(
-                "{}. source_session={}\n{}",
-                index + 1,
-                session_id,
-                snippets
-            )
+            format!("{}. 历史内容\n{}", index + 1, snippets)
         })
         .collect::<Vec<_>>()
         .join("\n");
@@ -1563,6 +1466,26 @@ fn build_memory_tool_definition() -> ProviderToolDefinition {
                     "enum": ["recall", "compare", "disambiguate", "correct", "explain", "decide", "none"],
                     "description": "本次记忆检索的主意图。必须显式给出，禁止省略。"
                 },
+                "ner": {
+                    "type": "array",
+                    "description": "必须显式给出识别到的人物实体列表；没有明确人物名时返回空数组。每个实体都要包含 text 和 type，且 type 只能是 person。",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "text": {
+                                "type": "string",
+                                "description": "识别到的人物实体文本，例如 鲁迅、周树人、高斯、牛顿。"
+                            },
+                            "type": {
+                                "type": "string",
+                                "enum": ["person"],
+                                "description": "NER 类型，当前只允许 person。"
+                            }
+                        },
+                        "required": ["text", "type"],
+                        "additionalProperties": false
+                    }
+                },
                 "memory_scope": {
                     "type": "string",
                     "enum": ["global", "current_session"],
@@ -1573,7 +1496,7 @@ fn build_memory_tool_definition() -> ProviderToolDefinition {
                     "description": "可选；当你非常确定某个 domain 更适合缩小检索范围时传入，例如 literature、history、food。"
                 }
             },
-            "required": ["query", "intent"],
+            "required": ["query", "intent", "ner"],
             "additionalProperties": false
         })
         .to_string(),
@@ -1581,7 +1504,7 @@ fn build_memory_tool_definition() -> ProviderToolDefinition {
 }
 
 fn build_memory_tool_instruction() -> &'static str {
-    "当用户询问“之前聊过什么 / 之前有没有聊过某个主题、人物、偏好、事实 / 具体聊到了哪些方面 / 回忆一下之前内容”时，优先调用 query_memory 工具；并且在工具参数中显式填写 intent。不要在没有调用工具的情况下臆测历史记录。"
+    "当用户询问“之前聊过什么 / 之前有没有聊过某个人物 / 具体聊到了哪些方面 / 回忆一下之前内容”时，优先调用 query_memory 工具。工具参数里必须显式填写 intent，并且必须返回 ner 数组。当前 ner 只允许 person：只有当你识别到了明确人物名时，才在 ner 中逐项给出 {text, type:\"person\"}；如果没有明确人物名，必须返回空数组。不要把主题词、抽象概念、类别词放进 ner。不要在没有调用工具的情况下臆测历史记录。"
 }
 
 fn parse_query_memory_tool_args(raw: &str) -> QueryMemoryToolArgs {
@@ -1604,6 +1527,73 @@ fn parse_query_intent(intent: Option<&str>) -> QueryIntent {
     }
 }
 
+fn normalize_query_memory_ner(ner_items: &[QueryMemoryToolNer]) -> Vec<(String, String)> {
+    let mut normalized = Vec::new();
+    for item in ner_items {
+        let text = item.text.as_deref().map(str::trim).unwrap_or_default();
+        if text.is_empty() {
+            continue;
+        }
+        let entity_type = item
+            .entity_type
+            .as_deref()
+            .map(str::trim)
+            .filter(|value| value.eq_ignore_ascii_case("person"))
+            .unwrap_or_default();
+        if entity_type.is_empty() {
+            continue;
+        }
+        if normalized.iter().any(|(existing_text, existing_type)| {
+            existing_text == text && existing_type == entity_type
+        }) {
+            continue;
+        }
+        normalized.push((text.to_string(), entity_type.to_string()));
+    }
+    normalized
+}
+
+async fn memory_hits_from_session_transcripts(
+    state: &Arc<AppState>,
+    route: DegradeRoute,
+    ctx: &MemoryRpcContext,
+    session_ids: Vec<String>,
+    reason: &str,
+) -> Vec<MemoryHit> {
+    let mut hits = Vec::with_capacity(session_ids.len());
+
+    for session_id in session_ids {
+        let snippet = memory::get_session_transcript(state, ctx, session_id.clone())
+            .await
+            .unwrap_or_else(|err| {
+                log_memory_failure(
+                    state,
+                    route,
+                    MemoryOperation::QueryMemory,
+                    ctx,
+                    &err,
+                    true,
+                    "get_session_transcript tool call failed; using session_id-only hit",
+                );
+                String::new()
+            });
+
+        hits.push(MemoryHit {
+            session_id,
+            l0_uri: String::new(),
+            score: 1.0,
+            match_reasons: vec![reason.to_string()],
+            snippet: if snippet.trim().is_empty() {
+                reason.to_string()
+            } else {
+                snippet
+            },
+        });
+    }
+
+    hits
+}
+
 async fn execute_memory_tool_call(
     state: &Arc<AppState>,
     route: DegradeRoute,
@@ -1621,77 +1611,102 @@ async fn execute_memory_tool_call(
         tool_arguments = %tool_call.arguments,
         "llm tool call resolved to memory query"
     );
-    let query_text = args
-        .query
-        .as_deref()
-        .map(build_memory_query_text)
-        .filter(|value| !value.trim().is_empty())
-        .unwrap_or_else(|| build_memory_query_text(&request.message));
+    let normalized_ner = normalize_query_memory_ner(&args.ner);
+    let tool_query_intent = parse_query_intent(args.intent.as_deref());
     let request_metadata_memory_scope = request
         .metadata
         .as_ref()
         .and_then(|metadata| metadata.get("memory_scope"))
         .and_then(|value| value.as_str())
         .map(|value| value.trim().to_string());
-    let session_scope = match args.memory_scope.as_deref() {
-        Some("current_session") => Some(ctx.session_id.clone()),
-        _ => memory_query_session_scope(request, ctx),
-    };
-    let resolved_query_session_scope = session_scope.clone();
-    let requested_domain_class = args.domain_class.clone();
-    let domain_class = requested_domain_class
-        .as_ref()
-        .filter(|value| !value.trim().is_empty())
-        .cloned()
-        .unwrap_or_else(|| metadata_string(request, "domain_class"));
-    let query_intent = parse_query_intent(args.intent.as_deref());
+    let ner_summary = normalized_ner
+        .iter()
+        .map(|(text, entity_type)| format!("{text}:{entity_type}"))
+        .collect::<Vec<_>>()
+        .join(",");
     info!(
         request_id = %ctx.request_id,
         session_id = %ctx.session_id,
         tool_name = %tool_call.name,
-        query_intent = ?query_intent,
+        tool_query_intent = ?tool_query_intent,
+        ner_count = normalized_ner.len(),
+        ner = %ner_summary,
         tool_memory_scope = %args.memory_scope.as_deref().unwrap_or("global"),
         request_metadata_memory_scope = %request_metadata_memory_scope.as_deref().unwrap_or(""),
-        resolved_query_session_scope = %resolved_query_session_scope.as_deref().unwrap_or(""),
         "memory tool call request resolved"
     );
 
-    let hits = memory::query_memory(
-        state,
-        ctx,
-        QueryMemoryInput {
-            query_text,
-            session_id: session_scope,
-            domain_class,
-            query_intent,
-            retrieve_policy: retrieve_policy_from_request(request),
-            top_k: MEMORY_QUERY_TOP_K,
-            page_size: MEMORY_QUERY_PAGE_SIZE,
-        },
-    )
-    .await
-    .unwrap_or_else(|err| {
-        log_memory_failure(
-            state,
-            route,
-            MemoryOperation::QueryMemory,
-            ctx,
-            &err,
-            true,
-            "query_memory tool call failed; continuing without retrieved memory hits",
-        );
-        Vec::new()
-    });
+    let hits = match tool_query_intent {
+        QueryIntent::Recall => {
+            let mut merged_session_ids = Vec::new();
+
+            if !normalized_ner.is_empty() {
+                for (_, entity_type) in &normalized_ner {
+                    match memory::get_session_ids_by_ner(state, ctx, entity_type.clone()).await {
+                        Ok(session_ids) => merged_session_ids.extend(session_ids),
+                        Err(err) => {
+                            log_memory_failure(
+                                state,
+                                route,
+                                MemoryOperation::QueryMemory,
+                                ctx,
+                                &err,
+                                true,
+                                "get_session_ids_by_ner tool call failed; continuing with partial recalled sessions",
+                            );
+                        }
+                    }
+                }
+            } else {
+                merged_session_ids = memory::get_all_session_ids(state, ctx)
+                    .await
+                    .unwrap_or_else(|err| {
+                        log_memory_failure(
+                            state,
+                            route,
+                            MemoryOperation::QueryMemory,
+                            ctx,
+                            &err,
+                            true,
+                            "get_all_session_ids tool call failed; continuing without recalled sessions",
+                        );
+                        Vec::new()
+                    });
+            }
+
+            let mut seen = std::collections::HashSet::new();
+            let deduped = merged_session_ids
+                .into_iter()
+                .filter(|session_id| seen.insert(session_id.clone()))
+                .collect::<Vec<_>>();
+            info!(
+                request_id = %ctx.request_id,
+                session_id = %ctx.session_id,
+                tool_name = %tool_call.name,
+                transcript_session_ids = ?deduped,
+                "memory recall loading transcripts for merged session ids"
+            );
+            memory_hits_from_session_transcripts(
+                state,
+                route,
+                ctx,
+                deduped,
+                "merged_session_ids",
+            )
+            .await
+        }
+        _ => Vec::new(),
+    };
     info!(
         request_id = %ctx.request_id,
         session_id = %ctx.session_id,
         tool_name = %tool_call.name,
         hits_count = snapshot_hits_count(&hits),
-        query_intent = ?query_intent,
+        tool_query_intent = ?tool_query_intent,
+        ner_count = normalized_ner.len(),
+        ner = %ner_summary,
         tool_memory_scope = %args.memory_scope.as_deref().unwrap_or("global"),
         request_metadata_memory_scope = %request_metadata_memory_scope.as_deref().unwrap_or(""),
-        resolved_query_session_scope = %resolved_query_session_scope.as_deref().unwrap_or(""),
-        domain_class = %requested_domain_class.as_deref().unwrap_or(""),
         "memory tool call completed"
     );
 
@@ -1745,6 +1760,23 @@ fn snapshot_hits_count(hits: &[MemoryHit]) -> usize {
     hits.len()
 }
 
+fn log_llm_request_prompt(phase: &str, request_id: &str, session_id: &str, llm_request: &ProviderGenerateRequest) {
+    let prompt = serde_json::to_string(&llm_request.messages)
+        .unwrap_or_else(|_| "<failed to serialize llm prompt>".to_string());
+    let tool_names: Vec<&str> = llm_request.tools.iter().map(|tool| tool.name.as_str()).collect();
+
+    info!(
+        request_id = %request_id,
+        session_id = %session_id,
+        phase = %phase,
+        model = %llm_request.model,
+        deadline_ms = llm_request.meta.deadline_ms,
+        tools = ?tool_names,
+        prompt = %prompt,
+        "llm request prompt prepared"
+    );
+}
+
 async fn resolve_memory_tool_call(
     state: &Arc<AppState>,
     route: DegradeRoute,
@@ -1755,9 +1787,11 @@ async fn resolve_memory_tool_call(
     auth_ctx: &AuthContext,
     trace_id: &str,
 ) -> Result<ToolResolutionResult, AppError> {
+    // Tool selection should use only the base chat history plus the current
+    // user message. Memory prompts must not be injected at this stage.
     let llm_request = build_provider_generate_request(
         request,
-        Some(base_snapshot),
+        None,
         request_id,
         session_id,
         auth_ctx,
@@ -1765,6 +1799,7 @@ async fn resolve_memory_tool_call(
         state.config.llm.timeout_ms,
         vec![build_memory_tool_definition()],
     );
+    log_llm_request_prompt("tool_selection", request_id, session_id, &llm_request);
     let selection = state.llm_provider.generate(llm_request).await?;
     info!(
         request_id = %request_id,
@@ -2036,22 +2071,83 @@ async fn call_llm_generate(
         });
     }
 
-    let policy = Arc::clone(&state.retry_budget_policy);
-    let session = policy.begin_session();
-    let mut attempt_index = 0;
-    let body = loop {
-        let deadline_ms =
-            match policy.next_attempt_deadline_ms(&session, state.config.llm.timeout_ms) {
-            Some(deadline_ms) => deadline_ms,
-            None => {
-                return Err(
-                    AppError::new(ErrorCode::UpstreamUnavailable, "retry timeout budget exhausted")
-                        .with_request_id(request_id.to_string())
-                        .with_upstream(UpstreamService::Llm)
-                        .with_retryable(false),
-                )
+    let body = if is_memory_recall_query(&request.message) {
+        let grouped_hits = memory_hits_grouped_by_session(&tool_resolution.snapshot.hits);
+        if grouped_hits.len() > MEMORY_SESSION_BATCH_SIZE {
+            let mut partial_answers = Vec::new();
+            let mut merged_usage = TokenUsage {
+                prompt_tokens: 0,
+                completion_tokens: 0,
+                total_tokens: 0,
+            };
+
+            for (batch_index, chunk) in grouped_hits.chunks(MEMORY_SESSION_BATCH_SIZE).enumerate() {
+                let batch_snapshot = snapshot_for_memory_batch(&tool_resolution.snapshot, chunk);
+                let llm_request = build_provider_generate_request(
+                    request,
+                    Some(&batch_snapshot),
+                    request_id,
+                    session_id,
+                    auth_ctx,
+                    trace_id,
+                    state.config.llm.timeout_ms,
+                    vec![],
+                );
+                log_llm_request_prompt(
+                    &format!("chat_generate_batch_{}", batch_index + 1),
+                    request_id,
+                    session_id,
+                    &llm_request,
+                );
+                let batch_body = generate_with_retry(state, request_id, llm_request).await?;
+                partial_answers.push(batch_body.message.content.clone());
+                if let Some(usage) = batch_body.usage.as_ref() {
+                    merged_usage.prompt_tokens += usage.prompt_tokens;
+                    merged_usage.completion_tokens += usage.completion_tokens;
+                    merged_usage.total_tokens += usage.total_tokens;
+                }
             }
-        };
+
+            let merge_request = build_memory_merge_request(
+                request,
+                &partial_answers,
+                request_id,
+                session_id,
+                auth_ctx,
+                trace_id,
+                state.config.llm.timeout_ms,
+            );
+            log_llm_request_prompt("chat_generate_merge", request_id, session_id, &merge_request);
+            let merge_body = generate_with_retry(state, request_id, merge_request).await?;
+            if let Some(usage) = merge_body.usage.as_ref() {
+                merged_usage.prompt_tokens += usage.prompt_tokens;
+                merged_usage.completion_tokens += usage.completion_tokens;
+                merged_usage.total_tokens += usage.total_tokens;
+            }
+
+            return Ok(ChatResponse {
+                request_id: request_id.to_string(),
+                session_id: session_id.to_string(),
+                answer: merge_body.message.content.clone(),
+                model: merge_body.model,
+                usage: merged_usage,
+                degraded: false,
+            });
+        } else {
+            let llm_request = build_provider_generate_request(
+                request,
+                Some(&tool_resolution.snapshot),
+                request_id,
+                session_id,
+                auth_ctx,
+                trace_id,
+                state.config.llm.timeout_ms,
+                vec![],
+            );
+            log_llm_request_prompt("chat_generate", request_id, session_id, &llm_request);
+            generate_with_retry(state, request_id, llm_request).await?
+        }
+    } else {
         let llm_request = build_provider_generate_request(
             request,
             Some(&tool_resolution.snapshot),
@@ -2059,22 +2155,11 @@ async fn call_llm_generate(
             session_id,
             auth_ctx,
             trace_id,
-            deadline_ms,
+            state.config.llm.timeout_ms,
             vec![],
         );
-        match state.llm_provider.generate(llm_request).await {
-            Ok(body) => break body,
-            Err(err) => match policy.should_retry(&session, attempt_index, err) {
-                RetryDirective::RetryAfter { delay, err } => {
-                    policy.log_retry(request_id, attempt_index, delay, &err);
-                    tokio::time::sleep(delay).await;
-                    attempt_index += 1;
-                }
-                RetryDirective::Exhausted(err) | RetryDirective::DoNotRetry(err) => {
-                    return Err(err);
-                }
-            },
-        }
+        log_llm_request_prompt("chat_generate", request_id, session_id, &llm_request);
+        generate_with_retry(state, request_id, llm_request).await?
     };
 
     let answer = body
@@ -2121,23 +2206,52 @@ async fn call_llm_stream(
         return Ok(StreamLlmPlan::ReadyAnswer(body.message.content));
     }
 
+    if is_memory_recall_query(&request.message) {
+        let grouped_hits = memory_hits_grouped_by_session(&tool_resolution.snapshot.hits);
+        if grouped_hits.len() > MEMORY_SESSION_BATCH_SIZE {
+            let mut partial_answers = Vec::new();
+            for (batch_index, chunk) in grouped_hits.chunks(MEMORY_SESSION_BATCH_SIZE).enumerate() {
+                let batch_snapshot = snapshot_for_memory_batch(&tool_resolution.snapshot, chunk);
+                let llm_request = build_provider_generate_request(
+                    request,
+                    Some(&batch_snapshot),
+                    request_id,
+                    session_id,
+                    auth_ctx,
+                    trace_id,
+                    state.config.llm.timeout_ms,
+                    vec![],
+                );
+                log_llm_request_prompt(
+                    &format!("chat_stream_generate_batch_{}", batch_index + 1),
+                    request_id,
+                    session_id,
+                    &llm_request,
+                );
+                let batch_body = generate_with_retry(state, request_id, llm_request).await?;
+                partial_answers.push(batch_body.message.content);
+            }
+
+            let merge_request = build_memory_merge_request(
+                request,
+                &partial_answers,
+                request_id,
+                session_id,
+                auth_ctx,
+                trace_id,
+                state.config.llm.timeout_ms,
+            );
+            log_llm_request_prompt("chat_stream_generate_merge", request_id, session_id, &merge_request);
+            let merge_body = generate_with_retry(state, request_id, merge_request).await?;
+            return Ok(StreamLlmPlan::ReadyAnswer(merge_body.message.content));
+        }
+    }
+
     let policy = Arc::clone(&state.retry_budget_policy);
     let session = policy.begin_session();
     let mut attempt_index = 0;
 
     loop {
-        let deadline_ms =
-            match policy.next_attempt_deadline_ms(&session, state.config.llm.timeout_ms) {
-            Some(deadline_ms) => deadline_ms,
-            None => {
-                return Err(
-                    AppError::new(ErrorCode::UpstreamUnavailable, "retry timeout budget exhausted")
-                        .with_request_id(request_id.to_string())
-                        .with_upstream(UpstreamService::Llm)
-                        .with_retryable(false),
-                )
-            }
-        };
         let llm_request = build_provider_generate_request(
             request,
             Some(&tool_resolution.snapshot),
@@ -2145,12 +2259,27 @@ async fn call_llm_stream(
             session_id,
             auth_ctx,
             trace_id,
-            deadline_ms,
+            state.config.llm.timeout_ms,
             vec![],
         );
+        log_llm_request_prompt("chat_stream_generate", request_id, session_id, &llm_request);
         match state.llm_provider.stream_generate(llm_request).await {
             Ok(stream) => return Ok(StreamLlmPlan::Upstream(stream)),
-            Err(err) => match policy.should_retry(&session, attempt_index, err) {
+            Err(err) => {
+                let upstream_source = err.source.as_ref().map(|source| source.to_string());
+                warn!(
+                    request_id = %request_id,
+                    session_id = %session_id,
+                    phase = "chat_stream_generate",
+                    error.code = %err.code,
+                    error.message = %err.message,
+                    error.retryable = err.retryable,
+                    error.upstream = ?err.upstream,
+                    error.retry_after_ms = ?err.retry_after_ms,
+                    error.source = ?upstream_source,
+                    "llm stream_generate request failed"
+                );
+                match policy.should_retry(&session, attempt_index, err) {
                 RetryDirective::RetryAfter { delay, err } => {
                     policy.log_retry(request_id, attempt_index, delay, &err);
                     tokio::time::sleep(delay).await;
@@ -2159,7 +2288,50 @@ async fn call_llm_stream(
                 RetryDirective::Exhausted(err) | RetryDirective::DoNotRetry(err) => {
                     return Err(err);
                 }
-            },
+                }
+            }
+        }
+    }
+}
+
+async fn generate_with_retry(
+    state: &Arc<AppState>,
+    request_id: &str,
+    llm_request: ProviderGenerateRequest,
+) -> Result<crate::llm::GenerateResponse, AppError> {
+    let policy = Arc::clone(&state.retry_budget_policy);
+    let session = policy.begin_session();
+    let mut attempt_index = 0;
+    let request_template = llm_request;
+
+    loop {
+        match state.llm_provider.generate(request_template.clone()).await {
+            Ok(body) => return Ok(body),
+            Err(err) => {
+                let upstream_source = err.source.as_ref().map(|source| source.to_string());
+                warn!(
+                    request_id = %request_id,
+                    session_id = %request_template.meta.session_id,
+                    phase = "chat_generate",
+                    error.code = %err.code,
+                    error.message = %err.message,
+                    error.retryable = err.retryable,
+                    error.upstream = ?err.upstream,
+                    error.retry_after_ms = ?err.retry_after_ms,
+                    error.source = ?upstream_source,
+                    "llm generate request failed"
+                );
+                match policy.should_retry(&session, attempt_index, err) {
+                RetryDirective::RetryAfter { delay, err } => {
+                    policy.log_retry(request_id, attempt_index, delay, &err);
+                    tokio::time::sleep(delay).await;
+                    attempt_index += 1;
+                }
+                RetryDirective::Exhausted(err) | RetryDirective::DoNotRetry(err) => {
+                    return Err(err);
+                }
+                }
+            }
         }
     }
 }
@@ -2227,7 +2399,7 @@ fn build_provider_generate_request(
             trace_id: trace_id.to_string(),
             deadline_ms,
         },
-        provider: String::new(),
+        provider: request.provider.clone().unwrap_or_default(),
         model: request.model.clone().unwrap_or_default(),
         messages,
         temperature: request.temperature.unwrap_or(0.2),

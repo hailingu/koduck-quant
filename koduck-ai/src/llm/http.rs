@@ -98,11 +98,9 @@ impl LlmHttpClient {
         options: &JsonRequestOptions,
         body: Option<&T>,
     ) -> Result<Request, AppError> {
-        let timeout = Duration::from_millis(options.deadline_ms.max(1));
         let mut builder = self
             .inner
             .request(method, &options.url)
-            .timeout(timeout)
             .header(CONTENT_TYPE, HeaderValue::from_static("application/json"))
             .header(ACCEPT, HeaderValue::from_static(options.accept))
             .header(X_REQUEST_ID, header_value(&options.request_id)?);

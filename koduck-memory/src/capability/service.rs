@@ -5,29 +5,37 @@ use std::time::Instant;
 use tonic::{Request, Response, Status};
 
 use crate::api::{
-    AppendMemoryRequest, AppendMemoryResponse, Capability, ErrorDetail, GetSessionRequest,
-    GetSessionResponse, MemoryService, QueryMemoryRequest, QueryMemoryResponse,
-    RequestMeta, SummarizeMemoryRequest, SummarizeMemoryResponse, UpsertSessionMetaRequest,
+    AppendMemoryRequest, AppendMemoryResponse, Capability, ErrorDetail, GetAllSessionIdsRequest,
+    GetCategoryCatalogRequest, GetCategoryCatalogResponse, GetSessionRequest,
+    GetSessionIdsByDomainClassRequest, GetSessionIdsByIntentTypeRequest,
+    GetSessionIdsByNerRequest, GetSessionIdsLookupResponse, GetSessionResponse,
+    GetSessionTranscriptRequest, GetSessionTranscriptResponse, MemoryService,
+    QueryMemoryRequest, QueryMemoryResponse, RequestMeta, SessionTranscriptEntry,
+    SummarizeMemoryRequest, SummarizeMemoryResponse, UpsertSessionMetaRequest,
     UpsertSessionMetaResponse,
 };
 use crate::api::proto::memory::QueryIntent;
 use crate::config::AppConfig;
+use crate::facts::MemoryFactRepository;
 use crate::index::MemoryIndexRepository;
 use crate::memory::{
     metadata_to_jsonb, IdempotencyRepository, InsertMemoryEntry, MemoryEntryRepository,
 };
+use crate::memory_anchor::{MemoryUnitAnchorRepository, MemoryUnitAnchorType};
 use crate::memory_unit::{AppendedEntryUnit, MemoryUnitMaterializer};
 use crate::observe::{record_rpc_call, RpcMethod, RpcOutcome};
 use crate::observe::RpcGuard;
 use crate::observe::RpcMetrics;
 use crate::retrieve::{
     AnchorFirstRetriever,
+    DiscourseAction,
     QueryAnalysis,
     QueryAnalyzer,
     QueryIntentType,
     RetrieveContext,
     SummaryFirstRetriever,
     match_reason,
+    map_intent_to_discourse_action,
 };
 use crate::summary::{SummaryJob, SummaryTaskRunner};
 use crate::session::{
@@ -76,6 +84,14 @@ impl MemoryGrpcService {
         MemoryIndexRepository::new(self.runtime.pool())
     }
 
+    fn fact_repo(&self) -> MemoryFactRepository {
+        MemoryFactRepository::new(self.runtime.pool())
+    }
+
+    fn anchor_repo(&self) -> MemoryUnitAnchorRepository {
+        MemoryUnitAnchorRepository::new(self.runtime.pool())
+    }
+
     fn idempotency_repo(&self) -> IdempotencyRepository {
         IdempotencyRepository::new(self.runtime.pool())
     }
@@ -83,6 +99,8 @@ impl MemoryGrpcService {
     fn capability_response(&self) -> Capability {
         let mut features = HashMap::new();
         features.insert("session_meta".to_string(), "true".to_string());
+        features.insert("category_catalog".to_string(), "true".to_string());
+        features.insert("session_transcript".to_string(), "true".to_string());
         features.insert("query_memory".to_string(), "true".to_string());
         features.insert("append_memory".to_string(), "true".to_string());
         features.insert("summary".to_string(), "true".to_string());
@@ -218,6 +236,19 @@ impl MemoryGrpcService {
         }
     }
 
+    fn parse_intent_type(value: &str) -> Option<QueryIntentType> {
+        match value.trim().to_lowercase().as_str() {
+            "recall" => Some(QueryIntentType::Recall),
+            "compare" => Some(QueryIntentType::Compare),
+            "disambiguate" => Some(QueryIntentType::Disambiguate),
+            "correct" => Some(QueryIntentType::Correct),
+            "explain" => Some(QueryIntentType::Explain),
+            "decide" => Some(QueryIntentType::Decide),
+            "none" => Some(QueryIntentType::None),
+            _ => None,
+        }
+    }
+
     async fn retrieve_global_session_summaries(
         &self,
         tenant_id: &str,
@@ -256,6 +287,44 @@ impl MemoryService for MemoryGrpcService {
     ) -> Result<Response<Capability>, Status> {
         Self::validate_meta(request.get_ref())?;
         Ok(Response::new(self.capability_response()))
+    }
+
+    async fn get_category_catalog(
+        &self,
+        request: Request<GetCategoryCatalogRequest>,
+    ) -> Result<Response<GetCategoryCatalogResponse>, Status> {
+        let req = request.get_ref();
+        let meta = req
+            .meta
+            .as_ref()
+            .ok_or_else(|| Status::invalid_argument("meta is required"))?;
+        Self::validate_meta(meta)?;
+
+        Ok(Response::new(GetCategoryCatalogResponse {
+            ok: true,
+            domain_categories: crate::retrieve::domain_class::ALL
+                .iter()
+                .map(|value| value.to_string())
+                .collect(),
+            ner_categories: vec![
+                "person".to_string(),
+                "preference".to_string(),
+                "constraint".to_string(),
+                "task_context".to_string(),
+                "session_focus".to_string(),
+                "fact".to_string(),
+            ],
+            intent_categories: vec![
+                QueryIntentType::Recall.as_str().to_string(),
+                QueryIntentType::Compare.as_str().to_string(),
+                QueryIntentType::Disambiguate.as_str().to_string(),
+                QueryIntentType::Correct.as_str().to_string(),
+                QueryIntentType::Explain.as_str().to_string(),
+                QueryIntentType::Decide.as_str().to_string(),
+                QueryIntentType::None.as_str().to_string(),
+            ],
+            error: None,
+        }))
     }
 
     async fn upsert_session_meta(
@@ -396,6 +465,343 @@ impl MemoryService for MemoryGrpcService {
         }
 
         result
+    }
+
+    async fn get_session_transcript(
+        &self,
+        request: Request<GetSessionTranscriptRequest>,
+    ) -> Result<Response<GetSessionTranscriptResponse>, Status> {
+        let started_at = Instant::now();
+        let mut guard = RpcGuard::new(&self.rpc_metrics, "get_session_transcript");
+        let req = request.get_ref();
+        let meta = req
+            .meta
+            .as_ref()
+            .ok_or_else(|| { guard.error(); Status::invalid_argument("meta is required") })?;
+        Self::validate_meta(meta).map_err(|e| { guard.error(); e })?;
+
+        let session_id = parse_uuid(&req.session_id).map_err(|e| {
+            guard.error();
+            Status::invalid_argument(format!("invalid session_id: {e}"))
+        })?;
+
+        let session_exists = self
+            .session_repo()
+            .get_by_id(&meta.tenant_id, session_id)
+            .await
+            .map_err(|e| {
+                guard.error();
+                Status::internal(format!("failed to get session: {e}"))
+            })?;
+
+        let result = match session_exists {
+            None => Ok(Response::new(GetSessionTranscriptResponse {
+                ok: false,
+                entries: Vec::new(),
+                transcript_text: String::new(),
+                error: Some(ErrorDetail {
+                    code: "RESOURCE_NOT_FOUND".to_string(),
+                    message: "session not found".to_string(),
+                    retryable: false,
+                    degraded: false,
+                    upstream: "koduck-memory".to_string(),
+                    retry_after_ms: 0,
+                }),
+            })),
+            Some(_) => {
+                let entries = self
+                    .entry_repo()
+                    .list_by_session_ordered(&meta.tenant_id, session_id)
+                    .await
+                    .map_err(|e| {
+                        guard.error();
+                        Status::internal(format!("failed to list session entries: {e}"))
+                    })?;
+
+                if entries.is_empty() {
+                    Ok(Response::new(GetSessionTranscriptResponse {
+                        ok: true,
+                        entries: Vec::new(),
+                        transcript_text: String::new(),
+                        error: None,
+                    }))
+                } else {
+                    let object_store = match &self.object_store {
+                        Some(store) => store,
+                        None => {
+                            return Ok(Response::new(GetSessionTranscriptResponse {
+                                ok: false,
+                                entries: Vec::new(),
+                                transcript_text: String::new(),
+                                error: Some(ErrorDetail {
+                                    code: "RAW_CONTENT_UNAVAILABLE".to_string(),
+                                    message: "object store is not configured for transcript replay"
+                                        .to_string(),
+                                    retryable: false,
+                                    degraded: true,
+                                    upstream: "koduck-memory".to_string(),
+                                    retry_after_ms: 0,
+                                }),
+                            }));
+                        }
+                    };
+
+                    let mut transcript_entries = Vec::with_capacity(entries.len());
+                    for entry in entries {
+                        if entry.l0_uri.starts_with("l0://pending/") {
+                            return Ok(Response::new(GetSessionTranscriptResponse {
+                                ok: false,
+                                entries: Vec::new(),
+                                transcript_text: String::new(),
+                                error: Some(ErrorDetail {
+                                    code: "RAW_CONTENT_UNAVAILABLE".to_string(),
+                                    message: "session raw content is not available in object store"
+                                        .to_string(),
+                                    retryable: false,
+                                    degraded: true,
+                                    upstream: "koduck-memory".to_string(),
+                                    retry_after_ms: 0,
+                                }),
+                            }));
+                        }
+
+                        let l0 = object_store.get_l0_entry(&entry.l0_uri).await.map_err(|e| {
+                            guard.error();
+                            Status::internal(format!("failed to load L0 entry: {e}"))
+                        })?;
+
+                        transcript_entries.push(SessionTranscriptEntry {
+                            entry_id: entry.id.to_string(),
+                            role: l0.role.clone(),
+                            content: l0.content.clone(),
+                            timestamp: l0.timestamp,
+                            sequence_num: entry.sequence_num,
+                            metadata: l0
+                                .metadata
+                                .as_ref()
+                                .and_then(|value| value.as_object())
+                                .map(|object| {
+                                    object
+                                        .iter()
+                                        .map(|(key, value)| {
+                                            let rendered = value.as_str().map_or_else(
+                                                || value.to_string(),
+                                                ToString::to_string,
+                                            );
+                                            (key.clone(), rendered)
+                                        })
+                                        .collect()
+                                })
+                                .unwrap_or_default(),
+                            l0_uri: entry.l0_uri,
+                        });
+                    }
+
+                    let transcript_text = transcript_entries
+                        .iter()
+                        .map(|entry| format!("{}: {}", entry.role, entry.content))
+                        .collect::<Vec<_>>()
+                        .join("\n");
+
+                    Ok(Response::new(GetSessionTranscriptResponse {
+                        ok: true,
+                        entries: transcript_entries,
+                        transcript_text,
+                        error: None,
+                    }))
+                }
+            }
+        };
+
+        let elapsed = started_at.elapsed();
+        let duration_ms = elapsed.as_millis() as u64;
+        match &result {
+            Ok(response) if response.get_ref().ok => {
+                record_rpc_call(RpcMethod::GetSessionTranscript, RpcOutcome::Success, elapsed);
+                let detail = format!(
+                    "entries_count={}",
+                    response.get_ref().entries.len()
+                );
+                Self::log_rpc_completion(
+                    "GetSessionTranscript",
+                    &meta.request_id,
+                    &req.session_id,
+                    &meta.tenant_id,
+                    &meta.trace_id,
+                    "success",
+                    duration_ms,
+                    &detail,
+                );
+            }
+            Ok(response) => {
+                let error_code = response
+                    .get_ref()
+                    .error
+                    .as_ref()
+                    .map(|error| error.code.as_str())
+                    .unwrap_or("UNKNOWN");
+                let outcome = if error_code == "RESOURCE_NOT_FOUND" {
+                    RpcOutcome::NotFound
+                } else {
+                    RpcOutcome::Error
+                };
+                record_rpc_call(RpcMethod::GetSessionTranscript, outcome, elapsed);
+                let detail = format!("error_code={error_code}");
+                Self::log_rpc_completion(
+                    "GetSessionTranscript",
+                    &meta.request_id,
+                    &req.session_id,
+                    &meta.tenant_id,
+                    &meta.trace_id,
+                    if error_code == "RESOURCE_NOT_FOUND" {
+                        "not_found"
+                    } else {
+                        "error"
+                    },
+                    duration_ms,
+                    &detail,
+                );
+            }
+            Err(status) => {
+                record_rpc_call(RpcMethod::GetSessionTranscript, RpcOutcome::Error, elapsed);
+                Self::log_rpc_failure(
+                    "GetSessionTranscript",
+                    &meta.request_id,
+                    &req.session_id,
+                    &meta.tenant_id,
+                    &meta.trace_id,
+                    duration_ms,
+                    status,
+                );
+            }
+        }
+
+        result
+    }
+
+    async fn get_all_session_ids(
+        &self,
+        request: Request<GetAllSessionIdsRequest>,
+    ) -> Result<Response<GetSessionIdsLookupResponse>, Status> {
+        let req = request.get_ref();
+        let meta = req
+            .meta
+            .as_ref()
+            .ok_or_else(|| Status::invalid_argument("meta is required"))?;
+        Self::validate_meta(meta)?;
+
+        let session_ids = self
+            .session_repo()
+            .list_all_session_ids(&meta.tenant_id, MAX_PAGE_SIZE as i64)
+            .await
+            .map_err(|e| Status::internal(format!("failed to list all session ids: {e}")))?;
+
+        Ok(Response::new(GetSessionIdsLookupResponse {
+            ok: true,
+            session_ids: session_ids.into_iter().map(|id| id.to_string()).collect(),
+            error: None,
+        }))
+    }
+
+    async fn get_session_ids_by_domain_class(
+        &self,
+        request: Request<GetSessionIdsByDomainClassRequest>,
+    ) -> Result<Response<GetSessionIdsLookupResponse>, Status> {
+        let req = request.get_ref();
+        let meta = req
+            .meta
+            .as_ref()
+            .ok_or_else(|| Status::invalid_argument("meta is required"))?;
+        Self::validate_meta(meta)?;
+
+        let domain_class = req.domain_class.trim();
+        if domain_class.is_empty() {
+            return Err(Status::invalid_argument("domain_class is required"));
+        }
+
+        let session_ids = self
+            .anchor_repo()
+            .list_session_ids_by_anchor(
+                &meta.tenant_id,
+                MemoryUnitAnchorType::Domain,
+                domain_class,
+                MAX_PAGE_SIZE as i64,
+            )
+            .await
+            .map_err(|e| Status::internal(format!("failed to list session ids by domain_class: {e}")))?;
+
+        Ok(Response::new(GetSessionIdsLookupResponse {
+            ok: true,
+            session_ids: session_ids.into_iter().map(|id| id.to_string()).collect(),
+            error: None,
+        }))
+    }
+
+    async fn get_session_ids_by_ner(
+        &self,
+        request: Request<GetSessionIdsByNerRequest>,
+    ) -> Result<Response<GetSessionIdsLookupResponse>, Status> {
+        let req = request.get_ref();
+        let meta = req
+            .meta
+            .as_ref()
+            .ok_or_else(|| Status::invalid_argument("meta is required"))?;
+        Self::validate_meta(meta)?;
+
+        let ner = req.ner.trim();
+        if ner.is_empty() {
+            return Err(Status::invalid_argument("ner is required"));
+        }
+
+        let session_ids = self
+            .fact_repo()
+            .list_session_ids_by_ner(&meta.tenant_id, ner, MAX_PAGE_SIZE as i64)
+            .await
+            .map_err(|e| Status::internal(format!("failed to list session ids by ner: {e}")))?;
+
+        Ok(Response::new(GetSessionIdsLookupResponse {
+            ok: true,
+            session_ids: session_ids.into_iter().map(|id| id.to_string()).collect(),
+            error: None,
+        }))
+    }
+
+    async fn get_session_ids_by_intent_type(
+        &self,
+        request: Request<GetSessionIdsByIntentTypeRequest>,
+    ) -> Result<Response<GetSessionIdsLookupResponse>, Status> {
+        let req = request.get_ref();
+        let meta = req
+            .meta
+            .as_ref()
+            .ok_or_else(|| Status::invalid_argument("meta is required"))?;
+        Self::validate_meta(meta)?;
+
+        let intent_type = req.intent_type.trim();
+        if intent_type.is_empty() {
+            return Err(Status::invalid_argument("intent_type is required"));
+        }
+
+        let discourse_action: DiscourseAction = Self::parse_intent_type(intent_type)
+            .and_then(map_intent_to_discourse_action)
+            .ok_or_else(|| Status::invalid_argument("unsupported intent_type"))?;
+
+        let session_ids = self
+            .anchor_repo()
+            .list_session_ids_by_anchor(
+                &meta.tenant_id,
+                MemoryUnitAnchorType::DiscourseAction,
+                discourse_action.as_str(),
+                MAX_PAGE_SIZE as i64,
+            )
+            .await
+            .map_err(|e| Status::internal(format!("failed to list session ids by intent_type: {e}")))?;
+
+        Ok(Response::new(GetSessionIdsLookupResponse {
+            ok: true,
+            session_ids: session_ids.into_iter().map(|id| id.to_string()).collect(),
+            error: None,
+        }))
     }
 
     async fn query_memory(
@@ -970,9 +1376,9 @@ mod tests {
     use super::MemoryGrpcService;
     use crate::observe::RpcMetrics;
     use crate::api::{
-        AppendMemoryRequest, GetSessionRequest, MemoryEntry, MemoryServiceClient,
-        MemoryServiceServer, QueryMemoryRequest, RequestMeta, RetrievePolicy,
-        SummarizeMemoryRequest,
+        AppendMemoryRequest, GetSessionRequest, GetSessionTranscriptRequest, MemoryEntry,
+        MemoryServiceClient, MemoryServiceServer, QueryMemoryRequest, RequestMeta,
+        RetrievePolicy, SummarizeMemoryRequest,
         UpsertSessionMetaRequest,
     };
     use crate::config::{
@@ -1294,6 +1700,160 @@ mod tests {
         assert_eq!(error.message, "session not found");
         assert!(!error.retryable);
         assert_eq!(error.upstream, "koduck-memory");
+
+        let _ = shutdown_tx.send(());
+        server.await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn get_session_transcript_returns_empty_for_session_without_entries() {
+        let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let addr = listener.local_addr().unwrap();
+        let incoming = TcpListenerStream::new(listener);
+
+        let config = test_config();
+        let runtime = RuntimeState::initialize(&config).await.unwrap();
+
+        let session_id = Uuid::new_v4();
+        let repo = SessionRepository::new(runtime.pool());
+        repo.upsert(&UpsertSession {
+            session_id,
+            tenant_id: "tenant-t32".to_string(),
+            user_id: "user-t32".to_string(),
+            parent_session_id: None,
+            forked_from_session_id: None,
+            title: "Empty transcript".to_string(),
+            status: "active".to_string(),
+            last_message_at: chrono::Utc::now(),
+            extra: extra_to_jsonb(&std::collections::HashMap::new()),
+        })
+        .await
+        .unwrap();
+
+        let service = MemoryGrpcService::new(config, runtime, None, Arc::new(RpcMetrics::new()));
+        let (shutdown_tx, shutdown_rx) = tokio::sync::oneshot::channel::<()>();
+
+        let server = tokio::spawn(async move {
+            Server::builder()
+                .add_service(MemoryServiceServer::new(service))
+                .serve_with_incoming_shutdown(incoming, async {
+                    let _ = shutdown_rx.await;
+                })
+                .await
+                .unwrap();
+        });
+
+        let endpoint = format!("http://{addr}");
+        let channel = Channel::from_shared(endpoint)
+            .unwrap()
+            .connect_timeout(Duration::from_secs(2))
+            .connect()
+            .await
+            .unwrap();
+        let mut client = MemoryServiceClient::new(channel);
+
+        let response = client
+            .get_session_transcript(GetSessionTranscriptRequest {
+                meta: Some(RequestMeta {
+                    request_id: "req-transcript-empty".to_string(),
+                    session_id: session_id.to_string(),
+                    user_id: "user-t32".to_string(),
+                    tenant_id: "tenant-t32".to_string(),
+                    trace_id: "trace-transcript-empty".to_string(),
+                    idempotency_key: String::new(),
+                    deadline_ms: 5000,
+                    api_version: "memory.v1".to_string(),
+                }),
+                session_id: session_id.to_string(),
+            })
+            .await
+            .unwrap()
+            .into_inner();
+
+        assert!(response.ok);
+        assert!(response.entries.is_empty());
+        assert!(response.transcript_text.is_empty());
+        assert!(response.error.is_none());
+
+        let _ = shutdown_tx.send(());
+        server.await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn get_session_transcript_returns_unavailable_when_raw_content_missing() {
+        let config = test_config();
+        let runtime = RuntimeState::initialize(&config).await.unwrap();
+        let session_id = Uuid::new_v4();
+        let mut client;
+        let shutdown_tx;
+        let server;
+
+        {
+            let repo = SessionRepository::new(runtime.pool());
+            repo.upsert(&UpsertSession {
+                session_id,
+                tenant_id: "tenant-tx".to_string(),
+                user_id: "user-tx".to_string(),
+                parent_session_id: None,
+                forked_from_session_id: None,
+                title: "Transcript unavailable".to_string(),
+                status: "active".to_string(),
+                last_message_at: chrono::Utc::now(),
+                extra: extra_to_jsonb(&std::collections::HashMap::new()),
+            })
+            .await
+            .unwrap();
+        }
+
+        (client, shutdown_tx, server) = start_test_server(config, runtime).await;
+
+        client
+            .append_memory(AppendMemoryRequest {
+                meta: Some(RequestMeta {
+                    request_id: "req-transcript-missing-append".to_string(),
+                    session_id: session_id.to_string(),
+                    user_id: "user-tx".to_string(),
+                    tenant_id: "tenant-tx".to_string(),
+                    trace_id: "trace-transcript-missing-append".to_string(),
+                    idempotency_key: "idem-transcript-missing-append".to_string(),
+                    deadline_ms: 5000,
+                    api_version: "memory.v1".to_string(),
+                }),
+                session_id: session_id.to_string(),
+                entries: vec![MemoryEntry {
+                    role: "user".to_string(),
+                    content: "hello transcript".to_string(),
+                    timestamp: chrono::Utc::now().timestamp_millis(),
+                    metadata: std::collections::HashMap::new(),
+                }],
+            })
+            .await
+            .unwrap();
+
+        let response = client
+            .get_session_transcript(GetSessionTranscriptRequest {
+                meta: Some(RequestMeta {
+                    request_id: "req-transcript-missing".to_string(),
+                    session_id: session_id.to_string(),
+                    user_id: "user-tx".to_string(),
+                    tenant_id: "tenant-tx".to_string(),
+                    trace_id: "trace-transcript-missing".to_string(),
+                    idempotency_key: String::new(),
+                    deadline_ms: 5000,
+                    api_version: "memory.v1".to_string(),
+                }),
+                session_id: session_id.to_string(),
+            })
+            .await
+            .unwrap()
+            .into_inner();
+
+        assert!(!response.ok);
+        assert!(response.entries.is_empty());
+        assert!(response.transcript_text.is_empty());
+        let error = response.error.unwrap();
+        assert_eq!(error.code, "RAW_CONTENT_UNAVAILABLE");
+        assert!(error.degraded);
 
         let _ = shutdown_tx.send(());
         server.await.unwrap();
