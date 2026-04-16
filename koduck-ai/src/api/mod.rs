@@ -3,8 +3,8 @@
 use std::{collections::HashMap, convert::Infallible, sync::Arc, time::Duration};
 
 use axum::{
-    extract::{Json, State},
-    http::{HeaderMap, HeaderValue, StatusCode},
+    extract::{Json, Path, State},
+    http::{HeaderMap, HeaderValue, StatusCode, Uri},
     response::{
         sse::{Event, KeepAlive, Sse},
         IntoResponse, Response,
@@ -22,7 +22,7 @@ use crate::{
     auth::AuthContext,
     clients::memory::{
         self, MemoryEntry, MemoryHit, MemoryRequestContext, QueryIntent, QueryMemoryInput,
-        RetrievePolicy, SessionInfo, SessionUpsertInput,
+        RetrievePolicy, SessionUpsertInput,
     },
     llm::{
         ChatMessage as ProviderChatMessage, GenerateRequest as ProviderGenerateRequest,
@@ -103,7 +103,6 @@ pub struct ApiResponse<T> {
 
 #[derive(Debug, Clone, Default)]
 struct MemoryContextSnapshot {
-    session: Option<SessionInfo>,
     hits: Vec<MemoryHit>,
 }
 
@@ -512,6 +511,84 @@ pub async fn delete_session(
     delete_session_impl(state, headers, raw_session_id).await
 }
 
+pub async fn debug_path_echo(Path(value): Path<String>) -> Response {
+    (
+        StatusCode::OK,
+        Json(ApiResponse {
+            success: true,
+            code: ErrorCode::Ok.to_string(),
+            message: "success".to_string(),
+            data: Some(json!({ "value": value })),
+            error: None,
+        }),
+    )
+        .into_response()
+}
+
+pub async fn session_exists(
+    State(state): State<Arc<AppState>>,
+    headers: HeaderMap,
+    Path(raw_session_id): Path<String>,
+) -> Response {
+    let request_id = extract_or_create_request_id(&headers);
+    let auth_ctx = match crate::auth::authenticate_bearer(&headers, &state).await {
+        Ok(ctx) => ctx,
+        Err(err) => return api_error_response(err.with_request_id(request_id.clone()), request_id),
+    };
+
+    let Some(session_id) = normalize_session_id(&raw_session_id) else {
+        return api_error_response(
+            AppError::new(ErrorCode::InvalidArgument, "session_id is invalid")
+                .with_request_id(request_id.clone()),
+            request_id,
+        );
+    };
+
+    let trace_id = extract_trace_id(&headers);
+    let memory_ctx = MemoryRequestContext::from_auth(
+        request_id.clone(),
+        session_id.clone(),
+        trace_id,
+        state.config.llm.timeout_ms,
+        &auth_ctx,
+    );
+
+    let exists = match memory::get_session(&state, &memory_ctx).await {
+        Ok(_) => true,
+        Err(err) if err.code == ErrorCode::ResourceNotFound => false,
+        Err(err) => return api_error_response(err, request_id),
+    };
+
+    (
+        StatusCode::OK,
+        Json(ApiResponse {
+            success: true,
+            code: ErrorCode::Ok.to_string(),
+            message: "success".to_string(),
+            data: Some(json!({
+                "session_id": session_id,
+                "exists": exists
+            })),
+            error: None,
+        }),
+    )
+        .into_response()
+}
+
+pub async fn http_fallback(uri: Uri) -> Response {
+    (
+        StatusCode::NOT_FOUND,
+        Json(ApiResponse::<serde_json::Value> {
+            success: false,
+            code: ErrorCode::ResourceNotFound.to_string(),
+            message: format!("route not found: {}", uri.path()),
+            data: None,
+            error: None,
+        }),
+    )
+        .into_response()
+}
+
 async fn delete_session_impl(
     state: Arc<AppState>,
     headers: HeaderMap,
@@ -587,13 +664,6 @@ async fn delete_session_impl(
         .into_response()
 }
 
-async fn stream_sse_response(
-    session: Arc<crate::stream::sse::StreamSession>,
-    request_id: String,
-) -> Response {
-    stream_sse_response_with_watermark(session, request_id, 0).await
-}
-
 async fn stream_sse_response_with_watermark(
     session: Arc<crate::stream::sse::StreamSession>,
     request_id: String,
@@ -644,23 +714,6 @@ async fn load_memory_snapshot(
     request: &ChatRequest,
     ctx: &MemoryRequestContext,
 ) -> MemoryContextSnapshot {
-    let session = match memory::get_session(state, ctx).await {
-        Ok(session) => Some(session),
-        Err(err) if err.code == ErrorCode::ResourceNotFound => None,
-        Err(err) => {
-            log_memory_failure(
-                state,
-                route,
-                MemoryOperation::GetSession,
-                ctx,
-                &err,
-                true,
-                "get_session failed; continuing with empty session snapshot",
-            );
-            None
-        }
-    };
-
     if let Err(err) = memory::upsert_session_meta(
         state,
         ctx,
@@ -686,10 +739,7 @@ async fn load_memory_snapshot(
         );
     }
 
-    MemoryContextSnapshot {
-        session,
-        hits: Vec::new(),
-    }
+    MemoryContextSnapshot { hits: Vec::new() }
 }
 
 async fn append_chat_turn(
@@ -1329,10 +1379,6 @@ fn extract_trace_id(headers: &HeaderMap) -> String {
         .to_string()
 }
 
-fn estimate_tokens(text: &str) -> u32 {
-    (text.chars().count() as u32 / 4).max(1)
-}
-
 fn chunk_answer(answer: &str) -> Vec<String> {
     const CHUNK_SIZE: usize = 48;
     let chars = answer.chars().collect::<Vec<_>>();
@@ -1693,45 +1739,6 @@ fn build_stream_error_event(
             "retryable": err.retryable,
             "degraded": err.degraded,
             "retry_after_ms": err.retry_after_ms,
-        }),
-        event_id: None,
-        sequence_num: None,
-        request_id: request_id.to_string(),
-        session_id: session_id.to_string(),
-    }
-}
-
-fn build_stub_stream_delta(
-    request_id: &str,
-    session_id: &str,
-    text: impl Into<String>,
-    degrade_reason: &str,
-) -> PendingStreamEvent {
-    PendingStreamEvent {
-        event_type: "message".to_string(),
-        payload: json!({
-            "text": text.into(),
-            "degraded": true,
-            "degrade_reason": degrade_reason,
-        }),
-        event_id: None,
-        sequence_num: None,
-        request_id: request_id.to_string(),
-        session_id: session_id.to_string(),
-    }
-}
-
-fn build_stub_stream_done(
-    request_id: &str,
-    session_id: &str,
-    degrade_reason: &str,
-) -> PendingStreamEvent {
-    PendingStreamEvent {
-        event_type: "done".to_string(),
-        payload: json!({
-            "finish_reason": "degraded_fallback",
-            "degraded": true,
-            "degrade_reason": degrade_reason,
         }),
         event_id: None,
         sequence_num: None,
