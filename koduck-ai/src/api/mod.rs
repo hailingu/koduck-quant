@@ -127,31 +127,37 @@ struct QueryMemoryToolArgs {
     domain_class: Option<String>,
 }
 
-pub async fn chat(
-    State(state): State<Arc<AppState>>,
-    headers: HeaderMap,
-    Json(request): Json<ChatRequest>,
-) -> Response {
-    let request_id = extract_or_create_request_id(&headers);
-    state.degrade_policy.record_request(DegradeRoute::Chat);
+struct PreparedChatContext {
+    request_id: String,
+    auth_ctx: AuthContext,
+    session_id: String,
+    trace_id: String,
+    memory_ctx: MemoryRpcContext,
+}
+
+async fn init_chat_context(
+    state: &Arc<AppState>,
+    headers: &HeaderMap,
+    route: DegradeRoute,
+    request: &ChatRequest,
+) -> Result<PreparedChatContext, AppError> {
+    let request_id = extract_or_create_request_id(headers);
+    state.degrade_policy.record_request(route);
     if !state.lifecycle.is_accepting_requests() {
-        return api_error_response(
+        return Err(
             AppError::new(ErrorCode::ServerBusy, "service is draining new requests")
-                .with_request_id(request_id.clone()),
-            request_id,
+                .with_request_id(request_id),
         );
     }
-    let auth_ctx = match crate::auth::authenticate_bearer(&headers, &state).await {
-        Ok(ctx) => ctx,
-        Err(err) => return api_error_response(err.with_request_id(request_id.clone()), request_id),
-    };
 
-    if let Err(err) = validate_chat_request(&request) {
-        return api_error_response(err, extract_or_create_request_id(&headers));
-    }
+    let auth_ctx = crate::auth::authenticate_bearer(headers, state)
+        .await
+        .map_err(|err| err.with_request_id(request_id.clone()))?;
+
+    validate_chat_request(request).map_err(|err| err.with_request_id(request_id.clone()))?;
 
     let session_id = resolve_session_id(request.session_id.clone());
-    let trace_id = extract_trace_id(&headers);
+    let trace_id = extract_trace_id(headers);
     let memory_ctx = MemoryRpcContext::from_auth(
         request_id.clone(),
         session_id.clone(),
@@ -159,6 +165,37 @@ pub async fn chat(
         state.config.llm.timeout_ms,
         &auth_ctx,
     );
+
+    Ok(PreparedChatContext {
+        request_id,
+        auth_ctx,
+        session_id,
+        trace_id,
+        memory_ctx,
+    })
+}
+
+pub async fn chat(
+    State(state): State<Arc<AppState>>,
+    headers: HeaderMap,
+    Json(request): Json<ChatRequest>,
+) -> Response {
+    let PreparedChatContext {
+        request_id,
+        auth_ctx,
+        session_id,
+        trace_id,
+        memory_ctx,
+    } = match init_chat_context(&state, &headers, DegradeRoute::Chat, &request).await {
+        Ok(ctx) => ctx,
+        Err(err) => {
+            let response_request_id = err
+                .request_id
+                .clone()
+                .unwrap_or_else(|| extract_or_create_request_id(&headers));
+            return api_error_response(err, response_request_id);
+        }
+    };
 
     info!(
         request_id = %request_id,
@@ -262,35 +299,22 @@ pub async fn chat_stream(
     headers: HeaderMap,
     Json(request): Json<ChatStreamRequest>,
 ) -> Response {
-    let request_id = extract_or_create_request_id(&headers);
-    state
-        .degrade_policy
-        .record_request(DegradeRoute::ChatStream);
-    if !state.lifecycle.is_accepting_requests() {
-        return api_error_response(
-            AppError::new(ErrorCode::ServerBusy, "service is draining new requests")
-                .with_request_id(request_id.clone()),
-            request_id,
-        );
-    }
-    let auth_ctx = match crate::auth::authenticate_bearer(&headers, &state).await {
+    let PreparedChatContext {
+        request_id,
+        auth_ctx,
+        session_id,
+        trace_id,
+        memory_ctx,
+    } = match init_chat_context(&state, &headers, DegradeRoute::ChatStream, &request.chat).await {
         Ok(ctx) => ctx,
-        Err(err) => return api_error_response(err.with_request_id(request_id.clone()), request_id),
+        Err(err) => {
+            let response_request_id = err
+                .request_id
+                .clone()
+                .unwrap_or_else(|| extract_or_create_request_id(&headers));
+            return api_error_response(err, response_request_id);
+        }
     };
-
-    if let Err(err) = validate_chat_request(&request.chat) {
-        return api_error_response(err, extract_or_create_request_id(&headers));
-    }
-
-    let session_id = resolve_session_id(request.chat.session_id.clone());
-    let trace_id = extract_trace_id(&headers);
-    let memory_ctx = MemoryRpcContext::from_auth(
-        request_id.clone(),
-        session_id.clone(),
-        trace_id.clone(),
-        state.config.llm.timeout_ms,
-        &auth_ctx,
-    );
     let resume_cursor = ResumeCursor {
         last_event_id: headers
             .get("last-event-id")
