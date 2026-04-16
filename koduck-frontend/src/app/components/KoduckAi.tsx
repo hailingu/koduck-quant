@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import {
   ArrowUp,
+  Check,
   ChevronDown,
   Copy,
   FileText,
@@ -538,7 +539,6 @@ function MarkdownMessage({ content }: { content: string }) {
 function StreamingPlaceholder() {
   return (
     <div className="inline-flex items-center gap-2 text-base text-gray-500">
-      <span>正在生成</span>
       <span className="inline-flex gap-1">
         <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-gray-400 [animation-delay:0ms]" />
         <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-gray-400 [animation-delay:150ms]" />
@@ -593,9 +593,12 @@ export function KoduckAi() {
   const [isDragging, setIsDragging] = useState(false);
   const [sending, setSending] = useState(false);
   const [sessionHydrated, setSessionHydrated] = useState(initialSessionId === null);
+  const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const chatInputRef = useRef<HTMLTextAreaElement>(null);
   const dragCounterRef = useRef(0);
+  const copyFeedbackTimeoutRef = useRef<number | null>(null);
   const currentSessionIdRef = useRef<string | null>(currentSessionId);
   const skipNextSessionRestoreRef = useRef(false);
   const createSessionId = () => crypto.randomUUID();
@@ -621,6 +624,31 @@ export function KoduckAi() {
     persistActiveSessionId(currentSessionId);
     persistSessionIdToUrl(currentSessionId);
   }, [currentSessionId]);
+
+  const resizeChatInput = (target: HTMLTextAreaElement | null) => {
+    if (!target) {
+      return;
+    }
+
+    const maxHeight = 240;
+    target.style.height = "auto";
+    const nextHeight = Math.min(target.scrollHeight, maxHeight);
+    target.style.height = `${nextHeight}px`;
+    target.style.overflowY = target.scrollHeight > maxHeight ? "auto" : "hidden";
+  };
+
+  useEffect(
+    () => () => {
+      if (copyFeedbackTimeoutRef.current !== null) {
+        window.clearTimeout(copyFeedbackTimeoutRef.current);
+      }
+    },
+    [],
+  );
+
+  useEffect(() => {
+    resizeChatInput(chatInputRef.current);
+  }, [chatMessage]);
 
   useEffect(() => {
     if (!currentSessionId) {
@@ -809,9 +837,36 @@ export function KoduckAi() {
     }
   };
 
-  const copyMessage = async (content: string) => {
+  const normalizeCopyContent = (raw: string): string =>
+    raw
+      .replace(/\u001B\][^\u0007]*(?:\u0007|\u001B\\)/g, "")
+      .replace(/\u001B\[[0-9;?]*[ -/]*[@-~]/g, "")
+      .replace(/\r\n/g, "\n")
+      .replace(/\r/g, "\n")
+      .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F-\u009F]/g, "")
+      .replace(/\n{3,}/g, "\n\n")
+      .trim();
+
+  const copyMessage = async (
+    trigger: HTMLButtonElement,
+    messageId: string,
+    fallbackContent: string,
+  ) => {
     try {
-      await navigator.clipboard.writeText(content);
+      const actionRow = trigger.closest<HTMLElement>("[data-copy-row='true']");
+      const messageContentContainer = actionRow?.previousElementSibling as HTMLElement | null;
+      const renderedContent = messageContentContainer?.innerText?.trim();
+      const normalizedRenderedContent = normalizeCopyContent(renderedContent || "");
+      const normalizedFallbackContent = normalizeCopyContent(fallbackContent);
+      const contentToCopy = normalizedRenderedContent || normalizedFallbackContent;
+      await navigator.clipboard.writeText(contentToCopy);
+      setCopiedMessageId(messageId);
+      if (copyFeedbackTimeoutRef.current !== null) {
+        window.clearTimeout(copyFeedbackTimeoutRef.current);
+      }
+      copyFeedbackTimeoutRef.current = window.setTimeout(() => {
+        setCopiedMessageId((prev) => (prev === messageId ? null : prev));
+      }, 1600);
     } catch (error) {
       console.error("failed to copy message:", error);
     }
@@ -1242,9 +1297,13 @@ export function KoduckAi() {
 
       <div className="px-5 py-4">
         <textarea
+          ref={chatInputRef}
           placeholder="询问问题,尽管问..."
           value={chatMessage}
-          onChange={(e) => setChatMessage(e.target.value)}
+          onChange={(e) => {
+            setChatMessage(e.target.value);
+            resizeChatInput(e.target);
+          }}
           onKeyDown={(e) => {
             if (e.key === "Enter" && !e.shiftKey) {
               e.preventDefault();
@@ -1252,7 +1311,7 @@ export function KoduckAi() {
             }
           }}
           rows={1}
-          className="w-full resize-none border-0 bg-transparent text-base text-gray-800 outline-none placeholder:text-gray-400"
+          className="w-full resize-none overflow-hidden border-0 bg-transparent text-base text-gray-800 outline-none placeholder:text-gray-400"
         />
       </div>
 
@@ -1383,7 +1442,7 @@ export function KoduckAi() {
           ) : (
             <div className="mx-auto mb-32 w-full max-w-3xl space-y-6">
               {messages.map((message) => (
-                <div key={message.id} className="group space-y-2">
+                <div key={message.id} data-copy-scope="message" className="group space-y-2">
                   <div
                     className={`flex ${
                       message.role === "user" ? "justify-end" : "justify-start"
@@ -1394,71 +1453,82 @@ export function KoduckAi() {
                         message.role === "user" ? "ml-auto items-start" : "items-start"
                       }`}
                     >
-                      {message.type === "text" ? (
-                        message.role === "assistant" ? (
-                          !message.content ? (
-                            <StreamingPlaceholder />
-                          ) : message.streaming ? (
-                            <p className="whitespace-pre-wrap text-base text-gray-800">
+                      <div data-message-content="true">
+                        {message.type === "text" ? (
+                          message.role === "assistant" ? (
+                            !message.content ? (
+                              <StreamingPlaceholder />
+                            ) : message.streaming ? (
+                              <p className="whitespace-pre-wrap text-base text-gray-800">
+                                {message.content}
+                              </p>
+                            ) : (
+                              <MarkdownMessage content={message.content} />
+                            )
+                          ) : (
+                            <p className="text-base whitespace-pre-wrap text-gray-900">
                               {message.content}
                             </p>
-                          ) : (
-                            <MarkdownMessage content={message.content} />
                           )
                         ) : (
-                          <p className="text-base whitespace-pre-wrap text-gray-900">
-                            {message.content}
-                          </p>
-                        )
-                      ) : (
-                        <div>
-                          <p className="mb-4 text-base text-gray-800">{message.content}</p>
-                          {message.cardData && (
-                            <div className="cursor-pointer rounded-2xl bg-white p-5 transition-colors hover:bg-gray-50">
-                              <div className="mb-2 flex items-start justify-between">
-                                <div>
-                                  <h3 className="text-lg font-medium text-gray-900">
-                                    {message.cardData.title}
-                                  </h3>
-                                  <p className="text-sm text-gray-500">
-                                    {message.cardData.description}
-                                  </p>
+                          <div>
+                            <p className="mb-4 text-base text-gray-800">{message.content}</p>
+                            {message.cardData && (
+                              <div className="cursor-pointer rounded-2xl bg-white p-5 transition-colors hover:bg-gray-50">
+                                <div className="mb-2 flex items-start justify-between">
+                                  <div>
+                                    <h3 className="text-lg font-medium text-gray-900">
+                                      {message.cardData.title}
+                                    </h3>
+                                    <p className="text-sm text-gray-500">
+                                      {message.cardData.description}
+                                    </p>
+                                  </div>
+                                </div>
+                                <div className="mt-3 flex items-baseline gap-2">
+                                  <span className="text-2xl font-medium text-gray-900">
+                                    {message.cardData.value}
+                                  </span>
+                                  <span
+                                    className={`text-sm font-medium ${
+                                      message.cardData.change?.startsWith("+")
+                                        ? "text-[#10a37f]"
+                                        : "text-red-500"
+                                    }`}
+                                  >
+                                    {message.cardData.change}
+                                  </span>
                                 </div>
                               </div>
-                              <div className="mt-3 flex items-baseline gap-2">
-                                <span className="text-2xl font-medium text-gray-900">
-                                  {message.cardData.value}
-                                </span>
-                                <span
-                                  className={`text-sm font-medium ${
-                                    message.cardData.change?.startsWith("+")
-                                      ? "text-[#10a37f]"
-                                      : "text-red-500"
-                                  }`}
-                                >
-                                  {message.cardData.change}
-                                </span>
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      )}
-                      <div className="mt-2 flex w-full items-center justify-between gap-2">
+                            )}
+                          </div>
+                        )}
+                      </div>
+                      <div data-copy-row="true" className="mt-2 flex items-center gap-2">
                         {Boolean(message.timestamp) && (
                           <div className="text-xs text-gray-500">
                             {formatTimestamp(message.timestamp)}
                           </div>
                         )}
-                        <div className="ml-auto flex shrink-0 items-center gap-1.5 opacity-100 transition-opacity sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100">
+                        <div
+                          data-copy-actions="true"
+                          className="flex shrink-0 items-center gap-1.5 opacity-100 transition-opacity sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100"
+                        >
                           <button
                             aria-label="复制消息"
                             className="p-1 text-gray-400 transition-colors hover:text-gray-600 disabled:cursor-not-allowed disabled:opacity-40"
                             disabled={!message.content.trim()}
-                            onClick={() => void copyMessage(message.content)}
+                            onClick={(event) =>
+                              void copyMessage(event.currentTarget, message.id, message.content)
+                            }
                             title="复制"
                             type="button"
                           >
-                            <Copy className="h-3.5 w-3.5" />
+                            {copiedMessageId === message.id ? (
+                              <Check className="h-3.5 w-3.5 text-[#10a37f]" />
+                            ) : (
+                              <Copy className="h-3.5 w-3.5" />
+                            )}
                           </button>
                           <button
                             aria-label="删除消息"

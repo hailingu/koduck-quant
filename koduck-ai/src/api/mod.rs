@@ -56,6 +56,7 @@ pub struct ChatRequest {
     pub message: String,
     #[serde(default)]
     pub history: Option<Vec<ChatHistoryMessage>>,
+    pub provider: Option<String>,
     pub model: Option<String>,
     pub temperature: Option<f32>,
     pub max_tokens: Option<u32>,
@@ -1436,6 +1437,7 @@ async fn call_llm_stream(
 ) -> Result<StreamLlmPlan, AppError> {
     const MAX_TOOL_ROUNDS: usize = 3;
     let mut snapshot = memory_snapshot.cloned().unwrap_or_default();
+    let mut last_tool_name: Option<String> = None;
 
     for _ in 0..MAX_TOOL_ROUNDS {
         let tool_request = build_provider_generate_request(
@@ -1464,6 +1466,16 @@ async fn call_llm_stream(
             .cloned();
 
         if let Some(tool_call) = maybe_memory_call {
+            if last_tool_name.as_deref() == Some(tool_call.name.as_str()) {
+                info!(
+                    request_id = %request_id,
+                    session_id = %session_id,
+                    tool_name = %tool_call.name,
+                    "stop tool rounds because the same tool was selected consecutively"
+                );
+                break;
+            }
+
             let ctx = MemoryRequestContext::from_auth(
                 request_id.to_string(),
                 session_id.to_string(),
@@ -1471,7 +1483,7 @@ async fn call_llm_stream(
                 state.config.llm.timeout_ms,
                 auth_ctx,
             );
-            snapshot = execute_memory_tool_call(
+            let next_snapshot = execute_memory_tool_call(
                 state,
                 DegradeRoute::ChatStream,
                 request,
@@ -1480,6 +1492,20 @@ async fn call_llm_stream(
                 &tool_call,
             )
             .await;
+
+            let has_new_memory = !next_snapshot.hits.is_empty() && next_snapshot.hits != snapshot.hits;
+            if !has_new_memory {
+                info!(
+                    request_id = %request_id,
+                    session_id = %session_id,
+                    tool_name = %tool_call.name,
+                    "stop tool rounds because the tool call produced no incremental memory"
+                );
+                break;
+            }
+
+            snapshot = next_snapshot;
+            last_tool_name = Some(tool_call.name.clone());
             continue;
         }
 
@@ -1596,7 +1622,7 @@ fn build_provider_generate_request(
             trace_id: trace_id.to_string(),
             deadline_ms,
         },
-        provider: String::new(),
+        provider: request.provider.clone().unwrap_or_default(),
         model: request.model.clone().unwrap_or_default(),
         messages,
         temperature: request.temperature.unwrap_or(0.2),
