@@ -14,9 +14,10 @@ use crate::{
 };
 
 pub use super::proto::{
-    AppendMemoryRequest, AppendMemoryResponse, GetSessionRequest, GetSessionResponse, MemoryEntry,
-    MemoryHit, MemoryService, MemoryServiceClient, MemoryServiceServer, QueryMemoryRequest,
-    QueryIntent, QueryMemoryResponse, RetrievePolicy, SessionInfo, UpsertSessionMetaRequest,
+    AppendMemoryRequest, AppendMemoryResponse, DeleteSessionRequest, DeleteSessionResponse,
+    GetSessionRequest, GetSessionResponse, MemoryEntry, MemoryHit, MemoryService,
+    MemoryServiceClient, MemoryServiceServer, QueryMemoryRequest, QueryIntent,
+    QueryMemoryResponse, RetrievePolicy, SessionInfo, UpsertSessionMetaRequest,
     UpsertSessionMetaResponse,
 };
 
@@ -269,6 +270,39 @@ fn map_append_memory_response(
         response.error.as_ref(),
         ErrorCode::DependencyFailed,
         "memory append_memory failed",
+    ))
+}
+
+pub async fn delete_session(
+    state: &Arc<AppState>,
+    ctx: &MemoryRequestContext,
+) -> Result<(), AppError> {
+    let mut client = connect_client(&state.config.memory.grpc_target, &ctx.request_id).await?;
+    let response = client
+        .delete_session(Request::new(DeleteSessionRequest {
+            meta: Some(ctx.request_meta(format!("{}:delete-session", ctx.request_id))),
+            session_id: ctx.session_id.clone(),
+        }))
+        .await
+        .map_err(|status| map_grpc_status(UpstreamService::Memory, &ctx.request_id, &status))?;
+
+    map_delete_session_response(ctx, response.into_inner())
+}
+
+fn map_delete_session_response(
+    ctx: &MemoryRequestContext,
+    response: DeleteSessionResponse,
+) -> Result<(), AppError> {
+    if response.ok {
+        return Ok(());
+    }
+
+    Err(map_contract_error_detail(
+        UpstreamService::Memory,
+        &ctx.request_id,
+        response.error.as_ref(),
+        ErrorCode::DependencyFailed,
+        "memory delete_session failed",
     ))
 }
 
