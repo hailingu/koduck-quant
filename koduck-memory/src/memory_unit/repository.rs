@@ -22,16 +22,16 @@ impl MemoryUnitRepository {
             r#"
             INSERT INTO memory_units (
                 memory_unit_id, tenant_id, session_id, entry_range_start, entry_range_end,
-                memory_kind, domain_class_primary, summary, snippet, source_uri,
+                memory_kind, domain_class_primary, summary, source_uri,
                 summary_status, salience_score, time_bucket, created_at, updated_at
             ) VALUES (
                 $1, $2, $3, $4, $5,
-                $6, $7, $8, $9, $10,
-                $11, CAST($12 AS NUMERIC(5, 4)), $13, now(), now()
+                $6, $7, $8, $9,
+                $10, CAST($11 AS NUMERIC(5, 4)), $12, now(), now()
             )
             RETURNING
                 memory_unit_id, tenant_id, session_id, entry_range_start, entry_range_end,
-                memory_kind, domain_class_primary, summary, snippet, source_uri,
+                memory_kind, domain_class_primary, summary, source_uri,
                 summary_status, salience_score::DOUBLE PRECISION AS salience_score,
                 time_bucket, created_at, updated_at
             "#,
@@ -44,7 +44,6 @@ impl MemoryUnitRepository {
         .bind(params.memory_kind.as_db_value())
         .bind(&params.domain_class_primary)
         .bind(&params.summary_state.summary)
-        .bind(&params.snippet)
         .bind(&params.source_uri)
         .bind(&params.summary_state.summary_status)
         .bind(params.salience_score)
@@ -69,12 +68,12 @@ impl MemoryUnitRepository {
             r#"
             INSERT INTO memory_units (
                 memory_unit_id, tenant_id, session_id, entry_range_start, entry_range_end,
-                memory_kind, domain_class_primary, summary, snippet, source_uri,
+                memory_kind, domain_class_primary, summary, source_uri,
                 summary_status, salience_score, time_bucket, created_at, updated_at
             ) VALUES (
                 $1, $2, $3, $4, $5,
-                $6, $7, $8, $9, $10,
-                $11, CAST($12 AS NUMERIC(5, 4)), $13, now(), now()
+                $6, $7, $8, $9,
+                $10, CAST($11 AS NUMERIC(5, 4)), $12, now(), now()
             )
             ON CONFLICT (memory_unit_id) DO UPDATE SET
                 tenant_id = EXCLUDED.tenant_id,
@@ -84,7 +83,6 @@ impl MemoryUnitRepository {
                 memory_kind = EXCLUDED.memory_kind,
                 domain_class_primary = EXCLUDED.domain_class_primary,
                 summary = EXCLUDED.summary,
-                snippet = EXCLUDED.snippet,
                 source_uri = EXCLUDED.source_uri,
                 summary_status = EXCLUDED.summary_status,
                 salience_score = EXCLUDED.salience_score,
@@ -92,7 +90,7 @@ impl MemoryUnitRepository {
                 updated_at = now()
             RETURNING
                 memory_unit_id, tenant_id, session_id, entry_range_start, entry_range_end,
-                memory_kind, domain_class_primary, summary, snippet, source_uri,
+                memory_kind, domain_class_primary, summary, source_uri,
                 summary_status, salience_score::DOUBLE PRECISION AS salience_score,
                 time_bucket, created_at, updated_at
             "#,
@@ -105,7 +103,6 @@ impl MemoryUnitRepository {
         .bind(params.memory_kind.as_db_value())
         .bind(&params.domain_class_primary)
         .bind(&params.summary_state.summary)
-        .bind(&params.snippet)
         .bind(&params.source_uri)
         .bind(&params.summary_state.summary_status)
         .bind(params.salience_score)
@@ -121,7 +118,7 @@ impl MemoryUnitRepository {
             r#"
             SELECT
                 memory_unit_id, tenant_id, session_id, entry_range_start, entry_range_end,
-                memory_kind, domain_class_primary, summary, snippet, source_uri,
+                memory_kind, domain_class_primary, summary, source_uri,
                 summary_status, salience_score::DOUBLE PRECISION AS salience_score,
                 time_bucket, created_at, updated_at
             FROM memory_units
@@ -146,7 +143,7 @@ impl MemoryUnitRepository {
             r#"
             SELECT
                 memory_unit_id, tenant_id, session_id, entry_range_start, entry_range_end,
-                memory_kind, domain_class_primary, summary, snippet, source_uri,
+                memory_kind, domain_class_primary, summary, source_uri,
                 summary_status, salience_score::DOUBLE PRECISION AS salience_score,
                 time_bucket, created_at, updated_at
             FROM memory_units
@@ -176,7 +173,7 @@ impl MemoryUnitRepository {
                     r#"
                     SELECT
                         memory_unit_id, tenant_id, session_id, entry_range_start, entry_range_end,
-                        memory_kind, domain_class_primary, summary, snippet, source_uri,
+                        memory_kind, domain_class_primary, summary, source_uri,
                         summary_status, salience_score::DOUBLE PRECISION AS salience_score,
                         time_bucket, created_at, updated_at
                     FROM memory_units
@@ -194,7 +191,7 @@ impl MemoryUnitRepository {
                     r#"
                     SELECT
                         memory_unit_id, tenant_id, session_id, entry_range_start, entry_range_end,
-                        memory_kind, domain_class_primary, summary, snippet, source_uri,
+                        memory_kind, domain_class_primary, summary, source_uri,
                         summary_status, salience_score::DOUBLE PRECISION AS salience_score,
                         time_bucket, created_at, updated_at
                     FROM memory_units

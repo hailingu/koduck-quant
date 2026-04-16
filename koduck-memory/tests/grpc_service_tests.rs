@@ -1258,10 +1258,8 @@ async fn append_memory_materializes_generic_memory_units() {
     assert!(units.iter().all(|unit| unit.summary_state.summary_status == "pending"));
     assert_eq!(units[0].entry_range_start, 1);
     assert_eq!(units[0].entry_range_end, 1);
-    assert!(units[0].snippet.as_deref().is_some_and(|snippet| snippet.contains("rollout checklist")));
     assert_eq!(units[1].entry_range_start, 2);
     assert_eq!(units[1].entry_range_end, 2);
-    assert!(units[1].snippet.as_deref().is_some_and(|snippet| snippet.contains("concise checklist")));
 
     let anchors = anchor_repo
         .list_by_memory_unit("tenant-t33", units[0].memory_unit_id)
@@ -1607,10 +1605,13 @@ async fn summarize_memory_materializes_summary_and_fact_units() {
         summary_unit.summary_state.summary.as_deref(),
         Some(stored_summary.summary.as_str())
     );
-    assert!(summary_unit
-        .snippet
-        .as_deref()
-        .is_some_and(|snippet| !snippet.trim().is_empty()));
+    assert_eq!(
+        summary_unit.source_uri,
+        format!(
+            "memory-summary://tenants/{}/sessions/{}/versions/{}",
+            stored_summary.tenant_id, session_id, stored_summary.version
+        )
+    );
 
     let fact_units = units
         .iter()
@@ -2046,7 +2047,6 @@ async fn query_memory_summary_first_ignores_low_quality_ready_summary() {
     .with_memory_unit_id(session_id)
     .with_memory_kind(MemoryUnitKind::Summary)
     .with_summary_state(MemoryUnitSummaryState::ready("todo: summarize later").unwrap())
-    .with_snippet("todo")
     .with_time_bucket("2026-04");
     unit_repo.upsert(&summary_unit).await.unwrap();
     index_repo

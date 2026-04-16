@@ -30,7 +30,7 @@ Task 2.2 明确要求我们把这些规则落成可复现实现。
 - `upsert_summary_unit`
 - `replace_fact_units`
 
-这样可以把 `memory_kind` 的写入时机、`snippet` 生成规则、以及 anchor 附着逻辑集中在一个位置，而不是分散在
+这样可以把 `memory_kind` 的写入时机和 anchor 附着逻辑集中在一个位置，而不是分散在
 `AppendMemory` 与 `SummaryTaskRunner` 的不同分支里。
 
 ### 2. 单条 entry 直接形成 generic conversation unit
@@ -41,7 +41,6 @@ Task 2.2 明确要求我们把这些规则落成可复现实现。
 - `entry_range_start = entry_range_end = sequence_num`
 - `memory_kind = NULL`（映射为 generic conversation unit）
 - `summary_status = pending`
-- `snippet = truncate(entry.content)`
 - `source_uri = l0_uri`
 - `time_bucket = message_ts(%Y-%m)`
 
@@ -55,7 +54,6 @@ Task 2.2 明确要求我们把这些规则落成可复现实现。
 - `memory_kind = summary`
 - `summary_status = ready`
 - `summary = stored_summary.summary`
-- `snippet = summary_snippet`
 - `source_uri = memory-summary://...`
 - `entry_range = [first_sequence_num, last_sequence_num]`
 
@@ -68,7 +66,6 @@ Task 2.2 明确要求我们把这些规则落成可复现实现。
 - `memory_unit_id = fact.id`
 - `memory_kind = fact`
 - `summary_status = pending`
-- `snippet = truncate(fact_text)`
 - `source_uri = memory-fact://...`
 - `entry_range = [first_sequence_num, last_sequence_num]`
 
@@ -85,7 +82,7 @@ Task 2.2 明确要求我们把这些规则落成可复现实现。
 
 1. `memory_unit` 从 schema 基线升级为真实写入产物，后续 retrieval 主路径可以直接复用。
 2. 单 entry 与多 entry 的物化边界在代码中清晰可复现。
-3. `snippet` 生成不再散落在不同调用方，generic/summary/fact 三类路径有统一规则。
+3. `memory_unit` 只保留追溯与检索所需最小字段，避免重复存储展示性文本。
 
 代价与权衡：
 

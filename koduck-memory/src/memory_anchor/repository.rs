@@ -20,7 +20,17 @@ impl MemoryUnitAnchorRepository {
         Self { pool: pool.clone() }
     }
 
-    pub async fn insert(&self, params: &InsertMemoryUnitAnchor) -> Result<MemoryUnitAnchor> {
+    pub async fn insert(&self, params: &InsertMemoryUnitAnchor) -> Result<Option<MemoryUnitAnchor>> {
+        if !params.should_persist() {
+            info!(
+                memory_unit_id = %params.memory_unit_id,
+                anchor_type = params.anchor_type.as_db_value(),
+                anchor_key = %params.anchor_key,
+                "memory unit anchor skipped because it is not persistable"
+            );
+            return Ok(None);
+        }
+
         let row = sqlx::query_as::<_, MemoryUnitAnchorRow>(
             r#"
             INSERT INTO memory_unit_anchors (
@@ -52,7 +62,7 @@ impl MemoryUnitAnchorRepository {
             anchor_type = params.anchor_type.as_db_value(),
             "memory unit anchor inserted"
         );
-        Ok(model)
+        Ok(Some(model))
     }
 
     pub async fn list_by_memory_unit(

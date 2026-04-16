@@ -285,7 +285,6 @@ impl SummaryTaskRunner {
                     session_id: stored.session_id,
                     domain_class: stored.domain_class.clone(),
                     summary: stored.summary.clone(),
-                    snippet: materialized.summary_snippet.clone(),
                     source_uri: summary_uri,
                     entry_range_start,
                     entry_range_end,

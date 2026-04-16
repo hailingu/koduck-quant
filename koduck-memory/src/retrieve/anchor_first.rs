@@ -211,9 +211,9 @@ impl AnchorFirstRetriever {
                     salience_score,
                 );
                 let snippet = unit
-                    .snippet
+                    .summary_state
+                    .summary
                     .clone()
-                    .or_else(|| unit.summary_state.summary.clone())
                     .unwrap_or_else(|| unit.source_uri.clone());
 
                 let mut result = RetrieveResult::new(

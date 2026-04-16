@@ -103,7 +103,6 @@ pub struct MemoryUnitRow {
     pub memory_kind: Option<String>,
     pub domain_class_primary: Option<String>,
     pub summary: Option<String>,
-    pub snippet: Option<String>,
     pub source_uri: String,
     pub summary_status: String,
     pub salience_score: Option<f64>,
@@ -122,7 +121,6 @@ pub struct MemoryUnit {
     pub memory_kind: MemoryUnitKind,
     pub domain_class_primary: Option<String>,
     pub summary_state: MemoryUnitSummaryState,
-    pub snippet: Option<String>,
     pub source_uri: String,
     pub salience_score: Option<f64>,
     pub time_bucket: Option<String>,
@@ -152,13 +150,12 @@ impl TryFrom<MemoryUnitRow> for MemoryUnit {
             domain_class_primary: row.domain_class_primary,
             summary_state: {
                 let state = MemoryUnitSummaryState {
-                summary_status: row.summary_status,
-                summary: row.summary,
+                    summary_status: row.summary_status,
+                    summary: row.summary,
                 };
                 let _ = state.payload()?;
                 state
             },
-            snippet: row.snippet,
             source_uri: row.source_uri,
             salience_score: row.salience_score,
             time_bucket: row.time_bucket,
@@ -178,7 +175,6 @@ pub struct InsertMemoryUnit {
     pub memory_kind: MemoryUnitKind,
     pub domain_class_primary: Option<String>,
     pub summary_state: MemoryUnitSummaryState,
-    pub snippet: Option<String>,
     pub source_uri: String,
     pub salience_score: Option<f64>,
     pub time_bucket: Option<String>,
@@ -209,7 +205,6 @@ impl InsertMemoryUnit {
             memory_kind: MemoryUnitKind::GenericConversation,
             domain_class_primary: None,
             summary_state: MemoryUnitSummaryState::pending(),
-            snippet: None,
             source_uri,
             salience_score: None,
             time_bucket: None,
@@ -233,11 +228,6 @@ impl InsertMemoryUnit {
 
     pub fn with_summary_state(mut self, summary_state: MemoryUnitSummaryState) -> Self {
         self.summary_state = summary_state;
-        self
-    }
-
-    pub fn with_snippet(mut self, snippet: impl Into<String>) -> Self {
-        self.snippet = Some(snippet.into());
         self
     }
 

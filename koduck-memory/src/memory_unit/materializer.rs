@@ -17,8 +17,6 @@ use crate::memory_unit::{
 use crate::retrieve::infer_discourse_actions;
 use crate::retrieve::types::domain_class;
 
-const DEFAULT_SNIPPET_LIMIT: usize = 96;
-
 #[derive(Debug, Clone)]
 pub struct AppendedEntryUnit {
     pub entry_id: Uuid,
@@ -36,7 +34,6 @@ pub struct SummaryUnitInput {
     pub session_id: Uuid,
     pub domain_class: String,
     pub summary: String,
-    pub snippet: String,
     pub source_uri: String,
     pub entry_range_start: i64,
     pub entry_range_end: i64,
@@ -78,7 +75,6 @@ impl MemoryUnitMaterializer {
                 entry.source_uri.clone(),
             )?
             .with_memory_unit_id(entry.entry_id)
-            .with_snippet(truncate_text(&entry.content, DEFAULT_SNIPPET_LIMIT))
             .with_time_bucket(build_time_bucket(entry.message_ts));
 
             let unit = self.unit_repo.insert(&insert).await?;
@@ -113,7 +109,6 @@ impl MemoryUnitMaterializer {
         .with_memory_unit_id(input.session_id)
         .with_memory_kind(MemoryUnitKind::Summary)
         .with_summary_state(MemoryUnitSummaryState::ready(input.summary.clone())?)
-        .with_snippet(truncate_text(&input.snippet, DEFAULT_SNIPPET_LIMIT))
         .with_time_bucket(input.time_bucket.clone());
 
         let _ = self.unit_repo.upsert(&insert).await?;
@@ -168,7 +163,6 @@ impl MemoryUnitMaterializer {
             .with_memory_unit_id(input.fact.id)
             .with_memory_kind(MemoryUnitKind::Fact)
             .with_summary_state(MemoryUnitSummaryState::pending())
-            .with_snippet(truncate_text(&input.fact.fact_text, DEFAULT_SNIPPET_LIMIT))
             .with_time_bucket(input.time_bucket.clone());
 
             let unit = self.unit_repo.insert(&insert).await?;
@@ -229,16 +223,6 @@ impl MemoryUnitMaterializer {
 
         Ok(())
     }
-}
-
-fn truncate_text(input: &str, limit: usize) -> String {
-    let trimmed = input.trim();
-    if trimmed.chars().count() <= limit {
-        return trimmed.to_string();
-    }
-
-    let truncated: String = trimmed.chars().take(limit.saturating_sub(3)).collect();
-    format!("{truncated}...")
 }
 
 fn build_time_bucket(timestamp: chrono::DateTime<chrono::Utc>) -> String {

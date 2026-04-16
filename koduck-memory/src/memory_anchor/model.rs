@@ -33,6 +33,10 @@ impl MemoryUnitAnchorType {
             Self::FactType => "fact_type",
         }
     }
+
+    pub fn requires_anchor_value(&self) -> bool {
+        matches!(self, Self::Entity | Self::Relation | Self::FactType)
+    }
 }
 
 #[derive(Debug, Clone, FromRow, Serialize, Deserialize)]
@@ -125,6 +129,21 @@ impl InsertMemoryUnitAnchor {
         self
     }
 
+    pub fn should_persist(&self) -> bool {
+        if self.anchor_key.trim().eq_ignore_ascii_case("unknown") {
+            return false;
+        }
+
+        if !self.anchor_type.requires_anchor_value() {
+            return true;
+        }
+
+        self.anchor_value
+            .as_deref()
+            .map(str::trim)
+            .is_some_and(|value| !value.is_empty())
+    }
+
     pub fn with_weight(mut self, weight: f64) -> Result<Self> {
         if !(0.0..=1.0).contains(&weight) {
             bail!("anchor weight must be within 0..=1");
@@ -154,5 +173,44 @@ mod tests {
             "   ",
         );
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn anchor_with_unknown_key_is_not_persistable() {
+        let params = InsertMemoryUnitAnchor::new(
+            "tenant",
+            Uuid::new_v4(),
+            MemoryUnitAnchorType::Domain,
+            "unknown",
+        )
+        .unwrap();
+
+        assert!(!params.should_persist());
+    }
+
+    #[test]
+    fn fact_type_anchor_without_value_is_not_persistable() {
+        let params = InsertMemoryUnitAnchor::new(
+            "tenant",
+            Uuid::new_v4(),
+            MemoryUnitAnchorType::FactType,
+            "preference",
+        )
+        .unwrap();
+
+        assert!(!params.should_persist());
+    }
+
+    #[test]
+    fn domain_anchor_without_value_remains_persistable() {
+        let params = InsertMemoryUnitAnchor::new(
+            "tenant",
+            Uuid::new_v4(),
+            MemoryUnitAnchorType::Domain,
+            "task",
+        )
+        .unwrap();
+
+        assert!(params.should_persist());
     }
 }
