@@ -1,6 +1,6 @@
 //! North-facing API handlers (chat/stream).
 
-use std::{collections::HashMap, convert::Infallible, sync::Arc, time::Duration};
+use std::{collections::{HashMap, HashSet}, convert::Infallible, sync::Arc, time::Duration};
 
 use axum::{
     extract::{Json, Path, State},
@@ -43,6 +43,8 @@ const MAX_ALLOWED_TOKENS: u32 = 32_768;
 const MEMORY_QUERY_TOP_K: i32 = 5;
 const MEMORY_QUERY_PAGE_SIZE: i32 = 5;
 const MAX_HISTORY_MESSAGES: usize = 20;
+const MEMORY_PROMPT_TAIL: &str =
+    "请结合下面历史命中与当前问题，自行判断哪些内容相关，再决定是否在回答中引用这些历史记忆。";
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct ChatHistoryMessage {
@@ -124,6 +126,12 @@ struct QueryMemoryToolArgs {
     intent: Option<String>,
     memory_scope: Option<String>,
     domain_class: Option<String>,
+}
+
+#[derive(Debug, Deserialize, Default)]
+struct MemoryHitReviewDecision {
+    #[serde(default)]
+    keep: bool,
 }
 
 struct PreparedChatContext {
@@ -1018,15 +1026,213 @@ fn build_memory_prompt(
         .collect::<Vec<_>>()
         .join("\n");
 
-    let prompt_tail =
-        "请结合下面历史命中与当前问题，自行判断哪些内容相关，再决定是否在回答中引用这些历史记忆。";
-
     Some(format!(
         "以下内容来自 koduck-memory 的历史摘要检索结果，可能跨多个旧会话。\n{}\n\n历史命中:\n{}\n\n当前用户问题（请把它作为最终相关性判断依据）:\n{}",
-        prompt_tail,
+        MEMORY_PROMPT_TAIL,
         snippets,
         user_message.trim()
     ))
+}
+
+fn parse_memory_hit_review_decision(raw: &str) -> Option<MemoryHitReviewDecision> {
+    let trimmed = raw.trim();
+    if trimmed.is_empty() {
+        return None;
+    }
+
+    if let Ok(parsed) = serde_json::from_str::<MemoryHitReviewDecision>(trimmed) {
+        return Some(parsed);
+    }
+
+    let start = trimmed.find('{')?;
+    let end = trimmed.rfind('}')?;
+    if end <= start {
+        return None;
+    }
+
+    serde_json::from_str::<MemoryHitReviewDecision>(&trimmed[start..=end]).ok()
+}
+
+fn build_memory_hit_review_request(
+    request: &ChatRequest,
+    request_id: &str,
+    session_id: &str,
+    auth_ctx: &AuthContext,
+    trace_id: &str,
+    deadline_ms: u64,
+    hit_index: usize,
+    hit: &MemoryHit,
+) -> ProviderGenerateRequest {
+    let system_prompt = format!(
+        "你是记忆命中筛选器。\
+输出必须是 JSON：{{\"keep\":true|false}}。\
+{}\
+如果该历史命中与当前问题无关，keep=false；如果相关，keep=true。\
+筛选阶段仅做保留判断，不要改写内容。\
+禁止输出 JSON 以外的内容，禁止臆造不存在的信息。",
+        MEMORY_PROMPT_TAIL
+    );
+
+    let user_prompt = format!(
+        "当前用户问题:\n{}\n\n候选历史命中 #{}:\nsource_session={}\nreasons=[{}]\nsnippet={}",
+        request.message.trim(),
+        hit_index + 1,
+        hit.session_id,
+        hit.match_reasons.join(","),
+        hit.snippet
+    );
+
+    ProviderGenerateRequest {
+        meta: RequestContext {
+            request_id: format!("{request_id}:memory-hit-review:{hit_index}"),
+            session_id: session_id.to_string(),
+            user_id: auth_ctx.user_id.clone(),
+            trace_id: trace_id.to_string(),
+            deadline_ms,
+        },
+        provider: request.provider.clone().unwrap_or_default(),
+        model: request.model.clone().unwrap_or_default(),
+        messages: vec![
+            ProviderChatMessage {
+                role: "system".to_string(),
+                content: system_prompt,
+                name: String::new(),
+                metadata: HashMap::new(),
+            },
+            ProviderChatMessage {
+                role: "user".to_string(),
+                content: user_prompt,
+                name: String::new(),
+                metadata: HashMap::new(),
+            },
+        ],
+        temperature: 0.0,
+        top_p: 1.0,
+        max_tokens: 256,
+        tools: vec![],
+        response_format: String::new(),
+    }
+}
+
+async fn review_memory_hits_for_stream(
+    state: &Arc<AppState>,
+    request: &ChatRequest,
+    request_id: &str,
+    session_id: &str,
+    auth_ctx: &AuthContext,
+    trace_id: &str,
+    hits: &[MemoryHit],
+) -> Vec<MemoryHit> {
+    if hits.is_empty() {
+        info!(
+            request_id = %request_id,
+            session_id = %session_id,
+            "memory hit review skipped because there are no hits"
+        );
+        return Vec::new();
+    }
+
+    let mut seen_sessions = HashSet::new();
+    let mut deduped_hits = Vec::with_capacity(hits.len());
+    for hit in hits {
+        if seen_sessions.insert(hit.session_id.clone()) {
+            deduped_hits.push(hit.clone());
+        }
+    }
+
+    info!(
+        request_id = %request_id,
+        session_id = %session_id,
+        hit_count = hits.len(),
+        deduped_hit_count = deduped_hits.len(),
+        "memory hit review started"
+    );
+
+    let mut kept = Vec::new();
+    for (index, hit) in deduped_hits.iter().enumerate() {
+        info!(
+            request_id = %request_id,
+            session_id = %session_id,
+            hit_index = index,
+            source_session_id = %hit.session_id,
+            match_reasons = %hit.match_reasons.join(","),
+            snippet_chars = hit.snippet.chars().count(),
+            source_session_content = %hit.snippet,
+            "reviewing memory hit"
+        );
+
+        let review_request = build_memory_hit_review_request(
+            request,
+            request_id,
+            session_id,
+            auth_ctx,
+            trace_id,
+            state.config.llm.timeout_ms,
+            index,
+            hit,
+        );
+
+        let decision = match state.llm_provider.generate(review_request).await {
+            Ok(resp) => parse_memory_hit_review_decision(&resp.message.content),
+            Err(err) => {
+                warn!(
+                    request_id = %request_id,
+                    session_id = %session_id,
+                    hit_index = index,
+                    source_session_id = %hit.session_id,
+                    error = %err,
+                    "memory hit review failed; falling back to keep original snippet"
+                );
+                None
+            }
+        };
+
+        match decision {
+            Some(parsed) if parsed.keep => {
+                info!(
+                    request_id = %request_id,
+                    session_id = %session_id,
+                    hit_index = index,
+                    source_session_id = %hit.session_id,
+                    review_decision = "keep",
+                    "memory hit review completed"
+                );
+                kept.push(hit.clone());
+            }
+            Some(_) => {
+                info!(
+                    request_id = %request_id,
+                    session_id = %session_id,
+                    hit_index = index,
+                    source_session_id = %hit.session_id,
+                    review_decision = "drop",
+                    "memory hit review completed"
+                );
+            }
+            None => {
+                // Fail-open: judge step failed, keep original session transcript.
+                warn!(
+                    request_id = %request_id,
+                    session_id = %session_id,
+                    hit_index = index,
+                    source_session_id = %hit.session_id,
+                    review_decision = "keep_fallback",
+                    "memory hit review parse failed; kept original session transcript"
+                );
+                kept.push(hit.clone());
+            }
+        }
+    }
+
+    info!(
+        request_id = %request_id,
+        session_id = %session_id,
+        kept_count = kept.len(),
+        dropped_count = deduped_hits.len().saturating_sub(kept.len()),
+        "memory hit review finished"
+    );
+
+    kept
 }
 
 fn build_memory_tool_definition() -> ProviderToolDefinition {
@@ -1492,6 +1698,17 @@ async fn call_llm_stream(
                 &tool_call,
             )
             .await;
+            let reviewed_hits = review_memory_hits_for_stream(
+                state,
+                request,
+                request_id,
+                session_id,
+                auth_ctx,
+                trace_id,
+                &next_snapshot.hits,
+            )
+            .await;
+            let next_snapshot = MemoryContextSnapshot { hits: reviewed_hits };
 
             let has_new_memory = !next_snapshot.hits.is_empty() && next_snapshot.hits != snapshot.hits;
             if !has_new_memory {

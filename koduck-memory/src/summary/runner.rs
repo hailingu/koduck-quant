@@ -184,6 +184,7 @@ impl SummaryTaskRunner {
             },
         )
         .await?;
+        let entry_count = entries.len();
         let summary_artifact = with_retry(
             "summary_generate",
             &job.tenant_id,
@@ -199,7 +200,7 @@ impl SummaryTaskRunner {
                 async move {
                     build_summary_artifact(
                         &transcript,
-                        entries.len(),
+                        entry_count,
                         session_title,
                         &inferred_domain_class,
                         &summary_config,
@@ -223,10 +224,15 @@ impl SummaryTaskRunner {
             version,
         );
         let stored = self.summary_repo.insert(&insert_summary).await?;
+        let session_snippet = if transcript.is_empty() {
+            summary_artifact.snippet.clone()
+        } else {
+            transcript.join("\n")
+        };
 
         Ok(SummaryMaterialization {
             stored_summary: stored,
-            summary_snippet: summary_artifact.snippet,
+            summary_snippet: session_snippet,
             transcript,
             session_title: session.as_ref().and_then(|value| {
                 let title = value.title.trim();

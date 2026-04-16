@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 use std::time::Instant;
 
@@ -105,6 +105,79 @@ impl MemoryGrpcService {
 
     fn idempotency_repo(&self) -> IdempotencyRepository {
         IdempotencyRepository::new(self.runtime.pool())
+    }
+
+    async fn load_session_transcript_for_query_memory(
+        &self,
+        tenant_id: &str,
+        session_id: &str,
+    ) -> Option<String> {
+        let object_store = self.object_store.as_ref()?;
+        let session_uuid = match parse_uuid(session_id) {
+            Ok(value) => value,
+            Err(error) => {
+                tracing::warn!(
+                    session_id,
+                    error = %error,
+                    "query_memory transcript hydration skipped because session_id is invalid"
+                );
+                return None;
+            }
+        };
+
+        let entries = match self
+            .entry_repo()
+            .list_by_session_ordered(tenant_id, session_uuid)
+            .await
+        {
+            Ok(value) => value,
+            Err(error) => {
+                tracing::warn!(
+                    session_id,
+                    tenant_id,
+                    error = %error,
+                    "query_memory transcript hydration skipped because session entries could not be loaded"
+                );
+                return None;
+            }
+        };
+
+        if entries.is_empty() {
+            return None;
+        }
+
+        let mut lines = Vec::with_capacity(entries.len());
+        for entry in entries {
+            if entry.l0_uri.starts_with("l0://pending/") {
+                tracing::warn!(
+                    session_id,
+                    l0_uri = %entry.l0_uri,
+                    "query_memory transcript hydration skipped because raw entry is pending"
+                );
+                return None;
+            }
+
+            let l0 = match object_store.get_l0_entry(&entry.l0_uri).await {
+                Ok(value) => value,
+                Err(error) => {
+                    tracing::warn!(
+                        session_id,
+                        l0_uri = %entry.l0_uri,
+                        error = %error,
+                        "query_memory transcript hydration skipped because raw entry could not be loaded"
+                    );
+                    return None;
+                }
+            };
+            lines.push(format!("{}: {}", l0.role, l0.content.trim()));
+        }
+
+        let transcript = lines.join("\n");
+        if transcript.trim().is_empty() {
+            None
+        } else {
+            Some(transcript)
+        }
     }
 
     fn capability_response(&self) -> Capability {
@@ -272,22 +345,40 @@ impl MemoryGrpcService {
             .await
             .map_err(|e| Status::internal(format!("global summary retrieval failed: {e}")))?;
 
-        Ok(records
-            .into_iter()
-            .map(|record| crate::api::MemoryHit {
-                session_id: record.session_id.to_string(),
+        let mut hits = Vec::new();
+        let mut seen_sessions: HashSet<String> = HashSet::new();
+
+        for record in records {
+            let session_id = record.session_id.to_string();
+            if !seen_sessions.insert(session_id.clone()) {
+                continue;
+            }
+
+            let Some(transcript) = self
+                .load_session_transcript_for_query_memory(tenant_id, &session_id)
+                .await
+            else {
+                tracing::warn!(
+                    tenant_id,
+                    session_id,
+                    "recall_global_summaries dropped hit because session transcript hydration failed"
+                );
+                continue;
+            };
+
+            hits.push(crate::api::MemoryHit {
+                session_id,
                 l0_uri: record.source_uri,
                 score: 1.0,
                 match_reasons: vec![
                     match_reason::SUMMARY_HIT.to_string(),
                     match_reason::RECENCY_BOOST.to_string(),
                 ],
-                snippet: record
-                    .snippet
-                    .filter(|snippet| !snippet.trim().is_empty())
-                    .unwrap_or(record.summary),
-            })
-            .collect())
+                snippet: transcript,
+            });
+        }
+
+        Ok(hits)
     }
 }
 
@@ -882,6 +973,16 @@ impl MemoryService for MemoryGrpcService {
             let elapsed = started_at.elapsed();
             let duration_ms = elapsed.as_millis() as u64;
             record_rpc_call(RpcMethod::QueryMemory, RpcOutcome::Success, elapsed);
+            if let Ok(response) = &result {
+                tracing::info!(
+                    request_id = %meta.request_id,
+                    session_id = %req.session_id,
+                    tenant_id = %meta.tenant_id,
+                    trace_id = %meta.trace_id,
+                    hits = ?response.get_ref().hits,
+                    "query_memory returned full hits"
+                );
+            }
             let detail = format!(
                 "hits_count={},retrieve_policy={},domain_class={},query_intent=recall_global_summaries",
                 result.as_ref().map(|response| response.get_ref().hits.len()).unwrap_or(0),
@@ -999,15 +1100,41 @@ impl MemoryService for MemoryGrpcService {
             }
         };
 
-        // Convert results to MemoryHit
+        // Hydrate snippet from full session transcript (L0 replay) when possible.
+        let mut transcript_by_session: HashMap<String, String> = HashMap::new();
+        let mut seen_sessions: HashSet<String> = HashSet::new();
+        for result in &results {
+            if !seen_sessions.insert(result.session_id.clone()) {
+                continue;
+            }
+            if let Some(transcript) = self
+                .load_session_transcript_for_query_memory(&meta.tenant_id, &result.session_id)
+                .await
+            {
+                transcript_by_session.insert(result.session_id.clone(), transcript);
+            }
+        }
+
+        // Convert results to MemoryHit. Strict mode: drop hits that cannot be hydrated
+        // to full session transcript.
         let hits: Vec<crate::api::MemoryHit> = results
             .into_iter()
-            .map(|r| crate::api::MemoryHit {
-                session_id: r.session_id,
-                l0_uri: r.l0_uri,
-                score: r.score,
-                match_reasons: match_reason::normalize_output(r.match_reasons),
-                snippet: r.snippet,
+            .filter_map(|r| {
+                let session_id = r.session_id.clone();
+                let transcript = transcript_by_session.get(&session_id).cloned();
+                if transcript.is_none() {
+                    tracing::warn!(
+                        session_id,
+                        "query_memory dropped hit because session transcript hydration failed"
+                    );
+                }
+                transcript.map(|snippet| crate::api::MemoryHit {
+                    session_id,
+                    l0_uri: r.l0_uri,
+                    score: r.score,
+                    match_reasons: match_reason::normalize_output(r.match_reasons),
+                    snippet,
+                })
             })
             .collect();
 
@@ -1023,6 +1150,14 @@ impl MemoryService for MemoryGrpcService {
         match &result {
             Ok(response) => {
                 record_rpc_call(RpcMethod::QueryMemory, RpcOutcome::Success, elapsed);
+                tracing::info!(
+                    request_id = %meta.request_id,
+                    session_id = %req.session_id,
+                    tenant_id = %meta.tenant_id,
+                    trace_id = %meta.trace_id,
+                    hits = ?response.get_ref().hits,
+                    "query_memory returned full hits"
+                );
                 let detail = format!(
                     "hits_count={},retrieve_policy={},domain_class={}",
                     response.get_ref().hits.len(),
