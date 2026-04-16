@@ -1,4 +1,4 @@
-# ADR-0020: Koduck AI Capability 协商接入与版本校验修复
+# ADR-0038: Koduck AI Capability 协商接入与版本校验修复
 
 - Status: Accepted
 - Date: 2026-04-12

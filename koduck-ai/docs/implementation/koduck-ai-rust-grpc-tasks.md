@@ -18,7 +18,7 @@
 | prompt 注入与 turn 回写 | Phase 3 | `QueryMemory` 命中作为独立 system message 注入；成功 turn 以 user / assistant entries 调用 `AppendMemory` |
 | `RequestMeta` 全链路透传 | Phase 3 / Phase 6 | 必须透传 `request_id/session_id/user_id/tenant_id/trace_id/deadline_ms/api_version`；写请求必须带 `idempotency_key` |
 | APISIX `X-Tenant-Id` 统一透传 | Phase 6 | northbound AI 路由与 southbound gRPC route 都要纳入统一 header / OTel attributes |
-| fail-open、观测与灰度 | Phase 5 / Phase 7 / Phase 8 | 对齐 `koduck-memory` 侧 ADR-0019、ADR-0020、ADR-0023、ADR-0024 的运行时约束 |
+| fail-open、观测与灰度 | Phase 5 / Phase 7 / Phase 8 | 对齐 `koduck-memory` 侧 ADR-0019、ADR-0020、ADR-0023、ADR-0024、ADR-0040 的运行时约束 |
 
 其中 `koduck-memory` 服务内的存储模型、对象存储、索引与摘要任务由 `koduck-memory` 项目文档维护，AI 侧只维护接入与编排责任。
 

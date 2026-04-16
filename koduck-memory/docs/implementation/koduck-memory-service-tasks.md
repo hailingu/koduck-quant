@@ -48,7 +48,7 @@
 设计与执行入口：
 
 - `ADR-0019-koduck-ai-memory-southbound-integration.md`
-- `ADR-0020-capability-negotiation-integration.md`
+- `ADR-0038-capability-negotiation-integration.md`
 - `ADR-0023-apisix-grpc-route-governance.md`
 
 ## Phase 7：异步摘要与长期事实
@@ -62,7 +62,7 @@
 
 设计与执行入口：
 
-- `ADR-0020-async-summary-task-materialization.md`
+- `ADR-0039-async-summary-task-materialization.md`
 - `ADR-0021-async-facts-extraction.md`
 - `ADR-0022-retry-and-compensation.md`
 
@@ -78,5 +78,5 @@
 
 - `ADR-0023-apisix-grpc-route-governance.md`
 - `ADR-0024-observability-and-slo.md`
-- `ADR-0024-canary-and-rollback-drill.md`
+- `ADR-0040-canary-and-rollback-drill.md`
 - `../../docs/adr/4001-koduck-memory-k8s-deploy-integration.md`

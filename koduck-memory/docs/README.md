@@ -26,8 +26,8 @@
 
 - `koduck-ai` 对接入口：`ADR-0019`
 - fail-open 策略：`ADR-0020-memory-fail-open-strategy.md`
-- 异步摘要与长期事实：`ADR-0020-async-summary-task-materialization.md`、`ADR-0021-async-facts-extraction.md`
-- 重试补偿、APISIX gRPC 治理、观测与灰度：`ADR-0022`、`ADR-0023`、`ADR-0024`
+- 异步摘要与长期事实：`ADR-0039-async-summary-task-materialization.md`、`ADR-0021-async-facts-extraction.md`
+- 重试补偿、APISIX gRPC 治理、观测与灰度：`ADR-0022`、`ADR-0023`、`ADR-0024`、`ADR-0040`
 
 ## Notes
 
