@@ -31,7 +31,7 @@ use crate::{
     },
     orchestrator::cancel::{run_abortable_with_cleanup, AbortReason, RequestGenerationGuard},
     reliability::{
-        degrade::{DegradeDecision, DegradeRoute},
+        degrade::DegradeRoute,
         error::{AppError, ErrorCode, UpstreamService},
         memory_observe::MemoryOperation,
         retry_budget::RetryDirective,
@@ -219,26 +219,7 @@ pub async fn chat(
     .await
     {
         Ok(ok) => ok,
-        Err(err) => {
-            if let Some(decision) = state
-                .degrade_policy
-                .evaluate_error(DegradeRoute::Chat, &err)
-            {
-                state
-                    .degrade_policy
-                    .log_hit(&decision, &request_id, &session_id, err.code);
-                build_stub_chat_response(
-                    &state,
-                    &request_id,
-                    &session_id,
-                    &request.message,
-                    request.model.clone(),
-                    degrade_reason_label(&decision),
-                )
-            } else {
-                return api_error_response(err, request_id);
-            }
-        }
+        Err(err) => return api_error_response(err, request_id),
     };
 
     append_chat_turn_best_effort(
@@ -957,65 +938,6 @@ fn is_memory_recall_query(message: &str) -> bool {
     .any(|phrase| normalized.contains(phrase))
 }
 
-fn build_memory_recall_answer(snapshot: &MemoryContextSnapshot) -> Option<String> {
-    if snapshot.hits.is_empty() {
-        return None;
-    }
-
-    let mut summaries = Vec::new();
-    let mut seen = std::collections::HashSet::new();
-    for hit in snapshot.hits.iter() {
-        let snippet = hit.snippet.trim();
-        if snippet.is_empty() {
-            continue;
-        }
-        let dedupe_key = format!("{}::{}", hit.session_id, snippet);
-        if !seen.insert(dedupe_key) {
-            continue;
-        }
-        summaries.push(format!(
-            "{}. 来自历史会话 {}：{}",
-            summaries.len() + 1,
-            hit.session_id,
-            snippet
-        ));
-        if summaries.len() >= 3 {
-            break;
-        }
-    }
-
-    if summaries.is_empty() {
-        return None;
-    }
-
-    Some(format!(
-        "我从之前的历史记忆里检索到了这些相关内容：\n{}\n如果你愿意，我可以继续基于其中某一条展开说明。",
-        summaries.join("\n")
-    ))
-}
-
-fn build_degraded_answer(
-    user_message: &str,
-    snapshot: Option<&MemoryContextSnapshot>,
-    reason: &str,
-) -> String {
-    if reason == "upstream_timeout" && is_memory_recall_query(user_message) {
-        if let Some(answer) = snapshot.and_then(build_memory_recall_answer) {
-            return answer;
-        }
-    }
-
-    build_stub_answer(user_message, reason)
-}
-
-fn build_degraded_stream_chunks(
-    user_message: &str,
-    snapshot: Option<&MemoryContextSnapshot>,
-    reason: &str,
-) -> Vec<String> {
-    chunk_answer(&build_degraded_answer(user_message, snapshot, reason))
-}
-
 fn build_memory_prompt(
     snapshot: &MemoryContextSnapshot,
     user_message: &str,
@@ -1328,44 +1250,6 @@ fn estimate_tokens(text: &str) -> u32 {
     (text.chars().count() as u32 / 4).max(1)
 }
 
-fn build_stub_answer(_user_message: &str, reason: &str) -> String {
-    match reason {
-        "stub_enabled" => "当前系统处于演示模式，暂时返回示例回复。".to_string(),
-        "upstream_timeout" => {
-            "刚才回答服务短暂异常，我没能正常生成完整回复。请稍后重试一次。".to_string()
-        }
-        "budget_exhausted" => {
-            "当前回答服务负载较高，暂时无法稳定生成回复。请稍后再试。".to_string()
-        }
-        "circuit_open" => {
-            "当前回答服务正在恢复中，暂时无法稳定处理这条消息。请稍后再试。".to_string()
-        }
-        _ => "当前回答服务暂时不可用，请稍后重试。".to_string(),
-    }
-}
-
-fn build_stream_chunks(_user_message: &str, reason: &str) -> Vec<String> {
-    match reason {
-        "stub_enabled" => vec!["当前系统处于演示模式，暂时返回示例回复。".to_string()],
-        "upstream_timeout" => vec![
-            "刚才回答服务短暂异常，".to_string(),
-            "这条消息没能正常生成完整回复。".to_string(),
-            "请稍后重试一次。".to_string(),
-        ],
-        "budget_exhausted" => vec![
-            "当前回答服务负载较高，".to_string(),
-            "暂时无法稳定生成回复。".to_string(),
-            "请稍后再试。".to_string(),
-        ],
-        "circuit_open" => vec![
-            "当前回答服务正在恢复中，".to_string(),
-            "这条消息暂时无法稳定处理。".to_string(),
-            "请稍后再试。".to_string(),
-        ],
-        _ => vec!["当前回答服务暂时不可用，请稍后重试。".to_string()],
-    }
-}
-
 fn chunk_answer(answer: &str) -> Vec<String> {
     const CHUNK_SIZE: usize = 48;
     let chars = answer.chars().collect::<Vec<_>>();
@@ -1377,32 +1261,6 @@ fn chunk_answer(answer: &str) -> Vec<String> {
         .chunks(CHUNK_SIZE)
         .map(|chunk| chunk.iter().collect::<String>())
         .collect()
-}
-
-fn build_stub_chat_response(
-    state: &Arc<AppState>,
-    request_id: &str,
-    session_id: &str,
-    user_message: &str,
-    requested_model: Option<String>,
-    reason: &str,
-) -> ChatResponse {
-    let model = requested_model.unwrap_or_else(|| state.config.llm.default_provider.clone());
-    let answer = build_stub_answer(user_message, reason);
-    let prompt_tokens = estimate_tokens(user_message);
-    let completion_tokens = estimate_tokens(&answer);
-    ChatResponse {
-        request_id: request_id.to_string(),
-        session_id: session_id.to_string(),
-        answer,
-        model,
-        usage: TokenUsage {
-            prompt_tokens,
-            completion_tokens,
-            total_tokens: prompt_tokens + completion_tokens,
-        },
-        degraded: true,
-    }
 }
 
 async fn handle_stream_abort(
@@ -1825,14 +1683,6 @@ fn build_generated_stream_done(request_id: &str, session_id: &str) -> PendingStr
     }
 }
 
-fn degrade_reason_label(decision: &DegradeDecision) -> &'static str {
-    match decision.reason {
-        crate::reliability::degrade::DegradeReason::UpstreamTimeout => "upstream_timeout",
-        crate::reliability::degrade::DegradeReason::BudgetExhausted => "budget_exhausted",
-        crate::reliability::degrade::DegradeReason::CircuitOpen => "circuit_open",
-    }
-}
-
 fn spawn_chunked_stream_producer<ChunkEventBuilder, DoneEventBuilder>(
     stream_session: Arc<crate::stream::sse::StreamSession>,
     guard: RequestGenerationGuard,
@@ -1912,28 +1762,6 @@ fn spawn_chunked_stream_producer<ChunkEventBuilder, DoneEventBuilder>(
             );
         }
     });
-}
-
-fn spawn_stub_stream(
-    stream_session: Arc<crate::stream::sse::StreamSession>,
-    guard: RequestGenerationGuard,
-    stream_timeout: Duration,
-    chunks: Vec<String>,
-    degrade_reason: &'static str,
-) {
-    spawn_chunked_stream_producer(
-        stream_session,
-        guard,
-        stream_timeout,
-        chunks,
-        120,
-        "stream queue rejected stub event",
-        "stub stream producer terminated early",
-        move |request_id, session_id, chunk| {
-            build_stub_stream_delta(request_id, session_id, chunk, degrade_reason)
-        },
-        move |request_id, session_id| build_stub_stream_done(request_id, session_id, degrade_reason),
-    );
 }
 
 fn spawn_generated_stream(
