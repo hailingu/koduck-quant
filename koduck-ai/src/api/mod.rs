@@ -984,14 +984,8 @@ fn build_memory_query_text(message: &str) -> String {
         })
         .collect::<String>();
 
-    let stop_tokens = [
-        "我们", "我", "你", "吗", "呢", "呀", "吧", "啊", "一下", "这个", "那个", "关于",
-        "什么",
-    ];
-
     let filtered = normalized
         .split_whitespace()
-        .filter(|token| !stop_tokens.contains(token))
         .collect::<Vec<_>>()
         .join(" ");
 
