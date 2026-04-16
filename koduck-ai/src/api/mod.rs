@@ -3,7 +3,7 @@
 use std::{collections::HashMap, convert::Infallible, sync::Arc, time::Duration};
 
 use axum::{
-    extract::{Json, Path, Request, State},
+    extract::{Json, State},
     http::{HeaderMap, HeaderValue, StatusCode},
     response::{
         sse::{Event, KeepAlive, Sse},
@@ -21,10 +21,9 @@ use crate::{
     app::AppState,
     auth::AuthContext,
     clients::memory::{
-        self, MemoryEntry, MemoryHit, MemoryRpcContext, QueryIntent, SessionInfo,
-        SessionUpsertInput,
+        self, MemoryEntry, MemoryHit, MemoryRequestContext, QueryIntent, QueryMemoryInput,
+        RetrievePolicy, SessionInfo, SessionUpsertInput,
     },
-    config::LlmMode,
     llm::{
         ChatMessage as ProviderChatMessage, GenerateRequest as ProviderGenerateRequest,
         RequestContext, StreamEvent as ProviderStreamEvent, ToolCall as ProviderToolCall,
@@ -32,7 +31,7 @@ use crate::{
     },
     orchestrator::cancel::{run_abortable_with_cleanup, AbortReason, RequestGenerationGuard},
     reliability::{
-        degrade::{DegradeDecision, DegradeRoute},
+        degrade::DegradeRoute,
         error::{AppError, ErrorCode, UpstreamService},
         memory_observe::MemoryOperation,
         retry_budget::RetryDirective,
@@ -42,10 +41,8 @@ use crate::{
 
 const MAX_ALLOWED_TOKENS: u32 = 32_768;
 const MEMORY_QUERY_TOP_K: i32 = 5;
+const MEMORY_QUERY_PAGE_SIZE: i32 = 5;
 const MAX_HISTORY_MESSAGES: usize = 20;
-const MEMORY_SESSION_BATCH_SIZE: usize = 2;
-const ACTIVE_MEMORY_CONTEXT_KEY: &str = "active_memory_context";
-const ACTIVE_MEMORY_CONTEXT_KIND_KEY: &str = "active_memory_context_kind";
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct ChatHistoryMessage {
@@ -59,7 +56,6 @@ pub struct ChatRequest {
     pub message: String,
     #[serde(default)]
     pub history: Option<Vec<ChatHistoryMessage>>,
-    pub provider: Option<String>,
     pub model: Option<String>,
     pub temperature: Option<f32>,
     pub max_tokens: Option<u32>,
@@ -105,21 +101,10 @@ pub struct ApiResponse<T> {
     pub error: Option<crate::reliability::error::ErrorResponse>,
 }
 
-#[derive(Debug, Serialize)]
-pub struct SessionLookupResponse {
-    pub exists: bool,
-}
-
-#[derive(Debug, Serialize)]
-pub struct DebugPathResponse {
-    pub value: String,
-}
-
 #[derive(Debug, Clone, Default)]
 struct MemoryContextSnapshot {
     session: Option<SessionInfo>,
     hits: Vec<MemoryHit>,
-    active_retrieval_context: Option<String>,
 }
 
 #[derive(Debug, Default)]
@@ -137,31 +122,56 @@ enum StreamLlmPlan {
 struct QueryMemoryToolArgs {
     query: Option<String>,
     intent: Option<String>,
-    #[serde(default)]
-    ner: Vec<QueryMemoryToolNer>,
     memory_scope: Option<String>,
     domain_class: Option<String>,
 }
 
-#[derive(Debug, Deserialize, Default, Clone)]
-struct QueryMemoryToolNer {
-    text: Option<String>,
-    #[serde(rename = "type")]
-    entity_type: Option<String>,
+struct PreparedChatContext {
+    request_id: String,
+    auth_ctx: AuthContext,
+    session_id: String,
+    trace_id: String,
+    memory_ctx: MemoryRequestContext,
 }
 
-#[derive(Debug, Deserialize, Default)]
-struct DeleteSessionToolArgs {
-    session_id: Option<String>,
-    description: Option<String>,
-}
-
-impl MemoryContextSnapshot {
-    fn has_active_retrieval_context(&self) -> bool {
-        self.active_retrieval_context
-            .as_ref()
-            .is_some_and(|value| !value.trim().is_empty())
+async fn init_chat_context(
+    state: &Arc<AppState>,
+    headers: &HeaderMap,
+    route: DegradeRoute,
+    request: &ChatRequest,
+) -> Result<PreparedChatContext, AppError> {
+    let request_id = extract_or_create_request_id(headers);
+    state.degrade_policy.record_request(route);
+    if !state.lifecycle.is_accepting_requests() {
+        return Err(
+            AppError::new(ErrorCode::ServerBusy, "service is draining new requests")
+                .with_request_id(request_id),
+        );
     }
+
+    let auth_ctx = crate::auth::authenticate_bearer(headers, state)
+        .await
+        .map_err(|err| err.with_request_id(request_id.clone()))?;
+
+    validate_chat_request(request).map_err(|err| err.with_request_id(request_id.clone()))?;
+
+    let session_id = resolve_session_id(request.session_id.clone());
+    let trace_id = extract_trace_id(headers);
+    let memory_ctx = MemoryRequestContext::from_auth(
+        request_id.clone(),
+        session_id.clone(),
+        trace_id.clone(),
+        state.config.llm.timeout_ms,
+        &auth_ctx,
+    );
+
+    Ok(PreparedChatContext {
+        request_id,
+        auth_ctx,
+        session_id,
+        trace_id,
+        memory_ctx,
+    })
 }
 
 pub async fn chat(
@@ -169,33 +179,22 @@ pub async fn chat(
     headers: HeaderMap,
     Json(request): Json<ChatRequest>,
 ) -> Response {
-    let request_id = extract_or_create_request_id(&headers);
-    state.degrade_policy.record_request(DegradeRoute::Chat);
-    if !state.lifecycle.is_accepting_requests() {
-        return api_error_response(
-            AppError::new(ErrorCode::ServerBusy, "service is draining new requests")
-                .with_request_id(request_id.clone()),
-            request_id,
-        );
-    }
-    let auth_ctx = match crate::auth::authenticate_bearer(&headers, &state).await {
+    let PreparedChatContext {
+        request_id,
+        auth_ctx,
+        session_id,
+        trace_id,
+        memory_ctx,
+    } = match init_chat_context(&state, &headers, DegradeRoute::Chat, &request).await {
         Ok(ctx) => ctx,
-        Err(err) => return api_error_response(err.with_request_id(request_id.clone()), request_id),
+        Err(err) => {
+            let response_request_id = err
+                .request_id
+                .clone()
+                .unwrap_or_else(|| extract_or_create_request_id(&headers));
+            return api_error_response(err, response_request_id);
+        }
     };
-
-    if let Err(err) = validate_chat_request(&request) {
-        return api_error_response(err, extract_or_create_request_id(&headers));
-    }
-
-    let session_id = resolve_session_id(request.session_id.clone());
-    let trace_id = extract_trace_id(&headers);
-    let memory_ctx = MemoryRpcContext::from_auth(
-        request_id.clone(),
-        session_id.clone(),
-        trace_id.clone(),
-        state.config.llm.timeout_ms,
-        &auth_ctx,
-    );
 
     info!(
         request_id = %request_id,
@@ -206,54 +205,33 @@ pub async fn chat(
     );
 
     let memory_snapshot =
-        prepare_memory_context(&state, DegradeRoute::Chat, &request, &memory_ctx).await;
+        load_memory_snapshot(&state, DegradeRoute::Chat, &request, &memory_ctx).await;
 
-    let response = if state.config.llm.stub_enabled {
-        build_stub_chat_response(
-            &state,
-            &request_id,
-            &session_id,
-            &request.message,
-            request.model.clone(),
-            "stub_enabled",
-        )
-    } else {
-        match call_llm_generate(
-            &state,
-            &request,
-            &memory_snapshot,
-            &request_id,
-            &session_id,
-            &auth_ctx,
-            &trace_id,
-        )
-        .await
-        {
-            Ok(ok) => ok,
-            Err(err) => return api_error_response(err, request_id),
-        }
+    let response = match call_llm_generate(
+        &state,
+        &request,
+        &memory_snapshot,
+        &request_id,
+        &session_id,
+        &auth_ctx,
+        &trace_id,
+    )
+    .await
+    {
+        Ok(ok) => ok,
+        Err(err) => return api_error_response(err, request_id),
     };
 
-    if let Err(err) = append_chat_turn(
+    append_chat_turn_best_effort(
         &state,
+        DegradeRoute::Chat,
         &memory_ctx,
         &request,
         &response.answer,
         response.model.as_str(),
-        memory_snapshot.has_active_retrieval_context(),
+        "append_memory failed after chat response; continuing with successful answer",
     )
-    .await
-    {
-        log_memory_failure(
-            &state,
-            DegradeRoute::Chat,
-            MemoryOperation::AppendMemory,
-            &memory_ctx,
-            &err,
-            true,
-            "append_memory failed after chat response; continuing with successful answer",
-        );
-    }
+    .await;
 
     let mut res_headers = HeaderMap::new();
     if let Ok(v) = HeaderValue::from_str(&request_id) {
@@ -273,255 +251,27 @@ pub async fn chat(
         .into_response()
 }
 
-pub async fn session_exists(
-    State(state): State<Arc<AppState>>,
-    headers: HeaderMap,
-    Path(raw_session_id): Path<String>,
-) -> Response {
-    session_exists_impl(state, headers, raw_session_id).await
-}
-
-pub async fn delete_session(
-    State(state): State<Arc<AppState>>,
-    headers: HeaderMap,
-    Path(raw_session_id): Path<String>,
-) -> Response {
-    delete_session_impl(state, headers, raw_session_id).await
-}
-
-async fn session_exists_impl(
-    state: Arc<AppState>,
-    headers: HeaderMap,
-    raw_session_id: String,
-) -> Response {
-    let request_id = extract_or_create_request_id(&headers);
-    info!(
-        request_id = %request_id,
-        raw_session_id = %raw_session_id,
-        "session lookup request received"
-    );
-    let auth_ctx = match crate::auth::authenticate_bearer(&headers, &state).await {
-        Ok(ctx) => ctx,
-        Err(err) => {
-            warn!(
-                request_id = %request_id,
-                error_code = ?err.code,
-                "session lookup authentication failed"
-            );
-            return api_error_response(err.with_request_id(request_id.clone()), request_id);
-        }
-    };
-
-    let Some(session_id) = normalize_session_id(&raw_session_id) else {
-        warn!(
-            request_id = %request_id,
-            raw_session_id = %raw_session_id,
-            "session lookup rejected invalid session id"
-        );
-        return api_error_response(
-            AppError::new(ErrorCode::InvalidArgument, "session_id is invalid")
-                .with_request_id(request_id.clone()),
-            request_id,
-        );
-    };
-
-    let trace_id = extract_trace_id(&headers);
-    let memory_ctx = MemoryRpcContext::from_auth(
-        request_id.clone(),
-        session_id,
-        trace_id,
-        state.config.llm.timeout_ms,
-        &auth_ctx,
-    );
-
-    let exists = match memory::get_session(&state, &memory_ctx).await {
-        Ok(_) => true,
-        Err(err) if err.code == ErrorCode::ResourceNotFound => false,
-        Err(err) => {
-            warn!(
-                request_id = %request_id,
-                session_id = %memory_ctx.session_id,
-                error_code = ?err.code,
-                "session lookup failed during memory get_session"
-            );
-            return api_error_response(err, request_id);
-        }
-    };
-
-    info!(
-        request_id = %request_id,
-        session_id = %memory_ctx.session_id,
-        tenant_id = %auth_ctx.tenant_id,
-        exists,
-        "session lookup completed"
-    );
-
-    (
-        StatusCode::OK,
-        Json(ApiResponse {
-            success: true,
-            code: ErrorCode::Ok.to_string(),
-            message: "session lookup completed".to_string(),
-            data: Some(SessionLookupResponse { exists }),
-            error: None,
-        }),
-    )
-        .into_response()
-}
-
-async fn delete_session_impl(
-    state: Arc<AppState>,
-    headers: HeaderMap,
-    raw_session_id: String,
-) -> Response {
-    let request_id = extract_or_create_request_id(&headers);
-    info!(
-        request_id = %request_id,
-        raw_session_id = %raw_session_id,
-        "session delete request received"
-    );
-    let auth_ctx = match crate::auth::authenticate_bearer(&headers, &state).await {
-        Ok(ctx) => ctx,
-        Err(err) => {
-            warn!(
-                request_id = %request_id,
-                error_code = ?err.code,
-                "session delete authentication failed"
-            );
-            return api_error_response(err.with_request_id(request_id.clone()), request_id);
-        }
-    };
-
-    let Some(session_id) = normalize_session_id(&raw_session_id) else {
-        warn!(
-            request_id = %request_id,
-            raw_session_id = %raw_session_id,
-            "session delete rejected invalid session id"
-        );
-        return api_error_response(
-            AppError::new(ErrorCode::InvalidArgument, "session_id is invalid")
-                .with_request_id(request_id.clone()),
-            request_id,
-        );
-    };
-
-    let trace_id = extract_trace_id(&headers);
-    let memory_ctx = MemoryRpcContext::from_auth(
-        request_id.clone(),
-        session_id,
-        trace_id,
-        state.config.llm.timeout_ms,
-        &auth_ctx,
-    );
-
-    if let Err(err) = memory::delete_session(&state, &memory_ctx).await {
-        warn!(
-            request_id = %request_id,
-            session_id = %memory_ctx.session_id,
-            error_code = ?err.code,
-            "session delete failed"
-        );
-        return api_error_response(err, request_id);
-    }
-
-    info!(
-        request_id = %request_id,
-        session_id = %memory_ctx.session_id,
-        tenant_id = %auth_ctx.tenant_id,
-        "session delete completed"
-    );
-
-    (
-        StatusCode::OK,
-        Json(ApiResponse::<()> {
-            success: true,
-            code: ErrorCode::Ok.to_string(),
-            message: "session deleted".to_string(),
-            data: None,
-            error: None,
-        }),
-    )
-        .into_response()
-}
-
-pub async fn debug_path_echo(Path(value): Path<String>) -> Response {
-    debug_path_echo_impl(value).await
-}
-
-async fn debug_path_echo_impl(value: String) -> Response {
-    (
-        StatusCode::OK,
-        Json(ApiResponse {
-            success: true,
-            code: ErrorCode::Ok.to_string(),
-            message: "debug path matched".to_string(),
-            data: Some(DebugPathResponse { value }),
-            error: None,
-        }),
-    )
-        .into_response()
-}
-
-pub async fn http_fallback(
-    State(state): State<Arc<AppState>>,
-    headers: HeaderMap,
-    request: Request,
-) -> Response {
-    let path = request.uri().path().to_string();
-
-    if let Some(raw_session_id) = path.strip_prefix("/api/v1/ai/sessions/") {
-        info!(
-            path = %path,
-            "http fallback rerouting unmatched session lookup path"
-        );
-        return session_exists_impl(state, headers, raw_session_id.to_string()).await;
-    }
-
-    if let Some(value) = path.strip_prefix("/api/v1/ai/debug/") {
-        info!(
-            path = %path,
-            "http fallback rerouting unmatched debug path"
-        );
-        return debug_path_echo_impl(value.to_string()).await;
-    }
-
-    StatusCode::NOT_FOUND.into_response()
-}
-
 pub async fn chat_stream(
     State(state): State<Arc<AppState>>,
     headers: HeaderMap,
     Json(request): Json<ChatStreamRequest>,
 ) -> Response {
-    let request_id = extract_or_create_request_id(&headers);
-    state
-        .degrade_policy
-        .record_request(DegradeRoute::ChatStream);
-    if !state.lifecycle.is_accepting_requests() {
-        return api_error_response(
-            AppError::new(ErrorCode::ServerBusy, "service is draining new requests")
-                .with_request_id(request_id.clone()),
-            request_id,
-        );
-    }
-    let auth_ctx = match crate::auth::authenticate_bearer(&headers, &state).await {
+    let PreparedChatContext {
+        request_id,
+        auth_ctx,
+        session_id,
+        trace_id,
+        memory_ctx,
+    } = match init_chat_context(&state, &headers, DegradeRoute::ChatStream, &request.chat).await {
         Ok(ctx) => ctx,
-        Err(err) => return api_error_response(err.with_request_id(request_id.clone()), request_id),
+        Err(err) => {
+            let response_request_id = err
+                .request_id
+                .clone()
+                .unwrap_or_else(|| extract_or_create_request_id(&headers));
+            return api_error_response(err, response_request_id);
+        }
     };
-
-    if let Err(err) = validate_chat_request(&request.chat) {
-        return api_error_response(err, extract_or_create_request_id(&headers));
-    }
-
-    let session_id = resolve_session_id(request.chat.session_id.clone());
-    let trace_id = extract_trace_id(&headers);
-    let memory_ctx = MemoryRpcContext::from_auth(
-        request_id.clone(),
-        session_id.clone(),
-        trace_id.clone(),
-        state.config.llm.timeout_ms,
-        &auth_ctx,
-    );
     let resume_cursor = ResumeCursor {
         last_event_id: headers
             .get("last-event-id")
@@ -544,7 +294,7 @@ pub async fn chat_stream(
         None
     } else {
         Some(
-            prepare_memory_context(&state, DegradeRoute::ChatStream, &request.chat, &memory_ctx)
+            load_memory_snapshot(&state, DegradeRoute::ChatStream, &request.chat, &memory_ctx)
                 .await,
         )
     };
@@ -579,50 +329,15 @@ pub async fn chat_stream(
     if !resume_cursor.is_resume() {
         let generation_guard = session.request_guard().await;
         let stream_timeout = Duration::from_millis(state.config.stream.max_duration_ms);
-        if state.config.llm.stub_enabled {
-            if let Err(err) = append_chat_turn(
-                &state,
-                &memory_ctx,
-                &request.chat,
-                &build_stub_answer(&request.chat.message, "stub_enabled"),
-                request
-                    .chat
-                    .model
-                    .as_deref()
-                    .unwrap_or(&state.config.llm.default_provider),
-                memory_snapshot
-                    .as_ref()
-                    .is_some_and(MemoryContextSnapshot::has_active_retrieval_context),
-            )
-            .await
-            {
-                log_memory_failure(
-                    &state,
-                    DegradeRoute::ChatStream,
-                    MemoryOperation::AppendMemory,
-                    &memory_ctx,
-                    &err,
-                    true,
-                    "append_memory failed before stub stream; continuing with degraded stream",
-                );
-            }
-            spawn_stub_stream(
-                Arc::clone(&session),
-                generation_guard.clone(),
-                stream_timeout,
-                build_stream_chunks(&request.chat.message, "stub_enabled"),
-                "stub_enabled",
-            );
-        } else if state.config.llm.mode == LlmMode::Direct {
-            let llm_plan = match call_llm_stream(
-                &state,
-                &request.chat,
-                memory_snapshot.as_ref().expect("memory snapshot present for new stream"),
-                &request_id,
-                &session_id,
-                &auth_ctx,
-                &trace_id,
-            )
+        let llm_plan = match call_llm_stream(
+            &state,
+            &request.chat,
+            memory_snapshot.as_ref(),
+            &request_id,
+            &session_id,
+            &auth_ctx,
+            &trace_id,
+        )
             .await
             {
                 Ok(plan) => plan,
@@ -630,33 +345,21 @@ pub async fn chat_stream(
             };
             match llm_plan {
                 StreamLlmPlan::ReadyAnswer(answer) => {
-                    if let Err(err) = append_chat_turn(
+                    append_chat_turn_best_effort(
                         &state,
+                        DegradeRoute::ChatStream,
                         &memory_ctx,
                         &request.chat,
                         &answer,
                         request.chat.model.as_deref().unwrap_or_default(),
-                        memory_snapshot
-                            .as_ref()
-                            .is_some_and(MemoryContextSnapshot::has_active_retrieval_context),
+                        "append_memory failed after direct tool-free response; continuing with generated stream",
                     )
-                    .await
-                    {
-                        log_memory_failure(
-                            &state,
-                            DegradeRoute::ChatStream,
-                            MemoryOperation::AppendMemory,
-                            &memory_ctx,
-                            &err,
-                            true,
-                            "append_memory failed after direct tool-free response; continuing with generated stream",
-                        );
-                    }
+                    .await;
                     spawn_generated_stream(
                         Arc::clone(&session),
                         generation_guard.clone(),
                         stream_timeout,
-                        chunk_answer(&answer),
+                        answer,
                     );
                 }
                 StreamLlmPlan::Upstream(upstream) => {
@@ -665,9 +368,6 @@ pub async fn chat_stream(
                     let append_state = Arc::clone(&state);
                     let append_ctx = memory_ctx.clone();
                     let append_request = request.chat.clone();
-                    let append_session_has_active_retrieval_context = memory_snapshot
-                        .as_ref()
-                        .is_some_and(MemoryContextSnapshot::has_active_retrieval_context);
                     tokio::spawn(async move {
                         let producer_guard = guard.clone();
                         let producer = async {
@@ -761,207 +461,16 @@ pub async fn chat_stream(
                                     .await;
                             }
 
-                            if let Err(err) = append_chat_turn(
+                            append_chat_turn_best_effort(
                                 &append_state,
+                                DegradeRoute::ChatStream,
                                 &append_ctx,
                                 &append_request,
                                 &full_answer,
                                 append_request.model.as_deref().unwrap_or_default(),
-                                append_session_has_active_retrieval_context,
+                                "failed to persist streamed conversation into memory",
                             )
-                            .await
-                            {
-                                log_memory_failure(
-                                    &append_state,
-                                    DegradeRoute::ChatStream,
-                                    MemoryOperation::AppendMemory,
-                                    &append_ctx,
-                                    &err,
-                                    true,
-                                    "failed to persist streamed conversation into memory",
-                                );
-                            }
-                        };
-
-                        let cleanup_session = Arc::clone(&stream_session);
-                        let cleanup_guard = guard.clone();
-                        let cleanup_guard_for_log = cleanup_guard.clone();
-                        let result = run_abortable_with_cleanup(
-                            guard,
-                            stream_timeout,
-                            producer,
-                            move |reason| async move {
-                                handle_stream_abort(&cleanup_session, &cleanup_guard, reason).await;
-                            },
-                        )
-                        .await;
-
-                        if let Err(reason) = result {
-                            info!(
-                                request_id = %stream_session.request_id(),
-                                session_id = %stream_session.session_id(),
-                                generation = cleanup_guard_for_log.generation(),
-                                abort_reason = ?reason,
-                                "upstream stream producer terminated early"
-                            );
-                        }
-                    });
-                }
-            }
-        } else {
-            let llm_plan =
-                match call_llm_stream(
-                    &state,
-                    &request.chat,
-                    memory_snapshot.as_ref().expect("memory snapshot present for new stream"),
-                    &request_id,
-                    &session_id,
-                    &auth_ctx,
-                    &trace_id,
-                )
-                .await
-                {
-                    Ok(plan) => plan,
-                    Err(err) => return api_error_response(err, request_id),
-                };
-            match llm_plan {
-                StreamLlmPlan::ReadyAnswer(answer) => {
-                    if let Err(err) = append_chat_turn(
-                        &state,
-                        &memory_ctx,
-                        &request.chat,
-                        &answer,
-                        request.chat.model.as_deref().unwrap_or_default(),
-                        memory_snapshot
-                            .as_ref()
-                            .is_some_and(MemoryContextSnapshot::has_active_retrieval_context),
-                    )
-                    .await
-                    {
-                        log_memory_failure(
-                            &state,
-                            DegradeRoute::ChatStream,
-                            MemoryOperation::AppendMemory,
-                            &memory_ctx,
-                            &err,
-                            true,
-                            "append_memory failed after direct tool-free response; continuing with generated stream",
-                        );
-                    }
-                    spawn_generated_stream(
-                        Arc::clone(&session),
-                        generation_guard.clone(),
-                        stream_timeout,
-                        chunk_answer(&answer),
-                    );
-                }
-                StreamLlmPlan::Upstream(upstream) => {
-                    let stream_session = Arc::clone(&session);
-                    let guard = generation_guard.clone();
-                    let append_state = Arc::clone(&state);
-                    let append_ctx = memory_ctx.clone();
-                    let append_request = request.chat.clone();
-                    let append_session_has_active_retrieval_context = memory_snapshot
-                        .as_ref()
-                        .is_some_and(MemoryContextSnapshot::has_active_retrieval_context);
-                    tokio::spawn(async move {
-                        let producer_guard = guard.clone();
-                        let producer = async {
-                            let mut upstream = upstream;
-                            let mut full_answer = String::new();
-                            while let Some(next) = upstream.next().await {
-                                match next {
-                                    Ok(ev) => {
-                                        full_answer.push_str(&ev.delta);
-                                        for pending in build_stream_events(
-                                            &ev,
-                                            stream_session.request_id(),
-                                            stream_session.session_id(),
-                                        ) {
-                                            if let Err(err) = stream_session
-                                                .enqueue_event_if_current(&producer_guard, pending)
-                                                .await
-                                            {
-                                                info!(
-                                                    request_id = %stream_session.request_id(),
-                                                    session_id = %stream_session.session_id(),
-                                                    error = %err,
-                                                    generation = producer_guard.generation(),
-                                                    "stream queue rejected upstream event"
-                                                );
-                                                stream_session
-                                                    .force_shutdown_if_current(
-                                                        &producer_guard,
-                                                        ErrorCode::StreamTimeout.to_string(),
-                                                        "stream queue backpressure timeout",
-                                                    )
-                                                    .await;
-                                                break;
-                                            }
-                                        }
-                                    }
-                                    Err(mapped_error) => {
-                                        info!(
-                                            request_id = %stream_session.request_id(),
-                                            session_id = %stream_session.session_id(),
-                                            error = %mapped_error,
-                                            generation = producer_guard.generation(),
-                                            "llm stream item failed"
-                                        );
-                                        let _ = stream_session
-                                            .enqueue_event_if_current(
-                                                &producer_guard,
-                                                build_stream_error_event(
-                                                    &mapped_error,
-                                                    stream_session.request_id(),
-                                                    stream_session.session_id(),
-                                                ),
-                                            )
-                                            .await;
-                                        break;
-                                    }
-                                }
-                            }
-
-                            let replay = stream_session.open_replay(0).await;
-                            let has_terminal_event = replay
-                                .replay_events
-                                .iter()
-                                .any(|event| matches!(event.event_type.as_str(), "done" | "error"));
-
-                            if !has_terminal_event {
-                                let _ = stream_session
-                                    .enqueue_event_if_current(
-                                        &producer_guard,
-                                        StreamEventData::done(
-                                            stream_session.request_id().to_string(),
-                                            stream_session.session_id().to_string(),
-                                            "stop",
-                                        ),
-                                    )
-                                    .await;
-                            }
-
-                            if let Err(err) = append_chat_turn(
-                                &append_state,
-                                &append_ctx,
-                                &append_request,
-                                &full_answer,
-                                append_request.model.as_deref().unwrap_or_default(),
-                                append_session_has_active_retrieval_context,
-                            )
-                            .await
-                            {
-                                log_memory_failure(
-                                    &append_state,
-                                    DegradeRoute::ChatStream,
-                                    MemoryOperation::AppendMemory,
-                                    &append_ctx,
-                                    &err,
-                                    true,
-                                    "failed to persist streamed conversation into memory",
-                                );
-                            }
+                            .await;
                         };
 
                         let cleanup_session = Arc::clone(&stream_session);
@@ -990,7 +499,6 @@ pub async fn chat_stream(
                 }
             }
         }
-    }
 
     let high_watermark = resume_cursor.high_watermark(Some(&session));
     stream_sse_response_with_watermark(session, request_id, high_watermark).await
@@ -1047,11 +555,11 @@ async fn stream_sse_response_with_watermark(
         .into_response()
 }
 
-async fn prepare_memory_context(
+async fn load_memory_snapshot(
     state: &Arc<AppState>,
     route: DegradeRoute,
     request: &ChatRequest,
-    ctx: &MemoryRpcContext,
+    ctx: &MemoryRequestContext,
 ) -> MemoryContextSnapshot {
     let session = match memory::get_session(state, ctx).await {
         Ok(session) => Some(session),
@@ -1070,16 +578,13 @@ async fn prepare_memory_context(
         }
     };
 
-    let mut merged_extra = session_extra_map(session.as_ref());
-    merged_extra.extend(request_metadata_extra(request));
-
     if let Err(err) = memory::upsert_session_meta(
         state,
         ctx,
         SessionUpsertInput {
             title: metadata_string(request, "title"),
             status: metadata_string(request, "status"),
-            extra: merged_extra.clone(),
+            extra: request_metadata_extra(request),
             parent_session_id: metadata_string(request, "parent_session_id"),
             forked_from_session_id: metadata_string(request, "forked_from_session_id"),
             last_message_at: Utc::now().timestamp_millis(),
@@ -1098,33 +603,25 @@ async fn prepare_memory_context(
         );
     }
 
-    let active_retrieval_context = active_retrieval_context_from_session(session.as_ref());
     MemoryContextSnapshot {
         session,
         hits: Vec::new(),
-        active_retrieval_context,
     }
 }
 
 async fn append_chat_turn(
     state: &Arc<AppState>,
-    ctx: &MemoryRpcContext,
+    ctx: &MemoryRequestContext,
     request: &ChatRequest,
     answer: &str,
     model: &str,
-    session_has_active_retrieval_context: bool,
 ) -> Result<(), AppError> {
     let now = Utc::now().timestamp_millis();
     let user_entry = MemoryEntry {
         role: "user".to_string(),
         content: request.message.clone(),
         timestamp: now,
-        metadata: build_memory_entry_metadata(
-            request,
-            ctx,
-            None,
-            session_has_active_retrieval_context,
-        ),
+        metadata: build_memory_entry_metadata(request, ctx, None),
     };
     let mut entries = vec![user_entry];
 
@@ -1133,12 +630,7 @@ async fn append_chat_turn(
             role: "assistant".to_string(),
             content: answer.to_string(),
             timestamp: now,
-            metadata: build_memory_entry_metadata(
-                request,
-                ctx,
-                Some(model),
-                session_has_active_retrieval_context,
-            ),
+            metadata: build_memory_entry_metadata(request, ctx, Some(model)),
         });
     }
 
@@ -1147,11 +639,33 @@ async fn append_chat_turn(
     Ok(())
 }
 
+async fn append_chat_turn_best_effort(
+    state: &Arc<AppState>,
+    route: DegradeRoute,
+    ctx: &MemoryRequestContext,
+    request: &ChatRequest,
+    answer: &str,
+    model: &str,
+    failure_message: &'static str,
+) {
+    if let Err(err) = append_chat_turn(state, ctx, request, answer, model).await {
+        log_memory_failure(
+            state,
+            route,
+            MemoryOperation::AppendMemory,
+            ctx,
+            &err,
+            true,
+            failure_message,
+        );
+    }
+}
+
 fn log_memory_failure(
     state: &Arc<AppState>,
     route: DegradeRoute,
     operation: MemoryOperation,
-    ctx: &MemoryRpcContext,
+    ctx: &MemoryRequestContext,
     err: &AppError,
     fallback_applied: bool,
     message: &'static str,
@@ -1286,18 +800,124 @@ fn json_value_as_string(value: &serde_json::Value) -> Option<String> {
     }
 }
 
-fn session_extra_map(session: Option<&SessionInfo>) -> HashMap<String, String> {
-    session
-        .map(|session| session.extra.clone())
-        .unwrap_or_default()
+fn retrieve_policy_from_request(request: &ChatRequest) -> RetrievePolicy {
+    if is_memory_recall_query(&request.message) {
+        return RetrievePolicy::DomainFirst;
+    }
+
+    let raw_policy = request.retrieve_policy.as_deref().or_else(|| {
+        request
+            .metadata
+            .as_ref()
+            .and_then(|metadata| metadata.get("retrieve_policy"))
+            .and_then(|value| value.as_str())
+    });
+
+    match raw_policy
+        .map(|value| value.trim().to_ascii_lowercase())
+        .as_deref()
+    {
+        Some("domain-first") | Some("domain_first") => RetrievePolicy::DomainFirst,
+        Some("summary-first") | Some("summary_first") => RetrievePolicy::SummaryFirst,
+        Some("hybrid") => RetrievePolicy::Hybrid,
+        _ => RetrievePolicy::SummaryFirst,
+    }
 }
 
-fn active_retrieval_context_from_session(session: Option<&SessionInfo>) -> Option<String> {
-    session
-        .and_then(|session| session.extra.get(ACTIVE_MEMORY_CONTEXT_KEY))
-        .map(|value| value.trim())
-        .filter(|value| !value.is_empty())
-        .map(ToOwned::to_owned)
+fn memory_query_session_scope(
+    request: &ChatRequest,
+    ctx: &MemoryRequestContext,
+) -> Option<String> {
+    if is_memory_recall_query(&request.message) {
+        return Some(ctx.session_id.clone());
+    }
+
+    let scope = request
+        .metadata
+        .as_ref()
+        .and_then(|metadata| metadata.get("memory_scope"))
+        .and_then(|value| value.as_str())
+        .map(|value| value.trim().to_ascii_lowercase());
+
+    match scope.as_deref() {
+        Some("session") | Some("current_session") | Some("current") => {
+            Some(ctx.session_id.clone())
+        }
+        _ => None,
+    }
+}
+
+fn build_memory_query_text(message: &str) -> String {
+    let mut normalized = message.trim().to_lowercase();
+    let alias_replacements = [
+        ("karl marx", "马克思"),
+        ("marx", "马克思"),
+        ("friedrich engels", "恩格斯"),
+        ("engels", "恩格斯"),
+        ("vladimir lenin", "列宁"),
+        ("lenin", "列宁"),
+        ("max stirner", "施蒂纳"),
+        ("stirner", "施蒂纳"),
+        ("anarchism", "无政府主义"),
+        ("anarchist", "无政府主义"),
+    ];
+    for (alias, canonical) in alias_replacements {
+        normalized = normalized.replace(alias, canonical);
+    }
+
+    let phrase_replacements = [
+        "我们之前有讨论过",
+        "我们之前讨论过",
+        "我们之前聊过",
+        "讨论了什么",
+        "聊了什么",
+        "说了什么",
+        "找出来之前关于",
+        "找出之前关于",
+        "找出来之前",
+        "找出之前",
+        "之前关于",
+        "之前的",
+        "之前",
+        "记忆",
+        "历史记忆",
+        "有没有",
+        "有讨论过",
+        "讨论过",
+        "聊过",
+        "总结一下",
+        "总结",
+    ];
+
+    for phrase in phrase_replacements {
+        normalized = normalized.replace(phrase, " ");
+    }
+
+    normalized = normalized
+        .chars()
+        .map(|ch| match ch {
+            '，' | '。' | '？' | '！' | '：' | '；' | '、' | ',' | '.' | '?' | '!' | ':' | ';'
+            | '(' | ')' | '（' | '）' | '"' | '\'' => ' ',
+            _ => ch,
+        })
+        .collect::<String>();
+
+    let stop_tokens = [
+        "我们", "我", "你", "吗", "呢", "呀", "吧", "啊", "一下", "这个", "那个", "关于",
+        "什么",
+    ];
+
+    let filtered = normalized
+        .split_whitespace()
+        .filter(|token| !stop_tokens.contains(token))
+        .collect::<Vec<_>>()
+        .join(" ");
+
+    if filtered.trim().is_empty() {
+        message.trim().to_string()
+    } else {
+        filtered
+    }
 }
 
 fn is_memory_recall_query(message: &str) -> bool {
@@ -1318,179 +938,30 @@ fn is_memory_recall_query(message: &str) -> bool {
     .any(|phrase| normalized.contains(phrase))
 }
 
-fn build_memory_recall_answer(snapshot: &MemoryContextSnapshot) -> Option<String> {
-    if snapshot.hits.is_empty() {
-        return None;
-    }
-
-    let mut summaries = Vec::new();
-    let mut seen = std::collections::HashSet::new();
-    for hit in snapshot.hits.iter() {
-        let snippet = normalize_memory_snippet(&hit.snippet);
-        if snippet.is_empty() {
-            continue;
-        }
-        let dedupe_key = format!("{}::{}", hit.session_id, snippet);
-        if !seen.insert(dedupe_key) {
-            continue;
-        }
-        summaries.push(format!(
-            "{}. {}",
-            summaries.len() + 1,
-            snippet
-        ));
-        if summaries.len() >= 3 {
-            break;
-        }
-    }
-
-    if summaries.is_empty() {
-        return None;
-    }
-
-    Some(format!(
-        "我从之前的历史记忆里检索到了这些相关内容：\n{}\n如果你愿意，我可以继续基于其中某一条展开说明。",
-        summaries.join("\n")
-    ))
-}
-
-fn normalize_memory_snippet(snippet: &str) -> String {
-    snippet
-        .replace("\\n", " ")
-        .replace("\\r", " ")
-        .replace("\\t", " ")
-        .split_whitespace()
-        .collect::<Vec<_>>()
-        .join(" ")
-}
-
-fn build_degraded_answer(
-    user_message: &str,
-    snapshot: Option<&MemoryContextSnapshot>,
-    reason: &str,
-) -> String {
-    if reason == "upstream_timeout" && is_memory_recall_query(user_message) {
-        if let Some(answer) = snapshot.and_then(build_memory_recall_answer) {
-            return answer;
-        }
-    }
-
-    build_stub_answer(user_message, reason)
-}
-
-fn build_degraded_stream_chunks(
-    user_message: &str,
-    snapshot: Option<&MemoryContextSnapshot>,
-    reason: &str,
-) -> Vec<String> {
-    chunk_answer(&build_degraded_answer(user_message, snapshot, reason))
-}
-
-fn memory_hits_grouped_by_session(hits: &[MemoryHit]) -> Vec<(String, Vec<MemoryHit>)> {
-    let mut grouped_hits: Vec<(String, Vec<MemoryHit>)> = Vec::new();
-    for hit in hits.iter() {
-        if let Some((_, items)) = grouped_hits
-            .iter_mut()
-            .find(|(session_id, _)| session_id == &hit.session_id)
-        {
-            items.push(hit.clone());
-            continue;
-        }
-        grouped_hits.push((hit.session_id.clone(), vec![hit.clone()]));
-    }
-    grouped_hits
-}
-
-fn snapshot_for_memory_batch(
-    snapshot: &MemoryContextSnapshot,
-    grouped_hits: &[(String, Vec<MemoryHit>)],
-) -> MemoryContextSnapshot {
-    let hits = grouped_hits
-        .iter()
-        .flat_map(|(_, items)| items.iter().cloned())
-        .collect::<Vec<_>>();
-
-    MemoryContextSnapshot {
-        session: snapshot.session.clone(),
-        active_retrieval_context: render_memory_hit_context(&hits),
-        hits,
-    }
-}
-
-fn build_memory_merge_request(
-    request: &ChatRequest,
-    partial_answers: &[String],
-    request_id: &str,
-    session_id: &str,
-    auth_ctx: &AuthContext,
-    trace_id: &str,
-    deadline_ms: u64,
-) -> ProviderGenerateRequest {
-    const KODUCK_V1_LITE_PROMPT: &str =
-        include_str!("../../prompts/system/koduck-v1-lite.md");
-    const KODUCK_BASE_LANGUAGE_PROMPT: &str = "你是 koduck-ai 的中文助手。默认使用简体中文直接回答用户问题，保持准确、简洁、自然。不要输出思维链、推理过程、草稿、自我讨论或任何 <think> 标签内容；只输出面向用户的最终答案。如果用户输入过于简短或语义不清，先用一句中文澄清，不要臆测事实。";
-
-    let system_content = format!(
-        "{}\n\n{}\n\n你将收到同一用户问题在不同历史 session 批次上的多轮候选答案。请合并这些候选答案，去掉重复内容，保留彼此补充的信息，输出一份自然、简洁、无重复的最终中文回答。",
-        KODUCK_V1_LITE_PROMPT.trim(),
-        KODUCK_BASE_LANGUAGE_PROMPT
-    );
-
-    let partials = partial_answers
-        .iter()
-        .enumerate()
-        .map(|(index, answer)| format!("第{}轮结果:\n{}", index + 1, answer.trim()))
-        .collect::<Vec<_>>()
-        .join("\n\n");
-
-    ProviderGenerateRequest {
-        meta: RequestContext {
-            request_id: request_id.to_string(),
-            session_id: session_id.to_string(),
-            user_id: auth_ctx.user_id.clone(),
-            trace_id: trace_id.to_string(),
-            deadline_ms,
-        },
-        provider: request.provider.clone().unwrap_or_default(),
-        model: request.model.clone().unwrap_or_default(),
-        messages: vec![
-            ProviderChatMessage {
-                role: "system".to_string(),
-                content: system_content,
-                name: String::new(),
-                metadata: HashMap::new(),
-            },
-            ProviderChatMessage {
-                role: "user".to_string(),
-                content: format!(
-                    "原始用户问题：\n{}\n\n以下是基于不同历史 session 批次生成的候选结果，请合并并去重：\n\n{}",
-                    request.message.trim(),
-                    partials
-                ),
-                name: String::new(),
-                metadata: HashMap::new(),
-            },
-        ],
-        temperature: request.temperature.unwrap_or(0.2),
-        top_p: 1.0,
-        max_tokens: request.max_tokens.unwrap_or(2048),
-        tools: vec![],
-        response_format: String::new(),
-    }
-}
-
 fn build_memory_prompt(
     snapshot: &MemoryContextSnapshot,
     user_message: &str,
 ) -> Option<String> {
-    let session_blocks = if is_memory_recall_query(user_message) {
-        render_memory_hit_context(&snapshot.hits).or_else(|| snapshot.active_retrieval_context.clone())
-    } else {
-        snapshot
-            .active_retrieval_context
-            .clone()
-            .or_else(|| render_memory_hit_context(&snapshot.hits))
-    }?;
+    if snapshot.hits.is_empty() {
+        return None;
+    }
+
+    let snippets = snapshot
+        .hits
+        .iter()
+        .take(MEMORY_QUERY_TOP_K as usize)
+        .enumerate()
+        .map(|(index, hit)| {
+            format!(
+                "{}. source_session={} reasons=[{}] snippet={}",
+                index + 1,
+                hit.session_id,
+                hit.match_reasons.join(","),
+                hit.snippet
+            )
+        })
+        .collect::<Vec<_>>()
+        .join("\n");
 
     let prompt_tail = if is_memory_recall_query(user_message) {
         "这是一次“回顾历史/之前聊过什么”的请求。你必须优先做跨 session 汇总，不能只复述单个最近会话；请结合下面所有历史命中与当前问题，自行判断哪些会话相关、哪些不相关，再给出汇总后的最终答案。"
@@ -1501,42 +972,9 @@ fn build_memory_prompt(
     Some(format!(
         "以下内容来自 koduck-memory 的历史摘要检索结果，可能跨多个旧会话。\n{}\n\n历史命中:\n{}\n\n当前用户问题（请把它作为最终相关性判断依据）:\n{}",
         prompt_tail,
-        session_blocks,
+        snippets,
         user_message.trim()
     ))
-}
-
-fn render_memory_hit_context(hits: &[MemoryHit]) -> Option<String> {
-    if hits.is_empty() {
-        return None;
-    }
-
-    let grouped_hits = memory_hits_grouped_by_session(hits);
-
-    let session_blocks = grouped_hits
-        .iter()
-        .take(MEMORY_QUERY_TOP_K as usize)
-        .enumerate()
-        .map(|(index, (_, hits))| {
-            let snippets = hits
-                .iter()
-                .enumerate()
-                .map(|(snippet_index, hit)| {
-                    format!("  {}. {}", snippet_index + 1, normalize_memory_snippet(&hit.snippet))
-                })
-                .collect::<Vec<_>>()
-                .join("\n");
-
-            format!("{}. 历史内容\n{}", index + 1, snippets)
-        })
-        .collect::<Vec<_>>()
-        .join("\n");
-
-    if session_blocks.trim().is_empty() {
-        None
-    } else {
-        Some(session_blocks)
-    }
 }
 
 fn build_memory_tool_definition() -> ProviderToolDefinition {
@@ -1552,28 +990,8 @@ fn build_memory_tool_definition() -> ProviderToolDefinition {
                 },
                 "intent": {
                     "type": "string",
-                    "enum": ["recall", "compare", "disambiguate", "correct", "explain", "decide", "delete", "none"],
+                    "enum": ["recall", "compare", "disambiguate", "correct", "explain", "decide", "none"],
                     "description": "本次记忆检索的主意图。必须显式给出，禁止省略。"
-                },
-                "ner": {
-                    "type": "array",
-                    "description": "必须显式给出识别到的实体列表。回忆人物时只允许 person；按 session 回忆或删除 session 时只允许 session，且 text 必须是 session_id。没有明确实体时返回空数组。",
-                    "items": {
-                        "type": "object",
-                        "properties": {
-                            "text": {
-                                "type": "string",
-                                "description": "实体文本。person 时例如 鲁迅、周树人、高斯、牛顿；session 时必须是 session_id。"
-                            },
-                            "type": {
-                                "type": "string",
-                                "enum": ["person", "session"],
-                                "description": "NER 类型。回忆人物时使用 person；按 session 回忆或删除 session 时使用 session。"
-                            }
-                        },
-                        "required": ["text", "type"],
-                        "additionalProperties": false
-                    }
                 },
                 "memory_scope": {
                     "type": "string",
@@ -1585,38 +1003,19 @@ fn build_memory_tool_definition() -> ProviderToolDefinition {
                     "description": "可选；当你非常确定某个 domain 更适合缩小检索范围时传入，例如 literature、history、food。"
                 }
             },
-            "required": ["query", "intent", "ner"],
+            "required": ["query", "intent"],
             "additionalProperties": false
         })
         .to_string(),
     }
 }
 
-fn build_delete_session_tool_definition() -> ProviderToolDefinition {
-    ProviderToolDefinition {
-        name: "delete_session".to_string(),
-        description: "删除用户指定的历史会话及其所有关联记忆数据。当用户表达删除会话语义时使用此工具。".to_string(),
-        input_schema: serde_json::to_string(&serde_json::json!({
-            "type": "object",
-            "properties": {
-                "session_id": {
-                    "type": "string",
-                    "description": "要删除的会话 ID（UUID 格式）。当用户明确提供了 session_id 时直接传入。"
-                },
-                "description": {
-                    "type": "string",
-                    "description": "对要删除会话的自然语言描述，用于模糊匹配查找会话。"
-                }
-            },
-            "required": [],
-            "additionalProperties": false
-        }))
-        .unwrap_or_default(),
-    }
+fn build_tool_definition() -> Vec<ProviderToolDefinition> {
+    vec![build_memory_tool_definition()]
 }
 
 fn build_memory_tool_instruction() -> &'static str {
-    "“当用户询问”之前聊过什么 / 之前有没有聊过某个人物 / 具体聊到了哪些方面 / 回忆一下之前内容”时，调用 query_memory 工具。工具参数里必须显式填写 intent，并且必须返回 ner 数组。回忆人物时，只有当你识别到了明确人物名，才在 ner 中逐项给出 {text, type:\"person\"}；如果用户明确给了 session_id 来回忆某个 session，则在 ner 中逐项给出 {text:\"<session_id>\", type:\"session\"}。如果没有明确实体，必须返回空数组。不要把主题词、抽象概念、类别词放进 ner。当用户要求删除会话时（如“删除关于鸡排的会话”、“把那个对话删掉”），必须调用 delete_session 工具，而不是 query_memory。delete_session 接受 session_id（精确删除）或 description（模糊匹配）。不要在没有调用工具的情况下臆测历史记录。”"
+    "当用户询问“之前聊过什么 / 之前有没有聊过某个主题、人物、偏好、事实 / 具体聊到了哪些方面 / 回忆一下之前内容”时，优先调用 query_memory 工具；并且在工具参数中显式填写 intent。不要在没有调用工具的情况下臆测历史记录。"
 }
 
 fn parse_query_memory_tool_args(raw: &str) -> QueryMemoryToolArgs {
@@ -1634,127 +1033,16 @@ fn parse_query_intent(intent: Option<&str>) -> QueryIntent {
         Some("correct") => QueryIntent::Correct,
         Some("explain") => QueryIntent::Explain,
         Some("decide") => QueryIntent::Decide,
-        Some("delete") => QueryIntent::Delete,
         Some("none") => QueryIntent::None,
         _ => QueryIntent::Unspecified,
     }
-}
-
-fn normalize_query_memory_ner(ner_items: &[QueryMemoryToolNer]) -> Vec<(String, String)> {
-    let mut normalized = Vec::new();
-    for item in ner_items {
-        let text = item.text.as_deref().map(str::trim).unwrap_or_default();
-        if text.is_empty() {
-            continue;
-        }
-        let entity_type = item
-            .entity_type
-            .as_deref()
-            .map(str::trim)
-            .filter(|value| {
-                value.eq_ignore_ascii_case("person") || value.eq_ignore_ascii_case("session")
-            })
-            .unwrap_or_default();
-        if entity_type.is_empty() {
-            continue;
-        }
-        if normalized.iter().any(|(existing_text, existing_type)| {
-            existing_text == text && existing_type == entity_type
-        }) {
-            continue;
-        }
-        normalized.push((text.to_string(), entity_type.to_string()));
-    }
-    normalized
-}
-
-async fn memory_hits_from_session_transcripts(
-    state: &Arc<AppState>,
-    route: DegradeRoute,
-    ctx: &MemoryRpcContext,
-    session_ids: Vec<String>,
-    reason: &str,
-) -> Vec<MemoryHit> {
-    let mut hits = Vec::with_capacity(session_ids.len());
-
-    for session_id in session_ids {
-        let snippet = memory::get_session_transcript(state, ctx, session_id.clone())
-            .await
-            .unwrap_or_else(|err| {
-                log_memory_failure(
-                    state,
-                    route,
-                    MemoryOperation::QueryMemory,
-                    ctx,
-                    &err,
-                    true,
-                    "get_session_transcript tool call failed; using session_id-only hit",
-                );
-                String::new()
-            });
-
-        hits.push(MemoryHit {
-            session_id,
-            l0_uri: String::new(),
-            score: 1.0,
-            match_reasons: vec![reason.to_string()],
-            snippet: if snippet.trim().is_empty() {
-                reason.to_string()
-            } else {
-                snippet
-            },
-        });
-    }
-
-    hits
-}
-
-async fn memory_hits_from_session_summaries(
-    state: &Arc<AppState>,
-    route: DegradeRoute,
-    ctx: &MemoryRpcContext,
-    session_ids: Vec<String>,
-    reason: &str,
-) -> Vec<MemoryHit> {
-    let mut hits = Vec::with_capacity(session_ids.len());
-
-    for session_id in session_ids {
-        let summary = memory::get_session_summary(state, ctx, session_id.clone())
-            .await
-            .unwrap_or_else(|err| {
-                log_memory_failure(
-                    state,
-                    route,
-                    MemoryOperation::QueryMemory,
-                    ctx,
-                    &err,
-                    true,
-                    "get_session_summary tool call failed; using session_id-only hit",
-                );
-                String::new()
-            });
-
-        hits.push(MemoryHit {
-            session_id,
-            l0_uri: String::new(),
-            score: 1.0,
-            match_reasons: vec![reason.to_string()],
-            snippet: if summary.trim().is_empty() {
-                reason.to_string()
-            } else {
-                summary
-            },
-        });
-    }
-
-    hits
 }
 
 async fn execute_memory_tool_call(
     state: &Arc<AppState>,
     route: DegradeRoute,
     request: &ChatRequest,
-    ctx: &MemoryRpcContext,
+    ctx: &MemoryRequestContext,
     base_snapshot: &MemoryContextSnapshot,
     tool_call: &ProviderToolCall,
 ) -> MemoryContextSnapshot {
@@ -1767,339 +1055,64 @@ async fn execute_memory_tool_call(
         tool_arguments = %tool_call.arguments,
         "llm tool call resolved to memory query"
     );
-    let normalized_ner = normalize_query_memory_ner(&args.ner);
-    let tool_query_intent = parse_query_intent(args.intent.as_deref());
-    let request_metadata_memory_scope = request
-        .metadata
-        .as_ref()
-        .and_then(|metadata| metadata.get("memory_scope"))
-        .and_then(|value| value.as_str())
-        .map(|value| value.trim().to_string());
-    let ner_summary = normalized_ner
-        .iter()
-        .map(|(text, entity_type)| format!("{text}:{entity_type}"))
-        .collect::<Vec<_>>()
-        .join(",");
-    info!(
-        request_id = %ctx.request_id,
-        session_id = %ctx.session_id,
-        tool_name = %tool_call.name,
-        tool_query_intent = ?tool_query_intent,
-        ner_count = normalized_ner.len(),
-        ner = %ner_summary,
-        tool_memory_scope = %args.memory_scope.as_deref().unwrap_or("global"),
-        request_metadata_memory_scope = %request_metadata_memory_scope.as_deref().unwrap_or(""),
-        "memory tool call request resolved"
-    );
 
-    let hits = match tool_query_intent {
-        QueryIntent::Recall => {
-            let explicit_session_ids = normalized_ner
-                .iter()
-                .filter(|(_, entity_type)| entity_type.eq_ignore_ascii_case("session"))
-                .map(|(text, _)| text.clone())
-                .collect::<Vec<_>>();
-
-            if !explicit_session_ids.is_empty() {
-                let mut seen = std::collections::HashSet::new();
-                let deduped = explicit_session_ids
-                    .into_iter()
-                    .filter(|session_id| seen.insert(session_id.clone()))
-                    .collect::<Vec<_>>();
-                info!(
-                    request_id = %ctx.request_id,
-                    session_id = %ctx.session_id,
-                    tool_name = %tool_call.name,
-                    summary_session_ids = ?deduped,
-                    "memory recall loading summaries for explicit session ids"
-                );
-                memory_hits_from_session_summaries(
-                    state,
-                    route,
-                    ctx,
-                    deduped,
-                    "explicit_session_ids",
-                )
-                .await
-            } else {
-                let mut merged_session_ids = Vec::new();
-
-                if !normalized_ner.is_empty() {
-                    for (_, entity_type) in &normalized_ner {
-                        match memory::get_session_ids_by_ner(state, ctx, entity_type.clone()).await {
-                            Ok(session_ids) => merged_session_ids.extend(session_ids),
-                            Err(err) => {
-                                log_memory_failure(
-                                    state,
-                                    route,
-                                    MemoryOperation::QueryMemory,
-                                    ctx,
-                                    &err,
-                                    true,
-                                    "get_session_ids_by_ner tool call failed; continuing with partial recalled sessions",
-                                );
-                            }
-                        }
-                    }
-                } else {
-                    merged_session_ids = memory::get_all_session_ids(state, ctx)
-                        .await
-                        .unwrap_or_else(|err| {
-                            log_memory_failure(
-                                state,
-                                route,
-                                MemoryOperation::QueryMemory,
-                                ctx,
-                                &err,
-                                true,
-                                "get_all_session_ids tool call failed; continuing without recalled sessions",
-                            );
-                            Vec::new()
-                        });
-                }
-
-                let mut seen = std::collections::HashSet::new();
-                let deduped = merged_session_ids
-                    .into_iter()
-                    .filter(|session_id| seen.insert(session_id.clone()))
-                    .collect::<Vec<_>>();
-                info!(
-                    request_id = %ctx.request_id,
-                    session_id = %ctx.session_id,
-                    tool_name = %tool_call.name,
-                    transcript_session_ids = ?deduped,
-                    "memory recall loading transcripts for merged session ids"
-                );
-                memory_hits_from_session_transcripts(
-                    state,
-                    route,
-                    ctx,
-                    deduped,
-                    "merged_session_ids",
-                )
-                .await
-            }
-        }
-        QueryIntent::Delete => {
-            for (session_id, entity_type) in &normalized_ner {
-                if !entity_type.eq_ignore_ascii_case("session") {
-                    continue;
-                }
-
-                let mut delete_ctx = ctx.clone();
-                delete_ctx.session_id = session_id.clone();
-                if let Err(err) = memory::delete_session(state, &delete_ctx).await {
-                    log_memory_failure(
-                        state,
-                        route,
-                        MemoryOperation::QueryMemory,
-                        &delete_ctx,
-                        &err,
-                        true,
-                        "delete_session tool call failed; continuing with remaining session ids",
-                    );
-                }
-            }
-            Vec::new()
-        }
-        _ => Vec::new(),
+    let query_text = args
+        .query
+        .as_deref()
+        .map(build_memory_query_text)
+        .filter(|value| !value.trim().is_empty())
+        .unwrap_or_else(|| build_memory_query_text(&request.message));
+    let session_scope = match args.memory_scope.as_deref() {
+        Some("current_session") => Some(ctx.session_id.clone()),
+        _ => memory_query_session_scope(request, ctx),
     };
+    let requested_domain_class = args.domain_class.clone();
+    let domain_class = requested_domain_class
+        .as_ref()
+        .filter(|value| !value.trim().is_empty())
+        .cloned()
+        .unwrap_or_else(|| metadata_string(request, "domain_class"));
+    let query_intent = parse_query_intent(args.intent.as_deref());
+
+    let hits = memory::query_memory(
+        state,
+        ctx,
+        QueryMemoryInput {
+            query_text,
+            session_id: session_scope,
+            domain_class,
+            query_intent,
+            retrieve_policy: retrieve_policy_from_request(request),
+            top_k: MEMORY_QUERY_TOP_K,
+            page_size: MEMORY_QUERY_PAGE_SIZE,
+        },
+    )
+    .await
+    .unwrap_or_else(|err| {
+        log_memory_failure(
+            state,
+            route,
+            MemoryOperation::QueryMemory,
+            ctx,
+            &err,
+            true,
+            "query_memory tool call failed; continuing without retrieved memory hits",
+        );
+        Vec::new()
+    });
+
     info!(
         request_id = %ctx.request_id,
         session_id = %ctx.session_id,
         tool_name = %tool_call.name,
-        hits_count = snapshot_hits_count(&hits),
-        tool_query_intent = ?tool_query_intent,
-        ner_count = normalized_ner.len(),
-        ner = %ner_summary,
-        tool_memory_scope = %args.memory_scope.as_deref().unwrap_or("global"),
-        request_metadata_memory_scope = %request_metadata_memory_scope.as_deref().unwrap_or(""),
+        hits_count = hits.len(),
+        query_intent = ?query_intent,
         "memory tool call completed"
     );
 
     let mut snapshot = base_snapshot.clone();
     snapshot.hits = hits;
-
-    if let Some(rendered_context) = render_memory_hit_context(&snapshot.hits) {
-        if snapshot.active_retrieval_context.as_deref() != Some(rendered_context.as_str()) {
-            let mut merged_extra = session_extra_map(snapshot.session.as_ref());
-            merged_extra.extend(request_metadata_extra(request));
-            merged_extra.insert(
-                ACTIVE_MEMORY_CONTEXT_KEY.to_string(),
-                rendered_context.clone(),
-            );
-            merged_extra.insert(
-                ACTIVE_MEMORY_CONTEXT_KIND_KEY.to_string(),
-                "retrieval".to_string(),
-            );
-            if let Err(err) = memory::upsert_session_meta(
-                state,
-                ctx,
-                SessionUpsertInput {
-                    title: metadata_string(request, "title"),
-                    status: metadata_string(request, "status"),
-                    extra: merged_extra,
-                    parent_session_id: metadata_string(request, "parent_session_id"),
-                    forked_from_session_id: metadata_string(request, "forked_from_session_id"),
-                    last_message_at: Utc::now().timestamp_millis(),
-                },
-            )
-            .await
-            {
-                log_memory_failure(
-                    state,
-                    route,
-                    MemoryOperation::UpsertSessionMeta,
-                    ctx,
-                    &err,
-                    true,
-                    "failed to persist active retrieval context after query_memory tool call",
-                );
-            }
-        }
-        snapshot.active_retrieval_context = Some(rendered_context);
-    }
-
     snapshot
-}
-
-async fn execute_delete_session_tool_call(
-    state: &Arc<AppState>,
-    route: DegradeRoute,
-    ctx: &MemoryRpcContext,
-    tool_call: &ProviderToolCall,
-) -> String {
-    let args: DeleteSessionToolArgs =
-        serde_json::from_str(&tool_call.arguments).unwrap_or_default();
-
-    info!(
-        request_id = %ctx.request_id,
-        session_id = %ctx.session_id,
-        tool_name = %tool_call.name,
-        tool_call_id = %tool_call.id,
-        has_session_id = args.session_id.is_some(),
-        has_description = args.description.is_some(),
-        "llm tool call resolved to delete_session"
-    );
-
-    let target_ids: Vec<String> = if let Some(ref sid) = args.session_id {
-        // Direct delete by session_id
-        let trimmed = sid.trim();
-        if Uuid::parse_str(trimmed).is_err() {
-            return format!("无效的 session_id 格式: {trimmed}，请提供合法的 UUID。");
-        }
-        vec![trimmed.to_string()]
-    } else if let Some(ref desc) = args.description {
-        // Fuzzy search: get all sessions and match by transcript
-        let all_ids = match memory::get_all_session_ids(state, ctx).await {
-            Ok(ids) => ids,
-            Err(err) => {
-                log_memory_failure(
-                    state,
-                    route,
-                    MemoryOperation::QueryMemory,
-                    ctx,
-                    &err,
-                    true,
-                    "get_all_session_ids failed during delete_session fuzzy search",
-                );
-                return "获取会话列表失败，无法执行删除。".to_string();
-            }
-        };
-
-        let desc_lower = desc.trim().to_ascii_lowercase();
-        let mut matched = Vec::new();
-        for sid in &all_ids {
-            let transcript = memory::get_session_transcript(state, ctx, sid.clone()).await;
-            match transcript {
-                Ok(text) if text.to_ascii_lowercase().contains(&desc_lower) => {
-                    matched.push(sid.clone());
-                }
-                Err(err) => {
-                    log_memory_failure(
-                        state,
-                        route,
-                        MemoryOperation::QueryMemory,
-                        ctx,
-                        &err,
-                        true,
-                        "get_session_transcript failed during delete_session fuzzy search; skipping session",
-                    );
-                }
-                _ => {}
-            }
-        }
-        matched
-    } else {
-        return "请提供 session_id 或 description 来指定要删除的会话。".to_string();
-    };
-
-    if target_ids.is_empty() {
-        return format!("未找到匹配的会话。描述: {}", args.description.as_deref().unwrap_or("无"));
-    }
-
-    let mut deleted = Vec::new();
-    let mut failed = Vec::new();
-    for sid in &target_ids {
-        let mut delete_ctx = ctx.clone();
-        delete_ctx.session_id = sid.clone();
-        match memory::delete_session(state, &delete_ctx).await {
-            Ok(()) => {
-                info!(
-                    request_id = %ctx.request_id,
-                    session_id = %ctx.session_id,
-                    deleted_session_id = %sid,
-                    "delete_session tool call: session deleted successfully"
-                );
-                deleted.push(sid.clone());
-            }
-            Err(err) => {
-                log_memory_failure(
-                    state,
-                    route,
-                    MemoryOperation::QueryMemory,
-                    &delete_ctx,
-                    &err,
-                    true,
-                    "delete_session tool call failed for session",
-                );
-                failed.push(sid.clone());
-            }
-        }
-    }
-
-    let mut result = String::new();
-    if !deleted.is_empty() {
-        result.push_str(&format!("已成功删除 {} 个会话。", deleted.len()));
-    }
-    if !failed.is_empty() {
-        if !result.is_empty() {
-            result.push(' ');
-        }
-        result.push_str(&format!("{} 个会话删除失败。", failed.len()));
-    }
-    result
-}
-
-fn snapshot_hits_count(hits: &[MemoryHit]) -> usize {
-    hits.len()
-}
-
-fn log_llm_request_prompt(phase: &str, request_id: &str, session_id: &str, llm_request: &ProviderGenerateRequest) {
-    let prompt = serde_json::to_string(&llm_request.messages)
-        .unwrap_or_else(|_| "<failed to serialize llm prompt>".to_string());
-    let tool_names: Vec<&str> = llm_request.tools.iter().map(|tool| tool.name.as_str()).collect();
-
-    info!(
-        request_id = %request_id,
-        session_id = %session_id,
-        phase = %phase,
-        model = %llm_request.model,
-        deadline_ms = llm_request.meta.deadline_ms,
-        tools = ?tool_names,
-        prompt = %prompt,
-        "llm request prompt prepared"
-    );
 }
 
 async fn resolve_memory_tool_call(
@@ -2112,19 +1125,16 @@ async fn resolve_memory_tool_call(
     auth_ctx: &AuthContext,
     trace_id: &str,
 ) -> Result<ToolResolutionResult, AppError> {
-    // Tool selection should use only the base chat history plus the current
-    // user message. Memory prompts must not be injected at this stage.
     let llm_request = build_provider_generate_request(
         request,
-        None,
+        Some(base_snapshot),
         request_id,
         session_id,
         auth_ctx,
         trace_id,
         state.config.llm.timeout_ms,
-        vec![build_memory_tool_definition(), build_delete_session_tool_definition()],
+        build_tool_definition(),
     );
-    log_llm_request_prompt("tool_selection", request_id, session_id, &llm_request);
     let selection = state.llm_provider.generate(llm_request).await?;
     info!(
         request_id = %request_id,
@@ -2134,63 +1144,6 @@ async fn resolve_memory_tool_call(
         "llm tool-selection phase completed"
     );
 
-    // Check for delete_session tool call first
-    let maybe_delete_call = selection
-        .tool_calls
-        .iter()
-        .find(|tool_call| tool_call.name == "delete_session")
-        .cloned();
-
-    if let Some(tool_call) = maybe_delete_call {
-        info!(
-            request_id = %request_id,
-            session_id = %session_id,
-            tool_name = %tool_call.name,
-            tool_call_id = %tool_call.id,
-            "delete_session tool call selected by llm"
-        );
-        let ctx = MemoryRpcContext::from_auth(
-            request_id.to_string(),
-            session_id.to_string(),
-            trace_id.to_string(),
-            state.config.llm.timeout_ms,
-            auth_ctx,
-        );
-        let delete_result =
-            execute_delete_session_tool_call(state, route, &ctx, &tool_call).await;
-        info!(
-            request_id = %request_id,
-            session_id = %session_id,
-            delete_result = %delete_result,
-            "delete_session tool call completed"
-        );
-        // Generate a final LLM response that incorporates the delete result
-        let final_snapshot = MemoryContextSnapshot {
-            session: base_snapshot.session.clone(),
-            hits: Vec::new(),
-            active_retrieval_context: Some(format!(
-                "[工具执行结果] delete_session: {}",
-                delete_result
-            )),
-        };
-        let final_request = build_provider_generate_request(
-            request,
-            Some(&final_snapshot),
-            request_id,
-            session_id,
-            auth_ctx,
-            trace_id,
-            state.config.llm.timeout_ms,
-            vec![],
-        );
-        log_llm_request_prompt("delete_session_final", request_id, session_id, &final_request);
-        let final_response = state.llm_provider.generate(final_request).await?;
-        return Ok(ToolResolutionResult {
-            snapshot: base_snapshot.clone(),
-            direct_response: Some(final_response),
-        });
-    }
-
     let maybe_memory_call = selection
         .tool_calls
         .iter()
@@ -2198,40 +1151,20 @@ async fn resolve_memory_tool_call(
         .cloned();
 
     if let Some(tool_call) = maybe_memory_call {
-        info!(
-            request_id = %request_id,
-            session_id = %session_id,
-            tool_name = %tool_call.name,
-            tool_call_id = %tool_call.id,
-            "query_memory tool call selected by llm"
-        );
-        let ctx = MemoryRpcContext::from_auth(
+        let ctx = MemoryRequestContext::from_auth(
             request_id.to_string(),
             session_id.to_string(),
             trace_id.to_string(),
             state.config.llm.timeout_ms,
             auth_ctx,
         );
-        let snapshot = execute_memory_tool_call(
-            state,
-            route,
-            request,
-            &ctx,
-            base_snapshot,
-            &tool_call,
-        )
-        .await;
+        let snapshot =
+            execute_memory_tool_call(state, route, request, &ctx, base_snapshot, &tool_call).await;
         return Ok(ToolResolutionResult {
             snapshot,
             direct_response: None,
         });
     }
-
-    info!(
-        request_id = %request_id,
-        session_id = %session_id,
-        "llm did not select any tool; returning direct response"
-    );
 
     Ok(ToolResolutionResult {
         snapshot: base_snapshot.clone(),
@@ -2241,9 +1174,8 @@ async fn resolve_memory_tool_call(
 
 fn build_memory_entry_metadata(
     request: &ChatRequest,
-    ctx: &MemoryRpcContext,
+    ctx: &MemoryRequestContext,
     model: Option<&str>,
-    session_has_active_retrieval_context: bool,
 ) -> HashMap<String, String> {
     let mut metadata = HashMap::from([
         ("request_id".to_string(), ctx.request_id.clone()),
@@ -2269,7 +1201,7 @@ fn build_memory_entry_metadata(
         metadata.insert("domain_class".to_string(), domain_class);
     }
 
-    if is_memory_recall_query(&request.message) || session_has_active_retrieval_context {
+    if is_memory_recall_query(&request.message) {
         metadata.insert("memory_recall_query".to_string(), "true".to_string());
         metadata.insert("memory_skip_retrieval".to_string(), "true".to_string());
     }
@@ -2318,44 +1250,6 @@ fn estimate_tokens(text: &str) -> u32 {
     (text.chars().count() as u32 / 4).max(1)
 }
 
-fn build_stub_answer(_user_message: &str, reason: &str) -> String {
-    match reason {
-        "stub_enabled" => "当前系统处于演示模式，暂时返回示例回复。".to_string(),
-        "upstream_timeout" => {
-            "刚才回答服务短暂异常，我没能正常生成完整回复。请稍后重试一次。".to_string()
-        }
-        "budget_exhausted" => {
-            "当前回答服务负载较高，暂时无法稳定生成回复。请稍后再试。".to_string()
-        }
-        "circuit_open" => {
-            "当前回答服务正在恢复中，暂时无法稳定处理这条消息。请稍后再试。".to_string()
-        }
-        _ => "当前回答服务暂时不可用，请稍后重试。".to_string(),
-    }
-}
-
-fn build_stream_chunks(_user_message: &str, reason: &str) -> Vec<String> {
-    match reason {
-        "stub_enabled" => vec!["当前系统处于演示模式，暂时返回示例回复。".to_string()],
-        "upstream_timeout" => vec![
-            "刚才回答服务短暂异常，".to_string(),
-            "这条消息没能正常生成完整回复。".to_string(),
-            "请稍后重试一次。".to_string(),
-        ],
-        "budget_exhausted" => vec![
-            "当前回答服务负载较高，".to_string(),
-            "暂时无法稳定生成回复。".to_string(),
-            "请稍后再试。".to_string(),
-        ],
-        "circuit_open" => vec![
-            "当前回答服务正在恢复中，".to_string(),
-            "这条消息暂时无法稳定处理。".to_string(),
-            "请稍后再试。".to_string(),
-        ],
-        _ => vec!["当前回答服务暂时不可用，请稍后重试。".to_string()],
-    }
-}
-
 fn chunk_answer(answer: &str) -> Vec<String> {
     const CHUNK_SIZE: usize = 48;
     let chars = answer.chars().collect::<Vec<_>>();
@@ -2367,32 +1261,6 @@ fn chunk_answer(answer: &str) -> Vec<String> {
         .chunks(CHUNK_SIZE)
         .map(|chunk| chunk.iter().collect::<String>())
         .collect()
-}
-
-fn build_stub_chat_response(
-    state: &Arc<AppState>,
-    request_id: &str,
-    session_id: &str,
-    user_message: &str,
-    requested_model: Option<String>,
-    reason: &str,
-) -> ChatResponse {
-    let model = requested_model.unwrap_or_else(|| state.config.llm.default_provider.clone());
-    let answer = build_stub_answer(user_message, reason);
-    let prompt_tokens = estimate_tokens(user_message);
-    let completion_tokens = estimate_tokens(&answer);
-    ChatResponse {
-        request_id: request_id.to_string(),
-        session_id: session_id.to_string(),
-        answer,
-        model,
-        usage: TokenUsage {
-            prompt_tokens,
-            completion_tokens,
-            total_tokens: prompt_tokens + completion_tokens,
-        },
-        degraded: true,
-    }
 }
 
 async fn handle_stream_abort(
@@ -2416,6 +1284,7 @@ async fn handle_stream_abort(
         .await;
 }
 
+// TODO: need further refactor.
 async fn call_llm_generate(
     state: &Arc<AppState>,
     request: &ChatRequest,
@@ -2454,83 +1323,22 @@ async fn call_llm_generate(
         });
     }
 
-    let body = if is_memory_recall_query(&request.message) {
-        let grouped_hits = memory_hits_grouped_by_session(&tool_resolution.snapshot.hits);
-        if grouped_hits.len() > MEMORY_SESSION_BATCH_SIZE {
-            let mut partial_answers = Vec::new();
-            let mut merged_usage = TokenUsage {
-                prompt_tokens: 0,
-                completion_tokens: 0,
-                total_tokens: 0,
-            };
-
-            for (batch_index, chunk) in grouped_hits.chunks(MEMORY_SESSION_BATCH_SIZE).enumerate() {
-                let batch_snapshot = snapshot_for_memory_batch(&tool_resolution.snapshot, chunk);
-                let llm_request = build_provider_generate_request(
-                    request,
-                    Some(&batch_snapshot),
-                    request_id,
-                    session_id,
-                    auth_ctx,
-                    trace_id,
-                    state.config.llm.timeout_ms,
-                    vec![],
-                );
-                log_llm_request_prompt(
-                    &format!("chat_generate_batch_{}", batch_index + 1),
-                    request_id,
-                    session_id,
-                    &llm_request,
-                );
-                let batch_body = generate_with_retry(state, request_id, llm_request).await?;
-                partial_answers.push(batch_body.message.content.clone());
-                if let Some(usage) = batch_body.usage.as_ref() {
-                    merged_usage.prompt_tokens += usage.prompt_tokens;
-                    merged_usage.completion_tokens += usage.completion_tokens;
-                    merged_usage.total_tokens += usage.total_tokens;
-                }
+    let policy = Arc::clone(&state.retry_budget_policy);
+    let session = policy.begin_session();
+    let mut attempt_index = 0;
+    let body = loop {
+        let deadline_ms =
+            match policy.next_attempt_deadline_ms(&session, state.config.llm.timeout_ms) {
+            Some(deadline_ms) => deadline_ms,
+            None => {
+                return Err(
+                    AppError::new(ErrorCode::UpstreamUnavailable, "retry timeout budget exhausted")
+                        .with_request_id(request_id.to_string())
+                        .with_upstream(UpstreamService::Llm)
+                        .with_retryable(false),
+                )
             }
-
-            let merge_request = build_memory_merge_request(
-                request,
-                &partial_answers,
-                request_id,
-                session_id,
-                auth_ctx,
-                trace_id,
-                state.config.llm.timeout_ms,
-            );
-            log_llm_request_prompt("chat_generate_merge", request_id, session_id, &merge_request);
-            let merge_body = generate_with_retry(state, request_id, merge_request).await?;
-            if let Some(usage) = merge_body.usage.as_ref() {
-                merged_usage.prompt_tokens += usage.prompt_tokens;
-                merged_usage.completion_tokens += usage.completion_tokens;
-                merged_usage.total_tokens += usage.total_tokens;
-            }
-
-            return Ok(ChatResponse {
-                request_id: request_id.to_string(),
-                session_id: session_id.to_string(),
-                answer: merge_body.message.content.clone(),
-                model: merge_body.model,
-                usage: merged_usage,
-                degraded: false,
-            });
-        } else {
-            let llm_request = build_provider_generate_request(
-                request,
-                Some(&tool_resolution.snapshot),
-                request_id,
-                session_id,
-                auth_ctx,
-                trace_id,
-                state.config.llm.timeout_ms,
-                vec![],
-            );
-            log_llm_request_prompt("chat_generate", request_id, session_id, &llm_request);
-            generate_with_retry(state, request_id, llm_request).await?
-        }
-    } else {
+        };
         let llm_request = build_provider_generate_request(
             request,
             Some(&tool_resolution.snapshot),
@@ -2538,11 +1346,22 @@ async fn call_llm_generate(
             session_id,
             auth_ctx,
             trace_id,
-            state.config.llm.timeout_ms,
+            deadline_ms,
             vec![],
         );
-        log_llm_request_prompt("chat_generate", request_id, session_id, &llm_request);
-        generate_with_retry(state, request_id, llm_request).await?
+        match state.llm_provider.generate(llm_request).await {
+            Ok(body) => break body,
+            Err(err) => match policy.should_retry(&session, attempt_index, err) {
+                RetryDirective::RetryAfter { delay, err } => {
+                    policy.log_retry(request_id, attempt_index, delay, &err);
+                    tokio::time::sleep(delay).await;
+                    attempt_index += 1;
+                }
+                RetryDirective::Exhausted(err) | RetryDirective::DoNotRetry(err) => {
+                    return Err(err);
+                }
+            },
+        }
     };
 
     let answer = body
@@ -2567,144 +1386,98 @@ async fn call_llm_generate(
 async fn call_llm_stream(
     state: &Arc<AppState>,
     request: &ChatRequest,
-    memory_snapshot: &MemoryContextSnapshot,
+    memory_snapshot: Option<&MemoryContextSnapshot>,
     request_id: &str,
     session_id: &str,
     auth_ctx: &AuthContext,
     trace_id: &str,
 ) -> Result<StreamLlmPlan, AppError> {
-    let tool_resolution = resolve_memory_tool_call(
-        state,
-        DegradeRoute::ChatStream,
-        request,
-        memory_snapshot,
-        request_id,
-        session_id,
-        auth_ctx,
-        trace_id,
-    )
-    .await?;
+    const MAX_TOOL_ROUNDS: usize = 3;
+    let mut snapshot = memory_snapshot.cloned().unwrap_or_default();
 
-    if let Some(body) = tool_resolution.direct_response {
-        return Ok(StreamLlmPlan::ReadyAnswer(body.message.content));
-    }
-
-    if is_memory_recall_query(&request.message) {
-        let grouped_hits = memory_hits_grouped_by_session(&tool_resolution.snapshot.hits);
-        if grouped_hits.len() > MEMORY_SESSION_BATCH_SIZE {
-            let mut partial_answers = Vec::new();
-            for (batch_index, chunk) in grouped_hits.chunks(MEMORY_SESSION_BATCH_SIZE).enumerate() {
-                let batch_snapshot = snapshot_for_memory_batch(&tool_resolution.snapshot, chunk);
-                let llm_request = build_provider_generate_request(
-                    request,
-                    Some(&batch_snapshot),
-                    request_id,
-                    session_id,
-                    auth_ctx,
-                    trace_id,
-                    state.config.llm.timeout_ms,
-                    vec![],
-                );
-                log_llm_request_prompt(
-                    &format!("chat_stream_generate_batch_{}", batch_index + 1),
-                    request_id,
-                    session_id,
-                    &llm_request,
-                );
-                let batch_body = generate_with_retry(state, request_id, llm_request).await?;
-                partial_answers.push(batch_body.message.content);
-            }
-
-            let merge_request = build_memory_merge_request(
-                request,
-                &partial_answers,
-                request_id,
-                session_id,
-                auth_ctx,
-                trace_id,
-                state.config.llm.timeout_ms,
-            );
-            log_llm_request_prompt("chat_stream_generate_merge", request_id, session_id, &merge_request);
-            let merge_body = generate_with_retry(state, request_id, merge_request).await?;
-            return Ok(StreamLlmPlan::ReadyAnswer(merge_body.message.content));
-        }
-    }
-
-    let policy = Arc::clone(&state.retry_budget_policy);
-    let session = policy.begin_session();
-    let mut attempt_index = 0;
-
-    loop {
-        let llm_request = build_provider_generate_request(
+    for _ in 0..MAX_TOOL_ROUNDS {
+        let tool_request = build_provider_generate_request(
             request,
-            Some(&tool_resolution.snapshot),
+            Some(&snapshot),
             request_id,
             session_id,
             auth_ctx,
             trace_id,
             state.config.llm.timeout_ms,
-            vec![],
+            build_tool_definition(),
         );
-        log_llm_request_prompt("chat_stream_generate", request_id, session_id, &llm_request);
-        match state.llm_provider.stream_generate(llm_request).await {
-            Ok(stream) => return Ok(StreamLlmPlan::Upstream(stream)),
-            Err(err) => {
-                let upstream_source = err.source.as_ref().map(|source| source.to_string());
-                warn!(
-                    request_id = %request_id,
-                    session_id = %session_id,
-                    phase = "chat_stream_generate",
-                    error.code = %err.code,
-                    error.message = %err.message,
-                    error.retryable = err.retryable,
-                    error.upstream = ?err.upstream,
-                    error.retry_after_ms = ?err.retry_after_ms,
-                    error.source = ?upstream_source,
-                    "llm stream_generate request failed"
-                );
-                match policy.should_retry(&session, attempt_index, err) {
-                RetryDirective::RetryAfter { delay, err } => {
-                    policy.log_retry(request_id, attempt_index, delay, &err);
-                    tokio::time::sleep(delay).await;
-                    attempt_index += 1;
-                }
-                RetryDirective::Exhausted(err) | RetryDirective::DoNotRetry(err) => {
-                    return Err(err);
-                }
-                }
-            }
-        }
-    }
-}
+        let selection = state.llm_provider.generate(tool_request).await?;
+        info!(
+            request_id = %request_id,
+            session_id = %session_id,
+            tool_call_count = selection.tool_calls.len(),
+            finish_reason = %selection.finish_reason,
+            "llm stream tool-selection phase completed"
+        );
 
-async fn generate_with_retry(
-    state: &Arc<AppState>,
-    request_id: &str,
-    llm_request: ProviderGenerateRequest,
-) -> Result<crate::llm::GenerateResponse, AppError> {
+        let maybe_memory_call = selection
+            .tool_calls
+            .iter()
+            .find(|tool_call| tool_call.name == "query_memory")
+            .cloned();
+
+        if let Some(tool_call) = maybe_memory_call {
+            let ctx = MemoryRequestContext::from_auth(
+                request_id.to_string(),
+                session_id.to_string(),
+                trace_id.to_string(),
+                state.config.llm.timeout_ms,
+                auth_ctx,
+            );
+            snapshot = execute_memory_tool_call(
+                state,
+                DegradeRoute::ChatStream,
+                request,
+                &ctx,
+                &snapshot,
+                &tool_call,
+            )
+            .await;
+            continue;
+        }
+
+        if !selection.message.content.trim().is_empty() {
+            return Ok(StreamLlmPlan::ReadyAnswer(selection.message.content));
+        }
+
+        break;
+    }
+
     let policy = Arc::clone(&state.retry_budget_policy);
     let session = policy.begin_session();
     let mut attempt_index = 0;
-    let request_template = llm_request;
 
     loop {
-        match state.llm_provider.generate(request_template.clone()).await {
-            Ok(body) => return Ok(body),
-            Err(err) => {
-                let upstream_source = err.source.as_ref().map(|source| source.to_string());
-                warn!(
-                    request_id = %request_id,
-                    session_id = %request_template.meta.session_id,
-                    phase = "chat_generate",
-                    error.code = %err.code,
-                    error.message = %err.message,
-                    error.retryable = err.retryable,
-                    error.upstream = ?err.upstream,
-                    error.retry_after_ms = ?err.retry_after_ms,
-                    error.source = ?upstream_source,
-                    "llm generate request failed"
-                );
-                match policy.should_retry(&session, attempt_index, err) {
+        let deadline_ms =
+            match policy.next_attempt_deadline_ms(&session, state.config.llm.timeout_ms) {
+            Some(deadline_ms) => deadline_ms,
+            None => {
+                return Err(
+                    AppError::new(ErrorCode::UpstreamUnavailable, "retry timeout budget exhausted")
+                        .with_request_id(request_id.to_string())
+                        .with_upstream(UpstreamService::Llm)
+                        .with_retryable(false),
+                )
+            }
+        };
+        let llm_request = build_provider_generate_request(
+            request,
+            Some(&snapshot),
+            request_id,
+            session_id,
+            auth_ctx,
+            trace_id,
+            deadline_ms,
+            vec![],
+        );
+        match state.llm_provider.stream_generate(llm_request).await {
+            Ok(stream) => return Ok(StreamLlmPlan::Upstream(stream)),
+            Err(err) => match policy.should_retry(&session, attempt_index, err) {
                 RetryDirective::RetryAfter { delay, err } => {
                     policy.log_retry(request_id, attempt_index, delay, &err);
                     tokio::time::sleep(delay).await;
@@ -2713,8 +1486,7 @@ async fn generate_with_retry(
                 RetryDirective::Exhausted(err) | RetryDirective::DoNotRetry(err) => {
                     return Err(err);
                 }
-                }
-            }
+            },
         }
     }
 }
@@ -2782,7 +1554,7 @@ fn build_provider_generate_request(
             trace_id: trace_id.to_string(),
             deadline_ms,
         },
-        provider: request.provider.clone().unwrap_or_default(),
+        provider: String::new(),
         model: request.model.clone().unwrap_or_default(),
         messages,
         temperature: request.temperature.unwrap_or(0.2),
@@ -2911,34 +1683,32 @@ fn build_generated_stream_done(request_id: &str, session_id: &str) -> PendingStr
     }
 }
 
-fn degrade_reason_label(decision: &DegradeDecision) -> &'static str {
-    match decision.reason {
-        crate::reliability::degrade::DegradeReason::UpstreamTimeout => "upstream_timeout",
-        crate::reliability::degrade::DegradeReason::BudgetExhausted => "budget_exhausted",
-        crate::reliability::degrade::DegradeReason::CircuitOpen => "circuit_open",
-    }
-}
-
-fn spawn_stub_stream(
+fn spawn_chunked_stream_producer<ChunkEventBuilder, DoneEventBuilder>(
     stream_session: Arc<crate::stream::sse::StreamSession>,
     guard: RequestGenerationGuard,
     stream_timeout: Duration,
     chunks: Vec<String>,
-    degrade_reason: &'static str,
-) {
+    chunk_delay_ms: u64,
+    rejected_event_log_message: &'static str,
+    terminated_log_message: &'static str,
+    chunk_event_builder: ChunkEventBuilder,
+    done_event_builder: DoneEventBuilder,
+) where
+    ChunkEventBuilder: Fn(&str, &str, String) -> PendingStreamEvent + Send + Sync + 'static,
+    DoneEventBuilder: Fn(&str, &str) -> PendingStreamEvent + Send + Sync + 'static,
+{
     tokio::spawn(async move {
         let producer_guard = guard.clone();
         let producer = async {
             for chunk in chunks {
-                tokio::time::sleep(Duration::from_millis(120)).await;
+                tokio::time::sleep(Duration::from_millis(chunk_delay_ms)).await;
                 if let Err(err) = stream_session
                     .enqueue_event_if_current(
                         &producer_guard,
-                        build_stub_stream_delta(
+                        chunk_event_builder(
                             stream_session.request_id(),
                             stream_session.session_id(),
                             chunk,
-                            degrade_reason,
                         ),
                     )
                     .await
@@ -2948,7 +1718,7 @@ fn spawn_stub_stream(
                         session_id = %stream_session.session_id(),
                         error = %err,
                         generation = producer_guard.generation(),
-                        "stream queue rejected stub event"
+                        "{rejected_event_log_message}"
                     );
                     stream_session
                         .force_shutdown_if_current(
@@ -2964,11 +1734,7 @@ fn spawn_stub_stream(
             let _ = stream_session
                 .enqueue_event_if_current(
                     &producer_guard,
-                    build_stub_stream_done(
-                        stream_session.request_id(),
-                        stream_session.session_id(),
-                        degrade_reason,
-                    ),
+                    done_event_builder(stream_session.request_id(), stream_session.session_id()),
                 )
                 .await;
         };
@@ -2992,7 +1758,7 @@ fn spawn_stub_stream(
                 session_id = %stream_session.session_id(),
                 generation = cleanup_guard_for_log.generation(),
                 abort_reason = ?reason,
-                "stub stream producer terminated early"
+                "{terminated_log_message}"
             );
         }
     });
@@ -3002,76 +1768,19 @@ fn spawn_generated_stream(
     stream_session: Arc<crate::stream::sse::StreamSession>,
     guard: RequestGenerationGuard,
     stream_timeout: Duration,
-    chunks: Vec<String>,
+    answer: String,
 ) {
-    tokio::spawn(async move {
-        let producer_guard = guard.clone();
-        let producer = async {
-            for chunk in chunks {
-                tokio::time::sleep(Duration::from_millis(60)).await;
-                if let Err(err) = stream_session
-                    .enqueue_event_if_current(
-                        &producer_guard,
-                        build_generated_stream_delta(
-                            stream_session.request_id(),
-                            stream_session.session_id(),
-                            chunk,
-                        ),
-                    )
-                    .await
-                {
-                    info!(
-                        request_id = %stream_session.request_id(),
-                        session_id = %stream_session.session_id(),
-                        error = %err,
-                        generation = producer_guard.generation(),
-                        "stream queue rejected generated event"
-                    );
-                    stream_session
-                        .force_shutdown_if_current(
-                            &producer_guard,
-                            ErrorCode::StreamTimeout.to_string(),
-                            "stream queue backpressure timeout",
-                        )
-                        .await;
-                    return;
-                }
-            }
-
-            let _ = stream_session
-                .enqueue_event_if_current(
-                    &producer_guard,
-                    build_generated_stream_done(
-                        stream_session.request_id(),
-                        stream_session.session_id(),
-                    ),
-                )
-                .await;
-        };
-
-        let cleanup_session = Arc::clone(&stream_session);
-        let cleanup_guard = guard.clone();
-        let cleanup_guard_for_log = cleanup_guard.clone();
-        let result = run_abortable_with_cleanup(
-            guard,
-            stream_timeout,
-            producer,
-            move |reason| async move {
-                handle_stream_abort(&cleanup_session, &cleanup_guard, reason).await;
-            },
-        )
-        .await;
-
-        if let Err(reason) = result {
-            info!(
-                request_id = %stream_session.request_id(),
-                session_id = %stream_session.session_id(),
-                generation = cleanup_guard_for_log.generation(),
-                abort_reason = ?reason,
-                "generated stream producer terminated early"
-            );
-        }
-    });
+    spawn_chunked_stream_producer(
+        stream_session,
+        guard,
+        stream_timeout,
+        chunk_answer(&answer),
+        40,
+        "stream queue rejected generated event",
+        "generated stream producer terminated early",
+        build_generated_stream_delta,
+        build_generated_stream_done,
+    );
 }
 
 fn api_error_response(err: AppError, request_id: String) -> Response {
