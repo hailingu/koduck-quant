@@ -302,11 +302,16 @@ impl SummaryTaskRunner {
 
         let mut facts = Vec::with_capacity(materialized.fact_candidates.len());
         for candidate in &materialized.fact_candidates {
+            let fact_domain_class = resolve_fact_domain_class(
+                &candidate.fact_type,
+                &candidate.fact_text,
+                &materialized.stored_summary.domain_class,
+            );
             let insert_fact = InsertMemoryFact::new(
                 &materialized.stored_summary.tenant_id,
                 materialized.stored_summary.session_id,
                 candidate.fact_type.clone(),
-                &materialized.stored_summary.domain_class,
+                fact_domain_class,
                 candidate.fact_text.clone(),
                 candidate.confidence,
             );
@@ -330,6 +335,53 @@ impl SummaryTaskRunner {
         }
         Ok(facts)
     }
+}
+
+fn resolve_fact_domain_class<'a>(
+    fact_type: &str,
+    fact_text: &str,
+    summary_domain_class: &'a str,
+) -> &'a str {
+    if !fact_type.eq_ignore_ascii_case("person") {
+        return summary_domain_class;
+    }
+
+    if looks_like_sports_person(fact_text) {
+        return domain_class::SPORTS;
+    }
+
+    summary_domain_class
+}
+
+fn looks_like_sports_person(fact_text: &str) -> bool {
+    let normalized = fact_text.trim().to_lowercase();
+    if normalized.is_empty() {
+        return false;
+    }
+
+    const SPORTS_PERSON_KEYWORDS: &[&str] = &[
+        "yao ming",
+        "tracy mcgrady",
+        "mcgrady",
+        "kobe",
+        "lebron",
+        "michael jordan",
+        "jordan",
+        "messi",
+        "ronaldo",
+        "姚明",
+        "麦迪",
+        "科比",
+        "詹姆斯",
+        "乔丹",
+        "梅西",
+        "c罗",
+        "c羅",
+    ];
+
+    SPORTS_PERSON_KEYWORDS
+        .iter()
+        .any(|keyword| normalized.contains(keyword))
 }
 
 async fn build_transcript_fragments(
@@ -1756,6 +1808,26 @@ mod tests {
         assert!(facts.iter().any(|fact| fact.fact_text.contains("Karl Marx")));
         assert!(facts.iter().any(|fact| fact.fact_text.contains("Friedrich Engels")));
         assert!(facts.iter().any(|fact| fact.fact_text.contains("Vladimir Lenin")));
+    }
+
+    #[test]
+    fn resolve_fact_domain_class_person_sports_name_prefers_sports() {
+        assert_eq!(
+            resolve_fact_domain_class("person", "姚明", domain_class::ENTERTAINMENT),
+            domain_class::SPORTS
+        );
+        assert_eq!(
+            resolve_fact_domain_class("person", "Tracy McGrady", domain_class::CHAT),
+            domain_class::SPORTS
+        );
+    }
+
+    #[test]
+    fn resolve_fact_domain_class_non_sports_person_keeps_summary_domain() {
+        assert_eq!(
+            resolve_fact_domain_class("person", "鲁迅", domain_class::LITERATURE),
+            domain_class::LITERATURE
+        );
     }
 
 }

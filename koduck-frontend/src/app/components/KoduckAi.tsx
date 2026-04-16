@@ -50,6 +50,17 @@ const PROVIDER_OPTIONS: Array<{ value: LlmProvider; label: string }> = [
   { value: "kimi", label: "Kimi" },
 ];
 
+const MODEL_OPTIONS_BY_PROVIDER: Record<
+  LlmProvider,
+  Array<{ value: string; label: string }>
+> = {
+  minimax: [
+    { value: "MiniMax-M2.7", label: "MiniMax-M2.7" },
+    { value: "MiniMax-M2.5", label: "MiniMax-M2.5" },
+  ],
+  kimi: [{ value: "kimi-for-coding", label: "kimi-for-coding" }],
+};
+
 interface StreamEventPayload {
   text?: string;
   finish_reason?: string;
@@ -577,7 +588,7 @@ export function KoduckAi() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(initialSessionId);
   const [selectedProvider, setSelectedProvider] = useState<LlmProvider>("minimax");
-  const [selectedModel] = useState("GPT-4");
+  const [selectedModel, setSelectedModel] = useState("MiniMax-M2.7");
   const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
   const [isDragging, setIsDragging] = useState(false);
   const [sending, setSending] = useState(false);
@@ -674,6 +685,13 @@ export function KoduckAi() {
 
     persistSessionMessages(currentSessionId, messages);
   }, [currentSessionId, initialSessionId, messages, sessionHydrated]);
+
+  useEffect(() => {
+    const availableModels = MODEL_OPTIONS_BY_PROVIDER[selectedProvider];
+    if (!availableModels.some((model) => model.value === selectedModel)) {
+      setSelectedModel(availableModels[0].value);
+    }
+  }, [selectedProvider, selectedModel]);
 
   const updateAssistantMessage = (messageId: string, updater: (prev: Message) => Message) => {
     setMessages((prev) =>
@@ -870,6 +888,7 @@ export function KoduckAi() {
       sessionId,
       assistantMessageId,
       provider: selectedProvider,
+      model: selectedModel,
       userMessageLength: content.length,
     });
 
@@ -886,6 +905,7 @@ export function KoduckAi() {
           message: content,
           session_id: sessionId,
           provider: selectedProvider,
+          model: selectedModel,
           history: buildHistoryMessages(),
         }),
       });
@@ -1259,13 +1279,20 @@ export function KoduckAi() {
             </select>
             <ChevronDown className="pointer-events-none absolute right-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-gray-400" />
           </div>
-          <button
-            className="flex items-center gap-1 rounded-lg px-2.5 py-1 text-xs font-medium text-gray-700 transition-colors hover:bg-gray-50"
-            type="button"
-          >
-            <span>{selectedModel}</span>
-            <ChevronDown className="h-3.5 w-3.5 text-gray-400" />
-          </button>
+          <div className="relative">
+            <select
+              value={selectedModel}
+              onChange={(e) => setSelectedModel(e.target.value)}
+              className="appearance-none rounded-lg px-2.5 py-1 pr-7 text-xs font-medium text-gray-700 transition-colors hover:bg-gray-50 focus:outline-none"
+            >
+              {MODEL_OPTIONS_BY_PROVIDER[selectedProvider].map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+            <ChevronDown className="pointer-events-none absolute right-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-gray-400" />
+          </div>
         </div>
 
         <div className="flex items-center gap-1.5">
