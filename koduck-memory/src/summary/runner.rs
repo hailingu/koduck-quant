@@ -659,7 +659,7 @@ async fn generate_domain_class_via_llm(
             PromptMessage {
                 role: "system",
                 content: format!(
-                    "你是一个会话主题分类助手。请基于整个会话 transcript（包含用户提问和助手回答）做单标签分类。你必须只返回 JSON 格式数据，不要输出任何解释、markdown、代码块或多余文本。返回格式示例：{{\"domain_class\":\"history\"}}。domain_class 只能从以下候选中选择一个：{allowed_domain_classes}。如果最贴近的是任务执行类，返回 task；如果是纯系统消息，返回 system；如果无法判断，返回 chat。"
+                    "你是一个会话主题分类助手。请基于整个会话 transcript（包含用户提问和助手回答）做单标签分类。你必须只返回 JSON 格式数据，不要输出任何解释、markdown、代码块或多余文本。返回格式示例：{{\"domain_class\":\"history\"}}。domain_class 只能从以下候选中选择一个：{allowed_domain_classes}。如果没有足够信息判断，返回 unknown。"
                 ),
             },
             PromptMessage {
@@ -1037,7 +1037,7 @@ mod tests {
         let result = build_fact_candidates(
             &transcript,
             Some("People session"),
-            domain_class::CHAT,
+            domain_class::UNKNOWN,
             &summary_config_for_tests(),
             Arc::new(Semaphore::new(1)),
         )
@@ -1056,7 +1056,7 @@ mod tests {
         let result = build_fact_candidates(
             &transcript,
             Some("People session"),
-            domain_class::CHAT,
+            domain_class::UNKNOWN,
             &cfg,
             Arc::new(Semaphore::new(1)),
         )
