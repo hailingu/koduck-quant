@@ -934,10 +934,6 @@ fn json_value_as_string(value: &serde_json::Value) -> Option<String> {
 }
 
 fn retrieve_policy_from_request(request: &ChatRequest) -> RetrievePolicy {
-    if is_memory_recall_query(&request.message) {
-        return RetrievePolicy::DomainFirst;
-    }
-
     let raw_policy = request.retrieve_policy.as_deref().or_else(|| {
         request
             .metadata
@@ -961,10 +957,6 @@ fn memory_query_session_scope(
     request: &ChatRequest,
     ctx: &MemoryRequestContext,
 ) -> Option<String> {
-    if is_memory_recall_query(&request.message) {
-        return Some(ctx.session_id.clone());
-    }
-
     let scope = request
         .metadata
         .as_ref()
@@ -982,49 +974,6 @@ fn memory_query_session_scope(
 
 fn build_memory_query_text(message: &str) -> String {
     let mut normalized = message.trim().to_lowercase();
-    let alias_replacements = [
-        ("karl marx", "马克思"),
-        ("marx", "马克思"),
-        ("friedrich engels", "恩格斯"),
-        ("engels", "恩格斯"),
-        ("vladimir lenin", "列宁"),
-        ("lenin", "列宁"),
-        ("max stirner", "施蒂纳"),
-        ("stirner", "施蒂纳"),
-        ("anarchism", "无政府主义"),
-        ("anarchist", "无政府主义"),
-    ];
-    for (alias, canonical) in alias_replacements {
-        normalized = normalized.replace(alias, canonical);
-    }
-
-    let phrase_replacements = [
-        "我们之前有讨论过",
-        "我们之前讨论过",
-        "我们之前聊过",
-        "讨论了什么",
-        "聊了什么",
-        "说了什么",
-        "找出来之前关于",
-        "找出之前关于",
-        "找出来之前",
-        "找出之前",
-        "之前关于",
-        "之前的",
-        "之前",
-        "记忆",
-        "历史记忆",
-        "有没有",
-        "有讨论过",
-        "讨论过",
-        "聊过",
-        "总结一下",
-        "总结",
-    ];
-
-    for phrase in phrase_replacements {
-        normalized = normalized.replace(phrase, " ");
-    }
 
     normalized = normalized
         .chars()
@@ -1046,29 +995,7 @@ fn build_memory_query_text(message: &str) -> String {
         .collect::<Vec<_>>()
         .join(" ");
 
-    if filtered.trim().is_empty() {
-        message.trim().to_string()
-    } else {
-        filtered
-    }
-}
-
-fn is_memory_recall_query(message: &str) -> bool {
-    let normalized = message.trim().to_lowercase();
-    [
-        "之前",
-        "讨论过",
-        "聊过",
-        "记忆",
-        "历史",
-        "总结",
-        "说了什么",
-        "讨论了什么",
-        "聊了什么",
-        "找出来",
-    ]
-    .iter()
-    .any(|phrase| normalized.contains(phrase))
+    filtered
 }
 
 fn build_memory_prompt(
@@ -1096,11 +1023,8 @@ fn build_memory_prompt(
         .collect::<Vec<_>>()
         .join("\n");
 
-    let prompt_tail = if is_memory_recall_query(user_message) {
-        "这是一次“回顾历史/之前聊过什么”的请求。你必须优先做跨 session 汇总，不能只复述单个最近会话；请结合下面所有历史命中与当前问题，自行判断哪些会话相关、哪些不相关，再给出汇总后的最终答案。"
-    } else {
-        "请结合下面历史命中与当前问题，自行判断哪些内容相关，再决定是否在回答中引用这些历史记忆。"
-    };
+    let prompt_tail =
+        "请结合下面历史命中与当前问题，自行判断哪些内容相关，再决定是否在回答中引用这些历史记忆。";
 
     Some(format!(
         "以下内容来自 koduck-memory 的历史摘要检索结果，可能跨多个旧会话。\n{}\n\n历史命中:\n{}\n\n当前用户问题（请把它作为最终相关性判断依据）:\n{}",
@@ -1123,7 +1047,7 @@ fn build_memory_tool_definition() -> ProviderToolDefinition {
                 },
                 "intent": {
                     "type": "string",
-                    "enum": ["recall", "compare", "disambiguate", "correct", "explain", "decide", "none"],
+                    "enum": ["recall", "none"],
                     "description": "本次记忆检索的主意图。必须显式给出，禁止省略。"
                 },
                 "memory_scope": {
@@ -1332,11 +1256,6 @@ fn build_memory_entry_metadata(
         .and_then(json_value_as_string)
     {
         metadata.insert("domain_class".to_string(), domain_class);
-    }
-
-    if is_memory_recall_query(&request.message) {
-        metadata.insert("memory_recall_query".to_string(), "true".to_string());
-        metadata.insert("memory_skip_retrieval".to_string(), "true".to_string());
     }
 
     metadata
