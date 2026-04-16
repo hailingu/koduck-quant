@@ -114,22 +114,26 @@ impl SummaryTaskRunner {
             );
         }
 
-        if materialized.has_fact_candidates() {
-            if let Err(error) = with_retry(
-                "summary_facts_extract",
-                &materialized.stored_summary.tenant_id,
-                materialized.stored_summary.session_id,
-                &materialized.request_id,
-                &self.attempt_repo,
-                &self.retry_config,
-                || {
-                    let runner = self.clone();
-                    let materialized = materialized.clone();
-                    async move { runner.materialize_facts(&materialized).await }
-                },
-            )
-            .await
-            {
+        let mut fact_count = 0usize;
+        match with_retry(
+            "summary_facts_extract",
+            &materialized.stored_summary.tenant_id,
+            materialized.stored_summary.session_id,
+            &materialized.request_id,
+            &self.attempt_repo,
+            &self.retry_config,
+            || {
+                let runner = self.clone();
+                let materialized = materialized.clone();
+                async move { runner.materialize_facts(&materialized).await }
+            },
+        )
+        .await
+        {
+            Ok(facts) => {
+                fact_count = facts.len();
+            }
+            Err(error) => {
                 warn!(
                     error = %error,
                     session_id = %materialized.stored_summary.session_id,
@@ -142,7 +146,7 @@ impl SummaryTaskRunner {
             summary_id = %materialized.stored_summary.id,
             version = materialized.stored_summary.version,
             domain_class = %materialized.stored_summary.domain_class,
-            fact_count = materialized.fact_candidates.len(),
+            fact_count,
             "summary task completed"
         );
 
@@ -220,19 +224,18 @@ impl SummaryTaskRunner {
         );
         let stored = self.summary_repo.insert(&insert_summary).await?;
 
-        let fact_candidates = build_fact_candidates(
-            &transcript,
-            session.as_ref().map(|value| value.title.as_str()),
-            &stored.domain_class,
-            &self.summary_config,
-            self.llm_gate.clone(),
-        )
-        .await;
-
         Ok(SummaryMaterialization {
             stored_summary: stored,
             summary_snippet: summary_artifact.snippet,
-            fact_candidates,
+            transcript,
+            session_title: session.as_ref().and_then(|value| {
+                let title = value.title.trim();
+                if title.is_empty() {
+                    None
+                } else {
+                    Some(title.to_string())
+                }
+            }),
             entry_sequence_range: entries
                 .first()
                 .zip(entries.last())
@@ -297,6 +300,15 @@ impl SummaryTaskRunner {
             "summary_facts_extract",
         )?;
 
+        let fact_candidates = build_fact_candidates(
+            &materialized.transcript,
+            materialized.session_title.as_deref(),
+            &materialized.stored_summary.domain_class,
+            &self.summary_config,
+            self.llm_gate.clone(),
+        )
+        .await?;
+
         self.fact_repo
             .delete_by_session(
                 &materialized.stored_summary.tenant_id,
@@ -304,8 +316,8 @@ impl SummaryTaskRunner {
             )
             .await?;
 
-        let mut facts = Vec::with_capacity(materialized.fact_candidates.len());
-        for candidate in &materialized.fact_candidates {
+        let mut facts = Vec::with_capacity(fact_candidates.len());
+        for candidate in &fact_candidates {
             let insert_fact = InsertMemoryFact::new(
                 &materialized.stored_summary.tenant_id,
                 materialized.stored_summary.session_id,
@@ -377,7 +389,8 @@ struct FactCandidate {
 struct SummaryMaterialization {
     stored_summary: MemorySummary,
     summary_snippet: String,
-    fact_candidates: Vec<FactCandidate>,
+    transcript: Vec<String>,
+    session_title: Option<String>,
     entry_sequence_range: Option<(i64, i64)>,
     time_bucket: Option<String>,
     request_id: String,
@@ -445,10 +458,6 @@ struct DomainClassArtifact {
 }
 
 impl SummaryMaterialization {
-    fn has_fact_candidates(&self) -> bool {
-        !self.fact_candidates.is_empty()
-    }
-
     fn entry_range(&self) -> Option<(i64, i64, String)> {
         self.entry_sequence_range
             .zip(self.time_bucket.clone())
@@ -695,275 +704,52 @@ async fn build_fact_candidates(
     inferred_domain_class: &str,
     summary_config: &SummarySection,
     llm_gate: Arc<Semaphore>,
-) -> Vec<FactCandidate> {
+) -> Result<Vec<FactCandidate>> {
+    if !summary_config.llm_enabled {
+        anyhow::bail!("summary ner llm is disabled; heuristic fallback has been removed");
+    }
+    if summary_config.llm_api_key.trim().is_empty() {
+        anyhow::bail!("summary ner llm api key is empty; heuristic fallback has been removed");
+    }
+    if transcript.is_empty() {
+        return Ok(Vec::new());
+    }
+
+    let artifact = generate_ner_artifact_via_llm(
+        transcript,
+        session_title,
+        inferred_domain_class,
+        summary_config,
+        llm_gate,
+    )
+    .await?;
+
     let mut candidates = Vec::new();
     let mut seen = HashSet::new();
-    let mut ner_succeeded = false;
-    let mut ner_returned_empty = false;
+    let ner_domain_class = artifact.domain_class.clone();
+    let ner_person_count = artifact.persons.len();
+    info!(
+        inferred_domain_class = %inferred_domain_class,
+        ner_domain_class = ner_domain_class.as_deref().unwrap_or(""),
+        ner_person_count,
+        "summary ner generation succeeded"
+    );
 
-    if summary_config.llm_enabled {
-        match generate_ner_artifact_via_llm(
-            transcript,
-            session_title,
-            inferred_domain_class,
-            summary_config,
-            llm_gate,
-        )
-        .await
-        {
-            Ok(Some(artifact)) => {
-                let ner_domain_class = artifact.domain_class.clone();
-                let ner_persons = artifact.persons;
-                let ner_person_count = ner_persons.len();
-
-                info!(
-                    inferred_domain_class = %inferred_domain_class,
-                    ner_domain_class = ner_domain_class.as_deref().unwrap_or(""),
-                    ner_person_count,
-                    "summary ner generation succeeded"
-                );
-
-                if ner_person_count == 0 {
-                    ner_returned_empty = true;
-                } else {
-                    ner_succeeded = true;
-                }
-
-                for person in ner_persons.into_iter().take(MAX_PERSONS_PER_RUN) {
-                    push_fact_candidate(
-                        &mut candidates,
-                        &mut seen,
-                        FactCandidate::new("person", person, 0.93),
-                    );
-                }
-            }
-            Ok(None) => {
-                ner_returned_empty = true;
-                info!(
-                    inferred_domain_class = %inferred_domain_class,
-                    "summary ner returned no entities; skipping fact insertion"
-                );
-            }
-            Err(error) => {
-                warn!(error = %error, "summary ner generation failed, falling back to heuristic facts");
-            }
-        }
-    } else {
-        info!(
-            inferred_domain_class = %inferred_domain_class,
-            "summary ner llm disabled; using heuristic facts"
-        );
-    }
-
-    if !candidates.is_empty() {
-        candidates.truncate(MAX_FACTS_PER_RUN);
-        info!(
-            inferred_domain_class = %inferred_domain_class,
-            fact_count = candidates.len(),
-            fact_source = if ner_succeeded { "ner" } else { "heuristic" },
-            "fact candidates prepared"
-        );
-        return candidates;
-    }
-
-    if ner_returned_empty {
-        info!(
-            inferred_domain_class = %inferred_domain_class,
-            fact_count = 0,
-            fact_source = "ner_empty",
-            "fact candidates prepared"
-        );
-        return candidates;
-    }
-
-    for person in extract_person_candidates_from_transcript(transcript)
-        .into_iter()
-        .take(MAX_PERSONS_PER_RUN)
-    {
+    for person in artifact.persons.into_iter().take(MAX_PERSONS_PER_RUN) {
         push_fact_candidate(
             &mut candidates,
             &mut seen,
-            FactCandidate::new("person", person, 0.78),
+            FactCandidate::new("person", person, 0.93),
         );
     }
-
-    if let Some(title) = session_title.filter(|value| {
-        let normalized = value.trim();
-        !normalized.is_empty() && !normalized.eq_ignore_ascii_case("untitled")
-    }) {
-        push_fact_candidate(
-            &mut candidates,
-            &mut seen,
-            FactCandidate::new(
-                "session_focus",
-                format!("Session focus is {}.", truncate_text(title, MAX_FACT_CHARS)),
-                0.70,
-            ),
-        );
-    }
-
-    for line in transcript {
-        let trimmed = line.trim();
-        if trimmed.is_empty() {
-            continue;
-        }
-
-        let normalized = trimmed.to_lowercase();
-        if normalized.starts_with("user:")
-            && contains_any(
-                &normalized,
-                &[
-                    "prefer",
-                    "preference",
-                    "like ",
-                    "likes ",
-                    "偏好",
-                    "喜欢",
-                    "习惯",
-                ],
-            )
-        {
-            let fact_text = sentence_fact("User preference", extract_fact_payload(trimmed));
-            push_fact_candidate(
-                &mut candidates,
-                &mut seen,
-                FactCandidate::new("preference", fact_text, 0.91),
-            );
-        } else if contains_any(
-            &normalized,
-            &[
-                "must",
-                "always",
-                "never",
-                "do not",
-                "don't",
-                "不能",
-                "不要",
-                "必须",
-            ],
-        ) {
-            let fact_text = sentence_fact("Persistent constraint", extract_fact_payload(trimmed));
-            push_fact_candidate(
-                &mut candidates,
-                &mut seen,
-                FactCandidate::new("constraint", fact_text, 0.95),
-            );
-        } else if inferred_domain_class == domain_class::TASK
-            || contains_any(
-                &normalized,
-                &[
-                    "task",
-                    "todo",
-                    "follow-up",
-                    "next step",
-                    "deadline",
-                    "待办",
-                    "任务",
-                    "跟进",
-                ],
-            )
-        {
-            let fact_text = sentence_fact("Open task context", extract_fact_payload(trimmed));
-            push_fact_candidate(
-                &mut candidates,
-                &mut seen,
-                FactCandidate::new("task_context", fact_text, 0.82),
-            );
-        }
-
-        if candidates.len() >= MAX_FACTS_PER_RUN {
-            break;
-        }
-    }
-
     candidates.truncate(MAX_FACTS_PER_RUN);
     info!(
         inferred_domain_class = %inferred_domain_class,
         fact_count = candidates.len(),
-        fact_source = "heuristic",
+        fact_source = if candidates.is_empty() { "ner_empty" } else { "ner" },
         "fact candidates prepared"
     );
-    candidates
-}
-
-fn extract_person_candidates_from_transcript(transcript: &[String]) -> Vec<String> {
-    let mut candidates = Vec::new();
-    let mut seen = HashSet::new();
-
-    for line in transcript {
-        let sanitized = line
-            .replace(':', " ")
-            .replace(',', " ")
-            .replace('.', " ")
-            .replace('，', " ")
-            .replace('。', " ")
-            .replace('、', " ")
-            .replace('（', " ")
-            .replace('）', " ")
-            .replace('(', " ")
-            .replace(')', " ");
-
-        let tokens = sanitized.split_whitespace().collect::<Vec<_>>();
-        let mut current = Vec::new();
-
-        for token in tokens {
-            let normalized = token.trim_matches(|ch: char| !ch.is_alphanumeric() && ch != '-');
-            if looks_like_person_token(normalized) {
-                current.push(normalized);
-                continue;
-            }
-
-            if current.len() >= 2 {
-                let person = current.join(" ");
-                if seen.insert(person.clone()) {
-                    candidates.push(person);
-                }
-            }
-            current.clear();
-        }
-
-        if current.len() >= 2 {
-            let person = current.join(" ");
-            if seen.insert(person.clone()) {
-                candidates.push(person);
-            }
-        }
-    }
-
-    candidates
-}
-
-fn looks_like_person_token(token: &str) -> bool {
-    if token.len() < 2 {
-        return false;
-    }
-
-    let mut chars = token.chars();
-    let Some(first) = chars.next() else {
-        return false;
-    };
-    if !first.is_ascii_uppercase() {
-        return false;
-    }
-
-    if !chars.all(|ch| ch.is_ascii_lowercase() || ch == '-') {
-        return false;
-    }
-
-    !matches!(
-        token,
-        "User"
-            | "Assistant"
-            | "System"
-            | "Please"
-            | "Then"
-            | "First"
-            | "Need"
-            | "Discussed"
-            | "Deployment"
-            | "Summary"
-            | "Session"
-    )
+    Ok(candidates)
 }
 
 async fn generate_ner_artifact_via_llm(
@@ -972,9 +758,9 @@ async fn generate_ner_artifact_via_llm(
     inferred_domain_class: &str,
     summary_config: &SummarySection,
     llm_gate: Arc<Semaphore>,
-) -> Result<Option<NerArtifact>> {
-    if transcript.is_empty() || summary_config.llm_api_key.trim().is_empty() {
-        return Ok(None);
+) -> Result<NerArtifact> {
+    if summary_config.llm_api_key.trim().is_empty() {
+        anyhow::bail!("summary ner llm api key is empty; heuristic fallback has been removed");
     }
 
     let _permit = llm_gate.acquire_owned().await?;
@@ -1030,11 +816,11 @@ async fn generate_ner_artifact_via_llm(
         .filter(|text| !text.is_empty());
 
     let Some(content) = content else {
-        return Ok(None);
+        anyhow::bail!("summary ner llm returned empty choices content");
     };
 
     let artifact = parse_ner_artifact(&content)?;
-    Ok(Some(NerArtifact {
+    Ok(NerArtifact {
         persons: artifact
             .persons
             .into_iter()
@@ -1044,7 +830,7 @@ async fn generate_ner_artifact_via_llm(
         domain_class: artifact
             .domain_class
             .map(|value| truncate_text(&value, 32)),
-    }))
+    })
 }
 
 fn parse_ner_artifact(content: &str) -> Result<NerArtifact> {
@@ -1152,25 +938,6 @@ fn push_fact_candidate(
     }
 }
 
-fn contains_any(input: &str, keywords: &[&str]) -> bool {
-    keywords.iter().any(|keyword| input.contains(keyword))
-}
-
-fn extract_fact_payload(line: &str) -> &str {
-    line.split_once(':')
-        .map(|(_, value)| value.trim())
-        .unwrap_or_else(|| line.trim())
-}
-
-fn sentence_fact(prefix: &str, payload: &str) -> String {
-    let payload = payload.trim().trim_end_matches('.');
-    if payload.is_empty() {
-        prefix.to_string()
-    } else {
-        format!("{prefix}: {payload}.")
-    }
-}
-
 fn build_summary_uri(tenant_id: &str, session_id: Uuid, version: i32) -> String {
     format!(
         "memory-summary://tenants/{tenant_id}/sessions/{session_id}/versions/{version}"
@@ -1258,61 +1025,10 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn build_fact_candidates_extracts_preference_and_constraint() {
-        let transcript = vec![
-            "user: I prefer concise rollout summaries".to_string(),
-            "assistant: noted".to_string(),
-            "user: Please do not post raw secrets in logs".to_string(),
-        ];
+    async fn build_fact_candidates_fails_when_llm_disabled() {
+        let transcript = vec!["user: extract people from this transcript".to_string()];
 
-        let facts = build_fact_candidates(
-            &transcript,
-            Some("Rollout session"),
-            domain_class::CHAT,
-            &summary_config_for_tests(),
-            Arc::new(Semaphore::new(1)),
-        )
-        .await;
-
-        assert!(facts.iter().any(|fact| fact.fact_type == "session_focus"));
-        assert!(facts.iter().any(|fact| fact.fact_type == "preference"));
-        assert!(facts.iter().any(|fact| fact.fact_type == "constraint"));
-    }
-
-    #[tokio::test]
-    async fn build_fact_candidates_limits_and_deduplicates() {
-        let transcript = vec![
-            "user: todo deploy to dev".to_string(),
-            "user: todo deploy to dev".to_string(),
-            "assistant: follow-up on deployment task".to_string(),
-            "user: another task follow-up".to_string(),
-        ];
-
-        let facts = build_fact_candidates(
-            &transcript,
-            None,
-            domain_class::TASK,
-            &summary_config_for_tests(),
-            Arc::new(Semaphore::new(1)),
-        )
-        .await;
-
-        assert!(facts.len() <= MAX_FACTS_PER_RUN);
-        let unique: HashSet<_> = facts
-            .iter()
-            .map(|fact| format!("{}::{}", fact.fact_type, fact.fact_text))
-            .collect();
-        assert_eq!(unique.len(), facts.len());
-    }
-
-    #[tokio::test]
-    async fn build_fact_candidates_extracts_persons_from_full_transcript_without_llm() {
-        let transcript = vec![
-            "user: We started with Karl Marx and Friedrich Engels".to_string(),
-            "assistant: Then we compared them with Vladimir Lenin".to_string(),
-        ];
-
-        let facts = build_fact_candidates(
+        let result = build_fact_candidates(
             &transcript,
             Some("People session"),
             domain_class::CHAT,
@@ -1321,10 +1037,26 @@ mod tests {
         )
         .await;
 
-        assert!(facts.iter().any(|fact| fact.fact_type == "person"));
-        assert!(facts.iter().any(|fact| fact.fact_text.contains("Karl Marx")));
-        assert!(facts.iter().any(|fact| fact.fact_text.contains("Friedrich Engels")));
-        assert!(facts.iter().any(|fact| fact.fact_text.contains("Vladimir Lenin")));
+        assert!(result.is_err());
+    }
+
+    #[tokio::test]
+    async fn build_fact_candidates_fails_when_api_key_missing() {
+        let transcript = vec!["user: extract people from this transcript".to_string()];
+        let mut cfg = summary_config_for_tests();
+        cfg.llm_enabled = true;
+        cfg.llm_api_key = String::new();
+
+        let result = build_fact_candidates(
+            &transcript,
+            Some("People session"),
+            domain_class::CHAT,
+            &cfg,
+            Arc::new(Semaphore::new(1)),
+        )
+        .await;
+
+        assert!(result.is_err());
     }
 
 }
