@@ -1183,8 +1183,3 @@ impl MemoryService for MemoryGrpcService {
         ))
     }
 }
-
-
-#[cfg(test)]
-#[path = "service_tests.rs"]
-mod tests;

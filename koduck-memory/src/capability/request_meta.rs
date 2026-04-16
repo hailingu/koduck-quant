@@ -71,5 +71,5 @@ pub(crate) fn read_write_meta_with_guard<'a>(
 }
 
 #[cfg(test)]
-#[path = "request_meta_test.rs"]
+#[path = "request_meta_tests.rs"]
 mod tests;
