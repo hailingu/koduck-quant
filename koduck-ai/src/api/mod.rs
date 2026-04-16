@@ -21,7 +21,7 @@ use crate::{
     app::AppState,
     auth::AuthContext,
     clients::memory::{
-        self, MemoryEntry, MemoryHit, MemoryRpcContext, QueryIntent, QueryMemoryInput,
+        self, MemoryEntry, MemoryHit, MemoryRequestContext, QueryIntent, QueryMemoryInput,
         RetrievePolicy, SessionInfo, SessionUpsertInput,
     },
     config::LlmMode,
@@ -132,7 +132,7 @@ struct PreparedChatContext {
     auth_ctx: AuthContext,
     session_id: String,
     trace_id: String,
-    memory_ctx: MemoryRpcContext,
+    memory_ctx: MemoryRequestContext,
 }
 
 async fn init_chat_context(
@@ -158,7 +158,7 @@ async fn init_chat_context(
 
     let session_id = resolve_session_id(request.session_id.clone());
     let trace_id = extract_trace_id(headers);
-    let memory_ctx = MemoryRpcContext::from_auth(
+    let memory_ctx = MemoryRequestContext::from_auth(
         request_id.clone(),
         session_id.clone(),
         trace_id.clone(),
@@ -206,7 +206,7 @@ pub async fn chat(
     );
 
     let memory_snapshot =
-        prepare_memory_context(&state, DegradeRoute::Chat, &request, &memory_ctx).await;
+        load_memory_snapshot(&state, DegradeRoute::Chat, &request, &memory_ctx).await;
 
     let response = if state.config.llm.stub_enabled {
         build_stub_chat_response(
@@ -337,7 +337,7 @@ pub async fn chat_stream(
         None
     } else {
         Some(
-            prepare_memory_context(&state, DegradeRoute::ChatStream, &request.chat, &memory_ctx)
+            load_memory_snapshot(&state, DegradeRoute::ChatStream, &request.chat, &memory_ctx)
                 .await,
         )
     };
@@ -875,11 +875,11 @@ async fn stream_sse_response_with_watermark(
         .into_response()
 }
 
-async fn prepare_memory_context(
+async fn load_memory_snapshot(
     state: &Arc<AppState>,
     route: DegradeRoute,
     request: &ChatRequest,
-    ctx: &MemoryRpcContext,
+    ctx: &MemoryRequestContext,
 ) -> MemoryContextSnapshot {
     let session = match memory::get_session(state, ctx).await {
         Ok(session) => Some(session),
@@ -931,7 +931,7 @@ async fn prepare_memory_context(
 
 async fn append_chat_turn(
     state: &Arc<AppState>,
-    ctx: &MemoryRpcContext,
+    ctx: &MemoryRequestContext,
     request: &ChatRequest,
     answer: &str,
     model: &str,
@@ -963,7 +963,7 @@ fn log_memory_failure(
     state: &Arc<AppState>,
     route: DegradeRoute,
     operation: MemoryOperation,
-    ctx: &MemoryRpcContext,
+    ctx: &MemoryRequestContext,
     err: &AppError,
     fallback_applied: bool,
     message: &'static str,
@@ -1124,7 +1124,7 @@ fn retrieve_policy_from_request(request: &ChatRequest) -> RetrievePolicy {
 
 fn memory_query_session_scope(
     request: &ChatRequest,
-    ctx: &MemoryRpcContext,
+    ctx: &MemoryRequestContext,
 ) -> Option<String> {
     if is_memory_recall_query(&request.message) {
         return Some(ctx.session_id.clone());
@@ -1395,7 +1395,7 @@ async fn execute_memory_tool_call(
     state: &Arc<AppState>,
     route: DegradeRoute,
     request: &ChatRequest,
-    ctx: &MemoryRpcContext,
+    ctx: &MemoryRequestContext,
     base_snapshot: &MemoryContextSnapshot,
     tool_call: &ProviderToolCall,
 ) -> MemoryContextSnapshot {
@@ -1504,7 +1504,7 @@ async fn resolve_memory_tool_call(
         .cloned();
 
     if let Some(tool_call) = maybe_memory_call {
-        let ctx = MemoryRpcContext::from_auth(
+        let ctx = MemoryRequestContext::from_auth(
             request_id.to_string(),
             session_id.to_string(),
             trace_id.to_string(),
@@ -1527,7 +1527,7 @@ async fn resolve_memory_tool_call(
 
 fn build_memory_entry_metadata(
     request: &ChatRequest,
-    ctx: &MemoryRpcContext,
+    ctx: &MemoryRequestContext,
     model: Option<&str>,
 ) -> HashMap<String, String> {
     let mut metadata = HashMap::from([

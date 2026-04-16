@@ -24,7 +24,7 @@ const API_VERSION: &str = "v1";
 const CONNECT_TIMEOUT_SECS: u64 = 3;
 
 #[derive(Debug, Clone)]
-pub struct MemoryRpcContext {
+pub struct MemoryRequestContext {
     pub request_id: String,
     pub session_id: String,
     pub trace_id: String,
@@ -33,7 +33,7 @@ pub struct MemoryRpcContext {
     pub tenant_id: String,
 }
 
-impl MemoryRpcContext {
+impl MemoryRequestContext {
     pub fn from_auth(
         request_id: impl Into<String>,
         session_id: impl Into<String>,
@@ -88,7 +88,7 @@ pub struct QueryMemoryInput {
 
 pub async fn get_session(
     state: &Arc<AppState>,
-    ctx: &MemoryRpcContext,
+    ctx: &MemoryRequestContext,
 ) -> Result<SessionInfo, AppError> {
     let mut client = connect_client(&state.config.memory.grpc_target, &ctx.request_id).await?;
     let response = client
@@ -104,7 +104,7 @@ pub async fn get_session(
 
 pub async fn upsert_session_meta(
     state: &Arc<AppState>,
-    ctx: &MemoryRpcContext,
+    ctx: &MemoryRequestContext,
     input: SessionUpsertInput,
 ) -> Result<(), AppError> {
     let mut client = connect_client(&state.config.memory.grpc_target, &ctx.request_id).await?;
@@ -127,7 +127,7 @@ pub async fn upsert_session_meta(
 
 pub async fn query_memory(
     state: &Arc<AppState>,
-    ctx: &MemoryRpcContext,
+    ctx: &MemoryRequestContext,
     input: QueryMemoryInput,
 ) -> Result<Vec<MemoryHit>, AppError> {
     let mut client = connect_client(&state.config.memory.grpc_target, &ctx.request_id).await?;
@@ -151,7 +151,7 @@ pub async fn query_memory(
 
 pub async fn append_memory(
     state: &Arc<AppState>,
-    ctx: &MemoryRpcContext,
+    ctx: &MemoryRequestContext,
     entries: Vec<MemoryEntry>,
     operation_suffix: &str,
 ) -> Result<i32, AppError> {
@@ -201,7 +201,7 @@ async fn connect_client(
 }
 
 fn map_get_session_response(
-    ctx: &MemoryRpcContext,
+    ctx: &MemoryRequestContext,
     response: GetSessionResponse,
 ) -> Result<SessionInfo, AppError> {
     if response.ok {
@@ -222,7 +222,7 @@ fn map_get_session_response(
 }
 
 fn map_upsert_session_response(
-    ctx: &MemoryRpcContext,
+    ctx: &MemoryRequestContext,
     response: UpsertSessionMetaResponse,
 ) -> Result<(), AppError> {
     if response.ok {
@@ -239,7 +239,7 @@ fn map_upsert_session_response(
 }
 
 fn map_query_memory_response(
-    ctx: &MemoryRpcContext,
+    ctx: &MemoryRequestContext,
     response: QueryMemoryResponse,
 ) -> Result<Vec<MemoryHit>, AppError> {
     if response.ok {
@@ -256,7 +256,7 @@ fn map_query_memory_response(
 }
 
 fn map_append_memory_response(
-    ctx: &MemoryRpcContext,
+    ctx: &MemoryRequestContext,
     response: AppendMemoryResponse,
 ) -> Result<i32, AppError> {
     if response.ok {
