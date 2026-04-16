@@ -4,7 +4,7 @@ use std::sync::Arc;
 
 use axum::{
     extract::State,
-    routing::{get, post},
+    routing::{delete, get, post},
     Router,
 };
 use tower_http::request_id::{MakeRequestUuid, PropagateRequestIdLayer, SetRequestIdLayer};

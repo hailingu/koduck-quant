@@ -17,9 +17,10 @@ pub use super::proto::{
     AppendMemoryRequest, AppendMemoryResponse, DeleteSessionRequest, DeleteSessionResponse,
     GetAllSessionIdsRequest, GetSessionIdsByNerRequest,
     GetSessionIdsLookupResponse, GetSessionRequest, GetSessionResponse,
-    GetSessionTranscriptRequest, GetSessionTranscriptResponse, MemoryEntry, MemoryHit,
-    MemoryService, MemoryServiceClient, MemoryServiceServer, QueryIntent, RetrievePolicy,
-    SessionInfo, UpsertSessionMetaRequest, UpsertSessionMetaResponse,
+    GetSessionSummaryRequest, GetSessionSummaryResponse, GetSessionTranscriptRequest,
+    GetSessionTranscriptResponse, MemoryEntry, MemoryHit, MemoryService, MemoryServiceClient,
+    MemoryServiceServer, QueryIntent, RetrievePolicy, SessionInfo, UpsertSessionMetaRequest,
+    UpsertSessionMetaResponse,
 };
 
 const API_VERSION: &str = "v1";
@@ -181,6 +182,23 @@ pub async fn get_session_transcript(
     map_session_transcript_response(ctx, response.into_inner())
 }
 
+pub async fn get_session_summary(
+    state: &Arc<AppState>,
+    ctx: &MemoryRpcContext,
+    session_id: String,
+) -> Result<String, AppError> {
+    let mut client = connect_client(&state.config.memory.grpc_target, &ctx.request_id).await?;
+    let response = client
+        .get_session_summary(Request::new(GetSessionSummaryRequest {
+            meta: Some(ctx.request_meta(String::new())),
+            session_id,
+        }))
+        .await
+        .map_err(|status| map_grpc_status(UpstreamService::Memory, &ctx.request_id, &status))?;
+
+    map_session_summary_response(ctx, response.into_inner())
+}
+
 pub async fn append_memory(
     state: &Arc<AppState>,
     ctx: &MemoryRpcContext,
@@ -319,6 +337,23 @@ fn map_session_transcript_response(
         response.error.as_ref(),
         ErrorCode::DependencyFailed,
         "memory get_session_transcript failed",
+    ))
+}
+
+fn map_session_summary_response(
+    ctx: &MemoryRpcContext,
+    response: GetSessionSummaryResponse,
+) -> Result<String, AppError> {
+    if response.ok {
+        return Ok(response.summary);
+    }
+
+    Err(map_contract_error_detail(
+        UpstreamService::Memory,
+        &ctx.request_id,
+        response.error.as_ref(),
+        ErrorCode::DependencyFailed,
+        "memory get_session_summary failed",
     ))
 }
 

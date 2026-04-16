@@ -150,6 +150,12 @@ struct QueryMemoryToolNer {
     entity_type: Option<String>,
 }
 
+#[derive(Debug, Deserialize, Default)]
+struct DeleteSessionToolArgs {
+    session_id: Option<String>,
+    description: Option<String>,
+}
+
 impl MemoryContextSnapshot {
     fn has_active_retrieval_context(&self) -> bool {
         self.active_retrieval_context
@@ -427,7 +433,7 @@ async fn delete_session_impl(
 
     (
         StatusCode::OK,
-        Json(ApiResponse {
+        Json(ApiResponse::<()> {
             success: true,
             code: ErrorCode::Ok.to_string(),
             message: "session deleted".to_string(),
@@ -1546,23 +1552,23 @@ fn build_memory_tool_definition() -> ProviderToolDefinition {
                 },
                 "intent": {
                     "type": "string",
-                    "enum": ["recall", "compare", "disambiguate", "correct", "explain", "decide", "none"],
+                    "enum": ["recall", "compare", "disambiguate", "correct", "explain", "decide", "delete", "none"],
                     "description": "本次记忆检索的主意图。必须显式给出，禁止省略。"
                 },
                 "ner": {
                     "type": "array",
-                    "description": "必须显式给出识别到的人物实体列表；没有明确人物名时返回空数组。每个实体都要包含 text 和 type，且 type 只能是 person。",
+                    "description": "必须显式给出识别到的实体列表。回忆人物时只允许 person；按 session 回忆或删除 session 时只允许 session，且 text 必须是 session_id。没有明确实体时返回空数组。",
                     "items": {
                         "type": "object",
                         "properties": {
                             "text": {
                                 "type": "string",
-                                "description": "识别到的人物实体文本，例如 鲁迅、周树人、高斯、牛顿。"
+                                "description": "实体文本。person 时例如 鲁迅、周树人、高斯、牛顿；session 时必须是 session_id。"
                             },
                             "type": {
                                 "type": "string",
-                                "enum": ["person"],
-                                "description": "NER 类型，当前只允许 person。"
+                                "enum": ["person", "session"],
+                                "description": "NER 类型。回忆人物时使用 person；按 session 回忆或删除 session 时使用 session。"
                             }
                         },
                         "required": ["text", "type"],
@@ -1586,8 +1592,31 @@ fn build_memory_tool_definition() -> ProviderToolDefinition {
     }
 }
 
+fn build_delete_session_tool_definition() -> ProviderToolDefinition {
+    ProviderToolDefinition {
+        name: "delete_session".to_string(),
+        description: "删除用户指定的历史会话及其所有关联记忆数据。当用户表达删除会话语义时使用此工具。".to_string(),
+        input_schema: serde_json::to_string(&serde_json::json!({
+            "type": "object",
+            "properties": {
+                "session_id": {
+                    "type": "string",
+                    "description": "要删除的会话 ID（UUID 格式）。当用户明确提供了 session_id 时直接传入。"
+                },
+                "description": {
+                    "type": "string",
+                    "description": "对要删除会话的自然语言描述，用于模糊匹配查找会话。"
+                }
+            },
+            "required": [],
+            "additionalProperties": false
+        }))
+        .unwrap_or_default(),
+    }
+}
+
 fn build_memory_tool_instruction() -> &'static str {
-    "当用户询问“之前聊过什么 / 之前有没有聊过某个人物 / 具体聊到了哪些方面 / 回忆一下之前内容”时，优先调用 query_memory 工具。工具参数里必须显式填写 intent，并且必须返回 ner 数组。当前 ner 只允许 person：只有当你识别到了明确人物名时，才在 ner 中逐项给出 {text, type:\"person\"}；如果没有明确人物名，必须返回空数组。不要把主题词、抽象概念、类别词放进 ner。不要在没有调用工具的情况下臆测历史记录。"
+    "“当用户询问”之前聊过什么 / 之前有没有聊过某个人物 / 具体聊到了哪些方面 / 回忆一下之前内容”时，调用 query_memory 工具。工具参数里必须显式填写 intent，并且必须返回 ner 数组。回忆人物时，只有当你识别到了明确人物名，才在 ner 中逐项给出 {text, type:\"person\"}；如果用户明确给了 session_id 来回忆某个 session，则在 ner 中逐项给出 {text:\"<session_id>\", type:\"session\"}。如果没有明确实体，必须返回空数组。不要把主题词、抽象概念、类别词放进 ner。当用户要求删除会话时（如“删除关于鸡排的会话”、“把那个对话删掉”），必须调用 delete_session 工具，而不是 query_memory。delete_session 接受 session_id（精确删除）或 description（模糊匹配）。不要在没有调用工具的情况下臆测历史记录。”"
 }
 
 fn parse_query_memory_tool_args(raw: &str) -> QueryMemoryToolArgs {
@@ -1605,6 +1634,7 @@ fn parse_query_intent(intent: Option<&str>) -> QueryIntent {
         Some("correct") => QueryIntent::Correct,
         Some("explain") => QueryIntent::Explain,
         Some("decide") => QueryIntent::Decide,
+        Some("delete") => QueryIntent::Delete,
         Some("none") => QueryIntent::None,
         _ => QueryIntent::Unspecified,
     }
@@ -1621,7 +1651,9 @@ fn normalize_query_memory_ner(ner_items: &[QueryMemoryToolNer]) -> Vec<(String, 
             .entity_type
             .as_deref()
             .map(str::trim)
-            .filter(|value| value.eq_ignore_ascii_case("person"))
+            .filter(|value| {
+                value.eq_ignore_ascii_case("person") || value.eq_ignore_ascii_case("session")
+            })
             .unwrap_or_default();
         if entity_type.is_empty() {
             continue;
@@ -1677,6 +1709,47 @@ async fn memory_hits_from_session_transcripts(
     hits
 }
 
+async fn memory_hits_from_session_summaries(
+    state: &Arc<AppState>,
+    route: DegradeRoute,
+    ctx: &MemoryRpcContext,
+    session_ids: Vec<String>,
+    reason: &str,
+) -> Vec<MemoryHit> {
+    let mut hits = Vec::with_capacity(session_ids.len());
+
+    for session_id in session_ids {
+        let summary = memory::get_session_summary(state, ctx, session_id.clone())
+            .await
+            .unwrap_or_else(|err| {
+                log_memory_failure(
+                    state,
+                    route,
+                    MemoryOperation::QueryMemory,
+                    ctx,
+                    &err,
+                    true,
+                    "get_session_summary tool call failed; using session_id-only hit",
+                );
+                String::new()
+            });
+
+        hits.push(MemoryHit {
+            session_id,
+            l0_uri: String::new(),
+            score: 1.0,
+            match_reasons: vec![reason.to_string()],
+            snippet: if summary.trim().is_empty() {
+                reason.to_string()
+            } else {
+                summary
+            },
+        });
+    }
+
+    hits
+}
+
 async fn execute_memory_tool_call(
     state: &Arc<AppState>,
     route: DegradeRoute,
@@ -1721,13 +1794,57 @@ async fn execute_memory_tool_call(
 
     let hits = match tool_query_intent {
         QueryIntent::Recall => {
-            let mut merged_session_ids = Vec::new();
+            let explicit_session_ids = normalized_ner
+                .iter()
+                .filter(|(_, entity_type)| entity_type.eq_ignore_ascii_case("session"))
+                .map(|(text, _)| text.clone())
+                .collect::<Vec<_>>();
 
-            if !normalized_ner.is_empty() {
-                for (_, entity_type) in &normalized_ner {
-                    match memory::get_session_ids_by_ner(state, ctx, entity_type.clone()).await {
-                        Ok(session_ids) => merged_session_ids.extend(session_ids),
-                        Err(err) => {
+            if !explicit_session_ids.is_empty() {
+                let mut seen = std::collections::HashSet::new();
+                let deduped = explicit_session_ids
+                    .into_iter()
+                    .filter(|session_id| seen.insert(session_id.clone()))
+                    .collect::<Vec<_>>();
+                info!(
+                    request_id = %ctx.request_id,
+                    session_id = %ctx.session_id,
+                    tool_name = %tool_call.name,
+                    summary_session_ids = ?deduped,
+                    "memory recall loading summaries for explicit session ids"
+                );
+                memory_hits_from_session_summaries(
+                    state,
+                    route,
+                    ctx,
+                    deduped,
+                    "explicit_session_ids",
+                )
+                .await
+            } else {
+                let mut merged_session_ids = Vec::new();
+
+                if !normalized_ner.is_empty() {
+                    for (_, entity_type) in &normalized_ner {
+                        match memory::get_session_ids_by_ner(state, ctx, entity_type.clone()).await {
+                            Ok(session_ids) => merged_session_ids.extend(session_ids),
+                            Err(err) => {
+                                log_memory_failure(
+                                    state,
+                                    route,
+                                    MemoryOperation::QueryMemory,
+                                    ctx,
+                                    &err,
+                                    true,
+                                    "get_session_ids_by_ner tool call failed; continuing with partial recalled sessions",
+                                );
+                            }
+                        }
+                    }
+                } else {
+                    merged_session_ids = memory::get_all_session_ids(state, ctx)
+                        .await
+                        .unwrap_or_else(|err| {
                             log_memory_failure(
                                 state,
                                 route,
@@ -1735,48 +1852,55 @@ async fn execute_memory_tool_call(
                                 ctx,
                                 &err,
                                 true,
-                                "get_session_ids_by_ner tool call failed; continuing with partial recalled sessions",
+                                "get_all_session_ids tool call failed; continuing without recalled sessions",
                             );
-                        }
-                    }
+                            Vec::new()
+                        });
                 }
-            } else {
-                merged_session_ids = memory::get_all_session_ids(state, ctx)
-                    .await
-                    .unwrap_or_else(|err| {
-                        log_memory_failure(
-                            state,
-                            route,
-                            MemoryOperation::QueryMemory,
-                            ctx,
-                            &err,
-                            true,
-                            "get_all_session_ids tool call failed; continuing without recalled sessions",
-                        );
-                        Vec::new()
-                    });
-            }
 
-            let mut seen = std::collections::HashSet::new();
-            let deduped = merged_session_ids
-                .into_iter()
-                .filter(|session_id| seen.insert(session_id.clone()))
-                .collect::<Vec<_>>();
-            info!(
-                request_id = %ctx.request_id,
-                session_id = %ctx.session_id,
-                tool_name = %tool_call.name,
-                transcript_session_ids = ?deduped,
-                "memory recall loading transcripts for merged session ids"
-            );
-            memory_hits_from_session_transcripts(
-                state,
-                route,
-                ctx,
-                deduped,
-                "merged_session_ids",
-            )
-            .await
+                let mut seen = std::collections::HashSet::new();
+                let deduped = merged_session_ids
+                    .into_iter()
+                    .filter(|session_id| seen.insert(session_id.clone()))
+                    .collect::<Vec<_>>();
+                info!(
+                    request_id = %ctx.request_id,
+                    session_id = %ctx.session_id,
+                    tool_name = %tool_call.name,
+                    transcript_session_ids = ?deduped,
+                    "memory recall loading transcripts for merged session ids"
+                );
+                memory_hits_from_session_transcripts(
+                    state,
+                    route,
+                    ctx,
+                    deduped,
+                    "merged_session_ids",
+                )
+                .await
+            }
+        }
+        QueryIntent::Delete => {
+            for (session_id, entity_type) in &normalized_ner {
+                if !entity_type.eq_ignore_ascii_case("session") {
+                    continue;
+                }
+
+                let mut delete_ctx = ctx.clone();
+                delete_ctx.session_id = session_id.clone();
+                if let Err(err) = memory::delete_session(state, &delete_ctx).await {
+                    log_memory_failure(
+                        state,
+                        route,
+                        MemoryOperation::QueryMemory,
+                        &delete_ctx,
+                        &err,
+                        true,
+                        "delete_session tool call failed; continuing with remaining session ids",
+                    );
+                }
+            }
+            Vec::new()
         }
         _ => Vec::new(),
     };
@@ -1839,6 +1963,124 @@ async fn execute_memory_tool_call(
     snapshot
 }
 
+async fn execute_delete_session_tool_call(
+    state: &Arc<AppState>,
+    route: DegradeRoute,
+    ctx: &MemoryRpcContext,
+    tool_call: &ProviderToolCall,
+) -> String {
+    let args: DeleteSessionToolArgs =
+        serde_json::from_str(&tool_call.arguments).unwrap_or_default();
+
+    info!(
+        request_id = %ctx.request_id,
+        session_id = %ctx.session_id,
+        tool_name = %tool_call.name,
+        tool_call_id = %tool_call.id,
+        has_session_id = args.session_id.is_some(),
+        has_description = args.description.is_some(),
+        "llm tool call resolved to delete_session"
+    );
+
+    let target_ids: Vec<String> = if let Some(ref sid) = args.session_id {
+        // Direct delete by session_id
+        let trimmed = sid.trim();
+        if Uuid::parse_str(trimmed).is_err() {
+            return format!("无效的 session_id 格式: {trimmed}，请提供合法的 UUID。");
+        }
+        vec![trimmed.to_string()]
+    } else if let Some(ref desc) = args.description {
+        // Fuzzy search: get all sessions and match by transcript
+        let all_ids = match memory::get_all_session_ids(state, ctx).await {
+            Ok(ids) => ids,
+            Err(err) => {
+                log_memory_failure(
+                    state,
+                    route,
+                    MemoryOperation::QueryMemory,
+                    ctx,
+                    &err,
+                    true,
+                    "get_all_session_ids failed during delete_session fuzzy search",
+                );
+                return "获取会话列表失败，无法执行删除。".to_string();
+            }
+        };
+
+        let desc_lower = desc.trim().to_ascii_lowercase();
+        let mut matched = Vec::new();
+        for sid in &all_ids {
+            let transcript = memory::get_session_transcript(state, ctx, sid.clone()).await;
+            match transcript {
+                Ok(text) if text.to_ascii_lowercase().contains(&desc_lower) => {
+                    matched.push(sid.clone());
+                }
+                Err(err) => {
+                    log_memory_failure(
+                        state,
+                        route,
+                        MemoryOperation::QueryMemory,
+                        ctx,
+                        &err,
+                        true,
+                        "get_session_transcript failed during delete_session fuzzy search; skipping session",
+                    );
+                }
+                _ => {}
+            }
+        }
+        matched
+    } else {
+        return "请提供 session_id 或 description 来指定要删除的会话。".to_string();
+    };
+
+    if target_ids.is_empty() {
+        return format!("未找到匹配的会话。描述: {}", args.description.as_deref().unwrap_or("无"));
+    }
+
+    let mut deleted = Vec::new();
+    let mut failed = Vec::new();
+    for sid in &target_ids {
+        let mut delete_ctx = ctx.clone();
+        delete_ctx.session_id = sid.clone();
+        match memory::delete_session(state, &delete_ctx).await {
+            Ok(()) => {
+                info!(
+                    request_id = %ctx.request_id,
+                    session_id = %ctx.session_id,
+                    deleted_session_id = %sid,
+                    "delete_session tool call: session deleted successfully"
+                );
+                deleted.push(sid.clone());
+            }
+            Err(err) => {
+                log_memory_failure(
+                    state,
+                    route,
+                    MemoryOperation::QueryMemory,
+                    &delete_ctx,
+                    &err,
+                    true,
+                    "delete_session tool call failed for session",
+                );
+                failed.push(sid.clone());
+            }
+        }
+    }
+
+    let mut result = String::new();
+    if !deleted.is_empty() {
+        result.push_str(&format!("已成功删除 {} 个会话。", deleted.len()));
+    }
+    if !failed.is_empty() {
+        if !result.is_empty() {
+            result.push(' ');
+        }
+        result.push_str(&format!("{} 个会话删除失败。", failed.len()));
+    }
+    result
+}
+
 fn snapshot_hits_count(hits: &[MemoryHit]) -> usize {
     hits.len()
 }
@@ -1880,7 +2122,7 @@ async fn resolve_memory_tool_call(
         auth_ctx,
         trace_id,
         state.config.llm.timeout_ms,
-        vec![build_memory_tool_definition()],
+        vec![build_memory_tool_definition(), build_delete_session_tool_definition()],
     );
     log_llm_request_prompt("tool_selection", request_id, session_id, &llm_request);
     let selection = state.llm_provider.generate(llm_request).await?;
@@ -1891,6 +2133,64 @@ async fn resolve_memory_tool_call(
         finish_reason = %selection.finish_reason,
         "llm tool-selection phase completed"
     );
+
+    // Check for delete_session tool call first
+    let maybe_delete_call = selection
+        .tool_calls
+        .iter()
+        .find(|tool_call| tool_call.name == "delete_session")
+        .cloned();
+
+    if let Some(tool_call) = maybe_delete_call {
+        info!(
+            request_id = %request_id,
+            session_id = %session_id,
+            tool_name = %tool_call.name,
+            tool_call_id = %tool_call.id,
+            "delete_session tool call selected by llm"
+        );
+        let ctx = MemoryRpcContext::from_auth(
+            request_id.to_string(),
+            session_id.to_string(),
+            trace_id.to_string(),
+            state.config.llm.timeout_ms,
+            auth_ctx,
+        );
+        let delete_result =
+            execute_delete_session_tool_call(state, route, &ctx, &tool_call).await;
+        info!(
+            request_id = %request_id,
+            session_id = %session_id,
+            delete_result = %delete_result,
+            "delete_session tool call completed"
+        );
+        // Generate a final LLM response that incorporates the delete result
+        let final_snapshot = MemoryContextSnapshot {
+            session: base_snapshot.session.clone(),
+            hits: Vec::new(),
+            active_retrieval_context: Some(format!(
+                "[工具执行结果] delete_session: {}",
+                delete_result
+            )),
+        };
+        let final_request = build_provider_generate_request(
+            request,
+            Some(&final_snapshot),
+            request_id,
+            session_id,
+            auth_ctx,
+            trace_id,
+            state.config.llm.timeout_ms,
+            vec![],
+        );
+        log_llm_request_prompt("delete_session_final", request_id, session_id, &final_request);
+        let final_response = state.llm_provider.generate(final_request).await?;
+        return Ok(ToolResolutionResult {
+            snapshot: base_snapshot.clone(),
+            direct_response: Some(final_response),
+        });
+    }
+
     let maybe_memory_call = selection
         .tool_calls
         .iter()
@@ -1930,7 +2230,7 @@ async fn resolve_memory_tool_call(
     info!(
         request_id = %request_id,
         session_id = %session_id,
-        "llm did not select query_memory tool; returning direct response"
+        "llm did not select any tool; returning direct response"
     );
 
     Ok(ToolResolutionResult {

@@ -1416,15 +1416,17 @@ export function KoduckAi() {
                           )}
                         </div>
                       )}
-                      <div className="mt-2 flex w-full items-center justify-start gap-2">
+                      <div className="mt-2 flex w-full items-center justify-between gap-2">
                         {Boolean(message.timestamp) && (
                           <div className="text-xs text-gray-500">
                             {formatTimestamp(message.timestamp)}
                           </div>
                         )}
-                        <div className="flex items-center gap-1.5 opacity-0 transition-opacity group-hover:opacity-100">
+                        <div className="ml-auto flex shrink-0 items-center gap-1.5 opacity-100 transition-opacity sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100">
                           <button
-                            className="p-1 text-gray-400 transition-colors hover:text-gray-600"
+                            aria-label="复制消息"
+                            className="p-1 text-gray-400 transition-colors hover:text-gray-600 disabled:cursor-not-allowed disabled:opacity-40"
+                            disabled={!message.content.trim()}
                             onClick={() => void copyMessage(message.content)}
                             title="复制"
                             type="button"
@@ -1432,6 +1434,7 @@ export function KoduckAi() {
                             <Copy className="h-3.5 w-3.5" />
                           </button>
                           <button
+                            aria-label="删除消息"
                             className="p-1 text-gray-400 transition-colors hover:text-red-600"
                             onClick={() => deleteMessage(message.id)}
                             title="删除"

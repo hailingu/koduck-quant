@@ -6,7 +6,7 @@ pub use contract::{Capability, ErrorDetail, RequestMeta};
 pub use memory::{
     AppendMemoryRequest, AppendMemoryResponse, DeleteSessionRequest, DeleteSessionResponse,
     GetAllSessionIdsRequest, GetCategoryCatalogRequest, GetCategoryCatalogResponse,
-    GetSessionRequest, GetSessionResponse,
+    GetSessionRequest, GetSessionResponse, GetSessionSummaryRequest, GetSessionSummaryResponse,
     GetSessionIdsByDomainClassRequest, GetSessionIdsByIntentTypeRequest,
     GetSessionIdsByNerRequest, GetSessionIdsLookupResponse, GetSessionTranscriptRequest,
     GetSessionTranscriptResponse, MemoryEntry, MemoryHit, MemoryService,

@@ -3,6 +3,7 @@ use std::sync::Arc;
 use std::time::Instant;
 
 use tonic::{Request, Response, Status};
+use tracing::info;
 
 use crate::api::{
     AppendMemoryRequest, AppendMemoryResponse, Capability, DeleteSessionRequest,
@@ -10,7 +11,8 @@ use crate::api::{
     GetCategoryCatalogRequest, GetCategoryCatalogResponse, GetSessionRequest,
     GetSessionIdsByDomainClassRequest, GetSessionIdsByIntentTypeRequest,
     GetSessionIdsByNerRequest, GetSessionIdsLookupResponse, GetSessionResponse,
-    GetSessionTranscriptRequest, GetSessionTranscriptResponse, MemoryService,
+    GetSessionSummaryRequest, GetSessionSummaryResponse, GetSessionTranscriptRequest,
+    GetSessionTranscriptResponse, MemoryService,
     QueryMemoryRequest, QueryMemoryResponse, RequestMeta, SessionTranscriptEntry,
     SummarizeMemoryRequest, SummarizeMemoryResponse, UpsertSessionMetaRequest,
     UpsertSessionMetaResponse,
@@ -24,7 +26,7 @@ use crate::memory::{
 };
 use crate::memory_anchor::{MemoryUnitAnchorRepository, MemoryUnitAnchorType};
 use crate::memory_unit::{AppendedEntryUnit, MemoryUnitMaterializer, MemoryUnitRepository};
-use crate::summary::{SummaryJob, SummaryTaskRunner, MemorySummaryRepository};
+use crate::summary::{MemorySummaryRepository, SummaryJob, SummaryTaskRunner};
 use crate::observe::{record_rpc_call, RpcMethod, RpcOutcome};
 use crate::observe::RpcGuard;
 use crate::observe::RpcMetrics;
@@ -39,7 +41,6 @@ use crate::retrieve::{
     match_reason,
     map_intent_to_discourse_action,
 };
-use crate::summary::{SummaryJob, SummaryTaskRunner};
 use crate::session::{
     extra_to_jsonb, parse_optional_uuid, parse_uuid, SessionRepository, UpsertSession,
 };
@@ -241,6 +242,7 @@ impl MemoryGrpcService {
             QueryIntent::Correct => Some(QueryIntentType::Correct),
             QueryIntent::Explain => Some(QueryIntentType::Explain),
             QueryIntent::Decide => Some(QueryIntentType::Decide),
+            QueryIntent::Delete => None,
             QueryIntent::None => Some(QueryIntentType::None),
             QueryIntent::Unspecified => None,
         }
@@ -709,6 +711,35 @@ impl MemoryService for MemoryGrpcService {
         Ok(Response::new(GetSessionIdsLookupResponse {
             ok: true,
             session_ids: session_ids.into_iter().map(|id| id.to_string()).collect(),
+            error: None,
+        }))
+    }
+
+    async fn get_session_summary(
+        &self,
+        request: Request<GetSessionSummaryRequest>,
+    ) -> Result<Response<GetSessionSummaryResponse>, Status> {
+        let req = request.get_ref();
+        let meta = req
+            .meta
+            .as_ref()
+            .ok_or_else(|| Status::invalid_argument("meta is required"))?;
+        Self::validate_meta(meta)?;
+
+        let session_id = parse_uuid(&req.session_id)
+            .map_err(|e| Status::invalid_argument(format!("invalid session_id: {e}")))?;
+
+        let summary = self
+            .summary_repo()
+            .latest_by_session(&meta.tenant_id, session_id)
+            .await
+            .map_err(|e| Status::internal(format!("failed to get session summary: {e}")))?
+            .map(|record| record.summary)
+            .unwrap_or_default();
+
+        Ok(Response::new(GetSessionSummaryResponse {
+            ok: true,
+            summary,
             error: None,
         }))
     }

@@ -3,7 +3,7 @@ pub use super::proto::memory::memory_service_server::{MemoryService, MemoryServi
 pub use super::proto::memory::{
     AppendMemoryRequest, AppendMemoryResponse, DeleteSessionRequest, DeleteSessionResponse,
     GetAllSessionIdsRequest, GetCategoryCatalogRequest, GetCategoryCatalogResponse,
-    GetSessionRequest, GetSessionResponse,
+    GetSessionRequest, GetSessionResponse, GetSessionSummaryRequest, GetSessionSummaryResponse,
     GetSessionIdsByDomainClassRequest, GetSessionIdsByIntentTypeRequest,
     GetSessionIdsByNerRequest, GetSessionIdsLookupResponse, GetSessionTranscriptRequest,
     GetSessionTranscriptResponse, MemoryEntry, MemoryHit, QueryMemoryRequest,

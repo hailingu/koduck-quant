@@ -24,6 +24,8 @@ service MemoryService {
 
   rpc GetSessionTranscript(GetSessionTranscriptRequest) returns (GetSessionTranscriptResponse);
 
+  rpc GetSessionSummary(GetSessionSummaryRequest) returns (GetSessionSummaryResponse);
+
   rpc GetAllSessionIds(GetAllSessionIdsRequest) returns (GetSessionIdsLookupResponse);
 
   rpc GetSessionIdsByDomainClass(GetSessionIdsByDomainClassRequest) returns (GetSessionIdsLookupResponse);
@@ -106,6 +108,19 @@ message GetSessionTranscriptResponse {
   repeated SessionTranscriptEntry entries = 2;
   string transcript_text = 3;
   koduck.contract.v1.ErrorDetail error = 4;
+}
+
+message GetSessionSummaryRequest {
+  koduck.contract.v1.RequestMeta meta = 1;
+  string session_id = 2;
+
+  reserved 3 to 19;
+}
+
+message GetSessionSummaryResponse {
+  bool ok = 1;
+  string summary = 2;
+  koduck.contract.v1.ErrorDetail error = 3;
 }
 
 message GetAllSessionIdsRequest {
@@ -289,6 +304,7 @@ enum QueryIntent {
   QUERY_INTENT_EXPLAIN = 5;
   QUERY_INTENT_DECIDE = 6;
   QUERY_INTENT_NONE = 7;
+  QUERY_INTENT_DELETE = 8;
 
-  reserved 8 to 19;
+  reserved 9 to 19;
 }
