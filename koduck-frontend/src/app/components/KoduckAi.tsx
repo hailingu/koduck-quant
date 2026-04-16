@@ -43,6 +43,24 @@ interface ChatHistoryMessage {
   content: string;
 }
 
+type LlmProvider = "minimax" | "kimi";
+
+const PROVIDER_OPTIONS: Array<{ value: LlmProvider; label: string }> = [
+  { value: "minimax", label: "MiniMax" },
+  { value: "kimi", label: "Kimi" },
+];
+
+const MODEL_OPTIONS_BY_PROVIDER: Record<
+  LlmProvider,
+  Array<{ value: string; label: string }>
+> = {
+  minimax: [
+    { value: "MiniMax-M2.7", label: "MiniMax-M2.7" },
+    { value: "MiniMax-M2.5", label: "MiniMax-M2.5" },
+  ],
+  kimi: [{ value: "kimi-for-coding", label: "kimi-for-coding" }],
+};
+
 interface StreamEventPayload {
   text?: string;
   finish_reason?: string;
@@ -77,11 +95,23 @@ interface ApiErrorEnvelope {
   error?: ApiErrorBody;
 }
 
+interface SessionLookupData {
+  exists?: boolean;
+}
+
+interface SessionLookupEnvelope {
+  success?: boolean;
+  data?: SessionLookupData;
+}
+
 const STREAM_INITIAL_IDLE_TIMEOUT_MS = 20000;
 const STREAM_POST_CONTENT_IDLE_TIMEOUT_MS = 8000;
-const STREAM_REQUEST_TIMEOUT_MS = 90000;
+const STREAM_REQUEST_TIMEOUT_MS = 300000;
+const SESSION_LOOKUP_RETRY_DELAYS_MS = [150, 400];
+const MAX_HISTORY_MESSAGES = 5;
 const ACTIVE_SESSION_STORAGE_KEY = "koduck.ai.activeSessionId";
 const SESSION_MESSAGES_STORAGE_PREFIX = "koduck.ai.sessionMessages";
+const URL_SESSION_PARAM = "session_id";
 
 function buildSessionMessagesStorageKey(sessionId: string): string {
   return `${SESSION_MESSAGES_STORAGE_PREFIX}.${sessionId}`;
@@ -96,6 +126,37 @@ function readActiveSessionId(): string | null {
   return stored || null;
 }
 
+function readSessionIdFromUrl(): string | null {
+  if (typeof window === "undefined") {
+    return null;
+  }
+
+  const value = new URLSearchParams(window.location.search)
+    .get(URL_SESSION_PARAM)
+    ?.trim();
+  return value || null;
+}
+
+function persistSessionIdToUrl(sessionId: string | null) {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  const url = new URL(window.location.href);
+  if (sessionId) {
+    url.searchParams.set(URL_SESSION_PARAM, sessionId);
+  } else {
+    url.searchParams.delete(URL_SESSION_PARAM);
+  }
+
+  const nextRelativeUrl = `${url.pathname}${url.search}${url.hash}`;
+  const currentRelativeUrl = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+
+  if (nextRelativeUrl !== currentRelativeUrl) {
+    window.history.replaceState(window.history.state, "", nextRelativeUrl);
+  }
+}
+
 function persistActiveSessionId(sessionId: string | null) {
   if (typeof window === "undefined") {
     return;
@@ -107,6 +168,14 @@ function persistActiveSessionId(sessionId: string | null) {
   }
 
   window.localStorage.removeItem(ACTIVE_SESSION_STORAGE_KEY);
+}
+
+function clearStoredMessages(sessionId: string | null) {
+  if (typeof window === "undefined" || !sessionId) {
+    return;
+  }
+
+  window.localStorage.removeItem(buildSessionMessagesStorageKey(sessionId));
 }
 
 function readStoredMessages(sessionId: string | null): Message[] {
@@ -154,6 +223,69 @@ function persistSessionMessages(sessionId: string | null, messages: Message[]) {
     buildSessionMessagesStorageKey(sessionId),
     JSON.stringify(persistedMessages),
   );
+}
+
+async function fetchSessionExists(
+  sessionId: string,
+  signal: AbortSignal,
+): Promise<boolean | null> {
+  const token = window.localStorage.getItem("koduck.auth.token");
+
+  for (let attempt = 0; attempt <= SESSION_LOOKUP_RETRY_DELAYS_MS.length; attempt += 1) {
+    try {
+      const response = await fetch(`/api/v1/ai/sessions/${encodeURIComponent(sessionId)}`, {
+        method: "GET",
+        headers: {
+          Accept: "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        signal,
+      });
+
+      if (response.ok) {
+        const body = (await response.json()) as SessionLookupEnvelope;
+        if (!body.success) {
+          return null;
+        }
+
+        return body.data?.exists === true;
+      }
+
+      if (
+        response.status !== 502 &&
+        response.status !== 503 &&
+        response.status !== 504
+      ) {
+        return null;
+      }
+    } catch {
+      return null;
+    }
+
+    const delay = SESSION_LOOKUP_RETRY_DELAYS_MS[attempt];
+    if (delay == null) {
+      return null;
+    }
+
+    await new Promise<void>((resolve) => {
+      const timer = window.setTimeout(() => {
+        signal.removeEventListener("abort", onAbort);
+        resolve();
+      }, delay);
+      const onAbort = () => {
+        window.clearTimeout(timer);
+        signal.removeEventListener("abort", onAbort);
+        resolve();
+      };
+      signal.addEventListener("abort", onAbort, { once: true });
+    });
+
+    if (signal.aborted) {
+      return null;
+    }
+  }
+
+  return null;
 }
 
 function logStreamTrace(
@@ -450,19 +582,31 @@ function parseSseBlocks(
 }
 
 export function KoduckAi() {
-  const initialSessionId = readActiveSessionId();
+  const initialSessionIdRef = useRef<string | null>(readSessionIdFromUrl() ?? readActiveSessionId());
+  const initialSessionId = initialSessionIdRef.current;
   const [chatMessage, setChatMessage] = useState("");
-  const [messages, setMessages] = useState<Message[]>(() => readStoredMessages(initialSessionId));
+  const [messages, setMessages] = useState<Message[]>([]);
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(initialSessionId);
-  const [selectedProvider] = useState("OpenAI");
-  const [selectedModel] = useState("GPT-4");
+  const [selectedProvider, setSelectedProvider] = useState<LlmProvider>("minimax");
+  const [selectedModel, setSelectedModel] = useState("MiniMax-M2.7");
   const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
   const [isDragging, setIsDragging] = useState(false);
   const [sending, setSending] = useState(false);
+  const [sessionHydrated, setSessionHydrated] = useState(initialSessionId === null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const dragCounterRef = useRef(0);
   const currentSessionIdRef = useRef<string | null>(currentSessionId);
+  const skipNextSessionRestoreRef = useRef(false);
+  const createSessionId = () => crypto.randomUUID();
+  const activateSession = (
+    sessionId: string | null,
+    options?: { skipRestore?: boolean },
+  ) => {
+    currentSessionIdRef.current = sessionId;
+    skipNextSessionRestoreRef.current = options?.skipRestore === true;
+    setCurrentSessionId(sessionId);
+  };
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -475,15 +619,79 @@ export function KoduckAi() {
   useEffect(() => {
     currentSessionIdRef.current = currentSessionId;
     persistActiveSessionId(currentSessionId);
+    persistSessionIdToUrl(currentSessionId);
   }, [currentSessionId]);
 
   useEffect(() => {
+    if (!currentSessionId) {
+      skipNextSessionRestoreRef.current = false;
+      setMessages([]);
+      return;
+    }
+
+    if (currentSessionId === initialSessionId && !sessionHydrated) {
+      return;
+    }
+
+    if (skipNextSessionRestoreRef.current) {
+      skipNextSessionRestoreRef.current = false;
+      return;
+    }
+
     setMessages(readStoredMessages(currentSessionId));
-  }, [currentSessionId]);
+  }, [currentSessionId, initialSessionId, sessionHydrated]);
 
   useEffect(() => {
+    if (!initialSessionId) {
+      setSessionHydrated(true);
+      return;
+    }
+
+    const controller = new AbortController();
+
+    const hydrateSession = async () => {
+      const exists = await fetchSessionExists(initialSessionId, controller.signal);
+      if (controller.signal.aborted) {
+        return;
+      }
+
+      if (exists === false) {
+        clearStoredMessages(initialSessionId);
+        if (readActiveSessionId() === initialSessionId) {
+          persistActiveSessionId(null);
+        }
+        if (currentSessionIdRef.current === initialSessionId) {
+          activateSession(null);
+          setMessages([]);
+        }
+      } else {
+        setMessages(readStoredMessages(initialSessionId));
+      }
+
+      setSessionHydrated(true);
+    };
+
+    void hydrateSession();
+
+    return () => {
+      controller.abort();
+    };
+  }, [initialSessionId]);
+
+  useEffect(() => {
+    if (!sessionHydrated && currentSessionId === initialSessionId) {
+      return;
+    }
+
     persistSessionMessages(currentSessionId, messages);
-  }, [currentSessionId, messages]);
+  }, [currentSessionId, initialSessionId, messages, sessionHydrated]);
+
+  useEffect(() => {
+    const availableModels = MODEL_OPTIONS_BY_PROVIDER[selectedProvider];
+    if (!availableModels.some((model) => model.value === selectedModel)) {
+      setSelectedModel(availableModels[0].value);
+    }
+  }, [selectedProvider, selectedModel]);
 
   const updateAssistantMessage = (messageId: string, updater: (prev: Message) => Message) => {
     setMessages((prev) =>
@@ -491,23 +699,40 @@ export function KoduckAi() {
     );
   };
 
-  const createSessionId = () => crypto.randomUUID();
-
-  const activateSession = (sessionId: string | null) => {
-    currentSessionIdRef.current = sessionId;
-    setCurrentSessionId(sessionId);
-  };
-
   const buildHistoryMessages = (): ChatHistoryMessage[] =>
     messages
       .filter((message) => !message.streaming && message.content.trim())
+      .slice(-MAX_HISTORY_MESSAGES)
       .map((message) => ({
         role: message.role,
         content: message.content,
       }));
 
   const handleCreateSession = () => {
-    activateSession(createSessionId());
+    activateSession(createSessionId(), { skipRestore: true });
+    setMessages([]);
+    setChatMessage("");
+    setUploadedFiles([]);
+  };
+
+  const handleDeleteCurrentSession = async () => {
+    const sessionId = currentSessionIdRef.current;
+    if (sessionId) {
+      const token = window.localStorage.getItem("koduck.auth.token");
+      try {
+        await fetch(`/api/v1/ai/sessions/${encodeURIComponent(sessionId)}`, {
+          method: "DELETE",
+          headers: {
+            Accept: "application/json",
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+        });
+      } catch {
+        // Best-effort: still clear local state even if backend delete fails
+      }
+    }
+    clearStoredMessages(sessionId);
+    activateSession(null, { skipRestore: true });
     setMessages([]);
     setChatMessage("");
     setUploadedFiles([]);
@@ -625,7 +850,7 @@ export function KoduckAi() {
 
     const sessionId = currentSessionIdRef.current ?? createSessionId();
     if (!currentSessionIdRef.current) {
-      activateSession(sessionId);
+      activateSession(sessionId, { skipRestore: true });
     }
 
     const userMessage: Message = {
@@ -657,10 +882,13 @@ export function KoduckAi() {
     let streamErrorMessage = "";
     let upstreamRequestId: string | null = null;
     let lastSequenceNum: number | null = null;
+    let streamEstablished = false;
 
     logStreamTrace(localRequestId, "request_start", {
       sessionId,
       assistantMessageId,
+      provider: selectedProvider,
+      model: selectedModel,
       userMessageLength: content.length,
     });
 
@@ -676,6 +904,8 @@ export function KoduckAi() {
         body: JSON.stringify({
           message: content,
           session_id: sessionId,
+          provider: selectedProvider,
+          model: selectedModel,
           history: buildHistoryMessages(),
         }),
       });
@@ -696,7 +926,6 @@ export function KoduckAi() {
       const decoder = new TextDecoder();
       let buffer = "";
       let streamCompleted = false;
-      let streamEstablished = false;
 
       while (!streamCompleted) {
         const idleTimeoutMs = streamedText.trim()
@@ -1036,20 +1265,34 @@ export function KoduckAi() {
           >
             <Paperclip className="h-4 w-4" />
           </button>
-          <button
-            className="flex items-center gap-1 rounded-lg px-2.5 py-1 text-xs font-medium text-gray-700 transition-colors hover:bg-gray-50"
-            type="button"
-          >
-            <span>{selectedProvider}</span>
-            <ChevronDown className="h-3.5 w-3.5 text-gray-400" />
-          </button>
-          <button
-            className="flex items-center gap-1 rounded-lg px-2.5 py-1 text-xs font-medium text-gray-700 transition-colors hover:bg-gray-50"
-            type="button"
-          >
-            <span>{selectedModel}</span>
-            <ChevronDown className="h-3.5 w-3.5 text-gray-400" />
-          </button>
+          <div className="relative">
+            <select
+              value={selectedProvider}
+              onChange={(e) => setSelectedProvider(e.target.value as LlmProvider)}
+              className="appearance-none rounded-lg px-2.5 py-1 pr-7 text-xs font-medium text-gray-700 transition-colors hover:bg-gray-50 focus:outline-none"
+            >
+              {PROVIDER_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+            <ChevronDown className="pointer-events-none absolute right-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-gray-400" />
+          </div>
+          <div className="relative">
+            <select
+              value={selectedModel}
+              onChange={(e) => setSelectedModel(e.target.value)}
+              className="appearance-none rounded-lg px-2.5 py-1 pr-7 text-xs font-medium text-gray-700 transition-colors hover:bg-gray-50 focus:outline-none"
+            >
+              {MODEL_OPTIONS_BY_PROVIDER[selectedProvider].map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+            <ChevronDown className="pointer-events-none absolute right-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-gray-400" />
+          </div>
         </div>
 
         <div className="flex items-center gap-1.5">
@@ -1104,14 +1347,24 @@ export function KoduckAi() {
         type="file"
       />
 
-      <button
-        onClick={handleCreateSession}
-        className="fixed left-4 top-3 z-10 flex h-8 w-8 items-center justify-center text-gray-500 transition-colors hover:text-gray-700"
-        type="button"
-        title="新建会话"
-      >
-        <Plus className="h-6 w-6" strokeWidth={1.5} />
-      </button>
+      <div className="fixed top-3 left-4 z-10 flex items-center gap-2">
+        <button
+          onClick={handleCreateSession}
+          className="flex h-8 w-8 items-center justify-center text-gray-500 transition-colors hover:text-gray-700"
+          type="button"
+          title="新建会话"
+        >
+          <Plus className="h-6 w-6" strokeWidth={1.5} />
+        </button>
+        <button
+          onClick={handleDeleteCurrentSession}
+          className="flex h-8 w-8 items-center justify-center text-gray-500 transition-colors hover:text-red-600"
+          type="button"
+          title="清除会话"
+        >
+          <Trash2 className="w-5 h-5" strokeWidth={1.5} />
+        </button>
+      </div>
       <div className="flex-1 overflow-y-auto">
         <div
           className={`flex min-h-full flex-col px-4 ${
@@ -1125,11 +1378,6 @@ export function KoduckAi() {
               <h1 className="mb-8 text-center text-3xl font-normal text-gray-800">
                 {currentSessionId ? "新会话已创建" : "开始对话"}
               </h1>
-              {!currentSessionId && (
-                <p className="mb-8 text-center text-sm text-gray-500">
-                  输入第一条消息时会自动创建 session，也可以点击左上角 + 先创建。
-                </p>
-              )}
               <div className="w-full max-w-4xl px-4">{renderInputBar()}</div>
             </div>
           ) : (
@@ -1195,15 +1443,17 @@ export function KoduckAi() {
                           )}
                         </div>
                       )}
-                      <div className="mt-2 flex w-full items-center justify-start gap-2">
+                      <div className="mt-2 flex w-full items-center justify-between gap-2">
                         {Boolean(message.timestamp) && (
                           <div className="text-xs text-gray-500">
                             {formatTimestamp(message.timestamp)}
                           </div>
                         )}
-                        <div className="flex items-center gap-1.5 opacity-0 transition-opacity group-hover:opacity-100">
+                        <div className="ml-auto flex shrink-0 items-center gap-1.5 opacity-100 transition-opacity sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100">
                           <button
-                            className="p-1 text-gray-400 transition-colors hover:text-gray-600"
+                            aria-label="复制消息"
+                            className="p-1 text-gray-400 transition-colors hover:text-gray-600 disabled:cursor-not-allowed disabled:opacity-40"
+                            disabled={!message.content.trim()}
                             onClick={() => void copyMessage(message.content)}
                             title="复制"
                             type="button"
@@ -1211,6 +1461,7 @@ export function KoduckAi() {
                             <Copy className="h-3.5 w-3.5" />
                           </button>
                           <button
+                            aria-label="删除消息"
                             className="p-1 text-gray-400 transition-colors hover:text-red-600"
                             onClick={() => deleteMessage(message.id)}
                             title="删除"
