@@ -15,6 +15,7 @@
 3. 先排除 PHP 技术栈方案。
 4. 不采用“静态图谱边 + 单一 weight”作为主模型。
 5. 长期策略：**存事实，不存最终关系结论**；关系强弱按查询上下文动态推理（当前阶段暂不实现）。
+6. 数据存储采用**独立 PostgreSQL 库**（与业务库隔离），用于承载知识库结构化数据。
 
 ## 3. 为什么不采用静态关系边权重
 
@@ -28,7 +29,7 @@
 
 ## 4. 总体架构
 
-- **Knowledge Base（主存）**：PostgreSQL + S3（实体资料）
+- **Knowledge Base（主存）**：独立 PostgreSQL 库 + S3（实体资料）
 - **Reasoner（查询层）**：按上下文实时筛选实体信息
 
 ## 5. 数据模型（当前范围）
@@ -116,7 +117,7 @@
 
 ## 9. 现阶段实施建议（MVP）
 
-1. 先落 PostgreSQL 主模型（`entity_basic_profile` / `entity_profile`）。
+1. 先落独立 PostgreSQL 库主模型（`entity_basic_profile` / `entity_profile`）。
 2. 建立标准化写入链（mention 抽取 + entity linking + normalized_text）。
 3. 上线审核闸门（candidate -> llm_verify -> human_review -> publish）。
 4. 查询侧先实现“候选召回 + 上下文筛选（围绕人和 domain）”。

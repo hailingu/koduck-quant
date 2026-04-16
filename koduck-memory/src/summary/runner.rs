@@ -90,20 +90,7 @@ impl SummaryTaskRunner {
 
     #[instrument(skip(self), fields(tenant_id = %job.tenant_id, session_id = %job.session_id, strategy = %job.strategy, request_id = %job.request_id))]
     pub async fn run(&self, job: SummaryJob) -> Result<MemorySummary> {
-        let materialized = with_retry(
-            "summary_materialize",
-            &job.tenant_id,
-            job.session_id,
-            &job.request_id,
-            &self.attempt_repo,
-            &self.retry_config,
-            || {
-                let runner = self.clone();
-                let job = job.clone();
-                async move { runner.materialize_summary(job).await }
-            },
-        )
-        .await?;
+        let materialized = self.materialize_summary(job).await?;
 
         if let Err(error) = with_retry(
             "summary_index_refresh",
@@ -175,25 +162,51 @@ impl SummaryTaskRunner {
             .await?;
 
         let transcript = build_transcript_fragments(&entries, self.object_store.as_ref()).await;
-        let inferred_domain_class = classify_domain_class(
-            &transcript,
-            session.as_ref().map(|s| s.title.as_str()),
-            &self.summary_config,
-            self.llm_gate.clone(),
+        let session_title = session.as_ref().map(|s| s.title.as_str());
+        let inferred_domain_class = with_retry(
+            "summary_domain_class_generate",
+            &job.tenant_id,
+            job.session_id,
+            &job.request_id,
+            &self.attempt_repo,
+            &self.retry_config,
+            || {
+                let transcript = transcript.clone();
+                let summary_config = self.summary_config.clone();
+                let llm_gate = self.llm_gate.clone();
+                async move {
+                    classify_domain_class(&transcript, session_title, &summary_config, llm_gate).await
+                }
+            },
         )
-        .await;
-        let summary_artifact = build_summary_artifact(
-            &transcript,
-            entries.len(),
-            session.as_ref().map(|s| s.title.as_str()),
-            &inferred_domain_class,
-            &self.summary_config,
-            self.llm_gate.clone(),
+        .await?;
+        let summary_artifact = with_retry(
+            "summary_generate",
+            &job.tenant_id,
+            job.session_id,
+            &job.request_id,
+            &self.attempt_repo,
+            &self.retry_config,
+            || {
+                let transcript = transcript.clone();
+                let summary_config = self.summary_config.clone();
+                let llm_gate = self.llm_gate.clone();
+                let inferred_domain_class = inferred_domain_class.clone();
+                async move {
+                    build_summary_artifact(
+                        &transcript,
+                        entries.len(),
+                        session_title,
+                        &inferred_domain_class,
+                        &summary_config,
+                        llm_gate,
+                    )
+                    .await
+                }
+            },
         )
-        .await;
+        .await?;
         let version = self.summary_repo.next_version(&job.tenant_id, job.session_id).await?;
-
-        maybe_inject_test_failure(&job.strategy, &job.request_id, "summary_materialize")?;
 
         let insert_summary = InsertMemorySummary::new(
             job.tenant_id.clone(),
@@ -469,99 +482,20 @@ async fn build_summary_artifact(
     inferred_domain_class: &str,
     summary_config: &SummarySection,
     llm_gate: Arc<Semaphore>,
-) -> SummaryArtifact {
-    if summary_config.llm_enabled {
-        match generate_summary_via_llm(
-            transcript,
-            entry_count,
-            session_title,
-            inferred_domain_class,
-            summary_config,
-            llm_gate,
-        )
-        .await
-        {
-            Ok(Some(artifact)) => return artifact,
-            Ok(None) => {}
-            Err(error) => {
-                warn!(error = %error, "summary llm generation failed, falling back to heuristic summary");
-                return build_heuristic_summary_artifact_with_error(
-                    transcript,
-                    entry_count,
-                    session_title,
-                    inferred_domain_class,
-                    classify_summary_llm_error(&error),
-                );
-            }
-        }
+) -> Result<SummaryArtifact> {
+    if !summary_config.llm_enabled {
+        anyhow::bail!("summary llm is disabled; heuristic fallback has been removed");
     }
 
-    build_heuristic_summary_artifact(
+    generate_summary_via_llm(
         transcript,
         entry_count,
         session_title,
         inferred_domain_class,
+        summary_config,
+        llm_gate,
     )
-}
-
-fn build_heuristic_summary_artifact(
-    transcript: &[String],
-    entry_count: usize,
-    session_title: Option<&str>,
-    inferred_domain_class: &str,
-) -> SummaryArtifact {
-    let title_prefix = session_title
-        .filter(|title| !title.trim().is_empty())
-        .map(|title| format!("Session '{title}'"))
-        .unwrap_or_else(|| "Session".to_string());
-
-    if transcript.is_empty() {
-        let summary = format!(
-            "{title_prefix} produced an asynchronous summary with {entry_count} stored messages. The dominant domain class is {inferred_domain_class}."
-        );
-        return SummaryArtifact {
-            snippet: truncate_text(&summary, 96),
-            summary,
-            summary_source: "heuristic",
-            llm_error_class: "none",
-        };
-    }
-
-    let joined = transcript.join(" | ");
-    let summary = truncate_text(
-        &format!(
-            "{title_prefix} summary ({inferred_domain_class}, {entry_count} messages): {joined}"
-        ),
-        MAX_SUMMARY_CHARS,
-    );
-    let snippet = summary
-        .split(['。', '.', '\n'])
-        .find(|part| !part.trim().is_empty())
-        .map(|part| truncate_text(part, 96))
-        .unwrap_or_else(|| truncate_text(&summary, 96));
-    SummaryArtifact {
-        summary,
-        snippet,
-        summary_source: "heuristic",
-        llm_error_class: "none",
-    }
-}
-
-fn build_heuristic_summary_artifact_with_error(
-    transcript: &[String],
-    entry_count: usize,
-    session_title: Option<&str>,
-    inferred_domain_class: &str,
-    llm_error_class: &'static str,
-) -> SummaryArtifact {
-    let mut artifact = build_heuristic_summary_artifact(
-        transcript,
-        entry_count,
-        session_title,
-        inferred_domain_class,
-    );
-    artifact.llm_error_class = llm_error_class;
-    artifact
+    .await
 }
 
 async fn generate_summary_via_llm(
@@ -571,9 +505,9 @@ async fn generate_summary_via_llm(
     inferred_domain_class: &str,
     summary_config: &SummarySection,
     llm_gate: Arc<Semaphore>,
-) -> Result<Option<SummaryArtifact>> {
-    if transcript.is_empty() || summary_config.llm_api_key.trim().is_empty() {
-        return Ok(None);
+) -> Result<SummaryArtifact> {
+    if summary_config.llm_api_key.trim().is_empty() {
+        anyhow::bail!("summary llm api key is empty; heuristic fallback has been removed");
     }
 
     let _permit = llm_gate.acquire_owned().await?;
@@ -626,16 +560,16 @@ async fn generate_summary_via_llm(
         .filter(|text| !text.is_empty());
 
     let Some(content) = content else {
-        return Ok(None);
+        anyhow::bail!("summary llm returned empty choices content");
     };
 
     let artifact = parse_summary_artifact(&content)?;
-    Ok(Some(SummaryArtifact {
+    Ok(SummaryArtifact {
         summary: truncate_text(&artifact.summary, MAX_SUMMARY_CHARS),
         snippet: truncate_text(&artifact.snippet, 96),
         summary_source: "llm",
         llm_error_class: "none",
-    }))
+    })
 }
 
 fn parse_summary_artifact(content: &str) -> Result<SummaryArtifact> {
@@ -667,264 +601,17 @@ fn parse_summary_artifact(content: &str) -> Result<SummaryArtifact> {
     )
 }
 
-fn classify_summary_llm_error(error: &anyhow::Error) -> &'static str {
-    let message = error.to_string().to_ascii_lowercase();
-    if message.contains("did not return valid json") || message.contains("raw_content=") {
-        "malformed_output"
-    } else {
-        "transport_error"
-    }
-}
-
 async fn classify_domain_class(
     transcript: &[String],
     session_title: Option<&str>,
     summary_config: &SummarySection,
     llm_gate: Arc<Semaphore>,
-) -> String {
-    if summary_config.llm_enabled {
-        match generate_domain_class_via_llm(
-            transcript,
-            session_title,
-            summary_config,
-            llm_gate,
-        )
-        .await
-        {
-            Ok(Some(domain_class)) => return domain_class,
-            Ok(None) => {}
-            Err(error) => {
-                warn!(error = %error, "domain class llm generation failed, falling back to heuristic classification");
-            }
-        }
+) -> Result<String> {
+    if !summary_config.llm_enabled {
+        anyhow::bail!("domain class llm is disabled; heuristic fallback has been removed");
     }
 
-    infer_domain_class_heuristic(transcript, session_title)
-}
-
-fn infer_domain_class_heuristic(transcript: &[String], session_title: Option<&str>) -> String {
-    let mut corpus = transcript.join(" ").to_lowercase();
-    if let Some(title) = session_title {
-        corpus.push(' ');
-        corpus.push_str(&title.to_lowercase());
-    }
-
-    if [
-        "task",
-        "todo",
-        "deadline",
-        "follow-up",
-        "fix",
-        "implement",
-        "任务",
-        "待办",
-        "修复",
-        "实现",
-    ]
-    .iter()
-    .any(|keyword| corpus.contains(keyword))
-    {
-        return domain_class::TASK.to_string();
-    }
-
-    if !transcript.is_empty()
-        && transcript
-            .iter()
-            .all(|line| line.starts_with("system:") || line.starts_with("system "))
-    {
-        return domain_class::SYSTEM.to_string();
-    }
-
-    for (class_name, keywords) in [
-        (
-            domain_class::HISTORY,
-            &[
-                "历史", "朝代", "战争史", "古代", "近代史", "人物关系", "dynasty", "empire",
-                "histor", "revolution", "warlord",
-            ][..],
-        ),
-        (
-            domain_class::POLITICS,
-            &[
-                "政治", "政党", "政府", "外交", "政策", "选举", "意识形态", "politic",
-                "government", "election", "diplom",
-            ][..],
-        ),
-        (
-            domain_class::LITERATURE,
-            &[
-                "文学", "小说", "诗", "散文", "作者", "作品", "文学史", "literature",
-                "novel", "poem", "poetry", "writer",
-            ][..],
-        ),
-        (
-            domain_class::PHYSICS,
-            &[
-                "物理", "力学", "量子", "相对论", "电磁", "热力学", "physics", "quantum",
-                "relativity", "mechanics",
-            ][..],
-        ),
-        (
-            domain_class::MATHEMATICS,
-            &[
-                "数学", "代数", "几何", "微积分", "概率", "统计", "mathematics", "math",
-                "algebra", "geometry", "calculus",
-            ][..],
-        ),
-        (
-            domain_class::CHEMISTRY,
-            &[
-                "化学", "分子", "原子", "反应", "有机", "无机", "chemistry", "chemical",
-                "molecule", "compound",
-            ][..],
-        ),
-        (
-            domain_class::BIOLOGY,
-            &[
-                "生物", "细胞", "基因", "进化", "生态", "biology", "cell", "gene",
-                "genetic", "evolution",
-            ][..],
-        ),
-        (
-            domain_class::COMPUTER_SCIENCE,
-            &[
-                "计算机", "算法", "数据结构", "编程", "代码", "软件", "computer science",
-                "algorithm", "programming", "code", "software",
-            ][..],
-        ),
-        (
-            domain_class::TECHNOLOGY,
-            &[
-                "技术", "芯片", "互联网", "人工智能", "模型", "technology", "tech",
-                "semiconductor", "ai", "llm",
-            ][..],
-        ),
-        (
-            domain_class::ENGINEERING,
-            &[
-                "工程", "土木", "机械", "电子工程", "控制", "engineering",
-                "civil engineering", "mechanical", "electrical",
-            ][..],
-        ),
-        (
-            domain_class::FINANCE,
-            &[
-                "金融", "股票", "基金", "投资", "量化", "finance", "stock", "portfolio",
-                "trading", "asset",
-            ][..],
-        ),
-        (
-            domain_class::ECONOMICS,
-            &[
-                "经济", "宏观", "通胀", "货币", "供需", "economics", "gdp", "inflation",
-                "monetary", "microeconomics",
-            ][..],
-        ),
-        (
-            domain_class::BUSINESS,
-            &[
-                "商业", "公司", "市场", "战略", "运营", "business", "company",
-                "marketing", "strategy", "operation",
-            ][..],
-        ),
-        (
-            domain_class::LAW,
-            &[
-                "法律", "法条", "判例", "诉讼", "合规", "law", "legal", "regulation",
-                "court", "compliance",
-            ][..],
-        ),
-        (
-            domain_class::PHILOSOPHY,
-            &[
-                "哲学", "伦理", "形而上", "认识论", "philosophy", "ethics",
-                "metaphysics", "epistemology",
-            ][..],
-        ),
-        (
-            domain_class::PSYCHOLOGY,
-            &[
-                "心理", "认知", "行为", "人格", "心理学", "psychology", "cognitive",
-                "behavior", "personality",
-            ][..],
-        ),
-        (
-            domain_class::EDUCATION,
-            &[
-                "教育", "课程", "教学", "学习", "考试", "education", "teaching",
-                "curriculum", "exam", "learning",
-            ][..],
-        ),
-        (
-            domain_class::MEDICINE,
-            &[
-                "医学", "疾病", "治疗", "药物", "诊断", "medicine", "medical",
-                "disease", "treatment", "diagnosis",
-            ][..],
-        ),
-        (
-            domain_class::GEOGRAPHY,
-            &[
-                "地理", "地图", "气候", "地形", "区域", "geography", "climate",
-                "terrain", "region",
-            ][..],
-        ),
-        (
-            domain_class::ART,
-            &[
-                "艺术", "绘画", "雕塑", "美术", "设计史", "art", "painting",
-                "sculpture", "artist",
-            ][..],
-        ),
-        (
-            domain_class::MUSIC,
-            &[
-                "音乐", "作曲", "乐理", "歌曲", "演奏", "music", "melody",
-                "composition", "harmony",
-            ][..],
-        ),
-        (
-            domain_class::LANGUAGE,
-            &[
-                "语言", "语法", "翻译", "词汇", "修辞", "language", "linguistics",
-                "grammar", "translation", "vocabulary",
-            ][..],
-        ),
-        (
-            domain_class::SPORTS,
-            &[
-                "体育", "足球", "篮球", "比赛", "运动员", "sports", "football",
-                "basketball", "match", "athlete",
-            ][..],
-        ),
-        (
-            domain_class::ENTERTAINMENT,
-            &[
-                "娱乐", "电影", "电视剧", "明星", "综艺", "entertainment",
-                "movie", "film", "television", "celebrity",
-            ][..],
-        ),
-        (
-            domain_class::RELIGION,
-            &[
-                "宗教", "佛教", "基督教", "伊斯兰", "神学", "religion",
-                "buddh", "christian", "islam", "theology",
-            ][..],
-        ),
-        (
-            domain_class::MILITARY,
-            &[
-                "军事", "军队", "战役", "武器", "将领", "military", "army",
-                "campaign", "weapon", "general",
-            ][..],
-        ),
-    ] {
-        if keywords.iter().any(|keyword| corpus.contains(keyword)) {
-            return class_name.to_string();
-        }
-    }
-
-    domain_class::CHAT.to_string()
+    generate_domain_class_via_llm(transcript, session_title, summary_config, llm_gate).await
 }
 
 async fn generate_domain_class_via_llm(
@@ -932,9 +619,9 @@ async fn generate_domain_class_via_llm(
     session_title: Option<&str>,
     summary_config: &SummarySection,
     llm_gate: Arc<Semaphore>,
-) -> Result<Option<String>> {
-    if transcript.is_empty() || summary_config.llm_api_key.trim().is_empty() {
-        return Ok(None);
+) -> Result<String> {
+    if summary_config.llm_api_key.trim().is_empty() {
+        anyhow::bail!("domain class llm api key is empty; heuristic fallback has been removed");
     }
 
     let _permit = llm_gate.acquire_owned().await?;
@@ -990,7 +677,7 @@ async fn generate_domain_class_via_llm(
         .filter(|text| !text.is_empty());
 
     let Some(content) = content else {
-        return Ok(None);
+        anyhow::bail!("domain class llm returned empty choices content");
     };
 
     let artifact = parse_domain_class_artifact(&content)?;
@@ -999,7 +686,7 @@ async fn generate_domain_class_via_llm(
         anyhow::bail!("domain class llm returned unsupported domain_class={normalized}");
     }
 
-    Ok(Some(normalized))
+    Ok(normalized)
 }
 
 async fn build_fact_candidates(
@@ -1555,51 +1242,6 @@ mod tests {
             llm_timeout_ms: 15_000,
             llm_max_concurrency: 1,
         }
-    }
-
-    #[test]
-    fn infer_domain_class_prefers_task_keywords() {
-        let transcript = vec!["user: please fix the deployment task".to_string()];
-        assert_eq!(
-            infer_domain_class_heuristic(&transcript, None),
-            domain_class::TASK
-        );
-    }
-
-    #[test]
-    fn infer_domain_class_heuristic_detects_history_topics() {
-        let transcript = vec![
-            "user: 蒋介石和胡宗南之间是什么关系".to_string(),
-            "assistant: 这属于民国军事人物关系和历史背景".to_string(),
-        ];
-        assert_eq!(
-            infer_domain_class_heuristic(&transcript, Some("历史人物")),
-            domain_class::HISTORY
-        );
-    }
-
-    #[test]
-    fn infer_domain_class_heuristic_detects_physics_topics() {
-        let transcript = vec![
-            "user: 请解释量子力学和相对论".to_string(),
-            "assistant: 我们可以从物理学基本概念开始".to_string(),
-        ];
-        assert_eq!(
-            infer_domain_class_heuristic(&transcript, None),
-            domain_class::PHYSICS
-        );
-    }
-
-    #[test]
-    fn infer_domain_class_heuristic_falls_back_to_chat() {
-        let transcript = vec![
-            "user: hello there".to_string(),
-            "assistant: happy to help".to_string(),
-        ];
-        assert_eq!(
-            infer_domain_class_heuristic(&transcript, Some("General chat")),
-            domain_class::CHAT
-        );
     }
 
     #[test]
