@@ -8,6 +8,7 @@ resources:
   - ../../base/frontend.yaml
   - ../../base/koduck-auth.yaml
   - ../../base/koduck-user.yaml
+  - ../../base/koduck-knowledge.yaml
   - ../../base/koduck-ai.yaml
   - ../../base/koduck-memory.yaml
   - ../../base/minio.yaml
@@ -19,6 +20,7 @@ patchesStrategicMerge:
   - ./frontend.yaml
   - ./koduck-auth-secrets.yaml
   - ./koduck-user-secrets.yaml
+  - ./koduck-knowledge.yaml
   - ./koduck-memory.yaml
 
 namePrefix: prod-

@@ -1,0 +1,23 @@
+spring:
+  config:
+    activate:
+      on-profile: local
+
+server:
+  port: ${SERVER_PORT:8084}
+
+logging:
+  config: classpath:log4j2-local.xml
+
+koduck:
+  knowledge:
+    datasource:
+      url: ${KODUCK_KNOWLEDGE_DB_URL:jdbc:postgresql://localhost:5432/koduck_knowledge}
+      username: ${KODUCK_KNOWLEDGE_APP_DB_USER:koduck}
+      password: ${KODUCK_KNOWLEDGE_APP_DB_PASSWORD:koduck}
+      driver-class-name: org.postgresql.Driver
+
+storage:
+  sample:
+    minio-endpoint: ${KODUCK_KNOWLEDGE_MINIO_ENDPOINT:}
+

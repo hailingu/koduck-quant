@@ -4,7 +4,7 @@
 > `docs/implementation/adr-0001-koduck-knowledge-mvp-architecture.md` 拆分，
 > 提供 step-by-step 可执行任务。
 >
-> **状态**: 待执行（Phase 0 未开始）
+> **状态**: 已完成（Phase 0 - Phase 3 已完成）
 > **创建日期**: 2026-04-17
 > **负责人**: @guhailin
 > **对应设计文档**: [entity-knowledge-base-design.md](design/entity-knowledge-base-design.md)
@@ -80,9 +80,9 @@ git worktree add ../worktree-knowledge-bootstrap -b feature/knowledge-bootstrap
 
 **验收标准：**
 
-- [ ] worktree 创建成功，分支从最新 `dev` 派生。
-- [ ] `git branch --show-current` 返回 `feature/knowledge-bootstrap`。
-- [ ] Phase 0 默认在该 worktree 内连续推进，并汇总为一个 Phase 0 PR。
+- [x] worktree 创建成功，分支从最新 `dev` 派生。
+- [x] `git branch --show-current` 返回 `feature/knowledge-bootstrap`。
+- [x] Phase 0 默认在该 worktree 内连续推进，并汇总为一个 Phase 0 PR。
 
 ---
 
@@ -102,9 +102,9 @@ git worktree add ../worktree-knowledge-bootstrap -b feature/knowledge-bootstrap
 
 **验收标准：**
 
-- [ ] Docker 构建能完成 `mvn compile`。
-- [ ] 依赖树中不含 `koduck-backend` 与 `logback-classic`。
-- [ ] 包结构符合仓库 Java 规范。
+- [x] Docker 构建能完成 `mvn compile`。
+- [x] 依赖树中不含 `koduck-backend` 与 `logback-classic`。
+- [x] 包结构符合仓库 Java 规范。
 
 ---
 
@@ -125,9 +125,9 @@ git worktree add ../worktree-knowledge-bootstrap -b feature/knowledge-bootstrap
 
 **验收标准：**
 
-- [ ] 镜像启动后能响应健康检查。
-- [ ] Swagger UI 可访问。
-- [ ] 能导出 `openapi.yaml`。
+- [x] 镜像启动后能响应健康检查。
+- [x] Swagger UI 可访问。
+- [x] 能导出 `openapi.yaml`。
 
 ---
 
@@ -266,9 +266,9 @@ git worktree add ../worktree-knowledge-bootstrap -b feature/knowledge-bootstrap
 
 **验收标准：**
 
-- [ ] `application.yml` 键结构齐全。
-- [ ] `appDataSource` 可被注入。
-- [ ] 敏感项不出现在日志中。
+- [x] `application.yml` 键结构齐全。
+- [x] `appDataSource` 可被注入。
+- [x] 敏感项不出现在日志中。
 
 ---
 
@@ -285,9 +285,9 @@ git worktree add ../worktree-knowledge-bootstrap -b feature/knowledge-bootstrap
 
 **验收标准：**
 
-- [ ] Flyway 启动无错误。
-- [ ] `mvn test` 可在 Testcontainers Postgres 上复放迁移。
-- [ ] 文档明确运行时账号与 schema 不由 Flyway 创建。
+- [x] Flyway 启动无错误。
+- [x] `mvn test` 可在 Testcontainers Postgres 上复放迁移。
+- [x] 文档明确运行时账号与 schema 不由 Flyway 创建。
 
 ---
 
@@ -322,8 +322,8 @@ git worktree add ../worktree-knowledge-bootstrap -b feature/knowledge-bootstrap
 
 **验收标准：**
 
-- [ ] 单测覆盖 URI 解析与错误路径。
-- [ ] 文档明确：当前 MVP 不引入 `BlobStore`、不访问对象存储、也不生成 presigned URL。
+- [x] 单测覆盖 URI 解析与错误路径。
+- [x] 文档明确：当前 MVP 不引入 `BlobStore`、不访问对象存储、也不生成 presigned URL。
 
 ---
 
@@ -339,8 +339,8 @@ git worktree add ../worktree-knowledge-bootstrap -b feature/knowledge-bootstrap
 
 **验收标准：**
 
-- [ ] `SPRING_PROFILES_ACTIVE=local` 下服务能启动。
-- [ ] 如配置了 MinIO，仅作为可选样例环境，不作为当前 MVP 启动前置条件。
+- [x] `SPRING_PROFILES_ACTIVE=local` 下服务能启动。
+- [x] 如配置了 MinIO，仅作为可选样例环境，不作为当前 MVP 启动前置条件。
 
 ---
 
@@ -360,8 +360,8 @@ git worktree add ../worktree-knowledge-bootstrap -b feature/knowledge-bootstrap
 
 **验收标准：**
 
-- [ ] `mvn verify -pl koduck-knowledge` 可独立执行 IT。
-- [ ] 无对象存储依赖也可完成当前 MVP 集成测试。
+- [x] `mvn verify -pl koduck-knowledge` 可独立执行 IT。
+- [x] 无对象存储依赖也可完成当前 MVP 集成测试。
 
 ---
 
@@ -377,7 +377,7 @@ git worktree add ../worktree-knowledge-bootstrap -b feature/knowledge-bootstrap
 
 **验收标准：**
 
-- [ ] README 覆盖启动、测试、配置、部署四部分。
+- [x] README 覆盖启动、测试、配置、部署四部分。
 
 ---
 
@@ -398,8 +398,8 @@ git worktree add ../worktree-knowledge-bootstrap -b feature/knowledge-bootstrap
 
 **验收标准：**
 
-- [ ] 启动日志为合法 JSON。
-- [ ] 查询链路可按 `request_id` 串联。
+- [x] 启动日志为合法 JSON。
+- [x] 查询链路可按 `request_id` 串联。
 
 ---
 
@@ -422,9 +422,9 @@ git worktree add ../worktree-knowledge-bootstrap -b feature/knowledge-bootstrap
 
 **验收标准：**
 
-- [ ] `./scripts/build.sh --profile native` 可产出可运行镜像。
-- [ ] `jvm` profile 可在 Docker 内回退。
-- [ ] Phase 0 完成前，native 启动链路必须已验证通过。
+- [x] `./scripts/build.sh --profile native` 可产出可运行镜像。
+- [x] `jvm` profile 可在 Docker 内回退。
+- [x] Phase 0 完成前，native 启动链路必须已验证通过。
 
 ---
 
@@ -458,11 +458,11 @@ git worktree add ../worktree-knowledge-bootstrap -b feature/knowledge-bootstrap
 
 **验收标准：**
 
-- [ ] `./k8s/deploy.sh dev` 能部署并通过健康检查。
-- [ ] `./k8s/uninstall.sh dev` 能干净卸载。
-- [ ] APISIX Admin API 可读到 `knowledge-service` 路由，且 `uri/priority/upstream/plugins`
+- [x] `./k8s/deploy.sh dev` 能部署并通过健康检查。
+- [x] `./k8s/uninstall.sh dev` 能干净卸载。
+- [x] APISIX Admin API 可读到 `knowledge-service` 路由，且 `uri/priority/upstream/plugins`
       与设计一致。
-- [ ] Phase 0 只要求路由已注册且配置正确，不要求业务 northbound 转发链路已就绪。
+- [x] Phase 0 只要求路由已注册且配置正确，不要求业务 northbound 转发链路已就绪。
 
 ---
 
@@ -478,9 +478,9 @@ git worktree add ../worktree-knowledge-bootstrap -b feature/knowledge-bootstrap
 
 **验收标准：**
 
-- [ ] 迁移成功。
-- [ ] 集成测试可复放种子。
-- [ ] 文档、迁移与测试中的种子集合保持一致。
+- [x] 迁移成功。
+- [x] 集成测试可复放种子。
+- [x] 文档、迁移与测试中的种子集合保持一致。
 
 ---
 
@@ -494,8 +494,8 @@ git worktree add ../worktree-knowledge-bootstrap -b feature/knowledge-bootstrap
 
 **验收标准：**
 
-- [ ] 迁移成功。
-- [ ] alias 查询走索引。
+- [x] 迁移成功。
+- [x] alias 查询走索引。
 
 ---
 
@@ -517,9 +517,9 @@ git worktree add ../worktree-knowledge-bootstrap -b feature/knowledge-bootstrap
 
 **验收标准：**
 
-- [ ] 同表约束（`valid_to > valid_from`、`current` 唯一）由 DB 拒绝。
-- [ ] 跨表规则（`is_basic` 错表写入）由应用层单测与集成测试覆盖。
-- [ ] `entity_basic_profile` 的时态正确性作为服务外部前置条件写入文档与 fixture，不新增服务内治理逻辑。
+- [x] 同表约束（`valid_to > valid_from`、`current` 唯一）由 DB 拒绝。
+- [x] 跨表规则（`is_basic` 错表写入）由应用层单测与集成测试覆盖。
+- [x] `entity_basic_profile` 的时态正确性作为服务外部前置条件写入文档与 fixture，不新增服务内治理逻辑。
 
 ---
 
@@ -557,11 +557,11 @@ git worktree add ../worktree-knowledge-bootstrap -b feature/knowledge-bootstrap
 
 **验收标准：**
 
-- [ ] 只读 Repository 接口清晰分层。
-- [ ] `domain_dict` 与 `profile_entry_dict` 的 lookup repository 已提供，且字典解析不下沉到 controller。
-- [ ] repository 契约已覆盖 canonical/alias 的完全匹配、前缀匹配，以及 `entityId -> entity` 回查能力。
-- [ ] repository 契约已覆盖 basic current read 与 basic history 分页读取能力。
-- [ ] 单测覆盖基础查询路径。
+- [x] 只读 Repository 接口清晰分层。
+- [x] `domain_dict` 与 `profile_entry_dict` 的 lookup repository 已提供，且字典解析不下沉到 controller。
+- [x] repository 契约已覆盖 canonical/alias 的完全匹配、前缀匹配，以及 `entityId -> entity` 回查能力。
+- [x] repository 契约已覆盖 basic current read 与 basic history 分页读取能力。
+- [x] 单测覆盖基础查询路径。
 
 ---
 
@@ -586,9 +586,9 @@ git worktree add ../worktree-knowledge-bootstrap -b feature/knowledge-bootstrap
 
 **验收标准：**
 
-- [ ] `domainClass` 与 `entryCode/profileEntryCodes` 的解析逻辑只在这一处集中实现。
-- [ ] `search/facts/detail/history` 不再各自散落实现字典校验。
-- [ ] 单测覆盖成功路径与失败路径。
+- [x] `domainClass` 与 `entryCode/profileEntryCodes` 的解析逻辑只在这一处集中实现。
+- [x] `search/facts/detail/history` 不再各自散落实现字典校验。
+- [x] 单测覆盖成功路径与失败路径。
 
 ---
 
@@ -631,11 +631,11 @@ git worktree add ../worktree-knowledge-bootstrap -b feature/knowledge-bootstrap
 
 **验收标准：**
 
-- [ ] 单测覆盖完全匹配、多候选、同名异人、空命中。
-- [ ] 单测覆盖大小写、全半角与 tie-break 行为。
-- [ ] 单测覆盖“名称命中但 basic_profile 不存在/过期时返回空”的行为。
-- [ ] 单测覆盖同一 `entityId` 多命中路径时允许重复返回的行为。
-- [ ] 搜索排序与返回结果稳定可复现。
+- [x] 单测覆盖完全匹配、多候选、同名异人、空命中。
+- [x] 单测覆盖大小写、全半角与 tie-break 行为。
+- [x] 单测覆盖“名称命中但 basic_profile 不存在/过期时返回空”的行为。
+- [x] 单测覆盖同一 `entityId` 多命中路径时允许重复返回的行为。
+- [x] 搜索排序与返回结果稳定可复现。
 
 ---
 
@@ -647,8 +647,8 @@ git worktree add ../worktree-knowledge-bootstrap -b feature/knowledge-bootstrap
 
 **验收标准：**
 
-- [ ] Phase 1 新增代码行覆盖 ≥ 80%。
-- [ ] 单测不依赖真实 DB。
+- [x] Phase 1 新增代码行覆盖 ≥ 80%。
+- [x] 单测不依赖真实 DB。
 
 ---
 
@@ -661,8 +661,8 @@ git worktree add ../worktree-knowledge-bootstrap -b feature/knowledge-bootstrap
 
 **验收标准：**
 
-- [ ] 全部集成测试在 `mvn verify` 下绿。
-- [ ] 重复执行 10 次无 flakiness。
+- [x] 全部集成测试在 `mvn verify` 下绿。
+- [x] 重复执行 10 次无 flakiness。
 
 ---
 
@@ -698,13 +698,13 @@ git worktree add ../worktree-knowledge-bootstrap -b feature/knowledge-bootstrap
 
 **验收标准：**
 
-- [ ] 单段、多段、闭合段、开放段场景覆盖。
-- [ ] 同名异人场景可返回多个 `entity_id`。
-- [ ] 名称命中但 basic_profile 不存在或时态无命中时返回空结果。
-- [ ] 同一 `entityId` 多命中路径重复返回的行为有测试覆盖。
-- [ ] 缺失 `domainClass` 返回 `400`。
-- [ ] 未知 `domainClass` 返回 `400`。
-- [ ] 缺失 `at` 时按 `now()` 查询的行为有单测/集成测试覆盖。
+- [x] 单段、多段、闭合段、开放段场景覆盖。
+- [x] 同名异人场景可返回多个 `entity_id`。
+- [x] 名称命中但 basic_profile 不存在或时态无命中时返回空结果。
+- [x] 同一 `entityId` 多命中路径重复返回的行为有测试覆盖。
+- [x] 缺失 `domainClass` 返回 `400`。
+- [x] 未知 `domainClass` 返回 `400`。
+- [x] 缺失 `at` 时按 `now()` 查询的行为有单测/集成测试覆盖。
 
 ---
 
@@ -745,13 +745,13 @@ git worktree add ../worktree-knowledge-bootstrap -b feature/knowledge-bootstrap
 
 **验收标准：**
 
-- [ ] `domainClass` 缺失返回 `400`。
-- [ ] 未知 `domainClass` 返回 `400`。
-- [ ] 默认只批量返回基础事实；传入 `profileEntryCodes` 时可追加对应详情元信息。
-- [ ] `profileEntryCodes` 非法值返回 `400`。
-- [ ] 缺失 `at` 时按 `now()` 查询的行为有测试覆盖。
-- [ ] 某个 `entityId` 只要缺任一所需 record，就整体不返回。
-- [ ] 响应展开规则固定为“满足条件后 1 条 basic + 每个请求的 detail entry 各 1 条记录”。
+- [x] `domainClass` 缺失返回 `400`。
+- [x] 未知 `domainClass` 返回 `400`。
+- [x] 默认只批量返回基础事实；传入 `profileEntryCodes` 时可追加对应详情元信息。
+- [x] `profileEntryCodes` 非法值返回 `400`。
+- [x] 缺失 `at` 时按 `now()` 查询的行为有测试覆盖。
+- [x] 某个 `entityId` 只要缺任一所需 record，就整体不返回。
+- [x] 响应展开规则固定为“满足条件后 1 条 basic + 每个请求的 detail entry 各 1 条记录”。
 
 ---
 
@@ -790,12 +790,12 @@ git worktree add ../worktree-knowledge-bootstrap -b feature/knowledge-bootstrap
 
 **验收标准：**
 
-- [ ] P95 ≤ 50ms（不含 blob 下载）。
-- [ ] 路由互不串位。
-- [ ] `BASIC` 调用 detail 路径返回 `400`，未知 `entry_code` 返回 `404`。
-- [ ] `domainClass` 缺失或未知值返回 `400`。
-- [ ] basic-profile 缺失 `at` 时按 `now()` 查询的行为有测试覆盖。
-- [ ] 当前任务不引入 blob 运行时探测逻辑。
+- [x] P95 ≤ 50ms（不含 blob 下载）。
+- [x] 路由互不串位。
+- [x] `BASIC` 调用 detail 路径返回 `400`，未知 `entry_code` 返回 `404`。
+- [x] `domainClass` 缺失或未知值返回 `400`。
+- [x] basic-profile 缺失 `at` 时按 `now()` 查询的行为有测试覆盖。
+- [x] 当前任务不引入 blob 运行时探测逻辑。
 
 ---
 
@@ -842,13 +842,13 @@ git worktree add ../worktree-knowledge-bootstrap -b feature/knowledge-bootstrap
 
 **验收标准：**
 
-- [ ] basic 段按 `valid_from` 降序稳定。
-- [ ] 非 basic 版本按 `version` 降序稳定。
-- [ ] 分页参数与返回 envelope 稳定。
-- [ ] 默认分页值、最大 `size` 与非法分页参数 `400` 的行为有测试覆盖。
-- [ ] `domainClass` 缺失或未知值返回 `400`。
-- [ ] `total` 的定义与文档一致。
-- [ ] 无命中时返回 `200 + items=[]` 的行为有测试覆盖。
+- [x] basic 段按 `valid_from` 降序稳定。
+- [x] 非 basic 版本按 `version` 降序稳定。
+- [x] 分页参数与返回 envelope 稳定。
+- [x] 默认分页值、最大 `size` 与非法分页参数 `400` 的行为有测试覆盖。
+- [x] `domainClass` 缺失或未知值返回 `400`。
+- [x] `total` 的定义与文档一致。
+- [x] 无命中时返回 `200 + items=[]` 的行为有测试覆盖。
 
 ---
 
@@ -870,10 +870,10 @@ git worktree add ../worktree-knowledge-bootstrap -b feature/knowledge-bootstrap
 
 **验收标准：**
 
-- [ ] 只读契约测试通过。
-- [ ] OpenAPI 输出与文档边界一致。
-- [ ] Phase 0 仅通过 APISIX Admin API 与配置检查验证 knowledge 路由生效；northbound 端到端 smoke test 放到 Phase 2/3。
-- [ ] APISIX Admin API 可验证路由优先级、`jwt-auth` 和身份头透传配置生效。
+- [x] 只读契约测试通过。
+- [x] OpenAPI 输出与文档边界一致。
+- [x] Phase 0 仅通过 APISIX Admin API 与配置检查验证 knowledge 路由生效；northbound 端到端 smoke test 放到 Phase 2/3。
+- [x] APISIX Admin API 可验证路由优先级、`jwt-auth` 和身份头透传配置生效。
 
 ---
 
@@ -890,8 +890,8 @@ git worktree add ../worktree-knowledge-bootstrap -b feature/knowledge-bootstrap
 
 **验收标准：**
 
-- [ ] 指标按维度可查。
-- [ ] 日志可按 `request_id` 串链。
+- [x] 指标按维度可查。
+- [x] 日志可按 `request_id` 串链。
 
 ---
 
@@ -904,8 +904,8 @@ git worktree add ../worktree-knowledge-bootstrap -b feature/knowledge-bootstrap
 
 **验收标准：**
 
-- [ ] 压测报告产出并纳入 `docs/`。
-- [ ] 明确扩容阈值与优化项。
+- [x] 压测报告产出并纳入 `docs/`。
+- [x] 明确扩容阈值与优化项。
 
 ---
 
@@ -918,10 +918,10 @@ git worktree add ../worktree-knowledge-bootstrap -b feature/knowledge-bootstrap
 
 **验收标准：**
 
-- [ ] dev 环境部署通过。
-- [ ] 关键查询接口 smoke test 通过。
-- [ ] 网关入口与直连 Service 的返回一致。
-- [ ] 网关鉴权失败与成功路径都符合 `jwt-auth` 基线预期。
+- [x] dev 环境部署通过。
+- [x] 关键查询接口 smoke test 通过。
+- [x] 网关入口与直连 Service 的返回一致。
+- [x] 网关鉴权失败与成功路径都符合 `jwt-auth` 基线预期。
 
 ---
 
@@ -971,10 +971,10 @@ git worktree add ../worktree-knowledge-bootstrap -b feature/knowledge-bootstrap
 
 | Phase | 状态 | Owner | 备注 |
 | ------- | ------ | ------- | ------ |
-| 0 | 未开始 | @guhailin | 待启动 |
-| 1 | 未开始 | - | 依赖 Phase 0 |
-| 2 | 未开始 | - | 依赖 Phase 1 |
-| 3 | 未开始 | - | 依赖 Phase 2 |
+| 0 | 已完成 | @guhailin | `feature/knowledge-bootstrap` worktree、模块骨架、Flyway、README、日志、Docker、k8s 接入已落地 |
+| 1 | 已完成 | @guhailin | 只读模型、Repository、`DictionaryResolver`、名称匹配与单测已落地 |
+| 2 | 已完成 | @guhailin | `search/facts/detail/history` 接口、DTO、契约测试与 native 本地查询 smoke 已落地 |
+| 3 | 已完成 | @guhailin | Micrometer/Prometheus、性能基线文档、本地 native 启动、网关资源接入、Testcontainers 集成测试与 native 日志验证已完成 |
 | 4 | 预留 | - | MVP 之外 |
 
 ---
@@ -1000,3 +1000,4 @@ git worktree add ../worktree-knowledge-bootstrap -b feature/knowledge-bootstrap
 | 2026-04-17 | 补充未知 `domainClass` 统一 `400`、service 层字典解析、`BlobStore` 仅 URI 解析职责与统一 `ErrorResponse` 契约 | @guhailin |
 | 2026-04-17 | 新增独立 `DictionaryResolver` 任务，并将 Phase 0 收口为 `S3Uri` / `BlobLocation` URI 解析层；`BlobStore` 名称预留到未来 I/O 能力 | @guhailin |
 | 2026-04-17 | 移除 search `confidence`、删除 repository `find...Now`、将 MinIO 降为可选样例能力，并将 `DictionaryResolver` 新增异常验收收口为成功/失败 | @guhailin |
+| 2026-04-17 | `koduck-knowledge` 实现已在独立 worktree 落地，并完成本地 native smoke、Prometheus 验证、查询接口 smoke、Testcontainers 集成测试收口与 native Log4j2 启动告警修复 | @guhailin |

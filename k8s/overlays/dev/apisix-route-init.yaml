@@ -50,6 +50,8 @@ spec:
               value: "dev-koduck-auth:8081"
             - name: USER_SERVICE
               value: "dev-koduck-user:8082"
+            - name: KNOWLEDGE_SERVICE
+              value: "dev-koduck-knowledge:8084"
             - name: FRONTEND_SERVICE
               value: "dev-koduck-frontend:80"
             - name: AI_SERVICE
@@ -252,6 +254,11 @@ spec:
               curl -fsS -X PUT "${ADMIN}/routes/user-service" \
                 -H "$KEY" -H 'Content-Type: application/json' \
                 -d "$(printf '{"uri":"/api/v1/users/*","priority":90,"plugins":{"jwt-auth":{},"proxy-rewrite":{"headers":{"set":{"X-User-Id":"$jwt_claim_sub","X-Username":"$jwt_claim_username","X-Roles":"$jwt_claim_roles","X-Tenant-Id":"$jwt_claim_tenant_id"}}}},"upstream":{"type":"roundrobin","nodes":{"%s":1}}}' "$USER_SERVICE")"
+
+              echo "Registering koduck-knowledge route: /api/v1/entities/* -> koduck-knowledge (jwt-auth)"
+              curl -fsS -X PUT "${ADMIN}/routes/knowledge-service" \
+                -H "$KEY" -H 'Content-Type: application/json' \
+                -d "$(printf '{"uri":"/api/v1/entities/*","priority":95,"plugins":{"jwt-auth":{},"proxy-rewrite":{"headers":{"set":{"X-User-Id":"$jwt_claim_sub","X-Username":"$jwt_claim_username","X-Roles":"$jwt_claim_roles","X-Tenant-Id":"$jwt_claim_tenant_id"}}}},"upstream":{"type":"roundrobin","nodes":{"%s":1}}}' "$KNOWLEDGE_SERVICE")"
 
               echo "Registering koduck-user internal route: /internal/users/* -> koduck-user (key-auth)"
               curl -fsS -X PUT "${ADMIN}/routes/user-service-internal" \

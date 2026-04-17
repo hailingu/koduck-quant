@@ -1,0 +1,137 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: koduck-knowledge-config
+  namespace: koduck
+  labels:
+    app: koduck-knowledge
+data:
+  spring-profiles-active: "k8s"
+  server-port: "8084"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: koduck-knowledge
+  namespace: koduck
+  labels:
+    app: koduck-knowledge
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: koduck-knowledge
+  template:
+    metadata:
+      labels:
+        app: koduck-knowledge
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8084"
+        prometheus.io/path: "/actuator/prometheus"
+    spec:
+      containers:
+        - name: koduck-knowledge
+          image: koduck/koduck-knowledge:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 8084
+              protocol: TCP
+          env:
+            - name: SPRING_PROFILES_ACTIVE
+              valueFrom:
+                configMapKeyRef:
+                  name: koduck-knowledge-config
+                  key: spring-profiles-active
+            - name: SERVER_PORT
+              valueFrom:
+                configMapKeyRef:
+                  name: koduck-knowledge-config
+                  key: server-port
+            - name: KODUCK_KNOWLEDGE_DB_URL
+              valueFrom:
+                secretKeyRef:
+                  name: koduck-knowledge-secrets
+                  key: database-url
+            - name: KODUCK_KNOWLEDGE_APP_DB_USER
+              valueFrom:
+                secretKeyRef:
+                  name: koduck-knowledge-secrets
+                  key: db-username
+            - name: KODUCK_KNOWLEDGE_APP_DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: koduck-knowledge-secrets
+                  key: db-password
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 768Mi
+          livenessProbe:
+            httpGet:
+              path: /actuator/health/liveness
+              port: http
+            initialDelaySeconds: 30
+            periodSeconds: 30
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /actuator/health/readiness
+              port: http
+            initialDelaySeconds: 15
+            periodSeconds: 10
+            failureThreshold: 3
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: koduck-knowledge
+  namespace: koduck
+  labels:
+    app: koduck-knowledge
+spec:
+  type: ClusterIP
+  selector:
+    app: koduck-knowledge
+  ports:
+    - name: http
+      port: 8084
+      targetPort: http
+      protocol: TCP
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: koduck-knowledge-secrets
+  namespace: koduck
+type: Opaque
+stringData:
+  database-url: "jdbc:postgresql://postgres:5432/koduck_knowledge"
+  db-username: "koduck"
+  db-password: "koduck_secret"
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: koduck-knowledge
+  namespace: koduck
+  labels:
+    app: koduck-knowledge
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: koduck-knowledge
+  minReplicas: 2
+  maxReplicas: 4
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 75
