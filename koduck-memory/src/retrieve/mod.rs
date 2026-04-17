@@ -1,11 +1,10 @@
 //! Retrieval strategies for memory queries.
 //!
 //! This module provides different retrieval strategies:
-//! - DOMAIN_FIRST: Filter by domain_class first, then by session scope.
-//! - SUMMARY_FIRST: Use summary for filtering within domain_class candidates.
+//! - ANCHOR_FIRST: Anchor-based retrieval over memory_unit_anchors.
+//! - SUMMARY_FIRST: Summary text match within anchor candidates.
 
 pub mod anchor_first;
-pub mod domain_first;
 pub mod policy;
 pub mod query_analyzer;
 pub mod semantics;
@@ -13,7 +12,6 @@ pub mod summary_first;
 pub mod types;
 
 pub use anchor_first::AnchorFirstRetriever;
-pub use domain_first::DomainFirstRetriever;
 pub use policy::retrieve_by_policy;
 pub use query_analyzer::{QueryAnalysis, QueryAnalyzer};
 pub use semantics::{

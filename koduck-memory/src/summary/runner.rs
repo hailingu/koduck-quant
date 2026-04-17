@@ -11,7 +11,6 @@ use uuid::Uuid;
 
 use crate::config::{RetrySection, SummarySection};
 use crate::facts::{InsertMemoryFact, MemoryFact, MemoryFactRepository};
-use crate::index::{InsertMemoryIndexRecord, MemoryIndexRepository};
 use crate::memory::MemoryEntryRepository;
 use crate::memory_unit::{FactUnitInput, MemoryUnitMaterializer, SummaryUnitInput};
 use crate::reliability::{TaskAttemptRepository, with_retry};
@@ -58,7 +57,6 @@ pub struct SummaryTaskRunner {
     summary_repo: MemorySummaryRepository,
     fact_repo: MemoryFactRepository,
     attempt_repo: TaskAttemptRepository,
-    index_repo: MemoryIndexRepository,
     unit_materializer: MemoryUnitMaterializer,
     object_store: Option<ObjectStoreClient>,
     retry_config: RetrySection,
@@ -79,7 +77,6 @@ impl SummaryTaskRunner {
             summary_repo: MemorySummaryRepository::new(pool),
             fact_repo: MemoryFactRepository::new(pool),
             attempt_repo: TaskAttemptRepository::new(pool),
-            index_repo: MemoryIndexRepository::new(pool),
             unit_materializer: MemoryUnitMaterializer::new(pool),
             object_store,
             retry_config,
@@ -224,15 +221,9 @@ impl SummaryTaskRunner {
             version,
         );
         let stored = self.summary_repo.insert(&insert_summary).await?;
-        let session_snippet = if transcript.is_empty() {
-            summary_artifact.snippet.clone()
-        } else {
-            transcript.join("\n")
-        };
 
         Ok(SummaryMaterialization {
             stored_summary: stored,
-            summary_snippet: session_snippet,
             transcript,
             session_title: session.as_ref().and_then(|value| {
                 let title = value.title.trim();
@@ -262,22 +253,7 @@ impl SummaryTaskRunner {
         )?;
 
         let stored = &materialized.stored_summary;
-        self.index_repo
-            .delete_by_session(&stored.tenant_id, stored.session_id)
-            .await?;
         let summary_uri = build_summary_uri(&stored.tenant_id, stored.session_id, stored.version);
-        let index_record = InsertMemoryIndexRecord::new(
-            stored.tenant_id.clone(),
-            stored.session_id,
-            "summary",
-            stored.domain_class.clone(),
-            stored.summary.clone(),
-            summary_uri.clone(),
-        )
-        .with_memory_unit_id(stored.session_id)
-        .with_snippet(materialized.summary_snippet.clone())
-        .with_score_hint("0.95");
-        self.index_repo.insert(&index_record).await?;
         if let Some((entry_range_start, entry_range_end, time_bucket)) = materialized.entry_range() {
             self.unit_materializer
                 .upsert_summary_unit(&SummaryUnitInput {
@@ -393,7 +369,6 @@ struct FactCandidate {
 #[derive(Debug, Clone)]
 struct SummaryMaterialization {
     stored_summary: MemorySummary,
-    summary_snippet: String,
     transcript: Vec<String>,
     session_title: Option<String>,
     entry_sequence_range: Option<(i64, i64)>,

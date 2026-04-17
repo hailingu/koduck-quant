@@ -26,7 +26,6 @@ use crate::api::{
 use crate::api::proto::memory::QueryIntent;
 use crate::config::AppConfig;
 use crate::facts::MemoryFactRepository;
-use crate::index::MemoryIndexRepository;
 use crate::memory::{IdempotencyRepository, MemoryEntryRepository};
 use crate::memory_anchor::MemoryUnitAnchorRepository;
 use crate::memory_unit::{MemoryUnitMaterializer, MemoryUnitRepository};
@@ -90,10 +89,6 @@ impl MemoryGrpcService {
 
     fn entry_repo(&self) -> MemoryEntryRepository {
         MemoryEntryRepository::new(self.runtime.pool())
-    }
-
-    fn index_repo(&self) -> MemoryIndexRepository {
-        MemoryIndexRepository::new(self.runtime.pool())
     }
 
     fn fact_repo(&self) -> MemoryFactRepository {
@@ -302,17 +297,17 @@ impl MemoryGrpcService {
         tenant_id: &str,
         top_k: i32,
     ) -> Result<Vec<crate::api::MemoryHit>, Status> {
-        let records = self
-            .index_repo()
-            .list_recent_summaries(tenant_id, top_k.max(1) as i64)
+        let units = self
+            .unit_repo()
+            .list_recent_summary_units(tenant_id, top_k.max(1) as i64)
             .await
             .map_err(|e| Status::internal(format!("global summary retrieval failed: {e}")))?;
 
         let mut hits = Vec::new();
         let mut seen_sessions: HashSet<String> = HashSet::new();
 
-        for record in records {
-            let session_id = record.session_id.to_string();
+        for unit in units {
+            let session_id = unit.session_id.to_string();
             if !seen_sessions.insert(session_id.clone()) {
                 continue;
             }
@@ -331,7 +326,7 @@ impl MemoryGrpcService {
 
             hits.push(crate::api::MemoryHit {
                 session_id,
-                l0_uri: record.source_uri,
+                l0_uri: unit.source_uri,
                 score: 1.0,
                 match_reasons: vec![
                     match_reason::SUMMARY_HIT.to_string(),
@@ -917,8 +912,8 @@ impl MemoryService for MemoryGrpcService {
 
         // Step 3: Prepare entries with L0 content and write to object storage first.
         // Raw user/assistant turns are stored in L0/L1 `memory_entries`; we do not
-        // duplicate them into `memory_index_records`. Session-level retrieval should
-        // happen through asynchronous summaries instead.
+        // project them into any retrieval index here. Session-level retrieval happens
+        // through asynchronous summary memory units instead.
         let prepared = append_builder::build_append_entries(
             &req.entries,
             self.object_store.as_ref(),
@@ -1144,12 +1139,6 @@ impl MemoryService for MemoryGrpcService {
             .await
             .map_err(|e| Status::internal(format!("failed to delete summaries: {e}")))?;
 
-        let deleted_index_records = self
-            .index_repo()
-            .delete_by_session(&meta.tenant_id, session_id)
-            .await
-            .map_err(|e| Status::internal(format!("failed to delete index records: {e}")))?;
-
         let deleted_entries = self
             .entry_repo()
             .delete_by_session(&meta.tenant_id, session_id)
@@ -1168,7 +1157,6 @@ impl MemoryService for MemoryGrpcService {
             deleted_units,
             deleted_facts,
             deleted_summaries,
-            deleted_index_records,
             deleted_entries,
             "session deleted with all related data"
         );
@@ -1179,7 +1167,6 @@ impl MemoryService for MemoryGrpcService {
             deleted_anchors as i32,
             deleted_entries as i32,
             deleted_summaries as i32,
-            deleted_index_records as i32,
         ))
     }
 }

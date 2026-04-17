@@ -153,7 +153,6 @@ pub(crate) fn ok_delete_session(
     deleted_anchors: i32,
     deleted_entries: i32,
     deleted_summaries: i32,
-    deleted_index_records: i32,
 ) -> Response<DeleteSessionResponse> {
     Response::new(DeleteSessionResponse {
         ok: true,
@@ -162,7 +161,7 @@ pub(crate) fn ok_delete_session(
         deleted_anchors,
         deleted_entries,
         deleted_summaries,
-        deleted_index_records,
+        deleted_index_records: 0,
         error: None,
     })
 }

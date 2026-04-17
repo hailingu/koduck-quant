@@ -5,7 +5,6 @@ pub mod app;
 pub mod capability;
 pub mod config;
 pub mod facts;
-pub mod index;
 pub mod memory_anchor;
 pub mod memory;
 pub mod memory_unit;

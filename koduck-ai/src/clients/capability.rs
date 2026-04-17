@@ -11,7 +11,7 @@ use std::time::{Duration, Instant};
 use serde::Serialize;
 use tokio::sync::{broadcast, RwLock};
 use tonic::transport::Endpoint;
-use tracing::{error, info, warn};
+use tracing::{debug, error, info, warn};
 
 use crate::clients::proto;
 use crate::config::{CapabilitiesConfig, LlmConfig, LlmMode};
@@ -528,7 +528,7 @@ impl CapabilityCache {
         // Memory
         match fetch_memory_capability(memory_addr).await {
             Ok(cap) => {
-                info!(
+                debug!(
                     service = %cap.service,
                     contract_versions = ?cap.contract_versions,
                     "Memory capabilities refreshed"
@@ -548,7 +548,7 @@ impl CapabilityCache {
         // Tool
         match fetch_tool_capability(tool_addr).await {
             Ok(cap) => {
-                info!(
+                debug!(
                     service = %cap.service,
                     contract_versions = ?cap.contract_versions,
                     "Tool capabilities refreshed"
@@ -568,7 +568,7 @@ impl CapabilityCache {
         // LLM
         match fetch_llm_capability(llm_addr).await {
             Ok(cap) => {
-                info!(
+                debug!(
                     service = %cap.service,
                     contract_versions = ?cap.contract_versions,
                     "LLM capabilities refreshed"
@@ -607,7 +607,7 @@ impl CapabilityCache {
     ) {
         match fetch_memory_capability(memory_addr).await {
             Ok(cap) => {
-                info!(
+                debug!(
                     service = %cap.service,
                     contract_versions = ?cap.contract_versions,
                     "Memory capabilities refreshed"
@@ -627,7 +627,7 @@ impl CapabilityCache {
         if tool_enabled {
             match fetch_tool_capability(tool_addr).await {
                 Ok(cap) => {
-                    info!(
+                    debug!(
                         service = %cap.service,
                         contract_versions = ?cap.contract_versions,
                         "Tool capabilities refreshed"
@@ -659,7 +659,7 @@ impl CapabilityCache {
 
         match llm_result {
             Ok(cap) => {
-                info!(
+                debug!(
                     service = %cap.service,
                     contract_versions = ?cap.contract_versions,
                     llm_mode = %llm_mode,

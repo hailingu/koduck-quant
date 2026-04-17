@@ -1,20 +1,23 @@
+use std::collections::HashMap;
+use std::sync::Arc;
 use std::time::Duration;
 
 use koduck_memory::capability::MemoryGrpcService;
 use koduck_memory::observe::RpcMetrics;
 use koduck_memory::api::{
     AppendMemoryRequest, GetSessionRequest, GetSessionTranscriptRequest, MemoryEntry,
-    MemoryServiceClient, MemoryServiceServer, QueryMemoryRequest, RequestMeta,
+    MemoryService, MemoryServiceClient, MemoryServiceServer, QueryMemoryRequest, RequestMeta,
     RetrievePolicy, SummarizeMemoryRequest, UpsertSessionMetaRequest,
 };
+use koduck_memory::api::proto::memory::QueryIntent;
 use koduck_memory::config::{
     AppConfig, AppSection, CapabilitiesSection, IndexSection, ObjectStoreSection,
     PostgresSection, RetrySection, ServerSection, SummarySection,
 };
 use koduck_memory::facts::MemoryFactRepository;
-use koduck_memory::index::{InsertMemoryIndexRecord, MemoryIndexRepository};
 use koduck_memory::memory_anchor::{MemoryUnitAnchorRepository, MemoryUnitAnchorType};
-use koduck_memory::memory_unit::{InsertMemoryUnit, MemoryUnitKind, MemoryUnitRepository, MemoryUnitSummaryState};
+use koduck_memory::memory::MemoryEntryRepository;
+use koduck_memory::memory_unit::{InsertMemoryUnit, MemoryUnit, MemoryUnitKind, MemoryUnitRepository, MemoryUnitSummaryState};
 use koduck_memory::reliability::TaskAttemptRepository;
 use koduck_memory::retrieve::match_reason;
 use koduck_memory::summary::MemorySummaryRepository;
@@ -22,6 +25,7 @@ use koduck_memory::session::{SessionRepository, UpsertSession, extra_to_jsonb};
 use koduck_memory::store::RuntimeState;
 use tokio::net::TcpListener;
 use tokio_stream::wrappers::TcpListenerStream;
+use tonic::Request;
 use tonic::transport::{Channel, Server};
 use uuid::Uuid;
 
@@ -55,6 +59,7 @@ fn test_config() -> AppConfig {
             llm_base_url: "https://api.minimax.chat/v1".to_string(),
             llm_model: "MiniMax-M2.7".to_string(),
             llm_timeout_ms: 15_000,
+            llm_max_concurrency: 1,
         },
         retry: RetrySection {
             max_attempts: 3,
@@ -530,17 +535,17 @@ async fn wait_for_facts(
 }
 
 async fn wait_for_summary_projection(
-    repo: &MemoryIndexRepository,
+    repo: &MemoryUnitRepository,
     tenant_id: &str,
     session_id: Uuid,
-) -> Vec<koduck_memory::index::MemoryIndexRecord> {
+) -> Vec<MemoryUnit> {
     for _ in 0..20 {
-        let records = repo
-            .list_by_session(tenant_id, session_id, None, 20)
+        let units = repo
+            .list_by_session_and_kind(tenant_id, session_id, MemoryUnitKind::Summary)
             .await
             .unwrap();
-        if !records.is_empty() {
-            return records;
+        if !units.is_empty() {
+            return units;
         }
         tokio::time::sleep(Duration::from_millis(50)).await;
     }
@@ -1110,100 +1115,6 @@ async fn append_memory_concurrent_requests_keep_sequence_order() {
 }
 
 #[tokio::test]
-async fn append_memory_populates_l1_index_and_query_memory_reads_it() {
-    let config = test_config();
-    let runtime = RuntimeState::initialize(&config).await.unwrap();
-    let service = MemoryGrpcService::new(config, runtime.clone(), None, Arc::new(RpcMetrics::new()));
-
-    let session_id = Uuid::new_v4();
-    let sid_str = session_id.to_string();
-
-    let session_resp = service
-        .upsert_session_meta(Request::new(UpsertSessionMetaRequest {
-            meta: Some(write_meta_with_idempotency("t51-seed", &sid_str)),
-            session_id: sid_str.clone(),
-            title: "L1 Index Test".to_string(),
-            status: "active".to_string(),
-            parent_session_id: String::new(),
-            forked_from_session_id: String::new(),
-            last_message_at: 1700000000000,
-            extra: HashMap::new(),
-        }))
-        .await
-        .unwrap()
-        .into_inner();
-    assert!(session_resp.ok);
-
-    let mut metadata = HashMap::new();
-    metadata.insert("message_id".to_string(), "msg-t51-1".to_string());
-
-    let append_resp = service
-        .append_memory(Request::new(AppendMemoryRequest {
-            meta: Some(write_meta_with_idempotency("t51-append", &sid_str)),
-            session_id: sid_str.clone(),
-            entries: vec![MemoryEntry {
-                role: "user".to_string(),
-                content: "Need a concise quarterly planning checklist for the dev rollout"
-                    .to_string(),
-                timestamp: 1700000001000,
-                metadata,
-            }],
-        }))
-        .await
-        .unwrap()
-        .into_inner();
-    assert!(append_resp.ok);
-    assert_eq!(append_resp.appended_count, 1);
-
-    let index_repo = MemoryIndexRepository::new(runtime.pool());
-    let records = index_repo
-        .list_by_session("tenant-t33", session_id, None, 10)
-        .await
-        .unwrap();
-
-    assert_eq!(records.len(), 1);
-    let record = &records[0];
-    assert_eq!(record.tenant_id, "tenant-t33");
-    assert_eq!(record.session_id, session_id);
-    assert_eq!(record.memory_kind, "user");
-    assert_eq!(record.domain_class, "chat");
-    assert!(record.summary.contains("quarterly planning checklist"));
-    assert!(
-        record
-            .snippet
-            .as_ref()
-            .is_some_and(|snippet| snippet.contains("quarterly planning checklist"))
-    );
-    assert!(record.source_uri.starts_with("l0://pending/"));
-    assert!(record.entry_id.is_some());
-
-    let query_resp = service
-        .query_memory(Request::new(QueryMemoryRequest {
-            meta: Some(write_meta_with_idempotency("t51-query", &sid_str)),
-            query_text: String::new(),
-            session_id: sid_str,
-            domain_class: "chat".to_string(),
-            top_k: 5,
-            query_intent: QueryIntent::Unspecified as i32,
-            retrieve_policy: RetrievePolicy::RetrievePolicyDomainFirst as i32,
-            page_token: String::new(),
-            page_size: 0,
-        }))
-        .await
-        .unwrap()
-        .into_inner();
-
-    assert!(query_resp.ok);
-    assert_eq!(query_resp.hits.len(), 1);
-    let hit = &query_resp.hits[0];
-    assert_eq!(hit.l0_uri, record.source_uri);
-    assert!(hit.snippet.contains("quarterly planning checklist"));
-    assert!(hit.match_reasons.contains(&"domain_hit".to_string()));
-    assert!(hit.match_reasons.contains(&"session_scope_hit".to_string()));
-    assert_match_reasons_are_closed_set(&hit.match_reasons);
-}
-
-#[tokio::test]
 async fn append_memory_materializes_generic_memory_units() {
     let config = test_config();
     let runtime = RuntimeState::initialize(&config).await.unwrap();
@@ -1716,7 +1627,7 @@ async fn append_memory_recomputes_session_level_summary_and_facts() {
     let runtime = RuntimeState::initialize(&config).await.unwrap();
     let summary_repo = MemorySummaryRepository::new(runtime.pool());
     let fact_repo = MemoryFactRepository::new(runtime.pool());
-    let index_repo = MemoryIndexRepository::new(runtime.pool());
+    let index_repo = MemoryUnitRepository::new(runtime.pool());
     let (mut client, shutdown_tx, server) = start_test_server(config, runtime).await;
 
     let session_id = Uuid::new_v4();
@@ -1755,7 +1666,7 @@ async fn append_memory_recomputes_session_level_summary_and_facts() {
     let first_facts = wait_for_facts(&fact_repo, "tenant-t33", session_id).await;
 
     assert_eq!(first_projection.len(), 1);
-    assert_eq!(first_projection[0].memory_unit_id, Some(session_id));
+    assert_eq!(first_projection[0].memory_unit_id, session_id);
     assert!(
         first_summary.summary.contains("Karl Marx")
             || first_summary.summary.contains("Friedrich Engels")
@@ -1802,8 +1713,11 @@ async fn append_memory_recomputes_session_level_summary_and_facts() {
     let updated_facts = updated_facts.expect("updated facts were not materialized in time");
 
     assert_eq!(updated_projection.len(), 1);
-    assert_eq!(updated_projection[0].memory_unit_id, Some(session_id));
-    assert_eq!(updated_projection[0].summary, updated_summary.summary);
+    assert_eq!(updated_projection[0].memory_unit_id, session_id);
+    assert_eq!(
+        updated_projection[0].summary_state.summary.as_deref(),
+        Some(updated_summary.summary.as_str())
+    );
     assert!(
         updated_summary.summary.contains("Karl Marx")
             || updated_summary.summary.contains("Friedrich Engels")
@@ -1902,7 +1816,7 @@ async fn query_memory_summary_first_filters_candidates_with_session_scope() {
             domain_class: "chat".to_string(),
             top_k: 5,
             query_intent: QueryIntent::Unspecified as i32,
-            retrieve_policy: RetrievePolicy::RetrievePolicySummaryFirst as i32,
+            retrieve_policy: RetrievePolicy::SummaryFirst as i32,
             page_token: String::new(),
             page_size: 0,
         }))
@@ -1971,7 +1885,7 @@ async fn query_memory_summary_first_keeps_recent_hits_when_summary_pending() {
             domain_class: "chat".to_string(),
             top_k: 5,
             query_intent: QueryIntent::Unspecified as i32,
-            retrieve_policy: RetrievePolicy::RetrievePolicySummaryFirst as i32,
+            retrieve_policy: RetrievePolicy::SummaryFirst as i32,
             page_token: String::new(),
             page_size: 0,
         }))
@@ -2000,7 +1914,6 @@ async fn query_memory_summary_first_ignores_low_quality_ready_summary() {
     let runtime = RuntimeState::initialize(&config).await.unwrap();
     let service = MemoryGrpcService::new(config, runtime.clone(), None, Arc::new(RpcMetrics::new()));
     let unit_repo = MemoryUnitRepository::new(runtime.pool());
-    let index_repo = MemoryIndexRepository::new(runtime.pool());
 
     let session_id = Uuid::new_v4();
     let sid_str = session_id.to_string();
@@ -2046,24 +1959,10 @@ async fn query_memory_summary_first_ignores_low_quality_ready_summary() {
     .unwrap()
     .with_memory_unit_id(session_id)
     .with_memory_kind(MemoryUnitKind::Summary)
+    .with_domain_class_primary("chat")
     .with_summary_state(MemoryUnitSummaryState::ready("todo: summarize later").unwrap())
     .with_time_bucket("2026-04");
     unit_repo.upsert(&summary_unit).await.unwrap();
-    index_repo
-        .insert(
-            &InsertMemoryIndexRecord::new(
-                tenant_id,
-                session_id,
-                "summary",
-                "chat",
-                "deployment checklist summary",
-                low_quality_summary_uri,
-            )
-            .with_memory_unit_id(session_id)
-            .with_snippet("deployment checklist summary"),
-        )
-        .await
-        .unwrap();
 
     let response = service
         .query_memory(Request::new(QueryMemoryRequest {
@@ -2073,7 +1972,7 @@ async fn query_memory_summary_first_ignores_low_quality_ready_summary() {
             domain_class: "chat".to_string(),
             top_k: 5,
             query_intent: QueryIntent::Unspecified as i32,
-            retrieve_policy: RetrievePolicy::RetrievePolicySummaryFirst as i32,
+            retrieve_policy: RetrievePolicy::SummaryFirst as i32,
             page_token: String::new(),
             page_size: 0,
         }))
@@ -2094,7 +1993,7 @@ async fn query_memory_explicit_recall_returns_global_session_summaries() {
     let config = test_config();
     let runtime = RuntimeState::initialize(&config).await.unwrap();
     let service = MemoryGrpcService::new(config, runtime.clone(), None, Arc::new(RpcMetrics::new()));
-    let index_repo = MemoryIndexRepository::new(runtime.pool());
+    let index_repo = MemoryUnitRepository::new(runtime.pool());
 
     let first_session_id = Uuid::new_v4();
     let first_sid = first_session_id.to_string();
@@ -2158,7 +2057,7 @@ async fn query_memory_explicit_recall_returns_global_session_summaries() {
             domain_class: "chat".to_string(),
             top_k: 10,
             query_intent: QueryIntent::Recall as i32,
-            retrieve_policy: RetrievePolicy::RetrievePolicyDomainFirst as i32,
+            retrieve_policy: RetrievePolicy::DomainFirst as i32,
             page_token: String::new(),
             page_size: 0,
         }))
@@ -2216,7 +2115,7 @@ async fn query_memory_falls_back_when_query_analyzer_fails() {
             domain_class: "chat".to_string(),
             top_k: 5,
             query_intent: QueryIntent::Unspecified as i32,
-            retrieve_policy: RetrievePolicy::RetrievePolicyDomainFirst as i32,
+            retrieve_policy: RetrievePolicy::DomainFirst as i32,
             page_token: String::new(),
             page_size: 0,
         }))

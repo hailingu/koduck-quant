@@ -9,7 +9,6 @@ use std::collections::HashSet;
 use tracing::{debug, info, instrument};
 use uuid::Uuid;
 
-use crate::index::MemoryIndexRepository;
 use crate::retrieve::anchor_first::AnchorFirstRetriever;
 use crate::memory_unit::{MemoryUnitKind, MemoryUnitRepository};
 use crate::summary::is_quality_summary;
@@ -22,7 +21,6 @@ use crate::Result;
 #[derive(Clone)]
 pub struct SummaryFirstRetriever {
     anchor_retriever: AnchorFirstRetriever,
-    index_repo: MemoryIndexRepository,
     unit_repo: MemoryUnitRepository,
 }
 
@@ -31,7 +29,6 @@ impl SummaryFirstRetriever {
     pub fn new(pool: &PgPool) -> Self {
         Self {
             anchor_retriever: AnchorFirstRetriever::new(pool),
-            index_repo: MemoryIndexRepository::new(pool),
             unit_repo: MemoryUnitRepository::new(pool),
         }
     }
@@ -84,11 +81,11 @@ impl SummaryFirstRetriever {
 
         // Perform summary search
         let summary_records = self
-            .index_repo
-            .search_by_summary_in_scope(
+            .unit_repo
+            .search_summary_units_in_scope(
                 &ctx.tenant_id,
                 session_uuid,
-                domain_filter.unwrap_or(""),
+                domain_filter,
                 &ctx.query_text,
                 limit as i64 * 2,
             )

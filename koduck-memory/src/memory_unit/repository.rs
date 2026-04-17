@@ -287,4 +287,173 @@ impl MemoryUnitRepository {
 
         Ok(())
     }
+
+    /// List recent summary memory units for a tenant, newest first.
+    ///
+    /// Used by explicit recall-intent queries to retrieve global session summaries.
+    pub async fn list_recent_summary_units(
+        &self,
+        tenant_id: &str,
+        limit: i64,
+    ) -> Result<Vec<MemoryUnit>> {
+        let rows = sqlx::query_as::<_, MemoryUnitRow>(
+            r#"
+            SELECT
+                memory_unit_id, tenant_id, session_id, entry_range_start, entry_range_end,
+                memory_kind, domain_class_primary, summary, source_uri,
+                summary_status, salience_score::DOUBLE PRECISION AS salience_score,
+                time_bucket, created_at, updated_at
+            FROM memory_units
+            WHERE tenant_id = $1
+              AND memory_kind = 'summary'
+            ORDER BY updated_at DESC
+            LIMIT $2
+            "#,
+        )
+        .bind(tenant_id)
+        .bind(limit)
+        .fetch_all(&self.pool)
+        .await?;
+
+        rows.into_iter().map(MemoryUnit::try_from).collect()
+    }
+
+    /// Search summary memory units by text match within an optional session/domain scope.
+    ///
+    /// Uses PostgreSQL full-text search on the summary field with ILIKE fallback.
+    /// Used for SUMMARY_FIRST retrieval strategy.
+    pub async fn search_summary_units_in_scope(
+        &self,
+        tenant_id: &str,
+        session_id: Option<Uuid>,
+        domain_class: Option<&str>,
+        query_text: &str,
+        limit: i64,
+    ) -> Result<Vec<MemoryUnit>> {
+        let like_query = format!("%{}%", query_text.trim());
+        let normalized_domain = domain_class
+            .map(str::trim)
+            .filter(|value| !value.is_empty());
+
+        let rows = match (session_id, normalized_domain) {
+            (Some(session_id), Some(domain)) => {
+                sqlx::query_as::<_, MemoryUnitRow>(
+                    r#"
+                    SELECT
+                        memory_unit_id, tenant_id, session_id, entry_range_start, entry_range_end,
+                        memory_kind, domain_class_primary, summary, source_uri,
+                        summary_status, salience_score::DOUBLE PRECISION AS salience_score,
+                        time_bucket, created_at, updated_at
+                    FROM memory_units
+                    WHERE tenant_id = $1
+                      AND session_id = $2
+                      AND memory_kind = 'summary'
+                      AND domain_class_primary = $3
+                      AND summary IS NOT NULL
+                      AND (
+                            to_tsvector('simple', summary) @@ plainto_tsquery('simple', $4)
+                         OR summary ILIKE $5
+                      )
+                    ORDER BY updated_at DESC
+                    LIMIT $6
+                    "#,
+                )
+                .bind(tenant_id)
+                .bind(session_id)
+                .bind(domain)
+                .bind(query_text.trim())
+                .bind(&like_query)
+                .bind(limit)
+                .fetch_all(&self.pool)
+                .await?
+            }
+            (Some(session_id), None) => {
+                sqlx::query_as::<_, MemoryUnitRow>(
+                    r#"
+                    SELECT
+                        memory_unit_id, tenant_id, session_id, entry_range_start, entry_range_end,
+                        memory_kind, domain_class_primary, summary, source_uri,
+                        summary_status, salience_score::DOUBLE PRECISION AS salience_score,
+                        time_bucket, created_at, updated_at
+                    FROM memory_units
+                    WHERE tenant_id = $1
+                      AND session_id = $2
+                      AND memory_kind = 'summary'
+                      AND summary IS NOT NULL
+                      AND (
+                            to_tsvector('simple', summary) @@ plainto_tsquery('simple', $3)
+                         OR summary ILIKE $4
+                      )
+                    ORDER BY updated_at DESC
+                    LIMIT $5
+                    "#,
+                )
+                .bind(tenant_id)
+                .bind(session_id)
+                .bind(query_text.trim())
+                .bind(&like_query)
+                .bind(limit)
+                .fetch_all(&self.pool)
+                .await?
+            }
+            (None, Some(domain)) => {
+                sqlx::query_as::<_, MemoryUnitRow>(
+                    r#"
+                    SELECT
+                        memory_unit_id, tenant_id, session_id, entry_range_start, entry_range_end,
+                        memory_kind, domain_class_primary, summary, source_uri,
+                        summary_status, salience_score::DOUBLE PRECISION AS salience_score,
+                        time_bucket, created_at, updated_at
+                    FROM memory_units
+                    WHERE tenant_id = $1
+                      AND memory_kind = 'summary'
+                      AND domain_class_primary = $2
+                      AND summary IS NOT NULL
+                      AND (
+                            to_tsvector('simple', summary) @@ plainto_tsquery('simple', $3)
+                         OR summary ILIKE $4
+                      )
+                    ORDER BY updated_at DESC
+                    LIMIT $5
+                    "#,
+                )
+                .bind(tenant_id)
+                .bind(domain)
+                .bind(query_text.trim())
+                .bind(&like_query)
+                .bind(limit)
+                .fetch_all(&self.pool)
+                .await?
+            }
+            (None, None) => {
+                sqlx::query_as::<_, MemoryUnitRow>(
+                    r#"
+                    SELECT
+                        memory_unit_id, tenant_id, session_id, entry_range_start, entry_range_end,
+                        memory_kind, domain_class_primary, summary, source_uri,
+                        summary_status, salience_score::DOUBLE PRECISION AS salience_score,
+                        time_bucket, created_at, updated_at
+                    FROM memory_units
+                    WHERE tenant_id = $1
+                      AND memory_kind = 'summary'
+                      AND summary IS NOT NULL
+                      AND (
+                            to_tsvector('simple', summary) @@ plainto_tsquery('simple', $2)
+                         OR summary ILIKE $3
+                      )
+                    ORDER BY updated_at DESC
+                    LIMIT $4
+                    "#,
+                )
+                .bind(tenant_id)
+                .bind(query_text.trim())
+                .bind(&like_query)
+                .bind(limit)
+                .fetch_all(&self.pool)
+                .await?
+            }
+        };
+
+        rows.into_iter().map(MemoryUnit::try_from).collect()
+    }
 }
