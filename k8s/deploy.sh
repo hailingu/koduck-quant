@@ -305,11 +305,55 @@ ensure_koduck_user_secret_endpoints() {
     fi
 }
 
+# 修正 koduck-knowledge Secret 中的服务地址（避免主机名与 namePrefix 不一致）
+ensure_koduck_knowledge_secret_endpoints() {
+    local knowledge_secret_name="${ENV}-koduck-knowledge-secrets"
+    local db_host_default="${ENV}-postgres"
+    local db_url="${KODUCK_KNOWLEDGE_DB_URL:-jdbc:postgresql://${db_host_default}:5432/koduck_knowledge}"
+    local db_username="${KODUCK_KNOWLEDGE_APP_DB_USER:-koduck}"
+    local db_password="${KODUCK_KNOWLEDGE_APP_DB_PASSWORD:-koduck_secret}"
+
+    if kubectl -n "${NAMESPACE}" get secret "${knowledge_secret_name}" >/dev/null 2>&1; then
+        kubectl create secret generic "${knowledge_secret_name}" \
+            --from-literal=database-url="${db_url}" \
+            --from-literal=db-username="${db_username}" \
+            --from-literal=db-password="${db_password}" \
+            -n "${NAMESPACE}" \
+            --dry-run=client -o yaml | kubectl apply -f -
+    fi
+}
+
 # 确保 user_db 存在（幂等）
 ensure_user_db_exists() {
     local postgres_pod
     local db_user="${KODUCK_USER_DB_USERNAME:-koduck}"
     local db_name="user_db"
+
+    postgres_pod=$(kubectl -n "${NAMESPACE}" get pod -l app=postgres -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || true)
+    if [ -z "${postgres_pod}" ]; then
+        echo -e "${RED}错误: 未找到 postgres Pod，无法创建 ${db_name}${NC}"
+        exit 1
+    fi
+
+    local exists
+    exists=$(kubectl exec -n "${NAMESPACE}" "${postgres_pod}" -- \
+        psql -U "${db_user}" -d postgres -At -c "SELECT 1 FROM pg_database WHERE datname='${db_name}';" 2>/dev/null || true)
+
+    if [ "${exists}" != "1" ]; then
+        echo -e "${YELLOW}创建数据库 ${db_name}...${NC}"
+        kubectl exec -n "${NAMESPACE}" "${postgres_pod}" -- \
+            psql -U "${db_user}" -d postgres -c "CREATE DATABASE ${db_name};" >/dev/null
+        echo -e "${GREEN}✓ 已创建数据库 ${db_name}${NC}"
+    else
+        echo -e "${GREEN}✓ 数据库 ${db_name} 已存在${NC}"
+    fi
+}
+
+# 确保 koduck_knowledge 数据库存在（幂等）
+ensure_koduck_knowledge_database_exists() {
+    local postgres_pod
+    local db_user="${KODUCK_KNOWLEDGE_APP_DB_USER:-koduck}"
+    local db_name="koduck_knowledge"
 
     postgres_pod=$(kubectl -n "${NAMESPACE}" get pod -l app=postgres -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || true)
     if [ -z "${postgres_pod}" ]; then
@@ -545,9 +589,13 @@ install() {
     # 覆盖 user 连接地址
     ensure_koduck_user_secret_endpoints
 
+    # 覆盖 knowledge 连接地址
+    ensure_koduck_knowledge_secret_endpoints
+
     echo -e "${YELLOW}等待 PostgreSQL 启动...${NC}"
     wait_pods_ready "app=postgres" "30s" "postgres"
     ensure_user_db_exists
+    ensure_koduck_knowledge_database_exists
     ensure_koduck_memory_database_exists
 
     echo -e "${YELLOW}等待 MinIO 启动...${NC}"
@@ -588,6 +636,9 @@ install() {
 
     echo -e "${YELLOW}等待 koduck-user 启动...${NC}"
     wait_pods_ready "app=koduck-user" "30s" "koduck-user"
+
+    echo -e "${YELLOW}等待 koduck-knowledge 启动...${NC}"
+    wait_pods_ready "app=koduck-knowledge" "30s" "koduck-knowledge"
 
     echo -e "${YELLOW}等待 koduck-ai 启动...${NC}"
     wait_pods_ready "app=koduck-ai" "60s" "koduck-ai"
@@ -707,6 +758,10 @@ show_access_info() {
     echo "  kubectl port-forward svc/${ENV}-koduck-ai 8083:8083 -n ${NAMESPACE}"
     echo "  http://localhost:8083"
     echo "  gRPC: localhost:50051"
+
+    echo -e "\n${BLUE}Knowledge Service (koduck-knowledge):${NC}"
+    echo "  kubectl port-forward svc/${ENV}-koduck-knowledge 8084:8084 -n ${NAMESPACE}"
+    echo "  http://localhost:8084"
 
     echo -e "\n${BLUE}Memory Service (koduck-memory):${NC}"
     echo "  kubectl port-forward svc/${ENV}-koduck-memory 50051:50051 -n ${NAMESPACE}"

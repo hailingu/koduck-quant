@@ -1,0 +1,49 @@
+{
+  "@timestamp": {
+    "$resolver": "timestamp",
+    "pattern": {
+      "format": "yyyy-MM-dd'T'HH:mm:ss.SSSXXX",
+      "timeZone": "UTC"
+    }
+  },
+  "level": {
+    "$resolver": "level",
+    "field": "name"
+  },
+  "logger": {
+    "$resolver": "logger",
+    "field": "name"
+  },
+  "thread": {
+    "$resolver": "thread",
+    "field": "name"
+  },
+  "message": {
+    "$resolver": "message",
+    "stringified": true
+  },
+  "request_id": {
+    "$resolver": "mdc",
+    "key": "request_id"
+  },
+  "entity_id": {
+    "$resolver": "mdc",
+    "key": "entity_id"
+  },
+  "domain_class": {
+    "$resolver": "mdc",
+    "key": "domain_class"
+  },
+  "profile_entry_id": {
+    "$resolver": "mdc",
+    "key": "profile_entry_id"
+  },
+  "trace_id": {
+    "$resolver": "mdc",
+    "key": "trace_id"
+  },
+  "span_id": {
+    "$resolver": "mdc",
+    "key": "span_id"
+  }
+}

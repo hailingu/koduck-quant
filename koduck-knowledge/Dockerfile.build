@@ -1,0 +1,71 @@
+ARG MAVEN_MIRROR_URL=https://maven.aliyun.com/repository/public
+ARG MAVEN_VERSION=3.9.9
+ARG JAVA_VERSION=23
+
+FROM maven:${MAVEN_VERSION}-eclipse-temurin-${JAVA_VERSION} AS jvm-builder
+
+WORKDIR /workspace
+ARG MAVEN_MIRROR_URL
+
+RUN mkdir -p /root/.m2 && \
+    printf '%s\n' \
+    '<settings xmlns="http://maven.apache.org/SETTINGS/1.0.0"' \
+    '          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"' \
+    '          xsi:schemaLocation="http://maven.apache.org/SETTINGS/1.0.0 https://maven.apache.org/xsd/settings-1.0.0.xsd">' \
+    '  <mirrors>' \
+    '    <mirror>' \
+    '      <id>mirror</id>' \
+    '      <name>Custom Maven Mirror</name>' \
+    '      <url>'"${MAVEN_MIRROR_URL}"'</url>' \
+    '      <mirrorOf>*</mirrorOf>' \
+    '    </mirror>' \
+    '  </mirrors>' \
+    '</settings>' > /root/.m2/settings.xml
+
+COPY pom.xml ./
+RUN --mount=type=cache,target=/root/.m2/repository \
+    mvn -s /root/.m2/settings.xml -B dependency:go-offline
+
+COPY src ./src
+RUN --mount=type=cache,target=/root/.m2/repository \
+    mvn -s /root/.m2/settings.xml -B -Pjvm -DskipTests package
+
+FROM scratch AS jvm-artifact
+COPY --from=jvm-builder /workspace/target/koduck-knowledge-*.jar /artifacts/app.jar
+
+FROM ghcr.io/graalvm/native-image-community:23 AS native-builder
+
+WORKDIR /workspace
+ARG MAVEN_MIRROR_URL
+ARG MAVEN_VERSION
+
+RUN microdnf install -y curl gzip tar findutils && \
+    curl -fsSL "https://archive.apache.org/dist/maven/maven-3/${MAVEN_VERSION}/binaries/apache-maven-${MAVEN_VERSION}-bin.tar.gz" \
+    | tar -xz -C /opt && \
+    ln -s "/opt/apache-maven-${MAVEN_VERSION}/bin/mvn" /usr/local/bin/mvn
+
+RUN mkdir -p /root/.m2 && \
+    printf '%s\n' \
+    '<settings xmlns="http://maven.apache.org/SETTINGS/1.0.0"' \
+    '          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"' \
+    '          xsi:schemaLocation="http://maven.apache.org/SETTINGS/1.0.0 https://maven.apache.org/xsd/settings-1.0.0.xsd">' \
+    '  <mirrors>' \
+    '    <mirror>' \
+    '      <id>mirror</id>' \
+    '      <name>Custom Maven Mirror</name>' \
+    '      <url>'"${MAVEN_MIRROR_URL}"'</url>' \
+    '      <mirrorOf>*</mirrorOf>' \
+    '    </mirror>' \
+    '  </mirrors>' \
+    '</settings>' > /root/.m2/settings.xml
+
+COPY pom.xml ./
+RUN --mount=type=cache,target=/root/.m2/repository \
+    mvn -s /root/.m2/settings.xml -B dependency:go-offline
+
+COPY src ./src
+RUN --mount=type=cache,target=/root/.m2/repository \
+    mvn -s /root/.m2/settings.xml -B -Pnative -DskipTests native:compile
+
+FROM scratch AS native-artifact
+COPY --from=native-builder /workspace/target/koduck-knowledge /artifacts/koduck-knowledge

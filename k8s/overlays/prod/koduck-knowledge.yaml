@@ -1,0 +1,22 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: koduck-knowledge
+  namespace: koduck
+spec:
+  replicas: 2
+  template:
+    spec:
+      containers:
+        - name: koduck-knowledge
+          image: koduck/koduck-knowledge:latest
+          imagePullPolicy: IfNotPresent
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: koduck-knowledge
+  namespace: koduck
+spec:
+  minReplicas: 2
+  maxReplicas: 4

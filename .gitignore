@@ -84,3 +84,5 @@ docker-compose.local.yml
 *.csv
 
 a.txt
+.m2/
+target/
