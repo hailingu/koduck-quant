@@ -1,21 +1,29 @@
-# koduck-knowledge 设计（Fact-First + Contextual Reasoning）
+# koduck-knowledge 设计（Read-Only Fact Query Service）
 
 ## 1. 背景与目标
 
 本设计用于承接 `koduck-knowledge` 独立项目的“实体知识”能力。当前阶段核心目标：
 
-- 先落地“人和 domain 的关联”最小闭环能力。
-- 强制实体标准化（Entity Linking），形成可追踪的隐式知识链/网。
-- 通过“工具抽取 + LLM 校验 + 人工审核”三道闸门，保证入库质量。
+- 先落地“人和 domain 的关联”事实查询能力。
+- 强制实体标准化（Entity Linking），保证查询阶段始终围绕稳定的 `entity_id` 工作。
+- 对外提供资源化查询接口，返回结构化事实与 profile 元信息。
 
-## 2. 关键结论（来自讨论）
+当前边界同时明确如下：
+
+- 事实构建、清洗、审核、导入不在 `koduck-knowledge` 服务本身提供。
+- 不建设“候选 → 判定 → 审核 → 发布”的运行时治理链。
+- 服务形态保持资源化 API，但 MVP 只实现 **Read**，不开放 Create / Update / Delete。
+
+## 2. 关键结论
 
 1. 该能力作为独立知识库能力建设。
 2. 先排除向量数据库方案。
 3. 先排除 PHP 技术栈方案。
 4. 不采用“静态图谱边 + 单一 weight”作为主模型。
-5. 长期策略：**存事实，不存最终关系结论**；关系强弱按查询上下文动态推理（当前阶段暂不实现）。
-6. 数据存储采用**独立 PostgreSQL 库**（与业务库隔离），用于承载知识库结构化数据。
+5. 长期策略：**存事实，不存最终关系结论**；关系强弱按查询上下文动态推理。
+6. 数据存储采用**独立 PostgreSQL 库**，并配合 S3/MinIO 存放事实分片。
+7. `koduck-knowledge` 当前只承担查询与返回职责，不承担事实写入职责。
+8. 数据装载由外部离线流程、数据构建服务或运维脚本负责，不作为服务运行时能力。
 
 ## 3. 为什么不采用静态关系边权重
 
@@ -29,99 +37,149 @@
 
 ## 4. 总体架构
 
-- **Knowledge Base（主存）**：独立 PostgreSQL 库 + S3（实体资料）
-- **Reasoner（查询层）**：按上下文实时筛选实体信息
+- **Knowledge Base（主存）**：独立 PostgreSQL 库 + S3（实体资料），负责存储已构建好的事实并对外提供只读查询。
+- **Data Builder / Loader（外部）**：负责事实构建、清洗、审核、导入，不属于 `koduck-knowledge` 服务运行时。
+- **Query API Layer**：由 `koduck-knowledge` 提供，负责 entity linking、候选召回、详情读取、历史读取与批量事实返回。
+- **Northbound Gateway（APISIX）**：通过现有 APISIX route-init 机制显式注册
+  `/api/v1/entities/*` 路由，将外部流量转发到 `koduck-knowledge`，并对齐仓库现有受保护
+  API 的鉴权方式：`jwt-auth + proxy-rewrite(headers.set)`，统一注入 `X-User-Id`、
+  `X-Username`、`X-Roles`、`X-Tenant-Id`，避免请求落入已有的 `/api/* -> backend`
+  通配路由。
 
 ## 5. 数据模型（当前范围）
 
-### 5.1 实体基础信息表：`entity_basic_profile`
+### 5.1 实体主表：`entity`
 
-用途：先建立“人和 domain 的关联”主入口，用于实体召回、候选过滤与上下文初筛。
-
-建议字段：
-
-- `entity_id`（实体 ID）
-- `entity_name`（实体名，原始展示名）
-- `domain_class`（所属领域）
-- `valid_from`（属于该 domain 的起始时间）
-- `valid_to`（属于该 domain 的终止时间，可空）
-- `basic_profile_entry_id`（基础信息 entry 类型 ID）
-- `basic_profile_s3_uri`（基础信息内容 URI）
-
-### 5.2 实体详情分片表：`entity_profile`
-
-用途：承载实体多维详情（传记、荣誉、定义等）。
+用途：提供稳定的实体主键与规范主名。
 
 建议字段：
 
 - `entity_id`
-- `profile_entry_id`（entry 类型 ID）
-- `profile_s3_uri`（S3 JSON）
+- `canonical_name`
+- `type`
+- `created_at`
+
+### 5.2 实体别名表：`entity_alias`
+
+用途：支撑查询阶段的 Entity Linking 与多候选召回。
+
+建议字段：
+
+- `alias_id`
+- `entity_id`
+- `alias`
+- `lang`
+- `source`
+
+说明：同一 `alias + lang` 可以映射多个 `entity_id`，用于保留同名异人场景。
+
+### 5.3 实体基础信息表：`entity_basic_profile`
+
+用途：承载“人和 domain 的关联”主入口，用于实体召回与返回基础事实。
+
+建议字段：
+
+- `entity_id`
+- `entity_name`
+- `domain_class`
+- `valid_from`
+- `valid_to`
+- `basic_profile_entry_id`
+- `basic_profile_s3_uri`
+
+### 5.4 实体详情分片表：`entity_profile`
+
+用途：承载实体多维详情（传记、荣誉、定义等）及其历史版本。
+
+建议字段：
+
+- `profile_id`
+- `entity_id`
+- `profile_entry_id`
+- `blob_uri`
+- `version`
+- `is_current`
+- `loaded_at`
 
 约束建议：
 
-- 主键使用 `(entity_id, profile_entry_id)` 复合键。
+- 同一 `(entity_id, profile_entry_id)` 只允许一条 `is_current = true`。
+- 通过 `version` 保留历史，不覆盖旧值。
 
-示例（姚明）：
+### 5.5 暂缓项：事实表（`fact_store`）
 
-- `(entity_id=1, profile_entry_id=1, s3://.../biographic.json)`
-- `(entity_id=1, profile_entry_id=2, s3://.../honor.json)`
+当前阶段先不考虑 `fact_store`，不进入实现范围。
 
-### 5.3 暂缓项：事实表（`fact_store`）
+## 6. 实体标准化（查询时必须项）
 
-当前阶段先不考虑 `5.3`，不进入实现范围。
+查询阶段必须先完成实体标准化：
 
-当前仅保留“人和 domain 关联”能力，后续如需事实层，再单独设计和落地。
-
-## 6. 实体标准化（必须项）
-
-不仅查询时要用 `entity_id`，写入阶段也必须标准化：
-
-- 原文保留：`raw_text`
-- 标准化文本：`normalized_text`（例如 `姚明 -> [姚明](entity:1)`）
-- mention 明细：记录 span、surface、`entity_id`、置信度
+- 输入保留原始 `surface`
+- 查询时基于别名、规范名与 domain 提示做 Entity Linking
+- 输出候选 `entity_id`、匹配类型与置信度
 
 效果：
 
 - 同名异写归一
-- 全链路可追踪
-- 隐式关系链/网自然形成
+- 同名异人保留为多候选，避免过早唯一化
+- 查询接口对调用方始终返回稳定的实体标识
 
-## 7. 查询链路（Contextual Reasoning）
+## 7. 查询链路（Facts First, Read Only）
 
-1. 用 `entity_name + domain_class + 时间窗` 查询 `entity_basic_profile` 召回候选。
-2. 读取 `basic_profile_s3_uri` 做上下文过滤，确定最可信 `entity_id`。
-3. 若需细节，按 `entity_id` 查询 `entity_profile`。
-4. 当前阶段仅做“人和 domain”关联检索，事实关联推理暂不纳入实现范围。
+1. 调用方提交 `surface + domainClass + context`，服务先执行 Entity Linking。
+2. 若命中多个 `entity_id`，服务保留全部候选，不在服务内做最终裁剪。
+3. 服务返回候选实体及其 `basic_profile` 元信息。
+4. 调用方若需要更多事实，再按 `entity_id` 读取详情分片或历史版本。
+5. 当前阶段仅做“人和 domain”关联检索，动态关系推理暂不纳入实现范围。
 
-## 8. 入库治理与审核闸门
+## 8. 服务边界
 
-### 8.1 原则
+### 8.1 当前服务提供什么
 
-- 工具只能写“候选区”，不能直写正式知识表。
-- 正式入库必须经过 LLM 判定 + 人工 review。
+- `Entity Linking` 查询
+- `Search` 候选召回
+- `Basic Profile` 读取
+- `Detail Profile` 读取
+- `History` 历史版本读取
+- 批量事实查询接口
 
-### 8.2 建议流程
+### 8.2 当前服务不提供什么
 
-1. `ingest_candidate`：工具抽取写入候选表。
-2. `llm_verify`：校验事实一致性、实体对齐、证据可追溯性。
-3. `human_review`：人工确认通过/驳回/退回。
-4. `publish`：仅 `approved` 数据写入正式库。
-5. `audit_log`：全链路审计（人、模型、时间、证据、版本）。
+- 候选区
+- 判定回写接口
+- 人工审核接口
+- 发布接口
+- 任何运行时插入、更新、删除能力
+- 事实构建与导入流程
 
-### 8.3 强约束
+### 8.3 数据维护责任
 
-- 正式库禁直写（仅 publish 服务账号可写）。
-- 候选记录追加式版本化，不覆盖历史。
-- 每条已发布知识必须可回溯到证据 URI 与审核记录。
+- `koduck-knowledge` 运行时只消费已经存在的数据。
+- 数据的构建、对账、灌库、纠错由服务外部承担。
+- 若未来需要写入链路，应单独立项，不在当前 MVP 内混入。
+
+### 8.4 网关暴露责任
+
+- `koduck-knowledge` 的 northbound HTTP 入口通过 APISIX 暴露，不直接以裸 Service
+  作为对外入口。
+- 需在 dev/prod 的 APISIX route-init Job 中新增显式 knowledge 路由，建议固化为
+  `uri=/api/v1/entities/*`。
+- knowledge 路由优先级必须高于当前通配 `/api/* -> backend` 路由，避免被错误转发。
+- knowledge 路由鉴权方式需与现有受保护 API 对齐：启用 `jwt-auth`，不走匿名访问，也不以
+  服务侧自行解析外部 JWT 作为主路径。
+- 网关侧通过 `proxy-rewrite(headers.set)` 注入 `X-User-Id=$jwt_claim_sub`、
+  `X-Username=$jwt_claim_username`、`X-Roles=$jwt_claim_roles`、
+  `X-Tenant-Id=$jwt_claim_tenant_id`，由下游服务消费这些身份头。
 
 ## 9. 现阶段实施建议（MVP）
 
-1. 先落独立 PostgreSQL 库主模型（`entity_basic_profile` / `entity_profile`）。
-2. 建立标准化写入链（mention 抽取 + entity linking + normalized_text）。
-3. 上线审核闸门（candidate -> llm_verify -> human_review -> publish）。
-4. 查询侧先实现“候选召回 + 上下文筛选（围绕人和 domain）”。
+1. 先落独立 PostgreSQL + S3/MinIO 的只读事实模型。
+2. 实现 `entity`、`entity_alias`、`entity_basic_profile`、`entity_profile` 的查询链路。
+3. 提供 `link/search/detail/history` 读接口与批量事实接口。
+4. 在 APISIX route-init 中注册 `/api/v1/entities/*` 显式路由，并对齐 `jwt-auth +
+  proxy-rewrite` 的受保护 API 基线，验证不会命中 `/api/* -> backend` 通配路由。
+5. 建立日志、指标、压测基线，保证只读服务的稳定性。
 
 ---
 
-该设计遵循“事实优先、上下文推理、可审计发布”的原则，优先解决准确性与可治理性，再逐步优化性能与自动化。
+该设计遵循“事实优先、查询只读、边界清晰”的原则。当前阶段优先把事实读取与返回做稳定，把数据构建与导入明确留在服务外部。
