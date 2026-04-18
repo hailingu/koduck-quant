@@ -12,58 +12,14 @@ import re
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 
-def load_env_from_docker_compose():
-    """从 docker-compose.yml 加载数据库配置"""
-    try:
-        with open('../docker-compose.yml', 'r') as f:
-            content = f.read()
-        
-        # 查找 MEMORY_DATABASE_URL 或相关配置
-        # 查找 POSTGRES_ 相关的默认配置
-        patterns = {
-            'POSTGRES_USER': r'POSTGRES_USER[=:-]\s*\$\{POSTGRES_USER:-([^}]+)\}',
-            'POSTGRES_PASSWORD': r'POSTGRES_PASSWORD[=:-]\s*\$\{POSTGRES_PASSWORD:-([^}]+)\}',
-            'POSTGRES_DB': r'POSTGRES_DB[=:-]\s*\$\{POSTGRES_DB:-([^}]+)\}',
-        }
-        
-        defaults = {}
-        for key, pattern in patterns.items():
-            match = re.search(pattern, content)
-            if match:
-                defaults[key] = match.group(1)
-        
-        if defaults:
-            # 构建 DATABASE_URL
-            user = defaults.get('POSTGRES_USER', 'koduck')
-            password = defaults.get('POSTGRES_PASSWORD', 'koduck')
-            db = defaults.get('POSTGRES_DB', 'koduck_dev')
-            
-            # 本地开发使用 localhost，Docker 环境使用 postgresql
-            host = 'localhost'
-            url = f"postgresql://{user}:{password}@{host}:5432/{db}"
-            
-            os.environ.setdefault('DATABASE_URL', url)
-            os.environ.setdefault('MEMORY_DATABASE_URL', url)
-            
-            return True
-    except:
-        pass
-    
-    return False
-
-
 def get_db_url():
     """获取数据库 URL"""
     # 1. 首先检查环境变量
     url = os.getenv('DATABASE_URL') or os.getenv('MEMORY_DATABASE_URL')
     if url:
         return url
-    
-    # 2. 尝试从 docker-compose 加载
-    if load_env_from_docker_compose():
-        return os.getenv('DATABASE_URL')
-    
-    # 3. 使用默认配置
+
+    # 2. 使用默认配置
     return "postgresql://koduck:koduck@localhost:5432/koduck_dev"
 
 
@@ -267,21 +223,20 @@ def show_usage_guide():
     print("使用指南")
     print("=" * 60)
     
-    print("\n1. Docker 环境（推荐）:")
-    print("   cd /Users/guhailin/Git/koduck-quant")
-    print("   docker-compose up koduck-agent")
-    print("   # 环境变量已自动配置")
-    
-    print("\n2. 本地开发环境:")
+    print("\n1. 本地开发环境:")
     print("   # 方法 A: 直接设置环境变量")
     print("   export DATABASE_URL=postgresql://koduck:koduck@localhost:5432/koduck_dev")
     print("   cd koduck-agent && python3 -m koduck.server")
     
-    print("\n   # 方法 B: 创建 .env 文件")
+    print("\n2. 使用 .env 文件:")
     print("   echo 'DATABASE_URL=postgresql://koduck:koduck@localhost:5432/koduck_dev' > .env")
     print("   source .env && python3 -m koduck.server")
     
-    print("\n3. 验证 Memory 系统是否工作:")
+    print("\n3. Kubernetes 联调:")
+    print("   ./k8s/deploy.sh dev install")
+    print("   kubectl get pods -n koduck-dev")
+
+    print("\n4. 验证 Memory 系统是否工作:")
     print("   a. 发送一条高价值消息（包含'决定'、'记住'等关键词）")
     print("   b. 检查日志中是否有 '[Memory] Context injected' 或 '[Memory] Summary generated'")
     print("   c. 查询数据库: SELECT * FROM memory_l1_summaries;")

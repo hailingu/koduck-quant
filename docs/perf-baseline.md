@@ -157,8 +157,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       
-      - name: Start services
-        run: docker-compose -f docker-compose.local.yml up -d
+      - name: Deploy dev environment
+        run: ./k8s/deploy.sh dev install
       
       - name: Wait for app
         run: sleep 60
@@ -234,8 +234,8 @@ jobs:
 ### 快速开始
 
 ```bash
-# 1. 启动依赖服务
-docker-compose -f docker-compose.local.yml up -d postgres redis
+# 1. 部署 dev 环境
+./k8s/deploy.sh dev install
 
 # 2. 启动应用
 cd koduck-backend

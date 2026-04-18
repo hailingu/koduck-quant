@@ -31,10 +31,10 @@ export LLM_API_KEY=your_api_key
 export KODUCK_KLINE_DATABASE_URL=postgresql://koduck:koduck@postgresql:5432/koduck_dev
 ```
 
-### Docker 启动
+### 启动
 
 ```bash
-docker-compose up -d agent
+python -m koduck.server
 ```
 
 ### API 调用

@@ -258,10 +258,10 @@ spec:
 
 ### 3.5 本地开发环境配置
 
-非 K8s 环境使用静态 IP 或 Docker Compose 服务名：
+非 K8s 环境使用静态 IP 或其他本地服务发现方式：
 
 ```yaml
-# docker-compose.local.yml
+# local example
 version: '3.8'
 services:
   apisix:

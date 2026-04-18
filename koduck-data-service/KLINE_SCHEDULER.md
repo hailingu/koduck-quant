@@ -119,9 +119,9 @@ GET /api/v1/a-share/kline/scheduler/status
 }
 ```
 
-## Docker 配置
+## 运行配置
 
-所有 `docker-compose*.yml` 都已更新：
+仓库已移除 root 级别的 Docker Compose 入口。调度器相关配置以进程环境变量为准：
 
 ```yaml
 services:
@@ -195,7 +195,7 @@ python3 app/scripts/sync_kline_to_db.py --symbol 601012
 curl http://localhost:8000/api/v1/a-share/kline/scheduler/status
 
 # 查看日志
-docker-compose logs -f data-service | grep scheduler
+grep scheduler koduck-data-service/logs/*.log
 ```
 
 ### 常见问题

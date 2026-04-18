@@ -7,7 +7,7 @@ Python-based data service for quantitative trading system.
 - **A-Share Market Data**: Real-time quotes, search, hot stocks via AKShare
 - **REST API**: FastAPI-powered HTTP interface
 - **Caching**: Built-in memory cache with configurable TTL
-- **Docker Support**: Easy deployment with Docker Compose
+- **Repository Deployment Alignment**: Root-level deployment guidance is Kubernetes-first; standalone local runs use `uvicorn`
 
 ## Quick Start
 
@@ -25,14 +25,13 @@ pip install -r requirements.txt
 uvicorn app.main:app --reload
 ```
 
-### Docker Deployment
+### Deployment Note
 
 ```bash
-# Start with Docker Compose
-docker-compose up -d
-
-# Check logs
-docker-compose logs -f data-service
+# Repository-level deployment uses the Kubernetes flow under k8s/.
+# This module does not keep a standalone compose-based entrypoint anymore.
+# For local work, run it directly:
+uvicorn app.main:app --reload
 ```
 
 ## API Endpoints

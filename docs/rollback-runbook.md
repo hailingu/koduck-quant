@@ -95,12 +95,12 @@
 ### 快速回滚命令
 
 ```bash
-# Docker 部署回滚（推荐）
-make rollback VERSION=v1.2.2
+# Kubernetes 部署回滚（推荐）
+kubectl rollout undo deployment/dev-koduck-auth -n koduck-dev
 
-# 或手动指定镜像
-docker-compose pull koduck-backend:v1.2.2
-docker-compose up -d koduck-backend
+# 或查看历史版本后指定 revision
+kubectl rollout history deployment/dev-koduck-auth -n koduck-dev
+kubectl rollout undo deployment/dev-koduck-auth -n koduck-dev --to-revision=<REVISION>
 ```
 
 ### 详细回滚流程
@@ -139,24 +139,20 @@ echo "🚨 启动回滚流程
 
 #### 步骤 3: 执行回滚
 
-**Docker 部署**:
+**Kubernetes 部署**:
 
 ```bash
-# 3.1 停止当前服务
-docker-compose down koduck-backend
+# 3.1 查看 rollout 历史
+kubectl rollout history deployment/dev-koduck-auth -n koduck-dev
 
-# 3.2 切换到回滚版本
-git checkout $ROLLBACK_VERSION
+# 3.2 回滚到上一版本或指定 revision
+kubectl rollout undo deployment/dev-koduck-auth -n koduck-dev
+# kubectl rollout undo deployment/dev-koduck-auth -n koduck-dev --to-revision=<REVISION>
 
-# 3.3 构建回滚版本镜像
-docker-compose build koduck-backend
-
-# 3.4 启动回滚版本
-docker-compose up -d koduck-backend
-
-# 3.5 检查服务状态
-docker-compose ps koduck-backend
-docker logs koduck-backend --tail 50
+# 3.3 检查服务状态
+kubectl rollout status deployment/dev-koduck-auth -n koduck-dev --timeout=180s
+kubectl get pods -n koduck-dev -l app=koduck-auth
+kubectl logs -n koduck-dev deployment/dev-koduck-auth --tail=50
 ```
 
 **JAR 部署**:
