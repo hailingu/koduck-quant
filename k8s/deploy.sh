@@ -270,6 +270,120 @@ ensure_dev_local_gateway_port_forward() {
     echo -e "${GREEN}✓ 本机入口已就绪: http://127.0.0.1:19080${NC}"
 }
 
+json_escape() {
+    printf '%s' "$1" | sed 's/\\/\\\\/g; s/"/\\"/g'
+}
+
+sql_escape_literal() {
+    printf '%s' "$1" | sed "s/'/''/g"
+}
+
+ensure_dev_demo_user_full_model() {
+    if [ "${ENV}" != "dev" ]; then
+        return 0
+    fi
+
+    local demo_enabled="${APP_DEMO_ENABLED:-true}"
+    case "${demo_enabled}" in
+        true|TRUE|1|yes|YES) ;;
+        *)
+            echo -e "${YELLOW}跳过 Demo 用户补齐：APP_DEMO_ENABLED=${demo_enabled}${NC}"
+            return 0
+            ;;
+    esac
+
+    local gateway_url="http://127.0.0.1:19080"
+    local demo_username="${APP_DEMO_USERNAME:-demo}"
+    local demo_password="${APP_DEMO_PASSWORD:-demo123}"
+    local demo_email="${APP_DEMO_EMAIL:-demo@koduck.local}"
+    local demo_nickname="${APP_DEMO_NICKNAME:-Demo User}"
+    local demo_tenant_id="${APP_DEMO_TENANT_ID:-default}"
+    local escaped_username
+    local escaped_password
+    local escaped_email
+    local escaped_nickname
+    local register_payload
+    local login_payload
+    local register_response
+    local login_response
+    local register_code
+    local login_code
+    local postgres_pod
+    local sql_username
+    local auth_user_count
+    local auth_role_count
+
+    escaped_username="$(json_escape "${demo_username}")"
+    escaped_password="$(json_escape "${demo_password}")"
+    escaped_email="$(json_escape "${demo_email}")"
+    escaped_nickname="$(json_escape "${demo_nickname}")"
+    register_payload="$(printf '{"username":"%s","email":"%s","password":"%s","confirm_password":"%s","nickname":"%s"}' \
+        "${escaped_username}" "${escaped_email}" "${escaped_password}" "${escaped_password}" "${escaped_nickname}")"
+    login_payload="$(printf '{"username":"%s","password":"%s","tenant_id":"%s"}' \
+        "${escaped_username}" "${escaped_password}" "$(json_escape "${demo_tenant_id}")")"
+
+    register_response="$(mktemp)"
+    login_response="$(mktemp)"
+
+    echo -e "${YELLOW}补齐 Demo 用户全量模型（${demo_username}）...${NC}"
+
+    register_code="$(curl --noproxy '*' -sS -o "${register_response}" -w '%{http_code}' \
+        -H 'Content-Type: application/json' \
+        -X POST "${gateway_url}/api/v1/auth/register" \
+        -d "${register_payload}")"
+
+    if [ "${register_code}" = "200" ]; then
+        echo -e "${GREEN}✓ Demo 用户已创建并写入认证链路${NC}"
+    elif [ "${register_code}" = "409" ]; then
+        echo -e "${YELLOW}Demo 用户已存在，执行登录自愈 auth 本地模型...${NC}"
+        login_code="$(curl --noproxy '*' -sS -o "${login_response}" -w '%{http_code}' \
+            -H 'Content-Type: application/json' \
+            -X POST "${gateway_url}/api/v1/auth/login" \
+            -d "${login_payload}")"
+        if [ "${login_code}" != "200" ]; then
+            echo -e "${RED}错误: Demo 用户登录失败，无法补齐 auth 本地模型${NC}"
+            cat "${login_response}" || true
+            rm -f "${register_response}" "${login_response}"
+            exit 1
+        fi
+    else
+        echo -e "${RED}错误: Demo 用户注册失败（HTTP ${register_code}）${NC}"
+        cat "${register_response}" || true
+        rm -f "${register_response}" "${login_response}"
+        exit 1
+    fi
+
+    postgres_pod="$(kubectl -n "${NAMESPACE}" get pod -l app=postgres -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || true)"
+    if [ -z "${postgres_pod}" ]; then
+        echo -e "${RED}错误: 未找到 postgres Pod，无法验证 koduck_auth 中的 Demo 用户${NC}"
+        rm -f "${register_response}" "${login_response}"
+        exit 1
+    fi
+
+    sql_username="$(sql_escape_literal "${demo_username}")"
+    auth_user_count="$(kubectl exec -n "${NAMESPACE}" "${postgres_pod}" -- \
+        psql -U "${KODUCK_USER_DB_USERNAME:-koduck}" -d koduck_auth -At \
+        -c "SELECT COUNT(*) FROM users WHERE username = '${sql_username}';" 2>/dev/null || true)"
+    auth_role_count="$(kubectl exec -n "${NAMESPACE}" "${postgres_pod}" -- \
+        psql -U "${KODUCK_USER_DB_USERNAME:-koduck}" -d koduck_auth -At \
+        -c "SELECT COUNT(*) FROM user_roles ur JOIN users u ON u.id = ur.user_id WHERE u.username = '${sql_username}';" 2>/dev/null || true)"
+
+    if [ "${auth_user_count}" != "1" ]; then
+        echo -e "${RED}错误: Demo 用户未写入 koduck_auth.users${NC}"
+        rm -f "${register_response}" "${login_response}"
+        exit 1
+    fi
+
+    if [ -z "${auth_role_count}" ] || [ "${auth_role_count}" = "0" ]; then
+        echo -e "${RED}错误: Demo 用户未写入 koduck_auth.user_roles${NC}"
+        rm -f "${register_response}" "${login_response}"
+        exit 1
+    fi
+
+    rm -f "${register_response}" "${login_response}"
+    echo -e "${GREEN}✓ Demo 用户已补齐到 koduck_auth.users / user_roles${NC}"
+}
+
 # 修正 koduck-auth Secret 中的服务地址（避免主机名与 namePrefix 不一致）
 ensure_koduck_auth_secret_endpoints() {
     local auth_secret_name="${ENV}-koduck-auth-secrets"
@@ -665,6 +779,7 @@ install() {
     fi
 
     ensure_dev_local_gateway_port_forward
+    ensure_dev_demo_user_full_model
 
     echo -e "${GREEN}✓ Koduck 部署完成${NC}"
     show_access_info

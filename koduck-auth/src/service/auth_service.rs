@@ -7,6 +7,7 @@ use crate::{
     jwt::JwtService,
     model::{
         Claims, TokenType,
+        CreateUserDto,
         ForgotPasswordRequest, LoginRequest, RegisterRequest,
         RefreshTokenRequest, ResetPasswordRequest, SecurityConfigResponse,
         TokenPair, TokenResponse, UserInfo,
@@ -167,6 +168,8 @@ impl AuthService {
             .fetch_user_roles_from_user_service(&user.tenant_id, user.id)
             .await?;
 
+        self.sync_local_auth_user(&user, &roles).await?;
+
         // Update last login in koduck-user
         self.update_last_login_in_user_service(&user.tenant_id, user.id, &ip)
             .await?;
@@ -215,6 +218,8 @@ impl AuthService {
         let roles = self
             .fetch_user_roles_from_user_service(&created.tenant_id, created.id)
             .await?;
+
+        self.sync_local_auth_user(&created, &roles).await?;
 
         let tokens = self
             .generate_token_pair(
@@ -902,6 +907,49 @@ impl AuthService {
         }
     }
 
+    async fn sync_local_auth_user(
+        &self,
+        user: &InternalUserDetails,
+        roles: &[String],
+    ) -> Result<()> {
+        let local_user = self
+            .user_repo
+            .upsert_by_username(&CreateUserDto {
+                username: user.username.clone(),
+                email: user.email.clone(),
+                password_hash: user.password_hash.clone(),
+                nickname: user.nickname.clone(),
+            })
+            .await?;
+
+        let mut mapped_roles = roles
+            .iter()
+            .filter_map(|role| Self::map_internal_role_to_auth_role(role))
+            .collect::<Vec<_>>();
+
+        if mapped_roles.is_empty() {
+            mapped_roles.push("USER");
+        }
+
+        mapped_roles.sort_unstable();
+        mapped_roles.dedup();
+
+        for role_name in mapped_roles {
+            self.user_repo.assign_role(local_user.id, role_name).await?;
+        }
+
+        Ok(())
+    }
+
+    fn map_internal_role_to_auth_role(role: &str) -> Option<&'static str> {
+        match role {
+            "ROLE_USER" => Some("USER"),
+            "ROLE_ADMIN" | "ROLE_SUPER_ADMIN" => Some("ADMIN"),
+            "PREMIUM" | "ROLE_PREMIUM" => Some("PREMIUM"),
+            _ => None,
+        }
+    }
+
     async fn record_auth_audit_event(
         &self,
         tenant_id: &str,
@@ -966,5 +1014,14 @@ mod tests {
     fn test_try_extract_claims_without_verification_invalid_token() {
         let claims = AuthService::try_extract_claims_without_verification("invalid.token");
         assert!(claims.is_none());
+    }
+
+    #[test]
+    fn test_map_internal_role_to_auth_role() {
+        assert_eq!(AuthService::map_internal_role_to_auth_role("ROLE_USER"), Some("USER"));
+        assert_eq!(AuthService::map_internal_role_to_auth_role("ROLE_ADMIN"), Some("ADMIN"));
+        assert_eq!(AuthService::map_internal_role_to_auth_role("ROLE_SUPER_ADMIN"), Some("ADMIN"));
+        assert_eq!(AuthService::map_internal_role_to_auth_role("ROLE_PREMIUM"), Some("PREMIUM"));
+        assert_eq!(AuthService::map_internal_role_to_auth_role("UNKNOWN"), None);
     }
 }

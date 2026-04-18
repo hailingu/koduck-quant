@@ -116,6 +116,39 @@ impl UserRepository {
         Ok(user)
     }
 
+    /// Create or update a user record by username.
+    pub async fn upsert_by_username(&self, dto: &CreateUserDto) -> Result<User> {
+        let user = sqlx::query_as::<_, User>(
+            r#"
+            INSERT INTO users (username, email, password_hash, nickname, status, email_verified)
+            VALUES ($1, $2, $3, $4, 'ACTIVE', false)
+            ON CONFLICT (username) DO UPDATE
+            SET email = EXCLUDED.email,
+                password_hash = EXCLUDED.password_hash,
+                nickname = COALESCE(EXCLUDED.nickname, users.nickname),
+                status = 'ACTIVE',
+                email_verified = false,
+                updated_at = NOW()
+            RETURNING id, username, email, password_hash, nickname, avatar_url,
+                      status, email_verified, last_login_at, created_at, updated_at
+            "#,
+        )
+        .bind(&dto.username)
+        .bind(&dto.email)
+        .bind(&dto.password_hash)
+        .bind(&dto.nickname)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(|e| match e {
+            sqlx::Error::Database(db_err) if db_err.is_unique_violation() => {
+                AppError::Conflict("Username or email already exists".to_string())
+            }
+            _ => AppError::Database(e),
+        })?;
+
+        Ok(user)
+    }
+
     /// Update user
     pub async fn update(&self, id: i64, dto: &UpdateUserDto) -> Result<User> {
         let user = sqlx::query_as::<_, User>(
@@ -451,5 +484,27 @@ mod tests {
 
         let roles = repo.get_user_roles(user.id).await.unwrap();
         assert!(roles.contains(&"USER".to_string()));
+    }
+
+    #[sqlx::test]
+    async fn test_upsert_by_username_updates_existing_user(pool: PgPool) {
+        let repo = UserRepository::new(pool);
+        let original = test_user_dto("7");
+        let created = repo.create(&original).await.unwrap();
+
+        let updated = CreateUserDto {
+            username: original.username.clone(),
+            email: "updated7@example.com".to_string(),
+            password_hash: "updated_hash".to_string(),
+            nickname: Some("Updated Demo".to_string()),
+        };
+
+        let saved = repo.upsert_by_username(&updated).await.unwrap();
+
+        assert_eq!(saved.id, created.id);
+        assert_eq!(saved.email, updated.email);
+        assert_eq!(saved.password_hash, updated.password_hash);
+        assert_eq!(saved.nickname, updated.nickname);
+        assert_eq!(saved.status, UserStatus::Active);
     }
 }

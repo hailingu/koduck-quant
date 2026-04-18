@@ -13,8 +13,9 @@ use tokio::sync::broadcast;
 use tracing::warn;
 
 use crate::api;
-use crate::clients::capability::CapabilityCache;
+use crate::clients::capability::{CapabilityCache, MemoryCapabilitySource, ToolCapabilitySource};
 use crate::config::{Config, LlmMode};
+use crate::registry::{RegistrySnapshot, ServiceKind, ServiceRegistry};
 use crate::reliability::error::{AppError, UpstreamService};
 use crate::llm::{build_provider_router, LlmProvider};
 use crate::reliability::degrade::DegradePolicy;
@@ -34,6 +35,7 @@ pub struct AppState {
     pub memory_observe_policy: Arc<MemoryObservePolicy>,
     pub llm_provider: Arc<dyn LlmProvider>,
     pub capability_cache: Arc<CapabilityCache>,
+    pub service_registry: Arc<ServiceRegistry>,
 }
 
 /// Health check response
@@ -44,6 +46,8 @@ pub struct HealthResponse {
     pub version: &'static str,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub capabilities: Option<crate::clients::capability::NegotiationStatus>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub registry: Option<RegistrySnapshot>,
 }
 
 pub fn build_state(config: Config) -> Arc<AppState> {
@@ -65,6 +69,7 @@ pub fn build_state(config: Config) -> Arc<AppState> {
         retry_budget_policy: Arc::new(RetryBudgetPolicy::new(config.reliability.retry.clone())),
         memory_observe_policy: Arc::new(MemoryObservePolicy::new()),
         capability_cache: Arc::new(CapabilityCache::new(config.capabilities.clone())),
+        service_registry: Arc::new(ServiceRegistry::new(config.registry.clone())),
         config,
         stream_registry: Arc::new(StreamRegistry::default()),
         lifecycle,
@@ -75,12 +80,50 @@ pub async fn initialize_runtime(
     state: &Arc<AppState>,
     shutdown_rx: broadcast::Receiver<()>,
 ) -> Result<(), AppError> {
+    if state.service_registry.enabled() {
+        if let Err(error) = state.service_registry.sync_once().await {
+            warn!(
+                error = %error,
+                "initial capability service registry sync failed"
+            );
+        }
+    }
+
+    let memory_source = if state.service_registry.enabled() {
+        match state
+            .service_registry
+            .resolve_ai_capability_service(ServiceKind::Memory)
+            .await
+        {
+            Some(service) => MemoryCapabilitySource::Registry(service),
+            None => {
+                return Err(AppError::new(
+                    crate::reliability::error::ErrorCode::DependencyFailed,
+                    "memory service is not registered in capability service registry",
+                ));
+            }
+        }
+    } else {
+        MemoryCapabilitySource::Grpc(state.config.memory.grpc_target.clone())
+    };
+    let tool_target = state
+        .service_registry
+        .resolve_grpc_target(ServiceKind::Tool, &state.config.tools.grpc_target)
+        .await;
+    let registry_tool_services = state.service_registry.resolve_ai_tool_services().await;
+    let tool_source = if !registry_tool_services.is_empty() {
+        ToolCapabilitySource::Registry(registry_tool_services)
+    } else if state.config.tools.enabled {
+        ToolCapabilitySource::Grpc(tool_target.clone())
+    } else {
+        ToolCapabilitySource::Disabled
+    };
+
     if let Err(error) = state
         .capability_cache
         .initial_negotiation_mode_aware(
-            &state.config.memory.grpc_target,
-            state.config.tools.enabled,
-            &state.config.tools.grpc_target,
+            &memory_source,
+            &tool_source,
             &state.config.llm.adapter_grpc_target,
             state.config.llm.mode,
             &state.config.llm,
@@ -91,9 +134,8 @@ pub async fn initialize_runtime(
         if should_tolerate_startup_capability_error(state, &error) {
             warn!(
                 error = %error,
-                memory_target = %state.config.memory.grpc_target,
-                tools_enabled = state.config.tools.enabled,
-                tool_target = %state.config.tools.grpc_target,
+                memory_source = %memory_source.describe(),
+                tool_source = %tool_source.describe(),
                 "memory/tool capability negotiation failed during startup; continuing in direct llm mode and relying on background refresh"
             );
         } else {
@@ -101,10 +143,19 @@ pub async fn initialize_runtime(
         }
     }
 
+    state
+        .service_registry
+        .clone()
+        .spawn_refresh_task(shutdown_rx.resubscribe());
+
     state.capability_cache.spawn_refresh_task_mode_aware(
-        state.config.memory.grpc_target.clone(),
-        state.config.tools.enabled,
-        state.config.tools.grpc_target.clone(),
+        if state.service_registry.enabled() {
+            Some(state.service_registry.clone())
+        } else {
+            None
+        },
+        memory_source,
+        tool_source,
         state.config.llm.adapter_grpc_target.clone(),
         state.config.llm.mode,
         state.config.llm.clone(),
@@ -154,11 +205,13 @@ async fn health_handler(
     State(state): State<Arc<AppState>>,
 ) -> axum::Json<HealthResponse> {
     let capabilities = state.capability_cache.get_negotiation_status().await;
+    let registry = state.service_registry.snapshot().await;
     axum::Json(HealthResponse {
         status: "ok",
         service: "koduck-ai",
         version: env!("CARGO_PKG_VERSION"),
         capabilities: Some(capabilities),
+        registry: Some(registry),
     })
 }
 
@@ -170,5 +223,6 @@ async fn degrade_metrics_handler(
         "retry_budget": state.retry_budget_policy.snapshot(),
         "memory": state.memory_observe_policy.snapshot(),
         "capability": state.capability_cache.get_metrics_snapshot(),
+        "registry": state.service_registry.snapshot().await,
     }))
 }

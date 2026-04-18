@@ -12,6 +12,14 @@ spec:
           image: koduck-knowledge:dev
           imagePullPolicy: Never
 ---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: koduck-knowledge-secrets
+  namespace: koduck
+stringData:
+  database-url: "jdbc:postgresql://dev-postgres:5432/koduck_knowledge"
+---
 apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:

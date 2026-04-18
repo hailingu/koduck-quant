@@ -39,6 +39,7 @@ pub struct Config {
     pub stream: StreamConfig,
     pub auth: AuthConfig,
     pub capabilities: CapabilitiesConfig,
+    pub registry: RegistryConfig,
     pub reliability: ReliabilityConfig,
 }
 
@@ -123,6 +124,15 @@ pub struct CapabilitiesConfig {
     pub strict_mode: bool,
 }
 
+/// Kubernetes-backed service discovery registry configuration.
+#[derive(Debug, Deserialize, Clone)]
+pub struct RegistryConfig {
+    pub enabled: bool,
+    pub api_base_url: String,
+    pub namespace: String,
+    pub poll_interval_secs: u64,
+}
+
 /// Reliability configuration (degrade / retry / circuit).
 #[derive(Debug, Deserialize, Clone)]
 pub struct ReliabilityConfig {
@@ -170,7 +180,8 @@ impl MemoryConfig {
     pub fn validate(&self) -> Result<(), ValidationError> {
         if self.grpc_target.trim().is_empty() {
             return Err(ValidationError {
-                message: "memory.grpc_target cannot be empty".to_string(),
+                message: "memory.grpc_target cannot be empty when registry is disabled"
+                    .to_string(),
             });
         }
         Ok(())
@@ -343,6 +354,30 @@ impl ReliabilityConfig {
     }
 }
 
+impl RegistryConfig {
+    pub fn validate(&self) -> Result<(), ValidationError> {
+        if !self.enabled {
+            return Ok(());
+        }
+        if self.api_base_url.trim().is_empty() {
+            return Err(ValidationError {
+                message: "registry.api_base_url cannot be empty".to_string(),
+            });
+        }
+        if self.namespace.trim().is_empty() {
+            return Err(ValidationError {
+                message: "registry.namespace cannot be empty".to_string(),
+            });
+        }
+        if self.poll_interval_secs == 0 {
+            return Err(ValidationError {
+                message: "registry.poll_interval_secs must be greater than 0".to_string(),
+            });
+        }
+        Ok(())
+    }
+}
+
 impl DegradeConfig {
     pub fn validate(&self) -> Result<(), ValidationError> {
         Ok(())
@@ -393,7 +428,7 @@ impl Default for ServerConfig {
 impl Default for MemoryConfig {
     fn default() -> Self {
         Self {
-            grpc_target: "http://localhost:50052".to_string(),
+            grpc_target: String::new(),
         }
     }
 }
@@ -474,6 +509,17 @@ impl Default for CapabilitiesConfig {
     }
 }
 
+impl Default for RegistryConfig {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            api_base_url: "https://kubernetes.default.svc".to_string(),
+            namespace: "default".to_string(),
+            poll_interval_secs: 30,
+        }
+    }
+}
+
 impl Default for ReliabilityConfig {
     fn default() -> Self {
         Self {
@@ -541,7 +587,7 @@ impl Config {
             .set_default("server.grpc_addr", "0.0.0.0:50051")?
             .set_default("server.metrics_addr", "0.0.0.0:9090")?
             // Defaults — MemoryConfig
-            .set_default("memory.grpc_target", "http://localhost:50052")?
+            .set_default("memory.grpc_target", "")?
             // Defaults — ToolConfig
             .set_default("tools.enabled", false)?
             .set_default("tools.grpc_target", "http://localhost:50053")?
@@ -576,6 +622,11 @@ impl Config {
             .set_default("capabilities.startup_timeout_ms", 5_000)?
             .set_default("capabilities.required_version", "v1")?
             .set_default("capabilities.strict_mode", true)?
+            // Defaults — RegistryConfig
+            .set_default("registry.enabled", false)?
+            .set_default("registry.api_base_url", "https://kubernetes.default.svc")?
+            .set_default("registry.namespace", "default")?
+            .set_default("registry.poll_interval_secs", 30)?
             // Defaults — ReliabilityConfig
             .set_default("reliability.degrade.enabled", true)?
             .set_default("reliability.degrade.chat_enabled", true)?
@@ -611,12 +662,15 @@ impl Config {
     /// Validate all configuration sections.
     pub fn validate(&self) -> Result<(), ValidationError> {
         self.server.validate()?;
-        self.memory.validate()?;
+        if !self.registry.enabled {
+            self.memory.validate()?;
+        }
         self.tools.validate()?;
         self.llm.validate()?;
         self.stream.validate()?;
         self.auth.validate()?;
         self.capabilities.validate()?;
+        self.registry.validate()?;
         self.reliability.validate()?;
         Ok(())
     }
@@ -648,7 +702,7 @@ impl fmt::Display for Config {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
-            "Config {{ server: {:?}, memory: {:?}, tools: {:?}, llm: LlmConfig {{ mode: {:?}, adapter_grpc_target: {:?}, default_provider: {:?}, timeout_ms: {}, stub_enabled: {}, providers: ***, ... }}, stream: {:?}, auth: {:?}, capabilities: {:?}, reliability: {:?} }}",
+            "Config {{ server: {:?}, memory: {:?}, tools: {:?}, llm: LlmConfig {{ mode: {:?}, adapter_grpc_target: {:?}, default_provider: {:?}, timeout_ms: {}, stub_enabled: {}, providers: ***, ... }}, stream: {:?}, auth: {:?}, capabilities: {:?}, registry: {:?}, reliability: {:?} }}",
             self.server,
             self.memory,
             self.tools,
@@ -660,6 +714,7 @@ impl fmt::Display for Config {
             self.stream,
             self.auth,
             self.capabilities,
+            self.registry,
             self.reliability,
         )
     }
@@ -713,9 +768,9 @@ mod tests {
     }
 
     #[test]
-    fn test_memory_config_default_valid() {
+    fn test_memory_config_default_empty() {
         let config = MemoryConfig::default();
-        assert!(config.validate().is_ok());
+        assert!(config.grpc_target.is_empty());
     }
 
     #[test]
@@ -726,6 +781,19 @@ mod tests {
         let result = config.validate();
         assert!(result.is_err());
         assert!(result.unwrap_err().message.contains("grpc_target"));
+    }
+
+    #[test]
+    fn test_config_validate_allows_empty_memory_target_when_registry_enabled() {
+        let config = Config {
+            registry: RegistryConfig {
+                enabled: true,
+                ..RegistryConfig::default()
+            },
+            ..Config::default()
+        };
+
+        assert!(config.validate().is_ok());
     }
 
     #[test]
@@ -817,6 +885,25 @@ mod tests {
     }
 
     #[test]
+    fn test_registry_config_default_valid_when_disabled() {
+        let config = RegistryConfig::default();
+        assert!(config.validate().is_ok());
+    }
+
+    #[test]
+    fn test_registry_config_enabled_requires_namespace() {
+        let config = RegistryConfig {
+            enabled: true,
+            api_base_url: "https://kubernetes.default.svc".to_string(),
+            namespace: "".to_string(),
+            poll_interval_secs: 30,
+        };
+        let result = config.validate();
+        assert!(result.is_err());
+        assert!(result.unwrap_err().message.contains("registry.namespace"));
+    }
+
+    #[test]
     fn test_config_display_masks_secrets() {
         let config = Config {
             server: ServerConfig::default(),
@@ -840,6 +927,7 @@ mod tests {
             stream: StreamConfig::default(),
             auth: AuthConfig::default(),
             capabilities: CapabilitiesConfig::default(),
+            registry: RegistryConfig::default(),
             reliability: ReliabilityConfig::default(),
         };
         let display = format!("{}", config);
@@ -884,6 +972,7 @@ mod tests {
             stream: StreamConfig::default(),
             auth: AuthConfig::default(),
             capabilities: CapabilitiesConfig::default(),
+            registry: RegistryConfig::default(),
             reliability: ReliabilityConfig::default(),
         };
         assert_eq!(config.openai_api_key(), Some("sk-test"));

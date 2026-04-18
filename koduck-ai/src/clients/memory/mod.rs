@@ -7,6 +7,7 @@ use tonic::{transport::Endpoint, Request};
 use crate::{
     app::AppState,
     auth::AuthContext,
+    registry::{ServiceKind, ServiceProtocol},
     reliability::{
         error::{AppError, ErrorCode, UpstreamService},
         error_mapper::{map_contract_error_detail, map_grpc_status, map_transport_error},
@@ -91,7 +92,8 @@ pub async fn get_session(
     state: &Arc<AppState>,
     ctx: &MemoryRequestContext,
 ) -> Result<SessionInfo, AppError> {
-    let mut client = connect_client(&state.config.memory.grpc_target, &ctx.request_id).await?;
+    let target = resolve_memory_target(state).await?;
+    let mut client = connect_client(&target, &ctx.request_id).await?;
     let response = client
         .get_session(Request::new(GetSessionRequest {
             meta: Some(ctx.request_meta(String::new())),
@@ -108,7 +110,8 @@ pub async fn upsert_session_meta(
     ctx: &MemoryRequestContext,
     input: SessionUpsertInput,
 ) -> Result<(), AppError> {
-    let mut client = connect_client(&state.config.memory.grpc_target, &ctx.request_id).await?;
+    let target = resolve_memory_target(state).await?;
+    let mut client = connect_client(&target, &ctx.request_id).await?;
     let response = client
         .upsert_session_meta(Request::new(UpsertSessionMetaRequest {
             meta: Some(ctx.request_meta(format!("{}:upsert-session-meta", ctx.request_id))),
@@ -131,7 +134,8 @@ pub async fn query_memory(
     ctx: &MemoryRequestContext,
     input: QueryMemoryInput,
 ) -> Result<Vec<MemoryHit>, AppError> {
-    let mut client = connect_client(&state.config.memory.grpc_target, &ctx.request_id).await?;
+    let target = resolve_memory_target(state).await?;
+    let mut client = connect_client(&target, &ctx.request_id).await?;
     let response = client
         .query_memory(Request::new(QueryMemoryRequest {
             meta: Some(ctx.request_meta(String::new())),
@@ -156,7 +160,8 @@ pub async fn append_memory(
     entries: Vec<MemoryEntry>,
     operation_suffix: &str,
 ) -> Result<i32, AppError> {
-    let mut client = connect_client(&state.config.memory.grpc_target, &ctx.request_id).await?;
+    let target = resolve_memory_target(state).await?;
+    let mut client = connect_client(&target, &ctx.request_id).await?;
     let response = client
         .append_memory(Request::new(AppendMemoryRequest {
             meta: Some(ctx.request_meta(format!(
@@ -199,6 +204,39 @@ async fn connect_client(
     })?;
 
     Ok(MemoryServiceClient::new(channel))
+}
+
+async fn resolve_memory_target(state: &Arc<AppState>) -> Result<String, AppError> {
+    if state.service_registry.enabled() {
+        let service = state
+            .service_registry
+            .resolve_ai_capability_service(ServiceKind::Memory)
+            .await
+            .ok_or_else(|| {
+                AppError::new(
+                    ErrorCode::DependencyFailed,
+                    "memory service is not registered in capability service registry",
+                )
+                .with_upstream(UpstreamService::Memory)
+            })?;
+
+        if service.endpoint.protocol != ServiceProtocol::Grpc {
+            return Err(
+                AppError::new(
+                    ErrorCode::DependencyFailed,
+                    format!(
+                        "memory service '{}' advertises unsupported endpoint protocol '{}'",
+                        service.name, service.endpoint.protocol
+                    ),
+                )
+                .with_upstream(UpstreamService::Memory),
+            );
+        }
+
+        return Ok(service.endpoint.target);
+    }
+
+    Ok(state.config.memory.grpc_target.clone())
 }
 
 fn map_get_session_response(

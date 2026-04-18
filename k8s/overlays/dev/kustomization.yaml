@@ -5,17 +5,20 @@ namespace: koduck-dev
 
 resources:
   - ./namespace.yaml
+  - ../../base/capability-service-crd.yaml
   - ../../base/frontend.yaml
   - ../../base/koduck-auth.yaml
   - ../../base/koduck-user.yaml
   - ../../base/koduck-knowledge.yaml
   - ../../base/koduck-ai.yaml
+  - ../../base/koduck-ai-registry-rbac.yaml
   - ../../base/koduck-memory.yaml
   - ../../base/minio.yaml
   - ../../base/postgres.yaml
   - ../../base/redis.yaml
   - ./apisix.yaml
   - ./minio.yaml
+  - ./capability-services.yaml
 
 patchesStrategicMerge:
   - ./frontend.yaml

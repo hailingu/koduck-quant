@@ -11,6 +11,7 @@ pub mod config;
 pub mod llm;
 pub mod observe;
 pub mod orchestrator;
+pub mod registry;
 pub mod reliability;
 pub mod stream;
 

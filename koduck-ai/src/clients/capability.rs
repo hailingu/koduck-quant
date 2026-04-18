@@ -8,7 +8,8 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
-use serde::Serialize;
+use reqwest::Url;
+use serde::{Deserialize, Serialize};
 use tokio::sync::{broadcast, RwLock};
 use tonic::transport::Endpoint;
 use tracing::{debug, error, info, warn};
@@ -16,6 +17,7 @@ use tracing::{debug, error, info, warn};
 use crate::clients::proto;
 use crate::config::{CapabilitiesConfig, LlmConfig, LlmMode};
 use crate::llm::LlmProvider;
+use crate::registry::{DiscoveredService, ServiceKind, ServiceProtocol, ServiceRegistry};
 use crate::reliability::{
     error::{AppError, ErrorCode, UpstreamService},
     error_mapper::{map_grpc_status, map_transport_error},
@@ -187,6 +189,49 @@ impl Default for NegotiationStatus {
     }
 }
 
+#[derive(Debug, Clone)]
+pub enum MemoryCapabilitySource {
+    Grpc(String),
+    Registry(DiscoveredService),
+}
+
+impl MemoryCapabilitySource {
+    pub fn describe(&self) -> String {
+        match self {
+            Self::Grpc(addr) => format!("grpc:{addr}"),
+            Self::Registry(service) => format!("registry:{}", service.name),
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub enum ToolCapabilitySource {
+    Disabled,
+    Grpc(String),
+    Registry(Vec<DiscoveredService>),
+}
+
+impl ToolCapabilitySource {
+    pub fn is_enabled(&self) -> bool {
+        !matches!(self, Self::Disabled)
+    }
+
+    pub fn describe(&self) -> String {
+        match self {
+            Self::Disabled => "disabled".to_string(),
+            Self::Grpc(addr) => format!("grpc:{addr}"),
+            Self::Registry(services) => {
+                let names = services
+                    .iter()
+                    .map(|service| service.name.as_str())
+                    .collect::<Vec<_>>()
+                    .join(",");
+                format!("registry:[{names}]")
+            }
+        }
+    }
+}
+
 // ---------------------------------------------------------------------------
 // Capability Cache
 // ---------------------------------------------------------------------------
@@ -318,9 +363,8 @@ impl CapabilityCache {
 
     pub async fn initial_negotiation_mode_aware(
         &self,
-        memory_addr: &str,
-        tool_enabled: bool,
-        tool_addr: &str,
+        memory_source: &MemoryCapabilitySource,
+        tool_source: &ToolCapabilitySource,
         llm_addr: &str,
         llm_mode: LlmMode,
         llm_config: &LlmConfig,
@@ -328,7 +372,10 @@ impl CapabilityCache {
     ) -> Result<NegotiationResult, AppError> {
         let timeout = Duration::from_millis(self.config.startup_timeout_ms);
 
-        let memory_handle = tokio::time::timeout(timeout, fetch_memory_capability(memory_addr));
+        let memory_handle = tokio::time::timeout(
+            timeout,
+            fetch_memory_capability_from_source(memory_source),
+        );
         let llm_handle = match llm_mode {
             LlmMode::Adapter => tokio::time::timeout(timeout, fetch_llm_capability(llm_addr))
                 .await
@@ -371,14 +418,24 @@ impl CapabilityCache {
                     "deadline exceeded",
                 )
             })?
-            .map_err(|e| map_grpc_status(UpstreamService::Memory, "startup-capability-check", &e))?;
+            ?;
 
         let llm_cap = llm_handle?;
-        let tool_cap = if tool_enabled {
+        let tool_cap = if tool_source.is_enabled() {
             Some(
-                tool_handle_result(
-                    tokio::time::timeout(timeout, fetch_tool_capability(tool_addr)).await,
-                )?,
+                tokio::time::timeout(
+                    timeout,
+                    fetch_tool_capability_from_source(tool_source, &self.config, &self.metrics),
+                )
+                .await
+                .map_err(|_| {
+                    map_transport_error(
+                        UpstreamService::Tool,
+                        "startup-capability-check",
+                        "tool discovery capability check timed out",
+                        "deadline exceeded",
+                    )
+                })??,
             )
         } else {
             None
@@ -431,7 +488,7 @@ impl CapabilityCache {
 
         *self.negotiation_status.write().await = NegotiationStatus {
             memory: ServiceNegotiationStatus::Ok,
-            tool: if tool_enabled {
+            tool: if tool_source.is_enabled() {
                 ServiceNegotiationStatus::Ok
             } else {
                 ServiceNegotiationStatus::Disabled
@@ -487,9 +544,9 @@ impl CapabilityCache {
 
     pub fn spawn_refresh_task_mode_aware(
         self: &Arc<Self>,
-        memory_addr: String,
-        tool_enabled: bool,
-        tool_addr: String,
+        service_registry: Option<Arc<ServiceRegistry>>,
+        memory_source: MemoryCapabilitySource,
+        tool_source: ToolCapabilitySource,
         llm_addr: String,
         llm_mode: LlmMode,
         llm_config: LlmConfig,
@@ -503,10 +560,32 @@ impl CapabilityCache {
             loop {
                 tokio::select! {
                     _ = tokio::time::sleep(ttl) => {
+                        let resolved_memory_addr = match service_registry.as_ref() {
+                            Some(registry) => {
+                                match registry
+                                    .resolve_ai_capability_service(ServiceKind::Memory)
+                                    .await
+                                {
+                                    Some(service) => MemoryCapabilitySource::Registry(service),
+                                    None => memory_source.clone(),
+                                }
+                            }
+                            None => memory_source.clone(),
+                        };
+                        let resolved_tool_source = match service_registry.as_ref() {
+                            Some(registry) => {
+                                let services = registry.resolve_ai_tool_services().await;
+                                if services.is_empty() {
+                                    tool_source.clone()
+                                } else {
+                                    ToolCapabilitySource::Registry(services)
+                                }
+                            }
+                            None => tool_source.clone(),
+                        };
                         cache.refresh_all_mode_aware(
-                            &memory_addr,
-                            tool_enabled,
-                            &tool_addr,
+                            &resolved_memory_addr,
+                            &resolved_tool_source,
                             &llm_addr,
                             llm_mode,
                             &llm_config,
@@ -596,16 +675,15 @@ impl CapabilityCache {
 
     async fn refresh_all_mode_aware(
         &self,
-        memory_addr: &str,
-        tool_enabled: bool,
-        tool_addr: &str,
+        memory_source: &MemoryCapabilitySource,
+        tool_source: &ToolCapabilitySource,
         llm_addr: &str,
         llm_mode: LlmMode,
         llm_config: &LlmConfig,
         required_version: &str,
         llm_provider: Arc<dyn LlmProvider>,
     ) {
-        match fetch_memory_capability(memory_addr).await {
+        match fetch_memory_capability_from_source(memory_source).await {
             Ok(cap) => {
                 debug!(
                     service = %cap.service,
@@ -624,8 +702,8 @@ impl CapabilityCache {
             }
         }
 
-        if tool_enabled {
-            match fetch_tool_capability(tool_addr).await {
+        if tool_source.is_enabled() {
+            match fetch_tool_capability_from_source(tool_source, &self.config, &self.metrics).await {
                 Ok(cap) => {
                     debug!(
                         service = %cap.service,
@@ -680,7 +758,7 @@ impl CapabilityCache {
 
         *self.negotiation_status.write().await = NegotiationStatus {
             memory: if self.memory.read().await.is_some() { ServiceNegotiationStatus::Ok } else { ServiceNegotiationStatus::Failed },
-            tool: if tool_enabled {
+            tool: if tool_source.is_enabled() {
                 if self.tool.read().await.is_some() {
                     ServiceNegotiationStatus::Ok
                 } else {
@@ -778,6 +856,41 @@ async fn fetch_memory_capability(addr: &str) -> Result<proto::Capability, tonic:
     Ok(response.into_inner())
 }
 
+async fn fetch_memory_capability_from_source(
+    memory_source: &MemoryCapabilitySource,
+) -> Result<proto::Capability, AppError> {
+    match memory_source {
+        MemoryCapabilitySource::Grpc(addr) => fetch_memory_capability(addr)
+            .await
+            .map_err(|e| map_grpc_status(UpstreamService::Memory, "startup-capability-check", &e)),
+        MemoryCapabilitySource::Registry(service) => {
+            let probe = service.capability_probe.as_ref().ok_or_else(|| {
+                AppError::new(
+                    ErrorCode::InvalidArgument,
+                    format!("service '{}' does not define a capability probe", service.name),
+                )
+                .with_upstream(UpstreamService::Memory)
+            })?;
+
+            match probe.protocol {
+                ServiceProtocol::Grpc => fetch_memory_capability(&probe.target).await.map_err(
+                    |e| map_grpc_status(UpstreamService::Memory, "registry-capability-check", &e),
+                ),
+                ServiceProtocol::Http => Err(
+                    AppError::new(
+                        ErrorCode::InvalidArgument,
+                        format!(
+                            "memory service '{}' advertises unsupported http capability probe",
+                            service.name
+                        ),
+                    )
+                    .with_upstream(UpstreamService::Memory),
+                ),
+            }
+        }
+    }
+}
+
 async fn fetch_tool_capability(addr: &str) -> Result<proto::Capability, tonic::Status> {
     let endpoint = Endpoint::from_shared(addr.to_string())
         .map_err(|e| tonic::Status::internal(format!("invalid endpoint '{}': {}", addr, e)))?;
@@ -796,6 +909,307 @@ async fn fetch_tool_capability(addr: &str) -> Result<proto::Capability, tonic::S
         )))
         .await?;
     Ok(response.into_inner())
+}
+
+async fn fetch_tool_capability_from_source(
+    tool_source: &ToolCapabilitySource,
+    config: &CapabilitiesConfig,
+    metrics: &CapabilityMetrics,
+) -> Result<proto::Capability, AppError> {
+    match tool_source {
+        ToolCapabilitySource::Disabled => Err(AppError::new(
+            ErrorCode::InvalidArgument,
+            "tool capability source is disabled",
+        )),
+        ToolCapabilitySource::Grpc(addr) => fetch_tool_capability(addr)
+            .await
+            .map_err(|e| map_grpc_status(UpstreamService::Tool, "startup-capability-check", &e)),
+        ToolCapabilitySource::Registry(services) => {
+            fetch_registry_tool_capability(services, config, metrics).await
+        }
+    }
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct HttpCapabilityResponse {
+    service: String,
+    #[serde(default)]
+    service_kind: Option<String>,
+    #[serde(default)]
+    contract_versions: Vec<String>,
+    #[serde(default)]
+    features: Vec<String>,
+    #[serde(default)]
+    limits: HashMap<String, serde_json::Value>,
+}
+
+async fn fetch_registry_tool_capability(
+    services: &[DiscoveredService],
+    config: &CapabilitiesConfig,
+    metrics: &CapabilityMetrics,
+) -> Result<proto::Capability, AppError> {
+    let mut capabilities = Vec::with_capacity(services.len());
+    for service in services {
+        capabilities.push(fetch_discovered_tool_capability(service).await?);
+    }
+
+    check_registry_tool_version_compatibility(&capabilities, config, metrics)?;
+    Ok(aggregate_registry_tool_capability(&capabilities))
+}
+
+async fn fetch_discovered_tool_capability(
+    service: &DiscoveredService,
+) -> Result<proto::Capability, AppError> {
+    let probe = service.capability_probe.as_ref().ok_or_else(|| {
+        AppError::new(
+            ErrorCode::InvalidArgument,
+            format!("service '{}' does not define a capability probe", service.name),
+        )
+        .with_upstream(UpstreamService::Tool)
+    })?;
+
+    match probe.protocol {
+        ServiceProtocol::Grpc => fetch_tool_capability(&probe.target)
+            .await
+            .map_err(|e| map_grpc_status(UpstreamService::Tool, "registry-capability-check", &e)),
+        ServiceProtocol::Http => fetch_http_capability(service, probe).await,
+    }
+}
+
+async fn fetch_http_capability(
+    service: &DiscoveredService,
+    probe: &crate::registry::CapabilityProbe,
+) -> Result<proto::Capability, AppError> {
+    let url = build_capability_probe_url(&probe.target, probe.http_path.as_deref()).map_err(|e| {
+        AppError::new(
+            ErrorCode::InvalidArgument,
+            format!(
+                "service '{}' has an invalid capability probe url: {}",
+                service.name, e
+            ),
+        )
+        .with_upstream(UpstreamService::Tool)
+    })?;
+
+    let response = reqwest::Client::new()
+        .get(url.clone())
+        .timeout(Duration::from_secs(5))
+        .send()
+        .await
+        .map_err(|error| {
+            map_transport_error(
+                UpstreamService::Tool,
+                "registry-capability-check",
+                "tool capability http probe failed",
+                error,
+            )
+        })?
+        .error_for_status()
+        .map_err(|error| {
+            map_transport_error(
+                UpstreamService::Tool,
+                "registry-capability-check",
+                "tool capability http probe returned error",
+                error,
+            )
+        })?;
+
+    let payload = response.json::<HttpCapabilityResponse>().await.map_err(|error| {
+        map_transport_error(
+            UpstreamService::Tool,
+            "registry-capability-check",
+            "tool capability http probe returned invalid json",
+            error,
+        )
+    })?;
+
+    Ok(http_capability_to_proto(service, payload))
+}
+
+fn build_capability_probe_url(target: &str, http_path: Option<&str>) -> Result<Url, String> {
+    let mut url = Url::parse(target).map_err(|error| error.to_string())?;
+    if let Some(path) = http_path {
+        let normalized = if path.starts_with('/') {
+            path.to_string()
+        } else {
+            format!("/{path}")
+        };
+        url.set_path(&normalized);
+    }
+    Ok(url)
+}
+
+fn http_capability_to_proto(
+    service: &DiscoveredService,
+    payload: HttpCapabilityResponse,
+) -> proto::Capability {
+    let mut features = HashMap::new();
+    for feature in payload.features {
+        features.insert(feature, "true".to_string());
+    }
+
+    features.insert(
+        "service_kind".to_string(),
+        payload
+            .service_kind
+            .unwrap_or_else(|| service.service_kind.to_string()),
+    );
+    features.insert(
+        "registry_name".to_string(),
+        service.name.clone(),
+    );
+    features.insert("probe_protocol".to_string(), "http".to_string());
+
+    let limits = payload
+        .limits
+        .into_iter()
+        .map(|(key, value)| (key, stringify_json_value(value)))
+        .collect();
+
+    proto::Capability {
+        service: payload.service,
+        contract_versions: payload.contract_versions,
+        features,
+        limits,
+    }
+}
+
+fn stringify_json_value(value: serde_json::Value) -> String {
+    match value {
+        serde_json::Value::Null => "null".to_string(),
+        serde_json::Value::Bool(value) => value.to_string(),
+        serde_json::Value::Number(value) => value.to_string(),
+        serde_json::Value::String(value) => value,
+        other => other.to_string(),
+    }
+}
+
+fn check_registry_tool_version_compatibility(
+    capabilities: &[proto::Capability],
+    config: &CapabilitiesConfig,
+    metrics: &CapabilityMetrics,
+) -> Result<(), AppError> {
+    let mismatches = capabilities
+        .iter()
+        .filter(|capability| {
+            !capability
+                .contract_versions
+                .iter()
+                .any(|version| version_matches(version, &config.required_version))
+        })
+        .map(|capability| VersionMismatchAlert {
+            service: capability.service.clone(),
+            expected_version: config.required_version.clone(),
+            actual_versions: capability.contract_versions.clone(),
+            severity: "critical".to_string(),
+        })
+        .collect::<Vec<_>>();
+
+    if mismatches.is_empty() {
+        return Ok(());
+    }
+
+    metrics.record_version_mismatch(mismatches.len() as u64);
+
+    if config.strict_mode {
+        for alert in &mismatches {
+            error!(
+                service = %alert.service,
+                expected = %alert.expected_version,
+                actual = ?alert.actual_versions,
+                "Registry-discovered tool reports incompatible contract version"
+            );
+        }
+        return Err(
+            AppError::new(
+                ErrorCode::DependencyFailed,
+                format!(
+                    "Registry-discovered tool incompatibility: {} service(s) do not support required version '{}'",
+                    mismatches.len(),
+                    config.required_version
+                ),
+            )
+            .with_upstream(UpstreamService::Tool),
+        );
+    }
+
+    for alert in &mismatches {
+        warn!(
+            service = %alert.service,
+            expected = %alert.expected_version,
+            actual = ?alert.actual_versions,
+            "Registry-discovered tool version mismatch detected (non-strict mode, continuing)"
+        );
+    }
+
+    Ok(())
+}
+
+fn aggregate_registry_tool_capability(capabilities: &[proto::Capability]) -> proto::Capability {
+    let mut contract_versions = capabilities
+        .iter()
+        .flat_map(|capability| capability.contract_versions.iter().cloned())
+        .collect::<Vec<_>>();
+    contract_versions.sort();
+    contract_versions.dedup();
+
+    let mut features = HashMap::new();
+    let service_names = capabilities
+        .iter()
+        .map(|capability| capability.service.clone())
+        .collect::<Vec<_>>();
+    features.insert("mode".to_string(), "registry".to_string());
+    features.insert(
+        "service_count".to_string(),
+        capabilities.len().to_string(),
+    );
+    features.insert("service_names".to_string(), service_names.join(","));
+
+    let mut limits = HashMap::new();
+    limits.insert(
+        "service_count".to_string(),
+        capabilities.len().to_string(),
+    );
+
+    for capability in capabilities {
+        let service_key = sanitize_capability_segment(&capability.service);
+        features.insert(
+            format!("service.{service_key}.contract_versions"),
+            capability.contract_versions.join(","),
+        );
+        for (feature_key, feature_value) in &capability.features {
+            features.insert(
+                format!("service.{service_key}.{}", sanitize_capability_segment(feature_key)),
+                feature_value.clone(),
+            );
+        }
+        for (limit_key, limit_value) in &capability.limits {
+            limits.insert(
+                format!("service.{service_key}.{}", sanitize_capability_segment(limit_key)),
+                limit_value.clone(),
+            );
+        }
+    }
+
+    proto::Capability {
+        service: "tool-registry".to_string(),
+        contract_versions,
+        features,
+        limits,
+    }
+}
+
+fn sanitize_capability_segment(value: &str) -> String {
+    value.chars()
+        .map(|ch| {
+            if ch.is_ascii_alphanumeric() {
+                ch.to_ascii_lowercase()
+            } else {
+                '_'
+            }
+        })
+        .collect()
 }
 
 async fn fetch_llm_capability(addr: &str) -> Result<proto::Capability, tonic::Status> {
@@ -1043,6 +1457,7 @@ mod tests {
         CountTokensRequest, CountTokensResponse, GenerateRequest, GenerateResponse, ListModelsRequest,
         LlmProvider, ModelInfo, ProviderEventStream, StreamEvent,
     };
+    use crate::registry::{CapabilityProbe, ServiceEndpoint, ServiceKind, ServiceProtocol};
 
     fn make_capability(service: &str, versions: Vec<&str>) -> proto::Capability {
         proto::Capability {
@@ -1280,6 +1695,104 @@ mod tests {
         assert_eq!(meta.idempotency_key, "");
         assert_eq!(meta.deadline_ms, 4_321);
         assert_eq!(meta.api_version, "memory.v1");
+    }
+
+    #[test]
+    fn test_http_capability_to_proto_preserves_features_and_limits() {
+        let service = DiscoveredService {
+            name: "dev-koduck-knowledge".to_string(),
+            service_kind: ServiceKind::Knowledge,
+            expose_to_ai: true,
+            description: None,
+            endpoint: ServiceEndpoint {
+                protocol: ServiceProtocol::Http,
+                target: "http://dev-koduck-knowledge:8084".to_string(),
+                service_ref: None,
+            },
+            capability_probe: Some(CapabilityProbe {
+                protocol: ServiceProtocol::Http,
+                target: "http://dev-koduck-knowledge:8084".to_string(),
+                grpc_service: None,
+                grpc_method: None,
+                http_path: Some("/internal/capabilities".to_string()),
+            }),
+            feature_hints: vec![],
+            version_hints: vec![],
+        };
+        let payload = HttpCapabilityResponse {
+            service: "koduck-knowledge".to_string(),
+            service_kind: Some("knowledge".to_string()),
+            contract_versions: vec!["v1".to_string()],
+            features: vec!["entity_search".to_string(), "basic_profile".to_string()],
+            limits: HashMap::from([
+                (
+                    "recommended_timeout_ms".to_string(),
+                    serde_json::Value::String("5000".to_string()),
+                ),
+                (
+                    "max_results".to_string(),
+                    serde_json::Value::Number(serde_json::Number::from(20)),
+                ),
+            ]),
+        };
+
+        let capability = http_capability_to_proto(&service, payload);
+        assert_eq!(capability.service, "koduck-knowledge");
+        assert_eq!(capability.contract_versions, vec!["v1".to_string()]);
+        assert_eq!(
+            capability.features.get("entity_search"),
+            Some(&"true".to_string())
+        );
+        assert_eq!(
+            capability.features.get("registry_name"),
+            Some(&"dev-koduck-knowledge".to_string())
+        );
+        assert_eq!(
+            capability.limits.get("max_results"),
+            Some(&"20".to_string())
+        );
+    }
+
+    #[test]
+    fn test_aggregate_registry_tool_capability_merges_service_features() {
+        let knowledge = proto::Capability {
+            service: "koduck-knowledge".to_string(),
+            contract_versions: vec!["v1".to_string()],
+            features: HashMap::from([
+                ("entity_search".to_string(), "true".to_string()),
+                ("basic_profile".to_string(), "true".to_string()),
+            ]),
+            limits: HashMap::from([("recommended_timeout_ms".to_string(), "5000".to_string())]),
+        };
+        let tool = proto::Capability {
+            service: "koduck-tool".to_string(),
+            contract_versions: vec!["tool.v1".to_string()],
+            features: HashMap::from([("lookup_quote".to_string(), "true".to_string())]),
+            limits: HashMap::new(),
+        };
+
+        let aggregated = aggregate_registry_tool_capability(&[knowledge, tool]);
+        assert_eq!(aggregated.service, "tool-registry");
+        assert_eq!(
+            aggregated.features.get("mode"),
+            Some(&"registry".to_string())
+        );
+        assert_eq!(
+            aggregated.features.get("service_count"),
+            Some(&"2".to_string())
+        );
+        assert_eq!(
+            aggregated
+                .features
+                .get("service.koduck_knowledge.entity_search"),
+            Some(&"true".to_string())
+        );
+        assert_eq!(
+            aggregated
+                .features
+                .get("service.koduck_tool.lookup_quote"),
+            Some(&"true".to_string())
+        );
     }
 
     #[tokio::test]

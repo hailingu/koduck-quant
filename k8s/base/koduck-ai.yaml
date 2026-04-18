@@ -19,6 +19,7 @@ spec:
         prometheus.io/port: "9090"
         prometheus.io/path: "/metrics"
     spec:
+      serviceAccountName: koduck-ai-registry
       containers:
         - name: koduck-ai
           image: koduck/koduck-ai:latest
@@ -38,8 +39,6 @@ spec:
               value: "0.0.0.0:8083"
             - name: KODUCK_AI__SERVER__GRPC_ADDR
               value: "0.0.0.0:50051"
-            - name: KODUCK_AI__MEMORY__GRPC_TARGET
-              value: "localhost:50051"
             - name: KODUCK_AI__TOOLS__GRPC_TARGET
               value: "localhost:50051"
             - name: KODUCK_AI__LLM__ADAPTER_GRPC_TARGET
@@ -50,6 +49,14 @@ spec:
               value: "60000"
             - name: KODUCK_AI__STREAM__MAX_DURATION_MS
               value: "300000"
+            - name: KODUCK_AI__REGISTRY__ENABLED
+              value: "true"
+            - name: KODUCK_AI__REGISTRY__NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: KODUCK_AI__REGISTRY__POLL_INTERVAL_SECS
+              value: "30"
           resources:
             requests:
               cpu: 100m

@@ -1,0 +1,93 @@
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: capabilityservices.platform.koduck.io
+spec:
+  group: platform.koduck.io
+  scope: Namespaced
+  names:
+    plural: capabilityservices
+    singular: capabilityservice
+    kind: CapabilityService
+    shortNames:
+      - capsvc
+  versions:
+    - name: v1alpha1
+      served: true
+      storage: true
+      schema:
+        openAPIV3Schema:
+          type: object
+          properties:
+            apiVersion:
+              type: string
+            kind:
+              type: string
+            metadata:
+              type: object
+            spec:
+              type: object
+              required:
+                - serviceKind
+                - endpoint
+              properties:
+                serviceKind:
+                  type: string
+                  enum:
+                    - memory
+                    - knowledge
+                    - tool
+                    - llm
+                    - ai
+                    - gateway
+                exposeToAi:
+                  type: boolean
+                description:
+                  type: string
+                endpoint:
+                  type: object
+                  required:
+                    - protocol
+                    - target
+                  properties:
+                    protocol:
+                      type: string
+                      enum:
+                        - grpc
+                        - http
+                    target:
+                      type: string
+                    serviceRef:
+                      type: object
+                      properties:
+                        name:
+                          type: string
+                        port:
+                          type: integer
+                          format: int32
+                capabilityProbe:
+                  type: object
+                  properties:
+                    protocol:
+                      type: string
+                      enum:
+                        - grpc
+                        - http
+                    target:
+                      type: string
+                    grpcService:
+                      type: string
+                    grpcMethod:
+                      type: string
+                    httpPath:
+                      type: string
+                featureHints:
+                  type: array
+                  items:
+                    type: string
+                versionHints:
+                  type: array
+                  items:
+                    type: string
+      subresources:
+        status: {}

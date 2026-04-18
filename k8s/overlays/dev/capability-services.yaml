@@ -1,0 +1,52 @@
+apiVersion: platform.koduck.io/v1alpha1
+kind: CapabilityService
+metadata:
+  name: koduck-memory
+  namespace: koduck
+spec:
+  serviceKind: memory
+  exposeToAi: true
+  description: "Southbound memory service discovered through Kubernetes registry."
+  endpoint:
+    protocol: grpc
+    target: "http://dev-apisix-gateway:9080"
+    serviceRef:
+      name: dev-koduck-memory
+      port: 50051
+  capabilityProbe:
+    protocol: grpc
+    target: "http://dev-apisix-gateway:9080"
+    grpcService: "koduck.memory.v1.MemoryService"
+    grpcMethod: "GetCapabilities"
+  featureHints:
+    - "query_memory"
+    - "append_memory"
+    - "session_management"
+  versionHints:
+    - "v1"
+---
+apiVersion: platform.koduck.io/v1alpha1
+kind: CapabilityService
+metadata:
+  name: koduck-knowledge
+  namespace: koduck
+spec:
+  serviceKind: knowledge
+  exposeToAi: true
+  description: "Read-only entity knowledge service registered for AI-side discovery."
+  endpoint:
+    protocol: http
+    target: "http://dev-koduck-knowledge:8084"
+    serviceRef:
+      name: dev-koduck-knowledge
+      port: 8084
+  capabilityProbe:
+    protocol: http
+    target: "http://dev-koduck-knowledge:8084"
+    httpPath: "/internal/capabilities"
+  featureHints:
+    - "entity_search"
+    - "entity_facts"
+    - "basic_profile"
+  versionHints:
+    - "v1"
