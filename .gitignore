@@ -52,7 +52,9 @@ memory/
 !koduck-ai/proto/koduck/memory/
 !koduck-memory/proto/koduck/memory/
 !koduck-memory/src/memory/
-tools/
+tools/*
+!tools/koduck-knowledge-dev-loader
+!tools/koduck-knowledge-dev-cleaner
 !koduck-ai/proto/koduck/tool/
 
 # Track workflow configs and shared tool wrapper
@@ -60,8 +62,6 @@ tools/
 !.github/workflows/
 !.github/workflows/*.yml
 
-tools/
-tools/memory-manager
 koduck-data-service/venv/
 
 # Keep example env file

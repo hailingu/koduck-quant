@@ -1,0 +1,355 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+SCRIPT_NAME="$(basename "$0")"
+
+ENVIRONMENT="${KODUCK_ENV:-dev}"
+NAMESPACE="${KODUCK_NAMESPACE:-koduck-${ENVIRONMENT}}"
+POSTGRES_LABEL="${KODUCK_POSTGRES_LABEL:-app=postgres}"
+KNOWLEDGE_DB_NAME="${KODUCK_KNOWLEDGE_DB_NAME:-koduck_knowledge}"
+KNOWLEDGE_DB_USER="${KODUCK_KNOWLEDGE_DB_USER:-koduck}"
+MINIO_SERVICE="${KODUCK_MINIO_SERVICE:-${ENVIRONMENT}-minio}"
+MINIO_ENDPOINT="${KODUCK_MINIO_ENDPOINT:-http://${MINIO_SERVICE}:9000}"
+MINIO_BUCKET="${KODUCK_KNOWLEDGE_S3_BUCKET:-knowledge}"
+MINIO_ROOT_USER="${KODUCK_MINIO_ROOT_USER:-}"
+MINIO_ROOT_PASSWORD="${KODUCK_MINIO_ROOT_PASSWORD:-}"
+MINIO_SECRET_NAME="${KODUCK_MINIO_SECRET_NAME:-${ENVIRONMENT}-minio-secret}"
+MC_IMAGE="${KODUCK_MC_IMAGE:-minio/mc:latest}"
+TEMP_MC_POD=""
+PARSED_BUCKET=""
+PARSED_KEY=""
+PARSED_FILE=""
+PARSED_PREFIX=""
+PARSED_URI=""
+
+usage() {
+  cat <<'EOF'
+Usage:
+  tools/koduck-knowledge-dev-cleaner db-sql --sql "<delete/update sql>"
+  tools/koduck-knowledge-dev-cleaner db-file --file /path/to/delete.sql
+  tools/koduck-knowledge-dev-cleaner db-stdin < delete.sql
+  tools/koduck-knowledge-dev-cleaner s3-rm --key basic/100/BASIC/20250101T000000Z.json
+  tools/koduck-knowledge-dev-cleaner s3-rm-prefix --prefix basic/100/
+  tools/koduck-knowledge-dev-cleaner s3-rm-uri --uri s3://knowledge/profile/100/BIO/1.json
+
+Commands:
+  db-sql        Execute inline SQL in koduck-dev PostgreSQL koduck_knowledge database.
+  db-file       Execute a local .sql file in koduck-dev PostgreSQL koduck_knowledge database.
+  db-stdin      Execute SQL from stdin in koduck-dev PostgreSQL koduck_knowledge database.
+  s3-rm         Remove a single object from koduck-dev MinIO.
+  s3-rm-prefix  Remove all objects under a prefix from koduck-dev MinIO.
+  s3-rm-uri     Remove an object using a full s3:// URI.
+
+Options:
+  --sql SQL         Inline SQL for db-sql.
+  --file PATH       Local file path for db-file.
+  --key KEY         Object key for s3-rm.
+  --prefix PREFIX   Object prefix for s3-rm-prefix.
+  --uri URI         Full s3://bucket/key URI for s3-rm-uri.
+  --bucket BUCKET   MinIO bucket name. Default: knowledge
+  --help            Show this help.
+
+Environment overrides:
+  KODUCK_ENV                    Default: dev
+  KODUCK_NAMESPACE              Default: koduck-<env>
+  KODUCK_POSTGRES_LABEL         Default: app=postgres
+  KODUCK_KNOWLEDGE_DB_NAME      Default: koduck_knowledge
+  KODUCK_KNOWLEDGE_DB_USER      Default: koduck
+  KODUCK_MINIO_SERVICE          Default: <env>-minio
+  KODUCK_MINIO_ENDPOINT         Default: http://<env>-minio:9000
+  KODUCK_KNOWLEDGE_S3_BUCKET    Default: knowledge
+  KODUCK_MINIO_ROOT_USER        Optional override for MinIO root user
+  KODUCK_MINIO_ROOT_PASSWORD    Optional override for MinIO root password
+  KODUCK_MINIO_SECRET_NAME      Default: <env>-minio-secret
+  KODUCK_MC_IMAGE               Default: minio/mc:latest
+
+Notes:
+  - This tool only wraps kubectl access for manual cleanup. It does not validate business data.
+  - PostgreSQL deletes are executed inside the postgres pod with psql -v ON_ERROR_STOP=1.
+  - S3 delete commands are non-interactive and target the dev MinIO endpoint directly.
+EOF
+}
+
+log() {
+  printf '[%s] %s\n' "${SCRIPT_NAME}" "$*"
+}
+
+fail() {
+  printf '[%s] ERROR: %s\n' "${SCRIPT_NAME}" "$*" >&2
+  exit 1
+}
+
+require_command() {
+  command -v "$1" >/dev/null 2>&1 || fail "missing required command: $1"
+}
+
+require_file() {
+  local path="$1"
+  [[ -f "$path" ]] || fail "file not found: $path"
+}
+
+postgres_pod() {
+  local pod
+  pod="$(kubectl -n "${NAMESPACE}" get pod -l "${POSTGRES_LABEL}" -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || true)"
+  [[ -n "${pod}" ]] || fail "unable to find postgres pod in namespace ${NAMESPACE} with label ${POSTGRES_LABEL}"
+  printf '%s' "${pod}"
+}
+
+read_secret_key() {
+  local secret_name="$1"
+  local data_key="$2"
+  local encoded_value
+  encoded_value="$(kubectl -n "${NAMESPACE}" get secret "${secret_name}" -o go-template="{{index .data \"${data_key}\"}}" 2>/dev/null || true)"
+  [[ -n "${encoded_value}" ]] || return 0
+
+  if printf '' | base64 --decode >/dev/null 2>&1; then
+    printf '%s' "${encoded_value}" | base64 --decode 2>/dev/null || true
+  else
+    printf '%s' "${encoded_value}" | base64 -D 2>/dev/null || true
+  fi
+}
+
+ensure_minio_credentials() {
+  if [[ -n "${MINIO_ROOT_USER}" && -n "${MINIO_ROOT_PASSWORD}" ]]; then
+    return
+  fi
+
+  local secret_user
+  local secret_password
+
+  secret_user="$(read_secret_key "${MINIO_SECRET_NAME}" "root-user")"
+  secret_password="$(read_secret_key "${MINIO_SECRET_NAME}" "root-password")"
+
+  MINIO_ROOT_USER="${MINIO_ROOT_USER:-${secret_user:-minioadmin}}"
+  MINIO_ROOT_PASSWORD="${MINIO_ROOT_PASSWORD:-${secret_password:-minioadmin}}"
+
+  [[ -n "${MINIO_ROOT_USER}" ]] || fail "unable to resolve MinIO root user"
+  [[ -n "${MINIO_ROOT_PASSWORD}" ]] || fail "unable to resolve MinIO root password"
+}
+
+cleanup_mc_pod() {
+  if [[ -n "${TEMP_MC_POD}" ]]; then
+    kubectl delete pod "${TEMP_MC_POD}" -n "${NAMESPACE}" --ignore-not-found=true --wait=false >/dev/null 2>&1 || true
+    TEMP_MC_POD=""
+  fi
+}
+
+start_mc_pod() {
+  TEMP_MC_POD="knowledge-cleaner-$(date +%s)-$$"
+  kubectl run "${TEMP_MC_POD}" \
+    -n "${NAMESPACE}" \
+    --image="${MC_IMAGE}" \
+    --restart=Never \
+    --command -- sleep 3600 >/dev/null
+  kubectl wait --for=condition=Ready "pod/${TEMP_MC_POD}" -n "${NAMESPACE}" --timeout=60s >/dev/null
+}
+
+setup_mc_alias() {
+  kubectl exec -n "${NAMESPACE}" "${TEMP_MC_POD}" -- \
+    mc alias set local "${MINIO_ENDPOINT}" "${MINIO_ROOT_USER}" "${MINIO_ROOT_PASSWORD}" >/dev/null
+}
+
+run_psql_inline() {
+  local sql="$1"
+  local pod
+  pod="$(postgres_pod)"
+  kubectl exec -n "${NAMESPACE}" "${pod}" -- \
+    psql -U "${KNOWLEDGE_DB_USER}" -d "${KNOWLEDGE_DB_NAME}" -v ON_ERROR_STOP=1 -c "${sql}"
+}
+
+run_psql_stdin() {
+  local pod
+  pod="$(postgres_pod)"
+  kubectl exec -i -n "${NAMESPACE}" "${pod}" -- \
+    psql -U "${KNOWLEDGE_DB_USER}" -d "${KNOWLEDGE_DB_NAME}" -v ON_ERROR_STOP=1
+}
+
+parse_bucket_key_args() {
+  local default_bucket="$1"
+  shift
+
+  local bucket="${default_bucket}"
+  local key=""
+  local prefix=""
+  local file_path=""
+  local uri=""
+
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --bucket)
+        [[ $# -ge 2 ]] || fail "missing value for --bucket"
+        bucket="$2"
+        shift 2
+        ;;
+      --key)
+        [[ $# -ge 2 ]] || fail "missing value for --key"
+        key="$2"
+        shift 2
+        ;;
+      --prefix)
+        [[ $# -ge 2 ]] || fail "missing value for --prefix"
+        prefix="$2"
+        shift 2
+        ;;
+      --file)
+        [[ $# -ge 2 ]] || fail "missing value for --file"
+        file_path="$2"
+        shift 2
+        ;;
+      --uri)
+        [[ $# -ge 2 ]] || fail "missing value for --uri"
+        uri="$2"
+        shift 2
+        ;;
+      --help|-h)
+        usage
+        exit 0
+        ;;
+      *)
+        fail "unknown option: $1"
+        ;;
+    esac
+  done
+
+  PARSED_BUCKET="${bucket}"
+  PARSED_KEY="${key}"
+  PARSED_FILE="${file_path}"
+  PARSED_PREFIX="${prefix}"
+  PARSED_URI="${uri}"
+}
+
+parse_s3_uri() {
+  local uri="$1"
+  [[ "${uri}" == s3://* ]] || fail "uri must start with s3://"
+
+  local path="${uri#s3://}"
+  local bucket="${path%%/*}"
+  local key="${path#*/}"
+
+  [[ -n "${bucket}" && -n "${key}" && "${bucket}" != "${path}" ]] || fail "uri must be s3://<bucket>/<key>"
+
+  PARSED_BUCKET="${bucket}"
+  PARSED_KEY="${key}"
+}
+
+remove_object() {
+  local bucket="$1"
+  local key="$2"
+
+  ensure_minio_credentials
+  start_mc_pod
+  setup_mc_alias
+
+  kubectl exec -n "${NAMESPACE}" "${TEMP_MC_POD}" -- \
+    mc rm --force "local/${bucket}/${key}" >/dev/null
+}
+
+remove_prefix() {
+  local bucket="$1"
+  local prefix="$2"
+
+  ensure_minio_credentials
+  start_mc_pod
+  setup_mc_alias
+
+  kubectl exec -n "${NAMESPACE}" "${TEMP_MC_POD}" -- \
+    mc rm --recursive --force "local/${bucket}/${prefix}" >/dev/null
+}
+
+main() {
+  trap cleanup_mc_pod EXIT
+  require_command kubectl
+  require_command base64
+
+  local command="${1:-help}"
+  shift || true
+
+  case "${command}" in
+    help|--help|-h)
+      usage
+      ;;
+    db-sql)
+      local sql=""
+      while [[ $# -gt 0 ]]; do
+        case "$1" in
+          --sql)
+            [[ $# -ge 2 ]] || fail "missing value for --sql"
+            sql="$2"
+            shift 2
+            ;;
+          --help|-h)
+            usage
+            exit 0
+            ;;
+          *)
+            fail "unknown option for db-sql: $1"
+            ;;
+        esac
+      done
+      [[ -n "${sql}" ]] || fail "missing required --sql"
+      log "executing inline SQL in ${ENVIRONMENT} ${KNOWLEDGE_DB_NAME}"
+      run_psql_inline "${sql}"
+      ;;
+    db-file)
+      local file_path=""
+      while [[ $# -gt 0 ]]; do
+        case "$1" in
+          --file)
+            [[ $# -ge 2 ]] || fail "missing value for --file"
+            file_path="$2"
+            shift 2
+            ;;
+          --help|-h)
+            usage
+            exit 0
+            ;;
+          *)
+            fail "unknown option for db-file: $1"
+            ;;
+        esac
+      done
+      [[ -n "${file_path}" ]] || fail "missing required --file"
+      require_file "${file_path}"
+      log "executing SQL file ${file_path} in ${ENVIRONMENT} ${KNOWLEDGE_DB_NAME}"
+      run_psql_stdin < "${file_path}"
+      ;;
+    db-stdin)
+      log "executing SQL from stdin in ${ENVIRONMENT} ${KNOWLEDGE_DB_NAME}"
+      run_psql_stdin
+      ;;
+    s3-rm)
+      local bucket
+      local key
+      parse_bucket_key_args "${MINIO_BUCKET}" "$@"
+      bucket="${PARSED_BUCKET}"
+      key="${PARSED_KEY}"
+      [[ -n "${key}" ]] || fail "missing required --key"
+      log "removing object ${bucket}/${key} from ${ENVIRONMENT} MinIO"
+      remove_object "${bucket}" "${key}"
+      ;;
+    s3-rm-prefix)
+      local bucket
+      local prefix
+      parse_bucket_key_args "${MINIO_BUCKET}" "$@"
+      bucket="${PARSED_BUCKET}"
+      prefix="${PARSED_PREFIX}"
+      [[ -n "${prefix}" ]] || fail "missing required --prefix"
+      log "removing prefix ${bucket}/${prefix} from ${ENVIRONMENT} MinIO"
+      remove_prefix "${bucket}" "${prefix}"
+      ;;
+    s3-rm-uri)
+      local uri
+      parse_bucket_key_args "${MINIO_BUCKET}" "$@"
+      uri="${PARSED_URI}"
+      [[ -n "${uri}" ]] || fail "missing required --uri"
+      parse_s3_uri "${uri}"
+      log "removing object ${PARSED_BUCKET}/${PARSED_KEY} from ${ENVIRONMENT} MinIO"
+      remove_object "${PARSED_BUCKET}" "${PARSED_KEY}"
+      ;;
+    *)
+      fail "unknown command: ${command}"
+      ;;
+  esac
+}
+
+main "$@"
