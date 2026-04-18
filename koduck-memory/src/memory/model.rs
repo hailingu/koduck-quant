@@ -38,24 +38,5 @@ pub fn metadata_to_jsonb(
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn metadata_to_jsonb_converts_map() {
-        let mut map = std::collections::HashMap::new();
-        map.insert("message_id".to_string(), "msg-123".to_string());
-        map.insert("model".to_string(), "gpt-4".to_string());
-        let val = metadata_to_jsonb(&map);
-        assert_eq!(val.get("message_id").and_then(|v| v.as_str()), Some("msg-123"));
-        assert_eq!(val.get("model").and_then(|v| v.as_str()), Some("gpt-4"));
-    }
-
-    #[test]
-    fn metadata_to_jsonb_handles_empty_map() {
-        let map = std::collections::HashMap::new();
-        let val = metadata_to_jsonb(&map);
-        assert!(val.is_object());
-        assert!(val.as_object().unwrap().is_empty());
-    }
-}
+#[path = "../tests/memory/model_tests.rs"]
+mod tests;

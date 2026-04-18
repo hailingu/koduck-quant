@@ -206,47 +206,5 @@ fn parse_l0_uri(uri: &str) -> Result<(&str, &str)> {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    fn test_config() -> ObjectStoreSection {
-        ObjectStoreSection {
-            endpoint: "http://127.0.0.1:9000".to_string(),
-            bucket: "koduck-memory-test".to_string(),
-            access_key: "minioadmin".to_string(),
-            secret_key: "minioadmin".to_string(),
-            region: "ap-east-1".to_string(),
-        }
-    }
-
-    #[test]
-    fn object_store_builds_correct_key() {
-        // We'll test this without creating a real client
-        // Just verify the key format logic
-        let session_id = Uuid::parse_str("550e8400-e29b-41d4-a716-446655440000").unwrap();
-        let entry_id = Uuid::parse_str("660e8400-e29b-41d4-a716-446655440001").unwrap();
-
-        let key = format!(
-            "tenants/{}/sessions/{}/entries/{:010}-{}.json",
-            "tenant-123", session_id, 42i64, entry_id
-        );
-
-        assert_eq!(
-            key,
-            "tenants/tenant-123/sessions/550e8400-e29b-41d4-a716-446655440000/entries/0000000042-660e8400-e29b-41d4-a716-446655440001.json"
-        );
-    }
-
-    #[test]
-    fn l0_uri_format_is_correct() {
-        let uri = build_l0_uri("my-bucket", "path/to/object.json");
-        assert_eq!(uri, "s3://my-bucket/path/to/object.json");
-    }
-
-    #[test]
-    fn parse_l0_uri_extracts_bucket_and_key() {
-        let (bucket, key) = parse_l0_uri("s3://my-bucket/path/to/object.json").unwrap();
-        assert_eq!(bucket, "my-bucket");
-        assert_eq!(key, "path/to/object.json");
-    }
-}
+#[path = "../tests/store/object_store_tests.rs"]
+mod tests;

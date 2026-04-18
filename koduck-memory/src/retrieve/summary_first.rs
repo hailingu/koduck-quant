@@ -176,27 +176,5 @@ fn unique_session_ids(candidates: &[RetrieveResult]) -> Vec<Uuid> {
         .collect()
 }
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    // Note: Integration tests would require a test database.
-    // For now, we verify the retriever structure compiles correctly.
-
-    #[test]
-    fn retriever_new_works() {
-        // This is a compile-time check
-        // Actual functionality requires a database connection
-    }
-
-    #[test]
-    fn quality_summary_heuristic_works() {
-        assert!(!is_quality_summary("summary task already accepted for session 123"));
-        assert!(!is_quality_summary("todo"));
-        assert!(!is_quality_summary(
-            "Session 'untitled' summary (history, 8 messages): user: foo | assistant: bar"
-        ));
-        assert!(is_quality_summary(
-            "The user asked for rollout checklist details and follow-up milestones."
-        ));
-    }
-}
+#[path = "../tests/retrieve/summary_first_tests.rs"]
+mod tests;
