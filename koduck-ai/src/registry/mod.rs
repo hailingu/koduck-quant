@@ -78,6 +78,16 @@ pub struct CapabilityProbe {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ToolDiscovery {
+    pub protocol: ServiceProtocol,
+    pub target: String,
+    pub grpc_service: Option<String>,
+    pub grpc_method: Option<String>,
+    pub http_path: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DiscoveredService {
     pub name: String,
     pub service_kind: ServiceKind,
@@ -85,6 +95,7 @@ pub struct DiscoveredService {
     pub description: Option<String>,
     pub endpoint: ServiceEndpoint,
     pub capability_probe: Option<CapabilityProbe>,
+    pub tool_discovery: Option<ToolDiscovery>,
     pub feature_hints: Vec<String>,
     pub version_hints: Vec<String>,
 }
@@ -181,6 +192,28 @@ impl ServiceRegistry {
             .collect()
     }
 
+    pub async fn resolve_ai_tool_definition_services(&self) -> Vec<DiscoveredService> {
+        if !self.config.enabled {
+            return Vec::new();
+        }
+
+        self.state
+            .read()
+            .await
+            .discovered_services
+            .iter()
+            .filter(|service| {
+                service.expose_to_ai
+                    && service.tool_discovery.is_some()
+                    && matches!(
+                        service.service_kind,
+                        ServiceKind::Memory | ServiceKind::Knowledge | ServiceKind::Tool
+                    )
+            })
+            .cloned()
+            .collect()
+    }
+
     pub async fn resolve_ai_capability_service(
         &self,
         kind: ServiceKind,
@@ -248,6 +281,7 @@ impl ServiceRegistry {
                 description: item.spec.description,
                 endpoint: item.spec.endpoint,
                 capability_probe: item.spec.capability_probe,
+                tool_discovery: item.spec.tool_discovery,
                 feature_hints: item.spec.feature_hints.unwrap_or_default(),
                 version_hints: item.spec.version_hints.unwrap_or_default(),
             })
@@ -344,6 +378,7 @@ struct CapabilityServiceSpec {
     description: Option<String>,
     endpoint: ServiceEndpoint,
     capability_probe: Option<CapabilityProbe>,
+    tool_discovery: Option<ToolDiscovery>,
     feature_hints: Option<Vec<String>>,
     version_hints: Option<Vec<String>>,
 }
@@ -374,6 +409,7 @@ mod tests {
                     service_ref: None,
                 },
                 capability_probe: None,
+                tool_discovery: None,
                 feature_hints: vec![],
                 version_hints: vec![],
             }];
@@ -429,6 +465,13 @@ mod tests {
                         grpc_method: Some("GetCapabilities".to_string()),
                         http_path: None,
                     }),
+                    tool_discovery: Some(ToolDiscovery {
+                        protocol: ServiceProtocol::Http,
+                        target: "http://dev-koduck-memory:9090".to_string(),
+                        grpc_service: None,
+                        grpc_method: None,
+                        http_path: Some("/internal/tools".to_string()),
+                    }),
                     feature_hints: vec![],
                     version_hints: vec![],
                 },
@@ -448,6 +491,13 @@ mod tests {
                         grpc_service: None,
                         grpc_method: None,
                         http_path: Some("/internal/capabilities".to_string()),
+                    }),
+                    tool_discovery: Some(ToolDiscovery {
+                        protocol: ServiceProtocol::Http,
+                        target: "http://dev-koduck-knowledge:8084".to_string(),
+                        grpc_service: None,
+                        grpc_method: None,
+                        http_path: Some("/internal/tools".to_string()),
                     }),
                     feature_hints: vec![],
                     version_hints: vec![],
@@ -488,6 +538,7 @@ mod tests {
                     grpc_method: Some("GetCapabilities".to_string()),
                     http_path: None,
                 }),
+                tool_discovery: None,
                 feature_hints: vec![],
                 version_hints: vec![],
             }];
@@ -498,5 +549,68 @@ mod tests {
             .await
             .expect("memory service should be discovered");
         assert_eq!(service.name, "koduck-memory");
+    }
+
+    #[tokio::test]
+    async fn resolve_ai_tool_definition_services_includes_memory_and_knowledge_catalogs() {
+        let registry = ServiceRegistry::new(RegistryConfig {
+            enabled: true,
+            api_base_url: "https://kubernetes.default.svc".to_string(),
+            namespace: "koduck-dev".to_string(),
+            poll_interval_secs: 30,
+        });
+
+        {
+            let mut state = registry.state.write().await;
+            state.discovered_services = vec![
+                DiscoveredService {
+                    name: "koduck-memory".to_string(),
+                    service_kind: ServiceKind::Memory,
+                    expose_to_ai: true,
+                    description: None,
+                    endpoint: ServiceEndpoint {
+                        protocol: ServiceProtocol::Grpc,
+                        target: "http://dev-apisix-gateway:9080".to_string(),
+                        service_ref: None,
+                    },
+                    capability_probe: None,
+                    tool_discovery: Some(ToolDiscovery {
+                        protocol: ServiceProtocol::Http,
+                        target: "http://dev-koduck-memory:9090".to_string(),
+                        grpc_service: None,
+                        grpc_method: None,
+                        http_path: Some("/internal/tools".to_string()),
+                    }),
+                    feature_hints: vec![],
+                    version_hints: vec![],
+                },
+                DiscoveredService {
+                    name: "koduck-knowledge".to_string(),
+                    service_kind: ServiceKind::Knowledge,
+                    expose_to_ai: true,
+                    description: None,
+                    endpoint: ServiceEndpoint {
+                        protocol: ServiceProtocol::Http,
+                        target: "http://dev-koduck-knowledge:8084".to_string(),
+                        service_ref: None,
+                    },
+                    capability_probe: None,
+                    tool_discovery: Some(ToolDiscovery {
+                        protocol: ServiceProtocol::Http,
+                        target: "http://dev-koduck-knowledge:8084".to_string(),
+                        grpc_service: None,
+                        grpc_method: None,
+                        http_path: Some("/internal/tools".to_string()),
+                    }),
+                    feature_hints: vec![],
+                    version_hints: vec![],
+                },
+            ];
+        }
+
+        let services = registry.resolve_ai_tool_definition_services().await;
+        assert_eq!(services.len(), 2);
+        assert_eq!(services[0].name, "koduck-knowledge");
+        assert_eq!(services[1].name, "koduck-memory");
     }
 }

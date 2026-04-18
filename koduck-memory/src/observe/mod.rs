@@ -1,4 +1,5 @@
 use axum::{http::StatusCode, response::IntoResponse, routing::get, Json, Router};
+use serde::Serialize;
 use serde_json::json;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -227,6 +228,7 @@ pub fn build_metrics_router(
                 async move { metrics_handler(metrics_config, metrics_runtime, rpc_metrics).await }
             }),
         )
+        .route("/internal/tools", get(internal_tools_handler))
 }
 
 async fn live_handler(config: AppConfig) -> impl IntoResponse {
@@ -391,4 +393,74 @@ fn render_rpc_histogram(method: &str, snapshot: &RpcMetricSnapshot) -> String {
         method, snapshot.requests_total
     ));
     body
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct InternalToolCatalogView {
+    service: &'static str,
+    tools: Vec<InternalToolDefinitionView>,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct InternalToolDefinitionView {
+    name: &'static str,
+    version: &'static str,
+    description: &'static str,
+    input_schema: String,
+    output_schema: String,
+    timeout_ms: u32,
+    permission_scope: &'static str,
+    streaming_supported: bool,
+}
+
+async fn internal_tools_handler() -> impl IntoResponse {
+    Json(InternalToolCatalogView {
+        service: "koduck-memory",
+        tools: vec![InternalToolDefinitionView {
+            name: "query_memory",
+            version: "v1",
+            description: "用于检索当前用户与 koduck 的历史记忆会话。只有当用户在追问之前聊过什么、之前是否提到过某个主题、人物、偏好或事实，或者你需要回忆历史上下文时，才调用这个工具。必须显式填写 intent；如果只需要默认全局检索，可以省略 memory_scope。",
+            input_schema: serde_json::json!({
+                "type": "object",
+                "properties": {
+                    "query": {
+                        "type": "string",
+                        "description": "用于检索历史记忆的查询文本，通常直接取当前用户问题或其中的主题、实体。"
+                    },
+                    "intent": {
+                        "type": "string",
+                        "enum": ["recall", "none"],
+                        "description": "本次记忆检索的主意图，必须显式给出。"
+                    },
+                    "memory_scope": {
+                        "type": "string",
+                        "enum": ["global", "current_session"],
+                        "description": "可选；默认 global。仅当需要限制在当前 session 内检索时才传 current_session。"
+                    },
+                    "domain_class": {
+                        "type": "string",
+                        "description": "可选；当你非常确定某个 domain 更适合缩小检索范围时传入，例如 literature、history、food。"
+                    }
+                },
+                "required": ["query", "intent"],
+                "additionalProperties": false
+            })
+            .to_string(),
+            output_schema: serde_json::json!({
+                "type": "object",
+                "properties": {
+                    "hits": {
+                        "type": "array",
+                        "description": "按相关性排序的历史命中列表。"
+                    }
+                }
+            })
+            .to_string(),
+            timeout_ms: 5000,
+            permission_scope: "memory.read",
+            streaming_supported: false,
+        }],
+    })
 }

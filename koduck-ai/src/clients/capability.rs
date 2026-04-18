@@ -1716,6 +1716,7 @@ mod tests {
                 grpc_method: None,
                 http_path: Some("/internal/capabilities".to_string()),
             }),
+            tool_discovery: None,
             feature_hints: vec![],
             version_hints: vec![],
         };

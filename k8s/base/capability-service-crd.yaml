@@ -81,6 +81,22 @@ spec:
                       type: string
                     httpPath:
                       type: string
+                toolDiscovery:
+                  type: object
+                  properties:
+                    protocol:
+                      type: string
+                      enum:
+                        - grpc
+                        - http
+                    target:
+                      type: string
+                    grpcService:
+                      type: string
+                    grpcMethod:
+                      type: string
+                    httpPath:
+                      type: string
                 featureHints:
                   type: array
                   items:

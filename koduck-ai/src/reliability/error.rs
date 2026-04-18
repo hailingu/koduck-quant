@@ -134,6 +134,7 @@ impl ErrorCode {
 #[strum(serialize_all = "lowercase")]
 pub enum UpstreamService {
     Memory,
+    Knowledge,
     Tool,
     Llm,
     Auth,
@@ -660,6 +661,7 @@ mod tests {
     #[test]
     fn test_upstream_service_display() {
         assert_eq!(UpstreamService::Memory.to_string(), "memory");
+        assert_eq!(UpstreamService::Knowledge.to_string(), "knowledge");
         assert_eq!(UpstreamService::Tool.to_string(), "tool");
         assert_eq!(UpstreamService::Llm.to_string(), "llm");
         assert_eq!(UpstreamService::Auth.to_string(), "auth");

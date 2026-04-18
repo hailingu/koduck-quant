@@ -24,6 +24,8 @@ use crate::{
         self, MemoryEntry, MemoryHit, MemoryRequestContext, QueryIntent, QueryMemoryInput,
         RetrievePolicy, SessionUpsertInput,
     },
+    clients::knowledge::{self, KnowledgeQueryResult},
+    clients::tool_catalog,
     llm::{
         ChatMessage as ProviderChatMessage, GenerateRequest as ProviderGenerateRequest,
         RequestContext, StreamEvent as ProviderStreamEvent, ToolCall as ProviderToolCall,
@@ -104,14 +106,22 @@ pub struct ApiResponse<T> {
     pub error: Option<crate::reliability::error::ErrorResponse>,
 }
 
-#[derive(Debug, Clone, Default)]
-struct MemoryContextSnapshot {
+#[derive(Debug, Clone, PartialEq)]
+struct KnowledgeContextSnapshot {
+    query: String,
+    domain_class: String,
+    result: KnowledgeQueryResult,
+}
+
+#[derive(Debug, Clone, Default, PartialEq)]
+struct ConversationContextSnapshot {
     hits: Vec<MemoryHit>,
+    knowledge: Option<KnowledgeContextSnapshot>,
 }
 
 #[derive(Debug, Default)]
 struct ToolResolutionResult {
-    snapshot: MemoryContextSnapshot,
+    snapshot: ConversationContextSnapshot,
     direct_response: Option<crate::llm::GenerateResponse>,
 }
 
@@ -125,6 +135,12 @@ struct QueryMemoryToolArgs {
     query: Option<String>,
     intent: Option<String>,
     memory_scope: Option<String>,
+    domain_class: Option<String>,
+}
+
+#[derive(Debug, Deserialize, Default)]
+struct QueryKnowledgeToolArgs {
+    query: Option<String>,
     domain_class: Option<String>,
 }
 
@@ -722,7 +738,7 @@ async fn load_memory_snapshot(
     route: DegradeRoute,
     request: &ChatRequest,
     ctx: &MemoryRequestContext,
-) -> MemoryContextSnapshot {
+) -> ConversationContextSnapshot {
     if let Err(err) = memory::upsert_session_meta(
         state,
         ctx,
@@ -748,7 +764,10 @@ async fn load_memory_snapshot(
         );
     }
 
-    MemoryContextSnapshot { hits: Vec::new() }
+    ConversationContextSnapshot {
+        hits: Vec::new(),
+        knowledge: None,
+    }
 }
 
 async fn append_chat_turn(
@@ -1002,7 +1021,7 @@ fn build_memory_query_text(message: &str) -> String {
 }
 
 fn build_memory_prompt(
-    snapshot: &MemoryContextSnapshot,
+    snapshot: &ConversationContextSnapshot,
     user_message: &str,
 ) -> Option<String> {
     if snapshot.hits.is_empty() {
@@ -1030,6 +1049,93 @@ fn build_memory_prompt(
         "以下内容来自 koduck-memory 的历史摘要检索结果，可能跨多个旧会话。\n{}\n\n历史命中:\n{}\n\n当前用户问题（请把它作为最终相关性判断依据）:\n{}",
         MEMORY_PROMPT_TAIL,
         snippets,
+        user_message.trim()
+    ))
+}
+
+fn build_knowledge_prompt(
+    snapshot: &ConversationContextSnapshot,
+    user_message: &str,
+) -> Option<String> {
+    let knowledge = snapshot.knowledge.as_ref()?;
+    if knowledge.result.hits.is_empty() {
+        return None;
+    }
+
+    let candidates = knowledge
+        .result
+        .hits
+        .iter()
+        .take(5)
+        .enumerate()
+        .map(|(index, hit)| {
+            format!(
+                "{}. entity_id={} canonical_name={} entity_name={} match_type={} valid_window=[{} ~ {}] basic_profile_s3_uri={}",
+                index + 1,
+                hit.entity_id,
+                hit.canonical_name,
+                hit.entity_name,
+                hit.match_type,
+                hit.valid_from.as_deref().unwrap_or("-"),
+                hit.valid_to.as_deref().unwrap_or("-"),
+                hit.basic_profile_s3_uri.as_deref().unwrap_or("-"),
+            )
+        })
+        .collect::<Vec<_>>()
+        .join("\n");
+
+    let profile = knowledge
+        .result
+        .primary_profile
+        .as_ref()
+        .map(|profile| {
+            format!(
+                "主命中 basic profile:\nentity_id={} canonical_name={} entity_name={} domain_class={} valid_window=[{} ~ {}] basic_profile_s3_uri={}",
+                profile.entity_id,
+                profile.canonical_name,
+                profile.entity_name,
+                profile.domain_class,
+                profile.valid_from.as_deref().unwrap_or("-"),
+                profile.valid_to.as_deref().unwrap_or("-"),
+                profile.basic_profile_s3_uri.as_deref().unwrap_or("-"),
+            )
+        })
+        .unwrap_or_else(|| "主命中 basic profile: 无".to_string());
+
+    let facts = if knowledge.result.facts.is_empty() {
+        "结构化 facts: 无".to_string()
+    } else {
+        let rows = knowledge
+            .result
+            .facts
+            .iter()
+            .take(8)
+            .enumerate()
+            .map(|(index, fact)| {
+                format!(
+                    "{}. entity_id={} entity_name={} domain_class={} profile_entry_code={} blob_uri={} valid_window=[{} ~ {}]",
+                    index + 1,
+                    fact.entity_id,
+                    fact.entity_name,
+                    fact.domain_class,
+                    fact.profile_entry_code.as_deref().unwrap_or("BASIC"),
+                    fact.blob_uri.as_deref().unwrap_or("-"),
+                    fact.valid_from.as_deref().unwrap_or("-"),
+                    fact.valid_to.as_deref().unwrap_or("-"),
+                )
+            })
+            .collect::<Vec<_>>()
+            .join("\n");
+        format!("结构化 facts:\n{rows}")
+    };
+
+    Some(format!(
+        "以下内容来自 koduck-knowledge 的结构化实体检索结果，主要用于实体对齐与只读知识引用，不等于完整正文。\n知识查询: query={} domain_class={}\n\n候选实体:\n{}\n\n{}\n\n{}\n\n当前用户问题（请把它作为最终相关性判断依据）:\n{}\n如果这些结果不足以支撑结论，请明确说明知识库未提供足够细节，不要补造事实。",
+        knowledge.query,
+        knowledge.domain_class,
+        candidates,
+        profile,
+        facts,
         user_message.trim()
     ))
 }
@@ -1235,49 +1341,12 @@ async fn review_memory_hits_for_stream(
     kept
 }
 
-fn build_memory_tool_definition() -> ProviderToolDefinition {
-    ProviderToolDefinition {
-        name: "query_memory".to_string(),
-        description: "检索当前用户与 koduck 的历史记忆会话，用于回答“之前聊过什么、之前是否聊过某个主题/人物/偏好/事实、具体聊到了哪些方面”等问题。".to_string(),
-        input_schema: json!({
-            "type": "object",
-            "properties": {
-                "query": {
-                    "type": "string",
-                    "description": "用于检索历史记忆的查询文本，通常直接取当前用户问题或其中的主题/实体。"
-                },
-                "intent": {
-                    "type": "string",
-                    "enum": ["recall", "none"],
-                    "description": "本次记忆检索的主意图。必须显式给出，禁止省略。"
-                },
-                "memory_scope": {
-                    "type": "string",
-                    "enum": ["global", "current_session"],
-                    "description": "可选；默认 global。仅当需要限制在当前 session 内检索时才传 current_session。"
-                },
-                "domain_class": {
-                    "type": "string",
-                    "description": "可选；当你非常确定某个 domain 更适合缩小检索范围时传入，例如 literature、history、food。"
-                }
-            },
-            "required": ["query", "intent"],
-            "additionalProperties": false
-        })
-        .to_string(),
-    }
-}
-
-fn build_tool_definition() -> Vec<ProviderToolDefinition> {
-    vec![build_memory_tool_definition()]
-}
-
-fn build_memory_tool_instruction() -> &'static str {
-    "当用户询问“之前聊过什么 / 之前有没有聊过某个主题、人物、偏好、事实 / 具体聊到了哪些方面 / 回忆一下之前内容”时，优先调用 query_memory 工具；并且在工具参数中显式填写 intent。不要在没有调用工具的情况下臆测历史记录。"
-}
-
 fn parse_query_memory_tool_args(raw: &str) -> QueryMemoryToolArgs {
     serde_json::from_str::<QueryMemoryToolArgs>(raw).unwrap_or_default()
+}
+
+fn parse_query_knowledge_tool_args(raw: &str) -> QueryKnowledgeToolArgs {
+    serde_json::from_str::<QueryKnowledgeToolArgs>(raw).unwrap_or_default()
 }
 
 fn parse_query_intent(intent: Option<&str>) -> QueryIntent {
@@ -1301,9 +1370,9 @@ async fn execute_memory_tool_call(
     route: DegradeRoute,
     request: &ChatRequest,
     ctx: &MemoryRequestContext,
-    base_snapshot: &MemoryContextSnapshot,
+    base_snapshot: &ConversationContextSnapshot,
     tool_call: &ProviderToolCall,
-) -> MemoryContextSnapshot {
+) -> ConversationContextSnapshot {
     let args = parse_query_memory_tool_args(&tool_call.arguments);
     info!(
         request_id = %ctx.request_id,
@@ -1373,16 +1442,113 @@ async fn execute_memory_tool_call(
     snapshot
 }
 
-async fn resolve_memory_tool_call(
+async fn execute_knowledge_tool_call(
+    state: &Arc<AppState>,
+    request: &ChatRequest,
+    ctx: &MemoryRequestContext,
+    base_snapshot: &ConversationContextSnapshot,
+    tool_call: &ProviderToolCall,
+) -> ConversationContextSnapshot {
+    let args = parse_query_knowledge_tool_args(&tool_call.arguments);
+    info!(
+        request_id = %ctx.request_id,
+        session_id = %ctx.session_id,
+        tool_name = %tool_call.name,
+        tool_call_id = %tool_call.id,
+        tool_arguments = %tool_call.arguments,
+        "llm tool call resolved to knowledge query"
+    );
+
+    let query = args
+        .query
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .unwrap_or_else(|| request.message.trim())
+        .to_string();
+    let domain_class = args
+        .domain_class
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(ToOwned::to_owned)
+        .unwrap_or_else(|| metadata_string(request, "domain_class"));
+
+    if domain_class.trim().is_empty() {
+        warn!(
+            request_id = %ctx.request_id,
+            session_id = %ctx.session_id,
+            tool_name = %tool_call.name,
+            "query_knowledge skipped because domain_class is unavailable"
+        );
+        return base_snapshot.clone();
+    }
+
+    let result = match knowledge::query_knowledge(state, &ctx.request_id, &query, &domain_class).await
+    {
+        Ok(result) => result,
+        Err(err) => {
+            warn!(
+                request_id = %ctx.request_id,
+                session_id = %ctx.session_id,
+                tool_name = %tool_call.name,
+                error = %err,
+                "query_knowledge tool call failed; continuing without retrieved knowledge results"
+            );
+            return base_snapshot.clone();
+        }
+    };
+
+    info!(
+        request_id = %ctx.request_id,
+        session_id = %ctx.session_id,
+        tool_name = %tool_call.name,
+        query = %query,
+        domain_class = %domain_class,
+        hits_count = result.hits.len(),
+        facts_count = result.facts.len(),
+        "knowledge tool call completed"
+    );
+
+    let mut snapshot = base_snapshot.clone();
+    snapshot.knowledge = Some(KnowledgeContextSnapshot {
+        query,
+        domain_class,
+        result,
+    });
+    snapshot
+}
+
+async fn execute_supported_tool_call(
     state: &Arc<AppState>,
     route: DegradeRoute,
     request: &ChatRequest,
-    base_snapshot: &MemoryContextSnapshot,
+    ctx: &MemoryRequestContext,
+    base_snapshot: &ConversationContextSnapshot,
+    tool_call: &ProviderToolCall,
+) -> ConversationContextSnapshot {
+    match tool_call.name.as_str() {
+        "query_memory" => {
+            execute_memory_tool_call(state, route, request, ctx, base_snapshot, tool_call).await
+        }
+        "query_knowledge" => {
+            execute_knowledge_tool_call(state, request, ctx, base_snapshot, tool_call).await
+        }
+        _ => base_snapshot.clone(),
+    }
+}
+
+async fn resolve_tool_call(
+    state: &Arc<AppState>,
+    route: DegradeRoute,
+    request: &ChatRequest,
+    base_snapshot: &ConversationContextSnapshot,
     request_id: &str,
     session_id: &str,
     auth_ctx: &AuthContext,
     trace_id: &str,
 ) -> Result<ToolResolutionResult, AppError> {
+    let discovered_tools = tool_catalog::fetch_prompt_tool_definitions(state, request_id).await;
     let llm_request = build_provider_generate_request(
         request,
         Some(base_snapshot),
@@ -1391,7 +1557,7 @@ async fn resolve_memory_tool_call(
         auth_ctx,
         trace_id,
         state.config.llm.timeout_ms,
-        build_tool_definition(),
+        discovered_tools,
     );
     let selection = state.llm_provider.generate(llm_request).await?;
     info!(
@@ -1402,13 +1568,13 @@ async fn resolve_memory_tool_call(
         "llm tool-selection phase completed"
     );
 
-    let maybe_memory_call = selection
+    let maybe_tool_call = selection
         .tool_calls
         .iter()
-        .find(|tool_call| tool_call.name == "query_memory")
+        .find(|tool_call| matches!(tool_call.name.as_str(), "query_memory" | "query_knowledge"))
         .cloned();
 
-    if let Some(tool_call) = maybe_memory_call {
+    if let Some(tool_call) = maybe_tool_call {
         let ctx = MemoryRequestContext::from_auth(
             request_id.to_string(),
             session_id.to_string(),
@@ -1416,8 +1582,15 @@ async fn resolve_memory_tool_call(
             state.config.llm.timeout_ms,
             auth_ctx,
         );
-        let snapshot =
-            execute_memory_tool_call(state, route, request, &ctx, base_snapshot, &tool_call).await;
+        let snapshot = execute_supported_tool_call(
+            state,
+            route,
+            request,
+            &ctx,
+            base_snapshot,
+            &tool_call,
+        )
+        .await;
         return Ok(ToolResolutionResult {
             snapshot,
             direct_response: None,
@@ -1537,13 +1710,13 @@ async fn handle_stream_abort(
 async fn call_llm_generate(
     state: &Arc<AppState>,
     request: &ChatRequest,
-    memory_snapshot: &MemoryContextSnapshot,
+    memory_snapshot: &ConversationContextSnapshot,
     request_id: &str,
     session_id: &str,
     auth_ctx: &AuthContext,
     trace_id: &str,
 ) -> Result<ChatResponse, AppError> {
-    let tool_resolution = resolve_memory_tool_call(
+    let tool_resolution = resolve_tool_call(
         state,
         DegradeRoute::Chat,
         request,
@@ -1635,7 +1808,7 @@ async fn call_llm_generate(
 async fn call_llm_stream(
     state: &Arc<AppState>,
     request: &ChatRequest,
-    memory_snapshot: Option<&MemoryContextSnapshot>,
+    memory_snapshot: Option<&ConversationContextSnapshot>,
     request_id: &str,
     session_id: &str,
     auth_ctx: &AuthContext,
@@ -1644,6 +1817,7 @@ async fn call_llm_stream(
     const MAX_TOOL_ROUNDS: usize = 3;
     let mut snapshot = memory_snapshot.cloned().unwrap_or_default();
     let mut last_tool_name: Option<String> = None;
+    let discovered_tools = tool_catalog::fetch_prompt_tool_definitions(state, request_id).await;
 
     for _ in 0..MAX_TOOL_ROUNDS {
         let tool_request = build_provider_generate_request(
@@ -1654,7 +1828,7 @@ async fn call_llm_stream(
             auth_ctx,
             trace_id,
             state.config.llm.timeout_ms,
-            build_tool_definition(),
+            discovered_tools.clone(),
         );
         let selection = state.llm_provider.generate(tool_request).await?;
         info!(
@@ -1665,13 +1839,15 @@ async fn call_llm_stream(
             "llm stream tool-selection phase completed"
         );
 
-        let maybe_memory_call = selection
+        let maybe_tool_call = selection
             .tool_calls
             .iter()
-            .find(|tool_call| tool_call.name == "query_memory")
+            .find(|tool_call| {
+                matches!(tool_call.name.as_str(), "query_memory" | "query_knowledge")
+            })
             .cloned();
 
-        if let Some(tool_call) = maybe_memory_call {
+        if let Some(tool_call) = maybe_tool_call {
             if last_tool_name.as_deref() == Some(tool_call.name.as_str()) {
                 info!(
                     request_id = %request_id,
@@ -1689,7 +1865,7 @@ async fn call_llm_stream(
                 state.config.llm.timeout_ms,
                 auth_ctx,
             );
-            let next_snapshot = execute_memory_tool_call(
+            let next_snapshot = execute_supported_tool_call(
                 state,
                 DegradeRoute::ChatStream,
                 request,
@@ -1698,20 +1874,27 @@ async fn call_llm_stream(
                 &tool_call,
             )
             .await;
-            let reviewed_hits = review_memory_hits_for_stream(
-                state,
-                request,
-                request_id,
-                session_id,
-                auth_ctx,
-                trace_id,
-                &next_snapshot.hits,
-            )
-            .await;
-            let next_snapshot = MemoryContextSnapshot { hits: reviewed_hits };
+            let next_snapshot = if tool_call.name == "query_memory" {
+                let reviewed_hits = review_memory_hits_for_stream(
+                    state,
+                    request,
+                    request_id,
+                    session_id,
+                    auth_ctx,
+                    trace_id,
+                    &next_snapshot.hits,
+                )
+                .await;
+                let mut reviewed_snapshot = next_snapshot.clone();
+                reviewed_snapshot.hits = reviewed_hits;
+                reviewed_snapshot
+            } else {
+                next_snapshot
+            };
 
-            let has_new_memory = !next_snapshot.hits.is_empty() && next_snapshot.hits != snapshot.hits;
-            if !has_new_memory {
+            let has_new_context = next_snapshot != snapshot
+                && (!next_snapshot.hits.is_empty() || next_snapshot.knowledge.is_some());
+            if !has_new_context {
                 info!(
                     request_id = %request_id,
                     session_id = %session_id,
@@ -1778,7 +1961,7 @@ async fn call_llm_stream(
 
 fn build_provider_generate_request(
     request: &ChatRequest,
-    memory_snapshot: Option<&MemoryContextSnapshot>,
+    memory_snapshot: Option<&ConversationContextSnapshot>,
     request_id: &str,
     session_id: &str,
     auth_ctx: &AuthContext,
@@ -1803,9 +1986,18 @@ fn build_provider_generate_request(
         system_content.push_str(&memory_prompt);
     }
 
+    if let Some(knowledge_prompt) = memory_snapshot.and_then(|snapshot| {
+        build_knowledge_prompt(snapshot, &request.message)
+    }) {
+        system_content.push_str("\n\n");
+        system_content.push_str(&knowledge_prompt);
+    }
+
     if !tools.is_empty() {
         system_content.push_str("\n\n");
-        system_content.push_str(build_memory_tool_instruction());
+        system_content.push_str(
+            "如需调用工具，只能依据每个工具自带的 description 与 JSON schema 决定是否调用、以及如何填写参数。不要臆造未声明字段，也不要调用未出现在 tools 列表中的工具。",
+        );
     }
 
     let mut messages = vec![ProviderChatMessage {

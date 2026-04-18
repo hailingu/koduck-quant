@@ -18,6 +18,10 @@ spec:
     target: "http://dev-apisix-gateway:9080"
     grpcService: "koduck.memory.v1.MemoryService"
     grpcMethod: "GetCapabilities"
+  toolDiscovery:
+    protocol: http
+    target: "http://dev-koduck-memory:9090"
+    httpPath: "/internal/tools"
   featureHints:
     - "query_memory"
     - "append_memory"
@@ -44,6 +48,10 @@ spec:
     protocol: http
     target: "http://dev-koduck-knowledge:8084"
     httpPath: "/internal/capabilities"
+  toolDiscovery:
+    protocol: http
+    target: "http://dev-koduck-knowledge:8084"
+    httpPath: "/internal/tools"
   featureHints:
     - "entity_search"
     - "entity_facts"
