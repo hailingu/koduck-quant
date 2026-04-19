@@ -2,8 +2,6 @@ use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 use std::time::Instant;
 
-use serde::Deserialize;
-use serde_json::json;
 use tonic::{Request, Response, Status};
 use tracing::info;
 
@@ -53,39 +51,6 @@ const MAX_TOP_K: i32 = 20;
 const MAX_PAGE_SIZE: i32 = 100;
 const RECOMMENDED_TIMEOUT_MS: i64 = 5000;
 
-#[derive(Debug, Deserialize)]
-#[serde(default)]
-struct QueryMemoryToolArgs {
-    query: String,
-    intent: String,
-    memory_scope: String,
-    domain_class: String,
-}
-
-impl Default for QueryMemoryToolArgs {
-    fn default() -> Self {
-        Self {
-            query: String::new(),
-            intent: String::new(),
-            memory_scope: "global".to_string(),
-            domain_class: String::new(),
-        }
-    }
-}
-
-fn parse_tool_query_intent(raw: &str) -> QueryIntent {
-    match raw.trim().to_ascii_lowercase().as_str() {
-        "recall" => QueryIntent::Recall,
-        "compare" => QueryIntent::Compare,
-        "disambiguate" => QueryIntent::Disambiguate,
-        "correct" => QueryIntent::Correct,
-        "explain" => QueryIntent::Explain,
-        "decide" => QueryIntent::Decide,
-        "none" => QueryIntent::None,
-        _ => QueryIntent::Unspecified,
-    }
-}
-
 struct ReplayedTranscript {
     entries: Vec<SessionTranscriptEntry>,
     transcript_text: String,
@@ -117,85 +82,6 @@ impl MemoryGrpcService {
             object_store,
             rpc_metrics,
         }
-    }
-
-    pub async fn execute_tool_json(
-        &self,
-        meta: RequestMeta,
-        tool_name: &str,
-        arguments_json: &str,
-    ) -> Result<String, Status> {
-        match tool_name {
-            "query_memory" => self.execute_query_memory_tool(meta, arguments_json).await,
-            other => Err(Status::unimplemented(format!(
-                "unsupported tool: {other}"
-            ))),
-        }
-    }
-
-    async fn execute_query_memory_tool(
-        &self,
-        meta: RequestMeta,
-        arguments_json: &str,
-    ) -> Result<String, Status> {
-        let args = serde_json::from_str::<QueryMemoryToolArgs>(arguments_json)
-            .map_err(|error| Status::invalid_argument(format!("invalid arguments_json: {error}")))?;
-
-        if args.query.trim().is_empty() {
-            return Err(Status::invalid_argument("query is required"));
-        }
-        if args.intent.trim().is_empty() {
-            return Err(Status::invalid_argument("intent is required"));
-        }
-
-        let scoped_session_id = if args.memory_scope.trim() == "current_session" {
-            meta.session_id.clone()
-        } else {
-            String::new()
-        };
-
-        let response = <Self as MemoryService>::query_memory(
-            self,
-            Request::new(QueryMemoryRequest {
-                meta: Some(meta),
-                query_text: args.query.trim().to_string(),
-                session_id: scoped_session_id,
-                domain_class: args.domain_class.trim().to_string(),
-                top_k: MAX_TOP_K,
-                retrieve_policy: crate::api::RetrievePolicy::SummaryFirst as i32,
-                page_token: String::new(),
-                page_size: MAX_PAGE_SIZE,
-                query_intent: parse_tool_query_intent(&args.intent) as i32,
-            }),
-        )
-        .await?
-        .into_inner();
-
-        if !response.ok {
-            let message = response
-                .error
-                .as_ref()
-                .map(|detail| detail.message.clone())
-                .unwrap_or_else(|| "query_memory failed".to_string());
-            return Err(Status::internal(message));
-        }
-
-        let hits = response
-            .hits
-            .into_iter()
-            .map(|hit| {
-                json!({
-                    "sessionId": hit.session_id,
-                    "l0Uri": hit.l0_uri,
-                    "score": hit.score,
-                    "matchReasons": hit.match_reasons,
-                    "snippet": hit.snippet,
-                })
-            })
-            .collect::<Vec<_>>();
-
-        serde_json::to_string(&json!({ "hits": hits }))
-            .map_err(|error| Status::internal(format!("failed to encode tool result: {error}")))
     }
 
     fn session_repo(&self) -> SessionRepository {

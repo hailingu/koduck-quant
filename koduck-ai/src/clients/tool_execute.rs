@@ -1,4 +1,4 @@
-//! Generic tool execution client for discovered tool routes.
+//! Generic tool execution client for discovered non-first-class tool routes.
 
 use std::{sync::Arc, time::Duration};
 
@@ -9,8 +9,7 @@ use crate::{
     app::AppState,
     auth::AuthContext,
     clients::proto::{
-        ErrorDetail, ExecuteToolRequest, ExecuteToolResponse, ExecutionMode, RequestMeta,
-        ToolServiceClient,
+        ExecuteToolRequest, ExecuteToolResponse, RequestMeta, ToolServiceClient,
     },
     clients::tool_catalog::{service_upstream, DiscoveredTool, ToolRoute},
     registry::ServiceProtocol,
@@ -19,9 +18,10 @@ use crate::{
 
 const CONNECT_TIMEOUT_SECS: u64 = 3;
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct ExecutedToolResult {
     pub tool_name: String,
+    pub tool_version: String,
     pub service_name: String,
     pub result_json: String,
 }
@@ -77,7 +77,7 @@ pub async fn execute_tool(
     trace_id: &str,
     arguments_json: &str,
 ) -> Result<ExecutedToolResult, AppError> {
-    let result = match tool.route.protocol {
+    let result_json = match tool.route.protocol {
         ServiceProtocol::Http => {
             execute_http_tool(
                 &tool.route,
@@ -105,8 +105,9 @@ pub async fn execute_tool(
 
     Ok(ExecutedToolResult {
         tool_name: tool.definition.name.clone(),
+        tool_version: tool.route.tool_version.clone(),
         service_name: tool.route.service_name.clone(),
-        result_json: result,
+        result_json,
     })
 }
 
@@ -198,7 +199,27 @@ async fn execute_http_tool(
         })?;
 
     if !payload.ok {
-        return Err(http_contract_error(route, request_id, payload.error));
+        return Err(
+            AppError::new(
+                ErrorCode::DependencyFailed,
+                format!(
+                    "tool execute request was rejected by '{}': {} ({})",
+                    route.service_name,
+                    payload
+                        .error
+                        .as_ref()
+                        .map(|detail| detail.message.as_str())
+                        .unwrap_or("unknown error"),
+                    payload
+                        .error
+                        .as_ref()
+                        .map(|detail| detail.code.as_str())
+                        .unwrap_or("unknown")
+                ),
+            )
+            .with_request_id(request_id.to_string())
+            .with_upstream(service_upstream(route.service_kind)),
+        );
     }
 
     Ok(payload.result_json)
@@ -240,7 +261,7 @@ async fn execute_grpc_tool(
             tool_name: route.tool_name.clone(),
             tool_version: route.tool_version.clone(),
             arguments_json: arguments_json.to_string(),
-            execution_mode: ExecutionMode::Sync as i32,
+            execution_mode: crate::clients::proto::ExecutionMode::Sync as i32,
         }))
         .await
         .map_err(|status| {
@@ -258,20 +279,17 @@ fn map_grpc_execute_response(
     response: ExecuteToolResponse,
 ) -> Result<String, AppError> {
     if !response.ok {
-        let error = response.error.unwrap_or_else(|| ErrorDetail {
-            code: "TOOL_EXECUTE_FAILED".to_string(),
-            message: "tool execution rejected".to_string(),
-            retryable: false,
-            degraded: false,
-            upstream: String::new(),
-            retry_after_ms: 0,
-        });
         return Err(
             AppError::new(
                 ErrorCode::DependencyFailed,
                 format!(
-                    "tool '{}' rejected by '{}': {} {}",
-                    route.tool_name, route.service_name, error.code, error.message
+                    "tool execute request was rejected by '{}': {}",
+                    route.service_name,
+                    response
+                        .error
+                        .as_ref()
+                        .map(|detail| detail.message.as_str())
+                        .unwrap_or("unknown error")
                 ),
             )
             .with_request_id(request_id.to_string())
@@ -282,32 +300,17 @@ fn map_grpc_execute_response(
     Ok(response.result_json)
 }
 
-fn http_contract_error(
-    route: &ToolRoute,
-    request_id: &str,
-    error: Option<HttpErrorDetail>,
-) -> AppError {
-    let detail = error.unwrap_or(HttpErrorDetail {
-        code: "TOOL_EXECUTE_FAILED".to_string(),
-        message: "tool execution rejected".to_string(),
-    });
+fn derived_http_execute_path(http_catalog_path: Option<&str>) -> String {
+    let base = http_catalog_path
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .unwrap_or("/internal/tools");
 
-    AppError::new(
-        ErrorCode::DependencyFailed,
-        format!(
-            "tool '{}' rejected by '{}': {} {}",
-            route.tool_name, route.service_name, detail.code, detail.message
-        ),
-    )
-    .with_request_id(request_id.to_string())
-    .with_upstream(service_upstream(route.service_kind))
-}
-
-fn derived_http_execute_path(catalog_path: Option<&str>) -> String {
-    let path = catalog_path.unwrap_or("/internal/tools");
-    if path.ends_with("/execute") {
-        path.to_string()
+    let normalized = if base.starts_with('/') {
+        base.to_string()
     } else {
-        format!("{}/execute", path.trim_end_matches('/'))
-    }
+        format!("/{base}")
+    };
+
+    format!("{}/execute", normalized.trim_end_matches('/'))
 }

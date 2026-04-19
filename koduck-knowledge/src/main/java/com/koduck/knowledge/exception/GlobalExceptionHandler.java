@@ -12,6 +12,8 @@ import org.springframework.validation.BindException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.servlet.NoHandlerFoundException;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
@@ -35,6 +37,17 @@ public class GlobalExceptionHandler {
         details.put("reason", exception.getClass().getSimpleName());
         return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                 .body(new ErrorResponse("INVALID_ARGUMENT", "Request validation failed", details));
+    }
+
+    @ExceptionHandler({
+        NoResourceFoundException.class,
+        NoHandlerFoundException.class
+    })
+    public ResponseEntity<ErrorResponse> handleNotFoundException(final Exception exception) {
+        final Map<String, Object> details = new LinkedHashMap<>();
+        details.put("reason", exception.getClass().getSimpleName());
+        return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                .body(new ErrorResponse("NOT_FOUND", "Resource not found", details));
     }
 
     @ExceptionHandler(Exception.class)

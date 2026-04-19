@@ -1,12 +1,11 @@
-use axum::{http::StatusCode, response::IntoResponse, routing::{get, post}, Json, Router};
-use serde::{Deserialize, Serialize};
+use axum::{http::StatusCode, response::IntoResponse, routing::get, Json, Router};
+use serde::Serialize;
 use serde_json::json;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::Duration;
 use tracing_subscriber::EnvFilter;
 
-use crate::capability::MemoryGrpcService;
 use crate::config::AppConfig;
 use crate::store::RuntimeState;
 use crate::Result;
@@ -186,7 +185,6 @@ pub fn init_tracing() -> Result<()> {
 pub fn build_metrics_router(
     config: AppConfig,
     runtime: RuntimeState,
-    grpc_service: MemoryGrpcService,
     rpc_metrics: Arc<RpcMetrics>,
 ) -> Router {
     let metrics_config = config.clone();
@@ -231,13 +229,6 @@ pub fn build_metrics_router(
             }),
         )
         .route("/internal/tools", get(internal_tools_handler))
-        .route(
-            "/internal/tools/execute",
-            post(move |Json(request): Json<InternalToolExecuteRequest>| {
-                let grpc_service = grpc_service.clone();
-                async move { internal_tool_execute_handler(grpc_service, request).await }
-            }),
-        )
 }
 
 async fn live_handler(config: AppConfig) -> impl IntoResponse {
@@ -424,32 +415,6 @@ struct InternalToolDefinitionView {
     streaming_supported: bool,
 }
 
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct InternalToolExecuteRequest {
-    meta: InternalRequestMeta,
-    tool_name: String,
-    #[allow(dead_code)]
-    tool_version: Option<String>,
-    arguments_json: String,
-    #[allow(dead_code)]
-    execution_mode: Option<String>,
-}
-
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct InternalRequestMeta {
-    request_id: String,
-    session_id: String,
-    user_id: String,
-    tenant_id: String,
-    trace_id: String,
-    #[allow(dead_code)]
-    idempotency_key: Option<String>,
-    deadline_ms: i64,
-    api_version: String,
-}
-
 async fn internal_tools_handler() -> impl IntoResponse {
     Json(InternalToolCatalogView {
         service: "koduck-memory",
@@ -498,43 +463,4 @@ async fn internal_tools_handler() -> impl IntoResponse {
             streaming_supported: false,
         }],
     })
-}
-
-async fn internal_tool_execute_handler(
-    grpc_service: MemoryGrpcService,
-    request: InternalToolExecuteRequest,
-) -> impl IntoResponse {
-    let meta = crate::api::RequestMeta {
-        request_id: request.meta.request_id,
-        session_id: request.meta.session_id,
-        user_id: request.meta.user_id,
-        tenant_id: request.meta.tenant_id,
-        trace_id: request.meta.trace_id,
-        idempotency_key: request.meta.idempotency_key.unwrap_or_default(),
-        deadline_ms: request.meta.deadline_ms,
-        api_version: request.meta.api_version,
-    };
-
-    match grpc_service
-        .execute_tool_json(meta, &request.tool_name, &request.arguments_json)
-        .await
-    {
-        Ok(result_json) => (
-            StatusCode::OK,
-            Json(json!({
-                "ok": true,
-                "resultJson": result_json,
-            })),
-        ),
-        Err(error) => (
-            StatusCode::BAD_REQUEST,
-            Json(json!({
-                "ok": false,
-                "error": {
-                    "code": error.code().to_string(),
-                    "message": error.message(),
-                }
-            })),
-        ),
-    }
 }

@@ -21,9 +21,10 @@ use crate::{
     app::AppState,
     auth::AuthContext,
     clients::memory::{
-        self, MemoryEntry, MemoryHit, MemoryRequestContext, SessionUpsertInput,
+        self, MemoryEntry, MemoryHit, MemoryRequestContext, QueryIntent, QueryMemoryInput,
+        RetrievePolicy, SessionUpsertInput,
     },
-    clients::knowledge::KnowledgeQueryResult,
+    clients::knowledge::{self, KnowledgeQueryResult},
     clients::tool_execute,
     clients::tool_catalog,
     llm::{
@@ -120,6 +121,24 @@ pub struct SessionTranscriptItem {
     pub timestamp: i64,
 }
 
+#[derive(Debug, Clone, Deserialize)]
+pub struct ToolExecuteRequest {
+    pub session_id: Option<String>,
+    pub tool_name: String,
+    pub tool_version: Option<String>,
+    pub arguments: serde_json::Value,
+}
+
+#[derive(Debug, Serialize)]
+pub struct ToolExecutePayload {
+    pub request_id: String,
+    pub session_id: String,
+    pub tool_name: String,
+    pub tool_version: String,
+    pub service_name: String,
+    pub result: serde_json::Value,
+}
+
 #[derive(Debug, Clone, PartialEq)]
 struct KnowledgeContextSnapshot {
     query: String,
@@ -127,18 +146,10 @@ struct KnowledgeContextSnapshot {
     result: KnowledgeQueryResult,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-struct ToolResultSnapshot {
-    tool_name: String,
-    service_name: String,
-    result_json: String,
-}
-
 #[derive(Debug, Clone, Default, PartialEq)]
 struct ConversationContextSnapshot {
     hits: Vec<MemoryHit>,
     knowledge: Option<KnowledgeContextSnapshot>,
-    tool_results: Vec<ToolResultSnapshot>,
 }
 
 #[derive(Debug, Default)]
@@ -159,6 +170,14 @@ struct QueryKnowledgeToolArgs {
 }
 
 #[derive(Debug, Deserialize, Default)]
+struct QueryMemoryToolArgs {
+    query: Option<String>,
+    intent: Option<String>,
+    memory_scope: Option<String>,
+    domain_class: Option<String>,
+}
+
+#[derive(Debug, Deserialize, Default)]
 struct MemoryHitReviewDecision {
     #[serde(default)]
     keep: bool,
@@ -170,6 +189,10 @@ struct PreparedChatContext {
     session_id: String,
     trace_id: String,
     memory_ctx: MemoryRequestContext,
+}
+
+fn is_first_class_tool(name: &str) -> bool {
+    matches!(name, "query_memory" | "query_knowledge")
 }
 
 async fn init_chat_context(
@@ -605,6 +628,156 @@ pub async fn get_session_transcript(
         .into_response()
 }
 
+pub async fn execute_tool(
+    State(state): State<Arc<AppState>>,
+    headers: HeaderMap,
+    Json(request): Json<ToolExecuteRequest>,
+) -> Response {
+    let request_id = extract_or_create_request_id(&headers);
+    let auth_ctx = match crate::auth::authenticate_bearer(&headers, &state).await {
+        Ok(ctx) => ctx,
+        Err(err) => return api_error_response(err.with_request_id(request_id.clone()), request_id),
+    };
+
+    let tool_name = request.tool_name.trim();
+    if tool_name.is_empty() {
+        return api_error_response(
+            AppError::new(ErrorCode::InvalidArgument, "tool_name is required")
+                .with_request_id(request_id.clone()),
+            request_id,
+        );
+    }
+    if is_first_class_tool(tool_name) {
+        return api_error_response(
+            AppError::new(
+                ErrorCode::InvalidArgument,
+                format!(
+                    "tool '{}' is first-class and should be executed by the dedicated ai orchestrator",
+                    tool_name
+                ),
+            )
+            .with_request_id(request_id.clone()),
+            request_id,
+        );
+    }
+
+    let session_id = match request.session_id.as_deref() {
+        Some(raw) => match normalize_session_id(raw) {
+            Some(value) => value,
+            None => {
+                return api_error_response(
+                    AppError::new(ErrorCode::InvalidArgument, "session_id is invalid")
+                        .with_request_id(request_id.clone()),
+                    request_id,
+                )
+            }
+        },
+        None => Uuid::new_v4().to_string(),
+    };
+
+    let trace_id = extract_trace_id(&headers);
+    let discovered_tools = tool_catalog::fetch_prompt_tools(&state, &request_id).await;
+    let Some(tool) = discovered_tools
+        .iter()
+        .find(|candidate| candidate.definition.name == tool_name)
+    else {
+        return api_error_response(
+            AppError::new(
+                ErrorCode::ResourceNotFound,
+                format!("tool '{}' is not registered or not discoverable", tool_name),
+            )
+            .with_request_id(request_id.clone()),
+            request_id,
+        );
+    };
+
+    if let Some(expected_version) = request
+        .tool_version
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+    {
+        if tool.route.tool_version != expected_version {
+            return api_error_response(
+                AppError::new(
+                    ErrorCode::InvalidArgument,
+                    format!(
+                        "tool '{}' version mismatch: requested '{}', discovered '{}'",
+                        tool_name, expected_version, tool.route.tool_version
+                    ),
+                )
+                .with_request_id(request_id.clone()),
+                request_id,
+            );
+        }
+    }
+
+    let arguments_json = match serde_json::to_string(&request.arguments) {
+        Ok(value) => value,
+        Err(err) => {
+            return api_error_response(
+                AppError::new(
+                    ErrorCode::InvalidArgument,
+                    format!("failed to encode tool arguments as json: {err}"),
+                )
+                .with_request_id(request_id.clone()),
+                request_id,
+            )
+        }
+    };
+
+    let executed = match tool_execute::execute_tool(
+        &state,
+        tool,
+        &request_id,
+        &session_id,
+        &auth_ctx,
+        &trace_id,
+        &arguments_json,
+    )
+    .await
+    {
+        Ok(result) => result,
+        Err(err) => return api_error_response(err, request_id),
+    };
+
+    let result = match serde_json::from_str::<serde_json::Value>(&executed.result_json) {
+        Ok(value) => value,
+        Err(err) => {
+            return api_error_response(
+                AppError::new(
+                    ErrorCode::DependencyFailed,
+                    format!(
+                        "tool '{}' returned malformed result_json: {err}",
+                        executed.tool_name
+                    ),
+                )
+                .with_request_id(request_id.clone()),
+                request_id,
+            )
+        }
+    };
+
+    (
+        StatusCode::OK,
+        Json(ApiResponse {
+            success: true,
+            code: ErrorCode::Ok.to_string(),
+            message: "success".to_string(),
+            data: Some(ToolExecutePayload {
+                request_id,
+                session_id,
+                tool_name: executed.tool_name,
+                tool_version: executed.tool_version,
+                service_name: executed.service_name,
+                result,
+            }),
+            error: None,
+        }),
+    )
+        .into_response()
+}
+
 pub async fn delete_memory_entry(
     State(state): State<Arc<AppState>>,
     headers: HeaderMap,
@@ -888,7 +1061,6 @@ async fn load_memory_snapshot(
     ConversationContextSnapshot {
         hits: Vec::new(),
         knowledge: None,
-        tool_results: Vec::new(),
     }
 }
 
@@ -1203,37 +1375,6 @@ fn build_knowledge_prompt(
     ))
 }
 
-fn build_tool_results_prompt(
-    snapshot: &ConversationContextSnapshot,
-    user_message: &str,
-) -> Option<String> {
-    if snapshot.tool_results.is_empty() {
-        return None;
-    }
-
-    let sections = snapshot
-        .tool_results
-        .iter()
-        .enumerate()
-        .map(|(index, result)| {
-            format!(
-                "{}. tool={} service={}\nresult_json={}",
-                index + 1,
-                result.tool_name,
-                result.service_name,
-                result.result_json
-            )
-        })
-        .collect::<Vec<_>>()
-        .join("\n\n");
-
-    Some(format!(
-        "以下内容来自已执行工具的原始 JSON 结果。你可以基于这些结果回答，但不要虚构 tool 未返回的字段。\n\n工具结果:\n{}\n\n当前用户问题（请把它作为最终相关性判断依据）:\n{}",
-        sections,
-        user_message.trim()
-    ))
-}
-
 fn parse_memory_hit_review_decision(raw: &str) -> Option<MemoryHitReviewDecision> {
     let trimmed = raw.trim();
     if trimmed.is_empty() {
@@ -1439,136 +1580,170 @@ fn parse_query_knowledge_tool_args(raw: &str) -> QueryKnowledgeToolArgs {
     serde_json::from_str::<QueryKnowledgeToolArgs>(raw).unwrap_or_default()
 }
 
-#[derive(Debug, Deserialize)]
-struct MemoryToolResultPayload {
-    #[serde(default)]
-    hits: Vec<MemoryToolHitView>,
+fn parse_query_memory_tool_args(raw: &str) -> QueryMemoryToolArgs {
+    serde_json::from_str::<QueryMemoryToolArgs>(raw).unwrap_or_default()
 }
 
-#[derive(Debug, Deserialize)]
-struct MemoryToolHitView {
-    session_id: String,
-    l0_uri: String,
-    score: f32,
-    #[serde(default)]
-    match_reasons: Vec<String>,
-    snippet: String,
+fn parse_query_intent(raw: &str) -> QueryIntent {
+    match raw.trim().to_ascii_lowercase().as_str() {
+        "recall" => QueryIntent::Recall,
+        "compare" => QueryIntent::Compare,
+        "disambiguate" => QueryIntent::Disambiguate,
+        "correct" => QueryIntent::Correct,
+        "explain" => QueryIntent::Explain,
+        "decide" => QueryIntent::Decide,
+        "delete" => QueryIntent::Delete,
+        "none" => QueryIntent::None,
+        _ => QueryIntent::Unspecified,
+    }
 }
 
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct KnowledgeToolResultPayload {
-    #[serde(default)]
-    hits: Vec<crate::clients::knowledge::SearchHit>,
-    #[serde(default)]
-    primary_profile: Option<crate::clients::knowledge::BasicProfileView>,
-    #[serde(default)]
-    facts: Vec<crate::clients::knowledge::EntityFactView>,
+fn memory_query_session_scope(current_session_id: &str, raw_scope: Option<&str>) -> Option<String> {
+    match raw_scope
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .unwrap_or("global")
+        .to_ascii_lowercase()
+        .as_str()
+    {
+        "current_session" => Some(current_session_id.to_string()),
+        _ => None,
+    }
 }
 
-fn adapt_tool_result_snapshot(
+fn build_memory_query_text(request: &ChatRequest, args: &QueryMemoryToolArgs) -> String {
+    args.query
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .unwrap_or_else(|| request.message.trim())
+        .to_string()
+}
+
+fn retrieve_policy_from_request(request: &ChatRequest) -> RetrievePolicy {
+    let raw = request
+        .retrieve_policy
+        .clone()
+        .or_else(|| {
+            request
+                .metadata
+                .as_ref()
+                .and_then(|metadata| metadata.get("retrieve_policy"))
+                .and_then(json_value_as_string)
+        })
+        .unwrap_or_else(|| "summary_first".to_string());
+
+    match raw.trim().to_ascii_lowercase().as_str() {
+        "domain_first" => RetrievePolicy::DomainFirst,
+        "hybrid" => RetrievePolicy::Hybrid,
+        "summary_first" => RetrievePolicy::SummaryFirst,
+        _ => RetrievePolicy::SummaryFirst,
+    }
+}
+
+async fn execute_memory_tool_call(
     state: &Arc<AppState>,
     route: DegradeRoute,
     request: &ChatRequest,
     ctx: &MemoryRequestContext,
-    snapshot: &mut ConversationContextSnapshot,
     tool_call: &ProviderToolCall,
-) {
-    match tool_call.name.as_str() {
-        "query_memory" => match serde_json::from_str::<MemoryToolResultPayload>(
+) -> ConversationContextSnapshot {
+    let args = parse_query_memory_tool_args(&tool_call.arguments);
+    let query_text = build_memory_query_text(request, &args);
+    if query_text.trim().is_empty() {
+        return ConversationContextSnapshot {
+            hits: Vec::new(),
+            knowledge: None,
+        };
+    }
+
+    let input = QueryMemoryInput {
+        query_text,
+        session_id: memory_query_session_scope(&ctx.session_id, args.memory_scope.as_deref()),
+        domain_class: args
+            .domain_class
+            .as_deref()
+            .map(str::trim)
+            .unwrap_or_default()
+            .to_string(),
+        query_intent: parse_query_intent(args.intent.as_deref().unwrap_or("none")),
+        retrieve_policy: retrieve_policy_from_request(request),
+        top_k: MEMORY_QUERY_TOP_K,
+        page_size: MEMORY_QUERY_PAGE_SIZE,
+    };
+
+    match memory::query_memory(state, ctx, input).await {
+        Ok(hits) => {
+            let mut snapshot = ConversationContextSnapshot::default();
+            snapshot.hits = hits;
             snapshot
-                .tool_results
-                .last()
-                .map(|result| result.result_json.as_str())
-                .unwrap_or("{}"),
-        ) {
-            Ok(payload) => {
-                snapshot.hits = payload
-                    .hits
-                    .into_iter()
-                    .map(|hit| MemoryHit {
-                        session_id: hit.session_id,
-                        l0_uri: hit.l0_uri,
-                        score: hit.score,
-                        match_reasons: hit.match_reasons,
-                        snippet: hit.snippet,
-                    })
-                    .collect();
-            }
-            Err(err) => {
-                log_memory_failure(
-                    state,
-                    route,
-                    MemoryOperation::QueryMemory,
-                    ctx,
-                    &AppError::new(
-                        ErrorCode::DependencyFailed,
-                        format!("failed to decode query_memory tool result: {err}"),
-                    ),
-                    true,
-                    "query_memory tool result was malformed; continuing without retrieved memory hits",
-                );
-            }
-        },
-        "query_knowledge" => {
-            let args = parse_query_knowledge_tool_args(&tool_call.arguments);
-            let query = args
-                .query
-                .as_deref()
-                .map(str::trim)
-                .filter(|value| !value.is_empty())
-                .unwrap_or_else(|| request.message.trim())
-                .to_string();
-            let domain_class = args
-                .domain_class
-                .as_deref()
-                .map(str::trim)
-                .filter(|value| !value.is_empty())
-                .map(ToOwned::to_owned)
-                .unwrap_or_else(|| metadata_string(request, "domain_class"));
-
-            if domain_class.trim().is_empty() {
-                warn!(
-                    request_id = %ctx.request_id,
-                    session_id = %ctx.session_id,
-                    tool_name = %tool_call.name,
-                    "query_knowledge adapter skipped because domain_class is unavailable"
-                );
-                return;
-            }
-
-            match serde_json::from_str::<KnowledgeToolResultPayload>(
-                snapshot
-                    .tool_results
-                    .last()
-                    .map(|result| result.result_json.as_str())
-                    .unwrap_or("{}"),
-            ) {
-                Ok(payload) => {
-                    snapshot.knowledge = Some(KnowledgeContextSnapshot {
-                        query,
-                        domain_class,
-                        result: KnowledgeQueryResult {
-                            query: String::new(),
-                            domain_class: String::new(),
-                            hits: payload.hits,
-                            primary_profile: payload.primary_profile,
-                            facts: payload.facts,
-                        },
-                    });
-                }
-                Err(err) => {
-                    warn!(
-                        request_id = %ctx.request_id,
-                        session_id = %ctx.session_id,
-                        tool_name = %tool_call.name,
-                        error = %err,
-                        "query_knowledge tool result was malformed; continuing without structured knowledge snapshot"
-                    );
-                }
-            }
         }
-        _ => {}
+        Err(err) => {
+            log_memory_failure(
+                state,
+                route,
+                MemoryOperation::QueryMemory,
+                ctx,
+                &err,
+                true,
+                "tool selection chose query_memory but retrieval failed; continuing without retrieved memory hits",
+            );
+            ConversationContextSnapshot::default()
+        }
+    }
+}
+
+async fn execute_knowledge_tool_call(
+    state: &Arc<AppState>,
+    request: &ChatRequest,
+    ctx: &MemoryRequestContext,
+    tool_call: &ProviderToolCall,
+) -> ConversationContextSnapshot {
+    let args = parse_query_knowledge_tool_args(&tool_call.arguments);
+    let query = args
+        .query
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .unwrap_or_else(|| request.message.trim())
+        .to_string();
+    let domain_class = args
+        .domain_class
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(ToOwned::to_owned)
+        .unwrap_or_else(|| metadata_string(request, "domain_class"));
+
+    if query.trim().is_empty() || domain_class.trim().is_empty() {
+        warn!(
+            request_id = %ctx.request_id,
+            session_id = %ctx.session_id,
+            tool_name = %tool_call.name,
+            "query_knowledge skipped because query or domain_class is unavailable"
+        );
+        return ConversationContextSnapshot::default();
+    }
+
+    match knowledge::query_knowledge(state, &ctx.request_id, &query, &domain_class).await {
+        Ok(result) => ConversationContextSnapshot {
+            hits: Vec::new(),
+            knowledge: Some(KnowledgeContextSnapshot {
+                query,
+                domain_class,
+                result,
+            }),
+        },
+        Err(err) => {
+            warn!(
+                request_id = %ctx.request_id,
+                session_id = %ctx.session_id,
+                tool_name = %tool_call.name,
+                error = %err,
+                "tool selection chose query_knowledge but retrieval failed; continuing without structured knowledge"
+            );
+            ConversationContextSnapshot::default()
+        }
     }
 }
 
@@ -1577,76 +1752,22 @@ async fn execute_supported_tool_call(
     route: DegradeRoute,
     request: &ChatRequest,
     ctx: &MemoryRequestContext,
-    auth_ctx: &AuthContext,
     base_snapshot: &ConversationContextSnapshot,
     tool_call: &ProviderToolCall,
-    discovered_tools: &[tool_catalog::DiscoveredTool],
 ) -> ConversationContextSnapshot {
-    let Some(tool) = discovered_tools
-        .iter()
-        .find(|candidate| candidate.definition.name == tool_call.name)
-    else {
-        warn!(
-            request_id = %ctx.request_id,
-            session_id = %ctx.session_id,
-            tool_name = %tool_call.name,
-            "selected tool was not found in discovered tool routes"
-        );
-        return base_snapshot.clone();
-    };
-
-    info!(
-        request_id = %ctx.request_id,
-        session_id = %ctx.session_id,
-        tool_name = %tool_call.name,
-        tool_call_id = %tool_call.id,
-        tool_arguments = %tool_call.arguments,
-        service = %tool.route.service_name,
-        "executing generic tool call"
-    );
-
-    let executed = match tool_execute::execute_tool(
-        state,
-        tool,
-        &ctx.request_id,
-        &ctx.session_id,
-        auth_ctx,
-        &ctx.trace_id,
-        &tool_call.arguments,
-    )
-    .await
-    {
-        Ok(result) => result,
-        Err(err) => {
-            if tool_call.name == "query_memory" {
-                log_memory_failure(
-                    state,
-                    route,
-                    MemoryOperation::QueryMemory,
-                    ctx,
-                    &err,
-                    true,
-                    "generic tool execution failed for query_memory; continuing without retrieved memory hits",
-                );
-            }
-            warn!(
-                request_id = %ctx.request_id,
-                session_id = %ctx.session_id,
-                tool_name = %tool_call.name,
-                error = %err,
-                "generic tool execution failed; continuing without tool result"
-            );
-            return base_snapshot.clone();
-        }
-    };
-
     let mut snapshot = base_snapshot.clone();
-    snapshot.tool_results.push(ToolResultSnapshot {
-        tool_name: executed.tool_name,
-        service_name: executed.service_name,
-        result_json: executed.result_json,
-    });
-    adapt_tool_result_snapshot(state, route, request, ctx, &mut snapshot, tool_call);
+    let next_snapshot = match tool_call.name.as_str() {
+        "query_memory" => execute_memory_tool_call(state, route, request, ctx, tool_call).await,
+        "query_knowledge" => execute_knowledge_tool_call(state, request, ctx, tool_call).await,
+        _ => return snapshot,
+    };
+
+    if !next_snapshot.hits.is_empty() {
+        snapshot.hits = next_snapshot.hits;
+    }
+    if next_snapshot.knowledge.is_some() {
+        snapshot.knowledge = next_snapshot.knowledge;
+    }
     snapshot
 }
 
@@ -1660,7 +1781,7 @@ async fn resolve_tool_call(
     auth_ctx: &AuthContext,
     trace_id: &str,
 ) -> Result<ToolResolutionResult, AppError> {
-    let discovered_tools = tool_catalog::fetch_prompt_tools(state, request_id).await;
+    let discovered_tools = tool_catalog::fetch_prompt_tool_definitions(state, request_id).await;
     let llm_request = build_provider_generate_request(
         request,
         Some(base_snapshot),
@@ -1670,9 +1791,9 @@ async fn resolve_tool_call(
         trace_id,
         state.config.llm.timeout_ms,
         discovered_tools
-            .iter()
-            .map(|tool| tool.definition.clone())
-            .collect(),
+                .iter()
+                .cloned()
+                .collect(),
     );
     let selection = state.llm_provider.generate(llm_request).await?;
     info!(
@@ -1689,7 +1810,8 @@ async fn resolve_tool_call(
         .find(|tool_call| {
             discovered_tools
                 .iter()
-                .any(|tool| tool.definition.name == tool_call.name)
+                .any(|tool| tool.name == tool_call.name)
+                && is_first_class_tool(tool_call.name.as_str())
         })
         .cloned();
 
@@ -1706,10 +1828,8 @@ async fn resolve_tool_call(
             route,
             request,
             &ctx,
-            auth_ctx,
             base_snapshot,
             &tool_call,
-            &discovered_tools,
         )
         .await;
         return Ok(ToolResolutionResult {
@@ -1942,7 +2062,7 @@ async fn call_llm_stream(
     const MAX_TOOL_ROUNDS: usize = 3;
     let mut snapshot = memory_snapshot.cloned().unwrap_or_default();
     let mut last_tool_name: Option<String> = None;
-    let discovered_tools = tool_catalog::fetch_prompt_tools(state, request_id).await;
+    let discovered_tools = tool_catalog::fetch_prompt_tool_definitions(state, request_id).await;
 
     for _ in 0..MAX_TOOL_ROUNDS {
         let tool_request = build_provider_generate_request(
@@ -1955,7 +2075,7 @@ async fn call_llm_stream(
             state.config.llm.timeout_ms,
             discovered_tools
                 .iter()
-                .map(|tool| tool.definition.clone())
+                .cloned()
                 .collect(),
         );
         let selection = state.llm_provider.generate(tool_request).await?;
@@ -1973,7 +2093,8 @@ async fn call_llm_stream(
             .find(|tool_call| {
                 discovered_tools
                     .iter()
-                    .any(|tool| tool.definition.name == tool_call.name)
+                    .any(|tool| tool.name == tool_call.name)
+                    && is_first_class_tool(tool_call.name.as_str())
             })
             .cloned();
 
@@ -2000,10 +2121,8 @@ async fn call_llm_stream(
                 DegradeRoute::ChatStream,
                 request,
                 &ctx,
-                auth_ctx,
                 &snapshot,
                 &tool_call,
-                &discovered_tools,
             )
             .await;
             let next_snapshot = if tool_call.name == "query_memory" {
@@ -2025,9 +2144,7 @@ async fn call_llm_stream(
             };
 
             let has_new_context = next_snapshot != snapshot
-                && (!next_snapshot.hits.is_empty()
-                    || next_snapshot.knowledge.is_some()
-                    || !next_snapshot.tool_results.is_empty());
+                && (!next_snapshot.hits.is_empty() || next_snapshot.knowledge.is_some());
             if !has_new_context {
                 info!(
                     request_id = %request_id,
@@ -2125,13 +2242,6 @@ fn build_provider_generate_request(
     }) {
         system_content.push_str("\n\n");
         system_content.push_str(&knowledge_prompt);
-    }
-
-    if let Some(tool_results_prompt) = memory_snapshot.and_then(|snapshot| {
-        build_tool_results_prompt(snapshot, &request.message)
-    }) {
-        system_content.push_str("\n\n");
-        system_content.push_str(&tool_results_prompt);
     }
 
     if !tools.is_empty() {

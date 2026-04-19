@@ -181,6 +181,7 @@ fn should_tolerate_startup_capability_error(state: &AppState, error: &AppError) 
 pub fn create_router(state: Arc<AppState>) -> Router {
     Router::new()
         .route("/api/v1/ai/chat", post(api::chat))
+        .route("/api/v1/ai/tools/execute", post(api::execute_tool))
         .route("/api/v1/ai/debug/{value}", get(api::debug_path_echo))
         .route("/api/v1/ai/sessions/{session_id}", get(api::session_exists))
         .route("/api/v1/ai/sessions/{session_id}", delete(api::delete_session))
