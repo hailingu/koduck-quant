@@ -15,11 +15,13 @@ use crate::{
 };
 
 pub use super::proto::{
-    AppendMemoryRequest, AppendMemoryResponse, DeleteSessionRequest, DeleteSessionResponse,
-    GetSessionRequest, GetSessionResponse, MemoryEntry, MemoryHit, MemoryService,
+    AppendMemoryRequest, AppendMemoryResponse, DeleteMemoryEntryRequest,
+    DeleteMemoryEntryResponse, DeleteSessionRequest, DeleteSessionResponse,
+    GetSessionRequest, GetSessionResponse, GetSessionTranscriptRequest,
+    GetSessionTranscriptResponse, MemoryEntry, MemoryHit, MemoryService,
     MemoryServiceClient, MemoryServiceServer, QueryMemoryRequest, QueryIntent,
-    QueryMemoryResponse, RetrievePolicy, SessionInfo, UpsertSessionMetaRequest,
-    UpsertSessionMetaResponse,
+    QueryMemoryResponse, RetrievePolicy, SessionInfo, SessionTranscriptEntry,
+    UpsertSessionMetaRequest, UpsertSessionMetaResponse,
 };
 
 const API_VERSION: &str = "v1";
@@ -127,6 +129,23 @@ pub async fn upsert_session_meta(
         .map_err(|status| map_grpc_status(UpstreamService::Memory, &ctx.request_id, &status))?;
 
     map_upsert_session_response(ctx, response.into_inner())
+}
+
+pub async fn get_session_transcript(
+    state: &Arc<AppState>,
+    ctx: &MemoryRequestContext,
+) -> Result<Vec<SessionTranscriptEntry>, AppError> {
+    let target = resolve_memory_target(state).await?;
+    let mut client = connect_client(&target, &ctx.request_id).await?;
+    let response = client
+        .get_session_transcript(Request::new(GetSessionTranscriptRequest {
+            meta: Some(ctx.request_meta(String::new())),
+            session_id: ctx.session_id.clone(),
+        }))
+        .await
+        .map_err(|status| map_grpc_status(UpstreamService::Memory, &ctx.request_id, &status))?;
+
+    map_get_session_transcript_response(ctx, response.into_inner())
 }
 
 pub async fn query_memory(
@@ -260,6 +279,23 @@ fn map_get_session_response(
     ))
 }
 
+fn map_get_session_transcript_response(
+    ctx: &MemoryRequestContext,
+    response: GetSessionTranscriptResponse,
+) -> Result<Vec<SessionTranscriptEntry>, AppError> {
+    if response.ok {
+        return Ok(response.entries);
+    }
+
+    Err(map_contract_error_detail(
+        UpstreamService::Memory,
+        &ctx.request_id,
+        response.error.as_ref(),
+        ErrorCode::DependencyFailed,
+        "memory get_session_transcript failed",
+    ))
+}
+
 fn map_upsert_session_response(
     ctx: &MemoryRequestContext,
     response: UpsertSessionMetaResponse,
@@ -315,7 +351,8 @@ pub async fn delete_session(
     state: &Arc<AppState>,
     ctx: &MemoryRequestContext,
 ) -> Result<(), AppError> {
-    let mut client = connect_client(&state.config.memory.grpc_target, &ctx.request_id).await?;
+    let target = resolve_memory_target(state).await?;
+    let mut client = connect_client(&target, &ctx.request_id).await?;
     let response = client
         .delete_session(Request::new(DeleteSessionRequest {
             meta: Some(ctx.request_meta(format!("{}:delete-session", ctx.request_id))),
@@ -341,6 +378,42 @@ fn map_delete_session_response(
         response.error.as_ref(),
         ErrorCode::DependencyFailed,
         "memory delete_session failed",
+    ))
+}
+
+pub async fn delete_memory_entry(
+    state: &Arc<AppState>,
+    ctx: &MemoryRequestContext,
+    entry_id: &str,
+) -> Result<(), AppError> {
+    let target = resolve_memory_target(state).await?;
+    let mut client = connect_client(&target, &ctx.request_id).await?;
+    let response = client
+        .delete_memory_entry(Request::new(DeleteMemoryEntryRequest {
+            meta: Some(ctx.request_meta(format!("{}:delete-memory-entry", ctx.request_id))),
+            session_id: ctx.session_id.clone(),
+            entry_id: entry_id.to_string(),
+        }))
+        .await
+        .map_err(|status| map_grpc_status(UpstreamService::Memory, &ctx.request_id, &status))?;
+
+    map_delete_memory_entry_response(ctx, response.into_inner())
+}
+
+fn map_delete_memory_entry_response(
+    ctx: &MemoryRequestContext,
+    response: DeleteMemoryEntryResponse,
+) -> Result<(), AppError> {
+    if response.ok {
+        return Ok(());
+    }
+
+    Err(map_contract_error_detail(
+        UpstreamService::Memory,
+        &ctx.request_id,
+        response.error.as_ref(),
+        ErrorCode::DependencyFailed,
+        "memory delete_memory_entry failed",
     ))
 }
 

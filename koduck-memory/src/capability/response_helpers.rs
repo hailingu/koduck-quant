@@ -1,10 +1,10 @@
 use tonic::Response;
 
 use crate::api::{
-    AppendMemoryResponse, DeleteSessionResponse, ErrorDetail, GetSessionIdsLookupResponse,
-    GetSessionResponse, GetSessionSummaryResponse, GetSessionTranscriptResponse, MemoryHit,
-    QueryMemoryResponse, SessionInfo, SessionTranscriptEntry, SummarizeMemoryResponse,
-    UpsertSessionMetaResponse,
+    AppendMemoryResponse, DeleteMemoryEntryResponse, DeleteSessionResponse, ErrorDetail,
+    GetSessionIdsLookupResponse, GetSessionResponse, GetSessionSummaryResponse,
+    GetSessionTranscriptResponse, MemoryHit, QueryMemoryResponse, SessionInfo,
+    SessionTranscriptEntry, SummarizeMemoryResponse, UpsertSessionMetaResponse,
 };
 
 fn error_detail(
@@ -163,5 +163,31 @@ pub(crate) fn ok_delete_session(
         deleted_summaries,
         deleted_index_records: 0,
         error: None,
+    })
+}
+
+pub(crate) fn ok_delete_memory_entry(
+    deleted: bool,
+    remaining_entries: i32,
+) -> Response<DeleteMemoryEntryResponse> {
+    Response::new(DeleteMemoryEntryResponse {
+        ok: true,
+        deleted,
+        remaining_entries,
+        error: None,
+    })
+}
+
+pub(crate) fn memory_entry_not_found() -> Response<DeleteMemoryEntryResponse> {
+    Response::new(DeleteMemoryEntryResponse {
+        ok: false,
+        deleted: false,
+        remaining_entries: 0,
+        error: Some(error_detail(
+            "RESOURCE_NOT_FOUND",
+            "memory entry not found".to_string(),
+            false,
+            false,
+        )),
     })
 }

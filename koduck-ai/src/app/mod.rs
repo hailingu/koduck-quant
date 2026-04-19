@@ -184,6 +184,14 @@ pub fn create_router(state: Arc<AppState>) -> Router {
         .route("/api/v1/ai/debug/{value}", get(api::debug_path_echo))
         .route("/api/v1/ai/sessions/{session_id}", get(api::session_exists))
         .route("/api/v1/ai/sessions/{session_id}", delete(api::delete_session))
+        .route(
+            "/api/v1/ai/sessions/{session_id}/transcript",
+            get(api::get_session_transcript),
+        )
+        .route(
+            "/api/v1/ai/sessions/{session_id}/entries/{entry_id}",
+            delete(api::delete_memory_entry),
+        )
         .route("/api/v1/ai/chat/stream", post(api::chat_stream))
         .route("/healthz", get(health_handler))
         .fallback(api::http_fallback)

@@ -19,6 +19,7 @@ type MessageType = "text" | "card";
 
 interface Message {
   id: string;
+  memoryEntryId?: string;
   role: "user" | "assistant";
   content: string;
   type: MessageType;
@@ -103,6 +104,23 @@ interface SessionLookupData {
 interface SessionLookupEnvelope {
   success?: boolean;
   data?: SessionLookupData;
+}
+
+interface SessionTranscriptEntry {
+  entry_id?: string;
+  role?: "user" | "assistant";
+  content?: string;
+  timestamp?: number;
+}
+
+interface SessionTranscriptData {
+  session_id?: string;
+  entries?: SessionTranscriptEntry[];
+}
+
+interface SessionTranscriptEnvelope {
+  success?: boolean;
+  data?: SessionTranscriptData;
 }
 
 const STREAM_INITIAL_IDLE_TIMEOUT_MS = 20000;
@@ -226,6 +244,25 @@ function persistSessionMessages(sessionId: string | null, messages: Message[]) {
   );
 }
 
+function mapTranscriptEntriesToMessages(entries: SessionTranscriptEntry[]): Message[] {
+  return entries
+    .filter(
+      (entry): entry is Required<Pick<SessionTranscriptEntry, "entry_id" | "role" | "content" | "timestamp">> =>
+        typeof entry.entry_id === "string" &&
+        (entry.role === "user" || entry.role === "assistant") &&
+        typeof entry.content === "string" &&
+        typeof entry.timestamp === "number",
+    )
+    .map((entry) => ({
+      id: entry.entry_id,
+      memoryEntryId: entry.entry_id,
+      role: entry.role,
+      content: entry.content,
+      type: "text",
+      timestamp: entry.timestamp,
+    }));
+}
+
 async function fetchSessionExists(
   sessionId: string,
   signal: AbortSignal,
@@ -287,6 +324,35 @@ async function fetchSessionExists(
   }
 
   return null;
+}
+
+async function fetchSessionTranscript(
+  sessionId: string,
+  signal?: AbortSignal,
+): Promise<Message[] | null> {
+  const token = window.localStorage.getItem("koduck.auth.token");
+  const response = await fetch(
+    `/api/v1/ai/sessions/${encodeURIComponent(sessionId)}/transcript`,
+    {
+      method: "GET",
+      headers: {
+        Accept: "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      signal,
+    },
+  );
+
+  if (!response.ok) {
+    return null;
+  }
+
+  const body = (await response.json()) as SessionTranscriptEnvelope;
+  if (!body.success) {
+    return null;
+  }
+
+  return mapTranscriptEntriesToMessages(body.data?.entries ?? []);
 }
 
 function logStreamTrace(
@@ -594,6 +660,7 @@ export function KoduckAi() {
   const [sending, setSending] = useState(false);
   const [sessionHydrated, setSessionHydrated] = useState(initialSessionId === null);
   const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null);
+  const [deletingMessageId, setDeletingMessageId] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const chatInputRef = useRef<HTMLTextAreaElement>(null);
@@ -693,7 +760,14 @@ export function KoduckAi() {
           setMessages([]);
         }
       } else {
-        setMessages(readStoredMessages(initialSessionId));
+        const transcriptMessages = await fetchSessionTranscript(
+          initialSessionId,
+          controller.signal,
+        );
+        if (controller.signal.aborted) {
+          return;
+        }
+        setMessages(transcriptMessages ?? readStoredMessages(initialSessionId));
       }
 
       setSessionHydrated(true);
@@ -725,6 +799,20 @@ export function KoduckAi() {
     setMessages((prev) =>
       prev.map((message) => (message.id === messageId ? updater(message) : message)),
     );
+  };
+
+  const syncSessionMessagesFromMemory = async (
+    sessionId: string,
+    signal?: AbortSignal,
+  ): Promise<Message[] | null> => {
+    const transcriptMessages = await fetchSessionTranscript(sessionId, signal);
+    if (signal?.aborted) {
+      return null;
+    }
+    if (transcriptMessages) {
+      setMessages(transcriptMessages);
+    }
+    return transcriptMessages;
   };
 
   const buildHistoryMessages = (): ChatHistoryMessage[] =>
@@ -872,8 +960,58 @@ export function KoduckAi() {
     }
   };
 
-  const deleteMessage = (messageId: string) => {
-    setMessages((prev) => prev.filter((message) => message.id !== messageId));
+  const deleteMessage = async (message: Message) => {
+    if (message.streaming) {
+      return;
+    }
+
+    const sessionId = currentSessionIdRef.current;
+    if (!sessionId) {
+      setMessages((prev) => prev.filter((item) => item.id !== message.id));
+      return;
+    }
+
+    setDeletingMessageId(message.id);
+    try {
+      let entryId = message.memoryEntryId;
+      if (!entryId) {
+        const syncedMessages = await syncSessionMessagesFromMemory(sessionId);
+        const matchedMessage = syncedMessages?.find(
+          (item) =>
+            item.role === message.role &&
+            item.content === message.content &&
+            item.timestamp === message.timestamp,
+        );
+        entryId = matchedMessage?.memoryEntryId;
+      }
+
+      if (!entryId) {
+        console.error("failed to delete memory entry: entry id is unavailable");
+        return;
+      }
+
+      const token = window.localStorage.getItem("koduck.auth.token");
+      const response = await fetch(
+        `/api/v1/ai/sessions/${encodeURIComponent(sessionId)}/entries/${encodeURIComponent(entryId)}`,
+        {
+          method: "DELETE",
+          headers: {
+            Accept: "application/json",
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+        },
+      );
+
+      if (!response.ok) {
+        throw new Error(await extractApiErrorMessage(response));
+      }
+
+      setMessages((prev) => prev.filter((item) => item.memoryEntryId !== entryId));
+    } catch (error) {
+      console.error("failed to delete message:", error);
+    } finally {
+      setDeletingMessageId((prev) => (prev === message.id ? null : prev));
+    }
   };
 
   const readStreamChunkWithTimeout = async (
@@ -1137,6 +1275,7 @@ export function KoduckAi() {
         totalLength: streamedText.length,
         streamCompleted,
       });
+      await syncSessionMessagesFromMemory(sessionId);
       shouldAbortRequest = false;
     } catch (error) {
       logStreamTrace(localRequestId, "request_error", {
@@ -1532,8 +1671,11 @@ export function KoduckAi() {
                           </button>
                           <button
                             aria-label="删除消息"
-                            className="p-1 text-gray-400 transition-colors hover:text-red-600"
-                            onClick={() => deleteMessage(message.id)}
+                            className="p-1 text-gray-400 transition-colors hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-40"
+                            disabled={message.streaming || deletingMessageId === message.id}
+                            onClick={() => {
+                              void deleteMessage(message);
+                            }}
                             title="删除"
                             type="button"
                           >

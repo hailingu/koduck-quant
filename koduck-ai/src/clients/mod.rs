@@ -6,4 +6,5 @@ pub mod llm;
 pub mod memory;
 pub mod proto;
 pub mod tool;
+pub mod tool_execute;
 pub mod tool_catalog;

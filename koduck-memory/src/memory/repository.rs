@@ -157,6 +157,54 @@ impl MemoryEntryRepository {
         Ok(rows)
     }
 
+    /// Get a single entry by tenant_id + session_id + entry_id.
+    pub async fn get_by_id(
+        &self,
+        tenant_id: &str,
+        session_id: Uuid,
+        entry_id: Uuid,
+    ) -> Result<Option<MemoryEntry>> {
+        let row = sqlx::query_as::<_, MemoryEntry>(
+            r#"
+            SELECT id, tenant_id, session_id, sequence_num,
+                   role, raw_content_ref, message_ts,
+                   metadata_json,
+                   l0_uri, created_at
+            FROM memory_entries
+            WHERE tenant_id = $1 AND session_id = $2 AND id = $3
+            "#,
+        )
+        .bind(tenant_id)
+        .bind(session_id)
+        .bind(entry_id)
+        .fetch_optional(&self.pool)
+        .await?;
+
+        Ok(row)
+    }
+
+    /// Delete a single entry by tenant_id + session_id + entry_id.
+    pub async fn delete_by_id(
+        &self,
+        tenant_id: &str,
+        session_id: Uuid,
+        entry_id: Uuid,
+    ) -> Result<u64> {
+        let result = sqlx::query(
+            r#"
+            DELETE FROM memory_entries
+            WHERE tenant_id = $1 AND session_id = $2 AND id = $3
+            "#,
+        )
+        .bind(tenant_id)
+        .bind(session_id)
+        .bind(entry_id)
+        .execute(&self.pool)
+        .await?;
+
+        Ok(result.rows_affected())
+    }
+
     /// Delete all entries for a session.
     pub async fn delete_by_session(
         &self,

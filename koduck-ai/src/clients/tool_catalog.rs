@@ -18,6 +18,24 @@ use crate::{
 const CONNECT_TIMEOUT_SECS: u64 = 3;
 const REQUEST_TIMEOUT_SECS: u64 = 5;
 
+#[derive(Debug, Clone)]
+pub struct DiscoveredTool {
+    pub definition: ProviderToolDefinition,
+    pub route: ToolRoute,
+}
+
+#[derive(Debug, Clone)]
+pub struct ToolRoute {
+    pub service_name: String,
+    pub service_kind: ServiceKind,
+    pub protocol: ServiceProtocol,
+    pub target: String,
+    pub http_catalog_path: Option<String>,
+    pub tool_name: String,
+    pub tool_version: String,
+    pub timeout_ms: u32,
+}
+
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct HttpToolCatalogResponse {
@@ -33,30 +51,34 @@ struct HttpToolDefinition {
     name: String,
     description: String,
     input_schema: String,
+    #[serde(default)]
+    version: Option<String>,
+    #[serde(default)]
+    timeout_ms: Option<u32>,
 }
 
-pub async fn fetch_prompt_tool_definitions(
+pub async fn fetch_prompt_tools(
     state: &Arc<AppState>,
     request_id: &str,
-) -> Vec<ProviderToolDefinition> {
+) -> Vec<DiscoveredTool> {
     let services = state
         .service_registry
         .resolve_ai_tool_definition_services()
         .await;
-    let mut definitions = Vec::new();
+    let mut tools = Vec::new();
     let mut seen_names = HashSet::new();
 
     for service in services {
         match fetch_service_tool_definitions(&service, request_id).await {
             Ok(service_tools) => {
                 for tool in service_tools {
-                    if seen_names.insert(tool.name.clone()) {
-                        definitions.push(tool);
+                    if seen_names.insert(tool.definition.name.clone()) {
+                        tools.push(tool);
                     } else {
                         warn!(
                             request_id = %request_id,
                             service = %service.name,
-                            tool_name = %tool.name,
+                            tool_name = %tool.definition.name,
                             "duplicate tool definition ignored"
                         );
                     }
@@ -73,14 +95,25 @@ pub async fn fetch_prompt_tool_definitions(
         }
     }
 
-    definitions.sort_by(|left, right| left.name.cmp(&right.name));
-    definitions
+    tools.sort_by(|left, right| left.definition.name.cmp(&right.definition.name));
+    tools
+}
+
+pub async fn fetch_prompt_tool_definitions(
+    state: &Arc<AppState>,
+    request_id: &str,
+) -> Vec<ProviderToolDefinition> {
+    fetch_prompt_tools(state, request_id)
+        .await
+        .into_iter()
+        .map(|tool| tool.definition)
+        .collect()
 }
 
 async fn fetch_service_tool_definitions(
     service: &DiscoveredService,
     request_id: &str,
-) -> Result<Vec<ProviderToolDefinition>, AppError> {
+) -> Result<Vec<DiscoveredTool>, AppError> {
     let discovery = service.tool_discovery.as_ref().ok_or_else(|| {
         AppError::new(
             ErrorCode::DependencyFailed,
@@ -100,7 +133,7 @@ async fn fetch_http_tool_definitions(
     service: &DiscoveredService,
     discovery: &ToolDiscovery,
     request_id: &str,
-) -> Result<Vec<ProviderToolDefinition>, AppError> {
+) -> Result<Vec<DiscoveredTool>, AppError> {
     let client = reqwest::Client::builder()
         .use_native_tls()
         .connect_timeout(Duration::from_secs(CONNECT_TIMEOUT_SECS))
@@ -164,10 +197,28 @@ async fn fetch_http_tool_definitions(
     Ok(payload
         .tools
         .into_iter()
-        .map(|tool| ProviderToolDefinition {
-            name: tool.name,
-            description: tool.description,
-            input_schema: tool.input_schema,
+        .map(|tool| {
+            let name = tool.name;
+            let version = tool.version.unwrap_or_else(|| "latest".to_string());
+            let timeout_ms = tool.timeout_ms.unwrap_or(REQUEST_TIMEOUT_SECS as u32 * 1000);
+
+            DiscoveredTool {
+                definition: ProviderToolDefinition {
+                    name: name.clone(),
+                    description: tool.description,
+                    input_schema: tool.input_schema,
+                },
+                route: ToolRoute {
+                    service_name: service.name.clone(),
+                    service_kind: service.service_kind,
+                    protocol: discovery.protocol,
+                    target: discovery.target.clone(),
+                    http_catalog_path: Some(normalized_http_path(discovery.http_path.as_deref())),
+                    tool_name: name,
+                    tool_version: version,
+                    timeout_ms,
+                },
+            }
         })
         .collect())
 }
@@ -176,7 +227,7 @@ async fn fetch_grpc_tool_definitions(
     service: &DiscoveredService,
     discovery: &ToolDiscovery,
     request_id: &str,
-) -> Result<Vec<ProviderToolDefinition>, AppError> {
+) -> Result<Vec<DiscoveredTool>, AppError> {
     let mut client = ToolServiceClient::connect(discovery.target.clone())
         .await
         .map_err(|error| {
@@ -232,10 +283,31 @@ async fn fetch_grpc_tool_definitions(
     Ok(response
         .tools
         .into_iter()
-        .map(|tool| ProviderToolDefinition {
-            name: tool.name,
-            description: tool.description,
-            input_schema: tool.input_schema,
+        .map(|tool| {
+            let name = tool.name;
+            let version = if tool.version.trim().is_empty() {
+                "latest".to_string()
+            } else {
+                tool.version
+            };
+
+            DiscoveredTool {
+                definition: ProviderToolDefinition {
+                    name: name.clone(),
+                    description: tool.description,
+                    input_schema: tool.input_schema,
+                },
+                route: ToolRoute {
+                    service_name: service.name.clone(),
+                    service_kind: service.service_kind,
+                    protocol: discovery.protocol,
+                    target: discovery.target.clone(),
+                    http_catalog_path: None,
+                    tool_name: name,
+                    tool_version: version,
+                    timeout_ms: tool.timeout_ms as u32,
+                },
+            }
         })
         .collect())
 }
@@ -259,7 +331,20 @@ async fn http_error(
     .with_upstream(upstream)
 }
 
-fn service_upstream(kind: ServiceKind) -> UpstreamService {
+fn normalized_http_path(path: Option<&str>) -> String {
+    let path = path
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .unwrap_or("/internal/tools");
+
+    if path.starts_with('/') {
+        path.to_string()
+    } else {
+        format!("/{path}")
+    }
+}
+
+pub(crate) fn service_upstream(kind: ServiceKind) -> UpstreamService {
     match kind {
         ServiceKind::Memory => UpstreamService::Memory,
         ServiceKind::Knowledge => UpstreamService::Knowledge,

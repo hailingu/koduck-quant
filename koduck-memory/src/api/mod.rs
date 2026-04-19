@@ -4,7 +4,8 @@ pub mod proto;
 
 pub use contract::{Capability, ErrorDetail, RequestMeta};
 pub use memory::{
-    AppendMemoryRequest, AppendMemoryResponse, DeleteSessionRequest, DeleteSessionResponse,
+    AppendMemoryRequest, AppendMemoryResponse, DeleteMemoryEntryRequest,
+    DeleteMemoryEntryResponse, DeleteSessionRequest, DeleteSessionResponse,
     GetAllSessionIdsRequest, GetCategoryCatalogRequest, GetCategoryCatalogResponse,
     GetSessionRequest, GetSessionResponse, GetSessionSummaryRequest, GetSessionSummaryResponse,
     GetSessionIdsByDomainClassRequest, GetSessionIdsByIntentTypeRequest,

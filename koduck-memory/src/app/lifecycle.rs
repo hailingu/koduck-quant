@@ -50,7 +50,7 @@ pub async fn run(config: AppConfig) -> Result<()> {
 
     let metrics_listener = TcpListener::bind(metrics_addr).await?;
     let metrics_router =
-        observe::build_metrics_router(config.clone(), runtime.clone(), rpc_metrics);
+        observe::build_metrics_router(config.clone(), runtime.clone(), grpc_service.clone(), rpc_metrics);
 
     let (shutdown_tx, _) = broadcast::channel::<()>(1);
     let mut metrics_shutdown_rx = shutdown_tx.subscribe();
