@@ -1,6 +1,5 @@
 package com.koduck.knowledge.api;
 
-import static org.hamcrest.Matchers.containsString;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -14,26 +13,25 @@ import org.junit.jupiter.api.Test;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
-class InternalToolCatalogControllerTest {
+class InternalDomainCatalogControllerTest {
 
     private MockMvc mockMvc;
 
     @BeforeEach
     void setUp() {
         mockMvc = MockMvcBuilders
-                .standaloneSetup(new InternalToolCatalogController(new DomainCatalogService(stubDomainDictRepository())))
+                .standaloneSetup(new InternalDomainCatalogController(new DomainCatalogService(stubDomainDictRepository())))
                 .build();
     }
 
     @Test
-    void shouldExposeKnowledgeToolCatalog() throws Exception {
-        mockMvc.perform(get("/internal/tools"))
+    void shouldExposeDomainClassesFromDictionary() throws Exception {
+        mockMvc.perform(get("/internal/domain-classes"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.service").value("koduck-knowledge"))
-                .andExpect(jsonPath("$.tools[0].name").value("query_knowledge"))
-                .andExpect(jsonPath("$.tools[0].permissionScope").value("knowledge.read"))
-                .andExpect(jsonPath("$.tools[0].inputSchema", containsString("\"enum\":[\"history\",\"military\",\"politics\"]")))
-                .andExpect(jsonPath("$.tools[0].inputSchema", containsString("domain_dict")));
+                .andExpect(jsonPath("$.domainClasses[0]").value("history"))
+                .andExpect(jsonPath("$.domainClasses[1]").value("military"))
+                .andExpect(jsonPath("$.domainClasses[2]").value("politics"));
     }
 
     private DomainDictRepository stubDomainDictRepository() {

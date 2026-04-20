@@ -128,8 +128,10 @@ const STREAM_POST_CONTENT_IDLE_TIMEOUT_MS = 8000;
 const STREAM_REQUEST_TIMEOUT_MS = 300000;
 const SESSION_LOOKUP_RETRY_DELAYS_MS = [150, 400];
 const MAX_HISTORY_MESSAGES = 5;
+const MAX_PROMPT_HISTORY_ENTRIES = 100;
 const ACTIVE_SESSION_STORAGE_KEY = "koduck.ai.activeSessionId";
 const SESSION_MESSAGES_STORAGE_PREFIX = "koduck.ai.sessionMessages";
+const PROMPT_HISTORY_STORAGE_KEY = "koduck.ai.promptHistory";
 const URL_SESSION_PARAM = "session_id";
 
 function buildSessionMessagesStorageKey(sessionId: string): string {
@@ -242,6 +244,71 @@ function persistSessionMessages(sessionId: string | null, messages: Message[]) {
     buildSessionMessagesStorageKey(sessionId),
     JSON.stringify(persistedMessages),
   );
+}
+
+function readPromptHistory(): string[] {
+  if (typeof window === "undefined") {
+    return [];
+  }
+
+  try {
+    const raw = window.localStorage.getItem(PROMPT_HISTORY_STORAGE_KEY);
+    if (!raw) {
+      return [];
+    }
+
+    const parsed = JSON.parse(raw) as unknown;
+    if (!Array.isArray(parsed)) {
+      return [];
+    }
+
+    return parsed
+      .filter((item): item is string => typeof item === "string")
+      .map((item) => item.trim())
+      .filter(Boolean)
+      .slice(0, MAX_PROMPT_HISTORY_ENTRIES);
+  } catch {
+    return [];
+  }
+}
+
+function persistPromptHistory(history: string[]) {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  window.localStorage.setItem(
+    PROMPT_HISTORY_STORAGE_KEY,
+    JSON.stringify(history.slice(0, MAX_PROMPT_HISTORY_ENTRIES)),
+  );
+}
+
+function pushPromptHistoryEntry(history: string[], content: string): string[] {
+  const normalizedContent = content.trim();
+  if (!normalizedContent) {
+    return history;
+  }
+
+  return [normalizedContent, ...history.filter((item) => item !== normalizedContent)].slice(
+    0,
+    MAX_PROMPT_HISTORY_ENTRIES,
+  );
+}
+
+function isCursorOnFirstLine(target: HTMLTextAreaElement): boolean {
+  if (target.selectionStart !== target.selectionEnd) {
+    return false;
+  }
+
+  return !target.value.slice(0, target.selectionStart).includes("\n");
+}
+
+function isCursorOnLastLine(target: HTMLTextAreaElement): boolean {
+  if (target.selectionStart !== target.selectionEnd) {
+    return false;
+  }
+
+  return !target.value.slice(target.selectionEnd).includes("\n");
 }
 
 function mapTranscriptEntriesToMessages(entries: SessionTranscriptEntry[]): Message[] {
@@ -652,6 +719,8 @@ export function KoduckAi() {
   const initialSessionId = initialSessionIdRef.current;
   const [chatMessage, setChatMessage] = useState("");
   const [messages, setMessages] = useState<Message[]>([]);
+  const [promptHistory, setPromptHistory] = useState<string[]>(() => readPromptHistory());
+  const [promptHistoryIndex, setPromptHistoryIndex] = useState<number | null>(null);
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(initialSessionId);
   const [selectedProvider, setSelectedProvider] = useState<LlmProvider>("minimax");
   const [selectedModel, setSelectedModel] = useState("MiniMax-M2.7");
@@ -668,6 +737,7 @@ export function KoduckAi() {
   const copyFeedbackTimeoutRef = useRef<number | null>(null);
   const currentSessionIdRef = useRef<string | null>(currentSessionId);
   const skipNextSessionRestoreRef = useRef(false);
+  const draftBeforePromptHistoryRef = useRef("");
   const createSessionId = () => crypto.randomUUID();
   const activateSession = (
     sessionId: string | null,
@@ -716,6 +786,10 @@ export function KoduckAi() {
   useEffect(() => {
     resizeChatInput(chatInputRef.current);
   }, [chatMessage]);
+
+  useEffect(() => {
+    persistPromptHistory(promptHistory);
+  }, [promptHistory]);
 
   useEffect(() => {
     if (!currentSessionId) {
@@ -827,6 +901,8 @@ export function KoduckAi() {
   const handleCreateSession = () => {
     activateSession(createSessionId(), { skipRestore: true });
     setMessages([]);
+    setPromptHistoryIndex(null);
+    draftBeforePromptHistoryRef.current = "";
     setChatMessage("");
     setUploadedFiles([]);
   };
@@ -850,6 +926,8 @@ export function KoduckAi() {
     clearStoredMessages(sessionId);
     activateSession(null, { skipRestore: true });
     setMessages([]);
+    setPromptHistoryIndex(null);
+    draftBeforePromptHistoryRef.current = "";
     setChatMessage("");
     setUploadedFiles([]);
   };
@@ -1062,6 +1140,9 @@ export function KoduckAi() {
       timestamp: 0,
       streaming: true,
     };
+    setPromptHistory((prev) => pushPromptHistoryEntry(prev, content));
+    setPromptHistoryIndex(null);
+    draftBeforePromptHistoryRef.current = "";
     setMessages((prev) => [...prev, userMessage, assistantPlaceholder]);
     setChatMessage("");
     setSending(true);
@@ -1398,6 +1479,86 @@ export function KoduckAi() {
     return `${dateStr}.${ms}`;
   };
 
+  const applyPromptHistoryValue = (nextValue: string) => {
+    setChatMessage(nextValue);
+
+    window.requestAnimationFrame(() => {
+      const target = chatInputRef.current;
+      if (!target) {
+        return;
+      }
+
+      resizeChatInput(target);
+      const cursor = nextValue.length;
+      target.focus();
+      target.setSelectionRange(cursor, cursor);
+    });
+  };
+
+  const navigatePromptHistory = (direction: "up" | "down") => {
+    if (promptHistory.length === 0) {
+      return;
+    }
+
+    if (direction === "up") {
+      const nextIndex =
+        promptHistoryIndex === null
+          ? 0
+          : Math.min(promptHistoryIndex + 1, promptHistory.length - 1);
+      if (promptHistoryIndex === null) {
+        draftBeforePromptHistoryRef.current = chatMessage;
+      }
+      setPromptHistoryIndex(nextIndex);
+      applyPromptHistoryValue(promptHistory[nextIndex]);
+      return;
+    }
+
+    if (promptHistoryIndex === null) {
+      return;
+    }
+
+    const nextIndex = promptHistoryIndex - 1;
+    if (nextIndex >= 0) {
+      setPromptHistoryIndex(nextIndex);
+      applyPromptHistoryValue(promptHistory[nextIndex]);
+      return;
+    }
+
+    setPromptHistoryIndex(null);
+    applyPromptHistoryValue(draftBeforePromptHistoryRef.current);
+  };
+
+  const handleChatInputChange = (value: string, target: HTMLTextAreaElement) => {
+    if (promptHistoryIndex !== null) {
+      setPromptHistoryIndex(null);
+      draftBeforePromptHistoryRef.current = "";
+    }
+
+    setChatMessage(value);
+    resizeChatInput(target);
+  };
+
+  const handleChatInputKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === "ArrowUp" && !e.shiftKey && isCursorOnFirstLine(e.currentTarget)) {
+      e.preventDefault();
+      navigatePromptHistory("up");
+      return;
+    }
+
+    if (e.key === "ArrowDown" && !e.shiftKey && isCursorOnLastLine(e.currentTarget)) {
+      if (promptHistoryIndex !== null) {
+        e.preventDefault();
+        navigatePromptHistory("down");
+      }
+      return;
+    }
+
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      void handleSendMessage();
+    }
+  };
+
   const renderInputBar = () => (
     <div className="rounded-[32px] border border-gray-200 bg-white shadow-sm transition-shadow hover:shadow-md">
       {uploadedFiles.length > 0 && (
@@ -1439,16 +1600,8 @@ export function KoduckAi() {
           ref={chatInputRef}
           placeholder="询问问题,尽管问..."
           value={chatMessage}
-          onChange={(e) => {
-            setChatMessage(e.target.value);
-            resizeChatInput(e.target);
-          }}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" && !e.shiftKey) {
-              e.preventDefault();
-              void handleSendMessage();
-            }
-          }}
+          onChange={(e) => handleChatInputChange(e.target.value, e.target)}
+          onKeyDown={handleChatInputKeyDown}
           rows={1}
           className="w-full resize-none overflow-hidden border-0 bg-transparent text-base text-gray-800 outline-none placeholder:text-gray-400"
         />
