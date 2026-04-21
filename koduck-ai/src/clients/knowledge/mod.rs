@@ -1,5 +1,6 @@
 //! Knowledge service HTTP client helpers.
 
+use std::collections::HashSet;
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -19,6 +20,8 @@ pub struct SearchHit {
     pub entity_id: i64,
     pub canonical_name: String,
     pub entity_name: String,
+    #[serde(default)]
+    pub domain_class: String,
     pub match_type: String,
     pub basic_profile_s3_uri: Option<String>,
     pub valid_from: Option<String>,
@@ -70,6 +73,14 @@ pub struct KnowledgeQueryResult {
     pub facts: Vec<EntityFactView>,
 }
 
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct KnowledgeDomainCatalogView {
+    #[allow(dead_code)]
+    service: String,
+    domain_classes: Vec<String>,
+}
+
 pub async fn query_knowledge(
     state: &Arc<AppState>,
     request_id: &str,
@@ -92,6 +103,41 @@ pub async fn query_knowledge(
         domain_class: domain_class.to_string(),
         hits,
         primary_profile,
+        facts: Vec::new(),
+    })
+}
+
+pub async fn query_knowledge_candidates(
+    state: &Arc<AppState>,
+    request_id: &str,
+    query: &str,
+) -> Result<KnowledgeQueryResult, AppError> {
+    let client = build_http_client(request_id)?;
+    let base_url = resolve_knowledge_base_url(state, request_id).await?;
+    let domain_classes = list_domain_classes(&client, &base_url, request_id).await?;
+    let mut seen = HashSet::new();
+    let mut hits = Vec::new();
+
+    for domain_class in domain_classes {
+        let search_hits = search_entities(&client, &base_url, request_id, query, &domain_class).await?;
+        for hit in search_hits {
+            let dedupe_key = (
+                hit.entity_id,
+                hit.domain_class.clone(),
+                hit.canonical_name.clone(),
+                hit.entity_name.clone(),
+            );
+            if seen.insert(dedupe_key) {
+                hits.push(hit);
+            }
+        }
+    }
+
+    Ok(KnowledgeQueryResult {
+        query: query.to_string(),
+        domain_class: String::new(),
+        hits,
+        primary_profile: None,
         facts: Vec::new(),
     })
 }
@@ -173,7 +219,34 @@ async fn search_entities(
         .await
         .map_err(|err| transport_error(request_id, "search knowledge entities", err))?;
 
-    decode_json_response(response, request_id, "search knowledge entities").await
+    let mut hits: Vec<SearchHit> =
+        decode_json_response(response, request_id, "search knowledge entities").await?;
+    for hit in &mut hits {
+        hit.domain_class = domain_class.to_string();
+    }
+    Ok(hits)
+}
+
+async fn list_domain_classes(
+    client: &reqwest::Client,
+    base_url: &str,
+    request_id: &str,
+) -> Result<Vec<String>, AppError> {
+    let response = client
+        .get(format!("{base_url}/internal/domain-classes"))
+        .header("x-request-id", request_id)
+        .send()
+        .await
+        .map_err(|err| transport_error(request_id, "list knowledge domain classes", err))?;
+
+    let catalog: KnowledgeDomainCatalogView =
+        decode_json_response(response, request_id, "list knowledge domain classes").await?;
+    Ok(catalog
+        .domain_classes
+        .into_iter()
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty())
+        .collect())
 }
 
 async fn get_basic_profile(

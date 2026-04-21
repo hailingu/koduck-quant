@@ -34,7 +34,7 @@ public class InternalToolCatalogController {
                         new KnowledgeToolDefinitionView(
                                 "query_knowledge",
                                 "v1",
-                                "用于检索 koduck-knowledge 的结构化实体知识。这个工具只做候选实体搜索和主命中 basic profile 读取，不会直接展开非 BASIC 详情。若请求上下文里已有明确 domain_class，应显式传入；如果没有，就不要臆造 domain_class。",
+                                "用于检索 koduck-knowledge 的结构化实体知识。这个工具只做候选实体搜索和主命中 basic profile 读取，不会直接展开非 BASIC 详情。若请求上下文里已有明确 domain_class，应显式传入；如果 domain_class 缺失但 query 已能指向实体，可先返回跨 domain 的候选实体供用户选择；如果连实体 query 都不明确，就不应调用。",
                                 buildQueryInputSchema(domainClasses),
                                 """
                                 {"type":"object","properties":{"hits":{"type":"array","description":"知识库返回的候选实体列表。"},"primaryProfile":{"type":"object","description":"首个候选实体的基础档案。"}}}

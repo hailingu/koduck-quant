@@ -48,6 +48,53 @@ const MEMORY_QUERY_PAGE_SIZE: i32 = 5;
 const MAX_HISTORY_MESSAGES: usize = 20;
 const MEMORY_PROMPT_TAIL: &str =
     "请结合下面历史命中与当前问题，自行判断哪些内容相关，再决定是否在回答中引用这些历史记忆。";
+const KNOWLEDGE_GENERIC_QUERIES: &[&str] = &[
+    "知识库",
+    "知识库吧",
+    "从知识库开始",
+    "那就知识库吧",
+    "继续",
+    "继续吧",
+    "开始吧",
+    "详细说说",
+    "展开说说",
+    "多说一点",
+    "更多",
+    "更多信息",
+    "这个",
+    "那个",
+    "这里",
+    "那里",
+    "他",
+    "她",
+    "它",
+];
+const KNOWLEDGE_QUERY_PREFIXES: &[&str] = &[
+    "关于",
+    "介绍一下",
+    "介绍",
+    "讲讲",
+    "说说",
+    "聊聊",
+    "查查",
+    "查询",
+    "搜索",
+    "看看",
+];
+const KNOWLEDGE_QUERY_SUFFIXES: &[&str] = &[
+    "是谁",
+    "是什么",
+    "有哪些",
+    "有什么",
+    "事迹",
+    "生平",
+    "政绩",
+    "履历",
+    "时间线",
+    "timeline",
+    "资料",
+    "信息",
+];
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct ChatHistoryMessage {
@@ -1341,9 +1388,14 @@ fn build_knowledge_prompt(
         .enumerate()
         .map(|(index, hit)| {
             format!(
-                "{}. entity_id={} canonical_name={} entity_name={} match_type={} valid_window=[{} ~ {}] basic_profile_s3_uri={}",
+                "{}. entity_id={} domain_class={} canonical_name={} entity_name={} match_type={} valid_window=[{} ~ {}] basic_profile_s3_uri={}",
                 index + 1,
                 hit.entity_id,
+                if hit.domain_class.trim().is_empty() {
+                    "-"
+                } else {
+                    hit.domain_class.as_str()
+                },
                 hit.canonical_name,
                 hit.entity_name,
                 hit.match_type,
@@ -1388,6 +1440,15 @@ fn build_knowledge_prompt(
             )
         })
         .unwrap_or_else(|| "当前未读取非 BASIC profile detail。".to_string());
+
+    if knowledge.domain_class.trim().is_empty() {
+        return Some(format!(
+            "以下内容来自 koduck-knowledge 的跨 domain 候选实体搜索结果。当前尚未解析出 domain_class，因此还不能读取 basic profile 或 profile detail。\n你现在不要直接回答实体事实；请仅基于候选实体列表，引导用户回复想继续查看的 entity_id，或回复候选中的 canonical_name + domain_class 组合，以便下一轮继续查询。\n知识查询: query={} domain_class=<unresolved>\n\n候选实体:\n{}\n\n当前用户问题（请把它作为最终相关性判断依据）:\n{}\n如果候选实体为空，请明确说明知识库暂未命中，不要补造事实。",
+            knowledge.query,
+            candidates,
+            user_message.trim()
+        ));
+    }
 
     Some(format!(
         "以下内容来自 koduck-knowledge 的结构化实体检索结果，主要用于实体对齐与只读知识引用，不等于完整正文。\nquery_knowledge 只提供候选实体和 basic profile；如果这些信息仍不足以回答问题，你可以继续调用 get_knowledge_profile_detail 读取当前非 BASIC profile 的详情元信息。\n知识查询: query={} domain_class={}\n\n候选实体:\n{}\n\n{}\n\n{}\n\n当前用户问题（请把它作为最终相关性判断依据）:\n{}\n如果这些结果不足以支撑结论，请明确说明知识库未提供足够细节，不要补造事实。",
@@ -1649,6 +1710,138 @@ fn build_memory_query_text(request: &ChatRequest, args: &QueryMemoryToolArgs) ->
         .to_string()
 }
 
+fn is_cjk_character(value: char) -> bool {
+    matches!(
+        value as u32,
+        0x4E00..=0x9FFF | 0x3400..=0x4DBF | 0x20000..=0x2A6DF | 0x2A700..=0x2B73F
+    )
+}
+
+fn trim_query_noise(value: &str) -> String {
+    value
+        .trim()
+        .trim_matches(|ch: char| {
+            matches!(
+                ch,
+                ' '
+                    | '\t'
+                    | '\n'
+                    | '\r'
+                    | '，'
+                    | ','
+                    | '。'
+                    | '.'
+                    | '？'
+                    | '?'
+                    | '！'
+                    | '!'
+                    | '：'
+                    | ':'
+                    | '；'
+                    | ';'
+                    | '“'
+                    | '”'
+                    | '"'
+                    | '\''
+                    | '（'
+                    | '）'
+                    | '('
+                    | ')'
+            )
+        })
+        .trim_end_matches(|ch: char| matches!(ch, '吧' | '吗' | '呢' | '呀' | '啊'))
+        .trim()
+        .to_string()
+}
+
+fn is_generic_knowledge_query(value: &str) -> bool {
+    let normalized = trim_query_noise(value);
+    if normalized.is_empty() {
+        return true;
+    }
+
+    let lowercase = normalized.to_ascii_lowercase();
+    KNOWLEDGE_GENERIC_QUERIES.iter().any(|candidate| {
+        normalized == *candidate || lowercase == candidate.to_ascii_lowercase()
+    })
+}
+
+fn looks_like_entity_fragment(value: &str) -> bool {
+    let normalized = trim_query_noise(value);
+    if normalized.len() < 2 || normalized.len() > 48 || is_generic_knowledge_query(&normalized) {
+        return false;
+    }
+
+    normalized
+        .chars()
+        .any(|ch| ch.is_ascii_alphanumeric() || is_cjk_character(ch))
+}
+
+fn extract_entity_like_query(value: &str) -> Option<String> {
+    let trimmed = trim_query_noise(value);
+    if trimmed.is_empty() || is_generic_knowledge_query(&trimmed) {
+        return None;
+    }
+
+    for prefix in KNOWLEDGE_QUERY_PREFIXES {
+        if let Some(candidate) = trimmed.strip_prefix(prefix) {
+            let cleaned = trim_query_noise(candidate);
+            if looks_like_entity_fragment(&cleaned) {
+                return Some(cleaned);
+            }
+        }
+    }
+
+    if let Some((_, candidate)) = trimmed.split_once("关于") {
+        let subject = trim_query_noise(
+            candidate
+                .split(['的', '，', ',', '。', '？', '?', '！', '!'])
+                .next()
+                .unwrap_or(candidate),
+        );
+        if looks_like_entity_fragment(&subject) {
+            return Some(subject);
+        }
+    }
+
+    for suffix in KNOWLEDGE_QUERY_SUFFIXES {
+        if let Some(candidate) = trimmed.strip_suffix(suffix) {
+            let cleaned = trim_query_noise(candidate);
+            if looks_like_entity_fragment(&cleaned) {
+                return Some(cleaned);
+            }
+        }
+    }
+
+    if looks_like_entity_fragment(&trimmed) {
+        return Some(trimmed);
+    }
+
+    None
+}
+
+fn resolve_knowledge_query(request: &ChatRequest, args: &QueryKnowledgeToolArgs) -> Option<String> {
+    if let Some(query) = args
+        .query
+        .as_deref()
+        .and_then(extract_entity_like_query)
+    {
+        return Some(query);
+    }
+
+    if let Some(query) = extract_entity_like_query(&request.message) {
+        return Some(query);
+    }
+
+    request
+        .history
+        .as_ref()
+        .into_iter()
+        .flatten()
+        .rev()
+        .find_map(|message| extract_entity_like_query(&message.content))
+}
+
 fn retrieve_policy_from_request(request: &ChatRequest) -> RetrievePolicy {
     let raw = request
         .retrieve_policy
@@ -1730,13 +1923,7 @@ async fn execute_knowledge_tool_call(
     tool_call: &ProviderToolCall,
 ) -> ConversationContextSnapshot {
     let args = parse_query_knowledge_tool_args(&tool_call.arguments);
-    let query = args
-        .query
-        .as_deref()
-        .map(str::trim)
-        .filter(|value| !value.is_empty())
-        .unwrap_or_else(|| request.message.trim())
-        .to_string();
+    let query = resolve_knowledge_query(request, &args).unwrap_or_default();
     let domain_class = args
         .domain_class
         .as_deref()
@@ -1745,14 +1932,51 @@ async fn execute_knowledge_tool_call(
         .map(ToOwned::to_owned)
         .unwrap_or_else(|| metadata_string(request, "domain_class"));
 
-    if query.trim().is_empty() || domain_class.trim().is_empty() {
+    if query.trim().is_empty() {
         warn!(
             request_id = %ctx.request_id,
             session_id = %ctx.session_id,
             tool_name = %tool_call.name,
-            "query_knowledge skipped because query or domain_class is unavailable"
+            "query_knowledge skipped because entity query is unavailable"
         );
         return ConversationContextSnapshot::default();
+    }
+
+    if domain_class.trim().is_empty() {
+        match knowledge::query_knowledge_candidates(state, &ctx.request_id, &query).await {
+            Ok(result) => {
+                if result.hits.is_empty() {
+                    warn!(
+                        request_id = %ctx.request_id,
+                        session_id = %ctx.session_id,
+                        tool_name = %tool_call.name,
+                        query = %query,
+                        "query_knowledge skipped because domain_class is unavailable and no candidate entities were found"
+                    );
+                    return ConversationContextSnapshot::default();
+                }
+
+                return ConversationContextSnapshot {
+                    hits: Vec::new(),
+                    knowledge: Some(KnowledgeContextSnapshot {
+                        query,
+                        domain_class: String::new(),
+                        result,
+                    }),
+                    knowledge_profile_detail: None,
+                };
+            }
+            Err(err) => {
+                warn!(
+                    request_id = %ctx.request_id,
+                    session_id = %ctx.session_id,
+                    tool_name = %tool_call.name,
+                    error = %err,
+                    "tool selection chose query_knowledge without domain_class and candidate search failed; continuing without structured knowledge"
+                );
+                return ConversationContextSnapshot::default();
+            }
+        }
     }
 
     match knowledge::query_knowledge(state, &ctx.request_id, &query, &domain_class).await {
@@ -2623,4 +2847,59 @@ fn api_error_response(err: AppError, request_id: String) -> Response {
         }),
     )
         .into_response()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{
+        extract_entity_like_query, resolve_knowledge_query, ChatHistoryMessage, ChatRequest,
+        QueryKnowledgeToolArgs,
+    };
+
+    #[test]
+    fn extract_entity_like_query_rejects_generic_follow_up() {
+        assert_eq!(extract_entity_like_query("知识库吧"), None);
+        assert_eq!(extract_entity_like_query("继续吧"), None);
+    }
+
+    #[test]
+    fn extract_entity_like_query_keeps_fact_subject() {
+        assert_eq!(
+            extract_entity_like_query("我们有没有关于威廉的可靠信息？"),
+            Some("威廉".to_string())
+        );
+        assert_eq!(
+            extract_entity_like_query("介绍一下Wilhelm II"),
+            Some("Wilhelm II".to_string())
+        );
+    }
+
+    #[test]
+    fn resolve_knowledge_query_falls_back_to_recent_history_entity() {
+        let request = ChatRequest {
+            session_id: None,
+            message: "知识库吧".to_string(),
+            history: Some(vec![
+                ChatHistoryMessage {
+                    role: "user".to_string(),
+                    content: "我们有没有关于威廉的可靠信息？".to_string(),
+                },
+                ChatHistoryMessage {
+                    role: "assistant".to_string(),
+                    content: "我可以继续从知识库开始介绍。".to_string(),
+                },
+            ]),
+            provider: None,
+            model: None,
+            temperature: None,
+            max_tokens: None,
+            retrieve_policy: None,
+            metadata: None,
+        };
+
+        assert_eq!(
+            resolve_knowledge_query(&request, &QueryKnowledgeToolArgs::default()),
+            Some("威廉".to_string())
+        );
+    }
 }

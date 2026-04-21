@@ -802,6 +802,11 @@ export function KoduckAi() {
   }, [chatMessage]);
 
   useEffect(() => {
+    if (messages.length === 0) {
+      setComposerHeight(0);
+      return;
+    }
+
     const target = composerDockRef.current;
     if (!target) {
       return;
@@ -825,7 +830,7 @@ export function KoduckAi() {
     return () => {
       observer.disconnect();
     };
-  }, []);
+  }, [messages.length]);
 
   useEffect(() => {
     if (composerHeight > 0) {
@@ -1770,7 +1775,7 @@ export function KoduckAi() {
         <div
           className={`flex min-h-full flex-col px-4 ${
             messages.length === 0
-              ? "items-center justify-center py-12"
+              ? "items-center justify-start pt-[28vh]"
               : "justify-start pt-8"
           }`}
           style={
@@ -1780,10 +1785,11 @@ export function KoduckAi() {
           }
         >
           {messages.length === 0 ? (
-            <div className="mx-auto w-full max-w-3xl pb-8">
+            <div className="mx-auto w-full max-w-3xl">
               <h1 className="mb-8 text-center text-3xl font-normal text-gray-800">
                 {currentSessionId ? "新会话已创建" : "开始对话"}
               </h1>
+              <div className="w-full max-w-4xl px-4">{renderInputBar()}</div>
             </div>
           ) : (
             <div className="mx-auto w-full max-w-3xl space-y-6 pb-8">
@@ -1900,14 +1906,16 @@ export function KoduckAi() {
         </div>
       </div>
 
-      <div
-        ref={composerDockRef}
-        className="pointer-events-none fixed inset-x-0 bottom-0 z-20 bg-transparent"
-      >
-        <div className="pointer-events-auto mx-auto w-full max-w-4xl px-4 pb-4 pt-3">
-          {renderInputBar()}
+      {messages.length > 0 && (
+        <div
+          ref={composerDockRef}
+          className="pointer-events-none fixed inset-x-0 bottom-0 z-20 bg-transparent"
+        >
+          <div className="pointer-events-auto mx-auto w-full max-w-4xl px-4 pb-4 pt-3">
+            {renderInputBar()}
+          </div>
         </div>
-      </div>
+      )}
     </main>
   );
 }
