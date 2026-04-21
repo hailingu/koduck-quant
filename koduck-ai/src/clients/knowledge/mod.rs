@@ -50,13 +50,15 @@ pub struct EntityFactView {
     pub blob_uri: Option<String>,
 }
 
-#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
-struct FactsRequest {
-    entity_ids: Vec<i64>,
-    domain_class: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    profile_entry_codes: Option<Vec<String>>,
+pub struct ProfileDetailView {
+    pub entity_id: i64,
+    pub entry_code: String,
+    pub version: i32,
+    pub is_current: bool,
+    pub blob_uri: String,
+    pub loaded_at: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -85,28 +87,24 @@ pub async fn query_knowledge(
         None => None,
     };
 
-    let facts = if hits.is_empty() {
-        Vec::new()
-    } else {
-        let top_entity_ids = hits.iter().take(3).map(|hit| hit.entity_id).collect::<Vec<_>>();
-        fetch_facts(
-            &client,
-            &base_url,
-            request_id,
-            top_entity_ids,
-            domain_class,
-            None,
-        )
-        .await?
-    };
-
     Ok(KnowledgeQueryResult {
         query: query.to_string(),
         domain_class: domain_class.to_string(),
         hits,
         primary_profile,
-        facts,
+        facts: Vec::new(),
     })
+}
+
+pub async fn get_profile_detail(
+    state: &Arc<AppState>,
+    request_id: &str,
+    entity_id: i64,
+    entry_code: &str,
+) -> Result<ProfileDetailView, AppError> {
+    let client = build_http_client(request_id)?;
+    let base_url = resolve_knowledge_base_url(state, request_id).await?;
+    get_profile_detail_by_entry(&client, &base_url, request_id, entity_id, entry_code).await
 }
 
 fn build_http_client(request_id: &str) -> Result<reqwest::Client, AppError> {
@@ -196,27 +194,23 @@ async fn get_basic_profile(
     decode_json_response(response, request_id, "fetch knowledge basic profile").await
 }
 
-async fn fetch_facts(
+async fn get_profile_detail_by_entry(
     client: &reqwest::Client,
     base_url: &str,
     request_id: &str,
-    entity_ids: Vec<i64>,
-    domain_class: &str,
-    profile_entry_codes: Option<Vec<String>>,
-) -> Result<Vec<EntityFactView>, AppError> {
+    entity_id: i64,
+    entry_code: &str,
+) -> Result<ProfileDetailView, AppError> {
     let response = client
-        .post(format!("{base_url}/api/v1/entities/actions/facts"))
+        .get(format!(
+            "{base_url}/api/v1/entities/{entity_id}/profiles/{entry_code}"
+        ))
         .header("x-request-id", request_id)
-        .json(&FactsRequest {
-            entity_ids,
-            domain_class: domain_class.to_string(),
-            profile_entry_codes,
-        })
         .send()
         .await
-        .map_err(|err| transport_error(request_id, "fetch knowledge facts", err))?;
+        .map_err(|err| transport_error(request_id, "fetch knowledge profile detail", err))?;
 
-    decode_json_response(response, request_id, "fetch knowledge facts").await
+    decode_json_response(response, request_id, "fetch knowledge profile detail").await
 }
 
 async fn decode_json_response<T: for<'de> Deserialize<'de>>(

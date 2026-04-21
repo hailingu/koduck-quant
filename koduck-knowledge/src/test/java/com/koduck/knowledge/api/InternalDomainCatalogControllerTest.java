@@ -5,7 +5,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.koduck.knowledge.entity.DomainDictEntity;
+import com.koduck.knowledge.entity.ProfileEntryDictEntity;
 import com.koduck.knowledge.repository.DomainDictRepository;
+import com.koduck.knowledge.repository.ProfileEntryDictRepository;
 import com.koduck.knowledge.service.DomainCatalogService;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
@@ -20,7 +22,8 @@ class InternalDomainCatalogControllerTest {
     @BeforeEach
     void setUp() {
         mockMvc = MockMvcBuilders
-                .standaloneSetup(new InternalDomainCatalogController(new DomainCatalogService(stubDomainDictRepository())))
+                .standaloneSetup(new InternalDomainCatalogController(
+                        new DomainCatalogService(stubDomainDictRepository(), stubProfileEntryDictRepository())))
                 .build();
     }
 
@@ -54,5 +57,19 @@ class InternalDomainCatalogControllerTest {
         final DomainDictEntity entity = new DomainDictEntity();
         entity.setDomainClass(domainClass);
         return entity;
+    }
+
+    private ProfileEntryDictRepository stubProfileEntryDictRepository() {
+        return new ProfileEntryDictRepository() {
+            @Override
+            public List<ProfileEntryDictEntity> findAllByIsBasicFalseOrderByCodeAsc() {
+                return List.of();
+            }
+
+            @Override
+            public java.util.Optional<ProfileEntryDictEntity> findByCode(final String code) {
+                return java.util.Optional.empty();
+            }
+        };
     }
 }

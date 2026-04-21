@@ -146,10 +146,16 @@ struct KnowledgeContextSnapshot {
     result: KnowledgeQueryResult,
 }
 
+#[derive(Debug, Clone, PartialEq)]
+struct KnowledgeProfileDetailSnapshot {
+    result: knowledge::ProfileDetailView,
+}
+
 #[derive(Debug, Clone, Default, PartialEq)]
 struct ConversationContextSnapshot {
     hits: Vec<MemoryHit>,
     knowledge: Option<KnowledgeContextSnapshot>,
+    knowledge_profile_detail: Option<KnowledgeProfileDetailSnapshot>,
 }
 
 #[derive(Debug, Default)]
@@ -167,6 +173,12 @@ enum StreamLlmPlan {
 struct QueryKnowledgeToolArgs {
     query: Option<String>,
     domain_class: Option<String>,
+}
+
+#[derive(Debug, Deserialize, Default)]
+struct GetKnowledgeProfileDetailToolArgs {
+    entity_id: Option<i64>,
+    entry_code: Option<String>,
 }
 
 #[derive(Debug, Deserialize, Default)]
@@ -192,7 +204,26 @@ struct PreparedChatContext {
 }
 
 fn is_first_class_tool(name: &str) -> bool {
-    matches!(name, "query_memory" | "query_knowledge")
+    matches!(
+        name,
+        "query_memory" | "query_knowledge" | "get_knowledge_profile_detail"
+    )
+}
+
+fn request_history_count(request: &ChatRequest) -> usize {
+    request.history.as_ref().map(|items| items.len()).unwrap_or(0)
+}
+
+fn format_tool_call_names(tool_calls: &[ProviderToolCall]) -> String {
+    if tool_calls.is_empty() {
+        return "-".to_string();
+    }
+
+    tool_calls
+        .iter()
+        .map(|tool_call| tool_call.name.as_str())
+        .collect::<Vec<_>>()
+        .join(",")
 }
 
 async fn init_chat_context(
@@ -262,6 +293,8 @@ pub async fn chat(
         session_id = %session_id,
         trace_id = %trace_id,
         tenant_id = %auth_ctx.tenant_id,
+        history_present = request.history.is_some(),
+        history_count = request_history_count(&request),
         "chat request received"
     );
 
@@ -348,6 +381,8 @@ pub async fn chat_stream(
         tenant_id = %auth_ctx.tenant_id,
         last_event_id = ?resume_cursor.last_event_id,
         from_sequence_num = ?resume_cursor.from_sequence_num,
+        history_present = request.chat.history.is_some(),
+        history_count = request_history_count(&request.chat),
         "stream request received"
     );
 
@@ -1061,6 +1096,7 @@ async fn load_memory_snapshot(
     ConversationContextSnapshot {
         hits: Vec::new(),
         knowledge: None,
+        knowledge_profile_detail: None,
     }
 }
 
@@ -1337,40 +1373,29 @@ fn build_knowledge_prompt(
         })
         .unwrap_or_else(|| "主命中 basic profile: 无".to_string());
 
-    let facts = if knowledge.result.facts.is_empty() {
-        "结构化 facts: 无".to_string()
-    } else {
-        let rows = knowledge
-            .result
-            .facts
-            .iter()
-            .take(8)
-            .enumerate()
-            .map(|(index, fact)| {
-                format!(
-                    "{}. entity_id={} entity_name={} domain_class={} profile_entry_code={} blob_uri={} valid_window=[{} ~ {}]",
-                    index + 1,
-                    fact.entity_id,
-                    fact.entity_name,
-                    fact.domain_class,
-                    fact.profile_entry_code.as_deref().unwrap_or("BASIC"),
-                    fact.blob_uri.as_deref().unwrap_or("-"),
-                    fact.valid_from.as_deref().unwrap_or("-"),
-                    fact.valid_to.as_deref().unwrap_or("-"),
-                )
-            })
-            .collect::<Vec<_>>()
-            .join("\n");
-        format!("结构化 facts:\n{rows}")
-    };
+    let detail = snapshot
+        .knowledge_profile_detail
+        .as_ref()
+        .map(|detail| {
+            format!(
+                "已读取当前 profile detail:\nentity_id={} entry_code={} version={} is_current={} blob_uri={} loaded_at={}",
+                detail.result.entity_id,
+                detail.result.entry_code,
+                detail.result.version,
+                detail.result.is_current,
+                detail.result.blob_uri,
+                detail.result.loaded_at,
+            )
+        })
+        .unwrap_or_else(|| "当前未读取非 BASIC profile detail。".to_string());
 
     Some(format!(
-        "以下内容来自 koduck-knowledge 的结构化实体检索结果，主要用于实体对齐与只读知识引用，不等于完整正文。\n知识查询: query={} domain_class={}\n\n候选实体:\n{}\n\n{}\n\n{}\n\n当前用户问题（请把它作为最终相关性判断依据）:\n{}\n如果这些结果不足以支撑结论，请明确说明知识库未提供足够细节，不要补造事实。",
+        "以下内容来自 koduck-knowledge 的结构化实体检索结果，主要用于实体对齐与只读知识引用，不等于完整正文。\nquery_knowledge 只提供候选实体和 basic profile；如果这些信息仍不足以回答问题，你可以继续调用 get_knowledge_profile_detail 读取当前非 BASIC profile 的详情元信息。\n知识查询: query={} domain_class={}\n\n候选实体:\n{}\n\n{}\n\n{}\n\n当前用户问题（请把它作为最终相关性判断依据）:\n{}\n如果这些结果不足以支撑结论，请明确说明知识库未提供足够细节，不要补造事实。",
         knowledge.query,
         knowledge.domain_class,
         candidates,
         profile,
-        facts,
+        detail,
         user_message.trim()
     ))
 }
@@ -1580,6 +1605,10 @@ fn parse_query_knowledge_tool_args(raw: &str) -> QueryKnowledgeToolArgs {
     serde_json::from_str::<QueryKnowledgeToolArgs>(raw).unwrap_or_default()
 }
 
+fn parse_get_knowledge_profile_detail_tool_args(raw: &str) -> GetKnowledgeProfileDetailToolArgs {
+    serde_json::from_str::<GetKnowledgeProfileDetailToolArgs>(raw).unwrap_or_default()
+}
+
 fn parse_query_memory_tool_args(raw: &str) -> QueryMemoryToolArgs {
     serde_json::from_str::<QueryMemoryToolArgs>(raw).unwrap_or_default()
 }
@@ -1654,6 +1683,7 @@ async fn execute_memory_tool_call(
         return ConversationContextSnapshot {
             hits: Vec::new(),
             knowledge: None,
+            knowledge_profile_detail: None,
         };
     }
 
@@ -1733,6 +1763,7 @@ async fn execute_knowledge_tool_call(
                 domain_class,
                 result,
             }),
+            knowledge_profile_detail: None,
         },
         Err(err) => {
             warn!(
@@ -1741,6 +1772,57 @@ async fn execute_knowledge_tool_call(
                 tool_name = %tool_call.name,
                 error = %err,
                 "tool selection chose query_knowledge but retrieval failed; continuing without structured knowledge"
+            );
+            ConversationContextSnapshot::default()
+        }
+    }
+}
+
+async fn execute_knowledge_profile_detail_tool_call(
+    state: &Arc<AppState>,
+    ctx: &MemoryRequestContext,
+    tool_call: &ProviderToolCall,
+) -> ConversationContextSnapshot {
+    let args = parse_get_knowledge_profile_detail_tool_args(&tool_call.arguments);
+    let Some(entity_id) = args.entity_id else {
+        warn!(
+            request_id = %ctx.request_id,
+            session_id = %ctx.session_id,
+            tool_name = %tool_call.name,
+            "get_knowledge_profile_detail skipped because entity_id is unavailable"
+        );
+        return ConversationContextSnapshot::default();
+    };
+
+    let Some(entry_code) = args
+        .entry_code
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(ToOwned::to_owned)
+    else {
+        warn!(
+            request_id = %ctx.request_id,
+            session_id = %ctx.session_id,
+            tool_name = %tool_call.name,
+            "get_knowledge_profile_detail skipped because entry_code is unavailable"
+        );
+        return ConversationContextSnapshot::default();
+    };
+
+    match knowledge::get_profile_detail(state, &ctx.request_id, entity_id, &entry_code).await {
+        Ok(result) => ConversationContextSnapshot {
+            hits: Vec::new(),
+            knowledge: None,
+            knowledge_profile_detail: Some(KnowledgeProfileDetailSnapshot { result }),
+        },
+        Err(err) => {
+            warn!(
+                request_id = %ctx.request_id,
+                session_id = %ctx.session_id,
+                tool_name = %tool_call.name,
+                error = %err,
+                "tool selection chose get_knowledge_profile_detail but retrieval failed; continuing without profile detail"
             );
             ConversationContextSnapshot::default()
         }
@@ -1759,6 +1841,9 @@ async fn execute_supported_tool_call(
     let next_snapshot = match tool_call.name.as_str() {
         "query_memory" => execute_memory_tool_call(state, route, request, ctx, tool_call).await,
         "query_knowledge" => execute_knowledge_tool_call(state, request, ctx, tool_call).await,
+        "get_knowledge_profile_detail" => {
+            execute_knowledge_profile_detail_tool_call(state, ctx, tool_call).await
+        }
         _ => return snapshot,
     };
 
@@ -1767,6 +1852,9 @@ async fn execute_supported_tool_call(
     }
     if next_snapshot.knowledge.is_some() {
         snapshot.knowledge = next_snapshot.knowledge;
+    }
+    if next_snapshot.knowledge_profile_detail.is_some() {
+        snapshot.knowledge_profile_detail = next_snapshot.knowledge_profile_detail;
     }
     snapshot
 }
@@ -1781,66 +1869,101 @@ async fn resolve_tool_call(
     auth_ctx: &AuthContext,
     trace_id: &str,
 ) -> Result<ToolResolutionResult, AppError> {
+    const MAX_TOOL_ROUNDS: usize = 3;
     let discovered_tools = tool_catalog::fetch_prompt_tool_definitions(state, request_id).await;
-    let llm_request = build_provider_generate_request(
-        request,
-        Some(base_snapshot),
-        request_id,
-        session_id,
-        auth_ctx,
-        trace_id,
-        state.config.llm.timeout_ms,
-        discovered_tools
-                .iter()
-                .cloned()
-                .collect(),
-    );
-    let selection = state.llm_provider.generate(llm_request).await?;
-    info!(
-        request_id = %request_id,
-        session_id = %session_id,
-        tool_call_count = selection.tool_calls.len(),
-        finish_reason = %selection.finish_reason,
-        "llm tool-selection phase completed"
-    );
+    let mut snapshot = base_snapshot.clone();
+    let mut last_tool_name: Option<String> = None;
 
-    let maybe_tool_call = selection
-        .tool_calls
-        .iter()
-        .find(|tool_call| {
-            discovered_tools
-                .iter()
-                .any(|tool| tool.name == tool_call.name)
-                && is_first_class_tool(tool_call.name.as_str())
-        })
-        .cloned();
-
-    if let Some(tool_call) = maybe_tool_call {
-        let ctx = MemoryRequestContext::from_auth(
-            request_id.to_string(),
-            session_id.to_string(),
-            trace_id.to_string(),
-            state.config.llm.timeout_ms,
-            auth_ctx,
-        );
-        let snapshot = execute_supported_tool_call(
-            state,
-            route,
+    for _ in 0..MAX_TOOL_ROUNDS {
+        let llm_request = build_provider_generate_request(
             request,
-            &ctx,
-            base_snapshot,
-            &tool_call,
-        )
-        .await;
+            Some(&snapshot),
+            request_id,
+            session_id,
+            auth_ctx,
+            trace_id,
+            state.config.llm.timeout_ms,
+            discovered_tools.iter().cloned().collect(),
+        );
+        let selection = state.llm_provider.generate(llm_request).await?;
+        let maybe_tool_call = selection
+            .tool_calls
+            .iter()
+            .find(|tool_call| {
+                discovered_tools
+                    .iter()
+                    .any(|tool| tool.name == tool_call.name)
+                    && is_first_class_tool(tool_call.name.as_str())
+            })
+            .cloned();
+        info!(
+            request_id = %request_id,
+            session_id = %session_id,
+            tool_call_count = selection.tool_calls.len(),
+            tool_call_names = %format_tool_call_names(&selection.tool_calls),
+            selected_first_class_tool = maybe_tool_call
+                .as_ref()
+                .map(|tool_call| tool_call.name.as_str())
+                .unwrap_or("-"),
+            finish_reason = %selection.finish_reason,
+            "llm tool-selection phase completed"
+        );
+
+        if let Some(tool_call) = maybe_tool_call {
+            if last_tool_name.as_deref() == Some(tool_call.name.as_str()) {
+                info!(
+                    request_id = %request_id,
+                    session_id = %session_id,
+                    tool_name = %tool_call.name,
+                    "stop tool rounds because the same tool was selected consecutively"
+                );
+                break;
+            }
+
+            let ctx = MemoryRequestContext::from_auth(
+                request_id.to_string(),
+                session_id.to_string(),
+                trace_id.to_string(),
+                state.config.llm.timeout_ms,
+                auth_ctx,
+            );
+            let next_snapshot = execute_supported_tool_call(
+                state,
+                route,
+                request,
+                &ctx,
+                &snapshot,
+                &tool_call,
+            )
+            .await;
+            let has_new_context = next_snapshot != snapshot
+                && (!next_snapshot.hits.is_empty()
+                    || next_snapshot.knowledge.is_some()
+                    || next_snapshot.knowledge_profile_detail.is_some());
+            if !has_new_context {
+                info!(
+                    request_id = %request_id,
+                    session_id = %session_id,
+                    tool_name = %tool_call.name,
+                    "stop tool rounds because the tool call produced no incremental context"
+                );
+                break;
+            }
+
+            snapshot = next_snapshot;
+            last_tool_name = Some(tool_call.name.clone());
+            continue;
+        }
+
         return Ok(ToolResolutionResult {
             snapshot,
-            direct_response: None,
+            direct_response: Some(selection),
         });
     }
 
     Ok(ToolResolutionResult {
-        snapshot: base_snapshot.clone(),
-        direct_response: Some(selection),
+        snapshot,
+        direct_response: None,
     })
 }
 
@@ -2079,14 +2202,6 @@ async fn call_llm_stream(
                 .collect(),
         );
         let selection = state.llm_provider.generate(tool_request).await?;
-        info!(
-            request_id = %request_id,
-            session_id = %session_id,
-            tool_call_count = selection.tool_calls.len(),
-            finish_reason = %selection.finish_reason,
-            "llm stream tool-selection phase completed"
-        );
-
         let maybe_tool_call = selection
             .tool_calls
             .iter()
@@ -2097,6 +2212,18 @@ async fn call_llm_stream(
                     && is_first_class_tool(tool_call.name.as_str())
             })
             .cloned();
+        info!(
+            request_id = %request_id,
+            session_id = %session_id,
+            tool_call_count = selection.tool_calls.len(),
+            tool_call_names = %format_tool_call_names(&selection.tool_calls),
+            selected_first_class_tool = maybe_tool_call
+                .as_ref()
+                .map(|tool_call| tool_call.name.as_str())
+                .unwrap_or("-"),
+            finish_reason = %selection.finish_reason,
+            "llm stream tool-selection phase completed"
+        );
 
         if let Some(tool_call) = maybe_tool_call {
             if last_tool_name.as_deref() == Some(tool_call.name.as_str()) {
@@ -2144,13 +2271,15 @@ async fn call_llm_stream(
             };
 
             let has_new_context = next_snapshot != snapshot
-                && (!next_snapshot.hits.is_empty() || next_snapshot.knowledge.is_some());
+                && (!next_snapshot.hits.is_empty()
+                    || next_snapshot.knowledge.is_some()
+                    || next_snapshot.knowledge_profile_detail.is_some());
             if !has_new_context {
                 info!(
                     request_id = %request_id,
                     session_id = %session_id,
                     tool_name = %tool_call.name,
-                    "stop tool rounds because the tool call produced no incremental memory"
+                    "stop tool rounds because the tool call produced no incremental context"
                 );
                 break;
             }
