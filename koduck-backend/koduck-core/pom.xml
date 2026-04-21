@@ -371,7 +371,6 @@
                     <includes>
                         <include>**/market/application/MarketServiceImpl.class</include>
                         <include>**/trading/application/PortfolioServiceImpl.class</include>
-                        <include>**/shared/application/AiAnalysisServiceImpl.class</include>
                     </includes>
                     <rules>
                         <rule>

@@ -51,8 +51,7 @@ class CircularDependencyRulesTest {
                 "com.koduck.market",
                 "com.koduck.portfolio",
                 "com.koduck.strategy",
-                "com.koduck.community",
-                "com.koduck.ai"
+                "com.koduck.community"
         };
 
         for (String packageName : domainPackages) {

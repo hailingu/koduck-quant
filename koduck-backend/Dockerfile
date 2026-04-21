@@ -26,21 +26,18 @@ COPY koduck-market/pom.xml koduck-market/
 COPY koduck-portfolio/pom.xml koduck-portfolio/
 COPY koduck-strategy/pom.xml koduck-strategy/
 COPY koduck-community/pom.xml koduck-community/
-COPY koduck-ai/pom.xml koduck-ai/
 
 # Copy API module pom.xml files
 COPY koduck-market/koduck-market-api/pom.xml koduck-market/koduck-market-api/
 COPY koduck-portfolio/koduck-portfolio-api/pom.xml koduck-portfolio/koduck-portfolio-api/
 COPY koduck-strategy/koduck-strategy-api/pom.xml koduck-strategy/koduck-strategy-api/
 COPY koduck-community/koduck-community-api/pom.xml koduck-community/koduck-community-api/
-COPY koduck-ai/koduck-ai-api/pom.xml koduck-ai/koduck-ai-api/
 
 # Copy Impl module pom.xml files
 COPY koduck-market/koduck-market-impl/pom.xml koduck-market/koduck-market-impl/
 COPY koduck-portfolio/koduck-portfolio-impl/pom.xml koduck-portfolio/koduck-portfolio-impl/
 COPY koduck-strategy/koduck-strategy-impl/pom.xml koduck-strategy/koduck-strategy-impl/
 COPY koduck-community/koduck-community-impl/pom.xml koduck-community/koduck-community-impl/
-COPY koduck-ai/koduck-ai-impl/pom.xml koduck-ai/koduck-ai-impl/
 
 # Copy source code
 COPY . .

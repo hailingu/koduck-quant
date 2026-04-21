@@ -71,8 +71,7 @@ class PackageDependencyRulesTest {
                 ArchitectureConstants.MARKET_PACKAGE,
                 ArchitectureConstants.PORTFOLIO_PACKAGE,
                 ArchitectureConstants.STRATEGY_PACKAGE,
-                ArchitectureConstants.COMMUNITY_PACKAGE,
-                ArchitectureConstants.AI_PACKAGE
+                ArchitectureConstants.COMMUNITY_PACKAGE
         };
 
         for (String domainPackage : domainPackages) {
@@ -86,8 +85,7 @@ class PackageDependencyRulesTest {
                     .resideInAnyPackage(
                             ArchitectureConstants.PORTFOLIO_PACKAGE.replace("..", ".impl.."),
                             ArchitectureConstants.STRATEGY_PACKAGE.replace("..", ".impl.."),
-                            ArchitectureConstants.COMMUNITY_PACKAGE.replace("..", ".impl.."),
-                            ArchitectureConstants.AI_PACKAGE.replace("..", ".impl..")
+                            ArchitectureConstants.COMMUNITY_PACKAGE.replace("..", ".impl..")
                     )
                     .because("Domain 模块的 API 不应依赖其他 Domain 模块的实现，"
                             + "模块间通信应通过 API 接口")

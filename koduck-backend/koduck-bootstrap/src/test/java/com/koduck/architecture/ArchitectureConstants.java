@@ -43,9 +43,6 @@ public final class ArchitectureConstants {
     /** Community 模块包名。 */
     public static final String COMMUNITY_PACKAGE = "com.koduck.community..";
 
-    /** AI 模块包名。 */
-    public static final String AI_PACKAGE = "com.koduck.ai..";
-
     /** Auth 模块包名。 */
     public static final String AUTH_PACKAGE = "com.koduck.auth..";
 

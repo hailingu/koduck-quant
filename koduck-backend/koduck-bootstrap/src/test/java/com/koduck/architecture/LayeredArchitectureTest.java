@@ -52,7 +52,6 @@ class LayeredArchitectureTest {
                         ArchitectureConstants.PORTFOLIO_PACKAGE,
                         ArchitectureConstants.STRATEGY_PACKAGE,
                         ArchitectureConstants.COMMUNITY_PACKAGE,
-                        ArchitectureConstants.AI_PACKAGE,
                         ArchitectureConstants.INFRASTRUCTURE_PACKAGE
                 )
                 .because("Common 模块作为最底层，不应依赖任何其他模块，"

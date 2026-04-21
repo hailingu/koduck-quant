@@ -40,11 +40,6 @@
             <groupId>com.koduck</groupId>
             <artifactId>koduck-community-api</artifactId>
         </dependency>
-        <dependency>
-            <groupId>com.koduck</groupId>
-            <artifactId>koduck-ai-api</artifactId>
-        </dependency>
-
         <!-- Web -->
         <dependency>
             <groupId>org.springframework.boot</groupId>

@@ -51,11 +51,6 @@
             <groupId>com.koduck</groupId>
             <artifactId>koduck-community-impl</artifactId>
         </dependency>
-        <dependency>
-            <groupId>com.koduck</groupId>
-            <artifactId>koduck-ai-impl</artifactId>
-        </dependency>
-
         <!-- Spring Boot Starter -->
         <dependency>
             <groupId>org.springframework.boot</groupId>

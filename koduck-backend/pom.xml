@@ -29,7 +29,6 @@
         <module>koduck-portfolio</module>
         <module>koduck-strategy</module>
         <module>koduck-community</module>
-        <module>koduck-ai</module>
         <module>koduck-bootstrap</module>
     </modules>
 
@@ -166,22 +165,6 @@
             <dependency>
                 <groupId>com.koduck</groupId>
                 <artifactId>koduck-community-impl</artifactId>
-                <version>${koduck.version}</version>
-            </dependency>
-            <dependency>
-                <groupId>com.koduck</groupId>
-                <artifactId>koduck-ai</artifactId>
-                <version>${koduck.version}</version>
-                <type>pom</type>
-            </dependency>
-            <dependency>
-                <groupId>com.koduck</groupId>
-                <artifactId>koduck-ai-api</artifactId>
-                <version>${koduck.version}</version>
-            </dependency>
-            <dependency>
-                <groupId>com.koduck</groupId>
-                <artifactId>koduck-ai-impl</artifactId>
                 <version>${koduck.version}</version>
             </dependency>
         </dependencies>
