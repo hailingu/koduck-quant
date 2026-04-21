@@ -18,10 +18,16 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
+import java.util.stream.Collectors;
+import org.apache.logging.log4j.ThreadContext;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 @Service
 public class EntitySearchService {
+
+    private static final Logger log = LoggerFactory.getLogger(EntitySearchService.class);
 
     private final EntityRepository entityRepository;
     private final EntityAliasRepository entityAliasRepository;
@@ -50,7 +56,8 @@ public class EntitySearchService {
     }
 
     private List<SearchHit> doSearch(final String name, final String domainClass, final OffsetDateTime at) {
-        dictionaryResolver.resolveDomainClass(domainClass);
+        final String resolvedDomainClass = dictionaryResolver.resolveDomainClass(domainClass).getDomainClass();
+        ThreadContext.put("domain_class", resolvedDomainClass);
         if (name == null || name.isBlank()) {
             throw new com.koduck.knowledge.exception.KnowledgeException(
                     org.springframework.http.HttpStatus.BAD_REQUEST,
@@ -59,6 +66,12 @@ public class EntitySearchService {
         }
         final String normalizedName = normalize(name);
         final OffsetDateTime queryAt = at != null ? at : OffsetDateTime.now(clock);
+        log.info(
+                "knowledge search started name={} normalized_name={} domain_class={} at={}",
+                summarize(name),
+                normalizedName,
+                resolvedDomainClass,
+                queryAt);
 
         final List<SearchCandidate> candidates = new ArrayList<>();
         appendCandidates(candidates, entityRepository.findByCanonicalName(normalizedName), MatchType.CANONICAL_EXACT);
@@ -66,12 +79,19 @@ public class EntitySearchService {
         appendCandidates(candidates, entityRepository.findByCanonicalNamePrefix(normalizedName), MatchType.CANONICAL_PREFIX);
         appendAliasCandidates(candidates, entityAliasRepository.findByAliasPrefix(normalizedName), MatchType.ALIAS_PREFIX);
 
-        return candidates.stream()
+        final List<SearchHit> hits = candidates.stream()
                 .map(candidate -> toSearchHit(candidate, domainClass, queryAt))
                 .flatMap(Optional::stream)
                 .sorted(Comparator.comparingInt((SearchHit hit) -> priority(hit.matchType()))
                         .thenComparingLong(SearchHit::entityId))
                 .toList();
+        log.info(
+                "knowledge search completed name={} domain_class={} hit_count={} top_hits={}",
+                summarize(name),
+                resolvedDomainClass,
+                hits.size(),
+                summarizeHits(hits));
+        return hits;
     }
 
     private void appendCandidates(
@@ -121,6 +141,27 @@ public class EntitySearchService {
             case CANONICAL_PREFIX -> 2;
             case ALIAS_PREFIX -> 3;
         };
+    }
+
+    private String summarizeHits(final List<SearchHit> hits) {
+        if (hits.isEmpty()) {
+            return "[]";
+        }
+        return hits.stream()
+                .limit(5)
+                .map(hit -> hit.entityId() + ":" + hit.canonicalName() + ":" + hit.matchType())
+                .collect(Collectors.joining(",", "[", hits.size() > 5 ? ",...]" : "]"));
+    }
+
+    private String summarize(final String value) {
+        if (value == null || value.isBlank()) {
+            return "-";
+        }
+        final String trimmed = value.trim();
+        if (trimmed.length() <= 128) {
+            return trimmed;
+        }
+        return trimmed.substring(0, 125) + "...";
     }
 
     private record SearchCandidate(long entityId, String canonicalName, MatchType matchType) {

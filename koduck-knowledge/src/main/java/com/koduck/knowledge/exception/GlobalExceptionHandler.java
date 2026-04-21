@@ -23,6 +23,11 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(KnowledgeException.class)
     public ResponseEntity<ErrorResponse> handleKnowledgeException(final KnowledgeException exception) {
         final Map<String, Object> details = exception.getDetails().isEmpty() ? null : exception.getDetails();
+        log.warn(
+                "KnowledgeException handled status={} code={} message={}",
+                exception.getStatus().value(),
+                exception.getCode(),
+                exception.getMessage());
         return ResponseEntity.status(exception.getStatus())
                 .body(new ErrorResponse(exception.getCode(), exception.getMessage(), details));
     }
@@ -35,6 +40,10 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ErrorResponse> handleValidationException(final Exception exception) {
         final Map<String, Object> details = new LinkedHashMap<>();
         details.put("reason", exception.getClass().getSimpleName());
+        log.warn(
+                "Validation exception handled type={} message={}",
+                exception.getClass().getSimpleName(),
+                exception.getMessage());
         return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                 .body(new ErrorResponse("INVALID_ARGUMENT", "Request validation failed", details));
     }
@@ -46,6 +55,10 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ErrorResponse> handleNotFoundException(final Exception exception) {
         final Map<String, Object> details = new LinkedHashMap<>();
         details.put("reason", exception.getClass().getSimpleName());
+        log.warn(
+                "Not found exception handled type={} message={}",
+                exception.getClass().getSimpleName(),
+                exception.getMessage());
         return ResponseEntity.status(HttpStatus.NOT_FOUND)
                 .body(new ErrorResponse("NOT_FOUND", "Resource not found", details));
     }

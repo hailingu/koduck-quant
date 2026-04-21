@@ -115,23 +115,13 @@ pub async fn query_knowledge_candidates(
     let client = build_http_client(request_id)?;
     let base_url = resolve_knowledge_base_url(state, request_id).await?;
     let domain_classes = list_domain_classes(&client, &base_url, request_id).await?;
-    let mut seen = HashSet::new();
     let mut hits = Vec::new();
 
     for domain_class in domain_classes {
         let search_hits = search_entities(&client, &base_url, request_id, query, &domain_class).await?;
-        for hit in search_hits {
-            let dedupe_key = (
-                hit.entity_id,
-                hit.domain_class.clone(),
-                hit.canonical_name.clone(),
-                hit.entity_name.clone(),
-            );
-            if seen.insert(dedupe_key) {
-                hits.push(hit);
-            }
-        }
+        hits.extend(search_hits);
     }
+    let hits = dedupe_cross_domain_candidate_hits(hits);
 
     Ok(KnowledgeQueryResult {
         query: query.to_string(),
@@ -249,6 +239,19 @@ async fn list_domain_classes(
         .collect())
 }
 
+fn dedupe_cross_domain_candidate_hits(hits: Vec<SearchHit>) -> Vec<SearchHit> {
+    let mut seen_entity_ids = HashSet::new();
+    let mut deduped = Vec::new();
+
+    for hit in hits {
+        if seen_entity_ids.insert(hit.entity_id) {
+            deduped.push(hit);
+        }
+    }
+
+    deduped
+}
+
 async fn get_basic_profile(
     client: &reqwest::Client,
     base_url: &str,
@@ -348,4 +351,53 @@ async fn http_error(
     AppError::new(code, message)
         .with_request_id(request_id.to_string())
         .with_upstream(UpstreamService::Knowledge)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{SearchHit, dedupe_cross_domain_candidate_hits};
+
+    fn hit(entity_id: i64, domain_class: &str, canonical_name: &str) -> SearchHit {
+        SearchHit {
+            entity_id,
+            canonical_name: canonical_name.to_string(),
+            entity_name: canonical_name.to_string(),
+            domain_class: domain_class.to_string(),
+            match_type: "CANONICAL_EXACT".to_string(),
+            basic_profile_s3_uri: None,
+            valid_from: None,
+            valid_to: None,
+        }
+    }
+
+    #[test]
+    fn collapses_same_entity_across_multiple_domains() {
+        let hits = vec![
+            hit(10000001, "history", "威廉二世"),
+            hit(10000001, "military", "威廉二世"),
+            hit(10000001, "politics", "威廉二世"),
+        ];
+
+        let deduped = dedupe_cross_domain_candidate_hits(hits);
+
+        assert_eq!(deduped.len(), 1);
+        assert_eq!(deduped[0].entity_id, 10000001);
+        assert_eq!(deduped[0].domain_class, "history");
+    }
+
+    #[test]
+    fn keeps_distinct_entities_even_when_domain_matches() {
+        let hits = vec![
+            hit(10000001, "history", "威廉二世"),
+            hit(10000002, "history", "腓特烈三世"),
+            hit(10000003, "history", "维多利亚长公主"),
+        ];
+
+        let deduped = dedupe_cross_domain_candidate_hits(hits);
+
+        assert_eq!(
+            deduped.iter().map(|hit| hit.entity_id).collect::<Vec<_>>(),
+            vec![10000001, 10000002, 10000003]
+        );
+    }
 }
