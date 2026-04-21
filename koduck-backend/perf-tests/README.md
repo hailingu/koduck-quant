@@ -98,10 +98,6 @@ k6 run \
   health-api-test.js
 ```
 
-## 性能基线
-
-查看完整性能基线文档: [docs/perf-baseline.md](../../docs/perf-baseline.md)
-
 ## CI 集成
 
 GitHub Actions 示例：

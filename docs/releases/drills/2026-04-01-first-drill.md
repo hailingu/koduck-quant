@@ -159,7 +159,7 @@ docker-compose up -d --build
 
 ### 文档改进建议
 
-1. **添加 Docker 特定回滚说明**: 在 rollback-runbook.md 中补充 Docker Compose 的具体回滚步骤
+1. **添加 Docker 特定回滚说明**: 在当前 K8s/容器运维文档中补充对应的具体回滚步骤
 2. **添加常见错误处理**: 补充回滚过程中可能遇到的错误及解决方案
 
 ---

@@ -116,7 +116,7 @@ analyze_results() {
         
         echo ""
         echo "建议操作:"
-        echo "  1. 查看 docs/testing-flaky-playbook.md 了解处理流程"
+        echo "  1. 按团队当前测试治理流程分析并记录 flaky 原因"
         echo "  2. 使用 @Tag(\"flaky\") 标记该测试"
         echo "  3. 创建修复 Issue，标签: flaky"
         return 1
