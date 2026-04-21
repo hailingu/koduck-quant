@@ -730,6 +730,9 @@ export function KoduckAi() {
   const [sessionHydrated, setSessionHydrated] = useState(initialSessionId === null);
   const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null);
   const [deletingMessageId, setDeletingMessageId] = useState<string | null>(null);
+  const [composerHeight, setComposerHeight] = useState(0);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const composerDockRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const chatInputRef = useRef<HTMLTextAreaElement>(null);
@@ -748,12 +751,18 @@ export function KoduckAi() {
     setCurrentSessionId(sessionId);
   };
 
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  const scrollToBottom = (behavior: ScrollBehavior = "smooth") => {
+    const container = scrollContainerRef.current;
+    if (container) {
+      container.scrollTo({ top: container.scrollHeight, behavior });
+      return;
+    }
+
+    messagesEndRef.current?.scrollIntoView({ behavior });
   };
 
   useEffect(() => {
-    scrollToBottom();
+    scrollToBottom(messages.at(-1)?.streaming ? "auto" : "smooth");
   }, [messages]);
 
   useEffect(() => {
@@ -768,10 +777,15 @@ export function KoduckAi() {
     }
 
     const maxHeight = 240;
+    const cursorAtEnd =
+      target.selectionStart === target.value.length &&
+      target.selectionEnd === target.value.length;
     target.style.height = "auto";
     const nextHeight = Math.min(target.scrollHeight, maxHeight);
     target.style.height = `${nextHeight}px`;
-    target.style.overflowY = target.scrollHeight > maxHeight ? "auto" : "hidden";
+    const isOverflowing = target.scrollHeight > maxHeight;
+    target.style.overflowY = isOverflowing ? "auto" : "hidden";
+    target.scrollTop = isOverflowing && cursorAtEnd ? target.scrollHeight : 0;
   };
 
   useEffect(
@@ -786,6 +800,38 @@ export function KoduckAi() {
   useEffect(() => {
     resizeChatInput(chatInputRef.current);
   }, [chatMessage]);
+
+  useEffect(() => {
+    const target = composerDockRef.current;
+    if (!target) {
+      return;
+    }
+
+    const updateComposerHeight = () => {
+      setComposerHeight(target.offsetHeight);
+    };
+
+    updateComposerHeight();
+
+    if (typeof ResizeObserver === "undefined") {
+      return;
+    }
+
+    const observer = new ResizeObserver(() => {
+      updateComposerHeight();
+    });
+    observer.observe(target);
+
+    return () => {
+      observer.disconnect();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (composerHeight > 0) {
+      scrollToBottom("auto");
+    }
+  }, [composerHeight]);
 
   useEffect(() => {
     persistPromptHistory(promptHistory);
@@ -1716,23 +1762,31 @@ export function KoduckAi() {
           <Trash2 className="w-5 h-5" strokeWidth={1.5} />
         </button>
       </div>
-      <div className="flex-1 overflow-y-auto">
+      <div
+        ref={scrollContainerRef}
+        className="flex-1 overflow-y-auto"
+        style={{ paddingBottom: composerHeight > 0 ? composerHeight + 24 : 240 }}
+      >
         <div
           className={`flex min-h-full flex-col px-4 ${
             messages.length === 0
-              ? "items-center justify-start pt-[28vh]"
+              ? "items-center justify-center py-12"
               : "justify-start pt-8"
           }`}
+          style={
+            messages.length === 0 && composerHeight > 0
+              ? { minHeight: `calc(100% - ${composerHeight}px)` }
+              : undefined
+          }
         >
           {messages.length === 0 ? (
-            <div className="mx-auto w-full max-w-3xl">
+            <div className="mx-auto w-full max-w-3xl pb-8">
               <h1 className="mb-8 text-center text-3xl font-normal text-gray-800">
                 {currentSessionId ? "新会话已创建" : "开始对话"}
               </h1>
-              <div className="w-full max-w-4xl px-4">{renderInputBar()}</div>
             </div>
           ) : (
-            <div className="mx-auto mb-32 w-full max-w-3xl space-y-6">
+            <div className="mx-auto w-full max-w-3xl space-y-6 pb-8">
               {messages.map((message) => (
                 <div key={message.id} data-copy-scope="message" className="group space-y-2">
                   <div
@@ -1846,11 +1900,14 @@ export function KoduckAi() {
         </div>
       </div>
 
-      {messages.length > 0 && (
-        <div className="bg-white">
-          <div className="mx-auto w-full max-w-4xl px-4 py-4">{renderInputBar()}</div>
+      <div
+        ref={composerDockRef}
+        className="pointer-events-none fixed inset-x-0 bottom-0 z-20 bg-transparent"
+      >
+        <div className="pointer-events-auto mx-auto w-full max-w-4xl px-4 pb-4 pt-3">
+          {renderInputBar()}
         </div>
-      )}
+      </div>
     </main>
   );
 }
