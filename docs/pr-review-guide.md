@@ -28,7 +28,6 @@ CODEOWNERS 是 GitHub 提供的代码所有者机制，用于：
 | `/.github/workflows/` | @hailingu | CI/CD 配置 |
 | `/koduck-backend/` | @hailingu | Java 后端 |
 | `/koduck-frontend/` | @hailingu | React 前端 |
-| `/koduck-agent/` | @hailingu | Python Agent |
 | `/koduck-data-service/` | @hailingu | Python 数据服务 |
 | `/docs/` | @hailingu | 文档 |
 

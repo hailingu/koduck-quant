@@ -69,13 +69,6 @@ docker-compose*.yml @hailingu
 /koduck-frontend/src/layouts/ @hailingu
 
 # ============================================================
-# Agent (koduck-agent)
-# ============================================================
-/koduck-agent/pyproject.toml @hailingu
-/koduck-agent/koduck/ @hailingu
-/koduck-agent/scripts/ @hailingu
-
-# ============================================================
 # 数据服务 (koduck-data-service)
 # ============================================================
 /koduck-data-service/pyproject.toml @hailingu
@@ -114,5 +107,4 @@ docker-compose*.yml @hailingu
 /koduck-backend/src/test/ @hailingu
 /koduck-frontend/src/**/*.test.* @hailingu
 /koduck-frontend/src/**/*.spec.* @hailingu
-/koduck-agent/tests/ @hailingu
 /koduck-data-service/tests/ @hailingu

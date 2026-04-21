@@ -672,9 +672,6 @@ install() {
 
     ensure_koduck_ai_llm_secret
 
-    # 移除已废弃的 koduck-agent secret，避免 direct mode 切换后留下误导性资源
-    kubectl delete secret "${ENV}-koduck-agent-secrets" -n "${NAMESPACE}" --ignore-not-found=true >/dev/null 2>&1 || true
-
     # 先确保 koduck-auth JWT key secret 可用，再部署工作负载，减少首次启动抖动
     ensure_koduck_auth_jwt_keys_secret
 

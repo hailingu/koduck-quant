@@ -306,19 +306,19 @@ describe('Button', () => {
 ### 运行测试
 
 ```bash
-cd koduck-agent
+cd <python-subproject>
 
 # 运行所有测试
 pytest
 
 # 运行并生成覆盖率报告
-pytest --cov=koduck --cov-report=html
+pytest --cov=. --cov-report=html
 
 # 运行特定模块
-pytest tests/test_market_service.py
+pytest tests/test_example.py
 
 # 运行特定测试
-pytest tests/test_market_service.py::test_get_price
+pytest tests/test_example.py::test_example
 
 # 详细输出
 pytest -v
@@ -455,7 +455,7 @@ npm run test:coverage                       # 覆盖率报告
 ```bash
 pytest                                      # 运行测试
 pytest -v                                   # 详细输出
-pytest --cov=koduck --cov-report=html       # 覆盖率
+pytest --cov=. --cov-report=html            # 覆盖率
 pytest -k "test_market"                     # 匹配名称运行
 ```
 

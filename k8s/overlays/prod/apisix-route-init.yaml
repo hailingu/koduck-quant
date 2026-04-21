@@ -52,8 +52,6 @@ spec:
               value: "prod-tool-service:50051"
             - name: TOOL_GRPC_ENABLED
               value: "false"
-            - name: LLM_GRPC_SERVICE
-              value: "prod-koduck-agent:50054"
             - name: APISIX_SERVICE_NAME
               value: "koduck-apisix-prod"
             - name: ENABLE_AI_GRPC_TRANSCODE
@@ -216,14 +214,12 @@ spec:
                 -H "$KEY" -H 'Content-Type: application/json' \
                 -d "$(printf '{"uri":"/api/v1/ai/*","priority":10,"plugins":{"openid-connect":{"client_id":"koduck-ai","client_secret":"%s","discovery":"http://%s/.well-known/openid-configuration","scope":"openid","ssl_verify":false,"timeout":10,"bearer_only":true,"use_jwks":true,"token_signing_alg_values_expected":"RS256","set_access_token_header":true,"access_token_in_authorization_header":true,"set_id_token_header":false,"set_userinfo_header":false,"jwk_expires_in":3600},"limit-count":{"count":120,"time_window":60,"key":"$consumer_name $uri","key_type":"var_combination","rejected_code":429,"rejected_msg":"ai gateway quota exceeded"},"limit-req":{"rate":20,"burst":10,"key":"$consumer_name $uri","key_type":"var_combination","rejected_code":429,"rejected_msg":"ai gateway burst limited","nodelay":true},"opentelemetry":{"sampler":{"name":"always_on"}},"proxy-rewrite":{"headers":{"set":{"X-Auth-Provider":"apisix-oidc","X-Request-Id":"$request_id","X-Trace-Id":"$opentelemetry_trace_id","traceparent":"$opentelemetry_context_traceparent","X-User-Id":"$consumer_name","X-Session-Id":"$http_x_session_id","X-Tenant-Id":"$jwt_claim_tenant_id"}}}},"upstream":{"type":"roundrobin","nodes":{"%s":1}}}' "$JWT_SECRET" "$AUTH_SERVICE" "$AI_SERVICE")"
 
-              echo "Registering gRPC upstreams for memory/llm"
+              echo "Registering gRPC upstreams for memory"
               # 治理策略（Task 8.1 / ADR-0023）：超时 connect=1s send=5s read=65s,
               # 轻重试 retries=1（仅 transport error），trace 透传，限流
               upsert_resource "upstreams" "ai-memory-grpc" "$(printf '{"name":"ai-memory-grpc","type":"roundrobin","scheme":"grpc","retries":1,"timeout":{"connect":1,"send":5,"read":65},"nodes":{"%s":1}}' "$MEMORY_GRPC_SERVICE")"
-              upsert_resource "upstreams" "ai-llm-grpc" "$(printf '{"name":"ai-llm-grpc","type":"roundrobin","scheme":"grpc","retries":1,"timeout":{"connect":1,"send":5,"read":65},"nodes":{"%s":1}}' "$LLM_GRPC_SERVICE")"
-              upsert_resource "upstreams" "ai-llm-stream-grpc" "$(printf '{"name":"ai-llm-stream-grpc","type":"roundrobin","scheme":"grpc","retries":1,"timeout":{"connect":1,"send":5,"read":310},"nodes":{"%s":1}}' "$LLM_GRPC_SERVICE")"
 
-              echo "Registering gRPC routes for memory/llm"
+              echo "Registering gRPC routes for memory"
               upsert_resource "routes" "ai-memory-grpc-route" '{"uri":"/koduck.memory.v1.MemoryService/*","priority":200,"plugins":{"limit-count":{"count":600,"time_window":60,"key":"$uri","key_type":"var","rejected_code":429,"rejected_msg":"ai memory grpc quota exceeded"},"limit-req":{"rate":120,"burst":60,"key":"$uri","key_type":"var","rejected_code":429,"rejected_msg":"ai memory grpc burst limited","nodelay":true},"opentelemetry":{"sampler":{"name":"always_on"}},"proxy-rewrite":{"headers":{"set":{"X-Request-Id":"$http_x_request_id","X-Trace-Id":"$opentelemetry_trace_id","traceparent":"$opentelemetry_context_traceparent","X-Session-Id":"$http_x_session_id","X-User-Id":"$http_x_user_id","X-Tenant-Id":"$http_x_tenant_id"}}}},"upstream_id":"ai-memory-grpc"}'
               if [ "${TOOL_GRPC_ENABLED}" = "true" ]; then
                 echo "Registering gRPC upstream/route for tool"
@@ -234,8 +230,12 @@ spec:
                 delete_resource "routes" "ai-tool-grpc-route" || true
                 delete_resource "upstreams" "ai-tool-grpc" || true
               fi
-              upsert_resource "routes" "ai-llm-stream-grpc-route" '{"uri":"/koduck.llm.v1.LlmService/StreamGenerate","priority":210,"plugins":{"limit-count":{"count":240,"time_window":60,"key":"$uri","key_type":"var","rejected_code":429,"rejected_msg":"ai llm stream grpc quota exceeded"},"limit-req":{"rate":40,"burst":20,"key":"$uri","key_type":"var","rejected_code":429,"rejected_msg":"ai llm stream grpc burst limited","nodelay":true},"opentelemetry":{"sampler":{"name":"always_on"}},"proxy-rewrite":{"headers":{"set":{"X-Request-Id":"$http_x_request_id","X-Trace-Id":"$opentelemetry_trace_id","traceparent":"$opentelemetry_context_traceparent","X-Session-Id":"$http_x_session_id","X-User-Id":"$http_x_user_id"}}}},"upstream_id":"ai-llm-stream-grpc"}'
-              upsert_resource "routes" "ai-llm-grpc-route" '{"uri":"/koduck.llm.v1.LlmService/*","priority":200,"plugins":{"limit-count":{"count":600,"time_window":60,"key":"$uri","key_type":"var","rejected_code":429,"rejected_msg":"ai llm grpc quota exceeded"},"limit-req":{"rate":120,"burst":60,"key":"$uri","key_type":"var","rejected_code":429,"rejected_msg":"ai llm grpc burst limited","nodelay":true},"opentelemetry":{"sampler":{"name":"always_on"}},"proxy-rewrite":{"headers":{"set":{"X-Request-Id":"$http_x_request_id","X-Trace-Id":"$opentelemetry_trace_id","traceparent":"$opentelemetry_context_traceparent","X-Session-Id":"$http_x_session_id","X-User-Id":"$http_x_user_id"}}}},"upstream_id":"ai-llm-grpc"}'
+
+              echo "Removing deprecated llm adapter gRPC routes and upstreams"
+              delete_resource "routes" "ai-llm-stream-grpc-route" || true
+              delete_resource "routes" "ai-llm-grpc-route" || true
+              delete_resource "upstreams" "ai-llm-stream-grpc" || true
+              delete_resource "upstreams" "ai-llm-grpc" || true
 
               if [ "${ENABLE_AI_GRPC_TRANSCODE}" = "true" ]; then
                 echo "grpc-transcode migration window enabled; route definitions should be added with explicit proto assets."
