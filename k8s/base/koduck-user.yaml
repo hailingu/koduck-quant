@@ -45,6 +45,48 @@ spec:
                 secretKeyRef:
                   name: koduck-user-secrets
                   key: db-password
+            - name: STORAGE_PROVIDER
+              valueFrom:
+                secretKeyRef:
+                  name: koduck-user-secrets
+                  key: storage-provider
+                  optional: true
+            - name: S3_BUCKET
+              valueFrom:
+                secretKeyRef:
+                  name: koduck-user-secrets
+                  key: s3-bucket
+                  optional: true
+            - name: S3_REGION
+              valueFrom:
+                secretKeyRef:
+                  name: koduck-user-secrets
+                  key: s3-region
+                  optional: true
+            - name: S3_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: koduck-user-secrets
+                  key: s3-access-key
+                  optional: true
+            - name: S3_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: koduck-user-secrets
+                  key: s3-secret-key
+                  optional: true
+            - name: S3_ENDPOINT
+              valueFrom:
+                secretKeyRef:
+                  name: koduck-user-secrets
+                  key: s3-endpoint
+                  optional: true
+            - name: S3_PATH_STYLE_ACCESS_ENABLED
+              valueFrom:
+                secretKeyRef:
+                  name: koduck-user-secrets
+                  key: s3-path-style-access-enabled
+                  optional: true
           resources:
             requests:
               cpu: 100m

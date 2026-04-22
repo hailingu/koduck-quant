@@ -23,7 +23,6 @@
         <module>koduck-bom</module>
         <module>koduck-common</module>
         <module>koduck-infrastructure</module>
-        <module>koduck-auth</module>
         <module>koduck-core</module>
         <module>koduck-market</module>
         <module>koduck-portfolio</module>
@@ -87,11 +86,6 @@
             <dependency>
                 <groupId>com.koduck</groupId>
                 <artifactId>koduck-infrastructure</artifactId>
-                <version>${koduck.version}</version>
-            </dependency>
-            <dependency>
-                <groupId>com.koduck</groupId>
-                <artifactId>koduck-auth</artifactId>
                 <version>${koduck.version}</version>
             </dependency>
             <dependency>

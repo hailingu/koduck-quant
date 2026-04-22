@@ -21,8 +21,8 @@ spec:
           env:
             - name: MINIO_ENDPOINT
               value: "http://dev-minio:9000"
-            - name: MINIO_BUCKET
-              value: "koduck-memory-dev"
+            - name: MINIO_BUCKETS
+              value: "koduck-memory-dev koduck-avatar-dev"
             - name: MINIO_ROOT_USER
               valueFrom:
                 secretKeyRef:
@@ -42,6 +42,8 @@ spec:
                 echo "waiting for minio endpoint ${MINIO_ENDPOINT}"
                 sleep 2
               done
-              mc mb --ignore-existing "local/${MINIO_BUCKET}"
-              mc anonymous set none "local/${MINIO_BUCKET}" || true
-              mc stat "local/${MINIO_BUCKET}"
+              for bucket in ${MINIO_BUCKETS}; do
+                mc mb --ignore-existing "local/${bucket}"
+                mc anonymous set none "local/${bucket}" || true
+                mc stat "local/${bucket}"
+              done

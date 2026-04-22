@@ -17,7 +17,6 @@ COPY pom.xml .
 COPY koduck-bom/pom.xml koduck-bom/
 COPY koduck-common/pom.xml koduck-common/
 COPY koduck-infrastructure/pom.xml koduck-infrastructure/
-COPY koduck-auth/pom.xml koduck-auth/
 COPY koduck-core/pom.xml koduck-core/
 COPY koduck-bootstrap/pom.xml koduck-bootstrap/
 

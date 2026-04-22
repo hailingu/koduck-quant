@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router";
 import {
   Settings,
@@ -12,6 +12,15 @@ import {
   Globe,
   Cpu,
 } from "lucide-react";
+import {
+  clearAuth,
+  fetchCurrentUserProfile,
+  getCurrentUser,
+  resolveAvatarImageSrc,
+  uploadCurrentUserAvatar,
+  type UserInfo,
+} from "../auth";
+import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
 
 type SettingsTab = "account" | "general" | "model" | "trading" | "notifications" | "security";
 type TradingMode = "simulation" | "live";
@@ -39,6 +48,11 @@ export function Layout({
 }: {
   children: React.ReactNode;
 }) {
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const [currentUser, setCurrentUser] = useState<UserInfo | null>(() => getCurrentUser());
+  const [resolvedAvatarSrc, setResolvedAvatarSrc] = useState<string | null>(null);
+  const [avatarError, setAvatarError] = useState<string | null>(null);
+  const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [showHelpModal, setShowHelpModal] = useState(false);
@@ -49,10 +63,106 @@ export function Layout({
   const [contextWindow, setContextWindow] = useState("");
   const [visionSupport, setVisionSupport] = useState<"vision" | "text-only">("vision");
   const navigate = useNavigate();
+  const displayName = formatDisplayName(currentUser);
+  const displayEmail = currentUser?.email ?? "demo@koduckquant.com";
+  const defaultAvatarSrc = buildDefaultAvatarDataUrl(displayName);
+  const avatarSrc = resolvedAvatarSrc ?? defaultAvatarSrc;
+  const avatarFallback = getInitials(displayName);
 
-  const handleLogout = () => {
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadUserProfile() {
+      const profile = await fetchCurrentUserProfile();
+      if (!cancelled && profile) {
+        setCurrentUser(profile);
+      }
+    }
+
+    void loadUserProfile();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    const avatarUrl = currentUser?.avatarUrl;
+    if (!avatarUrl) {
+      setResolvedAvatarSrc(null);
+      return;
+    }
+
+    let active = true;
+    let objectUrl: string | null = null;
+
+    async function resolveAvatar() {
+      try {
+        const nextSrc = await resolveAvatarImageSrc(avatarUrl);
+        if (!active) {
+          if (nextSrc.startsWith("blob:")) {
+            URL.revokeObjectURL(nextSrc);
+          }
+          return;
+        }
+        objectUrl = nextSrc.startsWith("blob:") ? nextSrc : null;
+        setResolvedAvatarSrc(nextSrc);
+      } catch {
+        if (active) {
+          setResolvedAvatarSrc(null);
+        }
+      }
+    }
+
+    void resolveAvatar();
+
+    return () => {
+      active = false;
+      if (objectUrl) {
+        URL.revokeObjectURL(objectUrl);
+      }
+    };
+  }, [currentUser?.avatarUrl]);
+
+  const handleLogout = (e: React.MouseEvent<HTMLButtonElement>) => {
+    e.preventDefault();
+    clearAuth();
+    setCurrentUser(null);
+    setResolvedAvatarSrc(null);
     setShowUserMenu(false);
-    navigate("/login");
+    navigate("/login", { replace: true });
+  };
+
+  const triggerAvatarUpload = () => {
+    setAvatarError(null);
+    fileInputRef.current?.click();
+  };
+
+  const handleAvatarFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+
+    if (!file) {
+      return;
+    }
+
+    if (!file.type.startsWith("image/")) {
+      setAvatarError("请选择图片文件");
+      return;
+    }
+
+    setAvatarError(null);
+    setIsUploadingAvatar(true);
+
+    try {
+      const avatarUrl = await uploadCurrentUserAvatar(file);
+      setCurrentUser((prev) => (prev ? { ...prev, avatarUrl } : { avatarUrl }));
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "头像上传失败，请稍后重试";
+      setAvatarError(message);
+    } finally {
+      setIsUploadingAvatar(false);
+    }
   };
 
   const openSettings = (e: React.MouseEvent<HTMLAnchorElement>) => {
@@ -69,16 +179,29 @@ export function Layout({
 
   return (
     <div className="min-h-screen bg-white flex flex-col">
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/png,image/jpeg,image/gif,image/webp"
+        className="hidden"
+        onChange={handleAvatarFileChange}
+      />
+
       {/* Top Navigation Bar */}
       <header className="h-14 flex-shrink-0">
         <div className="fixed top-3 right-4 z-10">
           <div className="relative">
             <button
               onClick={() => setShowUserMenu(!showUserMenu)}
-              className="w-8 h-8 bg-[#10a37f] rounded-full flex items-center justify-center hover:bg-[#0d8b6d] transition-colors"
+              className="rounded-full transition-transform hover:scale-[1.02] focus:outline-none focus:ring-2 focus:ring-[#10a37f]/30"
               type="button"
             >
-              <User className="w-4 h-4 text-white" />
+              <Avatar className="h-8 w-8 border border-emerald-100 shadow-sm">
+                <AvatarImage src={avatarSrc} alt={displayName} className="object-cover" />
+                <AvatarFallback className="bg-[#10a37f] text-[11px] font-semibold text-white">
+                  {avatarFallback}
+                </AvatarFallback>
+              </Avatar>
             </button>
 
             {/* User Dropdown Menu */}
@@ -90,8 +213,8 @@ export function Layout({
                 />
                 <div className="absolute top-full right-0 mt-2 w-56 bg-white border border-gray-200 rounded-lg shadow-lg py-1 z-20">
                   <div className="px-3 py-2 border-b border-gray-100">
-                    <div className="text-sm font-medium text-gray-900">User</div>
-                    <div className="text-xs text-gray-500">user@koduckquant.com</div>
+                    <div className="text-sm font-medium text-gray-900">{displayName}</div>
+                    <div className="text-xs text-gray-500">{displayEmail}</div>
                   </div>
                   <a
                     href="#"
@@ -121,14 +244,14 @@ export function Layout({
                     <span>Help</span>
                   </a>
                   <div className="border-t border-gray-100 mt-1 pt-1">
-                    <a
-                      href="#"
+                    <button
+                      type="button"
                       className="flex items-center gap-3 text-gray-700 hover:bg-gray-50 px-3 py-2 text-sm"
                       onClick={handleLogout}
                     >
                       <LogOut className="w-4 h-4" />
                       <span>Log out</span>
-                    </a>
+                    </button>
                   </div>
                 </div>
               </>
@@ -317,23 +440,33 @@ export function Layout({
                   <div className="space-y-6">
                     <div className="flex items-center justify-between py-4">
                       <div className="flex items-center gap-4">
-                        <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[#10A37F]">
-                          <User className="h-6 w-6 text-white" />
-                        </div>
+                        <Avatar className="h-14 w-14 border border-emerald-100 shadow-sm">
+                          <AvatarImage src={avatarSrc} alt={displayName} className="object-cover" />
+                          <AvatarFallback className="bg-[#10A37F] text-base font-semibold text-white">
+                            {avatarFallback}
+                          </AvatarFallback>
+                        </Avatar>
                         <div>
-                          <div className="text-sm font-medium text-gray-900">User</div>
-                          <div className="text-xs text-gray-500">user@koduckquant.com</div>
+                          <div className="text-sm font-medium text-gray-900">{displayName}</div>
+                          <div className="text-xs text-gray-500">{displayEmail}</div>
                         </div>
                       </div>
                       <button
                         className="text-sm font-medium text-[#10A37F] transition-colors hover:text-[#0D8B6D]"
+                        onClick={triggerAvatarUpload}
+                        disabled={isUploadingAvatar}
                         type="button"
                       >
-                        编辑
+                        {isUploadingAvatar ? "上传中..." : "编辑"}
                       </button>
                     </div>
-                    <SettingsRow label="用户名" value="User" />
-                    <SettingsRow label="邮箱地址" value="user@koduckquant.com" />
+                    {avatarError ? (
+                      <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
+                        {avatarError}
+                      </div>
+                    ) : null}
+                    <SettingsRow label="用户名" value={displayName} />
+                    <SettingsRow label="邮箱地址" value={displayEmail} />
                   </div>
                 )}
 
@@ -516,6 +649,60 @@ function SettingsRow({ label, value }: { label: string; value: string }) {
       <div className="text-sm text-gray-500">{value}</div>
     </div>
   );
+}
+
+function formatDisplayName(user: UserInfo | null): string {
+  if (user?.nickname?.trim()) {
+    return user.nickname.trim();
+  }
+  if (user?.username?.trim()) {
+    return user.username.trim();
+  }
+  if (user?.email?.trim()) {
+    const [localPart] = user.email.split("@");
+    if (localPart) {
+      return localPart;
+    }
+  }
+  return "Demo User";
+}
+
+function getInitials(name: string): string {
+  const parts = name
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2);
+
+  if (parts.length === 0) {
+    return "DQ";
+  }
+
+  return parts
+    .map((part) => part[0]?.toUpperCase() ?? "")
+    .join("")
+    .slice(0, 2);
+}
+
+function buildDefaultAvatarDataUrl(name: string): string {
+  const initials = getInitials(name);
+  const svg = `
+    <svg width="128" height="128" viewBox="0 0 128 128" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <rect width="128" height="128" rx="64" fill="url(#bg)" />
+      <circle cx="96" cy="34" r="18" fill="rgba(255,255,255,0.18)" />
+      <path d="M26 95C33 77 46 68 64 68C82 68 95 77 102 95" stroke="rgba(255,255,255,0.28)" stroke-width="6" stroke-linecap="round" />
+      <text x="64" y="76" text-anchor="middle" fill="white" font-size="34" font-weight="700" font-family="Arial, sans-serif">${initials}</text>
+      <defs>
+        <linearGradient id="bg" x1="16" y1="10" x2="111" y2="118" gradientUnits="userSpaceOnUse">
+          <stop stop-color="#0F766E" />
+          <stop offset="0.52" stop-color="#10A37F" />
+          <stop offset="1" stop-color="#34D399" />
+        </linearGradient>
+      </defs>
+    </svg>
+  `.trim();
+
+  return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`;
 }
 
 function ToggleRow({

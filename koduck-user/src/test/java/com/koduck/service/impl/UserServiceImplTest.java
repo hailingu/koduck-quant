@@ -11,6 +11,7 @@ import com.koduck.exception.UsernameAlreadyExistsException;
 import com.koduck.repository.user.RoleRepository;
 import com.koduck.repository.user.UserRepository;
 import com.koduck.repository.user.UserRoleRepository;
+import com.koduck.service.AvatarStorageService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -43,12 +44,14 @@ class UserServiceImplTest {
     private RoleRepository roleRepository;
     @Mock
     private UserRoleRepository userRoleRepository;
+    @Mock
+    private AvatarStorageService avatarStorageService;
 
     private UserServiceImpl userService;
 
     @BeforeEach
     void setUp() {
-        userService = new UserServiceImpl(userRepository, roleRepository, userRoleRepository);
+        userService = new UserServiceImpl(userRepository, roleRepository, userRoleRepository, avatarStorageService);
     }
 
     @Test

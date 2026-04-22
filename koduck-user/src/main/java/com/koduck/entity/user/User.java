@@ -49,6 +49,9 @@ public class User {
     @Column(name = "avatar_url", length = 255)
     private String avatarUrl;
 
+    @Column(name = "avatar_object_key", length = 512)
+    private String avatarObjectKey;
+
     @Column(name = "tenant_id", nullable = false, length = 128)
     @Builder.Default
     private String tenantId = DEFAULT_TENANT_ID;

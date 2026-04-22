@@ -36,10 +36,10 @@
             <artifactId>koduck-common</artifactId>
         </dependency>
 
-        <!-- Internal: Auth -->
+        <!-- Internal: Core (for shared auth principal types) -->
         <dependency>
             <groupId>com.koduck</groupId>
-            <artifactId>koduck-auth</artifactId>
+            <artifactId>koduck-core</artifactId>
         </dependency>
 
         <!-- Internal: Market API (for price data) -->

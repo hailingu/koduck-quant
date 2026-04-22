@@ -353,6 +353,13 @@ class InternalUserControllerTest {
         }
 
         @Override
+        public com.koduck.dto.user.user.AvatarUploadResponse uploadAvatar(String tenantId,
+                                                                          Long currentUserId,
+                                                                          org.springframework.web.multipart.MultipartFile file) {
+            throw new UnsupportedOperationException("Not used in this test");
+        }
+
+        @Override
         public List<String> getCurrentUserPermissions(String tenantId, Long currentUserId) {
             throw new UnsupportedOperationException("Not used in this test");
         }

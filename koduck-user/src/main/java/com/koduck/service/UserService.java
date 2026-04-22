@@ -3,6 +3,7 @@ package com.koduck.service;
 import com.koduck.dto.user.common.PageResponse;
 import com.koduck.dto.user.role.RoleInfo;
 import com.koduck.dto.user.user.CreateUserRequest;
+import com.koduck.dto.user.user.AvatarUploadResponse;
 import com.koduck.dto.user.user.LastLoginUpdateRequest;
 import com.koduck.dto.user.user.UpdateProfileRequest;
 import com.koduck.dto.user.user.UpdateUserRequest;
@@ -10,6 +11,7 @@ import com.koduck.dto.user.user.UserDetailsResponse;
 import com.koduck.dto.user.user.UserProfileResponse;
 import com.koduck.dto.user.user.UserSummaryResponse;
 import org.springframework.data.domain.Pageable;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 import java.util.Optional;
@@ -26,6 +28,8 @@ public interface UserService {
     UserProfileResponse getCurrentUser(String tenantId, Long currentUserId);
 
     UserProfileResponse updateProfile(String tenantId, Long currentUserId, UpdateProfileRequest request);
+
+    AvatarUploadResponse uploadAvatar(String tenantId, Long currentUserId, MultipartFile file);
 
     List<String> getCurrentUserPermissions(String tenantId, Long currentUserId);
 

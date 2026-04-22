@@ -28,10 +28,6 @@
         </dependency>
         <dependency>
             <groupId>com.koduck</groupId>
-            <artifactId>koduck-auth</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>com.koduck</groupId>
             <artifactId>koduck-portfolio-api</artifactId>
         </dependency>
         <dependency>

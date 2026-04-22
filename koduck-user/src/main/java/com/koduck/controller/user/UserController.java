@@ -7,6 +7,7 @@ import com.koduck.dto.user.permission.PermissionInfo;
 import com.koduck.dto.user.role.RoleInfo;
 import com.koduck.dto.user.user.AssignRoleRequest;
 import com.koduck.dto.user.user.AvatarUploadResponse;
+import com.koduck.dto.user.user.AvatarFilePayload;
 import com.koduck.dto.user.user.ChangePasswordRequest;
 import com.koduck.dto.user.user.UpdateProfileRequest;
 import com.koduck.dto.user.user.UpdateUserRequest;
@@ -14,12 +15,18 @@ import com.koduck.dto.user.user.UpdateUserStatusRequest;
 import com.koduck.dto.user.user.UserProfileResponse;
 import com.koduck.dto.user.user.UserSummaryResponse;
 import com.koduck.service.PermissionService;
+import com.koduck.service.AvatarStorageService;
 import com.koduck.service.UserService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.CacheControl;
+import org.springframework.http.MediaType;
+import org.springframework.http.MediaTypeFactory;
+import org.springframework.http.HttpHeaders;
+import org.springframework.core.io.ByteArrayResource;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -29,8 +36,11 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 
 /**
  * 用户管理 Controller，覆盖公开 API 的所有用户相关端点。
@@ -51,10 +61,14 @@ public class UserController {
 
     private final UserService userService;
     private final PermissionService permissionService;
+    private final AvatarStorageService avatarStorageService;
 
-    public UserController(UserService userService, PermissionService permissionService) {
+    public UserController(UserService userService,
+                          PermissionService permissionService,
+                          AvatarStorageService avatarStorageService) {
         this.userService = userService;
         this.permissionService = permissionService;
+        this.avatarStorageService = avatarStorageService;
     }
 
     // === 当前用户接口 ===
@@ -86,9 +100,24 @@ public class UserController {
     }
 
     @PutMapping("/users/me/avatar")
-    public ApiResponse<AvatarUploadResponse> uploadAvatar(HttpServletRequest request) {
-        // TODO: 头像上传逻辑（依赖存储配置 Task 6.1）
-        throw new UnsupportedOperationException("头像上传接口待实现");
+    public ApiResponse<AvatarUploadResponse> uploadAvatar(HttpServletRequest request,
+                                                          @RequestParam("file") MultipartFile file) {
+        String tenantId = UserContext.getTenantId(request);
+        Long userId = UserContext.getUserId(request);
+        AvatarUploadResponse response = userService.uploadAvatar(tenantId, userId, file);
+        return ApiResponse.ok(response);
+    }
+
+    @GetMapping("/users/avatar-files/{*avatarKey}")
+    public ResponseEntity<ByteArrayResource> getAvatarFile(@PathVariable String avatarKey) {
+        AvatarFilePayload payload = avatarStorageService.load(avatarKey);
+        MediaType mediaType = MediaType.parseMediaType(payload.contentType());
+        return ResponseEntity.ok()
+                .cacheControl(CacheControl.maxAge(1, TimeUnit.HOURS).cachePrivate())
+                .header(HttpHeaders.CONTENT_DISPOSITION, "inline")
+                .contentLength(payload.bytes().length)
+                .contentType(mediaType)
+                .body(new ByteArrayResource(payload.bytes()));
     }
 
     @DeleteMapping("/users/me")

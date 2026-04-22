@@ -2,8 +2,10 @@ package com.koduck.service.impl;
 
 import com.koduck.dto.user.common.PageResponse;
 import com.koduck.dto.user.role.RoleInfo;
+import com.koduck.dto.user.user.AvatarUploadResponse;
 import com.koduck.dto.user.user.CreateUserRequest;
 import com.koduck.dto.user.user.LastLoginUpdateRequest;
+import com.koduck.dto.user.user.StoredAvatar;
 import com.koduck.dto.user.user.UpdateProfileRequest;
 import com.koduck.dto.user.user.UpdateUserRequest;
 import com.koduck.dto.user.user.UserDetailsResponse;
@@ -20,6 +22,7 @@ import com.koduck.exception.UsernameAlreadyExistsException;
 import com.koduck.repository.user.RoleRepository;
 import com.koduck.repository.user.UserRepository;
 import com.koduck.repository.user.UserRoleRepository;
+import com.koduck.service.AvatarStorageService;
 import com.koduck.service.UserService;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -38,13 +41,16 @@ public class UserServiceImpl implements UserService {
     private final UserRepository userRepository;
     private final RoleRepository roleRepository;
     private final UserRoleRepository userRoleRepository;
+    private final AvatarStorageService avatarStorageService;
 
     public UserServiceImpl(UserRepository userRepository,
                            RoleRepository roleRepository,
-                           UserRoleRepository userRoleRepository) {
+                           UserRoleRepository userRoleRepository,
+                           AvatarStorageService avatarStorageService) {
         this.userRepository = userRepository;
         this.roleRepository = roleRepository;
         this.userRoleRepository = userRoleRepository;
+        this.avatarStorageService = avatarStorageService;
     }
 
     // === 公开 API: 当前用户 ===
@@ -79,6 +85,32 @@ public class UserServiceImpl implements UserService {
         User saved = userRepository.save(user);
         List<RoleInfo> roles = getUserRolesInfo(resolvedTenantId, saved.getId());
         return buildUserProfileResponse(saved, roles);
+    }
+
+    @Override
+    @Transactional
+    public AvatarUploadResponse uploadAvatar(String tenantId, Long currentUserId, org.springframework.web.multipart.MultipartFile file) {
+        String resolvedTenantId = resolveTenantId(tenantId);
+        User user = findUserOrThrow(resolvedTenantId, currentUserId);
+        String previousAvatarObjectKey = user.getAvatarObjectKey();
+        StoredAvatar storedAvatar = avatarStorageService.store(resolvedTenantId, currentUserId, file);
+
+        try {
+            user.setAvatarObjectKey(storedAvatar.storageKey());
+            user.setAvatarUrl(null);
+            userRepository.save(user);
+        } catch (RuntimeException ex) {
+            avatarStorageService.deleteByKey(storedAvatar.storageKey());
+            throw ex;
+        }
+
+        if (StringUtils.hasText(previousAvatarObjectKey)) {
+            avatarStorageService.deleteByKey(previousAvatarObjectKey);
+        }
+
+        return AvatarUploadResponse.builder()
+                .avatarUrl(storedAvatar.avatarUrl())
+                .build();
     }
 
     @Override
@@ -326,7 +358,7 @@ public class UserServiceImpl implements UserService {
                 .username(user.getUsername())
                 .email(user.getEmail())
                 .nickname(user.getNickname())
-                .avatarUrl(user.getAvatarUrl())
+                .avatarUrl(resolveAvatarUrl(user))
                 .status(user.getStatus().name())
                 .emailVerifiedAt(user.getEmailVerifiedAt())
                 .lastLoginAt(user.getLastLoginAt())
@@ -365,5 +397,12 @@ public class UserServiceImpl implements UserService {
                 .name(role.getName())
                 .description(role.getDescription())
                 .build();
+    }
+
+    private String resolveAvatarUrl(User user) {
+        if (StringUtils.hasText(user.getAvatarObjectKey())) {
+            return avatarStorageService.buildAvatarUrl(user.getAvatarObjectKey());
+        }
+        return user.getAvatarUrl();
     }
 }

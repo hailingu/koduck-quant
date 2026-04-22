@@ -10,6 +10,7 @@ import com.koduck.dto.user.user.UserDetailsResponse;
 import com.koduck.dto.user.user.UserProfileResponse;
 import com.koduck.dto.user.user.UserSummaryResponse;
 import com.koduck.exception.GlobalExceptionHandler;
+import com.koduck.service.AvatarStorageService;
 import com.koduck.service.PermissionService;
 import com.koduck.service.UserService;
 import org.junit.jupiter.api.BeforeEach;
@@ -35,8 +36,9 @@ class UserControllerAuthBoundaryTest {
     void setUp() {
         UserService userService = new StubUserService();
         PermissionService permissionService = new StubPermissionService();
+        AvatarStorageService avatarStorageService = org.mockito.Mockito.mock(AvatarStorageService.class);
         mockMvc = MockMvcBuilders
-                .standaloneSetup(new UserController(userService, permissionService))
+                .standaloneSetup(new UserController(userService, permissionService, avatarStorageService))
                 .setControllerAdvice(new GlobalExceptionHandler())
                 .build();
     }
@@ -70,6 +72,13 @@ class UserControllerAuthBoundaryTest {
 
         @Override
         public UserProfileResponse updateProfile(String tenantId, Long currentUserId, UpdateProfileRequest request) {
+            throw new UnsupportedOperationException("Not used in this test");
+        }
+
+        @Override
+        public com.koduck.dto.user.user.AvatarUploadResponse uploadAvatar(String tenantId,
+                                                                          Long currentUserId,
+                                                                          org.springframework.web.multipart.MultipartFile file) {
             throw new UnsupportedOperationException("Not used in this test");
         }
 

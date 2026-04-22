@@ -29,6 +29,10 @@ spring:
   flyway:
     enabled: true
     locations: classpath:db/migration
+  servlet:
+    multipart:
+      max-file-size: ${AVATAR_MAX_FILE_SIZE:2MB}
+      max-request-size: ${AVATAR_MAX_FILE_SIZE:2MB}
   threads:
     virtual:
       enabled: true
@@ -102,9 +106,11 @@ storage:
     provider: ${STORAGE_PROVIDER:${AVATAR_STORAGE_TYPE:local}} # local, s3
     local:
       path: ${AVATAR_STORAGE_PATH:${AVATAR_LOCAL_PATH:/data/avatars}}
-      base-url: ${AVATAR_BASE_URL:http://localhost:${SERVER_PORT:8082}/avatars}
+      base-url: ${AVATAR_BASE_URL:/api/v1/users/avatar-files}
     s3:
       bucket: ${S3_BUCKET:}
       region: ${S3_REGION:}
       access-key: ${S3_ACCESS_KEY:}
       secret-key: ${S3_SECRET_KEY:}
+      endpoint: ${S3_ENDPOINT:}
+      path-style-access-enabled: ${S3_PATH_STYLE_ACCESS_ENABLED:true}

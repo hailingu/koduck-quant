@@ -36,6 +36,11 @@ interface ApiResponse<T> {
   data?: T;
 }
 
+interface AvatarUploadResponse {
+  avatarUrl?: string;
+  avatar_url?: string;
+}
+
 function normalizeUser(raw: unknown): UserInfo | null {
   if (!raw || typeof raw !== "object") {
     return null;
@@ -71,6 +76,15 @@ function toApiUrl(path: string): string {
     return `${base}${path.slice(4)}`;
   }
   return `${base}${path}`;
+}
+
+function mergeCurrentUser(patch: Partial<UserInfo>): UserInfo | null {
+  const currentUser = getCurrentUser();
+  const nextUser = currentUser ? { ...currentUser, ...patch } : normalizeUser(patch);
+  if (nextUser) {
+    setCurrentUser(nextUser);
+  }
+  return nextUser;
 }
 
 export function getAccessToken(): string | null {
@@ -236,4 +250,68 @@ export async function login(request: LoginRequest): Promise<void> {
       setCurrentUser(fallbackUser);
     }
   }
+
+  await fetchCurrentUserProfile().catch(() => null);
+}
+
+export async function uploadCurrentUserAvatar(file: File): Promise<string> {
+  const token = getAccessToken();
+  if (!token) {
+    throw new Error("当前未登录");
+  }
+
+  const formData = new FormData();
+  formData.append("file", file);
+
+  const response = await fetch(toApiUrl("/api/v1/users/me/avatar"), {
+    method: "PUT",
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+    body: formData,
+  });
+
+  const payload = (await response.json().catch(() => null)) as
+    | ApiResponse<AvatarUploadResponse>
+    | null;
+
+  if (!response.ok) {
+    throw new Error(payload?.message || "头像上传失败，请稍后重试");
+  }
+
+  const avatarUrl = payload?.data?.avatarUrl ?? payload?.data?.avatar_url;
+  if (!avatarUrl) {
+    throw new Error("头像上传成功，但响应缺少头像地址");
+  }
+
+  mergeCurrentUser({ avatarUrl });
+  return avatarUrl;
+}
+
+export async function resolveAvatarImageSrc(avatarUrl: string): Promise<string> {
+  if (
+    avatarUrl.startsWith("data:")
+    || avatarUrl.startsWith("blob:")
+    || avatarUrl.startsWith("http://")
+    || avatarUrl.startsWith("https://")
+  ) {
+    return avatarUrl;
+  }
+
+  const token = getAccessToken();
+  const response = await fetch(toApiUrl(avatarUrl), {
+    method: "GET",
+    headers: token
+      ? {
+          Authorization: `Bearer ${token}`,
+        }
+      : undefined,
+  });
+
+  if (!response.ok) {
+    throw new Error("头像加载失败");
+  }
+
+  const blob = await response.blob();
+  return URL.createObjectURL(blob);
 }
