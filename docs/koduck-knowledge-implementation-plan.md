@@ -150,8 +150,7 @@ git worktree add ../worktree-knowledge-bootstrap -b feature/knowledge-bootstrap
 6. 同名异人允许返回多个结果；若同一 `entityId` 因不同命中路径重复命中，也允许重复返回多条 `SearchHit`。
 7. 当前 MVP 不暴露任何 Create / Update / Delete 业务接口。
 8. HTTP 响应与分页 DTO 由 `koduck-knowledge` 自定义，不复用 `koduck-common`。
-9. 对外暴露必须通过 APISIX 显式注册 `/api/v1/entities/*`，不得依赖现有 `/api/*`
-   通配路由兜底到 `backend`。
+9. 对外暴露必须通过 APISIX 显式注册 `/api/v1/entities/*`，不得依赖任何兜底通配路由。
 10. knowledge 路由鉴权方式对齐现有受保护 API：启用 `jwt-auth`，并通过 `proxy-rewrite`
    注入 `X-User-Id`、`X-Username`、`X-Roles`、`X-Tenant-Id`；服务侧以网关注入身份头为主，
    不自行解析外部 JWT 作为主路径。
@@ -446,7 +445,7 @@ git worktree add ../worktree-knowledge-bootstrap -b feature/knowledge-bootstrap
 3. 在 dev/prod 的 `apisix-route-init` Job 中新增 knowledge northbound 路由：
    - `uri` 固化为 `/api/v1/entities/*`
    - `route id` 使用稳定命名（如 `knowledge-service`）
-   - `priority` 必须高于现有 `/api/* -> backend` 通配路由
+   - `priority` 必须显式高于常规业务 API 路由
    - upstream 指向 `koduck-knowledge` Service
 4. 对齐现有受保护 API 的鉴权与身份透传基线：
    - `plugins.jwt-auth = {}`
@@ -857,8 +856,7 @@ git worktree add ../worktree-knowledge-bootstrap -b feature/knowledge-bootstrap
 1. 确认当前 MVP 无业务写接口。
 2. 对未开放的 `POST/PUT/PATCH/DELETE` 资源返回 404/405。
 3. OpenAPI 文档不暴露写入、审核、发布相关路径，也不暴露独立 `link` 接口。
-4. 经 APISIX 访问 `/api/v1/entities/*` 时，请求命中 knowledge 显式路由，而不是 `/api/*`
-   通配 backend 路由。
+4. 经 APISIX 访问 `/api/v1/entities/*` 时，请求命中 knowledge 显式路由，而不是任何兜底通配路由。
 5. knowledge 显式路由的插件配置需与现有受保护 API 一致，至少包含 `jwt-auth` 与
    `proxy-rewrite(headers.set)` 的四个身份头映射。
 6. `search` 的 `domainClass` 缺失或未知值返回 `400`；detail/history 的 `entry_code` 错误码符合契约。

@@ -330,8 +330,8 @@
 13. 逻辑引用保留未来拆分、归档与离线装载灵活性。
 14. 同名异人场景必须保留多候选，避免在查询链路中过早裁剪。
 15. 事实构建与导入由外部承担，`koduck-knowledge` 只面向已有数据提供读取能力。
-16. 由于仓库现有 dev/prod APISIX 已存在 `/api/* -> backend` 通配路由，knowledge 必须注册
-  显式 `/api/v1/entities/*` 路由并使用更高优先级，避免 northbound 流量误入 backend。
+16. knowledge 必须注册显式 `/api/v1/entities/*` 路由并使用更高优先级，避免 northbound
+  流量误入兜底通配路由。
 17. 仓库现有受保护业务路由标准为 `jwt-auth + proxy-rewrite(headers.set)`，统一注入
   `X-User-Id`、`X-Username`、`X-Roles`、`X-Tenant-Id`，knowledge 应沿用这一标准。
 18. 当前先锁定表结构、字典、blob JSON 最小结构、对象路径与示例数据集，不在 ADR 中展开离线构建编排。
@@ -641,7 +641,7 @@ UNIQUE (entity_id, profile_entry_id, version)
 ### APISIX 暴露要求
 
 - dev/prod 的 `apisix-route-init` Job 需要新增 `knowledge-service` 路由。
-- 路由 `uri` 固化为 `/api/v1/entities/*`，优先级高于现有 `/api/* -> backend` 通配路由。
+- 路由 `uri` 固化为 `/api/v1/entities/*`，优先级高于常规业务 API 路由。
 - upstream 指向 `koduck-knowledge` Service。
 - 路由插件对齐现有受保护 API 标准：`jwt-auth + proxy-rewrite(headers.set)`。
 - `proxy-rewrite` 统一注入 `X-User-Id=$jwt_claim_sub`、

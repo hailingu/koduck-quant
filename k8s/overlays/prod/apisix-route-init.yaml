@@ -1,6 +1,6 @@
 ---
 # APISIX Route Init Job (prod)
-# 注册 JWT consumer + 路由分发：auth 公开、API 需认证、WS 公开、前端公开
+# 注册 JWT consumer + 路由分发：auth 公开、显式受保护 API、前端公开
 # 注意：此文件不经过 kustomize，由 deploy.sh 在 APISIX 就绪后单独 apply
 apiVersion: batch/v1
 kind: Job
@@ -36,10 +36,10 @@ spec:
               value: "edd1c9f034335f136f87ad84b625c8f1"
             - name: APISIX_GATEWAY
               value: "prod-apisix-gateway"
-            - name: BACKEND_SERVICE
-              value: "backend:8080"
             - name: AUTH_SERVICE
-              value: "backend:8080"
+              value: "prod-koduck-auth:8081"
+            - name: USER_SERVICE
+              value: "prod-koduck-user:8082"
             - name: FRONTEND_SERVICE
               value: "prod-koduck-frontend:80"
             - name: KNOWLEDGE_SERVICE
@@ -194,15 +194,15 @@ spec:
                 -H "$KEY" -H 'Content-Type: application/json' \
                 -d "$(printf '{"username":"koduck_user","plugins":{"jwt-auth":{"key":"koduck_user","secret":"%s","algorithm":"HS256"}}}' "$JWT_SECRET")"
 
-              echo "Registering public auth route: /api/v1/auth/* -> backend"
+              echo "Registering public auth route: /api/v1/auth/* -> koduck-auth"
               curl -fsS -X PUT "${ADMIN}/routes/api-auth-public" \
                 -H "$KEY" -H 'Content-Type: application/json' \
-                -d "$(printf '{"uri":"/api/v1/auth/*","upstream":{"type":"roundrobin","nodes":{"%s":1}}}' "$BACKEND_SERVICE")"
+                -d "$(printf '{"uri":"/api/v1/auth/*","upstream":{"type":"roundrobin","nodes":{"%s":1}}}' "$AUTH_SERVICE")"
 
-              echo "Registering protected API route: /api/* -> backend (jwt-auth)"
-              curl -fsS -X PUT "${ADMIN}/routes/api-protected" \
+              echo "Registering koduck-user route: /api/v1/users/* -> koduck-user (jwt-auth)"
+              curl -fsS -X PUT "${ADMIN}/routes/user-service" \
                 -H "$KEY" -H 'Content-Type: application/json' \
-                -d "$(printf '{"uri":"/api/*","plugins":{"jwt-auth":{}},"upstream":{"type":"roundrobin","nodes":{"%s":1}}}' "$BACKEND_SERVICE")"
+                -d "$(printf '{"uri":"/api/v1/users/*","priority":90,"plugins":{"jwt-auth":{},"proxy-rewrite":{"headers":{"set":{"X-User-Id":"$jwt_claim_sub","X-Username":"$jwt_claim_username","X-Roles":"$jwt_claim_roles","X-Tenant-Id":"$jwt_claim_tenant_id"}}}},"upstream":{"type":"roundrobin","nodes":{"%s":1}}}' "$USER_SERVICE")"
 
               echo "Registering koduck-knowledge route: /api/v1/entities/* -> koduck-knowledge (jwt-auth)"
               curl -fsS -X PUT "${ADMIN}/routes/knowledge-service" \
@@ -242,11 +242,6 @@ spec:
               else
                 echo "grpc-transcode migration window disabled; no transcode routes registered."
               fi
-
-              echo "Registering WebSocket route: /ws/* -> backend"
-              curl -fsS -X PUT "${ADMIN}/routes/ws" \
-                -H "$KEY" -H 'Content-Type: application/json' \
-                -d "$(printf '{"uri":"/ws/*","upstream":{"type":"roundrobin","nodes":{"%s":1}}}' "$BACKEND_SERVICE")"
 
               echo "Registering frontend catch-all route: /* -> frontend"
               curl -fsS -X PUT "${ADMIN}/routes/frontend-root" \

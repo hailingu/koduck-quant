@@ -44,8 +44,7 @@
 - **Northbound Gateway（APISIX）**：通过现有 APISIX route-init 机制显式注册
   `/api/v1/entities/*` 路由，将外部流量转发到 `koduck-knowledge`，并对齐仓库现有受保护
   API 的鉴权方式：`jwt-auth + proxy-rewrite(headers.set)`，统一注入 `X-User-Id`、
-  `X-Username`、`X-Roles`、`X-Tenant-Id`，避免请求落入已有的 `/api/* -> backend`
-  通配路由。
+  `X-Username`、`X-Roles`、`X-Tenant-Id`。
 
 ## 4.1 服务外部消费契约（MVP 定稿）
 
@@ -310,7 +309,7 @@ Blob 仅存结构化 JSON，不在接口层直接回传完整内容。MVP 统一
   作为对外入口。
 - 需在 dev/prod 的 APISIX route-init Job 中新增显式 knowledge 路由，建议固化为
   `uri=/api/v1/entities/*`。
-- knowledge 路由优先级必须高于当前通配 `/api/* -> backend` 路由，避免被错误转发。
+- knowledge 路由必须作为显式受保护 API 注册，避免被错误转发到兜底路由。
 - knowledge 路由鉴权方式需与现有受保护 API 对齐：启用 `jwt-auth`，不走匿名访问，也不以
   服务侧自行解析外部 JWT 作为主路径。
 - 网关侧通过 `proxy-rewrite(headers.set)` 注入 `X-User-Id=$jwt_claim_sub`、
@@ -323,7 +322,7 @@ Blob 仅存结构化 JSON，不在接口层直接回传完整内容。MVP 统一
 2. 实现 `entity`、`entity_alias`、`entity_basic_profile`、`entity_profile` 的查询链路。
 3. 提供 `search/detail/history` 读接口与批量事实接口。
 4. 在 APISIX route-init 中注册 `/api/v1/entities/*` 显式路由，并对齐 `jwt-auth +
-  proxy-rewrite` 的受保护 API 基线，验证不会命中 `/api/* -> backend` 通配路由。
+  proxy-rewrite` 的受保护 API 基线，验证请求命中 knowledge 显式路由。
 5. 同步定稿最小字典种子、blob JSON 结构与示例数据集，保证接口验收有统一基线。
 6. 建立日志、指标、压测基线，保证只读服务的稳定性。
 

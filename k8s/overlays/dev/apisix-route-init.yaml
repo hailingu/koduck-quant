@@ -1,6 +1,6 @@
 ---
 # APISIX Route Init Job (dev)
-# 注册 JWT consumer + 路由分发：auth 公开、API 需认证、WS 公开、前端公开
+# 注册 JWT consumer + 路由分发：auth 公开、显式受保护 API、前端公开
 # AI 路由使用 openid-connect 插件做 OIDC 校验（bearer_only + JWKS）
 # OIDC discovery / introspection 端点透传到 koduck-auth
 # 注意：此文件不经过 kustomize，由 deploy.sh 在 APISIX 就绪后单独 apply
@@ -44,8 +44,6 @@ spec:
               value: "edd1c9f034335f136f87ad84b625c8f1"
             - name: APISIX_GATEWAY
               value: "dev-apisix-gateway"
-            - name: BACKEND_SERVICE
-              value: "backend:8080"
             - name: AUTH_SERVICE
               value: "dev-koduck-auth:8081"
             - name: USER_SERVICE
@@ -265,16 +263,11 @@ spec:
                 -H "$KEY" -H 'Content-Type: application/json' \
                 -d "$(printf '{"uri":"/internal/users/*","priority":100,"plugins":{"key-auth":{},"proxy-rewrite":{"headers":{"X-Consumer-Username":"$consumer_name","apikey":""}}},"upstream":{"type":"roundrobin","nodes":{"%s":1}}}' "$USER_SERVICE")"
 
-              echo "Registering protected API route: /api/* -> backend (jwt-auth)"
-              curl -fsS -X PUT "${ADMIN}/routes/api-protected" \
-                -H "$KEY" -H 'Content-Type: application/json' \
-                -d "$(printf '{"uri":"/api/*","plugins":{"jwt-auth":{},"proxy-rewrite":{"headers":{"set":{"X-User-Id":"$jwt_claim_sub","X-Username":"$jwt_claim_username","X-Roles":"$jwt_claim_roles","X-Tenant-Id":"$jwt_claim_tenant_id"}}}},"upstream":{"type":"roundrobin","nodes":{"%s":1}}}' "$BACKEND_SERVICE")"
-
               # ── AI 路由（openid-connect 插件做 OIDC 校验） ──
               # APISIX 通过 JWKS 本地验签 Bearer token，校验通过后
               # 通过 proxy-rewrite 注入 X-Auth-Provider 标记，
               # koduck-ai 据此跳过 JWKS 重验，直接解码 payload 提取用户身份。
-              # priority=10 高于通配 /api/* 的 priority=0。
+              # priority=10，显式高于常规业务 API 路由。
 
               for AI_ROUTE in api-ai-chat api-ai-chat-stream api-ai-sessions; do
                 case "$AI_ROUTE" in
@@ -329,12 +322,7 @@ spec:
                 echo "grpc-transcode migration window disabled; no transcode routes registered."
               fi
 
-              # ── WebSocket / Frontend 路由 ──
-
-              echo "Registering WebSocket route: /ws/* -> backend"
-              curl -fsS -X PUT "${ADMIN}/routes/ws" \
-                -H "$KEY" -H 'Content-Type: application/json' \
-                -d "$(printf '{"uri":"/ws/*","upstream":{"type":"roundrobin","nodes":{"%s":1}}}' "$BACKEND_SERVICE")"
+              # ── Frontend 路由 ──
 
               echo "Registering frontend catch-all route: /* -> frontend"
               curl -fsS -X PUT "${ADMIN}/routes/frontend-root" \
