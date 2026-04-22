@@ -192,7 +192,7 @@
 - **测试分类**：Unit / Slice / Integration 三级测试，Surefire/Failsafe 分离执行
 - **测试工具**：TestContainers（PostgreSQL）、Awaitility（异步测试）、H2（快速测试）、测试夹具（`TestDataFactory`、`StockFixtures`）
 - **配置外部化**：所有敏感配置使用环境变量占位符（`${JWT_SECRET}`、`${DB_PASSWORD}` 等）
-- **开发脚本**：`start-dev.sh`、`start-parallel-dev.sh`、`stop-dev.sh` 简化本地环境启动
+- **开发脚本**：`start-dev.sh`、`stop-dev.sh` 等脚本可用于简化本地环境启动
 
 **缺陷**：
 
