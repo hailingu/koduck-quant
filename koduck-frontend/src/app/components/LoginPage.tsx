@@ -35,7 +35,7 @@ export function LoginPage() {
     <div className="min-h-screen flex items-center justify-center bg-white">
       <div className="w-full max-w-md px-8">
         <div className="text-center mb-10">
-          <KoduckQuantLogo className="mx-auto mb-7 h-16 w-16" />
+          <KoduckQuantLogo className="mx-auto mb-7 w-24" title="Koduck AI logo" />
           <h1 className="text-3xl mb-2">Welcome back</h1>
           <p className="text-gray-600">Log in to your account to continue</p>
         </div>
