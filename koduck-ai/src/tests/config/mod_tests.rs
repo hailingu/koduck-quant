@@ -191,8 +191,8 @@ fn test_config_display_masks_secrets() {
             deepseek: LlmProviderConfig {
                 api_key: Some(SecretString::from("sk-another-secret".to_string())),
                 enabled: true,
-                base_url: "https://api.deepseek.com/v1".to_string(),
-                default_model: "deepseek-chat".to_string(),
+                base_url: "https://api.deepseek.com".to_string(),
+                default_model: "deepseek-v4-flash".to_string(),
             },
             ..LlmConfig::default()
         },
@@ -224,8 +224,8 @@ fn test_config_api_key_accessors() {
             deepseek: LlmProviderConfig {
                 api_key: None,
                 enabled: true,
-                base_url: "https://api.deepseek.com/v1".to_string(),
-                default_model: "deepseek-chat".to_string(),
+                base_url: "https://api.deepseek.com".to_string(),
+                default_model: "deepseek-v4-flash".to_string(),
             },
             minimax: LlmProviderConfig {
                 api_key: Some(SecretString::from("sk-minimax".to_string())),

@@ -45,23 +45,149 @@ interface ChatHistoryMessage {
   content: string;
 }
 
-type LlmProvider = "minimax" | "kimi";
+type LlmProvider = string;
 
-const PROVIDER_OPTIONS: Array<{ value: LlmProvider; label: string }> = [
-  { value: "minimax", label: "MiniMax" },
-  { value: "kimi", label: "Kimi" },
+interface LlmModelOption {
+  value: string;
+  label: string;
+}
+
+interface LlmProviderOption {
+  value: LlmProvider;
+  label: string;
+}
+
+interface LlmOptionsConfig {
+  defaultProvider: LlmProvider;
+  providerOptions: LlmProviderOption[];
+  modelOptionsByProvider: Record<LlmProvider, LlmModelOption[]>;
+}
+
+interface RuntimeLlmProviderConfig {
+  value?: unknown;
+  label?: unknown;
+  defaultModel?: unknown;
+  models?: unknown;
+}
+
+interface RuntimeConfig {
+  llm?: {
+    defaultProvider?: unknown;
+    providers?: unknown;
+  };
+}
+
+const FALLBACK_RUNTIME_LLM_PROVIDERS: RuntimeLlmProviderConfig[] = [
+  {
+    value: "minimax",
+    label: "MiniMax",
+    defaultModel: "MiniMax-M2.7",
+    models: ["MiniMax-M2.7", "MiniMax-M2.5"],
+  },
+  {
+    value: "deepseek",
+    label: "DeepSeek",
+    defaultModel: "deepseek-v4-flash",
+    models: ["deepseek-v4-flash", "deepseek-v4-pro"],
+  },
+  {
+    value: "kimi",
+    label: "Kimi",
+    defaultModel: "kimi-for-coding",
+    models: ["kimi-for-coding"],
+  },
 ];
 
-const MODEL_OPTIONS_BY_PROVIDER: Record<
-  LlmProvider,
-  Array<{ value: string; label: string }>
-> = {
-  minimax: [
-    { value: "MiniMax-M2.7", label: "MiniMax-M2.7" },
-    { value: "MiniMax-M2.5", label: "MiniMax-M2.5" },
-  ],
-  kimi: [{ value: "kimi-for-coding", label: "kimi-for-coding" }],
-};
+const RUNTIME_CONFIG_URL = "/runtime-config.json";
+
+function normalizeString(value: unknown): string {
+  return typeof value === "string" ? value.trim() : "";
+}
+
+function normalizeModelOptions(models: unknown, defaultModel: string): LlmModelOption[] {
+  const rawModels = Array.isArray(models) ? models : [];
+  const options = rawModels
+    .map((model) => {
+      if (typeof model === "string") {
+        const value = model.trim();
+        return value ? { value, label: value } : null;
+      }
+      if (!model || typeof model !== "object") {
+        return null;
+      }
+      const item = model as Record<string, unknown>;
+      const value = normalizeString(item.value);
+      if (!value) {
+        return null;
+      }
+      return {
+        value,
+        label: normalizeString(item.label) || value,
+      };
+    })
+    .filter((option): option is LlmModelOption => option !== null);
+
+  if (defaultModel && !options.some((option) => option.value === defaultModel)) {
+    return [{ value: defaultModel, label: defaultModel }, ...options];
+  }
+
+  return options;
+}
+
+function normalizeLlmOptions(rawConfig: unknown): LlmOptionsConfig {
+  const config = rawConfig && typeof rawConfig === "object" ? (rawConfig as RuntimeConfig) : {};
+  const rawProviders = Array.isArray(config.llm?.providers)
+    ? config.llm.providers
+    : FALLBACK_RUNTIME_LLM_PROVIDERS;
+
+  const providerOptions: LlmProviderOption[] = [];
+  const modelOptionsByProvider: Record<LlmProvider, LlmModelOption[]> = {};
+
+  for (const rawProvider of rawProviders) {
+    if (!rawProvider || typeof rawProvider !== "object") {
+      continue;
+    }
+
+    const provider = rawProvider as RuntimeLlmProviderConfig;
+    const value = normalizeString(provider.value);
+    if (!value) {
+      continue;
+    }
+
+    const defaultModel = normalizeString(provider.defaultModel);
+    const models = normalizeModelOptions(provider.models, defaultModel);
+    if (models.length === 0) {
+      continue;
+    }
+
+    providerOptions.push({
+      value,
+      label: normalizeString(provider.label) || value,
+    });
+    modelOptionsByProvider[value] = models;
+  }
+
+  if (providerOptions.length === 0) {
+    return normalizeLlmOptions({ llm: { providers: FALLBACK_RUNTIME_LLM_PROVIDERS } });
+  }
+
+  const configuredDefaultProvider = normalizeString(config.llm?.defaultProvider);
+  const defaultProvider = providerOptions.some(
+    (provider) => provider.value === configuredDefaultProvider,
+  )
+    ? configuredDefaultProvider
+    : providerOptions[0].value;
+
+  return {
+    defaultProvider,
+    providerOptions,
+    modelOptionsByProvider,
+  };
+}
+
+const FALLBACK_LLM_OPTIONS = normalizeLlmOptions({
+  llm: { defaultProvider: "minimax", providers: FALLBACK_RUNTIME_LLM_PROVIDERS },
+});
 
 interface StreamEventPayload {
   text?: string;
@@ -722,8 +848,13 @@ export function KoduckAi() {
   const [promptHistory, setPromptHistory] = useState<string[]>(() => readPromptHistory());
   const [promptHistoryIndex, setPromptHistoryIndex] = useState<number | null>(null);
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(initialSessionId);
-  const [selectedProvider, setSelectedProvider] = useState<LlmProvider>("minimax");
-  const [selectedModel, setSelectedModel] = useState("MiniMax-M2.7");
+  const [llmOptions, setLlmOptions] = useState<LlmOptionsConfig>(FALLBACK_LLM_OPTIONS);
+  const [selectedProvider, setSelectedProvider] = useState<LlmProvider>(
+    FALLBACK_LLM_OPTIONS.defaultProvider,
+  );
+  const [selectedModel, setSelectedModel] = useState(
+    FALLBACK_LLM_OPTIONS.modelOptionsByProvider[FALLBACK_LLM_OPTIONS.defaultProvider][0].value,
+  );
   const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
   const [isDragging, setIsDragging] = useState(false);
   const [sending, setSending] = useState(false);
@@ -843,6 +974,36 @@ export function KoduckAi() {
   }, [promptHistory]);
 
   useEffect(() => {
+    const controller = new AbortController();
+
+    const loadRuntimeConfig = async () => {
+      try {
+        const response = await fetch(RUNTIME_CONFIG_URL, {
+          cache: "no-store",
+          signal: controller.signal,
+        });
+        if (!response.ok) {
+          throw new Error(`runtime config request failed: ${response.status}`);
+        }
+        const config = await response.json();
+        if (!controller.signal.aborted) {
+          setLlmOptions(normalizeLlmOptions(config));
+        }
+      } catch (error) {
+        if (!controller.signal.aborted) {
+          console.warn("Failed to load runtime config; using bundled LLM defaults.", error);
+        }
+      }
+    };
+
+    void loadRuntimeConfig();
+
+    return () => {
+      controller.abort();
+    };
+  }, []);
+
+  useEffect(() => {
     if (!currentSessionId) {
       skipNextSessionRestoreRef.current = false;
       setMessages([]);
@@ -914,11 +1075,19 @@ export function KoduckAi() {
   }, [currentSessionId, initialSessionId, messages, sessionHydrated]);
 
   useEffect(() => {
-    const availableModels = MODEL_OPTIONS_BY_PROVIDER[selectedProvider];
-    if (!availableModels.some((model) => model.value === selectedModel)) {
+    if (!llmOptions.providerOptions.some((provider) => provider.value === selectedProvider)) {
+      setSelectedProvider(llmOptions.defaultProvider);
+      return;
+    }
+
+    const availableModels = llmOptions.modelOptionsByProvider[selectedProvider] ?? [];
+    if (
+      availableModels.length > 0 &&
+      !availableModels.some((model) => model.value === selectedModel)
+    ) {
       setSelectedModel(availableModels[0].value);
     }
-  }, [selectedProvider, selectedModel]);
+  }, [llmOptions, selectedProvider, selectedModel]);
 
   const updateAssistantMessage = (messageId: string, updater: (prev: Message) => Message) => {
     setMessages((prev) =>
@@ -1673,7 +1842,7 @@ export function KoduckAi() {
               onChange={(e) => setSelectedProvider(e.target.value as LlmProvider)}
               className="appearance-none rounded-lg px-2.5 py-1 pr-7 text-xs font-medium text-gray-700 transition-colors hover:bg-gray-50 focus:outline-none"
             >
-              {PROVIDER_OPTIONS.map((option) => (
+              {llmOptions.providerOptions.map((option) => (
                 <option key={option.value} value={option.value}>
                   {option.label}
                 </option>
@@ -1687,7 +1856,7 @@ export function KoduckAi() {
               onChange={(e) => setSelectedModel(e.target.value)}
               className="appearance-none rounded-lg px-2.5 py-1 pr-7 text-xs font-medium text-gray-700 transition-colors hover:bg-gray-50 focus:outline-none"
             >
-              {MODEL_OPTIONS_BY_PROVIDER[selectedProvider].map((option) => (
+              {(llmOptions.modelOptionsByProvider[selectedProvider] ?? []).map((option) => (
                 <option key={option.value} value={option.value}>
                   {option.label}
                 </option>

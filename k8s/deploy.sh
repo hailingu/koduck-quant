@@ -640,10 +640,17 @@ ensure_koduck_ai_llm_secret() {
     local kimi_api_base="${KIMI_API_BASE:-${llm_api_base:-https://api.kimi.com/coding/v1}}"
     local kimi_model="${KIMI_MODEL:-${llm_model:-kimi-for-coding}}"
 
+    local deepseek_api_key="${DEEPSEEK_API_KEY:-}"
+    local deepseek_api_base="${DEEPSEEK_API_BASE:-https://api.deepseek.com}"
+    local deepseek_model="${DEEPSEEK_MODEL:-deepseek-v4-flash}"
+
     kubectl create secret generic "${llm_secret_name}" \
         --from-literal=KODUCK_AI__LLM__MINIMAX__API_KEY="${minimax_api_key}" \
         --from-literal=KODUCK_AI__LLM__MINIMAX__BASE_URL="${minimax_api_base}" \
         --from-literal=KODUCK_AI__LLM__MINIMAX__DEFAULT_MODEL="${minimax_model}" \
+        --from-literal=KODUCK_AI__LLM__DEEPSEEK__API_KEY="${deepseek_api_key}" \
+        --from-literal=KODUCK_AI__LLM__DEEPSEEK__BASE_URL="${deepseek_api_base}" \
+        --from-literal=KODUCK_AI__LLM__DEEPSEEK__DEFAULT_MODEL="${deepseek_model}" \
         --from-literal=KODUCK_AI__LLM__KIMI__API_KEY="${kimi_api_key}" \
         --from-literal=KODUCK_AI__LLM__KIMI__BASE_URL="${kimi_api_base}" \
         --from-literal=KODUCK_AI__LLM__KIMI__DEFAULT_MODEL="${kimi_model}" \

@@ -349,8 +349,8 @@ async fn test_fetch_direct_llm_capability_builds_static_capability_after_probe()
         },
         deepseek: LlmProviderConfig {
             enabled: true,
-            base_url: "https://api.deepseek.com/v1".to_string(),
-            default_model: "deepseek-chat".to_string(),
+            base_url: "https://api.deepseek.com".to_string(),
+            default_model: "deepseek-v4-flash".to_string(),
             ..LlmProviderConfig::default()
         },
         minimax: LlmProviderConfig {

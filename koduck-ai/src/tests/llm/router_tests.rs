@@ -19,8 +19,11 @@ fn parses_model_prefix_variants() {
         (Some("openai".to_string()), Some("gpt-4.1-mini".to_string()))
     );
     assert_eq!(
-        parse_provider_model("", "deepseek/deepseek-chat"),
-        (Some("deepseek".to_string()), Some("deepseek-chat".to_string()))
+        parse_provider_model("", "deepseek/deepseek-v4-flash"),
+        (
+            Some("deepseek".to_string()),
+            Some("deepseek-v4-flash".to_string())
+        )
     );
     assert_eq!(
         parse_provider_model("minimax", "MiniMax-M1"),
@@ -50,8 +53,8 @@ fn config_validation_rejects_unknown_default_provider_in_direct_mode() {
             deepseek: LlmProviderConfig {
                 api_key: None,
                 enabled: false,
-                base_url: "https://api.deepseek.com/v1".to_string(),
-                default_model: "deepseek-chat".to_string(),
+                base_url: "https://api.deepseek.com".to_string(),
+                default_model: "deepseek-v4-flash".to_string(),
             },
             minimax: LlmProviderConfig {
                 api_key: None,
@@ -88,7 +91,7 @@ fn direct_mode_rejects_unenabled_provider_without_fallback() {
         adapter_provider: Arc::new(AdapterLlmProvider::new("http://localhost:50054")),
     };
 
-    match router.resolve_route("deepseek", "deepseek-chat") {
+    match router.resolve_route("deepseek", "deepseek-v4-flash") {
         Ok(_) => panic!("expected provider route resolution to fail"),
         Err(err) => assert!(err.message.contains("no implicit fallback")),
     }

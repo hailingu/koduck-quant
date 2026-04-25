@@ -65,7 +65,7 @@
 
 1. `request.provider`
 2. `request.model` 中的 provider 前缀，如 `openai:gpt-4.1-mini`
-3. `request.model` 中的 provider path 前缀，如 `deepseek/deepseek-chat`
+3. `request.model` 中的 provider path 前缀，如 `deepseek/deepseek-v4-flash`
 4. `llm.default_provider`
 
 ### 3. direct 模式只允许显式启用、显式报错

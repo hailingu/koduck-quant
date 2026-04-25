@@ -15,7 +15,7 @@ use super::{
 
 const DEEPSEEK_PROFILE: ProviderProfile = ProviderProfile {
     provider: "deepseek",
-    default_base_url: "https://api.deepseek.com/v1",
+    default_base_url: "https://api.deepseek.com",
     models_path: "/models",
     chat_completions_path: "/chat/completions",
 };

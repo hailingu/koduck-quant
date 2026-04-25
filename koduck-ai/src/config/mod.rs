@@ -459,8 +459,8 @@ impl Default for LlmConfig {
             deepseek: LlmProviderConfig {
                 enabled: false,
                 api_key: None,
-                base_url: "https://api.deepseek.com/v1".to_string(),
-                default_model: "deepseek-chat".to_string(),
+                base_url: "https://api.deepseek.com".to_string(),
+                default_model: "deepseek-v4-flash".to_string(),
             },
             minimax: LlmProviderConfig {
                 enabled: false,
@@ -601,8 +601,8 @@ impl Config {
             .set_default("llm.openai.base_url", "https://api.openai.com/v1")?
             .set_default("llm.openai.default_model", "gpt-4.1-mini")?
             .set_default("llm.deepseek.enabled", false)?
-            .set_default("llm.deepseek.base_url", "https://api.deepseek.com/v1")?
-            .set_default("llm.deepseek.default_model", "deepseek-chat")?
+            .set_default("llm.deepseek.base_url", "https://api.deepseek.com")?
+            .set_default("llm.deepseek.default_model", "deepseek-v4-flash")?
             .set_default("llm.minimax.enabled", false)?
             .set_default("llm.minimax.base_url", "https://api.minimax.chat/v1")?
             .set_default("llm.minimax.default_model", "MiniMax-M1")?

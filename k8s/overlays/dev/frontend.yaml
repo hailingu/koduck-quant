@@ -14,6 +14,10 @@ spec:
         - name: frontend
           image: koduck-frontend:dev
           imagePullPolicy: Never
+          env:
+            - name: KODUCK_FRONTEND_RUNTIME_CONFIG_JSON
+              value: >-
+                {"llm":{"defaultProvider":"minimax","providers":[{"value":"minimax","label":"MiniMax","defaultModel":"MiniMax-M2.7","models":["MiniMax-M2.7","MiniMax-M2.5"]},{"value":"deepseek","label":"DeepSeek","defaultModel":"deepseek-v4-flash","models":["deepseek-v4-flash","deepseek-v4-pro"]},{"value":"kimi","label":"Kimi","defaultModel":"kimi-for-coding","models":["kimi-for-coding"]}]}}
           resources:
             requests:
               memory: "32Mi"
