@@ -1,0 +1,48 @@
+{
+  "environment": "development",
+  "event": {
+    "batchSize": 100,
+    "batchInterval": 1000,
+    "maxQueueSize": 10000,
+    "enableDedup": true,
+    "concurrencyLimit": 10,
+    "maxListeners": 1000
+  },
+  "render": {
+    "frameRate": 60,
+    "cacheTTL": 300000,
+    "maxCacheSize": 1000,
+    "defaultRenderer": "react",
+    "enableDirtyRegion": true,
+    "constants": {
+      "SMALL": 10,
+      "MEDIUM": 20,
+      "LARGE": 30
+    }
+  },
+  "entity": {
+    "maxEntities": 10000,
+    "defaultTTL": 300000,
+    "maxSize": 1000,
+    "defaultTimeout": 5000,
+    "enablePooling": true,
+    "poolSize": 100
+  },
+  "performance": {
+    "enableProfiling": true,
+    "metricsInterval": 60000,
+    "enableVerboseLogging": false
+  },
+  "tenant": {
+    "isolationLevel": "database",
+    "maxTenants": 100,
+    "defaultQuota": 1000000,
+    "enableCaching": true
+  },
+  "plugin": {
+    "maxPlugins": 50,
+    "enableHotReload": true,
+    "securityLevel": "medium",
+    "allowedDomains": ["*.example.com"]
+  }
+}

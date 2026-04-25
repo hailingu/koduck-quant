@@ -1,0 +1,214 @@
+/**
+ * @file Flow Entity Dark Theme
+ * @description CSS custom properties for the dark theme.
+ * Applied when data-theme="dark" or data-flow-theme="dark" is set.
+ *
+ * @see docs/design/flow-entity-component-design.md section 9.2
+ * @see docs/design/flow-entity-step-plan-en.md Task 5.3
+ */
+
+/* =============================================================================
+   Dark Theme
+   Applied via [data-theme="dark"] or [data-flow-theme="dark"]
+   ============================================================================= */
+
+[data-theme="dark"],
+[data-flow-theme="dark"] {
+  /* --------------------------------------------------------------------------
+     Node Styling
+     -------------------------------------------------------------------------- */
+  --flow-node-bg: #1f2937;
+  --flow-node-border: #374151;
+  --flow-node-border-width: 1px;
+  --flow-node-border-radius: 8px;
+  --flow-node-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+  --flow-node-min-width: 160px;
+  --flow-node-min-height: 80px;
+
+  /* --------------------------------------------------------------------------
+     Header Styling
+     -------------------------------------------------------------------------- */
+  --flow-node-header-bg: #111827;
+  --flow-node-header-text: #f3f4f6;
+  --flow-node-header-height: 36px;
+  --flow-node-header-font-size: 14px;
+  --flow-node-header-font-weight: 500;
+  --flow-node-header-padding: 0 12px;
+
+  /* --------------------------------------------------------------------------
+     Content Styling
+     -------------------------------------------------------------------------- */
+  --flow-node-content-bg: #1f2937;
+  --flow-node-content-text: #e5e7eb;
+  --flow-node-content-padding: 12px;
+  --flow-node-content-font-size: 13px;
+
+  /* --------------------------------------------------------------------------
+     Port Styling
+     -------------------------------------------------------------------------- */
+  --flow-port-size: 12px;
+  --flow-port-border-width: 2px;
+  --flow-port-input-color: #60a5fa;
+  --flow-port-output-color: #34d399;
+  --flow-port-hover-scale: 1.2;
+  --flow-port-connected-bg: currentColor;
+  --flow-port-disconnected-bg: #1f2937;
+
+  /* --------------------------------------------------------------------------
+     Edge Styling
+     -------------------------------------------------------------------------- */
+  --flow-edge-color: #6b7280;
+  --flow-edge-width: 2px;
+  --flow-edge-selected-color: #60a5fa;
+  --flow-edge-selected-width: 3px;
+  --flow-edge-hover-color: #9ca3af;
+  --flow-edge-disabled-opacity: 0.4;
+  --flow-edge-label-bg: #1f2937;
+  --flow-edge-label-text: #e5e7eb;
+  --flow-edge-label-font-size: 12px;
+
+  /* --------------------------------------------------------------------------
+     Execution State Colors
+     (Slightly brighter for dark backgrounds)
+     -------------------------------------------------------------------------- */
+  --flow-state-idle: #4b5563;
+  --flow-state-pending: #fbbf24;
+  --flow-state-running: #60a5fa;
+  --flow-state-success: #34d399;
+  --flow-state-error: #f87171;
+  --flow-state-warning: #fbbf24;
+  --flow-state-cancelled: #9ca3af;
+  --flow-state-skipped: #6b7280;
+
+  /* --------------------------------------------------------------------------
+     Canvas / Grid Styling
+     -------------------------------------------------------------------------- */
+  --flow-canvas-bg: #111827;
+  --flow-canvas-grid-color: #1f2937;
+  --flow-canvas-grid-size: 20px;
+  --flow-canvas-selection-bg: rgba(96, 165, 250, 0.15);
+  --flow-canvas-selection-border: rgba(96, 165, 250, 0.5);
+
+  /* --------------------------------------------------------------------------
+     Minimap Styling
+     -------------------------------------------------------------------------- */
+  --flow-minimap-bg: rgba(17, 24, 39, 0.95);
+  --flow-minimap-border: #374151;
+  --flow-minimap-node-color: #9ca3af;
+  --flow-minimap-viewport-border: #60a5fa;
+  --flow-minimap-viewport-bg: rgba(96, 165, 250, 0.15);
+
+  /* --------------------------------------------------------------------------
+     Controls Styling
+     -------------------------------------------------------------------------- */
+  --flow-controls-bg: #1f2937;
+  --flow-controls-border: #374151;
+  --flow-controls-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+  --flow-controls-button-bg: #1f2937;
+  --flow-controls-button-text: #e5e7eb;
+  --flow-controls-button-hover-bg: #374151;
+  --flow-controls-button-active-bg: #4b5563;
+
+  /* --------------------------------------------------------------------------
+     Tooltip Styling
+     -------------------------------------------------------------------------- */
+  --flow-tooltip-bg: #374151;
+  --flow-tooltip-text: #f3f4f6;
+  --flow-tooltip-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+
+  /* --------------------------------------------------------------------------
+     Form Styling (within nodes)
+     -------------------------------------------------------------------------- */
+  --flow-form-input-bg: #111827;
+  --flow-form-input-border: #4b5563;
+  --flow-form-input-text: #e5e7eb;
+  --flow-form-input-placeholder: #6b7280;
+  --flow-form-input-focus-border: #60a5fa;
+  --flow-form-input-focus-ring: rgba(96, 165, 250, 0.3);
+  --flow-form-label-text: #d1d5db;
+  --flow-form-error-text: #f87171;
+  --flow-form-error-border: #f87171;
+
+  /* --------------------------------------------------------------------------
+     Animation (same as default, can be customized)
+     -------------------------------------------------------------------------- */
+  --flow-transition-fast: 0.15s ease;
+  --flow-transition-normal: 0.25s ease;
+  --flow-transition-slow: 0.35s ease;
+  --flow-animation-flow-speed: 1s;
+}
+
+/* =============================================================================
+   System Dark Mode Support
+   Automatically applies dark theme when system prefers dark color scheme
+   and no explicit data-theme/data-flow-theme is set
+   ============================================================================= */
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme]):not([data-flow-theme]) {
+    /* Node Styling */
+    --flow-node-bg: #1f2937;
+    --flow-node-border: #374151;
+    --flow-node-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+
+    /* Header Styling */
+    --flow-node-header-bg: #111827;
+    --flow-node-header-text: #f3f4f6;
+
+    /* Content Styling */
+    --flow-node-content-bg: #1f2937;
+    --flow-node-content-text: #e5e7eb;
+
+    /* Port Styling */
+    --flow-port-input-color: #60a5fa;
+    --flow-port-output-color: #34d399;
+    --flow-port-disconnected-bg: #1f2937;
+
+    /* Edge Styling */
+    --flow-edge-color: #6b7280;
+    --flow-edge-selected-color: #60a5fa;
+    --flow-edge-hover-color: #9ca3af;
+    --flow-edge-label-bg: #1f2937;
+    --flow-edge-label-text: #e5e7eb;
+
+    /* Execution State Colors */
+    --flow-state-idle: #4b5563;
+    --flow-state-running: #60a5fa;
+    --flow-state-success: #34d399;
+    --flow-state-error: #f87171;
+
+    /* Canvas */
+    --flow-canvas-bg: #111827;
+    --flow-canvas-grid-color: #1f2937;
+    --flow-canvas-selection-bg: rgba(96, 165, 250, 0.15);
+    --flow-canvas-selection-border: rgba(96, 165, 250, 0.5);
+
+    /* Minimap */
+    --flow-minimap-bg: rgba(17, 24, 39, 0.95);
+    --flow-minimap-border: #374151;
+    --flow-minimap-node-color: #9ca3af;
+    --flow-minimap-viewport-border: #60a5fa;
+
+    /* Controls */
+    --flow-controls-bg: #1f2937;
+    --flow-controls-border: #374151;
+    --flow-controls-button-bg: #1f2937;
+    --flow-controls-button-text: #e5e7eb;
+    --flow-controls-button-hover-bg: #374151;
+    --flow-controls-button-active-bg: #4b5563;
+
+    /* Tooltip */
+    --flow-tooltip-bg: #374151;
+    --flow-tooltip-text: #f3f4f6;
+
+    /* Form */
+    --flow-form-input-bg: #111827;
+    --flow-form-input-border: #4b5563;
+    --flow-form-input-text: #e5e7eb;
+    --flow-form-input-placeholder: #6b7280;
+    --flow-form-input-focus-border: #60a5fa;
+    --flow-form-label-text: #d1d5db;
+    --flow-form-error-text: #f87171;
+    --flow-form-error-border: #f87171;
+  }
+}

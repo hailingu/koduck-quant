@@ -1,0 +1,390 @@
+.duck-debug-panel {
+  position: fixed;
+  top: 64px;
+  width: 320px;
+  max-height: calc(100vh - 96px);
+  display: flex;
+  flex-direction: column;
+  background: rgba(16, 18, 27, 0.94);
+  color: #f1f5f9;
+  border-radius: 12px;
+  box-shadow: 0 20px 45px rgba(15, 23, 42, 0.35);
+  transform: translateX(110%);
+  opacity: 0;
+  visibility: hidden;
+  transition:
+    transform 0.24s ease,
+    opacity 0.24s ease;
+  z-index: 999;
+  padding: 16px;
+  gap: 12px;
+  overflow-y: auto;
+}
+
+.duck-debug-panel--open {
+  transform: translateX(0);
+  opacity: 1;
+  visibility: visible;
+}
+
+.duck-debug-panel--right {
+  right: 24px;
+}
+
+.duck-debug-panel--left {
+  left: 24px;
+  transform: translateX(-110%);
+}
+
+.duck-debug-panel--left.duck-debug-panel--open {
+  transform: translateX(0);
+}
+
+.duck-debug-panel--bottom {
+  bottom: 24px;
+  top: auto;
+  max-height: 60vh;
+  transform: translateY(110%);
+}
+
+.duck-debug-panel--bottom.duck-debug-panel--open {
+  transform: translateY(0);
+}
+
+.duck-debug-panel__toggle {
+  position: fixed;
+  top: 16px;
+  padding: 8px 16px;
+  border-radius: 999px;
+  border: none;
+  background: linear-gradient(135deg, #6366f1, #8b5cf6);
+  color: white;
+  font-weight: 600;
+  cursor: pointer;
+  z-index: 1000;
+  box-shadow: 0 10px 30px rgba(79, 70, 229, 0.35);
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.duck-debug-panel__toggle:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 15px 35px rgba(99, 102, 241, 0.4);
+}
+
+.duck-debug-panel__toggle--right {
+  right: 24px;
+}
+
+.duck-debug-panel__toggle--left {
+  left: 24px;
+}
+
+.duck-debug-panel__toggle--bottom {
+  right: 24px;
+  bottom: 24px;
+  top: auto;
+}
+
+.duck-debug-panel__header {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.duck-debug-panel__header h2 {
+  margin: 0;
+  font-size: 1.2rem;
+}
+
+.duck-debug-panel__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  font-size: 0.8rem;
+  opacity: 0.78;
+}
+
+.duck-debug-panel__section {
+  background: rgba(30, 41, 59, 0.65);
+  border-radius: 10px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.duck-debug-panel__section h3 {
+  margin: 0;
+  font-size: 0.95rem;
+}
+
+.duck-debug-panel__section h4 {
+  margin: 0;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #e2e8f0;
+}
+
+.duck-debug-panel__topology {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.duck-debug-panel__topology-item {
+  display: block;
+}
+
+.duck-debug-panel__topology-row {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px;
+  border-radius: 8px;
+  background: rgba(15, 23, 42, 0.55);
+  border: 1px solid rgba(148, 163, 184, 0.12);
+}
+
+.duck-debug-panel__topology-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.duck-debug-panel__topology-name {
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.duck-debug-panel__topology-type {
+  font-size: 0.72rem;
+  opacity: 0.72;
+}
+
+.duck-debug-panel__topology-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 6px;
+  border-radius: 6px;
+  background: rgba(99, 102, 241, 0.25);
+  color: #e0e7ff;
+  font-size: 0.65rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.duck-debug-panel__topology-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.72rem;
+  opacity: 0.85;
+}
+
+.duck-debug-panel__topology-status-pill {
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-size: 0.65rem;
+  background: rgba(148, 163, 184, 0.18);
+  color: #e2e8f0;
+}
+
+.duck-debug-panel__topology-status-pill--ready {
+  background: rgba(34, 197, 94, 0.2);
+  color: #bbf7d0;
+}
+
+.duck-debug-panel__topology-status-pill--initializing {
+  background: rgba(234, 179, 8, 0.2);
+  color: #fde68a;
+}
+
+.duck-debug-panel__topology-status-pill--failed {
+  background: rgba(248, 113, 113, 0.22);
+  color: #fecaca;
+}
+
+.duck-debug-panel__topology-path {
+  font-style: italic;
+  opacity: 0.65;
+}
+
+.duck-debug-panel__topology-deps {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.duck-debug-panel__flame {
+  display: flex;
+  align-items: stretch;
+  gap: 4px;
+  min-height: 64px;
+}
+
+.duck-debug-panel__flame-segment {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 4px;
+  padding: 8px;
+  border-radius: 6px;
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.25), rgba(139, 92, 246, 0.18));
+  font-size: 0.7rem;
+  min-width: 48px;
+  flex-grow: 1;
+  text-align: center;
+}
+
+.duck-debug-panel__flame-segment span {
+  font-weight: 600;
+}
+
+.duck-debug-panel__flame-segment small {
+  font-size: 0.65rem;
+  opacity: 0.8;
+}
+
+.duck-debug-panel__timeline {
+  position: relative;
+  height: 56px;
+  display: flex;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.duck-debug-panel__timeline-axis {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: rgba(148, 163, 184, 0.35);
+}
+
+.duck-debug-panel__timeline-event {
+  position: absolute;
+  top: 50%;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  box-shadow: 0 0 0 2px rgba(15, 23, 42, 0.8);
+}
+
+.duck-debug-panel__timeline-labels {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.65rem;
+  opacity: 0.7;
+}
+
+.duck-debug-panel__section ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 0.8rem;
+}
+
+.duck-debug-panel__section li {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.duck-debug-panel__topology > .duck-debug-panel__topology-item {
+  display: block;
+  justify-content: initial;
+  gap: 0;
+}
+
+.duck-debug-panel__grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px 12px;
+  font-size: 0.8rem;
+}
+
+.duck-debug-panel__metrics-group .duck-debug-panel__grid {
+  font-size: 0.75rem;
+}
+
+.duck-debug-panel__regions {
+  max-height: 120px;
+  overflow-y: auto;
+  font-family: "JetBrains Mono", monospace;
+}
+
+.duck-debug-panel__events {
+  max-height: 160px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 0.75rem;
+}
+
+.duck-debug-panel__event-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  justify-content: flex-start;
+  align-items: flex-start;
+}
+
+.duck-debug-panel__event-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.duck-debug-panel__event-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  box-shadow: 0 0 0 1px rgba(15, 23, 42, 0.65);
+}
+
+.duck-debug-panel__event-time {
+  margin-right: 8px;
+  opacity: 0.6;
+}
+
+.duck-debug-panel__event-type {
+  font-weight: 600;
+  color: #c4b5fd;
+}
+
+.duck-debug-panel__event-payload {
+  margin: 4px 0 0;
+  padding: 8px;
+  background: rgba(15, 23, 42, 0.7);
+  border-radius: 6px;
+  overflow-x: auto;
+  white-space: pre-wrap;
+  line-height: 1.3;
+}
+
+.duck-debug-panel__hint {
+  margin: 0;
+  font-size: 0.8rem;
+  opacity: 0.75;
+}

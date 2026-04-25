@@ -1,0 +1,239 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Stability Test Alerts Schema",
+  "description": "JSON schema for Duck Flow E2E stability test results and metrics",
+  "type": "object",
+  "required": ["timestamp", "mode", "duration", "summary", "metrics", "status"],
+  "properties": {
+    "timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601 timestamp of test execution start"
+    },
+    "commitHash": {
+      "type": "string",
+      "description": "Git commit hash of the test run"
+    },
+    "branch": {
+      "type": "string",
+      "description": "Git branch name"
+    },
+    "mode": {
+      "type": "string",
+      "enum": ["quick", "standard", "extended", "custom"],
+      "description": "Stability test mode used for this run"
+    },
+    "duration": {
+      "type": "object",
+      "required": ["totalMs", "formattedDisplay"],
+      "properties": {
+        "totalMs": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Total test duration in milliseconds"
+        },
+        "formattedDisplay": {
+          "type": "string",
+          "description": "Human-readable duration (e.g., '1.23m', '5.5s')"
+        }
+      }
+    },
+    "summary": {
+      "type": "object",
+      "required": ["totalIterations", "successCount", "failureCount", "successRate"],
+      "properties": {
+        "totalIterations": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Total number of test iterations performed"
+        },
+        "successCount": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Number of successful iterations"
+        },
+        "failureCount": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Number of failed iterations"
+        },
+        "successRate": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Success rate as decimal (0.0 to 1.0)"
+        },
+        "stabilityScore": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100,
+          "description": "Overall stability score (0-100)"
+        }
+      }
+    },
+    "metrics": {
+      "type": "object",
+      "required": ["renderPerformance", "memoryUsage", "websocketConnections"],
+      "properties": {
+        "renderPerformance": {
+          "type": "object",
+          "required": ["avgMs", "maxMs", "minMs"],
+          "properties": {
+            "avgMs": {
+              "type": "number",
+              "minimum": 0,
+              "description": "Average render time in milliseconds"
+            },
+            "maxMs": {
+              "type": "number",
+              "minimum": 0,
+              "description": "Maximum render time in milliseconds"
+            },
+            "minMs": {
+              "type": "number",
+              "minimum": 0,
+              "description": "Minimum render time in milliseconds"
+            },
+            "degradationPercent": {
+              "type": "number",
+              "description": "Performance degradation percentage (max relative to min)"
+            }
+          }
+        },
+        "memoryUsage": {
+          "type": "object",
+          "required": ["avgMb", "peakMb"],
+          "properties": {
+            "avgMb": {
+              "type": "number",
+              "minimum": 0,
+              "description": "Average memory usage in MB"
+            },
+            "peakMb": {
+              "type": "number",
+              "minimum": 0,
+              "description": "Peak memory usage in MB"
+            },
+            "growthPercent": {
+              "type": "number",
+              "description": "Memory growth percentage (peak relative to initial)"
+            }
+          }
+        },
+        "websocketConnections": {
+          "type": "object",
+          "required": ["maintainedCount", "droppedCount", "recoveredCount"],
+          "properties": {
+            "maintainedCount": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "Number of WebSocket connections maintained throughout"
+            },
+            "droppedCount": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "Number of dropped WebSocket connections"
+            },
+            "recoveredCount": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "Number of recovered WebSocket connections"
+            },
+            "stabilityPercent": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 100,
+              "description": "WebSocket stability percentage"
+            }
+          }
+        },
+        "operationsPerformed": {
+          "type": "object",
+          "required": ["entitiesCreated", "flowsExecuted", "tenantSwitches"],
+          "properties": {
+            "entitiesCreated": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "Number of entities created during test"
+            },
+            "flowsExecuted": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "Number of flows executed"
+            },
+            "tenantSwitches": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "Number of tenant context switches"
+            }
+          }
+        }
+      }
+    },
+    "acceptanceCriteria": {
+      "type": "object",
+      "properties": {
+        "successRateThreshold": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Required minimum success rate (e.g., 0.95 for 95%)"
+        },
+        "memoryGrowthThreshold": {
+          "type": "number",
+          "description": "Maximum allowed memory growth percentage"
+        },
+        "performanceDegradationThreshold": {
+          "type": "number",
+          "description": "Maximum allowed performance degradation percentage"
+        },
+        "websocketStabilityThreshold": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100,
+          "description": "Minimum required WebSocket stability percentage"
+        },
+        "allCriteriaMet": {
+          "type": "boolean",
+          "description": "Overall pass/fail for acceptance criteria"
+        }
+      }
+    },
+    "status": {
+      "type": "string",
+      "enum": ["pass", "fail", "partial"],
+      "description": "Overall test execution status"
+    },
+    "alerts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["severity", "message"],
+        "properties": {
+          "severity": {
+            "type": "string",
+            "enum": ["info", "warning", "error"],
+            "description": "Alert severity level"
+          },
+          "message": {
+            "type": "string",
+            "description": "Alert message"
+          },
+          "metric": {
+            "type": "string",
+            "description": "Related metric name"
+          },
+          "threshold": {
+            "type": "number",
+            "description": "Expected threshold value"
+          },
+          "actual": {
+            "type": "number",
+            "description": "Actual measured value"
+          }
+        }
+      },
+      "description": "List of alerts generated during test execution"
+    }
+  }
+}

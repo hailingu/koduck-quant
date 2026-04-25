@@ -1,0 +1,19 @@
+.editor-container {
+  display: block;
+  background: #ffffff;
+  border-radius: 8px;
+  position: relative;
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+.editor-container.show-border {
+  border: 2px solid #e5e7eb;
+}
+
+.editor-canvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+  box-sizing: border-box;
+}

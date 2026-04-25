@@ -1,0 +1,172 @@
+#!/usr/bin/env node
+import fs from "node:fs";
+import path from "node:path";
+
+const projectRoot = process.cwd();
+const coverageFile = path.resolve(projectRoot, "coverage/coverage-final.json");
+
+if (!fs.existsSync(coverageFile)) {
+  console.error("[coverage:digest] Missing coverage artifact: coverage/coverage-final.json");
+  console.error("Run `pnpm run test:coverage` before generating the coverage digest.");
+  process.exit(1);
+}
+
+const normalize = (filePath) =>
+  filePath.replace(/\\/g, "/").replace(projectRoot.replace(/\\/g, "/") + "/", "");
+
+const priorityRenderFiles = [
+  "src/common/render/render-frame-scheduler.ts",
+  "src/common/render/render-metrics-utils.ts",
+  "src/common/render/render-diagnostics.ts",
+  "src/common/render/render-manager/render-strategy-controller.ts",
+];
+
+const priorityRenderSet = new Set(priorityRenderFiles.map((file) => file.replace(/\\/g, "/")));
+
+const coverageData = JSON.parse(fs.readFileSync(coverageFile, "utf-8"));
+
+const aggregateCoverage = (matcher) => {
+  let totalStatements = 0;
+  let coveredStatements = 0;
+
+  for (const [absolutePath, fileCoverage] of Object.entries(coverageData)) {
+    const relativePath = normalize(absolutePath);
+    if (!matcher(relativePath)) {
+      continue;
+    }
+
+    const statementIds = Object.keys(fileCoverage.statementMap ?? {});
+    const statements = statementIds.length;
+    if (statements === 0) {
+      continue;
+    }
+
+    const covered = statementIds.reduce((acc, id) => {
+      const hitCount = fileCoverage.s?.[id] ?? 0;
+      return acc + (hitCount > 0 ? 1 : 0);
+    }, 0);
+
+    totalStatements += statements;
+    coveredStatements += covered;
+  }
+
+  const ratio = totalStatements === 0 ? 0 : coveredStatements / totalStatements;
+  return {
+    totalStatements,
+    coveredStatements,
+    ratio,
+    percent: Number.isNaN(ratio) ? 0 : Number((ratio * 100).toFixed(2)),
+  };
+};
+
+const segments = [
+  {
+    key: "components",
+    name: "Components",
+    description: "src/components/**/*.tsx",
+    threshold: 0.65,
+    coverage: aggregateCoverage(
+      (relativePath) =>
+        relativePath.startsWith("src/components/") &&
+        (relativePath.endsWith(".tsx") || relativePath.endsWith(".ts"))
+    ),
+  },
+  {
+    key: "renderPriority",
+    name: "Render Priority Files",
+    description: priorityRenderFiles.join(", "),
+    threshold: 0.85,
+    coverage: aggregateCoverage((relativePath) => priorityRenderSet.has(relativePath)),
+  },
+  {
+    key: "global",
+    name: "Global Source",
+    description: "src/**/*.ts(x)",
+    threshold: 0.8,
+    coverage: aggregateCoverage(
+      (relativePath) =>
+        relativePath.startsWith("src/") &&
+        (relativePath.endsWith(".ts") || relativePath.endsWith(".tsx"))
+    ),
+  },
+];
+
+const reportsDir = path.resolve(projectRoot, "reports");
+if (!fs.existsSync(reportsDir)) {
+  fs.mkdirSync(reportsDir, { recursive: true });
+}
+
+const historyPath = path.resolve(reportsDir, "coverage-history.json");
+let history = [];
+if (fs.existsSync(historyPath)) {
+  try {
+    history = JSON.parse(fs.readFileSync(historyPath, "utf-8"));
+    if (!Array.isArray(history)) {
+      history = [];
+    }
+  } catch {
+    console.warn("[coverage:digest] Failed to parse coverage-history.json; resetting history.");
+    history = [];
+  }
+}
+
+const timestamp = new Date().toISOString();
+
+const currentEntry = {
+  timestamp,
+  components: segments[0].coverage.percent,
+  renderPriority: segments[1].coverage.percent,
+  global: segments[2].coverage.percent,
+};
+
+const previousEntry = history.length > 0 ? history[history.length - 1] : undefined;
+
+history.push(currentEntry);
+
+fs.writeFileSync(historyPath, `${JSON.stringify(history, null, 2)}\n`, "utf-8");
+
+const deltaFor = (key) => {
+  if (!previousEntry) {
+    return "N/A";
+  }
+  const previousValue = previousEntry[key];
+  const currentValue = currentEntry[key];
+  const delta = Number((currentValue - previousValue).toFixed(2));
+  const sign = delta > 0 ? "+" : "";
+  return `${sign}${delta.toFixed(2)}%`;
+};
+
+const digestLines = [];
+
+digestLines.push("# Coverage Digest");
+digestLines.push("");
+digestLines.push(`Generated at: ${timestamp}`);
+digestLines.push("");
+digestLines.push("| Segment | Coverage | Threshold | Delta | Status |");
+digestLines.push("| --- | --- | --- | --- | --- |");
+
+for (const segment of segments) {
+  const status = segment.coverage.percent >= segment.threshold * 100 ? "✅" : "⚠️";
+  const thresholdPercent = (segment.threshold * 100).toFixed(2);
+  digestLines.push(
+    `| ${segment.name} | ${segment.coverage.percent.toFixed(2)}% | ${thresholdPercent}% | ${deltaFor(segment.key)} | ${status} |`
+  );
+}
+
+digestLines.push("");
+digestLines.push("## Segment Definitions");
+digestLines.push("");
+for (const segment of segments) {
+  digestLines.push(`- **${segment.name}**: ${segment.description}`);
+}
+
+digestLines.push("");
+digestLines.push("History stored in `reports/coverage-history.json`.");
+
+digestLines.push("");
+digestLines.push("<!-- Generated by scripts/generate-coverage-digest.mjs -->");
+
+const digestPath = path.resolve(reportsDir, "coverage-digest.md");
+fs.writeFileSync(digestPath, `${digestLines.join("\n")}\n`, "utf-8");
+
+console.log("[coverage:digest] Coverage digest written to reports/coverage-digest.md");

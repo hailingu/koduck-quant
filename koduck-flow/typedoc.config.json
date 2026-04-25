@@ -1,0 +1,27 @@
+{
+  "entryPoints": ["src/index.ts"],
+  "out": "docs/api",
+  "exclude": ["**/*.test.ts", "**/*.spec.ts", "**/*.d.ts"],
+  "excludePrivate": true,
+  "excludeProtected": false,
+  "includeVersion": true,
+  "includeReadme": true,
+  "readmeFile": "./README.md",
+  "sort": ["source-order"],
+  "categorizeByGroup": true,
+  "categoryOrder": ["API", "Core", "Engine", "Render", "Event", "Entity", "Flow", "*"],
+  "groupOrder": ["Classes", "Interfaces", "Types", "Enums", "Functions", "*"],
+  "validation": {
+    "notExported": true,
+    "invalidLink": true,
+    "notDocumented": false
+  },
+  "customCss": "docs/assets/typedoc-custom.css",
+  "name": "Duck Flow API Documentation",
+  "hideGenerator": false,
+  "navigationLinks": {
+    "Documentation": "https://github.com/",
+    "GitHub": "https://github.com/"
+  },
+  "plugin": ["typedoc-plugin-mdn-links"]
+}

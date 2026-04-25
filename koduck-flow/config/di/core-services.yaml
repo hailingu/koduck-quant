@@ -1,0 +1,120 @@
+# DI service registry definitions for DuckFlow core services
+imports:
+  - name: EntityManager
+    from: "../../entity/entity-manager"
+    typeOnly: true
+  - name: createEntityManager
+    from: "../../entity/entity-manager"
+  - name: RenderManager
+    from: "../../render/render-manager"
+    typeOnly: true
+  - name: createRenderManager
+    from: "../../render/render-manager"
+  - name: RegistryManager
+    from: "../../registry/registry-manager"
+    typeOnly: true
+  - name: createRegistryManager
+    from: "../../registry/registry-manager"
+  - name: IRegistryBroker
+    from: "../../registry/broker"
+    typeOnly: true
+  - name: createRegistryBroker
+    from: "../../registry/broker-impl"
+  - name: RenderEventManager
+    from: "../../event/render-event-manager"
+    typeOnly: true
+  - name: createRenderEventManager
+    from: "../../event/render-event-manager"
+  - name: EntityEventManager
+    from: "../../event/entity-event-manager"
+    typeOnly: true
+  - name: createEntityEventManager
+    from: "../../event/entity-event-manager"
+  - name: EventBus
+    from: "../../event/event-bus"
+    typeOnly: true
+  - name: createEventBus
+    from: "../../event/event-bus"
+  - name: IEntity
+    from: "../../entity"
+    typeOnly: true
+  - name: WorkerPoolManager
+    from: "../../worker-pool/worker-pool-manager"
+    typeOnly: false
+  - name: WorkerPoolConfig
+    from: "../../worker-pool/types"
+    typeOnly: true
+services:
+  - key: entityManager
+    token: entityManager
+    lifecycle: singleton
+    ownsInstance: true
+    dispose: "(instance) => (instance as EntityManager).dispose()"
+    factory: |
+      (container) =>
+        createEntityManager({
+          registryBroker: container.resolve<IRegistryBroker>(TOKENS.registryBroker),
+          renderEvents: container.resolve<RenderEventManager>(TOKENS.renderEventManager),
+          entityEvents: container.resolve<EntityEventManager<IEntity>>(TOKENS.entityEventManager),
+        })
+  - key: renderManager
+    token: renderManager
+    lifecycle: singleton
+    ownsInstance: true
+    dispose: "(instance) => (instance as RenderManager).dispose()"
+    factory: |
+      (container) =>
+        createRenderManager({
+          renderEvents: container.resolve<RenderEventManager>(TOKENS.renderEventManager),
+          registryManager: container.resolve<RegistryManager>(TOKENS.registryManager),
+          entityManager: container.resolve<EntityManager>(TOKENS.entityManager),
+        })
+  - key: registryManager
+    token: registryManager
+    lifecycle: singleton
+    ownsInstance: true
+    dispose: "(instance) => (instance as RegistryManager).dispose()"
+    factory: |
+      (container) =>
+        createRegistryManager({
+          registryBroker: container.resolve<IRegistryBroker>(TOKENS.registryBroker),
+        })
+  - key: registryBroker
+    token: registryBroker
+    lifecycle: singleton
+    ownsInstance: true
+    dispose: "(instance) => (instance as IRegistryBroker).dispose?.()"
+    factory: "() => createRegistryBroker()"
+  - key: renderEventManager
+    token: renderEventManager
+    lifecycle: singleton
+    ownsInstance: true
+    factory: "() => createRenderEventManager()"
+  - key: entityEventManager
+    token: entityEventManager
+    lifecycle: singleton
+    ownsInstance: true
+    dispose: "(instance) => (instance as EntityEventManager<IEntity>).dispose()"
+    factory: "() => createEntityEventManager<IEntity>()"
+  - key: eventBus
+    token: eventBus
+    lifecycle: singleton
+    ownsInstance: true
+    dispose: "(instance) => (instance as EventBus).dispose?.()"
+    factory: "() => createEventBus()"
+  - key: workerPoolManager
+    token: workerPoolManager
+    lifecycle: singleton
+    ownsInstance: true
+    dispose: "(instance) => { instance.dispose?.(); }"
+    factory: |
+      (container) => {
+        const config: Partial<WorkerPoolConfig> = {
+          workerCount: 4,
+          defaultTaskTimeout: 30000,
+          maxQueueSize: 10000,
+        };
+        const eventBus = container.resolve<EventBus>(TOKENS.eventBus);
+        const manager = new WorkerPoolManager(config as WorkerPoolConfig, eventBus);
+        return manager;
+      }

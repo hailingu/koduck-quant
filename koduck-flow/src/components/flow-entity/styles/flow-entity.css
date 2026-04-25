@@ -1,0 +1,733 @@
+/**
+ * @file Flow Entity base styles
+ * @description CSS variables and base styles for Flow Entity components.
+ * Provides theming support via CSS custom properties for nodes, edges, ports, and execution states.
+ *
+ * @see docs/design/flow-entity-component-design.md section 9.2
+ * @see docs/design/flow-entity-step-plan-en.md Task 1.11
+ */
+
+/* =============================================================================
+   CSS Custom Properties (Variables)
+   ============================================================================= */
+
+:root {
+  /* --------------------------------------------------------------------------
+     Node Styling
+     -------------------------------------------------------------------------- */
+  --flow-node-bg: #ffffff;
+  --flow-node-border: #e5e7eb;
+  --flow-node-border-width: 1px;
+  --flow-node-border-radius: 8px;
+  --flow-node-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  --flow-node-min-width: 160px;
+  --flow-node-min-height: 80px;
+
+  /* --------------------------------------------------------------------------
+     Header Styling
+     -------------------------------------------------------------------------- */
+  --flow-node-header-bg: #f3f4f6;
+  --flow-node-header-text: #1f2937;
+  --flow-node-header-height: 36px;
+  --flow-node-header-font-size: 14px;
+  --flow-node-header-font-weight: 500;
+  --flow-node-header-padding: 0 12px;
+
+  /* --------------------------------------------------------------------------
+     Content Styling
+     -------------------------------------------------------------------------- */
+  --flow-node-content-bg: #ffffff;
+  --flow-node-content-text: #374151;
+  --flow-node-content-padding: 12px;
+  --flow-node-content-font-size: 13px;
+
+  /* --------------------------------------------------------------------------
+     Port Styling
+     -------------------------------------------------------------------------- */
+  --flow-port-size: 12px;
+  --flow-port-border-width: 2px;
+  --flow-port-input-color: #3b82f6;
+  --flow-port-output-color: #10b981;
+  --flow-port-hover-scale: 1.2;
+  --flow-port-connected-bg: currentColor;
+  --flow-port-disconnected-bg: #ffffff;
+
+  /* --------------------------------------------------------------------------
+     Edge Styling
+     -------------------------------------------------------------------------- */
+  --flow-edge-color: #9ca3af;
+  --flow-edge-width: 2px;
+  --flow-edge-selected-color: #3b82f6;
+  --flow-edge-selected-width: 3px;
+  --flow-edge-hover-color: #6b7280;
+  --flow-edge-disabled-opacity: 0.5;
+  --flow-edge-label-bg: #ffffff;
+  --flow-edge-label-text: #374151;
+  --flow-edge-label-font-size: 12px;
+
+  /* --------------------------------------------------------------------------
+     Execution State Colors
+     -------------------------------------------------------------------------- */
+  --flow-state-idle: #e5e7eb;
+  --flow-state-pending: #fbbf24;
+  --flow-state-running: #3b82f6;
+  --flow-state-success: #10b981;
+  --flow-state-error: #ef4444;
+  --flow-state-warning: #f59e0b;
+  --flow-state-cancelled: #6b7280;
+  --flow-state-skipped: #9ca3af;
+
+  /* --------------------------------------------------------------------------
+     Animation
+     -------------------------------------------------------------------------- */
+  --flow-transition-fast: 0.15s ease;
+  --flow-transition-normal: 0.25s ease;
+  --flow-transition-slow: 0.35s ease;
+  --flow-animation-flow-speed: 1s;
+}
+
+/* =============================================================================
+   Dark Theme Support
+   ============================================================================= */
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    /* Node */
+    --flow-node-bg: #1f2937;
+    --flow-node-border: #374151;
+    --flow-node-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+
+    /* Header */
+    --flow-node-header-bg: #111827;
+    --flow-node-header-text: #f3f4f6;
+
+    /* Content */
+    --flow-node-content-bg: #1f2937;
+    --flow-node-content-text: #e5e7eb;
+
+    /* Edge */
+    --flow-edge-color: #6b7280;
+    --flow-edge-hover-color: #9ca3af;
+    --flow-edge-label-bg: #1f2937;
+    --flow-edge-label-text: #e5e7eb;
+  }
+}
+
+/* =============================================================================
+   Base Node Styles
+   ============================================================================= */
+
+.flow-node {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  min-width: var(--flow-node-min-width);
+  min-height: var(--flow-node-min-height);
+  background-color: var(--flow-node-bg);
+  border: var(--flow-node-border-width) solid var(--flow-node-border);
+  border-radius: var(--flow-node-border-radius);
+  box-shadow: var(--flow-node-shadow);
+  overflow: hidden;
+  cursor: pointer;
+  user-select: none;
+  transition:
+    border-color var(--flow-transition-fast),
+    box-shadow var(--flow-transition-fast),
+    transform var(--flow-transition-fast);
+}
+
+.flow-node:hover {
+  box-shadow:
+    var(--flow-node-shadow),
+    0 0 0 2px rgba(59, 130, 246, 0.1);
+}
+
+.flow-node:focus-visible {
+  outline: none;
+  box-shadow:
+    var(--flow-node-shadow),
+    0 0 0 2px var(--flow-state-running);
+}
+
+/* Node State Modifiers */
+.flow-node--selected {
+  border-color: var(--flow-state-running);
+  box-shadow:
+    var(--flow-node-shadow),
+    0 0 0 2px rgba(59, 130, 246, 0.2);
+}
+
+.flow-node--disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+.flow-node--dragging {
+  cursor: grabbing;
+  box-shadow:
+    0 4px 12px rgba(0, 0, 0, 0.15),
+    0 0 0 2px var(--flow-state-running);
+  z-index: 1000;
+}
+
+/* Execution State Modifiers */
+.flow-node--idle {
+  border-color: var(--flow-state-idle);
+}
+
+.flow-node--pending {
+  border-color: var(--flow-state-pending);
+}
+
+.flow-node--running {
+  border-color: var(--flow-state-running);
+  animation: flow-node-pulse 1.5s ease-in-out infinite;
+}
+
+.flow-node--success {
+  border-color: var(--flow-state-success);
+}
+
+.flow-node--error {
+  border-color: var(--flow-state-error);
+}
+
+.flow-node--warning {
+  border-color: var(--flow-state-warning);
+}
+
+.flow-node--cancelled {
+  border-color: var(--flow-state-cancelled);
+}
+
+.flow-node--skipped {
+  border-color: var(--flow-state-skipped);
+  opacity: 0.7;
+}
+
+/* =============================================================================
+   Node Header Styles
+   ============================================================================= */
+
+.flow-node-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: var(--flow-node-header-height);
+  min-height: var(--flow-node-header-height);
+  padding: var(--flow-node-header-padding);
+  background-color: var(--flow-node-header-bg);
+  border-bottom: var(--flow-node-border-width) solid var(--flow-node-border);
+  font-size: var(--flow-node-header-font-size);
+  font-weight: var(--flow-node-header-font-weight);
+  color: var(--flow-node-header-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.flow-node-header__title {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.flow-node-header__icon {
+  flex-shrink: 0;
+  margin-right: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.flow-node-header__actions {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: 8px;
+}
+
+/* =============================================================================
+   Node Content Styles
+   ============================================================================= */
+
+.flow-node-content {
+  flex: 1;
+  padding: var(--flow-node-content-padding);
+  background-color: var(--flow-node-content-bg);
+  color: var(--flow-node-content-text);
+  font-size: var(--flow-node-content-font-size);
+  overflow: auto;
+}
+
+.flow-node-content--empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #9ca3af;
+  font-style: italic;
+}
+
+/* =============================================================================
+   Node Footer Styles
+   ============================================================================= */
+
+.flow-node-footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding: 8px 12px;
+  background-color: var(--flow-node-header-bg);
+  border-top: var(--flow-node-border-width) solid var(--flow-node-border);
+  font-size: 12px;
+  color: #6b7280;
+}
+
+/* =============================================================================
+   Port Styles
+   ============================================================================= */
+
+.flow-node-ports {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  pointer-events: none;
+}
+
+.flow-node-port {
+  position: absolute;
+  width: var(--flow-port-size);
+  height: var(--flow-port-size);
+  border-radius: 50%;
+  border: var(--flow-port-border-width) solid currentColor;
+  background-color: var(--flow-port-disconnected-bg);
+  cursor: crosshair;
+  pointer-events: auto;
+  transition:
+    transform var(--flow-transition-fast),
+    background-color var(--flow-transition-fast);
+  transform: translate(-50%, -50%);
+}
+
+.flow-node-port:hover {
+  transform: translate(-50%, -50%) scale(var(--flow-port-hover-scale));
+}
+
+.flow-node-port--input {
+  color: var(--flow-port-input-color);
+}
+
+.flow-node-port--output {
+  color: var(--flow-port-output-color);
+}
+
+.flow-node-port--connected {
+  background-color: var(--flow-port-connected-bg);
+}
+
+.flow-node-port--valid-target {
+  transform: translate(-50%, -50%) scale(1.3);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.3);
+}
+
+.flow-node-port--invalid-target {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+/* Port position utilities (for left/right/top/bottom placement) */
+.flow-node-port--left {
+  left: 0;
+}
+
+.flow-node-port--right {
+  right: 0;
+  transform: translate(50%, -50%);
+}
+
+.flow-node-port--right:hover {
+  transform: translate(50%, -50%) scale(var(--flow-port-hover-scale));
+}
+
+.flow-node-port--top {
+  top: 0;
+}
+
+.flow-node-port--bottom {
+  bottom: 0;
+  transform: translate(-50%, 50%);
+}
+
+.flow-node-port--bottom:hover {
+  transform: translate(-50%, 50%) scale(var(--flow-port-hover-scale));
+}
+
+/* =============================================================================
+   Edge Styles
+   ============================================================================= */
+
+.flow-edge {
+  cursor: pointer;
+  transition:
+    stroke var(--flow-transition-fast),
+    stroke-width var(--flow-transition-fast);
+}
+
+.flow-edge:focus {
+  outline: none;
+}
+
+.flow-edge--selected .flow-edge-path {
+  stroke: var(--flow-edge-selected-color);
+  stroke-width: var(--flow-edge-selected-width);
+}
+
+.flow-edge--disabled {
+  opacity: var(--flow-edge-disabled-opacity);
+  pointer-events: none;
+}
+
+.flow-edge-path {
+  fill: none;
+  stroke: var(--flow-edge-color);
+  stroke-width: var(--flow-edge-width);
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  transition:
+    stroke var(--flow-transition-fast),
+    stroke-width var(--flow-transition-fast);
+}
+
+.flow-edge-path:hover {
+  stroke: var(--flow-edge-hover-color);
+}
+
+.flow-edge-path--selected {
+  stroke: var(--flow-edge-selected-color);
+  stroke-width: var(--flow-edge-selected-width);
+}
+
+.flow-edge-hit-area {
+  fill: none;
+  stroke: transparent;
+  stroke-width: 16px;
+  pointer-events: stroke;
+}
+
+/* =============================================================================
+   Edge Label Styles
+   ============================================================================= */
+
+.flow-edge-label {
+  font-size: var(--flow-edge-label-font-size);
+  fill: var(--flow-edge-label-text);
+  pointer-events: none;
+  user-select: none;
+}
+
+.flow-edge-label-background {
+  fill: var(--flow-edge-label-bg);
+  rx: 4;
+  ry: 4;
+}
+
+/* =============================================================================
+   Edge Animation Styles
+   ============================================================================= */
+
+.flow-edge--flowing .flow-edge-path {
+  stroke-dasharray: 8 4;
+  animation: flow-edge-dash var(--flow-animation-flow-speed) linear infinite;
+}
+
+.flow-edge--success .flow-edge-path {
+  stroke: var(--flow-state-success);
+  animation: flow-edge-pulse 0.5s ease-out;
+}
+
+.flow-edge--error .flow-edge-path {
+  stroke: var(--flow-state-error);
+  animation: flow-edge-pulse 0.5s ease-out;
+}
+
+.flow-edge--highlight .flow-edge-path {
+  stroke: var(--flow-edge-selected-color);
+  filter: drop-shadow(0 0 4px var(--flow-edge-selected-color));
+}
+
+/* =============================================================================
+   Edge Animation Component Styles
+   ============================================================================= */
+
+.flow-edge-animation {
+  pointer-events: none;
+}
+
+.flow-edge-animation--idle {
+  /* No special styling for idle state */
+}
+
+.flow-edge-animation--flowing {
+  stroke-dasharray: 8 4;
+  animation: flow-edge-dash var(--flow-animation-flow-speed) linear infinite;
+}
+
+.flow-edge-animation--success {
+  stroke: var(--flow-state-success);
+  animation: flow-edge-success-pulse 0.6s ease-out;
+}
+
+.flow-edge-animation--error {
+  stroke: var(--flow-state-error);
+  animation: flow-edge-error-pulse 0.6s ease-out;
+}
+
+.flow-edge-animation--highlight {
+  stroke: var(--flow-edge-selected-color);
+  filter: drop-shadow(0 0 4px var(--flow-edge-selected-color));
+  animation: flow-edge-glow 1s ease-in-out infinite alternate;
+}
+
+.flow-edge-animation--animating {
+  /* Marker class for animating state */
+}
+
+/* Edge particles */
+.flow-edge-particles {
+  pointer-events: none;
+}
+
+.flow-edge-particle {
+  fill: var(--flow-state-running);
+  opacity: 0;
+}
+
+/* =============================================================================
+   Animations
+   ============================================================================= */
+
+@keyframes flow-node-pulse {
+  0%,
+  100% {
+    box-shadow:
+      var(--flow-node-shadow),
+      0 0 0 0 rgba(59, 130, 246, 0.4);
+  }
+  50% {
+    box-shadow:
+      var(--flow-node-shadow),
+      0 0 0 4px rgba(59, 130, 246, 0.1);
+  }
+}
+
+@keyframes flow-edge-dash {
+  0% {
+    stroke-dashoffset: 24;
+  }
+  100% {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes flow-edge-pulse {
+  0% {
+    stroke-width: var(--flow-edge-width);
+    opacity: 1;
+  }
+  50% {
+    stroke-width: calc(var(--flow-edge-width) + 2px);
+    opacity: 0.8;
+  }
+  100% {
+    stroke-width: var(--flow-edge-width);
+    opacity: 1;
+  }
+}
+
+@keyframes flow-edge-success-pulse {
+  0% {
+    stroke-width: var(--flow-edge-width);
+    opacity: 1;
+  }
+  30% {
+    stroke-width: calc(var(--flow-edge-width) + 3px);
+    opacity: 0.9;
+  }
+  60% {
+    stroke-width: calc(var(--flow-edge-width) + 1px);
+    opacity: 0.8;
+  }
+  100% {
+    stroke-width: var(--flow-edge-width);
+    opacity: 1;
+  }
+}
+
+@keyframes flow-edge-error-pulse {
+  0% {
+    stroke-width: var(--flow-edge-width);
+    opacity: 1;
+  }
+  25% {
+    stroke-width: calc(var(--flow-edge-width) + 2px);
+    opacity: 0.9;
+  }
+  50% {
+    stroke-width: var(--flow-edge-width);
+    opacity: 0.7;
+  }
+  75% {
+    stroke-width: calc(var(--flow-edge-width) + 2px);
+    opacity: 0.9;
+  }
+  100% {
+    stroke-width: var(--flow-edge-width);
+    opacity: 1;
+  }
+}
+
+@keyframes flow-edge-glow {
+  0% {
+    filter: drop-shadow(0 0 2px currentColor);
+  }
+  100% {
+    filter: drop-shadow(0 0 6px currentColor);
+  }
+}
+
+@keyframes flow-particle {
+  0% {
+    offset-distance: 0%;
+    opacity: 0;
+  }
+  10% {
+    opacity: 1;
+  }
+  90% {
+    opacity: 1;
+  }
+  100% {
+    offset-distance: 100%;
+    opacity: 0;
+  }
+}
+
+@keyframes flow-progress-indeterminate {
+  0% {
+    left: -30%;
+  }
+  100% {
+    left: 100%;
+  }
+}
+
+/* =============================================================================
+   Node Progress Styles (Task 3.5)
+   ============================================================================= */
+
+.flow-node-progress {
+  pointer-events: none;
+}
+
+.flow-node-progress--top {
+  border-top-left-radius: inherit;
+  border-top-right-radius: inherit;
+}
+
+.flow-node-progress--bottom {
+  border-bottom-left-radius: inherit;
+  border-bottom-right-radius: inherit;
+}
+
+.flow-node-progress--overlay {
+  border-radius: inherit;
+}
+
+.flow-node-progress__track {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+}
+
+.flow-node-progress__bar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  transition: width 0.3s ease-out;
+}
+
+.flow-node-progress--indeterminate .flow-node-progress__bar {
+  animation: flow-progress-indeterminate 1.5s ease-in-out infinite;
+}
+
+/* =============================================================================
+   Canvas / Container Styles
+   ============================================================================= */
+
+.flow-canvas {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background-color: #f9fafb;
+}
+
+.flow-viewport {
+  position: absolute;
+  top: 0;
+  left: 0;
+  transform-origin: 0 0;
+}
+
+/* =============================================================================
+   Grid Background
+   ============================================================================= */
+
+.flow-grid {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  background-image: radial-gradient(circle, #d1d5db 1px, transparent 1px);
+  background-size: 20px 20px;
+}
+
+.flow-grid--lines {
+  background-image:
+    linear-gradient(to right, #e5e7eb 1px, transparent 1px),
+    linear-gradient(to bottom, #e5e7eb 1px, transparent 1px);
+  background-size: 20px 20px;
+}
+
+/* =============================================================================
+   Utility Classes
+   ============================================================================= */
+
+.flow-hidden {
+  display: none !important;
+}
+
+.flow-invisible {
+  visibility: hidden !important;
+}
+
+.flow-no-pointer {
+  pointer-events: none !important;
+}
+
+.flow-grab {
+  cursor: grab !important;
+}
+
+.flow-grabbing {
+  cursor: grabbing !important;
+}

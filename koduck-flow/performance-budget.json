@@ -1,0 +1,35 @@
+{
+  "distDir": "dist-ci-bundle",
+  "assetsDir": "assets",
+  "reportPath": "reports/bundle-size-report.json",
+  "baselinePath": "benchmarks/bundle-size-baseline.json",
+  "budgets": [
+    {
+      "name": "main bundle",
+      "patterns": ["index-*.js"],
+      "rawLimit": "600kb",
+      "gzipLimit": "200kb",
+      "aggregation": "max",
+      "required": true,
+      "description": "Main entry point emitted by Vite (index-*.js)."
+    },
+    {
+      "name": "runtime chunk",
+      "patterns": ["runtime-*.js"],
+      "rawLimit": "200kb",
+      "gzipLimit": "70kb",
+      "aggregation": "max",
+      "required": false,
+      "description": "Optional runtime shim produced when code splitting is enabled."
+    },
+    {
+      "name": "render modules",
+      "patterns": ["render-*.js", "renderer-*.js"],
+      "rawLimit": "300kb",
+      "gzipLimit": "110kb",
+      "aggregation": "sum",
+      "required": false,
+      "description": "Aggregated render-specific bundles (sum across all matches)."
+    }
+  ]
+}

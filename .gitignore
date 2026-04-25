@@ -86,3 +86,14 @@ docker-compose.local.yml
 a.txt
 .m2/
 target/
+
+node_modules/
+
+# koduck-flow (Node.js / Vite / Playwright)
+koduck-flow/node_modules/
+koduck-flow/playwright-report/
+koduck-flow/test-results/
+koduck-flow/reports/
+koduck-flow/dist/
+koduck-flow/coverage/
+koduck-flow/*.local

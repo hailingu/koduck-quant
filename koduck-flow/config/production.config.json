@@ -1,0 +1,26 @@
+{
+  "event": {
+    "maxQueueSize": 10000,
+    "retryAttempts": 10
+  },
+  "render": {
+    "canvasWidth": 3840,
+    "canvasHeight": 2160
+  },
+  "entity": {
+    "maxInstances": 1000
+  },
+  "performance": {
+    "gcThreshold": 90
+  },
+  "tenant": {
+    "isolationLevel": "maximum"
+  },
+  "plugin": {
+    "allowedTypes": ["ui", "data", "workflow", "analytics", "security"]
+  },
+  "infra": {
+    "databaseUrl": "postgresql://prod-db-cluster:5432/duckflow_prod",
+    "cacheTtl": 7200
+  }
+}

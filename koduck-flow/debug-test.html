@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>DuckFlow Browser Debug Test</title>
+  </head>
+  <body>
+    <h1>DuckFlow Browser Debug Test</h1>
+    <p>Check console for debug output</p>
+    <div id="debug-output"></div>
+
+    <script type="module">
+      // 原始console.log的引用
+      const originalLog = console.log;
+      const originalError = console.error;
+
+      // 创建可视化输出
+      const debugOutput = document.getElementById("debug-output");
+
+      function appendToPage(message, type = "log") {
+        const div = document.createElement("div");
+        div.style.margin = "2px 0";
+        div.style.padding = "4px";
+        div.style.borderLeft =
+          type === "error" ? "3px solid red" : "3px solid blue";
+        div.style.backgroundColor = type === "error" ? "#ffe6e6" : "#e6f3ff";
+        div.textContent = message;
+        debugOutput.appendChild(div);
+      }
+
+      // 重写console方法以显示在页面上
+      console.log = (...args) => {
+        originalLog(...args);
+        appendToPage(args.join(" "), "log");
+      };
+
+      console.error = (...args) => {
+        originalError(...args);
+        appendToPage(args.join(" "), "error");
+      };
+
+      // 加载调试脚本
+      import("./debug-browser-test.js");
+    </script>
+  </body>
+</html>

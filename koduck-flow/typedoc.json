@@ -1,0 +1,15 @@
+{
+  "$schema": "https://typedoc.org/schema.json",
+  "entryPoints": ["src/index.ts"],
+  "tsconfig": "tsconfig.app.json",
+  "out": "docs/reference",
+  "name": "Duck Flow API",
+  "readme": "none",
+  "categorizeByGroup": true,
+  "excludePrivate": true,
+  "excludeProtected": true,
+  "excludeInternal": true,
+  "sort": ["kind", "alphabetical"],
+  "githubPages": false,
+  "skipErrorChecking": true
+}

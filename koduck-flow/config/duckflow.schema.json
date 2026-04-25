@@ -1,0 +1,275 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "properties": {
+    "environment": {
+      "type": "string",
+      "enum": [
+        "development",
+        "staging",
+        "production"
+      ],
+      "description": "环境标识符"
+    },
+    "event": {
+      "type": "object",
+      "properties": {
+        "batchSize": {
+          "type": "number",
+          "minimum": 1,
+          "description": "批处理大小"
+        },
+        "batchInterval": {
+          "type": "number",
+          "minimum": 0,
+          "description": "批处理间隔 (ms)"
+        },
+        "maxQueueSize": {
+          "type": "number",
+          "minimum": 1,
+          "description": "最大队列大小"
+        },
+        "enableDedup": {
+          "type": "boolean",
+          "description": "启用去重"
+        },
+        "concurrencyLimit": {
+          "type": "number",
+          "minimum": 1,
+          "description": "并发限制"
+        },
+        "maxListeners": {
+          "type": "number",
+          "minimum": 1,
+          "description": "最大监听器数量"
+        }
+      },
+      "required": [
+        "batchSize",
+        "batchInterval",
+        "maxQueueSize",
+        "enableDedup",
+        "concurrencyLimit",
+        "maxListeners"
+      ],
+      "additionalProperties": false
+    },
+    "render": {
+      "type": "object",
+      "properties": {
+        "frameRate": {
+          "type": "number",
+          "minimum": 1,
+          "maximum": 240,
+          "description": "目标帧率"
+        },
+        "cacheTTL": {
+          "type": "number",
+          "minimum": 0,
+          "description": "缓存TTL (ms)"
+        },
+        "maxCacheSize": {
+          "type": "number",
+          "minimum": 1,
+          "description": "最大缓存条目数"
+        },
+        "defaultRenderer": {
+          "type": "string",
+          "enum": [
+            "react",
+            "canvas",
+            "webgpu"
+          ],
+          "description": "默认渲染器"
+        },
+        "enableDirtyRegion": {
+          "type": "boolean",
+          "description": "启用脏区域优化"
+        },
+        "constants": {
+          "type": "object",
+          "properties": {
+            "SMALL": {
+              "type": "number",
+              "minimum": 0
+            },
+            "MEDIUM": {
+              "type": "number",
+              "minimum": 0
+            },
+            "LARGE": {
+              "type": "number",
+              "minimum": 0
+            }
+          },
+          "required": [
+            "SMALL",
+            "MEDIUM",
+            "LARGE"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "frameRate",
+        "cacheTTL",
+        "maxCacheSize",
+        "defaultRenderer",
+        "enableDirtyRegion",
+        "constants"
+      ],
+      "additionalProperties": false
+    },
+    "entity": {
+      "type": "object",
+      "properties": {
+        "maxEntities": {
+          "type": "number",
+          "minimum": 1,
+          "description": "最大实体数量"
+        },
+        "gcInterval": {
+          "type": "number",
+          "minimum": 1000,
+          "description": "GC间隔 (ms)"
+        },
+        "enableEntityPool": {
+          "type": "boolean",
+          "description": "启用实体池"
+        }
+      },
+      "required": [
+        "maxEntities",
+        "gcInterval",
+        "enableEntityPool"
+      ],
+      "additionalProperties": false
+    },
+    "performance": {
+      "type": "object",
+      "properties": {
+        "enableProfiling": {
+          "type": "boolean",
+          "description": "启用性能分析"
+        },
+        "metricsInterval": {
+          "type": "number",
+          "minimum": 100,
+          "description": "指标收集间隔 (ms)"
+        },
+        "enableVerboseLogging": {
+          "type": "boolean",
+          "description": "启用详细日志"
+        }
+      },
+      "required": [
+        "enableProfiling",
+        "metricsInterval",
+        "enableVerboseLogging"
+      ],
+      "additionalProperties": false
+    },
+    "tenant": {
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "启用多租户"
+        },
+        "defaultQuota": {
+          "type": "object",
+          "properties": {
+            "maxEntities": {
+              "type": "number",
+              "minimum": 1
+            },
+            "maxFlows": {
+              "type": "number",
+              "minimum": 1
+            },
+            "storageLimit": {
+              "type": "number",
+              "minimum": 1
+            }
+          },
+          "required": [
+            "maxEntities",
+            "maxFlows",
+            "storageLimit"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "enabled",
+        "defaultQuota"
+      ],
+      "additionalProperties": false
+    },
+    "plugin": {
+      "type": "object",
+      "properties": {
+        "sandboxTimeout": {
+          "type": "number",
+          "minimum": 100,
+          "description": "沙盒运行器超时 (ms)"
+        },
+        "capabilityCache": {
+          "type": "object",
+          "properties": {
+            "enabled": {
+              "type": "boolean"
+            },
+            "defaultTtlMs": {
+              "type": "number",
+              "minimum": 1000
+            },
+            "maxSize": {
+              "type": "number",
+              "minimum": 1
+            }
+          },
+          "required": [
+            "enabled",
+            "defaultTtlMs",
+            "maxSize"
+          ],
+          "additionalProperties": false
+        },
+        "execution": {
+          "type": "object",
+          "properties": {
+            "defaultTimeoutMs": {
+              "type": "number",
+              "minimum": 100
+            },
+            "maxRetries": {
+              "type": "number",
+              "minimum": 0
+            }
+          },
+          "required": [
+            "defaultTimeoutMs",
+            "maxRetries"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "sandboxTimeout",
+        "capabilityCache",
+        "execution"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "required": [
+    "environment",
+    "event",
+    "render",
+    "entity",
+    "performance",
+    "plugin"
+  ],
+  "additionalProperties": false
+}

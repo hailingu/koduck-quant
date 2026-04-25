@@ -1,0 +1,26 @@
+{
+  "event": {
+    "maxQueueSize": 5000,
+    "retryAttempts": 5
+  },
+  "render": {
+    "canvasWidth": 2560,
+    "canvasHeight": 1440
+  },
+  "entity": {
+    "maxInstances": 500
+  },
+  "performance": {
+    "gcThreshold": 75
+  },
+  "tenant": {
+    "isolationLevel": "strict"
+  },
+  "plugin": {
+    "allowedTypes": ["ui", "data", "workflow", "analytics"]
+  },
+  "infra": {
+    "databaseUrl": "postgresql://staging-db:5432/duckflow_staging",
+    "cacheTtl": 1800
+  }
+}
