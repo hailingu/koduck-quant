@@ -2,7 +2,6 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Maximize2, Minimize2, X } from "lucide-react";
 import {
   FlowEditorCanvas,
-  FlowPreviewCanvas,
   layoutFlowGraph,
   type EdgeRenderProps,
   type IFlowEdgeEntityData,
@@ -517,7 +516,6 @@ export function ConversationKoduckFlowCanvas({
       edges: mergedEdges.filter((edge) => !deletedEdgeIds.has(edge.id)),
     };
   }, [createdEdges, deletedEdgeIds, flowSpec, manualNodePositions]);
-  const canvasPadding = 48;
   const selectedStep =
     flowSpec.steps.find((step) => step.id === editingStepId) ?? null;
 
@@ -737,16 +735,19 @@ export function ConversationKoduckFlowCanvas({
     <section
       className="relative mb-4 w-full max-w-3xl overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm"
       data-layout-mode={layoutMode}
+      style={{ width: 760, maxWidth: "100%" }}
     >
-      <FlowPreviewCanvas
+      <FlowEditorCanvas
         nodes={nodes}
         edges={edges}
         selectedNodeIds={selectedStepId ? [selectedStepId] : []}
         selectedEdgeIds={selectedEdgeId ? [selectedEdgeId] : []}
-        fitMode="width"
-        previewWidth={760}
-        minHeight={120}
-        canvasPadding={canvasPadding}
+        width="100%"
+        height={320}
+        initialFit="contain"
+        fitPadding={48}
+        minZoom={0.25}
+        maxZoom={1.5}
         fallbackNodeSize={{
           width: CONVERSATION_FLOW_NODE_WIDTH,
           height: CONVERSATION_FLOW_MIN_NODE_HEIGHT,
@@ -755,14 +756,12 @@ export function ConversationKoduckFlowCanvas({
         showGrid
         gridPattern={{ size: 24, opacity: 0.35 }}
         theme={{ canvasBackground: "#f8fafc" }}
-        interaction={{
-          selectNodes: false,
-          dragNodes: false,
-          selectEdges: false,
-          deleteEdges: false,
-          pan: false,
-          zoom: false,
-        }}
+        onCanvasClick={handleCanvasClick}
+        onNodeSelect={handleNodeSelect}
+        onEdgeSelect={handleEdgeSelect}
+        onNodeMove={handleNodeMove}
+        onEdgeCreate={handleEdgeCreate}
+        onEdgeDelete={handleEdgeDelete}
         renderNode={renderFlowNode(false)}
         renderEdge={(props) => <ConversationFlowEdge {...props} />}
         overlay={
