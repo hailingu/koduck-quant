@@ -73,6 +73,21 @@ export type PortDataType =
 export type PortDirection = "input" | "output";
 
 /**
+ * Port side on the node boundary.
+ */
+export type PortSide = "left" | "right" | "top" | "bottom";
+
+/**
+ * Port placement strategy along its side.
+ */
+export type PortAlignment = "center" | "start" | "end" | "distributed";
+
+/**
+ * Port visibility policy.
+ */
+export type PortVisibility = "always" | "connected" | "hover";
+
+/**
  * Definition of a port on a node.
  * @see Design doc section 4.2 - Port System
  */
@@ -89,6 +104,12 @@ export interface PortDefinition {
   required?: boolean;
   /** Whether the port accepts multiple connections */
   allowMultiple?: boolean;
+  /** Side of the node boundary where this port should be rendered */
+  side?: PortSide;
+  /** Placement strategy along the selected side */
+  alignment?: PortAlignment;
+  /** Visibility policy for renderers that support hidden/hover ports */
+  visibility?: PortVisibility;
   /** Default value when no connection is present */
   defaultValue?: unknown;
   /** Description shown in tooltips */

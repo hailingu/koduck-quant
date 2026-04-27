@@ -27,6 +27,9 @@ export * from "./edge";
 // Canvas components (Phase 2)
 export * from "./canvas";
 
+// Layout engine
+export * from "./layout";
+
 // Hooks (Phase 2–3)
 export * from "./hooks";
 

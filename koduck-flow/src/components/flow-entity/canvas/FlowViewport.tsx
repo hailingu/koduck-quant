@@ -105,6 +105,8 @@ export interface FlowViewportProps {
   children: ReactNode;
   /** Initial viewport state */
   initialState?: Partial<ViewportState>;
+  /** Controlled viewport state */
+  viewport?: Partial<ViewportState>;
   /** Viewport constraints */
   constraints?: Partial<ViewportConstraints>;
   /** Callback when viewport changes */
@@ -200,6 +202,7 @@ export function useViewportOptional(): ViewportContextValue | undefined {
  * @param root0
  * @param root0.children
  * @param root0.initialState
+ * @param root0.viewport
  * @param root0.constraints
  * @param root0.onViewportChange
  * @param root0.className
@@ -229,6 +232,7 @@ export function useViewportOptional(): ViewportContextValue | undefined {
 export const FlowViewport: React.FC<FlowViewportProps> = ({
   children,
   initialState,
+  viewport: controlledViewport,
   constraints: constraintOverrides,
   onViewportChange,
   className,
@@ -265,6 +269,13 @@ export const FlowViewport: React.FC<FlowViewportProps> = ({
 
   // Viewport state
   const [viewport, setViewportState] = useState<ViewportState>(initialViewport);
+  const effectiveViewport = useMemo<ViewportState>(
+    () => ({
+      ...viewport,
+      ...controlledViewport,
+    }),
+    [controlledViewport, viewport]
+  );
 
   // Pan interaction state
   const [panState, setPanState] = useState<PanState>({
@@ -471,11 +482,11 @@ export const FlowViewport: React.FC<FlowViewportProps> = ({
   const screenToCanvas = useCallback(
     (screenX: number, screenY: number): { x: number; y: number } => {
       return {
-        x: (screenX - viewport.translateX) / viewport.scale,
-        y: (screenY - viewport.translateY) / viewport.scale,
+        x: (screenX - effectiveViewport.translateX) / effectiveViewport.scale,
+        y: (screenY - effectiveViewport.translateY) / effectiveViewport.scale,
       };
     },
-    [viewport.translateX, viewport.translateY, viewport.scale]
+    [effectiveViewport.translateX, effectiveViewport.translateY, effectiveViewport.scale]
   );
 
   /**
@@ -484,11 +495,11 @@ export const FlowViewport: React.FC<FlowViewportProps> = ({
   const canvasToScreen = useCallback(
     (canvasX: number, canvasY: number): { x: number; y: number } => {
       return {
-        x: canvasX * viewport.scale + viewport.translateX,
-        y: canvasY * viewport.scale + viewport.translateY,
+        x: canvasX * effectiveViewport.scale + effectiveViewport.translateX,
+        y: canvasY * effectiveViewport.scale + effectiveViewport.translateY,
       };
     },
-    [viewport.translateX, viewport.translateY, viewport.scale]
+    [effectiveViewport.translateX, effectiveViewport.translateY, effectiveViewport.scale]
   );
 
   // ===========================================================================
@@ -506,12 +517,12 @@ export const FlowViewport: React.FC<FlowViewportProps> = ({
         isPanning: true,
         startX: clientX,
         startY: clientY,
-        startTranslateX: viewport.translateX,
-        startTranslateY: viewport.translateY,
+        startTranslateX: effectiveViewport.translateX,
+        startTranslateY: effectiveViewport.translateY,
       });
       onPanStart?.();
     },
-    [enablePan, viewport.translateX, viewport.translateY, onPanStart]
+    [enablePan, effectiveViewport.translateX, effectiveViewport.translateY, onPanStart]
   );
 
   /**
@@ -726,7 +737,7 @@ export const FlowViewport: React.FC<FlowViewportProps> = ({
   // Build context value
   const contextValue = useMemo<ViewportContextValue>(
     () => ({
-      viewport,
+      viewport: effectiveViewport,
       constraints,
       isPanning: panState.isPanning,
       setViewport,
@@ -740,7 +751,7 @@ export const FlowViewport: React.FC<FlowViewportProps> = ({
       canvasToScreen,
     }),
     [
-      viewport,
+      effectiveViewport,
       constraints,
       panState.isPanning,
       setViewport,
@@ -761,10 +772,10 @@ export const FlowViewport: React.FC<FlowViewportProps> = ({
       position: "relative",
       width: "100%",
       height: "100%",
-      transform: `translate(${viewport.translateX}px, ${viewport.translateY}px) scale(${viewport.scale})`,
+      transform: `translate(${effectiveViewport.translateX}px, ${effectiveViewport.translateY}px) scale(${effectiveViewport.scale})`,
       transformOrigin: "0 0",
     }),
-    [viewport.translateX, viewport.translateY, viewport.scale]
+    [effectiveViewport.translateX, effectiveViewport.translateY, effectiveViewport.scale]
   );
 
   // Calculate cursor style based on pan state

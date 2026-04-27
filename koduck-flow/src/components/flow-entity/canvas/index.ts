@@ -7,7 +7,30 @@
 
 // FlowCanvas - Top-level canvas container
 export { FlowCanvas, FlowCanvasWithProvider, default } from "./FlowCanvas";
-export type { FlowCanvasProps, NodeRenderProps, EdgeRenderProps } from "./FlowCanvas";
+export type {
+  FlowCanvasInteraction,
+  FlowCanvasMode,
+  FlowCanvasProps,
+  FlowCanvasRenderEngine,
+  FlowCanvasRenderModel,
+  FlowCanvasNodeRenderItem,
+  FlowCanvasPortRenderItem,
+  FlowCanvasEdgeRenderItem,
+  NodeRenderProps,
+  EdgeRenderProps,
+  EdgeRoute,
+  FlowCanvasPortEndpoint,
+  FlowCanvasPortConnection,
+  ConnectionValidationResult,
+} from "./FlowCanvas";
+
+// FlowPreviewCanvas - Preview wrapper with built-in fit policies
+export { FlowPreviewCanvas } from "./FlowPreviewCanvas";
+export type { FlowPreviewCanvasProps, FlowPreviewFitMode } from "./FlowPreviewCanvas";
+
+// FlowEditorCanvas - Editor wrapper with built-in editor defaults
+export { FlowEditorCanvas } from "./FlowEditorCanvas";
+export type { FlowEditorCanvasProps, FlowEditorInitialFit } from "./FlowEditorCanvas";
 
 // FlowViewport - Viewport state management
 export {
