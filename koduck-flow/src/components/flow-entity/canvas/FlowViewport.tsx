@@ -748,6 +748,9 @@ export const FlowViewport: React.FC<FlowViewportProps> = ({
   // Calculate transform style for content
   const transformStyle = useMemo<CSSProperties>(
     () => ({
+      position: "relative",
+      width: "100%",
+      height: "100%",
       transform: `translate(${viewport.translateX}px, ${viewport.translateY}px) scale(${viewport.scale})`,
       transformOrigin: "0 0",
     }),

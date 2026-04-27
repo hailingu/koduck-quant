@@ -33,6 +33,7 @@ use crate::{
         ToolDefinition as ProviderToolDefinition,
     },
     orchestrator::cancel::{run_abortable_with_cleanup, AbortReason, RequestGenerationGuard},
+    plan::orchestrator::PlanOrchestrator,
     reliability::{
         degrade::DegradeRoute,
         error::{AppError, ErrorCode, UpstreamService},
@@ -174,6 +175,28 @@ pub struct ToolExecuteRequest {
     pub tool_name: String,
     pub tool_version: Option<String>,
     pub arguments: serde_json::Value,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct PlanEditEventRequest {
+    #[serde(rename = "type", alias = "event_type")]
+    pub event_type: String,
+    #[serde(rename = "nodeId")]
+    pub node_id: Option<String>,
+    #[serde(default, alias = "payload")]
+    pub patch: serde_json::Value,
+    pub actor: Option<String>,
+    pub sequence_num: Option<i64>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct PlanEditEventPayload {
+    pub request_id: String,
+    pub session_id: String,
+    pub plan_id: String,
+    pub event_id: String,
+    pub sequence_num: i64,
+    pub event_type: String,
 }
 
 #[derive(Debug, Serialize)]
@@ -471,6 +494,66 @@ pub async fn chat_stream(
 
     if !resume_cursor.is_resume() {
         let generation_guard = session.request_guard().await;
+        let plan_completion = if plan_canvas_enabled(&request.chat) {
+            let orchestrator = PlanOrchestrator::new(
+                auth_ctx.tenant_id.clone(),
+                session_id.clone(),
+                request_id.clone(),
+            );
+            let plan = orchestrator.create_minimal_plan(
+                request.chat.message.clone(),
+                Some(auth_ctx.user_id.clone()),
+            );
+            let mut plan_events = Vec::new();
+            let mut created_event = orchestrator.created_event(&plan);
+            created_event.sequence_num = Some(1);
+            plan_events.push(created_event);
+            if let Some(first_node) = plan.nodes.first() {
+                let mut node_event = orchestrator.node_started_event(&plan, first_node);
+                node_event.sequence_num = Some(2);
+                plan_events.push(node_event);
+            }
+
+            for plan_event in &plan_events {
+                if let Err(err) = session
+                    .enqueue_event_if_current(
+                        &generation_guard,
+                        plan_event.to_pending_stream_event(),
+                    )
+                    .await
+                {
+                    warn!(
+                        request_id = %request_id,
+                        session_id = %session_id,
+                        error = %err,
+                        event_type = %plan_event.kind.as_str(),
+                        "failed to enqueue plan canvas event"
+                    );
+                }
+            }
+
+            let persist_state = Arc::clone(&state);
+            let persist_ctx = memory_ctx.clone();
+            let persist_plan = plan.clone();
+            let persist_plan_events = plan_events.clone();
+            tokio::spawn(async move {
+                persist_plan_bootstrap_best_effort(
+                    &persist_state,
+                    &persist_ctx,
+                    &persist_plan,
+                    &persist_plan_events,
+                )
+                    .await;
+            });
+
+            plan
+                .nodes
+                .first()
+                .cloned()
+                .map(|first_node| (orchestrator, plan, first_node))
+        } else {
+            None
+        };
         let stream_timeout = Duration::from_millis(state.config.stream.max_duration_ms);
         let llm_plan = match call_llm_stream(
             &state,
@@ -498,6 +581,34 @@ pub async fn chat_stream(
                         "append_memory failed after direct tool-free response; continuing with generated stream",
                     )
                     .await;
+                    if let Some((orchestrator, plan, node)) = plan_completion {
+                        let mut node_event = orchestrator.node_completed_event(&plan, &node);
+                        node_event.sequence_num = Some(3);
+                        let mut plan_event = orchestrator.completed_event(&plan);
+                        plan_event.sequence_num = Some(4);
+                        let plan_events = vec![node_event, plan_event];
+
+                        for pending_plan_event in &plan_events {
+                            if let Err(err) = session
+                                .enqueue_event_if_current(
+                                    &generation_guard,
+                                    pending_plan_event.to_pending_stream_event(),
+                                )
+                                .await
+                            {
+                                warn!(
+                                    request_id = %request_id,
+                                    session_id = %session_id,
+                                    error = %err,
+                                    event_type = %pending_plan_event.kind.as_str(),
+                                    "failed to enqueue generated plan completion event"
+                                );
+                                break;
+                            }
+                        }
+
+                        persist_plan_events_best_effort(&state, &memory_ctx, &plan_events).await;
+                    }
                     spawn_generated_stream(
                         Arc::clone(&session),
                         generation_guard.clone(),
@@ -511,7 +622,9 @@ pub async fn chat_stream(
                     let append_state = Arc::clone(&state);
                     let append_ctx = memory_ctx.clone();
                     let append_request = request.chat.clone();
+                    let plan_completion = plan_completion.clone();
                     tokio::spawn(async move {
+                        let mut plan_completion = plan_completion;
                         let producer_guard = guard.clone();
                         let producer = async {
                             let mut upstream = upstream;
@@ -529,6 +642,50 @@ pub async fn chat_stream(
                                             finish_reason = %ev.finish_reason,
                                             "forwarding llm stream event to sse session"
                                         );
+                                        if !ev.finish_reason.trim().is_empty() {
+                                            if let Some((orchestrator, plan, node)) =
+                                                plan_completion.take()
+                                            {
+                                                let mut node_event =
+                                                    orchestrator.node_completed_event(&plan, &node);
+                                                node_event.sequence_num = Some(3);
+                                                let mut plan_event =
+                                                    orchestrator.completed_event(&plan);
+                                                plan_event.sequence_num = Some(4);
+                                                let plan_events = vec![node_event, plan_event];
+
+                                                for pending_plan_event in &plan_events {
+                                                    if let Err(err) = stream_session
+                                                        .enqueue_event_if_current(
+                                                            &producer_guard,
+                                                            pending_plan_event
+                                                                .to_pending_stream_event(),
+                                                        )
+                                                        .await
+                                                    {
+                                                        info!(
+                                                            request_id = %stream_session.request_id(),
+                                                            session_id = %stream_session.session_id(),
+                                                            error = %err,
+                                                            event_type = %pending_plan_event.kind.as_str(),
+                                                            "stream queue rejected plan completion event"
+                                                        );
+                                                        break;
+                                                    }
+                                                }
+
+                                                let persist_state = Arc::clone(&append_state);
+                                                let persist_ctx = append_ctx.clone();
+                                                tokio::spawn(async move {
+                                                    persist_plan_events_best_effort(
+                                                        &persist_state,
+                                                        &persist_ctx,
+                                                        &plan_events,
+                                                    )
+                                                    .await;
+                                                });
+                                            }
+                                        }
                                         for pending in build_stream_events(
                                             &ev,
                                             stream_session.request_id(),
@@ -592,6 +749,34 @@ pub async fn chat_stream(
                                 .any(|event| matches!(event.event_type.as_str(), "done" | "error"));
 
                             if !has_terminal_event {
+                                if let Some((orchestrator, plan, node)) = plan_completion.take() {
+                                    let mut node_event =
+                                        orchestrator.node_completed_event(&plan, &node);
+                                    node_event.sequence_num = Some(3);
+                                    let mut plan_event = orchestrator.completed_event(&plan);
+                                    plan_event.sequence_num = Some(4);
+                                    let plan_events = vec![node_event, plan_event];
+
+                                    for pending_plan_event in &plan_events {
+                                        let _ = stream_session
+                                            .enqueue_event_if_current(
+                                                &producer_guard,
+                                                pending_plan_event.to_pending_stream_event(),
+                                            )
+                                            .await;
+                                    }
+
+                                    let persist_state = Arc::clone(&append_state);
+                                    let persist_ctx = append_ctx.clone();
+                                    tokio::spawn(async move {
+                                        persist_plan_events_best_effort(
+                                            &persist_state,
+                                            &persist_ctx,
+                                            &plan_events,
+                                        )
+                                        .await;
+                                    });
+                                }
                                 let _ = stream_session
                                     .enqueue_event_if_current(
                                         &producer_guard,
@@ -653,6 +838,157 @@ pub async fn delete_session(
     Path(raw_session_id): Path<String>,
 ) -> Response {
     delete_session_impl(state, headers, raw_session_id).await
+}
+
+pub async fn post_plan_event(
+    State(state): State<Arc<AppState>>,
+    headers: HeaderMap,
+    Path((raw_session_id, raw_plan_id)): Path<(String, String)>,
+    Json(request): Json<PlanEditEventRequest>,
+) -> Response {
+    let request_id = extract_or_create_request_id(&headers);
+    let auth_ctx = match crate::auth::authenticate_bearer(&headers, &state).await {
+        Ok(ctx) => ctx,
+        Err(err) => return api_error_response(err.with_request_id(request_id.clone()), request_id),
+    };
+
+    if !state.lifecycle.is_accepting_requests() {
+        return api_error_response(
+            AppError::new(ErrorCode::ServerBusy, "service is draining new requests")
+                .with_request_id(request_id.clone()),
+            request_id,
+        );
+    }
+
+    let Some(session_id) = normalize_session_id(&raw_session_id) else {
+        return api_error_response(
+            AppError::new(ErrorCode::InvalidArgument, "session_id is invalid")
+                .with_request_id(request_id.clone()),
+            request_id,
+        );
+    };
+    let Some(plan_id) = normalize_uuid(&raw_plan_id) else {
+        return api_error_response(
+            AppError::new(ErrorCode::InvalidArgument, "plan_id is invalid")
+                .with_request_id(request_id.clone()),
+            request_id,
+        );
+    };
+    if request.event_type.trim().is_empty() {
+        return api_error_response(
+            AppError::new(ErrorCode::InvalidArgument, "plan event type cannot be empty")
+                .with_request_id(request_id.clone()),
+            request_id,
+        );
+    }
+
+    let trace_id = extract_trace_id(&headers);
+    let memory_ctx = MemoryRequestContext::from_auth(
+        request_id.clone(),
+        session_id.clone(),
+        trace_id,
+        state.config.llm.timeout_ms,
+        &auth_ctx,
+    );
+    let event_id = Uuid::new_v4().to_string();
+    let sequence_num = request
+        .sequence_num
+        .unwrap_or_else(|| Utc::now().timestamp_millis());
+    let actor = request.actor.clone().unwrap_or_else(|| auth_ctx.user_id.clone());
+    if let Some(review_input) = build_proposal_review_input(&request, &actor) {
+        if let Err(err) = memory::review_edit_proposal(&state, &memory_ctx, review_input).await {
+            warn!(
+                request_id = %request_id,
+                session_id = %session_id,
+                plan_id = %plan_id,
+                error = %err,
+                "failed to review memory edit proposal from plan event"
+            );
+            return api_error_response(err, request_id);
+        }
+    }
+
+    let payload = json!({
+        "type": request.event_type,
+        "nodeId": request.node_id,
+        "patch": request.patch,
+        "actor": actor,
+        "receivedAt": Utc::now().timestamp_millis(),
+    });
+
+    let persisted = memory::append_plan_event(
+        &state,
+        &memory_ctx,
+        memory::AppendPlanEventInput {
+            plan_id: plan_id.clone(),
+            event_id: event_id.clone(),
+            sequence_num,
+            event_type: payload["type"].as_str().unwrap_or_default().to_string(),
+            payload_json: payload.to_string(),
+        },
+    )
+    .await;
+
+    if let Err(err) = persisted {
+        warn!(
+            request_id = %request_id,
+            session_id = %session_id,
+            plan_id = %plan_id,
+            error = %err,
+            "failed to persist user plan edit event"
+        );
+        return api_error_response(err, request_id);
+    }
+
+    (
+        StatusCode::OK,
+        Json(ApiResponse {
+            success: true,
+            code: ErrorCode::Ok.to_string(),
+            message: "plan event accepted".to_string(),
+            data: Some(PlanEditEventPayload {
+                request_id,
+                session_id,
+                plan_id,
+                event_id,
+                sequence_num,
+                event_type: payload["type"].as_str().unwrap_or_default().to_string(),
+            }),
+            error: None,
+        }),
+    )
+        .into_response()
+}
+
+fn build_proposal_review_input(
+    request: &PlanEditEventRequest,
+    actor: &str,
+) -> Option<memory::ReviewEditProposalInput> {
+    let status = match request.event_type.as_str() {
+        "proposal.approved" => "approved",
+        "proposal.rejected" => "rejected",
+        "proposal.edit_and_approve" => "approved",
+        _ => return None,
+    };
+    let proposal_id = request
+        .patch
+        .get("proposalId")
+        .or_else(|| request.patch.get("proposal_id"))
+        .and_then(serde_json::Value::as_str)?;
+    let after_json = request
+        .patch
+        .get("afterJson")
+        .or_else(|| request.patch.get("after_json"))
+        .map(serde_json::Value::to_string)
+        .unwrap_or_default();
+
+    Some(memory::ReviewEditProposalInput {
+        proposal_id: proposal_id.to_string(),
+        status: status.to_string(),
+        reviewed_by: actor.to_string(),
+        after_json,
+        applied: false,
+    })
 }
 
 pub async fn get_session_transcript(
@@ -1298,6 +1634,100 @@ fn metadata_string(request: &ChatRequest, key: &str) -> String {
         .and_then(|metadata| metadata.get(key))
         .and_then(json_value_as_string)
         .unwrap_or_default()
+}
+
+fn plan_canvas_enabled(request: &ChatRequest) -> bool {
+    request
+        .metadata
+        .as_ref()
+        .and_then(|metadata| metadata.get("enablePlanCanvas"))
+        .and_then(|value| match value {
+            serde_json::Value::Bool(value) => Some(*value),
+            serde_json::Value::String(value) => value.parse::<bool>().ok(),
+            _ => None,
+        })
+        .unwrap_or(false)
+}
+
+fn flow_canvas_output_requested(request: &ChatRequest) -> bool {
+    if !plan_canvas_enabled(request) {
+        return false;
+    }
+
+    let message = request.message.to_lowercase();
+    [
+        "flow",
+        "canvas",
+        "流程图",
+        "可编辑",
+        "节点",
+        "拆解成",
+        "研究步骤",
+        "人工确认",
+    ]
+    .iter()
+    .any(|keyword| message.contains(keyword))
+}
+
+async fn persist_plan_bootstrap_best_effort(
+    state: &Arc<AppState>,
+    ctx: &MemoryRequestContext,
+    plan: &crate::plan::Plan,
+    events: &[crate::plan::PlanEvent],
+) {
+    if let Err(err) = memory::create_plan(
+        state,
+        ctx,
+        memory::CreatePlanInput {
+            plan_id: plan.plan_id.clone(),
+            goal: plan.goal.clone(),
+            status: plan.status.as_str().to_string(),
+            created_by: plan.created_by.clone().unwrap_or_else(|| ctx.user_id.clone()),
+        },
+    )
+    .await
+    {
+        warn!(
+            request_id = %ctx.request_id,
+            session_id = %ctx.session_id,
+            error = %err,
+            "failed to persist plan; continuing stream without plan memory persistence"
+        );
+        return;
+    }
+
+    persist_plan_events_best_effort(state, ctx, events).await;
+}
+
+async fn persist_plan_events_best_effort(
+    state: &Arc<AppState>,
+    ctx: &MemoryRequestContext,
+    events: &[crate::plan::PlanEvent],
+) {
+    for event in events {
+        if let Err(err) = memory::append_plan_event(
+            state,
+            ctx,
+            memory::AppendPlanEventInput {
+                plan_id: event.plan_id.clone(),
+                event_id: event.event_id.clone(),
+                sequence_num: event.sequence_num.unwrap_or_default() as i64,
+                event_type: event.kind.as_str().to_string(),
+                payload_json: event.payload.to_string(),
+            },
+        )
+        .await
+        {
+            warn!(
+                request_id = %ctx.request_id,
+                session_id = %ctx.session_id,
+                plan_id = %event.plan_id,
+                event_type = %event.kind.as_str(),
+                error = %err,
+                "failed to persist plan event; continuing stream"
+            );
+        }
+    }
 }
 
 fn request_metadata_extra(request: &ChatRequest) -> HashMap<String, String> {
@@ -2582,6 +3012,41 @@ fn build_provider_generate_request(
         KODUCK_V1_LITE_PROMPT.trim(),
         KODUCK_BASE_LANGUAGE_PROMPT
     );
+
+    if flow_canvas_output_requested(request) {
+        system_content.push_str(
+            r#"
+
+Koduck Flow Canvas 输出契约：
+- 当用户要求生成 flow、canvas、流程图、可编辑流程或节点化计划时，你必须只输出一个 fenced JSON 代码块，语言标记必须是 json。
+- 不要输出 Markdown 标题、说明文字、表格、Mermaid、ASCII 图、列表解释或 JSON 之外的任何文本。
+- JSON 顶层必须是对象，字段必须包含 title、version、steps。
+- steps 必须是数组；每个节点必须包含 id、name、input、output、status、editable、dependsOn。
+- input 与 dependsOn 必须是字符串数组；output 必须是字符串；editable 必须是 true；status 只能是 pending、running、waiting_approval、completed、failed、skipped 之一。
+- 用户要求几个研究步骤就生成几个研究步骤；如果用户要求信息不足时插入人工确认节点，只在确有信息不足时追加一个 status 为 waiting_approval 的人工确认节点。
+- 节点 id 使用稳定英文 snake_case，例如 step_1、step_2、human_confirm、conclusion。
+
+示例结构：
+```json
+{
+  "title": "主题",
+  "version": "1.0",
+  "steps": [
+    {
+      "id": "step_1",
+      "name": "背景梳理",
+      "input": ["输入材料"],
+      "output": "输出产物",
+      "status": "pending",
+      "editable": true,
+      "dependsOn": []
+    }
+  ]
+}
+```
+"#,
+        );
+    }
 
     if let Some(memory_prompt) = memory_snapshot.and_then(|snapshot| {
         build_memory_prompt(snapshot, &request.message)

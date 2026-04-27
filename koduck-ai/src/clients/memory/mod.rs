@@ -15,13 +15,17 @@ use crate::{
 };
 
 pub use super::proto::{
-    AppendMemoryRequest, AppendMemoryResponse, DeleteMemoryEntryRequest,
+    AppendMemoryRequest, AppendMemoryResponse, AppendPlanEventRequest,
+    AppendPlanEventResponse, CreateEditProposalRequest, CreateEditProposalResponse,
+    CreatePlanRequest, CreatePlanResponse, DeleteMemoryEntryRequest,
     DeleteMemoryEntryResponse, DeleteSessionRequest, DeleteSessionResponse,
+    EditProposalInfo,
     GetSessionRequest, GetSessionResponse, GetSessionTranscriptRequest,
     GetSessionTranscriptResponse, MemoryEntry, MemoryHit, MemoryService,
-    MemoryServiceClient, MemoryServiceServer, QueryMemoryRequest, QueryIntent,
-    QueryMemoryResponse, RetrievePolicy, SessionInfo, SessionTranscriptEntry,
-    UpsertSessionMetaRequest, UpsertSessionMetaResponse,
+    MemoryServiceClient, MemoryServiceServer, PlanEventInfo, PlanInfo,
+    QueryIntent, QueryMemoryRequest, QueryMemoryResponse, RetrievePolicy,
+    ReviewEditProposalRequest, ReviewEditProposalResponse, SessionInfo,
+    SessionTranscriptEntry, UpsertSessionMetaRequest, UpsertSessionMetaResponse,
 };
 
 const API_VERSION: &str = "v1";
@@ -88,6 +92,47 @@ pub struct QueryMemoryInput {
     pub retrieve_policy: RetrievePolicy,
     pub top_k: i32,
     pub page_size: i32,
+}
+
+#[derive(Debug, Clone)]
+pub struct CreatePlanInput {
+    pub plan_id: String,
+    pub goal: String,
+    pub status: String,
+    pub created_by: String,
+}
+
+#[derive(Debug, Clone)]
+pub struct AppendPlanEventInput {
+    pub plan_id: String,
+    pub event_id: String,
+    pub sequence_num: i64,
+    pub event_type: String,
+    pub payload_json: String,
+}
+
+#[derive(Debug, Clone)]
+pub struct CreateEditProposalInput {
+    pub proposal_id: String,
+    pub plan_id: String,
+    pub node_id: String,
+    pub target_kind: String,
+    pub operation: String,
+    pub target_ref: String,
+    pub before_json: String,
+    pub after_json: String,
+    pub reason: String,
+    pub confidence: f64,
+    pub created_by: String,
+}
+
+#[derive(Debug, Clone)]
+pub struct ReviewEditProposalInput {
+    pub proposal_id: String,
+    pub status: String,
+    pub reviewed_by: String,
+    pub after_json: String,
+    pub applied: bool,
 }
 
 pub async fn get_session(
@@ -194,6 +239,112 @@ pub async fn append_memory(
         .map_err(|status| map_grpc_status(UpstreamService::Memory, &ctx.request_id, &status))?;
 
     map_append_memory_response(ctx, response.into_inner())
+}
+
+pub async fn create_plan(
+    state: &Arc<AppState>,
+    ctx: &MemoryRequestContext,
+    input: CreatePlanInput,
+) -> Result<PlanInfo, AppError> {
+    let target = resolve_memory_target(state).await?;
+    let mut client = connect_client(&target, &ctx.request_id).await?;
+    let response = client
+        .create_plan(Request::new(CreatePlanRequest {
+            meta: Some(ctx.request_meta(format!("{}:create-plan", ctx.request_id))),
+            session_id: ctx.session_id.clone(),
+            plan_id: input.plan_id,
+            goal: input.goal,
+            status: input.status,
+            created_by: input.created_by,
+        }))
+        .await
+        .map_err(|status| map_grpc_status(UpstreamService::Memory, &ctx.request_id, &status))?;
+
+    map_create_plan_response(ctx, response.into_inner())
+}
+
+pub async fn append_plan_event(
+    state: &Arc<AppState>,
+    ctx: &MemoryRequestContext,
+    input: AppendPlanEventInput,
+) -> Result<PlanEventInfo, AppError> {
+    let target = resolve_memory_target(state).await?;
+    let mut client = connect_client(&target, &ctx.request_id).await?;
+    let response = client
+        .append_plan_event(Request::new(AppendPlanEventRequest {
+            meta: Some(ctx.request_meta(format!(
+                "{}:append-plan-event:{}",
+                ctx.request_id, input.sequence_num
+            ))),
+            session_id: ctx.session_id.clone(),
+            plan_id: input.plan_id,
+            event_id: input.event_id,
+            sequence_num: input.sequence_num,
+            event_type: input.event_type,
+            payload_json: input.payload_json,
+        }))
+        .await
+        .map_err(|status| map_grpc_status(UpstreamService::Memory, &ctx.request_id, &status))?;
+
+    map_append_plan_event_response(ctx, response.into_inner())
+}
+
+pub async fn create_edit_proposal(
+    state: &Arc<AppState>,
+    ctx: &MemoryRequestContext,
+    input: CreateEditProposalInput,
+) -> Result<EditProposalInfo, AppError> {
+    let target = resolve_memory_target(state).await?;
+    let mut client = connect_client(&target, &ctx.request_id).await?;
+    let response = client
+        .create_edit_proposal(Request::new(CreateEditProposalRequest {
+            meta: Some(ctx.request_meta(format!(
+                "{}:create-edit-proposal:{}",
+                ctx.request_id, input.proposal_id
+            ))),
+            session_id: ctx.session_id.clone(),
+            proposal_id: input.proposal_id,
+            plan_id: input.plan_id,
+            node_id: input.node_id,
+            target_kind: input.target_kind,
+            operation: input.operation,
+            target_ref: input.target_ref,
+            before_json: input.before_json,
+            after_json: input.after_json,
+            reason: input.reason,
+            confidence: input.confidence,
+            created_by: input.created_by,
+        }))
+        .await
+        .map_err(|status| map_grpc_status(UpstreamService::Memory, &ctx.request_id, &status))?;
+
+    map_create_edit_proposal_response(ctx, response.into_inner())
+}
+
+pub async fn review_edit_proposal(
+    state: &Arc<AppState>,
+    ctx: &MemoryRequestContext,
+    input: ReviewEditProposalInput,
+) -> Result<EditProposalInfo, AppError> {
+    let target = resolve_memory_target(state).await?;
+    let mut client = connect_client(&target, &ctx.request_id).await?;
+    let response = client
+        .review_edit_proposal(Request::new(ReviewEditProposalRequest {
+            meta: Some(ctx.request_meta(format!(
+                "{}:review-edit-proposal:{}",
+                ctx.request_id, input.proposal_id
+            ))),
+            session_id: ctx.session_id.clone(),
+            proposal_id: input.proposal_id,
+            status: input.status,
+            reviewed_by: input.reviewed_by,
+            after_json: input.after_json,
+            applied: input.applied,
+        }))
+        .await
+        .map_err(|status| map_grpc_status(UpstreamService::Memory, &ctx.request_id, &status))?;
+
+    map_review_edit_proposal_response(ctx, response.into_inner())
 }
 
 async fn connect_client(
@@ -344,6 +495,90 @@ fn map_append_memory_response(
         response.error.as_ref(),
         ErrorCode::DependencyFailed,
         "memory append_memory failed",
+    ))
+}
+
+fn map_create_plan_response(
+    ctx: &MemoryRequestContext,
+    response: CreatePlanResponse,
+) -> Result<PlanInfo, AppError> {
+    if response.ok {
+        return response.plan.ok_or_else(|| {
+            AppError::new(ErrorCode::DependencyFailed, "memory plan payload missing")
+                .with_request_id(ctx.request_id.clone())
+                .with_upstream(UpstreamService::Memory)
+        });
+    }
+
+    Err(map_contract_error_detail(
+        UpstreamService::Memory,
+        &ctx.request_id,
+        response.error.as_ref(),
+        ErrorCode::DependencyFailed,
+        "memory create_plan failed",
+    ))
+}
+
+fn map_append_plan_event_response(
+    ctx: &MemoryRequestContext,
+    response: AppendPlanEventResponse,
+) -> Result<PlanEventInfo, AppError> {
+    if response.ok {
+        return response.event.ok_or_else(|| {
+            AppError::new(ErrorCode::DependencyFailed, "memory plan event payload missing")
+                .with_request_id(ctx.request_id.clone())
+                .with_upstream(UpstreamService::Memory)
+        });
+    }
+
+    Err(map_contract_error_detail(
+        UpstreamService::Memory,
+        &ctx.request_id,
+        response.error.as_ref(),
+        ErrorCode::DependencyFailed,
+        "memory append_plan_event failed",
+    ))
+}
+
+fn map_create_edit_proposal_response(
+    ctx: &MemoryRequestContext,
+    response: CreateEditProposalResponse,
+) -> Result<EditProposalInfo, AppError> {
+    if response.ok {
+        return response.proposal.ok_or_else(|| {
+            AppError::new(ErrorCode::DependencyFailed, "memory edit proposal payload missing")
+                .with_request_id(ctx.request_id.clone())
+                .with_upstream(UpstreamService::Memory)
+        });
+    }
+
+    Err(map_contract_error_detail(
+        UpstreamService::Memory,
+        &ctx.request_id,
+        response.error.as_ref(),
+        ErrorCode::DependencyFailed,
+        "memory create_edit_proposal failed",
+    ))
+}
+
+fn map_review_edit_proposal_response(
+    ctx: &MemoryRequestContext,
+    response: ReviewEditProposalResponse,
+) -> Result<EditProposalInfo, AppError> {
+    if response.ok {
+        return response.proposal.ok_or_else(|| {
+            AppError::new(ErrorCode::DependencyFailed, "memory edit proposal payload missing")
+                .with_request_id(ctx.request_id.clone())
+                .with_upstream(UpstreamService::Memory)
+        });
+    }
+
+    Err(map_contract_error_detail(
+        UpstreamService::Memory,
+        &ctx.request_id,
+        response.error.as_ref(),
+        ErrorCode::DependencyFailed,
+        "memory review_edit_proposal failed",
     ))
 }
 

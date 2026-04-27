@@ -55,4 +55,7 @@ export {
 // 流程引擎
 export * from "./common/engine";
 
+// 对话原生 Plan Canvas
+export * from "./conversation-plan";
+
 // 类型定义 (如果需要的话，可以手动导出特定类型)

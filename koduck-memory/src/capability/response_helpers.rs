@@ -7,7 +7,7 @@ use crate::api::{
     SessionTranscriptEntry, SummarizeMemoryResponse, UpsertSessionMetaResponse,
 };
 
-fn error_detail(
+pub(crate) fn error_detail(
     code: &str,
     message: String,
     retryable: bool,

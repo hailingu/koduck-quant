@@ -1,11 +1,13 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowUp,
   Check,
   ChevronDown,
   Copy,
   FileText,
+  Maximize2,
   Mic,
+  Minimize2,
   Paperclip,
   Plus,
   Trash2,
@@ -14,6 +16,13 @@ import {
 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import {
+  FlowCanvasWithProvider,
+  type EdgeRenderProps,
+  type IFlowEdgeEntityData,
+  type IFlowNodeEntityData,
+  type NodeRenderProps,
+} from "@koduck-flow";
 
 type MessageType = "text" | "card";
 
@@ -203,9 +212,12 @@ interface StreamEventData {
   event_id?: string;
   sequence_num?: number;
   event_type?: string;
-  payload?: StreamEventPayload;
+  payload?: StreamEventPayload & Record<string, unknown>;
   request_id?: string;
+  session_id?: string;
 }
+
+type PlanNodeStatus = "pending" | "running" | "waiting_approval" | "completed" | "failed" | "skipped";
 
 interface ApiErrorBody {
   code?: string;
@@ -407,6 +419,17 @@ function persistPromptHistory(history: string[]) {
     PROMPT_HISTORY_STORAGE_KEY,
     JSON.stringify(history.slice(0, MAX_PROMPT_HISTORY_ENTRIES)),
   );
+}
+
+function normalizeNodeStatus(value: unknown, fallback: PlanNodeStatus): PlanNodeStatus {
+  return value === "pending" ||
+    value === "running" ||
+    value === "waiting_approval" ||
+    value === "completed" ||
+    value === "failed" ||
+    value === "skipped"
+    ? value
+    : fallback;
 }
 
 function pushPromptHistoryEntry(history: string[], content: string): string[] {
@@ -715,7 +738,579 @@ function normalizeMarkdownContent(content: string): string {
   return normalizedLines.join("\n").replace(/\n{3,}/g, "\n\n").trim();
 }
 
+interface ConversationFlowStep {
+  id: string;
+  name: string;
+  input: string[];
+  output?: string;
+  status: PlanNodeStatus;
+  editable: boolean;
+  dependsOn: string[];
+}
+
+interface ConversationFlowSpec {
+  title: string;
+  version?: string;
+  steps: ConversationFlowStep[];
+}
+
+function normalizeFlowString(value: unknown): string | undefined {
+  if (typeof value !== "string") {
+    return undefined;
+  }
+
+  const trimmed = value.trim();
+  return trimmed ? trimmed : undefined;
+}
+
+function normalizeFlowStringList(value: unknown): string[] {
+  if (Array.isArray(value)) {
+    return value
+      .map((item) => normalizeFlowString(item))
+      .filter((item): item is string => Boolean(item));
+  }
+
+  const singleValue = normalizeFlowString(value);
+  return singleValue ? [singleValue] : [];
+}
+
+function parseConversationFlowSpec(raw: string): ConversationFlowSpec | null {
+  const trimmed = raw.trim();
+  if (!trimmed.startsWith("{") || !trimmed.endsWith("}")) {
+    return null;
+  }
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(trimmed);
+  } catch {
+    return null;
+  }
+
+  if (typeof parsed !== "object" || parsed === null) {
+    return null;
+  }
+
+  const record = parsed as Record<string, unknown>;
+  const rawSteps = Array.isArray(record.steps) ? record.steps : [];
+  if (rawSteps.length === 0) {
+    return null;
+  }
+
+  const steps = rawSteps
+    .map((item, index): ConversationFlowStep | null => {
+      if (typeof item !== "object" || item === null) {
+        return null;
+      }
+
+      const step = item as Record<string, unknown>;
+      const id = normalizeFlowString(step.id) ?? `step_${index + 1}`;
+      const name =
+        normalizeFlowString(step.name) ??
+        normalizeFlowString(step.title) ??
+        `Step ${index + 1}`;
+      const dependsOn = [
+        ...normalizeFlowStringList(step.dependsOn),
+        ...normalizeFlowStringList(step.depends_on),
+        ...normalizeFlowStringList(step.dependencies),
+      ];
+
+      return {
+        id,
+        name,
+        input: normalizeFlowStringList(step.input),
+        output: normalizeFlowString(step.output),
+        status: normalizeNodeStatus(step.status, "pending"),
+        editable: typeof step.editable === "boolean" ? step.editable : true,
+        dependsOn,
+      };
+    })
+    .filter((item): item is ConversationFlowStep => Boolean(item));
+
+  if (steps.length === 0) {
+    return null;
+  }
+
+  return {
+    title:
+      normalizeFlowString(record.title) ??
+      normalizeFlowString(record.goal) ??
+      "Conversation Flow",
+    version: normalizeFlowString(record.version),
+    steps,
+  };
+}
+
+function extractConversationFlowSpecFromContent(content: string): ConversationFlowSpec | null {
+  const normalized = content.replace(/\r\n/g, "\n").trim();
+  const fencedCodeBlocks = normalized.matchAll(/```(?:json)?\s*([\s\S]*?)```/gi);
+
+  for (const match of fencedCodeBlocks) {
+    const block = match[1] ?? "";
+    const flowSpec = parseConversationFlowSpec(block);
+    if (flowSpec) {
+      return flowSpec;
+    }
+  }
+
+  return parseConversationFlowSpec(normalized);
+}
+
+function flowExecutionStateFromPlanStatus(status: PlanNodeStatus): IFlowNodeEntityData["executionState"] {
+  if (status === "completed") {
+    return "success";
+  }
+  if (status === "failed") {
+    return "error";
+  }
+  if (status === "skipped") {
+    return "skipped";
+  }
+  if (status === "running") {
+    return "running";
+  }
+  return "pending";
+}
+
+type ConversationFlowRelationKind = "dependency" | "summary" | "needs_info";
+
+function inferConversationFlowRelationKind(step: ConversationFlowStep): ConversationFlowRelationKind {
+  const text = `${step.id} ${step.name} ${step.input.join(" ")} ${step.output ?? ""}`.toLowerCase();
+  if (step.status === "waiting_approval" || /补充|资料|信息不足|确认|confirm|approval/.test(text)) {
+    return "needs_info";
+  }
+  if (/综合|结论|汇总|总结|conclusion|summary/.test(text)) {
+    return "summary";
+  }
+  return "dependency";
+}
+
+function conversationFlowRelationLabel(kind: ConversationFlowRelationKind): string {
+  if (kind === "needs_info") {
+    return "发现资料缺口";
+  }
+  if (kind === "summary") {
+    return "汇总到结论";
+  }
+  return "输出作为输入";
+}
+
+function buildConversationFlowGraph(spec: ConversationFlowSpec) {
+  const nodeWidth = 300;
+  const nodeHeight = 220;
+  const horizontalGap = 180;
+  const nodes = spec.steps.map((step, index) => {
+    return ({
+      id: step.id,
+      nodeType: step.name.includes("确认") ? "decision" : "research",
+      label: step.name,
+      position: {
+        x: 48 + index * (nodeWidth + horizontalGap),
+        y: 60,
+      },
+      size: { width: nodeWidth, height: nodeHeight },
+      executionState: flowExecutionStateFromPlanStatus(step.status),
+      inputPorts: [{ id: "in", name: "Input", type: "input", dataType: "object" }],
+      outputPorts: [{ id: "out", name: "Output", type: "output", dataType: "object" }],
+      config: {
+        input: step.input,
+        output: step.output,
+        editable: step.editable,
+        status: step.status,
+        portAnchors: {
+          in: { side: "left", x: 0, y: nodeHeight / 2 },
+          out: { side: "right", x: nodeWidth, y: nodeHeight / 2 },
+        },
+      },
+      metadata: { source: "koduck-ai-conversation-flow" },
+    }) as unknown as IFlowNodeEntityData;
+  });
+
+  const edges: IFlowEdgeEntityData[] = [];
+  spec.steps.forEach((step, index) => {
+    if (index === 0) {
+      return;
+    }
+
+    const sourceId = spec.steps[index - 1].id;
+    const relationKind = inferConversationFlowRelationKind(step);
+    edges.push({
+      id: `${sourceId}->${step.id}`,
+      edgeType: "conversation-flow",
+      label: conversationFlowRelationLabel(relationKind),
+      sourceNodeId: sourceId,
+      sourcePortId: "out",
+      targetNodeId: step.id,
+      targetPortId: "in",
+      animationState: step.status === "running" ? "flowing" : "idle",
+      metadata: { relationKind },
+    } as unknown as IFlowEdgeEntityData);
+  });
+
+  const inputConnectedNodeIds = new Set(edges.map((edge) => edge.targetNodeId));
+  const outputConnectedNodeIds = new Set(edges.map((edge) => edge.sourceNodeId));
+  const nodesWithConnectionState = nodes.map((node) => ({
+    ...node,
+    config: {
+      ...((node.config ?? {}) as Record<string, unknown>),
+      showInputPort: inputConnectedNodeIds.has(node.id),
+      showOutputPort: outputConnectedNodeIds.has(node.id),
+    },
+  }));
+
+  return { nodes: nodesWithConnectionState, edges };
+}
+
+function ConversationKoduckFlowCanvas({ spec }: { spec: ConversationFlowSpec }) {
+  const [flowSpec, setFlowSpec] = useState(spec);
+  const [selectedStepId, setSelectedStepId] = useState<string | null>(null);
+  const [editingStepId, setEditingStepId] = useState<string | null>(null);
+  const [selectedEdgeId, setSelectedEdgeId] = useState<string | null>(null);
+  const [nodePositions, setNodePositions] = useState<Record<string, { x: number; y: number }>>({});
+  const [deletedEdgeIds, setDeletedEdgeIds] = useState<Set<string>>(() => new Set());
+  const [fullscreen, setFullscreen] = useState(false);
+  const { nodes, edges } = useMemo(() => {
+    const graph = buildConversationFlowGraph(flowSpec);
+    return {
+      nodes: graph.nodes.map((node) => ({
+        ...node,
+        position: nodePositions[node.id] ?? node.position,
+      })),
+      edges: graph.edges.filter((edge) => !deletedEdgeIds.has(edge.id)),
+    };
+  }, [deletedEdgeIds, flowSpec, nodePositions]);
+  const canvasWidth = Math.max(
+    760,
+    ...nodes.map((node) => node.position.x + (node.size?.width ?? 300) + 48),
+  );
+  const canvasHeight = Math.max(
+    320,
+    ...nodes.map((node) => node.position.y + (node.size?.height ?? 220) + 44),
+  );
+  const previewMaxWidth = 760;
+  const previewScale = Math.min(1, previewMaxWidth / canvasWidth);
+  const previewHeight = Math.max(120, Math.ceil(canvasHeight * previewScale));
+  const fullscreenViewport = {
+    scale: 1,
+    translateX: 0,
+    translateY: 0,
+  };
+  const selectedStep =
+    flowSpec.steps.find((step) => step.id === editingStepId) ?? null;
+
+  const updateSelectedStep = (patch: Partial<ConversationFlowStep>) => {
+    if (!editingStepId) {
+      return;
+    }
+
+    setFlowSpec((prev) => ({
+      ...prev,
+      steps: prev.steps.map((step) =>
+        step.id === editingStepId ? { ...step, ...patch } : step,
+      ),
+    }));
+  };
+
+  const renderCanvas = (
+    readOnly: boolean,
+    options: {
+      width?: number | string;
+      height?: number | string;
+      minZoom?: number;
+      maxZoom?: number;
+      defaultZoom?: number;
+      defaultViewport?: {
+        translateX: number;
+        translateY: number;
+        scale: number;
+      };
+    } = {},
+  ) => (
+    <FlowCanvasWithProvider
+      nodes={nodes}
+      edges={edges}
+      selectedNodeIds={selectedStepId ? [selectedStepId] : []}
+      selectedEdgeIds={selectedEdgeId ? [selectedEdgeId] : []}
+      width={options.width ?? canvasWidth}
+      height={options.height ?? canvasHeight}
+      minZoom={options.minZoom ?? 1}
+      maxZoom={options.maxZoom ?? 1}
+      defaultZoom={options.defaultZoom ?? 1}
+      defaultViewport={options.defaultViewport}
+      showGrid
+      gridPattern={{ size: 24, opacity: 0.35 }}
+      theme={{ canvasBackground: "#f8fafc" }}
+      readOnly={readOnly}
+      onCanvasClick={() => {
+        setSelectedStepId(null);
+        setSelectedEdgeId(null);
+      }}
+      onNodeSelect={(nodeIds) => {
+        setSelectedStepId(nodeIds[0] ?? null);
+        setSelectedEdgeId(null);
+      }}
+      onEdgeSelect={(edgeIds) => {
+        setSelectedEdgeId(edgeIds[0] ?? null);
+        setSelectedStepId(null);
+      }}
+      onNodeMove={(nodeId, position) => {
+        if (readOnly) {
+          return;
+        }
+        setNodePositions((prev) => ({
+          ...prev,
+          [nodeId]: position,
+        }));
+      }}
+      onEdgeDelete={(edgeId) => {
+        if (readOnly) {
+          return;
+        }
+        setDeletedEdgeIds((prev) => new Set(prev).add(edgeId));
+        setSelectedEdgeId(null);
+      }}
+      renderNode={({ node, selected }) => (
+        <div
+          className="h-full w-full text-left outline-none transition hover:-translate-y-0.5 focus-visible:ring-2 focus-visible:ring-[#0d8b6d]"
+          onDoubleClick={() => {
+            if (!readOnly) {
+              setEditingStepId(node.id);
+            }
+          }}
+        >
+          <ConversationFlowNode node={node} selected={selected} />
+        </div>
+      )}
+      renderEdge={(props) => <ConversationFlowEdge {...props} />}
+    />
+  );
+
+  return (
+    <section className="relative mb-4 w-full max-w-3xl overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
+      <div className="relative overflow-hidden bg-gray-50" style={{ height: previewHeight }}>
+        <div
+          style={{
+            width: canvasWidth,
+            height: canvasHeight,
+            transform: `scale(${previewScale})`,
+            transformOrigin: "top left",
+          }}
+        >
+          {renderCanvas(true)}
+        </div>
+        <button
+          type="button"
+          className="absolute bottom-3 right-3 z-20 flex h-9 w-9 items-center justify-center rounded-full border border-gray-200 bg-white/95 text-gray-700 shadow-sm hover:bg-gray-50"
+          onClick={() => setFullscreen(true)}
+          aria-label="最大化编辑 Flow"
+          title="最大化编辑"
+        >
+          <Maximize2 className="h-4 w-4" />
+        </button>
+      </div>
+      {fullscreen ? (
+        <div className="fixed inset-0 z-50 bg-white">
+          <div className="absolute inset-0 bg-gray-50">
+            {renderCanvas(false, {
+              width: "100vw",
+              height: "100vh",
+              minZoom: 0.4,
+              maxZoom: 2,
+              defaultZoom: 1,
+              defaultViewport: fullscreenViewport,
+            })}
+          </div>
+          <button
+            type="button"
+            className="absolute bottom-5 right-5 z-50 flex h-10 w-10 items-center justify-center rounded-full border border-gray-200 bg-white/95 text-gray-700 shadow-lg hover:bg-gray-50"
+            onClick={() => setFullscreen(false)}
+            aria-label="退出全屏编辑"
+            title="退出全屏"
+          >
+            <Minimize2 className="h-4 w-4" />
+          </button>
+        </div>
+      ) : null}
+      {selectedStep ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 px-6">
+          <div className="w-full max-w-3xl rounded-xl bg-white shadow-2xl">
+            <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4">
+              <div>
+                <div className="text-xs font-medium uppercase tracking-wide text-gray-500">
+                  Edit flow node
+                </div>
+                <h2 className="text-xl font-semibold text-gray-950">{selectedStep.name}</h2>
+              </div>
+              <button
+                type="button"
+                className="rounded-full p-2 text-gray-500 hover:bg-gray-100 hover:text-gray-800"
+                onClick={() => setEditingStepId(null)}
+                aria-label="关闭节点编辑"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <div className="grid gap-4 px-6 py-5">
+              <label className="grid gap-2">
+                <span className="text-sm font-medium text-gray-700">节点名称</span>
+                <input
+                  className="rounded-lg border border-gray-200 px-3 py-2 text-base outline-none focus:border-[#0d8b6d] focus:ring-2 focus:ring-[#0d8b6d]/15"
+                  value={selectedStep.name}
+                  onChange={(event) => updateSelectedStep({ name: event.target.value })}
+                />
+              </label>
+              <label className="grid gap-2">
+                <span className="text-sm font-medium text-gray-700">输入</span>
+                <textarea
+                  className="min-h-28 rounded-lg border border-gray-200 px-3 py-2 text-base outline-none focus:border-[#0d8b6d] focus:ring-2 focus:ring-[#0d8b6d]/15"
+                  value={selectedStep.input.join("\n")}
+                  onChange={(event) =>
+                    updateSelectedStep({
+                      input: event.target.value
+                        .split("\n")
+                        .map((item) => item.trim())
+                        .filter(Boolean),
+                    })
+                  }
+                />
+              </label>
+              <label className="grid gap-2">
+                <span className="text-sm font-medium text-gray-700">输出</span>
+                <input
+                  className="rounded-lg border border-gray-200 px-3 py-2 text-base outline-none focus:border-[#0d8b6d] focus:ring-2 focus:ring-[#0d8b6d]/15"
+                  value={selectedStep.output ?? ""}
+                  onChange={(event) => updateSelectedStep({ output: event.target.value })}
+                />
+              </label>
+              <label className="grid gap-2">
+                <span className="text-sm font-medium text-gray-700">状态</span>
+                <select
+                  className="rounded-lg border border-gray-200 px-3 py-2 text-base outline-none focus:border-[#0d8b6d] focus:ring-2 focus:ring-[#0d8b6d]/15"
+                  value={selectedStep.status}
+                  onChange={(event) =>
+                    updateSelectedStep({ status: event.target.value as PlanNodeStatus })
+                  }
+                >
+                  <option value="pending">pending</option>
+                  <option value="running">running</option>
+                  <option value="waiting_approval">waiting_approval</option>
+                  <option value="completed">completed</option>
+                  <option value="failed">failed</option>
+                  <option value="skipped">skipped</option>
+                </select>
+              </label>
+            </div>
+          </div>
+        </div>
+      ) : null}
+    </section>
+  );
+}
+
+function ConversationFlowNode({ node, selected }: NodeRenderProps) {
+  const config = (node.config ?? {}) as Record<string, unknown>;
+  const input = normalizeFlowStringList(config.input);
+  const output = normalizeFlowString(config.output);
+  const editable = config.editable !== false;
+  const status = normalizeFlowString(config.status) ?? node.executionState;
+  const showInputPort = config.showInputPort === true;
+  const showOutputPort = config.showOutputPort === true;
+
+  return (
+    <article
+      className={`relative h-full overflow-visible rounded-lg border bg-white shadow-sm transition-shadow ${
+        selected ? "border-[#0d8b6d] ring-2 ring-[#0d8b6d]/20" : "border-gray-200"
+      }`}
+    >
+      {showInputPort ? (
+        <span
+          className="absolute left-0 z-10 h-3 w-3 -translate-x-1/2 rounded-full border-2 border-white bg-[#2563eb] shadow"
+          style={{ top: 104 }}
+          title="Input port"
+        />
+      ) : null}
+      {showOutputPort ? (
+        <span
+          className="absolute right-0 z-10 h-3 w-3 translate-x-1/2 rounded-full border-2 border-white bg-[#2563eb] shadow"
+          style={{ top: 104 }}
+          title="Output port"
+        />
+      ) : null}
+      <div className="flex items-start justify-between gap-3 border-b border-gray-100 px-4 py-3">
+        <div className="min-w-0">
+          <h3 className="truncate text-sm font-semibold text-gray-950">{node.label}</h3>
+          <p className="mt-0.5 text-xs text-gray-500">{node.nodeType}</p>
+        </div>
+        <span className="shrink-0 rounded-full bg-gray-100 px-2 py-1 text-[11px] font-medium text-gray-700">
+          {status}
+        </span>
+      </div>
+      <div className="space-y-2 px-4 py-3 text-xs leading-5 text-gray-700">
+        {input.length > 0 ? (
+          <div>
+            <div className="font-medium text-gray-950">Input</div>
+            <div className="line-clamp-2">{input.join(" / ")}</div>
+          </div>
+        ) : null}
+        {output ? (
+          <div>
+            <div className="font-medium text-gray-950">Output</div>
+            <div className="line-clamp-2">{output}</div>
+          </div>
+        ) : null}
+        {editable ? (
+          <span className="inline-flex rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-medium text-emerald-700">
+            editable
+          </span>
+        ) : null}
+      </div>
+    </article>
+  );
+}
+
+function ConversationFlowEdge({ edge, sourcePosition, targetPosition, selected }: EdgeRenderProps) {
+  const sourceStubX = sourcePosition.x + 42;
+  const targetStubX = targetPosition.x - 42;
+  const midX = (sourceStubX + targetStubX) / 2;
+  const path = `M ${sourcePosition.x} ${sourcePosition.y} L ${sourceStubX} ${sourcePosition.y} C ${midX} ${sourcePosition.y}, ${midX} ${targetPosition.y}, ${targetStubX} ${targetPosition.y} L ${targetPosition.x} ${targetPosition.y}`;
+  const relationKind =
+    ((edge.metadata as Record<string, unknown> | undefined)?.relationKind as
+      | ConversationFlowRelationKind
+      | undefined) ?? "dependency";
+  const color =
+    relationKind === "needs_info"
+      ? "#d97706"
+      : relationKind === "summary"
+        ? "#7c3aed"
+        : "#2563eb";
+  return (
+    <g>
+      <path
+        d={path}
+        fill="none"
+        stroke={selected ? "#0d8b6d" : "#cbd5e1"}
+        strokeLinecap="round"
+        strokeWidth={selected ? 8 : 6}
+      />
+      <path
+        d={path}
+        fill="none"
+        stroke={selected ? "#0d8b6d" : color}
+        strokeLinecap="round"
+        strokeWidth={selected ? 3 : 2.25}
+        markerEnd="url(#flow-edge-arrow)"
+      />
+    </g>
+  );
+}
+
 function MarkdownMessage({ content }: { content: string }) {
+  const flowSpec = extractConversationFlowSpecFromContent(content);
+
+  if (flowSpec) {
+    return <ConversationKoduckFlowCanvas spec={flowSpec} />;
+  }
+
   return (
     <div className="max-w-none break-words text-base leading-8 text-gray-800">
       <ReactMarkdown
@@ -758,6 +1353,11 @@ function MarkdownMessage({ content }: { content: string }) {
           code: ({ className, children }) => {
             const isBlock = Boolean(className);
             if (isBlock) {
+              const flowSpec = parseConversationFlowSpec(String(children));
+              if (flowSpec) {
+                return <ConversationKoduckFlowCanvas spec={flowSpec} />;
+              }
+
               return (
                 <code className="block overflow-x-auto rounded-xl bg-gray-100 px-4 py-3 font-mono text-sm leading-6 text-gray-900">
                   {children}
@@ -770,7 +1370,7 @@ function MarkdownMessage({ content }: { content: string }) {
               </code>
             );
           },
-          pre: ({ children }) => <pre className="mb-3 overflow-x-auto">{children}</pre>,
+          pre: ({ children }) => <>{children}</>,
           table: ({ children }) => (
             <div className="mb-3 overflow-x-auto">
               <table className="min-w-full border-collapse text-sm">{children}</table>
@@ -1401,6 +2001,10 @@ export function KoduckAi() {
           provider: selectedProvider,
           model: selectedModel,
           history: buildHistoryMessages(),
+          metadata: {
+            enablePlanCanvas: true,
+            planMode: "collaborative",
+          },
         }),
       });
 

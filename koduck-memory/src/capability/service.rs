@@ -12,17 +12,22 @@ use super::response_helpers;
 use super::rpc_helpers;
 use super::session_lookup;
 use crate::api::{
-    AppendMemoryRequest, AppendMemoryResponse, Capability, DeleteMemoryEntryRequest,
-    DeleteMemoryEntryResponse, DeleteSessionRequest, DeleteSessionResponse,
-    GetAllSessionIdsRequest,
+    AppendMemoryRequest, AppendMemoryResponse, AppendPlanEventRequest,
+    AppendPlanEventResponse, Capability, CreateEditProposalRequest,
+    CreateEditProposalResponse, CreatePlanRequest, CreatePlanResponse,
+    DeleteMemoryEntryRequest, DeleteMemoryEntryResponse, DeleteSessionRequest,
+    DeleteSessionResponse, GetAllSessionIdsRequest,
     GetCategoryCatalogRequest, GetCategoryCatalogResponse, GetSessionRequest,
+    GetLatestPlanSnapshotRequest, GetLatestPlanSnapshotResponse,
     GetSessionIdsByDomainClassRequest, GetSessionIdsByIntentTypeRequest,
     GetSessionIdsByNerRequest, GetSessionIdsLookupResponse, GetSessionResponse,
     GetSessionSummaryRequest, GetSessionSummaryResponse, GetSessionTranscriptRequest,
-    GetSessionTranscriptResponse, MemoryService,
-    QueryMemoryRequest, QueryMemoryResponse, RequestMeta, SessionTranscriptEntry,
-    SummarizeMemoryRequest, SummarizeMemoryResponse, UpsertSessionMetaRequest,
-    UpsertSessionMetaResponse,
+    GetSessionTranscriptResponse, ListPlanEventsRequest, ListPlanEventsResponse,
+    MemoryService, QueryMemoryRequest, QueryMemoryResponse, RequestMeta,
+    ReviewEditProposalRequest, ReviewEditProposalResponse, SavePlanArtifactRequest,
+    SavePlanArtifactResponse, SavePlanSnapshotRequest, SavePlanSnapshotResponse,
+    SessionTranscriptEntry, SummarizeMemoryRequest, SummarizeMemoryResponse,
+    UpsertSessionMetaRequest, UpsertSessionMetaResponse,
 };
 use crate::api::proto::memory::QueryIntent;
 use crate::config::AppConfig;
@@ -30,6 +35,10 @@ use crate::facts::MemoryFactRepository;
 use crate::memory::{IdempotencyRepository, MemoryEntryRepository};
 use crate::memory_anchor::MemoryUnitAnchorRepository;
 use crate::memory_unit::{MemoryUnitMaterializer, MemoryUnitRepository};
+use crate::plan::{
+    CreateEditProposal, CreatePlan, InsertPlanArtifact, InsertPlanEvent, PlanRepository,
+    ReviewEditProposal, SavePlanSnapshot,
+};
 use crate::summary::{MemorySummaryRepository, SummaryJob, SummaryTaskRunner};
 use crate::observe::{record_rpc_call, RpcMethod, RpcOutcome};
 use crate::observe::RpcGuard;
@@ -110,6 +119,10 @@ impl MemoryGrpcService {
 
     fn idempotency_repo(&self) -> IdempotencyRepository {
         IdempotencyRepository::new(self.runtime.pool())
+    }
+
+    fn plan_repo(&self) -> PlanRepository {
+        PlanRepository::new(self.runtime.pool())
     }
 
     async fn rebuild_session_units(
@@ -1176,6 +1189,403 @@ impl MemoryService for MemoryGrpcService {
             "summary task accepted for session {}",
             req.session_id
         )))
+    }
+
+    async fn create_plan(
+        &self,
+        request: Request<CreatePlanRequest>,
+    ) -> Result<Response<CreatePlanResponse>, Status> {
+        let req = request.get_ref();
+        let meta = request_meta::read_write_meta(req.meta.as_ref())?;
+        let session_id = parse_uuid(&req.session_id)
+            .map_err(|e| Status::invalid_argument(format!("invalid session_id: {e}")))?;
+        let plan_id = if req.plan_id.trim().is_empty() {
+            uuid::Uuid::new_v4()
+        } else {
+            parse_uuid(&req.plan_id)
+                .map_err(|e| Status::invalid_argument(format!("invalid plan_id: {e}")))?
+        };
+
+        let accepted = self
+            .idempotency_repo()
+            .try_record(
+                &meta.idempotency_key,
+                &meta.tenant_id,
+                session_id,
+                "create_plan",
+                &meta.request_id,
+            )
+            .await
+            .map_err(|e| Status::internal(format!("plan idempotency check failed: {e}")))?;
+        if !accepted {
+            return Ok(Response::new(CreatePlanResponse {
+                ok: false,
+                plan: None,
+                error: Some(response_helpers::error_detail(
+                    "IDEMPOTENT_REPLAY",
+                    "create plan request was already accepted".to_string(),
+                    false,
+                    false,
+                )),
+            }));
+        }
+
+        let plan = self
+            .plan_repo()
+            .create_plan(&CreatePlan {
+                plan_id,
+                tenant_id: meta.tenant_id.clone(),
+                session_id,
+                request_id: meta.request_id.clone(),
+                goal: req.goal.clone(),
+                status: if req.status.trim().is_empty() {
+                    "draft".to_string()
+                } else {
+                    req.status.clone()
+                },
+                created_by: if req.created_by.trim().is_empty() {
+                    Some(meta.user_id.clone())
+                } else {
+                    Some(req.created_by.clone())
+                },
+            })
+            .await
+            .map_err(|e| Status::internal(format!("failed to create plan: {e}")))?;
+
+        Ok(Response::new(CreatePlanResponse {
+            ok: true,
+            plan: Some(plan.to_proto()),
+            error: None,
+        }))
+    }
+
+    async fn append_plan_event(
+        &self,
+        request: Request<AppendPlanEventRequest>,
+    ) -> Result<Response<AppendPlanEventResponse>, Status> {
+        let req = request.get_ref();
+        let meta = request_meta::read_write_meta(req.meta.as_ref())?;
+        let session_id = parse_uuid(&req.session_id)
+            .map_err(|e| Status::invalid_argument(format!("invalid session_id: {e}")))?;
+        let plan_id = parse_uuid(&req.plan_id)
+            .map_err(|e| Status::invalid_argument(format!("invalid plan_id: {e}")))?;
+        let event_id = if req.event_id.trim().is_empty() {
+            uuid::Uuid::new_v4()
+        } else {
+            parse_uuid(&req.event_id)
+                .map_err(|e| Status::invalid_argument(format!("invalid event_id: {e}")))?
+        };
+        let payload_json = serde_json::from_str(&req.payload_json)
+            .map_err(|e| Status::invalid_argument(format!("invalid payload_json: {e}")))?;
+
+        let accepted = self
+            .idempotency_repo()
+            .try_record(
+                &meta.idempotency_key,
+                &meta.tenant_id,
+                session_id,
+                "append_plan_event",
+                &meta.request_id,
+            )
+            .await
+            .map_err(|e| Status::internal(format!("plan event idempotency check failed: {e}")))?;
+        if !accepted {
+            return Ok(Response::new(AppendPlanEventResponse {
+                ok: false,
+                event: None,
+                error: Some(response_helpers::error_detail(
+                    "IDEMPOTENT_REPLAY",
+                    "append plan event request was already accepted".to_string(),
+                    false,
+                    false,
+                )),
+            }));
+        }
+
+        let event = self
+            .plan_repo()
+            .append_event(&InsertPlanEvent {
+                event_id,
+                tenant_id: meta.tenant_id.clone(),
+                session_id,
+                plan_id,
+                sequence_num: req.sequence_num,
+                event_type: req.event_type.clone(),
+                payload_json,
+            })
+            .await
+            .map_err(|e| Status::internal(format!("failed to append plan event: {e}")))?;
+
+        Ok(Response::new(AppendPlanEventResponse {
+            ok: true,
+            event: Some(event.to_proto()),
+            error: None,
+        }))
+    }
+
+    async fn list_plan_events(
+        &self,
+        request: Request<ListPlanEventsRequest>,
+    ) -> Result<Response<ListPlanEventsResponse>, Status> {
+        let req = request.get_ref();
+        let meta = request_meta::read_meta(req.meta.as_ref())?;
+        let session_id = parse_uuid(&req.session_id)
+            .map_err(|e| Status::invalid_argument(format!("invalid session_id: {e}")))?;
+        let plan_id = parse_uuid(&req.plan_id)
+            .map_err(|e| Status::invalid_argument(format!("invalid plan_id: {e}")))?;
+
+        let events = self
+            .plan_repo()
+            .list_events(&meta.tenant_id, session_id, plan_id)
+            .await
+            .map_err(|e| Status::internal(format!("failed to list plan events: {e}")))?
+            .into_iter()
+            .map(|event| event.to_proto())
+            .collect();
+
+        Ok(Response::new(ListPlanEventsResponse {
+            ok: true,
+            events,
+            error: None,
+        }))
+    }
+
+    async fn save_plan_snapshot(
+        &self,
+        request: Request<SavePlanSnapshotRequest>,
+    ) -> Result<Response<SavePlanSnapshotResponse>, Status> {
+        let req = request.get_ref();
+        let meta = request_meta::read_write_meta(req.meta.as_ref())?;
+        let session_id = parse_uuid(&req.session_id)
+            .map_err(|e| Status::invalid_argument(format!("invalid session_id: {e}")))?;
+        let plan_id = parse_uuid(&req.plan_id)
+            .map_err(|e| Status::invalid_argument(format!("invalid plan_id: {e}")))?;
+        let snapshot_id = if req.snapshot_id.trim().is_empty() {
+            uuid::Uuid::new_v4()
+        } else {
+            parse_uuid(&req.snapshot_id)
+                .map_err(|e| Status::invalid_argument(format!("invalid snapshot_id: {e}")))?
+        };
+        let state_json = serde_json::from_str(&req.state_json)
+            .map_err(|e| Status::invalid_argument(format!("invalid state_json: {e}")))?;
+
+        let snapshot = self
+            .plan_repo()
+            .save_snapshot(&SavePlanSnapshot {
+                snapshot_id,
+                tenant_id: meta.tenant_id.clone(),
+                session_id,
+                plan_id,
+                version: req.version,
+                state_json,
+            })
+            .await
+            .map_err(|e| Status::internal(format!("failed to save plan snapshot: {e}")))?;
+
+        Ok(Response::new(SavePlanSnapshotResponse {
+            ok: true,
+            snapshot: Some(snapshot.to_proto()),
+            error: None,
+        }))
+    }
+
+    async fn get_latest_plan_snapshot(
+        &self,
+        request: Request<GetLatestPlanSnapshotRequest>,
+    ) -> Result<Response<GetLatestPlanSnapshotResponse>, Status> {
+        let req = request.get_ref();
+        let meta = request_meta::read_meta(req.meta.as_ref())?;
+        let session_id = parse_uuid(&req.session_id)
+            .map_err(|e| Status::invalid_argument(format!("invalid session_id: {e}")))?;
+        let plan_id = parse_uuid(&req.plan_id)
+            .map_err(|e| Status::invalid_argument(format!("invalid plan_id: {e}")))?;
+
+        let snapshot = self
+            .plan_repo()
+            .get_latest_snapshot(&meta.tenant_id, session_id, plan_id)
+            .await
+            .map_err(|e| Status::internal(format!("failed to get latest plan snapshot: {e}")))?
+            .map(|snapshot| snapshot.to_proto());
+
+        Ok(Response::new(GetLatestPlanSnapshotResponse {
+            ok: snapshot.is_some(),
+            snapshot,
+            error: None,
+        }))
+    }
+
+    async fn save_plan_artifact(
+        &self,
+        request: Request<SavePlanArtifactRequest>,
+    ) -> Result<Response<SavePlanArtifactResponse>, Status> {
+        let req = request.get_ref();
+        let meta = request_meta::read_write_meta(req.meta.as_ref())?;
+        let session_id = parse_uuid(&req.session_id)
+            .map_err(|e| Status::invalid_argument(format!("invalid session_id: {e}")))?;
+        let plan_id = parse_uuid(&req.plan_id)
+            .map_err(|e| Status::invalid_argument(format!("invalid plan_id: {e}")))?;
+        let artifact_id = if req.artifact_id.trim().is_empty() {
+            uuid::Uuid::new_v4()
+        } else {
+            parse_uuid(&req.artifact_id)
+                .map_err(|e| Status::invalid_argument(format!("invalid artifact_id: {e}")))?
+        };
+        let content_json = if req.content_json.trim().is_empty() {
+            None
+        } else {
+            Some(
+                serde_json::from_str(&req.content_json)
+                    .map_err(|e| Status::invalid_argument(format!("invalid content_json: {e}")))?,
+            )
+        };
+
+        let artifact = self
+            .plan_repo()
+            .save_artifact(&InsertPlanArtifact {
+                artifact_id,
+                tenant_id: meta.tenant_id.clone(),
+                session_id,
+                plan_id,
+                node_id: if req.node_id.trim().is_empty() {
+                    None
+                } else {
+                    Some(req.node_id.clone())
+                },
+                artifact_type: req.artifact_type.clone(),
+                content_json,
+                object_uri: if req.object_uri.trim().is_empty() {
+                    None
+                } else {
+                    Some(req.object_uri.clone())
+                },
+            })
+            .await
+            .map_err(|e| Status::internal(format!("failed to save plan artifact: {e}")))?;
+
+        Ok(Response::new(SavePlanArtifactResponse {
+            ok: true,
+            artifact: Some(artifact.to_proto()),
+            error: None,
+        }))
+    }
+
+    async fn create_edit_proposal(
+        &self,
+        request: Request<CreateEditProposalRequest>,
+    ) -> Result<Response<CreateEditProposalResponse>, Status> {
+        let req = request.get_ref();
+        let meta = request_meta::read_write_meta(req.meta.as_ref())?;
+        let session_id = parse_uuid(&req.session_id)
+            .map_err(|e| Status::invalid_argument(format!("invalid session_id: {e}")))?;
+        let plan_id = parse_uuid(&req.plan_id)
+            .map_err(|e| Status::invalid_argument(format!("invalid plan_id: {e}")))?;
+        let proposal_id = if req.proposal_id.trim().is_empty() {
+            uuid::Uuid::new_v4()
+        } else {
+            parse_uuid(&req.proposal_id)
+                .map_err(|e| Status::invalid_argument(format!("invalid proposal_id: {e}")))?
+        };
+        let before_json = if req.before_json.trim().is_empty() {
+            None
+        } else {
+            Some(
+                serde_json::from_str(&req.before_json)
+                    .map_err(|e| Status::invalid_argument(format!("invalid before_json: {e}")))?,
+            )
+        };
+        let after_json = serde_json::from_str(&req.after_json)
+            .map_err(|e| Status::invalid_argument(format!("invalid after_json: {e}")))?;
+
+        let proposal = self
+            .plan_repo()
+            .create_proposal(&CreateEditProposal {
+                proposal_id,
+                tenant_id: meta.tenant_id.clone(),
+                session_id,
+                plan_id,
+                node_id: if req.node_id.trim().is_empty() {
+                    None
+                } else {
+                    Some(req.node_id.clone())
+                },
+                target_kind: req.target_kind.clone(),
+                operation: req.operation.clone(),
+                target_ref: if req.target_ref.trim().is_empty() {
+                    None
+                } else {
+                    Some(req.target_ref.clone())
+                },
+                before_json,
+                after_json,
+                reason: if req.reason.trim().is_empty() {
+                    None
+                } else {
+                    Some(req.reason.clone())
+                },
+                confidence: if req.confidence <= 0.0 {
+                    None
+                } else {
+                    Some(req.confidence)
+                },
+                created_by: if req.created_by.trim().is_empty() {
+                    Some(meta.user_id.clone())
+                } else {
+                    Some(req.created_by.clone())
+                },
+            })
+            .await
+            .map_err(|e| Status::internal(format!("failed to create edit proposal: {e}")))?;
+
+        Ok(Response::new(CreateEditProposalResponse {
+            ok: true,
+            proposal: Some(proposal.to_proto()),
+            error: None,
+        }))
+    }
+
+    async fn review_edit_proposal(
+        &self,
+        request: Request<ReviewEditProposalRequest>,
+    ) -> Result<Response<ReviewEditProposalResponse>, Status> {
+        let req = request.get_ref();
+        let meta = request_meta::read_write_meta(req.meta.as_ref())?;
+        let session_id = parse_uuid(&req.session_id)
+            .map_err(|e| Status::invalid_argument(format!("invalid session_id: {e}")))?;
+        let proposal_id = parse_uuid(&req.proposal_id)
+            .map_err(|e| Status::invalid_argument(format!("invalid proposal_id: {e}")))?;
+        let after_json = if req.after_json.trim().is_empty() {
+            None
+        } else {
+            Some(
+                serde_json::from_str(&req.after_json)
+                    .map_err(|e| Status::invalid_argument(format!("invalid after_json: {e}")))?,
+            )
+        };
+
+        let proposal = self
+            .plan_repo()
+            .review_proposal(&ReviewEditProposal {
+                tenant_id: meta.tenant_id.clone(),
+                session_id,
+                proposal_id,
+                status: req.status.clone(),
+                reviewed_by: if req.reviewed_by.trim().is_empty() {
+                    meta.user_id.clone()
+                } else {
+                    req.reviewed_by.clone()
+                },
+                after_json,
+                applied: req.applied,
+            })
+            .await
+            .map_err(|e| Status::internal(format!("failed to review edit proposal: {e}")))?
+            .map(|proposal| proposal.to_proto());
+
+        Ok(Response::new(ReviewEditProposalResponse {
+            ok: proposal.is_some(),
+            proposal,
+            error: None,
+        }))
     }
 
     async fn delete_session(

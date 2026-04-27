@@ -9,6 +9,7 @@ pub mod memory_anchor;
 pub mod memory;
 pub mod memory_unit;
 pub mod observe;
+pub mod plan;
 pub mod reliability;
 pub mod retrieve;
 pub mod session;

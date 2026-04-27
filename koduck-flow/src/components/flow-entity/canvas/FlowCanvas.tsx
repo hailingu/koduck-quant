@@ -173,11 +173,68 @@ interface CanvasContentProps {
   selectedEdgeIds: Set<string>;
   showGrid: boolean;
   gridPattern?: Partial<GridPattern>;
+  readOnly?: boolean;
   renderNode?: (props: NodeRenderProps) => ReactNode;
   renderEdge?: (props: EdgeRenderProps) => ReactNode;
   onCanvasClick?: (position: Position, event: ReactMouseEvent) => void;
   onCanvasDoubleClick?: (position: Position, event: ReactMouseEvent) => void;
+  onNodeSelect?: (nodeIds: string[]) => void;
+  onEdgeSelect?: (edgeIds: string[]) => void;
+  onNodeMove?: (nodeId: string, position: Position) => void;
+  onEdgeDelete?: (edgeId: string) => void;
   children?: ReactNode;
+}
+
+function resolveNodePortPosition(
+  node: IFlowNodeEntityData,
+  portId: string,
+  direction: "input" | "output"
+): Position {
+  const nodeX = node.position?.x ?? 0;
+  const nodeY = node.position?.y ?? 0;
+  const nodeWidth = node.size?.width ?? 200;
+  const nodeHeight = node.size?.height ?? 100;
+  const config = (node.config ?? {}) as Record<string, unknown>;
+  const portAnchors = config.portAnchors as Record<string, unknown> | undefined;
+  const anchor = portAnchors?.[portId];
+
+  if (typeof anchor === "object" && anchor !== null) {
+    const record = anchor as Record<string, unknown>;
+    const side = record.side === "left" ||
+      record.side === "right" ||
+      record.side === "top" ||
+      record.side === "bottom"
+      ? record.side
+      : direction === "input"
+        ? "left"
+        : "right";
+    const x = typeof record.x === "number" ? record.x : undefined;
+    const y = typeof record.y === "number" ? record.y : undefined;
+
+    if (side === "left") {
+      return { x: nodeX + (x ?? 0), y: nodeY + (y ?? nodeHeight / 2) };
+    }
+    if (side === "right") {
+      return { x: nodeX + (x ?? nodeWidth), y: nodeY + (y ?? nodeHeight / 2) };
+    }
+    if (side === "top") {
+      return { x: nodeX + (x ?? nodeWidth / 2), y: nodeY + (y ?? 0) };
+    }
+    return { x: nodeX + (x ?? nodeWidth / 2), y: nodeY + (y ?? nodeHeight) };
+  }
+
+  const ports = direction === "input" ? node.inputPorts ?? [] : node.outputPorts ?? [];
+  const index = Math.max(
+    0,
+    ports.findIndex((port) => port.id === portId)
+  );
+  const total = Math.max(ports.length, 1);
+  const portY = (nodeHeight / (total + 1)) * (index + 1);
+
+  return {
+    x: nodeX + (direction === "input" ? 0 : nodeWidth),
+    y: nodeY + portY,
+  };
 }
 
 const CanvasContent: React.FC<CanvasContentProps> = ({
@@ -187,10 +244,15 @@ const CanvasContent: React.FC<CanvasContentProps> = ({
   selectedEdgeIds,
   showGrid,
   gridPattern,
+  readOnly = false,
   renderNode,
   renderEdge,
   onCanvasClick,
   onCanvasDoubleClick,
+  onNodeSelect,
+  onEdgeSelect,
+  onNodeMove,
+  onEdgeDelete,
   children,
 }) => {
   const viewport = useViewportOptional();
@@ -304,23 +366,38 @@ const CanvasContent: React.FC<CanvasContentProps> = ({
 
                 if (!sourceNode || !targetNode) return null;
 
-                // Calculate port positions (simplified - in real implementation would use port system)
-                const sourcePosition: Position = {
-                  x: (sourceNode.position?.x ?? 0) + (sourceNode.size?.width ?? 200),
-                  y: (sourceNode.position?.y ?? 0) + (sourceNode.size?.height ?? 100) / 2,
-                };
-                const targetPosition: Position = {
-                  x: targetNode.position?.x ?? 0,
-                  y: (targetNode.position?.y ?? 0) + (targetNode.size?.height ?? 100) / 2,
-                };
+                const sourcePosition = resolveNodePortPosition(
+                  sourceNode,
+                  edge.sourcePortId,
+                  "output"
+                );
+                const targetPosition = resolveNodePortPosition(
+                  targetNode,
+                  edge.targetPortId,
+                  "input"
+                );
 
                 return (
-                  <g key={edge.id} data-edge-id={edge.id}>
-                    {renderEdge({
-                      edge,
-                      sourcePosition,
-                      targetPosition,
-                      selected: selectedEdgeIds.has(edge.id),
+                    <g
+                      key={edge.id}
+                      data-edge-id={edge.id}
+                      style={{ pointerEvents: "auto", cursor: readOnly ? "default" : "pointer" }}
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        onEdgeSelect?.([edge.id]);
+                      }}
+                      onDoubleClick={(event) => {
+                        event.stopPropagation();
+                        if (!readOnly) {
+                          onEdgeDelete?.(edge.id);
+                        }
+                      }}
+                    >
+                      {renderEdge({
+                        edge,
+                        sourcePosition,
+                        targetPosition,
+                        selected: selectedEdgeIds.has(edge.id),
                     })}
                   </g>
                 );
@@ -344,22 +421,15 @@ const CanvasContent: React.FC<CanvasContentProps> = ({
           {nodes.map((node) => {
             if (renderNode) {
               return (
-                <div
+                <CanvasNodeContainer
                   key={node.id}
-                  data-node-id={node.id}
-                  style={{
-                    position: "absolute",
-                    left: node.position?.x ?? 0,
-                    top: node.position?.y ?? 0,
-                    width: node.size?.width,
-                    height: node.size?.height,
-                  }}
-                >
-                  {renderNode({
-                    node,
-                    selected: selectedNodeIds.has(node.id),
-                  })}
-                </div>
+                  node={node}
+                  selected={selectedNodeIds.has(node.id)}
+                  readOnly={readOnly}
+                  onNodeSelect={onNodeSelect}
+                  onNodeMove={onNodeMove}
+                  renderNode={renderNode}
+                />
               );
             }
             return null;
@@ -374,6 +444,100 @@ const CanvasContent: React.FC<CanvasContentProps> = ({
 };
 
 CanvasContent.displayName = "CanvasContent";
+
+interface CanvasNodeContainerProps {
+  node: IFlowNodeEntityData;
+  selected: boolean;
+  readOnly: boolean;
+  onNodeSelect?: (nodeIds: string[]) => void;
+  onNodeMove?: (nodeId: string, position: Position) => void;
+  renderNode: (props: NodeRenderProps) => ReactNode;
+}
+
+const CanvasNodeContainer: React.FC<CanvasNodeContainerProps> = ({
+  node,
+  selected,
+  readOnly,
+  onNodeSelect,
+  onNodeMove,
+  renderNode,
+}) => {
+  const dragRef = useRef<{
+    pointerStart: Position;
+    nodeStart: Position;
+    dragging: boolean;
+  } | null>(null);
+
+  const handleMouseDown = useCallback(
+    (event: ReactMouseEvent<HTMLDivElement>) => {
+      if (event.button !== 0) {
+        return;
+      }
+
+      event.stopPropagation();
+      onNodeSelect?.([node.id]);
+
+      if (readOnly || !onNodeMove) {
+        return;
+      }
+
+      event.preventDefault();
+      dragRef.current = {
+        pointerStart: { x: event.clientX, y: event.clientY },
+        nodeStart: {
+          x: node.position?.x ?? 0,
+          y: node.position?.y ?? 0,
+        },
+        dragging: true,
+      };
+
+      const handleMouseMove = (moveEvent: MouseEvent) => {
+        const drag = dragRef.current;
+        if (!drag?.dragging) {
+          return;
+        }
+
+        onNodeMove(node.id, {
+          x: drag.nodeStart.x + moveEvent.clientX - drag.pointerStart.x,
+          y: drag.nodeStart.y + moveEvent.clientY - drag.pointerStart.y,
+        });
+      };
+
+      const handleMouseUp = () => {
+        dragRef.current = null;
+        window.removeEventListener("mousemove", handleMouseMove);
+        window.removeEventListener("mouseup", handleMouseUp);
+      };
+
+      window.addEventListener("mousemove", handleMouseMove);
+      window.addEventListener("mouseup", handleMouseUp);
+    },
+    [node, onNodeMove, onNodeSelect, readOnly]
+  );
+
+  return (
+    <div
+      data-node-id={node.id}
+      style={{
+        position: "absolute",
+        left: node.position?.x ?? 0,
+        top: node.position?.y ?? 0,
+        width: node.size?.width,
+        height: node.size?.height,
+        cursor: readOnly ? "default" : "grab",
+        userSelect: readOnly ? undefined : "none",
+      }}
+      onMouseDown={handleMouseDown}
+    >
+      {renderNode({
+        node,
+        selected,
+      })}
+    </div>
+  );
+};
+
+CanvasNodeContainer.displayName = "CanvasNodeContainer";
 
 // =============================================================================
 // Main Component
@@ -547,10 +711,15 @@ export const FlowCanvas: React.FC<FlowCanvasProps> = ({
           selectedEdgeIds={selectedEdgeSet}
           showGrid={showGrid}
           gridPattern={gridPattern}
+          readOnly={readOnly}
           renderNode={renderNode}
           renderEdge={renderEdge}
           onCanvasClick={onCanvasClick}
           onCanvasDoubleClick={onCanvasDoubleClick}
+          onNodeSelect={onNodeSelect}
+          onEdgeSelect={onEdgeSelect}
+          onNodeMove={onNodeMove}
+          onEdgeDelete={onEdgeDelete}
         >
           {children}
         </CanvasContent>

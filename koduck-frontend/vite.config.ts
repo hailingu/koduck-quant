@@ -14,6 +14,7 @@ export default defineConfig({
     alias: {
       // Alias @ to the src directory
       '@': path.resolve(__dirname, './src'),
+      '@koduck-flow': path.resolve(__dirname, '../koduck-flow/src/components/flow-entity'),
     },
   },
   build: {

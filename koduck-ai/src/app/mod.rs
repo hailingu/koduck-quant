@@ -193,6 +193,10 @@ pub fn create_router(state: Arc<AppState>) -> Router {
             "/api/v1/ai/sessions/{session_id}/entries/{entry_id}",
             delete(api::delete_memory_entry),
         )
+        .route(
+            "/api/v1/ai/sessions/{session_id}/plans/{plan_id}/events",
+            post(api::post_plan_event),
+        )
         .route("/api/v1/ai/chat/stream", post(api::chat_stream))
         .route("/healthz", get(health_handler))
         .fallback(api::http_fallback)

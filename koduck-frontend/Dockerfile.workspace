@@ -1,0 +1,44 @@
+# ==========================================
+# Koduck Frontend Dockerfile (workspace context)
+# Builds koduck-frontend with sibling koduck-flow sources available.
+# Use from repository root:
+#   docker build -f koduck-frontend/Dockerfile.workspace -t koduck-frontend:dev .
+# ==========================================
+
+FROM node:20-alpine AS builder
+
+WORKDIR /app/koduck-frontend
+
+COPY koduck-frontend/package*.json ./
+RUN npm ci
+
+COPY koduck-frontend ./
+COPY koduck-flow /app/koduck-flow
+
+ARG VITE_API_BASE_URL=/api
+ENV VITE_API_BASE_URL=${VITE_API_BASE_URL}
+
+RUN npm run build
+
+FROM nginx:alpine
+
+RUN apk add --no-cache curl
+
+COPY koduck-frontend/nginx.conf /etc/nginx/nginx.conf
+COPY koduck-frontend/default.conf /etc/nginx/conf.d/default.conf
+COPY koduck-frontend/entrypoint.sh /usr/local/bin/koduck-entrypoint.sh
+
+ENV NGINX_ENTRYPOINT_WORKER_PROCESSES_AUTOTUNE=
+
+COPY --from=builder /app/koduck-frontend/dist /usr/share/nginx/html
+
+RUN chown -R nginx:nginx /usr/share/nginx/html && \
+    chmod -R 755 /usr/share/nginx/html && \
+    chmod +x /usr/local/bin/koduck-entrypoint.sh
+
+EXPOSE 80
+
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD curl -f http://localhost/ || exit 1
+
+ENTRYPOINT ["/usr/local/bin/koduck-entrypoint.sh"]
