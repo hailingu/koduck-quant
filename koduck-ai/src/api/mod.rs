@@ -234,6 +234,110 @@ struct ToolResolutionResult {
     direct_response: Option<crate::llm::GenerateResponse>,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum ActionIntent {
+    Answer,
+    Query,
+    Research,
+    Plan,
+    Summarize,
+}
+
+impl ActionIntent {
+    fn as_str(self) -> &'static str {
+        match self {
+            Self::Answer => "answer",
+            Self::Query => "query",
+            Self::Research => "research",
+            Self::Plan => "plan",
+            Self::Summarize => "summarize",
+        }
+    }
+
+    fn from_str(value: &str) -> Self {
+        match value.trim() {
+            "query" => Self::Query,
+            "research" => Self::Research,
+            "plan" => Self::Plan,
+            "summarize" => Self::Summarize,
+            _ => Self::Answer,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum TargetIntent {
+    None,
+    Knowledge,
+    Memory,
+    Conversation,
+}
+
+impl TargetIntent {
+    fn as_str(self) -> &'static str {
+        match self {
+            Self::None => "none",
+            Self::Knowledge => "knowledge",
+            Self::Memory => "memory",
+            Self::Conversation => "conversation",
+        }
+    }
+
+    fn from_str(value: &str) -> Self {
+        match value.trim() {
+            "knowledge" => Self::Knowledge,
+            "memory" => Self::Memory,
+            "conversation" => Self::Conversation,
+            _ => Self::None,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum PresentationIntent {
+    Text,
+    Table,
+    FlowCanvas,
+    Json,
+}
+
+impl PresentationIntent {
+    fn as_str(self) -> &'static str {
+        match self {
+            Self::Text => "text",
+            Self::Table => "table",
+            Self::FlowCanvas => "flow_canvas",
+            Self::Json => "json",
+        }
+    }
+
+    fn from_str(value: &str) -> Self {
+        match value.trim() {
+            "table" => Self::Table,
+            "flow_canvas" => Self::FlowCanvas,
+            "json" => Self::Json,
+            _ => Self::Text,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct ExecutionIntent {
+    action: ActionIntent,
+    target: TargetIntent,
+    presentation: PresentationIntent,
+}
+
+impl Default for ExecutionIntent {
+    fn default() -> Self {
+        Self {
+            action: ActionIntent::Answer,
+            target: TargetIntent::None,
+            presentation: PresentationIntent::Text,
+        }
+    }
+}
+
 enum StreamLlmPlan {
     Upstream(crate::llm::ProviderEventStream),
     ReadyAnswer(String),
@@ -371,10 +475,9 @@ pub async fn chat(
     let memory_snapshot =
         load_memory_snapshot(&state, DegradeRoute::Chat, &request, &memory_ctx).await;
 
-    let response = match call_llm_generate(
+    let execution_intent = match classify_execution_intent(
         &state,
         &request,
-        &memory_snapshot,
         &request_id,
         &session_id,
         &auth_ctx,
@@ -382,8 +485,41 @@ pub async fn chat(
     )
     .await
     {
-        Ok(ok) => ok,
+        Ok(intent) => intent,
         Err(err) => return api_error_response(err, request_id),
+    };
+    let request = request_with_execution_intent(&request, execution_intent);
+
+    let response = if let Some(answer) =
+        build_current_memory_entries_flow_answer(&state, &memory_ctx, &request).await
+    {
+        ChatResponse {
+            request_id: request_id.clone(),
+            session_id: session_id.clone(),
+            answer,
+            model: request.model.clone().unwrap_or_else(|| "koduck-ai".to_string()),
+            usage: TokenUsage {
+                prompt_tokens: 0,
+                completion_tokens: 0,
+                total_tokens: 0,
+            },
+            degraded: false,
+        }
+    } else {
+        match call_llm_generate(
+            &state,
+            &request,
+            &memory_snapshot,
+            &request_id,
+            &session_id,
+            &auth_ctx,
+            &trace_id,
+        )
+        .await
+        {
+            Ok(ok) => ok,
+            Err(err) => return api_error_response(err, request_id),
+        }
     };
 
     append_chat_turn_best_effort(
@@ -493,15 +629,31 @@ pub async fn chat_stream(
     };
 
     if !resume_cursor.is_resume() {
+        let execution_intent = match classify_execution_intent(
+            &state,
+            &request.chat,
+            &request_id,
+            &session_id,
+            &auth_ctx,
+            &trace_id,
+        )
+        .await
+        {
+            Ok(intent) => intent,
+            Err(err) => return api_error_response(err, request_id),
+        };
+        let chat_request = request_with_execution_intent(&request.chat, execution_intent);
         let generation_guard = session.request_guard().await;
-        let plan_completion = if plan_canvas_enabled(&request.chat) {
+        let plan_completion = if flow_canvas_output_requested(&chat_request)
+            && !memory_entry_flow_requested(&chat_request)
+        {
             let orchestrator = PlanOrchestrator::new(
                 auth_ctx.tenant_id.clone(),
                 session_id.clone(),
                 request_id.clone(),
             );
             let plan = orchestrator.create_minimal_plan(
-                request.chat.message.clone(),
+                chat_request.message.clone(),
                 Some(auth_ctx.user_id.clone()),
             );
             let mut plan_events = Vec::new();
@@ -557,7 +709,7 @@ pub async fn chat_stream(
         let stream_timeout = Duration::from_millis(state.config.stream.max_duration_ms);
         let llm_plan = match call_llm_stream(
             &state,
-            &request.chat,
+            &chat_request,
             memory_snapshot.as_ref(),
             &request_id,
             &session_id,
@@ -575,9 +727,9 @@ pub async fn chat_stream(
                         &state,
                         DegradeRoute::ChatStream,
                         &memory_ctx,
-                        &request.chat,
+                        &chat_request,
                         &answer,
-                        request.chat.model.as_deref().unwrap_or_default(),
+                        chat_request.model.as_deref().unwrap_or_default(),
                         "append_memory failed after direct tool-free response; continuing with generated stream",
                     )
                     .await;
@@ -621,7 +773,7 @@ pub async fn chat_stream(
                     let guard = generation_guard.clone();
                     let append_state = Arc::clone(&state);
                     let append_ctx = memory_ctx.clone();
-                    let append_request = request.chat.clone();
+                    let append_request = chat_request.clone();
                     let plan_completion = plan_completion.clone();
                     tokio::spawn(async move {
                         let mut plan_completion = plan_completion;
@@ -1649,24 +1801,307 @@ fn plan_canvas_enabled(request: &ChatRequest) -> bool {
         .unwrap_or(false)
 }
 
+fn request_execution_intent(request: &ChatRequest) -> ExecutionIntent {
+    let Some(metadata) = request.metadata.as_ref() else {
+        return ExecutionIntent::default();
+    };
+
+    ExecutionIntent {
+        action: metadata
+            .get("actionIntent")
+            .and_then(|value| value.as_str())
+            .map(ActionIntent::from_str)
+            .unwrap_or(ActionIntent::Answer),
+        target: metadata
+            .get("targetIntent")
+            .and_then(|value| value.as_str())
+            .map(TargetIntent::from_str)
+            .unwrap_or(TargetIntent::None),
+        presentation: metadata
+            .get("presentationIntent")
+            .and_then(|value| value.as_str())
+            .map(PresentationIntent::from_str)
+            .unwrap_or(PresentationIntent::Text),
+    }
+}
+
+fn request_has_execution_intent(request: &ChatRequest) -> bool {
+    request.metadata.as_ref().is_some_and(|metadata| {
+        metadata.contains_key("actionIntent")
+            || metadata.contains_key("targetIntent")
+            || metadata.contains_key("presentationIntent")
+    })
+}
+
+fn request_with_execution_intent(
+    request: &ChatRequest,
+    intent: ExecutionIntent,
+) -> ChatRequest {
+    let mut request = request.clone();
+    let mut metadata = request.metadata.take().unwrap_or_default();
+    metadata.insert(
+        "actionIntent".to_string(),
+        serde_json::Value::String(intent.action.as_str().to_string()),
+    );
+    metadata.insert(
+        "targetIntent".to_string(),
+        serde_json::Value::String(intent.target.as_str().to_string()),
+    );
+    metadata.insert(
+        "presentationIntent".to_string(),
+        serde_json::Value::String(intent.presentation.as_str().to_string()),
+    );
+    request.metadata = Some(metadata);
+    request
+}
+
 fn flow_canvas_output_requested(request: &ChatRequest) -> bool {
     if !plan_canvas_enabled(request) {
         return false;
     }
 
-    let message = request.message.to_lowercase();
-    [
-        "flow",
-        "canvas",
-        "流程图",
-        "可编辑",
-        "节点",
-        "拆解成",
-        "研究步骤",
-        "人工确认",
-    ]
-    .iter()
-    .any(|keyword| message.contains(keyword))
+    request_execution_intent(request).presentation == PresentationIntent::FlowCanvas
+}
+
+fn memory_entry_flow_requested(request: &ChatRequest) -> bool {
+    if !plan_canvas_enabled(request) {
+        return false;
+    }
+
+    let intent = request_execution_intent(request);
+    intent.target == TargetIntent::Memory && intent.presentation == PresentationIntent::FlowCanvas
+}
+
+fn parse_execution_intent_response(content: &str) -> ExecutionIntent {
+    let trimmed = content.trim();
+    let json_text = if trimmed.starts_with('{') {
+        trimmed
+    } else if let (Some(start), Some(end)) = (trimmed.find('{'), trimmed.rfind('}')) {
+        &trimmed[start..=end]
+    } else {
+        return ExecutionIntent::default();
+    };
+
+    serde_json::from_str::<serde_json::Value>(json_text)
+        .ok()
+        .map(|value| {
+            let action = value
+                .get("actionIntent")
+                .or_else(|| value.get("action"))
+                .and_then(|intent| intent.as_str())
+                .map(ActionIntent::from_str)
+                .unwrap_or(ActionIntent::Answer);
+            let target = value
+                .get("targetIntent")
+                .or_else(|| value.get("target"))
+                .and_then(|intent| intent.as_str())
+                .map(TargetIntent::from_str)
+                .unwrap_or(TargetIntent::None);
+            let presentation = value
+                .get("presentationIntent")
+                .or_else(|| value.get("presentation"))
+                .and_then(|intent| intent.as_str())
+                .map(PresentationIntent::from_str)
+                .unwrap_or(PresentationIntent::Text);
+
+            ExecutionIntent {
+                action,
+                target,
+                presentation,
+            }
+        })
+        .unwrap_or_default()
+}
+
+async fn classify_execution_intent(
+    state: &Arc<AppState>,
+    request: &ChatRequest,
+    request_id: &str,
+    session_id: &str,
+    auth_ctx: &AuthContext,
+    trace_id: &str,
+) -> Result<ExecutionIntent, AppError> {
+    if !plan_canvas_enabled(request) {
+        return Ok(ExecutionIntent::default());
+    }
+
+    if request_has_execution_intent(request) {
+        return Ok(request_execution_intent(request));
+    }
+
+    let mut user_context = String::new();
+    if let Some(history) = request.history.as_ref() {
+        for item in history.iter().rev().take(8).rev() {
+            user_context.push_str(item.role.trim());
+            user_context.push_str(": ");
+            user_context.push_str(item.content.trim());
+            user_context.push('\n');
+        }
+    }
+    user_context.push_str("user: ");
+    user_context.push_str(request.message.trim());
+
+    let classifier_request = ProviderGenerateRequest {
+        meta: RequestContext {
+            request_id: format!("{}:execution-intent", request_id),
+            session_id: session_id.to_string(),
+            user_id: auth_ctx.user_id.clone(),
+            trace_id: trace_id.to_string(),
+            deadline_ms: state.config.llm.timeout_ms,
+        },
+        provider: request.provider.clone().unwrap_or_default(),
+        model: request.model.clone().unwrap_or_default(),
+        messages: vec![
+            ProviderChatMessage {
+                role: "system".to_string(),
+                content: r#"你是 koduck-ai 的 execution intent router。你的任务是把当前用户请求拆成三个独立维度：动作、目标、表现形式。
+只输出 JSON 对象，不要输出解释。JSON schema:
+{"actionIntent":"answer|query|research|plan|summarize","targetIntent":"none|knowledge|memory|conversation","presentationIntent":"text|table|flow_canvas|json","confidence":0.0}
+
+判定标准:
+- actionIntent=answer: 直接回答、解释、说明。
+- actionIntent=query: 查询或展示已有信息。
+- actionIntent=research: 需要研究、分析、综合判断。
+- actionIntent=plan: 生成计划、步骤、执行方案、工作流。
+- actionIntent=summarize: 总结已有内容。
+- targetIntent=memory: 目标是 memory entry、记忆条目、当前会话记忆、聊天 memory。
+- targetIntent=knowledge: 目标是知识库、领域知识、资料。
+- targetIntent=conversation: 目标是当前对话、聊天记录、上下文。
+- targetIntent=none: 没有明确外部目标。
+- presentationIntent=flow_canvas: 用户明确希望以 flow、canvas、流程图、节点图、可编辑流程展示。
+- presentationIntent=table: 用户明确要求表格。
+- presentationIntent=json: 用户明确要求 JSON。
+- presentationIntent=text: 默认文本表达。
+"#.to_string(),
+                name: String::new(),
+                metadata: HashMap::new(),
+            },
+            ProviderChatMessage {
+                role: "user".to_string(),
+                content: user_context,
+                name: String::new(),
+                metadata: HashMap::new(),
+            },
+        ],
+        temperature: 0.0,
+        top_p: 1.0,
+        max_tokens: 80,
+        tools: Vec::new(),
+        response_format: "json_object".to_string(),
+    };
+
+    match state.llm_provider.generate(classifier_request).await {
+        Ok(response) => Ok(parse_execution_intent_response(&response.message.content)),
+        Err(err) => Err(err),
+    }
+}
+
+fn flow_safe_snippet(content: &str) -> String {
+    const MAX_CHARS: usize = 800;
+    let normalized = content
+        .split_whitespace()
+        .collect::<Vec<_>>()
+        .join(" ");
+    let mut snippet = normalized.chars().take(MAX_CHARS).collect::<String>();
+    if normalized.chars().count() > MAX_CHARS {
+        snippet.push('…');
+    }
+    snippet
+}
+
+fn build_memory_entry_flow_json(
+    entries: Vec<(String, String, String, i64, i64)>,
+) -> String {
+    let mut previous_id: Option<String> = None;
+    let steps = entries
+        .into_iter()
+        .filter(|(_, role, content, _, _)| {
+            matches!(role.as_str(), "user" | "assistant") && !content.trim().is_empty()
+        })
+        .enumerate()
+        .map(|(index, (entry_id, role, content, timestamp, sequence_num))| {
+            let id = if entry_id.trim().is_empty() {
+                format!("entry_{}", index + 1)
+            } else {
+                format!("entry_{}", entry_id.replace('-', "_"))
+            };
+            let depends_on = previous_id.iter().cloned().collect::<Vec<_>>();
+            let step = json!({
+                "id": id.clone(),
+                "name": format!("{} #{}", if role == "user" { "用户消息" } else { "助手回复" }, sequence_num),
+                "input": [
+                    format!("entry_id={}", entry_id),
+                    format!("role={}", role),
+                    format!("timestamp={}", timestamp),
+                ],
+                "output": flow_safe_snippet(&content),
+                "status": "completed",
+                "editable": true,
+                "dependsOn": depends_on,
+            });
+            previous_id = Some(id);
+            step
+        })
+        .collect::<Vec<_>>();
+
+    let payload = json!({
+        "title": "当前聊天 memory entries",
+        "version": "1.0",
+        "steps": steps,
+    });
+
+    format!(
+        "```json\n{}\n```",
+        serde_json::to_string_pretty(&payload).unwrap_or_else(|_| "{}".to_string())
+    )
+}
+
+async fn build_current_memory_entries_flow_answer(
+    state: &Arc<AppState>,
+    ctx: &MemoryRequestContext,
+    request: &ChatRequest,
+) -> Option<String> {
+    if !memory_entry_flow_requested(request) {
+        return None;
+    }
+
+    if let Ok(entries) = memory::get_session_transcript(state, ctx).await {
+        let transcript_entries = entries
+            .into_iter()
+            .map(|entry| {
+                (
+                    entry.entry_id,
+                    entry.role,
+                    entry.content,
+                    entry.timestamp,
+                    entry.sequence_num,
+                )
+            })
+            .collect::<Vec<_>>();
+        return Some(build_memory_entry_flow_json(transcript_entries));
+    }
+
+    let history_entries = request
+        .history
+        .as_ref()
+        .map(|history| {
+            history
+                .iter()
+                .enumerate()
+                .map(|(index, item)| {
+                    (
+                        format!("history_{}", index + 1),
+                        item.role.clone(),
+                        item.content.clone(),
+                        0,
+                        (index + 1) as i64,
+                    )
+                })
+                .collect::<Vec<_>>()
+        })
+        .unwrap_or_default();
+
+    Some(build_memory_entry_flow_json(history_entries))
 }
 
 async fn persist_plan_bootstrap_best_effort(
@@ -2837,6 +3272,18 @@ async fn call_llm_stream(
     trace_id: &str,
 ) -> Result<StreamLlmPlan, AppError> {
     const MAX_TOOL_ROUNDS: usize = 3;
+    let direct_ctx = MemoryRequestContext::from_auth(
+        request_id.to_string(),
+        session_id.to_string(),
+        trace_id.to_string(),
+        state.config.llm.timeout_ms,
+        auth_ctx,
+    );
+    if let Some(answer) = build_current_memory_entries_flow_answer(state, &direct_ctx, request).await
+    {
+        return Ok(StreamLlmPlan::ReadyAnswer(answer));
+    }
+
     let mut snapshot = memory_snapshot.cloned().unwrap_or_default();
     let mut last_tool_name: Option<String> = None;
     let discovered_tools = tool_catalog::fetch_prompt_tool_definitions(state, request_id).await;

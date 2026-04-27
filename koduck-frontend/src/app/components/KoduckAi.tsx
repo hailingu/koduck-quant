@@ -969,6 +969,7 @@ function ConversationKoduckFlowCanvas({ spec }: { spec: ConversationFlowSpec }) 
   const [nodePositions, setNodePositions] = useState<Record<string, { x: number; y: number }>>({});
   const [deletedEdgeIds, setDeletedEdgeIds] = useState<Set<string>>(() => new Set());
   const [fullscreen, setFullscreen] = useState(false);
+  const fullscreenHistoryActiveRef = useRef(false);
   const { nodes, edges } = useMemo(() => {
     const graph = buildConversationFlowGraph(flowSpec);
     return {
@@ -998,6 +999,37 @@ function ConversationKoduckFlowCanvas({ spec }: { spec: ConversationFlowSpec }) 
   const selectedStep =
     flowSpec.steps.find((step) => step.id === editingStepId) ?? null;
 
+  useEffect(() => {
+    if (!fullscreen) {
+      return undefined;
+    }
+
+    const handlePopState = () => {
+      fullscreenHistoryActiveRef.current = false;
+      setFullscreen(false);
+    };
+
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, [fullscreen]);
+
+  const openFullscreen = () => {
+    if (!fullscreenHistoryActiveRef.current) {
+      window.history.pushState({ koduckAiFlowFullscreen: true }, "", window.location.href);
+      fullscreenHistoryActiveRef.current = true;
+    }
+    setFullscreen(true);
+  };
+
+  const closeFullscreen = () => {
+    if (fullscreenHistoryActiveRef.current) {
+      fullscreenHistoryActiveRef.current = false;
+      window.history.back();
+      return;
+    }
+    setFullscreen(false);
+  };
+
   const updateSelectedStep = (patch: Partial<ConversationFlowStep>) => {
     if (!editingStepId) {
       return;
@@ -1024,6 +1056,7 @@ function ConversationKoduckFlowCanvas({ spec }: { spec: ConversationFlowSpec }) 
         translateY: number;
         scale: number;
       };
+      interactionScale?: number;
     } = {},
   ) => (
     <FlowCanvasWithProvider
@@ -1037,6 +1070,7 @@ function ConversationKoduckFlowCanvas({ spec }: { spec: ConversationFlowSpec }) 
       maxZoom={options.maxZoom ?? 1}
       defaultZoom={options.defaultZoom ?? 1}
       defaultViewport={options.defaultViewport}
+      interactionScale={options.interactionScale}
       showGrid
       gridPattern={{ size: 24, opacity: 0.35 }}
       theme={{ canvasBackground: "#f8fafc" }}
@@ -1096,12 +1130,12 @@ function ConversationKoduckFlowCanvas({ spec }: { spec: ConversationFlowSpec }) 
             transformOrigin: "top left",
           }}
         >
-          {renderCanvas(true)}
+          {renderCanvas(false, { interactionScale: previewScale })}
         </div>
         <button
           type="button"
           className="absolute bottom-3 right-3 z-20 flex h-9 w-9 items-center justify-center rounded-full border border-gray-200 bg-white/95 text-gray-700 shadow-sm hover:bg-gray-50"
-          onClick={() => setFullscreen(true)}
+          onClick={openFullscreen}
           aria-label="最大化编辑 Flow"
           title="最大化编辑"
         >
@@ -1123,7 +1157,7 @@ function ConversationKoduckFlowCanvas({ spec }: { spec: ConversationFlowSpec }) 
           <button
             type="button"
             className="absolute bottom-5 right-5 z-50 flex h-10 w-10 items-center justify-center rounded-full border border-gray-200 bg-white/95 text-gray-700 shadow-lg hover:bg-gray-50"
-            onClick={() => setFullscreen(false)}
+            onClick={closeFullscreen}
             aria-label="退出全屏编辑"
             title="退出全屏"
           >

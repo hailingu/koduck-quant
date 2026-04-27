@@ -114,6 +114,9 @@ export interface FlowCanvasProps {
   /** Whether the canvas is read-only */
   readOnly?: boolean;
 
+  /** Extra scale applied outside the canvas, used to normalize pointer movement */
+  interactionScale?: number;
+
   /** Custom node renderer */
   renderNode?: (props: NodeRenderProps) => ReactNode;
 
@@ -174,6 +177,7 @@ interface CanvasContentProps {
   showGrid: boolean;
   gridPattern?: Partial<GridPattern>;
   readOnly?: boolean;
+  interactionScale?: number;
   renderNode?: (props: NodeRenderProps) => ReactNode;
   renderEdge?: (props: EdgeRenderProps) => ReactNode;
   onCanvasClick?: (position: Position, event: ReactMouseEvent) => void;
@@ -245,6 +249,7 @@ const CanvasContent: React.FC<CanvasContentProps> = ({
   showGrid,
   gridPattern,
   readOnly = false,
+  interactionScale = 1,
   renderNode,
   renderEdge,
   onCanvasClick,
@@ -302,6 +307,7 @@ const CanvasContent: React.FC<CanvasContentProps> = ({
 
   // Get viewport state for grid rendering
   const { translateX = 0, translateY = 0, scale = 1 } = viewport?.viewport ?? {};
+  const gridScale = scale || 1;
 
   return (
     <>
@@ -312,6 +318,14 @@ const CanvasContent: React.FC<CanvasContentProps> = ({
           translateY={translateY}
           scale={scale}
           pattern={gridPattern}
+          style={{
+            top: -translateY / gridScale,
+            left: -translateX / gridScale,
+            right: "auto",
+            bottom: "auto",
+            width: `${100 / gridScale}%`,
+            height: `${100 / gridScale}%`,
+          }}
         />
       )}
 
@@ -426,6 +440,7 @@ const CanvasContent: React.FC<CanvasContentProps> = ({
                   node={node}
                   selected={selectedNodeIds.has(node.id)}
                   readOnly={readOnly}
+                  interactionScale={interactionScale}
                   onNodeSelect={onNodeSelect}
                   onNodeMove={onNodeMove}
                   renderNode={renderNode}
@@ -449,6 +464,7 @@ interface CanvasNodeContainerProps {
   node: IFlowNodeEntityData;
   selected: boolean;
   readOnly: boolean;
+  interactionScale: number;
   onNodeSelect?: (nodeIds: string[]) => void;
   onNodeMove?: (nodeId: string, position: Position) => void;
   renderNode: (props: NodeRenderProps) => ReactNode;
@@ -458,13 +474,16 @@ const CanvasNodeContainer: React.FC<CanvasNodeContainerProps> = ({
   node,
   selected,
   readOnly,
+  interactionScale,
   onNodeSelect,
   onNodeMove,
   renderNode,
 }) => {
+  const viewport = useViewportOptional();
   const dragRef = useRef<{
     pointerStart: Position;
     nodeStart: Position;
+    scale: number;
     dragging: boolean;
   } | null>(null);
 
@@ -488,6 +507,7 @@ const CanvasNodeContainer: React.FC<CanvasNodeContainerProps> = ({
           x: node.position?.x ?? 0,
           y: node.position?.y ?? 0,
         },
+        scale: (viewport?.viewport.scale || 1) * (interactionScale || 1),
         dragging: true,
       };
 
@@ -498,8 +518,8 @@ const CanvasNodeContainer: React.FC<CanvasNodeContainerProps> = ({
         }
 
         onNodeMove(node.id, {
-          x: drag.nodeStart.x + moveEvent.clientX - drag.pointerStart.x,
-          y: drag.nodeStart.y + moveEvent.clientY - drag.pointerStart.y,
+          x: drag.nodeStart.x + (moveEvent.clientX - drag.pointerStart.x) / drag.scale,
+          y: drag.nodeStart.y + (moveEvent.clientY - drag.pointerStart.y) / drag.scale,
         });
       };
 
@@ -512,7 +532,7 @@ const CanvasNodeContainer: React.FC<CanvasNodeContainerProps> = ({
       window.addEventListener("mousemove", handleMouseMove);
       window.addEventListener("mouseup", handleMouseUp);
     },
-    [node, onNodeMove, onNodeSelect, readOnly]
+    [node, onNodeMove, onNodeSelect, readOnly, viewport?.viewport.scale, interactionScale]
   );
 
   return (
@@ -614,6 +634,7 @@ export const FlowCanvas: React.FC<FlowCanvasProps> = ({
   portConfig,
   pathConfig,
   readOnly = false,
+  interactionScale = 1,
   renderNode,
   renderEdge,
   children,
@@ -712,6 +733,7 @@ export const FlowCanvas: React.FC<FlowCanvasProps> = ({
           showGrid={showGrid}
           gridPattern={gridPattern}
           readOnly={readOnly}
+          interactionScale={interactionScale}
           renderNode={renderNode}
           renderEdge={renderEdge}
           onCanvasClick={onCanvasClick}

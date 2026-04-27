@@ -618,7 +618,7 @@ export const FlowViewport: React.FC<FlowViewportProps> = ({
    * Zooms towards cursor position to keep focus point stationary
    */
   const handleWheel = useCallback(
-    (e: React.WheelEvent) => {
+    (e: WheelEvent) => {
       if (!enableZoom) return;
 
       // Prevent default scroll behavior
@@ -662,6 +662,16 @@ export const FlowViewport: React.FC<FlowViewportProps> = ({
     },
     [enableZoom, zoomStep, zoom, onZoomStart, onZoomEnd]
   );
+
+  useEffect(() => {
+    const viewportElement = viewportRef.current;
+    if (!viewportElement || !enableZoom) {
+      return undefined;
+    }
+
+    viewportElement.addEventListener("wheel", handleWheel, { passive: false });
+    return () => viewportElement.removeEventListener("wheel", handleWheel);
+  }, [enableZoom, handleWheel]);
 
   // ===========================================================================
   // Keyboard Listeners for Pan Key
@@ -780,7 +790,6 @@ export const FlowViewport: React.FC<FlowViewportProps> = ({
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
         onMouseLeave={handleMouseLeave}
-        onWheel={handleWheel}
         style={{
           position: "relative",
           width: "100%",
