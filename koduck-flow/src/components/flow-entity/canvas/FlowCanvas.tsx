@@ -43,6 +43,7 @@ import {
   type FlowCanvasRenderEngine,
   type FlowCanvasRenderModel,
 } from "./render-model";
+import { useNodeDrag } from "./use-node-drag";
 import { usePortConnectionDrag } from "./use-port-connection-drag";
 
 export type { EdgeRoute } from "./edge-routing";
@@ -732,62 +733,15 @@ const CanvasNodeContainer: React.FC<CanvasNodeContainerProps> = ({
   renderNode,
 }) => {
   const viewport = useViewportOptional();
-  const dragRef = useRef<{
-    pointerStart: Position;
-    nodeStart: Position;
-    scale: number;
-    dragging: boolean;
-  } | null>(null);
-
-  const handleMouseDown = useCallback(
-    (event: ReactMouseEvent<HTMLDivElement>) => {
-      if (event.button !== 0) {
-        return;
-      }
-
-      event.stopPropagation();
-      if (interaction.selectNodes) {
-        onNodeSelect?.([node.id]);
-      }
-
-      if (!interaction.dragNodes || !onNodeMove) {
-        return;
-      }
-
-      event.preventDefault();
-      dragRef.current = {
-        pointerStart: { x: event.clientX, y: event.clientY },
-        nodeStart: {
-          x: node.position?.x ?? 0,
-          y: node.position?.y ?? 0,
-        },
-        scale: (viewport?.viewport.scale || 1) * (interactionScale || 1),
-        dragging: true,
-      };
-
-      const handleMouseMove = (moveEvent: MouseEvent) => {
-        const drag = dragRef.current;
-        if (!drag?.dragging) {
-          return;
-        }
-
-        onNodeMove(node.id, {
-          x: drag.nodeStart.x + (moveEvent.clientX - drag.pointerStart.x) / drag.scale,
-          y: drag.nodeStart.y + (moveEvent.clientY - drag.pointerStart.y) / drag.scale,
-        });
-      };
-
-      const handleMouseUp = () => {
-        dragRef.current = null;
-        window.removeEventListener("mousemove", handleMouseMove);
-        window.removeEventListener("mouseup", handleMouseUp);
-      };
-
-      window.addEventListener("mousemove", handleMouseMove);
-      window.addEventListener("mouseup", handleMouseUp);
-    },
-    [node, onNodeMove, onNodeSelect, interaction, viewport?.viewport.scale, interactionScale]
-  );
+  const handleMouseDown = useNodeDrag({
+    node,
+    selectNodes: interaction.selectNodes,
+    dragNodes: interaction.dragNodes,
+    viewportScale: viewport?.viewport.scale ?? 1,
+    interactionScale,
+    ...(onNodeSelect !== undefined ? { onNodeSelect } : {}),
+    ...(onNodeMove !== undefined ? { onNodeMove } : {}),
+  });
 
   return (
     <div
