@@ -6,8 +6,6 @@
  * @see docs/design/flow-entity-tsx-design.md sections 3.x–9.x
  */
 
-import type { Data } from "../../common/entity/types";
-
 // =============================================================================
 // Basic Geometric Types
 // =============================================================================
@@ -442,7 +440,9 @@ export interface EdgeAnimationConfig {
  * Extends base Data interface with flow-specific properties.
  * @see Design doc section 3.1 - FlowNodeEntity Data
  */
-export interface IFlowNodeEntityData extends Data {
+export interface IFlowNodeEntityData extends Record<string, unknown> {
+  /** Entity ID */
+  id: string;
   /** Node type identifier (e.g., 'task', 'condition', 'start') */
   nodeType: string;
   /** Node display label */
@@ -486,7 +486,9 @@ export interface IFlowNodeEntityData extends Data {
  * Extends base Data interface with flow-specific properties.
  * @see Design doc section 3.2 - FlowEdgeEntity Data
  */
-export interface IFlowEdgeEntityData extends Data {
+export interface IFlowEdgeEntityData extends Record<string, unknown> {
+  /** Entity ID */
+  id: string;
   /** Edge type identifier */
   edgeType?: string;
   /** Edge display label */

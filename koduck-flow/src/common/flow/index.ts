@@ -1,5 +1,6 @@
 // 导出所有类型定义
 export * from "./types";
+export type * from "./flow-entity-types";
 
 // 导出具体实现类
 export { FlowEntity } from "./flow-entity";

@@ -8,6 +8,7 @@
  */
 
 import { nanoid } from "nanoid";
+import { Data } from "../data";
 import type { IEntityArguments } from "../entity/types";
 import type { IEdge, IFlowEdgeEntity } from "./types";
 import type {
@@ -17,7 +18,7 @@ import type {
   EdgeAnimationConfig,
   FlowEdgeTheme,
   IFlowEdgeEntityData,
-} from "../../components/flow-entity/types";
+} from "./flow-entity-types";
 
 /**
  * Default edge animation state
@@ -101,7 +102,7 @@ export class FlowEdgeEntity<E extends IEdge = IEdge> implements IFlowEdgeEntity<
    *
    * @param args - Initial entity arguments
    */
-  constructor(args?: IFlowEdgeEntityArguments) {
+  constructor(args?: IFlowEdgeEntityArguments | IEntityArguments) {
     this.id = `flow-edge-${nanoid()}`;
 
     // Validate required connection parameters
@@ -119,22 +120,22 @@ export class FlowEdgeEntity<E extends IEdge = IEdge> implements IFlowEdgeEntity<
     }
 
     // Initialize data with defaults
-    this._data = {
+    this._data = Object.assign(new Data(), {
       edgeType: args?.edgeType ?? "default",
-      label: args?.label,
       sourceNodeId: args.sourceNodeId,
       sourcePortId: args.sourcePortId,
       targetNodeId: args.targetNodeId,
       targetPortId: args.targetPortId,
       animationState: args?.animationState ?? DEFAULT_ANIMATION_STATE,
       pathType: args?.pathType ?? DEFAULT_PATH_TYPE,
-      pathConfig: args?.pathConfig,
-      animationConfig: args?.animationConfig,
-      theme: args?.theme,
       selected: args?.selected ?? false,
       disabled: args?.disabled ?? false,
-      metadata: args?.metadata,
-    };
+      ...(args?.label === undefined ? {} : { label: args.label }),
+      ...(args?.pathConfig === undefined ? {} : { pathConfig: args.pathConfig }),
+      ...(args?.animationConfig === undefined ? {} : { animationConfig: args.animationConfig }),
+      ...(args?.theme === undefined ? {} : { theme: args.theme }),
+      ...(args?.metadata === undefined ? {} : { metadata: args.metadata }),
+    }) as IFlowEdgeEntityData;
 
     this._config = args;
   }
@@ -145,6 +146,8 @@ export class FlowEdgeEntity<E extends IEdge = IEdge> implements IFlowEdgeEntity<
 
   /**
    * Gets the entity data
+   *
+   * @returns Entity data or undefined
    */
   get data(): IFlowEdgeEntityData | undefined {
     return this._data;
@@ -152,6 +155,8 @@ export class FlowEdgeEntity<E extends IEdge = IEdge> implements IFlowEdgeEntity<
 
   /**
    * Sets the entity data
+   *
+   * @param value - Entity data
    */
   set data(value: IFlowEdgeEntityData | undefined) {
     if (!this._disposed && value) {
@@ -161,6 +166,8 @@ export class FlowEdgeEntity<E extends IEdge = IEdge> implements IFlowEdgeEntity<
 
   /**
    * Gets the entity configuration
+   *
+   * @returns Entity configuration or undefined
    */
   get config(): IEntityArguments | undefined {
     return this._config;
@@ -168,6 +175,8 @@ export class FlowEdgeEntity<E extends IEdge = IEdge> implements IFlowEdgeEntity<
 
   /**
    * Sets the entity configuration
+   *
+   * @param value - Entity configuration
    */
   set config(value: IEntityArguments | undefined) {
     if (!this._disposed) {
@@ -177,6 +186,8 @@ export class FlowEdgeEntity<E extends IEdge = IEdge> implements IFlowEdgeEntity<
 
   /**
    * Gets the underlying edge reference
+   *
+   * @returns The underlying edge
    */
   get edge(): E {
     if (!this._edge) {
@@ -187,6 +198,8 @@ export class FlowEdgeEntity<E extends IEdge = IEdge> implements IFlowEdgeEntity<
 
   /**
    * Sets the underlying edge reference
+   *
+   * @param edge - Edge reference
    */
   setEdge(edge: E): void {
     this._edge = edge;
@@ -194,6 +207,8 @@ export class FlowEdgeEntity<E extends IEdge = IEdge> implements IFlowEdgeEntity<
 
   /**
    * Whether the entity has been disposed
+   *
+   * @returns true if disposed
    */
   get isDisposed(): boolean {
     return this._disposed;
@@ -205,6 +220,8 @@ export class FlowEdgeEntity<E extends IEdge = IEdge> implements IFlowEdgeEntity<
 
   /**
    * Gets the source node ID
+   *
+   * @returns Source node ID
    */
   getSourceNodeId(): string {
     return this._data.sourceNodeId;
@@ -212,6 +229,8 @@ export class FlowEdgeEntity<E extends IEdge = IEdge> implements IFlowEdgeEntity<
 
   /**
    * Gets the source port ID
+   *
+   * @returns Source port ID
    */
   getSourcePortId(): string {
     return this._data.sourcePortId;
@@ -219,6 +238,8 @@ export class FlowEdgeEntity<E extends IEdge = IEdge> implements IFlowEdgeEntity<
 
   /**
    * Gets the target node ID
+   *
+   * @returns Target node ID
    */
   getTargetNodeId(): string {
     return this._data.targetNodeId;
@@ -226,6 +247,8 @@ export class FlowEdgeEntity<E extends IEdge = IEdge> implements IFlowEdgeEntity<
 
   /**
    * Gets the target port ID
+   *
+   * @returns Target port ID
    */
   getTargetPortId(): string {
     return this._data.targetPortId;
@@ -580,6 +603,8 @@ export class FlowEdgeEntity<E extends IEdge = IEdge> implements IFlowEdgeEntity<
 
   /**
    * Gets the edge label
+   *
+   * @returns Edge label or undefined
    */
   getLabel(): string | undefined {
     return this._data.label;
@@ -587,6 +612,8 @@ export class FlowEdgeEntity<E extends IEdge = IEdge> implements IFlowEdgeEntity<
 
   /**
    * Sets the edge label
+   *
+   * @param label - Edge label
    */
   setLabel(label: string): void {
     if (this._disposed) return;
@@ -596,6 +623,8 @@ export class FlowEdgeEntity<E extends IEdge = IEdge> implements IFlowEdgeEntity<
 
   /**
    * Gets the edge type identifier
+   *
+   * @returns Edge type identifier
    */
   getEdgeType(): string {
     return this._data.edgeType ?? "default";
@@ -603,6 +632,8 @@ export class FlowEdgeEntity<E extends IEdge = IEdge> implements IFlowEdgeEntity<
 
   /**
    * Sets the edge type identifier
+   *
+   * @param edgeType - Edge type identifier
    */
   setEdgeType(edgeType: string): void {
     if (this._disposed) return;
@@ -616,6 +647,8 @@ export class FlowEdgeEntity<E extends IEdge = IEdge> implements IFlowEdgeEntity<
 
   /**
    * Gets whether the edge is selected
+   *
+   * @returns true if selected
    */
   isSelected(): boolean {
     return this._data.selected ?? false;
@@ -623,6 +656,8 @@ export class FlowEdgeEntity<E extends IEdge = IEdge> implements IFlowEdgeEntity<
 
   /**
    * Sets the selection state
+   *
+   * @param selected - Whether the edge is selected
    */
   setSelected(selected: boolean): void {
     if (this._disposed) return;
@@ -632,6 +667,8 @@ export class FlowEdgeEntity<E extends IEdge = IEdge> implements IFlowEdgeEntity<
 
   /**
    * Gets whether the edge is disabled
+   *
+   * @returns true if disabled
    */
   isDisabled(): boolean {
     return this._data.disabled ?? false;
@@ -639,6 +676,8 @@ export class FlowEdgeEntity<E extends IEdge = IEdge> implements IFlowEdgeEntity<
 
   /**
    * Sets the disabled state
+   *
+   * @param disabled - Whether the edge is disabled
    */
   setDisabled(disabled: boolean): void {
     if (this._disposed) return;
@@ -652,6 +691,8 @@ export class FlowEdgeEntity<E extends IEdge = IEdge> implements IFlowEdgeEntity<
 
   /**
    * Gets edge metadata
+   *
+   * @returns Edge metadata or undefined
    */
   getMetadata(): Record<string, unknown> | undefined {
     return this._data.metadata;
@@ -659,6 +700,8 @@ export class FlowEdgeEntity<E extends IEdge = IEdge> implements IFlowEdgeEntity<
 
   /**
    * Sets edge metadata
+   *
+   * @param metadata - Edge metadata
    */
   setMetadata(metadata: Record<string, unknown>): void {
     if (this._disposed) return;
@@ -668,6 +711,8 @@ export class FlowEdgeEntity<E extends IEdge = IEdge> implements IFlowEdgeEntity<
 
   /**
    * Updates edge metadata (merge)
+   *
+   * @param patch - Metadata to merge
    */
   updateMetadata(patch: Record<string, unknown>): void {
     if (this._disposed) return;
@@ -702,20 +747,20 @@ export class FlowEdgeEntity<E extends IEdge = IEdge> implements IFlowEdgeEntity<
     const data = json.data as IFlowEdgeEntityData;
 
     const entity = new FlowEdgeEntity({
-      edgeType: data.edgeType,
-      label: data.label,
       sourceNodeId: data.sourceNodeId,
       sourcePortId: data.sourcePortId,
       targetNodeId: data.targetNodeId,
       targetPortId: data.targetPortId,
       animationState: data.animationState,
-      pathType: data.pathType,
-      pathConfig: data.pathConfig,
-      animationConfig: data.animationConfig,
-      theme: data.theme,
-      selected: data.selected,
-      disabled: data.disabled,
-      metadata: data.metadata,
+      ...(data.edgeType === undefined ? {} : { edgeType: data.edgeType }),
+      ...(data.label === undefined ? {} : { label: data.label }),
+      ...(data.pathType === undefined ? {} : { pathType: data.pathType }),
+      ...(data.pathConfig === undefined ? {} : { pathConfig: data.pathConfig }),
+      ...(data.animationConfig === undefined ? {} : { animationConfig: data.animationConfig }),
+      ...(data.theme === undefined ? {} : { theme: data.theme }),
+      ...(data.selected === undefined ? {} : { selected: data.selected }),
+      ...(data.disabled === undefined ? {} : { disabled: data.disabled }),
+      ...(data.metadata === undefined ? {} : { metadata: data.metadata }),
     });
 
     return entity;

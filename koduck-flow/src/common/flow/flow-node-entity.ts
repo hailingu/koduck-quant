@@ -8,7 +8,7 @@
  */
 
 import { nanoid } from "nanoid";
-import type { Data } from "../data";
+import { Data } from "../data";
 import type { IEntityArguments } from "../entity/types";
 import type { INode, IFlowNodeEntity } from "./types";
 import type {
@@ -19,7 +19,7 @@ import type {
   Position,
   Size,
   IFlowNodeEntityData,
-} from "../../components/flow-entity/types";
+} from "./flow-entity-types";
 
 /**
  * Default node dimensions
@@ -107,7 +107,7 @@ export class FlowNodeEntity<N extends INode = INode> implements IFlowNodeEntity<
     this.id = `flow-node-${nanoid()}`;
 
     // Initialize data with defaults
-    this._data = {
+    this._data = Object.assign(new Data(), {
       nodeType: args?.nodeType ?? "default",
       label: args?.label ?? "Node",
       position: args?.position ?? { x: 0, y: 0 },
@@ -115,14 +115,14 @@ export class FlowNodeEntity<N extends INode = INode> implements IFlowNodeEntity<
       executionState: args?.executionState ?? DEFAULT_EXECUTION_STATE,
       inputPorts: args?.inputPorts ?? [],
       outputPorts: args?.outputPorts ?? [],
-      config: args?.config,
-      formSchema: args?.formSchema,
-      theme: args?.theme,
       disabled: args?.disabled ?? false,
       selected: args?.selected ?? false,
       locked: args?.locked ?? false,
-      metadata: args?.metadata,
-    };
+      ...(args?.config === undefined ? {} : { config: args.config }),
+      ...(args?.formSchema === undefined ? {} : { formSchema: args.formSchema }),
+      ...(args?.theme === undefined ? {} : { theme: args.theme }),
+      ...(args?.metadata === undefined ? {} : { metadata: args.metadata }),
+    }) as IFlowNodeEntityData;
 
     this._config = args;
   }
@@ -133,6 +133,8 @@ export class FlowNodeEntity<N extends INode = INode> implements IFlowNodeEntity<
 
   /**
    * Gets the entity data
+   *
+   * @returns Entity data or undefined
    */
   get data(): IFlowNodeEntityData | undefined {
     return this._data;
@@ -140,6 +142,8 @@ export class FlowNodeEntity<N extends INode = INode> implements IFlowNodeEntity<
 
   /**
    * Sets the entity data
+   *
+   * @param value - Entity data
    */
   set data(value: IFlowNodeEntityData | undefined) {
     if (!this._disposed && value) {
@@ -149,6 +153,8 @@ export class FlowNodeEntity<N extends INode = INode> implements IFlowNodeEntity<
 
   /**
    * Gets the entity configuration
+   *
+   * @returns Entity configuration or undefined
    */
   get config(): IEntityArguments | undefined {
     return this._config;
@@ -156,6 +162,8 @@ export class FlowNodeEntity<N extends INode = INode> implements IFlowNodeEntity<
 
   /**
    * Sets the entity configuration
+   *
+   * @param value - Entity configuration
    */
   set config(value: IEntityArguments | undefined) {
     if (!this._disposed) {
@@ -165,6 +173,8 @@ export class FlowNodeEntity<N extends INode = INode> implements IFlowNodeEntity<
 
   /**
    * Gets the underlying node reference
+   *
+   * @returns The underlying node
    */
   get node(): N {
     if (!this._node) {
@@ -175,6 +185,8 @@ export class FlowNodeEntity<N extends INode = INode> implements IFlowNodeEntity<
 
   /**
    * Sets the underlying node reference
+   *
+   * @param node - Node reference
    */
   setNode(node: N): void {
     this._node = node;
@@ -182,6 +194,8 @@ export class FlowNodeEntity<N extends INode = INode> implements IFlowNodeEntity<
 
   /**
    * Whether the entity has been disposed
+   *
+   * @returns true if disposed
    */
   get isDisposed(): boolean {
     return this._disposed;
@@ -193,6 +207,8 @@ export class FlowNodeEntity<N extends INode = INode> implements IFlowNodeEntity<
 
   /**
    * Gets the node position
+   *
+   * @returns Node position
    */
   getPosition(): Position {
     return { ...this._data.position };
@@ -211,6 +227,8 @@ export class FlowNodeEntity<N extends INode = INode> implements IFlowNodeEntity<
 
   /**
    * Gets the node size
+   *
+   * @returns Node size
    */
   getSize(): Size {
     return this._data.size
@@ -354,7 +372,7 @@ export class FlowNodeEntity<N extends INode = INode> implements IFlowNodeEntity<
     // Track execution timing
     if (state === "running" && previousState !== "running") {
       this._data.executionStartTime = Date.now();
-      this._data.executionEndTime = undefined;
+      delete this._data.executionEndTime;
       this._data.executionProgress = 0;
     } else if (
       (state === "success" || state === "error" || state === "cancelled") &&
@@ -368,7 +386,7 @@ export class FlowNodeEntity<N extends INode = INode> implements IFlowNodeEntity<
 
     // Clear error message on state change (unless setting to error)
     if (state !== "error") {
-      this._data.errorMessage = undefined;
+      delete this._data.errorMessage;
     }
 
     this.markDirty();
@@ -544,6 +562,8 @@ export class FlowNodeEntity<N extends INode = INode> implements IFlowNodeEntity<
 
   /**
    * Gets the node label
+   *
+   * @returns Node label
    */
   getLabel(): string {
     return this._data.label;
@@ -551,6 +571,8 @@ export class FlowNodeEntity<N extends INode = INode> implements IFlowNodeEntity<
 
   /**
    * Sets the node label
+   *
+   * @param label - Node label
    */
   setLabel(label: string): void {
     if (this._disposed) return;
@@ -560,6 +582,8 @@ export class FlowNodeEntity<N extends INode = INode> implements IFlowNodeEntity<
 
   /**
    * Gets the node type identifier
+   *
+   * @returns Node type identifier
    */
   getNodeType(): string {
     return this._data.nodeType;
@@ -571,6 +595,8 @@ export class FlowNodeEntity<N extends INode = INode> implements IFlowNodeEntity<
 
   /**
    * Gets whether the node is selected
+   *
+   * @returns true if selected
    */
   isSelected(): boolean {
     return this._data.selected ?? false;
@@ -578,6 +604,8 @@ export class FlowNodeEntity<N extends INode = INode> implements IFlowNodeEntity<
 
   /**
    * Sets the selection state
+   *
+   * @param selected - Whether the node is selected
    */
   setSelected(selected: boolean): void {
     if (this._disposed) return;
@@ -587,6 +615,8 @@ export class FlowNodeEntity<N extends INode = INode> implements IFlowNodeEntity<
 
   /**
    * Gets whether the node is disabled
+   *
+   * @returns true if disabled
    */
   isDisabled(): boolean {
     return this._data.disabled ?? false;
@@ -594,6 +624,8 @@ export class FlowNodeEntity<N extends INode = INode> implements IFlowNodeEntity<
 
   /**
    * Sets the disabled state
+   *
+   * @param disabled - Whether the node is disabled
    */
   setDisabled(disabled: boolean): void {
     if (this._disposed) return;
@@ -603,6 +635,8 @@ export class FlowNodeEntity<N extends INode = INode> implements IFlowNodeEntity<
 
   /**
    * Gets whether the node is locked
+   *
+   * @returns true if locked
    */
   isLocked(): boolean {
     return this._data.locked ?? false;
@@ -610,6 +644,8 @@ export class FlowNodeEntity<N extends INode = INode> implements IFlowNodeEntity<
 
   /**
    * Sets the locked state
+   *
+   * @param locked - Whether the node is locked
    */
   setLocked(locked: boolean): void {
     if (this._disposed) return;
@@ -623,6 +659,8 @@ export class FlowNodeEntity<N extends INode = INode> implements IFlowNodeEntity<
 
   /**
    * Gets node metadata
+   *
+   * @returns Node metadata or undefined
    */
   getMetadata(): Record<string, unknown> | undefined {
     return this._data.metadata;
@@ -630,6 +668,8 @@ export class FlowNodeEntity<N extends INode = INode> implements IFlowNodeEntity<
 
   /**
    * Sets node metadata
+   *
+   * @param metadata - Node metadata
    */
   setMetadata(metadata: Record<string, unknown>): void {
     if (this._disposed) return;
@@ -639,6 +679,8 @@ export class FlowNodeEntity<N extends INode = INode> implements IFlowNodeEntity<
 
   /**
    * Updates node metadata (merge)
+   *
+   * @param patch - Metadata to merge
    */
   updateMetadata(patch: Record<string, unknown>): void {
     if (this._disposed) return;
@@ -675,17 +717,17 @@ export class FlowNodeEntity<N extends INode = INode> implements IFlowNodeEntity<
       nodeType: data.nodeType,
       label: data.label,
       position: data.position,
-      size: data.size,
       executionState: data.executionState,
       inputPorts: data.inputPorts,
       outputPorts: data.outputPorts,
-      config: data.config,
-      formSchema: data.formSchema,
-      theme: data.theme,
-      disabled: data.disabled,
-      selected: data.selected,
-      locked: data.locked,
-      metadata: data.metadata,
+      ...(data.size === undefined ? {} : { size: data.size }),
+      ...(data.config === undefined ? {} : { config: data.config }),
+      ...(data.formSchema === undefined ? {} : { formSchema: data.formSchema }),
+      ...(data.theme === undefined ? {} : { theme: data.theme }),
+      ...(data.disabled === undefined ? {} : { disabled: data.disabled }),
+      ...(data.selected === undefined ? {} : { selected: data.selected }),
+      ...(data.locked === undefined ? {} : { locked: data.locked }),
+      ...(data.metadata === undefined ? {} : { metadata: data.metadata }),
     });
 
     // Restore execution timing if present
