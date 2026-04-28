@@ -28,8 +28,6 @@ import type {
   PathConfig,
 } from "../types";
 import {
-  getDefaultConnectionValidation,
-  normalizePortConnection,
   type ConnectionValidationResult,
   type FlowCanvasPortConnection,
   type FlowCanvasPortEndpoint,
@@ -45,6 +43,7 @@ import {
   type FlowCanvasRenderEngine,
   type FlowCanvasRenderModel,
 } from "./render-model";
+import { usePortConnectionDrag } from "./use-port-connection-drag";
 
 export type { EdgeRoute } from "./edge-routing";
 export type {
@@ -329,17 +328,6 @@ const CanvasContent: React.FC<CanvasContentProps> = ({
 }) => {
   const viewport = useViewportOptional();
   const contentRef = useRef<HTMLDivElement>(null);
-  const [hoveredPortKey, setHoveredPortKey] = useState<string | null>(null);
-  const [connectionDraft, setConnectionDraft] = useState<{
-    source: FlowCanvasPortEndpoint;
-    pointer: Position;
-    target: FlowCanvasPortEndpoint | null;
-    validation: ConnectionValidationResult;
-  } | null>(null);
-  const [connectionError, setConnectionError] = useState<{
-    message: string;
-    position: Position;
-  } | null>(null);
 
   // Handle canvas click (when clicking on empty space)
   const handleClick = useCallback(
@@ -420,88 +408,22 @@ const CanvasContent: React.FC<CanvasContentProps> = ({
     onRenderModelChange?.(renderModel);
   }, [onRenderModelChange, renderModel]);
 
-  const validatePortConnection = useCallback(
-    (source: FlowCanvasPortEndpoint, target: FlowCanvasPortEndpoint): ConnectionValidationResult => {
-      const normalized = normalizePortConnection(source, target);
-      if (!normalized) {
-        return { valid: false, reason: "Connect an output port to an input port" };
-      }
-
-      const defaultValidation = getDefaultConnectionValidation(normalized, edges, portConfig);
-      if (!defaultValidation.valid) {
-        return defaultValidation;
-      }
-
-      return validateConnection?.(normalized) ?? defaultValidation;
-    },
-    [edges, portConfig, validateConnection]
-  );
-
-  const completePortConnection = useCallback(
-    (source: FlowCanvasPortEndpoint, target: FlowCanvasPortEndpoint): boolean => {
-      const normalized = normalizePortConnection(source, target);
-      if (!normalized) {
-        return false;
-      }
-
-      const validation = validatePortConnection(source, target);
-      if (!validation.valid) {
-        setConnectionError({
-          message: validation.reason ?? "Invalid connection",
-          position: target.position,
-        });
-        return false;
-      }
-
-      onEdgeCreate?.(
-        normalized.source.nodeId,
-        normalized.source.portId,
-        normalized.target.nodeId,
-        normalized.target.portId
-      );
-      return true;
-    },
-    [onEdgeCreate, validatePortConnection]
-  );
-
-  useEffect(() => {
-    if (!connectionError) {
-      return undefined;
-    }
-
-    const timer = window.setTimeout(() => setConnectionError(null), 1800);
-    return () => window.clearTimeout(timer);
-  }, [connectionError]);
-
-  useEffect(() => {
-    if (!connectionDraft) {
-      return undefined;
-    }
-
-    const handleMouseMove = (event: MouseEvent) => {
-      const pointer = screenEventToCanvasPosition(event);
-      if (!pointer) {
-        return;
-      }
-      setConnectionDraft((prev) => (prev ? { ...prev, pointer } : prev));
-    };
-
-    const handleMouseUp = () => {
-      setConnectionDraft((prev) => {
-        if (prev?.target) {
-          completePortConnection(prev.source, prev.target);
-        }
-        return null;
-      });
-    };
-
-    window.addEventListener("mousemove", handleMouseMove);
-    window.addEventListener("mouseup", handleMouseUp);
-    return () => {
-      window.removeEventListener("mousemove", handleMouseMove);
-      window.removeEventListener("mouseup", handleMouseUp);
-    };
-  }, [completePortConnection, connectionDraft, screenEventToCanvasPosition]);
+  const {
+    hoveredPortKey,
+    connectionDraft,
+    connectionError,
+    beginConnection,
+    hoverPort,
+    leavePort,
+    completeConnectionOnPort,
+    validatePortConnection,
+  } = usePortConnectionDrag({
+    edges,
+    screenEventToCanvasPosition,
+    ...(portConfig !== undefined ? { portConfig } : {}),
+    ...(validateConnection !== undefined ? { validateConnection } : {}),
+    ...(onEdgeCreate !== undefined ? { onEdgeCreate } : {}),
+  });
 
   return (
     <>
@@ -715,31 +637,10 @@ const CanvasContent: React.FC<CanvasContentProps> = ({
                         transition: "opacity 120ms ease",
                       }}
                       onMouseEnter={() => {
-                        setHoveredPortKey(portKey);
-                        setConnectionDraft((prev) => {
-                          if (!prev) {
-                            return prev;
-                          }
-                          const nextValidation = validatePortConnection(prev.source, endpoint);
-                          return {
-                            ...prev,
-                            target: endpoint,
-                            validation: nextValidation,
-                          };
-                        });
+                        hoverPort(portKey, endpoint);
                       }}
                       onMouseLeave={() => {
-                        setHoveredPortKey((prev) => (prev === portKey ? null : prev));
-                        setConnectionDraft((prev) => {
-                          if (!prev || prev.target?.nodeId !== node.id || prev.target.portId !== port.id) {
-                            return prev;
-                          }
-                          return {
-                            ...prev,
-                            target: null,
-                            validation: { valid: true },
-                          };
-                        });
+                        leavePort(portKey, endpoint);
                       }}
                       onMouseDown={(event) => {
                         if (event.button !== 0) {
@@ -747,22 +648,12 @@ const CanvasContent: React.FC<CanvasContentProps> = ({
                         }
                         event.preventDefault();
                         event.stopPropagation();
-                        setConnectionError(null);
-                        setConnectionDraft({
-                          source: endpoint,
-                          pointer: position,
-                          target: null,
-                          validation: { valid: true },
-                        });
+                        beginConnection(endpoint);
                       }}
                       onMouseUp={(event) => {
                         event.preventDefault();
                         event.stopPropagation();
-                        if (!connectionDraft) {
-                          return;
-                        }
-                        completePortConnection(connectionDraft.source, endpoint);
-                        setConnectionDraft(null);
+                        completeConnectionOnPort(endpoint);
                       }}
                     >
                       <span
