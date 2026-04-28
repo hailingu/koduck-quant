@@ -1,50 +1,40 @@
 /**
  * @file FlowCanvas Component
  * @description Top-level canvas container for rendering flow nodes and edges.
- * Composes FlowViewport and FlowGrid to provide a complete canvas experience.
+ * Composes FlowViewport and FlowCanvasContent to provide a complete canvas experience.
  *
  * @see docs/design/flow-entity-step-plan-en.md Task 2.6
  */
 
 import React, {
-  useCallback,
+  useEffect,
   useMemo,
   useRef,
   useState,
-  useEffect,
-  type ReactNode,
   type CSSProperties,
   type MouseEvent as ReactMouseEvent,
+  type ReactNode,
 } from "react";
 import { FlowEntityProvider, useOptionalFlowEntityContext } from "../context";
-import { FlowViewport, useViewportOptional, type ViewportState } from "./FlowViewport";
-import { FlowGrid, type GridPattern } from "./FlowGrid";
 import type {
   FlowTheme,
-  IFlowNodeEntityData,
   IFlowEdgeEntityData,
-  Position,
-  PortSystemConfig,
+  IFlowNodeEntityData,
   PathConfig,
+  PortSystemConfig,
+  Position,
 } from "../types";
-import {
-  type ConnectionValidationResult,
-  type FlowCanvasPortConnection,
-  type FlowCanvasPortEndpoint,
+import type {
+  ConnectionValidationResult,
+  FlowCanvasPortConnection,
 } from "./connection-validation";
-import {
-  buildRoundedOrthogonalPath,
-  compactRoutePoints,
-  type EdgeRoute,
-} from "./edge-routing";
-import {
-  buildFlowCanvasRenderModel,
-  getPortKey,
-  type FlowCanvasRenderEngine,
-  type FlowCanvasRenderModel,
+import { CanvasContent } from "./FlowCanvasContent";
+import type { GridPattern } from "./FlowGrid";
+import { FlowViewport, type ViewportState } from "./FlowViewport";
+import type {
+  FlowCanvasRenderEngine,
+  FlowCanvasRenderModel,
 } from "./render-model";
-import { useNodeDrag } from "./use-node-drag";
-import { usePortConnectionDrag } from "./use-port-connection-drag";
 
 export type { EdgeRoute } from "./edge-routing";
 export type {
@@ -59,10 +49,6 @@ export type {
   FlowCanvasRenderEngine,
   FlowCanvasRenderModel,
 } from "./render-model";
-
-// =============================================================================
-// Types
-// =============================================================================
 
 /**
  * Render props for custom node rendering
@@ -85,7 +71,7 @@ export interface EdgeRenderProps {
   /** Target port position */
   targetPosition: Position;
   /** Routed edge geometry */
-  route?: EdgeRoute;
+  route?: import("./edge-routing").EdgeRoute;
   /** Whether the edge is selected */
   selected: boolean;
 }
@@ -264,517 +250,9 @@ export interface FlowCanvasProps {
   style?: CSSProperties;
 }
 
-// =============================================================================
-// Internal Components
-// =============================================================================
-
-/**
- * Internal canvas content component that has access to viewport context
- */
-interface CanvasContentProps {
-  nodes: IFlowNodeEntityData[];
-  edges: IFlowEdgeEntityData[];
-  selectedNodeIds: Set<string>;
-  selectedEdgeIds: Set<string>;
-  showGrid: boolean;
-  gridPattern?: Partial<GridPattern>;
-  interaction: FlowCanvasInteraction;
-  interactionScale?: number;
-  portConfig?: Partial<PortSystemConfig>;
-  pathConfig?: Partial<PathConfig>;
-  renderEngine: FlowCanvasRenderEngine;
-  renderNode?: (props: NodeRenderProps) => ReactNode;
-  renderEdge?: (props: EdgeRenderProps) => ReactNode;
-  onRenderModelChange?: (model: FlowCanvasRenderModel) => void;
-  validateConnection?: (connection: FlowCanvasPortConnection) => ConnectionValidationResult;
-  onCanvasClick?: (position: Position, event: ReactMouseEvent) => void;
-  onCanvasDoubleClick?: (position: Position, event: ReactMouseEvent) => void;
-  onNodeSelect?: (nodeIds: string[]) => void;
-  onEdgeSelect?: (edgeIds: string[]) => void;
-  onNodeMove?: (nodeId: string, position: Position) => void;
-  onEdgeCreate?: (
-    sourceNodeId: string,
-    sourcePortId: string,
-    targetNodeId: string,
-    targetPortId: string
-  ) => void;
-  onEdgeDelete?: (edgeId: string) => void;
-  children?: ReactNode;
-}
-
-const CanvasContent: React.FC<CanvasContentProps> = ({
-  nodes,
-  edges,
-  selectedNodeIds,
-  selectedEdgeIds,
-  showGrid,
-  gridPattern,
-  interaction,
-  interactionScale = 1,
-  portConfig,
-  pathConfig,
-  renderEngine,
-  renderNode,
-  renderEdge,
-  onRenderModelChange,
-  validateConnection,
-  onCanvasClick,
-  onCanvasDoubleClick,
-  onNodeSelect,
-  onEdgeSelect,
-  onNodeMove,
-  onEdgeCreate,
-  onEdgeDelete,
-  children,
-}) => {
-  const viewport = useViewportOptional();
-  const contentRef = useRef<HTMLDivElement>(null);
-
-  // Handle canvas click (when clicking on empty space)
-  const handleClick = useCallback(
-    (event: ReactMouseEvent<HTMLDivElement>) => {
-      // Only trigger if clicking directly on the canvas background
-      if (event.target !== event.currentTarget) return;
-
-      const rect = contentRef.current?.getBoundingClientRect();
-      if (!rect) return;
-
-      // Convert screen coordinates to canvas coordinates
-      const screenX = event.clientX - rect.left;
-      const screenY = event.clientY - rect.top;
-
-      const canvasPosition = viewport
-        ? viewport.screenToCanvas(screenX, screenY)
-        : { x: screenX, y: screenY };
-
-      onCanvasClick?.(canvasPosition, event);
-    },
-    [viewport, onCanvasClick]
-  );
-
-  // Handle canvas double-click
-  const handleDoubleClick = useCallback(
-    (event: ReactMouseEvent<HTMLDivElement>) => {
-      if (event.target !== event.currentTarget) return;
-
-      const rect = contentRef.current?.getBoundingClientRect();
-      if (!rect) return;
-
-      const screenX = event.clientX - rect.left;
-      const screenY = event.clientY - rect.top;
-
-      const canvasPosition = viewport
-        ? viewport.screenToCanvas(screenX, screenY)
-        : { x: screenX, y: screenY };
-
-      onCanvasDoubleClick?.(canvasPosition, event);
-    },
-    [viewport, onCanvasDoubleClick]
-  );
-
-  // Get viewport state for grid rendering
-  const { translateX = 0, translateY = 0, scale = 1 } = viewport?.viewport ?? {};
-  const gridScale = scale || 1;
-  const portSize = portConfig?.portSize ?? 12;
-  const portHitSize = Math.max(24, portSize + 14);
-  const screenEventToCanvasPosition = useCallback(
-    (event: MouseEvent | ReactMouseEvent): Position | null => {
-      const viewportElement = contentRef.current?.closest<HTMLElement>('[data-testid="flow-viewport"]');
-      const rect = viewportElement?.getBoundingClientRect();
-      if (!rect) {
-        return null;
-      }
-
-      const screenX = event.clientX - rect.left;
-      const screenY = event.clientY - rect.top;
-      return viewport ? viewport.screenToCanvas(screenX, screenY) : { x: screenX, y: screenY };
-    },
-    [viewport]
-  );
-  const renderModel = useMemo<FlowCanvasRenderModel>(
-    () =>
-      buildFlowCanvasRenderModel({
-        nodes,
-        edges,
-        selectedNodeIds,
-        selectedEdgeIds,
-        renderEngine,
-        ...(pathConfig !== undefined ? { pathConfig } : {}),
-      }),
-    [edges, nodes, pathConfig, renderEngine, selectedEdgeIds, selectedNodeIds]
-  );
-  const edgeRenderItems = renderModel.edges;
-
-  useEffect(() => {
-    onRenderModelChange?.(renderModel);
-  }, [onRenderModelChange, renderModel]);
-
-  const {
-    hoveredPortKey,
-    connectionDraft,
-    connectionError,
-    beginConnection,
-    hoverPort,
-    leavePort,
-    completeConnectionOnPort,
-    validatePortConnection,
-  } = usePortConnectionDrag({
-    edges,
-    screenEventToCanvasPosition,
-    ...(portConfig !== undefined ? { portConfig } : {}),
-    ...(validateConnection !== undefined ? { validateConnection } : {}),
-    ...(onEdgeCreate !== undefined ? { onEdgeCreate } : {}),
-  });
-
-  return (
-    <>
-      {/* Background Grid */}
-      {showGrid && (
-        <FlowGrid
-          translateX={translateX}
-          translateY={translateY}
-          scale={scale}
-          {...(gridPattern !== undefined ? { pattern: gridPattern } : {})}
-          style={{
-            top: -translateY / gridScale,
-            left: -translateX / gridScale,
-            right: "auto",
-            bottom: "auto",
-            width: `${100 / gridScale}%`,
-            height: `${100 / gridScale}%`,
-          }}
-        />
-      )}
-
-      {/* Canvas Content Layer */}
-      <div
-        ref={contentRef}
-        data-testid="flow-canvas-content"
-        style={{
-          position: "absolute",
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          zIndex: 1,
-        }}
-        onClick={handleClick}
-        onDoubleClick={handleDoubleClick}
-      >
-        {/* Edges Layer (SVG) */}
-        <svg
-          data-testid="flow-canvas-edges"
-          style={{
-            position: "absolute",
-            top: 0,
-            left: 0,
-            width: "100%",
-            height: "100%",
-            pointerEvents: "none",
-            overflow: "visible",
-          }}
-        >
-          <defs>
-            {/* Arrow marker definition */}
-            <marker
-              id="flow-edge-arrow"
-              markerWidth="10"
-              markerHeight="10"
-              refX="9"
-              refY="3"
-              orient="auto"
-              markerUnits="strokeWidth"
-            >
-              <path d="M0,0 L0,6 L9,3 z" fill="currentColor" />
-            </marker>
-          </defs>
-          <g data-testid="flow-canvas-edges-group">
-            {edgeRenderItems.map((item) => {
-              const { edge, sourcePosition, targetPosition, route, selected } = item;
-              if (renderEdge) {
-                return (
-                    <g
-                      key={edge.id}
-                      data-edge-id={edge.id}
-                      style={{
-                        pointerEvents: "auto",
-                        cursor: interaction.selectEdges ? "pointer" : "default",
-                      }}
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        if (interaction.selectEdges) {
-                          onEdgeSelect?.([edge.id]);
-                        }
-                      }}
-                      onDoubleClick={(event) => {
-                        event.stopPropagation();
-                        if (interaction.deleteEdges) {
-                          onEdgeDelete?.(edge.id);
-                        }
-                      }}
-                    >
-                      {renderEdge({
-                        edge,
-                        sourcePosition,
-                        targetPosition,
-                        route,
-                        selected,
-                    })}
-                  </g>
-                );
-              }
-              return null;
-            })}
-          </g>
-          {connectionDraft ? (
-            <g data-testid="flow-canvas-connection-preview" pointerEvents="none">
-              <path
-                d={buildRoundedOrthogonalPath(
-                  compactRoutePoints([
-                    connectionDraft.source.position,
-                    {
-                      x: (connectionDraft.source.position.x + connectionDraft.pointer.x) / 2,
-                      y: connectionDraft.source.position.y,
-                    },
-                    {
-                      x: (connectionDraft.source.position.x + connectionDraft.pointer.x) / 2,
-                      y: connectionDraft.pointer.y,
-                    },
-                    connectionDraft.pointer,
-                  ]),
-                  14
-                )}
-                fill="none"
-                stroke={connectionDraft.validation.valid ? "#2563eb" : "#dc2626"}
-                strokeDasharray={connectionDraft.validation.valid ? "0" : "6 6"}
-                strokeLinecap="round"
-                strokeWidth={3}
-              />
-            </g>
-          ) : null}
-        </svg>
-
-        {/* Nodes Layer */}
-        <div
-          data-testid="flow-canvas-nodes"
-          style={{
-            position: "absolute",
-            top: 0,
-            left: 0,
-            width: 0,
-            height: 0,
-          }}
-        >
-          {renderModel.nodes.map(({ node, selected }) => {
-            if (renderNode) {
-              return (
-                <CanvasNodeContainer
-                  key={node.id}
-                  node={node}
-                  selected={selected}
-                  interaction={interaction}
-                  interactionScale={interactionScale}
-                  renderNode={renderNode}
-                  {...(onNodeSelect !== undefined ? { onNodeSelect } : {})}
-                  {...(onNodeMove !== undefined ? { onNodeMove } : {})}
-                />
-              );
-            }
-            return null;
-          })}
-          {onEdgeCreate
-            ? renderModel.ports.map(({ key, node, port, position, connected }) => {
-                  const endpoint: FlowCanvasPortEndpoint = {
-                    nodeId: node.id,
-                    portId: port.id,
-                    port,
-                    position,
-                  };
-                  const portKey = key;
-                  const hovered = hoveredPortKey === portKey;
-                  const draftTarget = connectionDraft?.target
-                    ? getPortKey(connectionDraft.target.nodeId, connectionDraft.target.portId) ===
-                      portKey
-                    : false;
-                  const visible =
-                    port.visibility === "always" ||
-                    connected ||
-                    hovered ||
-                    draftTarget ||
-                    Boolean(connectionDraft);
-                  const validation =
-                    connectionDraft && connectionDraft.source.nodeId !== node.id
-                      ? validatePortConnection(connectionDraft.source, endpoint)
-                      : null;
-                  const color =
-                    draftTarget && connectionDraft?.validation.valid === false
-                      ? "#dc2626"
-                      : validation && !validation.valid
-                        ? "#dc2626"
-                        : "#2563eb";
-
-                  return (
-                    <button
-                      key={portKey}
-                      type="button"
-                      data-port-id={port.id}
-                      data-node-id={node.id}
-                      data-port-direction={port.type}
-                      title={validation?.reason ?? port.description ?? port.name}
-                      aria-label={`${node.label} ${port.name} ${port.type} port`}
-                      style={{
-                        position: "absolute",
-                        left: position.x - portHitSize / 2,
-                        top: position.y - portHitSize / 2,
-                        width: portHitSize,
-                        height: portHitSize,
-                        border: 0,
-                        padding: 0,
-                        borderRadius: "999px",
-                        background: "transparent",
-                        cursor: "crosshair",
-                        zIndex: 10,
-                        opacity: visible ? 1 : 0,
-                        transition: "opacity 120ms ease",
-                      }}
-                      onMouseEnter={() => {
-                        hoverPort(portKey, endpoint);
-                      }}
-                      onMouseLeave={() => {
-                        leavePort(portKey, endpoint);
-                      }}
-                      onMouseDown={(event) => {
-                        if (event.button !== 0) {
-                          return;
-                        }
-                        event.preventDefault();
-                        event.stopPropagation();
-                        beginConnection(endpoint);
-                      }}
-                      onMouseUp={(event) => {
-                        event.preventDefault();
-                        event.stopPropagation();
-                        completeConnectionOnPort(endpoint);
-                      }}
-                    >
-                      <span
-                        aria-hidden="true"
-                        style={{
-                          position: "absolute",
-                          left: "50%",
-                          top: "50%",
-                          width: portSize,
-                          height: portSize,
-                          transform: "translate(-50%, -50%)",
-                          borderRadius: "999px",
-                          border: "2px solid #ffffff",
-                          background: color,
-                          boxShadow:
-                            hovered || draftTarget
-                              ? `0 0 0 5px ${color}22, 0 1px 4px rgba(15, 23, 42, 0.22)`
-                              : "0 1px 4px rgba(15, 23, 42, 0.22)",
-                        }}
-                      />
-                    </button>
-                  );
-              })
-            : null}
-          {connectionError ? (
-            <div
-              role="status"
-              style={{
-                position: "absolute",
-                left: connectionError.position.x + 12,
-                top: connectionError.position.y - 14,
-                zIndex: 20,
-                maxWidth: 240,
-                borderRadius: 8,
-                border: "1px solid #fecaca",
-                background: "#fff1f2",
-                color: "#991b1b",
-                padding: "6px 8px",
-                fontSize: 12,
-                fontWeight: 600,
-                boxShadow: "0 8px 18px rgba(15, 23, 42, 0.12)",
-                pointerEvents: "none",
-              }}
-            >
-              {connectionError.message}
-            </div>
-          ) : null}
-        </div>
-
-        {/* Custom Children */}
-        {children}
-      </div>
-    </>
-  );
-};
-
-CanvasContent.displayName = "CanvasContent";
-
-interface CanvasNodeContainerProps {
-  node: IFlowNodeEntityData;
-  selected: boolean;
-  interaction: FlowCanvasInteraction;
-  interactionScale: number;
-  onNodeSelect?: (nodeIds: string[]) => void;
-  onNodeMove?: (nodeId: string, position: Position) => void;
-  renderNode: (props: NodeRenderProps) => ReactNode;
-}
-
-const CanvasNodeContainer: React.FC<CanvasNodeContainerProps> = ({
-  node,
-  selected,
-  interaction,
-  interactionScale,
-  onNodeSelect,
-  onNodeMove,
-  renderNode,
-}) => {
-  const viewport = useViewportOptional();
-  const handleMouseDown = useNodeDrag({
-    node,
-    selectNodes: interaction.selectNodes,
-    dragNodes: interaction.dragNodes,
-    viewportScale: viewport?.viewport.scale ?? 1,
-    interactionScale,
-    ...(onNodeSelect !== undefined ? { onNodeSelect } : {}),
-    ...(onNodeMove !== undefined ? { onNodeMove } : {}),
-  });
-
-  return (
-    <div
-      data-node-id={node.id}
-      style={{
-        position: "absolute",
-        left: node.position?.x ?? 0,
-        top: node.position?.y ?? 0,
-        width: node.size?.width,
-        height: node.size?.height,
-        cursor: interaction.dragNodes ? "grab" : "default",
-        userSelect: interaction.dragNodes ? "none" : undefined,
-      }}
-      onMouseDown={handleMouseDown}
-    >
-      {renderNode({
-        node,
-        selected,
-      })}
-    </div>
-  );
-};
-
-CanvasNodeContainer.displayName = "CanvasNodeContainer";
-
-// =============================================================================
-// Main Component
-// =============================================================================
-
 /**
  * FlowCanvas is the top-level container for rendering a flow diagram.
- * It composes FlowViewport, FlowGrid, and provides structure for rendering
- * nodes and edges.
+ * It owns public canvas props, viewport setup, and content composition.
  *
  * @param root0
  * @param root0.nodes
@@ -808,20 +286,6 @@ CanvasNodeContainer.displayName = "CanvasNodeContainer";
  * @param root0.onViewportChange
  * @param root0.className
  * @param root0.style
- * @example
- * ```tsx
- * <FlowCanvas
- *   nodes={nodes}
- *   edges={edges}
- *   showGrid={true}
- *   minZoom={0.5}
- *   maxZoom={2}
- *   onNodeSelect={(ids) => console.log('Selected:', ids)}
- *   onViewportChange={(vp) => console.log('Viewport:', vp)}
- * >
- *   <CustomOverlay />
- * </FlowCanvas>
- * ```
  */
 export const FlowCanvas: React.FC<FlowCanvasProps> = ({
   nodes = [],
@@ -865,7 +329,6 @@ export const FlowCanvas: React.FC<FlowCanvasProps> = ({
   const containerRef = useRef<HTMLDivElement>(null);
   const [containerSize, setContainerSize] = useState({ width: 0, height: 0 });
 
-  // Convert selected IDs to Sets for efficient lookup
   const selectedNodeSet = useMemo(() => new Set(selectedNodeIds), [selectedNodeIds]);
   const selectedEdgeSet = useMemo(() => new Set(selectedEdgeIds), [selectedEdgeIds]);
   const effectiveReadOnly = readOnly ?? mode === "preview";
@@ -882,14 +345,14 @@ export const FlowCanvas: React.FC<FlowCanvasProps> = ({
       (bounds, node) => {
         const x = node.position?.x ?? 0;
         const y = node.position?.y ?? 0;
-        const width = node.size?.width ?? 200;
-        const height = node.size?.height ?? 100;
+        const nodeWidth = node.size?.width ?? 200;
+        const nodeHeight = node.size?.height ?? 100;
 
         return {
           minX: Math.min(bounds.minX, x),
           minY: Math.min(bounds.minY, y),
-          maxX: Math.max(bounds.maxX, x + width),
-          maxY: Math.max(bounds.maxY, y + height),
+          maxX: Math.max(bounds.maxX, x + nodeWidth),
+          maxY: Math.max(bounds.maxY, y + nodeHeight),
         };
       },
       {
@@ -901,7 +364,6 @@ export const FlowCanvas: React.FC<FlowCanvasProps> = ({
     );
   }, [nodes]);
 
-  // Build initial viewport state
   const initialViewport = useMemo(
     () => ({
       translateX: 0,
@@ -912,7 +374,6 @@ export const FlowCanvas: React.FC<FlowCanvasProps> = ({
     [defaultZoom, defaultViewport]
   );
 
-  // Build viewport constraints
   const viewportConstraints = useMemo(
     () => ({
       minScale: minZoom,
@@ -939,7 +400,6 @@ export const FlowCanvas: React.FC<FlowCanvasProps> = ({
     return { translateX, translateY, scale };
   }, [containerSize.height, containerSize.width, contentBounds, fitPadding, fitView, maxZoom, minZoom]);
 
-  // Observe container size for viewport calculations
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
@@ -961,12 +421,10 @@ export const FlowCanvas: React.FC<FlowCanvasProps> = ({
     };
   }, []);
 
-  // Get context to access theme
   const contextValue = useOptionalFlowEntityContext();
   const canvasBackground =
     theme?.canvasBackground ?? contextValue?.theme?.canvasBackground ?? "#f9fafb";
 
-  // Container styles
   const containerStyle = useMemo<CSSProperties>(
     () => ({
       position: "relative",
@@ -1000,20 +458,20 @@ export const FlowCanvas: React.FC<FlowCanvasProps> = ({
           interaction={resolvedInteraction}
           interactionScale={interactionScale}
           renderEngine={renderEngine}
-          {...(gridPattern !== undefined ? { gridPattern } : {})}
-          {...(portConfig !== undefined ? { portConfig } : {})}
-          {...(pathConfig !== undefined ? { pathConfig } : {})}
-          {...(renderNode !== undefined ? { renderNode } : {})}
-          {...(renderEdge !== undefined ? { renderEdge } : {})}
-          {...(onRenderModelChange !== undefined ? { onRenderModelChange } : {})}
-          {...(validateConnection !== undefined ? { validateConnection } : {})}
-          {...(onCanvasClick !== undefined ? { onCanvasClick } : {})}
-          {...(onCanvasDoubleClick !== undefined ? { onCanvasDoubleClick } : {})}
-          {...(onNodeSelect !== undefined ? { onNodeSelect } : {})}
-          {...(onEdgeSelect !== undefined ? { onEdgeSelect } : {})}
-          {...(onNodeMove !== undefined ? { onNodeMove } : {})}
-          {...(onEdgeCreate !== undefined ? { onEdgeCreate } : {})}
-          {...(onEdgeDelete !== undefined ? { onEdgeDelete } : {})}
+          {...(gridPattern === undefined ? {} : { gridPattern })}
+          {...(portConfig === undefined ? {} : { portConfig })}
+          {...(pathConfig === undefined ? {} : { pathConfig })}
+          {...(renderNode === undefined ? {} : { renderNode })}
+          {...(renderEdge === undefined ? {} : { renderEdge })}
+          {...(onRenderModelChange === undefined ? {} : { onRenderModelChange })}
+          {...(validateConnection === undefined ? {} : { validateConnection })}
+          {...(onCanvasClick === undefined ? {} : { onCanvasClick })}
+          {...(onCanvasDoubleClick === undefined ? {} : { onCanvasDoubleClick })}
+          {...(onNodeSelect === undefined ? {} : { onNodeSelect })}
+          {...(onEdgeSelect === undefined ? {} : { onEdgeSelect })}
+          {...(onNodeMove === undefined ? {} : { onNodeMove })}
+          {...(onEdgeCreate === undefined ? {} : { onEdgeCreate })}
+          {...(onEdgeDelete === undefined ? {} : { onEdgeDelete })}
         >
           {children}
         </CanvasContent>

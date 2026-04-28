@@ -43,7 +43,7 @@ export function useNodeDrag({
   const dragRef = useRef<NodeDragState | null>(null);
 
   return useCallback(
-    (event: ReactMouseEvent<HTMLDivElement>) => {
+    (event: ReactMouseEvent<HTMLElement>) => {
       if (event.button !== 0) {
         return;
       }
