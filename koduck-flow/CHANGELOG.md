@@ -236,7 +236,8 @@ console.log(`Avg task duration: ${stats.avgTaskDuration}ms`);
 - **Best Practices** (`docs/worker-pool-best-practices.md`): Production patterns
 - **Troubleshooting** (`docs/worker-pool-troubleshooting.md`): Diagnostic guide
 - **Performance Report** (`docs/worker-pool-performance-report.md`): Detailed benchmarks
-- **Examples** (`examples/worker-pool/`): 4 runnable projects
+- **Examples**: Worker Pool examples were later removed from the top-level
+  `examples/` directory during repository cleanup
 
 #### Test Coverage
 
@@ -261,7 +262,8 @@ console.log(`Avg task duration: ${stats.avgTaskDuration}ms`);
 
 - Worker Pool is **opt-in** - no changes required to existing code
 - Existing task execution continues to work unchanged
-- To use Worker Pool for CPU-intensive tasks, see examples in `examples/worker-pool/`
+- To use Worker Pool for CPU-intensive tasks, see the Worker Pool source and tests
+  under `src/common/worker-pool/` and `test/**/worker-pool*`
 
 ---
 
