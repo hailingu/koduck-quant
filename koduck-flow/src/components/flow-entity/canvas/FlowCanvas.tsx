@@ -434,7 +434,7 @@ const CanvasContent: React.FC<CanvasContentProps> = ({
           translateX={translateX}
           translateY={translateY}
           scale={scale}
-          pattern={gridPattern}
+          {...(gridPattern !== undefined ? { pattern: gridPattern } : {})}
           style={{
             top: -translateY / gridScale,
             left: -translateX / gridScale,
@@ -574,9 +574,9 @@ const CanvasContent: React.FC<CanvasContentProps> = ({
                   selected={selected}
                   interaction={interaction}
                   interactionScale={interactionScale}
-                  onNodeSelect={onNodeSelect}
-                  onNodeMove={onNodeMove}
                   renderNode={renderNode}
+                  {...(onNodeSelect !== undefined ? { onNodeSelect } : {})}
+                  {...(onNodeMove !== undefined ? { onNodeMove } : {})}
                 />
               );
             }
@@ -983,13 +983,13 @@ export const FlowCanvas: React.FC<FlowCanvasProps> = ({
     <div ref={containerRef} className={className} data-testid="flow-canvas" style={containerStyle}>
       <FlowViewport
         initialState={initialViewport}
-        viewport={fitViewport}
         constraints={viewportConstraints}
-        onViewportChange={onViewportChange}
         containerWidth={containerSize.width}
         containerHeight={containerSize.height}
         enablePan={resolvedInteraction.pan}
         enableZoom={resolvedInteraction.zoom}
+        {...(fitViewport !== undefined ? { viewport: fitViewport } : {})}
+        {...(onViewportChange !== undefined ? { onViewportChange } : {})}
       >
         <CanvasContent
           nodes={nodes}
@@ -997,23 +997,23 @@ export const FlowCanvas: React.FC<FlowCanvasProps> = ({
           selectedNodeIds={selectedNodeSet}
           selectedEdgeIds={selectedEdgeSet}
           showGrid={showGrid}
-          gridPattern={gridPattern}
           interaction={resolvedInteraction}
           interactionScale={interactionScale}
-          portConfig={portConfig}
-          pathConfig={pathConfig}
           renderEngine={renderEngine}
-          renderNode={renderNode}
-          renderEdge={renderEdge}
-          onRenderModelChange={onRenderModelChange}
-          validateConnection={validateConnection}
-          onCanvasClick={onCanvasClick}
-          onCanvasDoubleClick={onCanvasDoubleClick}
-          onNodeSelect={onNodeSelect}
-          onEdgeSelect={onEdgeSelect}
-          onNodeMove={onNodeMove}
-          onEdgeCreate={onEdgeCreate}
-          onEdgeDelete={onEdgeDelete}
+          {...(gridPattern !== undefined ? { gridPattern } : {})}
+          {...(portConfig !== undefined ? { portConfig } : {})}
+          {...(pathConfig !== undefined ? { pathConfig } : {})}
+          {...(renderNode !== undefined ? { renderNode } : {})}
+          {...(renderEdge !== undefined ? { renderEdge } : {})}
+          {...(onRenderModelChange !== undefined ? { onRenderModelChange } : {})}
+          {...(validateConnection !== undefined ? { validateConnection } : {})}
+          {...(onCanvasClick !== undefined ? { onCanvasClick } : {})}
+          {...(onCanvasDoubleClick !== undefined ? { onCanvasDoubleClick } : {})}
+          {...(onNodeSelect !== undefined ? { onNodeSelect } : {})}
+          {...(onEdgeSelect !== undefined ? { onEdgeSelect } : {})}
+          {...(onNodeMove !== undefined ? { onNodeMove } : {})}
+          {...(onEdgeCreate !== undefined ? { onEdgeCreate } : {})}
+          {...(onEdgeDelete !== undefined ? { onEdgeDelete } : {})}
         >
           {children}
         </CanvasContent>
@@ -1035,9 +1035,9 @@ FlowCanvas.displayName = "FlowCanvas";
 export const FlowCanvasWithProvider: React.FC<FlowCanvasProps> = (props) => {
   return (
     <FlowEntityProvider
-      theme={props.theme}
-      portConfig={props.portConfig}
       readOnly={props.readOnly ?? props.mode === "preview"}
+      {...(props.theme !== undefined ? { theme: props.theme } : {})}
+      {...(props.portConfig !== undefined ? { portConfig: props.portConfig } : {})}
     >
       <FlowCanvas {...props} />
     </FlowEntityProvider>

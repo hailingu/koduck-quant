@@ -119,6 +119,11 @@ export const FlowEditorCanvas: React.FC<FlowEditorCanvasProps> = ({
     initialFit === "actual" ||
     (containerSize.width > 0 && containerSize.height > 0);
 
+  const viewportProps =
+    initialViewport === undefined
+      ? {}
+      : { defaultViewport: initialViewport };
+
   return (
     <div
       ref={containerRef}
@@ -140,8 +145,8 @@ export const FlowEditorCanvas: React.FC<FlowEditorCanvasProps> = ({
           minZoom={minZoom}
           maxZoom={maxZoom}
           defaultZoom={defaultZoom}
-          defaultViewport={initialViewport}
           nodes={nodes}
+          {...viewportProps}
         />
       ) : null}
       {overlay}

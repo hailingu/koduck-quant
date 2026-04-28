@@ -55,6 +55,11 @@ export const FlowPreviewCanvas: React.FC<FlowPreviewCanvasProps> = ({
   const frameHeight =
     fitMode === "contain" ? previewHeight : Math.max(minHeight, Math.ceil(canvasHeight * scale));
 
+  const classNameProps =
+    canvasClassName === undefined ? {} : { className: canvasClassName };
+  const styleProps =
+    canvasStyle === undefined ? {} : { style: canvasStyle };
+
   return (
     <div
       className={className}
@@ -82,8 +87,8 @@ export const FlowPreviewCanvas: React.FC<FlowPreviewCanvasProps> = ({
           width={canvasWidth}
           height={canvasHeight}
           interactionScale={scale}
-          className={canvasClassName}
-          style={canvasStyle}
+          {...classNameProps}
+          {...styleProps}
         />
       </div>
       {overlay}
