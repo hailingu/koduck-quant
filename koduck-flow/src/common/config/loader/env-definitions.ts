@@ -309,8 +309,4 @@ function setDeepValue(target: Record<string, unknown>, path: string[], value: un
   cursor[path[path.length - 1]] = value;
 }
 
-export function getEnvVarDefinition(name: string): EnvVarDefinition | undefined {
-  return ENV_VAR_DEFINITIONS.find((definition) => definition.name === name);
-}
-
 export type EnvVarCategory = EnvVarDefinition["category"];

@@ -140,11 +140,3 @@ export class MetricsAdapter {
     this.metrics.recordGraphLinkErrorLength(length);
   }
 }
-
-/**
- * Create a no-op MetricsAdapter for testing
- * @returns A no-op MetricsAdapter instance
- */
-export function createMockFlowMetrics(): MetricsAdapter {
-  return new MetricsAdapter(new FlowMetrics());
-}

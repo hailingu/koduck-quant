@@ -1363,53 +1363,6 @@ export class UMLLineEntity extends UMLEdgeEntity<LineEdge> {
   }
 }
 
-// ============================================================================
-// 测试和验证函数
-// ============================================================================
-
-/**
- * 测试新的装饰器系统
- */
-export async function testNewDecoratorSystem() {
-  logger.info("🚀 Testing New Capability-Aware Decorator System");
-
-  const registryManager = umlRegistryManager;
-
-  // 测试实体创建
-  const classEntity = new UMLClassEntity({ label: "TestClass" });
-
-  // 测试注册表获取
-  const classRegistry = registryManager.getRegistry(
-    "uml-class-canvas"
-  ) as ICapabilityAwareRegistry<UMLEntity>;
-  const interfaceRegistry = registryManager.getRegistry(
-    "uml-interface-canvas"
-  ) as ICapabilityAwareRegistry<UMLEntity>;
-
-  logger.info("📝 Registry Test Results:");
-  logger.debug("Class Registry:", !!classRegistry);
-  logger.debug("Interface Registry:", !!interfaceRegistry);
-
-  if (classRegistry) {
-    logger.debug("Class Registry Capabilities:", classRegistry.getCapabilities());
-
-    // 测试能力执行
-    try {
-      const result = await classRegistry.executeCapability("execute", classEntity, { test: true });
-      logger.info("Execute Capability Result:", result);
-    } catch (error) {
-      logger.error("Execute Capability Error:", error as unknown);
-    }
-
-    // 测试批量能力检查
-    const capabilityChecks =
-      classRegistry.checkCapabilities?.(classEntity, ["render", "execute", "validate"]) || [];
-    logger.debug("Capability Checks:", capabilityChecks);
-  }
-
-  logger.info("✅ New Decorator System Test Completed");
-}
-
 /**
  * 获取所有注册的UML实体信息
  */
