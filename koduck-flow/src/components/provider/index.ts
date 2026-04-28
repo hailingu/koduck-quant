@@ -1,11 +1,11 @@
-export { DuckFlowProvider, type DuckFlowProviderProps } from "./DuckFlowProvider";
+export { KoduckFlowProvider, type KoduckFlowProviderProps } from "./KoduckFlowProvider";
 export {
-  useDuckFlow,
-  useDuckFlowContext,
-  useDuckFlowManager,
-  useDuckFlowManagers,
-  useDuckFlowRuntime,
-  useDuckFlowTenant,
+  useKoduckFlow,
+  useKoduckFlowContext,
+  useKoduckFlowManager,
+  useKoduckFlowManagers,
+  useKoduckFlowRuntime,
+  useKoduckFlowTenant,
   useEntity,
   useFlow,
   useTenantFeatureFlag,

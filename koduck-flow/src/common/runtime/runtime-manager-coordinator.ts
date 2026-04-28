@@ -204,7 +204,7 @@ export class RuntimeManagerCoordinator implements IDisposable {
       eagerInitialization.catch((error) => {
         const state = this.managerStates.get(name);
         const path = state?.path ?? [name];
-        logger.error("[duck-flow] Manager eager initialization failed", {
+        logger.error("[koduck-flow] Manager eager initialization failed", {
           manager: name,
           dependencies,
           path,
@@ -463,7 +463,7 @@ export class RuntimeManagerCoordinator implements IDisposable {
       .then(() => {
         this.managerStates.set(name, { status: MANAGER_LIFECYCLE_STATUS.Ready });
         this.initializedManagers.add(name);
-        logger.info("[duck-flow] Manager initialized", {
+        logger.info("[koduck-flow] Manager initialized", {
           manager: name,
           dependencies,
           path: initializationPath,
@@ -477,7 +477,7 @@ export class RuntimeManagerCoordinator implements IDisposable {
           path: initializationPath,
         });
         this.initializedManagers.delete(name);
-        logger.error("[duck-flow] Manager initialization failed", {
+        logger.error("[koduck-flow] Manager initialization failed", {
           manager: name,
           dependencies,
           path: initializationPath,
@@ -565,7 +565,7 @@ export class RuntimeManagerCoordinator implements IDisposable {
     dependencies: string[]
   ): Promise<void> {
     if (dependencies.length > 0) {
-      logger.debug("[duck-flow] Resolving manager dependencies", {
+      logger.debug("[koduck-flow] Resolving manager dependencies", {
         name,
         dependencies,
         path,
@@ -671,7 +671,7 @@ export class RuntimeManagerCoordinator implements IDisposable {
     attempts: number
   ): Promise<void> {
     for (let attempt = 1; attempt <= attempts; attempt += 1) {
-      logger.debug("[duck-flow] Initializing manager", {
+      logger.debug("[koduck-flow] Initializing manager", {
         name,
         path,
         attempt,
@@ -712,7 +712,7 @@ export class RuntimeManagerCoordinator implements IDisposable {
   ): Promise<void> {
     const isTimeoutError = this.isInitializationTimeoutError(error);
     if (config.warnOnRetry && !isTimeoutError) {
-      logger.warn("[duck-flow] Manager initialization attempt failed", {
+      logger.warn("[koduck-flow] Manager initialization attempt failed", {
         name,
         attempt,
         attempts,
@@ -768,7 +768,7 @@ export class RuntimeManagerCoordinator implements IDisposable {
         });
 
         if (config.warnOnRetry) {
-          logger.warn("[duck-flow] Manager initialization attempt timed out", {
+          logger.warn("[koduck-flow] Manager initialization attempt timed out", {
             name,
             attempt,
             attempts,

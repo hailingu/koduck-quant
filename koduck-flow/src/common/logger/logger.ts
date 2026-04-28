@@ -177,7 +177,7 @@ class Logger {
   private config: LogConfig = {
     enabled: import.meta.env?.DEV ?? false,
     level: "warn",
-    prefix: "[DuckFlow]",
+    prefix: "[KoduckFlow]",
     format: "text",
     includeEmoji: false,
     metadata: undefined,

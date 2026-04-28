@@ -20,7 +20,7 @@
     "allowedTypes": ["ui", "data", "workflow"]
   },
   "infra": {
-    "databaseUrl": "postgresql://localhost:5432/duckflow_dev",
+    "databaseUrl": "postgresql://localhost:5432/koduckflow_dev",
     "cacheTtl": 3600
   }
 }

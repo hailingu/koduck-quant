@@ -44,7 +44,7 @@ export interface PluginSandboxRunnerOptions {
   metadata?: Record<string, unknown>;
   /** 自定义日志适配器，默认使用全局 logger */
   logger?: LoggerContextAdapter;
-  /** 沙箱 API 名称。默认值：__duckFlowSandbox */
+  /** 沙箱 API 名称。默认值：__koduckFlowSandbox */
   apiName?: string;
 }
 
@@ -93,7 +93,7 @@ export class PluginLifecycleTimeoutError extends PluginLifecycleInvocationError 
 }
 
 const DEFAULT_TIMEOUT_MS = getConfig().plugin.sandboxTimeout;
-const DEFAULT_API_NAME = "__duckFlowSandbox";
+const DEFAULT_API_NAME = "__koduckFlowSandbox";
 
 interface RegistrationRecord {
   value?: unknown;

@@ -75,7 +75,7 @@ export class RegistryManager implements IRegistryManager<IEntity>, IDisposable {
   /** IRegistryManager 接口要求的 meta 属性 */
   public readonly meta: IMeta = {
     type: "RegistryManager",
-    description: "Duck Flow 注册表管理器 - 统一管理多个实体注册表",
+    description: "Koduck Flow 注册表管理器 - 统一管理多个实体注册表",
   };
 
   /**

@@ -5,7 +5,7 @@
  * 注意：此接口仅供内部模块使用，不应暴露给外部
  */
 
-import type { DuckFlowConfig, ConfigSource } from "../../schema";
+import type { KoduckFlowConfig, ConfigSource } from "../../schema";
 import type { ConfigChangeContext, MergeConflict } from "../types";
 import type { IConfigProvider } from "./config-provider.interface";
 import type { IConfigRuntimeOverride } from "./config-runtime-override.interface";
@@ -44,7 +44,7 @@ export interface LoadMetrics {
 export interface EventBusLike {
   system: {
     configChange: (
-      payload: { config: DuckFlowConfig; context: ConfigChangeContext },
+      payload: { config: KoduckFlowConfig; context: ConfigChangeContext },
       source: string
     ) => void;
   };
@@ -56,18 +56,18 @@ export interface EventBusLike {
  */
 export interface IConfigLoaderInternal extends IConfigProvider, IConfigRuntimeOverride {
   // 内部状态属性
-  configCache: DuckFlowConfig | undefined;
-  configSources: Map<ConfigSource, Partial<DuckFlowConfig>>;
-  runtimeOverrides: Partial<DuckFlowConfig>;
+  configCache: KoduckFlowConfig | undefined;
+  configSources: Map<ConfigSource, Partial<KoduckFlowConfig>>;
+  runtimeOverrides: Partial<KoduckFlowConfig>;
   hasLoadedOnce: boolean;
   loadMetrics: LoadMetrics;
   metrics: LoaderMetrics;
   lastConflicts: MergeConflict[];
   lastValidationWarnings: Array<{ path: string; message: string }>;
-  configChangeListeners: Array<(config: DuckFlowConfig) => void>;
+  configChangeListeners: Array<(config: KoduckFlowConfig) => void>;
   eventBus: EventBusLike;
 
   // 内部方法
   now(): number;
-  load(options?: Partial<DuckFlowConfig>, context?: ConfigChangeContext): DuckFlowConfig;
+  load(options?: Partial<KoduckFlowConfig>, context?: ConfigChangeContext): KoduckFlowConfig;
 }

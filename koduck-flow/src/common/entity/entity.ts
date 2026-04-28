@@ -2,7 +2,7 @@
  * Entity Module - Core Entity Base Class Implementation
  *
  * Provides the default concrete implementation of the IEntity interface.
- * All entities in Duck Flow inherit from or implement this class/interface.
+ * All entities in Koduck Flow inherit from or implement this class/interface.
  *
  * **Purpose**:
  * - Implements basic entity contract with id, data, config management

@@ -1,5 +1,5 @@
 import { logger } from "../../logger";
-import type { DuckFlowConfig, ValidationResult } from "../schema";
+import type { KoduckFlowConfig, ValidationResult } from "../schema";
 import type { IConfigLoaderInternal } from "./types/config-loader-internal.interface";
 import { LOAD_TIME_WARN_THRESHOLD_MS } from "./constants";
 import { loadConfigFile, loadDefaults, loadEnvConfig } from "./sources";
@@ -11,9 +11,9 @@ import { getRollbackManager } from "./rollback";
 
 export function loadImpl(
   base: IConfigLoaderInternal,
-  options?: Partial<DuckFlowConfig>,
+  options?: Partial<KoduckFlowConfig>,
   context?: ConfigChangeContext
-): DuckFlowConfig {
+): KoduckFlowConfig {
   const loader = base;
 
   if (loader.configCache && !options) {
@@ -107,9 +107,9 @@ export function loadImpl(
 
 export function reloadImpl(
   base: IConfigLoaderInternal,
-  options?: Partial<DuckFlowConfig>,
+  options?: Partial<KoduckFlowConfig>,
   context?: ConfigChangeContext
-): DuckFlowConfig {
+): KoduckFlowConfig {
   const loader = base;
 
   // 在配置变更前创建自动快照
@@ -123,7 +123,7 @@ export function reloadImpl(
     loader.runtimeOverrides = mergeRuntimeObjects(
       loader.runtimeOverrides,
       options
-    ) as Partial<DuckFlowConfig>;
+    ) as Partial<KoduckFlowConfig>;
     refreshRuntimeOverrideGaugeImpl(base);
     const runtimeContext: ConfigChangeContext = {
       trigger: context?.trigger ?? "runtime-cli",
@@ -148,13 +148,13 @@ export function reloadImpl(
 
 export function computeConfigurationImpl(
   base: IConfigLoaderInternal,
-  runtimeOverrides?: Partial<DuckFlowConfig>
+  runtimeOverrides?: Partial<KoduckFlowConfig>
 ): {
-  defaults: DuckFlowConfig;
-  file: Partial<DuckFlowConfig>;
-  env: Partial<DuckFlowConfig>;
-  runtime?: Partial<DuckFlowConfig>;
-  merged: DuckFlowConfig;
+  defaults: KoduckFlowConfig;
+  file: Partial<KoduckFlowConfig>;
+  env: Partial<KoduckFlowConfig>;
+  runtime?: Partial<KoduckFlowConfig>;
+  merged: KoduckFlowConfig;
   conflicts: MergeConflict[];
   validation: ValidationResult;
 } {
@@ -183,11 +183,11 @@ export function computeConfigurationImpl(
     conflicts,
     validation,
   } as {
-    defaults: DuckFlowConfig;
-    file: Partial<DuckFlowConfig>;
-    env: Partial<DuckFlowConfig>;
-    runtime?: Partial<DuckFlowConfig>;
-    merged: DuckFlowConfig;
+    defaults: KoduckFlowConfig;
+    file: Partial<KoduckFlowConfig>;
+    env: Partial<KoduckFlowConfig>;
+    runtime?: Partial<KoduckFlowConfig>;
+    merged: KoduckFlowConfig;
     conflicts: MergeConflict[];
     validation: ValidationResult;
   };
@@ -204,7 +204,7 @@ export function updateConfigSourcesImpl(base: IConfigLoaderInternal, sources: Me
   loader.configSources = new Map();
   for (const { source, config } of sources) {
     if (source === "defaults" || !isEmptyOverride(config)) {
-      loader.configSources.set(source, cloneValue(config) as Partial<DuckFlowConfig>);
+      loader.configSources.set(source, cloneValue(config) as Partial<KoduckFlowConfig>);
     }
   }
 }
@@ -217,7 +217,7 @@ export function refreshRuntimeOverrideGaugeImpl(base: IConfigLoaderInternal): vo
 
 export function notifyConfigChangeImpl(
   base: IConfigLoaderInternal,
-  config: DuckFlowConfig,
+  config: KoduckFlowConfig,
   context: ConfigChangeContext
 ): void {
   const loader = base;

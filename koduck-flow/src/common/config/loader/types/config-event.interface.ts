@@ -5,7 +5,7 @@
  * enabling decoupled communication between config modules.
  */
 
-import type { DuckFlowConfig } from "../../schema";
+import type { KoduckFlowConfig } from "../../schema";
 import type { ConfigChangeContext } from "../types";
 
 /**
@@ -15,7 +15,7 @@ export interface ConfigReloadEvent {
   /**
    * Partial configuration options to apply
    */
-  options?: Partial<DuckFlowConfig>;
+  options?: Partial<KoduckFlowConfig>;
 
   /**
    * Context information about the reload trigger

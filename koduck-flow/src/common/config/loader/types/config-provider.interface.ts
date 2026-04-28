@@ -3,7 +3,7 @@
  * 提供统一的配置访问和管理抽象层
  */
 
-import type { DuckFlowConfig } from "../../schema.js";
+import type { KoduckFlowConfig } from "../../schema.js";
 
 /**
  * 配置提供者接口
@@ -14,7 +14,7 @@ export interface IConfigProvider {
    * 获取完整配置对象
    * @returns 当前的配置对象
    */
-  getConfig(): DuckFlowConfig;
+  getConfig(): KoduckFlowConfig;
 
   /**
    * 获取指定路径的配置值
@@ -42,7 +42,7 @@ export interface IConfigProvider {
    * @param config - 要验证的配置对象
    * @returns 验证结果
    */
-  validate(config: DuckFlowConfig): import("../../schema.js").ValidationResult;
+  validate(config: KoduckFlowConfig): import("../../schema.js").ValidationResult;
 
   /**
    * 重新加载配置
@@ -50,5 +50,5 @@ export interface IConfigProvider {
    * @param context - 配置变更上下文
    * @returns 重新加载后的配置对象
    */
-  reload(options?: Partial<DuckFlowConfig>, context?: unknown): DuckFlowConfig;
+  reload(options?: Partial<KoduckFlowConfig>, context?: unknown): KoduckFlowConfig;
 }

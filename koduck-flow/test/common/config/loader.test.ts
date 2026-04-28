@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ConfigLoader, getConfigLoader } from "../../../src/common/config/loader";
-import type { DuckFlowConfig } from "../../../src/common/config/schema";
+import type { KoduckFlowConfig } from "../../../src/common/config/schema";
 
 const HTTP_OVERRIDE_PATH = "/api/config/override";
 
@@ -59,7 +59,7 @@ describe("ConfigLoader runtime overrides", () => {
         event: {
           batchSize: 48,
         },
-      } as Partial<DuckFlowConfig>,
+      } as Partial<KoduckFlowConfig>,
       {
         source: "api",
         dryRun: true,
@@ -68,7 +68,7 @@ describe("ConfigLoader runtime overrides", () => {
     );
 
     expect(result.dryRun).toBe(true);
-    expect((result.config as DuckFlowConfig).event.batchSize).toBe(48);
+    expect((result.config as KoduckFlowConfig).event.batchSize).toBe(48);
     expect(loader.getRuntimeOverrides()).to.deep.equal({});
     const [lastAudit] = loader.getRuntimeAuditTrail(1);
     expect(lastAudit?.dryRun).toBe(true);
@@ -85,7 +85,7 @@ describe("ConfigLoader runtime overrides", () => {
         performance: {
           enableProfiling: true,
         },
-      } as Partial<DuckFlowConfig>,
+      } as Partial<KoduckFlowConfig>,
       {
         source: "api",
         actor: "integration",
@@ -93,7 +93,7 @@ describe("ConfigLoader runtime overrides", () => {
     );
 
     expect(result.dryRun).toBe(false);
-    expect((result.config as DuckFlowConfig).performance.enableProfiling).toBe(true);
+    expect((result.config as KoduckFlowConfig).performance.enableProfiling).toBe(true);
     const overrides = loader.getRuntimeOverrides();
     expect(overrides.performance?.enableProfiling).toBe(true);
     expect(loader.load().performance.enableProfiling).toBe(true);

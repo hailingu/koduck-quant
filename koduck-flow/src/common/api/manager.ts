@@ -1,9 +1,9 @@
 /**
- * Manager registry API for DuckFlow system component management.
+ * Manager registry API for KoduckFlow system component management.
  *
  * Wraps registration and lookup operations against the runtime manager registry.
  * All calls forward to the runtime proxy, ensuring consumers interact with the same
- * manager lifecycle that the core engine uses. Managers in DuckFlow are system
+ * manager lifecycle that the core engine uses. Managers in KoduckFlow are system
  * components (like RenderManager, LayoutManager, etc.) that handle specific concerns.
  *
  * The Manager API provides functionality for:
@@ -39,7 +39,7 @@ import { runtime } from "./runtime-context";
 /**
  * Registers a manager in the runtime manager registry.
  *
- * Registers a manager (system component) with the active `DuckFlowRuntime`. Once registered,
+ * Registers a manager (system component) with the active `KoduckFlowRuntime`. Once registered,
  * the manager is available to other components through the manager lookup API. The registration
  * is wrapped in error handling that logs failures and returns a boolean result.
  *
@@ -85,7 +85,7 @@ export function registerManager(
 /**
  * Retrieves a manager from the registry by name with optional type safety.
  *
- * Retrieves a manager from the active `DuckFlowRuntime` manager registry by its name.
+ * Retrieves a manager from the active `KoduckFlowRuntime` manager registry by its name.
  * Supports generic type parameter for type-safe usage. Returns undefined if the manager
  * is not found or if an error occurs during retrieval.
  *
@@ -128,7 +128,7 @@ export function getManager<T = Record<string, unknown>>(name: string): T | undef
  * Checks if a manager is registered in the runtime.
  *
  * Determines whether a manager with the given name exists in the active
- * `DuckFlowRuntime` manager registry. Returns false if any error occurs.
+ * `KoduckFlowRuntime` manager registry. Returns false if any error occurs.
  *
  * @param {string} name - The name of the manager to check for.
  * @returns {boolean} true if manager is registered, false otherwise or on error.
@@ -158,7 +158,7 @@ export function hasManager(name: string): boolean {
  * Retrieves the names of all registered managers.
  *
  * Returns an array of names of all managers currently registered in the active
- * `DuckFlowRuntime`. Useful for debugging or enumerating available system components.
+ * `KoduckFlowRuntime`. Useful for debugging or enumerating available system components.
  * Returns an empty array if an error occurs.
  *
  * @returns {string[]} Array of manager names, empty array if none or on error.

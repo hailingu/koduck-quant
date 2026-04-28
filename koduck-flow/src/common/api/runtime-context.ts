@@ -1,7 +1,7 @@
 /**
  * Runtime context orchestration for the public API layer.
  *
- * Manages the active `DuckFlowRuntime` stack, missing-runtime diagnostics, and
+ * Manages the active `KoduckFlowRuntime` stack, missing-runtime diagnostics, and
  * the proxy (`runtime`) that exposes runtime methods to consumers. All high-level
  * API modules depend on these utilities to gain safe access to the runtime state.
  *
@@ -17,7 +17,7 @@
  * import { setApiRuntime, clearApiRuntime, runtime } from './runtime-context';
  * import { createEntity } from './entity';
  *
- * const token = setApiRuntime(duckFlowRuntimeInstance, { tenantId: 'org-123' });
+ * const token = setApiRuntime(koduckFlowRuntimeInstance, { tenantId: 'org-123' });
  * try {
  *   const entity = createEntity('MyEntity'); // Uses runtime from context
  * } finally {
@@ -36,7 +36,7 @@
  * @see {@link ./manager | Manager API}
  */
 import {
-  DuckFlowRuntime,
+  KoduckFlowRuntime,
   type ResolvedTenantContext,
   type RuntimeEnvironmentKey,
 } from "../runtime";
@@ -60,7 +60,7 @@ export type ApiRuntimeMetadata = {
 
 type ApiRuntimeEntry = {
   token: symbol;
-  runtime: DuckFlowRuntime;
+  runtime: KoduckFlowRuntime;
   metadata: ApiRuntimeMetadata;
 };
 
@@ -222,7 +222,7 @@ const shouldTraceMissingRuntime = detectDevEnvironment();
 if (shouldTraceMissingRuntime) {
   addApiRuntimeMissingListener((info) => {
     if (info.stack) {
-      logger.debug("[duck-flow] Captured missing runtime stack", {
+      logger.debug("[koduck-flow] Captured missing runtime stack", {
         stack: info.stack,
       });
     }
@@ -232,7 +232,7 @@ if (shouldTraceMissingRuntime) {
 /**
  *
  */
-export class DuckFlowRuntimeMissingError extends Error {
+export class KoduckFlowRuntimeMissingError extends Error {
   readonly metadata?: ApiRuntimeMetadata;
 
   /**
@@ -242,7 +242,7 @@ export class DuckFlowRuntimeMissingError extends Error {
    */
   constructor(message: string, metadata?: ApiRuntimeMetadata) {
     super(message);
-    this.name = "DuckFlowRuntimeMissingError";
+    this.name = "KoduckFlowRuntimeMissingError";
     if (metadata !== undefined) {
       this.metadata = metadata;
     }
@@ -282,14 +282,14 @@ export function resetApiRuntimeConfig(): void {
  * @param metadata
  */
 export function setApiRuntime(
-  runtime: DuckFlowRuntime | null | undefined,
+  runtime: KoduckFlowRuntime | null | undefined,
   metadata: ApiRuntimeMetadata = {}
 ): ApiRuntimeToken | null {
   if (!runtime) {
     return null;
   }
 
-  const token: ApiRuntimeToken = Symbol("duck-flow-api-runtime");
+  const token: ApiRuntimeToken = Symbol("koduck-flow-api-runtime");
   apiRuntimeStack.push({ token, runtime, metadata });
   return token;
 }
@@ -316,7 +316,7 @@ function getActiveApiRuntimeEntry(): ApiRuntimeEntry | undefined {
 /**
  *
  */
-export function getApiRuntime(): DuckFlowRuntime {
+export function getApiRuntime(): KoduckFlowRuntime {
   const active = getActiveApiRuntimeEntry();
   if (active) {
     return active.runtime;
@@ -335,8 +335,8 @@ export function getApiRuntime(): DuckFlowRuntime {
     info.stack = stack;
   }
 
-  const error = new DuckFlowRuntimeMissingError(
-    "No active DuckFlow runtime found. Call setApiRuntime() (for scoped usage) or wrap your app with DuckFlowProvider to provide the runtime context.",
+  const error = new KoduckFlowRuntimeMissingError(
+    "No active KoduckFlow runtime found. Call setApiRuntime() (for scoped usage) or wrap your app with KoduckFlowProvider to provide the runtime context.",
     metadata
   );
   info.error = error;
@@ -383,7 +383,7 @@ export function getApiRuntimeInfo(): ApiRuntimeMetadata & {
  * @param metadata
  */
 export function runWithApiRuntime<T>(
-  runtime: DuckFlowRuntime,
+  runtime: KoduckFlowRuntime,
   fn: () => T,
   metadata: ApiRuntimeMetadata = {}
 ): T {
@@ -395,14 +395,14 @@ export function runWithApiRuntime<T>(
   }
 }
 
-function bindRuntimeValue(value: unknown, runtime: DuckFlowRuntime) {
+function bindRuntimeValue(value: unknown, runtime: KoduckFlowRuntime) {
   if (typeof value === "function") {
     return (value as (...args: unknown[]) => unknown).bind(runtime);
   }
   return value;
 }
 
-const runtimeProxyTarget = Object.create(DuckFlowRuntime.prototype) as DuckFlowRuntime;
+const runtimeProxyTarget = Object.create(KoduckFlowRuntime.prototype) as KoduckFlowRuntime;
 
 /**
  * Runtime proxy that automatically resolves to the current active runtime.
@@ -435,13 +435,13 @@ export const runtime = new Proxy(runtimeProxyTarget, {
     const rt = getApiRuntime();
     return Object.getOwnPropertyDescriptor(rt as unknown as object, prop);
   },
-}) as DuckFlowRuntime;
+}) as KoduckFlowRuntime;
 
 /**
  * Get the runtime proxy.
  *
  * @returns The runtime proxy instance
  */
-export function getRuntimeProxy(): DuckFlowRuntime {
+export function getRuntimeProxy(): KoduckFlowRuntime {
   return runtime;
 }

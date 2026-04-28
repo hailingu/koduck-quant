@@ -3,27 +3,27 @@
  *
  * Utilities to assist with testing during API migration.
  */
-import { DuckFlowProvider } from "../../src/components/provider/DuckFlowProvider";
+import { KoduckFlowProvider } from "../../src/components/provider/KoduckFlowProvider";
 import {
-  createDuckFlowRuntime,
-  type DuckFlowRuntime,
-  type DuckFlowRuntimeOptions,
+  createKoduckFlowRuntime,
+  type KoduckFlowRuntime,
+  type KoduckFlowRuntimeOptions,
 } from "../../src/common/runtime";
 import { render, type RenderOptions } from "@testing-library/react";
 import React from "react";
 
 // Global registry for test runtimes to ensure cleanup
-const testRuntimes: Set<DuckFlowRuntime> = new Set();
+const testRuntimes: Set<KoduckFlowRuntime> = new Set();
 
 /**
  * Create a test-specific runtime instance with automatic cleanup
  *
  * @param options - Optional runtime configuration
- * @returns A DuckFlowRuntime instance
+ * @returns A KoduckFlowRuntime instance
  *
  * @example
  * ```typescript
- * let runtime: DuckFlowRuntime;
+ * let runtime: KoduckFlowRuntime;
  *
  * beforeEach(() => {
  *   runtime = createTestRuntime();
@@ -34,8 +34,8 @@ const testRuntimes: Set<DuckFlowRuntime> = new Set();
  * });
  * ```
  */
-export function createTestRuntime(options?: DuckFlowRuntimeOptions): DuckFlowRuntime {
-  const runtime = createDuckFlowRuntime(options);
+export function createTestRuntime(options?: KoduckFlowRuntimeOptions): KoduckFlowRuntime {
+  const runtime = createKoduckFlowRuntime(options);
   testRuntimes.add(runtime);
   return runtime;
 }
@@ -57,7 +57,7 @@ export function cleanupTestRuntimes(): void {
 }
 
 /**
- * Render a component with DuckFlowProvider wrapper
+ * Render a component with KoduckFlowProvider wrapper
  *
  * @param ui - The React element to render
  * @param options - Optional render options including runtime config
@@ -74,8 +74,8 @@ export function cleanupTestRuntimes(): void {
 export function renderWithProvider(
   ui: React.ReactElement,
   options?: RenderOptions & {
-    runtimeOptions?: DuckFlowRuntimeOptions;
-    runtime?: DuckFlowRuntime;
+    runtimeOptions?: KoduckFlowRuntimeOptions;
+    runtime?: KoduckFlowRuntime;
   }
 ) {
   const { runtimeOptions, runtime: providedRuntime, ...renderOptions } = options || {};
@@ -83,7 +83,7 @@ export function renderWithProvider(
   const runtime = providedRuntime || createTestRuntime(runtimeOptions);
 
   const Wrapper = ({ children }: { children: React.ReactNode }) => (
-    <DuckFlowProvider runtime={runtime}>{children}</DuckFlowProvider>
+    <KoduckFlowProvider runtime={runtime}>{children}</KoduckFlowProvider>
   );
 
   const result = render(ui, { wrapper: Wrapper, ...renderOptions });
@@ -122,7 +122,7 @@ export function detectLegacyAPIUsage(sourceCode: string): string[] {
   const issues: string[] = [];
 
   // Check for deity imports
-  if (/import\s+.*\bdeity\b.*from\s+['"]duck-flow['"]/.test(sourceCode)) {
+  if (/import\s+.*\bdeity\b.*from\s+['"]koduck-flow['"]/.test(sourceCode)) {
     issues.push("Found deprecated deity import");
   }
 
@@ -141,9 +141,9 @@ export function detectLegacyAPIUsage(sourceCode: string): string[] {
     issues.push("Found deprecated legacyDeity usage");
   }
 
-  // Check for globalDuckFlowRuntime
-  if (/\bglobalDuckFlowRuntime\b/.test(sourceCode)) {
-    issues.push("Found deprecated globalDuckFlowRuntime usage");
+  // Check for globalKoduckFlowRuntime
+  if (/\bglobalKoduckFlowRuntime\b/.test(sourceCode)) {
+    issues.push("Found deprecated globalKoduckFlowRuntime usage");
   }
 
   return issues;
@@ -175,21 +175,21 @@ export function assertNoLegacyAPI(sourceCode: string): void {
 }
 
 /**
- * Mock DuckFlowRuntime for testing
+ * Mock KoduckFlowRuntime for testing
  *
  * @param overrides - Partial runtime implementation to override
  * @returns Mocked runtime object
  *
  * @example
  * ```typescript
- * const mockRuntime = mockDuckFlowRuntime({
+ * const mockRuntime = mockKoduckFlowRuntime({
  *   createEntity: vi.fn(() => mockEntity),
  *   getEntity: vi.fn(() => mockEntity)
  * });
  * ```
  */
-export function mockDuckFlowRuntime(overrides?: Partial<DuckFlowRuntime>): DuckFlowRuntime {
-  const defaultMock: DuckFlowRuntime = {
+export function mockKoduckFlowRuntime(overrides?: Partial<KoduckFlowRuntime>): KoduckFlowRuntime {
+  const defaultMock: KoduckFlowRuntime = {
     createEntity: vi.fn(),
     getEntity: vi.fn(),
     removeEntity: vi.fn(),
@@ -204,7 +204,7 @@ export function mockDuckFlowRuntime(overrides?: Partial<DuckFlowRuntime>): DuckF
     hasManager: vi.fn(),
     getRegisteredManagers: vi.fn(() => []),
     ...overrides,
-  } as unknown as DuckFlowRuntime;
+  } as unknown as KoduckFlowRuntime;
 
   return defaultMock;
 }
@@ -217,7 +217,7 @@ export function mockDuckFlowRuntime(overrides?: Partial<DuckFlowRuntime>): DuckF
  * @returns Promise that resolves when runtime is ready
  */
 export async function waitForRuntimeReady(
-  runtime: DuckFlowRuntime,
+  runtime: KoduckFlowRuntime,
   timeout: number = 5000
 ): Promise<void> {
   const startTime = Date.now();

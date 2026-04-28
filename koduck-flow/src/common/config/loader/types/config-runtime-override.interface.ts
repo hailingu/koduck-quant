@@ -4,7 +4,7 @@
  * Provides abstraction for runtime configuration override operations
  */
 
-import type { DuckFlowConfig } from "../../schema";
+import type { KoduckFlowConfig } from "../../schema";
 import type { RuntimeOverrideOptions, RuntimeOverrideResult } from "../types";
 
 /**
@@ -22,7 +22,7 @@ export interface IConfigRuntimeOverride {
    * @returns Result of the override operation
    */
   applyRuntimeOverrides(
-    overrides: Partial<DuckFlowConfig>,
+    overrides: Partial<KoduckFlowConfig>,
     options?: RuntimeOverrideOptions
   ): RuntimeOverrideResult;
 }

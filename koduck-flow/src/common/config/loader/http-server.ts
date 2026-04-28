@@ -1,7 +1,7 @@
 import type { IncomingMessage, Server as HttpServer, ServerResponse } from "node:http";
 
 import { logger } from "../../logger";
-import type { DuckFlowConfig } from "../schema";
+import type { KoduckFlowConfig } from "../schema";
 import { DEFAULT_HTTP_OVERRIDE_PATH, isBrowserEnv } from "./constants";
 import { isEmptyOverride } from "./merge";
 import type { HttpOverrideOptions, HttpOverridePayload, RuntimeOverrideOptions } from "./types";
@@ -174,7 +174,7 @@ async function parseHttpOverridePayload(req: IncomingMessage): Promise<HttpOverr
 
 function extractOverridesFromPayload(
   payload: HttpOverridePayload
-): Partial<DuckFlowConfig> | undefined {
+): Partial<KoduckFlowConfig> | undefined {
   if (payload.overrides && !isEmptyOverride(payload.overrides)) {
     return payload.overrides;
   }
@@ -189,7 +189,7 @@ function extractOverridesFromPayload(
     return undefined;
   }
 
-  return clone as Partial<DuckFlowConfig>;
+  return clone as Partial<KoduckFlowConfig>;
 }
 
 function sendJsonResponse(res: ServerResponse, statusCode: number, payload: unknown): void {

@@ -1,7 +1,7 @@
 import { logger } from "./logger";
 import {
-  DuckFlowRuntime,
-  DuckFlowRuntimeFactory,
+  KoduckFlowRuntime,
+  KoduckFlowRuntimeFactory,
   normalizeRuntimeKey,
   type RuntimeCreationOptions,
   type RuntimeEnvironmentKey,
@@ -41,16 +41,16 @@ const importMetaEnv = getImportMetaEnv();
 
 const DEFAULT_ENVIRONMENT =
   firstString(
-    processEnv?.DUCKFLOW_ENV,
-    importMetaEnv?.DUCKFLOW_ENV,
+    processEnv?.KODUCKFLOW_ENV,
+    importMetaEnv?.KODUCKFLOW_ENV,
     processEnv?.NODE_ENV,
     importMetaEnv?.NODE_ENV,
     importMetaEnv?.MODE
   ) ?? "default";
 
-export const DEFAULT_DUCKFLOW_ENVIRONMENT = DEFAULT_ENVIRONMENT;
+export const DEFAULT_KODUCKFLOW_ENVIRONMENT = DEFAULT_ENVIRONMENT;
 
-const runtimeFactory = new DuckFlowRuntimeFactory();
+const runtimeFactory = new KoduckFlowRuntimeFactory();
 
 function mergeMetadata(
   key: RuntimeEnvironmentKey,
@@ -75,8 +75,8 @@ function mergeMetadata(
 export function getRuntimeForKey(
   key: RuntimeEnvironmentKey,
   options?: RuntimeCreationOptions
-): DuckFlowRuntime {
-  logger.debug("🔍 获取 DuckFlowRuntime", {
+): KoduckFlowRuntime {
+  logger.debug("🔍 获取 KoduckFlowRuntime", {
     key,
   });
   return runtimeFactory.getOrCreateRuntime(key, mergeMetadata(key, options));
@@ -85,7 +85,7 @@ export function getRuntimeForKey(
 export function getRuntimeForEnvironment(
   environment: string,
   options?: RuntimeCreationOptions
-): DuckFlowRuntime {
+): KoduckFlowRuntime {
   return getRuntimeForKey({ environment }, options);
 }
 
@@ -97,14 +97,14 @@ export function disposeRuntimeForKey(key: RuntimeEnvironmentKey): void {
   runtimeFactory.disposeRuntime(key);
 }
 
-logger.info("🏛️ 创建默认环境的 DuckFlowRuntime 实例", {
+logger.info("🏛️ 创建默认环境的 KoduckFlowRuntime 实例", {
   environment: DEFAULT_ENVIRONMENT,
 });
 
 /**
  * 全局默认环境 runtime（兼容旧逻辑）
  */
-export const globalDuckFlowRuntime: DuckFlowRuntime = getRuntimeForEnvironment(
+export const globalKoduckFlowRuntime: KoduckFlowRuntime = getRuntimeForEnvironment(
   DEFAULT_ENVIRONMENT,
   {
     metadata: {
@@ -113,16 +113,16 @@ export const globalDuckFlowRuntime: DuckFlowRuntime = getRuntimeForEnvironment(
   }
 );
 
-logger.info("🏛️ 默认环境 DuckFlowRuntime 实例创建完成", {
+logger.info("🏛️ 默认环境 KoduckFlowRuntime 实例创建完成", {
   environment: DEFAULT_ENVIRONMENT,
   normalizedKey: normalizeRuntimeKey({ environment: DEFAULT_ENVIRONMENT }),
-  registryManager: globalDuckFlowRuntime.RegistryManager?.constructor?.name,
+  registryManager: globalKoduckFlowRuntime.RegistryManager?.constructor?.name,
 });
 
 /**
  * 全局运行时管理 - 替代原 deity 全局单例
  */
-let currentGlobalRuntime: DuckFlowRuntime | null = globalDuckFlowRuntime;
+let currentGlobalRuntime: KoduckFlowRuntime | null = globalKoduckFlowRuntime;
 
 export type SetGlobalRuntimeOptions = {
   disposePrevious?: boolean;
@@ -142,19 +142,19 @@ export type DisposeGlobalRuntimeOptions = {
  * Get the current global runtime instance.
  *
  * This is the recommended way to access a global runtime instance
- * when not using DuckFlowProvider (e.g., in scripts, CLI tools).
+ * when not using KoduckFlowProvider (e.g., in scripts, CLI tools).
  *
  * @returns The current global runtime instance
  *
  * @example
  * ```typescript
- * import { getGlobalRuntime } from 'duck-flow';
+ * import { getGlobalRuntime } from 'koduck-flow';
  *
  * const runtime = getGlobalRuntime();
  * const entity = runtime.createEntity('MyEntity');
  * ```
  */
-export function getGlobalRuntime(): DuckFlowRuntime {
+export function getGlobalRuntime(): KoduckFlowRuntime {
   if (!currentGlobalRuntime) {
     currentGlobalRuntime = getRuntimeForEnvironment(DEFAULT_ENVIRONMENT, {
       metadata: {
@@ -178,16 +178,16 @@ export function getGlobalRuntime(): DuckFlowRuntime {
  *
  * @example
  * ```typescript
- * import { createDuckFlowRuntime, setGlobalRuntime } from 'duck-flow';
+ * import { createKoduckFlowRuntime, setGlobalRuntime } from 'koduck-flow';
  *
- * const runtime = createDuckFlowRuntime();
+ * const runtime = createKoduckFlowRuntime();
  * setGlobalRuntime(runtime, { disposePrevious: true });
  * ```
  */
 export function setGlobalRuntime(
-  runtime: DuckFlowRuntime,
+  runtime: KoduckFlowRuntime,
   options?: SetGlobalRuntimeOptions
-): DuckFlowRuntime {
+): KoduckFlowRuntime {
   if (!runtime) {
     throw new Error("Cannot set global runtime: runtime is undefined");
   }
@@ -217,12 +217,12 @@ export function setGlobalRuntime(
  *
  * @example
  * ```typescript
- * import { resetGlobalRuntime } from 'duck-flow';
+ * import { resetGlobalRuntime } from 'koduck-flow';
  *
  * const runtime = resetGlobalRuntime({ disposePrevious: true });
  * ```
  */
-export function resetGlobalRuntime(options?: ResetGlobalRuntimeOptions): DuckFlowRuntime {
+export function resetGlobalRuntime(options?: ResetGlobalRuntimeOptions): KoduckFlowRuntime {
   const { environment = DEFAULT_ENVIRONMENT, disposePrevious, ...runtimeOptions } = options ?? {};
 
   const runtimeCreationOptions = runtimeOptions as RuntimeCreationOptions;
@@ -242,7 +242,7 @@ export function resetGlobalRuntime(options?: ResetGlobalRuntimeOptions): DuckFlo
  *
  * @example
  * ```typescript
- * import { disposeGlobalRuntime } from 'duck-flow';
+ * import { disposeGlobalRuntime } from 'koduck-flow';
  *
  * disposeGlobalRuntime({ releaseFromFactory: true });
  * ```

@@ -12,15 +12,15 @@ interface HotReloadState {
 }
 
 const CONFIG_PATHS = [
-  "./duckflow.config.json",
-  "./config/duckflow.config.json",
-  "./src/config/duckflow.config.json",
+  "./koduckflow.config.json",
+  "./config/koduckflow.config.json",
+  "./src/config/koduckflow.config.json",
 ];
 
 export function enableHotReloadImpl(state: HotReloadState): void {
   if (
     isBrowserEnv ||
-    (global as unknown as { __DUCKFLOW_TEST_BROWSER_ENV?: boolean }).__DUCKFLOW_TEST_BROWSER_ENV
+    (global as unknown as { __KODUCKFLOW_TEST_BROWSER_ENV?: boolean }).__KODUCKFLOW_TEST_BROWSER_ENV
   )
     return;
   if (state.hotReloadEnabled) return;

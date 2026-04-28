@@ -1,5 +1,5 @@
 /**
- * DuckFlowRuntime 配置选项类型定义
+ * KoduckFlowRuntime 配置选项类型定义
  * @module runtime/types/runtime-options
  */
 
@@ -15,9 +15,9 @@ import type { IEntity } from "../../entity/";
 import type { ManagerInitializationOptions } from "./manager-initialization";
 
 /**
- * DuckFlowRuntime 构造选项
+ * KoduckFlowRuntime 构造选项
  */
-export interface DuckFlowRuntimeOptions {
+export interface KoduckFlowRuntimeOptions {
   /**
    * 自定义 DI 容器（可选，默认创建新容器）
    */

@@ -29,7 +29,7 @@ vi.mock("../../src/common/logger", () => ({
 }));
 
 vi.mock("../../src/common/global-runtime", () => ({
-  DEFAULT_DUCKFLOW_ENVIRONMENT: "test-default",
+  DEFAULT_KODUCKFLOW_ENVIRONMENT: "test-default",
   getRuntimeForEnvironment: getRuntimeForEnvironmentMock,
 }));
 

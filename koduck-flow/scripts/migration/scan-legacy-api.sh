@@ -46,15 +46,15 @@ LEGACY_DEITY_COUNT=$(echo "$LEGACY_DEITY" | grep -c "." || echo "0")
 echo "Found: $LEGACY_DEITY_COUNT instances"
 echo "$LEGACY_DEITY" | head -20
 
-# 扫描globalDuckFlowRuntime
-echo -e "\n${BLUE}🌐 Scanning globalDuckFlowRuntime usage...${NC}"
-GLOBAL_RUNTIME=$(grep -rn "globalDuckFlowRuntime" src/ 2>/dev/null || echo "")
+# 扫描globalKoduckFlowRuntime
+echo -e "\n${BLUE}🌐 Scanning globalKoduckFlowRuntime usage...${NC}"
+GLOBAL_RUNTIME=$(grep -rn "globalKoduckFlowRuntime" src/ 2>/dev/null || echo "")
 GLOBAL_RUNTIME_COUNT=$(echo "$GLOBAL_RUNTIME" | grep -c "." || echo "0")
 echo "Found: $GLOBAL_RUNTIME_COUNT instances"
 
-# 扫描已使用DuckFlowProvider的文件
-echo -e "\n${GREEN}✅ Scanning DuckFlowProvider usage...${NC}"
-PROVIDER_USAGE=$(grep -rn "DuckFlowProvider\|useDuckFlowRuntime" src/ 2>/dev/null || echo "")
+# 扫描已使用KoduckFlowProvider的文件
+echo -e "\n${GREEN}✅ Scanning KoduckFlowProvider usage...${NC}"
+PROVIDER_USAGE=$(grep -rn "KoduckFlowProvider\|useKoduckFlowRuntime" src/ 2>/dev/null || echo "")
 PROVIDER_COUNT=$(echo "$PROVIDER_USAGE" | grep -c "." || echo "0")
 echo "Found: $PROVIDER_COUNT instances"
 
@@ -64,15 +64,15 @@ echo "  - deity imports:           $DEITY_IMPORTS_COUNT"
 echo "  - deity usage:             $DEITY_USAGE_COUNT"
 echo "  - getDeity calls:          $GET_DEITY_COUNT"
 echo "  - legacyDeity:             $LEGACY_DEITY_COUNT"
-echo "  - globalDuckFlowRuntime:   $GLOBAL_RUNTIME_COUNT"
-echo "  - DuckFlowProvider usage:  $PROVIDER_COUNT"
+echo "  - globalKoduckFlowRuntime:   $GLOBAL_RUNTIME_COUNT"
+echo "  - KoduckFlowProvider usage:  $PROVIDER_COUNT"
 
 TOTAL_LEGACY=$((DEITY_IMPORTS_COUNT + DEITY_USAGE_COUNT + GET_DEITY_COUNT + LEGACY_DEITY_COUNT + GLOBAL_RUNTIME_COUNT))
 echo -e "\n${RED}Total legacy API usage: $TOTAL_LEGACY${NC}"
 
 # 生成详细报告
 {
-  echo "Duck Flow API Migration Report"
+  echo "Koduck Flow API Migration Report"
   echo "Generated: $(date)"
   echo "========================================"
   echo ""

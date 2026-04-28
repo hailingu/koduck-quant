@@ -7,16 +7,16 @@ import { describe, expect, it } from "vitest";
 
 describe("Runtime Module Exports", () => {
   describe("Main Runtime exports", () => {
-    it("should export DuckFlowRuntime class", async () => {
-      const { DuckFlowRuntime } = await import("../../../src/common/runtime");
-      expect(DuckFlowRuntime).toBeDefined();
-      expect(typeof DuckFlowRuntime).toBe("function");
+    it("should export KoduckFlowRuntime class", async () => {
+      const { KoduckFlowRuntime } = await import("../../../src/common/runtime");
+      expect(KoduckFlowRuntime).toBeDefined();
+      expect(typeof KoduckFlowRuntime).toBe("function");
     });
 
-    it("should export createDuckFlowRuntime factory", async () => {
-      const { createDuckFlowRuntime } = await import("../../../src/common/runtime");
-      expect(createDuckFlowRuntime).toBeDefined();
-      expect(typeof createDuckFlowRuntime).toBe("function");
+    it("should export createKoduckFlowRuntime factory", async () => {
+      const { createKoduckFlowRuntime } = await import("../../../src/common/runtime");
+      expect(createKoduckFlowRuntime).toBeDefined();
+      expect(typeof createKoduckFlowRuntime).toBe("function");
     });
 
     it("should export createScopedRuntime factory", async () => {
@@ -112,16 +112,16 @@ describe("Runtime Module Exports", () => {
   });
 
   describe("Factory class exports", () => {
-    it("should export DuckFlowRuntimeFactory", async () => {
-      const { DuckFlowRuntimeFactory } = await import("../../../src/common/runtime");
-      expect(DuckFlowRuntimeFactory).toBeDefined();
-      expect(typeof DuckFlowRuntimeFactory).toBe("function");
+    it("should export KoduckFlowRuntimeFactory", async () => {
+      const { KoduckFlowRuntimeFactory } = await import("../../../src/common/runtime");
+      expect(KoduckFlowRuntimeFactory).toBeDefined();
+      expect(typeof KoduckFlowRuntimeFactory).toBe("function");
     });
 
-    it("should export DuckFlowRuntimeController", async () => {
-      const { DuckFlowRuntimeController } = await import("../../../src/common/runtime");
-      expect(DuckFlowRuntimeController).toBeDefined();
-      expect(typeof DuckFlowRuntimeController).toBe("function");
+    it("should export KoduckFlowRuntimeController", async () => {
+      const { KoduckFlowRuntimeController } = await import("../../../src/common/runtime");
+      expect(KoduckFlowRuntimeController).toBeDefined();
+      expect(typeof KoduckFlowRuntimeController).toBe("function");
     });
   });
 
@@ -131,17 +131,17 @@ describe("Runtime Module Exports", () => {
       const runtime = await import("../../../src/common/runtime");
 
       // Verify type exports by checking they can be used
-      expect(runtime).toHaveProperty("createDuckFlowRuntime");
+      expect(runtime).toHaveProperty("createKoduckFlowRuntime");
 
       // Types are compile-time only, so we just verify the module exports work
-      expect(typeof runtime.createDuckFlowRuntime).toBe("function");
+      expect(typeof runtime.createKoduckFlowRuntime).toBe("function");
     });
 
     it("should export Runtime option types", async () => {
       const runtime = await import("../../../src/common/runtime");
 
       // Verify runtime options work by creating a runtime with options
-      const instance = runtime.createDuckFlowRuntime({
+      const instance = runtime.createKoduckFlowRuntime({
         managerInitialization: {
           timeoutMs: 5000,
         },
@@ -177,18 +177,18 @@ describe("Runtime Module Exports", () => {
     });
 
     it("should export Controller types", async () => {
-      const { DuckFlowRuntimeController } = await import("../../../src/common/runtime");
+      const { KoduckFlowRuntimeController } = await import("../../../src/common/runtime");
 
       // Verify controller types work
-      expect(DuckFlowRuntimeController).toBeDefined();
-      expect(typeof DuckFlowRuntimeController).toBe("function");
+      expect(KoduckFlowRuntimeController).toBeDefined();
+      expect(typeof KoduckFlowRuntimeController).toBe("function");
     });
   });
 
   describe("Functional integration", () => {
     it("should allow creating runtime using exported factory", async () => {
-      const { createDuckFlowRuntime } = await import("../../../src/common/runtime");
-      const runtime = createDuckFlowRuntime();
+      const { createKoduckFlowRuntime } = await import("../../../src/common/runtime");
+      const runtime = createKoduckFlowRuntime();
 
       expect(runtime).toBeDefined();
       expect(runtime.container).toBeDefined();
@@ -198,8 +198,8 @@ describe("Runtime Module Exports", () => {
     });
 
     it("should allow accessing core modules through runtime", async () => {
-      const { createDuckFlowRuntime } = await import("../../../src/common/runtime");
-      const runtime = createDuckFlowRuntime();
+      const { createKoduckFlowRuntime } = await import("../../../src/common/runtime");
+      const runtime = createKoduckFlowRuntime();
 
       // Verify core modules are accessible
       expect(runtime.EntityManager).toBeDefined();

@@ -17,7 +17,7 @@
  */
 
 /**
- * Core service tokens for Duck Flow dependency injection container
+ * Core service tokens for Koduck Flow dependency injection container
  *
  * Each token is a unique Symbol that identifies a specific service.
  * Services are registered and resolved using these tokens.
@@ -38,31 +38,31 @@
  */
 export const TOKENS = {
   /** Flow runtime engine - executes the core data flow logic */
-  runtime: Symbol.for("duck-flow:runtime"),
+  runtime: Symbol.for("koduck-flow:runtime"),
   /** Entity manager - manages entity lifecycle and storage */
-  entityManager: Symbol.for("duck-flow:entity-manager"),
+  entityManager: Symbol.for("koduck-flow:entity-manager"),
   /** Render manager - orchestrates rendering strategies and caching */
-  renderManager: Symbol.for("duck-flow:render-manager"),
+  renderManager: Symbol.for("koduck-flow:render-manager"),
   /** Registry manager - manages service registrations */
-  registryManager: Symbol.for("duck-flow:registry-manager"),
+  registryManager: Symbol.for("koduck-flow:registry-manager"),
   /** Registry broker - handles registry communication and updates */
-  registryBroker: Symbol.for("duck-flow:registry-broker"),
+  registryBroker: Symbol.for("koduck-flow:registry-broker"),
   /** Render event manager - manages render-related events */
-  renderEventManager: Symbol.for("duck-flow:render-event-manager"),
+  renderEventManager: Symbol.for("koduck-flow:render-event-manager"),
   /** Entity event manager - manages entity lifecycle events */
-  entityEventManager: Symbol.for("duck-flow:entity-event-manager"),
+  entityEventManager: Symbol.for("koduck-flow:entity-event-manager"),
   /** Global event bus - central event aggregation and distribution */
-  eventBus: Symbol.for("duck-flow:event-bus"),
+  eventBus: Symbol.for("koduck-flow:event-bus"),
   /** Tenant context - provides current tenant information and scope */
-  tenantContext: Symbol.for("duck-flow:tenant-context"),
+  tenantContext: Symbol.for("koduck-flow:tenant-context"),
   /** Tenant rollout - manages feature flags and gradual rollouts per tenant */
-  tenantRollout: Symbol.for("duck-flow:tenant-rollout"),
+  tenantRollout: Symbol.for("koduck-flow:tenant-rollout"),
   /** Tenant quota - enforces resource quotas and limits per tenant */
-  tenantQuota: Symbol.for("duck-flow:tenant-quota"),
+  tenantQuota: Symbol.for("koduck-flow:tenant-quota"),
   /** Worker pool manager - manages worker pool lifecycle and task execution */
-  workerPoolManager: Symbol.for("duck-flow:worker-pool-manager"),
+  workerPoolManager: Symbol.for("koduck-flow:worker-pool-manager"),
   /** Worker pool configuration - stores worker pool configuration settings */
-  workerPoolConfig: Symbol.for("duck-flow:worker-pool-config"),
+  workerPoolConfig: Symbol.for("koduck-flow:worker-pool-config"),
 } as const;
 
 /**

@@ -1,5 +1,5 @@
 /**
- * Duck Flow 缓存系统统一导出（仅接口）
+ * Koduck Flow 缓存系统统一导出（仅接口）
  */
 
 export type {

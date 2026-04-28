@@ -105,11 +105,11 @@ export class RuntimeFactoryHelpers {
     // This executes JavaScript in the browser context to configure tenant quotas
     await page.evaluate(
       ({ tenantId: tid, quotas: q }) => {
-        // Access the global DuckFlow runtime instance
-        const runtime = (globalThis as unknown as { __duckflowRuntime?: Record<string, unknown> })
-          .__duckflowRuntime;
+        // Access the global KoduckFlow runtime instance
+        const runtime = (globalThis as unknown as { __koduckflowRuntime?: Record<string, unknown> })
+          .__koduckflowRuntime;
         if (!runtime) {
-          throw new Error("DuckFlow runtime not found in window context");
+          throw new Error("KoduckFlow runtime not found in window context");
         }
 
         // Get or create runtime for this tenant
@@ -171,8 +171,8 @@ export class RuntimeFactoryHelpers {
     for (let i = 0; i < count; i++) {
       const result = await page.evaluate(
         ({ opType, index }) => {
-          const runtime = (globalThis as unknown as { __duckflowRuntime?: Record<string, unknown> })
-            .__duckflowRuntime;
+          const runtime = (globalThis as unknown as { __koduckflowRuntime?: Record<string, unknown> })
+            .__koduckflowRuntime;
           if (!runtime) return { success: false, error: "Runtime not found" };
 
           try {
@@ -306,7 +306,7 @@ export class RuntimeFactoryHelpers {
       // Verify data isolation: entities from other tenants are not visible
       // This assumes there's a way to query/count entities in the current tenant
       const currentTenantEntities = await page.evaluate(() => {
-        const runtime = (globalThis as any).__duckflowRuntime;
+        const runtime = (globalThis as any).__koduckflowRuntime;
         if (!runtime?.entityManager) return [];
         return runtime.entityManager.getEntities?.() || [];
       });
@@ -337,7 +337,7 @@ export class RuntimeFactoryHelpers {
     quotaBucket: string
   ): Promise<{ usage: number; limit?: number; remaining?: number }> {
     return await page.evaluate((bucket) => {
-      const runtime = (globalThis as any).__duckflowRuntime;
+      const runtime = (globalThis as any).__koduckflowRuntime;
       if (!runtime?.quotaManager) {
         return { usage: 0 };
       }
@@ -366,7 +366,7 @@ export class RuntimeFactoryHelpers {
     page: Page
   ): Promise<{ tenantId: string; quotas?: Record<string, number> }> {
     return await page.evaluate(() => {
-      const runtime = (globalThis as any).__duckflowRuntime;
+      const runtime = (globalThis as any).__koduckflowRuntime;
       if (!runtime) return { tenantId: "default" };
 
       const tenantContext = runtime.getTenantContext?.();
@@ -410,7 +410,7 @@ export class RuntimeFactoryHelpers {
    */
   async resetQuotas(page: Page): Promise<void> {
     await page.evaluate(() => {
-      const runtime = (globalThis as any).__duckflowRuntime;
+      const runtime = (globalThis as any).__koduckflowRuntime;
       if (runtime?.quotaManager) {
         runtime.quotaManager.reset?.();
       }
@@ -432,7 +432,7 @@ export class RuntimeFactoryHelpers {
     const startTime = Date.now();
     while (Date.now() - startTime < timeout) {
       const isReady = await page.evaluate(() => {
-        const runtime = (globalThis as any).__duckflowRuntime;
+        const runtime = (globalThis as any).__koduckflowRuntime;
         return runtime && (runtime as any).quotaManager !== undefined;
       });
 

@@ -20,7 +20,7 @@
     "allowedTypes": ["ui", "data", "workflow", "analytics"]
   },
   "infra": {
-    "databaseUrl": "postgresql://staging-db:5432/duckflow_staging",
+    "databaseUrl": "postgresql://staging-db:5432/koduckflow_staging",
     "cacheTtl": 1800
   }
 }

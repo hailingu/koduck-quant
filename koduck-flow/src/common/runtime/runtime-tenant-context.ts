@@ -127,7 +127,7 @@ export class RuntimeTenantContext {
     this.syncToContainer(snapshot);
 
     // 记录日志
-    logger.info("DuckFlowRuntime attached tenant context", {
+    logger.info("KoduckFlowRuntime attached tenant context", {
       tenantId: snapshot.tenantId,
       environment: snapshot.environment,
       normalizedEnvironmentKey: snapshot.normalizedEnvironmentKey,

@@ -9,7 +9,7 @@
 
 ## 1. 测试概述
 
-本测试计划为 Task RT-002 提供完整的测试策略，验证 DuckFlow Runtime 的容器管理和多租户隔离能力。核心包括：
+本测试计划为 Task RT-002 提供完整的测试策略，验证 KoduckFlow Runtime 的容器管理和多租户隔离能力。核心包括：
 
 1. **Runtime 容器管理** - 容器的生命周期、隔离和资源管理
 2. **多租户隔离** - 租户数据隔离、上下文隔离和资源隔离
@@ -25,7 +25,7 @@
 - **测试编号**: RT2-CM-001
 - **测试名称**: 容器创建成功
 - **步骤**:
-  1. 使用 `createDuckFlowRuntime()` 创建 Runtime 实例
+  1. 使用 `createKoduckFlowRuntime()` 创建 Runtime 实例
   2. 验证容器已初始化
   3. 验证核心管理器已获取
   4. 验证容器中包含所有核心服务
@@ -371,17 +371,17 @@
 
 ```typescript
 // 创建测试 Runtime
-const createTestRuntime = (): DuckFlowRuntime => {
+const createTestRuntime = (): KoduckFlowRuntime => {
   const container = createCoreContainer();
   registerCoreServices(container);
-  return new DuckFlowRuntime(container);
+  return new KoduckFlowRuntime(container);
 };
 
 // 创建完整的测试租户上下文
 const createTestTenantContext = (
   tenantId: string = "test-tenant",
-  overrides?: Partial<DuckFlowTenantConfig>
-): DuckFlowTenantConfig => ({
+  overrides?: Partial<KoduckFlowTenantConfig>
+): KoduckFlowTenantConfig => ({
   tenantId,
   environment: "test",
   quotas: {
@@ -414,7 +414,7 @@ const createMockManager = (name: string): MockManager => ({
 
 ```typescript
 // 验证租户隔离
-const verifyTenantIsolation = (runtime1: DuckFlowRuntime, runtime2: DuckFlowRuntime) => {
+const verifyTenantIsolation = (runtime1: KoduckFlowRuntime, runtime2: KoduckFlowRuntime) => {
   // 验证实体隔离
   // 验证配额隔离
   // 验证特性开关隔离

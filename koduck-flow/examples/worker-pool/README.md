@@ -375,7 +375,7 @@ await manager.initialize();
 
 ## 作者
 
-Duck Flow 团队
+Koduck Flow 团队
 
 ---
 

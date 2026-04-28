@@ -25,14 +25,14 @@ export default function transformer(file: FileInfo, api: API) {
   root.find(j.ImportDeclaration).forEach((path) => {
     const importSource = path.node.source.value as string;
 
-    if (importSource === "duck-flow" || importSource.startsWith("duck-flow/")) {
+    if (importSource === "koduck-flow" || importSource.startsWith("koduck-flow/")) {
       const specifiers = path.node.specifiers || [];
 
       // Remove deity-related imports
       const filteredSpecifiers = specifiers.filter((spec) => {
         if (spec.type === "ImportSpecifier" && spec.imported.type === "Identifier") {
           const name = spec.imported.name;
-          return !["deity", "legacyDeity", "getDeity", "globalDuckFlowRuntime"].includes(name);
+          return !["deity", "legacyDeity", "getDeity", "globalKoduckFlowRuntime"].includes(name);
         }
         return true;
       });
@@ -76,35 +76,35 @@ export default function transformer(file: FileInfo, api: API) {
     hasChanges = true;
   }
 
-  // Step 4: Add DuckFlowRuntime type import
-  const hasDuckFlowRuntimeType = root
+  // Step 4: Add KoduckFlowRuntime type import
+  const hasKoduckFlowRuntimeType = root
     .find(j.ImportDeclaration, {
-      source: { value: "duck-flow" },
+      source: { value: "koduck-flow" },
     })
     .some((path) => {
       return path.node.specifiers?.some(
         (spec) =>
           spec.type === "ImportSpecifier" &&
           spec.imported.type === "Identifier" &&
-          spec.imported.name === "DuckFlowRuntime"
+          spec.imported.name === "KoduckFlowRuntime"
       );
     });
 
-  if (!hasDuckFlowRuntimeType) {
-    const duckFlowImports = root.find(j.ImportDeclaration, {
-      source: { value: "duck-flow" },
+  if (!hasKoduckFlowRuntimeType) {
+    const koduckFlowImports = root.find(j.ImportDeclaration, {
+      source: { value: "koduck-flow" },
     });
 
-    if (duckFlowImports.length > 0) {
-      duckFlowImports.forEach((path) => {
+    if (koduckFlowImports.length > 0) {
+      koduckFlowImports.forEach((path) => {
         const specifiers = path.node.specifiers || [];
         specifiers.push(
-          j.importSpecifier(j.identifier("DuckFlowRuntime"), j.identifier("DuckFlowRuntime"))
+          j.importSpecifier(j.identifier("KoduckFlowRuntime"), j.identifier("KoduckFlowRuntime"))
         );
         // Make it a type import
         if (path.node.importKind !== "type") {
           // Check if all are types, otherwise keep as value import
-          const typeSpec = j.importSpecifier(j.identifier("DuckFlowRuntime"));
+          const typeSpec = j.importSpecifier(j.identifier("KoduckFlowRuntime"));
           typeSpec.importKind = "type";
           specifiers.push(typeSpec);
         }
@@ -112,8 +112,8 @@ export default function transformer(file: FileInfo, api: API) {
       hasChanges = true;
     } else {
       const typeImport = j.importDeclaration(
-        [j.importSpecifier(j.identifier("DuckFlowRuntime"))],
-        j.literal("duck-flow")
+        [j.importSpecifier(j.identifier("KoduckFlowRuntime"))],
+        j.literal("koduck-flow")
       );
       typeImport.importKind = "type";
 
@@ -158,7 +158,7 @@ export default function transformer(file: FileInfo, api: API) {
       const runtimeVar = runtimeDeclaration.declarations[0];
       if (runtimeVar.id.type === "Identifier") {
         runtimeVar.id.typeAnnotation = j.tsTypeAnnotation(
-          j.tsTypeReference(j.identifier("DuckFlowRuntime"))
+          j.tsTypeReference(j.identifier("KoduckFlowRuntime"))
         );
       }
 

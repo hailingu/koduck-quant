@@ -125,7 +125,7 @@ import type {
 } from "./types";
 
 const DEFAULT_TASK_TIMEOUT_MS = 30_000;
-const TASK_TYPE_PREFIX = "duck-flow:flow-engine";
+const TASK_TYPE_PREFIX = "koduck-flow:flow-engine";
 
 /**
  * Configuration Options for Worker Bridge
@@ -145,7 +145,7 @@ const TASK_TYPE_PREFIX = "duck-flow:flow-engine";
  *   runLocally: async (executor, entity, flow, shared) => {
  *     return await executor(entity, shared);
  *   },
- *   taskType: 'duck-flow:flow-engine:engine-1',
+ *   taskType: 'koduck-flow:flow-engine:engine-1',
  *   taskTimeoutMs: 30000,
  * };
  * ```
@@ -176,7 +176,7 @@ export interface FlowEngineWorkerBridgeOptions<N extends INode, NE extends IFlow
     shared: Map<string, unknown>,
     origin: "baseline" | "fallback"
   ) => Promise<EntityResult>;
-  /** Custom task type identifier (default: 'duck-flow:flow-engine:engineId') */
+  /** Custom task type identifier (default: 'koduck-flow:flow-engine:engineId') */
   taskType?: string;
   /** Task execution timeout in milliseconds (default: 30000) */
   taskTimeoutMs?: number;

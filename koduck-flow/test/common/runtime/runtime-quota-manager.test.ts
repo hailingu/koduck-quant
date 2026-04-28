@@ -119,7 +119,7 @@ describe("RuntimeQuotaManager", () => {
       // 再申请 20，总共 60，超过限制 50，失败
       expect(quotaManager.claimQuota("api-calls", 20)).toBe(false);
 
-      expect(warnSpy).toHaveBeenCalledWith("DuckFlowRuntime tenant quota exceeded", {
+      expect(warnSpy).toHaveBeenCalledWith("KoduckFlowRuntime tenant quota exceeded", {
         tenantId: "tenant-quota-test",
         bucket: "api-calls",
         limit: 50,
@@ -479,7 +479,7 @@ describe("RuntimeQuotaManager", () => {
 
       expect(quotaManager.ensureEntityQuotaAvailable()).toBe(false);
 
-      expect(warnSpy).toHaveBeenCalledWith("DuckFlowRuntime tenant entity quota exceeded", {
+      expect(warnSpy).toHaveBeenCalledWith("KoduckFlowRuntime tenant entity quota exceeded", {
         tenantId: "tenant-entity-limit",
         limit: 10,
         current: 10,

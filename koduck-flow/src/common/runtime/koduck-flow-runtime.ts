@@ -28,18 +28,18 @@ import type {
   ManagerInitializationOptions,
   ManagerRegistrationOptions,
   CoreManagerKey,
-  DuckFlowRuntimeOptions,
+  KoduckFlowRuntimeOptions,
 } from "./types";
 import { CORE_MANAGER_KEYS, ManagerInitializationError } from "./types";
 
 /**
- * @module src/common/runtime/duck-flow-runtime
- * @description Main DuckFlow runtime implementation orchestrating all runtime services.
+ * @module src/common/runtime/koduck-flow-runtime
+ * @description Main KoduckFlow runtime implementation orchestrating all runtime services.
  * Implements Facade Pattern with delegation to specialized managers for DI, tenant context,
  * quota management, and entity operations. Provides unified API for flow execution and resource management.
  * @example
  * ```typescript
- * const runtime = createDuckFlowRuntime({
+ * const runtime = createKoduckFlowRuntime({
  *   environment: 'production',
  *   enableMetrics: true,
  *   enableCache: true
@@ -54,11 +54,11 @@ export type {
   ManagerInitializationOptions,
   ManagerRegistrationOptions,
   CoreManagerKey,
-  DuckFlowRuntimeOptions,
+  KoduckFlowRuntimeOptions,
 } from "./types";
 
 /**
- * DuckFlowRuntime - 主运行时协调器
+ * KoduckFlowRuntime - 主运行时协调器
  *
  * 职责：作为门面模式的协调器，委托所有操作到专业模块。
  *
@@ -86,12 +86,12 @@ export type {
  * - ✅ Facade Coordination: Main class delegates all business logic
  * - ✅ Backward Compatible: All public APIs remain unchanged
  *
- * @class DuckFlowRuntime
+ * @class KoduckFlowRuntime
  * @implements {IDisposable}
  * @since v2.0.0 - Modular architecture refactoring completed
  * @example
  * ```typescript
- * const runtime = new DuckFlowRuntime(container, {
+ * const runtime = new KoduckFlowRuntime(container, {
  *   initializeManagers: true
  * });
  * const entityManager = runtime.EntityManager;
@@ -99,7 +99,7 @@ export type {
  * runtime.dispose();
  * ```
  */
-export class DuckFlowRuntime implements IDisposable {
+export class KoduckFlowRuntime implements IDisposable {
   // ==================== Public Fields ====================
   readonly container: IDependencyContainer;
 
@@ -303,7 +303,7 @@ export class DuckFlowRuntime implements IDisposable {
    *
    * @example
    * ```typescript
-   * const runtime = new DuckFlowRuntime(container);
+   * const runtime = new KoduckFlowRuntime(container);
    * const poolManager = runtime.WorkerPoolManager;
    * if (poolManager) {
    *   const result = await poolManager.submit({
@@ -549,31 +549,31 @@ export class DuckFlowRuntime implements IDisposable {
 }
 
 /**
- * Create a new DuckFlow runtime instance with configuration
- * @param {DuckFlowRuntimeOptions} [options={}] - Runtime initialization options
+ * Create a new KoduckFlow runtime instance with configuration
+ * @param {KoduckFlowRuntimeOptions} [options={}] - Runtime initialization options
  * @param {IDependencyContainer} [options.container] - Custom DI container or creates new one
  * @param {CoreServiceOverrides} [options.overrides] - Override core service implementations
  * @param {boolean} [options.enableMetrics=false] - Enable metrics collection
  * @param {boolean} [options.enableCache=true] - Enable caching layer
  * @param {ManagerInitializationOptions} [options.managerInitialization] - Manager initialization options
- * @returns {DuckFlowRuntime} Configured runtime instance ready for use
+ * @returns {KoduckFlowRuntime} Configured runtime instance ready for use
  * @example
  * ```typescript
- * const runtime = createDuckFlowRuntime({
+ * const runtime = createKoduckFlowRuntime({
  *   enableMetrics: true,
  *   enableCache: true,
  *   overrides: { entityManager: CustomEntityManager }
  * });
  * ```
  */
-export function createDuckFlowRuntime(options: DuckFlowRuntimeOptions = {}): DuckFlowRuntime {
+export function createKoduckFlowRuntime(options: KoduckFlowRuntimeOptions = {}): KoduckFlowRuntime {
   const container = options.container ?? createCoreContainer(options.overrides);
 
   if (options.container && options.overrides) {
     registerCoreServices(container, options.overrides);
   }
 
-  const runtime = new DuckFlowRuntime(container, options.managerInitialization);
+  const runtime = new KoduckFlowRuntime(container, options.managerInitialization);
   registerRuntimeInstance(container, runtime);
   return runtime;
 }
@@ -581,14 +581,14 @@ export function createDuckFlowRuntime(options: DuckFlowRuntimeOptions = {}): Duc
 /**
  * Create a scoped runtime child instance from parent runtime for multi-tenancy
  * Scoped runtime shares parent container services with optional overrides
- * @param {DuckFlowRuntime} parentRuntime - Parent runtime to scope from
+ * @param {KoduckFlowRuntime} parentRuntime - Parent runtime to scope from
  * @param {CoreServiceOverrides} [overrides] - Override core services in scoped context
  * @param {Object} [options] - Additional runtime options
  * @param {ManagerInitializationOptions} [options.managerInitialization] - Manager initialization options
- * @returns {DuckFlowRuntime} New scoped runtime instance sharing parent services
+ * @returns {KoduckFlowRuntime} New scoped runtime instance sharing parent services
  * @example
  * ```typescript
- * const parentRuntime = createDuckFlowRuntime();
+ * const parentRuntime = createKoduckFlowRuntime();
  * const scopedRuntime = createScopedRuntime(parentRuntime, {
  *   // Override services for this scope
  * });
@@ -596,10 +596,10 @@ export function createDuckFlowRuntime(options: DuckFlowRuntimeOptions = {}): Duc
  * ```
  */
 export function createScopedRuntime(
-  parentRuntime: DuckFlowRuntime,
+  parentRuntime: KoduckFlowRuntime,
   overrides?: CoreServiceOverrides,
-  options?: Pick<DuckFlowRuntimeOptions, "managerInitialization">
-): DuckFlowRuntime {
+  options?: Pick<KoduckFlowRuntimeOptions, "managerInitialization">
+): KoduckFlowRuntime {
   const scopedContainer = parentRuntime.container.createScope();
 
   registerCoreServices(scopedContainer, overrides);
@@ -607,7 +607,7 @@ export function createScopedRuntime(
   const initializationOptions =
     options?.managerInitialization ?? parentRuntime.getManagerInitializationDefaults();
 
-  const runtime = new DuckFlowRuntime(scopedContainer, initializationOptions);
+  const runtime = new KoduckFlowRuntime(scopedContainer, initializationOptions);
   registerRuntimeInstance(scopedContainer, runtime);
   return runtime;
 }

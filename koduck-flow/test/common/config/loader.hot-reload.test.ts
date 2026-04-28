@@ -1,19 +1,19 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import fs from "fs";
 import path from "path";
-import type { DuckFlowConfig } from "../../../src/common/config/schema";
+import type { KoduckFlowConfig } from "../../../src/common/config/schema";
 import type { ConfigChangeContext } from "../../../src/common/config/loader/types";
 import { ConfigLoader } from "../../../src/common/config/loader";
 
 describe("Hot Reload Integration", () => {
   let loader: ConfigLoader;
   let testConfigPath: string;
-  let originalConfig: Partial<DuckFlowConfig>;
+  let originalConfig: Partial<KoduckFlowConfig>;
 
   beforeEach(() => {
     loader = ConfigLoader.getInstance();
     // 创建临时配置文件
-    testConfigPath = path.join(process.cwd(), "duckflow.config.json");
+    testConfigPath = path.join(process.cwd(), "koduckflow.config.json");
     originalConfig = {
       environment: "development" as const,
       render: {
@@ -165,7 +165,7 @@ describe("Hot Reload Integration", () => {
 
     it("should not enable hot reload in browser environment", () => {
       // Mock browser environment by setting a test flag
-      (global as unknown as { __DUCKFLOW_TEST_BROWSER_ENV: boolean }).__DUCKFLOW_TEST_BROWSER_ENV =
+      (global as unknown as { __KODUCKFLOW_TEST_BROWSER_ENV: boolean }).__KODUCKFLOW_TEST_BROWSER_ENV =
         true;
 
       try {
@@ -173,8 +173,8 @@ describe("Hot Reload Integration", () => {
         expect((loader as unknown as { hotReloadEnabled: boolean }).hotReloadEnabled).toBe(false);
       } finally {
         // 恢复原始环境
-        delete (global as unknown as { __DUCKFLOW_TEST_BROWSER_ENV?: boolean })
-          .__DUCKFLOW_TEST_BROWSER_ENV;
+        delete (global as unknown as { __KODUCKFLOW_TEST_BROWSER_ENV?: boolean })
+          .__KODUCKFLOW_TEST_BROWSER_ENV;
       }
     });
 
@@ -198,7 +198,7 @@ describe("Hot Reload Integration", () => {
       // Mock配置变更监听器
       const originalReload = loader.reload.bind(loader);
       const mockReload = vi.fn(
-        (options?: Partial<DuckFlowConfig>, context?: ConfigChangeContext) => {
+        (options?: Partial<KoduckFlowConfig>, context?: ConfigChangeContext) => {
           capturedContext = context;
           return originalReload(options, context);
         }

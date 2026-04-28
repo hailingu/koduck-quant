@@ -1,6 +1,6 @@
 /**
  * @module src/common/metrics
- * @description Duck Flow metrics collection system - OpenTelemetry-based metrics with in-memory storage
+ * @description Koduck Flow metrics collection system - OpenTelemetry-based metrics with in-memory storage
  *
  * Provides a complete metrics collection framework with support for:
  * - Counters: monotonically increasing values

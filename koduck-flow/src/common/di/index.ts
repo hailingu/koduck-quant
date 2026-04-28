@@ -3,7 +3,7 @@
  * @description
  * DI (Dependency Injection) container and service bootstrap module.
  * Provides the core DI container implementation and factory functions
- * to initialize Duck Flow's service architecture.
+ * to initialize Koduck Flow's service architecture.
  *
  * @example
  * ```typescript

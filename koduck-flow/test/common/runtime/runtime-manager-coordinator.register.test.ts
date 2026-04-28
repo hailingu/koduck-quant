@@ -79,7 +79,7 @@ describe("RuntimeManagerCoordinator.registerManager", () => {
 
     expect(logger.error).not.toHaveBeenCalled();
     expect(logger.info).toHaveBeenCalledWith(
-      "[duck-flow] Manager initialized",
+      "[koduck-flow] Manager initialized",
       expect.objectContaining({
         manager: "analytics",
         dependencies: [],
@@ -110,7 +110,7 @@ describe("RuntimeManagerCoordinator.registerManager", () => {
     expect(failedState?.path).toEqual(["broken"]);
 
     expect(logger.error).toHaveBeenCalledWith(
-      "[duck-flow] Manager initialization failed",
+      "[koduck-flow] Manager initialization failed",
       expect.objectContaining({
         manager: "broken",
         dependencies: [],
@@ -120,7 +120,7 @@ describe("RuntimeManagerCoordinator.registerManager", () => {
       })
     );
     expect(logger.error).toHaveBeenCalledWith(
-      "[duck-flow] Manager eager initialization failed",
+      "[koduck-flow] Manager eager initialization failed",
       expect.objectContaining({
         manager: "broken",
         dependencies: [],

@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
 
 import {
-  DuckFlowRuntime,
-  createDuckFlowRuntime,
+  KoduckFlowRuntime,
+  createKoduckFlowRuntime,
   resolveTenantContext,
-  type DuckFlowTenantConfig,
+  type KoduckFlowTenantConfig,
 } from "../../../src/common/runtime";
 import { Entity, EntityRegistry } from "../../../src/common/entity";
 
@@ -14,12 +14,12 @@ class TenantQuotaEntity extends Entity {
   static type = ENTITY_TYPE;
 }
 
-function registerTenantEntity(runtime: DuckFlowRuntime): void {
+function registerTenantEntity(runtime: KoduckFlowRuntime): void {
   const registry = new EntityRegistry(TenantQuotaEntity, undefined, { type: ENTITY_TYPE });
   runtime.EntityManager.registerEntityType(ENTITY_TYPE, registry);
 }
 
-function buildTenantConfig(partial?: Partial<DuckFlowTenantConfig>): DuckFlowTenantConfig {
+function buildTenantConfig(partial?: Partial<KoduckFlowTenantConfig>): KoduckFlowTenantConfig {
   return {
     tenantId: "tenant-alpha",
     environment: "spec-env",
@@ -38,12 +38,12 @@ function buildTenantConfig(partial?: Partial<DuckFlowTenantConfig>): DuckFlowTen
       stickyKey: "spec-seed",
     },
     ...partial,
-  } satisfies DuckFlowTenantConfig;
+  } satisfies KoduckFlowTenantConfig;
 }
 
-describe("DuckFlowRuntime multi-tenant controls", () => {
+describe("KoduckFlowRuntime multi-tenant controls", () => {
   it("applies tenant context with quotas and feature flags", () => {
-    const runtime = createDuckFlowRuntime();
+    const runtime = createKoduckFlowRuntime();
     registerTenantEntity(runtime);
     const tenantConfig = buildTenantConfig();
     const resolved = resolveTenantContext(tenantConfig, {

@@ -5,18 +5,18 @@ import { Data } from "../../../common/data";
 import { AutoRegistry } from "../../../utils/decorator/auto-registry";
 import { logger } from "../../../common/logger";
 import {
-  DEFAULT_DUCKFLOW_ENVIRONMENT,
+  DEFAULT_KODUCKFLOW_ENVIRONMENT,
   getRuntimeForEnvironment,
 } from "../../../common/global-runtime";
 import { BaseNode } from "../../../common/flow/base-node";
 import type { IFlowEdgeEntity, IFlowNodeEntity, IEdge, IEndpoint } from "../../../common/flow/types";
 
-const runtime = getRuntimeForEnvironment(DEFAULT_DUCKFLOW_ENVIRONMENT);
+const runtime = getRuntimeForEnvironment(DEFAULT_KODUCKFLOW_ENVIRONMENT);
 const umlRegistryManager = runtime.RegistryManager;
 
 // 添加详细日志来跟踪UML实体注册过程
 logger.info("🔧 UML装饰器文件被加载");
-logger.info("🔗 DuckFlowRuntime对象:", runtime);
+logger.info("🔗 KoduckFlowRuntime对象:", runtime);
 logger.info("🔗 使用的注册表管理器:", {
   manager: umlRegistryManager?.constructor?.name || "undefined",
   type: "registry",

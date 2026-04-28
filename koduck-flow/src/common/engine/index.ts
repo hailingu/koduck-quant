@@ -1,7 +1,7 @@
 /**
- * Duck Flow Task Execution Engine
+ * Koduck Flow Task Execution Engine
  *
- * The Engine module is the core execution system for Duck Flow, responsible for:
+ * The Engine module is the core execution system for Koduck Flow, responsible for:
  * - Task dispatch and scheduling
  * - Worker pool integration and fallback execution
  * - Lifecycle management (run start → entity execution → run finish)

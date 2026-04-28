@@ -3,9 +3,9 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import type { IEntity } from "../../../common/entity";
 import type { DirtyRegion, RenderMetricSummary } from "../../../common/render/render-manager/types";
 import type { DebugPanelPosition } from "../../../common/runtime/debug-options";
-import type { DuckFlowRuntime, IManager } from "../../../common/runtime";
+import type { KoduckFlowRuntime, IManager } from "../../../common/runtime";
 import type { HistogramPoint, MeterSnapshot } from "../../../common/metrics";
-import { useDuckFlowManagers } from "../../provider/hooks/useDuckFlowRuntime";
+import { useKoduckFlowManagers } from "../../provider/hooks/useKoduckFlowRuntime";
 import "./debug-panel.css";
 
 const MAX_EVENT_HISTORY = 60;
@@ -109,7 +109,7 @@ const DebugPanel: React.FC<DebugPanelProps> = ({
   eventTracking = false,
 }) => {
   const { runtime, entityManager, renderManager, renderEvents, entityEvents } =
-    useDuckFlowManagers();
+    useKoduckFlowManagers();
 
   const [isOpen, setIsOpen] = useState(defaultOpen);
   const [entities, setEntities] = useState(() => entityManager.getEntities());
@@ -266,7 +266,7 @@ const DebugPanel: React.FC<DebugPanelProps> = ({
       </button>
       <aside className={panelClasses} aria-hidden={!isOpen}>
         <header className="duck-debug-panel__header">
-          <h2>DuckFlow Debug</h2>
+          <h2>KoduckFlow Debug</h2>
           <div className="duck-debug-panel__meta">
             <span>Runtime: {runtime.constructor.name}</span>
             <span>Entities: {entities.length}</span>
@@ -518,7 +518,7 @@ function formatPayload(payload: unknown): string {
   }
 }
 
-function computeManagerTopology(runtime: DuckFlowRuntime): ManagerTopologyNode[] {
+function computeManagerTopology(runtime: KoduckFlowRuntime): ManagerTopologyNode[] {
   const internal = runtime as unknown as {
     _managers?: Map<string, IManager>;
     _managerStates?: Map<string, { status: string; path?: string[] }>;

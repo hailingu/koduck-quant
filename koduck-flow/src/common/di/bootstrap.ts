@@ -2,7 +2,7 @@
  * @module src/common/di/bootstrap
  * @description
  * Core DI container bootstrap and service registration module.
- * Provides factory functions to create and initialize the Duck Flow dependency injection container
+ * Provides factory functions to create and initialize the Koduck Flow dependency injection container
  * with all core services pre-registered according to their lifecycle configuration.
  *
  * @example

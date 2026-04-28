@@ -1,10 +1,10 @@
 /**
- * DuckFlow Configuration TypeScript Declarations
+ * KoduckFlow Configuration TypeScript Declarations
  *
  * Generated from Zod schema - DO NOT EDIT MANUALLY
  */
 
-export interface DuckFlowConfig {
+export interface KoduckFlowConfig {
   environment: "development" | "staging" | "production";
   event: {
     batchSize: number;

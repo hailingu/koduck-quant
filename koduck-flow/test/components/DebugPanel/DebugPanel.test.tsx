@@ -8,13 +8,13 @@ import type {
 } from "../../../src/common/render/render-manager/types";
 import type { MeterSnapshot } from "../../../src/common/metrics";
 
-vi.mock("../../../src/components/provider/hooks/useDuckFlowRuntime", () => ({
-  useDuckFlowManagers: vi.fn(),
+vi.mock("../../../src/components/provider/hooks/useKoduckFlowRuntime", () => ({
+  useKoduckFlowManagers: vi.fn(),
 }));
 
 const { default: DebugPanel } = await import("../../../src/components/debug/DebugPanel/DebugPanel");
-const { useDuckFlowManagers } = await import("../../../src/components/provider/hooks/useDuckFlowRuntime");
-const useDuckFlowManagersMock = vi.mocked(useDuckFlowManagers);
+const { useKoduckFlowManagers } = await import("../../../src/components/provider/hooks/useKoduckFlowRuntime");
+const useKoduckFlowManagersMock = vi.mocked(useKoduckFlowManagers);
 
 type Listener<T> = (payload: T) => void;
 
@@ -31,9 +31,9 @@ type EntityEventListeners = {
   detailed: Listener<unknown>[];
 };
 
-type DuckFlowManagersValue = ReturnType<typeof useDuckFlowManagers>;
+type KoduckFlowManagersValue = ReturnType<typeof useKoduckFlowManagers>;
 
-type ManagersStub = DuckFlowManagersValue & {
+type ManagersStub = KoduckFlowManagersValue & {
   __renderListeners: RenderEventListeners;
   __entityListeners: EntityEventListeners;
 };
@@ -212,7 +212,7 @@ function createManagers(options: Partial<ManagerOptions> = {}): ManagersStub {
   const runtime = new RuntimeStub();
 
   return {
-    runtime: runtime as unknown as DuckFlowManagersValue["runtime"],
+    runtime: runtime as unknown as KoduckFlowManagersValue["runtime"],
     environment: undefined,
     factory: undefined,
     source: "local",
@@ -235,7 +235,7 @@ function createManagers(options: Partial<ManagerOptions> = {}): ManagersStub {
 
 describe("DebugPanel", () => {
   beforeEach(() => {
-    useDuckFlowManagersMock.mockReset();
+    useKoduckFlowManagersMock.mockReset();
   });
 
   afterEach(() => {
@@ -244,14 +244,14 @@ describe("DebugPanel", () => {
 
   it("renders runtime summary, metrics, and toggles visibility", () => {
     const managers = createManagers();
-    useDuckFlowManagersMock.mockReturnValue(managers);
+    useKoduckFlowManagersMock.mockReturnValue(managers);
 
     render(<DebugPanel defaultOpen position="left" />);
 
     const panel = screen.getByRole("complementary");
     expect(panel.getAttribute("aria-hidden")).toBe("false");
 
-    expect(screen.getByText("DuckFlow Debug")).toBeInTheDocument();
+    expect(screen.getByText("KoduckFlow Debug")).toBeInTheDocument();
     expect(screen.getByText(/Runtime: RuntimeStub/)).toBeInTheDocument();
     expect(screen.getByText("Entities: 2")).toBeInTheDocument();
     expect(screen.getByText("Queue: 2")).toBeInTheDocument();
@@ -272,7 +272,7 @@ describe("DebugPanel", () => {
 
   it("records render and entity events when tracking is enabled", async () => {
     const managers = createManagers();
-    useDuckFlowManagersMock.mockReturnValue(managers);
+    useKoduckFlowManagersMock.mockReturnValue(managers);
 
     render(<DebugPanel defaultOpen eventTracking />);
 
@@ -302,7 +302,7 @@ describe("DebugPanel", () => {
 
   it("shows event tracking hint when disabled", () => {
     const managers = createManagers();
-    useDuckFlowManagersMock.mockReturnValue(managers);
+    useKoduckFlowManagersMock.mockReturnValue(managers);
 
     render(<DebugPanel />);
 

@@ -1,16 +1,16 @@
 import type { Meta, StoryObj } from "@storybook/react";
 import React from "react";
 
-import type { DuckFlowTenantConfig } from "../common/runtime";
-import { DuckFlowProvider } from "../components/provider/DuckFlowProvider";
+import type { KoduckFlowTenantConfig } from "../common/runtime";
+import { KoduckFlowProvider } from "../components/provider/KoduckFlowProvider";
 import {
-  useDuckFlowTenant,
+  useKoduckFlowTenant,
   useTenantFeatureFlag,
   useTenantRollout,
-} from "../components/provider/hooks/useDuckFlowRuntime";
+} from "../components/provider/hooks/useKoduckFlowRuntime";
 
 const TenantSnapshot: React.FC = () => {
-  const tenant = useDuckFlowTenant();
+  const tenant = useKoduckFlowTenant();
   const betaEnabled = useTenantFeatureFlag("beta-flow", false);
   const rollout = useTenantRollout("storybook");
 
@@ -96,18 +96,18 @@ const TenantSnapshot: React.FC = () => {
 };
 
 type StoryProps = {
-  tenant: DuckFlowTenantConfig;
+  tenant: KoduckFlowTenantConfig;
   showDebugPanel: boolean;
 };
 
 const meta = {
-  title: "Providers/DuckFlowProvider",
+  title: "Providers/KoduckFlowProvider",
   component: TenantSnapshot,
   parameters: {
     docs: {
       description: {
         component:
-          "DuckFlowProvider wires runtime context, tenant configuration, and optional debug tooling into the React tree.",
+          "KoduckFlowProvider wires runtime context, tenant configuration, and optional debug tooling into the React tree.",
       },
     },
   },
@@ -118,7 +118,7 @@ const meta = {
     },
     tenant: {
       control: "object",
-      description: "Tenant configuration passed into DuckFlowProvider",
+      description: "Tenant configuration passed into KoduckFlowProvider",
     },
   },
   args: {
@@ -154,7 +154,7 @@ export const TenantOverview: Story = {
     const { tenant, showDebugPanel } = args as StoryProps;
 
     return (
-      <DuckFlowProvider
+      <KoduckFlowProvider
         tenant={tenant}
         debugOptions={{
           enabled: showDebugPanel,
@@ -165,7 +165,7 @@ export const TenantOverview: Story = {
         }}
       >
         <TenantSnapshot />
-      </DuckFlowProvider>
+      </KoduckFlowProvider>
     );
   },
 };

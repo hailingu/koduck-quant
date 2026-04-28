@@ -6,7 +6,7 @@ function App() {
   return (
     <main className="app-shell">
       <header className="app-hero">
-        <h1>Duck Flow Playground</h1>
+        <h1>Koduck Flow Playground</h1>
         <p>
           Explore the interactive flow renderer and, alongside it, a deterministic harness that
           powers our automated end-to-end scenarios.

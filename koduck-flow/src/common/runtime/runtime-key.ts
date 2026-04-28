@@ -1,7 +1,7 @@
 /**
  * @module src/common/runtime/runtime-key
  * @description Runtime environment key definitions and utilities for multi-tenant runtime identification.
- * Provides types and functions for working with runtime environment keys in Duck Flow.
+ * Provides types and functions for working with runtime environment keys in Koduck Flow.
  * @example
  * ```typescript
  * const key: RuntimeEnvironmentKey = {

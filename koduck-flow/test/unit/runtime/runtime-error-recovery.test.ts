@@ -1,8 +1,8 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import {
-  DuckFlowRuntime,
+  KoduckFlowRuntime,
   createScopedRuntime,
-} from "../../../src/common/runtime/duck-flow-runtime";
+} from "../../../src/common/runtime/koduck-flow-runtime";
 import { createCoreContainer, registerCoreServices } from "../../../src/common/di/bootstrap";
 
 /**
@@ -27,10 +27,10 @@ interface MockTenantContext {
   environment?: string;
 }
 
-const createTestRuntime = (): DuckFlowRuntime => {
+const createTestRuntime = (): KoduckFlowRuntime => {
   const container = createCoreContainer();
   registerCoreServices(container);
-  return new DuckFlowRuntime(container);
+  return new KoduckFlowRuntime(container);
 };
 
 // Simulated task that fails
@@ -66,7 +66,7 @@ const createLongRunningTask = (duration: number = 100) => {
 // ============================================================
 
 describe("ER1: Task-Level Error Handling", () => {
-  let runtime: DuckFlowRuntime;
+  let runtime: KoduckFlowRuntime;
 
   beforeEach(() => {
     runtime = createTestRuntime();
@@ -181,7 +181,7 @@ describe("ER1: Task-Level Error Handling", () => {
 // ============================================================
 
 describe("ER2: Container Recovery Mechanisms", () => {
-  let runtime: DuckFlowRuntime;
+  let runtime: KoduckFlowRuntime;
 
   beforeEach(() => {
     runtime = createTestRuntime();
@@ -280,7 +280,7 @@ describe("ER2: Container Recovery Mechanisms", () => {
 // ============================================================
 
 describe("ER3: Runtime Exception States", () => {
-  let runtime: DuckFlowRuntime;
+  let runtime: KoduckFlowRuntime;
 
   beforeEach(() => {
     runtime = createTestRuntime();
@@ -408,7 +408,7 @@ describe("ER3: Runtime Exception States", () => {
 // ============================================================
 
 describe("ER4: Error Reporting and Logging", () => {
-  let runtime: DuckFlowRuntime;
+  let runtime: KoduckFlowRuntime;
   let emittedEvents: Array<{ type: string; error?: Error }> = [];
 
   beforeEach(() => {
@@ -519,7 +519,7 @@ describe("ER4: Error Reporting and Logging", () => {
 // ============================================================
 
 describe("ER5: Integration Error Scenarios", () => {
-  let runtime: DuckFlowRuntime;
+  let runtime: KoduckFlowRuntime;
 
   beforeEach(() => {
     runtime = createTestRuntime();

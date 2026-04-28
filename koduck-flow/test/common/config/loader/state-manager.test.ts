@@ -4,12 +4,12 @@
 
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { ConfigStateManager } from "../../../../src/common/config/loader/state-manager";
-import type { DuckFlowConfig } from "../../../../src/common/config/schema";
+import type { KoduckFlowConfig } from "../../../../src/common/config/schema";
 import type { ConfigChangeListener } from "../../../../src/common/config/loader/types/config-state.interface";
 
 describe("ConfigStateManager", () => {
   let stateManager: ConfigStateManager;
-  let mockConfig: DuckFlowConfig;
+  let mockConfig: KoduckFlowConfig;
 
   beforeEach(() => {
     mockConfig = {
@@ -52,7 +52,7 @@ describe("ConfigStateManager", () => {
           maxRetries: 3,
         },
       },
-    } as DuckFlowConfig;
+    } as KoduckFlowConfig;
 
     stateManager = new ConfigStateManager(mockConfig);
   });
@@ -69,7 +69,7 @@ describe("ConfigStateManager", () => {
       const newConfig = {
         ...mockConfig,
         render: { ...mockConfig.render, frameRate: 120 },
-      } as DuckFlowConfig;
+      } as KoduckFlowConfig;
 
       stateManager.setCurrentConfig(newConfig);
 
@@ -84,7 +84,7 @@ describe("ConfigStateManager", () => {
       const newConfig = {
         ...mockConfig,
         render: { ...mockConfig.render, fps: 120 },
-      } as DuckFlowConfig;
+      } as KoduckFlowConfig;
 
       stateManager.setCurrentConfig(newConfig);
 
@@ -99,7 +99,7 @@ describe("ConfigStateManager", () => {
       const newConfig = {
         ...mockConfig,
         render: { ...mockConfig.render, fps: 120 },
-      } as DuckFlowConfig;
+      } as KoduckFlowConfig;
 
       stateManager.setCurrentConfig(newConfig, true);
 
@@ -135,7 +135,7 @@ describe("ConfigStateManager", () => {
       const newConfig = {
         ...mockConfig,
         render: { ...mockConfig.render, fps: 120 },
-      } as DuckFlowConfig;
+      } as KoduckFlowConfig;
 
       stateManager.setCurrentConfig(newConfig);
 
@@ -155,7 +155,7 @@ describe("ConfigStateManager", () => {
       const newConfig = {
         ...mockConfig,
         render: { ...mockConfig.render, fps: 120 },
-      } as DuckFlowConfig;
+      } as KoduckFlowConfig;
 
       // 不应抛出错误
       expect(() => stateManager.setCurrentConfig(newConfig)).not.toThrow();
@@ -192,11 +192,11 @@ describe("ConfigStateManager", () => {
       const config2 = {
         ...mockConfig,
         render: { ...mockConfig.render, fps: 120 },
-      } as DuckFlowConfig;
+      } as KoduckFlowConfig;
       const config3 = {
         ...mockConfig,
         render: { ...mockConfig.render, fps: 144 },
-      } as DuckFlowConfig;
+      } as KoduckFlowConfig;
 
       stateManager.setCurrentConfig(config2);
       stateManager.setCurrentConfig(config3);
@@ -214,7 +214,7 @@ describe("ConfigStateManager", () => {
         const config = {
           ...mockConfig,
           render: { ...mockConfig.render, fps: 60 + i },
-        } as DuckFlowConfig;
+        } as KoduckFlowConfig;
         stateManager.setCurrentConfig(config);
       }
 
@@ -230,7 +230,7 @@ describe("ConfigStateManager", () => {
         const config = {
           ...mockConfig,
           render: { ...mockConfig.render, fps: 60 + i },
-        } as DuckFlowConfig;
+        } as KoduckFlowConfig;
         smallStateManager.setCurrentConfig(config);
       }
 
@@ -245,11 +245,11 @@ describe("ConfigStateManager", () => {
       const config2 = {
         ...mockConfig,
         render: { ...mockConfig.render, fps: 120 },
-      } as DuckFlowConfig;
+      } as KoduckFlowConfig;
       const config3 = {
         ...mockConfig,
         render: { ...mockConfig.render, fps: 144 },
-      } as DuckFlowConfig;
+      } as KoduckFlowConfig;
 
       stateManager.setCurrentConfig(config2);
       stateManager.setCurrentConfig(config3);
@@ -268,7 +268,7 @@ describe("ConfigStateManager", () => {
       const newConfig = {
         ...mockConfig,
         render: { ...mockConfig.render, fps: 120 },
-      } as DuckFlowConfig;
+      } as KoduckFlowConfig;
 
       stateManager.updateConfig(newConfig, "test-trigger");
 
@@ -286,7 +286,7 @@ describe("ConfigStateManager", () => {
       const newConfig = {
         ...mockConfig,
         render: { ...mockConfig.render, fps: 120 },
-      } as DuckFlowConfig;
+      } as KoduckFlowConfig;
 
       stateManager.updateConfig(newConfig, "test-trigger");
 
@@ -324,7 +324,7 @@ describe("ConfigStateManager", () => {
         const config = {
           ...mockConfig,
           render: { ...mockConfig.render, fps: 60 + i },
-        } as DuckFlowConfig;
+        } as KoduckFlowConfig;
         stateManager.setCurrentConfig(config);
       }
 
@@ -345,7 +345,7 @@ describe("ConfigStateManager", () => {
       const newConfig = {
         ...mockConfig,
         render: { ...mockConfig.render, fps: 120 },
-      } as DuckFlowConfig;
+      } as KoduckFlowConfig;
 
       // 不应抛出错误
       expect(() => stateManager.setCurrentConfig(newConfig)).not.toThrow();

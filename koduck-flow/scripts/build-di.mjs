@@ -252,14 +252,14 @@ function validateTokenUsage(services, definedTokens) {
 function ensureGeneratedFileUpToDate(expectedSource) {
   if (!existsSync(outputFile)) {
     throw new Error(
-      `Generated DI registry missing at ${path.relative(packageRoot, outputFile)}. Run "pnpm -C packages/duck-flow run build:di".`
+      `Generated DI registry missing at ${path.relative(packageRoot, outputFile)}. Run "pnpm -C packages/koduck-flow run build:di".`
     );
   }
 
   const current = readFileSync(outputFile, "utf8");
   if (current !== expectedSource) {
     throw new Error(
-      `Generated DI registry is out of date. Run "pnpm -C packages/duck-flow run build:di" and commit the changes.`
+      `Generated DI registry is out of date. Run "pnpm -C packages/koduck-flow run build:di" and commit the changes.`
     );
   }
 }

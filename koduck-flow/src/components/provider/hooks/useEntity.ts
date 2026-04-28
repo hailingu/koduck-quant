@@ -82,7 +82,7 @@ export interface UseEntityResult {
 /**
  * React hook for managing entity lifecycle and operations.
  * Provides complete entity management including creation, retrieval, deletion, and rendering.
- * Integrates with DuckFlow runtime entity and render managers.
+ * Integrates with KoduckFlow runtime entity and render managers.
  *
  * @param {UseEntityOptions} [options={}] - Hook configuration
  * @param {boolean} [options.autoRender=false] - Auto-render created entities
@@ -90,7 +90,7 @@ export interface UseEntityResult {
  * @param {string} [options.entityType] - Default entity type
  * @param {Record<string, unknown>} [options.initialProps] - Initial entity properties
  * @returns {UseEntityResult} Entity management state and methods
- * @throws {Error} If used outside DuckFlowProvider
+ * @throws {Error} If used outside KoduckFlowProvider
  *
  * @example
  * const {

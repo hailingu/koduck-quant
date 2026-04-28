@@ -1,6 +1,6 @@
 /**
  * Coverage Threshold Configuration
- * Defines phased coverage targets for Duck Flow project
+ * Defines phased coverage targets for Koduck Flow project
  *
  * Strategy: Incremental improvement with module-specific goals
  * Timeline: 9-week progressive enhancement

@@ -1,11 +1,11 @@
 import React, { useCallback, useRef, useState } from "react";
 import { useFlow } from "../../provider/hooks/useFlow";
-import { useDuckFlowManagers } from "../../provider/hooks/useDuckFlowRuntime";
-import { DuckFlowProvider } from "../../provider/DuckFlowProvider";
+import { useKoduckFlowManagers } from "../../provider/hooks/useKoduckFlowRuntime";
+import { KoduckFlowProvider } from "../../provider/KoduckFlowProvider";
 import { Editor, type RenderContextBuilder } from "../../editor/Editor";
 import { VirtualList } from "../../virtualized/VirtualList";
 import { logger } from "../../../common/logger";
-import { DEFAULT_DUCKFLOW_ENVIRONMENT } from "../../../common/global-runtime";
+import { DEFAULT_KODUCKFLOW_ENVIRONMENT } from "../../../common/global-runtime";
 // Ensure UML entities are loaded and registered before UI renders
 import "./uml-entities-new-decorator";
 // Ensure Flow Canvas entities (Start, Action, Decision, End) are loaded and registered
@@ -273,7 +273,7 @@ function createVirtualTelemetry(size: number): VirtualTelemetryItem[] {
  * @returns The FlowDemo component
  */
 const FlowDemoContent: React.FC = () => {
-  const { runtime, renderManager, entityManager, renderEvents } = useDuckFlowManagers();
+  const { runtime, renderManager, entityManager, renderEvents } = useKoduckFlowManagers();
 
   // 在组件初始化时检查注册表状态
   React.useEffect(() => {
@@ -2183,9 +2183,9 @@ const FlowDemoContent: React.FC = () => {
 };
 
 export const FlowDemo: React.FC = () => (
-  <DuckFlowProvider environment={DEFAULT_DUCKFLOW_ENVIRONMENT}>
+  <KoduckFlowProvider environment={DEFAULT_KODUCKFLOW_ENVIRONMENT}>
     <FlowDemoContent />
-  </DuckFlowProvider>
+  </KoduckFlowProvider>
 );
 
 export default FlowDemo;

@@ -13,7 +13,7 @@
  */
 
 import { logger } from "../logger";
-import { createDuckFlowRuntime, type DuckFlowRuntime } from "./duck-flow-runtime";
+import { createKoduckFlowRuntime, type KoduckFlowRuntime } from "./koduck-flow-runtime";
 import type { RuntimeCreationOptions } from "./runtime-factory";
 
 /**
@@ -29,7 +29,7 @@ export interface DiagnosticRuntimeOptions extends RuntimeCreationOptions {
 /**
  * Create a diagnostic runtime with optional labeling for debugging
  * @param {DiagnosticRuntimeOptions} [options={}] - Runtime creation options with optional diagnostic label
- * @returns {DuckFlowRuntime} Configured runtime instance with diagnostic logging
+ * @returns {KoduckFlowRuntime} Configured runtime instance with diagnostic logging
  * @example
  * ```typescript
  * const runtime = createDiagnosticRuntime({
@@ -39,8 +39,8 @@ export interface DiagnosticRuntimeOptions extends RuntimeCreationOptions {
  * });
  * ```
  */
-export function createDiagnosticRuntime(options: DiagnosticRuntimeOptions = {}): DuckFlowRuntime {
-  const runtime = createDuckFlowRuntime(options);
+export function createDiagnosticRuntime(options: DiagnosticRuntimeOptions = {}): KoduckFlowRuntime {
+  const runtime = createKoduckFlowRuntime(options);
 
   if (options.label) {
     logger.info("Diagnostic runtime created", {

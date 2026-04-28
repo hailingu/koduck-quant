@@ -3,7 +3,7 @@
 **Document:** Runtime System Comprehensive Testing Strategy  
 **Version:** 1.0  
 **Date:** November 2025  
-**Coverage Target:** 100% code coverage for duck-flow-runtime.ts and 95%+ for runtime-engine.ts
+**Coverage Target:** 100% code coverage for koduck-flow-runtime.ts and 95%+ for runtime-engine.ts
 
 ---
 
@@ -13,7 +13,7 @@
 
 | Module                    | Type      | Coverage Target | Priority |
 | ------------------------- | --------- | --------------- | -------- |
-| DuckFlowRuntime           | Main      | 100%            | P0       |
+| KoduckFlowRuntime           | Main      | 100%            | P0       |
 | RuntimeContainerManager   | Delegated | 95%+            | P0       |
 | RuntimeManagerCoordinator | Delegated | 95%+            | P0       |
 | RuntimeTenantContext      | Delegated | 90%+            | P1       |
@@ -123,7 +123,7 @@
 
 ```gherkin
 Given: An empty DI container
-When: Creating DuckFlowRuntime with no options
+When: Creating KoduckFlowRuntime with no options
 Then:
   - Runtime instance is created successfully
   - All core modules are initialized
@@ -135,7 +135,7 @@ Then:
 
 ```gherkin
 Given: An empty DI container
-When: Creating DuckFlowRuntime with custom ManagerInitializationOptions
+When: Creating KoduckFlowRuntime with custom ManagerInitializationOptions
 Then:
   - Options are passed to RuntimeManagerCoordinator
   - Manager initialization respects options
@@ -145,7 +145,7 @@ Then:
 **T-INIT-003: Verify Core Modules Initialization**
 
 ```gherkin
-Given: A newly created DuckFlowRuntime
+Given: A newly created KoduckFlowRuntime
 When: Accessing internal modules
 Then:
   - RuntimeContainerManager is initialized
@@ -160,7 +160,7 @@ Then:
 **T-INIT-004: Verify Container Manager Setup**
 
 ```gherkin
-Given: A newly created DuckFlowRuntime
+Given: A newly created KoduckFlowRuntime
 When: Checking RuntimeContainerManager
 Then:
   - All core services are resolved and cached
@@ -173,7 +173,7 @@ Then:
 **T-INIT-005: Verify Manager Coordination Setup**
 
 ```gherkin
-Given: A newly created DuckFlowRuntime
+Given: A newly created KoduckFlowRuntime
 When: Checking RuntimeManagerCoordinator
 Then:
   - All CORE_MANAGER_KEYS are registered
@@ -184,7 +184,7 @@ Then:
 **T-INIT-006: Verify Tenant Context Setup**
 
 ```gherkin
-Given: A newly created DuckFlowRuntime
+Given: A newly created KoduckFlowRuntime
 When: Checking RuntimeTenantContext
 Then:
   - Tenant context is ready for use
@@ -195,7 +195,7 @@ Then:
 **T-INIT-007: Verify Event System Connections**
 
 ```gherkin
-Given: A newly created DuckFlowRuntime
+Given: A newly created KoduckFlowRuntime
 When: Checking event system connections
 Then:
   - EventBus is properly connected
@@ -207,7 +207,7 @@ Then:
 **T-INIT-008: Dispose Uninitialized Runtime**
 
 ```gherkin
-Given: A newly created DuckFlowRuntime
+Given: A newly created KoduckFlowRuntime
 When: Calling dispose() immediately
 Then:
   - Disposal completes successfully
@@ -533,7 +533,7 @@ Then:
 
 ```gherkin
 Given: Invalid or null container
-When: Creating DuckFlowRuntime
+When: Creating KoduckFlowRuntime
 Then:
   - Error is thrown
   - Error message is clear

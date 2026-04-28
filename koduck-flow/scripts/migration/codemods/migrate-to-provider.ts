@@ -1,5 +1,5 @@
 /**
- * Codemod: Migrate from deity API to DuckFlowProvider + Hooks
+ * Codemod: Migrate from deity API to KoduckFlowProvider + Hooks
  *
  * This codemod automatically transforms React components to use the new Provider pattern.
  *
@@ -28,14 +28,14 @@ export default function transformer(file: FileInfo, api: API) {
   root.find(j.ImportDeclaration).forEach((path) => {
     const importSource = path.node.source.value as string;
 
-    if (importSource === "duck-flow" || importSource.startsWith("duck-flow/")) {
+    if (importSource === "koduck-flow" || importSource.startsWith("koduck-flow/")) {
       const specifiers = path.node.specifiers || [];
 
       // Remove deity-related imports
       const filteredSpecifiers = specifiers.filter((spec) => {
         if (spec.type === "ImportSpecifier" && spec.imported.type === "Identifier") {
           const name = spec.imported.name;
-          return !["deity", "legacyDeity", "getDeity", "globalDuckFlowRuntime"].includes(name);
+          return !["deity", "legacyDeity", "getDeity", "globalKoduckFlowRuntime"].includes(name);
         }
         return true;
       });
@@ -53,44 +53,44 @@ export default function transformer(file: FileInfo, api: API) {
   });
 
   // Step 2: Add new imports
-  const hasUseDuckFlowRuntime =
+  const hasUseKoduckFlowRuntime =
     root.find(j.ImportDeclaration, {
-      source: { value: "duck-flow" },
+      source: { value: "koduck-flow" },
       specifiers: [
         {
           type: "ImportSpecifier",
-          imported: { name: "useDuckFlowRuntime" },
+          imported: { name: "useKoduckFlowRuntime" },
         },
       ],
     }).length > 0;
 
-  if (!hasUseDuckFlowRuntime) {
-    // Find existing duck-flow import or create new one
-    const duckFlowImports = root.find(j.ImportDeclaration, {
-      source: { value: "duck-flow" },
+  if (!hasUseKoduckFlowRuntime) {
+    // Find existing koduck-flow import or create new one
+    const koduckFlowImports = root.find(j.ImportDeclaration, {
+      source: { value: "koduck-flow" },
     });
 
-    if (duckFlowImports.length > 0) {
+    if (koduckFlowImports.length > 0) {
       // Add to existing import
-      duckFlowImports.forEach((path) => {
+      koduckFlowImports.forEach((path) => {
         const specifiers = path.node.specifiers || [];
         const hasHook = specifiers.some(
           (spec) =>
             spec.type === "ImportSpecifier" &&
             spec.imported.type === "Identifier" &&
-            spec.imported.name === "useDuckFlowRuntime"
+            spec.imported.name === "useKoduckFlowRuntime"
         );
 
         if (!hasHook) {
-          specifiers.push(j.importSpecifier(j.identifier("useDuckFlowRuntime")));
+          specifiers.push(j.importSpecifier(j.identifier("useKoduckFlowRuntime")));
           hasChanges = true;
         }
       });
     } else {
       // Create new import
       const newImport = j.importDeclaration(
-        [j.importSpecifier(j.identifier("useDuckFlowRuntime"))],
-        j.literal("duck-flow")
+        [j.importSpecifier(j.identifier("useKoduckFlowRuntime"))],
+        j.literal("koduck-flow")
       );
 
       // Insert after React import
@@ -123,7 +123,7 @@ export default function transformer(file: FileInfo, api: API) {
       const runtimeDeclaration = j.variableDeclaration("const", [
         j.variableDeclarator(
           j.identifier("runtime"),
-          j.callExpression(j.identifier("useDuckFlowRuntime"), [])
+          j.callExpression(j.identifier("useKoduckFlowRuntime"), [])
         ),
       ]);
 
@@ -157,7 +157,7 @@ export default function transformer(file: FileInfo, api: API) {
         const runtimeDeclaration = j.variableDeclaration("const", [
           j.variableDeclarator(
             j.identifier("runtime"),
-            j.callExpression(j.identifier("useDuckFlowRuntime"), [])
+            j.callExpression(j.identifier("useKoduckFlowRuntime"), [])
           ),
         ]);
 
@@ -189,7 +189,7 @@ export default function transformer(file: FileInfo, api: API) {
       const comment = j.commentBlock(
         "\n" +
           " TODO: Manual migration needed for class component\n" +
-          " Consider converting to function component or wrapping with DuckFlowProvider\n" +
+          " Consider converting to function component or wrapping with KoduckFlowProvider\n" +
           " See: docs/api-unification-migration-guide.md\n" +
           " ",
         true,

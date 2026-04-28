@@ -1,5 +1,5 @@
 /**
- * Duck Flow E2E Stability Test Configuration
+ * Koduck Flow E2E Stability Test Configuration
  *
  * Provides configurable parameters for long-running stability tests via environment variables.
  * Supports different modes (quick, standard, extended) for CI and nightly runs.

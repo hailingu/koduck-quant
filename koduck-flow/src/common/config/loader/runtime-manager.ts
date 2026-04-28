@@ -1,5 +1,5 @@
 import { logger } from "../../logger";
-import type { DuckFlowConfig, ValidationIssue } from "../schema";
+import type { KoduckFlowConfig, ValidationIssue } from "../schema";
 import { isEmptyOverride } from "./merge";
 import { mergeRuntimeObjects } from "./runtime";
 import { formatValidationIssueForLog } from "./utils";
@@ -26,20 +26,20 @@ interface LoaderMetrics {
  * 用于解耦 runtime-manager 与 ConfigLoader 的直接依赖
  */
 interface RuntimeManagerState {
-  runtimeOverrides: Partial<DuckFlowConfig>;
+  runtimeOverrides: Partial<KoduckFlowConfig>;
   runtimeAuditTrail: RuntimeOverrideAuditRecord[];
   metrics: LoaderMetrics & {
     activeRuntimeOverrides: { set: (value: number) => void };
   };
   lastConflicts: MergeConflict[];
   lastValidationWarnings: ValidationIssue[];
-  validate(config: DuckFlowConfig): {
+  validate(config: KoduckFlowConfig): {
     isValid: boolean;
     errors: ValidationIssue[];
     warnings: ValidationIssue[];
   };
   refreshRuntimeOverrideGauge(): void;
-  reload(options?: Partial<DuckFlowConfig>, context?: ConfigChangeContext): DuckFlowConfig;
+  reload(options?: Partial<KoduckFlowConfig>, context?: ConfigChangeContext): KoduckFlowConfig;
 }
 
 export function runtimeTriggerFromSourceImpl(source: RuntimeOverrideSource): ConfigChangeTrigger {
@@ -65,7 +65,7 @@ export function recordRuntimeAuditImpl(
 
 export function applyRuntimeOverridesImpl(
   state: RuntimeManagerState,
-  overrides: Partial<DuckFlowConfig>,
+  overrides: Partial<KoduckFlowConfig>,
   options: RuntimeOverrideOptions = {}
 ): RuntimeOverrideResult {
   if (!overrides || isEmptyOverride(overrides)) {
@@ -74,13 +74,13 @@ export function applyRuntimeOverridesImpl(
 
   const source = options.source ?? "api";
   const dryRun = options.dryRun ?? false;
-  const sanitizedOverrides = mergeRuntimeObjects({}, overrides) as Partial<DuckFlowConfig>;
+  const sanitizedOverrides = mergeRuntimeObjects({}, overrides) as Partial<KoduckFlowConfig>;
   const timestamp = Date.now();
 
   const nextRuntimeOverrides = mergeRuntimeObjects(
     state.runtimeOverrides,
     sanitizedOverrides
-  ) as Partial<DuckFlowConfig>;
+  ) as Partial<KoduckFlowConfig>;
 
   const context: ConfigChangeContext = {
     trigger: runtimeTriggerFromSourceImpl(source),
@@ -164,8 +164,8 @@ export function applyRuntimeOverridesImpl(
   };
 }
 
-export function getRuntimeOverridesImpl(state: RuntimeManagerState): Partial<DuckFlowConfig> {
-  return mergeRuntimeObjects({}, state.runtimeOverrides) as Partial<DuckFlowConfig>;
+export function getRuntimeOverridesImpl(state: RuntimeManagerState): Partial<KoduckFlowConfig> {
+  return mergeRuntimeObjects({}, state.runtimeOverrides) as Partial<KoduckFlowConfig>;
 }
 
 export function getRuntimeAuditTrailImpl(

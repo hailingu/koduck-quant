@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ConfigLoader, getConfigLoader } from "../../../src/common/config/loader";
-import type { DuckFlowConfig } from "../../../src/common/config/schema";
+import type { KoduckFlowConfig } from "../../../src/common/config/schema";
 import * as sources from "../../../src/common/config/loader/sources";
 
 function getCurrentLoaderInstance(): ConfigLoader | undefined {
@@ -49,12 +49,12 @@ describe("ConfigLoader source precedence", () => {
       event: {
         batchSize: 24,
       },
-    } as Partial<DuckFlowConfig>;
+    } as Partial<KoduckFlowConfig>;
 
     const loadFileSpy = vi.spyOn(sources, "loadConfigFile").mockReturnValue(fileConfig);
 
-    setEnv("DUCKFLOW_RENDER_FRAME_RATE", "55");
-    setEnv("DUCKFLOW_PLUGIN_SANDBOX_TIMEOUT", "9000");
+    setEnv("KODUCKFLOW_RENDER_FRAME_RATE", "55");
+    setEnv("KODUCKFLOW_PLUGIN_SANDBOX_TIMEOUT", "9000");
 
     const loader = getConfigLoader();
     const initial = loader.load();
@@ -69,7 +69,7 @@ describe("ConfigLoader source precedence", () => {
         render: {
           frameRate: 66,
         },
-      } as Partial<DuckFlowConfig>,
+      } as Partial<KoduckFlowConfig>,
       { source: "api" }
     );
 
@@ -80,9 +80,9 @@ describe("ConfigLoader source precedence", () => {
 
   it("throws when env value fails validation", () => {
     vi.spyOn(sources, "loadConfigFile").mockReturnValue({});
-    setEnv("DUCKFLOW_EVENT_BATCH_SIZE", "not-a-number");
+    setEnv("KODUCKFLOW_EVENT_BATCH_SIZE", "not-a-number");
 
     const loader = getConfigLoader();
-    expect(() => loader.load()).toThrowError(/Failed to apply DUCKFLOW_EVENT_BATCH_SIZE/);
+    expect(() => loader.load()).toThrowError(/Failed to apply KODUCKFLOW_EVENT_BATCH_SIZE/);
   });
 });

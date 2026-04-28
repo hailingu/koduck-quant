@@ -1,5 +1,5 @@
 /**
- * Duck Flow Task Execution Engine - Type Definitions
+ * Koduck Flow Task Execution Engine - Type Definitions
  *
  * Central export point for all engine-related type definitions and interfaces.
  * This module provides the type system for the task execution engine, including:

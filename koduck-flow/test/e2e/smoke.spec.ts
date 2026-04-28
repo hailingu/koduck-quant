@@ -8,7 +8,7 @@ test.describe("Smoke Tests", () => {
     // Verify the page loads (basic check)
     await expect(page.locator("body")).toBeVisible();
 
-    // Duck Flow surfaces legitimate "Error" text in telemetry cards, so rely on runtime-ready signal instead
+    // Koduck Flow surfaces legitimate "Error" text in telemetry cards, so rely on runtime-ready signal instead
     await expect(page.locator('[data-testid="runtime-ready"]')).toBeVisible();
 
     // Check that no fatal overlay is present (placeholder selector until dedicated error banner exists)

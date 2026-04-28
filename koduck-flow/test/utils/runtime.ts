@@ -4,8 +4,8 @@ import {
   type CoreServiceOverrides,
 } from "../../src/common/di/bootstrap";
 import {
-  DuckFlowRuntime,
-  createDuckFlowRuntime,
+  KoduckFlowRuntime,
+  createKoduckFlowRuntime,
 } from "../../src/common/runtime";
 
 export interface TestRuntimeOptions {
@@ -24,7 +24,7 @@ export interface TestRuntimeOptions {
 }
 
 /**
- * Create a fresh DuckFlow runtime for tests. Each invocation constructs a new
+ * Create a fresh KoduckFlow runtime for tests. Each invocation constructs a new
  * dependency container to guarantee isolation between test cases. Use
  * `overrides` to inject mocks for core services such as EntityManager or
  * RenderManager. The caller is responsible for disposing the returned runtime
@@ -32,7 +32,7 @@ export interface TestRuntimeOptions {
  */
 export function createTestRuntime(
   options: TestRuntimeOptions = {}
-): DuckFlowRuntime {
+): KoduckFlowRuntime {
   const { overrides, setup } = options;
 
   const normalizedOverrides = overrides
@@ -58,5 +58,5 @@ export function createTestRuntime(
 
   setup?.(container);
 
-  return createDuckFlowRuntime({ container, overrides: normalizedOverrides });
+  return createKoduckFlowRuntime({ container, overrides: normalizedOverrides });
 }

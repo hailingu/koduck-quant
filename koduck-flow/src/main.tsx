@@ -5,11 +5,11 @@ import "./index.css";
 import "./components/demo/FlowDemo/uml-entities-new-decorator";
 import App from "./App.tsx";
 import { logger } from "./common/logger";
-import { DEFAULT_DUCKFLOW_ENVIRONMENT, getRuntimeForEnvironment } from "./common/global-runtime";
+import { DEFAULT_KODUCKFLOW_ENVIRONMENT, getRuntimeForEnvironment } from "./common/global-runtime";
 
 // 在应用启动时立即检查注册表状态
 logger.info("🚀 应用启动 - 检查UML注册表状态");
-const runtime = getRuntimeForEnvironment(DEFAULT_DUCKFLOW_ENVIRONMENT);
+const runtime = getRuntimeForEnvironment(DEFAULT_KODUCKFLOW_ENVIRONMENT);
 const registryManager = runtime.RegistryManager;
 logger.info("🔗 main.tsx中的RegistryManager实例:", {
   instance: registryManager.constructor.name,

@@ -155,7 +155,7 @@ export class RuntimeQuotaManager {
 
     // 检查是否超限
     if (limit !== undefined && next > limit) {
-      logger.warn("DuckFlowRuntime tenant quota exceeded", {
+      logger.warn("KoduckFlowRuntime tenant quota exceeded", {
         tenantId: tenantContext.tenantId,
         bucket,
         limit,
@@ -348,7 +348,7 @@ export class RuntimeQuotaManager {
 
     const current = this.entityCountProvider();
     if (current >= limit) {
-      logger.warn("DuckFlowRuntime tenant entity quota exceeded", {
+      logger.warn("KoduckFlowRuntime tenant entity quota exceeded", {
         tenantId: tenantContext?.tenantId,
         limit,
         current,

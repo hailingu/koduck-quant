@@ -1,6 +1,6 @@
 /**
  * @module src/common/config/loader
- * @description Configuration loading and management system for Duck Flow.
+ * @description Configuration loading and management system for Koduck Flow.
  * Provides singleton-based configuration loader with support for:
  * - Multiple configuration sources (files, environment, CLI, HTTP, runtime overrides)
  * - Hot reload with file watching and HTTP server
@@ -42,7 +42,7 @@
  * @example
  * ```typescript
  * import { ConfigLoader } from '@/config/loader';
- * import type { DuckFlowConfig, RuntimeOverrideOptions } from '@/config/loader/types';
+ * import type { KoduckFlowConfig, RuntimeOverrideOptions } from '@/config/loader/types';
  *
  * async function initializeConfig() {
  *   // Get singleton instance
@@ -94,7 +94,7 @@
 import type { FSWatcher } from "node:fs";
 import type { Server as HttpServer } from "node:http";
 
-import type { ConfigSource, DuckFlowConfig, ValidationIssue, ValidationResult } from "./schema";
+import type { ConfigSource, KoduckFlowConfig, ValidationIssue, ValidationResult } from "./schema";
 import { validateConfig } from "./schema";
 import { logger } from "../logger";
 import { meter } from "../metrics/global";
@@ -173,9 +173,9 @@ export class ConfigLoader implements IConfigLoaderInternal {
   private static instance: ConfigLoader;
 
   // Public properties (required by IConfigLoaderInternal for core module access)
-  public configCache: DuckFlowConfig | undefined;
-  public configSources: Map<ConfigSource, Partial<DuckFlowConfig>> = new Map();
-  public runtimeOverrides: Partial<DuckFlowConfig> = {};
+  public configCache: KoduckFlowConfig | undefined;
+  public configSources: Map<ConfigSource, Partial<KoduckFlowConfig>> = new Map();
+  public runtimeOverrides: Partial<KoduckFlowConfig> = {};
   public hasLoadedOnce = false;
   public loadMetrics: { loadCount: number; totalLoadTime: number; lastLoadTime: number } = {
     loadCount: 0,
@@ -191,7 +191,7 @@ export class ConfigLoader implements IConfigLoaderInternal {
   };
   public lastConflicts: MergeConflict[] = [];
   public lastValidationWarnings: ValidationIssue[] = [];
-  public configChangeListeners: Array<(config: DuckFlowConfig) => void> = [];
+  public configChangeListeners: Array<(config: KoduckFlowConfig) => void> = [];
   public eventBus: EventBus;
 
   // Private properties (internal implementation details)
@@ -249,14 +249,14 @@ export class ConfigLoader implements IConfigLoaderInternal {
   /**
    *
    */
-  load(options?: Partial<DuckFlowConfig>, context?: ConfigChangeContext): DuckFlowConfig {
+  load(options?: Partial<KoduckFlowConfig>, context?: ConfigChangeContext): KoduckFlowConfig {
     return loadImpl(this, options, context);
   }
 
   /**
    *
    */
-  reload(options?: Partial<DuckFlowConfig>, context?: ConfigChangeContext): DuckFlowConfig {
+  reload(options?: Partial<KoduckFlowConfig>, context?: ConfigChangeContext): KoduckFlowConfig {
     return reloadImpl(this, options, context);
   }
 
@@ -281,14 +281,14 @@ export class ConfigLoader implements IConfigLoaderInternal {
   /**
    *
    */
-  onConfigChange(listener: (config: DuckFlowConfig) => void): void {
+  onConfigChange(listener: (config: KoduckFlowConfig) => void): void {
     this.configChangeListeners.push(listener);
   }
 
   /**
    *
    */
-  offConfigChange(listener: (config: DuckFlowConfig) => void): void {
+  offConfigChange(listener: (config: KoduckFlowConfig) => void): void {
     const index = this.configChangeListeners.indexOf(listener);
     if (index > -1) {
       this.configChangeListeners.splice(index, 1);
@@ -298,14 +298,14 @@ export class ConfigLoader implements IConfigLoaderInternal {
   /**
    *
    */
-  validate(config: DuckFlowConfig): ValidationResult {
+  validate(config: KoduckFlowConfig): ValidationResult {
     return validateConfig(config);
   }
 
   /**
    *
    */
-  getConfig(): DuckFlowConfig {
+  getConfig(): KoduckFlowConfig {
     return this.load();
   }
 
@@ -355,7 +355,7 @@ export class ConfigLoader implements IConfigLoaderInternal {
   /**
    *
    */
-  getConfigSources(): Map<ConfigSource, Partial<DuckFlowConfig>> {
+  getConfigSources(): Map<ConfigSource, Partial<KoduckFlowConfig>> {
     return new Map(this.configSources);
   }
 
@@ -369,7 +369,7 @@ export class ConfigLoader implements IConfigLoaderInternal {
   /**
    *
    */
-  loadFromCLI(): Partial<DuckFlowConfig> {
+  loadFromCLI(): Partial<KoduckFlowConfig> {
     const cliConfig = loadOverridesFromCLI();
     if (Object.keys(cliConfig).length > 0) {
       logger.info("Loaded runtime overrides from CLI arguments");
@@ -381,12 +381,12 @@ export class ConfigLoader implements IConfigLoaderInternal {
    *
    */
   applyRuntimeOverrides(
-    overrides: Partial<DuckFlowConfig>,
+    overrides: Partial<KoduckFlowConfig>,
     options: RuntimeOverrideOptions = {}
   ): RuntimeOverrideResult {
     // Pass this as state reference for runtime manager state management
     const state = Object.assign(this, {}) as unknown as {
-      runtimeOverrides: Partial<DuckFlowConfig>;
+      runtimeOverrides: Partial<KoduckFlowConfig>;
       runtimeAuditTrail: RuntimeOverrideAuditRecord[];
       metrics: {
         runtimeOverridesApplied: {
@@ -399,9 +399,9 @@ export class ConfigLoader implements IConfigLoaderInternal {
       };
       lastConflicts: MergeConflict[];
       lastValidationWarnings: ValidationIssue[];
-      validate: (config: DuckFlowConfig) => ValidationResult;
+      validate: (config: KoduckFlowConfig) => ValidationResult;
       refreshRuntimeOverrideGauge(): void;
-      reload(options?: Partial<DuckFlowConfig>, context?: ConfigChangeContext): DuckFlowConfig;
+      reload(options?: Partial<KoduckFlowConfig>, context?: ConfigChangeContext): KoduckFlowConfig;
     };
     return applyRuntimeOverridesImpl(state, overrides, options);
   }
@@ -409,10 +409,10 @@ export class ConfigLoader implements IConfigLoaderInternal {
   /**
    *
    */
-  getRuntimeOverrides(): Partial<DuckFlowConfig> {
+  getRuntimeOverrides(): Partial<KoduckFlowConfig> {
     // Pass this as state reference for runtime manager
     const state = Object.assign(this, {}) as unknown as {
-      runtimeOverrides: Partial<DuckFlowConfig>;
+      runtimeOverrides: Partial<KoduckFlowConfig>;
       runtimeAuditTrail: RuntimeOverrideAuditRecord[];
       metrics: {
         runtimeOverridesApplied: {
@@ -425,9 +425,9 @@ export class ConfigLoader implements IConfigLoaderInternal {
       };
       lastConflicts: MergeConflict[];
       lastValidationWarnings: ValidationIssue[];
-      validate: (config: DuckFlowConfig) => ValidationResult;
+      validate: (config: KoduckFlowConfig) => ValidationResult;
       refreshRuntimeOverrideGauge(): void;
-      reload(options?: Partial<DuckFlowConfig>, context?: ConfigChangeContext): DuckFlowConfig;
+      reload(options?: Partial<KoduckFlowConfig>, context?: ConfigChangeContext): KoduckFlowConfig;
     };
     return getRuntimeOverridesImpl(state);
   }
@@ -438,7 +438,7 @@ export class ConfigLoader implements IConfigLoaderInternal {
   getRuntimeAuditTrail(limit = 50): RuntimeOverrideAuditRecord[] {
     // Pass this as state reference for runtime manager
     const state = Object.assign(this, {}) as unknown as {
-      runtimeOverrides: Partial<DuckFlowConfig>;
+      runtimeOverrides: Partial<KoduckFlowConfig>;
       runtimeAuditTrail: RuntimeOverrideAuditRecord[];
       metrics: {
         runtimeOverridesApplied: {
@@ -451,9 +451,9 @@ export class ConfigLoader implements IConfigLoaderInternal {
       };
       lastConflicts: MergeConflict[];
       lastValidationWarnings: ValidationIssue[];
-      validate: (config: DuckFlowConfig) => ValidationResult;
+      validate: (config: KoduckFlowConfig) => ValidationResult;
       refreshRuntimeOverrideGauge(): void;
-      reload(options?: Partial<DuckFlowConfig>, context?: ConfigChangeContext): DuckFlowConfig;
+      reload(options?: Partial<KoduckFlowConfig>, context?: ConfigChangeContext): KoduckFlowConfig;
     };
     return getRuntimeAuditTrailImpl(state, limit);
   }
@@ -539,7 +539,7 @@ export class ConfigLoader implements IConfigLoaderInternal {
     return typeof performance !== "undefined" ? performance.now() : Date.now();
   }
 
-  private computeConfiguration(runtimeOverrides?: Partial<DuckFlowConfig>) {
+  private computeConfiguration(runtimeOverrides?: Partial<KoduckFlowConfig>) {
     return computeConfigurationImpl(this, runtimeOverrides);
   }
 
@@ -551,7 +551,7 @@ export class ConfigLoader implements IConfigLoaderInternal {
     refreshRuntimeOverrideGaugeImpl(this);
   }
 
-  private notifyConfigChange(config: DuckFlowConfig, context: ConfigChangeContext): void {
+  private notifyConfigChange(config: KoduckFlowConfig, context: ConfigChangeContext): void {
     notifyConfigChangeImpl(this, config, context);
   }
 
@@ -594,7 +594,7 @@ export function getConfigLoader(): ConfigLoader {
 /**
  *
  */
-export function getConfig(): DuckFlowConfig {
+export function getConfig(): KoduckFlowConfig {
   return getConfigLoader().load();
 }
 
@@ -602,6 +602,6 @@ export function getConfig(): DuckFlowConfig {
  *
  * @param options
  */
-export function reloadConfig(options?: Partial<DuckFlowConfig>): DuckFlowConfig {
+export function reloadConfig(options?: Partial<KoduckFlowConfig>): KoduckFlowConfig {
   return getConfigLoader().reload(options);
 }

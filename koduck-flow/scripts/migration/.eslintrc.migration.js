@@ -15,10 +15,10 @@ module.exports = {
       {
         paths: [
           {
-            name: "duck-flow",
-            importNames: ["deity", "legacyDeity", "getDeity", "globalDuckFlowRuntime"],
+            name: "koduck-flow",
+            importNames: ["deity", "legacyDeity", "getDeity", "globalKokoduckFlowRuntime"],
             message:
-              "Legacy deity API is deprecated. Use DuckFlowProvider + useDuckFlowRuntime() instead. See docs/api-unification-migration-guide.md",
+              "Legacy deity API is deprecated. Use KokoduckFlowProvider + useKokoduckFlowRuntime() instead. See docs/api-unification-migration-guide.md",
           },
         ],
       },
@@ -30,7 +30,7 @@ module.exports = {
       {
         name: "deity",
         message:
-          "Global deity is deprecated. Use useDuckFlowRuntime() hook in React components or createDuckFlowRuntime() in scripts.",
+          "Global deity is deprecated. Use useKokoduckFlowRuntime() hook in React components or createKokoduckFlowRuntime() in scripts.",
       },
     ],
 
@@ -40,21 +40,21 @@ module.exports = {
       {
         selector: 'MemberExpression[object.name="deity"]',
         message:
-          "deity API is deprecated. Use runtime from useDuckFlowRuntime() or createDuckFlowRuntime().",
+          "deity API is deprecated. Use runtime from useKokoduckFlowRuntime() or createKokoduckFlowRuntime().",
       },
       {
         selector: 'CallExpression[callee.name="getDeity"]',
         message:
-          "getDeity() is deprecated. Use createDuckFlowRuntime() or getDeityRuntime() as temporary solution.",
+          "getDeity() is deprecated. Use createKokoduckFlowRuntime() or getDeityRuntime() as temporary solution.",
       },
       {
         selector: 'MemberExpression[object.name="legacyDeity"]',
-        message: "legacyDeity is deprecated. Use DuckFlowProvider + Hooks pattern.",
+        message: "legacyDeity is deprecated. Use KokoduckFlowProvider + Hooks pattern.",
       },
       {
-        selector: 'MemberExpression[object.name="globalDuckFlowRuntime"]',
+        selector: 'MemberExpression[object.name="globalKokoduckFlowRuntime"]',
         message:
-          "globalDuckFlowRuntime is deprecated. Use DuckFlowProvider for React or createDuckFlowRuntime() for scripts.",
+          "globalKokoduckFlowRuntime is deprecated. Use KokoduckFlowProvider for React or createKokoduckFlowRuntime() for scripts.",
       },
     ],
   },

@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ConfigLoader, getConfigLoader } from "../../../src/common/config/loader";
-import type { DuckFlowConfig } from "../../../src/common/config/schema";
+import type { KoduckFlowConfig } from "../../../src/common/config/schema";
 import * as sources from "../../../src/common/config/loader/sources";
 
 function getCurrentLoaderInstance(): ConfigLoader | undefined {
@@ -39,49 +39,49 @@ describe("ConfigLoader regression scenarios", () => {
 
   describe("invalid ranges and constraints", () => {
     it("rejects negative batchSize", () => {
-      vi.spyOn(sources, "loadConfigFile").mockReturnValue({} as Partial<DuckFlowConfig>);
-      setEnv("DUCKFLOW_EVENT_BATCH_SIZE", "-1");
+      vi.spyOn(sources, "loadConfigFile").mockReturnValue({} as Partial<KoduckFlowConfig>);
+      setEnv("KODUCKFLOW_EVENT_BATCH_SIZE", "-1");
 
       const loader = getConfigLoader();
       expect(() => loader.load()).toThrowError(/Invalid configuration/);
     });
 
     it("rejects zero concurrencyLimit", () => {
-      vi.spyOn(sources, "loadConfigFile").mockReturnValue({} as Partial<DuckFlowConfig>);
-      setEnv("DUCKFLOW_EVENT_CONCURRENCY_LIMIT", "0");
+      vi.spyOn(sources, "loadConfigFile").mockReturnValue({} as Partial<KoduckFlowConfig>);
+      setEnv("KODUCKFLOW_EVENT_CONCURRENCY_LIMIT", "0");
 
       const loader = getConfigLoader();
       expect(() => loader.load()).toThrowError(/Invalid configuration/);
     });
 
     it("rejects negative cacheTTL", () => {
-      vi.spyOn(sources, "loadConfigFile").mockReturnValue({} as Partial<DuckFlowConfig>);
-      setEnv("DUCKFLOW_RENDER_CACHE_TTL", "-1000");
+      vi.spyOn(sources, "loadConfigFile").mockReturnValue({} as Partial<KoduckFlowConfig>);
+      setEnv("KODUCKFLOW_RENDER_CACHE_TTL", "-1000");
 
       const loader = getConfigLoader();
       expect(() => loader.load()).toThrowError(/Invalid configuration/);
     });
 
     it("rejects invalid environment enum", () => {
-      vi.spyOn(sources, "loadConfigFile").mockReturnValue({} as Partial<DuckFlowConfig>);
-      setEnv("DUCKFLOW_ENVIRONMENT", "invalid-env");
+      vi.spyOn(sources, "loadConfigFile").mockReturnValue({} as Partial<KoduckFlowConfig>);
+      setEnv("KODUCKFLOW_ENVIRONMENT", "invalid-env");
 
       const loader = getConfigLoader();
-      expect(() => loader.load()).toThrowError(/Failed to apply DUCKFLOW_ENVIRONMENT/);
+      expect(() => loader.load()).toThrowError(/Failed to apply KODUCKFLOW_ENVIRONMENT/);
     });
 
     it("rejects invalid renderer enum", () => {
-      vi.spyOn(sources, "loadConfigFile").mockReturnValue({} as Partial<DuckFlowConfig>);
-      setEnv("DUCKFLOW_RENDER_DEFAULT_RENDERER", "invalid-renderer");
+      vi.spyOn(sources, "loadConfigFile").mockReturnValue({} as Partial<KoduckFlowConfig>);
+      setEnv("KODUCKFLOW_RENDER_DEFAULT_RENDERER", "invalid-renderer");
 
       const loader = getConfigLoader();
-      expect(() => loader.load()).toThrowError(/Failed to apply DUCKFLOW_RENDER_DEFAULT_RENDERER/);
+      expect(() => loader.load()).toThrowError(/Failed to apply KODUCKFLOW_RENDER_DEFAULT_RENDERER/);
     });
   });
 
   describe("missing files and sources", () => {
     it("handles missing config file gracefully", () => {
-      vi.spyOn(sources, "loadConfigFile").mockReturnValue({} as Partial<DuckFlowConfig>);
+      vi.spyOn(sources, "loadConfigFile").mockReturnValue({} as Partial<KoduckFlowConfig>);
 
       const loader = getConfigLoader();
       const config = loader.load();
@@ -102,7 +102,7 @@ describe("ConfigLoader regression scenarios", () => {
     it("handles missing environment variables", () => {
       vi.spyOn(sources, "loadConfigFile").mockReturnValue({
         render: { frameRate: 60 },
-      } as Partial<DuckFlowConfig>);
+      } as Partial<KoduckFlowConfig>);
 
       const loader = getConfigLoader();
       const config = loader.load();
@@ -116,8 +116,8 @@ describe("ConfigLoader regression scenarios", () => {
     it("overrides boolean values correctly", () => {
       vi.spyOn(sources, "loadConfigFile").mockReturnValue({
         event: { enableDedup: true },
-      } as Partial<DuckFlowConfig>);
-      setEnv("DUCKFLOW_EVENT_ENABLE_DEDUP", "false");
+      } as Partial<KoduckFlowConfig>);
+      setEnv("KODUCKFLOW_EVENT_ENABLE_DEDUP", "false");
 
       const loader = getConfigLoader();
       const config = loader.load();
@@ -128,8 +128,8 @@ describe("ConfigLoader regression scenarios", () => {
     it("overrides number values correctly", () => {
       vi.spyOn(sources, "loadConfigFile").mockReturnValue({
         render: { maxCacheSize: 1024 },
-      } as Partial<DuckFlowConfig>);
-      setEnv("DUCKFLOW_RENDER_MAX_CACHE_SIZE", "2048");
+      } as Partial<KoduckFlowConfig>);
+      setEnv("KODUCKFLOW_RENDER_MAX_CACHE_SIZE", "2048");
 
       const loader = getConfigLoader();
       const config = loader.load();
@@ -140,8 +140,8 @@ describe("ConfigLoader regression scenarios", () => {
     it("overrides enum values correctly", () => {
       vi.spyOn(sources, "loadConfigFile").mockReturnValue({
         render: { defaultRenderer: "react" },
-      } as Partial<DuckFlowConfig>);
-      setEnv("DUCKFLOW_RENDER_DEFAULT_RENDERER", "canvas");
+      } as Partial<KoduckFlowConfig>);
+      setEnv("KODUCKFLOW_RENDER_DEFAULT_RENDERER", "canvas");
 
       const loader = getConfigLoader();
       const config = loader.load();
@@ -150,15 +150,15 @@ describe("ConfigLoader regression scenarios", () => {
     });
 
     it("handles invalid env var values gracefully", () => {
-      vi.spyOn(sources, "loadConfigFile").mockReturnValue({} as Partial<DuckFlowConfig>);
-      setEnv("DUCKFLOW_EVENT_BATCH_SIZE", "not-a-number");
+      vi.spyOn(sources, "loadConfigFile").mockReturnValue({} as Partial<KoduckFlowConfig>);
+      setEnv("KODUCKFLOW_EVENT_BATCH_SIZE", "not-a-number");
 
       const loader = getConfigLoader();
-      expect(() => loader.load()).toThrowError(/Failed to apply DUCKFLOW_EVENT_BATCH_SIZE/);
+      expect(() => loader.load()).toThrowError(/Failed to apply KODUCKFLOW_EVENT_BATCH_SIZE/);
     });
 
     it("ignores unknown environment variables", () => {
-      vi.spyOn(sources, "loadConfigFile").mockReturnValue({} as Partial<DuckFlowConfig>);
+      vi.spyOn(sources, "loadConfigFile").mockReturnValue({} as Partial<KoduckFlowConfig>);
       setEnv("UNKNOWN_VAR", "some-value");
 
       const loader = getConfigLoader();
@@ -173,8 +173,8 @@ describe("ConfigLoader regression scenarios", () => {
     it("runtime overrides take precedence over env vars", () => {
       vi.spyOn(sources, "loadConfigFile").mockReturnValue({
         render: { frameRate: 30 },
-      } as Partial<DuckFlowConfig>);
-      setEnv("DUCKFLOW_RENDER_FRAME_RATE", "45");
+      } as Partial<KoduckFlowConfig>);
+      setEnv("KODUCKFLOW_RENDER_FRAME_RATE", "45");
 
       const loader = getConfigLoader();
       const initial = loader.load();
@@ -182,7 +182,7 @@ describe("ConfigLoader regression scenarios", () => {
       expect(initial.render.frameRate).toBe(45);
 
       const runtimeResult = loader.applyRuntimeOverrides(
-        { render: { frameRate: 60 } } as Partial<DuckFlowConfig>,
+        { render: { frameRate: 60 } } as Partial<KoduckFlowConfig>,
         { source: "api" }
       );
 
@@ -192,8 +192,8 @@ describe("ConfigLoader regression scenarios", () => {
     it("handles partial runtime overrides", () => {
       vi.spyOn(sources, "loadConfigFile").mockReturnValue({
         event: { batchSize: 8, batchInterval: 100 },
-      } as Partial<DuckFlowConfig>);
-      setEnv("DUCKFLOW_EVENT_BATCH_SIZE", "16");
+      } as Partial<KoduckFlowConfig>);
+      setEnv("KODUCKFLOW_EVENT_BATCH_SIZE", "16");
 
       const loader = getConfigLoader();
       const initial = loader.load();
@@ -202,7 +202,7 @@ describe("ConfigLoader regression scenarios", () => {
       expect(initial.event.batchInterval).toBe(100);
 
       const runtimeResult = loader.applyRuntimeOverrides(
-        { event: { batchSize: 32 } } as Partial<DuckFlowConfig>,
+        { event: { batchSize: 32 } } as Partial<KoduckFlowConfig>,
         { source: "api" }
       );
 
@@ -213,19 +213,19 @@ describe("ConfigLoader regression scenarios", () => {
 
   describe("error messaging", () => {
     it("provides detailed error for invalid env var", () => {
-      vi.spyOn(sources, "loadConfigFile").mockReturnValue({} as Partial<DuckFlowConfig>);
-      setEnv("DUCKFLOW_EVENT_BATCH_SIZE", "invalid");
+      vi.spyOn(sources, "loadConfigFile").mockReturnValue({} as Partial<KoduckFlowConfig>);
+      setEnv("KODUCKFLOW_EVENT_BATCH_SIZE", "invalid");
 
       const loader = getConfigLoader();
       expect(() => loader.load()).toThrowError(
-        /Environment variable DUCKFLOW_EVENT_BATCH_SIZE expects a numeric value/
+        /Environment variable KODUCKFLOW_EVENT_BATCH_SIZE expects a numeric value/
       );
     });
 
     it("handles multiple validation errors", () => {
-      vi.spyOn(sources, "loadConfigFile").mockReturnValue({} as Partial<DuckFlowConfig>);
-      setEnv("DUCKFLOW_EVENT_BATCH_SIZE", "-1");
-      setEnv("DUCKFLOW_EVENT_CONCURRENCY_LIMIT", "0");
+      vi.spyOn(sources, "loadConfigFile").mockReturnValue({} as Partial<KoduckFlowConfig>);
+      setEnv("KODUCKFLOW_EVENT_BATCH_SIZE", "-1");
+      setEnv("KODUCKFLOW_EVENT_CONCURRENCY_LIMIT", "0");
 
       const loader = getConfigLoader();
       expect(() => loader.load()).toThrowError(/Invalid configuration/);

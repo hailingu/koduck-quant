@@ -32,7 +32,7 @@ import {
   setApiRuntimeConfig,
   getApiRuntimeConfig,
   resetApiRuntimeConfig,
-  DuckFlowRuntimeMissingError,
+  KoduckFlowRuntimeMissingError,
   addApiRuntimeMissingListener,
   removeApiRuntimeMissingListener,
   addApiRuntimeFallbackListener,
@@ -45,7 +45,7 @@ import * as FlowApiModule from "../../src/common/api/flow";
 import * as RuntimeApiModule from "../../src/common/api/runtime";
 import { runtime } from "../../src/common/api/runtime-context";
 import type { IEntity } from "../../src/common/entity/types";
-import type { DuckFlowRuntime } from "../../src/common/runtime";
+import type { KoduckFlowRuntime } from "../../src/common/runtime";
 
 vi.mock("../../src/common/logger", () => {
   const info = vi.fn();
@@ -168,7 +168,7 @@ describe("API Functions", () => {
       expect(RuntimeApiModule.setApiRuntimeConfig).toBe(setApiRuntimeConfig);
       expect(RuntimeApiModule.getApiRuntimeConfig).toBe(getApiRuntimeConfig);
       expect(RuntimeApiModule.resetApiRuntimeConfig).toBe(resetApiRuntimeConfig);
-      expect(RuntimeApiModule.DuckFlowRuntimeMissingError).toBe(DuckFlowRuntimeMissingError);
+      expect(RuntimeApiModule.KoduckFlowRuntimeMissingError).toBe(KoduckFlowRuntimeMissingError);
       expect(RuntimeApiModule.addApiRuntimeMissingListener).toBe(addApiRuntimeMissingListener);
       expect(RuntimeApiModule.removeApiRuntimeMissingListener).toBe(
         removeApiRuntimeMissingListener
@@ -210,7 +210,7 @@ describe("API Functions", () => {
     vi.mocked(runtime.hasManager).mockReturnValue(true);
     vi.mocked(runtime.getRegisteredManagers).mockReturnValue(["test-manager"]);
 
-    apiRuntimeToken = setApiRuntime(runtime as unknown as DuckFlowRuntime, {
+    apiRuntimeToken = setApiRuntime(runtime as unknown as KoduckFlowRuntime, {
       source: "test-suite",
       environment: { environment: "test-suite" },
     });
@@ -306,7 +306,7 @@ describe("API Functions", () => {
       const alternateRuntime = {
         ...runtime,
         __runtime: "alternate",
-      } as unknown as DuckFlowRuntime;
+      } as unknown as KoduckFlowRuntime;
       const alternateEnvironment = {
         environment: "alternate",
         tenantId: "tenant-42",
@@ -336,7 +336,7 @@ describe("API Functions", () => {
       clearApiRuntime(apiRuntimeToken);
       apiRuntimeToken = null;
 
-      expect(() => getApiRuntime()).toThrow(DuckFlowRuntimeMissingError);
+      expect(() => getApiRuntime()).toThrow(KoduckFlowRuntimeMissingError);
     });
 
     describe("Runtime configuration", () => {
@@ -353,7 +353,7 @@ describe("API Functions", () => {
 
         setApiRuntimeConfig({ onMissingRuntime: handler });
 
-        expect(() => getApiRuntime()).toThrow(DuckFlowRuntimeMissingError);
+        expect(() => getApiRuntime()).toThrow(KoduckFlowRuntimeMissingError);
         expect(handler).toHaveBeenCalledTimes(1);
         expect(handler.mock.calls[0][0]).toMatchObject({
           metadata: { source: "global-runtime" },
@@ -380,7 +380,7 @@ describe("API Functions", () => {
         const dispose = addApiRuntimeMissingListener(listener);
 
         try {
-          expect(() => getApiRuntime()).toThrow(DuckFlowRuntimeMissingError);
+          expect(() => getApiRuntime()).toThrow(KoduckFlowRuntimeMissingError);
           expect(listener).toHaveBeenCalledTimes(1);
           expect(listener.mock.calls[0][0]).toMatchObject({
             metadata: { source: "global-runtime" },

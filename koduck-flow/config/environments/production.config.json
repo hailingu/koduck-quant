@@ -20,7 +20,7 @@
     "allowedTypes": ["ui", "data", "workflow", "analytics", "security"]
   },
   "infra": {
-    "databaseUrl": "postgresql://prod-db-cluster:5432/duckflow_prod",
+    "databaseUrl": "postgresql://prod-db-cluster:5432/koduckflow_prod",
     "cacheTtl": 7200
   }
 }

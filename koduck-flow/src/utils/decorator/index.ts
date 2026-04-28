@@ -1,7 +1,7 @@
 /**
  * Decorator Module - Capability-Aware Entity System
  *
- * Central export point for Duck Flow's decorator-based capability system.
+ * Central export point for Koduck Flow's decorator-based capability system.
  * Provides decorators, registries, detectors, and management utilities for entity capabilities.
  *
  * **Core Modules**:

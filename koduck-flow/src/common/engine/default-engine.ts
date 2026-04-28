@@ -1,7 +1,7 @@
 /**
- * Duck Flow Default Execution Engine
+ * Koduck Flow Default Execution Engine
  *
- * Implements the core task execution engine for Duck Flow, providing a complete
+ * Implements the core task execution engine for Koduck Flow, providing a complete
  * scheduling system that manages entity execution across the flow graph with
  * support for concurrency, error handling, cancellation, and metrics collection.
  *
@@ -173,7 +173,7 @@
  * const engine = new DefaultEngine({
  *   worker: {
  *     pool: myWorkerPool,
- *     taskType: 'duck-flow:engine:custom',
+ *     taskType: 'koduck-flow:engine:custom',
  *     taskTimeoutMs: 30000,
  *   }
  * });

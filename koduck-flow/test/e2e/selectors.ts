@@ -1,5 +1,5 @@
 /**
- * Playwright E2E Test Selectors for Duck Flow
+ * Playwright E2E Test Selectors for Koduck Flow
  *
  * Centralized selector constants for E2E tests.
  * Ensures consistency across test files and makes selector maintenance easier.

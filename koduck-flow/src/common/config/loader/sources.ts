@@ -1,11 +1,11 @@
 import fs from "fs";
 
-import type { DuckFlowConfig } from "../schema";
+import type { KoduckFlowConfig } from "../schema";
 
 import { hasProcessEnv, isBrowserEnv } from "./constants";
 import { ENV_VAR_DEFINITIONS, applyEnvVar } from "./env-definitions";
 
-export function loadDefaults(): DuckFlowConfig {
+export function loadDefaults(): KoduckFlowConfig {
   return {
     environment: "development",
     event: {
@@ -50,19 +50,19 @@ export function loadDefaults(): DuckFlowConfig {
         maxRetries: 3,
       },
     },
-  } satisfies DuckFlowConfig;
+  } satisfies KoduckFlowConfig;
 }
 
-export function loadConfigFile(): Partial<DuckFlowConfig> {
+export function loadConfigFile(): Partial<KoduckFlowConfig> {
   if (isBrowserEnv) {
     return {};
   }
 
   const { readFileSync, existsSync } = fs;
   const configPaths = [
-    "./duckflow.config.json",
-    "./config/duckflow.config.json",
-    "./src/config/duckflow.config.json",
+    "./koduckflow.config.json",
+    "./config/koduckflow.config.json",
+    "./src/config/koduckflow.config.json",
   ];
 
   for (const configPath of configPaths) {
@@ -71,7 +71,7 @@ export function loadConfigFile(): Partial<DuckFlowConfig> {
         const configData = readFileSync(configPath, "utf-8");
         const config = JSON.parse(configData);
         if (config && typeof config === "object") {
-          return config as Partial<DuckFlowConfig>;
+          return config as Partial<KoduckFlowConfig>;
         }
       }
     } catch {
@@ -82,12 +82,12 @@ export function loadConfigFile(): Partial<DuckFlowConfig> {
   return {};
 }
 
-export function loadEnvConfig(): Partial<DuckFlowConfig> {
+export function loadEnvConfig(): Partial<KoduckFlowConfig> {
   if (!hasProcessEnv) {
     return {};
   }
 
-  const envConfig: Partial<DuckFlowConfig> = {};
+  const envConfig: Partial<KoduckFlowConfig> = {};
 
   for (const definition of ENV_VAR_DEFINITIONS) {
     const rawValue = process.env[definition.name];

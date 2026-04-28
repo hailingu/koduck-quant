@@ -38,19 +38,19 @@ export {
   type DisposeGlobalRuntimeOptions,
 } from "./common/global-runtime";
 
-// DuckFlow Runtime
+// KoduckFlow Runtime
 export * from "./common/runtime";
-export { DuckFlowProvider, type DuckFlowProviderProps } from "./components/provider/DuckFlowProvider";
+export { KoduckFlowProvider, type KoduckFlowProviderProps } from "./components/provider/KoduckFlowProvider";
 export { DebugPanel, type DebugPanelProps } from "./components/debug/DebugPanel";
 export {
-  useDuckFlowContext,
-  useDuckFlowRuntime,
-  useDuckFlowManagers,
-  useDuckFlowManager,
-  useDuckFlowTenant,
+  useKoduckFlowContext,
+  useKoduckFlowRuntime,
+  useKoduckFlowManagers,
+  useKoduckFlowManager,
+  useKoduckFlowTenant,
   useTenantFeatureFlag,
   useTenantRollout,
-} from "./components/provider/hooks/useDuckFlowRuntime";
+} from "./components/provider/hooks/useKoduckFlowRuntime";
 
 // 流程引擎
 export * from "./common/engine";

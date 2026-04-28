@@ -30,7 +30,7 @@ vi.mock("../../src/common/logger", () => {
 });
 
 import { logger } from "../../src/common/logger";
-import { DuckFlowRuntime, createDuckFlowRuntime } from "../../src/common/runtime";
+import { KoduckFlowRuntime, createKoduckFlowRuntime } from "../../src/common/runtime";
 import { getGlobalRuntime } from "../../src/common/global-runtime";
 import type { IManager } from "../../src/common/runtime";
 import { RenderManager } from "../../src/common/render/render-manager";
@@ -75,18 +75,18 @@ async function flushMicrotasks(): Promise<void> {
   await Promise.resolve();
 }
 
-function getManagerCoordinator(runtime: DuckFlowRuntime): RuntimeManagerCoordinator {
+function getManagerCoordinator(runtime: KoduckFlowRuntime): RuntimeManagerCoordinator {
   return (runtime as unknown as { _managerCoordinator: RuntimeManagerCoordinator })
     ._managerCoordinator;
 }
 
-function getManagerStates(runtime: DuckFlowRuntime): Map<string, ManagerLifecycleState> {
+function getManagerStates(runtime: KoduckFlowRuntime): Map<string, ManagerLifecycleState> {
   const coordinator = getManagerCoordinator(runtime);
   return (coordinator as unknown as { managerStates: Map<string, ManagerLifecycleState> })
     .managerStates;
 }
 
-async function waitForManagerInitialization(runtime: DuckFlowRuntime, name: string): Promise<void> {
+async function waitForManagerInitialization(runtime: KoduckFlowRuntime, name: string): Promise<void> {
   const managerStates = getManagerStates(runtime);
   const pending = managerStates.get(name)?.promise;
   if (!pending) {
@@ -100,9 +100,9 @@ async function waitForManagerInitialization(runtime: DuckFlowRuntime, name: stri
   }
 }
 
-describe("DuckFlowRuntime", () => {
+describe("KoduckFlowRuntime", () => {
   let disposeAnimationFrame: () => void;
-  let runtime: DuckFlowRuntime;
+  let runtime: KoduckFlowRuntime;
 
   beforeAll(() => {
     disposeAnimationFrame = setupAnimationFrame();
@@ -114,7 +114,7 @@ describe("DuckFlowRuntime", () => {
 
   beforeEach(() => {
     vi.restoreAllMocks();
-    runtime = createDuckFlowRuntime();
+    runtime = createKoduckFlowRuntime();
   });
 
   afterEach(() => {
@@ -135,7 +135,7 @@ describe("DuckFlowRuntime", () => {
     const renderSpy = vi.spyOn(RenderManager.prototype, "connectToEntityManager");
     const registrySpy = vi.spyOn(RenderManager.prototype, "connectToRegistryManager");
 
-    const scoped = createDuckFlowRuntime();
+    const scoped = createKoduckFlowRuntime();
 
     expect(renderSpy).toHaveBeenCalled();
     expect(registrySpy).toHaveBeenCalled();
@@ -305,7 +305,7 @@ describe("DuckFlowRuntime", () => {
     expect(flaky.initialize).toHaveBeenCalledTimes(2);
     expect(runtime.getInitializedManagers()).toEqual(expect.arrayContaining(["flaky"]));
     expect(logger.warn).toHaveBeenCalledWith(
-      "[duck-flow] Manager initialization attempt failed",
+      "[koduck-flow] Manager initialization attempt failed",
       expect.objectContaining({
         name: "flaky",
         attempt: 1,
@@ -336,7 +336,7 @@ describe("DuckFlowRuntime", () => {
     await flushMicrotasks();
 
     expect(logger.warn).toHaveBeenCalledWith(
-      "[duck-flow] Manager initialization attempt timed out",
+      "[koduck-flow] Manager initialization attempt timed out",
       expect.objectContaining({
         name: "slow",
         attempt: 1,
@@ -384,7 +384,7 @@ describe("Global Runtime Management", () => {
 
   it("exports a global runtime instance", () => {
     const runtime = getGlobalRuntime();
-    expect(runtime).toBeInstanceOf(DuckFlowRuntime);
+    expect(runtime).toBeInstanceOf(KoduckFlowRuntime);
     expect(runtime.hasManager("entity")).toBe(true);
     expect(runtime.hasManager("render")).toBe(true);
     expect(runtime.getRegisteredManagers()).toEqual(

@@ -3,7 +3,7 @@
   "entryPoints": ["src/index.ts"],
   "tsconfig": "tsconfig.app.json",
   "out": "docs/reference",
-  "name": "Duck Flow API",
+  "name": "Koduck Flow API",
   "readme": "none",
   "categorizeByGroup": true,
   "excludePrivate": true,

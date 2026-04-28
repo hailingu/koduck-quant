@@ -122,7 +122,7 @@ describe("RegistryManager", () => {
 
   test("meta 属性", () => {
     expect(manager.meta.type).toBe("RegistryManager");
-    expect(manager.meta.description).toContain("Duck Flow");
+    expect(manager.meta.description).toContain("Koduck Flow");
   });
 
   test("addPendingEntity/processPendingEntities", () => {

@@ -4,23 +4,23 @@ import { afterEach, describe, expect, it } from "vitest";
 
 import { getApiRuntimeInfo } from "../../src/common/api/runtime-context";
 import {
-  DuckFlowRuntimeController,
-  DuckFlowRuntimeFactory,
-  createDuckFlowRuntime,
-  type DuckFlowTenantConfig,
+  KoduckFlowRuntimeController,
+  KoduckFlowRuntimeFactory,
+  createKoduckFlowRuntime,
+  type KoduckFlowTenantConfig,
 } from "../../src/common/runtime";
-import { DuckFlowProvider } from "../../src/components/provider/DuckFlowProvider";
+import { KoduckFlowProvider } from "../../src/components/provider/KoduckFlowProvider";
 import {
-  useDuckFlowContext,
-  useDuckFlowRuntime,
-  useDuckFlowTenant,
+  useKoduckFlowContext,
+  useKoduckFlowRuntime,
+  useKoduckFlowTenant,
   useTenantFeatureFlag,
   useTenantRollout,
-} from "../../src/components/provider/hooks/useDuckFlowRuntime";
+} from "../../src/components/provider/hooks/useKoduckFlowRuntime";
 
 const TenantProbe: React.FC = () => {
-  const tenant = useDuckFlowTenant();
-  const runtime = useDuckFlowRuntime();
+  const tenant = useKoduckFlowTenant();
+  const runtime = useKoduckFlowRuntime();
   const betaEnabled = useTenantFeatureFlag("beta-flow", false);
   const rolloutActive = useTenantRollout("probe-seed");
 
@@ -35,7 +35,7 @@ const TenantProbe: React.FC = () => {
 };
 
 const ContextProbe: React.FC = () => {
-  const { source, environment } = useDuckFlowContext();
+  const { source, environment } = useKoduckFlowContext();
   return (
     <div>
       <span data-testid="context-source">{source}</span>
@@ -46,7 +46,7 @@ const ContextProbe: React.FC = () => {
   );
 };
 
-function buildTenantConfig(partial?: Partial<DuckFlowTenantConfig>): DuckFlowTenantConfig {
+function buildTenantConfig(partial?: Partial<KoduckFlowTenantConfig>): KoduckFlowTenantConfig {
   return {
     tenantId: "tenant-alpha",
     environment: "spec-env",
@@ -66,17 +66,17 @@ function buildTenantConfig(partial?: Partial<DuckFlowTenantConfig>): DuckFlowTen
       stickyKey: "spec-key",
     },
     ...partial,
-  } satisfies DuckFlowTenantConfig;
+  } satisfies KoduckFlowTenantConfig;
 }
 
 afterEach(() => {
   cleanup();
 });
 
-describe("DuckFlowProvider multi-tenant wiring", () => {
+describe("KoduckFlowProvider multi-tenant wiring", () => {
   it("provides tenant context and feature gating", () => {
     render(
-      <DuckFlowProvider
+      <KoduckFlowProvider
         tenant={{
           tenantId: "tenant-test",
           environment: "qa",
@@ -93,7 +93,7 @@ describe("DuckFlowProvider multi-tenant wiring", () => {
         }}
       >
         <TenantProbe />
-      </DuckFlowProvider>
+      </KoduckFlowProvider>
     );
 
     expect(screen.getByTestId("tenant-id").textContent).toBe("tenant-test");
@@ -108,15 +108,15 @@ describe("DuckFlowProvider multi-tenant wiring", () => {
   });
 });
 
-describe("DuckFlowProvider controlled mode", () => {
+describe("KoduckFlowProvider controlled mode", () => {
   it("consumes runtime and metadata from the controller snapshot", () => {
     const tenantConfig = buildTenantConfig({
       tenantId: "tenant-controller-alpha",
       environment: "controller-alpha",
       displayName: "Controller Alpha",
     });
-    const runtime = createDuckFlowRuntime();
-    const controller = new DuckFlowRuntimeController({
+    const runtime = createKoduckFlowRuntime();
+    const controller = new KoduckFlowRuntimeController({
       initialRuntime: runtime,
       initialEnvironment: {
         environment: tenantConfig.environment!,
@@ -129,10 +129,10 @@ describe("DuckFlowProvider controlled mode", () => {
     });
 
     render(
-      <DuckFlowProvider controller={controller}>
+      <KoduckFlowProvider controller={controller}>
         <TenantProbe />
         <ContextProbe />
-      </DuckFlowProvider>
+      </KoduckFlowProvider>
     );
 
     expect(screen.getByTestId("tenant-id").textContent).toBe("tenant-controller-alpha");
@@ -154,7 +154,7 @@ describe("DuckFlowProvider controlled mode", () => {
   });
 
   it("hot switches runtime when controller changes environment", async () => {
-    const factory = new DuckFlowRuntimeFactory();
+    const factory = new KoduckFlowRuntimeFactory();
     const initialKey = {
       environment: "controller-alpha",
       tenantId: "tenant-controller-alpha",
@@ -165,7 +165,7 @@ describe("DuckFlowProvider controlled mode", () => {
       displayName: "Controller Alpha",
     });
     const initialRuntime = factory.getOrCreateRuntime(initialKey);
-    const controller = new DuckFlowRuntimeController({
+    const controller = new KoduckFlowRuntimeController({
       factory,
       initialRuntime,
       initialEnvironment: initialKey,
@@ -176,10 +176,10 @@ describe("DuckFlowProvider controlled mode", () => {
     });
 
     render(
-      <DuckFlowProvider controller={controller}>
+      <KoduckFlowProvider controller={controller}>
         <TenantProbe />
         <ContextProbe />
-      </DuckFlowProvider>
+      </KoduckFlowProvider>
     );
 
     expect(screen.getByTestId("tenant-id").textContent).toBe("tenant-controller-alpha");

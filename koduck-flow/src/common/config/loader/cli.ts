@@ -1,26 +1,26 @@
-import type { DuckFlowConfig } from "../schema";
+import type { KoduckFlowConfig } from "../schema";
 
 import { hasProcessEnv, isBrowserEnv } from "./constants";
 import { mergeRuntimeObjects } from "./runtime";
 
-export function loadOverridesFromCLI(): Partial<DuckFlowConfig> {
+export function loadOverridesFromCLI(): Partial<KoduckFlowConfig> {
   if (isBrowserEnv || !hasProcessEnv || !process.argv) {
     return {};
   }
 
-  const cliConfig: Partial<DuckFlowConfig> = {};
+  const cliConfig: Partial<KoduckFlowConfig> = {};
   const args = process.argv.slice(2);
 
   const toggleHandlers: Record<string, () => void> = {
     "--enable-profiling": () => {
       cliConfig.performance = mergeRuntimeObjects(cliConfig.performance ?? {}, {
         enableProfiling: true,
-      }) as DuckFlowConfig["performance"];
+      }) as KoduckFlowConfig["performance"];
     },
     "--enable-verbose-logging": () => {
       cliConfig.performance = mergeRuntimeObjects(cliConfig.performance ?? {}, {
         enableVerboseLogging: true,
-      }) as DuckFlowConfig["performance"];
+      }) as KoduckFlowConfig["performance"];
     },
   };
 
@@ -28,22 +28,22 @@ export function loadOverridesFromCLI(): Partial<DuckFlowConfig> {
     "--event-batch-size": (value: number) => {
       cliConfig.event = mergeRuntimeObjects(cliConfig.event ?? {}, {
         batchSize: value,
-      }) as DuckFlowConfig["event"];
+      }) as KoduckFlowConfig["event"];
     },
     "--event-batch-interval": (value: number) => {
       cliConfig.event = mergeRuntimeObjects(cliConfig.event ?? {}, {
         batchInterval: value,
-      }) as DuckFlowConfig["event"];
+      }) as KoduckFlowConfig["event"];
     },
     "--render-frame-rate": (value: number) => {
       cliConfig.render = mergeRuntimeObjects(cliConfig.render ?? {}, {
         frameRate: value,
-      }) as DuckFlowConfig["render"];
+      }) as KoduckFlowConfig["render"];
     },
     "--render-cache-ttl": (value: number) => {
       cliConfig.render = mergeRuntimeObjects(cliConfig.render ?? {}, {
         cacheTTL: value,
-      }) as DuckFlowConfig["render"];
+      }) as KoduckFlowConfig["render"];
     },
   };
 

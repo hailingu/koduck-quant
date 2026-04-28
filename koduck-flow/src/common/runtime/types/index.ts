@@ -28,6 +28,6 @@ export type {
 } from "./manager-lifecycle";
 
 // Runtime 选项相关类型
-export type { DuckFlowRuntimeOptions, CoreManagers } from "./runtime-options";
+export type { KoduckFlowRuntimeOptions, CoreManagers } from "./runtime-options";
 
 export { TENANT_ENTITY_QUOTA_KEY } from "./runtime-options";

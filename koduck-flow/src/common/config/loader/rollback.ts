@@ -1,4 +1,4 @@
-import type { DuckFlowConfig } from "../schema";
+import type { KoduckFlowConfig } from "../schema";
 import { logger } from "../../logger";
 import type { IConfigState } from "./types/config-state.interface";
 
@@ -13,7 +13,7 @@ export interface ConfigSnapshot {
   /** 快照描述 */
   description?: string;
   /** 完整的配置数据 */
-  config: DuckFlowConfig;
+  config: KoduckFlowConfig;
   /** 快照元数据 */
   metadata: {
     /** 创建者 */
@@ -38,7 +38,7 @@ export interface RollbackResult {
   /** 错误信息 */
   error?: string;
   /** 恢复的配置 */
-  restoredConfig?: DuckFlowConfig;
+  restoredConfig?: KoduckFlowConfig;
   /** 恢复时间戳 */
   timestamp: number;
 }
@@ -62,7 +62,7 @@ export class RollbackManager {
    * 创建配置快照
    */
   createSnapshot(
-    config: DuckFlowConfig,
+    config: KoduckFlowConfig,
     description?: string,
     metadata?: Partial<ConfigSnapshot["metadata"]>
   ): ConfigSnapshot {
@@ -106,7 +106,7 @@ export class RollbackManager {
   /**
    * 自动创建快照（在配置变更前）
    */
-  createAutoSnapshot(config: DuckFlowConfig, trigger: string): ConfigSnapshot | null {
+  createAutoSnapshot(config: KoduckFlowConfig, trigger: string): ConfigSnapshot | null {
     if (!this.autoSnapshotEnabled) {
       return null;
     }
@@ -269,7 +269,7 @@ export class RollbackManager {
   /**
    * 计算配置校验和
    */
-  private calculateChecksum(config: DuckFlowConfig): string {
+  private calculateChecksum(config: KoduckFlowConfig): string {
     const sortedConfig = this.sortObjectKeys(config);
     const configString = JSON.stringify(sortedConfig);
     return this.simpleHash(configString);
@@ -374,7 +374,7 @@ export function getRollbackManager(): RollbackManager {
  * 创建配置快照
  */
 export function createConfigSnapshot(
-  config: DuckFlowConfig,
+  config: KoduckFlowConfig,
   description?: string,
   metadata?: Partial<ConfigSnapshot["metadata"]>
 ): ConfigSnapshot {

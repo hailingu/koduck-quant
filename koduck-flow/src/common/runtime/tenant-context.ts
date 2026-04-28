@@ -24,7 +24,7 @@ export type TenantRolloutConfig = {
   stickyKey?: string;
 };
 
-export type DuckFlowTenantConfig = {
+export type KoduckFlowTenantConfig = {
   /** Unique tenant identifier. */
   tenantId: string;
   /** Optional display name for dashboards or logs. */
@@ -39,7 +39,7 @@ export type DuckFlowTenantConfig = {
   metadata?: Record<string, unknown>;
 };
 
-export type ResolvedTenantContext = DuckFlowTenantConfig & {
+export type ResolvedTenantContext = KoduckFlowTenantConfig & {
   /** The effective runtime environment key derived for the tenant. */
   environmentKey: RuntimeEnvironmentKey;
   /** Normalized environment identifier combining tenant + environment. */
@@ -56,7 +56,7 @@ export type TenantQuotaSnapshot = {
 };
 
 export function resolveTenantContext(
-  tenant: DuckFlowTenantConfig,
+  tenant: KoduckFlowTenantConfig,
   baseEnvironment: RuntimeEnvironmentKey
 ): ResolvedTenantContext {
   const environmentKey: RuntimeEnvironmentKey = {

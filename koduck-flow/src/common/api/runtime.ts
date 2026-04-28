@@ -66,7 +66,7 @@ export {
   runWithApiRuntime,
   runtime,
   getRuntimeProxy,
-  DuckFlowRuntimeMissingError,
+  KoduckFlowRuntimeMissingError,
 } from "./runtime-context";
 
 export type {

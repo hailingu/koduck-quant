@@ -61,7 +61,7 @@
  * @see registry-generator.ts for dynamic registry class generation
  * @see capability-detector.ts for capability detection algorithms
  *
- * @author Duck Flow Team
+ * @author Koduck Flow Team
  * @version 1.0.0
  * @since Phase 4.1
  */

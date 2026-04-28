@@ -1,4 +1,4 @@
-import type { ConfigSource, DuckFlowConfig, ValidationIssue } from "../schema";
+import type { ConfigSource, KoduckFlowConfig, ValidationIssue } from "../schema";
 import type { IncomingMessage } from "node:http";
 
 /**
@@ -45,8 +45,8 @@ export type ConfigChangeTrigger =
  * Audit record for configuration override operations
  * @typedef {Object} RuntimeOverrideAuditRecord
  * @property {RuntimeOverrideSource} source - Source of the override (cli, http, or api)
- * @property {Partial<DuckFlowConfig>} overrides - Requested override configuration
- * @property {Partial<DuckFlowConfig>} appliedOverrides - Actually applied overrides after validation
+ * @property {Partial<KoduckFlowConfig>} overrides - Requested override configuration
+ * @property {Partial<KoduckFlowConfig>} appliedOverrides - Actually applied overrides after validation
  * @property {string} [actor] - User or process that initiated the override
  * @property {Record<string, unknown>} [metadata] - Additional metadata about the override
  * @property {number} timestamp - Unix timestamp of override operation
@@ -56,8 +56,8 @@ export type ConfigChangeTrigger =
  */
 export interface RuntimeOverrideAuditRecord {
   source: RuntimeOverrideSource;
-  overrides: Partial<DuckFlowConfig>;
-  appliedOverrides: Partial<DuckFlowConfig>;
+  overrides: Partial<KoduckFlowConfig>;
+  appliedOverrides: Partial<KoduckFlowConfig>;
   actor?: string;
   metadata?: Record<string, unknown>;
   timestamp: number;
@@ -84,16 +84,16 @@ export interface RuntimeOverrideOptions {
 /**
  * Result of attempting to apply runtime configuration overrides
  * @typedef {Object} RuntimeOverrideResult
- * @property {DuckFlowConfig} config - Final merged configuration
- * @property {Partial<DuckFlowConfig>} appliedOverrides - Overrides that were applied
+ * @property {KoduckFlowConfig} config - Final merged configuration
+ * @property {Partial<KoduckFlowConfig>} appliedOverrides - Overrides that were applied
  * @property {MergeConflict[]} conflicts - Any conflicts encountered during merge
  * @property {ValidationIssue[]} warnings - Validation warnings about the override
  * @property {RuntimeOverrideAuditRecord} audit - Audit record of the operation
  * @property {boolean} dryRun - Whether this was a dry-run test
  */
 export interface RuntimeOverrideResult {
-  config: DuckFlowConfig;
-  appliedOverrides: Partial<DuckFlowConfig>;
+  config: KoduckFlowConfig;
+  appliedOverrides: Partial<KoduckFlowConfig>;
   conflicts: MergeConflict[];
   warnings: ValidationIssue[];
   audit: RuntimeOverrideAuditRecord;
@@ -106,7 +106,7 @@ export interface RuntimeOverrideResult {
  * @property {ConfigChangeTrigger} trigger - What triggered this change
  * @property {string} [actor] - User or process that caused change
  * @property {Record<string, unknown>} [metadata] - Additional context data
- * @property {Partial<DuckFlowConfig>} [overrides] - Configuration overrides applied
+ * @property {Partial<KoduckFlowConfig>} [overrides] - Configuration overrides applied
  * @property {RuntimeOverrideSource} [source] - Source of overrides if applicable
  * @property {boolean} [dryRun] - Whether this was a dry-run test
  */
@@ -114,7 +114,7 @@ export interface ConfigChangeContext {
   trigger: ConfigChangeTrigger;
   actor?: string;
   metadata?: Record<string, unknown>;
-  overrides?: Partial<DuckFlowConfig>;
+  overrides?: Partial<KoduckFlowConfig>;
   source?: RuntimeOverrideSource;
   dryRun?: boolean;
 }
@@ -137,13 +137,13 @@ export interface HttpOverrideOptions {
 /**
  * Payload sent in HTTP configuration override requests
  * @typedef {Object} HttpOverridePayload
- * @property {Partial<DuckFlowConfig>} [overrides] - Configuration overrides to apply
+ * @property {Partial<KoduckFlowConfig>} [overrides] - Configuration overrides to apply
  * @property {string} [actor] - Actor applying the override
  * @property {Record<string, unknown>} [metadata] - Metadata about this override
  * @property {boolean} [dryRun] - Whether to validate without applying
  */
 export interface HttpOverridePayload {
-  overrides?: Partial<DuckFlowConfig>;
+  overrides?: Partial<KoduckFlowConfig>;
   actor?: string;
   metadata?: Record<string, unknown>;
   dryRun?: boolean;
@@ -153,6 +153,6 @@ export interface HttpOverridePayload {
  * Configuration source and its associated config values
  * @typedef {Object} MergeSource
  * @property {ConfigSource} source - The configuration source type
- * @property {Partial<DuckFlowConfig>} config - Configuration values from this source
+ * @property {Partial<KoduckFlowConfig>} config - Configuration values from this source
  */
-export type MergeSource = { source: ConfigSource; config: Partial<DuckFlowConfig> };
+export type MergeSource = { source: ConfigSource; config: Partial<KoduckFlowConfig> };

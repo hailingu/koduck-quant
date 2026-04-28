@@ -1,6 +1,6 @@
 /**
  * @module src/common/metrics/types
- * @description Core type definitions and contracts for the Duck Flow metrics collection system
+ * @description Core type definitions and contracts for the Koduck Flow metrics collection system
  * Provides interfaces for meters, counters, gauges, histograms, and other metric instruments
  * based on OpenTelemetry standards with support for attributes, sampling, and snapshots
  * @example

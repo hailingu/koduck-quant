@@ -1,10 +1,10 @@
 /**
  * @module src/components/provider/hooks
- * @description Collection of React hooks for DuckFlow component development.
+ * @description Collection of React hooks for KoduckFlow component development.
  * Provides convenient access to runtime, entity management, and flow operations.
  *
  * These hooks leverage the runtime and common API to provide a clean,
- * unified interface for React components to interact with the DuckFlow framework.
+ * unified interface for React components to interact with the KoduckFlow framework.
  */
 
 import { useEntity } from "./useEntity";
@@ -17,14 +17,14 @@ export { useFlow } from "./useFlow";
 export type { UseFlowOptions, UseFlowResult } from "./useFlow";
 
 export {
-  useDuckFlowContext,
-  useDuckFlowRuntime,
-  useDuckFlowManagers,
-  useDuckFlowManager,
-  useDuckFlowTenant,
+  useKoduckFlowContext,
+  useKoduckFlowRuntime,
+  useKoduckFlowManagers,
+  useKoduckFlowManager,
+  useKoduckFlowTenant,
   useTenantFeatureFlag,
   useTenantRollout,
-} from "./useDuckFlowRuntime";
+} from "./useKoduckFlowRuntime";
 
 /**
  * Composite hook combining entity, flow, and rendering management.
@@ -39,7 +39,7 @@ export {
  * @returns {Object} Combined hook result with entity and flow management
  *
  * @example
- * const duckFlow = useDuckFlow({
+ * const koduckFlow = useKoduckFlow({
  *   autoRender: true,
  *   autoCleanup: true,
  *   flowConfig: {
@@ -48,9 +48,9 @@ export {
  * });
  *
  * // Create and render a node
- * const node = duckFlow.createAndRenderNode('StartNode', { x: 100, y: 100 });
+ * const node = koduckFlow.createAndRenderNode('StartNode', { x: 100, y: 100 });
  */
-export function useDuckFlow(
+export function useKoduckFlow(
   options: {
     autoRender?: boolean;
     autoCleanup?: boolean;

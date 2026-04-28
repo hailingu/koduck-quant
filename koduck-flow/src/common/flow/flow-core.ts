@@ -1,7 +1,7 @@
 /**
  * Flow Core Implementation Module
  *
- * This module provides the core implementation of the Duck Flow engine.
+ * This module provides the core implementation of the Koduck Flow engine.
  * **FlowCore** is a low-level core subsystem coordinator (internal use).
  *
  * Architecture Design:

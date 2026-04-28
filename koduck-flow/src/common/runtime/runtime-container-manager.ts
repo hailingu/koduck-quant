@@ -1,6 +1,6 @@
 /**
  * @module src/common/runtime/runtime-container-manager
- * @description Manages DuckFlow runtime DI container lifecycle and core service access.
+ * @description Manages KoduckFlow runtime DI container lifecycle and core service access.
  * Handles service resolution, core service getters, and container cleanup.
  * Provides centralized access to EntityManager, RenderManager, RegistryManager, and event systems.
  * @example
@@ -64,7 +64,7 @@ export interface CoreManagers {
  *
  * @description
  * DI 容器管理器，封装容器操作和核心服务访问。
- * 作为 DuckFlowRuntime 的子模块，专注于容器管理职责。
+ * 作为 KoduckFlowRuntime 的子模块，专注于容器管理职责。
  *
  * @example
  * ```typescript
@@ -302,7 +302,7 @@ export class RuntimeContainerManager implements IDisposable {
     }
 
     // 清理缓存引用（帮助 GC）
-    // 注意：不释放 container，因为它由 DuckFlowRuntime 管理
+    // 注意：不释放 container，因为它由 KoduckFlowRuntime 管理
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (this.coreManagers as any).entity = null;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -339,7 +339,7 @@ export class RuntimeContainerManager implements IDisposable {
  * 注册 Runtime 实例到容器
  *
  * @param container - DI 容器实例
- * @param runtime - DuckFlowRuntime 实例
+ * @param runtime - KoduckFlowRuntime 实例
  *
  * @description
  * 将 runtime 实例注册到容器中，供其他服务依赖注入使用。
@@ -347,7 +347,7 @@ export class RuntimeContainerManager implements IDisposable {
  *
  * @internal
  * @remarks
- * 此函数从 duck-flow-runtime.ts 迁移而来，保持向后兼容。
+ * 此函数从 koduck-flow-runtime.ts 迁移而来，保持向后兼容。
  */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function registerRuntimeInstance(container: IDependencyContainer, runtime: any): void {

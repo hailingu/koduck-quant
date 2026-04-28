@@ -3,14 +3,14 @@
  * 集中管理配置状态，解耦各模块间的状态依赖
  */
 
-import type { DuckFlowConfig } from "../schema.js";
+import type { KoduckFlowConfig } from "../schema.js";
 import type { IConfigState, ConfigChangeListener } from "./types/index.js";
 
 /**
  * 配置历史记录条目
  */
 interface ConfigHistoryEntry {
-  config: DuckFlowConfig;
+  config: KoduckFlowConfig;
   timestamp: number;
   trigger?: string;
 }
@@ -20,13 +20,13 @@ interface ConfigHistoryEntry {
  * 提供配置状态的读写、订阅和历史记录功能
  */
 export class ConfigStateManager implements IConfigState {
-  private currentConfig: DuckFlowConfig;
-  private previousConfig: DuckFlowConfig | undefined;
+  private currentConfig: KoduckFlowConfig;
+  private previousConfig: KoduckFlowConfig | undefined;
   private readonly listeners: Set<ConfigChangeListener>;
   private history: ConfigHistoryEntry[];
   private readonly maxHistorySize: number;
 
-  constructor(initialConfig: DuckFlowConfig, maxHistorySize = 50) {
+  constructor(initialConfig: KoduckFlowConfig, maxHistorySize = 50) {
     this.currentConfig = initialConfig;
     this.previousConfig = undefined;
     this.listeners = new Set();
@@ -40,14 +40,14 @@ export class ConfigStateManager implements IConfigState {
   /**
    * 获取当前配置状态
    */
-  getCurrentConfig(): DuckFlowConfig {
+  getCurrentConfig(): KoduckFlowConfig {
     return this.currentConfig;
   }
 
   /**
    * 设置配置状态
    */
-  setCurrentConfig(config: DuckFlowConfig, silent = false): void {
+  setCurrentConfig(config: KoduckFlowConfig, silent = false): void {
     const oldConfig = this.currentConfig;
     this.previousConfig = oldConfig;
     this.currentConfig = config;
@@ -64,7 +64,7 @@ export class ConfigStateManager implements IConfigState {
   /**
    * 获取上一次的配置状态
    */
-  getPreviousConfig(): DuckFlowConfig | undefined {
+  getPreviousConfig(): KoduckFlowConfig | undefined {
     return this.previousConfig;
   }
 
@@ -127,7 +127,7 @@ export class ConfigStateManager implements IConfigState {
   /**
    * 添加配置到历史记录
    */
-  private addToHistory(config: DuckFlowConfig, trigger?: string): void {
+  private addToHistory(config: KoduckFlowConfig, trigger?: string): void {
     const entry: ConfigHistoryEntry = {
       config,
       timestamp: Date.now(),
@@ -146,7 +146,7 @@ export class ConfigStateManager implements IConfigState {
   /**
    * 通知所有监听器配置已变更
    */
-  private notifyListeners(newConfig: DuckFlowConfig, oldConfig: DuckFlowConfig): void {
+  private notifyListeners(newConfig: KoduckFlowConfig, oldConfig: KoduckFlowConfig): void {
     for (const listener of this.listeners) {
       try {
         listener(newConfig, oldConfig);
@@ -159,7 +159,7 @@ export class ConfigStateManager implements IConfigState {
   /**
    * 更新配置并记录触发器
    */
-  updateConfig(config: DuckFlowConfig, trigger: string, silent = false): void {
+  updateConfig(config: KoduckFlowConfig, trigger: string, silent = false): void {
     const oldConfig = this.currentConfig;
     this.previousConfig = oldConfig;
     this.currentConfig = config;

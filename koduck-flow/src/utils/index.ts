@@ -1,5 +1,5 @@
 /**
- * Duck Flow Utilities Module
+ * Koduck Flow Utilities Module
  *
  * Central re-export point for all utility modules and helpers used throughout the application.
  * Provides organized access to decorators, capabilities, and utility functions.

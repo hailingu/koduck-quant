@@ -1,6 +1,6 @@
 /**
  * @module flow/types
- * @description Type definitions and interfaces for Duck Flow module.
+ * @description Type definitions and interfaces for Koduck Flow module.
  *
  * This module provides the complete type system for flow graph topology, node structures,
  * edge definitions, and entity management. It serves as the foundation for all flow-related

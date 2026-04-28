@@ -17,7 +17,7 @@
     "notDocumented": false
   },
   "customCss": "docs/assets/typedoc-custom.css",
-  "name": "Duck Flow API Documentation",
+  "name": "Koduck Flow API Documentation",
   "hideGenerator": false,
   "navigationLinks": {
     "Documentation": "https://github.com/",

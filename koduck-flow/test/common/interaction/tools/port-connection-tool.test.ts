@@ -11,7 +11,7 @@ import {
 import type { IEntityArguments } from "../../../../src/common/entity/types";
 import type { UMLPortDefinition } from "../../../../src/components/demo/FlowDemo/uml-entities-new-decorator";
 import type { RenderEventManager } from "../../../../src/common/event";
-import type { DuckFlowRuntime } from "../../../../src/common/runtime";
+import type { KoduckFlowRuntime } from "../../../../src/common/runtime";
 import { createTestRuntime } from "../../../utils/runtime";
 import type { RenderManager } from "../../../../src/common/render/render-manager";
 import type { RegistryManager } from "../../../../src/common/registry/registry-manager";
@@ -184,7 +184,7 @@ describe("PortConnectionTool", () => {
   let entityManager: EntityManager;
   let tool: PortConnectionTool;
   let env: InteractionEnv;
-  let runtime: DuckFlowRuntime;
+  let runtime: KoduckFlowRuntime;
   let renderEventsMock: RenderEventManager;
 
   beforeEach(() => {

@@ -1,11 +1,11 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { DuckFlowRuntime } from "../../../src/common/runtime/duck-flow-runtime";
+import { KoduckFlowRuntime } from "../../../src/common/runtime/koduck-flow-runtime";
 import { createCoreContainer, registerCoreServices } from "../../../src/common/di/bootstrap";
 import type { IManager } from "../../../src/common/manager/types";
 import { ManagerInitializationError } from "../../../src/common/runtime/types";
 
 /**
- * Comprehensive test suite for DuckFlowRuntime
+ * Comprehensive test suite for KoduckFlowRuntime
  *
  * Tests cover:
  * 1. Runtime initialization and setup
@@ -19,7 +19,7 @@ import { ManagerInitializationError } from "../../../src/common/runtime/types";
  * 9. Disposal and cleanup
  * 10. Error scenarios and recovery
  *
- * Coverage target: 100% line coverage for DuckFlowRuntime
+ * Coverage target: 100% line coverage for KoduckFlowRuntime
  * Test cases: 44+ total
  */
 
@@ -49,15 +49,15 @@ const createMockManager = (name: string): MockManager => ({
 const createTestRuntime = (options?: Record<string, unknown>) => {
   const container = createCoreContainer();
   registerCoreServices(container);
-  return new DuckFlowRuntime(container, options);
+  return new KoduckFlowRuntime(container, options);
 };
 
 // ============================================================================
 // Test Suite: Runtime Initialization and Setup
 // ============================================================================
 
-describe("DuckFlowRuntime - Initialization and Setup", () => {
-  let runtime: DuckFlowRuntime;
+describe("KoduckFlowRuntime - Initialization and Setup", () => {
+  let runtime: KoduckFlowRuntime;
 
   afterEach(() => {
     if (runtime) {
@@ -88,7 +88,7 @@ describe("DuckFlowRuntime - Initialization and Setup", () => {
   it("should store container as public property", () => {
     const container = createCoreContainer();
     registerCoreServices(container);
-    runtime = new DuckFlowRuntime(container);
+    runtime = new KoduckFlowRuntime(container);
 
     expect(runtime.container).toBe(container);
   });
@@ -137,8 +137,8 @@ describe("DuckFlowRuntime - Initialization and Setup", () => {
 // Test Suite: DI Container Operations
 // ============================================================================
 
-describe("DuckFlowRuntime - DI Container Operations", () => {
-  let runtime: DuckFlowRuntime;
+describe("KoduckFlowRuntime - DI Container Operations", () => {
+  let runtime: KoduckFlowRuntime;
 
   beforeEach(() => {
     runtime = createTestRuntime();
@@ -197,8 +197,8 @@ describe("DuckFlowRuntime - DI Container Operations", () => {
 // Test Suite: Manager Registration and Lifecycle
 // ============================================================================
 
-describe("DuckFlowRuntime - Manager Registration and Lifecycle", () => {
-  let runtime: DuckFlowRuntime;
+describe("KoduckFlowRuntime - Manager Registration and Lifecycle", () => {
+  let runtime: KoduckFlowRuntime;
 
   beforeEach(() => {
     runtime = createTestRuntime();
@@ -298,8 +298,8 @@ describe("DuckFlowRuntime - Manager Registration and Lifecycle", () => {
 // Test Suite: Tenant Context Management
 // ============================================================================
 
-describe("DuckFlowRuntime - Tenant Context Management", () => {
-  let runtime: DuckFlowRuntime;
+describe("KoduckFlowRuntime - Tenant Context Management", () => {
+  let runtime: KoduckFlowRuntime;
 
   beforeEach(() => {
     runtime = createTestRuntime();
@@ -380,8 +380,8 @@ describe("DuckFlowRuntime - Tenant Context Management", () => {
 // Test Suite: Quota Management
 // ============================================================================
 
-describe("DuckFlowRuntime - Quota Management", () => {
-  let runtime: DuckFlowRuntime;
+describe("KoduckFlowRuntime - Quota Management", () => {
+  let runtime: KoduckFlowRuntime;
 
   beforeEach(() => {
     runtime = createTestRuntime();
@@ -426,8 +426,8 @@ describe("DuckFlowRuntime - Quota Management", () => {
 // Test Suite: Feature Flags
 // ============================================================================
 
-describe("DuckFlowRuntime - Feature Flags", () => {
-  let runtime: DuckFlowRuntime;
+describe("KoduckFlowRuntime - Feature Flags", () => {
+  let runtime: KoduckFlowRuntime;
 
   beforeEach(() => {
     runtime = createTestRuntime();
@@ -476,8 +476,8 @@ describe("DuckFlowRuntime - Feature Flags", () => {
 // Test Suite: Debug and Diagnostic
 // ============================================================================
 
-describe("DuckFlowRuntime - Debug and Diagnostic", () => {
-  let runtime: DuckFlowRuntime;
+describe("KoduckFlowRuntime - Debug and Diagnostic", () => {
+  let runtime: KoduckFlowRuntime;
 
   beforeEach(() => {
     runtime = createTestRuntime();
@@ -521,8 +521,8 @@ describe("DuckFlowRuntime - Debug and Diagnostic", () => {
 // Test Suite: Entity and Rendering Operations
 // ============================================================================
 
-describe("DuckFlowRuntime - Entity and Rendering Operations", () => {
-  let runtime: DuckFlowRuntime;
+describe("KoduckFlowRuntime - Entity and Rendering Operations", () => {
+  let runtime: KoduckFlowRuntime;
 
   beforeEach(() => {
     runtime = createTestRuntime();
@@ -589,7 +589,7 @@ describe("DuckFlowRuntime - Entity and Rendering Operations", () => {
 // Test Suite: Disposal and Cleanup
 // ============================================================================
 
-describe("DuckFlowRuntime - Disposal and Cleanup", () => {
+describe("KoduckFlowRuntime - Disposal and Cleanup", () => {
   it("should dispose runtime successfully", () => {
     const runtime = createTestRuntime();
 
@@ -674,10 +674,10 @@ describe("DuckFlowRuntime - Disposal and Cleanup", () => {
 // Test Suite: Error Scenarios and Recovery
 // ============================================================================
 
-describe("DuckFlowRuntime - Error Scenarios and Recovery", () => {
+describe("KoduckFlowRuntime - Error Scenarios and Recovery", () => {
   it("should handle invalid container creation", () => {
     const createInvalid = () => {
-      return new DuckFlowRuntime(null as never);
+      return new KoduckFlowRuntime(null as never);
     };
     expect(createInvalid).toThrow();
   });
@@ -797,8 +797,8 @@ describe("DuckFlowRuntime - Error Scenarios and Recovery", () => {
 // Test Suite: State Management and Consistency
 // ============================================================================
 
-describe("DuckFlowRuntime - State Management and Consistency", () => {
-  let runtime: DuckFlowRuntime;
+describe("KoduckFlowRuntime - State Management and Consistency", () => {
+  let runtime: KoduckFlowRuntime;
 
   beforeEach(() => {
     runtime = createTestRuntime();

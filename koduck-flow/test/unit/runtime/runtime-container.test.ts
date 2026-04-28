@@ -1,8 +1,8 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import {
-  DuckFlowRuntime,
+  KoduckFlowRuntime,
   createScopedRuntime,
-} from "../../../src/common/runtime/duck-flow-runtime";
+} from "../../../src/common/runtime/koduck-flow-runtime";
 import { createCoreContainer, registerCoreServices } from "../../../src/common/di/bootstrap";
 import { TOKENS } from "../../../src/common/di/tokens";
 
@@ -37,10 +37,10 @@ interface MockTenantContext {
 //   },
 // });
 
-const createTestRuntime = (): DuckFlowRuntime => {
+const createTestRuntime = (): KoduckFlowRuntime => {
   const container = createCoreContainer();
   registerCoreServices(container);
-  return new DuckFlowRuntime(container);
+  return new KoduckFlowRuntime(container);
 };
 
 // Unused helper function kept for reference
@@ -54,7 +54,7 @@ const createTestRuntime = (): DuckFlowRuntime => {
 // ============================================================
 
 describe("RT2-CM: Runtime Container Management", () => {
-  let runtime: DuckFlowRuntime;
+  let runtime: KoduckFlowRuntime;
 
   beforeEach(() => {
     runtime = createTestRuntime();
@@ -177,7 +177,7 @@ describe("RT2-CM: Runtime Container Management", () => {
 // ============================================================
 
 describe("RT2-TI: Multi-Tenant Isolation", () => {
-  let runtime: DuckFlowRuntime;
+  let runtime: KoduckFlowRuntime;
 
   beforeEach(() => {
     runtime = createTestRuntime();
@@ -490,7 +490,7 @@ describe("RT2-CS: Concurrent Tenant Scenarios", () => {
 // ============================================================
 
 describe("RT2-QM: Quota Management", () => {
-  let runtime: DuckFlowRuntime;
+  let runtime: KoduckFlowRuntime;
 
   beforeEach(() => {
     runtime = createTestRuntime();

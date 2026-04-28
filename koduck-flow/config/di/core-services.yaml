@@ -1,4 +1,4 @@
-# DI service registry definitions for DuckFlow core services
+# DI service registry definitions for KoduckFlow core services
 imports:
   - name: EntityManager
     from: "../../entity/entity-manager"

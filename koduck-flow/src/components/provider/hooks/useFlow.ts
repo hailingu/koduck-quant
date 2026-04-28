@@ -1,6 +1,6 @@
 /**
  * @module src/components/provider/hooks/useFlow
- * @description React hook for managing DuckFlow flow graph state and operations.
+ * @description React hook for managing KoduckFlow flow graph state and operations.
  * Provides full CRUD operations on flow nodes and edges with automatic rendering.
  */
 
@@ -23,7 +23,7 @@ import {
   UMLLineEntity,
   getUMLEntityRegistryInfo,
 } from "../../demo/FlowDemo/uml-entities-new-decorator";
-import { useDuckFlowManagers } from "./useDuckFlowRuntime";
+import { useKoduckFlowManagers } from "./useKoduckFlowRuntime";
 
 /**
  * Represents a node in the flow graph.
@@ -161,7 +161,7 @@ export interface UseFlowResult {
 }
 
 /**
- * React hook for managing a DuckFlow flow graph instance.
+ * React hook for managing a KoduckFlow flow graph instance.
  * Initializes flow graph with entity and render managers, provides CRUD operations
  * and maintains node positions for visualization.
  *
@@ -171,7 +171,7 @@ export interface UseFlowResult {
  * @param {boolean} [options.autoRegisterNodeType] - Auto-register new node types
  * @param {HTMLCanvasElement | null} [options.canvas] - Canvas for rendering
  * @returns {UseFlowResult} Flow instance state and manipulation functions
- * @throws {Error} If hook is used outside DuckFlowProvider context
+ * @throws {Error} If hook is used outside KoduckFlowProvider context
  *
  * @example
  * const {
@@ -210,7 +210,7 @@ export function useFlow(options: UseFlowOptions = {}): UseFlowResult {
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<Error | null>(null);
 
-  const { entityManager, registryManager, renderManager } = useDuckFlowManagers();
+  const { entityManager, registryManager, renderManager } = useKoduckFlowManagers();
 
   const flowRef = useRef<FlowInstance | null>(null);
   const cleanupListenersRef = useRef<Array<() => void>>([]);

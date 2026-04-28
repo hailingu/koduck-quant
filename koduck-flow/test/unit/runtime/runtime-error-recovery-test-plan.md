@@ -452,10 +452,10 @@ This document outlines the comprehensive test strategy for Runtime error handlin
 
 ```typescript
 // Create runtime for testing
-const createTestRuntime = (): DuckFlowRuntime => {
+const createTestRuntime = (): KoduckFlowRuntime => {
   const container = createCoreContainer();
   registerCoreServices(container);
-  return new DuckFlowRuntime(container);
+  return new KoduckFlowRuntime(container);
 };
 
 // Task that fails

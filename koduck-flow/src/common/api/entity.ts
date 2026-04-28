@@ -2,7 +2,7 @@
  * Entity convenience API for lifecycle and capability management.
  *
  * Provides high-level wrappers to create, query, and mutate entities that are
- * currently registered in the active `DuckFlowRuntime`. All operations delegate
+ * currently registered in the active `KoduckFlowRuntime`. All operations delegate
  * to the runtime proxy and therefore require an initialized runtime context.
  * Capability helpers intentionally perform defensive checks to avoid invoking
  * unsupported entity features.
@@ -41,7 +41,7 @@ import { runtime } from "./runtime-context";
 /**
  * Creates a new entity with the specified type name.
  *
- * Creates an entity registered in the active `DuckFlowRuntime` with the given
+ * Creates an entity registered in the active `KoduckFlowRuntime` with the given
  * type name and optional arguments. The entity is immediately available in the
  * runtime and can be queried via `getEntity`.
  *
@@ -77,7 +77,7 @@ export function createEntity<T extends IEntity = IEntity>(
 /**
  * Retrieves an entity by its unique identifier.
  *
- * Fetches an entity from the active `DuckFlowRuntime` by its ID. If the entity
+ * Fetches an entity from the active `KoduckFlowRuntime` by its ID. If the entity
  * does not exist, returns undefined.
  *
  * @template {IEntity} T - The entity type to retrieve (defaults to IEntity).
@@ -106,7 +106,7 @@ export function getEntity<T extends IEntity = IEntity>(id: string): T | undefine
 /**
  * Removes an entity from the runtime.
  *
- * Deletes an entity from the active `DuckFlowRuntime` by its ID. This is a permanent
+ * Deletes an entity from the active `KoduckFlowRuntime` by its ID. This is a permanent
  * operation. The entity is removed from all render pipelines and system registries.
  *
  * @param {string} id - The unique identifier of the entity to remove.
@@ -135,7 +135,7 @@ export function removeEntity(id: string): boolean {
  * Checks if an entity exists in the runtime.
  *
  * Determines whether an entity with the given ID is currently registered in the
- * active `DuckFlowRuntime`.
+ * active `KoduckFlowRuntime`.
  *
  * @param {string} id - The unique identifier to check.
  * @returns {boolean} true if entity exists, false otherwise.
@@ -159,7 +159,7 @@ export function hasEntity(id: string): boolean {
 /**
  * Retrieves all entities in the runtime.
  *
- * Returns an array of all entities currently registered in the active `DuckFlowRuntime`.
+ * Returns an array of all entities currently registered in the active `KoduckFlowRuntime`.
  * The array is a snapshot at the time of the call.
  *
  * @returns {IEntity[]} Array of all entities in the runtime.
@@ -186,7 +186,7 @@ export function getEntities(): IEntity[] {
 /**
  * Removes multiple entities in batch.
  *
- * Deletes a collection of entities from the active `DuckFlowRuntime` by their IDs.
+ * Deletes a collection of entities from the active `KoduckFlowRuntime` by their IDs.
  * This is more efficient than removing entities one by one.
  *
  * @param {string[]} ids - Array of unique identifiers to remove.

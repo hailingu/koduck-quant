@@ -1,6 +1,6 @@
 # Changelog
 
-All notable changes to the DuckFlow project will be documented in this file.
+All notable changes to the KoduckFlow project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
@@ -550,7 +550,7 @@ All design targets **exceeded**:
 
 All commit messages follow the project `.gitmessage` template in Chinese:
 
-1. **ffa9404** - `chore(config)`: Updated duckflow.schema.json configuration
+1. **ffa9404** - `chore(config)`: Updated koduckflow.schema.json configuration
 2. **88bd50b** - `docs(report)`: Final completion report for Git cleanup and commit messages
 3. **b133649** - `chore(cleanup)`: Cleaned up obsolete project phase documents
 4. **9e98fe4** - `docs(process)`: Recorded execution process and quality assessment

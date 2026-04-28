@@ -3,19 +3,19 @@ import { describe, it, expect, beforeEach, vi } from "vitest";
 import { render, screen, waitFor, act } from "@testing-library/react";
 
 import {
-  DuckFlowRuntimeController,
+  KoduckFlowRuntimeController,
   resolveTenantContext,
-  type DuckFlowRuntime,
-  type DuckFlowTenantConfig,
-  type DuckFlowRuntimeFactory,
+  type KoduckFlowRuntime,
+  type KoduckFlowTenantConfig,
+  type KoduckFlowRuntimeFactory,
   type ResolvedTenantContext,
   type RuntimeEnvironmentKey,
 } from "../../../src/common/runtime";
-import { DuckFlowProvider } from "../../../src/components/provider/DuckFlowProvider";
-import { useDuckFlowContext } from "../../../src/components/provider/hooks/useDuckFlowRuntime";
+import { KoduckFlowProvider } from "../../../src/components/provider/KoduckFlowProvider";
+import { useKoduckFlowContext } from "../../../src/components/provider/hooks/useKoduckFlowRuntime";
 
 const getRuntimeForKeyMock = vi.hoisted(() => vi.fn());
-const createDuckFlowRuntimeMock = vi.hoisted(() => vi.fn());
+const createKoduckFlowRuntimeMock = vi.hoisted(() => vi.fn());
 
 vi.mock("../../../src/common/runtime", async () => {
   const actual = await vi.importActual<typeof import("../../../src/common/runtime")>(
@@ -23,13 +23,13 @@ vi.mock("../../../src/common/runtime", async () => {
   );
   return {
     ...actual,
-    createDuckFlowRuntime: createDuckFlowRuntimeMock,
+    createKoduckFlowRuntime: createKoduckFlowRuntimeMock,
   };
 });
 
 vi.mock("../../../src/common/global-runtime", () => ({
   getRuntimeForKey: getRuntimeForKeyMock,
-  DEFAULT_DUCKFLOW_ENVIRONMENT: "test-default",
+  DEFAULT_KODUCKFLOW_ENVIRONMENT: "test-default",
 }));
 
 const setApiRuntimeMock = vi.hoisted(() => vi.fn());
@@ -79,7 +79,7 @@ vi.mock("../../../src/components/debug/DebugPanel", () => ({
 }));
 
 type RuntimeFixture = {
-  runtime: DuckFlowRuntime;
+  runtime: KoduckFlowRuntime;
   state: {
     tenant: ResolvedTenantContext | null;
   };
@@ -91,7 +91,7 @@ type RuntimeFixture = {
 };
 
 const ContextProbe: React.FC = () => {
-  const context = useDuckFlowContext();
+  const context = useKoduckFlowContext();
   return (
     <div>
       <span data-testid="context-source">{context.source}</span>
@@ -126,7 +126,7 @@ function createRuntimeFixture(id = "runtime-ut"): RuntimeFixture {
       return state.tenant?.rollout?.features?.[flag] ?? defaultValue;
     }),
     isTenantInRollout: vi.fn(() => Boolean(state.tenant?.rollout)),
-  } as unknown as DuckFlowRuntime;
+  } as unknown as KoduckFlowRuntime;
 
   return {
     runtime,
@@ -142,8 +142,8 @@ function createRuntimeFixture(id = "runtime-ut"): RuntimeFixture {
 function createTenantConfig(
   tenantId: string,
   environment: string,
-  overrides: Partial<DuckFlowTenantConfig> = {}
-): DuckFlowTenantConfig {
+  overrides: Partial<KoduckFlowTenantConfig> = {}
+): KoduckFlowTenantConfig {
   return {
     tenantId,
     environment,
@@ -158,11 +158,11 @@ function createTenantConfig(
       },
     },
     ...overrides,
-  } satisfies DuckFlowTenantConfig;
+  } satisfies KoduckFlowTenantConfig;
 }
 
 function resolveTenant(
-  config: DuckFlowTenantConfig,
+  config: KoduckFlowTenantConfig,
   environment?: RuntimeEnvironmentKey
 ): ResolvedTenantContext {
   const env: RuntimeEnvironmentKey =
@@ -178,7 +178,7 @@ beforeEach(() => {
   setApiRuntimeMock.mockReset();
   clearApiRuntimeMock.mockReset();
   getRuntimeForKeyMock.mockReset();
-  createDuckFlowRuntimeMock.mockReset();
+  createKoduckFlowRuntimeMock.mockReset();
   debugPanelPropsSpy.mockClear();
   loggerMock.debug.mockClear();
   loggerMock.info.mockClear();
@@ -190,7 +190,7 @@ beforeEach(() => {
   loggerMock.child.mockClear();
 });
 
-describe("DuckFlowProvider (uncontrolled)", () => {
+describe("KoduckFlowProvider (uncontrolled)", () => {
   it("pushes runtime metadata to API context and disposes on unmount", async () => {
     const token = Symbol("api-runtime-token");
     setApiRuntimeMock.mockReturnValueOnce(token);
@@ -202,7 +202,7 @@ describe("DuckFlowProvider (uncontrolled)", () => {
     const onDispose = vi.fn();
 
     const { unmount } = render(
-      <DuckFlowProvider
+      <KoduckFlowProvider
         runtime={runtime}
         tenant={tenantConfig}
         environment="staging"
@@ -217,7 +217,7 @@ describe("DuckFlowProvider (uncontrolled)", () => {
         onDispose={onDispose}
       >
         <ContextProbe />
-      </DuckFlowProvider>
+      </KoduckFlowProvider>
     );
 
     await waitFor(() => {
@@ -265,13 +265,13 @@ describe("DuckFlowProvider (uncontrolled)", () => {
     const { runtime, state } = createRuntimeFixture("runtime-switch");
     const onTenantInit = vi.fn();
     const { rerender } = render(
-      <DuckFlowProvider
+      <KoduckFlowProvider
         runtime={runtime}
         tenant={createTenantConfig("tenant-a", "qa")}
         onTenantInit={onTenantInit}
       >
         <ContextProbe />
-      </DuckFlowProvider>
+      </KoduckFlowProvider>
     );
 
     await waitFor(() => {
@@ -281,13 +281,13 @@ describe("DuckFlowProvider (uncontrolled)", () => {
     expect(onTenantInit).not.toHaveBeenCalled();
 
     rerender(
-      <DuckFlowProvider
+      <KoduckFlowProvider
         runtime={runtime}
         tenant={createTenantConfig("tenant-b", "qa")}
         onTenantInit={onTenantInit}
       >
         <ContextProbe />
-      </DuckFlowProvider>
+      </KoduckFlowProvider>
     );
 
     await waitFor(() => {
@@ -299,9 +299,9 @@ describe("DuckFlowProvider (uncontrolled)", () => {
     });
 
     rerender(
-      <DuckFlowProvider runtime={runtime} tenant={undefined} onTenantInit={onTenantInit}>
+      <KoduckFlowProvider runtime={runtime} tenant={undefined} onTenantInit={onTenantInit}>
         <ContextProbe />
-      </DuckFlowProvider>
+      </KoduckFlowProvider>
     );
 
     await waitFor(() => {
@@ -321,9 +321,9 @@ describe("DuckFlowProvider (uncontrolled)", () => {
     getRuntimeForKeyMock.mockReturnValue(globalFixture.runtime);
 
     const { unmount } = render(
-      <DuckFlowProvider environment={{ environment: "qa", tenantId: "tenant-shared" }}>
+      <KoduckFlowProvider environment={{ environment: "qa", tenantId: "tenant-shared" }}>
         <ContextProbe />
-      </DuckFlowProvider>
+      </KoduckFlowProvider>
     );
 
     await waitFor(() => {
@@ -353,7 +353,7 @@ describe("DuckFlowProvider (uncontrolled)", () => {
       disposeRuntime: vi.fn(),
       hasRuntime: vi.fn(() => true),
     };
-    const factory = factoryImpl as unknown as DuckFlowRuntimeFactory;
+    const factory = factoryImpl as unknown as KoduckFlowRuntimeFactory;
     const tenantConfig = createTenantConfig("tenant-factory", "factory-env");
     const options = {
       metadata: { existing: "value" },
@@ -361,7 +361,7 @@ describe("DuckFlowProvider (uncontrolled)", () => {
     };
 
     const { unmount } = render(
-      <DuckFlowProvider
+      <KoduckFlowProvider
         factory={factory}
         environment={{ environment: "factory-env", tenantId: "tenant-factory" }}
         tenant={tenantConfig}
@@ -369,7 +369,7 @@ describe("DuckFlowProvider (uncontrolled)", () => {
         reuse={false}
       >
         <ContextProbe />
-      </DuckFlowProvider>
+      </KoduckFlowProvider>
     );
 
     await waitFor(() => {
@@ -404,13 +404,13 @@ describe("DuckFlowProvider (uncontrolled)", () => {
     const fixture = createRuntimeFixture("runtime-warning");
 
     const { unmount } = render(
-      <DuckFlowProvider
+      <KoduckFlowProvider
         runtime={fixture.runtime}
         tenant={{ tenantId: "  ", environment: "dev" }}
         environment="dev"
       >
         <ContextProbe />
-      </DuckFlowProvider>
+      </KoduckFlowProvider>
     );
 
     await waitFor(() => {
@@ -419,7 +419,7 @@ describe("DuckFlowProvider (uncontrolled)", () => {
     });
 
     expect(loggerMock.warn).toHaveBeenCalledWith(
-      "DuckFlowProvider received tenant configuration without tenantId; tenant context will be ignored."
+      "KoduckFlowProvider received tenant configuration without tenantId; tenant context will be ignored."
     );
 
     unmount();
@@ -434,9 +434,9 @@ describe("DuckFlowProvider (uncontrolled)", () => {
     const fixture = createRuntimeFixture("runtime-debug-flag");
 
     const { unmount } = render(
-      <DuckFlowProvider runtime={fixture.runtime} debugOptions={{ enabled: true }}>
+      <KoduckFlowProvider runtime={fixture.runtime} debugOptions={{ enabled: true }}>
         <ContextProbe />
-      </DuckFlowProvider>
+      </KoduckFlowProvider>
     );
 
     expect(debugPanelPropsSpy).toHaveBeenCalledWith({
@@ -458,18 +458,18 @@ describe("DuckFlowProvider (uncontrolled)", () => {
     const tenantConfig = createTenantConfig("tenant-normalized", "cerulean");
 
     const { unmount } = render(
-      <DuckFlowProvider
+      <KoduckFlowProvider
         runtime={fixture.runtime}
         tenant={tenantConfig}
         environment={{ environment: "cerulean", tenantId: "different-tenant" }}
       >
         <ContextProbe />
-      </DuckFlowProvider>
+      </KoduckFlowProvider>
     );
 
     await waitFor(() => {
       expect(loggerMock.warn).toHaveBeenCalledWith(
-        "DuckFlowProvider tenantId mismatch between environment prop and tenant config. Using tenant configuration value.",
+        "KoduckFlowProvider tenantId mismatch between environment prop and tenant config. Using tenant configuration value.",
         {
           environmentTenant: "different-tenant",
           tenantId: "tenant-normalized",
@@ -490,24 +490,24 @@ describe("DuckFlowProvider (uncontrolled)", () => {
 
     const fixture = createRuntimeFixture("runtime-local");
     const options = { metadata: { hint: "local" } };
-    createDuckFlowRuntimeMock.mockReturnValueOnce(fixture.runtime);
+    createKoduckFlowRuntimeMock.mockReturnValueOnce(fixture.runtime);
 
     const { unmount } = render(
-      <DuckFlowProvider lazy disposeOnUnmount options={options}>
+      <KoduckFlowProvider lazy disposeOnUnmount options={options}>
         <ContextProbe />
-      </DuckFlowProvider>
+      </KoduckFlowProvider>
     );
 
-    expect(createDuckFlowRuntimeMock).toHaveBeenCalledWith(options);
+    expect(createKoduckFlowRuntimeMock).toHaveBeenCalledWith(options);
     expect(screen.getByTestId("context-source").textContent).toBe("local");
     expect(screen.getByTestId("context-environment").textContent).toBe("none");
 
     expect(loggerMock.debug).toHaveBeenCalledWith(
-      "DuckFlowProvider created new runtime instance",
+      "KoduckFlowProvider created new runtime instance",
       expect.objectContaining({ source: "local", lazy: true })
     );
     expect(loggerMock.debug).toHaveBeenCalledWith(
-      "DuckFlowProvider lazily prepared local runtime instance"
+      "KoduckFlowProvider lazily prepared local runtime instance"
     );
 
     unmount();
@@ -524,20 +524,20 @@ describe("DuckFlowProvider (uncontrolled)", () => {
     const updatedRuntime = createRuntimeFixture("runtime-prop-updated");
 
     const { rerender, unmount } = render(
-      <DuckFlowProvider runtime={initialRuntime.runtime}>
+      <KoduckFlowProvider runtime={initialRuntime.runtime}>
         <ContextProbe />
-      </DuckFlowProvider>
+      </KoduckFlowProvider>
     );
 
     rerender(
-      <DuckFlowProvider runtime={updatedRuntime.runtime}>
+      <KoduckFlowProvider runtime={updatedRuntime.runtime}>
         <ContextProbe />
-      </DuckFlowProvider>
+      </KoduckFlowProvider>
     );
 
     await waitFor(() => {
       expect(loggerMock.warn).toHaveBeenCalledWith(
-        "DuckFlowProvider does not support changing the runtime prop after mount. The initial instance will be used."
+        "KoduckFlowProvider does not support changing the runtime prop after mount. The initial instance will be used."
       );
     });
 
@@ -550,7 +550,7 @@ describe("DuckFlowProvider (uncontrolled)", () => {
   });
 });
 
-describe("DuckFlowProvider (controlled)", () => {
+describe("KoduckFlowProvider (controlled)", () => {
   it("propagates controller snapshot updates and tears down previous API token", async () => {
     const tokenA = Symbol("token-a");
     const tokenB = Symbol("token-b");
@@ -561,7 +561,7 @@ describe("DuckFlowProvider (controlled)", () => {
 
     const tenantA = resolveTenant(createTenantConfig("tenant-controller-a", "blue"));
     const tenantB = resolveTenant(createTenantConfig("tenant-controller-b", "green"));
-    const controller = new DuckFlowRuntimeController({
+    const controller = new KoduckFlowRuntimeController({
       initialRuntime: primary.runtime,
       initialTenant: tenantA,
       initialEnvironment: tenantA.environmentKey,
@@ -573,9 +573,9 @@ describe("DuckFlowProvider (controlled)", () => {
     const onTenantInit = vi.fn();
 
     const { unmount } = render(
-      <DuckFlowProvider controller={controller} onInit={onInit} onTenantInit={onTenantInit}>
+      <KoduckFlowProvider controller={controller} onInit={onInit} onTenantInit={onTenantInit}>
         <ContextProbe />
-      </DuckFlowProvider>
+      </KoduckFlowProvider>
     );
 
     await waitFor(() => {
@@ -629,16 +629,16 @@ describe("DuckFlowProvider (controlled)", () => {
     const tenantConfig = createTenantConfig("tenant-prop", "amber");
     const resolved = resolveTenant(tenantConfig);
 
-    const controller = new DuckFlowRuntimeController({
+    const controller = new KoduckFlowRuntimeController({
       initialRuntime: runtime,
       initialSource: "controller",
       disposePreviousOnSwitch: false,
     });
 
     render(
-      <DuckFlowProvider controller={controller} tenant={tenantConfig}>
+      <KoduckFlowProvider controller={controller} tenant={tenantConfig}>
         <ContextProbe />
-      </DuckFlowProvider>
+      </KoduckFlowProvider>
     );
 
     await waitFor(() => {
@@ -654,16 +654,16 @@ describe("DuckFlowProvider (controlled)", () => {
     setApiRuntimeMock.mockReturnValueOnce(token);
 
     const fixture = createRuntimeFixture("runtime-controller-debug");
-    const controller = new DuckFlowRuntimeController({
+    const controller = new KoduckFlowRuntimeController({
       initialRuntime: fixture.runtime,
       initialSource: "controller-external",
       disposePreviousOnSwitch: false,
     });
 
     const { unmount } = render(
-      <DuckFlowProvider controller={controller} debugOptions={{ enabled: true }}>
+      <KoduckFlowProvider controller={controller} debugOptions={{ enabled: true }}>
         <ContextProbe />
-      </DuckFlowProvider>
+      </KoduckFlowProvider>
     );
 
     expect(debugPanelPropsSpy).toHaveBeenCalledWith({
@@ -682,21 +682,21 @@ describe("DuckFlowProvider (controlled)", () => {
     setApiRuntimeMock.mockReturnValueOnce(token);
 
     const fixture = createRuntimeFixture("runtime-controller-warning");
-    const controller = new DuckFlowRuntimeController({
+    const controller = new KoduckFlowRuntimeController({
       initialRuntime: fixture.runtime,
       initialSource: "controller",
       disposePreviousOnSwitch: false,
     });
 
     const { unmount } = render(
-      <DuckFlowProvider controller={controller} tenant={{ tenantId: "  ", environment: "emerald" }}>
+      <KoduckFlowProvider controller={controller} tenant={{ tenantId: "  ", environment: "emerald" }}>
         <ContextProbe />
-      </DuckFlowProvider>
+      </KoduckFlowProvider>
     );
 
     await waitFor(() => {
       expect(loggerMock.warn).toHaveBeenCalledWith(
-        "DuckFlowProvider (controlled) received tenant configuration without tenantId; tenant context will be ignored."
+        "KoduckFlowProvider (controlled) received tenant configuration without tenantId; tenant context will be ignored."
       );
     });
 
@@ -706,29 +706,29 @@ describe("DuckFlowProvider (controlled)", () => {
   });
 
   it("throws when controller snapshot does not provide a runtime", () => {
-    const controller = new DuckFlowRuntimeController();
+    const controller = new KoduckFlowRuntimeController();
 
     expect(() =>
       render(
-        <DuckFlowProvider controller={controller}>
+        <KoduckFlowProvider controller={controller}>
           <ContextProbe />
-        </DuckFlowProvider>
+        </KoduckFlowProvider>
       )
     ).toThrowError(
-      /DuckFlowProvider \(controlled\) requires the controller to supply an active runtime instance/
+      /KoduckFlowProvider \(controlled\) requires the controller to supply an active runtime instance/
     );
   });
 });
 
-describe("useDuckFlowContext", () => {
+describe("useKoduckFlowContext", () => {
   it("throws when accessed outside of a provider", () => {
     const TestComponent = () => {
-      useDuckFlowContext();
+      useKoduckFlowContext();
       return null;
     };
 
     expect(() => render(<TestComponent />)).toThrowError(
-      /DuckFlow context is unavailable\. Wrap your component tree in DuckFlowProvider/
+      /KoduckFlow context is unavailable\. Wrap your component tree in KoduckFlowProvider/
     );
   });
 });

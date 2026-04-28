@@ -65,4 +65,4 @@ export type CoreManagerKey = (typeof CORE_MANAGER_KEYS)[number];
 /**
  * Manager 初始化超时标志（内部使用）
  */
-export const INITIALIZATION_TIMEOUT_FLAG = Symbol("duck-flow-manager-init-timeout");
+export const INITIALIZATION_TIMEOUT_FLAG = Symbol("koduck-flow-manager-init-timeout");

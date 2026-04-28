@@ -6,7 +6,7 @@ import {
   PluginSandboxRunner,
 } from "../../../src/common/plugin/sandbox-runner";
 
-const API_NAME = "__duckFlowSandbox";
+const API_NAME = "__koduckFlowSandbox";
 
 function createSandboxCode(body: string): string {
   return `

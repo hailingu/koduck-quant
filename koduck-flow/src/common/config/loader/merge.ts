@@ -1,26 +1,26 @@
-import type { ConfigSource, DuckFlowConfig } from "../schema";
+import type { ConfigSource, KoduckFlowConfig } from "../schema";
 
 import type { MergeConflict } from "./types";
 
 export interface MergeOutcome {
-  mergedConfig: DuckFlowConfig;
+  mergedConfig: KoduckFlowConfig;
   conflicts: MergeConflict[];
 }
 
 export function mergeConfigSources(
-  defaults: DuckFlowConfig,
-  orderedSources: Array<{ source: ConfigSource; config: Partial<DuckFlowConfig> }>
+  defaults: KoduckFlowConfig,
+  orderedSources: Array<{ source: ConfigSource; config: Partial<KoduckFlowConfig> }>
 ): MergeOutcome {
   const conflicts: MergeConflict[] = [];
   const leafOrigins = new Map<string, { source: ConfigSource; value: unknown }>();
 
-  let merged = mergeDeep({}, defaults, "defaults", conflicts, leafOrigins) as DuckFlowConfig;
+  let merged = mergeDeep({}, defaults, "defaults", conflicts, leafOrigins) as KoduckFlowConfig;
 
   for (const { source, config } of orderedSources) {
     if (!config || isEmptyOverride(config)) {
       continue;
     }
-    merged = mergeDeep(merged, config, source, conflicts, leafOrigins) as DuckFlowConfig;
+    merged = mergeDeep(merged, config, source, conflicts, leafOrigins) as KoduckFlowConfig;
   }
 
   return { mergedConfig: merged, conflicts };

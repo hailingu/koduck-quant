@@ -4,7 +4,7 @@
  * Exposes helpers for enqueueing entities into the render pipeline and for
  * interacting with the active `RenderManager`. The functions rely on the
  * runtime proxy as well as the manager and entity facade modules, which
- * means a `DuckFlowRuntime` must be active before usage. React-based return
+ * means a `KoduckFlowRuntime` must be active before usage. React-based return
  * types are surfaced when rendering to JSX-compatible targets.
  *
  * The Render API provides two levels of functionality:

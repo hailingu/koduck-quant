@@ -1,5 +1,5 @@
 /**
- * DuckFlowRuntime 集成测试
+ * KoduckFlowRuntime 集成测试
  *
  * 测试目标：验证各模块协同工作正确性
  *
@@ -15,8 +15,8 @@
 
 import { describe, it, expect, afterEach, vi } from "vitest";
 import {
-  DuckFlowRuntime,
-  createDuckFlowRuntime,
+  KoduckFlowRuntime,
+  createKoduckFlowRuntime,
   createScopedRuntime,
 } from "../../../src/common/runtime";
 import type { ResolvedTenantContext } from "../../../src/common/runtime/tenant-context";
@@ -84,8 +84,8 @@ function createTestTenantContext(
 
 // ==================== 测试套件 ====================
 
-describe("DuckFlowRuntime - 集成测试", () => {
-  let runtime: DuckFlowRuntime;
+describe("KoduckFlowRuntime - 集成测试", () => {
+  let runtime: KoduckFlowRuntime;
 
   afterEach(() => {
     if (runtime && !runtime["disposed"]) {
@@ -98,7 +98,7 @@ describe("DuckFlowRuntime - 集成测试", () => {
   describe("场景 1: 完整 Runtime 初始化流程", () => {
     it("应该成功初始化 Runtime 并访问所有核心服务", () => {
       // 创建 Runtime
-      runtime = createDuckFlowRuntime();
+      runtime = createKoduckFlowRuntime();
 
       // 验证核心服务可访问
       expect(runtime.EntityManager).toBeDefined();
@@ -115,7 +115,7 @@ describe("DuckFlowRuntime - 集成测试", () => {
     });
 
     it("应该正确初始化 DI 容器并解析服务", () => {
-      runtime = createDuckFlowRuntime();
+      runtime = createKoduckFlowRuntime();
 
       // 验证可以解析核心服务（使用 Symbol token）
       expect(runtime.has(TOKENS.entityManager)).toBe(true);
@@ -137,7 +137,7 @@ describe("DuckFlowRuntime - 集成测试", () => {
       const testService = { name: "TestService" };
       customContainer.registerInstance("TestService", testService);
 
-      runtime = createDuckFlowRuntime({ container: customContainer });
+      runtime = createKoduckFlowRuntime({ container: customContainer });
 
       // 验证自定义服务可访问
       expect(runtime.has("TestService")).toBe(true);
@@ -148,7 +148,7 @@ describe("DuckFlowRuntime - 集成测试", () => {
     });
 
     it("应该正确处理 Manager 初始化配置", () => {
-      runtime = createDuckFlowRuntime({
+      runtime = createKoduckFlowRuntime({
         managerInitialization: {
           timeoutMs: 10000,
           retries: {
@@ -171,7 +171,7 @@ describe("DuckFlowRuntime - 集成测试", () => {
 
   describe("场景 2: Manager 注册 + 租户上下文 + 配额联动", () => {
     it("应该正确处理 Manager 注册、租户上下文设置和配额管理的联动", () => {
-      runtime = createDuckFlowRuntime();
+      runtime = createKoduckFlowRuntime();
 
       // 1. 注册自定义 Manager
       const customManager = createMockManager("CustomManager");
@@ -208,7 +208,7 @@ describe("DuckFlowRuntime - 集成测试", () => {
     });
 
     it("应该在切换租户时正确重置配额", () => {
-      runtime = createDuckFlowRuntime();
+      runtime = createKoduckFlowRuntime();
 
       // 租户 A - 使用自定义配额桶（entity quota 基于实际实体数）
       const tenantA = createTestTenantContext("tenant-a");
@@ -234,7 +234,7 @@ describe("DuckFlowRuntime - 集成测试", () => {
     });
 
     it("应该在没有租户上下文时允许配额申请（无限制）", () => {
-      runtime = createDuckFlowRuntime();
+      runtime = createKoduckFlowRuntime();
 
       // 未设置租户上下文时，claimQuota 返回 true（无限制）
       const claimed = runtime.claimTenantQuota(TENANT_ENTITY_QUOTA_KEY, 100);
@@ -246,7 +246,7 @@ describe("DuckFlowRuntime - 集成测试", () => {
     });
 
     it("应该在超过配额限制时拒绝申请", () => {
-      runtime = createDuckFlowRuntime();
+      runtime = createKoduckFlowRuntime();
 
       const tenantContext = createTestTenantContext("tenant-123", {
         quotas: {
@@ -280,7 +280,7 @@ describe("DuckFlowRuntime - 集成测试", () => {
 
   describe("场景 3: 特性开关与 Rollout 集成", () => {
     it("应该正确读取租户特性开关", () => {
-      runtime = createDuckFlowRuntime();
+      runtime = createKoduckFlowRuntime();
 
       const tenantContext = createTestTenantContext("tenant-123", {
         rollout: {
@@ -299,7 +299,7 @@ describe("DuckFlowRuntime - 集成测试", () => {
     });
 
     it("应该正确处理 Rollout 配置", () => {
-      runtime = createDuckFlowRuntime();
+      runtime = createKoduckFlowRuntime();
 
       const tenantContext = createTestTenantContext("tenant-123", {
         rollout: {
@@ -316,7 +316,7 @@ describe("DuckFlowRuntime - 集成测试", () => {
     });
 
     it("应该根据租户 ID 和 Rollout 百分比判断是否在灰度中", () => {
-      runtime = createDuckFlowRuntime();
+      runtime = createKoduckFlowRuntime();
 
       const tenantContext = createTestTenantContext("tenant-123", {
         rollout: {
@@ -341,7 +341,7 @@ describe("DuckFlowRuntime - 集成测试", () => {
     });
 
     it("应该在没有租户上下文时返回默认值", () => {
-      runtime = createDuckFlowRuntime();
+      runtime = createKoduckFlowRuntime();
 
       // 未设置租户上下文
       expect(runtime.isTenantFeatureEnabled("anyFeature", true)).toBe(true);
@@ -355,7 +355,7 @@ describe("DuckFlowRuntime - 集成测试", () => {
 
   describe("场景 4: 多租户隔离", () => {
     it("应该在不同租户之间隔离配额使用", () => {
-      runtime = createDuckFlowRuntime();
+      runtime = createKoduckFlowRuntime();
 
       // 租户 A
       const tenantA = createTestTenantContext("tenant-a");
@@ -380,7 +380,7 @@ describe("DuckFlowRuntime - 集成测试", () => {
     });
 
     it("应该在不同租户之间隔离特性开关", () => {
-      runtime = createDuckFlowRuntime();
+      runtime = createKoduckFlowRuntime();
 
       // 租户 A: 特性启用
       const tenantA = createTestTenantContext("tenant-a", {
@@ -410,7 +410,7 @@ describe("DuckFlowRuntime - 集成测试", () => {
     });
 
     it("应该在不同租户之间隔离 Rollout 配置", () => {
-      runtime = createDuckFlowRuntime();
+      runtime = createKoduckFlowRuntime();
 
       // 租户 A
       const tenantA = createTestTenantContext("tenant-a", {
@@ -442,7 +442,7 @@ describe("DuckFlowRuntime - 集成测试", () => {
 
   describe("场景 5: 作用域 Runtime 创建", () => {
     it("应该创建隔离的子 Runtime", () => {
-      const parentRuntime = createDuckFlowRuntime();
+      const parentRuntime = createKoduckFlowRuntime();
       const childRuntime = createScopedRuntime(parentRuntime);
 
       // 验证子 Runtime 有独立容器
@@ -458,7 +458,7 @@ describe("DuckFlowRuntime - 集成测试", () => {
     });
 
     it("应该支持手动设置子 Runtime 的租户上下文", () => {
-      const parentRuntime = createDuckFlowRuntime();
+      const parentRuntime = createKoduckFlowRuntime();
       const tenantContext = createTestTenantContext("tenant-123");
       parentRuntime.setTenantContext(tenantContext);
 
@@ -477,7 +477,7 @@ describe("DuckFlowRuntime - 集成测试", () => {
     });
 
     it("应该在子 Runtime 中隔离配额使用", () => {
-      const parentRuntime = createDuckFlowRuntime();
+      const parentRuntime = createKoduckFlowRuntime();
       const tenantContext = createTestTenantContext("tenant-123");
       parentRuntime.setTenantContext(tenantContext);
       parentRuntime.claimTenantQuota("api-calls", 100);
@@ -504,7 +504,7 @@ describe("DuckFlowRuntime - 集成测试", () => {
     });
 
     it("应该支持子 Runtime 覆盖父 Runtime 的配置", () => {
-      const parentRuntime = createDuckFlowRuntime({
+      const parentRuntime = createKoduckFlowRuntime({
         managerInitialization: {
           timeoutMs: 5000,
         },
@@ -539,7 +539,7 @@ describe("DuckFlowRuntime - 集成测试", () => {
 
   describe("场景 6: 优雅关闭流程", () => {
     it("应该正确清理所有资源", () => {
-      runtime = createDuckFlowRuntime();
+      runtime = createKoduckFlowRuntime();
 
       // 注册多个 Manager
       const manager1 = createMockManager("Manager1");
@@ -566,7 +566,7 @@ describe("DuckFlowRuntime - 集成测试", () => {
     });
 
     it("应该在 dispose 后标记为已销毁", () => {
-      runtime = createDuckFlowRuntime();
+      runtime = createKoduckFlowRuntime();
       expect(runtime["disposed"]).toBe(false);
 
       runtime.dispose();
@@ -579,7 +579,7 @@ describe("DuckFlowRuntime - 集成测试", () => {
     });
 
     it("应该支持多次调用 dispose（幂等性）", () => {
-      runtime = createDuckFlowRuntime();
+      runtime = createKoduckFlowRuntime();
 
       runtime.dispose();
       runtime.dispose(); // 第二次调用不应抛出错误
@@ -589,7 +589,7 @@ describe("DuckFlowRuntime - 集成测试", () => {
     });
 
     it("应该在子 Runtime dispose 后不影响父 Runtime", () => {
-      const parentRuntime = createDuckFlowRuntime();
+      const parentRuntime = createKoduckFlowRuntime();
       const childRuntime = createScopedRuntime(parentRuntime);
 
       childRuntime.dispose();
@@ -607,7 +607,7 @@ describe("DuckFlowRuntime - 集成测试", () => {
 
   describe("场景 7: API 行为快照测试", () => {
     it("应该保持核心 API 方法签名一致", () => {
-      runtime = createDuckFlowRuntime();
+      runtime = createKoduckFlowRuntime();
 
       // 验证所有关键 API 方法存在
       const apiMethods = [
@@ -645,13 +645,13 @@ describe("DuckFlowRuntime - 集成测试", () => {
       ];
 
       apiMethods.forEach((method) => {
-        expect(runtime[method as keyof DuckFlowRuntime]).toBeDefined();
-        expect(typeof runtime[method as keyof DuckFlowRuntime]).toBe("function");
+        expect(runtime[method as keyof KoduckFlowRuntime]).toBeDefined();
+        expect(typeof runtime[method as keyof KoduckFlowRuntime]).toBe("function");
       });
     });
 
     it("应该保持核心 getter 属性一致", () => {
-      runtime = createDuckFlowRuntime();
+      runtime = createKoduckFlowRuntime();
 
       // 验证所有 getter 属性存在
       const getters = [
@@ -665,28 +665,28 @@ describe("DuckFlowRuntime - 集成测试", () => {
       ];
 
       getters.forEach((getter) => {
-        expect(runtime[getter as keyof DuckFlowRuntime]).toBeDefined();
+        expect(runtime[getter as keyof KoduckFlowRuntime]).toBeDefined();
       });
     });
 
     it("应该保持工厂函数行为一致", () => {
-      // 测试 createDuckFlowRuntime
-      const runtime1 = createDuckFlowRuntime();
-      expect(runtime1).toBeInstanceOf(DuckFlowRuntime);
+      // 测试 createKoduckFlowRuntime
+      const runtime1 = createKoduckFlowRuntime();
+      expect(runtime1).toBeInstanceOf(KoduckFlowRuntime);
       expect(runtime1.EntityManager).toBeDefined();
       runtime1.dispose();
 
-      // 测试带选项的 createDuckFlowRuntime
-      const runtime2 = createDuckFlowRuntime({
+      // 测试带选项的 createKoduckFlowRuntime
+      const runtime2 = createKoduckFlowRuntime({
         managerInitialization: { timeoutMs: 8000 },
       });
       expect(runtime2.getManagerInitializationDefaults().timeoutMs).toBe(8000);
       runtime2.dispose();
 
       // 测试 createScopedRuntime
-      const parent = createDuckFlowRuntime();
+      const parent = createKoduckFlowRuntime();
       const child = createScopedRuntime(parent);
-      expect(child).toBeInstanceOf(DuckFlowRuntime);
+      expect(child).toBeInstanceOf(KoduckFlowRuntime);
       expect(child.container).not.toBe(parent.container);
       child.dispose();
       parent.dispose();
@@ -697,7 +697,7 @@ describe("DuckFlowRuntime - 集成测试", () => {
 
   describe("额外场景: 调试配置集成", () => {
     it("应该正确配置和获取调试选项", () => {
-      runtime = createDuckFlowRuntime();
+      runtime = createKoduckFlowRuntime();
 
       // 配置调试选项（使用正确的 DebugOptions 属性）
       const debugOptions = {
@@ -714,7 +714,7 @@ describe("DuckFlowRuntime - 集成测试", () => {
     });
 
     it("应该支持部分更新调试配置", () => {
-      runtime = createDuckFlowRuntime();
+      runtime = createKoduckFlowRuntime();
 
       // 配置调试选项
       runtime.configureDebug({
@@ -738,7 +738,7 @@ describe("DuckFlowRuntime - 集成测试", () => {
 
   describe("额外场景: 实体操作集成", () => {
     it("应该通过 Runtime 快捷方法创建和管理实体", () => {
-      runtime = createDuckFlowRuntime();
+      runtime = createKoduckFlowRuntime();
 
       // 验证快捷方法委托到 EntityManager
       // 注意：实际测试需要 mock EntityManager 或使用真实实体类型

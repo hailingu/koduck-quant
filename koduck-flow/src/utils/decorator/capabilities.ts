@@ -1,7 +1,7 @@
 /**
  * Concrete Capability Implementations Module
  *
- * This module defines six specialized capability implementations for Duck Flow's capability system.
+ * This module defines six specialized capability implementations for Koduck Flow's capability system.
  * Each capability interface represents a specific type of functionality that can be applied to entities
  * within the flow system.
  *

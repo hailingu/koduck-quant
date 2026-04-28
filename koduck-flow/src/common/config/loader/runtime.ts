@@ -1,4 +1,4 @@
-import type { DuckFlowConfig } from "../schema";
+import type { KoduckFlowConfig } from "../schema";
 
 import { cloneValue, isEmptyOverride } from "./merge";
 
@@ -30,21 +30,21 @@ export function mergeRuntimeObjects(base: unknown, addition: unknown): unknown {
 }
 
 export function composeRuntimeOverrides(
-  persisted: Partial<DuckFlowConfig>,
-  additional?: Partial<DuckFlowConfig>
-): Partial<DuckFlowConfig> | undefined {
+  persisted: Partial<KoduckFlowConfig>,
+  additional?: Partial<KoduckFlowConfig>
+): Partial<KoduckFlowConfig> | undefined {
   const hasPersisted = !isEmptyOverride(persisted);
   const hasAdditional = additional && !isEmptyOverride(additional);
   if (!hasPersisted && !hasAdditional) {
     return undefined;
   }
 
-  let merged: Partial<DuckFlowConfig> | undefined;
+  let merged: Partial<KoduckFlowConfig> | undefined;
   if (hasPersisted) {
-    merged = mergeRuntimeObjects({}, persisted) as Partial<DuckFlowConfig>;
+    merged = mergeRuntimeObjects({}, persisted) as Partial<KoduckFlowConfig>;
   }
   if (hasAdditional) {
-    merged = mergeRuntimeObjects(merged ?? {}, additional) as Partial<DuckFlowConfig>;
+    merged = mergeRuntimeObjects(merged ?? {}, additional) as Partial<KoduckFlowConfig>;
   }
 
   return merged;

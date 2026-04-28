@@ -1,10 +1,10 @@
 /**
  * @module src/common/runtime/runtime-factory
- * @description Factory for creating and managing DuckFlow runtime instances.
+ * @description Factory for creating and managing KoduckFlow runtime instances.
  * Supports multi-tenant scenarios with shared runtime caching and lifecycle management.
  * @example
  * ```typescript
- * const factory = new DuckFlowRuntimeFactory();
+ * const factory = new KoduckFlowRuntimeFactory();
  * const runtime = factory.getOrCreateRuntime({
  *   environment: 'production',
  *   tenantId: 'tenant-1'
@@ -18,30 +18,30 @@
 import { logger } from "../logger";
 
 import {
-  DuckFlowRuntime,
-  createDuckFlowRuntime,
-  type DuckFlowRuntimeOptions,
-} from "./duck-flow-runtime";
+  KoduckFlowRuntime,
+  createKoduckFlowRuntime,
+  type KoduckFlowRuntimeOptions,
+} from "./koduck-flow-runtime";
 import { normalizeRuntimeKey, type RuntimeEnvironmentKey } from "./runtime-key";
 
 /**
  * Extended options for runtime creation with optional metadata attachment
  * @interface RuntimeCreationOptions
- * @augments {DuckFlowRuntimeOptions}
+ * @augments {KoduckFlowRuntimeOptions}
  * @property {Record<string,unknown>} [metadata] - Custom metadata to attach to created runtime
  */
-export interface RuntimeCreationOptions extends DuckFlowRuntimeOptions {
+export interface RuntimeCreationOptions extends KoduckFlowRuntimeOptions {
   metadata?: Record<string, unknown>;
 }
 
 /**
- * Factory for creating, caching, and managing DuckFlow runtime instances
- * @class DuckFlowRuntimeFactory
+ * Factory for creating, caching, and managing KoduckFlow runtime instances
+ * @class KoduckFlowRuntimeFactory
  * @description Manages runtime lifecycle with singleton pattern per environment/tenant combination.
  * Handles runtime creation, caching, disposal, and metadata tracking.
  * @example
  * ```typescript
- * const factory = new DuckFlowRuntimeFactory();
+ * const factory = new KoduckFlowRuntimeFactory();
  *
  * // Get or create runtime
  * const runtime = factory.getOrCreateRuntime(
@@ -58,15 +58,15 @@ export interface RuntimeCreationOptions extends DuckFlowRuntimeOptions {
  * factory.disposeAll();
  * ```
  */
-export class DuckFlowRuntimeFactory {
-  private readonly runtimes = new Map<string, DuckFlowRuntime>();
+export class KoduckFlowRuntimeFactory {
+  private readonly runtimes = new Map<string, KoduckFlowRuntime>();
   private readonly metadata = new Map<string, Record<string, unknown>>();
 
   /**
    * Get existing runtime or create new one for given environment
    * @param {RuntimeEnvironmentKey} key - Environment and tenant identifier
    * @param {RuntimeCreationOptions} [options={}] - Configuration for new runtime
-   * @returns {DuckFlowRuntime} Existing or newly created runtime instance
+   * @returns {KoduckFlowRuntime} Existing or newly created runtime instance
    * @example
    * ```typescript
    * const runtime = factory.getOrCreateRuntime(
@@ -82,16 +82,16 @@ export class DuckFlowRuntimeFactory {
   getOrCreateRuntime(
     key: RuntimeEnvironmentKey,
     options: RuntimeCreationOptions = {}
-  ): DuckFlowRuntime {
+  ): KoduckFlowRuntime {
     const normalizedKey = normalizeRuntimeKey(key);
     const existing = this.runtimes.get(normalizedKey);
     if (existing) {
-      logger.debug("♻️ 复用 DuckFlowRuntime 实例", this.composeLogPayload(normalizedKey, key));
+      logger.debug("♻️ 复用 KoduckFlowRuntime 实例", this.composeLogPayload(normalizedKey, key));
       return existing;
     }
 
-    logger.info("🚀 创建新的 DuckFlowRuntime 实例", this.composeLogPayload(normalizedKey, key));
-    const runtime = createDuckFlowRuntime(options);
+    logger.info("🚀 创建新的 KoduckFlowRuntime 实例", this.composeLogPayload(normalizedKey, key));
+    const runtime = createKoduckFlowRuntime(options);
     this.runtimes.set(normalizedKey, runtime);
     if (options.metadata) {
       this.metadata.set(normalizedKey, options.metadata);
@@ -128,11 +128,11 @@ export class DuckFlowRuntimeFactory {
       return;
     }
 
-    logger.info("🧹 销毁 DuckFlowRuntime 实例", this.composeLogPayload(normalizedKey, key));
+    logger.info("🧹 销毁 KoduckFlowRuntime 实例", this.composeLogPayload(normalizedKey, key));
     try {
       runtime.dispose();
     } catch (error) {
-      logger.error("销毁 DuckFlowRuntime 实例失败", {
+      logger.error("销毁 KoduckFlowRuntime 实例失败", {
         ...this.composeLogPayload(normalizedKey, key),
         error,
       });

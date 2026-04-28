@@ -1,20 +1,20 @@
 /**
  * @fileoverview 工厂函数测试
- * 测试 createDuckFlowRuntime 和 createScopedRuntime 的各种创建场景
+ * 测试 createKoduckFlowRuntime 和 createScopedRuntime 的各种创建场景
  */
 
 import { describe, expect, it, vi } from "vitest";
 import {
-  createDuckFlowRuntime,
+  createKoduckFlowRuntime,
   createScopedRuntime,
-  type DuckFlowRuntimeOptions,
+  type KoduckFlowRuntimeOptions,
 } from "../../../src/common/runtime";
 import { createCoreContainer, type CoreServiceOverrides } from "../../../src/common/di/bootstrap";
 
-describe("DuckFlowRuntime Factory Functions", () => {
-  describe("createDuckFlowRuntime", () => {
+describe("KoduckFlowRuntime Factory Functions", () => {
+  describe("createKoduckFlowRuntime", () => {
     it("should create runtime with default options", () => {
-      const runtime = createDuckFlowRuntime();
+      const runtime = createKoduckFlowRuntime();
 
       expect(runtime).toBeDefined();
       expect(runtime.container).toBeDefined();
@@ -28,7 +28,7 @@ describe("DuckFlowRuntime Factory Functions", () => {
 
     it("should create runtime with custom container", () => {
       const customContainer = createCoreContainer();
-      const runtime = createDuckFlowRuntime({ container: customContainer });
+      const runtime = createKoduckFlowRuntime({ container: customContainer });
 
       expect(runtime.container).toBe(customContainer);
       expect(runtime.EntityManager).toBeDefined();
@@ -37,7 +37,7 @@ describe("DuckFlowRuntime Factory Functions", () => {
     });
 
     it("should create runtime with custom manager initialization options", () => {
-      const initOptions: DuckFlowRuntimeOptions = {
+      const initOptions: KoduckFlowRuntimeOptions = {
         managerInitialization: {
           timeoutMs: 3000,
           retries: {
@@ -48,7 +48,7 @@ describe("DuckFlowRuntime Factory Functions", () => {
         },
       };
 
-      const runtime = createDuckFlowRuntime(initOptions);
+      const runtime = createKoduckFlowRuntime(initOptions);
 
       const defaults = runtime.getManagerInitializationDefaults();
       expect(defaults.timeoutMs).toBe(3000);
@@ -62,7 +62,7 @@ describe("DuckFlowRuntime Factory Functions", () => {
     it("should apply service overrides when provided", () => {
       const customContainer = createCoreContainer();
 
-      const runtime = createDuckFlowRuntime({
+      const runtime = createKoduckFlowRuntime({
         container: customContainer,
       });
 
@@ -75,7 +75,7 @@ describe("DuckFlowRuntime Factory Functions", () => {
     });
 
     it("should register runtime instance and provide access to core services", () => {
-      const runtime = createDuckFlowRuntime();
+      const runtime = createKoduckFlowRuntime();
 
       // Verify runtime has access to its container and core services
       expect(runtime.container).toBeDefined();
@@ -104,7 +104,7 @@ describe("DuckFlowRuntime Factory Functions", () => {
         renderManager: mockRenderManager,
       };
 
-      const runtime = createDuckFlowRuntime({
+      const runtime = createKoduckFlowRuntime({
         container: customContainer,
         overrides,
       });
@@ -119,7 +119,7 @@ describe("DuckFlowRuntime Factory Functions", () => {
 
   describe("createScopedRuntime", () => {
     it("should create scoped runtime from parent", () => {
-      const parentRuntime = createDuckFlowRuntime();
+      const parentRuntime = createKoduckFlowRuntime();
       const scopedRuntime = createScopedRuntime(parentRuntime);
 
       expect(scopedRuntime).toBeDefined();
@@ -131,7 +131,7 @@ describe("DuckFlowRuntime Factory Functions", () => {
     });
 
     it("should create scoped runtime with custom options", () => {
-      const parentRuntime = createDuckFlowRuntime();
+      const parentRuntime = createKoduckFlowRuntime();
 
       const scopedRuntime = createScopedRuntime(parentRuntime);
 
@@ -148,7 +148,7 @@ describe("DuckFlowRuntime Factory Functions", () => {
     });
 
     it("should inherit initialization options from parent by default", () => {
-      const parentRuntime = createDuckFlowRuntime({
+      const parentRuntime = createKoduckFlowRuntime({
         managerInitialization: {
           timeoutMs: 4000,
           retries: {
@@ -169,13 +169,13 @@ describe("DuckFlowRuntime Factory Functions", () => {
     });
 
     it("should override initialization options when provided", () => {
-      const parentRuntime = createDuckFlowRuntime({
+      const parentRuntime = createKoduckFlowRuntime({
         managerInitialization: {
           timeoutMs: 2000,
         },
       });
 
-      const customOptions: DuckFlowRuntimeOptions["managerInitialization"] = {
+      const customOptions: KoduckFlowRuntimeOptions["managerInitialization"] = {
         timeoutMs: 5000,
         retries: {
           attempts: 1,
@@ -197,7 +197,7 @@ describe("DuckFlowRuntime Factory Functions", () => {
     });
 
     it("should register runtime instances in their respective containers", () => {
-      const parentRuntime = createDuckFlowRuntime();
+      const parentRuntime = createKoduckFlowRuntime();
       const scopedRuntime = createScopedRuntime(parentRuntime);
 
       // Verify both runtimes have their containers set up
@@ -214,7 +214,7 @@ describe("DuckFlowRuntime Factory Functions", () => {
     });
 
     it("should isolate entity operations between parent and scoped runtimes", () => {
-      const parentRuntime = createDuckFlowRuntime();
+      const parentRuntime = createKoduckFlowRuntime();
       const scopedRuntime = createScopedRuntime(parentRuntime);
 
       // Note: This is a conceptual test. Actual entity isolation depends on
@@ -231,7 +231,7 @@ describe("DuckFlowRuntime Factory Functions", () => {
     });
 
     it("should support multiple scoped runtimes from same parent", () => {
-      const parentRuntime = createDuckFlowRuntime();
+      const parentRuntime = createKoduckFlowRuntime();
       const scopedRuntime1 = createScopedRuntime(parentRuntime);
       const scopedRuntime2 = createScopedRuntime(parentRuntime);
 
@@ -245,7 +245,7 @@ describe("DuckFlowRuntime Factory Functions", () => {
     });
 
     it("should dispose scoped runtime without affecting parent", () => {
-      const parentRuntime = createDuckFlowRuntime();
+      const parentRuntime = createKoduckFlowRuntime();
       const scopedRuntime = createScopedRuntime(parentRuntime);
 
       const parentEntityManager = parentRuntime.EntityManager;
@@ -263,7 +263,7 @@ describe("DuckFlowRuntime Factory Functions", () => {
   describe("Factory Functions Integration", () => {
     it("should create runtime hierarchy with proper isolation", () => {
       // Create parent
-      const parentRuntime = createDuckFlowRuntime({
+      const parentRuntime = createKoduckFlowRuntime({
         managerInitialization: { timeoutMs: 3000 },
       });
 
@@ -287,7 +287,7 @@ describe("DuckFlowRuntime Factory Functions", () => {
     });
 
     it("should handle entity manager inheritance in scoped runtimes", () => {
-      const parentRuntime = createDuckFlowRuntime();
+      const parentRuntime = createKoduckFlowRuntime();
       const scopedRuntime = createScopedRuntime(parentRuntime);
 
       // Both should have EntityManager

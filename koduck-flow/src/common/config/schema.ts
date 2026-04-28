@@ -1,6 +1,6 @@
 /**
  * @module src/common/config/schema
- * @description Configuration schema definitions and validation for Duck Flow.
+ * @description Configuration schema definitions and validation for Koduck Flow.
  * Provides strongly-typed configuration interfaces using Zod for runtime validation.
  * Covers all subsystems: events, rendering, entities, performance, multi-tenancy, and plugins.
  *
@@ -27,10 +27,10 @@
  *
  * @example
  * ```typescript
- * import { DuckFlowConfig, validateConfig } from '@/config/schema';
+ * import { KoduckFlowConfig, validateConfig } from '@/config/schema';
  *
  * // Create configuration object
- * const config: DuckFlowConfig = {
+ * const config: KoduckFlowConfig = {
  *   environment: 'production',
  *   event: {
  *     batchSize: 32,
@@ -75,7 +75,7 @@
  * }
  *
  * // Development configuration with profiling
- * const devConfig: Partial<DuckFlowConfig> = {
+ * const devConfig: Partial<KoduckFlowConfig> = {
  *   environment: 'development',
  *   performance: {
  *     enableProfiling: true,
@@ -200,8 +200,8 @@ export interface PluginConfig {
 }
 
 /**
- * Complete Duck Flow Configuration Interface
- * @typedef {Object} DuckFlowConfig
+ * Complete Koduck Flow Configuration Interface
+ * @typedef {Object} KoduckFlowConfig
  * @property {string} environment - Runtime environment: 'development' | 'staging' | 'production'
  * @property {EventConfig} event - Event system configuration
  * @property {RenderConfig} render - Rendering system configuration
@@ -210,7 +210,7 @@ export interface PluginConfig {
  * @property {TenantConfig} [tenant] - Multi-tenancy configuration (optional)
  * @property {PluginConfig} plugin - Plugin system configuration
  */
-export interface DuckFlowConfig {
+export interface KoduckFlowConfig {
   environment: "development" | "staging" | "production";
   event: EventConfig;
   render: RenderConfig;
@@ -351,8 +351,8 @@ export const PluginConfigSchema = z
   })
   .strict();
 
-// DuckFlow 配置 Schema
-export const DuckFlowConfigSchema = z
+// KoduckFlow 配置 Schema
+export const KoduckFlowConfigSchema = z
   .object({
     environment: EnvironmentSchema,
     event: EventConfigSchema,
@@ -370,7 +370,7 @@ export const DuckFlowConfigSchema = z
  */
 export function validateConfig(config: unknown): ValidationResult {
   const start = typeof performance !== "undefined" ? performance.now() : Date.now();
-  const result = DuckFlowConfigSchema.safeParse(config);
+  const result = KoduckFlowConfigSchema.safeParse(config);
   const end = typeof performance !== "undefined" ? performance.now() : Date.now();
   const durationMs = Number(end - start);
 
@@ -404,7 +404,7 @@ export function validateConfig(config: unknown): ValidationResult {
   };
 }
 
-type SchemaIssue = z.ZodError<DuckFlowConfig>["issues"][number];
+type SchemaIssue = z.ZodError<KoduckFlowConfig>["issues"][number];
 
 function transformIssue(issue: SchemaIssue): ValidationIssue {
   const path = issue.path.length > 0 ? issue.path.join(".") : "(root)";
@@ -683,19 +683,19 @@ export function generateJsonSchema() {
     // 使用动态导入避免在浏览器环境中出错
     import("fs")
       .then((fs) => {
-        const schemaPath = "./config/schema/duckflow.schema.json";
-        const tsPath = "./config/schema/duckflow.schema.d.ts";
+        const schemaPath = "./config/schema/koduckflow.schema.json";
+        const tsPath = "./config/schema/koduckflow.schema.d.ts";
 
         fs.writeFileSync(schemaPath, JSON.stringify(schema, null, 2));
-        console.log("✅ Generated duckflow.schema.json");
+        console.log("✅ Generated koduckflow.schema.json");
 
         const tsDeclaration = `/**
- * DuckFlow Configuration TypeScript Declarations
+ * KoduckFlow Configuration TypeScript Declarations
  *
  * Generated from Zod schema - DO NOT EDIT MANUALLY
  */
 
-export interface DuckFlowConfig {
+export interface KoduckFlowConfig {
   environment: "development" | "staging" | "production";
   event: {
     batchSize: number;
@@ -750,7 +750,7 @@ export interface DuckFlowConfig {
 }
 `;
         fs.writeFileSync(tsPath, tsDeclaration);
-        console.log("✅ Generated duckflow.schema.d.ts");
+        console.log("✅ Generated koduckflow.schema.d.ts");
       })
       .catch(() => {
         // 忽略文件系统不可用的错误（浏览器环境）

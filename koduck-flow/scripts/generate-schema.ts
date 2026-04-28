@@ -1,7 +1,7 @@
 #!/usr/bin/env tsx
 
 /**
- * DuckFlow 配置 Schema 生成脚本
+ * KoduckFlow 配置 Schema 生成脚本
  */
 
 import { writeFileSync, mkdirSync } from "node:fs";
@@ -16,20 +16,20 @@ const configDir = resolve(__dirname, "../config/schema");
 
 mkdirSync(configDir, { recursive: true });
 
-const jsonSchemaPath = resolve(configDir, "duckflow.schema.json");
-const declarationPath = resolve(configDir, "duckflow.schema.d.ts");
+const jsonSchemaPath = resolve(configDir, "koduckflow.schema.json");
+const declarationPath = resolve(configDir, "koduckflow.schema.d.ts");
 
 const schema = generateJsonSchema();
 writeFileSync(jsonSchemaPath, JSON.stringify(schema, null, 2));
-console.log("✅ Generated duckflow.schema.json");
+console.log("✅ Generated koduckflow.schema.json");
 
 const declaration = `/**
- * DuckFlow Configuration TypeScript Declarations
+ * KoduckFlow Configuration TypeScript Declarations
  *
  * Generated from Zod schema - DO NOT EDIT MANUALLY
  */
 
-export interface DuckFlowConfig {
+export interface KoduckFlowConfig {
   environment: "development" | "staging" | "production";
   event: {
     batchSize: number;
@@ -85,6 +85,6 @@ export interface DuckFlowConfig {
 `;
 
 writeFileSync(declarationPath, declaration);
-console.log("✅ Generated duckflow.schema.d.ts");
+console.log("✅ Generated koduckflow.schema.d.ts");
 
 console.log("🎉 Schema generation completed!");

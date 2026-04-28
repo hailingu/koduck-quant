@@ -3,10 +3,10 @@ import { describe, expect, it } from "vitest";
 import {
   validateConfig,
   generateJsonSchema,
-  type DuckFlowConfig,
+  type KoduckFlowConfig,
 } from "../../../src/common/config/schema";
 
-const baselineConfig: DuckFlowConfig = {
+const baselineConfig: KoduckFlowConfig = {
   environment: "development",
   event: {
     batchSize: 16,
@@ -64,7 +64,7 @@ describe("validateConfig", () => {
   });
 
   it("surfaces actionable metadata for invalid configuration", () => {
-    const invalidConfig: DuckFlowConfig = {
+    const invalidConfig: KoduckFlowConfig = {
       ...baselineConfig,
       event: {
         ...baselineConfig.event,

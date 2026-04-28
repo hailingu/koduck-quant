@@ -127,7 +127,7 @@
  * - `capability-detector.ts` - Runtime capability detection and analysis
  * - `registry-generator.ts` - Code generation for dynamic registries
  *
- * @author Duck Flow Team
+ * @author Koduck Flow Team
  * @version 1.0.0
  * @since Phase 4.1
  */

@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const createDuckFlowRuntimeMock = vi.hoisted(() => vi.fn());
+const createKoduckFlowRuntimeMock = vi.hoisted(() => vi.fn());
 const loggerMock = vi.hoisted(() => {
   const logger = {
     debug: vi.fn(),
@@ -19,14 +19,14 @@ const loggerMock = vi.hoisted(() => {
   return logger;
 });
 
-vi.mock("../../../src/common/runtime/duck-flow-runtime", async () => {
+vi.mock("../../../src/common/runtime/koduck-flow-runtime", async () => {
   const actual = await vi.importActual<
-    typeof import("../../../src/common/runtime/duck-flow-runtime")
-  >("../../../src/common/runtime/duck-flow-runtime");
+    typeof import("../../../src/common/runtime/koduck-flow-runtime")
+  >("../../../src/common/runtime/koduck-flow-runtime");
 
   return {
     ...actual,
-    createDuckFlowRuntime: createDuckFlowRuntimeMock,
+    createKoduckFlowRuntime: createKoduckFlowRuntimeMock,
   };
 });
 
@@ -38,10 +38,10 @@ import { createDiagnosticRuntime } from "../../../src/common/runtime/diagnostic-
 
 describe("createDiagnosticRuntime", () => {
   beforeEach(() => {
-    createDuckFlowRuntimeMock.mockReset();
+    createKoduckFlowRuntimeMock.mockReset();
     loggerMock.info.mockReset();
     const runtime = { dispose: vi.fn() } as Record<string, unknown>;
-    createDuckFlowRuntimeMock.mockReturnValue(runtime);
+    createKoduckFlowRuntimeMock.mockReturnValue(runtime);
   });
 
   it("delegates runtime creation to base factory", () => {
@@ -49,8 +49,8 @@ describe("createDiagnosticRuntime", () => {
 
     const runtime = createDiagnosticRuntime(options);
 
-    expect(createDuckFlowRuntimeMock).toHaveBeenCalledWith(options);
-    expect(runtime).toBe(createDuckFlowRuntimeMock.mock.results[0]!.value);
+    expect(createKoduckFlowRuntimeMock).toHaveBeenCalledWith(options);
+    expect(runtime).toBe(createKoduckFlowRuntimeMock.mock.results[0]!.value);
   });
 
   it("logs metadata when label is provided", () => {

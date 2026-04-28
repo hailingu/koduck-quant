@@ -1,10 +1,10 @@
 /**
  * @module src/common/runtime/runtime-controller
- * @description Runtime controller for managing DuckFlow runtime instances with multi-tenancy support.
+ * @description Runtime controller for managing KoduckFlow runtime instances with multi-tenancy support.
  * Provides centralized state management for runtime lifecycle, environment switching, and tenant context handling.
  * @example
  * ```typescript
- * const controller = new DuckFlowRuntimeController({
+ * const controller = new KoduckFlowRuntimeController({
  *   initialEnvironment: { environment: 'production', tenantId: 'tenant-1' },
  *   factory: runtimeFactory
  * });
@@ -15,10 +15,10 @@
 
 import { logger } from "../logger";
 
-import { DuckFlowRuntime } from "./duck-flow-runtime";
-import { DuckFlowRuntimeFactory, type RuntimeCreationOptions } from "./runtime-factory";
+import { KoduckFlowRuntime } from "./koduck-flow-runtime";
+import { KoduckFlowRuntimeFactory, type RuntimeCreationOptions } from "./runtime-factory";
 import type { RuntimeEnvironmentKey } from "./runtime-key";
-import type { DuckFlowTenantConfig, ResolvedTenantContext } from "./tenant-context";
+import type { KoduckFlowTenantConfig, ResolvedTenantContext } from "./tenant-context";
 import { resolveTenantContext } from "./tenant-context";
 
 /**
@@ -33,14 +33,14 @@ export type RuntimeControllerSource = "controller" | "controller-factory" | "con
 /**
  * Immutable snapshot of runtime controller state
  * @typedef {Object} RuntimeControllerSnapshot
- * @property {DuckFlowRuntime|null} runtime - Current runtime instance or null if not initialized
+ * @property {KoduckFlowRuntime|null} runtime - Current runtime instance or null if not initialized
  * @property {RuntimeEnvironmentKey} [environment] - Current runtime environment configuration
  * @property {ResolvedTenantContext} [tenant] - Current tenant context for multi-tenant isolation
  * @property {RuntimeControllerSource} source - Source identifier for current runtime
  * @property {Record<string, unknown>} [metadata] - Custom metadata attached to runtime state
  */
 export type RuntimeControllerSnapshot = {
-  runtime: DuckFlowRuntime | null;
+  runtime: KoduckFlowRuntime | null;
   environment?: RuntimeEnvironmentKey;
   tenant?: ResolvedTenantContext;
   source: RuntimeControllerSource;
@@ -54,27 +54,27 @@ export type RuntimeControllerSnapshot = {
  */
 export type RuntimeControllerListener = () => void;
 
-type TenantInput = ResolvedTenantContext | DuckFlowTenantConfig | null | undefined;
+type TenantInput = ResolvedTenantContext | KoduckFlowTenantConfig | null | undefined;
 
 /**
- * Initialization options for DuckFlowRuntimeController
+ * Initialization options for KoduckFlowRuntimeController
  * @interface RuntimeControllerOptions
- * @property {DuckFlowRuntime|null} [initialRuntime] - Initial runtime instance to use, or null for no runtime
+ * @property {KoduckFlowRuntime|null} [initialRuntime] - Initial runtime instance to use, or null for no runtime
  * @property {RuntimeEnvironmentKey} [initialEnvironment] - Initial environment key configuration
  * @property {TenantInput} [initialTenant] - Initial tenant configuration or context
  * @property {RuntimeControllerSource} [initialSource='controller'] - Source identifier for initial runtime
  * @property {Record<string,unknown>} [initialMetadata] - Initial metadata to attach to runtime state
  * @property {boolean} [disposePreviousOnSwitch=true] - Whether to dispose previous runtime when switching
- * @property {DuckFlowRuntimeFactory} [factory] - Default factory for runtime creation and management
+ * @property {KoduckFlowRuntimeFactory} [factory] - Default factory for runtime creation and management
  */
 export interface RuntimeControllerOptions {
-  initialRuntime?: DuckFlowRuntime | null;
+  initialRuntime?: KoduckFlowRuntime | null;
   initialEnvironment?: RuntimeEnvironmentKey;
   initialTenant?: TenantInput;
   initialSource?: RuntimeControllerSource;
   initialMetadata?: Record<string, unknown>;
   disposePreviousOnSwitch?: boolean;
-  factory?: DuckFlowRuntimeFactory;
+  factory?: KoduckFlowRuntimeFactory;
 }
 
 /**
@@ -97,7 +97,7 @@ export interface RuntimeSetOptions {
 /**
  * Options for switchToEnvironment method
  * @interface RuntimeSwitchOptions
- * @property {DuckFlowRuntimeFactory} [factory] - Factory to use for runtime creation (overrides default)
+ * @property {KoduckFlowRuntimeFactory} [factory] - Factory to use for runtime creation (overrides default)
  * @property {RuntimeCreationOptions} [options] - Options to pass to runtime factory
  * @property {TenantInput} [tenant] - Tenant context for new runtime
  * @property {boolean} [disposePrevious=true] - Whether to dispose previous runtime
@@ -106,7 +106,7 @@ export interface RuntimeSetOptions {
  * @property {Record<string,unknown>} [metadata] - Metadata to attach to new runtime state
  */
 export interface RuntimeSwitchOptions {
-  factory?: DuckFlowRuntimeFactory;
+  factory?: KoduckFlowRuntimeFactory;
   options?: RuntimeCreationOptions;
   tenant?: TenantInput;
   disposePrevious?: boolean;
@@ -116,7 +116,7 @@ export interface RuntimeSwitchOptions {
 }
 
 type SnapshotUpdate = {
-  runtime?: DuckFlowRuntime | null;
+  runtime?: KoduckFlowRuntime | null;
   environment?: RuntimeEnvironmentKey | null;
   tenant?: ResolvedTenantContext | null | undefined;
   source?: RuntimeControllerSource;
@@ -124,13 +124,13 @@ type SnapshotUpdate = {
 };
 
 /**
- * Runtime controller managing DuckFlow runtime instances with multi-tenancy support
- * @class DuckFlowRuntimeController
+ * Runtime controller managing KoduckFlow runtime instances with multi-tenancy support
+ * @class KoduckFlowRuntimeController
  * @description Provides centralized state management for runtime lifecycle, environment switching,
  * and tenant context handling. Supports listener subscription for state changes.
  * @example
  * ```typescript
- * const controller = new DuckFlowRuntimeController({
+ * const controller = new KoduckFlowRuntimeController({
  *   initialEnvironment: { environment: 'prod', tenantId: 'tenant-1' },
  *   factory: runtimeFactory,
  *   disposePreviousOnSwitch: true
@@ -141,21 +141,21 @@ type SnapshotUpdate = {
  * });
  * ```
  */
-export class DuckFlowRuntimeController {
+export class KoduckFlowRuntimeController {
   private snapshot: RuntimeControllerSnapshot;
 
   private readonly listeners = new Set<RuntimeControllerListener>();
 
   private readonly disposePreviousOnSwitch: boolean;
 
-  private readonly defaultFactory: DuckFlowRuntimeFactory | undefined;
+  private readonly defaultFactory: KoduckFlowRuntimeFactory | undefined;
 
   /**
    * Construct a new runtime controller
    * @param {RuntimeControllerOptions} [options={}] - Configuration for controller initialization
    * @example
    * ```typescript
-   * const controller = new DuckFlowRuntimeController({
+   * const controller = new KoduckFlowRuntimeController({
    *   initialRuntime: existingRuntime,
    *   initialEnvironment: { environment: 'dev', tenantId: 'test' },
    *   disposePreviousOnSwitch: true
@@ -232,7 +232,7 @@ export class DuckFlowRuntimeController {
 
   /**
    * Get the current runtime instance
-   * @returns {DuckFlowRuntime|null} Current runtime or null if not initialized
+   * @returns {KoduckFlowRuntime|null} Current runtime or null if not initialized
    * @example
    * ```typescript
    * const runtime = controller.getRuntime();
@@ -241,7 +241,7 @@ export class DuckFlowRuntimeController {
    * }
    * ```
    */
-  getRuntime(): DuckFlowRuntime | null {
+  getRuntime(): KoduckFlowRuntime | null {
     return this.snapshot.runtime;
   }
 
@@ -260,13 +260,13 @@ export class DuckFlowRuntimeController {
 
   /**
    * Set the runtime instance with optional environment and tenant configuration
-   * @param {DuckFlowRuntime|null} runtime - Runtime to set, or null to clear
+   * @param {KoduckFlowRuntime|null} runtime - Runtime to set, or null to clear
    * @param {RuntimeSetOptions} [options={}] - Configuration options
-   * @returns {DuckFlowRuntime|null} The set runtime instance
+   * @returns {KoduckFlowRuntime|null} The set runtime instance
    * @throws {Error} If runtime initialization fails
    * @example
    * ```typescript
-   * const newRuntime = new DuckFlowRuntime();
+   * const newRuntime = new KoduckFlowRuntime();
    * controller.setRuntime(newRuntime, {
    *   environment: { environment: 'prod', tenantId: 'tenant-1' },
    *   tenant: tenantConfig,
@@ -276,9 +276,9 @@ export class DuckFlowRuntimeController {
    * ```
    */
   setRuntime(
-    runtime: DuckFlowRuntime | null,
+    runtime: KoduckFlowRuntime | null,
     options: RuntimeSetOptions = {}
-  ): DuckFlowRuntime | null {
+  ): KoduckFlowRuntime | null {
     const previous = this.snapshot.runtime;
     const environment = options.environment ?? this.snapshot.environment;
     const source = options.source ?? "controller";
@@ -311,7 +311,7 @@ export class DuckFlowRuntimeController {
         try {
           previous.dispose();
         } catch (error) {
-          logger.error("Failed to dispose previous DuckFlow runtime", {
+          logger.error("Failed to dispose previous KoduckFlow runtime", {
             error,
           });
         }
@@ -325,7 +325,7 @@ export class DuckFlowRuntimeController {
    * Switch to a different runtime environment, creating new runtime if needed
    * @param {RuntimeEnvironmentKey} key - Environment key to switch to
    * @param {RuntimeSwitchOptions} [options={}] - Switch configuration
-   * @returns {DuckFlowRuntime} The runtime for the switched environment
+   * @returns {KoduckFlowRuntime} The runtime for the switched environment
    * @throws {Error} If no factory provided or environment switch fails
    * @example
    * ```typescript
@@ -343,11 +343,11 @@ export class DuckFlowRuntimeController {
   switchToEnvironment(
     key: RuntimeEnvironmentKey,
     options: RuntimeSwitchOptions = {}
-  ): DuckFlowRuntime {
+  ): KoduckFlowRuntime {
     const factory = options.factory ?? this.defaultFactory;
     if (!factory) {
       throw new Error(
-        "DuckFlowRuntimeController requires a factory to switch runtime by environment."
+        "KoduckFlowRuntimeController requires a factory to switch runtime by environment."
       );
     }
 
@@ -453,7 +453,7 @@ export class DuckFlowRuntimeController {
   }
 
   private applyTenantToRuntime(
-    runtime: DuckFlowRuntime | null,
+    runtime: KoduckFlowRuntime | null,
     tenant: ResolvedTenantContext | null | undefined
   ): ResolvedTenantContext | null | undefined {
     if (!runtime) {
@@ -479,7 +479,7 @@ export class DuckFlowRuntimeController {
   private normalizeTenantInput(
     tenant: TenantInput,
     environment: RuntimeEnvironmentKey | undefined,
-    runtime: DuckFlowRuntime | null
+    runtime: KoduckFlowRuntime | null
   ): ResolvedTenantContext | null | undefined {
     if (tenant === undefined) {
       return undefined;

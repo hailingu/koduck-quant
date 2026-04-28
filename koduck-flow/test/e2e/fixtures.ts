@@ -103,7 +103,7 @@ export const test = base.extend<{
   testFlow: typeof testData.flows.simple;
   tenantContext: { tenantId: string; config: typeof testData.tenants.tenantA.config };
 }>({
-  // Fixture for a page with DuckFlow runtime initialized
+  // Fixture for a page with KoduckFlow runtime initialized
   runtimePage: async ({ page }: { page: Page }, use: (page: Page) => Promise<void>) => {
     // Navigate to the app
     await page.goto("/");

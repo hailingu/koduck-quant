@@ -1,4 +1,4 @@
-import type { DuckFlowConfig } from "../schema";
+import type { KoduckFlowConfig } from "../schema";
 
 export type EnvValueType = "string" | "number" | "boolean" | "enum";
 
@@ -22,7 +22,7 @@ export interface EnvVarDefinition {
 
 export const ENV_VAR_DEFINITIONS: EnvVarDefinition[] = [
   {
-    name: "DUCKFLOW_ENVIRONMENT",
+    name: "KODUCKFLOW_ENVIRONMENT",
     description: "Override deployment environment (development/staging/production)",
     targetPath: "environment",
     category: "environment",
@@ -34,7 +34,7 @@ export const ENV_VAR_DEFINITIONS: EnvVarDefinition[] = [
     },
   },
   {
-    name: "DUCKFLOW_EVENT_BATCH_SIZE",
+    name: "KODUCKFLOW_EVENT_BATCH_SIZE",
     description: "Maximum number of events flushed per batch",
     targetPath: "event.batchSize",
     category: "event",
@@ -43,7 +43,7 @@ export const ENV_VAR_DEFINITIONS: EnvVarDefinition[] = [
     value: { type: "number" },
   },
   {
-    name: "DUCKFLOW_EVENT_BATCH_INTERVAL",
+    name: "KODUCKFLOW_EVENT_BATCH_INTERVAL",
     description: "Interval in milliseconds before forcing an event flush",
     targetPath: "event.batchInterval",
     category: "event",
@@ -52,7 +52,7 @@ export const ENV_VAR_DEFINITIONS: EnvVarDefinition[] = [
     value: { type: "number" },
   },
   {
-    name: "DUCKFLOW_EVENT_MAX_QUEUE_SIZE",
+    name: "KODUCKFLOW_EVENT_MAX_QUEUE_SIZE",
     description: "Maximum buffered events before backpressure engages",
     targetPath: "event.maxQueueSize",
     category: "event",
@@ -61,7 +61,7 @@ export const ENV_VAR_DEFINITIONS: EnvVarDefinition[] = [
     value: { type: "number" },
   },
   {
-    name: "DUCKFLOW_EVENT_ENABLE_DEDUP",
+    name: "KODUCKFLOW_EVENT_ENABLE_DEDUP",
     description: "Enable server-side event deduplication",
     targetPath: "event.enableDedup",
     category: "event",
@@ -70,7 +70,7 @@ export const ENV_VAR_DEFINITIONS: EnvVarDefinition[] = [
     value: { type: "boolean" },
   },
   {
-    name: "DUCKFLOW_EVENT_CONCURRENCY_LIMIT",
+    name: "KODUCKFLOW_EVENT_CONCURRENCY_LIMIT",
     description: "Maximum number of concurrent event processors",
     targetPath: "event.concurrencyLimit",
     category: "event",
@@ -79,7 +79,7 @@ export const ENV_VAR_DEFINITIONS: EnvVarDefinition[] = [
     value: { type: "number" },
   },
   {
-    name: "DUCKFLOW_EVENT_MAX_LISTENERS",
+    name: "KODUCKFLOW_EVENT_MAX_LISTENERS",
     description: "Upper bound for registered event listeners per manager",
     targetPath: "event.maxListeners",
     category: "event",
@@ -87,7 +87,7 @@ export const ENV_VAR_DEFINITIONS: EnvVarDefinition[] = [
     value: { type: "number" },
   },
   {
-    name: "DUCKFLOW_RENDER_FRAME_RATE",
+    name: "KODUCKFLOW_RENDER_FRAME_RATE",
     description: "Target render frame rate",
     targetPath: "render.frameRate",
     category: "render",
@@ -96,7 +96,7 @@ export const ENV_VAR_DEFINITIONS: EnvVarDefinition[] = [
     value: { type: "number" },
   },
   {
-    name: "DUCKFLOW_RENDER_CACHE_TTL",
+    name: "KODUCKFLOW_RENDER_CACHE_TTL",
     description: "Renderer cache time-to-live in milliseconds",
     targetPath: "render.cacheTTL",
     category: "render",
@@ -104,7 +104,7 @@ export const ENV_VAR_DEFINITIONS: EnvVarDefinition[] = [
     value: { type: "number" },
   },
   {
-    name: "DUCKFLOW_RENDER_MAX_CACHE_SIZE",
+    name: "KODUCKFLOW_RENDER_MAX_CACHE_SIZE",
     description: "Maximum cache entries for renderer outputs",
     targetPath: "render.maxCacheSize",
     category: "render",
@@ -112,7 +112,7 @@ export const ENV_VAR_DEFINITIONS: EnvVarDefinition[] = [
     value: { type: "number" },
   },
   {
-    name: "DUCKFLOW_RENDER_DEFAULT_RENDERER",
+    name: "KODUCKFLOW_RENDER_DEFAULT_RENDERER",
     description: "Default renderer selection (react/canvas/webgpu)",
     targetPath: "render.defaultRenderer",
     category: "render",
@@ -123,7 +123,7 @@ export const ENV_VAR_DEFINITIONS: EnvVarDefinition[] = [
     },
   },
   {
-    name: "DUCKFLOW_RENDER_ENABLE_DIRTY_REGION",
+    name: "KODUCKFLOW_RENDER_ENABLE_DIRTY_REGION",
     description: "Toggle dirty-region incremental rendering",
     targetPath: "render.enableDirtyRegion",
     category: "render",
@@ -131,7 +131,7 @@ export const ENV_VAR_DEFINITIONS: EnvVarDefinition[] = [
     value: { type: "boolean" },
   },
   {
-    name: "DUCKFLOW_RENDER_CONSTANTS_SMALL",
+    name: "KODUCKFLOW_RENDER_CONSTANTS_SMALL",
     description: "Threshold for SMALL render annotations",
     targetPath: "render.constants.SMALL",
     category: "render",
@@ -139,7 +139,7 @@ export const ENV_VAR_DEFINITIONS: EnvVarDefinition[] = [
     value: { type: "number" },
   },
   {
-    name: "DUCKFLOW_RENDER_CONSTANTS_MEDIUM",
+    name: "KODUCKFLOW_RENDER_CONSTANTS_MEDIUM",
     description: "Threshold for MEDIUM render annotations",
     targetPath: "render.constants.MEDIUM",
     category: "render",
@@ -147,7 +147,7 @@ export const ENV_VAR_DEFINITIONS: EnvVarDefinition[] = [
     value: { type: "number" },
   },
   {
-    name: "DUCKFLOW_RENDER_CONSTANTS_LARGE",
+    name: "KODUCKFLOW_RENDER_CONSTANTS_LARGE",
     description: "Threshold for LARGE render annotations",
     targetPath: "render.constants.LARGE",
     category: "render",
@@ -155,7 +155,7 @@ export const ENV_VAR_DEFINITIONS: EnvVarDefinition[] = [
     value: { type: "number" },
   },
   {
-    name: "DUCKFLOW_ENTITY_MAX_ENTITIES",
+    name: "KODUCKFLOW_ENTITY_MAX_ENTITIES",
     description: "Maximum entities allowed in runtime",
     targetPath: "entity.maxEntities",
     category: "entity",
@@ -163,7 +163,7 @@ export const ENV_VAR_DEFINITIONS: EnvVarDefinition[] = [
     value: { type: "number" },
   },
   {
-    name: "DUCKFLOW_ENTITY_GC_INTERVAL",
+    name: "KODUCKFLOW_ENTITY_GC_INTERVAL",
     description: "Entity garbage collection interval in milliseconds",
     targetPath: "entity.gcInterval",
     category: "entity",
@@ -171,7 +171,7 @@ export const ENV_VAR_DEFINITIONS: EnvVarDefinition[] = [
     value: { type: "number" },
   },
   {
-    name: "DUCKFLOW_ENTITY_ENABLE_ENTITY_POOL",
+    name: "KODUCKFLOW_ENTITY_ENABLE_ENTITY_POOL",
     description: "Enable object pooling for entity lifecycle",
     targetPath: "entity.enableEntityPool",
     category: "entity",
@@ -179,7 +179,7 @@ export const ENV_VAR_DEFINITIONS: EnvVarDefinition[] = [
     value: { type: "boolean" },
   },
   {
-    name: "DUCKFLOW_PERFORMANCE_ENABLE_PROFILING",
+    name: "KODUCKFLOW_PERFORMANCE_ENABLE_PROFILING",
     description: "Enable performance profiler instrumentation",
     targetPath: "performance.enableProfiling",
     category: "performance",
@@ -187,7 +187,7 @@ export const ENV_VAR_DEFINITIONS: EnvVarDefinition[] = [
     value: { type: "boolean" },
   },
   {
-    name: "DUCKFLOW_PERFORMANCE_METRICS_INTERVAL",
+    name: "KODUCKFLOW_PERFORMANCE_METRICS_INTERVAL",
     description: "Interval in milliseconds between performance metric flushes",
     targetPath: "performance.metricsInterval",
     category: "performance",
@@ -195,7 +195,7 @@ export const ENV_VAR_DEFINITIONS: EnvVarDefinition[] = [
     value: { type: "number" },
   },
   {
-    name: "DUCKFLOW_PERFORMANCE_ENABLE_VERBOSE_LOGGING",
+    name: "KODUCKFLOW_PERFORMANCE_ENABLE_VERBOSE_LOGGING",
     description: "Enable verbose diagnostic logging for performance insights",
     targetPath: "performance.enableVerboseLogging",
     category: "performance",
@@ -203,7 +203,7 @@ export const ENV_VAR_DEFINITIONS: EnvVarDefinition[] = [
     value: { type: "boolean" },
   },
   {
-    name: "DUCKFLOW_PLUGIN_SANDBOX_TIMEOUT",
+    name: "KODUCKFLOW_PLUGIN_SANDBOX_TIMEOUT",
     description: "Sandbox execution timeout in milliseconds",
     targetPath: "plugin.sandboxTimeout",
     category: "plugin",
@@ -211,7 +211,7 @@ export const ENV_VAR_DEFINITIONS: EnvVarDefinition[] = [
     value: { type: "number" },
   },
   {
-    name: "DUCKFLOW_PLUGIN_CAPABILITY_CACHE_ENABLED",
+    name: "KODUCKFLOW_PLUGIN_CAPABILITY_CACHE_ENABLED",
     description: "Enable plugin capability cache",
     targetPath: "plugin.capabilityCache.enabled",
     category: "plugin",
@@ -219,7 +219,7 @@ export const ENV_VAR_DEFINITIONS: EnvVarDefinition[] = [
     value: { type: "boolean" },
   },
   {
-    name: "DUCKFLOW_PLUGIN_CAPABILITY_CACHE_DEFAULT_TTL_MS",
+    name: "KODUCKFLOW_PLUGIN_CAPABILITY_CACHE_DEFAULT_TTL_MS",
     description: "Default TTL for plugin capability cache entries in milliseconds",
     targetPath: "plugin.capabilityCache.defaultTtlMs",
     category: "plugin",
@@ -227,7 +227,7 @@ export const ENV_VAR_DEFINITIONS: EnvVarDefinition[] = [
     value: { type: "number" },
   },
   {
-    name: "DUCKFLOW_PLUGIN_CAPABILITY_CACHE_MAX_SIZE",
+    name: "KODUCKFLOW_PLUGIN_CAPABILITY_CACHE_MAX_SIZE",
     description: "Maximum cache entries for plugin capabilities",
     targetPath: "plugin.capabilityCache.maxSize",
     category: "plugin",
@@ -235,7 +235,7 @@ export const ENV_VAR_DEFINITIONS: EnvVarDefinition[] = [
     value: { type: "number" },
   },
   {
-    name: "DUCKFLOW_PLUGIN_EXECUTION_DEFAULT_TIMEOUT_MS",
+    name: "KODUCKFLOW_PLUGIN_EXECUTION_DEFAULT_TIMEOUT_MS",
     description: "Default timeout in milliseconds for plugin executions",
     targetPath: "plugin.execution.defaultTimeoutMs",
     category: "plugin",
@@ -243,7 +243,7 @@ export const ENV_VAR_DEFINITIONS: EnvVarDefinition[] = [
     value: { type: "number" },
   },
   {
-    name: "DUCKFLOW_PLUGIN_EXECUTION_MAX_RETRIES",
+    name: "KODUCKFLOW_PLUGIN_EXECUTION_MAX_RETRIES",
     description: "Maximum retries for plugin execution failures",
     targetPath: "plugin.execution.maxRetries",
     category: "plugin",
@@ -253,7 +253,7 @@ export const ENV_VAR_DEFINITIONS: EnvVarDefinition[] = [
 ];
 
 export function applyEnvVar(
-  config: Partial<DuckFlowConfig>,
+  config: Partial<KoduckFlowConfig>,
   definition: EnvVarDefinition,
   rawValue: string
 ): void {

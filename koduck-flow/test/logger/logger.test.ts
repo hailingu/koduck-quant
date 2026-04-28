@@ -27,7 +27,7 @@ describe("Logger", () => {
     logger.setConfig({
       enabled: true,
       level: "debug",
-      prefix: "[DuckFlow]",
+      prefix: "[KoduckFlow]",
       format: "text",
       includeEmoji: false,
       metadata: undefined,
@@ -141,7 +141,7 @@ describe("Logger", () => {
 
       expect(console.warn).toHaveBeenCalledWith(
         expect.stringMatching(
-          /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z \[DuckFlow\] \[WARN\] \| test message$/
+          /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z \[KoduckFlow\] \[WARN\] \| test message$/
         )
       );
     });
@@ -152,7 +152,7 @@ describe("Logger", () => {
 
       expect(console.warn).toHaveBeenCalledWith(
         expect.stringMatching(
-          /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z \[DuckFlow\] \[WARN\] \| {"key":"value","number":42}$/
+          /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z \[KoduckFlow\] \[WARN\] \| {"key":"value","number":42}$/
         )
       );
     });
@@ -165,7 +165,7 @@ describe("Logger", () => {
 
       expect(console.warn).toHaveBeenCalledWith(
         expect.stringMatching(
-          /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z \[DuckFlow\] \[WARN\] \| \[object Object\]$/
+          /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z \[KoduckFlow\] \[WARN\] \| \[object Object\]$/
         )
       );
     });
@@ -201,7 +201,7 @@ describe("Logger", () => {
       const [message, ...rest] = warnMock.mock.calls[0];
 
       expect(message).toMatch(
-        /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z \[DuckFlow\] \[WARN\] \| message \| details=\[{"data":"test"},"extra"\]$/
+        /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z \[KoduckFlow\] \[WARN\] \| message \| details=\[{"data":"test"},"extra"\]$/
       );
       expect(rest).toEqual([{ data: "test" }, "extra"]);
     });
@@ -217,7 +217,7 @@ describe("Logger", () => {
 
       expect(console.warn).toHaveBeenCalledWith(
         expect.stringMatching(
-          /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z \[DuckFlow\] \[WARN\] \| undefined$/
+          /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z \[KoduckFlow\] \[WARN\] \| undefined$/
         )
       );
     });
@@ -260,7 +260,7 @@ describe("Logger", () => {
     test("withContext应该合并多层metadata", () => {
       logger.setConfig({
         format: "json",
-        metadata: { app: "duck-flow" },
+        metadata: { app: "koduck-flow" },
       });
 
       const contextual = logger.withContext({
@@ -276,7 +276,7 @@ describe("Logger", () => {
       expect(parsed).toMatchObject({
         level: "info",
         tag: "flow",
-        metadata: { app: "duck-flow", flowId: "123", step: 1 },
+        metadata: { app: "koduck-flow", flowId: "123", step: 1 },
       });
     });
   });
@@ -286,14 +286,14 @@ describe("Logger", () => {
       logger.setConfig({ level: "debug" });
       logger.time("test-timer");
 
-      expect(console.time).toHaveBeenCalledWith("[DuckFlow] test-timer");
+      expect(console.time).toHaveBeenCalledWith("[KoduckFlow] test-timer");
     });
 
     test("timeEnd方法应该在debug级别时调用console.timeEnd", () => {
       logger.setConfig({ level: "debug" });
       logger.timeEnd("test-timer");
 
-      expect(console.timeEnd).toHaveBeenCalledWith("[DuckFlow] test-timer");
+      expect(console.timeEnd).toHaveBeenCalledWith("[KoduckFlow] test-timer");
     });
 
     test("time和timeEnd在非debug级别时不应该调用console方法", () => {
@@ -314,7 +314,7 @@ describe("Logger", () => {
 
       expect(console.warn).toHaveBeenCalledWith(
         expect.stringMatching(
-          /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z \[DuckFlow\] \[WARN\] \| test message \| meta=\{"module":"test","version":"1\.0"\}$/
+          /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z \[KoduckFlow\] \[WARN\] \| test message \| meta=\{"module":"test","version":"1\.0"\}$/
         )
       );
     });
@@ -340,8 +340,8 @@ describe("Logger", () => {
       childLogger.time("operation");
       childLogger.timeEnd("operation");
 
-      expect(console.time).toHaveBeenCalledWith('[DuckFlow] operation {"module":"timer"}');
-      expect(console.timeEnd).toHaveBeenCalledWith('[DuckFlow] operation {"module":"timer"}');
+      expect(console.time).toHaveBeenCalledWith('[KoduckFlow] operation {"module":"timer"}');
+      expect(console.timeEnd).toHaveBeenCalledWith('[KoduckFlow] operation {"module":"timer"}');
     });
 
     test("应该处理无法序列化的上下文", () => {
@@ -353,7 +353,7 @@ describe("Logger", () => {
 
       expect(console.warn).toHaveBeenCalledWith(
         expect.stringMatching(
-          /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z \[DuckFlow\] \[WARN\] \| test message \| meta=\[object Object\]$/
+          /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z \[KoduckFlow\] \[WARN\] \| test message \| meta=\[object Object\]$/
         )
       );
     });
@@ -465,12 +465,12 @@ describe("Logger", () => {
 
       expect(console.warn).toHaveBeenCalledWith(
         expect.stringMatching(
-          /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z \[DuckFlow\] \[WARN\] \| null$/
+          /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z \[KoduckFlow\] \[WARN\] \| null$/
         )
       );
       expect(console.error).toHaveBeenCalledWith(
         expect.stringMatching(
-          /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z \[DuckFlow\] \[ERROR\] \| undefined$/
+          /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z \[KoduckFlow\] \[ERROR\] \| undefined$/
         )
       );
     });
@@ -481,12 +481,12 @@ describe("Logger", () => {
 
       expect(console.warn).toHaveBeenCalledWith(
         expect.stringMatching(
-          /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z \[DuckFlow\] \[WARN\] \| 42$/
+          /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z \[KoduckFlow\] \[WARN\] \| 42$/
         )
       );
       expect(console.error).toHaveBeenCalledWith(
         expect.stringMatching(
-          /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z \[DuckFlow\] \[ERROR\] \| true$/
+          /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z \[KoduckFlow\] \[ERROR\] \| true$/
         )
       );
     });
@@ -496,7 +496,7 @@ describe("Logger", () => {
 
       expect(console.warn).toHaveBeenCalledWith(
         expect.stringMatching(
-          /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z \[DuckFlow\] \[WARN\] \| \[1,2,3\]$/
+          /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z \[KoduckFlow\] \[WARN\] \| \[1,2,3\]$/
         )
       );
     });
@@ -508,7 +508,7 @@ describe("Logger", () => {
       // Function消息会被直接转换为函数源代码字符串
       expect(console.warn).toHaveBeenCalledWith(
         expect.stringMatching(
-          /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z \[DuckFlow\] \[WARN\] \| \(\) => "test"$/
+          /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z \[KoduckFlow\] \[WARN\] \| \(\) => "test"$/
         )
       );
     });

@@ -33,7 +33,7 @@
  * ```
  *
  * @since 2.1.0
- * @author DuckFlow Team
+ * @author KoduckFlow Team
  */
 
 import { hashString, clampPercentage } from "./utils/hash-utils";
@@ -232,7 +232,7 @@ export class RuntimeFeatureFlag {
    * 2. Rollout stickyKey (from tenant context)
    * 3. Tenant ID
    * 4. Normalized environment key
-   * 5. Fallback: "duckflow" if no inputs available
+   * 5. Fallback: "koduckflow" if no inputs available
    *
    * Inputs are joined with "::" separator and hashed using hashString().
    * Result is modulo 100 to produce bucket in range [0, 99].
@@ -262,7 +262,7 @@ export class RuntimeFeatureFlag {
       parts.push(tenantContext.normalizedEnvironmentKey);
     }
     if (parts.length === 0) {
-      parts.push("duckflow");
+      parts.push("koduckflow");
     }
 
     const combined = parts.join("::");

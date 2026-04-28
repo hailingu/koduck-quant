@@ -1,27 +1,27 @@
 /**
- * @module src/components/provider/DuckFlowProvider
- * @description React Context Provider for DuckFlow runtime initialization and distribution.
+ * @module src/components/provider/KoduckFlowProvider
+ * @description React Context Provider for KoduckFlow runtime initialization and distribution.
  * Manages runtime lifecycle and makes it available to all child components via context.
  */
 
 import React, { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 
 import {
-  DuckFlowRuntime,
-  DuckFlowRuntimeController,
-  DuckFlowRuntimeFactory,
-  createDuckFlowRuntime,
+  KoduckFlowRuntime,
+  KoduckFlowRuntimeController,
+  KoduckFlowRuntimeFactory,
+  createKoduckFlowRuntime,
   resolveTenantContext,
-  type DuckFlowTenantConfig,
+  type KoduckFlowTenantConfig,
   type ResolvedTenantContext,
   type RuntimeCreationOptions,
   type RuntimeEnvironmentKey,
 } from "../../common/runtime";
-import { DEFAULT_DUCKFLOW_ENVIRONMENT, getRuntimeForKey } from "../../common/global-runtime";
+import { DEFAULT_KODUCKFLOW_ENVIRONMENT, getRuntimeForKey } from "../../common/global-runtime";
 import { clearApiRuntime, setApiRuntime, type ApiRuntimeToken } from "../../common/api";
 import { logger } from "../../common/logger";
-import type { DuckFlowContextValue, DuckFlowRuntimeSource } from "./context/DuckFlowContext";
-import { DuckFlowContext } from "./context/DuckFlowContext";
+import type { KoduckFlowContextValue, KoduckFlowRuntimeSource } from "./context/KoduckFlowContext";
+import { KoduckFlowContext } from "./context/KoduckFlowContext";
 import type { DebugOptions, DebugPanelPosition } from "../../common/runtime/debug-options";
 import { DebugPanel } from "../debug/DebugPanel";
 
@@ -40,7 +40,7 @@ const toEnvironmentKey = (value: EnvironmentLike): RuntimeEnvironmentKey | undef
   return typeof value === "string" ? { environment: value } : value;
 };
 
-const defaultRuntimeFactory = new DuckFlowRuntimeFactory();
+const defaultRuntimeFactory = new KoduckFlowRuntimeFactory();
 
 /**
  * Props for provider-managed runtime creation
@@ -49,79 +49,79 @@ type ManagedRuntimeProps = {
   runtime?: undefined;
   environment?: EnvironmentLike;
   options?: RuntimeCreationOptions;
-  factory?: DuckFlowRuntimeFactory;
+  factory?: KoduckFlowRuntimeFactory;
   reuse?: boolean;
   disposeOnUnmount?: boolean;
   lazy?: boolean;
-  onDispose?: (runtime: DuckFlowRuntime) => void;
+  onDispose?: (runtime: KoduckFlowRuntime) => void;
 };
 
 /**
  * Props for externally-provided runtime
  */
 type ExternalRuntimeProps = {
-  runtime: DuckFlowRuntime;
+  runtime: KoduckFlowRuntime;
   environment?: EnvironmentLike;
-  factory?: DuckFlowRuntimeFactory;
+  factory?: KoduckFlowRuntimeFactory;
   options?: RuntimeCreationOptions;
   reuse?: boolean;
   disposeOnUnmount?: boolean;
   lazy?: boolean;
-  onDispose?: (runtime: DuckFlowRuntime) => void;
+  onDispose?: (runtime: KoduckFlowRuntime) => void;
 };
 
 type RuntimeSourceProps = ManagedRuntimeProps | ExternalRuntimeProps;
 
 /**
- * Base props common to all DuckFlowProvider configurations
+ * Base props common to all KoduckFlowProvider configurations
  */
-type DuckFlowProviderBaseProps = {
+type KoduckFlowProviderBaseProps = {
   /** React child components */
   children: React.ReactNode;
   /** Callback invoked once after runtime initialization */
-  onInit?: (runtime: DuckFlowRuntime) => void;
+  onInit?: (runtime: KoduckFlowRuntime) => void;
   /** Callback invoked when tenant context is resolved */
-  onTenantInit?: (runtime: DuckFlowRuntime, tenant: ResolvedTenantContext) => void;
+  onTenantInit?: (runtime: KoduckFlowRuntime, tenant: ResolvedTenantContext) => void;
   /** Debug configuration for provider-scoped runtime */
   debugOptions?: DebugOptions;
   /** Tenant configuration for multi-tenant mode */
-  tenant?: DuckFlowTenantConfig;
+  tenant?: KoduckFlowTenantConfig;
 };
 
 /**
  * Uncontrolled provider props (runtime managed by provider)
  */
-type UncontrolledDuckFlowProviderProps = DuckFlowProviderBaseProps &
+type UncontrolledKoduckFlowProviderProps = KoduckFlowProviderBaseProps &
   RuntimeSourceProps & { controller?: undefined };
 
 /**
  * Controlled provider props (runtime managed externally)
  */
-type ControlledDuckFlowProviderProps = DuckFlowProviderBaseProps & {
-  controller: DuckFlowRuntimeController;
+type ControlledKoduckFlowProviderProps = KoduckFlowProviderBaseProps & {
+  controller: KoduckFlowRuntimeController;
   environment?: EnvironmentLike;
 };
 
 /**
- * Props for DuckFlowProvider component
+ * Props for KoduckFlowProvider component
  * Can be either controlled (via controller) or uncontrolled (via runtime creation)
- * @typedef {ControlledDuckFlowProviderProps | UncontrolledDuckFlowProviderProps} DuckFlowProviderProps
+ * @typedef {ControlledKoduckFlowProviderProps | UncontrolledKoduckFlowProviderProps} KoduckFlowProviderProps
  */
-export type DuckFlowProviderProps =
-  | ControlledDuckFlowProviderProps
-  | UncontrolledDuckFlowProviderProps;
+export type KoduckFlowProviderProps =
+  | ControlledKoduckFlowProviderProps
+  | UncontrolledKoduckFlowProviderProps;
 
 type ProviderSharedStateParams = {
-  runtime: DuckFlowRuntime;
-  factory?: DuckFlowRuntimeFactory;
-  source: DuckFlowRuntimeSource;
+  runtime: KoduckFlowRuntime;
+  factory?: KoduckFlowRuntimeFactory;
+  source: KoduckFlowRuntimeSource;
   environment?: RuntimeEnvironmentKey;
   tenant?: ResolvedTenantContext;
   debugOptions?: DebugOptions;
 };
 
 type ProviderSharedState = {
-  value: DuckFlowContextValue;
+  value: KoduckFlowContextValue;
   panelEnabled: boolean;
   panelDefaultOpen: boolean;
   panelPosition: DebugPanelPosition;
@@ -131,9 +131,9 @@ type ProviderSharedState = {
 /**
  * Creates shared state for the provider, managing API runtime token lifecycle
  * @param {ProviderSharedStateParams} params - Shared state parameters
- * @param {DuckFlowRuntime} params.runtime - The runtime instance
- * @param {DuckFlowRuntimeFactory} [params.factory] - Optional factory function
- * @param {DuckFlowRuntimeSource} params.source - Source identifier
+ * @param {KoduckFlowRuntime} params.runtime - The runtime instance
+ * @param {KoduckFlowRuntimeFactory} [params.factory] - Optional factory function
+ * @param {KoduckFlowRuntimeSource} params.source - Source identifier
  * @param {RuntimeEnvironmentKey} [params.environment] - Environment configuration
  * @param {ResolvedTenantContext} [params.tenant] - Tenant context
  * @param {DebugOptions} [params.debugOptions] - Debug configuration
@@ -172,8 +172,8 @@ const useProviderSharedState = ({
     runtime.configureDebug(debugOptions);
   }, [runtime, debugOptions]);
 
-  const value = useMemo<DuckFlowContextValue>(() => {
-    const contextValue: DuckFlowContextValue = {
+  const value = useMemo<KoduckFlowContextValue>(() => {
+    const contextValue: KoduckFlowContextValue = {
       runtime,
       source,
     };
@@ -214,7 +214,7 @@ const useProviderSharedState = ({
   };
 };
 
-const UncontrolledDuckFlowProvider: React.FC<UncontrolledDuckFlowProviderProps> = (props) => {
+const UncontrolledKoduckFlowProvider: React.FC<UncontrolledKoduckFlowProviderProps> = (props) => {
   const {
     children,
     onInit,
@@ -240,7 +240,7 @@ const UncontrolledDuckFlowProvider: React.FC<UncontrolledDuckFlowProviderProps> 
     const tenantId = tenant.tenantId?.trim();
     if (!tenantId) {
       logger.warn(
-        "DuckFlowProvider received tenant configuration without tenantId; tenant context will be ignored."
+        "KoduckFlowProvider received tenant configuration without tenantId; tenant context will be ignored."
       );
       return base;
     }
@@ -248,7 +248,7 @@ const UncontrolledDuckFlowProvider: React.FC<UncontrolledDuckFlowProviderProps> 
     if (base) {
       if (base.tenantId && base.tenantId !== tenantId) {
         logger.warn(
-          "DuckFlowProvider tenantId mismatch between environment prop and tenant config. Using tenant configuration value.",
+          "KoduckFlowProvider tenantId mismatch between environment prop and tenant config. Using tenant configuration value.",
           {
             environmentTenant: base.tenantId,
             tenantId,
@@ -261,8 +261,8 @@ const UncontrolledDuckFlowProvider: React.FC<UncontrolledDuckFlowProviderProps> 
       } satisfies RuntimeEnvironmentKey;
     }
 
-    const fallbackEnvironment = tenant.environment ?? DEFAULT_DUCKFLOW_ENVIRONMENT;
-    logger.debug("DuckFlowProvider inferred environment for tenant", {
+    const fallbackEnvironment = tenant.environment ?? DEFAULT_KODUCKFLOW_ENVIRONMENT;
+    logger.debug("KoduckFlowProvider inferred environment for tenant", {
       tenantId,
       environment: fallbackEnvironment,
     });
@@ -277,13 +277,13 @@ const UncontrolledDuckFlowProvider: React.FC<UncontrolledDuckFlowProviderProps> 
       return undefined;
     }
     const environmentKey = normalizedEnvironment ?? {
-      environment: tenant.environment ?? DEFAULT_DUCKFLOW_ENVIRONMENT,
+      environment: tenant.environment ?? DEFAULT_KODUCKFLOW_ENVIRONMENT,
       tenantId: tenant.tenantId,
     };
     try {
       return resolveTenantContext(tenant, environmentKey);
     } catch (error) {
-      logger.error("DuckFlowProvider failed to resolve tenant context", {
+      logger.error("KoduckFlowProvider failed to resolve tenant context", {
         error,
         tenantId: tenant.tenantId,
         environmentKey,
@@ -321,7 +321,7 @@ const UncontrolledDuckFlowProvider: React.FC<UncontrolledDuckFlowProviderProps> 
     } satisfies RuntimeCreationOptions;
   }, [options, resolvedTenant]);
 
-  const runtimeSourceRef = useRef<DuckFlowRuntimeSource>(
+  const runtimeSourceRef = useRef<KoduckFlowRuntimeSource>(
     runtimeProp ? "prop" : normalizedEnvironment ? "factory" : "local"
   );
   const normalizedFactory = factory ?? defaultRuntimeFactory;
@@ -334,8 +334,8 @@ const UncontrolledDuckFlowProvider: React.FC<UncontrolledDuckFlowProviderProps> 
   const initialTenantRef = useRef<string | undefined>(resolvedTenant?.tenantId);
 
   const wasRuntimePropProvided = useRef(Boolean(runtimeProp));
-  const [runtime] = useState<DuckFlowRuntime>(() => {
-    let instance: DuckFlowRuntime;
+  const [runtime] = useState<KoduckFlowRuntime>(() => {
+    let instance: KoduckFlowRuntime;
 
     if (runtimeProp) {
       runtimeEnvironmentRef.current = normalizedEnvironment;
@@ -351,7 +351,7 @@ const UncontrolledDuckFlowProvider: React.FC<UncontrolledDuckFlowProviderProps> 
           createdViaFactoryRef.current = false;
           runtimeSourceRef.current = "global";
           usedGlobalRuntimeRef.current = true;
-          logger.debug("DuckFlowProvider reusing global runtime instance", {
+          logger.debug("KoduckFlowProvider reusing global runtime instance", {
             environment: envKey.environment,
             tenantId: envKey.tenantId,
           });
@@ -363,7 +363,7 @@ const UncontrolledDuckFlowProvider: React.FC<UncontrolledDuckFlowProviderProps> 
           runtimeEnvironmentRef.current = envKey;
           createdViaFactoryRef.current = true;
           runtimeSourceRef.current = "factory";
-          logger.debug("DuckFlowProvider acquired runtime from factory", {
+          logger.debug("KoduckFlowProvider acquired runtime from factory", {
             environment: envKey,
             reuse: reuseRuntime,
             lazy: isLazyRuntime,
@@ -371,16 +371,16 @@ const UncontrolledDuckFlowProvider: React.FC<UncontrolledDuckFlowProviderProps> 
           });
         }
       } else {
-        instance = createDuckFlowRuntime(runtimeOptions);
+        instance = createKoduckFlowRuntime(runtimeOptions);
         runtimeEnvironmentRef.current = undefined;
         createdViaFactoryRef.current = false;
         runtimeSourceRef.current = "local";
-        logger.debug("DuckFlowProvider created new runtime instance", {
+        logger.debug("KoduckFlowProvider created new runtime instance", {
           lazy: isLazyRuntime,
           source: runtimeSourceRef.current,
         });
         if (isLazyRuntime) {
-          logger.debug("DuckFlowProvider lazily prepared local runtime instance");
+          logger.debug("KoduckFlowProvider lazily prepared local runtime instance");
         }
       }
     }
@@ -392,7 +392,7 @@ const UncontrolledDuckFlowProvider: React.FC<UncontrolledDuckFlowProviderProps> 
   useEffect(() => {
     if (runtimeProp && runtimeProp !== runtime) {
       logger.warn(
-        "DuckFlowProvider does not support changing the runtime prop after mount. The initial instance will be used."
+        "KoduckFlowProvider does not support changing the runtime prop after mount. The initial instance will be used."
       );
     }
   }, [runtimeProp, runtime]);
@@ -418,14 +418,14 @@ const UncontrolledDuckFlowProvider: React.FC<UncontrolledDuckFlowProviderProps> 
         const envKey = runtimeEnvironmentRef.current;
         if (createdViaFactoryRef.current && envKey) {
           normalizedFactory.disposeRuntime(envKey);
-          logger.debug("DuckFlowProvider disposed factory-managed runtime instance", {
+          logger.debug("KoduckFlowProvider disposed factory-managed runtime instance", {
             ...envKey,
             lazy: isLazyRuntime,
             source: runtimeSourceRef.current,
           });
         } else {
           runtime.dispose();
-          logger.debug("DuckFlowProvider disposed managed runtime instance", {
+          logger.debug("KoduckFlowProvider disposed managed runtime instance", {
             lazy: isLazyRuntime,
             source: runtimeSourceRef.current,
           });
@@ -450,7 +450,7 @@ const UncontrolledDuckFlowProvider: React.FC<UncontrolledDuckFlowProviderProps> 
     const nextTenant = resolvedTenant?.tenantId ?? normalizedEnvironment?.tenantId;
 
     if (!initial && normalizedEnvironment) {
-      logger.warn("DuckFlowProvider does not support adding an environment prop after mount.");
+      logger.warn("KoduckFlowProvider does not support adding an environment prop after mount.");
       initialEnvironmentRef.current = normalizedEnvironment;
       if (nextTenant) {
         initialTenantRef.current = nextTenant;
@@ -463,7 +463,7 @@ const UncontrolledDuckFlowProvider: React.FC<UncontrolledDuckFlowProviderProps> 
       if (nextTenant && initialTenant !== nextTenant) {
         initialEnvironmentRef.current = normalizedEnvironment;
         initialTenantRef.current = nextTenant;
-        logger.info("DuckFlowProvider switched tenant context", {
+        logger.info("KoduckFlowProvider switched tenant context", {
           previousTenantId: initialTenant,
           tenantId: nextTenant,
         });
@@ -474,7 +474,7 @@ const UncontrolledDuckFlowProvider: React.FC<UncontrolledDuckFlowProviderProps> 
         initial.environment !== normalizedEnvironment.environment ||
         initial.tenantId !== normalizedEnvironment.tenantId
       ) {
-        logger.warn("DuckFlowProvider does not support changing the environment prop after mount.");
+        logger.warn("KoduckFlowProvider does not support changing the environment prop after mount.");
         initialEnvironmentRef.current = normalizedEnvironment;
         if (nextTenant) {
           initialTenantRef.current = nextTenant;
@@ -491,13 +491,13 @@ const UncontrolledDuckFlowProvider: React.FC<UncontrolledDuckFlowProviderProps> 
     if (runtimeProp) return;
 
     if (!initialFactoryRef.current && factory) {
-      logger.warn("DuckFlowProvider does not support adding a factory prop after mount.");
+      logger.warn("KoduckFlowProvider does not support adding a factory prop after mount.");
       initialFactoryRef.current = factory;
       return;
     }
 
     if (initialFactoryRef.current && factory && factory !== initialFactoryRef.current) {
-      logger.warn("DuckFlowProvider does not support changing the factory prop after mount.");
+      logger.warn("KoduckFlowProvider does not support changing the factory prop after mount.");
       initialFactoryRef.current = factory;
     }
   }, [factory, runtimeProp]);
@@ -542,7 +542,7 @@ const UncontrolledDuckFlowProvider: React.FC<UncontrolledDuckFlowProviderProps> 
   });
 
   return (
-    <DuckFlowContext.Provider value={shared.value}>
+    <KoduckFlowContext.Provider value={shared.value}>
       {children}
       {shared.panelEnabled ? (
         <DebugPanel
@@ -551,11 +551,11 @@ const UncontrolledDuckFlowProvider: React.FC<UncontrolledDuckFlowProviderProps> 
           eventTracking={shared.eventTrackingEnabled}
         />
       ) : null}
-    </DuckFlowContext.Provider>
+    </KoduckFlowContext.Provider>
   );
 };
 
-const ControlledDuckFlowProvider: React.FC<ControlledDuckFlowProviderProps> = (props) => {
+const ControlledKoduckFlowProvider: React.FC<ControlledKoduckFlowProviderProps> = (props) => {
   const { controller, children, onInit, onTenantInit, debugOptions, tenant, environment } = props;
 
   const subscribe = useMemo(() => controller.subscribe.bind(controller), [controller]);
@@ -565,7 +565,7 @@ const ControlledDuckFlowProvider: React.FC<ControlledDuckFlowProviderProps> = (p
 
   if (!runtime) {
     throw new Error(
-      "DuckFlowProvider (controlled) requires the controller to supply an active runtime instance."
+      "KoduckFlowProvider (controlled) requires the controller to supply an active runtime instance."
     );
   }
 
@@ -578,7 +578,7 @@ const ControlledDuckFlowProvider: React.FC<ControlledDuckFlowProviderProps> = (p
     const tenantId = tenant.tenantId?.trim();
     if (!tenantId) {
       logger.warn(
-        "DuckFlowProvider (controlled) received tenant configuration without tenantId; tenant context will be ignored."
+        "KoduckFlowProvider (controlled) received tenant configuration without tenantId; tenant context will be ignored."
       );
       return base;
     }
@@ -586,7 +586,7 @@ const ControlledDuckFlowProvider: React.FC<ControlledDuckFlowProviderProps> = (p
     if (base) {
       if (base.tenantId && base.tenantId !== tenantId) {
         logger.warn(
-          "DuckFlowProvider (controlled) tenantId mismatch between environment prop and tenant config. Using tenant configuration value.",
+          "KoduckFlowProvider (controlled) tenantId mismatch between environment prop and tenant config. Using tenant configuration value.",
           {
             environmentTenant: base.tenantId,
             tenantId,
@@ -599,8 +599,8 @@ const ControlledDuckFlowProvider: React.FC<ControlledDuckFlowProviderProps> = (p
       } satisfies RuntimeEnvironmentKey;
     }
 
-    const fallbackEnvironment = tenant.environment ?? DEFAULT_DUCKFLOW_ENVIRONMENT;
-    logger.debug("DuckFlowProvider (controlled) inferred environment for tenant", {
+    const fallbackEnvironment = tenant.environment ?? DEFAULT_KODUCKFLOW_ENVIRONMENT;
+    logger.debug("KoduckFlowProvider (controlled) inferred environment for tenant", {
       tenantId,
       environment: fallbackEnvironment,
     });
@@ -615,14 +615,14 @@ const ControlledDuckFlowProvider: React.FC<ControlledDuckFlowProviderProps> = (p
       return undefined;
     }
     const environmentKey = normalizedEnvironmentFromProps ?? {
-      environment: tenant.environment ?? DEFAULT_DUCKFLOW_ENVIRONMENT,
+      environment: tenant.environment ?? DEFAULT_KODUCKFLOW_ENVIRONMENT,
       tenantId: tenant.tenantId,
     };
 
     try {
       return resolveTenantContext(tenant, environmentKey);
     } catch (error) {
-      logger.error("DuckFlowProvider (controlled) failed to resolve tenant context", {
+      logger.error("KoduckFlowProvider (controlled) failed to resolve tenant context", {
         error,
         tenantId: tenant.tenantId,
         environmentKey,
@@ -647,7 +647,7 @@ const ControlledDuckFlowProvider: React.FC<ControlledDuckFlowProviderProps> = (p
     runtime.setTenantContext(resolvedTenantFromProps);
   }, [controllerTenant, resolvedTenantFromProps, runtime]);
 
-  const initializedRuntimeRef = useRef<DuckFlowRuntime | null>(null);
+  const initializedRuntimeRef = useRef<KoduckFlowRuntime | null>(null);
   useEffect(() => {
     if (initializedRuntimeRef.current === runtime) {
       return;
@@ -690,7 +690,7 @@ const ControlledDuckFlowProvider: React.FC<ControlledDuckFlowProviderProps> = (p
   });
 
   return (
-    <DuckFlowContext.Provider value={shared.value}>
+    <KoduckFlowContext.Provider value={shared.value}>
       {children}
       {shared.panelEnabled ? (
         <DebugPanel
@@ -699,13 +699,13 @@ const ControlledDuckFlowProvider: React.FC<ControlledDuckFlowProviderProps> = (p
           eventTracking={shared.eventTrackingEnabled}
         />
       ) : null}
-    </DuckFlowContext.Provider>
+    </KoduckFlowContext.Provider>
   );
 };
 
-export const DuckFlowProvider: React.FC<DuckFlowProviderProps> = (props) => {
+export const KoduckFlowProvider: React.FC<KoduckFlowProviderProps> = (props) => {
   if ("controller" in props && props.controller) {
-    return <ControlledDuckFlowProvider {...(props as ControlledDuckFlowProviderProps)} />;
+    return <ControlledKoduckFlowProvider {...(props as ControlledKoduckFlowProviderProps)} />;
   }
-  return <UncontrolledDuckFlowProvider {...(props as UncontrolledDuckFlowProviderProps)} />;
+  return <UncontrolledKoduckFlowProvider {...(props as UncontrolledKoduckFlowProviderProps)} />;
 };

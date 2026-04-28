@@ -1,27 +1,27 @@
 /**
- * @module src/components/provider/hooks/useDuckFlowRuntime
- * @description React hooks for accessing DuckFlow runtime and its managers from components.
+ * @module src/components/provider/hooks/useKoduckFlowRuntime
+ * @description React hooks for accessing KoduckFlow runtime and its managers from components.
  * Provides convenient access to runtime services, managers, and tenant configuration.
  */
 
 import { useContext, useMemo } from "react";
 
-import type { DuckFlowRuntime, IManager, ResolvedTenantContext } from "../../../common/runtime";
-import { DuckFlowContext } from "../context/DuckFlowContext";
+import type { KoduckFlowRuntime, IManager, ResolvedTenantContext } from "../../../common/runtime";
+import { KoduckFlowContext } from "../context/KoduckFlowContext";
 
 /**
- * Hook to access the DuckFlow context value.
- * Must be called within a component tree wrapped by DuckFlowProvider.
- * @returns {DuckFlowContextValue} The current DuckFlow context containing runtime and metadata
- * @throws {Error} If called outside DuckFlowProvider wrapper
+ * Hook to access the KoduckFlow context value.
+ * Must be called within a component tree wrapped by KoduckFlowProvider.
+ * @returns {KoduckFlowContextValue} The current KoduckFlow context containing runtime and metadata
+ * @throws {Error} If called outside KoduckFlowProvider wrapper
  * @example
- * const { runtime, environment } = useDuckFlowContext();
+ * const { runtime, environment } = useKoduckFlowContext();
  */
-export const useDuckFlowContext = () => {
-  const context = useContext(DuckFlowContext);
+export const useKoduckFlowContext = () => {
+  const context = useContext(KoduckFlowContext);
   if (!context) {
     throw new Error(
-      "DuckFlow context is unavailable. Wrap your component tree in DuckFlowProvider."
+      "KoduckFlow context is unavailable. Wrap your component tree in KoduckFlowProvider."
     );
   }
 
@@ -29,16 +29,16 @@ export const useDuckFlowContext = () => {
 };
 
 /**
- * Hook to access the DuckFlow runtime instance.
+ * Hook to access the KoduckFlow runtime instance.
  * Extracts and returns just the runtime from the context.
- * @returns {DuckFlowRuntime} The active DuckFlow runtime instance
- * @throws {Error} If called outside DuckFlowProvider wrapper
+ * @returns {KoduckFlowRuntime} The active KoduckFlow runtime instance
+ * @throws {Error} If called outside KoduckFlowProvider wrapper
  * @example
- * const runtime = useDuckFlowRuntime();
+ * const runtime = useKoduckFlowRuntime();
  * const entities = runtime.EntityManager.query({ type: 'node' });
  */
-export const useDuckFlowRuntime = (): DuckFlowRuntime => {
-  return useDuckFlowContext().runtime;
+export const useKoduckFlowRuntime = (): KoduckFlowRuntime => {
+  return useKoduckFlowContext().runtime;
 };
 
 /**
@@ -47,15 +47,15 @@ export const useDuckFlowRuntime = (): DuckFlowRuntime => {
  * Returns an object with runtime, environment, factory, source, and all standard managers
  * (entityManager, renderManager, registryManager, eventBus, renderEvents, entityEvents).
  * @returns {Object} Memoized object containing runtime and manager references
- * @throws {Error} If called outside DuckFlowProvider wrapper
+ * @throws {Error} If called outside KoduckFlowProvider wrapper
  * @example
- * const { entityManager, renderManager, eventBus } = useDuckFlowManagers();
+ * const { entityManager, renderManager, eventBus } = useKoduckFlowManagers();
  * eventBus.on('entity:created', (entity) => {
  *   console.log('Entity created:', entity.id);
  * });
  */
-export const useDuckFlowManagers = () => {
-  const { runtime, environment, factory, source } = useDuckFlowContext();
+export const useKoduckFlowManagers = () => {
+  const { runtime, environment, factory, source } = useKoduckFlowContext();
   return useMemo(
     () => ({
       runtime,
@@ -79,15 +79,15 @@ export const useDuckFlowManagers = () => {
  * @template {IManager} T - Type of manager to retrieve
  * @param {string} name - The registered name of the manager
  * @returns {T | undefined} The manager instance or undefined if not found
- * @throws {Error} If called outside DuckFlowProvider wrapper
+ * @throws {Error} If called outside KoduckFlowProvider wrapper
  * @example
- * const customManager = useDuckFlowManager<CustomManager>('custom');
+ * const customManager = useKoduckFlowManager<CustomManager>('custom');
  * if (customManager) {
  *   customManager.doSomething();
  * }
  */
-export const useDuckFlowManager = <T extends IManager = IManager>(name: string): T | undefined => {
-  const runtime = useDuckFlowRuntime();
+export const useKoduckFlowManager = <T extends IManager = IManager>(name: string): T | undefined => {
+  const runtime = useKoduckFlowRuntime();
   return runtime.getManager<T>(name);
 };
 
@@ -95,15 +95,15 @@ export const useDuckFlowManager = <T extends IManager = IManager>(name: string):
  * Hook to access tenant context if available.
  * Returns undefined in single-tenant or non-tenant environments.
  * @returns {ResolvedTenantContext | undefined} Tenant context or undefined
- * @throws {Error} If called outside DuckFlowProvider wrapper
+ * @throws {Error} If called outside KoduckFlowProvider wrapper
  * @example
- * const tenant = useDuckFlowTenant();
+ * const tenant = useKoduckFlowTenant();
  * if (tenant) {
  *   console.log('Tenant ID:', tenant.id);
  * }
  */
-export const useDuckFlowTenant = (): ResolvedTenantContext | undefined => {
-  const { tenant } = useDuckFlowContext();
+export const useKoduckFlowTenant = (): ResolvedTenantContext | undefined => {
+  const { tenant } = useKoduckFlowContext();
   return tenant;
 };
 
@@ -113,7 +113,7 @@ export const useDuckFlowTenant = (): ResolvedTenantContext | undefined => {
  * @param {string} flag - The name of the feature flag to check
  * @param {boolean} [defaultValue=false] - Value to return if flag not found
  * @returns {boolean} Whether the feature flag is enabled
- * @throws {Error} If called outside DuckFlowProvider wrapper
+ * @throws {Error} If called outside KoduckFlowProvider wrapper
  * @example
  * const isExperimental = useTenantFeatureFlag('experimental-feature');
  * if (isExperimental) {
@@ -121,7 +121,7 @@ export const useDuckFlowTenant = (): ResolvedTenantContext | undefined => {
  * }
  */
 export const useTenantFeatureFlag = (flag: string, defaultValue = false): boolean => {
-  const runtime = useDuckFlowRuntime();
+  const runtime = useKoduckFlowRuntime();
   return runtime.isTenantFeatureEnabled(flag, defaultValue);
 };
 
@@ -130,7 +130,7 @@ export const useTenantFeatureFlag = (flag: string, defaultValue = false): boolea
  * Uses optional seed for deterministic but randomized rollout decisions.
  * @param {string} [seed] - Optional seed for rollout decision (ensures consistent behavior)
  * @returns {boolean} Whether tenant is included in the rollout
- * @throws {Error} If called outside DuckFlowProvider wrapper
+ * @throws {Error} If called outside KoduckFlowProvider wrapper
  * @example
  * const isInRollout = useTenantRollout('feature-x-rollout');
  * if (isInRollout) {
@@ -138,6 +138,6 @@ export const useTenantFeatureFlag = (flag: string, defaultValue = false): boolea
  * }
  */
 export const useTenantRollout = (seed?: string): boolean => {
-  const runtime = useDuckFlowRuntime();
+  const runtime = useKoduckFlowRuntime();
   return runtime.isTenantInRollout(seed);
 };

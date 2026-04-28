@@ -3,7 +3,7 @@ import { createCoreContainer } from "../../../src/common/di/bootstrap";
 import { TOKENS } from "../../../src/common/di/tokens";
 import type { IDependencyContainer } from "../../../src/common/di/types";
 import type { WorkerPoolManager } from "../../../src/common/worker-pool/worker-pool-manager";
-import { DuckFlowRuntime } from "../../../src/common/runtime/duck-flow-runtime";
+import { KoduckFlowRuntime } from "../../../src/common/runtime/koduck-flow-runtime";
 
 /**
  * Integration tests for Worker Pool DI Container integration
@@ -12,13 +12,13 @@ import { DuckFlowRuntime } from "../../../src/common/runtime/duck-flow-runtime";
  * 1. Worker Pool DI Tokens are correctly defined
  * 2. Worker Pool Manager is properly registered as singleton
  * 3. Worker Pool Manager can be resolved from DI container
- * 4. Worker Pool Manager can be accessed from DuckFlowRuntime
+ * 4. Worker Pool Manager can be accessed from KoduckFlowRuntime
  * 5. Configuration loading works correctly
  * 6. Lifecycle management (initialization, disposal) works as expected
  */
 describe("Worker Pool DI Container Integration", () => {
   let container: IDependencyContainer | null = null;
-  let runtime: DuckFlowRuntime | null = null;
+  let runtime: KoduckFlowRuntime | null = null;
 
   beforeEach(() => {
     container = createCoreContainer();
@@ -64,35 +64,35 @@ describe("Worker Pool DI Container Integration", () => {
     });
   });
 
-  describe("DuckFlowRuntime Integration", () => {
-    it("should create DuckFlowRuntime with container", () => {
-      runtime = new DuckFlowRuntime(container!);
+  describe("KoduckFlowRuntime Integration", () => {
+    it("should create KoduckFlowRuntime with container", () => {
+      runtime = new KoduckFlowRuntime(container!);
       expect(runtime).toBeDefined();
     });
 
     it("should provide access to WorkerPoolManager via getter", () => {
-      runtime = new DuckFlowRuntime(container!);
+      runtime = new KoduckFlowRuntime(container!);
       const poolManager = runtime.WorkerPoolManager;
       expect(poolManager).toBeDefined();
       expect(typeof poolManager).toBe("object");
     });
 
     it("should return same WorkerPoolManager instance from runtime multiple times", () => {
-      runtime = new DuckFlowRuntime(container!);
+      runtime = new KoduckFlowRuntime(container!);
       const poolManager1 = runtime.WorkerPoolManager;
       const poolManager2 = runtime.WorkerPoolManager;
       expect(poolManager1).toBe(poolManager2);
     });
 
     it("should return singleton WorkerPoolManager from runtime and container", () => {
-      runtime = new DuckFlowRuntime(container!);
+      runtime = new KoduckFlowRuntime(container!);
       const runtimePoolManager = runtime.WorkerPoolManager;
       const containerPoolManager = container!.resolve<WorkerPoolManager>(TOKENS.workerPoolManager);
       expect(runtimePoolManager).toBe(containerPoolManager);
     });
 
     it("should have WorkerPoolManager accessible after runtime initialization", async () => {
-      runtime = new DuckFlowRuntime(container!);
+      runtime = new KoduckFlowRuntime(container!);
       const poolManager = runtime.WorkerPoolManager;
       expect(poolManager).toBeDefined();
     });
@@ -150,7 +150,7 @@ describe("Worker Pool DI Container Integration", () => {
     });
 
     it("should properly dispose WorkerPoolManager via runtime", async () => {
-      runtime = new DuckFlowRuntime(container!);
+      runtime = new KoduckFlowRuntime(container!);
       const poolManager = runtime.WorkerPoolManager;
       expect(poolManager).toBeDefined();
 
@@ -190,7 +190,7 @@ describe("Worker Pool DI Container Integration", () => {
     });
 
     it.skip("should allow batch task submission via runtime", async () => {
-      runtime = new DuckFlowRuntime(container!);
+      runtime = new KoduckFlowRuntime(container!);
       const poolManager = runtime.WorkerPoolManager as WorkerPoolManager | undefined;
       expect(poolManager).toBeDefined();
 
@@ -235,7 +235,7 @@ describe("Worker Pool DI Container Integration", () => {
     it("should handle missing WorkerPoolManager gracefully from runtime", () => {
       // Create fresh container without worker pool registration
       const freshContainer = createCoreContainer();
-      const freshRuntime = new DuckFlowRuntime(freshContainer);
+      const freshRuntime = new KoduckFlowRuntime(freshContainer);
 
       // Should return undefined or handle gracefully
       const poolManager = freshRuntime.WorkerPoolManager;
@@ -254,9 +254,9 @@ describe("Worker Pool DI Container Integration", () => {
     });
   });
 
-  describe("Integration with DuckFlowRuntime managers", () => {
+  describe("Integration with KoduckFlowRuntime managers", () => {
     it("should coexist with other runtime managers", () => {
-      runtime = new DuckFlowRuntime(container!);
+      runtime = new KoduckFlowRuntime(container!);
 
       const poolManager = runtime.WorkerPoolManager;
       const entityManager = runtime.EntityManager;
@@ -268,7 +268,7 @@ describe("Worker Pool DI Container Integration", () => {
     });
 
     it("should maintain independent lifecycle from other managers", async () => {
-      runtime = new DuckFlowRuntime(container!);
+      runtime = new KoduckFlowRuntime(container!);
 
       const poolManager = runtime.WorkerPoolManager as WorkerPoolManager | undefined;
       const entityManager = runtime.EntityManager;

@@ -1,13 +1,13 @@
 /**
  * @module src/common/runtime
- * @description DuckFlow Runtime module exporting unified runtime orchestration and management services.
- * Provides the main DuckFlowRuntime class for flow execution and lifecycle management, along with
+ * @description KoduckFlow Runtime module exporting unified runtime orchestration and management services.
+ * Provides the main KoduckFlowRuntime class for flow execution and lifecycle management, along with
  * specialized managers for DI container, managers, tenant context, quota, feature flags, debugging,
  * and entity operations.
  *
  * ## Primary Exports (Recommended for most use cases)
- * - `DuckFlowRuntime` - Main runtime orchestrator implementing Facade Pattern
- * - `createDuckFlowRuntime(options)` - Factory function for runtime creation
+ * - `KoduckFlowRuntime` - Main runtime orchestrator implementing Facade Pattern
+ * - `createKoduckFlowRuntime(options)` - Factory function for runtime creation
  * - `createScopedRuntime(parent, tenant)` - Create scoped runtime for multi-tenancy
  *
  * ## Core Modules (Advanced usage / custom implementations)
@@ -27,10 +27,10 @@
  *
  * @example
  * ```typescript
- * import { createDuckFlowRuntime } from '@duckflow/duck-flow';
+ * import { createKoduckFlowRuntime } from '@koduckflow/koduck-flow';
  *
  * // Create runtime with default configuration
- * const runtime = createDuckFlowRuntime({
+ * const runtime = createKoduckFlowRuntime({
  *   enableMetrics: true,
  *   enableCache: true
  * });
@@ -50,7 +50,7 @@
 // ==================== Primary Exports ====================
 // Backward compatible, most commonly used exports
 
-export { DuckFlowRuntime, createDuckFlowRuntime, createScopedRuntime } from "./duck-flow-runtime";
+export { KoduckFlowRuntime, createKoduckFlowRuntime, createScopedRuntime } from "./koduck-flow-runtime";
 
 // ==================== 核心模块导出（高级用户） ====================
 // 这些模块可用于自定义 Runtime 实现或单独使用
@@ -72,8 +72,8 @@ export { DEFAULT_DEBUG_OPTIONS, mergeDebugOptions } from "./debug-options";
 
 // ==================== 工厂类导出 ====================
 
-export { DuckFlowRuntimeFactory } from "./runtime-factory";
-export { DuckFlowRuntimeController } from "./runtime-controller";
+export { KoduckFlowRuntimeFactory } from "./runtime-factory";
+export { KoduckFlowRuntimeController } from "./runtime-controller";
 
 // ==================== 类型导出 ====================
 
@@ -87,13 +87,13 @@ export type {
 } from "./types";
 
 // Runtime 选项类型
-export type { DuckFlowRuntimeOptions } from "./types";
+export type { KoduckFlowRuntimeOptions } from "./types";
 export type { RuntimeEnvironmentKey } from "./runtime-key";
 export type { RuntimeCreationOptions } from "./runtime-factory";
 
 // 租户相关类型
 export type {
-  DuckFlowTenantConfig,
+  KoduckFlowTenantConfig,
   TenantResourceQuota,
   TenantRolloutConfig,
   ResolvedTenantContext,

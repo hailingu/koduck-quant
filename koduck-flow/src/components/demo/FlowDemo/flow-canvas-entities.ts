@@ -12,14 +12,14 @@ import type { IEntityArguments } from "../../../common/entity/types";
 import { AutoRegistry } from "../../../utils/decorator/auto-registry";
 import { logger } from "../../../common/logger";
 import {
-  DEFAULT_DUCKFLOW_ENVIRONMENT,
+  DEFAULT_KODUCKFLOW_ENVIRONMENT,
   getRuntimeForEnvironment,
 } from "../../../common/global-runtime";
 import { UMLNodeEntity } from "./uml-entities-new-decorator";
 import { FLOW_NODE_THEMES } from "../../flow-entity/themes/flow-node-themes";
 
 // 获取注册表管理器
-const runtime = getRuntimeForEnvironment(DEFAULT_DUCKFLOW_ENVIRONMENT);
+const runtime = getRuntimeForEnvironment(DEFAULT_KODUCKFLOW_ENVIRONMENT);
 const flowCanvasRegistryManager = runtime.RegistryManager;
 
 logger.info("🔧 Flow Canvas 实体文件被加载");

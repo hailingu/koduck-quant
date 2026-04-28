@@ -32,13 +32,13 @@ const templates: Record<ScaffoldType, TemplateDefinition> = {
     testDir: "test/common/manager",
     sourceFileName: (ctx) => `${ctx.kebabName}-manager.ts`,
     testFileName: (ctx) => `${ctx.kebabName}-manager.test.ts`,
-    buildSource: (ctx) => `import type { DuckFlowRuntime, IManager } from "../runtime";
+    buildSource: (ctx) => `import type { KoduckFlowRuntime, IManager } from "../runtime";
 
 export class ${ctx.pascalName}Manager implements IManager {
   readonly name = "${ctx.camelName}";
   readonly type = "${ctx.kebabName}";
 
-  constructor(private readonly runtime: DuckFlowRuntime) {}
+  constructor(private readonly runtime: KoduckFlowRuntime) {}
 
   initialize(): void {
     // TODO: wire runtime managers or register services.
@@ -50,12 +50,12 @@ export class ${ctx.pascalName}Manager implements IManager {
 }
 `,
     buildTest: (ctx) => `import { describe, expect, it } from "vitest";
-import type { DuckFlowRuntime } from "../../../src/common/runtime";
+import type { KoduckFlowRuntime } from "../../../src/common/runtime";
 import { ${ctx.pascalName}Manager } from "../../../src/common/manager/${ctx.kebabName}-manager";
 
 describe("${ctx.pascalName}Manager", () => {
   it("exposes metadata", () => {
-    const runtime = { dispose: () => undefined } as unknown as DuckFlowRuntime;
+    const runtime = { dispose: () => undefined } as unknown as KoduckFlowRuntime;
     const manager = new ${ctx.pascalName}Manager(runtime);
 
     expect(manager.name).toBe("${ctx.camelName}");
@@ -131,17 +131,17 @@ describe("${ctx.pascalName}Plugin", () => {
     sourceFileName: (ctx) => `${ctx.kebabName}-runtime.ts`,
     testFileName: (ctx) => `${ctx.kebabName}-runtime.test.ts`,
     buildSource: (ctx) => `import {
-  createDuckFlowRuntime,
-  type DuckFlowRuntime,
+  createKoduckFlowRuntime,
+  type KoduckFlowRuntime,
   type RuntimeCreationOptions,
-} from "./duck-flow-runtime";
+} from "./koduck-flow-runtime";
 
 export interface ${ctx.pascalName}RuntimeOptions extends RuntimeCreationOptions {
   readonly label?: string;
 }
 
-export function create${ctx.pascalName}Runtime(options: ${ctx.pascalName}RuntimeOptions = {}): DuckFlowRuntime {
-  const runtime = createDuckFlowRuntime(options);
+export function create${ctx.pascalName}Runtime(options: ${ctx.pascalName}RuntimeOptions = {}): KoduckFlowRuntime {
+  const runtime = createKoduckFlowRuntime(options);
 
   if (options.label) {
     runtime.Logger?.info?.({
