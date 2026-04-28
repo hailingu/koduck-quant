@@ -71,7 +71,7 @@ import {
   UMLLineEntity,
   UMLNodeEntity,
   type UMLPortInfo,
-} from "../../../components/FlowDemo/uml-entities-new-decorator";
+} from "../../../components/demo/FlowDemo/uml-entities-new-decorator";
 
 const PORT_HIT_PADDING = 4;
 

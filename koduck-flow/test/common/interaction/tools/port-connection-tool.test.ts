@@ -7,9 +7,9 @@ import {
   UMLLineEntity,
   UMLNodeEntity,
   type UMLPortInfo,
-} from "../../../../src/components/FlowDemo/uml-entities-new-decorator";
+} from "../../../../src/components/demo/FlowDemo/uml-entities-new-decorator";
 import type { IEntityArguments } from "../../../../src/common/entity/types";
-import type { UMLPortDefinition } from "../../../../src/components/FlowDemo/uml-entities-new-decorator";
+import type { UMLPortDefinition } from "../../../../src/components/demo/FlowDemo/uml-entities-new-decorator";
 import type { RenderEventManager } from "../../../../src/common/event";
 import type { DuckFlowRuntime } from "../../../../src/common/runtime";
 import { createTestRuntime } from "../../../utils/runtime";

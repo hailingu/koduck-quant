@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import { getGlobalRuntime } from "../../../src/common/global-runtime";
 
 // Import FlowDemo which should trigger UML entity loading
-import "../../../src/components/FlowDemo/FlowDemo";
+import "../../../src/components/demo/FlowDemo/FlowDemo";
 
 describe("UML Registry Loading", () => {
   it("should have all UML registries loaded after FlowDemo import", () => {

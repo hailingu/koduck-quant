@@ -3,11 +3,11 @@ import { describe, it, expect, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import "@testing-library/jest-dom";
 
-vi.mock("../../src/components/FlowDemo", () => ({
+vi.mock("../../src/components/demo/FlowDemo", () => ({
   FlowDemo: () => <div data-testid="flow-demo">flow-demo</div>,
 }));
 
-vi.mock("../../src/components/E2ERuntimeHarness", () => ({
+vi.mock("../../src/components/testing/E2ERuntimeHarness", () => ({
   E2ERuntimeHarness: () => <div data-testid="runtime-harness">runtime-harness</div>,
 }));
 

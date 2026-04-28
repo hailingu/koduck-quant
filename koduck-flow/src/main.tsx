@@ -2,7 +2,7 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import "./index.css";
 // 确保UML实体在应用启动时就被加载，避免竞态条件
-import "./components/FlowDemo/uml-entities-new-decorator";
+import "./components/demo/FlowDemo/uml-entities-new-decorator";
 import App from "./App.tsx";
 import { logger } from "./common/logger";
 import { DEFAULT_DUCKFLOW_ENVIRONMENT, getRuntimeForEnvironment } from "./common/global-runtime";

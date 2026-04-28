@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/react";
 import React, { useCallback, useMemo, useState } from "react";
-import { VirtualList } from "../components/VirtualList";
+import { VirtualList } from "../components/virtualized/VirtualList";
 
 type VirtualTelemetryItem = {
   readonly id: string;

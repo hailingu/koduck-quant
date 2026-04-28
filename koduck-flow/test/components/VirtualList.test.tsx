@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import React from "react";
-import { VirtualList } from "../../src/components/VirtualList";
+import { VirtualList } from "../../src/components/virtualized/VirtualList";
 
 describe("VirtualList", () => {
   const mockItems = Array.from({ length: 100 }, (_, i) => ({ id: i, name: `Item ${i}` }));

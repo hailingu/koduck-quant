@@ -9,14 +9,14 @@ import {
   createDuckFlowRuntime,
   type DuckFlowTenantConfig,
 } from "../../src/common/runtime";
-import { DuckFlowProvider } from "../../src/components/DuckFlowProvider";
+import { DuckFlowProvider } from "../../src/components/provider/DuckFlowProvider";
 import {
   useDuckFlowContext,
   useDuckFlowRuntime,
   useDuckFlowTenant,
   useTenantFeatureFlag,
   useTenantRollout,
-} from "../../src/components/hooks/useDuckFlowRuntime";
+} from "../../src/components/provider/hooks/useDuckFlowRuntime";
 
 const TenantProbe: React.FC = () => {
   const tenant = useDuckFlowTenant();

@@ -40,8 +40,8 @@ export {
 
 // DuckFlow Runtime
 export * from "./common/runtime";
-export { DuckFlowProvider, type DuckFlowProviderProps } from "./components/DuckFlowProvider";
-export { DebugPanel, type DebugPanelProps } from "./components/DebugPanel";
+export { DuckFlowProvider, type DuckFlowProviderProps } from "./components/provider/DuckFlowProvider";
+export { DebugPanel, type DebugPanelProps } from "./components/debug/DebugPanel";
 export {
   useDuckFlowContext,
   useDuckFlowRuntime,
@@ -50,7 +50,7 @@ export {
   useDuckFlowTenant,
   useTenantFeatureFlag,
   useTenantRollout,
-} from "./components/hooks/useDuckFlowRuntime";
+} from "./components/provider/hooks/useDuckFlowRuntime";
 
 // 流程引擎
 export * from "./common/engine";

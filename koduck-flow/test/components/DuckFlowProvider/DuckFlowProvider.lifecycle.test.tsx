@@ -11,8 +11,8 @@ import {
   type ResolvedTenantContext,
   type RuntimeEnvironmentKey,
 } from "../../../src/common/runtime";
-import { DuckFlowProvider } from "../../../src/components/DuckFlowProvider";
-import { useDuckFlowContext } from "../../../src/components/hooks/useDuckFlowRuntime";
+import { DuckFlowProvider } from "../../../src/components/provider/DuckFlowProvider";
+import { useDuckFlowContext } from "../../../src/components/provider/hooks/useDuckFlowRuntime";
 
 const getRuntimeForKeyMock = vi.hoisted(() => vi.fn());
 const createDuckFlowRuntimeMock = vi.hoisted(() => vi.fn());
@@ -71,7 +71,7 @@ vi.mock("../../../src/common/logger", () => ({
 
 const debugPanelPropsSpy = vi.hoisted(() => vi.fn());
 
-vi.mock("../../../src/components/DebugPanel", () => ({
+vi.mock("../../../src/components/debug/DebugPanel", () => ({
   DebugPanel: (props: Record<string, unknown>) => {
     debugPanelPropsSpy(props);
     return null;

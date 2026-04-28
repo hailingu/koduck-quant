@@ -64,7 +64,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### 🐛 Fixed - Flow demo / canvas entity registration
 
-- 修复：在 Flow demo 中确保 Canvas 版 Flow 实体（`flow-start-canvas`, `flow-action-canvas`, `flow-decision-canvas`, `flow-end-canvas`）被正确加载和注册（通过导入 `src/components/FlowDemo/flow-canvas-entities.ts`），避免在创建 flow-decision-canvas 时因为注册表缺失导致的调用栈溢出错误。
+- 修复：在 Flow demo 中确保 Canvas 版 Flow 实体（`flow-start-canvas`, `flow-action-canvas`, `flow-decision-canvas`, `flow-end-canvas`）被正确加载和注册（通过导入 `src/components/demo/FlowDemo/flow-canvas-entities.ts`），避免在创建 flow-decision-canvas 时因为注册表缺失导致的调用栈溢出错误。
 - 改进：在 FlowDemo 中新增了创建 Flow Canvas 节点的按钮（开始/动作/判断/结束），并为画布内表单渲染（Canvas overlay）引入了初始支持，使节点配置可以在画布上直接编辑。
 
 **Major Feature**: Comprehensive Worker Pool system for high-performance parallel task execution with intelligent scheduling, auto-scaling, and comprehensive monitoring.
@@ -175,7 +175,7 @@ interface WorkerPoolConfig {
 
 - 将虚拟滚动模块的内部注释统一为符合 JSDoc 标准的英文注释，提升可维护性与自动文档生成效果（`src/components/virtual-list-math.ts`）。
 - 统一重命名公共 API 与示例中的 `overscan` 为更直观的 `bufferSize`（包括组件 prop、演示、测试与基准场景）：
-  - `src/components/VirtualList.tsx`, `src/components/FlowDemo/FlowDemo.tsx`
+  - `src/components/virtualized/VirtualList.tsx`, `src/components/demo/FlowDemo/FlowDemo.tsx`
   - `src/stories/virtual-list.stories.tsx`
   - `test/components/VirtualList.test.tsx`
   - `benchmarks/scenarios/virtual-list.ts`

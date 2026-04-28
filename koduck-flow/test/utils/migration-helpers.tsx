@@ -3,7 +3,7 @@
  *
  * Utilities to assist with testing during API migration.
  */
-import { DuckFlowProvider } from "../../src/components/DuckFlowProvider";
+import { DuckFlowProvider } from "../../src/components/provider/DuckFlowProvider";
 import {
   createDuckFlowRuntime,
   type DuckFlowRuntime,

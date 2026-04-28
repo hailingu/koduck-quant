@@ -12,7 +12,7 @@ import { generateJsonSchema } from "../src/common/config/schema";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
-const configDir = resolve(__dirname, "../config");
+const configDir = resolve(__dirname, "../config/schema");
 
 mkdirSync(configDir, { recursive: true });
 

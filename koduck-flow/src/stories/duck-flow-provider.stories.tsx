@@ -2,12 +2,12 @@ import type { Meta, StoryObj } from "@storybook/react";
 import React from "react";
 
 import type { DuckFlowTenantConfig } from "../common/runtime";
-import { DuckFlowProvider } from "../components/DuckFlowProvider";
+import { DuckFlowProvider } from "../components/provider/DuckFlowProvider";
 import {
   useDuckFlowTenant,
   useTenantFeatureFlag,
   useTenantRollout,
-} from "../components/hooks/useDuckFlowRuntime";
+} from "../components/provider/hooks/useDuckFlowRuntime";
 
 const TenantSnapshot: React.FC = () => {
   const tenant = useDuckFlowTenant();

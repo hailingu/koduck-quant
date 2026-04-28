@@ -8,12 +8,12 @@ import type {
 } from "../../../src/common/render/render-manager/types";
 import type { MeterSnapshot } from "../../../src/common/metrics";
 
-vi.mock("../../../src/components/hooks/useDuckFlowRuntime", () => ({
+vi.mock("../../../src/components/provider/hooks/useDuckFlowRuntime", () => ({
   useDuckFlowManagers: vi.fn(),
 }));
 
-const { default: DebugPanel } = await import("../../../src/components/DebugPanel/DebugPanel");
-const { useDuckFlowManagers } = await import("../../../src/components/hooks/useDuckFlowRuntime");
+const { default: DebugPanel } = await import("../../../src/components/debug/DebugPanel/DebugPanel");
+const { useDuckFlowManagers } = await import("../../../src/components/provider/hooks/useDuckFlowRuntime");
 const useDuckFlowManagersMock = vi.mocked(useDuckFlowManagers);
 
 type Listener<T> = (payload: T) => void;

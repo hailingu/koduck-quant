@@ -1,6 +1,6 @@
 import "./App.css";
-import { FlowDemo } from "./components/FlowDemo";
-import { E2ERuntimeHarness } from "./components/E2ERuntimeHarness";
+import { FlowDemo } from "./components/demo/FlowDemo";
+import { E2ERuntimeHarness } from "./components/testing/E2ERuntimeHarness";
 
 function App() {
   return (

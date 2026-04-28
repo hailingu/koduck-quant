@@ -2,7 +2,7 @@ import React from "react";
 import { describe, it, afterEach, expect, vi } from "vitest";
 import { render, screen, within, act, cleanup, fireEvent } from "@testing-library/react";
 
-import { E2ERuntimeHarness } from "../../../src/components/E2ERuntimeHarness";
+import { E2ERuntimeHarness } from "../../../src/components/testing/E2ERuntimeHarness";
 
 describe("E2ERuntimeHarness", () => {
   afterEach(() => {

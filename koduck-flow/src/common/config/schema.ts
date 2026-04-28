@@ -683,8 +683,8 @@ export function generateJsonSchema() {
     // 使用动态导入避免在浏览器环境中出错
     import("fs")
       .then((fs) => {
-        const schemaPath = "./config/duckflow.schema.json";
-        const tsPath = "./config/duckflow.schema.d.ts";
+        const schemaPath = "./config/schema/duckflow.schema.json";
+        const tsPath = "./config/schema/duckflow.schema.d.ts";
 
         fs.writeFileSync(schemaPath, JSON.stringify(schema, null, 2));
         console.log("✅ Generated duckflow.schema.json");
