@@ -13,6 +13,7 @@ import type {
   PortSystemConfig,
   Position,
 } from "../types";
+import { FlowNodeShellContext } from "../node/FlowNodeShellContext";
 import type {
   EdgeRenderProps,
   FlowCanvasInteraction,
@@ -86,6 +87,9 @@ const CanvasNodeContainer: React.FC<CanvasNodeContainerProps> = ({
   renderNode,
 }) => {
   const viewport = useViewportOptional();
+  const nodeWidth = node.size?.width ?? 200;
+  const nodeHeight = node.size?.height ?? 100;
+  const shellContextValue = useMemo(() => ({ managedByCanvas: true }), []);
   const handleMouseDown = useNodeDrag({
     node,
     selectNodes: interaction.selectNodes,
@@ -110,8 +114,8 @@ const CanvasNodeContainer: React.FC<CanvasNodeContainerProps> = ({
         position: "absolute",
         left: node.position?.x ?? 0,
         top: node.position?.y ?? 0,
-        width: node.size?.width,
-        height: node.size?.height,
+        width: nodeWidth,
+        height: nodeHeight,
         cursor: interaction.dragNodes ? "grab" : "default",
         userSelect: interaction.dragNodes ? "none" : undefined,
         background: "transparent",
@@ -123,10 +127,12 @@ const CanvasNodeContainer: React.FC<CanvasNodeContainerProps> = ({
       }}
       onMouseDown={handleMouseDown}
     >
-      {renderNode({
-        node,
-        selected,
-      })}
+      <FlowNodeShellContext.Provider value={shellContextValue}>
+        {renderNode({
+          node,
+          selected,
+        })}
+      </FlowNodeShellContext.Provider>
     </button>
   );
 };

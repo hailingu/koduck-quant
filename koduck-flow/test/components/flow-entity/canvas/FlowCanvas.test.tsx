@@ -13,6 +13,8 @@ import {
   FlowCanvasWithProvider,
 } from "../../../../src/components/flow-entity/canvas/FlowCanvas";
 import { FlowEntityProvider } from "../../../../src/components/flow-entity/context";
+import { BaseFlowNode } from "../../../../src/components/flow-entity/node/BaseFlowNode";
+import { FlowNodeEntity } from "../../../../src/common/flow/flow-node-entity";
 import type {
   IFlowNodeEntityData,
   IFlowEdgeEntityData,
@@ -282,6 +284,25 @@ describe("FlowCanvas", () => {
 
       const container = screen.getByTestId("node-node-1").parentElement;
       expect(container).toHaveStyle({ left: "150px", top: "200px" });
+    });
+
+    it("lets FlowCanvas own positioning when rendering BaseFlowNode", () => {
+      const nodes = [createMockNode("node-1", 150, 200)];
+
+      render(
+        <FlowCanvasWithProvider
+          nodes={nodes}
+          renderNode={({ node }) => <BaseFlowNode entity={new FlowNodeEntity(node)} />}
+        />
+      );
+
+      const baseNode = screen.getByLabelText("Flow node: Node node-1");
+      expect(baseNode).toHaveStyle({ position: "relative", width: "100%", height: "100%" });
+      expect(baseNode).not.toHaveStyle({ left: "150px", top: "200px" });
+      expect(baseNode.closest("[data-node-id='node-1']")).toHaveStyle({
+        left: "150px",
+        top: "200px",
+      });
     });
   });
 
