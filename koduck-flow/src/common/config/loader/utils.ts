@@ -1,5 +1,11 @@
 import type { ValidationIssue } from "../schema";
 
+/**
+ * Formats a validation issue into a human-readable log string.
+ *
+ * @param issue - The validation issue to format
+ * @returns A pipe-separated string containing the path, message, and optional expected/received/hint fields
+ */
 export function formatValidationIssueForLog(issue: ValidationIssue): string {
   const segments: string[] = [`${issue.path}: ${issue.message}`];
 
