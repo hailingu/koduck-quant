@@ -199,24 +199,6 @@ export function useViewportOptional(): ViewportContextValue | undefined {
  * It maintains translateX, translateY, and scale state, and exposes
  * methods for panning and zooming through context.
  *
- * @param root0
- * @param root0.children
- * @param root0.initialState
- * @param root0.viewport
- * @param root0.constraints
- * @param root0.onViewportChange
- * @param root0.className
- * @param root0.style
- * @param root0.containerWidth
- * @param root0.containerHeight
- * @param root0.enableZoom
- * @param root0.zoomStep
- * @param root0.onZoomStart
- * @param root0.onZoomEnd
- * @param root0.enablePan
- * @param root0.panKey
- * @param root0.onPanStart
- * @param root0.onPanEnd
  * @example
  * ```tsx
  * <FlowViewport

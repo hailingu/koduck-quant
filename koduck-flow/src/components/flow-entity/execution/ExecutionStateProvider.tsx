@@ -138,11 +138,6 @@ ExecutionStateContext.displayName = "ExecutionStateContext";
  * Wraps the component tree with ExecutionStateManager access.
  * Automatically handles cleanup on unmount.
  *
- * @param root0
- * @param root0.children
- * @param root0.config
- * @param root0.manager
- * @param root0.engine
  * @example
  * ```tsx
  * // Basic usage

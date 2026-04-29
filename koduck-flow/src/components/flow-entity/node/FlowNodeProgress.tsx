@@ -242,18 +242,6 @@ function getProgressStyles(
  * Shows execution progress (0-100%) within or around nodes with configurable
  * positioning (top, bottom, overlay).
  *
- * @param root0
- * @param root0.entityId
- * @param root0.position
- * @param root0.height
- * @param root0.showWhenZero
- * @param root0.showIndeterminate
- * @param root0.enableAnimations
- * @param root0.color
- * @param root0.trackColor
- * @param root0.className
- * @param root0.style
- * @param root0."data-testid"
  * @example Basic usage
  * ```tsx
  * <FlowNodeProgress entityId={node.id} />

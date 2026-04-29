@@ -254,38 +254,6 @@ export interface FlowCanvasProps {
  * FlowCanvas is the top-level container for rendering a flow diagram.
  * It owns public canvas props, viewport setup, and content composition.
  *
- * @param root0
- * @param root0.nodes
- * @param root0.edges
- * @param root0.selectedNodeIds
- * @param root0.selectedEdgeIds
- * @param root0.theme
- * @param root0.width
- * @param root0.height
- * @param root0.showGrid
- * @param root0.gridPattern
- * @param root0.showMinimap
- * @param root0.showZoomControls
- * @param root0.minZoom
- * @param root0.maxZoom
- * @param root0.defaultZoom
- * @param root0.defaultViewport
- * @param root0.portConfig
- * @param root0.pathConfig
- * @param root0.readOnly
- * @param root0.renderNode
- * @param root0.renderEdge
- * @param root0.children
- * @param root0.onCanvasClick
- * @param root0.onCanvasDoubleClick
- * @param root0.onNodeSelect
- * @param root0.onEdgeSelect
- * @param root0.onNodeMove
- * @param root0.onEdgeCreate
- * @param root0.onEdgeDelete
- * @param root0.onViewportChange
- * @param root0.className
- * @param root0.style
  */
 export const FlowCanvas: React.FC<FlowCanvasProps> = ({
   nodes = [],

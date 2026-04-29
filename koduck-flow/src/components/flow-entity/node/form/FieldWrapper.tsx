@@ -79,16 +79,6 @@ export const FIELD_ERROR_CLASS = "flow-node-form-field__error";
  * - Layout positioning (top, left, inline)
  * - Compact mode
  *
- * @param root0
- * @param root0.schema
- * @param root0.name
- * @param root0.children
- * @param root0.error
- * @param root0.compact
- * @param root0.labelPosition
- * @param root0.className
- * @param root0.testId
- * @param root0.hideLabel
  * @example
  * <FieldWrapper schema={fieldSchema} name="email" error={errors.email}>
  *   <input type="email" value={value} onChange={handleChange} />

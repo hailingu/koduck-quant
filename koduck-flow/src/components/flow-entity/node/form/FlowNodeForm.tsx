@@ -116,14 +116,6 @@ export const FORM_FIELDS_CLASS = "flow-node-form__fields";
 /**
  * Placeholder field renderer for unsupported field types.
  * This will be replaced with actual field components in Tasks 4.3-4.7.
- * @param root0
- * @param root0.schema
- * @param root0.name
- * @param root0.value
- * @param root0.onChange
- * @param root0.readOnly
- * @param root0.disabled
- * @param root0.testId
  */
 const PlaceholderField: React.FC<FieldProps> = ({
   schema,
@@ -400,21 +392,6 @@ export const defaultFieldRenderers: FieldRendererRegistry = {
  * - Validation integration
  * - Read-only and compact modes
  *
- * @param root0
- * @param root0.schema
- * @param root0.data
- * @param root0.onChange
- * @param root0.readOnly
- * @param root0.compact
- * @param root0.customComponents
- * @param root0.onValidate
- * @param root0.validateOnChange
- * @param root0.validateOnBlur
- * @param root0.labelPosition
- * @param root0.showLabels
- * @param root0.className
- * @param root0.testId
- * @param root0.disabled
  * @example
  * const schema: ExtendedFormSchema = {
  *   type: 'object',

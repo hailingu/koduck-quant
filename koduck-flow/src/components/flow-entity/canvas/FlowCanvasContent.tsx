@@ -89,7 +89,10 @@ const CanvasNodeContainer: React.FC<CanvasNodeContainerProps> = ({
   const viewport = useViewportOptional();
   const nodeWidth = node.size?.width ?? 200;
   const nodeHeight = node.size?.height ?? 100;
-  const shellContextValue = useMemo(() => ({ managedByCanvas: true }), []);
+  const shellContextValue = useMemo(
+    () => ({ managedByCanvas: true, selected }),
+    [selected]
+  );
   const handleMouseDown = useNodeDrag({
     node,
     selectNodes: interaction.selectNodes,
@@ -101,8 +104,9 @@ const CanvasNodeContainer: React.FC<CanvasNodeContainerProps> = ({
   });
 
   return (
-    <button
-      type="button"
+    <div
+      role="button"
+      tabIndex={0}
       data-node-id={node.id}
       aria-label={node.label || "Node"}
       onKeyDown={(event) => {
@@ -133,7 +137,7 @@ const CanvasNodeContainer: React.FC<CanvasNodeContainerProps> = ({
           selected,
         })}
       </FlowNodeShellContext.Provider>
-    </button>
+    </div>
   );
 };
 
@@ -165,10 +169,10 @@ export const CanvasContent: React.FC<FlowCanvasContentProps> = ({
   children,
 }) => {
   const viewport = useViewportOptional();
-  const contentRef = useRef<HTMLButtonElement>(null);
+  const contentRef = useRef<HTMLDivElement>(null);
 
   const handleClick = useCallback(
-    (event: ReactMouseEvent<HTMLButtonElement>) => {
+    (event: ReactMouseEvent<HTMLDivElement>) => {
       if (event.target !== event.currentTarget) return;
 
       const rect = contentRef.current?.getBoundingClientRect();
@@ -186,7 +190,7 @@ export const CanvasContent: React.FC<FlowCanvasContentProps> = ({
   );
 
   const handleDoubleClick = useCallback(
-    (event: ReactMouseEvent<HTMLButtonElement>) => {
+    (event: ReactMouseEvent<HTMLDivElement>) => {
       if (event.target !== event.currentTarget) return;
 
       const rect = contentRef.current?.getBoundingClientRect();
@@ -275,9 +279,10 @@ export const CanvasContent: React.FC<FlowCanvasContentProps> = ({
         />
       )}
 
-      <button
+      <div
         ref={contentRef}
-        type="button"
+        role="button"
+        tabIndex={0}
         data-testid="flow-canvas-content"
         aria-label="Flow canvas"
         onKeyDown={(event) => {
@@ -547,7 +552,7 @@ export const CanvasContent: React.FC<FlowCanvasContentProps> = ({
         </div>
 
         {children}
-      </button>
+      </div>
     </>
   );
 };

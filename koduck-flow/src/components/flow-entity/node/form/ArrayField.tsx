@@ -108,17 +108,6 @@ function getUIOptions(schema: ExtendedFormFieldSchema): UIWidgetOptions {
 
 /**
  * Default renderer for primitive array items (strings).
- * @param root0
- * @param root0.value
- * @param root0.index
- * @param root0.onChange
- * @param root0.onRemove
- * @param root0.onMoveUp
- * @param root0.onMoveDown
- * @param root0.readOnly
- * @param root0.disabled
- * @param root0.error
- * @param root0.testId
  */
 const DefaultItemRenderer: React.FC<ArrayItemRenderProps<string>> = ({
   value,
@@ -221,24 +210,6 @@ export interface ArrayFieldProps<T = unknown> extends FieldProps<T[]> {
  * - Empty state display
  * - Read-only and disabled states
  *
- * @param root0
- * @param root0.schema
- * @param root0.name
- * @param root0.value
- * @param root0.onChange
- * @param root0.onBlur
- * @param root0.readOnly
- * @param root0.disabled
- * @param root0.error
- * @param root0.className
- * @param root0.testId
- * @param root0.itemRenderer
- * @param root0.itemSchema
- * @param root0.orderable
- * @param root0.minItems
- * @param root0.maxItems
- * @param root0.addButtonLabel
- * @param root0.emptyMessage
  * @example
  * // Simple string array
  * <ArrayField

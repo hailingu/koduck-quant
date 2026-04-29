@@ -142,18 +142,6 @@ export interface SelectFieldProps extends FieldProps<string | string[]> {
  * - Enum-based options
  * - Read-only and disabled states
  *
- * @param root0
- * @param root0.schema
- * @param root0.name
- * @param root0.value
- * @param root0.onChange
- * @param root0.onBlur
- * @param root0.readOnly
- * @param root0.disabled
- * @param root0.error
- * @param root0.className
- * @param root0.testId
- * @param root0.multiple
  * @example
  * // Single select with options
  * <SelectField
@@ -448,17 +436,6 @@ MultiSelectField.displayName = "MultiSelectField";
 
 /**
  * CheckboxesField - Multi-select rendered as checkboxes.
- * @param root0
- * @param root0.schema
- * @param root0.name
- * @param root0.value
- * @param root0.onChange
- * @param root0.onBlur
- * @param root0.readOnly
- * @param root0.disabled
- * @param root0.error
- * @param root0.className
- * @param root0.testId
  */
 export const CheckboxesField: React.FC<SelectFieldProps> = ({
   schema,
@@ -534,17 +511,6 @@ CheckboxesField.displayName = "CheckboxesField";
 
 /**
  * RadiosField - Single select rendered as radio buttons.
- * @param root0
- * @param root0.schema
- * @param root0.name
- * @param root0.value
- * @param root0.onChange
- * @param root0.onBlur
- * @param root0.readOnly
- * @param root0.disabled
- * @param root0.error
- * @param root0.className
- * @param root0.testId
  */
 export const RadiosField: React.FC<SelectFieldProps> = ({
   schema,

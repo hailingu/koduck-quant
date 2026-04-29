@@ -21,14 +21,6 @@ interface NodeDragState {
 /**
  * Manage pointer-driven node selection and dragging.
  *
- * @param root0 - Hook options.
- * @param root0.node - Node being rendered.
- * @param root0.selectNodes - Whether mouse down should select the node.
- * @param root0.dragNodes - Whether mouse drag should move the node.
- * @param root0.viewportScale - Current viewport zoom scale.
- * @param root0.interactionScale - Additional scale applied outside the canvas.
- * @param root0.onNodeSelect - Optional node selection callback.
- * @param root0.onNodeMove - Optional node movement callback.
  * @returns Mouse down handler for the node container.
  */
 export function useNodeDrag({

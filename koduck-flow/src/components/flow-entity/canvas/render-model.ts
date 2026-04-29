@@ -73,13 +73,6 @@ export function getPortKey(nodeId: string, portId: string): string {
 /**
  * Build the normalized render model consumed by FlowCanvas render backends.
  *
- * @param root0 - Render model build options.
- * @param root0.nodes - Node entities to render.
- * @param root0.edges - Edge entities to render.
- * @param root0.selectedNodeIds - Selected node identifiers.
- * @param root0.selectedEdgeIds - Selected edge identifiers.
- * @param root0.renderEngine - Active render backend.
- * @param root0.pathConfig - Default path rendering configuration.
  * @returns Render model for nodes, ports, and edges.
  */
 export function buildFlowCanvasRenderModel({

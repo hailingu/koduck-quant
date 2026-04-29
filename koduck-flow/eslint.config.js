@@ -48,7 +48,12 @@ export default tseslint.config([
       ],
 
       // 要求参数有说明
-      "jsdoc/require-param": "warn",
+      "jsdoc/require-param": [
+        "warn",
+        {
+          checkDestructuredRoots: false,
+        },
+      ],
       "jsdoc/require-param-description": "warn",
       "jsdoc/require-param-type": "off", // TypeScript 类型系统已提供
 

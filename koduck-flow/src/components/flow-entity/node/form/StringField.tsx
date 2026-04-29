@@ -101,18 +101,6 @@ export interface StringFieldProps extends FieldProps<string> {
  * - Read-only and disabled states
  * - Required field indication
  *
- * @param root0
- * @param root0.schema
- * @param root0.name
- * @param root0.value
- * @param root0.onChange
- * @param root0.onBlur
- * @param root0.readOnly
- * @param root0.disabled
- * @param root0.error
- * @param root0.className
- * @param root0.testId
- * @param root0.inputType
  * @example
  * // Basic text input
  * <StringField
@@ -284,8 +272,6 @@ UrlField.displayName = "UrlField";
 
 /**
  * TextareaField - StringField configured for multiline text.
- * @param root0
- * @param root0.schema
  */
 export const TextareaField: React.FC<StringFieldProps> = ({ schema, ...props }) => {
   // Force textarea widget

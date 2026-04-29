@@ -202,15 +202,6 @@ function buildLaneCandidates(
 /**
  * Build a routed edge path that avoids node obstacles when possible.
  *
- * @param root0 - Routing context.
- * @param root0.sourceNode - Source node.
- * @param root0.targetNode - Target node.
- * @param root0.sourcePosition - Source port position.
- * @param root0.targetPosition - Target port position.
- * @param root0.nodes - Nodes used as routing obstacles.
- * @param root0.parallelIndex - Edge index within its parallel group.
- * @param root0.parallelCount - Number of edges in the parallel group.
- * @param root0.pathConfig - Optional path rendering configuration.
  * @returns Routed edge geometry.
  */
 export function buildOrthogonalRoute({

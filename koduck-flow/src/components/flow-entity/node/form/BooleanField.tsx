@@ -78,20 +78,6 @@ export interface BooleanFieldProps extends FieldProps<boolean> {
  * - Custom true/false labels
  * - Read-only and disabled states
  *
- * @param root0
- * @param root0.schema
- * @param root0.name
- * @param root0.value
- * @param root0.onChange
- * @param root0.onBlur
- * @param root0.readOnly
- * @param root0.disabled
- * @param root0.error
- * @param root0.className
- * @param root0.testId
- * @param root0.widgetType
- * @param root0.trueLabel
- * @param root0.falseLabel
  * @example
  * // Basic checkbox
  * <BooleanField

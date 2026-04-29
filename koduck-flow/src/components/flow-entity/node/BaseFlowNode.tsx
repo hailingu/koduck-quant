@@ -223,6 +223,7 @@ export const BaseFlowNode: React.FC<BaseFlowNodeProps> = React.memo(function Bas
   const nodeTheme = theme.node;
   const shellContext = useFlowNodeShellContextOptional();
   const isCanvasManaged = shellContext?.managedByCanvas === true;
+  const canvasSelected = shellContext?.selected ?? false;
 
   // Use the useFlowNode hook to encapsulate node state and handlers
   const {
@@ -238,7 +239,7 @@ export const BaseFlowNode: React.FC<BaseFlowNodeProps> = React.memo(function Bas
     handleFormChange,
     handlePortConnect,
   } = useFlowNode(entity, {
-    selected,
+    selected: isCanvasManaged ? canvasSelected : selected,
     ...(onSelect === undefined ? {} : { onSelect }),
     ...(onMove === undefined ? {} : { onMove }),
     ...(onResize === undefined ? {} : { onResize }),
@@ -305,11 +306,14 @@ export const BaseFlowNode: React.FC<BaseFlowNodeProps> = React.memo(function Bas
 
   // Determine effective selection state - prefer context over local state if available
   const effectiveIsSelected = useMemo(() => {
+    if (isCanvasManaged) {
+      return canvasSelected;
+    }
     if (selectionContext) {
       return selectionContext.isSelected(entity.id);
     }
     return isSelected;
-  }, [selectionContext, entity.id, isSelected]);
+  }, [isCanvasManaged, canvasSelected, selectionContext, entity.id, isSelected]);
 
   // Compute dimensions
   const width = size.width;
@@ -407,6 +411,10 @@ export const BaseFlowNode: React.FC<BaseFlowNodeProps> = React.memo(function Bas
 
   // Click handler - supports multi-select via Shift/Cmd/Ctrl when SelectionProvider is present
   const handleClick = (event: React.MouseEvent) => {
+    if (isCanvasManaged) {
+      return;
+    }
+
     event.stopPropagation();
 
     // If SelectionProvider is available, use centralized selection management
@@ -416,6 +424,23 @@ export const BaseFlowNode: React.FC<BaseFlowNodeProps> = React.memo(function Bas
     }
 
     // Always call the local handleSelect for component-level state and callbacks
+    handleSelect();
+  };
+
+  const handleKeyDown = (event: React.KeyboardEvent) => {
+    if (event.key !== "Enter" && event.key !== " ") {
+      return;
+    }
+
+    event.preventDefault();
+    if (isCanvasManaged) {
+      return;
+    }
+
+    event.stopPropagation();
+    if (selectionContext) {
+      selectionContext.select(entity.id);
+    }
     handleSelect();
   };
 
@@ -438,6 +463,7 @@ export const BaseFlowNode: React.FC<BaseFlowNodeProps> = React.memo(function Bas
       }
       style={containerStyle}
       onClick={handleClick}
+      onKeyDown={handleKeyDown}
       {...(isCanvasManaged ? {} : { onMouseDown: handleDragMouseDown })}
       data-testid={testId ?? `flow-node-${entity.id}`}
       data-node-id={entity.id}
@@ -447,10 +473,9 @@ export const BaseFlowNode: React.FC<BaseFlowNodeProps> = React.memo(function Bas
       data-disabled={isDisabled}
       data-dragging={isDragging}
       data-resizing={isResizing}
-      tabIndex={isDisabled ? -1 : 0}
+      disabled={isDisabled}
       aria-label={`Flow node: ${label}`}
       aria-pressed={effectiveIsSelected}
-      aria-disabled={isDisabled}
     >
       {/* Header Region - using FlowNodeHeader sub-component */}
       <FlowNodeHeader
@@ -486,8 +511,7 @@ export const BaseFlowNode: React.FC<BaseFlowNodeProps> = React.memo(function Bas
       {!readOnly && !isDisabled && (
         <>
           {/* Right edge - horizontal resize */}
-          <button
-            type="button"
+          <div
             className="flow-node-resize-edge flow-node-resize-edge--right"
             style={{
               position: "absolute",
@@ -504,12 +528,11 @@ export const BaseFlowNode: React.FC<BaseFlowNodeProps> = React.memo(function Bas
             }}
             onMouseDown={handleRightEdgeMouseDown}
             data-testid={`flow-node-resize-right-${entity.id}`}
-            aria-label="Resize node width"
+            aria-hidden="true"
           />
 
           {/* Bottom edge - vertical resize */}
-          <button
-            type="button"
+          <div
             className="flow-node-resize-edge flow-node-resize-edge--bottom"
             style={{
               position: "absolute",
@@ -526,20 +549,19 @@ export const BaseFlowNode: React.FC<BaseFlowNodeProps> = React.memo(function Bas
             }}
             onMouseDown={handleBottomEdgeMouseDown}
             data-testid={`flow-node-resize-bottom-${entity.id}`}
-            aria-label="Resize node height"
+            aria-hidden="true"
           />
 
           {/* Corner - both directions */}
-          <button
-            type="button"
+          <div
             className="flow-node-resize-handle"
             style={resizeHandleStyle}
             onMouseDown={handleCornerMouseDown}
             data-testid={`flow-node-resize-handle-${entity.id}`}
-            aria-label="Resize handle"
+            aria-hidden="true"
           >
             <span aria-hidden="true" style={resizeTriangleStyle} />
-          </button>
+          </div>
         </>
       )}
     </button>

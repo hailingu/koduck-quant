@@ -304,6 +304,33 @@ describe("FlowCanvas", () => {
         top: "200px",
       });
     });
+
+    it("lets FlowCanvas own selection when rendering BaseFlowNode", () => {
+      const nodes = [createMockNode("node-1", 150, 200)];
+      const onNodeSelect = vi.fn();
+      const onBaseNodeSelect = vi.fn();
+
+      render(
+        <FlowCanvasWithProvider
+          nodes={nodes}
+          selectedNodeIds={["node-1"]}
+          onNodeSelect={onNodeSelect}
+          renderNode={({ node }) => (
+            <BaseFlowNode entity={new FlowNodeEntity(node)} onSelect={onBaseNodeSelect} />
+          )}
+        />
+      );
+
+      const baseNode = screen.getByLabelText("Flow node: Node node-1");
+      expect(baseNode).toHaveAttribute("data-selected", "true");
+
+      fireEvent.click(baseNode);
+      expect(onBaseNodeSelect).not.toHaveBeenCalled();
+
+      fireEvent.mouseDown(baseNode, { button: 0 });
+      expect(onNodeSelect).toHaveBeenCalledWith(["node-1"]);
+      expect(onBaseNodeSelect).not.toHaveBeenCalled();
+    });
   });
 
   // ===========================================================================

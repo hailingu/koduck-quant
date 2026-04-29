@@ -9,7 +9,7 @@
 import React, { useMemo, type CSSProperties, type ReactNode } from "react";
 import { useFlowEntityContext } from "../context";
 import { useExecutionStateOptional } from "../hooks";
-import type { ExecutionState, FlowNodeTheme, ExecutionVisualConfig } from "../types";
+import type { ExecutionState, FlowNodeTheme} from "../types";
 
 // =============================================================================
 // Constants
@@ -162,7 +162,8 @@ interface StatusIndicatorProps {
 
 /**
  * Converts StatusSize to pixel value
- * @param size
+ * @param size Size token (small/medium/large) or pixel value
+ * @returns Size in pixels for the status indicator
  */
 function getSizeInPixels(size: StatusSize): number {
   if (typeof size === "number") return size;
@@ -180,7 +181,8 @@ function getSizeInPixels(size: StatusSize): number {
 
 /**
  * Gets position styles based on StatusPosition
- * @param position
+ * @param position Placement of the status indicator on the node
+ * @returns CSS positioning styles for the status container
  */
 function getPositionStyles(position: StatusPosition): CSSProperties {
   const baseStyles: CSSProperties = {
@@ -204,8 +206,9 @@ function getPositionStyles(position: StatusPosition): CSSProperties {
 
 /**
  * Gets the color for a given execution state from theme
- * @param state
- * @param theme
+ * @param state Current execution state of the node
+ * @param theme Flow node theme containing state color mappings
+ * @returns Theme color mapped to the execution state
  */
 function getStateColor(state: ExecutionState, theme: FlowNodeTheme): string {
   return theme.executionStateColors?.[state] ?? getDefaultStateColor(state);
@@ -213,7 +216,8 @@ function getStateColor(state: ExecutionState, theme: FlowNodeTheme): string {
 
 /**
  * Default colors for execution states
- * @param state
+ * @param state Execution state to get the fallback color for
+ * @returns Fallback color value for the provided execution state
  */
 function getDefaultStateColor(state: ExecutionState): string {
   switch (state) {
@@ -242,13 +246,7 @@ function getDefaultStateColor(state: ExecutionState): string {
 
 /**
  * Status indicator element (the dot/icon)
- * @param root0
- * @param root0.state
- * @param root0.color
- * @param root0.size
- * @param root0.icon
- * @param root0.enableAnimations
- * @param root0.style
+ * @returns Visual indicator element for the current execution state
  */
 const StatusIndicator: React.FC<StatusIndicatorProps> = ({
   state,
@@ -297,10 +295,7 @@ const StatusIndicator: React.FC<StatusIndicatorProps> = ({
 
 /**
  * Progress bar component for running state
- * @param root0
- * @param root0.progress
- * @param root0.color
- * @param root0.width
+ * @returns Progress bar element when progress is available; otherwise null
  */
 const StatusProgress: React.FC<{
   progress: number | undefined;
@@ -320,23 +315,15 @@ const StatusProgress: React.FC<{
     marginLeft: 8,
   };
 
-  const barStyle: CSSProperties = {
-    width: `${progressPercentage}%`,
-    height: "100%",
-    backgroundColor: color,
-    transition: "width 0.2s ease",
-  };
-
   return (
-    <div
+    <progress
       style={containerStyle}
-      role="progressbar"
-      aria-valuenow={progressPercentage}
-      aria-valuemin={0}
-      aria-valuemax={100}
+      value={progressPercentage}
+      max={100}
+      aria-label="Execution progress"
     >
-      <div style={barStyle} />
-    </div>
+      {progressPercentage}%
+    </progress>
   );
 };
 
@@ -350,18 +337,7 @@ const StatusProgress: React.FC<{
  * Shows the current execution state of a node using color-coded indicators
  * with optional animations and progress display.
  *
- * @param root0
- * @param root0.entityId
- * @param root0.showLabel
- * @param root0.position
- * @param root0.size
- * @param root0.showProgress
- * @param root0.enableAnimations
- * @param root0.iconRenderer
- * @param root0.onClick
- * @param root0.className
- * @param root0.style
- * @param root0."data-testid"
+ * @returns Execution status UI for a flow node, or null if state context is unavailable
  * @example Basic usage
  * ```tsx
  * <FlowNodeStatus entityId={node.id} />
@@ -414,29 +390,25 @@ export const FlowNodeStatus: React.FC<FlowNodeStatusProps> = ({
   const enableAnimations = enableAnimationsProp ?? executionVisuals.enablePulse ?? true;
 
   // Get state color from theme
-  const stateColor = useMemo(() => getStateColor(state, theme.node), [state, theme.node]);
+  const stateColor = getStateColor(state, theme.node);
 
   // Get state icon
-  const stateIcon = useMemo(() => {
-    const customIcons = executionVisuals.stateIcons;
-    return customIcons?.[state] ?? DEFAULT_STATE_ICONS[state];
-  }, [state, executionVisuals.stateIcons]);
+  const customIcons = executionVisuals.stateIcons;
+  const stateIcon = customIcons?.[state] ?? DEFAULT_STATE_ICONS[state];
 
   // Get size in pixels
-  const sizeInPx = useMemo(() => getSizeInPixels(size), [size]);
+  const sizeInPx = getSizeInPixels(size);
 
   // Build container styles
-  const containerStyle = useMemo<CSSProperties>(() => {
-    const positionStyles = getPositionStyles(position);
-    return {
-      display: "inline-flex",
-      alignItems: "center",
-      gap: 6,
-      cursor: onClick ? "pointer" : "default",
-      ...positionStyles,
-      ...style,
-    };
-  }, [position, onClick, style]);
+  const positionStyles = getPositionStyles(position);
+  const containerStyle: CSSProperties = {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: 6,
+    cursor: onClick ? "pointer" : "default",
+    ...positionStyles,
+    ...style,
+  };
 
   // Handle click
   const handleClick = () => {
@@ -448,16 +420,8 @@ export const FlowNodeStatus: React.FC<FlowNodeStatusProps> = ({
     .filter(Boolean)
     .join(" ");
 
-  return (
-    <div
-      className={cssClass}
-      style={containerStyle}
-      onClick={onClick ? handleClick : undefined}
-      role={onClick ? "button" : "status"}
-      aria-label={`Execution state: ${STATE_LABELS[state]}`}
-      data-testid={testId ?? `flow-node-status-${entityId}`}
-      data-state={state}
-    >
+  const content = (
+    <>
       {/* Custom icon renderer or default indicator */}
       {iconRenderer ? (
         iconRenderer(state, theme.node)
@@ -486,7 +450,35 @@ export const FlowNodeStatus: React.FC<FlowNodeStatusProps> = ({
           {STATE_LABELS[state]}
         </span>
       )}
-    </div>
+    </>
+  );
+
+  if (onClick) {
+    return (
+      <button
+        type="button"
+        className={cssClass}
+        style={containerStyle}
+        onClick={handleClick}
+        aria-label={`Execution state: ${STATE_LABELS[state]}`}
+        data-testid={testId ?? `flow-node-status-${entityId}`}
+        data-state={state}
+      >
+        {content}
+      </button>
+    );
+  }
+
+  return (
+    <output
+      className={cssClass}
+      style={containerStyle}
+      aria-label={`Execution state: ${STATE_LABELS[state]}`}
+      data-testid={testId ?? `flow-node-status-${entityId}`}
+      data-state={state}
+    >
+      {content}
+    </output>
   );
 };
 
@@ -496,11 +488,7 @@ export const FlowNodeStatus: React.FC<FlowNodeStatusProps> = ({
 
 /**
  * Compact status dot without label (for use in headers)
- * @param root0
- * @param root0.entityId
- * @param root0.size
- * @param root0.className
- * @param root0."data-testid"
+ * @returns Compact execution status dot component
  */
 export const FlowNodeStatusDot: React.FC<{
   entityId: string;
@@ -513,18 +501,14 @@ export const FlowNodeStatusDot: React.FC<{
     size={size}
     showLabel={false}
     showProgress={false}
-    className={className}
-    data-testid={testId}
+    {...(className === undefined ? {} : { className })}
+    {...(testId === undefined ? {} : { "data-testid": testId })}
   />
 );
 
 /**
  * Status badge with label (for detail views)
- * @param root0
- * @param root0.entityId
- * @param root0.showProgress
- * @param root0.className
- * @param root0."data-testid"
+ * @returns Labeled execution status badge component
  */
 export const FlowNodeStatusBadge: React.FC<{
   entityId: string;
@@ -537,8 +521,8 @@ export const FlowNodeStatusBadge: React.FC<{
     showLabel
     showProgress={showProgress}
     size="medium"
-    className={className}
-    data-testid={testId}
+    {...(className === undefined ? {} : { className })}
+    {...(testId === undefined ? {} : { "data-testid": testId })}
   />
 );
 

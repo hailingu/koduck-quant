@@ -36,12 +36,6 @@ interface UsePortConnectionDragOptions {
 /**
  * Manage interactive port connection drag state for FlowCanvas.
  *
- * @param root0 - Hook options.
- * @param root0.edges - Existing edges used for default validation.
- * @param root0.portConfig - Optional port system configuration.
- * @param root0.validateConnection - Optional caller-provided connection validation.
- * @param root0.onEdgeCreate - Callback invoked after a valid connection is completed.
- * @param root0.screenEventToCanvasPosition - Converts globalThis pointer events to canvas coordinates.
  * @returns State and actions for port connection dragging.
  */
 export function usePortConnectionDrag({
