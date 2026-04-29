@@ -4,8 +4,8 @@ export const METRIC_SCOPE = "koduckflow.config.loader";
 export const RUNTIME_AUDIT_MAX_ENTRIES = 100;
 
 export const isBrowserEnv =
-  typeof globalThis.window !== "undefined" &&
-  typeof globalThis.document !== "undefined" &&
-  !(typeof process !== "undefined" && process.versions?.node);
+  globalThis.window !== undefined &&
+  globalThis.document !== undefined &&
+  !(process !== undefined && process.versions?.node);
 
-export const hasProcessEnv = typeof process !== "undefined" && typeof process.env !== "undefined";
+export const hasProcessEnv = process !== undefined && process.env !== undefined;
